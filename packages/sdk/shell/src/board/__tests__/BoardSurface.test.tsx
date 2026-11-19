@@ -159,9 +159,11 @@ describe('BoardSurface (893b)', () => {
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={chosen} savedViews={store}>
       <BoardSurface sheetId={id} onSheetChange={() => {}} arrivalKey="x" Outlet={AppliedOutlet} />
     </PlatformProvider></I18nProvider>);
-    expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
     expect(screen.getByText('2026-09-25T09:00:00')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
+    const expand = screen.getByRole('button', { name: '조회 조건 펼치기' });
+    expect(expand).toBeEnabled();
+    expect(screen.queryByRole('button', { name: '적용' })).toBeNull();
+    fireEvent.click(expand);
     expect(screen.getByLabelText('시작 시각')).toBeEnabled();
     expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
     await act(async () => {});

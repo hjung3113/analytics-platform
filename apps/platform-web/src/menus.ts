@@ -90,9 +90,9 @@ export const SPACE_ID_MIGRATIONS: Readonly<Record<string, string>> = { analytics
 
 /** SPACES stays separate from GROUPS so the folder-space invariant reads each declaration independently. */
 export const SPACES = [
-  { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비·기간별 생산성 · 사이클타임', en: 'Productivity by equipment and period · Cycle time' }, homeMenuId: 'productivity-overview', feedbackTracking: true },
+  { id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, subtitle: { ko: '설비 생산성', en: 'Equipment productivity' }, description: { ko: '설비·기간별 생산성 · 사이클타임', en: 'Productivity by equipment and period · Cycle time' }, homeMenuId: 'productivity-overview', feedbackTracking: true },
   { id: spaceId('bravo'), label: { ko: 'BRAVO', en: 'BRAVO' }, subtitle: { ko: '지표관리', en: 'Metrics' }, description: { ko: '지표 정의 · 버전 · 발행', en: 'Metric definitions · Versions · Releases' }, homeMenuId: 'metric-catalog', feedbackTracking: true },
-  { id: spaceId('clas'), label: { ko: 'CLAS', en: 'CLAS' }, subtitle: { ko: '생산성 분석', en: 'Productivity analysis' }, description: { ko: '설비별 동작시간 · 동작 흐름', en: 'Operation time and flow by equipment' }, homeMenuId: 'operation-time', feedbackTracking: true },
+  { id: spaceId('clas'), label: { ko: 'CLAS', en: 'CLAS' }, subtitle: { ko: '설비 동작시간', en: 'Equipment operation time' }, description: { ko: '설비별 동작시간 · 동작 흐름', en: 'Operation time and flow by equipment' }, homeMenuId: 'operation-time', feedbackTracking: true },
   { id: spaceId('tools'), label: { ko: '도구', en: 'Tools' }, subtitle: { ko: '설비 Top View', en: 'Equipment Top View' }, description: { ko: '설비 레이아웃 Top View · 로그 재생', en: 'Equipment layout Top View · Log replay' }, homeMenuId: 'eqv:topview' },
   { id: spaceId('log-dev'), label: { ko: '표준 로그 개발', en: 'Standard log development' }, description: { ko: '설비 모델별 로그 개발 단계 · 검증', en: 'Log development stages by equipment model · Validation' }, homeMenuId: 'log-my-queue', scopePresentation: 'hidden', feedbackTracking: true },
   { id: spaceId('flow'), label: { ko: '업무 흐름', en: 'Workflow' }, description: { ko: 'VOC 판단 → Task 실행 → 설문으로 효과 확인', en: 'VOC assessment → Task execution → Effect checks with surveys' }, homeMenuId: 'dashboard' },

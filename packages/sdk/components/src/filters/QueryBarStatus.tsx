@@ -14,21 +14,28 @@ export type QueryBarStatus = {
   editing: boolean;
   /** Keys of the reasons the bar draws (the `role="status"` region); an empty list means it draws none. */
   reasonKeys: readonly string[];
+  /** Missing Context keys the bar can open directly. */
+  conditionEditorKeys?: readonly string[];
+  /** The editor has a period and the applied address is still missing it. */
+  periodAwaitingApply?: boolean;
 };
 
-type LocalStatus = { status: QueryBarStatus | null; report: (status: QueryBarStatus | null) => void; editorFocus?: { current: (() => void) | null } };
+export type ContextEditorRequest = { key: string; opener: HTMLButtonElement };
+export type ContextEditorFocus = (request?: ContextEditorRequest) => void;
+
+type LocalStatus = { status: QueryBarStatus | null; report: (status: QueryBarStatus | null) => void; editorFocus?: { current: ContextEditorFocus | null } };
 /** Provided by `PlatformPage`: the bar inside the page reports here. */
 export const QueryBarStatusContext = createContext<LocalStatus | null>(null);
 
 function createStatuses() {
   const entries = new Map<string, QueryBarStatus>();
-  const focusers = new Map<string, () => void>();
+  const focusers = new Map<string, ContextEditorFocus>();
   const listeners = new Set<() => void>();
   return {
     read: (key: string) => entries.get(key),
     focuser: (key: string) => focusers.get(key),
     /** Removing only drops the caller's own registration: a second bar under the same key keeps its own. */
-    putFocuser: (key: string, focus: (() => void) | null, owner?: () => void) => { if (focus === null) { if (owner === undefined || focusers.get(key) === owner) focusers.delete(key); } else focusers.set(key, focus); },
+    putFocuser: (key: string, focus: ContextEditorFocus | null, owner?: ContextEditorFocus) => { if (focus === null) { if (owner === undefined || focusers.get(key) === owner) focusers.delete(key); } else focusers.set(key, focus); },
     subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     put: (key: string, value: QueryBarStatus | null) => {
       if (value === null) entries.delete(key); else entries.set(key, value);
@@ -75,16 +82,16 @@ export function useQueryBarStatus(): QueryBarStatus | null {
  * The query bar registers how to open and focus its Context editor, so the page-condition layer's «조회 조건에서 바꾸기» calls it
  * instead of searching the bar's markup. The latest function is kept in a ref, so the bar passes a fresh closure every render.
  */
-export function useRegisterContextEditorFocus(focus: () => void): void {
+export function useRegisterContextEditorFocus(focus: ContextEditorFocus): void {
   const local = useContext(QueryBarStatusContext);
   const store = useContext(PaneStatuses);
   const { paneId, route } = useHostPlatform();
   const key = paneRouteKey(paneId, route);
   const latest = useRef(focus);
-  latest.current = focus;
+  useLayoutEffect(() => { latest.current = focus; }, [focus]);
   const slot = local?.editorFocus;
   useLayoutEffect(() => {
-    const call = () => latest.current();
+    const call: ContextEditorFocus = request => latest.current(request);
     if (slot) slot.current = call;
     if (store && paneId) store.putFocuser(key, call);
     return () => { if (slot && slot.current === call) slot.current = null; if (store && paneId) store.putFocuser(key, null, call); };
@@ -93,9 +100,14 @@ export function useRegisterContextEditorFocus(focus: () => void): void {
 
 /** Opens and focuses the Context editor of the bar that serves this page or pane; does nothing when no bar registered one. */
 export function useFocusContextEditor(): () => void {
+  const request = useRequestContextEditor();
+  return () => request();
+}
+
+export function useRequestContextEditor(): ContextEditorFocus {
   const local = useContext(QueryBarStatusContext);
   const store = useContext(PaneStatuses);
   const host = useHostPlatformOptional();
   const key = paneRouteKey(host?.paneId ?? null, host?.route ?? null);
-  return () => (local?.editorFocus?.current ?? store?.focuser(key))?.();
+  return request => (local?.editorFocus?.current ?? store?.focuser(key))?.(request);
 }

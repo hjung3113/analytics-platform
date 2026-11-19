@@ -123,21 +123,32 @@ describe('SavedViewControl in the query tool row', () => {
     expect(screen.getAllByRole('group', { name: '조회 조건 동작' })).toHaveLength(1);
   });
 
-  it('keeps the selector and 수정됨 in the collapsed summary row, and a view pick does not expand it', async () => {
+  it('opens the selector directly from the folded overflow and preserves the edited selection', async () => {
     const user = userEvent.setup();
     mount(createFakeViewStore([L1]), `/?scopeId=MEM&${period}&roomNames=PHOTO`);
     await waitFor(() => expect(platform.scope.status).toBe('valid'));
     await user.click(screen.getByRole('button', { name: '조회 조건 접기' }));
     const region = screen.getByRole('region', { name: '조회 조건' });
-    expect(region).toHaveAttribute('data-query-bar-collapsed');
-    await user.click(selector());
+    const overflow = within(region).getByRole('button', { name: '조회 조건 동작' });
+    await user.click(overflow);
+    await user.click(screen.getByRole('menuitem', { name: '뷰 선택' }));
+    expect(await screen.findByRole('searchbox', { name: '뷰 이름 검색' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: '저장' })).toBeVisible();
     await pick(user, '포토 뷰');
-    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+    await waitFor(() => expect(overflow).toHaveFocus());
     expect(region).toHaveAttribute('data-query-bar-collapsed');
     act(() => platform.setGlobal({ roomNames: ['ETCH'] }));
-    await waitFor(() => expect(within(region).getByText('수정됨')).toBeTruthy());
-    expect(region).toHaveAttribute('data-query-bar-collapsed');
-    expect(within(region).getByRole('button', { name: /^저장된 뷰:/ })).toBeTruthy();
+    await user.click(overflow);
+    await user.click(screen.getByRole('menuitem', { name: '뷰 선택' }));
+    expect(await screen.findByText('수정됨')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    await user.click(await screen.findByRole('menuitem', { name: '새 뷰로 저장' }));
+    expect(await screen.findByLabelText('뷰 이름')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '취소' }));
+    await waitFor(() => expect(overflow).toHaveFocus());
+    await user.click(within(region).getByRole('button', { name: '조회 조건 펼치기' }));
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+    expect(within(region).getByText('수정됨')).toBeTruthy();
   });
 
   it.each([
@@ -535,8 +546,15 @@ describe('the selection survives folding the query bar (C5)', () => {
     await waitFor(() => expect(screen.getByText('수정됨')).toBeTruthy());
     for (const name of ['조회 조건 접기', '조회 조건 펼치기', '조회 조건 접기']) {
       await user.click(screen.getByRole('button', { name }));
-      expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰');
-      expect(screen.getByText('수정됨')).toBeTruthy();
+      if (name === '조회 조건 펼치기') {
+        expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰');
+        expect(screen.getByText('수정됨')).toBeTruthy();
+      } else {
+        await user.click(screen.getByRole('button', { name: '조회 조건 동작' }));
+        await user.click(screen.getByRole('menuitem', { name: '뷰 선택' }));
+        expect(await screen.findByRole('button', { ...row('포토 뷰'), current: true })).toBeVisible();
+        await user.keyboard('{Escape}');
+      }
     }
   });
 });

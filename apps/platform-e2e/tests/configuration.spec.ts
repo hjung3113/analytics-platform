@@ -44,7 +44,11 @@ test.describe('Configuration', () => {
     await expect.poll(() => query(page).get('mode')).toBe('reference');
     await expect(page.locator('[data-platform-page]')).toContainText('기준 설비 비교');
     await expect(page.locator('[data-platform-page]')).not.toContainText('mode reference');
-    await page.getByRole('button', { name: '설비 12대 선택', exact: true }).click();
+    const bar = queryBar(page);
+    await expect(bar.getByRole('button', { name: '조회 조건 펼치기', exact: true })).toBeVisible();
+    await bar.getByRole('button', { name: /^페이지 조건/ }).click();
+    const conditions = page.getByRole('dialog', { name: '페이지 조건', exact: true });
+    await conditions.getByRole('button', { name: '설비 12대 선택', exact: true }).click();
     await page.getByRole('button', { name: '모두 지우기', exact: true }).click();
     await page.keyboard.press('Escape');
     await expect(queryBar(page).getByRole('button', { name: '적용', exact: true })).toBeDisabled();

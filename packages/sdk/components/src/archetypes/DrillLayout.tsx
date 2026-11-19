@@ -1,5 +1,5 @@
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
-import { useRef, type ReactNode } from 'react';
+import { createContext, useContext, useRef, type ReactNode } from 'react';
 import { RETURN_CONTEXT_LABELS, PlatformLink, type ReturnOrigin, invalidValueSentence, useDrill, useI18n, useMessages } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import {
@@ -170,11 +170,15 @@ export function useReturnNavigation({ announceReverted = true }: { announceRever
   return { origin, onNavigate };
 }
 
+export const ReturnRowShown = createContext(false);
+
 /** Return control (06 §22). The accessible name is the visible label, trail values included. */
 export function ReturnLink() {
   const { tx } = useI18n();
   const { origin, onNavigate } = useReturnNavigation();
+  const rowShown = useContext(ReturnRowShown);
   const trail = origin.trail.map(step => step.value).join(' › ');
   const text = trail ? `← ${tx(origin.menuLabel)} (${trail})` : `← ${tx(origin.menuLabel)}`;
+  if (rowShown) return <></>;
   return <Button asChild variant="secondary" size="sm"><PlatformLink via="return" href={origin.href} onNavigate={onNavigate}>{text}</PlatformLink></Button>;
 }

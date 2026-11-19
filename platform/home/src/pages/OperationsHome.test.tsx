@@ -173,7 +173,7 @@ describe('platform home launcher', () => {
     expect(recent.parentElement!.classList.contains('@xl:grid-cols-2')).toBe(false);
   });
 
-  it('renders dense system rows without icons or visible subtitle lines (#1998)', async () => {
+  it('renders dense system rows with the declared screen name beside the system', async () => {
     mount(BOTH);
     await settled();
     const systems = screen.getByRole('region', { name: '업무 시스템' });
@@ -183,7 +183,7 @@ describe('platform home launcher', () => {
     expect(systems.querySelector('[class*="grid-cols"]')).toBeNull();
     const mars = within(list).getByRole('link', { name: 'MARS 생산성 분석 설비·기간별 생산성 · 사이클타임' });
     expect(mars.querySelector('.truncate')?.textContent).toBe('설비·기간별 생산성 · 사이클타임');
-    expect(within(mars).getByText('생산성 분석').classList.contains('sr-only')).toBe(true);
+    expect(within(mars).getByText('생산성 분석').classList.contains('sr-only')).toBe(false);
   });
 
   it.each([false, true])('applies Home-only spaceNames overrides without hardcoding space ids (grouped=%s, #1998)', async grouped => {
@@ -204,7 +204,7 @@ describe('platform home launcher', () => {
     const marsRow = screen.getByRole('link', { name: '설비 생산성 허브 생산성 분석 설비·기간별 생산성 · 사이클타임' });
     expect(marsRow.getAttribute('href')).toBe('/mars/equipment?v=1&scopeId=MEM');
     expect(within(marsRow).getByText('설비 생산성 허브')).toBeTruthy();
-    expect(within(marsRow).getByText('생산성 분석').classList.contains('sr-only')).toBe(true);
+    expect(within(marsRow).getByText('생산성 분석').classList.contains('sr-only')).toBe(false);
 
     const toolsRow = screen.getByRole('link', { name: '설비 Top View 설비 레이아웃 조회' });
     expect(toolsRow.getAttribute('href')).toBe('/tools/tools-home?v=1&scopeId=MEM');
@@ -232,7 +232,7 @@ describe('platform home launcher', () => {
     expect(within(toolsRow).getByText('도구')).toBeTruthy();
   });
 
-  it('links a partial-permission space card to its first openable menu without a continue line', async () => {
+  it('links to an openable fallback without exposing the denied home subtitle', async () => {
     const partialRegistry = createRegistry({
       platformHomeMenuId: 'home',
       permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')],
@@ -243,7 +243,7 @@ describe('platform home launcher', () => {
         menu('analysis-home', 'equipment', '/analysis-home', menuPermission('analytics:view'), { ko: '분석 홈', en: 'Analysis home' }),
       ],
     });
-    const partialSpaces = partialRegistry.spaces.map(space => space.id === 'mars' ? { ...space, homeMenuId: 'analysis-home' } : space);
+    const partialSpaces = partialRegistry.spaces.map(space => space.id === 'mars' ? { ...space, homeMenuId: 'analysis-home', subtitle: { ko: '분석 홈', en: 'Analysis home' } } : space);
     const withDeniedHome = createRegistry({ platformHomeMenuId: 'home', permissions: [menuPermission('analytics:view'), menuPermission('equipment:view'), menuPermission('metrics:view')], spaces: partialSpaces, groups: partialRegistry.groups, menus: partialRegistry.menus });
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM&page=9');
     render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter(['platform:view', 'equipment:view'])} registry={withDeniedHome}><OperationsHome /></PlatformProvider></I18nProvider>);
@@ -252,6 +252,7 @@ describe('platform home launcher', () => {
     expect(cards).toHaveLength(1);
     expect(cards[0].getAttribute('href')).toBe('/mars/equipment?v=1&scopeId=MEM');
     expect(cards[0].textContent).not.toContain('이어서');
+    expect(within(cards[0]).queryByText('분석 홈')).toBeNull();
   });
 
   it('lists accessible spaces in registration order and continues a stored screen', async () => {

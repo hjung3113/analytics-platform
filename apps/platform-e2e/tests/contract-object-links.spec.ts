@@ -59,7 +59,7 @@ test.describe('다른 화면에서 열기 (06 §22, #1930)', () => {
     await expect(mainHeading(page)).toBeFocused();
     // The destination shows the object it was opened for: the ranking's selection names it (#2187).
     await expect(page.getByRole('region', { name: '설비별 동작시간', exact: true }).getByRole('region', { name: '선택 요약', exact: true })).toContainText(id);
-    await (await headerMore(page)).getByRole('link', { name: '← 생산성 개요', exact: true }).click();
+    await page.getByRole('main').locator('[data-platform-page-body] > [data-return-row]:first-child').getByRole('link', { name: '← 생산성 개요로 돌아가기', exact: true }).click();
     await expect(page).toHaveURL(/\/mars\/productivity-overview\?/);
   });
   test('주소로 연 설비가 순위 차트 상위 N 밖이어도 선택 요약이 그 설비를 말한다 (#2187)', async ({ page }) => {
@@ -81,6 +81,6 @@ test.describe('다른 화면에서 열기 (06 §22, #1930)', () => {
     expect(params.get('eqp')).toBe(id);
     expect(params.get('returnTo')).toBe(returnTo);
     await expect(page.getByRole('region', { name: '설비별 동작시간', exact: true }).getByRole('region', { name: '선택 요약', exact: true })).toContainText(id);
-    await expect((await headerMore(page)).getByRole('link', { name: '← 생산성 개요', exact: true })).toBeVisible();
+    await expect(page.getByRole('main').locator('[data-platform-page-body] > [data-return-row]:first-child').getByRole('link', { name: '← 생산성 개요로 돌아가기', exact: true })).toBeVisible();
   });
 });

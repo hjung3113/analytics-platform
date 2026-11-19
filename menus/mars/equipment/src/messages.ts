@@ -13,6 +13,7 @@ export const EQUIPMENT_MESSAGES = {
   equipmentDetailChamberType: { ko: "챔버 유형", en: "Chamber type" },
   equipmentDetailThisIdIsRetiredTheRecordAnd: { ko: "유효 종료된 ID입니다. 레코드와 이력은 보존됩니다.", en: "This ID is retired. The record and history are retained." },
   equipmentDetailTheCycleTimeLinkChangesTheEquipment: { ko: "사이클타임 링크를 누르면 설비 선택이 이 설비 한 대로 바뀝니다. 상세를 여는 것만으로는 바뀌지 않습니다.", en: "The cycle time link changes the equipment selection to this one equipment. Opening details alone does not change it." },
+  equipmentDetailQueryConditionsRequired: { ko: '{destination} 조회에는 {conditions} 조건이 필요합니다.', en: 'Choose {conditions} before running a query in {destination}.' },
   equipmentDetailCycleTimeForThisEquipment: { ko: "이 설비로 사이클타임 상세", en: "Cycle time for this equipment" },
   equipmentDetailTopViewForThisEquipment: { ko: "이 설비 Top View", en: "Top View for this equipment" },
   equipmentDetailAttributes: { ko: "속성", en: "Attributes" },

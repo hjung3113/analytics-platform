@@ -1,9 +1,10 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useContext, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { useI18n, useMessages } from '@ap/kernel';
 import { useHostPlatform, useQueryHistory, type QueryHistoryRow } from '@ap/kernel/host';
 import { formatQuerySummary, useQueryBarExtension } from '@ap/components';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Button, Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { SHELL_MESSAGES } from '../messages';
+import { QueryBarTools } from './queryBarTools';
 
 export function QueryHistoryControl() {
   const { session, revision, paneId, pathname, global, queryHistoryStore } = useHostPlatform();
@@ -17,9 +18,19 @@ function HistorySession() {
   const m = useMessages(SHELL_MESSAGES);
   const { route, equipmentAxes, queryPolicy } = useHostPlatform();
   const extension = useQueryBarExtension();
-  const [open, setOpen] = useState(false);
+  const tools = useContext(QueryBarTools);
+  const external = tools?.folded ? tools : null;
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = external ? external.active === 'history' : internalOpen;
+  const openHistory = history.open;
   const [confirm, setConfirm] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
+  const focusTrigger = () => (external?.anchorRef ?? trigger).current?.focus();
+  const setOpen = (value: boolean) => {
+    setConfirm(false);
+    if (external) { if (!value) external.close(); }
+    else { setInternalOpen(value); if (value) openHistory(); }
+  };
   const list = useRef<HTMLDivElement>(null);
   const clearButton = useRef<HTMLButtonElement>(null);
   const cancelButton = useRef<HTMLButtonElement>(null);
@@ -40,10 +51,10 @@ function HistorySession() {
   }, [history.entries, history.status]);
   if (history.status === 'disabled') return null;
   const restore = async (row: QueryHistoryRow) => {
-    if (await history.restore(row)) { setOpen(false); trigger.current?.focus(); }
+    if (await history.restore(row)) { setOpen(false); focusTrigger(); }
   };
   const keyboard = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') { event.preventDefault(); setOpen(false); trigger.current?.focus(); return; }
+    if (event.key === 'Escape') { event.preventDefault(); setOpen(false); focusTrigger(); return; }
     const options = [...(list.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
     const index = options.indexOf(document.activeElement as HTMLElement);
     if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
@@ -57,9 +68,12 @@ function HistorySession() {
     if (minutes === 0) return m('historyJustNow');
     return new Intl.RelativeTimeFormat(lang, { numeric: 'auto' }).format(-(minutes < 60 ? minutes : minutes < 1440 ? Math.floor(minutes / 60) : Math.floor(minutes / 1440)), minutes < 60 ? 'minute' : minutes < 1440 ? 'hour' : 'day');
   };
-  return <Popover open={open && !queryPolicy.autoApplyingDefault} onOpenChange={value => { setOpen(value); setConfirm(false); if (value) history.open(); }}>
-    <PopoverTrigger asChild><Button ref={trigger} type="button" variant="ghost" size="toolbar" disabled={queryPolicy.autoApplyingDefault}>{m('historyButton')}</Button></PopoverTrigger>
-    <PopoverContent align="end" className="w-96 max-w-[calc(100vw-2rem)]" onEscapeKeyDown={() => { setOpen(false); trigger.current?.focus(); }}>
+  return <Popover open={open && !queryPolicy.autoApplyingDefault} onOpenChange={setOpen}>
+    {external ? <PopoverAnchor virtualRef={external.anchorRef} /> : <PopoverTrigger asChild><Button ref={trigger} type="button" variant="ghost" size="toolbar" disabled={queryPolicy.autoApplyingDefault}>{m('historyButton')}</Button></PopoverTrigger>}
+    <PopoverContent align="end" className="w-96 max-w-[calc(100vw-2rem)]"
+      onOpenAutoFocus={() => { if (external) openHistory(); }}
+      onCloseAutoFocus={event => { if (external) { event.preventDefault(); focusTrigger(); } }}
+      onEscapeKeyDown={() => { setOpen(false); focusTrigger(); }}>
       <div className="space-y-2">
       <p className="text-xs text-text-secondary">{m('historyRestoresNote')}</p>
       {history.status === 'unavailable' && <p role="status" className="text-xs text-text-secondary">{m('historyUnavailable')}</p>}

@@ -17,6 +17,8 @@ export const manifests: PlatformMenuEntry[] = [
   {
     id: 'operation-time', primary: true, group: GROUP,
     label: { ko: 'CLAS', en: 'CLAS' },
+    searchAliases: ['동작시간', '동작 시간', 'operation time'],
+    paletteDescription: { ko: '설비별 동작시간 순위와 모듈 흐름을 봅니다.', en: 'View equipment rankings and activity by module.' },
     description: { ko: '설비별 동작시간 순위와 모듈별 동작 흐름을 봅니다.', en: 'Rank equipment and follow each module’s activity flow.' },
     opensObject: { equipment: { pageKey: 'eqp' } },
     subjectLinks: { equipment: true },

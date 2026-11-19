@@ -149,7 +149,7 @@ describe('ReturnLink inside a board pane (#497)', () => {
         <ReturnPane id="b" initial={{ menuId: 'target', params: {}, query: '?returnTo=%2Fmars%2Fsource' }} />
       </main></PlatformProvider></I18nProvider>);
     const b = screen.getByTestId('b');
-    const link = within(b).getByRole('link', { name: '← 출발 화면' });
+    const link = within(b).getByRole('link', { name: /^← 출발 화면.*돌아가기$/ });
     link.focus();
     fireEvent.click(link);
     await settle();
@@ -165,7 +165,7 @@ describe('ReturnLink inside a board pane (#497)', () => {
         <ReturnPane id="b" initial={{ menuId: 'target', params: {}, query: '?returnTo=%2Fsource' }} />
       </main></PlatformProvider></I18nProvider>);
     const b = screen.getByTestId('b');
-    const link = within(b).getByRole('link', { name: '← 출발 화면' });
+    const link = within(b).getByRole('link', { name: /^← 출발 화면.*돌아가기$/ });
     link.focus();
     fireEvent.click(link);
     await settle();

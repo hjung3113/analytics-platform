@@ -3,7 +3,7 @@ import { PageDensityProvider, pageInsetX, useCompactPageDensity } from '../pageD
 import { carriesReturnTo, formatInstant, pageConditionKeys } from '@ap/contracts';
 import { formatQuerySummary, summaryPreset } from '../filters/querySummary';
 import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExtension } from '../filters/QueryBarExtension';
-import { QueryBarStatusContext, useQueryBarStatus, type QueryBarStatus } from '../filters/QueryBarStatus';
+import { QueryBarStatusContext, type ContextEditorFocus, useQueryBarStatus, type QueryBarStatus } from '../filters/QueryBarStatus';
 import { ForbiddenRequestMessage, OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { WorkspaceQueryBarContext } from './WorkspaceQueryBar';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
@@ -15,7 +15,7 @@ import { useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
 import { Button, cn, DetailPanelFullscreenContext, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { AccessRequestEntry, accessRequestBody, scopeRequestTarget, useScopeAccessRequest } from '../state/AccessRequestEntry';
-import { useReturnNavigation } from './DrillLayout';
+import { ReturnLink, ReturnRowShown, useReturnNavigation } from './DrillLayout';
 import { type HeaderYield, nextHeaderYield, openHeaderYield } from './headerYield';
 import { drillDestinationOf, focusPageFallback } from '../state/pageFocus';
 import { PageBoundContext, PageFlowContext } from '../pageFlow';
@@ -173,7 +173,7 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   const [barStatus, setBarStatus] = useState<QueryBarStatus | null>(null);
   const [parameterTarget, setParameterTarget] = useState<HTMLDivElement | null>(null);
   const [toolbarTarget, setToolbarTarget] = useState<HTMLDivElement | null>(null);
-  const editorFocus = useRef<(() => void) | null>(null);
+  const editorFocus = useRef<ContextEditorFocus | null>(null);
   const localBarStatus = useMemo(() => ({ status: barStatus, report: setBarStatus, editorFocus }), [barStatus]);
   const paneBarStatus = useQueryBarStatus();
   const shownBarStatus = barStatus ?? paneBarStatus;
@@ -322,7 +322,11 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
     {queryResult.completedAt !== null && <> {formatInstant(queryResult.completedAt, lang)}</>}
   </span> : null;
   const completionShown = queryResult != null && queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing');
-  return <WorkspaceQueryBarContext.Provider value={workspaceQueryBar ? { status: workspaceStatus, parameterTarget, setParameterTarget, toolbarTarget, setToolbarTarget } : null}><PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><PageBoundContext.Provider value={layout === 'fill' ? registerBound : null}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
+  const carriesOrigin = carriesReturnTo(registry.carrySetOf(menu));
+  const navigation = useReturnNavigation({ announceReverted: !carriesOrigin });
+  const showReturn = !gate && navigation.origin.accepted;
+  const headerActions = showReturn && isValidElement(secondaryActions) && secondaryActions.type === ReturnLink ? undefined : secondaryActions;
+  return <WorkspaceQueryBarContext.Provider value={workspaceQueryBar ? { status: workspaceStatus, parameterTarget, setParameterTarget, toolbarTarget, setToolbarTarget } : null}><PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><PageBoundContext.Provider value={layout === 'fill' ? registerBound : null}><ReturnRowShown.Provider value={showReturn}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
     {!inPane && <div ref={stickyHeader} data-page-sticky-header data-canvas-band className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
@@ -370,13 +374,14 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
         </div>
         <div className="flex shrink-0 flex-nowrap items-center gap-2 whitespace-nowrap">
           {!gate && dataTrustSummary && withTrustYield(dataTrustSummary, headerYield)}
-          {!gate && (secondaryActions || boardEntry || analysisActions || objectGroups.length > 0) && <HeaderOverflow actions={<>{secondaryActions}{boardEntry}{analysisActions}{objectGroups}</>} />}
+          {!gate && (headerActions || boardEntry || analysisActions || objectGroups.length > 0) && <HeaderOverflow actions={<>{headerActions}{boardEntry}{analysisActions}{objectGroups}</>} />}
           {!gate && primaryAction}
         </div>
       </header>
       {menu.query?.mode !== 'apply' && <div className="contents" inert={covered || undefined}>{slots.contextBar}</div>}
     </div>}
     <div data-platform-page-body className="contents" inert={covered || undefined}>
+    {showReturn && <ReturnRow navigation={navigation} />}
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
     {!workspaceQueryRowReady && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={m('pageAppliedQueryConditions')} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
       {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
@@ -388,7 +393,6 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
           summary={headSummary}
           pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
       : <div className={cn(pageInsetX(density === 'compact'), 'pt-3')}><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
-    {screenMode === 'main' && !gate && carriesReturnTo(registry.carrySetOf(menu)) && <ReturnRow />}
     {!gate && conditionLayer}
     <div data-platform-page-content tabIndex={-1} data-body-inset={bodyInset === 'none' ? 'none' : undefined} className={cn(conditionLayer && 'isolate', layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', fixedFill && bounding > 0 && 'min-h-0', bodyInset === 'none' ? undefined : [pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7'])}>{gate
       ? bodyInset === 'none' ? <div className={cn(pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7')}>{gate}</div> : gate
@@ -399,7 +403,7 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
         {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
       </OutcomeScope>}</div>
     </div>
-  </div></PageBoundContext.Provider></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider></WorkspaceQueryBarContext.Provider>;
+  </div></ReturnRowShown.Provider></PageBoundContext.Provider></PageFlowContext.Provider></QueryBarStatusContext.Provider></QueryBarExtensionContext.Provider></PageDensityProvider></WorkspaceQueryBarContext.Provider>;
 }
 
 /** The way back into a carry set that lists `returnTo` (ADR-0081 UX-10): drawn only for an origin `safeReturnTo` and `canOpen` accepted, never for a parent/home fallback. */
@@ -432,15 +436,13 @@ function ScopeGate({ root, selectorAvailable }: { root: React.RefObject<HTMLDivE
   }
 }
 
-function ReturnRow() {
-  // The space carries no global Context by design, so "reverted Context" would always list everything the user never changed.
-  const { origin, onNavigate } = useReturnNavigation({ announceReverted: false });
+function ReturnRow({ navigation: { origin, onNavigate } }: { navigation: ReturnType<typeof useReturnNavigation> }) {
   const { t, tx } = useI18n();
   const compact = useCompactPageDensity();
-  if (!origin.accepted) return null;
-  return <div data-return-row className={cn('flex h-8 shrink-0 items-center gap-3 border-b border-border-subtle text-xs', pageInsetX(compact))}>
-    <PlatformLink via="return" href={origin.href} onNavigate={onNavigate} className="font-medium text-accent-primary hover:underline">{t('returnRowBack', { menu: tx(origin.menuLabel) })}</PlatformLink>
-    {origin.spaceLabel !== null && <span className="text-text-muted">{t('returnRowFrom', { system: tx(origin.spaceLabel) })}</span>}
+  const trail = origin.trail.map(step => step.value).join(' › ');
+  return <div data-return-row className={cn('flex min-h-8 shrink-0 flex-wrap items-center gap-x-3 border-b border-border-subtle py-1 text-xs break-keep', pageInsetX(compact))}>
+    <PlatformLink via="return" href={origin.href} onNavigate={onNavigate} className="font-medium text-accent-primary hover:underline [overflow-wrap:anywhere]">{t('returnRowBack', { menu: tx(origin.menuLabel) })}{trail && ` (${trail})`}</PlatformLink>
+    {origin.spaceLabel !== null && !origin.sameSpace && <span className="text-text-muted">{t('returnRowFrom', { system: tx(origin.spaceLabel) })}</span>}
   </div>;
 }
 

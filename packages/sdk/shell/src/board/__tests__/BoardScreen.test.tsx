@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { House } from 'lucide-react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, useRecentVisits } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, useQueryDraft, useRecentVisits } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { BOARD_LAYOUT_ENGINE_KEY } from '../layoutEngine';
@@ -921,4 +921,77 @@ describe('shell-only state does not wake a pane (#824)', () => {
     await settle();
     expect(stored().sheets[0].panes[0]?.query).toContain('from=2026-09-01T00%3A00%3A00');
   });
+});
+
+it.each([
+  { selected: 1, expected: '2026-09-01T00:00:00' },
+  { selected: 2, expected: '2026-08-01T00:00:00' },
+])('copies applied global conditions from populated pane $selected without page keys', async ({ selected, expected }) => {
+  seed(boardOf([sheet('a', { layout: '2x2', panes: [alpha(w1 + '&tab=source'), alpha(w2 + '&tab=other'), null, null] })]));
+  mount();
+  const source = await screen.findByRole('group', { name: `칸 ${selected}` });
+  fireEvent.focusIn(within(source).getByTestId('from'));
+  const empty = within(paneGroup(3));
+  expect(empty.getByRole('button', { name: '분석 화면 넣기' })).toBeInTheDocument();
+  fireEvent.click(empty.getByRole('button', { name: '현재 화면 조건으로' }));
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '베타' }));
+  await waitFor(() => {
+    const inserted = new URLSearchParams(stored().sheets[0].panes[2]?.query);
+    expect(inserted.get('from')).toBe(expected);
+    expect(inserted.get('tab')).toBeNull();
+  });
+});
+
+
+it('skips the selected Scope-denied pane and copies the readable pane’s applied Context', async () => {
+  function DraftSource() {
+    const { draft, setDraftGlobal } = useQueryDraft();
+    return <PlatformPage><button type="button" onClick={() => setDraftGlobal({ from: '2026-08-01T12:00:00' })}>
+      Draft period: {draft.global.from}
+    </button></PlatformPage>;
+  }
+  const { spaces, groups, menus } = makeRegistry();
+  const registry = createRegistry({ spaces, groups, menus: [
+    ...menus,
+    entry('scoped', '/scoped', { component: Body, requiresScope: true }),
+    entry('draft-source', '/draft-source', { component: DraftSource, requiresScope: true, query: { mode: 'apply', required: ['time'] } }),
+  ] });
+  seed(boardOf([sheet('a', { layout: '2x2', panes: [
+    { ...alpha(w1 + '&scopeId=DENIED'), menuId: 'scoped' },
+    { ...alpha(w2 + '&scopeId=MEM&tab=source'), menuId: 'draft-source' }, null, null,
+  ] })]));
+  mount('/board?sheet=a', ['platform:view'], registry, {
+    validateScope: async scopeId => ({ status: scopeId === 'DENIED' ? 'forbidden' : 'valid', grantedRooms: [] }),
+  });
+  const denied = await screen.findByRole('group', { name: '칸 1' });
+  const gate = await within(denied).findByText('이 Scope에 접근 권한이 없습니다');
+  const peer = within(paneGroup(2));
+  const draftButton = await peer.findByRole('button', { name: 'Draft period: 2026-08-01T00:00:00' });
+  fireEvent.focusIn(draftButton);
+  fireEvent.click(draftButton);
+  expect(peer.getByRole('button', { name: 'Draft period: 2026-08-01T12:00:00' })).toBeInTheDocument();
+  fireEvent.focusIn(gate);
+
+  fireEvent.click(within(paneGroup(3)).getByRole('button', { name: '현재 화면 조건으로' }));
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '베타' }));
+  await waitFor(() => {
+    const inserted = new URLSearchParams(stored().sheets[0].panes[2]?.query);
+    expect(inserted.get('scopeId')).toBe('MEM');
+    expect(inserted.get('from')).toBe('2026-08-01T00:00:00');
+    expect(inserted.get('tab')).toBeNull();
+  });
+});
+
+it.each([
+  { name: 'first eligible pane when the selected menu is denied', panes: [{ ...alpha(w1), menuId: 'locked' }, alpha(w2), null, null], expected: '2026-08-01T00:00:00' },
+  { name: 'latest full screen when every populated pane is denied', panes: [{ ...alpha(w1), menuId: 'locked' }, null, null, null], expected: '2026-11-01T00:00:00' },
+])('inserts with the $name', async ({ panes, expected }) => {
+  seed(boardOf([sheet('a', { layout: '2x2', panes })]));
+  mount('/beta?from=2026-11-01T00:00:00&to=2026-11-02T00:00:00');
+  await settle();
+  fireEvent.click(screen.getByRole('button', { name: '분석 보드' }));
+  await settle();
+  fireEvent.click(within(paneGroup(3)).getByRole('button', { name: '현재 화면 조건으로' }));
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '베타' }));
+  await waitFor(() => expect(new URLSearchParams(stored().sheets[0].panes[2]?.query).get('from')).toBe(expected));
 });

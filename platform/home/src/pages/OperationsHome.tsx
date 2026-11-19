@@ -100,13 +100,13 @@ export default function OperationsHome({ launcherGroups = NO_LAUNCHER_GROUPS, sp
     if (!entry) return null;
     const resumeMenu = entry.resumed ? registry.menus.find(menu => menu.id === entry.menuId) : undefined;
     const name = tx(spaceNames[space.id] ?? space.label);
-    const subtitle = space.subtitle ? tx(space.subtitle) : undefined;
-    const srSubtitle = subtitle && subtitle !== name ? subtitle : undefined;
+    const subtitle = space.subtitle && canOpen(space.homeMenuId) ? tx(space.subtitle) : undefined;
+    const screenName = subtitle && subtitle !== name ? subtitle : undefined;
     const description = space.id === 'operations' ? consoleSections(space.id).join(' · ') : tx(space.description);
     return <li key={space.id}>
       <PlatformLink href={entry.href} className="flex min-w-0 items-baseline gap-3 px-3 py-2 hover:bg-surface-sunken focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">
         <span className="shrink-0 t-card-title">{name}</span>
-        {srSubtitle && <span className="sr-only">{srSubtitle}</span>}
+        {screenName && <span className="shrink-0 break-keep text-xs text-text-secondary">{screenName}</span>}
         <span aria-hidden className="text-text-muted">·</span>
         <span className="min-w-0 truncate text-xs text-text-secondary">{description}</span>
         {resumeMenu && <span className="shrink-0 text-xs text-text-secondary">{m('operationsHomeContinue', { label: tx(resumeMenu.label) })}</span>}

@@ -15,6 +15,8 @@ export type QueryDraft = {
   canApply: boolean;
   /** Commit dispatch is pending until the end of this turn. Controlled address acknowledgement is tracked separately from request loading. */
   applying: boolean;
+  /** Changes only when this logical screen receives the address written by its explicit Apply. */
+  appliedRevision?: number;
 };
 
 /** One draft per logical screen; existing applied writers remain immediate. */

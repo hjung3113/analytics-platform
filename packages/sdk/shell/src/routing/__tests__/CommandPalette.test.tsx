@@ -1,5 +1,5 @@
 import { Suspense, lazy, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, PlatformLink } from '@ap/kernel';
@@ -679,4 +679,16 @@ describe('CommandPalette menu matching (#1943)', () => {
     expect(screen.getByText('일치하는 메뉴가 없습니다.')).toBeInTheDocument();
     expect(screen.queryByText('이 메뉴를 찾으셨나요')).toBeNull();
   });
+});
+
+it('matches manifest aliases and presents name, description, and selected path in order', () => {
+  const result = menu('p95-detail', groupId('equipment'), '/p95-detail', { ko: '사이클타임 상세', en: 'Cycle time detail' }, {
+    component: page, searchAliases: ['P95'], paletteDescription: { ko: '느린 작업 구간을 찾습니다', en: 'Find slowly running operations' },
+  });
+  const searchable = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [...registry.menus, result] });
+  mount(undefined, searchable);
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'p95' } });
+  const option = screen.getByRole('option', { name: /사이클타임 상세.*느린 작업 구간을 찾습니다.* › / });
+  expect(option).toHaveAttribute('data-selected');
+  expect(within(option).getByText(/ › /)).toHaveClass('row-meta');
 });
