@@ -2,7 +2,7 @@
 // menu manifest) renders `LaneTimeline`, `AnalysisChart` and `AnalysisChartFrame` inside `I18nProvider` alone, and their export actions (CSV `내보내기`,
 // `이미지 복사`, `인쇄`) stay off until the consumer opts in with `exportActions`. The same specs, written against the workspace source, are in
 // packages/sdk/components (chartImageCopy.button.test.tsx and the provider-less chart tests); this one proves it for the packed, installed packages.
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AnalysisChart, AnalysisChartFrame, LaneTimeline } from '@ap/components';
 import { I18nProvider } from '@ap/kernel';
@@ -69,9 +69,15 @@ it('AnalysisChartFrame renders inside I18nProvider alone and opens no export act
   expect(exportButtons()).toEqual([]);
 });
 
-it('AnalysisChartFrame: exportActions opens the export actions, and Compare and Annotate stay out of a platform-less frame', () => {
+it('AnalysisChartFrame: exportActions opens the export actions, Compare stays out and Annotate is disabled with its reason in a platform-less frame', () => {
   render(<I18nProvider><AnalysisChartFrame chartId="kit-frame" title="Provider-less frame" series={series} unit="ea" imageCopy imagePrint exportActions={{ exportAllowed: true }} /></I18nProvider>);
-  expect(exportButtons()).toEqual(['내보내기', '이미지 복사', '인쇄']);
+  // The Frame groups its export actions behind one «내보내기» button (#2538): CSV, image copy and print open in that popover.
+  fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  const group = within(screen.getByRole('dialog', { name: '내보내기' }));
+  expect(group.getAllByRole('button').map((b) => b.textContent)).toEqual(['내보내기 CSV', '이미지 복사', '인쇄']);
   expect(screen.queryByRole('button', { name: '비교' })).toBeNull();
-  expect(screen.queryByRole('button', { name: '주석' })).toBeNull();
+  // Outside a platform Annotate stays visible but disabled, and says why (#2538, docs/contract/chart.md §16).
+  const annotate = screen.getByRole('button', { name: '주석' }) as HTMLButtonElement;
+  expect(annotate.disabled).toBe(true);
+  expect(screen.getByText('이 화면에서 주석을 남길 수 없습니다.')).toBeTruthy();
 });
