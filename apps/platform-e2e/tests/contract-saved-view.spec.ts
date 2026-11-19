@@ -6,7 +6,7 @@ import { pickTargetRoom, contextBar, evidence, expandPageHead, expandQueryBar, m
  * Platform contract checks for Saved Views (docs/06 §21). Cycle Time and HW Time observe the same store and query bar.
  */
 const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
-const PHOTO_CHIP = /대상 조건 · 지금 .*공정: PHOTO/;
+const PHOTO_CHIP = /대상 (?:설비|확인 중).* · PHOTO/;
 const trigger = (page: Page) => page.getByRole('button', { name: /^저장된 뷰:/ });
 const modifiedBadge = (page: Page) => trigger(page).getByText('수정됨');
 const toast = (page: Page, text: RegExp | string) => page.getByText(text).first();
@@ -106,7 +106,7 @@ test.describe('HW Time saved views and shared conditions', () => {
     await page.getByRole('menuitem', { name: '내 기본으로 지정' }).click();
     await expect(toast(page, '개인 기본 뷰로 지정했습니다.')).toBeVisible();
     await page.goto('/hw-time/steps?v=1&scopeId=MEM&roomNames=ETCH&pins=table');
-    await expect.poll(() => query(page).get('from')).toBe('2026-09-25T09:00:00');
+    await expect.poll(() => query(page).get('from')).toBe('2026-09-25T00:00:00');
     expect(query(page).get('roomNames')).toBe('ETCH');
 
     await tableTab.click();

@@ -230,9 +230,9 @@ describe('review round: shared-with names and saved contents', () => {
   });
 
   it.each([
-    ['24 hours', '2026-09-25T09:00:00', '2026-09-26T09:00:00', '09-25 09:00 → 09-26 09:00 (24h)'],
-    ['7 days', '2026-09-25T00:00:00', '2026-10-02T00:00:00', '09-25 00:00 → 10-02 00:00 (7일)'],
-    ['an open end', '2026-09-25T09:00:00', null, '09-25 09:00 → —'],
+    ['24 hours', '2026-09-25T09:00:00', '2026-09-26T09:00:00', '09-25 → 09-27 (2일)'],
+    ['7 days', '2026-09-25T00:00:00', '2026-10-02T00:00:00', '09-25 → 10-02 (7일)'],
+    ['an open end', '2026-09-25T09:00:00', null, '09-25 → —'],
   ])('fixed period %s uses the common period rule', async (_name, from, to, text) => {
     const view = entry('f', 'none');
     (view.view as { context: unknown }).context = { from, to } as never;

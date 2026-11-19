@@ -28,9 +28,9 @@ describe('custom group in the summary (#2390)', () => {
 
 describe('query summary period (#913)', () => {
   it.each([
-    ['ko', '2026-09-25T09:00:00', '2026-09-26T09:00:00', '09-25 09:00 → 09-26 09:00 (24h)'],
-    ['en', '2026-09-19T09:00:00', '2026-09-26T09:00:00', '09-19 09:00 → 09-26 09:00 (7d)'],
-    ['ko', '2026-09-19T09:00:00', '2026-09-26T09:00:00', '09-19 09:00 → 09-26 09:00 (7일)'],
+    ['ko', '2026-09-25T09:00:00', '2026-09-26T09:00:00', '09-25 → 09-27 (2일)'],
+    ['en', '2026-09-19T09:00:00', '2026-09-26T09:00:00', '09-19 → 09-27 (8d)'],
+    ['ko', '2026-09-19T09:00:00', '2026-09-26T09:00:00', '09-19 → 09-27 (8일)'],
   ] as const)('prints the same readable range as the Context bar (%s)', (lang, from, to, text) => {
     const time = querySummaryItems({ ...global, from, to }, { lang }).find(item => item.key === 'time');
     expect(time?.value).toBe(text);
@@ -38,7 +38,11 @@ describe('query summary period (#913)', () => {
     expect(formatQuerySummary({ ...global, from, to }, [], { lang })).not.toContain('[20');
   });
   it('keeps an open end visible', () => {
-    expect(querySummaryItems({ ...global, from: '2026-09-25T09:00:00' }, { lang: 'ko' }).find(item => item.key === 'time')?.value).toBe('09-25 09:00 → —');
+    expect(querySummaryItems({ ...global, from: '2026-09-25T09:00:00' }, { lang: 'ko' }).find(item => item.key === 'time')?.value).toBe('09-25 → —');
+    expect(formatPeriod(null, '2026-12-31T09:00:00', 'ko')).toBe('— → 01-01');
+  });
+  it('shows the exclusive calendar end of a legacy range even when it crosses the last wire year', () => {
+    expect(formatPeriod('9999-12-31T01:00:00', '9999-12-31T09:00:00', 'ko')).toBe('12-31 → 01-01 (1일)');
   });
 });
 

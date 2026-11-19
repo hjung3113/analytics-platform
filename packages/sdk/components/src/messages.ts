@@ -13,6 +13,8 @@ export const COMPONENTS_MESSAGES = {
   fsValueSuggestion: { ko: '{facet} · {value} ({count})', en: '{facet} · {value} ({count})' },
   fsItemSuggestion: { ko: '{kind} · {id}', en: '{kind} · {id}' },
   fsItem: { ko: '항목', en: 'Item' },
+  fsFacetCount: { ko: '{count}개', en: '{count}' },
+  fsFacetMore: { ko: '{first} 외 {count}', en: '{first} + {count}' },
   fsFacets: { ko: '분류', en: 'Facets' },
   fsAll: { ko: '전체', en: 'All' },
   fsOnly: { ko: '단독 선택', en: 'Select only' },

@@ -1,6 +1,6 @@
 import { browserPreferenceKey } from './support';
 import { expect, test, type Page } from '@playwright/test';
-import { PERIOD, PRODUCTIVITY, railSection, systemSwitcher, openSwitcher, chooseSystem, headerMore } from './contract-helpers';
+import { PERIOD, PRODUCTIVITY, railSection, systemSwitcher, openSwitcher, chooseSystem, headerMore, periodPreset } from './contract-helpers';
 import { contextBar, evidence, expectScopeValid, mainHeading, query, setScenario, signInAs, storedUsageEvents, usageVisits } from './support';
 
 /**
@@ -172,22 +172,30 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
 });
 
 test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
-  // Measured 2026-10-05 at 1280px with the sidebar collapsed: the full row needs about 1018px; the bar has about 1148px before the detail slot opens and 708px after.
-  // The sidebar now starts collapsed only below 1200px (#1944), so the same widths are measured at 1440px with the sidebar open.
-  test('상세 슬롯을 같은 1440px 뷰포트에서 열면 자체 폭 변화로 기간 프리셋이 접힌다', async ({ page }, testInfo) => {
+  async function expectCalendarEditor(page: Page) {
+    await expect(contextBar(page).getByRole('button', { name: '오늘', exact: true })).toHaveCount(0);
+    const preset = await periodPreset(page, '오늘');
+    await expect(preset.locator).toBeEnabled();
+    const dialog = page.getByRole('dialog', { name: '기간', exact: true });
+    await expect(dialog.getByLabel('시작일', { exact: true })).toHaveAttribute('type', 'date');
+    await expect(dialog.getByLabel('종료일 (포함)', { exact: true })).toHaveAttribute('type', 'date');
+    await dialog.getByRole('button', { name: '취소', exact: true }).click();
+  }
+
+  test('상세 슬롯을 같은 1440px 뷰포트에서 열어도 기간 편집기와 한 줄을 유지한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 800 });
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     await expectScopeValid(page, 'MEM · 메모리');
     const row = page.getByRole('main').locator('[data-row-id]').first();
     await expect(row).toBeVisible();
     await expect(visibleContextLabel(page)).toHaveCount(0);
-    await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
+    await expectCalendarEditor(page);
     await expectContextBounds(page);
     const before = { inline: await contextBar(page).getByRole('button').allTextContents(), overflow: await overflowCount(page) };
     await evidence(page, testInfo, 'context-before-detail-1440');
     await row.getByRole('button', { name: /보기$/ }).click();
     await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
-    await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toHaveCount(0);
+    await expectCalendarEditor(page);
     await expect(visibleContextLabel(page)).toHaveCount(0);
     expect(page.viewportSize()).toEqual({ width: 1440, height: 800 });
     await expectContextBounds(page);
@@ -196,27 +204,25 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     await evidence(page, testInfo, 'context-after-detail-1440');
   });
 
-  test('넓은 폭(1920px) 생산성 개요에서는 1일 프리셋과 모든 조건이 인라인이다', async ({ page }, testInfo) => {
+  test('넓은 폭(1920px) 생산성 개요에서는 모든 조건이 인라인이다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1920, height: 800 });
     await page.goto(PRODUCTIVITY);
     await expectScopeValid(page, 'MEM · 메모리');
-    await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
+    await expectCalendarEditor(page);
     await expect(visibleContextLabel(page)).toHaveCount(0);
     await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
     await expectContextBounds(page);
     await evidence(page, testInfo, 'context-wide-1920');
   });
 
-  // #218: at the most common width the period presets and every condition stay inline. The bar draws no "전역 Context" label
-  // (06 §7, #914), so only the controls' widths decide the presets' fold.
-  test('1440px 생산성 개요는 기간 프리셋·모든 조건이 인라인이다', async ({ page }, testInfo) => {
+  test('1440px 생산성 개요에서는 모든 조건이 인라인이다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 800 });
     await page.goto(PRODUCTIVITY);
     await expectScopeValid(page, 'MEM · 메모리');
     await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
-    await expect(contextBar(page).getByRole('radio', { name: '1일', exact: true })).toBeVisible();
+    await expectCalendarEditor(page);
     await expectContextBounds(page);
-    await evidence(page, testInfo, 'context-1440-presets-inline');
+    await evidence(page, testInfo, 'context-1440-calendar');
   });
 
   // With the detail slot open the compact row fits without overflow (see the first test), so overflow editing is checked at 1024px.

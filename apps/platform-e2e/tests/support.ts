@@ -173,7 +173,7 @@ export function browserPreferenceKey(kind: string, rest = '', userId: Role = 'en
 
 /** Chooses the room in the modal; the query bar's outer Apply remains the caller's action. */
 export async function pickTargetRoom(page: Page, bar: Locator, room: string) {
-  await bar.getByRole('button', { name: /^대상 (전체|조건|고정)/ }).click();
+  await bar.getByRole('button', { name: /^대상 (전체|조건|고정|설비|확인 중)/ }).click();
   const dialog = page.getByRole('dialog', { name: '대상', exact: true });
   const process = dialog.getByRole('button', { name: /^공정 / });
   if (await process.getAttribute('aria-expanded') !== 'true') await process.click();

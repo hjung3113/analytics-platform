@@ -3,12 +3,12 @@ import { useCustomGroupOptions } from './customGroupOptions';
 import { createPortal } from 'react-dom';
 import { isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, MoreHorizontal } from 'lucide-react';
-import { CUSTOM_GROUP_AXIS, formatPeriod, parseDateTime, periodHours, shift, type GlobalContext, type IdSet } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, formatPeriod, periodDates, periodFromDates, type GlobalContext, type IdSet } from '@ap/contracts';
 import { useConditionPreset, queryMissingSentence, useI18n, useMessages, useQueryDraft } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { useRegisterContextEditorFocus, useCollapsePreference, AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
-import { Alert, AlertDescription, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Popover, PopoverContent, PopoverTrigger, RadioGroup, RadioGroupItem, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
-import { isTrailingPeriod } from '../frame/trailingPeriod';
+import { Alert, AlertDescription, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { PeriodFields, type PeriodDates } from './PeriodFields';
 import { useSessionKey } from '../frame/sessionKey';
 import { SHELL_MESSAGES } from '../messages';
 import { ShareControl } from './ShareControl';
@@ -122,7 +122,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     ? <AccessRequestEntry slot={accessRequest} size="field" label={t('accessRequestField', { name })} target={scopeRequestTarget(roomScope.id, roomNames, scope.grantedRooms)} />
     : null;
   const focusEditor = (to: 'first' | 'period') => {
-    const selector = to === 'period' ? 'input[type="date"]:enabled, input[type="datetime-local"]:enabled' : 'button:enabled, input:enabled';
+    const selector = to === 'period' ? 'input[type="date"]:enabled' : 'button:enabled, input:enabled';
     editor.current?.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
   };
   useLayoutEffect(() => {
@@ -153,21 +153,22 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     catch { setEditError(m('queryInvalidEdit')); }
   };
   const g = draft.global;
-  const [range, setRange] = useState({ from: g.from ?? '', to: g.to ?? '' });
-  const [periodEditor, setPeriodEditor] = useState({ mode: 'range' as 'reference' | 'range', reference: day(platform.defaultRangeTo), invalidReference: false });
-  const [rangeSource, setRangeSource] = useState(`${g.from}|${g.to}`);
-  if (rangeSource !== `${g.from}|${g.to}`) {
-    setRangeSource(`${g.from}|${g.to}`);
-    setRange({ from: g.from ?? '', to: g.to ?? '' });
-    setPeriodEditor(previous => ({ ...previous, reference: day(g.from ?? platform.defaultRangeTo), invalidReference: false }));
-  }
+  const source = JSON.stringify([platform.url, g.from, g.to]);
+  const [invalidDates, setInvalidDates] = useState<{ source: string; dates: PeriodDates } | null>(null);
+  if (invalidDates && invalidDates.source !== source) setInvalidDates(null);
+  const dates = invalidDates?.source === source ? invalidDates.dates : periodDates(g);
+  const editPeriod = (next: PeriodDates) => {
+    const period = periodFromDates(next);
+    setInvalidDates(period ? null : { source, dates: next });
+    if (period) write(period);
+  };
   const cap = route!.menu.context;
   // A chosen custom group the query will refuse (ADR-0164): resolved here, where it outlives the folding editor, and said with the other reasons before Apply.
   const groups = useCustomGroupOptions({ scopeId: g.scopeId, selectedGroupIds: g.condition?.[CUSTOM_GROUP_AXIS] ?? NO_GROUPS, canEditCondition: cap.condition === 'apply' });
   const reasons = missing.map(item => ({ key: item.key, reason: item.key === 'customGroupMembershipBasis' ? m('customGroupCurrentOnly') : queryMissingSentence(lang, item.label) }));
   if (route!.menu.requiresScope && (scope.status !== 'valid' || scope.validatedFor !== session)) reasons.push({ key: 'scope', reason: m('queryScopeRequired') });
   if (applying || pendingDefault) reasons.push({ key: 'commit', reason: m('queryApplying') });
-  const periodInputInvalid = (periodEditor.mode === 'reference' && periodEditor.invalidReference) || range.from !== (g.from ?? '') || range.to !== (g.to ?? '');
+  const periodInputInvalid = invalidDates?.source === source;
   if (periodInputInvalid) reasons.push({ key: 'period-input', reason: m('queryInvalidPeriodInput') });
   if (editError) reasons.push({ key: 'edit', reason: editError });
   for (const issue of extension?.issues ?? []) reasons.push({ key: issue.key, reason: `${issue.label}: ${issue.reason}` });
@@ -211,8 +212,8 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
       ? <Button key={r.key} type="button" variant="outline" size="toolbar" onClick={event => requestEditor({ key: r.key, opener: event.currentTarget })}>{r.reason}</Button>
       : <p key={r.key}>{r.reason}</p>)}</div></AlertDescription></Alert>
     : <span id={reasonId} className="sr-only" />;
-  const revertDraft = () => { revert(); setPeriodEditor({ mode: 'range', reference: day(global.from ?? platform.defaultRangeTo), invalidReference: false }); setRangeSource('revert'); setEditError(null); };
-  const resetDraft = () => { reset(); setPeriodEditor({ mode: 'range', reference: day(platform.defaultRangeTo), invalidReference: false }); setRangeSource('reset'); setEditError(null); };
+  const revertDraft = () => { revert(); setInvalidDates(null); setEditError(null); };
+  const resetDraft = () => { reset(); setInvalidDates(null); setEditError(null); };
   const draftStatus = changes > 0 ? <span className="text-xs text-text-secondary">{m('queryUnappliedChanges', { count: changes })}</span>
     : notApplied && <span className="text-xs text-text-secondary">{m('queryNotApplied')}</span>;
   const applyAction = <>
@@ -266,8 +267,6 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
       write({ condition: Object.keys(next).length ? next : null });
     } else write(fields[key]);
   };
-  const used = equipmentAxes.filter(a => g.condition?.[a.id]);
-  const history = (g.condition !== null || g.prcGroups !== null) && used.every(a => a.membershipHistory);
   const switcher = cap.condition === 'apply' ? conditionPreset : null;
   const draftPreset = summaryPreset(switcher, 'draft');
   const activePreset = switcher?.presets.find(item => item.id === switcher.activeId);
@@ -287,35 +286,21 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     if (event.key === 'Escape' && !event.defaultPrevented && event.currentTarget.contains(event.target as Node)) { event.preventDefault(); toggle(false); }
   }}>
     <div role="group" aria-label={m('queryPeriodAndScope')} className="flex min-w-0 flex-wrap items-start gap-3">
-        {cap.time === 'apply' && <PeriodFields compact={compact || board} disabled={pendingDefault} global={g} range={range} setRange={setRange} write={patch => { setRange({ from: patch.from ?? '', to: patch.to ?? '' }); setPeriodEditor(previous => ({ ...previous, reference: day(patch.from ?? platform.defaultRangeTo), invalidReference: false })); write(patch); }} periodEditor={periodEditor} setPeriodEditor={setPeriodEditor} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} />}
-        {TARGET_KEYS.some(key => cap[key] === 'apply') && <div className="grid min-w-0 gap-1">
-          <TargetPicker openRequest={targetRequest} onRequestHandled={clearTargetRequest} disabled={pendingDefault} global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid) || groups.blocked.length > 0} reasonId={reasonId} groups={groups} />
-          {cap.roomNames === 'apply' && roomRequest(g.roomNames, t('roomNames'))}
-        </div>}
+      {cap.time === 'apply' && <div role="group" aria-label={t('period')} className="flex min-w-0 max-w-full flex-wrap items-center gap-1 text-xs text-text-secondary">
+        <span>{t('period')}</span>
+        <span className="sr-only">{formatPeriod(g.from, g.to, lang)}</span>
+        <PeriodFields dates={dates} onChange={editPeriod} disabled={pendingDefault} invalid={invalid('time') || periodInputInvalid} reasonId={reasonId} />
+      </div>}
+      {TARGET_KEYS.some(key => cap[key] === 'apply') && <div className="grid min-w-0 gap-1">
+        <TargetPicker compact openRequest={targetRequest} onRequestHandled={clearTargetRequest} disabled={pendingDefault} global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid) || groups.blocked.length > 0} reasonId={reasonId} groups={groups} />
+        {cap.roomNames === 'apply' && roomRequest(g.roomNames, t('roomNames'))}
+      </div>}
+      {switcher && <div className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-text-secondary">
+        <span id={`${id}-preset`}>{m('queryConditionSet')}</span>
+        <SegmentedRadio disabled={pendingDefault} label={m('queryConditionSet')} labelledBy={`${id}-preset`} value={switcher.activeId} onChange={switchPreset} options={switcher.presets.map(item => ({ value: item.id, label: item.label[lang] }))} />
+        <p role="status" className="sr-only">{presetNotice.id === switcher.activeId ? presetNotice.text : ''}</p>
+      </div>}
     </div>
-    {(cap.condition === 'apply' || cap.selection === 'apply' || cap.prcGroup === 'apply') && <div role="group" aria-label={m('queryEquipmentConditions')} className="flex min-w-0 flex-wrap items-start gap-3">
-        {switcher && <div className="grid gap-1 text-xs text-text-secondary">
-          <span id={`${id}-preset`}>{m('queryConditionSet')}</span>
-          <SegmentedRadio disabled={pendingDefault} label={m('queryConditionSet')} labelledBy={`${id}-preset`} value={switcher.activeId} onChange={switchPreset} options={switcher.presets.map(item => ({ value: item.id, label: item.label[lang] }))} />
-          <p role="status" className="sr-only">{presetNotice.id === switcher.activeId ? presetNotice.text : ''}</p>
-        </div>}
-        {(cap.condition === 'apply' || cap.prcGroup === 'apply') && <div className="grid w-80 max-w-full gap-1 text-xs text-text-secondary">
-          <span id={`${id}-membership`}>{m('queryMembershipBasis')}</span>
-          {/* SegmentedRadio uses these primitives too, but cannot disable just the historical option. */}
-          <RadioGroup disabled={pendingDefault} appearance="segmented" orientation="horizontal" aria-labelledby={`${id}-membership`} value={g.membershipBasis ?? 'current'} onValueChange={value => write({ membershipBasis: value === 'asOf' ? 'asOf' : null })} onKeyDownCapture={event => {
-            // Match SegmentedRadio's synchronous focus/selection, skipping the unavailable historical choice.
-            if (pendingDefault || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
-            event.preventDefault();
-            const next = !history || event.key === 'Home' ? null : event.key === 'End' ? 'asOf' : g.membershipBasis === 'asOf' ? null : 'asOf';
-            write({ membershipBasis: next });
-            event.currentTarget.querySelector<HTMLButtonElement>(next === 'asOf' ? 'button[value="asOf"]' : 'button[value="current"]')?.focus();
-          }}>
-            <RadioGroupItem appearance="segmented" value="current" disabled={pendingDefault}>{m('queryCurrentMembership')}</RadioGroupItem>
-            <RadioGroupItem appearance="segmented" value="asOf" disabled={pendingDefault || !history} aria-describedby={!history ? `${id}-history` : undefined}>{t('membershipAsOf')}</RadioGroupItem>
-          </RadioGroup>
-          {!history && <p id={`${id}-history`}>{m('queryMembershipHistoryHint')}</p>}
-        </div>}
-    </div>}
     {carried.length > 0 && <div role="group" aria-label={m('queryCarriedConditions')} className="flex flex-wrap gap-2 text-xs">
       {carried.map(item => <span key={item.key} className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md border border-border-subtle p-2 [overflow-wrap:anywhere]">
         {item.label} {item.value} · {item.key.startsWith('condition:') && outside.includes(item.key.slice('condition:'.length)) ? m('queryNotAppliedInPreset', { name: presetName }) : item.capability === 'unsupported' ? t('notUsed') : item.capability === 'reference' ? t('referenceOnly') : t('applied')}
@@ -344,41 +329,3 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
 }
 
 const NO_GROUPS: readonly string[] = [];
-/** The calendar day of a wall-clock anchor; blank when the server has none (never a browser-clock date). */
-const day = (value: string | null) => (value === null ? '' : value.slice(0, 10));
-function PeriodFields({ compact, disabled, global: g, range, setRange, write, invalid, reasonId, periodEditor, setPeriodEditor }: { compact: boolean; periodEditor: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }; setPeriodEditor: (value: { mode: 'reference' | 'range'; reference: string; invalidReference: boolean }) => void; range: { from: string; to: string }; setRange: (value: { from: string; to: string }) => void; global: GlobalContext; write: (patch: Partial<GlobalContext>) => void; invalid: boolean; reasonId: string; disabled: boolean }) {
-  const { defaultRangeTo } = useHostPlatform();
-  const { lang, t } = useI18n();
-  const m = useMessages(SHELL_MESSAGES);
-  const { mode, reference } = periodEditor;
-  const setMode = (mode: 'reference' | 'range') => setPeriodEditor({ ...periodEditor, mode, invalidReference: false });
-  const date = (value: string) => {
-    try { const from = `${value}T00:00:00`; parseDateTime(from, 'from'); setPeriodEditor({ mode: 'reference', reference: value, invalidReference: false }); write({ from, to: shift(from, 24) }); } catch { setPeriodEditor({ mode: 'reference', reference: value, invalidReference: true }); }
-  };
-  const custom = (key: 'from' | 'to', value: string) => {
-    const normalized = value.length === 16 ? `${value}:00` : value;
-    const next = { ...range, [key]: normalized }; setRange(next);
-    try { parseDateTime(next.from, 'from'); parseDateTime(next.to, 'to'); write(next); } catch { /* Invalid input is derived from range, without a second error state. */ }
-  };
-  const hours = periodHours(g);
-  const ends = (hoursBack: number) => isTrailingPeriod(g, defaultRangeTo, hoursBack);
-  const presets = [
-    { label: m('queryPresetLast24Hours'), pressed: ends(24), apply: () => { if (defaultRangeTo === null) return; setMode('range'); write({ from: shift(defaultRangeTo, -24), to: defaultRangeTo }); } },
-    { label: m('queryPresetLast7Days'), pressed: ends(168), apply: () => { if (defaultRangeTo === null) return; setMode('range'); write({ from: shift(defaultRangeTo, -168), to: defaultRangeTo }); } },
-    { label: m('queryPresetToday'), pressed: defaultRangeTo !== null && g.from === `${defaultRangeTo.slice(0, 10)}T00:00:00` && hours === 24, apply: () => { if (defaultRangeTo !== null) date(defaultRangeTo.slice(0, 10)); } },
-  ];
-  return <div className="grid min-w-0 max-w-full gap-1 text-xs text-text-secondary" role="group" aria-label={t('period')}>
-    <span className="flex flex-wrap items-baseline gap-x-2">{t('period')}<span className="[overflow-wrap:anywhere]">{formatPeriod(g.from, g.to, lang)}</span></span>
-    <div className="flex flex-wrap items-center gap-1">
-      {presets.map(p => <Button key={p.label} type="button" size="toolbar" variant={p.pressed ? 'secondary' : 'ghost'} aria-pressed={p.pressed} disabled={disabled || defaultRangeTo === null} onClick={p.apply}>{p.label}</Button>)}
-      {/* Presets pick a range, the pair picks how to type one: a divider keeps two pressed buttons from reading as one choice. */}
-      <span aria-hidden className="mx-1 h-5 w-px bg-border-subtle" data-period-divider />
-      <Button type="button" size="toolbar" variant={mode === 'reference' ? 'secondary' : 'ghost'} disabled={disabled} aria-pressed={mode === 'reference'} onClick={() => setMode('reference')}>{m('queryReferenceDate')}</Button>
-      <Button type="button" size="toolbar" variant={mode === 'range' ? 'secondary' : 'ghost'} disabled={disabled} aria-pressed={mode === 'range'} onClick={() => setMode('range')}>{m('queryCustomRange')}</Button>
-    </div>
-    {mode === 'reference' ? <Input type="date" inputSize={compact ? 'toolbar' : undefined} disabled={disabled} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} aria-label={m('queryReferenceDate')} value={reference} onChange={event => date(event.target.value)} className="w-44 max-w-full" /> : <div className="flex flex-wrap gap-2">
-      <Input type="datetime-local" inputSize={compact ? 'toolbar' : undefined} disabled={disabled} step="1" aria-label={m('queryRangeFrom')} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.from} onChange={event => custom('from', event.target.value)} className={compact ? 'w-60 max-w-full' : 'w-64 max-w-full'} />
-      <Input type="datetime-local" inputSize={compact ? 'toolbar' : undefined} disabled={disabled} step="1" aria-label={m('queryRangeTo')} aria-invalid={invalid || undefined} aria-describedby={invalid ? reasonId : undefined} value={range.to} onChange={event => custom('to', event.target.value)} className={compact ? 'w-60 max-w-full' : 'w-64 max-w-full'} />
-    </div>}
-  </div>;
-}

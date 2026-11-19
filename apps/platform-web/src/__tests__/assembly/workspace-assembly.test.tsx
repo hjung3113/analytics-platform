@@ -43,6 +43,9 @@ describe('workspace assembly (#260)', () => {
     expect(entry.features.savedView).toBe(true);
     expect(registry.spaceOf(entry)?.id).toBe('mars');
   });
+  it('assembles the Configuration borrower with the HW Time PRC group binding', () => {
+    expect(registry.lentPanels('configuration')).toMatchObject([{ binding: { context: { prcGroup: { kind: 'context', key: 'prcGroup' } } } }]);
+  });
   it('uses the shared Apply and saved-view declarations for CLAS operation time (#2503)', () => {
     expect(registry.menuById('operation-time')).toMatchObject({
       query: { mode: 'apply', autoApplyDefault: true }, features: { savedView: true },

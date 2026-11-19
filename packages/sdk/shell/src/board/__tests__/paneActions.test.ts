@@ -51,7 +51,7 @@ describe('paneSignals compares the Context itself, not its displayed text', () =
 
   it('shows the period in the one display rule', () => {
     const { global } = parseQuery('?from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
-    expect(contextValues(global, '없음').find(e => e.key === 'time')?.value).toBe('09-25 09:00 → 09-26 09:00 (24h)');
+    expect(contextValues(global, '없음').find(e => e.key === 'time')?.value).toBe('09-25 → 09-27 (2일)');
   });
 });
 

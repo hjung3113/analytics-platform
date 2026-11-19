@@ -32,13 +32,13 @@ it('edits a page/global draft without URL writes, counts raw keys, applies once 
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   expect(document.querySelector('[data-query-bar]')).toHaveAttribute('data-canvas-band');
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
-  const room = screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ });
+  const room = screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ });
   expect(room).toHaveAttribute('aria-invalid', 'true');
   expect(document.getElementById(room.getAttribute('aria-describedby')!)).toHaveTextContent('공정');
   expect(screen.getByRole('button', { name: '공정을 선택하세요' })).toBeVisible();
   fireEvent.click(room);
   await screen.findByRole('button', { name: '조건 적용 · 2대' });
-  fireEvent.click(screen.getByRole('button', { name: /공정 전체/ }));
+  fireEvent.click(screen.getByRole('button', { name: /공정 2개/ }));
   fireEvent.click(screen.getByRole('button', { name: 'PHOTO만 선택' }));
   fireEvent.click(await screen.findByRole('button', { name: '조건 적용 · 1대' }));
   expect(draft.draft.global.roomNames).toEqual(['PHOTO']);
@@ -74,21 +74,21 @@ it('preserves draft values across close/expand, restores focus and uses anchor c
   fireEvent.click(screen.getByRole('button', { name: '오늘' }));
   expect(draft.draft.global).toMatchObject({ from: '2026-01-01T00:00:00', to: '2026-01-02T00:00:00' });
   fireEvent.click(screen.getByRole('button', { name: '최근 7일' }));
-  expect(draft.draft.global.from).toBe('2025-12-25T09:31:22');
+  expect(draft.draft.global.from).toBe('2025-12-26T00:00:00');
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
   expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toHaveFocus();
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
-  expect(screen.getByRole('button', { name: '최근 24시간' })).toHaveFocus();
-  expect(draft.draft.global.from).toBe('2025-12-25T09:31:22');
+  expect(screen.getByLabelText('시작일')).toHaveFocus();
+  expect(draft.draft.global.from).toBe('2025-12-26T00:00:00');
 });
 it('shows the period as one readable range and no ISO interval (#913)', async () => {
   mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   const group = screen.getByRole('group', { name: '기간' });
-  expect(group).toHaveTextContent('12-31 09:31 → 01-01 09:31 (24h)');
+  expect(group).toHaveTextContent('12-31 → 01-01 (1일)');
   expect(document.body.textContent).not.toMatch(/\[2026-|\[2025-/);
   fireEvent.click(screen.getByRole('button', { name: '최근 7일' }));
-  expect(screen.getByRole('group', { name: '기간' })).toHaveTextContent('12-25 09:31 → 01-01 09:31 (7일)');
+  expect(screen.getByRole('group', { name: '기간' })).toHaveTextContent('12-26 → 01-02 (7일)');
 });
 it('does not count the seeded default period as a change, before or after Revert (#913)', async () => {
   mount();
@@ -99,7 +99,7 @@ it('does not count the seeded default period as a change, before or after Revert
   fireEvent.click(screen.getByRole('button', { name: '초안 되돌리기' }));
   expect(screen.queryByText(/미적용 변경/)).toBeNull();
   expect(screen.queryByText(/기간을 선택하세요/)).toBeNull();
-  expect(screen.getByRole('group', { name: '기간' })).toHaveTextContent('12-31 09:31 → 01-01 09:31 (24h)');
+  expect(screen.getByRole('group', { name: '기간' })).toHaveTextContent('12-31 → 01-01 (1일)');
   // `오늘` moves both ends of the period: still one change (#913 UX-2).
   fireEvent.click(screen.getByRole('button', { name: '오늘' }));
   expect(screen.getByText('미적용 변경 1개 · 공유에서 제외')).toBeTruthy();
@@ -109,18 +109,17 @@ it('does not count the seeded default period as a change, before or after Revert
   expect(bar().querySelector('summary')?.textContent).toMatch(/^편집 중 · /);
   expect(within(bar()).getByRole('button', { name: '적용' })).toBeVisible();
 });
-it('marks the preset equal to the draft range as pressed and the mode pair follows the editor mode (#913)', async () => {
+it('marks the matching calendar range and puts focus on the start field for direct entry', async () => {
   mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
-  const pressed = () => ['최근 24시간', '최근 7일', '오늘', '기준일', '직접 범위'].map(name => screen.getByRole('button', { name }).getAttribute('aria-pressed'));
-  expect(pressed()).toEqual(['true', 'false', 'false', 'false', 'true']);
+  const pressed = () => ['오늘', '어제', '최근 7일'].map(name => screen.getByRole('button', { name }).getAttribute('aria-pressed'));
+  expect(pressed()).toEqual(['false', 'true', 'false']);
   fireEvent.click(screen.getByRole('button', { name: '최근 7일' }));
-  expect(pressed()).toEqual(['false', 'true', 'false', 'false', 'true']);
-  fireEvent.click(screen.getByRole('button', { name: '기준일' }));
-  expect(pressed()).toEqual(['false', 'true', 'false', 'true', 'false']);
+  expect(pressed()).toEqual(['false', 'false', 'true']);
   fireEvent.click(screen.getByRole('button', { name: '직접 범위' }));
-  fireEvent.change(screen.getByLabelText('시작 시각'), { target: { value: '2025-12-30T08:00:00' } });
-  expect(pressed()).toEqual(['false', 'false', 'false', 'false', 'true']);
+  expect(screen.getByLabelText('시작일')).toHaveFocus();
+  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2025-12-30' } });
+  expect(pressed()).toEqual(['false', 'false', 'false']);
 });
 it('retains child axes and IDs outside candidates with nonblocking explanations', async () => {
   mount();
@@ -144,12 +143,12 @@ it('distinguishes explicit empty selection/rooms, removes the last Condition key
   mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => draft.setDraftGlobal({ roomNames: [], selection: [], condition: { vendor: ['V1'] } }));
-  expect(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ })).toHaveTextContent('빈 선택');
-  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  expect(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ })).toHaveTextContent('빈 선택');
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ }));
   fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
   expect(draft.draft.global.roomNames).toEqual([]);
   expect(draft.draft.global.selection).toEqual([]);
-  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ }));
   fireEvent.click(within(screen.getByRole('group', { name: '공급사' })).getByRole('checkbox', { name: '전체' }));
   fireEvent.click(await screen.findByRole('button', { name: '조건 적용 · 2대' }));
   expect(draft.draft.global.condition).toBeNull();
@@ -158,6 +157,7 @@ it('distinguishes explicit empty selection/rooms, removes the last Condition key
   expect(draft.draft.global.roomNames).toEqual(['ETCH', 'PHOTO']);
   act(() => draft.setDraftGlobal({ roomNames: [], prcGroups: ['P1'] }));
   expect(draft.canApply).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: /^대상 PRC 그룹/ }));
   expect(screen.getByRole('radio', { name: /그 시점 소속/ })).toBeEnabled();
 });
 it('shows metadata transport failures without dropping selections or blocking valid draft application', async () => {
@@ -165,7 +165,7 @@ it('shows metadata transport failures without dropping selections or blocking va
   mount('', { listEquipmentFacts: facts });
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => draft.setDraftGlobal({ roomNames: [], selection: ['EQ-X'] }));
-  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ }));
   expect(await screen.findByRole('alert')).toHaveTextContent('설비 기본 정보를 불러오지 못했습니다.');
   expect(screen.queryByRole('table')).toBeNull();
   await waitFor(() => expect(facts).toHaveBeenCalledTimes(1));
@@ -179,10 +179,10 @@ it('retains incomplete period input across closing and prevents an unrelated edi
   mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => draft.setDraftGlobal({ roomNames: [] }));
-  fireEvent.change(screen.getByLabelText('시작 시각'), { target: { value: '' } });
+  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '' } });
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
-  expect(screen.getByLabelText('시작 시각')).toHaveValue('');
+  expect(screen.getByLabelText('시작일')).toHaveValue('');
   fireEvent.click(screen.getByRole('button', { name: '대상 지우기' }));
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
@@ -200,7 +200,7 @@ it('keeps pane drafts independent and closes the anchored editor with focus rest
   render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><Board /></PlatformProvider></I18nProvider>);
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
   fireEvent.click(screen.getByRole('button', { name: '최근 7일' }));
-  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ }));
   fireEvent.click(screen.getAllByRole('button', { name: '취소' })[0]);
   expect(screen.getByRole('button', { name: '닫기' })).toBeTruthy();
   fireEvent.keyDown(screen.getByRole('button', { name: '최근 7일' }), { key: 'Escape' });
@@ -216,10 +216,36 @@ it('ignores unused history-incapable axes, then disables asOf when one becomes u
   mount('', {}, false);
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => draft.setDraftGlobal({ roomNames: [], prcGroups: ['P'] }));
+  fireEvent.click(screen.getByRole('button', { name: /^대상 PRC 그룹/ }));
   expect(screen.getByRole('radio', { name: /그 시점 소속/ })).toBeEnabled();
+  fireEvent.click(within(screen.getByRole('dialog', { name: '대상' })).getByRole('button', { name: '취소' }));
   act(() => draft.setDraftGlobal({ condition: { vendor: ['V'] } }));
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|확인 중)/ }));
   expect(screen.getByRole('radio', { name: /그 시점 소속/ })).toBeDisabled();
   expect(screen.getByText(/설비 조건이나 PRC 그룹을 선택하고 소속 이력을 확인하세요/)).toBeTruthy();
+});
+
+it('keeps the target dialog open when a staged historical basis conflicts with a new axis', async () => {
+  mount('', {}, false);
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  fireEvent.click(screen.getByRole('button', { name: /^대상 설비/ }));
+  const dialog = within(await screen.findByRole('dialog', { name: '대상' }));
+  await dialog.findByRole('button', { name: '조건 적용 · 2대' });
+  fireEvent.click(dialog.getByRole('button', { name: /^PRC 그룹 / }));
+  fireEvent.click(dialog.getByRole('button', { name: 'P1만 선택' }));
+  const historical = dialog.getByRole('radio', { name: '그 시점 소속' });
+  fireEvent.click(historical);
+  expect(historical).toBeChecked();
+  fireEvent.click(dialog.getByRole('button', { name: /^공급사 / }));
+  fireEvent.click(dialog.getByRole('button', { name: 'V1만 선택' }));
+  const apply = await dialog.findByRole('button', { name: '조건 적용 · 1대' });
+  expect(historical).toBeChecked();
+  expect(historical).toBeDisabled();
+  expect(apply).toBeDisabled();
+  fireEvent.click(dialog.getByRole('radio', { name: '지금 소속' }));
+  expect(apply).toBeEnabled();
+  fireEvent.click(apply);
+  expect(draft.draft.global).toMatchObject({ prcGroups: ['P1'], condition: { vendor: ['V1'] }, membershipBasis: null });
 });
 it('merges consumer page diagnostics into the only Apply gate', async () => {
   mount('&roomNames=PHOTO', {}, true, { pageSummary: [{ key: 'grain', label: '집계', value: 'unknown' }], issues: [{ key: 'grain', label: '집계', reason: '허용되지 않은 값' }] });
@@ -267,16 +293,16 @@ function mountFirstEntry(autoApplyDefault: boolean) {
   render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><Page /></PlatformProvider></I18nProvider>);
   return { release, lookup, period };
 }
-it('disables period inputs, target, membership and Apply while the first-entry lookup is held', async () => {
+it('disables period inputs, the target dialog and Apply while the first-entry lookup is held', async () => {
   const { lookup } = mountFirstEntry(true);
   await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
   expect(window.location.search).toBe('');
   expect(screen.getByRole('button', { name: '조회 조건 접기' })).toBeVisible();
-  expect(screen.getByLabelText('시작 시각')).toBeDisabled();
-  expect(screen.getByLabelText('종료 시각 (제외)')).toBeDisabled();
+  expect(screen.getByLabelText('시작일')).toBeDisabled();
+  expect(screen.getByLabelText('종료일 (포함)')).toBeDisabled();
   expect(screen.getByRole('button', { name: '최근 7일' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ })).toBeDisabled();
-  expect(screen.getAllByRole('radio')[0]).toBeDisabled();
+  expect(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ })).toBeDisabled();
+  expect(screen.queryByRole('dialog', { name: '대상' })).toBeNull();
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
 });
 it('applies the personal default, folds the bar and enables the controls after release', async () => {
@@ -290,8 +316,8 @@ it('applies the personal default, folds the bar and enables the controls after r
   expect(screen.queryByRole('button', { name: '적용' })).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
   expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
-  expect(screen.getByLabelText('시작 시각')).toBeEnabled();
-  expect(screen.getByLabelText('종료 시각 (제외)')).toBeEnabled();
+  expect(screen.getByLabelText('시작일')).toBeEnabled();
+  expect(screen.getByLabelText('종료일 (포함)')).toBeEnabled();
   expect(screen.getByRole('button', { name: '최근 7일' })).toBeEnabled();
 });
 it('unlocks at the three-second default-read deadline and discards the late default', async () => {
@@ -303,13 +329,13 @@ it('unlocks at the three-second default-read deadline and discards the late defa
     expect(lookup).toHaveBeenCalledTimes(1);
     await act(async () => vi.advanceTimersByTimeAsync(2999));
     expect(window.location.search).toBe('');
-    expect(screen.getByLabelText('시작 시각')).toBeDisabled();
+    expect(screen.getByLabelText('시작일')).toBeDisabled();
     await act(async () => vi.advanceTimersByTimeAsync(1));
-    expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-09-25T09:00:00');
+    expect(new URLSearchParams(window.location.search).get('from')).toBe('2026-09-25T00:00:00');
     expect(screen.queryByRole('button', { name: '적용' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
     expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
-    expect(screen.getByLabelText('시작 시각')).toBeEnabled();
+    expect(screen.getByLabelText('시작일')).toBeEnabled();
     const applied = window.location.search;
     await act(async () => release());
     expect(window.location.search).toBe(applied);
@@ -322,21 +348,21 @@ it('leaves period and Apply enabled with a held Saved View lookup on a non-opt-i
   const { lookup } = mountFirstEntry(false);
   await waitFor(() => expect(lookup).toHaveBeenCalledTimes(1));
   expect(window.location.search).toBe('');
-  expect(screen.getByLabelText('시작 시각')).toBeEnabled();
+  expect(screen.getByLabelText('시작일')).toBeEnabled();
   expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
 });
-it('keeps a blank reference date invalid across unrelated edits and collapse until a valid preset replaces it', async () => {
+it('keeps a blank start date invalid across unrelated edits and collapse until a valid preset replaces it', async () => {
   const push = mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   fireEvent.click(screen.getByRole('button', { name: '기준일' }));
-  fireEvent.change(screen.getByLabelText('기준일'), { target: { value: '' } });
+  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '' } });
   fireEvent.click(screen.getByRole('button', { name: '대상 지우기' }));
   act(() => draft.setDraftGlobal({ roomNames: [] }));
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 펼치기' }));
-  const input = screen.getByLabelText('기준일');
+  const input = screen.getByLabelText('시작일');
   expect(input).toHaveValue('');
   expect(input).toHaveAttribute('aria-invalid', 'true');
   expect(document.getElementById(input.getAttribute('aria-describedby')!)).toHaveTextContent('유효한');
@@ -345,14 +371,14 @@ it('keeps a blank reference date invalid across unrelated edits and collapse unt
   fireEvent.click(screen.getByRole('button', { name: '최근 7일' }));
   expect(screen.getByRole('button', { name: '적용' })).toBeEnabled();
   fireEvent.click(screen.getByRole('button', { name: '기준일' }));
-  expect(screen.getByLabelText('기준일')).toHaveValue('2025-12-25');
-  expect(screen.getByLabelText('기준일')).not.toHaveAttribute('aria-invalid');
+  expect(screen.getByLabelText('시작일')).toHaveValue('2025-12-26');
+  expect(screen.getByLabelText('시작일')).not.toHaveAttribute('aria-invalid');
 });
 it.each([false, true])('clears the last editable asOf owner atomically (another owner: %s)', async otherOwner => {
   const push = mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => draft.setDraftGlobal({ roomNames: [], condition: { vendor: ['V1'] }, prcGroups: otherOwner ? ['P1'] : null, membershipBasis: 'asOf' }));
-  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ }));
   await screen.findByRole('button', { name: /조건 적용/ });
   fireEvent.click(within(screen.getByRole('group', { name: '공급사' })).getByRole('checkbox', { name: '전체' }));
   fireEvent.click(await screen.findByRole('button', { name: /조건 적용/ }));
@@ -435,51 +461,62 @@ it.each([['reference', true], ['reference', false], ['unsupported', true], ['uns
   expect(send).not.toHaveBeenCalled();
 });
 
-it('keeps named compact field groups and content-sized native date-time inputs, and uses product membership copy', async () => {
+it('keeps named compact field groups and content-sized native date inputs in the compact row', async () => {
   mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   expect(screen.getByRole('group', { name: '기간과 Scope' }).tagName).toBe('DIV');
-  expect(screen.getByRole('group', { name: '설비 조건' }).tagName).toBe('DIV');
   expect(screen.getByRole('group', { name: '기간' })).not.toHaveClass('basis-full', 'flex-1');
-  for (const name of ['시작 시각', '종료 시각 (제외)']) {
-    expect(screen.getByLabelText(name)).toHaveAttribute('type', 'datetime-local');
+  for (const name of ['시작일', '종료일 (포함)']) {
+    expect(screen.getByLabelText(name)).toHaveAttribute('type', 'date');
     expect(screen.getByLabelText(name)).not.toHaveClass('flex-1');
   }
-  expect(screen.getByText('설비 조건이나 PRC 그룹을 선택하고 소속 이력을 확인하세요.')).toBeTruthy();
+  expect(screen.queryByRole('radiogroup', { name: '소속 기준' })).toBeNull();
   expect(screen.getByRole('region', { name: '조회 조건' }).textContent).not.toMatch(/Condition|축|Draft/);
   fireEvent.click(screen.getByRole('button', { name: '조회 조건 접기' }));
   expect(screen.getByRole('region', { name: '조회 조건' })).toHaveClass('sticky', 'top-[50px]');
 });
-it('keeps membership single-choice, explains the disabled history option and changes only the draft', async () => {
+it('stages membership and targets together, preserves keyboard access and discards them on cancel', async () => {
   const user = userEvent.setup();
   const push = mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
-  const membership = screen.getByRole('radiogroup', { name: '소속 기준' });
+  const trigger = () => screen.getByRole('button', { name: /^대상 설비/ });
+  fireEvent.click(trigger());
+  const dialog = await screen.findByRole('dialog', { name: '대상' });
+  const membership = within(dialog).getByRole('radiogroup', { name: '소속 기준' });
   const current = within(membership).getByRole('radio', { name: '지금 소속' });
-  const historical = within(membership).getByRole('radio', { name: /그 시점 소속/ });
+  const historical = within(membership).getByRole('radio', { name: '그 시점 소속' });
+  await waitFor(() => expect(current).toBeEnabled());
   expect(current).toBeChecked();
   expect(historical).toBeDisabled();
   expect(historical).toHaveAccessibleDescription('설비 조건이나 PRC 그룹을 선택하고 소속 이력을 확인하세요.');
-  fireEvent.click(historical);
-  expect(draft.draft.global.membershipBasis).toBeNull();
   await user.click(current);
   await user.keyboard('{ArrowRight}');
   expect(current).toHaveFocus();
   expect(current).toBeChecked();
-  act(() => draft.setDraftGlobal({ condition: { vendor: ['V1'] } }));
-  expect(historical).toBeEnabled();
+  fireEvent.click(within(dialog).getByRole('button', { name: /공급사/ }));
+  fireEvent.click(within(dialog).getByRole('button', { name: 'V1만 선택' }));
+  await waitFor(() => expect(historical).toBeEnabled());
+  await user.click(current);
   await user.keyboard('{ArrowRight}');
-  await waitFor(() => expect(historical).toBeChecked());
   expect(historical).toHaveFocus();
-  expect(current).not.toBeChecked();
-  expect(draft.draft.global.membershipBasis).toBe('asOf');
-  await user.keyboard('{ArrowLeft}');
-  await waitFor(() => expect(current).toBeChecked());
+  expect(historical).toBeChecked();
   expect(draft.draft.global.membershipBasis).toBeNull();
+  expect(draft.draft.global.condition).toBeNull();
+  fireEvent.click(within(dialog).getAllByRole('button', { name: '취소' })[0]);
+  expect(trigger()).not.toHaveAccessibleName(/그 시점 소속/);
+  fireEvent.click(trigger());
+  const reopened = await screen.findByRole('dialog', { name: '대상' });
+  expect(within(reopened).getByRole('radio', { name: '지금 소속' })).toBeChecked();
+  fireEvent.click(within(reopened).getByRole('button', { name: /공급사/ }));
+  fireEvent.click(within(reopened).getByRole('button', { name: 'V1만 선택' }));
+  fireEvent.click(within(reopened).getByRole('radio', { name: '그 시점 소속' }));
+  const apply = await within(reopened).findByRole('button', { name: '조건 적용 · 1대' });
+  await waitFor(() => expect(apply).toBeEnabled());
+  fireEvent.click(apply);
+  expect(draft.draft.global).toMatchObject({ membershipBasis: 'asOf', condition: { vendor: ['V1'] } });
+  expect(trigger()).toHaveAccessibleName(/그 시점 소속/);
   expect(push).not.toHaveBeenCalled();
   expect(send).not.toHaveBeenCalled();
-  fireEvent.keyDown(current, { key: 'Escape' });
-  expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toHaveFocus();
 });
 it('keeps expanded action order and puts revert and reset in the folded overflow', async () => {
   window.history.replaceState(null, '', '/?scopeId=MEM');
@@ -499,7 +536,7 @@ it('searches the facts locally without calling the removed equipment search port
   const searchEquipment = vi.fn();
   mount('', { searchEquipment });
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
-  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|PRC 그룹|고정|확인 중)/ }));
   await screen.findByRole('button', { name: '조건 적용 · 2대' });
   const input = screen.getByRole('textbox', { name: /검색/ });
   for (const text of ['E', 'E1']) fireEvent.change(input, { target: { value: text } });
@@ -514,7 +551,7 @@ it('no server anchor (defaultRangeTo null): no default period is invented, relat
   expect(draft.draft.global.from).toBeNull();
   expect(draft.draft.global.to).toBeNull();
   expect(window.location.search).not.toMatch(/from=|to=/);
-  for (const name of ['최근 24시간', '최근 7일', '오늘']) expect(screen.getByRole('button', { name })).toBeDisabled();
+  for (const name of ['어제', '최근 7일', '오늘']) expect(screen.getByRole('button', { name })).toBeDisabled();
   expect(screen.getByRole('button', { name: '적용' })).toBeDisabled();
   expect(draft.missing.length).toBeGreaterThan(0);
   expect(send).not.toHaveBeenCalled();
@@ -526,17 +563,17 @@ it('no server anchor: an explicit period in the address still applies and querie
   expect(platform.global.from).toBe('2026-01-01T00:00:00');
   expect(platform.global.to).toBe('2026-01-02T00:00:00');
   fireEvent.click(await screen.findByRole('button', { name: '조회 조건 펼치기' })); // an applied address starts collapsed (#1892)
-  expect(screen.getByRole('button', { name: '최근 24시간' })).toBeDisabled();
-  expect(screen.getByRole('button', { name: '최근 24시간' })).toHaveAttribute('aria-pressed', 'false');
+  expect(screen.getByRole('button', { name: '어제' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '어제' })).toHaveAttribute('aria-pressed', 'false');
 });
 
 it('no server anchor: the custom range editor starts blank', async () => {
   mount('', { defaultRangeTo: () => null });
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   fireEvent.click(screen.getByRole('button', { name: '직접 범위' }));
-  for (const label of ['시작 시각', '종료 시각 (제외)']) expect(screen.getByLabelText(label)).toHaveValue('');
+  for (const label of ['시작일', '종료일 (포함)']) expect(screen.getByLabelText(label)).toHaveValue('');
   fireEvent.click(screen.getByRole('button', { name: '기준일' }));
-  expect(screen.getByLabelText('기준일')).toHaveValue('');
+  expect(screen.getByLabelText('시작일')).toHaveValue('');
 });
 
 function Body() { const query = useMenuQuery(endpoint, null); return <QueryView query={query}>{() => <span>result</span>}</QueryView>; }
@@ -555,7 +592,7 @@ it.each([['bar', barRegion], ['body', idleBody]] as const)('opens the process fa
   fireEvent.click(opener);
   const dialog = await screen.findByRole('dialog', { name: '대상' });
   expect(await within(dialog).findByRole('button', { name: 'PHOTO만 선택' })).toBeVisible();
-  expect(within(dialog).getByRole('button', { name: /공정 전체/ })).toHaveAttribute('aria-expanded', 'true');
+  expect(within(dialog).getByRole('button', { name: /공정 1개/ })).toHaveAttribute('aria-expanded', 'true');
   fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
   await waitFor(() => expect(within(region()).getByRole('button', { name: '공정을 선택하세요' })).toHaveFocus());
 });
@@ -564,7 +601,7 @@ it('moves focus to a genuinely missing period from the idle body', async () => {
   mountPage('', true, false, { defaultRangeTo: () => null });
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   fireEvent.click(within(idleBody()).getByRole('button', { name: '기간을 선택하세요' }));
-  expect(screen.getByLabelText('시작 시각')).toHaveFocus();
+  expect(screen.getByLabelText('시작일')).toHaveFocus();
 });
 it('idle: the seeded default period is missing from the applied values but not from the bar, so the list stays (#1170)', async () => {
   mountPage('', false);
@@ -610,7 +647,7 @@ it('opens a folded Context editor through the function the bar registers, with n
   expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: '조건 편집 열기' }));
   expect(screen.getByRole('button', { name: '조회 조건 접기' })).toBeVisible();
-  expect(screen.getByRole('button', { name: '최근 24시간' })).toHaveFocus();
+  expect(screen.getByLabelText('시작일')).toHaveFocus();
 });
 it.each([['compact', 'px-4'], ['comfortable', 'px-3']] as const)('%s page: the collapsed query bar row insets %s so it lines up with the content (#1166)', async (density, inset) => {
   window.history.replaceState(null, '', '/?scopeId=MEM');
@@ -693,7 +730,7 @@ describe('initial disclosure (#1892)', () => {
   });
 });
 
-it.each([['ko', '대상 지우기', '전체'], ['en', 'Clear targets', 'All']] as const)('shows target clear only for a value and resets the target to all in %s (#1995)', async (lang, clearLabel, placeholder) => {
+it.each([['ko', '대상 지우기', '설비 선택'], ['en', 'Clear targets', 'Select equipment']] as const)('shows target clear only for a value and resets the target to all in %s (#1995)', async (lang, clearLabel, placeholder) => {
   localStorage.setItem('platform:lang', lang);
   mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
@@ -707,19 +744,15 @@ it.each([['ko', '대상 지우기', '전체'], ['en', 'Clear targets', 'All']] a
   expect(screen.queryByRole('button', { name: clearLabel })).toBeNull();
 });
 
-it('derives one period error and clears reference invalidity on a mode switch (#2028 SHE-15)', async () => {
+it('reports one invalid date-range error and clears it when a usable preset replaces the dates', async () => {
   mount();
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
-  fireEvent.change(screen.getByLabelText('시작 시각'), { target: { value: '' } });
-  expect(screen.getAllByText('유효한 시작·종료 시각을 입력하세요.')).toHaveLength(1);
-  fireEvent.click(screen.getByRole('button', { name: '최근 24시간' }));
-  fireEvent.click(screen.getByRole('button', { name: '기준일' }));
-  fireEvent.change(screen.getByLabelText('기준일'), { target: { value: '' } });
-  fireEvent.click(screen.getByRole('button', { name: '직접 범위' }));
-  expect(screen.queryByText('유효한 시작·종료 시각을 입력하세요.')).toBeNull();
-  expect(screen.getByLabelText('시작 시각')).not.toHaveAttribute('aria-invalid');
+  fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '' } });
+  expect(screen.getAllByText('유효한 시작일과 종료일을 입력하세요.')).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: '어제' }));
+  expect(screen.queryByText('유효한 시작일과 종료일을 입력하세요.')).toBeNull();
+  expect(screen.getByLabelText('시작일')).not.toHaveAttribute('aria-invalid');
 });
-
 
 it('shares the query bar list with one menu query on each Apply (#2470)', async () => {
   const store = createFakeSavedViewStore([testSavedView({ id: 'g1', kind: 'custom-group', savedScopeId: 'MEM', target: { fixed: ['E1'] } })]);
@@ -764,4 +797,39 @@ it('folds a pane editor after the controlled address acknowledges Apply', async 
   act(() => acknowledge?.());
   expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toBeVisible();
   expect(platform.global.roomNames).toEqual(['ETCH']);
+});
+
+it.each([
+  ['오늘', '2026-01-01T00:00:00', '2026-01-02T00:00:00'],
+  ['어제', '2025-12-31T00:00:00', '2026-01-01T00:00:00'],
+  ['최근 7일', '2025-12-26T00:00:00', '2026-01-02T00:00:00'],
+  ['기준일', '2025-12-27T00:00:00', '2025-12-28T00:00:00'],
+])('stages calendar boundaries for %s', async (name, from, to) => {
+  const push = mount();
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  if (name === '기준일') fireEvent.change(screen.getByLabelText('시작일'), { target: { value: '2025-12-27' } });
+  fireEvent.click(screen.getByRole('button', { name }));
+  expect(draft.draft.global).toMatchObject({ from, to });
+  expect(push).not.toHaveBeenCalled();
+});
+
+it.each([
+  ['2026-01-02T13:00:00', '2026-01-02'],
+  ['2026-01-02T00:00:00', '2026-01-01'],
+])('keeps an old link ending at %s until the period is edited and applied', async (to, endDate) => {
+  const from = '2026-01-01T08:00:00';
+  const push = mount(`&roomNames=PHOTO&from=${from}&to=${to}`);
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+  fireEvent.click(await screen.findByRole('button', { name: '조회 조건 펼치기' }));
+  expect(screen.getByLabelText('시작일')).toHaveValue('2026-01-01');
+  expect(screen.getByLabelText('종료일 (포함)')).toHaveValue(endDate);
+  expect(platform.global).toMatchObject({ from, to });
+  expect(push).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('종료일 (포함)'), { target: { value: '2026-01-03' } });
+  expect(push).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '적용' }));
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+  const params = new URLSearchParams(window.location.search);
+  expect(params.get('from')).toBe('2026-01-01T00:00:00');
+  expect(params.get('to')).toBe('2026-01-04T00:00:00');
 });

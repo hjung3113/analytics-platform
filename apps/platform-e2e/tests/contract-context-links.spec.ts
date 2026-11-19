@@ -32,29 +32,29 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     await expect(mainHeading(page)).toHaveText('생산성 개요');
     await expectScopeValid(page, 'MEM · 메모리');
     const bar = contextBar(page);
-    await expect(bar.getByRole('button', { name: '기간: 09-25 09:00 → 09-26 09:00 (24h)' })).toBeVisible();
-    await expect(bar.getByRole('button', { name: /대상 조건 · 지금 .*공정: PHOTO/ })).toBeVisible();
+    await expect(bar.getByRole('button', { name: '기간: 09-25 → 09-27 (2일)' })).toBeVisible();
+    await expect(bar.getByRole('button', { name: /대상 조건 · .*공정: PHOTO/ })).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
     expect(query(page).toString()).toBe(new URL(url, 'http://x').searchParams.toString());
     await evidence(page, testInfo, 'restored');
 
     await page.reload();
     await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
-    await expect(contextBar(page).getByRole('button', { name: /대상 조건 · 지금 .*공정: PHOTO/ })).toBeVisible();
+    await expect(contextBar(page).getByRole('button', { name: /대상 조건 · .*공정: PHOTO/ })).toBeVisible();
   });
 
   test('기간이 빠진 시간 적용 메뉴는 서버 기준시각으로 기본 기간을 절대값으로 URL에 기록한다', async ({ page }, testInfo) => {
-    // The mock server's defaultRangeTo is 2026-09-26T09:00:00 (a fixture value): never browser now or midnight rounding (§6.3).
+    // The mock server's anchor date is 2026-09-26. The preceding calendar day materializes as absolute boundaries (§6.3).
     await page.goto('/mars/productivity-overview?v=1&scopeId=MEM');
-    await expect.poll(() => query(page).get('to')).toBe('2026-09-26T09:00:00');
-    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
-    const preset = await periodPreset(page, '1일');
-    await expect(preset.locator).toBeChecked();
-    await preset.close();
+    await expect.poll(() => query(page).get('to')).toBe('2026-09-26T00:00:00');
+    expect(query(page).get('from')).toBe('2026-09-25T00:00:00');
+    const preset = await periodPreset(page, '어제');
+    await expect(preset.locator).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('dialog', { name: '기간', exact: true }).getByRole('button', { name: '취소', exact: true }).click();
     await evidence(page, testInfo, 'default-period');
     await page.reload();
-    expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
-    expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
+    expect(query(page).get('from')).toBe('2026-09-25T00:00:00');
+    expect(query(page).get('to')).toBe('2026-09-26T00:00:00');
   });
 
   test('지원하지 않는 URL 버전은 자동 보정하지 않고 계약 오류로 보인다', async ({ page }, testInfo) => {
@@ -317,10 +317,10 @@ test.describe('Scope·세션 전환 시 이전 결과 비노출 (06 §11, §19)'
     const card = kpis.getByRole('button', { name: /^물리 점유율/ });
     await expect(card).toBeVisible({ timeout: 10_000 });
 
-    const preset = await periodPreset(page, '7일');
+    const preset = await periodPreset(page, '최근 7일');
     await preset.locator.click();
-    await preset.close();
-    await expect.poll(() => query(page).get('from')).toBe('2026-09-19T09:00:00');
+    await preset.apply();
+    await expect.poll(() => query(page).get('from')).toBe('2026-09-20T00:00:00');
     await expect(card).toHaveCount(0);
     await expect(kpis.locator('[aria-busy="true"]').first()).toBeVisible();
     await evidence(page, testInfo, 'during-period-change');
@@ -599,9 +599,9 @@ test.describe('드릴다운 (06 §6.4, §12.7, §22, ADR-0025)', () => {
     await page.goto(origin);
     await expect(page.getByRole('navigation', { name: '드릴 경로' })).toBeVisible();
     expect(query(page).get('drillRoom')).toBe('PHOTO');
-    const preset = await periodPreset(page, '7일');
+    const preset = await periodPreset(page, '최근 7일');
     await preset.locator.click();
-    await preset.close();
+    await preset.apply();
     await expect.poll(() => query(page).has('drillRoom')).toBe(false);
     expect(query(page).has('drillStgroup')).toBe(false);
     await evidence(page, testInfo, 'drill-context-cleared');
@@ -831,7 +831,7 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await page.goto(`/mars/cycle-time?scopeId=MEM&roomNames=PHOTO&${PERIOD}`);
     const bar = await expandQuery(page);
     await expectScopeValid(page, 'MEM · 메모리');
-    await bar.getByRole('button', { name: /^대상 조건/ }).click();
+    await bar.getByRole('button', { name: /^대상 (설비|확인 중)/ }).click();
     const dialog = page.getByRole('dialog', { name: '대상', exact: true });
     await expect(dialog.getByRole('checkbox', { name: 'PHOTO', exact: true })).toBeVisible();
     await expect(dialog.getByRole('checkbox', { name: 'DIFF', exact: true })).toHaveCount(0);
@@ -934,7 +934,7 @@ test.describe('커스텀 조회 그룹 (06 §6.4, ADR-0164)', () => {
     const baselineCount = await executionCount(page);
     const baselineRequests = await kpiRequests(page);
 
-    await bar.getByRole('button', { name: /^대상 (전체|조건|고정)/ }).click();
+    await bar.getByRole('button', { name: /^대상 (설비|확인 중|고정)/ }).click();
     let dialog = page.getByRole('dialog', { name: '대상', exact: true });
     await expect(dialog.getByRole('table')).toBeVisible();
     // A facet with picks in the URL opens expanded; only a collapsed one needs the header click.
@@ -949,7 +949,7 @@ test.describe('커스텀 조회 그룹 (06 §6.4, ADR-0164)', () => {
     await dialog.getByRole('button', { name: '취소', exact: true }).last().click();
     expect(query(page).has('equipmentGroup')).toBe(false);
 
-    await bar.getByRole('button', { name: /^대상 (전체|조건|고정)/ }).click();
+    await bar.getByRole('button', { name: /^대상 (설비|확인 중|고정)/ }).click();
     dialog = page.getByRole('dialog', { name: '대상', exact: true });
     await dialog.getByRole('table').waitFor();
     await dialog.getByRole('button', { name: /^커스텀 조회 그룹/ }).click();
@@ -972,7 +972,7 @@ test.describe('커스텀 조회 그룹 (06 §6.4, ADR-0164)', () => {
     await expect.poll(() => executionCount(page)).toBeLessThan(baselineCount);
     await expect(bar.getByRole('button', { name: '조회 조건 펼치기' })).toBeVisible();
     await expandQueryBar(page, bar);
-    await expect(bar.getByRole('button', { name: new RegExp(`^대상 조건 · 지금 ${equipmentCount}대 ·`) })).toBeVisible();
+    await expect(bar.getByRole('button', { name: new RegExp(`^대상 설비 ${equipmentCount}대 ·`) })).toBeVisible();
 
     await showSlowExecutions(page);
     const rows = await rowMapsByColumn(page);
@@ -1027,7 +1027,7 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     await expect(queryResultSurface(page)).toContainText('요약 조회 완료');
     await expect(switcher(bar).getByRole('radio', { name: '설비 기준' })).toBeChecked();
     await expect(bar.getByText(/StGroup .* · 설비 기준에서 미적용/)).toBeVisible();
-    await bar.getByRole('button', { name: /^대상 조건/ }).click();
+    await bar.getByRole('button', { name: /^대상 (설비|확인 중)/ }).click();
     const dialog = page.getByRole('dialog', { name: '대상', exact: true });
     await expect(dialog.getByRole('button', { name: /^설비사 / })).toBeVisible();
     await expect(dialog.getByRole('button', { name: /^StGroup / })).toHaveCount(0);

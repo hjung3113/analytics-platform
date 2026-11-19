@@ -35,13 +35,13 @@ function mount(query: string, withPresets = true) {
 beforeEach(() => { send.mockClear(); vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); localStorage.setItem('platform:query-bar-collapsed:v1:u1:home', 'false'); /* these tests drive the open editor; the arrival default is pinned in QueryBar.test.tsx (#1892) */ });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
-it('shows the switcher first in the equipment fieldset with only the active preset\'s axes, and lists the rest as carried', async () => {
+it('shows the switcher in the compact condition row with only the active preset\'s axes, and lists the rest as carried', async () => {
   mount(period + groupParam(condition));
   await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
   expect(sentConditions()).toEqual([{ maker: ['TEL'] }]);
-  const fieldset = screen.getByRole('group', { name: '설비 조건' });
+  const fieldset = screen.getByRole('group', { name: '기간과 Scope' });
   const switcher = within(fieldset).getByRole('radiogroup', { name: '조건 묶음' });
-  fireEvent.click(screen.getByRole('button', { name: /^대상 (전체|조건|고정)/ }));
+  fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|확인 중)/ }));
   const dialog = await screen.findByRole('dialog', { name: '대상' });
   expect(within(dialog).getByRole('button', { name: /제조사/ })).toBeTruthy();
   expect(within(dialog).queryByRole('button', { name: /팀/ })).toBeNull();

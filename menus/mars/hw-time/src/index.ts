@@ -13,7 +13,7 @@ export { panelDeclarations } from './panels';
 const OPTION_KEYS = ['barsSort', 'barsGroup', 'barsMinMax', 'align', 'trend', 'pins'];
 const PAGE_KEYS = ['drillModule', 'drillMotion', 'row', 'sort', 'page', 'focus', 'verdict', 'date', ...OPTION_KEYS, ...Object.values(HW_TIME_FILTER_KEYS)];
 const SAVED_VIEW_SUPPORT: SavedViewSupport = {
-  menuId: 'hw-time', menuSchemaVersion: 1, contextKeys: ['time', 'roomNames', 'condition', 'selection'],
+  menuId: 'hw-time', menuSchemaVersion: 1, contextKeys: ['time', 'roomNames', 'prcGroup', 'condition', 'selection'],
   pageKeys: PAGE_KEYS.filter(key => key !== 'page' && key !== 'focus'),
 };
 const DRILL = { levels: [

@@ -49,6 +49,21 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     expect(query(page).get('from')).toBe(period);
   });
 
+  test('shows PRC groups and waits for query Apply after selecting one', async ({ page }) => {
+    await page.goto(`${SCREEN}&roomNames=PHOTO`);
+    await expect(panel(page, 'current').getByRole('img')).toBeVisible();
+    const bar = queryBar(page);
+    await expandQueryBar(page, bar);
+    await bar.getByRole('button', { name: /^대상 (설비|확인 중)/ }).click();
+    const dialog = page.getByRole('dialog', { name: '대상', exact: true });
+    await dialog.getByRole('button', { name: /^PRC 그룹 / }).click();
+    await dialog.getByRole('button', { name: 'PRC-PHOTO-0만 선택', exact: true }).click();
+    await dialog.getByRole('button', { name: /^조건 적용 ·/ }).click();
+    expect(query(page).get('prcGroups')).toBeNull();
+    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await expect.poll(() => query(page).get('prcGroups')).toBe('PRC-PHOTO-0');
+  });
+
   test('legacy periodless link applies its target and drill conditions on arrival', async ({ page }) => {
     await page.goto('/hw-time/steps?v=1&scopeId=MEM&roomNames=PHOTO&moduleType=PM&drillMotion=Chuck');
     await expect(panel(page, 'current').getByRole('img')).toBeVisible();

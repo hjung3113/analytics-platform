@@ -192,7 +192,7 @@ it('keeps the full-screen selection when a background pane materializes its peri
   }
   render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><Body /></PlatformProvider></I18nProvider>);
   expect(onChange).toHaveBeenCalledExactlyOnceWith({
-    menuId: 'home', params: {}, query: buildQuery({ ...emptyGlobal, from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' }, []),
+    menuId: 'home', params: {}, query: buildQuery({ ...emptyGlobal, from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' }, []),
   }, 'replace');
   expect(getDefaultId).not.toHaveBeenCalled();
   expect(store.reads).toEqual([]);
@@ -236,7 +236,7 @@ it.each(['list', 'get'] as const)('discards a personal default when the %s read 
       await vi.advanceTimersByTimeAsync(3000);
       held.release();
     });
-    expect(host.global).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', lineNames: null });
+    expect(host.global).toMatchObject({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00', lineNames: null });
     expect(host.queryPolicy.autoApplyingDefault).toBeFalsy();
     expect(replace).toHaveBeenCalledTimes(1);
   } finally {
@@ -261,7 +261,7 @@ it('keeps the original auto Apply deadline when detail expansion changes', async
     expect(host.global.from).toBeNull();
 
     await act(async () => vi.advanceTimersByTimeAsync(100));
-    expect(host.global).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', lineNames: null });
+    expect(host.global).toMatchObject({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00', lineNames: null });
     expect(new URLSearchParams(window.location.search).get('expand')).toBe('1');
     await act(async () => held.release());
     expect(replace).toHaveBeenCalledTimes(2);
@@ -348,7 +348,7 @@ it('emits zero timeout notices when a no-write settlement lands just before expi
     vi.advanceTimersByTime(1);
     await act(async () => {});
     expect(screen.getByRole('list', { name: 'toasts' })).toBeEmptyDOMElement();
-    expect(host.global).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', lineNames: null });
+    expect(host.global).toMatchObject({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00', lineNames: null });
   } finally {
     vi.useRealTimers();
   }
@@ -393,7 +393,7 @@ it('emits no notice when the owner tears down while the deadline timer is due', 
 });
 
 it.each([
-  { clock: 'with a clock', overrides: {}, from: '2026-09-25T09:00:00', notice: '개인 기본 뷰를 불러오지 못해 기본 기간을 적용했습니다.' },
+  { clock: 'with a clock', overrides: {}, from: '2026-09-25T00:00:00', notice: '개인 기본 뷰를 불러오지 못해 기본 기간을 적용했습니다.' },
   { clock: 'without a clock', overrides: { defaultRangeTo: () => null }, from: null, notice: '개인 기본 뷰를 불러오지 못했습니다. 조회 조건을 입력할 수 있습니다.' },
 ])('shows exactly one timeout notice $clock when the default get is held', async ({ overrides, from, notice }) => {
   vi.useFakeTimers();
@@ -464,7 +464,7 @@ it.each(['no default', 'missing default', 'unavailable list'] as const)(
       expect(window.location.search).toBe('');
       await act(async () => get.release());
     }
-    await waitFor(() => expect(host.global.from).toBe('2026-09-25T09:00:00'));
+    await waitFor(() => expect(host.global.from).toBe('2026-09-25T00:00:00'));
     expect(replace.mock.calls.filter(([, , url]) => String(url).includes('from='))).toHaveLength(1);
   },
 );
@@ -473,7 +473,7 @@ it('applies the default period when the saved-view controller is disabled', () =
   const replace = mountAutoApply(store, NoSupportProbe);
   expect(views.status).toBe('disabled');
   expect(store.reads).toEqual([]);
-  expect(host.global.from).toBe('2026-09-25T09:00:00');
+  expect(host.global.from).toBe('2026-09-25T00:00:00');
   expect(replace).toHaveBeenCalledTimes(1);
 });
 it.each([
@@ -1334,7 +1334,7 @@ it.each(['drill', 'same-path-link'] as const)('switches a pending bare arrival t
   expect(host.global.from).toBeNull();
   if (action === 'drill') act(() => host.setPage({ filter: 'linked' }));
   else act(() => { host.navigate(chosen.menus[0].path + '?lineNames=L2'); });
-  await waitFor(() => expect(host.global).toMatchObject({ from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' }));
+  await waitFor(() => expect(host.global).toMatchObject({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' }));
   await act(async () => held.release());
   if (action === 'drill') {
     expect(host.pageParam('filter')).toBe('linked');

@@ -233,3 +233,19 @@ it.each(['lineNames', 'prcGroups'] as const)('pages authorized global %s options
     expect((await adapter.listAxisOptions(base)).items).toEqual(first.items);
   } finally { EQUIPMENT.splice(EQUIPMENT.length - rows.length, rows.length); }
 });
+
+it('uses the declared room root as an optional ancestor and ANDs it with the injected parent', async () => {
+  const base = { scopeId: 'MEM', axisId: 'team', limit: 200 };
+  const row = { ...EQUIPMENT[0], site: 'MEM', room: 'PHOTO', equipmentId: 'R2-room-root', stgroup: 'R2-parent', team: 'R2-child' };
+  EQUIPMENT.push(row);
+  try {
+    const options = async (parents?: Record<string, string[]>) =>
+      (await adapter.listAxisOptions({ ...base, parents })).items.map(item => item.id);
+    expect(await options()).toContain(row.team);
+    expect(await options({ roomNames: ['PHOTO'], stgroup: [row.stgroup] })).toEqual([row.team]);
+    expect(await options({ roomNames: [] })).toEqual([]);
+    expect(await options({ roomNames: ['ETCH'], stgroup: [row.stgroup] })).toEqual([]);
+    await expect(options({ maker: [row.maker] })).rejects.toMatchObject({ code: 'invalid_input' });
+    await expect(options({ lineNames: [] })).rejects.toMatchObject({ code: 'unknown_axis' });
+  } finally { EQUIPMENT.pop(); }
+});

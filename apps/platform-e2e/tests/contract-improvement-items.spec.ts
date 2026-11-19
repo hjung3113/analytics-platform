@@ -82,7 +82,7 @@ test.describe('개선 아이템 (§5 권한 · §13 표/확인 · §22 Context �
     await expect(analysis).toHaveURL(url.href);
     // The analysis screen lands on the after window (equal windows, so its Compare interaction reaches the before window
     // once a query runs); this screen only carries the Context, it never queries.
-    await expect(analysis.getByText('11-04 00:00 → 11-11 00:00 (7일)', { exact: true }).first()).toBeVisible();
+    await expect(analysis.getByText('11-04 → 11-11 (7일)', { exact: true }).first()).toBeVisible();
     await analysis.close();
   });
 });

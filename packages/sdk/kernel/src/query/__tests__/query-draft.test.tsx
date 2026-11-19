@@ -32,7 +32,7 @@ it('keeps the default period in draft, commits once, and preserves applied resul
   const session = testSession(['platform:view']);
   render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session, menuQuery: send })}><Probe /></PlatformProvider></I18nProvider>);
   expect(query.status).toBe('idle');
-  expect(draft.draft.global.from).toBe('2026-09-25T09:00:00');
+  expect(draft.draft.global.from).toBe('2026-09-25T00:00:00');
   expect(window.location.search).toBe('');
   expect(send).not.toHaveBeenCalled();
   act(() => { draft.setDraftPage({ filter: 'one' }); });
@@ -62,7 +62,7 @@ function mount(url = '/', chosen = registry, over: Parameters<typeof testAdapter
 }
 it('a seeded default period is not a change: entry is clean, an edit counts the period, revert returns to the entry draft (#913)', () => {
   mount('/');
-  const entry = { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00' };
+  const entry = { from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' };
   expect(draft.draft.global).toMatchObject(entry);
   expect(draft.dirty).toEqual([]);
   act(() => draft.setDraftGlobal(week));
@@ -298,7 +298,7 @@ it('confirms an id-only metric deep link without applying a default period', asy
   const { send } = mount('/?metricId=known', chosen, { publishedMetrics: () => [{ metricId: 'known', publishedVersion: '3' }] });
   await waitFor(() => expect(platform.metricInit.phase).toBe('skip'));
   expect(platform.global).toMatchObject({ metricId: 'known', metricVersion: '3', from: null, to: null });
-  expect(draft.draft.global.from).toBe('2026-09-25T09:00:00');
+  expect(draft.draft.global.from).toBe('2026-09-25T00:00:00');
   expect(query.status).toBe('idle');
   expect(send).not.toHaveBeenCalled();
 });
@@ -434,7 +434,7 @@ it('confirms a delayed pane metric echo without applying its default period', as
   expect(platform.metricInit.phase).toBe('skip');
   expect(platform.global).toMatchObject({ metricId: 'known', metricVersion: '3', from: null, to: null });
   expect(query.status).toBe('idle');
-  expect(draft.draft.global.from).toBe('2026-09-25T09:00:00');
+  expect(draft.draft.global.from).toBe('2026-09-25T00:00:00');
 });
 
 it('normalizes injected Condition order and refuses asOf for an axis without membership history', () => {
@@ -558,17 +558,17 @@ it('without a server anchor a live-mode screen is not given a materialized defau
   expect(platform.global.from).toBeNull();
   cleanup();
   render1('2026-09-26T09:00:00');
-  await waitFor(() => expect(window.location.search).toContain('from=2026-09-25T09%3A00%3A00'));
+  await waitFor(() => expect(window.location.search).toContain('from=2026-09-25T00%3A00%3A00'));
   replace.mockRestore();
 });
 
 it.each([
-  [undefined, '2026-09-25T09:00:00'],
-  [8, '2026-09-26T01:00:00'],
-] as const)('seeds and resets the declared default period (%s hours) in the draft only', (defaultPeriodHours, from) => {
+  [undefined, '2026-09-25T00:00:00', '2026-09-26T00:00:00'],
+  [8, '2026-09-26T01:00:00', '2026-09-26T09:00:00'],
+] as const)('seeds and resets the declared default period (%s hours) in the draft only', (defaultPeriodHours, from, to) => {
   const chosen = createRegistry({ spaces: [testSpace()], groups: registry.groups, menus: [{ ...menu, defaultPeriodHours }] });
   mount('/', chosen);
-  expect(draft.draft.global).toMatchObject({ from, to: '2026-09-26T09:00:00' });
+  expect(draft.draft.global).toMatchObject({ from, to });
   expect(platform.global.from).toBeNull();
   act(() => draft.setDraftGlobal(week));
   act(() => draft.reset());
@@ -577,12 +577,12 @@ it.each([
 });
 
 it.each([
-  [undefined, '2026-09-25T09:00:00'],
-  [8, '2026-09-26T01:00:00'],
-] as const)('materializes the live default period (%s hours), preserving explicit periods', (defaultPeriodHours, from) => {
+  [undefined, '2026-09-25T00:00:00', '2026-09-26T00:00:00'],
+  [8, '2026-09-26T01:00:00', '2026-09-26T09:00:00'],
+] as const)('materializes the live default period (%s hours), preserving explicit periods', (defaultPeriodHours, from, to) => {
   const chosen = createRegistry({ spaces: [testSpace()], groups: registry.groups, menus: [{ ...menu, query: { mode: 'live' }, defaultPeriodHours }] });
   const first = mount('/', chosen);
-  expect(platform.global).toMatchObject({ from, to: '2026-09-26T09:00:00' });
+  expect(platform.global).toMatchObject({ from, to });
   expect(new URLSearchParams(window.location.search).get('from')).toBe(from);
   first.view.unmount();
   mount('/' + period, chosen);
@@ -654,7 +654,7 @@ it('waits for the required Scope before applying the default period', async () =
   expect(query.status).toBe('idle');
   await act(async () => validate({ status: 'valid', grantedRooms: [] }));
   await waitFor(() => expect(query.status).toBe('done'));
-  expect(platform.global).toMatchObject({ scopeId: 'MEM', from: '2026-09-25T09:00:00' });
+  expect(platform.global).toMatchObject({ scopeId: 'MEM', from: '2026-09-25T00:00:00' });
 });
 
 it('ends automatic Apply on Scope error and preserves a draft through retry of the same Scope', async () => {

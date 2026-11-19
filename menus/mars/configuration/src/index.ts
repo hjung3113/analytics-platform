@@ -23,6 +23,7 @@ export const manifests: MenuEntry[] = [
       context: {
         scopeId: { kind: 'context', key: 'scopeId' }, time: { kind: 'context', key: 'time' },
         roomNames: { kind: 'context', key: 'roomNames' }, condition: { kind: 'context', key: 'condition' },
+        prcGroup: { kind: 'context', key: 'prcGroup' },
         selection: { kind: 'value', key: 'equipmentIds' },
       },
       page: {

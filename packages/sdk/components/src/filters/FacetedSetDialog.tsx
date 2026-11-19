@@ -22,6 +22,8 @@ export interface FacetedSetDialogProps {
   applyMode?: 'manual' | 'direct';
   /** Open this facet first when present; otherwise expand the facets in the initial value. */
   initialFacet?: string;
+  /** Caller settings staged alongside the current rule, above the footer. Can block Apply while invalid. */
+  settingsSlot?(props: { value: FacetedSetValue; ready: boolean }): { content: ReactNode; applyDisabled?: boolean };
   resultColumns?: readonly string[];
   valueLabel?(facetId: string, value: string): string;
   itemKindLabel?: string;
@@ -67,7 +69,7 @@ export function FacetedSetDialog(props: FacetedSetDialogProps) {
 }
 
 function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, allowFixed = true, applyMode = 'manual', initialFacet, resultColumns, valueLabel = identityLabel,
-  itemKindLabel, formatCount = plainCount, status = 'ready', onRetry, note, errorDetail, save, saveSlot }: FacetedSetDialogProps & { index: Index }) {
+  itemKindLabel, formatCount = plainCount, status = 'ready', onRetry, note, errorDetail, save, saveSlot, settingsSlot }: FacetedSetDialogProps & { index: Index }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { t } = useI18n();
   const direct = applyMode === 'direct';
@@ -198,6 +200,39 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
   };
   const ready = status === 'ready';
   const awaitingCount = direct && (!ready || stale);
+  const settings = settingsSlot?.({ value: current, ready });
+  const applyDisabled = !ready || pending || invalidRule || settings?.applyDisabled;
+  const byId = new Map(facets.map(facet => [facet.id, facet]));
+  const childrenByParent = new Map<string | undefined, { facet: FacetedSetFacet; position: number }[]>();
+  facets.forEach((facet, position) => {
+    // Missing parents (e.g. hidden by a preset) and cycles leave facets reachable at the root.
+    let parent = facet.parentId;
+    const seen = new Set([facet.id]);
+    while (parent && !seen.has(parent)) {
+      seen.add(parent);
+      parent = byId.get(parent)?.parentId;
+    }
+    const parentId = parent || !facet.parentId || !byId.has(facet.parentId) ? undefined : facet.parentId;
+    const siblings = childrenByParent.get(parentId) ?? [];
+    siblings.push({ facet, position });
+    childrenByParent.set(parentId, siblings);
+  });
+  const renderFacets = (parentId: string | undefined): ReactNode => childrenByParent.get(parentId)?.map(({ facet, position }) => {
+    const open = expanded.has(facet.id);
+    const picks = rulePicks(rule, facet.id);
+    const first = picks.length ? valueLabel(facet.id, picks[0]) : null;
+    const count = pickedSets.get(facet.id)?.size ?? 0;
+    let caption = ready ? m('fsFacetCount', { count }) : '—';
+    if (first !== null) caption = picks.length === 1 ? first : m('fsFacetMore', { first, count: picks.length - 1 });
+    return <li key={facet.id} className="grid min-w-0 max-w-full gap-1">
+      <Button variant="secondary" size="toolbar" className="min-w-0 justify-start" aria-expanded={open} id={`${id}-facet-trigger-${position}`} aria-controls={`${id}-facet-${position}`} onClick={() => setExpanded(previous => {
+        const next = new Set(previous);
+        if (next.has(facet.id)) next.delete(facet.id); else next.add(facet.id);
+        return next;
+      })}><span aria-hidden>{open ? '−' : '+'}</span>{facet.label}<span className="truncate text-text-secondary" title={caption}>{caption}</span></Button>
+      {childrenByParent.has(facet.id) && <ul className="ml-2 grid min-w-0 list-none gap-1 border-l border-border-subtle pl-2">{renderFacets(facet.id)}</ul>}
+    </li>;
+  });
   return <DialogContent closeLabel={direct ? t('close') : m('fsCancel')} aria-describedby={`${id}-description`}
     onEscapeKeyDown={direct ? event => {
       const facet = [...expanded].at(-1);
@@ -226,13 +261,11 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
         }}>{suggestion.label}</Button>)}
         {suggestions.length > searchLimit && <Button variant="secondary" onClick={() => setSearchLimit(previous => previous + SEARCH_PAGE_SIZE)}>{m('fsMoreSuggestions', { count: (suggestions.length - searchLimit).toLocaleString() })}</Button>}
       </div>}
-      <div className="flex shrink-0 gap-2 overflow-x-auto" aria-label={m('fsFacets')}>
-        {facets.map((facet, position) => <Button key={facet.id} id={`${id}-facet-trigger-${position}`} variant="secondary" aria-expanded={expanded.has(facet.id)} aria-controls={`${id}-facet-${position}`} onClick={() => setExpanded(previous => {
-          const next = new Set(previous); if (next.has(facet.id)) next.delete(facet.id); else next.add(facet.id); return next;
-        })}><span aria-hidden>{expanded.has(facet.id) ? '−' : '+'}</span>{facet.label}<span>{Object.hasOwn(rule, facet.id) ? rulePicks(rule, facet.id).length : m('fsAll')}</span></Button>)}
-      </div>
+      <ul className="flex max-h-36 shrink-0 list-none flex-wrap items-start gap-2 overflow-auto" aria-label={m('fsFacets')}>
+        {renderFacets(undefined)}
+      </ul>
       {ready && <div className="flex shrink-0 gap-3 overflow-x-auto">
-        {facets.map((facet, position) => { if (!expanded.has(facet.id)) return null; const picked = pickedSets.get(facet.id) ?? EMPTY_PICKS; return <div key={facet.id} id={`${id}-facet-${position}`} role="group" aria-label={facet.label} className="max-h-48 w-72 shrink-0 overflow-y-auto rounded-md border border-border-subtle p-3">
+        {facets.map((facet, position) => { if (!expanded.has(facet.id)) return null; const picked = pickedSets.get(facet.id) ?? EMPTY_PICKS; return <div key={facet.id} id={`${id}-facet-${position}`} role="group" aria-label={facet.label} className="max-h-48 w-80 shrink-0 overflow-y-auto rounded-md border border-border-subtle p-3">
           <label className="flex items-center gap-2 border-b border-border-subtle pb-2 text-sm">
             <Checkbox aria-label={m('fsAll')} checked={facetCheckedState(rule, facet.id, facet.defaultSelection ?? 'all', universes.get(facet.id)?.length ?? 0)} onCheckedChange={() => toggleAll(facet.id)} />{m('fsAll')}
           </label>
@@ -241,7 +274,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
             return <div key={pick} className={cn('group flex items-center gap-2 py-1 text-sm', amount === 0 && 'text-text-muted')}>
               <label className="flex min-w-0 flex-1 items-center gap-2">
                 <Checkbox aria-label={valueLabel(facet.id, pick)} checked={picked.has(pick)} onCheckedChange={() => changePick(facet.id, pick)} />
-                <span className="min-w-0 flex-1 truncate">{valueLabel(facet.id, pick)}</span><span className="w-16 shrink-0 text-right tabular-nums">{formatCount(amount)}</span>
+                <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">{valueLabel(facet.id, pick)}</span><span className="w-16 shrink-0 text-right tabular-nums">{formatCount(amount)}</span>
               </label>
               <span className="shrink-0 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"><Button variant="ghost" size="sm" aria-label={m('fsOnlyValue', { value: valueLabel(facet.id, pick) })} onClick={() => onlyPick(facet.id, pick)}>{m('fsOnly')}</Button></span>
             </div>;
@@ -292,14 +325,15 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
       {saveState === 'error' && <p role="alert" className="text-text-danger-label">{m('fsSaveError')}</p>}
       {saveState === 'saved' && <p role="status">{m('fsSaved')}</p>}
     </form>}
+    {settings && <div className="shrink-0 border-t border-border-subtle pt-2">{settings.content}</div>}
     <div className="flex shrink-0 items-center gap-2 border-t border-border-subtle pt-3">
       <Button variant="ghost" disabled={!ready || pending} onClick={clear}>{m('fsClear')}</Button>
       {!saveSlot && save && saveState === 'closed' && <Button variant="secondary" disabled={!ready || invalidRule} onClick={() => setSaveState('editing')}>{m('fsSaveGroup')}</Button>}
       {saveSlot?.({ value: current, ready, invalid: invalidRule, onSaved })}
       <div className="flex-1" />
       <Button variant="secondary" onClick={() => onOpenChange(false)}>{m('fsCancel')}</Button>
-      <Button aria-describedby={invalidRule ? `${id}-invalid` : undefined} loading={awaitingCount && status !== 'error'} disabled={!ready || pending || invalidRule} onClick={() => {
-        if (applyStarted.current || invalidRule || awaitingCount) return;
+      <Button aria-describedby={invalidRule ? `${id}-invalid` : undefined} loading={awaitingCount && status !== 'error'} disabled={applyDisabled} onClick={() => {
+        if (applyStarted.current || applyDisabled || awaitingCount) return;
         applyStarted.current = true; onApply(current); onOpenChange(false);
       }}>{ready && !awaitingCount ? applyLabel : m('fsApply')}</Button>
     </div>

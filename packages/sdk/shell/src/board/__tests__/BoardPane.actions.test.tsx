@@ -130,7 +130,7 @@ describe('pane header signals (ADR-0051)', () => {
     await settle();
     const head = within(paneGroup(1));
     expect(paneGroup(1).querySelectorAll('[data-pane-chip]')).toHaveLength(1);
-    expect(paneGroup(1).querySelector('[data-pane-chip="time"]')).toHaveTextContent('기간 09-01 00:00 → 09-02 00:00 (24h)');
+    expect(paneGroup(1).querySelector('[data-pane-chip="time"]')).toHaveTextContent('기간 09-01 → 09-02 (1일)');
     expect(paneGroup(1).querySelector('[data-pane-chip="scope"]')).toBeNull();
     expect(head.getByRole('button', { name: '칸 1의 같은 조건 1개' })).toHaveTextContent('같음 1');
     expect(within(paneGroup(2)).getByRole('button', { name: '칸 2의 같은 조건 1개' })).toBeInTheDocument();
@@ -220,7 +220,7 @@ describe('pane header signals (ADR-0051)', () => {
     const popover = await screen.findByRole('dialog', { name: '칸 1의 분석 Context' });
     expect(within(popover).getByText('S1')).toBeInTheDocument();
     const time = popover.querySelector('[data-popover-row="time"]')!;
-    expect(time).toHaveTextContent('09-01 00:00 → 09-02 00:00 (24h)');
+    expect(time).toHaveTextContent('09-01 → 09-02 (1일)');
     expect(time).toHaveTextContent('다름');
     expect(popover.querySelector('[data-popover-row="scope"]')).not.toHaveTextContent('다름');
     cleanup();
@@ -625,7 +625,9 @@ describe('이전 화면 (docs/16 §4)', () => {
     mount();
     await settle();
     fireEvent.click(within(screen.getByRole('region', { name: '칸 1 · 분석 Context' })).getByRole('button', { name: /기간/ }));
-    fireEvent.click(await screen.findByRole('radio', { name: '7일' }));
+    const periodEditor = within(await screen.findByRole('dialog', { name: '기간' }));
+    fireEvent.click(periodEditor.getByRole('button', { name: '최근 7일' }));
+    fireEvent.click(periodEditor.getByRole('button', { name: '적용' }));
     await settle();
     expect(stored().sheets[0].panes[0]!.query).not.toBe(`?${w1}`);
     expect(previousButton(1)).toBeNull();
@@ -665,7 +667,9 @@ describe('detail slot sharing (docs/16 §5)', () => {
     expect(screen.getByRole('dialog', { name: '상세 제목' })).toBeInTheDocument();
     fireEvent.click(within(paneGroup(1)).getByRole('button', { name: '칸 1 선택' }));
     fireEvent.click(within(screen.getByRole('region', { name: '칸 1 · 분석 Context' })).getByRole('button', { name: /기간/ }));
-    fireEvent.click(await screen.findByRole('radio', { name: '7일' }));
+    const periodEditor = within(await screen.findByRole('dialog', { name: '기간' }));
+    fireEvent.click(periodEditor.getByRole('button', { name: '최근 7일' }));
+    fireEvent.click(periodEditor.getByRole('button', { name: '적용' }));
     await settle();
     expect(screen.queryByRole('dialog', { name: '상세 제목' })).toBeNull();
   });

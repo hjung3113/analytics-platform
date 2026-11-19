@@ -10,11 +10,11 @@ import { DETAIL_EXPAND_KEY, stripDetailExpansion, withDetailExpansion } from '..
 import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
 import { drillGap, dropDrillResetKeys } from '../context/drillReset';
-import { appliedQueryPolicy, queryMissingRequired, useScreenDraft } from '../query/draft-state';
+import { appliedQueryPolicy, defaultQueryPeriod, queryMissingRequired, useScreenDraft } from '../query/draft-state';
 import { SITE_BOUND_FIELDS } from '../context/siteBound';
 import { hasExplicitContext } from '../saved-view/restore';
 import type { InitialSavedView } from '../saved-view/useSavedViews';
-import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, shift, type SpaceDef, type Text, type MainUsageVia, type UsageEvent } from '@ap/contracts';
+import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, type SpaceDef, type Text, type MainUsageVia, type UsageEvent } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type ScreenSource, type ScreenState } from './contexts';
 
@@ -350,13 +350,13 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   if (newEntry || entry.kind !== entryKind || entry.pendingDefault !== waitingForSavedView || entry.traversal !== traversal) {
     setEntry({ route: autoApplyRoute, paneId, kind: entryKind, pendingDefault: waitingForSavedView, traversal });
   }
-  const autoApplyingDefault = eligible && (defaultRangeTo !== null || waitingForSavedView);
+  const defaultPeriod = defaultQueryPeriod(route?.menu ?? null, defaultRangeTo);
+  const autoApplyingDefault = eligible && (defaultPeriod !== null || waitingForSavedView);
   const canAutoApply = mode === 'pane' ? canApplyEntryDefault : eligible && scopeReadyForDefault && !waitingForSavedView;
   const initialSavedView = waitingForSavedView && scopeReadyForDefault && !route?.viaAlias ? initialDecision : null;
 
   // Materialize the default period for time-applying menus (§6.3/§6.4: absolute from/to written into the address)
-  // and the server-confirmed metric version in ONE replace computed from the same parsed snapshot. The initial Δ
-  // is Open: a menu declaration wins, otherwise 24h remains the Candidate. A pane's `onChange` is a
+  // and the server-confirmed metric version in ONE replace computed from the same parsed snapshot. A pane's `onChange` is a
   // controlled callback that may not echo at once, so the same input/output proposal is made only once; a changed
   // input (or nothing left to do) re-arms it.
   const proposed = useRef<string | null>(null);
@@ -367,7 +367,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (mode === 'main' && route?.viaAlias) { commit(pathFor(route.menu, route.params) + search, 'replace', { redirect: true, redirectPage: route.aliasPage }); return; }
     if (!route || routeContractError) return;
     let next = global;
-    if ((route.menu.query?.mode !== 'apply' || canAutoApply) && route.menu.context.time === 'apply' && global.from === null && defaultRangeTo !== null) next = { ...next, from: shift(defaultRangeTo, -(route.menu.defaultPeriodHours ?? 24)), to: defaultRangeTo };
+    const period = defaultQueryPeriod(route.menu, defaultRangeTo);
+    if ((route.menu.query?.mode !== 'apply' || canAutoApply) && global.from === null && period) next = { ...next, ...period };
     if (metricInit.phase === 'confirm') next = { ...next, metricVersion: metricInit.metricVersion };
     if (next === global) { proposed.current = null; return; }
     const target = pathname + buildQuery(next, page, extras);

@@ -40,23 +40,24 @@ export async function headerMore(page: Page) {
   await expect(menu).toBeVisible();
   return menu;
 }
-export async function periodPreset(page: Page, name: string) {
-  const bar = contextBar(page);
+export async function periodPreset(page: Page, name: string, bar = contextBar(page)) {
   await expect(bar).toBeVisible();
   if (await bar.getAttribute('data-query-bar') !== null) {
     await expandQueryBar(page, bar);
-    return { locator: bar.getByRole('button', { name: name === '1일' ? '최근 24시간' : name === '7일' ? '최근 7일' : name, exact: true }), close: async () => {
-      await bar.getByRole('button', { name: '적용', exact: true }).click();
+    const disclosure = bar.getByRole('button', { name: '조회 조건 접기', exact: true });
+    const editorId = await disclosure.getAttribute('aria-controls');
+    const editor = page.locator(`[id="${editorId}"]`);
+    return { locator: editor.getByRole('button', { name, exact: true }), apply: async () => {
+      await editor.getByRole('button', { name: '적용', exact: true }).click();
     } };
   }
   const trigger = bar.getByRole('button', { name: /^기간:/ });
   await expect(trigger).toBeVisible();
-  const inline = bar.getByRole('radio', { name, exact: true });
-  if (await inline.isVisible()) return { locator: inline, close: async () => {} };
   await trigger.click();
-  const locator = page.getByRole('radio', { name, exact: true });
+  const dialog = page.getByRole('dialog', { name: '기간', exact: true });
+  const locator = dialog.getByRole('button', { name, exact: true });
   await expect(locator).toBeVisible();
-  return { locator, close: async () => {
-    if (await trigger.getAttribute('aria-expanded') === 'true') await page.keyboard.press('Escape');
+  return { locator, apply: async () => {
+    await dialog.getByRole('button', { name: '적용', exact: true }).click();
   } };
 }
