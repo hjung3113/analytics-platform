@@ -742,7 +742,7 @@ it('keeps the approved request selected through a delayed current-tab refetch', 
   }
 });
 
-it('keeps approval open with retry through a failed current-tab refetch', async () => {
+it('closes approval and leaves a failed current-tab refetch to the list retry', async () => {
   let decided = false;
   let recovered = false;
   let failPage!: (error: Error) => void;
@@ -757,15 +757,6 @@ it('keeps approval open with retry through a failed current-tab refetch', async 
   const mutation = vi.spyOn(api, 'approveTaskRequest').mockImplementation(async () => {
     decided = true;
     return { ...request, status: 'approved' };
-  });
-  const frames = new Map<number, FrameRequestCallback>();
-  let frameId = 0;
-  const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
-    frames.set(++frameId, callback);
-    return frameId;
-  });
-  const cancel = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((id) => {
-    frames.delete(id);
   });
   const { client } = mount('requests');
   try {
@@ -787,31 +778,19 @@ it('keeps approval open with retry through a failed current-tab refetch', async 
           .some((query) => query.state.error !== null),
       ).toBe(true),
     );
-    const recoveryDialog = await screen.findByRole('dialog');
-    const retry = await within(recoveryDialog).findByRole('button', { name: '다시 시도' });
-    await settleQueries(client);
-    for (let frame = 0; frame < 50; frame++) {
-      await act(async () => {
-        const pending = [...frames.values()];
-        frames.clear();
-        for (const callback of pending) callback(frame * 16);
-      });
-    }
-    expect(frames.size).toBe(0);
-    expect(recoveryDialog.isConnected).toBe(true);
-    expect(within(recoveryDialog).getByRole('textbox')).toHaveValue('검토 완료');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const convert = screen.getByRole('button', { name: 'Task로 전환' });
+    await waitFor(() => expect(convert).toHaveFocus());
+    expect(screen.getByText('Task 요청 목록을 불러오지 못했습니다')).toBeVisible();
+    const retry = screen.getByRole('button', { name: '다시 시도' });
     expect(retry).toBeVisible();
+    const readsBeforeRetry = fetch.mock.calls.length;
     recovered = true;
     fireEvent.click(retry);
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Task로 전환' })).toHaveFocus(),
-    );
-    expect(recoveryDialog.isConnected).toBe(false);
+    await waitFor(() => expect(fetch.mock.calls.length).toBeGreaterThan(readsBeforeRetry));
   } finally {
     cleanup();
     client.clear();
-    raf.mockRestore();
-    cancel.mockRestore();
     fetch.mockRestore();
     mutation.mockRestore();
   }

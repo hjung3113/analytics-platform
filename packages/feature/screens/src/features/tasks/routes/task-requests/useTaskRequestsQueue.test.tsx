@@ -244,6 +244,40 @@ describe('useTaskRequestsQueue tab counts (#706)', () => {
     },
   );
 
+  it('retries the filtered summary with the list and restores reviewer badges', async () => {
+    let filteredSummaryReads = 0;
+    fetchTaskRequestsMock.mockImplementation((options: ListTaskRequestsQuery) => {
+      if (options.limit === 1 && options.reviewer === 'me') {
+        filteredSummaryReads += 1;
+        return filteredSummaryReads === 1
+          ? Promise.reject(new Error('filtered summary failed'))
+          : Promise.resolve({ items: [taskRequest] });
+      }
+      return Promise.resolve({ items: [taskRequest] });
+    });
+
+    const { result, queryClient } = renderQueue({ reviewer: 'me' });
+    const summaryQuery = () =>
+      queryClient
+        .getQueryCache()
+        .findAll({ queryKey: ['task-requests', undefined, 'filtered-summary'] })[0];
+
+    await waitFor(() => expect(summaryQuery()?.state.status).toBe('error'));
+    expect(result.current.tabs.map((tab) => tab.badgeCount)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+
+    act(() => result.current.refetch());
+
+    await waitFor(() => expect(filteredSummaryReads).toBe(2));
+    await waitFor(() => expect(badgeFor(result.current.tabs, 'all')).toBe(1));
+    expect(summaryQuery()?.state.status).toBe('success');
+  });
+
   it.each(['pending', 'failed', 'loaded', 'loaded-empty'] as const)(
     'shows tab counts only after the read succeeds (%s)',
     async (state) => {

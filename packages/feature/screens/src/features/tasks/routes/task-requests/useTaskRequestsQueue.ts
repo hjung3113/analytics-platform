@@ -522,6 +522,7 @@ export function useTaskRequestsQueue({
     refetch: () => {
       void taskRequestsQuery.refetch();
       void summaryQuery.refetch();
+      if (reviewerFiltersActive) void filteredSummaryQuery.refetch();
     },
     onDecisionComplete,
     recentlyApprovedRequestId,

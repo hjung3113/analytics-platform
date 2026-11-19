@@ -60,7 +60,6 @@ export interface TaskRequestPanelProps extends DetailPartsOptions {
   getCompletedFocusTarget?: (result: TaskRequestDto) => HTMLElement | null;
   onDecisionCloseComplete?: () => void;
   decisionRecovery?: React.ReactNode;
-  reopenDecisionDialogForRecovery?: boolean;
   /**
    * #2530: the open request is not a row of the shown list (another status tab, a reviewer filter, a page not loaded
    * yet). The panel stays readable, but its decision actions are replaced by this notice, so no decision acts on a row
@@ -103,7 +102,6 @@ export function TaskRequestPanelBody({
   getCompletedFocusTarget,
   onDecisionCloseComplete,
   decisionRecovery,
-  reopenDecisionDialogForRecovery = false,
   titleInHeader,
   outsideList = false,
 }: TaskRequestPanelProps) {
@@ -257,7 +255,6 @@ export function TaskRequestPanelBody({
         }
         {...(onDecisionCloseComplete ? { onCompletedClose: onDecisionCloseComplete } : {})}
         recovery={decisionRecovery}
-        reopenForRecovery={reopenDecisionDialogForRecovery}
         request={item}
         isSelfApproval={decision.isSelfApproval}
         isSubmitting={decision.isSubmitting}

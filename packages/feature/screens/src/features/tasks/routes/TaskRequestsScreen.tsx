@@ -87,12 +87,8 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
     originParam: string | null;
     expectedId: string | null;
   } | null>(null);
-  const [handoffFocusCompleted, setHandoffFocusCompleted] = useState(false);
-  const [handoffRefetchStarted, setHandoffRefetchStarted] = useState(false);
   const clearHandoff = useCallback(() => {
     setHandoff(null);
-    setHandoffFocusCompleted(false);
-    setHandoffRefetchStarted(false);
   }, []);
   const listRef = useRef<HTMLDivElement>(null);
   const replaceSelection = useCallback(
@@ -161,10 +157,6 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
       ? handoff
       : null;
   useEffect(() => {
-    if (handoff && !queue.queueSettled && !handoffRefetchStarted)
-      setHandoffRefetchStarted(true);
-  }, [handoff, handoffRefetchStarted, queue.queueSettled]);
-  useEffect(() => {
     if (!queue.permissionDeniedError || !handoff) return;
     const frame = requestAnimationFrame(() => {
       const heading = listRef.current?.querySelector<HTMLElement>('[data-state="denied"] h4');
@@ -176,26 +168,6 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
     });
     return () => cancelAnimationFrame(frame);
   }, [queue.permissionDeniedError, handoff, clearHandoff]);
-  useEffect(() => {
-    if (
-      !handoff ||
-      !handoffFocusCompleted ||
-      !handoffRefetchStarted ||
-      queue.hasError ||
-      queue.loadMoreError ||
-      !queue.queueSettled
-    )
-      return;
-    clearHandoff();
-  }, [
-    handoff,
-    handoffFocusCompleted,
-    handoffRefetchStarted,
-    queue.hasError,
-    queue.loadMoreError,
-    queue.queueSettled,
-    clearHandoff,
-  ]);
   const panelItem = retainedPanel?.item ?? queue.selected;
   const completeDecision = (result: TaskRequestDto) => {
     if (
@@ -203,8 +175,6 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
       ['approved', 'rejected', 'needs_more_evidence'].includes(result.status) &&
       (result.status === 'approved' || document.activeElement?.closest('[role="dialog"]'))
     ) {
-      setHandoffFocusCompleted(false);
-      setHandoffRefetchStarted(false);
       setHandoff({
         item: result.status === 'approved' ? result : queue.selected,
         names: queue.names,
@@ -217,16 +187,11 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
     queue.onDecisionComplete(result);
   };
   const completedFocusTarget = (result: TaskRequestDto) => {
-    if (
-      !retainedPanel ||
-      retainedPanel.result !== result ||
-      queue.hasError ||
-      queue.isLoading
-    )
-      return null;
+    if (!retainedPanel || retainedPanel.result !== result) return null;
     if (result.status === 'approved') {
       return document.querySelector<HTMLElement>('[data-testid="task-request-convert-action"]');
     }
+    if (queue.hasError || queue.isLoading) return null;
     if (queue.selectedId !== null) {
       return (
         listRef.current?.querySelector<HTMLElement>(`[data-request-id="${queue.selectedId}"]`) ??
@@ -286,8 +251,11 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
     queue.activeTab !== 'pending_review' &&
     queue.activeTab !== 'all';
 
+  // Approval is complete independently of queue reads; its cached detail still owns conversion.
   const detail =
-    queue.hasError && !retainedPanel
+    queue.hasError &&
+    !retainedPanel &&
+    (queue.permissionDeniedError !== null || queue.recentlyApprovedRequestId === null)
       ? null
       : queue.linkMissing
         ? null
@@ -317,12 +285,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader }: 
                 onDecisionComplete: completeDecision,
                 onReopenRequest: queue.reopenRequest,
                 getCompletedFocusTarget: completedFocusTarget,
-                onDecisionCloseComplete: () => {
-                  if (handoff?.result.status === 'approved') setHandoffFocusCompleted(true);
-                  else clearHandoff();
-                },
-                reopenDecisionDialogForRecovery:
-                  retainedPanel !== null && (queue.hasError || queue.loadMoreError),
+                onDecisionCloseComplete: clearHandoff,
                 decisionRecovery:
                   retainedPanel && (queue.hasError || queue.loadMoreError) ? (
                     <div role="alert">
