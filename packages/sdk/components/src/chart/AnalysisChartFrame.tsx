@@ -687,8 +687,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   // A reference line in another unit or metric version would sit on the wrong scale: it is not drawn and the Frame names it. No lines are drawn with startAlign, so no note either.
   const mismatchedLines = useMemo(() => (startAlign ? [] : (p.markLines ?? []).filter(line => (line.unit !== undefined && line.unit !== p.unit) || (line.metricVersion !== undefined && line.metricVersion !== p.metricVersion))), [startAlign, p.markLines, p.unit, p.metricVersion]);
   const markLines = useMemo(() => (mismatchedLines.length ? p.markLines?.filter(line => !mismatchedLines.includes(line)) : p.markLines), [p.markLines, mismatchedLines]);
-  // The plot width only feeds note labels and start-aligned lanes; any other chart keeps its option (and skips a full setOption) on resize (#822).
-  const optionWidth = noteSpans.length > 0 || (horizontal && startAlign && !!stacked) ? chartWidth : NOTE_FALLBACK_WIDTH;
+  // Note labels and start-aligned lanes need the measured width. Time-axis ticks take it in 64px steps, so a resize inside one step keeps
+  // the option; any other chart keeps its option (and skips a full setOption) on resize (#822, #2579).
+  const optionWidth = noteSpans.length > 0 || (horizontal && startAlign && !!stacked) ? chartWidth
+    : xType === 'time' ? Math.max(TICK_ROOM_STEP, Math.floor(chartWidth / TICK_ROOM_STEP) * TICK_ROOM_STEP) : NOTE_FALLBACK_WIDTH;
   // A horizontal value axis budgets its ticks from the measured width, in 64px steps capped where five ticks always fit, so a resize inside one step keeps the option.
   const tickRoom = horizontal && !startAlign ? Math.min(TICK_ROOM_CAP, Math.floor(chartWidth / TICK_ROOM_STEP) * TICK_ROOM_STEP) : undefined;
   const option = useMemo<EChartsCoreOption>(() => {
