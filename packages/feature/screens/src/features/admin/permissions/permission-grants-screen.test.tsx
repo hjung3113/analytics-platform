@@ -774,6 +774,7 @@ describe('/admin/permissions/grants screen', () => {
   ] as const)(
     '$action requires a reason and posts a validated idempotent command',
     async ({ kind, id, action }) => {
+      const user = userEvent.setup();
       const api = installApi({ keepRevokedItem: true });
       const path =
         kind === 'denies'
@@ -788,7 +789,13 @@ describe('/admin/permissions/grants screen', () => {
         target: { value: '  승인 범위가 변경되었습니다.  ' },
       });
       expect(submit).toBeEnabled();
-      fireEvent.click(submit);
+      await user.click(submit);
+      if (kind === 'grants') {
+        const confirmation = await screen.findByRole('alertdialog');
+        expect(confirmation).toHaveTextContent('Actor One는 Payments 시스템에서 VOC 분류 권한이 취소되어 VOC 분류 기능을 사용할 수 없게 됩니다.');
+        expect(api.requests.some((request) => request.method === 'POST' && request.path === `/permissions/${kind}/${id}/revoke`)).toBe(false);
+        await user.click(within(confirmation).getByRole('button', { name: '권한 취소' }));
+      }
 
       await waitFor(() =>
         expect(
@@ -822,7 +829,30 @@ describe('/admin/permissions/grants screen', () => {
     },
   );
 
+  test('revokes a grant only after explicit confirmation and returns focus to its trigger on cancel', async () => {
+    const user = userEvent.setup();
+    const api = installApi({ keepRevokedItem: true });
+    renderScreen(`/admin/permissions/grants?selected=${GRANT_ID}`);
+
+    const detail = await screen.findByTestId('permission-grants-detail-panel');
+    await user.type(within(detail).getByLabelText('사유 · 필수'), '사용 범위가 변경되었습니다.');
+    const trigger = within(detail).getByRole('button', { name: '권한 취소' });
+    await user.click(trigger);
+    const confirmation = await screen.findByRole('alertdialog');
+    expect(confirmation).toHaveTextContent('Actor One는 Payments 시스템에서 VOC 분류 권한이 취소되어 VOC 분류 기능을 사용할 수 없게 됩니다.');
+    expect(api.requests.some((request) => request.method === 'POST' && request.path === `/permissions/grants/${GRANT_ID}/revoke`)).toBe(false);
+
+    await user.click(within(confirmation).getByRole('button', { name: '취소' }));
+    expect(api.requests.some((request) => request.method === 'POST' && request.path === `/permissions/grants/${GRANT_ID}/revoke`)).toBe(false);
+    expect(trigger).toHaveFocus();
+
+    await user.click(trigger);
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '권한 취소' }));
+    await waitFor(() => expect(api.requests.some((request) => request.method === 'POST' && request.path === `/permissions/grants/${GRANT_ID}/revoke`)).toBe(true));
+  });
+
   test('shows a loading affordance while the revoke command is pending', async () => {
+    const user = userEvent.setup();
     const api = installApi({ deferRevoke: true });
     const { router } = renderScreen();
 
@@ -831,7 +861,8 @@ describe('/admin/permissions/grants screen', () => {
       target: { value: '중복 권한입니다.' },
     });
     const submit = within(detail).getByRole('button', { name: '권한 취소' });
-    fireEvent.click(submit);
+    await user.click(submit);
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '권한 취소' }));
 
     await waitFor(() => {
       expect(submit).toHaveAttribute('aria-busy', 'true');
@@ -857,6 +888,7 @@ describe('/admin/permissions/grants screen', () => {
   ] as const)(
     'maps $label to the shared error toast and refetches both lists',
     async ({ status, code, message }) => {
+      const user = userEvent.setup();
       const api = installApi({ revokeError: { status, code } });
       renderScreen();
 
@@ -864,7 +896,8 @@ describe('/admin/permissions/grants screen', () => {
       fireEvent.change(within(detail).getByLabelText('사유 · 필수'), {
         target: { value: '정책 변경' },
       });
-      fireEvent.click(within(detail).getByRole('button', { name: '권한 취소' }));
+      await user.click(within(detail).getByRole('button', { name: '권한 취소' }));
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '권한 취소' }));
 
       await waitFor(() => expect(toast.error).toHaveBeenCalledWith(message));
       await waitFor(() => {
@@ -1163,6 +1196,7 @@ describe('/admin/permissions/grants screen', () => {
     expect(within(detail).getByText('Finding 관리')).toBeInTheDocument();
     await user.type(within(detail).getByLabelText('사유 · 필수'), '중복 부여를 취소합니다.');
     await user.click(within(detail).getByRole('button', { name: '권한 취소' }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '권한 취소' }));
     await waitFor(() =>
       expect(
         api.requests.some(

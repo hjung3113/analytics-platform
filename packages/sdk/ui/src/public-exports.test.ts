@@ -1,15 +1,16 @@
 import { expect, it } from 'vitest';
 import * as ui from './index';
-import type { ButtonProps, FormFieldProps, GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionOptionMessages, GroupedSelectionPreset, KeyboardShortcutProps, LineErrorListMessages, LineErrorListProps, LineValidationError, LineValidationRule, RequiredMarkProps, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps, ValidateLinesOptions, UseValidatedSubmitOptions, UseValidatedSubmitResult, ValidationErrors } from './index';
+import type { ButtonProps, CreateDecisionUndoToastActionOptions, DecisionImpactConfirmDialogProps, DecisionReasonFieldProps, DecisionRuleKind, DecisionUndoToastAction, FormFieldProps, GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionOptionMessages, GroupedSelectionPreset, KeyboardShortcutProps, LineErrorListMessages, LineErrorListProps, LineValidationError, LineValidationRule, RequiredMarkProps, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps, ValidateLinesOptions, UseValidatedSubmitOptions, UseValidatedSubmitResult, ValidationErrors } from './index';
 
 // Types are erased at runtime, so `Object.keys(ui)` cannot see them: this alias fails `tsc` if one stops being exported.
-export type PublicTypes = [ButtonProps, FormFieldProps, GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionOptionMessages, GroupedSelectionPreset, KeyboardShortcutProps, LineErrorListMessages, LineErrorListProps, LineValidationError, LineValidationRule, RequiredMarkProps, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps, ValidateLinesOptions, UseValidatedSubmitOptions<{ field: string }>, UseValidatedSubmitResult<{ field: string }>, ValidationErrors<{ field: string }>];
+export type PublicTypes = [ButtonProps, CreateDecisionUndoToastActionOptions, DecisionImpactConfirmDialogProps, DecisionReasonFieldProps, DecisionRuleKind, DecisionUndoToastAction, FormFieldProps, GroupedSelectionGroup, GroupedSelectionItem, GroupedSelectionListProps, GroupedSelectionMessages, GroupedSelectionOptionMessages, GroupedSelectionPreset, KeyboardShortcutProps, LineErrorListMessages, LineErrorListProps, LineValidationError, LineValidationRule, RequiredMarkProps, SkeletonBlock, SkeletonBlocksProps, SkeletonRowsProps, ValidateLinesOptions, UseValidatedSubmitOptions<{ field: string }>, UseValidatedSubmitResult<{ field: string }>, ValidationErrors<{ field: string }>];
 
 // An accidental drop or addition changes the platform's public primitive API (06 §13); change this list on purpose.
 const PUBLIC_EXPORTS = [
   'Alert', 'AlertDescription', 'AlertTitle',
   'Badge', 'badgeVariants',
   'Button', 'buttonVariants',
+  'DECISION_RULE_KINDS', 'DecisionImpactConfirmDialog', 'DecisionReasonField', 'createDecisionUndoToastAction', 'requiredDecisionReasonError',
   'navRowVariants', 'NavCurrentMarker', 'navDrillAffordance',
   'Checkbox',
   'DetailPanelSlotProvider',

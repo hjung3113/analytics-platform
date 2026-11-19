@@ -6,6 +6,7 @@
 
 import { useVocClusterDetail } from '../../../voc-cluster/hooks/useVocClusterDetail';
 import { errorMapper } from '../../../../lib/api/errorMapper';
+import { FINDING_DECISION_RULES_COPY } from '../../../../lib/copy/finding-decisions';
 import { useMeBridge } from '../../../../lib/api/me';
 import { getTask } from '../../../../lib/api/tasks';
 import type { ApiError } from '../../../../lib/api/types';
@@ -17,6 +18,7 @@ import { useVocDetail } from '../../../../lib/cross-system/useVocDetail';
 import { useWorkspaceActors } from '../../../../lib/cross-system/useWorkspaceActors';
 import { useHostSeam } from '../../../../lib/host/host-seam';
 import type { FindingDto, TaskDetailDto } from '@ap/feature-shared';
+import { createDecisionUndoToastAction } from '@ap/ui';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { useFindingStatusMutation } from '../../hooks/useFindingStatusMutation';
@@ -44,6 +46,7 @@ export interface FindingDetailController {
   canManage: boolean;
   handleMarkNotActionable: () => void;
   markNotActionableDisabled: boolean;
+  notActionableHistory: string | null;
 }
 
 // FO ADR-0057 A2 amendment keeps navigation Korean and entity nouns English.
@@ -67,6 +70,7 @@ export const DETAIL_SECTIONS = [
 const SYSTEM_ACTOR_EMAIL = 'system@platform.local';
 
 export function useFindingDetailController(finding: FindingDto): FindingDetailController {
+  const [notActionableHistory, setNotActionableHistory] = React.useState<string | null>(null);
   const [addEvidenceOpen, setAddEvidenceOpen] = React.useState(false);
   const [linkEvidenceOpen, setLinkEvidenceOpen] = React.useState(false);
   const [linkTaskOpen, setLinkTaskOpen] = React.useState(false);
@@ -123,7 +127,7 @@ export function useFindingDetailController(finding: FindingDto): FindingDetailCo
     ? (linkedClusterQuery.data?.display_id ?? null)
     : null;
   const { key: statusIdempotencyKey, markConsumed: markStatusKeyConsumed } = useIdempotencyKey();
-  const { notifyError, notifySuccess } = useHostSeam();
+  const { notify, notifyError, notifySuccess } = useHostSeam();
   const { data: me } = useMeBridge();
   const managePermissionQuery = usePermissionCheckBridge({
     capability: 'finding.manage',
@@ -147,7 +151,29 @@ export function useFindingDetailController(finding: FindingDto): FindingDetailCo
       {
         onSuccess: () => {
           markStatusKeyConsumed();
-          notifySuccess('Finding이 조치 불필요로 표시되었습니다.');
+          setNotActionableHistory(FINDING_DECISION_RULES_COPY.markedHistory);
+          if (!notify) {
+            notifySuccess(FINDING_DECISION_RULES_COPY.markedSuccess);
+            return;
+          }
+          notify({
+            tone: 'success',
+            variant: 'undo',
+            message: FINDING_DECISION_RULES_COPY.markedSuccess,
+            action: createDecisionUndoToastAction({
+              kind: 'reversible',
+              onUndo: () => statusMutation.mutate(
+                { status: finding.status },
+                {
+                  onSuccess: () => {
+                    markStatusKeyConsumed();
+                    setNotActionableHistory(FINDING_DECISION_RULES_COPY.restoredHistory);
+                    notifySuccess(FINDING_DECISION_RULES_COPY.restoredSuccess);
+                  },
+                },
+              ),
+            }),
+          });
         },
       },
     );
@@ -181,5 +207,6 @@ export function useFindingDetailController(finding: FindingDto): FindingDetailCo
     canManage,
     handleMarkNotActionable,
     markNotActionableDisabled,
+    notActionableHistory,
   };
 }

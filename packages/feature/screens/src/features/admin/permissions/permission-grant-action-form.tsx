@@ -3,7 +3,7 @@ import { useId, useState } from 'react';
 import { useMeBridge } from '../../../lib/api/me';
 import { useIdempotencyKey } from '../../../lib/api/useIdempotencyKey';
 import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
-import { Button, PanelSectionTitle, Textarea } from '@ap/ui';
+import { Button, DecisionImpactConfirmDialog, PanelSectionTitle, Textarea } from '@ap/ui';
 
 import { useWorkspaceSettings } from '../settings/use-workspace-settings.js';
 import { useRevokePermission } from './useRevokePermission.js';
@@ -12,12 +12,14 @@ export function PermissionGrantActionForm({
   kind,
   id,
   actorId,
+  impactText,
   onGrantRevoked,
   onSuccess,
 }: {
   kind: 'grants' | 'denies';
   id: string;
   actorId: string;
+  impactText: string;
   onGrantRevoked: (id: string) => void;
   onSuccess: () => void;
 }) {
@@ -48,6 +50,18 @@ export function PermissionGrantActionForm({
     );
   }
 
+  const submitButton = (
+    <Button
+      type="button"
+      disabled={!canSubmit}
+      loading={mutation.isPending}
+      onClick={kind === 'denies' ? submit : undefined}
+      data-testid="permission-grants-submit"
+    >
+      {submitLabel}
+    </Button>
+  );
+
   return (
     <section className="flex flex-col gap-3 border-t border-border-subtle pt-5">
       <PanelSectionTitle>{ADMIN_PERMISSIONS_COPY.actionTitle}</PanelSectionTitle>
@@ -64,15 +78,18 @@ export function PermissionGrantActionForm({
       {selfDenyLiftBlocked ? (
         <p className="text-xs text-accent-danger">{ADMIN_PERMISSIONS_COPY.selfDenyLiftForbidden}</p>
       ) : null}
-      <Button
-        type="button"
-        disabled={!canSubmit}
-        loading={mutation.isPending}
-        onClick={submit}
-        data-testid="permission-grants-submit"
-      >
-        {submitLabel}
-      </Button>
+      {kind === 'grants' ? (
+        <DecisionImpactConfirmDialog
+          kind="irreversible"
+          trigger={submitButton}
+          impactText={impactText}
+          onConfirm={submit}
+          pending={mutation.isPending}
+          title={ADMIN_PERMISSIONS_COPY.revokeConfirmTitle}
+          confirmLabel={ADMIN_PERMISSIONS_COPY.revokeConfirm}
+          cancelLabel={ADMIN_PERMISSIONS_COPY.cancel}
+        />
+      ) : submitButton}
     </section>
   );
 }

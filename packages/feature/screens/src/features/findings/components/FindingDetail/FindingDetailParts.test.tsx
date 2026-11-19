@@ -1,7 +1,7 @@
-import { type HostLinkProps, type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
+import { type HostLinkProps, type HostNotice, type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
 import { FindingDetailPanel } from '../../../../test/host-adapters/features/findings/components/FindingDetail/FindingDetailPanel';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { type UseFindingDetailPartsArgs, useFindingDetailParts } from './FindingDetailParts';
@@ -21,6 +21,7 @@ const detailState = vi.hoisted(() => ({
     error?: unknown;
   },
 }));
+const statusMutationMock = vi.hoisted(() => vi.fn());
 const finding = vi.hoisted(() => ({
   value: {
     id: '10000000-0000-0000-0000-000000000001',
@@ -57,8 +58,8 @@ vi.mock('../../hooks/useEvidenceHighlights', () => ({
   useEvidenceHighlights: () => ({ data: [], isLoading: false, isError: false }),
 }));
 vi.mock('../../hooks/useFindingStatusMutation', () => ({
-  useFindingStatusMutation: () => ({
-    mutate: (_input: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.(),
+  useFindingStatusMutation: (args: { onError?: (error: unknown) => void }) => ({
+    mutate: (input: unknown, options?: { onSuccess?: () => void; onError?: (error: unknown) => void }) => statusMutationMock(input, options, args.onError),
     isPending: false,
   }),
 }));
@@ -107,9 +108,14 @@ function makeSeam(linkable: boolean) {
   const calls = {
     notifyError: vi.fn(),
     notifySuccess: vi.fn(),
+    notices: [] as HostNotice[],
     navigate: vi.fn(),
     title: vi.fn(),
   };
+  const notify = vi.fn((notice: HostNotice) => {
+    calls.notices.push(notice);
+    return 'notice';
+  });
   const seam: HostSeam = {
     canLink: vi.fn(() => linkable),
     Link: ({ to, children, ...rest }: HostLinkProps) => (
@@ -119,7 +125,7 @@ function makeSeam(linkable: boolean) {
     ),
     notifyError: calls.notifyError,
     notifySuccess: calls.notifySuccess,
-    notify: vi.fn(() => 'notice'),
+    notify,
     dismiss: vi.fn(),
     useNavigate: () => calls.navigate,
     useTitle: calls.title,
@@ -160,6 +166,7 @@ function loaded() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  statusMutationMock.mockImplementation((_input: unknown, options?: { onSuccess?: () => void }) => options?.onSuccess?.());
   finding.value = {
     ...finding.value,
     source_type: 'manual',
@@ -250,13 +257,39 @@ describe('useFindingDetailParts', () => {
     expect(loading.calls.title).toHaveBeenLastCalledWith(null);
   });
 
-  it('reports 조치 불필요 through the host notice', async () => {
+  it('applies 조치 불필요 immediately, records one history line, and restores the previous status from the undo action', async () => {
     const { seam, calls } = makeSeam(true);
     renderIn(seam, <Harness findingId={FINDING_ID} onClose={() => {}} />);
 
     await userEvent.click(screen.getByTestId('mark-not-actionable-btn'));
 
-    expect(calls.notifySuccess).toHaveBeenCalledWith('Finding이 조치 불필요로 표시되었습니다.');
+    expect(statusMutationMock.mock.calls.map(([input]) => input)).toEqual([{ status: 'not_actionable' }]);
+    expect(calls.notices[0]).toMatchObject({
+      tone: 'success',
+      variant: 'undo',
+      message: '조치 불필요로 표시했습니다.',
+      action: { label: '실행 취소' },
+    });
+    expect(screen.getByText('조치 불필요로 표시했습니다.')).toBeVisible();
+
+    act(() => calls.notices[0]?.action?.onAction());
+    expect(statusMutationMock.mock.calls.map(([input]) => input)).toEqual([
+      { status: 'not_actionable' },
+      { status: 'active' },
+    ]);
+  });
+
+  it('shows a host error when undoing a Finding status fails', async () => {
+    statusMutationMock
+      .mockImplementationOnce((_input: unknown, options?: { onSuccess?: () => void }) => options?.onSuccess?.())
+      .mockImplementationOnce((_input: unknown, _options: unknown, onError: (error: unknown) => void) => onError({ envelope: {} }));
+    const { seam, calls } = makeSeam(true);
+    renderIn(seam, <Harness findingId={FINDING_ID} onClose={() => {}} />);
+
+    await userEvent.click(screen.getByTestId('mark-not-actionable-btn'));
+    act(() => calls.notices[0]?.action?.onAction());
+
+    expect(calls.notifyError).toHaveBeenCalledWith('mapped error');
   });
 
   it.each([

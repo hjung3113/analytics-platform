@@ -39,6 +39,13 @@ export function PermissionGrantDetail({
 }) {
   const { kind, item } = permission;
   const actorName = actorNames[item.actor_id] ?? GLOSSARY.unknownUser;
+  const systemName = item.managed_system_id
+    ? managedSystemNames[item.managed_system_id]
+      ? `${managedSystemNames[item.managed_system_id]} 시스템`
+      : `${GLOSSARY.managedSystem} ${shortId(item.managed_system_id)}`
+    : SCOPE_SELECTOR_COPY.allLabel;
+  const permissionName = getCapabilityDisplayLabel(item.capability);
+  const revokeImpact = ADMIN_PERMISSIONS_COPY.revokeImpact(actorName, systemName, permissionName, permissionName);
 
   const body = (
     <div className="flex flex-col gap-5">
@@ -99,6 +106,7 @@ export function PermissionGrantDetail({
         kind={kind}
         id={item.id}
         actorId={item.actor_id}
+        impactText={revokeImpact}
         onGrantRevoked={onGrantRevoked}
         onSuccess={onSuccess}
       />

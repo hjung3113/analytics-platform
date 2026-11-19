@@ -709,6 +709,14 @@ Unknown
 
 ## 20. Detail Surface Contract
 
+### Decision rules (opt-in, ADR-0174)
+
+A consumer opts an action into one decision kind. Actions without an opt-in keep their existing behavior.
+
+- **Reversible:** run immediately. Show a toast with «실행 취소» that restores the prior state through the domain's own command, and add one history line. Do not ask for confirmation.
+- **Judgment:** record a required one-line reason with the decision. Show «· 필수» and place a validation error below the field following the form contract in §13. Order decision history by time and mark self-approval.
+- **Irreversible:** before writing, show one sentence naming the affected target, system, permission and capability that will be lost. Run the command only after confirmation; cancel sends no command and returns focus to the trigger.
+
 ### Drawer
 
 셸 고정 상세 슬롯과 상호작용은 §13 DetailDrawer 계약을 따른다.

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render as renderBase, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { LifecycleApi, Model, RequestDetail, RuleResult, Presentation, Project, ReadState, RoundDetail, ScreenProps } from '../contracts';
+import type { GateDecision, LifecycleApi, Model, RequestDetail, RuleResult, Presentation, Project, ReadState, RoundDetail, ScreenProps } from '../contracts';
 import { StageBadge, StageStepper } from '../presentation';
 import { ModelsScreen } from '../ModelsScreen';
 import { ProjectScreen } from '../ProjectScreen';
@@ -22,6 +22,7 @@ function props(data: Record<string, unknown> = {}, state: Partial<ReadState<unkn
 }
 const project = { id: ID, modelId: ID, model: { code: 'ETCH-300', name: '식각', vendorName: '설비사' }, stage: 'alpha', softwareId: null, owner: { id: ID, displayName: '김개발' }, targetDate: null, nextStages: ['beta', 'cancelled'], reopenTo: null, openRound: null, version: '7', gateTarget: 'beta', gate: { latest: null } } as Project;
 const gate = (reasons: string[] = []): RoundDetail => ({ id: ID, projectId: ID, seq: 3, stage: 'alpha', status: 'open', version: '1', createdAt: '', specPin: null, sampleManifestDigest: '', note: null, sampleSet: { sourceOwner: 'team', files: [] }, gateDecisions: [], gateAvailability: { targetStage: 'beta', projectVersion: '7', reasons: [], decisions: { approved: { allowed: reasons.length === 0, reasons }, rejected: { allowed: true, reasons: [] }, exception: { allowed: true, reasons: [] } }, basis: {} } });
+const gateDecision = (entry: Pick<GateDecision, 'id' | 'decision' | 'reason' | 'selfApproved' | 'at'>): GateDecision => ({ ...entry, targetStage: 'beta', decidedBy: { id: ID, displayName: '김개발' }, exception: null, basis: {}, basisSummary: { attemptCount: 0, decisiveVerdict: null, evidenceLinkCount: 0 } });
 const sampleGateBasis = {
   version: 1,
   attempts: [
@@ -77,15 +78,36 @@ describe('log lifecycle screens', () => {
   it('requires a reason and submits the project version for the human decision', async () => {
     const user = userEvent.setup(); render(<GatePanel {...props()} round={gate()} />);
     await user.click(screen.getByRole('radio', { name: '승인' }));
-    await user.type(screen.getByLabelText('결정 사유 (필수)'), '검토 완료');
+    await user.type(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' }), '검토 완료');
     await user.click(screen.getByRole('button', { name: /결정 기록/ }));
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '기록' }));
     expect(run).toHaveBeenCalledWith({ roundId: ID, targetStage: 'beta', decision: 'approved', reason: '검토 완료' }, { expectedVersion: '7' });
   });
+  it('rejects an empty one-line judgment reason inline without opening confirmation or writing', async () => {
+    const user = userEvent.setup();
+    render(<GatePanel {...props()} round={gate()} />);
+    await user.click(screen.getByRole('radio', { name: '승인' }));
+    await user.click(screen.getByRole('button', { name: 'Gate 결정 기록' }));
+
+    expect(screen.getByText('결정 사유를 입력해 주세요.')).toBeVisible();
+    expect(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' })).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(run).not.toHaveBeenCalled();
+  });
+  it('orders decision history chronologically and marks a self-approval', () => {
+    const first = gateDecision({ id: 'first', decision: 'approved', reason: '먼저 기록한 자기 승인', selfApproved: true, at: '2026-11-18T10:00:00.000Z' });
+    const second = gateDecision({ id: 'second', decision: 'rejected', reason: '나중에 기록한 거절', selfApproved: false, at: '2026-11-18T11:00:00.000Z' });
+    render(<GatePanel {...props()} round={{ ...gate(), gateDecisions: [second, first] }} />);
+
+    const firstReason = screen.getByText('먼저 기록한 자기 승인');
+    const secondReason = screen.getByText('나중에 기록한 거절');
+    expect(firstReason.compareDocumentPosition(secondReason) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(firstReason.closest('div.border-t')).toHaveTextContent('자기 승인');
+  });
   it('requires a confirm click before a Gate write and states exception details', async () => {
     const user = userEvent.setup(); render(<GatePanel {...props()} round={gate(['verdict_not_pass'])} />);
     await user.click(screen.getByRole('radio', { name: '예외' }));
-    await user.type(screen.getByLabelText('결정 사유 (필수)'), '일정상 예외');
+    await user.type(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' }), '일정상 예외');
     await user.type(screen.getByLabelText('예외 범위 (필수)'), '이 Round에 한함');
     const riskActor = screen.getByLabelText('위험 수용자 Actor ID (필수)');
     fireEvent.keyDown(riskActor, { key: 'Enter', isComposing: true });
@@ -193,7 +215,7 @@ describe('log lifecycle screens', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
     const rawPanel = document.getElementById(toggle.getAttribute('aria-controls') ?? '');
     expect(rawPanel).toHaveAttribute('hidden');
-    const form = screen.getByLabelText('결정 사유 (필수)').closest('form');
+    const form = screen.getByRole('textbox', { name: '결정 사유 (한 줄)' }).closest('form');
     expect(form).not.toBeNull();
     expect(toggle.compareDocumentPosition(form as HTMLFormElement) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
@@ -324,7 +346,7 @@ describe('mutation and recovery boundaries', () => {
   it('requires exception scope and records the human risk accepter separately from the reason', async () => {
     const user = userEvent.setup(); render(<GatePanel {...props()} round={gate(['verdict_not_pass'])} />);
     await user.click(screen.getByRole('radio', { name: '예외' }));
-    await user.type(screen.getByLabelText('결정 사유 (필수)'), '일정상 예외');
+    await user.type(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' }), '일정상 예외');
     expect(screen.getByRole('button', { name: /결정 기록/ })).toBeDisabled();
     await user.type(screen.getByLabelText('예외 범위 (필수)'), '이 Round에 한함');
     await user.click(screen.getByRole('button', { name: /결정 기록/ }));
@@ -353,7 +375,7 @@ it('does not present a session-superseded Gate delivery as a server write error'
   run.mockRejectedValueOnce(new DOMException('Session changed', 'AbortError'));
   const user = userEvent.setup(); render(<GatePanel {...props()} round={gate()} />);
   await user.click(screen.getByRole('radio', { name: '승인' }));
-    await user.type(screen.getByLabelText('결정 사유 (필수)'), '검토 완료');
+  await user.type(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' }), '검토 완료');
   await user.click(screen.getByRole('button', { name: /결정 기록/ }));
   expect(screen.queryByRole('alert')).toBeNull();
 });
