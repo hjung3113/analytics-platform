@@ -22,6 +22,7 @@ import {
   canRejectTaskRequest,
   canRequestEvidenceForTaskRequest,
 } from './predicates';
+import { decisionReasonError } from './decisionReasonError';
 
 export interface UseTaskRequestDecisionArgs {
   item: TaskRequestDto;
@@ -215,14 +216,7 @@ export function useTaskRequestDecision({
     event.preventDefault();
     if (!decisionDialog || decisionSubmittingRef.current) return;
     const value = decisionDialog.value.trim();
-    const error =
-      decisionDialog.action === 'approve' && isSelfApproval && value.length === 0
-        ? '본인 승인 사유를 입력해 주세요.'
-        : decisionDialog.action === 'request-more-evidence' && value.length === 0
-          ? '근거 메모를 입력해 주세요.'
-          : decisionDialog.action === 'reject' && value.length === 0
-            ? '반려 사유를 입력해 주세요.'
-            : null;
+    const error = decisionReasonError(decisionDialog.action, isSelfApproval, value);
     if (error) {
       setDecisionDialog((current) =>
         current ? { ...current, error, reasonInvalid: true } : current,

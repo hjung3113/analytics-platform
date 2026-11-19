@@ -21,6 +21,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  FormField,
   Input,
   Select,
   SelectContent,
@@ -31,6 +32,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
   useImeEnterGuard,
+  useValidatedSubmit,
 } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
@@ -41,6 +43,19 @@ import {
   useSurveyTemplates,
 } from '../../hooks/useSurveys';
 import type { SurveyType } from '../../types';
+
+interface SurveyCreateValues {
+  title: string;
+  type: SurveyType | '';
+  system: string;
+  identityProtected: 'true' | 'false' | '';
+  mode: 'blank' | 'builtin' | 'existing';
+  startingPoint: string;
+  startingPointReady: boolean;
+  startingPointLoading: boolean;
+  systemInScope: boolean;
+  blocked: boolean;
+}
 
 export function CreateSurveyDialog({
   open,
@@ -153,11 +168,67 @@ export function CreateSurveyDialog({
   }, [canManage, clearSelection]);
   const startingPointChosen =
     (mode === 'builtin' && templateId !== '') || (mode === 'existing' && sourceId !== '');
+  const startingPointLoading =
+    startingPointChosen &&
+    ((mode === 'builtin' && templates.isFetching) ||
+      (mode === 'existing' && source.isFetching));
+  const startingPointListLoading =
+    (mode === 'builtin' && templates.isFetching) ||
+    (mode === 'existing' && sources.isFetching && !sources.isFetchingNextPage);
+  const startingPointListUnavailable =
+    (mode === 'builtin' && templates.isError) || (mode === 'existing' && sources.isError);
+  const noAvailableStartingPoints =
+    mode === 'existing' &&
+    !blocked &&
+    sources.isSuccess &&
+    !sources.isFetching &&
+    !sources.hasNextPage &&
+    sourceItems.length === 0;
+  let submitDisabledReason: string | undefined;
+  if (!canManage) {
+    submitDisabledReason = COPY.permissionUnavailable;
+  } else if (create.isPending || submitting.current) {
+    submitDisabledReason = COPY.creating;
+  } else if (startingPointLoading || startingPointListLoading) {
+    submitDisabledReason = COPY.loading;
+  } else if (!blocked && startingPointListUnavailable) {
+    submitDisabledReason = COPY.loadFailed;
+  } else if (!blocked && noAvailableStartingPoints) {
+    submitDisabledReason = search.trim() ? COPY.searchEmpty : COPY.empty;
+  } else if (!blocked && mode === 'existing' && startingPointChosen && source.isError) {
+    submitDisabledReason = COPY.previewFailed;
+  }
   const sourceReadDenied =
     (sources.error instanceof ApiError &&
       (sources.error.status === 403 || sources.error.status === 404)) ||
     (source.error instanceof ApiError &&
       (source.error.status === 403 || source.error.status === 404));
+  const { errors, handleSubmit, clearErrors, clearError } = useValidatedSubmit<SurveyCreateValues>({
+    validate: (values) => {
+      const next: Partial<Record<keyof SurveyCreateValues, string>> = {};
+      if (values.title.trim() === '') next.title = COPY.titleRequired;
+      if (values.type === '') next.type = COPY.typeRequired;
+      if (values.system === '') next.system = COPY.systemRequired;
+      else if (!values.systemInScope) next.system = COPY.systemUnavailable;
+      if (values.mode !== 'blank') {
+        if (values.blocked) {
+          next.startingPoint = COPY.startingPointUnavailable;
+        } else if (values.startingPoint === '') {
+          next.startingPoint = COPY.startingPointRequired;
+        } else if (!values.startingPointReady && !values.startingPointLoading) {
+          next.startingPoint = COPY.startingPointUnavailable;
+        }
+      }
+      if (values.identityProtected === '') {
+        next.identityProtected = COPY.identityProtectionRequired;
+      }
+      return next;
+    },
+    onValid: createSurvey,
+  });
+  React.useEffect(() => {
+    if (systemInScope) clearError('system');
+  }, [systemInScope, clearError]);
   React.useEffect(() => {
     if (!sourceReadDenied) return;
     setBlocked(true);
@@ -187,8 +258,63 @@ export function CreateSurveyDialog({
     setDebouncedSearch('');
     clearSelection();
     setTitleEdited(false);
+    clearErrors();
     resetCreate();
-  }, [resetCreate, clearSelection]);
+  }, [resetCreate, clearSelection, clearErrors]);
+  async function createSurvey(values: SurveyCreateValues): Promise<void> {
+    if (
+      submitting.current ||
+      !canManage ||
+      values.type === '' ||
+      values.system === '' ||
+      values.identityProtected === ''
+    )
+      return;
+    const startingPoint: SurveyStartingPoint | undefined =
+      pinnedStart.current ??
+      (values.mode === 'builtin' && template
+        ? { kind: 'builtin', template_id: template.template_id, version: template.version }
+        : values.mode === 'existing' && source.data
+          ? {
+              kind: 'existing_survey',
+              survey_id: source.data.survey_id,
+              definition_token: source.data.definition_token,
+            }
+          : undefined);
+    // An unchanged retry replays the submitted token even if a background
+    // snapshot refetch installed a changed one (FO ADR-0070: one explicit key
+    // for an unchanged pending/uncertain attempt).
+    pinnedStart.current = startingPoint ?? null;
+    submitting.current = true;
+    try {
+      const created = await create.mutateAsync({
+        type: values.type,
+        title: values.title.trim(),
+        ...(description.trim() ? { description: description.trim() } : {}),
+        primary_managed_system_id: values.system,
+        ...(analyticsArea ? { analytics_area_id: analyticsArea } : {}),
+        responses_identity_protected: values.identityProtected === 'true',
+        ...(startingPoint ? { starting_point: startingPoint } : {}),
+      });
+      reset();
+      onCreated(created.id);
+    } catch (error) {
+      if (
+        startingPoint &&
+        error instanceof ApiError &&
+        (error.status === 403 ||
+          error.status === 404 ||
+          error.code === 'conflict.stale_write')
+      ) {
+        setBlocked(true);
+        setTemplateId('');
+        setSourceId('');
+        pinnedStart.current = null;
+      }
+    } finally {
+      submitting.current = false;
+    }
+  }
   const close = () => {
     if (submitting.current || create.isPending) return;
     reset();
@@ -224,67 +350,21 @@ export function CreateSurveyDialog({
         </DialogHeader>
         <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
           className="flex flex-col gap-4"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (
-              submitting.current ||
-              !canManage ||
-              !title.trim() ||
-              !type ||
-              !system ||
-              !systemInScope ||
-              identityProtected === '' ||
-              (mode !== 'blank' && (!definition || blocked))
-            )
-              return;
-            const startingPoint: SurveyStartingPoint | undefined =
-              pinnedStart.current ??
-              (mode === 'builtin' && template
-                ? { kind: 'builtin', template_id: template.template_id, version: template.version }
-                : mode === 'existing' && source.data
-                  ? {
-                      kind: 'existing_survey',
-                      survey_id: source.data.survey_id,
-                      definition_token: source.data.definition_token,
-                    }
-                  : undefined);
-            // An unchanged retry replays the submitted token even if a background
-            // snapshot refetch installed a changed one (FO ADR-0070: one explicit key
-            // for an unchanged pending/uncertain attempt).
-            pinnedStart.current = startingPoint ?? null;
-            submitting.current = true;
-            try {
-              const created = await create.mutateAsync({
-                type,
-                title: title.trim(),
-                ...(description.trim() ? { description: description.trim() } : {}),
-                primary_managed_system_id: system,
-                ...(analyticsArea ? { analytics_area_id: analyticsArea } : {}),
-                responses_identity_protected: identityProtected === 'true',
-                ...(startingPoint ? { starting_point: startingPoint } : {}),
-              });
-              reset();
-              onCreated(created.id);
-            } catch (error) {
-              if (
-                startingPoint &&
-                error instanceof ApiError &&
-                (error.status === 403 ||
-                  error.status === 404 ||
-                  error.code === 'conflict.stale_write')
-              ) {
-                setBlocked(true);
-                setTemplateId('');
-                setSourceId('');
-                pinnedStart.current = null;
-              }
-            } finally {
-              submitting.current = false;
-            }
-          }}
+          onSubmit={handleSubmit({
+            title,
+            type,
+            system,
+            identityProtected,
+            mode,
+            startingPoint: mode === 'builtin' ? templateId : mode === 'existing' ? sourceId : '',
+            startingPointReady: Boolean(definition),
+            startingPointLoading,
+            systemInScope,
+            blocked,
+          })}
         >
           {!canManage ? (
-            <output>{COPY.pending}</output>
+            <output>{COPY.permissionUnavailable}</output>
           ) : (
             <fieldset disabled={create.isPending} className="flex flex-col gap-4">
               <div>
@@ -294,6 +374,7 @@ export function CreateSurveyDialog({
                   onValueChange={(value) => {
                     setMode(value as typeof mode);
                     clearSelection();
+                    clearErrors();
                     setSearch('');
                     setDebouncedSearch('');
                   }}
@@ -308,68 +389,82 @@ export function CreateSurveyDialog({
                   </SelectContent>
                 </Select>
               </div>
-              <label className="block text-sm" htmlFor="survey-title">
-                제목
-                <Input
-                  id="survey-title"
-                  ref={titleRef}
-                  aria-label="제목"
-                  value={title}
-                  onChange={(event) => {
-                    setTitleEdited(true);
-                    setTitle(event.target.value);
-                  }}
-                  required
-                />
-              </label>
-              <div className="block text-sm">
-                설문 유형
-                <Select
-                  value={type}
-                  disabled={startingPointChosen}
-                  onValueChange={(value) => {
-                    setType(value as SurveyType);
-                  }}
-                >
-                  <SelectTrigger aria-label="설문 유형">
-                    <SelectValue placeholder="유형 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {surveyTypeSchema.options.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {SURVEY_TYPE_LABELS[type]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <FormField
+                id="survey-title"
+                label="제목"
+                required
+                requiredMark="text"
+                error={errors.title}
+              >
+                {(control) => (
+                  <Input
+                    {...control}
+                    ref={titleRef}
+                    aria-label="제목"
+                    value={title}
+                    onChange={(event) => {
+                      setTitleEdited(true);
+                      setTitle(event.target.value);
+                      clearError('title');
+                    }}
+                  />
+                )}
+              </FormField>
+              <FormField label="설문 유형" required requiredMark="text" error={errors.type}>
+                {(control) => (
+                  <Select
+                    value={type}
+                    disabled={startingPointChosen}
+                    onValueChange={(value) => {
+                      setType(value as SurveyType);
+                      clearError('type');
+                    }}
+                  >
+                    <SelectTrigger {...control} aria-label="설문 유형">
+                      <SelectValue placeholder="유형 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {surveyTypeSchema.options.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {SURVEY_TYPE_LABELS[type]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </FormField>
+              <div>
                 {startingPointChosen ? (
                   <p className="text-sm text-text-muted">{COPY.sourceSetsType}</p>
                 ) : null}
               </div>
-              <div className="block text-sm">
-                시스템
-                <Select
-                  value={system}
-                  onValueChange={(value) => {
-                    setSystem(value);
-                    setAnalyticsArea('');
-                    clearSelection();
-                    setSearch('');
-                    setDebouncedSearch('');
-                  }}
-                >
-                  <SelectTrigger aria-label="시스템">
-                    <SelectValue placeholder="시스템 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allowedSystems.map((candidate) => (
-                      <SelectItem key={candidate.id} value={candidate.id}>
-                        {candidate.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <FormField label="시스템" required requiredMark="text" error={errors.system}>
+                {(control) => (
+                  <Select
+                    value={system}
+                    onValueChange={(value) => {
+                      setSystem(value);
+                      setAnalyticsArea('');
+                      clearSelection();
+                      clearError('system');
+                      clearError('startingPoint');
+                      setSearch('');
+                      setDebouncedSearch('');
+                    }}
+                  >
+                    <SelectTrigger {...control} aria-label="시스템">
+                      <SelectValue placeholder="시스템 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allowedSystems.map((candidate) => (
+                        <SelectItem key={candidate.id} value={candidate.id}>
+                          {candidate.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </FormField>
               {mode !== 'blank' && (
                 <section aria-label={COPY.preview} className="flex flex-col gap-2">
                   {!system ? (
@@ -402,52 +497,64 @@ export function CreateSurveyDialog({
                         : sources.isFetching && !sources.isFetchingNextPage) && (
                         <output>{COPY.loading}</output>
                       )}
-                      {(mode === 'builtin' ? templates.isError : sources.isError) ? (
+                      {(mode === 'builtin' ? templates.isError : sources.isError) && !blocked ? (
                         <p role="alert" className="text-sm text-text-danger">
                           {COPY.loadFailed}
                         </p>
                       ) : (
-                        <ToggleGroup
-                          type="single"
-                          variant="outline"
-                          size="sm"
-                          orientation="vertical"
-                          // Focus-only arrows: changing the start clears an uncertain create attempt and its retry key (#2552).
-                          arrowSelects={false}
-                          className="max-h-48 flex-col items-stretch overflow-y-auto"
-                          aria-label={mode === 'builtin' ? COPY.builtin : COPY.existing}
-                          value={mode === 'builtin' ? templateId : sourceId}
-                          onValueChange={(value) => {
-                            clearSelection();
-                            if (mode === 'builtin') setTemplateId(value);
-                            else setSourceId(value);
-                          }}
+                        <FormField
+                          label={COPY.startingPoint}
+                          required
+                          requiredMark="text"
+                          error={errors.startingPoint}
                         >
-                          {mode === 'builtin'
-                            ? templateItems.map((item) => (
-                                <ToggleGroupItem
-                                  key={item.template_id}
-                                  value={item.template_id}
-                                  appearance="selected-filter"
-                                  className="justify-start"
-                                >
-                                  {item.title} · {SURVEY_TYPE_LABELS[item.type]} ·{' '}
-                                  {COPY.questions(item.questions.length)}
-                                </ToggleGroupItem>
-                              ))
-                            : sourceItems.map((item) => (
-                                <ToggleGroupItem
-                                  key={item.survey_id}
-                                  value={item.survey_id}
-                                  appearance="selected-filter"
-                                  className="justify-start"
-                                >
-                                  {item.display_id} · {item.title} ·{' '}
-                                  {SURVEY_STATUS_LABELS[item.status]} ·{' '}
-                                  {COPY.questions(item.question_count)}
-                                </ToggleGroupItem>
-                              ))}
-                        </ToggleGroup>
+                          {(control) => (
+                            <ToggleGroup
+                              {...control}
+                              tabIndex={errors.startingPoint ? -1 : undefined}
+                              type="single"
+                              variant="outline"
+                              size="sm"
+                              orientation="vertical"
+                              // Focus-only arrows: changing the start clears an uncertain create attempt and its retry key (#2552).
+                              arrowSelects={false}
+                              className="max-h-48 flex-col items-stretch overflow-y-auto"
+                              aria-label={mode === 'builtin' ? COPY.builtin : COPY.existing}
+                              value={mode === 'builtin' ? templateId : sourceId}
+                              onValueChange={(value) => {
+                                clearSelection();
+                                clearError('startingPoint');
+                                if (mode === 'builtin') setTemplateId(value);
+                                else setSourceId(value);
+                              }}
+                            >
+                              {mode === 'builtin'
+                                ? templateItems.map((item) => (
+                                    <ToggleGroupItem
+                                      key={item.template_id}
+                                      value={item.template_id}
+                                      appearance="selected-filter"
+                                      className="justify-start"
+                                    >
+                                      {item.title} · {SURVEY_TYPE_LABELS[item.type]} ·{' '}
+                                      {COPY.questions(item.questions.length)}
+                                    </ToggleGroupItem>
+                                  ))
+                                : sourceItems.map((item) => (
+                                    <ToggleGroupItem
+                                      key={item.survey_id}
+                                      value={item.survey_id}
+                                      appearance="selected-filter"
+                                      className="justify-start"
+                                    >
+                                      {item.display_id} · {item.title} ·{' '}
+                                      {SURVEY_STATUS_LABELS[item.status]} ·{' '}
+                                      {COPY.questions(item.question_count)}
+                                    </ToggleGroupItem>
+                                  ))}
+                            </ToggleGroup>
+                          )}
+                        </FormField>
                       )}
                       {mode === 'existing' &&
                         sources.isSuccess &&
@@ -462,6 +569,7 @@ export function CreateSurveyDialog({
                           type="button"
                           variant="secondary"
                           disabled={sources.isFetchingNextPage}
+                          disabledReason={sources.isFetchingNextPage ? COPY.loading : undefined}
                           onClick={() => void sources.fetchNextPage()}
                         >
                           {COPY.more}
@@ -571,21 +679,30 @@ export function CreateSurveyDialog({
                   </SelectContent>
                 </Select>
               </div>
-              <div className="block text-sm">
-                응답 익명 보호
-                <Select
-                  value={identityProtected}
-                  onValueChange={(value) => setIdentityProtected(value as 'true' | 'false')}
-                >
-                  <SelectTrigger aria-label="응답 익명 보호">
-                    <SelectValue placeholder="보호 여부 선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="true">보호함</SelectItem>
-                    <SelectItem value="false">보호하지 않음</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <FormField
+                label="응답 익명 보호"
+                required
+                requiredMark="text"
+                error={errors.identityProtected}
+              >
+                {(control) => (
+                  <Select
+                    value={identityProtected}
+                    onValueChange={(value) => {
+                      setIdentityProtected(value as 'true' | 'false');
+                      clearError('identityProtected');
+                    }}
+                  >
+                    <SelectTrigger {...control} aria-label="응답 익명 보호">
+                      <SelectValue placeholder="보호 여부 선택" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="true">보호함</SelectItem>
+                      <SelectItem value="false">보호하지 않음</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </FormField>
             </fieldset>
           )}
           {blocked && !(mode !== 'blank' && Boolean(system) && !systemInScope) && (
@@ -603,23 +720,15 @@ export function CreateSurveyDialog({
               type="button"
               variant="secondary"
               onClick={close}
-              disabled={create.isPending}
+              disabled={create.isPending || submitting.current}
               data-testid="survey-create-cancel"
             >
               취소
             </Button>
             <Button
               type="submit"
-              disabled={
-                create.isPending ||
-                !canManage ||
-                !title.trim() ||
-                !type ||
-                !system ||
-                !systemInScope ||
-                identityProtected === '' ||
-                (mode !== 'blank' && (!definition || blocked))
-              }
+              disabled={submitDisabledReason !== undefined}
+              disabledReason={submitDisabledReason}
               data-testid="survey-create-submit"
             >
               초안 만들기

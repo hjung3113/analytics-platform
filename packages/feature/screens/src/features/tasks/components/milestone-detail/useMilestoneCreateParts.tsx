@@ -2,6 +2,7 @@ import { mapUnknownError } from '../../../../lib/api/errorMapper';
 import { createMilestone } from '../../../../lib/api/milestones';
 import { useIdempotencyKey } from '../../../../lib/api/useIdempotencyKey';
 import { GLOSSARY } from '../../../../lib/copy/glossary';
+import { MILESTONE_CREATE_COPY } from '../../../../lib/copy/tasks';
 import type { ClosableDetailParts } from '../../../../lib/host/detail-parts';
 import type { CreateMilestoneRequest, MilestoneDto } from '@ap/feature-shared';
 import {
@@ -9,6 +10,8 @@ import {
   DatePicker,
   DirtyConfirmation,
   FieldRow,
+  RequiredMark,
+  FormField,
   Input,
   Select,
   SelectContent,
@@ -17,12 +20,21 @@ import {
   SelectValue,
   Textarea,
   useImeEnterGuard,
+  useValidatedSubmit,
 } from '@ap/ui';
 import { useMutation } from '@tanstack/react-query';
 import * as React from 'react';
 import { MilestonePanelSectionTitle } from '../MilestoneIdentity';
 
 const NO_SELECTION = '__none__';
+
+interface MilestoneCreateValues {
+  title: string;
+  why: string;
+  managedSystemId: string;
+  startDate: string;
+  targetDate: string;
+}
 
 export interface MilestoneCreatePanelProps {
   managedSystems: ReadonlyArray<{ id: string; name: string }>;
@@ -174,44 +186,55 @@ export function useMilestoneCreateParts({
     onError: (err) => setFormError(mapUnknownError(err).message),
   });
 
-  function submit(event: React.FormEvent<HTMLFormElement>): void {
-    event.preventDefault();
-    // F4 followup — a scoped deep link can name an archived system: the select
-    // then holds a hidden id the options list never offered, and submitting it
-    // is a guaranteed 409 conflict.parent_archived. A selection that is not
-    // among the offered active options is treated as missing; a real user
-    // selection always comes from that list, so it is never overwritten here.
-    const systemOffered = managedSystems.some((system) => system.id === managedSystemId);
-    if (
-      title.trim() === '' ||
-      why.trim() === '' ||
-      managedSystemId === '' ||
-      !systemOffered ||
-      startDate === '' ||
-      targetDate === ''
-    ) {
-      setFormError('제목, 사유, 시스템, 시작일, 목표일을 입력해 주세요.');
-      return;
-    }
+  const { errors, handleSubmit, clearError } = useValidatedSubmit<MilestoneCreateValues>({
+    validate: (values) => {
+      const next: Partial<Record<keyof MilestoneCreateValues, string>> = {};
+      if (values.title.trim() === '') next.title = MILESTONE_CREATE_COPY.titleRequired;
+      if (values.why.trim() === '') next.why = MILESTONE_CREATE_COPY.whyRequired;
+      if (values.managedSystemId === '') {
+        next.managedSystemId = MILESTONE_CREATE_COPY.systemRequired;
+      } else if (!managedSystems.some((system) => system.id === values.managedSystemId)) {
+        // A scoped deep link can retain an archived system that the choices never offered.
+        next.managedSystemId = MILESTONE_CREATE_COPY.systemUnavailable;
+      }
+      if (values.startDate === '') next.startDate = MILESTONE_CREATE_COPY.startDateRequired;
+      if (values.targetDate === '') next.targetDate = MILESTONE_CREATE_COPY.targetDateRequired;
+      return next;
+    },
+    onValid: () => {
+      setFormError(null);
+      // Astra finding 3 — an uncertain create (the server may have committed the
+      // row but the response was lost) leaves the form open with an error. Keep
+      // the key and submitted fingerprint together so an identical retry replays
+      // the stored response instead of creating a second Milestone. Rotate only
+      // when a changed payload is submitted or a creation succeeds; reusing a key
+      // with another body would be 409 conflict.idempotency_key_reuse.
+      const fingerprint = JSON.stringify(payload);
+      let key = idempotencyKey;
+      if (
+        lastAttemptFingerprintRef.current !== null &&
+        lastAttemptFingerprintRef.current !== fingerprint
+      ) {
+        const k = markConsumed();
+        key = k;
+      }
+      lastAttemptFingerprintRef.current = fingerprint;
+      createMutation.mutate({ payload, idempotencyKey: key });
+    },
+  });
+  const submit = handleSubmit({ title, why, managedSystemId, startDate, targetDate });
+
+  function submitForm(event: React.FormEvent<HTMLFormElement>): void {
     setFormError(null);
-    // Astra finding 3 — an uncertain create (the server may have committed the
-    // row but the response was lost) leaves the form open with an error. Keep
-    // the key and submitted fingerprint together so an identical retry replays
-    // the stored response instead of creating a second Milestone. Rotate only
-    // when a changed payload is submitted or a creation succeeds; reusing a key
-    // with another body would be 409 conflict.idempotency_key_reuse.
-    const fingerprint = JSON.stringify(payload);
-    let key = idempotencyKey;
-    if (
-      lastAttemptFingerprintRef.current !== null &&
-      lastAttemptFingerprintRef.current !== fingerprint
-    ) {
-      const k = markConsumed();
-      key = k;
-    }
-    lastAttemptFingerprintRef.current = fingerprint;
-    createMutation.mutate({ payload, idempotencyKey: key });
+    submit(event);
   }
+
+  const requiredLabel = (label: React.ReactNode) => (
+    <>
+      {label}
+      <RequiredMark mark="text" />
+    </>
+  );
 
   return {
     kind: 'create',
@@ -222,52 +245,101 @@ export function useMilestoneCreateParts({
         <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
           className="min-h-0 flex-1 overflow-y-auto"
           data-testid="milestone-create-panel"
-          onSubmit={submit}
+          onSubmit={submitForm}
         >
           <div className="px-4 pb-3 pt-4">
             <MilestonePanelSectionTitle>Milestone 생성</MilestonePanelSectionTitle>
           </div>
           <div className="border-t border-border-subtle py-2">
             <MilestonePanelSectionTitle className="px-4">속성</MilestonePanelSectionTitle>
-            <FieldRow label="제목">
-              <Input
-                aria-label="제목"
-                className="w-56"
-                disabled={createMutation.isPending}
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-              />
-            </FieldRow>
-            <FieldRow label={GLOSSARY.whyThisMilestoneExists}>
-              <Textarea
-                aria-label={GLOSSARY.whyThisMilestoneExists}
-                className="w-56"
-                rows={3}
-                disabled={createMutation.isPending}
-                value={why}
-                onChange={(event) => setWhy(event.target.value)}
-              />
-            </FieldRow>
-            <FieldRow label="시스템">
-              <Select
-                value={managedSystemId || NO_SELECTION}
-                disabled={createMutation.isPending}
-                onValueChange={(value) =>
-                  handleManagedSystemChange(value === NO_SELECTION ? '' : value)
-                }
+            <FieldRow label={requiredLabel('제목')}>
+              <FormField
+                label="제목"
+                required
+                requiredMark="text"
+                showRequiredMark={false}
+                error={errors.title}
+                className="grid w-56 text-left [&>label]:sr-only"
               >
-                <SelectTrigger aria-label="시스템" value={managedSystemId} className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NO_SELECTION}>선택…</SelectItem>
-                  {managedSystems.map((system) => (
-                    <SelectItem key={system.id} value={system.id}>
-                      {system.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {(control) => (
+                  <Input
+                    {...control}
+                    aria-label="제목"
+                    className="w-56"
+                    disabled={createMutation.isPending}
+                    value={title}
+                    onChange={(event) => {
+                      setTitle(event.target.value);
+                      clearError('title');
+                    }}
+                  />
+                )}
+              </FormField>
+            </FieldRow>
+            <FieldRow label={requiredLabel(GLOSSARY.whyThisMilestoneExists)}>
+              <FormField
+                label={GLOSSARY.whyThisMilestoneExists}
+                required
+                requiredMark="text"
+                showRequiredMark={false}
+                error={errors.why}
+                className="grid w-56 text-left [&>label]:sr-only"
+              >
+                {(control) => (
+                  <Textarea
+                    {...control}
+                    aria-label={GLOSSARY.whyThisMilestoneExists}
+                    className="w-56"
+                    rows={3}
+                    disabled={createMutation.isPending}
+                    value={why}
+                    onChange={(event) => {
+                      setWhy(event.target.value);
+                      clearError('why');
+                    }}
+                  />
+                )}
+              </FormField>
+            </FieldRow>
+            <FieldRow label={requiredLabel('시스템')}>
+              <FormField
+                label="시스템"
+                required
+                requiredMark="text"
+                showRequiredMark={false}
+                error={errors.managedSystemId}
+                className="grid w-48 text-left [&>label]:sr-only"
+              >
+                {(control) => (
+                  <Select
+                    value={managedSystemId || NO_SELECTION}
+                    disabled={createMutation.isPending}
+                    onValueChange={(value) =>
+                      {
+                        handleManagedSystemChange(value === NO_SELECTION ? '' : value);
+                        clearError('managedSystemId');
+                      }
+                    }
+                  >
+                    <SelectTrigger
+                      {...control}
+                      aria-label="시스템"
+                      value={managedSystemId}
+                      className="w-48"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NO_SELECTION}>선택…</SelectItem>
+                      {managedSystems.map((system) => (
+                        <SelectItem key={system.id} value={system.id}>
+                          {system.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </FormField>
             </FieldRow>
             <FieldRow label="분석 영역">
               <Select
@@ -307,27 +379,63 @@ export function useMilestoneCreateParts({
                 </SelectContent>
               </Select>
             </FieldRow>
-            <FieldRow label={GLOSSARY.start}>
-              <DatePicker
-                aria-label={GLOSSARY.start}
-                appearance="detail"
-                disabled={createMutation.isPending}
-                value={startDate}
-                onChange={(value) => setStartDate(value ?? '')}
-              />
+            <FieldRow label={requiredLabel(GLOSSARY.start)}>
+              <FormField
+                label={GLOSSARY.start}
+                required
+                requiredMark="text"
+                showRequiredMark={false}
+                error={errors.startDate}
+                className="grid w-56 text-left [&>label]:sr-only"
+              >
+                {(control) => (
+                  <DatePicker
+                    {...control}
+                    aria-label={GLOSSARY.start}
+                    appearance="detail"
+                    disabled={createMutation.isPending}
+                    value={startDate}
+                    onChange={(value) => {
+                      setStartDate(value ?? '');
+                      clearError('startDate');
+                    }}
+                  />
+                )}
+              </FormField>
             </FieldRow>
-            <FieldRow label={GLOSSARY.target}>
-              <DatePicker
-                aria-label={GLOSSARY.target}
-                appearance="detail"
-                disabled={createMutation.isPending}
-                value={targetDate}
-                onChange={(value) => setTargetDate(value ?? '')}
-              />
+            <FieldRow label={requiredLabel(GLOSSARY.target)}>
+              <FormField
+                label={GLOSSARY.target}
+                required
+                requiredMark="text"
+                showRequiredMark={false}
+                error={errors.targetDate}
+                className="grid w-56 text-left [&>label]:sr-only"
+              >
+                {(control) => (
+                  <DatePicker
+                    {...control}
+                    aria-label={GLOSSARY.target}
+                    appearance="detail"
+                    disabled={createMutation.isPending}
+                    value={targetDate}
+                    onChange={(value) => {
+                      setTargetDate(value ?? '');
+                      clearError('targetDate');
+                    }}
+                  />
+                )}
+              </FormField>
             </FieldRow>
           </div>
           <div className="flex items-center gap-2 border-t border-border-subtle px-4 py-3">
-            <Button type="submit" variant="primary" size="sm" disabled={createMutation.isPending}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={createMutation.isPending}
+              disabledReason={createMutation.isPending ? MILESTONE_CREATE_COPY.submitting : undefined}
+            >
               생성
             </Button>
             <Button type="button" variant="subtle" size="sm" onClick={onCancel}>

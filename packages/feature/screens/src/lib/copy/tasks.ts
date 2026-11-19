@@ -1,6 +1,16 @@
 export const TASK_LINK_MISSING_MESSAGE =
   '요청한 Task를 찾을 수 없습니다. 삭제되었거나 현재 권한·범위 밖일 수 있습니다.';
 
+export const MILESTONE_CREATE_COPY = {
+  titleRequired: '제목을 입력해 주세요.',
+  whyRequired: '사유를 입력해 주세요.',
+  systemRequired: '시스템을 선택해 주세요.',
+  systemUnavailable: '선택한 시스템을 사용할 수 없습니다. 다시 선택해 주세요.',
+  startDateRequired: '시작일을 선택해 주세요.',
+  targetDateRequired: '목표일을 선택해 주세요.',
+  submitting: 'Milestone을 만드는 중입니다.',
+} as const;
+
 export const RESPONSIBILITY_COPY = {
   modes: { automatic: '자동 배정', unassigned: '미배정', actor: '사용자 지정', team: '팀 지정' },
   edit: '배정 수정',

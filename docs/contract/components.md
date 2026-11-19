@@ -243,12 +243,19 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 ### FormField — 라벨·입력·도움말·오류 (Decided, #1890, [ADR-0161](../adr/0161-form-field-hint-always-visible-render-function.md))
 
-- `@ap/ui`의 `FormField({ label, required?, tip?, hint?, error?, id?, describedBy?, className?, children })`. `children`은 렌더 함수이고 `control`(`id`·`aria-describedby`·`aria-invalid`·`aria-required`)을 라벨 가능한 입력 **하나**에 펼친다(`<Input {...control} />`). `id` 기본값은 `useId()`이고 `describedBy`는 도움말·오류 id 뒤에 붙는다. 한 필드에 입력이 여럿이면 `FormField`를 나눈다.
+- `@ap/ui`의 `FormField({ label, required?, showRequiredMark?, requiredMark?, requiredText?, tip?, hint?, error?, errorRole?, id?, describedBy?, className?, children })`. `children`은 렌더 함수이고 `control`(`id`·`aria-describedby`·`aria-invalid`·`aria-required`)을 라벨 가능한 입력 **하나**에 펼친다(`<Input {...control} />`). `id` 기본값은 `useId()`이고 `describedBy`는 도움말·오류 id 뒤에 붙는다. 한 필드에 입력이 여럿이면 `FormField`를 나눈다.
 - 순서는 라벨 → 입력 → 도움말 → 오류, 간격 6px. 라벨은 `FieldLabel`(필수 `*`, 선택 `tip`). 도움말(`text-xs text-text-muted`)은 **항상 보이고** 오류가 나도 남는다. 오류(`text-xs text-text-danger-label`)는 그 아래에 더하고 문구는 `break-keep`이다.
 - `aria-describedby`는 도움말 id, 오류 id, `describedBy` 순서이며 있는 것만 넣는다. `aria-invalid`는 오류가 있을 때만, `aria-required`는 `required`일 때만 입력에 닿는다. `Combobox`는 트리거 button에 둘 다 전달하고, `MultiCombobox`는 `aria-required`를 button에 넘기지 않는다.
-- **오류에 `role="alert"`·`aria-live`를 쓰지 않는다.** 여러 필드가 한꺼번에 오류를 내므로 필드마다 알리지 않는다(§26/§19 한 알림자). 호출하는 쪽은 제출하거나 칸을 벗어날 때 `error`를 넣고(글자마다 넣지 않는다), 제출이 막히면 첫 잘못된 입력으로 포커스를 옮긴다.
+- 오류에는 기본적으로 `role="alert"`·`aria-live`를 쓰지 않는다. 여러 필드가 한꺼번에 오류를 내므로 필드마다 알리지 않는다(§26/§19 한 알림자). 한 필드에 대한 서버 거절을 즉시 알려야 할 때만 `errorRole="alert"`을 선택적으로 쓴다. 호출하는 쪽은 제출하거나 칸을 벗어날 때 `error`를 넣고(글자마다 넣지 않는다), 제출이 막히면 첫 잘못된 입력으로 포커스를 옮긴다.
 - 오류 테두리는 각 입력이 칠한다: `Input`·`Textarea`·`SelectTrigger`·`Combobox` 트리거는 `aria-invalid:border-accent-danger`, `MultiCombobox`는 바깥 div의 `has-[[aria-invalid=true]]:border-accent-danger`. 감싸개는 테두리를 칠하지 않는다.
 - 이전: 손으로 만든 사본(이슈의 4곳과 `log-knowledge` `SpecField`, `log-analysis` `KnowledgeHandoffDialog`·`HandoffOwnerFields`)은 이전하지 않았다(`.planning/backlog.md`). `notice-voc`가 이미 `type FormField`를 내보내므로 이전 때 별칭이 필요하다.
+
+폼 검증 조각은 모두 옵트인이고 기존 기본값은 바뀌지 않는다.
+
+- `FieldLabel`·`FormField`의 `requiredMark?: 'asterisk' | 'text'` 기본값은 `'asterisk'`다. `'text'`는 «· 필수»를 표시하고, `requiredText`로 소비자가 Kernel i18n의 `requiredMark` 번역을 넘길 수 있다. `FormField.showRequiredMark`는 입력의 `aria-required`를 유지하면서 외부 라벨에 이미 표시한 시각 표식을 숨길 때만 사용하며 기본값은 `true`다. `RequiredMark`는 두 표식 모양을 같은 방식으로 그린다. `FormField.errorRole="alert"`은 단일 서버 거절에만 사용하고 여러 필드의 입력 검증에는 사용하지 않는다. `@ap/kernel` 메시지 `requiredMark`는 ko/en을 제공한다.
+- `useValidatedSubmit({ validate, onValid })`는 제출 값을 검증하고 필드별 `errors`와 `handleSubmit(values)`를 돌려준다. 오류가 있으면 렌더 후 폼 안의 첫 `[aria-invalid="true"]` 컨트롤로 포커스를 옮긴다. 한 필드를 수정할 때는 `clearError(field)`로 그 오류만 지우고, `clearErrors()`는 닫기·초기화·모드 변경처럼 폼 전체가 리셋될 때 사용한다. `FormField`의 render-prop `control`을 실제 입력에 펼쳐야 한다.
+- `Button.disabledReason?: ReactNode`는 버튼이 `disabled` 또는 `loading`일 때만 보이는 설명을 그려 `aria-describedby`로 연결한다. 이 prop을 전달하면 설명이 숨겨져 있는 동안에도 같은 wrapper를 유지해 버튼 노드와 ref가 바뀌지 않는다. 입력 오류 때문에 제출을 막는 방식 대신 제출 시 필드 오류를 보인다.
+- `validateLines(text, rule, { maxLines, maxLinesMessage? })`는 CRLF·LF·CR 줄을 1부터 검사하고 상한 다음 줄을 오류로 보고한다. 마지막 줄바꿈 하나로 생긴 빈 줄은 세지 않으며, 상한 뒤 내용을 조용히 버리지 않는다. `LineErrorList`는 선택적 `id`를 받고 처음 5개 오류와 «외 n건»을 표시하며 `messages`로 Kernel `lineError`·`lineErrorMore` 번역을 연결할 수 있다. 상한 메시지는 Kernel `lineLimitExceeded`를 넘긴다.
 
 ### Domain Component
 

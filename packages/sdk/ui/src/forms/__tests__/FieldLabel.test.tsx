@@ -26,6 +26,18 @@ describe('FieldLabel', () => {
     expect(asteriskSpans).toHaveLength(0);
   });
 
+  it('renders the opt-in text required mark and allows the Kernel message to be supplied', () => {
+    render(
+      <FieldLabel required requiredMark="text" requiredText="· Required">
+        Required field
+      </FieldLabel>,
+    );
+
+    const mark = screen.getByText('· Required');
+    expect(mark).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByText('*')).toBeNull();
+  });
+
   it('renders the tip trigger element when tip prop is provided', () => {
     render(<FieldLabel tip="도움말 내용">레이블</FieldLabel>);
     expect(screen.getByTestId('field-label-tip-trigger')).toBeInTheDocument();

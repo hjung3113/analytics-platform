@@ -255,7 +255,23 @@ describe('TaskRequestsRoute decision dialogs', () => {
     const dialog = await openDialog('승인', 'Task 요청 승인');
     fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
     await within(dialog).findByRole('alert');
-    expect(within(dialog).getByRole('textbox')).toHaveAttribute('aria-invalid', 'false');
+    expect(within(dialog).getByRole('textbox')).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('announces and focuses the reason after a server validation rejection', async () => {
+    api.rejectTaskRequest.mockRejectedValueOnce(
+      new ApiError(422, { code: 'validation.failed', message: 'invalid reason' }),
+    );
+    const dialog = await openDialog('반려', 'Task 요청 반려');
+    const reason = within(dialog).getByRole('textbox', { name: '반려 사유' });
+    fireEvent.change(reason, { target: { value: '검토 메모' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: '반려' }));
+
+    const error = await within(dialog).findByRole('alert');
+    expect(error).toBeVisible();
+    expect(reason).toHaveAttribute('aria-invalid', 'true');
+    expect(reason).toHaveAttribute('aria-describedby', expect.stringContaining(error.id));
+    expect(reason).toHaveFocus();
   });
 
   it('discards retained content and focuses the blocked heading after post-decision denial', async () => {
@@ -498,27 +514,29 @@ describe('TaskRequestsRoute decision dialogs', () => {
   it('shows a Korean required marker in the decision dialog', async () => {
     await openDialog('반려', 'Task 요청 반려');
 
-    expect(screen.getByText('필수 입력 항목입니다.')).toBeInTheDocument();
+    expect(screen.getByText('· 필수')).toBeInTheDocument();
     expect(screen.queryByText('Required.')).not.toBeInTheDocument();
   });
 
   it('links the reject reason error to the textarea while it shows', async () => {
     const dialog = await openDialog('반려', 'Task 요청 반려');
     const textbox = within(dialog).getByRole('textbox');
-    expect(textbox).toHaveAttribute('aria-invalid', 'false');
+    expect(textbox).not.toHaveAttribute('aria-invalid');
     expect(textbox).not.toHaveAttribute('aria-describedby');
 
     fireEvent.click(within(dialog).getByRole('button', { name: '반려' }));
-    const alert = await within(dialog).findByRole('alert');
-    const alertId = alert.getAttribute('id');
-    expect(alertId).toBeTruthy();
+    const error = await within(dialog).findByText('반려 사유를 입력해 주세요.');
+    const errorId = error.getAttribute('id');
+    expect(errorId).toBeTruthy();
     expect(textbox).toHaveAttribute('aria-invalid', 'true');
-    expect(textbox).toHaveAttribute('aria-describedby', alertId);
+    expect(textbox).toHaveAttribute('aria-describedby', errorId);
 
     fireEvent.change(textbox, { target: { value: '검토 메모' } });
-    await waitFor(() => expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(within(dialog).queryByText('반려 사유를 입력해 주세요.')).not.toBeInTheDocument(),
+    );
     expect(textbox).not.toHaveAttribute('aria-describedby');
-    expect(textbox).toHaveAttribute('aria-invalid', 'false');
+    expect(textbox).not.toHaveAttribute('aria-invalid');
   });
 
   it('approves another actor request without an optional reason', async () => {
@@ -603,8 +621,9 @@ describe('TaskRequestsRoute decision dialogs', () => {
       submit.focus();
       await user.keyboard('{Enter}');
       await waitFor(() => expect(submit).toHaveAttribute('aria-busy', 'true'));
-      // jsdom does not blur a newly disabled button as Chromium does; pin focusability too.
+      // Pending submissions stay focusable with aria-disabled while the form guard blocks repeats.
       expect(submit).not.toBeDisabled();
+      expect(submit).toHaveAttribute('aria-disabled', 'true');
       expect(submit).toHaveFocus();
       await user.keyboard('{Enter}');
       await act(async () => {
@@ -776,11 +795,15 @@ describe('TaskRequestsRoute decision dialogs', () => {
   ])('validates empty $action input in Korean and submits a trimmed value', async (scenario) => {
     if (scenario.actorId) setActor(scenario.actorId);
     const dialog = await openDialog(scenario.buttonName, scenario.dialogName);
+    const textbox = screen.getByRole('textbox', { name: scenario.textboxName });
     fireEvent.click(within(dialog).getByRole('button', { name: scenario.submitName }));
 
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(scenario.message);
+    const error = await within(dialog).findByText(scenario.message);
+    expect(error).toBeVisible();
+    expect(textbox).toHaveAttribute('aria-invalid', 'true');
+    expect(textbox).toHaveAttribute('aria-describedby', error.getAttribute('id'));
     expect(dialog).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: scenario.textboxName })).toHaveFocus();
+    expect(textbox).toHaveFocus();
     expect(api.approveTaskRequest).not.toHaveBeenCalled();
     expect(api.requestMoreEvidenceForTaskRequest).not.toHaveBeenCalled();
     expect(api.rejectTaskRequest).not.toHaveBeenCalled();
@@ -811,9 +834,10 @@ describe('TaskRequestsRoute decision dialogs', () => {
       within(dialog).getByRole('button', { name: '반려' }).focus();
       await user.keyboard('{Enter}');
 
-      expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-        '반려 사유를 입력해 주세요.',
-      );
+      const error = await within(dialog).findByText('반려 사유를 입력해 주세요.');
+      expect(error).toBeVisible();
+      expect(field).toHaveAttribute('aria-invalid', 'true');
+      expect(field).toHaveAttribute('aria-describedby', error.getAttribute('id'));
       expect(field).toHaveFocus();
       expect(api.rejectTaskRequest).not.toHaveBeenCalled();
     },

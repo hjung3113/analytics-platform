@@ -150,6 +150,45 @@ describe('Milestone mutation error copy', () => {
 });
 
 describe('Milestone create idempotency', () => {
+  it('keeps submit enabled for invalid input, shows field errors and focuses the first invalid field', async () => {
+    const user = userEvent.setup();
+    renderCreatePanel();
+
+    const submit = screen.getByRole('button', { name: '생성' });
+    const title = screen.getByRole('textbox', { name: '제목' });
+    expect(submit).toBeEnabled();
+    expect(title).not.toHaveAttribute('aria-invalid');
+
+    await user.click(submit);
+
+    expect(screen.getByText('제목을 입력해 주세요.')).toBeVisible();
+    expect(screen.queryByText('제목, 사유, 시스템, 시작일, 목표일을 입력해 주세요.')).toBeNull();
+    expect(title).toHaveAttribute('aria-invalid', 'true');
+    expect(title).toHaveFocus();
+    expect(createMilestone).not.toHaveBeenCalled();
+
+    expect(screen.getByText('사유를 입력해 주세요.')).toBeVisible();
+    expect(screen.getByText('시작일을 선택해 주세요.')).toBeVisible();
+    expect(screen.getByText('목표일을 선택해 주세요.')).toBeVisible();
+    await user.type(title, 'Milestone');
+    expect(title).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByRole('textbox', { name: '이 Milestone의 목적' })).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('시작일')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('목표일')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText('사유를 입력해 주세요.')).toBeVisible();
+    expect(screen.getByText('시작일을 선택해 주세요.')).toBeVisible();
+    expect(screen.getByText('목표일을 선택해 주세요.')).toBeVisible();
+  });
+
+  it('renders required markers beside the Milestone labels without hidden FormField markers', () => {
+    renderCreatePanel();
+
+    const marks = screen.getAllByText('· 필수');
+    expect(marks).toHaveLength(5);
+    expect(marks.every((mark) => mark.closest('label') === null)).toBe(true);
+    expect(screen.getByRole('textbox', { name: '제목' })).toHaveAttribute('aria-required', 'true');
+  });
+
   it('reuses the original key when the payload is edited and reverted before retry', async () => {
     const user = userEvent.setup();
     vi.mocked(createMilestone).mockRejectedValue(new Error('temporary failure'));

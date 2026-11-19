@@ -13,9 +13,29 @@ export interface FieldLabelProps extends React.ComponentPropsWithoutRef<typeof L
   messages?: { help?: (tip: string) => string };
   appearance?: 'default' | 'section';
   required?: boolean;
+  requiredMark?: 'asterisk' | 'text';
+  /** Localized text for `requiredMark="text"`; defaults to the Korean SDK copy. */
+  requiredText?: string;
   tone?: 'default' | 'secondary';
   tip?: string;
   children: React.ReactNode;
+}
+
+export interface RequiredMarkProps {
+  mark?: 'asterisk' | 'text';
+  text?: string;
+}
+
+export function RequiredMark({ mark = 'asterisk', text = '· 필수' }: RequiredMarkProps) {
+  return mark === 'asterisk' ? (
+    <span className="ml-1 text-text-danger-label" aria-hidden="true">
+      *
+    </span>
+  ) : (
+    <span className="ml-1 text-xs font-normal text-text-muted" aria-hidden="true">
+      {text}
+    </span>
+  );
 }
 
 const APPEARANCE_CLASSES = {
@@ -32,6 +52,8 @@ export function FieldLabel({
   messages,
   appearance = 'default',
   required,
+  requiredMark = 'asterisk',
+  requiredText = '· 필수',
   tone = 'default',
   tip,
   children,
@@ -41,11 +63,7 @@ export function FieldLabel({
   return (
     <Label className={cn(APPEARANCE_CLASSES[appearance], TONE_CLASSES[tone], className)} {...props}>
       {children}
-      {required === true && (
-        <span className="ml-1 text-text-danger-label" aria-hidden="true">
-          *
-        </span>
-      )}
+      {required === true && <RequiredMark mark={requiredMark} text={requiredText} />}
       {tip !== undefined && (
         <TooltipProvider>
           <Tooltip>
