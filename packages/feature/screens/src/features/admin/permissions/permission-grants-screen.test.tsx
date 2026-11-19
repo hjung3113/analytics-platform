@@ -792,7 +792,7 @@ describe('/admin/permissions/grants screen', () => {
       await user.click(submit);
       if (kind === 'grants') {
         const confirmation = await screen.findByRole('alertdialog');
-        expect(confirmation).toHaveTextContent('대상: Actor One · Payments 시스템에서 VOC 분류 권한이 취소되어 이 기능을 사용할 수 없게 됩니다.');
+        expect(confirmation).toHaveTextContent('대상 Actor One · 시스템 Payments · 권한 VOC 분류 — 취소하면 이 권한으로 하던 작업을 더 이상 할 수 없습니다.');
         expect(api.requests.some((request) => request.method === 'POST' && request.path === `/permissions/${kind}/${id}/revoke`)).toBe(false);
         await user.click(within(confirmation).getByRole('button', { name: '권한 취소' }));
       }
@@ -839,7 +839,7 @@ describe('/admin/permissions/grants screen', () => {
     const trigger = within(detail).getByRole('button', { name: '권한 취소' });
     await user.click(trigger);
     const confirmation = await screen.findByRole('alertdialog');
-    expect(confirmation).toHaveTextContent('대상: Actor One · Payments 시스템에서 VOC 분류 권한이 취소되어 이 기능을 사용할 수 없게 됩니다.');
+    expect(confirmation).toHaveTextContent('대상 Actor One · 시스템 Payments · 권한 VOC 분류 — 취소하면 이 권한으로 하던 작업을 더 이상 할 수 없습니다.');
     expect(api.requests.some((request) => request.method === 'POST' && request.path === `/permissions/grants/${GRANT_ID}/revoke`)).toBe(false);
 
     await user.click(within(confirmation).getByRole('button', { name: '취소' }));
@@ -849,6 +849,19 @@ describe('/admin/permissions/grants screen', () => {
     await user.click(trigger);
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '권한 취소' }));
     await waitFor(() => expect(api.requests.some((request) => request.method === 'POST' && request.path === `/permissions/grants/${GRANT_ID}/revoke`)).toBe(true));
+  });
+
+  test('names an all-systems grant without repeating the system word or the permission suffix', async () => {
+    const user = userEvent.setup();
+    installApi({ keepRevokedItem: true });
+    renderScreen(`/admin/permissions/grants?selected=${SECOND_GRANT_ID}`);
+
+    const detail = await screen.findByTestId('permission-grants-detail-panel');
+    await user.type(within(detail).getByLabelText('사유 · 필수'), '사용 범위가 변경되었습니다.');
+    await user.click(within(detail).getByRole('button', { name: '권한 취소' }));
+    const confirmation = await screen.findByRole('alertdialog');
+    expect(confirmation).toHaveTextContent('대상 Actor Two · 시스템 전체 · 권한 관리자 권한 — 취소하면 이 권한으로 하던 작업을 더 이상 할 수 없습니다.');
+    expect(confirmation).not.toHaveTextContent('시스템 시스템');
   });
 
   test('shows a loading affordance while the revoke command is pending', async () => {

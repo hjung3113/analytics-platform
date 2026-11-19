@@ -37,8 +37,9 @@ export const ADMIN_PERMISSIONS_COPY = {
   revokeConfirmTitle: '권한 취소 확인',
   revokeConfirm: '권한 취소',
   cancel: '취소',
-  revokeImpact: (target: string, system: string, permission: string) =>
-    `대상: ${target} · ${system} 시스템에서 ${permission} 권한이 취소되어 이 기능을 사용할 수 없게 됩니다.`,
+  /** `system` is null for a grant that covers every system. Labeled parts avoid particle and suffix clashes with names. */
+  revokeImpact: (target: string, system: string | null, permission: string) =>
+    `대상 ${target} · 시스템 ${system ?? '전체'} · 권한 ${permission} — 취소하면 이 권한으로 하던 작업을 더 이상 할 수 없습니다.`,
   liftDeny: '차단 해제',
   reasonPlaceholder: '처리 사유를 입력하세요.',
   revokeSuccess: '권한을 취소했습니다.',

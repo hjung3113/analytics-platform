@@ -43,7 +43,11 @@ export function PermissionGrantDetail({
     ? managedSystemNames[item.managed_system_id] ?? shortId(item.managed_system_id)
     : SCOPE_SELECTOR_COPY.allLabel;
   const permissionName = getCapabilityDisplayLabel(item.capability);
-  const revokeImpact = ADMIN_PERMISSIONS_COPY.revokeImpact(actorName, systemName, permissionName);
+  const revokeImpact = ADMIN_PERMISSIONS_COPY.revokeImpact(
+    actorName,
+    item.managed_system_id ? systemName : null,
+    permissionName,
+  );
 
   const body = (
     <div className="flex flex-col gap-5">
