@@ -3,7 +3,6 @@
 ## Ownership
 
 - VOC Clusters owns `voc_cluster.voc_clusters` and `voc_cluster.voc_cluster_members`, the `/voc-clusters/*` routes, bulk public-update application, and the cluster-to-Finding commands in `conversion.ts` (create, link existing, unlink).
-- It is a separate directory but logically owned by VOC (`../voc/AGENTS.md`); recommendations and pre-submit peers live under `../voc/`.
 - The autogen shadow job (FO ADR-0054, `../voc/jobs/cluster-autogen-shadow.ts`) records measurement rows only and never creates clusters, members, or audit events.
 
 ## Invariants
@@ -20,7 +19,6 @@
 
 ## Cross-System Rules
 
-- Other modules use the barrel (`index.ts`), e.g. `lockVocClusterById`, not `repo.ts` (`pnpm --filter @ap/platform-api-ops check:boundaries`).
 - Bulk public updates reuse the injected VOC `postPublicUpdate`; do not write Public Updates from this module.
 
 ## Verification

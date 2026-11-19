@@ -3,7 +3,7 @@
 ## Ownership
 
 - Owns frontend route composition for Survey creation, builder flows, responses, results, and survey-to-action CTAs. Does not own VOC creation, Finding persistence, Task mutation, or permission decisions.
-- Owns `/surveys`, `/surveys/:surveyId`, `/surveys/:surveyId/results`, `/surveys/:surveyId/follow-up`, `/surveys/participate`, and `/surveys/:surveyId/respond`. Survey-derived actions may link into Integration or Tasks through approved API contracts.
+- Survey-derived actions may link into Integration or Tasks through approved API contracts.
 
 ## Invariants
 
@@ -14,17 +14,9 @@
 - Keep builder and result views simple for MVP. Result summaries expose Create Finding and Request Task where permitted; Link Finding is deferred out of MVP scope (FO ADR-0037).
 - Permission-limited responses show approved summaries or request-access paths.
 - Preserve Survey context during linked object creation.
-- Selected-Finding load/ready/error orchestration stays in Survey; source reads and the Finding-owned Request Task draft host come from `useFindingDetail` and `FindingRequestTaskDraftHost`, imported by their own modules (never `features/findings/public.ts`, which entry graphs ban).
+- Selected-Finding load/ready/error orchestration stays in Survey; source reads and the Finding-owned Request Task draft host come from `useFindingDetail` and `FindingRequestTaskDraftHost`, imported by their own modules.
 
-## Bridge-mounted surfaces
-
-- `routes/surveys-search.ts` — router-free list and detail search schemas + validators (`isSurveysSearchValueValid`, `isSurveyDetailSearchValueValid`); the bridge reads them through `operator-screens/surveys-search`.
-- `routes/SurveysScreen.tsx` — bridge-safe Survey list screen (list context, URL selection, stale-drop, create) over the host seam; the detail slot is the host's `renderDetail(selectedId, slot)`. Entry `operator-screens/surveys`, which never reaches the detail tree.
-- `routes/SurveyResultsScreen.tsx` — bridge-safe Survey results screen (outer metadata states, header, summary) over the host seam. Entry `operator-screens/survey-results`; never imports `features/findings/public.ts` (the summary reaches `FindingRequestTaskDraftHost` and `useFindingDetail` by their own modules).
-- `routes/SurveyFollowUpScreen.tsx` — bridge-safe follow-up screen, entry `operator-screens/survey-follow-up`. Host-owned `selection` is controlled: no auto-select, and a filter switch or stale id goes through `onSelect(null)`; `renderDetail(parts)` is where the host places the detail parts. Absent = the review's own selection with first-open auto-select and the standalone aside.
-- `routes/SurveyBuilderScreen.tsx` — bridge-safe Survey builder screen (data states, manage gate, Back with a dirty draft confirmed by the screen) over the host seam; the host owns `onBack`. Entry `operator-screens/survey-builder`. Without a host `leaveGuard` the screen declares a dirty draft to the host seam's `useUnsavedGuard`, so the platform bridge asks before a menu switch drops it (#2533); test-local adapters retain the old blocker assertions without a runtime route.
-- `components/participation/SurveyParticipationScreens.tsx` — bridge-safe participation list and respondent form screens, mounted by the platform bridge (platform ADR-0071); retired wrappers live only under `src/test`. Use `variant="embedded"` only in the platform.
-- `components/detail/SurveyDetailParts.tsx` — Survey detail as `DetailParts` (`useSurveyDetailParts`: loading / not-found / blocked / error / full); entry `operator-screens/survey-detail`. The standalone Survey detail aside under `src/test/host-adapters` frames these pieces.
+- Without a host `leaveGuard`, the Survey builder declares a dirty draft to the host seam's `useUnsavedGuard`, so the platform bridge asks before a menu switch drops it (#2533); test-local adapters retain the old blocker assertions without a runtime route.
 
 ## Close-out contract (FO ADR-0067; FO ADR-0055)
 

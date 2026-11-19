@@ -17,7 +17,7 @@
 - `registeredEntityLinkPairs` in `packages/feature/shared/src/entity-links.ts` is the canonical tuple registry. The DB `entity_links_tuple_check` CHECK constraint must be kept in sync via migration; adding a relation type requires both a shared-list entry and a migration extending the CHECK.
 - **No-Managed-System tuples (ADR-0123).** `managed_system_id` is NULL only for `noManagedSystemEntityLinkPairs` (`manual_validation_attachment → validation_round`, `evidence_of`); the DB check `entity_links_managed_system_check` carries the same list, so every other tuple still requires it and keeps `assertLinkManagedSystemCompatibility` (which also refuses a NULL end).
   - `LinkEndpointRow.managed_system_id` is `string | null`: a Managed-System provider reads it through `requireEndpointManagedSystemId`.
-  - These tuples are command-only: `createNoManagedSystemLink` (called by the owning module in its own transaction) requires BOTH ends' provider `canRead` and answers one `not_found.record` for an unresolved or unreadable end; the generic create, list, inventory and detach paths exclude them (`genericEntityLinkPairs`, `inventoryPredicates`).
+  - These tuples are command-only: `createNoManagedSystemLink` (called by the owning module in its own transaction) requires both ends' provider `canRead` and answers one `not_found.record` for an unresolved or unreadable end; the generic create, list, inventory and detach paths exclude them (`genericEntityLinkPairs`, `inventoryPredicates`).
   - A new no-Managed-System pair needs the shared-list entry, the DB check lists, a provider in the owning module, an audit detail variant, and a test of allowed, other-workspace, one-end-unreadable and missing-provider cases.
 
 ## Provider Contract
@@ -37,6 +37,5 @@ Each linkable module must provide `entity_type`, `assertExists`, `getPermissionS
 ## Survey read-boundary cutover (FO ADR-0064; #740)
 
 - Keep `core.entity_links` canonical with all statuses/history. Ordinary app SQL uses the filtered owner-backed `core.entity_links_app` view; exclude either Survey-response endpoint in every status. Revoke raw app SELECT/INSERT/UPDATE and column ACLs; no DELETE.
-- Verify real conflict/RETURNING/detach paths before cutover.
 - Entity Links owns narrow Survey link mutations returning local link ID/inserted state only. Generic counts/cursors/detach never expose opaque Survey tuples; Results reaches them only through the Survey-owned authorized derived-Finding seam.
 - Preserve ordinary provenance and active uniqueness; app-executable functions remain trusted application tools, not stolen-credential unlinkability.

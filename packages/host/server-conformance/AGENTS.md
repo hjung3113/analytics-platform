@@ -7,13 +7,7 @@ Server-boundary conformance suite. It checks the whole `PlatformAdapter` the sam
 - Import only `@ap/contracts` and vitest. Never import `mock-server`, menus or React: the real server must be judged by the same yardstick as the mock, so the suite knows no implementation (lint preset `serverConformance`).
 - Add only checks derivable from declarations. Menu-specific data expectations (numbers, rows) belong to menu tests.
 - When a contract rule changes (06 §5, §19; package boundary §4), fix the checks here and the checklist document in the same PR.
-- vitest is a peer (`^3.2.7`). The platform API runs this suite on vitest 2.1.8; `describe`/`it`/`expect` attach to the running vitest instance at import time, so it works, and pnpm only warns about the mismatch. Upgrade the platform API's vitest first before using a vitest-3-only API here.
-
-## Harness and plan
-
-- Harness type `ServerConformanceHarness` (`src/types.ts`) carries the whole adapter, sample requests, port samples `ports`, granted/ungranted sites and period, `asGranted`/`withoutPermission`/`asConsole`/`asOtherAnnotator`, and write samples `actions` (`ActionCase`). Without `actions` samples, `menuAction` checks collapse to one skipped `actions: no sample`.
-- `planServerConformance` (`src/plan/endpoints.ts`, synchronous) derives the check list from declarations. Port checks are split by area under `src/plan/ports/`; `planPortChecks` in its `index.ts` chains them in the original order.
-- `src/__tests__/conformance.test.ts` is the suite's own regression test: an adapter that breaks a rule on purpose must fail the matching check.
+- vitest is a peer (`^3.2.7`). The platform API runs this suite on an older Vitest major; `describe`/`it`/`expect` attach to the running vitest instance at import time, so it works, and pnpm only warns about the mismatch. Upgrade the platform API's vitest first before using a vitest-3-only API here.
 
 ## Skips
 

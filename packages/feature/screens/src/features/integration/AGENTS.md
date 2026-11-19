@@ -6,13 +6,6 @@ Integration owns frontend route composition for Evidence, Coverage, Links, and i
 
 ## Route Boundary
 
-Code ownership and URL mount are not the same thing here:
-
-- Owns both code and URL for Links, at `/integration/links`.
-- Owns both code and URL for Coverage, at `/integration/coverage` (screen `features/integration/routes/CoverageScreen.tsx`, entry `operator-screens/coverage`).
-- Owns the Integration Action Dashboard at `/integration` (screen `features/integration/routes/IntegrationDashboardScreen.tsx`, entry `operator-screens/integration-dashboard`).
-- Owns Evidence at `/integration/evidence` (FO ADR-0065), a read-only ListShell with independent selected-detail reads.
-- Findings is mounted at top-level `/findings` and owned by `features/findings/` (the platform bridge owns registration). The standalone `/findings/$findingId` redirect is retired (#597).
 - Home may link into Integration-owned surfaces with selected object and action intent.
 
 ## Invariants
@@ -30,17 +23,6 @@ Code ownership and URL mount are not the same thing here:
 ## Key files
 
 Paths are relative to `packages/feature/screens/src/`.
-
-- `features/integration/routes/integration-search.ts` — the four 연동 search schemas (dashboard, evidence, coverage, links) and their per-key validators, router-free; the platform bridge imports them directly.
-- Test-only routes under `test/screen-host/routes/_authed/integration/` (`index.tsx`, `coverage.tsx`, `links.tsx`, `evidence.tsx`) mount the four surfaces with URL search validation (Evidence strict).
-- `features/integration/routes/EvidenceScreen.tsx` — Evidence inventory and safe detail reconciliation (entry `operator-screens/evidence`); the panel is `ClosableDetailParts` rendered by the host.
-- `features/integration/api/evidence-inventory.ts` — parsed read clients and `evidenceInventoryQueryKey()`, returning the shared `EVIDENCE_INVENTORY_QUERY_KEY` from `lib/query/evidence-inventory-key.ts` that Finding attachments (54-5) invalidate.
-- `features/integration/routes/IntegrationDashboardScreen.tsx` — action dashboard (entry `operator-screens/integration-dashboard`); the selected recovery item is handed to the host as parts and rendered in place. Its test route composes it with route-local navigate; the route schema's `history` preprocess keeps `history=true` a boolean.
-- `features/integration/recovery/useRecoveryQueueCore.tsx` — router-free recovery queue core and its seam adapter; the retired Home adapter exists only under `test/host-adapters` for retained behavior tests.
-- `test/screen-host/features/integration/routes/CoverageRoute.tsx` — composes `CoverageScreen` (entry `operator-screens/coverage`; standalone `InternalLink` anchors); the screen holds coverage columns, labels and coverage states.
-- `test/screen-host/features/integration/routes/LinksRoute.tsx` — composes `LinksScreen` (entry `operator-screens/entity-links`; owns its `ListShell`; the search box writes the `q` page key and the server searches readable endpoint titles and display IDs, #1374; the rows carry no checkbox, #1368); the screen holds Links list filters, tabs and selected state.
-- `lib/copy/home.ts` — shared wording used by Coverage.
-- `lib/copy/permission-reasons.ts` — shared blocked copy used by the link inventory.
 
 ## Verification
 
@@ -68,5 +50,5 @@ Paths are relative to `packages/feature/screens/src/`.
 - URL keys, detail restoration and states: `packages/feature/screens/docs/routes-and-layout.md`.
 - Eligibility-before-search/pagination: `docs/architecture/platform-api/api/findings.md`.
 - Rows/panel identify the owning Finding; primary `Finding 보기` opens its detail and Back preserves Evidence context. Editing/attachment/execution remains in Finding detail, using #816's candidate/attach APIs. No standalone model, Unlinked tab or coverage KPI.
-- Reuse Korean chrome/source labels and the shipped shell density; the prototype is a reference under FO ADR-0060. Verify desktop 1440, keyboard/focus, withheld/denied/empty/error and later-page selected detail before delivery by the conductor.
+- Reuse Korean chrome/source labels and the shipped shell density; the prototype is a reference under FO ADR-0060. Verify keyboard/focus, withheld/denied/empty/error and later-page selected detail before delivery by the conductor.
 - Preserve ordinary Links/Coverage, VOC source/reporter rules and authored notes.

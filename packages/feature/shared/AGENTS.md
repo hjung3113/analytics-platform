@@ -8,13 +8,12 @@
 
 ## Forbidden Content
 
-- Imports from `apps/platform-api`, `packages/feature/screens`, or `src/ui` (enforced by `pnpm --filter @ap/platform-api-ops check:boundaries`).
+- Imports from `apps/platform-api`, `packages/feature/screens`, or `src/ui`.
 - Database access; HTTP clients; React components or hooks.
 - Permission decisions with runtime authority; domain workflow orchestration; Managed System default owner/reviewer resolution logic.
 
 ## Rules
 
-- Lint is ESLint over the whole package: `pnpm --filter @ap/feature-shared lint` (`featureSharedPreset`, `--max-warnings 0`). An intended exception names its ESLint rule and a concrete reason in the comment; an unused directive fails. Rule correspondence: `docs/integration/platform-packages.md` §6.
 - Prefer explicit exported return types for shared helpers.
 - Keep domain values centralized; avoid stringly typed statuses outside schema or enum definitions.
 - Changes here affect both apps, so update backend and frontend tests when contracts change.

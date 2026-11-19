@@ -5,7 +5,7 @@ Design: `docs/design/features/log-explorer/README.md`; contract: `docs/architect
 
 ## Invariants
 
-- **Source text is never stored, logged, audited or thrown.** A port call throws only `SourceReadError` whose content is a code (`aborted`, `time_budget_exceeded`, `adapter_failed`, `invalid_request`, `invalid_response`); `leak-boundary.test.ts` scans the module for logging and audit writes.
+- Source text is never stored, logged, audited or thrown. A port call throws only `SourceReadError` whose content is a code (`aborted`, `time_budget_exceeded`, `adapter_failed`, `invalid_request`, `invalid_response`); `leak-boundary.test.ts` scans the module for logging and audit writes.
   - `toSourceReadError` rebuilds every thrown error as a fresh code-only `SourceReadError` from a whitelisted code (a dressed-up one carrying a body in message, cause or extra fields is not passed through); anything else is `adapter_failed`; a malformed answer is `invalid_response`.
 - **Every read goes through `guardSourceReadPort`** (`createLogExplorerModule` wires it): request validation, AbortSignal and time budget (also against an adapter that ignores them), row text cut at 8,000 chars with `truncated`, time-reversal marker and window `truncated` recomputed.
   - Refuse an answer that arrives after cancellation or past the deadline; fail closed on a response over the request limit (a window is at most 200 rows with the target; a larger ask is `invalid_request`), outside the `@ap/contract-schemas` v0 shapes, or naming a file/line the request did not ask for or out of file-then-line order.
@@ -23,7 +23,7 @@ Design: `docs/design/features/log-explorer/README.md`; contract: `docs/architect
   - Directory windows require a server-resolved Round manifest in `SourceReadContext.trustedSampleSet`; client hashes/sample sets are not trusted. Keep the strict v0 request unchanged. The adapter hashes the entire byte stream before returning bounded rows, without caching bodies or digests. Search, Parser, periods and Top View remain unsupported; dataset availability has no trusted Round binding and remains unverified.
 - **Page cursors are encrypted (AES-256-GCM) and request-bound** (`domain/cursor.ts`): the client never holds or can read an adapter cursor (it may carry log text); `WIRE_CURSOR_MAX` derives from the worst permitted adapter cursor.
   - Change the binding fields together with the contract doc.
-- **`read-service.ts` is the only writer of the read event** `explorer.source.read` (closed schema in `@ap/feature-shared`): counts, digest, filter KEYS, result code; if the audit write fails, the read fails.
+- **`read-service.ts` is the only writer of the read event** `explorer.source.read` (closed schema in `@ap/feature-shared`): counts, digest, filter keys, result code; if the audit write fails, the read fails.
   - `leak-boundary.test.ts` allows `audit.record` in `read-service.ts`, `export-service.ts` and the investigation files (`INVESTIGATION_AUDIT_OK`) only; `read-endpoints.test.ts` pins that the row holds no body, filter value or file reference.
 - Param errors name the field path and the schema's static message, never the value (`domain/read-params.ts`).
 - The signal comes from `EndpointHandlerArgs.signal`; menu dispatch aborts it when the client closes the connection.
@@ -38,9 +38,8 @@ Design: `docs/design/features/log-explorer/README.md`; contract: `docs/architect
 - **The export (`export-service.ts`, `export-routes.ts`) refuses before the first byte, never cuts:** rows ≤ 10,000; file ≤ 5 MB (bounded in-memory buffer, nothing stored); quotas — 1 concurrent via a `core.rate_limits` lease released by its own lease id so a late cleanup never frees a replacement, 20 a day, budget.
   - The whole response (Source reads and stream) is capped (`exportTotalMs`, 120 s) below the 150 s lease. Malformed bodies and `investigationId` attempts are audited with `sourceOwner`/digest/format null.
   - The right is judged after every Source page and immediately before every chunk, the first included (token active, capability, Source owner); a failure stops the stream and the audit says `revoked`.
-  - `domain/export-format.ts` prefixes CSV cells starting `= + - @`, tab or CR.
 - `leak-boundary.test.ts` fails if the module imports anything that reaches an LLM, embedding, search index or notification.
-- Limits are start values (`@ap/contract-schemas` `log-explorer-export.ts`: 10,000 rows, 5 MB, 50 MB/day, 20 exports/day, 1 concurrent); change them there together with the contract doc.
+- Change the limits in `@ap/contract-schemas` `log-explorer-export.ts` together with the contract doc.
 
 ## Investigations
 
@@ -52,7 +51,7 @@ Owns the shareable state of a log investigation: its sample set (or the Round it
 - Everything is owner-scoped: the list, the detail and every write find only the caller's own row in the session workspace; another owner's id, another workspace's id and an unknown id are the same answer (`data: null`, `not_found`).
 - Stored refs are never deleted when access is lost; the detail returns each with a state (`domain/ref-state.ts`): `no_access` with `capability_lost` or `round_not_visible`. The Source ACL is the read side's seam: every ref carries `sourceAccess: 'unchecked'`; do not fabricate Source reads here.
 - Versioned actions lock the row in `currentVersion` (`FOR UPDATE`); the engine answers `conflict` / `not_found`; an archived row is final (`illegal_transition`).
-- Every write is one transaction: row change and one `core.audit_log` row. Audit detail has filter KEYS, counts and a note LENGTH only (`packages/feature/shared/src/audit/log-explorer-investigation.ts`, strict); filter keys are identifier-like so a key cannot carry a value.
+- Every write is one transaction: row change and one `core.audit_log` row. Audit detail has filter keys, counts and a note length only (`packages/feature/shared/src/audit/log-explorer-investigation.ts`, strict); filter keys are identifier-like so a key cannot carry a value.
 - The capability `explorer.investigate` (menu permission `explorer:investigate`) is registered in `packages/feature/shared/src/enums/capabilities.ts`, the supported-scope policy and the `permissions` declaration of `investigationContribution` (`index.ts`); `platform-port/permissions.ts` is not edited for a menu permission.
 - `logExplorer.evidenceLinks` (`read-endpoints.ts`): reverse lookup of an evidence location, entry right `platform:view`, read only through the log-lifecycle barrel port `deps.lifecycleEvidence` (`lifecycleEvidenceRead`); ids and locations only, no Source access, no audit. `__tests__/lifecycle-boundary.test.ts` pins that no explorer file imports a lifecycle repository or schema.
 

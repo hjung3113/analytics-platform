@@ -19,16 +19,7 @@ The in-house adoption intro page. Not product code. Use only static HTML/CSS/cla
 ## Build and check
 
 - Assemble: `node site/scripts/assemble.mjs --out "$TMPDIR/ap-site" --site-base / --assumption`. Preview: `python3 -m http.server -d "$TMPDIR/ap-site" 8080` → `http://127.0.0.1:8080/`.
-- Assemble arguments:
-  - `--out` (required, a new empty folder)
-  - `--site-base` (deploy path starting and ending with `/`, default `/analytics-platform/`)
-  - `--demo <dist>` (copies the mock demo build to `demo/`)
-  - `--shots <capture folder>` (`shots.mjs` output; without it the capture slots are removed)
-  - `--ref`, `--commit` (source link and footer)
-  - `--assumption`
-  - Static images `assets/**` are copied whole.
-- `assemble.mjs` stops when `--shots` is given but a capture the body requires is missing.
-- Assembled check: `node site/scripts/check-assembled.mjs --site <assembled folder> --captures <shots.mjs output folder> --browser`. It checks that every required capture is in both the capture folder and the assembly, duplicate ids and anchors, forbidden terms (code characters included; allowed code names are printed), and horizontal scroll at 1440/390.
+- Assembled check: `node site/scripts/check-assembled.mjs --site <assembled folder> --captures <shots.mjs output folder> --browser`.
 
 ## Captures
 
@@ -37,5 +28,5 @@ The in-house adoption intro page. Not product code. Use only static HTML/CSS/cla
 - Screens that need the core server (platform-menu notifications, surveys, my VOC; the VOC registration drawer's compose view) are shot by hand with `scripts/shots-real.mjs` and committed as JPEG under `assets/real/`:
   1. `AP_BACKEND_ORIGIN=<core server> pnpm --filter @ap/platform-web exec vite --mode real --host 127.0.0.1 --port <port> --strictPort`
   2. `node site/scripts/shots-real.mjs --url http://127.0.0.1:<port> --out site/assets/real`
-  - Shoot at scale 2 on a throwaway DB holding the seed persona (`mock-user-2`) and Korean example data, cropped to the topic box. The script enforces the 1.5 MB total cap and the test-marker check (`[preview]`, `[seed]`).
+  - Shoot at scale 2 on a throwaway DB holding the seed persona (`mock-user-2`) and Korean example data, cropped to the topic box.
   - Caption `실서버 모드 · 예시 데이터` and add a ledger row.

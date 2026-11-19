@@ -30,10 +30,7 @@ Findings owns Finding records, evidence highlights, finding status, evidence-fir
 
 ## Survey provenance and excerpts (FO ADR-0064)
 
-Migration application and real-role integration verification remain conductor-owned; the frontend picker is separate.
-
 - Finding owns parent/highlight lifecycle and counters; Survey owns proposed/new protected response/approval/text extensions. Write them through Survey's seam, canonical links through Entity Links' seam, in the command transaction.
 - Public Survey Finding `source_id` and Survey highlight binding/text fields are NULL after cutover. Survey-generated title/summary/provider/mutation cache and Task Request defaults contain deterministic metadata only. Keep ordinary VOC/Cluster IDs, VOC source checks and authored note text unchanged.
 - Hydrate Survey highlight quotes with fresh target read/source read/exact active approval in one snapshot; deny/revoke omits text with safe unavailable local metadata. Existing highlight audience differs from result-picker suppression.
 - The #1109 attachment accepts an approved selection — not a response UUID or free quote — requires source/result eligibility plus target `finding.manage`, and atomically writes binding/highlight/counter/`evidence_of`/audit/idempotency. Never add `generated_finding` to an existing Finding.
-- Coordinate schema/grant cutover and targeted legacy cache sanitization with #740; neither alone is delivery.
