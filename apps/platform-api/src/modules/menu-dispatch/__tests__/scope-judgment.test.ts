@@ -17,31 +17,40 @@ const body = (scopeId: string | null = 'MEM', roomNames: string[] | null = ['R1'
 let app: FastifyInstance | undefined;
 afterEach(async () => { await app?.close(); app = undefined; });
 
+const SITE = { kind: 'site', site: 'MEM' } as const;
+// [name, resolve, request, outcome, recovery.deniedScope the answer must carry (#2595)]
 const cases = [
-  ['no grants', async () => [], body(), 'forbidden'],
+  ['no grants', async () => [], body(), 'forbidden', SITE],
   ...[null, [], ['R1'], undefined].flatMap((rooms) =>
     [false, true].map((otherSite) => [
       `empty requested-site rooms (${String(rooms)}), other site ${otherSite}`,
       async () => [{ site: 'MEM', rooms: [] }, ...(otherSite ? [{ site: 'FDRY', rooms: ['R9'] }] : [])],
       { endpoint: 'test.rows', context: { scopeId: 'MEM', ...(rooms === undefined ? {} : { roomNames: rooms }) }, params: {} },
       'forbidden',
+      SITE,
     ] as const)),
-  ['throws', async () => { throw new Error('private resolver detail'); }, body(), 'forbidden'],
+  ['throws', async () => { throw new Error('private resolver detail'); }, body(), 'forbidden', undefined],
   ['timeout', createHttpScopeResolver({
     baseUrl: 'https://grants.example', timeoutMs: 5,
     fetch: async (_url, { signal }) => new Promise((_resolve, reject) => {
       signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
     }),
-  }).resolve, body(), 'forbidden'],
-  ['granted subset', async () => grants, body(), 'ok'],
-  ['outside site', async () => grants, body('OTHER'), 'forbidden'],
-  ['outside room', async () => grants, body('MEM', ['R3']), 'forbidden'],
-  ['null scope', async () => grants, body(null), 'forbidden'],
+  }).resolve, body(), 'forbidden', undefined],
+  ['granted subset', async () => grants, body(), 'ok', undefined],
+  ['outside site', async () => grants, body('OTHER'), 'forbidden', { kind: 'site', site: 'OTHER' }],
+  ['outside room', async () => grants, body('MEM', ['R3']), 'forbidden', { kind: 'site_room', site: 'MEM', room: 'R3' }],
+  ['one of the requested rooms outside', async () => grants, body('MEM', ['R1', 'R3']), 'forbidden', { kind: 'site_room', site: 'MEM', room: 'R3' }],
+  // Several denied rooms are a compound denial: no single target to request (components §19).
+  ['two rooms outside', async () => grants, body('MEM', ['R3', 'R4']), 'forbidden', undefined],
+  ['null scope', async () => grants, body(null), 'forbidden', undefined],
+  // A target the wire contract would refuse never becomes a request target (#2595 review C2).
+  ['blank site', async () => grants, body(' '), 'forbidden', undefined],
 ] as const;
 
 for (const mode of ['engine', 'route'] as const) {
   describe(`Scope judgment through ${mode}`, () => {
-    it.each(cases)('%s', async (_name, resolve, payload, outcome) => {
+    it.each(cases)('%s', async (_name, resolve, payload, outcome, deniedScope) => {
+      const recovery = deniedScope ? { deniedScope } : undefined;
       const resolver: ScopeResolver = { resolve: vi.fn(resolve) };
       const { declaration } = testEndpoint({ requiresScope: true, context: Object.hasOwn(payload.context, 'roomNames') ? { roomNames: 'apply' } : {} });
       const handle = vi.fn(async () => ({ outcome: 'ok' as const, data: [1] }));
@@ -52,7 +61,9 @@ for (const mode of ['engine', 'route'] as const) {
         expect(shape.ok).toBe(true);
         if (!shape.ok) throw new Error(shape.message);
         const signal = new AbortController().signal;
-        expect(await runQuery(shape, actor, 'cid', signal)).toMatchObject({ outcome });
+        const answer = await runQuery(shape, actor, 'cid', signal);
+        expect(answer).toMatchObject({ outcome });
+        expect(answer.recovery).toEqual(recovery);
         expect(resolver.resolve).toHaveBeenCalledWith(actor, signal);
       } else {
         app = await transportApp(async (scoped) => {
@@ -63,6 +74,7 @@ for (const mode of ['engine', 'route'] as const) {
         const response = await app.inject({ method: 'POST', url: '/api/v1/menu-query', headers: COOKIE, payload });
         expect(response.statusCode).toBe(200);
         expect(response.json()).toMatchObject({ outcome });
+        expect(response.json().recovery).toEqual(recovery);
         expect(response.body).not.toContain('private');
         expect(resolver.resolve).toHaveBeenCalledWith(actor, expect.any(AbortSignal));
       }
@@ -98,10 +110,29 @@ describe('Scope request lifetime and ordering', () => {
       const registry = createMenuDispatchRegistry([{ endpoints: [declaration] }], { scopeResolver: resolver });
       const shape = judgeQueryShape({ endpoint: 'test.rows', context: requiresScope ? { scopeId: 'MEM' } : {}, params: {} }, registry);
       if (!shape.ok) throw new Error(shape.message);
-      expect(await runQuery(shape, actor, 'cid')).toMatchObject({ outcome: allow ? 'ok' : 'forbidden' });
+      const answer = await runQuery(shape, actor, 'cid');
+      expect(answer).toMatchObject({ outcome: allow ? 'ok' : 'forbidden' });
+      expect(answer).not.toHaveProperty('recovery');
       if (allow) expect(handle).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }));
     }
     expect(resolver.resolve).not.toHaveBeenCalled();
+  });
+
+  it('names no denied Scope when grants arrive after the request was cancelled', async () => {
+    let finish: (value: typeof grants | []) => void = () => undefined;
+    const resolver = { resolve: vi.fn(() => new Promise<typeof grants | []>((resolve) => { finish = resolve; })) };
+    const { declaration, calls } = testEndpoint({ requiresScope: true, context: { roomNames: 'apply' } });
+    const registry = createMenuDispatchRegistry([{ endpoints: [declaration] }], { scopeResolver: resolver });
+    const shape = judgeQueryShape(body(), registry);
+    if (!shape.ok) throw new Error(shape.message);
+    const controller = new AbortController();
+    const pending = runQuery(shape, actor, 'cid', controller.signal).then((answer) => answer, (error: unknown) => error);
+    await vi.waitFor(() => expect(resolver.resolve).toHaveBeenCalledTimes(1));
+    controller.abort();
+    // No grants would otherwise name the whole Site as the denied target.
+    finish([]);
+    expect(await pending).not.toHaveProperty('recovery');
+    expect(calls.handled).toBe(0);
   });
 
   it('resolves each request so revoked grants deny the next read', async () => {

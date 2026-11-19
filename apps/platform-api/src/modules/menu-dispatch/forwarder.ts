@@ -150,6 +150,14 @@ async function proveEquipmentRecovery(
   return { affectedEquipmentIds, authorizedEquipmentIds };
 }
 
+type UpstreamDeniedScope = NonNullable<NonNullable<EndpointResult['recovery']>['deniedScope']>;
+
+function deniedScopeOfRequest(target: UpstreamDeniedScope | undefined, context: Record<string, unknown>): target is UpstreamDeniedScope {
+  if (!target || target.site !== context.scopeId) return false;
+  if (target.kind === 'site') return true;
+  return Array.isArray(context.roomNames) && context.roomNames.includes(target.room);
+}
+
 export function createMenuForwarder({
   baseUrl,
   timeoutMs,
@@ -203,13 +211,18 @@ export function createMenuForwarder({
       const parsed = envelopeSchema.safeParse(body);
       if (!parsed.success || parsed.data.correlationId !== args.correlationId) throw new MenuUpstreamError('unavailable');
       const envelope = parsed.data;
-      const { affectedEquipmentIds, authorizedEquipmentIds, retryable, ...otherRecovery } = envelope.recovery ?? {};
+      // An upstream denial target reaches the access-request dialog only when it names this request's own Site, and
+      // for a room one of the submitted rooms; anything else is not evidence about this denial (#2595 review C3).
+      const { deniedScope: upstreamDeniedScope, ...rest } = envelope.recovery ?? {};
+      const upstreamRecovery = deniedScopeOfRequest(upstreamDeniedScope, args.context)
+        ? { ...rest, deniedScope: upstreamDeniedScope } : rest;
+      const { affectedEquipmentIds, authorizedEquipmentIds, retryable, ...otherRecovery } = upstreamRecovery;
       const carriesEquipment = affectedEquipmentIds !== undefined || authorizedEquipmentIds !== undefined;
       const reason = envelope.message?.split(':', 1)[0]?.trim();
       const aggregationReason = reason === 'time_domain_unverified' || reason === 'time_domain_mismatch' ? reason : undefined;
       const sanitizeDiagnostics = carriesEquipment || aggregationReason !== undefined;
       const message = sanitizeDiagnostics ? aggregationReason : envelope.message;
-      let recovery = envelope.recovery;
+      let recovery = Object.keys(upstreamRecovery).length > 0 ? upstreamRecovery : undefined;
       if (sanitizeDiagnostics) {
         const equipment = carriesEquipment ? await proveEquipmentRecovery(affectedEquipmentIds, authorizedEquipmentIds,
           { endpointId, args, ...(routed && { routed }), signal }, resolveEquipmentLocations) : undefined;

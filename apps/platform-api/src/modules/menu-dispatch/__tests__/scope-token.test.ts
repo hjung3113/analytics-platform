@@ -58,6 +58,8 @@ describe('API-token scope.read is judged once at resolveRequestScopes, for any r
     if (outcome === 'forbidden') {
       // Negative: the denied call never asks the resolver and no site·room grant reaches a handler.
       expect(result).toMatchObject({ data: null });
+      // A token denial is not a Site/Room denial: no target to request (#2595).
+      expect(result).not.toHaveProperty('recovery');
       expect(resolver.resolve).not.toHaveBeenCalled();
       expect(handle).not.toHaveBeenCalled();
     } else {
