@@ -74,7 +74,7 @@ export function TriageScreen(): React.ReactElement {
   const handleProcessed = useCallback((delta: 1 | -1): void => {
     setProcessedCount((count) => count + delta);
   }, []);
-  const { isLoading: meLoading } = useMeBridge();
+  const { data: me, isLoading: meLoading } = useMeBridge();
 
   // Active tab defaults to 'unassigned' when not set in URL
   const activeTab: TriageTab = (search.tab as TriageTab | undefined) ?? 'unassigned';
@@ -283,6 +283,8 @@ export function TriageScreen(): React.ReactElement {
       {...(tabCounts !== undefined ? { tabCounts } : {})}
       processedCount={processedCount}
       onProcessed={handleProcessed}
+      canWritePublicUpdate={Boolean(me && me.actor.role_level !== 'user')}
+      {...(me !== undefined ? { me } : {})}
       onAdvanceVoc={handleAdvanceVoc}
       onSelectVoc={handleSelectVoc}
       onTabChange={handleTabChange}

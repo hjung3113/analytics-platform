@@ -333,6 +333,12 @@ Quick Actions:
 - Write Public Update
 ```
 
+After a successful triage confirmation, a VOC still at `접수됨` opens the existing Public Update
+composer for an actor allowed to publish, with `검토 중` and editable prefilled copy. The draft does
+not change the public status; publishing pairs the answer and status through the existing command,
+while closing sends nothing. Undoing triage while the editor is open closes it without publishing.
+Triage undo does not revert an already-published Public Update.
+
 Create Finding from VOC detail or Triage starts with the VOC title and severity
 as editable defaults. Triage uses its staged severity, then the saved VOC
 severity, then `medium`; VOC detail uses the saved severity or `medium` when it

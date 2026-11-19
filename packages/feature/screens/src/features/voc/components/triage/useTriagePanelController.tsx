@@ -19,6 +19,8 @@ export function useTriagePanelController({
   onAct,
   onOptimisticRemove,
   onOptimisticPostpone,
+  onConfirmSuccess,
+  onUndoConfirm,
   onProcessed,
   onOptimisticRestore,
   onOptimisticRollback,
@@ -39,6 +41,8 @@ export function useTriagePanelController({
   ) => void;
   onOptimisticRemove?: (vocId: string, input?: TriageInput) => void;
   onOptimisticPostpone?: (vocId: string, input?: TriageInput) => void;
+  onConfirmSuccess?: (voc: VocListItem) => void;
+  onUndoConfirm?: (vocId: string) => void;
   onProcessed?: (delta: 1 | -1) => void;
   onMutationFailure?: (vocId: string) => void;
   onQueueOutcome?: (input: TriageInput, outcome: TriageQueueOutcome) => void;
@@ -106,6 +110,7 @@ export function useTriagePanelController({
   const { panelLocked, isSubmitting, commit, undoLast } = useTriageCommand({
     voc,
     serverReviewPostponedAt,
+    onConfirmSuccess,
     onProcessed,
     onOptimisticRestore,
     onOptimisticRollback,
@@ -172,6 +177,7 @@ export function useTriagePanelController({
           // REV-3 Cluster X: pass the token so undoLast no-ops if this is
           // a stale toast (a newer mutation has since started).
           onAction: () => {
+            if (kind === 'confirm') onUndoConfirm?.(voc.id);
             undoLastRef.current(callToken);
             dismiss(successToastId);
           },
@@ -199,6 +205,7 @@ export function useTriagePanelController({
       panelState,
       onOptimisticRemove,
       onQueueOutcome,
+      onUndoConfirm,
       onAct,
       commit,
       notify,

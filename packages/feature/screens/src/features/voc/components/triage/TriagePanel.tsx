@@ -80,6 +80,10 @@ export interface TriagePanelProps {
    */
   onOptimisticRemove?: (vocId: string, input?: TriageInput) => void;
   onOptimisticPostpone?: (vocId: string, input?: TriageInput) => void;
+  /** Called after a successful, non-undone confirm for a received VOC. */
+  onConfirmSuccess?: (voc: VocListItem) => void;
+  /** Closes a matching Public Update editor before triage compensation starts. */
+  onUndoConfirm?: (vocId: string) => void;
   /** Count only successfully committed actions in the mounted screen session. */
   onProcessed?: (delta: 1 | -1) => void;
   /**
@@ -111,6 +115,8 @@ export function TriagePanel({
   onAct,
   onOptimisticRemove,
   onOptimisticPostpone,
+  onConfirmSuccess,
+  onUndoConfirm,
   onProcessed,
   onOptimisticRestore,
   onOptimisticRollback,
@@ -141,6 +147,8 @@ export function TriagePanel({
     ...(onAct !== undefined ? { onAct } : {}),
     ...(onOptimisticRemove !== undefined ? { onOptimisticRemove } : {}),
     ...(onOptimisticPostpone !== undefined ? { onOptimisticPostpone } : {}),
+    ...(onConfirmSuccess !== undefined ? { onConfirmSuccess } : {}),
+    ...(onUndoConfirm !== undefined ? { onUndoConfirm } : {}),
     ...(onProcessed !== undefined ? { onProcessed } : {}),
     ...(onMutationFailure !== undefined ? { onMutationFailure } : {}),
     ...(onQueueOutcome !== undefined ? { onQueueOutcome } : {}),
