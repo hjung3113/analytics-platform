@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contextCapabilities, defineEndpoint, emptyGlobal, groupId, menuPermission, type ApiResponse, type MenuQuery } from '@ap/contracts';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, usePlatform } from '../../platform/platform';
 import { useQueryDraft } from '../../query/query-draft';
@@ -77,6 +77,54 @@ function mount(selection: Readonly<Record<string, unknown>>, { permission = true
 afterEach(cleanup);
 
 describe('LentPanel', () => {
+  it('keeps source rendering and its platform reference stable across an equivalent receiver rerender', async () => {
+    const observed = vi.fn();
+    function Probe({ actions }: LentPanelProps) {
+      const [count, setCount] = useState(0);
+      observed(usePlatform());
+      return <>{actions}<button type="button" onClick={() => setCount(count + 1)}>Source render {count}</button></>;
+    }
+    registerLentPanel(source, Probe);
+    const session = testSession([receiving, owning, reading]);
+    const adapter = testAdapter({ session: () => session });
+    window.history.replaceState(null, '', url);
+    const view = (selection: typeof values, actionLabel: string) => (
+      <I18nProvider><PlatformProvider registry={registry} adapter={adapter}>
+        <LentPanel source={source} values={selection} actions={<button type="button">{actionLabel}</button>} />
+      </PlatformProvider></I18nProvider>
+    );
+    const { rerender } = render(view(values, 'Close panel'));
+    const sourceButton = await screen.findByRole('button', { name: 'Source render 0' });
+    const count = observed.mock.calls.length;
+    const platform = observed.mock.lastCall?.[0];
+    rerender(view({ ...values }, 'Dismiss panel'));
+    expect(screen.getByRole('button', { name: 'Dismiss panel' })).toBeTruthy();
+    expect(observed).toHaveBeenCalledTimes(count);
+    fireEvent.click(sourceButton);
+    expect(observed).toHaveBeenCalledTimes(count + 1);
+    expect(observed.mock.lastCall?.[0]).toBe(platform);
+  });
+
+  it('keeps the missing Selection key available to code and out of both messages', () => {
+    const [binding] = registry.lentPanels(receiver.id);
+    const verdict = binding.verdict(testSession(binding.permissions), {
+      context: { ...emptyGlobal, ...queryContext, selection: ['EQ01'] }, values,
+    });
+    expect(verdict).toEqual({
+      allowed: false, reason: { kind: 'missing-input', key: 'selection', text: {
+        ko: '패널에 필요한 설비 선택이 없습니다.', en: 'No equipment is selected for this panel.',
+      } },
+    });
+  });
+
+  it('reports not-registered when the host omits the source menu', () => {
+    const panelRegistry = createRegistry({
+      spaces: [testSpace()], groups: registry.groups, menus: [home, receiver], permissions: [receiving],
+    });
+    mount(values, { panelRegistry });
+    expect(screen.getByText('not-registered')).toBeTruthy();
+  });
+
   function displayRegistry() {
     return createRegistry({
       spaces: registry.spaces, groups: registry.groups, permissions: [receiving, owning, reading],

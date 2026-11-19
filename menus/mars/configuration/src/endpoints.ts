@@ -10,7 +10,9 @@ export type CompareStatus = typeof STATUS[number];
 export type CompareParams = { eq: string[]; mode: 'all' | 'reference'; ref: string; status: CompareStatus; q: string; asOf: 'latest'; coreOnly?: boolean };
 export type ValueState = 'equal' | 'diff' | 'violation' | 'missing' | 'not-comparable';
 export type ConfigValue = { value: number | string | null; state: ValueState };
+export type LinkedMotion = { moduleType: string; module: string; motion: string };
 export type ConfigRow = {
+  linkedMotion?: LinkedMotion | null;
   id: string; key: string; module: string; category: string; item: string; filename: string; group: string;
   coreKnown: boolean; diff: boolean; violation: boolean; missing: boolean; notComparable: boolean;
   values: Record<string, ConfigValue>; source: string; collectedAt: string; spec?: { min: number; max: number };
@@ -26,7 +28,7 @@ export type PivotResult = { over: true; count: number } | { over: false; count: 
 export const COLUMN_LIMIT = 200;
 export type TreePage = MatrixWindow<TreeRow> & { counts: StatusCounts; totalItems: number; expanded: string[]; firstItem: string | null; sameColumns: string[] };
 export type TreeNavigationParams = TreeParams & { focus: string | null; direction: 'previous' | 'next' };
-export type TreeNavigation = { focus: string; expanded: string[]; offset: number; ordinal: number; total: number } | null;
+export type TreeNavigation = { focus: string; expanded: string[]; offset: number; ordinal: number; total: number; linkedMotion?: LinkedMotion | null } | null;
 export const TREE_WINDOW = 80;
 export const ROW_COUNT = 90_000;
 export const EXPORT_LIMIT = 10_000;
@@ -85,4 +87,13 @@ export function historyPeriod({ from, to }: Pick<GlobalContext, 'from' | 'to'>) 
 
 export const configurationHistoryEndpoint = defineEndpoint<HistoryParams, ConfigHistory>({
   ...base, id: 'configuration.history', paramKeys: { itemId: true, equipment: true },
+});
+
+export type ConfigurationLending = {
+  linkedMotion: LinkedMotion | null;
+  equipmentColumns: { id: string; label: string; equipmentId: string | null }[];
+};
+
+export const configurationLendingEndpoint = defineEndpoint<HistoryParams, ConfigurationLending>({
+  ...base, id: 'configuration.lending', paramKeys: configurationHistoryEndpoint.paramKeys,
 });

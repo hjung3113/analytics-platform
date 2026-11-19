@@ -2,9 +2,10 @@ import {
   CONTEXT_FIELDS, emptyGlobal, menuPermissions, missingRequiredContext, normalizeSet,
   type ContextKey, type GlobalContext, type Pair, type PanelBinding, type PanelContextKey, type PanelInputBinding, type Session, type Text,
 } from '@ap/contracts';
-import { messageText } from '../i18n';
+import { messageText, queryMissingSentence } from '../i18n';
 import type { RegisteredPanel } from './panels';
-import type { MenuEntry } from './registry';
+import { CONTEXT_LABELS, type MenuEntry } from './registry';
+import { isIdShape } from './shapes';
 
 export type LentPanelBindingValues = {
   context: Readonly<GlobalContext>;
@@ -15,6 +16,8 @@ export type LentPanelBindingValues = {
 export type LentPanelReason = {
   kind: 'permission' | 'missing-input' | 'unsupported-context' | 'not-registered';
   text: Text;
+  /** Technical input name for missing-input diagnostics. Display text instead. */
+  key?: string;
 };
 export type LentPanelVerdict = { allowed: true; reason: null } | { allowed: false; reason: LentPanelReason };
 
@@ -29,11 +32,25 @@ const UNSUPPORTED_CONTEXT = {
   reason: { kind: 'unsupported-context', text: messageText('lentPanelUnsupportedContext') },
 } as const satisfies LentPanelVerdict;
 
-export function missingLentPanelInput(key: string): Extract<LentPanelVerdict, { allowed: false }> {
-  return {
-    allowed: false,
-    reason: { kind: 'missing-input', text: messageText('lentPanelMissingInput', { key }) },
-  };
+export function missingLentPanelInput(key: string, source?: RegisteredPanel, kind: 'page' | 'context' = 'context'): Extract<LentPanelVerdict, { allowed: false }> {
+  const page = source?.queryInputs.page?.find(input => input.key === key);
+  let text = messageText('lentPanelMissingInput');
+  if (kind === 'page' || page) {
+    if (page?.label) {
+      text = {
+        ko: messageText('lentPanelMissingNamedInput', { label: page.label.ko }).ko,
+        en: messageText('lentPanelMissingNamedInput', { label: page.label.en }).en,
+      };
+    }
+  } else if (key === 'selection') {
+    text = messageText('lentPanelMissingSelection');
+  } else if (key === 'scopeId') {
+    text = messageText('lentPanelMissingScope');
+  } else if (isContextKey(key)) {
+    const label = CONTEXT_LABELS[key as ContextKey];
+    text = { ko: queryMissingSentence('ko', label), en: queryMissingSentence('en', label) };
+  }
+  return { allowed: false, reason: { kind: 'missing-input', key, text } };
 }
 
 type ResolvedInputs = { context: GlobalContext; page: Readonly<Record<string, unknown>>; display?: Readonly<Record<string, unknown>> };
@@ -122,6 +139,22 @@ function copyContextField<K extends keyof GlobalContext>(target: GlobalContext, 
   target[key] = structuredClone(source[key]);
 }
 
+function validateReceiverInput(menu: MenuEntry, input: PanelInputBinding, fail: (message: string) => never) {
+  if (!input || typeof input.key !== 'string' || !input.key.trim()) fail('input binding needs a nonempty key');
+  switch (input.kind) {
+    case 'page':
+      if (!menu.pageKeys.includes(input.key)) fail(`undeclared receiving page key "${input.key}"`);
+      break;
+    case 'context':
+      if (!isContextKey(input.key)) fail(`unknown receiving Context key "${input.key}"`);
+      break;
+    case 'value':
+      break;
+    default:
+      fail('input binding kind must be context, page or value');
+  }
+}
+
 function registerBinding(menu: MenuEntry, binding: PanelBinding, source: RegisteredPanel, sourceLabel: Text, fail: (message: string) => never): RegisteredLentPanel {
   const requiredContext = new Set<ContextKey>();
   const requiredMappings = new Set<PanelContextKey>();
@@ -146,40 +179,21 @@ function registerBinding(menu: MenuEntry, binding: PanelBinding, source: Registe
   const allowedPage = new Set(source.queryInputs.page?.map(input => input.key));
   const requiredPage = source.queryInputs.page?.filter(input => input.required).map(input => input.key) ?? [];
   const allowedDisplay = new Set(source.display?.map(input => input.key));
-  const validateInput = (input: PanelInputBinding) => {
-    if (!input || typeof input.key !== 'string' || !input.key.trim()) fail('input binding needs a nonempty key');
-    switch (input.kind) {
-      case 'page':
-        if (!menu.pageKeys.includes(input.key)) fail(`undeclared receiving page key "${input.key}"`);
-        break;
-      case 'context':
-        if (!isContextKey(input.key)) fail(`unknown receiving Context key "${input.key}"`);
-        break;
-      case 'value':
-        break;
-      default:
-        fail('input binding kind must be context, page or value');
-    }
-  };
   const contextBindings = new Map<PanelContextKey, PanelInputBinding>();
   for (const [key, input] of Object.entries(binding.context ?? {})) {
     if (!isContextKey(key) || !allowedContext.has(key)) fail(`unknown source Context query input "${key}"`);
-    validateInput(input);
     if (input.kind === 'context' ? input.key !== key : key !== 'selection') {
       fail(`source Context "${key}" must use its matching receiving Context key (only Selection can narrow by page or value)`);
     }
     contextBindings.set(key, input);
   }
   const pageBindings = new Map(Object.entries(binding.page ?? {}));
-  for (const [key, input] of pageBindings) {
+  for (const key of pageBindings.keys()) {
     if (!allowedPage.has(key)) fail(`unknown source page query input "${key}"`);
-    validateInput(input);
   }
   const displayBindings = new Map(Object.entries(binding.display ?? {}));
-  for (const [key, input] of displayBindings) {
+  for (const key of displayBindings.keys()) {
     if (!allowedDisplay.has(key)) fail(`unknown source display input "${key}"`);
-    validateInput(input);
-    if (input.kind !== 'value') fail(`source display input "${key}" must use a value binding`);
   }
   for (const key of requiredMappings) {
     if (!contextBindings.has(key)) fail(`missing binding for required query input "${key}"`);
@@ -213,7 +227,7 @@ function registerBinding(menu: MenuEntry, binding: PanelBinding, source: Registe
 
     const page = Object.fromEntries([...pageBindings].map(([key, input]) => [key, readInput(input, values, menu)]));
     const missingPage = requiredPage.find(key => !pageInputPresent(page[key]));
-    if (missingPage !== undefined) return missingLentPanelInput(missingPage);
+    if (missingPage !== undefined) return missingLentPanelInput(missingPage, source, 'page');
     const inputs: ResolvedInputs = { context, page };
     if (source.display !== undefined) {
       const display: [string, unknown][] = [];
@@ -238,7 +252,7 @@ function registerBinding(menu: MenuEntry, binding: PanelBinding, source: Registe
   };
 }
 
-export function registerLentPanels(menus: readonly MenuEntry[], panels: readonly RegisteredPanel[], fail: (message: string) => never) {
+export function registerLentPanels(menus: readonly MenuEntry[], panels: readonly RegisteredPanel[], reportMissing: (menuId: string, sourceMenuId: string) => void, fail: (message: string) => never) {
   const sources = new Map(panels.map(panel => [`${panel.menuId}/${panel.id}`, panel]));
   const labels = new Map(menus.map(menu => [menu.id, menu.label]));
   const bindings = new Map<string, readonly RegisteredLentPanel[]>();
@@ -246,16 +260,28 @@ export function registerLentPanels(menus: readonly MenuEntry[], panels: readonly
     if (menu.lentPanels === undefined) continue;
     if (!Array.isArray(menu.lentPanels)) fail(`Menu "${menu.id}" lentPanels must be an array`);
     const seen = new Set<string>();
-    bindings.set(menu.id, menu.lentPanels.map((binding: PanelBinding) => {
+    bindings.set(menu.id, menu.lentPanels.flatMap((binding: PanelBinding) => {
       const invalid = (message: string): never => fail(`Menu "${menu.id}" lent panel "${binding?.source}" ${message}`);
-      const source = sources.get(binding?.source) ?? invalid(`has unknown source panel "${binding?.source}"`);
+      const parts = typeof binding?.source === 'string' ? binding.source.split('/') : [];
+      const [sourceMenuId, panelId] = parts;
+      if (parts.length !== 2 || !isIdShape(sourceMenuId) || !isIdShape(panelId)) return invalid('must identify a menu and panel');
       if (seen.has(binding.source)) invalid('has a duplicate binding');
       seen.add(binding.source);
       if ('outputs' in binding) invalid('cannot bind outputs');
       for (const map of [binding.context, binding.page, binding.display]) {
         if (map !== undefined && (!map || typeof map !== 'object' || Array.isArray(map))) invalid('input bindings must be maps');
+        for (const input of Object.values(map ?? {})) validateReceiverInput(menu, input, invalid);
       }
-      return registerBinding(menu, binding, source, labels.get(source.menuId) ?? invalid(`has a source menu without a label`), invalid);
+      for (const [key, input] of Object.entries(binding.display ?? {})) {
+        if (input.kind !== 'value') invalid(`source display input "${key}" must use a value binding`);
+      }
+      const label = labels.get(sourceMenuId);
+      if (label === undefined) {
+        reportMissing(menu.id, sourceMenuId);
+        return [];
+      }
+      const source = sources.get(binding.source) ?? invalid(`has unknown source panel "${binding.source}"`);
+      return [registerBinding(menu, binding, source, label, invalid)];
     }));
   }
   const none: readonly RegisteredLentPanel[] = [];

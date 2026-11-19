@@ -66,7 +66,7 @@ function columnModel(data: EquipmentResult, params: PivotParams, m: Message) {
 
 export function EquipmentAxisTable({ data, params, selection, selectedItem, onSelect, openDetail, openTrend, trendReason, m }: {
   data: EquipmentResult; params: PivotParams; selection: MatrixCell | null; selectedItem: ConfigRow | null;
-  onSelect: (cell: MatrixCell, item: ConfigRow) => void; openDetail: () => void; openTrend: (id: string) => void; trendReason: string | null; m: Message;
+  onSelect: (cell: MatrixCell, item: ConfigRow) => void; openDetail: () => void; openTrend: (id: string, linkedMotion?: ConfigRow['linkedMotion']) => void; trendReason: string | null; m: Message;
 }) {
   const { columns, groups } = useMemo(() => columnModel(data, params, m), [data, params, m]);
   const itemsByKey = useMemo(() => new Map(data.columns.map(item => [item.key, item])), [data.columns]);
@@ -77,7 +77,7 @@ export function EquipmentAxisTable({ data, params, selection, selectedItem, onSe
   }, [itemsByKey, onSelect, data.rows]);
   const activate = useCallback(({ column }: TableCell) => {
     const item = itemsByKey.get(column);
-    if (item) openTrend(item.id);
+    if (item) openTrend(item.id, item.linkedMotion);
   }, [itemsByKey, openTrend]);
   return <>
     <PlatformDataTable title={m('title')} ariaLabel={m('title')} preferenceKey="configuration:equipment-axis" fill pageOwnedToolbar={PAGE_OWNED_TOOLBAR}

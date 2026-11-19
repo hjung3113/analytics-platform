@@ -9,7 +9,7 @@ import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { registerLentPanel, settleQueries, testAdapter, testMenu, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import type { PageFilterField } from '@ap/components';
 import { stubCompactTableGeometry } from '@ap/components/testing';
-import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, DEFAULT_EQUIPMENT, DEFAULT_LEVELS, EXPORT_LIMIT, SAVED_VIEW_SUPPORT, TREE_WINDOW, filterDeclarations, type ConfigHistory, type HistoryParams, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
+import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, DEFAULT_EQUIPMENT, DEFAULT_LEVELS, EXPORT_LIMIT, SAVED_VIEW_SUPPORT, TREE_WINDOW, filterDeclarations, configurationLendingEndpoint, type ConfigHistory, type ConfigurationLending, type HistoryParams, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
 import { manifests } from '../index';
 import Configuration from './Configuration';
 import { OpenHwTimeLink } from './ConfigurationWorkspace';
@@ -19,12 +19,16 @@ const controls = vi.hoisted(() => ({ fields: [] as readonly PageFilterField[] })
 vi.mock('@ap/components', async original => ({ ...await original<object>(),
   PageFilterBar: ({ fields, actions }: { fields: readonly PageFilterField[]; actions: ReactNode }) => { controls.fields = fields; return <div>{actions}</div>; },
 }));
+const linkedMotionForItem = (id: string) => {
+  const module = { 'cfg-000000': 'LK1', 'cfg-000001': 'LK2' }[id];
+  return module ? { moduleType: 'LK', module, motion: 'Pump' } : null;
+};
 // Bounded transport fixture; real handlers and default hierarchy are covered in mock/index.test.ts.
 function windowPage(params: TreeParams): TreePage {
   const totalItems = params.q === 'not-a-synthetic-item' ? 0 : TREE_WINDOW * 3;
   const nodes: TreeRow[] = Array.from({ length: Math.min(TREE_WINDOW, totalItems - params.offset) }, (_, local) => {
     const id = `cfg-${String(params.offset + local).padStart(6, '0')}`;
-    const item = { id, key: id, module: 'PM1', category: 'Gas', item: 'Pressure', filename: 'config.cfg', group: 'PM1 / Gas', coreKnown: true, diff: true, violation: false, missing: false, notComparable: false, source: 'synthetic', collectedAt: '2026-11-17T00:00:00Z', values: Object.fromEntries(params.eq.map(eq => [eq, { value: eq === 'EQ03' ? 125 : 120, state: 'diff' as const }])) };
+    const item = { id, linkedMotion: linkedMotionForItem(id), key: id, module: 'PM1', category: 'Gas', item: 'Pressure', filename: 'config.cfg', group: 'PM1 / Gas', coreKnown: true, diff: true, violation: false, missing: false, notComparable: false, source: 'synthetic', collectedAt: '2026-11-17T00:00:00Z', values: Object.fromEntries(params.eq.map(eq => [eq, { value: eq === 'EQ03' ? 125 : 120, state: 'diff' as const }])) };
     return { id, item, label: item.item, level: 2, kind: 'leaf', hasChildren: false, expanded: false, differences: 1 };
   });
   return { nodes, offset: params.offset, totalVisible: totalItems, totalItems, expanded: ['fixture-group'], sameColumns: [], firstItem: nodes[0]?.id ?? null, counts: { all: totalItems, review: totalItems, diff: totalItems, missing: 0, violation: 0 } };
@@ -82,6 +86,22 @@ async function mount(menuQuery = vi.fn(async ({ params: query }: { endpoint: str
   await settleQueries();
   await vi.waitFor(() => expect(host.querySelector('[data-matrix-viewport]'), host.textContent ?? '').not.toBeNull());
   return menuQuery;
+}
+function lendingFixture({ itemId, equipment }: HistoryParams): ConfigurationLending {
+  return {
+    linkedMotion: linkedMotionForItem(itemId),
+    equipmentColumns: equipment.map(id => ({
+      id, label: id, equipmentId: { EQ01: 'MEM-PHOTO-0103', EQ03: 'MEM-PHOTO-0108' }[id] ?? `MEM-FIXTURE-${id}`,
+    })),
+  };
+}
+function withLending<T extends { endpoint: string; params: unknown }>(
+  respond: (request: T, signal?: AbortSignal) => Promise<ApiResponse<unknown>>,
+) {
+  return vi.fn(async (request: T, signal?: AbortSignal): Promise<ApiResponse<unknown>> => {
+    if (request.endpoint === configurationLendingEndpoint.id) return ok(lendingFixture(request.params as HistoryParams));
+    return respond(request, signal);
+  });
 }
 function picker() {
   const field = controls.fields.find(field => field.key === 'equipment');
@@ -618,9 +638,10 @@ describe('Configuration equipment axis', () => {
       await act(async () => cell.dispatchEvent(gesture === 'Enter' ? new KeyboardEvent('keydown', { key: gesture, bubbles: true }) : new MouseEvent(gesture, { bubbles: true })));
       await settleQueries();
       await vi.waitFor(() => expect(host.querySelector('[data-configuration-trend]')).not.toBeNull());
-      expect(menuQuery).toHaveBeenLastCalledWith(expect.objectContaining({
+      const lastTrendCall = menuQuery.mock.calls.filter(([request]) => request.endpoint !== configurationLendingEndpoint.id).at(-1);
+      expect(lastTrendCall).toEqual([expect.objectContaining({
         endpoint: 'configuration.history', params: { itemId: 'cfg-000000', equipment: DEFAULT_EQUIPMENT },
-      }), expect.anything());
+      }), expect.anything()]);
       await act(async () => button('추세 닫기')!.click());
     }
 
@@ -635,7 +656,7 @@ describe('Configuration equipment axis', () => {
 
   it('queries the same linked motion from the item and equipment axes', async () => {
     registerLentPanel('hw-time/trend', SourceTrend);
-    const requests = await mount(vi.fn(async ({ endpoint, params: query }) => {
+    const requests = await mount(withLending(async ({ endpoint, params: query }) => {
       const params = query as TreeParams;
       if (endpoint === sourceRuns.id) return { ...ok('linked motion'), assessments: [] };
       if (endpoint === 'configuration.pivot') return ok(pivot(params));
@@ -661,7 +682,7 @@ describe('Configuration equipment axis', () => {
 it('binds a selected Configuration item to its scoped equipment and opens both trends from the shared URL', async () => {
   registerLentPanel('hw-time/trend', SourceTrend);
   window.history.replaceState(null, '', '/mars/configuration?v=1&scopeId=MEM&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00&status=all&equipment=EQ01,EQ03&trendItem=cfg-000000');
-  const endpointRequests = await mount(vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }) => {
+  const endpointRequests = await mount(withLending(async ({ endpoint, params }: { endpoint: string; params: unknown }) => {
     if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
     if (endpoint === 'configuration.history') return { ...ok(null), outcome: 'empty' as const };
     return ok(null);
@@ -686,23 +707,59 @@ it('binds a selected Configuration item to its scoped equipment and opens both t
   expect(destination.searchParams.get('drillMotion')).toBe('Pump');
 });
 
+it.each([
+  { name: 'all mapped', equipmentId: 'MEM-PHOTO-0122', linkedMotion: { moduleType: 'LK', module: 'LK2', motion: 'Pump' } },
+  { name: 'one unmapped', equipmentId: null, linkedMotion: { moduleType: 'LK', module: 'LK2', motion: 'Pump' } },
+  { name: 'no linked Motion', equipmentId: 'MEM-PHOTO-0122', linkedMotion: null },
+])('uses the Configuration response to decide lending when $name', async ({ equipmentId, linkedMotion }) => {
+  registerLentPanel('hw-time/trend', SourceTrend);
+  const url = new URL(window.location.href);
+  url.searchParams.set('trendItem', 'cfg-000000');
+  url.searchParams.set('equipment', 'EQ01,EQ03');
+  window.history.replaceState(null, '', url);
+  const requests = await mount(vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }) => {
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
+    if (endpoint === configurationLendingEndpoint.id) return ok({ linkedMotion, equipmentColumns: [
+      { id: 'EQ01', label: 'Reference tool', equipmentId: 'MEM-PHOTO-0119' },
+      { id: 'EQ03', label: 'Comparison tool', equipmentId },
+    ] });
+    if (endpoint === sourceRuns.id) return { ...ok('linked motion'), assessments: [] };
+    return { ...ok(null), outcome: 'empty' as const };
+  }));
+  await settleQueries();
+  expect(host.querySelector('[data-configuration-trend]')).not.toBeNull();
+  if (linkedMotion && equipmentId) {
+    await vi.waitFor(() => expect(host.querySelector('[data-test-source-result]')?.textContent).toBe('linked motion'));
+    const calls = requests.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id);
+    expect(calls.map(([request]) => request.params)).toEqual([{
+      equipment: ['MEM-PHOTO-0119', equipmentId], moduleType: 'LK', module: 'LK2', motion: 'Pump',
+    }]);
+    return;
+  }
+  const reason = host.querySelector('[data-configuration-bottom] [role="status"]');
+  if (linkedMotion) expect(reason?.textContent).toBe('다음 열은 HW Time 설비와 연결되지 않습니다. Comparison tool');
+  else expect(reason).toBeNull();
+  expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
+  expect(requests.mock.calls.some(([request]) => request.endpoint === sourceRuns.id)).toBe(false);
+});
+
 it('keeps the settings trend and shows a reason without querying a separately denied HW Time source', async () => {
   registerLentPanel('hw-time/trend', SourceTrend);
   const denied = createRegistry({ ...assembly, menus: [...manifests, { ...sourceMenu, additionalPermissions: [sourcePermission] }] });
-  const requests = await mount(vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }) =>
+  const requests = await mount(withLending(async ({ endpoint, params }: { endpoint: string; params: unknown }) =>
     endpoint === 'configuration.tree' ? ok(windowPage(params as TreeParams)) : { ...ok(null), outcome: 'empty' as const }), denied);
   const cell = host.querySelector<HTMLElement>('[data-matrix-row="cfg-000000"] [data-matrix-column="EQ03"]')!;
   await act(async () => { cell.focus(); cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
   await vi.waitFor(() => expect(host.querySelector('[data-configuration-trend]')).not.toBeNull());
   // The reason names the lending menu and its declared panel title (Kernel), not a Configuration string.
-  expect(host.textContent).toContain(`${sourceMenu.label.ko}의 ${sourceTitle.ko} 패널을 볼 권한이 없습니다.`);
+  await vi.waitFor(() => expect(host.textContent).toContain(`${sourceMenu.label.ko}의 ${sourceTitle.ko} 패널을 볼 권한이 없습니다.`));
   expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
   expect(requests.mock.calls.some(([request]) => request.endpoint === 'hwTime.runs')).toBe(false);
 });
 
 it.each(['no matrix selection', 'a different matrix selection'])('returns focus after closing the restored HW Time trend with %s', async selection => {
   registerLentPanel('hw-time/trend', SourceTrend);
-  const load = vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }) =>
+  const load = withLending(async ({ endpoint, params }: { endpoint: string; params: unknown }) =>
     endpoint === 'configuration.tree' ? ok(windowPage(params as TreeParams)) : { ...ok(null), outcome: 'empty' as const });
   const url = new URL(window.location.href);
   url.searchParams.set('trendItem', 'cfg-000000');
@@ -722,8 +779,11 @@ it.each(['no matrix selection', 'a different matrix selection'])('returns focus 
   } else {
     expect(host.querySelector('[role="gridcell"][aria-selected="true"]')).toBeNull();
   }
-  const close = host.querySelector<HTMLButtonElement>('button[aria-label="HW Time 추세 닫기"]');
-  expect(close).not.toBeNull();
+  const close = await vi.waitFor(() => {
+    const button = host.querySelector<HTMLButtonElement>('button[aria-label="HW Time 추세 닫기"]');
+    expect(button).not.toBeNull();
+    return button!;
+  });
   const sourceQueryCount = requests.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id).length;
   await act(async () => { close!.focus(); close!.click(); });
   expect(new URLSearchParams(window.location.search).get('hwTrendItem')).toBe('off');
@@ -751,7 +811,7 @@ it('follows a second linked item and ignores the late HW Time result after selec
   registerLentPanel('hw-time/trend', SourceTrend);
   let complete: ((response: ApiResponse<unknown>) => void) | undefined;
   let sourceSignal: AbortSignal | undefined;
-  const requests = await mount(vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }, signal?: AbortSignal) => {
+  const requests = await mount(withLending(async ({ endpoint, params }: { endpoint: string; params: unknown }, signal?: AbortSignal) => {
     if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
     if (endpoint !== sourceRuns.id) return { ...ok(null), outcome: 'empty' as const };
     if ((params as { module: string }).module === 'LK1') {
@@ -767,11 +827,10 @@ it('follows a second linked item and ignores the late HW Time result after selec
   await settleQueries();
   const second = cell('cfg-000001');
   await act(async () => { second.focus(); second.click(); });
-  await settleQueries();
+  await vi.waitFor(() => expect(host.querySelector('[data-test-source-result]')?.textContent).toBe('second motion'));
   expect(second.getAttribute('aria-selected'), window.location.search).toBe('true');
   expect(new URLSearchParams(window.location.search).get('hwTrendItem'), window.location.search).toBe('cfg-000001');
   expect(requests).toHaveBeenCalledWith(expect.objectContaining({ endpoint: sourceRuns.id, params: expect.objectContaining({ module: 'LK2' }) }), expect.any(AbortSignal));
-  expect(host.querySelector('[data-test-source-result]')?.textContent).toBe('second motion');
   const unbound = cell('cfg-000002');
   await act(async () => { unbound.focus(); unbound.click(); });
   await vi.waitFor(() => expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull());
@@ -780,8 +839,106 @@ it('follows a second linked item and ignores the late HW Time result after selec
   expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
   expect(host.querySelector('[data-configuration-trend]')).not.toBeNull();
   await act(async () => { first.focus(); first.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
-  const close = host.querySelector<HTMLButtonElement>('button[aria-label="HW Time 추세 닫기"]');
-  await act(async () => { close!.focus(); close!.click(); });
+  const close = await vi.waitFor(() => {
+    const button = host.querySelector<HTMLButtonElement>('button[aria-label="HW Time 추세 닫기"]');
+    expect(button).not.toBeNull();
+    return button!;
+  });
+  await act(async () => { close.focus(); close.click(); });
   expect(document.activeElement).toBe(first);
   expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
+});
+
+it('follows the latest selection while a previous lending mapping is still loading', async () => {
+  registerLentPanel('hw-time/trend', SourceTrend);
+  const url = new URL(window.location.href);
+  url.searchParams.set('trendItem', 'cfg-000000');
+  url.searchParams.set('equipment', 'EQ01,EQ03');
+  window.history.replaceState(null, '', url);
+  let complete: (() => void) | undefined;
+  const requests = await mount(vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }) => {
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
+    if (endpoint === configurationLendingEndpoint.id) {
+      const data = lendingFixture(params as HistoryParams);
+      if ((params as HistoryParams).itemId === 'cfg-000001') {
+        return new Promise<ApiResponse<unknown>>(resolve => { complete = () => resolve(ok(data)); });
+      }
+      return ok(data);
+    }
+    if (endpoint === sourceRuns.id) return { ...ok('linked motion'), assessments: [] };
+    return { ...ok(null), outcome: 'empty' as const };
+  }));
+  await vi.waitFor(() => expect(host.querySelector('[data-test-source-result]')?.textContent).toBe('linked motion'));
+  const select = (itemId: string) => {
+    const cell = host.querySelector<HTMLElement>(`[data-matrix-row="${itemId}"] [data-matrix-column="EQ03"]`)!;
+    return act(async () => { cell.focus(); cell.click(); });
+  };
+  await select('cfg-000001');
+  await vi.waitFor(() => expect(complete).toBeDefined());
+  expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
+  await select('cfg-000002');
+  await act(async () => complete!());
+  await settleQueries();
+  expect(new URLSearchParams(window.location.search).get('hwTrendItem')).toBe('off');
+  expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
+  expect(requests.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id)).toHaveLength(1);
+});
+
+it.each(['explicit activation', 'restored URL'])('C2 follows successive selections before the first mapping completes from %s', async entry => {
+  registerLentPanel('hw-time/trend', SourceTrend);
+  const url = new URL(window.location.href);
+  url.searchParams.set('equipment', 'EQ01,EQ03');
+  if (entry === 'restored URL') url.searchParams.set('trendItem', 'cfg-000000');
+  window.history.replaceState(null, '', url);
+  const completions = new Map<string, () => void>();
+  const requests = await mount(vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => {
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
+    if (endpoint === configurationLendingEndpoint.id) {
+      const request = params as HistoryParams;
+      return new Promise(resolve => { completions.set(request.itemId, () => resolve(ok(lendingFixture(request)))); });
+    }
+    if (endpoint === sourceRuns.id) return { ...ok('linked motion'), assessments: [] };
+    return { ...ok(null), outcome: 'empty' };
+  }));
+  const cell = (itemId: string) => host.querySelector<HTMLElement>(`[data-matrix-row="${itemId}"] [data-matrix-column="EQ03"]`)!;
+  if (entry === 'explicit activation') {
+    const first = cell('cfg-000000');
+    await act(async () => { first.focus(); first.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+  }
+  await vi.waitFor(() => expect(completions.has('cfg-000000')).toBe(true));
+  const second = cell('cfg-000001');
+  await act(async () => { second.focus(); second.click(); });
+  expect(new URLSearchParams(window.location.search).get('hwTrendItem')).toBe('cfg-000001');
+  await vi.waitFor(() => expect(completions.has('cfg-000001')).toBe(true));
+  const unbound = cell('cfg-000002');
+  await act(async () => { unbound.focus(); unbound.click(); });
+  await act(async () => { completions.get('cfg-000001')!(); completions.get('cfg-000000')!(); });
+  await settleQueries();
+  expect(new URLSearchParams(window.location.search).get('hwTrendItem')).toBe('off');
+  expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
+  expect(host.querySelector('[data-configuration-trend]')).not.toBeNull();
+  expect(requests.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id)).toHaveLength(0);
+});
+
+it.each([
+  { name: 'timeout', outcome: 'timeout', sourceDenied: false, reason: 'HW Time 연결 정보를 불러오지 못했습니다.' },
+  { name: 'mapping forbidden', outcome: 'forbidden', sourceDenied: false, reason: 'HW Time 연결 정보를 볼 권한이 없습니다.' },
+  { name: 'source permission denial before timeout', outcome: 'timeout', sourceDenied: true, reason: `${sourceMenu.label.ko}의 ${sourceTitle.ko} 패널을 볼 권한이 없습니다.` },
+] as const)('C3 shows the lending reason for $name', async ({ outcome, sourceDenied, reason }) => {
+  registerLentPanel('hw-time/trend', SourceTrend);
+  const testRegistry = sourceDenied
+    ? createRegistry({ ...assembly, menus: [...manifests, { ...sourceMenu, additionalPermissions: [sourcePermission] }] })
+    : registry;
+  const url = new URL(window.location.href);
+  url.searchParams.set('trendItem', 'cfg-000000');
+  window.history.replaceState(null, '', url);
+  const requests = await mount(vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => {
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
+    return { ...ok(null), outcome: endpoint === configurationLendingEndpoint.id ? outcome : 'empty' };
+  }), testRegistry);
+  await settleQueries();
+  expect(host.querySelector('[data-configuration-bottom] [role="status"]')?.textContent).toBe(reason);
+  expect(host.querySelector('[data-configuration-trend]')).not.toBeNull();
+  expect(host.querySelector('[data-configuration-lent-hwtime]')).toBeNull();
+  expect(requests.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id)).toHaveLength(0);
 });

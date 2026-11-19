@@ -443,6 +443,24 @@
     "mergeTimeDomain": false
   },
   {
+    "id": "configuration.lending",
+    "menuId": "configuration",
+    "paramKeys": [
+      "itemId",
+      "equipment"
+    ],
+    "permission": "analytics:view",
+    "requiresScope": true,
+    "context": {
+      "time": "apply"
+    },
+    "kinds": [
+      "collection",
+      "coverage"
+    ],
+    "mergeTimeDomain": false
+  },
+  {
     "id": "configuration.pivot",
     "menuId": "configuration",
     "paramKeys": [

@@ -1038,6 +1038,48 @@ describe('lent panel registration (#2490)', () => {
     });
   });
 
+  it.each([
+    [undefined, { ko: '패널에 필요한 입력을 확인하세요.', en: 'Check the panel’s required input.' }],
+    [{ ko: '모듈', en: 'Module' }, { ko: '패널에 필요한 입력을 확인하세요 (모듈).', en: 'Check the panel’s required input (Module).' }],
+  ])('reports a missing page input using its optional label %j', (label, text) => {
+    const declaration = { ...panel, queryInputs: { ...panel.queryInputs, page: [{ key: 'level', required: true, label }] } };
+    const [lent] = build([binding], true, declaration).lentPanels('catalog');
+    expect(lent.verdict(testSession(lent.permissions), { ...inputs, page: [] })).toEqual({
+      allowed: false, reason: { kind: 'missing-input', key: 'level', text },
+    });
+  });
+
+  it('reports an absent source menu once as an optional target', () => {
+    const registry = createRegistry({
+      spaces, groups,
+      menus: [{ ...catalog, pageKeys: ['chosen'], linkTargets: { optional: ['source'] }, lentPanels: [binding, { source: 'source/second' }] }],
+    });
+    expect(registry.missingLinkTargets).toEqual([{ menuId: 'catalog', target: 'source', level: 'optional' }]);
+    expect(registry.lentPanels('catalog')).toEqual([]);
+  });
+
+  const buildWithoutSource = (lentPanels: unknown) => createRegistry({
+    spaces, groups,
+    menus: [{ ...catalog, pageKeys: ['chosen'], lentPanels } as PlatformMenuEntry],
+  });
+
+  it('C4 reports a missing target declared only by lending', () => {
+    const registry = buildWithoutSource([binding, { source: 'source/second' }]);
+    expect(registry.missingLinkTargets).toEqual([{ menuId: 'catalog', target: 'source', level: 'optional' }]);
+    expect(registry.lentPanels('catalog')).toEqual([]);
+  });
+
+  it.each([
+    ['an undeclared receiving page key', [{ ...binding, page: { level: { kind: 'page', key: 'typo' } } }], /undeclared receiving page key "typo"/],
+    ['an unknown receiving Context key', [{ ...binding, page: { level: { kind: 'context', key: 'typo' } } }], /unknown receiving Context key "typo"/],
+    ['an invalid receiving kind', [{ ...binding, page: { level: { kind: 'typo', key: 'chosen' } } }], /input binding kind must be context, page or value/],
+    ['a non-value display binding', [{ ...binding, display: { label: { kind: 'page', key: 'chosen' } } }], /display input "label" must use a value binding/],
+    ['a malformed source', [{ ...binding, source: 'source/summary/extra' }], /must identify a menu and panel/],
+    ['a duplicate binding', [binding, binding], /has a duplicate binding/],
+  ])('C4 rejects %s with the source omitted', (_, declarations, message) => {
+    expect(() => buildWithoutSource(declarations)).toThrow(message);
+  });
+
   it('opens without an optional display binding even if an older declaration marks it required', () => {
     const declaration = { ...panel, display: [{ key: 'label', required: true }] };
     const [lent] = build([binding], true, declaration).lentPanels('catalog');
@@ -1050,7 +1092,6 @@ describe('lent panel registration (#2490)', () => {
     [{ ...binding, context: { scopeId: binding.context.scopeId } }, /required query input "time"/],
     [{ ...binding, page: { level: { kind: 'page', key: 'unknown' } } }, /undeclared receiving page key "unknown"/],
     [{ ...binding, display: { unknown: { kind: 'value', key: 'label' } } }, /unknown source display input "unknown"/],
-    [{ ...binding, source: 'other/summary' }, /unknown source panel "other\/summary"/],
     [{ ...binding, source: 'source/other' }, /unknown source panel "source\/other"/],
     [{ ...binding, outputs: { level: { kind: 'context', key: 'time' } } }, /cannot bind outputs/],
   ])('rejects invalid binding %j', (declaration, message) => {

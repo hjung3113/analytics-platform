@@ -191,7 +191,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend, follow
   const [drawer, setDrawer] = useState<ConfigRow | null>(null);
   const selectEquipmentCell = useCallback((cell: MatrixCell, item: ConfigRow) => {
     setSelection(cell);
-    followSelection(cell.row);
+    followSelection(cell.row, item?.linkedMotion);
     setDrawer(current => current && item);
   }, [followSelection]);
   const [emphasis, setEmphasis] = useState<MatrixEmphasisRule[]>([]);
@@ -262,7 +262,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend, follow
       if (controller.signal.aborted) return;
       if (response.outcome !== 'ok' && response.outcome !== 'empty') throw new Error('navigation');
       const target = response.data;
-      if (target) { setEmphasis([]); setOnlyMatching(false); setWindow({ expanded: target.expanded, offset: target.offset, reveal: { row: target.focus, column: eq } }); setSelection({ row: target.focus, column: eq }); followSelection(target.focus); }
+      if (target) { setEmphasis([]); setOnlyMatching(false); setWindow({ expanded: target.expanded, offset: target.offset, reveal: { row: target.focus, column: eq } }); setSelection({ row: target.focus, column: eq }); followSelection(target.focus, target.linkedMotion); }
       setNav(current => ({ kind: 'idle', ordinal: target?.ordinal ?? current.ordinal }));
     } catch { if (!controller.signal.aborted) setNav(current => ({ ...current, kind: 'error' })); } // Failure is visible; no empty destination is substituted.
   };
@@ -319,7 +319,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend, follow
       return <>
         <div className="px-2"><MatrixEmphasisBar emphasis={emphasis} onEmphasisChange={setEmphasis} onlyMatchingColumns={onlyMatching} onOnlyMatchingColumnsChange={setOnlyMatching} rowLabel={id => result.nodes.find(row => row.id === id)?.label ?? id} label={count => m('emphasisCount', { count })} onlyMatchingLabel={m('onlyMatching')} /></div>
         <TreeMatrix fill keepSelectionInView nodes={result.nodes} columns={columns} identityColumn="identity" label={m('title')} offset={result.offset} totalVisible={result.totalVisible} windowSize={TREE_WINDOW}
-          renderCell={renderCell} valueOf={valueOf} selectedCell={selection} onSelectCell={cell => { if (staleSearch) return; request.current?.abort(); setNav({ kind: 'idle', ordinal: null }); setSelection(cell); const item = result.nodes.find(row => row.id === cell.row)?.item ?? null; followSelection(cell.row); setDrawer(current => current && item); }} onActivate={staleSearch ? undefined : node => { if (node.item) openTrend(node.id); }} activateOn="doubleClick"
+          renderCell={renderCell} valueOf={valueOf} selectedCell={selection} onSelectCell={cell => { if (staleSearch) return; request.current?.abort(); setNav({ kind: 'idle', ordinal: null }); setSelection(cell); const item = result.nodes.find(row => row.id === cell.row)?.item ?? null; followSelection(cell.row, item?.linkedMotion); setDrawer(current => current && item); }} onActivate={staleSearch ? undefined : node => { if (node.item) openTrend(node.id, node.item.linkedMotion); }} activateOn="doubleClick"
           onToggle={id => { if (staleSearch) return; request.current?.abort(); setSelection(null); setSelectedPath(null); setDrawer(null); setEmphasis([]); setOnlyMatching(false); setNav({ kind: 'idle', ordinal: null }); const next = new Set(result.expanded.filter(value => value !== 'collapsed')); if (next.has(id)) next.delete(id); else next.add(id); setWindow({ expanded: next.size ? [...next] : ['collapsed'], offset: 0, reveal: null }); }}
           onWindowChange={offset => { if (!staleSearch) setWindow(current => ({ ...current, offset, reveal: null })); }} reveal={window.reveal} hiddenColumns={hiddenColumns} busy={query.status === 'loading' || query.status === 'refreshing'} generation={generation}
           emphasis={emphasis} onEmphasisChange={staleSearch ? undefined : setEmphasis} onlyMatchingColumns={onlyMatching} emphasisActionLabel={m('emphasisAction')} emphasisColumnLabel={m('emphasis')} formatEmphasisCount={count => m('matchCount', { count })}
@@ -336,7 +336,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend, follow
       </>;
     }}</QueryView>}
     {nav.kind === 'error' && <span role="status">{m('navigationError')}</span>}{exportError && <span role="status">{m('exportFailed')} {m('exportLimit', { count: EXPORT_LIMIT.toLocaleString() })}</span>}
-    {shown && <ItemDrawer row={shown} detail={detail} eq={eq} params={params} m={m} close={() => setDrawer(null)} openTrend={() => { setDrawer(null); openTrend(shown.id); }} />}
+    {shown && <ItemDrawer row={shown} detail={detail} eq={eq} params={params} m={m} close={() => setDrawer(null)} openTrend={() => { setDrawer(null); openTrend(shown.id, shown.linkedMotion); }} />}
   </div>;
 }
 

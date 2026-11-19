@@ -40,6 +40,7 @@ export function registerPanels(menu: MenuEntry, fail: (message: string) => never
       }
       for (const input of inputs.page ?? []) {
         if (!input || !menu.pageKeys.includes(input.key)) invalid(`unknown page key "${input?.key}"`);
+        if (input.label !== undefined && !textPresent(input.label)) invalid(`${field}.page label needs nonempty ko and en`);
         if (input.required !== undefined && typeof input.required !== 'boolean') invalid(`${field}.page required must be boolean`);
       }
       return [...(inputs.context ?? []), ...(inputs.page ?? []).map((input: { key: string }) => input.key)];

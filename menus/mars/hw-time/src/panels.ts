@@ -1,6 +1,6 @@
 import type { PanelDeclaration } from '@ap/contracts';
 import { hwTime, hwTimeOverview } from './endpoints';
-import { HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_STEPPED_MESSAGES as S } from './messages';
+import { HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES as O, HW_TIME_STEPPED_MESSAGES as S } from './messages';
 
 /** HW Time adds two menu-only fields the SDK neither reads nor validates: `kind` (rendered form,
  * for the panel recipe) and `csvExport` (table CSV opt-in shared with the renderer).
@@ -10,7 +10,7 @@ export type HwTimePanelDeclaration = PanelDeclaration & { readonly kind?: string
 const common = ['scopeId', 'time', 'roomNames', 'condition', 'selection'] as const;
 const checks = [{ key: 'module' }, { key: 'motion' }] as const;
 const verdictDisplay = [...checks, { key: 'verdict' }] as const;
-const runInputs = { context: common, page: [{ key: 'moduleType' }, { key: 'drillModule' }, { key: 'drillMotion' }, { key: 'trend' }] } as const;
+const runInputs = { context: common, page: [{ key: 'moduleType', label: O.moduleType }, { key: 'drillModule', label: O.modules }, { key: 'drillMotion', label: O.motions }, { key: 'trend' }] } as const;
 // The workspace still uses the availability override for its compound trend target. Lending binds the individual parts.
 export const LENT_EQUIPMENT_LABELS = 'equipmentLabels';
 const trendInputs = { ...runInputs, page: [

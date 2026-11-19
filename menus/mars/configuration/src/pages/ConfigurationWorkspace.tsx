@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { LentPanel, PlatformLink, useI18n, useLentPanel, useMessages, usePlatform, useQueryContext, type LinkResolution } from '@ap/kernel';
+import { isAnswered } from '@ap/contracts';
+import { LentPanel, PlatformLink, useI18n, useLentPanel, useMenuQuery, useMessages, usePlatform, useQueryContext, type LinkResolution } from '@ap/kernel';
 import { PANEL_RECIPE_ITEM, PanelRecipeBack, PanelRecipeFrame, PanelWorkspace, focusPageFallback, panelRecipe, type PanelWorkspacePanel, type PanelWorkspacePreset } from '@ap/components';
 import { manifests } from '../index';
-import { HW_TREND_CLOSED, HW_TREND_ITEM_KEY, TREND_ITEM_KEY, type CompareParams } from '../endpoints';
+import { configurationLendingEndpoint, HW_TREND_CLOSED, HW_TREND_ITEM_KEY, TREND_ITEM_KEY, type CompareParams, type LinkedMotion } from '../endpoints';
 import { X } from 'lucide-react';
 import { Button } from '@ap/ui';
-import { HW_TIME_TREND, hasLinkedMotion, hwTimeTrendValues } from '../lentTrendMapping';
+import { HW_TIME_TREND, hwTimeTrendBinding } from '../lentTrendMapping';
 import { MESSAGES } from '../messages';
 import { configurationPanels } from '../panels';
 import { TrendPanel } from './TrendPanel';
@@ -24,8 +25,8 @@ export function OpenHwTimeLink({ link }: { link: LinkResolution }) {
 }
 
 export type TrendActions = {
-  openTrend: (id: string) => void;
-  followSelection: (id: string) => void;
+  openTrend: (id: string, linkedMotion?: LinkedMotion | null) => void;
+  followSelection: (id: string, linkedMotion?: LinkedMotion | null) => void;
   reason: string | null;
   matrixRoot: RefObject<HTMLDivElement | null>;
 };
@@ -51,17 +52,34 @@ function RecipeBack({ id, close, fallback }: { id: string; close: () => void; fa
 export function ConfigurationWorkspace({ itemId, params, children }: {
   itemId: string | null; params: CompareParams; children: (actions: TrendActions) => ReactNode;
 }) {
-  const { pageParam, resolveLink, setPage } = usePlatform();
+  const { registry, pageParam, resolveLink, setPage } = usePlatform();
   const context = useQueryContext();
   const { tx } = useI18n();
   const m = useMessages(MESSAGES);
   const matrixRoot = useRef<HTMLDivElement>(null);
   const returnHwTrendFocus = useRef(false);
   const hwKey = pageParam(HW_TREND_ITEM_KEY);
+  // The URL owns the follow target, including while its mapping request is pending.
   const hwItem = hwKey === HW_TREND_CLOSED ? null : hwKey ?? itemId;
-  const values = hwTimeTrendValues(hwItem, params.eq, context);
+  const lending = useMenuQuery(configurationLendingEndpoint, { itemId: hwItem ?? '', equipment: params.eq }, {
+    enabled: hwItem !== null && registry.has('hw-time'), keepPrevious: true,
+  });
+  const mapping = lending.showingPrevious ? null : lending.response;
+  const { values, unmappedLabels, incomplete } = hwTimeTrendBinding(mapping?.outcome === 'ok' ? mapping.data : null, params.eq, context.selection);
   const verdict = useLentPanel(HW_TIME_TREND, values);
-  const reason = values && !verdict.allowed && verdict.reason.kind !== 'not-registered' ? tx(verdict.reason.text) : null;
+  const mappingFailed = mapping !== null && !isAnswered(mapping.outcome);
+  let reason: string | null = null;
+  if ((values || mappingFailed) && verdict.reason?.kind === 'permission') {
+    reason = tx(verdict.reason.text);
+  } else if (mappingFailed) {
+    reason = mapping.outcome === 'forbidden' ? m('hwTimeMappingDenied') : m('hwTimeMappingFailed');
+  } else if (values && verdict.reason?.kind !== 'not-registered') {
+    if (!incomplete) {
+      if (verdict.reason) reason = tx(verdict.reason.text);
+    } else {
+      reason = unmappedLabels.length ? m('hwTimeUnmappedColumns', { columns: unmappedLabels.join(', ') }) : m('hwTimeUnmapped');
+    }
+  }
   const showHwTime = verdict.allowed && Boolean(values?.equipmentIds?.length);
   const [explained, setExplained] = useState<string | null>(null);
   const [reveal, setReveal] = useState<{ panelId: string; seq: number; itemId: string; restoreHidden?: boolean; restoreLinked?: boolean } | null>(null);
@@ -87,17 +105,17 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
     }
   }, [hwItem]);
 
-  function openTrend(id: string) {
+  function openTrend(id: string, linkedMotion?: LinkedMotion | null) {
     setPage({ [TREND_ITEM_KEY]: id, [HW_TREND_ITEM_KEY]: null });
-    setReveal(current => ({ panelId: trend.id, itemId: id, seq: (current?.seq ?? 0) + 1, restoreHidden: true, restoreLinked: hasLinkedMotion(id) }));
+    setReveal(current => ({ panelId: trend.id, itemId: id, seq: (current?.seq ?? 0) + 1, restoreHidden: true, restoreLinked: Boolean(linkedMotion) }));
   }
   function closeTrend() {
     setExplained(null);
     setPage({ [TREND_ITEM_KEY]: null, [HW_TREND_ITEM_KEY]: values && verdict.allowed ? hwItem : null });
   }
-  function followSelection(id: string) {
-    if (!values || hwItem === id || verdict.reason?.kind === 'not-registered') return;
-    setPage({ [HW_TREND_ITEM_KEY]: hasLinkedMotion(id) ? id : itemId && HW_TREND_CLOSED }, { replace: true });
+  function followSelection(id: string, linkedMotion?: LinkedMotion | null) {
+    if (hwItem === null || hwItem === id || verdict.reason?.kind === 'not-registered') return;
+    setPage({ [HW_TREND_ITEM_KEY]: linkedMotion ? id : itemId && HW_TREND_CLOSED }, { replace: true });
   }
   function closeHwTrend() {
     returnHwTrendFocus.current = true;

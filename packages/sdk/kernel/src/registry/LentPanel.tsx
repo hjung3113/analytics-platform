@@ -1,4 +1,4 @@
-import { Suspense, useContext, useId, useInsertionEffect, useState, type ComponentType, type ReactNode } from 'react';
+import { createContext, memo, Suspense, useContext, useId, useInsertionEffect, useMemo, useState, type ComponentType, type MemoExoticComponent, type ReactNode } from 'react';
 import { replaceEqualDeep } from '@tanstack/react-query';
 import type { GlobalContext, PanelBinding } from '@ap/contracts';
 import { messageText } from '../i18n';
@@ -25,11 +25,15 @@ export type LentPanelRegistration = {
   accepts?: (inputs: LentPanelProps['inputs']) => string | undefined;
 };
 
-const registrations = new Map<Source, LentPanelRegistration>();
+const registrations = new Map<Source, {
+  component: MemoExoticComponent<ComponentType<LentPanelProps>>;
+  accepts?: LentPanelRegistration['accepts'];
+}>();
 
 /** Host assembly attaches the source implementation before mounting the platform. */
 export function registerLentPanel(source: Source, registration: LentPanelRegistration | ComponentType<LentPanelProps>): void {
-  registrations.set(source, 'component' in registration ? registration : { component: registration });
+  const entry = 'component' in registration ? registration : { component: registration };
+  registrations.set(source, { ...entry, component: memo(entry.component) });
 }
 
 const NOT_REGISTERED = {
@@ -103,14 +107,13 @@ function useResolvedLending(source: Source, values: Values | undefined) {
   }
   const registration = registrations.get(source);
   if (registration === undefined) return NOT_REGISTERED;
-  const requestContext = structuredClone(resolved.inputs.context);
   const checked = sourceCopy(resolved.inputs);
-  if ('missing' in checked) return missingLentPanelInput(checked.missing);
+  if ('missing' in checked) return missingLentPanelInput(checked.missing, binding.source, 'page');
   const missing = registration.accepts?.(checked);
-  if (missing !== undefined && !binding.source.display?.some(input => input.key === missing)) return missingLentPanelInput(missing);
+  if (missing !== undefined && !binding.source.display?.some(input => input.key === missing)) return missingLentPanelInput(missing, binding.source);
   const inputs = sourceCopy(resolved.inputs);
-  if ('missing' in inputs) return missingLentPanelInput(inputs.missing);
-  return { ...resolved, inputs, requestContext, Component: registration.component, source: binding.source, receiverPlatform };
+  if ('missing' in inputs) return missingLentPanelInput(inputs.missing, binding.source, 'page');
+  return { ...resolved, inputs, Component: registration.component, source: binding.source, receiverPlatform };
 }
 
 /** The receiving menu reads this verdict to place a reason next to the selection. */
@@ -126,11 +129,22 @@ export function LentPanel({ source, values, actions }: { source: Source; values?
   return <LentPanelSource key={source} resolved={resolved} actions={actions} />;
 }
 
+const LentPanelActionsContext = createContext<ReactNode>(null);
+
+function LentPanelActions() {
+  const actions = useContext(LentPanelActionsContext);
+  return <LentPanelPlatformContext.Provider value={null}>
+    <LentPanelQueryContext.Provider value={null}>{actions}</LentPanelQueryContext.Provider>
+  </LentPanelPlatformContext.Provider>;
+}
+
+const headerActions = <LentPanelActions />;
+
 function LentPanelSource({ resolved, actions }: {
   resolved: Extract<ReturnType<typeof useResolvedLending>, { allowed: true }>;
   actions?: ReactNode;
 }) {
-  const { Component, receiverPlatform, requestContext, source } = resolved;
+  const { Component, receiverPlatform, source } = resolved;
   const inputs = useStable(resolved.inputs, sameInputs);
   const queryInputs = useStable({ context: inputs.context, page: inputs.page }, (held, next) => replaceEqualDeep(held, next) === held);
   const { adapter, route, session, revision, queryPolicy } = receiverPlatform;
@@ -147,20 +161,18 @@ function LentPanelSource({ resolved, actions }: {
   const { controller, generation } = lifetime;
   // Revoke before layout effects can use a previous callback. StrictMode's layout-effect replay does not end this binding.
   useInsertionEffect(() => () => controller.abort(), [controller]);
-  const query = {
-    source, context: requestContext, instanceId: `${instanceId}:${generation}`, signal: controller.signal,
+  const platform = useMemo(() => lentPanelPlatform(receiverPlatform, queryInputs), [receiverPlatform, queryInputs]);
+  const query = useMemo(() => ({
+    source, context: structuredClone(queryInputs.context), instanceId: `${instanceId}:${generation}`, signal: controller.signal,
     current: () => !controller.signal.aborted && adapter.session() === session && currentRevision?.() === revision,
-  };
-  const headerActions = actions == null ? actions : (
-    <LentPanelPlatformContext.Provider value={null}>
-      <LentPanelQueryContext.Provider value={null}>{actions}</LentPanelQueryContext.Provider>
-    </LentPanelPlatformContext.Provider>
-  );
-  return <LentPanelQueryContext.Provider value={query}>
-    <LentPanelPlatformContext.Provider value={lentPanelPlatform(receiverPlatform, queryInputs)}>
-      <Suspense fallback={null}>
-        <Component inputs={inputs} actions={headerActions} />
-      </Suspense>
-    </LentPanelPlatformContext.Provider>
-  </LentPanelQueryContext.Provider>;
+  }), [source, queryInputs, instanceId, generation, controller, adapter, session, currentRevision, revision]);
+  return <LentPanelActionsContext.Provider value={actions}>
+    <LentPanelQueryContext.Provider value={query}>
+      <LentPanelPlatformContext.Provider value={platform}>
+        <Suspense fallback={null}>
+          <Component inputs={inputs} actions={actions == null ? actions : headerActions} />
+        </Suspense>
+      </LentPanelPlatformContext.Provider>
+    </LentPanelQueryContext.Provider>
+  </LentPanelActionsContext.Provider>;
 }
