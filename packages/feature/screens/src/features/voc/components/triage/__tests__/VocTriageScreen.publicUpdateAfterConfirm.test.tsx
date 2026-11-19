@@ -95,10 +95,14 @@ const ME: MeResponse = {
   workspace_id: '10000000-0000-4000-8000-000000000098',
 };
 
-function makeVoc(status: VocListItem['reporter_facing_status'] = 'received'): VocListItem {
+function makeVoc(
+  status: VocListItem['reporter_facing_status'] = 'received',
+  id = VOC_ID,
+  displayId = 'VOC-PU-1',
+): VocListItem {
   return {
-    id: VOC_ID,
-    display_id: 'VOC-PU-1',
+    id,
+    display_id: displayId,
     title: '분류 후 공개 업데이트',
     reporter_facing_status: status,
     severity: null,
@@ -117,8 +121,12 @@ function makeVoc(status: VocListItem['reporter_facing_status'] = 'received'): Vo
   };
 }
 
-function makeDetail(status: VocDetailEnvelope['reporter_facing_status'] = 'received'): VocDetailEnvelope {
-  const item = makeVoc(status);
+function makeDetail(
+  status: VocDetailEnvelope['reporter_facing_status'] = 'received',
+  id = VOC_ID,
+  displayId = 'VOC-PU-1',
+): VocDetailEnvelope {
+  const item = makeVoc(status, id, displayId);
   return {
     ...item,
     owner_user_id: item.owner_user_id ?? null,
@@ -147,13 +155,34 @@ let undoRenderer: ((id: string | number) => ReactNode) | null = null;
 
 function setup({
   status = 'received',
-  canWritePublicUpdate = true,
+  detailStatus = status,
+  actorRole = 'developer',
+  items: suppliedItems,
 }: {
   status?: VocListItem['reporter_facing_status'];
-  canWritePublicUpdate?: boolean;
+  detailStatus?: VocDetailEnvelope['reporter_facing_status'];
+  actorRole?: MeResponse['actor']['role_level'];
+  items?: VocListItem[];
 } = {}) {
   const requests: Array<{ url: string; method: string; body: Record<string, unknown> }> = [];
-  const detail = makeDetail(status);
+  const items = suppliedItems ?? [makeVoc(status)];
+  let nextDetailFetchGate: {
+    started: () => void;
+    startedPromise: Promise<void>;
+    wait: Promise<void>;
+  } | null = null;
+  const holdNextDetailFetch = () => {
+    let start!: () => void;
+    let release!: () => void;
+    const startedPromise = new Promise<void>((resolve) => {
+      start = resolve;
+    });
+    const wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    nextDetailFetchGate = { started: start, startedPromise, wait };
+    return { started: startedPromise, release };
+  };
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -162,16 +191,25 @@ function setup({
       let body: Record<string, unknown> = {};
       if (init?.body) body = JSON.parse(String(init.body)) as Record<string, unknown>;
       requests.push({ url, method, body });
+      const vocId = url.match(/\/vocs\/([^/?]+)/)?.[1] ?? VOC_ID;
+      const selectedItem = items.find((item) => item.id === vocId);
+      const selectedDetailStatus =
+        vocId === VOC_ID ? detailStatus : selectedItem?.reporter_facing_status ?? status;
+      const detail = makeDetail(
+        selectedDetailStatus,
+        vocId,
+        selectedItem?.display_id ?? 'VOC-PU-1',
+      );
 
       if (method === 'PATCH') {
         const triageState = body.triage_state === 'untriaged' ? 'untriaged' : 'triaged';
-        return jsonResponse({ id: VOC_ID, triage_state: triageState, updated_at: '2026-05-03T00:00:00.000Z' });
+        return jsonResponse({ id: vocId, triage_state: triageState, updated_at: '2026-05-03T00:00:00.000Z' });
       }
       if (method === 'POST') {
         return jsonResponse({
           public_update: {
             id: '10000000-0000-4000-8000-000000000040',
-            voc_id: VOC_ID,
+            voc_id: vocId,
             body_rich_content: body.body_rich_content,
             reporter_facing_status_before: 'received',
             reporter_facing_status_after: body.next_reporter_facing_status,
@@ -182,6 +220,12 @@ function setup({
           voc: { ...detail, reporter_facing_status: body.next_reporter_facing_status },
         });
       }
+      const fetchGate = method === 'GET' ? nextDetailFetchGate : null;
+      if (fetchGate !== null) {
+        nextDetailFetchGate = null;
+        fetchGate.started();
+        await fetchGate.wait;
+      }
       return jsonResponse(detail);
     }),
   );
@@ -189,20 +233,21 @@ function setup({
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+  const onProcessed = vi.fn();
   const rendered = render(
     <QueryClientProvider client={client}>
       <VocTriageScreen
-        items={[makeVoc(status)]}
+        items={items}
         selectedId={VOC_ID}
         activeTab="untriaged"
-        canWritePublicUpdate={canWritePublicUpdate}
-        me={ME}
+        me={{ ...ME, actor: { ...ME.actor, role_level: actorRole } }}
+        onProcessed={onProcessed}
         onSelectVoc={vi.fn()}
         onTabChange={vi.fn()}
       />
     </QueryClientProvider>,
   );
-  return { ...rendered, requests, client };
+  return { ...rendered, requests, client, onProcessed, holdNextDetailFetch };
 }
 
 function confirmTriage(): void {
@@ -216,6 +261,15 @@ async function waitForPublicUpdateDialog(): Promise<void> {
 
 function publishRequest(requests: Array<{ url: string; method: string; body: Record<string, unknown> }>) {
   return requests.find((request) => request.method === 'POST');
+}
+
+async function waitForConfirmSuccess(onProcessed: ReturnType<typeof vi.fn>): Promise<void> {
+  await waitFor(() =>
+    expect(noticeHost.notify).toHaveBeenCalledWith(
+      expect.objectContaining({ tone: 'success', variant: 'undo' }),
+    ),
+  );
+  await waitFor(() => expect(onProcessed).toHaveBeenCalledWith(1));
 }
 
 beforeEach(() => {
@@ -236,6 +290,7 @@ describe('VOC triage confirm and Public Update', () => {
     confirmTriage();
     await waitForPublicUpdateDialog();
 
+    expect(screen.getByText(VOC_TRIAGE_PUBLIC_UPDATE_COPY.description)).toBeInTheDocument();
     const editor = screen.getByTestId('editor-public-update');
     expect(editor).toHaveValue(VOC_TRIAGE_PUBLIC_UPDATE_COPY.prefill);
     expect(screen.getByRole('combobox', { name: '다음 공개 상태 선택' })).toHaveTextContent('검토 중');
@@ -262,22 +317,65 @@ describe('VOC triage confirm and Public Update', () => {
         },
       }),
     );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(noticeHost.dismiss).toHaveBeenCalledWith('triage-public-update-toast');
   });
 
   it.each([
-    { status: 'reviewing' as const, canWritePublicUpdate: true, reason: 'status already moved' },
-    { status: 'received' as const, canWritePublicUpdate: false, reason: 'actor cannot write' },
-  ])('does not open the editor when $reason', async ({ status, canWritePublicUpdate }) => {
-    const { requests } = setup({ status, canWritePublicUpdate });
+    {
+      status: 'reviewing' as const,
+      detailStatus: 'received' as const,
+      actorRole: 'developer' as const,
+      reason: 'status already moved',
+    },
+    { status: 'received' as const, actorRole: 'user' as const, reason: 'actor cannot write' },
+  ])('does not open the editor when $reason', async (options) => {
+    const { requests, onProcessed } = setup(options);
 
     confirmTriage();
-    await waitFor(() => expect(requests.some((request) => request.method === 'PATCH')).toBe(true));
-    await act(async () => {
-      await Promise.resolve();
-    });
+    await waitForConfirmSuccess(onProcessed);
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(publishRequest(requests)).toBeUndefined();
+  });
+
+  it('keeps the edited composer mounted during a detail refetch', async () => {
+    const { client, holdNextDetailFetch } = setup();
+
+    confirmTriage();
+    await waitForPublicUpdateDialog();
+    fireEvent.change(screen.getByTestId('editor-public-update'), {
+      target: { value: '작성 중인 답변' },
+    });
+    const refetch = holdNextDetailFetch();
+
+    let invalidation!: Promise<void>;
+    await act(async () => {
+      invalidation = client.invalidateQueries({ queryKey: ['voc', VOC_ID], exact: true });
+      await refetch.started;
+    });
+
+    await waitFor(() => expect(client.getQueryState(['voc', VOC_ID])?.fetchStatus).toBe('fetching'));
+    expect(screen.queryByText(VOC_TRIAGE_PUBLIC_UPDATE_COPY.loading)).not.toBeInTheDocument();
+    expect(screen.getByTestId('editor-public-update')).toHaveValue('작성 중인 답변');
+    refetch.release();
+    await act(async () => invalidation);
+  });
+
+  it('closes the editor and dismisses triage undo after publishing without changing status', async () => {
+    const { requests } = setup();
+
+    confirmTriage();
+    await waitForPublicUpdateDialog();
+    fireEvent.click(screen.getByRole('combobox', { name: '다음 공개 상태 선택' }));
+    fireEvent.click(await screen.findByRole('option', { name: '접수됨 (현재)' }));
+    fireEvent.click(screen.getByRole('button', { name: '답변 공개' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(publishRequest(requests)?.body).toEqual(
+      expect.objectContaining({ next_reporter_facing_status: 'received' }),
+    );
+    expect(noticeHost.dismiss).toHaveBeenCalledWith('triage-public-update-toast');
   });
 
   it('closes without a Public Update request when the editor is dismissed', async () => {
@@ -289,6 +387,24 @@ describe('VOC triage confirm and Public Update', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(screen.getByRole('tab', { name: '미분류' })).toHaveFocus();
+    expect(publishRequest(requests)).toBeUndefined();
+  });
+
+  it('asks before discarding an edited draft with Escape', async () => {
+    const { requests } = setup();
+
+    confirmTriage();
+    await waitForPublicUpdateDialog();
+    fireEvent.change(screen.getByTestId('editor-public-update'), {
+      target: { value: '작성한 답변' },
+    });
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
+    expect(screen.getByTestId('triage-public-update-dialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '이동' }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(publishRequest(requests)).toBeUndefined();
   });
 

@@ -283,7 +283,6 @@ export function TriageScreen(): React.ReactElement {
       {...(tabCounts !== undefined ? { tabCounts } : {})}
       processedCount={processedCount}
       onProcessed={handleProcessed}
-      canWritePublicUpdate={Boolean(me && me.actor.role_level !== 'user')}
       {...(me !== undefined ? { me } : {})}
       onAdvanceVoc={handleAdvanceVoc}
       onSelectVoc={handleSelectVoc}

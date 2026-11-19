@@ -22,6 +22,10 @@ export interface ComposerVisibility {
   showInternal: boolean;
 }
 
+export function canUsePublicComposer(me: MeResponse | null | undefined): boolean {
+  return me != null && me.actor.role_level !== 'user';
+}
+
 /**
  * Returns the set of composer tabs the current actor is allowed to see, or
  * `null` when no composer should be rendered at all.
@@ -33,8 +37,8 @@ export function useComposerVisibility(
 ): ComposerVisibility | null {
   if (!me) return null;
 
-  const { role_level, id: actorId } = me.actor;
-  const showPublic = role_level !== 'user';
+  const { id: actorId } = me.actor;
+  const showPublic = canUsePublicComposer(me);
   const showReply = actorId === voc.reporter_id;
 
   if (!showPublic && !showReply && !canTriage) return null;

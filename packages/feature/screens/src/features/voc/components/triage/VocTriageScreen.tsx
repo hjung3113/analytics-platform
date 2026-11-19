@@ -28,6 +28,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DirtyConfirmation,
   ListTabs,
   type ListToolbarTab,
   type TipTapDoc,
@@ -41,6 +42,7 @@ import { VocAreaFilterSelect } from '../VocAreaFilterSelect';
 import { TriagePanel } from './TriagePanel';
 import { TriageQueue } from './TriageQueue';
 import { useVocTriageScreenController } from './useVocTriageScreenController';
+import { canUsePublicComposer } from '../../hooks/useComposerVisibility';
 
 export type TriageTab = 'unassigned' | 'untriaged' | 'high' | 'waiting';
 
@@ -73,8 +75,6 @@ export interface VocTriageScreenProps {
   };
   processedCount?: number;
   onProcessed?: (delta: 1 | -1) => void;
-  /** True only when the current actor can publish a Public Update. */
-  canWritePublicUpdate?: boolean;
   me?: MeResponse | null;
   onAdvanceVoc?: (id: string | null) => void;
   onSelectVoc: (id: string) => void;
@@ -108,7 +108,6 @@ export function VocTriageScreen({
   outOfScopeSummary,
   processedCount = 0,
   onProcessed,
-  canWritePublicUpdate = false,
   me,
   onAdvanceVoc,
   onSelectVoc,
@@ -122,6 +121,12 @@ export function VocTriageScreen({
     context: string;
   } | null>(null);
   const [publicUpdateVocId, setPublicUpdateVocId] = useState<string | null>(null);
+  const [publicUpdateDirty, setPublicUpdateDirty] = useState(false);
+  const [discardConfirmationOpen, setDiscardConfirmationOpen] = useState(false);
+  const publicUpdateSessionRef = useRef<{
+    vocId: string;
+    dismissUndo: () => void;
+  } | null>(null);
   const queryClient = useQueryClient();
   const publicUpdateDetailQuery = useVocDetail(publicUpdateVocId);
   const publicUpdateVoc =
@@ -129,8 +134,13 @@ export function VocTriageScreen({
     'description_rich_content' in publicUpdateDetailQuery.data
       ? (publicUpdateDetailQuery.data as VocDetailEnvelope)
       : null;
-  const mayPublishPublicUpdate =
-    canWritePublicUpdate && me != null && me.actor.role_level !== 'user';
+  const mayPublishPublicUpdate = canUsePublicComposer(me);
+  const closePublicUpdate = useCallback((): void => {
+    publicUpdateSessionRef.current = null;
+    setPublicUpdateVocId(null);
+    setPublicUpdateDirty(false);
+    setDiscardConfirmationOpen(false);
+  }, []);
   const publicUpdateDialogOpen =
     publicUpdateVocId !== null &&
     pendingFocus === null &&
@@ -141,20 +151,31 @@ export function VocTriageScreen({
       (publicUpdateDetailQuery.isSuccess &&
         (publicUpdateVoc === null || publicUpdateVoc.reporter_facing_status === 'received')));
   const handleConfirmSuccess = useCallback(
-    (voc: VocListItem): void => {
-      if (!mayPublishPublicUpdate || voc.reporter_facing_status !== 'received') return;
+    (voc: VocListItem, dismissUndo: () => void): void => {
+      if (!mayPublishPublicUpdate || publicUpdateSessionRef.current !== null) return;
       void queryClient.invalidateQueries({
         queryKey: ['voc', voc.id],
         exact: true,
         refetchType: 'none',
       });
+      publicUpdateSessionRef.current = { vocId: voc.id, dismissUndo };
+      setPublicUpdateDirty(false);
+      setDiscardConfirmationOpen(false);
       setPublicUpdateVocId(voc.id);
     },
     [mayPublishPublicUpdate, queryClient],
   );
-  const handleUndoConfirm = useCallback((vocId: string): void => {
-    setPublicUpdateVocId((current) => (current === vocId ? null : current));
-  }, []);
+  const handleUndoConfirm = useCallback(
+    (vocId: string): void => {
+      if (publicUpdateSessionRef.current?.vocId === vocId) closePublicUpdate();
+    },
+    [closePublicUpdate],
+  );
+  const handlePublicUpdatePosted = useCallback((): void => {
+    const session = publicUpdateSessionRef.current;
+    if (session?.vocId === publicUpdateVocId) session.dismissUndo();
+    closePublicUpdate();
+  }, [closePublicUpdate, publicUpdateVocId]);
   // Undo does not reselect or refocus the restored VOC (owner, 2026-10-10: cost > gain).
   // To reinstate, see #957 (reselection) and #964 (focus correction after sonner's focus return).
   function handleAdvanceVoc(id: string | null): void {
@@ -232,15 +253,15 @@ export function VocTriageScreen({
         publicUpdateDetailQuery.isSuccess &&
         publicUpdateDetailQuery.data?.reporter_facing_status !== 'received')
     ) {
-      setPublicUpdateVocId(null);
+      closePublicUpdate();
     }
   }, [
+    closePublicUpdate,
     mayPublishPublicUpdate,
     publicUpdateDetailQuery.isFetching,
     publicUpdateDetailQuery.isPending,
     publicUpdateDetailQuery.isSuccess,
     publicUpdateDetailQuery.data?.reporter_facing_status,
-    publicUpdateVoc?.reporter_facing_status,
     publicUpdateVocId,
   ]);
   const tabs: ListToolbarTab[] = TRIAGE_TABS.map((tab) => {
@@ -258,7 +279,28 @@ export function VocTriageScreen({
       ? VOC_TRIAGE_QUEUE_TOTAL_LABELS[queueTotalUnavailableState ?? 'unavailable']
       : `전체 대기열 ${queueTotal} VOC`;
   let publicUpdateContent: React.ReactNode = null;
-  if (publicUpdateDetailQuery.isPending || publicUpdateDetailQuery.isFetching) {
+  if (publicUpdateVoc?.reporter_facing_status === 'received') {
+    const initialDraftDoc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: VOC_TRIAGE_PUBLIC_UPDATE_COPY.prefill }],
+        },
+      ],
+    } satisfies TipTapDoc;
+    publicUpdateContent = (
+      <PublicUpdateComposer
+        voc={publicUpdateVoc}
+        me={me}
+        initialNextStatus="reviewing"
+        initialDraftDoc={initialDraftDoc}
+        focusOnOpen
+        onPosted={handlePublicUpdatePosted}
+        onDirtyChange={setPublicUpdateDirty}
+      />
+    );
+  } else if (publicUpdateDetailQuery.isPending) {
     publicUpdateContent = (
       <p className="text-sm text-text-muted">{VOC_TRIAGE_PUBLIC_UPDATE_COPY.loading}</p>
     );
@@ -277,25 +319,6 @@ export function VocTriageScreen({
           {VOC_TRIAGE_PUBLIC_UPDATE_COPY.retry}
         </Button>
       </div>
-    );
-  } else if (publicUpdateVoc.reporter_facing_status === 'received') {
-    const initialDraftDoc = {
-      type: 'doc',
-      content: [
-        {
-          type: 'paragraph',
-          content: [{ type: 'text', text: VOC_TRIAGE_PUBLIC_UPDATE_COPY.prefill }],
-        },
-      ],
-    } satisfies TipTapDoc;
-    publicUpdateContent = (
-      <PublicUpdateComposer
-        voc={publicUpdateVoc}
-        me={me}
-        initialNextStatus="reviewing"
-        initialDraftDoc={initialDraftDoc}
-        focusOnOpen
-      />
     );
   }
 
@@ -469,7 +492,10 @@ export function VocTriageScreen({
         <Dialog
           open={publicUpdateDialogOpen}
           onOpenChange={(open) => {
-            if (!open) setPublicUpdateVocId(null);
+            if (!open) {
+              if (publicUpdateDirty) setDiscardConfirmationOpen(true);
+              else closePublicUpdate();
+            }
           }}
         >
           <DialogContent data-testid="triage-public-update-dialog" className="max-w-3xl">
@@ -481,6 +507,11 @@ export function VocTriageScreen({
           </DialogContent>
         </Dialog>
       )}
+      <DirtyConfirmation
+        open={discardConfirmationOpen}
+        onConfirm={closePublicUpdate}
+        onCancel={() => setDiscardConfirmationOpen(false)}
+      />
     </div>
   );
 }

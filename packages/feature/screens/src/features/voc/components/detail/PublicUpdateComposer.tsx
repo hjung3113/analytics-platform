@@ -109,6 +109,8 @@ export interface PublicUpdateComposerProps {
   onDraftChange?: (doc: TipTapDoc | null) => void;
   /** Select the public conversation timeline after a successful post. */
   onPosted?: (tab: 'public') => void;
+  /** Reports user edits so a parent close action can ask before discarding. */
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 // Maps ApiError code to Callout tone for the inline error surface.
@@ -131,6 +133,7 @@ export function PublicUpdateComposer({
   draftDoc: controlledDraftDoc,
   onDraftChange,
   onPosted,
+  onDirtyChange,
   initialDraftDoc,
   initialNextStatus,
   focusOnOpen = false,
@@ -146,6 +149,7 @@ export function PublicUpdateComposer({
   const draftDoc = isControlled ? (controlledDraftDoc ?? null) : localDraftDoc;
 
   function setDraftDoc(doc: TipTapDoc | null) {
+    onDirtyChange?.(true);
     if (isControlled) {
       onDraftChange?.(doc);
     } else {
@@ -315,7 +319,10 @@ export function PublicUpdateComposer({
       {/* PLAN-22 C7a: composer-level attachment dropzone (compact). */}
       <ComposerAttachmentDropzone
         testId="public-update-attachment-dropzone"
-        onChange={setAttachmentIds}
+        onChange={(ids) => {
+          setAttachmentIds(ids);
+          onDirtyChange?.(true);
+        }}
         onUploadingChange={setAttachmentsUploading}
         resetToken={attachmentResetToken}
       />
@@ -324,7 +331,10 @@ export function PublicUpdateComposer({
       <ReporterStatusChangeBlock
         voc={voc}
         nextStatus={nextStatus}
-        onChangeStatus={setNextStatus}
+        onChangeStatus={(status) => {
+          setNextStatus(status);
+          onDirtyChange?.(true);
+        }}
         draftDoc={draftDoc}
         owner={owner}
       />

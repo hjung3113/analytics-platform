@@ -23,7 +23,9 @@ const rows: VocListItem[] = [1, 2, 3, 4].map((n) => ({
   owner_user_id: null,
   owner_team_id: null,
   severity: 'high',
-  reporter_facing_status: 'received',
+  // Not «접수됨»: confirm here must not open the Public Update editor (#2531 3b), whose modal
+  // would hide the queue these undo-focus cases exercise. The editor flow has its own tests.
+  reporter_facing_status: 'reviewing',
   triage_state: 'untriaged',
   source_context: 'direct_use',
   created_at: '2026-01-01T00:00:00.000Z',
