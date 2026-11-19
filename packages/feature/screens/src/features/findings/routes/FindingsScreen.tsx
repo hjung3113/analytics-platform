@@ -4,9 +4,10 @@
 // Nothing here reaches the Finding detail tree.
 
 import { ListLoadMore } from '../../../components/ListLoadMore';
+import { ListAccessRequestPanel, type ListAccessRequest } from '../../../components/ListAccessRequestPanel';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { MyVocsRecoveryLink } from '../../../components/MyVocsRecoveryLink';
-import { RequestAccessButton } from '../../admin/public';
+import { PermissionDeniedCard } from '../../../components/PermissionDeniedCard';
 import { useFindingDetail } from '../hooks/useFindingDetail';
 import { useFindingsPages, useFindingsTotal } from '../hooks/useFindingsList';
 import {
@@ -26,6 +27,8 @@ import { GLOSSARY } from '../../../lib/copy/glossary';
 import { LIST_SEARCH_EMPTY_LABEL, LIST_SEARCH_PLACEHOLDER } from '../../../lib/copy/list-search';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors';
+import { useScopedEmptyListPermission } from '../../../lib/cross-system/useScopedEmptyListPermission';
+import { managedSystemsCatalogQuery } from '../../../lib/cross-system/useManagedSystemNames';
 import { formatCount } from '../../../lib/format/count';
 import { formatShortDate } from '../../../lib/format/datetime';
 import { useHostSeam } from '../../../lib/host/host-seam';
@@ -57,6 +60,7 @@ type SearchWriter = ReturnType<
   typeof useHostSearchWriter<ReturnType<typeof validateFindingsSearch>>
 >;
 type WriteSearch = SearchWriter['write'];
+const FINDING_READ_CAPABILITY = 'finding.read';
 
 export type FindingsScreenProps = {
   /**
@@ -209,6 +213,11 @@ function FindingsListShell({
     () => listQuery.data?.pages.flatMap((page) => page.items) ?? [],
     [listQuery.data],
   );
+  const scopedPermission = useScopedEmptyListPermission({
+    capability: FINDING_READ_CAPABILITY,
+    managedSystemId,
+    empty: listQuery.isSuccess && findings.length === 0,
+  });
   const total = listQuery.data?.pages[0]?.page?.total;
   const selectedQuery = useFindingDetail(selectedId);
   const selectedLinks = useQuery({
@@ -234,12 +243,19 @@ function FindingsListShell({
       : checkUnfiltered && unfilteredQuery.isError
         ? unfilteredQuery.error
         : null;
-  const stateIsError =
-    (listQuery.isError && !listQuery.isFetchNextPageError) ||
-    (checkUnfiltered && unfilteredQuery.isError);
-  const stateIsPending = listQuery.isPending || (checkUnfiltered && unfilteredQuery.isPending);
   const permissionError = isPermissionDenied(stateError) ? stateError : null;
-  const isReadDenied = stateIsError && permissionError !== null;
+  const roleRequired = permissionError?.detail?.reason === 'role_required';
+  const requestableError = roleRequired ? undefined : permissionError?.envelope.requestable_permission;
+  const isReadDenied = permissionError !== null || scopedPermission.state === 'blocked';
+  const scopeVerified = scopedPermission.state === 'allowed' || scopedPermission.state === 'unchecked';
+  const stateIsPending = !isReadDenied && (
+    listQuery.isPending || (checkUnfiltered && unfilteredQuery.isPending) || scopedPermission.state === 'checking'
+  );
+  const errorRequest = requestableError && {
+    capability: requestableError.permission,
+    ...(typeof requestableError.managed_system_id === 'string' ? { managedSystemId: requestableError.managed_system_id } : {}),
+  };
+  const request = permissionError === null && scopedPermission.state === 'blocked' ? scopedPermission.request : errorRequest;
   const isFilteredEmpty =
     checkUnfiltered && unfilteredQuery.isSuccess && (unfilteredQuery.data?.page?.total ?? 0) > 0;
   const { refetch: refetchList } = listQuery;
@@ -280,7 +296,7 @@ function FindingsListShell({
   );
 
   React.useEffect(() => {
-    if (!listQuery.isSuccess || listQuery.isFetching || selectedId === null) return;
+    if (!listQuery.isSuccess || listQuery.isFetching || !scopeVerified || selectedId === null) return;
     const item = selectedQuery.data;
     const filteredOut =
       item !== undefined &&
@@ -314,6 +330,7 @@ function FindingsListShell({
   }, [
     listQuery.isSuccess,
     listQuery.isFetching,
+    scopeVerified,
     selectedId,
     selectedQuery.data,
     selectedQuery.error,
@@ -327,7 +344,7 @@ function FindingsListShell({
   ]);
 
   const detailPanel = renderDetail(selectedId, {
-    listDenied: stateIsError && isPermissionDenied(stateError),
+    listDenied: isReadDenied,
     returnTo: !hostCarriesReturn ? safeReturnTo : null,
   });
 
@@ -401,9 +418,12 @@ function FindingsListShell({
             total={total}
             searchFiltered={q !== undefined}
             isPending={stateIsPending}
-            isError={stateIsError}
+            isError={stateError !== null || scopedPermission.state === 'error'}
             isSuccess={listQuery.isSuccess || listQuery.isFetchNextPageError}
-            error={stateError}
+            isReadDenied={isReadDenied}
+            roleRequired={roleRequired}
+            managedSystemId={managedSystemId}
+            request={request}
             isFilteredEmpty={isFilteredEmpty}
             assignmentFiltered={assignment !== undefined}
             filterBar={
@@ -430,7 +450,7 @@ function FindingsListShell({
             actorsById={actorsById}
             teamNamesById={teamNamesById}
             onSelect={onSelect}
-            onRetry={retryList}
+            onRetry={scopedPermission.state === 'error' ? scopedPermission.retry : retryList}
             onResetFilters={onResetFilters}
           />
           <ListLoadMore
@@ -446,13 +466,34 @@ function FindingsListShell({
   );
 }
 
+/** A not-requestable denial. An archived System cannot be read even with the permission, so it names that instead of the missing permission. */
+function FindingsDeniedCard({ managedSystemId }: { managedSystemId: string | undefined }): React.ReactElement {
+  const systems = useQuery({ ...managedSystemsCatalogQuery(), enabled: managedSystemId !== undefined });
+  const archived = managedSystemId !== undefined
+    && systems.data?.items.some((system) => system.id === managedSystemId && Boolean(system.archived_at)) === true;
+  if (archived) {
+    return <PermissionDeniedCard layout="card" category="Findings" reason={PERMISSION_BLOCKED_REASONS.archivedSystem} />;
+  }
+  return (
+    <PermissionDeniedCard
+      layout="card"
+      category="Findings"
+      capability={FINDING_READ_CAPABILITY}
+      {...(managedSystemId === undefined ? {} : { managedSystemId })}
+    />
+  );
+}
+
 function FindingsListBody({
   findings,
   total,
   isPending,
   isError,
   isSuccess,
-  error,
+  isReadDenied,
+  roleRequired,
+  managedSystemId,
+  request,
   isFilteredEmpty,
   searchFiltered,
   assignmentFiltered,
@@ -471,7 +512,10 @@ function FindingsListBody({
   isPending: boolean;
   isError: boolean;
   isSuccess: boolean;
-  error: unknown;
+  isReadDenied: boolean;
+  roleRequired: boolean;
+  managedSystemId: string | undefined;
+  request: ListAccessRequest | null | undefined;
   isFilteredEmpty: boolean;
   searchFiltered: boolean;
   assignmentFiltered: boolean;
@@ -485,10 +529,6 @@ function FindingsListBody({
   onRetry: () => void;
   onResetFilters: () => void;
 }): React.ReactElement {
-  const permissionError = isPermissionDenied(error) ? error : null;
-  const roleRequired = permissionError?.detail?.reason === 'role_required';
-  const isReadDenied = isError && permissionError !== null;
-
   return (
     <section className="flex min-h-full flex-col">
       {!isReadDenied ? (
@@ -497,8 +537,8 @@ function FindingsListBody({
             <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
               Finding 목록
             </h3>
-            {isSuccess && total !== undefined ? (
-              <span className="text-xs text-text-muted">{formatCount(total as number)}</span>
+            {isSuccess && !isPending && !isError && total !== undefined ? (
+              <span className="text-xs text-text-muted">{formatCount(total)}</span>
             ) : null}
           </div>
         </div>
@@ -509,39 +549,28 @@ function FindingsListBody({
         <div className="space-y-2 p-4" data-testid="finding-list-skeleton">
           <SkeletonRows count={3} size="compact" />
         </div>
-      ) : isError && isPermissionDenied(error) ? (
-        !roleRequired && permissionError?.envelope.requestable_permission ? (
-          <RequestAccessButton
-            capability={permissionError.envelope.requestable_permission.permission}
-            returnRouteIntent="/findings"
-            {...(typeof permissionError.envelope.requestable_permission.managed_system_id ===
-            'string'
-              ? {
-                  managedSystemId:
-                    permissionError.envelope.requestable_permission.managed_system_id,
-                }
-              : {})}
-            renderTrigger={(onRequestAccess) => (
-              <div className="m-4 space-y-3">
-                <PermissionBlockedPanel
-                  state="request_access"
-                  category="Findings"
-                  reason={PERMISSION_BLOCKED_REASONS.findingsList}
-                  onRequestAccess={onRequestAccess}
-                />
-              </div>
-            )}
-          />
-        ) : (
+      ) : isReadDenied ? (
+        request ? (
+          <div className="m-4 space-y-3">
+            <ListAccessRequestPanel
+              category="Findings"
+              reason={PERMISSION_BLOCKED_REASONS.findingsList}
+              request={request}
+              returnRouteIntent="/findings"
+            />
+          </div>
+        ) : roleRequired ? (
           <div className="m-4 space-y-3">
             <PermissionBlockedPanel
               state="blocked_not_requestable"
               category="Findings"
-              reason={roleRequired
-                ? PERMISSION_BLOCKED_REASONS.findingsListRoleRequired
-                : PERMISSION_BLOCKED_REASONS.findingsList}
+              reason={PERMISSION_BLOCKED_REASONS.findingsListRoleRequired}
             />
             <MyVocsRecoveryLink />
+          </div>
+        ) : (
+          <div className="m-4">
+            <FindingsDeniedCard managedSystemId={managedSystemId} />
           </div>
         )
       ) : isError ? (
