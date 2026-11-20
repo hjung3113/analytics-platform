@@ -23,13 +23,14 @@ import {
   markNotificationRead,
   notificationsQueryKey,
 } from '../../lib/api/notifications';
+import { fetchPermissionRequestOwnerDetail, permissionRequestOwnerDetailKey } from '../../lib/api/permission-requests';
 import type { ApiError } from '../../lib/api/types';
 import { getCapabilityDisplayLabel } from '../../lib/copy/capabilities';
-import { HOME_INBOX_COPY } from '../../lib/copy/home';
+import { HOME_INBOX_COPY, HOME_PERMISSION_COPY } from '../../lib/copy/home';
 import { IMPROVEMENT_ITEM_STATUS_LABELS, permissionRequestStatusLabel, TASK_REQUEST_STATUS_LABELS, TASK_STATUS_LABELS, TRIAGE_STATE_LABELS } from '../../lib/copy/enum-labels';
 import { REPORTER_STATUS_LABELS } from '../../lib/copy/reporter-status-labels';
 import { FeatureTimestamp } from '../../components/FeatureTimestamp';
-import { HostLink, useHostSeam } from '../../lib/host/host-seam';
+import { HostLink, useHostPermissionRequestReturn, useHostSeam } from '../../lib/host/host-seam';
 
 type InboxFilter = 'unread' | 'all';
 
@@ -306,6 +307,7 @@ export function InboxPanel({
               <NotificationRow
                 key={notification.id}
                 notification={notification}
+                compact={recent}
                 actorName={actorNames.get(String(notification.detail['actor_id'])) ?? null}
                 actionsDisabled={rowActionPending(notification.id)}
                 onMarkRead={() => {
@@ -338,14 +340,59 @@ export function InboxPanel({
   );
 }
 
+function NotificationReturnAction({ notification, disabled, below, onMarkRead }: {
+  notification: NotificationDto;
+  disabled: boolean;
+  /** Render on its own line under the body, aligned with the body text (narrow lists). */
+  below: boolean;
+  onMarkRead: () => void;
+}): React.ReactElement | null {
+  const resolveReturn = useHostPermissionRequestReturn();
+  const subjectId = notification.subject_id;
+  // The decision notification does not carry the return address today, so every approved row reads the
+  // requester's own detail once; a payload address, if the server adds one, skips that read.
+  const payloadIntent = notification.detail['return_route_intent'];
+  const intent = typeof payloadIntent === 'string' ? payloadIntent : null;
+  const ownerDetail = useQuery({
+    queryKey: permissionRequestOwnerDetailKey(subjectId),
+    queryFn: ({ signal }) => fetchPermissionRequestOwnerDetail(subjectId, signal),
+    enabled: resolveReturn !== null && intent === null,
+    retry: false,
+  });
+  const ownerIntent = ownerDetail.isSuccess && ownerDetail.data.status === 'approved'
+    ? ownerDetail.data.return_route_intent : null;
+  const returnAction = resolveReturn?.(intent ?? ownerIntent);
+  if (!returnAction) return null;
+  const button = (
+    <Button
+      type="button"
+      variant="secondary"
+      size="sm"
+      disabled={disabled}
+      onClick={() => {
+        // Same as following the row's own link: opening the notification's subject reads it.
+        if (notification.read_at === null) onMarkRead();
+        returnAction();
+      }}
+    >
+      {HOME_PERMISSION_COPY.returnToScreen}
+    </Button>
+  );
+  // pl-9 = row padding (pl-4) + unread dot (w-2) + gap (gap-3): the button starts where the body text starts.
+  return below ? <div className="basis-full pb-2 pl-9" data-testid="home-inbox-return-below">{button}</div> : button;
+}
+
 function NotificationRow({
   notification,
+  compact,
   actorName,
   actionsDisabled,
   onMarkRead,
   onArchive,
 }: {
   notification: NotificationDto;
+  /** Narrow list (the bell popover): the return button moves under the body so the title keeps its width. */
+  compact: boolean;
   actorName: string | null;
   actionsDisabled: boolean;
   onMarkRead: () => void;
@@ -451,9 +498,21 @@ function NotificationRow({
     </Button>
   );
 
+  const returnAction =
+    notification.event_type === 'permission_request.decided' &&
+    notification.subject_type === 'permission_request' &&
+    notification.detail['status'] === 'approved' ? (
+      <NotificationReturnAction
+        notification={notification}
+        disabled={actionsDisabled}
+        below={compact}
+        onMarkRead={onMarkRead}
+      />
+    ) : null;
+
   return (
     <li
-      className="flex min-h-row-default items-center border-b border-border-subtle last:border-b-0"
+      className="flex min-h-row-default flex-wrap items-center border-b border-border-subtle last:border-b-0"
       data-testid={`home-inbox-row-${notification.id}`}
       data-notification-id={notification.id}
     >
@@ -466,6 +525,7 @@ function NotificationRow({
         </Tooltip>
       )}
       <span className="flex shrink-0 items-center gap-1 px-2" data-row-actions="">
+        {compact ? null : returnAction}
         {notification.read_at === null && (
           <Button
             type="button"
@@ -487,6 +547,7 @@ function NotificationRow({
           archiveButton
         )}
       </span>
+      {compact ? returnAction : null}
     </li>
   );
 }

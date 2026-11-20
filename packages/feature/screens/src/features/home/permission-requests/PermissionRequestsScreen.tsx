@@ -43,7 +43,7 @@ import {
 import { useDeclaredCapabilities } from '../../../lib/api/declared-capabilities';
 import { formatDate } from '../../../lib/format/datetime';
 import { managedSystemLabels } from '../../../lib/format/managed-system-label';
-import { useHostSeam } from '../../../lib/host/host-seam';
+import { useHostPermissionRequestReturn, useHostSeam } from '../../../lib/host/host-seam';
 import {
   CAPABILITIES,
   type Capability,
@@ -533,6 +533,7 @@ function NewRequestForm({ permissionGroup, groupLink, initialCapability, initial
 
 function MyRequests(): React.ReactElement {
   const { notifyError, notifySuccess } = useHostSeam();
+  const resolveReturn = useHostPermissionRequestReturn();
   const declared = useDeclaredCapabilities();
   const queryClient = useQueryClient();
   const managedSystems = useManagedSystemsQuery();
@@ -624,8 +625,9 @@ function MyRequests(): React.ReactElement {
         <ListStateMessage variant="empty" title={COPY.empty} />
       ) : (
         <ul className="flex flex-col divide-y divide-border-subtle rounded-md border border-border-subtle">
-          {list.data.requests.map((row) => (
-            <li
+          {list.data.requests.map((row) => {
+            const returnAction = row.status === 'approved' ? resolveReturn?.(row.return_route_intent) : null;
+            return <li
               key={row.id}
               ref={(el) => {
                 if (el) rowRefs.current.set(row.id, el);
@@ -652,11 +654,19 @@ function MyRequests(): React.ReactElement {
               <p className="line-clamp-2 text-sm text-text-primary">{row.reason}</p>
               {row.batch_id && row.status === 'needs_more_info' ? <BatchMoreInfo batchId={row.batch_id} rowId={row.id} /> : null}
               {row.status === 'needs_more_info' && <MoreInfoNote id={row.id} batch={Boolean(row.batch_id)} />}
+              {returnAction ? (
+                <div className="pt-1" data-row-actions="">
+                  <Button type="button" variant="secondary" size="sm" onClick={returnAction}>
+                    {HOME_PERMISSION_COPY.returnToScreen}
+                  </Button>
+                </div>
+              ) : null}
               {OPEN_PERMISSION_REQUEST_STATUSES.has(row.status) &&
                 (confirmingId === row.id ? (
                   // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Escape bubbles from the confirm buttons inside; the wrapper is not itself interactive
                   <div
                     className="flex flex-wrap items-center gap-2 pt-1"
+                    data-row-actions=""
                     onKeyDown={(event) => {
                       if (event.key !== 'Escape' || withdraw.isPending) return;
                       event.stopPropagation();
@@ -687,7 +697,7 @@ function MyRequests(): React.ReactElement {
                     </Button>
                   </div>
                 ) : (
-                  <div className="pt-1">
+                  <div className="pt-1" data-row-actions="">
                     <Button
                       ref={(el) => {
                         if (el) withdrawRefs.current.set(row.id, el);
@@ -706,8 +716,8 @@ function MyRequests(): React.ReactElement {
                     </Button>
                   </div>
                 ))}
-            </li>
-          ))}
+            </li>;
+          })}
         </ul>
       )}
     </section>

@@ -148,6 +148,7 @@ export const HOME_PERMISSION_COPY = {
   edit: '수정',
   supplement: '보완 제출',
   withdraw: '요청 철회',
+  returnToScreen: '원래 화면으로',
   withdrawReason: '철회 사유 · 선택',
   withdrawConfirm: '요청을 철회할까요?',
   withdrawDescription: '철회한 요청은 기록에 남으며 관리자 검토 대상에서 제외됩니다.',
