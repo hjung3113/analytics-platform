@@ -238,6 +238,32 @@ describe('<RequestAccessButton>', () => {
     expect(screen.queryByText(/검토 중/)).not.toBeInTheDocument();
   });
 
+  // #2638: the card's links follow inside the host, not by reloading the app.
+  test.each([true, false])('follows the card links through the host seam (host follows: %s)', followed => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    client.setQueryData(permissionRequestsMineAllKey, { requests: [] });
+    const follow = vi.fn(() => followed);
+    const assign = vi.fn();
+    vi.stubGlobal('location', { ...window.location, assign });
+    let openCard: (() => void) | undefined;
+    render(<QueryClientProvider client={client}><HostSeamProvider value={{
+      canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
+      permissionRequestHref: () => '/company/permission-requests', permissionHomeHref: '/company/',
+      useFollowHostHref: () => follow,
+    }}>
+      <RequestAccessButton capability={CAPABILITY} returnRouteIntent={RETURN_ROUTE} pending={false} layout="card"
+        renderTrigger={(open, panel) => { openCard = open; return <PermissionBlockedPanel layout="card" state="request_access" category="Finding" {...panel} />; }}
+      />
+    </HostSeamProvider></QueryClientProvider>);
+    expect(fireEvent.click(screen.getByRole('link', { name: '권한 요청' }))).toBe(!followed);
+    expect(fireEvent.click(screen.getByRole('link', { name: '홈으로' }))).toBe(!followed);
+    expect(follow.mock.calls).toEqual([['/company/permission-requests'], ['/company/']]);
+    act(() => openCard?.());
+    expect(follow).toHaveBeenLastCalledWith('/company/permission-requests');
+    expect(assign).toHaveBeenCalledTimes(followed ? 0 : 1);
+    vi.unstubAllGlobals();
+  });
+
   test.each(['open', 'unavailable'])('keeps the request CTA hidden when open status is %s outside history', async (status) => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
     const pending = {

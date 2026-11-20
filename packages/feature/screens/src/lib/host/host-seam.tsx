@@ -44,6 +44,11 @@ export type HostSeam = HostPermissionLinks & {
   usePermissionRequestReturn?: () => PermissionRequestReturn;
   /** Stable hook for links that depend on the current navigation. */
   usePermissionLinks?: () => HostPermissionLinks;
+  /**
+   * Stable hook. Follows an href this seam handed out (`permissionRequestHref`, `permissionHomeHref`) inside the host, without reloading the app,
+   * and returns true; false when the host cannot, and the caller loads the href. Absent = always false (#2638).
+   */
+  useFollowHostHref?: () => (href: string) => boolean;
   canLink(to: string): boolean;
   lang?: 'ko' | 'en';
   time?: {
@@ -130,6 +135,14 @@ export function useHostNavigate(): HostNavigate {
 }
 
 const useNoNavigate = (): null => null;
+const noFollow = () => false;
+const useNoFollowHostHref = () => noFollow;
+
+/** See `HostSeam.useFollowHostHref`. */
+export function useFollowHostHref(): (href: string) => boolean {
+  const { useFollowHostHref: useFollow = useNoFollowHostHref } = useHostSeam();
+  return useFollow();
+}
 
 /** Navigation hook for optional destinations such as a toast action. */
 export function useOptionalHostNavigate(): HostNavigate | null {

@@ -60,7 +60,8 @@ import {
   type PermissionScopeTargetKind,
   formatPermissionScopeTarget,
 } from '../lib/copy/permission-scope';
-import { HostLink, useHostPermissionLinks, useHostSeam } from '../lib/host/host-seam';
+import { HostLink, useFollowHostHref, useHostPermissionLinks, useHostSeam } from '../lib/host/host-seam';
+import { HostHrefLink } from './HostHrefLink';
 import { useManagedSystemNames } from '../lib/cross-system/useManagedSystemNames';
 import { permissionCheckQueryKey } from '../lib/cross-system/usePermissionCheckBridge';
 import { draftRecord, draftString, useFormDraftAcrossExpiry } from '../lib/session-draft/useFormDraftAcrossExpiry';
@@ -162,7 +163,8 @@ function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger
   }) : null;
   const labels = { pending: copy.mine, 'approved-partial': copy.remaining, none: copy.request };
   const missing = { permission: getCapabilityDisplayLabel(capability), ...(system ? { system } : {}) };
-  const followLink = () => { if (href) window.location.assign(href); };
+  const follow = useFollowHostHref();
+  const followLink = () => { if (href && !follow(href)) window.location.assign(href); };
   const retry = () => {
     if (!statusKnown) void open.refetch();
     if (mine.isError) void mine.refetch();
@@ -179,7 +181,7 @@ function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger
     </>;
   } else if (href) {
     action = <Button asChild size="sm" variant={hasPending ? 'secondary' : 'primary'}>
-      <a href={href}>{hasPending ? copy.viewMine : labels[progress]}</a>
+      <HostHrefLink href={href}>{hasPending ? copy.viewMine : labels[progress]}</HostHrefLink>
     </Button>;
   }
   return renderTrigger(followLink, {

@@ -75,6 +75,20 @@ const usePermissionRequestReturn: NonNullable<HostSeam['usePermissionRequestRetu
   };
 };
 
+/** Permission hrefs come from `location.href`, so the base path is taken off again before the Kernel navigates; an href outside this deployment or with no route is left to the browser (#2638). */
+const useFollowHostHref: NonNullable<HostSeam['useFollowHostHref']> = () => {
+  const { location, registry, navigate, pathname } = usePlatform();
+  return href => {
+    const base = location.href('/').slice(0, -1);
+    const app = base === '' ? href : href.startsWith(`${base}/`) ? href.slice(base.length) : null;
+    if (app === null || !app.startsWith('/') || app.startsWith('//')) return false;
+    const [path = ''] = app.split('?');
+    if (registry.matchRoute(path) === null) return false;
+    navigate(app, { via: 'link', ...(path !== pathname ? { focus: 'page' } : {}) });
+    return true;
+  };
+};
+
 /** `useNavigate`/`useSearch`/`useTitle`/`useHere` must be module-level hooks (stable identities): the seam is memoized on them, so an unrelated render never rebuilds it (with `targetOf`, a navigation does: see `hrefLinkTo`). */
 export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink, targetOf, useNavigate = useNoNavigate, useSearch = useNoSearch, useTitle = useNoTitle, useHere = useNoHere }: { children: ReactNode; canLink?: HostSeam['canLink']; targetOf?: TargetOf; Link?: ComponentType<HostLinkProps>; useNavigate?: () => HostNavigate; useSearch?: () => HostSearch; useTitle?: (title: string | null) => void; useHere?: () => string }) {
   const { lang } = useI18n();
@@ -103,6 +117,7 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
       feed: at => formatFeedTime(at, lang),
     },
     usePermissionLinks,
+    useFollowHostHref,
     usePermissionRequestReturn,
     // The platform page head carries the menu title, so a screen drops its own route kicker (UX-5).
     hostOwnsTitle: true,
