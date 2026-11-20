@@ -6,10 +6,13 @@ Lead-only sections of the conductor profile. The lead reads this file and [`PROF
 
 - **Bot PRs** (Dependabot, `.github/dependabot.yml`: one grouped npm minor/patch PR and one GitHub Actions PR each Monday): the lead reads the lockfile diff and the PR CI, then merges a green one like any PR. If CI is red, the lead closes it or hands the fix to `lane:arch` on the bot branch; a dependency that cannot move gets an `ignore` entry with its reason and a backlog row. Majors are never opened by the bot: each is its own issue. Reason: a lockfile change reruns almost every package, so one weekly bundle costs one PR's CI.
 - App `v0.x` tags: at slice start ask once: 'tag when the tag SHA's main-push CI is green?'. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue.
+- **Periodic check:** what the lead reports to the owner is, per open PR, the three `PR guard` numbers (changed lines and files, pushes, scope verdict) and whether the capture link is in the PR body. Board drift and terminal hygiene stay in the tool output. Reason: a check that relays board warnings never showed the lead a fifth fix round or a 1,000-line PR.
 
 ## Release spec
 
 The lead keeps one file per release, `.planning/releases/<version>.md`: the owner's decisions quoted with dates, the scope issues, an «결정 안 됨» list, and the screen checklist below. The lead re-reads it before every merge. Reason: owner criteria held only in the lead's context are lost at compaction.
+
+The scope section is `## 범위`: the issue numbers the owner picked at release start, as `#n`, plus the release issue. CI reads this section from `main` ([`PROFILE.md`](PROFILE.md) §Size and path, Mechanical caps), so a PR that closes an unlisted issue is red until the owner labels it `owner-ok:scope` or adds the number here in its own labelled PR. The lead never adds a number on its own; a bug found mid-release goes to the owner as `질문 #n` with the fix size, or waits for the next release. Reason: six issues entered v0.44 through the lead alone.
 
 ## Screen check
 
