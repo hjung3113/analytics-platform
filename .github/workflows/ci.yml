@@ -153,6 +153,7 @@ jobs:
           node --test .github/scripts/check-unified-ci.test.mjs .github/scripts/check-ci-scope.test.mjs
           # #1884: the scripts that decide which gates run are tested here too (node builtins and bash only, seconds).
           node .github/scripts/classify-changes.mjs --self-test
+          node .github/scripts/pr-guard.mjs --self-test
           node .github/scripts/select-e2e.mjs --self-test
           node .github/scripts/e2e-shard.mjs --self-test
           node .github/scripts/last-green-main-sha.mjs --self-test
@@ -549,11 +550,36 @@ jobs:
         if: ${{ steps.scope.outputs.run == 'true' }}
         run: node tooling/sdk/sdk-upgrade-gate.mjs --self-test
 
+  # PR guard (#2643): the three caps no lead or worker decision can waive — PR size (400 lines / 40 files; generated files, snapshots and lockfiles
+  # excluded), fix rounds (the fourth push of the branch needs a `Round cap:` line in the PR body) and release scope (`Closes #n` must be in the
+  # release spec's `## 범위` on the base branch, or the PR carries the owner's `owner-ok:scope`). Rules: .agents/conductor/PROFILE.md §Size and path.
+  # `Platform workspace` requires it, so the ruleset enforces it without a new required check. PR only: on a main push or manual run the step is
+  # skipped and the job succeeds. API calls only, seconds; a failed call fails the job (fail-closed), so rerun it.
+  pr-guard:
+    name: PR guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      - name: Size, round and scope caps
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node .github/scripts/pr-guard.mjs
+
   # The required check keeps its name (ruleset `main: required CI`). A required job skipped as a whole would report Success, so this one always runs
-  # and fails unless static, test and integration are success (docs-only permits only the intentional integration skip).
+  # and fails unless static, test, integration and the PR guard are success (docs-only permits only the intentional integration skip).
   platform-workspace:
     name: Platform workspace (pnpm monorepo)
-    needs: [changes, platform-static, platform-typecheck, platform-test, feature-integration]
+    needs: [changes, platform-static, platform-typecheck, platform-test, feature-integration, pr-guard]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -567,9 +593,10 @@ jobs:
           TYPECHECK: ${{ needs.platform-typecheck.result }}
           TEST: ${{ needs.platform-test.result }}
           INTEGRATION: ${{ needs.feature-integration.result }}
+          GUARD: ${{ needs.pr-guard.result }}
           CODE: ${{ needs.changes.outputs.code }}
         run: |
-          .github/scripts/require-success.sh "static=$STATIC" "typecheck=$TYPECHECK" "test=$TEST"
+          .github/scripts/require-success.sh "static=$STATIC" "typecheck=$TYPECHECK" "test=$TEST" "guard=$GUARD"
           if [ "$CODE" != false ] || [ "$INTEGRATION" != skipped ]; then .github/scripts/require-success.sh "integration=$INTEGRATION"; fi
 
   # #666: the contract suite (~600 s of tests on one worker) runs as Playwright shards in parallel. Each shard starts

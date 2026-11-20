@@ -777,7 +777,12 @@ describe.skipIf(!runIntegration)('Evidence Highlights backend (#124)', () => {
       source.msId,
       adminActorId,
     );
-    expect((await inventory(reporterCookie)).statusCode).toBe(403);
+    const denied = await inventory(reporterCookie);
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toMatchObject({
+      code: 'permission.denied',
+      detail: { reason: 'role_required', minimum_role: 'developer' },
+    });
     expect((await inventoryDetail(reporterCookie, randomUUID())).statusCode).toBe(403);
     expect((await inventoryDetail(adminCookie, randomUUID())).statusCode).toBe(404);
     expect((await inventoryDetail(adminCookie, 'bad')).statusCode).toBe(422);

@@ -12,6 +12,7 @@ export const PERMISSION_BLOCKED_REASONS = {
   findingsList: 'Finding 목록을 볼 권한이 없습니다.',
   archivedSystem: '보관된 시스템이라 볼 수 없습니다.',
   findingsListRoleRequired: 'Finding 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.',
+  evidenceListRoleRequired: '근거 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.',
   vocTriage: 'VOC 분류 권한이 없습니다.',
   vocTriageManagedSystem: '선택한 시스템의 VOC 분류 권한이 없습니다.',
   vocTriageMissingRead: 'VOC 조회 권한이 없습니다.',
@@ -23,6 +24,7 @@ export const PERMISSION_BLOCKED_REASONS = {
     '이 Finding을 볼 권한이 없습니다. 해당 시스템의 개발자 이상 권한이 필요합니다.',
   surveyResult: '설문 결과를 볼 권한이 없습니다.',
   surveyBuilder: '설문 관리 권한이 없습니다.',
+  surveyManageSelectSystem: '시스템을 선택한 뒤 설문 관리 권한을 요청하세요.',
   surveyDetail: '이 설문을 볼 권한이 없습니다.',
 } as const;
 

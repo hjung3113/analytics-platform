@@ -3,7 +3,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { House } from 'lucide-react';
 import { useState, type ReactElement, type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createBasePathLocation, createRegistry, usePlatform } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import { carrySetId, groupId, spaceId } from '@ap/contracts';
 import { useHostSeam } from '@ap/feature-screens/global-screens/core';
@@ -226,6 +226,36 @@ describe('FeatureBridge seam', () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     expect(() => renderHook(() => useHostSeam(), { wrapper })).toThrow('HostSeamProvider is missing');
     error.mockRestore();
+  });
+});
+
+// #2638: a permission card's link is a `location.href` address; following it stays inside the app.
+describe('FeatureBridge useFollowHostHref', () => {
+  const location = createBasePathLocation('/base');
+  function baseWrapper({ children }: { children: ReactNode }) {
+    return <I18nProvider><PlatformProvider adapter={adapter} registry={registry} location={location}>{children}</PlatformProvider></I18nProvider>;
+  }
+  async function follow(href: string) {
+    setFeatureApi({ basePath: '/fo', onSessionLost: () => undefined });
+    let result: boolean | undefined;
+    let run: ((href: string) => boolean) | undefined;
+    function Probe() { run = useHostSeam().useFollowHostHref?.(); return null; }
+    render(<FeatureBridge><Probe /></FeatureBridge>, { wrapper: baseWrapper });
+    await waitFor(() => expect(run).toBeDefined());
+    act(() => { result = run?.(href); });
+    return result;
+  }
+
+  it('takes the base path off and navigates to the menu without a page load', async () => {
+    at('/base/mars/inbox');
+    expect(await follow('/base/mars/triage?focus=x')).toBe(true);
+    expect(window.location.pathname + window.location.search).toBe('/base/mars/triage?focus=x');
+  });
+
+  it.each(['/other/mars/triage', '/base/unregistered', 'https://example.test/base/mars/triage', '/base//example.test'])('leaves %s to the browser', async href => {
+    at('/base/mars/inbox');
+    expect(await follow(href)).toBe(false);
+    expect(window.location.pathname).toBe('/base/mars/inbox');
   });
 });
 

@@ -985,6 +985,39 @@ it('offers the permitted host Home when the Evidence list is denied', async () =
   expect(Array.from(home.parentElement?.children ?? [])).toEqual([home]);
 });
 
+// #2639: the same 403 answer gives the same choice as the Finding list.
+it.each([
+  ['requestable_permission', { code: 'permission.denied', requestable_permission: { permission: 'finding.read', managed_system_id: MS } }],
+  ['role_required', { code: 'permission.denied', detail: { reason: 'role_required', minimum_role: 'developer' } }],
+] as const)('reads the Evidence list 403 %s like the Finding list', async (kind, body) => {
+  installFetch(() => response(body, 403));
+  const originalFetch = fetch;
+  vi.stubGlobal('fetch', vi.fn((input: string, init?: RequestInit) => {
+    const url = new URL(input, 'http://localhost');
+    if (url.pathname === '/permission-requests/mine') return Promise.resolve(response({ requests: [] }));
+    if (url.pathname === '/managed-systems') return Promise.resolve(response({ items: [] }));
+    return originalFetch(input, init);
+  }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const permissionRequestHref = vi.fn(() => '/company/permission-requests');
+  function Host() {
+    const seam = useHostSeam();
+    return <HostSeamProvider value={{
+      ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
+      usePermissionLinks: () => ({ permissionRequestHref, permissionHomeHref: '/company/' }),
+    }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
+  }
+  render(<QueryClientProvider client={client}><Host /></QueryClientProvider>);
+  if (kind === 'requestable_permission') {
+    expect(await screen.findByRole('link', { name: '권한 요청' })).toHaveAttribute('href', '/company/permission-requests');
+    expect(permissionRequestHref).toHaveBeenCalledWith({ capability: 'finding.read', managedSystemId: MS });
+  } else {
+    expect(await screen.findByText('근거 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
+    expect(screen.getByRole('link', { name: '홈으로' })).toHaveAttribute('href', '/company/');
+  }
+});
+
 it.each(['request_access', 'approved', 'pending_request'] as const)('uses the %s permission for a scoped 200-empty Evidence list', async (state) => {
   installFetch(() => response({ items: [], page: { has_more: false } }));
   const originalFetch = fetch;

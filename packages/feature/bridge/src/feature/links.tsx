@@ -1,6 +1,6 @@
 import { PlatformLink, usePlatform } from '@ap/kernel';
 import type { HostLinkProps } from '@ap/feature-screens/global-screens/core';
-import { UnlinkedLink } from './FeatureBridge';
+import { UnlinkedLink } from './unlinked-link';
 import { isReachable } from './reachable';
 
 export type PlatformTarget = { menuId: string; params?: Record<string, string>; page?: Record<string, string | null> };
