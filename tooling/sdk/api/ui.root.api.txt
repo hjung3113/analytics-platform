@@ -25,7 +25,7 @@ AvatarUser | interface | interface AvatarUser { display_name: string; }
 Badge | function | function Badge({ className, variant, ...props }: @ap/ui#BadgeProps): React.JSX.Element
 BadgeProps | interface | interface BadgeProps extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof @ap/ui#badgeVariants> { }
 Button | const | const Button: React.ForwardRefExoticComponent<@ap/ui#ButtonProps & React.RefAttributes<HTMLButtonElement>>
-ButtonProps | interface | interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> { asChild?: boolean; children?: React.ReactNode; loading?: boolean; padding?: 'compact' | 'default'; size?: ButtonSize; spacing?: 'compact' | 'default'; variant?: ButtonVariant; wrapText?: boolean; }
+ButtonProps | interface | interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'> { asChild?: boolean; children?: React.ReactNode; disabledReason?: React.ReactNode; loading?: boolean; padding?: 'compact' | 'default'; size?: ButtonSize; spacing?: 'compact' | 'default'; variant?: ButtonVariant; wrapText?: boolean; }
 Callout | function | function Callout({ tone, icon, title, children, action, size, className }: @ap/ui#CalloutProps): React.JSX.Element
 CalloutProps | interface | interface CalloutProps { action?: React.ReactNode; children: React.ReactNode; className?: string; icon?: React.ReactNode; size?: 'compact' | 'default'; title?: string; tone: @ap/ui#CalloutTone; }
 CalloutTone | type | type CalloutTone = 'amber' | 'blue' | 'cyan' | 'emerald' | 'red'
@@ -39,16 +39,24 @@ Checkbox | const | const Checkbox: React.ForwardRefExoticComponent<Omit<Checkbox
 Combobox | function | function Combobox({ getLabel, loading, hasMore, onLoadMore, loadingText, moreLabel, options, value, onChange, placeholder, searchPlaceholder, listboxLabel, emptyText, footerText, className, density, font, id, 'aria-invalid': ariaInvalid, 'aria-required': ariaRequired, 'aria-describedby': ariaDescribedBy, onSearchChange, filterOptions, disabled, }: @ap/ui#ComboboxProps): React.JSX.Element
 ComboboxOption | interface | interface ComboboxOption { disabled?: boolean; label: string; value: string; }
 ComboboxProps | interface | interface ComboboxProps { 'aria-describedby'?: string; 'aria-invalid'?: boolean; 'aria-required'?: boolean; className?: string; density?: 'compact' | 'default'; disabled?: boolean; emptyText?: string; filterOptions?: boolean; font?: 'default' | 'mono'; footerText?: string; getLabel?: (value: string) => string | undefined; hasMore?: boolean; id?: string; listboxLabel?: string; loading?: boolean; loadingText?: string; moreLabel?: string; onChange: (value: string) => void; onLoadMore?: () => void; onSearchChange?: (search: string) => void; options: @ap/ui#ComboboxOption[]; placeholder?: string; searchPlaceholder?: string; value: null | string; }
+CreateDecisionUndoToastActionOptions | interface | interface CreateDecisionUndoToastActionOptions { kind: 'reversible'; label?: string; onUndo: () => void; }
+DECISION_RULE_KINDS | const | const DECISION_RULE_KINDS: readonly [ "reversible", "judgment", "irreversible" ]
 DIALOG_CONTENT_MOTION | const | const DIALOG_CONTENT_MOTION: "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:animation-duration-base data-[state=open]:ease-enter data-[state=open]:zoom-in-95"
 DatePicker | function | function DatePicker({ locale, messages: suppliedMessages, value, onChange, min, max, emptyValue, showValidation, onValidityChange, appearance, className, disabled, 'aria-invalid': ariaInvalid, 'aria-describedby': ariaDescribedBy, onBlur, onInvalid, placeholder, ...inputProps }: @ap/ui#DatePickerProps): React.JSX.Element
 DatePickerProps | interface | interface DatePickerProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'max' | 'min' | 'onChange' | 'type' | 'value'> { appearance?: 'default' | 'detail'; emptyValue?: '' | null; locale?: string; max?: string; messages?: Partial<typeof DATE_MESSAGES>; min?: string; onChange: (value: null | string) => void; onValidityChange?: (valid: boolean) => void; showValidation?: boolean; value: null | string; }
+DecisionImpactConfirmDialog | function | function DecisionImpactConfirmDialog({ trigger, impactText, onConfirm, title, confirmLabel, cancelLabel }: @ap/ui#DecisionImpactConfirmDialogProps): import("react").JSX.Element
+DecisionImpactConfirmDialogProps | interface | interface DecisionImpactConfirmDialogProps { cancelLabel?: string; confirmLabel?: string; impactText: string; kind: 'irreversible'; onConfirm: () => void; title?: string; trigger: ReactElement; }
+DecisionReasonField | function | function DecisionReasonField({ value, onChange, id, disabled, maxLength, error, messages }: @ap/ui#DecisionReasonFieldProps): import("react").JSX.Element
+DecisionReasonFieldProps | interface | interface DecisionReasonFieldProps { disabled?: boolean; error?: ReactNode; id?: string; kind: 'judgment'; maxLength?: number; messages?: Partial<{ reasonLabel: string; requiredMark: string; }>; onChange: (value: string) => void; value: string; }
+DecisionRuleKind | type | type DecisionRuleKind = (typeof @ap/ui#DECISION_RULE_KINDS)[number]
+DecisionUndoToastAction | interface | interface DecisionUndoToastAction { label: string; onAction: () => void; }
 DetailPanelFullscreenContext | const | const DetailPanelFullscreenContext: React.Context<@ap/ui#DetailPanelFullscreenValue | null>
 DetailPanelFullscreenToggle | function | function DetailPanelFullscreenToggle({ expandLabel, collapseLabel }?: { collapseLabel?: string; expandLabel?: string; }): React.ReactElement | null
 DetailPanelFullscreenValue | interface | interface DetailPanelFullscreenValue { expanded: boolean; toggle: () => void; }
-DetailPanelHeader | function | function DetailPanelHeader({ kind, 'data-kind': dataKind, label, appearance, accent: suppliedAccent, id, title, headingId, metadata, onClose, closeRef, closeLabel, expandLabel, collapseLabel, showExpand, extras, className, }: @ap/ui#DetailPanelHeaderProps): React.JSX.Element
+DetailPanelHeader | function | function DetailPanelHeader({ kind, 'data-kind': dataKind, label, appearance, accent: suppliedAccent, id, title, titleLines, headingId, metadata, onClose, closeRef, closeLabel, expandLabel, collapseLabel, showExpand, extras, className, }: @ap/ui#DetailPanelHeaderProps): React.JSX.Element
 DetailPanelHeaderActions | function | function DetailPanelHeaderActions({ copyUrl, extraMore, notify, messages, }: @ap/ui#DetailPanelHeaderActionsProps): React.JSX.Element
 DetailPanelHeaderActionsProps | interface | interface DetailPanelHeaderActionsProps { copyUrl: null | string; entityId?: string; entityKind?: @ap/ui#DetailPanelKind; extraMore?: React.ReactNode; messages?: { copy: string; error: string; success: string; }; notify?: { error: (message: string) => void; success: (message: string) => void; }; }
-DetailPanelHeaderProps | interface | interface DetailPanelHeaderProps { 'data-kind'?: string; accent?: 'info' | 'success' | 'task' | 'voc' | 'warn'; appearance?: 'badge' | 'stripe'; className?: string; closeLabel?: string; closeRef?: React.Ref<HTMLButtonElement>; collapseLabel?: string; expandLabel?: string; extras?: React.ReactNode; headingId?: string; id?: string | undefined; kind?: @ap/ui#DetailPanelKind; label?: string; metadata?: React.ReactNode; onClose?: () => void; showExpand?: boolean; title?: React.ReactNode; }
+DetailPanelHeaderProps | interface | interface DetailPanelHeaderProps { 'data-kind'?: string; accent?: 'info' | 'success' | 'task' | 'voc' | 'warn'; appearance?: 'badge' | 'stripe'; className?: string; closeLabel?: string; closeRef?: React.Ref<HTMLButtonElement>; collapseLabel?: string; expandLabel?: string; extras?: React.ReactNode; headingId?: string; id?: string | undefined; kind?: @ap/ui#DetailPanelKind; label?: string; metadata?: React.ReactNode; onClose?: () => void; showExpand?: boolean; title?: React.ReactNode; titleLines?: 1 | 2; }
 DetailPanelKind | type | type DetailPanelKind = 'cluster' | 'finding' | 'milestone' | 'survey' | 'task' | 'task_request' | 'voc'
 DetailPanelReadingColumn | function | function DetailPanelReadingColumn({ children, asChild, ...dataAttrs }: React.PropsWithChildren<{ 'data-testid'?: string; asChild?: boolean; }>): React.ReactElement
 DetailPanelSectionNav | function | function DetailPanelSectionNav({ messages, sections, scrollRef, className, navigationLabel, }: @ap/ui#DetailPanelSectionNavProps): React.ReactElement | null
@@ -85,16 +93,16 @@ DropdownMenuSubTrigger | const | const DropdownMenuSubTrigger: React.ForwardRefE
 DropdownMenuTrigger | const | const DropdownMenuTrigger: React.ForwardRefExoticComponent<DropdownMenuPrimitive.DropdownMenuTriggerProps & React.RefAttributes<HTMLButtonElement>>
 EmptyState | function | function EmptyState({ icon, title, body, action, size, density, padding, className, }: @ap/ui#EmptyStateProps): React.JSX.Element
 EmptyStateProps | interface | interface EmptyStateProps { action?: React.ReactNode; body?: string; className?: string; density?: 'compact' | 'default'; icon?: React.ReactNode; padding?: 'default' | 'wide'; size?: 'lg' | 'md' | 'sm'; title: string; }
-FieldLabel | function | function FieldLabel({ messages, appearance, required, tone, tip, children, className, ...props }: @ap/ui#FieldLabelProps): React.JSX.Element
-FieldLabelProps | interface | interface FieldLabelProps extends React.ComponentPropsWithoutRef<typeof @ap/ui#Label> { appearance?: 'default' | 'section'; children: React.ReactNode; messages?: { help?: (tip: string) => string; }; required?: boolean; tip?: string; tone?: 'default' | 'secondary'; }
+FieldLabel | function | function FieldLabel({ messages, appearance, required, requiredMark, requiredText, tone, tip, children, className, ...props }: @ap/ui#FieldLabelProps): React.JSX.Element
+FieldLabelProps | interface | interface FieldLabelProps extends React.ComponentPropsWithoutRef<typeof @ap/ui#Label> { appearance?: 'default' | 'section'; children: React.ReactNode; messages?: { help?: (tip: string) => string; }; required?: boolean; requiredMark?: 'asterisk' | 'text'; requiredText?: string; tip?: string; tone?: 'default' | 'secondary'; }
 FieldList | function | function FieldList({ children, className, layout }: @ap/ui#FieldListProps): React.JSX.Element
 FieldListProps | interface | interface FieldListProps { children: React.ReactNode; className?: string; layout?: 'inline'; }
 FieldRow | function | function FieldRow({ label, children, inset, layout: layoutProp, mono, className, }: @ap/ui#FieldRowProps): React.JSX.Element
 FieldRowProps | interface | interface FieldRowProps { children: React.ReactNode; className?: string; inset?: 'default' | 'none'; label: React.ReactNode; layout?: 'default' | 'detail' | 'inline' | 'property'; mono?: boolean; }
 FilterCategory | interface | interface FilterCategory { key: string; label: string; options: { label: string; value: string; }[]; }
-FormField | function | function FormField({ label, required, tip, hint, error, id, describedBy, className, children }: @ap/ui#FormFieldProps): import("react").JSX.Element
+FormField | function | function FormField({ label, required, showRequiredMark, requiredMark, requiredText, tip, hint, error, errorRole, id, describedBy, className, children }: @ap/ui#FormFieldProps): import("react").JSX.Element
 FormFieldControl | interface | interface FormFieldControl { 'aria-describedby'?: string; 'aria-invalid'?: true; 'aria-required'?: true; id: string; }
-FormFieldProps | interface | interface FormFieldProps { children: (control: @ap/ui#FormFieldControl) => ReactNode; className?: string; describedBy?: string; error?: ReactNode; hint?: ReactNode; id?: string; label: ReactNode; required?: boolean; tip?: string; }
+FormFieldProps | interface | interface FormFieldProps { children: (control: @ap/ui#FormFieldControl) => ReactNode; className?: string; describedBy?: string; error?: ReactNode; errorRole?: 'alert'; hint?: ReactNode; id?: string; label: ReactNode; required?: boolean; requiredMark?: 'asterisk' | 'text'; requiredText?: string; showRequiredMark?: boolean; tip?: string; }
 GROUPED_SELECTION_MESSAGES | const | const GROUPED_SELECTION_MESSAGES: Readonly<Record<'en' | 'ko', @ap/ui#GroupedSelectionMessages & @ap/ui#GroupedSelectionOptionMessages>>
 GroupedSelectionGroup | type | type GroupedSelectionGroup = { id: string; items: readonly @ap/ui#GroupedSelectionItem[]; label: string; }
 GroupedSelectionItem | type | type GroupedSelectionItem = { badge?: { label: string; tone?: @ap/ui#Tone; }; description?: string; disabledReason?: string; id: string; label: string; }
@@ -114,6 +122,11 @@ InputProps | interface | interface InputProps extends React.InputHTMLAttributes<
 KeyboardShortcut | function | function KeyboardShortcut({ children, className, testId }: @ap/ui#KeyboardShortcutProps): React.JSX.Element
 KeyboardShortcutProps | interface | interface KeyboardShortcutProps { children: React.ReactNode; className?: string; testId?: string; }
 Label | const | const Label: React.ForwardRefExoticComponent<Omit<LabelPrimitive.LabelProps & React.RefAttributes<HTMLLabelElement>, "ref"> & React.RefAttributes<HTMLLabelElement>>
+LineErrorList | function | function LineErrorList({ errors, id, maxVisible, messages, }: @ap/ui#LineErrorListProps): React.JSX.Element | null
+LineErrorListMessages | interface | interface LineErrorListMessages { line: (line: number, message: string) => React.ReactNode; remaining: (count: number) => React.ReactNode; }
+LineErrorListProps | interface | interface LineErrorListProps { errors: readonly @ap/ui#LineValidationError[]; id?: string; maxVisible?: number; messages?: @ap/ui#LineErrorListMessages; }
+LineValidationError | interface | interface LineValidationError { line: number; message: string; }
+LineValidationRule | type | type LineValidationRule = (line: string, lineNumber: number) => null | string | undefined
 ListFilterButton | function | function ListFilterButton({ messages, categories, values, onChange, className, }: @ap/ui#ListFilterButtonProps): React.JSX.Element
 ListFilterButtonProps | interface | interface ListFilterButtonProps { categories: @ap/ui#FilterCategory[]; className?: string; messages?: Partial<{ filter: string; reset: string; }>; onChange: (next: Record<string, string[]>) => void; values: Record<string, string[]>; }
 ListShell | function | function ListShell({ toolbar, list, tabs, detailPanel, className }: @ap/ui#ListShellProps): React.JSX.Element
@@ -145,8 +158,8 @@ PanelSectionTitle | const | const PanelSectionTitle: React.ForwardRefExoticCompo
 PanelSectionTitleProps | interface | interface PanelSectionTitleProps extends React.ComponentPropsWithoutRef<'h3'> { children: React.ReactNode; className?: string; inset?: 'default' | 'panel'; size?: 'default' | 'tiny'; }
 PanelTitleBlock | function | function PanelTitleBlock({ title, titleTabIndex, badges, className, inset, size, }: @ap/ui#PanelTitleBlockProps): React.JSX.Element
 PanelTitleBlockProps | interface | interface PanelTitleBlockProps { badges?: React.ReactNode; className?: string; inset?: 'default' | 'none'; size?: 'lg' | 'xl'; title: string; titleTabIndex?: number; }
-PermissionBlockedPanel | function | function PermissionBlockedPanel({ state, category, reason, description, requestAccessLabel, requiredScope, summary, decisionId, evaluatedRelative, onRequestAccess, className, }: @ap/ui#PermissionBlockedPanelProps): React.JSX.Element
-PermissionBlockedPanelProps | interface | interface PermissionBlockedPanelProps { category: string; className?: string; decisionId?: string; description?: string; evaluatedRelative?: string; onRequestAccess?: () => void; reason?: string; requestAccessLabel?: string; requiredScope?: readonly string[]; state: @ap/ui#PermissionState; summary?: React.ReactNode; }
+PermissionBlockedPanel | function | function PermissionBlockedPanel({ state, layout, headingLevel, announceBody, category, reason, description, requestAccessLabel, requiredScope, summary, decisionId, evaluatedRelative, onRequestAccess, missing, requestStatus, requestAction, exitAction, lang, className, }: @ap/ui#PermissionBlockedPanelProps): React.JSX.Element
+PermissionBlockedPanelProps | interface | interface PermissionBlockedPanelProps { announceBody?: boolean; category: string; className?: string; decisionId?: string; description?: string; evaluatedRelative?: string; exitAction?: React.ReactNode; headingLevel?: 2 | 3 | 4; lang?: 'en' | 'ko'; layout?: 'card' | 'panel'; missing?: { permission: string; system?: string; }; onRequestAccess?: () => void; reason?: string; requestAccessLabel?: string; requestAction?: React.ReactNode; requestStatus?: 'approved-partial' | 'none' | 'not-requestable' | 'pending'; requiredScope?: readonly string[]; state: @ap/ui#PermissionState; summary?: React.ReactNode; }
 PermissionState | type | type PermissionState = 'blocked_not_requestable' | 'denied' | 'request_access' | 'summary_visible'
 Popover | const | const Popover: React.FC<PopoverPrimitive.PopoverProps>
 PopoverAnchor | const | const PopoverAnchor: React.ForwardRefExoticComponent<PopoverPrimitive.PopoverAnchorProps & React.RefAttributes<HTMLDivElement>>
@@ -158,6 +171,8 @@ ProgressMeter | function | function ProgressMeter({ element, value, max, size, t
 ProgressMeterProps | interface | interface ProgressMeterProps { 'data-testid'?: string; className?: string; clip?: boolean; element?: 'div' | 'span'; fillShape?: 'rounded' | 'square'; max?: number; semantics?: 'decorative' | 'plain' | { label: string; role: 'meter' | 'progressbar'; }; size?: 'normal' | 'thin'; tone?: 'danger' | 'primary' | 'success' | 'warning'; trackTone?: 'row-hover' | 'row-selected' | 'subtle'; value: number; }
 RadioGroup | const | const RadioGroup: React.ForwardRefExoticComponent<RadioGroupProps & React.RefAttributes<HTMLDivElement>>
 RadioGroupItem | const | const RadioGroupItem: React.ForwardRefExoticComponent<RadioGroupItemProps & React.RefAttributes<HTMLButtonElement>>
+RequiredMark | function | function RequiredMark({ mark, text }: @ap/ui#RequiredMarkProps): React.JSX.Element
+RequiredMarkProps | interface | interface RequiredMarkProps { mark?: 'asterisk' | 'text'; text?: string; }
 RichContentMode | type | type RichContentMode = 'internal' | 'reporter_visible'
 RichContentRenderer | function | function RichContentRenderer({ doc, mode, surface, attachments, attachmentFallbackLabel, resolveAttachmentUrl, resolveMentionLabel, size, className, }: @ap/ui#RichContentRendererProps): React.JSX.Element
 RichContentRendererProps | interface | interface RichContentRendererProps { attachmentFallbackLabel?: string; attachments?: ReadonlyArray<{ readonly id: string; readonly name: string; }>; className?: string; doc: @ap/ui#TipTapDoc; mode: @ap/ui#RichContentMode; resolveAttachmentUrl?: (id: string) => null | string; resolveMentionLabel?: (actorId: string) => null | string | undefined; size?: 'default' | 'sm'; surface?: ClientSanitizeSurface; }
@@ -240,16 +255,21 @@ TooltipTrigger | const | const TooltipTrigger: React.ForwardRefExoticComponent<T
 TransientOverlayScope | function | function TransientOverlayScope({ active, detached, children }: { active: boolean; children: React.ReactNode; detached?: boolean; }): React.ReactElement
 UndoToast | function | function UndoToast({ message, actionLabel, onAction, onDismiss, duration, className, }: @ap/ui#UndoToastProps): React.JSX.Element
 UndoToastProps | interface | interface UndoToastProps { actionLabel?: string; className?: string; duration?: number; message: string; onAction: () => void; onDismiss?: () => void; }
+UseValidatedSubmitOptions | interface | interface UseValidatedSubmitOptions<TValues> { onValid: (values: TValues, event: React.FormEvent<HTMLFormElement>) => Promise<void> | void; validate: (values: TValues) => @ap/ui#ValidationErrors<TValues>; }
+UseValidatedSubmitResult | interface | interface UseValidatedSubmitResult<TValues> { clearError: (field: Extract<keyof TValues, string>) => void; clearErrors: () => void; errors: @ap/ui#ValidationErrors<TValues>; handleSubmit: (values: TValues) => React.FormEventHandler<HTMLFormElement>; }
 UserAvatar | function | function UserAvatar({ user, size, className }: @ap/ui#UserAvatarProps): React.ReactElement
 UserAvatarProps | interface | interface UserAvatarProps { className?: string; size?: 'lg' | 'md' | 'sm'; user: @ap/ui#AvatarUser; }
 UserChip | function | function UserChip({ user, size, sub, className }: @ap/ui#UserChipProps): React.ReactElement
 UserChipProps | interface | interface UserChipProps { className?: string; size?: 'md' | 'sm'; sub?: string; user: @ap/ui#AvatarUser | null | undefined; }
+ValidateLinesOptions | interface | interface ValidateLinesOptions { maxLines: number; maxLinesMessage?: string; }
+ValidationErrors | type | type ValidationErrors<TValues> = Partial<Record<Extract<keyof TValues, string>, string>>
 WorkbenchShell | function | function WorkbenchShell({ toolbar, children, detailPanel, className }: @ap/ui#WorkbenchShellProps): React.JSX.Element
 WorkbenchShellProps | interface | interface WorkbenchShellProps { children: React.ReactNode; className?: string; detailPanel?: React.ReactNode; toolbar?: @ap/ui#ShellHeaderProps; }
 badgeVariants | const | const badgeVariants: (props?: ({ variant?: "default" | "destructive" | "outline" | "secondary" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
 buttonVariants | const | const buttonVariants: (props?: ({ size?: "icon-sm" | "icon-xs" | "lg" | "md" | "sm" | "toolbar" | null | undefined; variant?: "default" | "destructive" | "ghost" | "link" | "navigation" | "outline" | "secondary" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
 cn | function | function cn(...inputs: ClassValue[]): string
 copyText | function | function copyText(text: string): Promise<boolean>
+createDecisionUndoToastAction | function | function createDecisionUndoToastAction({ kind, onUndo, label }: @ap/ui#CreateDecisionUndoToastActionOptions): @ap/ui#DecisionUndoToastAction
 isMacPlatform | function | function isMacPlatform(): boolean
 isProductionEnv | function | function isProductionEnv(meta: { env?: { PROD?: boolean; }; }, g: { process?: { env?: { NODE_ENV?: string; }; }; }): boolean
 isToastTarget | function | function isToastTarget(target: EventTarget | null): boolean
@@ -258,6 +278,7 @@ navRowVariants | function | function navRowVariants({ active, collapsed, inset, 
 prefersReducedMotion | function | function prefersReducedMotion(): boolean
 readLocalStorage | function | function readLocalStorage<T>(key: string, decode: (raw: null | string) => T, fallback: T): T
 readMotionTiming | function | function readMotionTiming(duration: 'base' | 'fast' | 'slow', easing: 'enter' | 'exit' | 'standard'): { durationMs: number; easing: string; }
+requiredDecisionReasonError | function | function requiredDecisionReasonError(value: string, message?: "결정 사유를 입력해 주세요."): string | undefined
 shortcutLabel | function | function shortcutLabel(key: string): string
 toast | const | const toast: ((message: titleT, data?: ExternalToast) => number | string) & { custom: (jsx: (id: number | string) => React.ReactElement, data?: ExternalToast) => number | string; dismiss: (id?: number | string) => number | string; error: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; info: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; loading: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; message: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; promise: <ToastData>(promise: PromiseT<ToastData>, data?: PromiseData<ToastData>) => (number & { unwrap: () => Promise<ToastData>; }) | (string & { unwrap: () => Promise<ToastData>; }) | { unwrap: () => Promise<ToastData>; }; success: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; warning: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; } & { getHistory: () => (ToastT | ToastToDismiss)[]; getToasts: () => (ToastT | ToastToDismiss)[]; }
 useDetailPanelContent | function | function useDetailPanelContent(node: ReactNode | undefined): void
@@ -268,6 +289,8 @@ useImeEnterGuard | function | function useImeEnterGuard(): @ap/ui#ImeEnterGuard
 useIsTruncated | function | function useIsTruncated<T extends HTMLElement>(ref: RefObject<T | null>): boolean
 useListMotion | function | function useListMotion(): RefCallback<HTMLElement>
 useSurfacePaused | function | function useSurfacePaused(): boolean
+useValidatedSubmit | function | function useValidatedSubmit<TValues>({ validate, onValid, }: @ap/ui#UseValidatedSubmitOptions<TValues>): @ap/ui#UseValidatedSubmitResult<TValues>
+validateLines | function | function validateLines(text: string, rule: @ap/ui#LineValidationRule, { maxLines, maxLinesMessage }: @ap/ui#ValidateLinesOptions): @ap/ui#LineValidationError[]
 writeLocalStorage | function | function writeLocalStorage(key: string, value: null | string): boolean
 # reachable types
 ButtonSize | type | type ButtonSize = NonNullable<VariantProps<typeof @ap/ui#buttonVariants>['size']>
@@ -303,7 +326,7 @@ TableRowProps | interface | interface TableRowProps extends React.HTMLAttributes
 ToggleGroupAppearance | type | type ToggleGroupAppearance = 'default' | 'filter'
 ToggleGroupItemAppearance | type | type ToggleGroupItemAppearance = 'default' | 'selected-filter'
 ToggleGroupItemProps | interface | interface ToggleGroupItemProps extends React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Item> { appearance?: ToggleGroupItemAppearance; }
-ToggleGroupProps | type | type ToggleGroupProps = React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> & VariantProps<typeof toggleGroupItemVariants> & { appearance?: ToggleGroupAppearance; }
+ToggleGroupProps | type | type ToggleGroupProps = React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> & VariantProps<typeof toggleGroupItemVariants> & { appearance?: ToggleGroupAppearance; arrowSelects?: boolean; }
 TooltipContentProps | interface | interface TooltipContentProps extends React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> { portal?: boolean; size?: 'default' | 'sm'; }
 UISurface | type | type UISurface = (typeof UI_SURFACES)[number]
 UI_SURFACES | const | const UI_SURFACES: readonly [ "voc-description", "reporter-reply", "public-update", "internal-comment" ]

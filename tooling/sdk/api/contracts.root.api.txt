@@ -14,7 +14,7 @@ AnnotationQuery | type | type AnnotationQuery = @ap/contracts#AnnotationRef & { 
 AnnotationRef | type | type AnnotationRef = { chartId: string; scopeId: null | string; }
 AnyActionSpec | type | type AnyActionSpec = @ap/contracts#ActionSpec<any, unknown>
 AnyEndpointSpec | type | type AnyEndpointSpec = @ap/contracts#EndpointSpec<any, unknown>
-ApiResponse | type | type ApiResponse<T> = { assessments: @ap/contracts#Assessment[]; correlationId: string; data: T | null; message?: string; outcome: @ap/contracts#Outcome; trust: @ap/contracts#Trust | null; }
+ApiResponse | type | type ApiResponse<T> = { assessments: @ap/contracts#Assessment[]; correlationId: string; data: T | null; message?: string; outcome: @ap/contracts#Outcome; recovery?: @ap/contracts#QueryRecovery; trust: @ap/contracts#Trust | null; }
 ApprovalAction | type | type ApprovalAction = 'approve' | 'reject' | 'request' | 'revoke'
 ApprovalRequestInfo | type | type ApprovalRequestInfo = { changes: readonly string[]; rejectReason?: string; requestedAt: number; requestedBy: string; targetVersion: number; viewId: string; }
 Assessment | type | type Assessment = { detail?: string; explainsEmpty?: boolean; kind: @ap/contracts#AssessmentKind; observedAt?: string; reason?: 'check_failed' | 'source_unavailable'; state: 'clear' | 'confirmed' | 'unknown'; statusSource?: string; }
@@ -174,7 +174,7 @@ PanelBinding | type | type PanelBinding<K extends string = string> = { readonly 
 PanelContextKey | type | type PanelContextKey = 'scopeId' | @ap/contracts#ContextKey
 PanelDeclaration | type | type PanelDeclaration<K extends string = string> = { readonly availability?: { readonly disabledReason: @ap/contracts#Text; readonly requires: readonly { readonly anyOf: readonly string[]; }[]; }; readonly display?: readonly { readonly key: string; }[]; readonly displayInputs: @ap/contracts#PanelInputs<K>; readonly endpoints: readonly (Pick<@ap/contracts#AnyEndpointSpec, 'id' | 'menuId' | 'permission'> & Partial<Pick<@ap/contracts#AnyEndpointSpec, 'context' | 'requiredContext' | 'requiresScope'>>)[]; readonly grain: string; readonly id: string; readonly outputs: readonly { readonly action: string; readonly key: K; }[]; readonly pieces?: readonly string[]; readonly queryInputs: @ap/contracts#PanelInputs<K>; readonly title: @ap/contracts#Text; readonly version?: unknown; }
 PanelInputBinding | type | type PanelInputBinding<K extends string = string> = { readonly key: @ap/contracts#PanelContextKey; readonly kind: 'context'; } | { readonly key: K; readonly kind: 'page'; } | { readonly key: string; readonly kind: 'value'; }
-PanelInputs | type | type PanelInputs<K extends string = string> = { readonly context?: readonly @ap/contracts#PanelContextKey[]; readonly page?: readonly { readonly key: K; readonly required?: boolean; }[]; }
+PanelInputs | type | type PanelInputs<K extends string = string> = { readonly context?: readonly @ap/contracts#PanelContextKey[]; readonly page?: readonly { readonly key: K; readonly label?: @ap/contracts#Text; readonly required?: boolean; }[]; }
 ParsedQuery | type | type ParsedQuery = { extras: @ap/contracts#Pair[]; global: @ap/contracts#GlobalContext; page: @ap/contracts#Pair[]; }
 PeriodLength | type | type PeriodLength = { days: number; hours?: never; } | { days?: never; hours: number; }
 Permission | type | type Permission = @ap/contracts#KernelPermission | @ap/contracts#MenuPermission
@@ -192,6 +192,7 @@ PublishedMetric | type | type PublishedMetric = { metricId: string; publishedVer
 QueryHistoryEntry | type | type QueryHistoryEntry = { count: number; id: string; lastAppliedAt: number; query: string; schemaVersion: 1; }
 QueryHistoryKey | type | type QueryHistoryKey = { menuId: string; scopeId: null | string; userId: string; }
 QueryHistoryStore | type | type QueryHistoryStore = { clear(key: @ap/contracts#QueryHistoryKey): Promise<void>; list(key: @ap/contracts#QueryHistoryKey): Promise<readonly @ap/contracts#QueryHistoryEntry[]>; record(key: @ap/contracts#QueryHistoryKey, entry: @ap/contracts#QueryHistoryEntry): Promise<void>; remove(key: @ap/contracts#QueryHistoryKey, id: string): Promise<void>; }
+QueryRecovery | type | type QueryRecovery = { affectedEquipmentIds?: string[]; authorizedEquipmentIds?: string[]; deniedScope?: Exclude<@ap/contracts#PermissionRequestTarget, { kind: 'permission'; }>; maxHours?: number; retryable?: boolean; }
 RETURN_TO_KEY | const | const RETURN_TO_KEY: "returnTo"
 Reaggregation | type | type Reaggregation = 'none' | 'ratioOfSums' | 'recomputeFromDistribution' | 'sum'
 Result | type | type Result<T> = { detail?: string; ok: false; reason: 'conflict' | 'forbidden' | 'invalid' | 'unavailable'; } | { ok: true; value: T; }
@@ -255,6 +256,7 @@ betweenOrdered | function | function betweenOrdered(kind: 'date' | 'instant' | '
 bucketStart | function | function bucketStart(instant: string, grain: @ap/contracts#Grain): string
 buildPlatformInboundLink | function | function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; hop: @ap/contracts#PlatformHop; origin: string; returnTo?: string; }): string ; function buildPlatformInboundLink(input: { context: @ap/contracts#GlobalContext; destinations: readonly @ap/contracts#PlatformDestination[]; hop: @ap/contracts#PlatformInboundHop; origin: string; returnTo?: string; }): string
 buildQuery | function | function buildQuery(g: @ap/contracts#GlobalContext, page?: @ap/contracts#Pair[], extras?: @ap/contracts#Pair[]): string
+calendarPeriod | function | function calendarPeriod(anchor: null | string, preset: 'last7Days' | 'today' | 'yesterday'): null | { from: string; to: string; }
 canClientSum | function | function canClientSum(measure: Pick<@ap/contracts#MeasureMeta, 'reaggregation'>): boolean
 canTransition | function | function canTransition(approval: @ap/contracts#ViewApproval, action: @ap/contracts#ApprovalAction): boolean
 carriesReturnTo | function | function carriesReturnTo(carrySet: Pick<@ap/contracts#CarrySetDef, 'pageKeys'> | null | undefined): boolean
@@ -306,12 +308,15 @@ parseDateTime | function | function parseDateTime(value: string, field: string, 
 parseFilterParams | function | function parseFilterParams(values: readonly string[], specs: Readonly<Record<string, @ap/contracts#ColumnFilterSpec>>, key?: string): @ap/contracts#FilterParamsResult
 parsePlatformInboundLink | function | function parsePlatformInboundLink(url: string, expectedOrigin: string): { context: @ap/contracts#GlobalContext; extras: @ap/contracts#Pair[]; hop: @ap/contracts#PlatformHop; returnTo: null | string; } ; function parsePlatformInboundLink(url: string, expectedOrigin: string, destinations: readonly @ap/contracts#PlatformDestination[]): { context: @ap/contracts#GlobalContext; extras: @ap/contracts#Pair[]; hop: @ap/contracts#PlatformInboundHop; returnTo: null | string; }
 parseQuery | function | function parseQuery(search: string, pageKeys?: readonly string[], options?: { repeated?: readonly string[]; }): @ap/contracts#ParsedQuery
+periodDates | function | function periodDates({ from, to }: { from: null | string; to: null | string; }): { end: string; start: string; }
+periodFromDates | function | function periodFromDates({ start, end }: { end: string; start: string; }): null | { from: string; to: string; }
 periodHours | function | function periodHours(g: { from: null | string; to: null | string; }): null | number
 periodShort | const | const periodShort: (instant: string) => string
 periodSpan | function | function periodSpan(hours: number, lang: 'en' | 'ko'): string
 projectContext | function | function projectContext<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, g: @ap/contracts#GlobalContext): @ap/contracts#MenuQueryContext
 queryHistoryId | function | function queryHistoryId(query: string): string
 randomUuidV4 | function | function randomUuidV4(): string
+readQueryRecovery | function | function readQueryRecovery(value: unknown): @ap/contracts#QueryRecovery | undefined
 requiredContextError | function | function requiredContextError(keys: readonly @ap/contracts#ContextKey[], capabilities: Partial<Record<@ap/contracts#ContextKey, @ap/contracts#Capability>>): null | string
 sameGlobal | function | function sameGlobal(a: @ap/contracts#GlobalContext, b: @ap/contracts#GlobalContext): boolean
 serializeGlobal | function | function serializeGlobal(g: @ap/contracts#GlobalContext): @ap/contracts#Pair[]

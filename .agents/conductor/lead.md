@@ -16,7 +16,7 @@ The scope section is `## 범위`: the issue numbers the owner picked at release 
 
 ## Screen check
 
-Before merging a screen-changing PR the lead looks at its 1440×900 before/after captures and checks five things: the captures are 1440×900; terms and hierarchy match `GLOSSARY.md`; Panel and card frames do not mix on one screen; nothing is cut off, overlapping, or left as empty space after a collapse; nothing changed beyond the owner's decisions in the release spec. Any miss is fixed before merge or becomes an owner question. Reason: in v0.44 the lead saw captures only after merge, and messy screens shipped.
+Before merging a screen-changing PR the lead looks at its 1440×900 before/after captures and checks six things: the captures are 1440×900; terms and hierarchy match `GLOSSARY.md`; Panel and card frames do not mix on one screen; nothing is cut off, overlapping, or left as empty space after a collapse; nothing changed beyond the owner's decisions in the release spec; every action is a real one-line button labelled for what it does, never bare text or an indented link. Any miss is fixed before merge or becomes an owner question. Reason: in v0.44 the lead saw captures only after merge, and messy screens shipped; bare text or an indented link does not read as an action.
 
 ## Request classification
 
