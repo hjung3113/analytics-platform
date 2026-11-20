@@ -50,6 +50,8 @@ export type HostSeam = HostPermissionLinks & {
   Link: ComponentType<HostLinkProps>;
   notifyError(message: string): void;
   notifySuccess(message: string): void;
+  /** Retires cached VOC reads and refreshes counts after a denied Inbox read. */
+  clearDeniedVocRead?: (listKeyHash: string) => void;
   /**
    * Hooks, optional so a seam that only links and notifies stays valid. A seam's hooks are stable functions (hook
    * order never changes). `to` is the complete feature path+query: a key absent from it is cleared.

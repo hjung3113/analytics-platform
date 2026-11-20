@@ -7,8 +7,9 @@ import { groupId, spaceId } from '@ap/contracts';
 import { featureQueryClient } from '@ap/feature-bridge';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { navCountsSlot } from '@ap/feature-bridge/nav-counts';
-import { invalidateNavCounts } from '@/lib/query/navCounts';
-import { registry } from './test-support';
+import { invalidateNavCounts, NAV_COUNTS_QUERY_KEY } from '@/lib/query/navCounts';
+import FeatureInbox from './pages/FeatureInbox';
+import { mountAt as mountInbox, registry } from './test-support';
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const ALL = '/api/features/nav/counts';
@@ -152,6 +153,68 @@ describe('navCounts slot', () => {
       await waitFor(() => expect(read()).toEqual({ 'inbox': 3 }));
     });
 
+    it.each([
+      { code: 'permission.denied', status: 403, denied: true },
+      { code: 'permission.scope_required', status: 403, denied: true },
+      { code: 'internal.error', status: 500, denied: false },
+    ])('updates the cached Inbox badge after a list refetch fails with $code', async ({ code, status, denied }) => {
+      const countsKey = [...NAV_COUNTS_QUERY_KEY, undefined] as const;
+      const listKey = ['vocs', 'inbox', 'pages'] as const;
+      const cachedCounts = { counts: { 'voc.inbox': 12, 'findings.all': 3 } };
+      const freshCounts = { counts: { 'findings.all': 3 } };
+      let listFailed = false;
+      let releaseCounts: (response: Response) => void = () => {};
+      const pendingCounts = new Promise<Response>(resolve => { releaseCounts = resolve; });
+      const calls = stubFetch(path => {
+        if (path === ALL) return listFailed ? pendingCounts : json(cachedCounts);
+        if (path.startsWith('/api/features/vocs?')) {
+          return listFailed
+            ? json({ code, message: 'List refetch failed' }, status)
+            : json({ items: [], page: { has_more: false } });
+        }
+        throw new Error(`Unexpected request to ${path}`);
+      });
+      const countRequests = () => calls.filter(path => path === ALL);
+      const listStatus = () => featureQueryClient.getQueryCache().find({ queryKey: listKey, exact: false })?.state.status;
+      const badge = () => screen.getByTestId('inbox-badge').textContent;
+      const content = () => <>
+        <FeatureInbox />
+        <Counts>{counts => <output data-testid="inbox-badge">{counts?.inbox}</output>}</Counts>
+      </>;
+      window.history.replaceState(null, '', '/flow/inbox');
+      const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+      const adapter = testAdapter({ session: () => session });
+      const view = render(content(), {
+        wrapper: ({ children }) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{children}</PlatformProvider></I18nProvider>,
+      });
+      await waitFor(() => {
+        expect(badge()).toBe('12');
+        expect(listStatus()).toBe('success');
+      });
+      act(() => { featureQueryClient.setQueryData(countsKey, cachedCounts); });
+      listFailed = true;
+      await act(async () => { await featureQueryClient.invalidateQueries({ queryKey: listKey }); });
+      expect(listStatus()).toBe('error');
+
+      if (denied) {
+        await waitFor(() => {
+          expect(featureQueryClient.getQueryData(countsKey)).toBeUndefined();
+          expect(badge()).toBe('');
+        });
+        expect(featureQueryClient.getQueryState(countsKey)?.fetchStatus).toBe('fetching');
+        view.rerender(content());
+        expect(countRequests()).toEqual([ALL, ALL]);
+        await act(async () => { releaseCounts(json(freshCounts)); });
+        await waitFor(() => expect(featureQueryClient.getQueryData(countsKey)).toEqual(freshCounts));
+        expect(badge()).toBe('');
+      } else {
+        view.rerender(content());
+        expect(featureQueryClient.getQueryData(countsKey)).toEqual(cachedCounts);
+        expect(badge()).toBe('12');
+        expect(countRequests()).toEqual([ALL]);
+      }
+    });
+
     it('shows only the new scope after a scope change in one mounted slot', async () => {
       const calls = stubFetch(path => json({ counts: { 'voc.inbox': path.includes(SYSTEM) ? 20 : 10 } }));
       mountAt('/flow/inbox');
@@ -183,5 +246,118 @@ describe('navCounts slot', () => {
       view.unmount();
       await waitFor(() => expect(signals[1]!.aborted).toBe(true));
     });
+  });
+});
+
+describe('hosted Inbox list denial', () => {
+  const ID = '00000000-0000-4000-8000-000000000101';
+  const LIST_KEY = ['vocs', 'inbox', 'pages'] as const;
+  const DETAIL_KEY = ['voc', ID] as const;
+  const CONVERSATION_KEY = ['voc-conversation', ID, 'public'] as const;
+  const ROW = {
+    id: ID, display_id: 'VOC-CACHED', title: 'Cached Inbox row',
+    primary_managed_system_id: SYSTEM, analytics_area_id: null, reporter_id: ID,
+    owner_user_id: null, owner_team_id: null, severity: 'high',
+    reporter_facing_status: 'received', triage_state: 'untriaged', source_context: 'direct_use',
+    created_at: '2026-10-08T00:00:00.000Z', updated_at: '2026-10-08T00:00:00.000Z',
+    similar_count: 0, attachment_count: 0,
+  };
+  const PAGE = {
+    items: [ROW], page: { has_more: true, cursor: 'next' },
+    out_of_scope_summary: { count: 3, severity_distribution: { high: 3 } },
+  };
+  const SUMMARY = '3건의 VOC를 조회할 수 없습니다.';
+  const DENIAL = { code: 'permission.denied', message: 'VOC read denied' };
+  const FAILURE = { code: 'internal.error', message: 'List read failed' };
+
+  const isList = (path: string) => path.startsWith('/api/features/vocs?');
+  const refetchList = () => act(async () => {
+    await featureQueryClient.refetchQueries({ queryKey: LIST_KEY, type: 'active' });
+  });
+  const blocked = () => screen.findByRole('heading', { name: 'VOC 처리함', level: 3 });
+  const visit = (url: string) => act(async () => {
+    window.history.pushState(null, '', url);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+
+  beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
+
+  it('keeps the same-key rows, summary and pagination absent after a denial followed by a 500', async () => {
+    let status = 200;
+    const calls = stubFetch(path => {
+      if (!isList(path)) return json({ items: [] });
+      if (status === 403) return json(DENIAL, status);
+      if (status === 500) return json(FAILURE, status);
+      return json(PAGE);
+    });
+    mountAt('/flow/inbox', <FeatureInbox />);
+    expect(await screen.findByText(ROW.title)).toBeTruthy();
+    expect(screen.getByText(SUMMARY)).toBeTruthy();
+    expect(screen.getByRole('button', { name: '더 불러오기' })).toBeTruthy();
+
+    status = 403;
+    await refetchList();
+    await blocked();
+    expect(calls.filter(isList).length).toBeLessThanOrEqual(2);
+
+    status = 500;
+    await refetchList();
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'VOC 처리함', level: 3 })).toBeNull());
+    expect(screen.queryByText(ROW.title)).toBeNull();
+    expect(screen.queryByText(SUMMARY)).toBeNull();
+    expect(screen.queryByText('심각도 분포: 높음=3')).toBeNull();
+    expect(screen.queryByRole('button', { name: '더 불러오기' })).toBeNull();
+  });
+
+  it('loads an earlier tab afresh when returning after a different tab is denied', async () => {
+    let denied = false;
+    const calls = stubFetch(path => {
+      if (!isList(path)) return json({ items: [] });
+      if (!denied) return json(PAGE);
+      if (new URL(path, window.location.origin).searchParams.get('tab') === 'high') return json(DENIAL, 403);
+      return new Promise<Response>(() => {});
+    });
+    mountAt('/flow/inbox', <FeatureInbox />);
+    expect(await screen.findByText(ROW.title)).toBeTruthy();
+
+    denied = true;
+    await visit('/flow/inbox?tab=high');
+    await blocked();
+    await visit('/flow/inbox');
+    expect(screen.queryByText(ROW.title)).toBeNull();
+    expect(screen.queryByText(SUMMARY)).toBeNull();
+    await waitFor(() => expect(calls.filter(isList)).toHaveLength(3));
+  });
+
+  it('closes the focused drawer and evicts its cached content when only the list is denied', async () => {
+    let denied = false;
+    const detail = {
+      ...ROW, title: 'Cached VOC detail',
+      description_rich_content: { type: 'doc', content: [] },
+      similar: { items: [] }, next_actions: [],
+      next_reporter_states: { allowed: [], forbidden: {} },
+      linked_execution: { findingRef: null, taskRef: null },
+      conversation_timeline: [], conversation_page: { has_more: false },
+      permission_decisions: {}, attachments: [],
+    };
+    const calls = stubFetch(path => {
+      if (isList(path)) return denied ? json(DENIAL, 403) : json(PAGE);
+      if (path === `/api/features/vocs/${ID}`) return json(detail);
+      return json({ items: [] });
+    });
+    mountInbox(`/flow/inbox?focus=${ID}`);
+    expect(await screen.findByRole('dialog', { name: detail.title })).toBeTruthy();
+    expect(featureQueryClient.getQueryData(DETAIL_KEY)).toEqual(detail);
+    act(() => { featureQueryClient.setQueryData(CONVERSATION_KEY, { items: ['Cached conversation'] }); });
+
+    denied = true;
+    await refetchList();
+    await blocked();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(new URLSearchParams(window.location.search).has('focus')).toBe(false);
+    expect(featureQueryClient.getQueryState(DETAIL_KEY)).toBeUndefined();
+    expect(featureQueryClient.getQueryState(CONVERSATION_KEY)).toBeUndefined();
+    expect(calls.filter(isList).length).toBeLessThanOrEqual(2);
+    expect(calls.filter(path => path === `/api/features/vocs/${ID}`)).toHaveLength(1);
   });
 });

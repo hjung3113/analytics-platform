@@ -3,6 +3,7 @@
 // runs under the standalone router and inside the platform bridge alike (platform ADR-0071).
 
 import { isPermissionDenied } from '../../../lib/api/types';
+import { useHostSeam } from '../../../lib/host/host-seam';
 import { useHostSearchWriter } from '../../../lib/host/useHostSearchWriter';
 import { useAnalyticsAreaFilterLabel } from '../../../lib/useAnalyticsAreaFilterLabel';
 import { useCommittedSearchDraft } from '../../../lib/useCommittedSearchDraft';
@@ -20,6 +21,7 @@ import { type VocSearch, validateVocSearch } from './voc-search';
 type SearchUpdate = (previous: VocSearch) => VocSearch;
 
 export function useInboxState(view: 'inbox' | 'my') {
+  const { clearDeniedVocRead } = useHostSeam();
   // Writes fold on the latest pending search and any host navigation drops the fold (useHostSearchWriter).
   const { search, write: writeSearch } = useHostSearchWriter('/vocs', validateVocSearch);
   const write = React.useCallback(
@@ -159,13 +161,20 @@ export function useInboxState(view: 'inbox' | 'my') {
     () => vocList.data?.pages.flatMap((page) => page.items) ?? [],
     [vocList.data],
   );
-  // A failed next page keeps the loaded rows; it must not reach the list's
-  // error or permission-denied states.
-  const listError = vocList.isFetchNextPageError ? null : vocList.error;
-  // Captured outside JSX: property narrowing does not survive into the renderTrigger callback.
-  const deniedMsScoped =
-    isPermissionDenied(listError) &&
-    typeof listError.envelope.requestable_permission?.managed_system_id === 'string';
+  const permissionError = isPermissionDenied(vocList.error) ? vocList.error : null;
+  const inboxPermissionBlocked = view === 'inbox' && permissionError !== null;
+  const onReadDenied = React.useEffectEvent((listKeyHash: string) => {
+    clearDeniedVocRead?.(listKeyHash);
+    if (search.selected !== undefined) {
+      writeSearch(({ selected: _selected, ...rest }) => rest, { replace: true });
+    }
+  });
+  const { keyHash } = vocList;
+  React.useEffect(() => {
+    if (inboxPermissionBlocked) onReadDenied(keyHash);
+  }, [inboxPermissionBlocked, keyHash]);
+  // Ordinary next-page failures keep the loaded rows and use the paging retry.
+  const listError = permissionError ?? (vocList.isFetchNextPageError ? null : vocList.error);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -184,8 +193,8 @@ export function useInboxState(view: 'inbox' | 'my') {
     items,
     outOfScopeSummary: vocList.data?.pages[0]?.out_of_scope_summary,
     listError,
-    deniedMsScoped,
-    inboxPermissionBlocked: view === 'inbox' && isPermissionDenied(listError),
+    permissionError,
+    inboxPermissionBlocked,
     isSearching: urlQ !== '',
     handleTabChange: (next: string): void => write((prev) => ({ ...prev, tab: next as InboxTab })),
     handleFiltersChange: (next: Record<string, string[]>): void =>

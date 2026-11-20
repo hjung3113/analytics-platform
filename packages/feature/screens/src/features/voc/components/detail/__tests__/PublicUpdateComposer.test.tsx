@@ -259,7 +259,7 @@ describe('<PublicUpdateComposer>', () => {
     expect(screen.getByRole('button', { name: /^답변 공개$/ })).not.toBeDisabled();
   });
 
-  it('keeps the response status through the delayed detail refetch after publishing', async () => {
+  it('shows the new current status once the detail re-read resolves, not from the POST response', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
@@ -293,6 +293,9 @@ describe('<PublicUpdateComposer>', () => {
 
     expect(mutationMock.mutate).toHaveBeenCalledTimes(1);
     await React.act(async () => {
+      // The mocked hook stands in for useVocPublicUpdateMutation, which invalidates
+      // ['voc', id] before it calls the composer's onSuccess.
+      void queryClient.invalidateQueries({ queryKey: ['voc', BASE_VOC.id] });
       mutationMock.onSuccess?.(PUBLIC_UPDATE_ENVELOPE);
     });
 
@@ -301,25 +304,31 @@ describe('<PublicUpdateComposer>', () => {
       expect(screen.getByRole('combobox', { name: '다음 공개 상태 선택' })).toHaveValue(
         'reviewing',
       );
+    });
+    // Until the re-read resolves, the current status is still the detail's, not the POST's.
+    expect(queryClient.getQueryData(['voc', BASE_VOC.id])).toEqual(BASE_VOC);
+    expect(screen.queryByText('공개 상태는 그대로 유지됩니다.')).not.toBeInTheDocument();
+
+    await React.act(async () => {
+      resolveDetailRefetch(UPDATED_VOC);
+    });
+
+    await waitFor(() => {
       expect(screen.getByText('공개 상태는 그대로 유지됩니다.')).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('combobox', { name: '다음 공개 상태 선택' }));
     await waitFor(() => {
-      // The "(현재)" marker tracks the response VOC, and that option is the one
-      // selected — i.e. nextStatus was resynced from data.voc, not the stale prop.
+      // The "(현재)" marker tracks the re-read detail, and that option is the one
+      // selected — nextStatus came from data.voc and the marker from the GET.
       const currentOption = screen.getByRole('option', {
         name: '검토 중 (현재)',
       });
       expect(currentOption).toHaveAttribute('aria-selected', 'true');
     });
     expect(queryClient.getQueryData(['voc', BASE_VOC.id])).toEqual(UPDATED_VOC);
-
-    await React.act(async () => {
-      resolveDetailRefetch(UPDATED_VOC);
-    });
   });
 
-  it('stores a summary success response without crashing', async () => {
+  it('handles a summary success response without crashing or writing it to the detail cache', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
@@ -339,10 +348,7 @@ describe('<PublicUpdateComposer>', () => {
       mutationMock.onSuccess?.({ ...PUBLIC_UPDATE_ENVELOPE, voc: SUMMARY_VOC });
     });
 
-    const cached = queryClient.getQueryData(['voc', BASE_VOC.id]);
-    expect(vocSummaryEnvelopeSchema.parse(cached)).toEqual(SUMMARY_VOC);
-    expect(cached).toEqual(SUMMARY_VOC);
-    expect(cached).not.toHaveProperty('title');
+    expect(queryClient.getQueryData(['voc', BASE_VOC.id])).toBeUndefined();
     expect(screen.getByTestId('public-update-composer')).toBeInTheDocument();
   });
 

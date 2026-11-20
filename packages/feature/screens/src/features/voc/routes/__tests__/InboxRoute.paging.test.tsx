@@ -2,11 +2,13 @@
 // router and query client; only fetch is stubbed.
 
 import { listVocsQuerySchema } from '@ap/feature-shared';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import type { QueryClient } from '@tanstack/react-query';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   type AuthedVocsMount,
   type AuthedVocsRequest,
+  ME,
   jsonResponse,
   mountAuthedVocs,
 } from '../../../../test/mountVocs';
@@ -50,11 +52,13 @@ function vocsQuery(request: AuthedVocsRequest) {
   return { raw, data: parsed.success ? parsed.data : undefined };
 }
 
-function mount(path: string) {
+function mount(path: string, handle?: (request: AuthedVocsRequest) => Response | undefined) {
   mounted = mountAuthedVocs({
     initialPath: path,
     vocsShell: true,
     handle: (request) => {
+      const handled = handle?.(request);
+      if (handled !== undefined) return handled;
       if (request.method === 'GET' && request.url.startsWith('/vocs?')) {
         const { raw } = vocsQuery(request);
         return raw.cursor === 'cursor-1' ? nextPage() : firstPage(request);
@@ -93,6 +97,115 @@ const VIEWS = [
   ['inbox', '/vocs?view=inbox'],
   ['my', '/vocs?view=my'],
 ] as const;
+
+const DENIAL_CODES = ['permission.denied', 'permission.scope_required'] as const;
+const SUMMARY_COUNT = '3건의 VOC를 조회할 수 없습니다.';
+const SEVERITY_SUMMARY = '심각도 분포: 높음=3';
+
+function inboxDenial(code: (typeof DENIAL_CODES)[number]) {
+  return jsonResponse(403, { code, message: 'VOC read denied' });
+}
+
+describe('Inbox permission denial (#2619)', () => {
+  it.each(DENIAL_CODES)('hides cached rows, controls and summary after refetch returns %s', async (code) => {
+    firstPage = () =>
+      jsonResponse(200, {
+        items: PAGE_ONE,
+        page: { has_more: true, cursor: 'cursor-1' },
+        out_of_scope_summary: { count: 3, severity_distribution: { high: 3 } },
+      });
+    const { router } = mount('/vocs?view=inbox');
+    expect(await screen.findByText(SUMMARY_COUNT)).toBeInTheDocument();
+    expect(screen.getByText(SEVERITY_SUMMARY)).toBeInTheDocument();
+    expect(screen.getByText('첫 페이지 A')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '더 불러오기' })).toBeInTheDocument();
+
+    firstPage = () => inboxDenial(code);
+    const { queryClient } = router.options.context as { queryClient: QueryClient };
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['vocs', 'inbox', 'pages'] });
+    });
+
+    expect(await screen.findByRole('heading', { name: 'VOC 처리함', level: 3 })).toBeInTheDocument();
+    expect(screen.queryByText('첫 페이지 A')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '더 불러오기' })).not.toBeInTheDocument();
+    expect(screen.queryByText(SUMMARY_COUNT)).not.toBeInTheDocument();
+    expect(screen.queryByText(SEVERITY_SUMMARY)).not.toBeInTheDocument();
+  });
+
+  it.each(DENIAL_CODES)('hides loaded rows when the next page returns %s', async (code) => {
+    mount('/vocs?view=inbox');
+    await screen.findByText('첫 페이지 A');
+    nextPage = () => inboxDenial(code);
+    fireEvent.click(screen.getByRole('button', { name: '더 불러오기' }));
+
+    const panel = await screen.findByRole('heading', { name: 'VOC 처리함', level: 3 }, { timeout: 5000 });
+    expect(panel.closest('[data-state]')).toHaveAttribute('data-state', 'blocked_not_requestable');
+    expect(screen.queryByText('첫 페이지 A')).not.toBeInTheDocument();
+    expect(screen.queryByText('첫 페이지 B')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { name: 'default URL', url: '/vocs', requestable: false },
+    { name: 'ineligible System', url: `/vocs?managedSystem=${MS}`, requestable: false },
+    { name: 'eligible System', url: `/vocs?managedSystem=${MS}`, requestable: true },
+  ])('uses the server-confirmed target for a Developer with zero read scope ($name)', async ({
+    url,
+    requestable,
+  }) => {
+    const { requests } = mount(url, (request) => {
+      const { pathname, searchParams } = new URL(request.url, 'http://localhost');
+      if (pathname === '/me') {
+        return jsonResponse(200, { ...ME, actor: { ...ME.actor, role_level: 'developer' } });
+      }
+      if (pathname === '/vocs') {
+        return jsonResponse(403, {
+          code: 'permission.scope_required',
+          message: 'Developer has no VOC read scope',
+          requestable_permission: { permission: 'voc.read', managed_system_id: null },
+        });
+      }
+      if (pathname === '/me/permissions/scope') {
+        return jsonResponse(200, { scope: { kind: 'scoped', managed_system_ids: [] } });
+      }
+      if (pathname === '/me/permissions/check') {
+        expect(searchParams.get('capability')).toBe('voc.read');
+        expect(searchParams.get('managed_system_id')).toBe(MS);
+        return jsonResponse(200, {
+          state: requestable ? 'request_access' : 'blocked_non_requestable',
+          decision: {
+            allow: false,
+            reason: 'no_grant',
+            requestable: requestable ? [{ workspace_id: ME.workspace_id }] : null,
+          },
+        });
+      }
+      if (pathname === '/permission-requests/mine') {
+        return jsonResponse(200, { requests: [], count: 0 });
+      }
+      return undefined;
+    });
+
+    if (requestable) {
+      fireEvent.click(await screen.findByRole('button', { name: '권한 요청' }, { timeout: 5000 }));
+      const dialog = within(await screen.findByRole('dialog', { name: '권한 요청' }));
+      expect(dialog.getByText(MS)).toBeInTheDocument();
+      expect(dialog.queryByText('전체')).not.toBeInTheDocument();
+    } else {
+      const guidance = await screen.findByText(
+        '시스템을 선택한 뒤 VOC 조회 권한을 요청하세요.', {}, { timeout: 3000 },
+      );
+      // The next step sits inside the blocked card, not as a loose line under it.
+      expect(guidance.closest('[data-state="blocked_not_requestable"]')).not.toBeNull();
+      expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    }
+    expect(requests.filter(({ url }) => url.startsWith('/me/permissions/check'))).toHaveLength(
+      url.includes('managedSystem=') ? 1 : 0,
+    );
+  });
+});
 
 describe('Inbox and 내 VOC cursor paging (#1175)', () => {
   it.each(VIEWS)(

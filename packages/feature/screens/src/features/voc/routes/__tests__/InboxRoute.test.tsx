@@ -802,6 +802,7 @@ describe('InboxScreen', () => {
         message: 'voc.read capability required',
         requestable_permission: { permission: 'voc.read', managed_system_id: 'aaaaaaaa-0000-4000-8000-000000000001' },
       }),
+      requestSystemId: 'aaaaaaaa-0000-4000-8000-000000000001',
       refetch: vi.fn(),
     });
     searchState = { view: 'inbox' };

@@ -29,7 +29,13 @@ function mount(view: 'inbox' | 'triage', { existing, home, canOpenStatus = true 
       code: 'permission.denied', message: 'denied',
       requestable_permission: { permission: 'voc.read', managed_system_id: SYSTEM, reason_required: true },
     }, { status: 403 });
-    if (path === '/me/permissions/check') return Response.json({ state: 'approved', decision: { allow: true } });
+    if (path === '/me/permissions/check') {
+      if (view === 'inbox') return Response.json({
+        state: 'request_access',
+        decision: { allow: false, reason: 'no_grant', requestable: [{ workspace_id: 'ws' }] },
+      });
+      return Response.json({ state: 'approved', decision: { allow: true } });
+    }
     if (path === '/me/permissions/scope') return Response.json({ scope: { kind: 'all' } });
     if (path === '/me') return Response.json({ workspace_id: 'ws', actor: { id: 'actor', display_name: 'Developer', external_id: 'dev', email: 'dev@example.test', role_level: 'developer' } });
     if (path === '/nav/counts') return Response.json({ counts: {} });

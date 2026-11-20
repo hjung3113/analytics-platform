@@ -7,7 +7,6 @@ import { ListLoadMore } from '../../../components/ListLoadMore';
 import { MyVocsRecoveryLink } from '../../../components/MyVocsRecoveryLink';
 import { permissionCardExitAction } from '../../../components/permission-card-actions';
 import { RequestAccessButton } from '../../admin/public';
-import { isPermissionDenied } from '../../../lib/api/types';
 import { GLOSSARY, createLabel } from '../../../lib/copy/glossary';
 import { LIST_SEARCH_PLACEHOLDER } from '../../../lib/copy/list-search';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
@@ -63,7 +62,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
     items,
     outOfScopeSummary,
     listError,
-    deniedMsScoped,
+    permissionError,
     inboxPermissionBlocked,
     isSearching,
     handleTabChange,
@@ -74,6 +73,11 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
     handlePanelClose,
     handleCreate,
   } = useInboxState(view);
+
+  const requestable = permissionError?.envelope.requestable_permission;
+  const { requestSystemId, exactScopeTarget } = vocList;
+  const readRequestUnavailable = requestable?.permission === 'voc.read' && requestSystemId === undefined;
+  const needsSystemSelection = readRequestUnavailable && requestable.managed_system_id == null;
 
   const outOfScopeBanner = outOfScopeSummary ? (
     <PermissionBlockedPanel
@@ -177,19 +181,16 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
           className="mx-4 my-2"
         />
       )}
-      {outOfScopeBanner}
-      {isPermissionDenied(listError) ? (
+      {permissionError !== null ? (
         <div className="m-4 space-y-3">
-          {listError.envelope.requestable_permission ? (
+          {requestable && !readRequestUnavailable ? (
             <RequestAccessButton
+              key={requestSystemId}
               layout="card"
-              capability={listError.envelope.requestable_permission.permission}
+              capability={requestable.permission}
               returnRouteIntent={`/vocs?view=${view}`}
-              {...(typeof listError.envelope.requestable_permission.managed_system_id === 'string'
-                ? {
-                    managedSystemId: listError.envelope.requestable_permission.managed_system_id,
-                  }
-                : {})}
+              exactScopeTarget={exactScopeTarget}
+              {...(requestSystemId !== undefined ? { managedSystemId: requestSystemId } : {})}
               renderTrigger={(_onRequestAccess, panel) => (
                 <PermissionBlockedPanel
                   layout="card"
@@ -199,7 +200,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
                   category={VOC_INBOX_LABEL}
                   // #562 copy: a named Managed System means this selected scope is out of reach.
                   reason={
-                    deniedMsScoped
+                    requestSystemId !== undefined
                       ? PERMISSION_BLOCKED_REASONS.vocInboxManagedSystem
                       : PERMISSION_BLOCKED_REASONS.vocInbox
                   }
@@ -218,16 +219,19 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
               lang={lang}
               category={VOC_INBOX_LABEL}
               description={PERMISSION_BLOCKED_REASONS.vocInbox}
+              // #2619: a targetless VOC read denial names the next step inside the card.
+              {...(needsSystemSelection ? { reason: PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem } : {})}
               requestStatus="not-requestable"
               exitAction={permissionCardExitAction(permissionHomeHref, lang)}
             />
           )}
-          {view === 'inbox' && listError.envelope.requestable_permission === undefined ? (
+          {view === 'inbox' && requestable === undefined ? (
             <MyVocsRecoveryLink />
           ) : null}
         </div>
       ) : (
         <>
+          {outOfScopeBanner}
           <VocList
             items={items}
             // Placeholder data keeps the previous page while the next key loads.
