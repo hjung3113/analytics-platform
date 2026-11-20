@@ -958,7 +958,7 @@ it.each(['request_access', 'approved', 'pending_request'] as const)('uses the %s
     expect(screen.getByText('보낸 권한 요청을 검토하고 있습니다.')).toBeInTheDocument();
     expect(screen.getByText('근거 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
     expect(screen.queryByText(/권한 요청이 필요합니다/)).not.toBeInTheDocument();
-    expect(permissionRequestHref).toHaveBeenCalledWith();
+    expect(permissionRequestHref).toHaveBeenCalledWith({});
   } else {
     const request = await screen.findByRole('link', { name: '권한 요청' });
     const home = screen.getByRole('link', { name: '홈으로' });
@@ -966,7 +966,7 @@ it.each(['request_access', 'approved', 'pending_request'] as const)('uses the %s
     expect(request).toHaveClass('bg-accent-primary');
     expect(home).toHaveClass('bg-surface-raised');
     expect(Array.from(request.parentElement?.children ?? [])).toEqual([request, home]);
-    expect(permissionRequestHref).toHaveBeenCalledWith();
+    expect(permissionRequestHref).toHaveBeenCalledWith({ capability: 'finding.read', managedSystemId: MS });
     expect(screen.queryByText('표시할 근거가 없습니다.')).not.toBeInTheDocument();
   }
   expect(fetchMock.mock.calls.filter(([input]) => input.startsWith('/me/permissions/check'))).toEqual([

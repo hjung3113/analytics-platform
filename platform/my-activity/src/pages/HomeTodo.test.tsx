@@ -30,6 +30,22 @@ beforeEach(() => {
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); });
 
 describe('HomeTodo page', () => {
+  it('opens the requester page without prefill from the HomeTodo queue', async () => {
+    window.history.replaceState(null, '', '/notices?v=1');
+    try {
+      stubFetch(path => path.startsWith('/api/features/permission-requests/mine')
+        ? json({ requests: [request] })
+        : json({ items: [], page: { has_more: false }, unread_count: 0 }));
+      render(<I18nProvider><PlatformProvider adapter={switchableAdapter().adapter} registry={registry}><HomeTodo /></PlatformProvider></I18nProvider>);
+      const link = await screen.findByRole('link', { name: /검토 중/ });
+      const href = new URL(link.getAttribute('href')!, window.location.origin);
+      expect(href.pathname).toBe('/permission-requests');
+      expect(Object.fromEntries(href.searchParams)).toEqual({ v: '1' });
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
+  });
+
   it('C2 links the three groups to platform pages', async () => {
     stubFetch(path => path.startsWith('/api/features/me/answerable-surveys')
       ? json({ items: [{ survey_id: SURVEY_ID, display_id: 'SRV-1', title: '만족도 설문', type: 'discovery', question_count: 2, opened_at: '2026-10-20T00:00:00.000Z' }], page: { has_more: false } })

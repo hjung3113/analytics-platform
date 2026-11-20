@@ -64,6 +64,8 @@ Registry는 조립 시 `RegistryError`로 다음을 거부한다: 종류가 `sub
 
 **목적지의 필수 조건(#2539):** 허용된 `resolveLink`의 `missingRequired?`는 전달할 전역 값·페이지 값으로 채우지 못한 목적지의 선언 필수 키와 라벨을 담는다. 링크에 조건 안내를 붙일 때 목적지 이름을 명시하고 `aria-describedby`로 해당 링크에 연결한다.
 
+**권한 요청 폼 미리 채우기 (#2602):** `/permission-requests`의 페이지 키는 `permissionGroup`·`capability`·`managedSystem`·`returnTo`다. 차단 화면에서 새 요청을 여는 링크만 폼 미리 채우기 값을 전달한다. 명시적으로 전달한 `capability`는 폼에서 요청할 수 있는 기능일 때, `managedSystem`은 활성 시스템일 때 선택한다. Registry의 `safeReturnTo`를 통과한 차단 화면 주소는 요청 본문 `return_route_intent`에 담고, 제출에 성공하면 현재 폼에서 지운다. 이 메뉴는 `PlatformPage`의 `showReturnRow={false}`로 복귀 줄 표시를 끈다. 다른 메뉴에서 복귀 줄은 기본 표시 동작을 따른다.
+
 **복귀 버튼 (Decided, [ADR-0025](../adr/0025-drilldown-level-page-keys-path-bar-layout.md); 이름 Candidate):** 본문 복귀 줄을 그리는 `PlatformPage` 안에서는 공통 `ReturnLink`를 숨겨 같은 링크가 한 번만 보인다. 독립적으로 배치한 `ReturnLink`는 Kernel이 채택한 `returnTo`(§6.4)에서 출발 메뉴 이름과 드릴 단계 값을 읽어 `← 생산성 개요 (PHOTO › STG-PHOTO-A)`처럼 표시하고, 누르면 단계 키를 포함한 출발 URL로 돌아간다. `returnTo`가 없거나, 거부되거나, 현재 사용자가 그 메뉴나 공간을 열 수 없으면 parent 메뉴로 돌아간다. parent도 열 수 없으면 열 수 있는 홈(플랫폼 홈, 없으면 공간 홈)으로 돌아간다. 열 수 없는 출발 메뉴의 이름은 보이지 않는다. 표시용 판정이며 목적지가 다시 검사한다. 메뉴 이름은 manifest `label`이고 단계 값은 URL 값 그대로다(번역하지 않음, §23). 다른 메뉴로 넘길 때 단계 키는 목적지가 그 page key를 선언했을 때만 싣는다(`linkTo`의 기존 규칙).
 
 기능으로 나가는 외부 hop은 `linkTo`가 아니라 [플랫폼 인바운드 링크 계약](../integration/platform-inbound-links.md)을 따른다(절대 URL · 새 탭 · phase-1 allowlist).

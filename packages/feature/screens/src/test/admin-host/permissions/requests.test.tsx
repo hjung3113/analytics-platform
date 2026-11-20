@@ -931,7 +931,7 @@ describe('/admin/permissions/requests', () => {
     render(<QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>);
     await screen.findByTestId('permission-decision-section');
     fireEvent.click(screen.getByRole('button', { name: '승인' }));
-    fireEvent.click(await screen.findByRole('radio', { name: 'Alpha (alpha)' }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'Alpha' }));
     fireEvent.change(screen.getByLabelText('사유 · 필수'), { target: { value: 'Review survey export' } });
     const submit = within(screen.getByRole('contentinfo')).getByTestId('permission-decision-submit');
     expect(submit).toHaveAccessibleDescription(/Alpha/);
@@ -942,7 +942,7 @@ describe('/admin/permissions/requests', () => {
         queryKey: ['permission-requests', 'admin-detail', REQUESTS[0].id],
       });
     });
-    await waitFor(() => expect(screen.queryByRole('radio', { name: 'Alpha (alpha)' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('radio', { name: 'Alpha' })).not.toBeInTheDocument());
     expect(submit).toBeDisabled();
     fireEvent.click(submit);
     await act(async () => { await Promise.resolve(); });

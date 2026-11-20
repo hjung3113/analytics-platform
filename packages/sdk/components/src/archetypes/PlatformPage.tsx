@@ -145,6 +145,8 @@ export type PlatformPageProps = {
    * `'none'` removes the content body's horizontal inset and top/bottom padding so an edge-to-edge child (a list shell, a board, a split pane) meets the page edges; for screens that draw their own full-bleed frame. A gate message and the outcome banners keep the inset. Visual only; `default` leaves the body as is (#1291).
    */
   bodyInset?: 'default' | 'none';
+  /** Defaults to true. Disable when the menu uses `returnTo` as input without offering return navigation. */
+  showReturnRow?: boolean;
   /** Where `page`/`return` arrival focus lands instead of the heading, while the returned element is connected (a `drill` arrival keeps the current step). */
   arrivalTarget?: () => HTMLElement | null;
   children: ReactNode;
@@ -163,7 +165,7 @@ export function PlatformPage(props: PlatformPageProps) {
 /** Host wrapper for the mounted content body, leaving the page chrome outside its error boundary. */
 export const PlatformPageBodyBoundary = createContext<((body: ReactNode) => ReactNode) | null>(null);
 
-function PlatformPageFrame({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', arrivalTarget, children, conditionTrigger, conditionLayer }: PlatformPageProps & { conditionTrigger?: ReactNode; conditionLayer?: ReactNode }) {
+function PlatformPageFrame({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', showReturnRow = true, arrivalTarget, children, conditionTrigger, conditionLayer }: PlatformPageProps & { conditionTrigger?: ReactNode; conditionLayer?: ReactNode }) {
   const wrapBody = useContext(PlatformPageBodyBoundary);
   const { global, page, equipmentAxes, route, objectLinks, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, currentSpace, screenMode, canOpen, queryDraft, pageParams, scopeSelector } = useHostPlatform();
   const detailFullscreen = useContext(DetailPanelFullscreenContext);
@@ -318,7 +320,7 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   const completionShown = queryResult != null && queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing');
   const carriesOrigin = carriesReturnTo(registry.carrySetOf(menu));
   const navigation = useReturnNavigation({ announceReverted: !carriesOrigin });
-  const showReturn = !gate && navigation.origin.accepted;
+  const showReturn = showReturnRow && !gate && navigation.origin.accepted;
   const headerActions = showReturn && isValidElement(secondaryActions) && secondaryActions.type === ReturnLink ? undefined : secondaryActions;
   const content = <OutcomeScope>
     {bodyInset === 'none'

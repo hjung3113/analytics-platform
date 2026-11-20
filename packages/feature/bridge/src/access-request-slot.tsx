@@ -139,9 +139,12 @@ function MenuPending({ permission, children }: { permission: string; children: (
   const progress = requestable && mine.isSuccess ? permissionRequestProgress(
     mine.data.requests, FINDING_PERMISSION.capability, selected?.id, { pending: false },
   ) : 'none';
-  const requestHref = requestable && mine.isSuccess ? statusHref : null;
+  const requestLink = requestable && mine.isSuccess && reachable ? resolveLink(STATUS_MENU_ID, {
+    page: { capability: FINDING_PERMISSION.capability, managedSystem: selected?.id ?? null },
+    returnTo: true,
+  }) : null;
   return <>{children({
-    pending, statusHref: enabled ? statusHref : null, requestHref,
+    pending, statusHref: enabled ? statusHref : null, requestHref: requestLink?.allowed ? requestLink.href : null,
     approvedPartial: progress === 'approved-partial',
     missing,
   })}</>;

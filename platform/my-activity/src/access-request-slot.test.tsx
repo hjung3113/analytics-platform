@@ -6,9 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PermissionRequestTarget } from '@ap/contracts';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
-import { featureQueryClient } from '@ap/feature-bridge';
+import { FeatureBridge, featureQueryClient } from '@ap/feature-bridge';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { accessRequestSlot, REQUEST_READ_LIMIT_MS } from '@ap/feature-bridge/access-request-slot';
+import { RequestAccessButton } from '@ap/feature-screens/global-screens';
 import { permissionCheckQueryOptions, permissionRequestsMineAllKey } from '@ap/feature-screens/global-screens/core';
 import { eqvView, findingAccessRegistry, ID_A, json, registry, stubFetch, switchableAdapter } from './feature/test-support';
 
@@ -107,6 +108,43 @@ describe('accessRequest slot', () => {
 
   describe('with a feature API', () => {
     beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
+
+    it('builds the blocked Finding card link with the platform address and form inputs', async () => {
+      stubFindingReads(() => undefined);
+      const origin = `/mars${FINDINGS}`;
+      window.history.replaceState(null, '', origin);
+      render(<I18nProvider><PlatformProvider adapter={switchableAdapter('developer').adapter} registry={findingAccessRegistry}>
+        <FeatureBridge>
+          <RequestAccessButton capability="finding.read" managedSystemId={ID_A} returnRouteIntent="/surveys"
+            layout="card" renderTrigger={(_open, panel) => panel?.requestAction} />
+        </FeatureBridge>
+      </PlatformProvider></I18nProvider>);
+      const link = await screen.findByRole('link', { name: '권한 요청' });
+      const target = new URL(link.getAttribute('href')!, window.location.origin);
+      expect(target.pathname).toBe('/permission-requests');
+      expect(Object.fromEntries(target.searchParams)).toEqual({
+        v: '1', capability: 'finding.read', managedSystem: ID_A, returnTo: origin,
+      });
+    });
+
+    it.each(['slot', 'card'])('opens plain request status from the pending Finding %s', async entry => {
+      stubFindingReads(path => path === CHECK ? json({ state: 'pending_request', decision: { allow: false } }) : undefined);
+      if (entry === 'slot') {
+        mountMenuPermission(FINDINGS, 'features:access');
+      } else {
+        window.history.replaceState(null, '', FINDINGS);
+        render(<I18nProvider><PlatformProvider adapter={switchableAdapter('developer').adapter} registry={findingAccessRegistry}>
+          <FeatureBridge>
+            <RequestAccessButton capability="finding.read" managedSystemId={ID_A} returnRouteIntent="/surveys" pending
+              layout="card" renderTrigger={(_open, panel) => panel?.requestAction} />
+          </FeatureBridge>
+        </PlatformProvider></I18nProvider>);
+      }
+      const link = await screen.findByRole('link', { name: entry === 'slot' ? '요청' : '내 권한 요청 보기' });
+      const href = new URL(link.getAttribute('href')!, window.location.origin);
+      expect(href.pathname).toBe('/permission-requests');
+      expect(Object.fromEntries(href.searchParams)).toEqual({ v: '1' });
+    });
 
     it('a submit through the dialog flips Pending without remounting the place (mine-list invalidation)', async () => {
       let rows: unknown[] = [];
@@ -330,7 +368,9 @@ describe('accessRequest slot', () => {
       const href = (await screen.findByRole('link', { name: '요청' })).getAttribute('href')!;
       const requestUrl = new URL(href, window.location.origin);
       expect(requestUrl.pathname).toBe('/permission-requests');
-      expect([...requestUrl.searchParams.keys()]).toEqual(['v']);
+      expect(Object.fromEntries(requestUrl.searchParams)).toEqual({
+        v: '1', capability: 'finding.read', managedSystem: ID_A, returnTo: `/mars${FINDINGS}`,
+      });
       expect(screen.getByText('Alpha')).toBeTruthy();
       role = 'user';
       act(() => { host.setUser('user'); host.notify(); });
