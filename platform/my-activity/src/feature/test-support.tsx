@@ -8,7 +8,7 @@ import { testAdapter, testSession, ToastProbe } from '@ap/kernel/testing';
 import { manifests } from '../index';
 import Notifications from '../pages/Notifications';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { groupId, spaceId, type Permission } from '@ap/contracts';
+import { groupId, menuPermission, spaceId, type Permission } from '@ap/contracts';
 
 // The real manifests in their global groups (내 활동, 소통); a space needs one menu of its own, so a filler in its own group stands in for it.
 const filler = { ...manifests.find(m => m.id === 'surveys')!, primary: true, id: 'filler', group: 'filler', path: '/filler', aliases: undefined } as MenuEntry;
@@ -45,6 +45,17 @@ const homeTodoMenus = [
 ];
 
 export const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: MENUS });
+export const eqvView = menuPermission('eqv:view');
+export const findingAccessRegistry = createRegistry({
+  spaces: SPACES, groups: GROUPS,
+  permissions: [eqvView],
+  menus: [
+    ...MENUS,
+    { ...inbox, id: 'findings', path: '/findings', pageKeys: ['managedSystem'] },
+    { ...inbox, id: 'eqv-topview', path: '/eqv/topview', permission: eqvView },
+  ],
+});
+
 /** The HomeTodo page's two queue destinations, registered so bridge links resolve to PlatformLink. */
 export const homeTodoRegistry = createRegistry({ spaces: HOME_TODO_SPACES, groups: homeTodoGroups, menus: homeTodoMenus });
 

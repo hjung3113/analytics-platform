@@ -1,20 +1,72 @@
 // #1844 node 1844f1b — the bridge's blocked-place request slot (ADR-0154 decision 6). Synthetic site names only (ADR-0151).
 import { useState } from 'react';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PermissionRequestTarget } from '@ap/contracts';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
+import { featureQueryClient } from '@ap/feature-bridge';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { accessRequestSlot } from '@ap/feature-bridge/access-request-slot';
-import { json, registry, stubFetch, switchableAdapter } from './feature/test-support';
+import { accessRequestSlot, REQUEST_READ_LIMIT_MS } from '@ap/feature-bridge/access-request-slot';
+import { permissionCheckQueryOptions, permissionRequestsMineAllKey } from '@ap/feature-screens/global-screens/core';
+import { eqvView, findingAccessRegistry, ID_A, json, registry, stubFetch, switchableAdapter } from './feature/test-support';
 
 const MINE = '/api/features/permission-requests/mine';
 const CREATE = '/api/features/permission-requests';
 const REQUEST_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1';
 const AT = '2026-11-13T00:00:00.000Z';
 const SITE: PermissionRequestTarget = { kind: 'site', site: 'site-alpha' };
+const ME = '/api/features/me';
+const SYSTEMS = '/api/features/managed-systems';
+const CHECK = '/api/features/me/permissions/check';
+const FINDINGS = `/findings?v=1&managedSystem=${ID_A}`;
+
+function mountMenuPermission(url: string, permission: 'features:access' | 'console:access' | typeof eqvView) {
+  window.history.replaceState(null, '', url);
+  const { Pending } = accessRequestSlot;
+  return render(<I18nProvider><PlatformProvider adapter={switchableAdapter('developer').adapter} registry={findingAccessRegistry}>
+    <Pending target={{ kind: 'permission', permission }}>{state => {
+      const href = state.pending || state.requestHref === undefined ? state.statusHref : state.requestHref;
+      return <>
+        <output data-testid="menu-permission-state">{JSON.stringify(state)}</output>
+        {href && <a href={href}>요청</a>}
+        {state.retry && <button type="button" onClick={state.retry}>다시 시도</button>}
+      </>;
+    }}</Pending>
+  </PlatformProvider></I18nProvider>);
+}
+
+function menuPermissionState() {
+  return JSON.parse(screen.getByTestId('menu-permission-state').textContent ?? '{}');
+}
+
+function heldResponse() {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>(finish => { resolve = finish; });
+  return { promise, resolve };
+}
+
+function stubFindingReads(overrides: (path: string) => Response | Promise<Response> | undefined) {
+  return stubFetch(url => {
+    const { pathname } = new URL(url, window.location.origin);
+    const response = overrides(pathname);
+    if (response !== undefined) return response;
+    if (pathname === ME) return json({
+      actor: { id: 'developer', external_id: 'developer', email: '', display_name: 'Developer', role_level: 'developer' },
+      workspace_id: 'workspace',
+    });
+    if (pathname === SYSTEMS) return json({
+      items: [{ id: ID_A, workspace_id: 'workspace', slug: 'alpha', name: 'Alpha', external_key: null,
+        default_owner_actor_id: null, default_owner_team_id: null, default_reviewer_actor_id: null,
+        default_reviewer_team_id: null, archived_at: null, archived_by_actor_id: null, created_at: AT, updated_at: AT }],
+      page: { has_more: false },
+    });
+    if (pathname === CHECK) return json({ state: 'request_access', decision: { allow: false } });
+    if (pathname === MINE) return json({ requests: [] });
+    throw new Error(`Unexpected request: ${url}`);
+  });
+}
 
 const mineRow = (site: string) => ({
   id: REQUEST_ID, requested_scope_kind: 'site', requested_scope_site: site, requested_scope_room: null, requested_capability: 'scope.read',
@@ -42,7 +94,7 @@ function mount(target: PermissionRequestTarget) {
 // jsdom has no `scrollIntoView`; the dialog's Radix Select calls it when its list opens (feature-screens' test setup stubs it the same way).
 const scrollIntoView = Element.prototype.scrollIntoView;
 beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); Element.prototype.scrollIntoView = () => undefined; });
-afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); Element.prototype.scrollIntoView = scrollIntoView; });
+afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); setFeatureApi(null); vi.unstubAllGlobals(); Element.prototype.scrollIntoView = scrollIntoView; });
 
 describe('accessRequest slot', () => {
   it('without a feature API reports unknown and requests nothing', async () => {
@@ -132,13 +184,162 @@ describe('accessRequest slot', () => {
       expect(calls.some(call => call.method === 'POST')).toBe(false);
     });
 
-    it('a permission place reports unknown, reads nothing, draws no dialog, and gives the request page address (#1940)', async () => {
+    it.each([
+      { permission: eqvView, href: /^pending=null href=\/permission-requests(\?|열기)/ },
+      { permission: 'features:access' as const, href: /^pending=null href=null/ },
+    ])('a routeless $permission reports unknown and reads nothing (#1940)', async ({ permission, href }) => {
       const calls = stubFetch(() => json({ requests: [mineRow('site-alpha')] }));
-      mount({ kind: 'permission', permission: 'synthetic:view' as never });
+      mount({ kind: 'permission', permission });
       await userEvent.setup().click(screen.getByRole('button', { name: '열기' }));
-      expect(screen.getByTestId('state').textContent).toMatch(/^pending=null href=\/permission-requests(\?|열기)/);
+      expect(screen.getByTestId('state').textContent).toMatch(href);
       expect(screen.queryByTestId('permission-request-dialog')).toBeNull();
       expect(calls).toEqual([]);
+    });
+
+    describe('menu permission regression', () => {
+      it('withholds the request during history checking and error, then retries only history', async () => {
+        const history = heldResponse();
+        let historyReads = 0;
+        const calls = stubFindingReads(path => {
+          if (path === MINE && ++historyReads === 1) return history.promise;
+        });
+        mountMenuPermission(FINDINGS, 'features:access');
+        await waitFor(() => expect(historyReads).toBe(1));
+        expect.soft(menuPermissionState()).toMatchObject({ read: 'checking', pending: null });
+        expect.soft(menuPermissionState()).not.toHaveProperty('requestHref');
+        expect.soft(screen.queryByRole('link', { name: '요청' })).toBeNull();
+        await act(async () => { history.resolve(json({}, 500)); });
+        const retry = await screen.findByRole('button', { name: '다시 시도' });
+        expect.soft(menuPermissionState()).toMatchObject({ read: 'error', pending: null });
+        expect.soft(menuPermissionState()).not.toHaveProperty('requestHref');
+        expect.soft(screen.queryByRole('link', { name: '요청' })).toBeNull();
+        const beforeRetry = calls.length;
+        await userEvent.setup().click(retry);
+        expect((await screen.findByRole('link', { name: '요청' })).getAttribute('href')).toMatch(/^\/permission-requests(?:\?|$)/);
+        expect(calls.slice(beforeRetry).map(call => new URL(call.path, window.location.origin).pathname)).toEqual([MINE]);
+      });
+
+      it('exposes retry after a point check error and retries only the check', async () => {
+        let checkReads = 0;
+        const calls = stubFindingReads(path => {
+          if (path !== CHECK) return;
+          if (++checkReads === 1) return json({}, 500);
+          return json({ state: 'blocked_not_requestable', decision: { allow: false } });
+        });
+        mountMenuPermission(FINDINGS, 'features:access');
+        const retry = await screen.findByRole('button', { name: '다시 시도' });
+        expect.soft(menuPermissionState()).toMatchObject({ read: 'error', pending: null });
+        expect.soft(menuPermissionState()).not.toHaveProperty('requestHref');
+        expect.soft(screen.queryByRole('link', { name: '요청' })).toBeNull();
+        const beforeRetry = calls.length;
+        await userEvent.setup().click(retry);
+        await waitFor(() => expect(menuPermissionState()).toMatchObject({ requestHref: null }));
+        expect(calls.slice(beforeRetry).map(call => new URL(call.path, window.location.origin).pathname)).toEqual([CHECK]);
+      });
+
+      it('restarts the first history fetch when it stalls', async () => {
+        const history = heldResponse();
+        let historyReads = 0;
+        const calls = stubFindingReads(path => {
+          if (path === MINE && ++historyReads === 1) return history.promise;
+        });
+        mountMenuPermission(FINDINGS, 'features:access');
+        try {
+          const retry = await screen.findByRole('button', { name: '다시 시도' }, { timeout: REQUEST_READ_LIMIT_MS + 2000 });
+          expect(menuPermissionState()).toHaveProperty('read', 'error');
+          const beforeRetry = calls.length;
+          await userEvent.setup().click(retry);
+          await waitFor(() => expect(calls.slice(beforeRetry).map(call => new URL(call.path, window.location.origin).pathname)).toEqual([MINE]));
+          await screen.findByRole('link', { name: '요청' });
+        } finally {
+          history.resolve(json({ requests: [] }));
+        }
+      }, REQUEST_READ_LIMIT_MS + 4000);
+
+      it.each([
+        { label: 'point check', endpoint: CHECK, queryKey: permissionCheckQueryOptions({ capability: 'finding.read', managedSystemId: ID_A }).queryKey },
+        { label: 'history', endpoint: MINE, queryKey: permissionRequestsMineAllKey },
+      ])('withholds the link during a background $label refetch', async ({ endpoint, queryKey }) => {
+        const refetch = heldResponse();
+        let hold = false;
+        const calls = stubFindingReads(path => path === endpoint && hold ? refetch.promise : undefined);
+        mountMenuPermission(FINDINGS, 'features:access');
+        await screen.findByRole('link', { name: '요청' });
+        const beforeRefetch = calls.length;
+        hold = true;
+        try {
+          await act(async () => { void featureQueryClient.invalidateQueries({ queryKey }); });
+          expect(calls).toHaveLength(beforeRefetch + 1);
+          await waitFor(() => expect(menuPermissionState()).toMatchObject({ read: 'checking', pending: null }));
+          expect(menuPermissionState()).not.toHaveProperty('requestHref');
+          expect(screen.queryByRole('link', { name: '요청' })).toBeNull();
+        } finally {
+          await act(async () => {
+            refetch.resolve(endpoint === CHECK ? json({ state: 'request_access', decision: { allow: false } }) : json({ requests: [] }));
+          });
+        }
+        await screen.findByRole('link', { name: '요청' });
+      });
+
+      it.each([
+        { url: '/eqv/topview', permission: eqvView, requestable: true },
+        { url: '/flow/inbox', permission: 'features:access' as const, requestable: false },
+        { url: '/eqv/topview', permission: 'console:access' as const, requestable: false },
+      ])('sets requester availability for routed $permission', ({ url, permission, requestable }) => {
+        const calls = stubFetch(() => json({ requests: [] }));
+        mountMenuPermission(url, permission);
+        const href = requestable ? expect.stringMatching(/^\/permission-requests(?:\?|$)/) : null;
+        expect(menuPermissionState()).toMatchObject({ requestHref: href, statusHref: href, pending: null });
+        expect(calls).toEqual([]);
+      });
+    });
+
+    it('checks the exact Finding target before offering the plain request form to a Developer and clears it on switch to a User', async () => {
+      let finishRole: (response: Response) => void = () => undefined;
+      const userRole = new Promise<Response>(resolve => { finishRole = resolve; });
+      let role: 'developer' | 'user' = 'developer';
+      const actor = (roleLevel: string) => json({
+        actor: { id: roleLevel, external_id: roleLevel, email: '', display_name: roleLevel, role_level: roleLevel },
+        workspace_id: 'workspace',
+      });
+      const calls = stubFetch(path => {
+        if (path === '/api/features/me') return role === 'developer' ? actor(role) : userRole;
+        if (path.startsWith('/api/features/managed-systems?')) return json({
+          items: [{ id: ID_A, workspace_id: 'workspace', slug: 'alpha', name: 'Alpha', external_key: null,
+            default_owner_actor_id: null, default_owner_team_id: null, default_reviewer_actor_id: null,
+            default_reviewer_team_id: null, archived_at: null, archived_by_actor_id: null, created_at: AT, updated_at: AT }],
+          page: { has_more: false },
+        });
+        if (path.startsWith('/api/features/me/permissions/check?')) {
+          const query = new URL(path, window.location.origin).searchParams;
+          expect(query.get('capability')).toBe('finding.read');
+          expect(query.get('managed_system_id')).toBe(ID_A);
+          return json({ state: 'request_access', decision: { allow: false } });
+        }
+        return json({ requests: [] });
+      });
+      const host = switchableAdapter('developer');
+      window.history.replaceState(null, '', `/findings?v=1&managedSystem=${ID_A}`);
+      const { Pending } = accessRequestSlot;
+      render(<I18nProvider><PlatformProvider adapter={host.adapter} registry={findingAccessRegistry}>
+        <Pending target={{ kind: 'permission', permission: 'features:access' }}>{state => <>
+          {state.requestHref && <a href={state.requestHref}>요청</a>}
+          <p>{state.missing?.permission}</p><p>{state.missing?.system}</p>
+        </>}</Pending>
+      </PlatformProvider></I18nProvider>);
+      const href = (await screen.findByRole('link', { name: '요청' })).getAttribute('href')!;
+      const requestUrl = new URL(href, window.location.origin);
+      expect(requestUrl.pathname).toBe('/permission-requests');
+      expect([...requestUrl.searchParams.keys()]).toEqual(['v']);
+      expect(screen.getByText('Alpha')).toBeTruthy();
+      role = 'user';
+      act(() => { host.setUser('user'); host.notify(); });
+      expect(screen.queryByRole('link', { name: '요청' })).toBeNull();
+      expect(screen.queryByText('Alpha')).toBeNull();
+      await act(async () => { finishRole(actor(role)); });
+      await screen.findByText('Developer 이상 역할 필요');
+      expect(screen.queryByRole('link', { name: '요청' })).toBeNull();
+      expect(calls.filter(call => call.path.startsWith('/api/features/me/permissions/check?'))).toHaveLength(1);
     });
 
     it('a denied console:access gets no request page address: the requester page cannot ask for the workspace-admin permission (#1940)', () => {
