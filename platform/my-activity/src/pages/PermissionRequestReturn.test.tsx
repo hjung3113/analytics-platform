@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
+import type { Permission } from '@ap/contracts';
 import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
 import { featureQueryClient } from '@ap/feature-bridge';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
@@ -34,7 +35,7 @@ afterEach(() => {
   window.history.replaceState(null, '', '/');
 });
 
-async function openRequests(status: string, intent: string | null) {
+async function openRequests(status: string, intent: string | null, permissions?: Permission[]) {
   stubFetch(url => {
     switch (url) {
       case '/api/features/permission-requests/mine?status=all':
@@ -50,7 +51,7 @@ async function openRequests(status: string, intent: string | null) {
         throw new Error(`Unexpected request: ${url}`);
     }
   });
-  mountAt(switchableAdapter().adapter, '/permission-requests');
+  mountAt(switchableAdapter('user-a', permissions).adapter, '/permission-requests');
   return within((await screen.findByText('Need access')).closest('li')!);
 }
 
@@ -77,6 +78,31 @@ describe('Return from a requester row', () => {
     '/%5Cexample.test', '/unregistered', `/voc/${ID_B}`,
   ])('offers no return for missing, unsafe or unreachable intent %s', async intent => {
     const row = await openRequests('approved', intent);
+    expect(row.queryByRole('button', { name: label })).toBeNull();
+  });
+
+  // #2637: a feature screen's in-place request dialog stores the feature path, not the platform address.
+  it('maps a stored feature path to its platform menu and navigates there', async () => {
+    const featurePath = '/vocs?view=my';
+    expect(registry.matchRoute(featurePath.split('?')[0]!)).toBeNull();
+    const row = await openRequests('approved', featurePath, ['platform:view', 'voc:view']);
+    fireEvent.click(row.getByRole('button', { name: label }));
+    expect(window.location.pathname).toBe(registry.menus.find(menu => menu.id === 'voc')!.path);
+  });
+
+  it('refuses a feature path that maps to a hidden detail menu, as it refuses the platform address', async () => {
+    const row = await openRequests('approved', `/vocs?view=my&selected=${ID_B}`, ['platform:view', 'voc:view']);
+    expect(row.queryByRole('button', { name: label })).toBeNull();
+  });
+
+  it('offers no return for a feature path whose menu the requester cannot open', async () => {
+    const row = await openRequests('approved', '/vocs?view=my');
+    expect(row.queryByRole('button', { name: label })).toBeNull();
+  });
+
+  it('offers no return for a feature path whose menu is not in the registry', async () => {
+    expect(registry.menus.some(menu => menu.id === 'triage')).toBe(false);
+    const row = await openRequests('approved', '/vocs?view=triage', ['platform:view', 'voc:view']);
     expect(row.queryByRole('button', { name: label })).toBeNull();
   });
 
