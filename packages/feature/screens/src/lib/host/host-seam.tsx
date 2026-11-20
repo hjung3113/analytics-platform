@@ -27,6 +27,8 @@ export type HostNotice = {
   variant?: 'undo';
 };
 
+type PermissionRequestReturn = (intent: string | null) => (() => void) | null;
+
 type HostPermissionLinks = {
   permissionRequestHref?: (prefill: { capability?: string; managedSystemId?: string }) => string | null;
   permissionHomeHref?: string | null;
@@ -38,6 +40,8 @@ type HostPermissionLinks = {
  * use this instead of TanStack Router and `sonner`.
  */
 export type HostSeam = HostPermissionLinks & {
+  /** Resolves a stored permission request address to a host action if the menu can be opened. */
+  usePermissionRequestReturn?: () => PermissionRequestReturn;
   /** Stable hook for links that depend on the current navigation. */
   usePermissionLinks?: () => HostPermissionLinks;
   canLink(to: string): boolean;
@@ -82,6 +86,13 @@ export type HostSeam = HostPermissionLinks & {
 };
 
 export type HostNavigate = (to: string, options?: { replace?: boolean }) => void;
+
+const useNoPermissionRequestReturn = () => null;
+
+export function useHostPermissionRequestReturn(): PermissionRequestReturn | null {
+  const { usePermissionRequestReturn = useNoPermissionRequestReturn } = useHostSeam();
+  return usePermissionRequestReturn();
+}
 
 const HostSeamContext = createContext<HostSeam | null>(null);
 

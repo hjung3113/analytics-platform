@@ -66,6 +66,8 @@ Registry는 조립 시 `RegistryError`로 다음을 거부한다: 종류가 `sub
 
 **권한 요청 폼 미리 채우기 (#2602):** `/permission-requests`의 페이지 키는 `permissionGroup`·`capability`·`managedSystem`·`returnTo`다. 차단 화면에서 새 요청을 여는 링크만 폼 미리 채우기 값을 전달한다. 명시적으로 전달한 `capability`는 폼에서 요청할 수 있는 기능일 때, `managedSystem`은 활성 시스템일 때 선택한다. Registry의 `safeReturnTo`를 통과한 차단 화면 주소는 요청 본문 `return_route_intent`에 담고, 제출에 성공하면 현재 폼에서 지운다. 이 메뉴는 `PlatformPage`의 `showReturnRow={false}`로 복귀 줄 표시를 끈다. 다른 메뉴에서 복귀 줄은 기본 표시 동작을 따른다.
 
+**권한 요청 승인 뒤 복귀 (#2602)** — 내 권한 요청의 승인 행과 권한 요청 승인 알림의 동작 줄에 `원래 화면으로` 버튼을 표시한다. 알림에 주소가 없으면 알림의 대상 ID로 요청자 전용 상세를 읽어 승인 상태와 저장 주소를 확인한다. 저장 주소는 Registry의 `safeReturnTo`로 다시 검사하고 현재 세션에서 `canOpen`을 통과한 메뉴만 Kernel로 이동한다. 주소가 없거나 읽을 수 없거나 검사에 실패하면 버튼을 표시하지 않는다. 승인 뒤 권한이 회수돼도 요청은 승인 상태로 남아 버튼이 보이며, 누르면 목적지의 기존 차단 화면이 열린다. 알림 버튼을 누르면 알림 본문 링크처럼 읽음으로 표시한다. 좁은 알림 목록(종 팝오버)에서는 버튼을 본문 아래 줄, 본문 왼쪽에 맞춰 두어 제목 폭을 줄이지 않고, 넓은 알림 페이지에서는 같은 동작 줄에 둔다. 알림 본문의 기존 권한 요청 링크는 유지한다.
+
 **복귀 버튼 (Decided, [ADR-0025](../adr/0025-drilldown-level-page-keys-path-bar-layout.md); 이름 Candidate):** 본문 복귀 줄을 그리는 `PlatformPage` 안에서는 공통 `ReturnLink`를 숨겨 같은 링크가 한 번만 보인다. 독립적으로 배치한 `ReturnLink`는 Kernel이 채택한 `returnTo`(§6.4)에서 출발 메뉴 이름과 드릴 단계 값을 읽어 `← 생산성 개요 (PHOTO › STG-PHOTO-A)`처럼 표시하고, 누르면 단계 키를 포함한 출발 URL로 돌아간다. `returnTo`가 없거나, 거부되거나, 현재 사용자가 그 메뉴나 공간을 열 수 없으면 parent 메뉴로 돌아간다. parent도 열 수 없으면 열 수 있는 홈(플랫폼 홈, 없으면 공간 홈)으로 돌아간다. 열 수 없는 출발 메뉴의 이름은 보이지 않는다. 표시용 판정이며 목적지가 다시 검사한다. 메뉴 이름은 manifest `label`이고 단계 값은 URL 값 그대로다(번역하지 않음, §23). 다른 메뉴로 넘길 때 단계 키는 목적지가 그 page key를 선언했을 때만 싣는다(`linkTo`의 기존 규칙).
 
 기능으로 나가는 외부 hop은 `linkTo`가 아니라 [플랫폼 인바운드 링크 계약](../integration/platform-inbound-links.md)을 따른다(절대 URL · 새 탭 · phase-1 allowlist).

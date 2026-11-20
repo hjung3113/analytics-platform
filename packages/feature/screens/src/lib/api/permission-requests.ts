@@ -21,7 +21,7 @@ import {
 } from '@ap/feature-shared';
 
 import { apiRequest } from './client';
-import { apiPath } from './path';
+import { apiPath, withRequestedId } from './path';
 
 export type { MinePermissionRequestRow };
 
@@ -102,7 +102,7 @@ export async function fetchPermissionRequestOwnerDetail(id: string, signal?: Abo
     await apiRequest(
       'GET',
       apiPath`/permission-requests/${id}`,
-      permissionRequestOwnerDetailSchema,
+      withRequestedId(permissionRequestOwnerDetailSchema, id),
       signal ? { signal } : {},
     )
   ).data;

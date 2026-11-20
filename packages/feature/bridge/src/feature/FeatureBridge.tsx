@@ -51,6 +51,18 @@ const usePermissionLinks: NonNullable<HostSeam['usePermissionLinks']> = () => {
   };
 };
 
+const usePermissionRequestReturn: NonNullable<HostSeam['usePermissionRequestReturn']> = () => {
+  const { registry, canOpen, navigate, pathname } = usePlatform();
+  return intent => {
+    const href = registry.safeReturnTo(intent);
+    if (href === null) return null;
+    const [path = ''] = href.split('?');
+    const route = registry.matchRoute(path);
+    if (route === null || !canOpen(route.menu.id)) return null;
+    return () => { navigate(href, { via: 'link', ...(path !== pathname ? { focus: 'page' } : {}) }); };
+  };
+};
+
 /** `useNavigate`/`useSearch`/`useTitle`/`useHere` must be module-level hooks (stable identities): the seam is memoized on them, so an unrelated render never rebuilds it (with `targetOf`, a navigation does: see `hrefLinkTo`). */
 export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink, targetOf, useNavigate = useNoNavigate, useSearch = useNoSearch, useTitle = useNoTitle, useHere = useNoHere }: { children: ReactNode; canLink?: HostSeam['canLink']; targetOf?: TargetOf; Link?: ComponentType<HostLinkProps>; useNavigate?: () => HostNavigate; useSearch?: () => HostSearch; useTitle?: (title: string | null) => void; useHere?: () => string }) {
   const { lang } = useI18n();
@@ -79,6 +91,7 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
       feed: at => formatFeedTime(at, lang),
     },
     usePermissionLinks,
+    usePermissionRequestReturn,
     // The platform page head carries the menu title, so a screen drops its own route kicker (UX-5).
     hostOwnsTitle: true,
     // The platform carries the return path as its own `returnTo`, so a screen adds no feature one (Design 6).
