@@ -28,7 +28,7 @@ export type HostNotice = {
 };
 
 type HostPermissionLinks = {
-  permissionRequestHref?: () => string | null;
+  permissionRequestHref?: (prefill: { capability?: string; managedSystemId?: string }) => string | null;
   permissionHomeHref?: string | null;
 };
 

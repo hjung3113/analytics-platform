@@ -310,7 +310,7 @@ describe('FindingsScreen under a host seam', () => {
     mount({ managedSystem: MS }, options);
     const action = await screen.findByRole('link', { name: '권한 요청' });
     expect(action).toHaveAttribute('href', '/company/permission-requests');
-    expect(targetHref).toHaveBeenCalledWith();
+    expect(targetHref).toHaveBeenCalledWith({ capability: 'finding.read', managedSystemId: MS });
     cleanup();
     installFetch();
     mount({ managedSystem: MS }, options);
@@ -354,7 +354,7 @@ describe('FindingsScreen under a host seam', () => {
       expect(screen.queryByText(/권한을 요청하세요|권한 요청이 필요합니다/)).not.toBeInTheDocument();
     }
     if (state !== 'pending_request') {
-      expect(permissionRequestHref).toHaveBeenCalledWith();
+      expect(permissionRequestHref).toHaveBeenCalledWith({ capability: 'finding.read', managedSystemId: MS });
     }
     expect(lastDetailCall()[1]).toMatchObject({ listDenied: true });
     expect(screen.queryByText('생성된 Finding이 없습니다.')).not.toBeInTheDocument();

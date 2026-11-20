@@ -8,6 +8,7 @@ import {
 import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors';
 
 import { managedSystemsCatalogQuery } from '../../../lib/cross-system/useManagedSystemNames';
+import { managedSystemLabels } from '../../../lib/format/managed-system-label';
 import { useHostSearchWriter } from '../../../lib/host/useHostSearchWriter';
 import { type ReviewTab, validatePermissionRequestsSearch } from './permission-requests-search.js';
 import type { SystemNamesRead } from './permission-request-decision-form';
@@ -54,11 +55,11 @@ export function usePermissionRequestsConsole({
   const managedSystemsQuery = useQuery({ ...managedSystemsCatalogQuery(), retry: false });
   const managedSystemNames: Record<string, string> = {};
   const approvalSystemNames: Record<string, string> = {};
-  for (const { id, name, slug } of managedSystemsQuery.data?.items ?? []) {
+  const systems = managedSystemsQuery.data?.items ?? [];
+  const labels = managedSystemLabels(systems);
+  for (const { id, name, slug } of systems) {
     managedSystemNames[id] = name;
-    // A literal name can match another system's decorated name. Include the
-    // unique slug in every concrete approval label.
-    if (name && slug) approvalSystemNames[id] = `${name} (${slug})`;
+    if (name && slug) approvalSystemNames[id] = labels.get(id) ?? name;
   }
   // Tab + selection are URL state; `pending` is the default tab (omitted).
   const activeTab: ReviewTab = search.tab ?? 'pending';

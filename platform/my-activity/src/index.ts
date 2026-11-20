@@ -51,7 +51,7 @@ export const manifests: MenuEntry[] = [
     id: 'permission-requests', group: GROUP, label: { ko: '권한 요청', en: 'Permission requests' },
     description: { ko: '권한 요청·철회와 내 요청 상태', en: 'Request or withdraw access and see your requests' },
     path: '/permission-requests', icon: KeyRound, permission: 'platform:view', requiresScope: false, pageType: 'management',
-    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['permissionGroup'],
+    context: contextCapabilities(), features: NO_FEATURES, pageKeys: ['permissionGroup', 'capability', 'managedSystem', 'returnTo'],
     component: lazy(() => import('./pages/PermissionRequests')),
   },
   {

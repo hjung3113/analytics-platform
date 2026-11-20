@@ -42,6 +42,7 @@ import {
 } from '../../../lib/copy/permission-scope';
 import { useDeclaredCapabilities } from '../../../lib/api/declared-capabilities';
 import { formatDate } from '../../../lib/format/datetime';
+import { managedSystemLabels } from '../../../lib/format/managed-system-label';
 import { useHostSeam } from '../../../lib/host/host-seam';
 import {
   CAPABILITIES,
@@ -109,12 +110,19 @@ const REASON_MAX = 2000;
 const SKELETON_KEYS = ['skeleton-0', 'skeleton-1', 'skeleton-2'];
 // The request target kind: a feature capability (today's form) or a Site·공정 `scope.read` target (ADR-0154).
 type TargetKind = 'capability' | PermissionScopeTargetKind;
+type PermissionRequestsProps = {
+  permissionGroup?: string;
+  groupLink?: (id: string) => string;
+  initialCapability?: string;
+  initialManagedSystemId?: string;
+  returnTo?: string;
+};
 
-export function PermissionRequestsScreen(props: { permissionGroup?: string; groupLink?: (id: string) => string } = {}): React.ReactElement {
+export function PermissionRequestsScreen(props: PermissionRequestsProps = {}): React.ReactElement {
   return (
     <div className="flex w-full flex-col gap-6" data-testid="permission-requests">
       <p className="text-sm text-text-muted">{COPY.notice}</p>
-      <NewRequestForm {...props} />
+      <NewRequestForm key={JSON.stringify([props.initialCapability, props.initialManagedSystemId, props.returnTo])} {...props} />
       <MyRequests />
     </div>
   );
@@ -130,7 +138,7 @@ function useManagedSystemsQuery() {
   });
 }
 
-function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: string; groupLink?: (id: string) => string }): React.ReactElement {
+function NewRequestForm({ permissionGroup, groupLink, initialCapability, initialManagedSystemId, returnTo }: PermissionRequestsProps): React.ReactElement {
   const { notifyError, notifySuccess } = useHostSeam();
   const roleLevel = useMeBridge().data?.actor.role_level;
   const isRoleLevel = (value: string | undefined): value is RoleLevel =>
@@ -148,14 +156,14 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
   const scopeRoomRef = React.useRef<HTMLButtonElement>(null);
   const scopeKind: PermissionScopeTargetKind | null = targetKind === 'capability' ? null : targetKind;
   const isScope = scopeKind !== null;
-  const [capabilities, setCapabilities] = React.useState<string[]>([]);
+  const [chosenCapabilities, setCapabilities] = React.useState<string[] | null>(null);
   const requiresScreenRole = (capability: string) =>
     isRoleLevel(roleLevel) && !grantOpensScreensFor(capability, roleLevel);
-  const showFindingRoleNote = !isScope && capabilities.some(requiresScreenRole);
   const [origin, setOrigin] = React.useState<{ id: string; capabilities: string[] } | null>(null);
   const [selectionVersion, setSelectionVersion] = React.useState(0);
   const [batchError, setBatchError] = React.useState<{ capability: string; message: string } | null>(null);
-  const [managedSystemId, setManagedSystemId] = React.useState('');
+  const [chosenManagedSystemId, setManagedSystemId] = React.useState<string | null>(null);
+  const [requestReturnTo, setRequestReturnTo] = React.useState(returnTo);
   const [reason, setReason] = React.useState('');
   const [reasonError, setReasonError] = React.useState<string | null>(null);
   const [capabilityError, setCapabilityError] = React.useState<string | null>(null);
@@ -168,6 +176,9 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
   // capability is granted workspace-wide only, so it never asks for a Managed System.
   const declared = useDeclaredCapabilities();
   const requestableDeclared = declared.filter((item) => item.requestable);
+  const requestable: string[] = [...REQUESTABLE_CAPABILITIES, ...requestableDeclared.map(item => item.id)];
+  const capabilities = chosenCapabilities ?? (initialCapability && requestable.includes(initialCapability) ? [initialCapability] : []);
+  const showFindingRoleNote = !isScope && capabilities.some(requiresScreenRole);
   const takesManagedSystem = (capability: string) => !NO_MANAGED_SYSTEM.has(capability) && !isDeclaredCapabilityId(capability);
   // Held exclusions must not erase the group's chosen target or hide its control.
   const systemCapabilities = (origin?.capabilities ?? capabilities).filter(takesManagedSystem);
@@ -175,28 +186,31 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
   const managedSystemOptional = systemCapabilities.every(capability => OPTIONAL_MANAGED_SYSTEM.has(capability));
   const overLimit = !isScope && capabilities.length > PERMISSION_BATCH_MAX_ITEMS;
   const activeSystems = (managedSystems.data?.items ?? []).filter((ms) => ms.archived_at === null);
+  const systemLabels = managedSystemLabels(activeSystems);
+  const initialSystem = managedSystems.isSuccess ? activeSystems.find(ms => ms.id === initialManagedSystemId) : undefined;
+  const defaultManagedSystemId = showManagedSystem && managedSystemOptional ? WORKSPACE_WIDE : '';
+  const managedSystemId = chosenManagedSystemId ?? initialSystem?.id ?? defaultManagedSystemId;
   const requiresSelectedSystem = !isScope && capabilities.some(capability => takesManagedSystem(capability) && !OPTIONAL_MANAGED_SYSTEM.has(capability));
   const systemMissing = requiresSelectedSystem && (managedSystemId === '' || managedSystemId === WORKSPACE_WIDE);
   const noSystemsAvailable =
     requiresSelectedSystem && activeSystems.length === 0;
   const trimmedReason = reason.trim();
+  const requestDetails = { reason: trimmedReason, ...(requestReturnTo ? { return_route_intent: requestReturnTo } : {}) };
   const sentManagedSystemId =
     showManagedSystem && managedSystemId !== '' && managedSystemId !== WORKSPACE_WIDE
       ? managedSystemId
       : undefined;
   // A changed request body gets a new key; a retry of the same body reuses it.
-  const { key, markConsumed } = useIdempotencyKey(
-    isScope
-      ? `scope.read|${targetKind}|${scopeSite}|${scopeRoom}|${trimmedReason}`
-      : `${JSON.stringify(capabilities)}|${sentManagedSystemId ?? ''}|${trimmedReason}|${origin?.id ?? ''}`,
-  );
+  const { key, markConsumed } = useIdempotencyKey(JSON.stringify(isScope
+    ? [targetKind, scopeSite, scopeRoom, requestDetails]
+    : [capabilities, sentManagedSystemId, origin?.id, requestDetails]));
 
   const mutation = useMutation({
     retry: false,
     mutationFn: async (submittedCapabilities: string[]) => {
       const items = submittedCapabilities.map(capability => ({ requested_capability: capability,
         ...(takesManagedSystem(capability) && sentManagedSystemId !== undefined ? { requested_managed_system_id: sentManagedSystemId } : {}) }));
-      if (!isScope && (items.length > 1 || origin)) return createPermissionRequestBatch({ items, reason: trimmedReason, ...(origin ? { permission_group_id: origin.id } : {}) }, { idempotencyKey: key });
+      if (!isScope && (items.length > 1 || origin)) return createPermissionRequestBatch({ items, ...requestDetails, ...(origin ? { permission_group_id: origin.id } : {}) }, { idempotencyKey: key });
       return createPermissionRequest(
         scopeKind !== null
           ? {
@@ -204,12 +218,12 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
               requested_scope_kind: scopeKind,
               requested_scope_site: scopeSite,
               ...(scopeKind === 'site_room' ? { requested_scope_room: scopeRoom } : {}),
-              reason: trimmedReason,
+              ...requestDetails,
             }
           : {
               ...items[0],
               requested_capability: submittedCapabilities[0] ?? '',
-              reason: trimmedReason,
+              ...requestDetails,
             },
         { idempotencyKey: key },
       );
@@ -221,6 +235,7 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
       setOrigin(null);
       setBatchError(null);
       setManagedSystemId('');
+      setRequestReturnTo(undefined);
       setScopeSite('');
       setScopeRoom('');
       setReason('');
@@ -304,7 +319,7 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
       <h2 id="permission-request-new-title" className="text-base font-semibold text-text-primary">
         {COPY.newRequest}
       </h2>
-      <PermissionGroupCatalog selected={origin?.id ?? null} selectionVersion={selectionVersion} requestable={[...REQUESTABLE_CAPABILITIES, ...requestableDeclared.map(item => item.id)]}
+      <PermissionGroupCatalog selected={origin?.id ?? null} selectionVersion={selectionVersion} requestable={requestable}
         {...(sentManagedSystemId ? { managedSystemId: sentManagedSystemId } : {})} {...(permissionGroup ? { linkId: permissionGroup } : {})} {...(groupLink ? { groupLink } : {})}
         disabled={mutation.isPending} onPick={(group, next) => { setTargetKind('capability'); onCapabilityChange(next); setOrigin({ id: group.id, capabilities: group.capabilities }); }} />
       <form
@@ -449,7 +464,7 @@ function NewRequestForm({ permissionGroup, groupLink }: { permissionGroup?: stri
                       )}
                       {activeSystems.map((ms) => (
                         <SelectItem key={ms.id} value={ms.id}>
-                          {ms.name}
+                          {systemLabels.get(ms.id) ?? ms.name}
                         </SelectItem>
                       ))}
                     </SelectGroup>

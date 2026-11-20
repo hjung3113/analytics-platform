@@ -156,7 +156,10 @@ function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger
   );
   const checking = !hasPending && ((!statusKnown && open.isFetching) || (mine.isFetching && !mine.isSuccess));
   const failed = !hasPending && (!statusKnown || mine.isError);
-  const href = !checking && !failed ? permissionRequestHref?.() : null;
+  const href = !checking && !failed ? permissionRequestHref?.(hasPending ? {} : {
+    capability,
+    ...(managedSystemId !== undefined ? { managedSystemId } : {}),
+  }) : null;
   const labels = { pending: copy.mine, 'approved-partial': copy.remaining, none: copy.request };
   const missing = { permission: getCapabilityDisplayLabel(capability), ...(system ? { system } : {}) };
   const followLink = () => { if (href) window.location.assign(href); };

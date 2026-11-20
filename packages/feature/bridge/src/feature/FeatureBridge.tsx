@@ -38,10 +38,13 @@ const usePermissionLinks: NonNullable<HostSeam['usePermissionLinks']> = () => {
   const fallback = !homeLink?.allowed && spaceHome ? resolveLink(spaceHome) : null;
   const allowedHome = homeLink?.allowed ? homeLink : fallback;
   return {
-    permissionRequestHref: () => {
+    permissionRequestHref: ({ capability, managedSystemId }) => {
       const menuId = 'permission-requests';
       if (!isReachable(registry, { menuId })) return null;
-      const link = resolveLink(menuId);
+      const link = capability === undefined ? resolveLink(menuId) : resolveLink(menuId, {
+        page: { capability, managedSystem: managedSystemId ?? null },
+        returnTo: true,
+      });
       return link.allowed ? location.href(link.href) : null;
     },
     permissionHomeHref: allowedHome?.allowed ? location.href(allowedHome.href) : null,
