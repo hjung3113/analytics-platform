@@ -1,4 +1,3 @@
-import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
 // Slice 1 #5: functional Request access button.
 //
 // Generates a stable `Idempotency-Key` per logical intent — the key is
@@ -32,34 +31,40 @@ import {
   SelectValue,
   Textarea,
   useImeEnterGuard,
+  type PermissionBlockedPanelProps,
 } from '@ap/ui';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type ReactNode, useMemo, useRef, useState } from 'react';
 
-import { mapUnknownError } from '../../../lib/api/errorMapper';
-import { mintIdempotencyKey } from '../../../lib/api/idempotency';
+import { mapUnknownError } from '../lib/api/errorMapper';
+import { mintIdempotencyKey } from '../lib/api/idempotency';
 import {
   type CreatePermissionRequestBody,
   type CreatePermissionRequestSuccess,
   createPermissionRequest,
+  fetchPermissionRequestsMine,
+  permissionRequestsMineAllKey,
   permissionRequestsMineKey,
-} from '../../../lib/api/permission-requests';
-import { permissionScopeCandidatesKey } from '../../../lib/api/permission-scope-candidates';
-import { ApiError } from '../../../lib/api/types';
-import { PermissionScopeTargetFields } from '../../../components/PermissionScopeTargetFields';
-import { PERMISSION_REQUESTS_PAGE_COPY } from '../../../lib/copy/permission-requests';
-import { getCapabilityDisplayLabel } from '../../../lib/copy/capabilities';
-import { GLOSSARY } from '../../../lib/copy/glossary';
+} from '../lib/api/permission-requests';
+import { permissionRequestProgress } from '../lib/api/permission-request-progress';
+import { permissionScopeCandidatesKey } from '../lib/api/permission-scope-candidates';
+import { ApiError } from '../lib/api/types';
+import { FeatureTimestamp } from './FeatureTimestamp';
+import { PermissionScopeTargetFields } from './PermissionScopeTargetFields';
+import { permissionCardExitAction } from './permission-card-actions';
+import { PERMISSION_REQUEST_FLOW_COPY, PERMISSION_REQUESTS_PAGE_COPY } from '../lib/copy/permission-requests';
+import { getCapabilityDisplayLabel } from '../lib/copy/capabilities';
+import { GLOSSARY } from '../lib/copy/glossary';
 import {
   PERMISSION_SCOPE_COPY,
   type PermissionScopeTargetKind,
   formatPermissionScopeTarget,
-} from '../../../lib/copy/permission-scope';
-import { HostLink, useHostSeam } from '../../../lib/host/host-seam';
-import { useManagedSystemNames } from '../../../lib/cross-system/useManagedSystemNames';
-import { permissionCheckQueryKey } from '../../../lib/cross-system/usePermissionCheckBridge';
-import { draftRecord, draftString, useFormDraftAcrossExpiry } from '../../../lib/session-draft/useFormDraftAcrossExpiry';
-import { permissionRequestStatusLabel } from './permission-requests-search.js';
+} from '../lib/copy/permission-scope';
+import { HostLink, useHostPermissionLinks, useHostSeam } from '../lib/host/host-seam';
+import { useManagedSystemNames } from '../lib/cross-system/useManagedSystemNames';
+import { permissionCheckQueryKey } from '../lib/cross-system/usePermissionCheckBridge';
+import { draftRecord, draftString, useFormDraftAcrossExpiry } from '../lib/session-draft/useFormDraftAcrossExpiry';
+import { permissionRequestStatusLabel } from '../lib/copy/enum-labels';
 
 /** A blocked Site or 공정 (ADR-0154 decision 6). A Site target lets the user pick the scope kind. */
 export type RequestAccessScopeTarget =
@@ -74,10 +79,14 @@ export type RequestAccessButtonProps = RequestAccessButtonCommonProps &
 
 interface RequestAccessButtonCommonProps {
   returnRouteIntent: string;
+  /** Opt in to the request and exit slots when rendering a blocked card. */
+  layout?: PermissionBlockedPanelProps['layout'];
   exactScopeTarget?: boolean;
   onRequestSubmitted?: () => void;
   /** Uses a caller-owned trigger while this component retains the request dialog and flow. */
-  renderTrigger?: (open: () => void) => ReactNode;
+  renderTrigger?: (open: () => void, panel?: Partial<PermissionBlockedPanelProps>) => ReactNode;
+  /** The exact target's open-request state, when supplied by the permission check. */
+  pending?: boolean;
   /**
    * Controlled mode (the platform's blocked-place request slot, ADR-0154 decision 6): the caller owns the open state and
    * its own trigger, so no trigger and no wrapper are drawn. Absent = the component owns `open`.
@@ -104,12 +113,88 @@ const RECOVERABLE_CONFLICT_CODES = new Set([
 ]);
 
 export function RequestAccessButton(props: RequestAccessButtonProps) {
+  const { permissionRequestHref } = useHostPermissionLinks();
+  if (permissionRequestHref && props.layout === 'card' && props.renderTrigger && props.capability &&
+      props.open === undefined && !props.onRequestSubmitted) {
+    return <RequestAccessLink {...props} capability={props.capability} renderTrigger={props.renderTrigger} />;
+  }
+  return <RequestAccessDialog {...props} />;
+}
+
+function useOpenRequest(capability: string, managedSystemId: string | undefined, { enabled, pending }: { enabled: boolean; pending?: boolean | undefined }) {
+  const open = useQuery({
+    queryKey: permissionRequestsMineKey,
+    queryFn: ({ signal }) => fetchPermissionRequestsMine({ signal }),
+    enabled: enabled && pending === undefined,
+    retry: false,
+  });
+  const hasPending = pending ?? (open.isSuccess && permissionRequestProgress(open.data.requests, capability, managedSystemId) === 'pending');
+  const statusKnown = pending !== undefined || (open.isSuccess && !open.isFetching);
+  return { open, hasPending, statusKnown };
+}
+
+function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger }: RequestAccessButtonCommonProps & {
+  capability: string;
+  managedSystemId?: string;
+  renderTrigger: NonNullable<RequestAccessButtonCommonProps['renderTrigger']>;
+}) {
+  const { lang = 'ko' } = useHostSeam();
+  const { permissionRequestHref, permissionHomeHref } = useHostPermissionLinks();
+  const copy = PERMISSION_REQUEST_FLOW_COPY[lang];
+  const mine = useQuery({
+    queryKey: permissionRequestsMineAllKey,
+    queryFn: ({ signal }) => fetchPermissionRequestsMine({ status: 'all', signal }),
+    enabled: pending !== true,
+    retry: false,
+  });
+  const { open, hasPending, statusKnown } = useOpenRequest(capability, managedSystemId, { enabled: true, pending });
+  const names = useManagedSystemNames({ enabled: managedSystemId !== undefined });
+  const system = managedSystemId ? names.get(managedSystemId) : undefined;
+  const progress = permissionRequestProgress(
+    mine.isSuccess ? mine.data.requests : [], capability, managedSystemId, { pending: hasPending },
+  );
+  const checking = !hasPending && ((!statusKnown && open.isFetching) || (mine.isFetching && !mine.isSuccess));
+  const failed = !hasPending && (!statusKnown || mine.isError);
+  const href = !checking && !failed ? permissionRequestHref?.() : null;
+  const labels = { pending: copy.mine, 'approved-partial': copy.remaining, none: copy.request };
+  const missing = { permission: getCapabilityDisplayLabel(capability), ...(system ? { system } : {}) };
+  const followLink = () => { if (href) window.location.assign(href); };
+  const retry = () => {
+    if (!statusKnown) void open.refetch();
+    if (mine.isError) void mine.refetch();
+  };
+  const availableStatus = href || hasPending ? progress : 'not-requestable';
+  const requestStatus = checking || failed ? 'none' : availableStatus;
+  let action: ReactNode = null;
+  if (checking) {
+    action = <span role="status">{copy.checkingRequest}</span>;
+  } else if (failed) {
+    action = <>
+      <span role="alert">{copy.requestCheckError}</span>
+      <Button type="button" variant="secondary" size="sm" onClick={retry}>{copy.retry}</Button>
+    </>;
+  } else if (href) {
+    action = <Button asChild size="sm" variant={hasPending ? 'secondary' : 'primary'}>
+      <a href={href}>{hasPending ? copy.viewMine : labels[progress]}</a>
+    </Button>;
+  }
+  return renderTrigger(followLink, {
+    lang, requestStatus, missing,
+    ...(hasPending ? { description: copy.pendingExplanation } : {}),
+    requestAction: action,
+    exitAction: permissionCardExitAction(permissionHomeHref, lang),
+  });
+}
+
+function RequestAccessDialog(props: RequestAccessButtonProps) {
   const ime = useImeEnterGuard();
   const qc = useQueryClient();
   const [ownOpen, setOwnOpen] = useState(false);
   // A recoverable conflict keeps the dialog open and says why: the message, and whether it is the duplicate (links to the status page).
   const [conflict, setConflict] = useState<{ message: string; duplicate: boolean } | null>(null);
   const controlled = props.open !== undefined;
+  const card = !controlled && props.layout === 'card' && props.renderTrigger !== undefined;
+  const cardHost = useRef<HTMLDivElement>(null);
   const open = controlled ? props.open === true : ownOpen;
   const setOpen = (next: boolean) => {
     setConflict(null);
@@ -119,9 +204,15 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
   const [reason, setReason] = useState('');
   const [expiration, setExpiration] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { canLink } = useHostSeam();
+  const { canLink, lang = 'ko' } = useHostSeam();
+  const { permissionHomeHref } = useHostPermissionLinks();
   const scopeTarget = props.scopeTarget;
   const capability = scopeTarget ? SCOPE_CAPABILITY : props.capability;
+  const needsOpenRequest = card && scopeTarget === undefined && props.pending === undefined;
+  const { open: openRequests, hasPending, statusKnown } = useOpenRequest(capability, props.managedSystemId, {
+    enabled: needsOpenRequest,
+    pending: props.pending,
+  });
   const initialScopeKind: PermissionScopeTargetKind | '' =
     scopeTarget?.kind === 'site_room' ? 'site_room' : '';
   const initialScopeRoom = scopeTarget?.kind === 'site_room' ? scopeTarget.room : '';
@@ -230,16 +321,19 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
       discardDraft();
       setErrorMessage(null);
       setConflict(null);
-      setSubmitted({
-        id: result.id,
-        status: result.status,
-        createdAt: result.created_at,
-        reason: submission.body.reason,
-        ...(submission.body.requested_expiration
-          ? { expiration: submission.body.requested_expiration }
-          : {}),
-        scopeTargetLabel: submission.scopeTargetLabel,
-      });
+      const showReceipt = () => {
+        setSubmitted({
+          id: result.id,
+          status: result.status,
+          createdAt: result.created_at,
+          reason: submission.body.reason,
+          ...(submission.body.requested_expiration
+            ? { expiration: submission.body.requested_expiration }
+            : {}),
+          scopeTargetLabel: submission.scopeTargetLabel,
+        });
+      };
+      if (!card) showReceipt();
       // Successful submit — rotate the key so a future click counts as a
       // new logical intent.
       setAttempt((n) => n + 1);
@@ -247,6 +341,8 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
         invalidateCheck(),
         qc.invalidateQueries({ queryKey: permissionRequestsMineKey }),
       ]);
+      // The card's replacement action comes from the refreshed server state.
+      if (card) showReceipt();
       props.onRequestSubmitted?.();
     },
     onError: async (err) => {
@@ -277,7 +373,17 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
 
   const dialog = (
       <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : closeDialog())}>
-        <DialogContent data-testid="permission-request-dialog">
+        <DialogContent data-testid="permission-request-dialog" onCloseAutoFocus={event => {
+          if (!card || !submitted) return;
+          const current = cardHost.current?.querySelector('[data-request-status]');
+          const target = current?.querySelector<HTMLElement>('[data-permission-status-link]')
+            ?? current?.querySelector<HTMLElement>('[data-permission-home-link]')
+            ?? current?.querySelector<HTMLElement>('h2, h3, h4');
+          if (!target) return;
+          event.preventDefault();
+          if (target.tabIndex < 0) target.tabIndex = -1;
+          target.focus();
+        }}>
           {submitted ? (
             <>
               <DialogHeader>
@@ -530,10 +636,41 @@ export function RequestAccessButton(props: RequestAccessButtonProps) {
 
   // Controlled: the caller draws its own entry and owns where the dialog sits (outside any menu).
   if (controlled) return dialog;
+  const openDialog = () => {
+    if (card) setSubmitted(null);
+    setOpen(true);
+  };
+  let panel: Partial<PermissionBlockedPanelProps> | undefined;
+  if (card) {
+    const copy = PERMISSION_REQUEST_FLOW_COPY[lang];
+    let requestAction: ReactNode = null;
+    if (hasPending) {
+      if (canLink(REQUEST_STATUS_ROUTE)) {
+        requestAction = <Button asChild size="sm" variant="secondary"><HostLink to={REQUEST_STATUS_ROUTE} data-permission-status-link>{copy.viewMine}</HostLink></Button>;
+      }
+    } else if (needsOpenRequest && !statusKnown && openRequests.isFetching) {
+      requestAction = <span role="status">{copy.checkingRequest}</span>;
+    } else if (needsOpenRequest && !statusKnown) {
+      requestAction = <>
+        <span role="alert">{copy.requestCheckError}</span>
+        <Button type="button" size="sm" variant="secondary" onClick={() => void openRequests.refetch()}>{copy.retry}</Button>
+      </>;
+    } else {
+      requestAction = <Button type="button" size="sm" variant="primary" onClick={openDialog}>{copy.request}</Button>;
+    }
+    panel = {
+      lang,
+      requestStatus: hasPending ? 'pending' : 'none',
+      ...(hasPending ? { description: copy.pendingExplanation } : {}),
+      missing: { permission: getCapabilityDisplayLabel(capability), ...(managedSystemName ? { system: managedSystemName } : {}) },
+      requestAction,
+      exitAction: permissionCardExitAction(permissionHomeHref, lang),
+    };
+  }
   return (
-    <div>
+    <div ref={cardHost}>
       {props.renderTrigger !== undefined ? (
-        props.renderTrigger(() => setOpen(true))
+        props.renderTrigger(openDialog, panel)
       ) : (
         <Button variant="primary" size="md" onClick={() => setOpen(true)}>
           권한 요청

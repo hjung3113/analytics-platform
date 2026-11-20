@@ -215,7 +215,7 @@ describe('TriageRoute effective scoped eligibility (#1170a)', () => {
     ['permission.denied', 'cached'],
     ['permission.scope_required', 'cached'],
   ] as const)(
-    '%s on a %s queue replaces rows and detail with request-access',
+    '%s without a requestable permission on a %s queue replaces rows and detail with the blocked card',
     async (code, mode) => {
       permission('approved');
       const api = server();
@@ -231,13 +231,10 @@ describe('TriageRoute effective scoped eligibility (#1170a)', () => {
           await qc.invalidateQueries({ queryKey: ['vocs', 'triage'] });
         });
       }
-      expect(
-        await screen.findByText(
-          '이 항목에 접근하려면 권한 요청이 필요합니다.',
-          {},
-          { timeout: 5000 },
-        ),
-      ).toBeInTheDocument();
+      const gate = await screen.findByRole('heading', { name: '분류', level: 2 }, { timeout: 5000 });
+      expect(gate.closest('[data-state]')).toHaveAttribute('data-request-status', 'not-requestable');
+      expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+      expect(screen.queryByText('이 항목에 접근하려면 권한 요청이 필요합니다.')).not.toBeInTheDocument();
       await waitFor(() => expect(qc.isFetching()).toBe(0));
       expect(screen.queryByRole('button', { name: /VOC-101/ })).toBeNull();
       expect(screen.queryByRole('heading', { name: 'Queued VOC' })).toBeNull();

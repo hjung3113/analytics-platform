@@ -16,11 +16,11 @@ const HOST_SEAM: HostSeam = {
   useHere: () => '/permission-gate-test',
 };
 
-function wrap(node: React.ReactNode) {
+function wrap(node: React.ReactNode, host: HostSeam = HOST_SEAM) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <HostSeamProvider value={HOST_SEAM}>{node}</HostSeamProvider>
+      <HostSeamProvider value={host}>{node}</HostSeamProvider>
     </QueryClientProvider>,
   );
 }
@@ -63,8 +63,8 @@ const BLOCKED_STATES = [
   {
     state: 'pending_request',
     panelState: 'denied',
-    title: '권한 요청 검토 중',
-    description: '관리자가 권한 요청을 검토하고 있습니다.',
+    title: '권한 요청',
+    description: '보낸 권한 요청을 검토하고 있습니다.',
   },
   {
     state: 'rejected',
@@ -135,7 +135,7 @@ describe('<PermissionGate>', () => {
     expect(screen.getByText('secret payload').closest('[aria-live]')).toBeNull();
   });
 
-  test('keeps status copy and Admin names in one polite region across loading and result', async () => {
+  test('announces the loading and blocked body and keeps Admin contact guidance outside the card', async () => {
     let resolvePermissionCheck!: (response: Response) => void;
     const permissionCheck = new Promise<Response>((resolve) => {
       resolvePermissionCheck = resolve;
@@ -183,12 +183,11 @@ describe('<PermissionGate>', () => {
     );
 
     const contactGuidance = await screen.findByText('담당 관리자에게 문의하세요. Admin One');
-    expect(liveRegion).toBeInTheDocument();
-    expect(liveRegion).toContainElement(screen.getByText('접근할 수 없습니다.'));
-    expect(liveRegion).toContainElement(
-      screen.getByText('현재 계정에서는 이 작업을 사용할 수 없습니다.'),
-    );
-    expect(liveRegion).toContainElement(contactGuidance);
+    expect(liveRegion).not.toBeInTheDocument();
+    const heading = screen.getByRole('heading', { name: '접근할 수 없습니다.', level: 2 });
+    expect(heading.closest('[aria-live], [role="status"]')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('현재 계정에서는 이 작업을 사용할 수 없습니다.');
+    expect(contactGuidance.closest('[data-state], [aria-live], [role="status"]')).toBeNull();
     expect(screen.queryByText('secret payload')).not.toBeInTheDocument();
   });
 
@@ -210,10 +209,33 @@ describe('<PermissionGate>', () => {
     });
     expect(screen.queryByText('secret payload')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '권한 요청' }));
+    const request = screen.getByRole('button', { name: '권한 요청' });
+    expect(request).toHaveClass('bg-accent-primary');
+    expect(screen.getByText('필요한 권한')).toBeInTheDocument();
+    fireEvent.click(request);
     const dialog = await screen.findByTestId('permission-request-dialog');
     expect(dialog).toBeInTheDocument();
     expect(dialog.closest('[aria-live]')).toBeNull();
+  });
+
+  test('puts the pending link first and the permitted Home second', async () => {
+    mockPermissionState('pending_request');
+    wrap(<PermissionGate capability="workspace.admin"><p>secret payload</p></PermissionGate>, {
+      ...HOST_SEAM,
+      permissionRequestHref: () => '/company/permission-requests',
+      permissionHomeHref: '/company/',
+    });
+    const status = await screen.findByRole('link', { name: '내 권한 요청 보기' });
+    const home = screen.getByRole('link', { name: '홈으로' });
+    expect(status).toHaveAttribute('href', '/company/permission-requests');
+    expect(home).toHaveAttribute('href', '/company/');
+    expect(status).toHaveClass('bg-surface-raised');
+    expect(home).toHaveClass('bg-surface-raised');
+    expect(Array.from(status.parentElement?.children ?? [])).toEqual([status, home]);
+    expect(status.closest('[aria-live], [role="status"]')).toBeNull();
+    expect(home.closest('[aria-live], [role="status"]')).toBeNull();
+    expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/검토 중/)).not.toBeInTheDocument();
   });
 
   test('renders blocked_non_requestable when backend says so', async () => {

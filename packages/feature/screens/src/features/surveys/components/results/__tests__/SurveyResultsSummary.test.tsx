@@ -22,7 +22,7 @@ vi.mock('../../../../../lib/api/client', async (importOriginal) => ({
   apiRequest,
 }));
 
-vi.mock('../../../../admin/permissions/request-access-button', () => ({
+vi.mock('../../../../../components/request-access-button', () => ({
   RequestAccessButton: ({
     capability,
     managedSystemId,

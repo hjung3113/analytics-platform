@@ -48,6 +48,8 @@ function mount(state: string, queueDenied = false, requestableSystem: string | n
             reason_required: true,
           },
         };
+      } else if (path === '/permission-requests/mine') {
+        body = { requests: [] };
       } else if (path === '/permission-requests' && init?.method === 'POST') {
         requests.push(JSON.parse(String(init.body)));
         // The request payload is the observed seam; keep the dialog open after submission.
@@ -87,9 +89,11 @@ describe('분류 request access', () => {
     async (_label, managedSystem, state, queueDenied, capability, requestedSystem) => {
       search = managedSystem ? { managedSystem } : {};
       const requests = mount(state, queueDenied);
-      fireEvent.click(
-        await screen.findByRole('button', { name: '권한 요청하기' }, { timeout: 5000 }),
-      );
+      const request = await screen.findByRole('button', { name: '권한 요청' }, { timeout: 5000 });
+      expect(request).toHaveClass('bg-accent-primary');
+      expect(Array.from(request.parentElement?.children ?? [])).toEqual([request]);
+      expect(screen.getByText('필요한 권한')).toBeInTheDocument();
+      fireEvent.click(request);
       const dialog = screen.getByRole('dialog');
       fireEvent.change(within(dialog).getByTestId('permission-request-reason'), {
         target: { value: '분류 업무에 필요합니다.' },
@@ -121,14 +125,28 @@ describe('분류 request access', () => {
   it('keeps a voc.read denial without a requestable System non-requestable', async () => {
     search = {};
     const requests = mount('approved', true, null);
-    const reason = await screen.findByText(
+    const guidance = await screen.findByText(
       PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem,
       {},
       { timeout: 5000 },
     );
+    expect(guidance.closest('[data-state]')).toBeNull();
+    const reason = screen.getByText(PERMISSION_BLOCKED_REASONS.vocTriageMissingRead);
     expect(reason.closest('[data-state]')).toHaveAttribute('data-state', 'blocked_not_requestable');
-    expect(screen.queryByRole('button', { name: '권한 요청하기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
     expect(requests).toHaveLength(0);
+  });
+
+  it('shows pending in the body without a request trigger', async () => {
+    search = { managedSystem: A };
+    mount('pending_request');
+    expect(await screen.findByRole('status')).toHaveTextContent('보낸 권한 요청을 검토하고 있습니다.');
+    const status = screen.getByRole('link', { name: '내 권한 요청 보기' });
+    expect(status).toHaveAttribute('href', '/permission-requests');
+    expect(status).toHaveClass('bg-surface-raised');
+    expect(Array.from(status.parentElement?.children ?? [])).toEqual([status]);
+    expect(screen.queryByText(/검토 중/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
   });
 
   it.each(['pending', 'denied', 'blocked_not_requestable'])(
@@ -137,7 +155,7 @@ describe('분류 request access', () => {
       search = { managedSystem: A };
       mount(state);
       expect(await screen.findByRole('heading', { name: '분류' })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: '권한 요청하기' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
     },
   );
 });

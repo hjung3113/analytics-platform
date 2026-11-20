@@ -1,3 +1,4 @@
+import { PERMISSION_REQUEST_FLOW_COPY } from '../../../lib/copy/permission-requests';
 // Wraps a region of UI in a backend permission check. On `approved` renders
 // `children`; on every other state renders `<PermissionBlockedPanel>` (or the
 // caller's custom `fallback`). Per AGENTS.md:69 this is a *display hint* —
@@ -7,11 +8,13 @@
 import type { ReactNode } from 'react';
 
 import type { FrontendPermissionState } from '../../../lib/api/permission-reads';
+import { isRequestablePermissionState } from '../../../lib/api/permission-request-progress';
 import { usePermissionCheckBridge } from '../../../lib/cross-system/usePermissionCheckBridge';
 import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors';
-import { useHostHere } from '../../../lib/host/host-seam';
+import { useHostHere, useHostPermissionLinks, useHostSeam } from '../../../lib/host/host-seam';
 import { PermissionBlockedPanel } from '@ap/ui';
-import { RequestAccessButton } from './request-access-button.js';
+import { permissionCardExitAction } from '../../../components/permission-card-actions';
+import { RequestAccessButton } from '../../../components/request-access-button';
 
 export interface PermissionGateProps {
   capability: string;
@@ -25,6 +28,8 @@ export interface PermissionGateProps {
 
 export function PermissionGate(props: PermissionGateProps) {
   const returnRouteIntent = useHostHere();
+  const { lang = 'ko' } = useHostSeam();
+  const links = useHostPermissionLinks();
   const query = usePermissionCheckBridge({
     capability: props.capability,
     ...(props.managedSystemId !== undefined ? { managedSystemId: props.managedSystemId } : {}),
@@ -48,22 +53,14 @@ export function PermissionGate(props: PermissionGateProps) {
     // Treat fetch failure as blocked to avoid flashing protected content.
     // The error envelope itself is rendered by the route-level boundary; the
     // gate stays narrow.
-    return (
-      <div aria-live="polite">
-        {renderBlockedState('blocked_non_requestable', props, actors.actors, returnRouteIntent)}
-      </div>
-    );
+    return renderBlockedState('blocked_non_requestable', props, actors.actors, returnRouteIntent, links, lang);
   }
 
   if (query.data.state === 'approved') return props.children;
 
   if (props.fallback !== undefined) return props.fallback;
 
-  return (
-    <div aria-live="polite">
-      {renderBlockedState(query.data.state, props, actors.actors, returnRouteIntent)}
-    </div>
-  );
+  return renderBlockedState(query.data.state, props, actors.actors, returnRouteIntent, links, lang);
 }
 
 type NonApprovedState = Exclude<FrontendPermissionState, 'approved'>;
@@ -83,8 +80,8 @@ const STATE_COPY: Record<
   },
   pending_request: {
     panelState: 'denied',
-    title: '권한 요청 검토 중',
-    description: '관리자가 권한 요청을 검토하고 있습니다.',
+    title: PERMISSION_REQUEST_FLOW_COPY.ko.request,
+    description: PERMISSION_REQUEST_FLOW_COPY.ko.pendingExplanation,
   },
   blocked_non_requestable: {
     panelState: 'blocked_not_requestable',
@@ -123,6 +120,8 @@ function renderBlockedState(
   props: PermissionGateProps,
   workspaceActors: ReturnType<typeof useWorkspaceActors>['actors'],
   returnRouteIntent: string,
+  links: ReturnType<typeof useHostPermissionLinks>,
+  lang: NonNullable<ReturnType<typeof useHostSeam>['lang']>,
 ) {
   const copy = STATE_COPY[state];
   const adminNames = workspaceActors
@@ -132,19 +131,23 @@ function renderBlockedState(
     state === 'blocked_non_requestable'
       ? `담당 관리자에게 문의하세요.${adminNames && adminNames.length > 0 ? ` ${adminNames.join(', ')}` : ''}`
       : undefined;
-  if (state === 'request_access' || state === 'revoked' || state === 'expired') {
+  if (isRequestablePermissionState(state) || state === 'pending_request') {
     return (
       <RequestAccessButton
+        layout="card"
+        pending={state === 'pending_request'}
         capability={props.capability}
         returnRouteIntent={returnRouteIntent}
         {...(props.managedSystemId !== undefined ? { managedSystemId: props.managedSystemId } : {})}
-        renderTrigger={(open) => (
+        renderTrigger={(_open, panel) => (
           <PermissionBlockedPanel
+            layout="card"
+            headingLevel={2}
+            announceBody
             state={copy.panelState}
             category={copy.title}
             description={copy.description}
-            requestAccessLabel="권한 요청"
-            onRequestAccess={open}
+            {...panel}
           />
         )}
       />
@@ -152,12 +155,22 @@ function renderBlockedState(
   }
 
   return (
-    <PermissionBlockedPanel
-      state={copy.panelState}
-      category={copy.title}
-      description={copy.description}
-      {...(contactReason !== undefined ? { reason: contactReason } : {})}
-      {...(copy.panelState === 'summary_visible' ? { summary: null } : {})}
-    />
+    <>
+      <PermissionBlockedPanel
+        layout="card"
+        headingLevel={2}
+        announceBody
+        state={copy.panelState}
+        category={copy.title}
+        description={copy.description}
+        lang={lang}
+        {...(copy.panelState !== 'summary_visible' ? {
+          requestStatus: 'not-requestable' as const,
+          exitAction: permissionCardExitAction(links.permissionHomeHref, lang),
+        } : {})}
+        {...(copy.panelState === 'summary_visible' ? { summary: null } : {})}
+      />
+      {contactReason !== undefined && <p className="mx-auto max-w-lg text-sm text-text-muted">{contactReason}</p>}
+    </>
   );
 }

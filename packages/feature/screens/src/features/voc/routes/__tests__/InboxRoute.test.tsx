@@ -12,7 +12,7 @@ import { ApiError } from '../../../../lib/api/types';
 import { LIST_SEARCH_PLACEHOLDER } from '../../../../lib/copy/list-search';
 import { type HostSeam, HostSeamProvider } from '../../../../lib/host/host-seam';
 import { listVocsQuerySchema } from '@ap/feature-shared';
-import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { Button, DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import type * as React from 'react';
@@ -30,7 +30,7 @@ vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (options: unknown) => ({ options }),
 }));
 
-vi.mock('../../../admin/permissions/request-access-button', () => ({
+vi.mock('../../../../components/request-access-button', () => ({
   RequestAccessButton: ({
     capability,
     managedSystemId,
@@ -40,7 +40,7 @@ vi.mock('../../../admin/permissions/request-access-button', () => ({
     capability: string;
     managedSystemId?: string;
     returnRouteIntent: string;
-    renderTrigger?: (open: () => void) => React.ReactNode;
+    renderTrigger?: (open: () => void, panel: { requestAction: React.ReactNode }) => React.ReactNode;
   }) => (
     <div
       data-testid="request-access-flow"
@@ -49,7 +49,9 @@ vi.mock('../../../admin/permissions/request-access-button', () => ({
       data-return-route-intent={returnRouteIntent}
     >
       {renderTrigger !== undefined ? (
-        renderTrigger(openRequestAccessMock)
+        renderTrigger(openRequestAccessMock, {
+          requestAction: <Button type="button" size="sm" variant="primary" onClick={openRequestAccessMock}>권한 요청</Button>,
+        })
       ) : (
         <button type="button" data-testid="request-access">
           {capability}
@@ -744,7 +746,7 @@ describe('InboxScreen', () => {
     searchState = { view: 'inbox' };
     render(<InboxTestHarness view="inbox" />);
 
-    const panel = await screen.findByRole('heading', { name: 'VOC 처리함', level: 4 });
+    const panel = await screen.findByRole('heading', { name: 'VOC 처리함', level: 3 });
     // #562: specs/voc.md R-VOC-INBOX — nothing requestable -> blocked_not_requestable.
     expect(panel.closest('[data-state]')).toHaveAttribute('data-state', 'blocked_not_requestable');
     expect(screen.queryByText('불러오기 실패')).not.toBeInTheDocument();
@@ -772,7 +774,7 @@ describe('InboxScreen', () => {
 
     expect(
       await screen.findByText(
-        'VOC 처리함을 볼 권한이 없습니다. 내가 접수한 VOC는 내 VOC에서 확인할 수 있습니다.',
+        'VOC 처리함을 볼 권한이 없습니다.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('no voc.read scope for actor')).not.toBeInTheDocument();
@@ -805,10 +807,12 @@ describe('InboxScreen', () => {
     searchState = { view: 'inbox' };
     render(<InboxTestHarness view="inbox" />);
 
-    const panel = await screen.findByRole('heading', { name: 'VOC 처리함', level: 4 });
+    const panel = await screen.findByRole('heading', { name: 'VOC 처리함', level: 3 });
     expect(panel.closest('[data-state]')).toHaveAttribute('data-state', 'request_access');
-    const requestButton = screen.getByRole('button', { name: '권한 요청하기' });
-    expect(screen.getAllByRole('button', { name: '권한 요청하기' })).toHaveLength(1);
+    const requestButton = screen.getByRole('button', { name: '권한 요청' });
+    expect(screen.getAllByRole('button', { name: '권한 요청' })).toHaveLength(1);
+    expect(requestButton).toHaveClass('bg-accent-primary');
+    expect(Array.from(requestButton.parentElement?.children ?? [])).toEqual([requestButton]);
     const requestFlow = screen.getByTestId('request-access-flow');
     expect(requestFlow).toHaveAttribute('data-capability', 'voc.read');
     expect(requestFlow).toHaveAttribute('data-managed-system-id', 'aaaaaaaa-0000-4000-8000-000000000001');

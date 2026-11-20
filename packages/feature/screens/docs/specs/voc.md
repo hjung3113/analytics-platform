@@ -28,7 +28,7 @@ These surfaces shipped in later slices and are governed by their ADRs plus the c
 - **Entity Links create UI** (free-form linking, bulk detach) — shipped in Slice 4. FO ADR-0023.
 - **Attachment upload backend** — covered by the FO ADR-0011 abstraction.
 - **Mobile / tablet layouts** — desktop-only per HANDOFF §11; basic responsive guardrails inherited from `AppShell`.
-- **Permission Request in-product creation UI** — shipped as the request-access dialog (`RequestAccessButton`, `packages/feature/screens/src/features/admin/permissions/request-access-button.tsx`); the Admin review console is `/admin/permissions/requests` per `packages/feature/screens/docs/routes-and-layout.md`.
+- **Permission Request in-product creation UI** — shipped as the request-access dialog (`RequestAccessButton`, `packages/feature/screens/src/components/request-access-button.tsx`). The Admin review console is at `/admin/permissions/requests` per `packages/feature/screens/docs/routes-and-layout.md`.
 
 ### Upstream references
 
@@ -399,7 +399,7 @@ Surface keys NOT consumed by VOC (listed for completeness — checked in other s
 - `execution` → Finding spec
 - `linkedVoc` → Task spec
 
-`<PermissionBlockedPanel state="request_access">` renders its CTA only when the caller supplies `onRequestAccess`. Where it is wired (for example the Inbox list 403 that carries `requestable_permission`), the CTA opens the request-access dialog (`RequestAccessButton`: required reason, optional expiration, `POST /permission-requests`). The Admin route's strict search schema accepts only `tab` and `selected`. When the Inbox list 403s (`view=inbox`), the blocked chrome drops the tab strip (title `VOC 수신함`), search, filter/sort, and the active-filter bar, renders the create action as a secondary button, and shows the `내 VOC` shortcut only when the 403 carries no `requestable_permission`; a blocked Triage console adds the same secondary create button plus `내 VOC` only in the `blocked_not_requestable` state.
+Inbox and Triage list gates use `PermissionBlockedPanel layout="card"`. When access can be requested, `RequestAccessButton` links to the host's permission-request page or opens the local dialog (required reason, optional expiration, `POST /permission-requests`). A pending request replaces the request action with a status link when the host can open it. The card's final action is the host's permitted Home link when available. The Admin route's strict search schema accepts only `tab` and `selected`. When the Inbox list 403s (`view=inbox`), the blocked chrome drops the tab strip (title `VOC 수신함`), search, filter/sort, and the active-filter bar, renders the create action as a secondary button, and shows the `내 VOC` shortcut only when the 403 carries no `requestable_permission`. A blocked Triage console adds the same secondary create button plus `내 VOC` only in the `blocked_not_requestable` state. These shortcuts sit outside the card.
 
 Production adapter (`packages/feature/screens/src/lib/cross-system/getPermissionDecision.ts`; returns `null` for a missing key or a schema failure):
 

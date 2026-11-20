@@ -25,3 +25,11 @@ export { fetchNavCounts } from '../lib/api/nav';
 export { NAV_COUNTS_QUERY_KEY, invalidateNavCounts } from '../lib/query/navCounts';
 export { HostPrimaryAction } from '../lib/host/HostPrimaryAction';
 export { useHostSearch, useHostSeam } from '../lib/host/host-seam';
+
+export { isRequestablePermissionState, permissionRequestProgress } from '../lib/api/permission-request-progress';
+export { permissionRequestsMineAllKey } from '../lib/api/permission-requests';
+export { managedSystemsCatalogQuery } from '../lib/cross-system/useManagedSystemNames';
+export { fetchPermissionCheckViaClient } from '../lib/api/permission-reads';
+export { permissionCheckQueryOptions } from '../lib/cross-system/usePermissionCheckBridge';
+
+export { meBridgeQueryOptions, meCanOpenGrantedScreen } from '../lib/api/me';

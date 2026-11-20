@@ -1,4 +1,5 @@
-import { RequestAccessButton } from '../../../admin/permissions/request-access-button';
+import { RequestAccessButton } from '../../../../components/request-access-button';
+import { permissionCardExitAction } from '../../../../components/permission-card-actions';
 // TriageScreen — the triage workbench (queue, tabs with counts, selection, advance, inline panel, undo) over the host seam.
 //
 // Reads URL state (tab, managedSystem, selected) from the route search.
@@ -24,7 +25,7 @@ import { isPermissionDenied } from '../../../../lib/api/types';
 import { createLabel } from '../../../../lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
 import { usePermissionCheckBridge } from '../../../../lib/cross-system/usePermissionCheckBridge';
-import { HostLink, useHostSeam } from '../../../../lib/host/host-seam';
+import { HostLink, useHostPermissionLinks, useHostSeam } from '../../../../lib/host/host-seam';
 import { useHostSearchWriter } from '../../../../lib/host/useHostSearchWriter';
 import { NAV_COUNTS_QUERY_KEY } from '../../../../lib/query/navCounts';
 import { Button, PermissionBlockedPanel } from '@ap/ui';
@@ -62,7 +63,8 @@ function triageTabCounts(
 
 export function TriageScreen(): React.ReactElement {
   const { search, write } = useHostSearchWriter('/vocs', validateVocSearch);
-  const { canLink } = useHostSeam();
+  const { canLink, lang = 'ko' } = useHostSeam();
+  const { permissionHomeHref } = useHostPermissionLinks();
   const [processedCount, setProcessedCount] = useState(0);
   const moreButtonRef = useCallback((button: HTMLButtonElement | null) => {
     if (!button) return;
@@ -191,8 +193,11 @@ export function TriageScreen(): React.ReactElement {
 
   // An authoritative queue denial wins over cached/retained rows and selection.
   if (!isApproved || queueDenied) {
-    const state = queueDenied ? 'request_access' : mapToPanelState(capCheck.data?.state);
     const requestable = queueDenied ? error.envelope.requestable_permission : undefined;
+    const permissionState = capCheck.data?.state;
+    const pending = !queueDenied && permissionState === 'pending_request';
+    const gateState = queueDenied ? (requestable ? 'request_access' : undefined) : permissionState;
+    const state = mapToPanelState(gateState);
     const capability = queueDenied ? requestable?.permission : 'voc.triage';
     const managedSystemId = queueDenied ? requestable?.managed_system_id : search.managedSystem;
     const missingRead = queueDenied && requestable?.permission === 'voc.read';
@@ -202,15 +207,10 @@ export function TriageScreen(): React.ReactElement {
     // the panel stays non-requestable until a System is selected.
     const readNeedsSystemSelection = missingRead && typeof managedSystemId !== 'string';
     const panelState = readNeedsSystemSelection ? 'blocked_not_requestable' : state;
-    const reason = readNeedsSystemSelection
-      ? PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem
-      : missingRead
-        ? typeof requestable?.managed_system_id === 'string'
-          ? PERMISSION_BLOCKED_REASONS.vocTriageMissingReadManagedSystem
-          : PERMISSION_BLOCKED_REASONS.vocTriageMissingRead
-        : search.managedSystem !== undefined
-          ? PERMISSION_BLOCKED_REASONS.vocTriageManagedSystem
-          : PERMISSION_BLOCKED_REASONS.vocTriage;
+    let reason: string = PERMISSION_BLOCKED_REASONS.vocTriage;
+    if (readNeedsSystemSelection) reason = PERMISSION_BLOCKED_REASONS.vocTriageMissingRead;
+    else if (missingRead) reason = PERMISSION_BLOCKED_REASONS.vocTriageMissingReadManagedSystem;
+    else if (search.managedSystem !== undefined) reason = PERMISSION_BLOCKED_REASONS.vocTriageManagedSystem;
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 p-6">
         <div className="flex items-center gap-2">
@@ -226,21 +226,32 @@ export function TriageScreen(): React.ReactElement {
         </div>
         {panelState === 'request_access' && capability !== undefined ? (
           <RequestAccessButton
+            layout="card"
             capability={capability}
+            {...(!queueDenied ? { pending } : {})}
             returnRouteIntent="/vocs?view=triage"
             {...(typeof managedSystemId === 'string' ? { managedSystemId } : {})}
-            renderTrigger={(onRequestAccess) => (
+            renderTrigger={(_onRequestAccess, panel) => (
               <PermissionBlockedPanel
+                layout="card"
+                headingLevel={2}
+                announceBody
                 state={panelState}
                 category="분류"
                 reason={reason}
-                onRequestAccess={onRequestAccess}
+                {...panel}
               />
             )}
           />
         ) : (
-          <PermissionBlockedPanel state={panelState} category="분류" reason={reason} />
+          <PermissionBlockedPanel layout="card" headingLevel={2} announceBody lang={lang} state={panelState} category="분류"
+            {...(panelState === 'summary_visible' ? {} : {
+              description: reason,
+              requestStatus: 'not-requestable' as const,
+              exitAction: permissionCardExitAction(permissionHomeHref, lang),
+            })} />
         )}
+        {readNeedsSystemSelection && <p className="text-sm text-text-muted">{PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem}</p>}
       </div>
     );
   }
@@ -303,6 +314,7 @@ function mapToPanelState(
 ): 'request_access' | 'summary_visible' | 'denied' | 'blocked_not_requestable' {
   switch (state) {
     case 'request_access':
+    case 'pending_request':
       return 'request_access';
     case 'summary_visible':
       return 'summary_visible';

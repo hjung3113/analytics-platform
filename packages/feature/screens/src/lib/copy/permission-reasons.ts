@@ -11,13 +11,12 @@ export const PERMISSION_BLOCKED_REASONS = {
   entityLinks: '연결 관계 목록을 볼 권한이 없습니다.',
   findingsList: 'Finding 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
   findingsListRoleRequired: 'Finding 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.',
-  vocTriage: 'VOC 분류 권한이 없습니다. 관리자에게 권한을 요청하세요.',
+  vocTriage: 'VOC 분류 권한이 없습니다.',
   vocTriageManagedSystem: '선택한 시스템의 VOC 분류 권한이 없습니다.',
-  vocTriageMissingRead: 'VOC 분류 권한이 있어도 VOC 조회 권한이 없으면 VOC를 볼 수 없습니다.',
-  vocTriageMissingReadManagedSystem:
-    '선택한 시스템의 VOC 조회 권한이 없습니다. VOC 분류만으로는 VOC를 볼 수 없습니다.',
+  vocTriageMissingRead: 'VOC 조회 권한이 없습니다.',
+  vocTriageMissingReadManagedSystem: '선택한 시스템의 VOC 조회 권한이 없습니다.',
   vocTriageMissingReadSelectSystem: '시스템을 선택한 뒤 VOC 조회 권한을 요청하세요.',
-  vocInbox: 'VOC 처리함을 볼 권한이 없습니다. 내가 접수한 VOC는 내 VOC에서 확인할 수 있습니다.',
+  vocInbox: 'VOC 처리함을 볼 권한이 없습니다.',
   vocInboxManagedSystem: '선택한 시스템의 VOC를 볼 권한이 없습니다.',
   findingDetail:
     '이 Finding을 볼 권한이 없습니다. 해당 시스템의 개발자 이상 권한이 필요합니다.',
