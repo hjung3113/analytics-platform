@@ -9,13 +9,16 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 vi.mock('../../../../../components/request-access-button', () => ({
   RequestAccessButton: ({
     capability,
+    managedSystemId,
     returnRouteIntent,
   }: {
     capability: string;
+    managedSystemId?: string;
     returnRouteIntent: string;
   }) => (
     <button
       type="button"
+      data-managed-system-id={managedSystemId ?? ''}
       data-return-route-intent={returnRouteIntent}
       data-testid={`request-access-${capability}`}
     >
@@ -51,6 +54,7 @@ const survey: Survey = {
 function renderEmptyList(props: {
   canCreate: boolean;
   permissionState?: FrontendPermissionState;
+  requestManagedSystemId?: string;
 }) {
   render(
     <SurveyList
@@ -61,6 +65,7 @@ function renderEmptyList(props: {
       onCreate={vi.fn()}
       canCreate={props.canCreate}
       {...(props.permissionState !== undefined ? { permissionState: props.permissionState } : {})}
+      requestManagedSystemId={props.requestManagedSystemId}
     />,
   );
 }
@@ -106,7 +111,11 @@ describe('SurveyList empty state', () => {
   });
 
   it('renders request access for a requestable missing survey.manage permission', () => {
-    renderEmptyList({ canCreate: false, permissionState: 'request_access' });
+    renderEmptyList({
+      canCreate: false,
+      permissionState: 'request_access',
+      requestManagedSystemId: 'managed-system-1',
+    });
 
     expect(screen.getByText('관리할 수 있는 설문이 없습니다.')).toBeInTheDocument();
     expect(screen.getByText('참여할 설문은 설문 참여에서 확인하세요.')).toBeInTheDocument();
@@ -114,8 +123,21 @@ describe('SurveyList empty state', () => {
       'href',
       '/surveys/participate',
     );
-    expect(screen.getByTestId('request-access-survey.manage')).toBeInTheDocument();
+    expect(screen.getByTestId('request-access-survey.manage')).toHaveAttribute(
+      'data-managed-system-id',
+      'managed-system-1',
+    );
     expect(screen.queryByTestId('survey-empty-create-button')).not.toBeInTheDocument();
+  });
+
+  // #2649: survey.manage is granted per system, so a request without one is rejected by the server.
+  it('asks for a system instead of offering a request that cannot name one', () => {
+    renderEmptyList({ canCreate: false, permissionState: 'request_access' });
+
+    expect(screen.getByTestId('survey-empty-select-system')).toHaveTextContent(
+      '시스템을 선택한 뒤 설문 관리 권한을 요청하세요.',
+    );
+    expect(screen.queryByTestId('request-access-survey.manage')).not.toBeInTheDocument();
   });
 
   it('renders contact-admin recovery for a non-requestable missing survey.manage permission', () => {

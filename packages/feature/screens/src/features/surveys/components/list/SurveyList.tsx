@@ -2,6 +2,7 @@ import { ListStateMessage } from '../../../../components/ListStateMessage';
 import { RequestAccessButton } from '../../../admin/public';
 import type { FrontendPermissionState } from '../../../../lib/api/permission-reads';
 import { SURVEY_STATUS_LABELS, SURVEY_TYPE_LABELS } from '../../../../lib/copy/enum-labels';
+import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
 import { GLOSSARY } from '../../../../lib/copy/glossary';
 import { SURVEY_PARTICIPATION_COPY } from '../../../../lib/copy/survey-participation';
 import { SURVEY_LIST_COPY } from '../../../../lib/copy/surveys';
@@ -44,6 +45,8 @@ export interface SurveyListProps {
   onRetry?: () => void;
   managedSystemNamesById?: ReadonlyMap<string, string> | undefined;
   actorNamesById?: ReadonlyMap<string, string> | undefined;
+  /** The system selected in the list Context; `survey.manage` is granted per system, so the in-place request needs it. */
+  requestManagedSystemId?: string | undefined;
 }
 
 export function SurveyList({
@@ -60,6 +63,7 @@ export function SurveyList({
   onRetry,
   managedSystemNamesById,
   actorNamesById,
+  requestManagedSystemId,
 }: SurveyListProps) {
   const { canLink } = useHostSeam();
   const hostTarget = useHostPrimaryActionTarget();
@@ -223,10 +227,17 @@ export function SurveyList({
                       </HostLink>
                     )}
                     {permissionState === 'request_access' ? (
-                      <RequestAccessButton
-                        capability="survey.manage"
-                        returnRouteIntent="/surveys"
-                      />
+                      requestManagedSystemId === undefined ? (
+                        <p data-testid="survey-empty-select-system">
+                          {PERMISSION_BLOCKED_REASONS.surveyManageSelectSystem}
+                        </p>
+                      ) : (
+                        <RequestAccessButton
+                          capability="survey.manage"
+                          managedSystemId={requestManagedSystemId}
+                          returnRouteIntent="/surveys"
+                        />
+                      )
                     ) : (
                       <p data-testid="survey-empty-contact-admin">담당 관리자에게 문의하세요.</p>
                     )}
