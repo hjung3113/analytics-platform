@@ -139,6 +139,7 @@ export function SurveyListScreen({
               : {})}
             managedSystemNamesById={managedSystemNamesById}
             actorNamesById={actorNamesById}
+            requestManagedSystemId={managedSystemId}
             onCreate={() => setCreateOpen(true)}
             onRetry={() => void query.refetch()}
           />

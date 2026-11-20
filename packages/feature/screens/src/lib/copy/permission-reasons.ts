@@ -24,6 +24,7 @@ export const PERMISSION_BLOCKED_REASONS = {
     '이 Finding을 볼 권한이 없습니다. 해당 시스템의 개발자 이상 권한이 필요합니다.',
   surveyResult: '설문 결과를 볼 권한이 없습니다.',
   surveyBuilder: '설문 관리 권한이 없습니다.',
+  surveyManageSelectSystem: '시스템을 선택한 뒤 설문 관리 권한을 요청하세요.',
   surveyDetail: '이 설문을 볼 권한이 없습니다.',
 } as const;
 
