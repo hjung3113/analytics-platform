@@ -64,17 +64,19 @@ const FINDING_READ_CAPABILITY = 'finding.read';
 
 export type FindingsScreenProps = {
   /**
-   * The host's detail slot, called once per render and handed to `ListShell` as returned (`undefined` = no `detailPanel`, the host draws its own).
+   * The host's detail slot, called once per render. By default the result is handed to `ListShell`.
    * `returnTo` is the stored safe VOC URL, set only when the search carries one and the host does not carry the return itself, else `null`. It is a
    * codec string only the router can decode, so the standalone host draws the back link; the screen never renders it.
    */
   renderDetail: (
     findingId: string | null,
-    options: { listDenied: boolean; returnTo: string | null },
+    options: { listDenied: boolean; returnTo: string | null; isInList?: boolean | undefined },
   ) => React.ReactNode;
+  /** A host drawer that portals itself must mount inside the feature providers. */
+  renderDetailInPlace?: boolean;
 };
 
-export function FindingsScreen({ renderDetail }: FindingsScreenProps): React.ReactElement {
+export function FindingsScreen({ renderDetail, renderDetailInPlace = false }: FindingsScreenProps): React.ReactElement {
   const { search, write } = useHostSearchWriter('/findings', validateFindingsSearch);
   const selectedId = search.selected ?? null;
   const managedSystemId = search.managedSystem === 'all' ? undefined : search.managedSystem;
@@ -119,6 +121,7 @@ export function FindingsScreen({ renderDetail }: FindingsScreenProps): React.Rea
       returnTo={search.returnTo}
       write={write}
       renderDetail={renderDetail}
+      renderDetailInPlace={renderDetailInPlace}
       onSelect={selectFinding}
       onSelectionReconciled={reconcileSelection}
       onResetFilters={resetFilters}
@@ -137,6 +140,7 @@ function FindingsListShell({
   returnTo,
   write,
   renderDetail,
+  renderDetailInPlace,
   onSelect,
   onSelectionReconciled,
   onResetFilters,
@@ -151,6 +155,7 @@ function FindingsListShell({
   returnTo: string | undefined;
   write: WriteSearch;
   renderDetail: FindingsScreenProps['renderDetail'];
+  renderDetailInPlace: boolean;
   onSelect: (id: string) => void;
   onSelectionReconciled: () => void;
   onResetFilters: () => void;
@@ -247,7 +252,7 @@ function FindingsListShell({
   const roleRequired = permissionError?.detail?.reason === 'role_required';
   const requestableError = roleRequired ? undefined : permissionError?.envelope.requestable_permission;
   const isReadDenied = permissionError !== null || scopedPermission.state === 'blocked';
-  const scopeVerified = scopedPermission.state === 'allowed' || scopedPermission.state === 'unchecked';
+  const scopeVerified = !isReadDenied && (scopedPermission.state === 'allowed' || scopedPermission.state === 'unchecked');
   const stateIsPending = !isReadDenied && (
     listQuery.isPending || (checkUnfiltered && unfilteredQuery.isPending) || scopedPermission.state === 'checking'
   );
@@ -346,9 +351,10 @@ function FindingsListShell({
   const detailPanel = renderDetail(selectedId, {
     listDenied: isReadDenied,
     returnTo: !hostCarriesReturn ? safeReturnTo : null,
+    isInList: isReadDenied ? false : undefined,
   });
 
-  return (
+  const list = (
     <ListShell
       toolbar={{
         actions: !isReadDenied ? (
@@ -461,9 +467,10 @@ function FindingsListShell({
           />
         </>
       }
-      {...(detailPanel !== undefined ? { detailPanel } : {})}
+      {...(!renderDetailInPlace && detailPanel !== undefined ? { detailPanel } : {})}
     />
   );
+  return renderDetailInPlace ? <>{list}{detailPanel}</> : list;
 }
 
 /** A not-requestable denial. An archived System cannot be read even with the permission, so it names that instead of the missing permission. */

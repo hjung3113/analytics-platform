@@ -20,7 +20,7 @@ import {
 } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ListAccessRequestPanel } from '../../../components/ListAccessRequestPanel';
 import {
   type EvidenceFilters,
@@ -122,6 +122,8 @@ function EvidenceSession({
   const rows = useRef(new Map<string, HTMLDivElement>());
   const origin = useRef<string | null>(null);
   const pendingCloseFocus = useRef(false);
+  const pendingDeniedFocus = useRef(false);
+  const deniedRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const list = useQuery({
     queryKey: [
@@ -230,13 +232,14 @@ function EvidenceSession({
     if (manualRefresh && !list.isPending && !list.isFetching && !detail.isFetching)
       setManualRefresh(false);
   }, [manualRefresh, list.isPending, list.isFetching, detail.isFetching]);
-  const readDenied = denied(list.error) || denied(detail.error);
   const scopedPermission = useScopedEmptyListPermission({
     capability: 'finding.read',
     managedSystemId: search.managedSystem === 'all' ? undefined : search.managedSystem,
-    empty: !readDenied && list.isSuccess && list.data.items.length === 0,
+    empty: list.isSuccess && list.data.items.length === 0,
   });
-  const blocked = readDenied || scopedPermission.state === 'blocked';
+  // Only a confirmed denial (403 or a settled blocked check) closes the open record; a 401 is session loss, which keeps the selection for re-login.
+  const listBlocked = (list.error instanceof ApiError && list.error.status === 403) || scopedPermission.state === 'blocked';
+  const blocked = listBlocked || denied(detail.error);
   const request = scopedPermission.state === 'blocked' ? scopedPermission.request : null;
   const archived = useIsArchivedSystem(blocked && request === null && search.managedSystem !== 'all' ? search.managedSystem : undefined);
   useEffect(() => {
@@ -281,10 +284,23 @@ function EvidenceSession({
   function changeFilter(next: Search) {
     write(() => ({ ...next, cursor: undefined }));
   }
-  function close() {
+  const close = useCallback(() => {
     pendingCloseFocus.current = true;
     write((previous) => ({ ...previous, selected: undefined }), { replace: true });
-  }
+  }, [write]);
+  // A confirmed list denial closes the open record itself. The rows and the disabled search cannot take focus then,
+  // so focus moves to the denial card's first action (or the card itself) instead of the usual return target.
+  useEffect(() => {
+    if (!listBlocked || !search.selected) return;
+    pendingDeniedFocus.current = true;
+    write((previous) => ({ ...previous, selected: undefined }), { replace: true });
+  }, [listBlocked, search.selected, write]);
+  useLayoutEffect(() => {
+    if (search.selected || !pendingDeniedFocus.current) return;
+    pendingDeniedFocus.current = false;
+    const card = deniedRef.current;
+    (card?.querySelector<HTMLElement>('a[href], button:not([disabled])') ?? card)?.focus();
+  }, [search.selected]);
   // The host applies the URL after `write` returns (seam navigate is not awaited): focus once `selected` is gone.
   useLayoutEffect(() => {
     if (search.selected || !pendingCloseFocus.current) return;
@@ -363,18 +379,22 @@ function EvidenceSession({
               </div>
             )}
             {request ? (
-              <ListAccessRequestPanel
-                category={COPY.title}
-                reason={COPY.blocked}
-                request={request}
-                returnRouteIntent="/integration/evidence"
-              />
+              <div ref={deniedRef} tabIndex={-1}>
+                <ListAccessRequestPanel
+                  category={COPY.title}
+                  reason={COPY.blocked}
+                  request={request}
+                  returnRouteIntent="/integration/evidence"
+                />
+              </div>
             ) : blocked ? (
-              <PermissionDeniedCard
-                layout="card"
-                category="근거"
-                description={archived ? PERMISSION_BLOCKED_REASONS.archivedSystem : COPY.blocked}
-              />
+              <div ref={deniedRef} tabIndex={-1}>
+                <PermissionDeniedCard
+                  layout="card"
+                  category="근거"
+                  description={archived ? PERMISSION_BLOCKED_REASONS.archivedSystem : COPY.blocked}
+                />
+              </div>
             ) : scopedPermission.state === 'checking' || ((list.isPending || list.isFetching) && items.length === 0) ? (
               <Skeleton className="h-32" role="status" aria-label={COPY.loading} />
             ) : scopedPermission.state === 'error' ? (
@@ -491,7 +511,7 @@ function EvidenceSession({
           </>
         }
       />
-      {search.selected && scopedPermission.state !== 'blocked'
+      {search.selected && !listBlocked
         ? renderDetail(
             buildEvidencePanelParts({
               item: safeDetail,
