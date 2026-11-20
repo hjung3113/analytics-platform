@@ -22,12 +22,14 @@ export const usesNavCounts = (menu: MenuEntry | null) => declares(menu, COUNTED_
 export const usesSavedViews = (menu: MenuEntry | null) => declares(menu, SAVED_VIEW_GROUPS);
 /**
  * The capability each operator group's list reads, for the sidebar picker's in/out-of-scope marks (#2630). A group absent here keeps the
- * picker's default (`voc.read`). The `findings` group (전체 Finding, 근거) lists Findings, which `finding.read` grants per Managed System.
+ * picker's default (`voc.read`). Each value is the capability the group's list routes scope by on the server: `findings` (전체 Finding, 근거)
+ * by `finding.read`; `surveys` (설문 관리 and its builder, results, follow-up) by `survey.read`; `tasks` (Task 요청, Task 보드, Task 목록,
+ * 마일스톤) by `finding.manage` (#2632).
  * Declared here, next to the groups that mount the picker, because the capability is feature vocabulary the Kernel menu manifest does not carry.
  */
 // Values are checked where ScopeControl passes them to the picker's `capability` prop:
 // this module may not import feature-screens (boundary lint).
-const LIST_SCOPE_CAPABILITY = { findings: 'finding.read' } as const;
+const LIST_SCOPE_CAPABILITY = { findings: 'finding.read', surveys: 'survey.read', tasks: 'finding.manage' } as const;
 type ListScopeCapability = (typeof LIST_SCOPE_CAPABILITY)[keyof typeof LIST_SCOPE_CAPABILITY];
 /** The capability the sidebar `목록 범위` marks scope by on the current menu; `undefined` = the picker's default. */
 export const listScopeCapability = (menu: MenuEntry | null): ListScopeCapability | undefined =>

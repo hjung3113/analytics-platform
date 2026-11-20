@@ -1,12 +1,13 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, type ComponentProps } from 'react';
 
 // The picker and its reads load with the page that draws it, so none of it is in the main chunk.
 const Picker = lazy(() => import('../pages/ListScope'));
 
 /**
  * The page-owned `목록 범위` for a page inside `FeatureBridge`: the existing Managed System picker over the same `managedSystem` page key the sidebar picker uses (`useListScope`),
- * with the effective value and `전체` to clear it. It owns no state, session or query client of its own.
+ * with the effective value and `전체` to clear it. It owns no state, session or query client of its own. `capability` is the capability the page's list scopes
+ * by on the server, for the «범위 밖» marks (default `voc.read`, as on the sidebar picker; #2632).
  */
-export function ListScope() {
-  return <Suspense fallback={null}><Picker /></Suspense>;
+export function ListScope({ capability }: { capability?: ComponentProps<typeof Picker>['capability'] }) {
+  return <Suspense fallback={null}><Picker {...(capability !== undefined ? { capability } : {})} /></Suspense>;
 }
