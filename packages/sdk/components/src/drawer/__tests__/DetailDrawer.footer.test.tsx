@@ -30,6 +30,12 @@ function SlotHost() {
 }
 const tree = (ui: ReactNode) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider>{ui}<SlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>;
 
+it('forwards the two-line title option to the detail header', () => {
+  render(tree(<DetailDrawer title="A long record title" titleLines={2} onClose={() => {}} tabs={[]} />));
+
+  expect(screen.getByRole('heading', { name: 'A long record title' })).toHaveClass('line-clamp-2');
+});
+
 describe('DetailDrawer optional footer', () => {
   it.each([1, 2])('keeps the footer outside the scroll body with %s tabs', async count => {
     render(tree(<DetailDrawer title="Details" onClose={() => {}} footer={<button>Save</button>}

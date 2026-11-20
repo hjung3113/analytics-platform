@@ -49,6 +49,16 @@ describe('FeatureDetailDrawer', () => {
     expect(body?.closest('.fo-detail-body')).toBeTruthy();
   });
 
+  it('passes the requested title line count from the feature detail parts to the drawer', () => {
+    const root = createRoot(document.body.appendChild(document.createElement('div')));
+    roots.push(root);
+    act(() => root.render(<I18nProvider><DetailPanelSlotProvider>
+      <FeatureDetailDrawer parts={{ ...parts, titleLines: 2 }} onClose={vi.fn()} />
+      <SlotHost />
+    </DetailPanelSlotProvider></I18nProvider>));
+    expect(document.querySelector('[role="dialog"] h2')?.classList.contains('line-clamp-2')).toBe(true);
+  });
+
   it('places an optional footer outside the scroll region', () => {
     const root = createRoot(document.body.appendChild(document.createElement('div')));
     roots.push(root);

@@ -1,4 +1,5 @@
 import type { AdminPermissionRequestRow } from '../../../../lib/api';
+import type { ClosableDetailParts } from '../../../../lib/host/detail-parts';
 import { adminDetailFixture } from '../../../../test/permission-details';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -65,18 +66,20 @@ describe('PermissionRequestDetail identity', () => {
     expect(screen.getByText('원본').closest('details')).toHaveTextContent('30000000-0000-0000-0000-000000000003');
   });
 
-  it('allows the hosted title to wrap while keeping the status badge on one line', () => {
+  it('opts the hosted title into two lines while keeping the status badge on one line', () => {
+    const renderDetail = vi.fn(({ title, headerActions }: ClosableDetailParts) => <header><h2>{title}</h2>{headerActions}</header>);
     render(
       <PermissionRequestDetail
         request={adminDetailFixture(REQUEST)}
         actorName="Mock Developer One"
         onClose={() => undefined}
-        renderDetail={({ title, headerActions }) => <header><h2>{title}</h2>{headerActions}</header>}
+        renderDetail={renderDetail}
       />,
     );
 
     const title = screen.getByRole('heading', { name: 'Mock Developer One · Finding 관리' });
-    expect(title.firstElementChild).toHaveClass('block', 'whitespace-normal', 'wrap-anywhere');
+    expect(renderDetail.mock.lastCall?.[0]).toHaveProperty('titleLines', 2);
+    expect(title.firstElementChild).toBeNull();
     expect(screen.getByText('검토 중')).toHaveClass('whitespace-nowrap', 'shrink-0');
   });
 });

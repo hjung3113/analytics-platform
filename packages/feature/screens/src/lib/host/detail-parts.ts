@@ -1,3 +1,4 @@
+import type { DetailPanelHeaderProps } from '@ap/ui';
 import type { ReactNode } from 'react';
 
 /** A detail screen split into the parts a host places in its own drawer or page chrome. */
@@ -5,6 +6,7 @@ export type DetailParts = {
   id?: string | undefined;
   objectTitle?: ReactNode;
   title: ReactNode;
+  titleLines?: DetailPanelHeaderProps['titleLines'];
   subtitle?: ReactNode;
   headerActions?: ReactNode;
   body: ReactNode;
