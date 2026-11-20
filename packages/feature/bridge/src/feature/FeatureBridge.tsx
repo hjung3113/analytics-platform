@@ -8,11 +8,11 @@ import { usePrimaryActionTarget } from './primary-action-target';
 import { isReachable } from './reachable';
 import { featureQueryClient, useFeatureSession } from './session';
 
-/** The default seam links nothing (backlog: 알림 목적지 연결); `Link` is the unreachable fallback, and a screen passes `canLink`/`Link` for the targets it can reach. */
+// `UnlinkedLink` lives in its own module so the link maps (`links.tsx`, `operator-links.ts`) never import this file back.
+import { UnlinkedLink } from './unlinked-link';
+import { notificationHostLinks } from './operator-links';
 
-export function UnlinkedLink({ to: _to, children, ...rest }: HostLinkProps) {
-  return <span {...rest}>{children}</span>;
-}
+export { UnlinkedLink };
 
 /**
  * Hosts feature screens. Without a feature API (mock preview) nothing from feature mounts and nothing is
@@ -51,10 +51,22 @@ const usePermissionLinks: NonNullable<HostSeam['usePermissionLinks']> = () => {
   };
 };
 
+/**
+ * A stored return intent is a platform address (`/flow/…`, from a platform page) or a feature path (`/findings`, `/vocs?view=triage`, from a
+ * feature screen's in-place request dialog, #2637). A feature path is mapped through the same destinations the notification links use, and
+ * rebuilt with `linkTo` from the mapped target only (which carries the current page's context like any link), then checked by `safeReturnTo` like a stored platform address; an unmapped path, or one whose menu is not in this registry, offers no return.
+ */
 const usePermissionRequestReturn: NonNullable<HostSeam['usePermissionRequestReturn']> = () => {
-  const { registry, canOpen, navigate, pathname } = usePlatform();
-  return intent => {
+  const { registry, canOpen, navigate, pathname, linkTo } = usePlatform();
+  const platformHref = (intent: string | null): string | null => {
     const href = registry.safeReturnTo(intent);
+    if (href !== null || intent === null) return href;
+    const target = notificationHostLinks.targetOf(intent);
+    // The rebuilt address passes `safeReturnTo` too, so a hidden detail menu is refused the same as when it was stored as a platform address.
+    return isReachable(registry, target) ? registry.safeReturnTo(linkTo(target.menuId, { params: target.params, page: target.page })) : null;
+  };
+  return intent => {
+    const href = platformHref(intent);
     if (href === null) return null;
     const [path = ''] = href.split('?');
     const route = registry.matchRoute(path);
