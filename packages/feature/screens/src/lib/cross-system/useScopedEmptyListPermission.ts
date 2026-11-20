@@ -1,7 +1,7 @@
 import { isRequestablePermissionState } from '../api/permission-request-progress';
 import { usePermissionCheckBridge } from './usePermissionCheckBridge';
 
-type ScopedEmptyListPermission =
+export type ScopedEmptyListPermission =
   | { state: 'unchecked' | 'checking' | 'allowed' }
   | { state: 'error'; retry: () => void }
   | { state: 'blocked'; request: { capability: string; managedSystemId: string; pending: boolean } | null };

@@ -1,4 +1,6 @@
 import { PermissionDeniedCard } from '../../../components/PermissionDeniedCard';
+import { permissionCardExitAction } from '../../../components/permission-card-actions';
+import { useHostPermissionLinks, useHostSeam } from '../../../lib/host/host-seam';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { useMeBridge } from '../../../lib/api/me';
 import { ApiError } from '../../../lib/api/types';
@@ -6,6 +8,7 @@ import { EVIDENCE_SOURCE_TYPE_LABELS } from '../../../lib/copy/enum-labels';
 import { EVIDENCE_COPY as COPY } from '../../../lib/copy/evidence';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { useScopedEmptyListPermission } from '../../../lib/cross-system/useScopedEmptyListPermission';
+import { listReadDenial } from '../../../lib/cross-system/list-read-denial';
 import { useIsArchivedSystem } from '../../../lib/cross-system/useIsArchivedSystem';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
@@ -15,6 +18,7 @@ import {
   Button,
   ListShell,
   ListToolbar,
+  PermissionBlockedPanel,
   SearchInput,
   Skeleton,
 } from '@ap/ui';
@@ -240,8 +244,12 @@ function EvidenceSession({
   // Only a confirmed denial (403 or a settled blocked check) closes the open record; a 401 is session loss, which keeps the selection for re-login.
   const listBlocked = (list.error instanceof ApiError && list.error.status === 403) || scopedPermission.state === 'blocked';
   const blocked = listBlocked || denied(detail.error);
-  const request = scopedPermission.state === 'blocked' ? scopedPermission.request : null;
-  const archived = useIsArchivedSystem(blocked && request === null && search.managedSystem !== 'all' ? search.managedSystem : undefined);
+  // The [권한 요청] or «요청 불가» choice is the Finding list's judgment, read from the 403 envelope too (#2639).
+  const { request: deniedRequest, roleRequired } = listReadDenial(list.error, scopedPermission);
+  const { lang = 'ko' } = useHostSeam();
+  const { permissionHomeHref } = useHostPermissionLinks();
+  const request = deniedRequest ?? null;
+  const archived = useIsArchivedSystem(blocked && request === null && !roleRequired && search.managedSystem !== 'all' ? search.managedSystem : undefined);
   useEffect(() => {
     if (!blocked) return;
     setDraft('');
@@ -385,6 +393,17 @@ function EvidenceSession({
                   reason={COPY.blocked}
                   request={request}
                   returnRouteIntent="/integration/evidence"
+                />
+              </div>
+            ) : roleRequired ? (
+              <div ref={deniedRef} tabIndex={-1}>
+                <PermissionBlockedPanel
+                  layout="card"
+                  lang={lang}
+                  state="blocked_not_requestable"
+                  category={COPY.title}
+                  exitAction={permissionCardExitAction(permissionHomeHref, lang)}
+                  reason={PERMISSION_BLOCKED_REASONS.evidenceListRoleRequired}
                 />
               </div>
             ) : blocked ? (

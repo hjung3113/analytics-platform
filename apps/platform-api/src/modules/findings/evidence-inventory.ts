@@ -1,4 +1,6 @@
 import {
+  FINDING_SCREEN_ROLE_FLOOR,
+  ROLE_LEVEL_LABELS,
   type EvidenceInventoryItem,
   type ListEvidenceInventoryQuery,
   type ListEvidenceInventoryResponse,
@@ -26,7 +28,12 @@ import type { FindingsActor, FindingsServiceDeps } from './service.js';
 const BATCH_SIZE = 100;
 function assertRole(actor: FindingsActor) {
   if (!hasElevatedFindingRole(actor))
-    throw new HttpError('permission.denied', 'elevated finding.read capability required');
+    // Same `role_required` answer as the Finding list, so both screens show the same «요청 불가» panel (#2639).
+    throw new HttpError(
+      'permission.denied',
+      `${ROLE_LEVEL_LABELS[FINDING_SCREEN_ROLE_FLOOR]} role or higher is required to read evidence`,
+      { reason: 'role_required', minimum_role: FINDING_SCREEN_ROLE_FLOOR },
+    );
 }
 function matches(item: EvidenceInventoryItem, q: string): boolean {
   const labels = [item.finding.title, item.finding.display_id];
