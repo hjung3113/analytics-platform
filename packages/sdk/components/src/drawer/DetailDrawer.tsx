@@ -8,6 +8,7 @@ import { invalidValueSentence, PlatformLink, useI18n, useMessages } from '@ap/ke
 import { RecoverButton } from '../state/RecoverButton';
 import { buildShareLink, useHostPlatformOptional } from '@ap/kernel/host';
 import { Button, DetailPanelFullscreenContext, DetailPanelHeader, DetailPanelHeaderActions, DetailPanelReadingColumn, useDetailPanelEscape, Tabs, TabsContent, TabsList, TabsTrigger, TransientOverlayScope, useDetailPanelSlot, useSurfacePaused, cn } from '@ap/ui';
+import type { DetailPanelHeaderProps } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { StateMessage } from '../StateView';
 
@@ -47,6 +48,7 @@ type DetailDrawerProps = {
   /** Copy the applied page with these registered page keys replaced. An empty patch opts in without focus=; null hides copy. */
   copyPage?: Readonly<Record<string, string | null>> | null | undefined;
   fullPageHref?: string;
+  titleLines?: DetailPanelHeaderProps['titleLines'];
   subtitle?: ReactNode; headerActions?: ReactNode; context?: ReactNode; footer?: ReactNode;
   onClose: () => void; tab?: string; onTabChange?: (tab: string) => void; onTabRecover?: () => void;
 } & (
@@ -91,7 +93,7 @@ function useCloseOnPaneChange(onClose: () => void) {
   }, [identity]);
 }
 
-function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title, fullPageHref, copyPage, missing, subtitle, headerActions, context, footer, tabs = [], onClose, tab, onTabChange, onTabRecover, returnFocusRef, isInList, listFocusRef, onListLeave = onClose }: DetailDrawerProps & { superseded: MutableRefObject<boolean> }) {
+function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title, titleLines = 1, fullPageHref, copyPage, missing, subtitle, headerActions, context, footer, tabs = [], onClose, tab, onTabChange, onTabRecover, returnFocusRef, isInList, listFocusRef, onListLeave = onClose }: DetailDrawerProps & { superseded: MutableRefObject<boolean> }) {
   const { lang, t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const onKeyDown = useDetailPanelEscape(onClose);
@@ -192,7 +194,7 @@ function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title,
     return () => { observer.disconnect(); };
   }, []);
   const heading = fullPageHref && title != null
-    ? <PlatformLink href={fullPageHref} className="block truncate rounded-sm hover:underline focus-visible:-outline-offset-2">{title}</PlatformLink>
+    ? <PlatformLink href={fullPageHref} className={cn(titleLines === 1 && 'block truncate', 'rounded-sm hover:underline focus-visible:-outline-offset-2')}>{title}</PlatformLink>
     : title;
   const shared = platform && !missing && copyPage !== null && (copyPage !== undefined || platform.pageParam('focus'))
     ? buildShareLink({ kind: 'conditions', route: platform.route, global: platform.global, page: platform.page, pageOverride: copyPage, absoluteUrl: platform.absoluteUrl })
@@ -210,7 +212,7 @@ function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title,
     onKeyDown={onKeyDown}
     className={cn('flex h-full min-h-0 w-full flex-col bg-surface-detail', tabs.some(tb => tb.regions !== undefined) && '@container/detail-panel')}>
     {!missing && paneLabel && <p data-detail-pane-label className="truncate px-5 pt-2 text-xs text-text-muted">{paneLabel}</p>}
-    <DetailPanelHeader id={recordId} title={missing ? undefined : heading} headingId={`${id}-t`}
+    <DetailPanelHeader id={recordId} title={missing ? undefined : heading} titleLines={titleLines} headingId={`${id}-t`}
       onClose={onClose} closeRef={close} closeLabel={m('drawerCloseDetails')} showExpand={!missing}
       expandLabel={t('detailExpand')} collapseLabel={t('detailCollapse')}
       extras={!missing && <>{copyAction}{headerActions}</>}

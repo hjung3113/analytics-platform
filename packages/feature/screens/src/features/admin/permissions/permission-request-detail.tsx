@@ -156,8 +156,8 @@ export function PermissionRequestDetail({
 
   if (renderDetail) {
     return renderDetail({
-      // The SDK heading truncates inline content. A wrapping block keeps the full title in the same heading.
-      title: <span className="block whitespace-normal wrap-anywhere">{title}</span>,
+      title,
+      titleLines: 2,
       subtitle: COPY.request[lang],
       headerActions: <OutlineBadge className="shrink-0 whitespace-nowrap">{permissionRequestStatusText[request.status][lang]}</OutlineBadge>,
       body,

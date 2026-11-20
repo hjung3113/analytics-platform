@@ -125,6 +125,48 @@ describe('DetailPanelHeader — milestone kind badge', () => {
   });
 });
 
+describe('DetailPanelHeader — title lines', () => {
+  it.each([{}, { titleLines: 1 }] as const)('keeps the single-line title layout with %j', options => {
+    render(<DetailPanelHeader title="Record title" {...options} />);
+    const heading = screen.getByRole('heading', { name: 'Record title' });
+    expect(heading.closest('header')).toHaveClass('h-toolbar');
+    expect(heading).toHaveClass('truncate');
+  });
+
+  it('lets the header grow for a title clamped at two lines', () => {
+    render(<DetailPanelHeader title="A long record title" titleLines={2} />);
+    const heading = screen.getByRole('heading', { name: 'A long record title' });
+    expect(heading.closest('header')).toHaveClass('min-h-toolbar');
+    expect(heading.closest('header')).not.toHaveClass('h-toolbar');
+    expect(heading).toHaveClass('line-clamp-2', 'wrap-anywhere');
+    expect(heading).not.toHaveClass('truncate');
+  });
+
+  it('keeps metadata beside a single-line title', () => {
+    render(<DetailPanelHeader title="Record title" metadata={<span>Request</span>} />);
+    const heading = screen.getByRole('heading', { name: 'Record title' });
+    expect(heading.parentElement?.parentElement).toContainElement(screen.getByText('Request'));
+    expect(heading.parentElement?.parentElement).not.toHaveClass('flex-col');
+  });
+
+  it('moves the kind label and metadata to a line under a two-line title', () => {
+    render(<DetailPanelHeader title="A long record title" titleLines={2} label="Kind" metadata={<span>Request</span>} />);
+    const heading = screen.getByRole('heading', { name: 'A long record title' });
+    const titleBlock = heading.parentElement?.parentElement;
+    expect(titleBlock).toHaveClass('flex-col');
+    const metaRow = screen.getByText('Request').parentElement;
+    expect(metaRow?.parentElement).toBe(titleBlock);
+    expect(metaRow).toContainElement(screen.getByText('Kind'));
+    expect(metaRow).not.toContainElement(heading);
+  });
+
+  it('adds no empty line under a two-line title without metadata', () => {
+    render(<DetailPanelHeader title="A long record title" titleLines={2} metadata={false} />);
+    const titleBlock = screen.getByRole('heading', { name: 'A long record title' }).parentElement?.parentElement;
+    expect(titleBlock?.children).toHaveLength(1);
+  });
+});
+
 describe('DetailPanelHeader — display', () => {
   it('renders the display id', () => {
     render(<DetailPanelHeader kind="voc" id="V-2048" onClose={() => {}} />);

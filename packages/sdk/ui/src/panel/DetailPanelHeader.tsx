@@ -37,6 +37,8 @@ export interface DetailPanelHeaderProps {
    */
   id?: string | undefined;
   title?: React.ReactNode;
+  /** Maximum title lines. Defaults to one line in a fixed-height toolbar. */
+  titleLines?: 1 | 2;
   /** ID of the visible title heading, or the record ID heading when there is no title. */
   headingId?: string;
   metadata?: React.ReactNode;
@@ -97,6 +99,7 @@ export function DetailPanelHeader({
   accent: suppliedAccent,
   id,
   title,
+  titleLines = 1,
   headingId,
   metadata,
   onClose,
@@ -115,6 +118,21 @@ export function DetailPanelHeader({
   const hasFullscreenToggle = useContext(DetailPanelFullscreenContext) !== null;
   const showActions = (showExpand && hasFullscreenToggle) || onClose !== undefined;
   const hasKind = kicker !== undefined || dataKind !== undefined;
+  const wrapsTitle = titleLines === 2;
+  const kickerBadge = kicker !== undefined && <StatusBadgeFrame
+    appearance="compact"
+    textClassName={accent.textClass}
+    tintClassName="bg-(--detail-panel-kind-tint)"
+    className="leading-none tracking-kind-label"
+    indicator={
+      <span
+        aria-hidden="true"
+        className={cn('h-1.5 w-1.5 shrink-0 rounded-(--radius-pill)', accent.bgClass)}
+      />
+    }
+  >
+    {kicker}
+  </StatusBadgeFrame>;
 
   return (
     <header
@@ -127,7 +145,7 @@ export function DetailPanelHeader({
       }
       className={cn(
         'sticky top-0 z-10 bg-surface-card border-b border-border-subtle',
-        'flex shrink-0 items-stretch h-toolbar',
+        wrapsTitle ? 'flex shrink-0 items-stretch min-h-toolbar' : 'flex shrink-0 items-stretch h-toolbar',
         className,
       )}
     >
@@ -136,30 +154,18 @@ export function DetailPanelHeader({
       {/* Content row */}
       <div
         data-testid="detail-panel-header-content"
-        className={cn('flex flex-1 items-center gap-3 pr-3 min-w-0', isMilestone || !hasKind ? 'pl-5' : 'pl-4')}
+        className={cn('flex flex-1 items-center gap-3 pr-3 min-w-0', isMilestone || !hasKind ? 'pl-5' : 'pl-4', wrapsTitle && 'py-1')}
       >
-        <div className="flex min-w-0 items-baseline gap-2 break-keep">
-          <div className="flex min-w-0 items-baseline gap-2">
+        <div className={wrapsTitle ? 'flex min-w-0 flex-col items-start gap-0.5 break-keep' : 'flex min-w-0 items-baseline gap-2 break-keep'}>
+          <div className={cn('flex min-w-0', wrapsTitle ? 'items-center' : 'items-baseline', 'gap-2')}>
             {id !== undefined && (title == null
               ? <h2 id={headingId} className="t-mono truncate font-mono text-xs text-text-muted leading-none">{id}</h2>
               : <span className="t-mono max-w-1/2 shrink-0 truncate font-mono text-xs text-text-muted leading-none">{id}</span>)}
-            {title != null && <h2 id={headingId} className="t-section-title min-w-0 truncate">{title}</h2>}
+            {title != null && <h2 id={headingId} className={cn('t-section-title min-w-0', wrapsTitle ? 'line-clamp-2 wrap-anywhere' : 'truncate')}>{title}</h2>}
           </div>
-          {kicker !== undefined && <StatusBadgeFrame
-            appearance="compact"
-            textClassName={accent.textClass}
-            tintClassName="bg-(--detail-panel-kind-tint)"
-            className="leading-none tracking-kind-label"
-            indicator={
-              <span
-                aria-hidden="true"
-                className={cn('h-1.5 w-1.5 shrink-0 rounded-(--radius-pill)', accent.bgClass)}
-              />
-            }
-          >
-            {kicker}
-          </StatusBadgeFrame>}
-          {metadata}
+          {wrapsTitle
+            ? (kicker !== undefined || Boolean(metadata)) && <div className="flex min-w-0 max-w-full items-center gap-2">{kickerBadge}{metadata}</div>
+            : <>{kickerBadge}{metadata}</>}
         </div>
 
         {/* Extras slot */}
