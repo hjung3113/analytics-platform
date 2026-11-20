@@ -1,5 +1,5 @@
 import { Inbox } from 'lucide-react';
-import { cleanup, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, assert, beforeAll, describe, expect, it, vi } from 'vitest';
 import { carrySetId, groupId, spaceId, type Permission } from '@ap/contracts';
 import { createRegistry } from '@ap/kernel';
@@ -29,7 +29,7 @@ afterEach(() => {
   window.history.replaceState(null, '', '/');
 });
 
-function mountGate(route: 'inbox' | 'triage', homePermission: Permission, spaceHomePermission: Permission) {
+function mountGate(route: 'inbox' | 'triage', homePermission: Permission, spaceHomePermission: Permission, { zeroReadScope = false } = {}) {
   const base = manifests[0];
   assert(base && base.module === undefined);
   const global = groupId('global');
@@ -54,15 +54,21 @@ function mountGate(route: 'inbox' | 'triage', homePermission: Permission, spaceH
     const path = new URL(String(input), 'http://localhost').pathname.replace('/api/features', '');
     if (path === '/vocs') return Response.json({
       code: 'permission.denied', message: 'denied',
-      requestable_permission: { permission: 'voc.read', managed_system_id: SYSTEM, reason_required: true },
+      requestable_permission: { permission: 'voc.read', managed_system_id: zeroReadScope ? null : SYSTEM, reason_required: true },
     }, { status: 403 });
-    if (path === '/me') return Response.json(ME);
-    if (path === '/me/permissions/check') return Response.json({ state: 'approved', decision: { allow: true } });
+    if (path === '/me') return Response.json(zeroReadScope ? { ...ME, actor: { ...ME.actor, role_level: 'developer' } } : ME);
+    if (path === '/me/permissions/check') {
+      if (zeroReadScope) return Response.json({
+        state: 'request_access', decision: { allow: false, reason: 'no_grant', requestable: [{ workspace_id: ME.workspace_id }] },
+      });
+      return Response.json({ state: 'approved', decision: { allow: true } });
+    }
+    if (path === '/me/permissions/scope' && zeroReadScope) return Response.json({ scope: { kind: 'scoped', managed_system_ids: [] } });
     if (path === '/me/permissions/scope') return Response.json({ scope: { kind: 'all' } });
     if (path === '/nav/counts') return Response.json({ counts: {} });
     if (path === '/managed-systems') return Response.json({ items: [], total: 0 });
     if (path === '/analytics-areas') return Response.json({ items: [] });
-    if (path === '/permission-requests/mine') return Response.json({ requests: [ROW] });
+    if (path === '/permission-requests/mine') return Response.json({ requests: zeroReadScope ? [] : [ROW] });
     return Response.json({ code: 'test.unhandled_request', message: path }, { status: 500 });
   }));
   setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() });
@@ -70,6 +76,16 @@ function mountGate(route: 'inbox' | 'triage', homePermission: Permission, spaceH
 }
 
 describe('permission cards in the live feature host', () => {
+  it('opens the exact request for the confirmed System when the Developer has zero read scope', async () => {
+    mountGate('inbox', 'platform:view', 'console:access', { zeroReadScope: true });
+    const action = await screen.findByText('권한 요청', { selector: 'a, button' }, LAZY_MOUNT_WAIT);
+    expect(action.tagName).toBe('BUTTON');
+    fireEvent.click(action);
+    const request = within(await screen.findByRole('dialog', { name: '권한 요청' }));
+    expect(request.getByText(SYSTEM)).toBeTruthy();
+    expect(request.queryByText('전체')).toBeNull();
+  });
+
   it.each([
     ['inbox', 'platform:view', 'console:access', '/'],
     ['inbox', 'console:access', 'console:access', null],

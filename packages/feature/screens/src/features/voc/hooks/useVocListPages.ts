@@ -1,3 +1,5 @@
+import { isPermissionDenied } from '../../../lib/api/types';
+import { usePermissionCheckBridge } from '../../../lib/cross-system/usePermissionCheckBridge';
 import { placeholderDataForSearchOnly } from '../../../lib/query/placeholder-data-for-search';
 import { hashKey, useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -90,7 +92,7 @@ export function useVocListPages(params: UseVocListPagesParams) {
     };
     setRequested(transition);
   }
-  return useInfiniteQuery({
+  const list = useInfiniteQuery({
     queryKey,
     placeholderData: (previousData, previousQuery) =>
       transition.block
@@ -104,6 +106,28 @@ export function useVocListPages(params: UseVocListPagesParams) {
       ),
     getNextPageParam: (last: VocListPage) => (last.page?.has_more ? last.page.cursor : undefined),
     staleTime: 30_000,
-    retry: 1,
+    retry: (failureCount, error) => !isPermissionDenied(error) && failureCount < 1,
   });
+  const requestable = isPermissionDenied(list.error)
+    ? list.error.envelope.requestable_permission
+    : undefined;
+  const systemId = managedSystemId === 'all' ? undefined : managedSystemId;
+  // The exact-System permission check applies the server's request eligibility policy.
+  const checkSelectedSystem =
+    view === 'inbox' &&
+    systemId !== undefined &&
+    requestable?.permission === 'voc.read' &&
+    requestable.managed_system_id == null;
+  const check = usePermissionCheckBridge(
+    { capability: 'voc.read', ...(systemId !== undefined ? { managedSystemId: systemId } : {}) },
+    { enabled: checkSelectedSystem },
+  );
+  const decision = check.data?.decision;
+  const selectedSystemRequestable =
+    checkSelectedSystem &&
+    check.isSuccess &&
+    decision?.allow === false &&
+    Array.isArray(decision.requestable) &&
+    decision.requestable.length > 0;
+  return { ...list, selectedRequestSystemId: selectedSystemRequestable ? systemId : undefined };
 }

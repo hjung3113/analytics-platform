@@ -159,13 +159,9 @@ export function useInboxState(view: 'inbox' | 'my') {
     () => vocList.data?.pages.flatMap((page) => page.items) ?? [],
     [vocList.data],
   );
-  // A failed next page keeps the loaded rows; it must not reach the list's
-  // error or permission-denied states.
-  const listError = vocList.isFetchNextPageError ? null : vocList.error;
-  // Captured outside JSX: property narrowing does not survive into the renderTrigger callback.
-  const deniedMsScoped =
-    isPermissionDenied(listError) &&
-    typeof listError.envelope.requestable_permission?.managed_system_id === 'string';
+  const permissionError = isPermissionDenied(vocList.error) ? vocList.error : null;
+  // Ordinary next-page failures keep the loaded rows and use the paging retry.
+  const listError = permissionError ?? (vocList.isFetchNextPageError ? null : vocList.error);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -184,8 +180,8 @@ export function useInboxState(view: 'inbox' | 'my') {
     items,
     outOfScopeSummary: vocList.data?.pages[0]?.out_of_scope_summary,
     listError,
-    deniedMsScoped,
-    inboxPermissionBlocked: view === 'inbox' && isPermissionDenied(listError),
+    permissionError,
+    inboxPermissionBlocked: view === 'inbox' && permissionError !== null,
     isSearching: urlQ !== '',
     handleTabChange: (next: string): void => write((prev) => ({ ...prev, tab: next as InboxTab })),
     handleFiltersChange: (next: Record<string, string[]>): void =>

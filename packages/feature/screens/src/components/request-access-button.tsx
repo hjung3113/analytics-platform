@@ -81,6 +81,7 @@ interface RequestAccessButtonCommonProps {
   returnRouteIntent: string;
   /** Opt in to the request and exit slots when rendering a blocked card. */
   layout?: PermissionBlockedPanelProps['layout'];
+  /** Open the exact target in this dialog and lock any Site or room fields. */
   exactScopeTarget?: boolean;
   onRequestSubmitted?: () => void;
   /** Uses a caller-owned trigger while this component retains the request dialog and flow. */
@@ -115,7 +116,7 @@ const RECOVERABLE_CONFLICT_CODES = new Set([
 export function RequestAccessButton(props: RequestAccessButtonProps) {
   const { permissionRequestHref } = useHostPermissionLinks();
   if (permissionRequestHref && props.layout === 'card' && props.renderTrigger && props.capability &&
-      props.open === undefined && !props.onRequestSubmitted) {
+      props.open === undefined && !props.onRequestSubmitted && !props.exactScopeTarget) {
     return <RequestAccessLink {...props} capability={props.capability} renderTrigger={props.renderTrigger} />;
   }
   return <RequestAccessDialog {...props} />;
