@@ -27,6 +27,10 @@ This repository tracks work, decisions, and PRDs in GitHub issues at `hjung3113/
 
 Add the `on-hold` label to an issue while an external condition remains unresolved; remove it when the condition clears. For example, keep #163 and #164 on hold until their work requirement is confirmed.
 
+## Owner Labels
+
+`owner-ok:size` and `owner-ok:scope` go on a pull request, and only the owner applies them. They are the only way past the `PR guard` CI check: `owner-ok:size` lets this one PR exceed 400 lines or 40 files, `owner-ok:scope` lets it close an issue outside the release's `## 범위` or add numbers to that section. An agent never applies, removes or asks a worker to apply one; it asks the owner with `질문 #n`. Reason: the check prints who applied the label and when, so the label is the owner's recorded decision ([`PROFILE.md`](../../.agents/conductor/PROFILE.md) §Size and path).
+
 ## Pull Requests as a Triage Surface
 
 **PRs as a request surface: no.**
