@@ -28,7 +28,7 @@ import { LIST_SEARCH_EMPTY_LABEL, LIST_SEARCH_PLACEHOLDER } from '../../../lib/c
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors';
 import { useScopedEmptyListPermission } from '../../../lib/cross-system/useScopedEmptyListPermission';
-import { managedSystemsCatalogQuery } from '../../../lib/cross-system/useManagedSystemNames';
+import { useIsArchivedSystem } from '../../../lib/cross-system/useIsArchivedSystem';
 import { formatCount } from '../../../lib/format/count';
 import { formatShortDate } from '../../../lib/format/datetime';
 import { useHostSeam } from '../../../lib/host/host-seam';
@@ -468,10 +468,7 @@ function FindingsListShell({
 
 /** A not-requestable denial. An archived System cannot be read even with the permission, so it names that instead of the missing permission. */
 function FindingsDeniedCard({ managedSystemId }: { managedSystemId: string | undefined }): React.ReactElement {
-  const systems = useQuery({ ...managedSystemsCatalogQuery(), enabled: managedSystemId !== undefined });
-  const archived = managedSystemId !== undefined
-    && systems.data?.items.some((system) => system.id === managedSystemId && Boolean(system.archived_at)) === true;
-  if (archived) {
+  if (useIsArchivedSystem(managedSystemId)) {
     return <PermissionDeniedCard layout="card" category="Findings" reason={PERMISSION_BLOCKED_REASONS.archivedSystem} />;
   }
   return (
