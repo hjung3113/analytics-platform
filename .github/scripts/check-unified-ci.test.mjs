@@ -11,7 +11,7 @@ const aggregate = workflow.split('  platform-workspace:\n')[1].split('\n  # #666
 const verdict = aggregate.split('        run: |\n')[1].trim().replace(/^          /gm, '');
 
 test('required workspace verdict fails every failed, cancelled or accidental skipped feature gate', () => {
-  assert.match(aggregate, /needs: \[changes, platform-static, platform-typecheck, platform-test, feature-integration\]/);
+  assert.match(aggregate, /needs: \[changes, platform-static, platform-typecheck, platform-test, feature-integration, pr-guard\]/);
   let cases = 0;
   for (const CODE of ['true', '', 'false']) {
     for (const STATIC of ['success', 'failure', 'cancelled', 'skipped', '']) {
@@ -19,7 +19,7 @@ test('required workspace verdict fails every failed, cancelled or accidental ski
       for (const TEST of ['success', 'failure', 'cancelled', 'skipped', '']) {
         for (const INTEGRATION of ['success', 'failure', 'cancelled', 'skipped', '']) {
           const run = spawnSync('bash', ['-e', '-c', verdict], {
-            cwd: root, encoding: 'utf8', env: { ...process.env, CODE, STATIC, TYPECHECK, TEST, INTEGRATION },
+            cwd: root, encoding: 'utf8', env: { ...process.env, CODE, STATIC, TYPECHECK, TEST, INTEGRATION, GUARD: 'success' },
           });
           const succeeds = STATIC === 'success' && TYPECHECK === 'success' && TEST === 'success' && (INTEGRATION === 'success' || (CODE === 'false' && INTEGRATION === 'skipped'));
           assert.equal(run.status === 0, succeeds, JSON.stringify({ CODE, STATIC, TYPECHECK, TEST, INTEGRATION }));
@@ -30,6 +30,21 @@ test('required workspace verdict fails every failed, cancelled or accidental ski
     }
   }
   assert.equal(cases, 1875);
+});
+
+// #2643: the PR guard (size, round and scope caps) is required through the workspace verdict, on every event; a skipped or failed guard fails it.
+test('required workspace verdict fails unless the PR guard succeeded', () => {
+  const guardJob = workflow.split('  pr-guard:\n')[1].split('\n  # The required check')[0];
+  assert.match(guardJob, /if: \$\{\{ github\.event_name == 'pull_request' \}\}/);
+  assert.match(guardJob, /pull-requests: read\n\s+actions: read/);
+  assert.match(guardJob, /run: node \.github\/scripts\/pr-guard\.mjs/);
+  assert.match(workflow, /node \.github\/scripts\/pr-guard\.mjs --self-test/);
+  for (const GUARD of ['success', 'failure', 'cancelled', 'skipped', '']) {
+    const run = spawnSync('bash', ['-e', '-c', verdict], {
+      cwd: root, encoding: 'utf8', env: { ...process.env, CODE: 'true', STATIC: 'success', TYPECHECK: 'success', TEST: 'success', INTEGRATION: 'success', GUARD },
+    });
+    assert.equal(run.status === 0, GUARD === 'success', `guard=${GUARD}`);
+  }
 });
 
 test('mock-dist readers precede real production build; folded feature coverage stays required', () => {
