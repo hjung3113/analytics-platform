@@ -20,5 +20,19 @@ export const usesListScope = (menu: MenuEntry | null) => declares(menu, SCOPED_G
 export const usesNavCounts = (menu: MenuEntry | null) => declares(menu, COUNTED_GROUPS);
 /** True when the current menu uses the saved VOC views section. */
 export const usesSavedViews = (menu: MenuEntry | null) => declares(menu, SAVED_VIEW_GROUPS);
+/**
+ * The capability each operator group's list reads, for the sidebar picker's in/out-of-scope marks (#2630). A group absent here keeps the
+ * picker's default (`voc.read`). The `findings` group (전체 Finding, 근거) lists Findings, which `finding.read` grants per Managed System.
+ * Declared here, next to the groups that mount the picker, because the capability is feature vocabulary the Kernel menu manifest does not carry.
+ */
+// Values are checked where ScopeControl passes them to the picker's `capability` prop:
+// this module may not import feature-screens (boundary lint).
+const LIST_SCOPE_CAPABILITY = { findings: 'finding.read' } as const;
+type ListScopeCapability = (typeof LIST_SCOPE_CAPABILITY)[keyof typeof LIST_SCOPE_CAPABILITY];
+/** The capability the sidebar `목록 범위` marks scope by on the current menu; `undefined` = the picker's default. */
+export const listScopeCapability = (menu: MenuEntry | null): ListScopeCapability | undefined =>
+  menu !== null && usesListScope(menu) && Object.hasOwn(LIST_SCOPE_CAPABILITY, menu.group)
+    ? LIST_SCOPE_CAPABILITY[menu.group as keyof typeof LIST_SCOPE_CAPABILITY]
+    : undefined;
 /** The 흐름 설정 (`flowSettings`) menus ignore the list scope: the picker is disabled there and the carried value stays in the URL. */
 export const ignoresListScope = (menu: MenuEntry | null) => menu?.group === 'flowSettings';

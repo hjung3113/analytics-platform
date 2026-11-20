@@ -2,6 +2,7 @@
 // `AppFrame`, but through `useMeBridge`, `fetchManagedSystems` and `fetchCapabilityScopeViaClient` (all on `client.ts`),
 // so the platform sidebar's Scope place shares the feature cache and the `/api/features` base path. Value only through props.
 
+import type { Capability } from '@ap/feature-shared';
 import { Button } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -9,6 +10,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { useMeBridge } from '../../lib/api/me';
 import { fetchCapabilityScopeViaClient } from '../../lib/api/permission-reads';
 import { fetchManagedSystems } from '../../lib/api/registry-reads';
+import { managedSystemLabels } from '../../lib/format/managed-system-label';
 import { SCOPE_SELECTOR_COPY } from '../../lib/copy/managed-system-scope';
 import { managedSystemsCatalogBridgeQuery } from '../../lib/cross-system/managedSystemCatalog';
 
@@ -19,6 +21,11 @@ export interface ManagedSystemScopeControlProps {
   onChange: (managedSystemId: string | undefined) => void;
   disabled?: boolean;
   collapsed?: boolean;
+  /**
+   * The capability whose granted scope marks each system in or out of range («범위 밖»). The menu declares it for its list
+   * (전체 Finding and 근거 read `finding.read`); absent keeps the VOC read scope (`voc.read`).
+   */
+  capability?: Capability;
 }
 
 export function ManagedSystemScopeControl({
@@ -26,6 +33,7 @@ export function ManagedSystemScopeControl({
   onChange,
   disabled,
   collapsed,
+  capability = 'voc.read',
 }: ManagedSystemScopeControlProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const retryOwnsFocus = useRef(false);
@@ -50,9 +58,9 @@ export function ManagedSystemScopeControl({
     system => system.id === value && typeof system.archived_at === 'string',
   )?.name;
   const grantsQuery = useQuery({
-    queryKey: ['managed-system-scope', actorId, 'voc.read'] as const,
+    queryKey: ['managed-system-scope', actorId, capability] as const,
     enabled: actorId !== undefined,
-    queryFn: ({ signal }) => fetchCapabilityScopeViaClient('voc.read', { signal }),
+    queryFn: ({ signal }) => fetchCapabilityScopeViaClient(capability, { signal }),
     staleTime: 60_000,
     retry: false,
   });
@@ -67,9 +75,11 @@ export function ManagedSystemScopeControl({
     actorId !== undefined &&
     grantsQuery.data === undefined &&
     grantsQuery.fetchStatus === 'fetching';
+  // The shared label rule (#2602): the name alone, ` (slug)` only where two systems share a name.
+  const labels = managedSystemLabels(systemsQuery.data?.items ?? []);
   const managedSystems = (systemsQuery.data?.items ?? []).map((system) => ({
     id: system.id,
-    name: system.name,
+    name: labels.get(system.id) ?? system.name,
     // Keep the initial permission fetch from briefly marking every system out of scope.
     granted:
       awaitingInitialScope ||
