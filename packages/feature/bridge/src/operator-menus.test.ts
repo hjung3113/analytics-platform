@@ -4,12 +4,12 @@ import { listScopeCapability } from './operator-menus';
 
 const menu = (group: string, pageKeys: readonly string[] = ['managedSystem']) => ({ group, pageKeys }) as unknown as MenuEntry;
 
-describe('listScopeCapability (#2630)', () => {
-  it('marks the findings group (전체 Finding, 근거) by finding.read', () => {
-    expect(listScopeCapability(menu('findings'))).toBe('finding.read');
+describe('listScopeCapability (#2630, #2632)', () => {
+  it.each([['findings', 'finding.read'], ['surveys', 'survey.read'], ['tasks', 'finding.manage']])('marks the %s group by %s', (group, capability) => {
+    expect(listScopeCapability(menu(group))).toBe(capability);
   });
 
-  it.each(['voc', 'tasks', 'surveys', 'dashboard', 'integration', 'flowSettings'])('keeps the picker default for %s', group => {
+  it.each(['voc', 'dashboard', 'integration', 'flowSettings'])('keeps the picker default for %s', group => {
     expect(listScopeCapability(menu(group))).toBeUndefined();
   });
 
