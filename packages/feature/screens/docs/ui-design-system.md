@@ -118,7 +118,7 @@ name catalogs and permission requests all use this read.
 The sidebar scope control shows a loading status before the catalog arrives. A failed
 catalog read shows an error and `다시 시도`, including when a background refresh failed;
 it does not present an empty picker. After a successful empty read it offers the usual
-all-systems value. System names and `voc.read` scope flags remain separate.
+all-systems value. System names and scope flags (by the list's capability, default `voc.read`) remain separate.
 
 ### Responsive Behavior
 

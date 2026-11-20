@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const apiRequest = vi.hoisted(() => vi.fn());
 vi.mock('../../../lib/api/client', () => ({ apiRequest }));
 
+import type { Capability } from '@ap/feature-shared';
 import { ManagedSystemScopeControl } from '../ManagedSystemScopeControl';
 import { managedSystemsCatalogBridgeQuery } from '../../../lib/cross-system/managedSystemCatalog';
 
@@ -48,11 +49,11 @@ function respond(roleLevel: string, scope: unknown) {
   );
 }
 
-function renderControl() {
+function renderControl(capability?: Capability) {
   const client = new QueryClient();
   render(
     <QueryClientProvider client={client}>
-      <ManagedSystemScopeControl onChange={vi.fn()} />
+      <ManagedSystemScopeControl onChange={vi.fn()} {...(capability !== undefined ? { capability } : {})} />
     </QueryClientProvider>,
   );
   return client;
@@ -87,6 +88,99 @@ describe('ManagedSystemScopeControl', () => {
         JSON.stringify(['me']),
       ]),
     );
+  });
+
+  it('marks scope by the capability the menu declares (#2630)', async () => {
+    apiRequest.mockReset();
+    apiRequest.mockImplementation(
+      async (
+        _method: string,
+        url: string,
+        parser: ((data: unknown) => unknown) | { parse(data: unknown): unknown },
+      ) => {
+        const scope = url.endsWith('capability=finding.read')
+          ? { kind: 'scoped', managed_system_ids: [MS_B] }
+          : { kind: 'scoped', managed_system_ids: [MS_A] };
+        const body = url === '/me' ? ME('developer') : url === '/managed-systems' ? SYSTEMS : { scope };
+        return { data: typeof parser === 'function' ? parser(body) : parser.parse(body) };
+      },
+    );
+    const client = renderControl('finding.read');
+    await waitFor(() =>
+      expect(screen.getByTestId('scope-selector')).toHaveTextContent('내 담당: Beta'),
+    );
+    expect(apiRequest.mock.calls.map((call) => call[1])).not.toContain('/me/permissions/scope?capability=voc.read');
+    expect(
+      client.getQueryCache().getAll().map((query) => JSON.stringify(query.queryKey)),
+    ).toContain(JSON.stringify(['managed-system-scope', 'actor-1', 'finding.read']));
+  });
+
+  it('switches the marks cleanly when the declared capability changes on an open picker (#2630)', async () => {
+    apiRequest.mockReset();
+    let releaseFinding: () => void = () => undefined;
+    apiRequest.mockImplementation(
+      async (
+        _method: string,
+        url: string,
+        parser: ((data: unknown) => unknown) | { parse(data: unknown): unknown },
+      ) => {
+        if (url.endsWith('capability=finding.read')) await new Promise<void>((resolve) => { releaseFinding = resolve; });
+        const scope = url.endsWith('capability=finding.read')
+          ? { kind: 'scoped', managed_system_ids: [MS_B] }
+          : { kind: 'scoped', managed_system_ids: [MS_A] };
+        const body = url === '/me' ? ME('developer') : url === '/managed-systems' ? SYSTEMS : { scope };
+        return { data: typeof parser === 'function' ? parser(body) : parser.parse(body) };
+      },
+    );
+    const client = new QueryClient();
+    const view = (capability?: Capability) => (
+      <QueryClientProvider client={client}>
+        <ManagedSystemScopeControl onChange={vi.fn()} {...(capability !== undefined ? { capability } : {})} />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(view());
+    await waitFor(() => expect(screen.getByTestId('scope-selector')).toHaveTextContent('내 담당: Alpha'));
+    fireEvent.click(screen.getByTestId('scope-selector'));
+    await screen.findByTestId(`scope-option-${MS_B}`);
+    const shielded = () => screen.queryAllByLabelText('범위 밖').length;
+    expect(shielded()).toBe(1);
+    rerender(view('finding.read'));
+    // While the new scope loads, nothing is marked out of scope and no mark from voc.read is left.
+    expect(shielded()).toBe(0);
+    await act(async () => releaseFinding());
+    await waitFor(() => expect(screen.getByTestId('scope-selector')).toHaveTextContent('내 담당: Beta'));
+    expect(shielded()).toBe(1);
+    expect(screen.getByTestId(`scope-option-${MS_A}`)).toContainElement(screen.getByLabelText('범위 밖'));
+  });
+
+  it('names two systems that share a name by their slug, and only those (#2602 label rule)', async () => {
+    apiRequest.mockReset();
+    const MS_C = '33333333-3333-4333-8333-333333333333';
+    const shared = { items: [system(MS_A, 'Power BI'), { ...system(MS_B, 'Power BI'), slug: 'power-bi-2' }, system(MS_C, 'Tableau')], total: 3 };
+    apiRequest.mockImplementation(
+      async (
+        _method: string,
+        url: string,
+        parser: ((data: unknown) => unknown) | { parse(data: unknown): unknown },
+      ) => {
+        const body = url === '/me' ? ME('admin') : url === '/managed-systems' ? shared : { scope: { kind: 'all' } };
+        return { data: typeof parser === 'function' ? parser(body) : parser.parse(body) };
+      },
+    );
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <ManagedSystemScopeControl value={MS_B} onChange={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId('scope-name')).toHaveTextContent('Power BI (power-bi-2)'));
+    fireEvent.click(screen.getByTestId('scope-selector'));
+    const options = await screen.findAllByRole('option');
+    const names = options.map((option) => option.textContent ?? '');
+    // The fixture slug is the lower-cased name.
+    expect(names.some((name) => name.includes('Power BI (power bi)'))).toBe(true);
+    expect(names.some((name) => name.includes('Power BI (power-bi-2)'))).toBe(true);
+    expect(names.some((name) => name.includes('Tableau') && !name.includes('('))).toBe(true);
   });
 
   it('shows the workspace-wide scope for an admin', async () => {

@@ -10,9 +10,10 @@ import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { manifests } from './index';
 import { mountAt } from './test-support';
 
-const picker = vi.hoisted(() => ({ props: [] as { value?: string; disabled?: boolean; onChange: (id: string | undefined) => void }[] }));
+type PickerProps = { value?: string; disabled?: boolean; capability?: string; onChange: (id: string | undefined) => void };
+const picker = vi.hoisted(() => ({ props: [] as PickerProps[] }));
 vi.mock('@ap/feature-screens/operator-screens/scope-picker', () => ({
-  ManagedSystemScopeControl: (props: { value?: string; disabled?: boolean; onChange: (id: string | undefined) => void }) => { picker.props.push(props); return <div data-testid="picker" />; },
+  ManagedSystemScopeControl: (props: PickerProps) => { picker.props.push(props); return <div data-testid="picker" />; },
 }));
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
@@ -27,6 +28,8 @@ describe('목록 범위 picker (ready session)', () => {
     mountAt(`/flow/dashboard?managedSystem=${SYSTEM}`, { extra: <Control collapsed={false} /> });
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
     expect(picker.props.at(-1)?.value).toBe(SYSTEM);
+    // #2630: the dashboard declares no list capability, so the picker keeps its default.
+    expect(picker.props.at(-1)?.capability).toBeUndefined();
   });
 
   it.each(['not-a-uuid', ''])('does not pass the invalid managedSystem %j to the picker as a selection', async value => {
