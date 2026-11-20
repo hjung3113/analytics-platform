@@ -16,7 +16,7 @@ import {
 } from './findings-search';
 import { resolveActors } from '../../../lib/api/actors';
 import { fetchEntityLinksBySource } from '../../../lib/api/entity-links';
-import { ApiError, isPermissionDenied } from '../../../lib/api/types';
+import { ApiError } from '../../../lib/api/types';
 import {
   FINDING_CONFIDENCE_LABELS,
   FINDING_SEVERITY_LABELS,
@@ -28,6 +28,7 @@ import { LIST_SEARCH_EMPTY_LABEL, LIST_SEARCH_PLACEHOLDER } from '../../../lib/c
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors';
 import { useScopedEmptyListPermission } from '../../../lib/cross-system/useScopedEmptyListPermission';
+import { listReadDenial } from '../../../lib/cross-system/list-read-denial';
 import { useIsArchivedSystem } from '../../../lib/cross-system/useIsArchivedSystem';
 import { formatCount } from '../../../lib/format/count';
 import { formatShortDate } from '../../../lib/format/datetime';
@@ -248,19 +249,11 @@ function FindingsListShell({
       : checkUnfiltered && unfilteredQuery.isError
         ? unfilteredQuery.error
         : null;
-  const permissionError = isPermissionDenied(stateError) ? stateError : null;
-  const roleRequired = permissionError?.detail?.reason === 'role_required';
-  const requestableError = roleRequired ? undefined : permissionError?.envelope.requestable_permission;
-  const isReadDenied = permissionError !== null || scopedPermission.state === 'blocked';
+  const { denied: isReadDenied, roleRequired, request } = listReadDenial(stateError, scopedPermission);
   const scopeVerified = !isReadDenied && (scopedPermission.state === 'allowed' || scopedPermission.state === 'unchecked');
   const stateIsPending = !isReadDenied && (
     listQuery.isPending || (checkUnfiltered && unfilteredQuery.isPending) || scopedPermission.state === 'checking'
   );
-  const errorRequest = requestableError && {
-    capability: requestableError.permission,
-    ...(typeof requestableError.managed_system_id === 'string' ? { managedSystemId: requestableError.managed_system_id } : {}),
-  };
-  const request = permissionError === null && scopedPermission.state === 'blocked' ? scopedPermission.request : errorRequest;
   const isFilteredEmpty =
     checkUnfiltered && unfilteredQuery.isSuccess && (unfilteredQuery.data?.page?.total ?? 0) > 0;
   const { refetch: refetchList } = listQuery;

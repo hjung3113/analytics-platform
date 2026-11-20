@@ -367,7 +367,9 @@ cursor uses `422 validation.failed` with cursor field code `invalid_cursor`.
 
 Session/workspace and elevated Finding read are mandatory: Admin or Developer
 with canonical `finding.read` on each parent scope, including existing deny
-semantics. User remains `403 permission.denied` even with a grant. Exclude
+semantics. User remains `403 permission.denied` even with a grant, with
+`detail: { reason: 'role_required', minimum_role: 'developer' }` like the Finding
+list and no `requestable_permission` (#2639). Exclude
 unreadable parent Findings. A valid unauthorized requested scope yields an empty
 list, not a workspace bypass. Recheck rights/approval on each page.
 
@@ -389,7 +391,8 @@ No one-Survey-transaction-per-row or nested-endpoint fan-out.
 Strict local highlight UUID, no query filters. Return `200` with the same item
 projection, resolving independently of loaded pages. Missing/foreign/unreadable
 parent/item returns `404 not_found.record`; invalid ID/query returns
-`422 validation.failed`. Elevated role denial is `403 permission.denied`.
+`422 validation.failed`. Elevated role denial is `403 permission.denied` with the
+same `role_required` detail.
 Frontend reconciles readable detail against current safe scope/source/search,
 never treats page absence as a detail 404. Both inventory reads use existing
 read rate limiting (`rate_limited.actor`) and have no link/mutation/personal-read

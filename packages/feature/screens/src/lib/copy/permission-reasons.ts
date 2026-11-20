@@ -12,6 +12,7 @@ export const PERMISSION_BLOCKED_REASONS = {
   findingsList: 'Finding 목록을 볼 권한이 없습니다.',
   archivedSystem: '보관된 시스템이라 볼 수 없습니다.',
   findingsListRoleRequired: 'Finding 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.',
+  evidenceListRoleRequired: '근거 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.',
   vocTriage: 'VOC 분류 권한이 없습니다.',
   vocTriageManagedSystem: '선택한 시스템의 VOC 분류 권한이 없습니다.',
   vocTriageMissingRead: 'VOC 조회 권한이 없습니다.',
