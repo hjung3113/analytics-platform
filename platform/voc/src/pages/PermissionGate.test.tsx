@@ -5,7 +5,7 @@ import { carrySetId, groupId, spaceId, type Permission } from '@ap/contracts';
 import { createRegistry } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
 import { featureQueryClient, setFeatureApi } from '@ap/feature-bridge';
-import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
+import { LAZY_MOUNT_WAIT, settleFetch } from '@ap/feature-bridge/testing';
 import { manifests } from '../index';
 import { ME } from '../retained-voc/test-support';
 import { mountAt, warmPages } from '../test-support';
@@ -29,7 +29,7 @@ afterEach(() => {
   window.history.replaceState(null, '', '/');
 });
 
-function mountGate(route: 'inbox' | 'triage', homePermission: Permission, spaceHomePermission: Permission, { zeroReadScope = false } = {}) {
+function mountGate(route: 'inbox' | 'triage', homePermission: Permission, spaceHomePermission: Permission, { zeroReadScope = false, namedEligibility }: { zeroReadScope?: boolean; namedEligibility?: boolean } = {}) {
   const base = manifests[0];
   assert(base && base.module === undefined);
   const global = groupId('global');
@@ -50,17 +50,24 @@ function mountGate(route: 'inbox' | 'triage', homePermission: Permission, spaceH
     ],
   });
   vi.stubGlobal('localStorage', memoryStorage());
-  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-    const path = new URL(String(input), 'http://localhost').pathname.replace('/api/features', '');
+  const request = vi.fn(async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    const path = url.pathname.replace('/api/features', '');
     if (path === '/vocs') return Response.json({
       code: 'permission.denied', message: 'denied',
       requestable_permission: { permission: 'voc.read', managed_system_id: zeroReadScope ? null : SYSTEM, reason_required: true },
     }, { status: 403 });
     if (path === '/me') return Response.json(zeroReadScope ? { ...ME, actor: { ...ME.actor, role_level: 'developer' } } : ME);
     if (path === '/me/permissions/check') {
-      if (zeroReadScope) return Response.json({
-        state: 'request_access', decision: { allow: false, reason: 'no_grant', requestable: [{ workspace_id: ME.workspace_id }] },
-      });
+      if (route === 'inbox') {
+        expect(url.searchParams.get('capability')).toBe('voc.read');
+        expect(url.searchParams.get('managed_system_id')).toBe(SYSTEM);
+        const eligible = namedEligibility ?? true;
+        return Response.json({
+          state: eligible ? 'request_access' : 'blocked_non_requestable',
+          decision: { allow: false, reason: 'no_grant', requestable: eligible ? [{ workspace_id: ME.workspace_id }] : null },
+        });
+      }
       return Response.json({ state: 'approved', decision: { allow: true } });
     }
     if (path === '/me/permissions/scope' && zeroReadScope) return Response.json({ scope: { kind: 'scoped', managed_system_ids: [] } });
@@ -68,11 +75,13 @@ function mountGate(route: 'inbox' | 'triage', homePermission: Permission, spaceH
     if (path === '/nav/counts') return Response.json({ counts: {} });
     if (path === '/managed-systems') return Response.json({ items: [], total: 0 });
     if (path === '/analytics-areas') return Response.json({ items: [] });
-    if (path === '/permission-requests/mine') return Response.json({ requests: zeroReadScope ? [] : [ROW] });
+    if (path === '/permission-requests/mine') return Response.json({ requests: zeroReadScope || namedEligibility !== undefined ? [] : [ROW] });
     return Response.json({ code: 'test.unhandled_request', message: path }, { status: 500 });
-  }));
+  });
+  vi.stubGlobal('fetch', request);
   setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() });
   mountAt(`/flow/${route}?managedSystem=${SYSTEM}`, { registry });
+  return request;
 }
 
 describe('permission cards in the live feature host', () => {
@@ -84,6 +93,20 @@ describe('permission cards in the live feature host', () => {
     const request = within(await screen.findByRole('dialog', { name: '권한 요청' }));
     expect(request.getByText(SYSTEM)).toBeTruthy();
     expect(request.queryByText('전체')).toBeNull();
+  });
+
+  it.each([false, true])('uses point-check eligibility %s for a System named by the Inbox denial', async (eligible) => {
+    const request = mountGate('inbox', 'platform:view', 'console:access', { namedEligibility: eligible });
+    await screen.findByRole('heading', { name: 'VOC 처리함', level: 3 }, LAZY_MOUNT_WAIT);
+    await settleFetch(request, '/vocs?');
+    if (eligible) {
+      const link = await screen.findByRole('link', { name: '권한 요청' });
+      expect(new URL(link.getAttribute('href') ?? '', window.location.origin).pathname).toBe('/permission-requests');
+    } else {
+      expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
+      expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
+    }
+    expect(request.mock.calls.filter(([input]) => String(input).includes('/me/permissions/check'))).toHaveLength(1);
   });
 
   it.each([

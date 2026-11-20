@@ -79,7 +79,6 @@ import {
 } from '@ap/feature-shared';
 import { Button, Callout, PreviewModal, RichEditor } from '@ap/ui';
 import type { TipTapDoc } from '@ap/ui';
-import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Megaphone } from 'lucide-react';
 import { type ReactElement, useRef, useState } from 'react';
 import { ComposerAttachmentDropzone } from './ComposerAttachmentDropzone';
@@ -141,7 +140,6 @@ export function PublicUpdateComposer({
   initialNextStatus,
   focusOnOpen = false,
 }: PublicUpdateComposerProps): ReactElement {
-  const queryClient = useQueryClient();
   const { notifyError, notifySuccess } = useHostSeam();
   const { editorHandle, focusEditor } = useComposerEditorFocus({ focusOnRegister: focusOnOpen });
 
@@ -207,8 +205,6 @@ export function PublicUpdateComposer({
   const mutation = useVocPublicUpdateMutation({
     onSuccess: (data) => {
       submitInFlightRef.current = false;
-      queryClient.setQueryData(['voc', voc.id], data.voc);
-      queryClient.invalidateQueries({ queryKey: ['voc', voc.id] });
       // clear draft (calls onDraftChange?.(null) when controlled)
       setDraftDoc(null);
       setNextStatus(data.voc.reporter_facing_status);

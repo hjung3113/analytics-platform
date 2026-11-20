@@ -31,7 +31,6 @@ import { VocAreaFilterSelect } from '../components/VocAreaFilterSelect';
 import { VocList } from '../components/list/VocList';
 import { DEFAULT_SORT, FILTER_CATEGORIES, INBOX_TABS, SORT_OPTIONS } from './inbox-config';
 import { useInboxState } from './useInboxState';
-import { isVocSearchValueValid } from './voc-search';
 
 const CREATE_HREF = '/vocs?action=create';
 
@@ -76,13 +75,9 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
   } = useInboxState(view);
 
   const requestable = permissionError?.envelope.requestable_permission;
-  const target = requestable?.managed_system_id;
-  const serverSystemId =
-    typeof target === 'string' && target !== 'all' && isVocSearchValueValid('managedSystem', target)
-      ? target
-      : undefined;
-  const requestSystemId = serverSystemId ?? vocList.selectedRequestSystemId;
-  const readNeedsSystemSelection = requestable?.permission === 'voc.read' && requestSystemId === undefined;
+  const { requestSystemId, exactScopeTarget } = vocList;
+  const readRequestUnavailable = requestable?.permission === 'voc.read' && requestSystemId === undefined;
+  const needsSystemSelection = readRequestUnavailable && requestable.managed_system_id == null;
 
   const outOfScopeBanner = outOfScopeSummary ? (
     <PermissionBlockedPanel
@@ -188,13 +183,13 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
       )}
       {permissionError !== null ? (
         <div className="m-4 space-y-3">
-          {requestable && !readNeedsSystemSelection ? (
+          {requestable && !readRequestUnavailable ? (
             <RequestAccessButton
               key={requestSystemId}
               layout="card"
               capability={requestable.permission}
               returnRouteIntent={`/vocs?view=${view}`}
-              exactScopeTarget={vocList.selectedRequestSystemId !== undefined}
+              exactScopeTarget={exactScopeTarget}
               {...(requestSystemId !== undefined ? { managedSystemId: requestSystemId } : {})}
               renderTrigger={(_onRequestAccess, panel) => (
                 <PermissionBlockedPanel
@@ -225,7 +220,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
               category={VOC_INBOX_LABEL}
               description={PERMISSION_BLOCKED_REASONS.vocInbox}
               // #2619: a targetless VOC read denial names the next step inside the card.
-              {...(readNeedsSystemSelection ? { reason: PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem } : {})}
+              {...(needsSystemSelection ? { reason: PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem } : {})}
               requestStatus="not-requestable"
               exitAction={permissionCardExitAction(permissionHomeHref, lang)}
             />

@@ -3,6 +3,7 @@ import { usePermissionCheckBridge } from '../../../lib/cross-system/usePermissio
 import { placeholderDataForSearchOnly } from '../../../lib/query/placeholder-data-for-search';
 import { hashKey, useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { isVocSearchValueValid } from '../routes/voc-search';
 import { type UseVocListParams, type VocListPage, fetchVocListPage } from './useVocList';
 
 export const VOC_PAGE_SIZE = 50;
@@ -111,23 +112,25 @@ export function useVocListPages(params: UseVocListPagesParams) {
   const requestable = isPermissionDenied(list.error)
     ? list.error.envelope.requestable_permission
     : undefined;
-  const systemId = managedSystemId === 'all' ? undefined : managedSystemId;
-  // The exact-System permission check applies the server's request eligibility policy.
-  const checkSelectedSystem =
-    view === 'inbox' &&
-    systemId !== undefined &&
-    requestable?.permission === 'voc.read' &&
-    requestable.managed_system_id == null;
+  const target = requestable?.managed_system_id;
+  const serverSystemId =
+    typeof target === 'string' && target !== 'all' && isVocSearchValueValid('managedSystem', target)
+      ? target
+      : undefined;
+  const selectedSystemId = managedSystemId === 'all' ? undefined : managedSystemId;
+  const systemId = target == null ? selectedSystemId : serverSystemId;
+  const checkSystem = view === 'inbox' && systemId !== undefined && requestable?.permission === 'voc.read';
   const check = usePermissionCheckBridge(
     { capability: 'voc.read', ...(systemId !== undefined ? { managedSystemId: systemId } : {}) },
-    { enabled: checkSelectedSystem },
+    { enabled: checkSystem },
   );
   const decision = check.data?.decision;
-  const selectedSystemRequestable =
-    checkSelectedSystem &&
+  const systemRequestable =
+    checkSystem &&
     check.isSuccess &&
     decision?.allow === false &&
     Array.isArray(decision.requestable) &&
     decision.requestable.length > 0;
-  return { ...list, selectedRequestSystemId: selectedSystemRequestable ? systemId : undefined };
+  const requestSystemId = systemRequestable ? systemId : undefined;
+  return { ...list, keyHash, requestSystemId, exactScopeTarget: systemRequestable && target == null };
 }
