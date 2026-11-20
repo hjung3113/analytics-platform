@@ -20,9 +20,16 @@ export function useScopedEmptyListPermission({
   const check = usePermissionCheckBridge({
     capability,
     ...(managedSystemId === undefined ? {} : { managedSystemId }),
-  }, { enabled });
+  }, {
+    enabled,
+    refetchOnWindowFocus: ({ state }) =>
+      state.status === 'success' && state.fetchStatus !== 'fetching' && state.data?.decision.allow === false
+        ? 'always'
+        : true,
+  });
   if (!enabled) return { state: 'unchecked' };
-  if (check.isFetching) return { state: 'checking' };
+  // A recheck (window focus) keeps the last decision on screen until the new one lands.
+  if (check.isFetching && !check.isSuccess) return { state: 'checking' };
   if (check.isError) return { state: 'error', retry: () => void check.refetch() };
   if (!check.isSuccess) return { state: 'checking' };
   if (check.data.decision.allow) return { state: 'allowed' };

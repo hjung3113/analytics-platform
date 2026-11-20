@@ -3,8 +3,8 @@
 
 import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
 import type { FrontendPermissionState } from '../../../lib/api/permission-reads';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { focusManager, QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -58,6 +58,12 @@ const F1 = {
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+function deferredResponse() {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>((settle) => { resolve = settle; });
+  return { promise, resolve };
+}
 
 function installFetch(listStatus = 200, requestable = false, roleRequired = false) {
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
@@ -164,11 +170,12 @@ function mount(initial: Record<string, string>, { hostCarriesReturn = false, use
     );
   }
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <Host />
     </QueryClientProvider>,
   );
+  return { ...view, client, setSearch: (search: Record<string, string>) => setHost(search) };
 }
 
 const lastDetailCall = () =>
@@ -301,6 +308,128 @@ describe('FindingsScreen under a host seam', () => {
     mount({ managedSystem: MS });
     await waitFor(() => expect(lastDetailCall()[1]).toMatchObject({ listDenied: true }));
     expect(await screen.findByRole('button', { name: '권한 요청' })).toBeInTheDocument();
+  });
+
+  it.each([403, 200])('marks the open Finding out of list only after scope denial (%s)', async (status) => {
+    const otherSystem = GONE_ID;
+    const permission = deferredResponse();
+    const list = deferredResponse();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), 'http://localhost');
+      if (url.pathname === '/findings') {
+        if (url.searchParams.get('managed_system_id') === otherSystem) return list.promise;
+        return json({ items: [F1], page: { total: 1, has_more: false } });
+      }
+      if (url.pathname === `/findings/${F1_ID}`) return json(F1);
+      if (url.pathname === '/me/permissions/check') return permission.promise;
+      if (url.pathname === '/managed-systems') return json({ items: [] });
+      return json({ code: 'not_found.record' }, 404);
+    });
+    globalThis.fetch = fetchMock;
+    const { setSearch } = mount({ managedSystem: MS, selected: F1_ID });
+    await screen.findByText(F1.title);
+    act(() => setSearch({ managedSystem: otherSystem, selected: F1_ID }));
+    expect(lastDetailCall()[0]).toBe(F1_ID);
+    expect(lastDetailCall()[1].isInList).toBeUndefined();
+    if (status === 200) {
+      list.resolve(json({ items: [], page: { total: 0, has_more: false } }));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+        `/me/permissions/check?capability=finding.read&managed_system_id=${otherSystem}`, expect.anything(),
+      ));
+      expect(lastDetailCall()[1].isInList).toBeUndefined();
+      permission.resolve(json({ state: 'blocked_non_requestable', decision: { allow: false } }));
+    } else {
+      list.resolve(json({ code: 'permission.denied' }, 403));
+    }
+    await waitFor(() => expect(lastDetailCall()[1]).toMatchObject({ listDenied: true, isInList: false }));
+  });
+
+  it('keeps a late Findings response in the old scope cache while the new scope stays blocked', async () => {
+    const oldList = deferredResponse();
+    const empty = { items: [], page: { total: 0, has_more: false } };
+    const oldKey = ['findings', 'pages', { managedSystemId: MS }];
+    const newKey = ['findings', 'pages', { managedSystemId: GONE_ID }];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), 'http://localhost');
+      if (url.pathname === '/findings') {
+        return url.searchParams.get('managed_system_id') === MS ? oldList.promise : json(empty);
+      }
+      if (url.pathname === '/me/permissions/check') {
+        return json({ state: 'blocked_non_requestable', decision: { allow: false } });
+      }
+      return json({ items: [] });
+    });
+    globalThis.fetch = fetchMock;
+    const { client, setSearch } = mount({ managedSystem: MS });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`managed_system_id=${MS}`), expect.anything(),
+    ));
+    // Keep a second observer on A so switching the screen does not cancel the request.
+    const unsubscribe = new QueryObserver(client, { queryKey: oldKey, enabled: false }).subscribe(() => {});
+    try {
+      act(() => setSearch({ managedSystem: GONE_ID }));
+      await screen.findByText('이 항목에 접근할 수 없습니다.');
+      expect(screen.queryByText(F1.title)).toBeNull();
+      oldList.resolve(json({ items: [F1], page: { total: 1, has_more: false } }));
+      await waitFor(() => expect(client.getQueryData(oldKey)).toMatchObject({
+        pages: [{ items: [expect.objectContaining({ id: F1_ID })] }],
+      }));
+      expect(client.getQueryData(newKey)).toMatchObject({ pages: [empty] });
+      expect(screen.getByText('이 항목에 접근할 수 없습니다.')).toBeInTheDocument();
+      expect(screen.queryByText(F1.title)).toBeNull();
+    } finally {
+      unsubscribe();
+    }
+  });
+
+  it('rechecks a blocked scope on window focus, keeps the card until the answer lands, then uses the default focus refetch', async () => {
+    let allow = false;
+    let release: () => void = () => undefined;
+    let hold = false;
+    const permissionRead = vi.fn(async () => {
+      if (hold) await new Promise<void>((resolve) => { release = resolve; });
+      return json({ state: allow ? 'approved' : 'blocked_non_requestable', decision: { allow } });
+    });
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const { pathname } = new URL(String(input), 'http://localhost');
+      if (pathname === '/findings') return json({ items: [], page: { total: 0, has_more: false } });
+      if (pathname === '/me/permissions/check') return permissionRead();
+      return json({ items: [] });
+    });
+    // TanStack Query handles window focus through visibilitychange.
+    const visibility = vi.spyOn(document, 'visibilityState', 'get');
+    const returnToWindow = () => {
+      visibility.mockReturnValue('hidden');
+      window.dispatchEvent(new Event('visibilitychange'));
+      visibility.mockReturnValue('visible');
+      window.dispatchEvent(new Event('visibilitychange'));
+    };
+    try {
+      const { client } = mount({ managedSystem: MS });
+      await screen.findByText('이 항목에 접근할 수 없습니다.');
+      expect(permissionRead).toHaveBeenCalledTimes(1);
+      allow = true;
+      hold = true;
+      await act(async () => returnToWindow());
+      await waitFor(() => expect(permissionRead).toHaveBeenCalledTimes(2));
+      // The recheck is in flight: the last decision (the blocked card) stays instead of a loading state.
+      expect(screen.getByText('이 항목에 접근할 수 없습니다.')).toBeInTheDocument();
+      hold = false;
+      await act(async () => release());
+      await screen.findByText('생성된 Finding이 없습니다.');
+      expect(screen.queryByText('이 항목에 접근할 수 없습니다.')).not.toBeInTheDocument();
+      expect(permissionRead).toHaveBeenCalledTimes(2);
+      await act(async () => client.invalidateQueries({
+        queryKey: ['permission-check', 'finding.read', MS], refetchType: 'none',
+      }));
+      await act(async () => returnToWindow());
+      // An allowed result keeps the client's default: a stale entry refetches on focus.
+      await waitFor(() => expect(permissionRead).toHaveBeenCalledTimes(3));
+      expect(screen.queryByText('이 항목에 접근할 수 없습니다.')).not.toBeInTheDocument();
+    } finally {
+      visibility.mockRestore();
+      focusManager.setFocused(undefined);
+    }
   });
 
   it('links the eligible Finding list denial to the request form and restores content after a fresh read', async () => {

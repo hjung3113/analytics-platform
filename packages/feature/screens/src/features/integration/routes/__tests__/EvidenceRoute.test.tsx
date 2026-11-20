@@ -903,6 +903,71 @@ it('explains list permission denial and disables the source tabs, search and ref
   expect(screen.getByRole('button', { name: '새로고침' })).toBeDisabled();
 });
 
+it.each([403, 200])('closes open Evidence when the list scope is confirmed blocked (%s)', async (status) => {
+  let resolvePermission!: (value: Response) => void;
+  const permission = new Promise<Response>((resolve) => { resolvePermission = resolve; });
+  installFetch((url) => {
+    if (url.searchParams.get('managed_system_id') !== PARENT) {
+      return response({ items: [item], page: { has_more: false } });
+    }
+    return status === 403
+      ? response({ code: 'permission.denied' }, 403)
+      : response({ items: [], page: { has_more: false } });
+  });
+  const baseFetch = fetch;
+  const permissionRead = vi.fn(() => permission);
+  vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+    const { pathname } = new URL(String(input), 'http://localhost');
+    if (pathname === '/me/permissions/check') return permissionRead();
+    if (pathname === '/managed-systems') return Promise.resolve(response({ items: [] }));
+    return baseFetch(input, init);
+  });
+  const { router } = await mount(`/integration/evidence?managedSystem=${MS}&source=note&selected=${ID}`);
+  await screen.findByRole('link', { name: 'Finding 보기' });
+  await act(async () => router.navigate({
+    to: '/integration/evidence',
+    search: { managedSystem: PARENT, source: 'note', selected: ID },
+  }));
+  if (status === 200) {
+    await waitFor(() => expect(permissionRead).toHaveBeenCalledOnce());
+    expect(router.state.location.search.selected).toBe(ID);
+    expect(screen.getByTestId('evidence-panel')).toBeInTheDocument();
+    resolvePermission(response({ state: 'blocked_non_requestable', decision: { allow: false } }));
+  }
+  await screen.findByText('근거 목록을 볼 권한이 없습니다.');
+  await waitFor(() => expect(router.state.location.search.selected).toBeUndefined());
+  expect(screen.queryByTestId('evidence-panel')).toBeNull();
+  expect(router.state.location.search).toMatchObject({ managedSystem: PARENT, source: 'note' });
+  // The rows and the disabled search cannot hold focus: it lands on the denial card, not the body.
+  await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+});
+
+it('keeps the open Evidence selection when the list read loses the session (401)', async () => {
+  let parentReads = 0;
+  installFetch((url) => {
+    if (url.searchParams.get('managed_system_id') !== PARENT) {
+      return response({ items: [item], page: { has_more: false } });
+    }
+    parentReads += 1;
+    return response({ code: 'auth.unauthenticated' }, 401);
+  });
+  const baseFetch = fetch;
+  vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+    const { pathname } = new URL(String(input), 'http://localhost');
+    if (pathname === '/managed-systems') return Promise.resolve(response({ items: [] }));
+    return baseFetch(input, init);
+  });
+  const { router } = await mount(`/integration/evidence?managedSystem=${MS}&source=note&selected=${ID}`);
+  await screen.findByRole('link', { name: 'Finding 보기' });
+  await act(async () => router.navigate({
+    to: '/integration/evidence',
+    search: { managedSystem: PARENT, source: 'note', selected: ID },
+  }));
+  await waitFor(() => expect(parentReads).toBeGreaterThan(0));
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+  expect(router.state.location.search.selected).toBe(ID);
+});
+
 it('offers the permitted host Home when the Evidence list is denied', async () => {
   installFetch(() => response({ code: 'permission.denied' }, 403));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

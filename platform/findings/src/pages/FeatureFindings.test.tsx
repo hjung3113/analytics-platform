@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { memoryStorage } from '@ap/kernel/testing';
+import { memoryStorage, ToastProbe } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import type { ReactNode } from 'react';
@@ -9,7 +9,8 @@ import { mountAt, warmPages } from '../test-support';
 
 /** The three feature entries are doubles that record how the page drives them; the value check (the feature screens' real findings-search schema) is not mocked. */
 const screenMock = vi.hoisted(() => ({
-  list: [] as { renderDetail: (id: string | null, options: { listDenied: boolean; returnTo: string | null }) => unknown }[],
+  list: [] as { renderDetail: RenderFinding; renderDetailInPlace?: boolean }[],
+  blockedSystem: undefined as string | undefined,
   detailArgs: [] as { findingId: string; onClose: () => void }[],
   mounts: 0,
   evidence: [] as { renderDetail: (parts: Parts) => ReactNode }[],
@@ -26,10 +27,14 @@ vi.mock('@ap/feature-screens/operator-screens/evidence', () => ({
   },
 }));
 vi.mock('@ap/feature-screens/operator-screens/findings', () => ({
-  FindingsScreen: (props: { renderDetail: (id: string | null, options: { listDenied: boolean; returnTo: string | null }) => unknown }) => {
+  FindingsScreen: (props: { renderDetail: RenderFinding; renderDetailInPlace?: boolean }) => {
     screenMock.list.push(props);
     const seam = useHostSeam();
-    return <div data-testid="list" data-here={seam.useHere!()} />;
+    const { selected, managedSystem } = seam.useSearch!();
+    const listDenied = managedSystem !== undefined && managedSystem === screenMock.blockedSystem;
+    return <div data-testid="list" data-here={seam.useHere!()}>
+      {props.renderDetailInPlace && props.renderDetail(selected ?? null, { listDenied, returnTo: null, isInList: listDenied ? false : undefined })}
+    </div>;
   },
 }));
 vi.mock('@ap/feature-screens/operator-screens/finding-detail', async () => {
@@ -51,12 +56,16 @@ const EVIDENCE_PATH = '/flow/evidence';
 const EVIDENCE = '99999999-9999-4999-8999-999999999999';
 type Parts = Record<string, unknown>;
 const request = vi.fn();
+type RenderFinding = (id: string | null, options: {
+  listDenied: boolean; returnTo: string | null; isInList?: boolean | undefined;
+}) => ReactNode;
 
 beforeAll(warmPages, 60_000);
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());
   vi.stubGlobal('fetch', request);
   screenMock.list.length = 0; screenMock.detailArgs.length = 0; screenMock.mounts = 0; screenMock.evidence.length = 0; screenMock.requestClose.mockReset(); request.mockReset();
+  screenMock.blockedSystem = undefined;
 });
 afterEach(() => { cleanup(); setFeatureApi(null); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
@@ -72,7 +81,7 @@ describe('전체 Finding without a feature API (mock preview)', () => {
 describe('전체 Finding through the feature bridge', () => {
   beforeEach(() => { setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() }); });
 
-  it('mounts the list reading the page as the screen findings path, and gives the screen no detail node (denied and empty states included)', async () => {
+  it('mounts the list reading the page as the screen findings path without a selected Finding', async () => {
     mountAt(`${PATH}?q=pump&execution=none&managedSystem=${SYSTEM}`);
     const list = await screen.findByTestId('list');
     const here = new URL(list.getAttribute('data-here')!, 'http://x');
@@ -80,7 +89,6 @@ describe('전체 Finding through the feature bridge', () => {
     expect(Object.fromEntries(here.searchParams)).toEqual({ q: 'pump', execution: 'none', managedSystem: SYSTEM });
     const { renderDetail } = screenMock.list.at(-1)!;
     expect(renderDetail(null, { listDenied: false, returnTo: null })).toBeUndefined();
-    expect(renderDetail(FINDING_A, { listDenied: false, returnTo: null })).toBeUndefined();
     expect(renderDetail(null, { listDenied: true, returnTo: null })).toBeUndefined();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screenMock.detailArgs).toEqual([]);
@@ -96,6 +104,24 @@ describe('전체 Finding through the feature bridge', () => {
     window.history.replaceState(null, '', `${PATH}?focus=${FINDING_B}`);
     act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
     expect((await screen.findByText(`상세 본문 ${FINDING_B}`)).getAttribute('data-instance')).toBe('2');
+  });
+
+  it('closes the expanded Finding via the shared notice on scope denial', async () => {
+    screenMock.blockedSystem = SYSTEM;
+    mountAt(`${PATH}?focus=${FINDING_A}&q=pump`, { extra: <ToastProbe /> });
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: '크게 보기' }));
+    await screen.findByRole('button', { name: '원래 크기로' });
+    expect(document.querySelector('[data-platform-page-body][inert]')).not.toBeNull();
+    window.history.replaceState(null, '', `${PATH}?focus=${FINDING_A}&q=pump&managedSystem=${SYSTEM}`);
+    act(() => { window.dispatchEvent(new PopStateEvent('popstate')); });
+    await screen.findByText('열린 항목이 목록에서 빠져 닫았습니다');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.querySelector('[data-platform-page-body][inert]')).toBeNull();
+    const params = new URLSearchParams(window.location.search);
+    expect(params.has('focus')).toBe(false);
+    expect(params.get('q')).toBe('pump');
+    expect(params.get('managedSystem')).toBe(SYSTEM);
   });
 
   it('closing the drawer removes focus, keeps the rest and returns focus to the opener', async () => {
