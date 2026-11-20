@@ -17,8 +17,8 @@ The mock-adapter app has no database or login; its evidence comes from Playwrigh
 
 Tiers, brief check and ship-check: the global `issue-wave-conductor` skill's `references/lanes.md` §Size and path. Full-tier paths are `lanes.tier_full_regex`. AP specifics:
 
-- **PR cap:** one PR changes at most 400 lines and 40 files. An issue expected to exceed it is split before work starts, one surface per PR (an SDK piece, one screen, or the server). Going over is the lead's call, recorded under **Decisions** in the PR body. Reason: the 99- and 179-file PRs of v0.44 took 7–9 review rounds.
-- **Review rounds:** at most two code-review rounds; the second covers only the fix diff. A third round goes back to the lead, who picks revert, split or an owner question; if the findings come only from earlier fixes, revert. Reason: single PRs ran `review-final` 7–8 times in v0.44 while each fix brought new findings.
+- **PR cap:** one PR changes at most 400 lines and 40 files. An issue expected to exceed it is split before work starts, one surface per PR (an SDK piece, one screen, or the server). Work that would still exceed it after splitting is not started; it becomes an owner question. Reason: the 99- and 179-file PRs of v0.44 took 7–9 review rounds, and PRs of 599, 764 and 1023 lines still shipped as exceptions after splitting.
+- **Review rounds:** at most two code-review rounds; the second covers only the fix diff. A third round goes back to the lead, who picks revert, split or an owner question; if the findings come only from earlier fixes, revert. No third-round fix task is written before the lead answers. Reason: single PRs ran `review-final` 7–8 times in v0.44 while each fix brought new findings, and one piece still ran five fix rounds after the cap was set.
 - **Real server first:** permission and feature work attaches one real-server capture before the first review. Reason: the mock returned 403 where the real server returned 200 with an empty list, and that gap surfaced only after several rounds.
 
 - **Domain-noun docs (`review-doc` terms):** a light PR that adds domain nouns under `docs/design/**`, a new ADR, `docs/product/**`, a new API contract file or `GLOSSARY.md` gets one `review-doc` terms run (persona `doc-steward`). Design PRs of the same domain opened the same day share one run. Skip it when the changed lines add no bold term outside the glossary, no new enum/table/capability name and no new menu label. Reason: a term caught before code avoids a migration to rename it.
@@ -67,6 +67,7 @@ This is the repo's one home for owner questions; other files point here. Owner g
 - Owner awake: the lead asks one numbered question, once. It does not repeat the question or re-attach it to later reports; the open question lives in `board.py`.
 - Owner away: owner decisions wait for the owner. Work that does not depend on the answer continues. Neither the `advisor` role nor a reviewer answers an owner question or picks a variant. Reason: in v0.44 the owner reversed choices the advisor and a reviewer made overnight.
 - Issues carry decided content only. Quote the owner's words as the decision; mark the lead's own text «제안:». A new axis, hierarchy or term gets one line checking it against `GLOSSARY.md`, the lead's own wording included. Reason: a hierarchy the lead wrote into an issue body shipped as if the owner had decided it.
+- One issue holds one problem; an audit report files one issue per finding. Reason: an issue that bundled five problems became a 99-file PR.
 - Add `ready-for-human` to the issue only when the session hands over without an answer. A decision chosen among real alternatives is recorded as an ADR in `docs/adr/`.
 
 Reason: repeated questions cost hours of waiting.
