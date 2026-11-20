@@ -90,21 +90,17 @@ vi.mock('@ap/ui', async () => {
       state,
       category,
       reason,
-      onRequestAccess,
+      requestAction,
     }: {
       state: string;
       category: string;
       reason?: string;
-      onRequestAccess?: () => void;
+      requestAction?: React.ReactNode;
     }) => (
       <div data-testid="permission-blocked" data-state={state}>
         {category}
         {reason !== undefined ? <p>{reason}</p> : null}
-        {onRequestAccess !== undefined ? (
-          <button type="button" onClick={onRequestAccess}>
-            권한 요청하기
-          </button>
-        ) : null}
+        {requestAction}
       </div>
     ),
     Skeleton: (props: React.HTMLAttributes<HTMLDivElement>) => <div {...props} />,
@@ -193,7 +189,7 @@ vi.mock('../../components/request-access-button', () => ({
     capability: string;
     managedSystemId?: string;
     returnRouteIntent: string;
-    renderTrigger: (open: () => void) => React.ReactNode;
+    renderTrigger: (open: () => void, panel: { requestAction: React.ReactNode }) => React.ReactNode;
   }) => (
     <div
       data-testid="request-access-flow"
@@ -201,7 +197,9 @@ vi.mock('../../components/request-access-button', () => ({
       data-managed-system-id={managedSystemId}
       data-return-route-intent={returnRouteIntent}
     >
-      {renderTrigger(() => requestAccessFlowMock())}
+      {renderTrigger(requestAccessFlowMock, {
+        requestAction: <button type="button" onClick={requestAccessFlowMock}>권한 요청</button>,
+      })}
     </div>
   ),
 }));
@@ -338,9 +336,9 @@ describe('FindingsListPage', () => {
       },
       state: 'request_access',
     },
-    { kind: 'not requestable', permission: undefined, state: 'blocked_not_requestable' },
+    { kind: 'not requestable', permission: undefined, state: 'denied' },
   ] as const)(
-    'hides list controls and shows the recovery action when Findings access is $kind',
+    'hides list controls and shows the matching card when Findings access is $kind',
     async ({ permission, state }) => {
       useFindingsListMock.mockReturnValue({
         data: undefined,
@@ -370,21 +368,19 @@ describe('FindingsListPage', () => {
         expect(requestFlow).toHaveAttribute('data-capability', permission.permission);
         expect(requestFlow).toHaveAttribute('data-return-route-intent', '/findings');
         // Exactly one request CTA, mounted by the blocked panel itself (#1264).
-        const requestButton = screen.getByRole('button', { name: '권한 요청하기' });
-        expect(screen.getAllByRole('button', { name: '권한 요청하기' })).toHaveLength(1);
+        const requestButton = screen.getByRole('button', { name: '권한 요청' });
+        expect(screen.getAllByRole('button', { name: '권한 요청' })).toHaveLength(1);
         expect(
           within(screen.getByTestId('permission-blocked')).getByRole('button', {
-            name: '권한 요청하기',
+            name: '권한 요청',
           }),
         ).toBe(requestButton);
         fireEvent.click(requestButton);
         expect(requestAccessFlowMock).toHaveBeenCalledTimes(1);
         expect(screen.queryByRole('link', { name: '내 VOC' })).not.toBeInTheDocument();
       } else {
-        expect(screen.getByRole('link', { name: '내 VOC' })).toHaveAttribute(
-          'href',
-          '/vocs?view=my',
-        );
+        expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: '내 VOC' })).not.toBeInTheDocument();
       }
     },
   );
@@ -557,13 +553,9 @@ describe('FindingsListPage', () => {
 
     expect(screen.getByTestId('permission-blocked')).toHaveAttribute(
       'data-state',
-      'blocked_not_requestable',
+      'denied',
     );
-    expect(
-      screen.getByText(
-        'Finding 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/관리자에게 권한을 요청하세요/)).not.toBeInTheDocument();
     expect(screen.queryByText('finding.read capability required')).not.toBeInTheDocument();
     expect(screen.queryByTestId('finding-list-error')).not.toBeInTheDocument();
     expect(screen.queryByText('0개')).not.toBeInTheDocument();

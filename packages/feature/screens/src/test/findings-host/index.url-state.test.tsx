@@ -172,6 +172,13 @@ function installFetch(c: FetchCase): void {
       const item = FINDINGS.find((finding) => path.pathname === `/findings/${finding.id}`);
       return item ? jsonResponse(item) : jsonResponse({ code: 'not_found.record' }, 404);
     }
+    if (
+      path.pathname === '/me/permissions/check' &&
+      path.searchParams.get('capability') === 'finding.read' &&
+      path.searchParams.get('managed_system_id') === MS_1
+    ) {
+      return jsonResponse({ state: 'approved', decision: { allow: true } });
+    }
     if (path.pathname === '/actors') return jsonResponse({ actors: [] });
     return jsonResponse({ code: 'not_mocked' }, 500);
   }) as typeof globalThis.fetch;

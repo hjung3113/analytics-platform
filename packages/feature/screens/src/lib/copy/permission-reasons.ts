@@ -9,7 +9,8 @@ export const PERMISSION_BLOCKED_REASONS = {
   taskRequestQueue:
     'Task 요청 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
   entityLinks: '연결 관계 목록을 볼 권한이 없습니다.',
-  findingsList: 'Finding 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
+  findingsList: 'Finding 목록을 볼 권한이 없습니다.',
+  archivedSystem: '보관된 시스템이라 볼 수 없습니다.',
   findingsListRoleRequired: 'Finding 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.',
   vocTriage: 'VOC 분류 권한이 없습니다.',
   vocTriageManagedSystem: '선택한 시스템의 VOC 분류 권한이 없습니다.',

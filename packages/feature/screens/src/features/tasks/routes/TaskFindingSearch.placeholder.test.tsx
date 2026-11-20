@@ -270,7 +270,7 @@ it.each(SURFACES)(
     });
     await screen.findByText(
       surface === 'findings'
-        ? PERMISSION_BLOCKED_REASONS.findingsList
+        ? '이 항목에 접근할 수 없습니다.'
         : PERMISSION_BLOCKED_REASONS.taskList,
     );
     expect(screen.queryByText(ROW)).not.toBeInTheDocument();
