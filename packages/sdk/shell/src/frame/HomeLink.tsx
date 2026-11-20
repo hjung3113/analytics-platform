@@ -13,9 +13,9 @@ export function useHomeHref(): string | null {
 }
 
 /** Home control for kernel and error views: nothing where there is no home to open. */
-export function HomeLink() {
+export function HomeLink({ quiet = false }: { quiet?: boolean } = {}) {
   const { t } = useI18n();
   const href = useHomeHref();
   if (href === null) return null;
-  return <Button asChild size="sm" variant="secondary"><PlatformLink href={href}>{t('home')}</PlatformLink></Button>;
+  return <Button asChild size="sm" variant={quiet ? 'link' : 'secondary'}><PlatformLink href={href}>{t('home')}</PlatformLink></Button>;
 }

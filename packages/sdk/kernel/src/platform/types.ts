@@ -117,10 +117,15 @@ export type AnalysisActionsSlot = {
   /** Page types whose main screen gets the slot (#1429). Absent = `['analysis']`, the original behaviour. */
   pageTypes?: readonly PageType[];
 };
-/** A blocked place's request state from the server (the user's own requests): `pending` null = unknown, loading or failed (draw the plain request entry). `statusHref` is where the request status is read; null = no link. For a `permission` place it is the page where the missing capability is requested (the forbidden menu screen draws it as `권한 요청`). */
+/** A blocked place's request state. A null `pending` leaves pending status unknown. `statusHref` links to the user's requests when available. */
 export type AccessRequestState = {
   pending: boolean | null;
   statusHref: string | null;
+  /** Request form URL. Omit for the host's legacy action. Pass null when the target cannot be requested. */
+  requestHref?: string | null;
+  /** The same capability was approved for a different Managed System, while this target remains blocked. */
+  approvedPartial?: boolean;
+  missing?: { permission: string; system?: string };
   /**
    * Why `pending` is null, when the app knows (#1933): `checking` = the read is running, `error` = it failed (`retry` re-reads it). Absent = unknown for
    * another reason (a mock, a session not ready, a place with no mapping): the plain request entry, as before. Set `checking` only while a read really runs.

@@ -47,3 +47,16 @@ it('provides the required-field mark in Korean and English', () => {
   fireEvent.click(screen.getByRole('button'));
   expect(screen.getByRole('button')).toHaveTextContent('· Required');
 });
+
+it.each([
+  ['ko', '홈으로', '내 권한 요청 보기'],
+  ['en', 'Go to Home', 'View my access requests'],
+] as const)('provides the card action labels in %s', (lang, home, pending) => {
+  localStorage.setItem('platform:lang', lang);
+  function CardActions() {
+    const { t } = useI18n();
+    return <>{t('goToHome')}|{t('accessRequestViewMine')}</>;
+  }
+  render(<I18nProvider><CardActions /></I18nProvider>);
+  expect(screen.getByText(`${home}|${pending}`)).toBeInTheDocument();
+});

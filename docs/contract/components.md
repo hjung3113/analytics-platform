@@ -81,6 +81,14 @@ Decided (#1448, [ADR-0118](../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md
 
 `@ap/components`의 본문 배치 조각. `kind`·`id`와 링크 옵션 `returnTo?`·`page?`·`global?`, 행의 `compact?`를 받는다. Kernel `objectLinks` 목록을 0개면 생략하고 1개면 목적지 이름의 `RowAction` + `PlatformLink`, 여러 개면 `RowAction` 모양의 «다른 화면» Popover로 그린다. Enter로 열고 Escape로 닫으면 트리거에 포커스를 돌려준다. 여러 항목의 접근성 이름은 «{id} 다른 화면에서 열기», title은 compact만 쓴다. 거부 항목은 disabled + `menuDenied`, 같은 이름은 공간 둘째 줄로 구분한다. `RowAction.menu?`는 같은 노드를 유지하는 본문 Popover 합성 옵션이며 기본은 기존 동작이다. 머리 배치는 `PlatformPage`가 `subjectLinks`로 소유하고 내부 묶음은 export하지 않는다. 자세한 선언·표시·의도 규칙은 [§22](cross-menu-links.md#22-cross-menu-context-link).
 
+### PermissionBlockedPanel (#2534)
+
+`PermissionBlockedPanel`(`@ap/ui`)에 `layout="card"`를 주면 잠금 아이콘과 설명을 가운데 카드에 표시한다. `layout="panel"`(기본값)은 기존 배치·상태별 아이콘·요청 버튼·`requiredScope` 출력과 문구를 그대로 쓴다. 카드의 `missing={{ permission, system? }}`에는 사람이 읽는 권한명과 시스템명을 넣는다. 카드에서는 `requiredScope`를 표시하지 않는다. `lang`은 `ko`(기본값) 또는 `en`이다.
+
+카드의 `missing` 블록에는 «필요한 권한»을 표시한다. 소비자는 `requestStatus`에 맞춰 `requestAction`에 요청 또는 상태 버튼을, `exitAction`에 허용된 이동 버튼을 전달한다. 카드는 본문과 왼쪽을 맞춘 한 줄에 `requestAction`, `exitAction` 순서로 놓는다. 메뉴·Scope 게이트에서는 `none`일 때 기본 강조 버튼 «권한 요청», `pending`일 때 상태 주소가 있으면 보조 버튼 «내 권한 요청 보기»를 먼저 놓는다. `approved-partial`은 승인 아이콘·«승인됨 · 아직 필요한 것»과 «남은 권한 요청» 버튼을 쓴다. `not-requestable`이면 요청 버튼을 생략한다. 열 수 있는 홈이 있으면 각 상태에서 같은 보조 버튼 «홈으로»를 `exitAction`으로 전달한다. 페이지 이동은 `Button asChild`와 `PlatformLink`를 조합해 버튼 모양의 링크로 표시한다. 제자리에서 요청 대화상자를 여는 동작은 버튼으로 표시한다.
+
+`description`을 생략하면 카드가 상태에 맞는 설명을 표시한다. `pending`은 «검토 중» 배지 없이 본문으로 알리며, 본문에 `role="status"`를 둔다. 페이지 게이트는 `headingLevel={2}`와 `announceBody`를 쓰며 버튼은 알림 영역 밖에 둔다. 요청 대상과 제출 자격은 소비자와 서버가 판정한다. 카드는 조회·권한 판정·신청을 실행하지 않는다. 요약과 감사 메타데이터에는 기존 `summary`, `decisionId`, `evaluatedRelative` props를 쓴다.
+
 ### UI Primitive
 
 shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/frontend-ui-ux.md#프론트엔드-기술-스택-decided-2026-09-25)에서 Decided(2026-09-25)다. primitive 구현과 공개 export는 SDK `@ap/ui`가 소유하며, 소비자는 `@ap/ui`에서 직접 import한다([ADR-0043](../adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md)·[ADR-0046](../adr/0046-design-system-source-moves-to-platform-whole-package.md)). `TabsList`·`TabsTrigger`는 같은 패키지의 shadcn 탭을 감싼 플랫폼 선택 표식 구현이다([ADR-0023 개정](../adr/0023-feedbackops-primitive-shapes-and-sizes.md#개정--탭-선택-표식-2026-10-15)). `TabsList`는 선택 prop `overflow`(`'scroll'` 기본 = 넘치면 가로 스크롤, `'menu'`)와 `moreLabel`(기본 `더보기`, `@ap/ui`는 i18n을 모르므로 메뉴가 자기 문구를 넘긴다)을 받는다. `overflow="menu"`는 들어가지 않는 탭을 마지막 보이는 탭 바로 뒤의 `더보기 ⌄` 메뉴로 옮기고(선택 탭이 숨으면 버튼이 그 탭 이름과 선택 막대를 보인다), 목록 자신의 상자 너비를 재므로 컨테이너가 확정된 너비를 줘야 한다(flex 행이면 `min-w-0 flex-1`). 숨은 탭은 DOM에 `hidden`으로 남아 `TabsContent`의 `aria-labelledby`가 계속 풀린다. 키보드는 ←/→/Home/End가 [보이는 탭…, 더보기 버튼] 순서를 돌고, 버튼에서 Enter/Space/↓로 메뉴(`menuitemradio`)를 열며, Tab 정거장은 목록 하나(선택 탭이 숨었으면 더보기 버튼)다. `src/ui`는 표식 없는 `TabsListBase`·`TabsTriggerBase`를 각각 `TabsList`·`TabsTrigger`라는 기능 이름으로 재수출한다. 아래 primitive 역할 예시는 그 구체 컴포넌트 매핑까지 확정하는 것은 아니다.

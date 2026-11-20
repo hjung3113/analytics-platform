@@ -205,7 +205,7 @@ describe('global utility routes and the null-sidebar home link (06 §9.1)', () =
     expect(screen.getByRole('heading', { level: 1, name: 'secret' })).toBeTruthy();
     // Label and sentence are sibling text nodes inside one body, so no element’s text is the sentence alone.
     expect(screen.getByText((_, node) => hasTextWithoutChild(node, '관리자에게 요청하세요.'))).toBeTruthy();
-    expect(screen.getByRole('link', { name: '홈' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '홈으로' })).toHaveAttribute('href', '/?v=1');
     expect(screen.queryByText('이 업무 시스템에 들어갈 수 없습니다')).toBeNull();
   });
 

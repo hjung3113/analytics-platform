@@ -196,7 +196,7 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
   test('권한 없는 메뉴의 직접 URL은 화면 대신 권한 거부를 보인다', async ({ page }, testInfo) => {
     await signInAs(page, 'viewer');
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
-    await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
     await expect(page.getByText('permission=equipment:view')).toHaveCount(0);
     await expect(mainHeading(page)).toHaveText('설비 마스터');
     await expect(page.getByText('관리자에게 요청하세요')).toBeVisible();

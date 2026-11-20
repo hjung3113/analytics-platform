@@ -524,7 +524,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     for (const role of ['engineer', 'viewer'] as const) {
       await signInAs(page, role);
       await page.goto(ADMIN_URL);
-      await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
       // 본문은 Registry 공간 라벨과 요청 문장이다. 레일에는 이 공간이 없다.
       await expect(page.getByRole('main')).toContainText('권한/역할 관리');
       await expect(page.getByRole('main')).toContainText('관리자에게 요청하세요');
@@ -1012,7 +1012,7 @@ test.describe('메뉴 활용률 (06 §4, docs/05 — kernel이 recordUsage로 �
     await page.goto(DIRECT_URL);
     const main = page.getByRole('main');
     await expect(main).toContainText('이 메뉴에 대한 권한이 없습니다');
-    await expect(main.getByRole('link', { name: '홈' })).toBeVisible();
+    await expect(main.getByRole('link', { name: '홈으로', exact: true })).toBeVisible();
     await expect(main.getByRole('link', { name: '권한 요청' })).toHaveCount(0);
     await expect(main.getByRole('button', { name: '권한 요청' })).toHaveCount(0);
   });
@@ -1221,7 +1221,10 @@ test.describe('권한/역할 (06 §9.1, §17 — console access directory, read-
     const main = page.getByRole('main');
     await expect(main).toContainText('이 메뉴에 대한 권한이 없습니다');
     await expect(main).toContainText('권한/역할 관리');
-    await expect(main).toContainText('관리자에게 요청하세요');
+    const blocked = main.locator('[data-request-status="not-requestable"]');
+    await expect(blocked.getByText('관리자에게 요청하세요.', { exact: true })).toBeVisible();
+    await expect(blocked.getByRole('link', { name: '홈으로', exact: true })).toBeVisible();
+    await expect(blocked.getByRole('link', { name: '권한 요청', exact: true })).toHaveCount(0);
     await expect(main.getByRole('table')).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
     expect(page.url().replace(/^https?:\/\/[^/]+/, '')).toBe(directUrl);

@@ -1,13 +1,13 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useLayoutEffect, useRef } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createBasePathLocation, createRegistry, usePlatform, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
 import { PlatformPage } from '../PlatformPage';
 import { QueryView } from '../../StateView';
 import { PaneScreenProvider, useHostPlatform } from '@ap/kernel/host';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { memoryStorage, noContext, testAdapter, testMenu, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId, type PlatformAdapter, type ScopeCheck } from '@ap/contracts';
 
 const registry = createRegistry({
@@ -122,6 +122,69 @@ describe('PlatformPage 50px header (#194)', () => {
     expect(content?.contains(screen.getByText('global context'))).toBe(false);
     fireEvent.click(screen.getByRole('button', { name: '즐겨찾기에 추가' }));
     expect(screen.getByRole('button', { name: '즐겨찾기에서 제거' }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it.each([
+    ['no slot', undefined, null],
+    ['explicit null while checking', { pending: null, statusHref: null, requestHref: null, read: 'checking' }, null],
+    ['requestable', { pending: null, statusHref: null, requestHref: '/requests?new=1' }, '권한 요청'],
+    ['pending', { pending: true, statusHref: '/requests', requestHref: null }, '내 권한 요청 보기'],
+  ] satisfies [string, AccessRequestState | undefined, string | null][])('renders the Scope card action row with a prefixed Home (%s)', async (_scenario, requestState, label) => {
+    const withHome = createRegistry({
+      spaces: [testSpace()],
+      platformHomeMenuId: 'platform-home',
+      groups: [...registry.groups, { id: groupId('global'), label: { ko: '홈', en: 'Home' }, icon: House, space: null }],
+      menus: [
+        testMenu({ path: '/restricted', requiresScope: true }),
+        testMenu({ id: 'platform-home', group: groupId('global') }),
+        testMenu({ id: 'requests', group: groupId('global'), path: '/requests', primary: false, pageKeys: ['new'] }),
+      ],
+    });
+    const location = createBasePathLocation('/company/');
+    window.history.replaceState(null, '', location.href(withHome.menuById('home').path + '?v=1&scopeId=MEM'));
+    const forbiddenCheck = async (): Promise<ScopeCheck> => ({ status: 'forbidden', grantedRooms: [] });
+    const accessRequest: AccessRequestSlot | undefined = requestState && {
+      Pending: ({ children }) => <>{children(requestState)}</>,
+      Dialog: () => null,
+    };
+    const session = { ...testSession(['platform:view']), requestableScopes: [] };
+    const adapter = accessRequest
+      ? testAdapter({ session: () => session, validateScope: forbiddenCheck })
+      : adapterWith(forbiddenCheck);
+    const slots = accessRequest ? { accessRequest } : undefined;
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={withHome} location={location} slots={slots}>
+      <PlatformPage><p>page body</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    const home = await screen.findByRole('link', { name: '홈으로' });
+    const card = home.closest<HTMLElement>('[data-request-status]')!;
+    const first = label ? within(card).getByRole('link', { name: label }) : null;
+    const statusValue = requestState?.pending ? 'pending' : 'none';
+    expect(card).toHaveAttribute('data-request-status', label ? statusValue : 'not-requestable');
+    expect(within(home.parentElement!).getAllByRole('link')).toEqual(first ? [first, home] : [home]);
+    expect(within(card).getAllByRole('link')).toEqual(first ? [first, home] : [home]);
+    expect(home).toHaveClass('border-border-subtle');
+    expect(home).toHaveAttribute('href', '/company/?v=1');
+    if (first) expect(first).toHaveClass(requestState?.pending ? 'border-border-subtle' : 'bg-accent-primary');
+    expect(within(card).getByRole('heading', { level: 2, name: '이 Scope에 접근 권한이 없습니다' })).toBeTruthy();
+    const status = within(card).getByRole('status');
+    expect(status).not.toContainElement(home);
+    expect(within(card).queryByText('검토 중')).toBeNull();
+    if (requestState?.pending) expect(status).toHaveTextContent('보낸 권한 요청을 검토하고 있습니다.');
+    if (!label) expect(status.textContent).toBe('현재 권한으로는 이 Scope를 볼 수 없습니다.');
+    expect(screen.queryByText('page body')).toBeNull();
+    const destination = requestState?.statusHref ?? requestState?.requestHref;
+    if (first && destination) {
+      expect(first).toHaveAttribute('href', location.href(destination));
+      first.focus();
+      await userEvent.setup().tab();
+      expect(home).toHaveFocus();
+      fireEvent.click(first);
+      expect(window.location.pathname).toBe('/company/requests');
+      expect(new URLSearchParams(window.location.search).get('new')).toBe(requestState?.pending ? null : '1');
+    } else {
+      fireEvent.click(home);
+      expect(window.location.pathname + window.location.search).toBe('/company/?v=1');
+    }
   });
 
   it('retains header identity and Context but gates trust, actions, extension and body until Scope is valid', async () => {

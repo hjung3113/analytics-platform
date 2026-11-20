@@ -298,10 +298,10 @@ test.describe('분석 보드 계약 (16 §4–§7, ADR-0049·0051)', () => {
     ])));
     await page.goto('/board?sheet=denied');
     const pane = boardPane(page, 1);
-    await expect(pane.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
+    await expect(pane.getByRole('heading', { name: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
     await expect(pane.getByRole('table')).toHaveCount(0);
     await expect(pane.getByRole('row')).toHaveCount(0);
-    await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toHaveCount(1);
+    await expect(page.getByRole('heading', { name: '이 메뉴에 대한 권한이 없습니다' })).toHaveCount(1);
     // viewer holds metrics:view, so the BRAVO metric catalog is a placeable menu and the rail entry stays (16 §6).
     await expect(page.getByRole('navigation', { name: '시스템 레일' }).getByRole('button', { name: '분석 보드' })).toHaveCount(1);
     await evidence(page, testInfo, 'board-denied-pane');

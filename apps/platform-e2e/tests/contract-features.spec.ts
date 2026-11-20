@@ -162,12 +162,12 @@ test.describe('기능 진입 링크 회귀(#451, 06 §22)', () => {
     await signInAs(page, 'viewer');
     // Menu denial inside a mapped space draws no block.
     await page.goto(PRODUCTIVITY);
-    await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: /^기능/ })).toHaveCount(0);
 
     // Operations has no common space gate; the denied member menu draws no block.
     await page.goto('/operations/admin-roles?v=1');
-    await expect(page.getByRole('status').filter({ hasText: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '이 메뉴에 대한 권한이 없습니다' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: /^기능/ })).toHaveCount(0);
 
     await page.goto('/nope-451');
