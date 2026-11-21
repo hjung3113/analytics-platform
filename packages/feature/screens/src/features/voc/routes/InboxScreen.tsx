@@ -76,8 +76,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
   } = useInboxState(view);
 
   const requestable = permissionError?.envelope.requestable_permission;
-  const { requestSystemId, requestDialogSystemId, exactScopeTarget, requestCheckStatus } = vocList;
-  const dialogSystemId = requestDialogSystemId ?? requestSystemId;
+  const { requestSystemId, exactScopeTarget, requestCheckStatus } = vocList;
   const readRequestUnavailable = requestable?.permission === 'voc.read' && requestSystemId === undefined;
   const requestCopy = PERMISSION_REQUEST_FLOW_COPY[lang];
   let requestCheckMessage: React.ReactNode;
@@ -91,25 +90,6 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
   }
   const needsSystemSelection =
     readRequestUnavailable && requestable.managed_system_id == null && requestCheckMessage === undefined;
-  const blockedPanel = (
-    <PermissionBlockedPanel
-      // packages/feature/screens/docs/specs/voc.md R-VOC-INBOX: no read scope and nothing requestable
-      // -> blocked_not_requestable (#562).
-      state="blocked_not_requestable"
-      layout="card"
-      headingLevel={3}
-      announceBody
-      lang={lang}
-      category={VOC_INBOX_LABEL}
-      description={PERMISSION_BLOCKED_REASONS.vocInbox}
-      // #2619: a targetless VOC read denial names the next step inside the card.
-      {...(needsSystemSelection ? { reason: PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem } : {})}
-      {...(requestCheckMessage === undefined
-        ? { requestStatus: 'not-requestable' }
-        : { requestAction: requestCheckMessage })}
-      exitAction={permissionCardExitAction(permissionHomeHref, lang)}
-    />
-  );
 
   const outOfScopeBanner = outOfScopeSummary ? (
     <PermissionBlockedPanel
@@ -215,15 +195,15 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
       )}
       {permissionError !== null ? (
         <div className="m-4 space-y-3">
-          {requestable && (!readRequestUnavailable || dialogSystemId !== undefined) ? (
+          {requestable && !readRequestUnavailable ? (
             <RequestAccessButton
-              key={dialogSystemId}
+              key={requestSystemId}
               layout="card"
               capability={requestable.permission}
               returnRouteIntent={`/vocs?view=${view}`}
               exactScopeTarget={exactScopeTarget}
-              {...(dialogSystemId !== undefined ? { managedSystemId: dialogSystemId } : {})}
-              renderTrigger={(_onRequestAccess, panel) => readRequestUnavailable ? blockedPanel : (
+              {...(requestSystemId !== undefined ? { managedSystemId: requestSystemId } : {})}
+              renderTrigger={(_onRequestAccess, panel) => (
                 <PermissionBlockedPanel
                   layout="card"
                   headingLevel={3}
@@ -240,7 +220,25 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
                 />
               )}
             />
-          ) : blockedPanel}
+          ) : (
+            <PermissionBlockedPanel
+              // packages/feature/screens/docs/specs/voc.md R-VOC-INBOX: no read scope and nothing requestable
+              // -> blocked_not_requestable (#562).
+              state="blocked_not_requestable"
+              layout="card"
+              headingLevel={3}
+              announceBody
+              lang={lang}
+              category={VOC_INBOX_LABEL}
+              description={PERMISSION_BLOCKED_REASONS.vocInbox}
+              // #2619: a targetless VOC read denial names the next step inside the card.
+              {...(needsSystemSelection ? { reason: PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem } : {})}
+              {...(requestCheckMessage === undefined
+                ? { requestStatus: 'not-requestable' }
+                : { requestAction: requestCheckMessage })}
+              exitAction={permissionCardExitAction(permissionHomeHref, lang)}
+            />
+          )}
           {view === 'inbox' && requestable === undefined ? (
             <MyVocsRecoveryLink />
           ) : null}
