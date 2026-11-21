@@ -757,6 +757,7 @@ describe('InboxScreen', () => {
     expect(screen.queryByRole('button', { name: '정렬' })).not.toBeInTheDocument();
     const createLink = screen.getByRole('link', { name: 'VOC 생성' });
     expect(createLink).not.toHaveClass('bg-accent-primary');
+    expect(screen.queryByRole('heading', { name: 'VOC 처리함', level: 2 })).not.toBeInTheDocument();
   });
 
   it('shows the Korean denied reason and links to 내 VOC for a 403', async () => {
@@ -825,6 +826,37 @@ describe('InboxScreen', () => {
       screen.getByText('선택한 시스템의 VOC를 볼 권한이 없습니다.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '내 VOC' })).not.toBeInTheDocument();
+  });
+
+  it.each([true, false])('removes the blocked Inbox toolbar when the host owns the page head (can create: %s)', async (canCreate) => {
+    const managedSystemId = 'aaaaaaaa-0000-4000-8000-000000000001';
+    useVocListMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new ApiError(403, {
+        code: 'permission.scope_required',
+        message: 'voc.read capability required',
+        requestable_permission: { permission: 'voc.read', managed_system_id: managedSystemId },
+      }),
+      requestSystemId: managedSystemId,
+      refetch: vi.fn(),
+    });
+    searchState = { managedSystem: managedSystemId };
+    const actionTarget = document.createElement('div');
+    const { container } = render(
+      <HostSeamProvider value={{ ...TEST_SEAM, canLink: () => canCreate, usePrimaryActionTarget: () => actionTarget }}>
+        <h1>VOC 처리함</h1>
+        <DetailPanelSlotProvider>
+          <InboxScreen view="inbox" renderDetail={() => null} />
+        </DetailPanelSlotProvider>
+      </HostSeamProvider>,
+    );
+
+    await screen.findByRole('heading', { name: 'VOC 처리함', level: 3 });
+    expect(screen.getAllByRole('heading', { name: 'VOC 처리함' })).toHaveLength(2);
+    expect(container.querySelector('[data-list-toolbar]')).not.toBeInTheDocument();
+    if (canCreate) expect(actionTarget.querySelector('a')).toHaveAccessibleName('VOC 생성');
+    else expect(actionTarget).toBeEmptyDOMElement();
   });
 
   it('keeps a non-permission error on VocList failed-load copy', async () => {

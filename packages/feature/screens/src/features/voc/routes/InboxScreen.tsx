@@ -11,7 +11,7 @@ import { GLOSSARY, createLabel } from '../../../lib/copy/glossary';
 import { LIST_SEARCH_PLACEHOLDER } from '../../../lib/copy/list-search';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { VOC_INBOX_LABEL } from '../../../lib/copy/voc-views';
-import { HostLink, useHostPermissionLinks, useHostSeam } from '../../../lib/host/host-seam';
+import { HostLink, useHostPermissionLinks, useHostPrimaryActionTarget, useHostSeam } from '../../../lib/host/host-seam';
 import { HostPrimaryAction } from '../../../lib/host/HostPrimaryAction';
 import { SEVERITY_LABELS } from '../../../ui/index';
 import {
@@ -46,6 +46,7 @@ export interface InboxScreenProps {
 export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.ReactElement {
   const { canLink, lang = 'ko' } = useHostSeam();
   const canCreate = canLink(CREATE_HREF);
+  const primaryActionTarget = useHostPrimaryActionTarget();
   const { permissionHomeHref } = useHostPermissionLinks();
   const {
     search,
@@ -98,9 +99,24 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
     />
   ) : null;
 
+  const deniedCreateAction = inboxPermissionBlocked && canCreate ? (
+    <HostPrimaryAction>
+      <Button asChild variant="secondary" size="sm" spacing="compact">
+        <HostLink to={CREATE_HREF}>
+          <Plus className="h-4 w-4" aria-hidden="true" />
+          {createLabel('VOC')}
+        </HostLink>
+      </Button>
+    </HostPrimaryAction>
+  ) : undefined;
+  // A denied Inbox needs a local toolbar only when it has an action the host cannot render.
+  const showToolbar = !inboxPermissionBlocked || (canCreate && primaryActionTarget === null);
+
   const list = (
     <>
-      <ListToolbar
+      {!showToolbar && deniedCreateAction}
+      {showToolbar && <ListToolbar
+        {...(view === 'my' ? { title: GLOSSARY.myVocs } : {})}
         {...(view === 'inbox' && !inboxPermissionBlocked
           ? {
               tabs: INBOX_TABS,
@@ -108,20 +124,9 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
               activeTab,
               onTabChange: handleTabChange,
             }
-          : { title: view === 'my' ? GLOSSARY.myVocs : VOC_INBOX_LABEL })}
+          : {})}
         action={
-          inboxPermissionBlocked ? (
-            canCreate ? (
-              <HostPrimaryAction>
-                <Button asChild variant="secondary" size="sm" spacing="compact">
-                  <HostLink to={CREATE_HREF}>
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                    {createLabel('VOC')}
-                  </HostLink>
-                </Button>
-              </HostPrimaryAction>
-            ) : undefined
-          ) : (
+          inboxPermissionBlocked ? deniedCreateAction : (
             // #886 UX-7: on a narrow toolbar the actions get their own row; the controls wrap within it rather than overflow.
             <div className="flex flex-wrap items-center justify-end gap-2">
               {/* #821: server-side text search on GET /vocs. The box is a local
@@ -171,7 +176,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
             </div>
           )
         }
-      />
+      />}
       {!inboxPermissionBlocked && (
         <ActiveFilterBar
           items={
