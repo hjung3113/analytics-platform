@@ -1,22 +1,24 @@
 # Lead profile — analytics-platform
 
-Lead-only sections of the conductor profile. The lead reads this file and [`PROFILE.md`](PROFILE.md) §Flow, §Lanes and §Owner gates and questions; lanes and reviewers do not read it. Root `AGENTS.md` wins on conflict.
+Lead-only sections of the conductor profile; workers and reviewers do not read it. Root `AGENTS.md` wins on conflict.
 
 ## Lead duties
 
-- **Bot PRs** (Dependabot, `.github/dependabot.yml`: one grouped npm minor/patch PR and one GitHub Actions PR each Monday): the lead reads the lockfile diff and the PR CI, then merges a green one like any PR. If CI is red, the lead closes it or hands the fix to `lane:arch` on the bot branch; a dependency that cannot move gets an `ignore` entry with its reason and a backlog row. Majors are never opened by the bot: each is its own issue. Reason: a lockfile change reruns almost every package, so one weekly bundle costs one PR's CI.
+- **Bot PRs** (Dependabot, `.github/dependabot.yml`): the lead reads the lockfile diff and the PR CI, then merges a green one like any PR. If CI is red, the lead closes it or hands the fix to a worker on the bot branch; a dependency that cannot move gets an `ignore` entry with its reason and a backlog row. Each major upgrade is its own issue. Reason: a lockfile change reruns almost every package, so one weekly bundle costs one PR's CI.
 - App `v0.x` tags: at slice start ask once: 'tag when the tag SHA's main-push CI is green?'. If not chosen, ask once, alone, just before the tag. Record the answer on the release issue.
+- **Direct edits:** the lead edits light-tier diffs and small-tier diffs of at most 100 changed lines in one package itself; the review the tier requires is unchanged. Larger work, or work after the lead's context has been compacted, goes to a worker. Reason: measured faster than a worker round with the same review yield.
+- **Subagents:** retro, audit and data-gathering subagents run at most 2–3 at a time, and one agent judges the result. Reason: gathering fans out, judgment does not.
 - **Periodic check:** what the lead reports to the owner is, per open PR, the three `PR guard` numbers (changed lines and files, pushes, scope verdict) and whether the capture link is in the PR body. Board drift and terminal hygiene stay in the tool output. Reason: a check that relays board warnings never showed the lead a fifth fix round or a 1,000-line PR.
 
 ## Release spec
 
 The lead keeps one file per release, `.planning/releases/<version>.md`: the owner's decisions quoted with dates, the scope issues, an «결정 안 됨» list, and the screen checklist below. The lead re-reads it before every merge. Reason: owner criteria held only in the lead's context are lost at compaction.
 
-The scope section is `## 범위`: the issue numbers the owner picked at release start, as `#n`, plus the release issue. CI reads this section from `main` ([`PROFILE.md`](PROFILE.md) §Size and path, Mechanical caps), so a PR that closes an unlisted issue is red until the owner labels it `owner-ok:scope` or adds the number here in its own labelled PR. The lead never adds a number on its own; a bug found mid-release goes to the owner as `질문 #n` with the fix size, or waits for the next release. Reason: six issues entered v0.44 through the lead alone.
+The scope section is `## 범위`: the issue numbers the owner picked at release start, as `#n`, plus the release issue. CI reads this section from `main` ([`PROFILE.md`](PROFILE.md) §Size and path, Mechanical caps), so a PR that closes an unlisted issue is red until the owner labels it `owner-ok:scope` or adds the number here in its own labelled PR. The lead never adds a number on its own; a bug found mid-release goes to the owner as `질문 #n` with the fix size, or waits for the next release. Reason: the scope is the owner's.
 
 ## Screen check
 
-Before merging a screen-changing PR the lead looks at its 1440×900 before/after captures and checks six things: the captures are 1440×900; terms and hierarchy match `GLOSSARY.md`; Panel and card frames do not mix on one screen; nothing is cut off, overlapping, or left as empty space after a collapse; nothing changed beyond the owner's decisions in the release spec; every action is a real one-line button labelled for what it does, never bare text or an indented link. Any miss is fixed before merge or becomes an owner question. Reason: in v0.44 the lead saw captures only after merge, and messy screens shipped; bare text or an indented link does not read as an action.
+Before merging a screen-changing PR the lead looks at its 1440×900 before/after captures and checks six things: the captures are 1440×900; terms and hierarchy match `GLOSSARY.md`; Panel and card frames do not mix on one screen; nothing is cut off, overlapping, or left as empty space after a collapse; nothing changed beyond the owner's decisions in the release spec; every action is a real one-line button labelled for what it does, never bare text or an indented link. Any miss is fixed before merge or becomes an owner question. Reason: a capture nobody looks at before merge catches nothing; bare text or an indented link does not read as an action.
 
 ## Request classification
 
@@ -31,7 +33,7 @@ Take the first match:
 
 - **Mixed request:** split it by class. The SDK issue goes first.
 - **Bugs:** go to the lane that owns the confirmed cause, not the symptom.
-- **Promotion candidates:** go in `.planning/backlog.md` with their current consumers. Promote when 2–3 real consumers exist.
+- **Promotion candidates:** go in `.planning/backlog.md` with their current consumers.
 
 ## Slice close
 
@@ -44,8 +46,8 @@ Release order. Reason: once the slice's work is merged, the tag waits only for t
   5. After the tag, without holding it: run the real-server suite (`pnpm --filter @ap/platform-e2e run e2e:real`) on a throwaway database, by the procedure in [`apps/platform-e2e/AGENTS.md`](../../apps/platform-e2e/AGENTS.md#procedure), and post the pass/fail counts and the gate table on the release issue. A failing spec is diagnosed (product defect or stale test, [expected-behavior](../../docs/product/expected-behavior/README.md#판단-기준) «판단 기준»); a product defect gets a patch release, a stale test an issue for the next release. Reason: CI does not run it, so stale real specs go unnoticed without it (#1660 answer 3); it checks test upkeep, not the tagged build.
   6. After the tag and the step 5 record (real-server counts and gate table) are on the release-scope issue, the lead closes that issue. Reason: the issue holds the release's records, so it stays open until they are posted, and an open release-scope issue then means only that the release is not finished.
 
-- **Weekly cold run:** once a week, with the Monday Dependabot review, the lead runs `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`, none for server-only PRs; `Platform test` leaves out `@ap/platform-api`, which `integration` runs), so this run is the only whole, cold check. A failure gets a `bug` issue. Reason: a cold run per tag cost 20–42 minutes per release and found runner failures but no code defect.
-- **Gate table:** after tagging (step 5), the lead posts the table of the global `references/lanes.md` §Gate measurement on the release issue, with two rows: `tier=small` (count and findings of major or worse) and bundles (PRs, issues per PR, median changed source lines, PR CI runs per PR). Add four numbers: median issue-to-merge time, review rounds per PR (median and max), minutes `main` was red, and the share of `start=no` capacity checks. v0.44 baseline: 6.7 h, max 8, 385 min, 10 of 44. The lead re-sizes the [`PROFILE.md`](PROFILE.md) §Size and path bundle limits from the bundle row.
+- **Weekly cold run:** once a week, with the Monday Dependabot review, the lead runs `gh workflow run ci.yml --ref main -f full=true`. PR and main-push CI run only what changed (turbo cache; E2E specs picked by `.github/scripts/select-e2e.mjs`, none for server-only PRs; `Platform test` leaves out `@ap/platform-api`, which `integration` runs), so this run is the only whole, cold check. A failure gets a `bug` issue. Reason: a cold run per tag found runner failures, not code defects.
+- **Gate table:** after tagging (step 5), the lead posts the table of the global `references/lanes.md` §Gate measurement on the release issue, with two rows: `tier=small` (count and findings of major or worse) and bundles (PRs, issues per PR, median changed source lines, PR CI runs per PR). Add four numbers: median issue-to-merge time, review rounds per PR (median and max), minutes `main` was red, and the share of `start=no` capacity checks. v0.44 baseline: 7.9 h, max 8, 385 min, 9 of 27. The lead re-sizes the [`PROFILE.md`](PROFILE.md) §Size and path bundle limits from the bundle row.
 - **SDK release timing:** a lane adds only its `packages/sdk/changes/<issue>.md` fragment. The lead releases the SDK when a fragment (or a leftover `다음 릴리스` row) exists and main CI is green, and at once if a lane is waiting for it.
 - **Intro site (paused):** do not update, test, capture or deploy `site/`, and leave it out of release reports and questions; a release does not deploy Pages (manual `workflow_dispatch` only). Reason: the owner will restructure the site later and paused it until then. Reopen: when the owner says to resume the site.
 
