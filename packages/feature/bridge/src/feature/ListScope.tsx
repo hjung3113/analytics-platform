@@ -5,8 +5,8 @@ const Picker = lazy(() => import('../pages/ListScope'));
 
 /**
  * The page-owned `목록 범위` for a page inside `FeatureBridge`: the existing Managed System picker over the same `managedSystem` page key the sidebar picker uses (`useListScope`),
- * with the effective value and `전체` to clear it. It owns no state, session or query client of its own. `capability` is the capability the page's list scopes
- * by on the server, for the «범위 밖» marks (default `voc.read`, as on the sidebar picker; #2632).
+ * with the effective value and `전체` to clear it. It owns no state, session or query client of its own. The picker uses the
+ * menu's declared capability for the «범위 밖» marks, with an optional override and the same `voc.read` fallback as the sidebar.
  */
 export function ListScope({ capability }: { capability?: ComponentProps<typeof Picker>['capability'] }) {
   return <Suspense fallback={null}><Picker {...(capability !== undefined ? { capability } : {})} /></Suspense>;

@@ -235,6 +235,16 @@ describe('accessRequest slot', () => {
     });
 
     describe('menu permission regression', () => {
+      it('checks and requests the capability declared by a new menu', async () => {
+        const calls = stubFindingReads(() => undefined);
+        mountMenuPermission(`/declared-capability?v=1&managedSystem=${ID_A}`, 'features:access');
+        const link = await screen.findByRole('link', { name: '요청' });
+        const target = new URL(link.getAttribute('href')!, window.location.origin);
+        expect(Object.fromEntries(target.searchParams)).toMatchObject({ capability: 'survey.read', managedSystem: ID_A });
+        const check = calls.map(call => new URL(call.path, window.location.origin)).find(url => url.pathname === CHECK);
+        expect(Object.fromEntries(check!.searchParams)).toEqual({ capability: 'survey.read', managed_system_id: ID_A });
+      });
+
       it('withholds the request during history checking and error, then retries only history', async () => {
         const history = heldResponse();
         let historyReads = 0;

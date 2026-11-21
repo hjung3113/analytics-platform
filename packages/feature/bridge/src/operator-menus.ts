@@ -14,27 +14,16 @@ function declares(menu: MenuEntry | null, groups: ReadonlySet<string>): boolean 
   return menu !== null && menu.pageKeys.includes(SCOPE_KEY) && groups.has(menu.group);
 }
 
-/** True when the current menu is an operator menu with a list scope: the sidebar `목록 범위` mounts for it, and for nothing else. */
-export const usesListScope = (menu: MenuEntry | null) => declares(menu, SCOPED_GROUPS);
+/** A declared list scope mounts in the sidebar by default. Existing operator pickers also mount without a capability declaration. */
+export const usesListScope = (menu: MenuEntry | null): boolean =>
+  menu !== null && menu.pageKeys.includes(SCOPE_KEY) && menu.requiredCapability?.scopePicker !== 'page'
+  && (menu.requiredCapability !== undefined || SCOPED_GROUPS.has(menu.group));
 /** True when the current menu is one whose sidebar rows show counts. */
 export const usesNavCounts = (menu: MenuEntry | null) => declares(menu, COUNTED_GROUPS);
 /** True when the current menu uses the saved VOC views section. */
 export const usesSavedViews = (menu: MenuEntry | null) => declares(menu, SAVED_VIEW_GROUPS);
-/**
- * The capability each operator group's list reads, for the sidebar picker's in/out-of-scope marks (#2630). A group absent here keeps the
- * picker's default (`voc.read`). Each value is the capability the group's list routes scope by on the server: `findings` (전체 Finding, 근거)
- * by `finding.read`; `surveys` (설문 관리 and its builder, results, follow-up) by `survey.read`; `tasks` (Task 요청, Task 보드, Task 목록,
- * 마일스톤) by `finding.manage` (#2632).
- * Declared here, next to the groups that mount the picker, because the capability is feature vocabulary the Kernel menu manifest does not carry.
- */
-// Values are checked where ScopeControl passes them to the picker's `capability` prop:
-// this module may not import feature-screens (boundary lint).
-const LIST_SCOPE_CAPABILITY = { findings: 'finding.read', surveys: 'survey.read', tasks: 'finding.manage' } as const;
-type ListScopeCapability = (typeof LIST_SCOPE_CAPABILITY)[keyof typeof LIST_SCOPE_CAPABILITY];
-/** The capability the sidebar `목록 범위` marks scope by on the current menu; `undefined` = the picker's default. */
-export const listScopeCapability = (menu: MenuEntry | null): ListScopeCapability | undefined =>
-  menu !== null && usesListScope(menu) && Object.hasOwn(LIST_SCOPE_CAPABILITY, menu.group)
-    ? LIST_SCOPE_CAPABILITY[menu.group as keyof typeof LIST_SCOPE_CAPABILITY]
-    : undefined;
+/** The capability the list picker marks scope by. Omission keeps the picker's default. */
+export const listScopeCapability = (menu: MenuEntry | null): string | undefined =>
+  menu?.pageKeys.includes(SCOPE_KEY) ? menu.requiredCapability?.id : undefined;
 /** The 흐름 설정 (`flowSettings`) menus ignore the list scope: the picker is disabled there and the carried value stays in the URL. */
 export const ignoresListScope = (menu: MenuEntry | null) => menu?.group === 'flowSettings';

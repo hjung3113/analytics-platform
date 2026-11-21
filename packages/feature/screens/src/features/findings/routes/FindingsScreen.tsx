@@ -61,9 +61,9 @@ type SearchWriter = ReturnType<
   typeof useHostSearchWriter<ReturnType<typeof validateFindingsSearch>>
 >;
 type WriteSearch = SearchWriter['write'];
-const FINDING_READ_CAPABILITY = 'finding.read';
-
 export type FindingsScreenProps = {
+  /** The hosted menu's capability for scoped list reads. */
+  capability?: string;
   /**
    * The host's detail slot, called once per render. By default the result is handed to `ListShell`.
    * `returnTo` is the stored safe VOC URL, set only when the search carries one and the host does not carry the return itself, else `null`. It is a
@@ -77,7 +77,7 @@ export type FindingsScreenProps = {
   renderDetailInPlace?: boolean;
 };
 
-export function FindingsScreen({ renderDetail, renderDetailInPlace = false }: FindingsScreenProps): React.ReactElement {
+export function FindingsScreen({ capability = 'finding.read', renderDetail, renderDetailInPlace = false }: FindingsScreenProps): React.ReactElement {
   const { search, write } = useHostSearchWriter('/findings', validateFindingsSearch);
   const selectedId = search.selected ?? null;
   const managedSystemId = search.managedSystem === 'all' ? undefined : search.managedSystem;
@@ -113,6 +113,7 @@ export function FindingsScreen({ renderDetail, renderDetailInPlace = false }: Fi
   return (
     <FindingsListShell
       q={search.q}
+      capability={capability}
       managedSystemId={managedSystemId}
       analyticsAreaId={search['filter.analytics_area']}
       status={search.status}
@@ -132,6 +133,7 @@ export function FindingsScreen({ renderDetail, renderDetailInPlace = false }: Fi
 
 function FindingsListShell({
   q,
+  capability,
   analyticsAreaId,
   status,
   managedSystemId,
@@ -147,6 +149,7 @@ function FindingsListShell({
   onResetFilters,
 }: {
   q: string | undefined;
+  capability: string;
   analyticsAreaId: string | undefined;
   status: 'active' | undefined;
   managedSystemId: string | undefined;
@@ -220,7 +223,7 @@ function FindingsListShell({
     [listQuery.data],
   );
   const scopedPermission = useScopedEmptyListPermission({
-    capability: FINDING_READ_CAPABILITY,
+    capability,
     managedSystemId,
     empty: listQuery.isSuccess && findings.length === 0,
   });
@@ -418,6 +421,7 @@ function FindingsListShell({
             isSuccess={listQuery.isSuccess || listQuery.isFetchNextPageError}
             isReadDenied={isReadDenied}
             roleRequired={roleRequired}
+            capability={capability}
             managedSystemId={managedSystemId}
             request={request}
             isFilteredEmpty={isFilteredEmpty}
@@ -466,7 +470,7 @@ function FindingsListShell({
 }
 
 /** A not-requestable denial. An archived System cannot be read even with the permission, so it names that instead of the missing permission. */
-function FindingsDeniedCard({ managedSystemId }: { managedSystemId: string | undefined }): React.ReactElement {
+function FindingsDeniedCard({ capability, managedSystemId }: { capability: string; managedSystemId: string | undefined }): React.ReactElement {
   if (useIsArchivedSystem(managedSystemId)) {
     return <PermissionDeniedCard layout="card" category="Findings" reason={PERMISSION_BLOCKED_REASONS.archivedSystem} />;
   }
@@ -474,7 +478,7 @@ function FindingsDeniedCard({ managedSystemId }: { managedSystemId: string | und
     <PermissionDeniedCard
       layout="card"
       category="Findings"
-      capability={FINDING_READ_CAPABILITY}
+      capability={capability}
       {...(managedSystemId === undefined ? {} : { managedSystemId })}
     />
   );
@@ -488,6 +492,7 @@ function FindingsListBody({
   isSuccess,
   isReadDenied,
   roleRequired,
+  capability,
   managedSystemId,
   request,
   isFilteredEmpty,
@@ -510,6 +515,7 @@ function FindingsListBody({
   isSuccess: boolean;
   isReadDenied: boolean;
   roleRequired: boolean;
+  capability: string;
   managedSystemId: string | undefined;
   request: ListAccessRequest | null | undefined;
   isFilteredEmpty: boolean;
@@ -568,7 +574,7 @@ function FindingsListBody({
           </div>
         ) : (
           <div className="m-4">
-            <FindingsDeniedCard managedSystemId={managedSystemId} />
+            <FindingsDeniedCard capability={capability} managedSystemId={managedSystemId} />
           </div>
         )
       ) : isError ? (

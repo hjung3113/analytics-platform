@@ -10,7 +10,7 @@ const isValid = (key: string, value: string) => key === 'param' ? isUuid(value) 
 /** screen's `ListShell` would hand a returned node to the shell slot, which renders it outside the feature providers; the page draws the detail itself, inside `FeatureBridge`. */
 const noDetail = () => undefined;
 
-/** Task 목록 and 내 Task: the same feature list screen, told apart by `view`; 내 Task is a global screen with no sidebar scope, so it draws its own `목록 범위` (the existing picker over the same `managedSystem` page key, #1099c), marked by `finding.manage` like the 업무 흐름 Task lists (#2632); `focus` opens the Task detail in the shell detail slot (URL-only selection, no auto-select; only a UUID passes for it, and a UUID or `all` for `managedSystem`). */
+/** Task 목록 and 내 Task share this screen. 내 Task draws its own `목록 범위` from the manifest and the `managedSystem` page key. `focus` opens Task detail in the shell detail slot. */
 export function TaskListPage({ view, route, useSearch, useHere }: {
   view: 'backlog' | 'my'; route: OperatorRoute; useSearch: () => Readonly<Record<string, string>>; useHere: () => string;
 }) {
@@ -18,7 +18,7 @@ export function TaskListPage({ view, route, useSearch, useHere }: {
   const focus = pageParam('focus');
   return <FeatureScreenPage route={route} isValid={isValid} useSearch={useSearch} useHere={useHere}
     detail={focus !== null && <TaskDetailDrawer key={focus} taskId={focus} view={view} onClose={() => setPage({ focus: null })} />}>
-    {view === 'my' && <div className="max-w-sm shrink-0 border-b border-border-subtle px-3 py-2"><ListScope capability="finding.manage" /></div>}
+    {view === 'my' && <div className="max-w-sm shrink-0 border-b border-border-subtle px-3 py-2"><ListScope /></div>}
     <TaskListScreen view={view} autoSelect={false} renderDetail={noDetail} />
   </FeatureScreenPage>;
 }

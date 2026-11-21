@@ -66,11 +66,13 @@ function denied(error: unknown) {
 }
 
 export type EvidenceScreenProps = {
+  /** The hosted menu's capability for scoped list reads. */
+  capability?: string;
   /** Places the panel parts: the host frames them (standalone detail slot, bridge drawer) and the screen renders the result in place. */
   renderDetail: (parts: ClosableDetailParts) => ReactNode;
 };
 
-export function EvidenceScreen({ renderDetail }: EvidenceScreenProps) {
+export function EvidenceScreen({ capability = 'finding.read', renderDetail }: EvidenceScreenProps) {
   const { search, write } = useHostSearchWriter('/integration/evidence', validateEvidenceSearch);
   const me = useMeBridge();
   const context = JSON.stringify([search.managedSystem, search.source, search.q]);
@@ -93,6 +95,7 @@ export function EvidenceScreen({ renderDetail }: EvidenceScreenProps) {
       search={search}
       write={write}
       viewer={viewer}
+      capability={capability}
       renderDetail={renderDetail}
     />
   );
@@ -102,11 +105,13 @@ function EvidenceSession({
   search,
   write,
   viewer,
+  capability,
   renderDetail,
 }: {
   search: Search;
   write: (update: (previous: Search) => Search, options?: { replace?: boolean }) => void;
   viewer: string;
+  capability: string;
   renderDetail: EvidenceScreenProps['renderDetail'];
 }) {
   const [draft, setDraft] = useState(search.q ?? '');
@@ -237,7 +242,7 @@ function EvidenceSession({
       setManualRefresh(false);
   }, [manualRefresh, list.isPending, list.isFetching, detail.isFetching]);
   const scopedPermission = useScopedEmptyListPermission({
-    capability: 'finding.read',
+    capability,
     managedSystemId: search.managedSystem === 'all' ? undefined : search.managedSystem,
     empty: list.isSuccess && list.data.items.length === 0,
   });

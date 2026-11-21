@@ -12,12 +12,20 @@ import type { MenuEntry } from '@ap/kernel';
 const FEATURES_CARRY_SET = carrySetId('features');
 
 const GROUP = groupId('findings');
+const FINDING_CAPABILITY = {
+  id: 'finding.read',
+  requestOnMenuDenial: {
+    label: { ko: 'Finding 조회', en: 'Read Findings' },
+    roleRequired: { ko: 'Developer 이상 역할 필요', en: 'Developer role or higher required' },
+  },
+};
 
 export const manifests: MenuEntry[] = [
   {
     id: 'findings', primary: true, group: GROUP, label: { ko: '전체 Finding', en: 'All Findings' },
     description: { ko: 'Finding 목록 · 상세 · 근거·Task 연결', en: 'Finding list · Details · Evidence and Task links' },
     path: '/flow/findings', icon: ListChecks, permission: 'features:access', requiresScope: false, pageType: 'management',
+    requiredCapability: FINDING_CAPABILITY,
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'q', 'area', 'status', 'execution', 'assignment', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
     component: lazy(() => import('./pages/FeatureFindings')),
@@ -26,6 +34,7 @@ export const manifests: MenuEntry[] = [
     id: 'evidence', group: GROUP, label: { ko: '근거', en: 'Evidence' },
     description: { ko: '출처별 Finding 연결 근거', en: 'Evidence linked to Findings by source' },
     path: '/flow/evidence', icon: FileBarChart, permission: 'features:access', requiresScope: false, pageType: 'management',
+    requiredCapability: FINDING_CAPABILITY,
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'source', 'q', 'cursor', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
     component: lazy(() => import('./pages/FeatureEvidence')),

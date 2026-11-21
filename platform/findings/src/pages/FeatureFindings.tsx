@@ -9,9 +9,10 @@ import { FindingDetailDrawer } from './FindingDrawer';
  * A value the feature screens' Findings search schema refuses is rejected (`focus` is its `selected`, a UUID; `managedSystem` a UUID or `all`).
  */
 export default function FeatureFindings() {
-  const { setPage } = usePlatform();
+  const { route, setPage } = usePlatform();
+  const capability = route?.menu.requiredCapability?.id;
   return <FeatureScreenPage route={findingsRoute} isValid={isFindingsSearchValueValid} useSearch={useFindingsSearch} useHere={useFindingsHere}>
-    <FindingsScreen renderDetailInPlace renderDetail={(id, { isInList }) => {
+    <FindingsScreen {...(capability === undefined ? {} : { capability })} renderDetailInPlace renderDetail={(id, { isInList }) => {
       if (id === null) return undefined;
       const closeOptions = isInList === false ? { replace: true } : undefined;
       return <FindingDetailDrawer key={id} findingId={id} isInList={isInList} onClose={() => setPage({ focus: null }, closeOptions)} />;

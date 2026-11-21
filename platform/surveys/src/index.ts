@@ -12,12 +12,14 @@ import type { MenuEntry } from '@ap/kernel';
 const FEATURES_CARRY_SET = carrySetId('features');
 
 const GROUP = groupId('surveys');
+const SURVEY_CAPABILITY = { id: 'survey.read' };
 
 export const manifests: MenuEntry[] = [
   {
     id: 'survey-management', primary: true, group: GROUP, label: { ko: '설문 관리', en: 'Survey management' },
     description: { ko: '설문 생성 · 상태·후속 조치 필요 여부별 조회', en: 'Survey creation · Search by status and follow-up need' },
     path: '/flow/survey-management', icon: ClipboardList, permission: 'features:access', requiresScope: false, pageType: 'management',
+    requiredCapability: SURVEY_CAPABILITY,
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'area', 'status', 'follow_up', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
     component: lazy(() => import('./pages/FeatureSurveys')),
@@ -26,6 +28,7 @@ export const manifests: MenuEntry[] = [
     id: 'survey-builder', group: GROUP, label: { ko: '설문 빌더', en: 'Survey builder' }, navHidden: true, parent: 'survey-management',
     description: { ko: '설문 질문 편집 · 시작', en: 'Survey question editing · Launch' },
     path: '/flow/survey-builder/:surveyId', icon: PencilRuler, permission: 'features:access', requiresScope: false, pageType: 'management',
+    requiredCapability: SURVEY_CAPABILITY,
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['area', 'status', 'follow_up', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
     component: lazy(() => import('./pages/FeatureSurveyBuilder')),
@@ -34,6 +37,7 @@ export const manifests: MenuEntry[] = [
     id: 'survey-results', group: GROUP, label: { ko: '설문 결과', en: 'Survey results' }, navHidden: true, parent: 'survey-management',
     description: { ko: '설문 응답 요약', en: 'Survey response summary' },
     path: '/flow/survey-results/:surveyId', icon: FileSpreadsheet, permission: 'features:access', requiresScope: false, pageType: 'management',
+    requiredCapability: SURVEY_CAPABILITY,
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['area', 'status', 'follow_up', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
     component: lazy(() => import('./pages/FeatureSurveyResults')),
@@ -42,6 +46,7 @@ export const manifests: MenuEntry[] = [
     id: 'survey-follow-up', group: GROUP, label: { ko: '설문 후속 조치', en: 'Survey follow-up' }, navHidden: true, parent: 'survey-management',
     description: { ko: '응답별 후속 조치 검토 · 결정', en: 'Follow-up review and decisions by response' },
     path: '/flow/survey-follow-up/:surveyId', icon: ClipboardCheck, permission: 'features:access', requiresScope: false, pageType: 'management',
+    requiredCapability: SURVEY_CAPABILITY,
     context: contextCapabilities(), features: NO_FEATURES,
     pageKeys: ['focus', 'area', 'status', 'follow_up', 'managedSystem', 'returnTo'], carrySet: FEATURES_CARRY_SET,
     component: lazy(() => import('./pages/FeatureSurveyFollowUp')),

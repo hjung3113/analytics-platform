@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import { useQuery, type QueryKey } from '@tanstack/react-query';
-import type { PermissionRequestTarget } from '@ap/contracts';
+import type { PermissionRequestTarget, Text } from '@ap/contracts';
 import { useI18n, usePlatform, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
 import { fetchPermissionRequestsMine, isRequestablePermissionState, meBridgeQueryOptions, meCanOpenGrantedScreen, managedSystemsCatalogQuery, permissionCheckQueryOptions, permissionRequestProgress, permissionRequestsMineAllKey, permissionRequestsMineKey } from '@ap/feature-screens/global-screens/core';
 import { isPendingFor } from './feature/access-request-match';
@@ -66,29 +66,37 @@ function ScopePending({ target, children }: { target: Exclude<PermissionRequestT
   return <>{children(read === undefined ? state : read === 'checking' ? { ...state, read } : { ...state, read, retry })}</>;
 }
 
-const FINDING_PERMISSION = {
-  capability: 'finding.read',
-  label: { ko: 'Finding 조회', en: 'Read Findings' },
-  roleRequired: { ko: 'Developer 이상 역할 필요', en: 'Developer role or higher required' },
-} as const;
-const FINDING_MENU_IDS = new Set(['findings', 'evidence']);
-
 function MenuPending({ permission, children }: { permission: string; children: (state: AccessRequestState) => ReactNode }) {
+  const { registry, resolveLink, route } = usePlatform();
+  const declaration = route?.menu.requiredCapability;
+  if (permission === 'features:access' && declaration?.requestOnMenuDenial !== undefined) {
+    return <CapabilityPending capability={declaration.id} copy={declaration.requestOnMenuDenial}>{children}</CapabilityPending>;
+  }
+  const link = permission !== 'features:access' && !NOT_REQUESTABLE_PERMISSIONS.has(permission)
+    && isReachable(registry, { menuId: STATUS_MENU_ID }) ? resolveLink(STATUS_MENU_ID) : null;
+  const href = link?.allowed ? link.href : null;
+  return <>{children({ pending: null, statusHref: href, requestHref: href })}</>;
+}
+
+function CapabilityPending({ capability, copy, children }: {
+  capability: string;
+  copy: { label: Text; roleRequired: Text };
+  children: (state: AccessRequestState) => ReactNode;
+}) {
   const session = useFeatureSession();
   const { lang } = useI18n();
-  const { registry, resolveLink, route, pageParam } = usePlatform();
-  const mapped = permission === 'features:access' && route !== null && FINDING_MENU_IDS.has(route.menu.id);
-  const ready = mapped && session.status === 'ready';
+  const { registry, resolveLink, pageParam } = usePlatform();
+  const ready = session.status === 'ready';
   const meOptions = meBridgeQueryOptions();
   const me = useQuery({ ...meOptions, enabled: ready, retry: false }, featureQueryClient);
-  const enabled = ready && me.isSuccess && meCanOpenGrantedScreen(FINDING_PERMISSION.capability, me.data.actor.role_level);
+  const enabled = ready && me.isSuccess && meCanOpenGrantedScreen(capability, me.data.actor.role_level);
   const managedSystem = pageParam('managedSystem');
   const systemsOptions = managedSystemsCatalogQuery();
   const systems = useQuery({ ...systemsOptions, enabled, retry: false }, featureQueryClient);
   const activeSystems = enabled ? systems.data?.items.filter(item => item.archived_at === null) ?? [] : [];
   const selected = activeSystems.find(item => item.id === managedSystem)
     ?? (managedSystem === null || managedSystem === 'all' ? activeSystems.find(item => item.external_key === 'platform') : undefined);
-  const checkOptions = permissionCheckQueryOptions({ capability: FINDING_PERMISSION.capability, ...(selected ? { managedSystemId: selected.id } : {}) });
+  const checkOptions = permissionCheckQueryOptions({ capability, ...(selected ? { managedSystemId: selected.id } : {}) });
   const checkEnabled = enabled && selected !== undefined;
   const check = useQuery({ ...checkOptions, enabled: checkEnabled }, featureQueryClient);
   const current = enabled && selected !== undefined && check.isSuccess && !check.isFetching && !check.data.decision.allow
@@ -125,22 +133,18 @@ function MenuPending({ permission, children }: { permission: string; children: (
   const reachable = isReachable(registry, { menuId: STATUS_MENU_ID });
   const link = reachable ? resolveLink(STATUS_MENU_ID) : null;
   const statusHref = link?.allowed ? link.href : null;
-  if (!mapped) {
-    const legacyHref = permission !== 'features:access' && !NOT_REQUESTABLE_PERMISSIONS.has(permission) ? statusHref : null;
-    return <>{children({ pending: null, statusHref: legacyHref, requestHref: legacyHref })}</>;
-  }
   const missing = {
-    permission: ready && me.isSuccess && !enabled ? FINDING_PERMISSION.roleRequired[lang] : FINDING_PERMISSION.label[lang],
+    permission: ready && me.isSuccess && !enabled ? copy.roleRequired[lang] : copy.label[lang],
     ...(selected ? { system: selected.name } : {}),
   };
   if (read !== undefined) {
     return <>{children({ pending: null, statusHref: null, missing, read, ...(read === 'error' ? { retry } : {}) })}</>;
   }
   const progress = requestable && mine.isSuccess ? permissionRequestProgress(
-    mine.data.requests, FINDING_PERMISSION.capability, selected?.id, { pending: false },
+    mine.data.requests, capability, selected?.id, { pending: false },
   ) : 'none';
   const requestLink = requestable && mine.isSuccess && reachable ? resolveLink(STATUS_MENU_ID, {
-    page: { capability: FINDING_PERMISSION.capability, managedSystem: selected?.id ?? null },
+    page: { capability, managedSystem: selected?.id ?? null },
     returnTo: true,
   }) : null;
   return <>{children({
