@@ -16,7 +16,7 @@ import {
 } from './findings-search';
 import { resolveActors } from '../../../lib/api/actors';
 import { fetchEntityLinksBySource } from '../../../lib/api/entity-links';
-import { ApiError } from '../../../lib/api/types';
+import { ApiError, isPermissionDenied } from '../../../lib/api/types';
 import {
   FINDING_CONFIDENCE_LABELS,
   FINDING_SEVERITY_LABELS,
@@ -244,7 +244,7 @@ function FindingsListShell({
     findings.length === 0;
   const unfilteredQuery = useFindingsTotal(managedSystemId, checkUnfiltered);
   const stateError =
-    listQuery.isError && !listQuery.isFetchNextPageError
+    listQuery.isError && (!listQuery.isFetchNextPageError || isPermissionDenied(listQuery.error))
       ? listQuery.error
       : checkUnfiltered && unfilteredQuery.isError
         ? unfilteredQuery.error
@@ -454,12 +454,14 @@ function FindingsListShell({
             onRetry={scopedPermission.state === 'error' ? scopedPermission.retry : retryList}
             onResetFilters={onResetFilters}
           />
-          <ListLoadMore
-            hasMore={listQuery.hasNextPage}
-            loadingMore={listQuery.isFetchingNextPage}
-            failed={listQuery.isFetchNextPageError}
-            onLoadMore={() => void listQuery.fetchNextPage()}
-          />
+          {!isReadDenied ? (
+            <ListLoadMore
+              hasMore={listQuery.hasNextPage}
+              loadingMore={listQuery.isFetchingNextPage}
+              failed={listQuery.isFetchNextPageError}
+              onLoadMore={() => void listQuery.fetchNextPage()}
+            />
+          ) : null}
         </>
       }
       {...(!renderDetailInPlace && detailPanel !== undefined ? { detailPanel } : {})}
@@ -562,6 +564,7 @@ function FindingsListBody({
           <div className="m-4">
             <PermissionBlockedPanel
               layout="card"
+              headingLevel={2}
               state="blocked_not_requestable"
               category={GLOSSARY.allFindings}
               reason={PERMISSION_BLOCKED_REASONS.findingsListRoleRequired}
