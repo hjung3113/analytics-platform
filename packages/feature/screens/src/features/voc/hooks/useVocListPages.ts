@@ -146,5 +146,6 @@ export function useVocListPages(params: UseVocListPagesParams) {
     requestSystemId,
     exactScopeTarget: systemRequestable && target == null,
     requestCheckStatus: checkSystem ? check.status : undefined,
+    requestCheckRetry: check.refetch,
   };
 }

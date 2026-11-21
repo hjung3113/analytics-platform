@@ -243,12 +243,9 @@ function FindingsListShell({
     listQuery.isSuccess &&
     findings.length === 0;
   const unfilteredQuery = useFindingsTotal(managedSystemId, checkUnfiltered);
-  const stateError =
-    listQuery.isError && (!listQuery.isFetchNextPageError || isPermissionDenied(listQuery.error))
-      ? listQuery.error
-      : checkUnfiltered && unfilteredQuery.isError
-        ? unfilteredQuery.error
-        : null;
+  const listFailed = listQuery.isError && (!listQuery.isFetchNextPageError || isPermissionDenied(listQuery.error));
+  const unfilteredError = checkUnfiltered && unfilteredQuery.isError ? unfilteredQuery.error : null;
+  const stateError = listFailed ? listQuery.error : unfilteredError;
   const { denied: isReadDenied, roleRequired, request } = listReadDenial(stateError, scopedPermission);
   const scopeVerified = !isReadDenied && (scopedPermission.state === 'allowed' || scopedPermission.state === 'unchecked');
   const stateIsPending = !isReadDenied && (
@@ -259,10 +256,8 @@ function FindingsListShell({
   const { refetch: refetchList } = listQuery;
   const { refetch: refetchUnfiltered } = unfilteredQuery;
   const retryList = React.useCallback((): void => {
-    void (listQuery.isError && !listQuery.isFetchNextPageError
-      ? refetchList()
-      : refetchUnfiltered());
-  }, [listQuery.isError, listQuery.isFetchNextPageError, refetchList, refetchUnfiltered]);
+    void (listFailed ? refetchList() : refetchUnfiltered());
+  }, [listFailed, refetchList, refetchUnfiltered]);
   const { actors } = useWorkspaceActors();
   const actorsById = React.useMemo(() => {
     const map = new Map<string, AvatarUser>();

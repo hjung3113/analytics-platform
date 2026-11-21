@@ -399,12 +399,15 @@ Surface keys NOT consumed by VOC (listed for completeness — checked in other s
 - `execution` → Finding spec
 - `linkedVoc` → Task spec
 
-Inbox and Triage list gates use `PermissionBlockedPanel layout="card"`. When access can be requested, `RequestAccessButton` links to the host's permission-request page or opens the local dialog (required reason, optional expiration, `POST /permission-requests`). A pending request replaces the request action with a status link when the host can open it. The card's final action is the host's permitted Home link when available. The Admin route's strict search schema accepts only `tab` and `selected`. When the Inbox list 403s (`view=inbox`), the blocked chrome drops the tab strip (title `VOC 수신함`), search, filter/sort, and the active-filter bar, renders the create action as a secondary button, and shows the `내 VOC` shortcut only when the 403 carries no `requestable_permission`. A blocked Triage console adds the same secondary create button plus `내 VOC` only in the `blocked_not_requestable` state. These shortcuts sit outside the card.
+Inbox and Triage list gates use `PermissionBlockedPanel layout="card"`. When access can be requested, `RequestAccessButton` links to the host's permission-request page or opens the local dialog (required reason, optional expiration, `POST /permission-requests`). A pending request replaces the request action with a status link when the host can open it. The card's final action is the host's permitted Home link when available. The Admin route's strict search schema accepts only `tab` and `selected`.
+
+When the Inbox list returns 403 (`view=inbox`), the host header supplies the page title, the card title is `VOC 처리함`, and the screen omits the local title, tabs, search, filter/sort, and active-filter bar. If the host supplies an action slot, the permitted `VOC 생성` secondary button goes there and the screen omits the local toolbar. Without a host action slot, the screen renders a local toolbar only for that button when permitted. The `내 VOC` shortcut appears only when the 403 carries no `requestable_permission`. A blocked Triage console adds the same secondary create button plus `내 VOC` only in the `blocked_not_requestable` state. These shortcuts sit outside the card.
 
 Each Inbox list denial with a valid server-pointed or selected Managed System
 starts a fresh `voc.read` point check for that System. The card shows
-`확인 중` while the check is pending. The request action appears after the
-check confirms that the System is requestable (#2622).
+`확인 중` while the check is pending. If the check fails, the card shows a
+warning with `다시 시도` to repeat the check. The request action appears after
+the check confirms that the System is requestable (#2622).
 
 Production adapter (`packages/feature/screens/src/lib/cross-system/getPermissionDecision.ts`; returns `null` for a missing key or a schema failure):
 
