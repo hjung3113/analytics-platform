@@ -29,5 +29,5 @@ Package-boundary and contract lint (ESLint flat config). Boundary rule source: [
 
 - PRs write per-issue notes under `packages/sdk/changes/` so parallel SDK work does not edit shared release files.
   - Use HTTP for the SDK consumer check: a `file:` install hides #806.
-  - The start-kit check runs on main push and at release (#1931).
+  - The start-kit check runs on main push, at release, and on a PR that changes a file the SDK tarballs read (#1931, #2658).
   - Change the start-kit README «둘째 메뉴» steps and `addSecondMenu` together.

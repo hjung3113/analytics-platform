@@ -1,6 +1,6 @@
 ---
 name: 작업 이슈
-about: 팀장이 쓰는 기능·버그 작업 이슈. `gh issue create --template work.md`로 연다.
+about: 팀장이 쓰는 기능·버그 작업 이슈. `gh issue create --template "작업 이슈"`로 연다.
 ---
 
 ## 문제

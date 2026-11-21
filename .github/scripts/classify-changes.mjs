@@ -3,11 +3,12 @@
 //   code  'false' only for a pull request with a non-empty diff whose every file is Markdown or under .agents/ and none is a Markdown file
 //         that code or a test reads (CODE_READS_MD, #1884); the heavy steps then skip.
 //   site  'false' only for a pull request with a non-empty diff that touches nothing the intro-site captures depend on (#608).
-//   sdk   'false' only for a pull request whose changed files include no code under packages/sdk/ or tooling/sdk/ (#2658); 'true' runs
-//         the SDK release tarballs and outside-consumer check on that PR, which main push always runs.
+//   sdk   'false' only for a pull request whose changed files include nothing the SDK release tarballs and outside-consumer check read
+//         (isSdkPath: the nine release package dirs, tooling/sdk/, tooling/tsconfig/, patches/, root package.json, lockfile, workspace yaml;
+//         #2658); 'true' runs that check on the PR, which main push always runs.
 //   full  'true' for a manual run with full=true (weekly cold run), and whenever this script cannot decide: the consumers then run cold
 //         (turbo --force, no cache restore).
-// Fail-safe: any exception or git failure prints code=true site=true full=true and exits 0 (stderr says why). If the job itself fails the
+// Fail-safe: any exception or git failure prints code=true site=true full=true sdk=true and exits 0 (stderr says why). If the job itself fails the
 // outputs are empty and every consumer treats a value other than exactly 'false' as "run it".
 //
 //   node .github/scripts/classify-changes.mjs                 reads EVENT, BASE, HEAD (pull_request), BEFORE, SHA (push), FULL_INPUT (dispatch); writes $GITHUB_OUTPUT once
@@ -17,6 +18,7 @@ import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { releasePackages } from '../../tooling/sdk/sdk-exports.mjs';
 
 export const DOCS_ONLY = /(\.md$|^\.agents\/)/;
 // Markdown that code or a test reads as input (#1884): a PR that changes only these must still run the tests, or main is the first to fail.
@@ -35,12 +37,15 @@ const docsOnly = (file) => DOCS_ONLY.test(file) && !CODE_READS_MD.some((pattern)
 const SITE_DIRS = /^(menus|platform|packages|apps\/feature-screens|apps\/platform-web|site|tooling|patches)\//;
 const SITE_FILES = /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps\/platform-e2e\/package\.json|\.github\/workflows\/(ci|pages)\.yml)$/;
 const ZERO_SHA = /^0+$/;
-export const SDK_PATHS = /^(packages|tooling)\/sdk\//;
+// Everything `sdk:pack` and `sdk:consumer-check` read: the release package dirs come from the release list, so a new package is covered.
+const SDK_DIRS = [...new Set(['packages/sdk/', 'tooling/sdk/', 'tooling/tsconfig/', 'patches/', ...releasePackages().map((p) => `${p.dir}/`)])];
+const SDK_ROOT_FILES = /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$/;
+export const isSdkPath = (file) => SDK_DIRS.some((dir) => file.startsWith(dir)) || SDK_ROOT_FILES.test(file);
 
 /** 'false' only for a pull request with a known diff that changes no SDK code; anything else runs the SDK kit check. */
 export function sdkChanged({ event, files }) {
   if (event !== 'pull_request' || files === null) return 'true';
-  return files.some((f) => SDK_PATHS.test(f) && !docsOnly(f)) ? 'true' : 'false';
+  return files.some((f) => isSdkPath(f) && !docsOnly(f)) ? 'true' : 'false';
 }
 
 const ALL = Object.freeze({ code: 'true', site: 'true', full: 'true' });
@@ -188,6 +193,10 @@ function selfTest() {
   check('sdk: pr kit README (read by a test) → true', sdk('pull_request', ['tooling/sdk/fixtures/out-of-repo-assembly/kit/README.md']), T);
   check('sdk: pr packages/sdk CHANGELOG only → false', sdk('pull_request', ['packages/sdk/CHANGELOG.md']), F);
   check('sdk: pr menus only → false', sdk('pull_request', ['menus/mars/hw-time/src/x.ts']), F);
+  for (const { dir } of releasePackages()) check(`sdk: pr ${dir} → true`, sdk('pull_request', [`${dir}/src/index.ts`]), T);
+  check('sdk: pr workspace yaml → true', sdk('pull_request', ['pnpm-workspace.yaml']), T);
+  check('sdk: pr patches → true', sdk('pull_request', ['patches/x.patch']), T);
+  check('sdk: pr tooling/tsconfig → true', sdk('pull_request', ['tooling/tsconfig/base.json']), T);
   check('sdk: pr diff unknown → true', sdk('pull_request', null), T);
   check('sdk: push → true', sdk('push', ['docs/a.md']), T);
   check('push: diff known → code=true site=true full=false', classify({ event: 'push', files: ['docs/a.md'] }), out(T, T, F));
