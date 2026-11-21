@@ -1,7 +1,8 @@
 // CI `PR guard` job (#2643): the three caps a lead or worker cannot waive. Rules: .agents/conductor/PROFILE.md §Size and path, «Mechanical caps».
 //
-//   size    more than MAX_LINES changed lines (additions + deletions) or MAX_FILES files, tests included, generated files, snapshots and
-//           lockfiles excluded (EXCLUDED) → fails unless the PR carries the owner's `owner-ok:size` label.
+//   size    more than MAX_LINES changed lines (additions + deletions) or MAX_FILES files, tests included, generated files, snapshots,
+//           lockfiles (EXCLUDED) and release mechanical changes (isReleaseMechanical: package.json changing only its version or ap.sdk line, deleted SDK change
+//           fragments) excluded → fails unless the PR carries the owner's `owner-ok:size` label.
 //   rounds  the PR's branch has had more than MAX_PUSHES pull_request runs of ci.yml (open + two fix rounds; superseded and cancelled runs
 //           count, a force-push does not erase them) → fails unless the PR body has a `Round cap: <who> — <revert | split | 질문 #n>` line.
 //   scope   every issue the PR closes (`Closes|Fixes|Resolves #n` in the body, or `type(#n)` in the title) must be listed in `## 범위` of the
@@ -24,9 +25,21 @@ export const EXCLUDED = /((^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$
 const ROUND_LINE = /^[ \t]*Round cap:[ \t]*(\S.*)$/m;
 const RELEASE_FILE = /^v(\d+)\.(\d+)\.(\d+)\.md$/;
 
+// The release-docs PR bumps either line in every consumer package (lead.md §Slice close step 1).
+const RELEASE_LINE = /^[-+]\s*("version":\s*"[^"]*"|"ap":\s*\{\s*"sdk":\s*"[^"]*"\s*\}),?\s*$/;
+const FRAGMENT = /^packages\/sdk\/changes\/[^/]+\.md$/;
+
+/** Release mechanical change (#2654): a `package.json` whose only change is its `version` or `ap.sdk` range line, or a deleted SDK change fragment. */
+export function isReleaseMechanical(f) {
+  if (f.status === 'removed' && FRAGMENT.test(f.filename)) return true;
+  if (!/(^|\/)package\.json$/.test(f.filename) || f.additions !== 1 || f.deletions !== 1 || typeof f.patch !== 'string') return false;
+  const changed = f.patch.split('\n').filter((l) => /^[-+]/.test(l));
+  return changed.length === 2 && changed.every((l) => RELEASE_LINE.test(l)) && changed[0].replace(/^-\s*"(\w+)".*/, '$1') === changed[1].replace(/^\+\s*"(\w+)".*/, '$1');
+}
+
 /** Changed lines and files after exclusions; `over` is true when either cap is exceeded. */
 export function sizeVerdict(files, labels) {
-  const counted = files.filter((f) => !EXCLUDED.test(f.filename) && !(f.previous_filename && EXCLUDED.test(f.previous_filename)));
+  const counted = files.filter((f) => !EXCLUDED.test(f.filename) && !(f.previous_filename && EXCLUDED.test(f.previous_filename)) && !isReleaseMechanical(f));
   const lines = counted.reduce((n, f) => n + (f.additions ?? 0) + (f.deletions ?? 0), 0);
   const over = lines > MAX_LINES || counted.length > MAX_FILES;
   return { lines, files: counted.length, excluded: files.length - counted.length, over, waived: over && labels.includes(SIZE_LABEL), ok: !over || labels.includes(SIZE_LABEL) };
@@ -82,7 +95,7 @@ export function scopeVerdict({ closes, baseScope, headScope, labels }) {
 export function summarize({ size, rounds, scope, labelEvents, releaseFile }) {
   const mark = (ok) => (ok ? 'ok' : 'FAIL');
   const rows = [
-    `| size | ${mark(size.ok)} | ${size.lines} lines, ${size.files} files (cap ${MAX_LINES}/${MAX_FILES}; ${size.excluded} generated/snapshot/lockfile excluded)${size.waived ? `, waived by \`${SIZE_LABEL}\`` : ''} |`,
+    `| size | ${mark(size.ok)} | ${size.lines} lines, ${size.files} files (cap ${MAX_LINES}/${MAX_FILES}; ${size.excluded} generated/snapshot/lockfile/release-mechanical excluded)${size.waived ? `, waived by \`${SIZE_LABEL}\`` : ''} |`,
     `| rounds | ${mark(rounds.ok)} | ${rounds.pushes} pushes (cap ${MAX_PUSHES} without an answer)${rounds.answer ? `, Round cap: ${rounds.answer}` : rounds.over ? ', no `Round cap:` line in the PR body' : ''} |`,
     `| scope | ${mark(scope.ok)} | closes ${scope.closes.length ? scope.closes.map((n) => `#${n}`).join(' ') : 'nothing'}; ${scope.noSection ? `no \`## 범위\` in ${releaseFile ?? 'any release file'} on the base branch` : `missing from ${releaseFile}: ${scope.missing.map((n) => `#${n}`).join(' ') || 'none'}`}${scope.grew.length ? `; head adds ${scope.grew.map((n) => `#${n}`).join(' ')} to \`## 범위\`` : ''}${scope.waived ? `; waived by \`${SCOPE_LABEL}\`` : ''} |`,
   ];
@@ -101,6 +114,19 @@ function selfTest() {
   assert.equal(sizeVerdict(Array.from({ length: 40 }, (_, i) => f(`f${i}.ts`, 1, 0)), []).ok, true);
   assert.deepEqual(sizeVerdict([f('a.ts', 401, 0)], [SIZE_LABEL]), { lines: 401, files: 1, excluded: 0, over: true, waived: true, ok: true });
   assert.equal(sizeVerdict([f('b.ts', 1, 0, 'tooling/sdk/api/old.md')], []).files, 0, 'a rename out of an excluded path stays excluded');
+  // release mechanical changes (#2654): a version-only package.json bump and a deleted SDK change fragment
+  const bump = (filename, patch) => ({ filename, additions: 1, deletions: 1, status: 'modified', patch });
+  const versionOnly = '@@ -2,3 +2,3 @@\n   "name": "@ap/x",\n-  "version": "0.44.0",\n+  "version": "0.45.0",\n   "private": true,';
+  const fragment = (n) => ({ filename: `packages/sdk/changes/${n}.md`, additions: 0, deletions: 4, status: 'removed' });
+  const release = [...Array.from({ length: 34 }, (_, i) => bump(`menus/s/m${i}/package.json`, versionOnly)), ...Array.from({ length: 20 }, (_, i) => fragment(i)), f('.planning/README.md', 30, 10)];
+  assert.deepEqual(sizeVerdict(release, []), { lines: 40, files: 1, excluded: 54, over: false, waived: false, ok: true }, 'release-docs PR fits the caps');
+  assert.equal(sizeVerdict([bump('menus/s/m/package.json', '@@ -5 +5 @@\n-    "react": "18.2.0"\n+    "react": "18.3.1"')], []).files, 1, 'a dependency change counts');
+  assert.equal(sizeVerdict([{ ...bump('menus/s/m/package.json', versionOnly.replace('+  "version"', '+  "ap": {},\n+  "version"')), additions: 2 }], []).files, 1, 'a version bump mixed with another change counts');
+  assert.equal(sizeVerdict([{ ...bump('menus/s/m/package.json', versionOnly), patch: undefined }], []).files, 1, 'no patch (GitHub omits large diffs) counts');
+  assert.equal(sizeVerdict([bump('menus/s/m/package.json', '@@ -2,3 +2,3 @@\n   "version": "0.1.1",\n-  "ap": { "sdk": ">=0.43.0 <0.44.0" },\n+  "ap": { "sdk": ">=0.44.0 <0.45.0" },\n   "type": "module",')], []).files, 0, 'an ap.sdk range bump is mechanical (#2636)');
+  assert.equal(sizeVerdict([bump('menus/s/m/package.json', '@@ -2 +2 @@\n-  "version": "0.1.1",\n+  "ap": { "sdk": ">=0.44.0 <0.45.0" },')], []).files, 1, 'swapping one release line for another counts');
+  assert.equal(sizeVerdict([{ ...fragment(1), status: 'added', additions: 4, deletions: 0 }], []).files, 1, 'an added change fragment counts');
+  assert.equal(sizeVerdict([{ ...fragment(1), filename: 'packages/sdk/changes/sub/1.md' }], []).files, 1, 'only top-level fragments');
   // rounds
   assert.equal(roundsVerdict(3, '').ok, true);
   assert.equal(roundsVerdict(4, 'body without a line').ok, false);
