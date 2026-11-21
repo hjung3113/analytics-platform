@@ -140,11 +140,13 @@ export function useVocListPages(params: UseVocListPagesParams) {
     Array.isArray(decision.requestable) &&
     decision.requestable.length > 0;
   const requestSystemId = systemRequestable ? systemId : undefined;
+  const checkStatus = check.isError && check.isFetching ? 'pending' : check.status;
   return {
     ...list,
     keyHash,
     requestSystemId,
     exactScopeTarget: systemRequestable && target == null,
-    requestCheckStatus: checkSystem ? check.status : undefined,
+    requestCheckStatus: checkSystem ? checkStatus : undefined,
+    requestCheckRetry: check.refetch,
   };
 }

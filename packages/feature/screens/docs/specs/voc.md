@@ -1,9 +1,7 @@
-# VOC Frontend Implementation Spec — Slice 3
+# VOC Frontend Implementation Spec
 
-> Status: Implemented. Slice 3 shipped (milestone closed, 42 issues); this spec is the as-built contract for the VOC surfaces below, not a forward-looking draft. It originally drove backend S3-001..S3-008 and frontend S3-006/S3-007/S3-008. API authority is `docs/architecture/platform-api/api/voc.md`; token values are in `@ap/ui/styles/tokens.css` and `packages/feature/screens/docs/tokens.md`.
+> Status: Decided. This spec describes the shipped VOC surfaces. The [VOC API](../../../../../docs/architecture/platform-api/api/voc.md) owns request and response contracts. [Routes and layout](../routes-and-layout.md) owns screen state. The host mounts the feature screens through the platform bridge. Token values are in `@ap/ui/styles/tokens.css` and `packages/feature/screens/docs/tokens.md`.
 >
-> Status note: `packages/feature/screens/src/routes/` and the other file-route paths below were retired in #597. Read each as the screen it names, not as a current file.
-> Stack: React 18 + TypeScript 5 + Tailwind 4.3.3 (CSS-first theme, FO ADR-0058) + shadcn/ui (production), TipTap (rich content, per FO ADR-0002 / FO ADR-0011), TanStack Router (production route shell — see `packages/feature/screens/src/routes/`).
 > Conflict resolution and UI authority: `docs/agents/feature-implementation.md` → Source Of Truth (authority follows subject; there is no universal ladder). The shipped UI is the authority for existing surfaces (FO ADR-0060); this spec records the as-built contract.
 
 ---
@@ -399,12 +397,11 @@ Surface keys NOT consumed by VOC (listed for completeness — checked in other s
 - `execution` → Finding spec
 - `linkedVoc` → Task spec
 
-Inbox and Triage list gates use `PermissionBlockedPanel layout="card"`. When access can be requested, `RequestAccessButton` links to the host's permission-request page or opens the local dialog (required reason, optional expiration, `POST /permission-requests`). A pending request replaces the request action with a status link when the host can open it. The card's final action is the host's permitted Home link when available. The Admin route's strict search schema accepts only `tab` and `selected`. When the Inbox list 403s (`view=inbox`), the blocked chrome drops the tab strip (title `VOC 수신함`), search, filter/sort, and the active-filter bar, renders the create action as a secondary button, and shows the `내 VOC` shortcut only when the 403 carries no `requestable_permission`. A blocked Triage console adds the same secondary create button plus `내 VOC` only in the `blocked_not_requestable` state. These shortcuts sit outside the card.
+Inbox and Triage list gates use `PermissionBlockedPanel layout="card"`. When access can be requested, `RequestAccessButton` links to the host's permission-request page or opens the local dialog (required reason, optional expiration, `POST /permission-requests`). A pending request replaces the request action with a status link when the host can open it. The card's final action is the host's permitted Home link when available. The Admin route's strict search schema accepts only `tab` and `selected`.
 
-Each Inbox list denial with a valid server-pointed or selected Managed System
-starts a fresh `voc.read` point check for that System. The card shows
-`확인 중` while the check is pending. The request action appears after the
-check confirms that the System is requestable (#2622).
+When the Inbox list returns 403 (`view=inbox`), the host header supplies the page title, the card title is `VOC 처리함`, and the screen omits the local title, tabs, search, filter/sort, and active-filter bar. If the host supplies an action slot, the permitted `VOC 생성` secondary button goes there and the screen omits the local toolbar. Without a host action slot, the screen renders a local toolbar only for that button when permitted. The `내 VOC` shortcut appears only when the 403 carries no `requestable_permission`. A blocked Triage console adds the same secondary create button plus `내 VOC` only in the `blocked_not_requestable` state. These shortcuts sit outside the card.
+
+An Inbox list denial starts a fresh `voc.read` point check when the 403 carries a `requestable_permission` hint for `voc.read` and resolves to a concrete Managed System: the server-provided System ID when present and valid, otherwise the selected concrete Managed System when the hint leaves the System unset. The card shows `확인 중` while the check is pending, including a retry of a failed check. On failure the card shows a warning and `다시 시도`. The request action appears when the check for that denial returns a denied decision with requestable scopes (#2622).
 
 Production adapter (`packages/feature/screens/src/lib/cross-system/getPermissionDecision.ts`; returns `null` for a missing key or a schema failure):
 

@@ -77,20 +77,27 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
   } = useInboxState(view);
 
   const requestable = permissionError?.envelope.requestable_permission;
-  const { requestSystemId, exactScopeTarget, requestCheckStatus } = vocList;
+  const { requestSystemId, exactScopeTarget, requestCheckStatus, requestCheckRetry } = vocList;
   const readRequestUnavailable = requestable?.permission === 'voc.read' && requestSystemId === undefined;
   const requestCopy = PERMISSION_REQUEST_FLOW_COPY[lang];
-  let requestCheckMessage: React.ReactNode;
+  let requestCheckAction: React.ReactNode;
   switch (requestCheckStatus) {
     case 'pending':
-      requestCheckMessage = <span role="status">{requestCopy.checkingEligibility}</span>;
+      requestCheckAction = <span role="status">{requestCopy.checkingEligibility}</span>;
       break;
     case 'error':
-      requestCheckMessage = <span role="alert">{requestCopy.eligibilityCheckError}</span>;
+      requestCheckAction = (
+        <>
+          <span role="alert">{requestCopy.eligibilityCheckError}</span>
+          <Button type="button" size="sm" variant="secondary" onClick={() => void requestCheckRetry()}>
+            {requestCopy.retry}
+          </Button>
+        </>
+      );
       break;
   }
   const needsSystemSelection =
-    readRequestUnavailable && requestable.managed_system_id == null && requestCheckMessage === undefined;
+    readRequestUnavailable && requestable.managed_system_id == null && requestCheckAction === undefined;
 
   const outOfScopeBanner = outOfScopeSummary ? (
     <PermissionBlockedPanel
@@ -238,9 +245,9 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
               description={PERMISSION_BLOCKED_REASONS.vocInbox}
               // #2619: a targetless VOC read denial names the next step inside the card.
               {...(needsSystemSelection ? { reason: PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem } : {})}
-              {...(requestCheckMessage === undefined
+              {...(requestCheckAction === undefined
                 ? { requestStatus: 'not-requestable' }
-                : { requestAction: requestCheckMessage })}
+                : { requestAction: requestCheckAction })}
               exitAction={permissionCardExitAction(permissionHomeHref, lang)}
             />
           )}

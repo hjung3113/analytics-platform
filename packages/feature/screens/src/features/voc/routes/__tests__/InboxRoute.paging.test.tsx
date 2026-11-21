@@ -115,18 +115,21 @@ function deferredResponse() {
 
 describe('Inbox permission denial (#2619)', () => {
   it.each([
-    { name: 'server-pointed System', url: '/vocs?view=inbox', target: MS },
-    { name: 'selected System', url: `/vocs?view=inbox&managedSystem=${MS}`, target: null },
-  ])('checks the $name again before offering Request (#2622)', async ({ url, target }) => {
+    { name: 'server-pointed System', url: '/vocs?view=inbox', target: MS, retry: false },
+    { name: 'selected System', url: `/vocs?view=inbox&managedSystem=${MS}`, target: null, retry: false },
+    { name: 'server-pointed System after a failed check', url: '/vocs?view=inbox', target: MS, retry: true },
+  ])('checks the $name again before offering Request (#2622)', async ({ url, target, retry }) => {
     const denial = deferredResponse();
     const freshCheck = deferredResponse();
+    const retryCheck = deferredResponse();
+    let checkResponse = freshCheck.promise;
     mounted = mountAuthedVocs({
       initialPath: url,
       vocsShell: true,
       handle: (request) => {
         const { pathname } = new URL(request.url, 'http://localhost');
         if (pathname === '/vocs') return denial.promise;
-        if (pathname === '/me/permissions/check') return freshCheck.promise;
+        if (pathname === '/me/permissions/check') return checkResponse;
         if (pathname === '/permission-requests/mine') {
           return jsonResponse(200, { requests: [], count: 0 });
         }
@@ -153,6 +156,26 @@ describe('Inbox permission denial (#2619)', () => {
       url: `/me/permissions/check?capability=voc.read&managed_system_id=${MS}`,
     }));
 
+    if (retry) {
+      freshCheck.resolve(jsonResponse(500, { code: 'internal.error', message: 'Check failed' }));
+      const warningText = '권한을 요청할 수 있는지 확인하지 못했습니다.';
+      const warning = await screen.findByText(warningText);
+      expect(warning).toHaveAttribute('role', 'alert');
+      expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+
+      checkResponse = retryCheck.promise;
+      fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+      expect(await screen.findByText('확인 중')).toBeInTheDocument();
+      retryCheck.resolve(jsonResponse(200, {
+        state: 'request_access',
+        decision: { allow: false, requestable: [{ workspace_id: ME.workspace_id, managed_system_id: MS }] },
+      }));
+
+      expect(await screen.findByRole('button', { name: '권한 요청' })).toBeInTheDocument();
+      expect(screen.queryByText(warningText)).not.toBeInTheDocument();
+      return;
+    }
+
     freshCheck.resolve(jsonResponse(200, {
       state: 'blocked_non_requestable',
       decision: { allow: false, requestable: null },
@@ -163,6 +186,57 @@ describe('Inbox permission denial (#2619)', () => {
     ));
     expect(screen.queryByText('확인 중')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+  });
+
+  it('shows a pending check while retrying a failed refetch with cached eligibility', async () => {
+    const requestable = {
+      state: 'request_access',
+      decision: { allow: false, requestable: [{ workspace_id: ME.workspace_id, managed_system_id: MS }] },
+    };
+    const retryCheck = deferredResponse();
+    let checkResponse: () => Response | Promise<Response> = () => jsonResponse(200, requestable);
+    mounted = mountAuthedVocs({
+      initialPath: '/vocs?view=inbox',
+      vocsShell: true,
+      handle: (request) => {
+        const { pathname } = new URL(request.url, 'http://localhost');
+        if (pathname === '/vocs') {
+          return jsonResponse(403, {
+            code: 'permission.scope_required',
+            message: 'VOC read denied',
+            requestable_permission: { permission: 'voc.read', managed_system_id: MS },
+          });
+        }
+        if (pathname === '/me/permissions/check') return checkResponse();
+        if (pathname === '/permission-requests/mine') {
+          return jsonResponse(200, { requests: [], count: 0 });
+        }
+        return undefined;
+      },
+    });
+    expect(await screen.findByRole('button', { name: '권한 요청' })).toBeInTheDocument();
+
+    checkResponse = () => jsonResponse(500, { code: 'internal.error', message: 'Check failed' });
+    const { queryClient } = mounted.router.options.context as { queryClient: QueryClient };
+    await act(async () => {
+      await queryClient.invalidateQueries({
+        queryKey: permissionCheckQueryKey({ capability: 'voc.read', managedSystemId: MS }),
+      });
+    });
+    const warningText = '권한을 요청할 수 있는지 확인하지 못했습니다.';
+    expect(await screen.findByText(warningText)).toHaveAttribute('role', 'alert');
+    expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+
+    checkResponse = () => retryCheck.promise;
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByText('확인 중')).toHaveAttribute('role', 'status');
+    expect(screen.queryByText(warningText)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+
+    retryCheck.resolve(jsonResponse(200, requestable));
+    expect(await screen.findByRole('button', { name: '권한 요청' })).toBeInTheDocument();
+    expect(screen.queryByText('확인 중')).not.toBeInTheDocument();
   });
 
   it.each(DENIAL_CODES)('hides cached rows, controls and summary after refetch returns %s', async (code) => {
