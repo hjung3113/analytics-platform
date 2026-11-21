@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { formatSummaryTime, useMessages } from '@ap/kernel';
 import { ANALYTICS_MESSAGES } from '../messages';
-import { ObjectLinks } from '@ap/components';
+import { ObjectLinks, RowAction } from '@ap/components';
 import { compareBreakdownCells } from './breakdownSort';
 import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
 /**
@@ -13,7 +13,7 @@ import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
  * Synthetic values come from the declared endpoints (../endpoints), computed by the
  * mock server half. Definitions are Candidates per wireframe 11 §6.
  */
-import { AlertTriangle, ArrowRight, BarChart3, ChevronRight, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, ChevronRight, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
 import { type PageProps, PlatformLink, useDrill, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, DrillLayout, PageKeyWarning, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, InfoTip, StatusBadge, Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ap/ui';
@@ -417,18 +417,27 @@ export default function ProductivityOverview(_: PageProps) {
             <QueryView widgetName={m('productivityOverviewAttention2')} hideWidgetName query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
               {(rows: AttentionRow[]) => <>
                 <ul className="divide-y divide-border-subtle">
-                  {rows.map(r => <li key={`${r.kind}-${r.equipmentId}`} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">
-                    <StatusBadge tone="neutral">{r.kind === 'dwell' ? (m('productivityOverviewTopDwell')) : (m('productivityOverviewSlowestP95'))}</StatusBadge>
-                    <span className="t-mono">{r.equipmentId}</span>
-                    <span className="min-w-0 flex-1 truncate text-xs text-text-secondary" title={`${r.room} · ${r.stgroup}`}>{r.room} · {r.stgroup}</span>
-                    <span className="tabular text-sm font-medium">
-                      {r.kind === 'dwell' ? `${n2(r.dwellPerJobH ?? 0)} ${m('productivityOverviewHJob3')}` : `P95 ${n1(r.p95Min ?? 0)} ${m('productivityOverviewMin3')}`}
-                      <span className="ml-1 text-tiny font-normal text-text-muted">n={ni(r.jobs)}</span>
+                  {rows.map(r => <li key={`${r.kind}-${r.equipmentId}`} className="flex items-center gap-x-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-x-2">
+                        <StatusBadge tone="neutral">{r.kind === 'dwell' ? (m('productivityOverviewTopDwell')) : (m('productivityOverviewSlowestP95'))}</StatusBadge>
+                        <span className="t-mono truncate">{r.equipmentId}</span>
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-x-2">
+                        <span className="tabular shrink-0 whitespace-nowrap text-sm font-medium">
+                          {r.kind === 'dwell' ? `${n2(r.dwellPerJobH ?? 0)} ${m('productivityOverviewHJob3')}` : `P95 ${n1(r.p95Min ?? 0)} ${m('productivityOverviewMin3')}`}
+                          <span className="ml-1 text-tiny font-normal text-text-muted">n={ni(r.jobs)}</span>
+                        </span>
+                        <span className="min-w-0 truncate text-xs text-text-secondary" title={`${r.room} · ${r.stgroup}`}>{r.room} · {r.stgroup}</span>
+                      </div>
+                    </div>
+                    {/* Row actions stay on the equipment's line as one-line buttons (#2651). */}
+                    <span className="flex shrink-0 items-center gap-1">
+                      <RowAction compact={false} icon={ArrowUpRight} label={m('productivityOverviewCycleTime')} text={m('productivityOverviewCycleTime')}
+                        link={<PlatformLink href={linkTo('cycle-time', { global: { selection: [r.equipmentId] } })}
+                          title={m('productivityOverviewChangesTheEquipmentSelectionToThisEquipment')} />} />
+                      <ObjectLinks kind="equipment" id={r.equipmentId} returnTo />
                     </span>
-                    <PlatformLink href={linkTo('cycle-time', { global: { selection: [r.equipmentId] } })}
-                      title={m('productivityOverviewChangesTheEquipmentSelectionToThisEquipment')}
-                      className="text-xs font-medium text-accent-primary hover:underline">{m('productivityOverviewCycleTime')}</PlatformLink>
-                    <ObjectLinks kind="equipment" id={r.equipmentId} returnTo />
                   </li>)}
                 </ul>
                 <p className="t-caption mt-2 text-text-muted">
