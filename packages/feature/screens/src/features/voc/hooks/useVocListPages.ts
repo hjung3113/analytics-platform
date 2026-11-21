@@ -1,7 +1,7 @@
 import { isPermissionDenied } from '../../../lib/api/types';
-import { usePermissionCheckBridge } from '../../../lib/cross-system/usePermissionCheckBridge';
+import { permissionCheckQueryOptions } from '../../../lib/cross-system/usePermissionCheckBridge';
 import { placeholderDataForSearchOnly } from '../../../lib/query/placeholder-data-for-search';
-import { hashKey, useInfiniteQuery } from '@tanstack/react-query';
+import { hashKey, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { isVocSearchValueValid } from '../routes/voc-search';
 import { type UseVocListParams, type VocListPage, fetchVocListPage } from './useVocList';
@@ -120,10 +120,18 @@ export function useVocListPages(params: UseVocListPagesParams) {
   const selectedSystemId = managedSystemId === 'all' ? undefined : managedSystemId;
   const systemId = target == null ? selectedSystemId : serverSystemId;
   const checkSystem = view === 'inbox' && systemId !== undefined && requestable?.permission === 'voc.read';
-  const check = usePermissionCheckBridge(
-    { capability: 'voc.read', ...(systemId !== undefined ? { managedSystemId: systemId } : {}) },
-    { enabled: checkSystem },
-  );
+  const checkOptions = permissionCheckQueryOptions({
+    capability: 'voc.read',
+    ...(systemId !== undefined ? { managedSystemId: systemId } : {}),
+  });
+  const check = useQuery({
+    ...checkOptions,
+    // A new denial needs its own response, even if a shared point check is still in flight.
+    // Keep the shared key prefix so permission-request mutations can invalidate this check.
+    queryKey: [...checkOptions.queryKey, 'voc-inbox-denial', keyHash, list.errorUpdatedAt, list.errorUpdateCount],
+    enabled: checkSystem,
+    placeholderData: () => undefined,
+  });
   const decision = check.data?.decision;
   const systemRequestable =
     checkSystem &&
@@ -132,5 +140,11 @@ export function useVocListPages(params: UseVocListPagesParams) {
     Array.isArray(decision.requestable) &&
     decision.requestable.length > 0;
   const requestSystemId = systemRequestable ? systemId : undefined;
-  return { ...list, keyHash, requestSystemId, exactScopeTarget: systemRequestable && target == null };
+  return {
+    ...list,
+    keyHash,
+    requestSystemId,
+    exactScopeTarget: systemRequestable && target == null,
+    requestCheckStatus: checkSystem ? check.status : undefined,
+  };
 }
