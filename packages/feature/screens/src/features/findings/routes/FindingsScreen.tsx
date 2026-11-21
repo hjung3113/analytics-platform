@@ -16,7 +16,7 @@ import {
 } from './findings-search';
 import { resolveActors } from '../../../lib/api/actors';
 import { fetchEntityLinksBySource } from '../../../lib/api/entity-links';
-import { ApiError } from '../../../lib/api/types';
+import { ApiError, isPermissionDenied } from '../../../lib/api/types';
 import {
   FINDING_CONFIDENCE_LABELS,
   FINDING_SEVERITY_LABELS,
@@ -244,7 +244,7 @@ function FindingsListShell({
     findings.length === 0;
   const unfilteredQuery = useFindingsTotal(managedSystemId, checkUnfiltered);
   const stateError =
-    listQuery.isError && !listQuery.isFetchNextPageError
+    listQuery.isError && (!listQuery.isFetchNextPageError || isPermissionDenied(listQuery.error))
       ? listQuery.error
       : checkUnfiltered && unfilteredQuery.isError
         ? unfilteredQuery.error
@@ -349,18 +349,20 @@ function FindingsListShell({
 
   const list = (
     <ListShell
-      toolbar={{
-        actions: !isReadDenied ? (
-          <SearchInput
-            placeholder={LIST_SEARCH_PLACEHOLDER}
-            value={draft}
-            onValueChange={setDraft}
-            onCommit={commit}
-          />
-        ) : undefined,
-        title: 'Findings',
-        subtitle: 'VOC 근거에서 실행 후보로 승격된 Finding을 검토합니다.',
-      }}
+      {...(!isReadDenied ? {
+        toolbar: {
+          actions: (
+            <SearchInput
+              placeholder={LIST_SEARCH_PLACEHOLDER}
+              value={draft}
+              onValueChange={setDraft}
+              onCommit={commit}
+            />
+          ),
+          title: 'Findings',
+          subtitle: 'VOC 근거에서 실행 후보로 승격된 Finding을 검토합니다.',
+        },
+      } : {})}
       tabs={
         !isReadDenied ? (
           <div className="my-2 flex items-center gap-3">
@@ -452,12 +454,14 @@ function FindingsListShell({
             onRetry={scopedPermission.state === 'error' ? scopedPermission.retry : retryList}
             onResetFilters={onResetFilters}
           />
-          <ListLoadMore
-            hasMore={listQuery.hasNextPage}
-            loadingMore={listQuery.isFetchingNextPage}
-            failed={listQuery.isFetchNextPageError}
-            onLoadMore={() => void listQuery.fetchNextPage()}
-          />
+          {!isReadDenied ? (
+            <ListLoadMore
+              hasMore={listQuery.hasNextPage}
+              loadingMore={listQuery.isFetchingNextPage}
+              failed={listQuery.isFetchNextPageError}
+              onLoadMore={() => void listQuery.fetchNextPage()}
+            />
+          ) : null}
         </>
       }
       {...(!renderDetailInPlace && detailPanel !== undefined ? { detailPanel } : {})}
@@ -557,13 +561,15 @@ function FindingsListBody({
             />
           </div>
         ) : roleRequired ? (
-          <div className="m-4 space-y-3">
+          <div className="m-4">
             <PermissionBlockedPanel
+              layout="card"
+              headingLevel={2}
               state="blocked_not_requestable"
-              category="Findings"
+              category={GLOSSARY.allFindings}
               reason={PERMISSION_BLOCKED_REASONS.findingsListRoleRequired}
+              exitAction={<MyVocsRecoveryLink />}
             />
-            <MyVocsRecoveryLink />
           </div>
         ) : (
           <div className="m-4">

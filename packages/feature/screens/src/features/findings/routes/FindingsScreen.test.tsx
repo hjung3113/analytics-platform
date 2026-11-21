@@ -4,7 +4,7 @@
 import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
 import type { FrontendPermissionState } from '../../../lib/api/permission-reads';
 import { focusManager, QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -308,6 +308,7 @@ describe('FindingsScreen under a host seam', () => {
     mount({ managedSystem: MS });
     await waitFor(() => expect(lastDetailCall()[1]).toMatchObject({ listDenied: true }));
     expect(await screen.findByRole('button', { name: '권한 요청' })).toBeInTheDocument();
+    expect(shell.props.at(-1)?.toolbar).toBeUndefined();
   });
 
   it.each([403, 200])('marks the open Finding out of list only after scope denial (%s)', async (status) => {
@@ -445,6 +446,75 @@ describe('FindingsScreen under a host seam', () => {
     mount({ managedSystem: MS }, options);
     await screen.findByText('결제 실패 반복');
     expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
+    expect(shell.props.at(-1)?.toolbar).toMatchObject({ title: 'Findings' });
+  });
+
+  it.each(['next page', 'first-page refetch'] as const)(
+    'hides the cached list after a permission denial on the %s and restores it on refetch',
+    async (deniedRead) => {
+      const cursor = 'next-page';
+      let deny = false;
+      const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), 'http://localhost');
+        if (url.pathname !== '/findings') return json({ code: 'not_found.record' }, 404);
+        if (deny) return json({ code: 'permission.denied', detail: { reason: 'role_required' } }, 403);
+        return json({ items: [F1], page: { total: 2, has_more: true, cursor } });
+      });
+      globalThis.fetch = fetchMock as typeof globalThis.fetch;
+      const { client } = mount({ managedSystem: MS });
+      const refetch = () => client.refetchQueries({ queryKey: ['findings', 'pages'] });
+      await screen.findByText('결제 실패 반복');
+      const loadMore = screen.getByRole('button', { name: '더 불러오기' });
+      expect(shell.props.at(-1)?.toolbar).toMatchObject({ title: 'Findings' });
+
+      deny = true;
+      if (deniedRead === 'next page') {
+        await userEvent.click(loadMore);
+      } else {
+        await act(refetch);
+      }
+      const requestUrl = new URL(String(fetchMock.mock.calls.at(-1)?.[0]), 'http://localhost');
+      expect(requestUrl.searchParams.get('cursor')).toBe(deniedRead === 'next page' ? cursor : null);
+      expect(await screen.findByRole('heading', { name: '전체 Finding' })).toBeInTheDocument();
+      expect(screen.queryByText('결제 실패 반복')).not.toBeInTheDocument();
+      expect(shell.props.at(-1)?.toolbar).toBeUndefined();
+      expect(screen.queryByRole('button', { name: '더 불러오기' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
+
+      deny = false;
+      await act(refetch);
+      expect(await screen.findByText('결제 실패 반복')).toBeInTheDocument();
+      expect(shell.props.at(-1)?.toolbar).toMatchObject({ title: 'Findings' });
+      expect(screen.getByRole('button', { name: '더 불러오기' })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: '전체 Finding' })).not.toBeInTheDocument();
+    },
+  );
+
+  it('keeps the list and retries the cursor after a non-permission next-page error', async () => {
+    const cursor = 'next-page';
+    let fail = true;
+    const nextFinding = { ...F1, id: GONE_ID, display_id: 'FND-102', title: '두 번째 Finding' };
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), 'http://localhost');
+      if (url.pathname !== '/findings') return json({ code: 'not_found.record' }, 404);
+      if (url.searchParams.get('cursor') !== cursor) {
+        return json({ items: [F1], page: { total: 2, has_more: true, cursor } });
+      }
+      return fail
+        ? json({ code: 'internal.unexpected' }, 500)
+        : json({ items: [nextFinding], page: { total: 2, has_more: false } });
+    }) as typeof globalThis.fetch;
+    mount({ managedSystem: MS });
+    await userEvent.click(await screen.findByRole('button', { name: '더 불러오기' }));
+    const retry = await screen.findByRole('button', { name: '다시 시도' }, { timeout: 5000 });
+    expect(screen.getByText('결제 실패 반복')).toBeInTheDocument();
+    expect(shell.props.at(-1)?.toolbar).toMatchObject({ title: 'Findings' });
+    expect(screen.queryByTestId('finding-list-error')).not.toBeInTheDocument();
+
+    fail = false;
+    await userEvent.click(retry);
+    expect(await screen.findByText('두 번째 Finding')).toBeInTheDocument();
+    expect(screen.getByText('결제 실패 반복')).toBeInTheDocument();
   });
 
   it('keeps the domain exit and suppresses a grant CTA for a Finding role denial', async () => {
@@ -452,8 +522,15 @@ describe('FindingsScreen under a host seam', () => {
     const permissionRequestHref = vi.fn(() => '/company/permission-requests');
     mount({ managedSystem: MS }, { usePermissionLinks: () => ({ permissionRequestHref }) });
     await waitFor(() => expect(lastDetailCall()[1]).toMatchObject({ listDenied: true }));
+    const title = await screen.findByRole('heading', { name: '전체 Finding' });
+    expect(screen.getByRole('heading', { name: '전체 Finding', level: 2 })).toBe(title);
+    const card = title.closest<HTMLElement>('[data-state="blocked_not_requestable"]');
+    if (!card) throw new Error('Missing Finding denial card');
+    expect(within(card).getByText('Finding 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: '내 VOC' })).toHaveAttribute('href', '/vocs?view=my');
     expect(permissionRequestHref).not.toHaveBeenCalled();
     expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
+    expect(shell.props.at(-1)?.toolbar).toBeUndefined();
   });
 
   it.each([
@@ -533,6 +610,7 @@ describe('FindingsScreen under a host seam', () => {
     expect(screen.queryByText(/권한을 요청하세요/)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '내 VOC' })).not.toBeInTheDocument();
     expect(permissionRequestHref).not.toHaveBeenCalled();
+    expect(shell.props.at(-1)?.toolbar).toBeUndefined();
   });
 
   it('names an archived System instead of a missing permission: no permission box, Home only', async () => {
@@ -556,6 +634,7 @@ describe('FindingsScreen under a host seam', () => {
     expect(screen.queryByText(/Finding 조회/)).not.toBeInTheDocument();
     expect(screen.queryByText('이 항목에 접근할 수 없습니다.')).not.toBeInTheDocument();
     expect(permissionRequestHref).not.toHaveBeenCalled();
+    expect(shell.props.at(-1)?.toolbar).toBeUndefined();
   });
 
   it('keeps the genuine empty state for an approved system', async () => {

@@ -45,6 +45,8 @@ it('labels later sensitive and denied member evidence while keeping shared notes
   expect(screen.getAllByText('요청자 역할')).toHaveLength(1);
   expect(screen.getAllByText('검토 권한')).toHaveLength(1);
   expect(screen.getAllByText('요청 만료일 없음')).toHaveLength(1);
+  const review = within(screen.getByTestId('permission-request-risk-review'));
+  expect(review.getAllByRole('listitem')[0]).toContainElement(review.getByText('요청 만료일 없음'));
 });
 
 it('a pending batch shows the review notes once, every requested permission, and no raw request id', () => {
@@ -63,4 +65,30 @@ it('a decided batch lists each row with its outcome', () => {
   if (!first) throw new Error('fixture');
   render(<PermissionRequestDetail request={first} batch={{ id: batchId, items: decided }} actorName="김하나" onClose={() => undefined} />);
   expect(screen.getByText('승인 1 · 거절 2')).toBeInTheDocument();
+});
+
+it('groups each permission and its current access in its own checklist item', () => {
+  const [first, second] = items;
+  if (!first || !second) throw new Error('fixture');
+  render(<PermissionRequestDetail request={first} batch={{ id: batchId, items: [first, second] }} onClose={() => undefined} />);
+
+  const review = within(screen.getByTestId('permission-request-risk-review'));
+  const list = review.getByRole('list');
+  const groups = within(list).getAllByRole('listitem');
+  expect(groups).toHaveLength(2);
+  for (const [index, name] of ['전체 읽기', 'Finding 조회'].entries()) {
+    const group = groups[index];
+    if (!group) throw new Error(`Missing checklist item for ${name}`);
+    const permission = within(within(group).getByRole('region', { name }));
+    expect(permission.getByText('요청 범위의 현재 권한')).toBeInTheDocument();
+  }
+});
+
+it('sets an explicit list role on the per-permission checklist', () => {
+  const [first] = items;
+  if (!first) throw new Error('fixture');
+  render(<PermissionRequestDetail request={first} batch={{ id: batchId, items }} onClose={() => undefined} />);
+
+  const review = within(screen.getByTestId('permission-request-risk-review'));
+  expect(review.getByRole('list')).toHaveAttribute('role', 'list');
 });
