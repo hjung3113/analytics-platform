@@ -7,8 +7,7 @@ import { ApiError } from '../../../lib/api/types';
 import { EVIDENCE_SOURCE_TYPE_LABELS } from '../../../lib/copy/enum-labels';
 import { EVIDENCE_COPY as COPY } from '../../../lib/copy/evidence';
 import { GLOSSARY } from '../../../lib/copy/glossary';
-import { useScopedEmptyListPermission } from '../../../lib/cross-system/useScopedEmptyListPermission';
-import { listReadDenial } from '../../../lib/cross-system/list-read-denial';
+import { listSystemId, useListDenial, useScopedEmptyListPermission } from '../../../lib/cross-system/useListDenial';
 import { useIsArchivedSystem } from '../../../lib/cross-system/useIsArchivedSystem';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import type { ClosableDetailParts } from '../../../lib/host/detail-parts';
@@ -131,8 +130,6 @@ function EvidenceSession({
   const rows = useRef(new Map<string, HTMLDivElement>());
   const origin = useRef<string | null>(null);
   const pendingCloseFocus = useRef(false);
-  const pendingDeniedFocus = useRef(false);
-  const deniedRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const list = useQuery({
     queryKey: [
@@ -241,20 +238,24 @@ function EvidenceSession({
     if (manualRefresh && !list.isPending && !list.isFetching && !detail.isFetching)
       setManualRefresh(false);
   }, [manualRefresh, list.isPending, list.isFetching, detail.isFetching]);
+  const closeSelection = useCallback(() => {
+    write((previous) => ({ ...previous, selected: undefined }), { replace: true });
+  }, [write]);
   const scopedPermission = useScopedEmptyListPermission({
     capability,
-    managedSystemId: search.managedSystem === 'all' ? undefined : search.managedSystem,
+    managedSystemId: listSystemId(search.managedSystem),
     empty: list.isSuccess && list.data.items.length === 0,
   });
-  // Only a confirmed denial (403 or a settled blocked check) closes the open record; a 401 is session loss, which keeps the selection for re-login.
-  const listBlocked = (list.error instanceof ApiError && list.error.status === 403) || scopedPermission.state === 'blocked';
+  const { denied: listBlocked, request, roleRequired, keptSystemId, deniedRef } = useListDenial({
+    error: list.error,
+    scopedPermission,
+    managedSystemId: search.managedSystem,
+    drawer: { selectedId: search.selected ?? null, close: closeSelection },
+  });
   const blocked = listBlocked || denied(detail.error);
-  // The [권한 요청] or «요청 불가» choice is the Finding list's judgment, read from the 403 envelope too (#2639).
-  const { request: deniedRequest, roleRequired } = listReadDenial(list.error, scopedPermission);
   const { lang = 'ko' } = useHostSeam();
   const { permissionHomeHref } = useHostPermissionLinks();
-  const request = deniedRequest ?? null;
-  const archived = useIsArchivedSystem(blocked && request === null && !roleRequired && search.managedSystem !== 'all' ? search.managedSystem : undefined);
+  const archived = useIsArchivedSystem(blocked && !request && !roleRequired ? keptSystemId : undefined);
   useEffect(() => {
     if (!blocked) return;
     setDraft('');
@@ -299,21 +300,8 @@ function EvidenceSession({
   }
   const close = useCallback(() => {
     pendingCloseFocus.current = true;
-    write((previous) => ({ ...previous, selected: undefined }), { replace: true });
-  }, [write]);
-  // A confirmed list denial closes the open record itself. The rows and the disabled search cannot take focus then,
-  // so focus moves to the denial card's first action (or the card itself) instead of the usual return target.
-  useEffect(() => {
-    if (!listBlocked || !search.selected) return;
-    pendingDeniedFocus.current = true;
-    write((previous) => ({ ...previous, selected: undefined }), { replace: true });
-  }, [listBlocked, search.selected, write]);
-  useLayoutEffect(() => {
-    if (search.selected || !pendingDeniedFocus.current) return;
-    pendingDeniedFocus.current = false;
-    const card = deniedRef.current;
-    (card?.querySelector<HTMLElement>('a[href], button:not([disabled])') ?? card)?.focus();
-  }, [search.selected]);
+    closeSelection();
+  }, [closeSelection]);
   // The host applies the URL after `write` returns (seam navigate is not awaited): focus once `selected` is gone.
   useLayoutEffect(() => {
     if (search.selected || !pendingCloseFocus.current) return;

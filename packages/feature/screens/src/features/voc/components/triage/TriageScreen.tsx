@@ -24,6 +24,7 @@ import { fetchCapabilityScopeViaClient } from '../../../../lib/api/permission-re
 import { isPermissionDenied } from '../../../../lib/api/types';
 import { createLabel } from '../../../../lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
+import { listForbiddenHint, listForbiddenRequest } from '../../../../lib/cross-system/useListDenial';
 import { usePermissionCheckBridge } from '../../../../lib/cross-system/usePermissionCheckBridge';
 import { HostLink, useHostPermissionLinks, useHostSeam } from '../../../../lib/host/host-seam';
 import { useHostSearchWriter } from '../../../../lib/host/useHostSearchWriter';
@@ -193,20 +194,20 @@ export function TriageScreen(): React.ReactElement {
 
   // An authoritative queue denial wins over cached/retained rows and selection.
   if (!isApproved || queueDenied) {
-    const requestable = queueDenied ? error.envelope.requestable_permission : undefined;
+    const hint = listForbiddenHint(error);
+    const missingRead = hint?.permission === 'voc.read';
+    const queueRequest = missingRead || hint?.permission === 'voc.triage' ? listForbiddenRequest(hint) : undefined;
     const permissionState = capCheck.data?.state;
     const pending = !queueDenied && permissionState === 'pending_request';
-    const gateState = queueDenied ? (requestable ? 'request_access' : undefined) : permissionState;
-    const state = mapToPanelState(gateState);
-    const capability = queueDenied ? requestable?.permission : 'voc.triage';
-    const managedSystemId = queueDenied ? requestable?.managed_system_id : search.managedSystem;
-    const missingRead = queueDenied && requestable?.permission === 'voc.read';
+    const gateState = queueDenied ? queueRequest && 'request_access' : permissionState;
+    const panelState = mapToPanelState(gateState);
+    const capability = queueDenied ? queueRequest?.capability : 'voc.triage';
+    const managedSystemId = queueDenied ? queueRequest?.managedSystemId : search.managedSystem;
     // #1170: `voc.read` is requestable only per Managed System. A queue denial
     // without one means the actor holds triage across several Systems — the
     // request dialog would submit a workspace-wide request the API rejects, so
     // the panel stays non-requestable until a System is selected.
-    const readNeedsSystemSelection = missingRead && typeof managedSystemId !== 'string';
-    const panelState = readNeedsSystemSelection ? 'blocked_not_requestable' : state;
+    const readNeedsSystemSelection = missingRead && queueRequest === undefined;
     let reason: string = PERMISSION_BLOCKED_REASONS.vocTriage;
     if (readNeedsSystemSelection) reason = PERMISSION_BLOCKED_REASONS.vocTriageMissingRead;
     else if (missingRead) reason = PERMISSION_BLOCKED_REASONS.vocTriageMissingReadManagedSystem;

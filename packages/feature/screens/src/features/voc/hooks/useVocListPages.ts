@@ -1,9 +1,8 @@
-import { isPermissionDenied } from '../../../lib/api/types';
+import { concreteListSystemId, isListForbidden, listForbiddenHint } from '../../../lib/cross-system/useListDenial';
 import { permissionCheckQueryOptions } from '../../../lib/cross-system/usePermissionCheckBridge';
 import { placeholderDataForSearchOnly } from '../../../lib/query/placeholder-data-for-search';
 import { hashKey, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { isVocSearchValueValid } from '../routes/voc-search';
 import { type UseVocListParams, type VocListPage, fetchVocListPage } from './useVocList';
 
 export const VOC_PAGE_SIZE = 50;
@@ -107,18 +106,11 @@ export function useVocListPages(params: UseVocListPagesParams) {
       ),
     getNextPageParam: (last: VocListPage) => (last.page?.has_more ? last.page.cursor : undefined),
     staleTime: 30_000,
-    retry: (failureCount, error) => !isPermissionDenied(error) && failureCount < 1,
+    retry: (failureCount, error) => !isListForbidden(error) && failureCount < 1,
   });
-  const requestable = isPermissionDenied(list.error)
-    ? list.error.envelope.requestable_permission
-    : undefined;
+  const requestable = listForbiddenHint(list.error);
   const target = requestable?.managed_system_id;
-  const serverSystemId =
-    typeof target === 'string' && target !== 'all' && isVocSearchValueValid('managedSystem', target)
-      ? target
-      : undefined;
-  const selectedSystemId = managedSystemId === 'all' ? undefined : managedSystemId;
-  const systemId = target == null ? selectedSystemId : serverSystemId;
+  const systemId = concreteListSystemId(target ?? managedSystemId);
   const checkSystem = view === 'inbox' && systemId !== undefined && requestable?.permission === 'voc.read';
   const checkOptions = permissionCheckQueryOptions({
     capability: 'voc.read',
@@ -137,6 +129,7 @@ export function useVocListPages(params: UseVocListPagesParams) {
     checkSystem &&
     check.isSuccess &&
     decision?.allow === false &&
+    decision.reason !== 'role_required' &&
     Array.isArray(decision.requestable) &&
     decision.requestable.length > 0;
   const requestSystemId = systemRequestable ? systemId : undefined;

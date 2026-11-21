@@ -21,13 +21,16 @@ const ROW = {
   created_at: AT, updated_at: AT,
 };
 
-function mount(view: 'inbox' | 'triage', { existing, home, canOpenStatus = true }: { existing: boolean; home?: string; canOpenStatus?: boolean }) {
+function mount(view: 'inbox' | 'triage', { existing, home, canOpenStatus = true, hint = { permission: 'voc.read', managed_system_id: SYSTEM } }: {
+  existing: boolean; home?: string; canOpenStatus?: boolean;
+  hint?: { permission: string; managed_system_id: string | null };
+}) {
   let pending = existing;
   const calls = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = new URL(String(input), 'http://localhost').pathname;
     if (path === '/vocs') return Response.json({
       code: 'permission.denied', message: 'denied',
-      requestable_permission: { permission: 'voc.read', managed_system_id: SYSTEM, reason_required: true },
+      requestable_permission: { ...hint, reason_required: true },
     }, { status: 403 });
     if (path === '/me/permissions/check') {
       if (view === 'inbox') return Response.json({
@@ -86,6 +89,18 @@ function mount(view: 'inbox' | 'triage', { existing, home, canOpenStatus = true 
 }
 
 afterEach(() => vi.unstubAllGlobals());
+
+it.each([
+  ['inbox', 'VOC 처리함', 'finding.read', SYSTEM],
+  ['triage', '분류', 'voc.read', 'all'],
+  ['triage', '분류', 'voc.read', 'not-a-uuid'],
+  ['triage', '분류', 'voc.triage', null],
+] as const)('%s suppresses the queue request for %s (%s, %s)', async (view, title, permission, managed_system_id) => {
+  mount(view, { existing: false, hint: { permission, managed_system_id } });
+  const heading = await screen.findByRole('heading', { name: title, level: view === 'inbox' ? 3 : 2 });
+  expect(heading.closest('[data-state]')).toHaveAttribute('data-state', 'blocked_not_requestable');
+  expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
+});
 
 describe.each([['inbox', 'VOC 처리함', 3], ['triage', '분류', 2]] as const)('%s queue denial', (view, title, level) => {
   it('shows an existing exact-target request in the card after mounting', async () => {
