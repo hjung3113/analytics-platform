@@ -421,7 +421,7 @@ export default function ProductivityOverview(_: PageProps) {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-x-2">
                         <StatusBadge tone="neutral">{r.kind === 'dwell' ? (m('productivityOverviewTopDwell')) : (m('productivityOverviewSlowestP95'))}</StatusBadge>
-                        <span className="t-mono truncate">{r.equipmentId}</span>
+                        <span className="t-mono truncate" title={r.equipmentId}>{r.equipmentId}</span>
                       </div>
                       <div className="mt-1 flex items-baseline gap-x-2">
                         <span className="tabular shrink-0 whitespace-nowrap text-sm font-medium">
@@ -433,7 +433,7 @@ export default function ProductivityOverview(_: PageProps) {
                     </div>
                     {/* Row actions stay on the equipment's line as one-line buttons (#2651). */}
                     <span className="flex shrink-0 items-center gap-1">
-                      <RowAction compact={false} icon={ArrowUpRight} label={m('productivityOverviewCycleTime')} text={m('productivityOverviewCycleTime')}
+                      <RowAction compact={false} icon={ArrowUpRight} label={m('productivityOverviewCycleTimeName')} text={m('productivityOverviewCycleTime')}
                         link={<PlatformLink href={linkTo('cycle-time', { global: { selection: [r.equipmentId] } })}
                           title={m('productivityOverviewChangesTheEquipmentSelectionToThisEquipment')} />} />
                       <ObjectLinks kind="equipment" id={r.equipmentId} returnTo />
