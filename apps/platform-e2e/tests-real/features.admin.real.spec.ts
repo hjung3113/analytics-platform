@@ -137,8 +137,9 @@ test.describe('VOC 처리함 상세 폭별 배치 (06 §13, #1530)', () => {
         await expect(region).toHaveAttribute('tabindex', '0');
         await region.focus(); await expect(region).toBeFocused();
       }
-      const titleX = (await dialog.getByRole('heading', { level: 2 }).boundingBox())!.x;
-      expect(await body.evaluate(el => el.getBoundingClientRect().x + parseFloat(getComputedStyle(el).paddingLeft))).toBeCloseTo(titleX, 0);
+      // The header row starts with the mono record id (#2536), so the body aligns with the header row start, not the title.
+      const headerX = await dialog.getByTestId('detail-panel-header-content').evaluate(el => el.getBoundingClientRect().x + parseFloat(getComputedStyle(el).paddingLeft));
+      expect(await body.evaluate(el => el.getBoundingClientRect().x + parseFloat(getComputedStyle(el).paddingLeft))).toBeCloseTo(headerX, 0);
       const heading = await properties.getByRole('heading', { name: '분류 (읽기 전용)' }).boundingBox();
       const action = await properties.getByRole('button', { name: '분류에서 변경' }).boundingBox();
       expect(Math.abs((heading!.y + heading!.height / 2) - (action!.y + action!.height / 2))).toBeLessThanOrEqual(1);
