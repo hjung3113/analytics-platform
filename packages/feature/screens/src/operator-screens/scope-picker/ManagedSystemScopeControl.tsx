@@ -2,7 +2,6 @@
 // `AppFrame`, but through `useMeBridge`, `fetchManagedSystems` and `fetchCapabilityScopeViaClient` (all on `client.ts`),
 // so the platform sidebar's Scope place shares the feature cache and the `/api/features` base path. Value only through props.
 
-import type { Capability } from '@ap/feature-shared';
 import { Button } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -25,7 +24,7 @@ export interface ManagedSystemScopeControlProps {
    * The capability whose granted scope marks each system in or out of range («범위 밖»). The menu declares it for its list
    * (전체 Finding and 근거 read `finding.read`); absent keeps the VOC read scope (`voc.read`).
    */
-  capability?: Capability;
+  capability?: string;
 }
 
 export function ManagedSystemScopeControl({

@@ -51,7 +51,20 @@ export const findingAccessRegistry = createRegistry({
   permissions: [eqvView],
   menus: [
     ...MENUS,
-    { ...inbox, id: 'findings', path: '/findings', pageKeys: ['managedSystem'] },
+    { ...inbox, id: 'findings', path: '/findings', pageKeys: ['managedSystem'], requiredCapability: {
+      id: 'finding.read',
+      requestOnMenuDenial: {
+        label: { ko: 'Finding 조회', en: 'Read Findings' },
+        roleRequired: { ko: 'Developer 이상 역할 필요', en: 'Developer role or higher required' },
+      },
+    } },
+    { ...inbox, id: 'declared-capability', path: '/declared-capability', pageKeys: ['managedSystem'], requiredCapability: {
+      id: 'survey.read',
+      requestOnMenuDenial: {
+        label: { ko: '설문 조회', en: 'Read Surveys' },
+        roleRequired: { ko: '상위 역할 필요', en: 'Higher role required' },
+      },
+    } },
     { ...inbox, id: 'eqv-topview', path: '/eqv/topview', permission: eqvView },
   ],
 });

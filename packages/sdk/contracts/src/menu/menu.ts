@@ -112,6 +112,14 @@ export type MenuMeta = {
   /** Extra route patterns that still open this menu (legacy paths, ADR-0093). Same `:param` count as `path`. Output of `createRegistry` holds the manifest path here when it differs from the canonical one. */
   aliases?: readonly string[];
   permission: Permission;
+  /** Application capability for scoped reads. The Registry carries this metadata alongside the Kernel permission. */
+  requiredCapability?: {
+    readonly id: string;
+    /** Set when the screen renders its own scope picker. The default location is the sidebar. */
+    readonly scopePicker?: 'page';
+    /** Opt in to a capability request on a blocked menu and supply its localized labels. */
+    readonly requestOnMenuDenial?: { readonly label: Text; readonly roleRequired: Text };
+  };
   /** Further grants the actor must also hold (AND with `permission`, never OR). Platform vocabulary only: the registry rejects an empty list, a repeat of the primary or another entry, an unknown grant and any list on a module menu (ADR-0053 keeps one permission). Read access through `menuPermissions`. */
   additionalPermissions?: readonly Permission[];
   /** Carry set this menu belongs to (`createRegistry({ carrySets })`). Absent → nothing is carried to or from this menu. */
