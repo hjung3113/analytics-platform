@@ -401,6 +401,11 @@ Surface keys NOT consumed by VOC (listed for completeness — checked in other s
 
 Inbox and Triage list gates use `PermissionBlockedPanel layout="card"`. When access can be requested, `RequestAccessButton` links to the host's permission-request page or opens the local dialog (required reason, optional expiration, `POST /permission-requests`). A pending request replaces the request action with a status link when the host can open it. The card's final action is the host's permitted Home link when available. The Admin route's strict search schema accepts only `tab` and `selected`. When the Inbox list 403s (`view=inbox`), the blocked chrome drops the tab strip (title `VOC 수신함`), search, filter/sort, and the active-filter bar, renders the create action as a secondary button, and shows the `내 VOC` shortcut only when the 403 carries no `requestable_permission`. A blocked Triage console adds the same secondary create button plus `내 VOC` only in the `blocked_not_requestable` state. These shortcuts sit outside the card.
 
+Each Inbox list denial with a valid server-pointed or selected Managed System
+starts a fresh `voc.read` point check for that System. The card shows
+`확인 중` while the check is pending. The request action appears after the
+check confirms that the System is requestable (#2622).
+
 Production adapter (`packages/feature/screens/src/lib/cross-system/getPermissionDecision.ts`; returns `null` for a missing key or a schema failure):
 
 ```ts

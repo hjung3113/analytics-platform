@@ -48,6 +48,8 @@ export const PERMISSION_REQUEST_FLOW_COPY = {
     retry: '다시 시도',
     checkingRequest: '요청 상태를 확인하는 중입니다.',
     requestCheckError: '요청 상태를 확인하지 못했습니다.',
+    checkingEligibility: '확인 중',
+    eligibilityCheckError: '권한을 요청할 수 있는지 확인하지 못했습니다.',
   },
   en: {
     request: 'Request access',
@@ -60,5 +62,7 @@ export const PERMISSION_REQUEST_FLOW_COPY = {
     retry: 'Try again',
     checkingRequest: 'Checking request status.',
     requestCheckError: 'Could not check request status.',
+    checkingEligibility: 'Checking…',
+    eligibilityCheckError: 'Could not check whether access can be requested.',
   },
 } as const;

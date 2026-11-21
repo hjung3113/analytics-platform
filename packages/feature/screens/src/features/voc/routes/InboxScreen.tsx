@@ -10,6 +10,7 @@ import { RequestAccessButton } from '../../admin/public';
 import { GLOSSARY, createLabel } from '../../../lib/copy/glossary';
 import { LIST_SEARCH_PLACEHOLDER } from '../../../lib/copy/list-search';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
+import { PERMISSION_REQUEST_FLOW_COPY } from '../../../lib/copy/permission-requests';
 import { VOC_INBOX_LABEL } from '../../../lib/copy/voc-views';
 import { HostLink, useHostPermissionLinks, useHostSeam } from '../../../lib/host/host-seam';
 import { HostPrimaryAction } from '../../../lib/host/HostPrimaryAction';
@@ -75,9 +76,20 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
   } = useInboxState(view);
 
   const requestable = permissionError?.envelope.requestable_permission;
-  const { requestSystemId, exactScopeTarget } = vocList;
+  const { requestSystemId, exactScopeTarget, requestCheckStatus } = vocList;
   const readRequestUnavailable = requestable?.permission === 'voc.read' && requestSystemId === undefined;
-  const needsSystemSelection = readRequestUnavailable && requestable.managed_system_id == null;
+  const requestCopy = PERMISSION_REQUEST_FLOW_COPY[lang];
+  let requestCheckMessage: React.ReactNode;
+  switch (requestCheckStatus) {
+    case 'pending':
+      requestCheckMessage = <span role="status">{requestCopy.checkingEligibility}</span>;
+      break;
+    case 'error':
+      requestCheckMessage = <span role="alert">{requestCopy.eligibilityCheckError}</span>;
+      break;
+  }
+  const needsSystemSelection =
+    readRequestUnavailable && requestable.managed_system_id == null && requestCheckMessage === undefined;
 
   const outOfScopeBanner = outOfScopeSummary ? (
     <PermissionBlockedPanel
@@ -221,7 +233,9 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
               description={PERMISSION_BLOCKED_REASONS.vocInbox}
               // #2619: a targetless VOC read denial names the next step inside the card.
               {...(needsSystemSelection ? { reason: PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem } : {})}
-              requestStatus="not-requestable"
+              {...(requestCheckMessage === undefined
+                ? { requestStatus: 'not-requestable' }
+                : { requestAction: requestCheckMessage })}
               exitAction={permissionCardExitAction(permissionHomeHref, lang)}
             />
           )}

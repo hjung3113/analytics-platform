@@ -5,6 +5,7 @@ import { listVocsQuerySchema } from '@ap/feature-shared';
 import type { QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { permissionCheckQueryKey } from '../../../../lib/cross-system/usePermissionCheckBridge';
 import {
   type AuthedVocsMount,
   type AuthedVocsRequest,
@@ -106,7 +107,64 @@ function inboxDenial(code: (typeof DENIAL_CODES)[number]) {
   return jsonResponse(403, { code, message: 'VOC read denied' });
 }
 
+function deferredResponse() {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
 describe('Inbox permission denial (#2619)', () => {
+  it.each([
+    { name: 'server-pointed System', url: '/vocs?view=inbox', target: MS },
+    { name: 'selected System', url: `/vocs?view=inbox&managedSystem=${MS}`, target: null },
+  ])('checks the $name again before offering Request (#2622)', async ({ url, target }) => {
+    const denial = deferredResponse();
+    const freshCheck = deferredResponse();
+    mounted = mountAuthedVocs({
+      initialPath: url,
+      vocsShell: true,
+      handle: (request) => {
+        const { pathname } = new URL(request.url, 'http://localhost');
+        if (pathname === '/vocs') return denial.promise;
+        if (pathname === '/me/permissions/check') return freshCheck.promise;
+        if (pathname === '/permission-requests/mine') {
+          return jsonResponse(200, { requests: [], count: 0 });
+        }
+        return undefined;
+      },
+    });
+    const { queryClient } = mounted.router.options.context as { queryClient: QueryClient };
+    queryClient.setQueryData(permissionCheckQueryKey({ capability: 'voc.read', managedSystemId: MS }), {
+      state: 'request_access',
+      decision: { allow: false, requestable: [{ workspace_id: ME.workspace_id, managed_system_id: MS }] },
+    });
+    denial.resolve(jsonResponse(403, {
+      code: 'permission.scope_required',
+      message: 'VOC read denied',
+      requestable_permission: { permission: 'voc.read', managed_system_id: target },
+    }));
+
+    const heading = await screen.findByRole('heading', { name: 'VOC 처리함', level: 3 });
+    expect(screen.getByText('확인 중')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+    const { requests } = mounted;
+    await waitFor(() => expect(requests).toContainEqual({
+      method: 'GET',
+      url: `/me/permissions/check?capability=voc.read&managed_system_id=${MS}`,
+    }));
+
+    freshCheck.resolve(jsonResponse(200, {
+      state: 'blocked_non_requestable',
+      decision: { allow: false, requestable: null },
+    }));
+
+    await waitFor(() => expect(heading.closest('[data-request-status]')).toHaveAttribute(
+      'data-request-status', 'not-requestable',
+    ));
+    expect(screen.queryByText('확인 중')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+  });
+
   it.each(DENIAL_CODES)('hides cached rows, controls and summary after refetch returns %s', async (code) => {
     firstPage = () =>
       jsonResponse(200, {
