@@ -1,6 +1,8 @@
 ## analytics-platform addendum (AP addendum)
 
 - Base ref: `origin/main` (`git diff origin/main...HEAD`).
+- **Inputs:** a permission or feature PR's task names a real-server capture path. If it is missing, the verdict is `CHANGES`.
+- **Siblings (required report section):** for each blocker or major finding, the `rg` pattern you ran and every sibling site it found, each marked fixed in this diff or not. Unfixed sites go into one follow-up issue, not into this PR.
 - **Contract and test:** follow the touched 06 contracts (URL, Context, permissions, Scope, query lifecycle, cross-menu links) and related ADRs.
 - **Quality** (the classes per-PR review used to miss):
   - State: for each value the diff stores or caches, name its key and when it clears (session, Scope, generation); a missing clear is major.
