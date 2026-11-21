@@ -131,7 +131,9 @@ export type AccessRequestState = {
    * another reason (a mock, a session not ready, a place with no mapping): the plain request entry, as before. Set `checking` only while a read really runs.
    */
   read?: 'checking' | 'error';
-  /** Re-reads the request state; the entry offers 「다시 시도」 only when it is given. */
+  /** Stable identity of the read, including its session and target. Changing it resets the deadline and retry state. */
+  readKey?: string;
+  /** Re-reads the request state; the entry offers 「다시 시도」 only when it is given. Supply it during checking to allow retries after a timeout. */
   retry?: () => void;
 };
 /**

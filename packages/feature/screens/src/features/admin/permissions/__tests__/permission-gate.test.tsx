@@ -1,6 +1,7 @@
 // <PermissionGate> contract: children render only when the backend returns
 // state=approved; every other state uses the shared PermissionBlockedPanel.
 
+import { useAccessRequestState } from '../../../../test-support/access-request-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
@@ -222,6 +223,7 @@ describe('<PermissionGate>', () => {
     mockPermissionState('pending_request');
     wrap(<PermissionGate capability="workspace.admin"><p>secret payload</p></PermissionGate>, {
       ...HOST_SEAM,
+      useAccessRequestState,
       permissionRequestHref: () => '/company/permission-requests',
       permissionHomeHref: '/company/',
     });

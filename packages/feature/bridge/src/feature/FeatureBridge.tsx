@@ -1,7 +1,7 @@
 import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { ServerOff } from 'lucide-react';
 import { UNDO_WINDOW_MS, formatFeedTime, formatListTime, formatSummaryTime, useI18n, usePlatform, useUnsavedGuard } from '@ap/kernel';
-import { StateMessage } from '@ap/components';
+import { StateMessage, useAccessRequestState } from '@ap/components';
 import { FeatureScreenRoot, type HostLinkProps, type HostNavigate, type HostNotice, type HostSearch, type HostSeam } from '@ap/feature-screens/global-screens/core';
 import type { TargetOf } from './links';
 import { usePrimaryActionTarget } from './primary-action-target';
@@ -117,6 +117,7 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
       feed: at => formatFeedTime(at, lang),
     },
     usePermissionLinks,
+    useAccessRequestState,
     useFollowHostHref,
     usePermissionRequestReturn,
     // The platform page head carries the menu title, so a screen drops its own route kicker (UX-5).

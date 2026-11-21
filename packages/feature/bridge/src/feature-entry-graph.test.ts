@@ -60,6 +60,18 @@ const EAGER_MODULES = ['access-request-slot.tsx', 'notifications-slot.tsx', 'voc
 const FEATURE_SCREENS_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@ap\/feature-screens/;
 const FULL_ENTRY_IMPORT = /\bimport\s+(?!type\b)[^;]*?from\s*['"]@ap\/feature-screens\/global-screens['"]/;
 
+it('keeps the SDK request hook outside feature screens, including their test dependencies', () => {
+  const manifest = JSON.parse(readFileSync(join(FRONTEND_SRC, '../package.json'), 'utf8'));
+  const sourceFiles = (readdirSync(FRONTEND_SRC, { recursive: true }) as string[])
+    .filter(name => /\.[jt]sx?$/.test(name))
+    .map(name => join(FRONTEND_SRC, name));
+  const { specifiers } = walk(sourceFiles);
+  expect({
+    declared: manifest.devDependencies?.['@ap/components'],
+    imported: [...specifiers].filter(name => name === '@ap/components' || name.startsWith('@ap/components/')),
+  }).toEqual({ declared: undefined, imported: [] });
+});
+
 describe('Feature bridge entry graph (ADR-0071)', () => {
   it.each(EAGER_MODULES)('keeps the eagerly loaded %s off the screen barrel (main chunk)', file => {
     const text = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');

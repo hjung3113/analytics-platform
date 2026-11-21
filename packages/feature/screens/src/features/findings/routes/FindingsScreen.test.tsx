@@ -1,6 +1,7 @@
 // FindingsScreen under a test host seam (#762 l): the screen reads and writes its URL only through the seam, has no router,
 // and leaves the whole detail slot to the host's `renderDetail`.
 
+import { useAccessRequestState } from '../../../test-support/access-request-host';
 import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
 import type { FrontendPermissionState } from '../../../lib/api/permission-reads';
 import { focusManager, QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
@@ -154,7 +155,7 @@ function mount(initial: Record<string, string>, { hostCarriesReturn = false, use
     useNavigate: () => navigate,
     useSearch: () => React.useState(current)[0],
     ...(hostCarriesReturn ? { hostCarriesReturn: true } : {}),
-    ...(usePermissionLinks ? { usePermissionLinks } : {}),
+    ...(usePermissionLinks ? { usePermissionLinks, useAccessRequestState } : {}),
   };
   function Host() {
     const [search, set] = React.useState(initial);
@@ -431,6 +432,36 @@ describe('FindingsScreen under a host seam', () => {
       visibility.mockRestore();
       focusManager.setFocused(undefined);
     }
+  });
+
+  it.each([false, true])('hands off focus on a refreshed denial only while the request owns it (blurred: %s)', async blurred => {
+    installEmptyListFetch('request_access');
+    const originalFetch = fetch;
+    const history = deferredResponse();
+    let requestable = true;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const { pathname } = new URL(String(input), 'http://localhost');
+      if (pathname === '/permission-requests/mine') return history.promise;
+      if (pathname === '/me/permissions/check' && !requestable) {
+        return json({ state: 'blocked_non_requestable', decision: { allow: false } });
+      }
+      return originalFetch(input);
+    });
+    const { client } = mount({ managedSystem: MS }, { usePermissionLinks: () => ({
+      permissionRequestHref: () => '/request-target', permissionHomeHref: '/company/',
+    }) });
+    const busy = await screen.findByRole('button', { name: '권한 요청' });
+    expect(busy).toHaveAttribute('aria-busy', 'true');
+    busy.focus();
+    if (blurred) {
+      busy.blur();
+      await act(async () => {});
+    }
+    requestable = false;
+    await act(async () => client.refetchQueries({ queryKey: ['permission-check', 'finding.read', MS] }));
+    await waitFor(() => expect(busy).not.toBeInTheDocument());
+    expect(blurred ? document.body : screen.getByRole('link', { name: '홈으로' })).toHaveFocus();
+    history.resolve(json({ requests: [] }));
   });
 
   it('links the eligible Finding list denial to the request form and restores content after a fresh read', async () => {

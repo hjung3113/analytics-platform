@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
  */
 const PKG = path.resolve(__dirname, "../..");
 const SRC = path.join(PKG, "src");
-const NON_STYLE_DIRS = new Set(["__tests__", "test"]);
+const NON_STYLE_DIRS = new Set(["__tests__", "test", "test-support"]);
 
 const sources = [
   ...fs

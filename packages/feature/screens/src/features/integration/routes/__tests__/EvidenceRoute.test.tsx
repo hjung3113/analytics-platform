@@ -1,3 +1,4 @@
+import { useAccessRequestState } from '../../../../test-support/access-request-host';
 import { EvidenceScreen } from '../EvidenceScreen';
 import { HostSeamProvider, useHostSeam } from '../../../../lib/host/host-seam';
 import { EvidenceRoute } from '../../../../test/screen-host/features/integration/routes/EvidenceRoute';
@@ -1004,6 +1005,7 @@ it.each([
     const seam = useHostSeam();
     return <HostSeamProvider value={{
       ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
+      useAccessRequestState,
       usePermissionLinks: () => ({ permissionRequestHref, permissionHomeHref: '/company/' }),
     }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
   }
@@ -1037,6 +1039,7 @@ it.each(['request_access', 'approved', 'pending_request'] as const)('uses the %s
     const seam = useHostSeam();
     return <HostSeamProvider value={{
       ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
+      useAccessRequestState,
       usePermissionLinks: () => ({ permissionRequestHref, permissionHomeHref: '/company/' }),
     }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
   }
@@ -1070,6 +1073,42 @@ it.each(['request_access', 'approved', 'pending_request'] as const)('uses the %s
   expect(fetchMock.mock.calls.filter(([input]) => input.startsWith('/me/permissions/check'))).toEqual([
     [`/me/permissions/check?capability=finding.read&managed_system_id=${MS}`, expect.any(Object)],
   ]);
+});
+
+it.each([false, true])('restores focus on refreshed Evidence denial only if the request owned it (blurred: %s)', async blurred => {
+  installFetch(() => response({ items: [], page: { has_more: false } }));
+  const originalFetch = fetch;
+  let requestable = true;
+  let resolveHistory!: (value: Response) => void;
+  const history = new Promise<Response>(resolve => { resolveHistory = resolve; });
+  vi.stubGlobal('fetch', vi.fn((input: string, init?: RequestInit) => {
+    const { pathname } = new URL(input, 'http://localhost');
+    if (pathname === '/me/permissions/check') {
+      return Promise.resolve(response({
+        state: requestable ? 'request_access' : 'blocked_non_requestable', decision: { allow: false },
+      }));
+    }
+    if (pathname === '/permission-requests/mine') return history;
+    return originalFetch(input, init);
+  }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Host() {
+    const seam = useHostSeam();
+    return <HostSeamProvider value={{
+      ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
+      useAccessRequestState, permissionRequestHref: () => '/permission-requests', permissionHomeHref: '/company/',
+    }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
+  }
+  render(<QueryClientProvider client={client}><Host /></QueryClientProvider>);
+  const busy = await screen.findByRole('button', { name: '권한 요청' });
+  expect(busy).toHaveAttribute('aria-busy', 'true');
+  busy.focus();
+  if (blurred) busy.blur();
+  requestable = false;
+  await act(async () => client.refetchQueries({ queryKey: ['permission-check', 'finding.read', MS] }));
+  await waitFor(() => expect(busy).not.toBeInTheDocument());
+  expect(blurred ? document.body : screen.getByRole('link', { name: '홈으로' })).toHaveFocus();
+  resolveHistory(response({ requests: [] }));
 });
 
 it('names an archived System instead of a missing permission on a scoped empty Evidence list', async () => {

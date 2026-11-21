@@ -4,6 +4,7 @@
  */
 export { PaneScreenProvider, PaneQueryDraftProvider, useHostPlatform, useHostPlatformOptional, useOverlayState, useToastList, useLeaveRequest, type HostPlatform, type OverlayState, type PaneScreen } from './platform/platform';
 export { queryRecoveryEvidence } from './query/recovery-evidence';
+export { textFor } from './i18n';
 export { isChunkLoadFailure } from './error/chunkFailure';
 export { isTransientReadError, useAdapterRequest, useKeptAnswers, type KeptAnswers } from './query/query';
 export { type PageFocus, type PageNavigation } from './context/pageNavigation';

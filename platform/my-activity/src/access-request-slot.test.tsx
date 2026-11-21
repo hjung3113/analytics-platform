@@ -1,17 +1,18 @@
 // #1844 node 1844f1b — the bridge's blocked-place request slot (ADR-0154 decision 6). Synthetic site names only (ADR-0151).
 import { useState } from 'react';
-import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PermissionRequestTarget } from '@ap/contracts';
-import { I18nProvider, PlatformProvider } from '@ap/kernel';
+import { useAccessRequestRead } from '@ap/components';
+import { I18nProvider, PlatformProvider, usePlatform, type AccessRequestState } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
 import { FeatureBridge, featureQueryClient } from '@ap/feature-bridge';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
-import { accessRequestSlot, REQUEST_READ_LIMIT_MS } from '@ap/feature-bridge/access-request-slot';
+import { accessRequestSlot } from '@ap/feature-bridge/access-request-slot';
 import { RequestAccessButton } from '@ap/feature-screens/global-screens';
 import { permissionCheckQueryOptions, permissionRequestsMineAllKey } from '@ap/feature-screens/global-screens/core';
-import { eqvView, findingAccessRegistry, ID_A, json, registry, stubFetch, switchableAdapter } from './feature/test-support';
+import { eqvView, findingAccessRegistry, ID_A, ID_B, json, registry, stubFetch, switchableAdapter } from './feature/test-support';
 
 const MINE = '/api/features/permission-requests/mine';
 const CREATE = '/api/features/permission-requests';
@@ -23,18 +24,29 @@ const SYSTEMS = '/api/features/managed-systems';
 const CHECK = '/api/features/me/permissions/check';
 const FINDINGS = `/findings?v=1&managedSystem=${ID_A}`;
 
+const REQUEST_READ_LIMIT_MS = 8000;
+
+function MenuPermissionActions({ state }: { state: AccessRequestState }) {
+  const { shown, canRetry, retrying, run } = useAccessRequestRead(state);
+  const href = shown.pending || shown.requestHref === undefined ? shown.statusHref : shown.requestHref;
+  return <>
+    <output data-testid="menu-permission-state">{JSON.stringify(shown)}</output>
+    {href && <a href={href}>요청</a>}
+    {shown.read === 'error' && canRetry && <button type="button" aria-busy={retrying || undefined} onClick={run}>다시 시도</button>}
+  </>;
+}
+
+function ChangeSystem() {
+  const { linkTo, navigate } = usePlatform();
+  return <button type="button" onClick={() => navigate(linkTo('findings', { page: { managedSystem: ID_B } }))}>Beta</button>;
+}
+
 function mountMenuPermission(url: string, permission: 'features:access' | 'console:access' | typeof eqvView) {
   window.history.replaceState(null, '', url);
   const { Pending } = accessRequestSlot;
   return render(<I18nProvider><PlatformProvider adapter={switchableAdapter('developer').adapter} registry={findingAccessRegistry}>
-    <Pending target={{ kind: 'permission', permission }}>{state => {
-      const href = state.pending || state.requestHref === undefined ? state.statusHref : state.requestHref;
-      return <>
-        <output data-testid="menu-permission-state">{JSON.stringify(state)}</output>
-        {href && <a href={href}>요청</a>}
-        {state.retry && <button type="button" onClick={state.retry}>다시 시도</button>}
-      </>;
-    }}</Pending>
+    <ChangeSystem />
+    <Pending target={{ kind: 'permission', permission }}>{state => <MenuPermissionActions state={state} />}</Pending>
   </PlatformProvider></I18nProvider>);
 }
 
@@ -48,19 +60,21 @@ function heldResponse() {
   return { promise, resolve };
 }
 
-function stubFindingReads(overrides: (path: string) => Response | Promise<Response> | undefined) {
+function stubFindingReads(overrides: (path: string, url: URL) => Response | Promise<Response> | undefined) {
   return stubFetch(url => {
-    const { pathname } = new URL(url, window.location.origin);
-    const response = overrides(pathname);
+    const address = new URL(url, window.location.origin);
+    const { pathname } = address;
+    const response = overrides(pathname, address);
     if (response !== undefined) return response;
     if (pathname === ME) return json({
       actor: { id: 'developer', external_id: 'developer', email: '', display_name: 'Developer', role_level: 'developer' },
       workspace_id: 'workspace',
     });
     if (pathname === SYSTEMS) return json({
-      items: [{ id: ID_A, workspace_id: 'workspace', slug: 'alpha', name: 'Alpha', external_key: null,
+      items: [{ id: ID_A, slug: 'alpha', name: 'Alpha' }, { id: ID_B, slug: 'beta', name: 'Beta' }].map(system => ({
+        ...system, workspace_id: 'workspace', external_key: null,
         default_owner_actor_id: null, default_owner_team_id: null, default_reviewer_actor_id: null,
-        default_reviewer_team_id: null, archived_at: null, archived_by_actor_id: null, created_at: AT, updated_at: AT }],
+        default_reviewer_team_id: null, archived_at: null, archived_by_actor_id: null, created_at: AT, updated_at: AT })),
       page: { has_more: false },
     });
     if (pathname === CHECK) return json({ state: 'request_access', decision: { allow: false } });
@@ -243,6 +257,40 @@ describe('accessRequest slot', () => {
         expect(Object.fromEntries(target.searchParams)).toMatchObject({ capability: 'survey.read', managedSystem: ID_A });
         const check = calls.map(call => new URL(call.path, window.location.origin)).find(url => url.pathname === CHECK);
         expect(Object.fromEntries(check!.searchParams)).toEqual({ capability: 'survey.read', managed_system_id: ID_A });
+      });
+
+      it.each([false, true])('gives the next Managed System a fresh deadline (previous read retried: %s)', async retried => {
+        vi.useFakeTimers();
+        const hold = heldResponse();
+        const checks: Array<string | null> = [];
+        stubFindingReads((path, url) => {
+          if (path !== CHECK) return;
+          checks.push(url.searchParams.get('managed_system_id'));
+          return hold.promise;
+        });
+        const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+        try {
+          mountMenuPermission(FINDINGS, 'features:access');
+          await act(async () => vi.waitFor(() => expect(checks).toEqual([ID_A])));
+          if (retried) {
+            await advance(REQUEST_READ_LIMIT_MS);
+            fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+            expect(checks).toEqual([ID_A, ID_A]);
+            expect(screen.getByRole('button', { name: '다시 시도' }).getAttribute('aria-busy')).toBe('true');
+          }
+          await advance(6000);
+          fireEvent.click(screen.getByRole('button', { name: 'Beta' }));
+          await advance(3000);
+          expect(checks.at(-1)).toBe(ID_B);
+          expect(menuPermissionState()).toMatchObject({ read: 'checking', missing: { system: 'Beta' } });
+          expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+          await advance(5000);
+          fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+          expect(checks.slice(-2)).toEqual([ID_B, ID_B]);
+        } finally {
+          hold.resolve(json({ state: 'blocked_not_requestable', decision: { allow: false } }));
+          vi.useRealTimers();
+        }
       });
 
       it('withholds the request during history checking and error, then retries only history', async () => {
