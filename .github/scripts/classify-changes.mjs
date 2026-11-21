@@ -3,6 +3,8 @@
 //   code  'false' only for a pull request with a non-empty diff whose every file is Markdown or under .agents/ and none is a Markdown file
 //         that code or a test reads (CODE_READS_MD, #1884); the heavy steps then skip.
 //   site  'false' only for a pull request with a non-empty diff that touches nothing the intro-site captures depend on (#608).
+//   sdk   'false' only for a pull request whose changed files include no code under packages/sdk/ or tooling/sdk/ (#2658); 'true' runs
+//         the SDK release tarballs and outside-consumer check on that PR, which main push always runs.
 //   full  'true' for a manual run with full=true (weekly cold run), and whenever this script cannot decide: the consumers then run cold
 //         (turbo --force, no cache restore).
 // Fail-safe: any exception or git failure prints code=true site=true full=true and exits 0 (stderr says why). If the job itself fails the
@@ -33,6 +35,13 @@ const docsOnly = (file) => DOCS_ONLY.test(file) && !CODE_READS_MD.some((pattern)
 const SITE_DIRS = /^(menus|platform|packages|apps\/feature-screens|apps\/platform-web|site|tooling|patches)\//;
 const SITE_FILES = /^(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|GLOSSARY\.md|apps\/platform-e2e\/package\.json|\.github\/workflows\/(ci|pages)\.yml)$/;
 const ZERO_SHA = /^0+$/;
+export const SDK_PATHS = /^(packages|tooling)\/sdk\//;
+
+/** 'false' only for a pull request with a known diff that changes no SDK code; anything else runs the SDK kit check. */
+export function sdkChanged({ event, files }) {
+  if (event !== 'pull_request' || files === null) return 'true';
+  return files.some((f) => SDK_PATHS.test(f) && !docsOnly(f)) ? 'true' : 'false';
+}
 
 const ALL = Object.freeze({ code: 'true', site: 'true', full: 'true' });
 
@@ -80,20 +89,22 @@ export function run(env, cwd) {
   if (files === null && input.event !== 'workflow_dispatch') process.stderr.write(`classify-changes: changed files unknown for ${input.event} → code=true site=true full=true\n`);
   if (!['pull_request', 'push', 'workflow_dispatch'].includes(input.event)) process.stderr.write(`classify-changes: unsupported event "${input.event}" → everything\n`);
   const result = classify({ event: input.event, files, fullInput: env.FULL_INPUT });
-  return { result, files };
+  return { result, files, sdk: sdkChanged({ event: input.event, files }) };
 }
 
 function main() {
   let result = { ...ALL };
   let files = null;
+  let sdk = 'true';
   try {
-    ({ result, files } = run(process.env, process.cwd()));
+    ({ result, files, sdk } = run(process.env, process.cwd()));
   } catch (error) {
     process.stderr.write(`classify-changes: ${error.stack ?? error}\n`);
     result = { ...ALL };
+    sdk = 'true';
   }
   if (files) process.stdout.write(`changed files:\n${files.join('\n')}\n`);
-  const text = `code=${result.code}\nsite=${result.site}\nfull=${result.full}\n`;
+  const text = `code=${result.code}\nsite=${result.site}\nfull=${result.full}\nsdk=${sdk}\n`;
   process.stdout.write(text);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, text);
 }
@@ -171,6 +182,14 @@ function selfTest() {
   } catch (error) { bad += 1; console.error(`FAIL turbo.json Markdown inputs unreadable: ${error.message}`); }
   check('pr: computation failed (null) → everything cold', pr(null), out(T, T, T));
   // Push to main: code stays true, turbo decides the scope; undecidable base → cold.
+  const sdk = (event, files) => sdkChanged({ event, files });
+  check('sdk: pr packages/sdk ts → true', sdk('pull_request', ['packages/sdk/ui/src/a.tsx']), T);
+  check('sdk: pr tooling/sdk mjs → true', sdk('pull_request', ['tooling/sdk/sdk-kit.mjs']), T);
+  check('sdk: pr kit README (read by a test) → true', sdk('pull_request', ['tooling/sdk/fixtures/out-of-repo-assembly/kit/README.md']), T);
+  check('sdk: pr packages/sdk CHANGELOG only → false', sdk('pull_request', ['packages/sdk/CHANGELOG.md']), F);
+  check('sdk: pr menus only → false', sdk('pull_request', ['menus/mars/hw-time/src/x.ts']), F);
+  check('sdk: pr diff unknown → true', sdk('pull_request', null), T);
+  check('sdk: push → true', sdk('push', ['docs/a.md']), T);
   check('push: diff known → code=true site=true full=false', classify({ event: 'push', files: ['docs/a.md'] }), out(T, T, F));
   check('push: empty diff → code=true', classify({ event: 'push', files: [] }), out(T, T, F));
   check('push: diff unknown → full=true', classify({ event: 'push', files: null }), out(T, T, T));
