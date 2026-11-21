@@ -349,18 +349,20 @@ function FindingsListShell({
 
   const list = (
     <ListShell
-      toolbar={{
-        actions: !isReadDenied ? (
-          <SearchInput
-            placeholder={LIST_SEARCH_PLACEHOLDER}
-            value={draft}
-            onValueChange={setDraft}
-            onCommit={commit}
-          />
-        ) : undefined,
-        title: 'Findings',
-        subtitle: 'VOC 근거에서 실행 후보로 승격된 Finding을 검토합니다.',
-      }}
+      {...(!isReadDenied ? {
+        toolbar: {
+          actions: (
+            <SearchInput
+              placeholder={LIST_SEARCH_PLACEHOLDER}
+              value={draft}
+              onValueChange={setDraft}
+              onCommit={commit}
+            />
+          ),
+          title: 'Findings',
+          subtitle: 'VOC 근거에서 실행 후보로 승격된 Finding을 검토합니다.',
+        },
+      } : {})}
       tabs={
         !isReadDenied ? (
           <div className="my-2 flex items-center gap-3">
@@ -557,13 +559,14 @@ function FindingsListBody({
             />
           </div>
         ) : roleRequired ? (
-          <div className="m-4 space-y-3">
+          <div className="m-4">
             <PermissionBlockedPanel
+              layout="card"
               state="blocked_not_requestable"
-              category="Findings"
+              category={GLOSSARY.allFindings}
               reason={PERMISSION_BLOCKED_REASONS.findingsListRoleRequired}
+              exitAction={<MyVocsRecoveryLink />}
             />
-            <MyVocsRecoveryLink />
           </div>
         ) : (
           <div className="m-4">

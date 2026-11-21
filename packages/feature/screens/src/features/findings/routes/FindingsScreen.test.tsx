@@ -4,7 +4,7 @@
 import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
 import type { FrontendPermissionState } from '../../../lib/api/permission-reads';
 import { focusManager, QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -308,6 +308,7 @@ describe('FindingsScreen under a host seam', () => {
     mount({ managedSystem: MS });
     await waitFor(() => expect(lastDetailCall()[1]).toMatchObject({ listDenied: true }));
     expect(await screen.findByRole('button', { name: '권한 요청' })).toBeInTheDocument();
+    expect(shell.props.at(-1)?.toolbar).toBeUndefined();
   });
 
   it.each([403, 200])('marks the open Finding out of list only after scope denial (%s)', async (status) => {
@@ -445,6 +446,7 @@ describe('FindingsScreen under a host seam', () => {
     mount({ managedSystem: MS }, options);
     await screen.findByText('결제 실패 반복');
     expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
+    expect(shell.props.at(-1)?.toolbar).toMatchObject({ title: 'Findings' });
   });
 
   it('keeps the domain exit and suppresses a grant CTA for a Finding role denial', async () => {
@@ -452,8 +454,14 @@ describe('FindingsScreen under a host seam', () => {
     const permissionRequestHref = vi.fn(() => '/company/permission-requests');
     mount({ managedSystem: MS }, { usePermissionLinks: () => ({ permissionRequestHref }) });
     await waitFor(() => expect(lastDetailCall()[1]).toMatchObject({ listDenied: true }));
+    const title = await screen.findByRole('heading', { name: '전체 Finding' });
+    const card = title.closest<HTMLElement>('[data-state="blocked_not_requestable"]');
+    if (!card) throw new Error('Missing Finding denial card');
+    expect(within(card).getByText('Finding 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.')).toBeInTheDocument();
+    expect(within(card).getByRole('link', { name: '내 VOC' })).toHaveAttribute('href', '/vocs?view=my');
     expect(permissionRequestHref).not.toHaveBeenCalled();
     expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
+    expect(shell.props.at(-1)?.toolbar).toBeUndefined();
   });
 
   it.each([
@@ -533,6 +541,7 @@ describe('FindingsScreen under a host seam', () => {
     expect(screen.queryByText(/권한을 요청하세요/)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '내 VOC' })).not.toBeInTheDocument();
     expect(permissionRequestHref).not.toHaveBeenCalled();
+    expect(shell.props.at(-1)?.toolbar).toBeUndefined();
   });
 
   it('names an archived System instead of a missing permission: no permission box, Home only', async () => {
@@ -556,6 +565,7 @@ describe('FindingsScreen under a host seam', () => {
     expect(screen.queryByText(/Finding 조회/)).not.toBeInTheDocument();
     expect(screen.queryByText('이 항목에 접근할 수 없습니다.')).not.toBeInTheDocument();
     expect(permissionRequestHref).not.toHaveBeenCalled();
+    expect(shell.props.at(-1)?.toolbar).toBeUndefined();
   });
 
   it('keeps the genuine empty state for an approved system', async () => {
