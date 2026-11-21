@@ -2356,7 +2356,7 @@ test.describe('분석 보드 창 (#893 893d)', () => {
     expect(ring).toContain('inset');
     await expect(rail(page).getByRole('button', { name: '분석 보드(창으로 열림, 눌러 앞으로)' })).toHaveAttribute('data-board-state', 'floating');
     await expect(mainHeading(page)).toBeVisible();
-    await page.getByRole('link', { name: '사이클타임 상세', exact: true }).click();
+    await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '사이클타임 상세', exact: true }).click();
     await expect(page).toHaveURL(/\/mars\/cycle-time/);
     await expect(windowFrame(page)).toBeVisible();
     await expect(chip(page)).toHaveCount(0);
