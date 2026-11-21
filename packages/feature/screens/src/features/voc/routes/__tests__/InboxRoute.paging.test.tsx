@@ -165,6 +165,80 @@ describe('Inbox permission denial (#2619)', () => {
     expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
   });
 
+  it.each(['direct invalidation', 'successful submit', '409 conflict'] as const)(
+    'hides Request while the same denial check refetches after %s (#2622)',
+    async (trigger) => {
+      const nextCheck = deferredResponse();
+      let checkCount = 0;
+      const { router } = (mounted = mountAuthedVocs({
+        initialPath: '/vocs?view=inbox',
+        vocsShell: true,
+        handle: (request) => {
+          const { pathname } = new URL(request.url, 'http://localhost');
+          if (pathname === '/vocs') {
+            return jsonResponse(403, {
+              code: 'permission.scope_required',
+              message: 'VOC read denied',
+              requestable_permission: { permission: 'voc.read', managed_system_id: MS },
+            });
+          }
+          if (pathname === '/me/permissions/check') {
+            checkCount += 1;
+            if (checkCount > 1) return nextCheck.promise;
+            return jsonResponse(200, {
+              state: 'request_access',
+              decision: { allow: false, requestable: [{ workspace_id: ME.workspace_id, managed_system_id: MS }] },
+            });
+          }
+          if (pathname === '/permission-requests/mine') {
+            return jsonResponse(200, { requests: [], count: 0 });
+          }
+          if (pathname === '/permission-requests' && request.method === 'POST') {
+            if (trigger === '409 conflict') {
+              return jsonResponse(409, { code: 'conflict.permission_request_duplicate', message: 'dup' });
+            }
+            return jsonResponse(201, { id: 'PR-2622', status: 'pending', created_at: '2026-10-08T00:00:00.000Z' });
+          }
+          return undefined;
+        },
+      }));
+      const requestButton = await screen.findByRole('button', { name: '권한 요청' });
+
+      const { queryClient } = router.options.context as { queryClient: QueryClient };
+      const queryKey = permissionCheckQueryKey({ capability: 'voc.read', managedSystemId: MS });
+      if (trigger === 'direct invalidation') {
+        void queryClient.invalidateQueries({ queryKey });
+      } else {
+        fireEvent.click(requestButton);
+        const dialog = within(await screen.findByRole('dialog', { name: '권한 요청' }));
+        fireEvent.change(dialog.getByLabelText('사유 · 필수'), { target: { value: 'VOC 검토' } });
+        fireEvent.click(dialog.getByRole('button', { name: '요청 제출' }));
+      }
+      await waitFor(() => {
+        expect(checkCount).toBe(2);
+        expect(screen.getByText('확인 중')).toBeInTheDocument();
+        expect(requestButton).not.toBeInTheDocument();
+      });
+      if (trigger !== 'direct invalidation') expect(screen.getByRole('dialog')).toBeInTheDocument();
+      if (trigger === '409 conflict') {
+        expect(screen.getByTestId('permission-request-conflict')).toHaveTextContent('이미 같은 대상의 요청이 검토 중입니다');
+      }
+
+      nextCheck.resolve(jsonResponse(200, {
+        state: 'blocked_non_requestable',
+        decision: { allow: false, requestable: null },
+      }));
+      await waitFor(() => expect(screen.queryByText('확인 중')).not.toBeInTheDocument());
+      expect(screen.queryByRole('button', { name: '권한 요청', hidden: true })).not.toBeInTheDocument();
+      if (trigger === 'successful submit') {
+        expect(await screen.findByRole('dialog', { name: '권한 요청 완료' })).toBeInTheDocument();
+      }
+      if (trigger === '409 conflict') {
+        expect(screen.getByTestId('permission-request-conflict')).toHaveTextContent('이미 같은 대상의 요청이 검토 중입니다');
+      }
+    },
+  );
+
   it.each(DENIAL_CODES)('hides cached rows, controls and summary after refetch returns %s', async (code) => {
     firstPage = () =>
       jsonResponse(200, {

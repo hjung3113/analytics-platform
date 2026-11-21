@@ -124,27 +124,39 @@ export function useVocListPages(params: UseVocListPagesParams) {
     capability: 'voc.read',
     ...(systemId !== undefined ? { managedSystemId: systemId } : {}),
   });
+  // A new denial needs its own response, even if a shared point check is still in flight.
+  // Keep the shared key prefix so permission-request mutations can invalidate this check.
+  const checkQueryKey = [...checkOptions.queryKey, 'voc-inbox-denial', keyHash, list.errorUpdatedAt, list.errorUpdateCount];
   const check = useQuery({
     ...checkOptions,
-    // A new denial needs its own response, even if a shared point check is still in flight.
-    // Keep the shared key prefix so permission-request mutations can invalidate this check.
-    queryKey: [...checkOptions.queryKey, 'voc-inbox-denial', keyHash, list.errorUpdatedAt, list.errorUpdateCount],
+    queryKey: checkQueryKey,
     enabled: checkSystem,
     placeholderData: () => undefined,
   });
+  const checkStatus = check.fetchStatus === 'fetching' ? 'pending' : check.status;
   const decision = check.data?.decision;
   const systemRequestable =
     checkSystem &&
-    check.isSuccess &&
+    checkStatus === 'success' &&
     decision?.allow === false &&
     Array.isArray(decision.requestable) &&
     decision.requestable.length > 0;
   const requestSystemId = systemRequestable ? systemId : undefined;
+
+  // Once available, keep the dialog mounted for this denial so a submit can display its result.
+  // Only the current check can make the request entry visible.
+  const checkKeyHash = checkSystem ? hashKey(checkQueryKey) : undefined;
+  const [dialogKey, setDialogKey] = useState<string>();
+  let retainedDialogKey = dialogKey === checkKeyHash ? dialogKey : undefined;
+  if (systemRequestable) retainedDialogKey = checkKeyHash;
+  if (retainedDialogKey !== dialogKey) setDialogKey(retainedDialogKey);
+  const requestDialogSystemId = retainedDialogKey === undefined ? undefined : systemId;
   return {
     ...list,
     keyHash,
     requestSystemId,
-    exactScopeTarget: systemRequestable && target == null,
-    requestCheckStatus: checkSystem ? check.status : undefined,
+    requestDialogSystemId,
+    exactScopeTarget: requestDialogSystemId !== undefined && target == null,
+    requestCheckStatus: checkSystem ? checkStatus : undefined,
   };
 }
