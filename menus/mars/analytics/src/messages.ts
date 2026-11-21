@@ -226,6 +226,7 @@ export const ANALYTICS_MESSAGES = {
   productivityOverviewMin3: { ko: "분", en: "min" },
   productivityOverviewChangesTheEquipmentSelectionToThisEquipment: { ko: "설비 선택을 이 설비로 바꾸고 사이클타임 상세로 이동합니다.", en: "Changes the equipment selection to this equipment and opens cycle time detail." },
   productivityOverviewCycleTime: { ko: "사이클타임 상세 →", en: "Cycle time →" },
+  productivityOverviewCycleTimeName: { ko: "사이클타임 상세", en: "Cycle time" },
   productivityOverviewTheCycleTimeLinkChangesTheEquipment: { ko: "사이클타임 상세 링크는 설비 선택을 해당 설비로 바꾸고 나머지 조건은 그대로 둡니다. 다른 화면 링크는 그 설비만 열며 설비 선택을 바꾸지 않습니다.", en: "The cycle-time link changes the equipment selection to that equipment and keeps the other conditions. The other-screen links open that equipment only and does not change the equipment selection." },
 
   // BreakdownBars

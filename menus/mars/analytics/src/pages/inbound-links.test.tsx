@@ -41,7 +41,7 @@ describe('analytics inbound links (#1930)', () => {
   it('productivity equipment rows adopt the list while cycle-time keeps its Selection intent', async () => {
     mount(<ProductivityOverview params={{}} />, '/analytics/productivity?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
     const row = await screen.findByRole('button', { name: 'E1 다른 화면에서 열기' });
-    const cycle = screen.getByRole('link', { name: '사이클타임 상세 →' });
+    const cycle = screen.getByRole('link', { name: /^사이클타임 상세$/ });
     expect(new URL(cycle.getAttribute('href')!, 'http://localhost').searchParams.get('selectedEquipmentIds')).toBe('E1');
     fireEvent.click(row);
     expect(await screen.findByRole('button', { name: '설비 상세' })).toBeTruthy();
