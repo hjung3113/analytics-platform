@@ -83,3 +83,12 @@ it('groups each permission and its current access in its own checklist item', ()
     expect(permission.getByText('요청 범위의 현재 권한')).toBeInTheDocument();
   }
 });
+
+it('sets an explicit list role on the per-permission checklist', () => {
+  const [first] = items;
+  if (!first) throw new Error('fixture');
+  render(<PermissionRequestDetail request={first} batch={{ id: batchId, items }} onClose={() => undefined} />);
+
+  const review = within(screen.getByTestId('permission-request-risk-review'));
+  expect(review.getByRole('list')).toHaveAttribute('role', 'list');
+});

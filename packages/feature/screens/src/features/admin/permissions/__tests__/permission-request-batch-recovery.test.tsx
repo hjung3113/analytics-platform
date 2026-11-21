@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { adminDetailFixture } from '../../../../test/permission-details';
 import { scopeAdminDetailBody, scopeAdminRowBody } from '../../../../test/fixtures/permission-scope';
@@ -15,6 +15,51 @@ const initial = ['workspace.read', 'finding.read'].map((capability, index) => ad
 }));
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } });
 afterEach(() => { vi.unstubAllGlobals(); configureApiClient({ basePath: '' }); });
+
+it('keeps the single-permission review layout and batch decision for a one-item group request', async () => {
+  const [first] = initial;
+  if (!first) throw new Error('Expected a batch fixture');
+  const { id, requester_actor_id, requested_capability, requested_managed_system_id, status,
+    revision, requested_expiration, reason, created_at } = first;
+  const row = {
+    id, requester_actor_id, requested_capability, requested_managed_system_id, status,
+    revision, requested_expiration, reason, created_at, batch_id: batch,
+    permission_group: { id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', name: '기본 조회' },
+  };
+  let item = adminDetailFixture(row, false, 'allowed', {
+    risk_indicators: [{ code: 'no_expiration', evidence: { requested_expiration: null } }],
+  });
+  const post = vi.fn((_body: unknown) => {
+    item = { ...item, revision: 2, status: 'rejected', allowed_actions: [] };
+    return json({ batch_id: batch, items: [{ id, status: 'rejected' }] });
+  });
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    if (url === `/permissions/requests/batch/${batch}/decide` && init?.method === 'POST') {
+      return post(JSON.parse(String(init.body)));
+    }
+    if (url === `/permissions/requests/${id}`) return json(item);
+    throw new Error(url);
+  }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <PermissionRequestBatchDetail rows={[row]} id={batch} managedSystemNames={{}} onClose={vi.fn()}
+        renderDetail={({ title, body, footer }) => <><h2>{title}</h2><main>{body}</main><footer>{footer}</footer></>} />
+    </QueryClientProvider>,
+  );
+  await screen.findByTestId('permission-decision-section');
+  expect(screen.getByRole('heading', { name: '권한 그룹 «기본 조회»' })).toBeInTheDocument();
+  const review = within(screen.getByTestId('permission-request-risk-review'));
+  expect(review.getByText('요청 만료일 없음', { selector: 'p' })).toHaveClass('text-text-muted');
+  expect(review.queryByRole('region', { name: '전체 읽기' })).not.toBeInTheDocument();
+  expect(review.queryByRole('listitem')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '거절' }));
+  fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'reviewed here' } });
+  fireEvent.click(screen.getByTestId('permission-decision-submit'));
+  await screen.findByText('승인 0 · 거절 1');
+  expect(post).toHaveBeenCalledWith({ action: 'reject', expected_revisions: { [id]: revision }, reason: 'reviewed here' });
+});
 
 it.each(['supported', 'unsupported'] as const)('requires a safe batch POST when a checklist change leaves the narrowing %s', async mode => {
   const [first, second] = initial;

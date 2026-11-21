@@ -204,12 +204,14 @@ function PermissionRequestRiskReview({
 }) {
   const copy = ADMIN_PERMISSIONS_COPY.riskReview;
   const headingId = React.useId();
+  const singleItemBatch = items?.length === 1;
   const noExpiration = items?.flatMap((item) => item.risk_indicators)
     .find((indicator) => indicator.code === 'no_expiration');
   return <section className="flex flex-col gap-2" data-testid="permission-request-risk-review">
     <PanelSectionTitle>{copy.title}</PanelSectionTitle>
-    {items ? (
-      <ul className="flex flex-col gap-3">
+    {items && items.length > 1 ? (
+      // eslint-disable-next-line jsx-a11y/no-redundant-roles -- Safari can drop list semantics when Tailwind Preflight removes the list markers.
+      <ul role="list" className="flex flex-col gap-3">
         {noExpiration ? (
           <li className={REVIEW_LIST_ITEM_INSET}>
             <PermissionRiskIndicatorItem indicator={noExpiration} managedSystemNames={managedSystemNames} />
@@ -222,13 +224,24 @@ function PermissionRequestRiskReview({
               <PermissionMemberRiskReview
                 request={{ ...item, risk_indicators: item.risk_indicators.filter(indicator => indicator.code !== 'no_expiration') }}
                 managedSystemNames={managedSystemNames}
-                indented
+                borderedIndicators={false}
               />
             </section>
           </li>
         ))}
       </ul>
-    ) : <PermissionMemberRiskReview request={request} managedSystemNames={managedSystemNames} />}
+    ) : (
+      <>
+        {singleItemBatch && noExpiration ? <p className="text-sm text-text-muted">{copy.noExpiration}</p> : null}
+        <PermissionMemberRiskReview
+          request={singleItemBatch
+            ? { ...request, risk_indicators: request.risk_indicators.filter(indicator => indicator.code !== 'no_expiration') }
+            : request}
+          managedSystemNames={managedSystemNames}
+          borderedIndicators={!singleItemBatch}
+        />
+      </>
+    )}
     <FieldRow label={copy.requesterRole} inset="none">{ROLE_LEVEL_DISPLAY_LABELS[request.requester.role_level]}</FieldRow>
     <FieldRow label={copy.reviewAuthority} inset="none">
       <ReviewCapabilityName id={request.administrative_authority.capability} /> · {request.administrative_authority.allowed ? copy.allowed : copy.forbidden}
@@ -240,10 +253,10 @@ function PermissionRequestRiskReview({
   </section>;
 }
 
-function PermissionMemberRiskReview({ request, managedSystemNames, indented = false }: {
+function PermissionMemberRiskReview({ request, managedSystemNames, borderedIndicators = true }: {
   request: PermissionRequestAdminDetail;
   managedSystemNames: Record<string, string>;
-  indented?: boolean;
+  borderedIndicators?: boolean;
 }) {
   const copy = ADMIN_PERMISSIONS_COPY.riskReview;
   const { role_level: requesterRole } = request.requester;
@@ -271,7 +284,7 @@ function PermissionMemberRiskReview({ request, managedSystemNames, indented = fa
         <ul className="flex flex-col gap-2">
           {request.risk_indicators.map((indicator, index) => (
             // eslint-disable-next-line react/no-array-index-key -- risk indicator codes can repeat within one request and the list is rendered once, never reordered; the index disambiguates the key
-            <li className={indented ? undefined : REVIEW_LIST_ITEM_INSET} key={`${indicator.code}:${index}`}>
+            <li className={borderedIndicators ? REVIEW_LIST_ITEM_INSET : undefined} key={`${indicator.code}:${index}`}>
               <PermissionRiskIndicatorItem
                 indicator={indicator}
                 managedSystemNames={managedSystemNames}
