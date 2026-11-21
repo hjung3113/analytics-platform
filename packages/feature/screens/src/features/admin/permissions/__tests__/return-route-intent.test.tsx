@@ -111,10 +111,12 @@ describe('permission request return routes', () => {
         code: 'permission.scope_required',
         message: 'VOC fixture scope is required',
         requestable_permission: {
-          permission: 'voc.read.fixture',
+          permission: 'voc.read',
           managed_system_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
         },
       }),
+      // The inbox requests voc.read only after its System check names the System (#2642).
+      requestSystemId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
       refetch: vi.fn(),
     });
   });
@@ -175,7 +177,7 @@ describe('permission request return routes', () => {
     cleanup();
 
     render(withClient(<InboxHarness />));
-    expect(screen.getByTestId('request-access-voc.read.fixture')).toBeInTheDocument();
+    expect(screen.getByTestId('request-access-voc.read')).toBeInTheDocument();
 
     const values = requestProps.map(({ returnRouteIntent }) => returnRouteIntent);
     expect(values).toHaveLength(3);
