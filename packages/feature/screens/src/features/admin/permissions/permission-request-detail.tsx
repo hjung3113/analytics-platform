@@ -5,7 +5,7 @@ import { useHostSeam } from '../../../lib/host/host-seam';
 import { PERMISSION_GROUP_COPY } from '../../../lib/copy/permission-groups';
 
 import { OutlineBadge } from '../../../ui/index';
-import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle } from '@ap/ui';
+import { Button, DetailPanelFullscreenToggle, FieldRow, PanelSectionTitle, cn } from '@ap/ui';
 import * as React from 'react';
 
 import { ADMIN_PERMISSIONS_COPY, PERMISSION_REVIEW_TEXT as COPY } from '../../../lib/copy/admin-permissions';
@@ -19,6 +19,8 @@ import { ReviewCapabilityName } from './declared-capability-name.js';
 import { hasPermissionDecisionActions } from './permission-decision-actions';
 import { PermissionRequestDecisionForm, type SystemNamesRead } from './permission-request-decision-form.js';
 import { permissionRequestStatusText } from '../../../lib/copy/enum-labels';
+
+const REVIEW_LIST_ITEM_INSET = 'border-l-2 border-border-subtle pl-3';
 
 export function PermissionRequestDetail({
   request,
@@ -74,7 +76,7 @@ export function PermissionRequestDetail({
   }, [staleNotice]);
   const batchDecided = batch?.items.some(item => item.status !== 'pending' && item.status !== 'needs_more_info') ?? false;
   const body = (
-    <div className="flex flex-col gap-5">
+    <div className={cn('flex flex-col gap-5', renderDetail && 'pt-4')}>
       {staleNotice ? (
         <p
           ref={staleAlertRef}
@@ -202,15 +204,31 @@ function PermissionRequestRiskReview({
 }) {
   const copy = ADMIN_PERMISSIONS_COPY.riskReview;
   const headingId = React.useId();
+  const noExpiration = items?.flatMap((item) => item.risk_indicators)
+    .find((indicator) => indicator.code === 'no_expiration');
   return <section className="flex flex-col gap-2" data-testid="permission-request-risk-review">
     <PanelSectionTitle>{copy.title}</PanelSectionTitle>
-    {items ? <>
-      {items.some(item => item.risk_indicators.some(indicator => indicator.code === 'no_expiration')) ? <p className="text-sm text-text-muted">{copy.noExpiration}</p> : null}
-      {items.map(item => <section key={item.id} aria-labelledby={`${headingId}-${item.id}`} className="flex flex-col gap-2">
-        <p id={`${headingId}-${item.id}`} className="text-sm font-medium"><ReviewCapabilityName id={item.requested_capability} /></p>
-        <PermissionMemberRiskReview request={{ ...item, risk_indicators: item.risk_indicators.filter(indicator => indicator.code !== 'no_expiration') }} managedSystemNames={managedSystemNames} />
-      </section>)}
-    </> : <PermissionMemberRiskReview request={request} managedSystemNames={managedSystemNames} />}
+    {items ? (
+      <ul className="flex flex-col gap-3">
+        {noExpiration ? (
+          <li className={REVIEW_LIST_ITEM_INSET}>
+            <PermissionRiskIndicatorItem indicator={noExpiration} managedSystemNames={managedSystemNames} />
+          </li>
+        ) : null}
+        {items.map(item => (
+          <li key={item.id} className={REVIEW_LIST_ITEM_INSET}>
+            <section aria-labelledby={`${headingId}-${item.id}`} className="flex flex-col gap-2">
+              <p id={`${headingId}-${item.id}`} className="text-sm font-medium"><ReviewCapabilityName id={item.requested_capability} /></p>
+              <PermissionMemberRiskReview
+                request={{ ...item, risk_indicators: item.risk_indicators.filter(indicator => indicator.code !== 'no_expiration') }}
+                managedSystemNames={managedSystemNames}
+                indented
+              />
+            </section>
+          </li>
+        ))}
+      </ul>
+    ) : <PermissionMemberRiskReview request={request} managedSystemNames={managedSystemNames} />}
     <FieldRow label={copy.requesterRole} inset="none">{ROLE_LEVEL_DISPLAY_LABELS[request.requester.role_level]}</FieldRow>
     <FieldRow label={copy.reviewAuthority} inset="none">
       <ReviewCapabilityName id={request.administrative_authority.capability} /> · {request.administrative_authority.allowed ? copy.allowed : copy.forbidden}
@@ -222,9 +240,10 @@ function PermissionRequestRiskReview({
   </section>;
 }
 
-function PermissionMemberRiskReview({ request, managedSystemNames }: {
+function PermissionMemberRiskReview({ request, managedSystemNames, indented = false }: {
   request: PermissionRequestAdminDetail;
   managedSystemNames: Record<string, string>;
+  indented?: boolean;
 }) {
   const copy = ADMIN_PERMISSIONS_COPY.riskReview;
   const { role_level: requesterRole } = request.requester;
@@ -252,7 +271,7 @@ function PermissionMemberRiskReview({ request, managedSystemNames }: {
         <ul className="flex flex-col gap-2">
           {request.risk_indicators.map((indicator, index) => (
             // eslint-disable-next-line react/no-array-index-key -- risk indicator codes can repeat within one request and the list is rendered once, never reordered; the index disambiguates the key
-            <li className="border-l-2 border-border-subtle pl-3" key={`${indicator.code}:${index}`}>
+            <li className={indented ? undefined : REVIEW_LIST_ITEM_INSET} key={`${indicator.code}:${index}`}>
               <PermissionRiskIndicatorItem
                 indicator={indicator}
                 managedSystemNames={managedSystemNames}

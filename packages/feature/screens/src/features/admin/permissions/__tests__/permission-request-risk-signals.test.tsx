@@ -47,6 +47,19 @@ const RISK_INDICATORS: PermissionRiskIndicator[] = [
 ];
 
 describe('permission request risk review', () => {
+  it('insets the review body below the host drawer header', () => {
+    render(
+      <PermissionRequestDetail
+        request={adminDetailFixture(REQUEST)}
+        onClose={() => undefined}
+        renderDetail={({ body }) => body}
+      />,
+    );
+
+    const requestInfo = screen.getByRole('heading', { name: '요청 정보' }).closest('section');
+    expect(requestInfo?.parentElement).toHaveClass('pt-4');
+  });
+
   it.each([{ riskIndicators: [] }, { riskIndicators: RISK_INDICATORS.slice(0, 3) }])(
     'puts signals before compact access facts and omits unrelated self-approval rows (%j)',
     ({ riskIndicators }) => {
