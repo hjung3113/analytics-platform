@@ -1,30 +1,27 @@
-Workers read the sections their brief names (SKILL §0 full read does not apply; this profile wins). The lead reads [`lead.md`](lead.md) plus §Flow, §Size and path and §Owner gates and questions here. Reviewers read only their lens section.
+Workers read the sections their brief names (SKILL §0 full read does not apply; this profile wins). Reviewers read only their lens section. Review reports are in Korean.
 
 # Conductor profile — analytics-platform
 
-Repository-specific settings for the global `issue-wave-conductor` skill. Shared procedure lives in the skill. Work rules live in root `AGENTS.md`, which wins on conflict. `$CONDUCTOR` = this folder. `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`. Settings: [`conductor.json`](conductor.json). Multi-session procedure: the global `issue-wave-conductor` skill's `references/lanes.md` (`$LANES` there = the lane tools). Repo values the tools read: `conductor.json` `lanes`. Brief and worker traps: §Traps.
-
-The mock-adapter app has no database or login; its evidence comes from Playwright E2E (`apps/platform-e2e`) and the mock preview. The core server (`apps/platform-api`) has both, and its checks follow §Verify and §Pre-go-live.
+Repository-specific settings for the global `issue-wave-conductor` skill; root `AGENTS.md` wins on conflict. `$ENGINE` = `~/.agents/skills/issue-wave-conductor/scripts`, `$LANES` = `$ENGINE/lanes`. Settings: [`conductor.json`](conductor.json).
 
 ## Flow
 
-- Base is `main`. Squash merge. Branch name is `feat/<n>-<slug>`. `$MAIN` = `AP_MAIN`. `WAVE_BRIEFS` = `$AP_MAIN/.review/wave/`.
-- Run `git config workerops.protectedBases none` once per clone for `ship-pr.sh`.
-- **No lanes.** The lead holds the release context and dispatches workers itself: one issue, one worker, one PR. Run 2–3 workers at once, and start one only when `capacity.sh` says `start=yes`. The same worker fixes its own review findings. Reason: in v0.44 three long-lived lanes kept the 10-core Mac saturated (load1 up to 59, `start=no` in 10 of 44 checks) and ran fix loops nobody judged.
-- The lead merges, one PR at a time: the next merges only after `main` CI of the previous is green. Reason: independently green PRs met on `main` and turned it red four times in v0.44. Merges never wait for a release tag; the tag SHA is the release-docs PR's merge commit ([`lead.md`](lead.md) §Slice close).
+- Base is `main`. Squash merge.
+- **No lanes.** The lead holds the release context and dispatches workers itself: one issue, one worker, one PR. Run at most 3 workers at once (reviewers included), and start one only when `capacity.sh` says `start=yes`. The same worker fixes its own review findings. Reason: long-lived lanes kept the 10-core Mac saturated and ran fix loops nobody judged.
+- The lead merges, one PR at a time: the next merges only after `main` CI of the previous is green. Reason: independently green PRs met on `main` and turned it red. Merges never wait for a release tag; the tag SHA is the release-docs PR's merge commit ([`lead.md`](lead.md) §Slice close).
 
 ## Size and path
 
-Tiers, brief check and ship-check: the global `issue-wave-conductor` skill's `references/lanes.md` §Size and path. Full-tier paths are `lanes.tier_full_regex`. AP specifics:
+Tiers (`tier.sh` decides): the global `issue-wave-conductor` skill's `references/lanes.md` §Size and path. Full-tier paths are `lanes.tier_full_regex`. AP specifics:
 
-- **PR cap:** one PR changes at most 400 lines and 40 files. An issue expected to exceed it is split before work starts, one surface per PR (an SDK piece, one screen, or the server). Work that would still exceed it after splitting is not started; it becomes an owner question. Reason: the 99- and 179-file PRs of v0.44 took 7–9 review rounds, and PRs of 599, 764 and 1023 lines still shipped as exceptions after splitting.
+- **PR cap:** one PR changes at most 400 lines and 40 files. An issue expected to exceed it is split before work starts, one surface per PR (an SDK piece, one screen, or the server). Work that would still exceed it after splitting is not started; it becomes an owner question. Reason: review rounds grow with PR size.
 - **Draft PR at the first review:** the lead opens the PR as a draft (`gh pr create --draft`) at the commit the first review reads, pushes every fix round to it, and marks it ready only to merge. Reason: fix rounds that ran before the PR opened never reached the PR guard's round count.
-- **Review rounds:** at most two code-review rounds; the second covers only the fix diff. A third round goes back to the lead, who picks revert, split or an owner question; if the findings come only from earlier fixes, revert. No third-round fix task is written before the lead answers. Reason: single PRs ran `review-final` 7–8 times in v0.44 while each fix brought new findings, and one piece still ran five fix rounds after the cap was set.
-- **Real server first:** permission and feature work attaches one real-server capture before the first review. Reason: the mock returned 403 where the real server returned 200 with an empty list, and that gap surfaced only after several rounds.
-- **Mechanical caps (CI job `PR guard`, `.github/scripts/pr-guard.mjs`):** the required check `Platform workspace` fails a PR that breaks any of these, and no lead or worker decision passes it. (1) Size: more than 400 changed lines or 40 files, counting tests and excluding generated files (`tooling/sdk/api/`, `packages/sdk/CHANGELOG.md`), snapshots and lockfiles, passes only with the owner's `owner-ok:size` label. (2) Rounds: the fourth push of a PR's branch (open + two fix rounds) and every later one needs a `Round cap: <lead|owner> — <revert | split | 질문 #n>` line in the PR body; the lead writes it only after making that choice, and no third-round fix task starts before the line exists. (3) Scope: every issue a PR closes must be listed in the current release spec's `## 범위` on `main` (`.planning/releases/<version>.md`, newest version wins), or the PR carries the owner's `owner-ok:scope` label; a PR that adds numbers to `## 범위` needs the same label. Only the owner applies `owner-ok:*` labels; the guard prints who applied one and when. Reason: every one of these limits existed as text in v0.44 and was waived or skipped (three split PRs of 599–1,023 lines, a fifth fix round, six issues added mid-release), so the limit must live in a check the merge cannot skip.
+- **Review rounds:** at most two code-review rounds; the second covers only the fix diff. A third round goes back to the lead, who picks revert, split or an owner question; if the findings come only from earlier fixes, revert. No third-round fix task is written before the lead answers. Reason: findings after round two came from the fixes themselves.
+- **Real server first:** permission and feature work attaches one real-server capture before the first review; the review task names its path, and a permission or feature review without one returns `CHANGES` ([`addenda/review-rules.md`](addenda/review-rules.md)). Reason: the mock and the real server answer differently on denial.
+- **Mechanical caps (CI job `PR guard`; rules in the header of `.github/scripts/pr-guard.mjs`):** size (400 lines / 40 files; owner label `owner-ok:size`); rounds (the fourth push of a branch needs a `Round cap: <lead|owner> — <revert | split | 질문 #n>` line in the PR body, written only after that choice); scope (every closed issue is in the newest release spec's `## 범위` on `main`; owner label `owner-ok:scope`, also for a PR that adds numbers there). Only the owner applies `owner-ok:*`; the guard prints who applied one. Reason: a limit that only lives in text gets waived.
 
 - **Domain-noun docs (`review-doc` terms):** a light PR that adds domain nouns under `docs/design/**`, a new ADR, `docs/product/**`, a new API contract file or `GLOSSARY.md` gets one `review-doc` terms run (persona `doc-steward`). Design PRs of the same domain opened the same day share one run. Skip it when the changed lines add no bold term outside the glossary, no new enum/table/capability name and no new menu label. Reason: a term caught before code avoids a migration to rename it.
-- **Bundles:** a lane ships small same-area issues as one PR: at most 4 issues and 400 changed source lines (tests and docs excluded), one package, menu or contract document, one tier (the bundle takes its highest member's tier). One commit per issue. Never bundled: a `main` fix, a shared-path change (`lanes.shared_paths_regex`), an issue waiting on an owner prototype decision. Ship when full or when the next issue would outlast a CI cycle. If one issue blocks, drop its commit, put its board line back to open and ship the rest. Reason: a PR's fixed cost (a CI run in the shared job queue, a review, a merge-lock turn) outweighed its diff.
+- **Bundles:** one PR may close up to 4 same-area issues: at most 400 changed source lines, one package, menu or contract document, one tier (the highest member's), one commit per issue. Never bundled: a `main` fix, a shared-path change (`lanes.shared_paths_regex`), an issue waiting on an owner prototype decision. If one issue blocks, drop its commit and ship the rest. Reason: a PR's fixed cost (a CI run, a review, a merge turn) outweighed its diff.
 - **Plan review:** the `review-quality` plan review applies when a brief changes 06 contracts, package boundaries or `sdk:api`. Owning docs follow [`docs/AGENTS.md`](../../docs/AGENTS.md).
 
 ## Lanes
@@ -42,32 +39,15 @@ No lane sessions run. The table names areas: request classification ([`lead.md`]
 | `lane:ops` | Conductor profile, agent assets, owner-requested reports | `.agents/` (not this file), `docs/agents/` | 4990 |
 | lead | Assignment, conflicts, release, board | `.planning/`, release notes, this file | 4890 |
 
-## Request classification
-
-Lead only: [`lead.md`](lead.md) §Request classification.
-
-## Start coordination paths
-
-Procedure: the global `issue-wave-conductor` skill's `references/lanes.md` §Start coordination paths. The paths:
-
-- Public API of `packages/sdk/{contracts,kernel,components,shell}`
-- `apps/platform-web/src/menus.ts`, 06 contract docs
-- Root `package.json`, `pnpm-lock.yaml`, `turbo.json`, `.github/workflows`
-- `apps/platform-e2e`
-- The `docs/adr/README.md` table, ADR numbers (reservation: [`addenda/traps.md`](addenda/traps.md))
-- `addenda/traps.md`, `docs/agents/operations.md` (append only)
-- The screen bridge entry list (`packages/feature/screens/package.json` `exports`)
-- `.planning/README.md`: the lead updates it once, in the release-docs PR.
-
 ## Owner gates and questions
 
-This is the repo's one home for owner questions; other files point here. Owner gates on top of the shared list in `references/lanes.md` §Lane session: 06 contract changes and 3+ new menu screens.
+This is the repo's one home for owner questions; other files point here. Owner gates: the menu look gate below, root `AGENTS.md` §UI tests A and B, 06 contract changes, 3+ new menu screens, a new hierarchy or term, and any addition to the release scope.
 
-**Menu look gate.** How a menu screen presents its information (which panels, what shows above a chart, where legends, notes and options sit, how dense it is) is the owner's taste, not a general rule. Before implementing such a change, the lane brings 2–3 variants (`?variant=` prototypes, or annotated captures or sketches when that is enough) as one Artifact and sends `질문 #n`; it implements only the chosen one. The `advisor` role and reviewers do not decide a menu's look, also not while the owner is away. SDK pieces stay under the usual rules: the general piece and its default ship as decided, and the menu declares which level it uses. Reason: SDK pieces are general, but each menu follows the taste of whoever builds it, and a look chosen by the advisor came back as "too extreme".
+**Menu look gate.** How a menu screen presents its information (which panels, what shows above a chart, where legends, notes and options sit, how dense it is) is the owner's taste, not a general rule. Before implementing such a change, the lead brings 2–3 variants (`?variant=` prototypes, or annotated captures or sketches when that is enough) as one Artifact and sends `질문 #n`; it implements only the chosen one. SDK pieces stay under the usual rules: the general piece and its default ship as decided, and the menu declares which level it uses. Reason: SDK pieces are general, but each menu follows the taste of whoever builds it.
 
-- A lane sends a decision only the owner can make to the lead as `질문 #n`, with the options and its recommendation, and keeps working on other items. Nothing that depends on the answer is implemented first.
+- A decision only the owner can make goes to the owner as `질문 #n`, with the options and a recommendation; work on other items continues. Nothing that depends on the answer is implemented first.
 - Owner awake: the lead asks one numbered question, once. It does not repeat the question or re-attach it to later reports; the open question lives in `board.py`.
-- Owner away: owner decisions wait for the owner. Work that does not depend on the answer continues. Neither the `advisor` role nor a reviewer answers an owner question or picks a variant. Reason: in v0.44 the owner reversed choices the advisor and a reviewer made overnight.
+- Owner away: owner decisions wait for the owner. Work that does not depend on the answer continues. No agent or reviewer answers an owner question or picks a variant. Reason: the owner reversed choices agents made overnight.
 - Issues are opened with `gh issue create --template work.md` (`.github/ISSUE_TEMPLATE/work.md`); its three checks are the rules below and in §Size and path. Issues carry decided content only. Quote the owner's words as the decision; mark the lead's own text «제안:». A new axis, hierarchy or term gets one line checking it against `GLOSSARY.md`, the lead's own wording included. Reason: a hierarchy the lead wrote into an issue body shipped as if the owner had decided it.
 - One issue holds one problem; an audit report files one issue per finding. Reason: an issue that bundled five problems became a 99-file PR.
 - Add `ready-for-human` to the issue only when the session hands over without an answer. A decision chosen among real alternatives is recorded as an ADR in `docs/adr/`.
@@ -76,7 +56,7 @@ Reason: repeated questions cost hours of waiting.
 
 ## Heavy steps
 
-`heavy.lock` also covers: Root `pnpm test` and `build`, `probe.ts`, screen integration, and a full local `pnpm e2e` (only to reproduce a CI failure — send `<lane>: E2E` at start and end). Narrowed E2E (`-g`) and package checks take no lock.
+`heavy.lock` also covers: Root `pnpm test` and `build`, `probe.ts`, screen integration, and a full local `pnpm e2e` (only to reproduce a CI failure). Narrowed E2E (`-g`) and package checks take no lock.
 
 ## Complexity
 
@@ -87,34 +67,26 @@ Route to `impl-complex` (always full) if any of these hold:
 
 ## Launch
 
-- `launch-worker.py` merges [`addenda/`](addenda/) into `.review/00-IMPL-RULES.md` / `00-REVIEW-RULES.md`.
-- Capacity, slots and waiting: `references/lanes.md` §Machine resources. Run issues in parallel only when their files do not overlap. Otherwise SKILL §Loop; only §Heavy steps are serial.
-- **Stacking:** a node whose dependencies are committed on an in-flight branch starts on it (`orca worktree create --base-branch <branch>`, then `launch-worker.py --reuse`). Its brief names the base branch's in-flight files it must not edit; it rebases onto `main` after the base merges, and only after its own worker or reviewer has finished.
-- **Visual-judgment floor:** work that decides how a screen looks (layout, spacing, hierarchy, new component visuals, `?variant=` prototypes, screen-shape fix rounds, `site/` design) runs on role `impl-complex-sol` at effort `high`. Plain coding stays on the routing default. Split an issue so only its visual part goes to that worker. Captures and non-visual fixes never use this role. Reason: lower models code fine but make the UI ugly.
-- Feature issues: `launch-worker.py <n> <slug> feature`; rules in `addenda/impl-rules-feature.md`.
-  - `scripts/feature-prepare.sh` fills `.env` and creates the issue DB on 5439 (`verify-db.sh create <n>`).
-  - Run `verify-db.sh up` once beforehand (`cp ops/platform-api/.env.example ops/platform-api/.env` first if `.env` is missing).
-  - A branch that adds a migration: `verify-db.sh drop <n>` → `verify-db.sh create <n> --migrate-from <worktree>` before integration tests.
-  - After merge, `verify-db.sh drop <n>`; at wave end, `verify-db.sh down`.
+- Capacity, slots and waiting: `references/lanes.md` §Machine resources. Run issues in parallel only when their files do not overlap; only §Heavy steps are serial.
+- **Visual-judgment floor:** work that decides how a screen looks (layout, spacing, hierarchy, new component visuals, `?variant=` prototypes, screen-shape fix rounds, `site/` design) runs on role `impl-complex-sol` with `--effort high`. Plain coding stays on the routing default. Split an issue so only its visual part goes to that worker. Captures and non-visual fixes never use this role. Reason: lower models code fine but make the UI ugly.
+- Feature issues (verify container: `verify-db.sh up` once): `launch-worker.py <n> <slug> feature` runs `scripts/feature-prepare.sh`, which fills `.env` and creates the issue DB on 5439; rules in `addenda/impl-rules-feature.md`. A branch that adds a migration recreates the DB (`verify-db.sh drop <n>`, then `create <n> --migrate-from <worktree>`) before integration tests. Drop the DB after merge; `verify-db.sh down` when no feature work is left.
 
 ## Verify
 
 Every step must exit 0 before commit.
 
 1. Changed-package checks: each changed package's lint, typecheck and tests.
-2. Root checks, every tier: `bash $LANES/verify-root.sh --light <log-dir>` (lint + typecheck). Root test and build are PR CI's, whatever `tier.sh` says for `verify`. Reason: steps 1 and 7 catch what they would; the local run holds `heavy.lock`.
-3. E2E, when the diff touches app code: in `apps/platform-e2e`, run every describe the diff adds or changes, then the brief's Impact describes, with `pnpm exec playwright test -g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. Reason: root `AGENTS.md` §Verification. PR and main-push CI run only the specs `.github/scripts/select-e2e.mjs` picks (all shards when it cannot limit, none for server-only PRs: root `AGENTS.md` §Verification), so a green PR is not a full E2E record; the weekly `full=true` run is ([`lead.md`](lead.md) §Slice close).
-4. Menu manifests, `menus.ts`, contract menu types or `tooling/gen-menu` changed: `node tooling/gen-menu/scripts/probe.ts`, never in a worktree with a live preview.
+2. Root lint and typecheck are PR CI's. Run `bash $LANES/verify-root.sh --light <log-dir>` locally only when a public SDK type or a shared config (tsconfig, eslint, turbo) changes. Reason: package checks catch the rest, and the root run holds `heavy.lock` for minutes.
+3. E2E, when the diff touches app code: in `apps/platform-e2e`, run every describe the diff adds or changes, then the brief's Impact describes, with `pnpm exec playwright test -g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the specs `.github/scripts/select-e2e.mjs` picks, so a green PR is not a full E2E record; the weekly `full=true` run is ([`lead.md`](lead.md) §Slice close).
+4. Menu manifests or `menus.ts` changed: `node tooling/gen-menu/scripts/probe.ts`.
 5. Feature gates, when feature packages or `.github/workflows/ci.yml` change:
    - `bash ops/platform-api/scripts/ci/gate.sh static-extra`; `unit` only for suites the root test does not cover.
    - Integration: `PLATFORM_API_ENV_FILE=$WAVE_STATE/env.verify.<n> pnpm --filter @ap/platform-api test:integration`, not `gate.sh integration` (it truncates the source DB). A migration node runs the full suite on its recreated DB. One issue DB serves one run at a time: wait for the worker to end first.
 6. Hygiene: `python3 $ENGINE/worker-hygiene.py <worktree>`.
 7. Gates that run only in CI — run them locally when their inputs change:
    - Public SDK types or exports change → `pnpm build`, then `pnpm sdk:api --report` (read the diff; PR CI writes the same diff to its summary), `pnpm sdk:test`. Write the change as `packages/sdk/changes/<issue>.md` (`pnpm sdk:changelog --check`); never edit `packages/sdk/CHANGELOG.md` or run `sdk:api --update` in a PR. Reason: parallel PRs that each edited those two files conflicted on every rebase; the release folds them once.
-   - SDK files move or are renamed → `pnpm sdk:pack --out <d> && pnpm sdk:consumer-check <d>`.
    - A CSS rule is removed → add the `css-removal-ok` label and wait for the rerun before ship.
-8. PR CI budget (root `AGENTS.md` §Verification): the SDK upgrade, tarball, consumer and kit checks run on main push and `workflow_dispatch`, never on a PR, so run step 7's SDK checks locally when their inputs change.
-   - When several PRs are ready, push them one at a time: push the next only when the previous PR's CI has finished. Reason: one PR takes up to 18 of the repo's 20 concurrent jobs, so simultaneous pushes double each PR's wall clock.
+8. When several PRs are ready, push them one at a time: push the next only when the previous PR's CI has finished. Reason: one PR takes up to 18 of the repo's 20 concurrent jobs, so simultaneous pushes double each PR's wall clock.
 
 - **Fix round:** steps 1–3 on what changed, affected screen gates, hygiene, and step 7 if its inputs changed. No build, full E2E or probe unless a build input changed. The whole round is one push of the branch as is (the engine's `ship-pr.sh --no-rebase`); never push a partial fix.
 - **Rebase:** only when `merge-precheck` exits 3 or GitHub reports a conflict; then rerun the fix-round checks. Reason: squash merge under a non-strict ruleset needs no up-to-date branch, and each rebase costs a CI run and a turbo-cache miss.
@@ -122,26 +94,20 @@ Every step must exit 0 before commit.
 
 ## Browser evidence
 
-- UX reviewers drive the previews themselves: `$ENGINE/app-preview.py start <checkout> --name <n>-branch` (baseline `<n>-main`). Ports 5180–5199. Stop the preview in the same turn and close the ego tabs (`references/lanes.md` §Machine resources).
+- UX reviewers drive the previews themselves: `$ENGINE/app-preview.py start <checkout> --name <n>-branch` (baseline `<n>-main`). Stop the preview in the same turn and close the ego tabs (`references/lanes.md` §Machine resources).
 - Browser control is `ego-browser`; if it is blocked, use a one-off Playwright capture from `apps/platform-e2e` and record the substitution in VERIFY.
-- Worker briefs take the mock app start command from `conductor.json` `app_preview.command`; never hardcode one.
 
 ## Review
 
-- Plan: `python3 $ENGINE/review-plan.py <checkout> [--base origin/main]` (rules in `conductor.json` `review_plan`). Light tier gets no reviewers. `flags.permission` always makes the PR full; `ux=required` marks the PR's screens for the slice walk-through (§Pre-go-live).
+- Plan: `python3 $ENGINE/review-plan.py <checkout>`. Light tier gets no reviewers. `flags.permission` always makes the PR full; `ux=required` marks the PR's screens for the slice walk-through (§Pre-go-live).
 - Screen PR reviewers: `review-final` only, plus the lead's pre-merge capture check ([`lead.md`](lead.md) §Screen check). `review-ux`, Impeccable and platform consistency run per slice on the changed screens (§Pre-go-live).
 - Prototype consistency: every `?variant=` prototype passes [`addenda/prototype-consistency.md`](addenda/prototype-consistency.md) before the Artifact is sent. Its rules 1–2 apply to all screen work. Reason: the owner decides from that Artifact.
 - Prototypes: offer 2–3 variants only when there are real placement alternatives; otherwise one variant plus the current screen. The implementer takes its own captures (before/after, prototype, real server); no separate capture worker. Reason: a capture worker adds a launch and a hand-off per round and sees the screen without the implementer's context. Follow-up checks, polish and fixes on a prototype are one fix round.
 - `conflict` terms from `review-doc`: no dependent implementation node (screen copy, new table names) starts until the owner list is answered. Reason: a name that reaches schema or API contracts costs a migration to change.
-- Flags: `permission` / `instructions` → SKILL 7a. `e2e` → Verify step 3. `submodule` → the screen gates. `contract` → give the changed 06 sections and ADRs to the code reviewer.
-- Code reviewers use the global `templates/review-rules.md` + [`addenda/review-rules.md`](addenda/review-rules.md). UX and quality reviewers use the global personas plus the lenses below. `review-perf` only after a measured regression.
-- Conflict order: SKILL 7f repo invariants = permission and data-leak rules, then 06 contracts.
-- Class closure: a blocker or major fix includes an `rg` for the same pattern across the repo, and either fixes every site in that round or lists them in the report for one follow-up issue. Reason: the class was wider than the diff each time (#2096: 87 sites), and the first find is the cheapest moment to close it.
+- Siblings: each blocker or major finding lists its sibling sites (`addenda/review-rules.md` «Siblings»); the fix round fixes them all or files one follow-up issue for the rest. Reason: the class was wider than the diff each time.
 - Every brief has an **Impact** section: consumers found with `rg`, docs that must change, regression risks with the test that catches each (name the E2E describes).
 
 ## Review lens: UX
-
-Reports are in Korean.
 
 - **Preview:** mock assembly only. Set the role in localStorage `platform:role` as a JSON string (`"admin"`). Pick loading, empty and error states in mock DevTools each time a page opens.
 - **Viewport:** root `AGENTS.md` desktop scope: 1440×900, plus 1280 with a detail slot open.
@@ -155,8 +121,6 @@ Reports are in Korean.
 
 ## Review lens: docs
 
-Reports are in Korean.
-
 - **Authority:** `GLOSSARY.md` (bold entries, `_Avoid_`, Flagged Ambiguities); `docs/AGENTS.md` (status words, single ownership, no process history); `docs/agents/domain.md` (glossary changes); `docs/INDEX.md` (a new owner document needs a row).
 - **Code names:** `apps/platform-api/src/db/schema/*`, `docs/architecture/platform-api/api/*`, menu manifests and i18n labels under `menus/*/*/src`, capability names.
 - **`conflict` examples:** a menu's own "project" or "task" noun beside the glossary's 과제(Quest), Finding or Task; the Korean "워크스페이스" where the glossary bans it; "게시" where the glossary says 발행; a term that blurs a permission or security boundary.
@@ -164,8 +128,6 @@ Reports are in Korean.
 - **Out of scope:** `site/`, `.agents/`, `docs/agents/`, `docs/*/history/`; link and anchor checks (`pnpm docs:links`); screen copy against the glossary (`review-ux` Copy).
 
 ## Review lens: quality
-
-Reports are in Korean.
 
 - **Scope:** `<last tag>...origin/main`.
 - **References:** root and `packages/AGENTS.md` and the touched folders' `AGENTS.md`; `docs/integration/platform-packages.md` §3; 06 §24; `docs/AGENTS.md`.
@@ -178,7 +140,7 @@ Until production (go-live date: owner, [#1931](https://github.com/hjung3113/anal
 
 - **Stays per PR:** §Verify, PR CI, `review-final` with the permission and data-leak rules, the red-`main` precheck, the lead's screen check.
 - **Per slice** ([`lead.md`](lead.md) §Slice close step 1): the screens of the slice's `ux=required` PRs get one `review-ux` walk-through, one Impeccable `critique` + `audit` (role `impl-complex-sol`, effort `high`, 1440×900, never the implementer) and the [`addenda/prototype-consistency.md`](addenda/prototype-consistency.md) checklist. A major or worse finding is fixed in the slice or gets a §Deferrals row.
-- **Per slice, web-platform scan:** with the visual checks, run `env DISABLE_TELEMETRY=1 npx -y modern-web-guidance@1.0.0 legacy-scan .` (exact version, telemetry off) and file each finding as an issue or mark it a false positive. Not in PR CI: about a third of its hits were false positives, an unpinned version changes the rules, and it sends telemetry by default. Record: [`docs/reviews/2026-11-15-modern-web-guidance-scan.md`](../../docs/reviews/2026-11-15-modern-web-guidance-scan.md).
+- **Per slice, web-platform scan:** `env DISABLE_TELEMETRY=1 npx -y modern-web-guidance@1.0.0 legacy-scan .`; file each finding as an issue or mark it a false positive. Not in PR CI: many false positives, and it sends telemetry by default.
 - **Pre-go-live pass,** once on the release candidate before the go-live tag: full cold CI (`full=true`); `e2e:real` on a seeded database; a real-server check of each state, request or response change since the last pass (`app-preview.py start <checkout> --backend --env $WAVE_STATE/env.verify.<n> --seed`); `review-quality` of the accumulated diff with the permission and data-leak lens; the per-slice walk-through over every screen changed since the last pass; and a sweep of `.planning/backlog.md` rows with a reopen condition.
 
 ## Fold scope
@@ -187,16 +149,8 @@ A PR may also touch, outside the issue diff, only the changed consumer's `menus/
 
 ## Deferrals
 
-Every item not done now — an owner "not now", an accepted limit, a `major` or worse finding below the cut line — is recorded the same day as one row in [`.planning/backlog.md`](../../.planning/backlog.md): item, reason, reopen condition. The PR body lists it under **Deferred** with a link to the row. Reason: a deferral with no recorded home is lost at session end.
-
-## Slice close
-
-Lead only: [`lead.md`](lead.md) §Slice close (release order, tag rule, weekly cold run).
-
-## Tools
-
-Lane tools: `~/.agents/skills/issue-wave-conductor/scripts/lanes/` (`references/lanes.md`). Repo script: `bash tooling/scripts/next-adr.sh` (next ADR number; reservation rule in §Traps).
+Every item not done now — an owner "not now", an accepted limit, a `major` or worse finding below the cut line — is recorded the same day as one row in [`.planning/backlog.md`](../../.planning/backlog.md) (item, reason, reopen condition), linked from the PR body under **Deferred**.
 
 ## Traps
 
-[`addenda/traps.md`](addenda/traps.md): read it when you write a brief and when its topic comes up. Append new traps there, one bullet each.
+[`addenda/traps.md`](addenda/traps.md): read it when you write a brief and when its topic comes up. Append new traps there, one bullet each. Next ADR number: `bash tooling/scripts/next-adr.sh`.

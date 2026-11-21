@@ -8,9 +8,7 @@ Append new traps at the end, one bullet each: the symptom, then what to do. No d
 - Resolve `addenda/` paths from `$CONDUCTOR`, not the repository root.
 - A task with no issue number cannot use `launch-worker.py` (`--issue` needs digits). Create the worktree with `orca worktree create --setup skip`, install, write TASK, use the shared runner.
 - Do not edit source in a worktree while host root tests or E2E run there (Vite HMR causes spurious E2E failures), and never run a host check in a worktree a fix worker is editing.
-- Never touch another session's process.
 - Put "Do not read the clipboard" at the start of UX review briefs: `navigator.clipboard.readText()` hands the Ego Lite task space to the user. Judge link copying from the success toast and the address bar.
-- Resolve every brief-check item marked "coordinator decision before start" in the brief before launch; otherwise the worker stops on an open policy question.
 - Include a `?variant=` value in menu `pageKeys`, or the previous variant stays visible.
 - IA and menu-structure prototype captures: capture each space rail section (the sidebar shows only the selected section's menus) and clear that origin's localStorage and sessionStorage before each variant.
 - Wait out the 200ms fade-in of popovers and menus before a capture; an intermediate frame looks like a transparency defect.
@@ -28,16 +26,12 @@ Append new traps at the end, one bullet each: the symptom, then what to do. No d
 - Before accepting worker results, compare `git status --short | wc -l` with the report's changed-file count, and check `git diff --numstat` for files outside the task list (formatter churn). Briefs for files in the residual Biome scope (documentation roots, ops) say "`biome check --write <changed file paths>` — never a directory or `.`". `apps/platform-api`, `packages/feature/screens`, `packages/feature/shared` and `packages/feature/screens/src/ui` take their package `lint` (ESLint), never Biome.
 - Briefs never tell workers to `git fetch`/`git show`; put every input file (prototype source, approved screenshots, captures) under the worktree's `.review/` before dispatch.
 - `worker-wait.sh` can report `failed` while a codex browser worker is still mid-task. Read the terminal screen before closing it; closing kills the run.
-- Codex lane sessions cannot publish claude.ai Artifacts: the lane creates the capture files and the lead publishes them. Never use Orca share links (`share.onorca.dev`) as owner-confirmation links.
 - Codex workers under workspace-write cannot edit `.agents/` files. The conductor applies those edits before dispatch and keeps them out of the worker brief; preserve host edits on resume (conductor-engine#153, open).
-- The lead must not fast-forward `AP_MAIN` while a lane review tripwire is armed; an ff makes the review lose its base.
-- Copy the review report over from the worktree's `.review/` before running `ship-check.sh`.
 - Gate a commit on the checks' exit status (`ok=1; pnpm lint || ok=0; …; [ $ok = 1 ] && git commit …`), never on `grep` of output or `(cmd && echo OK || echo FAIL); git commit`. A round that adds or edits tests also runs the package `typecheck`.
 - A menu that gains or changes `src/endpoints.ts` declarations regenerates and commits `packages/sdk/contract-schemas/endpoints.json` (`pnpm --filter @ap/contract-schemas gen:endpoints`); only CI's "Platform static" checks it.
 - A migration node runs the full backend `test:integration`: repo-wide suites such as `role-grants.integration.test.ts` (workspace-first index convention of [FO ADR-0015](../../../docs/adr/history/feedbackops/0015-operational-safety-rate-limit-headers-migrations-idempotency.md)) catch what targeted dirs miss.
 - Integration files share the unauthenticated per-IP rate-limit bucket (50/min). A suite that logs in clears `core.rate_limits where key like '127.0.0.%'` before its first `loginAs`.
 - Rehearsing compose-based ops scripts (`scripts/backup/*`, `upgrade.sh`) on a disposable project: put `RELEASE_POSTGRES_VOLUME` / `RELEASE_MINIO_VOLUME` in that project's env file; without them compose falls back to the pinned production volume names.
-- CI wait on a PR (short-lock path): `gh pr checks <n> --watch` exits at once with "no checks reported" while the head's runs are still queued. Loop `gh run list --branch <br> --json headSha,status` until no run for the head SHA is unfinished, then require `gh pr checks --json bucket` to list more than zero checks and none `fail`/`pending`. Locked path: `ship-pr.sh --ci`.
 - Workers and prototype agents never stop shared containers (`platform-verify` on 5439): a stopped one breaks every lane's verify DB. Recover with `verify-db.sh up` and recreate the DBs in use.
 - Changing the order of `GROUPS` in `apps/platform-web/src/menus.ts` breaks the E2E sidebar-order asserts (`features-navigation`, `contract-shell`, `contract-features`); update them in the same change.
 - A copy rename is done only when tests, E2E specs and menu `description`/`label` `ko:` strings are swept too (`git grep` the old word under `platform/`, `packages/feature/screens/src`, `apps/platform-e2e`).
@@ -46,4 +40,4 @@ Append new traps at the end, one bullet each: the symptom, then what to do. No d
 - `ship-pr.sh` stopping on a GraphQL 503/504: the PR may already exist. Check `gh pr view`, wait for its checks, then merge per `references/lane-merge.md`.
 - Pass `worker-wait.sh --state` the exact state file of the worker you launched, never a `W-<n>*.json` glob: an older sibling state (`W-<n>-CAP.json`) matches first and the lane waits on a finished worker while the live one ends unseen.
 - Retargeting a stacked PR's base to `main` does not start CI (zero checks, so the merge wait stalls). After a retarget, run `gh pr update-branch <n>` to start it (#1777).
-- Run `tier.sh` only on the committed branch: a dirty tree under-reports the tier. Judge `ship-check.sh` and `ship-pr.sh` by their exit code and final JSON, never through a pipe such as `| tail`.
+- Run `tier.sh` only on the committed branch: a dirty tree under-reports the tier. Judge `ship-pr.sh` by its exit code and final JSON, never through a pipe such as `| tail`.
