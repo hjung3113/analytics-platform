@@ -34,11 +34,11 @@ concurrency:
 # `Platform workspace (pnpm monorepo)`는 병렬 Job(Platform static·Platform test 조각 3개, #1680)의 모음 Job이고, 하위 결과가 모두 정확히 success일 때만 통과한다.
 # E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 8개)이고 대부분의 코드 PR이 전부 돈다. `apps/platform-api/**`·`ops/platform-api/**`만 바뀐 PR은 mock E2E가 필요 없다(`ops/platform-api/tsconfig.base.json` 제외, #1680). 전체는 `workflow_dispatch`의
 # `full=true`(주 1회 수동)에서도 돈다. main push의 기준은 직전 커밋이 아니라 CI가 green이었던 마지막 main SHA다(`last-green-main-sha.mjs`) — 실패한 spec은 green이 될 때까지 범위에 남는다.
-# 기능 패키지는 서브모듈이 아니라 일반 디렉터리(apps/{platform-api,feature-screens}·packages/feature-*·docs/{product,design,user-guide}/features·docs/architecture/platform-api)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유).
+# 기능 패키지는 서브모듈이 아니라 일반 디렉터리(apps/platform-api·packages/feature/*·docs/{product,design,user-guide}/features·docs/architecture/platform-api)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유).
 
 # PR 최소 모드(#1931, 소유자 지시: 운영 전까지 PR CI 벽시계 약 10분, 운영 시점은 소유자가 정한다): 아래 검사는 PR에서 돌지 않고 main push와
-# `workflow_dispatch`(주 1회 `full=true` 포함)에서만 돈다 — SDK upgrade gate와 그 self-test, Platform static의 SDK 릴리스 tarball·외부 소비자·키트 검사,
-# E2E shard 1의 키트 브라우저 검사, Backend images, Platform static의 production 조립 검사(--force-mock 두 개, real production build와 시작 청크 검사, edge 이미지 nginx -t; #2182). mock 조립의 `check:prod-graph`는 PR에서도 돈다. 필수 검사 두 개의 이름과 의미는 그대로다. 옮긴 검사가 깨지면 main push가 먼저 빨개진다.
+# `workflow_dispatch`(주 1회 `full=true` 포함)에서만 돈다 — SDK upgrade gate와 그 self-test,
+# E2E shard 1의 키트 브라우저 검사, Backend images, Platform static의 production 조립 검사(--force-mock 두 개, real production build와 시작 청크 검사, edge 이미지 nginx -t; #2182). mock 조립의 `check:prod-graph`는 PR에서도 돈다. Platform static의 SDK 릴리스 tarball·외부 소비자·키트 검사는 SDK 묶음이 읽는 파일을 바꾼 PR에서도 돈다(`sdk` 출력, #2658). 필수 검사 두 개의 이름과 의미는 그대로다. 옮긴 검사가 깨지면 main push가 먼저 빨개진다.
 # 소개 사이트 캡처(`Intro site captures`, #608)는 CI에서 뺐다(#2153, 소유자 2026-11-14: 소유자가 소개 사이트 재개를 말할 때까지 관리하지 않는다). 미구현(보류): `shots.mjs`의
 # testid 전환과 캡처 갱신. 다시 열 조건: 소유자가 재개를 말할 때 — job을 git 기록(#2153 직전)에서 되살리고 testid 전환부터. `classify-changes.mjs`의 `site` 판정은 그때를 위해 남긴다.
 
@@ -66,7 +66,8 @@ jobs:
           fetch-depth: 0
       # The rules live in the script (with --self-test): code=false only for a PR whose every changed file is Markdown or under .agents/;
       # site=false only for a PR with a non-empty diff that touches nothing the intro-site captures depend on (#608; no job reads it while captures are out of CI, #2153);
-      # full=true for a manual full=true run, and for anything the script cannot decide (it then prints code=true site=true full=true).
+      # sdk=false only for a PR that changes nothing the SDK tarball and outside-consumer check read (#2658);
+      # full=true for a manual full=true run, and for anything the script cannot decide (it then prints code=true site=true full=true sdk=true).
       - id: classify
         env:
           EVENT: ${{ github.event_name }}

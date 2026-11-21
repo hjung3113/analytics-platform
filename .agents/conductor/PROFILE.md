@@ -1,4 +1,4 @@
-Workers read the sections their brief names (SKILL §0 full read does not apply; this profile wins). Reviewers read only their lens section. Review reports are in Korean.
+Workers read the sections their brief names (SKILL §0 full read does not apply; this profile wins). The lead reads [`lead.md`](lead.md) plus §Flow, §Size and path and §Owner gates and questions here. Reviewers read only their lens section. Review reports are in Korean.
 
 # Conductor profile — analytics-platform
 
@@ -6,7 +6,7 @@ Repository-specific settings for the global `issue-wave-conductor` skill; root `
 
 ## Flow
 
-- Base is `main`. Squash merge.
+- Base is `main`. Squash merge. Branch name is `feat/<n>-<slug>`. `$MAIN` = `AP_MAIN`. `WAVE_BRIEFS` = `$AP_MAIN/.review/wave/`.
 - **No lanes.** The lead holds the release context and dispatches workers itself: one issue, one worker, one PR. Run at most 3 workers at once (reviewers included), and start one only when `capacity.sh` says `start=yes`. The same worker fixes its own review findings. Reason: long-lived lanes kept the 10-core Mac saturated and ran fix loops nobody judged.
 - The lead merges, one PR at a time: the next merges only after `main` CI of the previous is green. Reason: independently green PRs met on `main` and turned it red. Merges never wait for a release tag; the tag SHA is the release-docs PR's merge commit ([`lead.md`](lead.md) §Slice close).
 
@@ -15,7 +15,7 @@ Repository-specific settings for the global `issue-wave-conductor` skill; root `
 Tiers (`tier.sh` decides): the global `issue-wave-conductor` skill's `references/lanes.md` §Size and path. Full-tier paths are `lanes.tier_full_regex`. AP specifics:
 
 - **PR cap:** one PR changes at most 400 lines and 40 files. An issue expected to exceed it is split before work starts, one surface per PR (an SDK piece, one screen, or the server). Work that would still exceed it after splitting is not started; it becomes an owner question. Reason: review rounds grow with PR size.
-- **Draft PR at the first review:** the lead opens the PR as a draft (`gh pr create --draft`) at the commit the first review reads, pushes every fix round to it, and marks it ready only to merge. Reason: fix rounds that ran before the PR opened never reached the PR guard's round count.
+- **Draft PR at the first review:** the lead opens the PR as a draft (`ship-pr.sh … --draft --no-rebase`, engine `references/ship.md` §Draft PR from the first review) at the commit the first review reads, pushes every fix round to it, and marks it ready only to merge. Reason: fix rounds that ran before the PR opened never reached the PR guard's round count.
 - **Review rounds:** at most two code-review rounds; the second covers only the fix diff. A third round goes back to the lead, who picks revert, split or an owner question; if the findings come only from earlier fixes, revert. No third-round fix task is written before the lead answers. Reason: findings after round two came from the fixes themselves.
 - **Real server first:** permission and feature work attaches one real-server capture before the first review; the review task names its path, and a permission or feature review without one returns `CHANGES` ([`addenda/review-rules.md`](addenda/review-rules.md)). Reason: the mock and the real server answer differently on denial.
 - **Mechanical caps (CI job `PR guard`; rules in the header of `.github/scripts/pr-guard.mjs`):** size (400 lines / 40 files; owner label `owner-ok:size`); rounds (the fourth push of a branch needs a `Round cap: <lead|owner> — <revert | split | 질문 #n>` line in the PR body, written only after that choice); scope (every closed issue is in the newest release spec's `## 범위` on `main`; owner label `owner-ok:scope`, also for a PR that adds numbers there). Only the owner applies `owner-ok:*`; the guard prints who applied one. Reason: a limit that only lives in text gets waived.
@@ -48,7 +48,7 @@ This is the repo's one home for owner questions; other files point here. Owner g
 - A decision only the owner can make goes to the owner as `질문 #n`, with the options and a recommendation; work on other items continues. Nothing that depends on the answer is implemented first.
 - Owner awake: the lead asks one numbered question, once. It does not repeat the question or re-attach it to later reports; the open question lives in `board.py`.
 - Owner away: owner decisions wait for the owner. Work that does not depend on the answer continues. No agent or reviewer answers an owner question or picks a variant. Reason: the owner reversed choices agents made overnight.
-- Issues are opened with `gh issue create --template work.md` (`.github/ISSUE_TEMPLATE/work.md`); its three checks are the rules below and in §Size and path. Issues carry decided content only. Quote the owner's words as the decision; mark the lead's own text «제안:». A new axis, hierarchy or term gets one line checking it against `GLOSSARY.md`, the lead's own wording included. Reason: a hierarchy the lead wrote into an issue body shipped as if the owner had decided it.
+- Issues are opened with `gh issue create --template "작업 이슈"` (`.github/ISSUE_TEMPLATE/work.md`); its three checks are the rules below and in §Size and path. Issues carry decided content only. Quote the owner's words as the decision; mark the lead's own text «제안:». A new axis, hierarchy or term gets one line checking it against `GLOSSARY.md`, the lead's own wording included. Reason: a hierarchy the lead wrote into an issue body shipped as if the owner had decided it.
 - One issue holds one problem; an audit report files one issue per finding. Reason: an issue that bundled five problems became a 99-file PR.
 - Add `ready-for-human` to the issue only when the session hands over without an answer. A decision chosen among real alternatives is recorded as an ADR in `docs/adr/`.
 
@@ -76,7 +76,7 @@ Route to `impl-complex` (always full) if any of these hold:
 Every step must exit 0 before commit.
 
 1. Changed-package checks: each changed package's lint, typecheck and tests.
-2. Root lint and typecheck are PR CI's. Run `bash $LANES/verify-root.sh --light <log-dir>` locally only when a public SDK type or a shared config (tsconfig, eslint, turbo) changes. Reason: package checks catch the rest, and the root run holds `heavy.lock` for minutes.
+2. Root checks, every tier: `bash $LANES/verify-root.sh --light <log-dir>` (lint + typecheck). Root test and build are PR CI's, whatever `tier.sh` says for `verify`. Reason: package checks catch what root test and build would, and those hold `heavy.lock`.
 3. E2E, when the diff touches app code: in `apps/platform-e2e`, run every describe the diff adds or changes, then the brief's Impact describes, with `pnpm exec playwright test -g "A|B"`. Never run full `pnpm e2e` locally, except to reproduce a CI failure. PR and main-push CI run only the specs `.github/scripts/select-e2e.mjs` picks, so a green PR is not a full E2E record; the weekly `full=true` run is ([`lead.md`](lead.md) §Slice close).
 4. Menu manifests or `menus.ts` changed: `node tooling/gen-menu/scripts/probe.ts`.
 5. Feature gates, when feature packages or `.github/workflows/ci.yml` change:
@@ -150,6 +150,14 @@ A PR may also touch, outside the issue diff, only the changed consumer's `menus/
 ## Deferrals
 
 Every item not done now — an owner "not now", an accepted limit, a `major` or worse finding below the cut line — is recorded the same day as one row in [`.planning/backlog.md`](../../.planning/backlog.md) (item, reason, reopen condition), linked from the PR body under **Deferred**.
+
+## Slice close
+
+Lead only: [`lead.md`](lead.md) §Slice close (release order, tag rule, weekly cold run).
+
+## Tools
+
+Lane tools: `~/.agents/skills/issue-wave-conductor/scripts/lanes/` (`references/lanes.md`). Repo script: `bash tooling/scripts/next-adr.sh` (next ADR number; reservation rule in §Traps).
 
 ## Traps
 

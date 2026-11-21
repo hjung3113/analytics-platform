@@ -11,7 +11,7 @@
 - `platform-app`에 모여 있는 Kernel·UI·공통 컴포넌트·셸을 패키지로 나눈다. 메뉴는 **패키지 경계 밖에서** 선언만으로 얹히게 한다(06 §3: "플랫폼 기능은 개별 메뉴 import 관계를 알지 못해야 한다").
 - 새 메뉴를 만들 때 쓸 템플릿(생성기)의 모양을 정한다.
 - 서버는 mock을 유지한다(05 Decided). mock은 교체 가능한 어댑터 뒤로 숨긴다.
-- **범위 밖:** 워크스페이스 층 구현(06 §9.1), Storybook·시각 회귀. 이들은 이 경계 위에서 후속 PR로 진행한다. 기능 앱·백엔드는 `apps/{platform-api,feature-screens}`·`packages/feature-*`에 두며 루트 pnpm workspace의 일부다(#642). 플랫폼 코드는 UI primitive를 `@ap/ui`를 통해 소비한다.
+- **범위 밖:** 워크스페이스 층 구현(06 §9.1), Storybook·시각 회귀. 이들은 이 경계 위에서 후속 PR로 진행한다. 기능 화면과 공용 코드는 `packages/feature/`에, 백엔드는 `apps/platform-api/`에 둔다. 모두 루트 pnpm workspace에 속한다. 플랫폼 코드는 UI primitive를 `@ap/ui`를 통해 소비한다.
 
 ## 3. 패키지 구성
 
