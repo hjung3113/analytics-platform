@@ -1,13 +1,12 @@
 import { cleanup, screen, waitFor } from '@testing-library/react';
-import { ClipboardList, UserRound } from 'lucide-react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spaceId } from '@ap/contracts';
 import { memoryStorage } from '@ap/kernel/testing';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
 import { scopeControlSlot } from '@ap/feature-bridge/scope-control';
-import { createFeatureMenuHarness, LAZY_MOUNT_WAIT, resetFeatureSessionForTests } from '@ap/feature-bridge/testing';
+import { LAZY_MOUNT_WAIT, resetFeatureSessionForTests } from '@ap/feature-bridge/testing';
 import { manifests } from './index';
-import { mountAt, warmPages } from './test-support';
+import { createTaskHarness, mountAt, warmPages } from './test-support';
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 
@@ -43,14 +42,7 @@ describe('scoped empty-list capability on the Task screens', () => {
   it.each(['task-list', 'tasks', 'milestones'] as const)(
     'checks manifest requiredCapability.id instead of finding.manage on %s',
     async id => {
-      const overridden = manifests.map(entry => ({ ...entry, requiredCapability: { id: 'task.other' } }));
-      const myActivityStub = { ...overridden.find(entry => entry.id === 'my-tasks')!, id: 'my-activity-stub', primary: true, navHidden: true, path: '/my-activity-stub', pageKeys: [], carrySet: undefined };
-      const custom = createFeatureMenuHarness({
-        manifests: [...overridden, myActivityStub],
-        homeMenuId: 'tasks',
-        group: { id: 'tasks', label: { ko: 'Tasks', en: 'Tasks' }, icon: ClipboardList },
-        globalGroups: [{ id: 'myActivity', label: { ko: '내 활동', en: 'My activity' }, icon: UserRound }],
-      });
+      const custom = createTaskHarness(entry => entry.id === id ? { ...entry, requiredCapability: { id: 'task.other' } } : entry);
       const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
         const url = new URL(String(input), 'http://localhost');
         if (url.pathname.endsWith('/me/permissions/check')) {
@@ -62,7 +54,7 @@ describe('scoped empty-list capability on the Task screens', () => {
         return Response.json({ items: [], total: 0 });
       });
       vi.stubGlobal('fetch', fetchMock);
-      const menu = overridden.find(entry => entry.id === id)!;
+      const menu = manifests.find(entry => entry.id === id)!;
       custom.mountAt(`${menu.path}?managedSystem=${SYSTEM}`);
 
       const checkUrl = await waitFor(() => {
