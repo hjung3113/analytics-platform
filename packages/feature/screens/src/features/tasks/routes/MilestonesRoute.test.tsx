@@ -230,7 +230,8 @@ describe('MilestonesRoute list (#514 B2c)', () => {
     );
 
     expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList)).toHaveAttribute('role', 'status');
-    expect(screen.getByTestId('milestone-summary-in-flight')).toHaveTextContent('—');
+    expect(screen.queryByTestId('milestone-summary-in-flight')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
   });
 
   it.each([
@@ -282,8 +283,8 @@ describe('MilestonesRoute list (#514 B2c)', () => {
       expect(summary()).toHaveTextContent(/^0$/);
     } else {
       expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList)).toHaveAttribute('role', 'status');
-      expect(summary()).toHaveTextContent(/^—$/);
-      expect(screen.queryByRole('tab', { name: /,\s*\d+$/ })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('milestone-summary-in-flight')).not.toBeInTheDocument();
+      expect(screen.queryAllByRole('tab')).toHaveLength(0);
     }
   });
 
@@ -578,9 +579,9 @@ describe('MilestonesRoute counts suppression (R5)', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('finding.manage required')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /SSO Stabilization/ })).not.toBeInTheDocument();
-    // …and neither do the retained totals or status/task badges.
-    expect(screen.getByTestId('milestone-summary-in-flight')).toHaveTextContent('—');
-    expect(screen.getByRole('tab', { name: /^전체/ })).not.toHaveTextContent('3');
+    // …and the summary strip and status tabs are hidden too.
+    expect(screen.queryByTestId('milestone-summary-in-flight')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
     // The selected record's independent detail read is unchanged.
     expect(screen.getByRole('heading', { name: 'SSO Stabilization' })).toBeInTheDocument();
   });
