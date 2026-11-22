@@ -243,6 +243,9 @@ describe('VocClusterListShell list states (#609)', () => {
     apiRequestMock.mockResolvedValueOnce({ data: emptyList }).mockResolvedValueOnce(fullScope);
     const { changeSystem, queryClient } = renderClusterList();
     await screen.findByTestId('cluster-empty-state');
+    // The target list is already cached, so the scope query stays enabled across the switch:
+    // only the entry recheck can start the refresh (R-2689c C10).
+    queryClient.setQueryData(['voc-clusters', { managedSystemId: otherSystem }], emptyList);
     await act(async () => {
       await queryClient.invalidateQueries({ queryKey: ['permission-scope'], refetchType: 'none' });
     });
