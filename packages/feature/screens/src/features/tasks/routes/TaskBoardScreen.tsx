@@ -146,6 +146,8 @@ function toServerFilters(filters: Filters): TaskBoardServerFilters {
 }
 
 export interface TaskBoardScreenProps {
+  /** The hosted menu's capability for scoped list reads. */
+  capability?: string;
   /** The host's detail for the selected Task, rendered in place; `onClose` drops `param` from the URL. */
   renderDetail: (
     taskId: string,
@@ -168,7 +170,7 @@ function validateBoardSearch(raw: unknown) {
 const BOARD_VIEW = 'board';
 const REQUESTS_VIEW = 'requests';
 
-export function TaskBoardScreen({ renderDetail }: TaskBoardScreenProps) {
+export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }: TaskBoardScreenProps) {
   const hostSearch = useHostSearch();
   const {
     q,
@@ -528,7 +530,7 @@ export function TaskBoardScreen({ renderDetail }: TaskBoardScreenProps) {
     errored: query.isError && query.data === undefined,
   }));
   const scopedPermission = useScopedEmptyListPermission({
-    capability: 'finding.manage',
+    capability,
     managedSystemId: managedSystem,
     empty: items.length === 0 && queryStates.every((query) => query.isSuccess && !query.isPlaceholderData),
   });

@@ -39,4 +39,5 @@ export {
   useSurveyFollowUpSearch, useSurveyResultsHere, useSurveyResultsSearch, useSurveysHere, useSurveysSearch,
 } from './feature/survey-routes';
 export { FeatureDataTable } from './feature/FeatureDataTable';
+export { useMenuCapability } from './feature/menu-capability';
 export { PrimaryActionTargetProvider as FeaturePrimaryActionTargetProvider } from './feature/primary-action-target';

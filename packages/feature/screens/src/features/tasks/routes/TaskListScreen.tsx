@@ -84,6 +84,8 @@ function dot() {
 }
 
 export interface TaskListScreenProps {
+  /** The hosted menu's capability for scoped list reads. */
+  capability?: string;
   view: 'backlog' | 'my';
   /** `false`: the list never selects its first row; the selection is the URL `param` only (the host owns the detail). */
   autoSelect: boolean;
@@ -99,7 +101,7 @@ export interface TaskListScreenProps {
   ) => React.ReactNode;
 }
 
-export function TaskListScreen({ view, autoSelect, renderDetail }: TaskListScreenProps) {
+export function TaskListScreen({ capability = 'finding.manage', view, autoSelect, renderDetail }: TaskListScreenProps) {
   // Writes fold on the latest pending search and any host navigation drops the fold (useHostSearchWriter).
   const { search, write } = useHostSearchWriter('/tasks', validateTaskListSearch);
   const selectedParam = search.param;
@@ -219,7 +221,7 @@ export function TaskListScreen({ view, autoSelect, renderDetail }: TaskListScree
     },
   );
   const scopedPermission = useScopedEmptyListPermission({
-    capability: 'finding.manage',
+    capability,
     managedSystemId: managedSystem,
     empty: tasksQuery.isSuccess && !tasksQuery.isPlaceholderData && items.length === 0,
   });

@@ -224,8 +224,10 @@ describe('<PermissionGate>', () => {
     wrap(<PermissionGate capability="workspace.admin"><p>secret payload</p></PermissionGate>, {
       ...HOST_SEAM,
       useAccessRequestState,
-      permissionRequestHref: () => '/company/permission-requests',
-      permissionHomeHref: '/company/',
+      usePermissionLinks: () => ({
+        permissionRequestHref: () => '/company/permission-requests',
+        permissionHomeHref: '/company/',
+      }),
     });
     const status = await screen.findByRole('link', { name: '내 권한 요청 보기' });
     const home = screen.getByRole('link', { name: '홈으로' });

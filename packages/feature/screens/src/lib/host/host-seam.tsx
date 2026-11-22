@@ -67,16 +67,8 @@ type RequestReadPresentation = {
  * use this instead of TanStack Router and `sonner`.
  */
 export type HostSeam = HostPermissionLinks & {
-  /** Stable SDK hook supplied by hosts that open the permission request page. */
-  useAccessRequestState?: (state: RequestReadState, options: {
-    lang: 'ko' | 'en';
-    kind: 'link';
-    container: RefObject<HTMLElement | null>;
-  }) => RequestReadPresentation;
   /** Resolves a stored permission request address to a host action if the menu can be opened. */
   usePermissionRequestReturn?: () => PermissionRequestReturn;
-  /** Stable hook for links that depend on the current navigation. */
-  usePermissionLinks?: () => HostPermissionLinks;
   /**
    * Stable hook. Follows an href this seam handed out (`permissionRequestHref`, `permissionHomeHref`) inside the host, without reloading the app,
    * and returns true; false when the host cannot, and the caller loads the href. Absent = always false (#2638).
@@ -121,7 +113,22 @@ export type HostSeam = HostPermissionLinks & {
   useUnsavedGuard?: (dirty: boolean, options?: { message?: string; onDiscard?: () => void }) => void;
   /** An absolute URL for the feature path `to` (copy-link actions), or `null` when this host has no address to give. */
   absoluteHref?: (to: string) => string | null;
-};
+} & (
+  | {
+      /** Stable SDK hook supplied by hosts that open the permission request page. */
+      useAccessRequestState: (state: RequestReadState, options: {
+        lang: 'ko' | 'en';
+        kind: 'link';
+        container: RefObject<HTMLElement | null>;
+      }) => RequestReadPresentation;
+      /** Stable hook for links that depend on the current navigation. */
+      usePermissionLinks: () => HostPermissionLinks;
+    }
+  | {
+      useAccessRequestState?: never;
+      usePermissionLinks?: never;
+    }
+);
 
 export type HostNavigate = (to: string, options?: { replace?: boolean }) => void;
 
