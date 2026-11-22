@@ -188,7 +188,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
     managedSystemId: managedSystem,
     empty: listReadSucceeded && (primaryEmpty || countEmpty),
   });
-  const scopeCheckFailed = scopedPermission.state === 'error';
+  const scopeCheckFailed = primaryEmpty && scopedPermission.state === 'error';
   const scopedBlocked = scopedPermission.state === 'blocked';
   const { denied, deniedRef, request } = useListDenial({
     error: listQuery.error,

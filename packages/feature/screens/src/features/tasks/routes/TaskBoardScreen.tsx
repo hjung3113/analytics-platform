@@ -572,7 +572,8 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
   const boardLoading =
     (primaryEmpty && scopedPermission.state === 'checking') ||
     states.every(({ pending }) => pending);
-  const boardError = scopedPermission.state === 'error' || states.every(({ errored }) => errored);
+  const scopeCheckFailed = primaryEmpty && scopedPermission.state === 'error';
+  const boardError = scopeCheckFailed || states.every(({ errored }) => errored);
   const firstError = states.find(({ errored }) => errored)?.query.error;
   const settled = queryStates.every(
     (query) =>
@@ -669,8 +670,11 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
               body={mapUnknownError(firstError).message}
               action={{
                 label: '다시 시도',
-                onClick: scopedPermission.state === 'error' ? scopedPermission.retry : () => {
-                  for (const { query } of states) void query.refetch();
+                onClick: () => {
+                  if (scopeCheckFailed) scopedPermission.retry();
+                  if (states.every(({ errored }) => errored)) {
+                    for (const { query } of states) void query.refetch();
+                  }
                 },
               }}
             />
@@ -690,20 +694,30 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
             <div className="flex items-stretch gap-4 border-b border-border-subtle bg-surface-canvas px-5 py-2.5">
               <StatBlock
                 label="전체 Task"
-                value={summary.empty.all && !secondaryVerified ? undefined : summary.all}
+                value={
+                  (summary.empty.all || summary.all === 0) && !secondaryVerified
+                    ? undefined
+                    : summary.all
+                }
               />
               <StatDivider />
               <StatBlock
                 label="미배정"
                 value={
-                  summary.empty.unassigned && !secondaryVerified ? undefined : summary.unassigned
+                  (summary.empty.unassigned || summary.unassigned === 0) && !secondaryVerified
+                    ? undefined
+                    : summary.unassigned
                 }
                 valueClassName="text-accent-warn"
               />
               <StatDivider />
               <StatBlock
                 label="진행 중"
-                value={summary.empty.doing && !secondaryVerified ? undefined : summary.doing}
+                value={
+                  (summary.empty.doing || summary.doing === 0) && !secondaryVerified
+                    ? undefined
+                    : summary.doing
+                }
                 valueClassName="text-accent-success"
               />
             </div>

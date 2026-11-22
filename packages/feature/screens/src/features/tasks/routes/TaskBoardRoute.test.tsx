@@ -597,6 +597,38 @@ describe('TaskBoardRoute', () => {
     },
   );
 
+  it('keeps board rows visible and hides unverified secondary zeros when finding.manage check errors', async () => {
+    const managedSystem = task.primary_managed_system_id;
+    api.listTasks.mockImplementation(boardList([task]));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), 'http://localhost');
+        if (url.pathname === '/me/permissions/check') {
+          return new Response(JSON.stringify({ code: 'internal.unexpected', message: 'fail' }), {
+            status: 500,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response(JSON.stringify({ items: [] }), {
+          headers: { 'content-type': 'application/json' },
+        });
+      }),
+    );
+
+    renderBoard(undefined, managedSystem);
+
+    await screen.findByText('TASK-1000');
+    const inProgressStat = () =>
+      screen.getAllByText('진행 중').find((el) => !el.closest('header'))?.nextElementSibling;
+    await waitFor(() => expect(inProgressStat()).toHaveTextContent('—'));
+    expect(screen.queryByText('Task 보드를 불러오지 못했습니다.')).not.toBeInTheDocument();
+    expect(screen.getByText(task.title)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '필터' }));
+    expect(screen.queryByRole('checkbox', { name: 'Milestone 없음' })).not.toBeInTheDocument();
+  });
+
   it('renders permission denied instead of the board unavailable copy for a 403', async () => {
     api.listTasks.mockRejectedValue(
       new ApiError(403, {

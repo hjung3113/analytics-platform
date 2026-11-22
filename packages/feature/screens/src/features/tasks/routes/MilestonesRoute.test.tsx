@@ -234,6 +234,41 @@ describe('MilestonesRoute list (#514 B2c)', () => {
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
   });
 
+  it('keeps milestone rows visible and hides unverified counts when finding.manage check errors', async () => {
+    vi.mocked(listMilestones)
+      .mockResolvedValueOnce({ items: [MILESTONES[0] as MilestoneDto] })
+      .mockResolvedValue({ items: [] });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), 'http://localhost');
+        if (url.pathname === '/me/permissions/check') {
+          return new Response(JSON.stringify({ code: 'internal.unexpected', message: 'fail' }), {
+            status: 500,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response(JSON.stringify({ items: [] }), {
+          headers: { 'content-type': 'application/json' },
+        });
+      }),
+    );
+
+    try {
+      renderWithClient(<MilestonesRoute managedSystem={IDS.msPowerBi} />);
+
+      await screen.findByText('MLS-1021');
+      await waitFor(() =>
+        expect(screen.getByTestId('milestone-summary-in-flight')).toHaveTextContent(/^—$/),
+      );
+      expect(screen.queryByText('Milestone 목록을 불러오지 못했습니다')).not.toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: /^전체\s*,\s*0$/ })).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it.each([false, true])(
     'checks finding.manage when scoped Milestone counts return empty while rows exist (allow=%s)',
     async (allow) => {
