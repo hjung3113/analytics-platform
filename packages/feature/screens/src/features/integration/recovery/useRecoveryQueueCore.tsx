@@ -71,6 +71,7 @@ export function useRecoveryQueueCore(
   const origin = useRef<{ id: string; context: string; node: HTMLElement } | undefined>(undefined);
   const rows = useRef(new Map<string, HTMLElement>());
   const heading = useRef<HTMLHeadingElement>(null);
+  const denialCard = useRef<HTMLDivElement>(null);
   const focusFrame = useRef<number | undefined>(undefined);
   const pendingFocus = useRef<(() => void) | undefined>(undefined);
   const cancelFocus = useCallback(() => {
@@ -192,7 +193,11 @@ export function useRecoveryQueueCore(
           : id
             ? rows.current.get(id)
             : undefined;
-      const target = row?.isConnected ? row : heading.current;
+      const target = row?.isConnected
+        ? row
+        : heading.current?.isConnected
+          ? heading.current
+          : denialCard.current;
       if (!target?.isConnected) return;
       if (target.closest('[hidden]')) {
         if (++frames < 10) focusFrame.current = requestAnimationFrame(focus);
@@ -243,7 +248,7 @@ export function useRecoveryQueueCore(
     ) : null;
   // A denied list read shows only its card: the card carries the section title and the list
   // controls cannot act on a denied read; the way back stays under the card (#2677).
-  const listDenied = denied && !me.isPending && !me.isError;
+  const listDenied = denied && !me.isPending;
   const controls = (
     <>
       <h2 ref={heading} tabIndex={-1} className="mb-3 text-sm font-semibold">
@@ -322,22 +327,32 @@ export function useRecoveryQueueCore(
       {listDenied ? null : controls}
       {me.isPending || (current.isPending && enabled) ? (
         <Skeleton className="h-24" role="status" aria-label={COPY.loading} />
+      ) : listDenied ? (
+        // A confirmed denial wins over a failed session refetch; that retry is the only action then.
+        <div ref={denialCard} tabIndex={-1} aria-label={queueTitle} className="space-y-3 outline-none">
+          <PermissionBlockedPanel
+            layout="card"
+            state="denied"
+            headingLevel={2}
+            category={queueTitle}
+            description={COPY.listDenied}
+          />
+          {me.isError ? (
+            <div className="flex justify-center">
+              <Button variant="subtle" size="sm" onClick={() => void me.refetch()}>
+                {COPY.retryQueue}
+              </Button>
+            </div>
+          ) : returnLink ? (
+            <div className="flex justify-center">{returnLink}</div>
+          ) : null}
+        </div>
       ) : me.isError ? (
         <ListStateMessage
           variant="error"
           title={COPY.error}
           action={{ label: COPY.retryQueue, onClick: () => void me.refetch() }}
         />
-      ) : denied ? (
-        <div className="space-y-3">
-          <PermissionBlockedPanel
-            layout="card"
-            state="denied"
-            category={queueTitle}
-            description={COPY.listDenied}
-          />
-          {returnLink ? <div className="flex justify-center">{returnLink}</div> : null}
-        </div>
       ) : current.isError && !current.isFetchNextPageError ? (
         <ListStateMessage
           variant="error"
