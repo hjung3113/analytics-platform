@@ -57,7 +57,7 @@
 | 기간·대상 | Manifest의 Context·apply 선언으로 셸 `QueryBar`의 `PeriodFields`와 `TargetPicker` 사용. |
 | 비교 좁히기 | `SegmentedRadio`, `FacetedSetDialog`. PPID별 결과는 PPID 하나당 한 행, Recipe 관련 결과는 상세 비교 묶음 하나당 한 행. |
 | 단계 이동 | Manifest drill, `DrillLayout`, `LegendTree drillOnName`, 차트 지점·셀 활성화. [메뉴 소유 차트 조각](../../../../docs/adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md) |
-| 비교 | `PanelWorkspace`의 단계별 프리셋. `AnalysisChartFrame` 가로 막대, Layer Start Align 및 `rowGroups`, Step의 `categoryValueMarks`. `AnalysisChart`의 발산형 히트맵, `nullLabel` 및 `selectedCell`. |
+| 비교 | `PanelWorkspace`의 단계별 프리셋. `AnalysisChartFrame` 가로 막대, Layer Start Align 및 `rowGroups`, Step의 `categoryValueMarks`, 두 막대의 `emptyCategoryLabel`. `AnalysisChart`의 발산형 히트맵, `nullLabel` 및 `selectedCell`. |
 | 증거 | `AnalysisChart` 설비별 scatter, `AnalysisChartFrame` 일별 추세, `PlatformDataTable` 실행 표. |
 
 ## 6. DATA REQUIREMENTS
@@ -71,7 +71,7 @@
 
 - **Decided.** 좁히기에서 축 사이는 AND, 축 안은 OR다. 다른 축 때문에 개수가 0이 된 값과 기존 선택을 유지한다. [조회 대상과 교차 개수](../../../../docs/adr/0164-target-picker-dialog-and-custom-groups.md)
 - **Candidate.** PPID별에는 PPID, Recipe별에는 Layer·Recipe, PPID·Recipe에는 PPID·Layer·Recipe를 펼친다. 모드를 바꿀 때 하위 경로를 지우고 숨긴 축의 선택은 해당 축으로 돌아올 때 복원한다.
-- **Decided.** 첫 진입에는 선택 대상 중 설비 수 최다 구성 유형을 쓴다. 다른 구성을 «비교 보류»로 남긴다. 히트맵은 기준과의 차이(초)를 표시하며 0은 «기준과 같음»이다. 산포에는 모든 비교 설비가 나오며 선택 설비만 강조한다.
+- **Decided.** 첫 진입에는 선택 대상 중 설비 수 최다 구성 유형을 쓴다. 다른 구성을 «비교 보류»로 남기고, Layer·Step 막대의 해당 행에 «비교 보류» 문구를 표시한다(`emptyCategoryLabel`). 히트맵은 기준과의 차이(초)를 표시하며 0은 «기준과 같음»이다. 산포에는 모든 비교 설비가 나오며 선택 설비만 강조한다.
 - **Decided.** Step 목록·막대·히트맵은 Step 10부터 같은 순서로 읽는다. 목록은 현재 Step에 표식을 표시하고, 히트맵은 URL의 Step과 설비가 가리키는 셀에 테두리를 표시한다.
 - **Candidate.** 비교 단위·좁히기·구성 변경은 하위 경로를 초기화한다. 기간·대상 적용은 manifest의 Context 초기화 규칙을 따른다. URL은 `mode`, 반복 facet 키, `structure`, `baseline`, `unit`, `layer`, `step`, `equipment` 및 전역 Context로 복원한다.
 

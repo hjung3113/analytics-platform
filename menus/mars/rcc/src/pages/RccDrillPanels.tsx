@@ -84,16 +84,12 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
         id: layer.id, name: `${layerLabel(layer)} · ${layer.recipe}`, color: COLORS[i % COLORS.length]!,
         points: layer.points.map(([id, value]) => [id, held.some(item => item.id === id) ? null : value]),
       }));
-      if (held.length) series.push({
-        id: 'held-layer', name: m('held'), color: 'chart-remainder',
-        points: held.map(item => [item.id, null]),
-      });
       const rowGroups = {
         header: m('structure'),
         byCategory: new Map(targets.map(item => [item.id, { group: item.structure === structure ? structure : `${item.structure} · ${m('held')}` }])),
       };
       return <AnalysisChartFrame {...commonBars} chartId="rcc-layers" title={m('layerTimes')} series={series}
-        emphasisFocus="none" legendPlacement="top" stacked startAlign rowGroups={rowGroups} valueLabels="segment"
+        emphasisFocus="none" legendPlacement="top" stacked startAlign rowGroups={rowGroups} valueLabels="segment" emptyCategoryLabel={m('held')}
         toolbarStart={<span className="t-caption text-text-secondary">{m('startAlign')}</span>}
         pointActivation={previous ? undefined : { on: 'dblclick', onActivate: point => drillTo({ layer: point.seriesId, equipment: point.x }) }}
         isPointSelectable={point => point.value !== null} />;
@@ -143,7 +139,7 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
       id: 'steps', title: step ? previousTitle(M.stepTimes) : M.stepTimes, primary: true, preferredHeight: MATRIX_PANEL_HEIGHT,
       render: () => <AnalysisChartFrame {...commonBars} chartId="rcc-steps" title={m('stepTimes')} series={series} stacked
         legend={false} visibleSeriesIds={series.map(item => item.id)} emphasisFocus="none"
-        categoryValueMarks={categoryValueMarks}
+        categoryValueMarks={categoryValueMarks} emptyCategoryLabel={m('held')}
         toolbarStart={<span className="t-caption text-text-secondary"><span aria-hidden>◆ </span>{categoryValueMarks.label}</span>}
         pointActivation={{ on: 'dblclick', onActivate: toStep }} isPointSelectable={point => point.value !== null} />,
     };

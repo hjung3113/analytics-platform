@@ -1,4 +1,4 @@
-import type { AnalysisChartProps, PanelWorkspaceProps, PlatformDataTableProps } from '@ap/components';
+import type { AnalysisChartFrameProps, AnalysisChartProps, PanelWorkspaceProps, PlatformDataTableProps } from '@ap/components';
 import { I18nProvider } from '@ap/kernel';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -15,7 +15,8 @@ vi.mock('@ap/kernel', async importOriginal => ({
 vi.mock('@ap/components', async importOriginal => ({
   ...await importOriginal<typeof import('@ap/components')>(),
   AnalysisChart: ({ spec }: AnalysisChartProps) => <div>{spec.kind === 'heatmap' && spec.scale?.type === 'diverging' && spec.scale.pivotLabel}</div>,
-  AnalysisChartFrame: () => null,
+  AnalysisChartFrame: ({ chartId, emptyCategoryLabel, series }: AnalysisChartFrameProps) =>
+    <div data-chart={chartId} data-empty-label={emptyCategoryLabel} data-series={series.map(item => item.id).join(',')} />,
   PageFilterBar: () => null,
   PanelWorkspace: ({ panels }: PanelWorkspaceProps) => <>{panels.map(({ id, render }) => <div key={id}>{render()}</div>)}</>,
   PlatformDataTable: ({ columns, rows, height }: PlatformDataTableProps<Run>) => rows && rows[0] && <div data-height={height}>
@@ -56,5 +57,11 @@ describe('RCC drill presentation', () => {
 
   it('gives a full page of run rows room to flow with the page', () => {
     expect(renderDrill(step)).toContain('data-height="640"');
+  });
+
+  it('labels held equipment rows in the Layer and Step bars without a legend-only series', () => {
+    const html = renderDrill(undefined);
+    expect(html).toMatch(/data-chart="rcc-layers" data-empty-label="비교 보류" data-series="(?![^"]*held-layer)[^"]*"/);
+    expect(html).toMatch(/data-chart="rcc-steps" data-empty-label="비교 보류"/);
   });
 });
