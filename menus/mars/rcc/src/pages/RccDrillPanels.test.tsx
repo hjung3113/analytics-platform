@@ -15,10 +15,11 @@ vi.mock('@ap/kernel', async importOriginal => ({
 vi.mock('@ap/components', async importOriginal => ({
   ...await importOriginal<typeof import('@ap/components')>(),
   AnalysisChart: ({ spec }: AnalysisChartProps) => <div>{spec.kind === 'heatmap' && spec.scale?.type === 'diverging' && spec.scale.pivotLabel}</div>,
-  AnalysisChartFrame: ({ chartId, emptyCategoryLabel, series }: AnalysisChartFrameProps) =>
-    <div data-chart={chartId} data-empty-label={emptyCategoryLabel} data-series={series.map(item => item.id).join(',')} />,
+  AnalysisChartFrame: ({ chartId, emptyCategoryLabel, series, startAlign, valueLabels }: AnalysisChartFrameProps) =>
+    <div data-chart={chartId} data-empty-label={emptyCategoryLabel} data-series={series.map(item => item.id).join(',')}
+      data-start-align={String(!!startAlign)} data-value-labels={valueLabels} />,
   PageFilterBar: () => null,
-  PanelWorkspace: ({ panels }: PanelWorkspaceProps) => <>{panels.map(({ id, render }) => <div key={id}>{render()}</div>)}</>,
+  PanelWorkspace: ({ panels }: PanelWorkspaceProps) => <>{panels.map(({ id, render, preferredHeight }) => <div key={id} data-panel={id} data-preferred={preferredHeight}>{render()}</div>)}</>,
   PlatformDataTable: ({ columns, rows, height }: PlatformDataTableProps<Run>) => rows && rows[0] && <div data-height={height}>
     {columns.map(column => <div key={column.id} data-column={column.id}>{column.cell?.(rows[0]!)}</div>)}
   </div>,
@@ -28,9 +29,9 @@ const units = comparisonUnits('combined', {});
 const unit = units[0]!;
 const step = STRUCTURES.A.find(item => item.id === '20:3')!;
 
-function renderDrill(current: typeof step | undefined) {
+function renderDrill(current: typeof step | undefined, drillUnit = unit, atLayer = false) {
   return renderToStaticMarkup(<I18nProvider>
-    <RccDrillPanels units={units} unit={unit} usage={unit.usages[0]} step={current} targets={EQUIPMENT}
+    <RccDrillPanels units={units} unit={drillUnit} usage={atLayer ? undefined : drillUnit.usages[0]} step={current} targets={EQUIPMENT}
       days={DAYS.slice(-1)} structure="A" counts={{ A: 9, B: 3 }} baseline={null} equipment="EQ-001"
       depth={current ? 3 : 2} resetDrill={{ unit: null, layer: null, step: null, equipment: null }} targetCount={EQUIPMENT.length} />
   </I18nProvider>);
@@ -63,5 +64,19 @@ describe('RCC drill presentation', () => {
     const html = renderDrill(undefined);
     expect(html).toMatch(/data-chart="rcc-layers" data-empty-label="비교 보류" data-series="(?![^"]*held-layer)[^"]*"/);
     expect(html).toMatch(/data-chart="rcc-steps" data-empty-label="비교 보류"/);
+  });
+
+  it('start-aligns Layer lanes only with two or more layers; one layer shows its row totals', () => {
+    const single = units.find(item => item.usages.length === 1)!;
+    const multi = comparisonUnits('ppid', {}).find(item => item.usages.length > 1)!;
+    expect(renderDrill(undefined, single, true)).toMatch(/data-chart="rcc-layers"[^>]*data-start-align="false" data-value-labels="total"/);
+    expect(renderDrill(undefined, multi, true)).toMatch(/data-chart="rcc-layers"[^>]*data-start-align="true" data-value-labels="segment"/);
+  });
+
+  it('sizes the equipment bar panels so every row and the value axis fit', () => {
+    const html = renderDrill(undefined, unit, true);
+    const fit = String(80 + 60 + EQUIPMENT.length * 24);
+    expect(html).toContain(`data-panel="layers" data-preferred="${Math.max(400, Number(fit))}"`);
+    expect(html).toContain(`data-panel="totals" data-preferred="${Math.max(400, Number(fit))}"`);
   });
 });

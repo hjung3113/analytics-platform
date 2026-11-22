@@ -57,7 +57,7 @@
 | 기간·대상 | Manifest의 Context·apply 선언으로 셸 `QueryBar`의 `PeriodFields`와 `TargetPicker` 사용. |
 | 비교 좁히기 | `SegmentedRadio`, `FacetedSetDialog`. PPID별 결과는 PPID 하나당 한 행, Recipe 관련 결과는 상세 비교 묶음 하나당 한 행. |
 | 단계 이동 | Manifest drill, `DrillLayout`, `LegendTree drillOnName`, 차트 지점·셀 활성화. [메뉴 소유 차트 조각](../../../../docs/adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md) |
-| 비교 | `PanelWorkspace`의 단계별 프리셋. `AnalysisChartFrame` 가로 막대, Layer Start Align 및 `rowGroups`, Step의 `categoryValueMarks`, 두 막대의 `emptyCategoryLabel`. `AnalysisChart`의 발산형 히트맵, `nullLabel` 및 `selectedCell`. |
+| 비교 | `PanelWorkspace`의 단계별 프리셋. `AnalysisChartFrame` 가로 막대, Layer가 둘 이상일 때 Start Align(조각 값), 하나면 행 합계 값, `rowGroups`, Step의 `categoryValueMarks`, 두 막대의 `emptyCategoryLabel`. `AnalysisChart`의 발산형 히트맵, `nullLabel` 및 `selectedCell`. |
 | 증거 | `AnalysisChart` 설비별 scatter, `AnalysisChartFrame` 일별 추세, `PlatformDataTable` 실행 표. |
 
 ## 6. DATA REQUIREMENTS
