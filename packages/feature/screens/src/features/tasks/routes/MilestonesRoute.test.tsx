@@ -1,6 +1,7 @@
 import { fetchAnalyticsAreas } from '../../../lib/api/analytics-areas';
 import { listMilestones } from '../../../lib/api/milestones';
 import { ApiError } from '../../../lib/api/types';
+import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { registerDefaultHost } from '../../../lib/host/host-seam';
 import { MilestonesRoute } from '../../../test/screen-host/features/tasks/routes/MilestonesRoute';
 import type { MilestoneDto } from '@ap/feature-shared';
@@ -213,6 +214,77 @@ describe('MilestonesRoute list (#514 B2c)', () => {
 
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('blocks an empty scoped Milestone list when finding.manage is denied', async () => {
+    vi.mocked(listMilestones).mockResolvedValue({ items: [] });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['permission-check', 'finding.manage', IDS.msPowerBi], {
+      state: 'blocked_non_requestable',
+      decision: { allow: false },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MilestonesRoute managedSystem={IDS.msPowerBi} />
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList)).toHaveAttribute('role', 'status');
+    expect(screen.getByTestId('milestone-summary-in-flight')).toHaveTextContent('—');
+  });
+
+  it.each([
+    ['denied System with counts first', false, 'counts'],
+    ['authorized empty System with counts first', true, 'counts'],
+    ['authorized empty System with list first', true, 'list'],
+  ] as const)('waits for both reads before showing counts (%s)', async (_case, allowed, first) => {
+    let resolveList!: (value: { items: MilestoneDto[] }) => void;
+    const list = new Promise<Parameters<typeof resolveList>[0]>((resolve) => {
+      resolveList = resolve;
+    });
+    let resolveCounts!: typeof resolveList;
+    const counts = new Promise<Parameters<typeof resolveCounts>[0]>((resolve) => {
+      resolveCounts = resolve;
+    });
+    vi.mocked(listMilestones).mockReturnValueOnce(list).mockReturnValueOnce(counts);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['permission-check', 'finding.manage', IDS.msPowerBi], {
+      state: allowed ? 'approved' : 'blocked_non_requestable',
+      decision: { allow: allowed },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MilestonesRoute managedSystem={IDS.msPowerBi} />
+      </QueryClientProvider>,
+    );
+
+    const summary = () => screen.getByTestId('milestone-summary-in-flight');
+    const expectUnavailable = () => {
+      expect(summary()).toHaveTextContent(/^—$/);
+      expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: '릴리스됨' })).toBeInTheDocument();
+    };
+
+    expectUnavailable();
+    const firstKey = first === 'counts'
+      ? ['milestones', 'counts', IDS.msPowerBi]
+      : ['milestones', 'list', IDS.msPowerBi, 'all'];
+    await act(async () => (first === 'counts' ? resolveCounts : resolveList)({ items: [] }));
+    await waitFor(() => expect(client.getQueryState(firstKey)?.status).toBe('success'));
+    if (first === 'list') await screen.findByText('표시할 Milestone이 없습니다.');
+    expectUnavailable();
+
+    await act(async () => (first === 'counts' ? resolveList : resolveCounts)({ items: [] }));
+    if (allowed) {
+      expect(await screen.findByText('표시할 Milestone이 없습니다.')).toBeInTheDocument();
+      expect(await screen.findByRole('tab', { name: /^전체\s*,\s*0$/ })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /^릴리스됨\s*,\s*0$/ })).toBeInTheDocument();
+      expect(summary()).toHaveTextContent(/^0$/);
+    } else {
+      expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList)).toHaveAttribute('role', 'status');
+      expect(summary()).toHaveTextContent(/^—$/);
+      expect(screen.queryByRole('tab', { name: /,\s*\d+$/ })).not.toBeInTheDocument();
+    }
   });
 
   it('renders the empty copy for an empty payload', async () => {
@@ -564,6 +636,10 @@ describe('MilestonesRoute list states (#609)', () => {
 
       const user = userEvent.setup();
       const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      queryClient.setQueryData(['permission-check', 'finding.manage', IDS.msPowerBi], {
+        state: 'approved',
+        decision: { allow: true },
+      });
       if (state === 'counts-failed') {
         queryClient.setQueryData(['milestones', 'list', IDS.msPowerBi, 'all'], {
           items: MILESTONES,

@@ -21,10 +21,9 @@ import { MyVocsRecoveryLink } from '../../../../components/MyVocsRecoveryLink';
 import { useMeBridge } from '../../../../lib/api/me';
 import { type NavCounts, fetchNavCounts } from '../../../../lib/api/nav';
 import { fetchCapabilityScopeViaClient } from '../../../../lib/api/permission-reads';
-import { isPermissionDenied } from '../../../../lib/api/types';
 import { createLabel } from '../../../../lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
-import { listForbiddenHint, listForbiddenRequest } from '../../../../lib/cross-system/useListDenial';
+import { useListDenial } from '../../../../lib/cross-system/useListDenial';
 import { usePermissionCheckBridge } from '../../../../lib/cross-system/usePermissionCheckBridge';
 import { HostLink, useHostPermissionLinks, useHostSeam } from '../../../../lib/host/host-seam';
 import { useHostSearchWriter } from '../../../../lib/host/useHostSearchWriter';
@@ -132,7 +131,11 @@ export function TriageScreen(): React.ReactElement {
       enabled: isApproved,
     });
 
-  const queueDenied = isPermissionDenied(error);
+  const { denied: queueDenied, requestable: queueHint, request: deniedRequest } = useListDenial({
+    error,
+    forbidden: 'permission',
+    managedSystemId: search.managedSystem,
+  });
   const items = data?.items ?? [];
   // #935: a failed queue read shows the load-error state only when there are
   // no rows to show — a failed background refetch over cached rows keeps
@@ -194,9 +197,10 @@ export function TriageScreen(): React.ReactElement {
 
   // An authoritative queue denial wins over cached/retained rows and selection.
   if (!isApproved || queueDenied) {
-    const hint = listForbiddenHint(error);
-    const missingRead = hint?.permission === 'voc.read';
-    const queueRequest = missingRead || hint?.permission === 'voc.triage' ? listForbiddenRequest(hint) : undefined;
+    const missingRead = queueHint?.permission === 'voc.read';
+    const queueRequest = missingRead || queueHint?.permission === 'voc.triage'
+      ? deniedRequest ?? undefined
+      : undefined;
     const permissionState = capCheck.data?.state;
     const pending = !queueDenied && permissionState === 'pending_request';
     const gateState = queueDenied ? queueRequest && 'request_access' : permissionState;

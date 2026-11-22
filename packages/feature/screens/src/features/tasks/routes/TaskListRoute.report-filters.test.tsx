@@ -267,7 +267,11 @@ it.each([
 
 it('names intersecting filters in the filtered-empty state with one reset', async () => {
   mockTasks([]);
-  mount(initial);
+  const { client } = mount(initial);
+  client.setQueryData(['permission-check', 'finding.manage', A], {
+    state: 'approved',
+    decision: { allow: true },
+  });
   expect(await screen.findByText('현재 조건에 맞는 Task가 없습니다')).toBeInTheDocument();
   expect(screen.getAllByRole('button', { name: '필터 초기화' })).toHaveLength(1);
   expect(
