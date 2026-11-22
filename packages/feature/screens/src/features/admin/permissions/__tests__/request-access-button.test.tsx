@@ -111,7 +111,7 @@ describe('<RequestAccessButton>', () => {
           notifyError: vi.fn(),
           notifySuccess: vi.fn(),
           useAccessRequestState,
-          permissionRequestHref: () => '/permission-requests',
+          usePermissionLinks: () => ({ permissionRequestHref: () => '/permission-requests' }),
         }}>
           <RequestAccessButton
             capability={CAPABILITY}
@@ -196,7 +196,7 @@ describe('<RequestAccessButton>', () => {
           notifyError: vi.fn(),
           notifySuccess: vi.fn(),
           useAccessRequestState,
-          permissionRequestHref: () => '/permission-requests',
+          usePermissionLinks: () => ({ permissionRequestHref: () => '/permission-requests' }),
         }}>
           <RequestAccessButton capability={CAPABILITY} managedSystemId={MANAGED_SYSTEM_ID} returnRouteIntent={RETURN_ROUTE}
             layout="card"
@@ -211,20 +211,6 @@ describe('<RequestAccessButton>', () => {
     );
   });
 
-  test('preserves the page link for a host without a request state hook', () => {
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-    client.setQueryData(permissionRequestsMineAllKey, { requests: [] });
-    render(<QueryClientProvider client={client}><HostSeamProvider value={{
-      canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
-      permissionRequestHref: () => '/company/permission-requests',
-    }}>
-      <RequestAccessButton capability={CAPABILITY} returnRouteIntent={RETURN_ROUTE} pending={false} layout="card"
-        renderTrigger={(_open, panel) => <PermissionBlockedPanel layout="card" state="request_access" category="Finding" {...panel} />}
-      />
-    </HostSeamProvider></QueryClientProvider>);
-    expect(screen.getByRole('link', { name: '권한 요청' })).toHaveAttribute('href', '/company/permission-requests');
-  });
-
   test.each([
     { pending: false, href: '/company/permission-requests', label: '권한 요청', variant: 'bg-accent-primary' },
     { pending: true, href: '/company/permission-requests', label: '내 권한 요청 보기', variant: 'bg-surface-raised' },
@@ -235,7 +221,7 @@ describe('<RequestAccessButton>', () => {
     render(<QueryClientProvider client={client}><HostSeamProvider value={{
       canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
       useAccessRequestState,
-      permissionRequestHref: () => href, permissionHomeHref: '/company/',
+      usePermissionLinks: () => ({ permissionRequestHref: () => href, permissionHomeHref: '/company/' }),
     }}>
       <RequestAccessButton capability={CAPABILITY} returnRouteIntent={RETURN_ROUTE} pending={pending} layout="card"
         renderTrigger={(_open, panel) => <PermissionBlockedPanel layout="card" state="request_access" category="Finding" {...panel} />}
@@ -267,7 +253,7 @@ describe('<RequestAccessButton>', () => {
     render(<QueryClientProvider client={client}><HostSeamProvider value={{
       canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
       useAccessRequestState,
-      permissionRequestHref: () => '/company/permission-requests', permissionHomeHref: '/company/',
+      usePermissionLinks: () => ({ permissionRequestHref: () => '/company/permission-requests', permissionHomeHref: '/company/' }),
       useFollowHostHref: () => follow,
     }}>
       <RequestAccessButton capability={CAPABILITY} returnRouteIntent={RETURN_ROUTE} pending={false} layout="card"
@@ -299,7 +285,7 @@ describe('<RequestAccessButton>', () => {
     render(<QueryClientProvider client={client}><HostSeamProvider value={{
       canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
       useAccessRequestState,
-      permissionRequestHref: () => '/permission-requests',
+      usePermissionLinks: () => ({ permissionRequestHref: () => '/permission-requests' }),
     }}>
       <RequestAccessButton capability={CAPABILITY} managedSystemId={MANAGED_SYSTEM_ID} returnRouteIntent={RETURN_ROUTE}
         layout="card"
@@ -327,7 +313,7 @@ describe('<RequestAccessButton>', () => {
     render(<QueryClientProvider client={client}><HostSeamProvider value={{
       canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
       useAccessRequestState,
-      permissionRequestHref: () => '/permission-requests',
+      usePermissionLinks: () => ({ permissionRequestHref: () => '/permission-requests' }),
     }}>
       <RequestAccessButton capability={CAPABILITY} managedSystemId={MANAGED_SYSTEM_ID} returnRouteIntent={RETURN_ROUTE}
         layout="card"

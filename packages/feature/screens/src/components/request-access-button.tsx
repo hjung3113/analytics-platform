@@ -118,7 +118,7 @@ const RECOVERABLE_CONFLICT_CODES = new Set([
 export function RequestAccessButton(props: RequestAccessButtonProps) {
   const { permissionRequestHref } = useHostPermissionLinks();
   const { useAccessRequestState } = useHostSeam();
-  if (permissionRequestHref && props.layout === 'card' && props.renderTrigger && props.capability &&
+  if (permissionRequestHref && useAccessRequestState && props.layout === 'card' && props.renderTrigger && props.capability &&
       props.open === undefined && !props.onRequestSubmitted && !props.exactScopeTarget) {
     return <RequestAccessLink key={JSON.stringify([props.capability, props.managedSystemId, props.returnRouteIntent])} {...props} capability={props.capability} renderTrigger={props.renderTrigger} useAccessRequestState={useAccessRequestState} />;
   }
@@ -137,35 +137,11 @@ function useOpenRequest(capability: string, managedSystemId: string | undefined,
   return { open, hasPending, statusKnown };
 }
 
-// Link-only hosts retain the original status text and actions through the URL seam.
-const useLegacyRequestPresentation: NonNullable<HostSeam['useAccessRequestState']> = (state, { lang }) => {
-  const copy = PERMISSION_REQUEST_FLOW_COPY[lang];
-  const phase = state.pending ? 'pending' : state.read ?? 'request';
-  const href = state.pending ? state.statusHref : state.requestHref;
-  const available = href ? 'none' : 'not-requestable';
-  const settledStatus = href && state.approvedPartial ? 'approved-partial' : available;
-  const requestStatus = state.pending ? 'pending' : state.read ? 'none' : settledStatus;
-  const requestLabel = state.approvedPartial ? copy.remaining : copy.request;
-  return {
-    phase,
-    checking: phase === 'checking',
-    href,
-    requestStatus,
-    label: state.pending ? copy.viewMine : requestLabel,
-    readMessage: phase === 'checking' ? copy.checkingRequest : copy.requestCheckError,
-    showRetry: phase === 'error',
-    retryLabel: copy.retry,
-    focusProps: {},
-    busyProps: {},
-    retryProps: { onClick: state.retry },
-  };
-};
-
 function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger, useAccessRequestState }: RequestAccessButtonCommonProps & {
   capability: string;
   managedSystemId?: string;
   renderTrigger: NonNullable<RequestAccessButtonCommonProps['renderTrigger']>;
-  useAccessRequestState: HostSeam['useAccessRequestState'];
+  useAccessRequestState: NonNullable<HostSeam['useAccessRequestState']>;
 }) {
   const { lang = 'ko' } = useHostSeam();
   const { permissionRequestHref, permissionHomeHref } = useHostPermissionLinks();
@@ -201,8 +177,7 @@ function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger
       void mine.refetch();
     }
   };
-  const useRequestPresentation = useAccessRequestState ?? useLegacyRequestPresentation;
-  const request = useRequestPresentation({
+  const request = useAccessRequestState({
     pending: hasPending,
     statusHref,
     ...(requestHref !== undefined ? { requestHref } : {}),
@@ -214,9 +189,7 @@ function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger
   const follow = useFollowHostHref();
   const followLink = () => { if (href && !follow(href)) window.location.assign(href); };
   let action: ReactNode = null;
-  if (request.checking && !useAccessRequestState) {
-    action = <span role="status">{request.readMessage}</span>;
-  } else if (request.checking) {
+  if (request.checking) {
     action = <Button type="button" size="sm" variant="primary" {...request.focusProps} {...request.busyProps}>
       <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />{request.label}
     </Button>;
@@ -234,8 +207,7 @@ function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger
     lang,
     requestStatus: request.requestStatus,
     missing,
-    ...(!useAccessRequestState && hasPending ? { description: PERMISSION_REQUEST_FLOW_COPY[lang].pendingExplanation } : {}),
-    ...(useAccessRequestState && request.checking && request.readMessage !== undefined ? { description: request.readMessage, announceBody: true } : {}),
+    ...(request.checking && request.readMessage !== undefined ? { description: request.readMessage, announceBody: true } : {}),
     requestAction: action,
     exitAction: permissionCardExitAction(permissionHomeHref, lang),
   })}</div>;

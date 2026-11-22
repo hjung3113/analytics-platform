@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { FeatureDetailDrawer, FeatureScreenPage, isUuid, milestonesRoute, useMilestonesHere, useMilestonesSearch } from '@ap/feature-bridge';
+import { FeatureDetailDrawer, FeatureScreenPage, isUuid, milestonesRoute, useMenuCapability, useMilestonesHere, useMilestonesSearch } from '@ap/feature-bridge';
 import { MilestonesScreen } from '@ap/feature-screens/operator-screens/milestones';
 import { isTasksSearchValueValid } from '@ap/feature-screens/operator-screens/tasks-search';
 
@@ -11,5 +11,6 @@ const renderDetail: ComponentProps<typeof MilestonesScreen>['renderDetail'] = pa
 
 /** Milestones (ADR-0081, #763): the feature screens' Milestone screen through the bridge; `focus` is the selected Milestone (a UUID; `managedSystem` a UUID or `all`), detail and create render in the shell detail slot. */
 export default function FeatureMilestones() {
-  return <FeatureScreenPage route={milestonesRoute} isValid={isValid} useSearch={useMilestonesSearch} useHere={useMilestonesHere}><MilestonesScreen renderDetail={renderDetail} /></FeatureScreenPage>;
+  const capability = useMenuCapability();
+  return <FeatureScreenPage route={milestonesRoute} isValid={isValid} useSearch={useMilestonesSearch} useHere={useMilestonesHere}><MilestonesScreen {...(capability === undefined ? {} : { capability })} renderDetail={renderDetail} /></FeatureScreenPage>;
 }

@@ -1,4 +1,4 @@
-import { FeatureScreenPage, isUuid, taskBoardRoute, useTaskBoardHere, useTaskBoardSearch } from '@ap/feature-bridge';
+import { FeatureScreenPage, isUuid, taskBoardRoute, useMenuCapability, useTaskBoardHere, useTaskBoardSearch } from '@ap/feature-bridge';
 import { TaskBoardScreen } from '@ap/feature-screens/operator-screens/task-board';
 import { isTasksSearchValueValid } from '@ap/feature-screens/operator-screens/tasks-search';
 import { BoardTaskDrawer, type BoardDetailOptions } from './TaskDrawers';
@@ -11,5 +11,6 @@ const renderDetail = (taskId: string, options: BoardDetailOptions) => <BoardTask
 
 /** Tasks (ADR-0081, #763): the feature screens' Task board through the bridge; `focus` opens the Task detail in the shell detail slot, closing it goes through the screen. `focus` (its `param`) must be a UUID and `managedSystem` a UUID or `all`. */
 export default function FeatureTaskBoard() {
-  return <FeatureScreenPage route={taskBoardRoute} isValid={isValid} useSearch={useTaskBoardSearch} useHere={useTaskBoardHere}><TaskBoardScreen renderDetail={renderDetail} /></FeatureScreenPage>;
+  const capability = useMenuCapability();
+  return <FeatureScreenPage route={taskBoardRoute} isValid={isValid} useSearch={useTaskBoardSearch} useHere={useTaskBoardHere}><TaskBoardScreen {...(capability === undefined ? {} : { capability })} renderDetail={renderDetail} /></FeatureScreenPage>;
 }

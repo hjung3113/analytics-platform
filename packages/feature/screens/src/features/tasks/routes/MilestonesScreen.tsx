@@ -47,6 +47,8 @@ import { validateTasksSearch } from './task-search';
 export type MilestonePanelParts = MilestoneDetailParts | MilestoneCreateParts;
 
 export interface MilestonesScreenProps {
+  /** The hosted menu's capability for scoped list reads. */
+  capability?: string;
   /** The host's frame for the detail or create parts; rendered in place, so a host that wants a drawer registers it there. */
   renderDetail: (parts: MilestonePanelParts) => React.ReactNode;
 }
@@ -76,7 +78,7 @@ const STATUS_TABS: Array<{ value: MilestoneTab; label: string }> = [
   { value: 'released', label: GLOSSARY.milestoneStatusReleased },
 ];
 
-export function MilestonesScreen({ renderDetail }: MilestonesScreenProps) {
+export function MilestonesScreen({ capability = 'finding.manage', renderDetail }: MilestonesScreenProps) {
   const navigate = useHostNavigate();
   const { param: selectedParam, managedSystem } = validateTasksSearch(useHostSearch());
   const queryClient = useQueryClient();
@@ -178,7 +180,7 @@ export function MilestonesScreen({ renderDetail }: MilestonesScreenProps) {
   const items = React.useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
   const listReadSucceeded = listQuery.isSuccess && !listQuery.isPlaceholderData;
   const scopedPermission = useScopedEmptyListPermission({
-    capability: 'finding.manage',
+    capability,
     managedSystemId: managedSystem,
     empty: listReadSucceeded && items.length === 0,
   });

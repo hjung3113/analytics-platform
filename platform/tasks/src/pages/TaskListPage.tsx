@@ -1,5 +1,5 @@
 import { usePlatform } from '@ap/kernel';
-import { FeatureScreenPage, ListScope, isUuid, type OperatorRoute } from '@ap/feature-bridge';
+import { FeatureScreenPage, ListScope, isUuid, useMenuCapability, type OperatorRoute } from '@ap/feature-bridge';
 import { TaskListScreen } from '@ap/feature-screens/operator-screens/task-list';
 import { isTasksSearchValueValid } from '@ap/feature-screens/operator-screens/tasks-search';
 import { TaskDetailDrawer } from './TaskDrawers';
@@ -15,10 +15,11 @@ export function TaskListPage({ view, route, useSearch, useHere }: {
   view: 'backlog' | 'my'; route: OperatorRoute; useSearch: () => Readonly<Record<string, string>>; useHere: () => string;
 }) {
   const { pageParam, setPage } = usePlatform();
+  const capability = useMenuCapability();
   const focus = pageParam('focus');
   return <FeatureScreenPage route={route} isValid={isValid} useSearch={useSearch} useHere={useHere}
     detail={focus !== null && <TaskDetailDrawer key={focus} taskId={focus} view={view} onClose={() => setPage({ focus: null })} />}>
     {view === 'my' && <div className="max-w-sm shrink-0 border-b border-border-subtle px-3 py-2"><ListScope /></div>}
-    <TaskListScreen view={view} autoSelect={false} renderDetail={noDetail} />
+    <TaskListScreen {...(capability === undefined ? {} : { capability })} view={view} autoSelect={false} renderDetail={noDetail} />
   </FeatureScreenPage>;
 }

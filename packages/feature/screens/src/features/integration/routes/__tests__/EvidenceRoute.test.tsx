@@ -976,6 +976,7 @@ it('offers the permitted host Home when the Evidence list is denied', async () =
     const seam = useHostSeam();
     return <HostSeamProvider value={{
       ...seam, useSearch: () => ({}), useNavigate: () => () => undefined,
+      useAccessRequestState,
       usePermissionLinks: () => ({ permissionHomeHref: '/company/' }),
     }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
   }
@@ -1096,7 +1097,8 @@ it.each([false, true])('restores focus on refreshed Evidence denial only if the 
     const seam = useHostSeam();
     return <HostSeamProvider value={{
       ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
-      useAccessRequestState, permissionRequestHref: () => '/permission-requests', permissionHomeHref: '/company/',
+      useAccessRequestState,
+      usePermissionLinks: () => ({ permissionRequestHref: () => '/permission-requests', permissionHomeHref: '/company/' }),
     }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
   }
   render(<QueryClientProvider client={client}><Host /></QueryClientProvider>);
@@ -1129,6 +1131,7 @@ it('names an archived System instead of a missing permission on a scoped empty E
     const seam = useHostSeam();
     return <HostSeamProvider value={{
       ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
+      useAccessRequestState,
       usePermissionLinks: () => ({ permissionHomeHref: '/company/' }),
     }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
   }
