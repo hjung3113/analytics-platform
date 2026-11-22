@@ -2,9 +2,10 @@
 import { Suspense } from 'react';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { groupId, menuPermission, spaceId } from '@ap/contracts';
+import { emptyGlobal, groupId, menuPermission, spaceId } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
+import { useQueryBarExtension } from '@ap/components';
 import { manifests } from './index';
 import HwTimePage from './HwTimePage';
 vi.mock('./pages/analysis/AnalysisWorkspace', () => ({ AnalysisWorkspace: () => <p>linked analysis</p> }));
@@ -35,5 +36,15 @@ describe('HW Time obsolete keys and shell', () => {
     expect(main.navViews).toBeUndefined();
     expect(main.carrySet).toBeUndefined();
     expect(main.pageKeys).not.toContain('view');
+  });
+  it('gives query history the candidate page values (#2691)', async () => {
+    vi.stubGlobal('localStorage', memoryStorage());
+    window.history.replaceState(null, '', '/mars/hw-time?v=1&scopeId=MEM');
+    function Summary() {
+      const extension = useQueryBarExtension();
+      return <p>{extension?.historyPageSummary?.(emptyGlobal, [['moduleType', 'TR'], ['verdict', 'under']]).map(item => `${item.label} ${item.value}`).join(' · ') ?? 'missing formatter'}</p>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <Summary /> }}><HwTimePage params={{}} /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('Module 타입 TR · 판정 하한 미달')).toBeTruthy();
   });
 });
