@@ -178,25 +178,28 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-it('replaces the platform focus URL and closes host-owned detail on a list 403', async () => {
+it.each(['Host detail', 'Outside detail'])('replaces the platform focus URL and closes host-owned detail on a list 403 (focused: %s)', async (focused) => {
   function PlatformFocusHost() {
     const focus = useLocation({ select: location => new URLSearchParams(location.searchStr).get('focus') });
     const navigate = useNavigate();
     return <>
       <VocClusterListShell selectedId={focus} onSelect={() => undefined} renderDetail={() => undefined}
         onCloseDetail={opts => void navigate({ to: '/voc-clusters', search: {}, replace: opts?.reconcile === true })} />
+      <button type="button">Outside detail</button>
       {focus && <button type="button">Host detail</button>}
     </>;
   }
   const { client, history } = mount(`/voc-clusters?focus=${IDS.draft}`, PlatformFocusHost);
-  (await screen.findByRole('button', { name: 'Host detail' })).focus();
+  await screen.findByRole('button', { name: 'Host detail' });
+  const outside = screen.getByRole('button', { name: 'Outside detail' });
+  screen.getByRole('button', { name: focused }).focus();
   listRead = async () => json({ code: 'permission.denied', message: 'forbidden' }, 403);
   await act(async () => { await client.invalidateQueries({ queryKey: ['voc-clusters'] }); });
   const heading = await screen.findByRole('heading', { name: '반복 VOC 목록' });
   await waitFor(() => expect(history.location.href).toBe('/voc-clusters'));
   expect(history.length).toBe(1);
   expect(screen.queryByRole('button', { name: 'Host detail' })).not.toBeInTheDocument();
-  expect(heading.closest('[tabindex="-1"]')).toHaveFocus();
+  expect(focused === 'Outside detail' ? outside : heading.closest('[tabindex="-1"]')).toHaveFocus();
 });
 
 it.each([false, true])('recovers lost suggestion focus on denial (focus moved away: %s)', async (movedAway) => {

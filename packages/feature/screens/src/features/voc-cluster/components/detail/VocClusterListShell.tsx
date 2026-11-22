@@ -18,6 +18,7 @@ import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reas
 import { CLUSTER_SUGGESTION_COPY, VOC_CLUSTER_LIST_CATEGORY } from '../../../../lib/copy/voc-cluster';
 import {
   concreteListSystemId,
+  focusListDenialCard,
   useListDenial,
   useScopedEmptyListPermission,
   type ScopedEmptyListPermission,
@@ -49,6 +50,10 @@ function scopeExcludesSystem(scope: CapabilityScope | undefined, systemId: strin
     !scope.managed_system_ids.some((id) => id.toLowerCase() === systemId);
 }
 
+type ScopeEntry =
+  | { context: string; state: 'checking'; previousErrorCount: number }
+  | { context: string; state: 'confirmed' };
+
 function useClusterEmptyListPermission({
   systemId,
   actorContext,
@@ -61,7 +66,7 @@ function useClusterEmptyListPermission({
   const capability = 'finding.read';
   const enabled = empty && systemId !== undefined;
   const scopeQuery = useQuery({
-    queryKey: [...permissionScopeKey, capability, actorContext, systemId],
+    queryKey: [...permissionScopeKey, capability, actorContext],
     queryFn: ({ signal }) => fetchCapabilityScopeViaClient(capability, { signal }),
     enabled,
     staleTime: 30_000,
@@ -71,12 +76,26 @@ function useClusterEmptyListPermission({
   });
   const scope = scopeQuery.data?.scope;
   const context = JSON.stringify([actorContext, systemId]);
-  const [confirmedContext, setConfirmedContext] = useState<string>();
-  const confirmed = scope !== undefined && (confirmedContext === context || !scopeQuery.isStale);
-  if (confirmedContext !== context) {
-    if (enabled && confirmed) setConfirmedContext(context);
-    else if (confirmedContext !== undefined) setConfirmedContext(undefined);
+  const [entry, setEntry] = useState<ScopeEntry>({
+    context, state: 'checking', previousErrorCount: scopeQuery.errorUpdateCount,
+  });
+  const sameEntry = entry.context === context;
+  const confirmed = scope !== undefined && (!scopeQuery.isStale || (sameEntry && entry.state === 'confirmed'));
+  if (enabled && confirmed && (!sameEntry || entry.state !== 'confirmed')) {
+    setEntry({ context, state: 'confirmed' });
+  } else if (!sameEntry) {
+    setEntry({ context, state: 'checking', previousErrorCount: scopeQuery.errorUpdateCount });
   }
+  const recheckScopeOnEntry = React.useEffectEvent(() => {
+    if (!confirmed && scopeQuery.fetchStatus === 'idle') {
+      void scopeQuery.refetch({ cancelRefetch: false });
+    }
+  });
+  // A System switch can keep the same enabled query observer, so stale data needs an explicit recheck.
+  React.useEffect(() => {
+    if (enabled) recheckScopeOnEntry();
+  }, [context, enabled]);
+
   const excluded = scopeExcludesSystem(scope, systemId);
   const requestPermission = useScopedEmptyListPermission({
     capability,
@@ -87,7 +106,8 @@ function useClusterEmptyListPermission({
   if (!enabled) return { state: 'unchecked' };
   // A new System waits for a fresh scope. A failed recheck keeps a decision confirmed here.
   if (!confirmed) {
-    if (scopeQuery.isError && !scopeQuery.isFetching) {
+    if (entry.state === 'checking' && scopeQuery.errorUpdateCount > entry.previousErrorCount &&
+      scopeQuery.isError && scopeQuery.fetchStatus === 'idle') {
       return { state: 'error', retry: () => void scopeQuery.refetch() };
     }
     return { state: 'checking' };
@@ -126,8 +146,7 @@ class SuggestionDenialFocus extends React.Component<SuggestionDenialFocusProps> 
     // The host detail slot removes its panel in a separate commit.
     queueMicrotask(() => {
       if (focused.isConnected || document.activeElement !== document.body) return;
-      const card = this.props.deniedRef.current;
-      (card?.querySelector<HTMLElement>('a[href], button:not([disabled])') ?? card)?.focus({ preventScroll: true });
+      focusListDenialCard(this.props.deniedRef.current, { preventScroll: true });
     });
   }
 
@@ -304,7 +323,10 @@ export function VocClusterListShell({
           request={request ?? undefined}
           deniedRef={deniedRef}
           recoveryAction={scopedBlocked && !permissionError && scopedPermission.retry && (
-            <Button variant="secondary" size="sm" onClick={scopedPermission.retry}>
+            <Button variant="secondary" size="sm" onClick={(event) => {
+              if (document.activeElement === event.currentTarget) deniedRef.current?.focus({ preventScroll: true });
+              scopedPermission.retry?.();
+            }}>
               {PERMISSION_REQUEST_FLOW_COPY.ko.retry}
             </Button>
           )}

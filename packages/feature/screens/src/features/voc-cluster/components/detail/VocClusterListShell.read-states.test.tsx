@@ -239,10 +239,13 @@ describe('VocClusterListShell list states (#609)', () => {
     expect(await screen.findByRole('heading', { name: '반복 VOC 목록' })).toBeInTheDocument();
   });
 
-  it('waits for the new System scope before classifying an empty list', async () => {
+  it('waits for stale scope to refresh before classifying an empty list in a new System', async () => {
     apiRequestMock.mockResolvedValueOnce({ data: emptyList }).mockResolvedValueOnce(fullScope);
-    const { changeSystem } = renderClusterList();
+    const { changeSystem, queryClient } = renderClusterList();
     await screen.findByTestId('cluster-empty-state');
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['permission-scope'], refetchType: 'none' });
+    });
     let confirmScope!: () => void;
     apiRequestMock.mockImplementation(async (_method: string, path: string) => {
       if (path === scopePath) return new Promise((resolve) => {
@@ -255,6 +258,31 @@ describe('VocClusterListShell list states (#609)', () => {
     await waitFor(() => expect(confirmScope).toBeDefined());
     expect(screen.queryByTestId('cluster-empty-state')).not.toBeInTheDocument();
     await act(async () => confirmScope());
+    expect(await screen.findByRole('heading', { name: '반복 VOC 목록' })).toBeInTheDocument();
+  });
+
+  it('uses the scope refreshed in another System when returning to a revoked System', async () => {
+    let allowedSystems = [IDS.managedSystem];
+    apiRequestMock.mockImplementation(async (_method: string, path: string) => {
+      if (path === scopePath) {
+        return { data: { scope: { kind: 'scoped', managed_system_ids: allowedSystems } } };
+      }
+      if (path.startsWith('/me/permissions/check')) {
+        return { data: { state: 'blocked_non_requestable', decision: { allow: false } } };
+      }
+      return { data: emptyList };
+    });
+    const { changeSystem, queryClient } = renderClusterList();
+    await screen.findByTestId('cluster-empty-state');
+    changeSystem(otherSystem);
+    await screen.findByRole('heading', { name: '반복 VOC 목록' });
+
+    allowedSystems = [];
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: ['permission-scope'], type: 'active' });
+    });
+    changeSystem(IDS.managedSystem);
+    expect(screen.queryByTestId('cluster-empty-state')).not.toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: '반복 VOC 목록' })).toBeInTheDocument();
   });
 
@@ -283,6 +311,35 @@ describe('VocClusterListShell list states (#609)', () => {
     await user.click(retry);
     expect(await screen.findByText(requestText)).toBeInTheDocument();
     await waitFor(() => expect(retry).not.toBeInTheDocument());
+  });
+
+  it('moves focus to the denial card during a keyboard point-check retry', async () => {
+    const user = userEvent.setup();
+    let resolveRetry!: () => void;
+    const response = { data: { state: 'blocked_non_requestable', decision: { allow: false } } };
+    const pointCheck = vi.fn()
+      .mockRejectedValueOnce(new Error('temporary point check failure'))
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        resolveRetry = () => resolve(response);
+      }));
+    apiRequestMock.mockImplementation(async (_method: string, path: string) => {
+      if (path === scopePath) return { data: { scope: { kind: 'scoped', managed_system_ids: [] } } };
+      if (path.startsWith('/me/permissions/check')) return pointCheck();
+      return { data: emptyList };
+    });
+    renderClusterList();
+
+    const retry = await screen.findByRole('button', { name: '다시 시도' });
+    await user.tab();
+    expect(retry).toHaveFocus();
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(retry).not.toBeInTheDocument());
+    const card = screen.getByRole('heading', { name: '반복 VOC 목록' }).closest('[tabindex="-1"]');
+    try {
+      expect(card).toHaveFocus();
+    } finally {
+      await act(async () => resolveRetry());
+    }
   });
 
   it.each([

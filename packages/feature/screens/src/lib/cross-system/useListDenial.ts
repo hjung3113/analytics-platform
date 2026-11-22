@@ -93,6 +93,10 @@ type Drawer = {
 
 type ListIdentity = { keptSystemId: string | undefined; query: string | undefined };
 
+export function focusListDenialCard(card: HTMLDivElement | null, options?: FocusOptions) {
+  (card?.querySelector<HTMLElement>('a[href], button:not([disabled])') ?? card)?.focus(options);
+}
+
 /** Surface a confirmed list denial and return focus once its drawer has closed. */
 export function useListDenial({
   error,
@@ -169,8 +173,7 @@ export function useListDenial({
     if (selectedId !== null || previous === null) return;
     pending.current = null;
     if (!denied || previous.list.keptSystemId !== keptSystemId || previous.list.query !== identity) return;
-    const card = deniedRef.current;
-    (card?.querySelector<HTMLElement>('a[href], button:not([disabled])') ?? card)?.focus();
+    if (document.activeElement === document.body) focusListDenialCard(deniedRef.current);
   }, [denied, identity, keptSystemId, selectedId]);
 
   return {
