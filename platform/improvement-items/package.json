@@ -23,7 +23,7 @@
     "@ap/contracts": "workspace:*",
     "@ap/kernel": "workspace:*",
     "@ap/mock-server": "workspace:*",
-    "lucide-react": "^1.72.0",
+    "lucide-react": "^1.76.0",
     "@ap/ui": "workspace:*"
   },
   "peerDependencies": {
@@ -35,7 +35,7 @@
     "@ap/tsconfig": "workspace:*",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "eslint": "^10.14.0",
+    "eslint": "^10.15.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "typescript": "^5.9.3",
