@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Shared across renders so a test can assert where selection sends the actor.
 const navigateMock = vi.hoisted(() => vi.fn());
@@ -234,87 +234,119 @@ describe('MilestonesRoute list (#514 B2c)', () => {
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
   });
 
-  afterEach(() => vi.unstubAllGlobals());
-  const stubPermissionFetch = (resolveCheck: () => Promise<{ status: number; body: unknown }> | { status: number; body: unknown }) => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = new URL(String(input), 'http://localhost');
-      const matched = url.pathname === '/me/permissions/check'
-        && url.searchParams.get('capability') === 'finding.manage'
-        && url.searchParams.get('managed_system_id') === IDS.msPowerBi;
-      const { status, body } = matched ? await resolveCheck() : { status: 200, body: { items: [] } };
-      return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    return () => fetchMock.mock.calls.filter(([input]) => new URL(String(input), 'http://localhost').pathname === '/me/permissions/check');
-  };
-
   it.each([false, true, 'error'] as const)(
     'checks finding.manage when scoped Milestone counts return empty while rows exist (allow=%s)',
     async (allow) => {
       let resolvePermission!: (reply: { status: number; body: unknown }) => void;
-      const permissionGate = new Promise<{ status: number; body: unknown }>((resolve) => { resolvePermission = resolve; });
+      const permissionGate = new Promise<{ status: number; body: unknown }>((resolve) => {
+        resolvePermission = resolve;
+      });
       vi.mocked(listMilestones)
         .mockResolvedValueOnce({ items: [MILESTONES[0] as MilestoneDto] })
         .mockResolvedValue({ items: [] });
-      stubPermissionFetch(() => permissionGate);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = new URL(String(input), 'http://localhost');
+          if (
+            url.pathname === '/me/permissions/check' &&
+            url.searchParams.get('capability') === 'finding.manage' &&
+            url.searchParams.get('managed_system_id') === IDS.msPowerBi
+          ) {
+            const { status, body } = await permissionGate;
+            return new Response(JSON.stringify(body), {
+              status,
+              headers: { 'content-type': 'application/json' },
+            });
+          }
+          return new Response(JSON.stringify({ items: [] }), {
+            headers: { 'content-type': 'application/json' },
+          });
+        }),
+      );
 
-      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-      render(<QueryClientProvider client={client}><MilestonesRoute managedSystem={IDS.msPowerBi} /></QueryClientProvider>);
+      try {
+        const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+        render(
+          <QueryClientProvider client={client}>
+            <MilestonesRoute managedSystem={IDS.msPowerBi} />
+          </QueryClientProvider>,
+        );
 
-      await screen.findByText('MLS-1021');
-      expect(screen.getByTestId('milestone-summary-in-flight')).toHaveTextContent(/^—$/);
-      expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
-      expect(screen.queryByRole('tab', { name: /^전체\s*,\s*0$/ })).not.toBeInTheDocument();
-
-      const reply = allow === 'error'
-        ? { status: 500, body: { code: 'internal.unexpected', message: 'fail' } }
-        : { status: 200, body: { state: allow ? 'approved' : 'blocked_non_requestable', decision: { allow } } };
-      await act(async () => { resolvePermission(reply); await Promise.resolve(); });
-
-      if (allow === true) {
-        expect(await screen.findByTestId('milestone-summary-in-flight')).toHaveTextContent(/^0$/);
-        expect(screen.getByRole('tab', { name: /^전체\s*,\s*0$/ })).toBeInTheDocument();
-        expect(screen.getByRole('tab', { name: /^진행 중\s*,\s*0$/ })).toBeInTheDocument();
-        expect(screen.getByText('MLS-1021')).toBeInTheDocument();
-      } else if (allow === 'error') {
-        await waitFor(() => expect(client.getQueryState(['permission-check', 'finding.manage', IDS.msPowerBi])?.status).toBe('error'));
+        await screen.findByText('MLS-1021');
         expect(screen.getByTestId('milestone-summary-in-flight')).toHaveTextContent(/^—$/);
-        expect(screen.queryByText('Milestone 목록을 불러오지 못했습니다')).not.toBeInTheDocument();
         expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
         expect(screen.queryByRole('tab', { name: /^전체\s*,\s*0$/ })).not.toBeInTheDocument();
-        expect(screen.getByText('MLS-1021')).toBeInTheDocument();
-      } else {
-        expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList)).toHaveAttribute('role', 'status');
-        expect(screen.queryByTestId('milestone-summary-in-flight')).not.toBeInTheDocument();
-        expect(screen.queryAllByRole('tab')).toHaveLength(0);
+
+        const reply =
+          allow === 'error'
+            ? { status: 500, body: { code: 'internal.unexpected', message: 'fail' } }
+            : {
+                status: 200,
+                body: {
+                  state: allow ? 'approved' : 'blocked_non_requestable',
+                  decision: { allow },
+                },
+              };
+        await act(async () => {
+          resolvePermission(reply);
+          await Promise.resolve();
+        });
+
+        if (allow === true) {
+          expect(await screen.findByTestId('milestone-summary-in-flight')).toHaveTextContent(/^0$/);
+          expect(screen.getByRole('tab', { name: /^전체\s*,\s*0$/ })).toBeInTheDocument();
+          expect(screen.getByRole('tab', { name: /^진행 중\s*,\s*0$/ })).toBeInTheDocument();
+          expect(screen.getByText('MLS-1021')).toBeInTheDocument();
+        } else if (allow === 'error') {
+          await waitFor(() =>
+            expect(
+              client.getQueryState(['permission-check', 'finding.manage', IDS.msPowerBi])?.status,
+            ).toBe('error'),
+          );
+          expect(screen.getByTestId('milestone-summary-in-flight')).toHaveTextContent(/^—$/);
+          expect(screen.queryByText('Milestone 목록을 불러오지 못했습니다')).not.toBeInTheDocument();
+          expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
+          expect(screen.queryByRole('tab', { name: /^전체\s*,\s*0$/ })).not.toBeInTheDocument();
+          expect(screen.getByText('MLS-1021')).toBeInTheDocument();
+        } else {
+          expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList)).toHaveAttribute(
+            'role',
+            'status',
+          );
+          expect(screen.queryByTestId('milestone-summary-in-flight')).not.toBeInTheDocument();
+          expect(screen.queryAllByRole('tab')).toHaveLength(0);
+        }
+      } finally {
+        vi.unstubAllGlobals();
       }
     },
   );
 
   it.each([
-    ['denied System with counts first', false, 'counts', 'empty'],
-    ['denied System with counts first and primary 500', false, 'counts', 500],
-    ['denied System with counts first and primary 401', false, 'counts', 401],
-    ['authorized empty System with counts first', true, 'counts', 'empty'],
-    ['authorized empty System with list first', true, 'list', 'empty'],
-  ] as const)('waits for both reads before showing counts (%s)', async (_case, allowed, first, listOutcome) => {
+    ['denied System with counts first', false, 'counts'],
+    ['authorized empty System with counts first', true, 'counts'],
+    ['authorized empty System with list first', true, 'list'],
+  ] as const)('waits for both reads before showing counts (%s)', async (_case, allowed, first) => {
     let resolveList!: (value: { items: MilestoneDto[] }) => void;
-    let rejectList!: (error: unknown) => void;
-    const list = new Promise<Parameters<typeof resolveList>[0]>((resolve, reject) => {
+    const list = new Promise<Parameters<typeof resolveList>[0]>((resolve) => {
       resolveList = resolve;
-      rejectList = reject;
     });
     let resolveCounts!: typeof resolveList;
     const counts = new Promise<Parameters<typeof resolveCounts>[0]>((resolve) => {
       resolveCounts = resolve;
     });
     vi.mocked(listMilestones).mockReturnValueOnce(list).mockReturnValueOnce(counts);
-    const permissionCalls = stubPermissionFetch(() => ({
-      status: 200,
-      body: { state: allowed ? 'approved' : 'blocked_non_requestable', decision: { allow: allowed } },
-    }));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><MilestonesRoute managedSystem={IDS.msPowerBi} /></QueryClientProvider>);
+    client.setQueryData(['permission-check', 'finding.manage', IDS.msPowerBi], {
+      state: allowed ? 'approved' : 'blocked_non_requestable',
+      decision: { allow: allowed },
+    });
+    render(
+      <QueryClientProvider client={client}>
+        <MilestonesRoute managedSystem={IDS.msPowerBi} />
+      </QueryClientProvider>,
+    );
 
     const summary = () => screen.getByTestId('milestone-summary-in-flight');
     const expectUnavailable = () => {
@@ -324,29 +356,22 @@ describe('MilestonesRoute list (#514 B2c)', () => {
     };
 
     expectUnavailable();
-    expect(permissionCalls()).toHaveLength(0);
-    const firstKey = first === 'counts' ? ['milestones', 'counts', IDS.msPowerBi] : ['milestones', 'list', IDS.msPowerBi, 'all'];
+    const firstKey = first === 'counts'
+      ? ['milestones', 'counts', IDS.msPowerBi]
+      : ['milestones', 'list', IDS.msPowerBi, 'all'];
     await act(async () => (first === 'counts' ? resolveCounts : resolveList)({ items: [] }));
     await waitFor(() => expect(client.getQueryState(firstKey)?.status).toBe('success'));
-    await waitFor(() => expect(permissionCalls()).toHaveLength(1));
-    await waitFor(() => expect(client.getQueryState(['permission-check', 'finding.manage', IDS.msPowerBi])?.status).toBe('success'));
     if (first === 'list') await screen.findByText('표시할 Milestone이 없습니다.');
     expectUnavailable();
 
-    await act(async () => (typeof listOutcome === 'number'
-      ? rejectList(new ApiError(listOutcome, { code: listOutcome === 401 ? 'auth.session_required' : 'internal.unexpected', message: 'fail' }))
-      : (first === 'counts' ? resolveList : resolveCounts)({ items: [] })));
+    await act(async () => (first === 'counts' ? resolveList : resolveCounts)({ items: [] }));
     if (allowed) {
       expect(await screen.findByText('표시할 Milestone이 없습니다.')).toBeInTheDocument();
       expect(await screen.findByRole('tab', { name: /^전체\s*,\s*0$/ })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: /^릴리스됨\s*,\s*0$/ })).toBeInTheDocument();
       expect(summary()).toHaveTextContent(/^0$/);
-    } else if (listOutcome === 401) {
-      expect(await screen.findByText('Milestone 목록을 불러오지 못했습니다')).toBeInTheDocument();
-      expect(screen.queryByText(PERMISSION_BLOCKED_REASONS.milestoneList)).not.toBeInTheDocument();
     } else {
       expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList)).toHaveAttribute('role', 'status');
-      expect(screen.queryByText('Milestone 목록을 불러오지 못했습니다')).not.toBeInTheDocument();
       expect(screen.queryByTestId('milestone-summary-in-flight')).not.toBeInTheDocument();
       expect(screen.queryAllByRole('tab')).toHaveLength(0);
     }

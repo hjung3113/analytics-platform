@@ -186,15 +186,14 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
   const scopedPermission = useScopedEmptyListPermission({
     capability,
     managedSystemId: managedSystem,
-    empty: primaryEmpty || countEmpty,
+    empty: listReadSucceeded && (primaryEmpty || countEmpty),
   });
-  const primarySettled = listReadSucceeded || listQuery.isError;
   const scopeCheckFailed = primaryEmpty && scopedPermission.state === 'error';
-  const scopedBlocked = primarySettled && scopedPermission.state === 'blocked';
+  const scopedBlocked = scopedPermission.state === 'blocked';
   const { denied, deniedRef, request } = useListDenial({
     error: listQuery.error,
     forbidden: 'permission',
-    ...(primarySettled ? { scopedPermission } : {}),
+    scopedPermission,
     managedSystemId: managedSystem,
     identity: activeTab,
     ...(scopedBlocked && !creating ? { drawer: { selectedId, close: closeMilestone } } : {}),
