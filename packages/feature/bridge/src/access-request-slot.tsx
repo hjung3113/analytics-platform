@@ -96,8 +96,9 @@ function CapabilityPending({ capability, copy, children }: {
   const systemsOptions = managedSystemsCatalogQuery();
   const systems = useQuery({ ...systemsOptions, enabled, retry: false }, featureQueryClient);
   const activeSystems = enabled ? systems.data?.items.filter(item => item.archived_at === null) ?? [] : [];
+  const platformSystem = activeSystems.find(item => item.external_key === 'platform');
   const selected = activeSystems.find(item => item.id === managedSystem)
-    ?? (managedSystem === null || managedSystem === 'all' ? activeSystems.find(item => item.external_key === 'platform') : undefined);
+    ?? (managedSystem === null || managedSystem === 'all' ? platformSystem : undefined);
   const checkOptions = permissionCheckQueryOptions({ capability, ...(selected ? { managedSystemId: selected.id } : {}) });
   const checkEnabled = enabled && selected !== undefined;
   const check = useQuery({ ...checkOptions, enabled: checkEnabled }, featureQueryClient);
@@ -118,7 +119,7 @@ function CapabilityPending({ capability, copy, children }: {
   const roleRead = requestRead({ enabled: ready, hasData: me.data !== undefined, isError: me.isError, fetchStatus: me.fetchStatus });
   const reads = [roleRead, systemsRead, permissionRead, historyRead];
   const read = reads.includes('checking') ? 'checking' : reads.find(status => status === 'error');
-  const routeTarget = useRouteSystemGeneration(managedSystem, activeSystems.find(item => item.external_key === 'platform')?.id);
+  const routeTarget = useRouteSystemGeneration(managedSystem, platformSystem?.id);
   const readKey = JSON.stringify([session.status === 'ready' ? session.epoch : null, route?.menu.id, capability, routeTarget]);
   const retry = () => {
     const retryRead = (status: typeof read, queryKey: QueryKey, refetch: () => Promise<unknown>) => {
