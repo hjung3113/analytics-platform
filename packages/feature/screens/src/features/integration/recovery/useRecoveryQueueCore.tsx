@@ -234,10 +234,20 @@ export function useRecoveryQueueCore(
     if (active && selected && current.data)
       rows.current.get(selected)?.scrollIntoView({ block: 'nearest' });
   }, [active, selected, current.data]);
-  const queue = (
-    <section className="mt-9" data-testid="recovery-queue">
+  const queueTitle = view === 'actionable' ? COPY.actionable : COPY.title;
+  const returnLink =
+    hostCarriesReturn !== true &&
+    safeRecoveryReturnTo(search.returnTo) &&
+    canLink(search.returnTo as string) ? (
+      <HostLink to={search.returnTo as string}>{COPY.returnQueue}</HostLink>
+    ) : null;
+  // A denied list read shows only its card: the card carries the section title and the list
+  // controls cannot act on a denied read; the way back stays under the card (#2677).
+  const listDenied = denied && !me.isPending && !me.isError;
+  const controls = (
+    <>
       <h2 ref={heading} tabIndex={-1} className="mb-3 text-sm font-semibold">
-        {view === 'actionable' ? COPY.actionable : COPY.title}
+        {queueTitle}
       </h2>
       <ListToolbar
         tabs={[
@@ -297,11 +307,7 @@ export function useRecoveryQueueCore(
             </p>
           )
         )}
-        {hostCarriesReturn !== true &&
-          safeRecoveryReturnTo(search.returnTo) &&
-          canLink(search.returnTo as string) && (
-            <HostLink to={search.returnTo as string}>{COPY.returnQueue}</HostLink>
-          )}
+        {returnLink}
       </div>
       <RecoveryFreshness
         computedAt={first?.computed_at}
@@ -309,6 +315,11 @@ export function useRecoveryQueueCore(
         updatedAt={current.dataUpdatedAt}
         pageComputedAt={pageSummary.data?.computed_at}
       />
+    </>
+  );
+  const queue = (
+    <section className="mt-9" data-testid="recovery-queue">
+      {listDenied ? null : controls}
       {me.isPending || (current.isPending && enabled) ? (
         <Skeleton className="h-24" role="status" aria-label={COPY.loading} />
       ) : me.isError ? (
@@ -318,12 +329,15 @@ export function useRecoveryQueueCore(
           action={{ label: COPY.retryQueue, onClick: () => void me.refetch() }}
         />
       ) : denied ? (
-        <PermissionBlockedPanel
-          layout="card"
-          state="denied"
-          category={COPY.title}
-          description={COPY.listDenied}
-        />
+        <div className="space-y-3">
+          <PermissionBlockedPanel
+            layout="card"
+            state="denied"
+            category={queueTitle}
+            description={COPY.listDenied}
+          />
+          {returnLink ? <div className="flex justify-center">{returnLink}</div> : null}
+        </div>
       ) : current.isError && !current.isFetchNextPageError ? (
         <ListStateMessage
           variant="error"

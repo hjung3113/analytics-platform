@@ -454,6 +454,30 @@ it.each([403, 500])('separates list %s from an empty queue', async (status) => {
   }
   expect(screen.queryByText('현재 표시할 항목이 없습니다.')).toBeNull();
 });
+it.each([
+  ['/integration', '처리가 필요한 항목'],
+  ['/home', '내가 처리할 수 있는 항목'],
+])('shows only the denial card on a denied list read at %s (#2677)', async (url, title) => {
+  setup({ list: () => response({ code: 'permission.denied' }, 403) });
+  await mount(`${url}?returnTo=${encodeURIComponent('/integration/coverage')}`);
+  const message = await screen.findByText('이 목록을 볼 권한이 없습니다.');
+  expect(message.closest('[data-state="denied"]')).toHaveTextContent(title);
+  // The section heading would repeat the card title; list controls cannot act on a denied read.
+  expect(screen.queryByRole('heading', { level: 2, name: title })).toBeNull();
+  expect(screen.queryByRole('tablist')).toBeNull();
+  expect(screen.queryByRole('combobox', { name: '항목 종류' })).toBeNull();
+  expect(screen.queryByRole('button', { name: '새로고침' })).toBeNull();
+  // The way back stays available under the card.
+  expect(screen.getByRole('link', { name: '목록으로 돌아가기' })).toBeInTheDocument();
+});
+it('keeps the list controls on a general list failure (#2677)', async () => {
+  setup({ list: () => response({ code: 'internal.unexpected' }, 500) });
+  await mount();
+  await screen.findByText('항목을 불러오지 못했습니다.');
+  expect(screen.getByRole('heading', { level: 2, name: '처리가 필요한 항목' })).toBeInTheDocument();
+  expect(screen.getByRole('tablist')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '새로고침' })).toBeInTheDocument();
+});
 it('renders backend blocked action reasons without executing endpoint metadata', async () => {
   const requests = setup({
     detail: () =>
