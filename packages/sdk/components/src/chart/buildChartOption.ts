@@ -16,6 +16,7 @@ import { chartPointKey, statusBorderColor, statusColor, statusKey, statusMarker,
 import { escapeHtml } from './chartText';
 import { barStatusBackingSeries } from './chartStatusBacking';
 import { rowGroupLayout, rowGroupSeries, rowLabel, type ChartRowGroups } from './chartRowGroups';
+import { emptyCategoryLabels, emptyCategorySeries } from './chartEmptyCategories';
 import type { Selection } from './useChartRange';
 import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
 import { LABEL_FONT, labelFitsSegment, labelWidth, segmentLabelStyle, shortNumber, stackEnd, type LabelRect, type RowTotal, type ValueLabels } from './chartValueLabels';
@@ -168,6 +169,7 @@ export type ChartOptionInput = {
   tickRoom?: number;
   markLines: { y: number; label: string }[] | undefined;
   categoryValueMarks?: { label: string; byCategory: ReadonlyMap<string, number> };
+  emptyCategoryLabel?: string;
   unit: string;
   lang: Lang;
   stacked: boolean | undefined;
@@ -339,6 +341,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const selectedPoints = new Set(i.selectedPointKeys);
   const statuses = i.statuses ?? new Map<string, ChartStatus>();
   const categoryMarks = i.categoryValueMarks;
+  const emptyLabels = emptyCategoryLabels(i);
   let markMin = 0;
   if (categoryMarks) {
     for (const value of categoryMarks.byCategory.values()) markMin = Math.min(markMin, value);
@@ -429,7 +432,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       const [x, y] = point;
       category ??= x;
       const axis = i.rightAxis && s.axis === 'right' ? i.rightAxis : i;
-      const value = y === null ? unknownLabel(lang) : `${axis.valueFormat(y)} ${s.unit?.trim() || axis.unit}`;
+      const value = y === null ? emptyLabels?.get(x) ?? unknownLabel(lang) : `${axis.valueFormat(y)} ${s.unit?.trim() || axis.unit}`;
       const group = groups ? `${groups.header}: ${groups.byCategory.get(x)?.group ?? ''} · ` : '';
       const text = `${group}${rowLabel(groups, x)} · ${s.name}: ${value}`;
       const status = statuses.get(chartPointKey({ seriesId: s.id, x }));
@@ -450,7 +453,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
     tooltip: {
       trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
-      ...(groups || statuses.size || bounds || categoryMarks ? { formatter: rowTooltip } : {}),
+      ...(groups || statuses.size || bounds || categoryMarks || emptyLabels?.size ? { formatter: rowTooltip } : {}),
       valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${i.valueFormat(v)} ${i.unit}`),
     },
     // Lane mode: ticks sit at scale intervals and cannot mark lane starts, so the numbers and the unit go; lane names are drawn by the overlay's markLine.
@@ -528,6 +531,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         symbol: 'diamond', symbolSize: CATEGORY_MARK_SIZE, itemStyle: { color: palette.totalText, borderColor: palette.labelSurface, borderWidth: 1, opacity: 1 },
         data: [...categoryMarks.byCategory].map(([category, value]) => [value, category]),
       }] : []),
+      ...(emptyLabels?.size ? [emptyCategorySeries(categories, emptyLabels, theme.axisLabel.color)] : []),
       ...(groupLayout ? [rowGroupSeries(groupLayout, theme.axisLabel.color, theme.axisLine.lineStyle.color)] : []),
       {
         id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',

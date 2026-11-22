@@ -16,6 +16,10 @@
 
 Frame에서 `headingInToolbar`는 제목을 도구 줄에, `toolbarStart`는 패널 설정 같은 컨트롤을 도구 앞에 놓는다. `extraActions`는 `full`에서도 더보기에 놓인다. 빠른 구간은 선택 요약에서 쓴다. 지점 선택·추가는 더보기에서 할 수 있다. `full`에서 드릴·지점 동작·상태·세로 경계를 제공하면 지점 선택기는 도구 줄 아래에 있다. `pointClickHint`는 소스 호환용이며 SDK가 가능한 조작을 안내한다.
 
+## Chart Frame
+
+`AnalysisChartFrame.emptyCategoryLabel?: string`으로 가로 범주 막대의 빈 행에 문구를 표시할 수 있다. 표시 중인 시리즈의 값이 모두 null 또는 누락일 때 값 축 시작점과 행 툴팁, 표·CSV의 값 셀에 문구를 쓴다. 누적과 `startAlign`에서도 적용하며 세로 차트에서는 무시한다. 생략 시 기존 동작을 유지한다. [차트 계약 §16](../../../../docs/contract/chart.md#16-analysis-chart-contract)
+
 ## TopN
 
 ```tsx
