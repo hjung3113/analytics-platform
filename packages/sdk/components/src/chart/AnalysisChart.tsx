@@ -34,6 +34,10 @@ export type HeatmapSpec = {
   kind: 'heatmap';
   /** Explicit axis order. Missing coordinates remain empty; null is an unknown cell. */
   xLabels: string[]; yLabels: string[]; cells: HeatmapCell[];
+  /** Label for explicit null values. Defaults to the localized unknown value label. */
+  nullLabel?: string;
+  /** Controlled plot outline by axis label. Null clears it; `label` can replace the default cell label in the selection summary. */
+  selectedCell?: { x: string; y: string; label?: string } | null;
   /** Opt-in categorical fill and legend; missing/unknown category ids use the unknown fill and label. */
   categories?: readonly HeatmapCategory[];
   /** Positive row floor in px; fill plots scroll vertically, other sizes grow. Shows every y label. */
@@ -195,6 +199,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [instanceReady, setInstanceReady] = useState(0);
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
   const spec = p.spec;
+  const controlledCell = spec.kind === 'heatmap' ? spec.selectedCell : undefined;
+  const controlledKey = controlledCell ? keyOf(controlledCell.x, controlledCell.y) : null;
   const topN = spec.kind === 'topNBar';
   useEffect(() => {
     if (topN && !p.unit.trim()) warnMissingChartUnit(p.chartId);
@@ -241,7 +247,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     });
   };
   const format = useCallback((v: number) => ('valueFormat' in spec ? spec.valueFormat?.(v) : undefined) ?? String(v), [spec]);
-  const unknown = unknownLabel(lang);
+  const unknown = (spec.kind === 'heatmap' ? spec.nullLabel : undefined) ?? unknownLabel(lang);
   const valueText = useCallback((v: number | null) => v === null ? unknown : `${format(v)} ${p.unit}`, [unknown, format, p.unit]);
   const { option, scale, domain, ramp, validThreshold } = useMemo(() => {
     const theme = chartTheme();
@@ -280,6 +286,19 @@ export function AnalysisChart(p: AnalysisChartProps) {
       if (!categories) return marker;
       return { ...marker, show: true, color: tone(categoryTokens(cell).text), formatter: `${valueText(cell.value)}${marker ? `\n${marker.formatter}` : ''}` };
     };
+    const cellStyle = (cell: HeatmapCell) => {
+      const key = keyOf(cell.x, cell.y);
+      const controlled = key === controlledKey;
+      const outlined = controlledCell === undefined ? activeKeys.has(key) : controlled;
+      const hasInsetStatus = cell.status && !controlled;
+      return {
+        color: fillColor(cell), ...(categories ? { opacity: 1 } : {}),
+        borderColor: tone(outlined ? colors.selection : colors.pattern),
+        borderWidth: hasInsetStatus ? 0 : outlined ? 1.5 : cell.value === null ? 1 : 0,
+        borderType: cell.value === null && !controlled ? 'dashed' : 'solid',
+        ...(hasInsetStatus && outlined ? { shadowBlur: 6, shadowColor: tone(colors.selection) } : {}),
+      };
+    };
     const option: EChartsCoreOption = extended ? extended.option(active) : spec.kind === 'heatmap' ? {
       tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const c = cells[params.dataIndex]; return c ? `${c.x} · ${c.y}: ${valueText(c.value)}${categories ? ` · ${rows[params.dataIndex].categoryLabel}` : ''}${c.status ? ` · ${statusText(c.status)}` : ''}` : ''; } },
       grid: { top: 16, bottom: 16, left: 16, right: 16, containLabel: true },
@@ -288,7 +307,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       ...brushOptions(),
       series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
         value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value],
-        itemStyle: { color: fillColor(c), ...(categories ? { opacity: 1 } : {}), borderColor: tone(activeKeys.has(keyOf(c.x, c.y)) ? colors.selection : colors.pattern), borderWidth: activeKeys.has(keyOf(c.x, c.y)) ? 1.5 : c.value === null ? 1 : 0, borderType: c.value === null ? 'dashed' : 'solid', ...(c.status ? { borderWidth: 0 /* the inset __statusOutline layer draws it (#2351) */, ...(activeKeys.has(keyOf(c.x, c.y)) ? { shadowBlur: 6, shadowColor: tone(colors.selection) } : {}) } : {}) },
+        itemStyle: cellStyle(c),
         ...(categories || (c.status && !borderOnly) ? { label: { ...cellLabel(c), position: 'inside' } } : {}),
       })) }, ...heatmapStatusOutlines(cells.flatMap(c => c.status ? [{ value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value], status: c.status, fill: fillColor(c), ...(categories ? { opacity: 1 } : {}) }] : []), heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length))],
     } : {
@@ -298,7 +317,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     return { option, scale, domain, ramp, validThreshold };
   // `size`, `height` and `lang` are deliberate re-run triggers: a new option object makes ECharts re-lay out the plot for the new size/language.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional triggers, see comment above
-  }, [spec, cells, rows, extended, active, plotSize, valueText, size, height, lang, rowFloor]);
+  }, [spec, cells, rows, extended, active, controlledCell, controlledKey, plotSize, valueText, size, height, lang, rowFloor]);
   const measureGrid = useCallback((instance: ECharts | null) => {
     if (spec.kind !== 'heatmap' || !instance || instance.isDisposed?.()) return;
     // ECharts exposes the laid-out grid through its runtime model (not in its public TS surface).
@@ -314,10 +333,15 @@ export function AnalysisChart(p: AnalysisChartProps) {
     measureGrid(chart.current);
   }, [option, brushMode, instanceReady, brushable, measureGrid]);
   const summary = extended?.summary ?? (spec.kind === 'heatmap'
-    ? m('chartHeatmapSummary', { cells: cells.length, missing: spec.xLabels.length * spec.yLabels.length - cells.length, unknown: cells.filter(c => c.value === null).length, unit: p.unit })
+    ? m('chartHeatmapSummary', { cells: cells.length, missing: spec.xLabels.length * spec.yLabels.length - cells.length, unknown: cells.filter(c => c.value === null).length, nullLabel: spec.nullLabel ?? unknown.toLowerCase(), unit: p.unit })
     : m('chartDonutSummary', { count: rows.length, total: format(total), unit: p.unit }));
   const selectedRows = rows.filter(row => active.includes(row.key));
-  let selectionSummary = active.length ? m(spec.kind === 'heatmap' ? 'chartHeatmapSelectionSummary' : 'chartSelectionSummary', { labels: selectedRows.map(row => row.label).join(', '), count: active.length }) : m('chartNoSelection');
+  const controlledRow = controlledKey === null ? undefined : rows.find(row => row.key === controlledKey);
+  const controlledCellSupplied = spec.kind === 'heatmap' && controlledCell !== undefined;
+  const actionRows = controlledCellSupplied ? (controlledRow ? [controlledRow] : []) : selectedRows;
+  const summaryRows = actionRows;
+  const summaryLabels = (controlledRow && controlledCell?.label) ?? summaryRows.map(row => row.label).join(', ');
+  let selectionSummary = summaryRows.length ? m(spec.kind === 'heatmap' ? 'chartHeatmapSelectionSummary' : 'chartSelectionSummary', { labels: summaryLabels, count: summaryRows.length }) : m('chartNoSelection');
   if ((spec.kind === 'scatter' || spec.kind === 'pareto') && active.length > 3) {
     const labels = selectedRows.slice(0, 3).map(row => row.label).join(', ');
     selectionSummary = m('chartSelectionOverflow', { count: active.length, labels, more: active.length - 3 });
@@ -325,7 +349,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   // Still following an item whose bar is not drawn: name it as outside the drawn top N (only a valid input item; a rejected one is no rank).
   const outsideLabel = following && followed != null && !active.length ? extended?.labels?.get(followed) : undefined;
   if (outsideLabel !== undefined) selectionSummary = m('chartSelectionOutsideTopN', { label: outsideLabel, count: rows.length });
-  if (spec.kind === 'heatmap' && active.length > 3) {
+  if (spec.kind === 'heatmap' && summaryRows.length > 3) {
     const range = (labels: string[], axis: 'x' | 'y') => {
       const selectedLabels = labels.filter(label => selectedRows.some(row => row[axis] === label));
       return selectedLabels.length === 1 ? selectedLabels[0] : `${selectedLabels[0]}–${selectedLabels.at(-1)}`;
@@ -338,7 +362,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const canDrill = rowDrill;
   const plotKey = (seriesIndex: number, dataIndex: number) =>
     extended ? extended.seriesKeys[seriesIndex]?.[dataIndex] : rows[dataIndex]?.key;
-  const selectedCell = spec.kind === 'heatmap' && selectedRows.length === 1 ? cells.find(cell => keyOf(cell.x, cell.y) === selectedRows[0].key) : undefined;
+  const selectedCell = spec.kind === 'heatmap' && actionRows.length === 1 ? cells.find(cell => keyOf(cell.x, cell.y) === actionRows[0].key) : undefined;
+  const selectedActionRow = actionRows.length === 1 ? actionRows[0] : undefined;
+  const showDisabledHeatmapDetails = controlledCellSupplied && spec.kind === 'heatmap' && !!spec.onCellClick;
   const activateCell = (gesture: 'click' | 'dblclick', params: { componentType?: string; seriesIndex?: number; dataIndex: number }) => {
     if (brushMode || spec.kind !== 'heatmap' || spec.cellActivation?.on !== gesture || params.componentType !== 'series' || params.seriesIndex !== 0) return;
     const cell = cells[params.dataIndex];
@@ -350,7 +376,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value), ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [statusText(row.status)] : [])] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
   function exportCsv() {
     const csvHeaders = extended?.csvHeaders ?? [...headers.map((header, i) => i === (spec.kind === 'heatmap' ? 2 : 1) ? `${header} (${p.unit})` : header), ...(hasStatuses ? [m('chartHeaderReason')] : [])];
-    const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknownLabel(lang), ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [row.status?.label ?? '', row.status?.reason ?? ''] : [])] : [row.label, row.value ?? unknownLabel(lang), row.share ?? 0]);
+    const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknown, ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [row.status?.label ?? '', row.status?.reason ?? ''] : [])] : [row.label, row.value ?? unknown, row.share ?? 0]);
     try { downloadChartCsv({ ...p, context: global ?? {} }, csvHeaders, csvValues); } catch {
       exportGate.say(m('chartExportCsvFailed', { chartId: p.chartId }), 'warning');
       return;
@@ -501,11 +527,11 @@ export function AnalysisChart(p: AnalysisChartProps) {
       </div>}
       </ChartLegendLayout>
       {topN && expanded && <ChartGestureHint point={rows.length > 0} additive={!singleSelect} drill={canDrill} />}
-      {spec.kind !== 'histogram' && <section tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !(selectedRows.length === 1 && selectedRows[0].drill) ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs text-text-secondary' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
+      {spec.kind !== 'histogram' && <section tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !selectedActionRow?.drill ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs text-text-secondary' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
         {selectionSummary}
-        {hasStatuses && selectedRows.filter(row => row.status).map(row => <p key={row.key}>{row.label}: {statusText(row.status)}</p>)}
+        {hasStatuses && summaryRows.filter(row => row.status).map(row => <p key={row.key}>{row.label}: {statusText(row.status)}</p>)}
         {spec.kind === 'heatmap' && spec.cellActivation && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartActivatePoint') : undefined} title={compactChrome ? m('chartActivatePoint') : undefined} disabled={brushMode || !selectedCell} onClick={() => { if (!brushMode && selectedCell) spec.cellActivation?.onActivate(selectedCell.x, selectedCell.y); }}>{compactChrome ? <Play className="size-3.5" aria-hidden /> : m('chartActivatePoint')}</Button>}
-        {selectedRows.length === 1 && selectedRows[0].drill && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartDetails') : undefined} title={compactChrome ? m('chartDetails') : undefined} onClick={selectedRows[0].drill}>{compactChrome ? <ExternalLink className="size-3.5" aria-hidden /> : m('chartDetails')}</Button>}
+        {(selectedActionRow?.drill || showDisabledHeatmapDetails) && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartDetails') : undefined} title={compactChrome ? m('chartDetails') : undefined} disabled={!selectedActionRow?.drill} onClick={selectedActionRow?.drill}>{compactChrome ? <ExternalLink className="size-3.5" aria-hidden /> : m('chartDetails')}</Button>}
       </section>}
       {table && <div className="overflow-auto px-4 py-2"><table tabIndex={spec.kind === 'histogram' ? 0 : undefined} className="w-full text-xs"><caption>{p.title} · {p.unit}</caption>
         <thead className="bg-surface-sunken"><tr>{(spec.kind === 'histogram' ? headers : [...headers, m('chartSelect')]).map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>

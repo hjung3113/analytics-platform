@@ -183,6 +183,8 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
   pointClickHint?: string;
   /** A line whose `unit` or `metricVersion` is given and differs from this Frame's is not drawn; the Frame says so in a note. Omitted fields leave the line as it is. Not drawn with `startAlign` (x is not one value scale). */
   markLines?: { y: number; label: string; unit?: string; metricVersion?: string }[];
+  /** Horizontal category bars on a shared numeric axis. One independent value per row key, in the Frame's unit. Missing, null and non-finite values draw no mark. */
+  categoryValueMarks?: { label: string; byCategory: ReadonlyMap<string, number | null> };
   /** Vertical charts only. Per x (the exact point string), each entry holds until the next entry; an absent side clears that side. */
   bounds?: ChartBounds;
   /** Legend and reading-aid labels; defaults to localized Upper bound / Lower bound / Bound range. */
@@ -462,6 +464,17 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const statusParts = (x: string) => displayed.flatMap(s => { const status = statuses.get(chartPointKey({ seriesId: s.id, x })); return status ? [{ id: s.id, name: s.name, status, csvLabel: frameStatusCsvLabel(s, horizontal, status) }] : []; });
   // One visible series has nothing to align to: StartAlign then does nothing (normal value axis, Brush stays); hiding series is a normal user action, so no diagnostic.
   const startAlign = horizontal && !!p.stacked && !!p.startAlign && displayed.length >= 2;
+  const markDeclaration = horizontal && xType === 'category' && !startAlign && displayed.length > 0
+    ? p.categoryValueMarks : undefined;
+  const categoryValueMarks = useMemo(() => {
+    if (!markDeclaration) return undefined;
+    const byCategory = new Map<string, number>();
+    for (const category of categories) {
+      const value = markDeclaration.byCategory.get(category);
+      if (value != null && Number.isFinite(value)) byCategory.set(category, value);
+    }
+    return { label: markDeclaration.label, byCategory };
+  }, [markDeclaration, categories]);
   // StartAlign turns Brush off: x is no longer one value scale, so a dragged range would not mean seconds.
   const brushMode = range.brushMode && !startAlign;
   // revealActive: an outside change of the active row scrolls it into the plot window (grid top + index × pitch). Focus never moves.
@@ -533,6 +546,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const selectedActions = useMemo(() => (selectedPoint ? actionsFor(selectedPoint) : []), [selectedPoint, actionsFor]);
   const noActions = hasPointActions && selectedActions.length === 0;
   const format = p.valueFormat ?? ((v: number) => formatNumber(v, lang, { maximumFractionDigits: 1 }));
+  const formatMark = (value: number | undefined) => value === undefined ? '—' : format(value);
   // The tooltip reads the formatter when it opens, so a consumer's new `valueFormat` takes effect without rebuilding the option.
   const formatRef = useRef(format);
   useLayoutEffect(() => { formatRef.current = format; });
@@ -697,10 +711,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit, ...(zoomOnly ? {} : { selectedPointKeys }),
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit, ...(zoomOnly ? {} : { selectedPointKeys }),
       palette: resolveChartPalette(displayed),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, selectedPointKeys, zoomOnly, instanceReady]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, selectedPointKeys, zoomOnly, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -827,9 +841,9 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   }
 
   function exportCsv() {
-    const header = [...(rowGroups ? [rowGroups.header] : []), 'x', ...visible.map(columnName), ...(bounds ? [bounds.labels.lower, bounds.labels.upper] : []), ...(statusEnabled ? [m('chartHeaderStatus'), m('chartHeaderReason')] : [])];
+    const header = [...(rowGroups ? [rowGroups.header] : []), 'x', ...visible.map(columnName), ...(bounds ? [bounds.labels.lower, bounds.labels.upper] : []), ...(statusEnabled ? [m('chartHeaderStatus'), m('chartHeaderReason')] : []), ...(categoryValueMarks ? [categoryValueMarks.label] : [])];
     // The table projection verbatim: numbers stay numbers so the formula guard never prefixes them (#297).
-    const body = rows.map(([x, values]) => [...(rowGroups ? [rowGroup(rowGroups, x)] : []), rowLabel(rowGroups, x), ...values.map(v => (v === null ? '' : v)), ...(bounds ? [bounds.at(x).lower ?? '', bounds.at(x).upper ?? ''] : []), ...(statusEnabled ? [statusParts(x).map(({ name, csvLabel }) => `${name}: ${csvLabel}`).join('\n'), statusParts(x).filter(({ status }) => status.reason).map(({ name, status }) => `${name}: ${status.reason}`).join('\n')] : [])]);
+    const body = rows.map(([x, values]) => [...(rowGroups ? [rowGroup(rowGroups, x)] : []), rowLabel(rowGroups, x), ...values.map(v => (v === null ? '' : v)), ...(bounds ? [bounds.at(x).lower ?? '', bounds.at(x).upper ?? ''] : []), ...(statusEnabled ? [statusParts(x).map(({ name, csvLabel }) => `${name}: ${csvLabel}`).join('\n'), statusParts(x).filter(({ status }) => status.reason).map(({ name, status }) => `${name}: ${status.reason}`).join('\n')] : []), ...(categoryValueMarks ? [categoryValueMarks.byCategory.get(x) ?? ''] : [])]);
     downloadChartCsv({ ...p, context: global }, header, body);
     notify(m(host.inPlatform ? 'chartExportedVisibleCsv' : 'chartExportedVisibleCsvStandalone', { chartId: p.chartId }));
   }
@@ -886,17 +900,23 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     rangeActions.setDraft({ from: base.from, to: next });
   }
 
-  const frameLegend = p.legend !== false && <div role="group" aria-label={m('chartLegend')} className={cn('px-4 pt-2', showPeriodGroups ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-4 gap-y-1')}>
-      {/* eslint-disable-next-line shadcn/no-inline-styles -- legend column count depends on the visible period groups at runtime */}
-      {showPeriodGroups ? usePeriodLegendGrid ? <div data-period-legend-grid className="grid items-center gap-x-4 gap-y-2" style={{ gridTemplateColumns: `repeat(${periodLegendColumnCount + 1}, max-content)` }}>
-        {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
-        {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
-      </div> : <>
-        {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
-        {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
-      </> : allSeries.map(s => renderLegendSeries(s, false))}
-      <ChartBoundsLegend bounds={bounds} />
-      <ChartStatusLegend statuses={statusLegend} />
+  const categoryValueMarkLegend = categoryValueMarks?.byCategory.size ? <span data-chart-category-mark-legend className="inline-flex items-center gap-1 text-xs text-text-secondary">
+    <svg aria-hidden width="16" height="16"><path d="M8 3 13 8 8 13 3 8Z" fill="currentColor" /></svg>{categoryValueMarks.label}
+  </span> : null;
+  const frameLegend = (p.legend !== false || categoryValueMarkLegend) && <div role="group" aria-label={m('chartLegend')} className={cn('px-4 pt-2', showPeriodGroups ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-4 gap-y-1')}>
+      {p.legend !== false && <>
+        {/* eslint-disable-next-line shadcn/no-inline-styles -- legend column count depends on the visible period groups at runtime */}
+        {showPeriodGroups ? usePeriodLegendGrid ? <div data-period-legend-grid className="grid items-center gap-x-4 gap-y-2" style={{ gridTemplateColumns: `repeat(${periodLegendColumnCount + 1}, max-content)` }}>
+          {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
+          {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
+        </div> : <>
+          {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
+          {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
+        </> : allSeries.map(s => renderLegendSeries(s, false))}
+        <ChartBoundsLegend bounds={bounds} />
+        <ChartStatusLegend statuses={statusLegend} />
+      </>}
+      {categoryValueMarkLegend}
     </div>;
   const standardLegend = <>{p.legend !== false && <>
       {showPeriodGroups ? <>
@@ -904,7 +924,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
       </> : allSeries.map(series => renderLegendSeries(series, false))}
       <ChartBoundsLegend bounds={bounds} /><ChartStatusLegend statuses={statusLegend} />
-    </>}
+    </>}{categoryValueMarkLegend}
   </>;
 
   // min-w-0: the plot canvas owns a fixed px width; without it that width becomes the card's min-content and a
@@ -1009,7 +1029,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         <Button ref={showAllButton} type="button" variant="secondary" size="toolbar" onClick={showAllSeries}><Eye className="size-3.5" aria-hidden />{m('chartShowAll')}</Button>
       </div>
     </>}
-    <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || plotLegendCaption != null)} keys={p.legend !== false} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={plotLegendCaption}>
+    <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || plotLegendCaption != null || categoryValueMarkLegend !== null)} keys={p.legend !== false} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={plotLegendCaption}>
     <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && fillPlotClass, rowPitch !== undefined && 'overflow-y-auto scrollbar-panel')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
       style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill && chrome !== 'standard' ? { minHeight: fillMin } : undefined} role={plotPointControls ? 'group' : undefined} aria-label={plotPointControls ? m('chartPointsGroup') : undefined} tabIndex={plotPointControls ? 0 : -1}
@@ -1041,13 +1061,16 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
 
     {showTable && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">
       <table aria-labelledby={titleId} className="w-full text-xs tabular">
-        <thead className="sticky top-0 bg-surface-sunken"><tr>{rowGroups && <th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{rowGroups.header}</th>}<th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{xType === 'time' ? m('chartAxisTime') : m('chartAxisCategory')}</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{columnName(s)}</th>)}{totals && totals.size > 0 && <th className="t-table-header px-3 py-1.5 text-right text-text-secondary">{totalName}</th>}{bounds && [bounds.labels.lower, bounds.labels.upper].map((label, index) => <th key={`bound-${index}`} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{label}</th>)}{statusEnabled && <th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{m('chartHeaderStatus')}</th>}</tr></thead>
+        <thead className="sticky top-0 bg-surface-sunken"><tr>{rowGroups && <th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{rowGroups.header}</th>}<th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{xType === 'time' ? m('chartAxisTime') : m('chartAxisCategory')}</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{columnName(s)}</th>)}{totals && totals.size > 0 && <th className="t-table-header px-3 py-1.5 text-right text-text-secondary">{totalName}</th>}{bounds && [bounds.labels.lower, bounds.labels.upper].map((label, index) => <th key={`bound-${index}`} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{label}</th>)}{statusEnabled && <th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{m('chartHeaderStatus')}</th>}
+          {categoryValueMarks && <th scope="col" className="t-table-header px-3 py-1.5 text-right text-text-secondary">{categoryValueMarks.label}</th>}
+        </tr></thead>
         <tbody>{rows.map(([x, values]) => <tr key={x} className="border-t border-border-subtle">
           <>{rowGroups && <td className="px-3 py-1">{rowGroup(rowGroups, x)}</td>}<td className="px-3 py-1">{xType === 'time' ? fmt(x) : rowLabel(rowGroups, x)}</td></>
           {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? '—' : fmtOf(visible[i])(v)}</td>)}
           {totals && totals.size > 0 && <td className="px-3 py-1 text-right">{(() => { const t = totals.get(x); return t ? (t.partial ? `≥ ${format(t.value)} (${missingText(t.missing)})` : format(t.value)) : '—'; })()}</td>}
           {bounds && [bounds.at(x).lower, bounds.at(x).upper].map((value, index) => <td key={`bound-${index}`} className="px-3 py-1 text-right">{value === undefined ? '' : format(value)}</td>)}
           {statusEnabled && <td className="px-3 py-1">{statusParts(x).map(({ id, name, status }) => <div key={id}>{name}: {statusText(status)}</div>)}</td>}
+          {categoryValueMarks && <td className="px-3 py-1 text-right">{formatMark(categoryValueMarks.byCategory.get(x))}</td>}
         </tr>)}</tbody>
       </table>
     </div>}

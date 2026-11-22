@@ -64,6 +64,44 @@ describe('valueLabels unset (#580d)', () => {
   });
 });
 
+describe('category value marks', () => {
+  const marks = { label: 'Actual <total>', byCategory: new Map([['R1', 950], ['R2', 12], ['R4', 0]]) };
+  it('renders an independent diamond and table column only when requested', async () => {
+    const view = await mount();
+    expect(bySeries('__categoryValueMark')).toBeUndefined();
+    expect((await tableText())[0]).not.toContain(marks.label);
+    view.update({ categoryValueMarks: marks });
+    expect(bySeries('__categoryValueMark')).toMatchObject({
+      symbol: 'diamond', data: [[950, 'R1'], [12, 'R2'], [0, 'R4']],
+    });
+    expect(screen.getByRole('columnheader', { name: marks.label })).toBeVisible();
+    expect(screen.getAllByRole('row')[1].lastElementChild).toHaveTextContent('950');
+    expect(screen.getAllByRole('row')[3].lastElementChild).toHaveTextContent('—');
+  });
+
+  it('shows the category mark label beside a diamond without opening the table', async () => {
+    await mount({ categoryValueMarks: marks });
+    expect(screen.getByText(marks.label)).toBeVisible();
+    expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  it('keeps the mark on its category when rows reorder on a zoomable axis', async () => {
+    const view = await mount({ rowPitch: undefined, categoryValueMarks: marks });
+    view.update({ series: SERIES.map(s => ({ ...s, points: [...s.points].reverse() })) });
+    expect(bySeries('__categoryValueMark').data).toEqual([[0, 'R4'], [12, 'R2'], [950, 'R1']]);
+    expect(option()).toMatchObject({ dataZoom: [{ yAxisIndex: 0 }], yAxis: { data: ['R4', 'R3', 'R2', 'R1'] } });
+  });
+
+  it('includes the escaped mark label and independent value in the row tooltip', async () => {
+    await mount({ categoryValueMarks: marks });
+    const { tooltip } = plotProps!.option as { tooltip: { formatter: (items: object[]) => string } };
+    const tip = tooltip.formatter([{ seriesId: 'a', dataIndex: 0 }, { seriesId: 'b', dataIndex: 0 }, { seriesId: '__categoryValueMark', dataIndex: 0, value: [950, 'R1'] }]);
+    expect(tip).toContain('R1 · A: 800 s');
+    expect(tip).toContain('Actual &lt;total&gt;: 950 s');
+    expect(tooltip.formatter([{ seriesId: 'b', dataIndex: 2 }])).not.toContain('Actual');
+  });
+});
+
 describe('segment labels (#580d, UX-6/12/13)', () => {
   it('puts the short number inside, shows nothing for null, and leaves the fit to ECharts\' resolved geometry (chartValueLabels.render.test.ts)', async () => {
     await mount({ valueLabels: 'segment' });

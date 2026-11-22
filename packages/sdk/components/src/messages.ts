@@ -111,8 +111,8 @@ export const COMPONENTS_MESSAGES = {
   },
   chartCumulativePct: { ko: '누적 %', en: 'Cumulative %' },
   chartHeatmapSummary: {
-    ko: '{cells}칸 · {missing}칸 비어 있음 · {unknown}칸 미확인 · 단위 {unit}',
-    en: '{cells} cells · {missing} missing · {unknown} unknown · Unit {unit}',
+    ko: '{cells}칸 · {missing}칸 비어 있음 · {unknown}칸 {nullLabel} · 단위 {unit}',
+    en: '{cells} cells · {missing} missing · {unknown} {nullLabel} · Unit {unit}',
   },
   chartDonutSummary: { ko: '{count}개 항목 · 합계 {total} {unit}', en: '{count} slices · Total {total} {unit}' },
   chartSelectionSummary: { ko: '{labels} · {count}개 선택', en: '{labels} · {count} selected' },

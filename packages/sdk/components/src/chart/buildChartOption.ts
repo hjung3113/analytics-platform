@@ -167,6 +167,7 @@ export type ChartOptionInput = {
   /** Horizontal value axis only: the measured width bucketed by the Frame, so the tick budget follows a resize without the whole option changing. Absent = `chartWidth`. */
   tickRoom?: number;
   markLines: { y: number; label: string }[] | undefined;
+  categoryValueMarks?: { label: string; byCategory: ReadonlyMap<string, number> };
   unit: string;
   lang: Lang;
   stacked: boolean | undefined;
@@ -198,6 +199,8 @@ export type ChartOptionInput = {
 const YIELDED = { fontSize: 0, width: 0, height: 0 };
 
 const HOUR_MS = 3_600_000;
+const CATEGORY_MARK_SERIES = '__categoryValueMark';
+const CATEGORY_MARK_SIZE = 8;
 const DAY_MS = 24 * HOUR_MS;
 const SHORTEST_MONTH_MS = 28 * DAY_MS;
 const HOUR_TICK_STEPS = [1, 2, 3, 4, 6, 8, 12, 24].map(hours => hours * HOUR_MS);
@@ -335,6 +338,12 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
   const selectedPoints = new Set(i.selectedPointKeys);
   const statuses = i.statuses ?? new Map<string, ChartStatus>();
+  const categoryMarks = i.categoryValueMarks;
+  let markMin = 0;
+  if (categoryMarks) {
+    for (const value of categoryMarks.byCategory.values()) markMin = Math.min(markMin, value);
+  }
+  const horizontalMin = markMin < 0 ? (extent: { min: number }) => Math.min(extent.min, markMin) : 0;
   const bounds = projectChartBounds(i);
   const chips = !!i.extremes?.size && horizontal;
   const segments = !chips && horizontal && !!i.stacked && i.displayed.length > 1 && (i.valueLabels === 'segment' || i.valueLabels === 'both');
@@ -405,13 +414,20 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       }),
     };
   }
-  function statusTooltip(params: { seriesId?: string; name?: string; dataIndex?: number }[] | { seriesId?: string; name?: string; dataIndex?: number }) {
+  type TooltipPoint = { seriesId?: string; name?: string; dataIndex?: number; value?: unknown };
+  function rowTooltip(params: TooltipPoint[] | TooltipPoint) {
     const items = Array.isArray(params) ? params : [params];
+    let category: string | undefined;
     const rows = items.flatMap(p => {
+      if (p.seriesId === CATEGORY_MARK_SERIES && Array.isArray(p.value) && typeof p.value[1] === 'string') {
+        category ??= p.value[1];
+        return [];
+      }
       const s = i.displayed.find(series => series.id === p.seriesId);
       const point = s?.points[p.dataIndex ?? s.points.findIndex(([x]) => x === p.name)];
       if (!s || !point) return [];
       const [x, y] = point;
+      category ??= x;
       const axis = i.rightAxis && s.axis === 'right' ? i.rightAxis : i;
       const value = y === null ? unknownLabel(lang) : `${axis.valueFormat(y)} ${s.unit?.trim() || axis.unit}`;
       const group = groups ? `${groups.header}: ${groups.byCategory.get(x)?.group ?? ''} · ` : '';
@@ -420,6 +436,8 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       const bound = bounds && !i.previousIds.has(s.id) ? ` · ${boundText(bounds, x, i.valueFormat)}` : '';
       return [escapeHtml(`${text}${status ? ` · ${statusText(status)}` : ''}${bound}`)];
     });
+    const mark = category === undefined ? undefined : categoryMarks?.byCategory.get(category);
+    if (categoryMarks && mark !== undefined) rows.push(escapeHtml(`${categoryMarks.label}: ${i.valueFormat(mark)} ${i.unit}`));
     return rows.join('<br/>');
   }
   const fitY = i.yFit && !horizontal && i.displayed.every(series => (series.kind ?? 'line') === 'line');
@@ -432,12 +450,12 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
     tooltip: {
       trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
-      ...(groups || statuses.size || bounds ? { formatter: statusTooltip } : {}),
+      ...(groups || statuses.size || bounds || categoryMarks ? { formatter: rowTooltip } : {}),
       valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${i.valueFormat(v)} ${i.unit}`),
     },
     // Lane mode: ticks sit at scale intervals and cannot mark lane starts, so the numbers and the unit go; lane names are drawn by the overlay's markLine.
     xAxis: lanes ? { type: 'value', min: 0, max: lanes.span || undefined, axisLabel: { show: false }, axisTick: { show: false }, splitLine: { show: false } }
-      : horizontal ? { type: 'value', min: 0, name: i.unit, splitLine: theme.splitLine, ...valueAxisTicks } : xType === 'time'
+      : horizontal ? { type: 'value', min: horizontalMin, name: i.unit, splitLine: theme.splitLine, ...valueAxisTicks } : xType === 'time'
       ? { type: 'time', axisLine: theme.axisLine, splitLine: { show: false }, ...timeAxisTicks(i.displayed, i.zoom, plotWidth) }
       : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
     yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: i.rowPitch !== undefined ? 0 : 'auto', ...(i.rowPitch !== undefined ? { width: rowGutter - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(groups ? { formatter: (v: string) => (v === active ? `{active|${rowLabel(groups, v)}}` : rowLabel(groups, v)), width: groupLayout!.rowWidth - 12, overflow: 'truncate', rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : i.rightAxis ? [valueAxis, rightValueAxis(i.rightAxis)] : valueAxis,
@@ -505,6 +523,11 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       ...lineStatusSeries(i, statuses),
       ...(bounds ? boundSeries(bounds, palette) : []),
       ...(totalTexts ? [totalSeries(totalTexts)] : []),
+      ...(categoryMarks?.byCategory.size ? [{
+        id: CATEGORY_MARK_SERIES, type: 'scatter', name: categoryMarks.label, silent: true, animation: false, z: 5,
+        symbol: 'diamond', symbolSize: CATEGORY_MARK_SIZE, itemStyle: { color: palette.totalText, borderColor: palette.labelSurface, borderWidth: 1, opacity: 1 },
+        data: [...categoryMarks.byCategory].map(([category, value]) => [value, category]),
+      }] : []),
       ...(groupLayout ? [rowGroupSeries(groupLayout, theme.axisLabel.color, theme.axisLine.lineStyle.color)] : []),
       {
         id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',

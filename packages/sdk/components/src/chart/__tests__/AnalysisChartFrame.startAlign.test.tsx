@@ -186,6 +186,13 @@ describe('startAlign (#690o)', () => {
     expect(console.warn).not.toHaveBeenCalled();
   });
 
+  it('suppresses category marks only while startAlign is effective', async () => {
+    const view = await mount({ startAlign: true, visibleSeriesIds: ['a'], categoryValueMarks: { label: 'Actual', byCategory: new Map([['R1', 9]]) } });
+    expect(option().series.some(series => series.id === '__categoryValueMark')).toBe(true);
+    view.update({ visibleSeriesIds: ['a', 'b'] });
+    expect(option().series.some(series => series.id === '__categoryValueMark')).toBe(false);
+  });
+
   it('warns and does nothing outside horizontal stacked', async () => {
     await mount({ startAlign: true, stacked: false });
     expect(spacers()).toEqual([]);

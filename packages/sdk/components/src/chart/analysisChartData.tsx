@@ -40,7 +40,8 @@ export function chartData(spec: ChartSpec, lang: Lang, unit = ''): { cells: Heat
     const categories = spec.categories === undefined ? undefined : new Map(spec.categories.map(category => [category.id, formatText(category.label, lang)]));
     return { cells, total: 0, rows: cells.map(c => {
       const categoryLabel = categories && ((c.category === undefined ? undefined : categories.get(c.category)) ?? unknownLabel(lang));
-      return { key: cellKey(c.x, c.y), label: `${c.y} · ${c.x}${categoryLabel === undefined ? '' : ` · ${categoryLabel}`}`, ...(categoryLabel === undefined ? {} : { categoryLabel }), x: c.x, y: c.y, value: c.value, ...(c.status ? { status: c.status } : {}), drill: spec.onCellClick ? () => spec.onCellClick?.(c.x, c.y) : undefined };
+      const label = [c.y, c.x, categoryLabel, c.value === null ? spec.nullLabel : undefined].filter(part => part !== undefined).join(' · ');
+      return { key: cellKey(c.x, c.y), label, ...(categoryLabel === undefined ? {} : { categoryLabel }), x: c.x, y: c.y, value: c.value, ...(c.status ? { status: c.status } : {}), drill: spec.onCellClick ? () => spec.onCellClick?.(c.x, c.y) : undefined };
     }) };
   }
   let colorIndex = 0;
