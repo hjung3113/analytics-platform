@@ -446,9 +446,12 @@ it.each([403, 500])('separates list %s from an empty queue', async (status) => {
       response({ code: status === 403 ? 'permission.denied' : 'internal.unexpected' }, status),
   });
   await mount();
-  await screen.findByText(
+  const message = await screen.findByText(
     status === 403 ? '이 목록을 볼 권한이 없습니다.' : '항목을 불러오지 못했습니다.',
   );
+  if (status === 403) {
+    expect(message.closest('[data-state="denied"]')).toHaveClass('max-w-lg');
+  }
   expect(screen.queryByText('현재 표시할 항목이 없습니다.')).toBeNull();
 });
 it('renders backend blocked action reasons without executing endpoint metadata', async () => {

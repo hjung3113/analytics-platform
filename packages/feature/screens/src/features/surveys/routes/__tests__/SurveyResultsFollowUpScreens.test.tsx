@@ -267,11 +267,12 @@ describe('SurveyFollowUpScreen states under a bare host', () => {
     expect(screen.getByText('설문을 찾을 수 없습니다.')).toBeInTheDocument();
   });
 
-  it('renders blocked', () => {
+  it('renders a shared blocked card when the follow-up screen is denied', () => {
     followUpQueries();
     useSurveyReadGate.mockReturnValue({ canRead: false, gateState: undefined });
     mount(<SurveyFollowUpScreen surveyId={SURVEY_ID} />, host().seam);
-    expect(screen.getByText('설문 결과')).toBeInTheDocument();
+    const heading = screen.getByText('설문 결과');
+    expect(heading.closest('[data-state="denied"]')).toHaveClass('max-w-lg');
   });
 
   it('renders unavailable for a non-outcome survey, linking back only when mapped', () => {

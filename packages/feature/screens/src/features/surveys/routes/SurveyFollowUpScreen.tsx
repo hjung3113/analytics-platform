@@ -61,6 +61,7 @@ export function SurveyFollowUpScreen({
     return (
       <div className="p-6">
         <PermissionBlockedPanel
+          layout="card"
           category="설문 결과"
           reason={PERMISSION_BLOCKED_REASONS.surveyResult}
           state="denied"

@@ -67,6 +67,7 @@ export function SurveyList({
 }: SurveyListProps) {
   const { canLink } = useHostSeam();
   const hostTarget = useHostPrimaryActionTarget();
+  const canRequestManage = permissionState === 'request_access';
   const [status, setStatus] = React.useState<SurveyStatus | 'all'>('all');
   const [search, setSearch] = React.useState('');
   const [viewMode, setViewMode] = React.useState<'list' | 'card'>('list');
@@ -218,27 +219,28 @@ export function SurveyList({
                   )
                 ) : (
                   <div className="flex flex-col items-center gap-2">
-                    {canLink('/surveys/participate') && (
-                      <HostLink
-                        to="/surveys/participate"
-                        className="text-sm font-medium text-accent-primary underline"
-                      >
-                        {SURVEY_PARTICIPATION_COPY.participate}
-                      </HostLink>
-                    )}
-                    {permissionState === 'request_access' ? (
-                      requestManagedSystemId === undefined ? (
-                        <p data-testid="survey-empty-select-system">
-                          {PERMISSION_BLOCKED_REASONS.surveyManageSelectSystem}
-                        </p>
-                      ) : (
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      {canRequestManage && requestManagedSystemId !== undefined && (
                         <RequestAccessButton
                           capability="survey.manage"
                           managedSystemId={requestManagedSystemId}
                           returnRouteIntent="/surveys"
                         />
-                      )
-                    ) : (
+                      )}
+                      {canLink('/surveys/participate') && (
+                        <Button asChild variant="secondary" size="md">
+                          <HostLink to="/surveys/participate">
+                            {SURVEY_PARTICIPATION_COPY.participate}
+                          </HostLink>
+                        </Button>
+                      )}
+                    </div>
+                    {canRequestManage && requestManagedSystemId === undefined && (
+                      <p data-testid="survey-empty-select-system">
+                        {PERMISSION_BLOCKED_REASONS.surveyManageSelectSystem}
+                      </p>
+                    )}
+                    {!canRequestManage && (
                       <p data-testid="survey-empty-contact-admin">담당 관리자에게 문의하세요.</p>
                     )}
                   </div>

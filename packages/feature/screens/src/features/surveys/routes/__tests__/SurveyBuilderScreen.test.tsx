@@ -93,10 +93,11 @@ describe('SurveyBuilderScreen over the host seam', () => {
     expect(titles.every((title) => title === null)).toBe(true);
   });
 
-  it('renders the blocked panel, not the builder, for a non-manager, and sets no title', async () => {
+  it('renders the shared blocked card for a non-manager without setting a title', async () => {
     installFetch({ canManage: false });
     mount(S1_ID);
-    expect(await screen.findByText('설문 빌더')).toBeInTheDocument();
+    const heading = await screen.findByText('설문 빌더');
+    expect(heading.closest('[data-state="blocked_not_requestable"]')).toHaveClass('max-w-lg');
     expect(screen.queryByTestId('survey-builder')).toBeNull();
     expect(titles.every((title) => title === null)).toBe(true);
   });

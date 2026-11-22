@@ -110,7 +110,7 @@ describe('SurveyList empty state', () => {
     expect(screen.getByRole('textbox', { name: '설문 검색' })).toHaveValue('');
   });
 
-  it('renders request access for a requestable missing survey.manage permission', () => {
+  it('places the request and participation buttons in one action row', () => {
     renderEmptyList({
       canCreate: false,
       permissionState: 'request_access',
@@ -123,10 +123,12 @@ describe('SurveyList empty state', () => {
       'href',
       '/surveys/participate',
     );
-    expect(screen.getByTestId('request-access-survey.manage')).toHaveAttribute(
-      'data-managed-system-id',
-      'managed-system-1',
-    );
+    const request = screen.getByTestId('request-access-survey.manage');
+    const participate = screen.getByRole('link', { name: '설문 참여' });
+    expect(request).toHaveAttribute('data-managed-system-id', 'managed-system-1');
+    expect(participate).toHaveClass('border');
+    expect(participate.parentElement).toHaveClass('flex', 'flex-wrap');
+    expect(participate.parentElement?.firstElementChild).toContainElement(request);
     expect(screen.queryByTestId('survey-empty-create-button')).not.toBeInTheDocument();
   });
 

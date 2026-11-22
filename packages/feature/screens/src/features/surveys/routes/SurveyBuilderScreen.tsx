@@ -62,6 +62,7 @@ export function SurveyBuilderView({
     return (
       <div className="p-6">
         <PermissionBlockedPanel
+          layout="card"
           state="blocked_not_requestable"
           category="설문 빌더"
           reason={PERMISSION_BLOCKED_REASONS.surveyBuilder}
