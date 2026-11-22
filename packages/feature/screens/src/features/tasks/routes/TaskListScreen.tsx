@@ -225,9 +225,14 @@ export function TaskListScreen({ capability = 'finding.manage', view, autoSelect
     managedSystemId: managedSystem,
     empty: tasksQuery.isSuccess && !tasksQuery.isPlaceholderData && items.length === 0,
   });
+  const scopeCheckFailed = scopedPermission.state === 'error';
+  const listFailed =
+    tasksQuery.isError &&
+    (!tasksQuery.isFetchNextPageError || isPermissionDenied(tasksQuery.error));
+  const listUnavailable = scopeCheckFailed || listFailed;
   const scopedBlocked = scopedPermission.state === 'blocked';
   const { denied: listPermissionDenied, deniedRef, request } = useListDenial({
-    error: tasksQuery.error,
+    error: listFailed ? tasksQuery.error : null,
     forbidden: 'permission',
     scopedPermission,
     managedSystemId: managedSystem,
@@ -287,22 +292,26 @@ export function TaskListScreen({ capability = 'finding.manage', view, autoSelect
   // #682 owner decision sets title/count and empty copy within the prototype Tasks list.
   return (
     <ListShell
-      toolbar={{
-        actions: listPermissionDenied ? null : (
-          <SearchInput
-            placeholder={LIST_SEARCH_PLACEHOLDER}
-            value={draft}
-            onValueChange={setDraft}
-            onCommit={commit}
-          />
-        ),
-        title: (
-          <span className="flex items-center gap-2">
-            {view === 'my' ? '내 Task' : 'Tasks'}
-            {total !== undefined ? <OutlineBadge>{formatCount(total)}</OutlineBadge> : null}
-          </span>
-        ),
-      }}
+      {...(!listPermissionDenied
+        ? {
+            toolbar: {
+              actions: (
+                <SearchInput
+                  placeholder={LIST_SEARCH_PLACEHOLDER}
+                  value={draft}
+                  onValueChange={setDraft}
+                  onCommit={commit}
+                />
+              ),
+              title: (
+                <span className="flex items-center gap-2">
+                  {view === 'my' ? '내 Task' : 'Tasks'}
+                  {total !== undefined ? <OutlineBadge>{formatCount(total)}</OutlineBadge> : null}
+                </span>
+              ),
+            },
+          }
+        : {})}
       tabs={
         view === 'my' && !listPermissionDenied ? (
           <div className="my-2">
@@ -356,14 +365,14 @@ export function TaskListScreen({ capability = 'finding.manage', view, autoSelect
               deniedRef={deniedRef}
               recoveryAction={<MyVocsRecoveryLink />}
             />
-          ) : scopedPermission.state === 'error' || (tasksQuery.error && !tasksQuery.isFetchNextPageError) ? (
+          ) : listUnavailable ? (
             <ListStateMessage
               variant="error"
               title="Task 목록을 불러오지 못했습니다"
               body="잠시 후 다시 시도하세요."
               action={{
                 label: '다시 시도',
-                onClick: scopedPermission.state === 'error' ? scopedPermission.retry : () => void tasksQuery.refetch(),
+                onClick: scopeCheckFailed ? scopedPermission.retry : () => void tasksQuery.refetch(),
               }}
             />
           ) : (

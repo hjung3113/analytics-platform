@@ -7,7 +7,7 @@ import { analyticsAreasCatalogQuery } from '../../../lib/cross-system/analyticsA
 import { useListDenial, useScopedEmptyListPermission } from '../../../lib/cross-system/useListDenial';
 import { managedSystemsCatalogQuery } from '../../../lib/cross-system/useManagedSystemNames';
 import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors';
-import { useHostNavigate, useHostSearch } from '../../../lib/host/host-seam';
+import { useHostNavigate, useHostPrimaryActionTarget, useHostSearch } from '../../../lib/host/host-seam';
 import { HostPrimaryAction } from '../../../lib/host/HostPrimaryAction';
 import { searchHref } from '../../../lib/host/search';
 import type { MilestoneStatusFilter } from '@ap/feature-shared';
@@ -80,6 +80,7 @@ const STATUS_TABS: Array<{ value: MilestoneTab; label: string }> = [
 
 export function MilestonesScreen({ capability = 'finding.manage', renderDetail }: MilestonesScreenProps) {
   const navigate = useHostNavigate();
+  const primaryActionTarget = useHostPrimaryActionTarget();
   const { param: selectedParam, managedSystem } = validateTasksSearch(useHostSearch());
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = React.useState<MilestoneTab>('all');
@@ -184,6 +185,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
     managedSystemId: managedSystem,
     empty: listReadSucceeded && items.length === 0,
   });
+  const scopeCheckFailed = scopedPermission.state === 'error';
   const scopedBlocked = scopedPermission.state === 'blocked';
   const { denied, deniedRef, request } = useListDenial({
     error: listQuery.error,
@@ -321,6 +323,29 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
     navigate(searchHref('/tasks', { view: 'milestones', managedSystem }));
   }
 
+  const createAction = (
+    <HostPrimaryAction>
+      <Button
+        variant="primary"
+        size="toolbar"
+        onClick={() => {
+          // R3 — an edited unsaved title confirms before the
+          // create block replaces the detail panel.
+          if (detailTitleDirty) {
+            setPendingCreate(true);
+            setPendingSelection(null);
+            setSelectionConfirmOpen(true);
+            return;
+          }
+          setCreating(true);
+        }}
+      >
+        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+        Milestone 생성
+      </Button>
+    </HostPrimaryAction>
+  );
+
   // R6 (Astra P2) — list loading/denied/error present INSIDE the list slot:
   // the shell and the detail slot keep their lifetime across tab refetches,
   // so uncached tab switches can no longer destroy create or title drafts.
@@ -331,6 +356,11 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
       <ListShell
         list={
           <>
+            {/* Mount hosted HostPrimaryAction in one stable position outside
+                the denied/readable branches so settling a 403 does not unmount
+                the head button or drop its focus. */}
+            {primaryActionTarget !== null ? createAction : null}
+            {!denied && <>
             {/* CP-pixel finding 1 (.review/pixel-514-findings.md): with detail
                 open the list column is 708px. Keep the action side shrinkable
                 so the search field yields width before Filter and New milestone,
@@ -365,26 +395,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
                   </Button>
                   {/* B2e — opens the property block in a create state in the
                     detail slot; no separate create screen. */}
-                  <HostPrimaryAction>
-                    <Button
-                      variant="primary"
-                      size="toolbar"
-                      onClick={() => {
-                        // R3 — an edited unsaved title confirms before the
-                        // create block replaces the detail panel.
-                        if (detailTitleDirty) {
-                          setPendingCreate(true);
-                          setPendingSelection(null);
-                          setSelectionConfirmOpen(true);
-                          return;
-                        }
-                        setCreating(true);
-                      }}
-                    >
-                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                      Milestone 생성
-                    </Button>
-                  </HostPrimaryAction>
+                  {primaryActionTarget === null ? createAction : null}
                 </div>
               }
             />
@@ -404,6 +415,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
               />
               <div className="flex-1" />
             </div>
+            </>}
 
             <div className="min-h-0 flex-1 overflow-y-auto">
               {listQuery.isLoading || scopedPermission.state === 'checking' ? (
@@ -416,14 +428,14 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
                   request={scopedBlocked ? request ?? undefined : undefined}
                   deniedRef={deniedRef}
                 />
-              ) : scopedPermission.state === 'error' || listQuery.error ? (
+              ) : scopeCheckFailed || listQuery.error ? (
                 <ListStateMessage
                   variant="error"
                   title="Milestone 목록을 불러오지 못했습니다"
                   body="잠시 후 다시 시도하세요."
                   action={{
                     label: '다시 시도',
-                    onClick: scopedPermission.state === 'error' ? scopedPermission.retry : () => void listQuery.refetch(),
+                    onClick: scopeCheckFailed ? scopedPermission.retry : () => void listQuery.refetch(),
                   }}
                 />
               ) : (

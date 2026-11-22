@@ -1,4 +1,6 @@
 import { getMilestone, listMilestones } from '../../../lib/api/milestones';
+import { ApiError } from '../../../lib/api/types';
+import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
 import type { HostSearch } from '../../../lib/host/search';
 import type { MilestoneDetailDto, MilestoneDto } from '@ap/feature-shared';
@@ -223,5 +225,31 @@ describe('MilestonesScreen under a host seam (#763 m)', () => {
       delete (window as { isSecureContext?: unknown }).isSecureContext;
       if (original) Object.defineProperty(navigator, 'clipboard', original);
     }
+  });
+
+  it('shows only the denial card without toolbar, tabs, search, or summary strip on 403', async () => {
+    vi.mocked(listMilestones).mockRejectedValue(
+      new ApiError(403, { code: 'permission.denied', message: 'finding.manage required' }),
+    );
+    render(<Harness search={BASE} />);
+    const reason = await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList);
+    expect(reason.closest('[data-state="denied"]')).toBeInTheDocument();
+    expect(document.querySelector('[data-list-toolbar]')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Milestone 검색…')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: '필터' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Milestone 생성' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('milestones-summary')).not.toBeInTheDocument();
+  });
+
+  it('keeps the toolbar and summary strip on a 500 list error', async () => {
+    vi.mocked(listMilestones).mockRejectedValue(
+      new ApiError(500, { code: 'internal.unexpected', message: 'server failed' }),
+    );
+    render(<Harness search={BASE} />);
+    expect(await screen.findByText('Milestone 목록을 불러오지 못했습니다')).toBeInTheDocument();
+    expect(document.querySelector('[data-list-toolbar]')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Milestone 검색…')).toBeInTheDocument();
+    expect(screen.getByTestId('milestones-summary')).toBeInTheDocument();
   });
 });

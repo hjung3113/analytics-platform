@@ -2,6 +2,8 @@
 // complete feature href, carried keys kept, absent means cleared, and the replace flag of the old
 // router calls (replace only for the q draft and the panel close).
 
+import { ApiError } from '../../../lib/api/types';
+import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { SEARCH_DEBOUNCE_MS } from '../../../lib/forms/search-debounce';
 import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
 import type { TaskDto } from '@ap/feature-shared';
@@ -256,4 +258,38 @@ describe('TaskListScreen selection', () => {
     expect(renderDetail).toHaveBeenCalled();
     expect(screen.getByTestId('slot')).toHaveTextContent('기존 상세');
   });
+});
+
+describe('TaskListScreen list read denial (#2677)', () => {
+  it.each(['backlog', 'my'] as const)(
+    'shows only the denial card without toolbar title row, search box, or tabs on 403 (%s)',
+    async (view) => {
+      searchState = { ...CARRIED, view };
+      listTasksMock.mockRejectedValueOnce(
+        new ApiError(403, { code: 'permission.denied', message: 'finding.manage required' }),
+      );
+      mount(view);
+      const reason = await screen.findByText(PERMISSION_BLOCKED_REASONS.taskList);
+      expect(reason.closest('[data-state="denied"]')).toBeInTheDocument();
+      expect(document.querySelector('[data-shell-header="toolbar"]')).not.toBeInTheDocument();
+      expect(document.querySelector('[data-list-shell-tabs]')).not.toBeInTheDocument();
+      expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: 'Task 상태' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: view === 'my' ? '내 Task' : 'Tasks' })).not.toBeInTheDocument();
+    },
+  );
+
+  it.each(['backlog', 'my'] as const)(
+    'keeps the toolbar on a 500 list error (%s)',
+    async (view) => {
+      searchState = { ...CARRIED, view };
+      listTasksMock.mockRejectedValueOnce(
+        new ApiError(500, { code: 'internal.unexpected', message: 'server failed' }),
+      );
+      mount(view);
+      expect(await screen.findByText('Task 목록을 불러오지 못했습니다')).toBeInTheDocument();
+      expect(document.querySelector('[data-shell-header="toolbar"]')).toBeInTheDocument();
+      expect(screen.getByRole('searchbox')).toBeInTheDocument();
+    },
+  );
 });

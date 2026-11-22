@@ -384,7 +384,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader, re
       <ListShell
         list={
           <>
-            <ListToolbar
+            {!queue.permissionDeniedError && <ListToolbar
               tabs={queue.tabs}
               activeTab={queue.activeTab}
               onTabChange={(next) => {
@@ -433,7 +433,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader, re
                   </Select>
                 ) : undefined
               }
-            />
+            />}
             <div ref={listRef} role={queueLabel ? 'group' : undefined} aria-label={queueLabel}
               tabIndex={queueLabel ? -1 : undefined} className="flex min-h-0 flex-1 flex-col focus:outline-2 focus:outline-focus-ring focus:-outline-offset-2">
               {queue.isLoading ? (

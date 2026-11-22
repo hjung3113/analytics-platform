@@ -1,3 +1,5 @@
+import { ApiError } from '../../../lib/api/types';
+import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
 import type { HostSearch } from '../../../lib/host/search';
 import { taskRequestPage } from '../../../test/task-request-pages';
@@ -236,5 +238,27 @@ describe('TaskRequestsScreen over a bare host seam', () => {
       delete (window as { isSecureContext?: unknown }).isSecureContext;
       if (original) Object.defineProperty(navigator, 'clipboard', original);
     }
+  });
+
+  it('shows only the denial card without toolbar, tabs, or reviewer filter on 403', async () => {
+    api.fetchTaskRequests.mockRejectedValue(
+      new ApiError(403, { code: 'permission.denied', message: 'finding.manage required' }),
+    );
+    render(<Harness search={BASE} />);
+    const reason = await screen.findByText(PERMISSION_BLOCKED_REASONS.taskRequestQueue);
+    expect(reason.closest('[data-state="denied"]')).toBeInTheDocument();
+    expect(document.querySelector('[data-list-toolbar]')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
+    expect(screen.queryByRole('combobox', { name: '검토자 필터' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the toolbar and tabs on a 500 list error', async () => {
+    api.fetchTaskRequests.mockRejectedValue(
+      new ApiError(500, { code: 'internal.unexpected', message: 'server failed' }),
+    );
+    render(<Harness search={BASE} />);
+    expect(await screen.findByText('Task 요청 목록을 불러오지 못했습니다')).toBeInTheDocument();
+    expect(document.querySelector('[data-list-toolbar]')).toBeInTheDocument();
+    expect(screen.getAllByRole('tab').length).toBeGreaterThan(0);
   });
 });

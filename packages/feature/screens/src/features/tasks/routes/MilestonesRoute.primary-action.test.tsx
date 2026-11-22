@@ -1,5 +1,7 @@
 // #1291 B2 — Milestone 생성 is drawn in the host head when the host offers one and still opens the create block from there.
 import { listMilestones } from '../../../lib/api/milestones';
+import { ApiError } from '../../../lib/api/types';
+import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
 import { HeadTargetHost } from '../../../test/primary-action-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -56,5 +58,41 @@ describe('MilestonesScreen Milestone 생성 placement', () => {
     render(<HostSeamProvider value={seam}>{screenOf()}</HostSeamProvider>);
     expect(await screen.findByRole('button', CREATE)).toBeInTheDocument();
     expect(screen.getAllByRole('button', CREATE)).toHaveLength(1);
+  });
+
+  it('keeps Milestone 생성 in the host head while omitting the list toolbar on 403', async () => {
+    vi.mocked(listMilestones).mockRejectedValue(
+      new ApiError(403, { code: 'permission.denied', message: 'finding.manage required' }),
+    );
+    render(<HeadTargetHost base={seam}>{screenOf()}</HeadTargetHost>);
+    expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList)).toBeInTheDocument();
+    const head = within(screen.getByTestId('host-head'));
+    expect(head.getByRole('button', CREATE)).toBeInTheDocument();
+    expect(within(screen.getByTestId('host-body')).queryByRole('button', CREATE)).toBeNull();
+    expect(document.querySelector('[data-list-toolbar]')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('milestones-summary')).not.toBeInTheDocument();
+  });
+
+  it('keeps the same head Milestone 생성 button connected and focused when a deferred 403 settles', async () => {
+    const rejectors: Array<(error: unknown) => void> = [];
+    vi.mocked(listMilestones).mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          rejectors.push(reject);
+        }),
+    );
+    render(<HeadTargetHost base={seam}>{screenOf()}</HeadTargetHost>);
+    const head = within(screen.getByTestId('host-head'));
+    const button = await head.findByRole('button', CREATE);
+    button.focus();
+    expect(button).toHaveFocus();
+
+    const denial = new ApiError(403, { code: 'permission.denied', message: 'finding.manage required' });
+    for (const reject of rejectors) reject(denial);
+
+    expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList)).toBeInTheDocument();
+    expect(button.isConnected).toBe(true);
+    expect(head.getByRole('button', CREATE)).toBe(button);
+    expect(button).toHaveFocus();
   });
 });
