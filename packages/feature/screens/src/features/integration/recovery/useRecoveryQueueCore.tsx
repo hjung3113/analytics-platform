@@ -329,7 +329,7 @@ export function useRecoveryQueueCore(
         <Skeleton className="h-24" role="status" aria-label={COPY.loading} />
       ) : listDenied ? (
         // A confirmed denial wins over a failed session refetch; that retry is the only action then.
-        <div ref={denialCard} tabIndex={-1} aria-label={queueTitle} className="space-y-3 outline-none">
+        <div ref={denialCard} tabIndex={-1} aria-label={queueTitle} className="space-y-3">
           <PermissionBlockedPanel
             layout="card"
             state="denied"
@@ -337,14 +337,15 @@ export function useRecoveryQueueCore(
             category={queueTitle}
             description={COPY.listDenied}
           />
-          {me.isError ? (
-            <div className="flex justify-center">
-              <Button variant="subtle" size="sm" onClick={() => void me.refetch()}>
-                {COPY.retryQueue}
-              </Button>
+          {me.isError || returnLink ? (
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {me.isError ? (
+                <Button variant="subtle" size="sm" onClick={() => void me.refetch()}>
+                  {COPY.retryQueue}
+                </Button>
+              ) : null}
+              {returnLink}
             </div>
-          ) : returnLink ? (
-            <div className="flex justify-center">{returnLink}</div>
           ) : null}
         </div>
       ) : me.isError ? (

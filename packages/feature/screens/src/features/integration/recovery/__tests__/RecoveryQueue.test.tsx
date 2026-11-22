@@ -485,6 +485,7 @@ it('keeps the list controls on a general list failure and drops them once the re
   await screen.findByText('항목을 불러오지 못했습니다.');
   expect(screen.getByRole('heading', { level: 2, name: '처리가 필요한 항목' })).toBeInTheDocument();
   expect(screen.getByRole('tablist')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '새로고침' })).toBeInTheDocument();
   status = 403;
   fireEvent.click(screen.getByRole('button', { name: '항목 다시 시도' }));
   await screen.findByText('이 목록을 볼 권한이 없습니다.');
@@ -508,7 +509,7 @@ it('keeps a confirmed list denial when the session refetch also fails (#2677)', 
             page: { has_more: false },
           }),
   });
-  const { client } = await mount();
+  const { client } = await mount(`/integration?returnTo=${encodeURIComponent('/integration/coverage')}`);
   await screen.findByRole('button', { name: /VOC 담당자 배정이 필요/ });
   failing = true;
   await act(async () => {
@@ -522,8 +523,9 @@ it('keeps a confirmed list denial when the session refetch also fails (#2677)', 
   expect(screen.queryByRole('combobox', { name: '항목 종류' })).toBeNull();
   expect(screen.queryByText(/표시 1건/)).toBeNull();
   expect(screen.queryByRole('button', { name: /VOC 담당자 배정이 필요/ })).toBeNull();
-  // The session retry is the one recovery action left.
+  // The session retry joins the way back; no list control stays.
   expect(screen.getByRole('button', { name: '항목 다시 시도' })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '목록으로 돌아가기' })).toBeInTheDocument();
 });
 it('returns focus to the denial card when a detail closes over a denied list (#2677)', async () => {
   setup({ list: () => response({ code: 'permission.denied' }, 403) });
