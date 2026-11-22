@@ -9,7 +9,7 @@ import { RCC_DRILL, RCC_FACET_KEYS } from './pageKeys';
 // Declared here so app typechecks that do not include Vite's client types still compile this menu (#2496).
 // Until real RCC data is bound, the synthetic screen exists only in the mock development assembly.
 declare global {
-  interface ImportMetaEnv { readonly DEV: boolean; readonly MODE: string }
+  interface ImportMetaEnv { DEV: boolean; MODE: string }
   interface ImportMeta { readonly env: ImportMetaEnv }
 }
 const prototypeEnabled = typeof import.meta.env !== 'undefined' && import.meta.env.DEV && import.meta.env.MODE === 'development';

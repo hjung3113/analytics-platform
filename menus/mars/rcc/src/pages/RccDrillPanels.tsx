@@ -135,7 +135,8 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
     } : null;
     const categoryValueMarks = {
       label: m('actualL1'),
-      byCategory: new Map(comparison.equipment.map(item => [item.id, item.total])),
+      // Held rows have no Step bars, so they get no actual-L1 mark either.
+      byCategory: new Map(comparison.equipment.map(item => [item.id, item.held ? null : item.total])),
     };
     const toStep = (point: ChartPoint) => drillTo({ step: point.seriesId, equipment: point.x });
     const stack: PanelWorkspacePanel = {
