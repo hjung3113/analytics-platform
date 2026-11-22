@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { noContext } from '@ap/kernel/testing';
-import { formatQuerySummary, presetOutsideAxes, querySummaryItems } from '../querySummary';
+import { formatQuerySummary, presetOutsideAxes, querySummaryItems, type QuerySummaryOptions } from '../querySummary';
 import { formatPeriod, type GlobalContext } from '@ap/contracts';
 
 const global: GlobalContext = { scopeId: 'S', from: null, to: null, roomNames: ['PHOTO'], lineNames: ['L1', 'L2'], prcGroups: null, condition: { vendor: ['V1'] }, membershipBasis: 'asOf', selection: [], lotIds: ['LOT'], ppid: 'PP', recipeIds: ['R'], metricId: 'M', metricVersion: '3' };
@@ -20,6 +20,10 @@ describe('query summary values', () => {
     const options = { lang: 'ko' as const, pageSummary: [{ key: 'grain', label: '집계', value: '일' }] };
     expect(formatQuerySummary(global, options)).toBe(formatQuerySummary(global, [], options));
     expect(formatQuerySummary(global, options)).toContain('집계 일');
+  });
+  it('reads a two-argument call as options even when the options value is an array (#2699)', () => {
+    const options: QuerySummaryOptions = Object.assign([], { lang: 'ko' as const });
+    expect(formatQuerySummary(global, options)).toBe(formatQuerySummary(global, [], { lang: 'ko' }));
   });
 });
 

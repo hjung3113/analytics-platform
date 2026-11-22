@@ -62,8 +62,10 @@ export function formatQuerySummary(global: GlobalContext, options: QuerySummaryO
  */
 export function formatQuerySummary(global: GlobalContext, page: readonly Pair[], options: QuerySummaryOptions): string;
 export function formatQuerySummary(global: GlobalContext, pageOrOptions: readonly Pair[] | QuerySummaryOptions, maybeOptions?: QuerySummaryOptions): string {
-  const page = Array.isArray(pageOrOptions) ? pageOrOptions as readonly Pair[] : [];
-  const options = (Array.isArray(pageOrOptions) ? maybeOptions : pageOrOptions) as QuerySummaryOptions;
+  // The argument count picks the form: an options value may itself be an array, so its shape cannot tell the two apart.
+  const legacy = maybeOptions !== undefined;
+  const page = legacy ? pageOrOptions as readonly Pair[] : [];
+  const options = (legacy ? maybeOptions : pageOrOptions) as QuerySummaryOptions;
   const { lang, preset } = options;
   const active = preset?.presets.find(item => item.id === preset.id);
   // Values the preset leaves out of the request are not part of the query this line describes; the QueryBar still lists them as carried.
