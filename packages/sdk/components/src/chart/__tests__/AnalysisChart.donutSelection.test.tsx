@@ -77,7 +77,7 @@ it('reports keyboard selection, deselection and Reset without firing the action'
   fireEvent.click(beta); expect(beta).not.toBeChecked();
   view.update({ ...spec }); expect(summary()).toHaveTextContent('선택 없음');
   view.update({ ...spec, selectedId: 'b' }); expect(beta).toBeChecked();
-  fireEvent.click(screen.getByRole('button', { name: '차트 초기화' }));
+  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
   expect(onSelectedChange.mock.calls).toEqual([['b'], [null], [null]]);
   expect(onSliceClick).not.toHaveBeenCalled();
 });

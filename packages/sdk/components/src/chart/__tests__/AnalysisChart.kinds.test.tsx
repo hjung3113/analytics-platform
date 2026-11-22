@@ -86,7 +86,7 @@ it('maps grouped scatter indices past omitted nulls, merges groups and commits o
   click(1, 0); expect(selection()).toHaveTextContent('b · 1개 선택');
 });
 
-it.each(['차트 초기화', 'context'])('clears scatter pending selection and ECharts areas on %s', async action => {
+it.each(['초기화', 'context'])('clears scatter pending selection and ECharts areas on %s', async action => {
   mount(scatter); await screen.findByRole('img');
   const dispatchAction = vi.fn(); act(() => plot.onReady?.({ dispatchAction } as never));
   brush([{ seriesIndex: 0, dataIndex: [0, 1] }]);
@@ -102,19 +102,19 @@ it.each([scatter, box, pareto])('preserves $kind selection by ID on reorder, pru
   view.update(reverse); expect(selection()).toHaveTextContent('Alpha');
   const removed: ChartSpec = spec.kind === 'scatter' ? { ...spec, points: [spec.points[1]] } : spec.kind === 'boxPlot' ? { ...spec, groups: [spec.groups[1]] } : { ...spec, items: [spec.items[1]] };
   view.update(removed); expect(selection()).toHaveTextContent('선택 없음');
-  click(0, 0); fireEvent.click(screen.getByRole('button', { name: '차트 초기화' })); expect(selection()).toHaveTextContent('선택 없음');
+  click(0, 0); fireEvent.click(screen.getByRole('button', { name: '초기화' })); expect(selection()).toHaveTextContent('선택 없음');
   click(0, 0); fireEvent.click(screen.getByRole('button', { name: 'context' })); expect(selection()).toHaveTextContent('선택 없음');
 });
 
 it('clears pending IDs and cursor on kind change, preserving table visibility', async () => {
   const view = mount(scatter); await screen.findByRole('img');
-  fireEvent.click(screen.getByRole('button', { name: '끌어서 선택' }));
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
   fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   brush([{ seriesIndex: 0, dataIndex: [0] }]);
   view.update(box); expect(screen.getByRole('table')).toBeVisible();
   view.update(scatter); end();
   expect(selection()).toHaveTextContent('선택 없음');
-  expect(screen.getByRole('button', { name: '끌어서 선택' })).toHaveAttribute('aria-pressed', 'false');
+  expect(screen.getByRole('button', { name: '구간 선택' })).toHaveAttribute('aria-pressed', 'false');
 });
 
 it('maps box outliers and median marks to the single owning group', async () => {
@@ -156,7 +156,7 @@ it.each([scatter, box, pareto])('uses English summary, table and toolbar for $ki
   mount(spec); await screen.findByRole('img');
   fireEvent.click(screen.getByRole('button', { name: 'english' }));
   fireEvent.click(screen.getByRole('button', { name: 'Show as table' }));
-  expect(screen.getByRole('button', { name: 'Reset chart' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Reset' })).toBeVisible();
   expect(screen.getByRole('region', { name: 'Selection summary' })).toHaveTextContent('No selection');
   expect(screen.queryByRole('button', { name: 'Details' })).toBeNull();
   const region = screen.getByRole('region', { name: 'Chart' });
@@ -315,7 +315,7 @@ it.each(['ko', 'en'])('names box tooltip statistics in %s and preserves all data
 
 it('replays a scatter brush activated before the lazy renderer supplies its instance', async () => {
   mount(scatter); await screen.findByRole('img');
-  fireEvent.click(screen.getByRole('button', { name: '끌어서 선택' }));
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
   const dispatchAction = vi.fn(); act(() => plot.onReady?.({ dispatchAction } as never));
   expect(dispatchAction).toHaveBeenCalledWith({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'rect', brushMode: 'single' } }, { silent: true });
 });
@@ -332,9 +332,9 @@ it('does not carry a heatmap coordinate selection into a matching new-kind row I
 it('hides the scatter ECharts toolbox while keeping the header drag toggle', async () => {
   mount(scatter); await screen.findByRole('img');
   expect(plot.option).toMatchObject({ toolbox: { show: false } });
-  expect(screen.getByRole('button', { name: '끌어서 선택' })).toHaveAttribute('aria-pressed', 'false');
-  fireEvent.click(screen.getByRole('button', { name: '끌어서 선택' }));
-  expect(screen.getByRole('button', { name: '끌어서 선택' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.getByRole('button', { name: '구간 선택' })).toHaveAttribute('aria-pressed', 'false');
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+  expect(screen.getByRole('button', { name: '구간 선택' })).toHaveAttribute('aria-pressed', 'true');
 });
 
 it('keeps scatter vertical reference labels horizontal inside the top of the grid and centres the x-axis name', async () => {

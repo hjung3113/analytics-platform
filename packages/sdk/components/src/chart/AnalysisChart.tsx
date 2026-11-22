@@ -46,7 +46,7 @@ export type HeatmapSpec = {
   statusDisplay?: 'marker' | 'border';
   /** Thresholds are only for approved real judgements, not inferred status. */
   scale?: { type: 'sequential'; domain?: [number, number] }
-    | { type: 'diverging'; pivot: number; domain?: [number, number]; lowerIsBetter?: boolean }
+    | { type: 'diverging'; pivot: number; pivotLabel?: string; domain?: [number, number]; lowerIsBetter?: boolean }
     | { type: 'threshold'; breaks: [number, number]; labels: [string, string, string] };
   valueFormat?: (v: number) => string;
   /** Explicit drill from Details only; canvas clicks select. */
@@ -384,6 +384,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     exportGate.say(m('chartExportedCsv', { chartId: p.chartId }));
   }
   const categoryLegend = spec.kind === 'heatmap' && spec.categories?.map(category => <span key={category.id} className="inline-flex items-center gap-1"><Swatch color={token(HEATMAP_CATEGORY_TOKENS[category.tone].fill)} />{category.label[lang]}</span>);
+  const pivotLabel = scale?.type === 'diverging' ? scale.pivotLabel ?? m('chartTarget', { pivot: format(scale.pivot) }) : undefined;
   const kindLegend = <>{spec.kind === 'heatmap' && <div className={cn('px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
         {categorical && <div className="flex flex-wrap gap-3">{categoryLegend}</div>}
         {!categorical && (scale?.type === 'threshold' && validThreshold ? <div className="flex gap-3">{scale.labels.map((label, i) => <span key={i} className="flex items-center gap-1"><Swatch color={token([colors.good, colors.warn, colors.critical][i])} />{label}</span>)}</div> : <>
@@ -392,7 +393,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
             <span>{format(domain[0])}</span>
             {scale?.type === 'diverging' && <span className="absolute left-1/2 flex -translate-x-1/2 flex-col items-center">
               <span aria-hidden className="absolute bottom-full h-2 border-l border-border-strong" />
-              <span>{m('chartTarget', { pivot: format(scale.pivot) })}</span>
+              <span>{pivotLabel}</span>
             </span>}
             <span>{format(domain[1])}</span>
           </div>
@@ -408,7 +409,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       {!categorical && (scale?.type === 'threshold' && validThreshold ? scale.labels.map((label, i) => <span key={i} className="inline-flex items-center gap-1"><Swatch color={token([colors.good, colors.warn, colors.critical][i])} />{label}</span>) : <>
         <span>{format(domain[0])}</span>
         <HeatmapRamp ramp={ramp} inline />
-        {scale?.type === 'diverging' && <span>{m('chartTarget', { pivot: format(scale.pivot) })}</span>}
+        {scale?.type === 'diverging' && <span>{pivotLabel}</span>}
         <span>{format(domain[1])}</span>
       </>)}
       <span className="inline-flex items-center gap-1"><Swatch color={token(colors.unknown)} unknown />{unknown}</span>
@@ -457,19 +458,23 @@ export function AnalysisChart(p: AnalysisChartProps) {
       <p className="border-t border-border-subtle pt-2 text-text-secondary">{summary}</p>
     </>} />;
   if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
+  const toolbarButtonSize = compactChrome ? 'icon-xs' : 'toolbar';
+  const compactActionClass = compactChrome ? 'shrink-0' : undefined;
+  const categoryActions = <>
+    {spec.kind !== 'histogram' && <Button type="button" size={toolbarButtonSize} className={compactActionClass} variant="ghost"
+      aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}><RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}</Button>}
+    {brushable && <Button type="button" size={toolbarButtonSize} className={compactActionClass} variant={brushMode ? 'secondary' : 'ghost'}
+      aria-label={m('chartBrush')} title={m('chartBrush')} aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}><BrushIcon className="size-3.5" aria-hidden />{!compactChrome && m('chartBrush')}</Button>}
+  </>;
   return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), fittedDonut && 'min-h-64 overflow-y-auto', embedded && 'rounded-none border-0 shadow-none')}>
     <AnalysisChartPart enabled={section !== null}>
       {topN ? <>{rankingToolbar}{chrome === 'full' && kindLegend}
         {!compactChrome && <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>}
-      </> : <PanelChartChrome open={panelToolsOpen} onOpenChange={setPanelToolsOpen} enabled={compactChrome} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} actions={<>
-        {spec.kind !== 'histogram' && <Button size="icon-xs" className="shrink-0" variant="ghost" aria-label={m('chartResetSelection')} title={m('chartResetSelection')} onClick={reset}><RotateCcw className="size-3.5" aria-hidden /></Button>}
-        {brushable && <Button size="icon-xs" className="shrink-0" variant="ghost" aria-label={m('chartDragToSelect')} title={m('chartDragToSelect')} aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}><BrushIcon className="size-3.5" aria-hidden /></Button>}
-      </>}>
+      </> : <PanelChartChrome open={panelToolsOpen} onOpenChange={setPanelToolsOpen} enabled={compactChrome} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} actions={categoryActions}>
       <header className={cn('flex flex-wrap items-start justify-between', embedded ? 'gap-1 px-4 pt-1' : 'gap-2 px-4 pt-3', section && 'pr-12')}>
         {!compactChrome && <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} hideTitle={false} />}
         <div role="toolbar" aria-label={m('chartActions')} className="flex flex-wrap gap-1">
-          {!compactChrome && spec.kind !== 'histogram' && <Button size="toolbar" variant="ghost" onClick={reset}>{m('chartResetSelection')}</Button>}
-          {!compactChrome && brushable && <Button size="toolbar" variant="ghost" aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}>{m('chartDragToSelect')}</Button>}
+          {!compactChrome && categoryActions}
           <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => { setTable(current => !current); if (compactChrome) setPanelToolsOpen(false); }}>{m('chartShowAsTable')}</Button>
           {exportGate.allowed && <><Button size="toolbar" variant="ghost" onClick={exportCsv}>{t('export')}</Button>{!compactChrome && <ImageActionStatus text={exportGate.status} />}</>}
           {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} onOutcome={compactChrome ? exportGate.say : undefined} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}

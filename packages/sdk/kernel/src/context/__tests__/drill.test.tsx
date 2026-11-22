@@ -40,6 +40,17 @@ const registry = createRegistry({
       pageKeys: ['drillRoom', 'drillStgroup', 'row', 'sort'], contextResetKeys: ['drillRoom', 'drillStgroup'],
       drill: { levels: [level('drillRoom', '공정', 'Process'), level('drillStgroup', 'StGroup', 'StGroup')], resetKeys: ['row'] },
     }),
+    entry({
+      id: 'labeled', path: '/labeled', pageKeys: [...drillKeys], contextResetKeys: [...drillKeys],
+      drill: { levels: [
+        { ...level('drillRoom', '공정', 'Process'), valueLabel: (value, lang) => `${lang}: ${value}` },
+        { ...level('drillStgroup', 'StGroup', 'StGroup'), valueLabel: () => '' },
+        { ...level('drillEquipment', '설비', 'Equipment'), valueLabel: value => {
+          if (value === 'E') throw new Error('No display label');
+          return `Equipment ${value}`;
+        } },
+      ] },
+    }),
     entry({ id: 'plain', path: '/plain', label: { ko: '사이클타임 상세', en: 'Cycle time detail' } }),
     entry({ id: 'detail', path: '/detail', parent: 'source', navHidden: true, pageKeys: ['returnTo'], label: { ko: '실행 상세', en: 'Execution detail' } }),
   ],
@@ -78,6 +89,34 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('useDrill (06 §6.4, ADR-0025)', () => {
+  it('exposes localized value labels alongside raw page values', () => {
+    const href = '/mars/labeled?v=1&drillRoom=PHOTO';
+    mount(href);
+    const step = { value: 'PHOTO', valueLabel: 'ko: PHOTO' };
+    expect(drill!.levels[0]).toMatchObject(step);
+    expect(drill!.trail[0]).toMatchObject(step);
+    expect(url()).toBe(href);
+  });
+
+  it('labels an invalid step without changing its value or URL', () => {
+    const href = '/mars/labeled?v=1&drillRoom=PHOTO&drillEquipment=F';
+    mount(href);
+    expect(drill!.invalid).toMatchObject({ value: 'F', valueLabel: 'Equipment F' });
+    expect(url()).toBe(href);
+  });
+
+  it.each([
+    ['missing', '/mars/source', 'drillStgroup', 'A'],
+    ['empty', '/mars/labeled', 'drillStgroup', 'A'],
+    ['throwing', '/mars/labeled', 'drillEquipment', 'E'],
+  ])('uses the raw value when the formatter is %s', (kind, path, key, value) => {
+    mount(`${path}?v=1&drillRoom=PHOTO&drillStgroup=A&drillEquipment=E`);
+    const step = drill!.trail.find(candidate => candidate.key === key)!;
+    expect(step.value).toBe(value);
+    expect(step.valueLabel ?? step.value).toBe(value);
+    if (kind !== 'missing') expect(step.valueLabel).toBe(value);
+  });
+
   it('reads depth, trail and the first gap as invalid; an empty string is absent', () => {
     mount('/mars/source?v=1&drillStgroup=A&drillEquipment=E');
     expect(drill!.depth).toBe(0);
@@ -193,6 +232,12 @@ describe('drill.resetKeys (06 §6.4)', () => {
 });
 
 describe('returnOrigin (06 §22, ADR-0025)', () => {
+  it('carries drill display labels on an accepted return trail', () => {
+    const href = '/mars/labeled?v=1&drillRoom=PHOTO';
+    mount(`/mars/detail?v=1&returnTo=${encodeURIComponent(href)}`);
+    expect(origin).toMatchObject({ href, trail: [{ value: 'PHOTO', valueLabel: 'ko: PHOTO' }] });
+  });
+
   it('reads the accepted returnTo menu label and the leading drill values', () => {
     const accepted = '/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillEquipment=E';
     mount(`/mars/detail?v=1&returnTo=${encodeURIComponent(accepted)}`);

@@ -58,6 +58,6 @@ it.each(['click', 'dblclick'] as const)('activates a table-selected cell with En
 });
 it('does not activate while rectangle selection is enabled', async () => {
   const onActivate = vi.fn(); mount({ ...heat, cellActivation: { on: 'click', onActivate } }); await screen.findByRole('img');
-  fireEvent.click(screen.getByRole('button', { name: '끌어서 선택' })); gesture('click');
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' })); gesture('click');
   expect(onActivate).not.toHaveBeenCalled(); expect(screen.getByRole('button', { name: '선택 지점 실행' })).toBeDisabled();
 });

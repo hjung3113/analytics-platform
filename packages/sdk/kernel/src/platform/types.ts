@@ -330,7 +330,7 @@ export const RETURN_CONTEXT_LABELS: Record<ReturnContextKey, Text> = {
 export type ReturnOrigin = {
   href: string;
   menuLabel: Text;
-  trail: { label: Text; value: string }[];
+  trail: { label: Text; value: string; valueLabel?: string }[];
   revertedContext: ReturnContextKey[];
   /** True only when `href` is a `returnTo` that passed `safeReturnTo` and `canOpen`; parent/home fallbacks are false. */
   accepted: boolean;
