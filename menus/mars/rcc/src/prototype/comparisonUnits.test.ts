@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { comparisonUnits } from './comparisonUnits';
+import { FACET_RESULTS, comparisonUnits } from './comparisonUnits';
 import { COHORTS, EQUIPMENT, comparisonFor, evidenceFor, equipmentForTarget } from './timeCompareFixture';
 
 describe('RCC round-two comparison', () => {
+  it('shows PPID IDs once in the narrowing results while retaining the PPID facet', () => {
+    expect(FACET_RESULTS?.ppid.resultColumns).toEqual([]);
+    expect(FACET_RESULTS.ppid.items).toContainEqual({ id: 'PPID-204', facets: { ppid: 'PPID-204' } });
+    expect(FACET_RESULTS.recipe.resultColumns).toBeUndefined();
+    expect(FACET_RESULTS.combined.resultColumns).toBeUndefined();
+  });
+
   it('keeps the shared Recipe as two usage rows with different PPID and Layer', () => {
     const units = comparisonUnits('recipe', { recipe: ['RCP-042'] });
     expect(units.map(unit => unit.label)).toEqual(['RCP-042 · PPID-204 · L2', 'RCP-042 · PPID-318 · L1']);

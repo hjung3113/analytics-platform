@@ -1,23 +1,15 @@
 import { periodFromDates, type EquipmentSummary, type GlobalContext } from '@ap/contracts';
 import { customGroupMembers } from '@ap/kernel';
+import { COHORTS, STRUCTURES, type Cohort, type Structure } from './comparisonCatalog';
+
+export { COHORTS, STRUCTURES, type Cohort, type Step, type Structure } from './comparisonCatalog';
 
 // The fixture stands in for the upstream daily and period read models.
-export type Cohort = { id: string; ppid: string; layer: number; recipe: string };
-export const COHORTS = [
-  { id: '204-2-042', ppid: 'PPID-204', layer: 2, recipe: 'RCP-042' },
-  { id: '318-3-057', ppid: 'PPID-318', layer: 3, recipe: 'RCP-057' },
-  { id: '204-1-031', ppid: 'PPID-204', layer: 1, recipe: 'RCP-031' },
-  { id: '318-1-042', ppid: 'PPID-318', layer: 1, recipe: 'RCP-042' },
-  { id: '427-1-081', ppid: 'PPID-427', layer: 1, recipe: 'RCP-081' },
-  { id: '427-2-091', ppid: 'PPID-427', layer: 2, recipe: 'RCP-091' },
-] as const satisfies readonly Cohort[];
 type Period = 14 | 7 | 1 | readonly string[];
-export type Structure = 'A' | 'B';
 
 const DAY_COUNT = 14;
 // Cover the fortnight ending on the mock shell's default calendar day (September 25).
 const FIRST_DAY = 12;
-const STEP_COUNT = 18;
 const TYPE_A_COUNT = 9;
 const WAFERS_PER_DAY_MIN = 3;
 const WAFER_COUNT_VARIATION = 3;
@@ -59,18 +51,6 @@ export function equipmentForTarget(
   return { equipment: EQUIPMENT.filter(item => members.has(item.targetId)), targetCount: members.size };
 }
 export const STRUCTURE_TYPES = ['A', 'B'] as const;
-
-export type Step = { id: string; no: number; seq: number };
-function steps(kind: Structure): Step[] {
-  return Array.from({ length: STEP_COUNT }, (_, i) => {
-    let no = i + 1 <= 2 ? (i + 1) * 10 : i * 10;
-    if (kind === 'B' && i === 5) no += 5;
-    if (kind === 'B' && i === 11) no += 5;
-    const seq = i + 1;
-    return { id: `${no}:${seq}`, no, seq };
-  });
-}
-export const STRUCTURES = { A: steps('A'), B: steps('B') };
 
 type DailyValue = { value: number; count?: number };
 type Daily = { day: string; total: DailyValue; layer: DailyValue; steps: Record<string, DailyValue> };

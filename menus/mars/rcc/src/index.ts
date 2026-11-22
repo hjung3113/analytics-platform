@@ -3,6 +3,7 @@ import { lazy } from 'react';
 import { Workflow } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId, menuPermission, type SavedViewSupport } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
+import { RCC_MESSAGES as M } from './messages';
 import { RCC_DRILL, RCC_FACET_KEYS } from './pageKeys';
 
 // This host mode loads the mock app assembly. Real and built assemblies keep the planned entry.
@@ -25,7 +26,7 @@ const SAVED_VIEW_SUPPORT: SavedViewSupport = {
 export const manifests: MenuEntry[] = [
   {
     id: 'rcc', primary: true, group: groupId('rcc'), label: { ko: 'RCC', en: 'RCC' },
-    description: { ko: '프로세스 시간 분석 (예정)', en: 'Process time (planned)' },
+    description: prototypeEnabled ? M.description : M.plannedDescription,
     path: '/rcc', icon: Workflow, permission: menuPermission('analytics:view'), requiresScope: prototypeEnabled, pageType: 'analysis',
     context: contextCapabilities(prototypeEnabled ? {
       time: 'apply', roomNames: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply',

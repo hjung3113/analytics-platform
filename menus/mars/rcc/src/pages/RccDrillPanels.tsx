@@ -16,6 +16,9 @@ import { StepEvidence } from './StepEvidence';
 
 const BAR_ROW_PITCH = 24;
 const BAR_PANEL_HEIGHT = 400;
+// Panel chrome around the row-pitch plot (title, toolbar, legend, hint) and the plot's own top and bottom (value axis) room.
+const BAR_PANEL_CHROME = 80;
+const BAR_PLOT_EDGES = 60;
 const MATRIX_ROW_PITCH = 17;
 const MATRIX_PANEL_HEIGHT = 440;
 const MATRIX_COLOR_LIMIT = 1.6;
@@ -55,13 +58,15 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
   const metric = days.length === 1 ? m('dailyMetric') : `${m('dailyMetric')} · ${m('periodMetric', { count: days.length })}`;
   const drillTo = (patch: Record<string, string | null>) => setPage(patch, { focus: 'drill' });
 
+  // Tall enough that the last row and the value axis are in view; more rows than fit still scroll inside the plot.
+  const barPanelHeight = Math.max(BAR_PANEL_HEIGHT, BAR_PANEL_CHROME + BAR_PLOT_EDGES + targets.length * BAR_ROW_PITCH);
   const commonBars = {
     unit: unitText, xType: 'category', orientation: 'horizontal', canApplyRange: false, summary: 'quiet',
     size: 'fill', rowPitch: BAR_ROW_PITCH, rowLabelWidth: 'auto', valueFormat: numberText, activeCategory: equipment,
   } as const;
 
   const totalPanel = (id: string, title: Text, usages: readonly Cohort[], previous = false): PanelWorkspacePanel => ({
-    id, title, primary: !previous, preferredHeight: BAR_PANEL_HEIGHT,
+    id, title, primary: !previous, preferredHeight: barPanelHeight,
     render: () => {
       const { rows, baseline: numericBaseline } = totalTimes(days, usages, structure, baseline, targets);
       const bars: ChartSeries[] = [
@@ -77,24 +82,23 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
   });
 
   const layerPanel = (previous = false): PanelWorkspacePanel => ({
-    id: 'layers', title: previous ? previousTitle(M.layerTimes) : M.layerTimes, primary: !previous, preferredHeight: BAR_PANEL_HEIGHT,
+    id: 'layers', title: previous ? previousTitle(M.layerTimes) : M.layerTimes, primary: !previous, preferredHeight: barPanelHeight,
     render: () => {
       const layers = layerTimes(days, unit.usages, targets);
       const series: ChartSeries[] = layers.map((layer, i) => ({
         id: layer.id, name: `${layerLabel(layer)} · ${layer.recipe}`, color: COLORS[i % COLORS.length]!,
         points: layer.points.map(([id, value]) => [id, held.some(item => item.id === id) ? null : value]),
       }));
-      if (held.length) series.push({
-        id: 'held-layer', name: m('held'), color: 'chart-remainder',
-        points: held.map(item => [item.id, null]),
-      });
+      // One layer has nothing to start-align: the SDK draws a plain bar, so the row total is its value label (chart.md §value labels).
+      const lanes = series.length > 1;
       const rowGroups = {
         header: m('structure'),
         byCategory: new Map(targets.map(item => [item.id, { group: item.structure === structure ? structure : `${item.structure} · ${m('held')}` }])),
       };
       return <AnalysisChartFrame {...commonBars} chartId="rcc-layers" title={m('layerTimes')} series={series}
-        emphasisFocus="none" legendPlacement="top" stacked startAlign rowGroups={rowGroups} valueLabels="segment"
-        toolbarStart={<span className="t-caption text-text-secondary">{m('startAlign')}</span>}
+        emphasisFocus="none" legendPlacement="top" stacked startAlign={lanes} rowGroups={rowGroups} emptyCategoryLabel={m('held')}
+        valueLabels={lanes ? 'segment' : 'total'} reaggregation="sum"
+        toolbarStart={lanes ? <span className="t-caption text-text-secondary">{m('startAlign')}</span> : undefined}
         pointActivation={previous ? undefined : { on: 'dblclick', onActivate: point => drillTo({ layer: point.seriesId, equipment: point.x }) }}
         isPointSelectable={point => point.value !== null} />;
     },
@@ -143,7 +147,7 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
       id: 'steps', title: step ? previousTitle(M.stepTimes) : M.stepTimes, primary: true, preferredHeight: MATRIX_PANEL_HEIGHT,
       render: () => <AnalysisChartFrame {...commonBars} chartId="rcc-steps" title={m('stepTimes')} series={series} stacked
         legend={false} visibleSeriesIds={series.map(item => item.id)} emphasisFocus="none"
-        categoryValueMarks={categoryValueMarks}
+        categoryValueMarks={categoryValueMarks} emptyCategoryLabel={m('held')}
         toolbarStart={<span className="t-caption text-text-secondary"><span aria-hidden>◆ </span>{categoryValueMarks.label}</span>}
         pointActivation={{ on: 'dblclick', onActivate: toStep }} isPointSelectable={point => point.value !== null} />,
     };
@@ -155,7 +159,7 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
           // The heatmap y-axis starts at the bottom. Keep cells in reading order for the table.
           xLabels: columns.map(item => item.label), yLabels: stepRows.map(item => item.label).reverse(), cells,
           nullLabel: m('held'), selectedCell,
-          scale: { type: 'diverging', pivot: 0, domain: [-MATRIX_COLOR_LIMIT, MATRIX_COLOR_LIMIT] },
+          scale: { type: 'diverging', pivot: 0, pivotLabel: m('sameAsBaseline'), domain: [-MATRIX_COLOR_LIMIT, MATRIX_COLOR_LIMIT] },
           cellActivation: { on: 'click', onActivate: (x, y) => {
             const column = columns.find(item => item.label === x);
             const selectedStep = stepRows.find(item => item.label === y);
@@ -181,6 +185,7 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
     id: 'tree', title: tree.title,
     render: () => <div className="h-full min-h-0 overflow-auto">
       <LegendTree key={tree.key} label={tree.title[lang]} nodes={tree.nodes}
+        currentId={tree.key === 'step' ? step?.id : undefined}
         visible={treeVisibility} onVisibleChange={keepTreeVisibility} drillOnName onDrill={id => drillTo({ [tree.key]: id, equipment: focus })} />
     </div>,
   });
