@@ -442,6 +442,25 @@ describe('TaskBoardRoute', () => {
     },
   );
 
+  it('blocks an empty scoped board when finding.manage is denied', async () => {
+    const managedSystem = '30000000-0000-4000-8000-000000000003';
+    api.listTasks.mockImplementation(boardList([]));
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), 'http://localhost');
+      const matches = url.pathname === '/me/permissions/check'
+        && url.searchParams.get('capability') === 'finding.manage'
+        && url.searchParams.get('managed_system_id') === managedSystem;
+      return new Response(JSON.stringify(matches
+        ? { state: 'blocked_non_requestable', decision: { allow: false } }
+        : { items: [] }), { headers: { 'content-type': 'application/json' } });
+    }));
+
+    renderBoard(undefined, managedSystem);
+
+    expect(await screen.findByRole('heading', { name: 'Task 보드' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '그룹화' })).not.toBeInTheDocument();
+  });
+
   it('renders permission denied instead of the board unavailable copy for a 403', async () => {
     api.listTasks.mockRejectedValue(
       new ApiError(403, {
@@ -451,7 +470,7 @@ describe('TaskBoardRoute', () => {
     );
     renderBoard();
 
-    const panel = await screen.findByText('Task board');
+    const panel = await screen.findByText('Task 보드');
     expect(panel.closest('[data-state]')).toHaveAttribute('data-state', 'denied');
     expect(
       screen.getByText(

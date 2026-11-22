@@ -440,10 +440,11 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader, re
                 <div className="p-4 text-sm text-text-muted">Task 요청을 불러오는 중…</div>
               ) : queue.permissionDeniedError ? (
                 <PermissionBlockedPanel
+                  layout="card"
+                  announceBody
                   state="denied"
-                  category="Task Request queue"
+                  category="Task 요청 목록"
                   reason={PERMISSION_BLOCKED_REASONS.taskRequestQueue}
-                  className="m-4"
                 />
               ) : queue.hasError ? (
                 <ListStateMessage

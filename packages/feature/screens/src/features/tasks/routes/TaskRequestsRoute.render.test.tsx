@@ -315,6 +315,16 @@ describe('TaskRequestsRoute display ids', () => {
     expect(screen.queryByText('현재 조건에 맞는 Task 요청이 없습니다')).not.toBeInTheDocument();
   });
 
+  it('announces whole-queue denial in the shared card', async () => {
+    vi.mocked(fetchTaskRequests).mockRejectedValueOnce(
+      new ApiError(403, { code: 'permission.denied', message: 'finding.manage required' }),
+    );
+    renderWithClient(<TaskRequestsRoute />);
+
+    expect(await screen.findByText('Task 요청 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.'))
+      .toHaveAttribute('role', 'status');
+  });
+
   it('renders permission denied instead of the queue unavailable copy for a 403', async () => {
     vi.mocked(fetchTaskRequests).mockRejectedValueOnce(
       new ApiError(403, {
@@ -324,7 +334,7 @@ describe('TaskRequestsRoute display ids', () => {
     );
     renderWithClient(<TaskRequestsRoute />);
 
-    const panel = await screen.findByText('Task Request queue');
+    const panel = await screen.findByText('Task 요청 목록');
     expect(panel.closest('[data-state]')).toHaveAttribute('data-state', 'denied');
     expect(
       screen.getByText(
@@ -360,7 +370,7 @@ describe('TaskRequestsRoute display ids', () => {
     );
     renderWithClient(<TaskRequestsRoute />);
 
-    await screen.findByText('Task Request queue');
+    await screen.findByText('Task 요청 목록');
     expect(screen.queryByRole('combobox', { name: '검토자 필터' })).not.toBeInTheDocument();
   });
 

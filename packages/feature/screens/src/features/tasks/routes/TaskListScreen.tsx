@@ -1,6 +1,7 @@
 import { ListLoadMore } from '../../../components/ListLoadMore';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { MyVocsRecoveryLink } from '../../../components/MyVocsRecoveryLink';
+import { ScopedListDenialCard } from '../../../components/ScopedListDenialCard';
 import { useMeBridge } from '../../../lib/api/me';
 import { getTask, listTasks } from '../../../lib/api/tasks';
 import { ApiError, isPermissionDenied } from '../../../lib/api/types';
@@ -12,6 +13,7 @@ import {
   TASK_REPORT_FILTER_COPY as FILTER_COPY,
   TASK_LINK_MISSING_MESSAGE,
 } from '../../../lib/copy/tasks';
+import { useListDenial, useScopedEmptyListPermission } from '../../../lib/cross-system/useListDenial';
 import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors';
 import { formatCount } from '../../../lib/format/count';
 import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
@@ -216,9 +218,23 @@ export function TaskListScreen({ view, autoSelect, renderDetail }: TaskListScree
       autoSelect,
     },
   );
-  const listPermissionDenied = !tasksQuery.isLoading && isPermissionDenied(tasksQuery.error);
+  const scopedPermission = useScopedEmptyListPermission({
+    capability: 'finding.manage',
+    managedSystemId: managedSystem,
+    empty: tasksQuery.isSuccess && !tasksQuery.isPlaceholderData && items.length === 0,
+  });
+  const scopedBlocked = scopedPermission.state === 'blocked';
+  const { denied: listPermissionDenied, deniedRef, request } = useListDenial({
+    error: tasksQuery.error,
+    forbidden: 'permission',
+    scopedPermission,
+    managedSystemId: managedSystem,
+    identity: JSON.stringify(tasksKey),
+    ...(scopedBlocked ? { drawer: { selectedId, close: closePanel } } : {}),
+  });
   // A denied refetch keeps the cached pages; the blocked state shows no count derived from them.
-  const total = listPermissionDenied ? undefined : tasksQuery.data?.pages[0]?.page?.total;
+  const scopeUnverified = scopedPermission.state === 'checking' || scopedPermission.state === 'error';
+  const total = listPermissionDenied || scopeUnverified ? undefined : tasksQuery.data?.pages[0]?.page?.total;
   const me = useMeBridge();
   const detailQuery = useQuery({
     queryKey: ['task', selectedId],
@@ -327,23 +343,26 @@ export function TaskListScreen({ view, autoSelect, renderDetail }: TaskListScree
               className="mx-5 my-2"
             />
           ) : null}
-          {tasksQuery.isLoading ? (
+          {tasksQuery.isLoading || scopedPermission.state === 'checking' ? (
             <div className="p-4 text-sm text-text-muted">Task를 불러오는 중…</div>
           ) : listPermissionDenied ? (
-            <div className="m-4 flex flex-col items-start gap-3">
-              <PermissionBlockedPanel
-                state="denied"
-                category="Task 목록"
-                reason={PERMISSION_BLOCKED_REASONS.taskList}
-              />
-              <MyVocsRecoveryLink />
-            </div>
-          ) : tasksQuery.error && !tasksQuery.isFetchNextPageError ? (
+            <ScopedListDenialCard
+              category="Task 목록"
+              reason={PERMISSION_BLOCKED_REASONS.taskList}
+              returnRouteIntent={view === 'my' ? '/tasks?view=my' : '/tasks?view=backlog'}
+              request={scopedBlocked ? request ?? undefined : undefined}
+              deniedRef={deniedRef}
+              recoveryAction={<MyVocsRecoveryLink />}
+            />
+          ) : scopedPermission.state === 'error' || (tasksQuery.error && !tasksQuery.isFetchNextPageError) ? (
             <ListStateMessage
               variant="error"
               title="Task 목록을 불러오지 못했습니다"
               body="잠시 후 다시 시도하세요."
-              action={{ label: '다시 시도', onClick: () => void tasksQuery.refetch() }}
+              action={{
+                label: '다시 시도',
+                onClick: scopedPermission.state === 'error' ? scopedPermission.retry : () => void tasksQuery.refetch(),
+              }}
             />
           ) : (
             <>
@@ -426,7 +445,7 @@ export function TaskListScreen({ view, autoSelect, renderDetail }: TaskListScree
         </>
       }
       detailPanel={
-        linkMissing ? (
+        scopedBlocked ? null : linkMissing ? (
           <LinkTargetMissingNotice message={TASK_LINK_MISSING_MESSAGE} />
         ) : isPermissionDenied(detailQuery.error) ? (
           <PermissionBlockedPanel

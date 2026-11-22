@@ -1,9 +1,10 @@
 import { ListStateMessage } from '../../../components/ListStateMessage';
+import { ScopedListDenialCard } from '../../../components/ScopedListDenialCard';
 import { listMilestones } from '../../../lib/api/milestones';
-import { isPermissionDenied } from '../../../lib/api/types';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { analyticsAreasCatalogQuery } from '../../../lib/cross-system/analyticsAreasCatalog';
+import { useListDenial, useScopedEmptyListPermission } from '../../../lib/cross-system/useListDenial';
 import { managedSystemsCatalogQuery } from '../../../lib/cross-system/useManagedSystemNames';
 import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors';
 import { useHostNavigate, useHostSearch } from '../../../lib/host/host-seam';
@@ -17,7 +18,6 @@ import {
   ListShell,
   ListToolbar,
   type ListToolbarTab,
-  PermissionBlockedPanel,
 } from '@ap/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Filter, Plus, Search } from 'lucide-react';
@@ -176,13 +176,26 @@ export function MilestonesScreen({ renderDetail }: MilestonesScreenProps) {
   const analyticsAreasQuery = useQuery(analyticsAreasCatalogQuery());
 
   const items = React.useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
-  // R5 (Astra P2-2) + R6 correction — the counts read is independently keyed,
-  // but a settled terminal error on EITHER read suppresses the derived
-  // totals: the counts query's own denial, and the list read's denial (the
-  // original requirement — totals/badges hide when the list is denied even
-  // though counts remain cached-successful). Genuine zeros stay zeros;
-  // unavailable renders as '—'.
-  const countsUnavailable = countQuery.error != null || listQuery.error != null;
+  const listReadSucceeded = listQuery.isSuccess && !listQuery.isPlaceholderData;
+  const scopedPermission = useScopedEmptyListPermission({
+    capability: 'finding.manage',
+    managedSystemId: managedSystem,
+    empty: listReadSucceeded && items.length === 0,
+  });
+  const scopedBlocked = scopedPermission.state === 'blocked';
+  const { denied, deniedRef, request } = useListDenial({
+    error: listQuery.error,
+    forbidden: 'permission',
+    scopedPermission,
+    managedSystemId: managedSystem,
+    identity: activeTab,
+    ...(scopedBlocked && !creating ? { drawer: { selectedId, close: closeMilestone } } : {}),
+  });
+  // The unfiltered counts can settle independently of the visible list.
+  // Show values only after both reads and any scoped-empty permission check are usable.
+  const listVerified = listReadSucceeded &&
+    (scopedPermission.state === 'unchecked' || scopedPermission.state === 'allowed');
+  const countsUnavailable = denied || !listVerified || !countQuery.isSuccess || countQuery.isPlaceholderData;
   const countItems = React.useMemo(
     () => (countsUnavailable ? [] : (countQuery.data?.items ?? [])),
     [countsUnavailable, countQuery.data?.items],
@@ -391,21 +404,25 @@ export function MilestonesScreen({ renderDetail }: MilestonesScreenProps) {
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {listQuery.isLoading ? (
+              {listQuery.isLoading || scopedPermission.state === 'checking' ? (
                 <div className="p-4 text-sm text-text-muted">Milestones 불러오는 중…</div>
-              ) : isPermissionDenied(listQuery.error) ? (
-                <PermissionBlockedPanel
-                  state="denied"
+              ) : denied ? (
+                <ScopedListDenialCard
                   category="Milestone 목록"
                   reason={PERMISSION_BLOCKED_REASONS.milestoneList}
-                  className="m-4"
+                  returnRouteIntent="/tasks?view=milestones"
+                  request={scopedBlocked ? request ?? undefined : undefined}
+                  deniedRef={deniedRef}
                 />
-              ) : listQuery.error ? (
+              ) : scopedPermission.state === 'error' || listQuery.error ? (
                 <ListStateMessage
                   variant="error"
                   title="Milestone 목록을 불러오지 못했습니다"
                   body="잠시 후 다시 시도하세요."
-                  action={{ label: '다시 시도', onClick: () => void listQuery.refetch() }}
+                  action={{
+                    label: '다시 시도',
+                    onClick: scopedPermission.state === 'error' ? scopedPermission.retry : () => void listQuery.refetch(),
+                  }}
                 />
               ) : (
                 <>
@@ -505,7 +522,7 @@ export function MilestonesScreen({ renderDetail }: MilestonesScreenProps) {
             setSelectedId(selectedParam ?? null);
           }}
         />
-      ) : selectedId ? (
+      ) : selectedId && !scopedBlocked ? (
         <DetailSlot
           renderDetail={renderDetail}
           milestoneId={selectedId}
