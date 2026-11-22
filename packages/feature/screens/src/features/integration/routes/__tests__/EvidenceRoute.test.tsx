@@ -917,6 +917,22 @@ it('shows only the denial card on a list permission denial (#2677)', async () =>
   expect(screen.queryByRole('button', { name: '새로고침' })).toBeNull();
   expect(screen.queryByText('Finding에 저장된 근거를 찾습니다.')).toBeNull();
 });
+it('moves focus from the removed search to the denial card (#2677)', async () => {
+  let fail = false;
+  installFetch(() =>
+    fail ? response({ code: 'permission.denied' }, 403) : response({ items: [item], page: { has_more: false } }),
+  );
+  const { client } = await mount();
+  await screen.findByRole('button', { name: /월간 다운로드/ });
+  screen.getByRole('searchbox').focus();
+  fail = true;
+  await act(async () => {
+    await client.invalidateQueries({ queryKey: ['evidence-inventory'] });
+  });
+  const message = await screen.findByText('근거 목록을 볼 권한이 없습니다.');
+  await waitFor(() => expect(document.activeElement).not.toBe(document.body));
+  expect(document.activeElement?.contains(message) || message.closest('[tabindex="-1"]')?.contains(document.activeElement)).toBe(true);
+});
 it('keeps the list controls when only the selected detail is denied (#2677)', async () => {
   installFetch(undefined, () => response({ code: 'permission.denied' }, 403));
   await mount(`/integration/evidence?selected=${ID}`);
