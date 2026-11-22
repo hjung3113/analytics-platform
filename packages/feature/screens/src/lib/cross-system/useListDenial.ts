@@ -88,6 +88,7 @@ type ListIdentity = { keptSystemId: string | undefined; query: string | undefine
 /** Surface a confirmed list denial and return focus once its drawer has closed. */
 export function useListDenial({
   error,
+  forbidden = 'any-403',
   scopedPermission,
   managedSystemId,
   drawer,
@@ -95,6 +96,8 @@ export function useListDenial({
   onDenied,
 }: {
   error: unknown;
+  /** Preserve consumers that distinguish permission envelopes from other 403 errors. */
+  forbidden?: 'any-403' | 'permission';
   scopedPermission?: ScopedEmptyListPermission;
   managedSystemId: string | undefined;
   drawer?: Drawer;
@@ -103,7 +106,8 @@ export function useListDenial({
   onDenied?: () => void;
 }) {
   const keptSystemId = listSystemId(managedSystemId);
-  const permissionError = isListForbidden(error) ? error : null;
+  const isForbidden = forbidden === 'permission' ? isPermissionDenied : isListForbidden;
+  const permissionError = isForbidden(error) ? error : null;
   const scopedBlock = scopedPermission?.state === 'blocked' &&
     !(error instanceof ApiError && error.status === 401) ? scopedPermission : null;
   const roleRequired = permissionError

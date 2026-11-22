@@ -197,22 +197,29 @@ it.each(['admin', 'developer'])(
     expect(screen.queryByTestId('cluster-suggestion-panel')).not.toBeInTheDocument();
   },
 );
-it('defers the first-success 반복 VOC default until returning from suggestions', async () => {
+it('waits for the first 반복 VOC read before offering Suggestions', async () => {
   let release!: (response: Response) => void;
   listRead = () =>
     new Promise((resolve) => {
       release = resolve;
     });
-  const { history } = mount('/voc-clusters');
-  await enter();
+  const { client, history } = mount('/voc-clusters');
+  await waitFor(() =>
+    expect(client.getQueriesData({ queryKey: ['voc-cluster-suggestions'] }))
+      .toContainEqual([expect.anything(), expect.objectContaining({ available: true })]),
+  );
+  expect(screen.getByTestId('cluster-list-skeleton')).toBeInTheDocument();
+  expect(screen.queryByRole('tab', { name: /^반복 VOC 제안/ })).not.toBeInTheDocument();
+  expect(history.location.href).toBe('/voc-clusters');
   await act(async () => {
     release(json(populatedList));
   });
-  expect(history.location.href).toBe('/voc-clusters');
-  fireEvent.mouseDown(screen.getByRole('tab', { name: /^전체/ }), { button: 0 });
   await waitFor(() => expect(history.location.href).toContain('selected='));
   const selected = history.location.href;
   await enter();
+  expect(history.location.href).toBe(selected);
+  fireEvent.mouseDown(screen.getByRole('tab', { name: /^전체/ }), { button: 0 });
+  await screen.findByTestId('cluster-detail-title');
   expect(history.location.href).toBe(selected);
 });
 it('preserves the detail-path host through suggestions and return', async () => {
@@ -314,16 +321,13 @@ it('drops undo on tab exit and never restores it on re-entry', async () => {
   expect(screen.queryByRole('button', { name: '되돌리기' })).not.toBeInTheDocument();
 });
 
-it('preserves an absent selected param when availability drops after a deferred first 반복 VOC read', async () => {
-  let release!: (response: Response) => void;
-  listRead = () =>
-    new Promise((resolve) => {
-      release = resolve;
-    });
+it('preserves an absent selected param when availability drops after the list repopulates', async () => {
+  listRead = async () => json({ items: [] });
   const { client, history } = mount('/voc-clusters');
   await enter();
+  listRead = async () => json(populatedList);
   await act(async () => {
-    release(json(populatedList));
+    await client.invalidateQueries({ queryKey: ['voc-clusters'] });
   });
   available = false;
   await act(async () => {

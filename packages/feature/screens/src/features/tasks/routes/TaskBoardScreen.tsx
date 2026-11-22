@@ -1,6 +1,7 @@
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { MyVocsRecoveryLink } from '../../../components/MyVocsRecoveryLink';
+import { ScopedListDenialCard } from '../../../components/ScopedListDenialCard';
 import { mapUnknownError } from '../../../lib/api/errorMapper';
 import { listMilestones } from '../../../lib/api/milestones';
 import { getTask } from '../../../lib/api/tasks';
@@ -9,6 +10,7 @@ import { TASK_PRIORITY_LABELS, TASK_STATUS_LABELS } from '../../../lib/copy/enum
 import { LIST_SEARCH_EMPTY_LABEL, LIST_SEARCH_PLACEHOLDER } from '../../../lib/copy/list-search';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { TASK_BOARD_COPY } from '../../../lib/copy/task-board';
+import { useListDenial, useScopedEmptyListPermission } from '../../../lib/cross-system/useListDenial';
 import {
   TASK_REPORT_FILTER_COPY as FILTER_COPY,
   TASK_LINK_MISSING_MESSAGE,
@@ -525,23 +527,34 @@ export function TaskBoardScreen({ renderDetail }: TaskBoardScreenProps) {
     pending: query.isPending,
     errored: query.isError && query.data === undefined,
   }));
-  const deniedError = states
-    .map(({ query }) => query.error)
-    .find((error) => isPermissionDenied(error));
-  if (deniedError) {
+  const scopedPermission = useScopedEmptyListPermission({
+    capability: 'finding.manage',
+    managedSystemId: managedSystem,
+    empty: items.length === 0 && queryStates.every((query) => query.isSuccess && !query.isPlaceholderData),
+  });
+  const scopedBlocked = scopedPermission.state === 'blocked';
+  const { denied, deniedRef, request } = useListDenial({
+    error: queryStates.map((query) => query.error).find(isPermissionDenied),
+    forbidden: 'permission',
+    scopedPermission,
+    managedSystemId: managedSystem,
+    identity: JSON.stringify(focusScope),
+    ...(scopedBlocked ? { drawer: { selectedId, close: closePanel } } : {}),
+  });
+  if (denied) {
     return (
-      <div className="m-4 flex flex-col items-start gap-3">
-        <PermissionBlockedPanel
-          state="denied"
-          category="Task board"
-          reason={PERMISSION_BLOCKED_REASONS.taskList}
-        />
-        <MyVocsRecoveryLink />
-      </div>
+      <ScopedListDenialCard
+        category="Task board"
+        reason={PERMISSION_BLOCKED_REASONS.taskList}
+        returnRouteIntent="/tasks?view=board"
+        request={scopedBlocked ? request ?? undefined : undefined}
+        deniedRef={deniedRef}
+        recoveryAction={<MyVocsRecoveryLink />}
+      />
     );
   }
-  const boardLoading = states.every(({ pending }) => pending);
-  const boardError = states.every(({ errored }) => errored);
+  const boardLoading = scopedPermission.state === 'checking' || states.every(({ pending }) => pending);
+  const boardError = scopedPermission.state === 'error' || states.every(({ errored }) => errored);
   const firstError = states.find(({ errored }) => errored)?.query.error;
   const settled = queryStates.every(
     (query) =>
@@ -569,7 +582,7 @@ export function TaskBoardScreen({ renderDetail }: TaskBoardScreenProps) {
         title: (
           <span className="flex items-center gap-2">
             보드
-            {settled && totalCount !== undefined ? (
+            {settled && !boardLoading && !boardError && totalCount !== undefined ? (
               <OutlineBadge>{formatCount(totalCount)}</OutlineBadge>
             ) : null}
           </span>
@@ -638,7 +651,7 @@ export function TaskBoardScreen({ renderDetail }: TaskBoardScreenProps) {
               body={mapUnknownError(firstError).message}
               action={{
                 label: '다시 시도',
-                onClick: () => {
+                onClick: scopedPermission.state === 'error' ? scopedPermission.retry : () => {
                   for (const { query } of states) void query.refetch();
                 },
               }}

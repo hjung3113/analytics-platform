@@ -62,6 +62,31 @@ vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
 
 afterEach(() => vi.unstubAllGlobals());
 
+it.each([false, true])('distinguishes a scoped empty Task list by finding.manage allow=%s', async (allow) => {
+  const managedSystem = '30000000-0000-4000-8000-000000000003';
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const url = new URL(String(input), 'http://localhost');
+    const body = url.pathname === '/me/permissions/check'
+      && url.searchParams.get('capability') === 'finding.manage'
+      && url.searchParams.get('managed_system_id') === managedSystem
+      ? { state: allow ? 'approved' : 'blocked_non_requestable', decision: { allow } }
+      : { items: [], page: { total: 0, has_more: false } };
+    return new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } });
+  }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <TaskListRoute view="backlog" managedSystem={managedSystem} />
+    </QueryClientProvider>,
+  );
+  if (allow) {
+    expect(await screen.findByTestId('list-state-message')).toHaveAttribute('data-variant', 'empty');
+  } else {
+    expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.taskList)).toHaveAttribute('role', 'status');
+    expect(screen.queryByTestId('list-state-message')).not.toBeInTheDocument();
+  }
+});
+
 it('FIX1 shows the denied Task detail for an unreadable deep link without a Task title', async () => {
   const id = '10000000-0000-0000-0000-000000000099';
   vi.stubGlobal(
