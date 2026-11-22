@@ -61,3 +61,41 @@ it.each([false, true])('draws startAlign status glyphs only on real pieces, minM
   expect(drawn.some(t => t.includes('최소'))).toBe(minMax);
   expect(drawn.some(t => t.includes('최대'))).toBe(minMax);
 });
+
+describe('empty category labels (#2700)', () => {
+  const displayed = baselineInput().displayed.map((series, index) => ({
+    ...series, points: series.points.map(([x, y]): [string, number | null] => {
+      const empty = x === 'R3' || x === 'R4' || (x === 'R2' && index === 0);
+      return [x, empty ? null : y];
+    }),
+  }));
+  const emptyCategoryLabel = 'Held out';
+  const labelCount = (extra: BaselineOverrides) => texts(draw({ displayed, extremes: undefined, ...extra })).filter(t => t === emptyCategoryLabel).length;
+
+  it.each([
+    { stacked: false },
+    { stacked: true },
+    { stacked: true, startAlign: true, rowGroups },
+  ])('draws one text mark per empty row with %j', options => {
+    expect(labelCount({ ...options, emptyCategoryLabel })).toBe(2);
+  });
+
+  it('follows the category zoom window and grouped row order', () => {
+    const svg = draw({ displayed, extremes: undefined, emptyCategoryLabel, rowGroups, rowPitch: undefined, zoom: [25, 66] });
+    const markerY = svg.match(/<text[^>]*y="([^"]+)"[^>]*>Held out<\/text>/)?.[1];
+    const rowY = svg.match(/<text[^>]*transform="translate\([^ ]+ ([^)]+)\)"[^>]*>PM1<\/text>/)?.[1];
+    expect(texts(svg).filter(t => t === emptyCategoryLabel)).toHaveLength(1);
+    expect(markerY).toBeDefined();
+    expect(markerY).toBe(rowY);
+  });
+
+  it('draws when a consumer series uses the internal marker name as its id', () => {
+    const clashing = displayed.map((series, index) => index === 0 ? { ...series, id: '__emptyCategoryLabel' } : series);
+    expect(texts(draw({ displayed: clashing, extremes: undefined, emptyCategoryLabel })).filter(t => t === emptyCategoryLabel)).toHaveLength(2);
+  });
+
+  it('draws no mark by default or on vertical charts', () => {
+    expect(labelCount({})).toBe(0);
+    expect(labelCount({ horizontal: false, emptyCategoryLabel })).toBe(0);
+  });
+});

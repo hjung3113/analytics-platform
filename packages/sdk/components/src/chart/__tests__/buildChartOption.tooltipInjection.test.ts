@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as echarts from 'echarts/core';
-import { BarChart, ScatterChart } from 'echarts/charts';
-import { GridComponent, TooltipComponent } from 'echarts/components';
+import { BarChart, CustomChart, LineChart, ScatterChart } from 'echarts/charts';
+import { BrushComponent, GridComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
 import { SVGRenderer } from 'echarts/renderers';
 import type { EChartsCoreOption } from 'echarts/core';
 import { buildChartOption } from '../buildChartOption';
@@ -34,4 +34,33 @@ describe('partial-total tooltip is text, never markup (#1879)', () => {
     expect(document.body.textContent).toContain(NAME);
     chart.dispose();
   });
+});
+
+it.each([false, true])('shows escaped empty category text in the axis tooltip, startAlign=%s', startAlign => {
+  echarts.use([BrushComponent, CustomChart, LineChart, MarkLineComponent, ToolboxComponent]);
+  const canvasContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  host = document.body.appendChild(document.createElement('div'));
+  const chart = echarts.init(host, undefined, { renderer: 'svg', width: 400, height: 200 });
+  try {
+    const input = baselineInput({
+      displayed: [bar('a', 'A', [null, null]), bar('b', 'B', [0, null])],
+      categories: ROWS, markLines: undefined, extremes: undefined, startAlign, emptyCategoryLabel: NAME,
+    });
+    chart.setOption({ ...buildChartOption(input), animation: false });
+    const hoverRow = (index: number) => {
+      const [x, y] = chart.convertToPixel({ gridIndex: 0 }, [0, index]);
+      chart.dispatchAction({ type: 'showTip', x: x + 5, y });
+      chart.getZr().flush();
+    };
+    hoverRow(1);
+    const tooltip = [...host.querySelectorAll('div')].find(node => node.textContent?.includes(NAME) && !node.querySelector('svg'));
+    expect(tooltip?.textContent).toContain(NAME);
+    expect(tooltip?.querySelector('img, b')).toBeNull();
+    hoverRow(0);
+    expect(tooltip?.textContent).toContain('0 s');
+    expect(tooltip?.textContent).not.toContain(NAME);
+  } finally {
+    chart.dispose();
+    canvasContext.mockRestore();
+  }
 });

@@ -3,6 +3,7 @@ import type { ChartChromeOptions } from './chartChrome';
 import type { ChartTrust } from '../state/trustFormat';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import { toMs, unknownLabel, warnMissingChartUnit } from './analysisChartShared';
+import { emptyCategoryLabels } from './chartEmptyCategories';
 import { BrushIcon, Eye, GitCompare, MessageSquarePlus, RotateCcw, ZoomIn, ZoomOut, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
@@ -185,6 +186,8 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
   markLines?: { y: number; label: string; unit?: string; metricVersion?: string }[];
   /** Horizontal category bars on a shared numeric axis. One independent value per row key, in the Frame's unit. Missing, null and non-finite values draw no mark. */
   categoryValueMarks?: { label: string; byCategory: ReadonlyMap<string, number | null> };
+  /** Horizontal category bars only. Labels a row when all displayed series lack a value, including with startAlign. The tooltip, table and CSV use the same text. */
+  emptyCategoryLabel?: string;
   /** Vertical charts only. Per x (the exact point string), each entry holds until the next entry; an absent side clears that side. */
   bounds?: ChartBounds;
   /** Legend and reading-aid labels; defaults to localized Upper bound / Lower bound / Bound range. */
@@ -453,6 +456,9 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     for (const [label, value] of s.points) if (!byLabel.has(label)) byLabel.set(label, value);
     return { ...s, points: categories.map(x => [x, byLabel.get(x) ?? null] as [string, number | null]) };
   }) : visible, [xType, visible, categories]);
+  const emptyCategoryLabel = horizontal ? p.emptyCategoryLabel : undefined;
+  const emptyLabels = useMemo(() => emptyCategoryLabels({ horizontal, xType, categories, displayed, emptyCategoryLabel }),
+    [horizontal, xType, categories, displayed, emptyCategoryLabel]);
   const boundsProp = p.bounds; const boundLabels = p.boundLabels;
   const bounds = useMemo(() => projectChartBounds({ bounds: boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories }), [boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories]);
   const pointBoundsText = (point: ChartPoint) => bounds && !previousIds.has(point.seriesId) ? ` · ${boundText(bounds, point.x, format)}` : '';
@@ -711,10 +717,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     void instanceReady;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit, ...(zoomOnly ? {} : { selectedPointKeys }),
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit, ...(zoomOnly ? {} : { selectedPointKeys }),
       palette: resolveChartPalette(displayed),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, selectedPointKeys, zoomOnly, instanceReady]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, selectedPointKeys, zoomOnly, instanceReady]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -843,7 +849,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   function exportCsv() {
     const header = [...(rowGroups ? [rowGroups.header] : []), 'x', ...visible.map(columnName), ...(bounds ? [bounds.labels.lower, bounds.labels.upper] : []), ...(statusEnabled ? [m('chartHeaderStatus'), m('chartHeaderReason')] : []), ...(categoryValueMarks ? [categoryValueMarks.label] : [])];
     // The table projection verbatim: numbers stay numbers so the formula guard never prefixes them (#297).
-    const body = rows.map(([x, values]) => [...(rowGroups ? [rowGroup(rowGroups, x)] : []), rowLabel(rowGroups, x), ...values.map(v => (v === null ? '' : v)), ...(bounds ? [bounds.at(x).lower ?? '', bounds.at(x).upper ?? ''] : []), ...(statusEnabled ? [statusParts(x).map(({ name, csvLabel }) => `${name}: ${csvLabel}`).join('\n'), statusParts(x).filter(({ status }) => status.reason).map(({ name, status }) => `${name}: ${status.reason}`).join('\n')] : []), ...(categoryValueMarks ? [categoryValueMarks.byCategory.get(x) ?? ''] : [])]);
+    const body = rows.map(([x, values]) => [...(rowGroups ? [rowGroup(rowGroups, x)] : []), rowLabel(rowGroups, x), ...values.map(v => v ?? emptyLabels?.get(x) ?? ''), ...(bounds ? [bounds.at(x).lower ?? '', bounds.at(x).upper ?? ''] : []), ...(statusEnabled ? [statusParts(x).map(({ name, csvLabel }) => `${name}: ${csvLabel}`).join('\n'), statusParts(x).filter(({ status }) => status.reason).map(({ name, status }) => `${name}: ${status.reason}`).join('\n')] : []), ...(categoryValueMarks ? [categoryValueMarks.byCategory.get(x) ?? ''] : [])]);
     downloadChartCsv({ ...p, context: global }, header, body);
     notify(m(host.inPlatform ? 'chartExportedVisibleCsv' : 'chartExportedVisibleCsvStandalone', { chartId: p.chartId }));
   }
@@ -1066,7 +1072,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         </tr></thead>
         <tbody>{rows.map(([x, values]) => <tr key={x} className="border-t border-border-subtle">
           <>{rowGroups && <td className="px-3 py-1">{rowGroup(rowGroups, x)}</td>}<td className="px-3 py-1">{xType === 'time' ? fmt(x) : rowLabel(rowGroups, x)}</td></>
-          {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? '—' : fmtOf(visible[i])(v)}</td>)}
+          {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? emptyLabels?.get(x) ?? '—' : fmtOf(visible[i])(v)}</td>)}
           {totals && totals.size > 0 && <td className="px-3 py-1 text-right">{(() => { const t = totals.get(x); return t ? (t.partial ? `≥ ${format(t.value)} (${missingText(t.missing)})` : format(t.value)) : '—'; })()}</td>}
           {bounds && [bounds.at(x).lower, bounds.at(x).upper].map((value, index) => <td key={`bound-${index}`} className="px-3 py-1 text-right">{value === undefined ? '' : format(value)}</td>)}
           {statusEnabled && <td className="px-3 py-1">{statusParts(x).map(({ id, name, status }) => <div key={id}>{name}: {statusText(status)}</div>)}</td>}

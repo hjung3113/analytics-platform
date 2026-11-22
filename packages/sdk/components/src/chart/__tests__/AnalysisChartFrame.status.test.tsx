@@ -139,3 +139,31 @@ it.each([false, true])('keeps startAlign spacers out of status legends, tables a
   fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
   expect(vi.mocked(downloadChartCsv).mock.calls.at(-1)!.slice(1)).toEqual(laneCsv.slice(1));
 });
+
+it('uses the empty category label in table and CSV based on displayed series only', async () => {
+  const emptyCategoryLabel = 'Held out';
+  const view = mount({ emptyCategoryLabel });
+  const table = await showTable();
+  const cells = () => within(within(table).getAllByRole('row').at(-1)!).getAllByRole('cell').map(cell => cell.textContent);
+  const exportRow = () => {
+    fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
+    return vi.mocked(downloadChartCsv).mock.calls.at(-1)?.[2].at(-1);
+  };
+  expect(cells()).toEqual(['EQ2 · PM1', '—', '4']);
+  expect(exportRow()).toEqual(['EQ2 · PM1', '', 4]);
+
+  view.update({ series: [series[0], { ...series[1], points: series[1].points.slice(0, -1) }] });
+  expect(cells()).toEqual(['EQ2 · PM1', emptyCategoryLabel, emptyCategoryLabel]);
+  expect(exportRow()).toEqual(['EQ2 · PM1', emptyCategoryLabel, emptyCategoryLabel]);
+  expect(within(screen.getByRole('group', { name: '범례' })).queryByText(emptyCategoryLabel)).toBeNull();
+  expect(screen.getByRole('region', { name: '선택 요약' })).not.toHaveTextContent(emptyCategoryLabel);
+
+  view.update({ visibleSeriesIds: ['a'] });
+  expect(cells()).toEqual(['EQ2 · PM1', emptyCategoryLabel]);
+  expect(exportRow()).toEqual(['EQ2 · PM1', emptyCategoryLabel]);
+
+  view.update({ visibleSeriesIds: ['a'], orientation: 'vertical' });
+  expect(cells()).toEqual(['EQ2 · PM1', '—']);
+  expect(exportRow()).toEqual(['EQ2 · PM1', '']);
+});
