@@ -1,12 +1,30 @@
 import type { DrillLevel } from '@ap/contracts';
 import type { Lang } from '../i18n';
 
+const warnedValues = new WeakMap<DrillLevel, Set<string>>();
+
+function warnFormatterFailure(level: DrillLevel, value: string, failure: string) {
+  if (process.env.NODE_ENV !== 'development') return;
+
+  let values = warnedValues.get(level);
+  if (!values) {
+    values = new Set();
+    warnedValues.set(level, values);
+  }
+  if (values.has(value)) return;
+  values.add(value);
+  console.warn(`DrillLevel.valueLabel for "${level.key}" ${failure}.`);
+}
+
 export function drillValueLabel(level: DrillLevel, value: string | null, lang: Lang): { valueLabel?: string } {
   if (value === null || !level.valueLabel) return {};
+  let failure = 'returned an empty string';
   try {
-    return { valueLabel: level.valueLabel(value, lang) || value };
+    const label = level.valueLabel(value, lang);
+    if (label) return { valueLabel: label };
   } catch {
-    // Keep the raw identifier visible if the menu cannot format it.
-    return { valueLabel: value };
+    failure = 'threw an exception';
   }
+  warnFormatterFailure(level, value, failure);
+  return { valueLabel: value };
 }

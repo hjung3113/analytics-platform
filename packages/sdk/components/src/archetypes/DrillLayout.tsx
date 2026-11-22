@@ -47,7 +47,7 @@ function SiblingMenu({ label, value, valueLabel, items, onSwitch, scopeRef }: {
   const m = useMessages(COMPONENTS_MESSAGES);
   const switched = useRef(false);
   const trigger = useRef<HTMLButtonElement>(null);
-  const stepLabel = valueLabel !== undefined && valueLabel !== value ? `${label}: ${valueLabel}` : label;
+  const stepLabel = valueLabel !== undefined ? `${label}: ${valueLabel}` : label;
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
       <button ref={trigger} type="button" aria-label={m('drillChangeStep', { label: stepLabel })}
@@ -160,16 +160,17 @@ export function DrillLayout(props: DrillLayoutProps) {
   </div>;
 }
 
-/** What every return control shares (06 §22): the origin and the click handler that asks for return focus and names the reverted Context. Internal to this package. */
-export function useReturnNavigation({ announceReverted = true }: { announceReverted?: boolean } = {}): { origin: ReturnOrigin; onNavigate: () => void } {
+/** Shared origin, display trail and navigation behavior for return controls (06 §22). Internal to this package. */
+export function useReturnNavigation({ announceReverted = true }: { announceReverted?: boolean } = {}): { origin: ReturnOrigin; displayTrail: string; onNavigate: () => void } {
   const { returnOrigin, pageNavigation, toast } = useHostPlatform();
   const { tx, t } = useI18n();
   const origin = returnOrigin();
+  const displayTrail = origin.trail.map(step => step.valueLabel ?? step.value).join(' › ');
   const onNavigate = () => {
     requestReturnFocus(pageNavigation, origin.href);
     if (announceReverted && origin.revertedContext.length) toast(t('returnContextReverted', { items: origin.revertedContext.map(key => tx(RETURN_CONTEXT_LABELS[key])).join(', ') }));
   };
-  return { origin, onNavigate };
+  return { origin, displayTrail, onNavigate };
 }
 
 export const ReturnRowShown = createContext(false);
@@ -177,10 +178,9 @@ export const ReturnRowShown = createContext(false);
 /** Return control (06 §22). The accessible name is the visible label, trail values included. */
 export function ReturnLink() {
   const { tx } = useI18n();
-  const { origin, onNavigate } = useReturnNavigation();
+  const { origin, displayTrail, onNavigate } = useReturnNavigation();
   const rowShown = useContext(ReturnRowShown);
-  const trail = origin.trail.map(step => step.valueLabel ?? step.value).join(' › ');
-  const text = trail ? `← ${tx(origin.menuLabel)} (${trail})` : `← ${tx(origin.menuLabel)}`;
+  const text = displayTrail ? `← ${tx(origin.menuLabel)} (${displayTrail})` : `← ${tx(origin.menuLabel)}`;
   if (rowShown) return <></>;
   return <Button asChild variant="secondary" size="sm"><PlatformLink via="return" href={origin.href} onNavigate={onNavigate}>{text}</PlatformLink></Button>;
 }

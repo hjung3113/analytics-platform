@@ -38,7 +38,7 @@ const registry = createRegistry({
     entry({
       id: 'labeled', path: '/labeled', pageKeys: [...keys], contextResetKeys: [...keys],
       drill: { levels: [
-        { ...level('drillRoom', '공정', 'Process'), valueLabel: (value: string) => `공정명 ${value}` },
+        { ...level('drillRoom', '공정', 'Process'), valueLabel: (value: string) => value === 'PHOTO' ? value : `공정명 ${value}` },
         level('drillStgroup', 'StGroup', 'StGroup'),
       ] },
     }),
@@ -74,12 +74,17 @@ const siblings = {
 
 describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   it('shows the display label in the path and for the checked sibling', async () => {
-    mount('/mars/labeled?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout siblings={siblings} />);
-    expect(screen.getByRole('button', { name: '공정: 공정명 PHOTO' })).toBeTruthy();
-    openMenu('공정: 공정명 PHOTO 바꾸기');
-    expect((await screen.findByRole('menuitemradio', { name: /공정명 PHOTO/ })).getAttribute('aria-checked')).toBe('true');
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /ETCH/ }));
-    expect(window.location.search).toBe('?v=1&drillRoom=ETCH');
+    mount('/mars/labeled?v=1&drillRoom=ETCH&drillStgroup=A', <DrillLayout siblings={siblings} />);
+    expect(screen.getByRole('button', { name: '공정: 공정명 ETCH' })).toBeTruthy();
+    openMenu('공정: 공정명 ETCH 바꾸기');
+    expect((await screen.findByRole('menuitemradio', { name: /공정명 ETCH/ })).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /PHOTO/ }));
+    expect(window.location.search).toBe('?v=1&drillRoom=PHOTO');
+  });
+
+  it('includes the display label in the sibling trigger name when it equals the raw value', () => {
+    mount('/mars/labeled?v=1&drillRoom=PHOTO', <DrillLayout siblings={siblings} />);
+    expect(screen.getByRole('button', { name: '공정: PHOTO 바꾸기' })).toBeTruthy();
   });
 
   it('hides the path at depth 0 and shows the body', () => {
@@ -254,6 +259,15 @@ describe('DrillLayout keeps a body child across drill steps (06 §12.7, #912)', 
 });
 
 describe('ReturnLink (06 §22, ADR-0025)', () => {
+  it.each([
+    ['standalone link', <ReturnLink />, '← labeled (공정명 ETCH › A)'],
+    ['page return row', <PlatformPage>{null}</PlatformPage>, '← labeled로 돌아가기 (공정명 ETCH › A)'],
+  ] as const)('combines formatted and raw drill steps in the %s', (_control, node, name) => {
+    const accepted = '/mars/labeled?v=1&drillRoom=ETCH&drillStgroup=A';
+    mount(`/mars/detail?v=1&returnTo=${encodeURIComponent(accepted)}`, node);
+    expect(screen.getByRole('link', { name })).toHaveAttribute('href', accepted);
+  });
+
   it('names the origin menu and its drill trail', () => {
     const accepted = '/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillLine=L1&drillEquipment=E';
     mount(`/mars/detail?v=1&returnTo=${encodeURIComponent(accepted)}`, <ReturnLink />);
