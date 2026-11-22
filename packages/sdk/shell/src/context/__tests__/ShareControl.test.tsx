@@ -17,7 +17,7 @@ const registry = createRegistry({
   groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
   menus: [
     menu('live', { context: { ...noContext, time: 'apply', roomNames: 'apply' }, query: { mode: 'live' } }),
-    menu('query', { context: { ...noContext, time: 'apply', roomNames: 'apply' }, query: { mode: 'apply', required: { context: ['time'] } } }),
+    { ...menu('query', { context: { ...noContext, time: 'apply', roomNames: 'apply' }, query: { mode: 'apply', required: { context: ['time'] } } }) },
   ],
 });
 const session = testSession(['platform:view']);

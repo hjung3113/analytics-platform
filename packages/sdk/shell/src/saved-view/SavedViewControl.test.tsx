@@ -19,10 +19,10 @@ vi.mock('@ap/kernel', async importOriginal => {
 const baseSupport: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: ['time', 'roomNames'], pageKeys: [] };
 let support: SavedViewSupport = baseSupport;
 const period = 'from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
-const menu = (id: string, path: string, over: Record<string, unknown> = {}) => ({ id, group: groupId('overview'), primary: id === 'home', label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const, requiresScope: true, context: { ...noContext, time: 'apply' as const, roomNames: 'apply' as const }, query: { mode: 'apply' as const, required: { context: ['time' as const] } }, pageKeys: [], pageType: 'analysis' as const, features: { export: false, savedView: true, annotate: false, compare: false }, ...over });
+const menu = (id: string, path: string, over: Record<string, unknown> = {}) => ({ id, group: groupId('overview'), primary: id === 'home', label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const, requiresScope: true, context: { ...noContext, time: 'apply' as const, roomNames: 'apply' as const }, savedViews: 'screen' as const, query: { mode: 'apply' as const, required: { context: ['time' as const] } }, pageKeys: [], pageType: 'analysis' as const, features: { export: false, savedView: true, annotate: false, compare: false }, ...over });
 const registry = createRegistry({
   spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
-  menus: [menu('home', '/'), menu('live', '/live', { query: undefined, primary: false, features: { export: false, savedView: false, annotate: false, compare: false } })],
+  menus: [menu('home', '/'), menu('live', '/live', { query: undefined, primary: false, savedViews: undefined, features: { export: false, savedView: false, annotate: false, compare: false } })],
 });
 const session = testSession(['platform:view']);
 let platform: ReturnType<typeof useHostPlatform>;
@@ -55,7 +55,7 @@ describe('SavedViewControl in the query tool row', () => {
       store.getHold.set(L1.id, new Promise<void>(resolve => { release = resolve; }));
       const chosen = createRegistry({
         spaces: registry.spaces, groups: registry.groups,
-        menus: [menu('home', '/', { requiresScope: false, savedViewSupport: baseSupport, query: { mode: 'apply', autoApplyDefault: true } })],
+        menus: [menu('home', '/', { requiresScope: false, savedViews: undefined, savedViewSupport: baseSupport, query: { mode: 'apply', autoApplyDefault: true } })],
       });
       window.history.replaceState(null, '', '/');
       render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><Probe /><GlobalContextBar /></PlatformProvider></I18nProvider>);
@@ -88,7 +88,7 @@ describe('SavedViewControl in the query tool row', () => {
       store.getHold.set(L1.id, new Promise<void>(resolve => { release = resolve; }));
       const chosen = createRegistry({
         spaces: registry.spaces, groups: registry.groups,
-        menus: [menu('home', '/', { requiresScope: false, savedViewSupport: baseSupport, query: { mode: 'apply', autoApplyDefault: true } })],
+        menus: [menu('home', '/', { requiresScope: false, savedViews: undefined, savedViewSupport: baseSupport, query: { mode: 'apply', autoApplyDefault: true } })],
       });
       let regionAtMount: Element | null = null;
       let textAtMount: string | null = null;

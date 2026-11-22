@@ -140,6 +140,8 @@ export type MenuMeta = {
         applyPeriodOnLegacyEntry?: boolean;
         required?: { context?: readonly ContextKey[]; page?: readonly { key: string; label: Text }[] };
       };
+  /** The menu screen registers Saved View support with useSavedViewSupport. */
+  savedViews?: 'screen';
   pageType: PageType;
   /** Candidate: declarative page-owned conditions; absent preserves legacy behavior (§5/§6.4). */
   pageConditions?: PageConditions;

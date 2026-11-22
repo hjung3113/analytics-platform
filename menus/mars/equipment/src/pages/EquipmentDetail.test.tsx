@@ -87,7 +87,7 @@ describe('EquipmentDetail related analysis tab: Top View link', () => {
 
   it('only describes the cycle-time link with the destination name and its required conditions', async () => {
     const cycleTime: MenuEntry = { ...cycleTimeMenu, label: { ko: '사이클타임 상세', en: 'Cycle time detail' },
-      context: { ...cycleTimeMenu.context, time: 'apply', roomNames: 'apply' }, query: { mode: 'apply', required: { context: ['roomNames'] } } };
+      context: { ...cycleTimeMenu.context, time: 'apply', roomNames: 'apply' }, features: { ...cycleTimeMenu.features, savedView: false }, savedViews: undefined, query: { mode: 'apply', required: { context: ['roomNames'] } } };
     renderAnalysis(registryFor([cycleTime, topViewMenu]), ['equipment:view', 'eqv:view', 'platform:view']);
     const cycle = await screen.findByRole('link', { name: '이 설비로 사이클타임 상세' });
     const description = cycle.getAttribute('aria-describedby');

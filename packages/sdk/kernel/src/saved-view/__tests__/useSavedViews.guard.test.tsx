@@ -9,7 +9,7 @@ import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSe
 
 const baseSupport: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: [], pageKeys: ['filter'] };
 let support = baseSupport;
-const base = { group: groupId('g'), icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, query: { mode: 'apply' as const }, pageType: 'analysis' as const, pageKeys: ['filter'], features: { export: false, savedView: true, annotate: false, compare: false } };
+const base = { group: groupId('g'), icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, savedViews: 'screen' as const, query: { mode: 'apply' as const }, pageType: 'analysis' as const, pageKeys: ['filter'], features: { export: false, savedView: true, annotate: false, compare: false } };
 const makeRegistry = (home: Record<string, unknown> = {}) => createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('g'), label: base.label, icon: House, space: spaceId('mars') }], menus: [{ ...base, id: 'home', path: '/', primary: true, ...home }, { ...base, id: 'other', path: '/other' }] });
 let registry = makeRegistry();
 let rows = () => [row('a'), row('b'), row('c')];
