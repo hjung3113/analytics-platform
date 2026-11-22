@@ -316,57 +316,62 @@ function EvidenceSession({
       <ListShell
         list={
           <>
-            <ListToolbar
-              title={COPY.title}
-              tabs={[
-                { value: 'all', label: GLOSSARY.all, disabled: blocked },
-                ...Object.entries(EVIDENCE_SOURCE_TYPE_LABELS).map(([value, label]) => ({
-                  value,
-                  label,
-                  disabled: blocked,
-                })),
-              ]}
-              tabsAriaLabel={COPY.sourceTabs}
-              activeTab={search.source ?? 'all'}
-              onTabChange={(value) =>
-                changeFilter({
-                  ...search,
-                  source: value === 'all' ? undefined : (value as Search['source']),
-                })
-              }
-              action={
-                <fieldset disabled={blocked} className="flex items-center gap-2">
-                  <div ref={searchRef}>
-                    <SearchInput
-                      placeholder={COPY.search}
-                      value={draft}
-                      onValueChange={setDraft}
-                      onCommit={() => {
-                        if (blocked) return;
-                        const q = draft.trim().slice(0, 200);
-                        if (q !== (search.q ?? '')) changeFilter({ ...search, q: q || undefined });
-                      }}
-                    />
-                  </div>
-                  <Button
-                    variant="subtle"
-                    size="sm"
-                    spacing="compact"
-                    disabled={manualRefresh}
-                    onClick={() => {
-                      setManualRefresh(true);
-                      setRefresh((value) => value + 1);
-                    }}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-                    {GLOSSARY.refresh}
-                  </Button>
-                </fieldset>
-              }
-            />
-            <p className="border-b border-border-subtle px-5 py-3 text-xs text-text-muted">
-              {COPY.description}
-            </p>
+            {/* A denied list read shows only its card; a denied selected detail keeps the list controls (#2677). */}
+            {listBlocked ? null : (
+              <>
+                <ListToolbar
+                  title={COPY.title}
+                  tabs={[
+                    { value: 'all', label: GLOSSARY.all, disabled: blocked },
+                    ...Object.entries(EVIDENCE_SOURCE_TYPE_LABELS).map(([value, label]) => ({
+                      value,
+                      label,
+                      disabled: blocked,
+                    })),
+                  ]}
+                  tabsAriaLabel={COPY.sourceTabs}
+                  activeTab={search.source ?? 'all'}
+                  onTabChange={(value) =>
+                    changeFilter({
+                      ...search,
+                      source: value === 'all' ? undefined : (value as Search['source']),
+                    })
+                  }
+                  action={
+                    <fieldset disabled={blocked} className="flex items-center gap-2">
+                      <div ref={searchRef}>
+                        <SearchInput
+                          placeholder={COPY.search}
+                          value={draft}
+                          onValueChange={setDraft}
+                          onCommit={() => {
+                            if (blocked) return;
+                            const q = draft.trim().slice(0, 200);
+                            if (q !== (search.q ?? '')) changeFilter({ ...search, q: q || undefined });
+                          }}
+                        />
+                      </div>
+                      <Button
+                        variant="subtle"
+                        size="sm"
+                        spacing="compact"
+                        disabled={manualRefresh}
+                        onClick={() => {
+                          setManualRefresh(true);
+                          setRefresh((value) => value + 1);
+                        }}
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                        {GLOSSARY.refresh}
+                      </Button>
+                    </fieldset>
+                  }
+                />
+                <p className="border-b border-border-subtle px-5 py-3 text-xs text-text-muted">
+                  {COPY.description}
+                </p>
+              </>
+            )}
             {!blocked && search.cursor && !pages.entries.has('') && items.length > 0 && (
               <div className="px-5 py-2">
                 <Button

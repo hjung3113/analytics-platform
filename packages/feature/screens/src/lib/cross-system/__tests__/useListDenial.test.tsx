@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { render, renderHook, screen, waitFor } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -154,6 +154,53 @@ describe('useListDenial', () => {
 
     rerender({ identity: 'second', selectedId: 'reopened' });
     expect(actions).toEqual(['evict:first', 'close:record', 'evict:second', 'close:reopened']);
+  });
+});
+
+describe('useListDenial focus on a removed control (#2677)', () => {
+  const forbidden = new ApiError(403, { code: 'permission.denied', message: 'denied' });
+  function Screen({ error }: { error: unknown }) {
+    const { denied, deniedRef } = useListDenial({ error, managedSystemId: SYSTEM });
+    return (
+      <>
+        <button type="button">outside</button>
+        {denied ? (
+          <div ref={deniedRef} tabIndex={-1} data-testid="card">
+            <button type="button">권한 요청</button>
+          </div>
+        ) : (
+          <input aria-label="search" />
+        )}
+      </>
+    );
+  }
+
+  it('moves focus to the card when the denial removes the focused list control', () => {
+    const { rerender } = render(<Screen error={null} />);
+    screen.getByRole('textbox', { name: 'search' }).focus();
+    rerender(<Screen error={forbidden} />);
+    expect(screen.getByRole('button', { name: '권한 요청' })).toHaveFocus();
+  });
+
+  it('does not take focus when focus had already left the removed control (R-2677e C2)', async () => {
+    const { rerender } = render(<Screen error={null} />);
+    const search = screen.getByRole('textbox', { name: 'search' });
+    search.focus();
+    search.blur();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(document.body);
+    rerender(<Screen error={forbidden} />);
+    expect(screen.getByRole('button', { name: '권한 요청' })).not.toHaveFocus();
+  });
+
+  it('leaves focus that survives the denial and does not take focus on a first denied render', () => {
+    const { rerender } = render(<Screen error={null} />);
+    screen.getByRole('button', { name: 'outside' }).focus();
+    rerender(<Screen error={forbidden} />);
+    expect(screen.getByRole('button', { name: 'outside' })).toHaveFocus();
+
+    const first = render(<Screen error={forbidden} />);
+    expect(first.getAllByRole('button', { name: '권한 요청' }).at(-1)).not.toHaveFocus();
   });
 });
 

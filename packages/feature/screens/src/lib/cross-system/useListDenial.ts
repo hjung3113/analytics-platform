@@ -167,6 +167,38 @@ export function useListDenial({
     closeDrawer();
   }, [closeOn, denied, identity, keptSystemId, selectedId]);
 
+  // A denial replaces the list controls; when it removed the control that held focus, focus lands
+  // on the card instead of the page body. Focus that survives, or none before, stays put (#2677).
+  const lastFocused = useRef<Element | null>(null);
+  useEffect(() => {
+    const record = (event: FocusEvent) => {
+      lastFocused.current = event.target instanceof Element ? event.target : null;
+    };
+    // Focus that leaves a still-connected element was moved by the user, not by a removal.
+    const release = (event: FocusEvent) => {
+      const target = event.target;
+      queueMicrotask(() => {
+        if (target instanceof Element && target.isConnected && lastFocused.current === target) {
+          lastFocused.current = null;
+        }
+      });
+    };
+    document.addEventListener('focusin', record);
+    document.addEventListener('focusout', release);
+    return () => {
+      document.removeEventListener('focusin', record);
+      document.removeEventListener('focusout', release);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    if (!denied) return;
+    const previous = lastFocused.current;
+    lastFocused.current = null;
+    if (previous && !previous.isConnected && document.activeElement === document.body) {
+      focusListDenialCard(deniedRef.current);
+    }
+  }, [denied]);
+
   // The host can apply the selection's URL change in a later commit.
   useLayoutEffect(() => {
     const previous = pending.current;

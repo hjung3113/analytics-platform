@@ -680,8 +680,9 @@ load-more without discarding successful rows. A first-page `422` with cursor fie
 code `invalid_cursor` removes `cursor` with replace and reloads the first page,
 retaining filters and selection. Manual refresh keeps current rows visible while
 reads are pending, then reconciles the authorized responses; session/scope and
-permission invalidation still clears stale content. Blocked lists disable source
-tabs, search and refresh. A confirmed list denial clears an open selection in
+permission invalidation still clears stale content. A denied list read shows only
+the denial card: source tabs, search, refresh and the description row are hidden.
+A denied selected detail keeps the list controls (#2677). A confirmed list denial clears an open selection in
 Evidence, Findings, VOC Inbox, VOC Clusters, Task list, Task board and Milestones while keeping the selected Managed System and
 filters. If closing detail leaves focus on the page body, focus moves to the
 denial card's first available action or to the card itself. A later explicit VOC Inbox selection still goes through the
