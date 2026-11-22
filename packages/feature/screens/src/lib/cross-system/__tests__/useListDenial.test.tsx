@@ -182,6 +182,17 @@ describe('useListDenial focus on a removed control (#2677)', () => {
     expect(screen.getByRole('button', { name: '권한 요청' })).toHaveFocus();
   });
 
+  it('does not take focus when focus had already left the removed control (R-2677e C2)', async () => {
+    const { rerender } = render(<Screen error={null} />);
+    const search = screen.getByRole('textbox', { name: 'search' });
+    search.focus();
+    search.blur();
+    await Promise.resolve();
+    expect(document.activeElement).toBe(document.body);
+    rerender(<Screen error={forbidden} />);
+    expect(screen.getByRole('button', { name: '권한 요청' })).not.toHaveFocus();
+  });
+
   it('leaves focus that survives the denial and does not take focus on a first denied render', () => {
     const { rerender } = render(<Screen error={null} />);
     screen.getByRole('button', { name: 'outside' }).focus();

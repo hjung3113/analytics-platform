@@ -174,8 +174,21 @@ export function useListDenial({
     const record = (event: FocusEvent) => {
       lastFocused.current = event.target instanceof Element ? event.target : null;
     };
+    // Focus that leaves a still-connected element was moved by the user, not by a removal.
+    const release = (event: FocusEvent) => {
+      const target = event.target;
+      queueMicrotask(() => {
+        if (target instanceof Element && target.isConnected && lastFocused.current === target) {
+          lastFocused.current = null;
+        }
+      });
+    };
     document.addEventListener('focusin', record);
-    return () => document.removeEventListener('focusin', record);
+    document.addEventListener('focusout', release);
+    return () => {
+      document.removeEventListener('focusin', record);
+      document.removeEventListener('focusout', release);
+    };
   }, []);
   useLayoutEffect(() => {
     if (!denied) return;
