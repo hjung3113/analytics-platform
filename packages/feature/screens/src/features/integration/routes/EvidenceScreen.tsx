@@ -24,7 +24,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ListAccessRequestPanel } from '../../../components/ListAccessRequestPanel';
+import { ListAccessRequestPanel, ListDenialFocus } from '../../../components/ListAccessRequestPanel';
 import {
   type EvidenceFilters,
   evidenceInventoryQueryKey,
@@ -380,16 +380,16 @@ function EvidenceSession({
               </div>
             )}
             {request ? (
-              <div ref={deniedRef} tabIndex={-1}>
+              <ListDenialFocus container={deniedRef}>
                 <ListAccessRequestPanel
                   category={COPY.title}
                   reason={COPY.blocked}
                   request={request}
                   returnRouteIntent="/integration/evidence"
                 />
-              </div>
+              </ListDenialFocus>
             ) : roleRequired ? (
-              <div ref={deniedRef} tabIndex={-1}>
+              <ListDenialFocus container={deniedRef}>
                 <PermissionBlockedPanel
                   layout="card"
                   lang={lang}
@@ -398,15 +398,15 @@ function EvidenceSession({
                   exitAction={permissionCardExitAction(permissionHomeHref, lang)}
                   reason={PERMISSION_BLOCKED_REASONS.evidenceListRoleRequired}
                 />
-              </div>
+              </ListDenialFocus>
             ) : blocked ? (
-              <div ref={deniedRef} tabIndex={-1}>
+              <ListDenialFocus container={deniedRef}>
                 <PermissionDeniedCard
                   layout="card"
                   category="근거"
                   description={archived ? PERMISSION_BLOCKED_REASONS.archivedSystem : COPY.blocked}
                 />
-              </div>
+              </ListDenialFocus>
             ) : scopedPermission.state === 'checking' || ((list.isPending || list.isFetching) && items.length === 0) ? (
               <Skeleton className="h-32" role="status" aria-label={COPY.loading} />
             ) : scopedPermission.state === 'error' ? (

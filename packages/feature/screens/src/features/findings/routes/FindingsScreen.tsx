@@ -4,7 +4,7 @@
 // Nothing here reaches the Finding detail tree.
 
 import { ListLoadMore } from '../../../components/ListLoadMore';
-import { ListAccessRequestPanel, type ListAccessRequest } from '../../../components/ListAccessRequestPanel';
+import { ListAccessRequestPanel, ListDenialFocus, type ListAccessRequest } from '../../../components/ListAccessRequestPanel';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { MyVocsRecoveryLink } from '../../../components/MyVocsRecoveryLink';
 import { PermissionDeniedCard } from '../../../components/PermissionDeniedCard';
@@ -528,7 +528,7 @@ function FindingsListBody({
   roleRequired: boolean;
   capability: string;
   managedSystemId: string | undefined;
-  deniedRef: React.Ref<HTMLDivElement>;
+  deniedRef: React.RefObject<HTMLDivElement | null>;
   request: ListAccessRequest | null | undefined;
   isFilteredEmpty: boolean;
   searchFiltered: boolean;
@@ -565,16 +565,16 @@ function FindingsListBody({
         </div>
       ) : isReadDenied ? (
         request ? (
-          <div ref={deniedRef} tabIndex={-1} className="m-4 space-y-3">
+          <ListDenialFocus container={deniedRef} className="m-4 space-y-3">
             <ListAccessRequestPanel
               category="Findings"
               reason={PERMISSION_BLOCKED_REASONS.findingsList}
               request={request}
               returnRouteIntent="/findings"
             />
-          </div>
+          </ListDenialFocus>
         ) : roleRequired ? (
-          <div ref={deniedRef} tabIndex={-1} className="m-4">
+          <ListDenialFocus container={deniedRef} className="m-4">
             <PermissionBlockedPanel
               layout="card"
               headingLevel={2}
@@ -583,11 +583,11 @@ function FindingsListBody({
               reason={PERMISSION_BLOCKED_REASONS.findingsListRoleRequired}
               exitAction={<MyVocsRecoveryLink />}
             />
-          </div>
+          </ListDenialFocus>
         ) : (
-          <div ref={deniedRef} tabIndex={-1} className="m-4">
+          <ListDenialFocus container={deniedRef} className="m-4">
             <FindingsDeniedCard capability={capability} managedSystemId={managedSystemId} />
-          </div>
+          </ListDenialFocus>
         )
       ) : isError ? (
         <div data-testid="finding-list-error" className="p-4">

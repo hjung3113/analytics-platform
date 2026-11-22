@@ -1,3 +1,4 @@
+import { useAccessRequestState } from '../../../../test-support/access-request-host';
 import type { ReactNode } from 'react';
 
 import { PermissionBlockedPanel } from '@ap/ui';
@@ -109,6 +110,7 @@ describe('<RequestAccessButton>', () => {
           Link: ({ to, children }) => <a href={to}>{children}</a>,
           notifyError: vi.fn(),
           notifySuccess: vi.fn(),
+          useAccessRequestState,
           permissionRequestHref: () => '/permission-requests',
         }}>
           <RequestAccessButton
@@ -193,6 +195,7 @@ describe('<RequestAccessButton>', () => {
           Link: ({ to, children }) => <a href={to}>{children}</a>,
           notifyError: vi.fn(),
           notifySuccess: vi.fn(),
+          useAccessRequestState,
           permissionRequestHref: () => '/permission-requests',
         }}>
           <RequestAccessButton capability={CAPABILITY} managedSystemId={MANAGED_SYSTEM_ID} returnRouteIntent={RETURN_ROUTE}
@@ -208,6 +211,20 @@ describe('<RequestAccessButton>', () => {
     );
   });
 
+  test('preserves the page link for a host without a request state hook', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    client.setQueryData(permissionRequestsMineAllKey, { requests: [] });
+    render(<QueryClientProvider client={client}><HostSeamProvider value={{
+      canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
+      permissionRequestHref: () => '/company/permission-requests',
+    }}>
+      <RequestAccessButton capability={CAPABILITY} returnRouteIntent={RETURN_ROUTE} pending={false} layout="card"
+        renderTrigger={(_open, panel) => <PermissionBlockedPanel layout="card" state="request_access" category="Finding" {...panel} />}
+      />
+    </HostSeamProvider></QueryClientProvider>);
+    expect(screen.getByRole('link', { name: '권한 요청' })).toHaveAttribute('href', '/company/permission-requests');
+  });
+
   test.each([
     { pending: false, href: '/company/permission-requests', label: '권한 요청', variant: 'bg-accent-primary' },
     { pending: true, href: '/company/permission-requests', label: '내 권한 요청 보기', variant: 'bg-surface-raised' },
@@ -217,6 +234,7 @@ describe('<RequestAccessButton>', () => {
     client.setQueryData(permissionRequestsMineAllKey, { requests: [] });
     render(<QueryClientProvider client={client}><HostSeamProvider value={{
       canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
+      useAccessRequestState,
       permissionRequestHref: () => href, permissionHomeHref: '/company/',
     }}>
       <RequestAccessButton capability={CAPABILITY} returnRouteIntent={RETURN_ROUTE} pending={pending} layout="card"
@@ -248,6 +266,7 @@ describe('<RequestAccessButton>', () => {
     let openCard: (() => void) | undefined;
     render(<QueryClientProvider client={client}><HostSeamProvider value={{
       canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
+      useAccessRequestState,
       permissionRequestHref: () => '/company/permission-requests', permissionHomeHref: '/company/',
       useFollowHostHref: () => follow,
     }}>
@@ -279,6 +298,7 @@ describe('<RequestAccessButton>', () => {
     if (status === 'open') client.setQueryData(permissionRequestsMineKey, { requests: [pending, recent[0]] });
     render(<QueryClientProvider client={client}><HostSeamProvider value={{
       canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
+      useAccessRequestState,
       permissionRequestHref: () => '/permission-requests',
     }}>
       <RequestAccessButton capability={CAPABILITY} managedSystemId={MANAGED_SYSTEM_ID} returnRouteIntent={RETURN_ROUTE}
@@ -306,6 +326,7 @@ describe('<RequestAccessButton>', () => {
     client.setQueryData(permissionRequestsMineKey, { requests: [pending] });
     render(<QueryClientProvider client={client}><HostSeamProvider value={{
       canLink: () => true, Link: () => null, notifyError: vi.fn(), notifySuccess: vi.fn(),
+      useAccessRequestState,
       permissionRequestHref: () => '/permission-requests',
     }}>
       <RequestAccessButton capability={CAPABILITY} managedSystemId={MANAGED_SYSTEM_ID} returnRouteIntent={RETURN_ROUTE}

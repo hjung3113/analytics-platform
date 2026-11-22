@@ -1,8 +1,8 @@
 import { Ban, FileQuestion, Link2Off, Loader2 } from 'lucide-react';
-import { lazy, Suspense, useLayoutEffect, useRef } from 'react';
+import { lazy, Suspense, useRef } from 'react';
 import { PlatformLink, contractErrorSentence, routeParamNames, useI18n, useMessages, type AccessRequestState } from '@ap/kernel';
 import { isImplementedMenu, ScreenContentLoading, useArrivalFocus, useHostPlatform } from '@ap/kernel/host';
-import { LoadingBlock, Panel, PlatformPage, PlatformPageBodyBoundary, StateMessage, focusPageFallback, useAccessRequestRetry } from '@ap/components';
+import { LoadingBlock, Panel, PlatformPage, PlatformPageBodyBoundary, StateMessage, focusPageFallback, useAccessRequestState } from '@ap/components';
 import { Button, PermissionBlockedPanel, shortcutLabel } from '@ap/ui';
 import { menuPermissions, type Permission } from '@ap/contracts';
 import { HomeLink, useHomeHref } from '../frame/HomeLink';
@@ -120,75 +120,33 @@ function MenuPermissionBlocked({ permission, heading }: { permission: Permission
   const fallback = <MenuPermissionCard heading={heading} state={{ pending: null, statusHref: null }} />;
   if (!Pending) return fallback;
   return <ShellBoundary fallback={fallback}><Pending target={{ kind: 'permission', permission }}>
-    {state => <MenuPermissionCard heading={heading} state={state} />}
+    {state => <MenuPermissionCard key={permission} heading={heading} state={state} />}
   </Pending></ShellBoundary>;
 }
-
-const requestLabels = { pending: 'accessRequestViewMine', 'approved-partial': 'accessRequestRemaining', none: 'accessRequest' } as const;
 
 function MenuPermissionCard({ heading, state }: { heading: string; state: AccessRequestState }) {
   const { t, lang } = useI18n();
   const homeHref = useHomeHref();
-  const { shown, canRetry, retrying, run } = useAccessRequestRetry(state);
-  const href = shown.pending || shown.requestHref === undefined ? shown.statusHref : shown.requestHref;
-  const unavailable = shown.requestHref === null && !shown.pending;
-  const approvalStatus = shown.approvedPartial ? 'approved-partial' : 'none';
-  const availableStatus = shown.pending ? 'pending' : approvalStatus;
-  const status = shown.pending || href ? availableStatus : 'not-requestable';
-  const checking = !shown.pending && shown.read === 'checking' && Boolean(href);
-  const showRetry = !unavailable && ((retrying && state.read === 'checking')
-    || (!shown.pending && shown.read === 'error' && canRetry));
   const card = useRef<HTMLDivElement>(null);
-  const readFocus = useRef<'request' | 'checking' | 'retry' | null>(null);
-  useLayoutEffect(() => {
-    const owner = readFocus.current;
-    if (owner === null || (owner === 'checking' && checking) || (owner === 'retry' && showRetry)) return;
-    // The busy control takes the request slot during a read. Otherwise request/status comes before Home.
-    const replacement = card.current?.querySelector<HTMLElement>(checking ? 'button[aria-busy="true"]' : 'a[href]');
-    const activeElement = document.activeElement;
-    if (replacement && activeElement === replacement) return;
-    readFocus.current = null;
-    if (activeElement !== null && activeElement !== document.body) return;
-    if (replacement) replacement.focus({ preventScroll: true });
-    else focusPageFallback(card.current);
-  }, [checking, href, showRetry]);
-
+  const request = useAccessRequestState(state, { lang, kind: 'link', container: card });
+  const { href, shown, checking } = request;
   const requestAction = href ? <Button asChild size="sm" variant={shown.pending ? 'secondary' : 'primary'}>
-    <PlatformLink href={href}
-      onFocus={() => { readFocus.current = 'request'; }}
-      onBlur={event => { if (event.relatedTarget) readFocus.current = null; }}
-    >{t(requestLabels[availableStatus])}</PlatformLink>
+    <PlatformLink href={href} {...request.focusProps}>{request.label}</PlatformLink>
   </Button> : null;
   const exitAction = homeHref ? <Button asChild size="sm" variant="secondary"><PlatformLink href={homeHref}>{t('goToHome')}</PlatformLink></Button> : null;
-  let action = requestAction;
-  // Requestable: the card's own request sentence (same message as the list cards); only a denial with no request asks for an administrator.
-  let description = shown.pending || href ? undefined : t('askAccessOwner');
-  let reason: string | undefined;
-  if (!unavailable && !shown.pending && shown.read === 'checking') {
-    reason = description;
-    description = t('accessRequestChecking');
-    action = checking ? <Button type="button" size="sm" variant="primary" aria-disabled aria-busy
-      onFocus={() => { readFocus.current = 'checking'; }}
-      onBlur={event => { if (event.relatedTarget) readFocus.current = null; }}
-    ><Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />{t('accessRequest')}</Button> : null;
-  }
-  if (showRetry) {
-    reason = description;
-    description = t('accessRequestReadError');
-    action = <>
-      {requestAction}
-      <Button type="button" size="sm" variant="secondary" aria-disabled={retrying || undefined} aria-busy={retrying || undefined}
-        onFocus={() => { readFocus.current = 'retry'; }}
-        onBlur={event => { if (event.relatedTarget) readFocus.current = null; }}
-        onClick={run}>{t('retry')}</Button>
-    </>;
-  }
-  return <div ref={card} className="contents"><PermissionBlockedPanel layout="card" headingLevel={2} announceBody lang={lang} state={href ? 'request_access' : 'blocked_not_requestable'} category={t('menuDenied')}
-    description={description}
-    reason={reason}
+  const explanation = shown.pending || href || checking ? undefined : t('askAccessOwner');
+  const action = checking ? <Button type="button" size="sm" variant="primary" {...request.focusProps} {...request.busyProps}>
+    <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />{request.label}
+  </Button> : requestAction;
+  const retryAction = request.showRetry
+    ? <Button type="button" size="sm" variant="secondary" {...request.focusProps} {...request.retryProps}>{request.retryLabel}</Button>
+    : null;
+  return <div ref={card} className="contents"><PermissionBlockedPanel layout="card" headingLevel={2} announceBody lang={lang} state={href || checking ? 'request_access' : 'blocked_not_requestable'} category={t('menuDenied')}
+    description={request.readMessage ?? explanation}
+    reason={request.readMessage && explanation}
     missing={shown.missing}
-    requestStatus={status}
-    requestAction={action}
+    requestStatus={request.requestStatus}
+    requestAction={retryAction ? <>{action}{retryAction}</> : action}
     exitAction={exitAction}
   /></div>;
 }

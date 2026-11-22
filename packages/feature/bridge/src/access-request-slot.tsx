@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
+import { lazy, Suspense, useState, type ComponentProps, type ReactNode } from 'react';
 import { useQuery, type QueryKey } from '@tanstack/react-query';
 import type { PermissionRequestTarget, Text } from '@ap/contracts';
 import { useI18n, usePlatform, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
@@ -13,9 +13,6 @@ const STATUS_MENU_ID = 'permission-requests';
 /** Kernel permissions the requester page cannot ask for. */
 const NOT_REQUESTABLE_PERMISSIONS: ReadonlySet<string> = new Set(['console:access']);
 
-/** How long a read may stay `checking` before the place says it could not check (a request with no answer must not hold the entry for ever). */
-export const REQUEST_READ_LIMIT_MS = 8000;
-
 /**
  * Why a scoped place's state is unknown (#1933): `checking` only while a fetch really runs, `error` once it failed and nothing re-runs it.
  * A place with no read (not enabled: mock or session not ready) and a read that is not running without having failed
@@ -26,18 +23,6 @@ export function requestRead(input: { enabled: boolean; hasData: boolean; isError
   if (input.isError) return input.fetchStatus === 'fetching' ? 'checking' : 'error';
   if (input.hasData) return undefined;
   return input.fetchStatus === 'fetching' ? 'checking' : undefined;
-}
-
-/** `checking` that lasts past the limit reads as `error` (with a retry); `attempt` restarts the clock after a retry. */
-export function useCheckLimit(read: 'checking' | 'error' | undefined, attempt: number, limitMs: number = REQUEST_READ_LIMIT_MS): 'checking' | 'error' | undefined {
-  const [stalled, setStalled] = useState(false);
-  useEffect(() => {
-    setStalled(false);
-    if (read !== 'checking') return;
-    const timer = setTimeout(() => setStalled(true), limitMs);
-    return () => clearTimeout(timer);
-  }, [read, attempt, limitMs]);
-  return read === 'checking' && stalled ? 'error' : read;
 }
 
 function Pending({ target, children }: { target: PermissionRequestTarget; children: (state: AccessRequestState) => ReactNode }) {
@@ -58,12 +43,14 @@ function ScopePending({ target, children }: { target: Exclude<PermissionRequestT
   }, featureQueryClient);
   const pending = enabled && !isError && data !== undefined ? isPendingFor(target, data.requests) : null;
   const link = isReachable(registry, { menuId: STATUS_MENU_ID }) ? resolveLink(STATUS_MENU_ID) : null;
-  const [attempt, setAttempt] = useState(0);
-  const read = useCheckLimit(requestRead({ enabled, hasData: data !== undefined, isError, fetchStatus }), attempt);
+  const read = requestRead({ enabled, hasData: data !== undefined, isError, fetchStatus });
   const statusHref = link?.allowed ? link.href : null;
-  const retry = () => { setAttempt(n => n + 1); void refetch(); };
-  const state = { pending, statusHref };
-  return <>{children(read === undefined ? state : read === 'checking' ? { ...state, read } : { ...state, read, retry })}</>;
+  const retry = () => {
+    if (read === 'checking') void featureQueryClient.cancelQueries({ queryKey: permissionRequestsMineKey, exact: true });
+    void refetch();
+  };
+  const readKey = JSON.stringify([session.status === 'ready' ? session.epoch : null, target]);
+  return <>{children({ pending, statusHref, readKey, ...(read === undefined ? {} : { read, retry }) })}</>;
 }
 
 function MenuPending({ permission, children }: { permission: string; children: (state: AccessRequestState) => ReactNode }) {
@@ -85,7 +72,7 @@ function CapabilityPending({ capability, copy, children }: {
 }) {
   const session = useFeatureSession();
   const { lang } = useI18n();
-  const { registry, resolveLink, pageParam } = usePlatform();
+  const { registry, resolveLink, pageParam, route } = usePlatform();
   const ready = session.status === 'ready';
   const meOptions = meBridgeQueryOptions();
   const me = useQuery({ ...meOptions, enabled: ready, retry: false }, featureQueryClient);
@@ -110,15 +97,14 @@ function CapabilityPending({ capability, copy, children }: {
     enabled: requestable,
     retry: false,
   }, featureQueryClient);
-  const [attempt, setAttempt] = useState(0);
   const systemsRead = requestRead({ enabled, hasData: systems.data !== undefined, isError: systems.isError, fetchStatus: systems.fetchStatus });
   const permissionRead = requestRead({ enabled: checkEnabled, hasData: check.data !== undefined && !check.isFetching, isError: check.isError, fetchStatus: check.fetchStatus });
   const historyRead = requestRead({ enabled: requestable, hasData: mine.data !== undefined && !mine.isFetching, isError: mine.isError, fetchStatus: mine.fetchStatus });
   const roleRead = requestRead({ enabled: ready, hasData: me.data !== undefined, isError: me.isError, fetchStatus: me.fetchStatus });
   const reads = [roleRead, systemsRead, permissionRead, historyRead];
-  const read = useCheckLimit(reads.includes('checking') ? 'checking' : reads.find(status => status === 'error'), attempt);
+  const read = reads.includes('checking') ? 'checking' : reads.find(status => status === 'error');
+  const readKey = JSON.stringify([session.status === 'ready' ? session.epoch : null, route?.menu.id, capability, selected?.id]);
   const retry = () => {
-    setAttempt(value => value + 1);
     const retryRead = (status: typeof read, queryKey: QueryKey, refetch: () => Promise<unknown>) => {
       if (status === undefined) return;
       // React Query reuses an in-flight first fetch until it is explicitly cancelled.
@@ -138,7 +124,7 @@ function CapabilityPending({ capability, copy, children }: {
     ...(selected ? { system: selected.name } : {}),
   };
   if (read !== undefined) {
-    return <>{children({ pending: null, statusHref: null, missing, read, ...(read === 'error' ? { retry } : {}) })}</>;
+    return <>{children({ pending: null, statusHref: null, missing, read, readKey, retry })}</>;
   }
   const progress = requestable && mine.isSuccess ? permissionRequestProgress(
     mine.data.requests, capability, selected?.id, { pending: false },
@@ -148,7 +134,7 @@ function CapabilityPending({ capability, copy, children }: {
     returnTo: true,
   }) : null;
   return <>{children({
-    pending, statusHref: enabled ? statusHref : null, requestHref: requestLink?.allowed ? requestLink.href : null,
+    pending, readKey, statusHref: enabled ? statusHref : null, requestHref: requestLink?.allowed ? requestLink.href : null,
     approvedPartial: progress === 'approved-partial',
     missing,
   })}</>;

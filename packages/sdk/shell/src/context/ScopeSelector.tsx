@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown, Loader2, MapPin, RotateCw, ShieldAlert } from 'lucide-react';
 import { useI18n, useMessages, type AccessRequestSlot, type AccessRequestState } from '@ap/kernel';
-import { useAccessRequestRetry, useScopeAccessRequest } from '@ap/components';
+import { useAccessRequestRead, useScopeAccessRequest } from '@ap/components';
 import { useHostPlatform } from '@ap/kernel/host';
 import { ShellBoundary } from '../frame/ShellBoundary';
 import { SHELL_MESSAGES } from '../messages';
@@ -132,7 +132,7 @@ function SiteRequestItem({ slot, site, onRequest, onStatus }: { slot: AccessRequ
 /** One site's rows by the request state (#1933). While a retry runs the rows keep their failure look; the focus the retry row held goes to the request row. */
 function SiteRows({ state, site, onRequest, onStatus }: { state: AccessRequestState; site: { id: string; label: string; missing: number }; onRequest: () => void; onStatus: (href: string) => void }) {
   const { t } = useI18n();
-  const { shown, retrying, canRetry, run } = useAccessRequestRetry(state);
+  const { shown, retrying, canRetry, run } = useAccessRequestRead(state);
   const requestRow = useRef<HTMLDivElement>(null);
   const retryFocus = useRef(false);
   useLayoutEffect(() => {

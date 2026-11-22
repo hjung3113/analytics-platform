@@ -12,6 +12,7 @@
 // Per AGENTS.md:69 the frontend never enforces backend permissions — this
 // component only reacts to server responses.
 
+import { Loader2 } from 'lucide-react';
 import {
   Button,
   Callout,
@@ -60,7 +61,7 @@ import {
   type PermissionScopeTargetKind,
   formatPermissionScopeTarget,
 } from '../lib/copy/permission-scope';
-import { HostLink, useFollowHostHref, useHostPermissionLinks, useHostSeam } from '../lib/host/host-seam';
+import { HostLink, useFollowHostHref, useHostPermissionLinks, useHostSeam, type HostSeam } from '../lib/host/host-seam';
 import { HostHrefLink } from './HostHrefLink';
 import { useManagedSystemNames } from '../lib/cross-system/useManagedSystemNames';
 import { permissionCheckQueryKey } from '../lib/cross-system/usePermissionCheckBridge';
@@ -116,9 +117,10 @@ const RECOVERABLE_CONFLICT_CODES = new Set([
 
 export function RequestAccessButton(props: RequestAccessButtonProps) {
   const { permissionRequestHref } = useHostPermissionLinks();
+  const { useAccessRequestState } = useHostSeam();
   if (permissionRequestHref && props.layout === 'card' && props.renderTrigger && props.capability &&
       props.open === undefined && !props.onRequestSubmitted && !props.exactScopeTarget) {
-    return <RequestAccessLink {...props} capability={props.capability} renderTrigger={props.renderTrigger} />;
+    return <RequestAccessLink key={JSON.stringify([props.capability, props.managedSystemId, props.returnRouteIntent])} {...props} capability={props.capability} renderTrigger={props.renderTrigger} useAccessRequestState={useAccessRequestState} />;
   }
   return <RequestAccessDialog {...props} />;
 }
@@ -135,14 +137,40 @@ function useOpenRequest(capability: string, managedSystemId: string | undefined,
   return { open, hasPending, statusKnown };
 }
 
-function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger }: RequestAccessButtonCommonProps & {
+// Link-only hosts retain the original status text and actions through the URL seam.
+const useLegacyRequestPresentation: NonNullable<HostSeam['useAccessRequestState']> = (state, { lang }) => {
+  const copy = PERMISSION_REQUEST_FLOW_COPY[lang];
+  const phase = state.pending ? 'pending' : state.read ?? 'request';
+  const href = state.pending ? state.statusHref : state.requestHref;
+  const available = href ? 'none' : 'not-requestable';
+  const settledStatus = href && state.approvedPartial ? 'approved-partial' : available;
+  const requestStatus = state.pending ? 'pending' : state.read ? 'none' : settledStatus;
+  const requestLabel = state.approvedPartial ? copy.remaining : copy.request;
+  return {
+    phase,
+    checking: phase === 'checking',
+    href,
+    requestStatus,
+    label: state.pending ? copy.viewMine : requestLabel,
+    readMessage: phase === 'checking' ? copy.checkingRequest : copy.requestCheckError,
+    showRetry: phase === 'error',
+    retryLabel: copy.retry,
+    focusProps: {},
+    busyProps: {},
+    retryProps: { onClick: state.retry },
+  };
+};
+
+function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger, useAccessRequestState }: RequestAccessButtonCommonProps & {
   capability: string;
   managedSystemId?: string;
   renderTrigger: NonNullable<RequestAccessButtonCommonProps['renderTrigger']>;
+  useAccessRequestState: HostSeam['useAccessRequestState'];
 }) {
   const { lang = 'ko' } = useHostSeam();
   const { permissionRequestHref, permissionHomeHref } = useHostPermissionLinks();
-  const copy = PERMISSION_REQUEST_FLOW_COPY[lang];
+  const container = useRef<HTMLDivElement>(null);
+  const qc = useQueryClient();
   const mine = useQuery({
     queryKey: permissionRequestsMineAllKey,
     queryFn: ({ signal }) => fetchPermissionRequestsMine({ status: 'all', signal }),
@@ -155,41 +183,62 @@ function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger
   const progress = permissionRequestProgress(
     mine.isSuccess ? mine.data.requests : [], capability, managedSystemId, { pending: hasPending },
   );
-  const checking = !hasPending && ((!statusKnown && open.isFetching) || (mine.isFetching && !mine.isSuccess));
-  const failed = !hasPending && (!statusKnown || mine.isError);
-  const href = !checking && !failed ? permissionRequestHref?.(hasPending ? {} : {
+  const waiting = (!statusKnown && open.isFetching) || (mine.isFetching && !mine.isSuccess);
+  const failed = !statusKnown || mine.isError;
+  const read = waiting ? 'checking' : failed ? 'error' : undefined;
+  const statusHref = hasPending ? permissionRequestHref?.({}) ?? null : null;
+  const requestHref = hasPending || read !== undefined ? undefined : permissionRequestHref?.({
     capability,
     ...(managedSystemId !== undefined ? { managedSystemId } : {}),
-  }) : null;
-  const labels = { pending: copy.mine, 'approved-partial': copy.remaining, none: copy.request };
+  }) ?? null;
+  const retry = () => {
+    if (!statusKnown) {
+      if (open.isFetching) void qc.cancelQueries({ queryKey: permissionRequestsMineKey, exact: true });
+      void open.refetch();
+    }
+    if (mine.isError || (mine.isFetching && !mine.isSuccess)) {
+      if (mine.isFetching) void qc.cancelQueries({ queryKey: permissionRequestsMineAllKey, exact: true });
+      void mine.refetch();
+    }
+  };
+  const useRequestPresentation = useAccessRequestState ?? useLegacyRequestPresentation;
+  const request = useRequestPresentation({
+    pending: hasPending,
+    statusHref,
+    ...(requestHref !== undefined ? { requestHref } : {}),
+    ...(read !== undefined ? { read, retry } : {}),
+    approvedPartial: progress === 'approved-partial',
+  }, { lang, kind: 'link', container });
+  const { href } = request;
   const missing = { permission: getCapabilityDisplayLabel(capability), ...(system ? { system } : {}) };
   const follow = useFollowHostHref();
   const followLink = () => { if (href && !follow(href)) window.location.assign(href); };
-  const retry = () => {
-    if (!statusKnown) void open.refetch();
-    if (mine.isError) void mine.refetch();
-  };
-  const availableStatus = href || hasPending ? progress : 'not-requestable';
-  const requestStatus = checking || failed ? 'none' : availableStatus;
   let action: ReactNode = null;
-  if (checking) {
-    action = <span role="status">{copy.checkingRequest}</span>;
-  } else if (failed) {
+  if (request.checking && !useAccessRequestState) {
+    action = <span role="status">{request.readMessage}</span>;
+  } else if (request.checking) {
+    action = <Button type="button" size="sm" variant="primary" {...request.focusProps} {...request.busyProps}>
+      <Loader2 className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />{request.label}
+    </Button>;
+  } else if (request.phase === 'error') {
     action = <>
-      <span role="alert">{copy.requestCheckError}</span>
-      <Button type="button" variant="secondary" size="sm" onClick={retry}>{copy.retry}</Button>
+      <span role="alert">{request.readMessage}</span>
+      {request.showRetry && <Button type="button" variant="secondary" size="sm" {...request.focusProps} {...request.retryProps}>{request.retryLabel}</Button>}
     </>;
   } else if (href) {
     action = <Button asChild size="sm" variant={hasPending ? 'secondary' : 'primary'}>
-      <HostHrefLink href={href}>{hasPending ? copy.viewMine : labels[progress]}</HostHrefLink>
+      <HostHrefLink href={href} {...request.focusProps}>{request.label}</HostHrefLink>
     </Button>;
   }
-  return renderTrigger(followLink, {
-    lang, requestStatus, missing,
-    ...(hasPending ? { description: copy.pendingExplanation } : {}),
+  return <div ref={container} className="contents">{renderTrigger(followLink, {
+    lang,
+    requestStatus: request.requestStatus,
+    missing,
+    ...(!useAccessRequestState && hasPending ? { description: PERMISSION_REQUEST_FLOW_COPY[lang].pendingExplanation } : {}),
+    ...(useAccessRequestState && request.checking && request.readMessage !== undefined ? { description: request.readMessage, announceBody: true } : {}),
     requestAction: action,
     exitAction: permissionCardExitAction(permissionHomeHref, lang),
-  });
+  })}</div>;
 }
 
 function RequestAccessDialog(props: RequestAccessButtonProps) {

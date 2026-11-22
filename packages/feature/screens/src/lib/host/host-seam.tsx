@@ -1,10 +1,14 @@
 import {
+  type ButtonHTMLAttributes,
   type ComponentType,
+  type HTMLAttributes,
   type ReactElement,
   type ReactNode,
+  type RefObject,
   createContext,
   useContext,
 } from 'react';
+import type { PermissionBlockedPanelProps } from '@ap/ui';
 
 import type { HostSearch } from './search';
 
@@ -34,12 +38,41 @@ type HostPermissionLinks = {
   permissionHomeHref?: string | null;
 };
 
+type RequestReadState = {
+  pending: boolean;
+  statusHref: string | null;
+  requestHref?: string | null;
+  approvedPartial?: boolean;
+  read?: 'checking' | 'error';
+  retry?: () => void;
+};
+
+type RequestReadPresentation = {
+  phase: 'pending' | 'request' | 'checking' | 'error';
+  checking: boolean;
+  href: string | null | undefined;
+  requestStatus: NonNullable<PermissionBlockedPanelProps['requestStatus']>;
+  label: string;
+  readMessage: string | undefined;
+  showRetry: boolean;
+  retryLabel: string;
+  focusProps: Pick<HTMLAttributes<HTMLElement>, 'onFocus' | 'onBlur'>;
+  busyProps: Pick<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-busy' | 'aria-disabled' | 'onClick'>;
+  retryProps: Pick<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-busy' | 'aria-disabled' | 'onClick'>;
+};
+
 /**
  * What a screen that is mounted in more than one host (standalone app, platform
  * bridge) needs from its host. Screens exported through `src/global-screens`
  * use this instead of TanStack Router and `sonner`.
  */
 export type HostSeam = HostPermissionLinks & {
+  /** Stable SDK hook supplied by hosts that open the permission request page. */
+  useAccessRequestState?: (state: RequestReadState, options: {
+    lang: 'ko' | 'en';
+    kind: 'link';
+    container: RefObject<HTMLElement | null>;
+  }) => RequestReadPresentation;
   /** Resolves a stored permission request address to a host action if the menu can be opened. */
   usePermissionRequestReturn?: () => PermissionRequestReturn;
   /** Stable hook for links that depend on the current navigation. */
