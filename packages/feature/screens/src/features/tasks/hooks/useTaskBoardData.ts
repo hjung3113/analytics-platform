@@ -1,5 +1,6 @@
 import { listAllTasks } from '../../../lib/api/list-all';
 import { listTasks } from '../../../lib/api/tasks';
+import { concreteListSystemId } from '../../../lib/cross-system/useListDenial';
 import { placeholderDataForSearchOnly } from '../../../lib/query/placeholder-data-for-search';
 import type { ListTasksResponse, TaskDto, TaskStatus } from '@ap/feature-shared';
 import { type QueryKey, useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -232,9 +233,15 @@ function useBoardSummary(kind: TaskBoardSummaryKind, scope: TaskBoardScope) {
       }),
     staleTime: 30_000,
   });
-  const total = query.data?.page?.total;
+  const rawTotal = query.data?.page?.total;
   const empty =
-    query.isSuccess && !query.isPlaceholderData && (total ?? query.data.items.length) === 0;
+    query.isSuccess && !query.isPlaceholderData && (rawTotal ?? query.data.items.length) === 0;
+  const total =
+    query.isPlaceholderData &&
+    rawTotal === 0 &&
+    concreteListSystemId(scope.managedSystem) !== undefined
+      ? undefined
+      : rawTotal;
   return { total, empty };
 }
 

@@ -465,89 +465,81 @@ describe('TaskBoardRoute', () => {
   const jsonReply = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-  function stubScopedBoardFetch(
-    managedSystem: string,
-    milestones: unknown[] = [],
-  ) {
+  function stubScopedBoardFetch(managedSystem: string, milestones: unknown[] = []) {
     const gate = deferred<{ status: number; body: unknown }>();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = new URL(String(input), 'http://localhost');
-        if (
-          url.pathname === '/me/permissions/check' &&
-          url.searchParams.get('capability') === 'finding.manage' &&
-          url.searchParams.get('managed_system_id') === managedSystem
-        ) {
-          const { status, body } = await gate.promise;
-          return jsonReply(body, status);
-        }
-        return jsonReply({ items: url.pathname === '/milestones' ? milestones : [] });
-      }),
-    );
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), 'http://localhost');
+      if (
+        url.pathname === '/me/permissions/check' &&
+        url.searchParams.get('capability') === 'finding.manage' &&
+        url.searchParams.get('managed_system_id') === managedSystem
+      ) {
+        const { status, body } = await gate.promise;
+        return jsonReply(body, status);
+      }
+      return jsonReply({ items: url.pathname === '/milestones' ? milestones : [] });
+    }));
     return async (outcome: boolean | 'error') => {
-      const reply =
-        outcome === 'error'
-          ? { status: 500, body: { code: 'internal.unexpected', message: 'fail' } }
-          : {
-              status: 200,
-              body: {
-                state: outcome ? 'approved' : 'blocked_non_requestable',
-                decision: { allow: outcome },
-              },
-            };
-      await act(async () => {
-        gate.resolve(reply);
-        await Promise.resolve();
-      });
+      const reply = outcome === 'error'
+        ? { status: 500, body: { code: 'internal.unexpected', message: 'fail' } }
+        : { status: 200, body: { state: outcome ? 'approved' : 'blocked_non_requestable', decision: { allow: outcome } } };
+      await act(async () => { gate.resolve(reply); await Promise.resolve(); });
     };
   }
 
-  it.each([false, true, 'error'] as const)(
+  it.each([false, true, 'error', 'q-pending', 'q-error'] as const)(
     'checks finding.manage when a scoped summary total returns empty while board rows exist (allow=%s)',
     async (allow) => {
       const managedSystem = task.primary_managed_system_id;
       const scopedMilestone = {
-        id: '50000000-0000-0000-0000-000000000001',
-        workspace_id: task.workspace_id,
-        display_id: 'MLS-1',
-        primary_managed_system_id: managedSystem,
-        analytics_area_id: null,
-        title: 'Launch',
-        why: 'why',
-        status: 'planning',
-        owner_actor_id: task.created_by,
-        created_by: task.created_by,
-        start_date: '2026-10-01',
-        target_date: '2026-12-31',
-        created_at: '2026-07-10T00:00:00.000Z',
-        updated_at: '2026-07-10T00:00:00.000Z',
+        id: '50000000-0000-0000-0000-000000000001', workspace_id: task.workspace_id, display_id: 'MLS-1',
+        primary_managed_system_id: managedSystem, analytics_area_id: null, title: 'Launch', why: 'why',
+        status: 'planning', owner_actor_id: task.created_by, created_by: task.created_by, start_date: '2026-10-01',
+        target_date: '2026-12-31', created_at: '2026-07-10T00:00:00.000Z', updated_at: '2026-07-10T00:00:00.000Z',
         progress: { released_done: 0, in_flight: 0, queued: 0, total: 0, percent: 0 },
       };
-      api.listTasks.mockImplementation(boardList([task]));
-      const settlePermission = stubScopedBoardFetch(
-        managedSystem,
-        allow === 'error' ? [] : [scopedMilestone],
-      );
-
-      const { client } = renderBoard(undefined, managedSystem);
-
+      let nextReads: ReturnType<typeof deferred<undefined>> | null = null;
+      api.listTasks.mockImplementation(async (options: Record<string, unknown> = {}) => {
+        if (options.q === 'next' && nextReads) {
+          await nextReads.promise;
+          return boardList([{ ...task, title: 'next' }])(options);
+        }
+        return boardList([task])(options);
+      });
+      const settlePermission = stubScopedBoardFetch(managedSystem, allow === 'error' ? [] : [scopedMilestone]);
+      const { client, rerender } = renderBoard(undefined, managedSystem);
       await screen.findByText('TASK-1000');
       const inProgressStat = () =>
         screen.getAllByText('진행 중').find((el) => !el.closest('header'))?.nextElementSibling;
       await waitFor(() => expect(inProgressStat()).toHaveTextContent('—'));
+      const expectCheckError = () =>
+        waitFor(() => expect(client.getQueryState(['permission-check', 'finding.manage', managedSystem])?.status).toBe('error'));
+
+      if (allow === 'q-pending' || allow === 'q-error') {
+        if (allow === 'q-error') { await settlePermission('error'); await expectCheckError(); }
+        const gate = deferred<undefined>();
+        nextReads = gate;
+        rerender(<QueryClientProvider client={client}><TaskBoardRoute managedSystem={managedSystem} q="next" /></QueryClientProvider>);
+        await waitFor(() => expect(api.listTasks).toHaveBeenCalledWith(expect.objectContaining({ q: 'next' })));
+        expect(screen.getByText('TASK-1000')).toBeInTheDocument();
+        expect(inProgressStat()).toHaveTextContent('—');
+        await act(async () => { gate.resolve(undefined); await Promise.resolve(); });
+        if (allow === 'q-pending') {
+          expect(inProgressStat()).toHaveTextContent('—');
+          await settlePermission(true);
+          await waitFor(() => expect(inProgressStat()).toHaveTextContent('0'));
+        } else {
+          await waitFor(() => expect(inProgressStat()).toHaveTextContent('—'));
+        }
+        return;
+      }
 
       await settlePermission(allow);
-
       if (allow === true) {
         await waitFor(() => expect(inProgressStat()).toHaveTextContent('0'));
         expect(screen.getByText('TASK-1000')).toBeInTheDocument();
       } else if (allow === 'error') {
-        await waitFor(() =>
-          expect(
-            client.getQueryState(['permission-check', 'finding.manage', managedSystem])?.status,
-          ).toBe('error'),
-        );
+        await expectCheckError();
         expect(inProgressStat()).toHaveTextContent('—');
         expect(screen.queryByText('Task 보드를 불러오지 못했습니다.')).not.toBeInTheDocument();
         expect(screen.getByText(task.title)).toBeInTheDocument();
@@ -568,7 +560,6 @@ describe('TaskBoardRoute', () => {
       const managedSystem = task.primary_managed_system_id;
       api.listTasks.mockImplementation(boardList([{ ...task, status: 'doing' as const }]));
       const settlePermission = stubScopedBoardFetch(managedSystem);
-
       renderBoard(undefined, managedSystem);
 
       await screen.findByText('TASK-1000');
@@ -580,7 +571,6 @@ describe('TaskBoardRoute', () => {
       });
 
       await settlePermission(allow);
-
       if (allow) {
         expect(await screen.findByRole('checkbox', { name: 'Milestone 있음' })).toBeInTheDocument();
         expect(screen.getByRole('checkbox', { name: 'Milestone 없음' })).toBeInTheDocument();
