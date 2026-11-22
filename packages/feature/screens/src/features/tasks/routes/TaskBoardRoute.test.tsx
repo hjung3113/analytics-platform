@@ -593,11 +593,13 @@ describe('TaskBoardRoute', () => {
     );
     renderBoard();
 
-    const panel = await screen.findByText('Task 보드');
-    expect(panel.closest('[data-state]')).toHaveAttribute('data-state', 'denied');
+    const title = await screen.findByText('Task 보드');
+    const panel = title.closest<HTMLElement>('[data-state]');
+    if (!panel) throw new Error('Missing Task board denial card');
+    expect(panel).toHaveAttribute('data-state', 'denied');
     expect(
       screen.getByText(
-        'Task 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
+        'Task 목록을 볼 권한이 없습니다.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('finding.manage capability required')).not.toBeInTheDocument();
@@ -607,7 +609,7 @@ describe('TaskBoardRoute', () => {
     expect(screen.queryByPlaceholderText('제목 또는 ID')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '필터' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '그룹화' })).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '내 VOC' })).toHaveAttribute('href', '/vocs?view=my');
+    expect(within(panel).getByRole('link', { name: '내 VOC' })).toHaveAttribute('href', '/vocs?view=my');
   });
 
   it('keeps a non-permission board failure unavailable', async () => {

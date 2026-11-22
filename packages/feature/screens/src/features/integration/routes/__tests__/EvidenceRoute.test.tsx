@@ -1,6 +1,6 @@
 import { useAccessRequestState } from '../../../../test-support/access-request-host';
 import { EvidenceScreen } from '../EvidenceScreen';
-import { HostSeamProvider, useHostSeam } from '../../../../lib/host/host-seam';
+import { type HostLinkProps, HostSeamProvider, useHostSeam } from '../../../../lib/host/host-seam';
 import { EvidenceRoute } from '../../../../test/screen-host/features/integration/routes/EvidenceRoute';
 import { validateEvidenceSearch } from '../../../../test/screen-host/routes/_authed/integration/evidence';
 import {
@@ -76,6 +76,9 @@ const item = getEvidenceInventoryResponseSchema.parse({
 });
 function response(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status });
+}
+function AnchorLink({ to, children, className }: HostLinkProps) {
+  return <a href={to} className={className}>{children}</a>;
 }
 function installFetch(
   list: (url: URL) => Response | Promise<Response> = () =>
@@ -1015,7 +1018,7 @@ it('offers the permitted host Home when the Evidence list is denied', async () =
   function Host() {
     const seam = useHostSeam();
     return <HostSeamProvider value={{
-      ...seam, useSearch: () => ({}), useNavigate: () => () => undefined,
+      ...seam, Link: AnchorLink, useSearch: () => ({}), useNavigate: () => () => undefined,
       useAccessRequestState,
       usePermissionLinks: () => ({ permissionHomeHref: '/company/' }),
     }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
@@ -1024,7 +1027,7 @@ it('offers the permitted host Home when the Evidence list is denied', async () =
   const home = await screen.findByRole('link', { name: '홈으로' });
   expect(home).toHaveAttribute('href', '/company/');
   expect(home).toHaveClass('bg-surface-raised');
-  expect(Array.from(home.parentElement?.children ?? [])).toEqual([home]);
+  expect(Array.from(home.parentElement?.children ?? [])).toEqual([home, screen.getByRole('link', { name: '내 VOC' })]);
 });
 
 // #2639: the same 403 answer gives the same choice as the Finding list.
@@ -1045,7 +1048,7 @@ it.each([
   function Host() {
     const seam = useHostSeam();
     return <HostSeamProvider value={{
-      ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
+      ...seam, Link: AnchorLink, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
       useAccessRequestState,
       usePermissionLinks: () => ({ permissionRequestHref, permissionHomeHref: '/company/' }),
     }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
@@ -1055,7 +1058,8 @@ it.each([
     expect(await screen.findByRole('link', { name: '권한 요청' })).toHaveAttribute('href', '/company/permission-requests');
     expect(permissionRequestHref).toHaveBeenCalledWith({ capability: 'finding.read', managedSystemId: MS });
   } else {
-    expect(await screen.findByText('근거 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.')).toBeInTheDocument();
+    expect(await screen.findByText('Developer 이상 역할이 필요합니다.')).toBeInTheDocument();
+    expect(screen.getByText('근거 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
     expect(screen.getByRole('link', { name: '홈으로' })).toHaveAttribute('href', '/company/');
   }
@@ -1079,7 +1083,7 @@ it.each(['request_access', 'approved', 'pending_request'] as const)('uses the %s
   function Host() {
     const seam = useHostSeam();
     return <HostSeamProvider value={{
-      ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
+      ...seam, Link: AnchorLink, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
       useAccessRequestState,
       usePermissionLinks: () => ({ permissionRequestHref, permissionHomeHref: '/company/' }),
     }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
@@ -1095,7 +1099,7 @@ it.each(['request_access', 'approved', 'pending_request'] as const)('uses the %s
     expect(status).toHaveAttribute('href', '/company/permission-requests');
     expect(status).toHaveClass('bg-surface-raised');
     expect(home).toHaveClass('bg-surface-raised');
-    expect(Array.from(status.parentElement?.children ?? [])).toEqual([status, home]);
+    expect(Array.from(status.parentElement?.children ?? [])).toEqual([status, home, screen.getByRole('link', { name: '내 VOC' })]);
     expect(screen.queryByText(/검토 중/)).not.toBeInTheDocument();
     expect(screen.getByText('보낸 권한 요청을 검토하고 있습니다.')).toBeInTheDocument();
     expect(screen.getByText('근거 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
@@ -1107,7 +1111,7 @@ it.each(['request_access', 'approved', 'pending_request'] as const)('uses the %s
     expect(request).toHaveAttribute('href', '/company/permission-requests');
     expect(request).toHaveClass('bg-accent-primary');
     expect(home).toHaveClass('bg-surface-raised');
-    expect(Array.from(request.parentElement?.children ?? [])).toEqual([request, home]);
+    expect(Array.from(request.parentElement?.children ?? [])).toEqual([request, home, screen.getByRole('link', { name: '내 VOC' })]);
     expect(permissionRequestHref).toHaveBeenCalledWith({ capability: 'finding.read', managedSystemId: MS });
     expect(screen.queryByText('표시할 근거가 없습니다.')).not.toBeInTheDocument();
   }
@@ -1136,7 +1140,7 @@ it.each([false, true])('restores focus on refreshed Evidence denial only if the 
   function Host() {
     const seam = useHostSeam();
     return <HostSeamProvider value={{
-      ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
+      ...seam, Link: AnchorLink, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
       useAccessRequestState,
       usePermissionLinks: () => ({ permissionRequestHref: () => '/permission-requests', permissionHomeHref: '/company/' }),
     }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
@@ -1170,7 +1174,7 @@ it('names an archived System instead of a missing permission on a scoped empty E
   function Host() {
     const seam = useHostSeam();
     return <HostSeamProvider value={{
-      ...seam, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
+      ...seam, Link: AnchorLink, useSearch: () => ({ managedSystem: MS }), useNavigate: () => () => undefined,
       useAccessRequestState,
       usePermissionLinks: () => ({ permissionHomeHref: '/company/' }),
     }}><EvidenceScreen renderDetail={() => null} /></HostSeamProvider>;
@@ -1178,7 +1182,7 @@ it('names an archived System instead of a missing permission on a scoped empty E
   render(<QueryClientProvider client={client}><Host /></QueryClientProvider>);
   expect(await screen.findByText('보관된 시스템이라 볼 수 없습니다.')).toBeInTheDocument();
   const home = screen.getByRole('link', { name: '홈으로' });
-  expect(Array.from(home.parentElement?.children ?? [])).toEqual([home]);
+  expect(Array.from(home.parentElement?.children ?? [])).toEqual([home, screen.getByRole('link', { name: '내 VOC' })]);
   expect(screen.queryByText('근거 목록을 볼 권한이 없습니다.')).not.toBeInTheDocument();
   expect(screen.queryByText('필요한 권한')).not.toBeInTheDocument();
 });

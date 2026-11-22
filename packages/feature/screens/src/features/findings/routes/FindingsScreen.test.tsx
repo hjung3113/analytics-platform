@@ -370,14 +370,14 @@ describe('FindingsScreen under a host seam', () => {
     const unsubscribe = new QueryObserver(client, { queryKey: oldKey, enabled: false }).subscribe(() => {});
     try {
       act(() => setSearch({ managedSystem: GONE_ID }));
-      await screen.findByText('이 항목에 접근할 수 없습니다.');
+      await screen.findByText('Finding 목록을 볼 권한이 없습니다.');
       expect(screen.queryByText(F1.title)).toBeNull();
       oldList.resolve(json({ items: [F1], page: { total: 1, has_more: false } }));
       await waitFor(() => expect(client.getQueryData(oldKey)).toMatchObject({
         pages: [{ items: [expect.objectContaining({ id: F1_ID })] }],
       }));
       expect(client.getQueryData(newKey)).toMatchObject({ pages: [empty] });
-      expect(screen.getByText('이 항목에 접근할 수 없습니다.')).toBeInTheDocument();
+      expect(screen.getByText('Finding 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
       expect(screen.queryByText(F1.title)).toBeNull();
     } finally {
       unsubscribe();
@@ -408,18 +408,18 @@ describe('FindingsScreen under a host seam', () => {
     };
     try {
       const { client } = mount({ managedSystem: MS });
-      await screen.findByText('이 항목에 접근할 수 없습니다.');
+      await screen.findByText('Finding 목록을 볼 권한이 없습니다.');
       expect(permissionRead).toHaveBeenCalledTimes(1);
       allow = true;
       hold = true;
       await act(async () => returnToWindow());
       await waitFor(() => expect(permissionRead).toHaveBeenCalledTimes(2));
       // The recheck is in flight: the last decision (the blocked card) stays instead of a loading state.
-      expect(screen.getByText('이 항목에 접근할 수 없습니다.')).toBeInTheDocument();
+      expect(screen.getByText('Finding 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
       hold = false;
       await act(async () => release());
       await screen.findByText('생성된 Finding이 없습니다.');
-      expect(screen.queryByText('이 항목에 접근할 수 없습니다.')).not.toBeInTheDocument();
+      expect(screen.queryByText('Finding 목록을 볼 권한이 없습니다.')).not.toBeInTheDocument();
       expect(permissionRead).toHaveBeenCalledTimes(2);
       await act(async () => client.invalidateQueries({
         queryKey: ['permission-check', 'finding.read', MS], refetchType: 'none',
@@ -427,7 +427,7 @@ describe('FindingsScreen under a host seam', () => {
       await act(async () => returnToWindow());
       // An allowed result keeps the client's default: a stale entry refetches on focus.
       await waitFor(() => expect(permissionRead).toHaveBeenCalledTimes(3));
-      expect(screen.queryByText('이 항목에 접근할 수 없습니다.')).not.toBeInTheDocument();
+      expect(screen.queryByText('Finding 목록을 볼 권한이 없습니다.')).not.toBeInTheDocument();
     } finally {
       visibility.mockRestore();
       focusManager.setFocused(undefined);
@@ -557,7 +557,8 @@ describe('FindingsScreen under a host seam', () => {
     expect(screen.getByRole('heading', { name: '전체 Finding', level: 2 })).toBe(title);
     const card = title.closest<HTMLElement>('[data-state="blocked_not_requestable"]');
     if (!card) throw new Error('Missing Finding denial card');
-    expect(within(card).getByText('Finding 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.')).toBeInTheDocument();
+    expect(within(card).getByText('Finding 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
+    expect(within(card).getByText('Developer 이상 역할이 필요합니다.')).toBeInTheDocument();
     expect(within(card).getByRole('link', { name: '내 VOC' })).toHaveAttribute('href', '/vocs?view=my');
     expect(permissionRequestHref).not.toHaveBeenCalled();
     expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
@@ -579,7 +580,7 @@ describe('FindingsScreen under a host seam', () => {
     expect(action).toHaveClass(state === 'pending_request' ? 'bg-surface-raised' : 'bg-accent-primary');
     expect(home).toHaveClass('bg-surface-raised');
     expect(home).toHaveAttribute('href', '/company/');
-    expect(Array.from(action.parentElement?.children ?? [])).toEqual([action, home]);
+    expect(Array.from(action.parentElement?.children ?? [])).toEqual([action, home, screen.getByRole('link', { name: '내 VOC' })]);
     expect(screen.getByText('필요한 권한')).toBeInTheDocument();
     if (status) expect(screen.getByText(status)).toBeInTheDocument();
     // The menu's reason says only what cannot be seen; asking for access is the shared first line and the action.
@@ -615,7 +616,7 @@ describe('FindingsScreen under a host seam', () => {
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes('/permission-requests/mine'))).toBe(false);
   });
 
-  it('offers only the prefixed Home exit when a scoped Finding read is explicitly denied', async () => {
+  it('offers the prefixed Home and 내 VOC exits when a scoped Finding read is explicitly denied', async () => {
     const originalFetch = installEmptyListFetch('blocked_non_requestable');
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const { pathname } = new URL(String(input), 'http://localhost');
@@ -635,16 +636,15 @@ describe('FindingsScreen under a host seam', () => {
     const home = await screen.findByRole('link', { name: '홈으로' });
     expect(home).toHaveAttribute('href', '/company/');
     expect(home).toHaveClass('bg-surface-raised');
-    expect(Array.from(home.parentElement?.children ?? [])).toEqual([home]);
-    expect(screen.getByText('이 항목에 접근할 수 없습니다.')).toBeInTheDocument();
+    expect(Array.from(home.parentElement?.children ?? [])).toEqual([home, screen.getByRole('link', { name: '내 VOC' })]);
+    expect(screen.getByText('Finding 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
     expect(await screen.findByText('Finding 조회 · 품질 시스템')).toBeInTheDocument();
     expect(screen.queryByText(/권한을 요청하세요/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '내 VOC' })).not.toBeInTheDocument();
     expect(permissionRequestHref).not.toHaveBeenCalled();
     expect(shell.props.at(-1)?.toolbar).toBeUndefined();
   });
 
-  it('names an archived System instead of a missing permission: no permission box, Home only', async () => {
+  it('names an archived System and keeps both exits without the permission box', async () => {
     const originalFetch = installEmptyListFetch('blocked_non_requestable');
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const { pathname } = new URL(String(input), 'http://localhost');
@@ -660,10 +660,10 @@ describe('FindingsScreen under a host seam', () => {
 
     expect(await screen.findByText('보관된 시스템이라 볼 수 없습니다.')).toBeInTheDocument();
     const home = screen.getByRole('link', { name: '홈으로' });
-    expect(Array.from(home.parentElement?.children ?? [])).toEqual([home]);
+    expect(Array.from(home.parentElement?.children ?? [])).toEqual([home, screen.getByRole('link', { name: '내 VOC' })]);
     expect(screen.queryByText('필요한 권한')).not.toBeInTheDocument();
     expect(screen.queryByText(/Finding 조회/)).not.toBeInTheDocument();
-    expect(screen.queryByText('이 항목에 접근할 수 없습니다.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Finding 목록을 볼 권한이 없습니다.')).not.toBeInTheDocument();
     expect(permissionRequestHref).not.toHaveBeenCalled();
     expect(shell.props.at(-1)?.toolbar).toBeUndefined();
   });

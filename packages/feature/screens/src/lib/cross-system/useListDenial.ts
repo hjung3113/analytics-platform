@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react';
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef } from 'react';
 import { z } from 'zod';
 
 import { isRequestablePermissionState } from '../api/permission-request-progress';
@@ -208,8 +208,16 @@ export function useListDenial({
     if (document.activeElement === document.body) focusListDenialCard(deniedRef.current);
   }, [denied, identity, keptSystemId, selectedId]);
 
+  const { capability, managedSystemId: requestSystemId, pending: requestPending } = request ?? {};
+  const absentRequest = request === null ? null : undefined;
+  const cardProps = useMemo(() => ({
+    request: capability === undefined || requestSystemId === undefined ? absentRequest
+      : { capability, managedSystemId: requestSystemId, ...(requestPending === undefined ? {} : { pending: requestPending }) },
+    roleRequired, deniedRef,
+  }), [absentRequest, capability, requestSystemId, requestPending, roleRequired]);
   return {
     kind, denied, roleRequired, permissionError, request, requestable, keptSystemId, deniedRef,
+    cardProps,
     isInList: denied ? false as const : undefined,
   };
 }

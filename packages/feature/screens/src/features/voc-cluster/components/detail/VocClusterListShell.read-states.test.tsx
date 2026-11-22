@@ -296,11 +296,12 @@ describe('VocClusterListShell list states (#609)', () => {
   it.each([false, true])('keeps the denial and retries a failed point check (prior request: %s)', async (confirmed) => {
     const user = userEvent.setup();
     let pointFails = !confirmed;
+    let requestable = true;
     apiRequestMock.mockImplementation(async (_method: string, path: string) => {
       if (path === scopePath) return { data: { scope: { kind: 'scoped', managed_system_ids: [] } } };
       if (path.startsWith('/me/permissions/check')) {
         if (pointFails) throw new Error('temporary point check failure');
-        return { data: { state: 'request_access', decision: { allow: false } } };
+        return { data: { state: requestable ? 'request_access' : 'blocked_non_requestable', decision: { allow: false } } };
       }
       return { data: emptyList };
     });
@@ -316,8 +317,12 @@ describe('VocClusterListShell list states (#609)', () => {
     if (confirmed) expect(screen.getByText(requestText)).toBeInTheDocument();
     pointFails = false;
     await user.click(retry);
-    expect(await screen.findByText(requestText)).toBeInTheDocument();
+    const request = await screen.findByRole('button', { name: requestText });
     await waitFor(() => expect(retry).not.toBeInTheDocument());
+    request.focus();
+    requestable = false;
+    await act(() => queryClient.invalidateQueries({ queryKey: ['permission-check'] }));
+    await waitFor(() => expect(document.body).toHaveFocus());
   });
 
   it('moves focus to the denial card during a keyboard point-check retry', async () => {

@@ -1,7 +1,7 @@
 export const PERMISSION_BLOCKED_REASONS = {
-  taskList: 'Task 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
+  taskList: 'Task 목록을 볼 권한이 없습니다.',
   taskDetail: '이 Task를 볼 권한이 없습니다.',
-  milestoneList: 'Milestone 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
+  milestoneList: 'Milestone 목록을 볼 권한이 없습니다.',
   vocClusterList:
     '반복 VOC 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
   milestoneDetail: '이 Milestone을 볼 권한이 없습니다.',
@@ -11,8 +11,7 @@ export const PERMISSION_BLOCKED_REASONS = {
   entityLinks: '연결 관계 목록을 볼 권한이 없습니다.',
   findingsList: 'Finding 목록을 볼 권한이 없습니다.',
   archivedSystem: '보관된 시스템이라 볼 수 없습니다.',
-  findingsListRoleRequired: 'Finding 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.',
-  evidenceListRoleRequired: '근거 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.',
+  listRoleRequired: 'Developer 이상 역할이 필요합니다.',
   vocTriage: 'VOC 분류 권한이 없습니다.',
   vocTriageManagedSystem: '선택한 시스템의 VOC 분류 권한이 없습니다.',
   vocTriageMissingRead: 'VOC 조회 권한이 없습니다.',

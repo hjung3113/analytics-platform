@@ -580,7 +580,7 @@ describe('FindingsListPage', () => {
 
     const panel = screen.getByTestId('permission-blocked');
     expect(panel).toHaveAttribute('data-state', 'blocked_not_requestable');
-    expect(panel).toHaveTextContent('Finding 목록은 Developer 이상 역할에서 열립니다. 역할은 관리자가 바꿉니다.');
+    expect(panel).toHaveTextContent('Developer 이상 역할이 필요합니다.');
     expect(screen.queryByRole('button', { name: /권한 요청/ })).not.toBeInTheDocument();
   });
 
