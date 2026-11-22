@@ -3,18 +3,19 @@ import type { PageFocus } from '../context/pageNavigation';
 import { classifyMetricInit, sameMetricInit } from '../registry/metric-init';
 import { sameItems, useStable } from '../stable';
 import { isBoardPath, pathFor, RegistryError, type MenuEntry } from '../registry/registry';
-import { useI18n } from '../i18n';
+import { useI18n, type Lang } from '../i18n';
 import { hasDotSegment } from '../context/location';
 import { readReturnHidden, rememberReturnHidden, type ReturnHiddenOwner } from '../context/returnHidden';
 import { DETAIL_EXPAND_KEY, stripDetailExpansion, withDetailExpansion } from '../links/detail-expansion';
 import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
 import { drillGap, dropDrillResetKeys } from '../context/drillReset';
+import { drillValueLabel } from '../context/drillValueLabel';
 import { appliedQueryPolicy, defaultQueryPeriod, queryMissingRequired, useScreenDraft } from '../query/draft-state';
 import { SITE_BOUND_FIELDS } from '../context/siteBound';
 import { hasExplicitContext } from '../saved-view/restore';
 import type { InitialSavedView } from '../saved-view/useSavedViews';
-import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, type SpaceDef, type Text, type MainUsageVia, type UsageEvent } from '@ap/contracts';
+import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, type SpaceDef, type MainUsageVia, type UsageEvent } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type ScreenSource, type ScreenState } from './contexts';
 
@@ -32,17 +33,17 @@ function sameScopeState(a: ScopeState, b: ScopeState): boolean {
   return a.scopeId === b.scopeId && a.status === b.status && a.validatedFor === b.validatedFor && sameItems(a.grantedRooms, b.grantedRooms);
 }
 /** Leading drill values on `search`, stopping at the first missing step. A menu without `drill` contributes nothing. */
-function consecutiveDrillTrail(menu: MenuEntry, search: string): { label: Text; value: string }[] {
+function consecutiveDrillTrail(menu: MenuEntry, search: string, lang: Lang): ReturnOrigin['trail'] {
   const levels = menu.drill?.levels ?? [];
   if (levels.length === 0) return [];
   let page: Pair[];
   try { page = parseQuery(search, menu.pageKeys, { repeated: menu.repeatedPageKeys }).page; } catch { return []; }
   const values = new Map(page);
-  const trail: { label: Text; value: string }[] = [];
+  const trail: ReturnOrigin['trail'] = [];
   for (const level of levels) {
     const value = values.get(level.key);
     if (value === undefined || value === '') break;
-    trail.push({ label: level.label, value });
+    trail.push({ label: level.label, value, ...drillValueLabel(level, value, lang) });
   }
   return trail;
 }
@@ -66,7 +67,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // The screen reads visible + hidden pairs as one query; only the Provider's `commit` splits them again (ADR-0105).
   const url = useMemo(() => (hidden && hidden.length > 0 ? visibleUrl + (visibleUrl.includes('?') ? '&' : '?') + new URLSearchParams(hidden.map(([k, v]): [string, string] => [k, v])).toString() : visibleUrl), [visibleUrl, hidden]);
   const paneLabel = source.paneLabel ?? null;
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const userId = user.id;
 
   const pathname = url.split('?')[0] || '/';
@@ -473,7 +474,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
         });
         const originSpace = registry.spaceOf(matched.menu);
         const destinationSpace = route ? registry.spaceOf(route.menu) : null;
-        return { href: safe, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search), revertedContext, accepted: true,
+        return { href: safe, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search, lang), revertedContext, accepted: true,
           spaceLabel: originSpace?.label ?? null, sameSpace: originSpace?.id === destinationSpace?.id };
       }
     }
@@ -487,7 +488,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (home) return { href: linkTo(home.id), menuLabel: home.label, trail: [], revertedContext: [], accepted: false, spaceLabel: null };
     // Emergency exception-prevention fallback only; '/' is not guaranteed to be a valid or accessible home.
     return { href: '/', menuLabel: { ko: '홈', en: 'Home' }, trail: [], revertedContext: [], accepted: false, spaceLabel: null };
-  }, [pageParam, safeReturnTo, matchRoute, route, linkTo, menuById, sidebarSpace, canOpen, global, registry]);
+  }, [pageParam, safeReturnTo, matchRoute, route, linkTo, menuById, sidebarSpace, canOpen, global, registry, lang]);
   const returnTarget = useCallback(() => resolveReturnOrigin().href, [resolveReturnOrigin]);
   const returnOrigin = useCallback((): ReturnOrigin => resolveReturnOrigin(), [resolveReturnOrigin]);
 

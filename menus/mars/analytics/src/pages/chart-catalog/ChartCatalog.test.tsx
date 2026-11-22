@@ -125,7 +125,7 @@ describe('chart catalog route and lifetime', () => {
     expect(within(dataTable).getAllByRole('checkbox')[0].getAttribute('aria-checked')).toBe('true');
     expect(screen.getByRole('table', { name: /차트/ })).toBe(dataTable);
     expect(canvas.init.mock.calls.length).toBe(init); expect(query.mock.calls.length).toBe(fetches);
-    click('집중'); click('차트 초기화');
+    click('집중'); click('초기화');
     expect(checkbox.getAttribute('aria-checked')).toBe('false');
     expect(within(summary()).queryByRole('button', { name: '상세' })).toBeNull();
     fireEvent.click(within(dataTable).getAllByRole('button', { name: '상세' })[0]);

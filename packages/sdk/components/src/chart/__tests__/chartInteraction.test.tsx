@@ -212,11 +212,11 @@ it.each(['scatter', 'heatmap'] as const)('keeps %s click selection during Brush'
   await screen.findByRole('img');
   const summary = screen.getByRole('region', { name: '선택 요약' });
   const click = () => act(() => plot.onEvents?.click?.({ componentType: 'series', seriesIndex: 0, dataIndex: 0 }, {} as never));
-  fireEvent.click(screen.getByRole('button', { name: '끌어서 선택' }));
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
   click();
   expect(summary).toHaveTextContent(kind === 'scatter' ? 'Alpha · 1개 선택' : '1칸 선택');
   expect(onActivate).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: '끌어서 선택' }));
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
   click();
   expect(summary).toHaveTextContent('선택 없음');
   if (kind === 'heatmap') expect(onActivate).toHaveBeenCalledExactlyOnceWith('X', 'Y');

@@ -1,14 +1,16 @@
 import { useCallback, useMemo } from 'react';
 import type { Text } from '@ap/contracts';
+import { useI18n } from '../i18n';
 import { usePlatform } from '../platform/platform';
 import { drillGap, drillLevelChanged } from './drillReset';
+import { drillValueLabel } from './drillValueLabel';
 
 /** One declared step plus the current page value. Empty string is absent (`null`). */
-export type DrillLevelState = { key: string; label: Text; value: string | null };
+export type DrillLevelState = { key: string; label: Text; value: string | null; valueLabel?: string };
 /** A filled step on the leading run. `value` is the raw page-key string (06 §6.4). */
-export type DrillTrailStep = { key: string; label: Text; value: string };
+export type DrillTrailStep = { key: string; label: Text; value: string; valueLabel?: string };
 /** First later step that has a value while an earlier step is empty (06 §6.4 format error). */
-export type DrillInvalid = { key: string; label: Text; value: string };
+export type DrillInvalid = DrillTrailStep;
 
 export type DrillState = {
   levels: DrillLevelState[];
@@ -31,12 +33,14 @@ export type DrillState = {
  */
 export function useDrill(): DrillState {
   const { route, pageParam, setPage } = usePlatform();
+  const { lang } = useI18n();
   const declared = route?.menu.drill?.levels;
 
   const levels = useMemo<DrillLevelState[]>(() => (declared ?? []).map(level => {
     const raw = pageParam(level.key);
-    return { key: level.key, label: level.label, value: raw === null || raw === '' ? null : raw };
-  }), [declared, pageParam]);
+    const value = raw || null;
+    return { key: level.key, label: level.label, value, ...drillValueLabel(level, value, lang) };
+  }), [declared, pageParam, lang]);
 
   const depth = useMemo(() => {
     let count = 0;
@@ -48,14 +52,14 @@ export function useDrill(): DrillState {
   }, [levels]);
 
   const trail = useMemo(() => levels.slice(0, depth).flatMap(level => (
-    level.value === null ? [] : [{ key: level.key, label: level.label, value: level.value }]
+    level.value === null ? [] : [{ ...level, value: level.value }]
   )), [levels, depth]);
 
   const current = useMemo(() => levels.map((level): [string, string | null] => [level.key, level.value]), [levels]);
 
   const invalid = useMemo<DrillInvalid | null>(() => {
     const gap = drillGap(levels, current);
-    return gap === null ? null : { key: gap.level.key, label: gap.level.label, value: gap.value };
+    return gap === null ? null : { ...gap.level, value: gap.value };
   }, [levels, current]);
 
   const enter = useCallback((key: string, value: string) => {

@@ -39,17 +39,18 @@ function focusDrillDestination(source: HTMLElement | null) {
 
 const focusRing = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 
-function SiblingMenu({ label, value, items, onSwitch, scopeRef }: {
-  label: string; value: string; items: readonly DrillSibling[]; onSwitch: (value: string) => void;
+function SiblingMenu({ label, value, valueLabel, items, onSwitch, scopeRef }: {
+  label: string; value: string; valueLabel?: string; items: readonly DrillSibling[]; onSwitch: (value: string) => void;
   /** The path bar, which stays mounted when this trigger does not; it keeps the lookup inside the owning pane (#497 D1). */
   scopeRef: { readonly current: HTMLElement | null };
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const switched = useRef(false);
   const trigger = useRef<HTMLButtonElement>(null);
+  const stepLabel = valueLabel !== undefined && valueLabel !== value ? `${label}: ${valueLabel}` : label;
   return <DropdownMenu>
     <DropdownMenuTrigger asChild>
-      <button ref={trigger} type="button" aria-label={m('drillChangeStep', { label })}
+      <button ref={trigger} type="button" aria-label={m('drillChangeStep', { label: stepLabel })}
         className="inline-flex size-6 items-center justify-center rounded-sm text-text-secondary hover:bg-surface-sunken hover:text-text-primary">
         <ChevronDown className="size-3.5" aria-hidden />
       </button>
@@ -57,7 +58,7 @@ function SiblingMenu({ label, value, items, onSwitch, scopeRef }: {
     <DropdownMenuContent onCloseAutoFocus={event => { if (switched.current) { event.preventDefault(); switched.current = false; focusDrillDestination(trigger.current ?? scopeRef.current); } }} align="start" className="w-56">
       <DropdownMenuRadioGroup value={value} onValueChange={next => { switched.current = next !== value; onSwitch(next); }}>
         {items.map(item => <DropdownMenuRadioItem key={item.value} value={item.value} className={focusRing}>
-          <span className="t-mono">{item.value}</span>
+          <span className="t-mono">{item.value === value ? valueLabel ?? value : item.value}</span>
           {item.hint !== undefined && <span className="ml-2 text-text-secondary tabular">{item.hint}</span>}
         </DropdownMenuRadioItem>)}
       </DropdownMenuRadioGroup>
@@ -91,9 +92,9 @@ export function DrillPath(props: DrillPathProps) {
     return <span key={step.key} className="inline-flex items-center">
       <button type="button" aria-current={current ? 'step' : undefined} onClick={() => drill.goTo(index + 1)}
         className={cn('rounded-md px-2 py-1', current ? 'bg-accent-primary-soft font-medium text-text-primary' : 'text-text-secondary hover:bg-surface-sunken')}>
-        {name}: {step.value}
+        {name}: {step.valueLabel ?? step.value}
       </button>
-      {options && options.length > 0 && <SiblingMenu label={name} value={step.value} items={options} onSwitch={value => drill.enter(step.key, value)} scopeRef={nav} />}
+      {options && options.length > 0 && <SiblingMenu label={name} value={step.value} valueLabel={step.valueLabel} items={options} onSwitch={value => drill.enter(step.key, value)} scopeRef={nav} />}
     </span>;
   };
 
@@ -108,7 +109,7 @@ export function DrillPath(props: DrillPathProps) {
         </DropdownMenuTrigger>
         <DropdownMenuContent onCloseAutoFocus={event => { if (wentUp.current) { event.preventDefault(); wentUp.current = false; focusDrillDestination(nav.current); } }} align="start" className="w-56">
           {hidden.map((step, index) => <DropdownMenuItem key={step.key} className={focusRing} onSelect={() => { wentUp.current = true; drill.goTo(index + 1); }}>
-            {tx(step.label)}: {step.value}
+            {tx(step.label)}: {step.valueLabel ?? step.value}
           </DropdownMenuItem>)}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -138,14 +139,15 @@ export function DrillLayout(props: DrillLayoutProps) {
   const { invalid } = drill;
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
+  const missingStep = notFound && drill.levels.find(step => step.key === notFound.key && step.value === notFound.value);
   const body = invalid
     ? <StateMessage tone="danger" icon={<AlertTriangle className="size-4" aria-hidden />}
-      title={invalidValueSentence(lang, 'drillGap', invalid.label, invalid.value)}
+      title={invalidValueSentence(lang, 'drillGap', invalid.label, invalid.valueLabel ?? invalid.value)}
       body={m('drillNothingSubstituted')}
       action={<Button size="sm" variant="secondary" onClick={() => drill.goTo(drill.depth)}>{m('drillClearInvalidStep')}</Button>} />
     : notFound
       ? <StateMessage tone="warning" icon={<AlertTriangle className="size-4" aria-hidden />}
-        title={m('drillNoValueInContext', { value: notFound.value })}
+        title={m('drillNoValueInContext', { value: missingStep?.valueLabel ?? notFound.value })}
         body={m('drillNothingSubstituted')} />
       : children;
   if (fill) return <div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -177,7 +179,7 @@ export function ReturnLink() {
   const { tx } = useI18n();
   const { origin, onNavigate } = useReturnNavigation();
   const rowShown = useContext(ReturnRowShown);
-  const trail = origin.trail.map(step => step.value).join(' › ');
+  const trail = origin.trail.map(step => step.valueLabel ?? step.value).join(' › ');
   const text = trail ? `← ${tx(origin.menuLabel)} (${trail})` : `← ${tx(origin.menuLabel)}`;
   if (rowShown) return <></>;
   return <Button asChild variant="secondary" size="sm"><PlatformLink via="return" href={origin.href} onNavigate={onNavigate}>{text}</PlatformLink></Button>;

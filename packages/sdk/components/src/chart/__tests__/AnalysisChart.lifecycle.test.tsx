@@ -89,7 +89,7 @@ it('keeps the option unchanged during a drag and commits only the final selectio
 const mountScatter = () => mountChart({ kind: 'scatter', xUnit: 's', xLabel: 'X', yLabel: 'Y', points: [{ id: 'a', group: 'A', x: 1, y: 2 }, { id: 'null', group: 'A', x: null, y: 4 }, { id: 'b', group: 'B', x: 3, y: 4 }] }, false, true, false, false);
 it('restores scatter rectangle cursor after lazy readiness, replacement and repeated grouped drags', async () => {
   mountScatter(); await screen.findByRole('img');
-  fireEvent.click(screen.getByRole('button', { name: '끌어서 선택' }));
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
   await waitFor(() => expect(armed).toBe(true));
   const before = props.option;
   act(() => selected([0]));

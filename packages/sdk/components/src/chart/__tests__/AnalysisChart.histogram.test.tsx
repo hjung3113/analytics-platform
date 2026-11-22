@@ -19,7 +19,7 @@ it('offers a keyboard table and CSV with status but no selection, brush or drill
   await user.keyboard('{Enter}');
   expect(screen.getByRole('table')).toHaveTextContent('6 s7 s2100%■ Exceeded · Above bound');
   expect(screen.queryByRole('checkbox')).toBeNull();
-  expect(screen.queryByRole('button', { name: '끌어서 선택' })).toBeNull();
+  expect(screen.queryByRole('button', { name: '구간 선택' })).toBeNull();
   expect(screen.queryByRole('button', { name: '상세' })).toBeNull();
   expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
   act(() => plot.onEvents?.click?.({ componentType: 'series', seriesIndex: 0, dataIndex: 0 }, {} as never));

@@ -35,6 +35,13 @@ const registry = createRegistry({
         level('drillEquipment', '설비', 'Equipment'),
       ] },
     }),
+    entry({
+      id: 'labeled', path: '/labeled', pageKeys: [...keys], contextResetKeys: [...keys],
+      drill: { levels: [
+        { ...level('drillRoom', '공정', 'Process'), valueLabel: (value: string) => `공정명 ${value}` },
+        level('drillStgroup', 'StGroup', 'StGroup'),
+      ] },
+    }),
     entry({ id: 'plain', path: '/plain', label: { ko: '사이클타임 상세', en: 'Cycle time detail' } }),
     entry({ id: 'detail', path: '/detail', parent: 'source', navHidden: true, pageKeys: ['returnTo'] }),
   ],
@@ -66,6 +73,15 @@ const siblings = {
 };
 
 describe('DrillLayout (06 §12.7, ADR-0025)', () => {
+  it('shows the display label in the path and for the checked sibling', async () => {
+    mount('/mars/labeled?v=1&drillRoom=PHOTO&drillStgroup=A', <DrillLayout siblings={siblings} />);
+    expect(screen.getByRole('button', { name: '공정: 공정명 PHOTO' })).toBeTruthy();
+    openMenu('공정: 공정명 PHOTO 바꾸기');
+    expect((await screen.findByRole('menuitemradio', { name: /공정명 PHOTO/ })).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /ETCH/ }));
+    expect(window.location.search).toBe('?v=1&drillRoom=ETCH');
+  });
+
   it('hides the path at depth 0 and shows the body', () => {
     mount('/mars/source?v=1', <DrillLayout><p>본문</p></DrillLayout>);
     expect(screen.queryByRole('navigation', { name: '드릴 경로' })).toBeNull();

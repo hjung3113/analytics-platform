@@ -86,7 +86,12 @@ export function menuPermissions(menu: { readonly permission: string; readonly ad
 }
 
 /** One drill step: a page key plus the name the path bar shows (06 §6.4, ADR-0025). */
-export type DrillLevel = { key: string; label: Text };
+export type DrillLevel = {
+  key: string;
+  label: Text;
+  /** Display text for the raw page value in the current language. */
+  valueLabel?: (value: string, lang: keyof Text) => string;
+};
 
 /** One selectable axis set of a menu's Condition (`MenuMeta.conditionPresets`, 06 §6.4, ADR-0083). `axes` are equipment axis ids. */
 export type ConditionPreset = { id: string; label: Text; axes: readonly string[] };

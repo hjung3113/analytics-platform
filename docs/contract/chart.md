@@ -138,6 +138,8 @@ Source · Updated · Coverage
 
 ### 종류별 상호작용
 
+- 2026-11-22 / #2700: 범주 차트의 툴바는 Chart Frame과 같은 `초기화`·`구간 선택` 버튼을 쓴다. 전체형은 아이콘과 글자, 간소형은 같은 접근 이름의 아이콘 버튼이다. 히트맵의 발산형 `scale.pivotLabel?: string`은 메뉴가 정한 기준점 범례 문구이며, 생략하면 기존 `{pivot} 목표`를 표시한다.
+
 `AnalysisChart`의 `ChartSpec`은 종류와 입력 데이터의 유효 조합을 고정한다([ADR-0058](../adr/0058-analysis-chart-spec-union.md)). 기존 line/bar `AnalysisChartFrame` 소비자는 그대로 유지한다.
 
 | 종류 | Zoom | Brush·선택 | Reset | Compare | Annotate | Export | Drill | 표로 보기 |
