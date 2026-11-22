@@ -1,8 +1,8 @@
 # RCC Process 시간 비교
 
-**Candidate · #2496 · v0.45 합성 데이터 시안. 실제 데이터 조회와 배포는 미구현.**
+**Candidate · #2496 · v0.45 합성 데이터 시안. 실제 데이터 조회와 배포는 미구현([#2694](https://github.com/hjung3113/analytics-platform/issues/2694)).**
 
-[이슈 #2496 및 소유자 결정](https://github.com/hjung3113/analytics-platform/issues/2496) · [분석 작업 영역](../../contract/layout.md#122-analysis-workspace) · [차트 계약](../../contract/chart.md#16-analysis-chart-contract) · [HW Time 패널](../../adr/0165-workspace-per-step-panels-add-and-pin.md)
+[이슈 #2496 및 소유자 결정](https://github.com/hjung3113/analytics-platform/issues/2496) · [분석 작업 영역](../../../../docs/contract/layout.md#122-analysis-workspace) · [차트 계약](../../../../docs/contract/chart.md#16-analysis-chart-contract) · [HW Time 패널](../../../../docs/adr/0165-workspace-per-step-panels-add-and-pin.md)
 
 ## 1. USER TASK
 
@@ -20,7 +20,7 @@
       └─ 선택 Step: Wafer 산포, 일별 추세, Lot·Wafer 실행 표
 ```
 
-**Decided.** 한 화면 안에서 이동하고 앞 단계 패널을 유지한다. [플랫폼 탐색](../../contract/kernel.md#9-information-architecture) · [드릴 경로](../../adr/0025-drilldown-level-page-keys-path-bar-layout.md)
+**Decided.** 한 화면 안에서 이동하고 앞 단계 패널을 유지한다. [플랫폼 탐색](../../../../docs/contract/kernel.md#9-information-architecture) · [드릴 경로](../../../../docs/adr/0025-drilldown-level-page-keys-path-bar-layout.md)
 
 ## 3. SCREEN INVENTORY
 
@@ -56,7 +56,7 @@
 | --- | --- |
 | 기간·대상 | Manifest의 Context·apply 선언으로 셸 `QueryBar`의 `PeriodFields`와 `TargetPicker` 사용. |
 | 비교 좁히기 | `SegmentedRadio`, `FacetedSetDialog`. PPID별 결과는 PPID 단위, Recipe 관련 결과는 사용처 단위. |
-| 단계 이동 | Manifest drill, `DrillLayout`, `LegendTree drillOnName`, 차트 지점·셀 활성화. [메뉴 소유 차트 조각](../../adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md) |
+| 단계 이동 | Manifest drill, `DrillLayout`, `LegendTree drillOnName`, 차트 지점·셀 활성화. [메뉴 소유 차트 조각](../../../../docs/adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md) |
 | 비교 | `PanelWorkspace`의 단계별 프리셋. `AnalysisChartFrame` 가로 막대, Layer Start Align 및 `rowGroups`, Step의 `categoryValueMarks`. `AnalysisChart`의 발산형 히트맵, `nullLabel` 및 `selectedCell`. |
 | 증거 | `AnalysisChart` 설비별 scatter, `AnalysisChartFrame` 일별 추세, `PlatformDataTable` 실행 표. |
 
@@ -69,7 +69,7 @@
 
 ## 7. INTERACTION RULES
 
-- **Decided.** 좁히기에서 축 사이는 AND, 축 안은 OR다. 다른 축 때문에 개수가 0이 된 값과 기존 선택을 유지한다. [조회 대상과 교차 개수](../../adr/0164-target-picker-dialog-and-custom-groups.md)
+- **Decided.** 좁히기에서 축 사이는 AND, 축 안은 OR다. 다른 축 때문에 개수가 0이 된 값과 기존 선택을 유지한다. [조회 대상과 교차 개수](../../../../docs/adr/0164-target-picker-dialog-and-custom-groups.md)
 - **Candidate.** PPID별에는 PPID, Recipe별에는 Layer·Recipe, PPID·Recipe에는 PPID·Layer·Recipe를 펼친다. 모드를 바꿀 때 하위 경로를 지우고 숨긴 축의 선택은 해당 축으로 돌아올 때 복원한다.
 - **Decided.** 첫 진입에는 선택 대상 중 설비 수 최다 구성 유형을 쓴다. 다른 구성을 «비교 보류»로 남긴다. 히트맵은 기준과의 차이(초)를 표시한다. 산포에는 모든 비교 설비가 나오며 선택 설비만 강조한다.
 - **Decided.** Step 목록·막대·히트맵은 Step 10부터 같은 순서로 읽는다. 히트맵은 URL의 Step과 설비가 가리키는 셀에 테두리를 표시한다.
@@ -79,7 +79,7 @@
 
 - **Decided.** Step 단계는 단일 시안으로 검토한다. 셸 조회, 네 단계 드릴다운, Recipe의 사용처 단위 행, 별도 L1 표식, Lot ID가 검토 범위다.
 - **Candidate.** 초기 비교 단위는 PPID·Recipe이며 첫 일치 묶음을 L1 패널에 표시한다. Layer 단계에서는 사용처별 Layer 시간 시리즈를 쓴다. 같은 Layer에 Recipe가 두 개면 각각 구분해 탐색한다.
-- **Deferred.** 수동 매칭, NonProcess, L3/L4는 v0.45에서 미구현. 후속 릴리스 범위를 정할 때 다시 연다. [이슈 #2496](https://github.com/hjung3113/analytics-platform/issues/2496)
+- **Deferred.** 수동 매칭, NonProcess, L3/L4는 v0.45에서 미구현. 다시 여는 조건은 [백로그](../../../../.planning/backlog.md)의 «RCC 수동 Step 매칭·NonProcess View·L3/L4»를 따른다.
 
 ## UX REVIEW · 문서
 
@@ -87,6 +87,6 @@
 
 ## OPEN QUESTIONS / RISKS
 
-- **Open.** 동일 PPID에서 Layer마다 Recipe가 하나인지 확인한다. 합성 자료는 Layer당 하나로 만들고 화면은 같은 Layer에 여러 Recipe 사용처가 와도 각각 표시한다.
-- **Open.** 운영 PPID 단위 L1의 정의, 공급 지표명, Original/Effective 기준, Process-only 판별, StepSeq 보존, 일부 건수 또는 날짜 불일치 처리 규칙을 확인한다.
+- **Open.** 동일 PPID에서 Layer마다 Recipe가 하나인지 확인한다. 합성 자료는 Layer당 하나로 만들고 화면은 같은 Layer에 여러 Recipe 사용처가 와도 각각 표시한다. 확인은 [#2694](https://github.com/hjung3113/analytics-platform/issues/2694).
+- **Open.** 운영 PPID 단위 L1의 정의, 공급 지표명, Original/Effective 기준, Process-only 판별, StepSeq 보존, 일부 건수 또는 날짜 불일치 처리 규칙을 확인한다. 확인은 [#2694](https://github.com/hjung3113/analytics-platform/issues/2694).
 - **SDK gap.** 셸의 커스텀 조회 그룹 확장은 메뉴 쿼리 전송 경로에서 이뤄진다. 메뉴 내 합성 자료만 쓰는 시안에서 그룹과 과거 소속 조건은 명시적 자료 없음 상태로 표시한다.
