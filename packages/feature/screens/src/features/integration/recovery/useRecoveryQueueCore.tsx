@@ -71,6 +71,7 @@ export function useRecoveryQueueCore(
   const origin = useRef<{ id: string; context: string; node: HTMLElement } | undefined>(undefined);
   const rows = useRef(new Map<string, HTMLElement>());
   const heading = useRef<HTMLHeadingElement>(null);
+  const denialCard = useRef<HTMLDivElement>(null);
   const focusFrame = useRef<number | undefined>(undefined);
   const pendingFocus = useRef<(() => void) | undefined>(undefined);
   const cancelFocus = useCallback(() => {
@@ -192,7 +193,11 @@ export function useRecoveryQueueCore(
           : id
             ? rows.current.get(id)
             : undefined;
-      const target = row?.isConnected ? row : heading.current;
+      const target = row?.isConnected
+        ? row
+        : heading.current?.isConnected
+          ? heading.current
+          : denialCard.current;
       if (!target?.isConnected) return;
       if (target.closest('[hidden]')) {
         if (++frames < 10) focusFrame.current = requestAnimationFrame(focus);
@@ -234,10 +239,20 @@ export function useRecoveryQueueCore(
     if (active && selected && current.data)
       rows.current.get(selected)?.scrollIntoView({ block: 'nearest' });
   }, [active, selected, current.data]);
-  const queue = (
-    <section className="mt-9" data-testid="recovery-queue">
+  const queueTitle = view === 'actionable' ? COPY.actionable : COPY.title;
+  const returnLink =
+    hostCarriesReturn !== true &&
+    safeRecoveryReturnTo(search.returnTo) &&
+    canLink(search.returnTo as string) ? (
+      <HostLink to={search.returnTo as string}>{COPY.returnQueue}</HostLink>
+    ) : null;
+  // A denied list read shows only its card: the card carries the section title and the list
+  // controls cannot act on a denied read; the way back stays under the card (#2677).
+  const listDenied = denied && !me.isPending;
+  const controls = (
+    <>
       <h2 ref={heading} tabIndex={-1} className="mb-3 text-sm font-semibold">
-        {view === 'actionable' ? COPY.actionable : COPY.title}
+        {queueTitle}
       </h2>
       <ListToolbar
         tabs={[
@@ -297,11 +312,7 @@ export function useRecoveryQueueCore(
             </p>
           )
         )}
-        {hostCarriesReturn !== true &&
-          safeRecoveryReturnTo(search.returnTo) &&
-          canLink(search.returnTo as string) && (
-            <HostLink to={search.returnTo as string}>{COPY.returnQueue}</HostLink>
-          )}
+        {returnLink}
       </div>
       <RecoveryFreshness
         computedAt={first?.computed_at}
@@ -309,20 +320,39 @@ export function useRecoveryQueueCore(
         updatedAt={current.dataUpdatedAt}
         pageComputedAt={pageSummary.data?.computed_at}
       />
+    </>
+  );
+  const queue = (
+    <section className="mt-9" data-testid="recovery-queue">
+      {listDenied ? null : controls}
       {me.isPending || (current.isPending && enabled) ? (
         <Skeleton className="h-24" role="status" aria-label={COPY.loading} />
+      ) : listDenied ? (
+        // A confirmed denial wins over a failed session refetch; that retry is the only action then.
+        <div ref={denialCard} tabIndex={-1} aria-label={queueTitle} className="space-y-3">
+          <PermissionBlockedPanel
+            layout="card"
+            state="denied"
+            headingLevel={2}
+            category={queueTitle}
+            description={COPY.listDenied}
+          />
+          {me.isError || returnLink ? (
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {me.isError ? (
+                <Button variant="subtle" size="sm" onClick={() => void me.refetch()}>
+                  {COPY.retryQueue}
+                </Button>
+              ) : null}
+              {returnLink}
+            </div>
+          ) : null}
+        </div>
       ) : me.isError ? (
         <ListStateMessage
           variant="error"
           title={COPY.error}
           action={{ label: COPY.retryQueue, onClick: () => void me.refetch() }}
-        />
-      ) : denied ? (
-        <PermissionBlockedPanel
-          layout="card"
-          state="denied"
-          category={COPY.title}
-          description={COPY.listDenied}
         />
       ) : current.isError && !current.isFetchNextPageError ? (
         <ListStateMessage
