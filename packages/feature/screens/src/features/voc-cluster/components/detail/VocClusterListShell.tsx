@@ -4,6 +4,7 @@
 // route's concern. Screens live in features/voc-cluster per AGENTS ownership.
 
 import { ListStateMessage } from '../../../../components/ListStateMessage';
+import { useHostPrimaryActionTarget } from '../../../../lib/host/host-seam';
 import { ScopedListDenialCard } from '../../../../components/ScopedListDenialCard';
 import { useVocClusterDetail } from '../../hooks/useVocClusterDetail';
 import { useVocClusterList } from '../../hooks/useVocClusterList';
@@ -159,6 +160,7 @@ export function VocClusterListShell({
   selectedId,
   onSelect,
   toolbarActions,
+  primaryAction,
   onCloseDetail,
   defaultToFirst = false,
   managedSystemId,
@@ -168,6 +170,12 @@ export function VocClusterListShell({
   selectedId: string | null;
   onSelect: (id: string) => void;
   toolbarActions?: React.ReactNode;
+  /**
+   * The screen's standalone primary action (Cluster 생성), wrapped in HostPrimaryAction. It does not
+   * read this list, so it stays on a denied list; with a host head it mounts once, outside the
+   * denied/readable branches, so a settling denial keeps its node and focus (#2677).
+   */
+  primaryAction?: React.ReactNode;
   /** `reconcile: true` = the shell dropped a selection that fell out of the visible list (not a user close). */
   onCloseDetail: (opts?: { reconcile?: boolean }) => void;
   defaultToFirst?: boolean;
@@ -308,14 +316,29 @@ export function VocClusterListShell({
     !denied && !scopeUnverified && !suggestionTabActive &&
     (selectedVisibleInList || resolvedAbsentDetailIsVisible);
 
+  const primaryActionTarget = useHostPrimaryActionTarget();
   const shell = (
     <ListShell
-      toolbar={{
-        title: '반복 VOC',
-        subtitle: 'VOC를 유사 주제로 묶어 Finding으로 승격합니다.',
-        actions: toolbarActions,
-      }}
-      list={denied ? (
+      // A denied list shows only its card: the page head already names the screen (#2677).
+      {...(denied ? {} : {
+        toolbar: {
+          title: '반복 VOC',
+          subtitle: 'VOC를 유사 주제로 묶어 Finding으로 승격합니다.',
+          actions: (
+            <>
+              {primaryActionTarget === null ? primaryAction : null}
+              {toolbarActions}
+            </>
+          ),
+        },
+      })}
+      list={<>
+        {primaryActionTarget !== null ? primaryAction : null}
+        {denied ? (
+        <>
+          {primaryActionTarget === null && primaryAction ? (
+            <div className="flex justify-end px-5 pt-3">{primaryAction}</div>
+          ) : null}
         <ScopedListDenialCard
           category={VOC_CLUSTER_LIST_CATEGORY}
           reason={PERMISSION_BLOCKED_REASONS.vocClusterList}
@@ -331,6 +354,7 @@ export function VocClusterListShell({
             </Button>
           )}
         />
+        </>
       ) : (
         <ClusterListBody
           clusters={visibleClusters}
@@ -368,6 +392,7 @@ export function VocClusterListShell({
           }
         />
       )}
+      </>}
       detailPanel={
         suggestionMode ? (
           suggestionSlots.context === sessionContext ? (

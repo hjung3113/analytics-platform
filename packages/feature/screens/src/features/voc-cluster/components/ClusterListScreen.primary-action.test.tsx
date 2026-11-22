@@ -9,8 +9,9 @@ import { ClusterListScreen } from './ClusterListScreen';
 
 const me = vi.hoisted(() => ({ role: 'admin' }));
 vi.mock('./detail/VocClusterListShell', () => ({
-  VocClusterListShell: ({ toolbarActions }: { toolbarActions?: ReactNode }) => (
-    <div data-testid="shell-toolbar">{toolbarActions}</div>
+  // Stands in for the shell's placement: the primary action goes inline only without a host head.
+  VocClusterListShell: ({ toolbarActions, primaryAction }: { toolbarActions?: ReactNode; primaryAction?: ReactNode }) => (
+    <div data-testid="shell-toolbar">{primaryAction}{toolbarActions}</div>
   ),
 }));
 vi.mock('../hooks/useVocClusterList', () => ({
