@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { noContext } from '@ap/kernel/testing';
-import { formatQuerySummary, presetOutsideAxes, querySummaryItems } from '../querySummary';
+import { formatQuerySummary, presetOutsideAxes, querySummaryItems, type QuerySummaryOptions } from '../querySummary';
 import { formatPeriod, type GlobalContext } from '@ap/contracts';
 
 const global: GlobalContext = { scopeId: 'S', from: null, to: null, roomNames: ['PHOTO'], lineNames: ['L1', 'L2'], prcGroups: null, condition: { vendor: ['V1'] }, membershipBasis: 'asOf', selection: [], lotIds: ['LOT'], ppid: 'PP', recipeIds: ['R'], metricId: 'M', metricVersion: '3' };
@@ -10,11 +10,20 @@ describe('query summary values', () => {
     for (const value of ['공정 PHOTO', 'Line L1, L2', '공급사 V1', '그 시점 소속', '명시적 빈 선택', 'LOT', 'PP', 'Recipe R', 'M @ 3', '집계 일', '이 화면에서 미사용']) expect(text).toContain(value);
   });
   it('distinguishes unrestricted, explicit empty and fixed equipment IDs', () => {
-    const summary = (selection: string[] | null) => formatQuerySummary({ ...global, selection }, [], { lang: 'ko' });
+    const summary = (selection: string[] | null) => formatQuerySummary({ ...global, selection }, { lang: 'ko' });
     expect(summary(null)).toContain('전체');
     expect(summary(null)).not.toContain('전체 후보');
     expect(summary([])).toContain('명시적 빈 선택');
     expect(summary(['EQ-X'])).toContain('EQ-X');
+  });
+  it('gives the same line with or without the deprecated empty page argument (#2699)', () => {
+    const options = { lang: 'ko' as const, pageSummary: [{ key: 'grain', label: '집계', value: '일' }] };
+    expect(formatQuerySummary(global, options)).toBe(formatQuerySummary(global, [], options));
+    expect(formatQuerySummary(global, options)).toContain('집계 일');
+  });
+  it('reads a two-argument call as options even when the options value is an array (#2699)', () => {
+    const options: QuerySummaryOptions = Object.assign([], { lang: 'ko' as const });
+    expect(formatQuerySummary(global, options)).toBe(formatQuerySummary(global, [], { lang: 'ko' }));
   });
 });
 
@@ -35,7 +44,7 @@ describe('query summary period (#913)', () => {
     const time = querySummaryItems({ ...global, from, to }, { lang }).find(item => item.key === 'time');
     expect(time?.value).toBe(text);
     expect(time?.value).toBe(formatPeriod(from, to, lang));
-    expect(formatQuerySummary({ ...global, from, to }, [], { lang })).not.toContain('[20');
+    expect(formatQuerySummary({ ...global, from, to }, { lang })).not.toContain('[20');
   });
   it('keeps an open end visible', () => {
     expect(querySummaryItems({ ...global, from: '2026-09-25T09:00:00' }, { lang: 'ko' }).find(item => item.key === 'time')?.value).toBe('09-25 → —');
