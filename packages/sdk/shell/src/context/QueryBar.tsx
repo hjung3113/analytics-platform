@@ -66,7 +66,7 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const builtInView = isValidElement(viewSlot) && viewSlot.type === SavedViewControl;
   const builtInHistory = isValidElement(historySlot) && historySlot.type === QueryHistoryControl;
   const platform = useHostPlatform();
-  const { route, global, page, scope, screenMode, equipmentAxes, session } = platform;
+  const { route, global, scope, screenMode, equipmentAxes, session } = platform;
   const query = useQueryDraft();
   const { draft, dirty, missing, canApply, applying, setDraftGlobal, setDraftPage, apply, revert, reset } = query;
   const extension = useQueryBarExtension();
@@ -203,8 +203,9 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     else { focusOnOpen.current = 'period'; setChoice(true); }
   };
   useRegisterContextEditorFocus(requestEditor);
-  const summary = formatQuerySummary(g, draft.page, { ...summaryOptions, preset: summaryPreset(conditionPreset, 'draft') });
-  const applied = formatQuerySummary(global, page, { ...summaryOptions, pageSummary: extension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') });
+  // Page conditions are described by the extension. The raw address also carries drill, focus and layout state.
+  const summary = formatQuerySummary(g, [], { ...summaryOptions, preset: summaryPreset(conditionPreset, 'draft') });
+  const applied = formatQuerySummary(global, [], { ...summaryOptions, pageSummary: extension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') });
   const foldedSummary = editing ? summary : applied;
   const invalid = (key: string) => missing.some(item => item.key === key);
   const issues = reasons.length

@@ -9,6 +9,7 @@ import { buildChartOption, resolveChartPalette, type ChartOptionInput } from '..
 import { resolveRowTotals } from '../chartValueLabels';
 import { seriesExtremes } from '../chartLanes';
 import type { ChartSeries } from '../AnalysisChartFrame';
+import { baselineInput } from '../__fixtures__/baselineInput';
 
 echarts.use([LineChart, BarChart, ScatterChart, DataZoomComponent, GridComponent, TooltipComponent, MarkAreaComponent, MarkLineComponent, LabelLayout, SVGRenderer]);
 
@@ -35,6 +36,41 @@ function draw(displayed: ChartSeries[], categories: string[], size: { width: num
 }
 const R = ['R1', 'R2', 'R3'];
 const wide = { width: 600, height: 150 };
+
+it('draws the visible value mark at its independent coordinate after reorder and zoom', () => {
+  const categories = ['R3', 'R2', 'R1'];
+  const displayed = [bar('a', 'chart-blue', categories, [10, 20, 30]), bar('b', 'chart-series-1', categories, [5, 5, 5])];
+  const input = baselineInput({
+    displayed, categories, palette: resolveChartPalette(displayed), rowPitch: undefined, markLines: undefined, extremes: undefined,
+    zoom: [0, 50], categoryValueMarks: { label: 'Actual', byCategory: new Map([['R1', 60], ['R3', 50]]) },
+  });
+  const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 600, height: 200 });
+  try {
+    chart.setOption({ ...buildChartOption(input), animation: false });
+    const paths = chart.renderToSVGString().split('\n').filter(line => line.includes('d="M0 -1L1 0L0 1L-1 0Z"'));
+    expect(paths).toHaveLength(1);
+    const [, x, y] = paths[0].match(/transform="matrix\(4,0,0,4,([^,]+),([^,]+)\)"/)!;
+    const [expectedX, expectedY] = chart.convertToPixel({ gridIndex: 0 }, [50, 'R3']);
+    expect(Number(x)).toBeCloseTo(expectedX);
+    expect(Number(y)).toBeCloseTo(expectedY);
+    expect(expectedX).toBeGreaterThan(chart.convertToPixel({ xAxisIndex: 0 }, 15));
+  } finally {
+    chart.dispose();
+  }
+});
+
+it('includes a negative category mark on the horizontal value axis', () => {
+  const input = baselineInput({ categoryValueMarks: { label: 'Actual', byCategory: new Map([['R1', -10]]) } });
+  const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 600, height: 200 });
+  try {
+    chart.setOption({ ...buildChartOption(input), animation: false });
+    const leftEdge = chart.convertToPixel({ xAxisIndex: 0 }, -10);
+    expect(chart.containPixel({ gridIndex: 0 }, [leftEdge, 45])).toBe(true);
+    expect(leftEdge).toBeLessThan(chart.convertToPixel({ xAxisIndex: 0 }, 0));
+  } finally {
+    chart.dispose();
+  }
+});
 
 describe('totals are drawn by ECharts (F1)', () => {
   const displayed = [bar('a', 'chart-blue', R, [800, 300, null]), bar('b', 'chart-series-1', R, [100, 200, 200])];

@@ -34,7 +34,7 @@ it('opens history directly from the folded overflow and restores focus', async (
   const user = userEvent.setup();
   mount();
   const overflow = await openHistory(user);
-  expect(await screen.findByRole('option', { name: /own-history/ })).toBeVisible();
+  expect(await screen.findByRole('option', { name: /기간 09-01/ })).toBeVisible();
   expect(screen.queryByRole('button', { name: '최근 조건' })).toBeNull();
   await user.keyboard('{Escape}');
   await waitFor(() => expect(overflow).toHaveFocus());
@@ -43,7 +43,7 @@ it('opens the confirmed history slot, restores draft with keyboard, and returns 
   mount();
   const user = userEvent.setup();
   const trigger = await openHistory(user);
-  const option = await screen.findByRole('option', { name: /own-history/ });
+  const option = await screen.findByRole('option', { name: /기간 09-01/ });
   act(() => option.focus());
   fireEvent.keyDown(option, { key: 'Enter' });
   await waitFor(() => expect(draft.draft.page).toEqual([['filter', 'own-history']]));
@@ -52,6 +52,13 @@ it('opens the confirmed history slot, restores draft with keyboard, and returns 
   await openHistory(user);
   fireEvent.keyDown(await screen.findByRole('listbox'), { key: 'Escape' });
   await waitFor(() => expect(trigger).toHaveFocus());
+});
+it('does not expose raw page keys in history summaries', async () => {
+  mount();
+  await openHistory(userEvent.setup());
+  const option = (await screen.findAllByRole('option'))[0];
+  expect(option).not.toHaveTextContent('filter');
+  expect(option).not.toHaveTextContent('own-history');
 });
 it('masks unavailable values, keeps remove outside options and cancels clear confirmation', async () => {
   const store = mount();
@@ -75,7 +82,7 @@ it('has no control without an injected store', () => {
 it('labels a history entry from less than a minute ago as just now', async () => {
   mount(true, [{ ...entries[0], lastAppliedAt: Date.now() - 20_000 }]);
   await openHistory(userEvent.setup());
-  await screen.findByRole('option', { name: /own-history/ });
+  await screen.findByRole('option', { name: /기간 09-01/ });
   expect(screen.getByText('방금')).toBeVisible();
 });
 
@@ -83,7 +90,7 @@ it('keeps keyboard focus through clear confirmation, cancellation and the empty 
   const store = mount();
   vi.mocked(store.clear).mockImplementation(async () => { vi.mocked(store.list).mockResolvedValue([]); });
   await openHistory(userEvent.setup());
-  await screen.findByRole('option', { name: /own-history/ });
+  await screen.findByRole('option', { name: /기간 09-01/ });
   const clear = screen.getByRole('button', { name: '모두 지우기' });
   act(() => clear.focus());
   fireEvent.click(clear);

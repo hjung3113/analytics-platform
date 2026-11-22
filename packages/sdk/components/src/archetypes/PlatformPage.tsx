@@ -167,7 +167,7 @@ export const PlatformPageBodyBoundary = createContext<((body: ReactNode) => Reac
 
 function PlatformPageFrame({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', showReturnRow = true, arrivalTarget, children, conditionTrigger, conditionLayer }: PlatformPageProps & { conditionTrigger?: ReactNode; conditionLayer?: ReactNode }) {
   const wrapBody = useContext(PlatformPageBodyBoundary);
-  const { global, page, equipmentAxes, route, objectLinks, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, currentSpace, screenMode, canOpen, queryDraft, pageParams, scopeSelector } = useHostPlatform();
+  const { global, equipmentAxes, route, objectLinks, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, currentSpace, screenMode, canOpen, queryDraft, pageParams, scopeSelector } = useHostPlatform();
   const detailFullscreen = useContext(DetailPanelFullscreenContext);
   const covered = detailFullscreen?.expanded === true;
   const conditionPreset = useConditionPreset();
@@ -386,7 +386,7 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
     {showReturn && <ReturnRow navigation={navigation} />}
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
     {!workspaceQueryRowReady && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={m('pageAppliedQueryConditions')} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
-      {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, page, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
+      {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, [], { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
       {completionShown && <span>{queryResult!.failed ? t(failedKey) : m('workspaceQueryCompleted')} {formatSummaryTime(queryResult!.completedAt!, lang)}</span>}
     </section>}
     {!gate && conditionTrigger && <PageConditionTriggerSlot>{conditionTrigger}</PageConditionTriggerSlot>}

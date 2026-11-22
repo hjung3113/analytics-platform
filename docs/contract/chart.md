@@ -30,6 +30,10 @@ Primary candidate는 `../architecture/frontend-ui-ux.md`에 따라 Apache EChart
 
 **`markLines`.** `{ y: number; label: string; unit?: string; metricVersion?: string }[]`를 받아 값 축의 `y` 위치에 라벨이 붙은 기준선을 그린다(세로 차트는 가로선, 가로 막대는 세로선). `startAlign`에서는 x가 더는 한 값 축이 아니므로 무시하고 아래 단위 안내도 하지 않는다. 그릴 선에 `unit`이나 `metricVersion`이 있고 Frame의 `unit`·`metricVersion`과 다르면 그 선만 그리지 않고, 차트 동작 도구줄 밖(범례 아래 안내 줄)에 `<라벨> 기준선은 단위가 달라 표시하지 않음`을 `text-text-secondary`로 선마다 한 줄 보인다. 두 필드를 생략한 선은 그대로 그린다.
 
+**가로 막대의 범주별 수치 표식 (Decided, #2496).** `AnalysisChartFrame.categoryValueMarks?: { label: string; byCategory: ReadonlyMap<string, number | null> }`는 가로 범주 막대(누적 포함)의 공통 값 축에 행마다 마름모를 하나 그린다. 값은 Frame과 같은 단위로 전달한다. 막대 합과 표식 값은 독립이며, 표식은 범주 키로 행 순서와 확대에 맞춰 이동한다. 적어도 하나를 그릴 때 범례에 마름모와 선언한 라벨을 표시하고, 행 툴팁과 표·CSV에도 별도 라벨로 표시한다. 없는 키·null·비유한 값은 표식이 없으며, 축에 없는 범주는 무시한다. 생략 또는 `startAlign`이 실제 적용될 때 표식을 그리지 않는다.
+
+**히트맵 null 라벨과 셀 강조 (Decided, #2496).** `HeatmapSpec.nullLabel?: string`은 값이 null인 셀의 범례, 툴팁, 표·CSV, 접근 가능한 요약과 선택 항목에 쓰인다. 기본값은 현재 언어의 «미확인»/“Unknown”이다. 비어 있는 좌표와 범주 id 라벨의 의미는 별도다. `selectedCell?: { x: string; y: string; label?: string } | null`은 두 축의 라벨로 셀 테두리와 선택 요약·동작(Enter, 활성화, 상세)을 제어한다. 선택 요약에는 제어 셀의 기본 라벨 또는 `label`을 표시한다. null은 강조와 선택을 지우고, 요약에 «선택 없음»을 표시하며 셀 동작을 비활성화한다. 생략하면 차트의 로컬 선택 테두리와 선택 요약·동작을 쓴다. 표와 Brush는 로컬 선택을 갱신하지만, `selectedCell`이 있으면 요약과 셀 동작은 제어값을 따른다.
+
 **가로 막대의 행 포커스와 `rowPitch`([ADR-0079](../adr/0079-chart-row-focus-row-pitch.md), #690).** `orientation="horizontal"` 범주 차트만 받는다(그 밖에서는 무시하고 개발 중 경고).
 `activeCategory`가 있으면(`null` = 행 없음) 프레임은 그 행만 강조하고 스스로 강조 상태를 바꾸지 않는다 — 막대 클릭은 `onActiveCategoryChange(category, 'pointer')`, 지점 선택기의 이동은 `(category, 'keyboard')`만 부르며 소유자는 메뉴 하나다.
 강조는 색만이 아니라 그 행 막대의 테두리와 굵은 범주 라벨이고, 선택 요약이 `활성 행`을 적는다.

@@ -36,6 +36,16 @@ beforeEach(() => { vi.stubGlobal('localStorage', memoryStorage()); window.histor
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('PlatformPage fill head disclosure (#680)', () => {
+  it('summarizes applied query conditions without showing the page sort key', () => {
+    window.history.replaceState(null, '', '/?v=1&roomNames=PHOTO&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00&sort=delta%3Adesc');
+    mount({ queryResult: { status: 'done', completedAt: 1_800_000_000_000 },
+      queryBarExtension: { pageSummary: draftOnly, appliedPageSummary: applied, issues: [] } });
+    const summary = screen.getByRole('region', { name: '적용된 조회 조건' });
+    expect(summary).toHaveTextContent('공정 PHOTO');
+    expect(summary).toHaveTextContent('버킷 09:00 → 10:00');
+    expect(summary).not.toHaveTextContent('delta:desc');
+  });
+
   it('uses the section title scale inside the centred fixed-height header', () => {
     mount();
     const title = screen.getByRole('heading', { level: 1 });

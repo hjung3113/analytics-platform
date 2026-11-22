@@ -626,6 +626,26 @@ it('folded workspace: result time is in the query bar and applied values remain 
   expect(document.querySelector('[data-workspace-query-row]')).toHaveTextContent('요약 조회 완료');
   expect(document.querySelector('summary')).toHaveTextContent('공정 PHOTO');
 });
+it('keeps declared in-page state in the address and out of the applied summary', async () => {
+  mount('&roomNames=PHOTO&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00&grain=plot-only', {}, true,
+    { pageSummary: [], appliedPageSummary: [{ key: 'window', label: '집계', value: '일' }], issues: [] });
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  expect(platform.page).toContainEqual(['grain', 'plot-only']);
+  expect(window.location.search).toContain('grain=plot-only');
+  expect(bar().querySelector('summary')).toHaveTextContent('공정 PHOTO');
+  expect(bar().querySelector('summary')).toHaveTextContent('집계 일');
+  expect(bar().querySelector('summary')).not.toHaveTextContent('plot-only');
+});
+it('keeps explicit page summaries and omits raw page keys in the editing summary', async () => {
+  mount('&roomNames=PHOTO&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00&grain=plot-only', {}, true,
+    { pageSummary: [{ key: 'window', label: '집계', value: '일' }], issues: [] });
+  await waitFor(() => expect(platform.scope.status).toBe('valid'));
+  act(() => draft.setDraftPage({ grain: 'draft-only' }));
+  const summary = bar().querySelector('summary')!;
+  expect(summary).toHaveTextContent('집계 일');
+  expect(summary).not.toHaveTextContent('draft-only');
+  expect(summary).not.toHaveTextContent('grain');
+});
 it('folded workspace: edits stay in the query bar and expanding restores applied values with time (#1941)', async () => {
   mountPage('&roomNames=PHOTO&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00', true, true);
   await waitFor(() => expect(platform.scope.status).toBe('valid'));

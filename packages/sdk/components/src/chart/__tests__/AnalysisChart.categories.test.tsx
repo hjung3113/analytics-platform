@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { readColorToken } from '@ap/ui/theme';
@@ -19,6 +20,75 @@ function mount(spec: HeatmapSpec, chrome?: 'standard') {
 }
 type Datum = { itemStyle: { color: string }; label?: { show: boolean; color: string; formatter: string; rich?: unknown } };
 const option = () => plot.option as { series: { id?: string; data: Datum[] }[]; tooltip: { formatter: (params: { dataIndex: number }) => string } };
+
+it('names held values in the legend, tooltip, accessible description and table', async () => {
+  mount({ ...heat, nullLabel: '비교 보류' });
+  await screen.findByRole('img');
+  const region = await screen.findByRole('region', { name: 'Heat' });
+  expect(within(region).getByText('비교 보류')).toBeVisible();
+  expect(region).toHaveAccessibleDescription(/1칸 비교 보류/);
+  expect(option().tooltip.formatter({ dataIndex: 1 })).toBe('B · Row: 비교 보류');
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+  expect(within(screen.getByRole('table')).getByRole('cell', { name: '비교 보류' })).toBeVisible();
+});
+
+it('follows the controlled cell coordinates across updates and clears the border on null', async () => {
+  const view = mount({ ...heat, selectedCell: { x: 'A', y: 'Row' } });
+  await screen.findByRole('img');
+  const borders = () => option().series[0].data.map(d => d.itemStyle);
+  expect(borders()).toMatchObject([{ borderWidth: 1.5, borderType: 'solid' }, { borderType: 'dashed' }]);
+  view.update({ ...heat, selectedCell: { x: 'B', y: 'Row' } });
+  expect(borders()).toMatchObject([{ borderWidth: 0 }, { borderWidth: 1.5, borderType: 'solid' }]);
+  view.update({ ...heat, selectedCell: null });
+  expect(borders()).toMatchObject([{ borderWidth: 0 }, { borderWidth: 1, borderType: 'dashed' }]);
+});
+
+it('uses the highlighted cell in the selection summary on initial render, update and clear', async () => {
+  const spec = { ...heat, xLabels: ['008', '009'], yLabels: ['Step 20 / Seq 3'], cells: [
+    { x: '008', y: 'Step 20 / Seq 3', value: 15 },
+    { x: '009', y: 'Step 20 / Seq 3', value: 17 },
+  ] };
+  const selectedCell = { x: '008', y: 'Step 20 / Seq 3', label: 'Step 20 / Seq 3 · EQ-008' };
+  const view = mount({ ...spec, selectedCell });
+  await screen.findByRole('img');
+  const summary = screen.getByRole('region', { name: '선택 요약' });
+  expect(summary).toHaveTextContent('Step 20 / Seq 3 · EQ-008 · 1칸 선택');
+  view.update({ ...spec, selectedCell: { x: '009', y: 'Step 20 / Seq 3' } });
+  expect(summary).toHaveTextContent('Step 20 / Seq 3 · 009 · 1칸 선택');
+  view.update({ ...spec, selectedCell: null });
+  expect(summary).toHaveTextContent('선택 없음');
+});
+
+it('keeps controlled heatmap summary and actions on the controlled cell after a local selection', async () => {
+  const user = userEvent.setup(); const activate = vi.fn(); const details = vi.fn();
+  mount({ ...heat, selectedCell: { x: 'A', y: 'Row', label: 'Controlled A' }, cellActivation: { on: 'dblclick', onActivate: activate }, onCellClick: details });
+  await screen.findByRole('img');
+  act(() => plot.onEvents?.click?.({ componentType: 'series', seriesIndex: 0, dataIndex: 1 }, {} as never));
+  const selection = screen.getByRole('region', { name: '선택 요약' });
+  expect(selection).toHaveTextContent('Controlled A · 1칸 선택');
+  expect(selection).not.toHaveTextContent('B');
+
+  const activateButton = screen.getByRole('button', { name: '선택 지점 실행' });
+  activateButton.focus(); await user.keyboard('{Enter}');
+  expect(activate).toHaveBeenCalledExactlyOnceWith('A', 'Row');
+  await user.click(within(selection).getByRole('button', { name: '상세' }));
+  expect(details).toHaveBeenCalledExactlyOnceWith('A', 'Row');
+});
+
+it('treats controlled null as no heatmap selection and disables cell actions despite a local selection', async () => {
+  const user = userEvent.setup(); const activate = vi.fn(); const details = vi.fn();
+  mount({ ...heat, selectedCell: null, cellActivation: { on: 'dblclick', onActivate: activate }, onCellClick: details });
+  await screen.findByRole('img');
+  act(() => plot.onEvents?.click?.({ componentType: 'series', seriesIndex: 0, dataIndex: 1 }, {} as never));
+  const selection = screen.getByRole('region', { name: '선택 요약' });
+  expect(selection).toHaveTextContent('선택 없음');
+  const activateButton = screen.getByRole('button', { name: '선택 지점 실행' });
+  expect(activateButton).toBeDisabled();
+  const detailsButton = within(selection).getByRole('button', { name: '상세' });
+  expect(detailsButton).toBeDisabled();
+  await user.click(activateButton); await user.click(detailsButton);
+  expect(activate).not.toHaveBeenCalled(); expect(details).not.toHaveBeenCalled();
+});
 
 it('default heatmap keeps numeric rendering, events, tooltip, table and CSV unchanged', async () => {
   const view = mount(heat); await screen.findByRole('img');
