@@ -37,6 +37,7 @@ beforeAll(async () => {
   const { tanstackHost } = await import('../../../test/host-adapters/lib/host/tanstack-host');
   registerDefaultHost({
     ...tanstackHost,
+    Link: ({ to, children }) => <a href={to}>{children}</a>,
     useNavigate: () => (to, options) => {
       const location = new URL(to, 'http://platform.local');
       navigateMock({
@@ -1537,7 +1538,7 @@ describe('MilestonesRoute tab switch draft preservation (R6)', () => {
     // #564: the panel shows domain-safe copy, not the raw server message.
     expect(
       await screen.findByText(
-        'Milestone 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
+        'Milestone 목록을 볼 권한이 없습니다.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /SSO Stabilization/ })).not.toBeInTheDocument();

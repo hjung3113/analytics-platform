@@ -190,7 +190,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
   });
   const scopeCheckFailed = primaryEmpty && scopedPermission.state === 'error';
   const scopedBlocked = scopedPermission.state === 'blocked';
-  const { denied, deniedRef, request } = useListDenial({
+  const { denied, cardProps, keptSystemId } = useListDenial({
     error: listQuery.error,
     forbidden: 'permission',
     scopedPermission,
@@ -425,11 +425,13 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
                 <div className="p-4 text-sm text-text-muted">Milestones 불러오는 중…</div>
               ) : denied ? (
                 <ScopedListDenialCard
+                  {...cardProps}
                   category="Milestone 목록"
                   reason={PERMISSION_BLOCKED_REASONS.milestoneList}
                   returnRouteIntent="/tasks?view=milestones"
-                  request={scopedBlocked ? request ?? undefined : undefined}
-                  deniedRef={deniedRef}
+                  capability={capability}
+                  managedSystemId={keptSystemId}
+                  recoverToMyVocs
                 />
               ) : scopeCheckFailed || listQuery.error ? (
                 <ListStateMessage

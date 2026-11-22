@@ -4,10 +4,8 @@
 // Nothing here reaches the Finding detail tree.
 
 import { ListLoadMore } from '../../../components/ListLoadMore';
-import { ListAccessRequestPanel, ListDenialFocus, type ListAccessRequest } from '../../../components/ListAccessRequestPanel';
 import { ListStateMessage } from '../../../components/ListStateMessage';
-import { MyVocsRecoveryLink } from '../../../components/MyVocsRecoveryLink';
-import { PermissionDeniedCard } from '../../../components/PermissionDeniedCard';
+import { ScopedListDenialCard } from '../../../components/ScopedListDenialCard';
 import { useFindingDetail } from '../hooks/useFindingDetail';
 import { useFindingsPages, useFindingsTotal } from '../hooks/useFindingsList';
 import {
@@ -33,7 +31,6 @@ import {
   useListDenial,
   useScopedEmptyListPermission,
 } from '../../../lib/cross-system/useListDenial';
-import { useIsArchivedSystem } from '../../../lib/cross-system/useIsArchivedSystem';
 import { formatCount } from '../../../lib/format/count';
 import { formatShortDate } from '../../../lib/format/datetime';
 import { useHostSeam } from '../../../lib/host/host-seam';
@@ -48,7 +45,6 @@ import {
   Checkbox,
   ListShell,
   ObjectRow,
-  PermissionBlockedPanel,
   SearchInput,
   Select,
   SelectContent,
@@ -253,7 +249,7 @@ function FindingsListShell({
   const listFailed = listQuery.isError && (!listQuery.isFetchNextPageError || isListForbidden(listQuery.error));
   const unfilteredError = checkUnfiltered && unfilteredQuery.isError ? unfilteredQuery.error : null;
   const stateError = listFailed ? listQuery.error : unfilteredError;
-  const { denied: isReadDenied, roleRequired, request, keptSystemId, deniedRef, isInList } = useListDenial({
+  const { denied: isReadDenied, cardProps, keptSystemId, isInList } = useListDenial({
     error: stateError,
     scopedPermission,
     managedSystemId,
@@ -429,11 +425,9 @@ function FindingsListShell({
             isError={stateError !== null || scopedPermission.state === 'error'}
             isSuccess={listQuery.isSuccess || listQuery.isFetchNextPageError}
             isReadDenied={isReadDenied}
-            roleRequired={roleRequired}
             capability={capability}
             managedSystemId={keptSystemId}
-            deniedRef={deniedRef}
-            request={request}
+            cardProps={cardProps}
             isFilteredEmpty={isFilteredEmpty}
             assignmentFiltered={assignment !== undefined}
             filterBar={
@@ -479,21 +473,6 @@ function FindingsListShell({
   return renderDetailInPlace ? <>{list}{detailPanel}</> : list;
 }
 
-/** A not-requestable denial. An archived System cannot be read even with the permission, so it names that instead of the missing permission. */
-function FindingsDeniedCard({ capability, managedSystemId }: { capability: string; managedSystemId: string | undefined }): React.ReactElement {
-  if (useIsArchivedSystem(managedSystemId)) {
-    return <PermissionDeniedCard layout="card" category="Findings" reason={PERMISSION_BLOCKED_REASONS.archivedSystem} />;
-  }
-  return (
-    <PermissionDeniedCard
-      layout="card"
-      category="Findings"
-      capability={capability}
-      {...(managedSystemId === undefined ? {} : { managedSystemId })}
-    />
-  );
-}
-
 function FindingsListBody({
   findings,
   total,
@@ -501,11 +480,9 @@ function FindingsListBody({
   isError,
   isSuccess,
   isReadDenied,
-  roleRequired,
   capability,
   managedSystemId,
-  deniedRef,
-  request,
+  cardProps,
   isFilteredEmpty,
   searchFiltered,
   assignmentFiltered,
@@ -525,11 +502,9 @@ function FindingsListBody({
   isError: boolean;
   isSuccess: boolean;
   isReadDenied: boolean;
-  roleRequired: boolean;
   capability: string;
   managedSystemId: string | undefined;
-  deniedRef: React.RefObject<HTMLDivElement | null>;
-  request: ListAccessRequest | null | undefined;
+  cardProps: ReturnType<typeof useListDenial>['cardProps'];
   isFilteredEmpty: boolean;
   searchFiltered: boolean;
   assignmentFiltered: boolean;
@@ -564,31 +539,17 @@ function FindingsListBody({
           <SkeletonRows count={3} size="compact" />
         </div>
       ) : isReadDenied ? (
-        request ? (
-          <ListDenialFocus container={deniedRef} className="m-4 space-y-3">
-            <ListAccessRequestPanel
-              category="Findings"
-              reason={PERMISSION_BLOCKED_REASONS.findingsList}
-              request={request}
-              returnRouteIntent="/findings"
-            />
-          </ListDenialFocus>
-        ) : roleRequired ? (
-          <ListDenialFocus container={deniedRef} className="m-4">
-            <PermissionBlockedPanel
-              layout="card"
-              headingLevel={2}
-              state="blocked_not_requestable"
-              category={GLOSSARY.allFindings}
-              reason={PERMISSION_BLOCKED_REASONS.findingsListRoleRequired}
-              exitAction={<MyVocsRecoveryLink />}
-            />
-          </ListDenialFocus>
-        ) : (
-          <ListDenialFocus container={deniedRef} className="m-4">
-            <FindingsDeniedCard capability={capability} managedSystemId={managedSystemId} />
-          </ListDenialFocus>
-        )
+        <ScopedListDenialCard
+          {...cardProps}
+          category="Findings"
+          roleHeading={{ category: GLOSSARY.allFindings, level: 2 }}
+          reason={PERMISSION_BLOCKED_REASONS.findingsList}
+          returnRouteIntent="/findings"
+          capability={capability}
+          managedSystemId={managedSystemId}
+          explainArchivedSystem
+          recoverToMyVocs
+        />
       ) : isError ? (
         <div data-testid="finding-list-error" className="p-4">
           <ListStateMessage

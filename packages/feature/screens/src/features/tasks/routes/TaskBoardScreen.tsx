@@ -1,6 +1,5 @@
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { ListStateMessage } from '../../../components/ListStateMessage';
-import { MyVocsRecoveryLink } from '../../../components/MyVocsRecoveryLink';
 import { ScopedListDenialCard } from '../../../components/ScopedListDenialCard';
 import { mapUnknownError } from '../../../lib/api/errorMapper';
 import { listMilestones } from '../../../lib/api/milestones';
@@ -506,7 +505,7 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
     empty: primaryEmpty || summaryEmpty || milestoneChoicesEmpty,
   });
   const scopedBlocked = scopedPermission.state === 'blocked';
-  const { denied, deniedRef, request } = useListDenial({
+  const { denied, cardProps, keptSystemId } = useListDenial({
     error: queryStates.map((query) => query.error).find(isPermissionDenied),
     forbidden: 'permission',
     scopedPermission,
@@ -560,12 +559,13 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
   if (denied) {
     return (
       <ScopedListDenialCard
+        {...cardProps}
         category="Task 보드"
         reason={PERMISSION_BLOCKED_REASONS.taskList}
         returnRouteIntent="/tasks?view=board"
-        request={scopedBlocked ? request ?? undefined : undefined}
-        deniedRef={deniedRef}
-        recoveryAction={<MyVocsRecoveryLink />}
+        capability={capability}
+        managedSystemId={keptSystemId}
+        recoverToMyVocs
       />
     );
   }

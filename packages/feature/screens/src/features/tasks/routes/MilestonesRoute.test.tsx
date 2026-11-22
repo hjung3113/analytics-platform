@@ -24,6 +24,7 @@ beforeAll(async () => {
   const { tanstackHost } = await import('../../../test/host-adapters/lib/host/tanstack-host');
   registerDefaultHost({
     ...tanstackHost,
+    Link: ({ to, children }) => <a href={to}>{children}</a>,
     useNavigate: () => (to, options) => {
       const location = new URL(to, 'http://platform.local');
       navigateMock({
@@ -663,7 +664,7 @@ describe('MilestonesRoute counts suppression (R5)', () => {
     // the shell (and the draft) survive.
     expect(
       await screen.findByText(
-        'Milestone 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.',
+        'Milestone 목록을 볼 권한이 없습니다.',
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText('finding.manage required')).not.toBeInTheDocument();

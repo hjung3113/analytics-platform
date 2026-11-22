@@ -1,6 +1,5 @@
 import { ListLoadMore } from '../../../components/ListLoadMore';
 import { ListStateMessage } from '../../../components/ListStateMessage';
-import { MyVocsRecoveryLink } from '../../../components/MyVocsRecoveryLink';
 import { ScopedListDenialCard } from '../../../components/ScopedListDenialCard';
 import { useMeBridge } from '../../../lib/api/me';
 import { getTask, listTasks } from '../../../lib/api/tasks';
@@ -231,7 +230,7 @@ export function TaskListScreen({ capability = 'finding.manage', view, autoSelect
     (!tasksQuery.isFetchNextPageError || isPermissionDenied(tasksQuery.error));
   const listUnavailable = scopeCheckFailed || listFailed;
   const scopedBlocked = scopedPermission.state === 'blocked';
-  const { denied: listPermissionDenied, deniedRef, request } = useListDenial({
+  const { denied: listPermissionDenied, cardProps, keptSystemId } = useListDenial({
     error: listFailed ? tasksQuery.error : null,
     forbidden: 'permission',
     scopedPermission,
@@ -358,12 +357,13 @@ export function TaskListScreen({ capability = 'finding.manage', view, autoSelect
             <div className="p-4 text-sm text-text-muted">Task를 불러오는 중…</div>
           ) : listPermissionDenied ? (
             <ScopedListDenialCard
+              {...cardProps}
               category="Task 목록"
               reason={PERMISSION_BLOCKED_REASONS.taskList}
               returnRouteIntent={view === 'my' ? '/tasks?view=my' : '/tasks?view=backlog'}
-              request={scopedBlocked ? request ?? undefined : undefined}
-              deniedRef={deniedRef}
-              recoveryAction={<MyVocsRecoveryLink />}
+              capability={capability}
+              managedSystemId={keptSystemId}
+              recoverToMyVocs
             />
           ) : listUnavailable ? (
             <ListStateMessage

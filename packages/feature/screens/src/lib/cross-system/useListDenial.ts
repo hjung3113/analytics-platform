@@ -210,6 +210,7 @@ export function useListDenial({
 
   return {
     kind, denied, roleRequired, permissionError, request, requestable, keptSystemId, deniedRef,
+    cardProps: { request, roleRequired, deniedRef },
     isInList: denied ? false as const : undefined,
   };
 }

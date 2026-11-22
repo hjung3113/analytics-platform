@@ -4,11 +4,12 @@ import { RequestAccessButton } from './request-access-button';
 
 export type ListAccessRequest = { capability: string; managedSystemId?: string; pending?: boolean };
 
-export function ListAccessRequestPanel({ category, reason, returnRouteIntent, request }: {
+export function ListAccessRequestPanel({ category, reason, returnRouteIntent, request, extraExitAction }: {
   category: string;
   reason: string;
   returnRouteIntent: string;
   request: ListAccessRequest;
+  extraExitAction?: ReactNode;
 }) {
   return (
     <RequestAccessButton
@@ -22,6 +23,7 @@ export function ListAccessRequestPanel({ category, reason, returnRouteIntent, re
           category={category}
           reason={reason}
           {...panel}
+          exitAction={extraExitAction ? <>{panel?.exitAction}{extraExitAction}</> : panel?.exitAction}
         />
       )}
     />

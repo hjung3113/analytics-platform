@@ -1,9 +1,11 @@
 import { useMe } from '../../../lib/auth/useMe';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
+import { HostSeamProvider, useHostSeam } from '../../../lib/host/host-seam';
 import { TaskListRoute } from '../../../test/screen-host/features/tasks/routes/TaskListRoute';
+import { useAccessRequestState } from '../../../test-support/access-request-host';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 
@@ -142,6 +144,42 @@ it('hides Task list controls after a denied read and links to 내 VOC', async ()
     'href',
     '/vocs?view=my',
   );
+});
+
+it.each([
+  ['blocked_not_requestable', { detail: { reason: 'role_required', minimum_role: 'developer' } }],
+  ['request_access', { requestable_permission: {
+    permission: 'finding.manage', managed_system_id: '30000000-0000-4000-8000-000000000003',
+  } }],
+] as const)('renders the Task list 403 as a %s card with ordered recovery actions', async (state, hint) => {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const { pathname } = new URL(String(input), 'http://localhost');
+    if (pathname === '/tasks') return Response.json({ code: 'permission.denied', ...hint }, { status: 403 });
+    if (pathname === '/permission-requests/mine') return Response.json({ requests: [] });
+    return Response.json({ items: [] });
+  }));
+  function Host() {
+    const seam = useHostSeam();
+    return <HostSeamProvider value={{
+      ...seam, useAccessRequestState,
+      usePermissionLinks: () => ({ permissionHomeHref: '/', permissionRequestHref: () => '/permission-requests' }),
+    }}><TaskListRoute /></HostSeamProvider>;
+  }
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<QueryClientProvider client={client}><Host /></QueryClientProvider>);
+
+  const heading = await screen.findByRole('heading', { name: 'Task 목록' });
+  const card = heading.closest<HTMLElement>('[data-state]');
+  if (!card) throw new Error('Missing Task denial card');
+  expect(card).toHaveAttribute('data-state', state);
+  const home = within(card).getByRole('link', { name: '홈으로' });
+  const recovery = within(card).getByRole('link', { name: '내 VOC' });
+  expect(recovery).toHaveAttribute('href', '/vocs?view=my');
+  const actions = [home, recovery];
+  if (state === 'request_access') actions.unshift(await within(card).findByRole('link', { name: '권한 요청' }));
+  else expect(within(card).getByText('Developer 이상 역할이 필요합니다.')).toBeInTheDocument();
+  expect(Array.from(home.parentElement?.children ?? [])).toEqual(actions);
+  expect(within(card).getByText('Task 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
 });
 
 it('renders no list total once a refetch is denied after a successful load', async () => {

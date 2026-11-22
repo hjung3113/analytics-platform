@@ -1,6 +1,5 @@
 import { PermissionDeniedCard } from '../../../components/PermissionDeniedCard';
-import { permissionCardExitAction } from '../../../components/permission-card-actions';
-import { useHostPermissionLinks, useHostSeam } from '../../../lib/host/host-seam';
+import { ScopedListDenialCard } from '../../../components/ScopedListDenialCard';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { useMeBridge } from '../../../lib/api/me';
 import { ApiError } from '../../../lib/api/types';
@@ -17,14 +16,13 @@ import {
   Button,
   ListShell,
   ListToolbar,
-  PermissionBlockedPanel,
   SearchInput,
   Skeleton,
 } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ListAccessRequestPanel, ListDenialFocus } from '../../../components/ListAccessRequestPanel';
+import { ListDenialFocus } from '../../../components/ListAccessRequestPanel';
 import {
   type EvidenceFilters,
   evidenceInventoryQueryKey,
@@ -246,16 +244,14 @@ function EvidenceSession({
     managedSystemId: listSystemId(search.managedSystem),
     empty: list.isSuccess && list.data.items.length === 0,
   });
-  const { denied: listBlocked, request, roleRequired, keptSystemId, deniedRef } = useListDenial({
+  const { denied: listBlocked, cardProps, keptSystemId } = useListDenial({
     error: list.error,
     scopedPermission,
     managedSystemId: search.managedSystem,
     drawer: { selectedId: search.selected ?? null, close: closeSelection },
   });
   const blocked = listBlocked || denied(detail.error);
-  const { lang = 'ko' } = useHostSeam();
-  const { permissionHomeHref } = useHostPermissionLinks();
-  const archived = useIsArchivedSystem(blocked && !request && !roleRequired ? keptSystemId : undefined);
+  const archivedDetail = useIsArchivedSystem(blocked && !listBlocked ? keptSystemId : undefined);
   useEffect(() => {
     if (!blocked) return;
     setDraft('');
@@ -384,32 +380,23 @@ function EvidenceSession({
                 </Button>
               </div>
             )}
-            {request ? (
-              <ListDenialFocus container={deniedRef}>
-                <ListAccessRequestPanel
-                  category={COPY.title}
-                  reason={COPY.blocked}
-                  request={request}
-                  returnRouteIntent="/integration/evidence"
-                />
-              </ListDenialFocus>
-            ) : roleRequired ? (
-              <ListDenialFocus container={deniedRef}>
-                <PermissionBlockedPanel
-                  layout="card"
-                  lang={lang}
-                  state="blocked_not_requestable"
-                  category={COPY.title}
-                  exitAction={permissionCardExitAction(permissionHomeHref, lang)}
-                  reason={PERMISSION_BLOCKED_REASONS.evidenceListRoleRequired}
-                />
-              </ListDenialFocus>
+            {listBlocked ? (
+              <ScopedListDenialCard
+                {...cardProps}
+                category={COPY.title}
+                reason={COPY.blocked}
+                returnRouteIntent="/integration/evidence"
+                capability={capability}
+                managedSystemId={keptSystemId}
+                explainArchivedSystem
+                recoverToMyVocs
+              />
             ) : blocked ? (
-              <ListDenialFocus container={deniedRef}>
+              <ListDenialFocus container={cardProps.deniedRef}>
                 <PermissionDeniedCard
                   layout="card"
                   category="근거"
-                  description={archived ? PERMISSION_BLOCKED_REASONS.archivedSystem : COPY.blocked}
+                  description={archivedDetail ? PERMISSION_BLOCKED_REASONS.archivedSystem : COPY.blocked}
                 />
               </ListDenialFocus>
             ) : scopedPermission.state === 'checking' || ((list.isPending || list.isFetching) && items.length === 0) ? (
