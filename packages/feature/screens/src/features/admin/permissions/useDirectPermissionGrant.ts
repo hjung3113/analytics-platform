@@ -2,6 +2,7 @@ import { type QueryClient, type UseMutationResult, useMutation, useQueryClient }
 
 import { mapUnknownError } from '../../../lib/api/errorMapper';
 import { createDirectPermissionGrant, createDirectPermissionGrantBatch } from '../../../lib/api/permission-admin';
+import { permissionScopeKey } from '../../../lib/api/permission-reads';
 import { permissionRequestsMineKey } from '../../../lib/api/permission-requests';
 import type { ApiError } from '../../../lib/api/types';
 import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
@@ -14,7 +15,7 @@ import { permissionDeniesListKey, permissionGrantsListKey } from './useRevokePer
 function invalidateGrantQueries(queryClient: QueryClient) {
   return Promise.all([
     permissionGrantsListKey, permissionDeniesListKey, permissionRequestsMineKey, permissionRequestsReviewKey,
-    ['permission-check'], ['managed-system-scope'], ['permission-grant-options'],
+    ['permission-check'], ['managed-system-scope'], permissionScopeKey, ['permission-grant-options'],
   ].map(queryKey => queryClient.invalidateQueries({ queryKey })));
 }
 

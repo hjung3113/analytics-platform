@@ -9,6 +9,8 @@ import { apiClient, apiRequest } from './client';
 import { ApiError, ApiParseError } from './types';
 import { UnauthenticatedError } from './unauthenticated';
 
+export const permissionScopeKey = ['permission-scope'] as const;
+
 export type FrontendPermissionState =
   | 'approved'
   | 'blocked_non_requestable'

@@ -4,21 +4,35 @@
 // route's concern. Screens live in features/voc-cluster per AGENTS ownership.
 
 import { ListStateMessage } from '../../../../components/ListStateMessage';
+import { ScopedListDenialCard } from '../../../../components/ScopedListDenialCard';
 import { useVocClusterDetail } from '../../hooks/useVocClusterDetail';
 import { useVocClusterList } from '../../hooks/useVocClusterList';
 import { useMeBridge } from '../../../../lib/api/me';
-import { isPermissionDenied } from '../../../../lib/api/types';
+import {
+  fetchCapabilityScopeViaClient,
+  permissionScopeKey,
+  type CapabilityScope,
+} from '../../../../lib/api/permission-reads';
+import { PERMISSION_REQUEST_FLOW_COPY } from '../../../../lib/copy/permission-requests';
 import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
-import { CLUSTER_SUGGESTION_COPY } from '../../../../lib/copy/voc-cluster';
+import { CLUSTER_SUGGESTION_COPY, VOC_CLUSTER_LIST_CATEGORY } from '../../../../lib/copy/voc-cluster';
+import {
+  concreteListSystemId,
+  focusListDenialCard,
+  useListDenial,
+  useScopedEmptyListPermission,
+  type ScopedEmptyListPermission,
+} from '../../../../lib/cross-system/useListDenial';
 import { formatShortDate } from '../../../../lib/format/datetime';
 import {
+  Button,
   ListShell,
   ListToolbar,
   type ListToolbarTab,
   ObjectRow,
-  PermissionBlockedPanel,
   SkeletonRows,
 } from '@ap/ui';
+import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { useState } from 'react';
 import {
@@ -30,6 +44,116 @@ import { ClusterSuggestionSession } from '../suggestions/ClusterSuggestionSessio
 import { ClusterStatusBadge } from '../../lib/presentation';
 import type { VocClusterListPresentation } from '../types';
 import { VocClusterDetailPanel } from './VocClusterDetailPanel';
+
+function scopeExcludesSystem(scope: CapabilityScope | undefined, systemId: string | undefined) {
+  return systemId !== undefined && scope?.kind === 'scoped' &&
+    !scope.managed_system_ids.some((id) => id.toLowerCase() === systemId);
+}
+
+type ScopeEntry =
+  | { context: string; state: 'checking'; previousErrorCount: number }
+  | { context: string; state: 'confirmed' };
+
+function useClusterEmptyListPermission({
+  systemId,
+  actorContext,
+  empty,
+}: {
+  systemId: string | undefined;
+  actorContext: string | undefined;
+  empty: boolean;
+}): ScopedEmptyListPermission & { retry?: () => void } {
+  const capability = 'finding.read';
+  const enabled = empty && systemId !== undefined;
+  const scopeQuery = useQuery({
+    queryKey: [...permissionScopeKey, capability, actorContext],
+    queryFn: ({ signal }) => fetchCapabilityScopeViaClient(capability, { signal }),
+    enabled,
+    staleTime: 30_000,
+    retry: false,
+    refetchOnWindowFocus: ({ state }) =>
+      scopeExcludesSystem(state.data?.scope, systemId) ? 'always' : true,
+  });
+  const scope = scopeQuery.data?.scope;
+  const context = JSON.stringify([actorContext, systemId]);
+  const [entry, setEntry] = useState<ScopeEntry>({
+    context, state: 'checking', previousErrorCount: scopeQuery.errorUpdateCount,
+  });
+  const sameEntry = entry.context === context;
+  const confirmed = scope !== undefined && (!scopeQuery.isStale || (sameEntry && entry.state === 'confirmed'));
+  if (enabled && confirmed && (!sameEntry || entry.state !== 'confirmed')) {
+    setEntry({ context, state: 'confirmed' });
+  } else if (!sameEntry) {
+    setEntry({ context, state: 'checking', previousErrorCount: scopeQuery.errorUpdateCount });
+  }
+  const recheckScopeOnEntry = React.useEffectEvent(() => {
+    if (!confirmed && scopeQuery.fetchStatus === 'idle') {
+      void scopeQuery.refetch({ cancelRefetch: false });
+    }
+  });
+  // A System switch can keep the same enabled query observer, so stale data needs an explicit recheck.
+  React.useEffect(() => {
+    if (enabled) recheckScopeOnEntry();
+  }, [context, enabled]);
+
+  const excluded = scopeExcludesSystem(scope, systemId);
+  const requestPermission = useScopedEmptyListPermission({
+    capability,
+    managedSystemId: systemId,
+    empty: enabled && confirmed && excluded,
+  });
+
+  if (!enabled) return { state: 'unchecked' };
+  // A new System waits for a fresh scope. A failed recheck keeps a decision confirmed here.
+  if (!confirmed) {
+    if (entry.state === 'checking' && scopeQuery.errorUpdateCount > entry.previousErrorCount &&
+      scopeQuery.isError && scopeQuery.fetchStatus === 'idle') {
+      return { state: 'error', retry: () => void scopeQuery.refetch() };
+    }
+    return { state: 'checking' };
+  }
+  if (!excluded) return { state: 'allowed' };
+
+  // The effective scope determines denial. The point check supplies requestability.
+  if (requestPermission.state === 'blocked') return requestPermission;
+  const block = requestPermission.state === 'checking' || requestPermission.state === 'error'
+    ? requestPermission.lastBlocked
+    : undefined;
+  return {
+    ...(block ?? { state: 'blocked', roleRequired: false, request: null }),
+    ...(requestPermission.state === 'error' ? { retry: requestPermission.retry } : {}),
+  };
+}
+
+type SuggestionDenialFocusProps = {
+  denied: boolean;
+  deniedRef: React.RefObject<HTMLDivElement | null>;
+  children: React.ReactNode;
+};
+
+class SuggestionDenialFocus extends React.Component<SuggestionDenialFocusProps> {
+  override getSnapshotBeforeUpdate(previous: SuggestionDenialFocusProps) {
+    if (previous.denied || !this.props.denied) return null;
+    const focused = document.activeElement;
+    return focused?.closest(
+      '#cluster-tab-suggestions, [aria-labelledby="cluster-tab-suggestions"], [data-testid="cluster-suggestion-panel"]',
+    )
+      ? focused : null;
+  }
+
+  override componentDidUpdate(_previous: SuggestionDenialFocusProps, _state: unknown, focused: Element | null) {
+    if (!focused) return;
+    // The host detail slot removes its panel in a separate commit.
+    queueMicrotask(() => {
+      if (focused.isConnected || document.activeElement !== document.body) return;
+      focusListDenialCard(this.props.deniedRef.current, { preventScroll: true });
+    });
+  }
+
+  override render() {
+    return this.props.children;
+  }
+}
 
 export function VocClusterListShell({
   selectedId,
@@ -61,29 +185,54 @@ export function VocClusterListShell({
   const { data: me } = useMeBridge();
   const eligible = me?.actor.role_level === 'admin' || me?.actor.role_level === 'developer';
   const actorContext = clusterSuggestionActorContext(me);
-  const suggestionsQuery = useClusterSuggestions(managedSystemId, actorContext, eligible);
+  const systemId = concreteListSystemId(managedSystemId)?.toLowerCase();
+  const scopedPermission = useClusterEmptyListPermission({
+    systemId,
+    actorContext,
+    empty: listQuery.data !== undefined && !listQuery.isPlaceholderData && clusters.length === 0,
+  });
+  const scopedBlocked = scopedPermission.state === 'blocked';
+  const { denied, deniedRef, permissionError, request } = useListDenial({
+    error: listQuery.error,
+    forbidden: 'permission',
+    scopedPermission,
+    managedSystemId,
+    drawer: { selectedId, close: () => onCloseDetail({ reconcile: true }) },
+  });
+  const checkingScope = scopedPermission.state === 'checking';
+  const scopeUnverified = checkingScope || scopedPermission.state === 'error';
+  const listPending = listQuery.isPending || listQuery.isPlaceholderData || checkingScope;
+  const listUsable = listQuery.isSuccess && !listPending && !scopeUnverified && !denied;
+  const suggestionsQuery = useClusterSuggestions(managedSystemId, actorContext, eligible && !denied);
   const suggestionsAvailable =
     suggestionsQuery.isSuccess && suggestionsQuery.data?.available === true;
   const sessionContext = `${managedSystemId ?? 'all'}:${actorContext}`;
   const [activeTab, setActiveTab] = useState<ClusterTab>('all');
   const [selectionPaused, setSelectionPaused] = useState(false);
-  const suggestionMode = eligible && suggestionsAvailable && activeTab === 'suggestions';
   const [suggestionSlots, setSuggestionSlots] = useState<{
     panel: React.ReactNode;
     count: number | undefined;
     context: string;
   }>({ panel: null, count: undefined, context: '' });
-  const automaticExit = activeTab === 'suggestions' && !suggestionMode;
-  const pauseClusterSelection = suggestionMode || automaticExit || selectionPaused;
+  const suggestionTabActive = activeTab === 'suggestions';
+  // Keep a mounted session through verification of a newly empty list in its own context.
+  const sessionInContext = suggestionTabActive && suggestionSlots.context === sessionContext &&
+    suggestionSlots.count !== undefined;
+  const awaitingScopedList = systemId !== undefined && listPending && !sessionInContext;
+  const showSuggestionsTab = eligible && suggestionsAvailable && !denied &&
+    !listQuery.isLoadingError && !awaitingScopedList && (!scopeUnverified || sessionInContext);
+  const suggestionMode = suggestionTabActive && showSuggestionsTab;
+  const automaticExit = suggestionTabActive && !suggestionMode && (denied || !listPending);
+  const pauseClusterSelection = suggestionTabActive || selectionPaused;
   React.useEffect(() => {
     if (automaticExit) {
       setActiveTab('all');
       setSelectionPaused(true);
     }
     onSuggestionModeChange?.(suggestionMode, {
-      preserveSelection: automaticExit || selectionPaused,
+      preserveSelection: (suggestionTabActive && !suggestionMode) || selectionPaused,
     });
-  }, [automaticExit, selectionPaused, suggestionMode, onSuggestionModeChange]);
+  }, [automaticExit, selectionPaused, suggestionMode, suggestionTabActive, onSuggestionModeChange]);
   const receiveSuggestionSlots = React.useCallback(
     (slots: { panel: React.ReactNode; count: number | undefined }) => {
       setSuggestionSlots({ ...slots, context: sessionContext });
@@ -108,18 +257,18 @@ export function VocClusterListShell({
   const selectedInList =
     selectedId !== null && clusters.some((cluster) => cluster.id === selectedId);
   const selectedAbsentFromList =
-    !pauseClusterSelection && listQuery.isSuccess && selectedId !== null && !selectedInList;
+    !pauseClusterSelection && listUsable && selectedId !== null && !selectedInList;
   const selectedDetailQuery = useVocClusterDetail(selectedAbsentFromList ? selectedId : null);
   const selectedVisibleInList =
     selectedId !== null && visibleClusters.some((cluster) => cluster.id === selectedId);
 
   React.useEffect(() => {
-    if (!pauseClusterSelection && defaultToFirst && selectedId === null && visibleClusters[0])
+    if (!pauseClusterSelection && listUsable && defaultToFirst && selectedId === null && visibleClusters[0])
       onSelect(visibleClusters[0].id);
-  }, [pauseClusterSelection, defaultToFirst, onSelect, selectedId, visibleClusters]);
+  }, [pauseClusterSelection, listUsable, defaultToFirst, onSelect, selectedId, visibleClusters]);
 
   React.useEffect(() => {
-    if (pauseClusterSelection || !listQuery.isSuccess || selectedId === null) return;
+    if (pauseClusterSelection || !listUsable || selectedId === null) return;
 
     if (selectedInList) {
       if (!selectedVisibleInList) onCloseDetail({ reconcile: true });
@@ -137,7 +286,7 @@ export function VocClusterListShell({
     matchesActiveTab,
     onCloseDetail,
     pauseClusterSelection,
-    listQuery.isSuccess,
+    listUsable,
     selectedDetailQuery.data,
     selectedDetailQuery.isSuccess,
     selectedDetailQuery.isFetching,
@@ -155,42 +304,60 @@ export function VocClusterListShell({
         (managedSystemId === undefined ||
           selectedDetailQuery.data.primary_managed_system_id === managedSystemId) &&
         matchesActiveTab(selectedDetailQuery.data)));
+  const showClusterDetail =
+    !denied && !scopeUnverified && !suggestionTabActive &&
+    (selectedVisibleInList || resolvedAbsentDetailIsVisible);
 
-  return (
+  const shell = (
     <ListShell
       toolbar={{
         title: '반복 VOC',
         subtitle: 'VOC를 유사 주제로 묶어 Finding으로 승격합니다.',
         actions: toolbarActions,
       }}
-      list={
+      list={denied ? (
+        <ScopedListDenialCard
+          category={VOC_CLUSTER_LIST_CATEGORY}
+          reason={PERMISSION_BLOCKED_REASONS.vocClusterList}
+          returnRouteIntent="/voc-clusters"
+          request={request ?? undefined}
+          deniedRef={deniedRef}
+          recoveryAction={scopedBlocked && !permissionError && scopedPermission.retry && (
+            <Button variant="secondary" size="sm" onClick={(event) => {
+              if (document.activeElement === event.currentTarget) deniedRef.current?.focus({ preventScroll: true });
+              scopedPermission.retry?.();
+            }}>
+              {PERMISSION_REQUEST_FLOW_COPY.ko.retry}
+            </Button>
+          )}
+        />
+      ) : (
         <ClusterListBody
           clusters={visibleClusters}
           allClusters={clusters}
-          isPending={listQuery.isPending}
-          isError={listQuery.isError}
-          error={listQuery.error}
-          onRetry={() => void listQuery.refetch()}
+          isPending={listPending}
+          isError={listQuery.isError || scopedPermission.state === 'error'}
+          onRetry={scopedPermission.state === 'error' ? scopedPermission.retry : () => void listQuery.refetch()}
           selectedId={selectedId}
           onSelect={(id) => {
             setSelectionPaused(false);
             onSuggestionModeChange?.(false, { preserveSelection: false });
             onSelect(id);
           }}
-          activeTab={activeTab}
+          activeTab={suggestionTabActive && !suggestionMode ? 'all' : activeTab}
           onTabChange={changeTab}
-          suggestionEligible={eligible && suggestionsAvailable}
+          suggestionEligible={showSuggestionsTab}
           suggestionCount={
             suggestionMode && suggestionSlots.context === sessionContext
               ? suggestionSlots.count
-              : suggestionsAvailable
+              : showSuggestionsTab
                 ? suggestionsQuery.data?.items.length
                 : undefined
           }
           suggestionList={
             suggestionMode ? (
               <ClusterSuggestionSession
-                key={`${managedSystemId ?? 'all'}:${actorContext}`}
+                key={sessionContext}
                 managedSystemId={managedSystemId}
                 actorContext={actorContext}
                 onSlots={receiveSuggestionSlots}
@@ -200,13 +367,13 @@ export function VocClusterListShell({
             ) : undefined
           }
         />
-      }
+      )}
       detailPanel={
         suggestionMode ? (
           suggestionSlots.context === sessionContext ? (
             suggestionSlots.panel
           ) : null
-        ) : selectedVisibleInList || resolvedAbsentDetailIsVisible ? (
+        ) : showClusterDetail ? (
           renderDetail !== undefined ? (
             renderDetail(selectedId, { onClose: () => onCloseDetail() })
           ) : (
@@ -220,6 +387,7 @@ export function VocClusterListShell({
       }
     />
   );
+  return <SuggestionDenialFocus denied={denied} deniedRef={deniedRef}>{shell}</SuggestionDenialFocus>;
 }
 
 type ClusterTab = 'all' | 'confirmed' | 'no-finding' | 'suggestions';
@@ -233,7 +401,6 @@ function ClusterListBody({
   allClusters,
   isPending,
   isError,
-  error,
   onRetry,
   selectedId,
   onSelect,
@@ -247,7 +414,6 @@ function ClusterListBody({
   allClusters: VocClusterListPresentation[];
   isPending: boolean;
   isError: boolean;
-  error: unknown;
   onRetry: () => void;
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -304,24 +470,19 @@ function ClusterListBody({
       controlsId: 'cluster-list-panel',
       testId: 'cluster-tab-suggestions',
     });
-  const isReadDenied = isError && isPermissionDenied(error);
-
   return (
     <section className="flex min-h-full flex-col">
-      {!isReadDenied ? (
-        <ListToolbar
-          tabs={tabs}
-          activeTab={activeTab}
-          onTabChange={(next) => onTabChange(next as typeof activeTab)}
-          tabsAriaLabel="반복 VOC 필터"
-        />
-      ) : null}
+      <ListToolbar
+        tabs={tabs}
+        activeTab={activeTab}
+        onTabChange={(next) => onTabChange(next as typeof activeTab)}
+        tabsAriaLabel="반복 VOC 필터"
+      />
 
       <div
         id="cluster-list-panel"
-        {...(!isReadDenied
-          ? { role: 'tabpanel', 'aria-labelledby': `cluster-tab-${activeTab}` }
-          : {})}
+        role="tabpanel"
+        aria-labelledby={`cluster-tab-${activeTab}`}
       >
         {activeTab === 'suggestions' && suggestionList ? (
           suggestionList
@@ -329,13 +490,6 @@ function ClusterListBody({
           <div className="space-y-2 p-4" data-testid="cluster-list-skeleton">
             <SkeletonRows count={3} size="compact" />
           </div>
-        ) : isError && isPermissionDenied(error) ? (
-          <PermissionBlockedPanel
-            state="denied"
-            category="반복 VOC list"
-            reason={PERMISSION_BLOCKED_REASONS.vocClusterList}
-            className="m-4"
-          />
         ) : isError ? (
           <div data-testid="cluster-list-error">
             <ListStateMessage

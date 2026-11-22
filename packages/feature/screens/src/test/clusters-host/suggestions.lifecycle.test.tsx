@@ -1,7 +1,7 @@
 import { VocClusterListShell } from '../../features/voc-cluster/components/detail/VocClusterListShell';
 import { VocClusterListPage, vocClustersSearchSchema } from './index';
 import { clusterSuggestionsFixture } from '../fixtures/cluster-suggestions';
-import { IDS, populatedList } from '../fixtures/voc-clusters';
+import { IDS, emptyList, populatedList } from '../fixtures/voc-clusters';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -11,6 +11,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  useLocation,
   useNavigate,
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -18,6 +19,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 let available = true;
 let listRead: () => Promise<Response>;
+let scopeRead: () => Promise<Response>;
 let suggestionRead: () => Promise<Response>;
 let unreadableClusterId: string | null = null;
 let role = 'admin';
@@ -50,13 +52,13 @@ function Root() {
     </DetailPanelSlotProvider>
   );
 }
-function mount(initialPath = `/voc-clusters?selected=${IDS.draft}`) {
+function mount(initialPath = `/voc-clusters?selected=${IDS.draft}`, component = VocClusterListPage) {
   const root = createRootRoute({ component: Root });
   const list = createRoute({
     getParentRoute: () => root,
     path: '/voc-clusters',
-    validateSearch: (raw) => vocClustersSearchSchema.parse(raw),
-    component: VocClusterListPage,
+    validateSearch: (raw) => component === VocClusterListPage ? vocClustersSearchSchema.parse(raw) : raw,
+    component,
   });
   const detail = createRoute({
     getParentRoute: () => root,
@@ -138,6 +140,7 @@ beforeEach(() => {
   available = true;
   unreadableClusterId = null;
   listRead = async () => json(populatedList);
+  scopeRead = async () => json({ scope: { kind: 'all' } });
   suggestionRead = async () =>
     json(
       available
@@ -149,6 +152,7 @@ beforeEach(() => {
     vi.fn(async (input: string, _init?: RequestInit) => {
       const url = new URL(input, 'http://localhost');
       if (url.pathname === '/me') return json(me());
+      if (url.pathname === '/me/permissions/scope') return scopeRead();
       if (url.pathname === '/voc-clusters') return listRead();
       if (url.pathname === '/voc-cluster-suggestions') return suggestionRead();
       if (url.pathname.endsWith('/discard'))
@@ -173,6 +177,47 @@ beforeEach(() => {
   );
 });
 afterEach(() => vi.unstubAllGlobals());
+
+it.each(['Host detail', 'Outside detail'])('replaces the platform focus URL and closes host-owned detail on a list 403 (focused: %s)', async (focused) => {
+  function PlatformFocusHost() {
+    const focus = useLocation({ select: location => new URLSearchParams(location.searchStr).get('focus') });
+    const navigate = useNavigate();
+    return <>
+      <VocClusterListShell selectedId={focus} onSelect={() => undefined} renderDetail={() => undefined}
+        onCloseDetail={opts => void navigate({ to: '/voc-clusters', search: {}, replace: opts?.reconcile === true })} />
+      <button type="button">Outside detail</button>
+      {focus && <button type="button">Host detail</button>}
+    </>;
+  }
+  const { client, history } = mount(`/voc-clusters?focus=${IDS.draft}`, PlatformFocusHost);
+  await screen.findByRole('button', { name: 'Host detail' });
+  const outside = screen.getByRole('button', { name: 'Outside detail' });
+  screen.getByRole('button', { name: focused }).focus();
+  listRead = async () => json({ code: 'permission.denied', message: 'forbidden' }, 403);
+  await act(async () => { await client.invalidateQueries({ queryKey: ['voc-clusters'] }); });
+  const heading = await screen.findByRole('heading', { name: '반복 VOC 목록' });
+  await waitFor(() => expect(history.location.href).toBe('/voc-clusters'));
+  expect(history.length).toBe(1);
+  expect(screen.queryByRole('button', { name: 'Host detail' })).not.toBeInTheDocument();
+  expect(focused === 'Outside detail' ? outside : heading.closest('[tabindex="-1"]')).toHaveFocus();
+});
+
+it.each([false, true])('recovers lost suggestion focus on denial (focus moved away: %s)', async (movedAway) => {
+  listRead = async () => json(emptyList);
+  const { client } = mount(`/voc-clusters?managedSystem=${IDS.managedSystem}`);
+  await screen.findByTestId('cluster-empty-state');
+  await enter();
+  screen.getByRole('button', { name: '기각' }).focus();
+  render(<button type="button">Outside suggestions</button>);
+  const outside = screen.getByRole('button', { name: 'Outside suggestions' });
+  if (movedAway) outside.focus();
+  scopeRead = async () => json({ scope: { kind: 'scoped', managed_system_ids: [] } });
+  await act(async () => { await client.invalidateQueries({ queryKey: ['permission-scope'] }); });
+  const heading = await screen.findByRole('heading', { name: '반복 VOC 목록' });
+  expect(screen.queryByTestId('cluster-suggestion-panel')).not.toBeInTheDocument();
+  if (movedAway) expect(outside).toHaveFocus();
+  else expect(heading.closest('[tabindex="-1"]')).toHaveFocus();
+});
 
 it.each(['admin', 'developer'])(
   'preserves selected URL/history on tab exit, local close and refetch for %s',
@@ -312,6 +357,40 @@ it('drops undo on tab exit and never restores it on re-entry', async () => {
   fireEvent.mouseDown(screen.getByRole('tab', { name: /^반복 VOC 제안/ }), { button: 0 });
   await screen.findByText('검토할 반복 VOC 제안이 없습니다');
   expect(screen.queryByRole('button', { name: '되돌리기' })).not.toBeInTheDocument();
+});
+
+it.each(['list', 'scope'])('keeps the open suggestion and Undo when the confirmed %s refetch fails', async (read) => {
+  const second = {
+    ...pair,
+    id: IDS.candidateVoc,
+    vocs: [{ ...pair.vocs[0], display_id: 'VOC-56' }, pair.vocs[1]],
+  };
+  suggestionRead = async () => json({ available: true, items: [pair, second] });
+  if (read === 'scope') listRead = async () => json(emptyList);
+  const { client } = mount(`/voc-clusters?managedSystem=${IDS.managedSystem}`);
+  if (read === 'scope') await screen.findByTestId('cluster-empty-state');
+  await enter();
+  fireEvent.click(screen.getByRole('button', { name: '기각' }));
+  await screen.findByRole('button', { name: '되돌리기' });
+  fireEvent.click(await screen.findByRole('button', { name: /VOC-56/ }));
+  await screen.findByTestId('cluster-suggestion-panel');
+
+  const fail = async () => json({ code: 'internal.unexpected', message: 'failed' }, 500);
+  if (read === 'scope') scopeRead = fail;
+  else listRead = fail;
+  const queryKey = read === 'scope' ? ['permission-scope', 'finding.read'] : ['voc-clusters'];
+  await act(async () => {
+    await client.invalidateQueries({ queryKey });
+    // React Query schedules observer notifications after invalidation settles.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await waitFor(() => {
+    expect(client.getQueryCache().find({ queryKey, exact: false, type: 'active' })?.state.status)
+      .toBe('error');
+    expect(screen.getByRole('tab', { name: /^반복 VOC 제안/, selected: true })).toBeInTheDocument();
+    expect(screen.getByTestId('cluster-suggestion-panel')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '되돌리기' })).toBeInTheDocument();
+  });
 });
 
 it('preserves an absent selected param when availability drops after a deferred first 반복 VOC read', async () => {
