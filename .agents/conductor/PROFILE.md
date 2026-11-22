@@ -7,7 +7,7 @@ Repository-specific settings for the global `issue-wave-conductor` skill; root `
 ## Flow
 
 - Base is `main`. Squash merge. Branch name is `feat/<n>-<slug>`. `$MAIN` = `AP_MAIN`. `WAVE_BRIEFS` = `$AP_MAIN/.review/wave/`.
-- **No lanes.** The lead holds the release context and dispatches workers itself: one issue, one worker, one PR. Run at most 3 workers at once (reviewers included), and start one only when `capacity.sh` says `start=yes`. The same worker fixes its own review findings. Reason: long-lived lanes kept the 10-core Mac saturated and ran fix loops nobody judged.
+- **Lanes on two hosts.** Lane sessions run on the Mac and the desktop host, one per area of the release scope, by the engine's `references/lanes-multisession.md`; the lead assigns issues, answers questions and releases. A lane runs at most 2 workers at once (reviewers included) and starts one only when `capacity.sh` on its host says `start=yes`; a newly paired host follows the engine's remote ramp. The same worker fixes its own review findings. Reason: the second host adds capacity only when work runs there, and per-host limits keep either machine from saturating.
 - The lead merges, one PR at a time: the next merges only after `main` CI of the previous is green. Reason: independently green PRs met on `main` and turned it red. Merges never wait for a release tag; the tag SHA is the release-docs PR's merge commit ([`lead.md`](lead.md) §Slice close).
 
 ## Size and path
@@ -26,7 +26,7 @@ Tiers (`tier.sh` decides): the global `issue-wave-conductor` skill's `references
 
 ## Lanes
 
-No lane sessions run. The table names areas: request classification ([`lead.md`](lead.md)) picks one, and a worker in that area uses its E2E port.
+Each lane session owns one area of the table. Request classification ([`lead.md`](lead.md)) picks the area, and the lane's workers use its E2E port. Two lanes in one area on one host use the port +50.
 
 | Label | Owns | Main paths | E2E port |
 | --- | --- | --- | --- |

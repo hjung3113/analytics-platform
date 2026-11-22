@@ -22,7 +22,7 @@ Before merging a screen-changing PR the lead looks at its 1440×900 before/after
 
 ## Request classification
 
-Classification picks the area (PROFILE §Lanes table, for paths and E2E port); the lead dispatches the worker.
+Classification picks the area (PROFILE §Lanes table, for paths and E2E port); the lead assigns the issue to that area's lane.
 
 
 Take the first match:
