@@ -6,6 +6,7 @@ import type { Permission } from '@ap/contracts';
 import { notificationsSlot } from '@ap/feature-bridge/notifications-slot';
 import { featureQueryClient } from '@ap/feature-bridge';
 import { setFeatureApi } from '@ap/feature-bridge/feature-api';
+import { LAZY_MOUNT_WAIT } from '@ap/feature-bridge/testing';
 import { ID_A, ID_B, json, listOf, mount, mountAt, notification, registry, stubFetch, switchableAdapter } from '../feature/test-support';
 
 const origin = '/notices?v=1';
@@ -52,7 +53,8 @@ async function openRequests(status: string, intent: string | null, permissions?:
     }
   });
   mountAt(switchableAdapter('user-a', permissions).adapter, '/permission-requests');
-  return within((await screen.findByText('Need access')).closest('li')!);
+  // The page body mounts lazily; under CI load the default 1 s wait is too short (traps.md).
+  return within((await screen.findByText('Need access', {}, LAZY_MOUNT_WAIT)).closest('li')!);
 }
 
 describe('Return from a requester row', () => {
