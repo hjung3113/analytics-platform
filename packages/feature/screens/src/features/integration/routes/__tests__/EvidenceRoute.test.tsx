@@ -554,8 +554,14 @@ it('resets draft, selection focus lifetime and old caches when the session chang
     });
   });
   await waitFor(() => expect(document.querySelector('[data-state="denied"]')).not.toBeNull());
-  expect(screen.getByRole('searchbox')).toHaveValue('');
+  // A denied list read hides the search (#2677); the draft must not return with it.
+  expect(screen.queryByRole('searchbox')).toBeNull();
   expect(screen.queryByText(item.quote_or_summary as string)).toBeNull();
+  block = false;
+  await act(async () => {
+    await client.invalidateQueries({ queryKey: ['evidence-inventory'] });
+  });
+  expect(await screen.findByRole('searchbox')).toHaveValue('');
   await waitFor(() =>
     expect(
       client
@@ -656,8 +662,14 @@ it('clears old quotes and local draft on permission invalidation, including a fa
     await client.invalidateQueries({ queryKey: ['evidence-inventory'] });
   });
   await waitFor(() => expect(document.querySelector('[data-state="denied"]')).not.toBeNull());
-  expect(screen.getByRole('searchbox')).toHaveValue('');
+  // A denied list read hides the search (#2677); the draft must not return with it.
+  expect(screen.queryByRole('searchbox')).toBeNull();
   expect(screen.queryByText(item.quote_or_summary as string)).toBeNull();
+  fail = false;
+  await act(async () => {
+    await client.invalidateQueries({ queryKey: ['evidence-inventory'] });
+  });
+  expect(await screen.findByRole('searchbox')).toHaveValue('');
 });
 it('keeps only pages through the restored cursor when going Back from page two', async () => {
   const second = { ...item, id: PARENT, quote_or_summary: '뒤 페이지 전용 메모' };
@@ -893,15 +905,27 @@ it('replaces a rejected first-page cursor with the first page and retains filter
   expect(screen.queryByText('근거를 불러오지 못했습니다.')).toBeNull();
 });
 
-it('explains list permission denial and disables the source tabs, search and refresh', async () => {
+it('shows only the denial card on a list permission denial (#2677)', async () => {
   installFetch(() => response({ code: 'permission.denied' }, 403));
   await mount();
   await screen.findByText(
     '근거 목록을 볼 권한이 없습니다.',
   );
-  for (const tab of screen.getAllByRole('tab')) expect(tab).toBeDisabled();
-  expect(screen.getByRole('searchbox')).toBeDisabled();
-  expect(screen.getByRole('button', { name: '새로고침' })).toBeDisabled();
+  // Source tabs, search, refresh and the description row cannot act on a denied list read.
+  expect(screen.queryByRole('tablist')).toBeNull();
+  expect(screen.queryByRole('searchbox')).toBeNull();
+  expect(screen.queryByRole('button', { name: '새로고침' })).toBeNull();
+  expect(screen.queryByText('Finding에 저장된 근거를 찾습니다.')).toBeNull();
+});
+it('keeps the list controls when only the selected detail is denied (#2677)', async () => {
+  installFetch(undefined, () => response({ code: 'permission.denied' }, 403));
+  await mount(`/integration/evidence?selected=${ID}`);
+  await waitFor(() =>
+    expect(screen.getByTestId('evidence-panel').querySelector('[data-state="denied"]')).not.toBeNull(),
+  );
+  expect(screen.getByRole('tablist')).toBeInTheDocument();
+  expect(screen.getByRole('searchbox')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '새로고침' })).toBeInTheDocument();
 });
 
 it.each([403, 200])('closes open Evidence when the list scope is confirmed blocked (%s)', async (status) => {

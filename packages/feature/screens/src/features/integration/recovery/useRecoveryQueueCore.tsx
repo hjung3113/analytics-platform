@@ -328,7 +328,7 @@ export function useRecoveryQueueCore(
       {me.isPending || (current.isPending && enabled) ? (
         <Skeleton className="h-24" role="status" aria-label={COPY.loading} />
       ) : listDenied ? (
-        // A confirmed denial wins over a failed session refetch; that retry is the only action then.
+        // A confirmed denial wins over a failed session refetch; the session retry then joins the way back.
         <div ref={denialCard} tabIndex={-1} aria-label={queueTitle} className="space-y-3">
           <PermissionBlockedPanel
             layout="card"
