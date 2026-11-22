@@ -129,6 +129,7 @@
 - [URL·시간·상태 계약 grilling](reviews/2026-09-18-url-time-status-contract-grilling.md) — 06 §6.1·§6.3·§6.4·§19의 세부 판정 근거와 반례.
 - [modern-web-guidance 스캔·가이드 대조](reviews/2026-11-15-modern-web-guidance-scan.md) — 레거시 스캔 결과·가이드 24개 대조와 처리 이슈(#2214), 대조하지 못한 가이드 10개.
 - [디자인 시스템 시각 리뷰](reviews/2026-11-23-design-system-visual-review.md) — «너무 평평해 보인다» 진단, 토큰·차트·접힌 상태·Hex 비교·선택 → 다음 분석 권고와 처리 이슈(#2722–#2748), ADR-0175.
+- [노코드 사용자 분석 메뉴 리뷰](reviews/2026-11-23-nocode-user-menu-review.md) — 분석 화면을 내 메뉴로 저장·공유·공식화하는 흐름과 데이터셋에서 만드는 흐름, 설계 결정 D1–D8, 단계 로드맵(#1761).
 - [플랫폼 구축 리서치 종합](research/platform-build-2026-09-22/SYNTHESIS.md) — #165(폴링·계산 세대)·#155(서버) 착수 때 설계 입력.
 - [반도체 도메인 외부 조사](research/semiconductor-domain-2026-09-24/README.md) — SEMI 표준·제품 자료를 우리 용어에 대 본 조사(Operation 이름·CFG 형식은 아직 Open).
 - [플랫폼의 가치 — 사용자·운영자 입장](research/2026-10-19-platform-value-users-operators.md) — 소개 사이트 재구성(#468) 입력: 사용자·운영자 기능 요구(U1–U8·O1–O6), 개선 고리, 비교표(Candidate).
