@@ -526,46 +526,77 @@ describe('VocClusterListShell denied list header (#2677)', () => {
     apiRequestMock.mockReset();
   });
 
-  function renderWithHead(denied: boolean) {
+  function renderWithHead({ denied, head = true }: { denied: boolean; head?: boolean }) {
+    const state = { denied };
     const forbidden = new ApiError(403, { code: 'permission.denied', message: 'voc_cluster.read required' });
     apiRequestMock.mockImplementation(async (_method: string, path: string) => {
-      if (path.startsWith('/voc-clusters') && denied) throw forbidden;
+      if (path.startsWith('/voc-clusters') && state.denied) throw forbidden;
       if (path.startsWith('/voc-clusters')) return { data: populatedList };
       return { data: { available: false, items: [] } };
     });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const shell = (
+      <VocClusterListShell
+        selectedId={null}
+        onSelect={() => undefined}
+        onCloseDetail={() => undefined}
+        managedSystemId={IDS.managedSystem}
+        primaryAction={
+          <HostPrimaryAction>
+            <button type="button">반복 VOC 생성</button>
+          </HostPrimaryAction>
+        }
+        toolbarActions={<span data-testid="cluster-create-hint">관리자 또는 개발자 권한이 필요합니다.</span>}
+      />
+    );
     render(
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <HeadTargetHost base={suggestionHost}>
-          <VocClusterListShell
-            selectedId={null}
-            onSelect={() => undefined}
-            onCloseDetail={() => undefined}
-            managedSystemId={IDS.managedSystem}
-            toolbarActions={
-              <>
-                <HostPrimaryAction>
-                  <button type="button">반복 VOC 생성</button>
-                </HostPrimaryAction>
-                <span data-testid="cluster-create-hint">관리자 또는 개발자 권한이 필요합니다.</span>
-              </>
-            }
-          />
-        </HeadTargetHost>
+      <QueryClientProvider client={queryClient}>
+        {head ? (
+          <HeadTargetHost base={suggestionHost}>{shell}</HeadTargetHost>
+        ) : (
+          <HostSeamProvider value={suggestionHost}>{shell}</HostSeamProvider>
+        )}
       </QueryClientProvider>,
     );
+    return {
+      deny: async () => {
+        state.denied = true;
+        await act(async () => {
+          await queryClient.invalidateQueries({ queryKey: ['voc-clusters'] });
+        });
+      },
+    };
   }
 
   it('drops the title row but keeps the head action on a denied list read', async () => {
-    renderWithHead(true);
+    renderWithHead({ denied: true });
     await screen.findByText('반복 VOC 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.', {}, { timeout: 5000 });
     expect(screen.queryByText('VOC를 유사 주제로 묶어 Finding으로 승격합니다.')).not.toBeInTheDocument();
     // Creating a Cluster is not a read of the denied list, so the head action stays.
     expect(within(screen.getByTestId('host-head')).getByRole('button', { name: '반복 VOC 생성' })).toBeInTheDocument();
-    expect(screen.getByTestId('cluster-create-hint')).not.toBeVisible();
+    expect(screen.queryByTestId('cluster-create-hint')).not.toBeInTheDocument();
+  });
+
+  it('keeps the head action node and its focus while a denial settles (R-2677c C1)', async () => {
+    const { deny } = renderWithHead({ denied: false });
+    expect(await screen.findByText('VOC를 유사 주제로 묶어 Finding으로 승격합니다.')).toBeInTheDocument();
+    const create = within(screen.getByTestId('host-head')).getByRole('button', { name: '반복 VOC 생성' });
+    create.focus();
+    await deny();
+    await screen.findByText('반복 VOC 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.', {}, { timeout: 5000 });
+    expect(within(screen.getByTestId('host-head')).getByRole('button', { name: '반복 VOC 생성' })).toBe(create);
+    expect(create).toHaveFocus();
+  });
+
+  it('keeps the create action visible on a denied list in a host without a head (R-2677c C3)', async () => {
+    renderWithHead({ denied: true, head: false });
+    await screen.findByText('반복 VOC 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.', {}, { timeout: 5000 });
+    expect(screen.getByRole('button', { name: '반복 VOC 생성' })).toBeVisible();
+    expect(screen.queryByTestId('cluster-create-hint')).not.toBeInTheDocument();
   });
 
   it('keeps the title row on a readable list', async () => {
-    renderWithHead(false);
+    renderWithHead({ denied: false });
     expect(await screen.findByText('VOC를 유사 주제로 묶어 Finding으로 승격합니다.')).toBeInTheDocument();
     expect(screen.getByTestId('cluster-create-hint')).toBeVisible();
   });

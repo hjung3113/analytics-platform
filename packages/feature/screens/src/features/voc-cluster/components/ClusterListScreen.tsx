@@ -106,7 +106,7 @@ export function ClusterListScreen({
         onSuggestionModeChange={changeSuggestionMode}
         managedSystemId={managedSystemId}
         {...(renderDetail !== undefined ? { renderDetail } : {})}
-        toolbarActions={
+        primaryAction={
           canCreate ? (
             <HostPrimaryAction>
               <Button
@@ -119,7 +119,10 @@ export function ClusterListScreen({
                 반복 VOC 생성
               </Button>
             </HostPrimaryAction>
-          ) : (
+          ) : undefined
+        }
+        toolbarActions={
+          canCreate ? undefined : (
             <span className="text-xs text-text-muted" data-testid="cluster-create-hint">
               관리자 또는 개발자 권한이 필요합니다.
             </span>

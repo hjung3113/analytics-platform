@@ -58,8 +58,8 @@ vi.mock('../hooks/useVocClusterList', () => ({
 }));
 
 vi.mock('../components/detail/VocClusterListShell', () => ({
-  VocClusterListShell: ({ toolbarActions }: { toolbarActions?: ReactNode }) => (
-    <div>{toolbarActions}</div>
+  VocClusterListShell: ({ toolbarActions, primaryAction }: { toolbarActions?: ReactNode; primaryAction?: ReactNode }) => (
+    <div>{primaryAction}{toolbarActions}</div>
   ),
 }));
 
