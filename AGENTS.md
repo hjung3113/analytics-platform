@@ -31,7 +31,7 @@ The detailed sources are `docs/contract/platform-ui-contract.md` (the index) and
 | Visual rules | [`DESIGN.md`](DESIGN.md) |
 | Decisions and their reasons | [`docs/adr/`](docs/adr/) |
 | Agent operations notes (worker sandbox, worktrees, capture traps) | [`docs/agents/operations.md`](docs/agents/operations.md) |
-| Dividing flows across sessions, owner questions, release order, request classification (Kernel, SDK piece, menu share) | [`PROFILE.md`](.agents/conductor/PROFILE.md) (no lane sessions: the lead dispatches workers). Lead only: [`lead.md`](.agents/conductor/lead.md). Engine procedure: the skill's `references/lanes.md`, where `PROFILE.md` overrides it |
+| Dividing flows across sessions, owner questions, release order, request classification (Kernel, SDK piece, menu share) | [`PROFILE.md`](.agents/conductor/PROFILE.md) (lane sessions on the Mac and the desktop host; the lead assigns). Lead only: [`lead.md`](.agents/conductor/lead.md). Engine procedure: the skill's `references/lanes.md`, where `PROFILE.md` overrides it |
 
 **When you take on or inherit the lead role,** before any HANDOFF checklist, read [`lead.md`](.agents/conductor/lead.md) to the end plus [`PROFILE.md`](.agents/conductor/PROFILE.md) §Flow, §Size and path and §Owner gates and questions.
 
