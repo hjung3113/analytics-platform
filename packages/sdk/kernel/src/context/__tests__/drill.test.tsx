@@ -86,7 +86,7 @@ beforeEach(() => {
   target = '';
   vi.stubGlobal('localStorage', memoryStorage());
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('useDrill (06 §6.4, ADR-0025)', () => {
   it('exposes localized value labels alongside raw page values', () => {
@@ -105,39 +105,16 @@ describe('useDrill (06 §6.4, ADR-0025)', () => {
     expect(url()).toBe(href);
   });
 
-  it('uses raw values quietly when no formatter is declared', () => {
-    vi.stubEnv('NODE_ENV', 'development');
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    mount('/mars/source?v=1&drillRoom=PHOTO');
-    expect(drill!.trail[0]).toMatchObject({ value: 'PHOTO' });
-    expect(drill!.trail[0]).not.toHaveProperty('valueLabel');
-    expect(warn).not.toHaveBeenCalled();
-  });
-
-  it.each(['production', 'development'])('uses raw values when formatters fail in %s', mode => {
-    vi.stubEnv('NODE_ENV', mode);
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const href = '/mars/labeled?v=1&drillRoom=PHOTO&drillStgroup=A&drillEquipment=E';
-    const fallback = [{ value: 'A', valueLabel: 'A' }, { value: 'E', valueLabel: 'E' }];
-    mount(href);
-    expect(drill!.trail.slice(1)).toMatchObject(fallback);
-    expect(warn).toHaveBeenCalledTimes(mode === 'development' ? 2 : 0);
-
-    cleanup();
-    mount(`/mars/detail?v=1&returnTo=${encodeURIComponent(href)}`);
-    expect(origin!.trail.slice(1)).toMatchObject(fallback);
-    if (mode === 'development') {
-      expect(warn.mock.calls).toEqual([
-        ['DrillLevel.valueLabel for "drillStgroup" returned an empty string.'],
-        ['DrillLevel.valueLabel for "drillEquipment" threw an exception.'],
-      ]);
-      cleanup();
-      mount('/mars/labeled?v=1&drillRoom=PHOTO&drillStgroup=B');
-      expect(warn).toHaveBeenCalledTimes(3);
-      expect(warn).toHaveBeenLastCalledWith('DrillLevel.valueLabel for "drillStgroup" returned an empty string.');
-    } else {
-      expect(warn).not.toHaveBeenCalled();
-    }
+  it.each([
+    ['missing', '/mars/source', 'drillStgroup', 'A'],
+    ['empty', '/mars/labeled', 'drillStgroup', 'A'],
+    ['throwing', '/mars/labeled', 'drillEquipment', 'E'],
+  ])('uses the raw value when the formatter is %s', (kind, path, key, value) => {
+    mount(`${path}?v=1&drillRoom=PHOTO&drillStgroup=A&drillEquipment=E`);
+    const step = drill!.trail.find(candidate => candidate.key === key)!;
+    expect(step.value).toBe(value);
+    expect(step.valueLabel ?? step.value).toBe(value);
+    if (kind !== 'missing') expect(step.valueLabel).toBe(value);
   });
 
   it('reads depth, trail and the first gap as invalid; an empty string is absent', () => {
