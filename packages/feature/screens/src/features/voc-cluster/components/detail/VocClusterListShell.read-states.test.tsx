@@ -2,12 +2,14 @@ import { ApiError } from '../../../../lib/api';
 import { listVocClustersResponseSchema } from '@ap/feature-shared';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { HostPrimaryAction } from '../../../../lib/host/HostPrimaryAction';
 import { HostSeamProvider, type HostSeam } from '../../../../lib/host/host-seam';
+import { HeadTargetHost } from '../../../../test/primary-action-host';
 import { useDecidePermissionRequest } from '../../../admin/permissions/useDecidePermissionRequest';
 import { useDirectPermissionGrant } from '../../../admin/permissions/useDirectPermissionGrant';
 import { useRevokePermission } from '../../../admin/permissions/useRevokePermission';
@@ -172,7 +174,9 @@ describe('VocClusterListShell list states (#609)', () => {
         { timeout: 5000 },
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText('반복 VOC')).toBeInTheDocument();
+    // The page head already names the screen; the toolbar title row would repeat it (#2677).
+    expect(screen.queryByText('반복 VOC')).not.toBeInTheDocument();
+    expect(screen.queryByText('VOC를 유사 주제로 묶어 Finding으로 승격합니다.')).not.toBeInTheDocument();
     expect(screen.queryByRole('tablist', { name: '반복 VOC 필터' })).not.toBeInTheDocument();
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
     expect(screen.queryByText(/전체 0|확정 0|Finding 없음 0/)).not.toBeInTheDocument();
@@ -514,5 +518,55 @@ describe('VocClusterListShell tab counts (#706)', () => {
     expect(await screen.findByRole('tab', { name: /^전체\s*,\s*0$/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /^확정\s*,\s*0$/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /^Finding 없음\s*,\s*0$/ })).toBeInTheDocument();
+  });
+});
+
+describe('VocClusterListShell denied list header (#2677)', () => {
+  beforeEach(() => {
+    apiRequestMock.mockReset();
+  });
+
+  function renderWithHead(denied: boolean) {
+    const forbidden = new ApiError(403, { code: 'permission.denied', message: 'voc_cluster.read required' });
+    apiRequestMock.mockImplementation(async (_method: string, path: string) => {
+      if (path.startsWith('/voc-clusters') && denied) throw forbidden;
+      if (path.startsWith('/voc-clusters')) return { data: populatedList };
+      return { data: { available: false, items: [] } };
+    });
+    render(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <HeadTargetHost base={suggestionHost}>
+          <VocClusterListShell
+            selectedId={null}
+            onSelect={() => undefined}
+            onCloseDetail={() => undefined}
+            managedSystemId={IDS.managedSystem}
+            toolbarActions={
+              <>
+                <HostPrimaryAction>
+                  <button type="button">반복 VOC 생성</button>
+                </HostPrimaryAction>
+                <span data-testid="cluster-create-hint">관리자 또는 개발자 권한이 필요합니다.</span>
+              </>
+            }
+          />
+        </HeadTargetHost>
+      </QueryClientProvider>,
+    );
+  }
+
+  it('drops the title row but keeps the head action on a denied list read', async () => {
+    renderWithHead(true);
+    await screen.findByText('반복 VOC 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.', {}, { timeout: 5000 });
+    expect(screen.queryByText('VOC를 유사 주제로 묶어 Finding으로 승격합니다.')).not.toBeInTheDocument();
+    // Creating a Cluster is not a read of the denied list, so the head action stays.
+    expect(within(screen.getByTestId('host-head')).getByRole('button', { name: '반복 VOC 생성' })).toBeInTheDocument();
+    expect(screen.getByTestId('cluster-create-hint')).not.toBeVisible();
+  });
+
+  it('keeps the title row on a readable list', async () => {
+    renderWithHead(false);
+    expect(await screen.findByText('VOC를 유사 주제로 묶어 Finding으로 승격합니다.')).toBeInTheDocument();
+    expect(screen.getByTestId('cluster-create-hint')).toBeVisible();
   });
 });

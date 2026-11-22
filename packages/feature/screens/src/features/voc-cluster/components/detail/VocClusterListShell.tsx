@@ -310,12 +310,19 @@ export function VocClusterListShell({
 
   const shell = (
     <ListShell
-      toolbar={{
-        title: '반복 VOC',
-        subtitle: 'VOC를 유사 주제로 묶어 Finding으로 승격합니다.',
-        actions: toolbarActions,
-      }}
+      // A denied list shows only its card: the page head already names the screen (#2677).
+      {...(denied ? {} : {
+        toolbar: {
+          title: '반복 VOC',
+          subtitle: 'VOC를 유사 주제로 묶어 Finding으로 승격합니다.',
+          actions: toolbarActions,
+        },
+      })}
       list={denied ? (
+        <>
+          {/* Standalone actions (Cluster 생성) do not read this list: they still reach the host head
+              through HostPrimaryAction's portal; inline-only content such as the role hint stays hidden. */}
+          {toolbarActions ? <div hidden>{toolbarActions}</div> : null}
         <ScopedListDenialCard
           category={VOC_CLUSTER_LIST_CATEGORY}
           reason={PERMISSION_BLOCKED_REASONS.vocClusterList}
@@ -331,6 +338,7 @@ export function VocClusterListShell({
             </Button>
           )}
         />
+        </>
       ) : (
         <ClusterListBody
           clusters={visibleClusters}
