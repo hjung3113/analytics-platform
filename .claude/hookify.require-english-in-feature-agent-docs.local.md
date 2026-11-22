@@ -1,6 +1,6 @@
 ---
 name: require-english-in-feature-agent-docs
-enabled: true
+enabled: false
 event: file
 action: block
 conditions:
