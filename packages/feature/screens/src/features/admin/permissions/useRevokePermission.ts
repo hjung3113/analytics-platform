@@ -2,6 +2,7 @@ import { type UseMutationResult, useMutation, useQueryClient } from '@tanstack/r
 
 import { errorMapper } from '../../../lib/api/errorMapper';
 import { revokePermission } from '../../../lib/api/permission-admin';
+import { permissionScopeKey } from '../../../lib/api/permission-reads';
 import type { ApiError } from '../../../lib/api/types';
 import { ADMIN_PERMISSIONS_COPY } from '../../../lib/copy/admin-permissions';
 import { useHostNotice } from '../../../lib/host/host-seam';
@@ -38,6 +39,7 @@ export function useRevokePermission(
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: permissionGrantsListKey }),
         queryClient.invalidateQueries({ queryKey: permissionDeniesListKey }),
+        queryClient.invalidateQueries({ queryKey: permissionScopeKey }),
       ]);
     },
     onError: async (error: ApiError, args) => {
@@ -47,6 +49,7 @@ export function useRevokePermission(
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: permissionGrantsListKey }),
           queryClient.invalidateQueries({ queryKey: permissionDeniesListKey }),
+          queryClient.invalidateQueries({ queryKey: permissionScopeKey }),
         ]);
       }
     },

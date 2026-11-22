@@ -9,6 +9,7 @@ import {
   permissionRequestsMineKey,
 } from '../../../lib/api/permission-requests';
 import type { ApiError } from '../../../lib/api/types';
+import { permissionScopeKey } from '../../../lib/api/permission-reads';
 import { useHostNotice } from '../../../lib/host/host-seam';
 import { invalidateRecovery } from '../../../lib/query/recovery';
 import { decidePermissionRequestBatch } from '../../../lib/api/permission-groups';
@@ -96,6 +97,7 @@ export function useDecidePermissionRequest(
         queryClient.invalidateQueries({ queryKey: ['permission-check'] }),
         invalidateRecovery(queryClient),
         queryClient.invalidateQueries({ queryKey: ['managed-system-scope'] }),
+        queryClient.invalidateQueries({ queryKey: permissionScopeKey }),
       ]);
     },
     onError: async (error: ApiError, args) => {
@@ -110,6 +112,7 @@ export function useDecidePermissionRequest(
           queryClient.invalidateQueries({ queryKey: permissionRequestsMineKey }),
           queryClient.invalidateQueries({ queryKey: ['permission-check'] }),
           queryClient.invalidateQueries({ queryKey: ['managed-system-scope'] }),
+          queryClient.invalidateQueries({ queryKey: permissionScopeKey }),
           invalidateRecovery(queryClient),
         ]);
       }

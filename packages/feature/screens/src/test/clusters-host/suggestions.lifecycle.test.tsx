@@ -11,6 +11,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  useLocation,
   useNavigate,
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -51,13 +52,13 @@ function Root() {
     </DetailPanelSlotProvider>
   );
 }
-function mount(initialPath = `/voc-clusters?selected=${IDS.draft}`) {
+function mount(initialPath = `/voc-clusters?selected=${IDS.draft}`, component = VocClusterListPage) {
   const root = createRootRoute({ component: Root });
   const list = createRoute({
     getParentRoute: () => root,
     path: '/voc-clusters',
-    validateSearch: (raw) => vocClustersSearchSchema.parse(raw),
-    component: VocClusterListPage,
+    validateSearch: (raw) => component === VocClusterListPage ? vocClustersSearchSchema.parse(raw) : raw,
+    component,
   });
   const detail = createRoute({
     getParentRoute: () => root,
@@ -176,6 +177,44 @@ beforeEach(() => {
   );
 });
 afterEach(() => vi.unstubAllGlobals());
+
+it('replaces the platform focus URL and closes host-owned detail on a list 403', async () => {
+  function PlatformFocusHost() {
+    const focus = useLocation({ select: location => new URLSearchParams(location.searchStr).get('focus') });
+    const navigate = useNavigate();
+    return <>
+      <VocClusterListShell selectedId={focus} onSelect={() => undefined} renderDetail={() => undefined}
+        onCloseDetail={opts => void navigate({ to: '/voc-clusters', search: {}, replace: opts?.reconcile === true })} />
+      {focus && <button type="button">Host detail</button>}
+    </>;
+  }
+  const { client, history } = mount(`/voc-clusters?focus=${IDS.draft}`, PlatformFocusHost);
+  (await screen.findByRole('button', { name: 'Host detail' })).focus();
+  listRead = async () => json({ code: 'permission.denied', message: 'forbidden' }, 403);
+  await act(async () => { await client.invalidateQueries({ queryKey: ['voc-clusters'] }); });
+  const heading = await screen.findByRole('heading', { name: '반복 VOC 목록' });
+  await waitFor(() => expect(history.location.href).toBe('/voc-clusters'));
+  expect(history.length).toBe(1);
+  expect(screen.queryByRole('button', { name: 'Host detail' })).not.toBeInTheDocument();
+  expect(heading.closest('[tabindex="-1"]')).toHaveFocus();
+});
+
+it.each([false, true])('recovers lost suggestion focus on denial (focus moved away: %s)', async (movedAway) => {
+  listRead = async () => json(emptyList);
+  const { client } = mount(`/voc-clusters?managedSystem=${IDS.managedSystem}`);
+  await screen.findByTestId('cluster-empty-state');
+  await enter();
+  screen.getByRole('button', { name: '기각' }).focus();
+  render(<button type="button">Outside suggestions</button>);
+  const outside = screen.getByRole('button', { name: 'Outside suggestions' });
+  if (movedAway) outside.focus();
+  scopeRead = async () => json({ scope: { kind: 'scoped', managed_system_ids: [] } });
+  await act(async () => { await client.invalidateQueries({ queryKey: ['permission-scope'] }); });
+  const heading = await screen.findByRole('heading', { name: '반복 VOC 목록' });
+  expect(screen.queryByTestId('cluster-suggestion-panel')).not.toBeInTheDocument();
+  if (movedAway) expect(outside).toHaveFocus();
+  else expect(heading.closest('[tabindex="-1"]')).toHaveFocus();
+});
 
 it.each(['admin', 'developer'])(
   'preserves selected URL/history on tab exit, local close and refetch for %s',

@@ -10,8 +10,10 @@ import { useVocClusterList } from '../../hooks/useVocClusterList';
 import { useMeBridge } from '../../../../lib/api/me';
 import {
   fetchCapabilityScopeViaClient,
+  permissionScopeKey,
   type CapabilityScope,
 } from '../../../../lib/api/permission-reads';
+import { PERMISSION_REQUEST_FLOW_COPY } from '../../../../lib/copy/permission-requests';
 import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
 import { CLUSTER_SUGGESTION_COPY, VOC_CLUSTER_LIST_CATEGORY } from '../../../../lib/copy/voc-cluster';
 import {
@@ -22,6 +24,7 @@ import {
 } from '../../../../lib/cross-system/useListDenial';
 import { formatShortDate } from '../../../../lib/format/datetime';
 import {
+  Button,
   ListShell,
   ListToolbar,
   type ListToolbarTab,
@@ -54,11 +57,11 @@ function useClusterEmptyListPermission({
   systemId: string | undefined;
   actorContext: string | undefined;
   empty: boolean;
-}): ScopedEmptyListPermission {
+}): ScopedEmptyListPermission & { retry?: () => void } {
   const capability = 'finding.read';
   const enabled = empty && systemId !== undefined;
   const scopeQuery = useQuery({
-    queryKey: ['permission-scope', capability, actorContext],
+    queryKey: [...permissionScopeKey, capability, actorContext, systemId],
     queryFn: ({ signal }) => fetchCapabilityScopeViaClient(capability, { signal }),
     enabled,
     staleTime: 30_000,
@@ -66,17 +69,24 @@ function useClusterEmptyListPermission({
     refetchOnWindowFocus: ({ state }) =>
       scopeExcludesSystem(state.data?.scope, systemId) ? 'always' : true,
   });
-  // React Query retains the last successful scope during a failed background read.
   const scope = scopeQuery.data?.scope;
+  const context = JSON.stringify([actorContext, systemId]);
+  const [confirmedContext, setConfirmedContext] = useState<string>();
+  const confirmed = scope !== undefined && (confirmedContext === context || !scopeQuery.isStale);
+  if (confirmedContext !== context) {
+    if (enabled && confirmed) setConfirmedContext(context);
+    else if (confirmedContext !== undefined) setConfirmedContext(undefined);
+  }
   const excluded = scopeExcludesSystem(scope, systemId);
   const requestPermission = useScopedEmptyListPermission({
     capability,
     managedSystemId: systemId,
-    empty: enabled && excluded,
+    empty: enabled && confirmed && excluded,
   });
 
   if (!enabled) return { state: 'unchecked' };
-  if (scope === undefined) {
+  // A new System waits for a fresh scope. A failed recheck keeps a decision confirmed here.
+  if (!confirmed) {
     if (scopeQuery.isError && !scopeQuery.isFetching) {
       return { state: 'error', retry: () => void scopeQuery.refetch() };
     }
@@ -86,7 +96,44 @@ function useClusterEmptyListPermission({
 
   // The effective scope determines denial. The point check supplies requestability.
   if (requestPermission.state === 'blocked') return requestPermission;
-  return { state: 'blocked', roleRequired: false, request: null };
+  const block = requestPermission.state === 'checking' || requestPermission.state === 'error'
+    ? requestPermission.lastBlocked
+    : undefined;
+  return {
+    ...(block ?? { state: 'blocked', roleRequired: false, request: null }),
+    ...(requestPermission.state === 'error' ? { retry: requestPermission.retry } : {}),
+  };
+}
+
+type SuggestionDenialFocusProps = {
+  denied: boolean;
+  deniedRef: React.RefObject<HTMLDivElement | null>;
+  children: React.ReactNode;
+};
+
+class SuggestionDenialFocus extends React.Component<SuggestionDenialFocusProps> {
+  override getSnapshotBeforeUpdate(previous: SuggestionDenialFocusProps) {
+    if (previous.denied || !this.props.denied) return null;
+    const focused = document.activeElement;
+    return focused?.closest(
+      '#cluster-tab-suggestions, [aria-labelledby="cluster-tab-suggestions"], [data-testid="cluster-suggestion-panel"]',
+    )
+      ? focused : null;
+  }
+
+  override componentDidUpdate(_previous: SuggestionDenialFocusProps, _state: unknown, focused: Element | null) {
+    if (!focused) return;
+    // The host detail slot removes its panel in a separate commit.
+    queueMicrotask(() => {
+      if (focused.isConnected || document.activeElement !== document.body) return;
+      const card = this.props.deniedRef.current;
+      (card?.querySelector<HTMLElement>('a[href], button:not([disabled])') ?? card)?.focus({ preventScroll: true });
+    });
+  }
+
+  override render() {
+    return this.props.children;
+  }
 }
 
 export function VocClusterListShell({
@@ -126,12 +173,12 @@ export function VocClusterListShell({
     empty: listQuery.data !== undefined && !listQuery.isPlaceholderData && clusters.length === 0,
   });
   const scopedBlocked = scopedPermission.state === 'blocked';
-  const { denied, deniedRef, request } = useListDenial({
+  const { denied, deniedRef, permissionError, request } = useListDenial({
     error: listQuery.error,
     forbidden: 'permission',
     scopedPermission,
     managedSystemId,
-    ...(scopedBlocked ? { drawer: { selectedId, close: () => onCloseDetail({ reconcile: true }) } } : {}),
+    drawer: { selectedId, close: () => onCloseDetail({ reconcile: true }) },
   });
   const checkingScope = scopedPermission.state === 'checking';
   const scopeUnverified = checkingScope || scopedPermission.state === 'error';
@@ -242,7 +289,7 @@ export function VocClusterListShell({
     !denied && !scopeUnverified && !suggestionTabActive &&
     (selectedVisibleInList || resolvedAbsentDetailIsVisible);
 
-  return (
+  const shell = (
     <ListShell
       toolbar={{
         title: '반복 VOC',
@@ -256,6 +303,11 @@ export function VocClusterListShell({
           returnRouteIntent="/voc-clusters"
           request={request ?? undefined}
           deniedRef={deniedRef}
+          recoveryAction={scopedBlocked && !permissionError && scopedPermission.retry && (
+            <Button variant="secondary" size="sm" onClick={scopedPermission.retry}>
+              {PERMISSION_REQUEST_FLOW_COPY.ko.retry}
+            </Button>
+          )}
         />
       ) : (
         <ClusterListBody
@@ -313,6 +365,7 @@ export function VocClusterListShell({
       }
     />
   );
+  return <SuggestionDenialFocus denied={denied} deniedRef={deniedRef}>{shell}</SuggestionDenialFocus>;
 }
 
 type ClusterTab = 'all' | 'confirmed' | 'no-finding' | 'suggestions';

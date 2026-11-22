@@ -2,16 +2,19 @@ import { useEffect, useEffectEvent, useLayoutEffect, useRef } from 'react';
 import { z } from 'zod';
 
 import { isRequestablePermissionState } from '../api/permission-request-progress';
+import type { PermissionCheckResponse } from '../api/permission-reads';
 import { ApiError, isPermissionDenied } from '../api/types';
 import { usePermissionCheckBridge } from './usePermissionCheckBridge';
 
 type ListDenialRequest = { capability: string; managedSystemId: string; pending?: boolean };
+type ScopedListBlock = { state: 'blocked'; roleRequired: boolean; request: ListDenialRequest | null };
 const systemIdSchema = z.string().uuid();
 
 export type ScopedEmptyListPermission =
-  | { state: 'unchecked' | 'checking' | 'allowed' }
-  | { state: 'error'; retry: () => void }
-  | { state: 'blocked'; roleRequired: boolean; request: ListDenialRequest | null };
+  | { state: 'unchecked' | 'allowed' }
+  | { state: 'checking'; lastBlocked?: ScopedListBlock | undefined }
+  | { state: 'error'; retry: () => void; lastBlocked?: ScopedListBlock | undefined }
+  | ScopedListBlock;
 
 export function listSystemId(managedSystemId: string | undefined) {
   return managedSystemId === 'all' ? undefined : managedSystemId;
@@ -60,19 +63,24 @@ export function useScopedEmptyListPermission({
         : true,
   });
   if (!empty || systemId === undefined) return { state: 'unchecked' };
+  const block: ScopedListBlock | undefined = check.data?.decision.allow === false
+    ? { state: 'blocked', ...classifyPermissionBlock(check.data, capability, systemId) }
+    : undefined;
   // A recheck (window focus) keeps the last decision on screen until the new one lands.
-  if (check.isFetching && !check.isSuccess) return { state: 'checking' };
-  if (check.isError) return { state: 'error', retry: () => void check.refetch() };
+  if (check.isFetching && !check.isSuccess) return { state: 'checking', lastBlocked: block };
+  if (check.isError) return { state: 'error', retry: () => void check.refetch(), lastBlocked: block };
   if (!check.isSuccess) return { state: 'checking' };
-  if (check.data.decision.allow) return { state: 'allowed' };
+  return block ?? { state: 'allowed' };
+}
 
-  const { state } = check.data;
-  const roleRequired = check.data.decision.reason === 'role_required';
+function classifyPermissionBlock(data: PermissionCheckResponse, capability: string, systemId: string) {
+  const { state } = data;
+  const roleRequired = data.decision.reason === 'role_required';
   const pending = state === 'pending_request';
   const request = !roleRequired && (pending || isRequestablePermissionState(state))
     ? { capability, managedSystemId: systemId, pending }
     : null;
-  return { state: 'blocked', roleRequired, request };
+  return { roleRequired, request };
 }
 
 type Drawer = {

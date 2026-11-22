@@ -2,11 +2,15 @@ import { ApiError } from '../../../../lib/api';
 import { listVocClustersResponseSchema } from '@ap/feature-shared';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
+import type { PropsWithChildren } from 'react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HostSeamProvider, type HostSeam } from '../../../../lib/host/host-seam';
+import { useDecidePermissionRequest } from '../../../admin/permissions/useDecidePermissionRequest';
+import { useDirectPermissionGrant } from '../../../admin/permissions/useDirectPermissionGrant';
+import { useRevokePermission } from '../../../admin/permissions/useRevokePermission';
 import { clusterSuggestionsFixture } from '../../../../test/fixtures/cluster-suggestions';
 import { IDS, draftNoFinding, emptyList, populatedList } from '../../../../test/fixtures/voc-clusters';
 import { VocClusterListShell } from './VocClusterListShell';
@@ -82,7 +86,7 @@ function renderClusterList({
     );
   };
   const { rerender } = render(view(systemId));
-  return { changeSystem: (managedSystemId: string) => rerender(view(managedSystemId)) };
+  return { queryClient, changeSystem: (managedSystemId: string) => rerender(view(managedSystemId)) };
 }
 
 beforeEach(() => meMock.mockReset());
@@ -196,6 +200,91 @@ describe('VocClusterListShell list states (#609)', () => {
     );
   });
 
+  it.each(['approval', 'direct grant'] as const)('refreshes a cached empty list decision after %s and revoke', async (grant) => {
+    let allowed = false;
+    apiRequestMock.mockImplementation(async (method: string, path: string) => {
+      if (method === 'POST') allowed = !path.endsWith('/revoke');
+      if (path === scopePath) {
+        return { data: { scope: { kind: 'scoped', managed_system_ids: allowed ? [IDS.managedSystem] : [] } } };
+      }
+      if (path.startsWith('/me/permissions/check')) return { data: { state: 'blocked_non_requestable', decision: { allow: false } } };
+      return { data: emptyList };
+    });
+    const { queryClient } = renderClusterList();
+    const { result } = renderHook(() => ({
+      decide: useDecidePermissionRequest(),
+      grant: useDirectPermissionGrant(noop),
+      revoke: useRevokePermission(),
+    }), {
+      wrapper: ({ children }: PropsWithChildren) => (
+        <QueryClientProvider client={queryClient}><HostSeamProvider value={suggestionHost}>{children}</HostSeamProvider></QueryClientProvider>
+      ),
+    });
+    await screen.findByRole('heading', { name: '반복 VOC 목록' });
+    await act(async () => {
+      const mutation = { reason: 'approved for operations', idempotencyKey: 'grant' };
+      if (grant === 'approval') {
+        await result.current.decide.mutateAsync({ ...mutation, id: IDS.draft, expectedRevision: 1, action: 'approve' });
+      } else {
+        await result.current.grant.mutateAsync({
+          idempotencyKey: mutation.idempotencyKey,
+          body: { actor_id: IDS.actor, capability: 'finding.read', managed_system_id: IDS.managedSystem, reason: mutation.reason },
+        });
+      }
+    });
+    await screen.findByTestId('cluster-empty-state');
+    await act(async () => {
+      await result.current.revoke.mutateAsync({ kind: 'grants', id: IDS.draft, reason: 'access ended', idempotencyKey: 'revoke' });
+    });
+    expect(await screen.findByRole('heading', { name: '반복 VOC 목록' })).toBeInTheDocument();
+  });
+
+  it('waits for the new System scope before classifying an empty list', async () => {
+    apiRequestMock.mockResolvedValueOnce({ data: emptyList }).mockResolvedValueOnce(fullScope);
+    const { changeSystem } = renderClusterList();
+    await screen.findByTestId('cluster-empty-state');
+    let confirmScope!: () => void;
+    apiRequestMock.mockImplementation(async (_method: string, path: string) => {
+      if (path === scopePath) return new Promise((resolve) => {
+        confirmScope = () => resolve({ data: { scope: { kind: 'scoped', managed_system_ids: [] } } });
+      });
+      if (path.startsWith('/me/permissions/check')) return { data: { state: 'approved', decision: { allow: true } } };
+      return { data: emptyList };
+    });
+    changeSystem(otherSystem);
+    await waitFor(() => expect(confirmScope).toBeDefined());
+    expect(screen.queryByTestId('cluster-empty-state')).not.toBeInTheDocument();
+    await act(async () => confirmScope());
+    expect(await screen.findByRole('heading', { name: '반복 VOC 목록' })).toBeInTheDocument();
+  });
+
+  it.each([false, true])('keeps the denial and retries a failed point check (prior request: %s)', async (confirmed) => {
+    const user = userEvent.setup();
+    let pointFails = !confirmed;
+    apiRequestMock.mockImplementation(async (_method: string, path: string) => {
+      if (path === scopePath) return { data: { scope: { kind: 'scoped', managed_system_ids: [] } } };
+      if (path.startsWith('/me/permissions/check')) {
+        if (pointFails) throw new Error('temporary point check failure');
+        return { data: { state: 'request_access', decision: { allow: false } } };
+      }
+      return { data: emptyList };
+    });
+    const { queryClient } = renderClusterList({ onSuggestionModeChange: noop });
+    const requestText = '권한 요청';
+    if (confirmed) {
+      await screen.findByText(requestText);
+      pointFails = true;
+      await act(async () => { await queryClient.invalidateQueries({ queryKey: ['permission-check'] }); });
+    }
+    const retry = await screen.findByRole('button', { name: '다시 시도' });
+    expect(screen.getByRole('heading', { name: '반복 VOC 목록' })).toBeInTheDocument();
+    if (confirmed) expect(screen.getByText(requestText)).toBeInTheDocument();
+    pointFails = false;
+    await user.click(retry);
+    expect(await screen.findByText(requestText)).toBeInTheDocument();
+    await waitFor(() => expect(retry).not.toBeInTheDocument());
+  });
+
   it.each([
     ['archived System outside the effective scope', otherSystem, IDS.managedSystem, false],
     ['active System in the effective scope', IDS.managedSystem, IDS.managedSystem, true],
@@ -270,6 +359,7 @@ describe('VocClusterListShell tab counts (#706)', () => {
   it.each(['pending', 'failed', 'empty', 'populated'] as const)(
     'shows tab counts only after the list read succeeds (%s)',
     async (state) => {
+      let allowScope!: () => void;
       if (state === 'pending') {
         // Never resolves: pins the read in its pending state. (The tsconfig
         // lib predates Promise.withResolvers, and no resolver is needed.)
@@ -277,7 +367,8 @@ describe('VocClusterListShell tab counts (#706)', () => {
       } else if (state === 'failed') {
         apiRequestMock.mockRejectedValue(new Error('temporary read failure'));
       } else if (state === 'empty') {
-        apiRequestMock.mockResolvedValueOnce({ data: emptyList }).mockResolvedValue(fullScope);
+        apiRequestMock.mockResolvedValueOnce({ data: emptyList }).mockImplementation(() =>
+          new Promise((resolve) => { allowScope = () => resolve(fullScope); }));
       } else {
         apiRequestMock.mockResolvedValue({ data: populatedList });
       }
@@ -291,6 +382,12 @@ describe('VocClusterListShell tab counts (#706)', () => {
           await screen.findByTestId('list-state-message', {}, { timeout: 5000 }),
         ).toHaveAttribute('data-variant', 'error');
       } else if (state === 'empty') {
+        await waitFor(() => expect(allowScope).toBeDefined());
+        for (const name of ['전체', '확정', 'Finding 없음']) {
+          expect(screen.getByRole('tab', { name })).toBeInTheDocument();
+        }
+        expect(screen.getByTestId('cluster-list-skeleton')).toBeInTheDocument();
+        await act(async () => allowScope());
         expect(await screen.findByTestId('cluster-empty-state')).toBeInTheDocument();
       } else {
         expect(await screen.findByText(draftNoFinding.title)).toBeInTheDocument();
