@@ -2,6 +2,7 @@ import { PermissionBlockedPanel } from '@ap/ui';
 import type { ReactNode, RefObject } from 'react';
 
 import { PERMISSION_BLOCKED_REASONS } from '../lib/copy/permission-reasons';
+import { useIsArchivedSystem } from '../lib/cross-system/useIsArchivedSystem';
 import { useHostPermissionLinks, useHostSeam } from '../lib/host/host-seam';
 import { ListAccessRequestPanel, ListDenialFocus, type ListAccessRequest } from './ListAccessRequestPanel';
 import { MyVocsRecoveryLink } from './MyVocsRecoveryLink';
@@ -17,7 +18,6 @@ export function ScopedListDenialCard({
   deniedRef,
   capability,
   managedSystemId,
-  archivedSystem,
   roleHeading,
   recoverToMyVocs,
   recoveryAction,
@@ -31,7 +31,6 @@ export function ScopedListDenialCard({
   deniedRef: RefObject<HTMLDivElement | null>;
   capability?: string;
   managedSystemId?: string | undefined;
-  archivedSystem?: boolean;
   roleHeading?: { category: string; level: 2 };
   recoverToMyVocs?: boolean;
   recoveryAction?: ReactNode;
@@ -39,6 +38,10 @@ export function ScopedListDenialCard({
 }) {
   const { lang = 'ko' } = useHostSeam();
   const { permissionHomeHref } = useHostPermissionLinks();
+  // No permission opens an archived System, so the capability card names the archive instead.
+  const archivedSystem = useIsArchivedSystem(
+    !request && !roleRequired && capability !== undefined ? managedSystemId : undefined,
+  );
   const extraExitAction = recoverToMyVocs ? <MyVocsRecoveryLink /> : null;
   let panel: ReactNode;
   if (request) {

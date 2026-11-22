@@ -505,7 +505,7 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
     empty: primaryEmpty || summaryEmpty || milestoneChoicesEmpty,
   });
   const scopedBlocked = scopedPermission.state === 'blocked';
-  const { denied, cardProps, keptSystemId } = useListDenial({
+  const { denied, cardProps } = useListDenial({
     error: queryStates.map((query) => query.error).find(isPermissionDenied),
     forbidden: 'permission',
     scopedPermission,
@@ -564,7 +564,6 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
         reason={PERMISSION_BLOCKED_REASONS.taskList}
         returnRouteIntent="/tasks?view=board"
         capability={capability}
-        managedSystemId={keptSystemId}
         recoverToMyVocs
       />
     );

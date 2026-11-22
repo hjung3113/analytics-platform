@@ -1,10 +1,9 @@
 import { Button, PermissionBlockedPanel, type PermissionBlockedPanelProps } from '@ap/ui';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import type { ManagedSystemDto } from '../lib/api/registry-reads';
 import { getCapabilityDisplayLabel } from '../lib/copy/capabilities';
 import { PERMISSION_REQUEST_FLOW_COPY } from '../lib/copy/permission-requests';
-import { managedSystemNamesQueryKey } from '../lib/cross-system/useManagedSystemNames';
+import { managedSystemsCatalogQuery } from '../lib/cross-system/useManagedSystemNames';
 import { useHostPermissionLinks, useHostSeam } from '../lib/host/host-seam';
 import { HostHrefLink } from './HostHrefLink';
 import { permissionCardExitAction } from './permission-card-actions';
@@ -23,7 +22,8 @@ export function PermissionDeniedCard({
 }) {
   const { lang = 'ko' } = useHostSeam();
   const { permissionHomeHref } = useHostPermissionLinks();
-  const catalog = useQueryClient().getQueryData<{ items: ManagedSystemDto[] }>(managedSystemNamesQueryKey);
+  // Subscribes without fetching: the name shows once any reader loads the shared catalog.
+  const catalog = useQuery({ ...managedSystemsCatalogQuery(), enabled: false }).data;
   const system = catalog?.items.find((item) => item.id === managedSystemId)?.name;
   const missing = capability === undefined ? undefined : {
     permission: getCapabilityDisplayLabel(capability), ...(system ? { system } : {}),
