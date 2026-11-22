@@ -155,7 +155,7 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
           // The heatmap y-axis starts at the bottom. Keep cells in reading order for the table.
           xLabels: columns.map(item => item.label), yLabels: stepRows.map(item => item.label).reverse(), cells,
           nullLabel: m('held'), selectedCell,
-          scale: { type: 'diverging', pivot: 0, domain: [-MATRIX_COLOR_LIMIT, MATRIX_COLOR_LIMIT] },
+          scale: { type: 'diverging', pivot: 0, pivotLabel: m('sameAsBaseline'), domain: [-MATRIX_COLOR_LIMIT, MATRIX_COLOR_LIMIT] },
           cellActivation: { on: 'click', onActivate: (x, y) => {
             const column = columns.find(item => item.label === x);
             const selectedStep = stepRows.find(item => item.label === y);
@@ -181,6 +181,7 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
     id: 'tree', title: tree.title,
     render: () => <div className="h-full min-h-0 overflow-auto">
       <LegendTree key={tree.key} label={tree.title[lang]} nodes={tree.nodes}
+        currentId={tree.key === 'step' ? step?.id : undefined}
         visible={treeVisibility} onVisibleChange={keepTreeVisibility} drillOnName onDrill={id => drillTo({ [tree.key]: id, equipment: focus })} />
     </div>,
   });

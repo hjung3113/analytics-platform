@@ -9,7 +9,7 @@ import { useMemo, useRef, useState } from 'react';
 import { RCC_MESSAGES as M } from '../messages';
 import { RCC_DRILL, RCC_FACET_KEYS } from '../pageKeys';
 import {
-  FACET_OPTIONS, MODES, MODE_FACETS, comparisonUnits, usageFacets, type ComparisonMode,
+  FACET_OPTIONS, FACET_RESULTS, MODES, MODE_FACETS, comparisonUnits, type ComparisonMode,
 } from '../prototype/comparisonUnits';
 import {
   DAYS, STRUCTURES, STRUCTURE_TYPES, daysInPeriod, equipmentForTarget,
@@ -17,11 +17,6 @@ import {
 import { RccDrillPanels } from './RccDrillPanels';
 
 const MODE_LABELS = { ppid: M.ppidMode, recipe: M.recipeMode, combined: M.combinedMode };
-const FACET_ITEMS = {
-  ppid: comparisonUnits('ppid', {}).map(unit => ({ id: unit.label, facets: { ppid: unit.id } })),
-  recipe: comparisonUnits('recipe', {}).map(unit => ({ id: unit.label, facets: usageFacets(unit.usages[0]!) })),
-  combined: comparisonUnits('combined', {}).map(unit => ({ id: unit.label, facets: usageFacets(unit.usages[0]!) })),
-};
 const RESET_DRILL = Object.fromEntries([...RCC_DRILL.levels.map(level => level.key), ...RCC_DRILL.resetKeys].map(key => [key, null]));
 
 export default function RccTimeCompare() {
@@ -97,12 +92,12 @@ function RccComparison() {
     <Button ref={filterTrigger} variant="secondary" size="toolbar" onClick={() => setFilterOpen(true)} aria-haspopup="dialog" aria-expanded={filterOpen}>
       {facetCount ? m('filterCount', { count: facetCount }) : m('filters')}
     </Button>
-    {filterOpen && <FacetedSetDialog key={JSON.stringify([mode, rule])} title={m('filters')} facets={facets} items={FACET_ITEMS[mode]}
+    {filterOpen && <FacetedSetDialog key={JSON.stringify([mode, rule])} title={m('filters')} facets={facets} {...FACET_RESULTS[mode]}
       open onOpenChange={open => {
         setFilterOpen(open);
         if (!open) requestAnimationFrame(() => filterTrigger.current?.focus());
       }} value={{ rule, fixed: null }} onApply={changeFacets} allowFixed={false}
-      applyMode="direct" itemKindLabel={m(mode === 'ppid' ? 'ppid' : 'usage')}
+      applyMode="direct" itemKindLabel={m(mode === 'ppid' ? 'ppid' : 'cohort')}
       formatCount={count => m(mode === 'ppid' ? 'ppidCount' : 'usageCount', { count })} />}
   </div>;
 

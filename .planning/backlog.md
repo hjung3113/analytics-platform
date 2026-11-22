@@ -54,6 +54,7 @@
 ## 작은 후속 (확인된 것)
 
 - **미구현 — RCC 수동 Step 매칭·NonProcess View·L3/L4 (#2496, 닫힘):** v0.45 RCC 시간 비교는 같은 구성 유형만 비교하고 다른 구성은 «비교 보류»로 둔다. 이유: 매칭 승인·감사·권한과 NonProcess·하위 계층은 실데이터 구조 확인 뒤 정한다. 다시 여는 조건: [#2694](https://github.com/hjung3113/analytics-platform/issues/2694)로 실데이터가 연결되고 소유자가 다음 RCC 범위를 정할 때.
+- **미구현 — RCC Layer 차트의 행별 비교 보류 표식 (#2700 UX-5):** 가로 누적 막대의 SDK 표식은 null 값과 Start Align을 함께 지원하지 않는다. 다시 여는 조건은 가로 범주 막대가 값 없는 행에 별도 사유를 표시할 수 있을 때다. [#2700](https://github.com/hjung3113/analytics-platform/issues/2700)
 
 - **구현 안 함 — Finding 상세 «근거 VOC»의 VOC 읽기 상한(#2531 리뷰 C3):** 근거 링크마다 `GET /vocs/:id`를 한 번 읽는다(상한 없음, 30초 캐시). 이유: `vocEntityLinkProvider.getInternalSummary`가 `null`이고 `entityLinkTargetSummarySchema`에 `voc`가 없어 링크 응답만으로 제목을 낼 수 없다. 다시 여는 조건: 한 Finding의 근거 링크가 수십 건을 넘는 실사용이 보이거나, entity-links가 VOC 요약을 줄 때.
 | 항목 | 미구현 사유 | 다시 여는 조건 |

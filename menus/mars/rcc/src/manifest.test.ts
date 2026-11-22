@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { groupId, menuPermission, spaceId } from '@ap/contracts';
 import { createRegistry } from '@ap/kernel';
+import { RCC_DRILL } from './pageKeys';
 
 describe('RCC prototype registration', () => {
   afterEach(() => {
@@ -40,5 +41,31 @@ describe('RCC prototype registration', () => {
     expect(entry?.context.time).toBe('unsupported');
     expect(entry?.drill).toBeUndefined();
     expect(entry?.component).toBeUndefined();
+  });
+
+  it.each([
+    ['development', true, { ko: '프로세스 시간 분석', en: 'Process time analysis' }],
+    ['real', true, { ko: '프로세스 시간 분석 (예정)', en: 'Process time (planned)' }],
+    ['development', false, { ko: '프로세스 시간 분석 (예정)', en: 'Process time (planned)' }],
+  ] as const)('shows the appropriate description for %s (DEV=%s)', async (mode, dev, description) => {
+    vi.stubEnv('DEV', dev);
+    vi.stubEnv('MODE', mode);
+    const { manifests: [entry] } = await import('./index');
+    expect(entry?.description).toEqual(description);
+  });
+});
+
+describe('RCC drill labels', () => {
+  it.each([
+    ['unit', '204-2-042', 'PPID-204 · L2 · RCP-042'],
+    ['unit', 'PPID-204', 'PPID-204'],
+    ['layer', '204-2-042', 'L2'],
+    ['step', '20:3', 'Step 20 / Seq 3'],
+    ['step', '55:6', 'Step 55 / Seq 6'],
+  ])('labels %s value %s and preserves unknown values', (key, value, label) => {
+    const level = RCC_DRILL.levels.find(item => item.key === key);
+    expect(level?.valueLabel?.(value, 'ko')).toBe(label);
+    expect(level?.valueLabel?.(value, 'en')).toBe(label);
+    expect(level?.valueLabel?.('unknown', 'ko')).toBe('unknown');
   });
 });

@@ -1,5 +1,5 @@
-import type { FacetedSetValue } from '@ap/components';
-import { COHORTS, type Cohort } from './timeCompareFixture';
+import type { FacetedSetDialogProps, FacetedSetValue } from '@ap/components';
+import { COHORTS, type Cohort } from './comparisonCatalog';
 
 export const MODE_FACETS = {
   ppid: ['ppid'],
@@ -38,3 +38,12 @@ export function comparisonUnits(mode: ComparisonMode, rule: FacetedSetValue['rul
     id: usage.id, label: mode === 'recipe' ? recipeUsageLabel(usage) : usageLabel(usage), usages: [usage],
   }));
 }
+
+export const FACET_RESULTS: Record<ComparisonMode, Pick<FacetedSetDialogProps, 'items' | 'resultColumns'>> = {
+  ppid: {
+    items: comparisonUnits('ppid', {}).map(unit => ({ id: unit.label, facets: { ppid: unit.id } })),
+    resultColumns: [],
+  },
+  recipe: { items: comparisonUnits('recipe', {}).map(unit => ({ id: unit.label, facets: usageFacets(unit.usages[0]!) })) },
+  combined: { items: comparisonUnits('combined', {}).map(unit => ({ id: unit.label, facets: usageFacets(unit.usages[0]!) })) },
+};
