@@ -1,7 +1,7 @@
 import { VocClusterListShell } from '../../features/voc-cluster/components/detail/VocClusterListShell';
 import { VocClusterListPage, vocClustersSearchSchema } from './index';
 import { clusterSuggestionsFixture } from '../fixtures/cluster-suggestions';
-import { IDS, populatedList } from '../fixtures/voc-clusters';
+import { IDS, emptyList, populatedList } from '../fixtures/voc-clusters';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -18,6 +18,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
 let available = true;
 let listRead: () => Promise<Response>;
+let scopeRead: () => Promise<Response>;
 let suggestionRead: () => Promise<Response>;
 let unreadableClusterId: string | null = null;
 let role = 'admin';
@@ -138,6 +139,7 @@ beforeEach(() => {
   available = true;
   unreadableClusterId = null;
   listRead = async () => json(populatedList);
+  scopeRead = async () => json({ scope: { kind: 'all' } });
   suggestionRead = async () =>
     json(
       available
@@ -149,6 +151,7 @@ beforeEach(() => {
     vi.fn(async (input: string, _init?: RequestInit) => {
       const url = new URL(input, 'http://localhost');
       if (url.pathname === '/me') return json(me());
+      if (url.pathname === '/me/permissions/scope') return scopeRead();
       if (url.pathname === '/voc-clusters') return listRead();
       if (url.pathname === '/voc-cluster-suggestions') return suggestionRead();
       if (url.pathname.endsWith('/discard'))
@@ -312,6 +315,40 @@ it('drops undo on tab exit and never restores it on re-entry', async () => {
   fireEvent.mouseDown(screen.getByRole('tab', { name: /^반복 VOC 제안/ }), { button: 0 });
   await screen.findByText('검토할 반복 VOC 제안이 없습니다');
   expect(screen.queryByRole('button', { name: '되돌리기' })).not.toBeInTheDocument();
+});
+
+it.each(['list', 'scope'])('keeps the open suggestion and Undo when the confirmed %s refetch fails', async (read) => {
+  const second = {
+    ...pair,
+    id: IDS.candidateVoc,
+    vocs: [{ ...pair.vocs[0], display_id: 'VOC-56' }, pair.vocs[1]],
+  };
+  suggestionRead = async () => json({ available: true, items: [pair, second] });
+  if (read === 'scope') listRead = async () => json(emptyList);
+  const { client } = mount(`/voc-clusters?managedSystem=${IDS.managedSystem}`);
+  if (read === 'scope') await screen.findByTestId('cluster-empty-state');
+  await enter();
+  fireEvent.click(screen.getByRole('button', { name: '기각' }));
+  await screen.findByRole('button', { name: '되돌리기' });
+  fireEvent.click(await screen.findByRole('button', { name: /VOC-56/ }));
+  await screen.findByTestId('cluster-suggestion-panel');
+
+  const fail = async () => json({ code: 'internal.unexpected', message: 'failed' }, 500);
+  if (read === 'scope') scopeRead = fail;
+  else listRead = fail;
+  const queryKey = read === 'scope' ? ['permission-scope', 'finding.read'] : ['voc-clusters'];
+  await act(async () => {
+    await client.invalidateQueries({ queryKey });
+    // React Query schedules observer notifications after invalidation settles.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await waitFor(() => {
+    expect(client.getQueryCache().find({ queryKey, exact: false, type: 'active' })?.state.status)
+      .toBe('error');
+    expect(screen.getByRole('tab', { name: /^반복 VOC 제안/, selected: true })).toBeInTheDocument();
+    expect(screen.getByTestId('cluster-suggestion-panel')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '되돌리기' })).toBeInTheDocument();
+  });
 });
 
 it('preserves an absent selected param when availability drops after a deferred first 반복 VOC read', async () => {

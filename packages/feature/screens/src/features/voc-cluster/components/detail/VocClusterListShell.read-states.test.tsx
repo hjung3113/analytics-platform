@@ -1,14 +1,33 @@
 import { ApiError } from '../../../../lib/api';
 import { listVocClustersResponseSchema } from '@ap/feature-shared';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { HostSeamProvider, type HostSeam } from '../../../../lib/host/host-seam';
+import { clusterSuggestionsFixture } from '../../../../test/fixtures/cluster-suggestions';
 import { IDS, draftNoFinding, emptyList, populatedList } from '../../../../test/fixtures/voc-clusters';
 import { VocClusterListShell } from './VocClusterListShell';
 
 const apiRequestMock = vi.hoisted(() => vi.fn());
+const meMock = vi.hoisted(() => vi.fn());
+const scopePath = '/me/permissions/scope?capability=finding.read';
+const otherSystem = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const fullScope = { data: { scope: { kind: 'all' } } };
+const noop = () => undefined;
+const search = {};
+const suggestionHost: HostSeam = {
+  canLink: () => false,
+  Link: () => null,
+  notifyError: noop,
+  notifySuccess: noop,
+  notify: () => 'notice',
+  dismiss: noop,
+  useNavigate: () => noop,
+  useSearch: () => search,
+};
 vi.mock('../../../../lib/api/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../../lib/api/client')>()),
   apiRequest: apiRequestMock,
@@ -17,25 +36,56 @@ vi.mock('../../../../lib/api/client', async (importOriginal) => ({
 // The shell's /me read goes through the same mocked client; no session keeps the suggestion tab and create CTA out.
 vi.mock('../../../../lib/api/me', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
-  useMeBridge: () => ({ data: undefined }),
+  useMeBridge: () => ({ data: meMock() }),
 }));
 
-function renderClusterList() {
+function DetailSlot() {
+  const { ref } = useDetailPanelSlotHost();
+  return <div ref={ref} />;
+}
+
+function renderClusterList({
+  systemId = IDS.managedSystem,
+  selectedId = null,
+  onCloseDetail = noop,
+  onSuggestionModeChange,
+}: {
+  systemId?: string;
+  selectedId?: string | null;
+  onCloseDetail?: Parameters<typeof VocClusterListShell>[0]['onCloseDetail'];
+  onSuggestionModeChange?: Parameters<typeof VocClusterListShell>[0]['onSuggestionModeChange'];
+} = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, retryDelay: () => 0 } },
   });
-  render(
-    <QueryClientProvider client={queryClient}>
+  const view = (managedSystemId: string) => {
+    const list = (
       <VocClusterListShell
-        selectedId={null}
+        selectedId={selectedId}
         onSelect={() => undefined}
-        onCloseDetail={() => undefined}
-        managedSystemId={IDS.managedSystem}
+        onCloseDetail={onCloseDetail}
+        managedSystemId={managedSystemId}
+        {...(onSuggestionModeChange ? { onSuggestionModeChange } : {})}
       />
-    </QueryClientProvider>,
-  );
-  return queryClient;
+    );
+    return (
+      <QueryClientProvider client={queryClient}>
+        {onSuggestionModeChange ? (
+          <HostSeamProvider value={suggestionHost}>
+            <DetailPanelSlotProvider>
+              {list}
+              <DetailSlot />
+            </DetailPanelSlotProvider>
+          </HostSeamProvider>
+        ) : list}
+      </QueryClientProvider>
+    );
+  };
+  const { rerender } = render(view(systemId));
+  return { changeSystem: (managedSystemId: string) => rerender(view(managedSystemId)) };
 }
+
+beforeEach(() => meMock.mockReset());
 
 describe('VocClusterListShell list states (#609)', () => {
   beforeEach(() => {
@@ -47,7 +97,7 @@ describe('VocClusterListShell list states (#609)', () => {
     async (state) => {
       const user = userEvent.setup();
       if (state === 'empty') {
-        apiRequestMock.mockResolvedValue({ data: emptyList });
+        apiRequestMock.mockResolvedValueOnce({ data: emptyList }).mockResolvedValue(fullScope);
       } else if (state === 'filtered') {
         apiRequestMock.mockResolvedValue({
           data: listVocClustersResponseSchema.parse({ items: [draftNoFinding] }),
@@ -125,6 +175,89 @@ describe('VocClusterListShell list states (#609)', () => {
     expect(screen.queryByText('0개')).not.toBeInTheDocument();
     expect(screen.queryByTestId('list-state-message')).not.toBeInTheDocument();
   });
+
+  it('shows the shared denial card for an out-of-scope System with a successful empty list', async () => {
+    const onCloseDetail = vi.fn();
+    apiRequestMock.mockImplementation(async (_method: string, path: string) => {
+      if (path === scopePath) return { data: { scope: { kind: 'scoped', managed_system_ids: [] } } };
+      if (path.startsWith('/me/permissions/check')) {
+        return { data: { state: 'blocked_non_requestable', decision: { allow: false } } };
+      }
+      return { data: emptyList };
+    });
+    renderClusterList({ selectedId: IDS.draft, onCloseDetail });
+
+    expect(await screen.findByRole('heading', { name: '반복 VOC 목록' })).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('cluster-empty-state')).not.toBeInTheDocument();
+    expect(onCloseDetail).toHaveBeenCalledWith({ reconcile: true });
+    expect(apiRequestMock).not.toHaveBeenCalledWith(
+      'GET', `/voc-clusters/${IDS.draft}`, expect.any(Function), expect.anything(),
+    );
+  });
+
+  it.each([
+    ['archived System outside the effective scope', otherSystem, IDS.managedSystem, false],
+    ['active System in the effective scope', IDS.managedSystem, IDS.managedSystem, true],
+    ['upper-case deep link', otherSystem.toUpperCase(), otherSystem, true],
+    ['upper-case scope response', otherSystem, otherSystem.toUpperCase(), true],
+  ] as const)('classifies an empty list using the effective scope for %s', async (_case, systemId, scopeId, allowed) => {
+    apiRequestMock.mockImplementation(async (_method: string, path: string) => {
+      if (path === scopePath) {
+        return { data: { scope: { kind: 'scoped', managed_system_ids: [scopeId] } } };
+      }
+      if (path.startsWith('/me/permissions/check')) {
+        return { data: { state: 'approved', decision: { allow: true } } };
+      }
+      return { data: emptyList };
+    });
+    renderClusterList({ systemId });
+
+    await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith('GET', scopePath, expect.any(Function), expect.anything()));
+    if (allowed) {
+      expect(await screen.findByTestId('cluster-empty-state')).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: '반복 VOC 목록' })).not.toBeInTheDocument();
+    } else {
+      expect(await screen.findByText('반복 VOC 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.'))
+        .toHaveAttribute('role', 'status');
+      expect(screen.queryByTestId('cluster-empty-state')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '권한 요청' })).not.toBeInTheDocument();
+    }
+  });
+
+  it('exits an open suggestion session when switching to a denied System', async () => {
+    const user = userEvent.setup();
+    const onSuggestionModeChange = vi.fn();
+    meMock.mockReturnValue({
+      workspace_id: IDS.workspace,
+      actor: { id: IDS.actor, role_level: 'developer' },
+    });
+    apiRequestMock.mockImplementation(async (_method: string, path: string) => {
+      if (path === scopePath) {
+        return { data: { scope: { kind: 'scoped', managed_system_ids: [IDS.managedSystem] } } };
+      }
+      if (path.startsWith('/me/permissions/check')) {
+        return { data: { state: 'blocked_non_requestable', decision: { allow: false } } };
+      }
+      if (path.startsWith('/voc-cluster-suggestions')) return { data: clusterSuggestionsFixture };
+      return { data: path.endsWith(otherSystem) ? emptyList : populatedList };
+    });
+    const { changeSystem } = renderClusterList({ onSuggestionModeChange });
+    await user.click(await screen.findByRole('tab', { name: /^반복 VOC 제안\s*,\s*1$/ }));
+    await user.click(await screen.findByRole('button', { name: /VOC-12/ }));
+    expect(await screen.findByTestId('cluster-suggestion-panel')).toBeInTheDocument();
+    expect(onSuggestionModeChange).toHaveBeenLastCalledWith(true, expect.anything());
+
+    changeSystem(otherSystem);
+    await screen.findByText('반복 VOC 목록을 볼 권한이 없습니다. 관리자에게 권한을 요청하세요.');
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('cluster-suggestion-panel')).not.toBeInTheDocument();
+    expect(onSuggestionModeChange).toHaveBeenLastCalledWith(false, { preserveSelection: true });
+
+    changeSystem(IDS.managedSystem);
+    expect(await screen.findByRole('tab', { name: /^반복 VOC 제안\s*,\s*1$/, selected: false }))
+      .toBeInTheDocument();
+  });
 });
 
 // #706 — tab counts are unknown until the list read succeeds; unknown must
@@ -144,7 +277,7 @@ describe('VocClusterListShell tab counts (#706)', () => {
       } else if (state === 'failed') {
         apiRequestMock.mockRejectedValue(new Error('temporary read failure'));
       } else if (state === 'empty') {
-        apiRequestMock.mockResolvedValue({ data: emptyList });
+        apiRequestMock.mockResolvedValueOnce({ data: emptyList }).mockResolvedValue(fullScope);
       } else {
         apiRequestMock.mockResolvedValue({ data: populatedList });
       }
@@ -197,7 +330,7 @@ describe('VocClusterListShell tab counts (#706)', () => {
       new Promise<{ data: typeof emptyList }>((resolve) => {
         releaseRead = () => resolve({ data: emptyList });
       }),
-    );
+    ).mockResolvedValue(fullScope);
 
     renderClusterList();
 

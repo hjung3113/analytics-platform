@@ -1,4 +1,5 @@
 export const VOC_CLUSTER_GROUPING_REASON_LABEL = '그룹화 사유';
+export const VOC_CLUSTER_LIST_CATEGORY = '반복 VOC 목록';
 
 export const CLUSTER_SUGGESTION_COPY = {
   tab: '반복 VOC 제안',
