@@ -65,6 +65,21 @@ function MenuPending({ permission, children }: { permission: string; children: (
   return <>{children({ pending: null, statusHref: href, requestHref: href })}</>;
 }
 
+/**
+ * The read deadline's System identity (#2685): it follows the route's `managedSystem` from the first paint, because the
+ * catalog-selected System only exists once the catalog arrives, and keying on it restarted the cap when a slow catalog came
+ * in and could not tell A from B while it was missing. A route change starts a new generation unless both values name the
+ * Platform System (omitted, `all`, or its id once the catalog knows it), which the permission check reads as one target.
+ */
+function useRouteSystemGeneration(managedSystem: string | null, platformId: string | undefined): number {
+  const [generation, setGeneration] = useState({ route: managedSystem, count: 0 });
+  if (generation.route !== managedSystem) {
+    const platform = (value: string | null) => value === null || value === 'all' || (platformId !== undefined && value === platformId);
+    setGeneration({ route: managedSystem, count: platform(generation.route) && platform(managedSystem) ? generation.count : generation.count + 1 });
+  }
+  return generation.count;
+}
+
 function CapabilityPending({ capability, copy, children }: {
   capability: string;
   copy: { label: Text; roleRequired: Text };
@@ -103,10 +118,8 @@ function CapabilityPending({ capability, copy, children }: {
   const roleRead = requestRead({ enabled: ready, hasData: me.data !== undefined, isError: me.isError, fetchStatus: me.fetchStatus });
   const reads = [roleRead, systemsRead, permissionRead, historyRead];
   const read = reads.includes('checking') ? 'checking' : reads.find(status => status === 'error');
-  // The deadline follows the route's System from the first paint (#2685): `selected` waits for the catalog, so keying on it
-  // restarted the cap when a slow catalog arrived and could not tell A from B while it was missing. The platform default is one value.
-  const routeSystem = managedSystem === 'all' ? null : managedSystem;
-  const readKey = JSON.stringify([session.status === 'ready' ? session.epoch : null, route?.menu.id, capability, routeSystem]);
+  const routeTarget = useRouteSystemGeneration(managedSystem, activeSystems.find(item => item.external_key === 'platform')?.id);
+  const readKey = JSON.stringify([session.status === 'ready' ? session.epoch : null, route?.menu.id, capability, routeTarget]);
   const retry = () => {
     const retryRead = (status: typeof read, queryKey: QueryKey, refetch: () => Promise<unknown>) => {
       if (status === undefined) return;

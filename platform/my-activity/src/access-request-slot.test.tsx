@@ -349,6 +349,37 @@ describe('accessRequest slot', () => {
         }
       });
 
+      it.each(['', '&managedSystem=all'])('keeps the deadline when the Platform default%s becomes its explicit id (#2685)', async query => {
+        vi.useFakeTimers();
+        const check = heldResponse();
+        stubFindingReads(path => {
+          if (path === SYSTEMS) return json({
+            items: [{ id: ID_A, slug: 'alpha', name: 'Alpha', external_key: null }, { id: ID_B, slug: 'platform', name: 'Beta', external_key: 'platform' }].map(system => ({
+              ...system, workspace_id: 'workspace',
+              default_owner_actor_id: null, default_owner_team_id: null, default_reviewer_actor_id: null,
+              default_reviewer_team_id: null, archived_at: null, archived_by_actor_id: null, created_at: AT, updated_at: AT })),
+            page: { has_more: false },
+          });
+          if (path === CHECK) return check.promise;
+        });
+        const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+        try {
+          mountMenuPermission(`/findings?v=1${query}`, 'features:access');
+          await advance(0);
+          expect(menuPermissionState()).toMatchObject({ read: 'checking' });
+          await advance(REQUEST_READ_LIMIT_MS - 1000);
+          expect(menuPermissionState()).toMatchObject({ read: 'checking', missing: { system: 'Beta' } });
+          fireEvent.click(screen.getByRole('button', { name: 'Beta' }));
+          await advance(0);
+          expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+          await advance(1000);
+          expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+        } finally {
+          check.resolve(json({ state: 'blocked_not_requestable', decision: { allow: false } }));
+          vi.useRealTimers();
+        }
+      });
+
       it('withholds the request during history checking and error, then retries only history', async () => {
         const history = heldResponse();
         let historyReads = 0;
