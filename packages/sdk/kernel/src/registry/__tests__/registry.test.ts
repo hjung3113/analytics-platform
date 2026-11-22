@@ -25,8 +25,13 @@ const menu = (id: string, path: string, extra: Partial<PlatformMenuEntry> = {}):
 const catalog = menu('catalog', '/metrics', { primary: true });
 
 describe('analysis menu defaults (#2503)', () => {
+  it('requires a saved-view declaration for the implicit Apply default', () => {
+    const entry = { ...catalog, pageType: 'analysis' as const, context: { ...none, time: 'apply' as const }, features: NO_FEATURES };
+    expect(() => createRegistry({ spaces, groups, menus: [entry] })).toThrow(/Menu "catalog".*savedViewSupport/);
+  });
+
   it('defaults to Apply and saved views even when NO_FEATURES is spread', () => {
-    const entry = { ...catalog, pageType: 'analysis' as const, context: { ...none, time: 'apply' as const }, features: { ...NO_FEATURES, board: true } };
+    const entry = { ...catalog as PlatformMenuEntry, pageType: 'analysis' as const, context: { ...none, time: 'apply' as const }, features: { ...NO_FEATURES, board: true }, savedViews: 'screen' as const };
     const resolved = createRegistry({ spaces, groups, menus: [entry] }).menuById(entry.id);
     expect(resolved.query).toEqual({ mode: 'apply' });
     expect(resolved.features).toMatchObject({ savedView: true, board: true });
@@ -70,6 +75,33 @@ describe('analysis menu defaults (#2503)', () => {
 });
 
 describe('createRegistry validation (platform-packages.md §5)', () => {
+  describe('saved-view declarations on resolved menus', () => {
+    const entry = { ...catalog as PlatformMenuEntry, context: { ...none, time: 'apply' as const }, query: { mode: 'apply' as const }, features: { ...catalog.features, savedView: true } };
+    const support = { menuId: catalog.id, menuSchemaVersion: 1, contextKeys: [], pageKeys: [] };
+
+    it('rejects an Apply menu with resolved saved views and names support and opt-out choices', () => {
+      expect(() => createRegistry({ spaces, groups, menus: [entry] })).toThrow(/Menu "catalog" resolves features\.savedView: true.*savedViewSupport.*savedViews: 'screen'.*features: \{ \.\.\.NO_FEATURES, savedView: false \}.*query: \{ mode: 'live' \}/);
+    });
+
+    it.each([
+      ['manifest support', { savedViewSupport: support }],
+      ['screen registration', { savedViews: 'screen' }],
+    ] as const)('accepts %s when saved views resolve on', (_form, declaration) => {
+      expect(() => createRegistry({ spaces, groups, menus: [{ ...entry, ...declaration }] })).not.toThrow();
+    });
+
+    it('accepts an Apply opt-out through features.savedView: false', () => {
+      expect(() => createRegistry({ spaces, groups, menus: [{ ...entry, features: { ...entry.features, savedView: false } }] })).not.toThrow();
+    });
+
+    it.each([
+      ['support and screen', { savedViewSupport: support, savedViews: 'screen' }, /both savedViewSupport and savedViews: 'screen'/],
+      ['screen with saved views off', { ...entry, features: { ...entry.features, savedView: false }, savedViews: 'screen' }, /savedViews: 'screen' requires resolved features\.savedView: true/],
+    ] as const)('rejects %s', (_name, declaration, message) => {
+      expect(() => createRegistry({ spaces, groups, menus: [{ ...entry, ...declaration } as PlatformMenuEntry] })).toThrow(message);
+    });
+  });
+
   it('rejects live saved views with actionable Apply-only guidance (#2047 KER-22)', () => {
     const entry = { ...catalog, features: { ...catalog.features, savedView: true } };
     expect(() => createRegistry({ spaces, groups, menus: [entry] })).toThrow(RegistryError);
@@ -80,11 +112,6 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
       savedViewSupport: { menuId: 'other-menu', menuSchemaVersion: 1, contextKeys: [], pageKeys: [] } } as PlatformMenuEntry;
     expect(() => createRegistry({ spaces, groups, menus: [entry] })).toThrow(/savedViewSupport.menuId "other-menu".*"catalog"/);
   });
-  it('accepts saved views on Apply menus (#2047 KER-22)', () => {
-    const entry = { ...catalog, features: { ...catalog.features, savedView: true }, context: { ...none, time: 'apply' as const }, query: { mode: 'apply' as const } };
-    expect(() => createRegistry({ spaces, groups, menus: [entry] })).not.toThrow();
-  });
-
   it.each([0, -1, 1.5, NaN, Infinity])('rejects defaultPeriodHours=%s', defaultPeriodHours => {
     expect(() => createRegistry({ spaces, groups, menus: [{ ...catalog, context: { ...none, time: 'apply' }, defaultPeriodHours }] })).toThrow(/defaultPeriodHours/);
   });
@@ -486,6 +513,16 @@ describe('open vocabulary (ADR-0053)', () => {
 
   it('accepts a module group and permission with their module prefix', () => {
     expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, modMenu()] })).not.toThrow();
+  });
+
+  it('rejects a module menu whose resolved Analysis default enables saved views without support', () => {
+    const entry = modMenu({ pageType: 'analysis', query: { mode: 'apply' }, context: { ...none, time: 'apply' }, features: NO_FEATURES });
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, entry] })).toThrow(/Module menu "fx-home" resolves features\.savedView: true.*opt out with features/);
+  });
+
+  it('rejects screen-registered saved views on a module menu', () => {
+    const entry = { ...modMenu(), savedViews: 'screen' } as never;
+    expect(() => createRegistry({ spaces, groups: [...groups, modGroup], menus: [catalog, entry] })).toThrow(/Module menu "fx-home" cannot declare savedViews: 'screen'/);
   });
 
   it('rejects a module permission or group id without its module prefix', () => {

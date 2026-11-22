@@ -13,7 +13,7 @@ import userEvent from '@testing-library/user-event';
 const columns = [{ id: 'a', header: 'A' }, { id: 'b', header: 'B' }];
 const basis = columnGroupBasis(columns, undefined);
 const groups: StoredColumnGroups = { basis, items: [{ id: 'u:known', label: 'Known', members: ['a', 'b'] }] };
-const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('g'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('g'), primary: true, path: '/', icon: House, label: { ko: 'H', en: 'H' }, description: { ko: '', en: '' }, permission: 'platform:view', requiresScope: false, context: { ...noContext, time: 'apply' }, query: { mode: 'apply' }, pageType: 'analysis', pageKeys: [], features: { export: false, savedView: true, annotate: false, compare: false } }] });
+const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('g'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('g'), primary: true, path: '/', icon: House, label: { ko: 'H', en: 'H' }, description: { ko: '', en: '' }, permission: 'platform:view', requiresScope: false, context: { ...noContext, time: 'apply' }, savedViews: 'screen', query: { mode: 'apply' }, pageType: 'analysis', pageKeys: [], features: { export: false, savedView: true, annotate: false, compare: false } }] });
 const key = 'platform:columns:v1:u1:raw';
 const support = { menuId: 'home', menuSchemaVersion: 1, contextKeys: [], pageKeys: [] };
 let views: SavedViews; let restore: () => void;

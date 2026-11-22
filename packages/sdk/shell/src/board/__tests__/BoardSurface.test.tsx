@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { House } from 'lucide-react';
 import { lazy } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformProvider, createRegistry, usePlatform, useSavedViewSupport } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform, useSavedViewSupport, type PlatformMenuEntry } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '@ap/components';
@@ -61,7 +61,7 @@ describe('BoardSurface (893b)', () => {
       return <p>{global.from ?? 'idle'}</p>;
     }
     const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
-      home, { ...alpha, component: lazy(loading), query: { mode: 'apply', autoApplyDefault: true }, features: { ...alpha.features, savedView: true } },
+      home, { ...alpha as PlatformMenuEntry, component: lazy(loading), savedViews: 'screen', query: { mode: 'apply', autoApplyDefault: true }, features: { ...alpha.features, savedView: true } },
     ] });
     const session = testSession(['platform:view']);
     const store = createFakeSavedViewStore([testSavedView({ id: 'view', menuId: alpha.id, context: period })], { [`${session.user.id}:${alpha.id}`]: 'view' });
@@ -175,7 +175,7 @@ describe('BoardSurface (893b)', () => {
   it('settles both bare pane entries without selecting the second pane or restoring a default view', async () => {
     const [home, alpha] = registry.menus;
     const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
-      home, { ...alpha, query: { mode: 'apply', autoApplyDefault: true }, features: { ...alpha.features, savedView: true } },
+      home, { ...alpha as PlatformMenuEntry, savedViews: 'screen', query: { mode: 'apply', autoApplyDefault: true }, features: { ...alpha.features, savedView: true } },
     ] });
     const session = testSession(['platform:view']);
     const start = freshBoard('시트');

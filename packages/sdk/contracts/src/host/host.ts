@@ -20,7 +20,8 @@ export type HostFeature = 'query' | 'detailSlot' | 'write';
 export type ModuleScopedId = `${string}:${string}`;
 
 /** A screen declaration. The path is module-relative (`''` = the module prefix itself); the host adds the prefix. */
-export type ModuleScreenMeta = Omit<MenuMeta, 'group' | 'path' | 'permission'> & {
+export type ModuleScreenMeta = Omit<MenuMeta, 'group' | 'path' | 'permission' | 'savedViews'> & {
+  savedViews?: undefined;
   path: string;
   /** A group id declared in the manifest's `groups`. Which space it sits in is the host's decision. */
   group: ModuleScopedId;

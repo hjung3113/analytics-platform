@@ -16,7 +16,7 @@ function deferred(): { promise: Promise<void>; release: () => void } {
 
 const support: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: ['time', 'line'], pageKeys: ['filter'] };
 const base = { group: groupId('overview'), primary: true, icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, pageKeys: ['filter'], contextResetKeys: ['filter'], query: { mode: 'apply' as const } };
-const menu = (id: string, path: string, savedView: boolean, primary = false) => ({ ...base, id, path, primary, features: { export: false, savedView, annotate: false, compare: false, board: false } });
+const menu = (id: string, path: string, savedView: boolean, primary = false) => ({ ...base, id, path, primary, savedViews: savedView ? 'screen' as const : undefined, features: { export: false, savedView, annotate: false, compare: false, board: false } });
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: base.label, icon: House, space: spaceId('mars') }], menus: [menu('home', '/', true, true), menu('plain', '/plain', false)] });
 const period = { from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' };
 const query = (lineNames: string[], filter?: string) => buildQuery({ ...emptyGlobal, ...period, lineNames }, filter ? [['filter', filter]] : []);
@@ -124,7 +124,7 @@ it('restores an auto Apply default when the host omits the Saved View control', 
 it('loads the non-opt-in board pane’s Saved Views without requesting the main screen’s lists', async () => {
   const board = menu('board-menu', '/board-menu', true);
   const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
-    { ...menu('home', '/', true, true), query: { mode: 'apply', autoApplyDefault: true }, savedViewSupport: support },
+    { ...menu('home', '/', true, true), savedViews: undefined, query: { mode: 'apply', autoApplyDefault: true }, savedViewSupport: support },
     { ...board, features: { ...board.features, board: true } },
   ] });
   const paneView = viewOf({ id: 'pane-view', kind: 'menu-view', menuId: board.id, menuSchemaVersion: 1, page: [] });
@@ -153,7 +153,7 @@ it('restores a declared default through a held lazy main screen with one replace
   function Screen() { useSavedViewSupport(support); return <p>Lazy screen</p>; }
   const component = lazy(async () => { await held.promise; return { default: Screen }; });
   const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{
-    ...menu('home', '/', true, true), features: { ...menu('home', '/', true).features, board: true },
+    ...menu('home', '/', true, true), savedViews: undefined, features: { ...menu('home', '/', true).features, board: true },
     query: { mode: 'apply', autoApplyDefault: true }, savedViewSupport: support, component,
   }] });
   window.history.replaceState(null, '', chosen.canonicalHref('/'));
@@ -189,7 +189,7 @@ it('checks a recovered selection on a new parameterized pathname and preserves i
 it('keeps the full-screen selection when a background pane materializes its period', async () => {
   const home = menu('home', '/', true, true);
   const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
-    { ...home, features: { ...home.features, board: true }, query: { mode: 'apply', autoApplyDefault: true }, savedViewSupport: support },
+    { ...home, savedViews: undefined, features: { ...home.features, board: true }, query: { mode: 'apply', autoApplyDefault: true }, savedViewSupport: support },
   ] });
   window.history.replaceState(null, '', '/board');
   window.sessionStorage.setItem(KEY, 'l2');
@@ -1331,6 +1331,7 @@ it.each(['drill', 'same-path-link'] as const)('switches a pending bare arrival t
     groups: registry.groups,
     menus: [{
       ...menu('home', '/', true, true),
+      savedViews: undefined,
       context: { ...noContext, time: 'apply' as const, line: 'apply' as const },
       query: { mode: 'apply', autoApplyDefault: true, applyPeriodOnLegacyEntry: true },
       savedViewSupport: support,
@@ -1364,6 +1365,7 @@ it('keeps completed-then-reset, invalid, and history-restored legacy entries exa
     groups: registry.groups,
     menus: [{
       ...menu('home', '/', true, true),
+      savedViews: undefined,
       context: { ...noContext, time: 'apply' as const, line: 'apply' as const },
       query: { mode: 'apply', autoApplyDefault: true, applyPeriodOnLegacyEntry: true },
       savedViewSupport: support,

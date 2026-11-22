@@ -642,7 +642,9 @@ URL Context는 보안 경계가 아니며 서버가 항상 재검증한다.
 
 Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산이다. 결정은 [ADR-0092](../adr/0092-saved-view-units-tiers-and-groups.md)(#294, Decided 2026-10-27), 구현은 #1011(mock 범위)이다. 이 절은 **포트와 UI 계약**을 정한다. 서버 정책(객체 ACL 대 데이터 경계의 판정 분리, 공식 승인, 이전)은 [ADR-0099](../adr/0099-server-saved-view-persistence.md)(Decided 2026-10-29)가 정했고 서버 모듈(객체 ACL·영속·감사·이전, #1105a)이 구현됐다. HTTP 저장소·브라우저 이전·화면 연결은 #1105b에서 구현됐다. 실서버 rendered 저장된 뷰 UI는 미검증이며 범위와 한계는 §21.4를 따른다. 아래 「서버 몫」이 결정과 구현 범위를 구분한다.
 
-**Analysis 기본값 (#2503).** Registry는 `pageType: 'analysis'`의 Apply 메뉴에서 생략한 `features.savedView`를 `true`로 해석한다. Apply만 쓸 메뉴는 `features: { ...NO_FEATURES, savedView: false }`, 둘 다 쓰지 않을 메뉴는 `query: { mode: 'live' }`를 선언한다. `NO_FEATURES`에는 `savedView` 키가 없다. 선택기는 저장소와 메뉴의 `savedViewSupport` 선언(또는 화면 등록)이 있을 때 제공한다.
+**Analysis 기본값 (#2503).** `pageType: 'analysis'`에서 `query`와 `features.savedView`를 생략하면 Registry가 Apply와 Saved View를 켠다. Apply만 쓸 메뉴는 `features: { ...NO_FEATURES, savedView: false }`, Apply와 Saved View를 모두 쓰지 않을 메뉴는 `query: { mode: 'live' }`를 선언한다. `NO_FEATURES`에는 `savedView` 키가 없으므로 이를 펼치는 것만으로는 Analysis 기본값이 꺼지지 않는다.
+
+**Saved View 지원 선언 (#2496).** Registry는 명시적 Apply뿐 아니라 생략된 Analysis 기본값까지 포함해, 해석된 `features.savedView: true`인 모든 메뉴에 `savedViewSupport` 또는 `savedViews: 'screen'` 선언을 요구한다. 화면 등록 방식은 화면에서 `useSavedViewSupport`를 호출한다. 두 선언을 함께 쓰거나, 기능이 꺼진 메뉴 또는 모듈 메뉴에 `savedViews: 'screen'`을 쓰면 등록을 거부한다. 지원하지 않는 Apply 메뉴는 위 Analysis 규칙처럼 `features.savedView: false`로 끄고, Analysis에서 Apply도 쓰지 않으면 `query: { mode: 'live' }`로 opt out한다. `createRegistry` 오류는 메뉴 id와 적용할 수 있는 선언 또는 opt-out 방법을 알려준다.
 
 ### 21.1 저장 단위 (Decided)
 

@@ -14,7 +14,7 @@ const menus = [
   { ...base, id: 'home', path: '/mars/home', aliases: ['/legacy-home'], primary: true, carrySet: carrySetId('set') },
   { ...base, id: 'other', path: '/mars/other', carrySet: carrySetId('set') },
   { ...base, id: 'live', path: '/mars/live', context: { ...noContext, time: 'apply' as const } },
-  { ...base, features: { ...base.features, savedView: true }, id: 'apply', path: '/mars/apply', context: { ...noContext, time: 'apply' as const }, query: { mode: 'apply' as const } },
+  { ...base, features: { ...base.features, savedView: true }, id: 'apply', path: '/mars/apply', context: { ...noContext, time: 'apply' as const }, savedViews: 'screen' as const, query: { mode: 'apply' as const } },
 ];
 const registry = createRegistry({ spaces: [testSpace()], groups: [group], menus, carrySets: [{ id: carrySetId('set'), pageKeys: ['q'] }] });
 const session = testSession(['platform:view']);

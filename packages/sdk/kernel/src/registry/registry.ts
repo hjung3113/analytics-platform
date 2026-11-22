@@ -32,7 +32,8 @@ export type PlatformMenuEntry = MenuMeta & {
  * A menu a module brings (ADR-0053): open vocabulary, prefixed with `module`. `moduleScreen` is rendered with
  * `{ params, host }` (the shell's ModuleScreen); it has no `component` but still counts as implemented.
  */
-export type ModuleMenuEntry = Omit<MenuMeta, 'group' | 'permission'> & {
+export type ModuleMenuEntry = Omit<MenuMeta, 'group' | 'permission' | 'savedViews'> & {
+  savedViews?: undefined;
   navTree?: undefined;
   module: string;
   group: ModuleScopedId;
@@ -363,6 +364,14 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     if (m.features.savedView === true && m.query?.mode !== 'apply') fail(`Menu "${m.id}" savedView requires query.mode: 'apply' with time: 'apply': saved views use the Apply query toolbar; remove features.savedView for a live menu`);
     // Manifest support decides before the screen mounts whether first entry waits for the personal default view (#2502); a mismatched id would silently drop it.
     if (m.savedViewSupport && m.savedViewSupport.menuId !== m.id) fail(`Menu "${m.id}" savedViewSupport.menuId "${m.savedViewSupport.menuId}" must equal the menu id "${m.id}"`);
+    // Read the raw field independently: the public module entry type prohibits screen registration,
+    // while runtime validation still needs to reject untyped module declarations that violate it.
+    const savedViews = (m as { savedViews?: unknown }).savedViews;
+    const isModuleMenu = 'module' in m && m.module !== undefined;
+    if (savedViews !== undefined && savedViews !== 'screen') fail(`Menu "${m.id}" savedViews must be 'screen'`);
+    if (m.savedViewSupport && savedViews === 'screen') fail(`Menu "${m.id}" cannot declare both savedViewSupport and savedViews: 'screen'; choose one`);
+    if (savedViews === 'screen' && isModuleMenu) fail(`Module menu "${m.id}" cannot declare savedViews: 'screen'; module screens cannot register Saved View support`);
+    if (savedViews === 'screen' && m.features.savedView !== true) fail(`Menu "${m.id}" savedViews: 'screen' requires resolved features.savedView: true`);
     if (m.query && m.query.mode !== 'apply' && m.query.mode !== 'live') fail(`Menu "${m.id}" query.mode must be 'apply' or 'live'`);
     if (m.query?.mode === 'live') {
       const raw = m.query as Record<string, unknown>;
@@ -382,6 +391,10 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       for (const { key, label } of m.query.required?.page ?? []) {
         if (!m.pageKeys.includes(key) || !label?.ko?.trim() || !label?.en?.trim()) fail(`Menu "${m.id}" required page "${key}" needs a declared key and nonempty labels`);
       }
+    }
+    if (m.features.savedView === true && !m.savedViewSupport && savedViews !== 'screen') {
+      if (isModuleMenu) fail(`Module menu "${m.id}" resolves features.savedView: true but has no Saved View support; opt out with features: { ...NO_FEATURES, savedView: false } or query: { mode: 'live' }`);
+      fail(`Menu "${m.id}" resolves features.savedView: true and must provide savedViewSupport or declare savedViews: 'screen'; opt out with features: { ...NO_FEATURES, savedView: false } or query: { mode: 'live' }`);
     }
     if (clash) fail(`Menu "${m.id}" page key "${clash}" collides with a global Context key`);
     for (const [field, keys] of [['repeatedPageKeys', m.repeatedPageKeys], ['hiddenPageKeys', m.hiddenPageKeys]] as const) {

@@ -13,7 +13,7 @@ import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSe
 
 const support: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: ['time', 'line'], pageKeys: ['filter'] };
 const base = { group: groupId('overview'), primary: true, icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, pageKeys: ['filter'], contextResetKeys: ['filter'], query: { mode: 'apply' as const } };
-const menu = (id: string, path: string, savedView: boolean, primary = false) => ({ ...base, id, path, primary, features: { export: false, savedView, annotate: false, compare: false, board: false } });
+const menu = (id: string, path: string, savedView: boolean, primary = false) => ({ ...base, id, path, primary, savedViews: savedView ? 'screen' as const : undefined, features: { export: false, savedView, annotate: false, compare: false, board: false } });
 // No menu `gone` exists anywhere in this registry.
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: base.label, icon: House, space: spaceId('mars') }], menus: [menu('home', '/', true, true), menu('plain', '/plain', false)] });
 const period = { from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' };

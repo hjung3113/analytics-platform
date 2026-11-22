@@ -13,7 +13,7 @@ function deferred(): { promise: Promise<void>; release: () => void } {
   return { promise, release };
 }
 const support: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: ['time'], pageKeys: ['filter'] };
-const base = { group: groupId('overview'), primary: true, icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, pageKeys: ['filter'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], query: { mode: 'apply' as const } };
+const base = { group: groupId('overview'), primary: true, icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, pageKeys: ['filter'], repeatedPageKeys: ['filter'], hiddenPageKeys: ['filter'], savedViews: 'screen' as const, query: { mode: 'apply' as const } };
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: base.label, icon: House, space: spaceId('mars') }], menus: [{ ...base, id: 'home', path: '/mars/home', features: { export: false, savedView: true, annotate: false, compare: false, board: false } }] });
 const period = { from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' };
 const address = `/mars/home${buildQuery({ ...emptyGlobal, ...period })}`;

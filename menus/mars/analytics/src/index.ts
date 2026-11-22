@@ -52,6 +52,7 @@ export const manifests: MenuEntry[] = [
     ],
     conditionPreset: { key: 'conditionSet', default: 'equipment' },
     query: { mode: 'apply', required: { context: ['time', 'roomNames'] } },
+    savedViews: 'screen',
     component: lazy(() => import('./pages/CycleTimeDrilldown')),
   },
   {

@@ -11,7 +11,7 @@ import { createLocalSavedViewStore } from '@ap/mock-server';
 
 // The store must agree with the id the Kernel really passes (`session.user.id`), not with a test-made id (#1011c review C1).
 const support: SavedViewSupport = { menuId: 'productivity-overview', menuSchemaVersion: 2, contextKeys: ['time'], pageKeys: [] };
-const base = { group: groupId('overview'), icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, pageKeys: [], contextResetKeys: [], query: { mode: 'apply' as const } };
+const base = { group: groupId('overview'), icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, pageKeys: [], contextResetKeys: [], savedViews: 'screen' as const, query: { mode: 'apply' as const } };
 const registry = createRegistry({ spaces: [testSpace({ homeMenuId: 'productivity-overview' })], groups: [{ id: groupId('overview'), label: base.label, icon: House, space: spaceId('mars') }], menus: [{ ...base, id: 'productivity-overview', path: '/', primary: true, features: { export: false, savedView: true, annotate: false, compare: false, board: false } }] });
 
 let views: SavedViews; let userId = '';
@@ -32,6 +32,10 @@ async function mount() {
 }
 const draft = (menuId: string) => ({ schemaVersion: 1, kind: 'menu-view', name: 'x', menuId, menuSchemaVersion: 2, context: { relativePeriod: { hours: 24 } }, page: {}, chartOptions: {}, layout: null, panels: null }) as SavedViewDraft;
 const settle = () => act(async () => { await new Promise(r => setTimeout(r, 100)); });
+
+it('assembles Cycle Time Detail with screen-registered Saved View support', () => {
+  expect(appRegistry.menuById('cycle-time')).toMatchObject({ query: { mode: 'apply' }, savedViews: 'screen' });
+});
 
 it('lists the seeded views of a menu the real session may open and round-trips the personal default through the hook', async () => {
   await mount();
