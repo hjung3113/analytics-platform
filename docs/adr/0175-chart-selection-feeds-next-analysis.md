@@ -21,4 +21,5 @@
 ## 결과
 
 - 구현은 #2732(선택을 `outputs` 통로로), #2733(선택 칩), #2734(다음 분석 동작), #2735(메뉴 간 링크와 넘겨받은 맥락)에서 한다.
-- 차트 선택의 이름은 정하지 않았다. 기존 «Selection»은 설비 선택(ADR-0059)이므로, 구현 전에 다른 이름을 [GLOSSARY.md](../../GLOSSARY.md)에 올린다.
+- 차트 선택의 이름은 «분석 선택»이다([ADR-0176](0176-user-analysis-menu-one-definition-two-homes.md), [GLOSSARY.md](../../GLOSSARY.md)). 기존 «Selection»은 설비 선택(ADR-0059)이다.
+- 선택 키는 패널 인스턴스 id 기준이고, 메뉴 간 링크는 차원·모양·값을 싣는다(ADR-0176).

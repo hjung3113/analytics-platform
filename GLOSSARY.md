@@ -588,6 +588,14 @@ _Avoid_: 분석 조건(단독) — 메뉴 화면의 페이지 조건과 섞인�
 저장된 뷰를 공유받는 사람 묶음. 사용자가 만들고 멤버를 관리하며, 멤버십은 뷰 객체 접근만 주고 메뉴·Scope 권한은 주지 않는다([06 §21.2](docs/contract/kernel.md#212-소유공유-decided), [ADR-0099](docs/adr/0099-server-saved-view-persistence.md)). 조직 팀(인사/SSO 원천)과 같은 계약이다. 코드의 종류 값은 `ViewGroup.kind: 'custom'`이며 커스텀 조회 그룹의 `customGroup`·`custom-group`과 다르다.
 _Avoid_: 커스텀 그룹 — 이 묶음의 옛 이름이다. 커스텀 조회 그룹 — 조회 조건에서 고른 대상 묶음이다(«공정 범위와 설비 그룹»). 공유 그룹은 사람을 묶고, 커스텀 조회 그룹은 조회 대상을 묶는다.
 
+**분석 선택** (차트 선택):
+사용자가 차트나 표에서 고른 값 묶음(예: 설비 두 대)이나 범위(예: 14:00–16:00). 패널이 선언한 출력 키로 페이지 키가 되어 URL에 실리고, 연결된 패널의 입력이 된다. 행 묶음은 화면 안에서만 유지한다([ADR-0175](docs/adr/0175-chart-selection-feeds-next-analysis.md), [ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md)).
+_Avoid_: Selection — 설비 선택(`selectedEquipmentIds`)이다. 전역 기간과 설비 선택은 분석 선택이 아니라 명시 동작으로만 바뀐다.
+
+**분석 데이터셋** (`AnalysisDataset`):
+데이터 책임자가 발행한, 사용자 분석 메뉴의 원천 데이터. 데이터 단위, 필드 역할, 허용 집계, 승인된 관계, 버전을 가진다. 서버가 닫힌 질의로만 조회한다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md), #1704).
+_Avoid_: Dataset(단독) — 검증용 테스트 데이터셋이다(«표준 로그 개발»).
+
 **Context 바** (`GlobalContextBar`):
 메뉴 화면 위에서 전역 Context(분석 보드에서는 선택된 칸의 분석 Context)를 보이고 바꾸는 셸 자리.
 

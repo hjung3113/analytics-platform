@@ -188,6 +188,7 @@
 | [0173](0173-survey-outcome-task-entity-link.md) | Outcome Survey가 측정할 Task를 Entity Link로 기록한다 | Decided(2026-11-19, 플랫폼 자문 결정 #2540, 소유자 가역) |
 | [0174](0174-decision-rules-opt-in.md) | 의사결정 규칙은 선택 적용 가능한 SDK 조각으로 제공한다 | Decided(2026-11-19, 소유자 결정 via lead) |
 | [0175](0175-chart-selection-feeds-next-analysis.md) | 차트 선택은 다음 분석의 입력이 되고, 값 묶음·범위만 URL과 메뉴 간 링크에 싣는다 | Decided(2026-11-23, 소유자 결정) |
+| [0176](0176-user-analysis-menu-one-definition-two-homes.md) | 사용자 분석 메뉴는 정의 형식 하나를 두 곳에 담고, 숫자 등급을 화면이 말한다 | Decided(2026-11-23, 소유자 결정) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

@@ -49,7 +49,7 @@
 
 - 선택을 URL과 메뉴 간 링크에 싣는 범위는 권고안 (나)로 정했다. 값 묶음과 범위만 싣고 행 묶음은 싣지 않으며, 메뉴 간 링크는 목적지가 선언할 때만 싣는다([ADR-0175](../adr/0175-chart-selection-feeds-next-analysis.md)).
 - 토큰 값(면·선·강조색·차트 글자·팔레트)과 사이드바 접힘은 권고대로 변형부터 만든다. 소유자가 고른 뒤 구현한다.
-- 노코드와 사용자가 만들어 공유하는 분석 메뉴는 소유자가 플랫폼 1차 최종 목적에 가장 가깝다고 본 영역이다(2026-11-23). 이 리뷰는 그중 패널 추가 단계(H절)만 다뤘다. 범위와 순서는 [#1761](https://github.com/hjung3113/analytics-platform/issues/1761)과 후속 [노코드 사용자 분석 메뉴 리뷰](2026-11-23-nocode-user-menu-review.md)에서 정한다.
+- 노코드와 사용자가 만들어 공유하는 분석 메뉴는 소유자가 플랫폼 1차 최종 목적에 가장 가깝다고 본 영역이다(2026-11-23). 이 리뷰는 그중 패널 추가 단계(H절)만 다뤘다. 범위와 순서는 [#1761](https://github.com/hjung3113/analytics-platform/issues/1761)과 후속 [노코드 사용자 분석 메뉴 리뷰](2026-11-23-nocode-user-menu-review.md)에서 정한다. 결정은 [ADR-0176](../adr/0176-user-analysis-menu-one-definition-two-homes.md)이다.
 
 ## 발견과 처리
 
