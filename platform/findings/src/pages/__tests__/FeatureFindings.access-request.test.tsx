@@ -44,7 +44,9 @@ it('keeps focus on the hosted request card while history is read', async () => {
       return Response.json({ requests: [] });
     }
     if (pathname.endsWith('/findings')) return Response.json({
-      code: 'permission.denied', message: 'denied', requestable_permission: { permission: 'finding.read' },
+      code: 'permission.denied', message: 'denied', requestable_permission: {
+        permission: 'finding.read', managed_system_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      },
     }, { status: 403 });
     return Response.json({ items: [], actors: [] });
   });
@@ -62,4 +64,5 @@ it('keeps focus on the hosted request card while history is read', async () => {
   const request = await screen.findByRole('link', { name: '권한 요청' });
   expect(document.activeElement).toBe(request);
   expect(request.getAttribute('href')).toContain('capability=finding.read');
+  expect(request.getAttribute('href')).toContain('managedSystem=bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
 });
