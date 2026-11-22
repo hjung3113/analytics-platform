@@ -65,6 +65,10 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
     outOfScopeSummary,
     listError,
     permissionError,
+    requestable,
+    request,
+    deniedRef,
+    keptSystemId,
     inboxPermissionBlocked,
     isSearching,
     handleTabChange,
@@ -76,9 +80,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
     handleCreate,
   } = useInboxState(view);
 
-  const requestable = permissionError?.envelope.requestable_permission;
-  const { requestSystemId, exactScopeTarget, requestCheckStatus, requestCheckRetry } = vocList;
-  const readRequestUnavailable = requestable?.permission === 'voc.read' && requestSystemId === undefined;
+  const { exactScopeTarget, requestCheckStatus, requestCheckRetry } = vocList;
   const requestCopy = PERMISSION_REQUEST_FLOW_COPY[lang];
   let requestCheckAction: React.ReactNode;
   switch (requestCheckStatus) {
@@ -97,7 +99,8 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
       break;
   }
   const needsSystemSelection =
-    readRequestUnavailable && requestable.managed_system_id == null && requestCheckAction === undefined;
+    request === undefined && requestable?.permission === 'voc.read' &&
+    requestable.managed_system_id == null && requestCheckAction === undefined;
 
   const outOfScopeBanner = outOfScopeSummary ? (
     <PermissionBlockedPanel
@@ -206,15 +209,15 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
         />
       )}
       {permissionError !== null ? (
-        <div className="m-4 space-y-3">
-          {requestable && !readRequestUnavailable ? (
+        <div ref={deniedRef} tabIndex={-1} className="m-4 space-y-3">
+          {request ? (
             <RequestAccessButton
-              key={requestSystemId}
+              key={request.managedSystemId}
               layout="card"
-              capability={requestable.permission}
+              capability={request.capability}
               returnRouteIntent={`/vocs?view=${view}`}
               exactScopeTarget={exactScopeTarget}
-              {...(requestSystemId !== undefined ? { managedSystemId: requestSystemId } : {})}
+              managedSystemId={request.managedSystemId}
               renderTrigger={(_onRequestAccess, panel) => (
                 <PermissionBlockedPanel
                   layout="card"
@@ -223,11 +226,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
                   state="request_access"
                   category={VOC_INBOX_LABEL}
                   // #562 copy: a named Managed System means this selected scope is out of reach.
-                  reason={
-                    requestSystemId !== undefined
-                      ? PERMISSION_BLOCKED_REASONS.vocInboxManagedSystem
-                      : PERMISSION_BLOCKED_REASONS.vocInbox
-                  }
+                  reason={PERMISSION_BLOCKED_REASONS.vocInboxManagedSystem}
                   {...panel}
                 />
               )}
@@ -297,7 +296,7 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
   const detailPanel =
     search.selected !== undefined
       ? renderDetail(search.selected, {
-          managedSystemId: search.managedSystem,
+          managedSystemId: keptSystemId ?? search.managedSystem,
           onClose: handlePanelClose,
         })
       : undefined;

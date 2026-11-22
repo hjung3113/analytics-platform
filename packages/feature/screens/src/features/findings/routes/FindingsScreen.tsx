@@ -16,7 +16,7 @@ import {
 } from './findings-search';
 import { resolveActors } from '../../../lib/api/actors';
 import { fetchEntityLinksBySource } from '../../../lib/api/entity-links';
-import { ApiError, isPermissionDenied } from '../../../lib/api/types';
+import { ApiError } from '../../../lib/api/types';
 import {
   FINDING_CONFIDENCE_LABELS,
   FINDING_SEVERITY_LABELS,
@@ -27,8 +27,12 @@ import { GLOSSARY } from '../../../lib/copy/glossary';
 import { LIST_SEARCH_EMPTY_LABEL, LIST_SEARCH_PLACEHOLDER } from '../../../lib/copy/list-search';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors';
-import { useScopedEmptyListPermission } from '../../../lib/cross-system/useScopedEmptyListPermission';
-import { listReadDenial } from '../../../lib/cross-system/list-read-denial';
+import {
+  isListForbidden,
+  listSystemId,
+  useListDenial,
+  useScopedEmptyListPermission,
+} from '../../../lib/cross-system/useListDenial';
 import { useIsArchivedSystem } from '../../../lib/cross-system/useIsArchivedSystem';
 import { formatCount } from '../../../lib/format/count';
 import { formatShortDate } from '../../../lib/format/datetime';
@@ -80,7 +84,7 @@ export type FindingsScreenProps = {
 export function FindingsScreen({ capability = 'finding.read', renderDetail, renderDetailInPlace = false }: FindingsScreenProps): React.ReactElement {
   const { search, write } = useHostSearchWriter('/findings', validateFindingsSearch);
   const selectedId = search.selected ?? null;
-  const managedSystemId = search.managedSystem === 'all' ? undefined : search.managedSystem;
+  const managedSystemId = listSystemId(search.managedSystem);
 
   const selectFinding = React.useCallback(
     (id: string): void => {
@@ -246,10 +250,15 @@ function FindingsListShell({
     listQuery.isSuccess &&
     findings.length === 0;
   const unfilteredQuery = useFindingsTotal(managedSystemId, checkUnfiltered);
-  const listFailed = listQuery.isError && (!listQuery.isFetchNextPageError || isPermissionDenied(listQuery.error));
+  const listFailed = listQuery.isError && (!listQuery.isFetchNextPageError || isListForbidden(listQuery.error));
   const unfilteredError = checkUnfiltered && unfilteredQuery.isError ? unfilteredQuery.error : null;
   const stateError = listFailed ? listQuery.error : unfilteredError;
-  const { denied: isReadDenied, roleRequired, request } = listReadDenial(stateError, scopedPermission);
+  const { denied: isReadDenied, roleRequired, request, keptSystemId, deniedRef, isInList } = useListDenial({
+    error: stateError,
+    scopedPermission,
+    managedSystemId,
+    drawer: { selectedId },
+  });
   const scopeVerified = !isReadDenied && (scopedPermission.state === 'allowed' || scopedPermission.state === 'unchecked');
   const stateIsPending = !isReadDenied && (
     listQuery.isPending || (checkUnfiltered && unfilteredQuery.isPending) || scopedPermission.state === 'checking'
@@ -342,7 +351,7 @@ function FindingsListShell({
   const detailPanel = renderDetail(selectedId, {
     listDenied: isReadDenied,
     returnTo: !hostCarriesReturn ? safeReturnTo : null,
-    isInList: isReadDenied ? false : undefined,
+    isInList,
   });
 
   const list = (
@@ -422,7 +431,8 @@ function FindingsListShell({
             isReadDenied={isReadDenied}
             roleRequired={roleRequired}
             capability={capability}
-            managedSystemId={managedSystemId}
+            managedSystemId={keptSystemId}
+            deniedRef={deniedRef}
             request={request}
             isFilteredEmpty={isFilteredEmpty}
             assignmentFiltered={assignment !== undefined}
@@ -494,6 +504,7 @@ function FindingsListBody({
   roleRequired,
   capability,
   managedSystemId,
+  deniedRef,
   request,
   isFilteredEmpty,
   searchFiltered,
@@ -517,6 +528,7 @@ function FindingsListBody({
   roleRequired: boolean;
   capability: string;
   managedSystemId: string | undefined;
+  deniedRef: React.Ref<HTMLDivElement>;
   request: ListAccessRequest | null | undefined;
   isFilteredEmpty: boolean;
   searchFiltered: boolean;
@@ -553,7 +565,7 @@ function FindingsListBody({
         </div>
       ) : isReadDenied ? (
         request ? (
-          <div className="m-4 space-y-3">
+          <div ref={deniedRef} tabIndex={-1} className="m-4 space-y-3">
             <ListAccessRequestPanel
               category="Findings"
               reason={PERMISSION_BLOCKED_REASONS.findingsList}
@@ -562,7 +574,7 @@ function FindingsListBody({
             />
           </div>
         ) : roleRequired ? (
-          <div className="m-4">
+          <div ref={deniedRef} tabIndex={-1} className="m-4">
             <PermissionBlockedPanel
               layout="card"
               headingLevel={2}
@@ -573,7 +585,7 @@ function FindingsListBody({
             />
           </div>
         ) : (
-          <div className="m-4">
+          <div ref={deniedRef} tabIndex={-1} className="m-4">
             <FindingsDeniedCard capability={capability} managedSystemId={managedSystemId} />
           </div>
         )
