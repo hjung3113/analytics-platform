@@ -82,6 +82,7 @@ PlatformDataTable, 열 필터, 페이지 필터 모델.
 - [0121](0121-ordered-interval-track-sdk-piece.md) — 시퀀스 보기는 도메인을 모르는 SDK 범용 조각 `OrderedIntervalTrack`(순서 축 기본, 열린 구간 표시)
 - [0144](0144-lane-timeline-declarative-overlays.md) — LaneTimeline 표시는 선언형 `overlays` prop으로 받고 명령형 그리기 콜백은 두지 않는다
 - [0145](0145-lane-timeline-canvas-lod-before-worker-webgl.md) — LaneTimeline 성능은 Canvas 2D LOD로 먼저 풀고 Worker·WebGL은 측정이 모자랄 때만 연다
+- [0175](0175-chart-selection-feeds-next-analysis.md) — 차트 선택은 다음 분석의 입력이 되고, 값 묶음·범위만 URL과 메뉴 간 링크에 싣는다
 
 ## 레이아웃·셸·분석 보드
 
