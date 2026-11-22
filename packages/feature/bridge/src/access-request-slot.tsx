@@ -103,7 +103,10 @@ function CapabilityPending({ capability, copy, children }: {
   const roleRead = requestRead({ enabled: ready, hasData: me.data !== undefined, isError: me.isError, fetchStatus: me.fetchStatus });
   const reads = [roleRead, systemsRead, permissionRead, historyRead];
   const read = reads.includes('checking') ? 'checking' : reads.find(status => status === 'error');
-  const readKey = JSON.stringify([session.status === 'ready' ? session.epoch : null, route?.menu.id, capability, selected?.id]);
+  // The deadline follows the route's System from the first paint (#2685): `selected` waits for the catalog, so keying on it
+  // restarted the cap when a slow catalog arrived and could not tell A from B while it was missing. The platform default is one value.
+  const routeSystem = managedSystem === 'all' ? null : managedSystem;
+  const readKey = JSON.stringify([session.status === 'ready' ? session.epoch : null, route?.menu.id, capability, routeSystem]);
   const retry = () => {
     const retryRead = (status: typeof read, queryKey: QueryKey, refetch: () => Promise<unknown>) => {
       if (status === undefined) return;
