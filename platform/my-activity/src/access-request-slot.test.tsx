@@ -293,6 +293,93 @@ describe('accessRequest slot', () => {
         }
       });
 
+      it('keeps the first deadline when a slow System list arrives just before it (#2685)', async () => {
+        vi.useFakeTimers();
+        const catalog = heldResponse();
+        const check = heldResponse();
+        let held = true;
+        stubFindingReads(path => {
+          if (path === SYSTEMS && held) return catalog.promise;
+          if (path === CHECK) return check.promise;
+        });
+        const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+        try {
+          mountMenuPermission(FINDINGS, 'features:access');
+          await advance(0);
+          expect(menuPermissionState()).toMatchObject({ read: 'checking' });
+          await advance(REQUEST_READ_LIMIT_MS - 1000);
+          held = false;
+          await act(async () => { catalog.resolve(json({
+            items: [{ id: ID_A, slug: 'alpha', name: 'Alpha' }].map(system => ({
+              ...system, workspace_id: 'workspace', external_key: null,
+              default_owner_actor_id: null, default_owner_team_id: null, default_reviewer_actor_id: null,
+              default_reviewer_team_id: null, archived_at: null, archived_by_actor_id: null, created_at: AT, updated_at: AT })),
+            page: { has_more: false },
+          })); });
+          await advance(0);
+          expect(menuPermissionState()).toMatchObject({ read: 'checking', missing: { system: 'Alpha' } });
+          expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+          await advance(1000);
+          expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+        } finally {
+          check.resolve(json({ state: 'blocked_not_requestable', decision: { allow: false } }));
+          vi.useRealTimers();
+        }
+      });
+
+      it('gives a System changed in the route a fresh deadline while the System list is still missing (#2685)', async () => {
+        vi.useFakeTimers();
+        const catalog = heldResponse();
+        stubFindingReads(path => path === SYSTEMS ? catalog.promise : undefined);
+        const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+        try {
+          mountMenuPermission(FINDINGS, 'features:access');
+          await advance(0);
+          expect(menuPermissionState()).toMatchObject({ read: 'checking' });
+          await advance(6000);
+          fireEvent.click(screen.getByRole('button', { name: 'Beta' }));
+          await advance(3000);
+          expect(menuPermissionState()).toMatchObject({ read: 'checking' });
+          expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+          await advance(5000);
+          expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+        } finally {
+          catalog.resolve(json({ items: [], page: { has_more: false } }));
+          vi.useRealTimers();
+        }
+      });
+
+      it.each(['', '&managedSystem=all'])('keeps the deadline when the Platform default%s becomes its explicit id (#2685)', async query => {
+        vi.useFakeTimers();
+        const check = heldResponse();
+        stubFindingReads(path => {
+          if (path === SYSTEMS) return json({
+            items: [{ id: ID_A, slug: 'alpha', name: 'Alpha', external_key: null }, { id: ID_B, slug: 'platform', name: 'Beta', external_key: 'platform' }].map(system => ({
+              ...system, workspace_id: 'workspace',
+              default_owner_actor_id: null, default_owner_team_id: null, default_reviewer_actor_id: null,
+              default_reviewer_team_id: null, archived_at: null, archived_by_actor_id: null, created_at: AT, updated_at: AT })),
+            page: { has_more: false },
+          });
+          if (path === CHECK) return check.promise;
+        });
+        const advance = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+        try {
+          mountMenuPermission(`/findings?v=1${query}`, 'features:access');
+          await advance(0);
+          expect(menuPermissionState()).toMatchObject({ read: 'checking' });
+          await advance(REQUEST_READ_LIMIT_MS - 1000);
+          expect(menuPermissionState()).toMatchObject({ read: 'checking', missing: { system: 'Beta' } });
+          fireEvent.click(screen.getByRole('button', { name: 'Beta' }));
+          await advance(0);
+          expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
+          await advance(1000);
+          expect(screen.getByRole('button', { name: '다시 시도' })).toBeTruthy();
+        } finally {
+          check.resolve(json({ state: 'blocked_not_requestable', decision: { allow: false } }));
+          vi.useRealTimers();
+        }
+      });
+
       it('withholds the request during history checking and error, then retries only history', async () => {
         const history = heldResponse();
         let historyReads = 0;
