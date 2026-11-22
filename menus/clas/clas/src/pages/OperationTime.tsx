@@ -1,5 +1,5 @@
-import { formatWallClock } from '@ap/contracts';
-import { useMemo } from 'react';
+import { formatWallClock, type GlobalContext, type Pair } from '@ap/contracts';
+import { useCallback, useMemo } from 'react';
 import { AlertTriangle, Clock, Cpu, Gauge } from 'lucide-react';
 import { formatNumber } from '@ap/contracts';
 import { formatSummaryTime, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
@@ -13,13 +13,23 @@ const KIND_LABEL: Record<OperationKind, { ko: string; en: string }> = {
 const ROOM_COLORS = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'] as const;
 
 
+const EQUIPMENT_LABEL = { ko: '설비', en: 'Equipment' } as const;
+/** The page value a query-history row shows (#2691): the picked equipment; no `eqp` (top of the ranking) adds nothing. */
+export function operationTimeHistorySummary(page: readonly Pair[], lang: 'ko' | 'en') {
+  const eqp = page.find(([key]) => key === 'eqp')?.[1];
+  return eqp ? [{ key: 'eqp', label: EQUIPMENT_LABEL[lang], value: eqp }] : [];
+}
+
 export default function OperationTimeScreen() {
   const { pageParam } = usePlatform();
+  const { lang } = useI18n();
+  const historyPageSummary = useCallback((_global: GlobalContext, page: readonly Pair[]) => operationTimeHistorySummary(page, lang), [lang]);
   // keepPrevious ON (#1365, ADR-0114): picking another equipment re-reads the same period and Scope; the ranking and the flow title (from the data) stay until the new flow arrives.
   const query = useMenuQuery(operationTimeEndpoint, { eqp: pageParam('eqp') ?? '' }, { keepPrevious: true });
   // Opened from another screen's object list (06 §22, #1930): the way back to that screen.
   const returning = pageParam('returnTo') !== null;
-  return <PlatformPage {...(returning ? { secondaryActions: <ReturnLink /> } : {})} dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
+  // Only query-history rows describe page values (#2691); the current summaries stay as they are.
+  return <PlatformPage queryBarExtension={{ pageSummary: [], issues: [], historyPageSummary }} {...(returning ? { secondaryActions: <ReturnLink /> } : {})} dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
     <QueryView query={query}>{data => <OperationTimeBody data={data} updatedAt={query.response?.trust?.updatedAt ?? null} previousEquipment={query.showingPrevious ? acceptedEquipment(query.resultParams?.eqp, data.equipmentId) : null} />}</QueryView>
   </PlatformPage>;
 }

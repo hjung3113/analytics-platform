@@ -5,6 +5,7 @@ import { contextCapabilities, groupId, menuPermission, NO_FEATURES, type SavedVi
 import type { MenuEntry } from '@ap/kernel';
 import { panelDeclarations } from './panels';
 import { HW_TIME_CONTEXT } from './endpoints';
+import { HW_TIME_DRILL } from './shared/historySummary';
 import { HW_TIME_FILTER_HIDDEN_KEYS, HW_TIME_FILTER_KEYS, HW_TIME_FILTER_REPEATED_KEYS } from './shared/useHwTimeFilter';
 
 // S0: data only; panel implementations retain their lazy route boundary.
@@ -16,11 +17,6 @@ const SAVED_VIEW_SUPPORT: SavedViewSupport = {
   menuId: 'hw-time', menuSchemaVersion: 1, contextKeys: ['time', 'roomNames', 'prcGroup', 'condition', 'selection'],
   pageKeys: PAGE_KEYS.filter(key => key !== 'page' && key !== 'focus'),
 };
-const DRILL = { levels: [
-  { key: 'moduleType', label: { ko: 'Module 타입', en: 'Module type' } },
-  { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } },
-  { key: 'drillModule', label: { ko: 'Module', en: 'Module' } },
-], resetKeys: ['focus', 'trend'] };
 
 const GROUP = groupId('hwTime');
 const PERMISSION = menuPermission('analytics:view');
@@ -41,7 +37,7 @@ export const manifests: MenuEntry[] = [
     repeatedPageKeys: [...HW_TIME_FILTER_REPEATED_KEYS, 'pins'],
     hiddenPageKeys: [...HW_TIME_FILTER_HIDDEN_KEYS, ...OPTION_KEYS],
     contextResetKeys: ['date', 'moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend'],
-    drill: DRILL,
+    drill: HW_TIME_DRILL,
     panels: Object.values(panelDeclarations),
     component: lazy(() => import('./HwTimePage')),
   },

@@ -7,6 +7,7 @@ import type { OperationRankRow, OperationTimeData } from '../endpoints';
 import OperationTimeScreen, { PreviousEquipmentLine, acceptedEquipment } from './OperationTime';
 
 let emptyResult = false;
+let pageExtension: { historyPageSummary?: (global: unknown, page: [string, string][]) => { label: string; value: string }[] } | undefined;
 let acceptedResponse: ApiResponse<OperationTimeData> | null = null;
 const UPDATED_AT = '2026-11-08T09:00:00+09:00';
 const QUERY_TO = '2026-09-26T09:00:00';
@@ -20,7 +21,7 @@ vi.mock('@ap/kernel', async importOriginal => ({
   usePlatform: () => ({ pageParam: (key: string) => (key === 'eqp' ? 'EQ-07' : null), global: { from: null, to: QUERY_TO }, setPage: vi.fn() }),
 }));
 vi.mock('@ap/components', () => ({
-  PlatformPage: ({ children }: { children?: unknown }) => <>{children as never}</>,
+  PlatformPage: ({ children, queryBarExtension }: { children?: unknown; queryBarExtension?: typeof pageExtension }) => { pageExtension = queryBarExtension; return <>{children as never}</>; },
   QueryView: ({ children }: { children: (data: unknown) => unknown }) => acceptedResponse?.data ? children(acceptedResponse.data) as never : emptyResult ? children({ ranking: [], lanes: [], equipmentId: null, missingEquipment: null }) as never : null,
   DataTrustIndicator: () => null,
   AnalysisLayout: ({ kpi, charts, breakdown }: { kpi: { node: unknown }; charts: { node: unknown }[]; breakdown: { node: unknown } }) => <>{kpi.node as never}{charts.map((chart, index) => <section key={index}>{chart.node as never}</section>)}{breakdown.node as never}</>,
@@ -95,5 +96,15 @@ describe('CLAS operation time summary and chart trust (#2532)', () => {
     const html = renderToStaticMarkup(<OperationTimeScreen />);
     const footer = /<footer>(.*?)<\/footer>/.exec(html)?.[1] ?? '';
     expect(footer).toContain('—');
+  });
+});
+
+describe('CLAS operation time query history (#2691)', () => {
+  it('gives each history row its own equipment', () => {
+    renderToStaticMarkup(<OperationTimeScreen />);
+    const text = (page: [string, string][]) => pageExtension?.historyPageSummary?.(null, page).map(item => `${item.label} ${item.value}`).join(' · ');
+    expect(text([['eqp', 'EQ-03']])).toBe('설비 EQ-03');
+    expect(text([])).toBe('');
+    expect(text([['returnTo', '/x']])).toBe('');
   });
 });
