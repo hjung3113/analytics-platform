@@ -293,6 +293,16 @@ _Avoid_: Job — Lot과 Job은 다른 개념이다(아래 Job 참고). Carrier�
 **Occurrence** (`equipmentId`, `entityType`, `anchor`):
 파서가 완료한 실행 한 건을 가리키는 식별 키이며 세 값의 조합이다. Lot ID로 대체하지 않는다. anchor는 파서의 RecordSequence를 담은 불투명 숫자 문자열로 시각이 아니며 한 설비 안에서만 같음을 비교한다. 시작 시각은 키와 별도 표시 필드다([ADR-0094](docs/adr/0094-occurrence-anchor-is-record-sequence.md)). 분석 Context와 별개인 목적지 객체 ID로 전달한다([06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
 
+**Wafer**:
+Lot에 속하고 Carrier에 담기는 낱장 웨이퍼. 공정 실행 시간은 Wafer 실행 한 건 단위로 기록된다.
+
+**Layer** (Process Layer):
+한 PPID 안에서 L1 Process가 나올 때마다 순서대로 증가하는 공정 층. PostProcess 같은 다른 L1은 Layer를 올리지 않는다(#2496 소유자 결정). 한 Layer에서는 Recipe 하나가 실행된다고 보지만 아직 확인하지 않았다(#2694).
+_Avoid_: 레이어 — 화면 겹침 층(«페이지 조건 레이어»)과 섞인다. 공정 층은 라틴 문자 Layer로 쓴다.
+
+**Step** (`StepNo` + `StepSeq`):
+Recipe 안의 PRC 실행 단계(L2). 식별 키는 StepNo와 StepSeq의 조합이다. StepSeq는 «.»으로 구분한 계층 문자열이라 정수로 정렬하지 않는다. null StepNo를 임의 값으로 채우지 않는다(#2496). 라우팅 단위인 Operation과 다르다.
+
 **Recipe** (`prc_name`):
 PRC 로그의 `RecipeId`에 대응하는 값 — Lot이 특정 Module/Slot에서 진행하는 PRC 단계의 레시피다. 설비 자체의 고정 속성이 아니라 Lot(그리고 그 안의 PRC 단계)마다 달라질 수 있다. 지표 산출과 분석 모두에서 가장 많이 쓰이는 1급 분류 축이다.
 

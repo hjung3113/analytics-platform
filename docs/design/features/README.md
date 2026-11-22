@@ -9,7 +9,6 @@ Surface specs:
 
 Feature designs (implementation status is at the top of each document):
 
-- [`rcc-time-compare.md`](rcc-time-compare.md): RCC Process duration comparison design and prototype candidates (#2496).
 - [`improvement-items.md`](improvement-items.md): improvement item platform feature (#1328, ADR-0106 amendment 2).
 - [`log-rules/README.md`](log-rules/README.md): read-only validation rule catalog and spec-requirement coverage links (`logRules`) (#1486, ADR-0122).
 - [`log-explorer/README.md`](log-explorer/README.md): general log explorer workbench (source read port, sequence piece, token/export, evidence handoff) (#1344, ADR-0119, ADR-0121).

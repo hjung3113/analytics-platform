@@ -33,6 +33,7 @@ isTransientReadError | function | function isTransientReadError(error: unknown):
 paneHref | function | function paneHref(registry: @ap/kernel#Registry, screen: @ap/kernel/host#PaneScreen): string
 queryRecoveryEvidence | function | function queryRecoveryEvidence(response: @ap/contracts#ApiResponse<unknown>, host: Current): Evidence | undefined
 registerLentPanel | function | function registerLentPanel(source: Source, registration: @ap/kernel#LentPanelRegistration | ComponentType<@ap/kernel#LentPanelProps>): void
+textFor | function | function textFor(key: @ap/kernel#Key, lang: @ap/kernel#Lang): string
 useAdapterRequest | function | function useAdapterRequest<T>(run: (signal: AbortSignal) => Promise<T>, key: unknown, enabled?: boolean, options?: { shared?: boolean; }): @ap/kernel#RequestState<T>
 useArrivalFocus | function | function useArrivalFocus(arrive: (request: @ap/kernel/host#PageFocus) => void, { enabled, rereadKey }?: @ap/kernel/host#ArrivalFocusOptions): void
 useCustomGroupList | function | function useCustomGroupList(scopeId: null | string, enabled: boolean): @ap/kernel/host#CustomGroupList

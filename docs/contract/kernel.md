@@ -93,7 +93,7 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 
 페이지 키(`pageKeys`·`contextResetKeys`), 상세 경로(`parent`·`navHidden`), Scope 필요 여부(`requiresScope`), 지표 초기화(`initializesMetric`), 그룹 대표(`primary`, 그룹당 정확히 하나)도 메뉴가 선언한다. `createRegistry`가 시작 시 중복·충돌·공간 규칙을 검증한다([패키지 경계](../integration/platform-packages.md) §5). 필드명은 Candidate다.
 
-**기능 메뉴의 조회 권한(#2641):** 선택 필드 `MenuMeta.requiredCapability`의 `id`에 앱의 조회 권한을 선언한다. Registry는 선언을 메뉴에 담아 전달하고, 메뉴 진입은 `permission`·`additionalPermissions`로 판정한다. 서버가 각 요청의 접근을 판정한다. 기능 브리지는 메뉴에 `managedSystem` 페이지 키가 있으면 이 권한으로 목록 범위의 «범위 밖»을 표시한다. `scopePicker: 'page'`는 메뉴 본문이 범위 선택기를 그릴 때 선언한다. `requestOnMenuDenial: { label, roleRequired }`는 `features:access`로 막힌 메뉴에서 같은 권한의 요청 가능 여부를 확인하고, 두 언어로 권한 이름과 역할 요건을 표시한다. 필드를 생략하면 기존 메뉴 동작을 유지한다.
+**기능 메뉴의 조회 권한(#2641):** 선택 필드 `MenuMeta.requiredCapability`의 `id`에 앱의 조회 권한을 선언한다. Registry는 선언을 메뉴에 담아 전달하고, 메뉴 진입은 `permission`·`additionalPermissions`로 판정한다. 서버가 각 요청의 접근을 판정한다. 기능 다리는 메뉴에 `managedSystem` 페이지 키가 있으면 이 권한으로 목록 범위의 «범위 밖»을 표시한다. `requiredCapability.scopePicker: 'page'`는 메뉴 본문이 범위 선택기를 그릴 때 선언한다. `requiredCapability.requestOnMenuDenial: { label, roleRequired }`는 `features:access`로 막힌 메뉴에서 같은 권한의 요청 가능 여부를 확인하고, 두 언어로 권한 이름과 역할 요건을 표시한다. 필드를 생략하면 기존 메뉴 동작을 유지한다.
 
 **메뉴 검색어(Decided, #1943):** 메뉴는 선택 필드 `keywords { ko?: string[], en?: string[] }`로 «이 메뉴를 부르는 다른 말»을 선언한다. 기본은 빈 목록이라 선언하지 않은 메뉴는 그대로다. 플랫폼은 동의어 사전을 갖지 않고, 「장비」「택트」「게시판」 같은 현장 용어는 메뉴가 선언한다(도메인 지식은 메뉴 쪽). 명령 팔레트의 일치 규칙은 Shell 한 곳에 있다: 비교 전에 공백·대소문자를 없애고, 여러 단어는 단어마다 일치해야 하며(AND), 순위는 메뉴 이름 > `keywords` > 그룹·시스템 이름(여러 단어는 가장 낮은 순위를 따른다), 같은 순위에서는 최근 방문 순서다. 접근 가능한 예정 메뉴는 일치 순위와 관계없이 마지막 「준비 중」 묶음으로 보이며 각 행에 「예정」을 표시한다. 결과가 0건일 때만 질의가 메뉴 이름·`keywords`와 한 글자(삽입·삭제·치환) 차이인 후보를 「이 메뉴를 찾으셨나요」 아래에 보여 주고, 없으면 「일치하는 메뉴가 없습니다.」를 쓴다.
 
