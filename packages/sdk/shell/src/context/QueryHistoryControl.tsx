@@ -80,7 +80,7 @@ function HistorySession() {
       {history.status === 'loading' && <p role="status" className="text-xs text-text-secondary">{m('historyChecking')}</p>}
       <div ref={list} role="listbox" aria-label={m('historyListLabel')} tabIndex={0} onKeyDown={keyboard} className="max-h-80 overflow-auto">
         {history.entries.map((row, index) => {
-          const summary = row.status === 'ready' ? formatQuerySummary(row.candidate.global, [], { lang, axes: equipmentAxes, context: route?.menu.context, pageSummary: extension?.historyPageSummary?.(row.candidate.global, row.candidate.page) }) : row.status === 'loading' ? m('historyChecking') : m('historyRowUnavailable');
+          const summary = row.status === 'ready' ? formatQuerySummary(row.candidate.global, { lang, axes: equipmentAxes, context: route?.menu.context, pageSummary: extension?.historyPageSummary?.(row.candidate.global, row.candidate.page) }) : row.status === 'loading' ? m('historyChecking') : m('historyRowUnavailable');
           return <div role="none" key={`${row.id}:${index}`} className="flex items-start gap-1">
             <button type="button" role="option" aria-selected={false} aria-disabled={row.status !== 'ready' || undefined} tabIndex={-1} onClick={() => { void restore(row); }} className="min-w-0 flex-1 rounded p-2 text-left text-xs text-text-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus-ring">
               <span className="block [overflow-wrap:anywhere]">{summary}</span>

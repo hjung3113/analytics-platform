@@ -204,8 +204,8 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   };
   useRegisterContextEditorFocus(requestEditor);
   // Page conditions are described by the extension. The raw address also carries drill, focus and layout state.
-  const summary = formatQuerySummary(g, [], { ...summaryOptions, preset: summaryPreset(conditionPreset, 'draft') });
-  const applied = formatQuerySummary(global, [], { ...summaryOptions, pageSummary: extension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') });
+  const summary = formatQuerySummary(g, { ...summaryOptions, preset: summaryPreset(conditionPreset, 'draft') });
+  const applied = formatQuerySummary(global, { ...summaryOptions, pageSummary: extension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') });
   const foldedSummary = editing ? summary : applied;
   const invalid = (key: string) => missing.some(item => item.key === key);
   const issues = reasons.length

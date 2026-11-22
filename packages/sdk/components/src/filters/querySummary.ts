@@ -54,8 +54,16 @@ export function presetOutsideAxes(global: GlobalContext, preset: SummaryPreset):
   const axes = preset.presets.find(item => item.id === preset.id)?.axes ?? [];
   return Object.keys(global.condition ?? {}).filter(axis => axis !== CUSTOM_GROUP_AXIS && global.condition?.[axis]?.length && !axes.includes(axis));
 }
-/** Consumer metadata includes effective defaults; unknown address keys retain their raw values. */
-export function formatQuerySummary(global: GlobalContext, page: readonly Pair[], options: QuerySummaryOptions): string {
+/** The applied-query line: Context values, then the page values the menu declares in `pageSummary`. Consumer metadata includes effective defaults. */
+export function formatQuerySummary(global: GlobalContext, options: QuerySummaryOptions): string;
+/**
+ * @deprecated The `page` argument prints undeclared page keys raw (`key value`), which the query-summary rule forbids (kernel.md); every shell caller
+ * passes `[]`. Call `formatQuerySummary(global, options)` and declare page values in `pageSummary`. Removed in the next SDK minor (#2699).
+ */
+export function formatQuerySummary(global: GlobalContext, page: readonly Pair[], options: QuerySummaryOptions): string;
+export function formatQuerySummary(global: GlobalContext, pageOrOptions: readonly Pair[] | QuerySummaryOptions, maybeOptions?: QuerySummaryOptions): string {
+  const page = Array.isArray(pageOrOptions) ? pageOrOptions as readonly Pair[] : [];
+  const options = (Array.isArray(pageOrOptions) ? maybeOptions : pageOrOptions) as QuerySummaryOptions;
   const { lang, preset } = options;
   const active = preset?.presets.find(item => item.id === preset.id);
   // Values the preset leaves out of the request are not part of the query this line describes; the QueryBar still lists them as carried.
