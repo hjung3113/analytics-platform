@@ -23,7 +23,8 @@ export function emptyCategoryLabels({ horizontal, xType, categories, displayed, 
 
 export function emptyCategorySeries(categories: readonly string[], labels: ReadonlyMap<string, string>, color: string): CustomSeriesOption {
   return {
-    id: '__emptyCategoryLabel', type: 'custom', silent: true, animation: false, clip: true,
+    // No explicit id: ECharts assigns one that cannot clash with a consumer series id.
+    type: 'custom', silent: true, animation: false, clip: true,
     tooltip: { show: false },
     // Encode only the category, so the text follows zoom without supplying a numeric axis value.
     encode: { x: -1, y: 0 },

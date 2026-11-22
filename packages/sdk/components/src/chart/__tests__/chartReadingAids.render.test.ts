@@ -89,6 +89,11 @@ describe('empty category labels (#2700)', () => {
     expect(markerY).toBe(rowY);
   });
 
+  it('draws when a consumer series uses the internal marker name as its id', () => {
+    const clashing = displayed.map((series, index) => index === 0 ? { ...series, id: '__emptyCategoryLabel' } : series);
+    expect(texts(draw({ displayed: clashing, extremes: undefined, emptyCategoryLabel })).filter(t => t === emptyCategoryLabel)).toHaveLength(2);
+  });
+
   it('draws no mark by default or on vertical charts', () => {
     expect(labelCount({})).toBe(0);
     expect(labelCount({ horizontal: false, emptyCategoryLabel })).toBe(0);
