@@ -300,7 +300,7 @@ describe('TaskRequestsRoute decision dialogs', () => {
       }),
     );
     fireEvent.click(within(dialog).getByRole('button', { name: '승인' }));
-    const heading = await screen.findByRole('heading', { name: 'Task Request queue' });
+    const heading = await screen.findByRole('heading', { name: 'Task 요청 목록' });
     await waitFor(() => expect(heading).toHaveFocus());
     expect(dialog).not.toBeInTheDocument();
     expect(screen.queryByText(taskRequest.requested_outcome)).not.toBeInTheDocument();
