@@ -148,7 +148,7 @@ vi.mock('../../../lib/api', async (original) => {
       return found;
     }),
     resolveActors: vi.fn(async () => ({ actors: [], teams: [] })),
-    fetchPermissionCheck: vi.fn(async () => ({ state: 'approved' })),
+    fetchPermissionCheck: vi.fn(async () => ({ state: 'approved', decision: { allow: true } })),
     // Extra reads the real AppFrame host performs (fullscreen cases).
     fetchCapabilityScope: vi.fn(async () => ({ scope: { kind: 'all' } })),
     fetchNavCounts: vi.fn(async () => ({ counts: {} })),
