@@ -462,75 +462,97 @@ describe('TaskBoardRoute', () => {
     expect(screen.queryByRole('button', { name: '그룹화' })).not.toBeInTheDocument();
   });
 
-  it.each([false, true])(
+  const jsonReply = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+  function stubScopedBoardFetch(
+    managedSystem: string,
+    milestones: unknown[] = [],
+  ) {
+    const gate = deferred<{ status: number; body: unknown }>();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input), 'http://localhost');
+        if (
+          url.pathname === '/me/permissions/check' &&
+          url.searchParams.get('capability') === 'finding.manage' &&
+          url.searchParams.get('managed_system_id') === managedSystem
+        ) {
+          const { status, body } = await gate.promise;
+          return jsonReply(body, status);
+        }
+        return jsonReply({ items: url.pathname === '/milestones' ? milestones : [] });
+      }),
+    );
+    return async (outcome: boolean | 'error') => {
+      const reply =
+        outcome === 'error'
+          ? { status: 500, body: { code: 'internal.unexpected', message: 'fail' } }
+          : {
+              status: 200,
+              body: {
+                state: outcome ? 'approved' : 'blocked_non_requestable',
+                decision: { allow: outcome },
+              },
+            };
+      await act(async () => {
+        gate.resolve(reply);
+        await Promise.resolve();
+      });
+    };
+  }
+
+  it.each([false, true, 'error'] as const)(
     'checks finding.manage when a scoped summary total returns empty while board rows exist (allow=%s)',
     async (allow) => {
       const managedSystem = task.primary_managed_system_id;
-      const permissionGate = deferred<{ state: string; decision: { allow: boolean } }>();
+      const scopedMilestone = {
+        id: '50000000-0000-0000-0000-000000000001',
+        workspace_id: task.workspace_id,
+        display_id: 'MLS-1',
+        primary_managed_system_id: managedSystem,
+        analytics_area_id: null,
+        title: 'Launch',
+        why: 'why',
+        status: 'planning',
+        owner_actor_id: task.created_by,
+        created_by: task.created_by,
+        start_date: '2026-10-01',
+        target_date: '2026-12-31',
+        created_at: '2026-07-10T00:00:00.000Z',
+        updated_at: '2026-07-10T00:00:00.000Z',
+        progress: { released_done: 0, in_flight: 0, queued: 0, total: 0, percent: 0 },
+      };
       api.listTasks.mockImplementation(boardList([task]));
-      vi.stubGlobal(
-        'fetch',
-        vi.fn(async (input: RequestInfo | URL) => {
-          const url = new URL(String(input), 'http://localhost');
-          if (
-            url.pathname === '/me/permissions/check' &&
-            url.searchParams.get('capability') === 'finding.manage' &&
-            url.searchParams.get('managed_system_id') === managedSystem
-          ) {
-            return new Response(JSON.stringify(await permissionGate.promise), {
-              headers: { 'content-type': 'application/json' },
-            });
-          }
-          if (url.pathname === '/milestones') {
-            return new Response(
-              JSON.stringify({
-                items: [
-                  {
-                    id: '50000000-0000-0000-0000-000000000001',
-                    workspace_id: task.workspace_id,
-                    display_id: 'MLS-1',
-                    primary_managed_system_id: managedSystem,
-                    analytics_area_id: null,
-                    title: 'Launch',
-                    why: 'why',
-                    status: 'planning',
-                    owner_actor_id: task.created_by,
-                    created_by: task.created_by,
-                    start_date: '2026-10-01',
-                    target_date: '2026-12-31',
-                    created_at: '2026-07-10T00:00:00.000Z',
-                    updated_at: '2026-07-10T00:00:00.000Z',
-                    progress: { released_done: 0, in_flight: 0, queued: 0, total: 0, percent: 0 },
-                  },
-                ],
-              }),
-              { headers: { 'content-type': 'application/json' } },
-            );
-          }
-          return new Response(JSON.stringify({ items: [] }), {
-            headers: { 'content-type': 'application/json' },
-          });
-        }),
+      const settlePermission = stubScopedBoardFetch(
+        managedSystem,
+        allow === 'error' ? [] : [scopedMilestone],
       );
 
-      renderBoard(undefined, managedSystem);
+      const { client } = renderBoard(undefined, managedSystem);
 
       await screen.findByText('TASK-1000');
       const inProgressStat = () =>
         screen.getAllByText('진행 중').find((el) => !el.closest('header'))?.nextElementSibling;
       await waitFor(() => expect(inProgressStat()).toHaveTextContent('—'));
 
-      await act(async () => {
-        permissionGate.resolve({
-          state: allow ? 'approved' : 'blocked_non_requestable',
-          decision: { allow },
-        });
-        await Promise.resolve();
-      });
+      await settlePermission(allow);
 
-      if (allow) {
+      if (allow === true) {
         await waitFor(() => expect(inProgressStat()).toHaveTextContent('0'));
         expect(screen.getByText('TASK-1000')).toBeInTheDocument();
+      } else if (allow === 'error') {
+        await waitFor(() =>
+          expect(
+            client.getQueryState(['permission-check', 'finding.manage', managedSystem])?.status,
+          ).toBe('error'),
+        );
+        expect(inProgressStat()).toHaveTextContent('—');
+        expect(screen.queryByText('Task 보드를 불러오지 못했습니다.')).not.toBeInTheDocument();
+        expect(screen.getByText(task.title)).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: '필터' }));
+        expect(screen.queryByRole('checkbox', { name: 'Milestone 없음' })).not.toBeInTheDocument();
       } else {
         expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.taskList)).toBeInTheDocument();
         expect(screen.getByRole('heading', { name: 'Task 보드' })).toBeInTheDocument();
@@ -544,27 +566,8 @@ describe('TaskBoardRoute', () => {
     'checks finding.manage when scoped Milestone filter options return empty while board rows exist (allow=%s)',
     async (allow) => {
       const managedSystem = task.primary_managed_system_id;
-      const doingTask = { ...task, status: 'doing' as const };
-      const permissionGate = deferred<{ state: string; decision: { allow: boolean } }>();
-      api.listTasks.mockImplementation(boardList([doingTask]));
-      vi.stubGlobal(
-        'fetch',
-        vi.fn(async (input: RequestInfo | URL) => {
-          const url = new URL(String(input), 'http://localhost');
-          if (
-            url.pathname === '/me/permissions/check' &&
-            url.searchParams.get('capability') === 'finding.manage' &&
-            url.searchParams.get('managed_system_id') === managedSystem
-          ) {
-            return new Response(JSON.stringify(await permissionGate.promise), {
-              headers: { 'content-type': 'application/json' },
-            });
-          }
-          return new Response(JSON.stringify({ items: [] }), {
-            headers: { 'content-type': 'application/json' },
-          });
-        }),
-      );
+      api.listTasks.mockImplementation(boardList([{ ...task, status: 'doing' as const }]));
+      const settlePermission = stubScopedBoardFetch(managedSystem);
 
       renderBoard(undefined, managedSystem);
 
@@ -576,13 +579,7 @@ describe('TaskBoardRoute', () => {
         expect(screen.queryByRole('checkbox', { name: 'Milestone 있음' })).not.toBeInTheDocument();
       });
 
-      await act(async () => {
-        permissionGate.resolve({
-          state: allow ? 'approved' : 'blocked_non_requestable',
-          decision: { allow },
-        });
-        await Promise.resolve();
-      });
+      await settlePermission(allow);
 
       if (allow) {
         expect(await screen.findByRole('checkbox', { name: 'Milestone 있음' })).toBeInTheDocument();
@@ -596,38 +593,6 @@ describe('TaskBoardRoute', () => {
       }
     },
   );
-
-  it('keeps board rows visible and hides unverified secondary zeros when finding.manage check errors', async () => {
-    const managedSystem = task.primary_managed_system_id;
-    api.listTasks.mockImplementation(boardList([task]));
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = new URL(String(input), 'http://localhost');
-        if (url.pathname === '/me/permissions/check') {
-          return new Response(JSON.stringify({ code: 'internal.unexpected', message: 'fail' }), {
-            status: 500,
-            headers: { 'content-type': 'application/json' },
-          });
-        }
-        return new Response(JSON.stringify({ items: [] }), {
-          headers: { 'content-type': 'application/json' },
-        });
-      }),
-    );
-
-    renderBoard(undefined, managedSystem);
-
-    await screen.findByText('TASK-1000');
-    const inProgressStat = () =>
-      screen.getAllByText('진행 중').find((el) => !el.closest('header'))?.nextElementSibling;
-    await waitFor(() => expect(inProgressStat()).toHaveTextContent('—'));
-    expect(screen.queryByText('Task 보드를 불러오지 못했습니다.')).not.toBeInTheDocument();
-    expect(screen.getByText(task.title)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '필터' }));
-    expect(screen.queryByRole('checkbox', { name: 'Milestone 없음' })).not.toBeInTheDocument();
-  });
 
   it('renders permission denied instead of the board unavailable copy for a 403', async () => {
     api.listTasks.mockRejectedValue(

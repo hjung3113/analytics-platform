@@ -234,50 +234,13 @@ describe('MilestonesRoute list (#514 B2c)', () => {
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
   });
 
-  it('keeps milestone rows visible and hides unverified counts when finding.manage check errors', async () => {
-    vi.mocked(listMilestones)
-      .mockResolvedValueOnce({ items: [MILESTONES[0] as MilestoneDto] })
-      .mockResolvedValue({ items: [] });
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = new URL(String(input), 'http://localhost');
-        if (url.pathname === '/me/permissions/check') {
-          return new Response(JSON.stringify({ code: 'internal.unexpected', message: 'fail' }), {
-            status: 500,
-            headers: { 'content-type': 'application/json' },
-          });
-        }
-        return new Response(JSON.stringify({ items: [] }), {
-          headers: { 'content-type': 'application/json' },
-        });
-      }),
-    );
-
-    try {
-      renderWithClient(<MilestonesRoute managedSystem={IDS.msPowerBi} />);
-
-      await screen.findByText('MLS-1021');
-      await waitFor(() =>
-        expect(screen.getByTestId('milestone-summary-in-flight')).toHaveTextContent(/^—$/),
-      );
-      expect(screen.queryByText('Milestone 목록을 불러오지 못했습니다')).not.toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
-      expect(screen.queryByRole('tab', { name: /^전체\s*,\s*0$/ })).not.toBeInTheDocument();
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it.each([false, true])(
+  it.each([false, true, 'error'] as const)(
     'checks finding.manage when scoped Milestone counts return empty while rows exist (allow=%s)',
     async (allow) => {
-      let resolvePermission!: (value: { state: string; decision: { allow: boolean } }) => void;
-      const permissionGate = new Promise<{ state: string; decision: { allow: boolean } }>(
-        (resolve) => {
-          resolvePermission = resolve;
-        },
-      );
+      let resolvePermission!: (reply: { status: number; body: unknown }) => void;
+      const permissionGate = new Promise<{ status: number; body: unknown }>((resolve) => {
+        resolvePermission = resolve;
+      });
       vi.mocked(listMilestones)
         .mockResolvedValueOnce({ items: [MILESTONES[0] as MilestoneDto] })
         .mockResolvedValue({ items: [] });
@@ -290,7 +253,9 @@ describe('MilestonesRoute list (#514 B2c)', () => {
             url.searchParams.get('capability') === 'finding.manage' &&
             url.searchParams.get('managed_system_id') === IDS.msPowerBi
           ) {
-            return new Response(JSON.stringify(await permissionGate), {
+            const { status, body } = await permissionGate;
+            return new Response(JSON.stringify(body), {
+              status,
               headers: { 'content-type': 'application/json' },
             });
           }
@@ -301,25 +266,48 @@ describe('MilestonesRoute list (#514 B2c)', () => {
       );
 
       try {
-        renderWithClient(<MilestonesRoute managedSystem={IDS.msPowerBi} />);
+        const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+        render(
+          <QueryClientProvider client={client}>
+            <MilestonesRoute managedSystem={IDS.msPowerBi} />
+          </QueryClientProvider>,
+        );
 
         await screen.findByText('MLS-1021');
         expect(screen.getByTestId('milestone-summary-in-flight')).toHaveTextContent(/^—$/);
         expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
         expect(screen.queryByRole('tab', { name: /^전체\s*,\s*0$/ })).not.toBeInTheDocument();
 
+        const reply =
+          allow === 'error'
+            ? { status: 500, body: { code: 'internal.unexpected', message: 'fail' } }
+            : {
+                status: 200,
+                body: {
+                  state: allow ? 'approved' : 'blocked_non_requestable',
+                  decision: { allow },
+                },
+              };
         await act(async () => {
-          resolvePermission({
-            state: allow ? 'approved' : 'blocked_non_requestable',
-            decision: { allow },
-          });
+          resolvePermission(reply);
           await Promise.resolve();
         });
 
-        if (allow) {
+        if (allow === true) {
           expect(await screen.findByTestId('milestone-summary-in-flight')).toHaveTextContent(/^0$/);
           expect(screen.getByRole('tab', { name: /^전체\s*,\s*0$/ })).toBeInTheDocument();
           expect(screen.getByRole('tab', { name: /^진행 중\s*,\s*0$/ })).toBeInTheDocument();
+          expect(screen.getByText('MLS-1021')).toBeInTheDocument();
+        } else if (allow === 'error') {
+          await waitFor(() =>
+            expect(
+              client.getQueryState(['permission-check', 'finding.manage', IDS.msPowerBi])?.status,
+            ).toBe('error'),
+          );
+          expect(screen.getByTestId('milestone-summary-in-flight')).toHaveTextContent(/^—$/);
+          expect(screen.queryByText('Milestone 목록을 불러오지 못했습니다')).not.toBeInTheDocument();
+          expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
+          expect(screen.queryByRole('tab', { name: /^전체\s*,\s*0$/ })).not.toBeInTheDocument();
           expect(screen.getByText('MLS-1021')).toBeInTheDocument();
         } else {
           expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList)).toHaveAttribute(
