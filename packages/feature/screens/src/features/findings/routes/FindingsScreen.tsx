@@ -31,6 +31,7 @@ import {
   useListDenial,
   useScopedEmptyListPermission,
 } from '../../../lib/cross-system/useListDenial';
+import { useIsArchivedSystem } from '../../../lib/cross-system/useIsArchivedSystem';
 import { formatCount } from '../../../lib/format/count';
 import { formatShortDate } from '../../../lib/format/datetime';
 import { useHostSeam } from '../../../lib/host/host-seam';
@@ -518,6 +519,7 @@ function FindingsListBody({
   onRetry: () => void;
   onResetFilters: () => void;
 }): React.ReactElement {
+  const archived = useIsArchivedSystem(isReadDenied && !cardProps.request && !cardProps.roleRequired ? managedSystemId : undefined);
   return (
     <section className="flex min-h-full flex-col">
       {!isReadDenied ? (
@@ -547,7 +549,7 @@ function FindingsListBody({
           returnRouteIntent="/findings"
           capability={capability}
           managedSystemId={managedSystemId}
-          explainArchivedSystem
+          archivedSystem={archived}
           recoverToMyVocs
         />
       ) : isError ? (

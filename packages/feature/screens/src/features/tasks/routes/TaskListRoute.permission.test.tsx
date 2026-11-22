@@ -1,3 +1,4 @@
+import * as registryReads from '../../../lib/api/registry-reads';
 import { useMe } from '../../../lib/auth/useMe';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
@@ -62,9 +63,10 @@ vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
   fetchManagedSystems: async () => ({ items: [] }),
 }));
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 it.each([false, true])('distinguishes a scoped empty Task list by finding.manage allow=%s', async (allow) => {
+  const catalog = vi.spyOn(registryReads, 'fetchManagedSystems').mockRejectedValue(new Error('Catalog read failed'));
   const managedSystem = '30000000-0000-4000-8000-000000000003';
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     const url = new URL(String(input), 'http://localhost');
@@ -86,6 +88,7 @@ it.each([false, true])('distinguishes a scoped empty Task list by finding.manage
   } else {
     expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.taskList)).toHaveAttribute('role', 'status');
     expect(screen.queryByTestId('list-state-message')).not.toBeInTheDocument();
+    expect(catalog).toHaveBeenCalledTimes(1);
   }
 });
 

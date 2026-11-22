@@ -2,7 +2,6 @@ import { PermissionBlockedPanel } from '@ap/ui';
 import type { ReactNode, RefObject } from 'react';
 
 import { PERMISSION_BLOCKED_REASONS } from '../lib/copy/permission-reasons';
-import { useIsArchivedSystem } from '../lib/cross-system/useIsArchivedSystem';
 import { useHostPermissionLinks, useHostSeam } from '../lib/host/host-seam';
 import { ListAccessRequestPanel, ListDenialFocus, type ListAccessRequest } from './ListAccessRequestPanel';
 import { MyVocsRecoveryLink } from './MyVocsRecoveryLink';
@@ -18,10 +17,11 @@ export function ScopedListDenialCard({
   deniedRef,
   capability,
   managedSystemId,
-  explainArchivedSystem,
+  archivedSystem,
   roleHeading,
   recoverToMyVocs,
   recoveryAction,
+  restoreFocus,
 }: {
   category: string;
   reason: string;
@@ -31,14 +31,14 @@ export function ScopedListDenialCard({
   deniedRef: RefObject<HTMLDivElement | null>;
   capability?: string;
   managedSystemId?: string | undefined;
-  explainArchivedSystem?: boolean;
+  archivedSystem?: boolean;
   roleHeading?: { category: string; level: 2 };
   recoverToMyVocs?: boolean;
   recoveryAction?: ReactNode;
+  restoreFocus?: boolean | undefined;
 }) {
   const { lang = 'ko' } = useHostSeam();
   const { permissionHomeHref } = useHostPermissionLinks();
-  const archived = useIsArchivedSystem(explainArchivedSystem && !request && !roleRequired ? managedSystemId : undefined);
   const extraExitAction = recoverToMyVocs ? <MyVocsRecoveryLink /> : null;
   let panel: ReactNode;
   if (request) {
@@ -61,18 +61,17 @@ export function ScopedListDenialCard({
     panel = <PermissionDeniedCard
       layout="card"
       category={category}
-      description={archived ? PERMISSION_BLOCKED_REASONS.archivedSystem : reason}
-      {...(archived ? {} : missing)}
+      description={archivedSystem ? PERMISSION_BLOCKED_REASONS.archivedSystem : reason}
+      {...(archivedSystem ? {} : missing)}
       announceBody
       extraExitAction={extraExitAction}
     />;
   } else {
-    // The VOC Cluster list supplies its own retry below the plain card.
     panel = <PermissionBlockedPanel layout="card" announceBody state="denied" category={category} reason={reason} />;
   }
 
   return (
-    <ListDenialFocus container={deniedRef} className="space-y-3">
+    <ListDenialFocus container={deniedRef} className="space-y-3" restoreFocus={restoreFocus}>
       {panel}
       {recoveryAction ? <div className="flex justify-center">{recoveryAction}</div> : null}
     </ListDenialFocus>

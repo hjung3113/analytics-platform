@@ -345,6 +345,7 @@ export function VocClusterListShell({
           returnRouteIntent="/voc-clusters"
           request={request ?? undefined}
           deniedRef={deniedRef}
+          restoreFocus={false}
           recoveryAction={scopedBlocked && !permissionError && scopedPermission.retry && (
             <Button variant="secondary" size="sm" onClick={(event) => {
               if (document.activeElement === event.currentTarget) deniedRef.current?.focus({ preventScroll: true });

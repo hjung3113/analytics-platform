@@ -251,7 +251,7 @@ function EvidenceSession({
     drawer: { selectedId: search.selected ?? null, close: closeSelection },
   });
   const blocked = listBlocked || denied(detail.error);
-  const archivedDetail = useIsArchivedSystem(blocked && !listBlocked ? keptSystemId : undefined);
+  const archived = useIsArchivedSystem(blocked && !cardProps.request && !cardProps.roleRequired ? keptSystemId : undefined);
   useEffect(() => {
     if (!blocked) return;
     setDraft('');
@@ -388,7 +388,7 @@ function EvidenceSession({
                 returnRouteIntent="/integration/evidence"
                 capability={capability}
                 managedSystemId={keptSystemId}
-                explainArchivedSystem
+                archivedSystem={archived}
                 recoverToMyVocs
               />
             ) : blocked ? (
@@ -396,7 +396,7 @@ function EvidenceSession({
                 <PermissionDeniedCard
                   layout="card"
                   category="근거"
-                  description={archivedDetail ? PERMISSION_BLOCKED_REASONS.archivedSystem : COPY.blocked}
+                  description={archived ? PERMISSION_BLOCKED_REASONS.archivedSystem : COPY.blocked}
                 />
               </ListDenialFocus>
             ) : scopedPermission.state === 'checking' || ((list.isPending || list.isFetching) && items.length === 0) ? (

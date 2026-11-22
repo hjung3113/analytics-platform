@@ -68,8 +68,11 @@ describe('useListDenial', () => {
       request: undefined,
     },
   ])('classifies $name and keeps the selected System', ({ error, scopedPermission, kind, request }) => {
-    const { result } = renderHook(() => useListDenial({ error, scopedPermission, managedSystemId: SYSTEM }));
+    const { result, rerender } = renderHook(() => useListDenial({ error, scopedPermission: structuredClone(scopedPermission), managedSystemId: SYSTEM }));
     expect(result.current).toMatchObject({ kind, request, keptSystemId: SYSTEM });
+    const { cardProps } = result.current;
+    rerender();
+    expect(result.current.cardProps).toBe(cardProps);
   });
 
   it.each(['controlled', 'drawer-owned'] as const)(
