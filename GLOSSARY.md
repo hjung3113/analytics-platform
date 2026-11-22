@@ -227,7 +227,7 @@ Line·PRC 그룹은 독립 전역 집합 키 `lineNames`·`prcGroups`이며 Cond
 사용자가 조회 조건의 대상 고르기에서 지금 고른 상태에 이름을 붙여 저장한 대상 묶음. 개인이 만들고 공유 그룹과 공유할 수 있으며(조직 팀 공유는 없다, ADR-0099), 만든 사람이 기록되고 수정은 만든 사람만 한다. 구성원은 그 메뉴의 조회 대상 단위(HW Time은 설비)이고, 규칙은 어느 축으로든 쓸 수 있다. 조회 기능이 있는 모든 메뉴가 같은 이름을 쓴다. 저장 내용은 Condition처럼 다시 평가하는 규칙이거나 Selection처럼 고정된 ID 목록이며, 다른 축과 함께 쓰는 «커스텀 조회 그룹» 축의 값이 된다(#2390, #2464). 코드·URL·저장 종류의 이름은 `customGroup`·`custom-group`이다.
 _Avoid_: 커스텀 그룹 — 줄이지 않는다(공유 그룹의 옛 이름이다). 공유 그룹 — 저장된 뷰를 공유받는 사람 묶음이다(아래 «분석 조건과 분석 보드»). 커스텀 조회 그룹은 조회 대상을 묶고, 공유 그룹은 사람을 묶는다.
 
-**Equipment Group Condition / Selection** (`equipmentGroup` / `selectedEquipmentIds`):
+**Equipment Group Condition / Selection** (설비 선택, `equipmentGroup` / `selectedEquipmentIds`):
 Condition은 앱이 제공한 설비 묶음 축의 조건으로 선언한 소속 기준에 맞는 설비를 다시 찾는 질의이며, 여러 축은 AND·같은 축의 여러 값은 OR로 결합한다. Selection은 사용자가 명시적으로 고른 고정 EquipmentID 목록으로 Condition과 별개의 상태다([ADR-0059](docs/adr/0059-app-injected-equipment-axes-and-condition.md), [06 §6.1](docs/contract/kernel.md#61-식별자와-url-소유-상태-decided)).
 
 ### 설비 내부 단위와 설정
@@ -531,8 +531,8 @@ _Avoid_: 전체 공개 — 범위 없이 모두에게 여는 안은 채택하지
 **피드백 운영** (폐기된 업무 시스템 이름):
 FeedbackOps의 운영 화면(수신함·Triage·Finding·Task·설문 관리·설정 등)을 올릴 업무 시스템으로 계획했으나 만들지 않는다. 그 화면들은 역할로 묶은 `업무 흐름` 공간에 있다([ADR-0110](docs/adr/0110-platform-feature-roles-and-scope.md)). 모든 사용자가 쓰는 VOC 등록·내 VOC·설문 응답은 여기가 아니라 플랫폼 메뉴와 레일이다.
 
-**발행** (지표 버전·지식 Item·모델 명세, en `Released`):
-버전이 있는 산출물 하나를 사용자가 기본으로 쓰는 판으로 공개하는 것. 지표 버전은 BRAVO가, 지식 Item과 모델 명세 Revision은 로그 지식 허브가 소유한다. 토큰으로 못 하는 고위험 동작 목록은 단어가 아니라 capability 이름으로 적는다([ADR-0116](docs/adr/0116-platform-api-tokens-personal-and-service.md) 결정 4).
+**발행** (지표 버전·지식 Item·모델 명세·분석 데이터셋, en `Released`):
+버전이 있는 산출물 하나를 사용자가 기본으로 쓰는 판으로 공개하는 것. 지표 버전은 BRAVO가, 지식 Item과 모델 명세 Revision은 로그 지식 허브가 소유한다. 분석 데이터셋은 데이터 책임자가 발행한다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md)). 토큰으로 못 하는 고위험 동작 목록은 단어가 아니라 capability 이름으로 적는다([ADR-0116](docs/adr/0116-platform-api-tokens-personal-and-service.md) 결정 4).
 _Avoid_: 게시, Published — 같은 동작을 두 이름으로 부르지 않는다(사용자 2026-10-23, 2026-10-27 `발행`/`Released`로 통일, 2026-11-07 지식 Item·모델 명세로 넓힘, 데이터 자산 허브의 표 버전도 같은 `발행`). 다른 동작은 다른 이름을 쓴다: Saved View를 공식 단계로 올리는 `공식 등록 신청`(승인·회수 포함)과 VOC의 `답변 공개`(소유자 2026-11-08). 공지의 «게시기간»은 아직 정하지 않았다.
 
 **과제** (Quest):
@@ -599,6 +599,13 @@ _Avoid_: Selection — 설비 선택(`selectedEquipmentIds`)이다. 전역 기�
 **분석 데이터셋** (`AnalysisDataset`):
 데이터 책임자가 발행한, 사용자 분석 메뉴의 원천 데이터. 데이터 단위, 필드 역할, 허용 집계, 승인된 관계, 버전을 가진다. 서버가 닫힌 질의로만 조회한다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md), #1704).
 _Avoid_: Dataset(단독) — 검증용 테스트 데이터셋이다(«표준 로그 개발»).
+
+**내 메뉴**:
+사용자가 저장한 분석 정의(저장된 뷰 또는 `analysis-menu`)를 사이드바에 올린 내비 자리. Registry 항목이 아니며 원본 메뉴 또는 등록된 분석 메뉴 화면이 그린다. 공식 승인을 거치면 «공식»으로 보인다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md)).
+_Avoid_: 사용자 메뉴(Registry 메뉴로 읽힌다).
+
+**패널 인스턴스**:
+사용자 분석 메뉴 정의 안의 패널 하나. `source`는 `declared`(코드 패널, 빌린 패널 포함) 또는 `chart`(설정으로 만든 패널)이고, URL 선택 키는 `<인스턴스>.<출력 키>`다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md)).
 
 **Context 바** (`GlobalContextBar`):
 메뉴 화면 위에서 전역 Context(분석 보드에서는 선택된 칸의 분석 Context)를 보이고 바꾸는 셸 자리.

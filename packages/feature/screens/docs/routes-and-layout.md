@@ -688,7 +688,7 @@ filters. If closing detail leaves focus on the page body, focus moves to the
 denial card's first available action or to the card itself. A later explicit VOC Inbox selection still goes through the
 independently authorized detail read. When a scoped empty-list permission check shows a blocked card,
 returning window focus rechecks that permission.
-Findings, Evidence, the Task list (including My Tasks), the Task board, and
+Findings, Evidence, VOC Clusters, the Task list (including My Tasks), the Task board, and
 Milestones use the same list-denial card. A requestable denial offers the request
 or its status. A role denial names the required Developer role, and other denials
 show the required permission where applicable. The action row ends with

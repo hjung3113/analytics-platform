@@ -34,7 +34,11 @@ Primary candidate는 `../architecture/frontend-ui-ux.md`에 따라 Apache EChart
 
 **가로 막대의 빈 범주 라벨 (Decided, #2700).** `AnalysisChartFrame.emptyCategoryLabel?: string`은 표시 중인 시리즈가 하나 이상이고 그 행의 값이 모두 null 또는 누락일 때 값 축 시작점에 흐린 글자로 표시한다. 누적 여부와 `startAlign`에 관계없이 행 순서와 확대를 따르며, 값 축 범위·지점 선택·차트 요약·범례에 영향을 주지 않는다. 행 툴팁과 접근 가능한 표의 값 셀, CSV의 값 셀에도 같은 문구를 쓴다. 생략하거나 세로 차트에 전달하면 기존 표시를 유지한다.
 
+**범주 차트 도구 문구 (Decided, #2700).** 범주 차트의 툴바는 Chart Frame과 같은 `초기화`·`구간 선택` 버튼을 쓴다. 전체형은 아이콘과 글자, 간소형은 같은 접근 이름의 아이콘 버튼이다.
+
 **히트맵 null 라벨과 셀 강조 (Decided, #2496, #2773).** `HeatmapSpec.nullLabel?: string`은 값이 null인 셀의 범례, 툴팁, 표·CSV, 접근 가능한 요약과 선택 항목에 쓰인다. 기본값은 현재 언어의 «미확인»/“Unknown”이다. 비어 있는 좌표와 범주 id 라벨의 의미는 별도다. `selectedCell?: { x: string; y: string; label?: string } | null`은 두 축의 라벨로 셀 테두리와 선택 요약·동작의 기본 대상을 정한다. 선택 요약에는 제어 셀의 기본 라벨 또는 `label`을 표시한다. `cellActivation`을 선언한 히트맵에서 표 체크박스로 로컬 선택을 갱신해 값이 있는 셀 하나만 남으면, 그 셀을 요약과 동작에 우선 사용한다. 캔버스 클릭이나 Brush로 로컬 선택을 갱신하면 제어값을 따른다. 제어값이 null이면 테두리 강조가 사라지고, 실행할 표 선택도 없으면 «선택 없음»을 표시하며 셀 동작을 비활성화한다. `selectedCell`을 생략하면 차트의 로컬 선택 테두리와 선택 요약·동작을 쓴다.
+
+**히트맵 기준점 라벨 (Decided, #2700).** 발산형 `scale.pivotLabel?: string`은 메뉴가 정한 기준점 범례 문구이며, 생략하면 기존 `{pivot} 목표`를 표시한다.
 
 **가로 막대의 행 포커스와 `rowPitch`([ADR-0079](../adr/0079-chart-row-focus-row-pitch.md), #690).** `orientation="horizontal"` 범주 차트만 받는다(그 밖에서는 무시하고 개발 중 경고).
 `activeCategory`가 있으면(`null` = 행 없음) 프레임은 그 행만 강조하고 스스로 강조 상태를 바꾸지 않는다 — 막대 클릭은 `onActiveCategoryChange(category, 'pointer')`, 지점 선택기의 이동은 `(category, 'keyboard')`만 부르며 소유자는 메뉴 하나다.
@@ -139,8 +143,6 @@ Source · Updated · Coverage
 - `visibleSeriesIds?: readonly string[]`이 있으면 현재·비교 시리즈의 표시는 이 prop만 따른다. 범례는 `onVisibleSeriesChange?(ids: string[])`로 다음 표시 집합을 요청하고 자체 표시를 바꾸지 않는다. 없으면 기존 로컬 표시 상태를 쓰며 콜백은 변경을 알린다. Reset은 현재 범례의 모든 ID를 요청하고, controlled 소비자는 수락 여부를 정한다. 모든 시리즈를 끈 상태는 `표시할 시리즈를 모두 껐습니다`로 표시하며 데이터 없음으로 취급하지 않는다. 이 상태의 문장 옆에 `모두 보이기` 버튼을 둔다: controlled이면 `onVisibleSeriesChange`로 현재(비교가 켜졌을 때만 비교 포함) 시리즈의 모든 ID를 요청하고, `visibleSeriesIds`가 없으면 로컬 표시를 모두 되살린 뒤 콜백이 있으면 알린다. `LegendTree`는 `onDrill`이 있고 모든 보이기 잎이 꺼졌을 때 트리 머리에 같은 이름의 버튼(일반 Tab 정지점)을 그려, 입력 집합에 모든 잎을 더해 `onVisibleChange`로 보낸다(그 밖의 ID는 유지). 트리 제스처: 시리즈 행의 체크박스·이름 클릭·Space는 보이기이고, `onDrill`이 있으면 Enter는 드릴 가능한 행에서 드릴(펼침·`onSelect` 아님)이다. 드릴 가능한 행은 `drillOnly` 노드, 선택 `canDrill(id)`가 true인 행, `canDrill`이 없으면 자식 있는 행이며(`drillOnly`가 `canDrill=false`보다 앞서고, `onDrill`이 없으면 `canDrill`은 효과가 없다), 그 밖의 행의 Enter는 자식이 있으면 펼침 토글, 잎이면 무동작이다. 드릴 가능한 현재가 아닌 시리즈 행은 hover/focus 때 보이는 `<이름> 단계로 이동` 버튼(`tabIndex=-1`)을 갖고, `drillOnly` 노드는 체크박스·`aria-checked`·보이기 잎이 없고 행 클릭이 드릴이다. 현재 단계는 `aria-current`(`aria-selected` 아님)이며 드릴은 보이기를 바꾸지 않는다([ADR-0084](../adr/0084-legend-tree-drill.md)). 선택 prop(#2395, 기본 동작 불변): `hint`는 트리 머리에 사용법 한 줄(예: `이름: 단계 이동 · 체크: 포함/제외`)을 그리고 트리의 `aria-describedby`가 된다. `currentLabel`은 `onDrill`이 있을 때 `currentId` 행에 보이는 표시(예: `현재`, `aria-hidden` — 의미는 `aria-current`)를 단다. `drillOnName`(기본 `false`)이 true이고 `onDrill`이 있으면 드릴 가능한 행의 이름 클릭이 보이기 대신 드릴이고(현재 행은 `drillOnly`를 포함해 무동작), 체크박스·Space는 그대로 보이기다. 이 경우 `hint`로 제스처를 알린다. 선택 `onCheck?(id, checked)`(#2416)가 있으면 체크(클릭·Space)는 `onVisibleChange` 대신 누른 노드 id와 새 체크를 알린다(가지와 그 유일한 leaf가 같은 leaf를 덮어도 구분됨). 선택 `checkedOf?(id)`는 노드의 체크(`true`·`false`·`'mixed'`)를 메뉴가 직접 주고, `undefined`면 leaf에서 계산한다. 메뉴가 축이 둘인 체크(예: Motion 포함과 Module 포함)를 스스로 들 때 쓴다. `모두 보이기`는 그대로 `onVisibleChange`다.
 
 ### 종류별 상호작용
-
-- 2026-11-22 / #2700: 범주 차트의 툴바는 Chart Frame과 같은 `초기화`·`구간 선택` 버튼을 쓴다. 전체형은 아이콘과 글자, 간소형은 같은 접근 이름의 아이콘 버튼이다. 히트맵의 발산형 `scale.pivotLabel?: string`은 메뉴가 정한 기준점 범례 문구이며, 생략하면 기존 `{pivot} 목표`를 표시한다.
 
 `AnalysisChart`의 `ChartSpec`은 종류와 입력 데이터의 유효 조합을 고정한다([ADR-0058](../adr/0058-analysis-chart-spec-union.md)). 기존 line/bar `AnalysisChartFrame` 소비자는 그대로 유지한다.
 
