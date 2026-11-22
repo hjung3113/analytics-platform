@@ -306,7 +306,7 @@ describe('/surveys/:surveyId/results route', () => {
     expect(screen.getByTestId('survey-result-header')).toHaveClass('h-toolbar');
   });
 
-  it('keeps the original inset around the denied results state', async () => {
+  it('renders a shared blocked card inside the original results inset', async () => {
     useSurvey.mockReturnValue({ data: survey, isLoading: false, isError: false });
     mockParentRoute();
     useSurveyReadGate.mockReturnValue({ canRead: false, gateState: 'error' });
@@ -317,6 +317,7 @@ describe('/surveys/:surveyId/results route', () => {
 
     const deniedHeading = await screen.findByText('설문 결과');
     expect(deniedHeading.closest('.p-6')).toBeInTheDocument();
+    expect(deniedHeading.closest('[data-state="denied"]')).toHaveClass('max-w-lg');
   });
 
   it('keeps the result header above the loading results body', async () => {
@@ -478,6 +479,7 @@ describe('/surveys/:surveyId/results route', () => {
 
     const deniedHeading = await screen.findByText('설문 결과');
     expect(deniedHeading.closest('[aria-live="polite"]')).toBeInTheDocument();
+    expect(deniedHeading.closest('[data-state="denied"]')).toHaveClass('max-w-lg');
     expect(screen.queryByText('설문 결과를 찾을 수 없습니다.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '다시 시도' })).not.toBeInTheDocument();
   });

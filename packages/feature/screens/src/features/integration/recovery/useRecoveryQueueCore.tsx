@@ -318,10 +318,12 @@ export function useRecoveryQueueCore(
           action={{ label: COPY.retryQueue, onClick: () => void me.refetch() }}
         />
       ) : denied ? (
-        <>
-          <p>{COPY.listDenied}</p>
-          <PermissionBlockedPanel state="denied" category={COPY.title} />
-        </>
+        <PermissionBlockedPanel
+          layout="card"
+          state="denied"
+          category={COPY.title}
+          description={COPY.listDenied}
+        />
       ) : current.isError && !current.isFetchNextPageError ? (
         <ListStateMessage
           variant="error"
