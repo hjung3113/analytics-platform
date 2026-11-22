@@ -48,9 +48,9 @@ describe('RCC drill presentation', () => {
     expect(renderDrill(undefined)).not.toContain('aria-current="true"');
   });
 
-  it('declares single-line ID cells for the wafer run table', () => {
+  it('declares single-line cells for every wafer run column', () => {
     const html = renderDrill(step);
-    for (const column of ['equipment', 'lot', 'wafer', 'id']) {
+    for (const column of ['equipment', 'lot', 'wafer', 'startedAt', 'seconds', 'id']) {
       expect(html).toMatch(new RegExp(`data-column="${column}"><span[^>]*class="truncate"[^>]*>[^<]+</span>`));
     }
   });
