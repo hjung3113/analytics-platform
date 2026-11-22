@@ -232,13 +232,24 @@ function useBoardSummary(kind: TaskBoardSummaryKind, scope: TaskBoardScope) {
       }),
     staleTime: 30_000,
   });
-  return query.data?.page?.total;
+  const total = query.data?.page?.total;
+  const empty =
+    query.isSuccess && !query.isPlaceholderData && (total ?? query.data.items.length) === 0;
+  return { total, empty };
 }
 
 export function useTaskBoardSummary(scope: TaskBoardScope) {
+  const all = useBoardSummary('all', scope);
+  const unassigned = useBoardSummary('unassigned', scope);
+  const doing = useBoardSummary('doing', scope);
   return {
-    all: useBoardSummary('all', scope),
-    unassigned: useBoardSummary('unassigned', scope),
-    doing: useBoardSummary('doing', scope),
+    all: all.total,
+    unassigned: unassigned.total,
+    doing: doing.total,
+    empty: {
+      all: all.empty,
+      unassigned: unassigned.empty,
+      doing: doing.empty,
+    },
   };
 }

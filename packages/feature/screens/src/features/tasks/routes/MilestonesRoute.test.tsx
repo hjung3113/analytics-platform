@@ -234,6 +234,72 @@ describe('MilestonesRoute list (#514 B2c)', () => {
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
   });
 
+  it.each([false, true])(
+    'checks finding.manage when scoped Milestone counts return empty while rows exist (allow=%s)',
+    async (allow) => {
+      let resolvePermission!: (value: { state: string; decision: { allow: boolean } }) => void;
+      const permissionGate = new Promise<{ state: string; decision: { allow: boolean } }>(
+        (resolve) => {
+          resolvePermission = resolve;
+        },
+      );
+      vi.mocked(listMilestones)
+        .mockResolvedValueOnce({ items: [MILESTONES[0] as MilestoneDto] })
+        .mockResolvedValue({ items: [] });
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = new URL(String(input), 'http://localhost');
+          if (
+            url.pathname === '/me/permissions/check' &&
+            url.searchParams.get('capability') === 'finding.manage' &&
+            url.searchParams.get('managed_system_id') === IDS.msPowerBi
+          ) {
+            return new Response(JSON.stringify(await permissionGate), {
+              headers: { 'content-type': 'application/json' },
+            });
+          }
+          return new Response(JSON.stringify({ items: [] }), {
+            headers: { 'content-type': 'application/json' },
+          });
+        }),
+      );
+
+      try {
+        renderWithClient(<MilestonesRoute managedSystem={IDS.msPowerBi} />);
+
+        await screen.findByText('MLS-1021');
+        expect(screen.getByTestId('milestone-summary-in-flight')).toHaveTextContent(/^—$/);
+        expect(screen.getByRole('tab', { name: '전체' })).toBeInTheDocument();
+        expect(screen.queryByRole('tab', { name: /^전체\s*,\s*0$/ })).not.toBeInTheDocument();
+
+        await act(async () => {
+          resolvePermission({
+            state: allow ? 'approved' : 'blocked_non_requestable',
+            decision: { allow },
+          });
+          await Promise.resolve();
+        });
+
+        if (allow) {
+          expect(await screen.findByTestId('milestone-summary-in-flight')).toHaveTextContent(/^0$/);
+          expect(screen.getByRole('tab', { name: /^전체\s*,\s*0$/ })).toBeInTheDocument();
+          expect(screen.getByRole('tab', { name: /^진행 중\s*,\s*0$/ })).toBeInTheDocument();
+          expect(screen.getByText('MLS-1021')).toBeInTheDocument();
+        } else {
+          expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.milestoneList)).toHaveAttribute(
+            'role',
+            'status',
+          );
+          expect(screen.queryByTestId('milestone-summary-in-flight')).not.toBeInTheDocument();
+          expect(screen.queryAllByRole('tab')).toHaveLength(0);
+        }
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    },
+  );
+
   it.each([
     ['denied System with counts first', false, 'counts'],
     ['authorized empty System with counts first', true, 'counts'],

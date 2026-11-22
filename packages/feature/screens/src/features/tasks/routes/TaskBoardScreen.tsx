@@ -394,42 +394,6 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
       }),
     staleTime: 30_000,
   });
-  const filterCategories = React.useMemo(
-    () => [
-      {
-        key: 'priority',
-        label: '우선순위',
-        options: [...taskPrioritySchema.options].reverse().map((value) => ({
-          value,
-          label: TASK_PRIORITY_LABELS[value],
-        })),
-      },
-      {
-        key: 'milestone',
-        label: 'Milestone',
-        options: [
-          { value: '__any', label: 'Milestone 있음' },
-          { value: '__none', label: 'Milestone 없음' },
-          // A settled read error hides retained choices.
-          ...(milestoneChoices.isError
-            ? []
-            : (milestoneChoices.data?.items ?? []).map((milestone) => ({
-                value: milestone.id,
-                label: `${milestone.display_id} ${milestone.title}`,
-              }))),
-        ],
-      },
-      {
-        key: 'assignee',
-        label: '담당자',
-        options: [
-          { value: '__unassigned', label: '미배정' },
-          ...(actors ?? []).map((actor) => ({ value: actor.id, label: actor.display_name })),
-        ],
-      },
-    ],
-    [actors, milestoneChoices.data, milestoneChoices.isError],
-  );
   function changeFilters(next: Filters) {
     const bounded: Filters = {};
     for (const [key, values] of Object.entries(next)) {
@@ -529,10 +493,17 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
     pending: query.isPending,
     errored: query.isError && query.data === undefined,
   }));
+  const primaryEmpty =
+    items.length === 0 && queryStates.every((query) => query.isSuccess && !query.isPlaceholderData);
+  const summaryEmpty = summary.empty.all || summary.empty.unassigned || summary.empty.doing;
+  const milestoneChoicesEmpty =
+    milestoneChoices.isSuccess &&
+    !milestoneChoices.isPlaceholderData &&
+    milestoneChoices.data.items.length === 0;
   const scopedPermission = useScopedEmptyListPermission({
     capability,
     managedSystemId: managedSystem,
-    empty: items.length === 0 && queryStates.every((query) => query.isSuccess && !query.isPlaceholderData),
+    empty: primaryEmpty || summaryEmpty || milestoneChoicesEmpty,
   });
   const scopedBlocked = scopedPermission.state === 'blocked';
   const { denied, deniedRef, request } = useListDenial({
@@ -543,6 +514,49 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
     identity: JSON.stringify(focusScope),
     ...(scopedBlocked ? { drawer: { selectedId, close: closePanel } } : {}),
   });
+  const secondaryVerified =
+    scopedPermission.state === 'unchecked' || scopedPermission.state === 'allowed';
+  const milestoneOptions = React.useMemo(() => {
+    if (milestoneChoicesEmpty && !secondaryVerified) return [];
+    const fetched = milestoneChoices.isError
+      ? []
+      : (milestoneChoices.data?.items ?? []).map((milestone) => ({
+          value: milestone.id,
+          label: `${milestone.display_id} ${milestone.title}`,
+        }));
+    return [
+      { value: '__any', label: 'Milestone 있음' },
+      { value: '__none', label: 'Milestone 없음' },
+      // A settled read error hides retained choices.
+      ...fetched,
+    ];
+  }, [milestoneChoices.data, milestoneChoices.isError, milestoneChoicesEmpty, secondaryVerified]);
+  const filterCategories = React.useMemo(
+    () => [
+      {
+        key: 'priority',
+        label: '우선순위',
+        options: [...taskPrioritySchema.options].reverse().map((value) => ({
+          value,
+          label: TASK_PRIORITY_LABELS[value],
+        })),
+      },
+      {
+        key: 'milestone',
+        label: 'Milestone',
+        options: milestoneOptions,
+      },
+      {
+        key: 'assignee',
+        label: '담당자',
+        options: [
+          { value: '__unassigned', label: '미배정' },
+          ...(actors ?? []).map((actor) => ({ value: actor.id, label: actor.display_name })),
+        ],
+      },
+    ],
+    [actors, milestoneOptions],
+  );
   if (denied) {
     return (
       <ScopedListDenialCard
@@ -555,7 +569,9 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
       />
     );
   }
-  const boardLoading = scopedPermission.state === 'checking' || states.every(({ pending }) => pending);
+  const boardLoading =
+    (primaryEmpty && scopedPermission.state === 'checking') ||
+    states.every(({ pending }) => pending);
   const boardError = scopedPermission.state === 'error' || states.every(({ errored }) => errored);
   const firstError = states.find(({ errored }) => errored)?.query.error;
   const settled = queryStates.every(
@@ -672,17 +688,22 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
               className="mx-5 my-2"
             />
             <div className="flex items-stretch gap-4 border-b border-border-subtle bg-surface-canvas px-5 py-2.5">
-              <StatBlock label="전체 Task" value={summary.all} />
+              <StatBlock
+                label="전체 Task"
+                value={summary.empty.all && !secondaryVerified ? undefined : summary.all}
+              />
               <StatDivider />
               <StatBlock
                 label="미배정"
-                value={summary.unassigned}
+                value={
+                  summary.empty.unassigned && !secondaryVerified ? undefined : summary.unassigned
+                }
                 valueClassName="text-accent-warn"
               />
               <StatDivider />
               <StatBlock
                 label="진행 중"
-                value={summary.doing}
+                value={summary.empty.doing && !secondaryVerified ? undefined : summary.doing}
                 valueClassName="text-accent-success"
               />
             </div>

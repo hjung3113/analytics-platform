@@ -180,10 +180,13 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
 
   const items = React.useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
   const listReadSucceeded = listQuery.isSuccess && !listQuery.isPlaceholderData;
+  const primaryEmpty = listReadSucceeded && items.length === 0;
+  const countReadSucceeded = countQuery.isSuccess && !countQuery.isPlaceholderData;
+  const countEmpty = countReadSucceeded && (countQuery.data?.items.length ?? 0) === 0;
   const scopedPermission = useScopedEmptyListPermission({
     capability,
     managedSystemId: managedSystem,
-    empty: listReadSucceeded && items.length === 0,
+    empty: listReadSucceeded && (primaryEmpty || countEmpty),
   });
   const scopeCheckFailed = scopedPermission.state === 'error';
   const scopedBlocked = scopedPermission.state === 'blocked';
@@ -199,7 +202,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
   // Show values only after both reads and any scoped-empty permission check are usable.
   const listVerified = listReadSucceeded &&
     (scopedPermission.state === 'unchecked' || scopedPermission.state === 'allowed');
-  const countsUnavailable = denied || !listVerified || !countQuery.isSuccess || countQuery.isPlaceholderData;
+  const countsUnavailable = denied || !listVerified || !countReadSucceeded;
   const countItems = React.useMemo(
     () => (countsUnavailable ? [] : (countQuery.data?.items ?? [])),
     [countsUnavailable, countQuery.data?.items],
@@ -418,7 +421,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
             </>}
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {listQuery.isLoading || scopedPermission.state === 'checking' ? (
+              {listQuery.isLoading || (primaryEmpty && scopedPermission.state === 'checking') ? (
                 <div className="p-4 text-sm text-text-muted">Milestones 불러오는 중…</div>
               ) : denied ? (
                 <ScopedListDenialCard

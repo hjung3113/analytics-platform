@@ -119,6 +119,9 @@ function stubFetch() {
         return found ? json({ ...found, source: null }) : json({ code: 'not_found.record' }, 404);
       }
       if (url.pathname === '/milestones') return json({ items: [] });
+      if (url.pathname === '/me/permissions/check') {
+        return json({ state: 'approved', decision: { allow: true } });
+      }
       return json({ code: 'not_found.record', message: 'unstubbed' }, 404);
     }),
   );
