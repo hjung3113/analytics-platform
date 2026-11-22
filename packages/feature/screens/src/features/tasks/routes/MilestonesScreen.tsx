@@ -356,7 +356,10 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
       <ListShell
         list={
           <>
-            {denied && primaryActionTarget !== null ? createAction : null}
+            {/* Mount hosted HostPrimaryAction in one stable position outside
+                the denied/readable branches so settling a 403 does not unmount
+                the head button or drop its focus. */}
+            {primaryActionTarget !== null ? createAction : null}
             {!denied && <>
             {/* CP-pixel finding 1 (.review/pixel-514-findings.md): with detail
                 open the list column is 708px. Keep the action side shrinkable
@@ -392,7 +395,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
                   </Button>
                   {/* B2e — opens the property block in a create state in the
                     detail slot; no separate create screen. */}
-                  {createAction}
+                  {primaryActionTarget === null ? createAction : null}
                 </div>
               }
             />

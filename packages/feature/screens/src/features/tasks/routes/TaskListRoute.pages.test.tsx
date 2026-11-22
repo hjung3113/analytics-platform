@@ -1,4 +1,7 @@
 import { useMe } from '../../../lib/auth/useMe';
+import { HOME_INBOX_COPY } from '../../../lib/copy/home';
+import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
+import { HostSeamProvider, useHostSeam } from '../../../lib/host/host-seam';
 import { TaskBoardRoute } from '../../../test/screen-host/features/tasks/routes/TaskBoardRoute';
 import { TaskListRoute } from '../../../test/screen-host/features/tasks/routes/TaskListRoute';
 import { TasksRouteView } from '../../../test/screen-host/routes/_authed/tasks';
@@ -80,6 +83,14 @@ function mount(ui: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>);
 }
+function AnchorHost({ children }: { children: ReactNode }) {
+  const base = useHostSeam();
+  return (
+    <HostSeamProvider value={{ ...base, Link: ({ to, children: content }) => <a href={to}>{content}</a> }}>
+      {children}
+    </HostSeamProvider>
+  );
+}
 describe('Task list paging and independent selection', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -111,6 +122,71 @@ describe('Task list paging and independent selection', () => {
     expect(cursors).toEqual([undefined, 'next']);
     expect(screen.getByText('80건')).toBeInTheDocument();
   });
+  it.each([403, 500] as const)(
+    'handles a %i failure on the next cursor after page one succeeds',
+    async (status) => {
+      const cursors: Array<string | undefined> = [];
+      let nextCalls = 0;
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL) => {
+          const url = new URL(String(input), 'http://localhost');
+          if (url.pathname === `/tasks/${task.id}`) return response({ ...task, source: null });
+          if (url.pathname === `/tasks/${second.id}`) return response({ ...second, source: null });
+          const query = listTasksQuerySchema.parse(Object.fromEntries(url.searchParams));
+          cursors.push(query.cursor);
+          if (query.cursor === undefined) {
+            return response({ items: [task], page: { total: 80, has_more: true, cursor: 'next' } });
+          }
+          nextCalls += 1;
+          if (status === 403) {
+            return response(
+              { code: 'permission.denied', message: 'finding.manage required' },
+              403,
+            );
+          }
+          if (nextCalls === 1) {
+            return response({ code: 'internal.unexpected', message: 'server failed' }, 500);
+          }
+          return response({ items: [second], page: { has_more: false } });
+        }),
+      );
+      mount(
+        <AnchorHost>
+          <TaskListRoute managedSystem={ms} />
+        </AnchorHost>,
+      );
+      expect(await screen.findByText('First Task')).toBeInTheDocument();
+      expect(screen.getByText('Tasks')).toBeInTheDocument();
+      expect(screen.getByText('80건')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: HOME_INBOX_COPY.loadMore }));
+
+      if (status === 403) {
+        const reason = await screen.findByText(PERMISSION_BLOCKED_REASONS.taskList);
+        expect(reason.closest('[data-state="denied"]')).toBeInTheDocument();
+        expect(screen.queryByText('Tasks')).not.toBeInTheDocument();
+        expect(screen.queryByText('80건')).not.toBeInTheDocument();
+        expect(screen.queryByText('First Task')).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: HOME_INBOX_COPY.loadMore })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: HOME_INBOX_COPY.retry })).not.toBeInTheDocument();
+        expect(cursors).toEqual([undefined, 'next']);
+        return;
+      }
+
+      const retryButton = await screen.findByRole('button', { name: HOME_INBOX_COPY.retry });
+      expect(retryButton).toBeInTheDocument();
+      expect(document.querySelector('[data-state="denied"]')).not.toBeInTheDocument();
+      expect(screen.getByText('Tasks')).toBeInTheDocument();
+      expect(screen.getByText('80건')).toBeInTheDocument();
+      expect(screen.getByText('First Task')).toBeInTheDocument();
+
+      fireEvent.click(retryButton);
+      expect(await screen.findByText('Second Task')).toBeInTheDocument();
+      expect(screen.getByText('First Task')).toBeInTheDocument();
+      expect(cursors).toEqual([undefined, 'next', 'next']);
+    },
+  );
   it.each(['missing', 'filtered'] as const)(
     'AC-981 reconciles %s param only after detail resolves',
     async (state) => {
