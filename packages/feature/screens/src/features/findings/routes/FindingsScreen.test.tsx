@@ -197,6 +197,12 @@ afterEach(() => {
   cleanup();
 });
 
+// Every list denial card names the screen as the role card does (#2752).
+function expectAllFindingsCardTitle() {
+  expect(screen.getByRole('heading', { name: '전체 Finding' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: 'Findings' })).toBeNull();
+}
+
 describe('FindingsScreen under a host seam', () => {
   it('selects and navigates nothing on mount (no auto-select), calling renderDetail with no finding', async () => {
     mount({ managedSystem: MS });
@@ -309,6 +315,7 @@ describe('FindingsScreen under a host seam', () => {
     mount({ managedSystem: MS });
     await waitFor(() => expect(lastDetailCall()[1]).toMatchObject({ listDenied: true }));
     expect(await screen.findByRole('button', { name: '권한 요청' })).toBeInTheDocument();
+    expectAllFindingsCardTitle();
     expect(shell.props.at(-1)?.toolbar).toBeUndefined();
   });
 
@@ -582,6 +589,7 @@ describe('FindingsScreen under a host seam', () => {
     expect(home).toHaveAttribute('href', '/company/');
     expect(Array.from(action.parentElement?.children ?? [])).toEqual([action, home, screen.getByRole('link', { name: '내 VOC' })]);
     expect(screen.getByText('필요한 권한')).toBeInTheDocument();
+    expectAllFindingsCardTitle();
     if (status) expect(screen.getByText(status)).toBeInTheDocument();
     // The menu's reason says only what cannot be seen; asking for access is the shared first line and the action.
     expect(screen.getByText('Finding 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
@@ -639,6 +647,7 @@ describe('FindingsScreen under a host seam', () => {
     expect(Array.from(home.parentElement?.children ?? [])).toEqual([home, screen.getByRole('link', { name: '내 VOC' })]);
     expect(screen.getByText('Finding 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
     expect(await screen.findByText('Finding 조회 · 품질 시스템')).toBeInTheDocument();
+    expectAllFindingsCardTitle();
     expect(screen.queryByText(/권한을 요청하세요/)).not.toBeInTheDocument();
     expect(permissionRequestHref).not.toHaveBeenCalled();
     expect(shell.props.at(-1)?.toolbar).toBeUndefined();
@@ -659,6 +668,7 @@ describe('FindingsScreen under a host seam', () => {
     }) });
 
     expect(await screen.findByText('보관된 시스템이라 볼 수 없습니다.')).toBeInTheDocument();
+    expectAllFindingsCardTitle();
     const home = screen.getByRole('link', { name: '홈으로' });
     expect(Array.from(home.parentElement?.children ?? [])).toEqual([home, screen.getByRole('link', { name: '내 VOC' })]);
     expect(screen.queryByText('필요한 권한')).not.toBeInTheDocument();
