@@ -34,6 +34,7 @@ describe('heatmap cell statuses (#2326)', () => {
     expect(within(table).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['x', 'y', '값', '상태', '선택']);
     expect(within(table).getAllByRole('row')[2]).toHaveTextContent('미확인○ 판정 불가 · Recipe 미구분');
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenCalledWith(expect.anything(), ['x', 'y', '값 (s)', '상태', '사유'], [['PM1', 'EQ1', 15, '판정 불가', 'Recipe 미구분'], ['PM2', 'EQ1', '미확인', '판정 불가', 'Recipe 미구분']]);
   });
   it('without statuses keeps option data, tooltip, table, summary and CSV unchanged', async () => {
@@ -46,6 +47,7 @@ describe('heatmap cell statuses (#2326)', () => {
     fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
     expect(within(screen.getByRole('table')).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['x', 'y', '값', '선택']);
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(downloadChartCsv).toHaveBeenCalledWith(expect.anything(), ['x', 'y', '값 (s)'], [['PM1', 'EQ1', 15], ['PM2', 'EQ1', '미확인']]);
   });
 });

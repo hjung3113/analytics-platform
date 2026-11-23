@@ -37,20 +37,16 @@ describe('Chart chrome levels (#2372)', () => {
       } else {
         if (expected === 'standard') expect(screen.getByRole('region', { name: '선택 요약' })).toBeVisible();
       }
-      if (kind === 'frame' || expected === 'full') {
-        expect(within(screen.getByRole('toolbar')).getByRole('button', { name: '내보내기' })).toBeVisible();
-      } else {
-        expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
-      }
+      // Export stays on the toolbar at every chrome level for every kind (#2736).
+      expect(within(screen.getByRole('toolbar')).getByRole('button', { name: '내보내기' })).toBeVisible();
       if (expected === 'full') { cleanup(); continue; }
       fireEvent.click(screen.getByRole('button', { name: '더보기' }));
       const more = screen.getByRole('dialog', { name: '더보기' });
-      if (kind === 'frame') expect(within(more).queryByRole('button', { name: '내보내기' })).toBeNull();
+      expect(within(more).queryByRole('button', { name: '내보내기' })).toBeNull();
       if (expected === 'minimal') expect(within(more).getByLabelText('범례')).toBeVisible();
       if (expected === 'standard') {
         expect(within(more).queryByLabelText('범례')).toBeNull();
         expect(within(more).queryByRole('region', { name: '선택 요약' })).toBeNull();
-        if (kind !== 'frame') expect(within(more).getByRole('button', { name: '내보내기' })).toBeVisible();
       }
       cleanup();
     }

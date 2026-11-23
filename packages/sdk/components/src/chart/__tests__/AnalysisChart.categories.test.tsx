@@ -193,6 +193,7 @@ it('default heatmap keeps numeric rendering, events, tooltip, table and CSV unch
   act(() => plot.onEvents?.click?.({ componentType: 'series', seriesIndex: 0, dataIndex: 0 }, {} as never));
   fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
   const baseline = { html: view.container.innerHTML.replace(/_r_[^_]+_/g, '_id_'), option: JSON.parse(JSON.stringify(plot.option)), events: Object.keys(plot.onEvents ?? {}), csv: vi.mocked(downloadChartCsv).mock.calls[0].slice(1) };
   expect(baseline).toMatchSnapshot();
   view.update({ ...heat, cells: heat.cells.map(c => ({ ...c, category: 'ignored-without-categories' })) });
@@ -216,13 +217,12 @@ it.each([undefined, 'standard'] as const)('uses category fills and legend with %
   expect(option().series[0].data[0].label?.formatter).toContain('◆');
   expect(option().tooltip.formatter({ dataIndex: 0 })).toBe('A · Row: 15 s · 정상 · ◆ Check · Review');
   expect(option().tooltip.formatter({ dataIndex: 1 })).toBe('B · Row: 미확인 · 초과');
-  if (chrome === 'standard') fireEvent.click(screen.getByRole('button', { name: '더보기' }));
   fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   expect(within(screen.getByRole('table')).getAllByRole('columnheader').map(c => c.textContent)).toEqual(['x', 'y', '값', '범주', '상태', '선택']);
   fireEvent.click(screen.getByRole('checkbox', { name: '선택 Row · A · 정상' }));
   expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('Row · A · 정상');
-  if (chrome === 'standard') fireEvent.click(screen.getByRole('button', { name: '더보기' }));
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
   expect(downloadChartCsv).toHaveBeenCalledWith(expect.anything(), ['x', 'y', '값 (s)', '범주', '상태', '사유'], [['A', 'Row', 15, '정상', 'Check', 'Review'], ['B', 'Row', '미확인', '초과', '', '']]);
 });
 
@@ -236,6 +236,7 @@ it('uses translated category labels and treats missing or unknown category ids a
   fireEvent.click(screen.getByRole('button', { name: 'Show as table' }));
   expect(screen.getByRole('checkbox', { name: 'Select Row · A · Unknown' })).toBeVisible();
   fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
   expect(downloadChartCsv).toHaveBeenCalledWith(expect.anything(), ['x', 'y', 'Value (s)', 'Category'], [['A', 'Row', 15, 'Unknown'], ['B', 'Row', 'Unknown', 'Unknown']]);
 });
 

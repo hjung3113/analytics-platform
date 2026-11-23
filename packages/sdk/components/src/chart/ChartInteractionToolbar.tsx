@@ -4,6 +4,7 @@ import { Download, MoreHorizontal, Table2 } from 'lucide-react';
 import { useI18n, useMessages } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { chartToolVariant } from './chartChrome';
 
 type Props = {
   heading: ReactNode;
@@ -45,18 +46,18 @@ export function ChartInteractionToolbar(p: Props) {
         {p.zoom}{p.brush}{p.reset}{p.compare}{p.annotate}
       </div>
       {(p.table || p.exportCsv || p.secondary) && <div data-chart-toolbar-tail className="ml-auto flex shrink-0 items-center gap-1">
-        {p.table && <Button type="button" variant="ghost" size={size} aria-label={m('chartShowAsTable')} title={m('chartShowAsTable')} aria-pressed={p.table.shown} onClick={p.table.toggle}>
+        {p.table && <Button type="button" variant={chartToolVariant(!!p.compact, p.table.shown)} size={size} aria-label={m('chartShowAsTable')} title={m('chartShowAsTable')} aria-pressed={p.table.shown} onClick={p.table.toggle}>
           <Table2 className="size-3.5" aria-hidden />{!p.compact && m('chartShowAsTable')}
         </Button>}
         {p.exportCsv && <Popover open={exportOpen} onOpenChange={setExportOpen}>
-          <PopoverTrigger asChild><Button type="button" variant="ghost" size={size} aria-label={t('export')} title={t('export')}><Download className="size-3.5" aria-hidden />{!p.compact && t('export')}</Button></PopoverTrigger>
+          <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(!!p.compact)} size={size} aria-label={t('export')} title={t('export')}><Download className="size-3.5" aria-hidden />{!p.compact && t('export')}</Button></PopoverTrigger>
           <PopoverContent align="end" aria-label={t('export')} className="w-auto break-keep"><div className="flex flex-wrap gap-1">
             <Button type="button" variant="ghost" size="toolbar" onClick={() => { p.exportCsv?.(); setExportOpen(false); }}>{t('export')} CSV</Button>
             {p.exportTools}
           </div></PopoverContent>
         </Popover>}
         {p.secondary && <Popover open={p.secondaryOpen} onOpenChange={p.onSecondaryOpenChange}>
-          <PopoverTrigger asChild><Button type="button" variant="ghost" size="icon-xs" aria-label={m('chartMore')} title={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
+          <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(!!p.compact)} size={p.compact ? 'icon-xs' : 'icon-sm'} aria-label={m('chartMore')} title={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
           <PopoverContent align="end" aria-label={m('chartMore')} className="max-h-96 w-80 overflow-auto break-keep"><div className="flex flex-col items-start gap-2">{p.secondary}</div></PopoverContent>
         </Popover>}
       </div>}

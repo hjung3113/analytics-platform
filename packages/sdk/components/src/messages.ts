@@ -104,10 +104,12 @@ export const COMPONENTS_MESSAGES = {
     ko: '{groups}개 그룹 · {unknown}개 미확인 · 수염: 최소–최대 · {unit}',
     en: '{groups} groups · {unknown} unknown · Whiskers: min–max · {unit}',
   },
-  chartParetoSummary: { ko: '{count}개 항목 · 합계 {total} {unit}', en: '{count} items · Total {total} {unit}' },
+  chartParetoItems: { ko: '{count}개 항목', en: '{count} items' },
+  chartParetoItemsGrouped: { ko: '원본 {count}개 항목(화면 {shown}행, 나머지 {other})', en: '{count} source items ({shown} rows shown, rest in {other})' },
+  chartParetoSummary: { ko: '{items} · 합계 {total} {unit}', en: '{items} · Total {total} {unit}' },
   chartParetoSummaryWithTarget: {
-    ko: '{count}개 항목 · 합계 {total} {unit} · 상위 {reached}개 원본 항목이 {pct} 도달',
-    en: '{count} items · Total {total} {unit} · Top {reached} original items reach {pct}',
+    ko: '{items} · 합계 {total} {unit} · 상위 {reached}개 항목이 {pct} 도달',
+    en: '{items} · Total {total} {unit} · Top {reached} items reach {pct}',
   },
   chartCumulativePct: { ko: '누적 %', en: 'Cumulative %' },
   chartHeatmapSummary: {

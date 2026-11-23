@@ -14,3 +14,12 @@ export type ChartChromeOptions = {
   /** Standard only: optional caption at the end of a top/bottom legend line, or below the side list. Ignored by full/minimal. */
   legendCaption?: ReactNode;
 };
+
+/**
+ * Chart toolbar button look (#2720): full chrome shows bordered buttons (icon + text) so actions read as buttons; compact chrome keeps
+ * `ghost` icon buttons. Pass `pressed` for a toggle: it uses the shared `toggle` variant, which marks the pressed state with the selected surface.
+ */
+export function chartToolVariant(compact: boolean, pressed?: boolean): 'secondary' | 'ghost' | 'toggle' {
+  if (pressed === undefined) return compact ? 'ghost' : 'secondary';
+  return compact && !pressed ? 'ghost' : 'toggle';
+}

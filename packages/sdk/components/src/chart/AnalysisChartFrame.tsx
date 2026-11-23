@@ -1,5 +1,5 @@
 import { ChartGestureHint, ChartInteractionToolbar } from './ChartInteractionToolbar';
-import type { ChartChromeOptions } from './chartChrome';
+import { chartToolVariant, type ChartChromeOptions } from './chartChrome';
 import type { ChartTrust } from '../state/trustFormat';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import { toMs, unknownLabel, warnMissingChartUnit } from './analysisChartShared';
@@ -1000,19 +1000,19 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
             <ChartZoomButton label={m('laneZoomOut')} icon={ZoomOut} onClick={rangeActions.zoomOut} />
           </>}
         </> : rowPitch === undefined && <>
-          <Button type="button" ref={zoomInButton} variant="ghost" size={toolbarButtonSize} aria-label={m('chartZoom')} title={m('chartZoomTitle')} onClick={rangeActions.zoomIn}><ZoomIn className="size-3.5" aria-hidden />{!compactChrome && m('chartZoom')}</Button>
+          <Button type="button" ref={zoomInButton} variant={chartToolVariant(compactChrome)} size={toolbarButtonSize} aria-label={m('chartZoom')} title={m('chartZoomTitle')} onClick={rangeActions.zoomIn}><ZoomIn className="size-3.5" aria-hidden />{!compactChrome && m('chartZoom')}</Button>
           {isZoomed && <>
-            <Button type="button" variant="ghost" size={toolbarButtonSize} aria-label={m('chartZoomOut')} title={m('chartZoomOut')} onClick={() => { if (zoomsBackToFull) zoomInButton.current?.focus(); rangeActions.zoomOut(); }}><ZoomOut className="size-3.5" aria-hidden />{!compactChrome && m('chartZoomOut')}</Button>
-            <Button type="button" variant="ghost" size={toolbarButtonSize} aria-label={m('chartPanLeft')} title={m('chartPanLeft')} onClick={() => rangeActions.pan(-1)} disabled={zoom[0] <= 0}><ArrowLeft className="size-3.5" aria-hidden />{!compactChrome && m('chartPanLeft')}</Button>
-            <Button type="button" variant="ghost" size={toolbarButtonSize} aria-label={m('chartPanRight')} title={m('chartPanRight')} onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden />{!compactChrome && m('chartPanRight')}</Button>
+            <Button type="button" variant={chartToolVariant(compactChrome)} size={toolbarButtonSize} aria-label={m('chartZoomOut')} title={m('chartZoomOut')} onClick={() => { if (zoomsBackToFull) zoomInButton.current?.focus(); rangeActions.zoomOut(); }}><ZoomOut className="size-3.5" aria-hidden />{!compactChrome && m('chartZoomOut')}</Button>
+            <Button type="button" variant={chartToolVariant(compactChrome)} size={toolbarButtonSize} aria-label={m('chartPanLeft')} title={m('chartPanLeft')} onClick={() => rangeActions.pan(-1)} disabled={zoom[0] <= 0}><ArrowLeft className="size-3.5" aria-hidden />{!compactChrome && m('chartPanLeft')}</Button>
+            <Button type="button" variant={chartToolVariant(compactChrome)} size={toolbarButtonSize} aria-label={m('chartPanRight')} title={m('chartPanRight')} onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden />{!compactChrome && m('chartPanRight')}</Button>
           </>}
         </>}
-        brush={!zoomOnly && <Button type="button" ref={brushToggle} variant={brushMode ? 'secondary' : 'ghost'} size={toolbarButtonSize} aria-pressed={brushMode} aria-label={m('chartBrush')} disabled={startAlign} title={m(startAlign ? 'chartBrushStartAlignDisabled' : 'chartBrush')}
+        brush={!zoomOnly && <Button type="button" ref={brushToggle} variant={chartToolVariant(compactChrome, brushMode)} size={toolbarButtonSize} aria-pressed={brushMode} aria-label={m('chartBrush')} disabled={startAlign} title={m(startAlign ? 'chartBrushStartAlignDisabled' : 'chartBrush')}
           onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{!compactChrome && m('chartBrush')}</Button>}
         reset={zoomOnly ? <ChartZoomButton label={m('laneZoomReset')} icon={RotateCcw} onClick={resetLocal} />
-          : <Button type="button" variant="ghost" size={toolbarButtonSize} aria-label={m('chartReset')} title={m('chartReset')} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}</Button>}
-        compare={canCompare && <Button type="button" variant={compare ? 'secondary' : 'ghost'} size={toolbarButtonSize} aria-label={m('chartCompare')} title={m('chartCompare')} aria-pressed={compare} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{!compactChrome && m('chartCompare')}</Button>}
-        annotate={showAnnotate && <Button type="button" ref={annotateButton} variant="ghost" size={toolbarButtonSize} aria-label={m('chartAnnotate')} aria-describedby={annotateReason ? annotateReasonId : undefined} disabled={!selection || !!annotateReason}
+          : <Button type="button" variant={chartToolVariant(compactChrome)} size={toolbarButtonSize} aria-label={m('chartReset')} title={m('chartReset')} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}</Button>}
+        compare={canCompare && <Button type="button" variant={chartToolVariant(compactChrome, compare)} size={toolbarButtonSize} aria-label={m('chartCompare')} title={m('chartCompare')} aria-pressed={compare} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{!compactChrome && m('chartCompare')}</Button>}
+        annotate={showAnnotate && <Button type="button" ref={annotateButton} variant={chartToolVariant(compactChrome)} size={toolbarButtonSize} aria-label={m('chartAnnotate')} aria-describedby={annotateReason ? annotateReasonId : undefined} disabled={!selection || !!annotateReason}
           title={annotateReason ?? (selection ? m('chartAnnotate') : m('chartAnnotateBrushFirst'))} onClick={editor.openEditor}><MessageSquarePlus className="size-3.5" aria-hidden />{!compactChrome && m('chartAnnotate')}</Button>}
         table={zoomOnly ? undefined : { shown: showTable, toggle: () => setShowTable(open => !open) }}
         exportCsv={canExport ? exportCsv : undefined}

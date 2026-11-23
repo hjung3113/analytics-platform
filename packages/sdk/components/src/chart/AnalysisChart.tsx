@@ -1,5 +1,5 @@
 import { ChartGestureHint, ChartInteractionToolbar } from './ChartInteractionToolbar';
-import type { ChartChromeOptions } from './chartChrome';
+import { chartToolVariant, type ChartChromeOptions } from './chartChrome';
 import type { ChartBounds, ChartBoundLabels } from './chartBounds';
 import { BrushIcon, ChevronDown, ChevronUp, RotateCcw, Play, ExternalLink } from 'lucide-react';
 import type { ChartTrust } from '../state/trustFormat';
@@ -23,7 +23,7 @@ import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, 
 import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
 import { distinctStatuses, heatmapStatusOutlines, statusMarker, statusText, type ChartStatus } from './chartStatus';
-import { AnalysisChartPart, ChartHeading, ChartTrustFooter, PanelChartChrome, ChartLegendLayout } from './analysisChartFrameParts';
+import { AnalysisChartPart, ChartHeading, ChartTrustFooter, ChartLegendLayout } from './analysisChartFrameParts';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import type { ChartRowGroups } from './chartRowGroups';
 import { HEATMAP_CATEGORY_TOKENS, UNKNOWN_HEATMAP_CATEGORY_TOKENS } from './heatmapCategories';
@@ -441,7 +441,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} secondaryOpen={panelToolsOpen} onSecondaryOpenChange={setPanelToolsOpen}
     heading={<ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion}
       compact={compact || compactChrome} hideTitle={compactChrome} />}
-    start={<Button type="button" ref={collapseButton} size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost"
+    start={<Button type="button" ref={collapseButton} size={compactChrome ? 'icon-xs' : 'toolbar'} variant={chartToolVariant(compactChrome)}
       aria-label={m(expanded ? 'chartHide' : 'chartShow')} title={m(expanded ? 'chartHide' : 'chartShow')} aria-expanded={expanded} aria-controls={bodyId} onClick={() => {
         const next = !expanded;
         if (spec.expanded === undefined) setLocalExpanded(next);
@@ -449,7 +449,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       }}>{expanded ? <ChevronUp className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
       {!compactChrome && m(expanded ? 'chartHide' : 'chartShow')}
     </Button>}
-    reset={<Button type="button" variant="ghost" size={compactChrome ? 'icon-xs' : 'toolbar'} aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}>
+    reset={<Button type="button" variant={chartToolVariant(compactChrome)} size={compactChrome ? 'icon-xs' : 'toolbar'} aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}>
       <RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}
     </Button>}
     table={{ shown: expanded && table, toggle: () => {
@@ -478,32 +478,34 @@ export function AnalysisChart(p: AnalysisChartProps) {
     </>} />;
   if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
   const toolbarButtonSize = compactChrome ? 'icon-xs' : 'toolbar';
-  const compactActionClass = compactChrome ? 'shrink-0' : undefined;
-  const categoryActions = <>
-    {spec.kind !== 'histogram' && <Button type="button" size={toolbarButtonSize} className={compactActionClass} variant="ghost"
-      aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}><RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}</Button>}
-    {brushable && <Button type="button" size={toolbarButtonSize} className={compactActionClass} variant={brushMode ? 'secondary' : 'ghost'}
+  const categoryToolbar = !topN && <ChartInteractionToolbar compact={compactChrome} reserveCorner={section !== null}
+    toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} secondaryOpen={panelToolsOpen} onSecondaryOpenChange={setPanelToolsOpen}
+    heading={<ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion}
+      compact={compact || compactChrome} hideTitle={compactChrome} />}
+    brush={brushable && <Button type="button" size={toolbarButtonSize} variant={chartToolVariant(compactChrome, brushMode)}
       aria-label={m('chartBrush')} title={m('chartBrush')} aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}><BrushIcon className="size-3.5" aria-hidden />{!compactChrome && m('chartBrush')}</Button>}
-  </>;
+    // A histogram has no selection, brush or zoom, so Reset would have nothing to clear (#2736).
+    reset={spec.kind !== 'histogram' && <Button type="button" size={toolbarButtonSize} variant={chartToolVariant(compactChrome)}
+      aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}><RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}</Button>}
+    table={{ shown: table, toggle: () => setTable(current => !current) }}
+    exportCsv={exportGate.allowed ? exportCsv : undefined}
+    exportTools={exportGate.allowed && <>
+      {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} onOutcome={exportGate.say} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
+      {p.imagePrint && <ChartImagePrintButton standalone={p.exportActions} onOutcome={exportGate.say} title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
+    </>}
+    secondary={compactChrome && <>
+      {chrome === 'minimal' && kindLegend}
+      <p className="border-t border-border-subtle pt-2 text-text-secondary">{summary}</p>
+    </>} />;
   return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), fittedDonut && 'min-h-64 overflow-y-auto', embedded && 'rounded-none border-0 shadow-none')}>
     <AnalysisChartPart enabled={section !== null}>
       {topN ? <>{rankingToolbar}{chrome === 'full' && kindLegend}
         {!compactChrome && <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>}
-      </> : <PanelChartChrome open={panelToolsOpen} onOpenChange={setPanelToolsOpen} enabled={compactChrome} toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} actions={categoryActions}>
-      <header className={cn('flex flex-wrap items-start justify-between', embedded ? 'gap-1 px-4 pt-1' : 'gap-2 px-4 pt-3', section && 'pr-12')}>
-        {!compactChrome && <ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion} compact={compact} hideTitle={false} />}
-        <div role="toolbar" aria-label={m('chartActions')} className="flex flex-wrap gap-1">
-          {!compactChrome && categoryActions}
-          <Button size="toolbar" variant="ghost" aria-pressed={table} onClick={() => { setTable(current => !current); if (compactChrome) setPanelToolsOpen(false); }}>{m('chartShowAsTable')}</Button>
-          {exportGate.allowed && <><Button size="toolbar" variant="ghost" onClick={exportCsv}>{t('export')}</Button>{!compactChrome && <ImageActionStatus text={exportGate.status} />}</>}
-          {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} onOutcome={compactChrome ? exportGate.say : undefined} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
-          {p.imagePrint && <ChartImagePrintButton standalone={p.exportActions} onOutcome={compactChrome ? exportGate.say : undefined} title={() => document.getElementById(titleId)?.textContent ?? ''} capture={() => echartImageBlob(chart.current)} />}
-        </div>
-      </header>
-      {chrome !== 'standard' && kindLegend}
-      <p id={compactChrome ? undefined : summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>
-      </PanelChartChrome>}
-      {topN && <ImageActionStatus text={exportGate.status} />}
+      </> : <>{categoryToolbar}
+        {chrome === 'full' && kindLegend}
+        {!compactChrome && <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>}
+      </>}
+      {(topN || !compactChrome) && <ImageActionStatus text={exportGate.status} />}
       {!topN && compactChrome && exportGate.allowed && <span role="status" className="sr-only">{exportGate.status}</span>}
       {compactChrome && <p id={summaryId} className="sr-only">{summary}</p>}
     </AnalysisChartPart>

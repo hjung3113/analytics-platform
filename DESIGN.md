@@ -240,7 +240,7 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 
 ## Layout and analysis composition
 
-정보 밀도는 장식 여백보다 우선한다. 정확한 비교는 표, 변화·분포는 차트, 요약은 KPI로 나눈다. 카드마다 동일한 시각 강도를 주는 card soup를 피하고 공유 surface/border로 계층을 만든다. 공유 반경·primitive 모양은 공유 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다. 크기도 공유 variant로 고른다 — 작은 동작 버튼 `size="toolbar"`, 아이콘 버튼 `icon-xs`/`icon-sm`, 그 밖 `sm`; 팝오버·드롭다운·툴팁은 공유 표면, segmented 선택은 공유 segmented `RadioGroup`([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 공유에 없는 모양은 아래 접근성 예외를 제외하면 플랫폼에서 덮어쓰지 않고 공유 variant로 제안한다. 예외는 접근성 하한 넷 — 입력·select·체크박스 경계의 `border-control`, `aria-disabled` 버튼의 비활성 모양, 메뉴 항목 키보드 포커스 링, `@ap/ui`가 정의하는 탭 선택 표식(ADR-0023 개정) — 뿐이다. 소비자는 primitive 모양을 덮어쓰지 않는다. 카드 그림자를 겹치지 않고, floating surface의 공유 처리는 06 §23을 따른다.
+정보 밀도는 장식 여백보다 우선한다. 정확한 비교는 표, 변화·분포는 차트, 요약은 KPI로 나눈다. 카드마다 동일한 시각 강도를 주는 card soup를 피하고 공유 surface/border로 계층을 만든다. 공유 반경·primitive 모양은 공유 원본을 따르며 버튼·input을 독자적으로 재설계하지 않는다. 크기도 공유 variant로 고른다 — 작은 동작 버튼 `size="toolbar"`, 아이콘 버튼 `icon-xs`/`icon-sm`, 그 밖 `sm`; 켜고 끄는 도구 버튼(`aria-pressed`)은 `variant="toggle"`로 켜진 상태를 선택 면·선택 테두리로 표시한다(#2720); 팝오버·드롭다운·툴팁은 공유 표면, segmented 선택은 공유 segmented `RadioGroup`([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 공유에 없는 모양은 아래 접근성 예외를 제외하면 플랫폼에서 덮어쓰지 않고 공유 variant로 제안한다. 예외는 접근성 하한 넷 — 입력·select·체크박스 경계의 `border-control`, `aria-disabled` 버튼의 비활성 모양, 메뉴 항목 키보드 포커스 링, `@ap/ui`가 정의하는 탭 선택 표식(ADR-0023 개정) — 뿐이다. 소비자는 primitive 모양을 덮어쓰지 않는다. 카드 그림자를 겹치지 않고, floating surface의 공유 처리는 06 §23을 따른다.
 
 ### 표면 위계·선택 표시 — Decided (#2456)
 

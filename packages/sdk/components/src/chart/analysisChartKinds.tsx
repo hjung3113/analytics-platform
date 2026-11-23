@@ -185,13 +185,17 @@ export function paretoData(spec: ParetoSpec, lang: Lang, unit: string): KindProj
   let originalSum = 0;
   const reached = total ? items.findIndex(item => { originalSum += item.value; return originalSum >= total * target; }) + 1 : 0;
   const tableValues = rows.map((row, i) => [row.label, `${row.value} ${unit}`, pct(cumulative[i])]);
+  // Both counts are source items, so «상위 n개» never exceeds the item count; a grouped chart also names its shown rows (#2720).
+  const itemCount = items.length > cap
+    ? formatText(COMPONENTS_MESSAGES.chartParetoItemsGrouped, lang, { count: items.length, shown: rows.length, other: otherLabel })
+    : formatText(COMPONENTS_MESSAGES.chartParetoItems, lang, { count: items.length });
   const valueHeader = formatText(COMPONENTS_MESSAGES.chartHeaderValue, lang);
   const cumulativeLabel = formatText(COMPONENTS_MESSAGES.chartCumulativePct, lang);
   return {
     rows, total, empty: total === 0,
     summary: total
-      ? formatText(COMPONENTS_MESSAGES.chartParetoSummaryWithTarget, lang, { count: rows.length, total, unit, reached, pct: pct(target * 100) })
-      : formatText(COMPONENTS_MESSAGES.chartParetoSummary, lang, { count: rows.length, total, unit }),
+      ? formatText(COMPONENTS_MESSAGES.chartParetoSummaryWithTarget, lang, { items: itemCount, total, unit, reached, pct: pct(target * 100) })
+      : formatText(COMPONENTS_MESSAGES.chartParetoSummary, lang, { items: itemCount, total, unit }),
     headers: [formatText(COMPONENTS_MESSAGES.chartHeaderName, lang), valueHeader, cumulativeLabel], tableValues,
     csvHeaders: [formatText(COMPONENTS_MESSAGES.chartHeaderName, lang), `${valueHeader} (${unit})`, cumulativeLabel],
     csvValues: rows.map((row, i) => [row.label, row.value!, cumulative[i]]),

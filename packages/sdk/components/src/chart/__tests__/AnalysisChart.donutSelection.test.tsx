@@ -29,6 +29,7 @@ it('default donut keeps rendering, events, local selection and CSV unchanged', a
   expect(onSliceClick).toHaveBeenCalledExactlyOnceWith('b');
   fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
   expect({ html: view.container.innerHTML.replace(/_r_[^_]+_/g, '_id_'), option: JSON.parse(JSON.stringify(plot.option)), events: Object.keys(plot.onEvents ?? {}), csv: vi.mocked(downloadChartCsv).mock.calls[0].slice(1) }).toMatchSnapshot();
 });
 

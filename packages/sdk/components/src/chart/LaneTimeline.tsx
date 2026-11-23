@@ -1,6 +1,6 @@
 import type { ChartTrust } from '../state/trustFormat';
 import { useCallback, useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
-import { RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
+import { BrushIcon, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button, InfoTip } from '@ap/ui';
 import { useI18n, useMessages } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
@@ -140,7 +140,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
         <InfoTip label={m('laneHowToInteract')}>{m(brushOn ? 'laneInteractionHelpBrush' : 'laneInteractionHelp')}</InfoTip>
         {zoomControl(m('laneZoomIn'), ZoomIn, () => engine.current?.zoom(0.8))}
         {zoomControl(m('laneZoomOut'), ZoomOut, () => engine.current?.zoom(1.25))}
-        {brushOn && <Button type="button" size="toolbar" variant={brush.mode ? 'secondary' : 'ghost'} aria-pressed={brush.mode} onClick={() => brush.setMode(!brush.mode)}>{m('chartBrush')}</Button>}
+        {brushOn && <Button type="button" size="toolbar" variant="toggle" aria-pressed={brush.mode} onClick={() => brush.setMode(!brush.mode)}><BrushIcon className="size-3.5" aria-hidden />{m('chartBrush')}</Button>}
         {zoomControl(m('laneZoomReset'), RotateCcw, () => { engine.current?.resetZoom(); if (brushOn) brush.clear(); })}
         {props.imageCopy && <ChartImageCopyButton standalone={props.exportActions} fileName={`${displayFileName(props.ariaLabel) || 'timeline'}.png`} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
         {props.imagePrint && <ChartImagePrintButton standalone={props.exportActions} title={() => props.ariaLabel} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
