@@ -196,7 +196,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
 });
 
 test.describe('HW Time query history — drill steps from the SDK (#2770)', () => {
-  test('two history rows that differ only in the Motion step read differently', async ({ page }) => {
+  test('two history rows that differ only in the Motion step read differently', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto(`${SCREEN}${TWO_DAYS}`);
     await expectScopeValid(page, 'MEM · 메모리');
@@ -216,5 +216,6 @@ test.describe('HW Time query history — drill steps from the SDK (#2770)', () =
     const rows = page.getByRole('list', { name: '최근 조회 조건' });
     await expect(rows.getByRole('button', { name: /Module 타입 PM · Motion Pump/ })).toBeVisible();
     await expect(rows.getByRole('button', { name: /Module 타입 PM · Motion Chuck/ })).toBeVisible();
+    await evidence(page, testInfo, 'hw-time-history-drill-steps');
   });
 });
