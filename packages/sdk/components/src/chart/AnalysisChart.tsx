@@ -36,7 +36,7 @@ export type HeatmapSpec = {
   xLabels: string[]; yLabels: string[]; cells: HeatmapCell[];
   /** Label for explicit null values. Defaults to the localized unknown value label. */
   nullLabel?: string;
-  /** Controlled plot outline by axis label. Null clears it; `label` can replace the default cell label in the selection summary. */
+  /** Controlled plot outline and fallback action cell by axis label. Null clears it; `label` can replace the default summary label. */
   selectedCell?: { x: string; y: string; label?: string } | null;
   /** Opt-in categorical fill and legend; missing/unknown category ids use the unknown fill and label. */
   categories?: readonly HeatmapCategory[];
@@ -192,6 +192,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const followedKey = followed == null ? null : JSON.stringify([p.spec.kind === 'donut' ? 'slice' : 'topNBar', followed]);
   const unfollowed: string[] | null = followed === undefined ? [] : null;
   const [selected, setSelected] = useState<string[] | null>(unfollowed);
+  const [selectionFromTable, setSelectionFromTable] = useState(false);
   const [previousFollowed, setPreviousFollowed] = useState(followed);
   if (previousFollowed !== followed) { setPreviousFollowed(followed); setSelected(unfollowed); }
   const brushedKeys = useRef<string[]>([]);
@@ -200,6 +201,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
   const spec = p.spec;
   const controlledCell = spec.kind === 'heatmap' ? spec.selectedCell : undefined;
+  const controlledCellSupplied = controlledCell !== undefined;
+  const canPreferTableSelection = spec.kind === 'heatmap' && controlledCellSupplied && !!spec.cellActivation;
   const controlledKey = controlledCell ? keyOf(controlledCell.x, controlledCell.y) : null;
   const topN = spec.kind === 'topNBar';
   useEffect(() => {
@@ -229,12 +232,23 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const active = useMemo(() => previousContext !== contextKey ? []
     : selected === null ? (followedKey !== null && keys.includes(followedKey) ? [followedKey] : [])
     : selected.filter(key => keys.includes(key)), [previousContext, contextKey, selected, followedKey, keys]);
-  if (previousContext !== contextKey) { setPreviousContext(contextKey); setSelected(unfollowed); }
+  if (previousContext !== contextKey) {
+    setPreviousContext(contextKey);
+    setSelected(unfollowed);
+    setSelectionFromTable(false);
+  }
   else if (selected !== null && active.length !== selected.length) setSelected(active);
   useEffect(() => { brushedKeys.current = []; if (brushable) clearBrush(chart.current); }, [contextKey, brushable]);
   useEffect(() => { brushedKeys.current = []; setBrushMode(false); }, [spec.kind]);
-  const reset = () => { brushedKeys.current = []; setSelected([]); if (brushable) clearBrush(chart.current); if (spec.kind === 'donut') spec.onSelectedChange?.(null); };
-  const toggle = (key: string) => {
+  const reset = () => {
+    brushedKeys.current = [];
+    setSelected([]);
+    setSelectionFromTable(false);
+    if (brushable) clearBrush(chart.current);
+    if (spec.kind === 'donut') spec.onSelectedChange?.(null);
+  };
+  const toggle = (key: string, source: 'plot' | 'table') => {
+    if (spec.kind === 'heatmap') setSelectionFromTable(source === 'table' && canPreferTableSelection);
     if (spec.kind === 'donut') {
       const next = active.includes(key) ? [] : [key];
       setSelected(next);
@@ -337,10 +351,14 @@ export function AnalysisChart(p: AnalysisChartProps) {
     : m('chartDonutSummary', { count: rows.length, total: format(total), unit: p.unit }));
   const selectedRows = rows.filter(row => active.includes(row.key));
   const controlledRow = controlledKey === null ? undefined : rows.find(row => row.key === controlledKey);
-  const controlledCellSupplied = spec.kind === 'heatmap' && controlledCell !== undefined;
-  const actionRows = controlledCellSupplied ? (controlledRow ? [controlledRow] : []) : selectedRows;
+  const useTableSelection = canPreferTableSelection && selectionFromTable
+    && selectedRows.length === 1 && selectedRows[0].value !== null;
+  const controlledActionRow = useTableSelection ? selectedRows[0] : controlledRow;
+  const controlledActionRows = controlledActionRow ? [controlledActionRow] : [];
+  const actionRows = controlledCellSupplied ? controlledActionRows : selectedRows;
   const summaryRows = actionRows;
-  const summaryLabels = (controlledRow && controlledCell?.label) ?? summaryRows.map(row => row.label).join(', ');
+  const controlledLabel = controlledActionRow === controlledRow ? controlledCell?.label : undefined;
+  const summaryLabels = controlledLabel ?? summaryRows.map(row => row.label).join(', ');
   let selectionSummary = summaryRows.length ? m(spec.kind === 'heatmap' ? 'chartHeatmapSelectionSummary' : 'chartSelectionSummary', { labels: summaryLabels, count: summaryRows.length }) : m('chartNoSelection');
   if ((spec.kind === 'scatter' || spec.kind === 'pareto') && active.length > 3) {
     const labels = selectedRows.slice(0, 3).map(row => row.label).join(', ');
@@ -507,7 +525,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
             const key = plotKey(params.seriesIndex, params.dataIndex);
             if (!key) return;
             if (!topN) {
-              toggle(key);
+              toggle(key, 'plot');
               return;
             }
             if (brushMode) return;
@@ -522,7 +540,12 @@ export function AnalysisChart(p: AnalysisChartProps) {
           finished: (_, instance) => measureGrid(instance),
           takeglobalcursor: params => { if (brushable) setBrushMode(params.key === 'brush' && params.brushOption?.brushType === 'rect'); },
           brushselected: params => { if (!brushable) return; const selections: { seriesIndex: number; dataIndex: number[] }[] = params.batch?.[0]?.selected ?? []; brushedKeys.current = [...new Set(selections.flatMap(s => s.dataIndex.flatMap(i => { const key = extended ? extended.seriesKeys[s.seriesIndex]?.[i] : s.seriesIndex === 0 ? rows[i]?.key : undefined; return key ? [key] : []; })))]; },
-          brushEnd: () => { if (!brushable) return; const next = brushedKeys.current.filter(key => keys.includes(key)); setSelected(old => old !== null && old.length === next.length && old.every(key => next.includes(key)) ? old : next); },
+          brushEnd: () => {
+            if (!brushable) return;
+            const next = brushedKeys.current.filter(key => keys.includes(key));
+            if (spec.kind === 'heatmap') setSelectionFromTable(false);
+            setSelected(old => old !== null && old.length === next.length && old.every(key => next.includes(key)) ? old : next);
+          },
         }} />
         {spec.kind === 'donut' && <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-xs text-text-secondary">
           <p>{selectedRows[0]?.label ?? spec.centerLabel ?? m('chartTotal')}</p>
@@ -541,7 +564,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       {table && <div className="overflow-auto px-4 py-2"><table tabIndex={spec.kind === 'histogram' ? 0 : undefined} className="w-full text-xs"><caption>{p.title} · {p.unit}</caption>
         <thead className="bg-surface-sunken"><tr>{(spec.kind === 'histogram' ? headers : [...headers, m('chartSelect')]).map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>
         <tbody>{rows.map((row, i) => <tr key={row.key}>{tableValues[i].map((value, j) => <td key={j}>{value}</td>)}{spec.kind !== 'histogram' && <td>
-          <Checkbox aria-label={m('chartSelectItem', { label: row.label })} checked={active.includes(row.key)} onCheckedChange={() => toggle(row.key)} />
+          <Checkbox aria-label={m('chartSelectItem', { label: row.label })} checked={active.includes(row.key)} onCheckedChange={() => toggle(row.key, 'table')} />
           {row.drill && <Button size="toolbar" variant="ghost" onClick={row.drill}>{m('chartDetails')}</Button>}
         </td>}</tr>)}</tbody>
       </table></div>}
