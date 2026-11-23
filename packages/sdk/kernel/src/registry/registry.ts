@@ -1,6 +1,7 @@
 import { registerPanels, type RegisteredPanel } from './panels';
 import { registerLentPanels, type RegisteredLentPanel } from './lent-panels';
 import { registerPageConditions } from './page-conditions';
+import { singleValuePageKeyRoles } from './page-key-roles';
 import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
 import { hasDotSegment } from '../context/location';
 import type { ComponentType, LazyExoticComponent, ReactNode } from 'react';
@@ -511,11 +512,15 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       }
     }
     // A repeated key holds a list; a drill level, a condition-preset holder and a navView preset key hold exactly one value (plan-review P1).
-    for (const key of m.repeatedPageKeys ?? []) {
-      const role = (m.drill?.levels ?? []).some(level => level.key === key) ? 'a drill level key'
-        : m.conditionPreset?.key === key ? 'the conditionPreset key'
-          : (m.navViews ?? []).some(view => Object.keys(view.page).includes(key)) ? 'a navView preset key' : null;
-      if (role) fail(`Menu "${m.id}" repeatedPageKeys key "${key}" cannot also be ${role}`);
+    if (m.repeatedPageKeys?.length) {
+      const roles = singleValuePageKeyRoles(m);
+      for (const key of m.repeatedPageKeys) {
+        const match = roles.find(([, keys]) => keys.includes(key));
+        if (match) {
+          const [role] = match;
+          fail(`Menu "${m.id}" repeatedPageKeys key "${key}" cannot also be ${role === 'conditionPreset key' ? 'the' : 'a'} ${role}`);
+        }
+      }
     }
     // Same shape once parameter names are erased (/a/:x vs /a/:y) is ambiguous; static-vs-param overlaps are resolved below.
     for (const path of [m.path, ...(m.aliases ?? [])]) {
@@ -584,7 +589,10 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
   const noDestinations: readonly MenuEntry[] = [];
   const objectDestinations = (kind: string): readonly MenuEntry[] => objectsByKind.get(kind) ?? noDestinations;
 
-  const registeredPanels = menus.flatMap(menu => registerPanels(menu, fail));
+  const registeredPanels = menus.flatMap(menu => {
+    const carryKeys = menu.carrySet === undefined ? [] : carrySetByIdMap.get(menu.carrySet)?.pageKeys ?? [];
+    return registerPanels(menu, carryKeys, fail);
+  });
   const lentPanels = registerLentPanels(menus, registeredPanels, (menuId, target) => {
     if (!missingLinkTargets.some(entry => entry.menuId === menuId && entry.target === target)) {
       missingLinkTargets.push({ menuId, target, level: 'optional' });

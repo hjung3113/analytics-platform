@@ -1,5 +1,7 @@
-import { CONTEXT_FIELDS, GLOBAL_KEYS, menuPermissions, type PanelDeclaration, type Permission, type Text } from '@ap/contracts';
+import { CONTEXT_FIELDS, GLOBAL_KEYS, menuPermissions, pageConditionKeys, RETURN_TO_KEY, type PanelDeclaration, type Permission, type Text } from '@ap/contracts';
 import type { MenuEntry } from './registry';
+import { menuAnalysisSelections } from './analysis-selections';
+import { singleValuePageKeyRoles } from './page-key-roles';
 import { disabledReason } from './panel-inputs';
 import { isIdShape, isPermissionShape } from './shapes';
 
@@ -13,7 +15,7 @@ export type RegisteredPanel = PanelDeclaration & {
 const textPresent = (text: Text | undefined) => typeof text?.ko === 'string' && text.ko.trim() !== '' && typeof text.en === 'string' && text.en.trim() !== '';
 
 /** Registration only: no query execution, URL writes or reset rules. */
-export function registerPanels(menu: MenuEntry, fail: (message: string) => never): RegisteredPanel[] {
+export function registerPanels(menu: MenuEntry, carryKeys: readonly string[], fail: (message: string) => never): RegisteredPanel[] {
   if (menu.panels === undefined) return [];
   const error = (message: string): never => fail(`Menu "${menu.id}" panel ${message}`);
   if (!Array.isArray(menu.panels)) error('panels must be an array');
@@ -23,7 +25,7 @@ export function registerPanels(menu: MenuEntry, fail: (message: string) => never
     ...requiredPage.map(input => [input.key, input.label]),
     ...(menu.drill?.levels ?? []).map(level => [level.key, level.label]),
   ]);
-  return menu.panels.map((panel: PanelDeclaration) => {
+  const registered = menu.panels.map((panel: PanelDeclaration): RegisteredPanel => {
     if (!panel || !isIdShape(panel.id)) error('id must be nonempty and contain no URL separators');
     if (ids.has(panel.id)) error(`duplicate id "${panel.id}"`);
     ids.add(panel.id);
@@ -42,6 +44,8 @@ export function registerPanels(menu: MenuEntry, fail: (message: string) => never
         if (!input || !menu.pageKeys.includes(input.key)) invalid(`unknown page key "${input?.key}"`);
         if (input.label !== undefined && !textPresent(input.label)) invalid(`${field}.page label needs nonempty ko and en`);
         if (input.required !== undefined && typeof input.required !== 'boolean') invalid(`${field}.page required must be boolean`);
+        if (input.selection !== undefined && input.selection !== 'filter' && input.selection !== 'highlight') invalid(`${field}.page selection must be filter or highlight`);
+        if (input.selection === 'highlight' && field === 'queryInputs') invalid('highlight requires displayInputs');
       }
       return [...(inputs.context ?? []), ...(inputs.page ?? []).map((input: { key: string }) => input.key)];
     };
@@ -61,6 +65,11 @@ export function registerPanels(menu: MenuEntry, fail: (message: string) => never
     for (const output of panel.outputs) {
       if (!output || GLOBAL_KEYS.has(output.key) || !menu.pageKeys.includes(output.key)) invalid(`output "${output?.key}" must be a page key`);
       if (typeof output.action !== 'string' || !output.action.trim()) invalid('output action must be nonempty');
+      if (output.selection !== undefined) {
+        const { shape, dimension } = output.selection ?? {};
+        if (shape !== 'set' && shape !== 'range') invalid('output selection shape must be set or range');
+        if (typeof dimension !== 'string' || !/^[a-z][a-zA-Z0-9]*$/.test(dimension)) invalid('output selection dimension must match /^[a-z][a-zA-Z0-9]*$/');
+      }
     }
     if (!Array.isArray(panel.endpoints)) invalid('endpoints must be an array');
     for (const endpoint of panel.endpoints) {
@@ -74,4 +83,39 @@ export function registerPanels(menu: MenuEntry, fail: (message: string) => never
     }
     return { ...panel, menuId: menu.id, permissions: [...new Set([...menuPermissions(menu), ...panel.endpoints.map((endpoint: PanelDeclaration['endpoints'][number]) => endpoint.permission)])], disabledReason: context => disabledReason(panel, context, labels) };
   });
+  validateAnalysisSelections(menu, carryKeys, error);
+  return registered;
+}
+
+function validateAnalysisSelections(menu: MenuEntry, carryKeys: readonly string[], error: (message: string) => never) {
+  const channels = menuAnalysisSelections(menu);
+  for (const panel of menu.panels ?? []) {
+    for (const { key, selection } of [...panel.queryInputs.page ?? [], ...panel.displayInputs.page ?? []]) {
+      const channel = channels.get(key);
+      if (selection !== undefined && !channel) error(`"${panel.id}" selection input "${key}" needs a matching output`);
+      if (!channel) continue;
+      if (channel.writers.some(writer => writer.panelId === panel.id)) error(`selection key "${key}" cannot be read by a panel with its own output`);
+      if (selection === undefined) error(`"${panel.id}" input "${key}" must declare selection`);
+    }
+  }
+  if (!channels.size) return;
+  const reserved = [
+    ['returnTo', [RETURN_TO_KEY]],
+    ...singleValuePageKeyRoles(menu),
+    ['pageConditions', menu.pageConditions?.categories.flatMap(pageConditionKeys) ?? []],
+    ['subjectPageKeys', Object.values(menu.subjectPageKeys ?? {})],
+    ['hiddenPageKeys', menu.hiddenPageKeys ?? []],
+    ['a carry set page key', carryKeys],
+  ] as const;
+  for (const [key, { shape, dimension, writers }] of channels) {
+    const invalid = (message: string): never => error(`selection key "${key}" ${message}`);
+    for (const { selection } of writers) {
+      if (!selection) invalid('must declare selection on every output');
+      if (selection?.shape !== shape || selection.dimension !== dimension) invalid('writers must agree on shape and dimension');
+    }
+    if (Boolean(menu.repeatedPageKeys?.includes(key)) !== (shape === 'set')) invalid(`shape "${shape}" conflicts with repeatedPageKeys`);
+    if (!menu.contextResetKeys?.includes(key)) invalid('must be in contextResetKeys');
+    const role = reserved.find(([, keys]) => keys.some(other => other === key));
+    if (role) invalid(`conflicts with ${role[0]}`);
+  }
 }
