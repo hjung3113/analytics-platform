@@ -538,7 +538,7 @@ function FindingsListBody({
       ) : isReadDenied ? (
         <ScopedListDenialCard
           {...cardProps}
-          category="Findings"
+          category={GLOSSARY.allFindings}
           roleHeading={{ category: GLOSSARY.allFindings, level: 2 }}
           reason={PERMISSION_BLOCKED_REASONS.findingsList}
           returnRouteIntent="/findings"

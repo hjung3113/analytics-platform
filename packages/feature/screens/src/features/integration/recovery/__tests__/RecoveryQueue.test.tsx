@@ -464,6 +464,8 @@ it.each([
   const message = await screen.findByText('이 목록을 볼 권한이 없습니다.');
   const card = message.closest('[data-state="denied"]');
   expect(card).toHaveTextContent(title);
+  // The shared list denial card announces its body like every other list denial (#2769).
+  expect(message.closest('[role="status"]')).not.toBeNull();
   // The card carries the section title once, at the section's level; list controls cannot act on a denied read.
   const headings = screen.getAllByRole('heading', { name: title });
   expect(headings).toHaveLength(1);
@@ -533,8 +535,12 @@ it('returns focus to the denial card when a detail closes over a denied list (#2
   await screen.findByText('이 목록을 볼 권한이 없습니다.');
   fireEvent.click(await screen.findByRole('button', { name: '패널 닫기' }));
   await waitFor(() => expect(screen.queryByTestId('recovery-panel')).toBeNull());
+  // Focus lands on the card itself, named by the queue title (#2769).
   await waitFor(() =>
-    expect(screen.getByText('이 목록을 볼 권한이 없습니다.').closest('[tabindex="-1"]')).toHaveFocus(),
+    expect(screen.getByRole('group', { name: '처리가 필요한 항목' })).toHaveFocus(),
+  );
+  expect(screen.getByRole('group', { name: '처리가 필요한 항목' })).toContainElement(
+    screen.getByText('이 목록을 볼 권한이 없습니다.'),
   );
 });
 it('renders backend blocked action reasons without executing endpoint metadata', async () => {
