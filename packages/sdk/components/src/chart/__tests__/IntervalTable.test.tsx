@@ -15,21 +15,36 @@ describe('IntervalTable', () => {
   it('builds only the shown page and pages twenty rows at a time', () => {
     const rows = pageRows();
     let page = 0;
-    const view = render(<I18nProvider><IntervalTable title="Intervals" columns={columns} count={45} rows={rows} page={page} onPage={next => { page = next; }} /></I18nProvider>);
-    expect(rows).toHaveBeenLastCalledWith(0, INTERVAL_TABLE_PAGE_SIZE);
+    const table = (count: number, at: number, onPage = (next: number) => { page = next; }) => <I18nProvider><IntervalTable title="Intervals" columns={columns} count={count} rows={rows} page={at} onPage={onPage} /></I18nProvider>;
+    const view = render(table(45, 0));
+    // Every call in a render: never a full or hidden page first.
+    expect(rows.mock.calls).toEqual([[0, INTERVAL_TABLE_PAGE_SIZE]]);
     expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(21);
     expect(screen.getByText('Intervals · 1/3')).toBeVisible();
     expect(screen.getByRole('button', { name: '이전 쪽' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
     expect(page).toBe(1);
-    view.rerender(<I18nProvider><IntervalTable title="Intervals" columns={columns} count={45} rows={rows} page={2} onPage={() => {}} /></I18nProvider>);
-    expect(rows).toHaveBeenLastCalledWith(40, 45);
+    rows.mockClear();
+    view.rerender(table(45, 2));
+    expect(rows.mock.calls).toEqual([[40, 45]]);
     expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(6);
     expect(screen.getByRole('button', { name: '다음 쪽' })).toBeDisabled();
-    // A page past the end (fewer rows after a data change) shows the last page.
-    view.rerender(<I18nProvider><IntervalTable title="Intervals" columns={columns} count={5} rows={rows} page={2} onPage={() => {}} /></I18nProvider>);
+    // A page past the end (fewer rows after a data change) shows the last page; a negative one the first.
+    rows.mockClear();
+    view.rerender(table(5, 2));
     expect(screen.getByText('Intervals · 1/1')).toBeVisible();
-    expect(rows).toHaveBeenLastCalledWith(0, 5);
+    expect(rows.mock.calls).toEqual([[0, 5]]);
+    rows.mockClear();
+    view.rerender(table(45, -1));
+    expect(rows.mock.calls).toEqual([[0, INTERVAL_TABLE_PAGE_SIZE]]);
+    expect(screen.getByText('Intervals · 1/3')).toBeVisible();
+    expect(screen.getByRole('button', { name: '이전 쪽' })).toBeDisabled();
+  });
+
+  it('renders a 0 caption inside the caption element', () => {
+    render(<I18nProvider><IntervalTable title="Intervals" caption={0} columns={columns} count={1} rows={pageRows()} page={0} onPage={() => {}} /></I18nProvider>);
+    const caption = screen.getByRole('table').querySelector('caption');
+    expect(caption?.textContent).toBe('0');
   });
 
   it('names its columns, aligns numbers to the end, keeps times on one line and marks the selected row', () => {
@@ -51,7 +66,7 @@ describe('IntervalTable', () => {
 
 describe('formatDurationMs', () => {
   it.each([
-    [0, 'ko', '0ms'], [0.25, 'ko', '<1ms'], [999, 'ko', '999ms'], [61_000, 'ko', '1분 1초'], [90_061_000, 'ko', '1일 1시간 1분 1초'], [3_600_500, 'en', '1h'], [-1, 'ko', '—'],
+    [0, 'ko', '0ms'], [0.25, 'ko', '<1ms'], [999, 'ko', '999ms'], [999.5, 'ko', '999ms'], [1000, 'ko', '1초'], [61_000, 'ko', '1분 1초'], [90_061_000, 'ko', '1일 1시간 1분 1초'], [3_600_500, 'en', '1h'], [-1, 'ko', '—'],
   ] as const)('%s ms in %s reads %s', (ms, lang, text) => {
     expect(formatDurationMs(ms, lang)).toBe(text);
   });

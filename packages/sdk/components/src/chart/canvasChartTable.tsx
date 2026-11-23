@@ -26,13 +26,14 @@ export function IntervalTable({ title, columns, count, rows, page, onPage, capti
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const pages = Math.max(1, Math.ceil(count / INTERVAL_TABLE_PAGE_SIZE));
-  const current = Math.min(page, pages - 1);
+  // `page` is a 0-based index; out-of-range or fractional input is clamped to a real page.
+  const current = Math.max(0, Math.min(Math.floor(page) || 0, pages - 1));
   const from = current * INTERVAL_TABLE_PAGE_SIZE;
   return <>
     <p className="px-4 py-2 t-caption">{title} · {current + 1}/{pages}</p>
     <div className="mx-4 mb-2 overflow-x-auto rounded-md border border-border-subtle tabular">
       <Table density="compact" aria-describedby={describedBy}>
-        {caption && <TableCaption className="text-left">{caption}</TableCaption>}
+        {caption != null && <TableCaption className="text-left">{caption}</TableCaption>}
         <TableHeader><TableRow>
           {columns.map(column => <TableHead key={column.label} scope="col" align={column.numeric ? 'end' : undefined}>{column.label}</TableHead>)}
         </TableRow></TableHeader>
@@ -58,7 +59,7 @@ const DURATION_UNITS = [
 /** A wall-clock length in its whole units, largest first (`1시간 5분`, `1h 5m`); under a second it reads in ms, a positive length under 1ms as `<1ms`. */
 export function formatDurationMs(ms: number, lang: Lang): string {
   if (!Number.isFinite(ms) || ms < 0) return '—';
-  if (ms < 1_000) return formatText(COMPONENTS_MESSAGES.durationMilliseconds, lang, { n: ms > 0 && ms < 1 ? '<1' : Math.round(ms) });
+  if (ms < 1_000) return formatText(COMPONENTS_MESSAGES.durationMilliseconds, lang, { n: ms > 0 && ms < 1 ? '<1' : Math.floor(ms) });
   let rest = Math.floor(ms / 1_000) * 1_000;
   const parts: string[] = [];
   for (const [size, text] of DURATION_UNITS) {
