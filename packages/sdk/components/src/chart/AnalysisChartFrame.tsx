@@ -493,7 +493,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const labelOf = (x: string) => groupedRowText(rowGroups, x);
   const statusParts = (x: string) => displayed.flatMap(s => { const status = statuses.get(chartPointKey({ seriesId: s.id, x })); return status ? [{ id: s.id, name: s.name, status, csvLabel: frameStatusCsvLabel(s, horizontal, status) }] : []; });
   // One visible series has nothing to align to: StartAlign then does nothing (normal value axis, Brush stays); hiding series is a normal user action, so no diagnostic.
-  const startAlign = !percent && horizontal && !!stacked && !!p.startAlign && displayed.length >= 2;
+  const startAlign = !percent && !negativeShares && horizontal && !!stacked && !!p.startAlign && displayed.length >= 2;
   const markDeclaration = !percent && horizontal && xType === 'category' && !startAlign && displayed.length > 0
     ? p.categoryValueMarks : undefined;
   const categoryValueMarks = useMemo(() => {
@@ -987,10 +987,11 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   if (chrome === 'standard') fillPlotClass = 'min-h-0 grow basis-0 overflow-hidden';
   let stackNote = timeStack?.mismatched ? m('chartStackTimeMismatch') : null;
   if (negativeShares) stackNote = m('chartStackNegativeShares');
-  const chartNotes = (totalNote || partialNote || stackNote || mismatchedLines.length > 0) && <div data-chart-notes className="space-y-0.5 px-4 pt-1 text-tiny text-text-secondary">
+  const hasChartNotes = !!(totalNote || partialNote || stackNote || mismatchedLines.length > 0);
+  const chartNotes = <div data-chart-notes={hasChartNotes ? '' : undefined} className={hasChartNotes ? 'space-y-0.5 px-4 pt-1 text-tiny text-text-secondary' : 'sr-only'}>
     {totalNote && <p>{totalNote}</p>}
     {partialNote && <p>{partialNote}</p>}
-    {stackNote && <p>{stackNote}</p>}
+    <p aria-live="polite" aria-atomic="true" className={stackNote ? undefined : 'sr-only'}>{stackNote}</p>
     {mismatchedLines.map(line => <p key={line.label}>{m('chartRefLineHiddenUnit', { label: line.label })}</p>)}
   </div>;
   const plotLegendCaption = zoomOnly ? undefined : p.legendCaption;

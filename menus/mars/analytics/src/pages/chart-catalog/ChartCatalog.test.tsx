@@ -83,6 +83,22 @@ describe('chart catalog route and lifetime', () => {
     expect(plotted()?.some(series => series.stack)).toBe(false);
   });
 
+  it('explains why breakdown min/max is disabled in percent mode and restores the preference in raw mode', async () => {
+    mount('breakdown');
+    const checkbox = await screen.findByRole<HTMLButtonElement>('checkbox', { name: '최소·최대 표시' });
+    const mode = screen.getByRole('radiogroup', { name: '쌓기' });
+    fireEvent.click(checkbox);
+    fireEvent.click(within(mode).getByRole('radio', { name: '100%' }));
+    expect(checkbox.disabled).toBe(true);
+    const reason = screen.getByText('100% 쌓기에서는 최소·최대 표시를 사용할 수 없음');
+    expect(checkbox.getAttribute('aria-describedby')).toBe(reason.id);
+    fireEvent.click(within(mode).getByRole('radio', { name: '쌓기' }));
+    expect(checkbox.disabled).toBe(false);
+    expect(checkbox.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(checkbox);
+    expect(checkbox.getAttribute('aria-checked')).toBe('false');
+  });
+
   it('fills the catalog line sample on request', async () => {
     mount();
     await screen.findByRole('img');

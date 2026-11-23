@@ -236,6 +236,7 @@ export const ANALYTICS_MESSAGES = {
   breakdownBarsNone: { ko: "없음", en: "none" },
   breakdownBarsServerTotal: { ko: "서버 합계", en: "Server total" },
   breakdownBarsShowMinMax: { ko: "최소·최대 표시", en: "Show min·max" },
+  breakdownBarsMinMaxPercentDisabled: { ko: "100% 쌓기에서는 최소·최대 표시를 사용할 수 없음", en: "Min/max is unavailable in 100% stack mode" },
   breakdownBarsTimeByState: { ko: "상태별 시간", en: "Time by state" },
   breakdownBarsAdditiveMeasureMinutes: { ko: "더할 수 있는 측정 · 분", en: "Additive measure · minutes" },
   breakdownBarsMin: { ko: "분", en: "min" },

@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
@@ -91,6 +92,35 @@ describe('Frame stack and area options (#2737)', () => {
     expect(plot.option?.xAxis).toMatchObject({ min: undefined, name: 's' });
     expect(screen.getByText('음수 값이 있어 원래 값으로 쌓아 표시함').closest('[data-chart-notes]')).toBeVisible();
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/percent.*negative/i));
+  });
+
+  it('keeps the signed axis when a percent fallback requests startAlign', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mount({ stackMode: 'percent', reaggregation: 'sum', startAlign: true,
+      series: [{ ...series[0], points: [['EQ1 · PM1', -3]] }, series[1]] });
+    await screen.findByRole('img');
+    expect(plot.option?.xAxis).toMatchObject({ min: undefined, name: 's' });
+    expect(plottedSeries().some(s => s.id.startsWith('__spacer'))).toBe(false);
+  });
+
+  it('updates the same fallback status as a negative series is shown and hidden by keyboard', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const user = userEvent.setup();
+    const view = mount({ stackMode: 'percent', reaggregation: 'sum', visibleSeriesIds: ['a'],
+      series: [series[0], { ...series[1], points: [['EQ1 · PM1', -3]] }],
+      onVisibleSeriesChange: visibleSeriesIds => view.update({ visibleSeriesIds }) });
+    await screen.findByRole('img');
+    const liveStatus = () => view.container.querySelector('[aria-live="polite"][aria-atomic="true"]');
+    const announcement = liveStatus();
+    expect(announcement).toBeInTheDocument();
+    expect(announcement).toBeEmptyDOMElement();
+    screen.getByRole('checkbox', { name: 'M2 (%)' }).focus();
+    await user.keyboard(' ');
+    expect(liveStatus()).toBe(announcement);
+    expect(announcement).toHaveTextContent('음수 값이 있어 원래 값으로 쌓아 표시함');
+    await user.keyboard(' ');
+    expect(liveStatus()).toBe(announcement);
+    expect(announcement).toBeEmptyDOMElement();
   });
 
   it('shares numeric values across the plot, tooltip, segment label, table and CSV', async () => {

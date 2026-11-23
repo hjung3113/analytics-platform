@@ -1,7 +1,7 @@
 import { useMessages } from '@ap/kernel';
 
 import { ANALYTICS_MESSAGES } from '../../messages';
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useId, useMemo, useState, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useI18n, usePlatform } from '@ap/kernel';
 import { AnalysisChartFrame, LegendTree, StateMessage, type AnalysisChartFrameProps, type ChartSeries } from '@ap/components';
@@ -38,6 +38,8 @@ export function BreakdownBars({ height, trust, stackMode, stackControl }: { heig
   const node = rawNode !== null && isPlaceId(rawNode) ? rawNode : ROOT_PLACE;
   const [visible, setVisible] = useState<ReadonlySet<string>>(() => new Set([...STATES.map(state => state.id), ...SHIFTS.map(shift => shift.id)]));
   const [minMax, setMinMax] = useState(false);
+  const minMaxDisabled = stackMode === 'percent';
+  const minMaxReasonId = useId();
   // Read once: the root, the state branch and the ancestors of a deep-linked node are open; later drills reveal their own ancestors in the tree.
   const [initiallyOpen] = useState<ReadonlySet<string>>(() => new Set(['states', 'shifts', ROOT_PLACE, ...placeIdPath(node).slice(0, -1)]));
   const rows = useMemo(() => breakdownRows(node, lang), [node, lang]);
@@ -66,9 +68,11 @@ export function BreakdownBars({ height, trust, stackMode, stackControl }: { heig
     <div className="min-w-0 flex-1 space-y-3">
       <div className="space-y-1">
         <label className="flex w-fit cursor-pointer items-center gap-2 t-caption">
-          <Checkbox checked={minMax} onCheckedChange={checked => setMinMax(checked === true)} />
+          <Checkbox checked={minMax} disabled={minMaxDisabled} aria-describedby={minMaxDisabled ? minMaxReasonId : undefined}
+            onCheckedChange={checked => setMinMax(checked === true)} />
           {m('breakdownBarsShowMinMax')}
         </label>
+        {minMaxDisabled && <p id={minMaxReasonId} className="t-caption text-text-secondary">{m('breakdownBarsMinMaxPercentDisabled')}</p>}
         <AnalysisChartFrame {...common} {...frameVisibility(STATE_IDS)} chartId="chart-catalog-breakdown-stacked" title={m('breakdownBarsTimeByState')}
           description={m('breakdownBarsAdditiveMeasureMinutes')} toolbarStart={stackControl}
           series={minutes} unit={m('breakdownBarsMin')} stacked stackMode={stackMode} valueLabels={stackMode === 'none' ? undefined : 'both'} reaggregation="sum" minMax={minMax} />
