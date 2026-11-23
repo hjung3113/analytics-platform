@@ -481,7 +481,7 @@ _Avoid_: 커스텀 권한, 사내 capability
 **막힌 자리 (blocked place)**:
 메뉴·Scope·room 또는 조회 권한이 없어 사용자가 진행하지 못한 자리. 그 대상이 미리 채워진 권한 신청으로 이어진다. 진입과 대상 규칙은 [셸 슬롯 계약](docs/contract/layout.md#8-shell-slots)을 따르고 메뉴 거부 자리의 남은 범위는 [백로그](.planning/backlog.md)에 기록한다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
 - **막힘 카드** (`PermissionBlockedPanel layout="card"`): 막힌 자리를 보여 주는 공용 카드. 잠금 아이콘·설명과 요청 또는 상태 버튼, 홈 버튼을 한 줄에 둔다([컴포넌트 계약](docs/contract/components.md)). _Avoid_: 거부 카드, denial card.
-- **목록 막힘 카드** (`ScopedListDenialCard`): 목록 읽기가 거부된 화면에서 목록 조작 대신 홀로 남는 막힘 카드. Findings·Evidence·VOC Clusters·Task 목록·Task 보드·마일스톤과 연동·홈의 복구 큐가 쓴다([화면 경로·배치](packages/feature/screens/docs/routes-and-layout.md)).
+- **목록 막힘 카드** (`ScopedListDenialCard`): 목록 읽기가 거부된 화면에서 목록 조작 대신 홀로 남는 막힘 카드. Findings·Evidence·VOC Clusters·Task 목록·Task 보드·마일스톤과 연동 대시보드의 복구 큐가 쓴다([화면 경로·배치](packages/feature/screens/docs/routes-and-layout.md)).
 
 **신청 가능 site** (`requestableScopes`):
 Scope 카탈로그에 있고 사용자에게 부여된 room이 없는 site. 플랫폼 부여 표가 원천일 때 세션의 별도 선택 필드로 내며 `{ id, label, totalRooms }`만 담는다. 부여된 site를 나열하는 `scopes`와 겹치지 않는다([ADR-0154](docs/adr/0154-site-and-room-grants-are-platform-owned.md)).
