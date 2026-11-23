@@ -26,10 +26,7 @@ type Props = {
 };
 
 export function ChartInteractionToolbar(p: Props) {
-  const { t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const size = p.compact ? 'icon-xs' : 'toolbar';
-  const [exportOpen, setExportOpen] = useState(false);
   return <header data-tools-reveal={p.toolsReveal} className={cn(
     'flex shrink-0 items-center gap-1 break-keep',
     p.compact ? 'min-w-0 px-2 pt-1' : 'flex-wrap px-4 pt-3',
@@ -46,16 +43,8 @@ export function ChartInteractionToolbar(p: Props) {
         {p.zoom}{p.brush}{p.reset}{p.compare}{p.annotate}
       </div>
       {(p.table || p.exportCsv || p.secondary) && <div data-chart-toolbar-tail className="ml-auto flex shrink-0 items-center gap-1">
-        {p.table && <Button type="button" variant={chartToolVariant(!!p.compact, p.table.shown)} size={size} aria-label={m('chartShowAsTable')} title={m('chartShowAsTable')} aria-pressed={p.table.shown} onClick={p.table.toggle}>
-          <Table2 className="size-3.5" aria-hidden />{!p.compact && m('chartShowAsTable')}
-        </Button>}
-        {p.exportCsv && <Popover open={exportOpen} onOpenChange={setExportOpen}>
-          <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(!!p.compact)} size={size} aria-label={t('export')} title={t('export')}><Download className="size-3.5" aria-hidden />{!p.compact && t('export')}</Button></PopoverTrigger>
-          <PopoverContent align="end" aria-label={t('export')} className="w-auto break-keep"><div className="flex flex-wrap gap-1">
-            <Button type="button" variant="ghost" size="toolbar" onClick={() => { p.exportCsv?.(); setExportOpen(false); }}>{t('export')} CSV</Button>
-            {p.exportTools}
-          </div></PopoverContent>
-        </Popover>}
+        {p.table && <ChartTableToggle compact={p.compact} shown={p.table.shown} toggle={p.table.toggle} />}
+        {p.exportCsv && <ChartExportMenu compact={p.compact} exportCsv={p.exportCsv} tools={p.exportTools} />}
         {p.secondary && <Popover open={p.secondaryOpen} onOpenChange={p.onSecondaryOpenChange}>
           <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(!!p.compact)} size={p.compact ? 'icon-xs' : 'icon-sm'} aria-label={m('chartMore')} title={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
           <PopoverContent align="end" aria-label={m('chartMore')} className="max-h-96 w-80 overflow-auto break-keep"><div className="flex flex-col items-start gap-2">{p.secondary}</div></PopoverContent>
@@ -63,6 +52,27 @@ export function ChartInteractionToolbar(p: Props) {
       </div>}
     </div>
   </header>;
+}
+
+/** `표로 보기`: the chart tool row's table toggle, shared by the Frame, category and canvas charts (#2792). */
+export function ChartTableToggle({ shown, toggle, compact = false, disabled }: { shown: boolean; toggle: () => void; compact?: boolean; disabled?: boolean }) {
+  const m = useMessages(COMPONENTS_MESSAGES);
+  return <Button type="button" variant={chartToolVariant(compact, shown)} size={compact ? 'icon-xs' : 'toolbar'} aria-label={m('chartShowAsTable')} title={m('chartShowAsTable')} aria-pressed={shown} disabled={disabled} onClick={toggle}>
+    <Table2 className="size-3.5" aria-hidden />{!compact && m('chartShowAsTable')}
+  </Button>;
+}
+
+/** `내보내기`: a menu with `내보내기 CSV` first and the chart's image actions (`tools`) after it (#2792). Mount it only when export is allowed. */
+export function ChartExportMenu({ exportCsv, tools, compact = false }: { exportCsv: () => void; tools?: ReactNode; compact?: boolean }) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  return <Popover open={open} onOpenChange={setOpen}>
+    <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(compact)} size={compact ? 'icon-xs' : 'toolbar'} aria-label={t('export')} title={t('export')}><Download className="size-3.5" aria-hidden />{!compact && t('export')}</Button></PopoverTrigger>
+    <PopoverContent align="end" aria-label={t('export')} className="w-auto break-keep"><div className="flex flex-wrap gap-1">
+      <Button type="button" variant="ghost" size="toolbar" onClick={() => { exportCsv(); setOpen(false); }}>{t('export')} CSV</Button>
+      {tools}
+    </div></PopoverContent>
+  </Popover>;
 }
 
 export function ChartGestureHint({ point, additive = true, drill, range = false, brushing = false }: {
