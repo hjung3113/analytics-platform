@@ -6,7 +6,7 @@ import { chartTheme, strokeToken, token } from './EChart';
 import { boundSeries, boundText, projectChartBounds, type ChartBounds, type ChartBoundLabels } from './chartBounds';
 import { lineStatusSeries } from './linePointStatus';
 import { noteLabelWidths } from './annotationLayout';
-import { GRID_BOTTOM, GRID_TOP, rowLabelGutter } from './analysisChartGeometry';
+import { GRID_BOTTOM, GRID_TOP, rowLabelGutter, SHARE_MAX, SHARE_UNIT } from './analysisChartGeometry';
 import { toMs, unknownLabel, percent } from './analysisChartShared';
 import type { HistogramBin, HistogramSpec } from './AnalysisChart';
 import type { ChartRow } from './analysisChartData';
@@ -159,6 +159,9 @@ export type ChartOptionInput = {
   previousIds: ReadonlySet<string>;
   xType: 'time' | 'category';
   horizontal: boolean;
+  percent?: boolean;
+  negativeShares?: boolean;
+  emptyLabels?: ReadonlyMap<string, string>;
   categories: readonly string[];
   zoom: readonly [number, number];
   brushMode: boolean;
@@ -347,12 +350,14 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const selectedPoints = new Set(i.selectedPointKeys);
   const statuses = i.statuses ?? new Map<string, ChartStatus>();
   const categoryMarks = i.categoryValueMarks;
-  const emptyLabels = emptyCategoryLabels(i);
+  const emptyLabels = i.percent ? i.emptyLabels : emptyCategoryLabels(i);
   let markMin = 0;
   if (categoryMarks) {
     for (const value of categoryMarks.byCategory.values()) markMin = Math.min(markMin, value);
   }
-  const horizontalMin = markMin < 0 ? (extent: { min: number }) => Math.min(extent.min, markMin) : 0;
+  // A signed raw fallback must leave room for the negative side of the stack.
+  const valueMin = i.negativeShares ? undefined : 0;
+  const horizontalMin = markMin < 0 ? (extent: { min: number }) => Math.min(extent.min, markMin) : valueMin;
   const bounds = projectChartBounds(i);
   const chips = !!i.extremes?.size && horizontal;
   const segments = !chips && horizontal && !!i.stacked && i.displayed.length > 1 && (i.valueLabels === 'segment' || i.valueLabels === 'both');
@@ -450,12 +455,14 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     if (categoryMarks && mark !== undefined) rows.push(escapeHtml(`${categoryMarks.label}: ${i.valueFormat(mark)} ${i.unit}`));
     return rows.join('<br/>');
   }
+  const formatSegment = (value: number) => i.percent ? `${i.valueFormat(value)}${SHARE_UNIT}` : shortNumber(value, lang);
+  const shareAxis = i.percent ? { max: SHARE_MAX } : {};
   const fitY = i.yFit && !horizontal && i.displayed.every(series => (series.kind ?? 'line') === 'line');
   /** The only shown series is a solid line: it gets a light area (#2725). */
   const areaLine = !horizontal && i.displayed.length === 1 && (i.displayed[0].kind ?? 'line') === 'line' && linePattern(i.displayed[0], i.previousIds.has(i.displayed[0].id)) === 'solid';
   /** Value labels inside a bar piece: the text token that reads on that fill, on a surface chip when the fill is outside the checked set. */
   const insideLabel = (n: number) => insideLabelStyle(palette.segmentText[n], palette.labelSurface);
-  const valueAxis = { type: 'value', ...(fitY ? { scale: true } : { min: 0 }), name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine,
+  const valueAxis = { type: 'value', ...(fitY ? { scale: true } : { min: valueMin }), ...shareAxis, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine,
     ...(bounds?.extent ? { min: (extent: { min: number }) => Math.min(fitY ? extent.min : 0, extent.min, bounds.extent!.min), max: (extent: { max: number }) => Math.max(extent.max, bounds.extent!.max) } : {}),
   };
   return {
@@ -470,7 +477,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     },
     // Lane mode: ticks sit at scale intervals and cannot mark lane starts, so the numbers and the unit go; lane names are drawn by the overlay's markLine.
     xAxis: lanes ? { type: 'value', min: 0, max: lanes.span || undefined, axisLabel: { show: false }, axisTick: { show: false }, splitLine: { show: false } }
-      : horizontal ? { type: 'value', min: horizontalMin, name: i.unit, splitLine: theme.splitLine, ...valueAxisTicks } : xType === 'time'
+      : horizontal ? { type: 'value', min: horizontalMin, ...shareAxis, name: i.unit, splitLine: theme.splitLine, ...valueAxisTicks } : xType === 'time'
       ? { type: 'time', axisLine: theme.axisLine, splitLine: { show: false }, ...timeAxisTicks(i.displayed, i.zoom, plotWidth) }
       : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true } },
     yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: i.rowPitch !== undefined ? 0 : 'auto', ...(i.rowPitch !== undefined ? { width: rowGutter - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(groups ? { formatter: (v: string) => (v === active ? `{active|${rowLabel(groups, v)}}` : rowLabel(groups, v)), width: groupLayout!.rowWidth - 12, overflow: 'truncate', rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : active ? { formatter: (v: string) => (v === active ? `{active|${v}}` : v), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : {}) }, axisTick: { alignWithLabel: true } } : i.rightAxis ? [valueAxis, rightValueAxis(i.rightAxis)] : valueAxis,
@@ -535,7 +542,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           ...(right ? { yAxisIndex: 1 } : {}),
           ...(right || s.unit?.trim() ? { tooltip: { valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${axis.valueFormat(v)} ${unit}`) } } : {}),
           ...(segments && kind === 'bar' ? {
-            label: { show: true, position: 'inside', fontSize: LABEL_FONT, ...insideLabel(n), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? shortNumber(p.value, lang) : '') },
+            label: { show: true, position: 'inside', fontSize: LABEL_FONT, ...insideLabel(n), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? formatSegment(p.value) : '') },
             labelLayout: (p: { dataIndex: number; labelRect: LabelRect; rect: LabelRect }) => statuses.has(chartPointKey({ seriesId: s.id, x: s.points[p.dataIndex]?.[0] })) ? {} : segmentLayout(p),
           } : {}),
           data: xType === 'time' ? s.points.map(([x, y]) => { const point = datum(x, y); return typeof point === 'object' && point !== null ? { ...point, value: [toMs(x), y] } : [toMs(x), y]; }) : s.points.map(([x, y]) => datum(x, y)),

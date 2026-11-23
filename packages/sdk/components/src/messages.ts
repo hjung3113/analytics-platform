@@ -196,6 +196,7 @@ export const COMPONENTS_MESSAGES = {
   chartApplyRangeTimeOnly: { ko: '시간축에서만 분석 구간으로 적용할 수 있습니다.', en: 'Only time-axis ranges can be applied.' },
   chartApplyRangeUnavailable: { ko: '이 화면에서 분석 구간을 바꿀 수 없습니다.', en: 'The analysis range cannot be changed in this view.' },
   chartRefLineHiddenUnit: { ko: '{label} 기준선은 단위가 달라 표시하지 않음', en: '{label} reference line hidden: different unit' },
+  chartStackNegativeShares: { ko: '음수 값이 있어 원래 값으로 쌓아 표시함', en: 'Stacked in original units: negative values are present' },
   chartStackTimeMismatch: { ko: '관측 시각이 달라 계열을 따로 표시함', en: 'Series shown separately: timestamps differ' },
   chartAllSeriesOff: { ko: '표시할 시리즈를 모두 껐습니다', en: 'All series are turned off' },
   chartShowAll: { ko: '모두 보이기', en: 'Show all' },

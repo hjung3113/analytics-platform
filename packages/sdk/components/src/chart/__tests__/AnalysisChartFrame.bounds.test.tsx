@@ -104,6 +104,24 @@ async function compareAlternatingTimes() {
   return { before, after: options() };
 }
 
+it('includes matching comparison values and falls back for mismatched sparse times', async () => {
+  const [first, , last] = hours;
+  const current: ChartSeries = { ...series[0], points: [[last, 3], [first, 2], [last, 99]] };
+  const previous: ChartSeries = { ...current, id: 'p', points: [[first, 2], [last, 1]] };
+  const view = mount({ xType: 'time', stackMode: 'percent', reaggregation: 'sum', series: [current], compareSeries: [previous],
+    bounds: new Map([[first, { upper: 8 }]]) });
+  const options = () => (plot.option as { series: { id: string; data: [number, number][] }[] }).series;
+  const values = () => options().slice(0, 2).map(s => s.data.map(([, y]) => y));
+  await screen.findByRole('img');
+  expect(values()[0]).toEqual([100, 100]);
+  expect(options().some(s => s.id === '__bounds-upper')).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: '비교' }));
+  expect(values()).toEqual([[50, 75], [50, 25]]);
+  view.update({ compareSeries: [{ ...previous, points: [[last, 1]] }] });
+  expect(values()).toEqual([[2, 3], [1]]);
+  expect(screen.getByText('관측 시각이 달라 계열을 따로 표시함')).toBeVisible();
+});
+
 it('keeps the plotted baseline within the current period when compare adds earlier and later times', async () => {
   const { before, after } = await compareAlternatingTimes();
   const ends = (options: typeof before) => options.find(s => s.id === '__bounds-upper')!.renderItem({ dataIndex: 0 }, { coord: (p: number[]) => p }).shape;
