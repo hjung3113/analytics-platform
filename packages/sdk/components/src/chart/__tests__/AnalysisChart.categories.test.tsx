@@ -176,6 +176,16 @@ it.each(['plot click', 'Brush completion'] as const)('restores controlled heatma
   expect(activate).toBeDisabled();
 });
 
+it('activates a clicked canvas cell once while the heatmap table is open', async () => {
+  const onActivate = vi.fn();
+  mount({ ...heat, selectedCell: null, cellActivation: { on: 'click', onActivate } });
+  await screen.findByRole('img');
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+  act(() => plot.onEvents?.click?.({ componentType: 'series', seriesIndex: 0, dataIndex: 0 }, {} as never));
+  expect(onActivate).toHaveBeenCalledExactlyOnceWith('A', 'Row');
+  expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('선택 없음');
+});
+
 it('default heatmap keeps numeric rendering, events, tooltip, table and CSV unchanged', async () => {
   const view = mount(heat); await screen.findByRole('img');
   expect(option().tooltip.formatter({ dataIndex: 0 })).toBe('A · Row: 15 s');
