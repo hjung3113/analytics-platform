@@ -226,7 +226,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     else declaredRows.set(row, [panel.id]);
   }
   const sharedRows = Array.from(declaredRows, ([id, members]) => ({ id, panels: members }));
-  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode, stackPreset, below, sharedRows };
+  const spec: WorkspaceSpec = { panelIds: panels.map(panel => panel.id), primaryId, presets, initialPreset, rowMinimum, initialMode, stackPreset, below, sharedRows, preferredHeights: declaredHeights, rowPreferred };
   const titleOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); return panel ? tx(panel.title) : id; };
   /** The panel's badge with its description localised. */
   const summaryOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); const summary = panel?.collapse && panel.collapse.summary !== undefined ? panel.collapse.summary : panel?.minimize?.summary; return summary ? tx(summary) : ''; };

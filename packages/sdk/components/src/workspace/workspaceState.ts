@@ -24,7 +24,11 @@ const LEGACY_FIT_SHARES = Symbol('workspace legacy fit shares');
 type AutoFill = { kind: 'single' } | { kind: 'below'; panelId: string } | { kind: 'shared'; rowId: string };
 const SINGLE_FILL: AutoFill = { kind: 'single' };
 
-export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[]; collapsed?: Record<string, PanelEdge>; floating?: DockFloatingPanel[]; sharedRowSizes?: SharedRowSize[]; [AUTO_FILL]?: AutoFill; [LEGACY_FIT_SHARES]?: LegacyFitShare[] };
+/**
+ * `preferredSeen`: the panels' declared `preferredHeight` px this state was last restored against (#2786). A stored stack row under its preferred
+ * height is raised once when a panel in it declares a height the state has not seen; after that the user's own smaller height stays.
+ */
+export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[]; preferredSeen?: Record<string, number>; collapsed?: Record<string, PanelEdge>; floating?: DockFloatingPanel[]; sharedRowSizes?: SharedRowSize[]; [AUTO_FILL]?: AutoFill; [LEGACY_FIT_SHARES]?: LegacyFitShare[] };
 export type WorkspacePreset = { id: string; layout: PanelWorkspaceLayout };
 
 /** Static identifiers only: nothing from data can reach a storage key. */
@@ -68,7 +72,16 @@ export type WorkspaceSpec = {
   /** Panels declared with `placement: 'below'` (#2398): when the layout does not hold them yet they open as a new last row, not a tab. */
   below?: readonly string[];
   sharedRows?: readonly SharedRow[];
+  /** Panels' declared `preferredHeight` px and the row height they ask for (#2786): restore raises a stored row once when a declaration is new or grew. */
+  preferredHeights?: ReadonlyMap<string, number>;
+  rowPreferred?: PreferredHeight;
 };
+
+/** `state` recording the declared heights it was restored against; without declarations the field is absent. */
+function withPreferredSeen(state: WorkspaceState, spec: Pick<WorkspaceSpec, 'preferredHeights'>): WorkspaceState {
+  const { preferredSeen: _seen, ...base } = state;
+  return spec.preferredHeights?.size ? { ...base, preferredSeen: Object.fromEntries(spec.preferredHeights) } : base;
+}
 
 /** Sanity bound on a stored row height: anything above is a corrupt value, not a layout. */
 const MAX_STORED_ROW_PX = 20000;
@@ -233,7 +246,18 @@ function restoreRows(raw: Record<string, unknown>, state: WorkspaceState, spec: 
     if (topLevelRows(previous).length === stored.length) return withRestoredSharedHeights(state, reconcileRows(previous, stored, state.layout, minimum, MAX_STORED_ROW_PX), spec);
   }
   if (stored?.length !== rows.length) return withRows(state, 'stack');
-  return withRows(state, 'stack', rows.map((row, index) => Math.max(minimum(row), stored[index]!)));
+  const seen = isRecord(raw.preferredSeen) ? raw.preferredSeen : {};
+  const declaredAnew = (row: DockNode) => panelOrder(row).some(id => {
+    const declared = spec.preferredHeights?.get(id);
+    const before = seen[id];
+    return declared !== undefined && !(typeof before === 'number' && before >= declared);
+  });
+  // A row saved under a preferred height it has not seen is raised once (#2786); fit mode and rows without a new declaration keep their px.
+  const raised = (row: DockNode, px: number) => {
+    const preferred = spec.rowPreferred?.(row);
+    return preferred !== undefined && px < preferred && declaredAnew(row) ? Math.min(preferred, MAX_STORED_ROW_PX) : px;
+  };
+  return withRows(state, 'stack', rows.map((row, index) => Math.max(minimum(row), raised(row, stored[index]!))));
 }
 
 const presetOf = (spec: WorkspaceSpec, id: string) => spec.presets.find(preset => preset.id === id) ?? spec.presets[0]!;
@@ -245,7 +269,7 @@ const stackPresetOf = (spec: Pick<WorkspaceSpec, 'presets' | 'stackPreset'>) => 
 export function initialWorkspaceState(spec: WorkspaceSpec): WorkspaceState {
   const stack = spec.initialMode !== 'fit';
   const preset = (stack ? stackPresetOf(spec) : undefined) ?? presetOf(spec, spec.initialPreset);
-  const state: WorkspaceState = { v: 1, preset: preset.id, layout: presetTree(preset.layout, spec.panelIds, spec.below, spec.sharedRows), hidden: [] };
+  const state = withPreferredSeen({ v: 1, preset: preset.id, layout: presetTree(preset.layout, spec.panelIds, spec.below, spec.sharedRows), hidden: [] }, spec);
   return stack ? { ...state, mode: 'stack' } : state;
 }
 
@@ -319,7 +343,7 @@ export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec, { fro
     const sharedChanged = shared.some(row => row.panels.some(id => shown.includes(id) !== named.has(id)));
     extra = { ...extra, ...(sizes.length ? { sharedRowSizes: sizes } : {}), ...(pending.length ? { [LEGACY_FIT_SHARES]: pending } : {}) };
     const placed = shown.filter(id => named.has(id) || id === spec.primaryId);
-    if (!shown.some(id => named.has(id))) return restoreRows(raw, { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown, spec.below, shared), hidden, ...extra }, spec);
+    if (!shown.some(id => named.has(id))) return withPreferredSeen(restoreRows(raw, { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown, spec.below, shared), hidden, ...extra }, spec), spec);
     let layout = normalizeDockTree(raw.layout, placed);
     let appended = false;
     const incoming = shown.filter(id => !placed.includes(id));
@@ -331,7 +355,7 @@ export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec, { fro
       if (spec.below?.includes(id) && panelOrder(layout).length > 1) { layout = moveToNewRow(layout, id); appended = true; }
     }
     if (sharedChanged) layout = placeSharedRows(layout, shown, shared, sizes, spec.below ?? []);
-    return restoreRows(raw, { v: 1, preset, layout, hidden, ...extra }, spec, appended || sharedChanged || (sizes.length > 0 && named.size !== shown.length));
+    return withPreferredSeen(restoreRows(raw, { v: 1, preset, layout, hidden, ...extra }, spec, appended || sharedChanged || (sizes.length > 0 && named.size !== shown.length)), spec);
   } catch {
     return initialWorkspaceState(spec);
   }
