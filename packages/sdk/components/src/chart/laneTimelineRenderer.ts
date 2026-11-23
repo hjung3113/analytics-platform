@@ -5,7 +5,7 @@ import { clampView, densityBins, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic,
 import { createLaneStyle, paintFrame, type LaneStyle } from './laneTimelineLod';
 import { RANGE_BRUSH_DRAG_THRESHOLD, type AxisRange } from './useRangeBrush';
 import { laneRowInset } from './laneTimelineModel';
-import { CHART_MARKS } from './chartMarks';
+import { CHART_MARKS, paintRangeBand } from './chartMarks';
 
 /** Everything the renderer reads from React. `update()` takes the same fields (without the elements) on every render. */
 export type RendererState = {
@@ -150,9 +150,7 @@ export function createLaneRenderer(input: RendererInput) {
       const x = (time: number) => GUTTER + (time - view[0]) / (view[1] - view[0]) * plotWidth;
       const from = Math.min(band[0], band[1]); const to = Math.max(band[0], band[1]);
       top.save(); top.beginPath(); top.rect(GUTTER, 0, plotWidth, height); top.clip();
-      // The band fill matches every chart's range band (#2736); the 2px outline is the confirmed range-brush look.
-      top.fillStyle = color('chart-selection-outline'); top.globalAlpha = CHART_MARKS.rangeBandOpacity; top.fillRect(x(from), 0, x(to) - x(from), height); top.globalAlpha = 1;
-      top.strokeStyle = color('chart-selection-outline'); top.lineWidth = 2; top.strokeRect(x(from), 1, x(to) - x(from), height - 2);
+      paintRangeBand(top, color('chart-selection-outline'), x(from), x(to), height);
       top.restore();
     }
     const item = selectedId ? model.byId.get(selectedId) : undefined;
@@ -160,7 +158,7 @@ export function createLaneRenderer(input: RendererInput) {
     const rect = segmentRect(model, item.index, view, width, height, scroll.scrollTop);
     if (!rect) return;
     top.save(); top.beginPath(); top.rect(GUTTER, 0, plotWidth, height); top.clip();
-    top.strokeStyle = color('chart-selection-outline'); top.lineWidth = 2; top.strokeRect(rect.x + 1, rect.y + 1, Math.max(0, rect.width - 2), Math.max(0, rect.height - 2));
+    top.strokeStyle = color('chart-selection-outline'); top.lineWidth = CHART_MARKS.rangeOutlineWidth; top.strokeRect(rect.x + 1, rect.y + 1, Math.max(0, rect.width - 2), Math.max(0, rect.height - 2));
     top.restore();
   }
   function invalidateHover() { tooltip.hidden = true; }

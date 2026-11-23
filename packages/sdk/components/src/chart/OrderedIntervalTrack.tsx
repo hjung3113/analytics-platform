@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { BodyTooltipPortal } from './bodyTooltipPortal';
-import { Ban, Inbox, Info, ServerCrash } from 'lucide-react';
+import { Ban, BrushIcon, Inbox, Info, RotateCcw, ServerCrash, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
 import { isThemeColorToken, readColorToken, useThemeRevision } from '@ap/ui/theme';
 import { formatNumber } from '@ap/contracts';
@@ -19,6 +19,7 @@ import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { useRangeBrush } from './useRangeBrush';
 import { LoadingBlock, StateMessage } from '../StateView';
 import { ChartTrustFooter } from './analysisChartFrameParts';
+import { chartToolVariant } from './chartChrome';
 import { OrderedIntervalPlot } from './OrderedIntervalPlot';
 import {
   clampOrderView,
@@ -325,39 +326,39 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
               <TooltipContent className="max-w-xs break-keep">{help}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Button type="button" size="toolbar" variant="ghost" disabled={restricted} onClick={() => zoom(0.8)}>
-            {m('laneZoomIn')}
+          <Button type="button" size="toolbar" variant={chartToolVariant(false)} disabled={restricted} onClick={() => zoom(0.8)}>
+            <ZoomIn className="size-3.5" aria-hidden />{m('laneZoomIn')}
           </Button>
-          <Button type="button" size="toolbar" variant="ghost" disabled={restricted} onClick={() => zoom(1.25)}>
-            {m('laneZoomOut')}
+          <Button type="button" size="toolbar" variant={chartToolVariant(false)} disabled={restricted} onClick={() => zoom(1.25)}>
+            <ZoomOut className="size-3.5" aria-hidden />{m('laneZoomOut')}
           </Button>
           <Button
             type="button"
             size="toolbar"
-            variant={brush.mode ? 'secondary' : 'ghost'}
+            variant="toggle"
             disabled={restricted}
             aria-pressed={brush.mode}
             onClick={() => brush.setMode(!brush.mode)}
           >
-            {m('chartBrush')}
+            <BrushIcon className="size-3.5" aria-hidden />{m('chartBrush')}
           </Button>
           <Button
             type="button"
             size="toolbar"
-            variant="ghost"
+            variant={chartToolVariant(false)}
             disabled={restricted}
             onClick={() => {
               moveView(domain);
               brush.clear();
             }}
           >
-            {m('laneZoomReset')}
+            <RotateCcw className="size-3.5" aria-hidden />{m('laneZoomReset')}
           </Button>
           {props.formatTime && (
             <Button
               type="button"
               size="toolbar"
-              variant={timeLabels ? 'secondary' : 'ghost'}
+              variant="toggle"
               disabled={restricted}
               aria-pressed={timeLabels}
               onClick={() => setTimeLabels(!timeLabels)}
@@ -368,7 +369,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
           <Button
             type="button"
             size="toolbar"
-            variant={textView ? 'secondary' : 'ghost'}
+            variant="toggle"
             disabled={restricted}
             aria-pressed={textView}
             onClick={() => setTextView(!textView)}
@@ -588,8 +589,8 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
               <>
                 {t('selectedRange')}: {displayOrder(brushRange[0])}–
                 {displayOrder(brushRange[1])}{' '}
-                <Button type="button" size="toolbar" variant="ghost" onClick={() => moveView([brushRange[0], brushRange[1]])}>
-                  {m('intervalZoomToSelection')}
+                <Button type="button" size="toolbar" variant={chartToolVariant(false)} onClick={() => moveView([brushRange[0], brushRange[1]])}>
+                  <ZoomIn className="size-3.5" aria-hidden />{m('intervalZoomToSelection')}
                 </Button>
               </>
             ) : selected ? (

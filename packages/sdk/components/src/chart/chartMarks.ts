@@ -24,8 +24,12 @@ export const CHART_MARKS = {
   blurOpacity: 0.3,
   /** Selection (#2736): a selected mark keeps its own fill and gets a ring of this width in the selection colour. */
   selectionRingWidth: 1.5,
+  /** Selection (#2736): a selected line point is a solid circle of this size (other points stay 5px hollow), so its ring shows. */
+  selectedPointSize: 8,
   /** Range (#2736): fill opacity of a dragged or selected range band, in the selection colour, on every chart. */
   rangeBandOpacity: 0.1,
+  /** Range (#2736): outline of a canvas chart's range band and LaneTimeline's selected segment, the confirmed range-brush look. */
+  rangeOutlineWidth: 2,
 } as const;
 
 /**
@@ -59,6 +63,16 @@ export function selectionRing(selected: boolean): number {
 /** The range band fill: a resolved `rgb(r,g,b)` colour at `rangeBandOpacity`. Another colour form is returned unchanged. */
 export function rangeBandFill(color: string): string {
   return color.replace(/^rgb\((.+)\)$/, (_, rgb: string) => `rgba(${rgb},${CHART_MARKS.rangeBandOpacity})`);
+}
+
+/**
+ * Canvas range band (LaneTimeline, OrderedIntervalPlot): `rangeBandOpacity` fill in `color` across the full plot height with a
+ * `rangeOutlineWidth` outline inset by 1px, so the outline stays inside the canvas. The caller clips to the plot.
+ */
+export function paintRangeBand(ctx: CanvasRenderingContext2D, color: string, x0: number, x1: number, height: number): void {
+  const alpha = ctx.globalAlpha;
+  ctx.fillStyle = color; ctx.globalAlpha = CHART_MARKS.rangeBandOpacity; ctx.fillRect(x0, 0, x1 - x0, height); ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color; ctx.lineWidth = CHART_MARKS.rangeOutlineWidth; ctx.strokeRect(x0, 1, x1 - x0, height - 2);
 }
 
 /** Rounded value end: top corners of a vertical bar, right corners of a horizontal one, none on a stacked piece. */

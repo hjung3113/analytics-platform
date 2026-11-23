@@ -31,6 +31,11 @@ export function segmentLabelStyle(fill: ThemeColorToken): { text: 'text-primary'
 }
 /* eslint-enable shadcn/no-raw-colors */
 
+/** ECharts label style of a value inside a bar piece: the resolved text colour, on a `surface` chip when `segmentLabelStyle` asks for one. */
+export function insideLabelStyle(text: { color: string; chip: boolean }, surface: string) {
+  return { color: text.color, ...(text.chip ? { backgroundColor: surface, borderRadius: 2, padding: 0 } : {}) };
+}
+
 /** Segment label: grouped digits, no compact notation (1,234 / 12.3), so it reads like the uncompacted numbers beside it; the exact value stays in the tooltip. */
 export function shortNumber(v: number, lang: Lang): string {
   return formatNumber(v, lang, { maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 1 });

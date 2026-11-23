@@ -90,6 +90,7 @@ export const PACK_17_TOKENS: TokenEntry[] = [
   { tokenName: '--surface-sidebar', hex: '#ffffff', rgb: '255 255 255' },
   { tokenName: '--surface-list', raw: 'var(--color-pitch-black)' },
   { tokenName: '--surface-row-hover', hex: '#f6f8fa', rgb: '246 248 250' },
+  { tokenName: '--surface-sunken-in-card', hex: '#f6f8fa', rgb: '246 248 250' },
   { tokenName: '--surface-row-selected', hex: '#d8e7fb', rgb: '216 231 251' },
   { tokenName: '--surface-detail', raw: 'var(--color-graphite)' },
   { tokenName: '--surface-popover', raw: 'var(--color-graphite)' },

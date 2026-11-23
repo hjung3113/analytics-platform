@@ -8,7 +8,7 @@ import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { cn, prefersReducedMotion } from '@ap/ui';
 import { baseTextStyle, type EChartProps } from './EChart';
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
-import { CHART_ECHARTS_THEME } from './chartMarks';
+import { CHART_ECHARTS_THEME, CHART_HEIGHTS } from './chartMarks';
 
 echarts.use([LineChart, BarChart, BoxplotChart, CustomChart, PieChart, ScatterChart, GraphicComponent, GridComponent, TooltipComponent, DataZoomComponent, BrushComponent, ToolboxComponent, MarkAreaComponent, MarkLineComponent, LabelLayout, CanvasRenderer]);
 
@@ -63,7 +63,7 @@ export function setOptionMode(previous: EChartsCoreOption | null, next: EChartsC
 }
 
 /** ECharts-dependent implementation, loaded lazily from EChart (#48) so charts stay out of the main bundle. */
-export default function EChartImpl({ option, height = 280, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
+export default function EChartImpl({ option, height = CHART_HEIGHTS.regular, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<ECharts | null>(null);
   const applied = useRef<EChartsCoreOption | null>(null);

@@ -108,7 +108,7 @@
  * still wins; a flattened (`rounded-none`) or pressed panel keeps its own frame. */
 @utility elevation-panel {
   @apply shadow-sm;
-  --surface-sunken: 246 248 250; /* #f6f8fa */
+  --surface-sunken: var(--surface-sunken-in-card);
   &:where(:not(:is(.bg-surface-card, .bg-surface-detail, .dv-groupview) *, .rounded-none, [aria-pressed="true"])) {
     border-color: rgb(var(--border-card));
     border-radius: var(--radius-card);

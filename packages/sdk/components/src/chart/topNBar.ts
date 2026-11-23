@@ -6,7 +6,7 @@ import { chartDiagnostic } from './analysisChartData';
 import type { KindProjection } from './analysisChartKinds';
 import { chartTheme, token } from './EChart';
 import { barRadius, selectionRing } from './chartMarks';
-import { segmentLabelStyle } from './chartValueLabels';
+import { insideLabelStyle, segmentLabelStyle } from './chartValueLabels';
 
 /** Caller aggregates; this projection alone owns ordering, limiting, table and export. */
 export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string): KindProjection {
@@ -42,7 +42,7 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
       const theme = chartTheme();
       const insideLabel = (fill: ThemeColorToken) => {
         const style = segmentLabelStyle(fill);
-        return { color: token(style.text), ...(style.chip ? { backgroundColor: token('surface-card'), borderRadius: 2 } : {}) };
+        return insideLabelStyle({ color: token(style.text), chip: style.chip }, token('surface-card'));
       };
       return {
         grid: { top: 12, bottom: 12, left: 16, right: 24, containLabel: true },

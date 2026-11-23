@@ -1,7 +1,8 @@
 import { expect, it } from 'vitest';
 import { buildChartOption } from '../buildChartOption';
 import { baselineInput } from '../__fixtures__/baselineInput';
-import { CHART_ECHARTS_THEME, rangeBandFill, selectionRing } from '../chartMarks';
+import { CHART_ECHARTS_THEME, paintRangeBand, rangeBandFill, selectionRing } from '../chartMarks';
+import { insideLabelStyle } from '../chartValueLabels';
 import { chartPointKey } from '../chartStatus';
 import { brushOptions } from '../analysisChartShared';
 import { paretoData, scatterData } from '../analysisChartKinds';
@@ -67,4 +68,17 @@ it('rings selected category marks at 1.5px on scatter, Pareto and Top N', () => 
   expect(ring(pareto.option(keys(pareto)))).toBe(1.5);
   const topN = topNData({ kind: 'topNBar', items: [{ id: 'a', label: 'A', value: 2, colorToken: 'chart-series-1' }] }, 'en', 's');
   expect(ring(topN.option(keys(topN)))).toBe(1.5);
+});
+
+it('paints a canvas range band once: a 10% fill and a 2px outline inset by 1px, restoring the alpha it found', () => {
+  const calls: string[] = [];
+  const ctx = { globalAlpha: 0.5, fillRect: (...a: number[]) => calls.push(`fill ${a.join(',')} @${ctx.globalAlpha}`), strokeRect: (...a: number[]) => calls.push(`stroke ${a.join(',')} w${ctx.lineWidth}`) } as unknown as CanvasRenderingContext2D & { lineWidth: number };
+  paintRangeBand(ctx, 'rgb(1,2,3)', 10, 30, 100);
+  expect(calls).toEqual(['fill 10,0,20,100 @0.1', 'stroke 10,1,20,98 w2']);
+  expect(ctx.globalAlpha).toBe(0.5);
+});
+
+it('puts an inside label on a surface chip only when its fill asks for one', () => {
+  expect(insideLabelStyle({ color: 'white', chip: false }, 'card')).toEqual({ color: 'white' });
+  expect(insideLabelStyle({ color: 'ink', chip: true }, 'card')).toEqual({ color: 'ink', backgroundColor: 'card', borderRadius: 2, padding: 0 });
 });

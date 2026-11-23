@@ -555,18 +555,16 @@ it('uses compact table semantics, named columns, selection and twenty-item pagin
   expect(within(table).getAllByRole('row')).toHaveLength(21);
 });
 it.each(['구간 선택', '시간 라벨', '항목 목록'])(
-  'gives the %s toggle a secondary pressed surface and restores ghost when released',
+  'gives the %s toggle the shared toggle look (#2720): bordered, the selected surface while pressed',
   (name) => {
     mount({ formatTime: String });
     const toggle = screen.getByRole('button', { name });
-    expect(toggle).not.toHaveClass('bg-surface-raised');
+    expect(toggle).toHaveClass('border-border-subtle', 'aria-pressed:bg-surface-row-selected', 'aria-pressed:border-border-selected');
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    expect(toggle).toHaveClass('bg-surface-raised', 'border-border-subtle');
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    expect(toggle).not.toHaveClass('bg-surface-raised');
   },
 );
 it('uses the consumer axis label and one integer formatter for ticks and zoomed range text', () => {

@@ -65,6 +65,8 @@
   --surface-sidebar: 255 255 255;      /* #ffffff — white chrome (v3, #2722) */
   --surface-list: var(--color-pitch-black);
   --surface-row-hover: 246 248 250;    /* #f6f8fa */
+  /* In-card sunken surface (#2722): a top-level panel (`elevation-panel`) and a dock group set `--surface-sunken` to this. */
+  --surface-sunken-in-card: 246 248 250; /* #f6f8fa */
   --surface-row-selected: 216 231 251; /* #d8e7fb */
   --surface-detail: var(--color-graphite);
   --surface-popover: var(--color-graphite);  /* L3 floating layer: white plus --shadow-md */

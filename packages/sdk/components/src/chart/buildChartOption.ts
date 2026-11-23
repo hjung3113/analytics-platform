@@ -20,7 +20,7 @@ import { emptyCategoryLabels, emptyCategorySeries } from './chartEmptyCategories
 import type { Selection } from './useChartRange';
 import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
 import { axisBreakGraphic, barRadius, CHART_MARKS, lineSymbolShown, rangeBandFill, selectionRing } from './chartMarks';
-import { LABEL_FONT, labelFitsSegment, labelWidth, segmentLabelStyle, shortNumber, stackEnd, type LabelRect, type RowTotal, type ValueLabels } from './chartValueLabels';
+import { insideLabelStyle, LABEL_FONT, labelFitsSegment, labelWidth, segmentLabelStyle, shortNumber, stackEnd, type LabelRect, type RowTotal, type ValueLabels } from './chartValueLabels';
 
 /** The plot's horizontal margin (grid left 52 + right 20). */
 export const PLOT_MARGIN = 72;
@@ -450,7 +450,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   /** The only shown series is a solid line: it gets a light area (#2725). */
   const areaLine = !horizontal && i.displayed.length === 1 && (i.displayed[0].kind ?? 'line') === 'line' && linePattern(i.displayed[0], i.previousIds.has(i.displayed[0].id)) === 'solid';
   /** Value labels inside a bar piece: the text token that reads on that fill, on a surface chip when the fill is outside the checked set. */
-  const insideLabel = (n: number) => ({ color: palette.segmentText[n].color, ...(palette.segmentText[n].chip ? { backgroundColor: palette.labelSurface, borderRadius: 2, padding: 0 } : {}) });
+  const insideLabel = (n: number) => insideLabelStyle(palette.segmentText[n], palette.labelSurface);
   const valueAxis = { type: 'value', ...(fitY ? { scale: true } : { min: 0 }), name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine,
     ...(bounds?.extent ? { min: (extent: { min: number }) => Math.min(fitY ? extent.min : 0, extent.min, bounds.extent!.min), max: (extent: { max: number }) => Math.max(extent.max, bounds.extent!.max) } : {}),
   };
@@ -460,7 +460,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
     ...(fitY && i.axisBreak ? { graphic: [axisBreakGraphic(i.axisBreak, { left: 52, top: GRID_TOP, bottom: GRID_BOTTOM }, { line: theme.axisLine.lineStyle.color, surface: palette.labelSurface })] } : {}),
     tooltip: {
-      trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
+      trigger: 'axis', confine: true, textStyle: { fontSize: CHART_MARKS.fontSize },
       ...(groups || statuses.size || bounds || categoryMarks || emptyLabels?.size ? { formatter: rowTooltip } : {}),
       valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${i.valueFormat(v)} ${i.unit}`),
     },
@@ -495,7 +495,10 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           // A selected point keeps its fill and gets the selection ring (#2736).
           // A datum with its own border keeps it on hover (`keep`), so the hover edge never hides a selection, focus, Min/Max or status cue.
           const keep = (itemStyle: { borderColor?: string; borderWidth: number }) => ({ itemStyle, emphasis: { itemStyle } });
-          if (!isActive && !mark && !status) return label ? { value: y, label, ...keep({ borderColor: palette.selection, borderWidth: selectionRing(true) }) } : y;
+          // A line point is a hollow symbol stroked in the series colour, which hides a datum border: a selected one is a solid circle in its own
+          // colour, a little larger, so the ring shows around it (UX-2).
+          const solidPoint = kind === 'line' ? { symbol: 'circle', symbolSize: CHART_MARKS.selectedPointSize } : {};
+          if (!isActive && !mark && !status) return label ? { value: y, label, ...solidPoint, ...keep({ borderColor: palette.selection, borderWidth: selectionRing(true) }) } : y;
           // Row focus keeps its series-coloured border; a min/max segment's thicker outline replaces it, so the active one adds a glow instead and both cues show.
           if (status) {
             // The status ring is drawn inside the piece by the __statusBarBacking layer (#2351). The active label stays bold; Min/Max retains its glow and chip.
