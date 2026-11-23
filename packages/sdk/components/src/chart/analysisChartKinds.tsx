@@ -8,6 +8,7 @@ import type { BoxPlotSpec, BoxStats, ParetoSpec, ScatterSpec } from './AnalysisC
 import type { ChartRow } from './analysisChartData';
 import { chartDiagnostic } from './analysisChartData';
 import { chartTheme, strokeToken, token } from './EChart';
+import { lineSymbolShown } from './chartMarks';
 import { scatterExtras } from './scatterCategories';
 import { QUIET_SCATTER } from './scatterDensity';
 import type { ChartStatus } from './chartStatus';
@@ -205,7 +206,7 @@ export function paretoData(spec: ParetoSpec, lang: Lang, unit: string): KindProj
         yAxis: [{ type: 'value', min: 0, name: unit, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine }, { type: 'value', min: 0, max: 100, name: '%', position: 'right', axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, formatter: '{value}%' }, splitLine: { show: false } }],
         series: [
           { type: 'bar', data: rows.map(row => ({ value: row.value, itemStyle: { color: token(row.color!), borderColor: token('chart-selection-outline'), borderWidth: active.includes(row.key) ? 2 : 0 } })) },
-          { type: 'line', yAxisIndex: 1, data: cumulative, lineStyle: { color: token('chart-series-2-stroke') }, itemStyle: { color: token('chart-series-2-stroke') }, markLine: { ...theme.referenceLine, data: [{ name: pct(target * 100), yAxis: target * 100 }] } },
+          { type: 'line', yAxisIndex: 1, data: cumulative, showSymbol: lineSymbolShown(cumulative.length), lineStyle: { color: token('chart-series-2-stroke') }, itemStyle: { color: token('chart-series-2-stroke') }, markLine: { ...theme.referenceLine, data: [{ name: pct(target * 100), yAxis: target * 100 }] } },
         ],
       };
     },

@@ -117,7 +117,7 @@ exports[`preserves the complete legacy projection without opt-in fields 1`] = `
       },
       "axisLine": {
         "lineStyle": {
-          "color": "rgb(220,225,231)",
+          "color": "rgb(102,112,131)",
         },
       },
       "name": "Cell (ignored)",
@@ -139,7 +139,7 @@ exports[`preserves the complete legacy projection without opt-in fields 1`] = `
       },
       "axisLine": {
         "lineStyle": {
-          "color": "rgb(220,225,231)",
+          "color": "rgb(102,112,131)",
         },
       },
       "name": "Duration (s)",

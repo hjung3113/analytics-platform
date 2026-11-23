@@ -96,7 +96,7 @@ describe('ECharts base theme (#544)', () => {
   it('resolves existing axis and reference roles and token-backed tooltip roles', () => {
     const root = document.documentElement;
     const values = {
-      '--border-strong': '184 196 214',
+      '--border-control': '184 196 214',
       '--chart-grid': '237 241 247',
       '--text-muted': '95 105 123',
       '--surface-popover': '237 243 251',
@@ -121,7 +121,7 @@ describe('ECharts base theme (#544)', () => {
         lineStyle: { color: 'rgb(55,65,81)', type: 'dashed' },
         label: { formatter: '{b}', fontSize: 10, color: 'rgb(55,65,81)', position: 'insideEndTop' },
       });
-      expect(token('border-strong')).toBe(theme.axisLine.lineStyle.color);
+      expect(token('border-control')).toBe(theme.axisLine.lineStyle.color);
       expect(token('chart-grid')).toBe(theme.splitLine.lineStyle.color);
     } finally {
       for (const [name, value] of previous) {

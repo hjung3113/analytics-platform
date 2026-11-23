@@ -85,13 +85,13 @@
    "showSymbol": false,
    "symbolSize": 5,
    "connectNulls": false,
-   "barMaxWidth": 18,
    "lineStyle": {
     "width": 2,
     "type": "solid"
    },
    "itemStyle": {
-    "color": "aFill"
+    "color": "aFill",
+    "borderRadius": 0
    },
    "emphasis": {
     "focus": "none"
@@ -159,13 +159,13 @@
    "showSymbol": false,
    "symbolSize": 5,
    "connectNulls": false,
-   "barMaxWidth": 18,
    "lineStyle": {
     "width": 2,
     "type": "solid"
    },
    "itemStyle": {
-    "color": "bFill"
+    "color": "bFill",
+    "borderRadius": 0
    },
    "emphasis": {
     "focus": "none"

@@ -23,9 +23,11 @@ it('stably sorts a copy, limits to eight, preserves zero and shares the table pr
   expect(data.tableValues.map(row => row[0])).toEqual(data.rows.map(row => row.label));
   expect(topNData({ kind: 'topNBar', items: [items[3]] }, false, '').empty).toBe(false);
 });
-it('caps bar thickness at 24px while the row-height projection stays unchanged', () => {
-  const series = topNData({ kind: 'topNBar', items }, false, 'ea').option([]).series as { barMaxWidth: number }[];
-  expect(series[0].barMaxWidth).toBe(24);
+it('leaves bar thickness to the chart theme and rounds the value end (#2725)', () => {
+  const series = topNData({ kind: 'topNBar', items }, false, 'ea').option([]).series as { barMaxWidth?: number; itemStyle: { borderRadius: unknown }; data: { label: { color: string } }[] }[];
+  expect(series[0].barMaxWidth).toBeUndefined();
+  expect(series[0].itemStyle.borderRadius).toEqual([0, 2, 2, 0]);
+  expect(series[0].data[0].label.color).toBe(readColorToken('text-on-accent'));
 });
 it('starts collapsed, exposes the controlled plot and uses computed height', async () => {
   mount({ kind: 'topNBar', items });
@@ -96,8 +98,7 @@ it('exports exactly the visible table projection under the manifest gate and pre
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
   fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
   expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.anything(), ['이름', '값 (ea)'], [['Item 9', 9], ['Item 7', 8]]);
-  const bars = (plot.option as { series: { barMaxWidth: number; data: { itemStyle: { color: string } }[] }[] }).series;
-  expect(bars[0].barMaxWidth).toBe(24);
+  const bars = (plot.option as { series: { data: { itemStyle: { color: string } }[] }[] }).series;
   expect(bars[0].data[0].itemStyle.color).toBe(readColorToken('chart-series-1'));
   view.unmount(); mount(spec, false); expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
 });
