@@ -217,15 +217,15 @@ it('reads filter and highlight inputs and keeps the result across unrelated writ
     range: useAnalysisSelectionOutput('source', rangeKey), platform: usePlatform(),
   }), '&equipmentSet=B&equipmentSet=A&timeRange=14%3A00%2F16%3A00');
   const { receiver } = result.current;
-  expect(receiver).toEqual({ filtered: true, rejected: [], applied: [
+  expect(receiver).toEqual({ filtered: true, rejected: [], unavailable: [], applied: [
     { key: setKey, use: 'filter', selection: set, source: { panelId: 'source', title, dimension: 'equipment' } },
     { key: rangeKey, use: 'highlight', selection: range, source: { panelId: 'source', title, dimension: 'time' } },
   ] });
-  expect(result.current.plain).toEqual({ applied: [], filtered: false, rejected: [] });
+  expect(result.current.plain).toEqual({ applied: [], filtered: false, rejected: [], unavailable: [] });
   act(() => result.current.platform.setPage({ sort: 'name', [setKey]: ['B', 'A', 'B'] }));
   expect(result.current.receiver).toBe(receiver);
   act(() => result.current.platform.setPage({ [setKey]: null }));
-  expect(result.current.receiver).toEqual({ filtered: false, applied: [receiver.applied[1]], rejected: [] });
+  expect(result.current.receiver).toEqual({ filtered: false, applied: [receiver.applied[1]], rejected: [], unavailable: [] });
   act(() => result.current.platform.setPage({ [rangeKey]: 'malformed' }));
   expect(result.current.range.selection).toBeNull();
   expect(result.current.receiver.applied).toEqual([]);
@@ -244,7 +244,7 @@ it('ignores bound values and disables selection writes in a lent panel', () => {
   }), '&equipmentSet=B', ({ children }) => <Wrapper><Lent>{children}</Lent></Wrapper>);
   expect(result.current.output.selection).toBeNull();
   expect(result.current.output.select(set)).toBe(false);
-  expect(result.current.inputs).toEqual({ applied: [], filtered: false, rejected: [] });
+  expect(result.current.inputs).toEqual({ applied: [], filtered: false, rejected: [], unavailable: [] });
   expect(search().getAll(setKey)).toEqual(['B']);
 });
 
@@ -274,10 +274,10 @@ const chainQuery = '&operationSet=op&moduleSet=mod&equipmentSet=A&timeRange=14%3
 it('orders analysis selection chips by filter ancestry and uses the first writer as source', () => {
   const result = mount(useAnalysisSelectionChips, chainQuery, ChipWrapper);
   expect(result.current.chips).toEqual([
-    { key: setKey, selection: a, dimension: 'equipment', label: equipmentLabel, source: { panelId: 'source', title }, after: null },
-    { key: middleKey, selection: { shape: 'set', values: ['mod'] }, dimension: 'module', label: null, source: { panelId: 'middle', title }, after: setKey },
-    { key: lastKey, selection: { shape: 'set', values: ['op'] }, dimension: 'operation', label: null, source: { panelId: 'last', title }, after: middleKey },
-    { key: rangeKey, selection: range, dimension: 'time', label: null, source: { panelId: 'source', title }, after: null },
+    { key: setKey, selection: a, dimension: 'equipment', label: equipmentLabel, source: { panelId: 'source', title }, available: true, after: null },
+    { key: middleKey, selection: { shape: 'set', values: ['mod'] }, dimension: 'module', label: null, source: { panelId: 'middle', title }, available: true, after: setKey },
+    { key: lastKey, selection: { shape: 'set', values: ['op'] }, dimension: 'operation', label: null, source: { panelId: 'last', title }, available: true, after: middleKey },
+    { key: rangeKey, selection: range, dimension: 'time', label: null, source: { panelId: 'source', title }, available: true, after: null },
   ]);
 });
 
@@ -397,4 +397,80 @@ it('refuses retained clear actions after the screen unmounts', () => {
   expect(clear(setKey)).toBe(false);
   expect(clearAll()).toBe(false);
   expect(search().get(setKey)).toBe('A');
+});
+
+it.each([
+  ['unknown', undefined, true],
+  ['none present', ['C'], false],
+  ['partly present', ['A', 'C'], true],
+] as const)('models a set with %s availability', (_, available, expected) => {
+  const result = mount(() => {
+    useAnalysisSelectionOutput('source', setKey, { available });
+    return { chips: useAnalysisSelectionChips().chips, inputs: useAnalysisSelectionInputs('receiver') };
+  }, '&equipmentSet=A&equipmentSet=B');
+  expect(result.current.chips[0]?.available).toBe(expected);
+  expect(result.current.inputs.filtered).toBe(expected);
+  expect(result.current.inputs.applied.map(input => input.key)).toEqual(expected ? [setKey] : []);
+  expect(result.current.inputs.unavailable).toEqual(expected ? [] : [setKey]);
+});
+
+it.each([['16:01', false], ['16:00', true]] as const)('models a range with an extent starting at %s', (from, expected) => {
+  const result = mount(() => {
+    useAnalysisSelectionOutput('source', rangeKey, { available: { from, to: '18:00' } });
+    return { chips: useAnalysisSelectionChips().chips, inputs: useAnalysisSelectionInputs('receiver') };
+  }, '&timeRange=14:00/16:00');
+  expect(result.current.chips[0]?.available).toBe(expected);
+  expect(result.current.inputs.unavailable).toEqual(expected ? [] : [rangeKey]);
+});
+
+it('keeps reports separate for the main screen and each board pane', () => {
+  const pane = { menuId: 'analysis', params: {}, query: '?v=1' + initialA };
+  const checks: Record<string, boolean | undefined> = {};
+  function Probe({ id, available }: { id: string; available?: readonly string[] }) {
+    useAnalysisSelectionOutput('source', setKey, { available });
+    const value = useAnalysisSelectionChips().chips[0]?.available;
+    useLayoutEffect(() => { checks[id] = value; }, [id, value]);
+    return null;
+  }
+  function Board({ children }: { children: ReactNode }) {
+    return <Wrapper>
+      <Probe id="main" available={[]} />
+      <PaneScreenProvider paneId="one" screen={pane} onChange={() => {}} onLeave={() => {}}><Probe id="one" available={['A']} /></PaneScreenProvider>
+      <PaneScreenProvider paneId="two" screen={pane} onChange={() => {}} onLeave={() => {}}><Probe id="two" available={[]} /></PaneScreenProvider>
+      {children}
+    </Wrapper>;
+  }
+  const result = mount(useAnalysisSelectionChips, initialA, Board);
+  expect(checks).toEqual({ main: false, one: true, two: false });
+  expect(result.current.chips[0]?.available).toBe(false);
+});
+
+it('drops reported availability after leaving and returning to the screen', async () => {
+  const result = mount(() => {
+    const platform = usePlatform();
+    const [report, setReport] = useState(true);
+    useAnalysisSelectionOutput('source', setKey, { available: report ? [] : undefined });
+    return { platform, setReport, chips: useAnalysisSelectionChips().chips };
+  }, initialA);
+  expect(result.current.chips[0]?.available).toBe(false);
+  act(() => { result.current.platform.navigate('/mars'); });
+  expect(result.current.chips).toEqual([]);
+  act(() => result.current.setReport(false));
+  window.history.back();
+  await waitFor(() => expect(result.current.chips[0]?.available).toBe(true));
+});
+
+it('re-evaluates the later chip when Back restores a cleared middle chip', async () => {
+  const result = mount(() => {
+    const { pageParam } = usePlatform();
+    useAnalysisSelectionOutput('last', lastKey, { available: pageParam(middleKey) === 'mod' ? ['op'] : ['other'] });
+    return useAnalysisSelectionChips();
+  }, chainQuery, ChipWrapper);
+  const last = () => result.current.chips.find(chip => chip.key === lastKey);
+  expect(last()?.available).toBe(true);
+  act(() => { result.current.clear(middleKey); });
+  expect(search().get(lastKey)).toBe('op');
+  expect(last()?.available).toBe(false);
+  window.history.back();
+  await waitFor(() => expect(last()).toMatchObject({ after: middleKey, available: true }));
 });

@@ -267,7 +267,14 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const extraIds = [...new Set([...added, ...pins.pinned, ...(trend || step === 4 ? ['trend'] : [])])].filter(id => available.some(item => item.id === id));
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
   const { pageParam, pageParams, setPage } = usePlatform();
-  const selectionOutput = useAnalysisSelectionOutput(panelDeclarations.moduleMotions.id, MOTION_EQUIPMENT_KEY);
+  const sourceQuery = typeId && extraIds.includes('moduleMotions') ? queries[typeId] : undefined;
+  const sourceResponse = sourceQuery?.showingPrevious ? null : sourceQuery?.response;
+  const moduleChecked = typeId !== null && moduleId !== null && filter.selectionFor(typeId).modules.includes(moduleId);
+  const sourceEquipment = useMemo(() => {
+    if (!sourceResponse || !isAnswered(sourceResponse.outcome)) return undefined;
+    return (sourceResponse.data?.cells ?? []).flatMap(cell => moduleChecked && cell.moduleId === moduleId ? [cell.equipmentId] : []);
+  }, [sourceResponse, moduleChecked, moduleId]);
+  const selectionOutput = useAnalysisSelectionOutput(panelDeclarations.moduleMotions.id, MOTION_EQUIPMENT_KEY, { available: sourceEquipment });
   const onOpenTrend = (target: string, row: string) => {
     setPage({ trend: target, row });
     setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));

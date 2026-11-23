@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PageFocus } from '../context/pageNavigation';
+import { createAnalysisSelectionAvailability } from '../context/analysisSelectionAvailability';
 import { classifyMetricInit, sameMetricInit } from '../registry/metric-init';
 import { sameItems, useStable } from '../stable';
 import { isBoardPath, pathFor, RegistryError, type MenuEntry } from '../registry/registry';
@@ -551,9 +552,11 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     // The Kernel refuses a drill URL with a gap once (06 §6.4 «조회하지 않는다»), so no menu repeats the gate.
     drillGap: drillGap(route?.menu.drill?.levels ?? [], page) !== null,
     ready: routeMenu?.query?.mode !== 'apply' || scopeReady, ...(autoApplyingDefault ? { autoApplyingDefault } : {}) }, sameQueryPolicy);
+  const scopeId = global.scopeId;
+  const analysisSelectionAvailability = useMemo(createAnalysisSelectionAvailability, [routeMenu, pathname, paneId, session, revision, scopeId]);
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
     detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin,
-    currentSpace, scope: scopeView, scopeGeneration, retryScope, screenMode: mode, paneId, paneLabel,
-  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel]);
+    currentSpace, scope: scopeView, scopeGeneration, retryScope, screenMode: mode, paneId, paneLabel, analysisSelectionAvailability,
+  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel, analysisSelectionAvailability]);
   return { screen, sidebarSpace, resolveEntryLink, initialSavedView };
 }

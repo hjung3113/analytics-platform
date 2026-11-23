@@ -1,5 +1,5 @@
 import type { AnalysisSelection, AnalysisSelectionUse, Text } from '@ap/contracts';
-import { use, useInsertionEffect, useMemo } from 'react';
+import { use, useEffect, useInsertionEffect, useMemo, useSyncExternalStore } from 'react';
 import { PaneScreenContext, ScreenContext } from '../platform/contexts';
 import { usePlatform } from '../platform/hooks';
 import type { MenuPlatform } from '../platform/types';
@@ -7,6 +7,7 @@ import { menuAnalysisSelections } from '../registry/analysis-selections';
 import type { MenuEntry } from '../registry/registry';
 import { sameItems, useStable } from '../stable';
 import { analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
+import { isAnalysisSelectionAvailable, readEmptyAvailability, sameAvailability, subscribeToEmptyAvailability, type AnalysisSelectionAvailability } from './analysisSelectionAvailability';
 
 export { ANALYSIS_SELECTION_MAX_VALUES, analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
 
@@ -20,13 +21,27 @@ function sameSelection(a: AnalysisSelection | null, b: AnalysisSelection | null)
 
 const noRoute = { panels: [] };
 const useChannels = (menu: MenuEntry | undefined) => useMemo(() => menuAnalysisSelections(menu ?? noRoute), [menu]);
-const useWriteScreen = (route: MenuPlatform['route']) => use(PaneScreenContext) ?? (route ? use(ScreenContext) : null);
+const useWriteScreen = (route: MenuPlatform['route']) => route ? use(PaneScreenContext) ?? use(ScreenContext) : null;
+
+function useReportedAvailability(screen: ReturnType<typeof useWriteScreen>) {
+  const store = screen?.analysisSelectionAvailability;
+  return useSyncExternalStore(store?.subscribe ?? subscribeToEmptyAvailability, store?.read ?? readEmptyAvailability, readEmptyAvailability);
+}
 
 /** Reads and writes a declared analysis selection through the menu page key (ADR-0175). */
-export function useAnalysisSelectionOutput(panelId: string, key: string): { selection: AnalysisSelection | null; select: (next: AnalysisSelection | null) => boolean } {
+export function useAnalysisSelectionOutput(panelId: string, key: string, options?: {
+  /** Values present in the source's current data. Omit while availability is unknown. */
+  available?: AnalysisSelectionAvailability | undefined;
+}): { selection: AnalysisSelection | null; select: (next: AnalysisSelection | null) => boolean } {
   const { route, pageParams, setPage } = usePlatform();
   const screen = useWriteScreen(route);
   const channel = useChannels(route?.menu).get(key);
+  const store = screen?.analysisSelectionAvailability;
+  const report = useStable(options?.available, sameAvailability);
+  const isSource = channel?.writers[0]?.panelId === panelId;
+  useEffect(() => {
+    if (store && isSource && report !== undefined) return store.report(key, report);
+  }, [store, isSource, key, report]);
   const urlKey = selectionUrlKey(key);
   if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
   const rendered = pageParams(urlKey);
@@ -54,19 +69,23 @@ export type AppliedAnalysisSelection = {
   readonly source: { readonly panelId: string; readonly title: Text; readonly dimension: string };
 };
 
-/** Reports applied inputs without running queries; queryInputs already reach queries through the page-key path (ADR-0175). */
+/** Reports applied inputs without running queries. Panels reading a filter use its value from applied. */
 export function useAnalysisSelectionInputs(panelId: string): {
   applied: readonly AppliedAnalysisSelection[];
   filtered: boolean;
   /** Declared input keys whose URL values were discarded. */
   rejected: readonly string[];
+  /** Declared input keys whose valid values are absent from the source data. */
+  unavailable: readonly string[];
 } {
   const { route, pageParams, session, revision, global } = usePlatform();
+  const availability = useReportedAvailability(useWriteScreen(route));
   const menu = route?.menu;
   const channels = useChannels(menu);
   if (menu && !menu.panels?.some(panel => panel.id === panelId)) throw new RangeError(`Unknown panel "${panelId}" in menu "${menu.id}"`);
   const applied: AppliedAnalysisSelection[] = [];
   const rejected: string[] = [];
+  const unavailable: string[] = [];
   for (const [key, { readers, writers, dimension, shape }] of channels) {
     const inputs = readers.filter(reader => reader.panelId === panelId);
     if (!inputs.length) continue;
@@ -77,14 +96,19 @@ export function useAnalysisSelectionInputs(panelId: string): {
       rejected.push(key);
       continue;
     }
+    if (!isAnalysisSelectionAvailable(selection, availability.get(key))) {
+      unavailable.push(key);
+      continue;
+    }
     const [writer] = writers;
     for (const { use } of inputs) applied.push({ key, use, selection, source: { panelId: writer.panelId, title: writer.title, dimension } });
   }
-  const result = { applied, filtered: applied.some(input => input.use === 'filter'), rejected };
+  const result = { applied, filtered: applied.some(input => input.use === 'filter'), rejected, unavailable };
   return useStable({ menu, panelId, session, revision, scopeId: global.scopeId, result }, (a, b) =>
     a.menu === b.menu && a.panelId === b.panelId && a.session === b.session && a.revision === b.revision && a.scopeId === b.scopeId
     && a.result.applied.length === b.result.applied.length
     && sameItems(a.result.rejected, b.result.rejected)
+    && sameItems(a.result.unavailable, b.result.unavailable)
     && a.result.applied.every((input, i) => {
       const other = b.result.applied[i];
       return input.key === other.key && input.use === other.use && sameSelection(input.selection, other.selection);
@@ -99,6 +123,7 @@ export type AnalysisSelectionChip = {
   readonly label: Text | null;
   readonly source: { readonly panelId: string; readonly title: Text };
   readonly after: string | null;
+  readonly available: boolean;
 };
 
 function orderChips(chips: readonly AnalysisSelectionChip[]): AnalysisSelectionChip[] {
@@ -135,6 +160,7 @@ export function useAnalysisSelectionChips(): {
 } {
   const { route, pathname, pageParams, setPage, session, revision, global } = usePlatform();
   const screen = useWriteScreen(route);
+  const availability = useReportedAvailability(screen);
   const menu = route?.menu;
   const paneId = screen?.paneId;
   const scopeId = global.scopeId;
@@ -145,7 +171,7 @@ export function useAnalysisSelectionChips(): {
     const selection = parseAnalysisSelection(shape, pageParams(key));
     if (!selection) continue;
     const [{ panelId, title }] = writers;
-    active.push({ key, selection, dimension, label: label ?? null, source: { panelId, title } });
+    active.push({ key, selection, dimension, label: label ?? null, source: { panelId, title }, available: isAnalysisSelectionAvailable(selection, availability.get(key)) });
     for (const reader of readers) {
       if (reader.use === 'filter' && !parentByPanel.has(reader.panelId)) parentByPanel.set(reader.panelId, key);
     }
@@ -159,7 +185,7 @@ export function useAnalysisSelectionChips(): {
   const { chips } = useStable({ owner, chips: result }, (a, b) =>
     a.owner === b.owner
     && a.chips.length === b.chips.length && a.chips.every((chip, i) =>
-      chip.key === b.chips[i].key && sameSelection(chip.selection, b.chips[i].selection)),
+      chip.key === b.chips[i].key && chip.available === b.chips[i].available && sameSelection(chip.selection, b.chips[i].selection)),
   );
 
   // Bind the committed screen before descendant layout effects can clear it, as pane address writes do.
