@@ -1,4 +1,4 @@
-import type { AnalysisChartFrameProps, AnalysisChartProps, PanelWorkspaceProps, PlatformDataTableProps } from '@ap/components';
+import { heatmapMinCanvasHeight, rowPitchChartHeight, type AnalysisChartFrameProps, type AnalysisChartProps, type PanelWorkspaceProps, type PlatformDataTableProps } from '@ap/components';
 import { I18nProvider } from '@ap/kernel';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,7 +19,7 @@ vi.mock('@ap/components', async importOriginal => ({
     <div data-chart={chartId} data-empty-label={emptyCategoryLabel} data-series={series.map(item => item.id).join(',')}
       data-start-align={String(!!startAlign)} data-value-labels={valueLabels} />,
   PageFilterBar: () => null,
-  PanelWorkspace: ({ panels }: PanelWorkspaceProps) => <>{panels.map(({ id, render, preferredHeight }) => <div key={id} data-panel={id} data-preferred={preferredHeight}>{render()}</div>)}</>,
+  PanelWorkspace: ({ panels }: PanelWorkspaceProps) => <>{panels.map(({ id, render, preferredHeight, minHeight }) => <div key={id} data-panel={id} data-preferred={preferredHeight} data-min={minHeight}>{render()}</div>)}</>,
   PlatformDataTable: ({ columns, rows, height }: PlatformDataTableProps<Run>) => rows && rows[0] && <div data-height={height}>
     {columns.map(column => <div key={column.id} data-column={column.id}>{column.cell?.(rows[0]!)}</div>)}
   </div>,
@@ -75,17 +75,18 @@ describe('RCC drill presentation', () => {
 
   it('sizes the equipment bar panels so every row and the value axis fit', () => {
     const html = renderDrill(undefined, unit, true);
-    const fit = String(80 + 60 + EQUIPMENT.length * 24);
+    const fit = String(80 + rowPitchChartHeight(EQUIPMENT.length, 24));
     expect(html).toContain(`data-panel="layers" data-preferred="${Math.max(400, Number(fit))}"`);
     expect(html).toContain(`data-panel="totals" data-preferred="${Math.max(400, Number(fit))}"`);
   });
 
-  it('sizes the Step × equipment panels so every Step row and the heatmap x-axis fit (#2755)', () => {
+  it('keeps the Step × equipment heatmap tall enough for every Step row and its x-axis, also over a stored row height (#2755)', () => {
     const html = renderDrill(undefined);
-    // Panel chrome (header, toolbar, legend, selection line) + one 17px row per Step + the heatmap's 64px axis room.
-    const fit = Math.max(440, 96 + STRUCTURES.A.length * 17 + 64);
-    expect(STRUCTURES.A.length * 17 + 64 + 96).toBeGreaterThan(440);
-    expect(html).toContain(`data-panel="matrix" data-preferred="${fit}"`);
-    expect(html).toContain(`data-panel="steps" data-preferred="${fit}"`);
+    // Panel chrome (header, toolbar, legend, selection line) + the SDK heatmap's least canvas for 18 rows at 17px.
+    const least = 96 + heatmapMinCanvasHeight(STRUCTURES.A.length, 17);
+    expect(least).toBeGreaterThan(440);
+    expect(html).toContain(`data-panel="matrix" data-preferred="${least}" data-min="${least}"`);
+    // The Step bars draw one row per equipment and keep their own height; the shared row still takes the tallest panel.
+    expect(html).toContain('data-panel="steps" data-preferred="440">');
   });
 });

@@ -18,7 +18,7 @@ import { echartImageBlob } from './chartImageCopy';
 import { safeFileName } from '../table/download';
 import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as diagnostic } from './analysisChartData';
 import { KindLegend } from './analysisChartKinds';
-import { heatmapSymbolSize } from './analysisChartGeometry';
+import { heatmapMinCanvasHeight, heatmapSymbolSize } from './analysisChartGeometry';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
 import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
@@ -220,10 +220,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const measuredFillHeight = chrome === 'standard' ? Math.max(0, fill.height ?? 0) : fillChartHeight(fill.height);
   const height = p.height ?? (size === 'fill' && fill.height !== null ? measuredFillHeight : spec.kind === 'topNBar' ? Math.max(120, rows.length * 28 + 24) : analysisChartHeight(size, 280));
   const rowFloor = spec.kind === 'heatmap' && Number.isFinite(spec.minRowHeight) && spec.minRowHeight! > 0 ? spec.minRowHeight : undefined;
-  // Includes both grid margins and the category-axis label gutter.
-  const heatmapAxisHeight = 64;
   let canvasHeight = height;
-  if (rowFloor && spec.kind === 'heatmap') canvasHeight = Math.max(height, spec.yLabels.length * rowFloor + heatmapAxisHeight);
+  if (rowFloor && spec.kind === 'heatmap') canvasHeight = Math.max(height, heatmapMinCanvasHeight(spec.yLabels.length, rowFloor));
   if (fittedDonut) canvasHeight = Math.max(donutMinimumHeight, height);
   const keys = useMemo(() => rows.map(row => row.key), [rows]);
   const contextKey = JSON.stringify([platform?.user?.id, platform?.revision, global]);

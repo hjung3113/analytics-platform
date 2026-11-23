@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-rcc",
   "private": true,
-  "version": "0.2.4",
+  "version": "0.2.5",
   "ap": { "sdk": ">=0.46.0 <0.47.0" },
   "type": "module",
   "exports": {
