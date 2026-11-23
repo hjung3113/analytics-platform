@@ -30,6 +30,7 @@ import {
   mockServer,
   serverConformance,
   shell,
+  storybook,
   ui,
 } from './index.js';
 import { PACKAGE_PREFIX } from './prefix.js';
@@ -62,6 +63,7 @@ const PRESETS: Record<string, Linter.Config[]> = {
   'menus/tools/topview-studio': eqvMenu,
   'menus/tools/topview': eqvMenu,
   'apps/platform-web': app,
+  'tooling/storybook': storybook,
 };
 
 async function lint(relFile: string, code: string): Promise<Linter.LintMessage[]> {
@@ -112,6 +114,10 @@ const rows: Row[] = [
   { file: 'packages/sdk/contracts/src/x.ts', code: `import type { X } from '@ap/kernel';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/contracts/src/x.ts', code: `import type { ReactNode } from 'react';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/contracts/src/x.ts', code: `export const n = 1;`, rule: '' },
+  // --- storybook (#2828): public SDK entries only; no deep path, no menu ---
+  { file: 'tooling/storybook/src/x.tsx', code: `import { Button } from '@ap/ui';`, rule: '' },
+  { file: 'tooling/storybook/src/x.tsx', code: `import { Button } from '@ap/ui/src/components/Button';`, rule: 'no-restricted-imports' },
+  { file: 'tooling/storybook/src/x.tsx', code: `import { x } from '@ap/menu-home';`, rule: 'no-restricted-imports' },
   // --- contractSchemas (ADR-0096): zod only in src; tests may read @ap/contracts and its vocab.json ---
   { file: 'packages/sdk/contract-schemas/src/x.ts', code: `import { z } from 'zod/v4';`, rule: '' },
   { file: 'packages/sdk/contract-schemas/src/x.ts', code: `import type { X } from '@ap/contracts';`, rule: 'no-restricted-imports' },

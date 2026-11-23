@@ -13,6 +13,7 @@ packages:
   - tooling/css-selectors
   - tooling/eslint
   - tooling/gen-menu
+  - tooling/storybook
   - tooling/tsconfig
   - ops/*
 allowBuilds:

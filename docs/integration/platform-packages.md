@@ -11,7 +11,7 @@
 - `platform-app`에 모여 있는 Kernel·UI·공통 컴포넌트·셸을 패키지로 나눈다. 메뉴는 **패키지 경계 밖에서** 선언만으로 얹히게 한다(06 §3: "플랫폼 기능은 개별 메뉴 import 관계를 알지 못해야 한다").
 - 새 메뉴를 만들 때 쓸 템플릿(생성기)의 모양을 정한다.
 - 서버는 mock을 유지한다(05 Decided). mock은 교체 가능한 어댑터 뒤로 숨긴다.
-- **범위 밖:** 워크스페이스 층 구현(06 §9.1), Storybook·시각 회귀. 이들은 이 경계 위에서 후속 PR로 진행한다. 기능 화면과 공용 코드는 `packages/feature/`에, 백엔드는 `apps/platform-api/`에 둔다. 모두 루트 pnpm workspace에 속한다. 플랫폼 코드는 UI primitive를 `@ap/ui`를 통해 소비한다.
+- **범위 밖:** 워크스페이스 층 구현(06 §9.1), 시각 회귀. 이들은 이 경계 위에서 후속 PR로 진행한다. 기능 화면과 공용 코드는 `packages/feature/`에, 백엔드는 `apps/platform-api/`에 둔다. 모두 루트 pnpm workspace에 속한다. 플랫폼 코드는 UI primitive를 `@ap/ui`를 통해 소비한다.
 
 ## 3. 패키지 구성
 
@@ -37,7 +37,7 @@
 | `apps/platform-web` | 조립 지점 | `main.tsx`, IA 설정(`SPACES`·`GROUPS`), 메뉴 등록, 어댑터 주입, dev 도구(역할 전환·응답 시나리오) | 있음 | 전부 |
 | `apps/platform-e2e` | (검사) | 조립된 앱을 브라우저로 띄워 플랫폼 계약을 검사하는 Playwright 블랙박스 테스트와 항목별 보고(#44) | 없음 | 없음(`@ap/*` import 금지, 브라우저로만 관찰) |
 | `@eqv/*` (`packages/eqv/*`: `core`, `renderer`, `editor`, `replay`, `ui`, `views`) | Consumer(EV 도메인) | 설비 시각화 도메인 모델·Top View 렌더러·Replay·Studio 편집기·EV 화면. 흡수한 EV 패키지를 workspace로 두기 위해 `packages/` 아래 한 단계 더 둔다([ADR-0132](../adr/0132-eqv-merges-into-platform.md)). 자산·fixture는 `packages/eqv/assets`·`packages/eqv/fixtures` | 패키지별(`core`는 없음) | `core`·`renderer`: `@ap/*` 없음. `editor`·`replay`·`ui`·`views`: `@ap/ui`만 |
-| `tooling/*` | 개발 환경 | 공유 tsconfig, lint 설정(경계·계약 규칙), 메뉴 생성기 | — | — |
+| `tooling/*` | 개발 환경 | 공유 tsconfig, lint 설정(경계·계약 규칙), 메뉴 생성기, SDK Storybook(`tooling/storybook`, §6) | — | — |
 
 `@eqv/*` 의존 규칙([ADR-0132](../adr/0132-eqv-merges-into-platform.md), 옛 EV 규칙은 [EV ADR-0001](../adr/history/eqv/0001-standalone-packages-thin-platform-consumer.md)·[EV ADR-0012](../adr/history/eqv/0012-platform-first-sdk-host.md)): `core`와 `renderer`는 `@ap/*`를 import하지 않아 플랫폼 없이 빌드·시험된다. `editor`·`replay`·`ui`·`views`는 `@ap/ui`만 import한다. 어느 쪽도 `@ap/kernel`·`@ap/shell`·`@ap/components`는 import하지 않는다. **이 두 패키지만 메뉴 중에서 `@eqv/*`를 import한다:** `@ap/menu-topview-studio`(`menus/tools/topview-studio`, #1654)와 `@ap/menu-topview`(`menus/tools/topview`, Top View·Focus 뷰어, #1659)는 EV 자신의 메뉴로 정확히 `@eqv/core`·`@eqv/renderer`·`@eqv/replay`·`@eqv/views`·`@eqv/editor`·`@eqv/ui` 여섯 진입점만 쓴다(`tooling/eslint`의 `eqvMenu` 프리셋, `allowEqv` 정확 일치라 `@eqv/ui/styles.css` 같은 하위 경로는 금지, `src/mock/**`는 `@eqv/core`도 금지). 다른 메뉴는 전부 계속 금지다. `@eqv/ui`는 `Panel`·`ViewerZoomControls`와 `--eqv-*` 테마만 쓰고 나머지 화면 부품(`StateMessage`·`LoadingBlock`·`DataTrustIndicator`)은 `@ap/components`·`@ap/ui`다. 이유: 도메인 모델과 렌더러가 플랫폼 버전에 묶이지 않아야 같은 패키지를 Studio와 플랫폼 화면이 함께 쓴다.
 
@@ -173,6 +173,8 @@ const registry = createRegistry({ spaces: SPACES, groups: GROUPS, menus: [...hom
 **기능 패키지 lint (#1102 a·b):** `@ap/platform-api`·`@ap/feature-shared`·`src/ui`·`@ap/feature-screens`는 패키지 `lint`(`eslint . --max-warnings 0`)가 전체 소스(테스트·설정 포함, `dist`·`coverage` 같은 산출물 제외)를 검사한다. 루트 `pnpm lint`가 turbo로 이 leaf를 돈다. 프리셋은 `tooling/eslint/src/feature.js`의 `featureServerPreset`·`featureSharedPreset`·`featureUiPreset`와 screens용 `featureScreensPreset`(`featureUiPreset`와 같은 정확성·React·Hooks·접근성 규칙에 옛 Oxlint 패스가 검사하던 `no-restyle`·`require-static-classes`를 더하고 `src/ui` import도 컴포넌트로 읽는다. 또 브라우저 `crypto.randomUUID()` 호출을 막는다(`ap/no-browser-random-uuid`, #2017): 보안 컨텍스트가 아닌 HTTP에는 `crypto.randomUUID`가 없어 쓰기가 나가지 못한다. 전역 수신자(`crypto`·`globalThis.crypto`·`window.crypto`)의 호출만 보고하므로 기능 검사(`crypto.randomUUID === undefined`)와 노드 객체(`nodeCrypto.randomUUID()`)는 그대로 허용된다. 키는 `mintIdempotencyKey()`, 다른 id는 `randomUuidV4()`(`@/lib/api/idempotency`)를 쓴다. 컴포넌트를 정의하는 `featureUiPreset` 패키지만 이 둘을 끈다. 기능 전용, SDK·앱·메뉴·다리 프리셋은 읽지 않는다)이고 각 패키지 루트 `eslint.config.js`가 한 줄로 가져온다. SDK/브라우저 import 허용 목록은 적용하지 않으며 서버·공유 경계는 기존 AST 검사(`ops/platform-api/scripts/check-boundaries.mjs`)가 계속 원본이다. 그 검사는 정확한 패키지 루트 `eslint.config.js`(네 패키지)만 devDependency `@ap/eslint-config`를 import하도록 허용한다(런타임 파일·중첩 파일·부분 경로·다른 `@ap/*`는 계속 금지). 남은 Biome 범위는 기능 문서 루트(`FEATURE_DOCS`)와 `ops/platform-api`(`FEATURE_BIOME_SCOPE`)뿐이고 Oxlint 디자인 패스는 없어졌다(`ops` `lint:design`·`.oxlintrc.json` 삭제, 규칙은 위 프리셋이 ESLint로 검사). `packages/feature/screens`의 `lint`는 `src`뿐 아니라 패키지 전체의 TS/TSX/JS 소스·테스트·설정 파일을 검사한다. `react`·`jsx-a11y` 플러그인의 ESLint 피어 범위는 9까지라 `@eslint/compat`의 `fixupPluginRules`로 감싸 ESLint 10에서 돌린다(`tooling/eslint/src/feature.test.ts`가 선택 규칙의 실행을 고정, 루트 피어 정책은 바꾸지 않음). `featureServerPreset`만 타입 정보로 `@typescript-eslint/no-floating-promises`를 검사한다(#1972): `src`의 테스트가 아닌 소스만, 패키지 `tsconfig.json`의 project service로 읽는다. 그래서 `@ap/platform-api` lint는 타입 없는 실행보다 약 2.5배 걸린다. 없는 경로에 텍스트를 넣어 검사하는 테스트만 `featureServerUntypedPreset`을 쓴다.
 
 옛 Biome·Oxlint 규칙이 ESLint의 어디로 갔는지와 엔진 차이는 [대응표](../../tooling/eslint/docs/biome-to-eslint.md)에 있다.
+
+**SDK Storybook (#2828):** `tooling/storybook`(`@ap/storybook`, 개발 전용)은 SDK를 메뉴처럼 공개 진입점으로만 읽는다(`storybook` 프리셋 = 메뉴 경계). 실행은 `pnpm --filter @ap/storybook storybook`(:6006), 정적 빌드는 `pnpm --filter @ap/storybook build-storybook`. `build` 스크립트가 없어 루트 build와 PR CI는 돌지 않고, main push(경로 필터)와 수동 실행 때 `pages.yml`이 사이트 아래 `/storybook/`으로 배포한다. **원본은 하나다:** 기초 페이지는 `theme-tokens.json`·`tokens.css`·`platform-tokens.css`·`index.css`의 `t-*` 역할과 `DESIGN.md`를 빌드 때 읽어 그리고(`.storybook/design-sources.ts`), Props 표는 SDK 소스의 TS 타입에서, 사용 지침은 `DESIGN.md`·`docs/contract/components.md` 문장을 찾아 인용한다. 규칙·값을 story에 옮겨 적지 않는다. 인용한 문장이 원문에서 사라지면 문서 페이지가 빨간 경고로 보인다.
 
 ## 8. 결정 (Decided, 2026-09-26)
 
