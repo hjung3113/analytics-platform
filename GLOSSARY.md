@@ -36,6 +36,10 @@ _Avoid_: 공장, Factory — 구어로는 Line과 같은 뜻으로 쓰이지만,
 사용자가 조회 한 번에 고르는 단일 접근·조회 범위로, 단위는 Site다 — 사용 권한이 보통 Site 단위로 나뉜다(데이터가 어느 DB에 있는지는 Scope와 무관하다, [ADR-0153](docs/adr/0153-upstream-target-routing-and-declared-connectors.md)). 그 Site 안에서는 부여된 room_name만 보이며, 서버가 요청마다 권한을 다시 검증한다. v1은 단일 Scope 선택이다([06 §6.2](docs/contract/kernel.md#62-scope와-권한-decided--open)).
 _Avoid_: 범위, 조회 범위(단독) — 화면 문구도 `Scope`로 쓴다. 결과 크기를 말할 때는 범위 대신 조건·결과를 쓴다.
 
+**Scope 칩** (`ScopeSelector layout="chip"`):
+주 화면 페이지 머리 제목 줄 맨 앞(breadcrumb 앞)에 있는, 화면의 유일한 분석 Scope 선택기. 셸이 `PlatformPageTitleLead`로 주입하고 사이드바 접힘과 무관하다. 분할 칸·전역 화면·`scopeControl` 공간·`scopePresentation: 'hidden'` 공간에는 없다([06 §7](docs/contract/layout.md#7-application-shell)).
+_Avoid_: 사이드바 Scope 선택기 — 사이드바에는 공간의 `scopeControl`만 있다.
+
 ### 로그 지식 허브 명세
 
 **모델 명세 Revision**:
@@ -410,7 +414,7 @@ _Avoid_: 템플릿.
 _Avoid_: 전역 유틸리티 메뉴 — ADR-0028 때의 이름이다.
 
 **레일** (접근 이름 `시스템 레일`):
-셸 맨 왼쪽의 세로 띠. 위에서부터 전환기, 현재 업무 시스템의 메뉴 그룹(섹션), 시스템을 바꿔도 그대로인 공통 도구(메뉴 검색·분석 보드·VOC 등록·알림), 도움말·사용자 순이다([15 §3.2](docs/design/multi-workspace-ui.md)).
+셸 맨 왼쪽의 세로 띠. 위에서부터 전환기, 현재 업무 시스템의 메뉴 그룹(섹션), 시스템을 바꿔도 그대로인 공통 도구(메뉴 검색·분석 보드·VOC 등록·알림), 도움말·사용자 순이다([15 §3.2](docs/design/multi-workspace-ui.md)). 전역 화면에서는 섹션 자리에 플랫폼 사이드바를 접고 펴는 `홈` 버튼 하나가 있다. 현재 섹션 버튼은 사이드바를 접고 편다([06 §7](docs/contract/layout.md#7-application-shell)).
 _Avoid_: 앱 레일.
 
 **전환기** (`시스템 및 플랫폼 메뉴`):
@@ -614,6 +618,9 @@ _Avoid_: 사용자 메뉴(Registry 메뉴로 읽힌다).
 
 **조회 바** (`QueryBar`):
 초안/적용 방식 메뉴에서 Context 바가 바뀌는 모양. 조건을 모아 `적용`으로 한 번에 조회한다. 바꾸는 즉시 적용되는 메뉴에는 없다.
+
+**최근 조건** (`QueryHistory`, 화면 `최근 조건`):
+이 화면에서 적용했던 조회 조건 행 목록. 복원은 초안만 바꾸고 적용해야 조회한다([06 §11](docs/contract/kernel.md#11-global-context-bar)).
 
 **최소화 / 복원 (분석 보드)**:
 열린 분석 보드가 일반 화면을 보여 주는 동안 숨은 채 남는 상태와 그 되돌림. 최소화 중에는 왼쪽 아래 칩과 레일 버튼이 상태를 알리고 한 번 눌러 복원한다. 닫기(열린 보드를 끝냄)와 다르며, 닫아도 저장된 시트는 남는다.

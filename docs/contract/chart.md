@@ -45,7 +45,7 @@ Primary candidate는 `../architecture/frontend-ui-ux.md`에 따라 Apache EChart
 강조는 색만이 아니라 그 행 막대의 테두리와 굵은 범주 라벨이고, 선택 요약이 `활성 행`을 적는다.
 `activeCategory`가 없으면 강조는 없고 기존 동작 그대로이며, 콜백만 주면 강조 없이 클릭·이동만 알린다.
 행 포커스와 `pointActivation`은 별개다. 클릭은 지점을 선택하고 행 콜백을 부른다. 더블클릭과 Enter, 또는 `선택 지점 실행`이 활성화를 실행한다.
-`rowPitch`(px, 최소 24 — WCAG 2.2 2.5.8 대상 크기, 미만은 24로 올리고 개발 중 경고)는 차트 높이를 `행 수 × pitch + 축 여백`으로 만들고(`rowPitch`에서는 `containLabel` 없이 고정 격자 — 왼쪽 라벨 여백 140px, 행 영역이 정확히 `행 수 × pitch`라서 행 i의 윗변이 격자 위 여백 + i × pitch다) 플롯 상자가 주어진 `height`/`size`(`fill` 포함)만큼의 창으로 안에서 세로 스크롤한다.
+`rowPitch`(px, 최소 24 — WCAG 2.2 2.5.8 대상 크기, 미만은 24로 올리고 개발 중 경고)는 차트 높이를 `행 수 × pitch + 축 여백`으로 만들고(`rowPitch`에서는 `containLabel` 없이 고정 격자 — 왼쪽 라벨 여백 140px, 행 영역이 정확히 `행 수 × pitch`라서 행 i의 윗변이 격자 위 여백 + i × pitch다) 플롯 상자가 주어진 `height`/`size`(`fill` 포함)만큼의 창으로 안에서 세로 스크롤한다. 메뉴가 패널 높이를 맞출 때는 같은 계산을 공개한 `rowPitchChartHeight(rows, pitch)`를 쓴다(#2755; 패널 머리·범례 제외).
 수정키 없는 휠은 가장 가까운 스크롤 컨테이너, 곧 이 안쪽 상자를 스크롤하고 끝에서 바깥으로 넘어간다(위 #700 규칙 그대로).
 **`rowPitch`에서는 범주 `dataZoom`(Shift+휠, `확대` 버튼)이 꺼지고 Brush는 유지한다** — viewport 모델이 둘이면 선택 요약·Brush 범위·내보내기가 어느 창 기준인지 모호해진다.
 `revealActive`는 `activeCategory`가 밖에서 바뀔 때 그 행이 창 밖이면 `격자 위 여백 + 인덱스 × pitch`로 스크롤하며(순수 `revealScrollTop`) 포커스는 옮기지 않고, 프레임 자신의 클릭에서 온 변경은 스크롤하지 않는다.
@@ -177,7 +177,7 @@ Source · Updated · Coverage
 
 `AnalysisChartFrame`은 시간축 눈금을 관측된 버킷 경계에 놓는다(#2579). 버킷 간격을 추론할 수 있으면 표시 구간과 차트 폭에 맞춰 버킷 간격의 배수를 사용한다. 그 간격으로 표시 구간에 눈금이 하나도 나오지 않으면 구간의 첫 관측 버킷을 기준으로 삼는다. 관측 시각이 하나뿐이면 그 시각에만 눈금과 라벨을 표시하고 축 범위는 자동으로 정한다.
 
-**히트맵 밀도 선택 옵션 (#2431):** `HeatmapSpec.minRowHeight?: number`에 양의 유한 px 값을 주면 모든 y축 라벨을 표시하고 행마다 그 높이를 확보한다. `size="fill"`은 차트 내부에서 세로 스크롤하며 다른 크기는 내용 높이로 늘어난다. 생략·비유한·0 이하 값은 기존 자동 높이·라벨 간격을 유지한다. `statusDisplay?: 'marker' | 'border'`의 기본은 `marker`이며, `border`는 셀 내부 기호만 생략하고 상태 테두리·범례·툴팁·표·CSV·선택 요약은 유지한다.
+**히트맵 밀도 선택 옵션 (#2431):** `HeatmapSpec.minRowHeight?: number`에 양의 유한 px 값을 주면 모든 y축 라벨을 표시하고 행마다 그 높이를 확보한다. `size="fill"`은 차트 내부에서 세로 스크롤하며 다른 크기는 내용 높이로 늘어난다. 생략·비유한·0 이하 값은 기존 자동 높이·라벨 간격을 유지한다. 최소 캔버스 높이는 `heatmapMinCanvasHeight(rows, minRowHeight)`(행 × 행 높이 + 축 공간, #2755)다. `statusDisplay?: 'marker' | 'border'`의 기본은 `marker`이며, `border`는 셀 내부 기호만 생략하고 상태 테두리·범례·툴팁·표·CSV·선택 요약은 유지한다.
 
 **도넛 높이 맞춤 (#2431):** standard chrome의 fill 도넛은 사용 가능한 그림 높이에 맞춘다. ECharts의 백분율 반지름은 폭·높이 중 작은 변을 기준으로 한다. 중앙 라벨을 위해 그림 최소 높이는 112px, 전체 차트 최소 높이는 256px이며 이보다 낮은 패널에서는 기존 패널 스크롤 경로로 전체 고리를 확인한다. 이 최소 높이는 다른 차트 종류나 full/compact chrome을 바꾸지 않는다.
 

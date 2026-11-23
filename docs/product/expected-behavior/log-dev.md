@@ -9,7 +9,7 @@
 | 공간 진입 | 세 역할의 Home | 공간 권한이 없어 세 역할 모두 카드가 나온다 | [ADR-0065](../../adr/0065-log-dev-and-improvement-spaces-work-queue-first.md) | 화면 점검(실서버) |
 | 공간 첫 화면 | Home 카드를 처음 누르기 | `내 검증 대기`로 간다 | ADR-0065, Registry `homeMenuId` | 화면 점검(실서버) |
 | 예정 메뉴 | 내 작업 › 내 검증 대기·최근 모델, 전체 모아 보기 › 결함 큐·협력사 검토 현황 | 사이드바와 팔레트에 `예정`으로 나오고 눌러도 선언만 보인다. 오류 화면이 아니다 | [§5](../../contract/kernel.md) | 화면 점검(실서버) |
-| Scope 숨김 | 공간 안 사이드바 머리 | Scope 선택기와 빈 틈이 없다 | [ADR-0108](../../adr/0108-space-scope-presentation-field.md) | 화면 점검(실서버) |
+| Scope 숨김 | 공간 안 페이지 제목 줄 | Scope 칩과 빈 틈이 없다 | [ADR-0108](../../adr/0108-space-scope-presentation-field.md) | 화면 점검(실서버) |
 | 메뉴 권한 | Developer·User, 로그 지식 허브 › 카탈로그 관리 | 사이드바에 없고 주소 입력은 메뉴 권한 없음 화면이 된다. Admin은 열린다 | [ADR-0107](../../adr/0107-log-knowledge-catalog-authority-keys-and-edit-rights.md) 결정 3, [§9.1](../../contract/kernel.md) | 화면 점검(실서버) |
 | 동적 계층 사이드바 | 모델 › 모델 목록, 사이드바 `모델 계층` | 펼친 트리로 설비사, 공정, 모델, SW를 내려간다. 노드를 고르면 목록이 그 노드로 좁혀진다 | [ADR-0118](../../adr/0118-dynamic-hierarchy-navigation-sdk-piece.md) 결정 2·6 | 화면 점검(실서버) |
 | 계층의 키보드 | 같은 트리 | 방향키로 노드를 옮기고 펼치고 접는다 | ADR-0118 결정 5 | 화면 점검(실서버) |

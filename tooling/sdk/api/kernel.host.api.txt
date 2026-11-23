@@ -26,6 +26,7 @@ Unsupported | type | type Unsupported = { key: string; kind: 'context' | 'page';
 ViewState | type | type ViewState = { modified: boolean; unapplied: boolean; unsaved: boolean; }
 buildShareLink | function | function buildShareLink({ kind, route, global, page, pageOverride, absoluteUrl, maxLength }: { absoluteUrl: (url: string) => string; global: @ap/contracts#GlobalContext; kind: @ap/kernel/host#ShareLinkKind; maxLength?: number; page: readonly @ap/contracts#Pair[]; pageOverride?: Readonly<Record<string, null | string>> | undefined; route: Pick<@ap/kernel#RouteMatch, 'menu' | 'params'> | null; }): @ap/kernel/host#ShareLinkResult
 captureApplied | function | function captureApplied(applied: Applied, support: SupportedKeys): SavedState
+drillHistorySummary | function | function drillHistorySummary(drill: @ap/contracts#MenuMeta['drill'], page: readonly @ap/contracts#Pair[], lang: @ap/kernel#Lang): { key: string; label: string; value: string; }[]
 hasDotSegment | function | function hasDotSegment(pathname: string): boolean
 isChunkLoadFailure | function | function isChunkLoadFailure(error: unknown): boolean
 isImplementedMenu | function | function isImplementedMenu(menu: @ap/kernel#MenuEntry): boolean

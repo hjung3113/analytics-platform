@@ -233,8 +233,8 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 - 현재 메뉴/공간은 공유 selected 표면 + text weight + **2px accent 막대**로 구별한다. `aria-current`를 유지하고 hover가 막대를 지우지 않는다. 보조 즐겨찾기/최근 링크에 현재 위치 표식을 중복하지 않는다.
 - 탭 선택은 2px `accent-primary` 아래 막대 + `font-semibold`, 비선택은 `text-secondary`, 목록 기준선은 1px `border-subtle`로 표시한다(ADR-0023 개정, #340). `overflow="menu"`의 `더보기` 버튼도 숨은 탭이 선택됐을 때 같은 막대와 `font-semibold`를 쓴다(#1190).
 - hover는 공유 row-hover, focus는 opaque 2px outline과 offset을 사용한다. hover/selected 안의 작은 필수 글자(‘예정’, Scope 상태·room, 언어)는 secondary 또는 허용 label로 유지한다.
-- collapsed에서는 Scope 선택·검증 상태와 주 메뉴를 남긴다. 아이콘은 이름 있는 동작이며 hover/focus Tooltip에 전체 이름을 제공한다. Scope Tooltip과 accessible description은 이름·상태·room을 보존하고 live announcement는 상태 문자열만 전달한다.
-- collapsed에서 즐겨찾기/최근은 숨겨 주 메뉴와 중복 아이콘이 섞이지 않게 한다. expanded에서는 두 section과 빈 안내를 유지한다. 빈 안내는 가짜 링크가 아니다.
+- 접으면 사이드바 전체가 사라지고 레일만 남는다(06 §7). Scope 선택·검증 상태는 페이지 제목 줄의 Scope 칩이 늘 보인다. 칩의 Tooltip과 accessible description은 이름·상태·room을 보존하고 live announcement는 상태 문자열만 전달한다.
+- 펼친 사이드바는 즐겨찾기·최근 section과 빈 안내를 유지한다. 빈 안내는 가짜 링크가 아니다.
 - 한 줄 50px 머리는 머리 컨테이너 폭(뷰포트 아님)이 줄면 이 순서로 양보한다. 설명이 먼저 접혀 제목 옆 정보 아이콘의 툴팁으로 남고, 다음은 Data Trust 요약이 아이콘·축약(이름은 tooltip·aria)으로, 그다음 잠정 배지다. 제목은 말줄임하되 최소 폭을 지켜 0이 되지 않고, 전체 이름은 제목 툴팁과 `title`로 남는다. 주 동작은 줄지 않는다. 보조 동작은 있으면 ⋯ 메뉴에 두며 없으면 ⋯도 없다. 다시 넓어지면 설명·요약·배지만 돌아오고 보조 동작은 메뉴에 남는다. 접힌 단계는 경계보다 넓은 폭에서 되돌려 진동하지 않게 한다. 줄바꿈은 쓰지 않는다. 모든 양보 뒤에도 들어가지 않을 때(예: 1024px + 펼친 사이드바 + 상세 패널)만 머리가 가로로 스크롤된다. 주 동작은 Tab 포커스나 스크롤로 닿으며, 포커스한 컨트롤은 머리의 보이는 범위로 스크롤된다. 시각 스크롤바는 감추지 않는다. 정상 폭(1280px 이상 + 상세 패널)에서는 스크롤이 생기지 않는다. 제목·즐겨찾기는 스크롤 위치에 따라 보이는 영역을 벗어날 수 있다([ADR-0035](docs/adr/0035-page-header-yield-order.md)).
 - 언어 동작의 접근성 이름은 현재 언어와 다음 전환 목적을 함께 전달한다. 번역 범위와 Context 보존은 06 §23을 따른다.
 
@@ -248,7 +248,9 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 
 ### 표면·선·그림자 v3 — Decided (#2722)
 
-소유자가 `?variant=v3`를 골랐다. 캔버스 `#eceff3`, 크롬(사이드바·레일·캔버스 띠) 흰색 `surface-band`·`surface-sidebar`, 크롬과 캔버스가 만나는 선 `border-chrome` `#e3e7ec`(페이지 sticky 머리 아래 포함). 최상위 카드와 도킹 그룹은 `elevation-panel`이 `border-card` `#dce1e7`·`radius-card` 10px·두 겹 `shadow-sm`을 주고, 카드 안 보조 면은 `surface-sunken` `#f6f8fa`다(`elevation-panel`·도킹 그룹이 `surface-sunken`을 `surface-sunken-in-card`로 바꾼다). 카드 안 선 `border-subtle` `#e5eaf0`, 표 행 선 `border-row` `#eef1f5`, 열린 상세 서랍과 팝오버는 L3 `shadow-xl`/`shadow-md`, 그 표면은 흰색이다. `text-muted` `#5b6678`은 캔버스에서 5.03:1. 입력 경계 `border-control`은 3:1 하한 때문에 프로토타입의 `#cbd5e1`(1.48:1) 대신 기존 값을 유지한다.
+캔버스 `#eceff3`, 크롬(사이드바·레일·캔버스 띠) 흰색 `surface-band`·`surface-sidebar`, 크롬과 캔버스가 만나는 선 `border-chrome` `#e3e7ec`(페이지 sticky 머리 아래 포함). 최상위 카드와 도킹 그룹은 `elevation-panel`이 `border-card` `#dce1e7`·`radius-card` 10px·두 겹 `shadow-sm`을 주고, 카드 안 보조 면은 `surface-sunken` `#f6f8fa`다(`elevation-panel`·도킹 그룹이 `surface-sunken`을 `surface-sunken-in-card`로 바꾼다). 카드 안 선 `border-subtle` `#e5eaf0`, 표 행 선 `border-row` `#eef1f5`, 열린 상세 서랍과 팝오버는 L3 `shadow-xl`/`shadow-md`, 그 표면은 흰색이다. `text-muted` `#5b6678`은 캔버스에서 5.03:1. 입력 경계 `border-control`은 3:1 하한 때문에 프로토타입의 `#cbd5e1`(1.48:1) 대신 기존 값을 유지한다.
+
+**강조색 테마 (#2723).** 기본은 파랑이다. 루트에 `data-theme="violet"`을 달면 강조색 계열(`accent-primary`·hover·soft, 선택 행·선택 경계·focus)만 `#635bce`로 바뀌고 표면·상태·차트 계열 색은 그대로다. 정의는 `@ap/ui/styles/themes.css`. 캔버스에 토큰 색을 직접 그리는 부품은 `useThemeRevision()`(`@ap/ui/theme`)을 다시 그리는 의존성에 넣는다.
 
 ### Compact analysis — Decided (#1141)
 
@@ -402,7 +404,7 @@ posthog와 sentry(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 
 ### Chart stroke contrast — Decided (B, 2026-10-04)
 
-현재 카드 위 thin line mark의 `chart-blue`는 **2.79:1**, `chart-teal`은 **2.98:1**이며 `chart-purple` bar는 **3.25:1**이다(#193 리뷰). 2px 선에서 blue/teal은 의미 있는 비텍스트 mark의 3:1 기준에 부족하다. solid/dashed legend와 동일 데이터 table은 series 구분/대체 경로를 제공하지만 선 자체 대비를 높이지 않는다.
+v2 팔레트에서 카드 위 thin line mark의 `chart-blue`는 **2.79:1**, `chart-teal`은 **2.98:1**이며 `chart-purple` bar는 **3.25:1**이다(#193 리뷰). 2px 선에서 blue/teal은 의미 있는 비텍스트 mark의 3:1 기준에 부족하다. solid/dashed legend와 동일 데이터 table은 series 구분/대체 경로를 제공하지만 선 자체 대비를 높이지 않는다.
 
 | 선택지 | 효과·비용 |
 | --- | --- |
@@ -410,7 +412,7 @@ posthog와 sentry(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 | B. thin line mark용 더 진한 stroke alias 추가, category fill 유지 | 범주 identity·soft fill을 보존하며 line/outline 대비를 조정; 새 alias와 표면별 ≥3:1 검증 필요 |
 | C. palette 자체 변경 | 모든 mark의 일관된 재조정 가능; 승인 palette·category fill·legend 소비자까지 영향과 prototype 재확인 필요 |
 
-**B 구현 — 사용자 결정, 2026-10-04.** [ADR-0012](docs/adr/0012-chart-thin-line-stroke-aliases.md)에 따라 thin line/outline 전용 stroke alias를 추가했고 category fill·기존 palette는 유지한다. 사용자가 확인한 B2 값과 각 표면 대비는 아래와 같다.
+**B 구현 — 사용자 결정, 2026-10-04.** [ADR-0012](docs/adr/0012-chart-thin-line-stroke-aliases.md)에 따라 thin line/outline 전용 stroke alias를 추가했고 category fill·기존 palette는 유지한다. 아래 표는 v2 팔레트에서 사용자가 확인한 B2 값과 각 표면 대비다. 현행 값은 표 아래 v3 문단이 정한다.
 
 | Stroke alias | 값 | 카드 `#ffffff` | 캔버스 `#eef2f9` | Sunken `#edf3fb` |
 | --- | --- | ---: | ---: | ---: |
@@ -419,7 +421,7 @@ posthog와 sentry(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 | `chart-purple-stroke` | `#8154ce` | 5.13:1 | 4.57:1 | 4.60:1 |
 | `cat-amber-stroke` | `#b45309` | 5.02:1 | 4.47:1 | 4.50:1 |
 
-**v3 팔레트(#2724)** 이후 stroke 별칭은 fill과 같은 값이며 모두 3:1을 넘는다: 카드 / 캔버스 `#eceff3` / sunken `#f8fafc` 기준 blue `#2e6bd9` 4.97 / 4.31 / 4.75, teal `#0b7f75` 4.88 / 4.23 / 4.66, 주황 `#c8690a`(purple·amber 자리) 3.83 / 3.32 / 3.66. 막대 안 값 label은 흰 글자 4.5:1을 넘는 blue·teal·green·magenta에 `text-on-accent`, 주황(흰 3.83:1, 진한 글자 4.63:1)과 회색 기타에 `text-primary`를 쓴다(`chartValueLabels.ts`). 프로토타입의 olive `#5c8a2e`는 흰 글자 4.09:1·진한 글자 4.33:1로 둘 다 미달이라 같은 색상을 어둡게 한 `#57822b`(흰 글자 4.53:1)로 바꿨다.
+**v3 팔레트(#2724)** 이후 stroke 별칭은 fill과 같은 값이며 모두 3:1을 넘는다: 카드 / 캔버스 `#eceff3` / sunken `#f8fafc` 기준 blue `#2e6bd9` 4.97 / 4.31 / 4.75, teal `#0b7f75` 4.88 / 4.23 / 4.66, 주황 `#c8690a`(purple·amber 자리) 3.83 / 3.32 / 3.66. 막대 안 값 label은 흰 글자 4.5:1을 넘는 blue·teal·green·magenta에 `text-on-accent`, 주황(흰 3.83:1, 진한 글자 4.63:1)과 회색 기타에 `text-primary`를 쓴다(`chartValueLabels.ts`). `chart-green` `#57822b`는 흰 글자 4.53:1을 넘도록 정한 값이다.
 
 `AnalysisChartFrame`은 blue/teal/purple/amber 시리즈 선, 선 범례 견본, 브러시 외곽선에 해당하는 stroke 별칭을 쓴다. 막대·영역 채움과 선 위 심볼은 원래 채움 색을 유지하고, 그래서 툴팁 마커(심볼 색을 따름)도 채움 색이다. `chart-green`은 얇은 선으로 쓰는 곳이 없어 stroke 값을 두지 않았다.
 

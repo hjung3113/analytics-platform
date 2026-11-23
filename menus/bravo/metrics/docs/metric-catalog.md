@@ -40,7 +40,7 @@
 | --- | --- | --- | --- |
 | unsupported | selection `reference` — 전달·참조, 정의 목록 필터 아님 | unsupported | metric `apply` — 같은 지표의 해당 버전 조회 |
 
-roomNames·Condition·PPID·Recipe는 `unsupported`다. 둘 다 `pageType: catalog`, 권한 `metrics:view`, `requiresScope: false`다. 카탈로그 정의를 Scope별로 복제할지/공유할지는 Open이므로 그 결정 전까지 Scope 선택을 요구하지 않으며, 결정되면 이 선언을 다시 본다. 이는 Scope 접근 검증을 생략할 이유가 아니다. Scope 선택기는 사이드바 머리 하나다(06 §7). Site→room_name→StGroup→Equipment 관계와 독립 Line 축을 따른다([06 §6.2](../../../../docs/contract/platform-ui-contract.md), [ADR-0005](../../../../docs/adr/0005-scope-room-name-line-independent.md)).
+roomNames·Condition·PPID·Recipe는 `unsupported`다. 둘 다 `pageType: catalog`, 권한 `metrics:view`, `requiresScope: false`다. 카탈로그 정의를 Scope별로 복제할지/공유할지는 Open이므로 그 결정 전까지 Scope 선택을 요구하지 않으며, 결정되면 이 선언을 다시 본다. 이는 Scope 접근 검증을 생략할 이유가 아니다. Scope 선택기는 페이지 제목 줄의 Scope 칩 하나다(06 §7). Site→room_name→StGroup→Equipment 관계와 독립 Line 축을 따른다([06 §6.2](../../../../docs/contract/platform-ui-contract.md), [ADR-0005](../../../../docs/adr/0005-scope-room-name-line-independent.md)).
 
 전달된 Time/Lot/PPID/Recipe/room_name과 Equipment 선택은 URL에 보존하고 "이 페이지 미적용"으로 표시한다. Equipment는 참조만 가능하며 명시적 공집합도 카탈로그 결과를 0건으로 바꾸지 않는다. Equipment Group의 Condition과 고정 Selection을 사용한 축(StGroup / 분임조 / Maker+Model) 그대로 보존하며, 이 화면은 둘 다 정의 목록 필터로 적용하지 않는다([06 §6.1/§6.4](../../../../docs/contract/platform-ui-contract.md), [ADR-0002](../../../../docs/adr/0002-stgroup-materializes-to-equipment-ids.md)).
 
