@@ -144,7 +144,7 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
       byCategory: new Map(comparison.equipment.map(item => [item.id, item.held ? null : item.total])),
     };
     const toStep = (point: ChartPoint) => drillTo({ step: point.seriesId, equipment: point.x });
-    // Every Step row and the heatmap x-axis in view (#2755). A preferred height: a stored row under it is raised once on restore when the declaration is new or grew (#2786).
+    // Every Step row and the heatmap x-axis in view (#2755). A preferred height only: a stored row height is restored as is (#2786).
     const matrixPanelHeight = Math.max(MATRIX_PANEL_HEIGHT, MATRIX_PANEL_CHROME + heatmapMinCanvasHeight(stepRows.length, MATRIX_ROW_PITCH));
     const stack: PanelWorkspacePanel = {
       id: 'steps', title: step ? previousTitle(M.stepTimes) : M.stepTimes, primary: true, preferredHeight: MATRIX_PANEL_HEIGHT,
