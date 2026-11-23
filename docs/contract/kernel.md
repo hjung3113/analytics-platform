@@ -127,7 +127,7 @@ live에서 전환한 메뉴는 `query.applyPeriodOnLegacyEntry: true`를 `autoAp
 | --- | --- |
 | `id`, `title` | 메뉴 안에서 유일한 id, 비어 있지 않은 ko/en 제목. 전체 표기는 `<menuId>/<panelId>` |
 | `queryInputs`, `displayInputs` | `{ context?: (ContextKey 또는 scopeId)[], page?: { key, required?, selection? }[] }`. `selection: 'filter'`는 필터, `'highlight'`는 강조(`displayInputs`만 허용). 분석 선택을 받으려면 해당 키에 `selection`을 선언하고, 무시하려면 키를 생략 |
-| `outputs` | 패널 컨트롤이 바꾸는 `{ key, action, selection?: { dimension, shape } }[]`. 메뉴 page key만 허용. `dimension`은 `^[a-z][a-zA-Z0-9]*$`, `shape`는 `set` 또는 `range` |
+| `outputs` | 패널 컨트롤이 바꾸는 `{ key, action, selection?: { dimension, shape, label?: Text } }[]`. 메뉴 page key만 허용. `dimension`은 `^[a-z][a-zA-Z0-9]*$`, `shape`는 `set` 또는 `range`, `label`은 차원의 ko/en 표시 이름 |
 | `grain` | 메뉴가 이름 붙인 데이터 단위. `^[a-z][a-zA-Z0-9]*$` 형태만 검사 |
 | `endpoints` | 메뉴의 엔드포인트 spec 목록. 패널 등록은 `id`, `menuId`, `permission`을 읽고, 빌려주기 등록은 `requiresScope`, `context`, `requiredContext`도 읽음 |
 | `availability` | 선택 재정의 `{ requires: { anyOf: string[] }[], disabledReason: Text }`. OR 키 묶음들을 AND로 판정 |
@@ -137,7 +137,7 @@ live에서 전환한 메뉴는 `query.applyPeriodOnLegacyEntry: true`를 `autoAp
 
 `registry.panels(menuId)`는 선언 순서대로 `menuId`, 중복을 제거한 `permissions`(메뉴의 모든 권한 AND 엔드포인트 권한), `disabledReason(context)`를 더한 등록을 돌려준다. `registry.panelsReading(key)`는 조회·표시 입력을, `registry.panelsWriting(key)`는 출력을 역방향으로 찾는다. 가용성 재정의가 없으면 누락된 필수 page 입력의 드릴 레벨·`query.required.page` 라벨을 이유로 쓰며 라벨이 없으면 키 이름을 쓴다. Scope와 전역 Context 준비 판정은 기존 Kernel 게이트가 소유한다.
 
-분석 선택 입력은 같은 메뉴의 다른 패널이 선언한 분석 선택 출력을 참조한다. 해당 키를 쓰는 모든 출력의 차원과 형태가 같아야 한다. 입력의 `source`는 선언 순서상 첫 출력 패널이며 공유 링크와 뒤로가기에서도 같다. `set`만 `repeatedPageKeys`에 넣고 두 형태 모두 `contextResetKeys`에 넣는다. 드릴 단계, `pageConditions`, `conditionPreset`, `navViews` 프리셋, `subjectPageKeys`, `returnTo`, `hiddenPageKeys`, 소속 carry set과 키를 공유할 수 없다.
+분석 선택 입력은 같은 메뉴의 다른 패널이 선언한 분석 선택 출력을 참조한다. 해당 키를 쓰는 모든 출력의 차원과 형태가 같아야 하며, 라벨을 선언한 출력끼리는 라벨도 같아야 한다. 입력의 `source`는 선언 순서상 첫 출력 패널이며 공유 링크와 뒤로가기에서도 같다. `set`만 `repeatedPageKeys`에 넣고 두 형태 모두 `contextResetKeys`에 넣는다. 드릴 단계, `pageConditions`, `conditionPreset`, `navViews` 프리셋, `subjectPageKeys`, `returnTo`, `hiddenPageKeys`, 소속 carry set과 키를 공유할 수 없다.
 
 순수 도우미 `projectQueryInputs`, `projectDisplayInputs`, `disabledReason`, `panelQueryIdentity`는 `@ap/kernel`에 있다. 동일 조회 입력에서 재조회를 하지 않는 실행 불변식은 Registry가 보장하지 않으므로 메뉴 단위 테스트로 검증한다. 개발 도구 카탈로그는 실제 등록을 표와 키 필터로 읽는다. 저장 가능한 패널 인스턴스(#911), 저장 검증·version 의미(#294), 개인 대시보드 위젯과 운영 콘솔 카탈로그는 S1 범위 밖이다.
 
