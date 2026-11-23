@@ -367,7 +367,7 @@ export const ANALYTICS_MESSAGES = {
   supportDetailsInSummaryTableForOneReal: { ko: "단일 실제 항목의 요약·표 상세 버튼, 기타·미분류 제외", en: "Details in summary/table for one real target; excludes Other/Unclassified" },
   supportShowAsTable: { ko: "표로 보기", en: "Show as table" },
   supportVisibleRangeItemList20PerPage: { ko: "현재 범위 항목 목록, 20개씩 표시", en: "Visible-range item list, 20 per page" },
-  supportArrowNavigationAndTextSummariesProvided: { ko: "방향키 탐색과 텍스트 요약 제공", en: "Arrow navigation and text summaries provided" },
+  supportIntervalTable20PerPage: { ko: "구간마다 한 행, 20개씩 표시", en: "One row per interval, 20 per page" },
   supportTheStackedBarTableHasATotal: { ko: "쌓은 막대의 표에 합계 열 제공, 값 라벨은 최소·최대 중에 끔", en: "The stacked bar table has a total column; segment labels are off while Min/Max is on" },
 
   // cycleData

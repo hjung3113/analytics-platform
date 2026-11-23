@@ -54,7 +54,7 @@ function HistoryChart({ history, itemId, period, reference, trust, m }: Paramete
   const legend: LegendEntry[] = hasMissing ? [...values, { value: m('missing'), color: MISSING }] : values;
   return <LaneTimeline quiet separateRows tickSpacing={TREND_TICK_SPACING} description={<TrendLegend entries={legend} m={m} />}
     ariaLabel={m('values')} lanes={lanes} neutralColorToken={MISSING} trust={trust}
-    formatTooltip={segment => labels.get(segment.id) ?? m('missing')} />;
+    formatTooltip={segment => labels.get(segment.id) ?? m('missing')} formatState={segment => labels.get(segment.id) ?? m('missing')} />;
 }
 
 /** A successful history result covers exactly the applied equipment and the entire period. */

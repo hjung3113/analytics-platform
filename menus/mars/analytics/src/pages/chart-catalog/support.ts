@@ -40,13 +40,13 @@ export function supportFor(kind: CatalogKind, features: Features | undefined): S
     cell('reset', ANALYTICS_MESSAGES.supportReset, histogram ? 'unsupported' : 'supported', histogram ? unavailable : noReason),
     cell('compare', ANALYTICS_MESSAGES.supportCompare, frame && features?.compare ? 'supported' : 'unsupported', frame ? features?.compare ? ANALYTICS_MESSAGES.supportPreviousEqualPeriodSeriesSupplied : featureOff : unavailable),
     cell('annotate', ANALYTICS_MESSAGES.supportAnnotate, (frame || breakdown) && features?.annotate ? 'conditional' : 'unsupported', frame || breakdown ? features?.annotate ? ANALYTICS_MESSAGES.supportRequiresScopeAndASelectedRange : featureOff : unavailable),
-    cell('export', ANALYTICS_MESSAGES.supportExport, !lane && features?.export ? 'supported' : 'unsupported', lane ? unavailable : features?.export ? noReason : featureOff),
+    cell('export', ANALYTICS_MESSAGES.supportExport, !sequence && features?.export ? 'supported' : 'unsupported', sequence ? unavailable : features?.export ? noReason : featureOff),
     cell('drill', ANALYTICS_MESSAGES.supportDrill, breakdown ? 'supported' : frame || histogram || kind === 'lane' ? 'unsupported' : 'conditional', breakdown
       ? ANALYTICS_MESSAGES.supportEnterInTheLegendTreeMovesTo
       : sequence ? ANALYTICS_MESSAGES.supportDetailsForTheSelectedSyntheticItem : lane || histogram ? unavailable : frame
       ? ANALYTICS_MESSAGES.supportThisSampleDoesNotConnectPointActivation
       : ANALYTICS_MESSAGES.supportDetailsInSummaryTableForOneReal),
-    cell('table', ANALYTICS_MESSAGES.supportShowAsTable, sequence ? 'supported' : lane ? 'unsupported' : 'supported', sequence ? ANALYTICS_MESSAGES.supportVisibleRangeItemList20PerPage : lane ? ANALYTICS_MESSAGES.supportArrowNavigationAndTextSummariesProvided : breakdown ? ANALYTICS_MESSAGES.supportTheStackedBarTableHasATotal : noReason),
+    cell('table', ANALYTICS_MESSAGES.supportShowAsTable, 'supported', sequence ? ANALYTICS_MESSAGES.supportVisibleRangeItemList20PerPage : lane ? ANALYTICS_MESSAGES.supportIntervalTable20PerPage : breakdown ? ANALYTICS_MESSAGES.supportTheStackedBarTableHasATotal : noReason),
   ];
 }
 export function supportCounts(row: SupportCell[]) {

@@ -1,0 +1,158 @@
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, PlatformProvider } from '@ap/kernel';
+import { testAdapter, testSession } from '@ap/kernel/testing';
+import { LaneTimeline } from '../LaneTimeline';
+import { exportRegistry } from './test-support';
+
+// #2792: the canvas charts get the Frame tool row's `표로 보기` and `내보내기` (one row per interval: lane, start, end, state, length).
+const H = 3_600_000;
+const lanes = [
+  { id: 'a', label: 'Pump', segments: [{ id: 's1', start: 0, end: H + 5 * 60_000, rank: 'Run' }, { id: 's2', start: 2 * H, end: 3 * H, endBoundary: 'open' as const }] },
+  { id: 'b', label: 'Chuck', segments: Array.from({ length: 24 }, (_, i) => ({ id: `c${i}`, start: i * H, end: i * H + 1_000, startBoundary: i === 0 ? 'orphan' as const : 'closed' as const })) },
+];
+let csv: Blob[] = []; let downloads: string[] = [];
+const readCsv = (blob: Blob | undefined) => new Promise<string[]>(resolve => {
+  const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).replace(/^\uFEFF/, '').trim().split(/\r?\n/)); reader.readAsText(blob!);
+});
+
+beforeEach(() => {
+  vi.stubGlobal('requestAnimationFrame', () => 1); vi.stubGlobal('cancelAnimationFrame', () => {});
+  vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} });
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { downloads.push(this.download); });
+  URL.createObjectURL = (blob: Blob) => { csv.push(blob); return 'blob:x'; }; URL.revokeObjectURL = () => {};
+});
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); csv = []; downloads = []; });
+
+const bare = (element: React.ReactElement) => render(<I18nProvider>{element}</I18nProvider>);
+const rows = () => within(screen.getByRole('table')).getAllByRole('row').slice(1).map(row => [...row.querySelectorAll('td')].map(cell => cell.textContent));
+const exportCsv = () => {
+  fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  fireEvent.click(within(screen.getByRole('dialog', { name: '내보내기' })).getByRole('button', { name: '내보내기 CSV' }));
+};
+
+describe('LaneTimeline table and export (#2792)', () => {
+  it('shows one row per interval with lane, start, end, state and length, twenty to a page', () => {
+    bare(<LaneTimeline lanes={lanes} ariaLabel="Timeline" />);
+    expect(screen.queryByRole('table')).toBeNull();
+    const toggle = screen.getByRole('button', { name: '표로 보기' });
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(within(screen.getByRole('table')).getAllByRole('columnheader').map(cell => cell.textContent)).toEqual(['줄', '시작', '끝', '상태', '길이']);
+    expect(rows().slice(0, 3)).toEqual([
+      ['Pump', '1970-01-01 00:00:00', '1970-01-01 01:05:00', 'Run', '1시간 5분'],
+      ['Pump', '1970-01-01 02:00:00', '1970-01-01 03:00:00', '종료 미확인', '1시간'],
+      ['Chuck', '1970-01-01 00:00:00', '1970-01-01 00:00:01', '시작 미확인', '1초'],
+    ]);
+    expect(rows()).toHaveLength(20);
+    expect(screen.getByText('구간 목록 · 1/2')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
+    expect(rows()).toHaveLength(6);
+    expect(rows()[5]).toEqual(['Chuck', '1970-01-01 23:00:00', '1970-01-01 23:00:01', '—', '1초']);
+  });
+
+  it('keeps the rank in the state cell when only formatTooltip is given', () => {
+    bare(<LaneTimeline lanes={lanes.slice(0, 1)} ariaLabel="Timeline" formatTooltip={() => '작업 구간'} />);
+    fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+    expect(rows().map(row => row[3])).toEqual(['Run', '종료 미확인']);
+  });
+
+  it('names each interval with the consumer formatState text in the table and the CSV (C4)', async () => {
+    const label = (segment: { id: string }) => (segment.id === 's1' ? '42.5 °C' : '미수집');
+    bare(<LaneTimeline lanes={lanes.slice(0, 1)} ariaLabel="Timeline" formatState={label} exportActions={{ exportAllowed: true }} />);
+    fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+    expect(rows().map(row => row[3])).toEqual(['42.5 °C', '미수집 · 종료 미확인']);
+    exportCsv();
+    expect((await readCsv(csv[0])).slice(2).map(line => line.split(',')[3])).toEqual(['42.5 °C', '미수집 · 종료 미확인']);
+  });
+
+  it('follows quiet: the table and export tools become named icon buttons like the zoom controls', () => {
+    bare(<LaneTimeline quiet lanes={lanes} ariaLabel="Timeline" exportActions={{ exportAllowed: true }} />);
+    for (const name of ['표로 보기', '내보내기']) {
+      const button = screen.getByRole('button', { name });
+      expect(button.textContent).toBe('');
+      expect(button).toHaveAttribute('title', name);
+    }
+  });
+
+  it('starts again at the first page when the lanes change, and keeps the page for the same lanes (C6)', () => {
+    const view = bare(<LaneTimeline lanes={lanes} ariaLabel="Timeline" />);
+    fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+    fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
+    expect(screen.getByText('구간 목록 · 2/2')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+    fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+    expect(screen.getByText('구간 목록 · 2/2')).toBeVisible();
+    // Only density instants change: same lanes, same page.
+    view.rerender(<I18nProvider><LaneTimeline lanes={lanes} densityInstants={[5]} ariaLabel="Timeline" /></I18nProvider>);
+    expect(screen.getByText('구간 목록 · 2/2')).toBeVisible();
+    view.rerender(<I18nProvider><LaneTimeline lanes={[...lanes]} ariaLabel="Timeline" /></I18nProvider>);
+    expect(screen.getByText('구간 목록 · 1/2')).toBeVisible();
+  });
+
+  it('exports every interval as CSV only where export is allowed', async () => {
+    bare(<LaneTimeline lanes={lanes} ariaLabel="Timeline" />);
+    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    cleanup();
+    bare(<LaneTimeline lanes={lanes} ariaLabel="Timeline" exportActions={{ exportAllowed: true }} />);
+    exportCsv();
+    const lines = await readCsv(csv[0]);
+    expect(lines[0]).toBe('# Timeline · scopeId= · from= · to=');
+    expect(lines[1]).toBe('줄,시작,끝,상태,길이 (ms)');
+    // Wall-clock digits with ms and no zone suffix: the lane times are not UTC instants (ADR-0064, C3).
+    expect(lines[2]).toBe('Pump,1970-01-01T00:00:00.000,1970-01-01T01:05:00.000,Run,3900000');
+    expect(lines).toHaveLength(2 + 26);
+    expect(await screen.findByText('Timeline.csv 내보냄')).toBeTruthy();
+  });
+
+  it('keeps the ms of an extended year in the wall-clock CSV (C3)', async () => {
+    const far = Date.UTC(10000, 0, 1, 12, 34, 56, 789);
+    bare(<LaneTimeline lanes={[{ id: 'x', label: 'Far', segments: [{ id: 'f', start: far, end: far + 1 }] }]} ariaLabel="Timeline" exportActions={{ exportAllowed: true }} />);
+    exportCsv();
+    // The table export quotes a leading `+` against spreadsheet formulas; the ms stay.
+    expect((await readCsv(csv[0]))[2]).toBe("Far,'+010000-01-01T12:34:56.789,'+010000-01-01T12:34:56.790,,1");
+    // The table keeps the seconds of an extended year (C10).
+    fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+    expect(rows()[0].slice(1, 3)).toEqual(['+010000-01-01 12:34:56', '+010000-01-01 12:34:56']);
+  });
+
+  it('downloads under the same Korean name the result text gives (C5)', async () => {
+    bare(<LaneTimeline lanes={lanes} ariaLabel="설비별 값" exportActions={{ exportAllowed: true }} />);
+    exportCsv();
+    expect(downloads).toEqual(['설비별 값.csv']);
+    expect(await screen.findByText('설비별 값.csv 내보냄')).toBeTruthy();
+  });
+
+  it('clears the standalone result line when the data or the permission changes (C9)', async () => {
+    const lane = (props: Partial<React.ComponentProps<typeof LaneTimeline>>) => <I18nProvider><LaneTimeline lanes={lanes} ariaLabel="Timeline" exportActions={{ exportAllowed: true }} {...props} /></I18nProvider>;
+    const view = render(lane({}));
+    exportCsv();
+    expect(await screen.findByText('Timeline.csv 내보냄')).toBeTruthy();
+    view.rerender(lane({ lanes: [...lanes] }));
+    expect(screen.queryByText('Timeline.csv 내보냄')).toBeNull();
+    exportCsv();
+    expect(await screen.findByText('Timeline.csv 내보냄')).toBeTruthy();
+    view.rerender(lane({ exportActions: { exportAllowed: false } }));
+    view.rerender(lane({ exportActions: { exportAllowed: true } }));
+    expect(screen.queryByText('Timeline.csv 내보냄')).toBeNull();
+  });
+
+  it('reports a throwing formatState as a failed export and writes no file (C12)', async () => {
+    bare(<LaneTimeline lanes={lanes} ariaLabel="Timeline" formatState={() => { throw new Error('bad'); }} exportActions={{ exportAllowed: true }} />);
+    exportCsv();
+    expect(await screen.findByText('Timeline.csv를 내보내지 못했습니다')).toBeTruthy();
+    expect(csv).toHaveLength(0);
+  });
+
+  it('inside a platform the menu manifest decides', () => {
+    const session = testSession(['platform:view']);
+    const adapter = testAdapter({ session: () => session });
+    window.history.replaceState(null, '', '/?v=1');
+    for (const canExport of [false, true]) {
+      render(<I18nProvider><PlatformProvider adapter={adapter} registry={exportRegistry(canExport)}><LaneTimeline lanes={lanes} ariaLabel="Timeline" exportActions={{ exportAllowed: !canExport }} /></PlatformProvider></I18nProvider>);
+      expect(!!screen.queryByRole('button', { name: '내보내기' })).toBe(canExport);
+      cleanup();
+    }
+  });
+});

@@ -13,12 +13,13 @@ import { copyChartImage, imageCopyText, imagePrintFailedText, printChartImage } 
 export type ChartExportActionsPolicy = { exportAllowed: boolean; notify?: (text: string, tone?: 'warning') => void };
 
 /** Whether the image/export actions show, and where their result text goes (shared by the chart components; not a public export). */
-export function useImageActionGate(standalone: ChartExportActionsPolicy | undefined): { allowed: boolean; say: (text: string, tone?: 'warning') => void; status: string } {
+/** `generation` (optional): a new value clears the standalone status line, and a result said for an older value never shows (#2792). */
+export function useImageActionGate(standalone: ChartExportActionsPolicy | undefined, generation?: unknown): { allowed: boolean; say: (text: string, tone?: 'warning') => void; status: string } {
   const platform = usePlatformOptional();
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState<{ generation: unknown; text: string }>({ generation, text: '' });
   if (platform !== null) return { allowed: !!platform.route?.menu.features?.export, say: (text, tone) => { platform.toast(text, tone); }, status: '' };
   const notify = standalone?.notify;
-  return { allowed: standalone?.exportAllowed === true, say: notify ?? ((text) => setStatus(text)), status };
+  return { allowed: standalone?.exportAllowed === true, say: notify ?? ((text) => setStatus({ generation, text })), status: status.generation === generation ? status.text : '' };
 }
 export const ImageActionStatus = ({ text }: { text: string }) => text === '' ? null : <span role="status" className="t-caption text-text-muted">{text}</span>;
 
