@@ -27,7 +27,7 @@ function readCycle(key: ReadCycle['key'], read: ReadCycle['read'], previous?: Re
 }
 
 /** Bounds the current read and its retries. The host supplies raw read state and retries the current target. */
-export function useAccessRequestRead(state: AccessRequestState): ReturnType<typeof useAccessRequestRetry> {
+export function useAccessRequestRead(state: AccessRequestState): { shown: AccessRequestState; retrying: boolean; canRetry: boolean; run: () => void } {
   const read = !state.pending && state.requestHref !== null ? state.read : undefined;
   const key = state.readKey;
   const [cycle, setCycle] = useState(() => readCycle(key, read));
@@ -119,37 +119,4 @@ export function useAccessRequestState(state: AccessRequestState, { lang, kind, c
       },
     },
   };
-}
-
-/**
- * The retry of a failed state read, shared by every place that offers 「다시 시도」 (#1933). The slot reports `checking` while the retry runs and gives no
- * `retry` then, so the hook keeps the last one, and `shown` keeps the failure look (body and action alike) until the read settles. `run` does nothing when
- * there is nothing to re-run (`canRetry` false) or one retry is already running.
- *
- * @deprecated No consumer outside this package; use `useAccessRequestRead`, which adds the 8-second check limit on top of this retry. Removed in the next SDK minor (#2699).
- */
-export function useAccessRequestRetry(state: AccessRequestState): { shown: AccessRequestState; retrying: boolean; canRetry: boolean; run: () => void } {
-  const [retry, setRetry] = useState<null | 'pressed' | 'running'>(null);
-  const retryAction = useRef(state.retry);
-  useLayoutEffect(() => { if (state.retry) retryAction.current = state.retry; }, [state.retry]);
-  const canRetry = state.retry !== undefined || retry !== null;
-  useEffect(() => {
-    if (retry === 'pressed' && state.read === 'checking') setRetry('running');
-    else if (retry === 'running' && state.read !== 'checking') setRetry(null);
-  }, [retry, state.read]);
-  useEffect(() => {
-    if (retry !== 'pressed') return;
-    // A retry that never starts a read (nothing to re-run) must not leave a busy button behind.
-    const timer = window.setTimeout(() => setRetry(null), RETRY_START_LIMIT_MS);
-    return () => window.clearTimeout(timer);
-  }, [retry]);
-  const shown: AccessRequestState = retry !== null && state.read === 'checking' ? { ...state, read: 'error' } : state;
-  const run = () => {
-    if (retry !== null) return;
-    const action = state.retry ?? retryAction.current;
-    if (action === undefined || !canRetry) return;
-    setRetry('pressed');
-    action();
-  };
-  return { shown, retrying: retry !== null, canRetry, run };
 }

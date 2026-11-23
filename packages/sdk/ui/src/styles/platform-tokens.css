@@ -17,7 +17,7 @@
   --chart-blue: 46 107 217;      /* #2e6bd9 */
   --chart-teal: 11 127 117;
   --chart-green: 87 130 43;      /* #57822b */
-  --chart-purple: 200 105 10;
+  --chart-purple: 200 105 10;    /* 사용 중단, chart-series-3를 쓴다, sdk-v0.48.0에서 제거(#2796). 값은 chart-series-3와 같다. */
   --chart-blue-stroke: 46 107 217;
   --chart-teal-stroke: 11 127 117;
   --chart-purple-stroke: 200 105 10;
