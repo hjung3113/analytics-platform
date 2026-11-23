@@ -9,7 +9,7 @@ import { HostHrefLink } from './HostHrefLink';
 import { permissionCardExitAction } from './permission-card-actions';
 
 export function PermissionDeniedCard({
-  category, description, reason, capability, managedSystemId, layout = 'panel', announceBody = false, extraExitAction,
+  category, description, reason, capability, managedSystemId, layout = 'panel', announceBody = false, extraExitAction, leadingAction,
 }: {
   category: string;
   description?: string;
@@ -19,6 +19,8 @@ export function PermissionDeniedCard({
   layout?: PermissionBlockedPanelProps['layout'];
   announceBody?: boolean;
   extraExitAction?: ReactNode;
+  /** Card layout: an action placed first in the card's button row, before «홈으로». */
+  leadingAction?: ReactNode;
 }) {
   const { lang = 'ko' } = useHostSeam();
   const { permissionHomeHref } = useHostPermissionLinks();
@@ -37,7 +39,7 @@ export function PermissionDeniedCard({
     requestStatus="not-requestable"
     announceBody={announceBody}
     exitAction={card && extraExitAction ? <>{home}{extraExitAction}</> : home}
-    requestAction={!card && permissionHomeHref ? <Button asChild size="sm" variant="link">
+    requestAction={card ? leadingAction ?? null : permissionHomeHref ? <Button asChild size="sm" variant="link">
       <HostHrefLink href={permissionHomeHref}>{PERMISSION_REQUEST_FLOW_COPY[lang].home}</HostHrefLink>
     </Button> : null} />;
 }

@@ -45,7 +45,7 @@ export function ScopedListDenialCard({
     { retryOnMount: false },
   );
   const archivedSystem = archive.archived;
-  // Without the catalog the archive is unknown: the card keeps the permission copy and offers the read again.
+  // Without the catalog the archive is unknown: the card keeps the permission copy and offers the read again, first in its button row.
   const catalogRetry = archive.failed ? (
     <Button variant="secondary" size="sm" onClick={archive.retry}>{PERMISSION_REQUEST_FLOW_COPY[lang].retry}</Button>
   ) : null;
@@ -74,6 +74,7 @@ export function ScopedListDenialCard({
       description={archivedSystem ? PERMISSION_BLOCKED_REASONS.archivedSystem : reason}
       {...(archivedSystem ? {} : missing)}
       announceBody
+      leadingAction={catalogRetry}
       extraExitAction={extraExitAction}
     />;
   } else {
@@ -83,7 +84,7 @@ export function ScopedListDenialCard({
   return (
     <ListDenialFocus container={deniedRef} className="space-y-3" restoreFocus={restoreFocus}>
       {panel}
-      {recoveryAction || catalogRetry ? <div className="flex justify-center gap-2">{recoveryAction}{catalogRetry}</div> : null}
+      {recoveryAction ? <div className="flex justify-center">{recoveryAction}</div> : null}
     </ListDenialFocus>
   );
 }

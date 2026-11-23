@@ -67,8 +67,12 @@ describe('ScopedListDenialCard after a failed catalog read (#2768)', () => {
     );
     expect(screen.getByText(PERMISSION_BLOCKED_REASONS.taskList)).toBeInTheDocument();
     expect(catalog).not.toHaveBeenCalled();
+    // Owner A: the card's one button row holds every action, the retry first.
+    const retry = screen.getByRole('button', { name: '다시 시도' });
+    expect(retry.closest('[data-state="denied"]')).not.toBeNull();
+    expect(retry.parentElement?.firstElementChild).toBe(retry);
 
-    await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await userEvent.click(retry);
 
     expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.archivedSystem)).toBeInTheDocument();
     expect(catalog).toHaveBeenCalledTimes(1);
