@@ -121,6 +121,7 @@ export const SHELL_MESSAGES = {
   // Query history
   historyJustNow: { ko: '방금', en: 'just now' },
   historyButton: { ko: '최근 조건', en: 'Recent conditions' },
+  historyDialogLabel: { ko: '최근 조건', en: 'Recent conditions' },
   historyRestoresNote: { ko: '조건만 복원합니다. 적용을 눌러야 조회합니다.', en: 'Restores conditions only. Apply to run the query.' },
   historyUnavailable: { ko: '최근 조건을 사용할 수 없습니다.', en: 'Recent conditions unavailable.' },
   historyChecking: { ko: '확인 중', en: 'Checking' },
@@ -131,6 +132,8 @@ export const SHELL_MESSAGES = {
   historyRemoveRowLabel: { ko: '{index}번째 조건 삭제', en: 'Remove condition {index}' },
   historyRemove: { ko: '삭제', en: 'Remove' },
   historyEmpty: { ko: '최근 조회 조건이 없습니다.', en: 'No recent conditions.' },
+  historyConfirmRestorePrompt: { ko: '적용하지 않은 변경이 있습니다. 이 조건으로 바꿀까요?', en: 'You have unapplied changes. Switch to these conditions?' },
+  historyConfirmRestoreAction: { ko: '바꾸기', en: 'Switch conditions' },
   historyConfirmClearGroup: { ko: '최근 조건 모두 지우기 확인', en: 'Confirm clearing history' },
   historyConfirmClearPrompt: { ko: '최근 조건을 모두 지울까요?', en: 'Clear all recent conditions?' },
   historyConfirmClearAction: { ko: '지우기 확인', en: 'Confirm clear' },
