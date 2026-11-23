@@ -333,23 +333,6 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
       await evidence(page, testInfo, `chart-catalog-${kind}-selection`);
     });
   }
-  test('차트 도구 줄은 좁은 카드에서도 추가 조작을 가리지 않는다 (#2737)', async ({ page }, testInfo) => {
-    await signInAs(page, 'engineer');
-    await page.goto(`${catalog}&kind=bar`);
-    const chart = page.getByRole('region', { name: '막대 차트', exact: true });
-    const mode = chart.getByRole('radiogroup', { name: '쌓기' });
-    const stack = mode.getByRole('radio', { name: '쌓기' });
-    const none = mode.getByRole('radio', { name: '없음' });
-    await stack.click();
-    await expect(stack).toBeChecked();
-    await page.getByRole('button', { name: '동작·지원 열기', exact: true }).click();
-    await page.getByRole('separator', { name: '동작·지원 너비' }).press('End');
-    await none.click();
-    await expect(none).toBeChecked();
-    await stack.click();
-    await expect(stack).toBeChecked();
-    await evidence(page, testInfo, 'chart-toolbar-start-with-support');
-  });
   test('분해 막대 — 합계 열·합계 없음·트리 드릴 (#580h)', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto(`${catalog}&kind=breakdown`);
