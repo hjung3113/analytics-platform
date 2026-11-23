@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Image as ImageIcon, Printer } from 'lucide-react';
 import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { Button } from '@ap/ui';
@@ -21,7 +21,8 @@ export function useImageActionGate(standalone: ChartExportActionsPolicy | undefi
   const platform = usePlatformOptional();
   const [status, setStatus] = useState({ generation, text: '' });
   const current = useRef(generation);
-  useEffect(() => { current.current = generation; }, [generation]);
+  // Layout effect: the new generation is in place in the same synchronous commit, before any async result can land.
+  useLayoutEffect(() => { current.current = generation; }, [generation]);
   if (platform !== null) return { allowed: !!platform.route?.menu.features?.export, say: (text, tone) => { platform.toast(text, tone); }, status: '' };
   const notify = standalone?.notify;
   return { allowed: standalone?.exportAllowed === true, say: notify ?? ((text) => { if (current.current === generation) setStatus({ generation, text }); }), status: status.generation === generation ? status.text : '' };
