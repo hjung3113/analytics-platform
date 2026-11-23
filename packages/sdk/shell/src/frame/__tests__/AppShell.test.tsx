@@ -157,6 +157,22 @@ describe('light sidebar', () => {
     expect(open()).toBe(true);
   });
 
+  it('hands focus to the rail button that reopens the sidebar when «사이드바 접기» closes it (#2727)', () => {
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
+    mount();
+    const collapse = screen.getByRole('button', { name: '사이드바 접기' });
+    collapse.focus();
+    fireEvent.click(collapse);
+    const reopen = document.activeElement as HTMLElement;
+    expect(reopen.closest('nav')).toHaveAttribute('aria-label', '시스템 레일');
+    expect(reopen).toHaveAttribute('aria-current', 'true');
+    expect(reopen).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(reopen);
+    expect(document.getElementById('platform-sidebar')).not.toBeNull();
+    expect(document.activeElement).toBe(reopen);
+    expect(reopen).toHaveAttribute('aria-expanded', 'true');
+  });
+
   it('uses the existing viewport default only when no persisted value exists', () => {
     const open = (width: number) => { Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width }); const shown = mount().container.querySelector('#platform-sidebar') !== null; cleanup(); return shown; };
     expect(open(1199)).toBe(false);
@@ -893,6 +909,15 @@ describe('platform sidebar (ADR-0070)', () => {
     window.history.replaceState(null, '', '/equipment?v=1');
     mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
     expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
+  });
+
+  it('moves focus to the rail «홈» when the platform sidebar closes under it (#2727)', () => {
+    window.history.replaceState(null, '', '/?v=1');
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    const collapse = screen.getByRole('button', { name: '사이드바 접기' });
+    collapse.focus();
+    fireEvent.keyDown(collapse, { key: '[' });
+    expect(document.activeElement).toBe(within(screen.getByRole('navigation', { name: '시스템 레일' })).getByRole('button', { name: '홈' }));
   });
 
   it('opens and closes the platform sidebar from the rail «홈» button (#2727)', () => {

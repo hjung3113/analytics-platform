@@ -36,7 +36,8 @@ export function AppRail({ sidebar }: { sidebar?: RailSidebar }) {
   const boardLabel = board.maximized ? boardCopy.railOpen : board.floating ? (board.windowFill ? boardCopy.railOpen : boardCopy.railFloating) : board.minimized ? boardCopy.railMinimized : boardCopy.railClosed;
   const vocLabel = m('railVoc');
   // VS Code's activity bar (#2727): the current category toggles the sidebar; another category opens its first menu with the sidebar open.
-  const sidebarProps = (active: boolean) => sidebar && { 'aria-expanded': active && !sidebar.collapsed, 'aria-controls': sidebar.collapsed ? undefined : SIDEBAR_ID };
+  // `data-sidebar-toggle` marks the button that reopens the sidebar: focus lands there when the sidebar closes under it.
+  const sidebarProps = (active: boolean) => sidebar && { 'aria-expanded': active && !sidebar.collapsed, 'aria-controls': sidebar.collapsed ? undefined : SIDEBAR_ID, 'data-sidebar-toggle': active ? 'true' : undefined };
   const openSection = (active: boolean, items: readonly MenuEntry[]) => {
     if (!active) navigate(linkTo(firstOpenableMenu(items).id), { focus: 'page', via: 'sidebar' });
     if (sidebar && (active || sidebar.collapsed)) sidebar.setCollapsed(active ? !sidebar.collapsed : false);
