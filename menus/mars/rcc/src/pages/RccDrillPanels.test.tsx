@@ -19,7 +19,7 @@ vi.mock('@ap/components', async importOriginal => ({
     <div data-chart={chartId} data-empty-label={emptyCategoryLabel} data-series={series.map(item => item.id).join(',')}
       data-start-align={String(!!startAlign)} data-value-labels={valueLabels} />,
   PageFilterBar: () => null,
-  PanelWorkspace: ({ panels }: PanelWorkspaceProps) => <>{panels.map(({ id, render, preferredHeight, minHeight }) => <div key={id} data-panel={id} data-preferred={preferredHeight} data-min={minHeight}>{render()}</div>)}</>,
+  PanelWorkspace: ({ panels }: PanelWorkspaceProps) => <>{panels.map(({ id, render, preferredHeight }) => <div key={id} data-panel={id} data-preferred={preferredHeight}>{render()}</div>)}</>,
   PlatformDataTable: ({ columns, rows, height }: PlatformDataTableProps<Run>) => rows && rows[0] && <div data-height={height}>
     {columns.map(column => <div key={column.id} data-column={column.id}>{column.cell?.(rows[0]!)}</div>)}
   </div>,
@@ -80,12 +80,12 @@ describe('RCC drill presentation', () => {
     expect(html).toContain(`data-panel="totals" data-preferred="${Math.max(400, Number(fit))}"`);
   });
 
-  it('keeps the Step × equipment heatmap tall enough for every Step row and its x-axis, also over a stored row height (#2755)', () => {
+  it('declares the Step × equipment heatmap preferred height for every Step row and its x-axis; the Step bars keep 440 (#2755)', () => {
     const html = renderDrill(undefined);
     // Panel chrome (header, toolbar, legend, selection line) + the SDK heatmap's least canvas for 18 rows at 17px.
-    const least = 96 + heatmapMinCanvasHeight(STRUCTURES.A.length, 17);
-    expect(least).toBeGreaterThan(440);
-    expect(html).toContain(`data-panel="matrix" data-preferred="${least}" data-min="${least}"`);
+    const fit = 96 + heatmapMinCanvasHeight(STRUCTURES.A.length, 17);
+    expect(fit).toBeGreaterThan(440);
+    expect(html).toContain(`data-panel="matrix" data-preferred="${fit}">`);
     // The Step bars draw one row per equipment and keep their own height; the shared row still takes the tallest panel.
     expect(html).toContain('data-panel="steps" data-preferred="440">');
   });

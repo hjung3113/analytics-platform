@@ -144,8 +144,8 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
       byCategory: new Map(comparison.equipment.map(item => [item.id, item.held ? null : item.total])),
     };
     const toStep = (point: ChartPoint) => drillTo({ step: point.seriesId, equipment: point.x });
-    // Every Step row and the heatmap x-axis in view (#2755). A minimum, not only a preferred height: a stored row height is restored as is, never below it.
-    const matrixMinHeight = MATRIX_PANEL_CHROME + heatmapMinCanvasHeight(stepRows.length, MATRIX_ROW_PITCH);
+    // Every Step row and the heatmap x-axis in view (#2755). A preferred height only: a stored row height is restored as is (#2786).
+    const matrixPanelHeight = Math.max(MATRIX_PANEL_HEIGHT, MATRIX_PANEL_CHROME + heatmapMinCanvasHeight(stepRows.length, MATRIX_ROW_PITCH));
     const stack: PanelWorkspacePanel = {
       id: 'steps', title: step ? previousTitle(M.stepTimes) : M.stepTimes, primary: true, preferredHeight: MATRIX_PANEL_HEIGHT,
       render: () => <AnalysisChartFrame {...commonBars} chartId="rcc-steps" title={m('stepTimes')} series={series} stacked
@@ -155,7 +155,7 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
         pointActivation={{ on: 'dblclick', onActivate: toStep }} isPointSelectable={point => point.value !== null} />,
     };
     const matrix: PanelWorkspacePanel = {
-      id: 'matrix', title: M.matrix, preferredHeight: Math.max(MATRIX_PANEL_HEIGHT, matrixMinHeight), minHeight: matrixMinHeight,
+      id: 'matrix', title: M.matrix, preferredHeight: matrixPanelHeight,
       render: () => <AnalysisChart chartId="rcc-step-matrix" title={m('matrix')} size="fill" unit={unitText} legendPlacement="top"
         legendCaption={m('delta')} spec={{
           kind: 'heatmap', minRowHeight: MATRIX_ROW_PITCH, valueFormat: value => `${value > 0 ? '+' : ''}${numberText(value)}`,
