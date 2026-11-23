@@ -53,7 +53,7 @@ export type PanelWorkspacePanel = {
   /**
    * px of the panel body (below the 40px strip) at which its content does not overflow. A stacked row whose panels declare it starts that tall (the
    * tallest panel of a row; rows stacked inside a row add up), within the row's minimum and the visible height. Undeclared rows keep the default.
-   * A stored height is never changed by it.
+   * A stored height keeps its px, except once on restore when this declaration is new or grew and the row is under its preferred height (#2786).
    */
   preferredHeight?: number;
   /**

@@ -311,6 +311,29 @@ describe('height mode and rows (#686)', () => {
       expect(fit.rows).toBeUndefined();
     });
 
+    it('raises the row also when a below panel joins the stored layout in the same restore', () => {
+      const joined: WorkspaceSpec = { ...preferredSpec, panelIds: [...IDS, 'extra'], below: ['extra'] };
+      const state = normalizeWorkspaceState(stored({ mode: 'stack', rows: [300, 420, 380] }), joined);
+      expect(topLevelRows(state.layout).map(panelOrder)).toEqual([['trend'], ['selector', 'detail'], ['kpi'], ['extra']]);
+      expect(state.rows).toEqual([300, 420, 480, 360]);
+      expect(state.preferredSeen).toEqual({ kpi: 480 });
+    });
+
+    it('a raised shared row also takes the height in sharedRowSizes, so a later member change keeps it', () => {
+      const sharing: WorkspaceSpec = { ...preferredSpec, sharedRows: [{ id: 'kpi-row', panels: ['kpi'] }] };
+      const state = normalizeWorkspaceState(stored({ mode: 'stack', rows: [300, 420, 380], sharedRowSizes: [{ id: 'kpi-row', height: 380 }] }), sharing);
+      expect(state.rows).toEqual([300, 420, 480]);
+      expect(state.sharedRowSizes).toEqual([{ id: 'kpi-row', height: 480 }]);
+    });
+
+    it('raises the surviving row when its below panel leaves under a new declaration, and only then', () => {
+      const withBelow: WorkspaceSpec = { ...spec, panelIds: [...IDS, 'extra'], presets: [focus], initialPreset: 'focus', below: ['extra'] };
+      const before = withRows(initialWorkspaceState({ ...withBelow, initialMode: 'fit' }), 'stack', [300, 360]);
+      const trendAsks: WorkspaceSpec = { ...spec, presets: [focus], initialPreset: 'focus', preferredHeights: new Map([['trend', 480]]), rowPreferred: row => (panelOrder(row).includes('trend') ? 480 : undefined) };
+      expect(updateWorkspacePanels(before, trendAsks, ['extra']).rows).toEqual([480]);
+      expect(updateWorkspacePanels({ ...before, preferredSeen: { trend: 480 } }, trendAsks, ['extra']).rows).toEqual([300]);
+    });
+
     it('a new workspace starts with the declarations seen, so a later shrink is not undone', () => {
       expect(initialWorkspaceState(preferredSpec).preferredSeen).toEqual({ kpi: 480 });
       expect(initialWorkspaceState(rowSpec).preferredSeen).toBeUndefined();

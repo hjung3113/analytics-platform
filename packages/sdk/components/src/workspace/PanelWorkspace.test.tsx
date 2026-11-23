@@ -702,6 +702,31 @@ describe('PanelWorkspace: height mode (#686)', () => {
     expect(document.querySelector<HTMLElement>('[data-dock-rows]')!.style.getPropertyValue('--dock-rows-height')).toBe('1224px');
   });
 
+  it('raises a stored row under a newly declared preferred height once; a saved shrink survives a remount until the menu declares more (#2786)', async () => {
+    const declaring = (px: number) => PANELS.map(panel => (panel.id === 'kpi' ? { ...panel, preferredHeight: px } : panel));
+    seed(stackStored([300, 400, 300]));
+    const first = mountWorkspace({ ...ROWS_PROPS, panels: declaring(400) });
+    await ready();
+    const raised = rowHeights()[2]!;
+    expect(raised).toBeGreaterThan(400);
+    expect(rowHeights().slice(0, 2)).toEqual([300, 400]);
+    rowSeparators()[2]!.focus();
+    await userEvent.keyboard('{ArrowUp}{ArrowUp}');
+    await waitFor(() => { expect(rowHeights()[2]).toBe(raised - 48); });
+    await sleep(400);
+    expect(lastStored()).toMatchObject({ rows: [300, 400, raised - 48], preferredSeen: { kpi: 400 } });
+    first.unmount();
+
+    const again = mountWorkspace({ ...ROWS_PROPS, panels: declaring(400) });
+    await ready();
+    expect(rowHeights()).toEqual([300, 400, raised - 48]);
+    again.unmount();
+
+    mountWorkspace({ ...ROWS_PROPS, panels: declaring(500) });
+    await ready();
+    expect(rowHeights()).toEqual([300, 400, raised + 100]);
+  });
+
   it('기본 배치 derives the rows from the preset and the fit height, so repeating it never adds height', async () => {
     storage.setItem(KEY(), stackStored([300, 400, 900]));
     mountWorkspace(ROWS_PROPS);

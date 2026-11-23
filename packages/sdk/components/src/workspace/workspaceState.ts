@@ -192,7 +192,7 @@ export function updateWorkspacePanels(previous: WorkspaceState, spec: WorkspaceS
   if (hasAutomaticRows(followed)) return followed;
   const removedBelow = appendedPanel(topLevelRows(next.layout), topLevelRows(previous.layout));
   if (removedBelow !== undefined && previousBelow.includes(removedBelow) && previous.rows?.length === 2) {
-    return withRows(next, 'stack', previous.rows.slice(0, 1));
+    return raiseToPreferred(withRows(next, 'stack', previous.rows.slice(0, 1)), previous.preferredSeen ?? {}, spec);
   }
   return next;
 }
@@ -241,23 +241,41 @@ function restoreRows(raw: Record<string, unknown>, state: WorkspaceState, spec: 
   const rows = topLevelRows(state.layout);
   const minimum = spec.rowMinimum ?? (() => ROW_MIN_HEIGHT);
   const stored = Array.isArray(raw.rows) && raw.rows.every(px => typeof px === 'number' && Number.isFinite(px) && px > 0 && px <= MAX_STORED_ROW_PX) ? (raw.rows as number[]).map(px => Math.round(px)) : undefined;
+  const seen = isRecord(raw.preferredSeen) ? raw.preferredSeen : {};
   if (stored && appended) {
     const previous = normalizeDockTree(raw.layout, [...namedIds(raw.layout)]);
-    if (topLevelRows(previous).length === stored.length) return withRestoredSharedHeights(state, reconcileRows(previous, stored, state.layout, minimum, MAX_STORED_ROW_PX), spec);
+    if (topLevelRows(previous).length === stored.length) return raiseToPreferred(withRestoredSharedHeights(state, reconcileRows(previous, stored, state.layout, minimum, MAX_STORED_ROW_PX), spec), seen, spec);
   }
   if (stored?.length !== rows.length) return withRows(state, 'stack');
-  const seen = isRecord(raw.preferredSeen) ? raw.preferredSeen : {};
+  return raiseToPreferred(withRows(state, 'stack', rows.map((row, index) => Math.max(minimum(row), stored[index]!))), seen, spec);
+}
+
+/**
+ * A stack row under its preferred height is raised once when one of its panels declares a height `seen` (the declarations the state was
+ * last restored against) does not cover (#2786). A raised shared row also gets the height in `sharedRowSizes`, so a later member change
+ * keeps it. Fit mode, rows still to be measured and rows without a new declaration keep their px.
+ */
+function raiseToPreferred(state: WorkspaceState, seen: Record<string, unknown>, spec: Pick<WorkspaceSpec, 'preferredHeights' | 'rowPreferred' | 'rowMinimum' | 'sharedRows'>): WorkspaceState {
+  const heights = state.rows;
+  const rows = topLevelRows(state.layout);
+  if (state.mode !== 'stack' || !heights || heights.length !== rows.length || !spec.preferredHeights?.size || !spec.rowPreferred) return state;
   const declaredAnew = (row: DockNode) => panelOrder(row).some(id => {
-    const declared = spec.preferredHeights?.get(id);
+    const declared = spec.preferredHeights!.get(id);
     const before = seen[id];
     return declared !== undefined && !(typeof before === 'number' && before >= declared);
   });
-  // A row saved under a preferred height it has not seen is raised once (#2786); fit mode and rows without a new declaration keep their px.
-  const raised = (row: DockNode, px: number) => {
-    const preferred = spec.rowPreferred?.(row);
-    return preferred !== undefined && px < preferred && declaredAnew(row) ? Math.min(preferred, MAX_STORED_ROW_PX) : px;
-  };
-  return withRows(state, 'stack', rows.map((row, index) => Math.max(minimum(row), raised(row, stored[index]!))));
+  let sizes = state.sharedRowSizes;
+  const raised = rows.map((row, index) => {
+    const px = heights[index]!;
+    const preferred = spec.rowPreferred!(row);
+    if (preferred === undefined || px >= preferred || !declaredAnew(row)) return px;
+    const height = Math.max(spec.rowMinimum?.(row) ?? ROW_MIN_HEIGHT, Math.min(preferred, MAX_STORED_ROW_PX));
+    const shared = sharedRowOf(row, spec.sharedRows ?? []);
+    if (shared && sizes?.some(size => size.id === shared.id && size.height !== undefined)) sizes = sizes.map(size => (size.id === shared.id ? { ...size, height } : size));
+    return height;
+  });
+  if (raised.every((px, index) => px === heights[index])) return state;
+  return { ...withRows(state, 'stack', raised), ...(sizes ? { sharedRowSizes: sizes } : {}) };
 }
 
 const presetOf = (spec: WorkspaceSpec, id: string) => spec.presets.find(preset => preset.id === id) ?? spec.presets[0]!;
