@@ -61,8 +61,66 @@ describe('Frame stack and area options (#2737)', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/stackMode.*reaggregation/));
   });
 
-  it('exposes only the implemented stack modes', () => {
-    expectTypeOf<AnalysisChartFrameProps['stackMode']>().toEqualTypeOf<'none' | 'stack' | undefined>();
+  it('exposes all three stack modes', () => {
+    expectTypeOf<AnalysisChartFrameProps['stackMode']>().toEqualTypeOf<'none' | 'stack' | 'percent' | undefined>();
+  });
+
+  it('projects the visible measured total independently for each category', async () => {
+    mount({ stackMode: 'percent', reaggregation: 'sum' });
+    await screen.findByRole('img');
+    const [a, b] = plottedSeries();
+    expect(a.data[0]).toBe(75);
+    expect(b.data[0]).toBe(25);
+    expect(Number(a.data[1]) + Number(b.data[1])).toBeCloseTo(100);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'M2 (%)' }));
+    expect(plottedSeries()[0].data.slice(0, 2)).toEqual([100, 100]);
+  });
+
+  it('leaves unknown values and zero totals without shares', async () => {
+    const fixture = series.map(s => ({ ...s, points: [...s.points, ['Zero', 0]] as ChartSeries['points'] }));
+    mount({ stackMode: 'percent', reaggregation: 'sum', series: fixture });
+    await screen.findByRole('img');
+    expect(plottedSeries().slice(0, 2).map(s => s.data.slice(-2))).toEqual([[null, null], [100, null]]);
+  });
+
+  it('shows a notice and warns when a negative value requires a raw stack', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mount({ stackMode: 'percent', reaggregation: 'sum', series: [{ ...series[0], points: [['EQ1 · PM1', -3]] }, series[1]] });
+    await screen.findByRole('img');
+    expect(plottedSeries()[0]).toMatchObject({ stack: 'total', data: [-3] });
+    expect(plot.option?.xAxis).toMatchObject({ min: undefined, name: 's' });
+    expect(screen.getByText('음수 값이 있어 원래 값으로 쌓아 표시함').closest('[data-chart-notes]')).toBeVisible();
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/percent.*negative/i));
+  });
+
+  it('shares numeric values across the plot, tooltip, segment label, table and CSV', async () => {
+    mount({ stackMode: 'percent', reaggregation: 'sum', valueLabels: 'both', startAlign: true,
+      markLines: [{ y: 3, label: 'Raw limit' }], valueFormat: v => `RAW ${v}` });
+    const table = await showTable();
+    const option = plot.option as {
+      xAxis: unknown;
+      tooltip: { valueFormatter: (v: number) => string };
+      series: { id: string; label: { formatter: (p: { value: number }) => string }; markLine?: unknown }[];
+    };
+    expect(option.xAxis).toMatchObject({ min: 0, max: 100, name: '%' });
+    expect(option.tooltip.valueFormatter(75)).toBe('75 %');
+    expect(option.series[0].label.formatter({ value: 75 })).toBe('75%');
+    expect(option.series.map(s => s.id)).not.toContain('__total');
+    expect(option.series.some(s => s.id.startsWith('__spacer') || s.markLine)).toBe(false);
+    expect(within(table).getByRole('columnheader', { name: 'M1 (%)' })).toBeVisible();
+    expect(within(table).getAllByRole('row')[1]).toHaveTextContent('EQ1 · PM17525');
+    fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
+    expect(downloadChartCsv).toHaveBeenLastCalledWith(expect.objectContaining({ unit: '%' }), ['x', 'M1 (%)', 'M2 (%)'],
+      expect.arrayContaining([['EQ1 · PM1', 75, 25], ['EQ2 · PM1', '', 100]]));
+  });
+
+  it('passes raw values to point activation in percent mode', async () => {
+    const activate = vi.fn();
+    mount({ stackMode: 'percent', reaggregation: 'sum', pointActivation: { on: 'dblclick', onActivate: activate } });
+    await screen.findByRole('img');
+    act(() => plot.onEvents?.dblclick?.({ seriesId: 'a', dataIndex: 0, value: 75 }, {} as never));
+    expect(activate).toHaveBeenCalledWith({ x: 'EQ1 · PM1', seriesId: 'a', value: 3 });
   });
 
   it('preserves default single-line fill and allows explicit fill choices', async () => {

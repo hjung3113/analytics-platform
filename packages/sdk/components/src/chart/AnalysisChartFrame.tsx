@@ -26,7 +26,7 @@ import { useChartRange, type ClipResult, type Selection } from './useChartRange'
 import { usePointMenu } from './usePointMenu';
 import { equalSeriesIds, seriesExtremes } from './chartLanes';
 import { resolveRowTotals, type ValueLabels } from './chartValueLabels';
-import { clampRowPitch, projectTimeStack, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN } from './analysisChartGeometry';
+import { clampRowPitch, projectStackShares, projectTimeStack, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN, SHARE_UNIT } from './analysisChartGeometry';
 import { CHART_HEIGHTS } from './chartMarks';
 
 import { ChartBoundsLegend } from './ChartBoundsLegend';
@@ -217,8 +217,8 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
    */
   period?: { from?: string | null; to?: string | null };
   stacked?: boolean;
-  /** Overrides stacked. Stacking requires additive reaggregation and matching time coordinates per mark kind. */
-  stackMode?: 'none' | 'stack';
+  /** Overrides stacked. Requires additive reaggregation and matching time coordinates per mark kind. Percent uses the visible total at each x. */
+  stackMode?: 'none' | 'stack' | 'percent';
   /** Fill every line when true, or no lines when false. Absent keeps the single solid line default. */
   areaFill?: boolean;
   /**
@@ -363,8 +363,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const allSeries = useMemo(() => [...p.series, ...(compare && canCompare ? p.compareSeries ?? [] : [])], [p.series, p.compareSeries, compare, canCompare]);
   const visibleIds = useMemo(() => p.visibleSeriesIds === undefined ? null : new Set(p.visibleSeriesIds), [p.visibleSeriesIds]);
   const visible = useMemo(() => allSeries.filter(s => visibleIds ? visibleIds.has(s.id) : !hidden.has(s.id)), [allSeries, hidden, visibleIds]);
-  if (stackMode !== undefined && stackMode !== 'none' && stackMode !== 'stack') throw new Error(`Unsupported chart stackMode: ${stackMode}`);
-  const requestsStack = stackMode === 'stack';
+  if (stackMode !== undefined && stackMode !== 'none' && stackMode !== 'stack' && stackMode !== 'percent') throw new Error(`Unsupported chart stackMode: ${stackMode}`);
+  const requestsStack = stackMode === 'stack' || stackMode === 'percent';
   const timeStack = useMemo(() => xType === 'time' && requestsStack && mayClientSum ? projectTimeStack(visible) : undefined, [xType, requestsStack, mayClientSum, visible]);
   const explicitStack = requestsStack && mayClientSum && !timeStack?.mismatched;
   const stacked = stackMode === undefined ? p.stacked : explicitStack;
@@ -421,7 +421,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     once('valueLabels', !!rawValueLabels && !(horizontal && stacked), 'valueLabels applies only to a stacked chart with orientation="horizontal"; ignored.');
     once('nonAdditive', stackMode === undefined && !!stacked && rawReaggregation !== undefined && !mayClientSum, `stacked draws a sum of the segments, but reaggregation "${rawReaggregation}" is not additive; draw grouped bars instead.`);
     once('stackModeNonAdditive', requestsStack && !mayClientSum, `stackMode="${stackMode}" requires additive reaggregation="sum"; drawing unstacked series.`);
-    once('stackTimeMismatch', !!timeStack?.mismatched, 'stackMode="stack" requires matching timestamps within each mark kind; drawing unstacked series.');
+    once('stackTimeMismatch', !!timeStack?.mismatched, `stackMode="${stackMode}" requires matching timestamps within each mark kind; drawing unstacked series.`);
     once('duplicateTime', !!timeStack?.duplicate, 'duplicate timestamp in a series; using the first observation.');
     once('noReaggregation', stackMode === undefined && !!rawValueLabels && rawValueLabels !== 'segment' && rawReaggregation === undefined, 'valueLabels="total" or "both" without reaggregation: the Frame treats the measure as not additive and draws only serverTotals.');
     once('rightAxisUnsupported', (rawRightAxis || rawHasRight) && (horizontal || !!stacked), 'axis: "right" and rightAxis apply only to a vertical, unstacked chart; every series is drawn on the left.');
@@ -460,7 +460,6 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     else onPointClick?.(point.x, point.seriesId);
   }, [pointActivation, onPointClick]);
   const canDrill = !!pointActivation || !!onPointClick;
-  const plotPointControls = !zoomOnly && (canDrill || hasPointActions || !!p.pointStatus || (rawBounds && !horizontal));
   const isPointSelectable = p.isPointSelectable;
   const categories = useMemo(() => (xType === 'category' ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : []), [xType, p.series]);
   // With a row pitch the chart is as tall as its rows and `viewportHeight` is only the window the plot box scrolls in.
@@ -472,10 +471,19 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     for (const [label, value] of s.points) if (!byLabel.has(label)) byLabel.set(label, value);
     return { ...s, points: categories.map(x => [x, byLabel.get(x) ?? null] as [string, number | null]) };
   }) : timeStack?.displayed ?? visible, [xType, visible, categories, timeStack]);
+  const wantsShares = stackMode === 'percent' && explicitStack;
+  const shares = useMemo(() => wantsShares ? projectStackShares(displayed) : undefined, [wantsShares, displayed]);
+  const percent = shares?.kind === 'shares';
+  const negativeShares = shares?.kind === 'negative';
+  const plotSeries = shares?.kind === 'shares' ? shares.displayed : displayed;
+  useEffect(() => {
+    if (negativeShares) rowFocusDiagnostic('stackMode="percent" cannot normalize negative values; drawing a raw stack.');
+  }, [negativeShares]);
   const emptyCategoryLabel = horizontal ? p.emptyCategoryLabel : undefined;
   const emptyLabels = useMemo(() => emptyCategoryLabels({ horizontal, xType, categories, displayed, emptyCategoryLabel }),
     [horizontal, xType, categories, displayed, emptyCategoryLabel]);
-  const boundsProp = p.bounds; const boundLabels = p.boundLabels;
+  const plotPointControls = !zoomOnly && (canDrill || hasPointActions || !!p.pointStatus || (rawBounds && !horizontal && !percent));
+  const boundsProp = percent ? undefined : p.bounds; const boundLabels = p.boundLabels;
   const bounds = useMemo(() => projectChartBounds({ bounds: boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories }), [boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories]);
   const pointBoundsText = (point: ChartPoint) => bounds && !previousIds.has(point.seriesId) ? ` · ${boundText(bounds, point.x, format)}` : '';
   const statuses = useMemo(() => pointStatuses(displayed, p.pointStatus), [displayed, p.pointStatus]);
@@ -485,8 +493,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const labelOf = (x: string) => groupedRowText(rowGroups, x);
   const statusParts = (x: string) => displayed.flatMap(s => { const status = statuses.get(chartPointKey({ seriesId: s.id, x })); return status ? [{ id: s.id, name: s.name, status, csvLabel: frameStatusCsvLabel(s, horizontal, status) }] : []; });
   // One visible series has nothing to align to: StartAlign then does nothing (normal value axis, Brush stays); hiding series is a normal user action, so no diagnostic.
-  const startAlign = horizontal && !!stacked && !!p.startAlign && displayed.length >= 2;
-  const markDeclaration = horizontal && xType === 'category' && !startAlign && displayed.length > 0
+  const startAlign = !percent && horizontal && !!stacked && !!p.startAlign && displayed.length >= 2;
+  const markDeclaration = !percent && horizontal && xType === 'category' && !startAlign && displayed.length > 0
     ? p.categoryValueMarks : undefined;
   const categoryValueMarks = useMemo(() => {
     if (!markDeclaration) return undefined;
@@ -520,8 +528,9 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   // Declared after the reveal effect: the request lives for the render of its own click only, so an ignored one cannot swallow a later outside reveal of the same row.
   useEffect(() => { if (pointerRequest !== null) setPointerRequest(null); }, [pointerRequest]);
   // Computed from the displayed (visible) series, so a hidden series has none; the point selector's own rule decides which rows count.
-  const extremes = useMemo(() => (horizontal && p.minMax ? seriesExtremes(displayed, isPointSelectable) : undefined), [horizontal, p.minMax, displayed, isPointSelectable]);
-  const equalIds = useMemo(() => (horizontal && p.minMax ? equalSeriesIds(displayed, isPointSelectable) : undefined), [horizontal, p.minMax, displayed, isPointSelectable]);
+  const showExtremes = !percent && horizontal && !!p.minMax;
+  const extremes = useMemo(() => showExtremes ? seriesExtremes(displayed, isPointSelectable) : undefined, [showExtremes, displayed, isPointSelectable]);
+  const equalIds = useMemo(() => showExtremes ? equalSeriesIds(displayed, isPointSelectable) : undefined, [showExtremes, displayed, isPointSelectable]);
   const pointEntries = useMemo(() => {
     if (zoomOnly) return [];
     return displayed.flatMap((series, i) => {
@@ -567,11 +576,13 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const actionsFor = useCallback((point: ChartPoint): readonly ChartPointAction[] => (typeof pointActions === 'function' ? pointActions(point) : pointActions ?? []), [pointActions]);
   const selectedActions = useMemo(() => (selectedPoint ? actionsFor(selectedPoint) : []), [selectedPoint, actionsFor]);
   const noActions = hasPointActions && selectedActions.length === 0;
-  const format = p.valueFormat ?? ((v: number) => formatNumber(v, lang, { maximumFractionDigits: 1 }));
+  const formatNumberValue = (v: number) => formatNumber(v, lang, { maximumFractionDigits: 1 });
+  const format = p.valueFormat ?? formatNumberValue;
   const formatMark = (value: number | undefined) => value === undefined ? '—' : format(value);
   // The tooltip reads the formatter when it opens, so a consumer's new `valueFormat` takes effect without rebuilding the option.
-  const formatRef = useRef(format);
-  useLayoutEffect(() => { formatRef.current = format; });
+  const plotFormat = percent ? formatNumberValue : format;
+  const formatRef = useRef(plotFormat);
+  useLayoutEffect(() => { formatRef.current = plotFormat; });
   const rightFormat = p.rightAxis?.valueFormat ?? format;
   const rightFormatRef = useRef(rightFormat);
   useLayoutEffect(() => { rightFormatRef.current = rightFormat; });
@@ -589,6 +600,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     }
   }, [series, compareSeries]);
   const columnName = (s: ChartSeries) => {
+    if (percent) return `${s.name} (${SHARE_UNIT})`;
     if (explicitStack) return m('chartRawSeriesHeader', { name: s.name });
     return rightActive ? `${s.name} (${unitOf(s)})` : s.name;
   };
@@ -597,12 +609,13 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   // ISO strings sort chronologically; category: the axis order), each x once — duplicate categories collapse
   // to their first occurrence instead of doubling the row (F2). null = the series has no point at that x.
   const chartRows = useCallback(() => {
-    const xs = new Set(displayed.flatMap(s => s.points.map(([x]) => x)));
+    const xs = new Set(plotSeries.flatMap(s => s.points.map(([x]) => x)));
     const order = xType === 'time'
       ? [...xs].sort()
       : [...new Set(categories.filter(x => xs.has(x))), ...[...xs].filter(x => !categories.includes(x))];
-    return order.map(x => [x, displayed.map(s => s.points.find(([px]) => px === x)?.[1] ?? null)] as const);
-  }, [displayed, xType, categories]);
+    return order.map(x => [x, plotSeries.map(s => s.points.find(([px]) => px === x)?.[1] ?? null)] as const);
+  }, [plotSeries, xType, categories]);
+  const tableFormat = (s: ChartSeries) => percent ? formatNumberValue : fmtOf(s);
   const rows = useMemo(() => showTable ? chartRows() : undefined, [showTable, chartRows]);
 
   const onVisibleSeriesChange = p.onVisibleSeriesChange;
@@ -687,7 +700,9 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const rightValueFormat = useCallback((v: number) => rightFormatRef.current(v), []);
   const rightAxisOption = useMemo(() => (rightActive && rightUnit !== undefined ? { unit: rightUnit, valueFormat: rightValueFormat } : undefined), [rightActive, rightUnit, rightValueFormat]);
   // Value labels exist for horizontal stacked bars only. Totals: the client adds the shown segments only for an additive measure; a server total needs every series shown.
-  const valueLabels = horizontal && stacked ? p.valueLabels : undefined;
+  let valueLabels = horizontal && stacked ? p.valueLabels : undefined;
+  if (percent && valueLabels === 'total') valueLabels = undefined;
+  if (percent && valueLabels === 'both') valueLabels = 'segment';
   const wantsTotal = valueLabels === 'total' || valueLabels === 'both';
   // The all-off notice's button unmounts once a series shows again: focus moves to the plot only if the button still held it.
   const showAllButton = useRef<HTMLButtonElement | null>(null);
@@ -721,10 +736,12 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     : m('chartNoTotalNonAdditive');
   const partialNote = anyPartial && p.partialTotalNote !== false ? m('chartPartialTotalNote') : null;
   const missingText = (missing: readonly string[]) => m('chartMissingTotal', { items: missing.join(', ') });
-  const unit = p.unit;
+  const unit = percent ? SHARE_UNIT : p.unit;
+  const rawMarkLines = percent ? undefined : p.markLines;
+  const yFit = !percent && p.yFit;
   // A reference line in another unit or metric version would sit on the wrong scale: it is not drawn and the Frame names it. No lines are drawn with startAlign, so no note either.
-  const mismatchedLines = useMemo(() => (startAlign ? [] : (p.markLines ?? []).filter(line => (line.unit !== undefined && line.unit !== p.unit) || (line.metricVersion !== undefined && line.metricVersion !== p.metricVersion))), [startAlign, p.markLines, p.unit, p.metricVersion]);
-  const markLines = useMemo(() => (mismatchedLines.length ? p.markLines?.filter(line => !mismatchedLines.includes(line)) : p.markLines), [p.markLines, mismatchedLines]);
+  const mismatchedLines = useMemo(() => (startAlign ? [] : (rawMarkLines ?? []).filter(line => (line.unit !== undefined && line.unit !== p.unit) || (line.metricVersion !== undefined && line.metricVersion !== p.metricVersion))), [startAlign, rawMarkLines, p.unit, p.metricVersion]);
+  const markLines = useMemo(() => (mismatchedLines.length ? rawMarkLines?.filter(line => !mismatchedLines.includes(line)) : rawMarkLines), [rawMarkLines, mismatchedLines]);
   // Note labels and start-aligned lanes need the measured width. Time-axis ticks take it in 64px steps, so a resize inside one step keeps
   // the option; any other chart keeps its option (and skips a full setOption) on resize (#822, #2579).
   const optionWidth = noteSpans.length > 0 || (horizontal && startAlign && !!stacked) ? chartWidth
@@ -738,18 +755,18 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     // A root `data-theme` change re-resolves them too (#2723).
     void instanceReady; void themeRevision;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit, axisBreak, ...(zoomOnly ? {} : { selectedPointKeys }),
-      palette: resolveChartPalette(displayed),
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed: plotSeries, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit, axisBreak, ...(zoomOnly ? {} : { selectedPointKeys }),
+      palette: resolveChartPalette(plotSeries),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, plotSeries, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
   useEffect(() => {
     const instance = chart.current;
-    if (!p.yFit || !instance || instance.isDisposed?.()) { setAxisBreak(undefined); return; }
+    if (!yFit || !instance || instance.isDisposed?.()) { setAxisBreak(undefined); return; }
     // ECharts exposes the laid-out axis scale through its runtime model (not in its public TS surface).
     const model = (instance as unknown as { getModel?: () => { getComponent: (name: string, index?: number) => { axis?: { scale?: { getExtent: () => number[] } } } | undefined } }).getModel?.();
     const [min = 0, max = 0] = model?.getComponent('yAxis', 0)?.axis?.scale?.getExtent() ?? [];
     setAxisBreak(min > 0 ? 'bottom' : max < 0 ? 'top' : undefined);
-  }, [option, p.yFit]);
+  }, [option, yFit]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {
@@ -841,6 +858,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
 
   function renderLegendSeries(s: ChartSeries, previous: boolean) {
     const kind = horizontal ? 'bar' : s.kind ?? 'line';
+    const legendUnit = percent ? SHARE_UNIT : unitOf(s);
     // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
     const stroke = token(kind === 'bar' && s.color === 'chart-remainder' ? 'border-control' : strokeToken(s.color));
     return <label key={s.id} className={cn(chrome === 'standard' && 'shrink-0 whitespace-nowrap', 'inline-flex cursor-pointer items-center gap-1.5 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
@@ -854,7 +872,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         // eslint-disable-next-line shadcn/no-inline-styles -- swatch color is the series token resolved at runtime
         ? <span aria-hidden className="inline-block size-3 border-2" style={{ backgroundColor: token(s.color), borderColor: stroke }} />
         : <svg aria-hidden width="32" height="14"><line x1="0" y1="7" x2="32" y2="7" stroke={stroke} strokeWidth="2" strokeDasharray={svgDasharray(linePattern(s, previous))} /></svg>}
-      {unitOf(s) ? `${s.name} (${unitOf(s)})` : s.name}
+      {legendUnit ? `${s.name} (${legendUnit})` : s.name}
     </label>;
   }
 
@@ -879,7 +897,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     const header = [...(rowGroups ? [rowGroups.header] : []), 'x', ...visible.map(columnName), ...(bounds ? [bounds.labels.lower, bounds.labels.upper] : []), ...(statusEnabled ? [m('chartHeaderStatus'), m('chartHeaderReason')] : []), ...(categoryValueMarks ? [categoryValueMarks.label] : [])];
     // The table projection verbatim: numbers stay numbers so the formula guard never prefixes them (#297).
     const body = (rows ?? chartRows()).map(([x, values]) => [...(rowGroups ? [rowGroup(rowGroups, x)] : []), rowLabel(rowGroups, x), ...values.map(v => v ?? emptyLabels?.get(x) ?? ''), ...(bounds ? [bounds.at(x).lower ?? '', bounds.at(x).upper ?? ''] : []), ...(statusEnabled ? [statusParts(x).map(({ name, csvLabel }) => `${name}: ${csvLabel}`).join('\n'), statusParts(x).filter(({ status }) => status.reason).map(({ name, status }) => `${name}: ${status.reason}`).join('\n')] : []), ...(categoryValueMarks ? [categoryValueMarks.byCategory.get(x) ?? ''] : [])]);
-    downloadChartCsv({ ...p, context: global }, header, body);
+    downloadChartCsv({ ...p, unit, context: global }, header, body);
     notify(m(host.inPlatform ? 'chartExportedVisibleCsv' : 'chartExportedVisibleCsvStandalone', { chartId: p.chartId }));
   }
 
@@ -967,7 +985,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   let fillPlotClass = loweredFill ? FILL_PLOT_BASE_CLASS : FILL_PLOT_CLASS;
   if (rowPitch !== undefined) fillPlotClass = loweredFill ? FILL_PLOT_SCROLL_BASE_CLASS : FILL_PLOT_SCROLL_CLASS;
   if (chrome === 'standard') fillPlotClass = 'min-h-0 grow basis-0 overflow-hidden';
-  const stackNote = timeStack?.mismatched ? m('chartStackTimeMismatch') : null;
+  let stackNote = timeStack?.mismatched ? m('chartStackTimeMismatch') : null;
+  if (negativeShares) stackNote = m('chartStackNegativeShares');
   const chartNotes = (totalNote || partialNote || stackNote || mismatchedLines.length > 0) && <div data-chart-notes className="space-y-0.5 px-4 pt-1 text-tiny text-text-secondary">
     {totalNote && <p>{totalNote}</p>}
     {partialNote && <p>{partialNote}</p>}
@@ -1103,7 +1122,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         </tr></thead>
         <tbody>{rows.map(([x, values]) => <tr key={x} className="border-t border-border-subtle">
           <>{rowGroups && <td className="px-3 py-1">{rowGroup(rowGroups, x)}</td>}<td className="px-3 py-1">{xType === 'time' ? fmt(x) : rowLabel(rowGroups, x)}</td></>
-          {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? emptyLabels?.get(x) ?? '—' : fmtOf(visible[i])(v)}</td>)}
+          {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? emptyLabels?.get(x) ?? '—' : tableFormat(visible[i])(v)}</td>)}
           {totals && totals.size > 0 && <td className="px-3 py-1 text-right">{(() => { const t = totals.get(x); return t ? (t.partial ? `≥ ${format(t.value)} (${missingText(t.missing)})` : format(t.value)) : '—'; })()}</td>}
           {bounds && [bounds.at(x).lower, bounds.at(x).upper].map((value, index) => <td key={`bound-${index}`} className="px-3 py-1 text-right">{value === undefined ? '' : format(value)}</td>)}
           {statusEnabled && <td className="px-3 py-1">{statusParts(x).map(({ id, name, status }) => <div key={id}>{name}: {statusText(status)}</div>)}</td>}

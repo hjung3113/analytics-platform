@@ -34,7 +34,7 @@ export function ChartInteractionToolbar(p: Props) {
     p.toolsReveal === 'hover' && !p.secondaryOpen && 'opacity-0 group-hover/chart:opacity-100 group-focus-within/chart:opacity-100',
   )}>
     {p.heading}
-    {p.start != null && <div data-chart-toolbar-start className="flex min-w-0 flex-1 items-center gap-1">{p.start}</div>}
+    {p.start != null && <div data-chart-toolbar-start className={cn('flex items-center gap-1', p.compact ? 'min-w-0 flex-1' : 'flex-auto')}>{p.start}</div>}
     <div role="toolbar" aria-label={m('chartActions')} className={cn(
       'ml-auto flex min-w-0 items-center gap-1 whitespace-nowrap',
       p.compact ? 'overflow-x-auto' : 'flex-wrap justify-end',

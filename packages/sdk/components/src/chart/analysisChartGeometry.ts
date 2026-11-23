@@ -21,6 +21,36 @@ export function projectTimeStack(series: ChartSeries[]) {
   return { displayed, duplicate, mismatched };
 }
 
+export const SHARE_UNIT = '%';
+export const SHARE_MAX = 100;
+
+/** Normalize the measured values at each x. Scaling by the largest value keeps the total finite. */
+export function projectStackShares(series: ChartSeries[]) {
+  const largest = new Map<string, number>();
+  const totals = new Map<string, number>();
+  for (const item of series) {
+    for (const [x, y] of item.points) {
+      if (y === null) continue;
+      if (y < 0) return { kind: 'negative' } as const;
+      if (Number.isFinite(y)) largest.set(x, Math.max(largest.get(x) ?? 0, y));
+    }
+  }
+  const normalized = (x: string, y: number | null) => {
+    const scale = largest.get(x);
+    return scale && y !== null && Number.isFinite(y) ? y / scale : null;
+  };
+  for (const item of series) {
+    for (const [x, y] of item.points) totals.set(x, (totals.get(x) ?? 0) + (normalized(x, y) ?? 0));
+  }
+  const displayed = series.map(item => ({
+    ...item, unit: SHARE_UNIT, points: item.points.map(([x, y]): ChartSeries['points'][number] => {
+      const value = normalized(x, y);
+      return [x, value === null ? null : (value / totals.get(x)!) * SHARE_MAX];
+    }),
+  }));
+  return { kind: 'shares', displayed } as const;
+}
+
 /** Each mark stays inside its category slot, including at very dense/empty grids. */
 export function heatmapSymbolSize(plotWidth: number, plotHeight: number, xCount: number, yCount: number): [number, number] {
   return [xCount ? Math.max(0, plotWidth / xCount - 2) : 0, yCount ? Math.max(0, plotHeight / yCount - 2) : 0];
