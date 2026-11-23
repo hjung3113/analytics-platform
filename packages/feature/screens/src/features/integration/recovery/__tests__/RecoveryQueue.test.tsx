@@ -464,6 +464,8 @@ it.each([
   const message = await screen.findByText('이 목록을 볼 권한이 없습니다.');
   const card = message.closest('[data-state="denied"]');
   expect(card).toHaveTextContent(title);
+  // The shared list denial card announces its body like every other list denial (#2769).
+  expect(message.closest('[role="status"]')).not.toBeNull();
   // The card carries the section title once, at the section's level; list controls cannot act on a denied read.
   const headings = screen.getAllByRole('heading', { name: title });
   expect(headings).toHaveLength(1);

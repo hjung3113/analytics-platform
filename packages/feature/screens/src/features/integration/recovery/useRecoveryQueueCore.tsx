@@ -1,3 +1,4 @@
+import { ScopedListDenialCard } from '../../../components/ScopedListDenialCard';
 import { ListLoadMore } from '../../../components/ListLoadMore';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { useMeBridge } from '../../../lib/api/me';
@@ -19,7 +20,6 @@ import {
   Button,
   ListToolbar,
   ObjectRow,
-  PermissionBlockedPanel,
   Select,
   SelectContent,
   SelectGroup,
@@ -329,25 +329,25 @@ export function useRecoveryQueueCore(
         <Skeleton className="h-24" role="status" aria-label={COPY.loading} />
       ) : listDenied ? (
         // A confirmed denial wins over a failed session refetch; the session retry then joins the way back.
-        <div ref={denialCard} tabIndex={-1} aria-label={queueTitle} className="space-y-3">
-          <PermissionBlockedPanel
-            layout="card"
-            state="denied"
-            headingLevel={2}
-            category={queueTitle}
-            description={COPY.listDenied}
-          />
-          {me.isError || returnLink ? (
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              {me.isError ? (
-                <Button variant="subtle" size="sm" onClick={() => void me.refetch()}>
-                  {COPY.retryQueue}
-                </Button>
-              ) : null}
-              {returnLink}
-            </div>
-          ) : null}
-        </div>
+        <ScopedListDenialCard
+          category={queueTitle}
+          reason={COPY.listDenied}
+          returnRouteIntent={here}
+          deniedRef={denialCard}
+          headingLevel={2}
+          recoveryAction={
+            me.isError || returnLink ? (
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {me.isError ? (
+                  <Button variant="subtle" size="sm" onClick={() => void me.refetch()}>
+                    {COPY.retryQueue}
+                  </Button>
+                ) : null}
+                {returnLink}
+              </div>
+            ) : undefined
+          }
+        />
       ) : me.isError ? (
         <ListStateMessage
           variant="error"

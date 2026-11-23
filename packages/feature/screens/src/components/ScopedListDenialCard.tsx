@@ -20,6 +20,7 @@ export function ScopedListDenialCard({
   capability,
   managedSystemId,
   roleHeading,
+  headingLevel,
   recoverToMyVocs,
   recoveryAction,
   restoreFocus,
@@ -33,6 +34,8 @@ export function ScopedListDenialCard({
   capability?: string;
   managedSystemId?: string | undefined;
   roleHeading?: { category: string; level: 2 };
+  /** Heading level of the plain denied card, for a card that replaces its section title. */
+  headingLevel?: 2;
   recoverToMyVocs?: boolean;
   recoveryAction?: ReactNode;
   restoreFocus?: boolean | undefined;
@@ -78,7 +81,7 @@ export function ScopedListDenialCard({
       extraExitAction={extraExitAction}
     />;
   } else {
-    panel = <PermissionBlockedPanel layout="card" announceBody state="denied" category={category} reason={reason} />;
+    panel = <PermissionBlockedPanel layout="card" announceBody state="denied" headingLevel={headingLevel ?? 4} category={category} reason={reason} />;
   }
 
   return (
