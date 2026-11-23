@@ -251,7 +251,7 @@ Zoom·Brush·항목 선택은 Chart Local State이며 URL·Global Context를 바
 
 패널 입력 투영과 가용성 판정에는 값 묶음을 `pageParams` 배열로, 범위를 `pageParam` 문자열로 넘긴다. 같은 단일 범위 키가 반복되면 메뉴 URL 코덱이 `duplicate_page_key` 오류를 낸다. 코덱을 통과한 값 중 유효하지 않은 분석 선택 값은 투영과 가용성 판정에서 빠지고 입력 훅의 `rejected`에 해당 키가 표시된다. 출력 훅의 `select(null)`로 URL에서 그 키를 지운다.
 
-`useAnalysisSelectionChips()`는 현재 화면에서 유효한 분석 선택 키마다 값, 차원, 라벨(미선언 시 `null`), 첫 출력 패널을 돌려준다. 첫 출력 패널이 다른 칩의 키를 필터로 읽으면 그 칩의 키를 `after`에 담고 뒤에 놓는다. 앞선 키가 여럿이면 선언 순서상 첫 키를 쓴다. `clear(key)`는 해당 키 하나만 지우고, `clearAll()`은 화면의 분석 선택 키를 한 번에 지운다. 다른 페이지 키와 전역 Context는 유지한다.
+`useAnalysisSelectionChips()`는 현재 화면에서 유효한 분석 선택 키마다 값, 차원, 라벨(미선언 시 `null`), 첫 출력 패널을 돌려준다. 첫 출력 패널이 다른 칩의 키를 필터로 읽으면 그 칩의 키를 `after`에 담고 뒤에 놓는다. 앞선 키가 여럿이면 선언 순서상 첫 키를 쓴다. 복원한 URL에서 필터 입력이 순환하면 그 순환만 선언 순서상 첫 칩에서 끊고(그 칩의 `after`는 `null`), 순환 밖 칩의 `after`는 그대로 둔다. `clear(key)`는 해당 키 하나만 지우고, `clearAll()`은 화면의 분석 선택 키를 한 번에 지운다. 다른 페이지 키와 전역 Context는 유지한다.
 
 ### 차트를 그릴 수 없는 환경
 

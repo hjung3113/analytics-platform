@@ -107,10 +107,22 @@ function orderChips(chips: readonly AnalysisSelectionChip[]): AnalysisSelectionC
   while (waiting.size) {
     const remaining = [...waiting.values()];
     const next = remaining.find(chip => chip.after === null || !waiting.has(chip.after));
-    // A restored URL can contain a cycle of filter inputs. Start it at the first remaining declaration.
-    const chip = next ?? { ...remaining[0], after: null };
-    waiting.delete(chip.key);
-    ordered.push(chip);
+    if (next) {
+      waiting.delete(next.key);
+      ordered.push(next);
+      continue;
+    }
+    // A restored URL can contain a cycle of filter inputs: break only the cycle, at its first declared member.
+    // Every remaining chip waits on another remaining chip here, so following `after` must revisit a key.
+    const seen: string[] = [];
+    let key: string | null = remaining[0].key;
+    while (key !== null && !seen.includes(key)) {
+      seen.push(key);
+      key = waiting.get(key)?.after ?? null;
+    }
+    const cycle = new Set(key === null ? seen : seen.slice(seen.indexOf(key)));
+    const root = remaining.find(chip => cycle.has(chip.key)) ?? remaining[0];
+    waiting.set(root.key, { ...root, after: null });
   }
   return ordered;
 }

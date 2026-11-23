@@ -281,6 +281,24 @@ it('orders analysis selection chips by filter ancestry and uses the first writer
   ]);
 });
 
+it('breaks only a filter cycle at its first declared member and keeps a later chip after it', () => {
+  const pick = (key: string, dimension: string) => [{ key, action: 'pick', selection: { shape: 'set', dimension } }] as const;
+  const filter = (key: string) => ({ page: [{ key, selection: 'filter' }] }) as const;
+  const cyclePanels: PanelDeclaration[] = [
+    { ...panel, id: 'pc', queryInputs: filter('ka'), outputs: [...pick('kc', 'c')] },
+    { ...panel, id: 'pa', queryInputs: filter('kb'), outputs: [...pick('ka', 'a')] },
+    { ...panel, id: 'pb', queryInputs: filter('ka'), outputs: [...pick('kb', 'b')] },
+  ];
+  const cycleRegistry = createRegistry({
+    spaces: [testSpace()], groups: [{ id: home.group, label: title, icon: House, space: spaceId('mars') }],
+    menus: [home, { ...home, id: 'analysis', path: '/analysis', primary: false, panels: cyclePanels,
+      pageKeys: ['kc', 'ka', 'kb'], repeatedPageKeys: ['kc', 'ka', 'kb'], contextResetKeys: ['kc', 'ka', 'kb'] }],
+  });
+  const CycleWrapper = ({ children }: { children: ReactNode }) => <I18nProvider><PlatformProvider adapter={adapter} registry={cycleRegistry}>{children}</PlatformProvider></I18nProvider>;
+  const result = mount(useAnalysisSelectionChips, '&kc=c&ka=a&kb=b', CycleWrapper);
+  expect(result.current.chips.map(chip => [chip.key, chip.after])).toEqual([['ka', null], ['kc', 'ka'], ['kb', 'ka']]);
+});
+
 it('skips rejected keys when building chips', () => {
   const result = mount(useAnalysisSelectionChips, '&moduleSet=mod&timeRange=malformed&sort=name', ChipWrapper);
   expect(result.current.chips).toMatchObject([{ key: middleKey, label: null, after: null }]);
