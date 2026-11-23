@@ -100,8 +100,14 @@ it('keeps chart stroke aliases identifiable on every chart surface (#203, #207)'
   }
 });
 
-it('keeps the previous-period amber stroke at the confirmed opaque value (#207)', () => {
-  expect(rgb('cat-amber-stroke')).toEqual([180, 83, 9]);
+it('keeps the previous-period amber stroke at the confirmed opaque value (#207, v3 palette #2724)', () => {
+  expect(rgb('cat-amber-stroke')).toEqual([200, 105, 10]);
+});
+
+it('keeps chart-green readable under white segment labels and visible on a white card (#2724)', () => {
+  expect(rgb('chart-green')).toEqual([87, 130, 43]);
+  expect(contrast('text-on-accent', 'chart-green')).toBeGreaterThanOrEqual(4.5);
+  expect(contrast('chart-green', 'surface-card')).toBeGreaterThanOrEqual(3);
 });
 
 it('leaves reduced motion to the shared compat rule (06 §26, #289)', () => {

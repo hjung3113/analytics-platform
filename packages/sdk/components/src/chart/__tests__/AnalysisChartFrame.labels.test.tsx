@@ -113,7 +113,8 @@ describe('segment labels (#580d, UX-6/12/13)', () => {
     expect(a.data).toEqual([800, 20, null, 600]);
   });
   it('colours the text per fill from the tokens', async () => {
-    await mount({ valueLabels: 'segment' });
+    // #2724: blue takes white text now, so the dark-text case is the orange slot.
+    await mount({ valueLabels: 'segment', series: [bar('a', 'cat-amber', [800, 20, null, 600]), bar('b', 'chart-series-1', [100, 0, 200, 400])] });
     expect(bySeries('a').label!.color).toBe(readColorToken('text-primary'));
     expect(bySeries('b').label!.color).toBe(readColorToken('text-on-accent'));
     expect(bySeries('a').label).not.toHaveProperty('backgroundColor');

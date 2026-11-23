@@ -63,7 +63,7 @@ exports[`preserves the complete legacy projection without opt-in fields 1`] = `
             "itemStyle": {
               "borderColor": "rgb(20,40,160)",
               "borderWidth": 0,
-              "color": "rgb(70,104,150)",
+              "color": "rgb(46,107,217)",
             },
             "value": [
               9,
@@ -126,7 +126,7 @@ exports[`preserves the complete legacy projection without opt-in fields 1`] = `
       "scale": true,
       "splitLine": {
         "lineStyle": {
-          "color": "rgb(237,241,247)",
+          "color": "rgb(238,241,245)",
         },
       },
       "type": "value",
@@ -146,7 +146,7 @@ exports[`preserves the complete legacy projection without opt-in fields 1`] = `
       "scale": true,
       "splitLine": {
         "lineStyle": {
-          "color": "rgb(237,241,247)",
+          "color": "rgb(238,241,245)",
         },
       },
       "type": "value",

@@ -139,7 +139,7 @@ it('resolves every manifest hex from CSS and pins representative values', () => 
     expect(entry.$value.hex, name).toBe(hex(resolveCssColor(name)));
   }
   expect(manifest.color['text-primary'].$value.hex).toBe('#101828');
-  expect(manifest.color['chart-blue-stroke'].$value.hex).toBe('#2577cc');
+  expect(manifest.color['chart-blue-stroke'].$value.hex).toBe('#2e6bd9');
   expect(manifest.color['accent-primary'].$value.hex).toBe('#1428a0');
 });
 
