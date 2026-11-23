@@ -2,7 +2,7 @@
   "name": "@ap/menu-my-activity",
   "private": true,
   "version": "0.4.2",
-  "ap": { "sdk": ">=0.45.0 <0.46.0" },
+  "ap": { "sdk": ">=0.46.0 <0.47.0" },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

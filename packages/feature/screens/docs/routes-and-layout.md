@@ -681,15 +681,15 @@ code `invalid_cursor` removes `cursor` with replace and reloads the first page,
 retaining filters and selection. Manual refresh keeps current rows visible while
 reads are pending, then reconciles the authorized responses; session/scope and
 permission invalidation still clears stale content. A denied list read shows only
-the denial card: source tabs, search, refresh and the description row are hidden.
+the list blocked card («목록 막힘 카드», `ScopedListDenialCard`): source tabs, search, refresh and the description row are hidden.
 A denied selected detail keeps the list controls (#2677). A confirmed list denial clears an open selection in
 Evidence, Findings, VOC Inbox, VOC Clusters, Task list, Task board and Milestones while keeping the selected Managed System and
 filters. If closing detail leaves focus on the page body, focus moves to the
-denial card's first available action or to the card itself. A later explicit VOC Inbox selection still goes through the
-independently authorized detail read. When a scoped empty-list permission check shows a blocked card,
+list blocked card's first available action or to the card itself. A later explicit VOC Inbox selection still goes through the
+independently authorized detail read. When a scoped empty-list permission check shows the shared blocked card («막힘 카드»),
 returning window focus rechecks that permission.
-Findings, Evidence, the Task list (including My Tasks), the Task board, and
-Milestones use the same list-denial card. A requestable denial offers the request
+Findings, Evidence, VOC Clusters, the Task list (including My Tasks), the Task board, and
+Milestones use the same list blocked card. A requestable denial offers the request
 or its status. A role denial names the required Developer role, and other denials
 show the required permission where applicable. The action row ends with
 `홈으로` and `내 VOC` when Home is available. If a redraw removes the focused
