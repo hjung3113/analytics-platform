@@ -230,7 +230,7 @@ export function TaskListScreen({ capability = 'finding.manage', view, autoSelect
     (!tasksQuery.isFetchNextPageError || isPermissionDenied(tasksQuery.error));
   const listUnavailable = scopeCheckFailed || listFailed;
   const scopedBlocked = scopedPermission.state === 'blocked';
-  const { denied: listPermissionDenied, cardProps, keptSystemId } = useListDenial({
+  const { denied: listPermissionDenied, cardProps } = useListDenial({
     error: listFailed ? tasksQuery.error : null,
     forbidden: 'permission',
     scopedPermission,
@@ -362,7 +362,6 @@ export function TaskListScreen({ capability = 'finding.manage', view, autoSelect
               reason={PERMISSION_BLOCKED_REASONS.taskList}
               returnRouteIntent={view === 'my' ? '/tasks?view=my' : '/tasks?view=backlog'}
               capability={capability}
-              managedSystemId={keptSystemId}
               recoverToMyVocs
             />
           ) : listUnavailable ? (

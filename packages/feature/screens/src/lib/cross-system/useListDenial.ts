@@ -213,8 +213,8 @@ export function useListDenial({
   const cardProps = useMemo(() => ({
     request: capability === undefined || requestSystemId === undefined ? absentRequest
       : { capability, managedSystemId: requestSystemId, ...(requestPending === undefined ? {} : { pending: requestPending }) },
-    roleRequired, deniedRef,
-  }), [absentRequest, capability, requestSystemId, requestPending, roleRequired]);
+    roleRequired, deniedRef, managedSystemId: keptSystemId,
+  }), [absentRequest, capability, requestSystemId, requestPending, roleRequired, keptSystemId]);
   return {
     kind, denied, roleRequired, permissionError, request, requestable, keptSystemId, deniedRef,
     cardProps,

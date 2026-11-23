@@ -1,4 +1,6 @@
+import { FINDING_SCREEN_ROLE_FLOOR, ROLE_LEVEL_LABELS } from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
+import { HttpError } from '../../lib/errors.js';
 import type { Tx } from '../../db/tx.js';
 import type { CheckService, Decision } from '../permissions/check-service.js';
 import {
@@ -16,6 +18,14 @@ import {
  */
 export type FindingAuthorizationActor = ScopeActorContext;
 export type FindingPointAuthorizationPolicy = { requireElevatedRole: boolean };
+/** The one `role_required` answer below the Finding role floor; every screen behind it shows the role card, not a missing grant or an archive (#2639, #2768). */
+export function findingRoleRequired(action: string): HttpError {
+  return new HttpError(
+    'permission.denied',
+    `${ROLE_LEVEL_LABELS[FINDING_SCREEN_ROLE_FLOOR]} role or higher is required to ${action}`,
+    { reason: 'role_required', minimum_role: FINDING_SCREEN_ROLE_FLOOR },
+  );
+}
 export function hasElevatedFindingRole(actor: FindingAuthorizationActor): boolean {
   return actor.role_level === 'admin' || actor.role_level === 'developer';
 }

@@ -251,7 +251,8 @@ function EvidenceSession({
     drawer: { selectedId: search.selected ?? null, close: closeSelection },
   });
   const blocked = listBlocked || denied(detail.error);
-  const archived = useIsArchivedSystem(blocked && !cardProps.request && !cardProps.roleRequired ? keptSystemId : undefined);
+  // The list card checks the archive itself; only a selected-detail denial is left to name it here.
+  const archived = useIsArchivedSystem(blocked && !listBlocked ? keptSystemId : undefined);
   useEffect(() => {
     if (!blocked) return;
     setDraft('');
@@ -387,8 +388,6 @@ function EvidenceSession({
                 reason={COPY.blocked}
                 returnRouteIntent="/integration/evidence"
                 capability={capability}
-                managedSystemId={keptSystemId}
-                archivedSystem={archived}
                 recoverToMyVocs
               />
             ) : blocked ? (

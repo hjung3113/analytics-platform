@@ -190,7 +190,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
   });
   const scopeCheckFailed = primaryEmpty && scopedPermission.state === 'error';
   const scopedBlocked = scopedPermission.state === 'blocked';
-  const { denied, cardProps, keptSystemId } = useListDenial({
+  const { denied, cardProps } = useListDenial({
     error: listQuery.error,
     forbidden: 'permission',
     scopedPermission,
@@ -430,7 +430,6 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
                   reason={PERMISSION_BLOCKED_REASONS.milestoneList}
                   returnRouteIntent="/tasks?view=milestones"
                   capability={capability}
-                  managedSystemId={keptSystemId}
                   recoverToMyVocs
                 />
               ) : scopeCheckFailed || listQuery.error ? (

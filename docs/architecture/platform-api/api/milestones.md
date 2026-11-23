@@ -84,7 +84,8 @@ sort: created_at DESC, id DESC
 auth and permission: Admin or Developer. Admin sees all workspace Milestones.
   Developer rows are filtered per row by finding.manage on the Milestone
   primary_managed_system_id; out-of-scope rows are omitted, not a list-wide
-  403. User is denied with 403 permission.denied.
+  403. User is denied with 403 permission.denied and detail
+  { reason: 'role_required', minimum_role: 'developer' }.
 managed_system scope: managed_system_id=all is the caller's effective Managed
   System scope union, not a workspace bypass.
 ```

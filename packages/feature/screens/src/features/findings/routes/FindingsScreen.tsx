@@ -31,7 +31,6 @@ import {
   useListDenial,
   useScopedEmptyListPermission,
 } from '../../../lib/cross-system/useListDenial';
-import { useIsArchivedSystem } from '../../../lib/cross-system/useIsArchivedSystem';
 import { formatCount } from '../../../lib/format/count';
 import { formatShortDate } from '../../../lib/format/datetime';
 import { useHostSeam } from '../../../lib/host/host-seam';
@@ -250,7 +249,7 @@ function FindingsListShell({
   const listFailed = listQuery.isError && (!listQuery.isFetchNextPageError || isListForbidden(listQuery.error));
   const unfilteredError = checkUnfiltered && unfilteredQuery.isError ? unfilteredQuery.error : null;
   const stateError = listFailed ? listQuery.error : unfilteredError;
-  const { denied: isReadDenied, cardProps, keptSystemId, isInList } = useListDenial({
+  const { denied: isReadDenied, cardProps, isInList } = useListDenial({
     error: stateError,
     scopedPermission,
     managedSystemId,
@@ -427,7 +426,6 @@ function FindingsListShell({
             isSuccess={listQuery.isSuccess || listQuery.isFetchNextPageError}
             isReadDenied={isReadDenied}
             capability={capability}
-            managedSystemId={keptSystemId}
             cardProps={cardProps}
             isFilteredEmpty={isFilteredEmpty}
             assignmentFiltered={assignment !== undefined}
@@ -482,7 +480,6 @@ function FindingsListBody({
   isSuccess,
   isReadDenied,
   capability,
-  managedSystemId,
   cardProps,
   isFilteredEmpty,
   searchFiltered,
@@ -504,7 +501,6 @@ function FindingsListBody({
   isSuccess: boolean;
   isReadDenied: boolean;
   capability: string;
-  managedSystemId: string | undefined;
   cardProps: ReturnType<typeof useListDenial>['cardProps'];
   isFilteredEmpty: boolean;
   searchFiltered: boolean;
@@ -519,7 +515,6 @@ function FindingsListBody({
   onRetry: () => void;
   onResetFilters: () => void;
 }): React.ReactElement {
-  const archived = useIsArchivedSystem(isReadDenied && !cardProps.request && !cardProps.roleRequired ? managedSystemId : undefined);
   return (
     <section className="flex min-h-full flex-col">
       {!isReadDenied ? (
@@ -548,8 +543,6 @@ function FindingsListBody({
           reason={PERMISSION_BLOCKED_REASONS.findingsList}
           returnRouteIntent="/findings"
           capability={capability}
-          managedSystemId={managedSystemId}
-          archivedSystem={archived}
           recoverToMyVocs
         />
       ) : isError ? (

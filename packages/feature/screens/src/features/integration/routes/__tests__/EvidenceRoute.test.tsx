@@ -1,5 +1,7 @@
 import { useAccessRequestState } from '../../../../test-support/access-request-host';
 import { EvidenceScreen } from '../EvidenceScreen';
+import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
+import { managedSystemNamesQueryKey } from '../../../../lib/cross-system/useManagedSystemNames';
 import { type HostLinkProps, HostSeamProvider, useHostSeam } from '../../../../lib/host/host-seam';
 import { EvidenceRoute } from '../../../../test/screen-host/features/integration/routes/EvidenceRoute';
 import { validateEvidenceSearch } from '../../../../test/screen-host/routes/_authed/integration/evidence';
@@ -945,6 +947,28 @@ it('keeps the list controls when only the selected detail is denied (#2677)', as
   expect(screen.getByRole('tablist')).toBeInTheDocument();
   expect(screen.getByRole('searchbox')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '새로고침' })).toBeInTheDocument();
+});
+
+it('reads a failed catalog again when a selected-detail denial mounts and names the archive (#2768)', async () => {
+  installFetch(undefined, () => response({ code: 'permission.denied' }, 403));
+  const baseFetch = fetch;
+  const catalogRead = vi.fn(() =>
+    Promise.resolve(response({ items: [{ id: MS, name: '보관 시스템', archived_at: '2026-01-01T00:00:00Z' }], total: 1 })),
+  );
+  vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+    const { pathname } = new URL(String(input), 'http://localhost');
+    if (pathname === '/managed-systems') return catalogRead();
+    return baseFetch(input, init);
+  });
+  const { router, client } = await mount(`/integration/evidence?managedSystem=${MS}`);
+  await screen.findByRole('button', { name: /월간 다운로드/ });
+  await client.prefetchQuery({ queryKey: managedSystemNamesQueryKey, queryFn: () => Promise.reject(new Error('catalog down')) });
+  expect(catalogRead).not.toHaveBeenCalled();
+
+  await act(async () => router.navigate({ to: '/integration/evidence', search: { managedSystem: MS, selected: ID } }));
+
+  expect(await screen.findByText(PERMISSION_BLOCKED_REASONS.archivedSystem)).toBeInTheDocument();
+  expect(catalogRead).toHaveBeenCalledTimes(1);
 });
 
 it.each([403, 200])('closes open Evidence when the list scope is confirmed blocked (%s)', async (status) => {

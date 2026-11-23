@@ -252,6 +252,7 @@ describe.skipIf(!runIntegration)('task-request review queue and decisions (#133)
     const denied = await listTaskRequests(userCookie);
     expect(denied.statusCode).toBe(403);
     expect(denied.json<{ code: string }>().code).toBe('permission.denied');
+    expect(denied.json<{ detail: unknown }>().detail).toEqual({ reason: 'role_required', minimum_role: 'developer' });
   });
 
   it.each([
