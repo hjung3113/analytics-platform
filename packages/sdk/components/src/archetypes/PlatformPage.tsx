@@ -329,7 +329,7 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
     {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
   </OutcomeScope>;
   return <WorkspaceQueryBarContext.Provider value={workspaceQueryBar ? { status: workspaceStatus, parameterTarget, setParameterTarget, toolbarTarget, setToolbarTarget } : null}><PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><PageBoundContext.Provider value={layout === 'fill' ? registerBound : null}><ReturnRowShown.Provider value={showReturn}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
-    {!inPane && <div ref={stickyHeader} data-page-sticky-header data-canvas-band className="sticky top-0 z-20 shrink-0 bg-surface-canvas">
+    {!inPane && <div ref={stickyHeader} data-page-sticky-header data-canvas-band className="sticky top-0 z-20 shrink-0 border-b border-border-chrome bg-surface-band">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
         // Popover portals bubble through React but are outside this scroll container.

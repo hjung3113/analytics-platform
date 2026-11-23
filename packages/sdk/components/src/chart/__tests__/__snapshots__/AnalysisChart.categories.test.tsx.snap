@@ -90,8 +90,8 @@ exports[`default heatmap keeps numeric rendering, events, tooltip, table and CSV
       "show": false,
     },
     "tooltip": {
-      "backgroundColor": "rgb(237,243,251)",
-      "borderColor": "rgb(203,214,230)",
+      "backgroundColor": "rgb(255,255,255)",
+      "borderColor": "rgb(229,234,240)",
       "renderMode": "richText",
       "textStyle": {
         "color": "rgb(16,24,40)",
@@ -99,13 +99,13 @@ exports[`default heatmap keeps numeric rendering, events, tooltip, table and CSV
     },
     "xAxis": {
       "axisLabel": {
-        "color": "rgb(95,105,123)",
+        "color": "rgb(91,102,120)",
         "hideOverlap": true,
         "interval": "auto",
       },
       "axisLine": {
         "lineStyle": {
-          "color": "rgb(184,196,214)",
+          "color": "rgb(220,225,231)",
         },
       },
       "data": [
@@ -121,13 +121,13 @@ exports[`default heatmap keeps numeric rendering, events, tooltip, table and CSV
     },
     "yAxis": {
       "axisLabel": {
-        "color": "rgb(95,105,123)",
+        "color": "rgb(91,102,120)",
         "hideOverlap": true,
         "interval": "auto",
       },
       "axisLine": {
         "lineStyle": {
-          "color": "rgb(184,196,214)",
+          "color": "rgb(220,225,231)",
         },
       },
       "data": [

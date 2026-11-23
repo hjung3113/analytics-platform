@@ -20,8 +20,8 @@ export function BoardContextBar({ paneId, number, screen, onChange, onLeave }: {
   const text = boardText(lang);
   const badge = <PaneBadge label={text.pane(number)} selected />;
   const disabled = <div role="region" aria-label={text.paneContext(number)} aria-disabled="true" data-context-bar-disabled
-    data-canvas-band className="flex h-12 min-w-0 flex-1 items-center border-b border-border-subtle bg-surface-canvas px-3 text-xs text-text-muted">{text.emptyBarNote}</div>;
-  const row = (middle: React.ReactNode, bar: React.ReactNode) => <div data-board-context-row data-canvas-band className="flex h-12 shrink-0 items-stretch bg-surface-canvas">
+    data-canvas-band className="flex h-12 min-w-0 flex-1 items-center border-b border-border-chrome bg-surface-band px-3 text-xs text-text-muted">{text.emptyBarNote}</div>;
+  const row = (middle: React.ReactNode, bar: React.ReactNode) => <div data-board-context-row data-canvas-band className="flex h-12 shrink-0 items-stretch bg-surface-band">
     <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle pl-3">{badge}{middle}</div>
     <div className="flex min-w-0 flex-1">{bar}</div>
   </div>;

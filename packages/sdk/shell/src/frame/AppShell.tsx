@@ -99,7 +99,7 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
     </div>
     <aside ref={detail.ref} hidden={!detailShown} aria-label={m('detailPanel')} data-open={detailShown} data-expanded={detailShown && expanded} style={expanded && detailShown ? { '--detail-left': expandedStyle['--detail-left'], '--detail-top': expandedStyle['--detail-top'], '--detail-width': expandedStyle['--detail-width'], '--detail-height': expandedStyle['--detail-height'] } as CSSProperties : undefined}
       className={expanded && detailShown ? expandedDetailClass : cn('h-full max-w-[520px] shrink-0 overflow-hidden border-border-subtle bg-surface-detail',
-        detailShown ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')} />
+        detailShown ? 'relative z-30 w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l shadow-xl' : 'w-0 min-w-0 border-l-0')} />
     {voc && <VocDrawer voc={voc} lang={lang} expandedStyle={expandedStyle} />}
     <CommandPalette />
     <LeaveConfirmDialog />

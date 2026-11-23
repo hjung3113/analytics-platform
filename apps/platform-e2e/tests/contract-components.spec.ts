@@ -16,7 +16,7 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
     await expect(search).toBeVisible();
     await expect(page.locator('body')).toHaveCSS('font-size', '14px');
     await expect(page.locator('body')).toHaveCSS('font-family', /Pretendard Variable/);
-    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(238, 242, 249)');
+    await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(236, 239, 243)');
     // Shared toolbar Input primitive (inputSize="toolbar"): 32px surface with 13px text.
     await expect(search).toHaveCSS('font-size', '13px');
     await evidence(page, testInfo, 'feedbackops-token-cascade');

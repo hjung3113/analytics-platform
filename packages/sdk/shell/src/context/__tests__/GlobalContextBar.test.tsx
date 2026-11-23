@@ -132,11 +132,12 @@ describe('Live query recovery (#2535)', () => {
 });
 
 describe('Global Context priority overflow (#56)', () => {
-  it('uses an opaque canvas band and the shared period-control transparency rule', () => {
+  it('uses an opaque chrome band and the shared period-control transparency rule', () => {
     mount();
-    expect(bar()).toHaveClass('bg-surface-canvas', 'backdrop-blur');
+    // #2722: canvas bands are white chrome (surface-band) with the chrome divider.
+    expect(bar()).toHaveClass('bg-surface-band', 'border-border-chrome', 'backdrop-blur');
     expect(bar()).toHaveAttribute('data-canvas-band');
-    expect(bar()).not.toHaveClass('bg-surface-canvas/95');
+    expect(bar()).not.toHaveClass('bg-surface-band/95');
     const period = within(bar()).getByRole('button', { name: /^기간:/ });
     expect(period).toHaveClass('bg-surface-card', 'on-canvas-band:bg-transparent');
     // Every filled control on the band (target chip, overflow chip, carried chips) follows the same rule (#2485).

@@ -178,7 +178,7 @@ export function VocDrawer({ voc, lang, expandedStyle }: { voc: VocDrawerControll
   const onKeyDown = useDetailPanelEscape(voc.requestClose);
   return <aside id={voc.panelId} aria-label={text.title} hidden={!voc.visible} data-open={voc.visible} data-expanded={expanded} onKeyDown={onKeyDown} style={expanded ? { '--detail-left': expandedStyle?.['--detail-left'], '--detail-top': expandedStyle?.['--detail-top'], '--detail-width': expandedStyle?.['--detail-width'], '--detail-height': expandedStyle?.['--detail-height'] } as CSSProperties : undefined}
     className={expanded ? expandedDetailClass : cn('flex h-full max-w-[520px] shrink-0 flex-col overflow-hidden border-border-subtle bg-surface-detail',
-      voc.visible ? 'w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l' : 'w-0 min-w-0 border-l-0')}>
+      voc.visible ? 'relative z-30 w-[clamp(360px,var(--detail-panel-width,440px),520px)] min-w-[360px] border-l shadow-xl' : 'w-0 min-w-0 border-l-0')}>
     <header className="flex h-[50px] shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4">
       <h2 ref={voc.heading} tabIndex={-1} className="t-card-title outline-none focus-visible:ring-2 focus-visible:ring-focus-ring">{text.title}</h2>
       <div className="flex items-center gap-1">

@@ -29,19 +29,20 @@ const palette = new Map([
   ...values('./platform-tokens.css'),
 ]);
 
-it('keeps A3 surfaces and muted text independent of the unchanged palette aliases', () => {
-  expect(rgb('surface-canvas')).toEqual([238, 242, 249]);
+it('keeps the v3 surfaces and muted text independent of the unchanged palette aliases (#2722)', () => {
+  expect(rgb('surface-canvas')).toEqual([236, 239, 243]);
   expect(rgb('surface-card')).toEqual([255, 255, 255]);
-  expect(rgb('text-muted')).toEqual([95, 105, 123]);
-  expect(rgb('color-pitch-black')).toEqual([243, 247, 254]);
+  expect(rgb('text-muted')).toEqual([91, 102, 120]);
+  expect(rgb('color-pitch-black')).toEqual([236, 239, 243]);
   expect(rgb('color-storm-cloud')).toEqual([102, 112, 131]);
-  expect(rgb('surface-list')).toEqual([243, 247, 254]);
+  expect(rgb('surface-list')).toEqual([236, 239, 243]);
+  expect(contrast('text-muted', 'surface-canvas')).toBeCloseTo(5.03, 2);
   expect(palette.get('--row-accent-width')).toBe('3px');
-  for (const surface of ['surface-canvas', 'surface-card', 'surface-sidebar', 'surface-sunken', 'surface-row-hover']) {
+  for (const surface of ['surface-canvas', 'surface-card', 'surface-sidebar', 'surface-sunken', 'surface-row-hover', 'surface-band', 'surface-popover']) {
     expect(contrast('text-muted', surface), surface).toBeGreaterThanOrEqual(4.5);
   }
-  // The confirmed muted colour is below AA on selected fill, so rows switch to secondary.
-  expect(contrast('text-muted', 'surface-row-selected')).toBeCloseTo(4.414, 3);
+  // Rows still switch meta text to secondary on the selected fill (row-meta); muted alone now clears AA there too.
+  expect(contrast('text-muted', 'surface-row-selected')).toBeGreaterThanOrEqual(4.5);
   expect(contrast('text-secondary', 'surface-row-selected')).toBeGreaterThanOrEqual(4.5);
 });
 

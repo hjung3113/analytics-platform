@@ -68,8 +68,8 @@ exports[`default donut keeps rendering, events, local selection and CSV unchange
       },
     ],
     "tooltip": {
-      "backgroundColor": "rgb(237,243,251)",
-      "borderColor": "rgb(203,214,230)",
+      "backgroundColor": "rgb(255,255,255)",
+      "borderColor": "rgb(229,234,240)",
       "renderMode": "richText",
       "textStyle": {
         "color": "rgb(16,24,40)",
