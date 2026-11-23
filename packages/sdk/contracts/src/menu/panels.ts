@@ -4,9 +4,18 @@ import type { Text } from '../i18n';
 
 export type PanelContextKey = ContextKey | 'scopeId';
 
+/** URL-shareable analysis selection shapes (ADR-0175). */
+export type AnalysisSelectionShape = 'set' | 'range';
+/** Selected values or opaque range endpoints (ADR-0175). */
+export type AnalysisSelection =
+  | { readonly shape: 'set'; readonly values: readonly string[] }
+  | { readonly shape: 'range'; readonly from: string; readonly to: string };
+/** How a receiving panel applies an analysis selection (ADR-0175). */
+export type AnalysisSelectionUse = 'filter' | 'highlight';
+
 export type PanelInputs<K extends string = string> = {
   readonly context?: readonly PanelContextKey[];
-  readonly page?: readonly { readonly key: K; readonly required?: boolean; readonly label?: Text }[];
+  readonly page?: readonly { readonly key: K; readonly required?: boolean; readonly label?: Text; readonly selection?: AnalysisSelectionUse }[];
 };
 /** #911: 조회 입력 / 표시 입력 / 출력 / 데이터 단위 / 쓸 수 있는 조건.
  * Page outputs never write global Context; permissions stay Kernel-owned.
@@ -18,7 +27,7 @@ export type PanelDeclaration<K extends string = string> = {
   readonly displayInputs: PanelInputs<K>;
   /** Optional in-memory JSON inputs for lending, independent of page state. */
   readonly display?: readonly { readonly key: string }[];
-  readonly outputs: readonly { readonly key: K; readonly action: string }[];
+  readonly outputs: readonly { readonly key: K; readonly action: string; readonly selection?: { readonly dimension: string; readonly shape: AnalysisSelectionShape } }[];
   readonly grain: string;
   readonly endpoints: readonly (Pick<AnyEndpointSpec, 'id' | 'menuId' | 'permission'>
     & Partial<Pick<AnyEndpointSpec, 'context' | 'requiredContext' | 'requiresScope'>>)[];

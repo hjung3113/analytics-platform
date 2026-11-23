@@ -1016,6 +1016,54 @@ describe('panel registration (#2433)', () => {
   });
 });
 
+describe('analysis selection registration (#2732)', () => {
+  const key = 'choice';
+  const title = { ko: '선택', en: 'Choice' };
+  const selection = { shape: 'range', dimension: 'time' };
+  const output = { key, action: 'brush', selection };
+  const writer = { id: 'source', title, queryInputs: {}, displayInputs: {}, grain: 'daily', endpoints: [], outputs: [output] };
+  const page = [{ key, selection: 'filter' }];
+  const reader = { ...writer, id: 'receiver', outputs: [], queryInputs: { page } };
+  const other = { ...writer, id: 'other' };
+  const build = (panels: unknown, extra = {}) => createRegistry({ spaces, groups, menus: [{
+    ...catalog, pageKeys: [key], contextResetKeys: [key], panels, ...extra,
+  } as MenuEntry] });
+
+  it.each([
+    ['unknown shape', { shape: 'rows' }, /shape/],
+    ['empty dimension', { dimension: '' }, /dimension/],
+    ['invalid dimension', { dimension: 'Time-range' }, /dimension/],
+    ['non-string dimension', { dimension: 123 }, /dimension/],
+    ['set on a single key', { shape: 'set' }, /repeatedPageKeys/],
+  ])('rejects %s', (_name, patch, reason) => {
+    expect(() => build([{ ...writer, outputs: [{ ...output, selection: { ...selection, ...patch } }] }])).toThrow(reason);
+  });
+
+  it.each([
+    ['range on a repeated key', [writer], { repeatedPageKeys: [key] }, /repeatedPageKeys/],
+    ['writers with different shapes', [writer, { ...other, outputs: [{ ...output, selection: { ...selection, shape: 'set' } }] }], {}, /agree/],
+    ['writers with different dimensions', [writer, { ...other, outputs: [{ ...output, selection: { ...selection, dimension: 'equipment' } }] }], {}, /agree/],
+    ['a plain writer', [{ ...other, outputs: [{ key, action: 'other' }] }, writer], {}, /every output/],
+    ['a reader without a writer', [reader], {}, /matching output/],
+    ['a reader of its own output', [{ ...writer, queryInputs: { page } }], {}, /own output/],
+    ['an unknown use', [writer, { ...reader, queryInputs: { page: [{ key, selection: 'ignore' }] } }], {}, /filter or highlight/],
+    ['highlight in query inputs', [writer, { ...reader, queryInputs: { page: [{ key, selection: 'highlight' }] } }], {}, /displayInputs/],
+    ['a key without Context reset', [writer], { contextResetKeys: [] }, /contextResetKeys/],
+    ['a drill level', [writer], { drill: { levels: [{ key, label: title }] } }, /drill level/],
+    ['a page condition', [writer], { pageType: 'analysis', query: { mode: 'live' }, pageConditions: { categories: [{ id: key, label: title, kind: { type: 'search', key } }] } }, /pageConditions/],
+    ['a condition preset', [writer], { context: { ...none, condition: 'apply' }, conditionPreset: { key, default: 'a' }, conditionPresets: ['a', 'b'].map(id => ({ id, label: title, axes: ['maker'] })) }, /conditionPreset/],
+    ['a navigation preset', [writer], { navViews: [{ id: 'view', label: title, page: { [key]: 'a' } }] }, /navView/],
+    ['a subject key', [writer], { subjectPageKeys: { equipment: key } }, /subjectPageKeys/],
+    ['returnTo', [{ ...writer, outputs: [{ ...output, key: 'returnTo' }] }], { pageKeys: ['returnTo'], contextResetKeys: ['returnTo'] }, /selection key "returnTo"/],
+  ])('rejects %s', (_name, panels, extra, reason) => {
+    expect(() => build(panels, extra)).toThrow(reason);
+  });
+
+  it('accepts agreeing writers and a declared reader', () => {
+    expect(build([writer, other, reader]).panelsWriting(key)).toHaveLength(2);
+  });
+});
+
 describe('lent panel registration (#2490)', () => {
   const receiving = menuPermission('receiver:view');
   const owner = menuPermission('source:view');
