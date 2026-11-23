@@ -21,6 +21,9 @@ const BAR_PANEL_CHROME = 80;
 const BAR_PLOT_EDGES = 60;
 const MATRIX_ROW_PITCH = 17;
 const MATRIX_PANEL_HEIGHT = 440;
+// Panel chrome around the heatmap plot (title, toolbar, legend, selection line) and the heatmap's own axis room (SDK `minRowHeight`).
+const MATRIX_PANEL_CHROME = 96;
+const MATRIX_AXIS_ROOM = 64;
 const MATRIX_COLOR_LIMIT = 1.6;
 const TREE_SHARE = 18;
 const COLORS = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'] as const;
@@ -143,8 +146,10 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
       byCategory: new Map(comparison.equipment.map(item => [item.id, item.held ? null : item.total])),
     };
     const toStep = (point: ChartPoint) => drillTo({ step: point.seriesId, equipment: point.x });
+    // Tall enough that every Step row and the heatmap x-axis are in view, as the equipment bars above (#2755).
+    const matrixPanelHeight = Math.max(MATRIX_PANEL_HEIGHT, MATRIX_PANEL_CHROME + MATRIX_AXIS_ROOM + stepRows.length * MATRIX_ROW_PITCH);
     const stack: PanelWorkspacePanel = {
-      id: 'steps', title: step ? previousTitle(M.stepTimes) : M.stepTimes, primary: true, preferredHeight: MATRIX_PANEL_HEIGHT,
+      id: 'steps', title: step ? previousTitle(M.stepTimes) : M.stepTimes, primary: true, preferredHeight: matrixPanelHeight,
       render: () => <AnalysisChartFrame {...commonBars} chartId="rcc-steps" title={m('stepTimes')} series={series} stacked
         legend={false} visibleSeriesIds={series.map(item => item.id)} emphasisFocus="none"
         categoryValueMarks={categoryValueMarks} emptyCategoryLabel={m('held')}
@@ -152,7 +157,7 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
         pointActivation={{ on: 'dblclick', onActivate: toStep }} isPointSelectable={point => point.value !== null} />,
     };
     const matrix: PanelWorkspacePanel = {
-      id: 'matrix', title: M.matrix, preferredHeight: MATRIX_PANEL_HEIGHT,
+      id: 'matrix', title: M.matrix, preferredHeight: matrixPanelHeight,
       render: () => <AnalysisChart chartId="rcc-step-matrix" title={m('matrix')} size="fill" unit={unitText} legendPlacement="top"
         legendCaption={m('delta')} spec={{
           kind: 'heatmap', minRowHeight: MATRIX_ROW_PITCH, valueFormat: value => `${value > 0 ? '+' : ''}${numberText(value)}`,

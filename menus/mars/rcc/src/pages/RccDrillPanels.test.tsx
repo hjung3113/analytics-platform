@@ -79,4 +79,13 @@ describe('RCC drill presentation', () => {
     expect(html).toContain(`data-panel="layers" data-preferred="${Math.max(400, Number(fit))}"`);
     expect(html).toContain(`data-panel="totals" data-preferred="${Math.max(400, Number(fit))}"`);
   });
+
+  it('sizes the Step × equipment panels so every Step row and the heatmap x-axis fit (#2755)', () => {
+    const html = renderDrill(undefined);
+    // Panel chrome (header, toolbar, legend, selection line) + one 17px row per Step + the heatmap's 64px axis room.
+    const fit = Math.max(440, 96 + STRUCTURES.A.length * 17 + 64);
+    expect(STRUCTURES.A.length * 17 + 64 + 96).toBeGreaterThan(440);
+    expect(html).toContain(`data-panel="matrix" data-preferred="${fit}"`);
+    expect(html).toContain(`data-panel="steps" data-preferred="${fit}"`);
+  });
 });
