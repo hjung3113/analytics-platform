@@ -10,7 +10,7 @@ import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
 import { overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, InfoTip, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
-import type { ThemeColorToken } from '@ap/ui/theme';
+import { useThemeRevision, type ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, FILL_CARD_CLASS, FILL_CHART_MIN_HEIGHT, FILL_PLOT_BASE_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
 import { useElementSize } from '../state/useElementSize';
@@ -418,6 +418,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     if (legendProp === false && !controlledVisibility) rowFocusDiagnostic('legend={false} without visibleSeriesIds leaves the user no way to toggle series; pass visibleSeriesIds or keep the legend.');
   }, [rawFillMin, legendProp, controlledVisibility]);
   const [instanceReady, setInstanceReady] = useState(0);
+  const themeRevision = useThemeRevision();
   // The chart instance's width in px: label budgets are cut from it, so a container resize must reach the option (#399 F3).
   const [chartWidth, setChartWidth] = useState(NOTE_FALLBACK_WIDTH);
   const { state: range, actions: rangeActions } = useChartRange();
@@ -715,12 +716,13 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const tickRoom = horizontal && !startAlign ? Math.min(TICK_ROOM_CAP, Math.floor(chartWidth / TICK_ROOM_STEP) * TICK_ROOM_STEP) : undefined;
   const option = useMemo<EChartsCoreOption>(() => {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
-    void instanceReady;
+    // A root `data-theme` change re-resolves them too (#2723).
+    void instanceReady; void themeRevision;
     return buildChartOption({
       bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit, ...(zoomOnly ? {} : { selectedPointKeys }),
       palette: resolveChartPalette(displayed),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, selectedPointKeys, zoomOnly, instanceReady]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {

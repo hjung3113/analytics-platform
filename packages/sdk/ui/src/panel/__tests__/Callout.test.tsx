@@ -6,7 +6,7 @@ import type { CalloutTone } from '../Callout.js';
 const TONE_VAR: Record<CalloutTone, string> = {
   amber: '--color-amber',
   red: '--color-warning-red',
-  blue: '--color-aether-blue',
+  blue: '--accent-primary', // #2723: follows the accent theme
   cyan: '--color-cyan-spark',
   emerald: '--color-emerald',
 };

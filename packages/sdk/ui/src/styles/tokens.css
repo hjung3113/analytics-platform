@@ -4,6 +4,8 @@
  * Hex comments are for human readability + fixture cross-reference.
  * Token NAMES are preserved from ADR-0016 (historical); VALUES invert dark→light.
  * Components MUST NOT reference --color-* directly; consume semantic tokens below.
+ * Accent themes: `:root[data-theme="violet"]` in ./themes.css overrides only the accent-primary family; enable it with
+ * `document.documentElement.dataset.theme = 'violet'` (#2723). Shared-recipe consumers import `@ap/ui/styles/themes.css` layer(base).
  */
 :root {
   /* --- Motion (ADR-0063): raw values; theme.css exposes utility aliases. --- */

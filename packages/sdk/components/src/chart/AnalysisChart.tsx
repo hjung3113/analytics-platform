@@ -9,7 +9,7 @@ import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { Button, Checkbox, cn, type Tone } from '@ap/ui';
 import type { Text } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
-import type { ThemeColorToken } from '@ap/ui/theme';
+import { useThemeRevision, type ThemeColorToken } from '@ap/ui/theme';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { chartTheme, EChart, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
@@ -198,6 +198,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const brushedKeys = useRef<string[]>([]);
   const [brushMode, setBrushMode] = useState(false);
   const [instanceReady, setInstanceReady] = useState(0);
+  // Colours are resolved while building the option: a root `data-theme` change rebuilds it (#2723).
+  const themeRevision = useThemeRevision();
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
   const spec = p.spec;
   const controlledCell = spec.kind === 'heatmap' ? spec.selectedCell : undefined;
@@ -264,6 +266,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const unknown = (spec.kind === 'heatmap' ? spec.nullLabel : undefined) ?? unknownLabel(lang);
   const valueText = useCallback((v: number | null) => v === null ? unknown : `${format(v)} ${p.unit}`, [unknown, format, p.unit]);
   const { option, scale, domain, ramp, validThreshold } = useMemo(() => {
+    void themeRevision;
     const theme = chartTheme();
     const values = cells.flatMap(c => c.value === null ? [] : [c.value]);
     const scale = spec.kind === 'heatmap' && spec.categories === undefined ? spec.scale : undefined;
@@ -331,7 +334,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     return { option, scale, domain, ramp, validThreshold };
   // `size`, `height` and `lang` are deliberate re-run triggers: a new option object makes ECharts re-lay out the plot for the new size/language.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional triggers, see comment above
-  }, [spec, cells, rows, extended, active, controlledCell, controlledKey, plotSize, valueText, size, height, lang, rowFloor]);
+  }, [spec, cells, rows, extended, active, controlledCell, controlledKey, plotSize, valueText, size, height, lang, rowFloor, themeRevision]);
   const measureGrid = useCallback((instance: ECharts | null) => {
     if (spec.kind !== 'heatmap' || !instance || instance.isDisposed?.()) return;
     // ECharts exposes the laid-out grid through its runtime model (not in its public TS surface).

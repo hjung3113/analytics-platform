@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type Keyb
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronRight, CornerDownRight, Eye } from 'lucide-react';
 import { useI18n, useMessages } from '@ap/kernel';
 import { Button, Checkbox, cn } from '@ap/ui';
-import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
+import { readColorToken, useThemeRevision, type ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
 
 export type LegendTreeNode = {
@@ -102,6 +102,7 @@ export function LegendTree(props: LegendTreeProps) {
   const { nodes, visible, onVisibleChange, label, sortOf, onSortChange, onSelect, selectedId, onDrill, canDrill, currentId,
     expanded, defaultExpanded, onExpandedChange, emptyText, className, hint, currentLabel, drillOnName = false, onCheck, checkedOf } = props;
   const { t, lang } = useI18n();
+  useThemeRevision(); // swatches read token colours while rendering (#2723)
   const m = useMessages(COMPONENTS_MESSAGES);
   const treeId = useId();
   const drillId = `${treeId}-drill`;

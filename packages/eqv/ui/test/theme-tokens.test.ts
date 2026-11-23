@@ -16,6 +16,8 @@ const MAP = [
   ['--eqv-evidence', '--text-secondary'],
   ['--eqv-detail-fill', '--surface-field-filled'],
   ['--eqv-assumed-fg', '--text-warning-label'],
+  ['--eqv-selection', '--accent-primary'],
+  ['--eqv-selection-fill', '--accent-primary-soft'],
 ] as const;
 
 it.each(MAP)('%s is wrapped rgb(var(%s)) and the token is a public @ap/ui theme token', (eqv, token) => {

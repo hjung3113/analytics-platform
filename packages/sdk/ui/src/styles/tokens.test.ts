@@ -117,3 +117,19 @@ it('leaves reduced motion to the shared compat rule (06 §26, #289)', () => {
   expect(shared).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation-duration: 0\.01ms !important/);
   expect(platform).not.toMatch(/prefers-reduced-motion/);
 });
+
+it('keeps the violet theme to the accent-primary family and readable (#2723)', () => {
+  const violet = values('./themes.css');
+  expect([...violet.keys()].sort()).toEqual(['--accent-primary-hover', '--accent-primary-soft', '--border-selected', '--color-neon-lime', '--surface-row-selected']);
+  const themed = (name: string): number[] => {
+    const value = violet.get(`--${name}`) ?? palette.get(`--${name}`)!;
+    const alias = /^var\(--([\w-]+)\)$/.exec(value);
+    return alias ? themed(alias[1]) : value.split(/\s+/).map(Number);
+  };
+  const ratio = (a: number[], b: number[]) => { const [lo, hi] = [luminance(a), luminance(b)].sort((x, y) => x - y); return (hi + 0.05) / (lo + 0.05); };
+  expect(ratio(themed('text-on-accent'), themed('accent-primary'))).toBeGreaterThanOrEqual(4.5);
+  expect(ratio(themed('text-on-accent'), themed('accent-primary-hover'))).toBeGreaterThanOrEqual(4.5);
+  expect(ratio(themed('accent-primary'), themed('surface-card'))).toBeGreaterThanOrEqual(3);
+  expect(ratio(themed('text-secondary'), themed('surface-row-selected'))).toBeGreaterThanOrEqual(4.5);
+  expect(ratio(themed('text-muted'), themed('surface-row-selected'))).toBeGreaterThanOrEqual(4.5);
+});
