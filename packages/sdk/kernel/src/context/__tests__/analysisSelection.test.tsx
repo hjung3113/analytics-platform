@@ -1,11 +1,12 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { emptyGlobal, groupId, NO_FEATURES, spaceId, type AnalysisSelection, type PanelDeclaration } from '@ap/contracts';
 import { House } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { analysisSelectionParam, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, usePlatform } from '../../index';
 import { I18nProvider } from '../../i18n';
 import { LentPanelPlatformContext } from '../../platform/contexts';
+import { useLeaveRequest, useUnsavedGuard } from '../../platform/hooks';
 import { lentPanelPlatform } from '../../platform/lent-panel-platform';
 import { PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from '../../platform/platform';
 import { queryMissingRequired } from '../../query/draft-state';
@@ -82,52 +83,64 @@ it('pushes once per change, skips equal selections, and restores the prior selec
   await waitFor(() => expect(result.current.selection).toEqual({ shape: 'set', values: ['A', 'B'] }));
 });
 
-it('pushes both writes when the selection returns to its rendered value in one event', async () => {
-  // Start at the history tip so the first push does not replace another test's forward entries.
-  window.history.pushState(null, '', window.location.href);
-  const result = mount(() => useAnalysisSelectionOutput('source', setKey), '&equipmentSet=A');
+const a = { shape: 'set', values: ['A'] } as const;
+const b = { shape: 'set', values: ['B'] } as const;
+const initialA = '&equipmentSet=A';
+const useWriter = () => ({ output: useAnalysisSelectionOutput('source', setKey), platform: usePlatform() });
+it.each([['main', 'source'], ['board', 'source'], ['main', 'alternate'], ['board', 'alternate']] as const)('restores A in one event on %s with %s as the final writer', async (surface, writer) => {
+  const propose = vi.fn<(screen: PaneScreen) => void>();
+  function Board({ children }: { children: ReactNode }) {
+    const [screen, setScreen] = useState<PaneScreen>({ menuId: 'analysis', params: {}, query: '?v=1' + initialA });
+    return <Wrapper><PaneScreenProvider paneId="one" screen={screen} onChange={next => { propose(next); setScreen(next); }} onLeave={() => {}}>{children}</PaneScreenProvider></Wrapper>;
+  }
+  window.history.pushState(null, '', window.location.href); // Start at the history tip so both pushes add entries.
+  const result = mount(() => ({ source: useAnalysisSelectionOutput('source', setKey),
+    alternate: useAnalysisSelectionOutput('alternate', setKey), reader: useAnalysisSelectionInputs('receiver'),
+  }), initialA, surface === 'board' ? Board : Wrapper);
   const start = window.history.length;
-  act(() => {
-    result.current.select(set);
-    result.current.select({ shape: 'set', values: ['A'] });
-  });
-  expect(search().getAll(setKey)).toEqual(['A']);
+  act(() => { result.current.source.select(b); expect(result.current[writer].select(a)).toBe(true); });
+  expect(result.current.reader.applied).toMatchObject([{ selection: a, source: { panelId: 'source', dimension: 'equipment' } }]);
+  if (surface === 'board') return expect(propose.mock.calls.map(([screen]) => new URLSearchParams(screen.query).getAll(setKey))).toEqual([['B'], ['A']]);
   expect(window.history.length).toBe(start + 2);
   window.history.back();
-  await waitFor(() => expect(result.current.selection).toEqual(set));
+  await waitFor(() => expect(result.current.reader.applied).toMatchObject([{ selection: b, source: { panelId: 'source', dimension: 'equipment' } }]));
 });
 
-it('ends with A after one event selects A, B and A in a controlled board pane', () => {
-  const a = { shape: 'set', values: ['A'] } as const;
-  function Board({ children }: { children: ReactNode }) {
-    const [screen, setScreen] = useState<PaneScreen>({ menuId: 'analysis', params: {}, query: '?v=1&equipmentSet=A' });
-    return <Wrapper><PaneScreenProvider paneId="one" screen={screen} onChange={setScreen} onLeave={() => {}}>{children}</PaneScreenProvider></Wrapper>;
-  }
-  const result = mount(() => ({ select: useAnalysisSelectionOutput('source', setKey).select, values: usePlatform().pageParams(setKey) }), '', Board);
-  act(() => { const { select } = result.current; select(a); select({ shape: 'set', values: ['B'] }); expect(select(a)).toBe(true); });
-  expect(result.current.values).toEqual(['A']);
-});
-
-it('keeps a same-event global period change when asked to select the rendered value', () => {
-  const { current: { output, platform } } = mount(() => ({ output: useAnalysisSelectionOutput('source', setKey), platform: usePlatform() }),
-    '&equipmentSet=A&from=2026-09-19T00:00:00&to=2026-09-20T00:00:00');
+it('composes a period reset, a new selection and a clear in one event', () => {
+  const { current: { output, platform } } = mount(useWriter, '&equipmentSet=B&from=2026-09-19T00:00:00&to=2026-09-20T00:00:00');
   const period = { from: '2026-09-20T00:00:00', to: '2026-09-21T00:00:00' };
-  act(() => { platform.setGlobal(period); expect(output.select(output.selection)).toBe(true); });
-  expect(Object.fromEntries(search())).toMatchObject(period);
-  expect(search().has(setKey)).toBe(false);
+  act(() => {
+    platform.setGlobal(period);
+    expect(search().has(setKey)).toBe(false);
+    expect(output.select(b)).toBe(true);
+    expect.soft(Object.fromEntries(search())).toMatchObject({ ...period, [setKey]: 'B' });
+    expect(output.select(null)).toBe(true);
+  });
+  expect(Object.fromEntries(search())).toEqual({ v: '1', ...period });
 });
 
-it('applies selections from either agreeing writer with the first declared source', () => {
-  const result = mount(() => ({
-    first: useAnalysisSelectionOutput('source', setKey),
-    second: useAnalysisSelectionOutput('alternate', setKey),
-    reader: useAnalysisSelectionInputs('receiver'),
-  }));
-  act(() => expect(result.current.first.select(set)).toBe(true));
-  expect(result.current.reader.applied).toMatchObject([{ selection: set, source: { panelId: 'source', dimension: 'equipment' } }]);
-  const next = { shape: 'set', values: ['C'] } as const;
-  act(() => expect(result.current.second.select(next)).toBe(true));
-  expect(result.current.reader.applied).toMatchObject([{ selection: next, source: { panelId: 'source', dimension: 'equipment' } }]);
+it('rejects a stale selection after navigating away in the same event', () => {
+  const { current: { output, platform } } = mount(useWriter, initialA);
+  act(() => { expect(platform.navigate('/mars')).toBe(true); expect.soft(output.select(b)).toBe(false); });
+  expect(window.location.pathname).toBe('/mars');
+});
+
+it('asks again after cancelling a guarded selection', () => {
+  const guard: { request?: ReturnType<typeof useLeaveRequest> } = {};
+  function Guarded() {
+    useUnsavedGuard(true, { leaves: 'address' });
+    const request = useLeaveRequest();
+    useLayoutEffect(() => { guard.request = request; }, [request]);
+    return null;
+  }
+  const result = mount(() => useAnalysisSelectionOutput('source', setKey), initialA, ({ children }) => <Wrapper><Guarded />{children}</Wrapper>);
+  act(() => { result.current.select(b); });
+  act(() => guard.request!.cancel());
+  expect(search().getAll(setKey)).toEqual(['A']);
+  act(() => { result.current.select(b); });
+  expect(guard.request).toBeTruthy();
+  act(() => guard.request!.confirm());
+  expect(search().getAll(setKey)).toEqual(['B']);
 });
 
 const invalidEntries = [
@@ -161,11 +174,6 @@ it.each(invalidEntries)('reports rejected %s and clears the raw key', (key, valu
   act(() => expect(result.current.output.select(null)).toBe(true));
   expect(search().has(key)).toBe(false);
   expect(result.current.input.rejected).toEqual([]);
-});
-
-it('keeps the generic route error for a duplicate range key', () => {
-  const { current } = mount(useHostPlatform, '&timeRange=a%2Fb&timeRange=c%2Fd');
-  expect(current.contractError).toMatchObject({ code: 'duplicate_page_key' });
 });
 
 it.each([

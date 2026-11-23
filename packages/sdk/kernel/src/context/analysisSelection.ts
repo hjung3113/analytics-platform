@@ -1,5 +1,6 @@
 import type { AnalysisSelection, AnalysisSelectionUse, Text } from '@ap/contracts';
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { use, useMemo } from 'react';
+import { PaneScreenContext, ScreenContext } from '../platform/contexts';
 import { usePlatform } from '../platform/hooks';
 import { menuAnalysisSelections } from '../registry/analysis-selections';
 import type { MenuEntry } from '../registry/registry';
@@ -22,22 +23,19 @@ const useChannels = (menu: MenuEntry | undefined) => useMemo(() => menuAnalysisS
 /** Reads and writes a declared analysis selection through the menu page key (ADR-0175). */
 export function useAnalysisSelectionOutput(panelId: string, key: string): { selection: AnalysisSelection | null; select: (next: AnalysisSelection | null) => boolean } {
   const { route, pageParams, setPage } = usePlatform();
+  const screen = use(PaneScreenContext) ?? (route ? use(ScreenContext) : null);
   const channel = useChannels(route?.menu).get(key);
   const urlKey = selectionUrlKey(key);
-  const values = pageParams(urlKey);
-  const lastValues = useRef(values);
-  useLayoutEffect(() => { lastValues.current = values; });
   if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
-  const selection = channel ? parseAnalysisSelection(channel.shape, values) : null;
+  const selection = channel ? parseAnalysisSelection(channel.shape, pageParams(urlKey)) : null;
   return { selection, select(next) {
-    if (!channel || (next && next.shape !== channel.shape)) return false;
+    const current = screen?.pageParamsNow(urlKey);
+    if (!current || !channel || (next && next.shape !== channel.shape)) return false;
     const param = next && analysisSelectionParam(next);
     const written = typeof param === 'string' ? [param] : param ?? [];
     const normalized = parseAnalysisSelection(channel.shape, written);
     if (!normalized && written.length) return false;
-    const current = lastValues.current;
     if (normalized === null ? current.length === 0 : sameSelection(parseAnalysisSelection(channel.shape, current), normalized)) return true;
-    lastValues.current = written;
     setPage({ [urlKey]: normalized ? param : null });
     return true;
   } };
