@@ -18,11 +18,11 @@ import {
  */
 export type FindingAuthorizationActor = ScopeActorContext;
 export type FindingPointAuthorizationPolicy = { requireElevatedRole: boolean };
-/** A list behind the Finding role floor answers with the same `role_required` hint as the Finding list, so its screen shows the role card, not a missing grant or an archive (#2768). */
-export function elevatedListRoleRequired(list: string): HttpError {
+/** The one `role_required` answer below the Finding role floor; every screen behind it shows the role card, not a missing grant or an archive (#2639, #2768). */
+export function findingRoleRequired(action: string): HttpError {
   return new HttpError(
     'permission.denied',
-    `${ROLE_LEVEL_LABELS[FINDING_SCREEN_ROLE_FLOOR]} role or higher is required to open the ${list}`,
+    `${ROLE_LEVEL_LABELS[FINDING_SCREEN_ROLE_FLOOR]} role or higher is required to ${action}`,
     { reason: 'role_required', minimum_role: FINDING_SCREEN_ROLE_FLOOR },
   );
 }

@@ -213,6 +213,7 @@ describe.skipIf(!runIntegration)('milestone list (#514 A5)', () => {
     const res = await listMilestones(userCookie);
     expect(res.statusCode).toBe(403);
     expect(res.json<{ code: string }>().code).toBe('permission.denied');
+    expect(res.json<{ detail: unknown }>().detail).toEqual({ reason: 'role_required', minimum_role: 'developer' });
   });
 
   it('list: returns progress for each visible Milestone; out-of-scope stays absent (#514 B1c)', async () => {

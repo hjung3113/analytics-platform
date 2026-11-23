@@ -1,18 +1,13 @@
-import { FINDING_SCREEN_ROLE_FLOOR, ROLE_LEVEL_LABELS } from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
-import { HttpError } from '../../lib/errors.js';
+import type { HttpError } from '../../lib/errors.js';
 import { type CheckService, memoizeCapabilityChecks } from '../permissions/check-service.js';
 import type { Scope, ScopeActorContext } from '../permissions/scope-service.js';
-import { hasElevatedFindingRole } from './authorization.js';
+import { findingRoleRequired, hasElevatedFindingRole } from './authorization.js';
 import { listPrimaryManagedSystemIds } from './repo-read.js';
 import { canReadFinding } from './service-shared.js';
 
 export function findingListRoleRequired(): HttpError {
-  return new HttpError(
-    'permission.denied',
-    `${ROLE_LEVEL_LABELS[FINDING_SCREEN_ROLE_FLOOR]} role or higher is required to open the Finding list`,
-    { reason: 'role_required', minimum_role: FINDING_SCREEN_ROLE_FLOOR },
-  );
+  return findingRoleRequired('open the Finding list');
 }
 
 /** Same role and point decisions as the owning list, including archived systems. */

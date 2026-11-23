@@ -1,6 +1,4 @@
 import {
-  FINDING_SCREEN_ROLE_FLOOR,
-  ROLE_LEVEL_LABELS,
   type EvidenceInventoryItem,
   type ListEvidenceInventoryQuery,
   type ListEvidenceInventoryResponse,
@@ -11,7 +9,7 @@ import { HttpError } from '../../lib/errors.js';
 import type { ListCursor } from '../../lib/list-cursor.js';
 import { resolveInventorySurveyHighlights } from '../surveys/evidence-access.js';
 import { readVocEvidenceSources } from '../voc/index.js';
-import { hasElevatedFindingRole, readableEvidenceInventorySystems } from './authorization.js';
+import { findingRoleRequired, hasElevatedFindingRole, readableEvidenceInventorySystems } from './authorization.js';
 import {
   decodeEvidenceInventoryCursor,
   encodeEvidenceInventoryCursor,
@@ -29,11 +27,7 @@ const BATCH_SIZE = 100;
 function assertRole(actor: FindingsActor) {
   if (!hasElevatedFindingRole(actor))
     // Same `role_required` answer as the Finding list, so both screens show the same «요청 불가» panel (#2639).
-    throw new HttpError(
-      'permission.denied',
-      `${ROLE_LEVEL_LABELS[FINDING_SCREEN_ROLE_FLOOR]} role or higher is required to read evidence`,
-      { reason: 'role_required', minimum_role: FINDING_SCREEN_ROLE_FLOOR },
-    );
+    throw findingRoleRequired('read evidence');
 }
 function matches(item: EvidenceInventoryItem, q: string): boolean {
   const labels = [item.finding.title, item.finding.display_id];
