@@ -176,6 +176,16 @@ describe('LaneTimeline table and export (#2792)', () => {
   });
 });
 
+// A range loader whose answers the test resolves; `Probe` records, before passive effects run, whether CSV is offered.
+function deferredRange() {
+  const pending: ((items: typeof track.items) => void)[] = []; const seen: boolean[] = [];
+  const onRangeRequest = vi.fn(() => new Promise<typeof track.items>((resolve) => { pending.push(resolve); }));
+  function Probe() { useLayoutEffect(() => { seen.push(!!screen.queryByRole('button', { name: '내보내기' })); }); return null; }
+  return { pending, onRangeRequest, seen, Probe };
+}
+const exportedTrack = async () => { exportCsv(); await waitFor(() => expect(screen.getByText('Track.csv 내보냄')).toBeTruthy()); };
+const trackView = (props: Partial<React.ComponentProps<typeof OrderedIntervalTrack>>) => <I18nProvider><OrderedIntervalTrack {...track} exportActions={{ exportAllowed: true }} {...props} /></I18nProvider>;
+
 describe('OrderedIntervalTrack export (#2792)', () => {
   it('exports the visible-range table as CSV, with blank end and length for an open interval', async () => {
     bare(<OrderedIntervalTrack {...track} />);
@@ -214,11 +224,7 @@ describe('OrderedIntervalTrack export (#2792)', () => {
   });
 
   it('a restored permission on the same range waits for the new answer before CSV (PR2 C2)', async () => {
-    const pending: ((items: typeof track.items) => void)[] = [];
-    const onRangeRequest = vi.fn(() => new Promise<typeof track.items>((resolve) => { pending.push(resolve); }));
-    const seen: boolean[] = [];
-    // Records the committed DOM before passive effects run: the old answer must not be offered in that window.
-    function Probe() { useLayoutEffect(() => { seen.push(!!screen.queryByRole('button', { name: '내보내기' })); }); return null; }
+    const { pending, onRangeRequest, seen, Probe } = deferredRange();
     const view = (state?: { kind: 'forbidden'; title: string }) => <I18nProvider><OrderedIntervalTrack {...track} state={state} onRangeRequest={onRangeRequest} exportActions={{ exportAllowed: true }} /><Probe /></I18nProvider>;
     const { rerender } = render(view());
     await waitFor(() => expect(onRangeRequest).toHaveBeenCalledTimes(1));
@@ -226,8 +232,7 @@ describe('OrderedIntervalTrack export (#2792)', () => {
     expect(screen.getByRole('button', { name: '내보내기' })).toBeTruthy();
     rerender(view({ kind: 'forbidden', title: '권한 없음' }));
     expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
-    seen.length = 0;
-    rerender(view());
+    seen.length = 0; rerender(view());
     expect(seen[0]).toBe(false);
     await waitFor(() => expect(onRangeRequest).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
@@ -237,23 +242,48 @@ describe('OrderedIntervalTrack export (#2792)', () => {
   });
 
   it('clears the standalone result line when permission, title or rows change, and hides it when restricted (PR2 C3)', async () => {
-    const view = (props: Partial<React.ComponentProps<typeof OrderedIntervalTrack>>) => <I18nProvider><OrderedIntervalTrack {...track} exportActions={{ exportAllowed: true }} {...props} /></I18nProvider>;
-    const { rerender } = render(view({}));
+    const { rerender } = render(trackView({}));
+    await exportedTrack();
+    rerender(trackView({ state: { kind: 'forbidden', title: '권한 없음' } }));
+    expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
+    rerender(trackView({}));
+    expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
+    await exportedTrack();
+    rerender(trackView({ exportActions: { exportAllowed: false } })); rerender(trackView({}));
+    expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
+    await exportedTrack();
+    rerender(trackView({ items: [track.items[0]] }));
+    expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
+  });
+
+  it('a wider domain re-requests the same range and offers no CSV until the new answer (PR2 round 2 C2)', async () => {
+    const { pending, onRangeRequest, seen, Probe } = deferredRange();
+    const view = (domain: [number, number]) => <I18nProvider><OrderedIntervalTrack {...track} domain={domain} initialView={[0, 100]} onRangeRequest={onRangeRequest} exportActions={{ exportAllowed: true }} /><Probe /></I18nProvider>;
+    const { rerender } = render(view([0, 100]));
+    await waitFor(() => expect(onRangeRequest).toHaveBeenCalledTimes(1));
+    await act(async () => { pending[0](track.items); });
+    expect(screen.getByRole('button', { name: '내보내기' })).toBeTruthy();
+    seen.length = 0; rerender(view([0, 200]));
+    expect(seen[0]).toBe(false);
+    await waitFor(() => expect(onRangeRequest).toHaveBeenCalledTimes(2));
+    expect(onRangeRequest.mock.calls[1].slice(0, 2)).toEqual([0, 100]);
+    await act(async () => { pending[1]([{ id: '7', laneKey: 'a', orderStart: 60, orderEnd: 61, state: 'ok', label: 'wide' }]); });
     exportCsv();
-    await waitFor(() => expect(screen.getByText('Track.csv 내보냄')).toBeTruthy());
-    rerender(view({ state: { kind: 'forbidden', title: '권한 없음' } }));
+    expect((await readCsv(csv[0])).slice(2)).toEqual(['A,wide,60,61,완료,1']);
+  });
+
+  it('a lanes change clears the result line (PR2 round 2 C3)', async () => {
+    const { rerender } = render(trackView({}));
+    await exportedTrack();
+    rerender(trackView({ lanes: [...track.lanes, { laneKey: 'b', label: 'B' }] }));
     expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
-    rerender(view({}));
-    expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
-    exportCsv();
-    await waitFor(() => expect(screen.getByText('Track.csv 내보냄')).toBeTruthy());
-    rerender(view({ exportActions: { exportAllowed: false } }));
-    rerender(view({}));
-    expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
-    exportCsv();
-    await waitFor(() => expect(screen.getByText('Track.csv 내보냄')).toBeTruthy());
-    rerender(view({ items: [track.items[0]] }));
-    expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
+  });
+
+  it('a partial notice alone keeps the result line (PR2 round 2 C6)', async () => {
+    const { rerender } = render(trackView({}));
+    await exportedTrack();
+    rerender(trackView({ state: { kind: 'partial', title: '일부만 받음' } }));
+    expect(screen.getByText('Track.csv 내보냄')).toBeTruthy();
   });
 
   it('inside a platform the menu manifest decides, whatever exportActions says (PR2 C5)', () => {

@@ -112,16 +112,16 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
     recovered.title === props.state?.title &&
     recovered.body === props.state?.body;
   const failed = overCap || (kind === 'error' && !recoveringError) || request === 'error';
-  // Any change that starts or voids a range request gets a new generation in this render, before its effect runs, so a
-  // restored permission or a new range never offers the previous answer as the current CSV (#2792 PR2 C2).
-  const requestKey = `${view[0]}|${view[1]}|${round}|${restricted}|${kind}|${recoveringError}|${!!props.onRangeRequest}`;
-  const [requestGen, setRequestGen] = useState({ key: requestKey, n: 0 });
-  if (requestGen.key !== requestKey) setRequestGen({ key: requestKey, n: requestGen.n + 1 });
-  // A standalone result line belongs to one table: new rows, range, title, permission or restriction clear it (#2792 PR2 C3).
-  const exportKey = `${requestKey}|${props.ariaLabel}|${props.exportActions?.exportAllowed}`;
-  const [exportGeneration, setExportGeneration] = useState({ items: sourceItems, key: exportKey, n: 0 });
-  if (exportGeneration.items !== sourceItems || exportGeneration.key !== exportKey)
-    setExportGeneration({ items: sourceItems, key: exportKey, n: exportGeneration.n + 1 });
+  // The request effect's inputs (`view` reference included: a new domain re-requests the same ends) get a new generation in this
+  // render, before the effect runs, so a restored permission or new range never offers the old answer as CSV (#2792 PR2 C2).
+  const requestKey = `${round}|${restricted}|${kind}|${recoveringError}|${!!props.onRangeRequest}`;
+  const [requestGen, setRequestGen] = useState({ view, key: requestKey, n: 0 });
+  if (requestGen.view !== view || requestGen.key !== requestKey) setRequestGen({ view, key: requestKey, n: requestGen.n + 1 });
+  // The standalone result line belongs to the CSV's rows, lanes, range, title and permission; a notice alone keeps it (#2792 PR2 C3, C6).
+  const exportKey = `${view[0]}|${view[1]}|${restricted}|${props.ariaLabel}|${props.exportActions?.exportAllowed}`;
+  const [exportGeneration, setExportGeneration] = useState({ items: sourceItems, lanes: props.lanes, key: exportKey, n: 0 });
+  if (exportGeneration.items !== sourceItems || exportGeneration.lanes !== props.lanes || exportGeneration.key !== exportKey)
+    setExportGeneration({ items: sourceItems, lanes: props.lanes, key: exportKey, n: exportGeneration.n + 1 });
   const exportGate = useImageActionGate(props.exportActions, exportGeneration.n);
   const loadObserver = useRef(props.onLoadStateChange);
   useEffect(() => {
