@@ -31,7 +31,7 @@ import {
   createEntityLink as insertActiveEntityLink,
   selectActiveLinksForEndpoints,
 } from '../entity-links/index.js';
-import { checkFindingManage, hasElevatedFindingRole } from '../findings/authorization.js';
+import { checkFindingManage, elevatedListRoleRequired, hasElevatedFindingRole } from '../findings/authorization.js';
 import { lockFindingForUpdate as lockFindingById } from '../findings/index.js';
 import type { NotificationNotifier } from '../notifications/index.js';
 import { type CheckService, memoizeCapabilityChecks } from '../permissions/index.js';
@@ -622,7 +622,7 @@ export function createTaskRequestsService(deps: TaskRequestsServiceDeps) {
   }): Promise<ListTaskRequestsResponse> {
     const limit = args.limit ?? LIST_DEFAULT_LIMIT;
     if (!hasElevatedFindingRole(args.actor)) {
-      throw new HttpError('permission.denied', 'finding.manage capability required');
+      throw elevatedListRoleRequired('Task Request list');
     }
 
     const managedSystemId =

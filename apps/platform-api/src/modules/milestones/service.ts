@@ -18,7 +18,7 @@ import {
 import { findWorkspaceActor } from '../auth/index.js';
 import type { AuditService } from '../core/audit/audit-service.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
-import { checkFindingManage, hasElevatedFindingRole } from '../findings/authorization.js';
+import { checkFindingManage, elevatedListRoleRequired, hasElevatedFindingRole } from '../findings/authorization.js';
 import { findSourceFindingForMilestone } from '../findings/index.js';
 import { lockManagedSystem } from '../managed-systems/index.js';
 import { type CheckService, memoizeCapabilityChecks } from '../permissions/index.js';
@@ -264,7 +264,7 @@ export function createMilestonesService(deps: MilestonesServiceDeps) {
     query: ListMilestonesQuery;
   }): Promise<{ items: MilestoneDto[] }> {
     if (!hasElevatedFindingRole(args.actor)) {
-      throw new HttpError('permission.denied', 'finding.manage capability required');
+      throw elevatedListRoleRequired('Milestone list');
     }
     const managedSystemId =
       args.query.managed_system_id && args.query.managed_system_id !== 'all'

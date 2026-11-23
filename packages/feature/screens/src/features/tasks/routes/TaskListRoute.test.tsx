@@ -358,18 +358,21 @@ describe('TaskListRoute display ids', () => {
     expect(screen.queryByText('Task 목록을 불러오지 못했습니다')).not.toBeInTheDocument();
   });
 
-  it('gives the archive reason on an archived System instead of a missing permission (#2768)', async () => {
+  it('keeps the role card for a User on an archived System (#2768)', async () => {
     vi.mocked(fetchManagedSystems).mockResolvedValueOnce({
       items: [{ id: '30000000-0000-0000-0000-000000000003', name: 'Billing Ops', archived_at: '2026-01-01T00:00:00Z' }],
     } as Awaited<ReturnType<typeof fetchManagedSystems>>);
     vi.mocked(listTasks).mockRejectedValueOnce(
-      new ApiError(403, { code: 'permission.denied', message: 'denied' }),
+      new ApiError(403, {
+        code: 'permission.denied',
+        message: 'Developer role or higher is required to open the Task list',
+        detail: { reason: 'role_required', minimum_role: 'developer' },
+      }),
     );
     renderWithClient(<TaskListRoute managedSystem="30000000-0000-0000-0000-000000000003" />);
 
-    expect(await screen.findByText('보관된 시스템이라 볼 수 없습니다.')).toBeInTheDocument();
-    expect(screen.queryByText('필요한 권한')).not.toBeInTheDocument();
-    expect(screen.queryByText('Task 목록을 볼 권한이 없습니다.')).not.toBeInTheDocument();
+    expect(await screen.findByText('Developer 이상 역할이 필요합니다.')).toBeInTheDocument();
+    expect(screen.queryByText('보관된 시스템이라 볼 수 없습니다.')).not.toBeInTheDocument();
   });
 
   it('keeps a non-permission list failure unavailable', async () => {

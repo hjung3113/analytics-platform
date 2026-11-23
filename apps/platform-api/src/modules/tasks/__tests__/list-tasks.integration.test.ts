@@ -756,6 +756,8 @@ describe.skipIf(!runIntegration)('Task Analytics Area report destinations (#1077
     const response = await get({ analytics_area_id: areaA }, user);
     expect(response.statusCode).toBe(403);
     expect(response.json().code).toBe('permission.denied');
+    // The role hint lets the screen show the role card, not a grant or archive reason (#2768).
+    expect(response.json().detail).toEqual({ reason: 'role_required', minimum_role: 'developer' });
   });
   it.each([
     'analytics_area_id=bad',

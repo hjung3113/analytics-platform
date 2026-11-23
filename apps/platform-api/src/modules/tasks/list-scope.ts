@@ -1,6 +1,5 @@
 import type { Db } from '../../db/client.js';
-import { HttpError } from '../../lib/errors.js';
-import { checkFindingManage, hasElevatedFindingRole } from '../findings/authorization.js';
+import { checkFindingManage, elevatedListRoleRequired, hasElevatedFindingRole } from '../findings/authorization.js';
 import { type CheckService, memoizeCapabilityChecks } from '../permissions/check-service.js';
 import type { Scope, ScopeActorContext } from '../permissions/scope-service.js';
 import { listPrimaryManagedSystemIds } from './repo.js';
@@ -14,7 +13,7 @@ export async function actorTaskListScope(
   candidates?: string[],
 ): Promise<Scope> {
   if (!hasElevatedFindingRole(actor))
-    throw new HttpError('permission.denied', 'finding.manage capability required');
+    throw elevatedListRoleRequired('Task list');
   if (actor.role_level === 'admin') return { kind: 'all' };
   const check = memoizeCapabilityChecks(checkService);
   const systems =

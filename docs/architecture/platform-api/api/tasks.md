@@ -68,6 +68,8 @@ auth and permission: Admin or Developer. Admin sees all Task Requests in the
   status counts. Explicit denies are preserved. Empty allowed scope returns
   empty rows, first-page total 0, and zero status counts when applicable.
   Every page uses the same visibility predicate.
+  User is denied: 403 permission.denied with detail
+  { reason: 'role_required', minimum_role: 'developer' }.
 sort: created_at DESC, id DESC; cursor continues both columns with raw
   PostgreSQL timestamp precision (including microseconds)
 source projection: when an active `requested_task` link exists, `source`
@@ -225,7 +227,9 @@ auth and permission: Admin or Developer. Admin sees all workspace Tasks.
   Primary Managed System, with the elevated-role gate, and applies the
   allowed-system SQL predicate before LIMIT and total. Explicit denies remain
   effective on every page. Empty allowed scope returns empty rows
-  and first-page total 0. User is denied.
+  and first-page total 0. User is denied: 403 permission.denied with
+  detail { reason: 'role_required', minimum_role: 'developer' }, like the
+  Finding list.
 sort: updated_at DESC, id DESC; cursor continues both columns with raw
   PostgreSQL timestamp precision (including microseconds)
 ```

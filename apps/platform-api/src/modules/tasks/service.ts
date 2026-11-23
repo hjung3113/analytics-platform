@@ -47,7 +47,7 @@ import {
   selectEligibleVocLinksForReleasedTask,
 } from '../entity-links/commands.js';
 import { assertLinkManagedSystemCompatibility } from '../entity-links/service.js';
-import { checkFindingManage, hasElevatedFindingRole } from '../findings/authorization.js';
+import { checkFindingManage, elevatedListRoleRequired, hasElevatedFindingRole } from '../findings/authorization.js';
 import { linkTaskToFinding } from '../findings/commands.js';
 import { lockManagedSystem } from '../managed-systems/index.js';
 import { lockMilestone } from '../milestones/index.js';
@@ -1119,7 +1119,7 @@ export function createTasksService(deps: TasksServiceDeps) {
     query: ListTasksQuery;
   }): Promise<ListTasksResponse> {
     if (!hasElevatedFindingRole(args.actor)) {
-      throw new HttpError('permission.denied', 'finding.manage capability required');
+      throw elevatedListRoleRequired('Task list');
     }
     const assigneeTokens =
       args.query.assignee === undefined ? [] : splitTaskListTokens(args.query.assignee);

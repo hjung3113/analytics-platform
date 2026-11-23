@@ -1,8 +1,9 @@
-import { PermissionBlockedPanel } from '@ap/ui';
+import { Button, PermissionBlockedPanel } from '@ap/ui';
 import type { ReactNode, RefObject } from 'react';
 
 import { PERMISSION_BLOCKED_REASONS } from '../lib/copy/permission-reasons';
-import { useIsArchivedSystem } from '../lib/cross-system/useIsArchivedSystem';
+import { PERMISSION_REQUEST_FLOW_COPY } from '../lib/copy/permission-requests';
+import { useArchivedSystemCheck } from '../lib/cross-system/useIsArchivedSystem';
 import { useHostPermissionLinks, useHostSeam } from '../lib/host/host-seam';
 import { ListAccessRequestPanel, ListDenialFocus, type ListAccessRequest } from './ListAccessRequestPanel';
 import { MyVocsRecoveryLink } from './MyVocsRecoveryLink';
@@ -39,9 +40,15 @@ export function ScopedListDenialCard({
   const { lang = 'ko' } = useHostSeam();
   const { permissionHomeHref } = useHostPermissionLinks();
   // No permission opens an archived System, so the capability card names the archive instead.
-  const archivedSystem = useIsArchivedSystem(
+  const archive = useArchivedSystemCheck(
     !request && !roleRequired && capability !== undefined ? managedSystemId : undefined,
+    { retryOnMount: false },
   );
+  const archivedSystem = archive.archived;
+  // Without the catalog the archive is unknown: the card keeps the permission copy and offers the read again.
+  const catalogRetry = archive.failed ? (
+    <Button variant="secondary" size="sm" onClick={archive.retry}>{PERMISSION_REQUEST_FLOW_COPY[lang].retry}</Button>
+  ) : null;
   const extraExitAction = recoverToMyVocs ? <MyVocsRecoveryLink /> : null;
   let panel: ReactNode;
   if (request) {
@@ -76,7 +83,7 @@ export function ScopedListDenialCard({
   return (
     <ListDenialFocus container={deniedRef} className="space-y-3" restoreFocus={restoreFocus}>
       {panel}
-      {recoveryAction ? <div className="flex justify-center">{recoveryAction}</div> : null}
+      {recoveryAction || catalogRetry ? <div className="flex justify-center gap-2">{recoveryAction}{catalogRetry}</div> : null}
     </ListDenialFocus>
   );
 }
