@@ -30,7 +30,9 @@ function HistorySession() {
   const historySummary = (global: GlobalContext, page: readonly Pair[]) => {
     const own = extension?.historyPageSummary?.(global, page);
     if (!extension?.historyDrill) return own;
-    return [...drillHistorySummary(route?.menu.drill, page, lang), ...own ?? []];
+    // The declared steps own their keys: a menu item for the same key never replaces the level's `valueLabel` name.
+    const steps = new Set(route?.menu.drill?.levels.map(level => level.key));
+    return [...drillHistorySummary(route?.menu.drill, page, lang), ...(own ?? []).filter(item => !steps.has(item.key))];
   };
   const tools = useContext(QueryBarTools);
   const external = tools?.folded ? tools : null;

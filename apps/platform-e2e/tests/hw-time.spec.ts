@@ -194,3 +194,27 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     });
   }
 });
+
+test.describe('HW Time query history — drill steps from the SDK (#2770)', () => {
+  test('two history rows that differ only in the Motion step read differently', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`${SCREEN}${TWO_DAYS}`);
+    await expectScopeValid(page, 'MEM · 메모리');
+    const candidate = (motion: string) => '?' + new URLSearchParams([['v', '1'], ['scopeId', 'MEM'], ['roomNames', 'PHOTO'],
+      ['from', '2026-09-24T00:00:00'], ['to', '2026-09-26T00:00:00'], ['moduleType', 'PM'], ['drillMotion', motion]]).toString();
+    await page.evaluate(([pump, chuck]) => {
+      localStorage.setItem('platform:query-history:v1:' + JSON.stringify([1, 'engineer', 'hw-time', 'MEM']), JSON.stringify({ schemaVersion: 1, entries: [
+        { id: 'pump', query: pump, schemaVersion: 1, count: 1, lastAppliedAt: 2 },
+        { id: 'chuck', query: chuck, schemaVersion: 1, count: 1, lastAppliedAt: 1 },
+      ] }));
+    }, [candidate('Pump'), candidate('Chuck')]);
+    await page.reload();
+    await expectScopeValid(page, 'MEM · 메모리');
+    const bar = queryBar(page);
+    await expandQueryBar(page, bar);
+    await bar.getByRole('button', { name: '최근 조건', exact: true }).click();
+    const rows = page.getByRole('list', { name: '최근 조회 조건' });
+    await expect(rows.getByRole('button', { name: /Module 타입 PM · Motion Pump/ })).toBeVisible();
+    await expect(rows.getByRole('button', { name: /Module 타입 PM · Motion Chuck/ })).toBeVisible();
+  });
+});

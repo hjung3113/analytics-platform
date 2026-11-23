@@ -190,25 +190,31 @@ it('leads a history row with the declared drill steps only when the page opts in
     { key: 'tool', label: { ko: '설비', en: 'Tool' }, valueLabel: (value: string) => `설비 ${value.toUpperCase()}` },
   ] } };
   const drillRegistry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [drillMenu] });
-  const rows = [{ id: 'd', query: buildQuery(global, [['line', 'L1'], ['tool', 'eq-7'], ['filter', 'x']]), schemaVersion: 1 as const, count: 1, lastAppliedAt: 2 }];
+  const rows = [{ id: 'd', query: buildQuery(global, [['tool', 'eq-7'], ['filter', 'x'], ['line', 'L1']]), schemaVersion: 1 as const, count: 1, lastAppliedAt: 2 }];
   const store: QueryHistoryStore = { list: vi.fn(async () => rows), record: vi.fn(async () => {}), remove: vi.fn(async () => {}), clear: vi.fn(async () => {}) };
   const session = testSession(['platform:view']);
-  const own = () => [{ key: 'filter', label: '필터', value: 'x' }];
-  const mountWith = (historyDrill: boolean) => {
+  // A menu item for a declared step key (raw `tool`) must not replace the level's `valueLabel` name.
+  const own = () => [{ key: 'tool', label: '설비', value: 'eq-7' }, { key: 'filter', label: '필터', value: 'x' }];
+  const mountWith = (historyDrill: boolean | undefined) => {
     window.history.replaceState(null, '', '/' + buildQuery(global));
     return render(<I18nProvider><PlatformProvider registry={drillRegistry} adapter={testAdapter({ session: () => session })} queryHistory={store}>
-      <QueryBarExtensionContext.Provider value={{ historyDrill, historyPageSummary: own }}><GlobalContextBar /></QueryBarExtensionContext.Provider>
+      <QueryBarExtensionContext.Provider value={historyDrill === undefined ? { historyPageSummary: own } : { historyDrill, historyPageSummary: own }}><GlobalContextBar /></QueryBarExtensionContext.Provider>
     </PlatformProvider></I18nProvider>);
   };
   const user = userEvent.setup();
   mountWith(true);
   await openHistory(user);
   const row = await screen.findByRole('button', { name: /기간 09-01/ });
+  // Declared order (line → tool), not the candidate's pair order; the step keeps its `valueLabel` name over the menu's raw item.
   expect(row).toHaveTextContent(/라인 L1 · 설비 설비 EQ-7 · 필터 x/);
-  cleanup();
-  mountWith(false);
-  await openHistory(user);
-  const plain = await screen.findByRole('button', { name: /기간 09-01/ });
-  expect(plain).toHaveTextContent('필터 x');
-  expect(plain).not.toHaveTextContent('라인');
+  expect(row).not.toHaveTextContent('설비 eq-7');
+  for (const off of [undefined, false]) {
+    cleanup();
+    mountWith(off);
+    await openHistory(user);
+    const plain = await screen.findByRole('button', { name: /기간 09-01/ });
+    expect(plain).toHaveTextContent('설비 eq-7 · 필터 x');
+    expect(plain).not.toHaveTextContent('라인');
+    expect(plain).not.toHaveTextContent('EQ-7');
+  }
 });
