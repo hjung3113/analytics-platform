@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { MoreHorizontal, type LucideIcon } from 'lucide-react';
-import { Button, cn, InfoTip, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import type { LucideIcon } from 'lucide-react';
+import { Button, cn, InfoTip } from '@ap/ui';
 import { formatMetricVersion } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -28,26 +28,6 @@ export function ChartCardHeader({ title, subtitle, actions, reserveCorner }: { t
 
 export function ChartZoomButton({ label, icon: Icon, onClick }: { label: string; icon: LucideIcon; onClick: () => void }) {
   return <Button size="icon-xs" variant="ghost" aria-label={label} title={label} onClick={onClick}><Icon className="size-3.5" aria-hidden /></Button>;
-}
-
-/** Panel tabs own the title. Keep the plot's primary tools on one row; disclose the existing secondary controls unchanged. */
-export function PanelChartChrome({ enabled, start, toolsReveal, titleId, title, description, metricVersion, actions, open, onOpenChange, onOpenAutoFocus, children }: { enabled: boolean; start?: ReactNode; toolsReveal?: ChartChromeOptions['toolsReveal']; titleId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; actions: ReactNode; open?: boolean; onOpenChange?: (open: boolean) => void; onOpenAutoFocus?: (event: Event) => void; children: ReactNode }) {
-  const m = useMessages(COMPONENTS_MESSAGES);
-  const [localOpen, setLocalOpen] = useState(false);
-  const expanded = open ?? localOpen;
-  if (!enabled) return <>{children}</>;
-  return <header data-tools-reveal={toolsReveal} className={cn('flex shrink-0 items-center gap-1 px-2 pt-1', toolsReveal === 'hover' && !expanded && 'opacity-0 group-hover/chart:opacity-100 group-focus-within/chart:opacity-100')}>
-    <ChartHeading titleId={titleId} title={title} description={description} metricVersion={metricVersion} compact hideTitle />
-    {/* Menu controls share the plot tools' row (#2459): one row above the plot instead of an option row plus a tool row. */}
-    {start != null && <div data-chart-toolbar-start className="flex min-w-0 items-center gap-1">{start}</div>}
-    <div role="toolbar" aria-label={m('chartActions')} className="ml-auto flex min-w-0 flex-nowrap items-center gap-1 overflow-x-auto">
-      {actions}
-      <Popover open={expanded} onOpenChange={next => { setLocalOpen(next); onOpenChange?.(next); }}>
-        <PopoverTrigger asChild><Button variant="ghost" size="icon-xs" className="shrink-0" aria-label={m('chartMore')} title={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
-        <PopoverContent align="end" className="max-h-96 w-80 overflow-auto" aria-label={m('chartMore')} onOpenAutoFocus={onOpenAutoFocus}>{children}</PopoverContent>
-      </Popover>
-    </div>
-  </header>;
 }
 
 export function ChartHeading({ titleId, title, description, metricVersion, compact = false, hideTitle = false }: { hideTitle?: boolean; titleId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; compact?: boolean }) {

@@ -248,7 +248,7 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 
 ### 표면·선·그림자 v3 — Decided (#2722)
 
-소유자가 `?variant=v3`를 골랐다. 캔버스 `#eceff3`, 크롬(사이드바·레일·캔버스 띠) 흰색 `surface-band`·`surface-sidebar`, 크롬과 캔버스가 만나는 선 `border-chrome` `#e3e7ec`(페이지 sticky 머리 아래 포함). 최상위 카드와 도킹 그룹은 `elevation-panel`이 `border-card` `#dce1e7`·`radius-card` 10px·두 겹 `shadow-sm`을 주고, 카드 안 보조 면은 `surface-sunken` `#f6f8fa`다. 카드 안 선 `border-subtle` `#e5eaf0`, 표 행 선 `border-row` `#eef1f5`, 열린 상세 서랍과 팝오버는 L3 `shadow-xl`/`shadow-md`, 그 표면은 흰색이다. `text-muted` `#5b6678`은 캔버스에서 5.03:1. 입력 경계 `border-control`은 3:1 하한 때문에 프로토타입의 `#cbd5e1`(1.48:1) 대신 기존 값을 유지한다.
+소유자가 `?variant=v3`를 골랐다. 캔버스 `#eceff3`, 크롬(사이드바·레일·캔버스 띠) 흰색 `surface-band`·`surface-sidebar`, 크롬과 캔버스가 만나는 선 `border-chrome` `#e3e7ec`(페이지 sticky 머리 아래 포함). 최상위 카드와 도킹 그룹은 `elevation-panel`이 `border-card` `#dce1e7`·`radius-card` 10px·두 겹 `shadow-sm`을 주고, 카드 안 보조 면은 `surface-sunken` `#f6f8fa`다(`elevation-panel`·도킹 그룹이 `surface-sunken`을 `surface-sunken-in-card`로 바꾼다). 카드 안 선 `border-subtle` `#e5eaf0`, 표 행 선 `border-row` `#eef1f5`, 열린 상세 서랍과 팝오버는 L3 `shadow-xl`/`shadow-md`, 그 표면은 흰색이다. `text-muted` `#5b6678`은 캔버스에서 5.03:1. 입력 경계 `border-control`은 3:1 하한 때문에 프로토타입의 `#cbd5e1`(1.48:1) 대신 기존 값을 유지한다.
 
 ### Compact analysis — Decided (#1141)
 

@@ -6,7 +6,7 @@ import { Button, Skeleton, cn } from '@ap/ui';
 import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import { StateMessage } from '../StateView';
 import { ChunkLoadBoundary, lazyChunk, useLazyChunk } from '../lazyChunk';
-import { CHART_MARKS } from './chartMarks';
+import { CHART_HEIGHTS, CHART_MARKS } from './chartMarks';
 
 /** Palette contract consumed by charts (DESIGN.md platform chart/category extensions). Read from CSS variables so tokens stay single-sourced. */
 export function token(name: ThemeColorToken): string {
@@ -88,7 +88,7 @@ export type EChartProps = {
 // pane) draws in its first commit. A lazy made per mount re-suspended each time and waited out React's fallback throttle (~400 ms a step).
 const chartChunk = lazyChunk(() => import('./EChartImpl'));
 
-export function EChart({ option, height = 280, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
+export function EChart({ option, height = CHART_HEIGHTS.regular, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
   const { t } = useI18n();
   const { Component: EChartImpl, failed, attempt, onError, retry } = useLazyChunk(chartChunk);
   if (failed) {

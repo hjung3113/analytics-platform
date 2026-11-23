@@ -17,6 +17,7 @@ import { laneImageBlob } from './chartImageCopy';
 import { displayFileName } from '../table/download';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { useRangeBrush, type RangeBrushOptions } from './useRangeBrush';
+import { chartToolVariant } from './chartChrome';
 
 export type { TimelineOverlay } from './laneTimelineTypes';
 export type TimelineSegment = {
@@ -86,7 +87,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const brushRange = brushOn ? brush.range : null;
   const zoomControl = (label: string, Icon: typeof ZoomIn, onClick: () => void) => props.quiet
     ? <ChartZoomButton label={label} icon={Icon} onClick={onClick} />
-    : <Button size="toolbar" variant="ghost" onClick={onClick}>{label}</Button>;
+    : <Button size="toolbar" variant={chartToolVariant(false)} onClick={onClick}><Icon className="size-3.5" aria-hidden />{label}</Button>;
   useImperativeHandle(props.ref, () => ({
     resetZoom: () => engine.current?.resetZoom(),
     reveal: index => engine.current?.reveal(index),
@@ -162,7 +163,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
     )}
     {!model.flat.length && <p className="px-4 py-3 text-text-secondary">{m('chartNoData')}</p>}
     <section aria-label={m('chartSelectionSummaryRegion')} className={props.quiet && !brushRange ? 'sr-only' : 'bg-surface-sunken px-4 py-2 text-text-secondary'}>{brushRange
-      ? <><span className={props.quiet ? 'sr-only' : undefined}>{t('selectedRange')}: {tickText(brushRange[0])}–{tickText(brushRange[1])}</span>{' '}<Button type="button" size="toolbar" variant="ghost" onClick={() => engine.current?.showRange(brushRange)}>{m('intervalZoomToSelection')}</Button></>
+      ? <><span className={props.quiet ? 'sr-only' : undefined}>{t('selectedRange')}: {tickText(brushRange[0])}–{tickText(brushRange[1])}</span>{' '}<Button type="button" size="toolbar" variant={props.quiet ? 'ghost' : chartToolVariant(false)} onClick={() => engine.current?.showRange(brushRange)}>{!props.quiet && <ZoomIn className="size-3.5" aria-hidden />}{m('intervalZoomToSelection')}</Button></>
       : selectedItem ? summary(selectedItem) : m('chartNoSelection')}</section>
     {overlayLines.length > 0 && <ul aria-label={m('laneMarkedTimes')} className="sr-only">{overlayLines.map((line, i) => <li key={i}>{line}</li>)}</ul>}
     <p id={summaryId} role="status" aria-live="polite" className={props.quiet ? 'sr-only' : 'px-4 py-2 text-text-secondary'}>{summary(focused)}</p>
