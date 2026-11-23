@@ -286,6 +286,37 @@ describe('height mode and rows (#686)', () => {
     expect(state.rows).toEqual([260, 420, 380]);
   });
 
+  describe('a stored row under a newly declared preferred height (#2786)', () => {
+    // `kpi` asks for 480 px (its row's preferred height); the other rows declare nothing.
+    const heights = new Map([['kpi', 480]]);
+    const preferredSpec: WorkspaceSpec = { ...rowSpec, preferredHeights: heights, rowPreferred: row => (panelOrder(row).includes('kpi') ? 480 : undefined) };
+
+    it('is raised once to it, and the state records the declarations it saw', () => {
+      const state = normalizeWorkspaceState(stored({ mode: 'stack', rows: [300, 420, 380] }), preferredSpec);
+      expect(state.rows).toEqual([300, 420, 480]);
+      expect(state.preferredSeen).toEqual({ kpi: 480 });
+    });
+
+    it('keeps the user\'s smaller height after that, until the menu declares a larger one', () => {
+      const shrunk = stored({ mode: 'stack', rows: [300, 420, 380], preferredSeen: { kpi: 480 } });
+      expect(normalizeWorkspaceState(shrunk, preferredSpec).rows).toEqual([300, 420, 380]);
+      const grown: WorkspaceSpec = { ...preferredSpec, preferredHeights: new Map([['kpi', 560]]), rowPreferred: row => (panelOrder(row).includes('kpi') ? 560 : undefined) };
+      expect(normalizeWorkspaceState(shrunk, grown).rows).toEqual([300, 420, 560]);
+    });
+
+    it('leaves a taller row, rows without a declaration and fit mode alone', () => {
+      expect(normalizeWorkspaceState(stored({ mode: 'stack', rows: [300, 420, 600] }), preferredSpec).rows).toEqual([300, 420, 600]);
+      const fit = normalizeWorkspaceState(stored({}), preferredSpec);
+      expect(fit.mode).toBeUndefined();
+      expect(fit.rows).toBeUndefined();
+    });
+
+    it('a new workspace starts with the declarations seen, so a later shrink is not undone', () => {
+      expect(initialWorkspaceState(preferredSpec).preferredSeen).toEqual({ kpi: 480 });
+      expect(initialWorkspaceState(rowSpec).preferredSeen).toBeUndefined();
+    });
+  });
+
   it('never throws on garbage and gives a usable fit state', () => {
     for (const raw of [null, 1, 'x', [], { v: 1, mode: 'stack', rows: null, layout: 5 }, { v: 2, mode: 'stack', rows: [1] }]) {
       expect(() => normalizeWorkspaceState(raw, rowSpec)).not.toThrow();
