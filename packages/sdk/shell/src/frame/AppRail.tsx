@@ -43,7 +43,7 @@ export function AppRail({ sidebar }: { sidebar?: RailSidebar }) {
   };
   const railButton = (active: boolean) => cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && (sidebar?.collapsed ? 'text-accent-primary' : 'bg-surface-row-selected text-accent-primary'));
   return <TooltipProvider delayDuration={200}>
-    <nav aria-label={m('railNav')} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
+    <nav aria-label={m('railNav')} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-chrome bg-surface-sidebar pb-3">
       <SystemSwitcher />
       <div className="mb-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
       {sidebar?.platform && <Tooltip><TooltipTrigger asChild>

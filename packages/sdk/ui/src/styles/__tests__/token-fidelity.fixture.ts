@@ -24,6 +24,8 @@
  * tokens measured on each status tint over every Task badge surface.
  * #1945: caption is 12px, matching the current DESIGN typography contract.
  * #2456: white card palette; canvas and muted text have independent semantic values.
+ * #2722: the owner's v3 look (white chrome, #eceff3 canvas, neutral two-layer shadows, card frame tokens);
+ * labels that fell below 4.5:1 on their tint over the new canvas were darkened again (HLS lightness only).
  */
 
 export interface TokenEntry {
@@ -35,11 +37,11 @@ export interface TokenEntry {
 
 export const PACK_17_TOKENS: TokenEntry[] = [
   // --- Raw color tokens ---
-  { tokenName: '--color-pitch-black', hex: '#f3f7fe', rgb: '243 247 254' },
+  { tokenName: '--color-pitch-black', hex: '#eceff3', rgb: '236 239 243' },
   { tokenName: '--color-graphite', hex: '#ffffff', rgb: '255 255 255' },
-  { tokenName: '--color-deep-slate', hex: '#edf3fb', rgb: '237 243 251' },
-  { tokenName: '--color-charcoal-grey', hex: '#cbd6e6', rgb: '203 214 230' },
-  { tokenName: '--color-muted-ash', hex: '#b8c4d6', rgb: '184 196 214' },
+  { tokenName: '--color-deep-slate', hex: '#f8fafc', rgb: '248 250 252' },
+  { tokenName: '--color-charcoal-grey', hex: '#e5eaf0', rgb: '229 234 240' },
+  { tokenName: '--color-muted-ash', hex: '#dce1e7', rgb: '220 225 231' },
   { tokenName: '--color-gunmetal', hex: '#94a3b8', rgb: '148 163 184' },
   { tokenName: '--color-porcelain', hex: '#101828', rgb: '16 24 40' },
   { tokenName: '--color-light-steel', hex: '#374151', rgb: '55 65 81' },
@@ -71,7 +73,7 @@ export const PACK_17_TOKENS: TokenEntry[] = [
   // --- Semantic text tokens ---
   { tokenName: '--text-primary', raw: 'var(--color-porcelain)' },
   { tokenName: '--text-secondary', raw: 'var(--color-light-steel)' },
-  { tokenName: '--text-muted', raw: '95 105 123' },
+  { tokenName: '--text-muted', raw: '91 102 120' },
   { tokenName: '--text-disabled', raw: 'var(--color-fog-grey)' },
   { tokenName: '--text-danger', raw: 'var(--color-warning-red)' },
   { tokenName: '--text-warning', raw: 'var(--color-amber)' },
@@ -84,22 +86,26 @@ export const PACK_17_TOKENS: TokenEntry[] = [
   { tokenName: '--text-on-accent', hex: '#ffffff', rgb: '255 255 255' },
 
   // --- Surface tokens ---
-  { tokenName: '--surface-canvas', raw: '238 242 249' },
-  { tokenName: '--surface-sidebar', hex: '#eef4fb', rgb: '238 244 251' },
+  { tokenName: '--surface-canvas', raw: '236 239 243' },
+  { tokenName: '--surface-sidebar', hex: '#ffffff', rgb: '255 255 255' },
   { tokenName: '--surface-list', raw: 'var(--color-pitch-black)' },
-  { tokenName: '--surface-row-hover', hex: '#e7effc', rgb: '231 239 252' },
+  { tokenName: '--surface-row-hover', hex: '#f6f8fa', rgb: '246 248 250' },
   { tokenName: '--surface-row-selected', hex: '#d8e7fb', rgb: '216 231 251' },
   { tokenName: '--surface-detail', raw: 'var(--color-graphite)' },
-  { tokenName: '--surface-popover', raw: 'var(--color-deep-slate)' },
+  { tokenName: '--surface-popover', raw: 'var(--color-graphite)' },
   { tokenName: '--surface-field', raw: 'transparent' },
   { tokenName: '--surface-field-filled', hex: '#ffffff', rgb: '255 255 255' },
-  { tokenName: '--surface-blocked', hex: '#eef2f7', rgb: '238 242 247' },
+  { tokenName: '--surface-blocked', hex: '#eceff3', rgb: '236 239 243' },
   { tokenName: '--surface-card', raw: 'var(--color-graphite)' },
-  { tokenName: '--surface-card-elevated', raw: 'var(--color-deep-slate)' },
+  { tokenName: '--surface-card-elevated', raw: 'var(--color-graphite)' },
+  { tokenName: '--surface-band', raw: 'var(--color-graphite)' },
 
   // --- Border tokens ---
   { tokenName: '--border-subtle', raw: 'var(--color-charcoal-grey)' },
   { tokenName: '--border-strong', raw: 'var(--color-muted-ash)' },
+  { tokenName: '--border-card', raw: 'var(--color-muted-ash)' },
+  { tokenName: '--border-chrome', hex: '#e3e7ec', rgb: '227 231 236' },
+  { tokenName: '--border-row', hex: '#eef1f5', rgb: '238 241 245' },
   { tokenName: '--border-selected', raw: 'var(--color-aether-blue)' },
   // #2028: shared accent definitions moved from platform-tokens.css; values unchanged.
   { tokenName: '--accent-primary', raw: 'var(--color-neon-lime)' },
@@ -123,15 +129,15 @@ export const PACK_17_TOKENS: TokenEntry[] = [
   { tokenName: '--status-reporter-reviewing', raw: 'var(--color-aether-blue)' },
   { tokenName: '--status-reporter-reviewing-label', raw: 'var(--color-aether-blue)' },
   { tokenName: '--status-reporter-assigned', raw: 'var(--color-deep-violet)' },
-  { tokenName: '--status-reporter-assigned-label', raw: 'var(--color-deep-violet)' },
+  { tokenName: '--status-reporter-assigned-label', hex: '#2c53d4', rgb: '44 83 212' },
   { tokenName: '--status-reporter-progress', raw: 'var(--color-amethyst)' },
   { tokenName: '--status-reporter-progress-label', hex: '#1048ff', rgb: '16 72 255' },
   { tokenName: '--status-reporter-prep', raw: 'var(--color-amber)' },
-  { tokenName: '--status-reporter-prep-label', hex: '#8e5500', rgb: '142 85 0' },
+  { tokenName: '--status-reporter-prep-label', hex: '#8d5400', rgb: '141 84 0' },
   { tokenName: '--status-reporter-resolved', raw: 'var(--color-emerald)' },
   { tokenName: '--status-reporter-resolved-label', hex: '#107148', rgb: '16 113 72' },
   { tokenName: '--status-reporter-reopened', raw: 'var(--color-warning-red)' },
-  { tokenName: '--status-reporter-reopened-label', hex: '#bb222d', rgb: '187 34 45' },
+  { tokenName: '--status-reporter-reopened-label', hex: '#b8222c', rgb: '184 34 44' },
   { tokenName: '--status-reporter-closed', raw: 'var(--color-fog-grey)' },
   { tokenName: '--status-reporter-closed-label', hex: '#596478', rgb: '89 100 120' },
 
@@ -153,13 +159,13 @@ export const PACK_17_TOKENS: TokenEntry[] = [
 
   // --- Severity / signal tokens ---
   { tokenName: '--severity-low', raw: 'var(--color-storm-cloud)' },
-  { tokenName: '--severity-low-label', hex: '#5c6677', rgb: '92 102 119' },
+  { tokenName: '--severity-low-label', hex: '#5a6474', rgb: '90 100 116' },
   { tokenName: '--severity-medium', raw: 'var(--color-amber)' },
-  { tokenName: '--severity-medium-label', hex: '#925700', rgb: '146 87 0' },
+  { tokenName: '--severity-medium-label', hex: '#8f5500', rgb: '143 85 0' },
   { tokenName: '--severity-high', hex: '#f08a4a', rgb: '240 138 74' },
   { tokenName: '--severity-high-label', hex: '#a6480e', rgb: '166 72 14' },
   { tokenName: '--severity-critical', raw: 'var(--color-warning-red)' },
-  { tokenName: '--severity-critical-label', hex: '#bf232e', rgb: '191 35 46' },
+  { tokenName: '--severity-critical-label', hex: '#bc222d', rgb: '188 34 45' },
   { tokenName: '--confidence-low', raw: 'var(--color-storm-cloud)' },
   { tokenName: '--confidence-medium', raw: 'var(--color-cyan-spark)' },
   { tokenName: '--confidence-high', raw: 'var(--color-emerald)' },
@@ -225,17 +231,18 @@ export const PACK_17_TOKENS: TokenEntry[] = [
   { tokenName: '--radius-md', raw: '6px' },
   { tokenName: '--radius-lg', raw: '8px' },
   { tokenName: '--radius-xl', raw: '12px' },
+  { tokenName: '--radius-card', raw: '10px' },
   // #782 (2026-10-06): shared token for values repeated as arbitrary classes (owner
   // directive); not in the frozen prototype.
   { tokenName: '--radius-icon-chip', raw: '5px' },
   { tokenName: '--radius-pill', raw: '9999px' },
 
   // --- Shadows ---
-  { tokenName: '--shadow-sm', raw: 'rgba(16, 24, 40, 0.06) 0px 2px 4px 0px' },
-  { tokenName: '--shadow-md', raw: 'rgba(20, 40, 160, 0.06) 0px 0px 12px 0px inset' },
-  { tokenName: '--shadow-subtle', raw: 'rgb(213, 224, 244) 0px 0px 0px 1px inset' },
-  { tokenName: '--shadow-subtle-2', raw: 'rgba(20, 40, 160, 0.10) 0px 0px 0px 1px' },
-  { tokenName: '--shadow-xl', raw: 'rgba(20, 40, 160, 0.12) 0px 12px 36px 0px' },
+  { tokenName: '--shadow-sm', raw: '0 1px 3px rgba(16, 24, 40, 0.07), 0 1px 2px rgba(16, 24, 40, 0.04)' },
+  { tokenName: '--shadow-md', raw: '0 12px 32px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.08)' },
+  { tokenName: '--shadow-subtle', raw: 'rgb(229, 234, 240) 0px 0px 0px 1px inset' },
+  { tokenName: '--shadow-subtle-2', raw: 'rgba(17, 24, 39, 0.08) 0px 0px 0px 1px' },
+  { tokenName: '--shadow-xl', raw: '0 12px 32px rgba(17, 24, 39, 0.14), 0 2px 6px rgba(17, 24, 39, 0.08)' },
   { tokenName: '--shadow-focus', raw: '0 0 0 2px #ffffff, 0 0 0 4px var(--color-neon-lime)' },
 
   // --- Typography: font families ---

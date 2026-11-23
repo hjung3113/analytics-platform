@@ -39,7 +39,7 @@ const TONE_STYLES: Record<
     titleClass: 'text-text-danger-label', // #750: AA label color departs from the prototype mapping.
   },
   blue: {
-    colorVar: '--color-aether-blue',
+    colorVar: '--accent-primary', // the accent family, so an accent theme reaches the tint (#2723)
     backgroundAlpha: '0.04',
     ringAlpha: '0.2',
     colorClass: 'text-accent-primary',

@@ -29,19 +29,20 @@ const palette = new Map([
   ...values('./platform-tokens.css'),
 ]);
 
-it('keeps A3 surfaces and muted text independent of the unchanged palette aliases', () => {
-  expect(rgb('surface-canvas')).toEqual([238, 242, 249]);
+it('keeps the v3 surfaces and muted text independent of the unchanged palette aliases (#2722)', () => {
+  expect(rgb('surface-canvas')).toEqual([236, 239, 243]);
   expect(rgb('surface-card')).toEqual([255, 255, 255]);
-  expect(rgb('text-muted')).toEqual([95, 105, 123]);
-  expect(rgb('color-pitch-black')).toEqual([243, 247, 254]);
+  expect(rgb('text-muted')).toEqual([91, 102, 120]);
+  expect(rgb('color-pitch-black')).toEqual([236, 239, 243]);
   expect(rgb('color-storm-cloud')).toEqual([102, 112, 131]);
-  expect(rgb('surface-list')).toEqual([243, 247, 254]);
+  expect(rgb('surface-list')).toEqual([236, 239, 243]);
+  expect(contrast('text-muted', 'surface-canvas')).toBeCloseTo(5.03, 2);
   expect(palette.get('--row-accent-width')).toBe('3px');
-  for (const surface of ['surface-canvas', 'surface-card', 'surface-sidebar', 'surface-sunken', 'surface-row-hover']) {
+  for (const surface of ['surface-canvas', 'surface-card', 'surface-sidebar', 'surface-sunken', 'surface-row-hover', 'surface-band', 'surface-popover']) {
     expect(contrast('text-muted', surface), surface).toBeGreaterThanOrEqual(4.5);
   }
-  // The confirmed muted colour is below AA on selected fill, so rows switch to secondary.
-  expect(contrast('text-muted', 'surface-row-selected')).toBeCloseTo(4.414, 3);
+  // Rows still switch meta text to secondary on the selected fill (row-meta); muted alone now clears AA there too.
+  expect(contrast('text-muted', 'surface-row-selected')).toBeGreaterThanOrEqual(4.5);
   expect(contrast('text-secondary', 'surface-row-selected')).toBeGreaterThanOrEqual(4.5);
 });
 
@@ -99,8 +100,14 @@ it('keeps chart stroke aliases identifiable on every chart surface (#203, #207)'
   }
 });
 
-it('keeps the previous-period amber stroke at the confirmed opaque value (#207)', () => {
-  expect(rgb('cat-amber-stroke')).toEqual([180, 83, 9]);
+it('keeps the previous-period amber stroke at the confirmed opaque value (#207, v3 palette #2724)', () => {
+  expect(rgb('cat-amber-stroke')).toEqual([200, 105, 10]);
+});
+
+it('keeps chart-green readable under white segment labels and visible on a white card (#2724)', () => {
+  expect(rgb('chart-green')).toEqual([87, 130, 43]);
+  expect(contrast('text-on-accent', 'chart-green')).toBeGreaterThanOrEqual(4.5);
+  expect(contrast('chart-green', 'surface-card')).toBeGreaterThanOrEqual(3);
 });
 
 it('leaves reduced motion to the shared compat rule (06 §26, #289)', () => {
@@ -109,4 +116,20 @@ it('leaves reduced motion to the shared compat rule (06 §26, #289)', () => {
   const shared = readFileSync(join(repo, 'packages/sdk/ui/src/styles/compat.css'), 'utf8');
   expect(shared).toMatch(/prefers-reduced-motion: reduce[\s\S]*animation-duration: 0\.01ms !important/);
   expect(platform).not.toMatch(/prefers-reduced-motion/);
+});
+
+it('keeps the violet theme to the accent-primary family and readable (#2723)', () => {
+  const violet = values('./themes.css');
+  expect([...violet.keys()].sort()).toEqual(['--accent-primary-hover', '--accent-primary-soft', '--border-selected', '--color-neon-lime', '--surface-row-selected']);
+  const themed = (name: string): number[] => {
+    const value = violet.get(`--${name}`) ?? palette.get(`--${name}`)!;
+    const alias = /^var\(--([\w-]+)\)$/.exec(value);
+    return alias ? themed(alias[1]) : value.split(/\s+/).map(Number);
+  };
+  const ratio = (a: number[], b: number[]) => { const [lo, hi] = [luminance(a), luminance(b)].sort((x, y) => x - y); return (hi + 0.05) / (lo + 0.05); };
+  expect(ratio(themed('text-on-accent'), themed('accent-primary'))).toBeGreaterThanOrEqual(4.5);
+  expect(ratio(themed('text-on-accent'), themed('accent-primary-hover'))).toBeGreaterThanOrEqual(4.5);
+  expect(ratio(themed('accent-primary'), themed('surface-card'))).toBeGreaterThanOrEqual(3);
+  expect(ratio(themed('text-secondary'), themed('surface-row-selected'))).toBeGreaterThanOrEqual(4.5);
+  expect(ratio(themed('text-muted'), themed('surface-row-selected'))).toBeGreaterThanOrEqual(4.5);
 });

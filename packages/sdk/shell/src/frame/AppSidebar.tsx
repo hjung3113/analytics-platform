@@ -41,7 +41,7 @@ export function AppSidebar({ onToggle }: { onToggle: () => void }) {
   const slotSpaceId = sidebarSpace === null || slotMenu === undefined ? null : sidebarSpace.id;
 
   return <TooltipProvider delayDuration={200}>
-    <aside id={SIDEBAR_ID} className="flex h-full w-(--sidebar-width) shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar">
+    <aside id={SIDEBAR_ID} className="flex h-full w-(--sidebar-width) shrink-0 flex-col border-r border-border-chrome bg-surface-sidebar">
       <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
         {(systems === null || sidebarSpace === null
           ? <p className="min-w-0 truncate text-sm font-semibold">{t('platformName')}</p>

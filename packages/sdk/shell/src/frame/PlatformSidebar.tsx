@@ -20,7 +20,7 @@ export function PlatformSidebar({ onToggle }: { onToggle: () => void }) {
   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
 
   return <TooltipProvider delayDuration={200}>
-    <aside id={SIDEBAR_ID} className="flex h-full w-(--sidebar-width) shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar">
+    <aside id={SIDEBAR_ID} className="flex h-full w-(--sidebar-width) shrink-0 flex-col border-r border-border-chrome bg-surface-sidebar">
       <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
         <p className="min-w-0 truncate text-sm font-semibold">{t('platformName')}</p>
         <Tooltip><TooltipTrigger asChild>

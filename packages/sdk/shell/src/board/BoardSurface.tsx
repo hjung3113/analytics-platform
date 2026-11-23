@@ -575,7 +575,7 @@ export function BoardSurface({ sheetId: requestedSheetId, onSheetChange, arrival
   const covered = useContext(DetailPanelFullscreenContext)?.expanded === true;
   return <SurfacePauseScope paused={!visible}><TransientOverlayScope active={visible}><div ref={root} data-board className="@container relative flex h-full min-h-0 flex-col"
     onFocusCapture={event => { if (visible && event.target instanceof HTMLElement && !event.target.closest('[data-board-leave]')) rememberFocus(user.id, event.target); }}>
-    <header data-canvas-band className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-subtle bg-surface-canvas px-4">
+    <header data-canvas-band className="flex h-[50px] shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-border-chrome bg-surface-band px-4">
       <div className="flex min-w-0 items-center gap-3">
         {windowed
           ? <h2 data-board-heading ref={heading} tabIndex={-1} className="min-w-28 truncate focus:outline-none text-sm font-semibold text-text-primary">{text.board}</h2>

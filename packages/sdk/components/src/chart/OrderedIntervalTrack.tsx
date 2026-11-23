@@ -11,7 +11,7 @@ import {
 import { BodyTooltipPortal } from './bodyTooltipPortal';
 import { Ban, Inbox, Info, ServerCrash } from 'lucide-react';
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
-import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
+import { isThemeColorToken, readColorToken, useThemeRevision } from '@ap/ui/theme';
 import { formatNumber } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -42,6 +42,7 @@ export function OrderedIntervalTrack(props: OrderedIntervalTrackProps) {
 
 function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   const { t, lang } = useI18n();
+  useThemeRevision(); // legend swatches read token colours while rendering (#2723)
   const m = useMessages(COMPONENTS_MESSAGES);
   const section = useContext(AnalysisSectionContext);
   const domainValid = validOrderDomain(props.domain);

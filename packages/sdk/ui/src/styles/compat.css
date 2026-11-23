@@ -102,9 +102,17 @@
 /* Top-level card and analysis-panel elevation (DESIGN.md Layout). Here, not in
  * index.css, so both supported CSS entry recipes generate it. A panel nested in a card, a detail
  * surface or a dock group already sits on a raised plane, so it drops the shadow instead of stacking one.
- * The guard's `:is()` outranks a plain `shadow-*` a caller adds, which still sets top-level elevation. */
+ * The guard's `:is()` outranks a plain `shadow-*` a caller adds, which still sets top-level elevation.
+ * #2722: a top-level panel also takes the card frame (`border-card`, `radius-card`) and the lighter in-card
+ * `surface-sunken`. The `:where()` keeps the frame at utility specificity, so a caller's state border (hover, selected)
+ * still wins; a flattened (`rounded-none`) or pressed panel keeps its own frame. */
 @utility elevation-panel {
   @apply shadow-sm;
+  --surface-sunken: 246 248 250; /* #f6f8fa */
+  &:where(:not(:is(.bg-surface-card, .bg-surface-detail, .dv-groupview) *, .rounded-none, [aria-pressed="true"])) {
+    border-color: rgb(var(--border-card));
+    border-radius: var(--radius-card);
+  }
   :is(.bg-surface-card, .bg-surface-detail, .dv-groupview) & {
     @apply shadow-none;
   }

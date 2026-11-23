@@ -10,4 +10,7 @@
   --eqv-evidence: rgb(var(--text-secondary));
   --eqv-detail-fill: rgb(var(--surface-field-filled));
   --eqv-assumed-fg: rgb(var(--text-warning-label));
+  /* #2723: selection is the platform accent, so an accent theme reaches the Top View too. */
+  --eqv-selection: rgb(var(--accent-primary));
+  --eqv-selection-fill: rgb(var(--accent-primary-soft));
 }
