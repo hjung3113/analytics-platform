@@ -387,7 +387,8 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const noteWidths = noteLabelWidths(i.noteSpans, pxPerUnit, plotWidth);
   const areas = [
     // Notes keep the default top label; the selection labels its bottom so a note saved over it never collides (#320).
-    ...(i.selection ? [[{ name: formatText(COMPONENTS_MESSAGES.chartSelection, lang), [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.from), itemStyle: { color: palette.selection, opacity: CHART_MARKS.rangeBandOpacity }, label: { position: 'insideBottom' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.to) }]] : []),
+    // An inside label gets ECharts' default outline in the band colour, which reads as the word drawn twice (#2790): plain text in the selection colour.
+    ...(i.selection ? [[{ name: formatText(COMPONENTS_MESSAGES.chartSelection, lang), [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.from), itemStyle: { color: palette.selection, opacity: CHART_MARKS.rangeBandOpacity }, label: { position: 'insideBottom', color: palette.selection, textBorderWidth: 0 } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.to) }]] : []),
     ...i.annotations.map((a, n) => [{ name: a.text, [horizontal ? 'yAxis' : 'xAxis']: xType === 'time' ? i.noteSpans[n].from : categories[i.noteSpans[n].from], itemStyle: { color: palette.annotation, opacity: 0.14 }, label: { color: palette.annotationLabel, fontSize: 10, offset: [0, i.noteLevels[n] * NOTE_LABEL_ROW], width: noteWidths[n], overflow: 'truncate', ellipsis: '…' } }, { [horizontal ? 'yAxis' : 'xAxis']: xType === 'time' ? i.noteSpans[n].to : categories[i.noteSpans[n].to] }]),
   ];
   // A segment label is hidden (ECharts' label layout has no hide switch: a zero font size draws nothing) when ECharts' own resolved boxes say it does not fit (width and height).
