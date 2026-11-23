@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -34,38 +34,40 @@ it('opens history directly from the folded overflow and restores focus', async (
   const user = userEvent.setup();
   mount();
   const overflow = await openHistory(user);
-  expect(await screen.findByRole('option', { name: /기간 09-01/ })).toBeVisible();
+  expect(await screen.findByRole('button', { name: /기간 09-01/ })).toBeVisible();
   expect(screen.queryByRole('button', { name: '최근 조건' })).toBeNull();
   await user.keyboard('{Escape}');
   await waitFor(() => expect(overflow).toHaveFocus());
 });
-it('opens the confirmed history slot, restores draft with keyboard, and returns focus on Escape', async () => {
+it.each(['Enter', 'Space'] as const)('restores a clean draft with %s and returns focus on Escape', async key => {
   mount();
   const user = userEvent.setup();
   const trigger = await openHistory(user);
-  const option = await screen.findByRole('option', { name: /기간 09-01/ });
-  act(() => option.focus());
-  fireEvent.keyDown(option, { key: 'Enter' });
+  const restore = await screen.findByRole('button', { name: /기간 09-01/ });
+  act(() => restore.focus());
+  await user.keyboard(key === 'Enter' ? '{Enter}' : ' ');
   await waitFor(() => expect(draft.draft.page).toEqual([['filter', 'own-history']]));
   expect(window.location.search).not.toContain('own-history');
   await waitFor(() => expect(trigger).toHaveFocus());
   await openHistory(user);
-  fireEvent.keyDown(await screen.findByRole('listbox'), { key: 'Escape' });
+  fireEvent.keyDown(await screen.findByRole('list', { name: '최근 조회 조건' }), { key: 'Escape' });
   await waitFor(() => expect(trigger).toHaveFocus());
 });
 it('does not expose raw page keys in history summaries', async () => {
   mount();
   await openHistory(userEvent.setup());
-  const option = (await screen.findAllByRole('option'))[0];
-  expect(option).not.toHaveTextContent('filter');
-  expect(option).not.toHaveTextContent('own-history');
+  const restore = await screen.findByRole('button', { name: /기간 09-01/ });
+  expect(restore).not.toHaveTextContent('filter');
+  expect(restore).not.toHaveTextContent('own-history');
 });
-it('masks unavailable values, keeps remove outside options and cancels clear confirmation', async () => {
+it('masks unavailable values and cancels clear confirmation', async () => {
   const store = mount();
   await openHistory(userEvent.setup());
-  await screen.findByRole('option', { name: /현재 사용할 수 없음/ });
+  const unavailable = await screen.findByRole('button', { name: /현재 사용할 수 없음/ });
+  expect(unavailable).toHaveAttribute('aria-disabled', 'true');
+  fireEvent.click(unavailable);
+  expect(draft.draft.page).toEqual([]);
   expect(document.body.innerHTML).not.toContain('SECRET');
-  expect(screen.getAllByRole('option').every(option => option.querySelector('button') === null)).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: '모두 지우기' }));
   fireEvent.click(screen.getByRole('button', { name: '취소' }));
   expect(store.clear).not.toHaveBeenCalled();
@@ -82,7 +84,7 @@ it('has no control without an injected store', () => {
 it('labels a history entry from less than a minute ago as just now', async () => {
   mount(true, [{ ...entries[0], lastAppliedAt: Date.now() - 20_000 }]);
   await openHistory(userEvent.setup());
-  await screen.findByRole('option', { name: /기간 09-01/ });
+  await screen.findByRole('button', { name: /기간 09-01/ });
   expect(screen.getByText('방금')).toBeVisible();
 });
 
@@ -90,7 +92,7 @@ it('keeps keyboard focus through clear confirmation, cancellation and the empty 
   const store = mount();
   vi.mocked(store.clear).mockImplementation(async () => { vi.mocked(store.list).mockResolvedValue([]); });
   await openHistory(userEvent.setup());
-  await screen.findByRole('option', { name: /기간 09-01/ });
+  await screen.findByRole('button', { name: /기간 09-01/ });
   const clear = screen.getByRole('button', { name: '모두 지우기' });
   act(() => clear.focus());
   fireEvent.click(clear);
@@ -105,18 +107,18 @@ it('keeps keyboard focus through clear confirmation, cancellation and the empty 
   fireEvent.click(confirm);
   await screen.findByText('최근 조회 조건이 없습니다.');
   expect(store.clear).toHaveBeenCalledTimes(1);
-  expect(screen.getByRole('listbox')).toHaveFocus();
+  expect(screen.getByRole('list', { name: '최근 조회 조건' })).toHaveFocus();
 });
 
 it.each(['click', 'Enter'] as const)('confirms replacing a dirty draft selected by %s', async gesture => {
   mount();
   const user = userEvent.setup();
   const trigger = await openHistory(user);
-  const option = await screen.findByRole('option', { name: /기간 09-01/ });
+  const restore = await screen.findByRole('button', { name: /기간 09-01/ });
   act(() => draft.setDraftPage({ filter: 'unapplied' }));
   const choose = async () => {
-    if (gesture === 'click') await user.click(option);
-    else { act(() => option.focus()); await user.keyboard('{Enter}'); }
+    if (gesture === 'click') await user.click(restore);
+    else { act(() => restore.focus()); await user.keyboard('{Enter}'); }
   };
 
   await choose();
@@ -127,7 +129,7 @@ it.each(['click', 'Enter'] as const)('confirms replacing a dirty draft selected 
   await user.click(cancel);
   expect(draft.draft.page).toEqual([['filter', 'unapplied']]);
   expect(screen.queryByRole('button', { name: '바꾸기' })).toBeNull();
-  expect(option).toHaveFocus();
+  expect(restore).toHaveFocus();
 
   await choose();
   await user.click(screen.getByRole('button', { name: '바꾸기' }));
@@ -143,29 +145,41 @@ it('names the history dialog', async () => {
   expect(await screen.findByRole('dialog', { name: '최근 조건' })).toBeVisible();
 });
 
-it('keeps delete outside the listbox and reachable by Tab', async () => {
+it('pairs each restore button with its delete button and focuses the surviving row after deletion', async () => {
   const store = mount();
+  vi.mocked(store.remove).mockImplementation(async () => { vi.mocked(store.list).mockResolvedValue([entries[1]]); });
   const user = userEvent.setup();
   await openHistory(user);
-  await screen.findByRole('option', { name: /기간 09-01/ });
-  const listbox = screen.getByRole('listbox');
-  const remove = screen.getByRole('button', { name: '1번째 조건 삭제' });
-  expect(listbox).not.toContainElement(remove);
-  expect([...listbox.querySelectorAll('button')].every(button => button.getAttribute('role') === 'option')).toBe(true);
-  act(() => listbox.focus());
+  const first = await screen.findByRole('button', { name: /기간 09-01/ });
+  const last = await screen.findByRole('button', { name: /현재 사용할 수 없음/ });
+  const list = screen.getByRole('list', { name: '최근 조회 조건' });
+  const [firstRow, lastRow] = within(list).getAllByRole('listitem');
+  const remove = within(firstRow).getByRole('button', { name: '1번째 조건 삭제' });
+  expect(firstRow).toContainElement(first);
+  expect(lastRow).toContainElement(last);
+  expect(within(lastRow).getByRole('button', { name: '2번째 조건 삭제' })).toBeVisible();
+  expect(list).toHaveFocus();
+  await user.tab();
+  expect(first).toHaveFocus();
   await user.tab();
   expect(remove).toHaveFocus();
   await user.keyboard('{Enter}');
   await waitFor(() => expect(store.remove).toHaveBeenCalledWith(expect.anything(), 'a'));
+  await waitFor(() => expect(screen.getByRole('button', { name: /현재 사용할 수 없음/ })).toHaveFocus());
 });
 
-it.each([['ArrowUp', -1], ['ArrowDown', 0]] as const)('%s enters the listbox at the expected edge', async (key, index) => {
+it.each([
+  ['ArrowUp', null, 1], ['ArrowDown', null, 0],
+  ['ArrowUp', 1, 0], ['ArrowDown', 0, 1], ['Home', 1, 0], ['End', 0, 1],
+] as const)('%s moves focus from %s to restore button %s', async (key, from, to) => {
   mount();
   const user = userEvent.setup();
   await openHistory(user);
-  await screen.findByRole('option', { name: /현재 사용할 수 없음/ });
-  const options = screen.getAllByRole('option');
-  act(() => screen.getByRole('listbox').focus());
+  const first = await screen.findByRole('button', { name: /기간 09-01/ });
+  const last = await screen.findByRole('button', { name: /현재 사용할 수 없음/ });
+  const buttons = [first, last];
+  const start = from === null ? screen.getByRole('list', { name: '최근 조회 조건' }) : buttons[from];
+  act(() => start.focus());
   await user.keyboard(`{${key}}`);
-  expect(options.at(index)).toHaveFocus();
+  expect(buttons[to]).toHaveFocus();
 });
