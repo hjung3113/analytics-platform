@@ -702,11 +702,11 @@ describe('shell entry (docs/16 §4, §8)', () => {
     const s = testSession(['platform:view']);
     render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => s })} registry={makeRegistry()}><AppShell><RouteOutlet /></AppShell></PlatformProvider></I18nProvider>);
     await settle();
-    expect(document.querySelector('aside[data-collapsed]')).not.toBeNull();
+    expect(document.getElementById('platform-sidebar')).not.toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '분석 보드' }));
     await settle();
     expect(window.location.pathname).toBe('/board');
-    expect(document.querySelector('aside[data-collapsed]')).toBeNull();
+    expect(document.getElementById('platform-sidebar')).toBeNull();
     expect(screen.getByRole('heading', { name: '분석 보드' })).toHaveFocus();
     expect(screen.getByRole('button', { name: '분석 보드(열림)' })).toHaveAttribute('aria-current', 'page');
   });

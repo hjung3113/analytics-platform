@@ -66,52 +66,6 @@ it('never mounts Source for a denied declaring menu, and invalidates same-render
   expect(screen.queryByRole('group', { name: '동적 항목' })).toBeNull();
   expect(mounted.mock.calls.length).toBe(mounts);
 });
-it('closes the rail popover on navigation, keeps it on drill and preserves cache on reopening', async () => {
-  const source = targetSource(); const list = vi.spyOn(source, 'listChildren');
-  mount(source);
-  await screen.findByRole('link', { name: 'Item 1' });
-  fireEvent.click(screen.getByRole('button', { name: '사이드바 접기' }));
-  fireEvent.click(screen.getByRole('button', { name: '동적 항목' }));
-  const popover = await screen.findByRole('dialog', { name: '동적 항목' });
-  expect(within(popover).getByRole('link', { name: 'Item 1' })).toBeTruthy();
-  expect(list).toHaveBeenCalledTimes(1);
-  fireEvent.click(within(popover).getByRole('button', { name: 'Item 1 펼치기' }));
-  await within(popover).findByRole('link', { name: 'Item 126' });
-  expect(screen.getByRole('dialog', { name: '동적 항목' })).toBeTruthy();
-  fireEvent.click(within(popover).getByRole('link', { name: 'Item 126' }));
-  await waitFor(() => expect(screen.queryByRole('dialog', { name: '동적 항목' })).toBeNull());
-  fireEvent.click(screen.getByRole('button', { name: '동적 항목' }));
-  await screen.findByRole('link', { name: 'Item 126' });
-  expect(list).toHaveBeenCalledTimes(2);
-});
-it('keeps popover open when the Kernel unsaved guard refuses navigation', async () => {
-  mount(targetSource('fixture-platform'), 'drill', false, true);
-  await screen.findByRole('link', { name: 'Item 1' });
-  fireEvent.click(screen.getByRole('button', { name: '사이드바 접기' }));
-  fireEvent.click(screen.getByRole('button', { name: '동적 항목' }));
-  const popover = await screen.findByRole('dialog', { name: '동적 항목' });
-  fireEvent.click(within(popover).getByRole('link', { name: 'Item 1' }));
-  expect(screen.queryByRole('alertdialog')).toBeTruthy();
-  expect(popover.isConnected).toBe(true);
-  expect(popover.getAttribute('data-state')).toBe('open');
-  fireEvent.click(screen.getByRole('button', { name: '머무르기' }));
-  await screen.findByRole('dialog', { name: '동적 항목' });
-});
-it('closes the rail popover when a guarded same-menu object move is confirmed, and keeps it when the user stays', async () => {
-  window.history.replaceState(null, '', '/fixture?v=1&object=node-0002');
-  mount(targetSource('fixture-home'), 'drill', false, true, true);
-  await screen.findByRole('link', { name: 'Item 1' });
-  fireEvent.click(screen.getByRole('button', { name: '사이드바 접기' }));
-  fireEvent.click(screen.getByRole('button', { name: '동적 항목' }));
-  const popover = await screen.findByRole('dialog', { name: '동적 항목' });
-  fireEvent.click(within(popover).getByRole('link', { name: 'Item 1' }));
-  fireEvent.click(await screen.findByRole('button', { name: '머무르기' }));
-  expect(screen.getByRole('dialog', { name: '동적 항목' }).getAttribute('data-state')).toBe('open');
-  fireEvent.click(within(screen.getByRole('dialog', { name: '동적 항목' })).getByRole('link', { name: 'Item 1' }));
-  fireEvent.click(await screen.findByRole('button', { name: '변경 버리고 이동' }));
-  await waitFor(() => expect(screen.queryByRole('dialog', { name: '동적 항목' })).toBeNull());
-  expect(window.location.search).toContain('object=node-0001');
-});
 it('switches between declaring and plain groups without changing hook order', async () => {
   const error = vi.spyOn(console, 'error');
   mount();
@@ -129,18 +83,4 @@ it('restores hidden page keys on a navHidden child and keeps its parent menu cur
   expect(current.getAttribute('aria-current')).toBe('location');
   expect(screen.getByRole('link', { name: 'fixture-home' }).getAttribute('aria-current')).toBe('page');
   expect(group.contains(document.activeElement)).toBe(false);
-});
-it('clears popover search with Escape before closing the popover', async () => {
-  mount();
-  await screen.findByRole('link', { name: 'Item 1' });
-  fireEvent.click(screen.getByRole('button', { name: '사이드바 접기' }));
-  fireEvent.click(screen.getByRole('button', { name: '동적 항목' }));
-  const popover = await screen.findByRole('dialog', { name: '동적 항목' });
-  const search = within(popover).getByRole('searchbox') as HTMLInputElement;
-  fireEvent.change(search, { target: { value: 'Item' } });
-  fireEvent.keyDown(search, { key: 'Escape' });
-  expect(search.value).toBe('');
-  expect(popover.isConnected).toBe(true);
-  fireEvent.keyDown(search, { key: 'Escape' });
-  await waitFor(() => expect(screen.queryByRole('dialog', { name: '동적 항목' })).toBeNull());
 });

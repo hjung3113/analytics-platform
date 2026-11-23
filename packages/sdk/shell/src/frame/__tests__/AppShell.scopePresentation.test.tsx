@@ -3,6 +3,7 @@ import { House } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, type PlatformSlots } from '@ap/kernel';
+import { PlatformPage } from '@ap/components';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppShell } from '../AppShell';
 import { groupId, spaceId } from '@ap/contracts';
@@ -36,7 +37,7 @@ function mount(url: string, collapsed: boolean, slots: PlatformSlots = {}) {
   window.history.replaceState(null, '', url);
   localStorage.setItem('platform:sidebar-collapsed:v1:u1:', collapsed ? 'true' : 'false');
   const session = testSession(['platform:view']);
-  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots}><AppShell><p>body</p></AppShell></PlatformProvider></I18nProvider>);
+  return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots}><AppShell><PlatformPage><p>body</p></PlatformPage></AppShell></PlatformProvider></I18nProvider>);
 }
 const selector = () => screen.queryByRole('button', { name: /^Scope:/ });
 
@@ -58,14 +59,17 @@ describe('SpaceDef.scopePresentation (#1251)', () => {
     expect(selector()).toBeNull();
   });
 
-  it('default space keeps the analytics ScopeSelector', () => {
-    mount('/mars/a', false);
-    expect(selector()).not.toBeNull();
+  it.each([[false], [true]])('default space draws the analytics ScopeSelector as the title-row chip before the breadcrumb (collapsed=%s) (#2727)', collapsed => {
+    const view = mount('/mars/a', collapsed);
+    const chip = view.container.querySelector('[data-page-scope-chip]')!;
+    expect(chip.contains(selector())).toBe(true);
+    expect(chip.closest('[data-title-lead]')!.nextElementSibling).toBe(screen.getByRole('navigation', { name: '이동 경로' }));
+    expect(view.container.querySelector('#platform-sidebar')?.contains(chip) ?? false).toBe(false);
   });
 
-  it('default space keeps its slot component', () => {
-    mount('/mars/a', false, { scopeControl: { For: () => Own } });
-    expect(screen.getByText('own scope control')).toBeInTheDocument();
+  it.each([[false], [true]])('default space keeps its slot component in its sidebar and draws no chip (collapsed=%s)', collapsed => {
+    mount('/mars/a', collapsed, { scopeControl: { For: () => Own } });
+    expect(screen.queryByText('own scope control') !== null).toBe(!collapsed);
     expect(selector()).toBeNull();
   });
 });

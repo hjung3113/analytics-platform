@@ -25,8 +25,8 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
-function mount(slots: PlatformSlots = {}, collapsed = false) {
-  localStorage.setItem('platform:sidebar-collapsed', collapsed ? '1' : '0');
+function mount(slots: PlatformSlots = {}) {
+  localStorage.setItem('platform:sidebar-collapsed', '0');
   const session = testSession(['platform:view']);
   render(<I18nProvider><PlatformProvider registry={registry()} adapter={testAdapter({ session: () => session })} slots={{ topBarTools: <span>fixture tools</span>, ...slots }}>
     <AppShell><p>screen content</p></AppShell>
@@ -52,15 +52,6 @@ describe('undeclared menu rows (#1846)', { timeout: 15_000 }, () => {
     fireEvent.click(hidden);
     fireEvent.keyDown(hidden, { key: 'Enter' });
     expect(window.location.pathname).toBe(before);
-  });
-
-  it('collapsed, the icon alone carries the disabled colour and the row keeps its full name', async () => {
-    mount(slot(LISTED), true);
-    await screen.findByText('screen content');
-    const hidden = row()!;
-    expect(hidden.querySelector('svg')!.getAttribute('class')).toContain('text-text-disabled');
-    expect(hidden).toHaveAttribute('aria-label', 'fixture-hidden · 권한 미선언 (fixture:view)');
-    expect(hidden.textContent).toBe('');
   });
 
   it('shows the reason and permission key on keyboard focus', async () => {

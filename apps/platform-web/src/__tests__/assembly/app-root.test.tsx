@@ -55,8 +55,10 @@ async function mountAt(url: string, spaceSystemsSource: Assembly['spaceSystems']
 
 const featureBlock = () => screen.queryByRole('navigation', { name: /^기능 · / });
 
-beforeEach(() => { spaceSystems.reset(); });
-afterEach(async () => { cleanup(); await unmountRoots(); for (const container of containers.splice(0)) container.remove(); spaceSystems.reset(); window.history.replaceState(null, '', '/'); });
+// jsdom is 1024px wide, where the sidebar starts collapsed to the rail and is not drawn (#1944, #2727); the feature block lives in the open sidebar.
+const jsdomWidth = window.innerWidth;
+beforeEach(() => { spaceSystems.reset(); window.innerWidth = 1280; });
+afterEach(async () => { window.innerWidth = jsdomWidth; cleanup(); await unmountRoots(); for (const container of containers.splice(0)) container.remove(); spaceSystems.reset(); window.history.replaceState(null, '', '/'); });
 
 describe('the mounted app root (#1289 node j)', () => {
   it('draws the sidebar feature block when the link store answers, with no navigation in between', async () => {

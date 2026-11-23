@@ -11,3 +11,5 @@ configure({ asyncUtilTimeout: 3000 });
 afterEach(resetBoardSessionsForTests);
 // Likewise the board's presentation (live, return path): a board left open by one test must not mount in the next.
 afterEach(resetBoardPresentationForTests);
+// Below 1200px the sidebar starts collapsed (#1944) and a collapsed sidebar is not drawn (#2727): give jsdom (1024px) a desktop window.
+Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 1280 });

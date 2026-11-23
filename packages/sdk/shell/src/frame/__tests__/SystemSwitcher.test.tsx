@@ -522,6 +522,6 @@ describe('notifications slot (ADR-0070 decision 4)', () => {
     const sidebar = () => within(screen.getByRole('navigation', { name: '플랫폼 메뉴' })).getByRole('link', { name });
     expect(sidebar()).toHaveAttribute('aria-current', 'page');
     fireEvent.keyDown(document.body, { key: '[' });
-    expect(sidebar()).toBeTruthy();
+    expect(screen.queryByRole('navigation', { name: '플랫폼 메뉴' })).toBeNull();
   });
 });

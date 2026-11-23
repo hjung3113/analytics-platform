@@ -5,13 +5,14 @@ import { useAccessRequestRead, useScopeAccessRequest } from '@ap/components';
 import { useHostPlatform } from '@ap/kernel/host';
 import { ShellBoundary } from '../frame/ShellBoundary';
 import { SHELL_MESSAGES } from '../messages';
-import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
 
 /**
- * Single requested Scope; validation and retries belong to the Kernel. `layout="bar"` is the analysis board's Context bar: it edits the
- * selected pane's Scope and is the only Scope selector on that screen (06 §7), so it drops the sidebar's frame and status line.
+ * Single requested Scope; validation and retries belong to the Kernel. `layout="chip"` (default) is the compact chip at the start of the
+ * page title row (#2727); its status line is read by assistive technology only. `layout="bar"` is the analysis board's Context bar: it edits
+ * the selected pane's Scope and is the only Scope selector on that screen (06 §7).
  */
-export function ScopeSelector({ collapsed = false, layout = 'sidebar', onExpand }: { collapsed?: boolean; layout?: 'sidebar' | 'bar'; /** Expands a collapsed sidebar before a page's `Scope 선택` request opens the list (#1938). */ onExpand?: () => void }) {
+export function ScopeSelector({ layout = 'chip' }: { layout?: 'chip' | 'bar' }) {
   const bar = layout === 'bar';
   const { global, setGlobal, scope, retryScope, session, url, navigate, scopeSelector } = useHostPlatform();
   const { t } = useI18n();
@@ -23,18 +24,15 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar', onExpand 
   const chosenSite = useRef<string | null>(null);
   const [requestSite, setRequestSite] = useState<string | null>(null);
   const [closedDialogs, setClosedDialogs] = useState(0);
-  // A page's `Scope 선택` (host request, #1938) opens the list; only the sidebar selector answers, because a minimized board keeps its
+  // A page's `Scope 선택` (host request, #1938) opens the list; only the title-row chip answers, because a minimized board keeps its
   // bar selector mounted but hidden. Closing without a pick returns focus to the element that asked (the gate button).
   const [open, setOpen] = useState(false);
   const requester = useRef<HTMLElement | null>(null);
   const picked = useRef(false);
-  const latest = useRef({ collapsed, onExpand });
-  useEffect(() => { latest.current = { collapsed, onExpand }; });
   useEffect(() => {
     if (bar) return;
     return scopeSelector.answer(() => {
       requester.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      if (latest.current.collapsed) latest.current.onExpand?.();
       // A controlled Root does not call onOpenChange(true) for this, so clear the previous pick here.
       picked.current = false;
       setOpen(true);
@@ -60,22 +58,22 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar', onExpand 
   const trigger = <DropdownMenuTrigger asChild>
     <button ref={triggerRef} type="button" aria-label={`${t('scope')}: ${current?.label ?? global.scopeId ?? t('scopeNone')}`}
       aria-describedby={descriptionId}
-      className={cn('flex items-center gap-2 rounded-md border border-border-control px-2 text-left text-sm hover:bg-surface-row-hover', bar ? 'h-8 w-52' : 'min-h-10 w-full py-2')}>
+      className={cn('flex h-8 items-center rounded-md border border-border-control px-2 text-left text-sm hover:bg-surface-row-hover', bar ? 'w-52 gap-2' : 'w-full min-w-0 max-w-56 gap-1.5')}>
       <span className={cn('grid size-5 shrink-0 place-items-center rounded text-xs font-semibold', warn ? 'bg-accent-warn-soft text-text-warning-label' : 'bg-accent-primary-soft text-accent-primary')}>
         {scope.status === 'validating' ? <Loader2 className="size-3 animate-spin" aria-hidden />
           : scope.status === 'none' ? <MapPin className="size-3" aria-hidden />
             : warn ? <ShieldAlert className="size-3" aria-hidden /> : <span aria-hidden>{name.slice(0, 1)}</span>}
       </span>
-      <span className={cn('min-w-0 flex-1', collapsed && 'sr-only')}>
+      <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{name}</span>
-        <span id={descriptionId} className={cn('block truncate text-caption', (bar || scope.status === 'none') && 'sr-only', warn ? 'text-text-warning-label' : 'text-text-secondary')}><span role="status" aria-live="polite">{status}</span>{current && ` · ${t('roomNames')} ${current.grantedRooms}/${current.totalRooms}`}</span>
+        <span id={descriptionId} className="sr-only">{/* The chip sits in every main title row: a polite live span without role="status", so main gains no extra status landmark (#2727). */}<span data-scope-status role={bar ? 'status' : undefined} aria-live="polite">{status}</span>{current && ` · ${t('roomNames')} ${current.grantedRooms}/${current.totalRooms}`}</span>
       </span>
-      {!collapsed && <ChevronDown className="size-3 shrink-0 text-text-muted" aria-hidden />}
+      <ChevronDown className="size-3 shrink-0 text-text-muted" aria-hidden />
     </button>
   </DropdownMenuTrigger>;
-  return <TooltipProvider><div className={bar ? 'shrink-0' : 'shrink-0 border-b border-border-subtle p-2'}>
+  return <div className={bar ? 'shrink-0' : 'flex min-w-0'}>
     <DropdownMenu open={open} onOpenChange={next => { if (next) picked.current = false; setOpen(next); }}>
-      {collapsed ? <Tooltip><TooltipTrigger asChild>{trigger}</TooltipTrigger><TooltipContent side="right">{name} · {status}{current && ` · ${t('roomNames')} ${current.grantedRooms}/${current.totalRooms}`}</TooltipContent></Tooltip> : trigger}
+      {trigger}
       <DropdownMenuContent align="start" className="w-72" onCloseAutoFocus={event => {
         const from = requester.current;
         requester.current = null;
@@ -119,7 +117,7 @@ export function ScopeSelector({ collapsed = false, layout = 'sidebar', onExpand 
       setRequestSite(null);
       setClosedDialogs(n => n + 1);
     }} /></ShellBoundary>}
-  </div></TooltipProvider>;
+  </div>;
 }
 
 /** One `권한 요청` row: a site with ungranted rooms. A pending request (the app's server read) turns it into a link to the request status. */

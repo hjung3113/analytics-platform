@@ -2,11 +2,11 @@ import { AlertTriangle, Info, X, XCircle } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { formatText, useEquipmentAxes, useI18n, useMessages, type Text, type Toast } from '@ap/kernel';
 import { useHostPlatform, useToastList } from '@ap/kernel/host';
-import { LoadingBlock, useCollapsePreference } from '@ap/components';
+import { LoadingBlock, PlatformPageTitleLead, useCollapsePreference } from '@ap/components';
 import { cn, DetailPanelFullscreenContext, DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { CommandPalette } from '../routing/CommandPalette';
 import { LeaveConfirmDialog } from '../routing/LeaveConfirmDialog';
-import { AppSidebar } from './AppSidebar';
+import { AppSidebar, PageScopeChip } from './AppSidebar';
 import { PlatformSidebar } from './PlatformSidebar';
 import { AppRail } from './AppRail';
 import { UndeclaredProvider } from './undeclared';
@@ -29,7 +29,10 @@ const COLLAPSE_KEY = 'platform:sidebar-collapsed';
 /** Below this window width the sidebar starts collapsed when the user has not chosen: rail 52px + open sidebar 240px leaves ≥ 908px for the page body at 1200px (#1944). */
 const SIDEBAR_OPEN_MIN_WIDTH = 1200;
 
-/** Application Shell (§7): 52px rail, 240/56px sidebar, page-owned 50px header; pages render into content and the registered detail slot. */
+/** The analytics Scope selector a main screen draws at the start of its title row (#2727). */
+const SCOPE_CHIP = <PageScopeChip />;
+
+/** Application Shell (§7): 52px rail, a 240px sidebar the rail opens and closes, page-owned 50px header; pages render into content and the registered detail slot. */
 export function AppShell({ children, productName }: { children: ReactNode; /** Product name the host appends to the tab title (`<menu> — <system> · <product>`); none by default. */ productName?: string }) {
   const { detailExpanded, setDetailExpanded, platformScreen } = useHostPlatform();
   const inBoard = platformScreen === 'board';
@@ -68,6 +71,7 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
   const expandedStyle = useExpandedDetailArea(mainArea, expanded);
   const board = useBoardPresentation();
   const toggle = useCallback(() => setCollapsed(!collapsed), [collapsed, setCollapsed]);
+  const railSidebar = useMemo(() => (showSidebar || showPlatformSidebar ? { collapsed, setCollapsed, platform: showPlatformSidebar } : undefined), [showSidebar, showPlatformSidebar, collapsed, setCollapsed]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
@@ -81,16 +85,17 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
   return <UndeclaredProvider><DetailPanelFullscreenContext.Provider value={fullscreen}><VocDrawerContext.Provider value={voc}><div className="flex h-full overflow-hidden">
     <a href="#platform-main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToContent')}</a>
     {/* The menu is the second stop after the content link: Enter focuses the first menu link (the nav itself is not a focus stop). */}
-    {(showSidebar || showPlatformSidebar) && <a href="#platform-nav" onClick={e => { const first = document.querySelector<HTMLElement>('#platform-nav a[href]'); if (first) { e.preventDefault(); first.focus(); } }} className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToMenu')}</a>}
-    <AppRail />
-    {showSidebar && <AppSidebar collapsed={collapsed} onToggle={toggle} />}
-    {showPlatformSidebar && <PlatformSidebar collapsed={collapsed} onToggle={toggle} />}
+    {(showSidebar || showPlatformSidebar) && !collapsed && <a href="#platform-nav" onClick={e => { const first = document.querySelector<HTMLElement>('#platform-nav a[href]'); if (first) { e.preventDefault(); first.focus(); } }} className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-sm focus:bg-surface-card focus:px-3 focus:py-2">{t('skipToMenu')}</a>}
+    <AppRail sidebar={railSidebar} />
+    {/* Collapsed leaves the rail alone (#2727); the open sidebar pushes the page, it never overlays it. */}
+    {showSidebar && !collapsed && <AppSidebar onToggle={toggle} />}
+    {showPlatformSidebar && !collapsed && <PlatformSidebar onToggle={toggle} />}
     {/* The column stays unpositioned: a `relative` column would become the containing block of every `absolute` element inside main (sr-only text, popovers) and let them overflow it unclipped. */}
     <div data-shell-content className="flex min-w-0 flex-1 flex-col">
       {/* The board window's area (893d2): a positioned box around main only, so a window is placed against main, not against its scrolling content, and never covers the rail, sidebar, or the chip row. It is `relative`, so every `absolute` element inside main (sr-only text, …) now has it as containing block: `contain: paint` clips what overflows it (as the root's clipping did before) without an `overflow` clip, which `contract-components` (PageFilterBar 접힘 요약) reads as a clipped ancestor of text. */}
       <div ref={mainArea} data-board-window-area className="relative min-h-0 min-w-0 flex-1 [contain:paint]">
         <main id="platform-main" tabIndex={-1} className="h-full min-h-0 min-w-0 overflow-y-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring">
-          <Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense>
+          <PlatformPageTitleLead.Provider value={SCOPE_CHIP}><Suspense fallback={<div className="p-5"><LoadingBlock rows={6} height={320} /></div>}>{children}</Suspense></PlatformPageTitleLead.Provider>
         </main>
       </div>
       <BoardRestoreChip />

@@ -73,7 +73,7 @@ function FavoriteControl() {
 
 function mount(permissions: Session['user']['permissions'] = ['platform:view'], shell = true, registryForRender = registry, slots: PlatformSlots = {}) {
   return render(<I18nProvider><PlatformProvider adapter={adapterWith(permissions)} registry={registryForRender} slots={{ topBarTools: <button>injected tool</button>, ...slots }}>
-    {shell ? <AppShell><input aria-label="editor" /><FavoriteControl /></AppShell> : <><AppRail /><AppSidebar collapsed={false} onToggle={() => {}} /></>}
+    {shell ? <AppShell><input aria-label="editor" /><FavoriteControl /></AppShell> : <><AppRail /><AppSidebar onToggle={() => {}} /></>}
   </PlatformProvider></I18nProvider>);
 }
 
@@ -139,36 +139,32 @@ describe('skip links (#1942)', () => {
 describe('light sidebar', () => {
   it('toggles with the button and [, persists the existing key, and ignores text editing', () => {
     localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'false');
-    const view = mount();
-    const sidebar = view.container.querySelector('aside')!;
-    expect(sidebar.getAttribute('data-collapsed')).toBe('false');
+    mount();
+    const open = () => document.getElementById('platform-sidebar') !== null;
+    expect(open()).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: '사이드바 접기' }));
-    expect(sidebar.getAttribute('data-collapsed')).toBe('true');
+    // Collapsed leaves the rail alone: no 56px menu column (#2727).
+    expect(open()).toBe(false);
+    expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
     expect(localStorage.getItem('platform:sidebar-collapsed:v1:u1:')).toBe('true');
-    expect(screen.getByRole('button', { name: /^Scope:/ })).toBeTruthy();
-    expect(within(screen.getByRole('group', { name: '개요' })).getByRole('link', { name: '홈' })).toBeTruthy();
     fireEvent.keyDown(window, { key: '[' });
-    expect(sidebar.getAttribute('data-collapsed')).toBe('false');
+    expect(open()).toBe(true);
     expect(localStorage.getItem('platform:sidebar-collapsed:v1:u1:')).toBe('false');
     fireEvent.keyDown(screen.getByRole('textbox', { name: 'editor' }), { key: '[' });
-    expect(sidebar.getAttribute('data-collapsed')).toBe('false');
+    expect(open()).toBe(true);
     cleanup();
-    expect(mount().container.querySelector('aside')?.getAttribute('data-collapsed')).toBe('false');
+    mount();
+    expect(open()).toBe(true);
   });
 
   it('uses the existing viewport default only when no persisted value exists', () => {
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1199 });
-    expect(mount().container.querySelector('aside')?.getAttribute('data-collapsed')).toBe('true');
-    cleanup();
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
-    expect(mount().container.querySelector('aside')?.getAttribute('data-collapsed')).toBe('false');
-    cleanup();
+    const open = (width: number) => { Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width }); const shown = mount().container.querySelector('#platform-sidebar') !== null; cleanup(); return shown; };
+    expect(open(1199)).toBe(false);
+    expect(open(1200)).toBe(true);
     // The 1280px laptop starts open (#1944); a saved choice still wins at any width.
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
-    expect(mount().container.querySelector('aside')?.getAttribute('data-collapsed')).toBe('false');
-    cleanup();
+    expect(open(1280)).toBe(true);
     localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
-    expect(mount().container.querySelector('aside')?.getAttribute('data-collapsed')).toBe('true');
+    expect(open(1280)).toBe(false);
   });
 
   it('marks a menu without a screen as planned in the sidebar', () => {
@@ -229,14 +225,13 @@ describe('primary navigation boundary (#194 FIX1)', () => {
     localStorage.setItem('platform:favorites:u1', JSON.stringify(['home', 'ops']));
     localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'home', url: '/?v=1&scopeId=MEM&lotIds=previous' }, { menuId: 'ops', url: '/ops' }]));
     mount(['platform:view'], true, makeRegistry(true));
-    const primary = screen.getByRole('navigation', { name: '주 메뉴' });
     if (collapsed) {
+      expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
       expect(screen.queryByRole('region', { name: '즐겨찾기' })).toBeNull();
       expect(screen.queryByRole('region', { name: '최근 방문' })).toBeNull();
-      expect(within(primary).getAllByRole('link', { name: /홈/ })).toHaveLength(1);
-      expect(within(primary).getAllByRole('link')).toHaveLength(1);
       return;
     }
+    const primary = screen.getByRole('navigation', { name: '주 메뉴' });
     const favorites = screen.getByRole('region', { name: '즐겨찾기' });
     const recent = await screen.findByRole('region', { name: '최근 방문' });
     expect(within(favorites).getByRole('link', { name: '홈' })).not.toHaveAttribute('aria-current');
@@ -502,17 +497,10 @@ describe('workspace shell layout (15 §3.1)', () => {
     expect(within(block).queryByText('기능 화면으로 이동합니다')).toBeNull();
   });
 
-  it('shows only entry icons, in the same order, when the sidebar is collapsed', () => {
+  it('draws no feature block while the sidebar is collapsed (#2727)', () => {
     localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
     mount(['platform:view'], true, registry, { features: feedbackSlot });
-    const block = screen.getByRole('navigation', { name: '기능 · 분석' });
-    expect(block.textContent).not.toContain('기능 · 분석');
-    const links = within(block).getAllByRole('link');
-    expect(links.map(link => link.getAttribute('aria-label'))).toEqual([
-      'Task · 분석, 기능',
-      'VOC 등록 · 분석, 기능',
-    ]);
-    for (const link of links) expect(link.querySelectorAll('svg')).toHaveLength(1);
+    expect(screen.queryByRole('navigation', { name: /^기능/ })).toBeNull();
   });
 
   describe('in-shell VOC entry (#760, ADR-0081 decision 7)', () => {
@@ -552,11 +540,10 @@ describe('workspace shell layout (15 §3.1)', () => {
       expect(within(block).getByRole('link', { name: 'VOC · 분석, 기능' }).getAttribute('href')).toContain('/mars/feature-inbox');
     });
 
-    it('draws no block at all without the slot permission, and keeps three icons with names when collapsed', () => {
+    it('draws no block at all without the slot permission, and both entries with names with it', () => {
       mount(['platform:view'], true, featureRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       expect(screen.queryByRole('navigation', { name: /^기능/ })).toBeNull();
       cleanup();
-      localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
       mount(['platform:view', 'features:access'], true, featureRegistry, { features: slotOf([vocEntry, taskEntry], 'features:access') });
       const block = screen.getByRole('navigation', { name: '기능 · 분석' });
       expect(within(block).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['VOC · 분석, 기능', 'Task · 분석, 기능']);
@@ -894,18 +881,37 @@ describe('platform sidebar (ADR-0070)', () => {
 
   it('shares one collapse state with the business sidebar: button and [ key toggle platform:sidebar-collapsed:v1:u1:', () => {
     window.history.replaceState(null, '', '/?v=1');
-    const view = mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
     fireEvent.click(screen.getByRole('button', { name: '사이드바 접기' }));
     expect(localStorage.getItem('platform:sidebar-collapsed:v1:u1:')).toBe('true');
-    expect(view.container.querySelector('aside[data-collapsed]')).toHaveAttribute('data-collapsed', 'true');
-    expect(screen.getByRole('button', { name: '사이드바 펼치기' })).toHaveAttribute('aria-keyshortcuts', '[');
+    expect(screen.queryByRole('navigation', { name: '플랫폼 메뉴' })).toBeNull();
     fireEvent.keyDown(document.body, { key: '[' });
     expect(localStorage.getItem('platform:sidebar-collapsed:v1:u1:')).toBe('false');
+    expect(screen.getByRole('navigation', { name: '플랫폼 메뉴' })).toBeTruthy();
     fireEvent.keyDown(document.body, { key: '[' });
     cleanup();
     window.history.replaceState(null, '', '/equipment?v=1');
-    const space = mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
-    expect(space.container.querySelector('aside[data-collapsed]')).toHaveAttribute('data-collapsed', 'true');
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
+  });
+
+  it('opens and closes the platform sidebar from the rail «홈» button (#2727)', () => {
+    window.history.replaceState(null, '', '/?v=1');
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    const home = within(screen.getByRole('navigation', { name: '시스템 레일' })).getByRole('button', { name: '홈' });
+    expect(home).toHaveAttribute('aria-expanded', 'true');
+    expect(home).toHaveAttribute('aria-controls', 'platform-sidebar');
+    fireEvent.click(home);
+    expect(screen.queryByRole('navigation', { name: '플랫폼 메뉴' })).toBeNull();
+    expect(home).toHaveAttribute('aria-expanded', 'false');
+    expect(home).not.toHaveAttribute('aria-controls');
+    expect(localStorage.getItem('platform:sidebar-collapsed:v1:u1:')).toBe('true');
+    fireEvent.click(home);
+    expect(screen.getByRole('navigation', { name: '플랫폼 메뉴' })).toBeTruthy();
+    cleanup();
+    window.history.replaceState(null, '', '/equipment?v=1');
+    mount(PLATFORM_PERMISSIONS, true, platformSidebarRegistry());
+    expect(within(screen.getByRole('navigation', { name: '시스템 레일' })).queryByRole('button', { name: '홈' })).toBeNull();
   });
 });
 
@@ -952,14 +958,13 @@ describe('sidebar navViews, navCounts and spaceNavSection (#761)', () => {
     expect(within(primary()).getByRole('link', { name: '수신함' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('draws no sub-items in the collapsed sidebar', () => {
+  it('draws no sub-items, counts or space section while the sidebar is collapsed (#2727)', () => {
     localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
     window.history.replaceState(null, '', '/inbox?v=1&tab=mine');
     mount(['platform:view'], true, navViewsRegistry(), { navCounts: { For: () => CountsA }, spaceNavSection: { For: () => ({ label: { ko: '저장된 보기', en: 'Saved' }, Body: SectionBody }) } });
-    expect(within(primary()).getAllByRole('link')).toHaveLength(2);
+    expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
     expect(screen.queryByRole('link', { name: /내 것/ })).toBeNull();
     expect(screen.queryByRole('region', { name: '저장된 보기' })).toBeNull();
-    expect(document.querySelectorAll('a[aria-current=page]')).toHaveLength(1);
   });
 
   it('shows count badges inside the accessible name, with no collapsed dot, and nothing for a null or absent count', () => {
@@ -1245,7 +1250,7 @@ describe('recent links from stored values (#1967)', () => {
     localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'm-b', url: stored, at: 1 }]));
     window.history.replaceState(null, '', `${base ?? ''}/m-a`);
     const location = base ? createBasePathLocation(base) : undefined;
-    render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={recentRegistry} location={location}><AppSidebar collapsed={false} onToggle={() => {}} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={adapterWith()} registry={recentRegistry} location={location}><AppSidebar onToggle={() => {}} /></PlatformProvider></I18nProvider>);
   }
   const recentLink = async () => within(await screen.findByRole('region', { name: '최근 방문' })).queryByRole('link', { name: '최근 방문: 메뉴 2' });
 
