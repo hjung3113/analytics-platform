@@ -1,4 +1,4 @@
-import { CUSTOM_GROUP_AXIS, formatPeriod, type Capability, ConditionPreset, ContextKey, EquipmentAxisDescriptor, GlobalContext, Pair } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, formatPeriod, type Capability, ConditionPreset, ContextKey, EquipmentAxisDescriptor, GlobalContext } from '@ap/contracts';
 import { CONTEXT_LABELS, formatText } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PageFilterSummaryItem } from './PageFilterBar';
@@ -55,17 +55,7 @@ export function presetOutsideAxes(global: GlobalContext, preset: SummaryPreset):
   return Object.keys(global.condition ?? {}).filter(axis => axis !== CUSTOM_GROUP_AXIS && global.condition?.[axis]?.length && !axes.includes(axis));
 }
 /** The applied-query line: Context values, then the page values the menu declares in `pageSummary`. Consumer metadata includes effective defaults. */
-export function formatQuerySummary(global: GlobalContext, options: QuerySummaryOptions): string;
-/**
- * @deprecated The `page` argument prints undeclared page keys raw (`key value`), which the query-summary rule forbids (kernel.md); every shell caller
- * passes `[]`. Call `formatQuerySummary(global, options)` and declare page values in `pageSummary`. Removed in the next SDK minor (#2699).
- */
-export function formatQuerySummary(global: GlobalContext, page: readonly Pair[], options: QuerySummaryOptions): string;
-export function formatQuerySummary(global: GlobalContext, pageOrOptions: readonly Pair[] | QuerySummaryOptions, maybeOptions?: QuerySummaryOptions): string {
-  // The argument count picks the form: an options value may itself be an array, so its shape cannot tell the two apart.
-  const legacy = maybeOptions !== undefined;
-  const page = legacy ? pageOrOptions as readonly Pair[] : [];
-  const options = (legacy ? maybeOptions : pageOrOptions) as QuerySummaryOptions;
+export function formatQuerySummary(global: GlobalContext, options: QuerySummaryOptions): string {
   const { lang, preset } = options;
   const active = preset?.presets.find(item => item.id === preset.id);
   // Values the preset leaves out of the request are not part of the query this line describes; the QueryBar still lists them as carried.
@@ -78,6 +68,5 @@ export function formatQuerySummary(global: GlobalContext, pageOrOptions: readonl
   const labels = new Map(options.pageSummary?.map(item => [item.key, item]));
   for (const item of labels.values()) values.push(`${item.label} ${item.value}`);
   if (preset && active) values.push(formatText(COMPONENTS_MESSAGES.filterConditionSet, lang, { name: active.label[lang] }));
-  for (const [key, value] of page) if (!labels.has(key) && key !== preset?.key) values.push(`${key} ${value}`);
   return values.join(' · ');
 }
