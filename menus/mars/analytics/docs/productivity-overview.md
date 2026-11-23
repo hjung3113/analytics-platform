@@ -33,7 +33,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | apply | apply | apply | apply | unsupported | apply | apply | reference |
 
-- Time/Equipment는 메뉴 간 전달되는 직접 조회 조건. Equipment 선택지는 현재 Scope·권한으로 제한한다. Scope 선택기는 사이드바 머리 한 곳에만 둔다(06 §7).
+- Time/Equipment는 메뉴 간 전달되는 직접 조회 조건. Equipment 선택지는 현재 Scope·권한으로 제한한다. Scope 선택기는 페이지 제목 줄의 Scope 칩 한 곳에만 둔다(06 §7).
 - Lot은 이 화면이 지원하지 않는다. 전달된 Lot은 보존하고 미적용으로 표시한다. PPID와 Recipe는 분석 필터 축으로 받되 적용 가능한 지표와 조인 범위는 메뉴 정의 Candidate로 둔다. Recipe가 Job 전체를 포함할지 매칭 PRC 구간만 포함할지, 점유율 분모에 어떻게 적용할지는 이 화면의 분석 로직 담당자가 정하며 Kernel이 강제하지 않는다. 미지원 지표에는 미적용을 표시한다.
 - PPID와 Recipe는 구현에서 다섯 조회(KPI 요약·추세·점유 구성·드릴·주의 목록) 모두의 Job 모집단을 같은 조건으로 좁힌다(#2072). 설비 수·관측 bucket 수는 설비 축 값이므로 그대로다. 적용 범위를 바꾸는 결정(예: 점유율 분모 적용)은 이 문서와 매니페스트 선언을 함께 고친다.
 - **room_name은 Global Context**다. 공개 키 후보 `roomNames`를 소비하며 별도 `processIds` Page Filter를 만들지 않는다. 현재 Site·room_name 권한 범위 안에서 설비를 좁히며 다른 메뉴로 보존·전달한다. Line은 독립 축이고 room_name의 상위 계층이 아니다(`06` §6.1–6.2).

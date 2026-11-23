@@ -402,7 +402,7 @@ Desktop (≥1024px) only is built; the tablet/mobile rules below are the target 
 
 ```text
 Desktop >= 1024px:
-- LeftSidebar: 240px default, 56px collapsed.
+- LeftSidebar: 240px default; collapsing hides it and leaves only the rail.
 - MainRegion: fills remaining width.
 - RightDetailPanel: 440px default, 360px min, 520px max.
 

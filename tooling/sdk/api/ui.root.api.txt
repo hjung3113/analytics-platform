@@ -266,7 +266,7 @@ ValidationErrors | type | type ValidationErrors<TValues> = Partial<Record<Extrac
 WorkbenchShell | function | function WorkbenchShell({ toolbar, children, detailPanel, className }: @ap/ui#WorkbenchShellProps): React.JSX.Element
 WorkbenchShellProps | interface | interface WorkbenchShellProps { children: React.ReactNode; className?: string; detailPanel?: React.ReactNode; toolbar?: @ap/ui#ShellHeaderProps; }
 badgeVariants | const | const badgeVariants: (props?: ({ variant?: "default" | "destructive" | "outline" | "secondary" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
-buttonVariants | const | const buttonVariants: (props?: ({ size?: "icon-sm" | "icon-xs" | "lg" | "md" | "sm" | "toolbar" | null | undefined; variant?: "default" | "destructive" | "ghost" | "link" | "navigation" | "outline" | "secondary" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
+buttonVariants | const | const buttonVariants: (props?: ({ size?: "icon-sm" | "icon-xs" | "lg" | "md" | "sm" | "toolbar" | null | undefined; variant?: "default" | "destructive" | "ghost" | "link" | "navigation" | "outline" | "secondary" | "toggle" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
 cn | function | function cn(...inputs: ClassValue[]): string
 copyText | function | function copyText(text: string): Promise<boolean>
 createDecisionUndoToastAction | function | function createDecisionUndoToastAction({ kind, onUndo, label }: @ap/ui#CreateDecisionUndoToastActionOptions): @ap/ui#DecisionUndoToastAction

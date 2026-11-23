@@ -1,12 +1,13 @@
-AppRail | function | function AppRail(): import("react").JSX.Element
+AppRail | function | function AppRail({ sidebar }: { sidebar?: RailSidebar; }): import("react").JSX.Element
 AppShell | function | function AppShell({ children, productName }: { children: ReactNode; productName?: string; }): import("react").JSX.Element
-AppSidebar | function | function AppSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void; }): import("react").JSX.Element
+AppSidebar | function | function AppSidebar({ onToggle }: { onToggle: () => void; }): import("react").JSX.Element
 CommandPalette | function | function CommandPalette(): import("react").JSX.Element
 GlobalContextBar | function | function GlobalContextBar({ label, whenEmpty }?: { label?: { region: string; visible: string; }; whenEmpty?: ReactNode; }): import("react").JSX.Element
 OpenInBoardAction | function | function OpenInBoardAction(): import("react").JSX.Element
 QueryBar | function | function QueryBar(props: @ap/shell#QueryBarProps): import("react").JSX.Element
 QueryBarProps | type | type QueryBarProps = { historySlot?: ReactNode; label?: { region: string; visible: string; }; viewSlot?: ReactNode; }
 RouteOutlet | function | function RouteOutlet(): import("react").JSX.Element
-ScopeSelector | function | function ScopeSelector({ collapsed, layout, onExpand }: { collapsed?: boolean; layout?: 'bar' | 'sidebar'; onExpand?: () => void; }): import("react").JSX.Element
+ScopeSelector | function | function ScopeSelector({ layout }: { layout?: 'bar' | 'chip'; }): import("react").JSX.Element
 ScreenOutlet | function | function ScreenOutlet(): import("react").JSX.Element | null
 # reachable types
+RailSidebar | type | type RailSidebar = { collapsed: boolean; platform: boolean; setCollapsed: (collapsed: boolean) => void; }

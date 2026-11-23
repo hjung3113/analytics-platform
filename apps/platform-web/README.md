@@ -25,7 +25,7 @@ pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mo
 | Kernel: Menu Registry, 전역 Context, URL 계약, 권한·Scope, 즐겨찾기/최근/활용 계측 | `packages/sdk/kernel`(`@ap/kernel`: `createRegistry`, `PlatformProvider`, `usePlatformQuery`, i18n), 메뉴 선언은 `menus/<space>/<group>/src/index.ts` 또는 `platform/<feature>/src/index.ts`(앱 `src/menus.ts`가 연결), URL codec·manifest·응답 envelope 타입은 `packages/sdk/contracts` |
 | 공통 컴포넌트 | `packages/sdk/components`(`@ap/components`) — `PlatformPage`(§8 Slot: Context Bar는 `slots.contextBar`로 주입), `PlatformDataTable`, `DetailDrawer`, `AuditTimeline`, `DataTrustIndicator`, `StateView`(§19), `StatCard`. UI primitive·`StatusBadge`·토큰은 `packages/sdk/ui`(`@ap/ui`) |
 | 차트 계약 | `packages/sdk/components/src/chart/AnalysisChartFrame.tsx` (Zoom/Brush/Reset/Compare/Annotate/Export/More, 4층 상태 분리), `chart/EChart.tsx` |
-| 레이아웃 | `packages/sdk/shell`(`@ap/shell`: AppShell 레일 52px·사이드바 240/56px·페이지 머리 50px, AppRail, AppSidebar 평면 그룹, GlobalContextBar, CommandPalette, RouteOutlet) + 페이지 archetype |
+| 레이아웃 | `packages/sdk/shell`(`@ap/shell`: AppShell 레일 52px·사이드바 240px(접으면 레일만)·페이지 머리 50px, AppRail, AppSidebar 평면 그룹, GlobalContextBar, CommandPalette, RouteOutlet) + 페이지 archetype |
 | 메뉴간 연결 | `usePlatform().linkTo()` Context Link helper, `returnTo` 복귀 |
 
 ## 페이지 작성 가이드 (Consumer 규칙)
@@ -47,7 +47,7 @@ pnpm --filter @ap/platform-web check:prod-graph  # 운영 모듈 그래프에 mo
 
 ## 확인된 동작 (셸/Kernel)
 
-- 52px 시스템 레일과 평면 그룹 사이드바(240px ↔ 56px), `[` 단축키. 메뉴 검색은 레일 팔레트에서만 제공하며 즐겨찾기/최근 방문은 펼친 사이드바에서 표시한다. 페이지 머리 50px와 Context Bar는 함께 sticky로 유지한다.
+- 52px 시스템 레일과 평면 그룹 사이드바(240px, 접으면 레일만), `[` 단축키. 메뉴 검색은 레일 팔레트에서만 제공하며 즐겨찾기/최근 방문은 펼친 사이드바에서 표시한다. 페이지 머리 50px와 Context Bar는 함께 sticky로 유지한다.
 - 권한 기반 메뉴 노출(역할 전환: 레일 하단 `topBarTools` 슬롯의 개발 도구 `src/dev/DevTools.tsx`, SSO 대역), 직접 URL은 서버 거부 화면.
 - Scope 단일 선택 + 서버 재검증(검증 중/검증됨/접근 불가), Scope 전환 시 Site 경계 Context 명시 초기화.
 - 기간 `1일/7일/사용자 지정`, 사용자 지정 날짜(양끝 포함)→`[D1T00:00:00,(D2+1)T00:00:00)`, 초 단위 입력.

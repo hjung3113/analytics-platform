@@ -11,7 +11,10 @@ color.accent-success
 color.accent-success-soft
 color.accent-warn
 color.accent-warn-soft
+color.border-card
+color.border-chrome
 color.border-control
+color.border-row
 color.border-selected
 color.border-strong
 color.border-subtle
@@ -65,6 +68,7 @@ color.severity-low
 color.severity-low-label
 color.severity-medium
 color.severity-medium-label
+color.surface-band
 color.surface-blocked
 color.surface-canvas
 color.surface-card
@@ -77,6 +81,7 @@ color.surface-row-hover
 color.surface-row-selected
 color.surface-sidebar
 color.surface-sunken
+color.surface-sunken-in-card
 color.text-danger
 color.text-danger-label
 color.text-disabled

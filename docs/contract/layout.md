@@ -15,7 +15,7 @@ Desktop-first를 기본으로 한다.
 
 - **레일** (위 → 아래): `시스템 및 플랫폼 메뉴` 전환기(맨 위, §9.1, ADR-0070) → 현재 시스템의 섹션 버튼(그룹 단위, 공간 밖 화면에서는 비어 있음) → 공통 도구(명령 팔레트 §10) → 앱이 주입하는 도구 슬롯(`topBarTools`, ADR-0009 이름 유지), 도움말, 사용자 메뉴(`언어`를 품는다, ADR-0070; `기능 전체` 링크는 없앴다, ADR-0081 결정 6, #764 p2). 공통 도구는 시스템을 바꿔도 같은 자리다. 배치·치수 원본은 [15 §3.2](../design/multi-workspace-ui.md#32-시스템별-레일-decided-2026-10-19-adr-0042), 방향은 [ADR-0042](../adr/0042-system-switcher-and-system-owned-rail.md)다.
 - **사이드바**: 머리에 공간 이름과 현재 섹션 이름(같으면 한 줄)과 접기. 그 아래 공간의 `scopeControl`(있을 때만), 현재 섹션(그룹)의 메뉴, 즐겨찾기·최근이 이어진다(§9). 접으면 사이드바가 사라지고 레일 52px만 남는다(#2727, 56px 접힘 모드 없음). 레일 섹션 버튼은 현재 섹션이면 사이드바를 접고·펴고, 다른 섹션이면 그 섹션의 첫 열 수 있는 메뉴로 가며 접혀 있으면 편다. 버튼은 `aria-expanded`(현재 섹션이고 펼침일 때 true)와 펼침일 때 `aria-controls="platform-sidebar"`를 가진다. 펼친 사이드바는 본문을 밀어내며 덮지 않는다. 전역 화면의 레일에는 플랫폼 사이드바를 접고 펴는 `홈` 버튼 하나가 있다. `[` 단축키와 머리 접기 버튼, 저장된 접힘 선호(`platform:sidebar-collapsed`)는 그대로다. 미등록 경로·공간 진입 거부의 fallback 사이드바는 레일 섹션 버튼이 없어 접은 뒤에는 `[`로만 다시 연다. 미등록 경로·공간 진입 거부의 fallback 사이드바는 접근 가능한 공간의 모든 그룹을 그대로 그린다.
-  메뉴가 `navTree`를 선언하면 고정 메뉴 목록 끝, 그 선언 메뉴가 속한 그룹 안에 제목 있는 `role="group"` 구역을 그린다(업무 시스템·플랫폼 사이드바 모두). 제목은 기존 그룹-title 클래스의 `<p>`이며 섹션 이름이 머리에 있어 기존 그룹 제목을 숨긴 경우에도 보인다. 데이터 노드와 고정 메뉴의 선택 표시는 함께 남는다. 240px 사이드바에서 남은 공간을 쓰는 목록이다(접힘 상태의 FolderTree 팝오버는 #2727에서 접힘 모드와 함께 없앴다). 데이터·제한은 [§13 HierarchyNav](components.md#hierarchynav), 선언 검증은 [§5](kernel.md#5-menu-extension-contract)가 소유한다.
+  메뉴가 `navTree`를 선언하면 고정 메뉴 목록 끝, 그 선언 메뉴가 속한 그룹 안에 제목 있는 `role="group"` 구역을 그린다(업무 시스템·플랫폼 사이드바 모두). 제목은 기존 그룹-title 클래스의 `<p>`이며 섹션 이름이 머리에 있어 기존 그룹 제목을 숨긴 경우에도 보인다. 데이터 노드와 고정 메뉴의 선택 표시는 함께 남는다. 240px 사이드바에서 남은 공간을 쓰는 목록이다(접힌 사이드바에는 `navTree`를 그리지 않는다). 데이터·제한은 [§13 HierarchyNav](components.md#hierarchynav), 선언 검증은 [§5](kernel.md#5-menu-extension-contract)가 소유한다.
 - **상단 바는 없다.** 페이지 머리는 한 줄에 위치·제목·설명·동작을 둔다(§8 슬롯).
 
 Scope는 개념적으로 Global Context에 포함되지만 선택기는 **주 화면 페이지 머리 제목 줄 맨 앞(breadcrumb 앞)의 Scope 칩 하나만** 둔다(#2727). 셸이 `@ap/components`의 `PlatformPageTitleLead` 컨텍스트로 칩을 주입하고 `PlatformPage`가 그린다. 분할 칸(pane)에는 제목 줄이 없어 칩이 없다. 전역 화면, `scopeControl`을 가진 공간(그 컨트롤은 사이드바에 남는다), `scopePresentation: 'hidden'` 공간에는 칩이 없다. 칩은 좁은 머리에서 머리 글자 배지와 펼침 표시까지 줄어든다. Context Bar에 두 번째 Scope 선택기를 만들지 않는다. 예외: 분석 보드([16](../design/analysis-board.md))에는 업무 시스템 사이드바가 없으므로, 보드 Context 바의 Scope가 **선택된 칸의 Scope이자 그 화면의 유일한 Scope 선택기**다(§6.5, [ADR-0051](../adr/0051-analysis-board-pane-header-signal-chips-numbered-selection.md)). 구체 셸 배치는 `../design/app-shell.md`를 따른다.
@@ -34,7 +34,7 @@ Scope는 개념적으로 Global Context에 포함되지만 선택기는 **주 �
 ```text
 Rail                 52px   (--rail-width)
 Sidebar expanded    240px   (--sidebar-width)
-Sidebar collapsed      0px   (사이드바 없음, 레일만; #2727)
+Sidebar collapsed      0px   (사이드바 없음, 레일만; #2727. 토큰 `--sidebar-width-collapsed` 56px는 남아 있으나 셸이 쓰지 않는다; 제거 #2791)
 Detail slot         440px   (--detail-panel-width; 미제공 시 440px, 360–520px clamp; 비어 있으면 0)
 Top header           없음
 Page header          50px   (--toolbar-height)
@@ -109,8 +109,8 @@ Kernel 세션이 바뀌거나 `vocCompose` 슬롯이 사라지면 고정 Context
 앱이 조립 때 주입하는 셸 슬롯은 `PlatformSlots`의 `contextBar`(PlatformPage가 페이지 머리 아래에 그린다), `topBarTools`(레일 아래 도구), `features`(공간별 기능 진입.
 `overall` 필드는 SDK 타입에 남아 있고 다른 앱이 쓸 수 있지만 이 앱은 늘 `null`이라 사용자 메뉴 `FeedbackOps 전체`는 없다, #764 p2. 진입 항목은 합 타입이다 — `{ key, label, href, icon }`은 기능을 새 탭으로 열고(`href: null`은 비활성), `{ key, label, menuId, page?, icon }`은 등록된 메뉴를 같은 탭에서 연다: 셸이 `resolveLink(menuId, { global: emptyGlobal, page, returnTo: true })`로 풀고 `allowed`일 때만 그린다(전역 Context는 싣지 않고 `page`와 `returnTo`만, #760).
 선택 `permission`은 블록 게이트로, 있으면 셸이 `can(permission)`일 때만 블록을 그린다(셸은 앱 권한 이름을 모른다, ADR-0081 결정 8).
-[ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)·[ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)), `scopeControl`(`{ For(spaceId, menu) }` — 사이드바 Scope 자리에 그 공간 전용 선택기 컴포넌트(`{ collapsed }`를 받음)를 돌려주고 `null`이면 분석 `ScopeSelector`를 그대로 쓴다.
-예외: `SpaceDef.scopePresentation: 'hidden'`인 공간은 `null`일 때(슬롯이 없을 때도) `ScopeSelector` 대신 아무것도 그리지 않고, 컴포넌트를 돌려주면 그대로 그린다, #1251. 슬롯인 이유: 공간의 목록 범위가 분석 Scope가 아닌 경우(예: 기능의 Managed System)에도 선택기는 §7의 사이드바 Scope 자리 하나에 두고 셸이 메뉴를 import하지 않으려는 것이다.
+[ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)·[ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)), `scopeControl`(`{ For(spaceId, menu) }` — 사이드바 머리 아래에 그 공간 전용 선택기 컴포넌트(`{ collapsed }`를 받으며 그려질 때는 늘 false)를 돌려주고, `null`이면 그 공간은 제목 줄의 분석 Scope 칩을 쓴다(§7).
+예외: `SpaceDef.scopePresentation: 'hidden'`인 공간은 `null`일 때(슬롯이 없을 때도) `ScopeSelector` 대신 아무것도 그리지 않고, 컴포넌트를 돌려주면 그대로 그린다, #1251. 슬롯인 이유: 공간의 목록 범위가 분석 Scope가 아닌 경우(예: 기능의 Managed System)에도 화면의 Scope 선택기를 하나로 두고(§7: 제목 줄 칩 또는 공간의 `scopeControl`) 셸이 메뉴를 import하지 않으려는 것이다.
 넘기지 않으면 `scopePresentation`이 `default`(또는 없음)인 모든 공간이 `ScopeSelector`를 쓴다, [ADR-0081](../adr/0081-feedbackops-operator-screens-platform-frame.md) 결정 4, #759).
 `plannedSpaces`(전환기의 `준비 중` 행 `{ id, label, subtitle?, icon }[]`), `analysisActions`(`{ Actions, appliesTo?, pageTypes? }` — `pageTypes`(기본 `['analysis']`)가 슬롯이 붙을 화면 종류를 고르고, `Actions`는 메뉴가 `subjectPageKeys`로 선언한 설비·공정 키의 현재 값을 `subject`로 받는다(#1429).
 `appliesTo(menuId)`가 false면 그 메뉴는 건너뛴다.
