@@ -52,7 +52,7 @@ function extendRange(range: AxisRange | null, direction: -1 | 1, view: AxisRange
 /**
  * Domain-free «turn on range selection, then drag» on one numeric axis (#1860), for any surface that draws its own axis: LaneTimeline,
  * OrderedIntervalTrack, or a menu's own strip. The surface maps pointer positions to axis values and draws the range with
- * the confirmed look (2px `chart-selection-outline` across the plot, `구간 선택` toggle, `선택 구간` summary line); the hook owns
+ * the confirmed look (2px `chart-selection-outline` across the plot over a 10% fill of that colour, like every chart's range band, `구간 선택` toggle, `선택 구간` summary line); the hook owns
  * the state and the keyboard alternative (Shift+←/→) so every surface picks ranges the same way. Chart-local state: it never
  * writes the URL or the global Context.
  */

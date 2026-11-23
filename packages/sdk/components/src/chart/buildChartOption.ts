@@ -19,7 +19,7 @@ import { rowGroupLayout, rowGroupSeries, rowLabel, type ChartRowGroups } from '.
 import { emptyCategoryLabels, emptyCategorySeries } from './chartEmptyCategories';
 import type { Selection } from './useChartRange';
 import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
-import { axisBreakGraphic, barRadius, CHART_MARKS, lineSymbolShown } from './chartMarks';
+import { axisBreakGraphic, barRadius, CHART_MARKS, lineSymbolShown, rangeBandFill, selectionRing } from './chartMarks';
 import { LABEL_FONT, labelFitsSegment, labelWidth, segmentLabelStyle, shortNumber, stackEnd, type LabelRect, type RowTotal, type ValueLabels } from './chartValueLabels';
 
 /** The plot's horizontal margin (grid left 52 + right 20). */
@@ -129,13 +129,13 @@ export type ChartPalette = {
 export function resolveChartPalette(displayed: readonly { color: ThemeColorToken }[]): ChartPalette {
   return {
     theme: chartTheme(),
-    selection: token('chart-blue'),
+    // Selection, its range band and the Brush band share the selection colour (#2736), so every chart marks a choice the same way.
+    selection: token('chart-selection-outline'),
     annotation: token('chart-purple'),
     annotationLabel: token('cat-purple'),
-    // Fill derives rgba from the resolved chart-blue token (#297): copying stroke channels would shift the hue,
-    // and a literal rgba copies the token's values.
-    brushFill: token('chart-blue').replace(/^rgb\((.+)\)$/, (_, rgb: string) => `rgba(${rgb},0.12)`),
-    brushBorder: token(strokeToken('chart-blue')),
+    // Fill derives rgba from the resolved token (#297): a literal rgba would copy the token's values.
+    brushFill: rangeBandFill(token('chart-selection-outline')),
+    brushBorder: token('chart-selection-outline'),
     // Two status hues no series fill uses (series are slate, violet and teal tones); the 최소/최대 label carries the meaning, so colour is never the only cue.
     minMax: { min: token('chart-status-good'), max: token('chart-status-critical') },
     labelSurface: token('surface-card'),
@@ -387,7 +387,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const noteWidths = noteLabelWidths(i.noteSpans, pxPerUnit, plotWidth);
   const areas = [
     // Notes keep the default top label; the selection labels its bottom so a note saved over it never collides (#320).
-    ...(i.selection ? [[{ name: formatText(COMPONENTS_MESSAGES.chartSelection, lang), [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.from), itemStyle: { color: palette.selection, opacity: 0.12 }, label: { position: 'insideBottom' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.to) }]] : []),
+    ...(i.selection ? [[{ name: formatText(COMPONENTS_MESSAGES.chartSelection, lang), [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.from), itemStyle: { color: palette.selection, opacity: CHART_MARKS.rangeBandOpacity }, label: { position: 'insideBottom' } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.to) }]] : []),
     ...i.annotations.map((a, n) => [{ name: a.text, [horizontal ? 'yAxis' : 'xAxis']: xType === 'time' ? i.noteSpans[n].from : categories[i.noteSpans[n].from], itemStyle: { color: palette.annotation, opacity: 0.14 }, label: { color: palette.annotationLabel, fontSize: 10, offset: [0, i.noteLevels[n] * NOTE_LABEL_ROW], width: noteWidths[n], overflow: 'truncate', ellipsis: '…' } }, { [horizontal ? 'yAxis' : 'xAxis']: xType === 'time' ? i.noteSpans[n].to : categories[i.noteSpans[n].to] }]),
   ];
   // A segment label is hidden (ECharts' label layout has no hide switch: a zero font size draws nothing) when ECharts' own resolved boxes say it does not fit (width and height).
@@ -492,21 +492,24 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           const label = y !== null && selectedPoints.has(chartPointKey({ seriesId: s.id, x }))
             ? { show: true, position: horizontal ? 'insideRight' : 'top', ...(horizontal ? insideLabel(n) : {}), formatter: () => `${axis.valueFormat(y)} ${unit}`.trim() }
             : undefined;
-          if (!isActive && !mark && !status) return label ? { value: y, label } : y;
+          // A selected point keeps its fill and gets the selection ring (#2736).
+          // A datum with its own border keeps it on hover (`keep`), so the hover edge never hides a selection, focus, Min/Max or status cue.
+          const keep = (itemStyle: { borderColor?: string; borderWidth: number }) => ({ itemStyle, emphasis: { itemStyle } });
+          if (!isActive && !mark && !status) return label ? { value: y, label, ...keep({ borderColor: palette.selection, borderWidth: selectionRing(true) }) } : y;
           // Row focus keeps its series-coloured border; a min/max segment's thicker outline replaces it, so the active one adds a glow instead and both cues show.
           if (status) {
             // The status ring is drawn inside the piece by the __statusBarBacking layer (#2351). The active label stays bold; Min/Max retains its glow and chip.
             const marker = statusMarker(status);
             const extremeChip = mark ? extremeLabel(mark, lanes !== null, palette, lang) : undefined;
-            return { value: y, itemStyle: { color: palette.series[n].fill, borderWidth: 0, ...(mark ? { shadowBlur: 6, shadowColor: palette.minMax[mark] } : {}) },
+            return { value: y, itemStyle: { color: palette.series[n].fill, borderWidth: 0, ...(mark ? { shadowBlur: 6, shadowColor: palette.minMax[mark] } : {}) }, emphasis: { itemStyle: { borderWidth: 0 } },
               label: { ...extremeChip, ...marker, position: extremeChip?.position ?? 'insideRight', formatter: `${marker.formatter}${mark ? ` ${extremeName(mark, lang)}` : ''}`, rich: marker.rich },
             };
           }
+          const border = { borderColor: mark ? palette.minMax[mark] : palette.series[n].stroke, borderWidth: mark ? 3 : 2 };
           return { value: y, itemStyle: {
-            color: palette.series[n].fill,
-            borderColor: mark ? palette.minMax[mark] : palette.series[n].stroke, borderWidth: mark ? 3 : 2,
+            color: palette.series[n].fill, ...border,
             ...(mark && isActive ? { shadowBlur: 6, shadowColor: palette.series[n].stroke } : {}),
-          }, ...(mark ? { label: extremeLabel(mark, lanes !== null, palette, lang) } : label ? { label } : {}) };
+          }, emphasis: { itemStyle: border }, ...(mark ? { label: extremeLabel(mark, lanes !== null, palette, lang) } : label ? { label } : {}) };
         };
         const real = {
           id: s.id, name: s.name, type: kind, stack: i.stacked && kind === 'bar' ? 'total' : undefined,
@@ -516,7 +519,10 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: pattern === 'solid' ? CHART_MARKS.lineWidth : CHART_MARKS.patternLineWidth, type: pattern },
           itemStyle: { color: palette.series[n].fill, ...(kind === 'bar' ? { borderRadius: barRadius(horizontal, i.stacked || lanes !== null) } : {}) },
           ...(areaLine ? { areaStyle: { opacity: CHART_MARKS.singleLineAreaOpacity } } : {}),
-          emphasis: { focus: i.emphasisFocus ?? 'none' },
+          // Hover marks the target series only: a wider line or a series-coloured bar edge; others keep their look unless the chart opts into dimming (#2342, #2736).
+          emphasis: { focus: i.emphasisFocus ?? 'none', ...(kind === 'line'
+            ? { lineStyle: { width: (pattern === 'solid' ? CHART_MARKS.lineWidth : CHART_MARKS.patternLineWidth) + CHART_MARKS.hoverLineWidthGain } }
+            : { itemStyle: { borderColor: palette.series[n].stroke, borderWidth: 1 } }) },
           // The tooltip's own formatter is the left axis'; a right series reads its unit and format.
           ...(right ? { yAxisIndex: 1 } : {}),
           ...(right || s.unit?.trim() ? { tooltip: { valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${axis.valueFormat(v)} ${unit}`) } } : {}),

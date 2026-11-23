@@ -86,7 +86,7 @@ Ctrl/⌘+wheel·+/−·확대 버튼으로 확대하고 plot drag로 이동한�
 
 ### 구간 끌어 고르기 (`rangeBrush`, `useRangeBrush`)
 
-`LaneTimeline`에 선택 `rangeBrush`를 주면 도구줄에 `구간 선택` 토글이 생긴다. 켜진 동안 plot drag는 이동 대신 시간 구간을 고르고(epoch ms, 구간과 같은 좌표), 클릭은 구간을 선택하지 않는다. Shift+←/→는 구간 끝을 보이는 창의 1/20씩 옮기고(구간이 없으면 보이는 창의 시작부터) 토글을 켠다. 선택 요약은 `선택 구간: 시작–끝`(`formatTick`, 없으면 `YYYY-MM-DD HH:mm:ss`)과 `선택 구간 확대`를 보인다. Escape와 `확대 초기화`가 구간을 지운다. 생김새와 키는 `OrderedIntervalTrack`의 구간 선택과 같다(플롯 높이 전체의 2px `chart-selection-outline`). 주지 않으면 토글이 없고 drag·키·요약이 지금과 같다.
+`LaneTimeline`에 선택 `rangeBrush`를 주면 도구줄에 `구간 선택` 토글이 생긴다. 켜진 동안 plot drag는 이동 대신 시간 구간을 고르고(epoch ms, 구간과 같은 좌표), 클릭은 구간을 선택하지 않는다. Shift+←/→는 구간 끝을 보이는 창의 1/20씩 옮기고(구간이 없으면 보이는 창의 시작부터) 토글을 켠다. 선택 요약은 `선택 구간: 시작–끝`(`formatTick`, 없으면 `YYYY-MM-DD HH:mm:ss`)과 `선택 구간 확대`를 보인다. Escape와 `확대 초기화`가 구간을 지운다. 생김새와 키는 `OrderedIntervalTrack`의 구간 선택과 같다(플롯 높이 전체의 2px `chart-selection-outline` 테두리와 같은 색 불투명도 0.1 채움, #2736). 주지 않으면 토글이 없고 drag·키·요약이 지금과 같다.
 
 ```tsx
 const [range, setRange] = useState<AxisRange | null>(null);

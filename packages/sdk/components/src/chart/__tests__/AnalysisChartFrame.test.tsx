@@ -225,8 +225,6 @@ describe('chart stroke aliases (#203)', () => {
       const barSwatch = swatch('Bar').querySelector('span[aria-hidden]') as HTMLElement;
       expect(barSwatch.style.backgroundColor).toBe('rgb(59, 156, 255)');
       expect(barSwatch.style.borderColor).toBe('rgb(37, 119, 204)');
-      // The brush outline is a thin line mark too.
-      expect(plottedBrush?.brushStyle?.borderColor).toBe('rgb(37,119,204)');
     } finally {
       for (const [name, value] of previous) {
         if (value) root.style.setProperty(name, value); else root.style.removeProperty(name);
@@ -234,21 +232,21 @@ describe('chart stroke aliases (#203)', () => {
     }
   });
 
-  it('derives the brush fill from the chart-blue token and keeps the border on the stroke alias (#297)', async () => {
+  it('derives the brush band from the selection colour token at the shared band opacity (#297, #2736)', async () => {
     const root = document.documentElement;
-    const names = ['--chart-blue', '--chart-blue-stroke'];
+    const names = ['--chart-selection-outline', '--chart-blue'];
     const previous = new Map(names.map(name => [name, root.style.getPropertyValue(name)]));
-    // Channels off the historical rgba(59,156,255,…) literal: reverting the fill to that literal must fail here.
-    root.style.setProperty('--chart-blue', '10 20 30');
-    root.style.setProperty('--chart-blue-stroke', '37 119 204');
+    // Channels off any literal: reverting the fill to a literal or to chart-blue must fail here.
+    root.style.setProperty('--chart-selection-outline', '10 20 30');
+    root.style.setProperty('--chart-blue', '59 156 255');
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     try {
       render(<I18nProvider><PlatformProvider adapter={fixture().adapter} registry={registryWith(off)}>
         <AnalysisChartFrame chartId="chart-brush-fill" title="Brush fill" unit="ea" series={series} />
       </PlatformProvider></I18nProvider>);
       await screen.findByText('fake-brush');
-      expect(plottedBrush?.brushStyle?.color).toBe('rgba(10,20,30,0.12)');
-      expect(plottedBrush?.brushStyle?.borderColor).toBe('rgb(37,119,204)');
+      expect(plottedBrush?.brushStyle?.color).toBe('rgba(10,20,30,0.1)');
+      expect(plottedBrush?.brushStyle?.borderColor).toBe('rgb(10,20,30)');
     } finally {
       for (const [name, value] of previous) {
         if (value) root.style.setProperty(name, value); else root.style.removeProperty(name);

@@ -94,7 +94,11 @@
     "borderRadius": 0
    },
    "emphasis": {
-    "focus": "none"
+    "focus": "none",
+    "itemStyle": {
+     "borderColor": "aStroke",
+     "borderWidth": 1
+    }
    },
    "data": [
     {
@@ -103,6 +107,12 @@
       "color": "aFill",
       "borderColor": "max",
       "borderWidth": 3
+     },
+     "emphasis": {
+      "itemStyle": {
+       "borderColor": "max",
+       "borderWidth": 3
+      }
      },
      "label": {
       "show": true,
@@ -129,6 +139,12 @@
       "borderWidth": 3,
       "shadowBlur": 6,
       "shadowColor": "aStroke"
+     },
+     "emphasis": {
+      "itemStyle": {
+       "borderColor": "min",
+       "borderWidth": 3
+      }
      },
      "label": {
       "show": true,
@@ -168,7 +184,11 @@
     "borderRadius": 0
    },
    "emphasis": {
-    "focus": "none"
+    "focus": "none",
+    "itemStyle": {
+     "borderColor": "bStroke",
+     "borderWidth": 1
+    }
    },
    "data": [
     100,
@@ -180,6 +200,12 @@
       "borderWidth": 3,
       "shadowBlur": 6,
       "shadowColor": "bStroke"
+     },
+     "emphasis": {
+      "itemStyle": {
+       "borderColor": "min",
+       "borderWidth": 3
+      }
      },
      "label": {
       "show": true,
@@ -205,6 +231,12 @@
       "color": "bFill",
       "borderColor": "max",
       "borderWidth": 3
+     },
+     "emphasis": {
+      "itemStyle": {
+       "borderColor": "max",
+       "borderWidth": 3
+      }
      },
      "label": {
       "show": true,

@@ -5,6 +5,7 @@ import { clampView, densityBins, GUTTER, HEADER_HEIGHT, hitTest, laneDiagnostic,
 import { createLaneStyle, paintFrame, type LaneStyle } from './laneTimelineLod';
 import { RANGE_BRUSH_DRAG_THRESHOLD, type AxisRange } from './useRangeBrush';
 import { laneRowInset } from './laneTimelineModel';
+import { CHART_MARKS } from './chartMarks';
 
 /** Everything the renderer reads from React. `update()` takes the same fields (without the elements) on every render. */
 export type RendererState = {
@@ -149,6 +150,8 @@ export function createLaneRenderer(input: RendererInput) {
       const x = (time: number) => GUTTER + (time - view[0]) / (view[1] - view[0]) * plotWidth;
       const from = Math.min(band[0], band[1]); const to = Math.max(band[0], band[1]);
       top.save(); top.beginPath(); top.rect(GUTTER, 0, plotWidth, height); top.clip();
+      // The band fill matches every chart's range band (#2736); the 2px outline is the confirmed range-brush look.
+      top.fillStyle = color('chart-selection-outline'); top.globalAlpha = CHART_MARKS.rangeBandOpacity; top.fillRect(x(from), 0, x(to) - x(from), height); top.globalAlpha = 1;
       top.strokeStyle = color('chart-selection-outline'); top.lineWidth = 2; top.strokeRect(x(from), 1, x(to) - x(from), height - 2);
       top.restore();
     }
