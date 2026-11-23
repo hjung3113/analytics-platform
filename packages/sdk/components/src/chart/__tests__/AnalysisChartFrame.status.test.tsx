@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import type { EChartProps } from '../EChart';
@@ -26,6 +26,78 @@ async function showTable() {
   return screen.getByRole('table');
 }
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
+
+const plottedSeries = () => (plot.option as { series: { id: string; stack?: string; areaStyle?: unknown; data: unknown[] }[] }).series;
+
+describe('Frame stack and area options (#2737)', () => {
+  it.each(['bar', 'line'] as const)('stacks additive %s series only when opted in', async kind => {
+    const view = mount({ series: series.map(s => ({ ...s, kind })), orientation: 'vertical', reaggregation: 'sum' });
+    await screen.findByRole('img');
+    expect(plottedSeries().slice(0, 2).map(s => s.stack)).toEqual([undefined, undefined]);
+    view.update({ stacked: true });
+    expect(plottedSeries()[0].stack).toBe(kind === 'bar' ? 'total' : undefined);
+    view.update({ stackMode: 'stack' });
+    const [a, b] = plottedSeries();
+    expect(a.stack).toBeTruthy();
+    expect(b.stack).toBe(a.stack);
+    view.update({ stacked: true, stackMode: 'none' });
+    expect(plottedSeries().slice(0, 2).map(s => s.stack)).toEqual([undefined, undefined]);
+  });
+
+  it('keeps horizontal lane, total and min/max output when switching to explicit stack mode', async () => {
+    const view = mount({ stacked: true, startAlign: true, valueLabels: 'both', minMax: true, reaggregation: 'sum' });
+    await screen.findByRole('img');
+    const marks = () => plottedSeries().map(({ id, stack, data }) => ({ id, stack, data }));
+    const legacy = marks();
+    view.update({ stacked: false, stackMode: 'stack' });
+    expect(marks()).toEqual(legacy);
+  });
+
+  it.each(['ratioOfSums', undefined] as const)('keeps a stack request with reaggregation=%s grouped and diagnoses it', async reaggregation => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mount({ stackMode: 'stack', reaggregation });
+    await screen.findByRole('img');
+    expect(plottedSeries()[0].stack).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/stackMode.*reaggregation/));
+  });
+
+  it('exposes only the implemented stack modes', () => {
+    expectTypeOf<AnalysisChartFrameProps['stackMode']>().toEqualTypeOf<'none' | 'stack' | undefined>();
+  });
+
+  it('preserves default single-line fill and allows explicit fill choices', async () => {
+    const view = mount({ orientation: 'vertical', series: [series[0]] });
+    await screen.findByRole('img');
+    expect(plottedSeries()[0].areaStyle).toEqual({ opacity: 0.09 });
+    view.update({ areaFill: false });
+    expect(plottedSeries()[0].areaStyle).toBeUndefined();
+    view.update({ areaFill: true, series: [series[0], { ...series[1], kind: 'bar' }] });
+    expect(plottedSeries().slice(0, 2).map(s => s.areaStyle)).toEqual([{ opacity: 0.09 }, undefined]);
+  });
+
+  it('uses the first value at repeated times for the stack, status, activation, table and CSV', async () => {
+    const [early, late] = ['2026-09-01T00:00:00', '2026-09-01T02:00:00'];
+    const [start, end] = [Date.UTC(2026, 8, 1), Date.UTC(2026, 8, 1, 2)];
+    const activate = vi.fn();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mount({ xType: 'time', orientation: 'vertical', stackMode: 'stack', reaggregation: 'sum',
+      series: [{ ...series[0], points: [[early, 2], [late, 3], [late, 9]] }, { ...series[1], points: [[late, 5], [early, null]] }],
+      pointStatus: point => point.seriesId === 'b' || point.value === 3 ? status : undefined,
+      pointActivation: { on: 'dblclick', onActivate: activate } });
+    await screen.findByRole('img');
+    expect(plottedSeries().slice(0, 2).map(s => s.data)).toEqual([[[start, 2], [end, 3]], [[start, null], [end, 5]]]);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/duplicate timestamp/i));
+    expect(plottedSeries().find(s => s.id === '__line-status-b')?.data).toEqual([expect.objectContaining({ value: [end, 8] })]);
+    act(() => plot.onEvents?.dblclick?.({ seriesId: 'b', dataIndex: 1 }, {} as never));
+    expect(activate).toHaveBeenCalledWith({ x: late, seriesId: 'b', value: 5 });
+    const table = await showTable();
+    expect(table).toHaveTextContent('M1: ◆ 상한 초과');
+    expect(within(table).getByRole('columnheader', { name: 'M1 (원래 값)' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
+    expect(vi.mocked(downloadChartCsv).mock.lastCall?.slice(1)).toEqual([['x', 'M1 (원래 값)', 'M2 (원래 값)', '상태', '사유'], expect.arrayContaining([[late, 3, 5, 'M1: ◆ 상한 초과\nM2: ◆ 상한 초과', 'M1: Recipe 미구분\nM2: Recipe 미구분']])]);
+  });
+});
 
 describe('opt-in Frame reading aids (#2326)', () => {
   it('uses group and short row labels in selector/table/summary/CSV but keeps callback identities', async () => {

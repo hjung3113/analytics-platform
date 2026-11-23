@@ -16,7 +16,11 @@ describe('catalog support source of truth (06 §16)', () => {
     }
     const counts = supportCounts(row);
     expect(counts.supported + counts.conditional + counts.unsupported).toBe(8);
-    expect(row.find(cell => cell.id === 'drill')!.status).toBe(kind === 'breakdown' ? 'supported' : kind === 'line' || kind === 'bar' || kind === 'lane' ? 'unsupported' : 'conditional');
+    expect(row.find(cell => cell.id === 'drill')!.status).toBe(kind === 'breakdown' ? 'supported' : kind === 'line' || kind === 'bar' || kind === 'lane' || kind === 'histogram' ? 'unsupported' : 'conditional');
+  });
+  it.each([true, false])('histogram offers a table and follows export=%s', exportAllowed => {
+    const row = supportFor('histogram', { compare: true, annotate: true, export: exportAllowed });
+    expect(row.filter(cell => cell.status === 'supported').map(cell => cell.id)).toEqual(exportAllowed ? ['export', 'table'] : ['table']);
   });
   it.each(['line', 'bar'] as const)('%s follows feature flags for Compare/Annotate/Export', kind => {
     const off = supportFor(kind, { compare: false, annotate: false, export: false });

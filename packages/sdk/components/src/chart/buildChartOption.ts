@@ -176,6 +176,9 @@ export type ChartOptionInput = {
   unit: string;
   lang: Lang;
   stacked: boolean | undefined;
+  /** An approved stackMode request enables line stacking and has aligned time data. */
+  explicitStack?: boolean;
+  areaFill?: boolean;
   palette: ChartPalette;
   /** Stable and live: the tooltip calls it when it opens, so a consumer's new `valueFormat` never rebuilds the option. */
   valueFormat: (v: number) => string;
@@ -516,13 +519,14 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           }, emphasis: { itemStyle: border }, ...(mark ? { label: extremeLabel(mark, lanes !== null, palette, lang) } : label ? { label } : {}) };
         };
         const real = {
-          id: s.id, name: s.name, type: kind, stack: i.stacked && kind === 'bar' ? 'total' : undefined,
+          id: s.id, name: s.name, type: kind,
+          stack: kind === 'bar' ? (i.stacked ? 'total' : undefined) : (i.explicitStack ? 'line-total' : undefined),
           // Over 12 points they show on hover only; a series with a selected point keeps them, since its label rides on the symbol.
           showSymbol: i.selectedPointKeys !== undefined && (lineSymbolShown(s.points.length) || s.points.some(([x]) => selectedPoints.has(chartPointKey({ seriesId: s.id, x })))), symbolSize: 5, connectNulls: false,
           ...(kind === 'line' && s.step ? { step: s.step } : {}),
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: pattern === 'solid' ? CHART_MARKS.lineWidth : CHART_MARKS.patternLineWidth, type: pattern },
           itemStyle: { color: palette.series[n].fill, ...(kind === 'bar' ? { borderRadius: barRadius(horizontal, i.stacked || lanes !== null) } : {}) },
-          ...(areaLine ? { areaStyle: { opacity: CHART_MARKS.singleLineAreaOpacity } } : {}),
+          ...(kind === 'line' && (i.areaFill ?? areaLine) ? { areaStyle: { opacity: CHART_MARKS.singleLineAreaOpacity } } : {}),
           // Hover marks the target series only: a wider line or a series-coloured bar edge; others keep their look unless the chart opts into dimming (#2342, #2736).
           emphasis: { focus: i.emphasisFocus ?? 'none', ...(kind === 'line'
             ? { lineStyle: { width: (pattern === 'solid' ? CHART_MARKS.lineWidth : CHART_MARKS.patternLineWidth) + CHART_MARKS.hoverLineWidthGain } }

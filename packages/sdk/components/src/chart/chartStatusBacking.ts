@@ -20,16 +20,19 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
   if (!statuses.size) return [];
   const bars = input.displayed.filter(s => input.horizontal || s.kind === 'bar');
   const count = input.stacked ? 1 : bars.length;
+  const alignedByIndex = input.explicitStack && input.xType === 'time';
+  const times = input.xType === 'time' ? [...new Set(bars.flatMap(s => s.points.map(([x]) => toMs(x))))].sort((a, b) => a - b) : [];
+  const interval = times.reduce((min, x, index) => index === 0 ? min : Math.min(min, x - times[index - 1]), Infinity);
   return bars.flatMap((series, slot) => {
     const n = input.displayed.indexOf(series);
-    const pieces = series.points.flatMap(([x, value]) => {
+    const pieces = series.points.flatMap(([x, value], index) => {
       const status = statuses.get(chartPointKey({ seriesId: series.id, x }));
       if (!status || value === null || !Number.isFinite(value)) return [];
       const backing = statusBacking(status, input.palette.series[n].fill);
       let start = 0;
       if (lanes) start = lanes.lanes[n].start;
       else if (input.stacked) for (const previous of bars.slice(0, slot)) {
-        const v = previous.points.find(([category]) => category === x)?.[1];
+        const v = alignedByIndex ? previous.points[index]?.[1] : previous.points.find(([category]) => category === x)?.[1];
         if (typeof v === 'number' && Number.isFinite(v) && (v >= 0) === (value >= 0)) start += v;
       }
       const category = input.xType === 'time' ? toMs(x) : input.categories.indexOf(x);
@@ -44,12 +47,10 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
       let layout: { width: number; offset: number } | undefined = layouts?.[input.stacked ? 0 : slot];
       if (!layout) {
         // Time axes do not expose barLayout. Use the same minimum interval and category gap.
-        const times = [...new Set(bars.flatMap(s => s.points.map(([x]) => toMs(x))))].sort((a, b) => a - b);
-        const interval = Math.min(...times.slice(1).map((x, i) => x - times[i]));
         const band = Math.abs((api.size!([interval, 0]) as number[])[0]);
         const width = Math.max(1, Math.min(BAR_MAX_WIDTH, band * (1 - CATEGORY_GAP) / (count + (count - 1) * BAR_GAP)));
         const totalWidth = width * (count + (count - 1) * BAR_GAP);
-        layout = { width, offset: -totalWidth / 2 + slot * width * (1 + BAR_GAP) };
+        layout = { width, offset: -totalWidth / 2 + (alignedByIndex ? 0 : slot) * width * (1 + BAR_GAP) };
       }
       const from = api.coord(input.horizontal ? [start, category] : [category, start]);
       const to = api.coord(input.horizontal ? [end, category] : [category, end]);

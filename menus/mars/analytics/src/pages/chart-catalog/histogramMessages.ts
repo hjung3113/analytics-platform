@@ -1,4 +1,5 @@
 export const HISTOGRAM_MESSAGES = {
+  kind: { ko: '히스토그램', en: 'Histogram' },
   sample: { ko: '히스토그램 · 합성 데이터', en: 'Histogram · Synthetic data' },
   title: { ko: '분포 · PM2 · Pump', en: 'Distribution · PM2 · Pump' },
   caption: { ko: 'PM2 · Pump 회차 1,240개 · 설비 24', en: 'PM2 · Pump · 1,240 runs · 24 tools' },

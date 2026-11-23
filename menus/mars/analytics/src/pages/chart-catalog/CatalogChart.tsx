@@ -9,7 +9,7 @@ import { BreakdownBars } from './BreakdownBars';
 import { kindLabels } from './support';
 
 
-export function CatalogChart({ kind, data, height, updatedAt }: { kind: CatalogKind; data: CatalogData; height: number; updatedAt: string | null }) {
+export function CatalogChart({ kind, data, height, updatedAt }: { kind: Exclude<CatalogKind, 'histogram' | 'sequence'>; data: CatalogData; height: number; updatedAt: string | null }) {
   const m = useMessages(ANALYTICS_MESSAGES);
   const { tx, lang } = useI18n();
   const { global } = usePlatform();
@@ -29,7 +29,7 @@ export function CatalogChart({ kind, data, height, updatedAt }: { kind: CatalogK
   const spec = useMemo<ChartSpec | null>(() => {
     const show = (target: string) => setDetail({ identity, target });
     switch (kind) {
-      case 'line': case 'bar': case 'lane': case 'breakdown': case 'sequence': return null;
+      case 'line': case 'bar': case 'lane': case 'breakdown': return null;
       case 'topNBar': return { kind, items: data.topNBar ?? [], defaultExpanded: true, onItemClick: show, legend: [{ label: m('catalogChartGroupA'), colorToken: 'chart-series-1' }, { label: m('catalogChartGroupB'), colorToken: 'chart-series-2' }] };
       case 'heatmap': return { kind, ...data.heatmap,
         xLabels: data.heatmap.xLabels.map(value => formatWallClock(value)),

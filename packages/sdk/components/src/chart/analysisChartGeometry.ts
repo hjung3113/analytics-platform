@@ -1,3 +1,26 @@
+import type { ChartSeries } from './AnalysisChartFrame';
+
+/** ECharts stacks time marks by index, so each kind needs a common ordered timeline. */
+export function projectTimeStack(series: ChartSeries[]) {
+  const reference = new Map<string, ChartSeries['points']>();
+  let duplicate = false;
+  let mismatched = false;
+  const displayed = series.map(s => {
+    const first = new Map<string, number | null>();
+    for (const [x, value] of s.points) {
+      if (first.has(x)) duplicate = true;
+      else first.set(x, value);
+    }
+    const points = [...first].sort(([a], [b]) => a.localeCompare(b));
+    const kind = s.kind ?? 'line';
+    const timeline = reference.get(kind);
+    if (!timeline) reference.set(kind, points);
+    else if (timeline.length !== points.length || points.some(([x], n) => x !== timeline[n][0])) mismatched = true;
+    return { ...s, points };
+  });
+  return { displayed, duplicate, mismatched };
+}
+
 /** Each mark stays inside its category slot, including at very dense/empty grids. */
 export function heatmapSymbolSize(plotWidth: number, plotHeight: number, xCount: number, yCount: number): [number, number] {
   return [xCount ? Math.max(0, plotWidth / xCount - 2) : 0, yCount ? Math.max(0, plotHeight / yCount - 2) : 0];

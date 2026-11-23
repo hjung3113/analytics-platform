@@ -49,6 +49,20 @@ beforeEach(() => { Object.defineProperty(HTMLElement.prototype, 'scrollIntoView'
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('chart catalog route and lifetime', () => {
+  it('opens and restores the histogram through the catalog tabs', async () => {
+    mount();
+    const histogram = () => screen.findByRole('img', { name: '분포 · PM2 · Pump' });
+    const tab = await screen.findByRole('tab', { name: /^히스토그램 / });
+    fireEvent.mouseDown(tab, { button: 0 });
+    await histogram();
+    const kind = new URLSearchParams(window.location.search).get('kind');
+    expect(kind).toBe('histogram');
+    cleanup();
+    mount(kind!);
+    expect((await screen.findByRole('tab', { name: /^히스토그램 / })).getAttribute('aria-selected')).toBe('true');
+    await histogram();
+  });
+
   it('drops the visible 지원 N/8 tag but keeps the support counts in the tab name', async () => {
     mount();
     const tab = await screen.findByRole('tab', { name: /^선 / });

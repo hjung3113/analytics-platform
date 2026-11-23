@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { createHash } from 'node:crypto';
 import * as echarts from 'echarts/core';
 import { BarChart, CustomChart, LineChart, ScatterChart, type CustomSeriesOption } from 'echarts/charts';
 import { BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
@@ -19,12 +20,27 @@ type NativeData = { count: () => number; getItemLayout: (n: number) => Rect; get
 type NativeModel = { getSeriesByIndex: (n: number) => { getData: () => NativeData } };
 const closeRect = (a: Rect, b: Rect) => { for (const key of ['x', 'y', 'width', 'height'] as const) expect(a[key], key).toBeCloseTo(b[key], 5); };
 
+it('preserves the legacy time stacked-bar option and status rendering from origin/main', () => {
+  const times = ['2026-11-16T00:00:00', '2026-11-16T01:00:00', '2026-11-16T02:00:00'];
+  const displayed: ChartSeries[] = [
+    { id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [[times[0], 2], [times[1], 4]] },
+    { id: 'b', name: 'B', color: 'chart-blue', kind: 'bar', points: [[times[1], 3], [times[2], 8]] },
+  ];
+  const option = buildChartOption(baselineInput({ xType: 'time', horizontal: false, stacked: true, displayed, activeCategory: null, extremes: undefined, pointStatus: () => ({ tone: 'warning', label: 'Status' }) }));
+  const rings = (option.series as CustomSeriesOption[]).filter(s => String(s.id).startsWith('__statusBarBacking'));
+  const rendered = rings.map(({ data, renderItem }) => (data as number[][]).map(row =>
+    (renderItem as (params: unknown, api: unknown) => unknown)({}, { value: (d: number) => row[d], coord: ([x, y]: number[]) => [x / 3_600_000, y * 20], barLayout: () => undefined, size: () => [20, 20] })));
+  // Hash the option and callback output, since JSON serialization omits renderItem itself.
+  expect(createHash('sha256').update(JSON.stringify({ option, rendered })).digest('hex')).toBe('2cccda153d237c5cbab5a763ecada5e1dcdc16f58319cb79fe7bd3a909666d1a');
+});
+
 describe('effective status borders drawn by ECharts (#2326 C1)', () => {
   it.each([
     { horizontal: true, stacked: true, startAlign: false, xType: 'category' as const },
     { horizontal: true, stacked: true, startAlign: true, xType: 'category' as const },
     { horizontal: false, stacked: false, startAlign: false, xType: 'category' as const },
     { horizontal: false, stacked: false, startAlign: false, xType: 'time' as const },
+    { horizontal: false, stacked: true, explicitStack: true, startAlign: false, xType: 'time' as const },
   ])('aligns double strokes with native bar rectangles: %j', extra => {
     const categories = extra.xType === 'time' ? ['2026-11-16T00:00:00', '2026-11-16T01:00:00', '2026-11-16T02:00:00'] : ['R1', 'R2', 'R3'];
     const displayed: ChartSeries[] = [
