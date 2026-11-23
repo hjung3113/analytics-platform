@@ -18,7 +18,7 @@ vi.mock('@ap/components', async importOriginal => {
       const seq = p.revealRequest?.seq, panelId = p.revealRequest?.panelId;
       useEffect(() => { if (panelId) setActive(panelId); }, [seq, panelId]);
       return <div data-testid="workspace" data-config={JSON.stringify({ revealRequest: p.revealRequest, ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], persistKey: p.persistKey, placement: Object.fromEntries(p.panels.map(panel => [panel.id, panel.placement])), pins: Object.fromEntries(p.panels.map(panel => [panel.id, panel.pin?.pinned])) })}>
-      <div role="tablist" aria-label="workspace test tabs">{p.panels.map(panel => <button key={panel.id} role="tab" aria-selected={active === panel.id} onClick={() => setActive(panel.id)}>{panel.id}</button>)}</div>
+      <div role="tablist" aria-label="workspace test tabs">{p.panels.map(panel => <button key={panel.id} role="tab" aria-description={panel.badge?.description.ko} data-count={panel.badge?.count} aria-selected={active === panel.id} onClick={() => setActive(panel.id)}>{panel.id}</button>)}</div>
       <div data-testid="workspace-actions">{p.toolbarActions}</div>
       {p.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`}>{panel.pin && <button onClick={panel.pin.onToggle}>{`pin ${panel.id}`}</button>}{panel.render()}</section>)}
     </div>;
@@ -42,9 +42,10 @@ vi.mock('@ap/components', async importOriginal => {
         statuses: p.series.flatMap(s => s.points.flatMap(([x, value]) => { const st = p.pointStatus?.({ x, value, seriesId: s.id }); return st ? [`${s.id}@${x}:${st.tone}`] : []; })) })}</pre>
       {p.series[0]?.points.map(([x, value]) => <span key={x}>
         <button onClick={() => p.onActiveCategoryChange?.(x, 'pointer')}>{`select ${p.chartId} ${x}`}</button>
+        {p.chartId === 'hw-module-motions' && <button onClick={() => p.onActiveCategoryChange?.(x, 'keyboard')}>{`browse ${x}`}</button>}
         <button onDoubleClick={() => p.pointActivation?.onActivate({ x, value, seriesId: p.series[0]!.id })}>{`activate ${p.chartId} ${x}`}</button>
       </span>)}
-      {p.series[0]?.points[0] && (typeof p.pointActions === 'function' ? p.pointActions({ x: p.series[0].points[0][0], value: p.series[0].points[0][1], seriesId: p.series[0].id }) : []).map(action => <button key={action.id}
+      {p.series[0]?.points[0] && (typeof p.pointActions === 'function' ? p.pointActions({ x: p.series[0].points[0][0], value: p.series[0].points[0][1], seriesId: p.series[0].id }) : []).map(action => <button key={action.id} disabled={action.disabled}
         onClick={() => action.onSelect({ x: p.series[0]!.points[0]![0], value: p.series[0]!.points[0]![1], seriesId: p.series[0]!.id })}>{`point action ${p.chartId} ${action.id}`}</button>)}
     </section>,
   };

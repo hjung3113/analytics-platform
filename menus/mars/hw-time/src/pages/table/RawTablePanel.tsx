@@ -4,7 +4,8 @@ import { HW_TIME_MESSAGES } from '../../messages';
 import { panelDeclarations } from '../analysis/panelDeclaration';
 /**
  * HW Time raw table (ADR-0078): paging, export and a detail drawer over existing SDK pieces.
- * In the linked workspace, raw rows stay at the root population; standalone consumers follow the §12.7 drill level; entry is a visible `<값> 들어가기` button in a series cell, never a whole-row click.
+ * In the linked workspace, raw rows stay at the root grain and can be filtered by the declared analysis selection.
+ * Standalone consumers follow the §12.7 drill level; entry is a visible `<값> 들어가기` button in a series cell.
  * Export belongs to the table (`exportRows` + note + summary). The drawer reuses the shared stack and trend panels with that one row.
  */
 import { ChevronRight, Inbox, PanelRight } from 'lucide-react';
@@ -20,7 +21,7 @@ import { filterRow } from '../../shared/filterData';
 import { worstJudgement } from '../../shared/JudgementSummary';
 import { htmStatusText, htmStatusView } from '../../shared/htm';
 import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
-import { HW_TIME_MODULE_TYPES, hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow } from '../../endpoints';
+import { HW_TIME_MODULE_TYPES, MOTION_EQUIPMENT_KEY, hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow } from '../../endpoints';
 import { shownDrill } from '../../shared/shownDrill';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText, rowIdLabel } from '../../shared/format';
@@ -61,7 +62,10 @@ function SeriesLegend({ series, values, lang }: { series: readonly HwTimeSeries[
   </ul>;
 }
 
-export default function RawTablePanel({ linked = false }: PageProps & { linked?: boolean }) {
+export default function RawTablePanel({ linked = false, analysis }: PageProps & {
+  linked?: boolean;
+  analysis?: { equipment: readonly string[]; level: ReturnType<typeof useHwTimeLevel> };
+}) {
   const m = useMessages(HW_TIME_MESSAGES);
   const { lang } = useI18n();
   const { pageParam, setPage } = usePlatform();
@@ -71,7 +75,7 @@ export default function RawTablePanel({ linked = false }: PageProps & { linked?:
   const level = levelOf(module, motion);
   const checkedSeries = level === 0 ? filter?.modules : filter?.motions;
   const activeSeries = checkedSeries ?? seriesIds(level, motion);
-  const queryDrill = { ...drillParams(module, motion), ...(filter ? { moduleType: filter.moduleType.id } : {}) };
+  const queryDrill = { ...drillParams(module, motion), ...(filter ? { moduleType: filter.moduleType.id } : {}), ...(analysis ? { [MOTION_EQUIPMENT_KEY]: analysis.equipment } : {}) };
   const focus = pageParam('focus');
   const focusKeys = useHwTimeDrillRules([{ key: 'focus', label: { ko: '열린 행', en: 'Open row' }, valid: isHwTimeTrendId }]);
   const tableState = useTableUrlState(SORT_FIELDS);
@@ -88,10 +92,11 @@ export default function RawTablePanel({ linked = false }: PageProps & { linked?:
   const exports = useMenuFetch(hwTime.exportRows);
 
   // The level response gives the empty/partial states and the drawer's row at every level; the table pages through its own fetch.
-  const levelQ = useHwTimeLevel(drillParams(module, motion), !focusKeys.invalid);
+  const localLevel = useHwTimeLevel(drillParams(module, motion), !analysis && !focusKeys.invalid);
+  const levelQ = analysis?.level ?? localLevel;
   // The row counts below describe the kept level result (#1365): they name the Module/Motion it was loaded with.
   const kept = shownDrill(levelQ, drillParams(module, motion));
-  const response: HwTimeLevelData | null = levelQ.response && ['ok', 'empty'].includes(levelQ.response.outcome) ? levelQ.response.data : null;
+  const response: HwTimeLevelData | null = levelQ.response && isAnswered(levelQ.response.outcome) && !(analysis && levelQ.showingPrevious) ? levelQ.response.data : null;
   const listed = response ? levelRowsOf(response) : NO_ROWS;
   const dataRows = listed.filter(row => !row.auxiliary);
   const partial = dataRows.filter(row => Object.values(row.values).some(value => value === null)).length;

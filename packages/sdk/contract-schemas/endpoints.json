@@ -963,6 +963,7 @@
       "moduleType",
       "drillModule",
       "drillMotion",
+      "motionEquipment",
       "ids",
       "sorting"
     ],
@@ -991,7 +992,8 @@
     "paramKeys": [
       "moduleType",
       "drillModule",
-      "drillMotion"
+      "drillMotion",
+      "motionEquipment"
     ],
     "permission": "analytics:view",
     "requiresScope": true,
@@ -1089,6 +1091,7 @@
       "moduleType",
       "drillModule",
       "drillMotion",
+      "motionEquipment",
       "page",
       "pageSize",
       "sorting"

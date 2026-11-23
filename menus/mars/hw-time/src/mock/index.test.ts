@@ -138,6 +138,17 @@ describe('HW Time level rows', () => {
 });
 
 describe('HW Time trends and table endpoints', () => {
+  it('applies equipment selection before paging and shares that population with level rows and export', async () => {
+    const motionEquipment = ['EQ-002', 'EQ-006'];
+    const page = await data<HwTimeTableData>(hwTime.tableRows.id, { motionEquipment, page: 1, pageSize: 1, sorting: [] });
+    expect(page.total).toBe(2);
+    expect(page.rows.map(row => row.equipmentId)).toEqual(['EQ-006']);
+    const level = await data<HwTimeLevelData>(hwTime.levelRows.id, { motionEquipment });
+    expect(level.rows.map(row => row.equipmentId)).toEqual(motionEquipment);
+    const exported = await data<HwTimeRow[]>(hwTime.exportRows.id, { motionEquipment, ids: null, sorting: [] });
+    expect(exported.map(row => row.equipmentId)).toEqual(motionEquipment);
+  });
+
   it('returns daily points in the period whose values differ for adjacent rows', async () => {
     const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1', 'EQ-001.H2'] });
     expect(result.rows).toHaveLength(2);

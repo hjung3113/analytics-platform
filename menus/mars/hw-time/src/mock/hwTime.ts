@@ -2,8 +2,8 @@
 import { bucketStart, shift, type PageSort } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
 import {
-  HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLORS, HW_TIME_MOTION_COLOR_BY_ID, SUB_ITEM_IDS, hwTime, isHwTimeTrendId,
-  type HwTimeBlock, type HwTimeDrill, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow, type HwTimeModuleType,
+  HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MAX_ROWS, HW_TIME_MAX_TREND_ROWS, HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLORS, HW_TIME_MOTION_COLOR_BY_ID, SUB_ITEM_IDS, hwTime, isHwTimeTrendId,
+  type HwTimeBlock, type HwTimeDrill, type HwTimeRow, type HwTimeSeries, type HwTimeTableFilter, type HwTimeTableRow, type HwTimeModuleType,
 } from '../endpoints';
 import { judge, rollUp } from './htm';
 import { syntheticEquipmentIds } from './syntheticEquipment';
@@ -115,6 +115,18 @@ function validateDrill(drill: HwTimeDrill): string | null {
   return null;
 }
 
+function validateTableFilter(params: HwTimeTableFilter) {
+  const { motionEquipment } = params;
+  if (motionEquipment !== undefined && (!Array.isArray(motionEquipment)
+    || motionEquipment.some(id => typeof id !== 'string' || !HW_TIME_EQUIPMENT_ID_PATTERN.test(id)))) return 'motionEquipment must be a set of synthetic equipment IDs';
+  return validateDrill(params);
+}
+
+function tableEquipment(equipment: Parameters<typeof syntheticEquipmentIds>[0], { motionEquipment }: HwTimeTableFilter) {
+  const ids = syntheticEquipmentIds(equipment);
+  return motionEquipment === undefined ? ids : ids.filter(id => motionEquipment.includes(id));
+}
+
 function levelRows(equipmentIds: readonly string[], drill: HwTimeDrill) {
   const type = typeOf(drill);
   const invalid = validateDrill(drill);
@@ -220,8 +232,8 @@ function exportRows(equipmentIds: readonly string[], drill: HwTimeDrill, ids: st
 
 export const hwTimeMock: readonly AnyMockEndpoint[] = [
   defineMockEndpoint(hwTime.levelRows, {
-    handle: ({ params, equipment }) => levelRows(syntheticEquipmentIds(equipment), params),
-    validate: ({ params }) => validateDrill(params),
+    handle: ({ params, equipment }) => levelRows(tableEquipment(equipment, params), params),
+    validate: ({ params }) => validateTableFilter(params),
     isEmpty: data => data.rows.length === 0,
   }),
   defineMockEndpoint(hwTime.trend, {
@@ -230,14 +242,14 @@ export const hwTimeMock: readonly AnyMockEndpoint[] = [
     isEmpty: data => data.rows.length === 0,
   }),
   defineMockEndpoint(hwTime.tableRows, {
-    handle: ({ params, equipment }) => tableRows(syntheticEquipmentIds(equipment), params, params.page, params.pageSize, params.sorting),
-    validate: ({ params }) => validateDrill(params),
+    handle: ({ params, equipment }) => tableRows(tableEquipment(equipment, params), params, params.page, params.pageSize, params.sorting),
+    validate: ({ params }) => validateTableFilter(params),
     isEmpty: data => data.rows.length === 0,
   }),
   defineMockEndpoint(hwTime.exportRows, {
-    handle: ({ params, equipment }) => exportRows(syntheticEquipmentIds(equipment), params, params.ids, params.sorting),
+    handle: ({ params, equipment }) => exportRows(tableEquipment(equipment, params), params, params.ids, params.sorting),
     validate: ({ params }) => {
-      const invalidFilter = validateDrill(params);
+      const invalidFilter = validateTableFilter(params);
       if (invalidFilter) return invalidFilter;
       if (params.ids !== null && (!Array.isArray(params.ids) || params.ids.some(id => typeof id !== 'string'))) return 'ids must be a string array or null';
       return null;
