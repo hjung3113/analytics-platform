@@ -53,7 +53,7 @@
 │언어│ 최근방문       │                                                │
 │사용자│              │                                                │
 └────┴───────────────┴────────────────────────────────────────────────┘
- 레일 52px  사이드바 240/56px   상단 바 없음
+ 레일 52px  사이드바 240px(접으면 없음)  상단 바 없음
 ```
 
 상세가 열린 상태(B안, [ADR-0013](../adr/0013-detail-panel-shell-docked-slot.md)):
@@ -72,11 +72,11 @@
 
 구조는 기능 AppFrame(레일·밝은 사이드바·50px 머리)을 따른다(06 §7). 그룹 귀속은 [06 §9.1](../contract/kernel.md#91-업무-시스템-decided-2026-09-26), 배치는 [15 §3.1](multi-workspace-ui.md#31-셸-배치-decided-2026-10-09)이 소유한다. 위 그림의 사이드바 메뉴 이름은 현재 트리가 아니다(ADR-0028로 대체). 레일 맨 위에는 업무 시스템 전환기가, 그 아래에는 현재 시스템의 섹션 버튼이 있다([15 §3.2](multi-workspace-ui.md#32-시스템별-레일-decided-2026-10-19-adr-0042), 구현 #423). 메뉴 검색은 레일의 명령 팔레트로 한다.
 
-50px 페이지 머리와 Context Bar는 main 스크롤 영역 안에서 하나의 sticky 래퍼로 유지한다(Context Bar는 독립 sticky 아님). 콘텐츠 여백은 기능 `PageShell` 기준이며 치수 원본은 06 §7 Baseline이다. 접힌 사이드바에서도 Scope 선택·검증 상태는 아이콘·접근성 텍스트로 유지한다.
+50px 페이지 머리와 Context Bar는 main 스크롤 영역 안에서 하나의 sticky 래퍼로 유지한다(Context Bar는 독립 sticky 아님). 콘텐츠 여백은 기능 `PageShell` 기준이며 치수 원본은 06 §7 Baseline이다. Scope 선택·검증 상태는 사이드바와 무관하게 제목 줄 Scope 칩에 있다(#2727).
 
 Context 바는 [06 §7 우선순위 넘침](../contract/layout.md#7-application-shell)을 소비한다(ADR-0015). 상세 열림·사이드바 접기에도 한 줄을 유지하며 넘침 팝오버 안에서 기존 편집기와 참조/미사용 배지에 접근한다.
 
-Scope의 포함 관계는 Site→room_name→StGroup→Equipment이며 실무 권한·조회 기준은 room_name이다. Line은 room_name과 교차하는 독립 축이고 v1의 요청 scopeId는 단일 선택이다(전역 계약 §6.2, [ADR-0005](../adr/0005-scope-room-name-line-independent.md)). Site 선택은 DB 연결 대상을 정한다. Factory는 별도 레벨로 모델링하지 않는다. 부모·자식 상속 세부는 Open이며 고정 다단 선택기를 요구하지 않는다. Scope 선택기는 사이드바 머리 하나뿐이며 중복 배치하지 않고, Global Context의 room_name·Equipment Group 두 층은 같은 권한 경계 안의 조회 조건으로 표시한다.
+Scope의 포함 관계는 Site→room_name→StGroup→Equipment이며 실무 권한·조회 기준은 room_name이다. Line은 room_name과 교차하는 독립 축이고 v1의 요청 scopeId는 단일 선택이다(전역 계약 §6.2, [ADR-0005](../adr/0005-scope-room-name-line-independent.md)). Site 선택은 DB 연결 대상을 정한다. Factory는 별도 레벨로 모델링하지 않는다. 부모·자식 상속 세부는 Open이며 고정 다단 선택기를 요구하지 않는다. Scope 선택기는 제목 줄 Scope 칩 하나뿐이며(#2727) 중복 배치하지 않고, Global Context의 room_name·Equipment Group 두 층은 같은 권한 경계 안의 조회 조건으로 표시한다.
 
 공지 배너의 위치·노출 조건은 Open이다. 전역 알림 벨·통합 미확인 배지는 필수 영역에 넣지 않는다. 저장된 뷰의 비활성 버튼도 배치하지 않는다.
 

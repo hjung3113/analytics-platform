@@ -370,7 +370,7 @@ describe('ModuleScreen arrival focus (06 §26, ADR-0032)', () => {
 describe('implemented badge', () => {
   it('shows no planned badge for a module entry in the sidebar and the palette', () => {
     function Open() { const { setPaletteOpen } = useHostPlatform(); return <button type="button" onClick={() => setPaletteOpen(true)}>open palette</button>; }
-    mount('/fixture?v=1', { extra: <><AppSidebar collapsed={false} onToggle={() => {}} /><Open /><CommandPalette /></> });
+    mount('/fixture?v=1', { extra: <><AppSidebar onToggle={() => {}} /><Open /><CommandPalette /></> });
     const nav = screen.getByRole('navigation', { name: '주 메뉴' });
     expect(within(nav).getByRole('link', { name: /list/ })).toBeTruthy();
     expect(within(nav).queryByText('예정')).toBeNull();

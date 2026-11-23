@@ -158,19 +158,14 @@ describe('ScopeSelector Scope retry menu item (#183)', () => {
 });
 
 
-describe('sidebar Scope selector (#194)', () => {
-  it('keeps label, state and room grants accessible in collapsed mode, and opens the same single-select menu', async () => {
+describe('title-row Scope chip (#194, #2727)', () => {
+  it('keeps label, state and room grants accessible while the chip shows only the name, and opens the single-select menu', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const scopes = [{ id: 'MEM', label: 'MEM · 청주', grantedRooms: 3, totalRooms: 5 }];
-    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }), scopes)} registry={registry}><ScopeSelector collapsed /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={adapterWith(async () => ({ status: 'valid', grantedRooms: [] }), scopes)} registry={registry}><ScopeSelector /></PlatformProvider></I18nProvider>);
     const trigger = screen.getByRole('button', { name: 'Scope: MEM · 청주' });
     await waitFor(() => expect(trigger).toHaveAccessibleDescription('서버 검증됨 · 공정 3/5'));
-    fireEvent.focus(trigger);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('MEM · 청주 · 서버 검증됨 · 공정 3/5');
-    expect(trigger).toHaveAccessibleDescription('서버 검증됨 · 공정 3/5');
-    fireEvent.blur(trigger);
-    fireEvent.pointerMove(trigger);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('MEM · 청주 · 서버 검증됨 · 공정 3/5');
+    expect(trigger).toHaveClass('h-8', 'max-w-56');
     expect(trigger.querySelector('.sr-only')?.textContent).toContain('공정 3/5');
     act(() => { trigger.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })); });
     expect(await screen.findByRole('menuitemradio', { name: 'MEM · 청주 공정 3/5' })).toBeTruthy();
@@ -200,10 +195,10 @@ describe('Scope accessible status (#194 FIX2)', () => {
     ['forbidden', async () => ({ status: 'forbidden', grantedRooms: [] }), 'MEM', '접근 불가'],
     ['unknown_scope', async () => ({ status: 'unknown_scope', grantedRooms: [] }), 'GHOST', '알 수 없는 Scope'],
   ];
-  it.each(scenarios)('describes and politely announces %s in both modes', async (_state, validate, scopeId, status) => {
-    for (const collapsed of [false, true]) {
+  it.each(scenarios)('describes and politely announces %s in both layouts', async (_state, validate, scopeId, status) => {
+    for (const layout of ['chip', 'bar'] as const) {
       window.history.replaceState(null, '', `/?v=1${scopeId ? `&scopeId=${scopeId}` : ''}`);
-      render(<I18nProvider><PlatformProvider adapter={adapterWith(validate, scopes)} registry={registry}><ScopeSelector collapsed={collapsed} /></PlatformProvider></I18nProvider>);
+      render(<I18nProvider><PlatformProvider adapter={adapterWith(validate, scopes)} registry={registry}><ScopeSelector layout={layout} /></PlatformProvider></I18nProvider>);
       const trigger = screen.getByRole('button', { name: `Scope: ${scopeId === 'MEM' ? 'MEM · 청주' : scopeId || 'Scope 선택'}` });
       const descriptionId = trigger.getAttribute('aria-describedby');
       await waitFor(() => expect(trigger).toHaveAccessibleDescription(`${status}${scopeId === 'MEM' ? ' · 공정 3/5' : ''}`));
@@ -211,8 +206,7 @@ describe('Scope accessible status (#194 FIX2)', () => {
       expect(screen.getByRole('status')).toHaveTextContent(status);
       expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
       expect(screen.getByRole('status')).not.toHaveTextContent('공정');
-      const description = document.getElementById(descriptionId!);
-      expect(description).toHaveClass(['error', 'forbidden', 'unknown_scope'].includes(_state) ? 'text-text-warning-label' : 'text-text-secondary');
+      expect(document.getElementById(descriptionId!)).toHaveClass('sr-only');
       cleanup();
     }
   });

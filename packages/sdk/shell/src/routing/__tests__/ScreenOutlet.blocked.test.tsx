@@ -45,7 +45,7 @@ function mount(url = '/mars/home?v=1', pane = false, strict = false, menus = reg
   window.history.replaceState(null, '', url);
   const session = testSession(['platform:view']);
   const tree = <I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session, publishedMetrics: () => [{ metricId: 'CT', publishedVersion: '7' }] })} registry={menus}>
-    <Probe /><AppSidebar collapsed={false} onToggle={() => {}} />
+    <Probe /><AppSidebar onToggle={() => {}} />
     <main id="platform-main" tabIndex={-1}><ScreenOutlet /></main>
     {pane && <div data-pane-id="denied" tabIndex={-1}>
       <PaneScreenProvider paneId="denied" screen={{ menuId: 'equipment', params: {}, query: '?v=1' }} onChange={() => {}} onLeave={() => {}}><ScreenOutlet /></PaneScreenProvider>

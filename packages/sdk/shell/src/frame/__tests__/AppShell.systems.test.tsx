@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { Boxes, House, Wrench } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformLink, PlatformProvider, createRegistry } from '@ap/kernel';
+import { PlatformPage } from '@ap/components';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '@ap/kernel/testing';
 import { AppShell } from '../AppShell';
 import { groupId, spaceId, type GroupId, type Permission } from '@ap/contracts';
@@ -72,14 +73,33 @@ describe('rail sections (15 §3.2)', () => {
     expect(within(screen.getByRole('navigation', { name: '주 메뉴' })).getByRole('link', { name: '사이클 목록' })).toHaveAttribute('aria-current', 'page');
   });
 
-  it('does nothing when the current section is pressed', () => {
+  it('toggles the sidebar without navigating when the current section is pressed (#2727)', () => {
     mount('/cycle?v=1&scopeId=MEM');
     const push = vi.spyOn(window.history, 'pushState');
     const replace = vi.spyOn(window.history, 'replaceState');
-    fireEvent.click(within(sections()!).getByRole('button', { name: '사이클' }));
+    const [cycle, equip] = within(sections()!).getAllByRole('button');
+    expect(cycle).toHaveAttribute('aria-expanded', 'true');
+    expect(cycle).toHaveAttribute('aria-controls', 'platform-sidebar');
+    expect(equip).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(cycle);
+    expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
+    expect(cycle).toHaveAttribute('aria-expanded', 'false');
+    expect(localStorage.getItem('platform:sidebar-collapsed:v1:u1:')).toBe('true');
+    fireEvent.click(cycle);
+    expect(screen.getByRole('navigation', { name: '주 메뉴' })).toBeTruthy();
     expect(push).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
     expect(window.location.pathname).toBe('/mars/cycle-list');
+  });
+
+  it('opens another section with the sidebar open when it was collapsed (#2727)', async () => {
+    localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
+    mount('/cycle?v=1');
+    expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
+    fireEvent.click(within(sections()!).getByRole('button', { name: '설비' }));
+    await waitFor(() => expect(window.location.pathname).toBe('/mars/equip-list'));
+    expect(within(screen.getByRole('navigation', { name: '주 메뉴' })).getByRole('link', { name: '설비 목록' })).toBeTruthy();
+    expect(within(sections()!).getByRole('button', { name: '설비' })).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('opens the first visible menu of another section through a Kernel link that keeps the global Context', async () => {
@@ -105,7 +125,8 @@ describe('rail sections (15 §3.2)', () => {
   ])('has no sections outside a system (%s)', (_label, url) => {
     mount(url);
     expect(sections()).toBeNull();
-    expect(rail().querySelector('[aria-current]')).toBeNull();
+    // A global screen's only rail category is «홈», which toggles the platform sidebar (#2727).
+    expect(Array.from(rail().querySelectorAll('[aria-current]')).map(node => node.getAttribute('aria-label'))).toEqual(url === '/?v=1' ? ['홈'] : []);
   });
 });
 
@@ -119,7 +140,8 @@ describe('sidebar of the current section (15 §3.2)', () => {
     expect(within(nav).getByRole('group', { name: '사이클' }).querySelector('p')).toBeNull();
     expect(screen.getByRole('region', { name: '즐겨찾기' })).toBeTruthy();
     expect(screen.getByRole('region', { name: '최근 방문' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /^Scope/ })).toBeTruthy();
+    // The analytics Scope selector is the page title-row chip, not a sidebar row (#2727).
+    expect(screen.queryByRole('button', { name: /^Scope/ })).toBeNull();
   });
 
   it('shows the system name and, on a second line, the section name', () => {
@@ -146,13 +168,14 @@ describe('sidebar of the current section (15 §3.2)', () => {
     expect(Array.from(head.querySelectorAll('p')).map(p => p.textContent)).toEqual(['지표관리']);
   });
 
-  it('draws the current section menu icons only when collapsed', () => {
+  it('leaves only the rail when collapsed (#2727)', () => {
     localStorage.setItem('platform:sidebar-collapsed:v1:u1:', 'true');
     const view = mount('/cycle?v=1');
-    const nav = screen.getByRole('navigation', { name: '주 메뉴' });
-    expect(within(nav).getAllByRole('link').map(link => link.getAttribute('aria-label'))).toEqual(['사이클 목록']);
-    expect(nav.textContent).toBe('');
-    expect(view.container.querySelector('aside')).toHaveAttribute('data-collapsed', 'true');
+    expect(screen.queryByRole('navigation', { name: '주 메뉴' })).toBeNull();
+    expect(view.container.querySelector('#platform-sidebar')).toBeNull();
+    const cycle = within(sections()!).getByRole('button', { name: '사이클' });
+    expect(cycle).toHaveAttribute('aria-expanded', 'false');
+    expect(cycle).not.toHaveAttribute('aria-controls');
   });
 
   it('draws no business sidebar outside a system', () => {
@@ -205,7 +228,7 @@ describe('space scope control slot (ADR-0081 decision 4)', () => {
     window.history.replaceState(null, '', url);
     const session = testSession(['platform:view', 'console:access']);
     return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots as never}>
-      <AppShell><p>body</p></AppShell>
+      <AppShell><PlatformPage><p>body</p></PlatformPage></AppShell>
     </PlatformProvider></I18nProvider>);
   }
   const Own = ({ collapsed }: { collapsed: boolean }) => <div data-testid="own-scope" data-collapsed={String(collapsed)} />;

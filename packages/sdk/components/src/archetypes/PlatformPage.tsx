@@ -164,9 +164,12 @@ export function PlatformPage(props: PlatformPageProps) {
 
 /** Host wrapper for the mounted content body, leaving the page chrome outside its error boundary. */
 export const PlatformPageBodyBoundary = createContext<((body: ReactNode) => ReactNode) | null>(null);
+/** Host control drawn first in a main screen's title row, before the breadcrumb: the shell's analytics Scope chip (#2727). A pane has no title row. */
+export const PlatformPageTitleLead = createContext<ReactNode>(null);
 
 function PlatformPageFrame({ title, description, primaryAction, secondaryActions, contextExtension, contextNotes, dataTrustSummary, queryBarExtension, queryResult, crumbs = [], layout = 'flow', density = 'compact', bodyInset = 'default', showReturnRow = true, arrivalTarget, children, conditionTrigger, conditionLayer }: PlatformPageProps & { conditionTrigger?: ReactNode; conditionLayer?: ReactNode }) {
   const wrapBody = useContext(PlatformPageBodyBoundary);
+  const titleLead = useContext(PlatformPageTitleLead);
   const { global, equipmentAxes, route, objectLinks, favorites, toggleFavorite, scope, retryScope, setGlobal, lastScope, linkTo, registry, slots, url, currentSpace, screenMode, canOpen, queryDraft, pageParams, scopeSelector } = useHostPlatform();
   const detailFullscreen = useContext(DetailPanelFullscreenContext);
   const covered = detailFullscreen?.expanded === true;
@@ -305,7 +308,9 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   // rem like the classes it mirrors: 7rem = h1 min-w-28, 1.5rem = size-6 controls, 0.5rem = gap-2; the breadcrumb and an un-yielded description shrink to 0.
   const leftGroupItems = 1 + (favoriteTarget ? 1 : 0) + (hasDescription ? 1 : 0) + (currentSpace || parent || crumbs.length > 0 ? 1 : 0);
   const leftGroupControls = (favoriteTarget ? 1 : 0) + (hasDescription && headerYield.description ? 1 : 0);
-  const leftGroupMinWidth = `calc(7rem + ${leftGroupControls * 1.5}rem + ${(leftGroupItems - 1) * 0.5}rem)`;
+  // A title lead (the shell Scope chip, #2727) shrinks to its 3.875rem badge-and-chevron minimum, plus its gap.
+  const leadReserve = titleLead === null ? 0 : 4.375;
+  const leftGroupMinWidth = `calc(7rem + ${leftGroupControls * 1.5 + leadReserve}rem + ${(leftGroupItems - 1) * 0.5}rem)`;
 
   const fixedFill = layout === 'fill' && flowing === 0;
   // A folded bar that is not editing already prints the applied values in its summary (#1170): the strip keeps only the completion time.
@@ -347,6 +352,7 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
             that contribution), so an un-yielded header overflowed; a fixed 7rem let the shrink-0 controls spill
             into the right group (#398 AA2-1). */}
         <div style={{ '--header-left-min': leftGroupMinWidth } as CSSProperties} className="flex min-w-[var(--header-left-min)] flex-1 items-center gap-2">
+          {titleLead !== null && <div data-title-lead className="flex min-w-15.5 shrink items-center empty:hidden">{titleLead}</div>}
           {(currentSpace || parent || crumbs.length > 0) && <nav aria-label={t('breadcrumb')} className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
             {currentSpace && <><span data-breadcrumb-system className="min-w-0 truncate" title={tx(currentSpace.label)}>{tx(currentSpace.label)}</span><ChevronRight className="size-3 shrink-0" aria-hidden /></>}
             {sectionShown && <><span data-breadcrumb-section className="min-w-0 truncate" title={sectionName}>{sectionName}</span><ChevronRight className="size-3 shrink-0" aria-hidden /></>}

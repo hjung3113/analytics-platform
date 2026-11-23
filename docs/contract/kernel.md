@@ -304,7 +304,7 @@ carry set과 `contextResetKeys`는 이 키들을 그대로 가리킬 수 있다.
 - **room → StGroup → Equipment의 권한 상속 및 조회 필터 자동 포함의 세부 규칙은 Open domain decision이다.** room_name이 실무 권한 축이라는 결정과 구별한다. Site 선택만으로 모든 room_name에 대한 접근이 허용된다고 해석하지 않으며, 셸에 고정 다단 선택기를 요구하지 않는다.
 - **Site는 부여 축이고 DB 배치는 배포 라우팅이다(Decided, [ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md)이 ADR-0004를 대체).** 어느 서버·DB가 그 Site의 데이터를 갖는지는 코어 서버의 배포 설정이 정하며 N:M이다(한 Site가 여러 DB에, 한 DB가 여러 Site를). 화면·Kernel은 DB를 모른다. 설비 ID 사용 전에 활성 Scope의 Site가 확립돼 있어야 한다. URL에 없는 `scopeId`를 세션에서 몰래 채우거나 EquipmentID로 Site를 역산하지 않는다.
 - **Scope 확인 상태(현재 코드 어휘, 이름 Candidate):** `none`·`validating`·`valid`·`forbidden`·`unknown_scope`(서버가 모르는 id — 권한 거부가 아니다)·`error`(확인 요청 실패). `error`는 자동 재시도 없이 사용자가 '다시 시도'하며, 현재 세션에서 `valid`가 되기 전에는 Scope가 필요한 조회를 보내지 않는다.
-- **`none` 관문의 `Scope 선택`(#1938):** `requiresScope` 메뉴의 `none` 관문에는 셸의 Scope 선택기를 여는 `Scope 선택` 버튼이 늘 있으며(접힌 사이드바는 먼저 펴고 포커스를 목록 안으로, 고르지 않고 닫으면 버튼으로 돌아온다; 마지막 Scope가 있으면 `최근 Scope 적용`이 주 버튼이고 이것은 보조), 이 버튼은 Scope를 적용·대체·자동 선택하지 않고 host 요청 `HostPlatform.scopeSelector`로 선택기를 열기만 하므로 답할 선택기가 없는 화면에서는 그리지 않는다.
+- **`none` 관문의 `Scope 선택`(#1938):** `requiresScope` 메뉴의 `none` 관문에는 셸의 Scope 선택기를 여는 `Scope 선택` 버튼이 늘 있으며(제목 줄 Scope 칩이 답해 사이드바는 그대로 두고 포커스를 목록 안으로, 고르지 않고 닫으면 버튼으로 돌아온다(#2727); 마지막 Scope가 있으면 `최근 Scope 적용`이 주 버튼이고 이것은 보조), 이 버튼은 Scope를 적용·대체·자동 선택하지 않고 host 요청 `HostPlatform.scopeSelector`로 선택기를 열기만 하므로 답할 선택기가 없는 화면에서는 그리지 않는다.
 
 <a id="ctx-time"></a>
 <a id="63-시간-계약-decided-tz-값다중-사업장-같은-날짜는-open-domain-decision"></a>
@@ -479,7 +479,7 @@ Administration
 
 Sidebar 기능(셸 구조는 §7, ADR-0011):
 
-- Collapse / Expand(240px ↔ 56px, `[` 단축키)
+- Collapse / Expand(240px ↔ 레일만, `[` 단축키·레일 섹션 버튼, #2727)
 - 그룹은 기본적으로 섹션 제목, 메뉴는 그 아래 목록. `hideLabelWhenSingle` 그룹은 보이는 메뉴가 하나일 때 확장된 사이드바에서 제목을 생략한다(06 §5, Candidate)
 - Favorite
 - Recent (최근 URL로 복귀; 접근성 이름에 “최근 방문” 맥락을 포함)
@@ -503,7 +503,7 @@ Sidebar 기능(셸 구조는 §7, ADR-0011):
 | 운영 콘솔 | 플랫폼 관리자 | 플랫폼 관리·권한(요청 검토·부여 목록)·시스템 연결 상태, 메뉴별 C 판정, [ADR-0110](../adr/0110-platform-feature-roles-and-scope.md) |
 
 - **시스템 이름과 부제(Decided, 2026-10-20, #472):** 업무 시스템 `label`은 시스템 이름(MARS·BRAVO·운영 콘솔)이고 선택적 `subtitle`(`SpaceDef`·`PlannedSpace`, 있으면 ko·en 모두 비어 있지 않아야 하며 Registry가 거부한다)은 그 성격을 한 줄로 설명한다(MARS는 `설비 생산성`, CLAS는 `설비 동작시간`, BRAVO는 `지표관리`, 운영 콘솔은 없음). 업무 시스템 id·경로·권한은 이름과 무관하다. 시스템을 설명하는 목록 — 플랫폼 홈 런처와 전환기의 실제·준비 중 행 — 만 부제를 보인다. 홈은 시스템 이름 옆에 부제를 표시하고 같은 행에 `description`을 유지한다(#2539). 짧은 자리 — 레일, 전환기 버튼 이름·툴팁, 사이드바 머리 시스템 이름, 팔레트 시스템 경로, breadcrumb, 기능 머리, 즐겨찾기·최근 소속, 경로 거부 문구, 관리 화면의 업무 시스템 이름 — 는 이름만 쓴다. 메뉴 그룹 제목(`GroupDef.label`)은 사이드바 섹션이지 시스템이 아니라 바뀌지 않는다.
-- **사이드바 Scope 표시(Decided, 2026-11-02, #1251, [ADR-0108](../adr/0108-space-scope-presentation-field.md)):** 선택 `SpaceDef.scopePresentation?: 'default' | 'hidden'`(없으면 `'default'` = 오늘의 동작: 공간의 `scopeControl` 컴포넌트, 없으면 분석 `ScopeSelector`). `'hidden'`은 `ScopeSelector` 대체만 없앤다 — 앱 `scopeControl.For`가 돌려준 컴포넌트는 그 공간의 명시적 표면이라 그대로 그리고, `null`이거나 슬롯이 없으면 접힘·펼침 모두 아무것도 그리지 않는다(빈 틈 없음). 표시만 바꾸고 ACL·조회는 바꾸지 않는다. Registry는 `'hidden'` 공간에 `requiresScope: true` 메뉴(모듈 메뉴 포함)가 하나라도 있으면 공간과 메뉴 이름을 붙여 `RegistryError`로 거부한다. 엔드포인트와 동작은 자기 `requiresScope`를 가지며 Registry가 보지 못하므로, 숨긴 공간의 메뉴는 Scope가 필요한 엔드포인트·동작을 쓰지 않는다(앱 통합 테스트 `server-conformance.test.ts`가 mock 엔드포인트 목록으로 확인). 메뉴 단위 재정의는 구현하지 않았다(`.planning/backlog.md`).
+- **사이드바 Scope 표시(Decided, 2026-11-02, #1251, [ADR-0108](../adr/0108-space-scope-presentation-field.md)):** 선택 `SpaceDef.scopePresentation?: 'default' | 'hidden'`(없으면 `'default'` = 오늘의 동작: 공간의 `scopeControl` 컴포넌트(사이드바), 없으면 제목 줄의 분석 `ScopeSelector` 칩(#2727)). `'hidden'`은 `ScopeSelector` 대체만 없앤다 — 앱 `scopeControl.For`가 돌려준 컴포넌트는 그 공간의 명시적 표면이라 그대로 그리고, `null`이거나 슬롯이 없으면 사이드바와 제목 줄 모두 아무것도 그리지 않는다(빈 틈 없음). 표시만 바꾸고 ACL·조회는 바꾸지 않는다. Registry는 `'hidden'` 공간에 `requiresScope: true` 메뉴(모듈 메뉴 포함)가 하나라도 있으면 공간과 메뉴 이름을 붙여 `RegistryError`로 거부한다. 엔드포인트와 동작은 자기 `requiresScope`를 가지며 Registry가 보지 못하므로, 숨긴 공간의 메뉴는 Scope가 필요한 엔드포인트·동작을 쓰지 않는다(앱 통합 테스트 `server-conformance.test.ts`가 mock 엔드포인트 목록으로 확인). 메뉴 단위 재정의는 구현하지 않았다(`.planning/backlog.md`).
 - **피드백 추적 선언(Decided, 2026-11-03, #1289 노드 h, [ADR-0110](../adr/0110-platform-feature-roles-and-scope.md) 결정 5):** 선택 `SpaceDef.feedbackTracking?: true`. 있으면 서버가 시작할 때 이 업무 시스템을 피드백 추적 시스템으로 자동 등록한다(앱 빌드 파일을 서버가 읽음). 없으면 자동 등록하지 않는다(손으로는 등록할 수 있다). 선언만 한다 — ACL·조회·화면은 바꾸지 않고 연결이 권한을 주지 않는다(ADR-0068 결정 1). Registry는 `true`가 아닌 값을 `Space "<id>" feedbackTracking must be true when present`로 거부한다.
 - **플랫폼 홈:** 접근 가능한 업무 시스템을 고르는 시스템 런처다(카드 → 최근 방문·즐겨찾기 → 공지, [ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)). 모든 메뉴를 중복 나열하지 않는다. 홈 링크는 전환기 머리의 `플랫폼 홈`이다(`registry.platformHome`을 열 수 있을 때만, 15 §3.2·§8). 레일 로고는 링크가 아니다. (ADR-0070: 홈 링크는 전환기 팝오버 `플랫폼 메뉴` 구역과 전역 화면 사이드바의 `홈`이 맡고, 홈 순서는 카드 → `내 할 일` → 즐겨찾기·최근 방문·공지다. 15 §3.2)
 - **메뉴 권한과 공간 진입(Decided, #1099a):** 메뉴를 열 수 있는지는 `menuPermissions(menu)` 전체(주 권한 AND 추가 권한, §5)와 공간 진입 권한의 AND다. 전역 유틸리티 메뉴는 공간 진입을 건너뛰고 메뉴 권한 목록만 본다. 운영 콘솔 접근(`console:access`)과 기능 접근(`features:access`)은 서로 독립이며 한쪽이 다른 쪽을 넓히지 않는다. 운영 콘솔 접근 디렉터리의 메뉴 목록은 주 권한을 가진 행을 보이되 빠진 공간·추가 권한을 이유로 표시하며, 서버 판정의 증거가 아니다.
@@ -552,7 +552,7 @@ Context 바는 전역 Context를 표시·편집하는 셸 자리다. 초안/적�
 
 플랫폼에서 가장 중요한 공통 UI 중 하나다.
 
-대표 Context: Time Range · room_name · Line · PRC 그룹 · Equipment Group(Condition·Selection) · Lot · PPID · Recipe · Metric(ID+버전 쌍). Scope는 Global Context에 속하지만 선택기는 사이드바 머리에 하나만 둔다(§7).
+대표 Context: Time Range · room_name · Line · PRC 그룹 · Equipment Group(Condition·Selection) · Lot · PPID · Recipe · Metric(ID+버전 쌍). Scope는 Global Context에 속하지만 선택기는 페이지 머리 제목 줄의 Scope 칩 하나만 둔다(§7, #2727).
 
 **다중축·소속 기준(Decided, 2026-10-21; Apply 모드 구현 — [ADR-0059](../adr/0059-app-injected-equipment-axes-and-condition.md)):** 바는 앱이 주입한 여러 축과 축별 여러 값을 표시·편집하고 축 간 AND / 축 안 OR의 적용 조건을 요약한다. «지금 소속 / 그 시점 소속»은 대상 대화창의 하단에서 대상과 함께 적용한다. 대상 요약은 «그 시점 소속»일 때만 기준을 덧붙이며, 이력 없는 축을 쓰면 지금 소속만 허용한다. 미지원 축·무효 조합·옵션 갱신 시 기존 값을 조용히 지우지 않고 사유를 표시한다. 대상 대화창은 §6.4의 설비 기본 정보 전량을 사용한다. Apply 모드는 대화창 적용으로 초안만 바꾸고 바의 적용으로 조회하며 live 모드는 대화창 적용으로 즉시 반영한다.
 

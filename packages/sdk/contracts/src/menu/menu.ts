@@ -64,7 +64,7 @@ export type SpaceDef = {
   /** Landing menu inside this space whose path has no `:param`. */
   homeMenuId: string;
   /**
-   * How the sidebar presents Scope for this space (#1251). Absent or `'default'`: the space's `scopeControl` component, else the analytics `ScopeSelector`.
+   * How the shell presents Scope for this space (#1251). Absent or `'default'`: the space's `scopeControl` component in the sidebar, else the analytics `ScopeSelector` chip in the page title row (#2727).
    * `'hidden'`: no analytics `ScopeSelector` fallback; a component the app's `scopeControl.For` returns still renders, otherwise nothing is drawn. Presentation only, no ACL or query change.
    * The registry refuses `'hidden'` on a space with any menu that has `requiresScope: true`. A menu in a hidden space must not use a Scope-requiring endpoint or action (the registry does not see them; the app's integration test checks endpoints only — actions are not checked automatically).
    */

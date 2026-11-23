@@ -227,10 +227,10 @@ test.describe('PageFilterBar 접힘 요약 (ADR-0029)', () => {
     await expect(page.getByRole('alert')).toContainText(longRaw);
     await expect(page.getByRole('alert')).not.toContainText('percentile=');
 
-    // 1024×900 기본값은 사이드바가 접힌다(AppShell innerWidth < 1200). 접근 가능한 토글로 펼친 것을 확인한 뒤 필터를 접는다.
-    const sidebarExpand = page.getByRole('button', { name: '사이드바 펼치기' });
-    await expect(sidebarExpand).toBeVisible();
-    await sidebarExpand.click();
+    // 1024×900 기본값은 사이드바가 접힌다(AppShell innerWidth < 1200). 레일의 현재 섹션 버튼으로 펼친 것을 확인한 뒤 필터를 접는다(#2727).
+    const section = page.getByRole('navigation', { name: '시스템 레일' }).locator('button[aria-current="true"][aria-expanded]');
+    await expect(section).toHaveAttribute('aria-expanded', 'false');
+    await section.click();
     await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
 
     const collapse = bar.getByRole('button', { name: '페이지 조건 접기' });

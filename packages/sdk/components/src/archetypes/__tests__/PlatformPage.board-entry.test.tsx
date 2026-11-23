@@ -6,7 +6,7 @@ import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { PaneScreenProvider } from '@ap/kernel/host';
 import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from '@ap/ui';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { PlatformPage, useHeaderOverflowDialog } from '../PlatformPage';
+import { PlatformPage, PlatformPageTitleLead, useHeaderOverflowDialog } from '../PlatformPage';
 import { groupId, spaceId } from '@ap/contracts';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
@@ -93,5 +93,21 @@ describe('PlatformPage ⋯ for the board entry slot (docs/16 §6)', () => {
     await settle();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(more()).toHaveFocus();
+  });
+});
+
+describe('PlatformPage title lead (#2727)', () => {
+  const lead = <span data-testid="lead">Scope chip</span>;
+  it('draws the host lead first in a main screen title row, before the breadcrumb', async () => {
+    mount('/', <PlatformPageTitleLead.Provider value={lead}><PlatformPage><p>body</p></PlatformPage></PlatformPageTitleLead.Provider>);
+    await settle();
+    expect(screen.getByTestId('lead').closest('[data-title-lead]')!.nextElementSibling).toBe(screen.getByRole('navigation', { name: '이동 경로' }));
+  });
+
+  it('draws no lead in a board pane', async () => {
+    mount('/', <PlatformPageTitleLead.Provider value={lead}><PaneScreenProvider paneId="p1" screen={{ menuId: 'home', params: {}, query: '' }} onChange={() => {}} onLeave={() => {}}><PlatformPage><p>pane body</p></PlatformPage></PaneScreenProvider></PlatformPageTitleLead.Provider>);
+    await settle();
+    expect(screen.getByText('pane body')).toBeInTheDocument();
+    expect(screen.queryByTestId('lead')).toBeNull();
   });
 });

@@ -130,7 +130,8 @@ test.describe('셸 sticky 계약 (06 §7)', () => {
       await page.addInitScript(keys => localStorage.setItem(keys[0], 'true'), [browserPreferenceKey('sidebar-collapsed', '')]);
       await page.goto(`${PRODUCTIVITY}${drill ? '&drillRoom=PHOTO&drillStgroup=STG-PHOTO-A&drillEquipment=MEM-PHOTO-0103' : ''}`);
       await expectScopeValid(page, 'MEM · 메모리');
-      await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+      // Collapsed leaves the rail alone (#2727).
+      await expect(page.locator('#platform-sidebar')).toHaveCount(0);
       if (drill) await expect(page.getByText('설비 요약', { exact: true }).first()).toBeVisible();
       const header = page.locator('#platform-main header').filter({ has: page.getByRole('heading', { level: 1 }) });
       const trust = header.getByRole('button', { name: /데이터 신뢰|로직 버전 혼재/ });
@@ -512,7 +513,7 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     await expect(savedViews).toContainText('실서버 필요');
     await page.getByRole('button', { name: '사이드바 접기' }).click();
     await expect(page.getByRole('region', { name: '저장된 보기' })).toHaveCount(0);
-    await page.getByRole('button', { name: '사이드바 펼치기' }).click();
+    await page.keyboard.press('[');
     await evidence(page, testInfo, 'feedbackops-voc-mock');
     // 운영 콘솔 is the other space: it lands on 역할 (its home), keeps the global context and draws no 시스템 선택기.
     await chooseSystem(page, '운영 콘솔');
@@ -618,29 +619,36 @@ test.describe('워크스페이스 (06 §9.1)', () => {
     expect(await page.evaluate(() => history.length)).toBe(before + 1);
   });
 
-  test('Scope 표시를 숨긴 공간(표준 로그 개발)은 펼친·접힌 사이드바 모두 Scope 선택기가 없고 MARS는 그대로 보인다 (#1251)', async ({ page }) => {
+  test('Scope 표시를 숨긴 공간(표준 로그 개발)은 펼친·접힌 사이드바 모두 Scope 칩이 없고 MARS는 제목 줄 맨 앞에 칩을 둔다 (#1251, #2727)', async ({ page }) => {
     await signInAs(page, 'engineer');
     await page.addInitScript(keys => localStorage.setItem(keys[0], 'false'), [browserPreferenceKey('sidebar-collapsed', '')]);
     await page.goto('/log-dev/log-my-queue');
     await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
     await expect(page.getByRole('button', { name: /^Scope:/ })).toHaveCount(0);
     await page.getByRole('button', { name: '사이드바 접기' }).click();
-    await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+    await expect(page.locator('#platform-sidebar')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Scope:/ })).toHaveCount(0);
     await page.goto(`/mars/equipment-master?v=1&scopeId=MEM&${PERIOD}`);
+    const chip = page.locator('#platform-main header [data-page-scope-chip]');
+    await expect(chip.getByRole('button', { name: /^Scope:/ })).toHaveCount(1);
+    // The init script re-seeds the expanded preference on this load: the chip stays in the title row, not the sidebar.
+    await expect(page.locator('#platform-sidebar')).toBeVisible();
     await expect(page.getByRole('button', { name: /^Scope:/ })).toHaveCount(1);
+    await page.keyboard.press('[');
+    await expect(page.locator('#platform-sidebar')).toHaveCount(0);
+    await expect(chip.getByRole('button', { name: /^Scope:/ })).toHaveCount(1);
   });
 });
 
 test.describe('Scope 관문 첫 진입 (06 §6.2, #1938)', () => {
-  test('Scope 없이 들어온 분석 메뉴는 본문 `Scope 선택`으로 접힌 사이드바를 펴고 목록을 열며, Esc는 버튼으로 돌아온다', async ({ page }) => {
+  test('Scope 없이 들어온 분석 메뉴는 본문 `Scope 선택`으로 제목 줄 Scope 칩의 목록을 열며, Esc는 버튼으로 돌아온다', async ({ page }) => {
     await signInAs(page, 'engineer');
     // The sidebar starts collapsed below 1200px (#1944), so 1100px is a first entry with a collapsed sidebar.
     await page.setViewportSize({ width: 1100, height: 900 });
     await page.goto('/mars/productivity-overview');
     const main = page.getByRole('main');
     await expect(main.getByText('Scope를 선택하세요')).toBeVisible();
-    await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+    await expect(page.locator('#platform-sidebar')).toHaveCount(0);
     const choose = main.getByRole('button', { name: 'Scope 선택', exact: true });
     await expect(choose).toBeVisible();
 
@@ -654,8 +662,8 @@ test.describe('Scope 관문 첫 진입 (06 §6.2, #1938)', () => {
 
     await page.keyboard.press('Escape');
     await expect(list).toBeHidden();
-    // The open list hides the rest of the page from the accessibility tree, so the expanded sidebar is checked once it closes.
-    await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
+    // The title-row chip answers (#2727): the sidebar stays collapsed.
+    await expect(page.locator('#platform-sidebar')).toHaveCount(0);
     await expect(choose).toBeFocused();
 
     await page.keyboard.press('Enter');
@@ -866,9 +874,15 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     const platformNav = page.getByRole('navigation', { name: '플랫폼 메뉴' });
     await expect(platformNav.getByRole('group').first()).toBeVisible();
     await page.keyboard.press('[');
-    await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+    await expect(platformNav).toHaveCount(0);
+    // The rail's «홈» category opens it again (#2727).
+    const home = page.getByRole('navigation', { name: '시스템 레일' }).getByRole('button', { name: '홈', exact: true });
+    await expect(home).toHaveAttribute('aria-expanded', 'false');
+    await home.click();
+    await expect(platformNav).toBeVisible();
+    await page.keyboard.press('[');
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
-    await expect(page.getByRole('button', { name: '사이드바 펼치기' })).toBeVisible();
+    await expect(page.locator('#platform-sidebar')).toHaveCount(0);
     await page.keyboard.press('[');
     await expect(page.getByRole('button', { name: '사이드바 접기' })).toBeVisible();
   });
@@ -899,12 +913,14 @@ test.describe('전역 기능 자리 (ADR-0070, 06 §9.1·§10)', () => {
     test(`전역 화면 배치: 사이드바가 본문을 가리지 않는다 (${width}px)`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
       await signInAs(page, 'viewer');
+      // Below 1200px the sidebar starts collapsed to the rail (#1944, #2727); this checks the open layout.
+      await page.addInitScript(keys => localStorage.setItem(keys[0], 'false'), [browserPreferenceKey('sidebar-collapsed', '', 'viewer')]);
       for (const path of ['/', '/voc']) {
         await page.goto(path);
         await expect(page.getByRole('navigation', { name: '플랫폼 메뉴' })).toBeVisible();
         const overflow = await page.evaluate(() => {
           const main = document.querySelector('#platform-main')!;
-          const aside = document.querySelector('aside[data-collapsed]')!;
+          const aside = document.querySelector('#platform-sidebar')!;
           return { scrollWidth: main.scrollWidth, clientWidth: main.clientWidth, asideRight: aside.getBoundingClientRect().right, mainLeft: main.getBoundingClientRect().left };
         });
         expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);

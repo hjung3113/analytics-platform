@@ -37,16 +37,16 @@ describe('Scope gate `Scope 선택` opens the shell selector (#1938)', () => {
   it.each([[false], [true]])('opens the Scope list with focus inside, then Escape returns focus to the button (collapsed=%s)', async collapsed => {
     const view = mount(collapsed);
     const open = await screen.findByRole('button', { name: 'Scope 선택' });
-    const sidebar = view.container.querySelector('aside[data-collapsed]')!;
-    expect(sidebar.getAttribute('data-collapsed')).toBe(String(collapsed));
+    expect(view.container.querySelector('#platform-sidebar') === null).toBe(collapsed);
 
     open.focus();
     fireEvent.keyDown(open, { key: 'Enter' });
     fireEvent.click(open);
 
-    // A collapsed sidebar is expanded first, so the selector shows its name.
-    await waitFor(() => expect(sidebar.getAttribute('data-collapsed')).toBe('false'));
+    // The title-row chip answers in either sidebar state (#2727); the sidebar stays as it was.
     const menu = await screen.findByRole('menu');
+    expect(view.container.querySelector('[data-page-scope-chip] button')).toHaveAttribute('aria-expanded', 'true');
+    expect(view.container.querySelector('#platform-sidebar') === null).toBe(collapsed);
     await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
     expect(screen.getByRole('menuitemradio', { name: /MEM · 청주/ })).toBeInTheDocument();
     // Opening never applies a Scope: the gate is still there.

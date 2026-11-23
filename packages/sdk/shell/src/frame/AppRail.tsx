@@ -1,5 +1,5 @@
 import { useContext } from 'react';
-import { CircleHelp, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
+import { CircleHelp, House, LayoutGrid, Languages, LogOut, MessageSquarePlus, Search } from 'lucide-react';
 import { type MenuEntry, useI18n, useMessages } from '@ap/kernel';
 import { isImplementedMenu, useHostPlatform } from '@ap/kernel/host';
 import { cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, shortcutLabel, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
@@ -13,9 +13,16 @@ import { NotificationsBell } from './NotificationsBell';
 import { ShellBoundary } from './ShellBoundary';
 import { firstOpenableMenu, useSystemSections } from './systemSections';
 import { VocDrawerContext } from '../voc/VocDrawer';
+import { SIDEBAR_ID } from './AppSidebar';
+
+/**
+ * The sidebar the rail opens and closes (#2727): `collapsed` leaves the rail alone; `platform` = the global screens' sidebar, opened by one «홈» button.
+ * Absent (a rail drawn without the shell), section buttons only navigate.
+ */
+export type RailSidebar = { collapsed: boolean; setCollapsed: (collapsed: boolean) => void; platform: boolean };
 
 /** System switcher, the current system's section buttons and global tools; the app keeps ownership of topBarTools. */
-export function AppRail() {
+export function AppRail({ sidebar }: { sidebar?: RailSidebar }) {
   const voc = useContext(VocDrawerContext);
   const { slots, user, setPaletteOpen, navigate, linkTo, canOpen, registry, visibleMenus, currentSpace } = useHostPlatform();
   const { t, tx, lang, setLang } = useI18n();
@@ -28,10 +35,23 @@ export function AppRail() {
   // Three states told by words, not by colour: closed, open (this screen), minimized (a shape on the icon too).
   const boardLabel = board.maximized ? boardCopy.railOpen : board.floating ? (board.windowFill ? boardCopy.railOpen : boardCopy.railFloating) : board.minimized ? boardCopy.railMinimized : boardCopy.railClosed;
   const vocLabel = m('railVoc');
+  // VS Code's activity bar (#2727): the current category toggles the sidebar; another category opens its first menu with the sidebar open.
+  const sidebarProps = (active: boolean) => sidebar && { 'aria-expanded': active && !sidebar.collapsed, 'aria-controls': sidebar.collapsed ? undefined : SIDEBAR_ID };
+  const openSection = (active: boolean, items: readonly MenuEntry[]) => {
+    if (!active) navigate(linkTo(firstOpenableMenu(items).id), { focus: 'page', via: 'sidebar' });
+    if (sidebar && (active || sidebar.collapsed)) sidebar.setCollapsed(active ? !sidebar.collapsed : false);
+  };
+  const railButton = (active: boolean) => cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', active && (sidebar?.collapsed ? 'text-accent-primary' : 'bg-surface-row-selected text-accent-primary'));
   return <TooltipProvider delayDuration={200}>
     <nav aria-label={m('railNav')} className="flex h-full w-(--rail-width) shrink-0 flex-col items-center gap-1.5 overflow-y-auto border-r border-border-subtle bg-surface-sidebar pb-3">
       <SystemSwitcher />
       <div className="mb-1 w-6 shrink-0 border-t border-border-subtle" aria-hidden />
+      {sidebar?.platform && <Tooltip><TooltipTrigger asChild>
+        <button type="button" aria-label={t('home')} aria-current="true" {...sidebarProps(true)} onClick={() => openSection(true, [])} className={railButton(true)}>
+          <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />
+          <House className="size-4" aria-hidden />
+        </button>
+      </TooltipTrigger><TooltipContent side="right">{t('home')}</TooltipContent></Tooltip>}
       {systems !== null && currentSpace !== null && <UndeclaredBoundary>{undeclared => {
         // Operator only (#2201): a section whose menus are all undeclared is drawn dimmed and not navigable, in its Registry place among the real ones.
         const dimmed = undeclaredOnlySections(currentSpace.id, registry.groups, registry.menus, visibleMenus, undeclared);
@@ -56,8 +76,7 @@ export function AppRail() {
             const name = planned ? `${tx(group.label)} · ${t('planned')}` : tx(group.label);
             return <Tooltip key={group.id}><TooltipTrigger asChild>
               <button type="button" aria-label={name} data-section-planned={planned ? 'true' : undefined} aria-current={active ? 'true' : undefined}
-                onClick={() => { if (!active) navigate(linkTo(firstOpenableMenu(items).id), { focus: 'page', via: 'sidebar' }); }}
-                className={cn('relative grid size-8 shrink-0 place-items-center rounded-md text-text-muted hover:bg-surface-row-hover', planned && 'opacity-50', active && 'bg-surface-row-selected text-accent-primary')}>
+                {...sidebarProps(active)} onClick={() => openSection(active, items)} className={cn(railButton(active), planned && 'opacity-50')}>
                 {active && <span data-current-marker aria-hidden className="absolute inset-y-2 left-0 w-0.5 rounded-pill bg-accent-primary" />}
                 <Icon className="size-4" aria-hidden />
               </button>

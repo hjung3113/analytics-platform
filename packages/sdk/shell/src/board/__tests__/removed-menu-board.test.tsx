@@ -89,7 +89,7 @@ describe('a stored board cell of a menu missing from the registry (#1702)', () =
     localStorage.setItem('platform:recent:u1', JSON.stringify([{ menuId: 'ghost', url: '/ghost', at: 1 }, { menuId: 'alpha', url: '/alpha', at: 2 }]));
     window.history.replaceState(null, '', '/alpha');
     const session = testSession(['platform:view']);
-    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><AppSidebar collapsed={false} onToggle={() => {}} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><AppSidebar onToggle={() => {}} /></PlatformProvider></I18nProvider>);
     const recents = await waitFor(() => screen.getByRole('region', { name: '최근 방문' }));
     expect(within(recents).getAllByRole('link')).toHaveLength(1);
     expect(within(recents).getByRole('link', { name: '최근 방문: 알파' })).toBeInTheDocument();
