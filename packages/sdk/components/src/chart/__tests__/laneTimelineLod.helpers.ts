@@ -4,7 +4,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import type { TimelineLane } from '../LaneTimeline';
 import { rng } from './laneTimelineOracle';
 
-export const BENCH_TOKENS: ThemeColorToken[] = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4', 'chart-blue', 'chart-green', 'chart-purple', 'chart-remainder',
+export const BENCH_TOKENS: ThemeColorToken[] = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4', 'chart-blue', 'chart-green', 'chart-remainder',
   'chart-heat-seq-1', 'chart-heat-seq-2', 'chart-heat-seq-3', 'chart-heat-seq-4', 'chart-heat-div-0', 'chart-heat-div-1', 'chart-heat-div-3', 'chart-heat-div-4'];
 /** Stage-1 bench data: 20 lanes, constant density (50k segments per 2 h), 3 % long segments, 120 kinds. */
 export function benchLanes(n: number, outline = false): TimelineLane[] {

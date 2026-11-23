@@ -76,7 +76,7 @@ Primary candidate는 `../architecture/frontend-ui-ux.md`에 따라 Apache EChart
 ECharts가 해석한 라벨 상자가 조각 상자의 폭이나 높이에 들어가지 않으면 그 라벨만 숨기고(추정이 아니라 `labelLayout`의 실제 기하 — `LabelLayout` 기능을 `EChartImpl`이 등록하고, 폭이 0인 `0` 조각도 같은 규칙이라 숨는다), `null` 조각에는 라벨이 없다.
 `minMax`가 켜져(강조할 시리즈가 있어) 있으면 조각 라벨은 하나도 그리지 않고 `최소`/`최대` 칩과 합계만 남는다 — 칩과 숫자가 같은 행에서 자리를 다투므로 칩이 강조를 맡는다.
 실제 그려진 결과는 `chartValueLabels.render.test.ts`가 ECharts 서버 SVG 렌더러로 고정한다.
-글자색은 지원하는 막대 채움(`chart-blue·teal·green·purple`, `cat-amber·teal·purple`, `chart-series-1…4`, `chart-status-good·warn·critical`, `chart-remainder`)마다 `text-primary`(밝은 채움)와 `text-on-accent`(어두운 채움: `chart-series-1…4`·`cat-purple`·`chart-status-warn`·`chart-status-critical`) 중 하나이며 이 채움에서는 4.5:1 이상이고 `chartValueLabels.test.ts`가 CSS 토큰을 읽어 쌍마다 고정한다.
+글자색은 지원하는 막대 채움(`chart-blue·teal·green`, `cat-amber·teal·purple`, `chart-series-1…4`, `chart-status-good·warn·critical`, `chart-remainder`)마다 `text-primary`(밝은 채움)와 `text-on-accent`(어두운 채움: `chart-series-1…4`·`cat-purple`·`chart-status-warn`·`chart-status-critical`) 중 하나이며 이 채움에서는 4.5:1 이상이고 `chartValueLabels.test.ts`가 CSS 토큰을 읽어 쌍마다 고정한다.
 이 집합 밖의 채움(`ChartSeries.color`는 어떤 토큰이든 받는다)은 표면색 칩 위의 `text-primary`로 그려 읽힌다.
 **합계**는 `reaggregation`이 `canClientSum`일 때만 클라이언트가 보이는 조각을 더한다(`reaggregation` 없음 = 더하지 않음).
 더하지 않는 측정은 `serverTotals`(범주별)로만 그리며, 서버 합계는 숨긴 시리즈까지 포함하므로 **모든 시리즈가 보일 때만** 쓴다.

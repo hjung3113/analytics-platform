@@ -93,7 +93,7 @@ it('keeps shell planned labels, normal Scope grants and language readable in sid
 });
 
 it('keeps chart stroke aliases identifiable on every chart surface (#203, #207)', () => {
-  for (const foreground of ['chart-blue-stroke', 'chart-teal-stroke', 'chart-purple-stroke', 'cat-amber-stroke']) {
+  for (const foreground of ['chart-blue-stroke', 'chart-teal-stroke', 'chart-series-3-stroke', 'cat-amber-stroke']) {
     for (const background of ['surface-card', 'surface-canvas', 'surface-sunken']) {
       expect(contrast(foreground, background), `${foreground} on ${background}`).toBeGreaterThanOrEqual(3);
     }

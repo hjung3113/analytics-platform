@@ -36,7 +36,6 @@ colors:
   chart-blue: "#2e6bd9"
   chart-teal: "#0b7f75"
   chart-green: "#57822b"
-  chart-purple: "#c8690a"
   chart-series-1: "#2e6bd9"
   chart-series-1-stroke: "#2e6bd9"
   chart-series-2: "#0b7f75"
@@ -148,8 +147,8 @@ components:
 | `chart-selection-outline` | 선택·hover 강조 외곽선; series 색 정체성은 보존 | `accent-primary` alias |
 | `chart-median-on-fill` | 진한 box fill 위 불투명 median 선 | `surface-card` alias |
 | `cat-purple` / `cat-teal` / `cat-amber` | 범주 tag·series 구분; 성공·실패 판정이나 CTA에 쓰지 않음 | 플랫폼 literal `#a23e8c` / `#0b7f75` / `#c8690a` |
-| `chart-blue` / `chart-teal` / `chart-green` / `chart-purple` | series 정체성; 의미 있는 얇은 선 대비는 Chart stroke 결정 참고 | 플랫폼 literal `#2e6bd9` / `#0b7f75` / `#57822b` / `#c8690a` (`chart-purple`은 이름만 남은 3번째 주황 자리) |
-| `chart-blue-stroke` / `chart-teal-stroke` / `chart-purple-stroke` / `cat-amber-stroke` | 얇은 line/outline mark와 해당 line legend 전용; fill과 작은 글자에는 쓰지 않음 | v3 literal `#2e6bd9` / `#0b7f75` / `#c8690a` / `#c8690a` (fill과 같은 값) |
+| `chart-blue` / `chart-teal` / `chart-green` | series 정체성; 의미 있는 얇은 선 대비는 Chart stroke 결정 참고 | 플랫폼 literal `#2e6bd9` / `#0b7f75` / `#57822b` (3번째 주황은 `chart-series-3`; `chart-purple`은 sdk-v0.48.0에서 제거, #2796) |
+| `chart-blue-stroke` / `chart-teal-stroke` / `cat-amber-stroke` | 얇은 line/outline mark와 해당 line legend 전용; fill과 작은 글자에는 쓰지 않음 | v3 literal `#2e6bd9` / `#0b7f75` / `#c8690a` (fill과 같은 값) |
 | `chart-remainder` | 이름과 분모가 확인된 나머지 범주 | 플랫폼 literal `#94a3b8` |
 | `chart-grid` | 보조 grid; 의미 있는 데이터 선에 쓰지 않음 | 플랫폼 literal `#eef1f5` |
 | `icon-blue-soft` / `icon-teal-soft` | KPI·분석 범주 icon chip 배경; navigation 그룹에는 채운 chip을 만들지 않음 | 플랫폼 literal `#e3efff` / `#dcf8ef` |
@@ -276,7 +275,7 @@ Opt-in page density and embedded chart/table chrome follow [06 §12](docs/contra
 
 [06 §16](docs/contract/chart.md#16-analysis-chart-contract)과 [§26](docs/contract/platform-ui-contract.md#26-accessibility-baseline)의 Chart Frame/interaction 계약을 따른다. 모든 차트에는 **title, unit, textual summary, 동일 데이터 table 접근 경로**가 있다. legend는 이름+선 모양/기호+색을 제공한다. Tooltip은 hover와 keyboard focus에 대응하고 label/value/unit을 포함한다. passive mark에 가짜 pressed 동작을 넣지 않는다.
 
-새 chart kind의 기본 범주 순서는 `chart-series-1` → `chart-series-2` → `chart-series-3` → `chart-series-4`이며, 기존 `chart-blue` / `chart-teal` / `chart-green` / `chart-purple`도 계속 유효하다. series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. `chart-status-*`는 실제 판정일 때만 쓴다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 이전 기간의 `cat-amber` 선·외곽선 마크는 `cat-amber-stroke` 별칭을 쓴다. stroke 별칭은 EChart의 JS 매핑(`EChart.tsx` `strokeAliases`)으로만 쓰며 Tailwind 유틸리티가 아니다. 기준선은 `text-secondary` 점선과 label을 쓰고 null은 빗금으로 구분한다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
+새 chart kind의 기본 범주 순서는 `chart-series-1` → `chart-series-2` → `chart-series-3` → `chart-series-4`이며, 기존 `chart-blue` / `chart-teal` / `chart-green`도 계속 유효하다(`chart-purple`은 sdk-v0.48.0에서 제거, `chart-series-3`을 쓴다). series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. `chart-status-*`는 실제 판정일 때만 쓴다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 이전 기간의 `cat-amber` 선·외곽선 마크는 `cat-amber-stroke` 별칭을 쓴다. stroke 별칭은 EChart의 JS 매핑(`EChart.tsx` `strokeAliases`)으로만 쓰며 Tailwind 유틸리티가 아니다. 기준선은 `text-secondary` 점선과 label을 쓰고 null은 빗금으로 구분한다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
 
 reference quality recipe는 coverage→blue, traceability→teal, consistency→green, missing/untraced→이름 있는 remainder, inconsistent→cat-amber다. 분자·분모를 detail/table에서 제공하며 donut/gauge의 기본 허용 범위는 [06 §24](docs/contract/platform-ui-contract.md#decorative-visualization)를 따른다. defect bar는 zero baseline·정수 ticks·날짜·단위를 갖고 max는 데이터로 산정한다. queue/progress는 완료율과 성공률을 분리하고 분모 없는 회색 remainder를 만들어내지 않는다. pipeline/queue/lifecycle의 도메인 의미는 Consumer 후보이며 반복 확인 전 범용 플랫폼 컴포넌트로 승격하지 않는다.
 
@@ -421,9 +420,9 @@ v2 팔레트에서 카드 위 thin line mark의 `chart-blue`는 **2.79:1**, `cha
 | `chart-purple-stroke` | `#8154ce` | 5.13:1 | 4.57:1 | 4.60:1 |
 | `cat-amber-stroke` | `#b45309` | 5.02:1 | 4.47:1 | 4.50:1 |
 
-**v3 팔레트(#2724)** 이후 stroke 별칭은 fill과 같은 값이며 모두 3:1을 넘는다: 카드 / 캔버스 `#eceff3` / sunken `#f8fafc` 기준 blue `#2e6bd9` 4.97 / 4.31 / 4.75, teal `#0b7f75` 4.88 / 4.23 / 4.66, 주황 `#c8690a`(purple·amber 자리) 3.83 / 3.32 / 3.66. 막대 안 값 label은 흰 글자 4.5:1을 넘는 blue·teal·green·magenta에 `text-on-accent`, 주황(흰 3.83:1, 진한 글자 4.63:1)과 회색 기타에 `text-primary`를 쓴다(`chartValueLabels.ts`). `chart-green` `#57822b`는 흰 글자 4.53:1을 넘도록 정한 값이다.
+**v3 팔레트(#2724)** 이후 stroke 별칭은 fill과 같은 값이며 모두 3:1을 넘는다: 카드 / 캔버스 `#eceff3` / sunken `#f8fafc` 기준 blue `#2e6bd9` 4.97 / 4.31 / 4.75, teal `#0b7f75` 4.88 / 4.23 / 4.66, 주황 `#c8690a`(`chart-series-3`·amber 자리) 3.83 / 3.32 / 3.66. 막대 안 값 label은 흰 글자 4.5:1을 넘는 blue·teal·green·magenta에 `text-on-accent`, 주황(흰 3.83:1, 진한 글자 4.63:1)과 회색 기타에 `text-primary`를 쓴다(`chartValueLabels.ts`). `chart-green` `#57822b`는 흰 글자 4.53:1을 넘도록 정한 값이다.
 
-`AnalysisChartFrame`은 blue/teal/purple/amber 시리즈 선, 선 범례 견본, 브러시 외곽선에 해당하는 stroke 별칭을 쓴다. 막대·영역 채움과 선 위 심볼은 원래 채움 색을 유지하고, 그래서 툴팁 마커(심볼 색을 따름)도 채움 색이다. `chart-green`은 얇은 선으로 쓰는 곳이 없어 stroke 값을 두지 않았다.
+`AnalysisChartFrame`은 blue/teal/`chart-series-1…4`/amber 시리즈 선, 선 범례 견본, 브러시 외곽선에 해당하는 stroke 별칭을 쓴다. 막대·영역 채움과 선 위 심볼은 원래 채움 색을 유지하고, 그래서 툴팁 마커(심볼 색을 따름)도 채움 색이다. `chart-green`은 얇은 선으로 쓰는 곳이 없어 stroke 값을 두지 않았다.
 
 ### Chart legend and series encoding — Decided (B, 2026-10-04)
 

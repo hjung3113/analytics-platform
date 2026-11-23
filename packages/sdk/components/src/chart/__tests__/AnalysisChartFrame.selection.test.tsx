@@ -26,7 +26,7 @@ beforeAll(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); });
 afterEach(cleanup);
 
 const A: ChartSeries = { id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [['a', 1], ['b', 2], ['c', 3]] };
-const B: ChartSeries = { id: 'b', name: 'B', color: 'chart-purple', kind: 'bar', points: [['a', 1], ['c', 3]] };
+const B: ChartSeries = { id: 'b', name: 'B', color: 'chart-series-3', kind: 'bar', points: [['a', 1], ['c', 3]] };
 
 describe('category projection (#2020)', () => {
   it('draws, tabulates and summarizes a vertical category series by category name, missing = null', async () => {

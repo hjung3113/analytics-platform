@@ -14,7 +14,7 @@ let plot: EChartProps;
 vi.mock('../EChartImpl', () => ({ default: (props: EChartProps) => { plot = props; return <div role="img" aria-label={props.ariaLabel} />; } }));
 const series: ChartSeries[] = [
   { id: 'one', name: 'One', color: 'chart-blue', kind: 'bar', points: [['Row B | B1', 2], ['Row A | A1', 4]] },
-  { id: 'two', name: 'Two', color: 'chart-purple', kind: 'bar', points: [['Row B | B1', 3], ['Row A | A1', 5]] },
+  { id: 'two', name: 'Two', color: 'chart-series-3', kind: 'bar', points: [['Row B | B1', 3], ['Row A | A1', 5]] },
 ];
 const registry = createRegistry({
   spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],

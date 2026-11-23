@@ -9,7 +9,7 @@ import type { ThemeColorToken } from '@ap/ui/theme';
 import { HW_TIME_UNIT, type HwTimeTrendData } from '../../endpoints';
 import { formatSeconds, rowIdLabel } from '../format';
 
-const TREND_COLORS: ThemeColorToken[] = ['chart-blue', 'chart-teal', 'chart-purple', 'chart-series-1', 'cat-amber', 'chart-series-2', 'chart-series-3', 'chart-series-4'];
+const TREND_COLORS: ThemeColorToken[] = ['chart-blue', 'chart-teal', 'chart-series-3', 'chart-series-1', 'cat-amber', 'chart-series-2', 'chart-green', 'chart-series-4'];
 
 export type TrendPanelProps = {
   chartId: string;

@@ -274,7 +274,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
                   { id: 'p95', name: 'P95', color: 'chart-teal', unit: m('cycleTimeDrilldownMin3'), points: data.current.p95, dashed: true },
                 ]}
                 compareSeries={[
-                  { id: 'p50-prev', name: m('cycleTimeDrilldownP50PreviousPeriod'), color: 'chart-purple', unit: m('cycleTimeDrilldownMin3'), points: data.previous.p50 },
+                  { id: 'p50-prev', name: m('cycleTimeDrilldownP50PreviousPeriod'), color: 'chart-series-3', unit: m('cycleTimeDrilldownMin3'), points: data.previous.p50 },
                   { id: 'p95-prev', name: m('cycleTimeDrilldownP95PreviousPeriod'), color: 'cat-amber', unit: m('cycleTimeDrilldownMin3'), points: data.previous.p95, dashed: true },
                 ]}
                 markLines={data.populationP95 === null ? undefined : [{ y: data.populationP95, label: `P95 ${formatMin(data.populationP95, lang)}` }]}
