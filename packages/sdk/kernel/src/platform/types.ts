@@ -84,7 +84,12 @@ export type HomeTodoSlot = { Todo: ComponentType };
  * homeTodo: the home `내 할 일` section; the home menu reads it through `MenuPlatform.homeTodo`, the shell never does (ADR-0070 decision 8, ADR-0076, #657).
  * accessRequest: the blocked-place request entry (`AccessRequestSlot`, ADR-0154 decision 6); the shell and `PlatformPage` draw the places.
  */
-export type ScopeControlSlot = { For: (spaceId: SpaceId, menu: MenuEntry | null) => ComponentType<{ collapsed: boolean }> | null };
+export type ScopeControlSlot = {
+  For: (spaceId: SpaceId, menu: MenuEntry | null) => ComponentType<{
+    /** @deprecated Always `false`: the sidebar is never drawn collapsed (#2727). Removed in sdk-v0.49.0 (#2803); do not read it. */
+    collapsed: boolean;
+  }> | null;
+};
 /**
  * Per-menu sidebar counts for one space (06 §8 `navCounts`, #761). `For` returns a module-level component (same stability rule as `scopeControl`:
  * the shell renders it once around the menu list, so its identity must not change between renders) or null for a space without counts.
