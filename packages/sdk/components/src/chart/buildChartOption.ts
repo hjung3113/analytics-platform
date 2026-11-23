@@ -19,7 +19,7 @@ import { rowGroupLayout, rowGroupSeries, rowLabel, type ChartRowGroups } from '.
 import { emptyCategoryLabels, emptyCategorySeries } from './chartEmptyCategories';
 import type { Selection } from './useChartRange';
 import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
-import { barRadius, CHART_MARKS, lineSymbolShown } from './chartMarks';
+import { axisBreakGraphic, barRadius, CHART_MARKS, lineSymbolShown } from './chartMarks';
 import { LABEL_FONT, labelFitsSegment, labelWidth, segmentLabelStyle, shortNumber, stackEnd, type LabelRect, type RowTotal, type ValueLabels } from './chartValueLabels';
 
 /** The plot's horizontal margin (grid left 52 + right 20). */
@@ -148,6 +148,8 @@ export function resolveChartPalette(displayed: readonly { color: ThemeColorToken
 
 export type ChartOptionInput = {
   yFit?: boolean;
+  /** Where the fitted value axis stops short of 0, measured from the drawn chart; draws the break mark (#2725). */
+  axisBreak?: 'bottom' | 'top';
   bounds?: ChartBounds;
   boundLabels?: ChartBoundLabels;
   rowGroups?: ChartRowGroups;
@@ -456,6 +458,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     // Row-pitch mode: no containLabel, so the category band is exactly height - top - bottom = rows × pitch and row i starts at top + i × pitch (the reveal maths relies on it).
     grid: groupLayout ? { left: groupLayout.gutter, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false } : horizontal && i.rowPitch !== undefined ? { left: rowGutter, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
       : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
+    ...(fitY && i.axisBreak ? { graphic: [axisBreakGraphic(i.axisBreak, { left: 52, top: GRID_TOP, bottom: GRID_BOTTOM }, { line: theme.axisLine.lineStyle.color, surface: palette.labelSurface })] } : {}),
     tooltip: {
       trigger: 'axis', confine: true, textStyle: { fontSize: 12 },
       ...(groups || statuses.size || bounds || categoryMarks || emptyLabels?.size ? { formatter: rowTooltip } : {}),
