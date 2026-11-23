@@ -15,7 +15,7 @@ export type ShiftId = 'day' | 'swing' | 'night';
 export const SHIFTS: readonly { id: ShiftId; label: Label; color: ThemeColorToken }[] = [
   { id: 'day', label: ANALYTICS_MESSAGES.breakdownDataDayUtilization, color: 'chart-series-4' },
   { id: 'swing', label: ANALYTICS_MESSAGES.breakdownDataSwingUtilization, color: 'chart-blue' },
-  { id: 'night', label: ANALYTICS_MESSAGES.breakdownDataNightUtilization, color: 'chart-purple' },
+  { id: 'night', label: ANALYTICS_MESSAGES.breakdownDataNightUtilization, color: 'chart-series-3' },
 ];
 /** Utilization of a shift is productive time over planned time. The planned time differs per shift and place, so the ratios cannot be added or averaged. */
 type Rate = { num: number; den: number };

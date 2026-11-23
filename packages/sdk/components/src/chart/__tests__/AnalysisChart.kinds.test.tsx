@@ -165,7 +165,7 @@ it.each([scatter, box, pareto])('uses English summary, table and toolbar for $ki
 
 it('normalizes scatter groups, duplicate IDs and invalid coordinates without losing null rows', async () => {
   const diagnostic = vi.spyOn(console, 'error').mockImplementation(() => {});
-  mount({ ...scatter, groups: [{ id: 'A', label: 'Declared', color: 'chart-purple' }, { id: 'A', label: 'Duplicate' }], points: [
+  mount({ ...scatter, groups: [{ id: 'A', label: 'Declared', color: 'chart-series-3' }, { id: 'A', label: 'Duplicate' }], points: [
     { id: 'a', group: 'A', x: 1, y: 2 }, { id: 'a', group: 'A', x: 99, y: 99 },
     { id: 'bad', x: Infinity, y: 2 }, { id: 'unknown', x: null, y: null },
     ...['B', 'C', 'D', 'E'].map((group, i) => ({ id: group, group, x: i, y: i })),
@@ -173,7 +173,7 @@ it('normalizes scatter groups, duplicate IDs and invalid coordinates without los
   await screen.findByRole('img');
   const option = plot.option as { series: { symbol: string; data: { itemStyle: { color: string } }[]; markLine?: { lineStyle: { color: string; type: string }; data: unknown[] } }[] };
   expect(option.series.map(s => s.symbol)).toEqual(['circle', 'rect', 'triangle', 'diamond', 'circle', 'rect']);
-  expect(option.series[0].data[0].itemStyle.color).toBe(readColorToken('chart-purple'));
+  expect(option.series[0].data[0].itemStyle.color).toBe(readColorToken('chart-series-3'));
   expect(option.series.at(-1)!.data[0].itemStyle.color).toBe(readColorToken('chart-remainder'));
   expect(option.series[0].markLine?.lineStyle).toEqual({ color: readColorToken('text-secondary'), type: 'dashed' });
   expect(option.series[0].markLine?.data).toEqual([{ name: 'X ref', xAxis: 2, label: { position: 'end', rotate: 0, offset: [0, 8], verticalAlign: 'top' } }, { name: 'Y ref', yAxis: 3 }]);

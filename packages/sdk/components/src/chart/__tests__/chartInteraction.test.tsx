@@ -39,7 +39,7 @@ it('retains tied first place, selects a ranking bar, adds with Shift and drills 
   render(<I18nProvider><AnalysisChart chartId="ranking" title="Ranking" unit="min"
     spec={{ kind: 'topNBar', topN: 1, defaultExpanded: true, onItemClick, items: [
       { id: 'a', label: 'Alpha', value: 2, colorToken: 'chart-blue' },
-      { id: 'b', label: 'Beta', value: 2, colorToken: 'chart-purple' },
+      { id: 'b', label: 'Beta', value: 2, colorToken: 'chart-series-3' },
     ] }} /></I18nProvider>);
   await screen.findByRole('img');
   const click = (dataIndex: number, shiftKey = false) => act(() => plot.onEvents?.click?.(
@@ -71,7 +71,7 @@ it('saves a range annotation and applies the selected period after confirmation'
   const adapter = testAdapter({ session: () => session, saveAnnotation, listAnnotations });
   window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
-    <AnalysisChartFrame chartId="timed" title="Timed" unit="ea" compareSeries={[{ id: 'previous', name: 'Previous', color: 'chart-purple', unit: 'ea', points: [[start, 1], [end, 2]] }]}
+    <AnalysisChartFrame chartId="timed" title="Timed" unit="ea" compareSeries={[{ id: 'previous', name: 'Previous', color: 'chart-series-3', unit: 'ea', points: [[start, 1], [end, 2]] }]}
       series={[{ id: 's', name: 'Series', color: 'chart-blue', unit: 'ea', points: [[start, 1], [end, 2]] }]} />
   </PlatformProvider></I18nProvider>);
   await screen.findByRole('img');

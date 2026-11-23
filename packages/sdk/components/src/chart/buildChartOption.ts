@@ -131,7 +131,7 @@ export function resolveChartPalette(displayed: readonly { color: ThemeColorToken
     theme: chartTheme(),
     // Selection, its range band and the Brush band share the selection colour (#2736), so every chart marks a choice the same way.
     selection: token('chart-selection-outline'),
-    annotation: token('chart-purple'),
+    annotation: token('chart-series-3'),
     annotationLabel: token('cat-purple'),
     // Fill derives rgba from the resolved token (#297): a literal rgba would copy the token's values.
     brushFill: rangeBandFill(token('chart-selection-outline')),

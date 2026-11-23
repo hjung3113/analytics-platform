@@ -9,7 +9,7 @@ const luminance = (rgb: string) => {
   return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
 };
 const ratio = (a: string, b: string) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
-const fills = ['chart-blue', 'chart-teal', 'chart-purple', 'chart-green', 'chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4', 'chart-status-warn', 'chart-status-critical', 'chart-status-good', 'chart-heat-seq-4', 'chart-heat-div-0', 'chart-heat-div-4', 'chart-no-data'] as const;
+const fills = ['chart-blue', 'chart-teal', 'chart-green', 'chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4', 'chart-status-warn', 'chart-status-critical', 'chart-status-good', 'chart-heat-seq-4', 'chart-heat-div-0', 'chart-heat-div-4', 'chart-no-data'] as const;
 describe('status non-text contrast (#2326)', () => {
   it.each(fills)('neutral outline contrasts at least 3:1 against %s', fill => {
     const input = baselineInput({ pointStatus: () => ({ tone: 'neutral', label: 'Unknown' }) });

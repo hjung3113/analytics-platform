@@ -480,30 +480,6 @@
         "hex": "#667083"
       }
     },
-    "chart-purple": {
-      "$type": "color",
-      "$value": {
-        "colorSpace": "srgb",
-        "components": [
-          0.7843,
-          0.4118,
-          0.0392
-        ],
-        "hex": "#c8690a"
-      }
-    },
-    "chart-purple-stroke": {
-      "$type": "color",
-      "$value": {
-        "colorSpace": "srgb",
-        "components": [
-          0.7843,
-          0.4118,
-          0.0392
-        ],
-        "hex": "#c8690a"
-      }
-    },
     "chart-remainder": {
       "$type": "color",
       "$value": {

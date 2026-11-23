@@ -22,7 +22,7 @@ const rulesFor = (keys: PageKeys) => [
   { key: keys.drawer, label: { ko: '서랍', en: 'Drawer' }, valid: (s: string) => s === 'record' || s === 'basket' },
   ...FILTER_KEYS.map(key => ({ key: keys[key], label: { ko: FILTER_LABELS[key], en: FILTER_LABELS[key] }, valid: (value: string) => value.length <= FILTER_MAX_LENGTH[key] })),
 ];
-const STATES = { period: { label: '기간 행', colorToken: 'chart-blue' as const }, incomplete: { label: 'incomplete · 불완전', colorToken: 'chart-purple' as const } };
+const STATES = { period: { label: '기간 행', colorToken: 'chart-blue' as const }, incomplete: { label: 'incomplete · 불완전', colorToken: 'chart-series-3' as const } };
 const media = () => window.matchMedia('(max-width: 1280px)');
 const subscribeNarrow = (notify: () => void) => { const mq = media(); mq.addEventListener('change', notify); return () => mq.removeEventListener('change', notify); };
 const narrowSnapshot = () => media().matches;

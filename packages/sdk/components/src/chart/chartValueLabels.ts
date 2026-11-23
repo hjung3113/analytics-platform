@@ -15,9 +15,9 @@ export type RowTotal = { value: number; partial: boolean; missing: string[] };
  * A fill outside this set (any other `ThemeColorToken` is accepted by the type) gets `text-primary` on a surface-colour chip, like the 최소/최대 chips.
  */
 /* eslint-disable shadcn/no-raw-colors -- CSS variable names for token(), not classes */
-// #2724 (v3 palette): orange (chart-purple, cat-amber, chart-series-3) takes dark text (4.63:1; white is 3.83:1).
+// #2724 (v3 palette): orange (cat-amber, chart-series-3) takes dark text (4.63:1; white is 3.83:1).
 const SEGMENT_TEXT = {
-  'chart-purple': 'text-primary', 'cat-amber': 'text-primary', 'chart-series-3': 'text-primary',
+  'cat-amber': 'text-primary', 'chart-series-3': 'text-primary',
   'chart-status-good': 'text-primary', 'chart-remainder': 'text-primary',
   'chart-blue': 'text-on-accent', 'chart-teal': 'text-on-accent', 'chart-green': 'text-on-accent', 'cat-teal': 'text-on-accent',
   'chart-series-1': 'text-on-accent', 'chart-series-2': 'text-on-accent', 'chart-series-4': 'text-on-accent',

@@ -29,7 +29,6 @@ const chartThemeTokens = {
 const strokeAliases: Partial<Record<ThemeColorToken, ThemeColorToken>> = {
   'chart-blue': 'chart-blue-stroke',
   'chart-teal': 'chart-teal-stroke',
-  'chart-purple': 'chart-purple-stroke',
   'chart-series-1': 'chart-series-1-stroke',
   'chart-series-2': 'chart-series-2-stroke',
   'chart-series-3': 'chart-series-3-stroke',

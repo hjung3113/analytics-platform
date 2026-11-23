@@ -129,10 +129,10 @@ it('shows an empty state for a zero denominator', () => {
 });
 
 it.each([1, 9])('clamps maxSlices %i and preserves explicit colours with ordered defaults', async maxSlices => {
-  mount({ kind: 'donut', maxSlices, slices: [{ id: 'a', label: 'A', value: 100, color: 'chart-purple' }, ...[40, 30, 20, 10, 5].map((value, i) => ({ id: String(i), label: `S${i}`, value }))] });
+  mount({ kind: 'donut', maxSlices, slices: [{ id: 'a', label: 'A', value: 100, color: 'chart-series-3' }, ...[40, 30, 20, 10, 5].map((value, i) => ({ id: String(i), label: `S${i}`, value }))] });
   await screen.findByRole('img'); const data = option().series[0].data;
   expect(data).toHaveLength(maxSlices === 1 ? 2 : 5);
-  expect(data[0].itemStyle.color).toBe(readColorToken('chart-purple'));
+  expect(data[0].itemStyle.color).toBe(readColorToken('chart-series-3'));
   expect(data.at(-1)?.itemStyle.color).toBe(readColorToken('chart-remainder'));
   if (maxSlices === 9) expect(data.slice(1, 4).map(d => d.itemStyle.color)).toEqual(['chart-series-1', 'chart-series-2', 'chart-series-3'].map(c => readColorToken(c as ThemeColorToken)));
 });

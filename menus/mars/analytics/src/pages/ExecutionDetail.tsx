@@ -12,7 +12,7 @@ import { isAnchor, OCCURRENCE_ENTITY_TYPES, occurrenceEndpoint, resolveMetric, t
 const SEGMENT_CLASS: Record<SegmentKind, string> = {
   XFR: 'bg-chart-blue',
   FNC: 'bg-chart-teal',
-  PRC: 'bg-chart-purple',
+  PRC: 'bg-chart-series-3',
 };
 
 export default function ExecutionDetail({ params }: PageProps) {

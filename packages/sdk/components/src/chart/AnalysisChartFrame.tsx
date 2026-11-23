@@ -1208,7 +1208,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       </p>}
       {omittedAnnotations > 0 && <p className="mt-2 text-tiny text-text-secondary">{m('chartAnnotationsOmitted', { count: omittedAnnotations })}</p>}
       {annotations.length > 0 && <ul className="mt-2 space-y-0.5 border-t border-border-subtle pt-1.5 text-tiny text-text-secondary">
-        {annotations.map(a => <li key={a.id} className="tabular flex flex-wrap items-center gap-x-1"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-purple/60 align-middle" aria-hidden />{xType === 'time' && wallClockEpochMs(a.from) !== null && wallClockEpochMs(a.to) !== null ? `${a.from.replace('T', ' ').slice(0, 16)}–${a.to.replace('T', ' ').slice(0, 16)}` : `${a.from}–${a.to}`}: {a.text}
+        {annotations.map(a => <li key={a.id} className="tabular flex flex-wrap items-center gap-x-1"><span className="mr-1 inline-block size-2 rounded-xs bg-chart-series-3/60 align-middle" aria-hidden />{xType === 'time' && wallClockEpochMs(a.from) !== null && wallClockEpochMs(a.to) !== null ? `${a.from.replace('T', ' ').slice(0, 16)}–${a.to.replace('T', ' ').slice(0, 16)}` : `${a.from}–${a.to}`}: {a.text}
           {a.mine && (editor.pendingDelete === a.id
             ? <div role="group" aria-label={m('chartAnnotationDeleteConfirmGroup', { text: a.text })} className="ml-2 inline-flex items-center gap-1" onFocus={() => { editor.focusOnConfirm.current = true; }} onBlur={e => {
               if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;

@@ -22,11 +22,11 @@ The adapter must inject complete CSS colours. analytics-platform tokens hold RGB
 | `--eqv-holding-fill` | Holding body fill | `#dcf8ef` | `--icon-teal-soft` |
 | `--eqv-holding-stroke` | Holding outlines and glyphs | `#008090` | `--chart-teal-stroke` |
 | `--eqv-robot-fill` | Robot body fill | `#f3eefd` | Literal palette value (no platform token) |
-| `--eqv-robot-stroke` | Robot outlines and arms | `#8154ce` | `--chart-purple-stroke` |
+| `--eqv-robot-stroke` | Robot outlines and arms | `#8154ce` | Literal palette value (the v2 `chart-purple-stroke`; no platform token since #2796) |
 | `--eqv-structure-fill` | Structural body fill | `#edf3fb` | `--surface-sunken` |
 | `--eqv-structure-stroke` | Structural outlines | `#667083` | `--border-control` |
 | `--eqv-interface` | Physical Interface overlay | `#374151` | `--text-secondary` |
-| `--eqv-capability` | Transfer Capability overlay | `#8154ce` | `--chart-purple-stroke` |
+| `--eqv-capability` | Transfer Capability overlay | `#8154ce` | Literal palette value (the v2 `chart-purple-stroke`; no platform token since #2796) |
 | `--eqv-selection` | Selection outline | `#1428a0` | `--accent-primary` |
 | `--eqv-highlight` | Conflict highlight rings and observed-transfer line | `#b42318` | Literal palette value (no platform token) |
 | `--eqv-selection-fill` | Selection fill | `#e4e8f6` | `--accent-primary-soft` |

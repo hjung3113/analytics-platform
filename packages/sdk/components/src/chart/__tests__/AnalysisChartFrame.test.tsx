@@ -95,7 +95,7 @@ function fixture() {
 }
 
 const series: ChartSeries[] = [{ id: 's1', name: 'S1', color: 'chart-blue', points: [['2026-09-01T00:00:00', 1], ['2026-09-02T00:00:00', 2]] }];
-const compareSeries: ChartSeries[] = [{ id: 's2', name: 'S2', color: 'chart-purple', points: series[0].points }];
+const compareSeries: ChartSeries[] = [{ id: 's2', name: 'S2', color: 'chart-series-3', points: series[0].points }];
 
 function ToastProbe() {
   const toasts = useToastsForTest();
@@ -259,7 +259,7 @@ describe('data table and CSV share one x-union row projection (#297)', () => {
   const spread: ChartSeries[] = [
     { id: 'a', name: 'rate, %', color: 'chart-blue', points: [['2026-10-02T00:00:00', 10]] },
     { id: 'b', name: 'say "hi"', color: 'chart-teal', points: [['2026-10-01T00:00:00', 20]] },
-    { id: 'c', name: '행\n분리', color: 'chart-purple', points: [['2026-10-03T00:00:00', null]] },
+    { id: 'c', name: '행\n분리', color: 'chart-series-3', points: [['2026-10-03T00:00:00', null]] },
   ];
   // jsdom Blob has no .text(); readAsText goes through the UTF-8 decoder and consumes the BOM, so the BOM is
   // asserted from raw leading bytes — same approach as PlatformDataTable.test.tsx.
@@ -501,7 +501,7 @@ describe('chart legend and comparison encoding (#207)', () => {
     const values = {
       '--chart-blue': '59 156 255', '--chart-blue-stroke': '37 119 204',
       '--chart-teal': '0 163 181', '--chart-teal-stroke': '0 128 144',
-      '--chart-purple': '161 116 245', '--chart-purple-stroke': '129 84 206',
+      '--chart-series-3': '161 116 245', '--chart-series-3-stroke': '129 84 206',
       '--cat-amber': '217 119 6', '--cat-amber-stroke': '180 83 9',
       '--border-control': '95 105 115', '--text-secondary': '35 45 55',
     };
@@ -513,10 +513,10 @@ describe('chart legend and comparison encoding (#207)', () => {
         series: [
           { id: 'p50', name: 'P50', color: 'chart-blue', points: series[0].points },
           { id: 'p95', name: 'P95', color: 'chart-teal', points: series[0].points, dashed: true },
-          { id: 'runs', name: 'Run count', color: 'chart-purple', kind: 'bar', points: series[0].points },
+          { id: 'runs', name: 'Run count', color: 'chart-series-3', kind: 'bar', points: series[0].points },
         ],
         compareSeries: [
-          { id: 'p50-prev', name: 'P50 previous', color: 'chart-purple', points: series[0].points },
+          { id: 'p50-prev', name: 'P50 previous', color: 'chart-series-3', points: series[0].points },
           { id: 'p95-prev', name: 'P95 previous', color: 'cat-amber', points: series[0].points, dashed: true },
         ],
         markLines: [{ y: 12, label: 'P95 reference' }],
@@ -665,7 +665,7 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
 
   const hour = (day: string, h: number) => `${day}T${String(h).padStart(2, '0')}:00:00`;
   const hourly = (day: string, from: number, toInclusive: number, id: string, name: string): ChartSeries => ({
-    id, name, color: id === 's1' ? 'chart-blue' : 'chart-purple',
+    id, name, color: id === 's1' ? 'chart-blue' : 'chart-series-3',
     points: Array.from({ length: toInclusive - from + 1 }, (_, i) => [hour(day, from + i), 1]),
   });
   const currentDay = hourly('2026-10-16', 16, 22, 's1', 'S1');

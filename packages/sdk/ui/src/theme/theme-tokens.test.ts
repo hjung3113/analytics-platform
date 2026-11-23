@@ -72,6 +72,14 @@ function contrastRatio(a: [number, number, number], b: [number, number, number])
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+it('no longer accepts the removed chart-purple token (#2796)', () => {
+  // @ts-expect-error chart-purple was removed in sdk-v0.48.0; use chart-series-3.
+  const removed: ThemeColorToken = 'chart-purple';
+  expect(THEME_COLOR_TOKENS).not.toContain(removed);
+  expect(THEME_COLOR_TOKENS).not.toContain('chart-purple-stroke');
+  expect(isThemeColorToken('chart-purple')).toBe(false);
+});
+
 it('commits byte-for-byte generator output from the source CSS', () => {
   const generated = generateThemeTokens({ tokensCss, platformCss });
   expect(generated.json).toBe(themeJson);

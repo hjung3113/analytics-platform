@@ -55,7 +55,7 @@ export const HW_TIME_MODULE_TYPES = [
 export type HwTimeModuleType = typeof HW_TIME_MODULE_TYPES[number];
 export type HwTimeModuleTypeId = HwTimeModuleType['id'];
 
-export const HW_TIME_MOTION_COLORS = ['chart-blue', 'chart-teal', 'chart-purple', 'cat-amber', 'chart-series-1'] as const;
+export const HW_TIME_MOTION_COLORS = ['chart-blue', 'chart-teal', 'chart-series-3', 'cat-amber', 'chart-series-1'] as const;
 export type HwTimeMotionColor = typeof HW_TIME_MOTION_COLORS[number];
 export type HwTimeMotionColors = Readonly<Record<string, HwTimeMotionColor>>;
 /** One Motion-id colour catalog: repeated names (e.g. Pump) keep their colour across Module types. */

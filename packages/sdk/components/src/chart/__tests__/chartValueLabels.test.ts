@@ -33,7 +33,7 @@ describe('segment label colour (#580d, UX-6, F5)', () => {
   });
   it('takes text-primary on the light fills and text-on-accent on the dark ones', () => {
     // #2724: the v3 orange slots and the light fills take dark text; blue, teal, green and magenta take white.
-    expect(['chart-purple', 'cat-amber', 'chart-series-3', 'chart-status-good', 'chart-remainder'].map(f => segmentLabelStyle(f as ThemeColorToken).text)).toEqual(Array(5).fill('text-primary'));
+    expect(['cat-amber', 'chart-series-3', 'chart-status-good', 'chart-remainder'].map(f => segmentLabelStyle(f as ThemeColorToken).text)).toEqual(Array(4).fill('text-primary'));
     expect(['chart-blue', 'chart-teal', 'chart-green', 'cat-teal', 'chart-series-1', 'chart-series-2', 'chart-series-4', 'cat-purple', 'chart-status-warn', 'chart-status-critical'].map(f => segmentLabelStyle(f as ThemeColorToken).text)).toEqual(Array(10).fill('text-on-accent'));
   });
   it.each(['chart-heat-div-0', 'chart-heat-div-4', 'text-primary', 'accent-primary', 'surface-card'] as ThemeColorToken[])('%s is outside the set: text-primary on a surface-card chip that reads at 4.5:1', fill => {
