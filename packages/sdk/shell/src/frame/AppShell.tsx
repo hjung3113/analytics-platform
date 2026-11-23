@@ -6,7 +6,7 @@ import { LoadingBlock, PlatformPageTitleLead, useCollapsePreference } from '@ap/
 import { cn, DetailPanelFullscreenContext, DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { CommandPalette } from '../routing/CommandPalette';
 import { LeaveConfirmDialog } from '../routing/LeaveConfirmDialog';
-import { AppSidebar, PageScopeChip } from './AppSidebar';
+import { AppSidebar, PageScopeChip, SIDEBAR_ID } from './AppSidebar';
 import { PlatformSidebar } from './PlatformSidebar';
 import { AppRail } from './AppRail';
 import { UndeclaredProvider } from './undeclared';
@@ -70,7 +70,17 @@ function ShellLayout({ children, productName }: { children: ReactNode; productNa
   const mainArea = useRef<HTMLDivElement>(null);
   const expandedStyle = useExpandedDetailArea(mainArea, expanded);
   const board = useBoardPresentation();
-  const toggle = useCallback(() => setCollapsed(!collapsed), [collapsed, setCollapsed]);
+  // Collapsing unmounts the sidebar: when focus was in it (its «사이드바 접기», a menu row), it moves to the rail button that reopens it (#2727).
+  const refocusRail = useRef(false);
+  const toggle = useCallback(() => {
+    refocusRail.current = !collapsed && (document.getElementById(SIDEBAR_ID)?.contains(document.activeElement) ?? false);
+    setCollapsed(!collapsed);
+  }, [collapsed, setCollapsed]);
+  useLayoutEffect(() => {
+    if (!collapsed || !refocusRail.current) return;
+    refocusRail.current = false;
+    document.querySelector<HTMLElement>('[data-sidebar-toggle]')?.focus();
+  }, [collapsed]);
   const railSidebar = useMemo(() => (showSidebar || showPlatformSidebar ? { collapsed, setCollapsed, platform: showPlatformSidebar } : undefined), [showSidebar, showPlatformSidebar, collapsed, setCollapsed]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
