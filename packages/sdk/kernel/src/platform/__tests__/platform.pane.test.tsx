@@ -1,3 +1,4 @@
+import { useAnalysisSelectionChips, useAnalysisSelectionOutput } from '../../context/analysisSelection';
 import { useEquipmentSearch } from '../../scope/selection-ports';
 import { StrictMode, useLayoutEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
@@ -853,6 +854,56 @@ describe('selection metadata screen ownership', () => {
     expect(calls.filter(id => id === 'MEM')).toHaveLength(1);
   });
 });
+it.each(['scope', 'generation'])('clears shared availability on reporter removal and a %s swap', (swap) => {
+  const title = { ko: '출처', en: 'Source' };
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [
+    ...registry.menus, entry('availability', '/availability', {
+      pageKeys: ['equipmentSet'], repeatedPageKeys: ['equipmentSet'], contextResetKeys: ['equipmentSet'],
+      panels: [{ id: 'source', title, grain: 'daily', endpoints: [], queryInputs: {}, displayInputs: {},
+        outputs: [{ key: 'equipmentSet', action: 'pick', selection: { shape: 'set', dimension: 'equipment' } }] }],
+    }),
+  ] });
+  const first = fixture();
+  const nextAdapter = testAdapter({ session: () => first.session });
+  const observed = vi.fn();
+  const mounted = vi.fn();
+  function Editor() {
+    const { chips } = useAnalysisSelectionChips();
+    useLayoutEffect(() => { mounted(); }, []);
+    useLayoutEffect(() => { observed(chips[0]?.available); });
+    return null;
+  }
+  function Reporter() {
+    useAnalysisSelectionOutput('source', 'equipmentSet', { available: [] });
+    return null;
+  }
+  function tree(report: boolean, changed = false) {
+    const scope = changed && swap === 'scope' ? 'OTHER' : 'MEM';
+    const pane = { menuId: 'availability', params: {}, query: `?v=1&scopeId=${scope}&equipmentSet=E1` };
+    const controls = { paneId: 'a', screen: pane, onChange: () => {}, onLeave: () => {} };
+    return <I18nProvider><PlatformProvider registry={chosen} adapter={changed && swap === 'generation' ? nextAdapter : first.adapter}>
+      <PaneQueryDraftProvider screens={{ a: pane }}>
+        <PaneScreenProvider {...controls} countUsage={false}><Editor /></PaneScreenProvider>
+        {report && <PaneScreenProvider {...controls}><Reporter /></PaneScreenProvider>}
+      </PaneQueryDraftProvider>
+    </PlatformProvider></I18nProvider>;
+  }
+  window.history.replaceState(null, '', '/main');
+  const view = render(tree(true));
+  expect(observed).toHaveBeenLastCalledWith(false);
+  view.rerender(tree(false));
+  expect(observed).toHaveBeenLastCalledWith(true);
+  view.rerender(tree(true));
+  expect(observed).toHaveBeenLastCalledWith(false);
+  observed.mockClear();
+  view.rerender(tree(false, true));
+  expect(observed).toHaveBeenCalledWith(true);
+  expect(observed).not.toHaveBeenCalledWith(false);
+  expect(mounted).toHaveBeenCalledOnce();
+  view.rerender(tree(true, true));
+  expect(observed).toHaveBeenLastCalledWith(false);
+});
+
 it('shares history initialization between the two pane providers but keeps another same-menu pane independent', async () => {
   const applyMenu = { ...entry('history', '/history'), primary: true, query: { mode: 'apply' as const }, context: apply };
   const chosen = createRegistry({ spaces: [testSpace({ homeMenuId: 'history' })], groups: [registry.groups[0]], menus: [applyMenu] });

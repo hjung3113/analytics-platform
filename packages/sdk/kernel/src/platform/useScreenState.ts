@@ -553,7 +553,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     drillGap: drillGap(route?.menu.drill?.levels ?? [], page) !== null,
     ready: routeMenu?.query?.mode !== 'apply' || scopeReady, ...(autoApplyingDefault ? { autoApplyingDefault } : {}) }, sameQueryPolicy);
   const scopeId = global.scopeId;
-  const analysisSelectionAvailability = useMemo(createAnalysisSelectionAvailability, [routeMenu, pathname, paneId, session, revision, scopeId]);
+  const localAvailability = useMemo(createAnalysisSelectionAvailability, [routeMenu, pathname, paneId, session, revision, scopeId]);
+  const analysisSelectionAvailability = source.availability ?? localAvailability;
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
     detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, scopeGeneration, retryScope, screenMode: mode, paneId, paneLabel, analysisSelectionAvailability,

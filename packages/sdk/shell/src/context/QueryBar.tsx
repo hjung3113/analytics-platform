@@ -318,11 +318,12 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   return <><section role="region" aria-label={label?.region ?? m('queryConditionsTitle')} data-query-bar data-canvas-band data-query-bar-collapsed={!board && !expanded ? '' : undefined} className={!board && !expanded ? 'sticky top-[50px] z-20 min-w-0 border-b border-border-chrome bg-surface-band' : 'min-w-0 border-b border-border-chrome bg-surface-band'}>
     <div className={board ? `flex h-12 min-w-0 items-center gap-2 overflow-x-auto ${inset}` : `flex min-h-12 min-w-0 items-center gap-2 ${expanded ? 'flex-wrap' : ''} ${inset}`}>
       {board ? <Popover open={expanded} onOpenChange={toggle}><PopoverTrigger asChild>{trigger}</PopoverTrigger><PopoverContent align="start" side="bottom" className="max-h-[var(--radix-popover-content-available-height)] w-[min(64rem,var(--radix-popover-content-available-width))] overflow-y-auto" onOpenAutoFocus={event => { event.preventDefault(); focusEditor(focusOnOpen.current ?? 'first'); }} onCloseAutoFocus={event => { event.preventDefault(); disclosure.current?.focus(); }}>{content}</PopoverContent></Popover> : trigger}
-      {board && !expanded && <Button type="button" variant="ghost" size="toolbar" className="min-w-0 flex-1 justify-start overflow-x-auto" aria-label={m('queryViewFullConditions')} onClick={() => toggle(true)}><span className="whitespace-nowrap">{editing ? m('queryEditing') : m('queryAppliedConditions')} · {foldedSummary}</span></Button>}
-      {!board && !expanded && <div ref={setFoldedLane} className="relative flex min-w-0 flex-1 items-center">
-        <details className="min-w-0 shrink text-xs"><summary className="cursor-pointer list-none truncate [&::-webkit-details-marker]:hidden">{foldedText}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryEditingConditions')} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryAppliedConditions')} · {applied}</p></details>
+      {!expanded && <div ref={setFoldedLane} className="relative flex min-w-0 flex-1 items-center">
+        {board
+          ? <Button type="button" variant="ghost" size="toolbar" className="min-w-0 shrink justify-start" aria-label={m('queryViewFullConditions')} onClick={() => toggle(true)}><span className="truncate">{foldedText}</span></Button>
+          : <details className="min-w-0 shrink text-xs"><summary className="cursor-pointer list-none truncate [&::-webkit-details-marker]:hidden">{foldedText}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryEditingConditions')} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryAppliedConditions')} · {applied}</p></details>}
         <div aria-hidden className="invisible absolute inset-x-0 top-0 h-0 overflow-hidden">
-          <span ref={setSummaryProbe} className="inline-block whitespace-nowrap"><span data-summary={foldedText} className="before:content-[attr(data-summary)] text-xs" /></span>
+          <span ref={setSummaryProbe} className="inline-block whitespace-nowrap"><span data-summary={foldedText} className={`before:content-[attr(data-summary)] ${board ? 'px-2 text-sm font-medium' : 'text-xs'}`} /></span>
         </div>
         <AnalysisSelectionChipZone fit={{ container: foldedLane, summary: summaryProbe }} fallbackFocus={disclosure} />
       </div>}

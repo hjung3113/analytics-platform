@@ -10,6 +10,7 @@ import { useHostPlatform, PaneQueryDraftProvider, PaneScreenProvider } from '@ap
 import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '@ap/kernel/testing';
 import { GlobalContextBar, contextBarVisible } from '../GlobalContextBar';
 import { QueryBar } from '../QueryBar';
+import { BoardContextBar } from '../../board/BoardContextBar';
 
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: true, context: { ...noContext, time: 'apply', roomNames: 'apply', condition: 'apply', selection: 'apply', prcGroup: 'apply' }, query: { mode: 'apply', required: { context: ['time', 'roomNames'] } }, pageKeys: ['grain'], pageType: 'analysis', features: { export: false, savedView: false, annotate: false, compare: false } }] });
 const endpoint = defineEndpoint<null, unknown>({ id: 'fixture.query', menuId: 'home', paramKeys: {}, permission: 'platform:view', requiresScope: true, context: { time: 'apply', roomNames: 'apply' }, requiredContext: ['time', 'roomNames'], kinds: ['collection'], mergeTimeDomain: false });
@@ -690,7 +691,7 @@ function foldedSelectionRegistry() {
   const title = { ko: '설비 추세', en: 'Equipment trend' };
   return createRegistry({
     spaces: registry.spaces, groups: registry.groups, menus: [{
-      ...registry.menus[0], pageKeys: [key], repeatedPageKeys: [key], contextResetKeys: [key],
+      ...registry.menus[0], features: { ...registry.menus[0].features, board: true }, pageKeys: [key], repeatedPageKeys: [key], contextResetKeys: [key],
       panels: [{ id: 'source', title, grain: 'daily', endpoints: [], queryInputs: {}, displayInputs: {},
         outputs: [{ key, action: 'pick', selection: { shape: 'set', dimension: 'equipment' } }] }],
     }],
@@ -744,15 +745,32 @@ it('shows unavailable selections from a reporting panel in the main QueryBar', a
   expect(await within(await screen.findByRole('group', { name: '분석 선택' })).findByText('해당 없음')).toBeVisible();
 });
 
-it('omits the analysis selection group from the folded board pane', async () => {
+it('shows the body’s reported selection between the folded board summary and actions', async () => {
   const pane = { menuId: 'home', params: {}, query: `?scopeId=MEM${APPLIED}&equipmentSet=E1` };
   const session = testSession(['platform:view']);
-  window.history.replaceState(null, '', '/?scopeId=MEM');
+  const controls = { paneId: 'p1', screen: pane, onChange: () => {}, onLeave: () => {} };
+  function SourcePanel() {
+    useAnalysisSelectionOutput('source', 'equipmentSet', { available: [] });
+    return null;
+  }
+  window.history.replaceState(null, '', '/board');
   render(<I18nProvider><PlatformProvider registry={foldedSelectionRegistry()} adapter={testAdapter({ session: () => session })}>
-    <PaneQueryDraftProvider screens={{ p1: pane }}><PaneScreenProvider paneId="p1" screen={pane} onChange={() => {}} onLeave={() => {}}><GlobalContextBar /></PaneScreenProvider></PaneQueryDraftProvider>
+    <PaneQueryDraftProvider screens={{ p1: pane }}>
+      <BoardContextBar {...controls} number={1} />
+      <PaneScreenProvider {...controls}><SourcePanel /></PaneScreenProvider>
+    </PaneQueryDraftProvider>
   </PlatformProvider></I18nProvider>);
-  expect(await within(bar()).findByRole('button', { name: '전체 조회 조건 보기' })).toBeVisible();
-  expect(within(bar()).queryByRole('group', { name: '분석 선택' })).toBeNull();
+  const summary = await screen.findByRole('button', { name: '전체 조회 조건 보기' });
+  const zone = screen.getByRole('group', { name: '분석 선택' });
+  const actions = screen.getByRole('group', { name: '조회 조건 동작' });
+  expect(summary).toBe(zone.parentElement?.firstElementChild);
+  expect(summary).toHaveClass('shrink');
+  expect(zone.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(zone).toHaveTextContent('equipment E1');
+  expect(await within(zone).findByText('해당 없음')).toBeVisible();
+  fireEvent.click(summary);
+  expect(screen.getByRole('button', { name: '조회 조건 접기' })).toBeVisible();
+  expect(screen.queryByRole('group', { name: '분석 선택' })).toBeNull();
 });
 
 describe('initial disclosure (#1892)', () => {

@@ -80,6 +80,7 @@ export type ScreenAddress = {
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
 export type ScreenSource = ScreenAddress & {
   draftStore?: DraftStore;
+  availability?: ScreenState['analysisSelectionAvailability'];
   mode: 'main' | 'pane';
   paneId: string | null;
   paneLabel?: string | null;

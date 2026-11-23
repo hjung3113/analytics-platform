@@ -48,7 +48,12 @@ function hasFilterCycle(channels: ReturnType<typeof menuAnalysisSelections>, key
 export function useAnalysisSelectionOutput(panelId: string, key: string, options?: {
   /** Values present in the source's current data. Omit while availability is unknown. */
   available?: AnalysisSelectionAvailability | undefined;
-}): { selection: AnalysisSelection | null; select: (next: AnalysisSelection | null) => boolean } {
+}): {
+  selection: AnalysisSelection | null;
+  select: (next: AnalysisSelection | null) => boolean;
+  /** Whether readers of this source see the supplied availability (or its withdrawal). */
+  availabilityCurrent: boolean;
+} {
   const { route, pageParams, setPage } = usePlatform();
   const screen = useWriteScreen(route);
   const channels = useChannels(route?.menu);
@@ -57,6 +62,11 @@ export function useAnalysisSelectionOutput(panelId: string, key: string, options
   const report = useStable(options?.available, sameAvailability);
   const isSource = channel?.writers[0]?.panelId === panelId;
   const canReport = useMemo(() => isSource && !hasFilterCycle(channels, key), [channels, isSource, key]);
+  const availabilityCurrent = useSyncExternalStore(
+    canReport && store ? store.subscribe : subscribeToEmptyAvailability,
+    () => canReport && store !== undefined && sameAvailability(store.read().get(key), report),
+    () => false,
+  );
   useEffect(() => {
     if (store && canReport && report !== undefined) return store.report(key, report);
   }, [store, canReport, key, report]);
@@ -64,7 +74,7 @@ export function useAnalysisSelectionOutput(panelId: string, key: string, options
   if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
   const rendered = pageParams(urlKey);
   const selection = channel ? parseAnalysisSelection(channel.shape, rendered) : null;
-  return { selection, select(next) {
+  return { selection, availabilityCurrent, select(next) {
     const current = screen?.pageParamsNow(urlKey);
     if (!current || !channel || (next && next.shape !== channel.shape)) return false;
     const param = next && analysisSelectionParam(next);

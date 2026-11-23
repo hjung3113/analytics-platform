@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as kernel from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
@@ -114,9 +114,40 @@ it('leaves the table unfiltered when every Motion is unchecked', async () => {
   await renderOverview(workspace + '&motion=~none' + selection(['EQ-002']), answer, { waitForData: false });
   expect(screen.getByText('선택한 항목 없음')).toBeTruthy();
   expect(filter()).toEqual(['EQ-002']);
+  await waitFor(() => expect(tableReads()).toHaveLength(2));
   for (const endpoint of ['hwTime.levelRows', 'hwTime.tableRows']) {
     const latest = tableReads().filter(request => request.endpoint === endpoint).at(-1);
     expect(latest).toBeDefined();
     expect(latest?.params).not.toHaveProperty('motionEquipment');
   }
+});
+
+it.each(['ok', 'error'] as const)('waits for an unpinned matrix (%s) before reading the table once', async outcome => {
+  let releaseMatrix!: () => void;
+  const matrix = new Promise<void>(resolve => { releaseMatrix = resolve; });
+  const link = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=table&motionEquipment=EQ-002&motion=~none';
+  await renderOverview(link, async request => {
+    if (request.endpoint !== 'hwTime.matrix') return answer(request);
+    await matrix;
+    return outcome === 'ok' ? answer(request) : { ...answer(request), outcome, data: null };
+  }, { waitForData: false });
+  await waitFor(() => expect(requests.some(request => request.endpoint === 'hwTime.matrix')).toBe(true));
+  expect.soft(tableReads()).toEqual([]);
+  expect(screen.queryByRole('tab', { name: 'moduleMotions' })).toBeNull();
+
+  await act(async () => releaseMatrix());
+  await waitFor(() => expect(tableReads()).toHaveLength(2));
+  await settle();
+  const context = {
+    scopeId: 'MEM', from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00',
+    roomNames: null, prcGroups: null, condition: null, membershipBasis: null, selection: null,
+  };
+  const params = { moduleType: 'PM', ...(outcome === 'error' ? { motionEquipment: ['EQ-002'] } : {}) };
+  expect(tableReads().filter(request => request.endpoint === 'hwTime.levelRows')).toEqual([
+    { endpoint: 'hwTime.levelRows', context, params },
+  ]);
+  expect(tableReads().filter(request => request.endpoint === 'hwTime.tableRows')).toEqual([
+    { endpoint: 'hwTime.tableRows', context, params: { ...params, page: 0, pageSize: 25, sorting: [] } },
+  ]);
+  expect(filter()).toEqual(['EQ-002']);
 });
