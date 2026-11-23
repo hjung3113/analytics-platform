@@ -50,7 +50,7 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
         const band = Math.abs((api.size!([interval, 0]) as number[])[0]);
         const width = Math.max(1, Math.min(BAR_MAX_WIDTH, band * (1 - CATEGORY_GAP) / (count + (count - 1) * BAR_GAP)));
         const totalWidth = width * (count + (count - 1) * BAR_GAP);
-        layout = { width, offset: -totalWidth / 2 + (input.stacked ? 0 : slot) * width * (1 + BAR_GAP) };
+        layout = { width, offset: -totalWidth / 2 + (alignedByIndex ? 0 : slot) * width * (1 + BAR_GAP) };
       }
       const from = api.coord(input.horizontal ? [start, category] : [category, start]);
       const to = api.coord(input.horizontal ? [end, category] : [category, end]);

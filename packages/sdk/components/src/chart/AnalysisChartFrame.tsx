@@ -967,9 +967,11 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   let fillPlotClass = loweredFill ? FILL_PLOT_BASE_CLASS : FILL_PLOT_CLASS;
   if (rowPitch !== undefined) fillPlotClass = loweredFill ? FILL_PLOT_SCROLL_BASE_CLASS : FILL_PLOT_SCROLL_CLASS;
   if (chrome === 'standard') fillPlotClass = 'min-h-0 grow basis-0 overflow-hidden';
-  const chartNotes = (totalNote || partialNote || mismatchedLines.length > 0) && <div data-chart-notes className="space-y-0.5 px-4 pt-1 text-tiny text-text-secondary">
+  const stackNote = timeStack?.mismatched ? m('chartStackTimeMismatch') : null;
+  const chartNotes = (totalNote || partialNote || stackNote || mismatchedLines.length > 0) && <div data-chart-notes className="space-y-0.5 px-4 pt-1 text-tiny text-text-secondary">
     {totalNote && <p>{totalNote}</p>}
     {partialNote && <p>{partialNote}</p>}
+    {stackNote && <p>{stackNote}</p>}
     {mismatchedLines.map(line => <p key={line.label}>{m('chartRefLineHiddenUnit', { label: line.label })}</p>)}
   </div>;
   const plotLegendCaption = zoomOnly ? undefined : p.legendCaption;

@@ -118,6 +118,19 @@ it('keeps interleaved compare lines and their symbols without allocating padding
   expect(warn).toHaveBeenCalledWith(expect.stringMatching(/matching timestamps/i));
 });
 
+it('shows the time stack fallback in the chart notes only while timestamps differ in production', async () => {
+  vi.stubEnv('NODE_ENV', 'production');
+  try {
+    await compareAlternatingTimes();
+    const notice = '관측 시각이 달라 계열을 따로 표시함';
+    expect(screen.getByText(notice).closest('[data-chart-notes]')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '비교' }));
+    expect(screen.queryByText(notice)).not.toBeInTheDocument();
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});
+
 it('renders no current-bounds line for a selected day with neither bound (#2426)', async () => {
   mount({ bounds: new Map([['A', { lower: 1 }], ['B', {}]]) });
   await screen.findByRole('img');
