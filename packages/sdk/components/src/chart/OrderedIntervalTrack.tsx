@@ -68,8 +68,8 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   const [loaded, setLoaded] = useState<readonly OrderedTrackItem[] | null>(null);
   const [request, setRequest] = useState<OrderedTrackLoadState>('ready');
   const [round, setRound] = useState(0);
-  // The range and retry round of the last successful response: CSV exports only that answer for the current range (#2792 C2).
-  const [answered, setAnswered] = useState<{ from: number; to: number; round: number } | null>(null);
+  // The request generation of the last successful response: CSV exports only the answer to the current request (#2792 C2).
+  const [answered, setAnswered] = useState<number | null>(null);
   const [recovered, setRecovered] = useState<{ title?: string; body?: unknown } | null>(null);
   const [selection, setSelection] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -78,7 +78,6 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   const brushRange = brush.range;
   const [textView, setTextView] = useState(false);
   const [page, setPage] = useState(0);
-  const exportGate = useImageActionGate(props.exportActions);
   const global = usePlatformOptional()?.global ?? null;
   const [timeLabels, setTimeLabels] = useState(false);
   const [hover, setHover] = useState<{ item: OrderedTrackItem; x: number; y: number } | null>(null);
@@ -113,6 +112,17 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
     recovered.title === props.state?.title &&
     recovered.body === props.state?.body;
   const failed = overCap || (kind === 'error' && !recoveringError) || request === 'error';
+  // Any change that starts or voids a range request gets a new generation in this render, before its effect runs, so a
+  // restored permission or a new range never offers the previous answer as the current CSV (#2792 PR2 C2).
+  const requestKey = `${view[0]}|${view[1]}|${round}|${restricted}|${kind}|${recoveringError}|${!!props.onRangeRequest}`;
+  const [requestGen, setRequestGen] = useState({ key: requestKey, n: 0 });
+  if (requestGen.key !== requestKey) setRequestGen({ key: requestKey, n: requestGen.n + 1 });
+  // A standalone result line belongs to one table: new rows, range, title, permission or restriction clear it (#2792 PR2 C3).
+  const exportKey = `${requestKey}|${props.ariaLabel}|${props.exportActions?.exportAllowed}`;
+  const [exportGeneration, setExportGeneration] = useState({ items: sourceItems, key: exportKey, n: 0 });
+  if (exportGeneration.items !== sourceItems || exportGeneration.key !== exportKey)
+    setExportGeneration({ items: sourceItems, key: exportKey, n: exportGeneration.n + 1 });
+  const exportGate = useImageActionGate(props.exportActions, exportGeneration.n);
   const loadObserver = useRef(props.onLoadStateChange);
   useEffect(() => {
     loadObserver.current = props.onLoadStateChange;
@@ -134,6 +144,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
     }
     const controller = new AbortController();
     const loader = rangeLoader.current!;
+    const generation = requestGen.n;
     setRequest('loading');
     reportLoad('loading');
     async function load() {
@@ -143,7 +154,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
         if (result.length > ORDERED_TRACK_RESPONSE_LIMIT)
           throw new Error('OrderedIntervalTrack response limit exceeded');
         setLoaded(result);
-        setAnswered({ from: view[0], to: view[1], round });
+        setAnswered(generation);
         setRequest('ready');
         reportLoad('ready');
       } catch {
@@ -155,7 +166,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
     }
     void load();
     return () => controller.abort();
-  }, [restricted, kind, recoveringError, hasRangeLoader, view, round, reportLoad]);
+  }, [restricted, kind, recoveringError, hasRangeLoader, view, round, reportLoad, requestGen.n]);
   useEffect(() => {
     const element = tooltip.current;
     if (!element || !hover) return;
@@ -321,7 +332,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
         ],
       };
     });
-  const answeredCurrent = !props.onRangeRequest || (answered !== null && answered.from === view[0] && answered.to === view[1] && answered.round === round);
+  const answeredCurrent = !props.onRangeRequest || answered === requestGen.n;
   // A positive length never reads 0: below the table's six decimals it is written as an exponent (#2792 C7).
   const lengthText = (length: number) => Number.isInteger(length) ? formatNumber(length, lang, { maximumFractionDigits: 0 })
     : Math.abs(length) < 1e-6 ? length.toExponential() : formatNumber(length, lang, { maximumFractionDigits: 6 });
@@ -432,7 +443,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
           <ChartTableToggle shown={textView} disabled={restricted} toggle={() => setTextView(!textView)} />
           {/* Only the answered current range exports: not while a range loads or after it failed (#2792 C2). */}
           {exportGate.allowed && !restricted && !loading && !failed && answeredCurrent && <ChartExportMenu exportCsv={exportCsv} />}
-          <ImageActionStatus text={exportGate.status} />
+          {exportGate.allowed && !restricted && <ImageActionStatus text={exportGate.status} />}
         </div>
       </header>
       <p id={helpId} className="sr-only">

@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
+import { useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
@@ -210,6 +211,74 @@ describe('OrderedIntervalTrack export (#2792)', () => {
     await act(async () => { pending[2].resolve([{ id: '3', laneKey: 'a', orderStart: 40, orderEnd: 45, state: 'ok', label: 'mid' }]); });
     exportCsv();
     expect((await readCsv(csv[0])).slice(2)).toEqual(['A,mid,40,45,완료,5']);
+  });
+
+  it('a restored permission on the same range waits for the new answer before CSV (PR2 C2)', async () => {
+    const pending: ((items: typeof track.items) => void)[] = [];
+    const onRangeRequest = vi.fn(() => new Promise<typeof track.items>((resolve) => { pending.push(resolve); }));
+    const seen: boolean[] = [];
+    // Records the committed DOM before passive effects run: the old answer must not be offered in that window.
+    function Probe() { useLayoutEffect(() => { seen.push(!!screen.queryByRole('button', { name: '내보내기' })); }); return null; }
+    const view = (state?: { kind: 'forbidden'; title: string }) => <I18nProvider><OrderedIntervalTrack {...track} state={state} onRangeRequest={onRangeRequest} exportActions={{ exportAllowed: true }} /><Probe /></I18nProvider>;
+    const { rerender } = render(view());
+    await waitFor(() => expect(onRangeRequest).toHaveBeenCalledTimes(1));
+    await act(async () => { pending[0](track.items); });
+    expect(screen.getByRole('button', { name: '내보내기' })).toBeTruthy();
+    rerender(view({ kind: 'forbidden', title: '권한 없음' }));
+    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    seen.length = 0;
+    rerender(view());
+    expect(seen[0]).toBe(false);
+    await waitFor(() => expect(onRangeRequest).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    await act(async () => { pending[1]([{ id: '9', laneKey: 'a', orderStart: 50, orderEnd: 52, state: 'ok', label: 'new' }]); });
+    exportCsv();
+    expect((await readCsv(csv[0])).slice(2)).toEqual(['A,new,50,52,완료,2']);
+  });
+
+  it('clears the standalone result line when permission, title or rows change, and hides it when restricted (PR2 C3)', async () => {
+    const view = (props: Partial<React.ComponentProps<typeof OrderedIntervalTrack>>) => <I18nProvider><OrderedIntervalTrack {...track} exportActions={{ exportAllowed: true }} {...props} /></I18nProvider>;
+    const { rerender } = render(view({}));
+    exportCsv();
+    await waitFor(() => expect(screen.getByText('Track.csv 내보냄')).toBeTruthy());
+    rerender(view({ state: { kind: 'forbidden', title: '권한 없음' } }));
+    expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
+    rerender(view({}));
+    expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
+    exportCsv();
+    await waitFor(() => expect(screen.getByText('Track.csv 내보냄')).toBeTruthy());
+    rerender(view({ exportActions: { exportAllowed: false } }));
+    rerender(view({}));
+    expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
+    exportCsv();
+    await waitFor(() => expect(screen.getByText('Track.csv 내보냄')).toBeTruthy());
+    rerender(view({ items: [track.items[0]] }));
+    expect(screen.queryByText('Track.csv 내보냄')).toBeNull();
+  });
+
+  it('inside a platform the menu manifest decides, whatever exportActions says (PR2 C5)', () => {
+    const session = testSession(['platform:view']);
+    const adapter = testAdapter({ session: () => session });
+    window.history.replaceState(null, '', '/?v=1');
+    for (const canExport of [false, true]) {
+      render(<I18nProvider><PlatformProvider adapter={adapter} registry={exportRegistry(canExport)}><OrderedIntervalTrack {...track} exportActions={{ exportAllowed: !canExport }} /></PlatformProvider></I18nProvider>);
+      expect(!!screen.queryByRole('button', { name: '내보내기' })).toBe(canExport);
+      cleanup();
+    }
+  });
+
+  it.each(['forbidden', 'unsupported', 'empty'] as const)('a %s state takes down the open table, the export trigger and its popover (PR2 C5)', (kind) => {
+    const view = (state?: { kind: typeof kind; title: string }) => <I18nProvider><OrderedIntervalTrack {...track} state={state} exportActions={{ exportAllowed: true }} /></I18nProvider>;
+    const { rerender } = render(view());
+    fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+    expect(screen.getByRole('table')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    expect(screen.getByRole('dialog', { name: '내보내기' })).toBeTruthy();
+    rerender(view({ kind, title: '없음' }));
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: '내보내기' })).toBeNull();
+    expect(csv).toHaveLength(0);
   });
 
   it('keeps a fractional length in an integer domain (C7)', () => {
