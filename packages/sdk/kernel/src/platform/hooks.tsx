@@ -12,11 +12,12 @@ function useMerged(): HostPlatform | null {
   const paneScreen = useContext(PaneScreenContext);
   const lent = useContext(LentPanelPlatformContext);
   // `use` reads the main screen only outside a pane, so a pane reader has no dependency on it.
-  const screen = lent ?? paneScreen ?? use(ScreenContext);
+  const screen = paneScreen ?? (lent ? null : use(ScreenContext));
   return useMemo(() => {
     if (lent) return lent;
     if (!app || !main || !screen) return null;
-    return { ...app.pub, ...main, ...screen };
+    const { pageParamsNow: _pageParamsNow, ...snapshot } = screen;
+    return { ...app.pub, ...main, ...snapshot };
   }, [app, main, screen, lent]);
 }
 

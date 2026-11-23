@@ -16,7 +16,10 @@ import type { NavigationGuard } from './navigationGuard';
 export type ScreenFields = 'detailExpanded' | 'setDetailExpanded' | 'queryHistory' | 'queryDraft' | 'queryPolicy' | 'url' | 'appliedUrl' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageParams' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'objectLinks' | 'reportError' | 'reportShellError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'scopeGeneration' | 'retryScope' | 'currentSpace';
 /** Shell navigation state that always follows the main screen, even when read from inside a pane (ADR-0049). */
 export type MainBoundFields = 'visibleMenus' | 'sidebarSpace' | 'spaceResume' | 'spaceEntry' | 'switchSpace';
-export type ScreenState = Pick<HostPlatform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'>;
+export type ScreenState = Pick<HostPlatform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'> & {
+  /** Event-time page values for kernel writers. Null means the source screen was left. */
+  pageParamsNow: (key: string) => string[] | null;
+};
 export type MainBound = Pick<HostPlatform, MainBoundFields>;
 export type AppState = Omit<HostPlatform, ScreenFields | MainBoundFields | 'screenMode' | 'paneId' | 'paneLabel'>;
 /** App-internal handles the screen layers need; never part of the public `usePlatform()` value. */
@@ -63,16 +66,21 @@ export const RecentContext = createContext<readonly Recent[] | null>(null);
 
 /** `redirect`: replace an alias address by its canonical one (ADR-0093) — the same arrival, so a pending focus request and the address-bar hash survive. */
 export type CommitOptions = { focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** With `redirect`: a retired menu's page preset (#2330), added for the keys the kept query does not hold. */ redirectPage?: Readonly<Record<string, string>>; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[]; /** Internal: replay of a move the person confirmed leaving; skips the unsaved-edit guard (ADR-0115). */ bypassGuard?: boolean; /** Host only: this `replace` is held by the unsaved-edit guard like a push (board open, #2061). */ guard?: boolean; /** Host only: runs once the move is certain (after any confirmed leave, just before the write); `false` cancels it. Replayed with the confirmed move (#2061). */ run?: () => boolean };
+export type ScreenAddress = {
+  /** The browser URL for the main screen, or the pane's virtual path and query. */
+  url: string;
+  /** Main only: page pairs carried in the history entry, outside the browser URL (ADR-0105). */
+  hidden?: readonly Pair[];
+};
+
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
-export type ScreenSource = {
+export type ScreenSource = ScreenAddress & {
   draftStore?: DraftStore;
   mode: 'main' | 'pane';
   paneId: string | null;
   paneLabel?: string | null;
-  /** The screen's address: the browser URL for the main screen, the pane's virtual path plus its own query. */
-  url: string;
-  /** Main only: the hidden page pairs of the entry (`hiddenPageKeys`, ADR-0105). They are page state like the pairs in `url` but are not part of the address. A pane has none: its query holds every key. */
-  hidden?: readonly Pair[];
+  /** Event-time write base, including any pane proposal since the rendered address. */
+  readAddress: () => ScreenAddress | null;
   navigation: ReturnType<typeof createPageNavigation>;
   /** Writes this screen's own address (history for main, `onChange` for a pane). Stable identity. False when nothing was written. */
   commit: (next: string, how: 'push' | 'replace', options?: CommitOptions) => boolean;

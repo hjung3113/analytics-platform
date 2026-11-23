@@ -17,7 +17,17 @@ import { hasExplicitContext } from '../saved-view/restore';
 import type { InitialSavedView } from '../saved-view/useSavedViews';
 import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, type SpaceDef, type MainUsageVia, type UsageEvent } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
-import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type ScreenSource, type ScreenState } from './contexts';
+import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type ScreenAddress, type ScreenSource, type ScreenState } from './contexts';
+
+// Hidden pairs are parsed with the public query, then split again by the main screen's commit (ADR-0105).
+function fullAddress({ url, hidden }: ScreenAddress): string {
+  if (!hidden?.length) return url;
+  return url + (url.includes('?') ? '&' : '?') + new URLSearchParams([...hidden]).toString();
+}
+
+function hasDetailExpansion(url: string): boolean {
+  return new URLSearchParams(url.split('?')[1] ?? '').get(DETAIL_EXPAND_KEY) === '1';
+}
 
 function hasSiteBound(g: GlobalContext): boolean { return SITE_BOUND_FIELDS.some(f => g[f] !== null); }
 function withoutSiteBound(g: GlobalContext): GlobalContext { return { ...g, ...Object.fromEntries(SITE_BOUND_FIELDS.map(f => [f, null])) }; }
@@ -63,9 +73,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const { registry, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes, isCurrentGeneration } = app.pub;
   const { enters, usageSessionId, userIdRef, usageNav } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
-  const { url: visibleUrl, hidden, navigation: pageNavigation, commit, go, mode, paneId } = source;
-  // The screen reads visible + hidden pairs as one query; only the Provider's `commit` splits them again (ADR-0105).
-  const url = useMemo(() => (hidden && hidden.length > 0 ? visibleUrl + (visibleUrl.includes('?') ? '&' : '?') + new URLSearchParams(hidden.map(([k, v]): [string, string] => [k, v])).toString() : visibleUrl), [visibleUrl, hidden]);
+  const { url: visibleUrl, hidden, readAddress, navigation: pageNavigation, commit, go, mode, paneId } = source;
+  const url = useMemo(() => fullAddress({ url: visibleUrl, hidden }), [visibleUrl, hidden]);
   const paneLabel = source.paneLabel ?? null;
   const { t, lang } = useI18n();
   const userId = user.id;
@@ -76,13 +85,19 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const outsideDeployment = url === '';
 
   const platformScreen = mode === 'main' && !outsideDeployment && isBoardPath(pathname) ? 'board' : null;
-  const detailExpanded = mode === 'main' && platformScreen === null && new URLSearchParams(url.split('?')[1] ?? '').get(DETAIL_EXPAND_KEY) === '1';
+  const detailExpanded = mode === 'main' && platformScreen === null && hasDetailExpansion(url);
   const setDetailExpanded = useCallback((on: boolean) => {
     if (mode !== 'main' || platformScreen !== null) return;
-    commit(withDetailExpansion(url, on), 'replace');
-  }, [mode, platformScreen, url, commit]);
+    const current = readAddress();
+    if (!current || (current.url.split('?')[0] || '/') !== pathname) return;
+    commit(withDetailExpansion(fullAddress(current), on), 'replace');
+  }, [mode, platformScreen, pathname, readAddress, commit]);
   // All same-screen writers (including Apply and materialization) retain presentation state.
-  const commitState = useCallback<typeof commit>((next, how, options) => commit(withDetailExpansion(next, detailExpanded), how, options), [commit, detailExpanded]);
+  const commitState = useCallback<typeof commit>((next, how, options) => {
+    const current = readAddress();
+    if (!current || (current.url.split('?')[0] || '/') !== pathname) return false;
+    return commit(withDetailExpansion(next, mode === 'main' && platformScreen === null && hasDetailExpansion(current.url)), how, options);
+  }, [commit, mode, pathname, platformScreen, readAddress]);
   const route = useMemo(() => {
     if (outsideDeployment || platformScreen !== null) return null;
     const matched = matchRoute(pathname);
@@ -93,7 +108,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const back = matchRoute(destination);
     return back && !back.viaAlias && back.menu.id === matched.menu.id && sameParams(back.params, matched.params) ? matched : null;
   }, [matchRoute, pathname, outsideDeployment, platformScreen]);
-  const { parsed, contractError } = useMemo((): { parsed: ParsedQuery | null; contractError: ContractError | null } => {
+  const parseScreenQuery = useCallback((search: string): { parsed: ParsedQuery | null; contractError: ContractError | null } => {
     // The board owns its own query (`?sheet=`), not the Context codec: the main Context there is empty.
     if (platformScreen !== null) return { parsed: null, contractError: null };
     try {
@@ -112,7 +127,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       if (e instanceof ContractError) return { parsed: null, contractError: e };
       throw e;
     }
-  }, [search, route, platformScreen, equipmentAxes]);
+  }, [route, platformScreen, equipmentAxes]);
+  const { parsed, contractError } = useMemo(() => parseScreenQuery(search), [parseScreenQuery, search]);
   const global = parsed?.global ?? emptyGlobal;
   const routeMenu = route?.menu ?? null;
   const routeContractError = useMemo(
@@ -122,6 +138,18 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const metricInit = useStable(classifyMetricInit(adapter.publishedMetrics(), route?.menu.initializesMetric === true, global.metricId, global.metricVersion), sameMetricInit);
   const page = useMemo(() => parsed?.page ?? [], [parsed]);
   const extras = useMemo(() => parsed?.extras ?? [], [parsed]);
+  const readWriteBase = useCallback(() => {
+    const current = readAddress();
+    if (!current || (current.url.split('?')[0] || '/') !== pathname) return null;
+    const currentUrl = stripDetailExpansion(fullAddress(current));
+    const q = currentUrl.indexOf('?');
+    const state = currentUrl === appliedUrl ? parsed : parseScreenQuery(q === -1 ? '' : currentUrl.slice(q)).parsed;
+    return state ?? { global: emptyGlobal, page: [], extras: [] };
+  }, [readAddress, pathname, appliedUrl, parsed, parseScreenQuery]);
+  const pageParamsNow = useCallback((key: string) => {
+    const current = readWriteBase();
+    return current && current.page.filter(([k]) => k === key).map(([, v]) => v);
+  }, [readWriteBase]);
 
   // Only the main screen's navigation marks how the next entry was reached; a pane that leaves hands over to the main one (onLeave).
   const returnOwner = useCallback((address: string): ReturnHiddenOwner | null => {
@@ -140,17 +168,15 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       const origin = safeReturnTo(page.find(([k]) => k === RETURN_TO_KEY)?.[1] ?? null);
       if (origin !== null && origin === next) { const owner = returnOwner(origin); if (owner !== null) restoreHidden = readReturnHidden(origin, owner); }
     }
-    if (next.split('?')[0] !== pathname) next = stripDetailExpansion(next);
+    if (next.split('?')[0] !== readAddress()?.url.split('?')[0]) next = stripDetailExpansion(next);
     const moved = go(next, restoreHidden && restoreHidden.length > 0 ? { ...options, restoreHidden } : options);
     if (mode === 'main' && !moved) trail.via = before;
     return moved;
-  }, [go, mode, usageNav, visibleUrl, hidden, safeReturnTo, page, returnOwner, pathname]);
+  }, [go, mode, usageNav, visibleUrl, hidden, safeReturnTo, page, returnOwner, readAddress]);
 
   // A deliberate global-Context change drops the manifest's contextResetKeys (e.g. the result-set page index)
   // from the page pairs in the SAME navigation — one history entry, so Back returns to the pre-change URL
   // exactly (06 §6.4). History traversal (popstate, navigate) and no-op setGlobal calls never drop anything.
-  const dropContextResetKeys = useCallback((pairs: Pair[], next: GlobalContext): Pair[] => dropResetKeys(route?.menu, pairs, global, next), [route, global]);
-
   // Writers commit this screen's own address; they are not cross-menu navigation (a pane keeps writing to itself
   // even after its menu lost permission or board support).
   const write = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; bypassGuard?: boolean }) => {
@@ -158,6 +184,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   }, [commitState]);
 
   const setGlobal = useCallback((patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => {
+    const current = readWriteBase();
+    if (!current) return;
+    const { global, page, extras } = current;
     let next: GlobalContext = { ...global, ...patch };
     if ('scopeId' in patch && patch.scopeId !== global.scopeId) {
       // Site is a Scope grant boundary (ADR-0153): the carried site-bound sets are cleared explicitly, never re-mapped. Values the same patch passes stay: the caller meant them for the new Scope (as in `resolveLink`).
@@ -168,11 +197,14 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       if (had && !options?.silent) toast(kept ? `${t('scopeChangedSiteReset')}${t('scopeChangedSiteKept')}` : t('scopeChangedSiteReset'), 'warning');
     }
     // A Scope change is never held by the unsaved-edit guard, even for a guard that leaves on address change (ADR-0115 decision 4).
-    write(pathname + buildQuery(next, dropContextResetKeys(page, next), extras), 'scopeId' in patch && patch.scopeId !== global.scopeId ? { ...options, bypassGuard: true } : options);
-  }, [global, page, extras, pathname, write, toast, t, dropContextResetKeys]);
+    write(pathname + buildQuery(next, dropResetKeys(route?.menu, page, global, next), extras), 'scopeId' in patch && patch.scopeId !== global.scopeId ? { ...options, bypassGuard: true } : options);
+  }, [readWriteBase, pathname, write, toast, t, route]);
 
   // A patch that changes a drill level value also drops the menu's `drill.resetKeys` in the same write (one history entry, 06 §6.4).
   const setPage = useCallback((requested: Record<string, string | readonly string[] | null>, options?: { replace?: boolean; focus?: PageFocus }) => {
+    const current = readWriteBase();
+    if (!current) return;
+    const { global, page, extras } = current;
     if (Object.hasOwn(requested, DETAIL_EXPAND_KEY)) throw new RangeError('expand is a reserved platform key');
     for (const [key, value] of Object.entries(requested)) {
       if (typeof value === 'object' && value !== null && value.filter(v => v !== '').length > 1 && !route?.menu.repeatedPageKeys?.includes(key)) throw new RangeError(`setPage: "${key}" is not a repeated page key`);
@@ -186,13 +218,16 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const kept = page.filter(([k]) => !keys.includes(k));
     const added = Object.entries(patch).flatMap(([k, v]): Pair[] => (v === null ? [] : (typeof v === 'string' ? [v] : v).map((item): Pair => [k, item]))).filter(([, item]) => item !== '');
     write(pathname + buildQuery(global, [...kept, ...added], extras), options);
-  }, [global, page, extras, pathname, write, route]);
+  }, [readWriteBase, pathname, write, route]);
 
   // Reset clears analysis Context but keeps the requested Scope (a separate header control).
   const resetContext = useCallback(() => {
+    const current = readWriteBase();
+    if (!current) return;
+    const { global, page, extras } = current;
     const next: GlobalContext = { ...emptyGlobal, scopeId: global.scopeId };
-    write(pathname + buildQuery(next, dropContextResetKeys(page, next), extras));
-  }, [pathname, write, global, page, extras, dropContextResetKeys]);
+    write(pathname + buildQuery(next, dropResetKeys(route?.menu, page, global, next), extras));
+  }, [pathname, write, readWriteBase, route]);
 
   // Context Link helper (§22/§6.4): every registered global is preserved regardless of target support;
   // page-owned state and unregistered extras are never copied implicitly — the one exception is a carry set's
@@ -517,8 +552,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     drillGap: drillGap(route?.menu.drill?.levels ?? [], page) !== null,
     ready: routeMenu?.query?.mode !== 'apply' || scopeReady, ...(autoApplyingDefault ? { autoApplyingDefault } : {}) }, sameQueryPolicy);
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
-    detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin,
+    detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, scopeGeneration, retryScope, screenMode: mode, paneId, paneLabel,
-  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel]);
+  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel]);
   return { screen, sidebarSpace, resolveEntryLink, initialSavedView };
 }

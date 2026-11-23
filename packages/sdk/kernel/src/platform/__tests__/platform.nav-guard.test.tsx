@@ -71,6 +71,29 @@ function stack() {
 afterEach(() => { cleanup(); guardOptions = {}; traversals = 0; vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('menu leave guard: links and navigate (ADR-0115)', () => {
+  it('retries a cancelled page patch against the last accepted write in the same event', () => {
+    guardOptions = { leaves: 'address' };
+    mount('/mars/editor');
+    act(() => setDirty(true));
+    const length = window.history.length;
+    const { setPage } = platform;
+    act(() => {
+      setPage({ t: 'accepted' }, { replace: true });
+      setPage({ q: 'pending' });
+    });
+    expect(request).not.toBeNull();
+    expect(here()).toBe('/mars/editor?v=1&t=accepted');
+    act(() => request!.cancel());
+    expect(request).toBeNull();
+    act(() => setPage({ q: 'pending' }));
+    expect(request).not.toBeNull();
+    expect(here()).toBe('/mars/editor?v=1&t=accepted');
+    act(() => request!.confirm());
+    const query = new URLSearchParams(window.location.search);
+    expect([query.get('t'), query.get('q')]).toEqual(['accepted', 'pending']);
+    expect(window.history.length).toBe(length + 1);
+  });
+
   it('a blocked move writes nothing and returns false; confirm replays once with onDiscard, cancel changes nothing', () => {
     const onDiscard = vi.fn();
     guardOptions = { onDiscard, message: 'draft' };
