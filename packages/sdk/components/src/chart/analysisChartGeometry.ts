@@ -1,3 +1,31 @@
+import type { ChartSeries } from './AnalysisChartFrame';
+
+/** The renderer stacks time data by index. Align each mark kind by timestamp and keep repeated observations in input order. */
+export function alignStackTimes(series: ChartSeries[]): ChartSeries[] {
+  const aligned = [...series];
+  for (const kind of ['bar', 'line'] as const) {
+    const indices = series.flatMap((s, index) => (s.kind ?? 'line') === kind ? [index] : []);
+    if (indices.length < 2) continue;
+    const slots = new Map<string, number>();
+    const valuesBySeries = indices.map(index => {
+      const values = new Map<string, (number | null)[]>();
+      for (const [x, y] of series[index].points) {
+        const atTime = values.get(x) ?? [];
+        atTime.push(y);
+        values.set(x, atTime);
+        slots.set(x, Math.max(slots.get(x) ?? 0, atTime.length));
+      }
+      return values;
+    });
+    const times = [...slots.keys()].sort(); // Valid wall-clock strings sort chronologically.
+    indices.forEach((index, n) => {
+      const points = times.flatMap(x => Array.from({ length: slots.get(x)! }, (_, slot): [string, number | null] => [x, valuesBySeries[n].get(x)?.[slot] ?? null]));
+      aligned[index] = { ...series[index], points };
+    });
+  }
+  return aligned;
+}
+
 /** Each mark stays inside its category slot, including at very dense/empty grids. */
 export function heatmapSymbolSize(plotWidth: number, plotHeight: number, xCount: number, yCount: number): [number, number] {
   return [xCount ? Math.max(0, plotWidth / xCount - 2) : 0, yCount ? Math.max(0, plotHeight / yCount - 2) : 0];

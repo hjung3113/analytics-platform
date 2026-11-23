@@ -49,6 +49,40 @@ beforeEach(() => { Object.defineProperty(HTMLElement.prototype, 'scrollIntoView'
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('chart catalog route and lifetime', () => {
+  it('opens and restores the histogram through the catalog tabs', async () => {
+    mount();
+    const histogram = () => screen.findByRole('img', { name: '분포 · PM2 · Pump' });
+    const tab = await screen.findByRole('tab', { name: /^히스토그램 / });
+    fireEvent.mouseDown(tab, { button: 0 });
+    await histogram();
+    const kind = new URLSearchParams(window.location.search).get('kind');
+    expect(kind).toBe('histogram');
+    cleanup();
+    mount(kind!);
+    expect((await screen.findByRole('tab', { name: /^히스토그램 / })).getAttribute('aria-selected')).toBe('true');
+    await histogram();
+  });
+
+  it.each(['line', 'bar', 'breakdown'] as const)('changes stack mode on the additive %s sample', async kind => {
+    mount(kind);
+    const mode = await screen.findByRole('radiogroup', { name: '쌓기' });
+    const firstId = kind === 'breakdown' ? 'run' : 'current';
+    const plotted = () => (canvas.options.slice().reverse() as { series?: { id: string; stack?: string }[] }[])
+      .find(option => option.series?.some(series => series.id === firstId))?.series;
+    fireEvent.click(within(mode).getByRole('radio', { name: '쌓기' }));
+    await waitFor(() => expect(plotted()?.filter(series => series.stack).length).toBeGreaterThan(1));
+    fireEvent.click(within(mode).getByRole('radio', { name: '없음' }));
+    expect(plotted()?.some(series => series.stack)).toBe(false);
+  });
+
+  it('fills the catalog line sample on request', async () => {
+    mount();
+    await screen.findByRole('img');
+    fireEvent.click(screen.getByRole('checkbox', { name: '면 채움' }));
+    const option = canvas.options.at(-1) as { series: { type: string; areaStyle?: unknown }[] };
+    expect(option.series.filter(series => series.type === 'line' && series.areaStyle)).toHaveLength(2);
+  });
+
   it('drops the visible 지원 N/8 tag but keeps the support counts in the tab name', async () => {
     mount();
     const tab = await screen.findByRole('tab', { name: /^선 / });

@@ -30,7 +30,7 @@ export default function ChartCatalog() {
   // An invalid breakdown node is rejected before, and without, the catalogue query (06 §6.4).
   const rejectedNode = kind === 'breakdown' ? invalidBreakdownNode(pageParam('node')) : null;
   // keepPrevious OFF (#1365, ADR-0114): `kind` selects a different chart, so the previous result would be another subject under the new label.
-  const query = useMenuQuery(chartCatalogEndpoint, { kind }, rejectedNode === null);
+  const query = useMenuQuery(chartCatalogEndpoint, { kind }, { enabled: rejectedNode === null && kind !== 'histogram' });
   return <PlatformPage dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={kind === 'sequence' && sequenceLoad === 'error' ? [...query.response.assessments.filter(item => item.kind !== 'collection'), { kind: 'collection', state: 'confirmed', reason: 'check_failed', detail: m('chartCatalogSyntheticRangeRequestFailed') }] : query.response.assessments} /> : undefined}>
     <CatalogWorkspace query={query} updatedAt={query.response?.trust?.updatedAt ?? null} rejectedNode={rejectedNode} onSequenceLoad={setSequenceLoad} />
   </PlatformPage>;
@@ -88,6 +88,12 @@ function CatalogWorkspace({ query, updatedAt, rejectedNode, onSequenceLoad }: { 
     if (document.querySelector('[role="dialog"], [role="menu"], [role="tooltip"], [data-radix-popper-content-wrapper]')) return;
     event.preventDefault(); setFocus(false); focusToggle.current?.focus();
   }
+  let content;
+  if (kind === 'histogram') content = <HistogramSample height={plotHeight} />;
+  else if (rejectedNode !== null) content = <BreakdownNodeRejection node={rejectedNode} />;
+  else content = <QueryView query={query} widgetName={m('chartCatalogChartData')}>
+    {data => kind === 'sequence' ? <SequenceSample height={plotHeight} onLoadStateChange={onSequenceLoad} /> : <CatalogChart key={kind} kind={kind} data={data} height={plotHeight} updatedAt={updatedAt} />}
+  </QueryView>;
   return <div ref={root} role="region" aria-label={m('chartCatalogChartCatalogWorkspace')} className="flex min-h-0 flex-col gap-2" onKeyDown={escape}>
       <Tabs value={kind} onValueChange={value => { if (isCatalogKind(value)) setPage({ kind: value }); }} className="flex min-h-0 flex-1 flex-col">
         <div className="flex shrink-0 items-center justify-between gap-2">
@@ -108,12 +114,7 @@ function CatalogWorkspace({ query, updatedAt, rejectedNode, onSequenceLoad }: { 
         <div className={narrow ? 'mt-2 flex min-h-0 flex-1 flex-col gap-2' : 'mt-2 flex min-h-0 flex-1 gap-2'}>
           <div ref={chart} role="region" aria-label={m('chartCatalogChartWorkspace')} tabIndex={0} className="min-h-0 min-w-0 flex-1 overflow-auto">
             {/* One stable panel/QueryView path: layout never changes chart identity. */}
-            <TabsContent value={kind} className="m-0">
-              {rejectedNode !== null ? <BreakdownNodeRejection node={rejectedNode} /> : <QueryView query={query} widgetName={m('chartCatalogChartData')}>
-                {data => kind === 'sequence' ? <SequenceSample height={plotHeight} onLoadStateChange={onSequenceLoad} /> : <CatalogChart key={kind} kind={kind} data={data} height={plotHeight} updatedAt={updatedAt} />}
-              </QueryView>}
-            </TabsContent>
-            <HistogramSample height={plotHeight} />
+            <TabsContent value={kind} className="m-0">{content}</TabsContent>
           </div>
           {!focus && preference.open && !narrow && <div role="separator" aria-label={m('chartCatalogInteractionSupportWidth')} aria-controls={panelId} aria-orientation="vertical" aria-valuemin={240} aria-valuemax={maxWidth} aria-valuenow={effectiveWidth} tabIndex={0}
             className="w-2 shrink-0 cursor-col-resize touch-none rounded border border-border-subtle bg-surface-sunken focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-primary"

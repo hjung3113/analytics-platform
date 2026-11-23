@@ -20,16 +20,17 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
   if (!statuses.size) return [];
   const bars = input.displayed.filter(s => input.horizontal || s.kind === 'bar');
   const count = input.stacked ? 1 : bars.length;
+  const alignedByIndex = input.explicitStack && input.xType === 'time';
   return bars.flatMap((series, slot) => {
     const n = input.displayed.indexOf(series);
-    const pieces = series.points.flatMap(([x, value]) => {
+    const pieces = series.points.flatMap(([x, value], index) => {
       const status = statuses.get(chartPointKey({ seriesId: series.id, x }));
       if (!status || value === null || !Number.isFinite(value)) return [];
       const backing = statusBacking(status, input.palette.series[n].fill);
       let start = 0;
       if (lanes) start = lanes.lanes[n].start;
       else if (input.stacked) for (const previous of bars.slice(0, slot)) {
-        const v = previous.points.find(([category]) => category === x)?.[1];
+        const v = alignedByIndex ? previous.points[index]?.[1] : previous.points.find(([category]) => category === x)?.[1];
         if (typeof v === 'number' && Number.isFinite(v) && (v >= 0) === (value >= 0)) start += v;
       }
       const category = input.xType === 'time' ? toMs(x) : input.categories.indexOf(x);

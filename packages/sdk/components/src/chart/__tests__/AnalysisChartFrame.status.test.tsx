@@ -27,6 +27,78 @@ async function showTable() {
 }
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 
+const plottedSeries = () => (plot.option as { series: {
+  id: string; stack?: string; areaStyle?: unknown; data: unknown[];
+}[] }).series;
+
+describe('Frame stack and area options (#2737)', () => {
+  it.each(['bar', 'line'] as const)('stacks additive %s series only when opted in', async kind => {
+    const view = mount({ series: series.map(s => ({ ...s, kind })), orientation: 'vertical', reaggregation: 'sum' });
+    await screen.findByRole('img');
+    expect(plottedSeries().slice(0, 2).map(s => s.stack)).toEqual([undefined, undefined]);
+    view.update({ stacked: true });
+    expect(plottedSeries()[0].stack).toBe(kind === 'bar' ? 'total' : undefined);
+    view.update({ stackMode: 'stack' });
+    const [a, b] = plottedSeries();
+    expect(a.stack).toBeTruthy();
+    expect(b.stack).toBe(a.stack);
+    view.update({ stacked: true, stackMode: 'none' });
+    expect(plottedSeries().slice(0, 2).map(s => s.stack)).toEqual([undefined, undefined]);
+  });
+
+  it('keeps horizontal lane, total and min/max output when switching to explicit stack mode', async () => {
+    const view = mount({ stacked: true, startAlign: true, valueLabels: 'both', minMax: true, reaggregation: 'sum' });
+    await screen.findByRole('img');
+    const marks = () => plottedSeries().map(({ id, stack, data }) => ({ id, stack, data }));
+    const legacy = marks();
+    view.update({ stacked: false, stackMode: 'stack' });
+    expect(marks()).toEqual(legacy);
+  });
+
+  it.each(['ratioOfSums', undefined] as const)('keeps a stack request with reaggregation=%s grouped and diagnoses it', async reaggregation => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mount({ stackMode: 'stack', reaggregation });
+    await screen.findByRole('img');
+    expect(plottedSeries()[0].stack).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/stackMode.*reaggregation/));
+  });
+
+  it('uses raw stacking and diagnoses the pending percent mode', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    mount({ stackMode: 'percent', reaggregation: 'sum' });
+    await screen.findByRole('img');
+    expect(plottedSeries()[0]).toMatchObject({ stack: 'total', data: [3, 5, null] });
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/percent.*raw/));
+  });
+
+  it('preserves default single-line fill and allows explicit fill choices', async () => {
+    const view = mount({ orientation: 'vertical', series: [series[0]] });
+    await screen.findByRole('img');
+    expect(plottedSeries()[0].areaStyle).toEqual({ opacity: 0.09 });
+    view.update({ areaFill: false });
+    expect(plottedSeries()[0].areaStyle).toBeUndefined();
+    view.update({ areaFill: true, series: [series[0], { ...series[1], kind: 'bar' }] });
+    expect(plottedSeries().slice(0, 2).map(s => s.areaStyle)).toEqual([{ opacity: 0.09 }, undefined]);
+  });
+
+  it('aligns sparse timestamps, puts statuses on the stack, and activates the original value', async () => {
+    const [early, late] = ['2026-09-01T00:00:00', '2026-09-01T02:00:00'];
+    const [start, end] = [Date.UTC(2026, 8, 1), Date.UTC(2026, 8, 1, 2)];
+    const activate = vi.fn();
+    mount({ xType: 'time', orientation: 'vertical', stackMode: 'stack', reaggregation: 'sum',
+      series: [{ ...series[0], points: [[early, 2], [late, 3]] }, { ...series[1], points: [[late, 5]] }],
+      pointStatus: point => point.seriesId === 'b' ? status : undefined,
+      pointActivation: { on: 'dblclick', onActivate: activate } });
+    await screen.findByRole('img');
+    expect(plottedSeries().slice(0, 2).map(s => s.data)).toEqual([[[start, 2], [end, 3]], [[start, null], [end, 5]]]);
+    expect(plottedSeries().find(s => s.id === '__line-status-b')?.data).toEqual([expect.objectContaining({ value: [end, 8] })]);
+    act(() => plot.onEvents?.dblclick?.({ seriesId: 'b', dataIndex: 0 }, {} as never));
+    expect(activate).not.toHaveBeenCalled();
+    act(() => plot.onEvents?.dblclick?.({ seriesId: 'b', dataIndex: 1 }, {} as never));
+    expect(activate).toHaveBeenCalledWith({ x: late, seriesId: 'b', value: 5 });
+  });
+});
+
 describe('opt-in Frame reading aids (#2326)', () => {
   it('uses group and short row labels in selector/table/summary/CSV but keeps callback identities', async () => {
     const activate = vi.fn();

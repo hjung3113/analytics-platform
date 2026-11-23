@@ -26,7 +26,7 @@ import { useChartRange, type ClipResult, type Selection } from './useChartRange'
 import { usePointMenu } from './usePointMenu';
 import { equalSeriesIds, seriesExtremes } from './chartLanes';
 import { resolveRowTotals, type ValueLabels } from './chartValueLabels';
-import { clampRowPitch, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN } from './analysisChartGeometry';
+import { alignStackTimes, clampRowPitch, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN } from './analysisChartGeometry';
 import { CHART_HEIGHTS } from './chartMarks';
 
 import { ChartBoundsLegend } from './ChartBoundsLegend';
@@ -217,6 +217,10 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
    */
   period?: { from?: string | null; to?: string | null };
   stacked?: boolean;
+  /** Overrides stacked. Stacking requires additive reaggregation. Percent currently draws the raw stack with a development diagnostic. */
+  stackMode?: 'none' | 'stack' | 'percent';
+  /** Fill every line when true, or no lines when false. Absent keeps the single solid line default. */
+  areaFill?: boolean;
   /**
    * Horizontal category charts only (ignored elsewhere, with a dev warning). Controlled row highlight: while the prop is present (null = no row)
    * the frame never changes its own highlight; it draws a border on that row's bars and a bold category label, and names the row in the selection summary.
@@ -352,8 +356,14 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const horizontal = xType === 'category' && p.orientation === 'horizontal';
   const rowGroups = horizontal ? p.rowGroups : undefined;
   const rawRowGroups = p.rowGroups !== undefined;
+  const { stackMode, areaFill, reaggregation: rawReaggregation } = p;
+  const mayClientSum = rawReaggregation !== undefined && canClientSum({ reaggregation: rawReaggregation });
+  const requestsStack = stackMode === 'stack' || stackMode === 'percent';
+  const explicitStack = requestsStack && mayClientSum;
+  const stacked = stackMode === undefined ? p.stacked : explicitStack;
+  const timeStack = xType === 'time' && explicitStack;
   // A stack cannot add values on two scales, and a horizontal chart puts the category on its y axis: both draw everything on the left.
-  const rightActive = !!p.rightAxis && !horizontal && !p.stacked;
+  const rightActive = !!p.rightAxis && !horizontal && !stacked;
   const rightUnit = p.rightAxis?.unit;
   const isRight = (s: ChartSeries) => rightActive && s.axis === 'right';
   const chart = useRef<ECharts | null>(null);
@@ -388,7 +398,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   // The category the last pointer click reported: the row is already visible, so that echo must not scroll.
   const [pointerRequest, setPointerRequest] = useState<string | null>(null);
   const revealedCategory = useRef<string | null | undefined>(undefined);
-  const { startAlign: rawStartAlign, stacked: rawStacked, minMax: rawMinMax, valueLabels: rawValueLabels, reaggregation: rawReaggregation } = p;
+  const { startAlign: rawStartAlign, minMax: rawMinMax, valueLabels: rawValueLabels } = p;
   const rawBounds = p.bounds !== undefined;
   const rawRightAxis = p.rightAxis !== undefined; const rawHasRight = [...p.series, ...(p.compareSeries ?? [])].some(s => s.axis === 'right');
   const { rowPitch: rawRowPitch, activeCategory: rawActive, onActiveCategoryChange, revealActive } = p;
@@ -400,17 +410,19 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       if (!warned.current.has(key)) { warned.current.add(key); rowFocusDiagnostic(message); }
     };
     if (!horizontal && (rawRowPitch !== undefined || rawActive !== undefined || onActiveCategoryChange || revealActive)) rowFocusDiagnostic('activeCategory, onActiveCategoryChange, revealActive and rowPitch apply only to orientation="horizontal" with a category x axis; ignored.');
-    if (rawStartAlign && !(horizontal && rawStacked)) rowFocusDiagnostic('startAlign applies only to a stacked chart with orientation="horizontal"; ignored.');
+    if (rawStartAlign && !(horizontal && stacked)) rowFocusDiagnostic('startAlign applies only to a stacked chart with orientation="horizontal"; ignored.');
     if (rawMinMax && !horizontal) rowFocusDiagnostic('minMax applies only to orientation="horizontal" with a category x axis; ignored.');
     once('bounds', rawBounds && horizontal, 'bounds applies only to vertical charts; ignored.');
     once('rowGroups', rawRowGroups && !horizontal, 'rowGroups applies only to orientation="horizontal" with a category x axis; ignored.');
-    once('valueLabels', !!rawValueLabels && !(horizontal && rawStacked), 'valueLabels applies only to a stacked chart with orientation="horizontal"; ignored.');
-    once('nonAdditive', !!rawStacked && rawReaggregation !== undefined && !canClientSum({ reaggregation: rawReaggregation }), `stacked draws a sum of the segments, but reaggregation "${rawReaggregation}" is not additive; draw grouped bars instead.`);
-    once('noReaggregation', !!rawValueLabels && rawValueLabels !== 'segment' && rawReaggregation === undefined, 'valueLabels="total" or "both" without reaggregation: the Frame treats the measure as not additive and draws only serverTotals.');
-    once('rightAxisUnsupported', (rawRightAxis || rawHasRight) && (horizontal || !!rawStacked), 'axis: "right" and rightAxis apply only to a vertical, unstacked chart; every series is drawn on the left.');
-    once('rightAxisMissing', rawHasRight && !rawRightAxis && !horizontal && !rawStacked, 'a series has axis: "right" but rightAxis is not given; it is drawn on the left.');
+    once('valueLabels', !!rawValueLabels && !(horizontal && stacked), 'valueLabels applies only to a stacked chart with orientation="horizontal"; ignored.');
+    once('nonAdditive', stackMode === undefined && !!stacked && rawReaggregation !== undefined && !mayClientSum, `stacked draws a sum of the segments, but reaggregation "${rawReaggregation}" is not additive; draw grouped bars instead.`);
+    once('stackModeNonAdditive', requestsStack && !mayClientSum, `stackMode="${stackMode}" requires additive reaggregation="sum"; drawing unstacked series.`);
+    once('percentPending', stackMode === 'percent' && explicitStack, 'stackMode="percent" is pending; falling back to raw stack mode.');
+    once('noReaggregation', stackMode === undefined && !!rawValueLabels && rawValueLabels !== 'segment' && rawReaggregation === undefined, 'valueLabels="total" or "both" without reaggregation: the Frame treats the measure as not additive and draws only serverTotals.');
+    once('rightAxisUnsupported', (rawRightAxis || rawHasRight) && (horizontal || !!stacked), 'axis: "right" and rightAxis apply only to a vertical, unstacked chart; every series is drawn on the left.');
+    once('rightAxisMissing', rawHasRight && !rawRightAxis && !horizontal && !stacked, 'a series has axis: "right" but rightAxis is not given; it is drawn on the left.');
     if (horizontal && rawRowPitch !== undefined && !(rawRowPitch >= ROW_PITCH_MIN)) rowFocusDiagnostic(`rowPitch ${rawRowPitch} is below the ${ROW_PITCH_MIN}px target size; using ${ROW_PITCH_MIN}.`);
-  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, rawStacked, rawMinMax, rawValueLabels, rawReaggregation, rawRightAxis, rawHasRight, rawRowGroups, rawBounds]);
+  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, stacked, stackMode, requestsStack, explicitStack, mayClientSum, rawMinMax, rawValueLabels, rawReaggregation, rawRightAxis, rawHasRight, rawRowGroups, rawBounds]);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
   // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
   const rawFillMin = p.fillMin; const legendProp = p.legend; const controlledVisibility = p.visibleSeriesIds !== undefined;
@@ -458,6 +470,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     for (const [label, value] of s.points) if (!byLabel.has(label)) byLabel.set(label, value);
     return { ...s, points: categories.map(x => [x, byLabel.get(x) ?? null] as [string, number | null]) };
   }) : visible, [xType, visible, categories]);
+  const plotted = useMemo(() => timeStack ? alignStackTimes(displayed) : displayed, [timeStack, displayed]);
   const emptyCategoryLabel = horizontal ? p.emptyCategoryLabel : undefined;
   const emptyLabels = useMemo(() => emptyCategoryLabels({ horizontal, xType, categories, displayed, emptyCategoryLabel }),
     [horizontal, xType, categories, displayed, emptyCategoryLabel]);
@@ -471,7 +484,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const labelOf = (x: string) => groupedRowText(rowGroups, x);
   const statusParts = (x: string) => displayed.flatMap(s => { const status = statuses.get(chartPointKey({ seriesId: s.id, x })); return status ? [{ id: s.id, name: s.name, status, csvLabel: frameStatusCsvLabel(s, horizontal, status) }] : []; });
   // One visible series has nothing to align to: StartAlign then does nothing (normal value axis, Brush stays); hiding series is a normal user action, so no diagnostic.
-  const startAlign = horizontal && !!p.stacked && !!p.startAlign && displayed.length >= 2;
+  const startAlign = horizontal && !!stacked && !!p.startAlign && displayed.length >= 2;
   const markDeclaration = horizontal && xType === 'category' && !startAlign && displayed.length > 0
     ? p.categoryValueMarks : undefined;
   const categoryValueMarks = useMemo(() => {
@@ -670,9 +683,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const rightValueFormat = useCallback((v: number) => rightFormatRef.current(v), []);
   const rightAxisOption = useMemo(() => (rightActive && rightUnit !== undefined ? { unit: rightUnit, valueFormat: rightValueFormat } : undefined), [rightActive, rightUnit, rightValueFormat]);
   // Value labels exist for horizontal stacked bars only. Totals: the client adds the shown segments only for an additive measure; a server total needs every series shown.
-  const valueLabels = horizontal && p.stacked ? p.valueLabels : undefined;
+  const valueLabels = horizontal && stacked ? p.valueLabels : undefined;
   const wantsTotal = valueLabels === 'total' || valueLabels === 'both';
-  const mayClientSum = p.reaggregation !== undefined && canClientSum({ reaggregation: p.reaggregation });
   // The all-off notice's button unmounts once a series shows again: focus moves to the plot only if the button still held it.
   const showAllButton = useRef<HTMLButtonElement | null>(null);
   const showAllHadFocus = useRef(false);
@@ -705,7 +717,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     : m('chartNoTotalNonAdditive');
   const partialNote = anyPartial && p.partialTotalNote !== false ? m('chartPartialTotalNote') : null;
   const missingText = (missing: readonly string[]) => m('chartMissingTotal', { items: missing.join(', ') });
-  const unit = p.unit; const stacked = p.stacked;
+  const unit = p.unit;
   // A reference line in another unit or metric version would sit on the wrong scale: it is not drawn and the Frame names it. No lines are drawn with startAlign, so no note either.
   const mismatchedLines = useMemo(() => (startAlign ? [] : (p.markLines ?? []).filter(line => (line.unit !== undefined && line.unit !== p.unit) || (line.metricVersion !== undefined && line.metricVersion !== p.metricVersion))), [startAlign, p.markLines, p.unit, p.metricVersion]);
   const markLines = useMemo(() => (mismatchedLines.length ? p.markLines?.filter(line => !mismatchedLines.includes(line)) : p.markLines), [p.markLines, mismatchedLines]);
@@ -722,10 +734,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     // A root `data-theme` change re-resolves them too (#2723).
     void instanceReady; void themeRevision;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit, axisBreak, ...(zoomOnly ? {} : { selectedPointKeys }),
-      palette: resolveChartPalette(displayed),
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed: plotted, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit, axisBreak, ...(zoomOnly ? {} : { selectedPointKeys }),
+      palette: resolveChartPalette(plotted),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, plotted, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
   useEffect(() => {
     const instance = chart.current;
     if (!p.yFit || !instance || instance.isDisposed?.()) { setAxisBreak(undefined); return; }
@@ -745,7 +757,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
 
   const eventPoint = useCallback((params: PointEvent): ChartPoint | null => {
     if (!params.seriesId || params.seriesId === '__overlay') return null;
-    const series = displayed.find(s => s.id === params.seriesId);
+    const series = plotted.find(s => s.id === params.seriesId);
     if (!series) return null;
     const datum = params.dataIndex !== undefined
       ? series.points[params.dataIndex]
@@ -756,7 +768,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     const point = { x, seriesId: series.id, value };
     if (!pointKeys.has(chartPointKey(point)) || isPointSelectable?.(point) === false) return null;
     return point;
-  }, [displayed, xType, pointKeys, isPointSelectable]);
+  }, [plotted, xType, pointKeys, isPointSelectable]);
 
   const onEvents = useMemo(() => ({
     brushEnd: (params: { areas?: { coordRange?: [number, number] }[] }, instance: ECharts) => {

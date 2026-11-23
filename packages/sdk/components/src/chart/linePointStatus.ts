@@ -17,12 +17,24 @@ const STATUS_OPACITY = 0.8; // ECharts scatter's normal opacity, also inherited 
 export function lineStatusSeries(i: ChartOptionInput, statuses: ReadonlyMap<string, ChartStatus>): ScatterSeriesOption[] {
   if (i.horizontal || !statuses.size) return [];
   const surface = token('surface-card');
+  const positive: number[] = [], negative: number[] = [], latest: number[] = [];
   return i.displayed.flatMap((s, n) => {
     if (s.kind === 'bar') return [];
-    const data = s.points.flatMap(([x, y]) => {
+    const data = s.points.flatMap(([x, y], index) => {
+      if (y === null || (i.explicitStack && !Number.isFinite(y))) return [];
+      let stackedY = y;
+      if (i.explicitStack) {
+        // Match ECharts' same-sign stacks. A zero follows the most recent nonzero stack at this slot.
+        if (y === 0) stackedY = latest[index] ?? 0;
+        else {
+          const totals = y > 0 ? positive : negative;
+          stackedY += totals[index] ?? 0;
+          totals[index] = latest[index] = stackedY;
+        }
+      }
       const status = statuses.get(chartPointKey({ seriesId: s.id, x }));
-      if (!status || y === null) return [];
-      return [{ value: [i.xType === 'time' ? toMs(x) : x, y], itemStyle: { color: i.palette.series[n].fill, borderColor: statusBorderColor(status, surface), borderWidth: 2 }, label: { ...statusMarker(status), position: 'top' as const } }];
+      if (!status) return [];
+      return [{ value: [i.xType === 'time' ? toMs(x) : x, stackedY], itemStyle: { color: i.palette.series[n].fill, borderColor: statusBorderColor(status, surface), borderWidth: 2 }, label: { ...statusMarker(status), position: 'top' as const } }];
     });
     if (!data.length) return [];
     const base = { type: 'scatter' as const, silent: true, animation: false, symbol: 'circle', tooltip: { show: false }, ...(i.rightAxis && s.axis === 'right' ? { yAxisIndex: 1 } : {}) };
