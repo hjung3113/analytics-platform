@@ -897,6 +897,9 @@ test.describe('일괄 적용 조회 바 (06 §11·§19, ADR-0061)', () => {
     await expect(page.getByText('요약 조회 완료', { exact: false })).toHaveCount(0);
     await bar.getByRole('button', { name: '최근 조건', exact: true }).click();
     await page.getByRole('option', { name: /집계 일/ }).click();
+    const confirmation = page.getByRole('group', { name: '적용하지 않은 변경이 있습니다. 이 조건으로 바꿀까요?' });
+    await expect(confirmation.getByRole('button', { name: '취소' })).toBeFocused();
+    await confirmation.getByRole('button', { name: '바꾸기' }).click();
     await expect(page.getByRole('button', { name: '일', exact: true })).toHaveAttribute('aria-pressed', 'true');
     expect(await requestCount()).toBe(before);
     expect(query(page).has('granularity')).toBe(false);

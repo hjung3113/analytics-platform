@@ -107,3 +107,65 @@ it('keeps keyboard focus through clear confirmation, cancellation and the empty 
   expect(store.clear).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('listbox')).toHaveFocus();
 });
+
+it.each(['click', 'Enter'] as const)('confirms replacing a dirty draft selected by %s', async gesture => {
+  mount();
+  const user = userEvent.setup();
+  const trigger = await openHistory(user);
+  const option = await screen.findByRole('option', { name: /기간 09-01/ });
+  act(() => draft.setDraftPage({ filter: 'unapplied' }));
+  const choose = async () => {
+    if (gesture === 'click') await user.click(option);
+    else { act(() => option.focus()); await user.keyboard('{Enter}'); }
+  };
+
+  await choose();
+  expect(screen.getByRole('group', { name: '적용하지 않은 변경이 있습니다. 이 조건으로 바꿀까요?' })).toBeVisible();
+  expect(draft.draft.page).toEqual([['filter', 'unapplied']]);
+  const cancel = screen.getByRole('button', { name: '취소' });
+  expect(cancel).toHaveFocus();
+  await user.click(cancel);
+  expect(draft.draft.page).toEqual([['filter', 'unapplied']]);
+  expect(screen.queryByRole('button', { name: '바꾸기' })).toBeNull();
+  expect(option).toHaveFocus();
+
+  await choose();
+  await user.click(screen.getByRole('button', { name: '바꾸기' }));
+  await waitFor(() => expect(draft.draft.page).toEqual([['filter', 'own-history']]));
+  expect(window.location.search).not.toContain('own-history');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(trigger).toHaveFocus();
+});
+
+it('names the history dialog', async () => {
+  mount();
+  await openHistory(userEvent.setup());
+  expect(await screen.findByRole('dialog', { name: '최근 조건' })).toBeVisible();
+});
+
+it('keeps delete outside the listbox and reachable by Tab', async () => {
+  const store = mount();
+  const user = userEvent.setup();
+  await openHistory(user);
+  await screen.findByRole('option', { name: /기간 09-01/ });
+  const listbox = screen.getByRole('listbox');
+  const remove = screen.getByRole('button', { name: '1번째 조건 삭제' });
+  expect(listbox).not.toContainElement(remove);
+  expect([...listbox.querySelectorAll('button')].every(button => button.getAttribute('role') === 'option')).toBe(true);
+  act(() => listbox.focus());
+  await user.tab();
+  expect(remove).toHaveFocus();
+  await user.keyboard('{Enter}');
+  await waitFor(() => expect(store.remove).toHaveBeenCalledWith(expect.anything(), 'a'));
+});
+
+it.each([['ArrowUp', -1], ['ArrowDown', 0]] as const)('%s enters the listbox at the expected edge', async (key, index) => {
+  mount();
+  const user = userEvent.setup();
+  await openHistory(user);
+  await screen.findByRole('option', { name: /현재 사용할 수 없음/ });
+  const options = screen.getAllByRole('option');
+  act(() => screen.getByRole('listbox').focus());
+  await user.keyboard(`{${key}}`);
+  expect(options.at(index)).toHaveFocus();
+});
