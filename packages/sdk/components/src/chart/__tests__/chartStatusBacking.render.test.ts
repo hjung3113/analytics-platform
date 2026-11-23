@@ -25,6 +25,7 @@ describe('effective status borders drawn by ECharts (#2326 C1)', () => {
     { horizontal: true, stacked: true, startAlign: true, xType: 'category' as const },
     { horizontal: false, stacked: false, startAlign: false, xType: 'category' as const },
     { horizontal: false, stacked: false, startAlign: false, xType: 'time' as const },
+    { horizontal: false, stacked: true, explicitStack: true, startAlign: false, xType: 'time' as const },
   ])('aligns double strokes with native bar rectangles: %j', extra => {
     const categories = extra.xType === 'time' ? ['2026-11-16T00:00:00', '2026-11-16T01:00:00', '2026-11-16T02:00:00'] : ['R1', 'R2', 'R3'];
     const displayed: ChartSeries[] = [

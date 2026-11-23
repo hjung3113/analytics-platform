@@ -14,7 +14,6 @@ it('opens a synthetic histogram example with 1,240 observations, reference line 
   expect(await screen.findByRole('img', { name: '분포 · PM2 · Pump' })).toBeTruthy();
   expect(screen.getByText('PM2 · Pump 회차 1,240개 · 설비 24')).toBeTruthy();
   expect(screen.getAllByText(/HTM 상한 초과/).length).toBeGreaterThan(0);
-  fireEvent.click(screen.getByRole('button', { name: '더보기' }));
   fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   expect(screen.getByRole('table').textContent).toContain('■ HTM 상한 초과');
   expect(screen.queryByRole('checkbox')).toBeNull();

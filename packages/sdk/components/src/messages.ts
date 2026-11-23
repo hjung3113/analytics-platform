@@ -68,6 +68,7 @@ export const COMPONENTS_MESSAGES = {
   chartOther: { ko: '기타', en: 'Other' },
   chartUnclassified: { ko: '미분류', en: 'Unclassified' },
   chartTopNSummary: { ko: '{count}개 항목 · {unit}', en: '{count} items · {unit}' },
+  chartRawSeriesHeader: { ko: '{name} (원래 값)', en: '{name} (raw value)' },
   chartHeaderName: { ko: '이름', en: 'Name' },
   chartHeaderStatus: { ko: '상태', en: 'Status' },
   chartHeaderCategory: { ko: '범주', en: 'Category' },

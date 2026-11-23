@@ -92,6 +92,32 @@ describe('Frame bounds and line status reading aids (#2333)', () => {
   });
 });
 
+const hours = Array.from({ length: 15 }, (_, n) => `2026-11-16T${String(n).padStart(2, '0')}:00:00`);
+async function compareAlternatingTimes() {
+  const points = (parity: number): ChartSeries['points'] => hours.flatMap((x, n) => n % 2 === parity ? [[x, n]] : []);
+  mount({ xType: 'time', stackMode: 'stack', reaggregation: 'sum', bounds: new Map([[hours[0], { upper: 20 }]]),
+    series: [{ ...series[0], points: points(1) }], compareSeries: [{ ...series[0], id: 'p', points: points(0) }] });
+  const options = () => (plot.option as { series: { id: string; data: unknown[]; renderItem: (params: { dataIndex: number }, api: { coord: (point: number[]) => number[] }) => { shape: unknown } }[] }).series;
+  await screen.findByRole('img');
+  const before = options();
+  fireEvent.click(screen.getByRole('button', { name: '비교' }));
+  return { before, after: options() };
+}
+
+it('keeps the plotted baseline within the current period when compare adds earlier and later times', async () => {
+  const { before, after } = await compareAlternatingTimes();
+  const ends = (options: typeof before) => options.find(s => s.id === '__bounds-upper')!.renderItem({ dataIndex: 0 }, { coord: (p: number[]) => p }).shape;
+  expect(ends(after)).toEqual(ends(before));
+});
+
+it('keeps interleaved compare lines and their symbols without allocating padding', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const { before, after } = await compareAlternatingTimes();
+  expect(after[0]).toMatchObject({ data: before[0].data, showSymbol: true, stack: undefined });
+  expect(after[1]).toMatchObject({ showSymbol: true, stack: undefined, data: hours.filter((_, n) => n % 2 === 0).map((x, n) => [Date.parse(`${x}Z`), n * 2]) });
+  expect(warn).toHaveBeenCalledWith(expect.stringMatching(/matching timestamps/i));
+});
+
 it('renders no current-bounds line for a selected day with neither bound (#2426)', async () => {
   mount({ bounds: new Map([['A', { lower: 1 }], ['B', {}]]) });
   await screen.findByRole('img');

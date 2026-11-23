@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import type { EChartProps } from '../EChart';
@@ -27,9 +27,7 @@ async function showTable() {
 }
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 
-const plottedSeries = () => (plot.option as { series: {
-  id: string; stack?: string; areaStyle?: unknown; data: unknown[];
-}[] }).series;
+const plottedSeries = () => (plot.option as { series: { id: string; stack?: string; areaStyle?: unknown; data: unknown[] }[] }).series;
 
 describe('Frame stack and area options (#2737)', () => {
   it.each(['bar', 'line'] as const)('stacks additive %s series only when opted in', async kind => {
@@ -63,12 +61,8 @@ describe('Frame stack and area options (#2737)', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringMatching(/stackMode.*reaggregation/));
   });
 
-  it('uses raw stacking and diagnoses the pending percent mode', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    mount({ stackMode: 'percent', reaggregation: 'sum' });
-    await screen.findByRole('img');
-    expect(plottedSeries()[0]).toMatchObject({ stack: 'total', data: [3, 5, null] });
-    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/percent.*raw/));
+  it('exposes only the implemented stack modes', () => {
+    expectTypeOf<AnalysisChartFrameProps['stackMode']>().toEqualTypeOf<'none' | 'stack' | undefined>();
   });
 
   it('preserves default single-line fill and allows explicit fill choices', async () => {
@@ -81,21 +75,27 @@ describe('Frame stack and area options (#2737)', () => {
     expect(plottedSeries().slice(0, 2).map(s => s.areaStyle)).toEqual([{ opacity: 0.09 }, undefined]);
   });
 
-  it('aligns sparse timestamps, puts statuses on the stack, and activates the original value', async () => {
+  it('uses the first value at repeated times for the stack, status, activation, table and CSV', async () => {
     const [early, late] = ['2026-09-01T00:00:00', '2026-09-01T02:00:00'];
     const [start, end] = [Date.UTC(2026, 8, 1), Date.UTC(2026, 8, 1, 2)];
     const activate = vi.fn();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mount({ xType: 'time', orientation: 'vertical', stackMode: 'stack', reaggregation: 'sum',
-      series: [{ ...series[0], points: [[early, 2], [late, 3]] }, { ...series[1], points: [[late, 5]] }],
-      pointStatus: point => point.seriesId === 'b' ? status : undefined,
+      series: [{ ...series[0], points: [[early, 2], [late, 3], [late, 9]] }, { ...series[1], points: [[late, 5], [early, null]] }],
+      pointStatus: point => point.seriesId === 'b' || point.value === 3 ? status : undefined,
       pointActivation: { on: 'dblclick', onActivate: activate } });
     await screen.findByRole('img');
     expect(plottedSeries().slice(0, 2).map(s => s.data)).toEqual([[[start, 2], [end, 3]], [[start, null], [end, 5]]]);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/duplicate timestamp/i));
     expect(plottedSeries().find(s => s.id === '__line-status-b')?.data).toEqual([expect.objectContaining({ value: [end, 8] })]);
-    act(() => plot.onEvents?.dblclick?.({ seriesId: 'b', dataIndex: 0 }, {} as never));
-    expect(activate).not.toHaveBeenCalled();
     act(() => plot.onEvents?.dblclick?.({ seriesId: 'b', dataIndex: 1 }, {} as never));
     expect(activate).toHaveBeenCalledWith({ x: late, seriesId: 'b', value: 5 });
+    const table = await showTable();
+    expect(table).toHaveTextContent('M1: ◆ 상한 초과');
+    expect(within(table).getByRole('columnheader', { name: 'M1 (원래 값)' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
+    expect(vi.mocked(downloadChartCsv).mock.lastCall?.slice(1)).toEqual([['x', 'M1 (원래 값)', 'M2 (원래 값)', '상태', '사유'], expect.arrayContaining([[late, 3, 5, 'M1: ◆ 상한 초과\nM2: ◆ 상한 초과', 'M1: Recipe 미구분\nM2: Recipe 미구분']])]);
   });
 });
 

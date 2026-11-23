@@ -1,29 +1,24 @@
 import type { ChartSeries } from './AnalysisChartFrame';
 
-/** The renderer stacks time data by index. Align each mark kind by timestamp and keep repeated observations in input order. */
-export function alignStackTimes(series: ChartSeries[]): ChartSeries[] {
-  const aligned = [...series];
-  for (const kind of ['bar', 'line'] as const) {
-    const indices = series.flatMap((s, index) => (s.kind ?? 'line') === kind ? [index] : []);
-    if (indices.length < 2) continue;
-    const slots = new Map<string, number>();
-    const valuesBySeries = indices.map(index => {
-      const values = new Map<string, (number | null)[]>();
-      for (const [x, y] of series[index].points) {
-        const atTime = values.get(x) ?? [];
-        atTime.push(y);
-        values.set(x, atTime);
-        slots.set(x, Math.max(slots.get(x) ?? 0, atTime.length));
-      }
-      return values;
-    });
-    const times = [...slots.keys()].sort(); // Valid wall-clock strings sort chronologically.
-    indices.forEach((index, n) => {
-      const points = times.flatMap(x => Array.from({ length: slots.get(x)! }, (_, slot): [string, number | null] => [x, valuesBySeries[n].get(x)?.[slot] ?? null]));
-      aligned[index] = { ...series[index], points };
-    });
-  }
-  return aligned;
+/** ECharts stacks time marks by index, so each kind needs a common ordered timeline. */
+export function projectTimeStack(series: ChartSeries[]) {
+  const reference = new Map<string, ChartSeries['points']>();
+  let duplicate = false;
+  let mismatched = false;
+  const displayed = series.map(s => {
+    const first = new Map<string, number | null>();
+    for (const [x, value] of s.points) {
+      if (first.has(x)) duplicate = true;
+      else first.set(x, value);
+    }
+    const points = [...first].sort(([a], [b]) => a.localeCompare(b));
+    const kind = s.kind ?? 'line';
+    const timeline = reference.get(kind);
+    if (!timeline) reference.set(kind, points);
+    else if (timeline.length !== points.length || points.some(([x], n) => x !== timeline[n][0])) mismatched = true;
+    return { ...s, points };
+  });
+  return { displayed, duplicate, mismatched };
 }
 
 /** Each mark stays inside its category slot, including at very dense/empty grids. */

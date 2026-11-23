@@ -21,7 +21,7 @@ export function HistogramSample({ height }: { height: number }) {
     referenceLines: [{ id: 'htm-upper', value: UPPER_BOUND, label: m('upper'), tone: 'danger' }],
     binStatus: bin => bin.count > 0 && bin.start >= UPPER_BOUND ? { tone: 'danger', label: m('exceeded'), reason: m('reason') } : undefined,
   }), [m]);
-  return <AnalysisChart chartId="chart-catalog-histogram" title={m('title')} description={m('sample')}
-    legendCaption={m('caption')} legendPlacement="top" chrome="standard" unit={m('count')}
+  return <AnalysisChart chartId="chart-catalog-histogram" title={m('title')} description={<><span>{m('sample')}</span> · <span>{m('caption')}</span></>}
+    chrome="full" unit={m('count')}
     spec={spec} height={height} imageCopy imagePrint />;
 }
