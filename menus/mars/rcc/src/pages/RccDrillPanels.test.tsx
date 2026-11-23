@@ -1,4 +1,4 @@
-import type { AnalysisChartFrameProps, AnalysisChartProps, PanelWorkspaceProps, PlatformDataTableProps } from '@ap/components';
+import { heatmapMinCanvasHeight, rowPitchChartHeight, type AnalysisChartFrameProps, type AnalysisChartProps, type PanelWorkspaceProps, type PlatformDataTableProps } from '@ap/components';
 import { I18nProvider } from '@ap/kernel';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -75,8 +75,18 @@ describe('RCC drill presentation', () => {
 
   it('sizes the equipment bar panels so every row and the value axis fit', () => {
     const html = renderDrill(undefined, unit, true);
-    const fit = String(80 + 60 + EQUIPMENT.length * 24);
+    const fit = String(80 + rowPitchChartHeight(EQUIPMENT.length, 24));
     expect(html).toContain(`data-panel="layers" data-preferred="${Math.max(400, Number(fit))}"`);
     expect(html).toContain(`data-panel="totals" data-preferred="${Math.max(400, Number(fit))}"`);
+  });
+
+  it('declares the Step × equipment heatmap preferred height for every Step row and its x-axis; the Step bars keep 440 (#2755)', () => {
+    const html = renderDrill(undefined);
+    // Panel chrome (header, toolbar, legend, selection line) + the SDK heatmap's least canvas for 18 rows at 17px.
+    const fit = 96 + heatmapMinCanvasHeight(STRUCTURES.A.length, 17);
+    expect(fit).toBeGreaterThan(440);
+    expect(html).toContain(`data-panel="matrix" data-preferred="${fit}">`);
+    // The Step bars draw one row per equipment and keep their own height; the shared row still takes the tallest panel.
+    expect(html).toContain('data-panel="steps" data-preferred="440">');
   });
 });

@@ -32,6 +32,14 @@ export function clampRowPitch(pitch: number): number {
   return Number.isFinite(pitch) ? Math.max(ROW_PITCH_MIN, pitch) : ROW_PITCH_MIN;
 }
 
+/** Heatmap `minRowHeight` room (px) above and below the rows: both grid margins and the category-axis label gutter. */
+const HEATMAP_AXIS_HEIGHT = 64;
+
+/** Least canvas height of a heatmap with `minRowHeight`: every row at that floor plus the axis room. A `fill` plot shorter than this scrolls. */
+export function heatmapMinCanvasHeight(rows: number, minRowHeight: number): number {
+  return rows * minRowHeight + HEATMAP_AXIS_HEIGHT;
+}
+
 /** Full chart height in `rowPitch` mode: every row at its pitch plus the axis chrome. The frame scrolls this inside its viewport. */
 export function rowPitchChartHeight(rows: number, pitch: number): number {
   return rows * clampRowPitch(pitch) + GRID_TOP + GRID_BOTTOM;

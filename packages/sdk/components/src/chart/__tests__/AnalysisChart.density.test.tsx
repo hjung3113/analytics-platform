@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { AnalysisChart, type HeatmapSpec } from '../AnalysisChart';
+import { heatmapMinCanvasHeight } from '../analysisChartGeometry';
 import type { EChartProps } from '../EChart';
 let plot: EChartProps;
 vi.mock('../EChartImpl', () => ({ default: (props: EChartProps) => { plot = props; return <div role="img" />; } }));
@@ -13,7 +14,8 @@ it('keeps all 24 row labels readable in a scrolling heatmap with border-only sta
     cells: [{ x: 'M', y: 'E0', value: 2, status: { tone: 'danger', label: 'Over' } }] };
   render(<I18nProvider><AnalysisChart chartId="h" title="Heat" unit="s" size="fill" chrome="standard" height={140} spec={spec} /></I18nProvider>);
   const img = await screen.findByRole('img');
-  expect(plot.height).toBeGreaterThanOrEqual(24 * 24 + 64);
+  expect(plot.height).toBe(heatmapMinCanvasHeight(24, 24));
+  expect(heatmapMinCanvasHeight(24, 24)).toBe(24 * 24 + 64);
   const scroll = screen.getAllByRole('region', { name: 'Heat' }).find(region => region.tabIndex === 0);
   expect(scroll).toBe(img.parentElement);
   expect(scroll).toHaveClass('overflow-y-auto');

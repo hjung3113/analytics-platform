@@ -11,6 +11,7 @@ export type { ChartStatus, ChartRowGroups } from './chart';
 export { orderRows, type OrderableRow, type RowOrderOptions, type RowOrderResult, type RowOrderSort } from './chart/rowOrder';
 export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type HeatmapCategory, type DonutSpec, type DonutSlice, type ScatterPoint, type ScatterSpec, type BoxStats, type BoxPlotSpec, type ParetoSpec, type TopNBarSpec, type TopNBarItem, type HistogramSpec, type HistogramBin } from './chart/AnalysisChart';
 export { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries, type ChartPoint, type ChartPointAction } from './chart/AnalysisChartFrame';
+export { heatmapMinCanvasHeight, rowPitchChartHeight } from './chart/analysisChartGeometry';
 export { AuditTimeline, type AuditTimelineProps, type AuditFieldDisplay } from './drawer/AuditTimeline';
 export { copyText, useCopyLink } from './state/copyText';
 export * from './state/DataTrustIndicator';
