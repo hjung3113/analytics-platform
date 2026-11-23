@@ -106,6 +106,16 @@ it.each([['main', 'source'], ['board', 'source'], ['main', 'alternate'], ['board
   await waitFor(() => expect(result.current.reader.applied).toMatchObject([{ selection: b, source: { panelId: 'source', dimension: 'equipment' } }]));
 });
 
+it.each([['reselect', b, ['B']], ['clear', null, []]] as const)('resends an unaccepted board %s', (_, next, values) => {
+  const propose = vi.fn<(screen: PaneScreen) => void>();
+  const Held = ({ children }: { children: ReactNode }) => <Wrapper><PaneScreenProvider paneId="one" screen={{ menuId: 'analysis', params: {}, query: '?v=1' + initialA }} onChange={propose} onLeave={() => {}}>{children}</PaneScreenProvider></Wrapper>;
+  const result = mount(() => useAnalysisSelectionOutput('source', setKey), initialA, Held);
+  act(() => expect(result.current.select(next)).toBe(true));
+  act(() => expect(result.current.select(next)).toBe(true));
+  expect(result.current.selection).toEqual(a);
+  expect(propose.mock.calls.map(([screen]) => new URLSearchParams(screen.query).getAll(setKey))).toEqual([values, values]);
+});
+
 it('composes a period reset, a new selection and a clear in one event', () => {
   const { current: { output, platform } } = mount(useWriter, '&equipmentSet=B&from=2026-09-19T00:00:00&to=2026-09-20T00:00:00');
   const period = { from: '2026-09-20T00:00:00', to: '2026-09-21T00:00:00' };

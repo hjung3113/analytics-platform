@@ -27,7 +27,8 @@ export function useAnalysisSelectionOutput(panelId: string, key: string): { sele
   const channel = useChannels(route?.menu).get(key);
   const urlKey = selectionUrlKey(key);
   if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
-  const selection = channel ? parseAnalysisSelection(channel.shape, pageParams(urlKey)) : null;
+  const rendered = pageParams(urlKey);
+  const selection = channel ? parseAnalysisSelection(channel.shape, rendered) : null;
   return { selection, select(next) {
     const current = screen?.pageParamsNow(urlKey);
     if (!current || !channel || (next && next.shape !== channel.shape)) return false;
@@ -35,7 +36,9 @@ export function useAnalysisSelectionOutput(panelId: string, key: string): { sele
     const written = typeof param === 'string' ? [param] : param ?? [];
     const normalized = parseAnalysisSelection(channel.shape, written);
     if (!normalized && written.length) return false;
-    if (normalized === null ? current.length === 0 : sameSelection(parseAnalysisSelection(channel.shape, current), normalized)) return true;
+    const holds = (values: readonly string[]) => normalized === null ? values.length === 0 : sameSelection(parseAnalysisSelection(channel.shape, values), normalized);
+    // Skip only when both the rendered and the latest proposed address hold it, so a board pane can resend an unaccepted proposal.
+    if (holds(current) && holds(rendered)) return true;
     setPage({ [urlKey]: normalized ? param : null });
     return true;
   } };
