@@ -8,7 +8,7 @@ import type { BoxPlotSpec, BoxStats, ParetoSpec, ScatterSpec } from './AnalysisC
 import type { ChartRow } from './analysisChartData';
 import { chartDiagnostic } from './analysisChartData';
 import { chartTheme, strokeToken, token } from './EChart';
-import { lineSymbolShown } from './chartMarks';
+import { lineSymbolShown, selectionRing } from './chartMarks';
 import { scatterExtras } from './scatterCategories';
 import { QUIET_SCATTER } from './scatterDensity';
 import type { ChartStatus } from './chartStatus';
@@ -90,7 +90,7 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
         series: plotted.map((group, i) => ({ type: 'scatter', symbol: legend[i].symbol, emphasis: { focus: 'none' },
           ...(spec.density === 'quiet' ? { symbolSize: QUIET_SCATTER.normalSize } : {}),
           markLine: i === 0 ? { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, ...(r.axis === 'x' ? { xAxis: r.value, label: { position: 'end', rotate: 0, offset: [0, 8], verticalAlign: 'top' } } : { yAxis: r.value }) })) } : undefined,
-          data: group.map(p => ({ value: [p.x, p.y], itemStyle: { ...(spec.density === 'quiet' ? { opacity: QUIET_SCATTER.normalOpacity } : {}), color: legendColor(legend[i].color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(rowKey('scatter', p.id)) ? 2 : 0 } })),
+          data: group.map(p => ({ value: [p.x, p.y], itemStyle: { ...(spec.density === 'quiet' ? { opacity: QUIET_SCATTER.normalOpacity } : {}), color: legendColor(legend[i].color), borderColor: token('chart-selection-outline'), borderWidth: selectionRing(active.includes(rowKey('scatter', p.id))) } })),
         })),
       };
     },
@@ -151,7 +151,7 @@ export function boxPlotData(spec: BoxPlotSpec, lang: Lang, unit: string): KindPr
         series: [
           { type: 'boxplot', boxWidth: [24, 24], itemStyle: { borderColor: token(strokeToken(fills[0])) },
             markLine: { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, yAxis: r.value })) },
-            data: groups.map((g, i) => ({ value: g.stats ? [g.stats.min, g.stats.q1, g.stats.median, g.stats.q3, g.stats.max] : ['-', '-', '-', '-', '-'], itemStyle: { color: token(fills[i % 4]), borderColor: token(strokeToken(fills[i % 4])), borderWidth: active.includes(rows[i].key) ? 3 : 1.5 } })),
+            data: groups.map((g, i) => ({ value: g.stats ? [g.stats.min, g.stats.q1, g.stats.median, g.stats.q3, g.stats.max] : ['-', '-', '-', '-', '-'], itemStyle: { color: token(fills[i % 4]), borderColor: token(strokeToken(fills[i % 4])), borderWidth: active.includes(rows[i].key) ? 3 : 1.5 } })), // A box is drawn by its outline, so selection thickens it instead of a ring that would hide its colour (#2736).
           },
           { type: 'scatter', symbolSize: 5, data: outliers.map(o => ({ value: [o.group, o.value], itemStyle: { color: token(strokeToken(fills[o.group % 4])) } })) },
           // ECharts boxplot draws its median and outline in one path. Overlay an exact-width median in the on-fill token.
@@ -209,7 +209,7 @@ export function paretoData(spec: ParetoSpec, lang: Lang, unit: string): KindProj
         xAxis: { type: 'category', data: rows.map(row => row.label), axisLine: theme.axisLine, axisLabel: theme.axisLabel },
         yAxis: [{ type: 'value', min: 0, name: unit, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine }, { type: 'value', min: 0, max: 100, name: '%', position: 'right', axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, formatter: '{value}%' }, splitLine: { show: false } }],
         series: [
-          { type: 'bar', data: rows.map(row => ({ value: row.value, itemStyle: { color: token(row.color!), borderColor: token('chart-selection-outline'), borderWidth: active.includes(row.key) ? 2 : 0 } })) },
+          { type: 'bar', data: rows.map(row => ({ value: row.value, itemStyle: { color: token(row.color!), borderColor: token('chart-selection-outline'), borderWidth: selectionRing(active.includes(row.key)) } })) },
           { type: 'line', yAxisIndex: 1, data: cumulative, showSymbol: lineSymbolShown(cumulative.length), lineStyle: { color: token('chart-series-2-stroke') }, itemStyle: { color: token('chart-series-2-stroke') }, markLine: { ...theme.referenceLine, data: [{ name: pct(target * 100), yAxis: target * 100 }] } },
         ],
       };

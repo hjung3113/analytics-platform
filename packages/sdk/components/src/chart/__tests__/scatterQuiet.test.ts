@@ -36,8 +36,8 @@ it.each([false, true])('quiet styles normal/status points without backing or res
 it.each([false, true])('quiet preserves selection and reveals selected glyph (categorical=%s)', categorical => {
   const p = scatterData({ ...fixture(categorical), density: 'quiet' }, 'en', 's');
   const o = p.option(p.rows.slice(0, 2).map(row => row.key)) as Option;
-  expect(o.series[0].data[0].itemStyle).toMatchObject({ borderWidth: 2, borderColor: token('chart-selection-outline') });
-  expect(o.series[0].data[1].itemStyle).toMatchObject({ borderWidth: 2, borderColor: token('chart-selection-outline'), shadowBlur: 6, shadowColor: token('chart-selection-outline') });
+  expect(o.series[0].data[0].itemStyle).toMatchObject({ borderWidth: 1.5, borderColor: token('chart-selection-outline') });
+  expect(o.series[0].data[1].itemStyle).toMatchObject({ borderWidth: 1.5, borderColor: token('chart-selection-outline'), shadowBlur: 6, shadowColor: token('chart-selection-outline') });
   expect(o.series[0].data[1].label).toMatchObject({ show: true, formatter: '{status|■}' });
 });
 it.each([false, true])('quiet leaves table, CSV and rows identical (categorical=%s)', categorical => {

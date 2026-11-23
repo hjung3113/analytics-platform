@@ -5,7 +5,7 @@ import type { TopNBarSpec } from './AnalysisChart';
 import { chartDiagnostic } from './analysisChartData';
 import type { KindProjection } from './analysisChartKinds';
 import { chartTheme, token } from './EChart';
-import { barRadius } from './chartMarks';
+import { barRadius, selectionRing } from './chartMarks';
 import { segmentLabelStyle } from './chartValueLabels';
 
 /** Caller aggregates; this projection alone owns ordering, limiting, table and export. */
@@ -51,7 +51,7 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
         yAxis: { type: 'category', inverse: true, data: rows.map(row => row.label), axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, width: 112, overflow: 'truncate', interval: 0 } },
         series: [{ type: 'bar', itemStyle: { borderRadius: barRadius(true) },
           label: { show: true, position: 'insideRight', formatter: (p: { dataIndex: number }) => tableValues[p.dataIndex]?.[1] ?? '' },
-          data: rows.map(row => ({ value: row.value, label: insideLabel(row.color), itemStyle: { color: token(row.color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(row.key) ? 2 : 0 } })) }],
+          data: rows.map(row => ({ value: row.value, label: insideLabel(row.color), itemStyle: { color: token(row.color), borderColor: token('chart-selection-outline'), borderWidth: selectionRing(active.includes(row.key)) } })) }],
       };
     },
   };

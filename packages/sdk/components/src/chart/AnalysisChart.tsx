@@ -19,7 +19,7 @@ import { safeFileName } from '../table/download';
 import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as diagnostic } from './analysisChartData';
 import { KindLegend } from './analysisChartKinds';
 import { heatmapMinCanvasHeight, heatmapSymbolSize } from './analysisChartGeometry';
-import { CHART_HEIGHTS } from './chartMarks';
+import { CHART_HEIGHTS, selectionRing } from './chartMarks';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
 import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
@@ -310,7 +310,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       return {
         color: fillColor(cell), ...(categories ? { opacity: 1 } : {}),
         borderColor: tone(outlined ? colors.selection : colors.pattern),
-        borderWidth: hasInsetStatus ? 0 : outlined ? 1.5 : cell.value === null ? 1 : 0,
+        borderWidth: hasInsetStatus ? 0 : outlined ? selectionRing(true) : cell.value === null ? 1 : 0,
         borderType: cell.value === null && !controlled ? 'dashed' : 'solid',
         ...(hasInsetStatus && outlined ? { shadowBlur: 6, shadowColor: tone(colors.selection) } : {}),
       };
@@ -328,7 +328,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       })) }, ...heatmapStatusOutlines(cells.flatMap(c => c.status ? [{ value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value], status: c.status, fill: fillColor(c), ...(categories ? { opacity: 1 } : {}) }] : []), heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length))],
     } : {
       tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
-      series: [{ type: 'pie', radius: ['55%', '80%'], selectedMode: false, emphasis: { focus: 'none', scale: false }, label: { show: false }, data: rows.map(row => ({ name: row.label, value: row.value, itemStyle: { color: token(row.color!), borderColor: token(colors.selection), borderWidth: active.includes(row.key) ? 1.5 : 0 } })) }],
+      series: [{ type: 'pie', radius: ['55%', '80%'], selectedMode: false, emphasis: { focus: 'none', scale: false }, label: { show: false }, data: rows.map(row => ({ name: row.label, value: row.value, itemStyle: { color: token(row.color!), borderColor: token(colors.selection), borderWidth: selectionRing(active.includes(row.key)) } })) }],
     };
     return { option, scale, domain, ramp, validThreshold };
   // `size`, `height` and `lang` are deliberate re-run triggers: a new option object makes ECharts re-lay out the plot for the new size/language.

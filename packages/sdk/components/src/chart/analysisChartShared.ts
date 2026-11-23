@@ -3,6 +3,8 @@ import { formatText, type Lang } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { ChartSpec } from './AnalysisChart';
+import { rangeBandFill } from './chartMarks';
+import { token } from './EChart';
 
 export const seriesColors: ThemeColorToken[] = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'];
 export const rowKey = (kind: string, id: string) => JSON.stringify([kind, 'row', id]);
@@ -13,7 +15,9 @@ export const isSingleSelectKind = (kind: ChartSpec['kind']) => kind === 'donut' 
 export function brushOptions() {
   return {
     toolbox: { show: false },
-    brush: { toolbox: [], brushType: 'rect', xAxisIndex: 0, yAxisIndex: 0, inBrush: {}, outOfBrush: {} },
+    // The dragged band uses the selection colour at the shared band opacity, like the Frame's Brush (#2736).
+    brush: { toolbox: [], brushType: 'rect', xAxisIndex: 0, yAxisIndex: 0, inBrush: {}, outOfBrush: {},
+      brushStyle: { color: rangeBandFill(token('chart-selection-outline')), borderColor: token('chart-selection-outline'), borderWidth: 1 } },
   };
 }
 export const toMs = (v: string) => parseDateTime(v, 'x').getTime();

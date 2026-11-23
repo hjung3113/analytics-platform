@@ -42,6 +42,11 @@ exports[`preserves the complete legacy projection without opt-in fields 1`] = `
   ],
   "option": {
     "brush": {
+      "brushStyle": {
+        "borderColor": "rgb(20,40,160)",
+        "borderWidth": 1,
+        "color": "rgba(20,40,160,0.1)",
+      },
       "brushType": "rect",
       "inBrush": {},
       "outOfBrush": {},

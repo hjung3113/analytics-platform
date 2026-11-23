@@ -18,6 +18,14 @@ export const CHART_MARKS = {
   maxShownSymbols: 12,
   /** Area under the only solid line of a chart without bars. */
   singleLineAreaOpacity: 0.09,
+  /** Hover (#2736): the hovered line widens by this much. Other series keep their look by default (#2342 owner decision). */
+  hoverLineWidthGain: 1,
+  /** Hover (#2736): the other series' opacity when a chart opts into dimming (`emphasisFocus: 'series'`), instead of ECharts' 0.1. */
+  blurOpacity: 0.3,
+  /** Selection (#2736): a selected mark keeps its own fill and gets a ring of this width in the selection colour. */
+  selectionRingWidth: 1.5,
+  /** Range (#2736): fill opacity of a dragged or selected range band, in the selection colour, on every chart. */
+  rangeBandOpacity: 0.1,
 } as const;
 
 /**
@@ -43,6 +51,16 @@ export function axisBreakGraphic(side: 'bottom' | 'top', at: { left: number; top
   };
 }
 
+/** Ring width of a mark: `selectionRingWidth` when selected, none otherwise. Pair it with the `chart-selection-outline` colour. */
+export function selectionRing(selected: boolean): number {
+  return selected ? CHART_MARKS.selectionRingWidth : 0;
+}
+
+/** The range band fill: a resolved `rgb(r,g,b)` colour at `rangeBandOpacity`. Another colour form is returned unchanged. */
+export function rangeBandFill(color: string): string {
+  return color.replace(/^rgb\((.+)\)$/, (_, rgb: string) => `rgba(${rgb},${CHART_MARKS.rangeBandOpacity})`);
+}
+
 /** Rounded value end: top corners of a vertical bar, right corners of a horizontal one, none on a stacked piece. */
 export function barRadius(horizontal: boolean, stacked = false): number | number[] {
   const r = CHART_MARKS.barRadius;
@@ -61,6 +79,9 @@ const baseAxis = { ...axisText, axisTick: { show: false }, splitLine: { show: fa
 /** Value axes: no line and no ticks; their split lines are the only grid (horizontal on a vertical chart). */
 const valueAxis = { ...axisText, axisTick: { show: false }, axisLine: { show: false }, splitLine: { show: true, lineStyle: { width: 1, type: 'solid' } } };
 
+/** Dimmed look of the series a hover does not target; drawn only when a chart opts into `focus: 'series'`. */
+const blur = { itemStyle: { opacity: CHART_MARKS.blurOpacity }, lineStyle: { opacity: CHART_MARKS.blurOpacity }, areaStyle: { opacity: CHART_MARKS.blurOpacity * CHART_MARKS.singleLineAreaOpacity }, label: { opacity: CHART_MARKS.blurOpacity } };
+
 export const CHART_ECHARTS_THEME = {
   textStyle: { fontSize: CHART_MARKS.fontSize },
   categoryAxis: baseAxis,
@@ -69,7 +90,10 @@ export const CHART_ECHARTS_THEME = {
   logAxis: valueAxis,
   bar: {
     barMaxWidth: CHART_MARKS.barMaxWidth, barCategoryGap: CHART_MARKS.barCategoryGap, barGap: CHART_MARKS.barGap,
-    itemStyle: { borderRadius: barRadius(false) },
+    itemStyle: { borderRadius: barRadius(false) }, blur,
   },
-  line: { lineStyle: { width: CHART_MARKS.lineWidth }, emphasis: { scale: true } },
+  line: { lineStyle: { width: CHART_MARKS.lineWidth }, emphasis: { scale: true }, blur },
+  scatter: { blur },
+  pie: { blur },
+  boxplot: { blur },
 };

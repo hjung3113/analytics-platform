@@ -14,6 +14,7 @@ import {
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
 import type { OrderedIntervalTrackProps, OrderedTrackItem } from './orderedIntervalTypes';
 import { RANGE_BRUSH_DRAG_THRESHOLD, type AxisRange } from './useRangeBrush';
+import { CHART_MARKS } from './chartMarks';
 
 type PlotProps = Pick<
   OrderedIntervalTrackProps,
@@ -362,6 +363,9 @@ export function OrderedIntervalPlot(props: PlotProps) {
         );
       }
     if (props.brush) {
+      // The band fill matches every chart's range band (#2736); the 2px outline is the confirmed range-brush look.
+      ctx.fillStyle = color('chart-selection-outline'); ctx.globalAlpha = CHART_MARKS.rangeBandOpacity;
+      ctx.fillRect(x(props.brush[0]), 0, x(props.brush[1]) - x(props.brush[0]), height); ctx.globalAlpha = 1;
       ctx.strokeStyle = color('chart-selection-outline');
       ctx.lineWidth = 2;
       ctx.strokeRect(x(props.brush[0]), 1, x(props.brush[1]) - x(props.brush[0]), height - 2);
