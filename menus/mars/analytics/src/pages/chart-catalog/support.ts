@@ -40,7 +40,7 @@ export function supportFor(kind: CatalogKind, features: Features | undefined): S
     cell('reset', ANALYTICS_MESSAGES.supportReset, histogram ? 'unsupported' : 'supported', histogram ? unavailable : noReason),
     cell('compare', ANALYTICS_MESSAGES.supportCompare, frame && features?.compare ? 'supported' : 'unsupported', frame ? features?.compare ? ANALYTICS_MESSAGES.supportPreviousEqualPeriodSeriesSupplied : featureOff : unavailable),
     cell('annotate', ANALYTICS_MESSAGES.supportAnnotate, (frame || breakdown) && features?.annotate ? 'conditional' : 'unsupported', frame || breakdown ? features?.annotate ? ANALYTICS_MESSAGES.supportRequiresScopeAndASelectedRange : featureOff : unavailable),
-    cell('export', ANALYTICS_MESSAGES.supportExport, !sequence && features?.export ? 'supported' : 'unsupported', sequence ? unavailable : features?.export ? noReason : featureOff),
+    cell('export', ANALYTICS_MESSAGES.supportExport, features?.export ? 'supported' : 'unsupported', features?.export ? noReason : featureOff),
     cell('drill', ANALYTICS_MESSAGES.supportDrill, breakdown ? 'supported' : frame || histogram || kind === 'lane' ? 'unsupported' : 'conditional', breakdown
       ? ANALYTICS_MESSAGES.supportEnterInTheLegendTreeMovesTo
       : sequence ? ANALYTICS_MESSAGES.supportDetailsForTheSelectedSyntheticItem : lane || histogram ? unavailable : frame

@@ -1,9 +1,10 @@
-import { act, cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { LaneTimeline } from '../LaneTimeline';
 import { useImageActionGate } from '../ChartImageCopyButton';
+import { OrderedIntervalTrack } from '../OrderedIntervalTrack';
 import { exportRegistry } from './test-support';
 
 // #2792: the canvas charts get the Frame tool row's `표로 보기` and `내보내기` (one row per interval: lane, start, end, state, length).
@@ -12,6 +13,12 @@ const lanes = [
   { id: 'a', label: 'Pump', segments: [{ id: 's1', start: 0, end: H + 5 * 60_000, rank: 'Run' }, { id: 's2', start: 2 * H, end: 3 * H, endBoundary: 'open' as const }] },
   { id: 'b', label: 'Chuck', segments: Array.from({ length: 24 }, (_, i) => ({ id: `c${i}`, start: i * H, end: i * H + 1_000, startBoundary: i === 0 ? 'orphan' as const : 'closed' as const })) },
 ];
+const track = {
+  ariaLabel: 'Track', domain: [0, 100] as [number, number],
+  lanes: [{ laneKey: 'a', label: 'A' }],
+  states: { ok: { label: '완료', colorToken: 'chart-series-1' as const } },
+  items: [{ id: '1', laneKey: 'a', orderStart: 2, orderEnd: 7, state: 'ok', label: 'first' }, { id: '2', laneKey: 'a', orderStart: 9, state: 'ok', label: 'open' }],
+};
 let csv: Blob[] = []; let downloads: string[] = [];
 const readCsv = (blob: Blob | undefined) => new Promise<string[]>(resolve => {
   const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).replace(/^\uFEFF/, '').trim().split(/\r?\n/)); reader.readAsText(blob!);
@@ -165,5 +172,53 @@ describe('LaneTimeline table and export (#2792)', () => {
       expect(!!screen.queryByRole('button', { name: '내보내기' })).toBe(canExport);
       cleanup();
     }
+  });
+});
+
+describe('OrderedIntervalTrack export (#2792)', () => {
+  it('exports the visible-range table as CSV, with blank end and length for an open interval', async () => {
+    bare(<OrderedIntervalTrack {...track} />);
+    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    cleanup();
+    bare(<OrderedIntervalTrack {...track} exportActions={{ exportAllowed: true }} />);
+    exportCsv();
+    const lines = await readCsv(csv[0]);
+    expect(lines.slice(1)).toEqual([
+      '줄,항목,시작,끝,상태,길이',
+      'A,first,2,7,완료,5',
+      'A,open,9,,완료 · 종료 미확인 · 불완전,',
+    ]);
+    await waitFor(() => expect(screen.getByText('Track.csv 내보냄')).toBeTruthy());
+  });
+
+  it('exports only the answer for the current range: not while a new range loads, not after it fails (C2)', async () => {
+    const pending: { resolve: (items: typeof track.items) => void; reject: (error: Error) => void }[] = [];
+    const onRangeRequest = vi.fn(() => new Promise<typeof track.items>((resolve, reject) => { pending.push({ resolve, reject }); }));
+    bare(<OrderedIntervalTrack {...track} onRangeRequest={onRangeRequest} exportActions={{ exportAllowed: true }} />);
+    await waitFor(() => expect(onRangeRequest).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    await act(async () => { pending[0].resolve(track.items); });
+    expect(screen.getByRole('button', { name: '내보내기' })).toBeTruthy();
+    // Zoom in: the previous answer belongs to the wider range, so no CSV until the new range answers.
+    fireEvent.click(screen.getByRole('button', { name: '확대' }));
+    await waitFor(() => expect(onRangeRequest).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    await act(async () => { pending[1].reject(new Error('down')); });
+    expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    await waitFor(() => expect(onRangeRequest).toHaveBeenCalledTimes(3));
+    await act(async () => { pending[2].resolve([{ id: '3', laneKey: 'a', orderStart: 40, orderEnd: 45, state: 'ok', label: 'mid' }]); });
+    exportCsv();
+    expect((await readCsv(csv[0])).slice(2)).toEqual(['A,mid,40,45,완료,5']);
+  });
+
+  it('keeps a fractional length in an integer domain (C7)', () => {
+    bare(<OrderedIntervalTrack {...track} domain={[0, 10]} items={[{ id: 'f', laneKey: 'a', orderStart: 1, orderEnd: 1.25, state: 'ok', label: 'short' }]} />);
+    fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+    expect(rows()[0].at(-1)).toBe('0.25');
+    cleanup();
+    bare(<OrderedIntervalTrack {...track} domain={[0, 10]} items={[{ id: 't', laneKey: 'a', orderStart: 0, orderEnd: 1e-7, state: 'ok', label: 'tiny' }]} />);
+    fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+    expect(rows()[0].at(-1)).toBe('1e-7');
   });
 });
