@@ -87,7 +87,7 @@ function OperationTimeBody({ data, updatedAt, previousEquipment }: { data: Opera
       : <div className="space-y-2">
         <PreviousEquipmentLine equipment={previousEquipment} />
         <LaneTimeline key={data.equipmentId} lanes={lanes} ariaLabel={flowTitle} description={period} trust={trust} height={320}
-          formatTooltip={(segment, lane) => `${lane.label} · ${tx(KIND_LABEL[segment.rank as OperationKind])}`} />
+          formatTooltip={(segment, lane) => `${lane.label} · ${tx(KIND_LABEL[segment.rank as OperationKind])}`} formatState={segment => tx(KIND_LABEL[segment.rank as OperationKind])} />
         <ul aria-label={tx({ ko: '동작 종류', en: 'Operation kinds' })} className="flex flex-wrap gap-3 px-1 text-xs text-text-secondary">
           {(Object.keys(KIND_LABEL) as OperationKind[]).map(kind => <li key={kind} className="flex items-center gap-1">
             <span aria-hidden className={`size-2.5 rounded-sm ${SWATCH[kind]}`} />{tx(KIND_LABEL[kind])}

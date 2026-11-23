@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { LaneTimeline } from '../LaneTimeline';
+import { useImageActionGate } from '../ChartImageCopyButton';
 import { exportRegistry } from './test-support';
 
 // #2792: the canvas charts get the Frame tool row's `표로 보기` and `내보내기` (one row per interval: lane, start, end, state, length).
@@ -108,10 +109,11 @@ describe('LaneTimeline table and export (#2792)', () => {
 
   it('keeps the ms of an extended year in the wall-clock CSV (C3)', async () => {
     const far = Date.UTC(10000, 0, 1, 12, 34, 56, 789);
-    bare(<LaneTimeline lanes={[{ id: 'x', label: 'Far', segments: [{ id: 'f', start: far, end: far + 1 }] }]} ariaLabel="Timeline" exportActions={{ exportAllowed: true }} />);
+    const past = Date.UTC(-1, 0, 1);
+    bare(<LaneTimeline lanes={[{ id: 'x', label: 'Far', segments: [{ id: 'f', start: far, end: far + 1 }] }, { id: 'y', label: '=Past', segments: [{ id: 'p', start: past, end: past }] }]} ariaLabel="Timeline" exportActions={{ exportAllowed: true }} />);
     exportCsv();
-    // The table export quotes a leading `+` against spreadsheet formulas; the ms stay.
-    expect((await readCsv(csv[0]))[2]).toBe("Far,'+010000-01-01T12:34:56.789,'+010000-01-01T12:34:56.790,,1");
+    // SDK-built times keep their sign and ms with no formula prefix (C2); consumer text keeps the guard.
+    expect((await readCsv(csv[0])).slice(2)).toEqual(['Far,+010000-01-01T12:34:56.789,+010000-01-01T12:34:56.790,,1', "'=Past,-000001-01-01T00:00:00.000,-000001-01-01T00:00:00.000,,0"]);
     // The table keeps the seconds of an extended year (C10).
     fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
     expect(rows()[0].slice(1, 3)).toEqual(['+010000-01-01 12:34:56', '+010000-01-01 12:34:56']);
@@ -136,6 +138,15 @@ describe('LaneTimeline table and export (#2792)', () => {
     view.rerender(lane({ exportActions: { exportAllowed: false } }));
     view.rerender(lane({ exportActions: { exportAllowed: true } }));
     expect(screen.queryByText('Timeline.csv 내보냄')).toBeNull();
+  });
+
+  it('drops a result said for an older generation instead of replacing the current line (C1)', () => {
+    const gate = renderHook(({ n }) => useImageActionGate({ exportAllowed: true }, n), { initialProps: { n: 0 } });
+    const slowImageCopy = gate.result.current.say;
+    gate.rerender({ n: 1 });
+    act(() => gate.result.current.say('B.csv 내보냄'));
+    act(() => slowImageCopy('이미지를 내려받았습니다'));
+    expect(gate.result.current.status).toBe('B.csv 내보냄');
   });
 
   it('reports a throwing formatState as a failed export and writes no file (C12)', async () => {

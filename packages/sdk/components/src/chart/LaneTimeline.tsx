@@ -15,6 +15,7 @@ import { ChartImageCopyButton, ChartImagePrintButton, ImageActionStatus, useImag
 import { ChartExportMenu, ChartTableToggle } from './ChartInteractionToolbar';
 import { IntervalTable, formatDurationMs } from './canvasChartTable';
 import { downloadChartCsv } from './analysisChartCsv';
+import { CsvVerbatim } from '../table/tableExport';
 import { BodyTooltipPortal } from './bodyTooltipPortal';
 import { laneImageBlob } from './chartImageCopy';
 import { displayFileName } from '../table/download';
@@ -66,7 +67,7 @@ export type LaneTimelineProps = {
 };
 const noInstants: number[] = [];
 /** Lane times are equipment wall-clock encoded as UTC epoch ms (ADR-0064): the CSV keeps the calendar digits and the ms, with no zone suffix (#2792 C3). */
-const wallClockCsv = (time: number) => new Date(time).toISOString().replace(/Z$/, '');
+const wallClockCsv = (time: number) => new CsvVerbatim(new Date(time).toISOString().replace(/Z$/, ''));
 const noOverlays: TimelineOverlay[] = [];
 /** A standalone wall-clock interval chart. Pan, zoom and scroll never enter React state. */
 export function LaneTimeline(props: LaneTimelineProps) {
@@ -96,10 +97,10 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const [tablePageOf, setTablePageOf] = useState({ lanes: props.lanes, page: 0 });
   if (tablePageOf.lanes !== props.lanes) setTablePageOf({ lanes: props.lanes, page: 0 });
   // A standalone result line belongs to one data set, title and permission: any change clears it (#2792 C9).
-  const [exportGeneration, setExportGeneration] = useState({ lanes: props.lanes, label: props.ariaLabel, allowed: props.exportActions?.exportAllowed });
+  const [exportGeneration, setExportGeneration] = useState({ lanes: props.lanes, label: props.ariaLabel, allowed: props.exportActions?.exportAllowed, n: 0 });
   if (exportGeneration.lanes !== props.lanes || exportGeneration.label !== props.ariaLabel || exportGeneration.allowed !== props.exportActions?.exportAllowed)
-    setExportGeneration({ lanes: props.lanes, label: props.ariaLabel, allowed: props.exportActions?.exportAllowed });
-  const exportGate = useImageActionGate(props.exportActions, exportGeneration);
+    setExportGeneration({ lanes: props.lanes, label: props.ariaLabel, allowed: props.exportActions?.exportAllowed, n: exportGeneration.n + 1 });
+  const exportGate = useImageActionGate(props.exportActions, exportGeneration.n);
   const global = usePlatformOptional()?.global ?? null;
   const brushOn = props.rangeBrush !== undefined;
   const brushRange = brushOn ? brush.range : null;
@@ -153,7 +154,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
   function exportCsv() {
     // Rows are built inside the try: a throwing consumer `formatState` reports the failure like a failed download (#2792 C12).
     try {
-      const rows: (string | number)[][] = [];
+      const rows: (string | number | CsvVerbatim)[][] = [];
       for (let i = 0; i < model.flat.length; i += 1) {
         const { segment, laneIndex } = model.flat[i] as LaneItem;
         rows.push([model.lanes[laneIndex].label, wallClockCsv(segment.start), wallClockCsv(segment.end), segmentState(segment, model.lanes[laneIndex]), segment.end - segment.start]);

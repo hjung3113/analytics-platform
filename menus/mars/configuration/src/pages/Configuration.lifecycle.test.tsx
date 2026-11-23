@@ -429,6 +429,9 @@ describe('Configuration trend workspace', () => {
     const calls = await mountTrend();
     await vi.waitFor(() => expect(trend()?.querySelector('[data-lane-scroll]')).toBeTruthy());
     expect(trend()?.textContent).toContain('AUTO');
+    // #2792: the table's state cells carry the value through `formatState`, not the bare lane rank.
+    act(() => trend()!.querySelector<HTMLButtonElement>('button[aria-label="표로 보기"]')!.click());
+    expect([...trend()!.querySelectorAll('tbody tr')].map(row => row.querySelectorAll('td')[3]?.textContent)).toContain('AUTO');
     expect(SAVED_VIEW_SUPPORT.pageKeys).toContain('trendItem');
     expect(calls).toHaveBeenCalledWith(expect.objectContaining({
       endpoint: 'configuration.history', params: { itemId: 'cfg-000001', equipment: ['EQ01', 'EQ03'] },

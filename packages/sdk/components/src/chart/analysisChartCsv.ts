@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { downloadBlob, safeFileName } from '../table/download';
-import { toCsvDocument } from '../table/tableExport';
+import { toCsvDocument, type CsvVerbatim } from '../table/tableExport';
 
 type ChartCsvMeta = {
   chartId: string; title: ReactNode; metricVersion?: string; unit?: string;
@@ -10,7 +10,7 @@ type ChartCsvMeta = {
 };
 
 /** Both chart APIs export the applied context and keep their own table projection. */
-export function downloadChartCsv(meta: ChartCsvMeta, headers: string[], rows: (string | number)[][]) {
+export function downloadChartCsv(meta: ChartCsvMeta, headers: string[], rows: (string | number | CsvVerbatim)[][]) {
   const { chartId, title, metricVersion, unit, context, fileName } = meta;
   const header = `# ${typeof title === 'string' ? title : chartId} · scopeId=${context.scopeId ?? ''} · from=${context.from ?? ''} · to=${context.to ?? ''}${metricVersion ? ` · metricVersion=${metricVersion}` : ''}${unit === undefined ? '' : ` · unit=${unit}`}`;
   const blob = new Blob([toCsvDocument(header, headers, rows)], { type: 'text/csv' });
