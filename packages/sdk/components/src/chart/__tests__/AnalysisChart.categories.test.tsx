@@ -118,28 +118,62 @@ it.each([null, { x: 'B', y: 'Row', label: 'Controlled B' }])('activates the heat
 it('rejects a held cell or multiple checked cells as the controlled heatmap action target', async () => {
   const user = userEvent.setup();
   const onActivate = vi.fn();
-  mount({ ...heat, nullLabel: '보류', selectedCell: null, cellActivation: { on: 'click', onActivate } });
+  mount({ ...heat, xLabels: [...heat.xLabels, 'C'], cells: [...heat.cells, { x: 'C', y: 'Row', value: 17 }],
+    nullLabel: '보류', selectedCell: null, cellActivation: { on: 'click', onActivate } });
   await screen.findByRole('img');
   await user.click(screen.getByRole('button', { name: '표로 보기' }));
 
   const summary = screen.getByRole('region', { name: '선택 요약' });
   const activate = within(summary).getByRole('button', { name: '선택 지점 실행' });
-  await user.click(screen.getByRole('checkbox', { name: '선택 Row · B · 보류' }));
+  const valuedA = screen.getByRole('checkbox', { name: '선택 Row · A' });
+  const valuedC = screen.getByRole('checkbox', { name: '선택 Row · C' });
+  const heldB = screen.getByRole('checkbox', { name: '선택 Row · B · 보류' });
+  await user.click(valuedA);
+  expect(summary).toHaveTextContent('Row · A · 1칸 선택');
+  await user.click(activate);
+  expect(onActivate).toHaveBeenCalledExactlyOnceWith('A', 'Row');
+
+  await user.click(valuedC);
   expect(summary).toHaveTextContent('선택 없음');
   expect(activate).toBeDisabled();
-  await user.click(screen.getByRole('checkbox', { name: '선택 Row · A' }));
+
+  await user.click(heldB);
+  await user.click(valuedA);
+  await user.click(valuedC);
+  expect(heldB).toBeChecked();
   expect(summary).toHaveTextContent('선택 없음');
   expect(activate).toBeDisabled();
 });
 
-it('keeps canvas clicks on the controlled summary path even when the heatmap table is open', async () => {
-  const onActivate = vi.fn();
-  mount({ ...heat, selectedCell: null, cellActivation: { on: 'click', onActivate } });
+it.each(['plot click', 'Brush completion'] as const)('restores controlled heatmap actions after %s with a valued row still checked', async gesture => {
+  const user = userEvent.setup();
+  mount({ ...heat, nullLabel: '보류', selectedCell: null, cellActivation: { on: 'dblclick', onActivate: vi.fn() } });
   await screen.findByRole('img');
-  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
-  act(() => plot.onEvents?.click?.({ componentType: 'series', seriesIndex: 0, dataIndex: 0 }, {} as never));
-  expect(onActivate).toHaveBeenCalledExactlyOnceWith('A', 'Row');
-  expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('선택 없음');
+  await user.click(screen.getByRole('button', { name: '표로 보기' }));
+  const valued = screen.getByRole('checkbox', { name: '선택 Row · A' });
+  const summary = screen.getByRole('region', { name: '선택 요약' });
+  const activate = within(summary).getByRole('button', { name: '선택 지점 실행' });
+  await user.click(valued);
+  expect(summary).toHaveTextContent('Row · A · 1칸 선택');
+  expect(activate).toBeEnabled();
+
+  if (gesture === 'plot click') {
+    const held = screen.getByRole('checkbox', { name: '선택 Row · B · 보류' });
+    await user.click(held);
+    expect(held).toBeChecked();
+    act(() => plot.onEvents?.click?.({ componentType: 'series', seriesIndex: 0, dataIndex: 1 }, {} as never));
+    expect(held).not.toBeChecked();
+  } else {
+    const brush = screen.getByRole('button', { name: '구간 선택' });
+    await user.click(brush);
+    act(() => plot.onEvents?.brushselected?.({ batch: [{ selected: [{ seriesIndex: 0, dataIndex: [0] }] }] }, {} as never));
+    act(() => plot.onEvents?.brushEnd?.({}, {} as never));
+    await user.click(brush);
+  }
+
+  expect(valued).toBeChecked();
+  expect(summary).toHaveTextContent('선택 없음');
+  expect(activate).toBeDisabled();
 });
 
 it('default heatmap keeps numeric rendering, events, tooltip, table and CSV unchanged', async () => {

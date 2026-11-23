@@ -201,6 +201,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
   const spec = p.spec;
   const controlledCell = spec.kind === 'heatmap' ? spec.selectedCell : undefined;
+  const controlledCellSupplied = controlledCell !== undefined;
+  const canPreferTableSelection = spec.kind === 'heatmap' && controlledCellSupplied && !!spec.cellActivation;
   const controlledKey = controlledCell ? keyOf(controlledCell.x, controlledCell.y) : null;
   const topN = spec.kind === 'topNBar';
   useEffect(() => {
@@ -246,7 +248,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     if (spec.kind === 'donut') spec.onSelectedChange?.(null);
   };
   const toggle = (key: string, source: 'plot' | 'table') => {
-    if (spec.kind === 'heatmap') setSelectionFromTable(source === 'table');
+    if (spec.kind === 'heatmap') setSelectionFromTable(source === 'table' && canPreferTableSelection);
     if (spec.kind === 'donut') {
       const next = active.includes(key) ? [] : [key];
       setSelected(next);
@@ -349,8 +351,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     : m('chartDonutSummary', { count: rows.length, total: format(total), unit: p.unit }));
   const selectedRows = rows.filter(row => active.includes(row.key));
   const controlledRow = controlledKey === null ? undefined : rows.find(row => row.key === controlledKey);
-  const controlledCellSupplied = spec.kind === 'heatmap' && controlledCell !== undefined;
-  const useTableSelection = spec.kind === 'heatmap' && spec.cellActivation && selectionFromTable
+  const useTableSelection = canPreferTableSelection && selectionFromTable
     && selectedRows.length === 1 && selectedRows[0].value !== null;
   const controlledActionRow = useTableSelection ? selectedRows[0] : controlledRow;
   const controlledActionRows = controlledActionRow ? [controlledActionRow] : [];
