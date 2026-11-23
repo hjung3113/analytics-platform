@@ -42,9 +42,10 @@ vi.mock('@ap/components', async importOriginal => {
         statuses: p.series.flatMap(s => s.points.flatMap(([x, value]) => { const st = p.pointStatus?.({ x, value, seriesId: s.id }); return st ? [`${s.id}@${x}:${st.tone}`] : []; })) })}</pre>
       {p.series[0]?.points.map(([x, value]) => <span key={x}>
         <button onClick={() => p.onActiveCategoryChange?.(x, 'pointer')}>{`select ${p.chartId} ${x}`}</button>
+        {p.chartId === 'hw-module-motions' && <button onClick={() => p.onActiveCategoryChange?.(x, 'keyboard')}>{`browse ${x}`}</button>}
         <button onDoubleClick={() => p.pointActivation?.onActivate({ x, value, seriesId: p.series[0]!.id })}>{`activate ${p.chartId} ${x}`}</button>
       </span>)}
-      {p.series[0]?.points[0] && (typeof p.pointActions === 'function' ? p.pointActions({ x: p.series[0].points[0][0], value: p.series[0].points[0][1], seriesId: p.series[0].id }) : []).map(action => <button key={action.id}
+      {p.series[0]?.points[0] && (typeof p.pointActions === 'function' ? p.pointActions({ x: p.series[0].points[0][0], value: p.series[0].points[0][1], seriesId: p.series[0].id }) : []).map(action => <button key={action.id} disabled={action.disabled}
         onClick={() => action.onSelect({ x: p.series[0]!.points[0]![0], value: p.series[0]!.points[0]![1], seriesId: p.series[0]!.id })}>{`point action ${p.chartId} ${action.id}`}</button>)}
     </section>,
   };

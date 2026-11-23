@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree } from 'lucide-react';
 import { isAnswered } from '@ap/contracts';
-import { formatText, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
+import { ANALYSIS_SELECTION_MAX_VALUES, formatText, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, LegendTree, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView,
-  usePanelOptions, usePinnedPanels, type ChartPoint, type LegendTreeNode, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
+  usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
 import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams } from '../../endpoints';
 import { HW_TIME_MESSAGES, HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKSPACE_MESSAGES } from '../../messages';
@@ -159,21 +159,27 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
     return statuses.barStatusOf(depth === 4 ? { ...point, x: rowLabel(point.x, moduleId!) } : point);
   };
   const chartSelection = selectionOutput?.selection;
-  const selectedEquipment = chartSelection?.shape === 'set' ? chartSelection.values[0] ?? null : null;
-  const selected = selectionOutput ? selectedEquipment : pageParam('row');
+  const selectedEquipment = chartSelection?.shape === 'set' ? chartSelection.values : [];
+  const selected = pageParam('row');
   const activeCategory = shaped.series.some(series => series.points.some(([x]) => x === selected)) ? selected : null;
-  const onActiveCategoryChange = (row: string | null) => {
-    if (selectionOutput) {
-      selectionOutput.select(row && row !== activeCategory ? { shape: 'set', values: [row] } : null);
-    } else {
-      setPage({ row }, { replace: true });
-    }
-  };
   const chartOptions = options.map(option => option.id === 'group' ? { ...option, hidden: depth === 1 || depth === 4 } : option);
   const pointActions = (point: ChartPoint) => {
-    const actions = [];
+    const actions: ChartPointAction[] = [];
     if (depth > 1) actions.push({ id: 'trend', label: m('openTrend'), onSelect: openTrend });
     if (depth < 4) actions.push({ id: 'drill', label: m('drillTo', { value: depth === 3 ? point.x.split(' · ')[1]! : point.seriesId }), onSelect: drill });
+    if (!selectionOutput) return actions;
+    const equipment = point.x;
+    if (selectedEquipment.includes(equipment)) {
+      const values = selectedEquipment.filter(id => id !== equipment);
+      actions.push({ id: 'remove-equipment', label: m('selectionRemove', { equipment }), keepsFocus: true,
+        onSelect: () => selectionOutput.select(values.length ? { shape: 'set', values } : null) });
+    } else {
+      const disabled = selectedEquipment.length >= ANALYSIS_SELECTION_MAX_VALUES;
+      const label = m('selectionAdd', { equipment });
+      actions.push({ id: 'add-equipment', label: disabled ? m('selectionAddLimit', { label, limit: ANALYSIS_SELECTION_MAX_VALUES }) : label, disabled, keepsFocus: true,
+        onSelect: () => selectionOutput.select({ shape: 'set', values: [...selectedEquipment, equipment] }) });
+    }
+    if (chartSelection) actions.push({ id: 'clear-equipment', label: m('selectionClear'), keepsFocus: true, onSelect: () => selectionOutput.select(null) });
     return actions;
   };
   let chartId = previous ? 'hw-previous' : 'hw-current';
@@ -187,7 +193,7 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
       series={shaped.series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} description={<>{overview('synthetic')}<br />{scaleText}</>}
       legend={depth < 3 || allMotions} visibleSeriesIds={depth >= 3 && !allMotions ? shaped.series.map(series => series.id) : undefined} legendPlacement="bottom" toolsReveal="always" xType="category" orientation="horizontal" stacked
       startAlign={values.align === true} minMax={values.minMax === true} emphasisFocus="none" size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowLabelWidth="auto"
-      rowGroups={shaped.rowGroups} activeCategory={activeCategory} onActiveCategoryChange={onActiveCategoryChange} revealActive
+      rowGroups={shaped.rowGroups} activeCategory={activeCategory} onActiveCategoryChange={row => setPage({ row }, { replace: true })} revealActive
       canApplyRange={false} reaggregation="sum" valueLabels="both" pointStatus={statusOf}
       pointActivation={depth < 4 ? { on: 'dblclick', onActivate: openTrend } : undefined} pointActions={pointActions} />
   </div>;
@@ -208,6 +214,7 @@ function Heatmap({ query, filter, typeId, motionId, verdict }: { query: MatrixQu
 }
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
+  const m = useMessages(S);
   const { pageParam, setPage, session } = usePlatform();
   const context = useQueryContext();
   const typeId = pageParam('moduleType'), motionId = pageParam('drillMotion'), moduleId = pageParam('drillModule');
@@ -216,11 +223,13 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const state = usePanelOptions(options);
   const pins = usePinnedPanels('pins', CATALOG_IDS);
   const trend = pageParam('trend');
+  const selectionInputs = useAnalysisSelectionInputs(panelDeclarations.table.id);
+  const selectionRejected = selectionInputs.rejected.includes(MOTION_EQUIPMENT_KEY);
   const keys = useHwTimeDrillRules([...state.rules, ...pins.rules,
     { key: 'verdict', label: N.verdict, valid: raw => verdictCodec.decode(raw) !== null },
     { key: 'date', label: N.date, valid: raw => validPanelDate(raw, context.from, context.to) },
     { key: 'trend', label: S.trend, valid: validTrend },
-    { key: MOTION_EQUIPMENT_KEY, label: S.selectionEquipment, repeated: true, valid: raw => HW_TIME_EQUIPMENT_ID_PATTERN.test(raw) },
+    { key: MOTION_EQUIPMENT_KEY, label: S.selectionEquipment, repeated: true, valid: raw => !selectionRejected && HW_TIME_EQUIPMENT_ID_PATTERN.test(raw) },
     { key: 'row', label: HW_TIME_WORKSPACE_MESSAGES.activeRow, valid: raw => {
       if (HW_TIME_EQUIPMENT_ID_PATTERN.test(raw)) return true;
       const [equipment, module, extra] = raw.split(' · ');
@@ -229,19 +238,23 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     } },
   ]);
   if (filter.invalid) return <PageKeyWarning sentences={filter.invalid} onRecover={filter.recover} />;
-  if (keys.invalid) return <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />;
+  if (keys.invalid) {
+    const sentences = keys.sentences.map((sentence, index) => selectionRejected && keys.badKeys[index] === MOTION_EQUIPMENT_KEY
+      ? m('selectionInvalid', { limit: ANALYSIS_SELECTION_MAX_VALUES }) : sentence);
+    return <PageKeyWarning sentences={sentences} onRecover={keys.recover} />;
+  }
   const required = step <= 2 ? HW_TIME_MODULE_TYPES.map(type => type.id) : [typeId!];
   const population = JSON.stringify([step, session.user.id, context]);
-  return <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins }} values={state.values} onChange={state.setValue}
+  return <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins }} filtered={selectionInputs.filtered} values={state.values} onChange={state.setValue}
     onDrill={id => {
       const [type, motion, module] = id.split('/');
       setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null, row: null, trend: null, focus: null });
     }} />}</MatrixSources>;
 }
 function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'selectionOutput'> & {
-  step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void;
+  step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void; filtered: boolean;
 }) {
-  const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill } = props;
+  const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill, filtered } = props;
   const common = useMessages(HW_TIME_MESSAGES);
   const [explained, setExplained] = useState<string | null>(null);
   const [added, setAdded] = useState<readonly string[]>([]);
@@ -255,7 +268,6 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
   const { pageParam, pageParams, setPage } = usePlatform();
   const selectionOutput = useAnalysisSelectionOutput(panelDeclarations.moduleMotions.id, MOTION_EQUIPMENT_KEY);
-  const { filtered } = useAnalysisSelectionInputs(panelDeclarations.table.id);
   const onOpenTrend = (target: string, row: string) => {
     setPage({ trend: target, row });
     setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
@@ -268,7 +280,10 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const tableLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, filterTable);
   const analysis = filterTable ? { equipment, level: tableLevel } : undefined;
   const levelResponse = tableLevel.response;
-  const count = analysis && !tableLevel.showingPrevious && levelResponse && isAnswered(levelResponse.outcome) ? levelResponse.data?.rows.length : undefined;
+  let count: number | undefined;
+  if (analysis && !tableLevel.showingPrevious && levelResponse && isAnswered(levelResponse.outcome)) {
+    count = levelResponse.outcome === 'empty' ? 0 : levelResponse.data?.rows.length;
+  }
   const badge = count === undefined ? undefined : {
     count, description: {
       ko: formatText(S.selectionFiltered, 'ko', { count }),

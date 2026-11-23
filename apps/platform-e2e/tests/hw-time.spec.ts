@@ -39,15 +39,21 @@ test.describe('HW Time analysis selection', () => {
     await expect(tableTab).not.toHaveAttribute('aria-description', /필터됨/);
 
     const chartTab = workspace(page).getByRole('tab', { name: 'PM1 · Motion별', exact: true });
+    const more = panel(page, 'moduleMotions').getByRole('button', { name: '더보기', exact: true });
     await chartTab.click();
-    await panel(page, 'moduleMotions').getByRole('button', { name: '더보기', exact: true }).click();
+    await more.press('Enter');
     const tools = page.getByRole('dialog', { name: '더보기', exact: true });
     const picker = tools.getByRole('combobox', { name: '차트 지점 선택' });
+    const pointActions = tools.getByRole('button', { name: '지점 동작', exact: true });
     const option = picker.locator('option').filter({ hasText: /^EQ-002 ·/ }).first();
     await picker.selectOption({ value: (await option.getAttribute('value'))! });
+    await expect.poll(() => query(page).get('row')).toBe('EQ-002');
+    expect(query(page).has('motionEquipment')).toBe(false);
+    await expect(pointActions).toBeEnabled();
+    await pointActions.press('Enter');
+    await page.getByRole('menuitem', { name: '원본 표 거르기에 추가 · EQ-002', exact: true }).press('Enter');
     if (await tools.isVisible()) await page.keyboard.press('Escape');
     await expect.poll(() => query(page).getAll('motionEquipment')).toEqual(['EQ-002']);
-    expect(query(page).has('row')).toBe(false);
     await tableTab.click();
     await expect(selectedRow).toBeVisible();
     await expect(unselectedRow).toHaveCount(0);
@@ -63,20 +69,29 @@ test.describe('HW Time analysis selection', () => {
 
     await page.goBack();
     await expect.poll(() => query(page).has('motionEquipment')).toBe(false);
+    expect(query(page).get('row')).toBe('EQ-002');
     await tableTab.click();
     await expect(unselectedRow).toBeVisible();
     await expect(tableTab).not.toHaveAttribute('aria-description', /필터됨/);
 
     await page.goto(sharedUrl);
     await page.reload();
-    await chartTab.click();
-    await panel(page, 'moduleMotions').getByRole('button', { name: '더보기', exact: true }).click();
-    await expect(picker.locator('option:checked')).toHaveText(/^EQ-002 ·/);
-    await page.keyboard.press('Escape');
     await tableTab.click();
     await expect(selectedRow).toBeVisible();
     await expect(unselectedRow).toHaveCount(0);
     await expect(tableTab).toHaveAttribute('aria-description', '필터됨 · 1 · 선택 적용');
+    await chartTab.click();
+    await more.press('Enter');
+    await expect(picker.locator('option:checked')).toHaveText(/^EQ-002 ·/);
+    await expect(pointActions).toBeEnabled();
+    await pointActions.press('Enter');
+    await page.getByRole('menuitem', { name: '원본 표 거르기 해제', exact: true }).press('Enter');
+    if (await tools.isVisible()) await page.keyboard.press('Escape');
+    await expect.poll(() => query(page).has('motionEquipment')).toBe(false);
+    expect(query(page).get('row')).toBe('EQ-002');
+    await tableTab.click();
+    await expect(unselectedRow).toBeVisible();
+    await expect(tableTab).not.toHaveAttribute('aria-description', /필터됨/);
   });
 });
 
