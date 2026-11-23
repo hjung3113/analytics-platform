@@ -52,9 +52,10 @@ function HistoryChart({ history, itemId, period, reference, trust, m }: Paramete
   if (!timeline) return <NumericTrend {...{ history, itemId, period, reference, trust, m }} />;
   const { lanes, values, labels, hasMissing } = timeline;
   const legend: LegendEntry[] = hasMissing ? [...values, { value: m('missing'), color: MISSING }] : values;
+  const valueOf = (segment: { id: string }) => labels.get(segment.id) ?? m('missing');
   return <LaneTimeline quiet separateRows tickSpacing={TREND_TICK_SPACING} description={<TrendLegend entries={legend} m={m} />}
     ariaLabel={m('values')} lanes={lanes} neutralColorToken={MISSING} trust={trust}
-    formatTooltip={segment => labels.get(segment.id) ?? m('missing')} />;
+    formatTooltip={valueOf} formatState={valueOf} />;
 }
 
 /** A successful history result covers exactly the applied equipment and the entire period. */

@@ -46,9 +46,9 @@ describe.each(Object.keys(components) as (keyof typeof components)[])('%s image 
     ['features.export on but prop absent', undefined, true, false],
   ])('%s -> visible: %s', (_label, imageCopy, canExport, visible) => {
     mount(components[name](imageCopy), canExport);
-    // Frame and every AnalysisChart kind keep image actions in the Export popover (#2736); LaneTimeline keeps them on its toolbar.
-    if (name !== 'lane' && !canExport) expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
-    const actions = name !== 'lane' && canExport ? openExport() : screen;
+    // Every chart keeps image actions in the Export popover (#2736; LaneTimeline since #2792).
+    if (!canExport) expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    const actions = canExport ? openExport() : screen;
     expect(!!actions.queryByRole('button', { name: '이미지 복사' })).toBe(visible);
   });
 });
@@ -65,25 +65,22 @@ describe.each(Object.keys(printers) as (keyof typeof printers)[])('%s print butt
     ['features.export on but prop absent', undefined, true, false],
   ])('%s -> visible: %s', (_label, imagePrint, canExport, visible) => {
     mount(printers[name](imagePrint), canExport);
-    // Frame and every AnalysisChart kind keep image actions in the Export popover (#2736); LaneTimeline keeps them on its toolbar.
-    if (name !== 'lane' && !canExport) expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
-    const actions = name !== 'lane' && canExport ? openExport() : screen;
+    // Every chart keeps image actions in the Export popover (#2736; LaneTimeline since #2792).
+    if (!canExport) expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    const actions = canExport ? openExport() : screen;
     expect(!!actions.queryByRole('button', { name: '인쇄' })).toBe(visible);
   });
 });
 
-it('places image copy after CSV in the Frame, Top N and Donut Export groups, and last in LaneTimeline', () => {
+it('places image copy after CSV in the Frame, Top N, Donut and LaneTimeline Export groups', () => {
   const topN = <AnalysisChart chartId="c" title="C" unit="ea" imageCopy
     spec={{ kind: 'topNBar', items: [{ id: 'a', label: 'A', value: 1, colorToken: 'chart-blue' }] }} />;
-  for (const chart of [components.frame(true), topN, components.chart(true)]) {
+  for (const chart of [components.frame(true), topN, components.chart(true), components.lane(true)]) {
     mount(chart, true);
     const group = openExport();
     expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['내보내기 CSV', '이미지 복사']);
     cleanup();
   }
-  mount(components.lane(true), true);
-  const toolbar = screen.getByRole('toolbar');
-  expect(toolbar.lastElementChild?.textContent).toBe('이미지 복사');
 });
 
 it('renders LaneTimeline without a PlatformProvider while imageCopy is absent', () => {
@@ -115,14 +112,21 @@ it('LaneTimeline copy composes the axis, data and overlay canvases into one PNG,
   const data = screen.getByRole('img') as HTMLCanvasElement;
   const overlay = data.parentElement!.querySelector<HTMLCanvasElement>('canvas:not([role])')!;
   const axis = data.closest('[data-lane-scroll]')!.previousElementSibling as HTMLCanvasElement;
-  fireEvent.click(button()!);
+  fireEvent.click(openExport().getByRole('button', { name: '이미지 복사' }));
   await waitFor(() => expect(drawn).toEqual([axis, data, overlay]));
 });
 
 describe('LaneTimeline image actions without a PlatformProvider (#1953 A)', () => {
   const bare = (element: React.ReactElement) => render(<I18nProvider>{element}</I18nProvider>);
   const lane = (props: Partial<React.ComponentProps<typeof LaneTimeline>>) => <LaneTimeline lanes={lanes} ariaLabel="Timeline" {...props} />;
-  const printButton = () => screen.queryByRole('button', { name: '인쇄' });
+  // Image actions sit in the Export popover (#2792): open it when it is there, then look for the action.
+  const action = (name: string) => {
+    const trigger = screen.queryByRole('button', { name: '내보내기' });
+    if (trigger && !screen.queryByRole('dialog', { name: '내보내기' })) fireEvent.click(trigger);
+    return screen.queryByRole('button', { name });
+  };
+  const button = () => action('이미지 복사');
+  const printButton = () => action('인쇄');
 
   it('renders with I18nProvider alone and shows no image action by default', () => {
     bare(lane({ imageCopy: true, imagePrint: true }));
@@ -163,8 +167,7 @@ describe('LaneTimeline image actions without a PlatformProvider (#1953 A)', () =
     cleanup();
     bare(lane({ imagePrint: true, exportActions: { exportAllowed: true } }));
     fireEvent.click(printButton()!);
-    await waitFor(() => expect(printButton()!.parentElement!.textContent).toMatch(/[^\s]{2,}/));
-    expect(printButton()!.parentElement!.querySelectorAll('[role="status"]').length).toBeGreaterThan(0);
+    await waitFor(() => expect(within(screen.getByRole('toolbar')).getByRole('status').textContent).toMatch(/[^\s]{2,}/));
   });
 
   it('inside a platform the menu manifest decides: exportAllowed never opens a closed menu, and notify is not used', async () => {

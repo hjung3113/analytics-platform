@@ -80,7 +80,7 @@ const overlays = useMemo<TimelineOverlay[]>(() => [
 
 `description`과 `trust: { source, updated, coverage }`로 설명·기존 공통 Trust footer를 제공할 수 있다.
 
-`selectedId: string | null`과 `onSelectedChange`로 선택을 제어한다. 없으면 `defaultSelectedId`에서 시작한다. region에 Tab으로 진입해 방향키/Home/End로 구간을 탐색하고 Enter로 선택, Escape로 해제한다. 포커스된 구간의 lane·시작/종료 시각·`depth`·`rank`·시작/종료 경계 의미는 DOM 요약으로 읽을 수 있다. `formatTooltip(segment, lane)`는 안전한 텍스트를 반환하며 의미 경계와 기본 시간 요약이 덧붙는다. `formatTick(time)`으로 축 표시를 바꾸어도 좌표는 epoch ms를 유지한다.
+`selectedId: string | null`과 `onSelectedChange`로 선택을 제어한다. 없으면 `defaultSelectedId`에서 시작한다. region에 Tab으로 진입해 방향키/Home/End로 구간을 탐색하고 Enter로 선택, Escape로 해제한다. 포커스된 구간의 lane·시작/종료 시각·`depth`·`rank`·시작/종료 경계 의미는 DOM 요약으로 읽을 수 있다. `formatTooltip(segment, lane)`는 안전한 텍스트를 반환하며 의미 경계와 기본 시간 요약이 덧붙는다. `formatTick(time)`으로 축 표시를 바꾸어도 좌표는 epoch ms를 유지한다. `표로 보기` 표와 `내보내기 CSV`의 상태 칸은 선택 `formatState(segment, lane)` 글자(없으면 `rank`)다. 열·게이트·CSV 규격은 [06 §16](../../../../docs/contract/chart.md#16-analysis-chart-contract) «캔버스 차트의 표로 보기·내보내기»(#2792).
 
 Ctrl/⌘+wheel·+/−·확대 버튼으로 확대하고 plot drag로 이동한다. modifier 없는 wheel은 세로 스크롤이다. 축은 고정되고 구간 canvas는 가시 행만 그린다. 352px 미만 컨테이너에서는 내부 가로 스크롤한다. reveal 순서는 **유효한** lanes→segments 입력 순서이며 중복/무효 입력을 제외한 순서다. 재정렬될 수 있으면 `revealById`를 사용한다.
 

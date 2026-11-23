@@ -41,10 +41,12 @@ it('the image actions stay off by default: imageCopy and imagePrint alone draw n
   expect(screen.queryByRole('button', { name: '인쇄' })).toBeNull();
 });
 
-it('LaneTimeline: exportActions opens the image actions, and nothing else about the chart changes', () => {
+it('LaneTimeline: exportActions opens CSV and the image actions, and nothing else about the chart changes', () => {
   render(<I18nProvider><LaneTimeline lanes={lanes} ariaLabel="Provider-less timeline" imageCopy imagePrint exportActions={{ exportAllowed: true }} /></I18nProvider>);
-  expect(screen.getByRole('button', { name: '이미지 복사' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: '인쇄' })).toBeTruthy();
+  // Like every chart, LaneTimeline keeps CSV, image copy and print in the «내보내기» popover (#2792).
+  fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  const group = within(screen.getByRole('dialog', { name: '내보내기' }));
+  expect(group.getAllByRole('button').map((b) => b.textContent)).toEqual(['내보내기 CSV', '이미지 복사', '인쇄']);
   expect(screen.getByRole('button', { name: '확대' })).toBeTruthy();
 });
 

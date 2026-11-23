@@ -69,9 +69,13 @@ export function exportCell<T>(column: PlatformColumn<T>, row: T): string | numbe
   return '';
 }
 
-/** CSV cell: RFC 4180 quoting; formula-injection guard for string values only (numbers never get a prefix). */
-function csvField(value: string | number, delimiter: ',' | '\t'): string {
-  const text = typeof value === 'number' ? String(value) : guardFormula(value);
+/** A cell the SDK built itself (a wall-clock time such as `+010000-01-01T12:34:56.789`): RFC 4180 quoting, no formula prefix (#2792). */
+export class CsvVerbatim { constructor(readonly text: string) {} }
+type CsvCell = string | number | CsvVerbatim;
+
+/** CSV cell: RFC 4180 quoting; formula-injection guard for string values only (numbers and SDK-built `CsvVerbatim` never get a prefix). */
+function csvField(value: CsvCell, delimiter: ',' | '\t'): string {
+  const text = typeof value === 'number' ? String(value) : value instanceof CsvVerbatim ? value.text : guardFormula(value);
   return text.includes('"') || text.includes(delimiter) || text.includes('\r') || text.includes('\n')
     ? `"${text.replaceAll('"', '""')}"` : text;
 }
@@ -88,7 +92,7 @@ export function toCsv(headers: string[], rows: (string | number)[][]): string {
 }
 
 /** Chart CSV (#297): the same framing with one leading `#` meta line before the header. The meta line is quoted like any field, so a title holding a comma stays one cell. */
-export function toCsvDocument(meta: string | null, headers: string[], rows: (string | number)[][]): string {
+export function toCsvDocument(meta: string | null, headers: string[], rows: CsvCell[][]): string {
   return '\uFEFF' + (meta === null ? '' : csvField(meta, ',') + '\r\n')
     + [headers, ...rows].map(row => row.map(cell => csvField(cell, ',')).join(',')).join('\r\n') + '\r\n';
 }

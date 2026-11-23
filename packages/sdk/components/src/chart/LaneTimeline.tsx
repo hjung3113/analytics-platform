@@ -2,19 +2,24 @@ import type { ChartTrust } from '../state/trustFormat';
 import { useCallback, useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
 import { BrushIcon, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button, InfoTip } from '@ap/ui';
-import { useI18n, useMessages } from '@ap/kernel';
+import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { prepareLanes, segmentText, utcTick } from './laneTimelineGeometry';
+import { boundaryNotes, prepareLanes, segmentText, utcTick } from './laneTimelineGeometry';
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
 import { ChartCardHeader, ChartTrustFooter, ChartZoomButton } from './analysisChartFrameParts';
 import { createLaneRenderer, type RendererState } from './laneTimelineRenderer';
 import { overlaySummaries, validateOverlays } from './laneTimelineOverlays';
 import type { TimelineOverlay } from './laneTimelineTypes';
-import { ChartImageCopyButton, ChartImagePrintButton, type ChartExportActionsPolicy } from './ChartImageCopyButton';
+import { ChartImageCopyButton, ChartImagePrintButton, ImageActionStatus, useImageActionGate, type ChartExportActionsPolicy } from './ChartImageCopyButton';
+import { ChartExportMenu, ChartTableToggle } from './ChartInteractionToolbar';
+import { IntervalTable, formatDurationMs } from './canvasChartTable';
+import { downloadChartCsv } from './analysisChartCsv';
+import { CsvVerbatim } from '../table/tableExport';
 import { BodyTooltipPortal } from './bodyTooltipPortal';
 import { laneImageBlob } from './chartImageCopy';
 import { displayFileName } from '../table/download';
+import type { LaneItem } from './laneTimelineModel';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { useRangeBrush, type RangeBrushOptions } from './useRangeBrush';
 import { chartToolVariant } from './chartChrome';
@@ -33,13 +38,15 @@ export type LaneTimelineProps = {
   trust?: ChartTrust;
   lanes: TimelineLane[]; ariaLabel: string; ref?: Ref<LaneTimelineHandle>; height?: number;
   formatTick?: (time: number) => string; formatTooltip?: (segment: TimelineSegment, lane: TimelineLane) => string;
+  /** The `상태` cell of `표로 보기` and the CSV (#2792). Omitted, the segment `rank` is shown; open and orphan boundaries are always added. */
+  formatState?: (segment: TimelineSegment, lane: TimelineLane) => string;
   densityInstants?: number[]; paletteTokens?: ThemeColorToken[]; neutralColorToken?: ThemeColorToken;
   outlineWidthsByRank?: Record<string, number>; outlineMode?: 'strong' | 'weak' | 'off';
-  /** Adds a `이미지 복사` button (axis and visible plot as a PNG, to the clipboard or a download), shown only when the current menu manifest enables `features.export`. Without a `PlatformProvider` it shows only when `exportActions.exportAllowed` is true (#1953). */
+  /** Adds `이미지 복사` to the `내보내기` menu (axis and visible plot as a PNG, to the clipboard or a download). The menu, with `내보내기 CSV` (one row per interval), shows only when the current menu manifest enables `features.export`; without a `PlatformProvider` only when `exportActions.exportAllowed` is true (#1953, #2792). */
   imageCopy?: boolean;
-  /** Adds a `인쇄` button: the same image as `imageCopy`, printed under the chart's title. Same gate as `imageCopy`. */
+  /** Adds `인쇄` to the `내보내기` menu: the same image as `imageCopy`, printed under the chart's title. Same gate as `imageCopy`. */
   imagePrint?: boolean;
-  /** Outside a platform only: allows the image actions (default off) and says where their result text goes (default a status line beside the button). Inside a `PlatformProvider` it is ignored and the menu's `features.export` decides; it never widens a menu's permission. */
+  /** Outside a platform only: allows the `내보내기` menu (CSV and the image actions; default off) and says where their result text goes (default a status line beside the button). Inside a `PlatformProvider` it is ignored and the menu's `features.export` decides; it never widens a menu's permission. */
   exportActions?: ChartExportActionsPolicy;
   /** Marks drawn above the segments and below the selection outline: time instants, time ranges and segment sets. Memoize the array: a new array redraws the overlay layer once. */
   overlays?: TimelineOverlay[];
@@ -51,7 +58,7 @@ export type LaneTimelineProps = {
    * uncontrolled brush, or `value`/`onChange` to own the range. Omitted: no toggle, and drag, keys and summary are unchanged.
    */
   rangeBrush?: RangeBrushOptions;
-  /** Icon zoom controls and screen-reader-only guide and readouts. */
+  /** Icon zoom, table and export controls, and screen-reader-only guide and readouts. */
   quiet?: boolean;
   /** Insets the painted bands to leave one spacing-4 token between rows; row labels keep their original pitch. */
   separateRows?: boolean;
@@ -59,6 +66,8 @@ export type LaneTimelineProps = {
   tickSpacing?: number;
 };
 const noInstants: number[] = [];
+/** Lane times are equipment wall-clock encoded as UTC epoch ms (ADR-0064): the CSV keeps the calendar digits and the ms, with no zone suffix (#2792 C3). */
+const wallClockCsv = (time: number) => new CsvVerbatim(new Date(time).toISOString().replace(/Z$/, ''));
 const noOverlays: TimelineOverlay[] = [];
 /** A standalone wall-clock interval chart. Pan, zoom and scroll never enter React state. */
 export function LaneTimeline(props: LaneTimelineProps) {
@@ -83,6 +92,16 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const [hover, setHover] = useState<string | null>(null);
   const summaryId = useId(); const helpId = useId();
   const brush = useRangeBrush(props.rangeBrush);
+  const [table, setTable] = useState(false);
+  // The table page belongs to one `lanes` input: new lanes start again at the first page and drop the old reference (#2792 C6).
+  const [tablePageOf, setTablePageOf] = useState({ lanes: props.lanes, page: 0 });
+  if (tablePageOf.lanes !== props.lanes) setTablePageOf({ lanes: props.lanes, page: 0 });
+  // A standalone result line belongs to one data set, title and permission: any change clears it (#2792 C9).
+  const [exportGeneration, setExportGeneration] = useState({ lanes: props.lanes, label: props.ariaLabel, allowed: props.exportActions?.exportAllowed, n: 0 });
+  if (exportGeneration.lanes !== props.lanes || exportGeneration.label !== props.ariaLabel || exportGeneration.allowed !== props.exportActions?.exportAllowed)
+    setExportGeneration({ lanes: props.lanes, label: props.ariaLabel, allowed: props.exportActions?.exportAllowed, n: exportGeneration.n + 1 });
+  const exportGate = useImageActionGate(props.exportActions, exportGeneration.n);
+  const global = usePlatformOptional()?.global ?? null;
   const brushOn = props.rangeBrush !== undefined;
   const brushRange = brushOn ? brush.range : null;
   const zoomControl = (label: string, Icon: typeof ZoomIn, onClick: () => void) => props.quiet
@@ -114,6 +133,41 @@ export function LaneTimeline(props: LaneTimelineProps) {
   });
   useEffect(() => () => { engine.current?.destroy(); engine.current = null; }, []);
   const tickText = (time: number) => props.formatTick?.(time) ?? utcTick(time);
+  const fileBase = displayFileName(props.ariaLabel) || 'timeline';
+  const tablePage = tablePageOf.page;
+  // The state cell: the consumer's `formatState` text (a trend value), else the rank, then the boundary notes (#2792 C4).
+  const segmentState = (segment: TimelineSegment, lane: TimelineLane) => [
+    ...[props.formatState ? props.formatState(segment, lane) : segment.rank].filter((part): part is string => !!part),
+    ...boundaryNotes(segment, lang),
+  ].join(' · ');
+  const tableColumns = [{ label: m('intervalColLane') }, { label: m('chartStart'), nowrap: true }, { label: m('chartEnd'), nowrap: true }, { label: m('intervalColState') }, { label: m('intervalColLength'), numeric: true, nowrap: true }];
+  const tableRows = (from: number, to: number) => {
+    const rows = [];
+    for (let i = from; i < to; i += 1) {
+      const { segment, laneIndex } = model.flat[i] as LaneItem;
+      rows.push({ key: segment.id, selected: segment.id === selectedItem?.segment.id, cells: [
+        model.lanes[laneIndex].label, tickText(segment.start), tickText(segment.end), segmentState(segment, model.lanes[laneIndex]) || '—', formatDurationMs(segment.end - segment.start, lang),
+      ] });
+    }
+    return rows;
+  };
+  function exportCsv() {
+    // Rows are built inside the try: a throwing consumer `formatState` reports the failure like a failed download (#2792 C12).
+    try {
+      const rows: (string | number | CsvVerbatim)[][] = [];
+      for (let i = 0; i < model.flat.length; i += 1) {
+        const { segment, laneIndex } = model.flat[i] as LaneItem;
+        rows.push([model.lanes[laneIndex].label, wallClockCsv(segment.start), wallClockCsv(segment.end), segmentState(segment, model.lanes[laneIndex]), segment.end - segment.start]);
+      }
+      // The table's columns, with the CSV length in ms (#2792 C14).
+      downloadChartCsv({ chartId: fileBase, fileName: fileBase, title: props.ariaLabel, context: global ?? {} }, tableColumns.map(column => column.numeric ? `${column.label} (ms)` : column.label), rows);
+    } catch {
+      exportGate.say(m('chartExportCsvFailed', { chartId: fileBase }), 'warning');
+      return;
+    }
+    exportGate.say(m('chartExportedCsv', { chartId: fileBase }));
+  }
+  const capture = () => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current });
   function summary(item: typeof focused) {
     if (!item) return '';
     return segmentText(model, item, props.formatTooltip, lang);
@@ -143,8 +197,12 @@ export function LaneTimeline(props: LaneTimelineProps) {
         {zoomControl(m('laneZoomOut'), ZoomOut, () => engine.current?.zoom(1.25))}
         {brushOn && <Button type="button" size="toolbar" variant="toggle" aria-pressed={brush.mode} onClick={() => brush.setMode(!brush.mode)}><BrushIcon className="size-3.5" aria-hidden />{m('chartBrush')}</Button>}
         {zoomControl(m('laneZoomReset'), RotateCcw, () => { engine.current?.resetZoom(); if (brushOn) brush.clear(); })}
-        {props.imageCopy && <ChartImageCopyButton standalone={props.exportActions} fileName={`${displayFileName(props.ariaLabel) || 'timeline'}.png`} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
-        {props.imagePrint && <ChartImagePrintButton standalone={props.exportActions} title={() => props.ariaLabel} capture={() => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current })} />}
+        <ChartTableToggle compact={props.quiet} shown={table} toggle={() => setTable(current => !current)} />
+        {exportGate.allowed && <ChartExportMenu compact={props.quiet} exportCsv={exportCsv} tools={<>
+          {props.imageCopy && <ChartImageCopyButton standalone={props.exportActions} onOutcome={exportGate.say} fileName={`${fileBase}.png`} capture={capture} />}
+          {props.imagePrint && <ChartImagePrintButton standalone={props.exportActions} onOutcome={exportGate.say} title={() => props.ariaLabel} capture={capture} />}
+        </>} />}
+        {exportGate.allowed && <ImageActionStatus text={exportGate.status} />}
       </>} />
     <p className={props.quiet ? 'sr-only' : 'px-4 py-2 text-text-secondary'}>{m('laneBoundaryHelp')}</p>
     <p id={helpId} className="sr-only">{m(brushOn ? 'laneAccessibleHelpBrush' : 'laneAccessibleHelp')}</p>
@@ -165,6 +223,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
     <section aria-label={m('chartSelectionSummaryRegion')} className={props.quiet && !brushRange ? 'sr-only' : 'bg-surface-sunken px-4 py-2 text-text-secondary'}>{brushRange
       ? <><span className={props.quiet ? 'sr-only' : undefined}>{t('selectedRange')}: {tickText(brushRange[0])}–{tickText(brushRange[1])}</span>{' '}<Button type="button" size="toolbar" variant={props.quiet ? 'ghost' : chartToolVariant(false)} onClick={() => engine.current?.showRange(brushRange)}>{!props.quiet && <ZoomIn className="size-3.5" aria-hidden />}{m('intervalZoomToSelection')}</Button></>
       : selectedItem ? summary(selectedItem) : m('chartNoSelection')}</section>
+    {table && <IntervalTable title={m('laneIntervalList')} columns={tableColumns} count={model.flat.length} rows={tableRows} page={tablePage} onPage={page => setTablePageOf({ lanes: props.lanes, page })} />}
     {overlayLines.length > 0 && <ul aria-label={m('laneMarkedTimes')} className="sr-only">{overlayLines.map((line, i) => <li key={i}>{line}</li>)}</ul>}
     <p id={summaryId} role="status" aria-live="polite" className={props.quiet ? 'sr-only' : 'px-4 py-2 text-text-secondary'}>{summary(focused)}</p>
     <ChartTrustFooter trust={props.trust} />

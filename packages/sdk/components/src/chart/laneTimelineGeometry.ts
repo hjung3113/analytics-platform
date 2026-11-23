@@ -6,15 +6,22 @@ import type { LaneItem, LaneModel } from './laneTimelineModel';
 // The column-array model and its time index live in laneTimelineModel.ts; this file keeps the import path stable.
 export { GUTTER, ROW_HEIGHT, HEADER_HEIGHT, laneDiagnostic, prepareLanes, visibleRects, fillVisibleRects, segmentRect, laneGeometry, visibleLanes, hitTest, RectBuffer, laneWindow, FLAG_ORPHAN, FLAG_OPEN, FLAG_NEUTRAL } from './laneTimelineModel';
 export type { LaneItem, LaneModel, LaneRect, LaneColumns, LaneIndex } from './laneTimelineModel';
-export function utcTick(time: number) { return new Date(time).toISOString().slice(0, 19).replace('T', ' '); }
+/** Wall-clock to the second, extended years included (`+010000-01-01 12:34:56`). */
+export function utcTick(time: number) { return new Date(time).toISOString().replace(/\.\d{3}Z$/, '').replace('T', ' '); }
+/** The open/orphan boundary notes shared by the summary, the table and the CSV (#2792). */
+export function boundaryNotes(segment: TimelineSegment, lang: Lang): string[] {
+  return [
+    ...(segment.startBoundary === 'orphan' ? [formatText(COMPONENTS_MESSAGES.laneStartUnknown, lang)] : []),
+    ...(segment.endBoundary === 'open' ? [formatText(COMPONENTS_MESSAGES.laneEndUnknown, lang)] : []),
+  ];
+}
 /** `depth` is the normalised depth from the model columns; omitted, the segment's own depth is used. */
 export function segmentSummary(segment: TimelineSegment, lang: Lang, depth: number = segment.depth ?? 0) {
   const parts = [
     `${utcTick(segment.start)} – ${utcTick(segment.end)}`,
     formatText(COMPONENTS_MESSAGES.laneSegmentSummaryDepth, lang, { depth }),
     ...(segment.rank ? [segment.rank] : []),
-    ...(segment.startBoundary === 'orphan' ? [formatText(COMPONENTS_MESSAGES.laneStartUnknown, lang)] : []),
-    ...(segment.endBoundary === 'open' ? [formatText(COMPONENTS_MESSAGES.laneEndUnknown, lang)] : []),
+    ...boundaryNotes(segment, lang),
   ];
   return parts.join(' · ');
 }
