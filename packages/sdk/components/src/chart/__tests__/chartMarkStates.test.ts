@@ -50,10 +50,12 @@ it('rings a selected point in the selection colour at 1.5px, keeps its fill and 
 
 it('draws the selection label once, in the selection colour with no text outline (#2790)', () => {
   const overlay = vertical({ selection: { from: 'R1', to: 'R2' } }).series.find(s => s.id === '__overlay')!;
-  const [start] = overlay.markArea!.data[0] as unknown as [{ name: string; label: Record<string, unknown> }];
-  expect(start.name).toBe('선택');
-  // An inside label gets ECharts' default outline in the band colour, which reads as the word drawn twice.
-  expect(start.label).toMatchObject({ position: 'insideBottom', color: 'sel', textBorderWidth: 0 });
+  expect(overlay.markArea!.data).toHaveLength(1);
+  // An inside label gets ECharts' default outline in the band colour, which reads as the word drawn twice; the card surface keeps the text readable.
+  expect(overlay.markArea!.data[0][0]).toMatchObject({
+    name: '선택',
+    label: { position: 'insideBottom', color: 'sel', textBorderWidth: 0, backgroundColor: palette.labelSurface },
+  });
 });
 
 it('draws every range band in the selection colour at 10%', () => {
