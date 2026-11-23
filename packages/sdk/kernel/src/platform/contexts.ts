@@ -18,10 +18,12 @@ export type ScreenFields = 'detailExpanded' | 'setDetailExpanded' | 'queryHistor
 /** Shell navigation state that always follows the main screen, even when read from inside a pane (ADR-0049). */
 export type MainBoundFields = 'visibleMenus' | 'sidebarSpace' | 'spaceResume' | 'spaceEntry' | 'switchSpace';
 export type ScreenState = Pick<HostPlatform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'> & {
+  setPage: (patch: Parameters<HostPlatform['setPage']>[0], options?: PageWriteOptions) => void;
   /** Event-time page values for kernel writers. Null means the source screen was left. */
   pageParamsNow: (key: string) => string[] | null;
   analysisSelectionAvailability: ReturnType<typeof createAnalysisSelectionAvailability>;
 };
+export type PageWriteOptions = { replace?: boolean; focus?: PageFocus; run?: CommitOptions['run'] };
 export type MainBound = Pick<HostPlatform, MainBoundFields>;
 export type AppState = Omit<HostPlatform, ScreenFields | MainBoundFields | 'screenMode' | 'paneId' | 'paneLabel'>;
 /** App-internal handles the screen layers need; never part of the public `usePlatform()` value. */

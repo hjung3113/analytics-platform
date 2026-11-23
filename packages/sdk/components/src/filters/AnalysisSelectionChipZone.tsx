@@ -33,7 +33,7 @@ function Chip({ chip, clear, wrap, measuring }: { chip: AnalysisSelectionChip; c
     <span className={wrap ? '[overflow-wrap:anywhere]' : 'max-w-40 truncate'} title={text}>{text}</span>
     {!chip.available && <span className="shrink-0">{m('analysisSelectionUnavailable')}</span>}
     <button type="button" disabled={measuring} className={cn('inline-flex size-6.5 shrink-0 items-center justify-center rounded-full hover:bg-surface-row-hover', focusClass)}
-      data-analysis-chip-clear aria-label={m('analysisSelectionClear', { dimension })} onClick={() => clear(chip.key)}>
+      data-analysis-chip-clear={chip.key} aria-label={m('analysisSelectionClear', { dimension })} onClick={() => clear(chip.key)}>
       <X className="size-3.5" aria-hidden />
     </button>
   </span>;
@@ -61,12 +61,13 @@ function InlineChips({ chips, clear, clearAll, measuring }: {
 export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   fit?: Fit; fallbackFocus?: RefObject<HTMLElement | null>;
 }) {
-  const { chips, clear, clearAll } = useAnalysisSelectionChips();
+  const { chips, clear, clearAll } = useAnalysisSelectionChips(onClearCommit);
   const m = useMessages(COMPONENTS_MESSAGES);
   const zone = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const clearFocus = useRef<ClearFocus | null>(null);
+  const focusedChip = useRef<HTMLButtonElement | null>(null);
   const last = chips[chips.length - 1];
   const canFold = chips.length > 1 && fit !== undefined;
   const row = useObservedElementSize(fit?.container ?? null, { enabled: canFold });
@@ -77,10 +78,28 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
     const buttons = surface?.querySelectorAll<HTMLButtonElement>('[data-analysis-chip-clear]');
     const target = buttons?.[Math.min(index, buttons.length - 1)] ?? fallbackFocus?.current;
     target?.focus();
+    focusedChip.current = target instanceof HTMLButtonElement && target.dataset.analysisChipClear ? target : null;
   };
   useLayoutEffect(() => {
+    const stopTracking = (event: FocusEvent) => {
+      if (event.target !== focusedChip.current) focusedChip.current = null;
+      if (clearFocus.current?.kind !== 'list' && event.target instanceof Node
+        && !zone.current?.contains(event.target) && !list.current?.contains(event.target)) clearFocus.current = null;
+    };
+    document.addEventListener('focusin', stopTracking);
+    return () => document.removeEventListener('focusin', stopTracking);
+  }, []);
+  useLayoutEffect(() => {
+    const previous = focusedChip.current;
+    if (previous && !previous.isConnected && document.activeElement === document.body) {
+      const replacement = Array.from(zone.current?.querySelectorAll<HTMLButtonElement>('[data-analysis-chip-clear]') ?? [])
+        .find(button => button.dataset.analysisChipClear === previous.dataset.analysisChipClear);
+      focusedChip.current = replacement ?? null;
+      replacement?.focus();
+    }
     const request = clearFocus.current;
     if (!request || request.kind === 'list') return;
+    clearFocus.current = null;
     if (chips.some(chip => request.kind === 'all' || chip.key === request.key)) return;
     const index = request.kind === 'one' ? request.index : 0;
     const openList = list.current;
@@ -88,17 +107,16 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
     clearFocus.current = openList ? { kind: 'list', index } : null;
     focusChip(openList ?? zone.current, index);
   });
-  const onClear = (key: string) => {
+  function onClearCommit(key: string | null) {
     const index = chips.findIndex(chip => chip.key === key);
-    if (clear(key)) clearFocus.current = { kind: 'one', key, index };
-  };
-  const onClearAll = () => { if (clearAll()) clearFocus.current = { kind: 'all' }; };
+    clearFocus.current = key === null ? { kind: 'all' } : { kind: 'one', key, index };
+  }
   if (!last) return null;
   const label = m('analysisSelectionGroup');
   return <>
     {canFold && <div aria-hidden inert className="invisible absolute inset-x-0 top-0 h-0 overflow-hidden">
       <div ref={probe.ref} data-analysis-chip-probe className="w-max">
-        <div className={zoneClass}><InlineChips chips={chips} clear={onClear} clearAll={onClearAll} measuring /></div>
+        <div className={zoneClass}><InlineChips chips={chips} clear={clear} clearAll={clearAll} measuring /></div>
       </div>
     </div>}
     <div ref={zone} role="group" aria-label={label} className={zoneClass}>
@@ -118,14 +136,14 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
             <ul className="grid gap-1">
               {chips.map(chip => <li key={chip.key} className="flex min-w-0 items-center gap-1">
                 {chip.after !== null && <span aria-hidden className="text-text-muted">›</span>}
-                <Chip chip={chip} clear={onClear} wrap />
+                <Chip chip={chip} clear={clear} wrap />
               </li>)}
             </ul>
-            <button type="button" className={linkClass} onClick={onClearAll}>{m('analysisSelectionClearAll')}</button>
+            <button type="button" className={linkClass} onClick={clearAll}>{m('analysisSelectionClearAll')}</button>
           </PopoverContent>
         </Popover>
-        <Chip key={last.key} chip={last} clear={onClear} />
-      </> : <InlineChips chips={chips} clear={onClear} clearAll={onClearAll} />}
+        <Chip key={last.key} chip={last} clear={clear} />
+      </> : <InlineChips chips={chips} clear={clear} clearAll={clearAll} />}
     </div>
   </>;
 }

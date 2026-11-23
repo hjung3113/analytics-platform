@@ -170,13 +170,13 @@ function orderChips(chips: readonly AnalysisSelectionChip[]): AnalysisSelectionC
   return ordered;
 }
 
-/** Models the current screen's URL-backed analysis selections and clears them through its page write boundary. */
-export function useAnalysisSelectionChips(): {
+/** Models URL-backed analysis selections. onClearCommit runs when a clear passes the navigation guard, before its write (null for clear-all). */
+export function useAnalysisSelectionChips(onClearCommit?: (key: string | null) => void): {
   chips: readonly AnalysisSelectionChip[];
   clear: (key: string) => boolean;
   clearAll: () => boolean;
 } {
-  const { route, pathname, pageParams, setPage, session, revision, global } = usePlatform();
+  const { route, pathname, pageParams, session, revision, global } = usePlatform();
   const screen = useWriteScreen(route);
   const availability = useReportedAvailability(screen);
   const menu = route?.menu;
@@ -198,7 +198,7 @@ export function useAnalysisSelectionChips(): {
   // The address's page values can change without retiring this screen's actions.
   const owner = useMemo(() => ({
     menu, pathname, paneId, session, revision, scopeId,
-    clearKeys: null as ((keys: Iterable<string>) => boolean) | null,
+    clearKeys: null as ((keys: Iterable<string>, key: string | null) => boolean) | null,
   }), [menu, pathname, paneId, session, revision, scopeId]);
   const { chips } = useStable({ owner, chips: result }, (a, b) =>
     a.owner === b.owner
@@ -209,7 +209,7 @@ export function useAnalysisSelectionChips(): {
   // Bind the committed screen before descendant layout effects can clear it, as pane address writes do.
   useInsertionEffect(() => {
     if (!screen || !route) return;
-    owner.clearKeys = keys => {
+    owner.clearKeys = (keys, key) => {
       const patch = new Map<string, null>();
       for (const key of keys) {
         const current = screen.pageParamsNow(key);
@@ -218,15 +218,18 @@ export function useAnalysisSelectionChips(): {
         if (current.length || (screen.screenMode === 'pane' && pageParams(key).length)) patch.set(key, null);
       }
       if (!patch.size) return false;
-      setPage(Object.fromEntries(patch));
+      screen.setPage(Object.fromEntries(patch), { run: () => {
+        if (owner.clearKeys) onClearCommit?.(key);
+        return true;
+      } });
       return true;
     };
     return () => { owner.clearKeys = null; };
-  }, [owner, screen, route, pageParams, setPage]);
+  }, [owner, screen, route, pageParams, onClearCommit]);
 
   return useMemo(() => ({
     chips,
-    clear: (key: string) => channels.has(key) && (owner.clearKeys?.([key]) ?? false),
-    clearAll: () => owner.clearKeys?.(channels.keys()) ?? false,
+    clear: (key: string) => channels.has(key) && (owner.clearKeys?.([key], key) ?? false),
+    clearAll: () => owner.clearKeys?.(channels.keys(), null) ?? false,
   }), [chips, channels, owner]);
 }
