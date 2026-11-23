@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { defineEndpoint, type ApiResponse, type EndpointSpec, type MenuQuery, type PlatformAdapter, type Session, type UsageEvent, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
 import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from '../platform';
+import { useArrivalFocus } from '../useArrivalFocus';
 import { useQueryContext } from '../../query/condition-preset';
 import { useMenuFetch, useMenuQuery } from '../../query/query';
 import { createRegistry } from '../../registry/registry';
@@ -173,6 +174,52 @@ describe('PaneScreenProvider — independent screen state (ADR-0049)', () => {
     act(() => at('p').setPage({ tab: 'detail' }, { focus: 'drill' }));
     expect(at('p').pageNavigation.consume(at('p').pathname)).toBe('drill');
     expect(p.onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('delivers explicit focus to the arrival subscriber on an accepted same-address write', async () => {
+    const p = spies();
+    const arrive = vi.fn();
+    function ArrivalProbe() {
+      const { url } = useHostPlatform();
+      useArrivalFocus(arrive, { rereadKey: url });
+      return null;
+    }
+    mount(<Pane id="p" initial={screenA()} spies={p}><ArrivalProbe /></Pane>, fixture().adapter);
+    await flush();
+    act(() => at('p').setPage({ tab: 'detail' }));
+    expect(at('p').pageParam('tab')).toBe('detail');
+    expect(arrive).not.toHaveBeenCalled();
+    act(() => at('p').setPage({ tab: 'detail' }, { focus: 'drill' }));
+    expect(arrive).toHaveBeenCalledExactlyOnceWith('drill');
+    expect(p.onChange).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the rendered pane write until the controlled parent applies a different pathname', async () => {
+    const p = spies();
+    const targetPath = '/mars/board-b';
+    function ControlledPane() {
+      const [screen, setScreen] = useState(screenA);
+      return <PaneScreenProvider paneId="p" screen={screen} onChange={p.onChange} onLeave={p.onLeave}>
+        <Probe id="p" />
+        <button onClick={() => setScreen(p.onChange.mock.calls[0]![0])}>Apply destination</button>
+      </PaneScreenProvider>;
+    }
+    const view = mount(<ControlledPane />, fixture().adapter);
+    await flush();
+    const { navigate, pathname: sourcePath, setPage } = at('p');
+    act(() => { expect(navigate(`${targetPath}?${window1}`)).toBe(true); });
+    expect(p.onChange).toHaveBeenCalledExactlyOnceWith({ menuId: 'board-b', params: {}, query: `?${window1}` }, 'push');
+    expect(at('p').pathname).toBe(sourcePath);
+
+    act(() => setPage({ tab: 'detail' }));
+    expect(p.onChange).toHaveBeenCalledTimes(2);
+    expect(p.onChange.mock.calls[1]![0]).toMatchObject({ menuId: 'board-a', params: {} });
+    expect(new URLSearchParams(p.onChange.mock.calls[1]![0].query).get('tab')).toBe('detail');
+
+    act(() => view.getByRole('button', { name: 'Apply destination' }).click());
+    expect(at('p').pathname).toBe(targetPath);
+    act(() => setPage({ page: '2' }));
+    expect(p.onChange).toHaveBeenCalledTimes(2);
   });
 
   it('two panes read their own global/page; a write calls only that pane onChange and leaves the URL and main alone', async () => {

@@ -80,7 +80,10 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
     if (!current) return false;
     // Only the parent can accept an address. An unchanged proposal can still be sent again.
     if (next === current.renderedUrl && next === current.url) {
-      if (options.focus) navigation.advance(next, options.focus);
+      if (options.focus) {
+        navigation.advance(next, options.focus);
+        navigation.notify();
+      }
       else if (!options.materialize) navigation.cancel();
       return false;
     }
@@ -104,14 +107,17 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
     const how = options?.replace ? 'replace' : 'push';
     const q = href.indexOf('?');
     const path = q === -1 ? href : href.slice(0, q);
+    const renderedPath = current.renderedUrl.split('?')[0];
     // Staying on this pane's own route is a write to the pane, whatever the menu's board support.
-    if (path === current.renderedUrl.split('?')[0] && path === url.split('?')[0]) return commit(href, how, { focus: options?.focus });
+    if (path === renderedPath && path === url.split('?')[0]) return commit(href, how, { focus: options?.focus });
     const matched = hasDotSegment(path) ? null : matchRoute(path);
     if (matched && matched.menu.features.board === true && canOpen(matched.menu.id)) {
       // A retired menu's address adds its page preset here too, as the main screen's alias redirect does (#2330).
       const query = withPagePreset(q === -1 ? '' : href.slice(q), matched.aliasPage);
       const next = { menuId: matched.menu.id, params: matched.params, query };
-      current.url = paneHref(registry, next);
+      const proposalUrl = paneHref(registry, next);
+      // The parent owns pathname changes. Only proposals for the rendered pathname compose.
+      if (proposalUrl.split('?')[0] === renderedPath) current.url = proposalUrl;
       navigation.advance(path + query, options?.focus);
       latest.current.onChange(next, how);
     } else latest.current.onLeave(href);
