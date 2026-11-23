@@ -591,7 +591,7 @@ Line·PRC 그룹도 두 바의 대상 대화창에서 편집하되 독립 전역
 - 값 표시·복원 전에 현재 메뉴 권한과 검증된 Scope, 저장 Scope 일치, room grant, 현재 주입 축·asOf 지원·완전한 지표 쌍·codec·선언 page 키를 검사한다. 팝오버를 열면 표시할 행의 고정 EquipmentID 합집합을 기존 resolveSelection으로 한 번 확인하며 ok만 허용한다. 실패/진행 중/권한 회수는 값·원문·오류 내용을 노출하지 않는 일반 상태와 시각·삭제만 표시한다. Line·PRC·page 값은 사용자의 이전 입력이며 별도 권한 포트를 신설하지 않는다. 세션 객체·revision·저장 포트·논리적 화면·Scope가 바뀌는 첫 렌더부터 이전 행을 숨기고 늦은 완료·붙들린 동작을 무효화한다. 이력은 목록·복원 검사마다 validateScope로 현재 room grant를 독립 확인하며, 진행 중 검사는 세션/revision 변경·해제 때 취소한다. 화면 Scope 상태와 다시 시도 수명주기는 이 검사로 바꾸지 않는다.
 - 재방문 자동 초기화는 논리적 초안 저장소에서 한 번 수행하며 별도 pane Provider가 공유한다. 성공적으로 해석한 주소에 Scope/version 이외 전역값과 선언 page가 없을 때만 최신 한 건을 검증해 복원한다(extras는 유지하되 복원하지 않음). 최신이 무효이면 이전 건으로 대체하지 않는다. 조회 시작 이후 편집·되돌림·초기화·Apply·주소 변경이 있었으면 덮어쓰지 않으며 되돌린 편집도 revision으로 감지한다. 유효 deep link·부분/잘못된/미지원 전달 조건은 항상 우선한다.
 - 수동·자동 복원은 같은 원자적 초안 전체 교체를 쓴다. 저장 항목에 없는 page 키는 지우며 저장 global과 page를 검증된 한 쌍으로 복원한다. 이 명시적 경로에서는 contextResetKeys도 그 global 소속으로 보존해 다음 Apply에서 제거하지 않는다. 이후 일반 global 편집의 reset 규칙은 유지한다. 적용값·extras·URL·분석 게이트·결과는 복원으로 바뀌지 않고 사용자가 Apply해야 실행한다. ModuleHost·기능/반환 링크는 계속 적용값만 읽는다.
-- page 표시명·유효 기본값은 소비자의 순수 `historyPageSummary(global,page)` 메타데이터가 제공하며 현재 초안/결과 요약을 다른 행에 빌려 쓰지 않는다. history 내용은 usage·오류 보고로 보내지 않는다. 실기기 동기화·서버 저장·공유 정책은 이 포트의 별도 구현 범위다.
+- page 표시명·유효 기본값은 소비자의 순수 `historyPageSummary(global,page)` 메타데이터가 제공하며 현재 초안/결과 요약을 다른 행에 빌려 쓰지 않는다. 메뉴가 `queryBarExtension.historyDrill: true`를 주면 SDK가 그 후보의 `drill` 단계(단계 이름 + `valueLabel` 표시명)를 `historyPageSummary` 항목 앞에 넣는다(#2770, 기본 꺼짐). 켜면 선언된 단계 키는 SDK 표시가 소유한다: 메뉴가 같은 키의 항목을 내도 보이지 않고, 후보에 그 단계 값이 없으면 그 키는 행에 나오지 않는다. history 내용은 usage·오류 보고로 보내지 않는다. 실기기 동기화·서버 저장·공유 정책은 이 포트의 별도 구현 범위다.
 
 ### Context 변경 규칙
 

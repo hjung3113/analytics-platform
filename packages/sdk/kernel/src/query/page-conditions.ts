@@ -118,10 +118,11 @@ export type PageConditionSummaryItem = { key: string; label: string; value: stri
 export type PageConditionSummaryIssue = { key: string; label: string; reason: string };
 /** Structurally matches QueryBarExtension without a dependency on React/components. */
 export type PageConditionExtension = {
-  pageSummary: readonly PageConditionSummaryItem[];
+  pageSummary?: readonly PageConditionSummaryItem[];
   appliedPageSummary?: readonly PageConditionSummaryItem[];
-  issues: readonly PageConditionSummaryIssue[];
+  issues?: readonly PageConditionSummaryIssue[];
   historyPageSummary?: (global: GlobalContext, page: readonly Pair[]) => readonly PageConditionSummaryItem[];
+  historyDrill?: boolean;
 };
 export type PageConditionSummaryInput = {
   menu: PageConditionMenu;
@@ -175,7 +176,7 @@ export function derivePageConditionExtension(input: PageConditionSummaryInput & 
   const owned = new Set(input.menu.pageConditions?.categories.flatMap(pageConditionKeys) ?? []);
   const legacy = input.extension;
   // Nothing declared: the SDK owns no keys, so keep the legacy fields as they are (an omitted applied summary must stay omitted for the page-head fallback).
-  if (owned.size === 0) return { pageSummary: legacy?.pageSummary ?? [], appliedPageSummary: legacy?.appliedPageSummary, issues: legacy?.issues ?? [], historyPageSummary: legacy?.historyPageSummary };
+  if (owned.size === 0) return { pageSummary: legacy?.pageSummary ?? [], appliedPageSummary: legacy?.appliedPageSummary, issues: legacy?.issues ?? [], historyPageSummary: legacy?.historyPageSummary, historyDrill: legacy?.historyDrill };
   const draft = summarizePageConditions(input, input.draft);
   const applied = summarizePageConditions({ ...input, options: input.appliedOptions }, input.applied);
   const other = <T extends { key: string }>(items: readonly T[] = []) => items.filter(item => !owned.has(item.key));
@@ -184,5 +185,6 @@ export function derivePageConditionExtension(input: PageConditionSummaryInput & 
     appliedPageSummary: [...applied.summary, ...other(legacy?.appliedPageSummary)],
     issues: [...draft.issues, ...other(legacy?.issues)],
     historyPageSummary: (global: GlobalContext, page: readonly Pair[]) => [...summarizePageConditions({ ...input, options: input.historyOptions?.(global, page) }, page).summary, ...other(legacy?.historyPageSummary?.(global, page))],
+    historyDrill: legacy?.historyDrill,
   };
 }

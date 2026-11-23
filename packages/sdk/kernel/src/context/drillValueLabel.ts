@@ -1,4 +1,4 @@
-import type { DrillLevel } from '@ap/contracts';
+import type { DrillLevel, MenuMeta, Pair } from '@ap/contracts';
 import type { Lang } from '../i18n';
 
 // Same signal as @ap/ui isProductionEnv, read without `process` types so the kernel dist build (types: []) compiles.
@@ -29,4 +29,14 @@ export function drillValueLabel(level: DrillLevel, value: string | null, lang: L
     warnFallback(level, value, 'threw');
   }
   return { valueLabel: value };
+}
+
+/** The drill steps a page holds, in level order, for a query-history row (#2770): each level's label and its `valueLabel` name (raw value as fallback). */
+export function drillHistorySummary(drill: MenuMeta['drill'], page: readonly Pair[], lang: Lang): { key: string; label: string; value: string }[] {
+  const items: { key: string; label: string; value: string }[] = [];
+  for (const level of drill?.levels ?? []) {
+    const value = page.find(([key]) => key === level.key)?.[1];
+    if (value) items.push({ key: level.key, label: level.label[lang], value: drillValueLabel(level, value, lang).valueLabel ?? value });
+  }
+  return items;
 }

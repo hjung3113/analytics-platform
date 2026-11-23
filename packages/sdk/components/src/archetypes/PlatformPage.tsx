@@ -393,7 +393,7 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
     {headVisible && (layout === 'fill'
       ? <PageContextHead key={menu.id} menuId={menu.id} notes={notes} extension={contextExtension}
           summary={headSummary}
-          pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues.length ?? 0} />
+          pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues?.length ?? 0} />
       : <div className={cn(pageInsetX(density === 'compact'), 'pt-3')}><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
     {!gate && conditionLayer}
     <div data-platform-page-content tabIndex={-1} data-body-inset={bodyInset === 'none' ? 'none' : undefined} className={cn(conditionLayer && 'isolate', layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', fixedFill && bounding > 0 && 'min-h-0', bodyInset === 'none' ? undefined : [pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7'])}>{gate

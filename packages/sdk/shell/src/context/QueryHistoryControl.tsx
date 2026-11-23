@@ -1,6 +1,7 @@
 import { useContext, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import type { GlobalContext, Pair } from '@ap/contracts';
 import { useI18n, useMessages, useQueryDraft } from '@ap/kernel';
-import { useHostPlatform, useQueryHistory, type QueryHistoryRow } from '@ap/kernel/host';
+import { drillHistorySummary, useHostPlatform, useQueryHistory, type QueryHistoryRow } from '@ap/kernel/host';
 import { formatQuerySummary, useQueryBarExtension } from '@ap/components';
 import { Button, Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { SHELL_MESSAGES } from '../messages';
@@ -25,6 +26,14 @@ function HistorySession() {
   const m = useMessages(SHELL_MESSAGES);
   const { route, equipmentAxes, queryPolicy } = useHostPlatform();
   const extension = useQueryBarExtension();
+  // A history row names the page values that candidate restores: the declared drill steps when the menu opts in, then the menu's own items.
+  const historySummary = (global: GlobalContext, page: readonly Pair[]) => {
+    const own = extension?.historyPageSummary?.(global, page);
+    if (!extension?.historyDrill) return own;
+    // The declared steps own their keys: a menu item for the same key never replaces the level's `valueLabel` name.
+    const steps = new Set(route?.menu.drill?.levels.map(level => level.key));
+    return [...drillHistorySummary(route?.menu.drill, page, lang), ...(own ?? []).filter(item => !steps.has(item.key))];
+  };
   const tools = useContext(QueryBarTools);
   const external = tools?.folded ? tools : null;
   const [internalOpen, setInternalOpen] = useState(false);
@@ -110,7 +119,7 @@ function HistorySession() {
       {history.status === 'loading' && <p role="status" className="text-xs text-text-secondary">{m('historyChecking')}</p>}
       <div ref={list} role="list" aria-label={m('historyListLabel')} tabIndex={-1} onKeyDown={keyboard} className="max-h-80 overflow-auto">
         {history.entries.map((row, index) => {
-          const summary = row.status === 'ready' ? formatQuerySummary(row.candidate.global, { lang, axes: equipmentAxes, context: route?.menu.context, pageSummary: extension?.historyPageSummary?.(row.candidate.global, row.candidate.page) }) : row.status === 'loading' ? m('historyChecking') : m('historyRowUnavailable');
+          const summary = row.status === 'ready' ? formatQuerySummary(row.candidate.global, { lang, axes: equipmentAxes, context: route?.menu.context, pageSummary: historySummary(row.candidate.global, row.candidate.page) }) : row.status === 'loading' ? m('historyChecking') : m('historyRowUnavailable');
           return <div key={`${row.id}:${index}`} role="listitem" className="flex items-start gap-1">
             <button type="button" data-history-restore="" aria-disabled={row.status !== 'ready' || undefined} onClick={() => choose(row)} className="min-w-0 flex-1 rounded p-2 text-left text-xs text-text-secondary focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus-ring">
               <span className="block [overflow-wrap:anywhere]">{summary}</span>
