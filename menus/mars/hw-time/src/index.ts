@@ -4,7 +4,7 @@ import { LayoutDashboard } from 'lucide-react';
 import { contextCapabilities, groupId, menuPermission, NO_FEATURES, type SavedViewSupport } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
 import { panelDeclarations } from './panels';
-import { HW_TIME_CONTEXT } from './endpoints';
+import { HW_TIME_CONTEXT, MOTION_EQUIPMENT_KEY } from './endpoints';
 import { HW_TIME_DRILL } from './shared/historySummary';
 import { HW_TIME_FILTER_HIDDEN_KEYS, HW_TIME_FILTER_KEYS, HW_TIME_FILTER_REPEATED_KEYS } from './shared/useHwTimeFilter';
 
@@ -33,10 +33,10 @@ export const manifests: MenuEntry[] = [
     query: { mode: 'apply', autoApplyDefault: true, applyPeriodOnLegacyEntry: true },
     savedViewSupport: SAVED_VIEW_SUPPORT,
     features: { ...NO_FEATURES, board: true, export: true },
-    pageKeys: PAGE_KEYS,
-    repeatedPageKeys: [...HW_TIME_FILTER_REPEATED_KEYS, 'pins'],
+    pageKeys: [...PAGE_KEYS, MOTION_EQUIPMENT_KEY],
+    repeatedPageKeys: [...HW_TIME_FILTER_REPEATED_KEYS, 'pins', MOTION_EQUIPMENT_KEY],
     hiddenPageKeys: [...HW_TIME_FILTER_HIDDEN_KEYS, ...OPTION_KEYS],
-    contextResetKeys: ['date', 'moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend'],
+    contextResetKeys: ['date', 'moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend', MOTION_EQUIPMENT_KEY],
     drill: HW_TIME_DRILL,
     panels: Object.values(panelDeclarations),
     component: lazy(() => import('./HwTimePage')),

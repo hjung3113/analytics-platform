@@ -18,7 +18,7 @@ vi.mock('@ap/components', async importOriginal => {
       const seq = p.revealRequest?.seq, panelId = p.revealRequest?.panelId;
       useEffect(() => { if (panelId) setActive(panelId); }, [seq, panelId]);
       return <div data-testid="workspace" data-config={JSON.stringify({ revealRequest: p.revealRequest, ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], persistKey: p.persistKey, placement: Object.fromEntries(p.panels.map(panel => [panel.id, panel.placement])), pins: Object.fromEntries(p.panels.map(panel => [panel.id, panel.pin?.pinned])) })}>
-      <div role="tablist" aria-label="workspace test tabs">{p.panels.map(panel => <button key={panel.id} role="tab" aria-selected={active === panel.id} onClick={() => setActive(panel.id)}>{panel.id}</button>)}</div>
+      <div role="tablist" aria-label="workspace test tabs">{p.panels.map(panel => <button key={panel.id} role="tab" aria-description={panel.badge?.description.ko} data-count={panel.badge?.count} aria-selected={active === panel.id} onClick={() => setActive(panel.id)}>{panel.id}</button>)}</div>
       <div data-testid="workspace-actions">{p.toolbarActions}</div>
       {p.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`}>{panel.pin && <button onClick={panel.pin.onToggle}>{`pin ${panel.id}`}</button>}{panel.render()}</section>)}
     </div>;

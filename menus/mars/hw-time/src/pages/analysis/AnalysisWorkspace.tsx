@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree } from 'lucide-react';
-import { formatText, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
+import { isAnswered } from '@ap/contracts';
+import { formatText, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, LegendTree, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView,
   usePanelOptions, usePinnedPanels, type ChartPoint, type LegendTreeNode, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
-import { HW_TIME_MODULE_TYPES, HW_TIME_UNIT, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams } from '../../endpoints';
+import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams } from '../../endpoints';
 import { HW_TIME_MESSAGES, HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKSPACE_MESSAGES } from '../../messages';
 import { formatSeconds } from '../../shared/format';
+import { useHwTimeLevel } from '../../shared/data';
 import { htmEmphasisStatus, htmStatusView } from '../../shared/htm';
 import type { HwTimeFilter } from '../../shared/useHwTimeFilter';
 import { useHwTimeDrillRules } from '../../shared/useHwTimeDrillRules';
@@ -107,6 +109,7 @@ type BarsProps = {
   options: readonly PanelOption[]; values: PanelOptionValues; onChange: (id: string, value: string | boolean) => void;
   onOpenTrend: (target: string, row: string) => void;
   previous?: boolean; allMotions?: boolean;
+  selectionOutput?: ReturnType<typeof useAnalysisSelectionOutput>;
 };
 /** Workspace tabs stay visible when the Frame's own title is hidden by panel chrome. */
 function barsTitle({ depth, typeId, motionId, moduleId, previous = false, allMotions = false }: Pick<BarsProps, 'depth' | 'typeId' | 'motionId' | 'moduleId' | 'previous' | 'allMotions'>) {
@@ -118,7 +121,7 @@ function barsTitle({ depth, typeId, motionId, moduleId, previous = false, allMot
   const title = { ko: formatText(message, 'ko', params), en: formatText(message, 'en', params) };
   return previous ? { ko: `${title.ko} · ${S.previous.ko}`, en: `${title.en} · ${S.previous.en}` } : title;
 }
-function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onOpenTrend, previous = false, allMotions = false }: BarsProps) {
+function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onOpenTrend, previous = false, allMotions = false, selectionOutput }: BarsProps) {
   const m = useMessages(S);
   const overview = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const { lang } = useI18n();
@@ -155,8 +158,17 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
     }
     return statuses.barStatusOf(depth === 4 ? { ...point, x: rowLabel(point.x, moduleId!) } : point);
   };
-  const selected = pageParam('row');
+  const chartSelection = selectionOutput?.selection;
+  const selectedEquipment = chartSelection?.shape === 'set' ? chartSelection.values[0] ?? null : null;
+  const selected = selectionOutput ? selectedEquipment : pageParam('row');
   const activeCategory = shaped.series.some(series => series.points.some(([x]) => x === selected)) ? selected : null;
+  const onActiveCategoryChange = (row: string | null) => {
+    if (selectionOutput) {
+      selectionOutput.select(row && row !== activeCategory ? { shape: 'set', values: [row] } : null);
+    } else {
+      setPage({ row }, { replace: true });
+    }
+  };
   const chartOptions = options.map(option => option.id === 'group' ? { ...option, hidden: depth === 1 || depth === 4 } : option);
   const pointActions = (point: ChartPoint) => {
     const actions = [];
@@ -175,7 +187,7 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
       series={shaped.series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} description={<>{overview('synthetic')}<br />{scaleText}</>}
       legend={depth < 3 || allMotions} visibleSeriesIds={depth >= 3 && !allMotions ? shaped.series.map(series => series.id) : undefined} legendPlacement="bottom" toolsReveal="always" xType="category" orientation="horizontal" stacked
       startAlign={values.align === true} minMax={values.minMax === true} emphasisFocus="none" size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowLabelWidth="auto"
-      rowGroups={shaped.rowGroups} activeCategory={activeCategory} onActiveCategoryChange={row => setPage({ row }, { replace: true })} revealActive
+      rowGroups={shaped.rowGroups} activeCategory={activeCategory} onActiveCategoryChange={onActiveCategoryChange} revealActive
       canApplyRange={false} reaggregation="sum" valueLabels="both" pointStatus={statusOf}
       pointActivation={depth < 4 ? { on: 'dblclick', onActivate: openTrend } : undefined} pointActions={pointActions} />
   </div>;
@@ -208,11 +220,12 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     { key: 'verdict', label: N.verdict, valid: raw => verdictCodec.decode(raw) !== null },
     { key: 'date', label: N.date, valid: raw => validPanelDate(raw, context.from, context.to) },
     { key: 'trend', label: S.trend, valid: validTrend },
+    { key: MOTION_EQUIPMENT_KEY, label: S.selectionEquipment, repeated: true, valid: raw => HW_TIME_EQUIPMENT_ID_PATTERN.test(raw) },
     { key: 'row', label: HW_TIME_WORKSPACE_MESSAGES.activeRow, valid: raw => {
-      if (/^EQ-\d{3}$/.test(raw)) return true;
+      if (HW_TIME_EQUIPMENT_ID_PATTERN.test(raw)) return true;
       const [equipment, module, extra] = raw.split(' · ');
       const type = HW_TIME_MODULE_TYPES.find(type => type.id === typeId);
-      return extra === undefined && /^EQ-\d{3}$/.test(equipment ?? '') && !!type && (type.modules as readonly string[]).includes(module ?? '');
+      return extra === undefined && HW_TIME_EQUIPMENT_ID_PATTERN.test(equipment ?? '') && !!type && (type.modules as readonly string[]).includes(module ?? '');
     } },
   ]);
   if (filter.invalid) return <PageKeyWarning sentences={filter.invalid} onRecover={filter.recover} />;
@@ -225,7 +238,7 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
       setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null, row: null, trend: null, focus: null });
     }} />}</MatrixSources>;
 }
-function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend'> & {
+function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'selectionOutput'> & {
   step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void;
 }) {
   const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill } = props;
@@ -240,14 +253,28 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const available = catalog.filter(item => !item.disabledReason);
   const extraIds = [...new Set([...added, ...pins.pinned, ...(trend || step === 4 ? ['trend'] : [])])].filter(id => available.some(item => item.id === id));
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
-  const { pageParam, setPage } = usePlatform();
+  const { pageParam, pageParams, setPage } = usePlatform();
+  const selectionOutput = useAnalysisSelectionOutput(panelDeclarations.moduleMotions.id, MOTION_EQUIPMENT_KEY);
+  const { filtered } = useAnalysisSelectionInputs(panelDeclarations.table.id);
   const onOpenTrend = (target: string, row: string) => {
     setPage({ trend: target, row });
     setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
   };
   const verdict = verdictCodec.decode(pageParam('verdict') ?? '');
   const date = pageParam('date');
-  const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date };
+  const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date, [MOTION_EQUIPMENT_KEY]: pageParams(MOTION_EQUIPMENT_KEY) };
+  const equipment = projectQueryInputs(panelDeclarations.table, panelContext)[MOTION_EQUIPMENT_KEY];
+  const filterTable = filtered && equipment !== undefined && extraIds.includes('table');
+  const tableLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, filterTable);
+  const analysis = filterTable ? { equipment, level: tableLevel } : undefined;
+  const levelResponse = tableLevel.response;
+  const count = analysis && !tableLevel.showingPrevious && levelResponse && isAnswered(levelResponse.outcome) ? levelResponse.data?.rows.length : undefined;
+  const badge = count === undefined ? undefined : {
+    count, description: {
+      ko: formatText(S.selectionFiltered, 'ko', { count }),
+      en: formatText(S.selectionFiltered, 'en', { count }),
+    },
+  };
   const matrixData = (input: { moduleType?: string | null }) => {
     const required = input.moduleType ? [input.moduleType] : Object.keys(queries);
     return { required, matrices: required.flatMap(id => queries[id]?.response?.data ? [queries[id]!.response!.data!] : []) };
@@ -288,9 +315,9 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           case 'moduleMotions': {
             const input = projectQueryInputs(panelDeclarations.moduleMotions, panelContext);
             const display = projectDisplayInputs(panelDeclarations.moduleMotions, panelContext);
-            return <Bars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions />;
+            return <Bars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions selectionOutput={selectionOutput} />;
           }
-          case 'table': return <RawTablePanel params={{}} linked />;
+          case 'table': return <RawTablePanel params={{}} linked analysis={analysis} />;
           case 'donut': {
             const data = matrixData(projectQueryInputs(panelDeclarations.donut, panelContext));
             return matricesView(queries, data.required, <VerdictDonut matrices={data.matrices} filter={filter} verdict={verdict} />);
@@ -304,6 +331,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         }
       };
       return { id, icon: ChartNoAxesCombined, title: item.title, ...(step === 4 && id === 'trend' ? { placement: 'below' as const } : {}), preferredHeight: 360, minWidth: 200,
+        badge: id === 'table' ? badge : undefined,
         pin: { pinned: pins.isPinned(id), onToggle: () => { setAdded(current => [...new Set([...current, id])]); pins.toggle(id); } },
         render: () => <RecipePanel id={id} open={explained === id} context={panelContext} onClose={() => setExplained(null)}>{renderPanel(id as CatalogId)}</RecipePanel> };
     }),

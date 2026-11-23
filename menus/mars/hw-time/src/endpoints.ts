@@ -32,7 +32,9 @@ export type HwTimeTrendPoint = { at: string; value: number | null };
 export type HwTimeTrendRow = { id: string; points: HwTimeTrendPoint[] };
 export type HwTimeTrendData = { rows: HwTimeTrendRow[]; limits: { maxRows: number } };
 /** No key lists L1 rows (EquipmentID × Module), `drillModule` L2 rows (EquipmentID × sub-item, with MEG), both keys L3 rows. */
-export type HwTimeTableFilter = HwTimeDrill;
+export const MOTION_EQUIPMENT_KEY = 'motionEquipment';
+export type HwTimeTableFilter = HwTimeDrill & { [MOTION_EQUIPMENT_KEY]?: readonly string[] };
+export const HW_TIME_EQUIPMENT_ID_PATTERN = /^EQ-\d{3}$/;
 /** A table row also carries each series value as a flat field (`row['PM1']`, `row['Dechuck']`) so the server and the table sort it. */
 export type HwTimeTableRow = HwTimeRow & { [seriesId: string]: unknown };
 export type HwTimeTableParams = HwTimeTableFilter & PageQuery;
@@ -121,11 +123,13 @@ const common = {
   mergeTimeDomain: true,
 } as const;
 
+const tableFilterKeys = { moduleType: true, drillModule: true, drillMotion: true, [MOTION_EQUIPMENT_KEY]: true } as const;
+
 export const hwTime = {
-  levelRows: defineEndpoint<HwTimeDrill, HwTimeLevelData>({
+  levelRows: defineEndpoint<HwTimeTableFilter, HwTimeLevelData>({
     ...common,
     id: 'hwTime.levelRows',
-    paramKeys: { moduleType: true, drillModule: true, drillMotion: true },
+    paramKeys: tableFilterKeys,
   }),
   trend: defineEndpoint<{ rowIds: string[]; moduleType?: HwTimeModuleTypeId }, HwTimeTrendData>({
     ...common,
@@ -135,12 +139,12 @@ export const hwTime = {
   tableRows: defineEndpoint<HwTimeTableParams, HwTimeTableData>({
     ...common,
     id: 'hwTime.tableRows',
-    paramKeys: { moduleType: true, drillModule: true, drillMotion: true, page: true, pageSize: true, sorting: true },
+    paramKeys: { ...tableFilterKeys, page: true, pageSize: true, sorting: true },
   }),
   exportRows: defineEndpoint<HwTimeExportParams, HwTimeTableRow[]>({
     ...common,
     id: 'hwTime.exportRows',
-    paramKeys: { moduleType: true, drillModule: true, drillMotion: true, ids: true, sorting: true },
+    paramKeys: { ...tableFilterKeys, ids: true, sorting: true },
     limits: { maxRows: HW_TIME_MAX_ROWS.export },
   }),
 } as const;

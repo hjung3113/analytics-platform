@@ -1,7 +1,7 @@
 import { formatText } from '@ap/kernel';
 import { HW_TIME_MESSAGES } from '../../messages';
 import { tableExportParams, type TableExportRequest } from '@ap/components';
-import { HW_TIME_UNIT, MODULE_IDS, MOTION_IDS, HW_TIME_MODULE_TYPES, type HwTimeDrill, type HwTimeLevelData, type HwTimeRow } from '../../endpoints';
+import { HW_TIME_UNIT, MODULE_IDS, MOTION_IDS, HW_TIME_MODULE_TYPES, type HwTimeDrill, type HwTimeLevelData, type HwTimeRow, type HwTimeTableFilter } from '../../endpoints';
 import { formatSeconds, missingText } from '../../shared/format';
 
 export type TableLevel = 0 | 1 | 2;
@@ -49,7 +49,7 @@ export function auxiliaryText(row: HwTimeRow, lang: 'ko' | 'en'): string {
   return `${row.auxiliary?.kind ?? ''}${Number.isFinite(seconds) ? ` ${formatSeconds(seconds, lang)} ${unitOf(lang)}` : ''}`;
 }
 
-export function exportParams(drill: HwTimeDrill, request: TableExportRequest) {
+export function exportParams(drill: HwTimeTableFilter, request: TableExportRequest) {
   return { ...drill, ...tableExportParams(request) };
 }
 

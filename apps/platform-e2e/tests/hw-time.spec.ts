@@ -25,6 +25,61 @@ async function activatePoint(page: Page, row: string) {
   if (await tools.isVisible()) await page.keyboard.press('Escape');
 }
 
+test.describe('HW Time analysis selection', () => {
+  test('filters the source table and restores the selection through Back and a shared URL', async ({ context, page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions&pins=table`);
+    const tableTab = workspace(page).getByRole('tab', { name: '원본 표', exact: true });
+    const table = panel(page, 'table').getByRole('table', { name: 'HW Time 동작시간 표' });
+    const unselectedRow = table.getByRole('cell', { name: 'EQ-001', exact: true });
+    const selectedRow = table.getByRole('cell', { name: 'EQ-002', exact: true });
+    await tableTab.click();
+    await expect(unselectedRow).toBeVisible();
+    await expect(tableTab).not.toHaveAttribute('aria-description', /필터됨/);
+
+    const chartTab = workspace(page).getByRole('tab', { name: 'PM1 · Motion별', exact: true });
+    await chartTab.click();
+    await panel(page, 'moduleMotions').getByRole('button', { name: '더보기', exact: true }).click();
+    const tools = page.getByRole('dialog', { name: '더보기', exact: true });
+    const picker = tools.getByRole('combobox', { name: '차트 지점 선택' });
+    const option = picker.locator('option').filter({ hasText: /^EQ-002 ·/ }).first();
+    await picker.selectOption({ value: (await option.getAttribute('value'))! });
+    if (await tools.isVisible()) await page.keyboard.press('Escape');
+    await expect.poll(() => query(page).getAll('motionEquipment')).toEqual(['EQ-002']);
+    expect(query(page).has('row')).toBe(false);
+    await tableTab.click();
+    await expect(selectedRow).toBeVisible();
+    await expect(unselectedRow).toHaveCount(0);
+    await expect(tableTab).toHaveAttribute('aria-description', '필터됨 · 1 · 선택 적용');
+    await evidence(page, testInfo, 'analysis-selection-filtered');
+
+    const bar = queryBar(page);
+    await expandQueryBar(page, bar);
+    await bar.getByRole('button', { name: '현재 조건 공유', exact: true }).click();
+    const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
+    await expect.poll(clipboard).toContain('motionEquipment=EQ-002');
+    const sharedUrl = await clipboard();
+
+    await page.goBack();
+    await expect.poll(() => query(page).has('motionEquipment')).toBe(false);
+    await tableTab.click();
+    await expect(unselectedRow).toBeVisible();
+    await expect(tableTab).not.toHaveAttribute('aria-description', /필터됨/);
+
+    await page.goto(sharedUrl);
+    await page.reload();
+    await chartTab.click();
+    await panel(page, 'moduleMotions').getByRole('button', { name: '더보기', exact: true }).click();
+    await expect(picker.locator('option:checked')).toHaveText(/^EQ-002 ·/);
+    await page.keyboard.press('Escape');
+    await tableTab.click();
+    await expect(selectedRow).toBeVisible();
+    await expect(unselectedRow).toHaveCount(0);
+    await expect(tableTab).toHaveAttribute('aria-description', '필터됨 · 1 · 선택 적용');
+  });
+});
+
 test.describe('HW Time stepped workspace — drill, options, add and pin', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
 

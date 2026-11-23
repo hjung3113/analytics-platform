@@ -1,5 +1,5 @@
 import type { PanelDeclaration } from '@ap/contracts';
-import { hwTime, hwTimeOverview } from './endpoints';
+import { hwTime, hwTimeOverview, MOTION_EQUIPMENT_KEY } from './endpoints';
 import { HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES as O, HW_TIME_STEPPED_MESSAGES as S } from './messages';
 
 /** HW Time adds two menu-only fields the SDK neither reads nor validates: `kind` (rendered form,
@@ -41,10 +41,12 @@ export const panelDeclarations = {
   moduleMotions: { id: 'moduleMotions', kind: 'bar-horizontal', title: S.moduleMotions,
     queryInputs: { context: common, page: [{ key: 'moduleType' }] },
     displayInputs: { page: [...verdictDisplay, { key: 'drillModule' }, { key: 'row' }, { key: 'barsSort' }, { key: 'barsGroup' }, { key: 'barsMinMax' }, { key: 'align' }] },
-    outputs: [{ key: 'trend', action: 'drill' }, { key: 'row', action: 'highlight' }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix],
+    outputs: [{ key: 'trend', action: 'drill' }, { key: 'row', action: 'highlight' },
+      { key: MOTION_EQUIPMENT_KEY, action: 'select', selection: { dimension: 'equipmentId', shape: 'set' } }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix],
     availability: { requires: [{ anyOf: ['step4'] }], disabledReason: S.needsStep4 }, pieces: ['AnalysisChartFrame', 'PanelOptions', 'PanelOptionChips', 'QueryView'] },
   table: { id: 'table', kind: 'table', csvExport: true, title: S.table,
-    queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'page' }, { key: 'sort' }, { key: 'focus' }] }, displayInputs: { page: checks },
+    queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'page' }, { key: 'sort' }, { key: 'focus' },
+      { key: MOTION_EQUIPMENT_KEY, selection: 'filter' }] }, displayInputs: { page: checks },
     outputs: [{ key: 'moduleType', action: 'drill' }, { key: 'drillMotion', action: 'drill' }, { key: 'drillModule', action: 'drill' },
       { key: 'row', action: 'highlight' }, { key: 'trend', action: 'drill' }, { key: 'focus', action: 'highlight' }, { key: 'page', action: 'page' }, { key: 'sort', action: 'sort' }],
     grain: 'rootAggregate', endpoints: [hwTime.levelRows, hwTime.tableRows, hwTime.exportRows, hwTime.trend], pieces: ['PlatformDataTable', 'RowAction', 'DetailDrawer', 'QueryView', 'StateMessage'] },

@@ -5,6 +5,16 @@ import { manifests } from './index';
 import { HW_TIME_CONTEXT, hwTime } from './endpoints';
 
 describe('manifest', () => {
+  it('declares only moduleMotions as the writer of the repeated equipment selection consumed by the raw table', () => {
+    const menu = manifests[0]!;
+    expect(menu.pageKeys).toContain('motionEquipment');
+    expect(menu.repeatedPageKeys).toContain('motionEquipment');
+    expect(menu.contextResetKeys).toContain('motionEquipment');
+    expect(menu.panels?.flatMap(panel => panel.outputs.filter(output => output.selection).map(output => [panel.id, output.key, output.selection])))
+      .toEqual([['moduleMotions', 'motionEquipment', { dimension: 'equipmentId', shape: 'set' }]]);
+    expect(menu.panels?.find(panel => panel.id === 'table')?.queryInputs.page).toContainEqual({ key: 'motionEquipment', selection: 'filter' });
+  });
+
   it('keeps lent equipment labels out of the URL: not a page key, dropped by applied parsing and the share query (#2490)', () => {
     const menu = manifests.find(entry => entry.id === 'hw-time')!;
     expect(menu.pageKeys).not.toContain('equipmentLabels');
@@ -38,7 +48,7 @@ describe('manifest', () => {
       expect(entry.pageKeys).toEqual(expect.arrayContaining(['trend', 'pins', 'barsSort', 'barsGroup', 'barsMinMax']));
       expect(entry.pageKeys).not.toEqual(expect.arrayContaining(['minmax']));
     }
-    expect(menu.contextResetKeys).toEqual(['date', 'moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend']);
+    expect(menu.contextResetKeys).toEqual(['date', 'moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend', 'motionEquipment']);
     expect(menu.drill?.levels.map(level => level.key)).toEqual(['moduleType', 'drillMotion', 'drillModule']);
     expect(menu.drill?.resetKeys).toContain('trend');
     expect(menu.repeatedPageKeys).toContain('pins');

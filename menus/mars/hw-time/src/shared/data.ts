@@ -1,10 +1,10 @@
 import { useMenuQuery } from '@ap/kernel';
 import { useHwTimeFilterContext } from './HwTimeFilterContext';
 import { filterLevel } from './filterData';
-import { hwTime, type HwTimeDrill } from '../endpoints';
+import { hwTime, type HwTimeTableFilter } from '../endpoints';
 
 /** Both hooks go through the Kernel's menu query: applied-Context identity, Scope/period gates, kind check, refresh epochs (ADR-0019). */
-export function useHwTimeLevel(drill: HwTimeDrill, enabled = true) {
+export function useHwTimeLevel(drill: HwTimeTableFilter, enabled = true) {
   // keepPrevious ON (#1365, ADR-0114): a drill step or level pick reads the same period and Scope, so the previous level stays (refreshing) until the next one arrives.
   const filter = useHwTimeFilterContext();
   const params = filter ? { ...drill, moduleType: filter.moduleType.id } : drill;
