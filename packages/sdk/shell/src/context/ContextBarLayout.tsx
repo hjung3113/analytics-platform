@@ -171,7 +171,7 @@ export function ContextBarLayout({ controls, revision, actions, regionName, acti
       {compactPeriod ? control.compactNode ?? control.node : control.node}
     </div>
   </EditorState.Provider>;
-  return <div ref={host} tabIndex={-1} role="region" aria-label={barLabel} data-canvas-band className="relative h-12 min-w-0 border-b border-border-subtle bg-surface-canvas px-3 backdrop-blur">
+  return <div ref={host} tabIndex={-1} role="region" aria-label={barLabel} data-canvas-band className="relative h-12 min-w-0 border-b border-border-chrome bg-surface-band px-3 backdrop-blur">
     {(hasPeriodEditor || openTargetEditor) && <ContextEditorRegistration open={openConditions} />}
     <div inert aria-hidden className="pointer-events-none invisible absolute inset-0 overflow-hidden">
     <div ref={probe} data-context-measuring className="flex w-max items-center gap-2 whitespace-nowrap">

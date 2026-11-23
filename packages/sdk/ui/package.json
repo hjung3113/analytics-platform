@@ -11,6 +11,7 @@
     "./styles.css": "./src/styles/index.css",
     "./styles/tokens.css": "./src/styles/tokens.css",
     "./styles/semantic.css": "./src/styles/semantic.css",
+    "./styles/themes.css": "./src/styles/themes.css",
     "./styles/theme.css": "./src/styles/theme.css",
     "./styles/compat.css": "./src/styles/compat.css",
     "./styles/sources.css": "./src/styles/sources.css",

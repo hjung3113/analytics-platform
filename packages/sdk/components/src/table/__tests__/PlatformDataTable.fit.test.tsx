@@ -254,7 +254,7 @@ describe('action column pinned right (ADR-0037)', () => {
       expect(cell.style.position).toBe('sticky');
       expect(cell.style.right).toBe('0px');
       expect(cell.className).toContain('border-l');
-      expect(cell.className).toContain('border-border-subtle');
+      expect(cell.className).toMatch(/border-border-(subtle|row)/); // header line / row line (#2722)
     }
     const body = document.querySelector<HTMLElement>('[role="cell"][data-column="_action"]')!;
     expect(body.className).toContain('bg-surface-card');

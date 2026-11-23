@@ -35,5 +35,5 @@ it('paints only the dock root canvas while panels retain their card surface, bor
   const css = source('../dock.css');
   expect(css).toMatch(/\.ap-dock \.dv-dockview\s*\{\s*background-color: var\(--color-surface-canvas\);\s*\}/);
   expect(css).toContain('--dv-group-view-background-color: var(--color-surface-card);');
-  expect(css).toMatch(/\.ap-dock \.dv-groupview\s*\{[^}]*border: 1px solid var\(--color-border-subtle\);[^}]*box-shadow: var\(--shadow-sm\);/);
+  expect(css).toMatch(/\.ap-dock \.dv-groupview\s*\{[^}]*border: 1px solid rgb\(var\(--border-card\)\);[^}]*box-shadow: var\(--shadow-sm\);/);
 });

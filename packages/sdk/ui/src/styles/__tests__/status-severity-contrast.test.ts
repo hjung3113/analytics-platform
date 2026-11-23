@@ -84,9 +84,10 @@ describe('#525 status/severity label contrast (WCAG AA)', () => {
   const props = parseCustomProps(TOKENS_CSS_PATH);
   const canvas = resolveRgb(props, '--color-pitch-black');
 
-  it('--color-storm-cloud (muted text) clears 4.5:1 on canvas', () => {
+  // storm-cloud is a non-text boundary and dot colour now (tokens.css); text uses --text-muted and the -label pairs.
+  it('--color-storm-cloud (control boundary) clears 3:1 on canvas', () => {
     const stormCloud = resolveRgb(props, '--color-storm-cloud');
-    expect(contrastRatio(stormCloud, canvas)).toBeGreaterThanOrEqual(WCAG_AA_TEXT);
+    expect(contrastRatio(stormCloud, canvas)).toBeGreaterThanOrEqual(3);
   });
 
   const reporterStatuses = [

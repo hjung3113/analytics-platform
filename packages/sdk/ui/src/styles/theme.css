@@ -50,6 +50,7 @@
   --color-surface-blocked: rgb(var(--surface-blocked));
   --color-surface-card: rgb(var(--surface-card));
   --color-surface-card-elevated: rgb(var(--surface-card-elevated));
+  --color-surface-band: rgb(var(--surface-band));
 
   /* --- Text tokens --- */
   --color-text-primary: rgb(var(--text-primary));
@@ -73,6 +74,9 @@
   --color-border-subtle: rgb(var(--border-subtle));
   --color-border-strong: rgb(var(--border-strong));
   --color-border-selected: rgb(var(--border-selected));
+  --color-border-card: rgb(var(--border-card));
+  --color-border-chrome: rgb(var(--border-chrome));
+  --color-border-row: rgb(var(--border-row));
 
   /* --- Focus tokens --- */
   --color-focus-ring: rgb(var(--focus-ring));
@@ -201,6 +205,7 @@
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
   --radius-xl: var(--radius-xl);
+  --radius-card: var(--radius-card);
   --radius-icon-chip: var(--radius-icon-chip);
   --radius-pill: var(--radius-pill);
 

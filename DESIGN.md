@@ -29,41 +29,41 @@ colors:
   accent-neutral-soft: "var(--color-deep-slate)"
   border-control: "var(--color-storm-cloud)"
   surface-sunken: "var(--color-deep-slate)"
-  cat-purple: "#7c3aed"
-  cat-teal: "#0d9488"
-  cat-amber: "#d97706"
-  cat-amber-stroke: "#b45309"
-  chart-blue: "#3b9cff"
-  chart-teal: "#00a3b5"
-  chart-green: "#00bc8b"
-  chart-purple: "#a174f5"
-  chart-series-1: "#466896"
-  chart-series-1-stroke: "#466896"
-  chart-series-2: "#726397"
-  chart-series-2-stroke: "#726397"
-  chart-series-3: "#357d78"
-  chart-series-3-stroke: "#357d78"
-  chart-series-4: "#667083"
-  chart-series-4-stroke: "#667083"
-  chart-heat-seq-0: "#f2f8ff"
-  chart-heat-seq-1: "#cfe5fb"
-  chart-heat-seq-2: "#a0cff6"
-  chart-heat-seq-3: "#64abeb"
-  chart-heat-seq-4: "#2577cc"
-  chart-heat-div-0: "#00707b"
-  chart-heat-div-1: "#68b3b4"
-  chart-heat-div-2: "#f7f6f1"
-  chart-heat-div-3: "#e28e85"
-  chart-heat-div-4: "#ae3f47"
+  cat-purple: "#a23e8c"
+  cat-teal: "#0b7f75"
+  cat-amber: "#c8690a"
+  cat-amber-stroke: "#c8690a"
+  chart-blue: "#2e6bd9"
+  chart-teal: "#0b7f75"
+  chart-green: "#57822b"
+  chart-purple: "#c8690a"
+  chart-series-1: "#2e6bd9"
+  chart-series-1-stroke: "#2e6bd9"
+  chart-series-2: "#0b7f75"
+  chart-series-2-stroke: "#0b7f75"
+  chart-series-3: "#c8690a"
+  chart-series-3-stroke: "#c8690a"
+  chart-series-4: "#a23e8c"
+  chart-series-4-stroke: "#a23e8c"
+  chart-heat-seq-0: "#e3edfb"
+  chart-heat-seq-1: "#afcdf5"
+  chart-heat-seq-2: "#7faeec"
+  chart-heat-seq-3: "#2b6bcb"
+  chart-heat-seq-4: "#123a7a"
+  chart-heat-div-0: "#1b4fa3"
+  chart-heat-div-1: "#afcdf5"
+  chart-heat-div-2: "#f1f4f8"
+  chart-heat-div-3: "#e8796b"
+  chart-heat-div-4: "#c4281c"
   chart-status-good: "var(--accent-success)"
   chart-status-warn: "var(--accent-warn)"
   chart-status-critical: "var(--accent-danger)"
-  chart-no-data: "#dce2eb"
+  chart-no-data: "#e5eaf0"
   chart-no-data-pattern: "#667083"
   chart-selection-outline: "var(--accent-primary)"
   chart-median-on-fill: "var(--surface-card)"
-  chart-remainder: "#cbd2e3"
-  chart-grid: "#edf1f7"
+  chart-remainder: "#94a3b8"
+  chart-grid: "#eef1f5"
   icon-blue-soft: "#e3efff"
   icon-teal-soft: "#dcf8ef"
 typography:
@@ -139,19 +139,19 @@ components:
 | `accent-neutral` / `accent-neutral-soft` | 미평가·보조 상태의 dot 및 배경 | 공유 `color-storm-cloud` / `color-deep-slate` 참조 |
 | `border-control` | 입력·select·checkbox 등 식별에 필요한 interactive 경계 | 공유 `color-storm-cloud` 참조 |
 | `surface-sunken` | 표 열 머리·검색 배경·progress track·recessed 보조 영역 | 공유 `color-deep-slate` 참조 |
-| `chart-series-1` / `chart-series-2` / `chart-series-3` / `chart-series-4` | 신규 chart kinds의 기본 범주 순서; 기존 chart token 이름도 유효 | 플랫폼 literal `#466896` / `#726397` / `#357d78` / `#667083` |
-| `chart-series-1-stroke` / `chart-series-2-stroke` / `chart-series-3-stroke` / `chart-series-4-stroke` | 얇은 line/outline mark와 line legend 전용; 카드에서 각 series fill과 같은 값, ≥3:1 | 플랫폼 literal `#466896` / `#726397` / `#357d78` / `#667083` |
-| `chart-heat-seq-0..4` | 값이 낮음에서 높음으로 가는 순차 heatmap ramp | 플랫폼 literal `#f2f8ff` → `#cfe5fb` → `#a0cff6` → `#64abeb` → `#2577cc` |
-| `chart-heat-div-0..4` | 목표와 방향이 정의된 경우의 diverging heatmap ramp | 플랫폼 literal `#00707b` → `#68b3b4` → `#f7f6f1` → `#e28e85` → `#ae3f47` |
+| `chart-series-1` / `chart-series-2` / `chart-series-3` / `chart-series-4` | 신규 chart kinds의 기본 범주 순서; 기존 chart token 이름도 유효 | 플랫폼 literal `#2e6bd9` / `#0b7f75` / `#c8690a` / `#a23e8c` (#2724) |
+| `chart-series-1-stroke` / `chart-series-2-stroke` / `chart-series-3-stroke` / `chart-series-4-stroke` | 얇은 line/outline mark와 line legend 전용; 카드에서 각 series fill과 같은 값, ≥3:1 | 플랫폼 literal `#2e6bd9` / `#0b7f75` / `#c8690a` / `#a23e8c` |
+| `chart-heat-seq-0..4` | 값이 낮음에서 높음으로 가는 순차 heatmap ramp | 플랫폼 literal `#e3edfb` → `#afcdf5` → `#7faeec` → `#2b6bcb` → `#123a7a` |
+| `chart-heat-div-0..4` | 목표와 방향이 정의된 경우의 diverging heatmap ramp | 플랫폼 literal `#1b4fa3` → `#afcdf5` → `#f1f4f8` → `#e8796b` → `#c4281c` |
 | `chart-status-good` / `chart-status-warn` / `chart-status-critical` | 승인된 실제 판정의 상태색만; 작은 글자는 의미 label token을 사용 | `accent-success` / `accent-warn` / `accent-danger` alias |
-| `chart-no-data` / `chart-no-data-pattern` | 결측값은 0·최저값·기타와 구분해 빗금으로 표시 | 플랫폼 literal `#dce2eb` / `#667083` |
+| `chart-no-data` / `chart-no-data-pattern` | 결측값은 0·최저값·기타와 구분해 빗금으로 표시 | 플랫폼 literal `#e5eaf0` / `#667083` |
 | `chart-selection-outline` | 선택·hover 강조 외곽선; series 색 정체성은 보존 | `accent-primary` alias |
 | `chart-median-on-fill` | 진한 box fill 위 불투명 median 선 | `surface-card` alias |
-| `cat-purple` / `cat-teal` / `cat-amber` | 범주 tag·series 구분; 성공·실패 판정이나 CTA에 쓰지 않음 | 플랫폼 literal `#7c3aed` / `#0d9488` / `#d97706` |
-| `chart-blue` / `chart-teal` / `chart-green` / `chart-purple` | series 정체성; 의미 있는 얇은 선 대비는 Chart stroke 결정 참고 | 플랫폼 literal `#3b9cff` / `#00a3b5` / `#00bc8b` / `#a174f5` |
-| `chart-blue-stroke` / `chart-teal-stroke` / `chart-purple-stroke` / `cat-amber-stroke` | 얇은 line/outline mark와 해당 line legend 전용; fill과 작은 글자에는 쓰지 않음 | B2 platform literal `#2577cc` / `#008090` / `#8154ce` / `#b45309` |
-| `chart-remainder` | 이름과 분모가 확인된 나머지 범주 | 플랫폼 literal `#cbd2e3` |
-| `chart-grid` | 보조 grid; 의미 있는 데이터 선에 쓰지 않음 | 플랫폼 literal `#edf1f7` |
+| `cat-purple` / `cat-teal` / `cat-amber` | 범주 tag·series 구분; 성공·실패 판정이나 CTA에 쓰지 않음 | 플랫폼 literal `#a23e8c` / `#0b7f75` / `#c8690a` |
+| `chart-blue` / `chart-teal` / `chart-green` / `chart-purple` | series 정체성; 의미 있는 얇은 선 대비는 Chart stroke 결정 참고 | 플랫폼 literal `#2e6bd9` / `#0b7f75` / `#57822b` / `#c8690a` (`chart-purple`은 이름만 남은 3번째 주황 자리) |
+| `chart-blue-stroke` / `chart-teal-stroke` / `chart-purple-stroke` / `cat-amber-stroke` | 얇은 line/outline mark와 해당 line legend 전용; fill과 작은 글자에는 쓰지 않음 | v3 literal `#2e6bd9` / `#0b7f75` / `#c8690a` / `#c8690a` (fill과 같은 값) |
+| `chart-remainder` | 이름과 분모가 확인된 나머지 범주 | 플랫폼 literal `#94a3b8` |
+| `chart-grid` | 보조 grid; 의미 있는 데이터 선에 쓰지 않음 | 플랫폼 literal `#eef1f5` |
 | `icon-blue-soft` / `icon-teal-soft` | KPI·분석 범주 icon chip 배경; navigation 그룹에는 채운 chip을 만들지 않음 | 플랫폼 literal `#e3efff` / `#dcf8ef` |
 
 작은 의미 label은 공유 시스템 소유의 `--text-{success,info,warning,danger}-label` 쌍과 `text-text-{success,info,warning,danger}-label` 유틸리티를 사용한다. 플랫폼은 이를 다시 별칭으로 선언하지 않는다. `text-text-success-label` 같은 label 유틸리티는 공유 vivid 의미 색 `text-text-success`와 구별한다. 표면·경계 유틸리티는 `bg-surface-sunken`, `border-border-control`; 구조 구분선은 공유 `border-border-subtle`이다.
@@ -245,6 +245,10 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 ### 표면 위계·선택 표시 — Decided (#2456)
 
 페이지 제목은 `t-section-title`로 표시해 50px 헤더 안에서 위계를 구분한다. 최상위 카드와 분석 패널은 `elevation-panel`(`shadow-sm`)로 캔버스와 분리하며, 카드·상세 표면(`surface-card`·`surface-detail`)이나 도킹 패널 안에서는 그림자를 겹치지 않는다. 목록 선택은 selected surface와 2px `border-selected` 막대(`RowSelectionBar`)를 함께 써서 색과 형태로 현재 행을 표시한다. 캔버스 띠는 카드 밖에서 캔버스 표면 위에 놓인 가로 컨트롤 줄(조회·Context 막대, 도구줄)이다. 띠 소유자가 자기 요소에 `data-canvas-band`를 단다(셸의 Context·조회 막대, 페이지·보드 머리, 목록 도구줄, 리치 에디터 도구줄, 화면이 직접 그린 도구줄: 설문 빌더·결과 머리, 모델 프로필 섹션 이동). 카드 안 캔버스색 우물, sticky 아래 줄, 페이지 셸처럼 띠가 아닌 캔버스색 영역은 표식이 없어 그 안 컨트롤이 제 면을 유지한다. 캔버스 띠 위의 컨트롤은 `on-canvas-band:` variant로 띠의 표면색을 따른다. 도킹 패널 사이 간격은 캔버스 표면색을 쓴다.
+
+### 표면·선·그림자 v3 — Decided (#2722)
+
+소유자가 `?variant=v3`를 골랐다. 캔버스 `#eceff3`, 크롬(사이드바·레일·캔버스 띠) 흰색 `surface-band`·`surface-sidebar`, 크롬과 캔버스가 만나는 선 `border-chrome` `#e3e7ec`(페이지 sticky 머리 아래 포함). 최상위 카드와 도킹 그룹은 `elevation-panel`이 `border-card` `#dce1e7`·`radius-card` 10px·두 겹 `shadow-sm`을 주고, 카드 안 보조 면은 `surface-sunken` `#f6f8fa`다. 카드 안 선 `border-subtle` `#e5eaf0`, 표 행 선 `border-row` `#eef1f5`, 열린 상세 서랍과 팝오버는 L3 `shadow-xl`/`shadow-md`, 그 표면은 흰색이다. `text-muted` `#5b6678`은 캔버스에서 5.03:1. 입력 경계 `border-control`은 3:1 하한 때문에 프로토타입의 `#cbd5e1`(1.48:1) 대신 기존 값을 유지한다.
 
 ### Compact analysis — Decided (#1141)
 
@@ -414,6 +418,8 @@ posthog와 sentry(Sentry 스타일) 자료는 당시 illustration/mascot 중심 
 | `chart-teal-stroke` | `#008090` | 4.68:1 | 4.17:1 | 4.19:1 |
 | `chart-purple-stroke` | `#8154ce` | 5.13:1 | 4.57:1 | 4.60:1 |
 | `cat-amber-stroke` | `#b45309` | 5.02:1 | 4.47:1 | 4.50:1 |
+
+**v3 팔레트(#2724)** 이후 stroke 별칭은 fill과 같은 값이며 모두 3:1을 넘는다: 카드 / 캔버스 `#eceff3` / sunken `#f8fafc` 기준 blue `#2e6bd9` 4.97 / 4.31 / 4.75, teal `#0b7f75` 4.88 / 4.23 / 4.66, 주황 `#c8690a`(purple·amber 자리) 3.83 / 3.32 / 3.66. 막대 안 값 label은 흰 글자 4.5:1을 넘는 blue·teal·green·magenta에 `text-on-accent`, 주황(흰 3.83:1, 진한 글자 4.63:1)과 회색 기타에 `text-primary`를 쓴다(`chartValueLabels.ts`). 프로토타입의 olive `#5c8a2e`는 흰 글자 4.09:1·진한 글자 4.33:1로 둘 다 미달이라 같은 색상을 어둡게 한 `#57822b`(흰 글자 4.53:1)로 바꿨다.
 
 `AnalysisChartFrame`은 blue/teal/purple/amber 시리즈 선, 선 범례 견본, 브러시 외곽선에 해당하는 stroke 별칭을 쓴다. 막대·영역 채움과 선 위 심볼은 원래 채움 색을 유지하고, 그래서 툴팁 마커(심볼 색을 따름)도 채움 색이다. `chart-green`은 얇은 선으로 쓰는 곳이 없어 stroke 값을 두지 않았다.
 

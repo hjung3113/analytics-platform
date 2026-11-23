@@ -20,7 +20,7 @@ export function PlatformSidebar({ collapsed, onToggle }: { collapsed: boolean; o
   const activeId = route?.menu.navHidden && route.menu.parent ? route.menu.parent : route?.menu.id;
 
   return <TooltipProvider delayDuration={200}>
-    <aside data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-subtle bg-surface-sidebar', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
+    <aside data-collapsed={collapsed} className={cn('flex h-full shrink-0 flex-col border-r border-border-chrome bg-surface-sidebar', collapsed ? 'w-(--sidebar-width-collapsed)' : 'w-(--sidebar-width)')}>
       <div className="flex h-[50px] shrink-0 items-center justify-between border-b border-border-subtle px-3">
         {!collapsed && <p className="min-w-0 truncate text-sm font-semibold">{t('platformName')}</p>}
         <Tooltip><TooltipTrigger asChild>

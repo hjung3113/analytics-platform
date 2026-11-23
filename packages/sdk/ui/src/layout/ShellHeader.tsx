@@ -25,9 +25,8 @@ export function ShellHeader({ title, subtitle, actions, variant = 'default', cla
   return (
     <header
       className={cn(
-        'flex items-center justify-between gap-3 px-4 h-toolbar border-b border-border-subtle bg-surface-canvas',
-        variant === 'drawer' && 'bg-surface-detail',
-        variant === 'toolbar' && 'bg-surface-canvas',
+        'flex items-center justify-between gap-3 px-4 h-toolbar border-b border-border-chrome bg-surface-band',
+        variant === 'drawer' && 'border-border-subtle bg-surface-detail',
         actionsOnlyToolbar && 'has-[[data-shell-header-actions]:empty]:hidden',
         className,
       )}

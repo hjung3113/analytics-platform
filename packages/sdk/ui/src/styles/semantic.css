@@ -12,7 +12,7 @@
   --foreground: var(--color-porcelain);
   --card: var(--color-graphite);
   --card-foreground: var(--color-porcelain);
-  --popover: var(--color-deep-slate);
+  --popover: var(--color-graphite);
   --popover-foreground: var(--color-porcelain);
   --primary: var(--color-neon-lime);
   --primary-foreground: 255 255 255;

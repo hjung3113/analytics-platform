@@ -42,8 +42,9 @@
 }
 
 .ap-dock .dv-groupview {
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 6px;
+  --surface-sunken: 246 248 250; /* in-card sub-panel, as elevation-panel (#2722) */
+  border: 1px solid rgb(var(--border-card));
+  border-radius: var(--radius-card);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }

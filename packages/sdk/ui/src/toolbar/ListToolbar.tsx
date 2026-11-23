@@ -39,8 +39,8 @@ export function ListToolbar({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-x-3 px-4 bg-surface-canvas sticky top-0 z-10',
-        'after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-border-subtle',
+        'flex flex-wrap items-center gap-x-3 px-4 bg-surface-band sticky top-0 z-10',
+        'after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-border-chrome',
         // Without the main block or an action nothing would give the bar its 50px row (#1364).
         !hasMain && action === undefined && 'min-h-toolbar',
         className,

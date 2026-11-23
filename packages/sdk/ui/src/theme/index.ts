@@ -1,6 +1,7 @@
 import { THEME_COLOR_FALLBACK, THEME_COLOR_TOKENS, type ThemeColorToken } from './tokens.generated';
 
 export { THEME_COLOR_TOKENS, type ThemeColorToken };
+export { getThemeRevision, subscribeThemeChange, useThemeRevision } from './themeRevision';
 
 const themeColorTokenSet = new Set<string>(THEME_COLOR_TOKENS);
 

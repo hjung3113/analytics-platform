@@ -6,6 +6,7 @@
 @import "./theme.css";
 @import "./compat.css";
 @import "./platform-tokens.css" layer(base);
+@import "./themes.css" layer(base);
 
 @theme inline {
   --color-surface-sunken: rgb(var(--surface-sunken));
