@@ -4,8 +4,10 @@ import { buildQuery, calendarPeriod, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteM
 import { createHistoryState, useScreenHistory, canonicalHistoryQuery, historyChanged } from './query-history';
 import { queryHistoryId, type QueryHistoryStore, type QueryHistoryKey, type QueryHistoryEntry } from '@ap/contracts';
 import { classifyMetricInit } from '../registry/metric-init';
+import { menuAnalysisSelections } from '../registry/analysis-selections';
 import { CONTEXT_LABELS, CUSTOM_GROUP_LABELS, type MenuEntry } from '../registry/registry';
 import { dropResetKeys } from '../context/paneContext';
+import { parseAnalysisSelection } from '../context/analysisSelectionCodec';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import type { ScopeState } from '../platform/platform';
 import { shallowEqual, useStable } from '../stable';
@@ -57,9 +59,14 @@ function reconcile(state: Snapshot | null, input: DraftInputs): Snapshot {
 }
 export function queryMissingRequired(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
   const required = menu?.query?.mode === 'apply' ? menu.query.required : undefined;
+  const channels = required?.page?.length && menu ? menuAnalysisSelections(menu) : undefined;
   return [
     ...missingRequiredContext(required?.context ?? [], global).map(key => ({ key, label: CONTEXT_LABELS[key] })),
-    ...(required?.page ?? []).filter(({ key }) => !page.some(([k, value]) => k === key && value !== '')).map(item => ({ ...item })),
+    ...(required?.page ?? []).filter(({ key }) => {
+      const channel = channels?.get(key);
+      if (!channel) return !page.some(([k, value]) => k === key && value !== '');
+      return parseAnalysisSelection(channel.shape, page.filter(([k]) => k === key).map(([, value]) => value)) === null;
+    }).map(item => ({ ...item })),
   ];
 }
 function queryMissing(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {

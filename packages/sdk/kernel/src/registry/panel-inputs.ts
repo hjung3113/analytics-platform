@@ -1,4 +1,5 @@
 import { CONTEXT_FIELDS, type ContextKey, type GlobalContext, type PanelDeclaration, type PanelInputs, type Text } from '@ap/contracts';
+import { parseAnalysisSelection } from '../context/analysisSelectionCodec';
 
 type InputKey<I extends PanelInputs> = keyof GlobalContext | NonNullable<I['page']>[number]['key'];
 /** Context keys name capabilities; identity reads the real GlobalContext fields behind them
@@ -13,9 +14,20 @@ function contextFields(key: ContextKey | 'scopeId', context: Readonly<Record<str
 }
 /** Own entries only, so a page key such as `constructor` never reads an inherited property. */
 const ownValue = (record: Readonly<Record<string, unknown>>, key: string): unknown => Object.hasOwn(record, key) ? record[key] : undefined;
+function pageInputValue(input: NonNullable<PanelInputs['page']>[number], context: Readonly<Record<string, unknown>>): unknown {
+  const value = ownValue(context, input.key);
+  if (!input.selection) return value;
+  // URL-shaped panel context supplies ranges as a single string and sets as repeated strings.
+  if (typeof value === 'string') return parseAnalysisSelection('range', [value]) ? value : undefined;
+  if (!Array.isArray(value) || !value.every(item => typeof item === 'string')) return undefined;
+  const selection = parseAnalysisSelection('set', value);
+  return selection?.shape === 'set' ? selection.values : undefined;
+}
+
 function project<I extends PanelInputs, C extends Record<string, unknown>>(inputs: I, context: C): Pick<C, Extract<InputKey<I>, keyof C>> {
-  const keys = [...new Set([...(inputs.context ?? []).flatMap(key => contextFields(key, context)), ...(inputs.page ?? []).map(input => input.key)])];
-  return Object.fromEntries(keys.filter(key => ownValue(context, key) !== undefined).map(key => [key, context[key]])) as Pick<C, Extract<InputKey<I>, keyof C>>;
+  const globals = (inputs.context ?? []).flatMap(key => contextFields(key, context).map(field => [field, ownValue(context, field)]));
+  const page = (inputs.page ?? []).map(input => [input.key, pageInputValue(input, context)]);
+  return Object.fromEntries([...globals, ...page].filter(([, value]) => value !== undefined)) as Pick<C, Extract<InputKey<I>, keyof C>>;
 }
 /** 조회 입력: only declared inputs participate in the panel input identity. */
 export function projectQueryInputs<I extends PanelInputs, C extends Record<string, unknown>>(declaration: { readonly queryInputs: I }, context: C) {
@@ -31,12 +43,16 @@ function present(value: unknown): boolean {
 /** 쓸 수 있는 조건: derive missing required page labels unless overridden.
  * Global Scope/Context readiness remains Kernel-owned.
  */
-export function disabledReason(declaration: Pick<PanelDeclaration, 'queryInputs' | 'availability'>, context: Readonly<Record<string, unknown>>, labels: Readonly<Record<string, Text>> = {}): Text | undefined {
+export function disabledReason(declaration: Pick<PanelDeclaration, 'queryInputs' | 'availability'> & Partial<Pick<PanelDeclaration, 'displayInputs'>>, context: Readonly<Record<string, unknown>>, labels: Readonly<Record<string, Text>> = {}): Text | undefined {
   if (declaration.availability) {
-    const missing = declaration.availability.requires.some(requirement => !requirement.anyOf.some(key => present(ownValue(context, key))));
+    const inputs = [...(declaration.queryInputs.page ?? []), ...(declaration.displayInputs?.page ?? [])];
+    const missing = declaration.availability.requires.some(requirement => !requirement.anyOf.some(key => {
+      const input = inputs.find(input => input.key === key && input.selection);
+      return present(input ? pageInputValue(input, context) : ownValue(context, key));
+    }));
     return missing ? declaration.availability.disabledReason : undefined;
   }
-  const missing = declaration.queryInputs.page?.filter(input => input.required && !present(ownValue(context, input.key))) ?? [];
+  const missing = declaration.queryInputs.page?.filter(input => input.required && !present(pageInputValue(input, context))) ?? [];
   if (!missing.length) return undefined;
   const names = missing.map(input => (Object.hasOwn(labels, input.key) ? labels[input.key] : undefined) ?? { ko: input.key, en: input.key });
   return { ko: names.map(label => label.ko).join(', '), en: names.map(label => label.en).join(', ') };
