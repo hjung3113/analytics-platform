@@ -54,6 +54,7 @@ export function ScopedListDenialCard({
   ) : null;
   const extraExitAction = recoverToMyVocs ? <MyVocsRecoveryLink /> : null;
   let panel: ReactNode;
+  let label: string | undefined;
   if (request) {
     panel = <ListAccessRequestPanel {...{ category, reason, returnRouteIntent, request, extraExitAction }} />;
   } else if (roleRequired) {
@@ -81,11 +82,13 @@ export function ScopedListDenialCard({
       extraExitAction={extraExitAction}
     />;
   } else {
+    // A section-title card gets focus handed to itself (recovery queue detail close), so it carries the title as its name.
+    label = headingLevel ? category : undefined;
     panel = <PermissionBlockedPanel layout="card" announceBody state="denied" headingLevel={headingLevel ?? 4} category={category} reason={reason} />;
   }
 
   return (
-    <ListDenialFocus container={deniedRef} className="space-y-3" restoreFocus={restoreFocus}>
+    <ListDenialFocus container={deniedRef} className="space-y-3" restoreFocus={restoreFocus} label={label}>
       {panel}
       {recoveryAction ? <div className="flex justify-center">{recoveryAction}</div> : null}
     </ListDenialFocus>

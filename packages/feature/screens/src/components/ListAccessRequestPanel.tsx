@@ -36,6 +36,8 @@ export class ListDenialFocus extends Component<{
   className?: string;
   container?: RefObject<HTMLDivElement | null>;
   restoreFocus?: boolean | undefined;
+  /** Names the focusable card wrapper (as a group) when focus is handed to the card itself. */
+  label?: string | undefined;
 }> {
   private readonly fallback = createRef<HTMLDivElement>();
 
@@ -57,6 +59,8 @@ export class ListDenialFocus extends Component<{
   }
 
   override render() {
-    return <div ref={this.container} tabIndex={-1} className={this.props.className}>{this.props.children}</div>;
+    const { label } = this.props;
+    return <div ref={this.container} tabIndex={-1} className={this.props.className}
+      {...(label ? { role: 'group', 'aria-label': label } : {})}>{this.props.children}</div>;
   }
 }

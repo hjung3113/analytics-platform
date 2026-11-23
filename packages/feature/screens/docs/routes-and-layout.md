@@ -689,7 +689,9 @@ list blocked card's first available action or to the card itself. A later explic
 independently authorized detail read. When a scoped empty-list permission check shows the shared blocked card («막힘 카드»),
 returning window focus rechecks that permission.
 Findings, Evidence, VOC Clusters, the Task list (including My Tasks), the Task board, and
-Milestones use the same list blocked card. A requestable denial offers the request
+Milestones use the same list blocked card, as does the Integration/Home recovery queue: its denied
+card replaces the section title (h2, card named by that title when focus returns to it) and keeps the
+session retry and the bounded `returnTo` link under the card. A requestable denial offers the request
 or its status. A role denial names the required Developer role, and other denials
 show the required permission where applicable. The action row ends with
 `홈으로` and `내 VOC` when Home is available. If a redraw removes the focused
