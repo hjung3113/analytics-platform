@@ -6,12 +6,14 @@ const text = (page: [string, string][]) => hwTimeHistorySummary(page, 'ko').map(
 describe('HW Time query-history page summary (#2691)', () => {
   it('tells apart rows that differ only in drill or filter state', () => {
     const top = text([]);
-    const drilled = text([['moduleType', 'PM'], ['drillMotion', 'Pump']]);
     const filtered = text([['module', 'PM1'], ['module', 'PM2']]);
     expect(top).toBe('');
-    expect(drilled).toBe('Module 타입 PM · Motion Pump');
     expect(filtered).toBe('선택한 Module PM1, PM2');
-    expect(new Set([top, drilled, filtered]).size).toBe(3);
+    expect(new Set([top, filtered]).size).toBe(2);
+  });
+  it('leaves the drill steps to the SDK history row (#2770)', () => {
+    // The page opts in with `historyDrill`; the SDK writes «Module 타입 PM · Motion Pump» before these items.
+    expect(text([['moduleType', 'PM'], ['drillMotion', 'Pump'], ['date', '2026-11-20']])).toBe('날짜 2026-11-20');
   });
   it('names the explicit empty selection, the verdict and the date', () => {
     expect(text([['motion', '~none'], ['verdict', 'over'], ['date', '2026-11-20']])).toBe('선택한 Motion 선택한 항목 없음 · 판정 상한 초과 · 날짜 2026-11-20');

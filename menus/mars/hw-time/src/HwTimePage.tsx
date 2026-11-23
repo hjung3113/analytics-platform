@@ -11,9 +11,9 @@ import { AnalysisWorkspace } from './pages/analysis/AnalysisWorkspace';
 export default function HwTimePage(_props: PageProps) {
   const filter = useHwTimeFilter();
   const { lang } = useI18n();
-  // Only query-history rows describe page values (#2691); the current summaries stay as they are.
+  // Only query-history rows describe page values (#2691): the SDK adds the drill steps (#2770), the menu its filters, verdict and date.
   const historyPageSummary = useCallback((_global: GlobalContext, page: readonly Pair[]) => hwTimeHistorySummary(page, lang), [lang]);
-  return <PlatformPage layout="fill" queryBarExtension={{ pageSummary: [], issues: [], historyPageSummary }}><HwTimeFilterContext value={filter}>
+  return <PlatformPage layout="fill" queryBarExtension={{ historyDrill: true, historyPageSummary }}><HwTimeFilterContext value={filter}>
     <AnalysisWorkspace filter={filter} />
   </HwTimeFilterContext></PlatformPage>;
 }

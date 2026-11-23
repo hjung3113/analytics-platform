@@ -8,10 +8,13 @@ import { paneRouteKey } from './paneRouteKey';
 export type QueryBarExtension = {
   /** Pure arbitrary-candidate formatter; never captures current draft values. */
   historyPageSummary?: (global: GlobalContext, page: readonly Pair[]) => readonly PageFilterSummaryItem[];
-  pageSummary: readonly PageFilterSummaryItem[];
+  /** Query-history rows lead with the menu's declared drill steps (`menu.drill`, each level's `valueLabel`), before `historyPageSummary`. Default off. */
+  historyDrill?: boolean;
+  /** Omitted: the page adds no current summary (e.g. only query-history rows describe page values). */
+  pageSummary?: readonly PageFilterSummaryItem[];
   /** Applied labels are separate: a draft label must never describe a result. */
   appliedPageSummary?: readonly PageFilterSummaryItem[];
-  issues: readonly { key: string; label: string; reason: string }[];
+  issues?: readonly { key: string; label: string; reason: string }[];
   /** The page applies from its own open surface (the page-condition layer): the bar's Apply stays in place but disabled, with this hint. */
   applyHint?: string;
 };

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { buildQuery, emptyGlobal, type QueryHistoryStore, groupId, spaceId } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { QueryBarExtensionContext } from '@ap/components';
 import { GlobalContextBar } from '../GlobalContextBar';
 const menu = { id: 'home', group: groupId('overview'), primary: true, path: '/', icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: ['filter'], query: { mode: 'apply' as const } };
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [menu] });
@@ -182,4 +183,32 @@ it.each([
   act(() => start.focus());
   await user.keyboard(`{${key}}`);
   expect(buttons[to]).toHaveFocus();
+});
+it('leads a history row with the declared drill steps only when the page opts in (#2770)', async () => {
+  const drillMenu = { ...menu, pageKeys: ['line', 'tool', 'filter'], contextResetKeys: ['line', 'tool'], drill: { levels: [
+    { key: 'line', label: { ko: '라인', en: 'Line' } },
+    { key: 'tool', label: { ko: '설비', en: 'Tool' }, valueLabel: (value: string) => `설비 ${value.toUpperCase()}` },
+  ] } };
+  const drillRegistry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [drillMenu] });
+  const rows = [{ id: 'd', query: buildQuery(global, [['line', 'L1'], ['tool', 'eq-7'], ['filter', 'x']]), schemaVersion: 1 as const, count: 1, lastAppliedAt: 2 }];
+  const store: QueryHistoryStore = { list: vi.fn(async () => rows), record: vi.fn(async () => {}), remove: vi.fn(async () => {}), clear: vi.fn(async () => {}) };
+  const session = testSession(['platform:view']);
+  const own = () => [{ key: 'filter', label: '필터', value: 'x' }];
+  const mountWith = (historyDrill: boolean) => {
+    window.history.replaceState(null, '', '/' + buildQuery(global));
+    return render(<I18nProvider><PlatformProvider registry={drillRegistry} adapter={testAdapter({ session: () => session })} queryHistory={store}>
+      <QueryBarExtensionContext.Provider value={{ historyDrill, historyPageSummary: own }}><GlobalContextBar /></QueryBarExtensionContext.Provider>
+    </PlatformProvider></I18nProvider>);
+  };
+  const user = userEvent.setup();
+  mountWith(true);
+  await openHistory(user);
+  const row = await screen.findByRole('button', { name: /기간 09-01/ });
+  expect(row).toHaveTextContent(/라인 L1 · 설비 설비 EQ-7 · 필터 x/);
+  cleanup();
+  mountWith(false);
+  await openHistory(user);
+  const plain = await screen.findByRole('button', { name: /기간 09-01/ });
+  expect(plain).toHaveTextContent('필터 x');
+  expect(plain).not.toHaveTextContent('라인');
 });

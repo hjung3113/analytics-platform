@@ -9,7 +9,7 @@ import { groupId, spaceId } from '@ap/contracts';
 
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', primary: true, group: groupId('overview'), path: '/', label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: false, context: noContext, features: { export: false, annotate: false, compare: false, savedView: false }, pageType: 'analysis', query: { mode: 'live' as const }, pageKeys: [] }] });
 function Publish({ value }: { value: string }) { usePublishQueryBarExtension({ pageSummary: [{ key: 'grain', label: '집계', value }], issues: [{ key: 'grain', label: '집계', reason: value }] }); return null; }
-function Read() { return <p>{useQueryBarExtension()?.issues[0]?.reason ?? 'no extension'}</p>; }
+function Read() { return <p>{useQueryBarExtension()?.issues?.[0]?.reason ?? 'no extension'}</p>; }
 function Pane({ id, children }: { id: string; children: React.ReactNode }) { return <PaneScreenProvider paneId={id} screen={{ menuId: 'home', params: {}, query: '' }} onChange={() => {}} onLeave={() => {}}>{children}</PaneScreenProvider>; }
 afterEach(cleanup);
 it('shares menu diagnostics across body/bar providers for one pane and clears them on unmount', async () => {

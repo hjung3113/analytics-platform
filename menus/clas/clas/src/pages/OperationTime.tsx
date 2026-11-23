@@ -29,7 +29,7 @@ export default function OperationTimeScreen() {
   // Opened from another screen's object list (06 §22, #1930): the way back to that screen.
   const returning = pageParam('returnTo') !== null;
   // Only query-history rows describe page values (#2691); the current summaries stay as they are.
-  return <PlatformPage queryBarExtension={{ pageSummary: [], issues: [], historyPageSummary }} {...(returning ? { secondaryActions: <ReturnLink /> } : {})} dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
+  return <PlatformPage queryBarExtension={{ historyPageSummary }} {...(returning ? { secondaryActions: <ReturnLink /> } : {})} dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
     <QueryView query={query}>{data => <OperationTimeBody data={data} updatedAt={query.response?.trust?.updatedAt ?? null} previousEquipment={query.showingPrevious ? acceptedEquipment(query.resultParams?.eqp, data.equipmentId) : null} />}</QueryView>
   </PlatformPage>;
 }

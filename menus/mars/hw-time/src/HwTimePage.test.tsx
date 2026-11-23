@@ -37,14 +37,15 @@ describe('HW Time obsolete keys and shell', () => {
     expect(main.carrySet).toBeUndefined();
     expect(main.pageKeys).not.toContain('view');
   });
-  it('gives query history the candidate page values (#2691)', async () => {
+  it('gives query history the candidate page values and opts into the SDK drill steps (#2691, #2770)', async () => {
     vi.stubGlobal('localStorage', memoryStorage());
     window.history.replaceState(null, '', '/mars/hw-time?v=1&scopeId=MEM');
     function Summary() {
       const extension = useQueryBarExtension();
-      return <p>{extension?.historyPageSummary?.(emptyGlobal, [['moduleType', 'TR'], ['verdict', 'under']]).map(item => `${item.label} ${item.value}`).join(' · ') ?? 'missing formatter'}</p>;
+      const items = extension?.historyPageSummary?.(emptyGlobal, [['moduleType', 'TR'], ['verdict', 'under']]).map(item => `${item.label} ${item.value}`).join(' · ');
+      return <p>{items === undefined ? 'missing formatter' : `${extension?.historyDrill ? 'drill · ' : ''}${items}`}</p>;
     }
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} slots={{ contextBar: <Summary /> }}><HwTimePage params={{}} /></PlatformProvider></I18nProvider>);
-    expect(await screen.findByText('Module 타입 TR · 판정 하한 미달')).toBeTruthy();
+    expect(await screen.findByText('drill · 판정 하한 미달')).toBeTruthy();
   });
 });
