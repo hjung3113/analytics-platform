@@ -54,7 +54,7 @@ describe('AnalysisChart Pareto', () => {
     expect(series[1].data).toEqual([40, 70, 100]);
     expect(series[1].markLine?.data).toEqual([{ yAxis: 90, name: '90%' }]);
     expect(series[1].markLine?.lineStyle.color).toBe(readColorToken('text-secondary'));
-    expect(screen.getByText(/상위 4개 원본 항목이 90% 도달/)).toBeVisible();
+    expect(screen.getByText('원본 5개 항목(화면 3행, 나머지 기타) · 합계 100 ea · 상위 4개 항목이 90% 도달')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
     const rows = within(screen.getByRole('table')).getAllByRole('row');
     expect(rows).toHaveLength(4);
@@ -293,6 +293,7 @@ it.each<{ spec: ChartSpec; expected: string }>([
     fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
     const table = screen.getByRole('table');
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     const text = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsText(blobs[0]); });
     expect(text).toBe(expected);
     // The CSV keeps numbers as numbers with the unit in the header (#2028 SHE-19), so it has one line per table row, not the cell text.

@@ -83,7 +83,7 @@ describe('Panel chart chrome', () => {
     { kind: 'boxPlot', whisker: 'minMax', groups: [{ id: 'a', label: 'A', stats: { min: 1, q1: 2, median: 3, q3: 4, max: 5 } }] },
     { kind: 'pareto', items: [{ id: 'a', label: 'A', value: 2 }] },
     { kind: 'topNBar', expanded: true, items: [{ id: 'a', label: 'A', value: 2, colorToken: 'chart-blue' }] },
-  ])('$kind: keeps named icon tools and discloses table, export, legends and data summary', spec => {
+  ])('$kind: keeps named icon tools, table and export on the toolbar, and discloses legends and data summary', spec => {
     mount(<AnalysisChart chartId="kind" title="Kind" description="Chart explanation" unit="s" size="fill" spec={spec} exportActions={{ exportAllowed: true }} />);
     const toolbar = screen.getByRole('toolbar', { name: '차트 동작' });
     for (const button of within(toolbar).getAllByRole('button')) {
@@ -92,19 +92,12 @@ describe('Panel chart chrome', () => {
       expect(button).toHaveAttribute('title');
     }
     expect(screen.getByRole('heading', { name: 'Kind' })).toHaveClass('sr-only');
-    if (spec.kind !== 'topNBar') expect(screen.queryByRole('button', { name: '표로 보기' })).toBeNull();
     const region = screen.getByRole('region', { name: 'Kind' });
     expect(document.getElementById(region.getAttribute('aria-describedby')!)).toHaveClass('sr-only');
     expect(screen.getByRole('group', { name: '범례' })).toBeVisible();
-    if (spec.kind === 'topNBar') {
-      expect(within(toolbar).getByRole('button', { name: '내보내기' })).toBeVisible();
-      fireEvent.click(within(toolbar).getByRole('button', { name: '표로 보기' }));
-    } else {
-      fireEvent.click(within(toolbar).getByRole('button', { name: '더보기' }));
-      const more = screen.getByRole('dialog', { name: '더보기' });
-      expect(within(more).getByRole('button', { name: '내보내기' })).toBeVisible();
-      fireEvent.click(within(more).getByRole('button', { name: '표로 보기' }));
-    }
+    // Every kind keeps Show as table and Export on the icon toolbar, like Top N and the Frame (#2736).
+    expect(within(toolbar).getByRole('button', { name: '내보내기' })).toBeVisible();
+    fireEvent.click(within(toolbar).getByRole('button', { name: '표로 보기' }));
     expect(screen.getByRole('table')).toBeVisible();
   });
 
@@ -145,8 +138,7 @@ describe('Panel chart chrome', () => {
   it('keeps heatmap table selection, activation and Details usable with compact named buttons', () => {
     const onActivate = vi.fn(); const onCellClick = vi.fn();
     mount(<AnalysisChart chartId="heat" title="Heat" unit="s" size="fill" spec={{ kind: 'heatmap', xLabels: ['A'], yLabels: ['B'], cells: [{ x: 'A', y: 'B', value: 2 }], cellActivation: { on: 'click', onActivate }, onCellClick }} />);
-    fireEvent.click(screen.getByRole('button', { name: '더보기' }));
-    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '표로 보기' }));
+    fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
     fireEvent.click(screen.getByRole('checkbox'));
     const summary = screen.getByRole('region', { name: '선택 요약' });
     const activate = within(summary).getByRole('button', { name: '선택 지점 실행' });

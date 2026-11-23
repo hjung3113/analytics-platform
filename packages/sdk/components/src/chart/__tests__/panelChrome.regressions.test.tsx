@@ -30,7 +30,7 @@ describe('Panel chart regression fixes (#2372)', () => {
     vi.stubGlobal('navigator', { clipboard: { write } });
     mount(charts[kind]);
     await screen.findByRole('img', { name: 'plot' });
-    fireEvent.click(screen.getByRole('button', { name: kind === 'frame' ? '내보내기' : '더보기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '이미지 복사' }));
     expect(write).toHaveBeenCalledTimes(1);
     const status = screen.queryByRole('status');
@@ -80,13 +80,11 @@ describe('Panel chart regression fixes (#2372)', () => {
     expect(summary).toContainElement(screen.getByRole('combobox', { name: '구간 시작' }));
   });
 
-  it('closes heatmap More on table toggle and lets keyboard selection activate a cell', async () => {
+  it('opens the heatmap table from the toolbar and lets keyboard selection activate a cell', async () => {
     const user = userEvent.setup();
     const onActivate = vi.fn();
     mount(<AnalysisChart chartId="heat" title="Heat" unit="s" size="fill" legendPlacement="top" spec={{ ...heatmap, cellActivation: { on: 'click', onActivate } }} />);
-    await user.click(screen.getByRole('button', { name: '더보기' }));
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '표로 보기' }));
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    await user.click(screen.getByRole('button', { name: '표로 보기' }));
     expect(screen.getByRole('table')).toBeVisible();
     await user.keyboard('{Escape}');
     const cell = within(screen.getByRole('table')).getByRole('checkbox');

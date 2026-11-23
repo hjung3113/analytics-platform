@@ -147,6 +147,6 @@ describe('scatter categories (#2332)', () => {
     act(() => { plot.onEvents!.brushselected({ batch: [{ selected: [{ seriesIndex: 0, dataIndex: [0] }] }] }, {} as never); plot.onEvents!.brushEnd({}, {} as never); });
     expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('Check');
     fireEvent.click(screen.getByRole('button', { name: '표로 보기' })); expect(screen.getByRole('table')).toHaveTextContent('상한');
-    fireEvent.click(screen.getByRole('button', { name: '내보내기' })); expect(downloadChartCsv).toHaveBeenCalledWith(expect.anything(), expect.arrayContaining(['상태', '하한', '상한']), expect.arrayContaining([expect.arrayContaining(['◆ Check · Inspect'])]));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기' })); fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' })); expect(downloadChartCsv).toHaveBeenCalledWith(expect.anything(), expect.arrayContaining(['상태', '하한', '상한']), expect.arrayContaining([expect.arrayContaining(['◆ Check · Inspect'])]));
   });
 });

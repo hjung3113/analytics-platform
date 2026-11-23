@@ -60,7 +60,10 @@ it('AnalysisChart renders inside I18nProvider alone and opens no export action b
 
 it('AnalysisChart: exportActions opens CSV and the image actions', () => {
   render(<I18nProvider><AnalysisChart chartId="kit-donut" title="Provider-less donut" unit="ea" spec={donut} imageCopy imagePrint exportActions={{ exportAllowed: true }} /></I18nProvider>);
-  expect(exportButtons()).toEqual(['내보내기', '이미지 복사', '인쇄']);
+  // Every AnalysisChart kind shares the Frame toolbar (#2720): CSV, image copy and print open in the «내보내기» popover.
+  fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  const group = within(screen.getByRole('dialog', { name: '내보내기' }));
+  expect(group.getAllByRole('button').map((b) => b.textContent)).toEqual(['내보내기 CSV', '이미지 복사', '인쇄']);
 });
 
 it('AnalysisChartFrame renders inside I18nProvider alone and opens no export action by default', () => {

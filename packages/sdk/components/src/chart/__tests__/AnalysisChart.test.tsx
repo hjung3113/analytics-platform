@@ -168,6 +168,7 @@ it.each<{ spec: ChartSpec; expected: string }>([
     mount(spec, true); await screen.findByRole('img');
     fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     expect(blobs).toHaveLength(1);
     const text = await new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsText(blobs[0]); });
     expect(text).toBe(expected); expect(DownloadURL.revokeObjectURL).not.toHaveBeenCalled();
@@ -247,7 +248,8 @@ it('puts keyboard-operable rectangle selection in the header instead of over the
   const toolbar = screen.getByRole('toolbar', { name: '차트 동작' });
   const button = within(toolbar).getByRole('button', { name: '구간 선택' });
   within(toolbar).getByRole('button', { name: '초기화' }).focus();
-  await user.tab(); expect(button).toHaveFocus();
+  // Tools follow the contract order Brush → Reset (#2736).
+  await user.tab({ shift: true }); expect(button).toHaveFocus();
   await user.keyboard('{Enter}'); expect(button).toHaveAttribute('aria-pressed', 'true');
   expect(dispatchAction).toHaveBeenCalledWith({ type: 'takeGlobalCursor', key: 'brush', brushOption: { brushType: 'rect', brushMode: 'single' } }, { silent: true });
   await user.keyboard(' '); expect(button).toHaveAttribute('aria-pressed', 'false');
@@ -411,6 +413,7 @@ it.each([['Export title', 'Export title'], [<strong>Rich title</strong>, 'size']
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-10-01T00:00:00&to=2026-10-02T00:00:00');
     render(sizedChart({ title, metricVersion: 'v2', unit: 'kg' }));
     fireEvent.click(await screen.findByRole('button', { name: '내보내기' }));
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     const text = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsText(blobs[0]);
     });

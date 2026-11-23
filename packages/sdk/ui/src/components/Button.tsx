@@ -24,6 +24,9 @@ const buttonVariants = cva(
         destructive: 'bg-accent-danger text-text-on-accent hover:bg-accent-danger/90',
         outline:
           'border border-border-default bg-transparent text-text-primary hover:bg-surface-row-hover',
+        // A pressable tool (aria-pressed): the secondary look, and the shared selected surface and border while pressed (#2720).
+        toggle:
+          'bg-surface-raised on-canvas-band:bg-transparent text-text-primary border border-border-subtle hover:bg-surface-row-hover aria-pressed:border-border-selected aria-pressed:bg-surface-row-selected',
         ghost: 'text-text-primary hover:bg-surface-row-hover',
         navigation: 'text-text-secondary hover:bg-surface-row-hover hover:text-text-primary',
         link: 'text-accent-primary underline-offset-4 hover:underline',

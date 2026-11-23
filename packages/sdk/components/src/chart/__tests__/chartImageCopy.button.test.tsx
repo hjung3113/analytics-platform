@@ -46,8 +46,9 @@ describe.each(Object.keys(components) as (keyof typeof components)[])('%s image 
     ['features.export on but prop absent', undefined, true, false],
   ])('%s -> visible: %s', (_label, imageCopy, canExport, visible) => {
     mount(components[name](imageCopy), canExport);
-    if (name === 'frame' && !canExport) expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
-    const actions = name === 'frame' && canExport ? openExport() : screen;
+    // Frame and every AnalysisChart kind keep image actions in the Export popover (#2736); LaneTimeline keeps them on its toolbar.
+    if (name !== 'lane' && !canExport) expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    const actions = name !== 'lane' && canExport ? openExport() : screen;
     expect(!!actions.queryByRole('button', { name: '이미지 복사' })).toBe(visible);
   });
 });
@@ -64,25 +65,22 @@ describe.each(Object.keys(printers) as (keyof typeof printers)[])('%s print butt
     ['features.export on but prop absent', undefined, true, false],
   ])('%s -> visible: %s', (_label, imagePrint, canExport, visible) => {
     mount(printers[name](imagePrint), canExport);
-    if (name === 'frame' && !canExport) expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
-    const actions = name === 'frame' && canExport ? openExport() : screen;
+    // Frame and every AnalysisChart kind keep image actions in the Export popover (#2736); LaneTimeline keeps them on its toolbar.
+    if (name !== 'lane' && !canExport) expect(screen.queryByRole('button', { name: '내보내기' })).toBeNull();
+    const actions = name !== 'lane' && canExport ? openExport() : screen;
     expect(!!actions.queryByRole('button', { name: '인쇄' })).toBe(visible);
   });
 });
 
-it('places image copy after CSV in the Frame and Top N Export groups, after Export in Donut, and last in LaneTimeline', () => {
+it('places image copy after CSV in the Frame, Top N and Donut Export groups, and last in LaneTimeline', () => {
   const topN = <AnalysisChart chartId="c" title="C" unit="ea" imageCopy
     spec={{ kind: 'topNBar', items: [{ id: 'a', label: 'A', value: 1, colorToken: 'chart-blue' }] }} />;
-  for (const chart of [components.frame(true), topN]) {
+  for (const chart of [components.frame(true), topN, components.chart(true)]) {
     mount(chart, true);
     const group = openExport();
     expect(group.getAllByRole('button').map(b => b.textContent)).toEqual(['내보내기 CSV', '이미지 복사']);
     cleanup();
   }
-  mount(components.chart(true), true);
-  const labels = screen.getAllByRole('button').map(b => b.textContent);
-  expect(labels[labels.indexOf('내보내기') + 1]).toBe('이미지 복사');
-  cleanup();
   mount(components.lane(true), true);
   const toolbar = screen.getByRole('toolbar');
   expect(toolbar.lastElementChild?.textContent).toBe('이미지 복사');

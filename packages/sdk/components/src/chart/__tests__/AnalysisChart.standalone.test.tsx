@@ -46,6 +46,7 @@ describe('without a PlatformProvider', () => {
   it('opens exactly the allowed actions: the prop opts a button in and exportAllowed opens it', () => {
     bare(chart(specs.donut!, { imageCopy: true, exportActions: { exportAllowed: true } }));
     expect(exportButton()).not.toBeNull();
+    fireEvent.click(exportButton()!);
     expect(copyButton()).not.toBeNull();
     expect(printButton()).toBeNull();
     cleanup();
@@ -118,6 +119,7 @@ describe('inside a PlatformProvider the menu manifest decides', () => {
     const notify = vi.fn();
     mount(chart(specs.donut!, { exportActions: { exportAllowed: false, notify } }), true);
     fireEvent.click(exportButton()!);
+    fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
     await waitFor(() => expect(downloadChartCsv).toHaveBeenCalledTimes(1));
     expect(vi.mocked(downloadChartCsv).mock.calls[0]![0].context).toHaveProperty('scopeId', null);
     expect(notify).not.toHaveBeenCalled();

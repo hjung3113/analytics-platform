@@ -25,6 +25,7 @@ it('offers a keyboard table and CSV with status but no selection, brush or drill
   act(() => plot.onEvents?.click?.({ componentType: 'series', seriesIndex: 0, dataIndex: 0 }, {} as never));
   expect(screen.queryByRole('checkbox')).toBeNull();
   fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
+  fireEvent.click(screen.getByRole('button', { name: '내보내기 CSV' }));
   expect(csv).toHaveBeenCalledWith(expect.objectContaining({ chartId: 'test' }), expect.arrayContaining(['상태', '사유']), [[6, 7, 2, 100, '■ Exceeded', 'Above bound']]);
 });
 
