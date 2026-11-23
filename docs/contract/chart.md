@@ -249,7 +249,7 @@ Zoom·Brush·항목 선택은 Chart Local State이며 URL·Global Context를 바
 
 패널은 `outputs`의 `selection`에 차원과 형태를 선언한다. 값 묶음(`set`)과 범위(`range`)는 메뉴 URL에 기록되며 공유 링크와 뒤로가기로 복원한다. 행 묶음은 화면에만 둔다. 같은 페이지에서 값을 받는 패널은 `filter` 또는 `highlight`를 선언한다. 필터를 적용한 패널의 배지는 적용 후 모집단 수 `n`과 «선택 적용»을 표시한다. 전역 기간과 설비 선택은 사용자가 명시적으로 적용할 때만 바뀐다. [ADR-0175](../adr/0175-chart-selection-feeds-next-analysis.md), [ADR-0176](../adr/0176-user-analysis-menu-one-definition-two-homes.md)
 
-패널 입력 투영에는 값 묶음을 `pageParams` 배열로, 범위를 `pageParam` 문자열로 넘긴다. 유효하지 않은 값은 투영에서 빠지고 입력 훅의 `rejected`에 해당 키가 표시된다. 출력 훅의 `select(null)`로 URL에서 그 키를 지운다.
+패널 입력 투영과 가용성 판정에는 값 묶음을 `pageParams` 배열로, 범위를 `pageParam` 문자열로 넘긴다. 유효하지 않은 분석 선택 값은 투영과 가용성 판정에서 빠지고 입력 훅의 `rejected`에 해당 키가 표시된다. 출력 훅의 `select(null)`로 URL에서 그 키를 지운다.
 
 ### 차트를 그릴 수 없는 환경
 

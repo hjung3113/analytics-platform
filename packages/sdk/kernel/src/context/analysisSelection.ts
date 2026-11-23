@@ -1,6 +1,6 @@
 import type { AnalysisSelection, AnalysisSelectionUse, Text } from '@ap/contracts';
-import { useMemo } from 'react';
-import { useHostPlatform, usePlatform } from '../platform/hooks';
+import { useLayoutEffect, useMemo, useRef } from 'react';
+import { usePlatform } from '../platform/hooks';
 import { menuAnalysisSelections } from '../registry/analysis-selections';
 import type { MenuEntry } from '../registry/registry';
 import { sameItems, useStable } from '../stable';
@@ -17,37 +17,27 @@ function sameSelection(a: AnalysisSelection | null, b: AnalysisSelection | null)
 }
 
 const noRoute = { panels: [] };
-function useChannels(menu: MenuEntry | undefined) {
-  return useMemo(() => menuAnalysisSelections(menu ?? noRoute), [menu]);
-}
+const useChannels = (menu: MenuEntry | undefined) => useMemo(() => menuAnalysisSelections(menu ?? noRoute), [menu]);
 
 /** Reads and writes a declared analysis selection through the menu page key (ADR-0175). */
-export function useAnalysisSelectionOutput(panelId: string, key: string): {
-  selection: AnalysisSelection | null;
-  select: (next: AnalysisSelection | null) => boolean;
-} {
-  const { route, pageParams, setPage, location, pathname, screenMode } = useHostPlatform();
+export function useAnalysisSelectionOutput(panelId: string, key: string): { selection: AnalysisSelection | null; select: (next: AnalysisSelection | null) => boolean } {
+  const { route, pageParams, setPage } = usePlatform();
   const channel = useChannels(route?.menu).get(key);
-  if (route && !channel?.writers.some(writer => writer.panelId === panelId)) {
-    throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
-  }
   const urlKey = selectionUrlKey(key);
-  const selection = channel ? parseAnalysisSelection(channel.shape, pageParams(urlKey)) : null;
+  const values = pageParams(urlKey);
+  const lastValues = useRef(values);
+  useLayoutEffect(() => { lastValues.current = values; });
+  if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
+  const selection = channel ? parseAnalysisSelection(channel.shape, values) : null;
   return { selection, select(next) {
     if (!channel || (next && next.shape !== channel.shape)) return false;
-    const param = next ? analysisSelectionParam(next) : [];
-    const normalized = parseAnalysisSelection(channel.shape, typeof param === 'string' ? [param] : param);
-    if (!normalized && param.length > 0) return false;
-    let currentValues = pageParams(urlKey);
-    if (screenMode === 'main') {
-      // The location is updated synchronously, including writes from another panel before React renders.
-      const address = location.read();
-      const queryStart = address?.indexOf('?') ?? -1;
-      const path = queryStart === -1 ? address : address?.slice(0, queryStart);
-      if (address === null || path !== pathname) return false;
-      currentValues = queryStart === -1 ? [] : new URLSearchParams(address.slice(queryStart)).getAll(urlKey);
-    }
-    if (normalized === null ? currentValues.length === 0 : sameSelection(parseAnalysisSelection(channel.shape, currentValues), normalized)) return true;
+    const param = next && analysisSelectionParam(next);
+    const written = typeof param === 'string' ? [param] : param ?? [];
+    const normalized = parseAnalysisSelection(channel.shape, written);
+    if (!normalized && written.length) return false;
+    const current = lastValues.current;
+    if (normalized === null ? current.length === 0 : sameSelection(parseAnalysisSelection(channel.shape, current), normalized)) return true;
+    lastValues.current = written;
     setPage({ [urlKey]: normalized ? param : null });
     return true;
   } };

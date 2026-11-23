@@ -1,15 +1,15 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { emptyGlobal, groupId, NO_FEATURES, spaceId, type AnalysisSelection, type PanelDeclaration } from '@ap/contracts';
 import { House } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { analysisSelectionParam, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, usePlatform } from '../../index';
 import { I18nProvider } from '../../i18n';
 import { LentPanelPlatformContext } from '../../platform/contexts';
 import { lentPanelPlatform } from '../../platform/lent-panel-platform';
-import { PlatformProvider, useHostPlatform } from '../../platform/platform';
+import { PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from '../../platform/platform';
 import { queryMissingRequired } from '../../query/draft-state';
-import { projectDisplayInputs, projectQueryInputs } from '../../registry/panel-inputs';
+import { disabledReason, projectDisplayInputs, projectQueryInputs } from '../../registry/panel-inputs';
 import { createRegistry, type MenuEntry } from '../../registry/registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
 
@@ -97,6 +97,26 @@ it('pushes both writes when the selection returns to its rendered value in one e
   await waitFor(() => expect(result.current.selection).toEqual(set));
 });
 
+it('ends with A after one event selects A, B and A in a controlled board pane', () => {
+  const a = { shape: 'set', values: ['A'] } as const;
+  function Board({ children }: { children: ReactNode }) {
+    const [screen, setScreen] = useState<PaneScreen>({ menuId: 'analysis', params: {}, query: '?v=1&equipmentSet=A' });
+    return <Wrapper><PaneScreenProvider paneId="one" screen={screen} onChange={setScreen} onLeave={() => {}}>{children}</PaneScreenProvider></Wrapper>;
+  }
+  const result = mount(() => ({ select: useAnalysisSelectionOutput('source', setKey).select, values: usePlatform().pageParams(setKey) }), '', Board);
+  act(() => { const { select } = result.current; select(a); select({ shape: 'set', values: ['B'] }); expect(select(a)).toBe(true); });
+  expect(result.current.values).toEqual(['A']);
+});
+
+it('keeps a same-event global period change when asked to select the rendered value', () => {
+  const { current: { output, platform } } = mount(() => ({ output: useAnalysisSelectionOutput('source', setKey), platform: usePlatform() }),
+    '&equipmentSet=A&from=2026-09-19T00:00:00&to=2026-09-20T00:00:00');
+  const period = { from: '2026-09-20T00:00:00', to: '2026-09-21T00:00:00' };
+  act(() => { platform.setGlobal(period); expect(output.select(output.selection)).toBe(true); });
+  expect(Object.fromEntries(search())).toMatchObject(period);
+  expect(search().has(setKey)).toBe(false);
+});
+
 it('applies selections from either agreeing writer with the first declared source', () => {
   const result = mount(() => ({
     first: useAnalysisSelectionOutput('source', setKey),
@@ -114,6 +134,12 @@ const invalidEntries = [
   [rangeKey, ['a/b/c']],
   [setKey, Array.from({ length: 51 }, (_, i) => String(i))],
 ] as const;
+it.each(invalidEntries)('keeps a panel unavailable when its availability override requires invalid %s', (key, values) => {
+  const { current: platform } = mount(usePlatform, '&' + new URLSearchParams(values.map(value => [key, value])));
+  const receiver = { ...panels[1], availability: { requires: [{ anyOf: [key] }], disabledReason: title } };
+  expect(disabledReason(receiver, { [rangeKey]: platform.pageParam(rangeKey), [setKey]: platform.pageParams(setKey) })).toEqual(title);
+});
+
 it.each(invalidEntries)('omits invalid URL values for %s from projections and required inputs', (key, values) => {
   const query = new URLSearchParams(values.map(value => [key, value]));
   const { current: platform } = mount(usePlatform, `&${query}`);
