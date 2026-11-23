@@ -15,10 +15,10 @@ DecodedPageConditions | type | type DecodedPageConditions = { issues: @ap/kernel
 DiagnoseCode | type | type DiagnoseCode = 'denied' | 'invalid-selection' | 'menu-mismatch' | 'menu-schema-version' | 'metric-version' | 'migration-unavailable' | 'stale-context-key' | 'stale-page-key' | 'unknown-axis'
 DiagnoseContext | type | type DiagnoseContext = { capabilities: Pick<@ap/contracts#ViewCapabilities, 'canView' | 'reason'>; currentMetricVersion?: number; knownAxisIds: readonly string[]; knownSelectionIds?: readonly string[]; }
 DiagnoseReason | type | type DiagnoseReason = { code: @ap/kernel#DiagnoseCode; key?: string; message?: string; }
-DrillInvalid | type | type DrillInvalid = { key: string; label: @ap/contracts#Text; value: string; }
-DrillLevelState | type | type DrillLevelState = { key: string; label: @ap/contracts#Text; value: null | string; }
+DrillInvalid | type | type DrillInvalid = @ap/kernel#DrillTrailStep
+DrillLevelState | type | type DrillLevelState = { key: string; label: @ap/contracts#Text; value: null | string; valueLabel?: string; }
 DrillState | type | type DrillState = { depth: number; enter: (key: string, value: string) => void; goTo: (n: number) => void; invalid: @ap/kernel#DrillInvalid | null; levels: @ap/kernel#DrillLevelState[]; trail: @ap/kernel#DrillTrailStep[]; }
-DrillTrailStep | type | type DrillTrailStep = { key: string; label: @ap/contracts#Text; value: string; }
+DrillTrailStep | type | type DrillTrailStep = { key: string; label: @ap/contracts#Text; value: string; valueLabel?: string; }
 EquipmentSearchParams | type | type EquipmentSearchParams = { context?: @ap/kernel#PortContext; enabled?: boolean; pageSize?: number; query?: string; }
 ErrorGuidance | type | type ErrorGuidance = { action: @ap/kernel#Key; blocked: boolean; cause: @ap/kernel#Key; code: null | string; label: @ap/kernel#Key; }
 ExpandCustomGroupsInput | type | type ExpandCustomGroupsInput = { condition: @ap/contracts#Condition | null; facts: readonly @ap/contracts#EquipmentSummary[]; groups: Readonly<Record<string, @ap/contracts#CustomGroupTarget | { denied: string; }>>; selection: null | readonly string[]; }
@@ -99,7 +99,7 @@ ResolvedSelectionParams | type | type ResolvedSelectionParams = { enabled?: bool
 ResolvedSelectionResult | type | type ResolvedSelectionResult = { byId: ReadonlyMap<string, 'forbidden' | 'not_found' | 'ok'>; error: @ap/kernel#PortFailure | null; retry: () => void; status: @ap/kernel#PortStatus; summaries: ReadonlyMap<string, @ap/contracts#EquipmentSummary>; }
 RetiredMenu | type | type RetiredMenu = { id: string; page?: Readonly<Record<string, string>>; paths?: readonly string[]; successor: string; }
 ReturnContextKey | type | type ReturnContextKey = 'scope' | @ap/contracts#ContextKey
-ReturnOrigin | type | type ReturnOrigin = { accepted: boolean; href: string; menuLabel: @ap/contracts#Text; revertedContext: @ap/kernel#ReturnContextKey[]; sameSpace?: boolean; spaceLabel: @ap/contracts#Text | null; trail: { label: @ap/contracts#Text; value: string; }[]; }
+ReturnOrigin | type | type ReturnOrigin = { accepted: boolean; href: string; menuLabel: @ap/contracts#Text; revertedContext: @ap/kernel#ReturnContextKey[]; sameSpace?: boolean; spaceLabel: @ap/contracts#Text | null; trail: { label: @ap/contracts#Text; value: string; valueLabel?: string; }[]; }
 RouteMatch | type | type RouteMatch = { aliasPage?: Readonly<Record<string, string>>; menu: @ap/kernel#MenuEntry; params: Record<string, string>; viaAlias: boolean; }
 SavedViewDiagnosis | type | type SavedViewDiagnosis = { migration?: @ap/kernel#Migration; reasons: @ap/kernel#DiagnoseReason[]; reselect?: { keep: @ap/contracts#SavedViewContext; }; status: 'stale'; } | { reasons: @ap/kernel#DiagnoseReason[]; status: 'denied'; } | { reasons: [ ]; status: 'ok'; }
 ScopeControlSlot | type | type ScopeControlSlot = { For: (spaceId: @ap/contracts#SpaceId, menu: @ap/kernel#MenuEntry | null) => ComponentType<{ collapsed: boolean; }> | null; }

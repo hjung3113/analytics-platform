@@ -18,7 +18,7 @@ Frame에서 `headingInToolbar`는 제목을 도구 줄에, `toolbarStart`는 패
 
 ## Chart Frame
 
-`AnalysisChartFrame.emptyCategoryLabel?: string`으로 가로 범주 막대의 빈 행에 문구를 표시할 수 있다. 표시 중인 시리즈의 값이 모두 null 또는 누락일 때 값 축 시작점과 행 툴팁, 표·CSV의 값 셀에 문구를 쓴다. 누적과 `startAlign`에서도 적용하며 세로 차트에서는 무시한다. 생략 시 기존 동작을 유지한다. [차트 계약 §16](../../../../docs/contract/chart.md#16-analysis-chart-contract)
+`AnalysisChartFrame.emptyCategoryLabel`(가로 범주 막대의 빈 행 문구) 규칙은 [차트 계약 §16](../../../../docs/contract/chart.md#16-analysis-chart-contract)이 소유한다.
 
 ## TopN
 

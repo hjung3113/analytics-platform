@@ -34,7 +34,11 @@ Primary candidate는 `../architecture/frontend-ui-ux.md`에 따라 Apache EChart
 
 **가로 막대의 빈 범주 라벨 (Decided, #2700).** `AnalysisChartFrame.emptyCategoryLabel?: string`은 표시 중인 시리즈가 하나 이상이고 그 행의 값이 모두 null 또는 누락일 때 값 축 시작점에 흐린 글자로 표시한다. 누적 여부와 `startAlign`에 관계없이 행 순서와 확대를 따르며, 값 축 범위·지점 선택·차트 요약·범례에 영향을 주지 않는다. 행 툴팁과 접근 가능한 표의 값 셀, CSV의 값 셀에도 같은 문구를 쓴다. 생략하거나 세로 차트에 전달하면 기존 표시를 유지한다.
 
+**범주 차트 도구 문구 (Decided, #2700).** 범주 차트의 툴바는 Chart Frame과 같은 `초기화`·`구간 선택` 버튼을 쓴다. 전체형은 아이콘과 글자, 간소형은 같은 접근 이름의 아이콘 버튼이다.
+
 **히트맵 null 라벨과 셀 강조 (Decided, #2496, #2773).** `HeatmapSpec.nullLabel?: string`은 값이 null인 셀의 범례, 툴팁, 표·CSV, 접근 가능한 요약과 선택 항목에 쓰인다. 기본값은 현재 언어의 «미확인»/“Unknown”이다. 비어 있는 좌표와 범주 id 라벨의 의미는 별도다. `selectedCell?: { x: string; y: string; label?: string } | null`은 두 축의 라벨로 셀 테두리와 선택 요약·동작의 기본 대상을 정한다. 선택 요약에는 제어 셀의 기본 라벨 또는 `label`을 표시한다. `cellActivation`을 선언한 히트맵에서 표 체크박스로 로컬 선택을 갱신해 값이 있는 셀 하나만 남으면, 그 셀을 요약과 동작에 우선 사용한다. 캔버스 클릭이나 Brush로 로컬 선택을 갱신하면 제어값을 따른다. 제어값이 null이면 테두리 강조가 사라지고, 실행할 표 선택도 없으면 «선택 없음»을 표시하며 셀 동작을 비활성화한다. `selectedCell`을 생략하면 차트의 로컬 선택 테두리와 선택 요약·동작을 쓴다.
+
+**히트맵 기준점 라벨 (Decided, #2700).** 발산형 `scale.pivotLabel?: string`은 메뉴가 정한 기준점 범례 문구이며, 생략하면 기존 `{pivot} 목표`를 표시한다.
 
 **가로 막대의 행 포커스와 `rowPitch`([ADR-0079](../adr/0079-chart-row-focus-row-pitch.md), #690).** `orientation="horizontal"` 범주 차트만 받는다(그 밖에서는 무시하고 개발 중 경고).
 `activeCategory`가 있으면(`null` = 행 없음) 프레임은 그 행만 강조하고 스스로 강조 상태를 바꾸지 않는다 — 막대 클릭은 `onActiveCategoryChange(category, 'pointer')`, 지점 선택기의 이동은 `(category, 'keyboard')`만 부르며 소유자는 메뉴 하나다.
@@ -150,8 +154,6 @@ Source · Updated · Coverage
 - 막대 안 값 라벨 색은 채움 위 4.5:1을 넘는 쪽(`segmentLabelStyle`)이다.
 
 ### 종류별 상호작용
-
-- 2026-11-22 / #2700: 범주 차트의 툴바는 Chart Frame과 같은 `초기화`·`구간 선택` 버튼을 쓴다. 전체형은 아이콘과 글자, 간소형은 같은 접근 이름의 아이콘 버튼이다. 히트맵의 발산형 `scale.pivotLabel?: string`은 메뉴가 정한 기준점 범례 문구이며, 생략하면 기존 `{pivot} 목표`를 표시한다.
 
 `AnalysisChart`의 `ChartSpec`은 종류와 입력 데이터의 유효 조합을 고정한다([ADR-0058](../adr/0058-analysis-chart-spec-union.md)). 기존 line/bar `AnalysisChartFrame` 소비자는 그대로 유지한다.
 

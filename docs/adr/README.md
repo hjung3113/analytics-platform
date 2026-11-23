@@ -183,7 +183,7 @@
 | [0168](0168-saved-view-table-state.md) | 메뉴 뷰에 표 열 묶음을 저장하고 옛 뷰는 표 설정을 유지 | Decided(2026-11-18) · #2492 |
 | [0169](0169-tree-matrix.md) | 계층 행과 평면 열의 서버 윈도 행렬은 독립 SDK 부품으로 제공한다 | Decided(2026-11-18, #1768) |
 | [0170](0170-analysis-apply-and-saved-view-defaults.md) | Analysis 메뉴의 기본 조회는 Apply이며 저장된 뷰를 켠다 | Decided(2026-11-18, #2503) |
-| [0171](0171-registered-panel-lending.md) | 등록된 패널을 다른 메뉴에 빌려준다 | Decided(2026-11-18, #2490) |
+| [0171](0171-registered-panel-lending.md) | 등록된 패널을 다른 메뉴에 빌려준다 | Decided(2026-11-18, #2490) — 출력 연결 금지는 [0176](0176-user-analysis-menu-one-definition-two-homes.md)이 부분 개정(2026-11-23) |
 | [0172](0172-site-wide-time-domain-guarantee.md) | 시간 도메인 병합은 배포 소유 Site 전체 보증으로 증명한다 | Decided(2026-11-18, #2544) |
 | [0173](0173-survey-outcome-task-entity-link.md) | Outcome Survey가 측정할 Task를 Entity Link로 기록한다 | Decided(2026-11-19, 플랫폼 자문 결정 #2540, 소유자 가역) |
 | [0174](0174-decision-rules-opt-in.md) | 의사결정 규칙은 선택 적용 가능한 SDK 조각으로 제공한다 | Decided(2026-11-19, 소유자 결정 via lead) |
