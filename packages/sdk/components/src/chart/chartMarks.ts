@@ -20,6 +20,29 @@ export const CHART_MARKS = {
   singleLineAreaOpacity: 0.09,
 } as const;
 
+/**
+ * Plot heights by size step, px (#2725). `regular` is the AnalysisChart kinds' default and `regularFrame` the time-series Frame's; both sit
+ * in the 240–280 band. Row-based charts (topNBar, horizontal bars with `rowPitch`) grow by rows instead: `rowPitch` per row.
+ */
+export const CHART_HEIGHTS = { compact: 200, regularFrame: 260, regular: 280, hero: 360, fillMin: 320, rowPitch: 28 } as const;
+
+/**
+ * Break mark on a line chart whose value axis does not reach 0 (#2725): two short slashes across the end of the category baseline, on a
+ * surface-coloured gap, so a fitted axis never reads as starting at 0. `side` is where the axis stops short of 0: `bottom` when every value
+ * is above 0, `top` when every value is below. Silent: it takes no pointer events.
+ */
+export function axisBreakGraphic(side: 'bottom' | 'top', at: { left: number; top: number; bottom: number }, colors: { line: string; surface: string }) {
+  const stroke = { stroke: colors.line, lineWidth: 1 };
+  return {
+    type: 'group', left: at.left - 5, ...(side === 'bottom' ? { bottom: at.bottom - 4 } : { top: at.top - 4 }), silent: true, z: 100,
+    children: [
+      { type: 'polygon', shape: { points: [[1, 8], [5, 0], [9, 0], [5, 8]] }, style: { fill: colors.surface } },
+      { type: 'line', shape: { x1: 1, y1: 8, x2: 5, y2: 0 }, style: stroke },
+      { type: 'line', shape: { x1: 5, y1: 8, x2: 9, y2: 0 }, style: stroke },
+    ],
+  };
+}
+
 /** Rounded value end: top corners of a vertical bar, right corners of a horizontal one, none on a stacked piece. */
 export function barRadius(horizontal: boolean, stacked = false): number | number[] {
   const r = CHART_MARKS.barRadius;

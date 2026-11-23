@@ -2,6 +2,7 @@ import { createContext, useContext, type ContextType } from 'react';
 import { ChevronUp } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { Button, cn } from '@ap/ui';
+import { CHART_HEIGHTS } from '../chart/chartMarks';
 
 export const AnalysisSectionContext = createContext<{ title: string; kind: 'kpi' | 'chart' | 'breakdown'; span?: 'full'; density?: 'regular' | 'compact'; collapse: () => void } | null>(null);
 
@@ -27,7 +28,7 @@ export function resolveAnalysisChartSize(size: ChartSize | undefined, section: C
 export type ChartSize = 'regular' | 'compact' | 'hero' | 'fill';
 
 /** The least plot height of the `fill` size, px. */
-export const FILL_CHART_MIN_HEIGHT = 320;
+export const FILL_CHART_MIN_HEIGHT = CHART_HEIGHTS.fillMin;
 
 /** `fill` plot height for a measured container height (null = not measured yet). */
 export const fillChartHeight = (available: number | null) => Math.max(FILL_CHART_MIN_HEIGHT, available ?? 0);
@@ -44,5 +45,5 @@ export const FILL_PLOT_CLASS = `min-h-80 ${FILL_PLOT_BASE_CLASS}`; // min-h-80 =
 
 /** Keep each frame’s established regular default while sharing compact/hero heights. */
 export function analysisChartHeight(size: ChartSize, regularHeight: number) {
-  return size === 'hero' ? 360 : size === 'compact' ? 200 : size === 'fill' ? FILL_CHART_MIN_HEIGHT : regularHeight;
+  return size === 'hero' ? CHART_HEIGHTS.hero : size === 'compact' ? CHART_HEIGHTS.compact : size === 'fill' ? FILL_CHART_MIN_HEIGHT : regularHeight;
 }

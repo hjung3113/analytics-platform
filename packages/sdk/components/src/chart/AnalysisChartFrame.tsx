@@ -27,6 +27,7 @@ import { usePointMenu } from './usePointMenu';
 import { equalSeriesIds, seriesExtremes } from './chartLanes';
 import { resolveRowTotals, type ValueLabels } from './chartValueLabels';
 import { clampRowPitch, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN } from './analysisChartGeometry';
+import { CHART_HEIGHTS } from './chartMarks';
 
 import { ChartBoundsLegend } from './ChartBoundsLegend';
 import { boundText, projectChartBounds, type ChartBounds, type ChartBoundLabels } from './chartBounds';
@@ -335,7 +336,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const fillMin = p.fillMin === undefined ? FILL_CHART_MIN_HEIGHT : Math.max(FILL_MIN_FLOOR, p.fillMin);
   const loweredFill = fillMin !== FILL_CHART_MIN_HEIGHT;
   const fillFloor = chrome === 'standard' ? 0 : fillMin;
-  const viewportHeight = p.height ?? (size === 'fill' ? Math.max(fillFloor, fill.height ?? fillMin) : analysisChartHeight(size, 260));
+  const viewportHeight = p.height ?? (size === 'fill' ? Math.max(fillFloor, fill.height ?? fillMin) : analysisChartHeight(size, CHART_HEIGHTS.regularFrame));
   const { global, features, notify, url, applyPeriod } = host;
   const canCompare = !zoomOnly && features.compare && !!p.compareSeries?.length;
   const showAnnotate = !zoomOnly && (features.annotate || !host.inPlatform);
@@ -714,15 +715,25 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     : xType === 'time' ? Math.max(TICK_ROOM_STEP, Math.floor(chartWidth / TICK_ROOM_STEP) * TICK_ROOM_STEP) : NOTE_FALLBACK_WIDTH;
   // A horizontal value axis budgets its ticks from the measured width, in 64px steps capped where five ticks always fit, so a resize inside one step keeps the option.
   const tickRoom = horizontal && !startAlign ? Math.min(TICK_ROOM_CAP, Math.floor(chartWidth / TICK_ROOM_STEP) * TICK_ROOM_STEP) : undefined;
+  // A fitted line axis that stops short of 0 carries a break mark (#2725). ECharts picks the nice range, so it is read from the drawn axis.
+  const [axisBreak, setAxisBreak] = useState<'bottom' | 'top' | undefined>(undefined);
   const option = useMemo<EChartsCoreOption>(() => {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     // A root `data-theme` change re-resolves them too (#2723).
     void instanceReady; void themeRevision;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit, ...(zoomOnly ? {} : { selectedPointKeys }),
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit: p.yFit, axisBreak, ...(zoomOnly ? {} : { selectedPointKeys }),
       palette: resolveChartPalette(displayed),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, displayed, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, p.yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
+  useEffect(() => {
+    const instance = chart.current;
+    if (!p.yFit || !instance || instance.isDisposed?.()) { setAxisBreak(undefined); return; }
+    // ECharts exposes the laid-out axis scale through its runtime model (not in its public TS surface).
+    const model = (instance as unknown as { getModel?: () => { getComponent: (name: string, index?: number) => { axis?: { scale?: { getExtent: () => number[] } } } | undefined } }).getModel?.();
+    const [min = 0, max = 0] = model?.getComponent('yAxis', 0)?.axis?.scale?.getExtent() ?? [];
+    setAxisBreak(min > 0 ? 'bottom' : max < 0 ? 'top' : undefined);
+  }, [option, p.yFit]);
 
   // Re-arm the brush cursor after each option replacement, and once the instance becomes ready.
   useEffect(() => {

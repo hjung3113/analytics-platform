@@ -152,6 +152,8 @@ Source · Updated · Coverage
 - 막대: 최대 40px, 범주 간격 35%, 막대 간격 12%. 값 끝 모서리 2px(세로는 위, 가로는 오른쪽), 누적 조각은 0. 상태 테두리 층은 같은 배치를 따른다.
 - 선: 2px, 점선·파선(비교·이전 기간) 1.5px. 점은 12개까지 그리고 넘으면 hover 때만 그린다(markPoint가 있거나 선택한 지점이 있는 시리즈는 유지). 보이는 시리즈가 실선 하나뿐이고 막대가 없으면 아래를 불투명도 0.09로 채운다.
 - 막대 안 값 라벨 색은 채움 위 4.5:1을 넘는 쪽(`segmentLabelStyle`)이다.
+- 축 끊김: `AnalysisChartFrame.yFit` 선 차트의 값 축이 0에 닿지 않으면, 범주 기준선 시작점에 빗금 두 줄(`border-control`, 바탕은 카드 면)을 그린다. 모든 값이 0보다 크면 아래쪽, 모두 0보다 작으면 위쪽이다. 0이 축 범위 안이면 그리지 않는다. 범위는 ECharts가 그린 축에서 읽는다. 막대 수량 축은 늘 0에서 시작한다.
+- 높이 단계(`CHART_HEIGHTS`): compact 200px, regular 280px(`AnalysisChart`)·260px(`AnalysisChartFrame`), hero 360px, fill 최소 320px. 행 기반 차트(`topNBar`, `rowPitch` 가로 막대)는 행 수만큼 자라며 `topNBar` 기본 행은 28px이다.
 
 ### 종류별 상호작용
 

@@ -19,6 +19,7 @@ import { safeFileName } from '../table/download';
 import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as diagnostic } from './analysisChartData';
 import { KindLegend } from './analysisChartKinds';
 import { heatmapMinCanvasHeight, heatmapSymbolSize } from './analysisChartGeometry';
+import { CHART_HEIGHTS } from './chartMarks';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
 import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
@@ -220,7 +221,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const fittedDonut = spec.kind === 'donut' && size === 'fill' && chrome === 'standard';
   const donutMinimumHeight = 112;
   const measuredFillHeight = chrome === 'standard' ? Math.max(0, fill.height ?? 0) : fillChartHeight(fill.height);
-  const height = p.height ?? (size === 'fill' && fill.height !== null ? measuredFillHeight : spec.kind === 'topNBar' ? Math.max(120, rows.length * 28 + 24) : analysisChartHeight(size, 280));
+  const height = p.height ?? (size === 'fill' && fill.height !== null ? measuredFillHeight : spec.kind === 'topNBar' ? Math.max(120, rows.length * CHART_HEIGHTS.rowPitch + 24) : analysisChartHeight(size, CHART_HEIGHTS.regular));
   const rowFloor = spec.kind === 'heatmap' && Number.isFinite(spec.minRowHeight) && spec.minRowHeight! > 0 ? spec.minRowHeight : undefined;
   let canvasHeight = height;
   if (rowFloor && spec.kind === 'heatmap') canvasHeight = Math.max(height, heatmapMinCanvasHeight(spec.yLabels.length, rowFloor));
