@@ -3,7 +3,7 @@ import { emptyGlobal, groupId, NO_FEATURES, spaceId, type AnalysisSelection, typ
 import { House } from 'lucide-react';
 import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { analysisSelectionParam, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, usePlatform } from '../../index';
+import { analysisSelectionParam, parseAnalysisSelection, useAnalysisSelectionChips, useAnalysisSelectionInputs, useAnalysisSelectionOutput, usePlatform } from '../../index';
 import { I18nProvider } from '../../i18n';
 import { LentPanelPlatformContext } from '../../platform/contexts';
 import { useLeaveRequest, useUnsavedGuard } from '../../platform/hooks';
@@ -246,4 +246,137 @@ it('ignores bound values and disables selection writes in a lent panel', () => {
   expect(result.current.output.select(set)).toBe(false);
   expect(result.current.inputs).toEqual({ applied: [], filtered: false, rejected: [] });
   expect(search().getAll(setKey)).toEqual(['B']);
+});
+
+const middleKey = 'moduleSet';
+const lastKey = 'operationSet';
+const equipmentLabel = { ko: '설비', en: 'Equipment' };
+const chipPanels: PanelDeclaration[] = [
+  { ...panel, id: 'last', queryInputs: { page: [{ key: middleKey, selection: 'filter' }] },
+    outputs: [{ key: lastKey, action: 'pick', selection: { shape: 'set', dimension: 'operation' } }] },
+  { ...panel, id: 'middle', displayInputs: { page: [{ key: setKey, selection: 'filter' }, { key: rangeKey, selection: 'highlight' }] },
+    outputs: [{ key: middleKey, action: 'pick', selection: { shape: 'set', dimension: 'module' } }] },
+  panels[0],
+  { ...panels[3], outputs: [{ key: setKey, action: 'pick', selection: { shape: 'set', dimension: 'equipment', label: equipmentLabel } }] },
+];
+const chipKeys = [lastKey, middleKey, setKey, rangeKey];
+const chipRegistry = createRegistry({
+  spaces: [testSpace()],
+  groups: [{ id: home.group, label: title, icon: House, space: spaceId('mars') }],
+  menus: [home, { ...home, id: 'analysis', path: '/analysis', primary: false, panels: chipPanels,
+    pageKeys: [...chipKeys, 'sort'], repeatedPageKeys: [lastKey, middleKey, setKey], contextResetKeys: chipKeys }],
+});
+function ChipWrapper({ children }: { children: ReactNode }) {
+  return <I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry}>{children}</PlatformProvider></I18nProvider>;
+}
+const chainQuery = '&operationSet=op&moduleSet=mod&equipmentSet=A&timeRange=14%3A00%2F16%3A00&sort=name';
+
+it('orders analysis selection chips by filter ancestry and uses the first writer as source', () => {
+  const result = mount(useAnalysisSelectionChips, chainQuery, ChipWrapper);
+  expect(result.current.chips).toEqual([
+    { key: setKey, selection: a, dimension: 'equipment', label: equipmentLabel, source: { panelId: 'source', title }, after: null },
+    { key: middleKey, selection: { shape: 'set', values: ['mod'] }, dimension: 'module', label: null, source: { panelId: 'middle', title }, after: setKey },
+    { key: lastKey, selection: { shape: 'set', values: ['op'] }, dimension: 'operation', label: null, source: { panelId: 'last', title }, after: middleKey },
+    { key: rangeKey, selection: range, dimension: 'time', label: null, source: { panelId: 'source', title }, after: null },
+  ]);
+});
+
+it('skips rejected keys when building chips', () => {
+  const result = mount(useAnalysisSelectionChips, '&moduleSet=mod&timeRange=malformed&sort=name', ChipWrapper);
+  expect(result.current.chips).toMatchObject([{ key: middleKey, label: null, after: null }]);
+});
+
+it('keeps the model reference while parsed values are equal', () => {
+  const result = mount(() => ({ model: useAnalysisSelectionChips(), platform: usePlatform() }), chainQuery, ChipWrapper);
+  const { model } = result.current;
+  act(() => result.current.platform.setPage({ sort: 'date', [setKey]: ['A', 'A'] }));
+  expect(result.current.model).toBe(model);
+  act(() => result.current.platform.setPage({ [setKey]: 'B' }));
+  expect(result.current.model.chips).not.toBe(model.chips);
+});
+
+it('clears only the middle chip and leaves the later analysis selection', () => {
+  const result = mount(useAnalysisSelectionChips, chainQuery, ChipWrapper);
+  act(() => {
+    expect(result.current.clear('sort')).toBe(false);
+    expect(result.current.clear(middleKey)).toBe(true);
+    expect(result.current.clear(middleKey)).toBe(false);
+  });
+  expect(search().get(lastKey)).toBe('op');
+  expect(result.current.chips.find(chip => chip.key === lastKey)?.after).toBeNull();
+  expect(search().get('sort')).toBe('name');
+});
+
+it('clears all analysis selection keys in one history entry and restores them on Back', async () => {
+  window.history.pushState(null, '', window.location.href);
+  const from = '2026-09-19T00:00:00';
+  const to = '2026-09-20T00:00:00';
+  const result = mount(useAnalysisSelectionChips, `${chainQuery}&from=${from}&to=${to}`, ChipWrapper);
+  const before = result.current.chips;
+  const start = window.history.length;
+  act(() => expect(result.current.clearAll()).toBe(true));
+  expect(window.history.length).toBe(start + 1);
+  expect(Object.fromEntries(search())).toEqual({ v: '1', sort: 'name', from, to });
+  expect(result.current.clearAll()).toBe(false);
+  window.history.back();
+  await waitFor(() => expect(result.current.chips).toEqual(before));
+});
+
+it.each(['clear', 'clearAll'] as const)('proposes a single board pane write for %s', action => {
+  const propose = vi.fn<(screen: PaneScreen, how: 'push' | 'replace') => void>();
+  const Board = ({ children }: { children: ReactNode }) => <ChipWrapper><PaneScreenProvider paneId="one"
+    screen={{ menuId: 'analysis', params: {}, query: '?v=1' + chainQuery }} onChange={propose} onLeave={() => {}}>{children}</PaneScreenProvider></ChipWrapper>;
+  const result = mount(useAnalysisSelectionChips, '&equipmentSet=main', Board);
+  expect(result.current.chips.map(chip => chip.key)).toEqual([setKey, middleKey, lastKey, rangeKey]);
+  act(() => expect(result.current[action](middleKey)).toBe(true));
+  expect(propose).toHaveBeenCalledTimes(1);
+  const [[next, how]] = propose.mock.calls;
+  expect(how).toBe('push');
+  const page = new URLSearchParams(next.query);
+  expect(page.has(middleKey)).toBe(false);
+  expect(chipKeys.filter(key => page.has(key))).toEqual(action === 'clear' ? [lastKey, setKey, rangeKey] : []);
+  expect(page.get('sort')).toBe('name');
+  expect(search().get(setKey)).toBe('main');
+});
+
+it('clears a rejected raw value as part of clearing all keys', () => {
+  const result = mount(useAnalysisSelectionChips, '&timeRange=malformed', ChipWrapper);
+  expect(result.current.chips).toEqual([]);
+  act(() => expect(result.current.clearAll()).toBe(true));
+  expect(search().has(rangeKey)).toBe(false);
+});
+
+it('returns empty chips and refuses writes in a lent panel', () => {
+  const result = mount(useAnalysisSelectionChips, chainQuery, ({ children }) => <ChipWrapper><Lent>{children}</Lent></ChipWrapper>);
+  expect(result.current.chips).toEqual([]);
+  expect(result.current.clear(setKey)).toBe(false);
+  expect(result.current.clearAll()).toBe(false);
+  expect(search().get(setKey)).toBe('A');
+});
+
+it('refuses a stale clear after leaving the screen in the same event', () => {
+  const { current: { model, platform } } = mount(() => ({ model: useAnalysisSelectionChips(), platform: usePlatform() }), chainQuery, ChipWrapper);
+  act(() => {
+    expect(platform.navigate('/mars')).toBe(true);
+    expect(model.clear(setKey)).toBe(false);
+    expect(model.clearAll()).toBe(false);
+  });
+});
+
+it('returns empty chips and refuses writes on a route without menu state', () => {
+  window.history.replaceState(null, '', '/board');
+  const { result } = renderHook(useAnalysisSelectionChips, { wrapper: ChipWrapper });
+  expect(result.current.chips).toEqual([]);
+  expect(result.current.clear(setKey)).toBe(false);
+  expect(result.current.clearAll()).toBe(false);
+});
+
+it('refuses retained clear actions after the screen unmounts', () => {
+  window.history.replaceState(null, '', `/mars/analysis?v=1${chainQuery}`);
+  const { result, unmount } = renderHook(useAnalysisSelectionChips, { wrapper: ChipWrapper });
+  const { clear, clearAll } = result.current;
+  unmount();
+  expect(clear(setKey)).toBe(false);
+  expect(clearAll()).toBe(false);
+  expect(search().get(setKey)).toBe('A');
 });

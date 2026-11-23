@@ -1064,6 +1064,18 @@ describe('analysis selection registration (#2732)', () => {
   ])('rejects %s', (_name, panels, extra, reason) => {
     expect(() => build(panels, extra)).toThrow(reason);
   });
+
+  it.each([
+    { ko: '기간', en: 'Window' },
+    { ko: '시간', en: 'Period' },
+  ])('rejects conflicting analysis selection labels %j', label => {
+    const labeled = { ...output, selection: { ...selection, label: { ko: '기간', en: 'Period' } } };
+    expect(() => build([
+      writer,
+      { ...other, outputs: [labeled] },
+      { ...writer, id: 'third', outputs: [{ ...labeled, selection: { ...selection, label } }] },
+    ])).toThrow(/agree on label/);
+  });
 });
 
 describe('lent panel registration (#2490)', () => {

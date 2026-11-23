@@ -28,7 +28,16 @@ export type PanelDeclaration<K extends string = string> = {
   readonly displayInputs: PanelInputs<K>;
   /** Optional in-memory JSON inputs for lending, independent of page state. */
   readonly display?: readonly { readonly key: string }[];
-  readonly outputs: readonly { readonly key: K; readonly action: string; readonly selection?: { readonly dimension: string; readonly shape: AnalysisSelectionShape } }[];
+  readonly outputs: readonly {
+    readonly key: K;
+    readonly action: string;
+    readonly selection?: {
+      readonly dimension: string;
+      readonly shape: AnalysisSelectionShape;
+      /** Display name of the dimension for analysis selection chips. */
+      readonly label?: Text;
+    };
+  }[];
   readonly grain: string;
   readonly endpoints: readonly (Pick<AnyEndpointSpec, 'id' | 'menuId' | 'permission'>
     & Partial<Pick<AnyEndpointSpec, 'context' | 'requiredContext' | 'requiresScope'>>)[];

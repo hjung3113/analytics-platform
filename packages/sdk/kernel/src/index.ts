@@ -1,6 +1,6 @@
 export { createBrowserLocation, createBasePathLocation, type PlatformLocation } from './context/location';
 export { useDrill, type DrillInvalid, type DrillLevelState, type DrillState, type DrillTrailStep } from './context/drill';
-export { ANALYSIS_SELECTION_MAX_VALUES, analysisSelectionParam, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, type AppliedAnalysisSelection } from './context/analysisSelection';
+export { ANALYSIS_SELECTION_MAX_VALUES, analysisSelectionParam, parseAnalysisSelection, useAnalysisSelectionChips, useAnalysisSelectionInputs, useAnalysisSelectionOutput, type AnalysisSelectionChip, type AppliedAnalysisSelection } from './context/analysisSelection';
 export { contractErrorSentence, errorGuidance, formatText, I18nProvider, invalidValueSentence, objectParticle, queryMissingSentence, topicParticle, useI18n, useMessages, type ErrorGuidance, type Key, type Lang, type Text, type TextParams } from './i18n';
 export { formatFeedTime, formatListTime, formatSummaryTime, type TimeNotationOptions } from './notation/time';
 export { classifyMetricInit, type MetricInit } from './registry/metric-init';

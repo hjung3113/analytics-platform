@@ -107,11 +107,15 @@ function validateAnalysisSelections(menu: MenuEntry, carryKeys: readonly string[
     ['hiddenPageKeys', menu.hiddenPageKeys ?? []],
     ['a carry set page key', carryKeys],
   ] as const;
-  for (const [key, { shape, dimension, writers }] of channels) {
+  for (const [key, { shape, dimension, label, writers }] of channels) {
     const invalid = (message: string): never => error(`selection key "${key}" ${message}`);
     for (const { selection } of writers) {
       if (!selection) invalid('must declare selection on every output');
       if (selection?.shape !== shape || selection.dimension !== dimension) invalid('writers must agree on shape and dimension');
+      if (selection?.label !== undefined) {
+        if (!textPresent(selection.label)) invalid('label must have non-empty ko/en text');
+        if (selection.label.ko !== label?.ko || selection.label.en !== label.en) invalid('writers must agree on label');
+      }
     }
     if (Boolean(menu.repeatedPageKeys?.includes(key)) !== (shape === 'set')) invalid(`shape "${shape}" conflicts with repeatedPageKeys`);
     if (!menu.contextResetKeys?.includes(key)) invalid('must be in contextResetKeys');
