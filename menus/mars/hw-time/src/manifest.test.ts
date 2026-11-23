@@ -11,7 +11,7 @@ describe('manifest', () => {
     expect(menu.repeatedPageKeys).toContain('motionEquipment');
     expect(menu.contextResetKeys).toContain('motionEquipment');
     expect(menu.panels?.flatMap(panel => panel.outputs.filter(output => output.selection).map(output => [panel.id, output.key, output.selection])))
-      .toEqual([['moduleMotions', 'motionEquipment', { dimension: 'equipmentId', shape: 'set' }]]);
+      .toEqual([['moduleMotions', 'motionEquipment', { dimension: 'equipmentId', shape: 'set', label: { ko: '설비', en: 'Equipment' } }]]);
     expect(menu.panels?.find(panel => panel.id === 'table')?.queryInputs.page).toContainEqual({ key: 'motionEquipment', selection: 'filter' });
   });
 

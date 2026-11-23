@@ -6,6 +6,11 @@ import { useLayoutEffect, useState } from 'react';
  */
 export function useElementSize(enabled = true): { ref: (node: HTMLElement | null) => void; width: number | null; height: number | null } {
   const [node, setNode] = useState<HTMLElement | null>(null);
+  const size = useObservedElementSize(node, { enabled });
+  return { ref: setNode, width: size?.width ?? null, height: size?.height ?? null };
+}
+
+export function useObservedElementSize(node: HTMLElement | null, { enabled = true } = {}) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   useLayoutEffect(() => {
     if (!enabled || !node) { setSize(null); return; }
@@ -17,5 +22,5 @@ export function useElementSize(enabled = true): { ref: (node: HTMLElement | null
     observer.observe(node);
     return () => { observer.disconnect(); };
   }, [enabled, node]);
-  return { ref: setNode, width: size?.width ?? null, height: size?.height ?? null };
+  return size;
 }

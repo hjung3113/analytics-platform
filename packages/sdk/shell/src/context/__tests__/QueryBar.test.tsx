@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildQuery, defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
 import { PlatformPage, QueryBarExtensionContext, QueryView, useFocusContextEditor, type QueryBarExtension } from '@ap/components';
 import { House } from 'lucide-react';
-import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQuery, useSavedViewSupport } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQuery, useSavedViewSupport, useAnalysisSelectionOutput } from '@ap/kernel';
 import { useHostPlatform, PaneQueryDraftProvider, PaneScreenProvider } from '@ap/kernel/host';
 import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '@ap/kernel/testing';
 import { GlobalContextBar, contextBarVisible } from '../GlobalContextBar';
@@ -684,6 +684,77 @@ it.each([['compact', 'px-4'], ['comfortable', 'px-3']] as const)('%s page: the c
 
 const APPLIED = '&roomNames=PHOTO&from=2026-01-01T01:00:00&to=2026-01-02T01:00:00';
 const bar = () => screen.getByRole('region', { name: '조회 조건' });
+
+function foldedSelectionRegistry() {
+  const key = 'equipmentSet';
+  const title = { ko: '설비 추세', en: 'Equipment trend' };
+  return createRegistry({
+    spaces: registry.spaces, groups: registry.groups, menus: [{
+      ...registry.menus[0], pageKeys: [key], repeatedPageKeys: [key], contextResetKeys: [key],
+      panels: [{ id: 'source', title, grain: 'daily', endpoints: [], queryInputs: {}, displayInputs: {},
+        outputs: [{ key, action: 'pick', selection: { shape: 'set', dimension: 'equipment' } }] }],
+    }],
+  });
+}
+
+it('places analysis selections between the folded main summary and actions', async () => {
+  const key = 'equipmentSet';
+  const query = `?scopeId=MEM${APPLIED}&${key}=E1`;
+  const session = testSession(['platform:view']);
+  window.history.replaceState(null, '', `/${query}`);
+  render(<I18nProvider><PlatformProvider registry={foldedSelectionRegistry()} adapter={testAdapter({ session: () => session })}>
+    <GlobalContextBar />
+  </PlatformProvider></I18nProvider>);
+  const unfold = await screen.findByRole('button', { name: '조회 조건 펼치기' });
+  const zone = within(bar()).getByRole('group', { name: '분석 선택' });
+  const summary = bar().querySelector('summary')!;
+  const actions = within(bar()).getByRole('group', { name: '조회 조건 동작' });
+  expect(summary.compareDocumentPosition(zone) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(zone.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(zone).toHaveTextContent('equipment E1');
+  fireEvent.click(unfold);
+  expect(screen.getByRole('button', { name: '조회 조건 접기' })).toBeVisible();
+  expect(screen.queryByRole('group', { name: '분석 선택' })).toBeNull();
+});
+it('keeps free space after the folded main chip zone', async () => {
+  renderSelectionScreen();
+  const zone = await screen.findByRole('group', { name: '분석 선택' });
+  expect(zone.parentElement?.firstElementChild).toHaveClass('shrink');
+  expect(zone.parentElement?.firstElementChild).not.toHaveClass('flex-1');
+});
+
+function renderSelectionScreen(available?: readonly string[]) {
+  const key = 'equipmentSet';
+  const chipRegistry = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{
+    ...registry.menus[0], features: { ...registry.menus[0].features, board: true },
+    pageKeys: [key], repeatedPageKeys: [key], contextResetKeys: [key],
+    panels: [{ id: 'source', title: { ko: '출처', en: 'Source' }, grain: 'daily', endpoints: [], queryInputs: {}, displayInputs: {},
+      outputs: [{ key, action: 'pick', selection: { shape: 'set', dimension: 'equipment' } }] }],
+  }] });
+  function SourcePanel() { useAnalysisSelectionOutput('source', key, { available }); return null; }
+  const session = testSession(['platform:view']);
+  window.history.replaceState(null, '', `/?scopeId=MEM${APPLIED}&${key}=E1`);
+  render(<I18nProvider><PlatformProvider registry={chipRegistry} adapter={testAdapter({ session: () => session })} slots={{ contextBar: <GlobalContextBar /> }}>
+    <PlatformPage layout="fill"><SourcePanel /></PlatformPage>
+  </PlatformProvider></I18nProvider>);
+}
+
+it('shows unavailable selections from a reporting panel in the main QueryBar', async () => {
+  renderSelectionScreen([]);
+  expect(await within(await screen.findByRole('group', { name: '분석 선택' })).findByText('해당 없음')).toBeVisible();
+});
+
+it('omits the analysis selection group from the folded board pane', async () => {
+  const pane = { menuId: 'home', params: {}, query: `?scopeId=MEM${APPLIED}&equipmentSet=E1` };
+  const session = testSession(['platform:view']);
+  window.history.replaceState(null, '', '/?scopeId=MEM');
+  render(<I18nProvider><PlatformProvider registry={foldedSelectionRegistry()} adapter={testAdapter({ session: () => session })}>
+    <PaneQueryDraftProvider screens={{ p1: pane }}><PaneScreenProvider paneId="p1" screen={pane} onChange={() => {}} onLeave={() => {}}><GlobalContextBar /></PaneScreenProvider></PaneQueryDraftProvider>
+  </PlatformProvider></I18nProvider>);
+  expect(await within(bar()).findByRole('button', { name: '전체 조회 조건 보기' })).toBeVisible();
+  expect(within(bar()).queryByRole('group', { name: '분석 선택' })).toBeNull();
+});
+
 describe('initial disclosure (#1892)', () => {
   it('starts collapsed when the incoming URL already carries an applied query', async () => {
     mount(APPLIED);

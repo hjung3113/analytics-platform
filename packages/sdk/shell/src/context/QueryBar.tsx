@@ -7,6 +7,7 @@ import { CUSTOM_GROUP_AXIS, formatPeriod, periodDates, periodFromDates, type Glo
 import { useConditionPreset, queryMissingSentence, useI18n, useMessages, useQueryDraft } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { useRegisterContextEditorFocus, useCollapsePreference, AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
+import { AnalysisSelectionChipZone } from '@ap/components';
 import { Alert, AlertDescription, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { PeriodFields, type PeriodDates } from './PeriodFields';
 import { useSessionKey } from '../frame/sessionKey';
@@ -76,6 +77,8 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const m = useMessages(SHELL_MESSAGES);
   const id = useId();
   const disclosure = useRef<HTMLButtonElement>(null);
+  const [foldedLane, setFoldedLane] = useState<HTMLDivElement | null>(null);
+  const [summaryProbe, setSummaryProbe] = useState<HTMLSpanElement | null>(null);
   const editor = useRef<HTMLDivElement>(null);
   const overflow = useRef<HTMLButtonElement>(null);
   const nextTool = useRef<QueryBarTool | null>(null);
@@ -311,11 +314,18 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     {board && <><p className="text-xs [overflow-wrap:anywhere]">{m('queryEditingConditions')} · {summary}</p><p className="text-xs [overflow-wrap:anywhere]">{m('queryAppliedConditions')} · {applied}</p>{actions}{issues}<Button type="button" variant="ghost" size="toolbar" onClick={() => toggle(false)}>{t('close')}</Button></>}
   </div>;
   const trigger = <Button ref={disclosure} type="button" variant="secondary" size="toolbar" aria-label={expanded ? m('queryCollapseConditions') : m('queryExpandConditions')} aria-expanded={expanded} aria-controls={`${id}-editor`} onClick={board ? undefined : () => toggle(!expanded)}>{expanded ? <ChevronUp aria-hidden className="size-4" /> : <ChevronDown aria-hidden className="size-4" />}{label?.visible ?? m('queryConditionsTitle')}</Button>;
+  const foldedText = `${editing ? m('queryEditing') : m('queryAppliedConditions')} · ${foldedSummary}`;
   return <><section role="region" aria-label={label?.region ?? m('queryConditionsTitle')} data-query-bar data-canvas-band data-query-bar-collapsed={!board && !expanded ? '' : undefined} className={!board && !expanded ? 'sticky top-[50px] z-20 min-w-0 border-b border-border-chrome bg-surface-band' : 'min-w-0 border-b border-border-chrome bg-surface-band'}>
-    <div className={board ? `flex h-12 min-w-0 items-center gap-2 overflow-x-auto ${inset}` : `flex min-h-12 min-w-0 flex-wrap items-center gap-2 ${inset}`}>
+    <div className={board ? `flex h-12 min-w-0 items-center gap-2 overflow-x-auto ${inset}` : `flex min-h-12 min-w-0 items-center gap-2 ${expanded ? 'flex-wrap' : ''} ${inset}`}>
       {board ? <Popover open={expanded} onOpenChange={toggle}><PopoverTrigger asChild>{trigger}</PopoverTrigger><PopoverContent align="start" side="bottom" className="max-h-[var(--radix-popover-content-available-height)] w-[min(64rem,var(--radix-popover-content-available-width))] overflow-y-auto" onOpenAutoFocus={event => { event.preventDefault(); focusEditor(focusOnOpen.current ?? 'first'); }} onCloseAutoFocus={event => { event.preventDefault(); disclosure.current?.focus(); }}>{content}</PopoverContent></Popover> : trigger}
       {board && !expanded && <Button type="button" variant="ghost" size="toolbar" className="min-w-0 flex-1 justify-start overflow-x-auto" aria-label={m('queryViewFullConditions')} onClick={() => toggle(true)}><span className="whitespace-nowrap">{editing ? m('queryEditing') : m('queryAppliedConditions')} · {foldedSummary}</span></Button>}
-      {!board && !expanded && <details className="min-w-0 flex-1 text-xs"><summary className="cursor-pointer list-none break-keep [overflow-wrap:anywhere] [&::-webkit-details-marker]:hidden">{editing ? m('queryEditing') : m('queryAppliedConditions')} · {foldedSummary}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryEditingConditions')} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryAppliedConditions')} · {applied}</p></details>}
+      {!board && !expanded && <div ref={setFoldedLane} className="relative flex min-w-0 flex-1 items-center">
+        <details className="min-w-0 shrink text-xs"><summary className="cursor-pointer list-none truncate [&::-webkit-details-marker]:hidden">{foldedText}</summary><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryEditingConditions')} · {summary}</p><p className="whitespace-normal [overflow-wrap:anywhere]">{m('queryAppliedConditions')} · {applied}</p></details>
+        <div aria-hidden className="invisible absolute inset-x-0 top-0 h-0 overflow-hidden">
+          <span ref={setSummaryProbe} className="inline-block whitespace-nowrap"><span data-summary={foldedText} className="before:content-[attr(data-summary)] text-xs" /></span>
+        </div>
+        <AnalysisSelectionChipZone fit={{ container: foldedLane, summary: summaryProbe }} fallbackFocus={disclosure} />
+      </div>}
       {!expanded && foldedActions}
       {expanded && <ShareControl compact={false} align="start" />}
     </div>

@@ -28,6 +28,7 @@ export { token } from './chart/EChart';
 export { type EChartProps } from './chart/EChart';
 export * from './filters/PageFilterBar';
 export { FilterLine, type FilterLineProps } from './filters/FilterLine';
+export { AnalysisSelectionChipZone } from './filters/AnalysisSelectionChipZone';
 export { PageConditionCategories, type PageConditionCategoriesProps, type PageConditionOptions, type PageConditionOptionsLoader } from './filters/PageConditionCategories';
 export { PageConditionTree, type PageConditionTreeProps } from './filters/PageConditionTree';
 export { usePageConditionOptionsLoader, PageConditionOptionsError } from './filters/usePageConditionOptionsLoader';
