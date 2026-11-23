@@ -9,6 +9,7 @@ import { buildChartOption, resolveChartPalette } from '../buildChartOption';
 import { baselineInput } from '../__fixtures__/baselineInput';
 import { heatmapStatusOutlines, statusRing } from '../chartStatus';
 import { token } from '../EChart';
+import { CHART_ECHARTS_THEME } from '../chartMarks';
 import type { ChartSeries } from '../AnalysisChartFrame';
 
 echarts.use([BarChart, CustomChart, LineChart, ScatterChart, BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent, LabelLayout, SVGRenderer]);
@@ -44,7 +45,8 @@ describe('effective status borders drawn by ECharts (#2326 C1)', () => {
         return result as ReturnType<typeof original>;
       };
     }
-    const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 800, height: 260 });
+    // The theme EChart draws with sets the native bar layout the rings follow (#2725).
+    const chart = echarts.init(null, CHART_ECHARTS_THEME, { renderer: 'svg', ssr: true, width: 800, height: 260 });
     try {
       chart.setOption({ ...option, animation: false });
       const svg = chart.renderToSVGString();

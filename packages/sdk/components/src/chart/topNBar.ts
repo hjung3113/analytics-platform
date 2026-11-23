@@ -1,10 +1,12 @@
 import { formatText, type Lang } from '@ap/kernel';
-import { isThemeColorToken } from '@ap/ui/theme';
+import { isThemeColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { TopNBarSpec } from './AnalysisChart';
 import { chartDiagnostic } from './analysisChartData';
 import type { KindProjection } from './analysisChartKinds';
 import { chartTheme, token } from './EChart';
+import { barRadius } from './chartMarks';
+import { segmentLabelStyle } from './chartValueLabels';
 
 /** Caller aggregates; this projection alone owns ordering, limiting, table and export. */
 export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string): KindProjection {
@@ -38,14 +40,18 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
     legend, seriesKeys: [rows.map(row => row.key)], labels,
     option: active => {
       const theme = chartTheme();
+      const insideLabel = (fill: ThemeColorToken) => {
+        const style = segmentLabelStyle(fill);
+        return { color: token(style.text), ...(style.chip ? { backgroundColor: token('surface-card'), borderRadius: 2 } : {}) };
+      };
       return {
         grid: { top: 12, bottom: 12, left: 16, right: 24, containLabel: true },
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { dataIndex: number }) => tableValues[p.dataIndex]?.join(' · ') ?? '' },
         xAxis: { type: 'value', min: 0, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
         yAxis: { type: 'category', inverse: true, data: rows.map(row => row.label), axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, width: 112, overflow: 'truncate', interval: 0 } },
-        series: [{ type: 'bar', barMaxWidth: 24,
+        series: [{ type: 'bar', itemStyle: { borderRadius: barRadius(true) },
           label: { show: true, position: 'insideRight', formatter: (p: { dataIndex: number }) => tableValues[p.dataIndex]?.[1] ?? '' },
-          data: rows.map(row => ({ value: row.value, itemStyle: { color: token(row.color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(row.key) ? 2 : 0 } })) }],
+          data: rows.map(row => ({ value: row.value, label: insideLabel(row.color), itemStyle: { color: token(row.color), borderColor: token('chart-selection-outline'), borderWidth: active.includes(row.key) ? 2 : 0 } })) }],
       };
     },
   };

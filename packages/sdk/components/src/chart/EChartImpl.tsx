@@ -8,6 +8,7 @@ import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { cn, prefersReducedMotion } from '@ap/ui';
 import { baseTextStyle, type EChartProps } from './EChart';
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
+import { CHART_ECHARTS_THEME } from './chartMarks';
 
 echarts.use([LineChart, BarChart, BoxplotChart, CustomChart, PieChart, ScatterChart, GridComponent, TooltipComponent, DataZoomComponent, BrushComponent, ToolboxComponent, MarkAreaComponent, MarkLineComponent, LabelLayout, CanvasRenderer]);
 
@@ -79,7 +80,7 @@ export default function EChartImpl({ option, height = 280, onEvents, onReady, on
     if (!el.current) return;
     let instance: ECharts;
     try {
-      instance = echarts.init(el.current, undefined, { renderer: 'canvas' });
+      instance = echarts.init(el.current, CHART_ECHARTS_THEME, { renderer: 'canvas' });
     } catch (cause) {
       reportChartUnavailable(cause);
       setUnavailable(true);

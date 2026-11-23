@@ -3,10 +3,13 @@ import type { ChartOptionInput } from './buildChartOption';
 import type { LaneLayout } from './chartLanes';
 import { chartPointKey, statusBacking, statusBorderColor, statusRing, type ChartStatus } from './chartStatus';
 import { toMs } from './analysisChartShared';
+import { CHART_MARKS } from './chartMarks';
 
 type RenderItem = Exclude<CustomSeriesOption['renderItem'], undefined | string>;
-const BAR_MAX_WIDTH = 18;
-const BAR_GAP = 0.1; // ECharts BarSeries' defaultBarGap.
+// The native bars' layout (CHART_ECHARTS_THEME), so each ring sits on its bar.
+const { barMaxWidth: BAR_MAX_WIDTH, barGap, barCategoryGap } = CHART_MARKS;
+const BAR_GAP = parseFloat(barGap) / 100;
+const CATEGORY_GAP = parseFloat(barCategoryGap) / 100;
 
 /**
  * The status ring of every status bar piece (#2351): a border inside the piece, plus a backing just inside it where the
@@ -37,15 +40,14 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
       const piece = pieces[Number(api.value(3))];
       const category = Number(api.value(0));
       const start = Number(api.value(1)); const end = Number(api.value(2));
-      const layouts = api.barLayout!({ count, barMaxWidth: BAR_MAX_WIDTH, barMinWidth: 1, barGap: `${BAR_GAP * 100}%` });
+      const layouts = api.barLayout!({ count, barMaxWidth: BAR_MAX_WIDTH, barMinWidth: 1, barGap, barCategoryGap });
       let layout: { width: number; offset: number } | undefined = layouts?.[input.stacked ? 0 : slot];
       if (!layout) {
-        // Time axes do not expose barLayout. Use the same minimum interval, category gap and stack-count rule.
+        // Time axes do not expose barLayout. Use the same minimum interval and category gap.
         const times = [...new Set(bars.flatMap(s => s.points.map(([x]) => toMs(x))))].sort((a, b) => a - b);
         const interval = Math.min(...times.slice(1).map((x, i) => x - times[i]));
         const band = Math.abs((api.size!([interval, 0]) as number[])[0]);
-        const categoryGap = Math.max(35 - count * 4, 15) / 100;
-        const width = Math.max(1, Math.min(BAR_MAX_WIDTH, band * (1 - categoryGap) / (count + (count - 1) * BAR_GAP)));
+        const width = Math.max(1, Math.min(BAR_MAX_WIDTH, band * (1 - CATEGORY_GAP) / (count + (count - 1) * BAR_GAP)));
         const totalWidth = width * (count + (count - 1) * BAR_GAP);
         layout = { width, offset: -totalWidth / 2 + slot * width * (1 + BAR_GAP) };
       }

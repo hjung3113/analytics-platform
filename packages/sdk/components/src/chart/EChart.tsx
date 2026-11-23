@@ -6,6 +6,7 @@ import { Button, Skeleton, cn } from '@ap/ui';
 import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import { StateMessage } from '../StateView';
 import { ChunkLoadBoundary, lazyChunk, useLazyChunk } from '../lazyChunk';
+import { CHART_MARKS } from './chartMarks';
 
 /** Palette contract consumed by charts (DESIGN.md platform chart/category extensions). Read from CSS variables so tokens stay single-sourced. */
 export function token(name: ThemeColorToken): string {
@@ -14,7 +15,8 @@ export function token(name: ThemeColorToken): string {
 
 /* eslint-disable shadcn/no-raw-colors -- CSS variable names for token(), not classes */
 const chartThemeTokens = {
-  axisLine: 'border-strong',
+  axisLine: 'border-control',
+  separator: 'border-strong',
   splitLine: 'chart-grid',
   axisLabel: 'text-muted',
   tooltipBackground: 'surface-popover',
@@ -45,6 +47,8 @@ export function chartTheme() {
   const referenceText = token(chartThemeTokens.referenceText);
   return {
     axisLine: { lineStyle: { color: token(chartThemeTokens.axisLine) } },
+    /** Row-group and lane dividers inside the plot: lighter than the axis baseline. */
+    separator: token(chartThemeTokens.separator),
     splitLine: { lineStyle: { color: token(chartThemeTokens.splitLine) } },
     axisLabel: { color: token(chartThemeTokens.axisLabel) },
     tooltip: {
@@ -67,7 +71,7 @@ export const baseTextStyle = {
     return (typeof window !== 'undefined' && getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim())
       || "'Inter Variable', 'Pretendard Variable', system-ui, sans-serif";
   },
-  fontSize: 11,
+  fontSize: CHART_MARKS.fontSize,
   // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
   get color(): string { return token('text-muted'); },
 };

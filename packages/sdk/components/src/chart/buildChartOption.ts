@@ -19,6 +19,7 @@ import { rowGroupLayout, rowGroupSeries, rowLabel, type ChartRowGroups } from '.
 import { emptyCategoryLabels, emptyCategorySeries } from './chartEmptyCategories';
 import type { Selection } from './useChartRange';
 import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
+import { barRadius, CHART_MARKS, lineSymbolShown } from './chartMarks';
 import { LABEL_FONT, labelFitsSegment, labelWidth, segmentLabelStyle, shortNumber, stackEnd, type LabelRect, type RowTotal, type ValueLabels } from './chartValueLabels';
 
 /** The plot's horizontal margin (grid left 52 + right 20). */
@@ -444,6 +445,10 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     return rows.join('<br/>');
   }
   const fitY = i.yFit && !horizontal && i.displayed.every(series => (series.kind ?? 'line') === 'line');
+  /** The only shown series is a solid line: it gets a light area (#2725). */
+  const areaLine = !horizontal && i.displayed.length === 1 && (i.displayed[0].kind ?? 'line') === 'line' && linePattern(i.displayed[0], i.previousIds.has(i.displayed[0].id)) === 'solid';
+  /** Value labels inside a bar piece: the text token that reads on that fill, on a surface chip when the fill is outside the checked set. */
+  const insideLabel = (n: number) => ({ color: palette.segmentText[n].color, ...(palette.segmentText[n].chip ? { backgroundColor: palette.labelSurface, borderRadius: 2, padding: 0 } : {}) });
   const valueAxis = { type: 'value', ...(fitY ? { scale: true } : { min: 0 }), name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine,
     ...(bounds?.extent ? { min: (extent: { min: number }) => Math.min(fitY ? extent.min : 0, extent.min, bounds.extent!.min), max: (extent: { max: number }) => Math.max(extent.max, bounds.extent!.max) } : {}),
   };
@@ -482,7 +487,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           const mark = extreme?.min.x === x ? 'min' : extreme?.max.x === x ? 'max' : null;
           const status = kind === 'bar' ? statuses.get(chartPointKey({ seriesId: s.id, x })) : undefined;
           const label = y !== null && selectedPoints.has(chartPointKey({ seriesId: s.id, x }))
-            ? { show: true, position: horizontal ? 'insideRight' : 'top', formatter: () => `${axis.valueFormat(y)} ${unit}`.trim() }
+            ? { show: true, position: horizontal ? 'insideRight' : 'top', ...(horizontal ? insideLabel(n) : {}), formatter: () => `${axis.valueFormat(y)} ${unit}`.trim() }
             : undefined;
           if (!isActive && !mark && !status) return label ? { value: y, label } : y;
           // Row focus keeps its series-coloured border; a min/max segment's thicker outline replaces it, so the active one adds a glow instead and both cues show.
@@ -502,22 +507,25 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         };
         const real = {
           id: s.id, name: s.name, type: kind, stack: i.stacked && kind === 'bar' ? 'total' : undefined,
-          showSymbol: i.selectedPointKeys !== undefined, symbolSize: 5, connectNulls: false, barMaxWidth: 18,
+          // Over 12 points they show on hover only; a series with a selected point keeps them, since its label rides on the symbol.
+          showSymbol: i.selectedPointKeys !== undefined && (lineSymbolShown(s.points.length) || s.points.some(([x]) => selectedPoints.has(chartPointKey({ seriesId: s.id, x })))), symbolSize: 5, connectNulls: false,
           ...(kind === 'line' && s.step ? { step: s.step } : {}),
-          lineStyle: { ...(kind === 'line' ? { color } : {}), width: 2, type: pattern }, itemStyle: { color: palette.series[n].fill },
+          lineStyle: { ...(kind === 'line' ? { color } : {}), width: pattern === 'solid' ? CHART_MARKS.lineWidth : CHART_MARKS.patternLineWidth, type: pattern },
+          itemStyle: { color: palette.series[n].fill, ...(kind === 'bar' ? { borderRadius: barRadius(horizontal, i.stacked || lanes !== null) } : {}) },
+          ...(areaLine ? { areaStyle: { opacity: CHART_MARKS.singleLineAreaOpacity } } : {}),
           emphasis: { focus: i.emphasisFocus ?? 'none' },
           // The tooltip's own formatter is the left axis'; a right series reads its unit and format.
           ...(right ? { yAxisIndex: 1 } : {}),
           ...(right || s.unit?.trim() ? { tooltip: { valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${axis.valueFormat(v)} ${unit}`) } } : {}),
           ...(segments && kind === 'bar' ? {
-            label: { show: true, position: 'inside', fontSize: LABEL_FONT, color: palette.segmentText[n].color, ...(palette.segmentText[n].chip ? { backgroundColor: palette.labelSurface, borderRadius: 2, padding: 0 } : {}), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? shortNumber(p.value, lang) : '') },
+            label: { show: true, position: 'inside', fontSize: LABEL_FONT, ...insideLabel(n), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? shortNumber(p.value, lang) : '') },
             labelLayout: (p: { dataIndex: number; labelRect: LabelRect; rect: LabelRect }) => statuses.has(chartPointKey({ seriesId: s.id, x: s.points[p.dataIndex]?.[0] })) ? {} : segmentLayout(p),
           } : {}),
           data: xType === 'time' ? s.points.map(([x, y]) => { const point = datum(x, y); return typeof point === 'object' && point !== null ? { ...point, value: [toMs(x), y] } : [toMs(x), y]; }) : s.points.map(([x, y]) => datum(x, y)),
         };
         // Transparent, silent, no emphasis and out of the axis tooltip (`tooltip.show === false`, ECharts 6): it only pushes the next piece to its lane start.
         const spacer = lanes && n > 0 ? [{
-          id: `__spacer-${n}`, type: 'bar', stack: 'total', silent: true, tooltip: { show: false }, emphasis: { disabled: true }, barMaxWidth: 18,
+          id: `__spacer-${n}`, type: 'bar', stack: 'total', silent: true, tooltip: { show: false }, emphasis: { disabled: true },
           itemStyle: { color: 'transparent', opacity: 1 }, data: lanes.spacers[n - 1],
         }] : [];
         return [...spacer, real];
@@ -532,7 +540,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         data: [...categoryMarks.byCategory].map(([category, value]) => [value, category]),
       }] : []),
       ...(emptyLabels?.size ? [emptyCategorySeries(categories, emptyLabels, theme.axisLabel.color)] : []),
-      ...(groupLayout ? [rowGroupSeries(groupLayout, theme.axisLabel.color, theme.axisLine.lineStyle.color)] : []),
+      ...(groupLayout ? [rowGroupSeries(groupLayout, theme.axisLabel.color, theme.separator)] : []),
       {
         id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
         markArea: { silent: true, data: areas },
@@ -570,7 +578,7 @@ function laneMarkLine(lanes: LaneLayout, theme: ReturnType<typeof chartTheme>, p
   const pxPerUnit = Math.max(0, plotWidth) / lanes.span;
   return {
     silent: true, symbol: 'none', animation: false,
-    lineStyle: { color: theme.axisLine.lineStyle.color, type: 'dotted', width: 1 },
+    lineStyle: { color: theme.separator, type: 'dotted', width: 1 },
     data: lanes.lanes.map(lane => ({
       name: lane.name, xAxis: lane.start,
       label: { show: true, formatter: lane.name, position: 'start', align: 'left', fontSize: 10, color: theme.axisLabel.color, width: Math.max(MIN_LANE_LABEL_PX, lane.width * pxPerUnit), overflow: 'truncate', ellipsis: '…' },
