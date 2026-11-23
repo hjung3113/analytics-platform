@@ -93,7 +93,88 @@ function mount(ui: ReactNode, adapter: PlatformAdapter, url = `/main?scopeId=MEM
 }
 const flush = async () => { await act(async () => { await new Promise(r => setTimeout(r, 0)); }); };
 
+describe('main screen writes in one event (#2821)', () => {
+  it('keeps both page patches and their push entries', async () => {
+    mount(<Probe id="main" />, fixture().adapter);
+    await flush();
+    const length = window.history.length;
+    const { setPage } = at('main');
+    act(() => {
+      setPage({ page: '2' });
+      setPage({ tab: 'detail' });
+    });
+    const query = new URLSearchParams(window.location.search);
+    expect([query.get('page'), query.get('tab')]).toEqual(['2', 'detail']);
+    expect(window.history.length).toBe(length + 2);
+  });
+
+  it('keeps the new period and its page reset when applying a subsequent page patch', async () => {
+    mount(<Probe id="main" />, fixture().adapter, `/main?scopeId=MEM&${window1}&page=3`);
+    await flush();
+    const from = '2026-09-27T09:00:00';
+    const to = '2026-09-28T09:00:00';
+    const { setGlobal, setPage } = at('main');
+    act(() => {
+      setGlobal({ from, to });
+      setPage({ tab: 'detail' });
+    });
+    const query = new URLSearchParams(window.location.search);
+    expect([query.get('from'), query.get('to'), query.get('page'), query.get('tab')]).toEqual([from, to, null, 'detail']);
+  });
+
+  it('drops a page write from the pathname just left', async () => {
+    mount(<Probe id="main" />, fixture().adapter);
+    await flush();
+    const length = window.history.length;
+    const { linkTo, navigate, setPage } = at('main');
+    act(() => {
+      expect(navigate(linkTo('plain'))).toBe(true);
+      setPage({ tab: 'detail' });
+    });
+    expect(at('main').route?.menu.id).toBe('plain');
+    expect(window.history.length).toBe(length + 1);
+  });
+});
+
 describe('PaneScreenProvider — independent screen state (ADR-0049)', () => {
+  it('composes page proposals while the controlled parent holds the old address', async () => {
+    const p = spies();
+    mount(<Pane id="p" initial={screenA()} spies={p} echo={false} />, fixture().adapter);
+    await flush();
+    act(() => {
+      at('p').setPage({ page: '2' });
+      at('p').setPage({ tab: 'detail' });
+    });
+    const query = new URLSearchParams(p.onChange.mock.calls.at(-1)![0].query);
+    expect([query.get('page'), query.get('tab')]).toEqual(['2', 'detail']);
+    expect(at('p').pageParam('page')).toBeNull();
+  });
+
+  it('can retry a proposal the controlled parent did not accept', async () => {
+    const p = spies();
+    mount(<Pane id="p" initial={screenA()} spies={p} echo={false} />, fixture().adapter);
+    await flush();
+    act(() => {
+      at('p').setPage({ page: '2' });
+      at('p').setPage({ tab: 'detail' });
+    });
+    await flush();
+    act(() => at('p').setPage({ tab: 'detail' }));
+    expect(p.onChange.mock.calls).toHaveLength(3);
+    const repeated = new URLSearchParams(p.onChange.mock.calls.at(-1)![0].query);
+    expect([repeated.get('page'), repeated.get('tab')]).toEqual(['2', 'detail']);
+  });
+
+  it('keeps the second same-address proposal’s explicit focus request', async () => {
+    const p = spies();
+    mount(<Pane id="p" initial={screenA()} spies={p} />, fixture().adapter);
+    await flush();
+    act(() => at('p').setPage({ tab: 'detail' }));
+    act(() => at('p').setPage({ tab: 'detail' }, { focus: 'drill' }));
+    expect(at('p').pageNavigation.consume(at('p').pathname)).toBe('drill');
+    expect(p.onChange).toHaveBeenCalledTimes(1);
+  });
+
   it('two panes read their own global/page; a write calls only that pane onChange and leaves the URL and main alone', async () => {
     const a = spies(); const b = spies();
     mount(<><Probe id="main" />

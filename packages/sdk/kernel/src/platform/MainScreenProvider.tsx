@@ -31,12 +31,10 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     const arrival = arrive(initialUrl, readHiddenState(location.readState?.()));
     return { arrival, url: arrival.url, hidden: arrival.hidden };
   });
-  const hiddenRef = useRef(hidden);
-  hiddenRef.current = hidden;
-  // The newest arrival record: a commit or a traversal that lands before the rewrite below runs replaces it, which cancels that rewrite.
+  // Writes and traversals publish here before React renders. A newer arrival also supersedes a pending rewrite.
   const latestArrival = useRef(arrival);
-  // Unsaved-edit guard (ADR-0115). `shownRef`: the visible address on screen. `idxRef`: this entry's position in the Kernel's own writes (`apIdx`), null where the boundary keeps no state.
-  const shownRef = useRef(url);
+  const readAddress = useCallback(() => latestArrival.current, []);
+  // Unsaved-edit guard (ADR-0115). `idxRef`: this entry's position in the Kernel's own writes (`apIdx`), null where the boundary keeps no state.
   const [bootIdx] = useState(() => readHistoryIdx(location.readState?.()));
   const idxRef = useRef<number | null>(bootIdx);
   // The numbering segment of the entry on screen (null = unnamed). A rebase always names a NEW segment, so no write ever continues an older one (R2-1).
@@ -73,8 +71,9 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     const keys = hiddenKeysFor(next);
     const split = splitHidden(next, keys);
     // A return trip restores the hidden pairs the origin held, checked against what the destination declares (F1).
-    const nextHidden = options.redirect ? hiddenRef.current : split.hidden.length > 0 || !options.restoreHidden ? split.hidden : validateHidden(options.restoreHidden, menuFor(next));
-    if ((split.url ===(location.read() ?? '') && sameHidden(nextHidden, hiddenRef.current))) { if (!options.materialize) pageNavigation.cancel(); return false; }
+    const previousHidden = latestArrival.current.hidden;
+    const nextHidden = options.redirect ? previousHidden : split.hidden.length > 0 || !options.restoreHidden ? split.hidden : validateHidden(options.restoreHidden, menuFor(next));
+    if (split.url === (location.read() ?? '') && sameHidden(nextHidden, previousHidden)) { if (!options.materialize) pageNavigation.cancel(); return false; }
     const moveBlocked = (how === 'push' || options.guard === true) && !options.redirect && !options.materialize && !options.bypassGuard;
     // Leaving with unsaved edits asks first (ADR-0115). Redirects, arrival materialization, `replace` and the confirmed replay are never held;
     // a host `replace` with `guard` (opening the board, #2061) is held like a push.
@@ -116,18 +115,17 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       segRef.current = seg;
       location.push(split.url, withHistoryIdx(declares ? withHiddenState(null, nextHidden) : null, base + 1, seg));
     } else if (declares) location.push(split.url, withHiddenState(null, nextHidden)); else location.push(split.url);
-    shownRef.current = split.url;
-    hiddenRef.current = nextHidden;
-    const committed = { url: split.url, hidden: nextHidden, rewrite: false };
+    const writtenUrl = location.read() ?? '';
+    const committed = { url: writtenUrl, hidden: nextHidden, rewrite: false };
     latestArrival.current = committed;
-    setView({ arrival: committed, url: location.read() ?? '', hidden: nextHidden });
+    setView({ arrival: committed, url: writtenUrl, hidden: nextHidden });
     if (how === 'push') document.getElementById('platform-main')?.scrollTo({ top: 0 });
     return true;
   }, [pageNavigation, location, hiddenKeysFor, menuFor, guard, usageNav, stamping]);
   useLayoutEffect(() => { commitRef.current = commit; }, [commit]);
   const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[]; guard?: boolean; run?: () => boolean }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, restoreHidden: options?.restoreHidden, guard: options?.guard, run: options?.run }), [commit]);
 
-  const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, hidden, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
+  const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, hidden, readAddress, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
   const { screen, sidebarSpace, resolveEntryLink, initialSavedView } = useScreenState(app, source);
   const { pathname, route, contractError, navigate, currentSpace } = screen;
 
@@ -150,14 +148,12 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       if (arrived.rewrite) location.replace(next, { keepFragment: true, state: withHiddenState(location.readState?.(), arrived.hidden) });
       // Back/Forward across menus arrives like a link (06 §26): the title takes focus and a carried
       // `focus=` does not claim the detail panel (ADR-0032). Same-screen history keeps the close-button claim.
-      pageNavigation.advance(next, next.split('?')[0] !== shownRef.current.split('?')[0] ? 'page' : undefined);
+      pageNavigation.advance(next, next.split('?')[0] !== latestArrival.current.url.split('?')[0] ? 'page' : undefined);
       usageNav.current.via = 'history';
-      hiddenRef.current = arrived.hidden;
       // An entry without a stamp breaks the numbering: nothing is trusted from before it (F1). A stamped one brings its own segment.
       idxRef.current = newIdx;
       segRef.current = newIdx === null ? null : readHistorySeg(location.readState?.());
       guard.dropRequest(); // an accepted arrival ends any request made from the entry we left (F3)
-      shownRef.current = next;
       const traversed = { url: next, hidden: arrived.hidden, rewrite: false };
       latestArrival.current = traversed;
       guard.traversed();
@@ -173,13 +169,13 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       // The pop of a leave the person confirmed.
       if (replayIdx.current !== null && newIdx === replayIdx.current) { replayIdx.current = null; arrivePop(newIdx); return; }
       const raw = location.read() ?? '';
-      const change = { from: shownRef.current, to: raw, hiddenKeys: hiddenKeysFor(raw) };
+      const change = { from: latestArrival.current.url, to: raw, hiddenKeys: hiddenKeysFor(raw) };
       if (guard.shouldBlock(change)) {
         if (newIdx !== null && cur !== null && sameSegment && newIdx !== cur && location.go !== undefined) {
           const delta = newIdx - cur;
           // The destination's hidden pairs live in ITS entry state: read them before the compensation moves away (R2-2).
           const destHidden = arrive(raw, readHiddenState(location.readState?.())).hidden;
-          const crossMenu = raw.split('?')[0] !== shownRef.current.split('?')[0];
+          const crossMenu = raw.split('?')[0] !== latestArrival.current.url.split('?')[0];
           compensatingTo.current = cur;
           try { location.go(-delta); } catch { compensatingTo.current = null; failOpen('NavGuardHistoryError'); arrivePop(newIdx); return; }
           guard.request({ change, destination: menuFor(raw)?.label ?? null, via: 'history', proceed: () => {

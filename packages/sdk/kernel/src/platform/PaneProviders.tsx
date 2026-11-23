@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { hasDotSegment, isAppPath } from '../context/location';
 import { createPageNavigation, type PageFocus } from '../context/pageNavigation';
 import { paneHref } from '../context/paneContext';
@@ -55,23 +55,42 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
   if (!app || !main) throw new Error('PaneScreenProvider outside PlatformProvider');
   const { registry, canOpen } = app.pub;
   const url = paneHref(registry, screen);
+  const { adapter, session, revision } = app.pub;
+  const owner = useMemo(() => ({ paneId, adapter, session, revision }), [paneId, adapter, session, revision]);
+  const address = useRef<{ owner: typeof owner; renderedUrl: string; url: string } | null>(null);
+  // Reset on a new controlled address before any descendant layout writer can run.
+  useInsertionEffect(() => {
+    address.current = { owner, renderedUrl: url, url };
+    return () => { address.current = null; };
+  }, [owner, url]);
+  const readAddress = useCallback(() => {
+    const current = address.current;
+    return current?.owner === owner ? current : null;
+  }, [owner]);
   const [navigation] = useState(() => createPageNavigation(url, undefined, registry.canonicalHref));
   const latest = useRef({ onChange, onLeave });
   useLayoutEffect(() => { latest.current = { onChange, onLeave }; });
-  // Routing identity and current address come from the rendered screen, not from a layout-effect ref: a descendant layout
-  // effect runs before this provider's, so a ref would still hold the previous menu/params. Params are keyed by content.
+  // A same-pane proposal uses the rendered menu and params, including in a descendant's first layout effect.
   const menuId = screen.menuId;
   const paramsKey = JSON.stringify(Object.entries(screen.params));
   const params = useMemo<Record<string, string>>(() => Object.fromEntries(JSON.parse(paramsKey) as [string, string][]), [paramsKey]);
 
   const commit = useCallback((next: string, how: 'push' | 'replace', options: CommitOptions = {}) => {
-    if (next === url) { if (!options.materialize) navigation.cancel(); return false; }
+    const current = readAddress();
+    if (!current) return false;
+    // Only the parent can accept an address. An unchanged proposal can still be sent again.
+    if (next === current.renderedUrl && next === current.url) {
+      if (options.focus) navigation.advance(next, options.focus);
+      else if (!options.materialize) navigation.cancel();
+      return false;
+    }
     if (options.materialize) navigation.materialize(next);
     else navigation.advance(next, options.focus);
+    current.url = next;
     const q = next.indexOf('?');
     latest.current.onChange({ menuId, params, query: q === -1 ? '' : next.slice(q) }, how);
     return true;
-  }, [navigation, url, menuId, params]);
+  }, [navigation, readAddress, menuId, params]);
   const { matchRoute } = registry;
   // Refusals raised before the reporter is wired (a child's first layout effect runs before this provider's) wait here and are delivered once.
   const reportRef = useRef<((error: unknown) => string) | null>(null);
@@ -79,24 +98,28 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
   const go = useCallback((href: string, options?: { replace?: boolean; focus?: PageFocus }) => {
     // Path-only check, as on the main screen (#1875): a refused destination is reported, a same-address one is a quiet no-op.
     if (!isAppPath(href)) { navigation.cancel(); const error = new Error('NavTargetRefused'); error.name = 'NavTargetRefused'; if (reportRef.current) reportRef.current(error); else pendingRef.current.push(error); return false; }
-    if (href === url) { navigation.cancel(); return false; }
+    const current = readAddress();
+    if (!current) return false;
+    if (href === current.renderedUrl) { navigation.cancel(); return false; }
     const how = options?.replace ? 'replace' : 'push';
     const q = href.indexOf('?');
     const path = q === -1 ? href : href.slice(0, q);
     // Staying on this pane's own route is a write to the pane, whatever the menu's board support.
-    if (path === url.split('?')[0]) return commit(href, how, { focus: options?.focus });
+    if (path === current.renderedUrl.split('?')[0] && path === url.split('?')[0]) return commit(href, how, { focus: options?.focus });
     const matched = hasDotSegment(path) ? null : matchRoute(path);
     if (matched && matched.menu.features.board === true && canOpen(matched.menu.id)) {
       // A retired menu's address adds its page preset here too, as the main screen's alias redirect does (#2330).
       const query = withPagePreset(q === -1 ? '' : href.slice(q), matched.aliasPage);
+      const next = { menuId: matched.menu.id, params: matched.params, query };
+      current.url = paneHref(registry, next);
       navigation.advance(path + query, options?.focus);
-      latest.current.onChange({ menuId: matched.menu.id, params: matched.params, query }, how);
+      latest.current.onChange(next, how);
     } else latest.current.onLeave(href);
     return true;
-  }, [navigation, url, commit, matchRoute, canOpen]);
+  }, [navigation, url, readAddress, commit, matchRoute, canOpen, registry]);
 
   useEffect(() => app.internal.selectionPortCache.retain(`pane:${paneId}`), [app.internal.selectionPortCache, paneId]);
-  const source: ScreenSource = { draftStore: draftStores?.get(paneId), mode: 'pane', paneId, paneLabel, url, navigation, commit, go, sidebarSpace: main.sidebarSpace, countsUsage: countUsage };
+  const source: ScreenSource = { draftStore: draftStores?.get(paneId), mode: 'pane', paneId, paneLabel, url, readAddress, navigation, commit, go, sidebarSpace: main.sidebarSpace, countsUsage: countUsage };
   const state = useScreenState(app, source);
   useLayoutEffect(() => {
     reportRef.current = state.screen.reportError;
