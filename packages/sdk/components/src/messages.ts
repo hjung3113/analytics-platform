@@ -12,6 +12,12 @@ export const COMPONENTS_MESSAGES = {
   outcomeDeniedTarget: { ko: '권한이 필요한 대상 {target}', en: 'Access required for {target}' },
   outcomeResetFilter: { ko: '필터 초기화', en: 'Reset filter' },
 
+  analysisSelectionGroup: { ko: '분석 선택', en: 'Analysis selections' },
+  analysisSelectionMoreValues: { ko: '{first} 외 {count}', en: '{first} + {count}' },
+  analysisSelectionUnavailable: { ko: '해당 없음', en: 'No match' },
+  analysisSelectionClear: { ko: '{dimension} 선택 지우기', en: 'Clear {dimension} selection' },
+  analysisSelectionClearAll: { ko: '모두 지우기', en: 'Clear all' },
+
   // FacetedSetDialog
   fsCancel: { ko: '취소', en: 'Cancel' },
   fsDescription: { ko: '분류의 값을 조합하거나 결과에서 항목을 골라 적용합니다.', en: 'Combine facet values or select result items, then apply.' },
