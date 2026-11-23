@@ -203,9 +203,12 @@ describe('Scope accessible status (#194 FIX2)', () => {
       const descriptionId = trigger.getAttribute('aria-describedby');
       await waitFor(() => expect(trigger).toHaveAccessibleDescription(`${status}${scopeId === 'MEM' ? ' · 공정 3/5' : ''}`));
       expect(trigger.getAttribute('aria-describedby')).toBe(descriptionId);
-      expect(screen.getByRole('status')).toHaveTextContent(status);
-      expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
-      expect(screen.getByRole('status')).not.toHaveTextContent('공정');
+      // The bar keeps role="status"; the title-row chip is a polite live span with no status role, so main carries no extra status (#2727).
+      const live = document.querySelector('[data-scope-status]')!;
+      expect(screen.queryAllByRole('status')).toEqual(layout === 'bar' ? [live] : []);
+      expect(live).toHaveTextContent(status);
+      expect(live).toHaveAttribute('aria-live', 'polite');
+      expect(live).not.toHaveTextContent('공정');
       expect(document.getElementById(descriptionId!)).toHaveClass('sr-only');
       cleanup();
     }

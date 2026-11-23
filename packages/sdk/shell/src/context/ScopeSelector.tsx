@@ -66,7 +66,7 @@ export function ScopeSelector({ layout = 'chip' }: { layout?: 'chip' | 'bar' }) 
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate font-medium">{name}</span>
-        <span id={descriptionId} className="sr-only"><span role="status" aria-live="polite">{status}</span>{current && ` · ${t('roomNames')} ${current.grantedRooms}/${current.totalRooms}`}</span>
+        <span id={descriptionId} className="sr-only">{/* The chip sits in every main title row: a polite live span without role="status", so main gains no extra status landmark (#2727). */}<span data-scope-status role={bar ? 'status' : undefined} aria-live="polite">{status}</span>{current && ` · ${t('roomNames')} ${current.grantedRooms}/${current.totalRooms}`}</span>
       </span>
       <ChevronDown className="size-3 shrink-0 text-text-muted" aria-hidden />
     </button>
