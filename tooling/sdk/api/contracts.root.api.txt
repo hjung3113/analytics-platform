@@ -58,7 +58,7 @@ DEFAULT_PLATFORM_DESTINATIONS | const | const DEFAULT_PLATFORM_DESTINATIONS: rea
 DateOp | type | type DateOp = (typeof @ap/contracts#DATE_OPS)[number]
 DeleteNoticeInput | type | type DeleteNoticeInput = { expectedVersion: string; id: string; idempotencyKey: string; }
 DeniedSavedView | type | type DeniedSavedView = { denied: true; id: string; reason: string; }
-DrillLevel | type | type DrillLevel = { key: string; label: @ap/contracts#Text; }
+DrillLevel | type | type DrillLevel = { key: string; label: @ap/contracts#Text; valueLabel?: (value: string, lang: keyof @ap/contracts#Text) => string; }
 EMPTY_GROUP_LABEL | const | const EMPTY_GROUP_LABEL: "(값 없음)"
 ENTITY_AUDIT_PAGE_MAX | const | const ENTITY_AUDIT_PAGE_MAX: 50
 ENUM_OPS | const | const ENUM_OPS: readonly [ "in", "notIn", "isEmpty", "isNotEmpty" ]

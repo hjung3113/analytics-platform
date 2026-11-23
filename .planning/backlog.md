@@ -25,6 +25,7 @@
 - **Not implemented — #2056 owner decisions:** MEN-29: investigation archive/rename UI remains unimplemented; choosing that user-visible management scope belongs to the owner. Lane decision 2026-11-15: not implemented — menu screens are samples and this adds no platform contract; the declarations stay because the server conformance test uses them (#2191). Reopen when an in-house menu needs these actions as a contract sample. MEN-38: generator canonical default paths and route-policy alignment remain unimplemented in this PR. Lane decision 2026-11-15: it applies only to newly generated menus (existing URLs unchanged), so it is a defect fix done in #2191; validate canonical paths and aliases together before any writes.
 
 - **미구현 — StatCard `purple`·`amber` 타입 제거 (#1945):** 한 릴리스의 호환 기간에는 각각 `teal`·`blue`로 표시한다. 이유: 기존 SDK 메뉴의 타입 호환을 유지하며 두 색으로 이전한다. 다시 열 조건: 다음 SDK minor 릴리스. 그때 공개 `chip` 타입에서 두 값을 제거한다.
+- **구현 안 함 — SDK 사용 중단 API 제거 (#2699 후속):** `formatQuerySummary(global, page, options)`의 `page` 인자와 `useAccessRequestRetry`는 sdk-v0.46.0에서 사용 중단 표시만 했다. 이유: 한 minor 동안 이전 안내를 둔다. 다시 여는 조건: sdk-v0.47.0 범위를 정할 때(또는 #2190 breaking 릴리스에 묶을 때). 제거 전에 `useAccessRequestRead`의 반환 타입이 `useAccessRequestRetry`를 가리키지 않게 옮긴다(v0.46 슬라이스 리뷰).
 
 - **미구현 — 대상 시스템 선택 단계 분리 (#1842):** 이유: 지금은 시스템 3개·22행이라 검색으로 충분하다. 다시 열 조건: 한 대상자의 후보 행이 40개를 넘거나 Managed System이 5개를 넘을 때. 그때는 시스템을 먼저 고르고 목록은 권한당 한 행으로 줄인다.
 
