@@ -28,6 +28,22 @@ function useReportedAvailability(screen: ReturnType<typeof useWriteScreen>) {
   return useSyncExternalStore(store?.subscribe ?? subscribeToEmptyAvailability, store?.read ?? readEmptyAvailability, readEmptyAvailability);
 }
 
+function hasFilterCycle(channels: ReturnType<typeof menuAnalysisSelections>, key: string): boolean {
+  const pending = [key];
+  const visited = new Set(pending);
+  for (const outputKey of pending) {
+    const writer = channels.get(outputKey)?.writers[0];
+    for (const [inputKey, { readers }] of channels) {
+      if (!readers.some(reader => reader.panelId === writer?.panelId && reader.use === 'filter')) continue;
+      if (inputKey === key) return true;
+      if (visited.has(inputKey)) continue;
+      visited.add(inputKey);
+      pending.push(inputKey);
+    }
+  }
+  return false;
+}
+
 /** Reads and writes a declared analysis selection through the menu page key (ADR-0175). */
 export function useAnalysisSelectionOutput(panelId: string, key: string, options?: {
   /** Values present in the source's current data. Omit while availability is unknown. */
@@ -35,13 +51,15 @@ export function useAnalysisSelectionOutput(panelId: string, key: string, options
 }): { selection: AnalysisSelection | null; select: (next: AnalysisSelection | null) => boolean } {
   const { route, pageParams, setPage } = usePlatform();
   const screen = useWriteScreen(route);
-  const channel = useChannels(route?.menu).get(key);
+  const channels = useChannels(route?.menu);
+  const channel = channels.get(key);
   const store = screen?.analysisSelectionAvailability;
   const report = useStable(options?.available, sameAvailability);
   const isSource = channel?.writers[0]?.panelId === panelId;
+  const canReport = useMemo(() => isSource && !hasFilterCycle(channels, key), [channels, isSource, key]);
   useEffect(() => {
-    if (store && isSource && report !== undefined) return store.report(key, report);
-  }, [store, isSource, key, report]);
+    if (store && canReport && report !== undefined) return store.report(key, report);
+  }, [store, canReport, key, report]);
   const urlKey = selectionUrlKey(key);
   if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
   const rendered = pageParams(urlKey);

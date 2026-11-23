@@ -18,7 +18,7 @@ import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
 import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
-import { CATALOG_IDS, chartRows, panelCatalog, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
+import { CATALOG_IDS, chartRows, panelCatalog, projectBarData, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
 import { RecipePanel } from './RecipeFace';
@@ -269,11 +269,10 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const { pageParam, pageParams, setPage } = usePlatform();
   const sourceQuery = typeId && extraIds.includes('moduleMotions') ? queries[typeId] : undefined;
   const sourceResponse = sourceQuery?.showingPrevious ? null : sourceQuery?.response;
-  const moduleChecked = typeId !== null && moduleId !== null && filter.selectionFor(typeId).modules.includes(moduleId);
-  const sourceEquipment = useMemo(() => {
-    if (!sourceResponse || !isAnswered(sourceResponse.outcome)) return undefined;
-    return (sourceResponse.data?.cells ?? []).flatMap(cell => moduleChecked && cell.moduleId === moduleId ? [cell.equipmentId] : []);
-  }, [sourceResponse, moduleChecked, moduleId]);
+  const source = typeId && sourceResponse && isAnswered(sourceResponse.outcome)
+    ? projectBarData(sourceResponse.data ?? undefined, filter.selectionFor(typeId), { depth: 4, moduleId, motionId, allMotions: true })
+    : undefined;
+  const sourceEquipment = source && (source.motions.length ? source.cells.map(cell => cell.equipmentId) : []);
   const selectionOutput = useAnalysisSelectionOutput(panelDeclarations.moduleMotions.id, MOTION_EQUIPMENT_KEY, { available: sourceEquipment });
   const onOpenTrend = (target: string, row: string) => {
     setPage({ trend: target, row });

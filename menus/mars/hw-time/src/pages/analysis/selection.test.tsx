@@ -109,3 +109,14 @@ it('leaves the table unfiltered when the source module has none of the selected 
     expect(latest?.params).not.toHaveProperty('motionEquipment');
   }
 });
+
+it('leaves the table unfiltered when every Motion is unchecked', async () => {
+  await renderOverview(workspace + '&motion=~none' + selection(['EQ-002']), answer, { waitForData: false });
+  expect(screen.getByText('선택한 항목 없음')).toBeTruthy();
+  expect(filter()).toEqual(['EQ-002']);
+  for (const endpoint of ['hwTime.levelRows', 'hwTime.tableRows']) {
+    const latest = tableReads().filter(request => request.endpoint === endpoint).at(-1);
+    expect(latest).toBeDefined();
+    expect(latest?.params).not.toHaveProperty('motionEquipment');
+  }
+});

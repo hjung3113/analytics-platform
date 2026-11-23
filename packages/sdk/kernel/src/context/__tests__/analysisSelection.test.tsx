@@ -1,4 +1,4 @@
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, renderHook, screen, waitFor } from '@testing-library/react';
 import { emptyGlobal, groupId, NO_FEATURES, spaceId, type AnalysisSelection, type PanelDeclaration } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { useLayoutEffect, useState, type ReactNode } from 'react';
@@ -297,6 +297,22 @@ it('breaks only a filter cycle at its first declared member and keeps a later ch
   const CycleWrapper = ({ children }: { children: ReactNode }) => <I18nProvider><PlatformProvider adapter={adapter} registry={cycleRegistry}>{children}</PlatformProvider></I18nProvider>;
   const result = mount(useAnalysisSelectionChips, '&kc=c&ka=a&kb=b', CycleWrapper);
   expect(result.current.chips.map(chip => [chip.key, chip.after])).toEqual([['ka', null], ['kc', 'ka'], ['kb', 'ka']]);
+
+  let renders = 0;
+  const linked = mount(() => {
+    if (++renders > 20) throw new Error('Cyclic reports did not converge');
+    const aInputs = useAnalysisSelectionInputs('pa');
+    const bInputs = useAnalysisSelectionInputs('pb');
+    useAnalysisSelectionOutput('pa', 'ka', { available: aInputs.applied.length ? [] : ['a'] });
+    useAnalysisSelectionOutput('pb', 'kb', { available: bInputs.applied.length ? [] : ['b'] });
+    useAnalysisSelectionOutput('pc', 'kc', { available: [] });
+    return { aInputs, bInputs, chips: useAnalysisSelectionChips().chips };
+  }, '&kc=c&ka=a&kb=b', CycleWrapper);
+  expect(linked.current.chips.map(chip => [chip.key, chip.after, chip.available]))
+    .toEqual([['ka', null, true], ['kc', 'ka', false], ['kb', 'ka', true]]);
+  expect(linked.current.aInputs.applied.map(input => input.key)).toEqual(['kb']);
+  expect(linked.current.bInputs.applied.map(input => input.key)).toEqual(['ka']);
+  expect([...search().values()]).toEqual(['1', 'c', 'a', 'b']);
 });
 
 it('skips rejected keys when building chips', () => {
@@ -421,6 +437,36 @@ it.each([['16:01', false], ['16:00', true]] as const)('models a range with an ex
   }, '&timeRange=14:00/16:00');
   expect(result.current.chips[0]?.available).toBe(expected);
   expect(result.current.inputs.unavailable).toEqual(expected ? [] : [rangeKey]);
+});
+
+it('applies a numeric range overlapping a shorter-width extent', () => {
+  const available = { from: '3', to: '8', compare: (a: string, b: string) => Number(a) - Number(b) };
+  const result = mount(() => {
+    useAnalysisSelectionOutput('source', rangeKey, { available });
+    return { chips: useAnalysisSelectionChips().chips, inputs: useAnalysisSelectionInputs('receiver') };
+  }, '&timeRange=2/10');
+  expect(result.current.chips[0]?.available).toBe(true);
+  expect(result.current.inputs.applied.map(input => input.key)).toEqual([rangeKey]);
+});
+
+it.each(['older', 'newer'] as const)('keeps a shared report when the %s reporter unmounts', removed => {
+  const available: readonly string[] = [];
+  function Reporter() {
+    useAnalysisSelectionOutput('source', setKey, { available });
+    return null;
+  }
+  window.history.replaceState(null, '', '/mars/analysis?v=1' + initialA);
+  const { result } = renderHook(useAnalysisSelectionChips, {
+    wrapper: function Reporters({ children }: { children: ReactNode }) {
+      const [hidden, hide] = useState(false);
+      return <Wrapper>{(!hidden || removed === 'newer') && <Reporter key="older" />}
+        {(!hidden || removed === 'older') && <Reporter key="newer" />}
+        <button onClick={() => hide(true)}>Unmount reporter</button>{children}</Wrapper>;
+    },
+  });
+  expect(result.current.chips[0]?.available).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Unmount reporter' }));
+  expect(result.current.chips[0]?.available).toBe(false);
 });
 
 it('keeps reports separate for the main screen and each board pane', () => {
