@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { ANALYSIS_SELECTION_MAX_VALUES } from '@ap/kernel';
+import * as kernel from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
-import { answer, renderOverview, requests, settle } from './test-support';
+import type { MenuQuery } from '@ap/contracts';
+import { answer, fixtureMatrix, renderOverview, requests, settle } from './test-support';
 
 const workspace = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions&pins=table';
 const url = () => new URLSearchParams(window.location.search);
@@ -12,7 +13,7 @@ const table = () => screen.getByRole('tab', { name: 'table' });
 const chart = () => JSON.parse(screen.getByTestId('hw-module-motions').textContent!);
 const action = (id: string) => screen.getByRole<HTMLButtonElement>('button', { name: `point action hw-module-motions ${id}` });
 const selection = (values: string[]) => values.map(value => `&motionEquipment=${value}`).join('');
-const fullSet = Array.from({ length: ANALYSIS_SELECTION_MAX_VALUES }, (_, index) => `EQ-${String(index + 2).padStart(3, '0')}`);
+const fullSet = Array.from({ length: kernel.ANALYSIS_SELECTION_MAX_VALUES }, (_, index) => `EQ-${String(index + 2).padStart(3, '0')}`);
 const tableReads = () => requests.filter(request => ['hwTime.levelRows', 'hwTime.tableRows'].includes(request.endpoint));
 
 beforeEach(() => { requests.length = 0; vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); });
@@ -79,4 +80,43 @@ it.each([['empty', '0'], ['error', null]] as const)('shows the filtered count fo
   await renderOverview(`${workspace}&motionEquipment=EQ-002`, request => request.endpoint === 'hwTime.levelRows'
     ? { ...answer(request), outcome, data: null } : answer(request));
   expect(table().getAttribute('data-count')).toBe(count);
+});
+
+function withoutSelectedEquipmentInModule(request: MenuQuery) {
+  const response = answer(request);
+  if (request.endpoint !== 'hwTime.matrix' || (request.params as { moduleType: string }).moduleType !== 'PM') return response;
+  const matrix = fixtureMatrix('PM');
+  return { ...response, data: { ...matrix, cells: matrix.cells.filter(cell => cell.equipmentId !== 'EQ-002' || cell.moduleId !== 'PM1') } };
+}
+
+it('reports equipment present in the moduleMotions source data', async () => {
+  const output = vi.spyOn(kernel, 'useAnalysisSelectionOutput');
+  try {
+    await renderOverview(workspace, withoutSelectedEquipmentInModule);
+    expect(output).toHaveBeenCalledWith('moduleMotions', 'motionEquipment', { available: ['EQ-001'] });
+  } finally {
+    output.mockRestore();
+  }
+});
+
+it('leaves the table unfiltered when the source module has none of the selected equipment', async () => {
+  await renderOverview(workspace + selection(['EQ-002']), withoutSelectedEquipmentInModule);
+  expect(filter()).toEqual(['EQ-002']);
+  expect(table().hasAttribute('aria-description')).toBe(false);
+  for (const endpoint of ['hwTime.levelRows', 'hwTime.tableRows']) {
+    const latest = tableReads().filter(request => request.endpoint === endpoint).at(-1);
+    expect(latest).toBeDefined();
+    expect(latest?.params).not.toHaveProperty('motionEquipment');
+  }
+});
+
+it('leaves the table unfiltered when every Motion is unchecked', async () => {
+  await renderOverview(workspace + '&motion=~none' + selection(['EQ-002']), answer, { waitForData: false });
+  expect(screen.getByText('선택한 항목 없음')).toBeTruthy();
+  expect(filter()).toEqual(['EQ-002']);
+  for (const endpoint of ['hwTime.levelRows', 'hwTime.tableRows']) {
+    const latest = tableReads().filter(request => request.endpoint === endpoint).at(-1);
+    expect(latest).toBeDefined();
+    expect(latest?.params).not.toHaveProperty('motionEquipment');
+  }
 });

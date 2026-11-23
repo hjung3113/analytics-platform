@@ -61,6 +61,12 @@ export function panelCatalog({ step, typeId, moduleId, trend }: { step: Step; ty
 }
 
 type ChartRowsArgs = { depth: Step; matrices: Readonly<Record<string, HwTimeMatrix | undefined>>; typeId: string | null; motionId: string | null; moduleId: string | null; selection: (type: string) => Checks; values?: PanelOptionValues; lang?: 'ko' | 'en'; allMotions?: boolean };
+export function projectBarData(data: HwTimeMatrix | undefined, checks: Checks, { depth, moduleId, motionId, allMotions }: Pick<ChartRowsArgs, 'depth' | 'moduleId' | 'motionId' | 'allMotions'>) {
+  const cells = (data?.cells ?? []).filter(cell => checks.modules.includes(cell.moduleId) && (depth < 4 || cell.moduleId === moduleId));
+  const motions = (data?.motions ?? []).filter(motion => checks.motions.includes(motion.id) && (depth === 2 || allMotions || motion.id === motionId));
+  return { cells, motions };
+}
+
 export function chartRows({ depth, matrices, typeId, motionId, moduleId, selection, values = {}, lang = 'ko', allMotions = false }: ChartRowsArgs) {
   const data = typeId ? matrices[typeId] : undefined;
   let series: ChartSeries[];
@@ -84,11 +90,9 @@ export function chartRows({ depth, matrices, typeId, motionId, moduleId, selecti
         }) }];
     });
   } else {
-    const checks = selection(typeId!);
-    const cells = (data?.cells ?? []).filter(cell => checks.modules.includes(cell.moduleId) && (depth < 4 || cell.moduleId === moduleId));
+    const { cells, motions } = projectBarData(data, selection(typeId!), { depth, moduleId, motionId, allMotions });
     categories = cells.map(cell => depth === 4 ? cell.equipmentId : rowLabel(cell.equipmentId, cell.moduleId));
     levels = new Map(cells.map((cell, index) => [categories[index]!, [cell.equipmentId, cell.moduleId]]));
-    const motions = (data?.motions ?? []).filter(motion => checks.motions.includes(motion.id) && (depth === 2 || allMotions || motion.id === motionId));
     series = motions.map(motion => ({ id: motion.id, name: motion.id, color: motion.color, kind: 'bar',
       points: cells.map((cell, index) => [categories[index]!, cell.motions[motion.id]?.value ?? null]) }));
   }

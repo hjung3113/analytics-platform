@@ -11,6 +11,7 @@ import type { createViewSlotStore } from '../saved-view/table-slots';
 import type { HostPlatform, Recent, Toast } from './types';
 import type { SessionDraftStore } from './sessionDraft';
 import type { NavigationGuard } from './navigationGuard';
+import type { createAnalysisSelectionAvailability } from '../context/analysisSelectionAvailability';
 
 /** Fields of the screen state: what a menu page reads about the screen it is shown on (the main screen or one board pane). */
 export type ScreenFields = 'detailExpanded' | 'setDetailExpanded' | 'queryHistory' | 'queryDraft' | 'queryPolicy' | 'url' | 'appliedUrl' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageParams' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'objectLinks' | 'reportError' | 'reportShellError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'scopeGeneration' | 'retryScope' | 'currentSpace';
@@ -19,6 +20,7 @@ export type MainBoundFields = 'visibleMenus' | 'sidebarSpace' | 'spaceResume' | 
 export type ScreenState = Pick<HostPlatform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'> & {
   /** Event-time page values for kernel writers. Null means the source screen was left. */
   pageParamsNow: (key: string) => string[] | null;
+  analysisSelectionAvailability: ReturnType<typeof createAnalysisSelectionAvailability>;
 };
 export type MainBound = Pick<HostPlatform, MainBoundFields>;
 export type AppState = Omit<HostPlatform, ScreenFields | MainBoundFields | 'screenMode' | 'paneId' | 'paneLabel'>;
