@@ -9,7 +9,7 @@ import { panelDeclarations } from '../analysis/panelDeclaration';
  * Export belongs to the table (`exportRows` + note + summary). The drawer reuses the shared stack and trend panels with that one row.
  */
 import { ChevronRight, Inbox, PanelRight } from 'lucide-react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useI18n, useMenuFetch, usePlatform, type PageProps } from '@ap/kernel';
 import {
   DetailDrawer, encodeTableSort, PageKeyWarning, PlatformDataTable, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableUrlState,
@@ -28,7 +28,7 @@ import { formatSeconds, missingText, rowIdLabel } from '../../shared/format';
 import { StackPanel } from '../../shared/panels/StackPanel';
 import { TrendPanel } from '../../shared/panels/TrendPanel';
 import {
-  SORT_FIELDS, auxiliaryText, columnSizeOf, drillParams, exportFilterSummary, exportNumber, exportParams, levelOf, levelRowsOf, seriesIds, unitOf, valueText,
+  SORT_FIELDS, auxiliaryText, columnSizeOf, drillParams, exportFilterSummary, exportNumber, exportParams, levelOf, levelRowsOf, seriesIds, unitOf, valueText, type TableLevel,
 } from './tableData';
 import { isAnswered } from '@ap/contracts';
 
@@ -60,6 +60,51 @@ function SeriesLegend({ series, values, lang }: { series: readonly HwTimeSeries[
       </li>;
     })}
   </ul>;
+}
+
+export function useRawTableColumns(level: TableLevel, motion: string | null, checkedSeries?: readonly string[], enter?: (value: string) => void) {
+  const m = useMessages(HW_TIME_MESSAGES);
+  const { lang } = useI18n();
+  const activeSeries = checkedSeries ?? seriesIds(level, motion);
+  return useMemo<PlatformColumn<HwTimeTableRow>[]>(() => {
+    const project = (row: HwTimeTableRow) => checkedSeries ? filterRow(row, activeSeries) : row;
+    const unit = unitOf(lang);
+    const size = columnSizeOf(level);
+    const series: PlatformColumn<HwTimeTableRow>[] = activeSeries.filter(id => level !== 2 || id === motion).map(id => ({
+      id, header: `${id} (${unit})`, align: 'right', size: size.value,
+      value: row => project(row).values[id] ?? null,
+      cell: row => row.auxiliary ? null : <span className="inline-flex items-center justify-end gap-1">
+        <span className="tabular whitespace-nowrap">{valueText(project(row).values[id], lang)}</span>
+        {level < 2 && enter && <EnterButton ko={(lang === 'ko')} value={id} onClick={() => enter(id)} />}
+      </span>,
+      exportValue: row => row.auxiliary ? null : exportNumber(project(row).values[id], lang),
+    }));
+    return [
+      { id: 'equipmentId', header: 'EquipmentID', size: size.equipmentId, cell: row => <span className="t-mono">{row.equipmentId}</span> },
+      ...(level === 0 ? [] : [{
+        id: 'subItem', header: m('tablePageSubItem'), size: size.subItem,
+        value: (row: HwTimeTableRow) => row.auxiliary ? auxiliaryText(row, lang) : row.subItem ?? '',
+        cell: (row: HwTimeTableRow) => <span className="t-mono">{row.auxiliary ? auxiliaryText(row, lang) : row.subItem}</span>,
+      }]),
+      ...series,
+      {
+        id: 'judgement', header: m('judgement'), size: 160, sortable: false,
+        value: row => { const judgement = worstJudgement(project(row).judgements); return judgement ? htmStatusText(judgement, lang) : ''; },
+        cell: row => {
+          const judgement = worstJudgement(project(row).judgements);
+          if (!judgement || row.auxiliary) return null;
+          const status = htmStatusView(judgement, lang);
+          return <StatusBadge tone={status?.tone ?? 'neutral'}>{htmStatusText(judgement, lang)}</StatusBadge>;
+        },
+      },
+      {
+        id: 'total', header: `${m('tablePageTotal')} (${unit})`, align: 'right', size: size.total,
+        value: row => project(row).total,
+        cell: row => row.auxiliary ? null : <span className="tabular whitespace-nowrap">{valueText(project(row).total, lang)}</span>,
+        exportValue: row => row.auxiliary ? null : exportNumber(project(row).total, lang),
+      },
+    ];
+  }, [m, lang, level, motion, checkedSeries, activeSeries, enter]);
 }
 
 export default function RawTablePanel({ linked = false, analysis }: PageProps & {
@@ -109,54 +154,16 @@ export default function RawTablePanel({ linked = false, analysis }: PageProps & 
   const trendable = focusRow !== undefined && isHwTimeTrendId(focusRow.id);
   const trendQ = useHwTimeTrend(trendable ? [focusRow.id] : [], trendable && !focusKeys.invalid);
 
-  const columns = useMemo<PlatformColumn<HwTimeTableRow>[]>(() => {
-    const project = (row: HwTimeTableRow) => filter ? filterRow(row, activeSeries) : row;
-    const unit = unitOf(lang);
-    const size = columnSizeOf(level);
-    // The raw table's Module action follows the same type → Motion → Module path as the charts.
-    const enter = (value: string) => {
-      const type = HW_TIME_MODULE_TYPES.find(type => (type.modules as readonly string[]).includes(value));
-      if (!type) return;
-      const selectedMotion = pageParam('drillMotion');
-      const motion = selectedMotion && (type.motions as readonly string[]).includes(selectedMotion) ? selectedMotion : null;
-      // A Module needs a Motion now: first open its type when no compatible Motion has been chosen.
-      setPage({ moduleType: type.id, drillMotion: motion, drillModule: motion ? value : null, row: null, trend: null, focus: null });
-    };
-    const series: PlatformColumn<HwTimeTableRow>[] = (filter ? activeSeries.filter(id => level !== 2 || id === motion) : seriesIds(level, motion)).map(id => ({
-      id, header: `${id} (${unit})`, align: 'right', size: size.value,
-      value: row => project(row).values[id] ?? null,
-      cell: row => row.auxiliary ? null : <span className="inline-flex items-center justify-end gap-1">
-        <span className="tabular whitespace-nowrap">{valueText(project(row).values[id], lang)}</span>
-        {level < 2 && <EnterButton ko={(lang === 'ko')} value={id} onClick={() => enter(id)} />}
-      </span>,
-      exportValue: row => row.auxiliary ? null : exportNumber(project(row).values[id], lang),
-    }));
-    return [
-      { id: 'equipmentId', header: 'EquipmentID', size: size.equipmentId, cell: row => <span className="t-mono">{row.equipmentId}</span> },
-      ...(level === 0 ? [] : [{
-        id: 'subItem', header: m('tablePageSubItem'), size: size.subItem,
-        value: (row: HwTimeTableRow) => row.auxiliary ? auxiliaryText(row, lang) : row.subItem ?? '',
-        cell: (row: HwTimeTableRow) => <span className="t-mono">{row.auxiliary ? auxiliaryText(row, lang) : row.subItem}</span>,
-      }]),
-      ...series,
-      {
-        id: 'judgement', header: m('judgement'), size: 160, sortable: false,
-        value: row => { const judgement = worstJudgement(project(row).judgements); return judgement ? htmStatusText(judgement, lang) : ''; },
-        cell: row => {
-          const judgement = worstJudgement(project(row).judgements);
-          if (!judgement || row.auxiliary) return null;
-          const status = htmStatusView(judgement, lang);
-          return <StatusBadge tone={status?.tone ?? 'neutral'}>{htmStatusText(judgement, lang)}</StatusBadge>;
-        },
-      },
-      {
-        id: 'total', header: `${m('tablePageTotal')} (${unit})`, align: 'right', size: size.total,
-        value: row => project(row).total,
-        cell: row => row.auxiliary ? null : <span className="tabular whitespace-nowrap">{valueText(project(row).total, lang)}</span>,
-        exportValue: row => row.auxiliary ? null : exportNumber(project(row).total, lang),
-      },
-    ];
-  }, [m, lang, level, motion, filter, activeSeries, pageParam, setPage]);
+  // The raw table's Module action follows the same type → Motion → Module path as the charts.
+  const enter = useCallback((value: string) => {
+    const type = HW_TIME_MODULE_TYPES.find(type => (type.modules as readonly string[]).includes(value));
+    if (!type) return;
+    const selectedMotion = pageParam('drillMotion');
+    const motion = selectedMotion && (type.motions as readonly string[]).includes(selectedMotion) ? selectedMotion : null;
+    // A Module needs a Motion now: first open its type when no compatible Motion has been chosen.
+    setPage({ moduleType: type.id, drillMotion: motion, drillModule: motion ? value : null, row: null, trend: null, focus: null });
+  }, [pageParam, setPage]);
+  const columns = useRawTableColumns(level, motion, checkedSeries, enter);
 
   const megRows = listed.length - dataRows.length;
   const rowCount = megRows > 0 ? (m('tablePageSubItemRowsMegRows', { length: String(dataRows.length), megRows: String(megRows) }))

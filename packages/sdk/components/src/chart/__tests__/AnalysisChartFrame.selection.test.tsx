@@ -1,16 +1,18 @@
 import { PlatformPage } from '../../archetypes/PlatformPage';
 import { PanelWorkspace } from '../../workspace/PanelWorkspace';
+import { AnalysisPanelAddContext } from '../../workspace/PanelAdd';
 import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
+import { stubCompactTableGeometry } from '../../testing';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, ANALYSIS_SELECTION_MAX_VALUES } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { groupId, parseDateTime, spaceId } from '@ap/contracts';
+import { defineEndpoint, groupId, parseDateTime, spaceId, type AnalysisSelection, type ApiResponse, type MenuQuery, type PlatformAdapter, type ScopeCheck } from '@ap/contracts';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@ap/ui';
+import { Button, DetailPanelSlotProvider, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, SurfacePauseScope, useDetailPanelSlotHost } from '@ap/ui';
 import type { EChartProps } from '../EChart';
 
 let plot: EChartProps;
@@ -724,6 +726,42 @@ const chipControls = () => within(screen.getByRole('group', { name: '분석 선�
 const chipMore = () => chipControls().getByRole('button', { name: /a 동작$/ });
 const chipItems = () => within(screen.getByRole('menu')).getAllByRole('menuitem');
 
+function FittedChips() {
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  const [summary, setSummary] = useState<HTMLSpanElement | null>(null);
+  return <div ref={setContainer} data-testid="chip-row">
+    <span ref={setSummary}>조회 요약</span>
+    <AnalysisSelectionChipZone fit={{ container, summary }} />
+  </div>;
+}
+
+function stubChipMeasurements() {
+  const observers = new Map<Element, ResizeObserverCallback>();
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(private callback: ResizeObserverCallback) {}
+    observe(target: Element) { observers.set(target, this.callback); }
+    unobserve(target: Element) { observers.delete(target); }
+    disconnect() {}
+  });
+  return (container: HTMLElement) => {
+    const measure = (target: Element, width: number) => observers.get(target)!(
+      [{ target, contentRect: { width, height: 26 } } as ResizeObserverEntry], {} as ResizeObserver);
+    act(() => {
+      measure(screen.getByTestId('chip-row'), 300);
+      measure(screen.getByText('조회 요약'), 100);
+      measure(container.querySelector('[data-analysis-chip-probe]')!, 400);
+    });
+  };
+}
+
+const fittedChipRegistry = createRegistry({
+  spaces: rangeRegistry.spaces, groups: rangeRegistry.groups,
+  menus: rangeRegistry.menus.map(menu => ({ ...menu,
+    pageKeys: [...menu.pageKeys, setOutput.key], repeatedPageKeys: [setOutput.key],
+    contextResetKeys: [...menu.contextResetKeys!, setOutput.key], panels: [...menu.panels!, ...setRegistry.menus[0]!.panels!],
+  })),
+});
+
 function chipPage(frame: 'live' | 'unmounted' | 'suspended', onAdd = vi.fn()) {
   return <I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry} slots={chipSlots}>
     <PlatformPage><ChartChipWorkspace frame={frame} onAdd={onAdd} /></PlatformPage>
@@ -863,29 +901,9 @@ describe('Next analysis chip actions', () => {
     const from = '2026-09-01T00:00:00';
     const mid = '2026-09-01T01:00:00';
     const to = '2026-09-01T02:00:00';
-    const declared = createRegistry({
-      spaces: rangeRegistry.spaces, groups: rangeRegistry.groups,
-      menus: rangeRegistry.menus.map(menu => ({ ...menu,
-        pageKeys: [...menu.pageKeys, setOutput.key], repeatedPageKeys: [setOutput.key],
-        contextResetKeys: [...menu.contextResetKeys!, setOutput.key], panels: [...menu.panels!, ...setRegistry.menus[0]!.panels!],
-      })),
-    });
     window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=${from}&to=${to}&range=${mid}/${to}&equipment=a`);
-    const observers = new Map<Element, ResizeObserverCallback>();
-    vi.stubGlobal('ResizeObserver', class {
-      constructor(private callback: ResizeObserverCallback) {}
-      observe(target: Element) { observers.set(target, this.callback); }
-      disconnect() {}
-    });
-    function FittedChips() {
-      const [container, setContainer] = useState<HTMLDivElement | null>(null);
-      const [summary, setSummary] = useState<HTMLSpanElement | null>(null);
-      return <div ref={setContainer} data-testid="chip-row">
-        <span ref={setSummary}>조회 요약</span>
-        <AnalysisSelectionChipZone fit={{ container, summary }} />
-      </div>;
-    }
-    const { container } = render(<I18nProvider><PlatformProvider adapter={adapter} registry={declared} slots={{ contextBar: <FittedChips /> }}>
+    const foldChips = stubChipMeasurements();
+    const { container } = render(<I18nProvider><PlatformProvider adapter={adapter} registry={fittedChipRegistry} slots={{ contextBar: <FittedChips /> }}>
       <PlatformPage><AnalysisChartFrame chartId="sel" title="Sel" unit="s" nextAnalysis analysisSelectionOutput={output}
         series={[{ ...A, points: [[from, 1], [mid, 2], [to, 3]] }]} /></PlatformPage>
     </PlatformProvider></I18nProvider>);
@@ -894,13 +912,7 @@ describe('Next analysis chip actions', () => {
     const origin = { name: /date .* 동작$/ };
     const list = () => screen.queryByRole('dialog', { name: '분석 선택' });
     if (surface === 'folded') {
-      const measure = (target: Element, width: number) => observers.get(target)!(
-        [{ target, contentRect: { width, height: 26 } } as ResizeObserverEntry], {} as ResizeObserver);
-      act(() => {
-        measure(screen.getByTestId('chip-row'), 300);
-        measure(screen.getByText('조회 요약'), 100);
-        measure(container.querySelector('[data-analysis-chip-probe]')!, 400);
-      });
+      foldChips(container);
       await user.click(chipControls().getByRole('button', { name: '+1 ›' }));
     }
     await user.click((surface === 'folded' ? within(list()!) : chipControls()).getByRole('button', origin));
@@ -982,5 +994,273 @@ describe('Next analysis chip actions', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('menu')).toBeNull();
     expect(more).toHaveFocus();
+  });
+});
+
+type SourceRow = { id: string };
+type SourcePage = { rows: SourceRow[]; total?: number; truncated?: boolean };
+type ReadSourceRows = (request: MenuQuery, signal?: AbortSignal) => Promise<ApiResponse<SourcePage>>;
+const sourceEndpoint = defineEndpoint<{ selected: string[] }, SourcePage>({
+  id: 'fixture.sourceRows', menuId: 'home', paramKeys: { selected: true }, permission: 'platform:view',
+  requiresScope: true, context: {}, kinds: [], mergeTimeDomain: false, limits: { maxRows: 2 },
+});
+const sourceDeclaration = {
+  endpoint: sourceEndpoint,
+  params: (selection: AnalysisSelection) => ({
+    selected: selection.shape === 'set' ? selection.values : [selection.from, selection.to],
+  }),
+  columns: [{ id: 'id', header: 'Source ID', value: (row: SourceRow) => row.id }],
+  getRowId: (row: SourceRow) => row.id,
+};
+function SourceRowsSlot() {
+  const { ref } = useDetailPanelSlotHost();
+  return <aside ref={ref} />;
+}
+function sourceRowsChart({ outcome = 'ok', data = { rows: [{ id: 'source-1' }] }, declared = true, url = 'equipment=a',
+  axis = 'category', mounted = true, validateScope, readRows, maxRows, wrapChart, fittedChips = false }: {
+  outcome?: ApiResponse<SourcePage>['outcome']; data?: SourcePage | null; declared?: boolean;
+  url?: string; axis?: 'category' | 'time'; mounted?: boolean; validateScope?: PlatformAdapter['validateScope'];
+  readRows?: ReadSourceRows;
+  maxRows?: number;
+  wrapChart?: (chart: ReactNode) => ReactNode;
+  fittedChips?: boolean;
+} = {}) {
+  const menuQuery = vi.fn(readRows ?? (async () => ({ ...await none(), data, outcome })));
+  const sourceAdapter = testAdapter({ session: () => session, menuQuery, ...(validateScope && { validateScope }) });
+  const range = url.includes('range=');
+  const dates = ['2026-09-01T00:00:00', '2026-09-01T01:00:00'];
+  const series = axis === 'time' ? { ...A, points: dates.map((date, index): [string, number] => [date, index + 1]) } : A;
+  window.history.replaceState(null, '', `/?v=1&scopeId=MEM&${url}`);
+  const chartRegistry = fittedChips ? fittedChipRegistry : range ? rangeRegistry : chipRegistry;
+  const declaration = maxRows === undefined ? sourceDeclaration : { ...sourceDeclaration, maxRows };
+  const chart = mounted && <AnalysisChartFrame chartId="source" title="Source" unit="s" series={[series]} xType={axis} nextAnalysis
+    analysisSelectionOutput={range ? output : setOutput} selectionActions={() => <Button>Extra</Button>}
+    nextAnalysisRows={declared ? declaration : undefined} />;
+  const { container } = render(<I18nProvider><PlatformProvider adapter={sourceAdapter} registry={chartRegistry}
+    slots={fittedChips ? { contextBar: <FittedChips /> } : chipSlots}>
+    <DetailPanelSlotProvider><PlatformPage>
+      <AnalysisPanelAddContext.Provider value={{ items: [{ id: 'receiver', title: chipLabel('수신 패널') }], onAdd: vi.fn() }}>
+        {wrapChart ? wrapChart(chart) : chart}
+      </AnalysisPanelAddContext.Provider>
+    </PlatformPage><SourceRowsSlot /></DetailPanelSlotProvider>
+  </PlatformProvider></I18nProvider>);
+  return Object.assign(menuQuery, { container });
+}
+const sourceRowButton = () => within(nextRow()).getByRole('button', { name: '원본 행' });
+const sourceDrawer = () => screen.findByRole('dialog', { name: '원본 행' });
+
+describe('Next analysis source rows', () => {
+  let restoreGeometry: () => void;
+  beforeEach(() => { restoreGeometry = stubCompactTableGeometry(800); });
+  afterEach(() => { restoreGeometry(); });
+
+  it.each([
+    ['equipment=a', ['나누기', '새 패널', '다른 분석', '원본 행', '조건으로', '지우기']],
+    ['range=a/b', ['원본 행', '주석 남기기', 'Extra', '지우기']],
+  ] as const)('places the action in the next-analysis order (%s)', (url, expected) => {
+    sourceRowsChart({ url });
+    expect(within(nextRow()).getAllByRole('button').map(button => button.textContent)).toEqual(expected);
+  });
+
+  it.each([{ declared: false }, { url: 'other=1' }, { mounted: false }])('hides the action without both a mounted declaration and selection (%j)', async options => {
+    const menuQuery = sourceRowsChart(options);
+    expect(screen.queryByRole('button', { name: '원본 행' })).toBeNull();
+    if (!options.url) {
+      await userEvent.setup().click(chipMore());
+      expect(screen.queryByRole('menuitem', { name: '원본 행' })).toBeNull();
+    }
+    expect(menuQuery).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { url: 'equipment=a&equipment=b', subtitle: 'a, b', selected: ['a', 'b'] },
+    { url: 'from=2026-09-01T00:00:00&to=2026-09-01T01:00:00&range=2026-09-01T00:00:00/2026-09-01T01:00:00',
+      axis: 'time' as const, subtitle: /2026-09-01 00:00.*→.*2026-09-01 01:00/, selected: ['2026-09-01T00:00:00', '2026-09-01T01:00:00'] },
+  ])('reads the selected rows through the scoped adapter ($url)', async ({ url, axis, subtitle, selected }) => {
+    const menuQuery = sourceRowsChart({ url, axis });
+    expect(menuQuery).not.toHaveBeenCalled();
+    await userEvent.setup().click(sourceRowButton());
+    const drawer = within(await sourceDrawer());
+    expect(drawer.getByText(subtitle)).toBeVisible();
+    expect(await drawer.findByRole('cell', { name: 'source-1' })).toBeVisible();
+    expect(menuQuery).toHaveBeenCalledExactlyOnceWith({
+      endpoint: sourceEndpoint.id, context: { scopeId: 'MEM' }, params: { selected },
+    }, expect.any(AbortSignal));
+  });
+
+  it('waits for the server to validate the selected Scope before requesting rows', async () => {
+    let finishValidation!: (scope: ScopeCheck) => void;
+    const validation = new Promise<ScopeCheck>(resolve => { finishValidation = resolve; });
+    const menuQuery = sourceRowsChart({ validateScope: () => validation });
+    await userEvent.setup().click(sourceRowButton());
+    const drawer = within(await sourceDrawer());
+    expect(menuQuery).not.toHaveBeenCalled();
+    await act(async () => { finishValidation({ status: 'valid', grantedRooms: [] }); });
+    expect(await drawer.findByRole('cell', { name: 'source-1' })).toBeVisible();
+    expect(menuQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('follows an edited selection and closes when it is cleared', async () => {
+    const menuQuery = sourceRowsChart();
+    await screen.findByRole('img', { name: /Source/ });
+    await userEvent.setup().click(sourceRowButton());
+    const drawer = await sourceDrawer();
+    await waitFor(() => expect(menuQuery).toHaveBeenCalledTimes(1));
+    pointClick('b');
+    expect(within(drawer).getByText('b')).toBeVisible();
+    await waitFor(() => expect(menuQuery).toHaveBeenLastCalledWith(
+      expect.objectContaining({ params: { selected: ['b'] } }), expect.any(AbortSignal),
+    ));
+    await userEvent.setup().click(within(nextRow()).getByRole('button', { name: '지우기' }));
+    expect(drawer).not.toBeInTheDocument();
+  });
+
+  it('does not display rows from B under the subtitle of cached selection A', async () => {
+    const respond = async (request: MenuQuery): Promise<ApiResponse<SourcePage>> => {
+      const { selected } = request.params as { selected: string[] };
+      return { ...await none(), outcome: 'ok', data: { rows: [{ id: `source-${selected[0]}` }] } };
+    };
+    // Keep revalidation pending so the final A row can only come from the cache.
+    const readRows = vi.fn<ReadSourceRows>()
+      .mockImplementationOnce(respond)
+      .mockImplementationOnce(respond)
+      .mockImplementation(() => new Promise(() => {}));
+    sourceRowsChart({ readRows });
+    await screen.findByRole('img', { name: /Source/ });
+    fireEvent.click(sourceRowButton());
+    const drawer = within(await sourceDrawer());
+    expect(await drawer.findByRole('cell', { name: 'source-a' })).toBeVisible();
+    pointClick('b');
+    expect(await drawer.findByRole('cell', { name: 'source-b' })).toBeVisible();
+    pointClick('a');
+    expect(drawer.getByText('a', { exact: true })).toBeVisible();
+    expect(drawer.queryByRole('cell', { name: 'source-b' })).not.toBeInTheDocument();
+    expect(await drawer.findByRole('cell', { name: 'source-a' })).toBeVisible();
+  });
+
+  it('aborts pending source rows when the surface pauses and requests them again on resume', async () => {
+    function PausableChart({ children }: { children: ReactNode }) {
+      const [paused, setPaused] = useState(false);
+      return <>
+        <button type="button" onClick={() => setPaused(!paused)}>{paused ? 'Resume surface' : 'Pause surface'}</button>
+        <SurfacePauseScope paused={paused}>{children}</SurfacePauseScope>
+      </>;
+    }
+    const readRows = vi.fn<ReadSourceRows>()
+      .mockImplementationOnce(() => new Promise(() => {}))
+      .mockResolvedValue({ data: { rows: [{ id: 'resumed-row' }] }, assessments: [], trust: null, correlationId: 'fixture', outcome: 'ok' });
+    const menuQuery = sourceRowsChart({ readRows, wrapChart: chart => <PausableChart>{chart}</PausableChart> });
+    fireEvent.click(sourceRowButton());
+    await waitFor(() => expect(menuQuery).toHaveBeenCalledTimes(1));
+    const signal = menuQuery.mock.calls[0]?.[1];
+    expect(signal?.aborted).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Pause surface' }));
+    expect(signal?.aborted).toBe(true);
+    expect(menuQuery).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Resume surface' }));
+    expect(await within(await sourceDrawer()).findByRole('cell', { name: 'resumed-row' })).toBeVisible();
+    expect(menuQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('reports all capped rows available across the table pages', async () => {
+    const cap = 120;
+    sourceRowsChart({ maxRows: cap, data: { rows: Array.from({ length: cap + 1 }, (_, index) => ({ id: `source-${index + 1}` })) } });
+    const user = userEvent.setup();
+    await user.click(sourceRowButton());
+    const drawer = within(await sourceDrawer());
+    expect(await drawer.findByText(`표에서 원본 행 ${cap}개를 볼 수 있습니다. 조회 한도에 도달했습니다.`)).toBeVisible();
+    expect(await drawer.findByRole('cell', { name: 'source-1' })).toBeVisible();
+    expect(drawer.getByRole('table')).toHaveAttribute('aria-rowcount', String(cap + 1));
+    const next = drawer.getByRole('button', { name: '다음' });
+    await user.click(next);
+    expect(await drawer.findByRole('cell', { name: 'source-101' })).toBeVisible();
+    expect(next).toBeDisabled();
+  });
+
+  it.each([
+    { rows: [{ id: 'source-1' }], total: 3 },
+    { rows: [{ id: 'source-1' }], truncated: true },
+    { rows: [{ id: 'source-1' }, { id: 'source-2' }, { id: 'source-3' }] },
+  ])('discloses the number of rows shown for a capped result (%j)', async data => {
+    sourceRowsChart({ data });
+    await userEvent.setup().click(sourceRowButton());
+    const drawer = within(await sourceDrawer());
+    const shown = Math.min(data.rows.length, 2);
+    expect(await drawer.findByText(`표에서 원본 행 ${shown}개를 볼 수 있습니다. 조회 한도에 도달했습니다.`)).toBeVisible();
+    expect(await drawer.findAllByRole('cell')).toHaveLength(shown);
+  });
+
+  it.each([
+    { outcome: 'forbidden' as const, data: null, message: /권한이 없/ },
+    { outcome: 'too_large' as const, data: null, message: '조회 범위가 너무 큽니다' },
+    { outcome: 'empty' as const, data: null, message: '조건에 맞는 결과가 없습니다' },
+    { outcome: 'ok' as const, data: { rows: [] }, message: '조건에 맞는 결과가 없습니다' },
+  ])('shows the result state inside the drawer ($outcome)', async ({ outcome, data, message }) => {
+    sourceRowsChart({ outcome, data });
+    await userEvent.setup().click(sourceRowButton());
+    const drawer = within(await sourceDrawer());
+    const state = await drawer.findByText(message, { selector: '[role="alert"] div, [role="status"] div' });
+    expect(state).toBeVisible();
+    expect(drawer.queryByRole('table')).toBeNull();
+  });
+
+  it.each(['Escape', 'close button'])('returns keyboard focus to the row opener after %s', async closeWith => {
+    sourceRowsChart();
+    const user = userEvent.setup();
+    const opener = sourceRowButton();
+    within(nextRow()).getByRole('button', { name: '다른 분석' }).focus();
+    await user.tab();
+    expect(opener).toHaveFocus();
+    await user.keyboard('{Enter}');
+    const drawer = await sourceDrawer();
+    const close = within(drawer).getByRole('button', { name: '상세 닫기' });
+    expect(close).toHaveFocus();
+    await user.tab();
+    expect(drawer).toContainElement(document.activeElement as HTMLElement);
+    if (closeWith === 'Escape') {
+      await user.click(within(drawer).getByRole('button', { name: '크게 보기' }));
+      expect(within(drawer).getByRole('button', { name: '원래 크기로' })).toHaveAttribute('aria-pressed', 'true');
+      await user.keyboard('{Escape}');
+      expect(drawer).toBeInTheDocument();
+      await user.keyboard('{Escape}');
+    } else await user.click(close);
+    expect(drawer).not.toBeInTheDocument();
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it.each(['Escape', 'close button'])('opens the same drawer from the chip and returns focus after %s', async closeWith => {
+    sourceRowsChart();
+    const user = userEvent.setup();
+    const opener = chipMore();
+    await user.click(opener);
+    await user.click(screen.getByRole('menuitem', { name: '원본 행' }));
+    const drawer = await sourceDrawer();
+    const close = within(drawer).getByRole('button', { name: '상세 닫기' });
+    expect(close).toHaveFocus();
+    if (closeWith === 'Escape') await user.keyboard('{Escape}');
+    else await user.click(close);
+    expect(drawer).not.toBeInTheDocument();
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it.each(['Escape', 'close button'])('returns focus to the originating chip in the folded list after %s', async closeWith => {
+    const foldChips = stubChipMeasurements();
+    const { container } = sourceRowsChart({ fittedChips: true, url: 'range=a/b&equipment=a' });
+    foldChips(container);
+    const user = userEvent.setup();
+    await user.click(chipControls().getByRole('button', { name: '+1 ›' }));
+    const list = () => screen.queryByRole('dialog', { name: '분석 선택' });
+    const origin = { name: /date .* 동작$/ };
+    await user.click(within(list()!).getByRole('button', origin));
+    await user.click(screen.getByRole('menuitem', { name: '원본 행' }));
+    const drawer = await sourceDrawer();
+    const close = within(drawer).getByRole('button', { name: '상세 닫기' });
+    expect(close).toHaveFocus();
+    expect(list()).toBeNull();
+    if (closeWith === 'Escape') await user.keyboard('{Escape}');
+    else await user.click(close);
+    expect(drawer).not.toBeInTheDocument();
+    const restored = within(await screen.findByRole('dialog', { name: '분석 선택' }));
+    await waitFor(() => expect(restored.getByRole('button', origin)).toHaveFocus());
   });
 });

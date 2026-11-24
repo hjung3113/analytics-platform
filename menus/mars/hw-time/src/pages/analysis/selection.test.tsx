@@ -322,3 +322,19 @@ it('drills the selected point into its module from the current bars', async () =
   fireEvent.click(await screen.findByRole('menuitem', { name: 'Module · PM1' }));
   expect(url().get('drillModule')).toBe('PM1');
 });
+
+it.each([
+  { pins: '', chartId: 'hw-current', motion: 'Pump' },
+  { pins: '&pins=moduleMotions', chartId: 'hw-module-motions' },
+])('requests raw table rows for the selected step-4 equipment ($chartId)', async ({ pins, chartId, motion }) => {
+  await renderOverview(`&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=EQ-002${pins}`, answer,
+    { realChart: chartId, showDetail: true });
+  expect(tableReads()).toEqual([]);
+  fireEvent.click(within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '원본 행' }));
+  await waitFor(() => expect(tableReads()).toEqual([expect.objectContaining({
+    endpoint: 'hwTime.tableRows', context: expect.objectContaining({ scopeId: 'MEM' }),
+    params: expect.objectContaining({ moduleType: 'PM', drillModule: 'PM1', motionEquipment: ['EQ-002'], ...(motion && { drillMotion: motion }) }),
+  })]));
+  expect((tableReads()[0]?.params as { drillMotion?: string }).drillMotion).toBe(motion);
+  expect(await screen.findByRole('dialog', { name: '원본 행' })).toBeTruthy();
+});
