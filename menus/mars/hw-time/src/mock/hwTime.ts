@@ -6,7 +6,7 @@ import {
   type HwTimeBlock, type HwTimeDrill, type HwTimeRow, type HwTimeSeries, type HwTimeTableFilter, type HwTimeTableRow, type HwTimeModuleType,
 } from '../endpoints';
 import { judge, rollUp } from './htm';
-import { syntheticEquipmentIds } from './syntheticEquipment';
+import { equipmentNumber as numberOf, syntheticEquipmentIds } from './syntheticEquipment';
 
 const typeOf = (params: { moduleType?: string }): HwTimeModuleType => HW_TIME_MODULE_TYPES.find(type => type.id === params.moduleType) ?? HW_TIME_MODULE_TYPES[0];
 const seriesOf = (ids: readonly string[], kind: 'module' | 'motion' = 'motion'): HwTimeSeries[] => ids.map((id, index) => {
@@ -61,8 +61,8 @@ function aggregate(rows: HwTimeRow[], series: HwTimeSeries[]): HwTimeBlock {
 }
 
 function equipmentRows(equipmentIds: readonly string[], type: HwTimeModuleType): HwTimeRow[] {
-  return equipmentIds.map((equipmentId, index) => {
-    const equipmentNumber = index + 1;
+  return equipmentIds.map(equipmentId => {
+    const equipmentNumber = numberOf(equipmentId);
     const values = Object.fromEntries(type.modules.map(module => [module, moduleValue(equipmentNumber, module, type)]));
     const judgements = Object.fromEntries(type.modules.map(module => {
       const motions = SUB_ITEM_IDS.flatMap((_, subIndex) => type.motions.flatMap((motion, motionIndex) => hasRecords(module, motion)
@@ -74,8 +74,8 @@ function equipmentRows(equipmentIds: readonly string[], type: HwTimeModuleType):
 }
 
 function moduleRows(equipmentIds: readonly string[], module: string, includeMeg: boolean, type: HwTimeModuleType): HwTimeRow[] {
-  return equipmentIds.flatMap((equipmentId, equipmentIndex) => {
-    const equipmentNumber = equipmentIndex + 1;
+  return equipmentIds.flatMap(equipmentId => {
+    const equipmentNumber = numberOf(equipmentId);
     const rows: HwTimeRow[] = SUB_ITEM_IDS.map((subItem, subItemIndex) => {
       const values = Object.fromEntries(type.motions.flatMap((motion, motionIndex) => hasRecords(module, motion)
         ? [[motion, motionValue(equipmentNumber, subItemIndex, module, motionIndex, type)]] : []));
@@ -118,7 +118,7 @@ function validateDrill(drill: HwTimeDrill): string | null {
 function validateTableFilter(params: HwTimeTableFilter) {
   const { motionEquipment } = params;
   if (motionEquipment !== undefined && (!Array.isArray(motionEquipment)
-    || motionEquipment.some(id => typeof id !== 'string' || !HW_TIME_EQUIPMENT_ID_PATTERN.test(id)))) return 'motionEquipment must be a set of synthetic equipment IDs';
+    || motionEquipment.some(id => typeof id !== 'string' || !HW_TIME_EQUIPMENT_ID_PATTERN.test(id)))) return 'motionEquipment must be a set of equipment IDs';
   return validateDrill(params);
 }
 
@@ -157,7 +157,7 @@ function levelRows(equipmentIds: readonly string[], drill: HwTimeDrill) {
 function validateTrend(rowIds: string[]): string | null {
   if (!Array.isArray(rowIds)) return 'rowIds must be an array';
   if (rowIds.length > HW_TIME_MAX_TREND_ROWS) return `rowIds may contain at most ${HW_TIME_MAX_TREND_ROWS} rows`;
-  if (rowIds.some(rowId => !isHwTimeTrendId(rowId))) return 'rowIds must match ^EQ-\\d{3}(\\.H[1-4])?$';
+  if (rowIds.some(rowId => !isHwTimeTrendId(rowId))) return 'rowIds must be equipment IDs, optionally with .H1–.H4';
   return null;
 }
 
@@ -175,9 +175,9 @@ function subItemTrend(equipmentNumber: number, subItem: number, type: HwTimeModu
 
 /** A sub-item id gives its own daily values; an equipment id gives their per-day sum over H1–H4. */
 function trendValues(id: string, type: HwTimeModuleType): number[] {
-  const match = /^EQ-(\d{3})(?:\.H([1-4]))?$/.exec(id)!;
-  const equipmentNumber = Number(match[1]);
-  if (match[2] !== undefined) return subItemTrend(equipmentNumber, Number(match[2]), type);
+  const [equipmentId, subItem] = id.split('.H');
+  const equipmentNumber = numberOf(equipmentId!);
+  if (subItem !== undefined) return subItemTrend(equipmentNumber, Number(subItem), type);
   const items = [1, 2, 3, 4].map(item => subItemTrend(equipmentNumber, item, type));
   return Array.from({ length: 8 }, (_, dayIndex) => items.reduce((sum, item) => sum + item[dayIndex]!, 0));
 }
@@ -186,7 +186,7 @@ function trendRows(equipmentIds: readonly string[], rowIds: string[], from: stri
   const endDay = bucketStart(to, 'day');
   const lastDay = to === endDay ? shift(endDay, -24) : endDay;
   return {
-    rows: rowIds.filter(id => equipmentIds.includes(id.slice(0, 6))).map(id => {
+    rows: rowIds.filter(id => equipmentIds.includes(id.split('.')[0]!)).map(id => {
       const values = trendValues(id, type);
       return {
         id,

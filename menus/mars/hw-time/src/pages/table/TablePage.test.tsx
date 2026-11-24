@@ -27,7 +27,7 @@ vi.mock('@ap/components', async importOriginal => {
 
 const MODULES = ['PM1', 'PM2', 'PM3', 'PM4'];
 const MOTIONS = ['Chuck', 'Dechuck', 'Pump', 'Vent', 'Transfer'];
-const eq = (n: number) => `EQ-${String(n).padStart(3, '0')}`;
+const eq = (n: number) => ['MEM-PHOTO-0103', 'MEM-PHOTO-0105', 'MEM-PHOTO-0106'][n - 1]!;
 const sum = (values: Record<string, number | null>) => Object.values(values).includes(null) ? null : Object.values(values).reduce<number>((a, v) => a + (v ?? 0), 0);
 const equipmentRows = (): HwTimeRow[] => Array.from({ length: 3 }, (_, i) => {
   const values = Object.fromEntries(MODULES.map(m => [m, m === 'PM3' && i === 0 ? null : 10 + i]));

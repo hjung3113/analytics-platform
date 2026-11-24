@@ -9,10 +9,10 @@ const lkType = HW_TIME_MODULE_TYPES.find(type => type.id === 'LK')!;
 
 describe('overview distribution', () => {
   const params = { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump' };
-  const invoke = (equipment = EQUIPMENT.slice(0, 8), input = params) => hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.distribution')!.handle({ equipment, context, params: input, actor: 'engineer' }) as HwTimeDistribution;
+  const invoke = (equipment = EQUIPMENT.slice(0, 24), input = params) => hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.distribution')!.handle({ equipment, context, params: input, actor: 'engineer' }) as HwTimeDistribution;
   it.each(lkType.modules.flatMap(drillModule => lkType.motions.map(drillMotion => ({ drillModule, drillMotion }))))('has a centred spread, a minority near tail and two rare large values for %j', drill => {
     const data = invoke(undefined, { ...params, ...drill });
-    const ids = Array.from({ length: 24 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
+    const ids = EQUIPMENT.slice(0, 24).map(e => e.equipmentId);
     const full = overviewRuns(ids, { ...params, ...drill }, context, { sample: false });
     const { lower, upper } = data.bounds as { lower: number; upper: number };
     const inside = full.points.filter(point => point.seconds >= lower && point.seconds <= upper);
@@ -38,7 +38,7 @@ describe('overview distribution', () => {
   });
   it('bins every full-population run at a fixed 0.25 seconds, including empty intervals', () => {
     const data = invoke();
-    const ids = Array.from({ length: 24 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
+    const ids = EQUIPMENT.slice(0, 24).map(e => e.equipmentId);
     const full = overviewRuns(ids, params, context, { sample: false });
     expect(data.total).toBe(576);
     expect(data.equipment).toBe(24);
@@ -53,12 +53,12 @@ describe('overview distribution', () => {
   });
   it.each(['Pump', 'Vent', 'DoorOpen', 'DoorClose'])('uses the same %s HTM bounds as the Motion table', drillMotion => {
     const data = invoke(undefined, { ...params, drillMotion });
-    const stats = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.motionStats')!.handle({ equipment: EQUIPMENT.slice(0, 8), context, params, actor: 'engineer' }) as HwTimeMotionStats;
+    const stats = hwTimeOverviewMock.find(e => e.spec.id === 'hwTime.motionStats')!.handle({ equipment: EQUIPMENT.slice(0, 24), context, params, actor: 'engineer' }) as HwTimeMotionStats;
     const judgement = stats.rows.find(row => row.motion === drillMotion)!.judgement;
     expect(data.bounds).toEqual({ lower: judgement.lower, upper: judgement.upper });
   });
   it('counts only the runs of the linked verdict and date, the same population as the scatter', () => {
-    const ids = Array.from({ length: 24 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
+    const ids = EQUIPMENT.slice(0, 24).map(e => e.equipmentId);
     const all = invoke(undefined, params).total;
     for (const link of [{ verdict: 'over' as const }, { verdict: 'under' as const }, { date: '2026-09-20' }, { verdict: 'normal' as const, date: '2026-09-21' }]) {
       const linked = invoke(undefined, { ...params, ...link });
@@ -91,7 +91,7 @@ describe('overview distribution', () => {
 
 describe('overview run sampling', () => {
   it.each(['Pump', 'Vent', 'DoorOpen', 'DoorClose'])('includes every out-of-bound %s run in at most 400 points', motion => {
-    const ids = Array.from({ length: 24 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
+    const ids = EQUIPMENT.slice(0, 24).map(e => e.equipmentId);
     const full = overviewRuns(ids, { moduleType: 'LK', drillModule: 'LK1', drillMotion: motion }, context, { sample: false });
     const sample = overviewRuns(ids, { moduleType: 'LK', drillModule: 'LK1', drillMotion: motion }, context, { sample: true });
     expect(sample.total).toBe(576);
@@ -111,7 +111,7 @@ describe('overview run sampling', () => {
 
   it('aggregates daily means and server judgements from the full source before sampling', () => {
     const params = { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump' };
-    const ids = Array.from({ length: 24 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`);
+    const ids = EQUIPMENT.slice(0, 24).map(e => e.equipmentId);
     const full = overviewRuns(ids, params, context, { sample: false });
     const sample = overviewRuns(ids, params, context, { sample: true });
     expect(sample.daily).toEqual(full.daily);
@@ -138,7 +138,7 @@ describe('overview run sampling', () => {
 });
 
 describe('overview server projections', () => {
-  const invoke = (endpoint: string, params: Record<string, string>) => hwTimeOverviewMock.find(e => e.spec.id === endpoint)!.handle({ equipment: EQUIPMENT.slice(0, 8), context, params, actor: 'engineer' });
+  const invoke = (endpoint: string, params: Record<string, string>) => hwTimeOverviewMock.find(e => e.spec.id === endpoint)!.handle({ equipment: EQUIPMENT.slice(0, 24), context, params, actor: 'engineer' });
   it.each(lkType.motions)('default step 3 LK/%s matrix has three verdicts and visible value spread', motion => {
     const data = invoke('hwTime.matrix', { moduleType: 'LK' }) as HwTimeMatrix;
     const cells = data.cells.map(cell => cell.motions[motion]!);

@@ -17,7 +17,8 @@ const realChart = { realChart: 'hw-module-motions' };
 const equipmentAction = (name: string) => screen.getByRole('button', { name });
 const clearEquipment = () => within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '지우기' });
 const selection = (values: string[]) => values.map(value => `&motionEquipment=${value}`).join('');
-const fullSet = Array.from({ length: kernel.ANALYSIS_SELECTION_MAX_VALUES }, (_, index) => `EQ-${String(index + 2).padStart(3, '0')}`);
+// The first value is a fixture equipment (available); the rest are well-formed IDs the fixture does not show.
+const fullSet = Array.from({ length: kernel.ANALYSIS_SELECTION_MAX_VALUES }, (_, index) => index === 0 ? 'MEM-PHOTO-0105' : `MEM-TEST-${String(index + 2).padStart(4, '0')}`);
 const tableReads = () => requests.filter(request => ['hwTime.levelRows', 'hwTime.tableRows'].includes(request.endpoint));
 const matrixReads = () => requests.filter(request => request.endpoint === 'hwTime.matrix');
 const tableOnlyLink = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=table&motionEquipment=MEM-PHOTO-0105&motion=~none';

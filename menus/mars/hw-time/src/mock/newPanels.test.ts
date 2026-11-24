@@ -14,7 +14,7 @@ describe('new panel server data', () => {
   it('step 4 equipment days carry server daily means for the selected Motion', () => {
     const params = { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump' };
     const data = equipmentDays(EQUIPMENT.slice(0, 1), params, context);
-    const raw = overviewRuns(['MEM-PHOTO-0103', 'MEM-PHOTO-0105', 'MEM-PHOTO-0106'], params, context, { sample: false });
+    const raw = overviewRuns(['MEM-PHOTO-0103'], params, context, { sample: false });
     expect(data.rows.map(row => row.judgement.value)).toEqual(raw.daily.map(row => row.judgement.value));
     expect(data.rows.map(row => row.judgement.status)).toEqual(raw.daily.map(row => row.judgement.status));
   });

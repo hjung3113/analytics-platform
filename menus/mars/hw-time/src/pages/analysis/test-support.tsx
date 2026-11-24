@@ -85,7 +85,7 @@ export const stats: HwTimeMotionStats = { rows: [
 const runFixture: HwTimeRuns = {
   points: [9, 2].map((seconds, index) => {
     const judgement = { value: seconds, lower: 3, upper: 4, status: index === 0 ? 'over' as const : 'under' as const };
-    return { id: `run-${index}`, equipmentId: `EQ-00${index + 1}`, moduleId: 'PM1', motion: 'Chuck', at: '2026-09-19T10:00:00', seconds, judgement,
+    return { id: `run-${index}`, equipmentId: ['MEM-PHOTO-0103', 'MEM-PHOTO-0105'][index]!, moduleId: 'PM1', motion: 'Chuck', at: '2026-09-19T10:00:00', seconds, judgement,
       motions: Object.fromEntries(HW_TIME_MODULE_TYPES[0].motions.map(motion => [motion, judgement])), module: { ...judgement, lower: null, upper: null } };
   }), daily: [], shown: 2, total: 576,
   bounds: ['MEM-PHOTO-0103', 'MEM-PHOTO-0105'].map(equipmentId => ({ equipmentId, moduleId: 'PM1', motion: 'Chuck', lower: 3, upper: 4 })),
