@@ -110,7 +110,7 @@ type BarsProps = {
   options: readonly PanelOption[]; values: PanelOptionValues; onChange: (id: string, value: string | boolean) => void;
   onOpenTrend: (target: string, row: string) => void;
   previous?: boolean; allMotions?: boolean;
-  analysisSelectionOutput?: { panelId: string; key: string };
+  analysisSelectionOutput?: { panelId: string; key: string } | null;
   highlightedValues?: readonly string[];
 };
 const noHighlightedEquipment: readonly string[] = [];
@@ -178,11 +178,12 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
   const toolbarStart = !previous && !allMotions ? <PanelOptions options={chartOptions} values={values} onChange={onChange} /> : undefined;
   const body = <div className="flex h-full min-h-0 flex-col">
     <AnalysisChartFrame chartId={chartId} title={title[lang]} summary="quiet" toolbarStart={toolbarStart}
-      highlightedValues={highlightedValues} analysisSelectionOutput={analysisSelectionOutput} nextAnalysis={!!analysisSelectionOutput}
+      highlightedValues={highlightedValues} analysisSelectionOutput={analysisSelectionOutput} nextAnalysis={analysisSelectionOutput !== undefined}
       series={shaped.series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} description={<>{overview('synthetic')}<br />{scaleText}</>}
       legend={depth < 3 || allMotions} visibleSeriesIds={depth >= 3 && !allMotions ? shaped.series.map(series => series.id) : undefined} legendPlacement="bottom" toolsReveal="always" xType="category" orientation="horizontal" stacked
       startAlign={values.align === true} minMax={values.minMax === true} emphasisFocus="none" size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowLabelWidth="auto"
-      rowGroups={shaped.rowGroups} activeCategory={activeCategory} onActiveCategoryChange={row => setPage({ row }, { replace: true })} revealActive
+      rowGroups={shaped.rowGroups} activeCategory={activeCategory} revealActive
+      onActiveCategoryChange={(row, via) => setPage({ row }, { replace: true, preserveSelectionUndo: !!analysisSelectionOutput && via === 'pointer' })}
       canApplyRange={false} reaggregation="sum" valueLabels="both" pointStatus={statusOf}
       pointActivation={depth < 4 ? { on: 'dblclick', onActivate: openTrend } : undefined} pointActions={pointActions} />
   </div>;
@@ -245,9 +246,9 @@ function SelectionSourceBars({ source, ...props }: Omit<BarsProps, 'highlightedV
   const panelId = panelDeclarations.moduleMotions.id;
   const { highlighted, selection } = useAnalysisSelectionOutput(panelId, MOTION_EQUIPMENT_KEY, { subscribeHighlight: source });
   const showingPrevious = props.typeId ? props.queries[props.typeId]?.showingPrevious : false;
-  const output = source && !showingPrevious ? { panelId, key: MOTION_EQUIPMENT_KEY } : undefined;
+  const output = showingPrevious ? null : { panelId, key: MOTION_EQUIPMENT_KEY };
   const highlightedValues = highlighted && selection?.shape === 'set' ? selection.values : noHighlightedEquipment;
-  return <Bars {...props} highlightedValues={source ? highlightedValues : undefined} analysisSelectionOutput={output} />;
+  return <Bars {...props} highlightedValues={source ? highlightedValues : undefined} analysisSelectionOutput={source ? output : undefined} />;
 }
 
 function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'analysisSelectionOutput' | 'highlightedValues'> & {

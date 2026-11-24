@@ -23,7 +23,7 @@ export type ScreenState = Pick<HostPlatform, ScreenFields | 'screenMode' | 'pane
   pageParamsNow: (key: string) => string[] | null;
   analysisSelectionAvailability: ReturnType<typeof createAnalysisSelectionAvailability>;
 };
-export type PageWriteOptions = { replace?: boolean; focus?: PageFocus; run?: CommitOptions['run'] };
+export type PageWriteOptions = NonNullable<Parameters<HostPlatform['setPage']>[1]> & { run?: CommitOptions['run'] };
 export type MainBound = Pick<HostPlatform, MainBoundFields>;
 export type AppState = Omit<HostPlatform, ScreenFields | MainBoundFields | 'screenMode' | 'paneId' | 'paneLabel'>;
 /** App-internal handles the screen layers need; never part of the public `usePlatform()` value. */
@@ -70,7 +70,7 @@ export const RecentContext = createContext<readonly Recent[] | null>(null);
 
 /** `redirect`: replace an alias address by its canonical one (ADR-0093) — the same arrival, so a pending focus request and the address-bar hash survive. */
 export type AddressTransition = { from: string; to: string };
-export type CommitOptions = { analysisSelection?: boolean; focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** With `redirect`: a retired menu's page preset (#2330), added for the keys the kept query does not hold. */ redirectPage?: Readonly<Record<string, string>>; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[]; /** Internal: replay of a move the person confirmed leaving; skips the unsaved-edit guard (ADR-0115). */ bypassGuard?: boolean; /** Host only: this `replace` is held by the unsaved-edit guard like a push (board open, #2061). */ guard?: boolean; /** Host only: runs once the move is certain (after any confirmed leave, just before the write); `false` cancels it. Replayed with the confirmed move (#2061). */ run?: (address: AddressTransition) => boolean };
+export type CommitOptions = { analysisSelection?: boolean; preserveSelectionUndo?: boolean; focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** With `redirect`: a retired menu's page preset (#2330), added for the keys the kept query does not hold. */ redirectPage?: Readonly<Record<string, string>>; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[]; /** Internal: replay of a move the person confirmed leaving; skips the unsaved-edit guard (ADR-0115). */ bypassGuard?: boolean; /** Host only: this `replace` is held by the unsaved-edit guard like a push (board open, #2061). */ guard?: boolean; /** Host only: runs once the move is certain (after any confirmed leave, just before the write); `false` cancels it. Replayed with the confirmed move (#2061). */ run?: (address: AddressTransition) => boolean };
 export type ScreenAddress = {
   /** The browser URL for the main screen, or the pane's virtual path and query. */
   url: string;

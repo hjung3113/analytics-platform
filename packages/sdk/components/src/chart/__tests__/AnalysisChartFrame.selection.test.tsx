@@ -1,5 +1,5 @@
 import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
@@ -476,4 +476,81 @@ it('keeps a full set intact, announces the limit, and allows removing a value', 
   expect(search().getAll(setOutput.key)).toHaveLength(ANALYSIS_SELECTION_MAX_VALUES - 1);
   fireEvent.click(within(nextRow()).getByRole('button', { name: '지우기' }));
   expect(search().getAll(setOutput.key)).toEqual([]);
+});
+
+it('disables applying a shared set containing an invalid global equipment ID', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM&selectedEquipmentIds=prior&equipment=%20&equipment=a');
+  setChart();
+  const apply = within(await screen.findByRole('group', { name: '다음 분석' })).getByRole('button', { name: '조건으로' });
+  expect(apply).toHaveProperty('disabled', true);
+  expect(document.getElementById(apply.getAttribute('aria-describedby')!)?.textContent).toContain('설비 ID');
+  fireEvent.click(apply);
+  expect(search().getAll('selectedEquipmentIds')).toEqual(['prior']);
+  expect(search().getAll(setOutput.key)).toEqual([' ', 'a']);
+});
+
+it.each(['metaKey', 'ctrlKey'] as const)('undoes two pointer selections with %s despite row replacements', async modifier => {
+  const rowRegistry = createRegistry({ spaces: setRegistry.spaces, groups: setRegistry.groups,
+    menus: setRegistry.menus.map(menu => ({ ...menu, pageKeys: [...(menu.pageKeys ?? []), 'row'] })) });
+  function Bars() {
+    const { setPage } = usePlatform();
+    return <AnalysisChartFrame chartId="set" title="Set" series={[A]} unit="s" xType="category" orientation="horizontal"
+      analysisSelectionOutput={setOutput} nextAnalysis
+      onActiveCategoryChange={row => setPage({ row }, { replace: true, preserveSelectionUndo: true })} />;
+  }
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={rowRegistry}><Bars /></PlatformProvider></I18nProvider>);
+  await screen.findByRole('img');
+  pointClick('a');
+  pointClick('b');
+  expect(search().getAll(setOutput.key)).toEqual(['b']);
+  expect(search().get('row')).toBe('b');
+  fireEvent.keyDown(document.body, { key: 'z', [modifier]: true });
+  await waitFor(() => expect(search().getAll(setOutput.key)).toEqual(['a']));
+  expect(search().get('row')).toBe('b');
+  fireEvent.keyDown(document.body, { key: 'z', [modifier]: true });
+  await waitFor(() => expect(search().getAll(setOutput.key)).toEqual([]));
+  expect(search().get('row')).toBe('a');
+});
+
+it('hides the local range and closes confirmation while the output is suspended', async () => {
+  const from = '2026-09-01T00:00:00';
+  const to = '2026-09-01T02:00:00';
+  window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=${from}&to=${to}`);
+  const series: ChartSeries[] = [{ ...A, points: [[from, 1], [to, 2]] }];
+  const frame = (analysisSelectionOutput?: typeof output) => <I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry}>
+    <AnalysisChartFrame chartId="sel" title="Sel" series={series} unit="s" nextAnalysis analysisSelectionOutput={analysisSelectionOutput} />
+  </PlatformProvider></I18nProvider>;
+  const { rerender } = render(frame(output));
+  await screen.findByRole('img');
+  brush([parseDateTime(from, 'from').getTime(), parseDateTime(to, 'to').getTime()]);
+  const apply = () => within(nextRow()).getByRole('button', { name: '조건으로' });
+  fireEvent.click(apply());
+  expect(screen.getByRole('group', { name: '구간 적용 확인' })).toBeTruthy();
+  rerender(frame());
+  expect(screen.queryByRole('button', { name: '분석 구간으로 적용' })).toBeNull();
+  expect(screen.queryByRole('group', { name: '다음 분석' })).toBeNull();
+  expect(screen.queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
+  expect(within(summary()).queryByText(/선택 구간:/)).toBeNull();
+  rerender(frame(output));
+  expect(screen.queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
+  fireEvent.click(apply());
+  expect(screen.getByRole('group', { name: '구간 적용 확인' })).toBeTruthy();
+});
+
+it('highlights a shared set on first render and replaces it on plain click', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+  setChart();
+  await screen.findByRole('img');
+  expect(dataOf('a')[0]).toMatchObject({ value: 1, label: { show: true }, itemStyle: { borderWidth: expect.any(Number) } });
+  pointClick('b');
+  expect(search().getAll(setOutput.key)).toEqual(['b']);
+});
+
+it('points More help at the Next Analysis row when enabled', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+  setChart();
+  await screen.findByRole('img');
+  fireEvent.click(screen.getByRole('button', { name: '더보기' }));
+  expect(screen.getByText(/다음 분석.*조건으로/)).toBeTruthy();
 });

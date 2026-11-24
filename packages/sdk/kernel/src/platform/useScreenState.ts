@@ -11,7 +11,7 @@ import { readReturnHidden, rememberReturnHidden, type ReturnHiddenOwner } from '
 import { DETAIL_EXPAND_KEY, stripDetailExpansion, withDetailExpansion } from '../links/detail-expansion';
 import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
-import { drillGap, dropDrillResetKeys } from '../context/drillReset';
+import { drillGap, drillLevelChanged, dropDrillResetKeys } from '../context/drillReset';
 import { drillValueLabel } from '../context/drillValueLabel';
 import { appliedQueryPolicy, defaultQueryPeriod, queryMissingRequired, useScreenDraft } from '../query/draft-state';
 import { SITE_BOUND_FIELDS } from '../context/siteBound';
@@ -184,7 +184,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // Writers commit this screen's own address; they are not cross-menu navigation (a pane keeps writing to itself
   // even after its menu lost permission or board support).
   const write = useCallback((next: string, options?: PageWriteOptions & Pick<CommitOptions, 'bypassGuard' | 'analysisSelection'>) => {
-    commitState(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, bypassGuard: options?.bypassGuard, run: options?.run, analysisSelection: options?.analysisSelection });
+    commitState(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, bypassGuard: options?.bypassGuard, run: options?.run, analysisSelection: options?.analysisSelection, preserveSelectionUndo: options?.preserveSelectionUndo });
   }, [commitState]);
 
   const setGlobal = useCallback((patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => {
@@ -224,7 +224,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const added = Object.entries(patch).flatMap(([k, v]): Pair[] => (v === null ? [] : (typeof v === 'string' ? [v] : v).map((item): Pair => [k, item]))).filter(([, item]) => item !== '');
     const analysisSelection = mode === 'main' && keys.length > 0 && keys.every(key => selectionChannels.has(key))
       && keys.some(key => !sameItems(page.filter(([k]) => k === key).map(([, v]) => v), added.filter(([k]) => k === key).map(([, v]) => v)));
-    write(pathname + buildQuery(global, [...kept, ...added], extras), { ...options, analysisSelection });
+    const preserveSelectionUndo = options?.preserveSelectionUndo && keys.every(key => !selectionChannels.has(key))
+      && !drillLevelChanged(route?.menu, page, single);
+    write(pathname + buildQuery(global, [...kept, ...added], extras), { ...options, analysisSelection, preserveSelectionUndo });
   }, [readWriteBase, pathname, write, route, mode, selectionChannels]);
 
   // Reset clears analysis Context but keeps the requested Scope (a separate header control).
