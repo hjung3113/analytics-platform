@@ -11,7 +11,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkInstalled, parseSums, verifyBundle } from './sdk-bundle-check.mjs';
+import { checkInstalled, parseSums, SBOM_FILE, verifyBundle } from './sdk-bundle-check.mjs';
 import { assertNoPlatformSource, KIT_PREFIX, listFiles, sha256File } from './sdk-kit.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -219,7 +219,8 @@ async function main() {
     if (top.length !== 1 || `${top[0]}.tgz` !== asset) fail(`the asset must hold one folder named after it, found ${top.join(', ')}`);
     const kit = join(root, top[0]);
     runStep('no kit file is a copy of tracked apps/, menus/, platform/ or packages/ source', () => assertNoPlatformSource(kit));
-    runStep('bundle verify (checksums, nine exact-version tarballs, lockfile, third-party list)', () => {
+    runStep('bundle verify (checksums, nine exact-version tarballs, lockfile, third-party list, SBOM)', () => {
+      if (!parseSums(readFileSync(join(kit, 'SHA256SUMS'), 'utf8')).has(SBOM_FILE)) fail(`${SBOM_FILE} is not in the kit SHA256SUMS (#2893)`);
       const failures = verifyBundle(kit);
       if (failures.length > 0) fail(failures.join('\n'));
     });

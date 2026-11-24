@@ -8,6 +8,7 @@
 //   vendor/ap-*.tgz         the nine release tarballs, as `file:./vendor/…` dependencies
 //   pnpm-lock.yaml          resolved here (needs the registry); `pnpm install --frozen-lockfile` reproduces it anywhere
 //   third-party.json        every non-@ap package at its exact version (mirror check input)
+//   sbom.cdx.json           CycloneDX SBOM of the lockfile (`pnpm sbom --lockfile-only`, no registry or store read)
 //   sdk-bundle-check.mjs    the install check (verify / mirror / installed)
 //   SHA256SUMS              every kit file except itself
 // Nothing from apps/, menus/, platform/ or packages/ is copied; the asset is checked by sdk-kit-check.mjs.
@@ -17,7 +18,7 @@ import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BUNDLE_PACKAGES, parseLockfile, readTarEntry, thirdPartyList, verifyBundle } from './sdk-bundle-check.mjs';
+import { BUNDLE_PACKAGES, SBOM_FILE, parseLockfile, readTarEntry, thirdPartyList, verifyBundle } from './sdk-bundle-check.mjs';
 import { releaseTarball, writeKitProject } from './sdk-consumer-check.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -103,6 +104,13 @@ export function assertNoPlatformSource(kit, hashes = platformSourceHashes()) {
   if (copied.length > 0) fail(`kit carries copies of platform source: ${copied.join(', ')}`);
 }
 
+/** CycloneDX JSON for the kit lockfile (#2893). pnpm 11 reads the lockfile only, so the kit build needs nothing more. */
+export function sbomOf(kit) {
+  const result = spawnSync('pnpm', ['sbom', '--sbom-format', 'cyclonedx', '--lockfile-only'], { cwd: kit, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (result.status !== 0) fail(`pnpm sbom failed in ${kit}: ${result.stderr.trim()}`);
+  return result.stdout.endsWith('\n') ? result.stdout : `${result.stdout}\n`;
+}
+
 function buildKit(tarballs, out) {
   const version = releaseVersion(tarballs);
   const name = `${KIT_PREFIX}${version}`;
@@ -124,6 +132,7 @@ function buildKit(tarballs, out) {
     run('pnpm', ['install', '--lockfile-only'], kit);
     writeFileSync(join(kit, 'third-party.json'), `${JSON.stringify(thirdPartyList(parseLockfile(readFileSync(join(kit, 'pnpm-lock.yaml'), 'utf8'))), null, 2)}\n`);
     cpSync(join(here, 'sdk-bundle-check.mjs'), join(kit, 'sdk-bundle-check.mjs'));
+    writeFileSync(join(kit, SBOM_FILE), sbomOf(kit));
 
     assertNoPlatformSource(kit);
     const files = listFiles(kit);

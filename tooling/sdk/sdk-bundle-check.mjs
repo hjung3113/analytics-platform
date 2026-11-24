@@ -4,7 +4,7 @@
 //
 // The bundle is the start kit folder itself (the kit's lockfile is the bundle's lockfile): `vendor/` holds the nine release
 // tarballs, `pnpm-lock.yaml` resolves them as `file:vendor/…`, `third-party.json` lists every other package at its exact
-// version, and `SHA256SUMS` covers the shipped files.
+// version, `sbom.cdx.json` is the CycloneDX SBOM pnpm writes from that lockfile, and `SHA256SUMS` covers the shipped files.
 //
 //   node sdk-bundle-check.mjs verify   [--bundle <dir>]                 checks 1–4, before install; exit 1 lists every failure
 //   node sdk-bundle-check.mjs mirror   --registry <url> [--bundle <dir>] check 5: report third-party name@version missing
@@ -225,6 +225,34 @@ export function checkLockfile(lock, version, listed) {
   return failures;
 }
 
+/** The kit's CycloneDX SBOM (#2893), written by `pnpm sbom --lockfile-only` from the kit lockfile. */
+export const SBOM_FILE = 'sbom.cdx.json';
+
+/**
+ * The SBOM names the same packages as the lockfile: every third-party package at its exact version and the nine @ap/*
+ * packages at the bundle version. A stale or hand-edited SBOM fails here.
+ */
+export function checkSbom(lock, sbom, version) {
+  if (sbom?.bomFormat !== 'CycloneDX' || !Array.isArray(sbom.components)) return [`${SBOM_FILE}: not a CycloneDX document with components`];
+  const failures = [];
+  const named = new Set();
+  const ap = new Set();
+  for (const component of sbom.components) {
+    const name = component.group ? `${component.group}/${component.name}` : component.name;
+    if (name.startsWith(SCOPE)) {
+      if (component.version !== version) failures.push(`${SBOM_FILE} lists ${name}@${component.version}, expected ${version}`);
+      ap.add(name);
+    } else {
+      named.add(`${name}@${component.version}`);
+    }
+  }
+  const expected = new Set(thirdPartyList(lock).map((item) => `${item.name}@${item.version}`));
+  for (const item of expected) if (!named.has(item)) failures.push(`${SBOM_FILE} is missing ${item} from pnpm-lock.yaml`);
+  for (const item of named) if (!expected.has(item)) failures.push(`${SBOM_FILE} lists ${item}, which pnpm-lock.yaml does not resolve`);
+  for (const name of BUNDLE_PACKAGES) if (!ap.has(`${SCOPE}${name}`)) failures.push(`${SBOM_FILE} is missing ${SCOPE}${name}`);
+  return failures;
+}
+
 function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
 }
@@ -288,6 +316,8 @@ export function verifyBundle(bundle) {
   }
   const lock = parseLockfile(readFileSync(join(bundle, 'pnpm-lock.yaml'), 'utf8'));
   failures.push(...checkLockfile(lock, version, readJsonFile(join(bundle, 'third-party.json'))));
+  // Kits before 0.49 have no SBOM. A kit that has one lists it in SHA256SUMS (checked above); the release side requires it.
+  if (sums.has(SBOM_FILE)) failures.push(...checkSbom(lock, readJsonFile(join(bundle, SBOM_FILE)), version));
   return failures;
 }
 

@@ -16,6 +16,7 @@
 | `src/start.test.tsx` | 렌더 시험. `menus/sample`을 복사한 메뉴는 시험을 고치지 않아도 자기 URL에서 렌더되는지 검사된다 |
 | `vendor/`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `patches/` | 고정 버전 설치 재료. 손으로 고치지 않는다. 버전을 바꿀 때는 목표 버전 키트의 것을 통째로 쓴다(아래 «버전 교체와 되돌리기») |
 | `sdk-bundle-check.mjs`, `third-party.json`, `SHA256SUMS` | 설치 검사와 그 입력 |
+| `sbom.cdx.json` | lockfile의 CycloneDX SBOM(`pnpm sbom --lockfile-only`). 설치 검사가 lockfile과 같은 패키지인지 본다 |
 
 `viewer` 역할은 공개 메뉴만 보고, `engineer`(사내 역할)는 `kit:inhouse-view`까지 받아 «사내 업무» 메뉴가 더 뜬다. 권한 선언은 부여가 아니다.
 

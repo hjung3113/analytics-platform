@@ -10,6 +10,7 @@
 - 시작 키트([시작 키트 안내](../guides/standalone-start-kit.md))와 키트의 lockfile. 키트의 lockfile이 묶음의 lockfile이다. 실제로는 묶음 폴더가 키트 폴더 자체이고, 릴리스 자산 `ap-start-kit-<버전>.tgz` 하나에 아래 전부가 들어 있다(`tooling/sdk/sdk-kit.mjs`).
 - `patches/`와 override 목록(소비자가 따로 맞춰야 하는 서드파티 patch·override). 키트의 `pnpm-workspace.yaml` `overrides`·`patchedDependencies`와 `patches/`다.
 - 서드파티 정확 버전 목록.
+- SBOM `sbom.cdx.json`: 키트 lockfile을 pnpm이 CycloneDX로 쓴 것(`pnpm sbom --sbom-format cyclonedx --lockfile-only`, 레지스트리·store를 읽지 않음, [#2893](https://github.com/hjung3113/analytics-platform/issues/2893)).
 - 설치 안내(키트 README «설치»)와 설치 검사 스크립트(`sdk-bundle-check.mjs`).
 - `SHA256SUMS`.
 
@@ -28,7 +29,7 @@
 | `adopt --from <지금 폴더> [--bundle <새 키트 폴더>]` | 버전 교체·되돌리기: 갓 푼 키트에 조립 몫을 옮긴다. 키트 파일을 고쳤거나 덮어쓰게 되면 아무것도 바꾸지 않고 exit 1([시작 키트](../guides/standalone-start-kit.md#버전-교체와-되돌리기)) |
 
 0. (설치 전, 스크립트 밖) 내려받은 키트 자산을 릴리스의 바깥 `SHA256SUMS`로 먼저 확인한다(`sha256sum -c --ignore-missing SHA256SUMS`). 아래 1은 키트 안의 목록을 보므로 같은 압축 파일에서 나온 목록과 파일은 서로 맞는다.
-1. 체크섬: `SHA256SUMS`와 파일이 일치한다.
+1. 체크섬: `SHA256SUMS`와 파일이 일치한다. SBOM이 있으면 그 패키지 목록이 lockfile과 같다(서드파티는 정확 버전, `@ap/*` 아홉은 묶음 버전). v0.49 전 키트에는 SBOM이 없어 이 대조를 건너뛰고, 릴리스 쪽 `sdk-kit-check`는 SBOM을 요구한다.
 2. `@ap/*` 단일 사본: 같은 패키지가 둘 설치되지 않는다. 설치 전에는 lockfile의 `snapshots`에서 다른 peer 묶음으로 두 번 풀린 `@ap/*`를 찾고, 설치 뒤에는 `installed`로 디스크를 본다.
 3. 정확 버전 peer: 아홉이 같은 버전이다.
 4. 설치 스크립트와 git·URL 의존이 없다(묶음 tarball 밖의 것). tarball 아홉의 `scripts`·의존 선언과 lockfile의 `resolution`을 본다. 서드파티의 설치 스크립트는 pnpm 11이 `allowBuilds`에 없는 것을 돌리지 않는 것으로 막는다.
@@ -68,4 +69,4 @@ CI 러너가 linux-x64라서 시험하는 축은 linux-x64뿐이다. 이 한계�
 
 ## 미루는 것 (구현 안 함)
 
-[ADR-0143](../adr/0143-release-units-and-compatibility-train.md) Deferred 그대로다. 서드파티 store 동봉, 미러 규칙, SBOM·provenance, 서버 이미지 묶음. 이유: 사내 미러의 보유 범위가 불확실하다. 다시 여는 조건: 미러 누락이 실제로 보고될 때. 슬라이스 종료 절차에 이 자산 목록을 더하는 일은 `PROFILE.md` 소유자의 몫이다.
+[ADR-0143](../adr/0143-release-units-and-compatibility-train.md) Deferred 그대로다. 서드파티 store 동봉, 미러 규칙, provenance·서명, 서버 이미지 묶음(SBOM은 [#2893](https://github.com/hjung3113/analytics-platform/issues/2893)에서 구현). 이유: 사내 미러의 보유 범위가 불확실하다. 다시 여는 조건: 미러 누락이 실제로 보고될 때. 슬라이스 종료 절차에 이 자산 목록을 더하는 일은 `PROFILE.md` 소유자의 몫이다.

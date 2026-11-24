@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 
-import { adoptAssembly, assemblyFiles, BUNDLE_PACKAGES, checkInstalled, checkMirror, parseLockfile, readTarEntry, thirdPartyList, verifyBundle } from './sdk-bundle-check.mjs';
+import { adoptAssembly, assemblyFiles, BUNDLE_PACKAGES, checkInstalled, checkMirror, parseLockfile, readTarEntry, SBOM_FILE, thirdPartyList, verifyBundle } from './sdk-bundle-check.mjs';
 import { releasePackages } from './sdk-exports.mjs';
 
 const VERSION = '1.2.3';
@@ -72,12 +72,12 @@ function lockText({ extraPackages = [], extraSnapshots = [] } = {}) {
 }
 
 function writeSums(bundle) {
-  const files = ['package.json', 'pnpm-lock.yaml', 'third-party.json', ...readdirSync(join(bundle, 'vendor')).map((file) => `vendor/${file}`)];
+  const files = ['package.json', 'pnpm-lock.yaml', 'third-party.json', ...(existsSync(join(bundle, SBOM_FILE)) ? [SBOM_FILE] : []), ...readdirSync(join(bundle, 'vendor')).map((file) => `vendor/${file}`)];
   const lines = files.map((file) => `${createHash('sha256').update(readFileSync(join(bundle, file))).digest('hex')}  ${file}`);
   writeFileSync(join(bundle, 'SHA256SUMS'), `${lines.join('\n')}\n`);
 }
 
-function makeBundle({ manifests = {}, lock = lockText(), thirdParty, project } = {}) {
+function makeBundle({ manifests = {}, lock = lockText(), thirdParty, project, sbom } = {}) {
   const bundle = mkdtempSync(join(tmpdir(), 'ap-bundle-check-'));
   mkdirSync(join(bundle, 'vendor'));
   for (const name of BUNDLE_PACKAGES) {
@@ -89,12 +89,43 @@ function makeBundle({ manifests = {}, lock = lockText(), thirdParty, project } =
   writeFileSync(join(bundle, 'package.json'), JSON.stringify(project ?? { name: 'kit', private: true, dependencies: { ...dependencies, react: '19.3.0' } }));
   writeFileSync(join(bundle, 'pnpm-lock.yaml'), lock);
   writeFileSync(join(bundle, 'third-party.json'), JSON.stringify(thirdParty ?? thirdPartyList(parseLockfile(lock))));
+  if (sbom) writeFileSync(join(bundle, SBOM_FILE), JSON.stringify(sbom));
   writeSums(bundle);
   return bundle;
 }
 
 test('the shipped package list is the nine release packages of sdk-exports', () => {
   assert.deepEqual([...BUNDLE_PACKAGES].sort(), releasePackages().map(({ name }) => name).sort());
+});
+
+/** The CycloneDX shape `pnpm sbom --lockfile-only` writes for the fixture lockfile. */
+function sbomFor({ drop = [], add = [], apVersion = VERSION } = {}) {
+  const components = [
+    ...BUNDLE_PACKAGES.map((name) => ({ type: 'library', group: '@ap', name, version: apVersion })),
+    { type: 'library', name: 'react', version: '19.3.0' },
+    { type: 'library', name: 'zod', version: '4.1.0' },
+    ...add,
+  ].filter((component) => !drop.includes(component.group ? `${component.group}/${component.name}` : component.name));
+  return { bomFormat: 'CycloneDX', specVersion: '1.7', components };
+}
+
+test('SBOM (#2893): a kit with a matching SBOM passes; a kit without one still verifies (kits before 0.49)', () => {
+  assert.deepEqual(verifyBundle(makeBundle({ sbom: sbomFor() })), []);
+  assert.deepEqual(verifyBundle(makeBundle()), []);
+});
+
+test('SBOM (#2893): a package missing from or added to the SBOM, a wrong @ap version or a non-CycloneDX file fails', () => {
+  assert.deepEqual(verifyBundle(makeBundle({ sbom: sbomFor({ drop: ['zod'] }) })), ['sbom.cdx.json is missing zod@4.1.0 from pnpm-lock.yaml']);
+  assert.deepEqual(verifyBundle(makeBundle({ sbom: sbomFor({ add: [{ type: 'library', name: 'left-pad', version: '1.0.0' }] }) })), ['sbom.cdx.json lists left-pad@1.0.0, which pnpm-lock.yaml does not resolve']);
+  assert.deepEqual(verifyBundle(makeBundle({ sbom: sbomFor({ drop: ['@ap/kernel'] }) })), ['sbom.cdx.json is missing @ap/kernel']);
+  assert.match(verifyBundle(makeBundle({ sbom: sbomFor({ apVersion: '9.9.9' }) })).join('\n'), /sbom\.cdx\.json lists @ap\/contracts@9\.9\.9, expected 1\.2\.3/);
+  assert.deepEqual(verifyBundle(makeBundle({ sbom: { spdxVersion: 'SPDX-2.3' } })), ['sbom.cdx.json: not a CycloneDX document with components']);
+});
+
+test('SBOM (#2893): an SBOM changed after SHA256SUMS was written fails the checksum', () => {
+  const bundle = makeBundle({ sbom: sbomFor() });
+  writeFileSync(join(bundle, SBOM_FILE), JSON.stringify(sbomFor({ drop: ['zod'] })));
+  assert.ok(verifyBundle(bundle).includes('sbom.cdx.json: checksum does not match SHA256SUMS'));
 });
 
 test('a well-formed bundle passes verify', () => {
