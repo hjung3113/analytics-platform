@@ -373,7 +373,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
   if (outsideLabel !== undefined) selectionSummary = m('chartSelectionOutsideTopN', { label: outsideLabel, count: rows.length });
   if (spec.kind === 'heatmap' && summaryRows.length > 3) {
     const range = (labels: string[], axis: 'x' | 'y') => {
-      const selectedLabels = labels.filter(label => selectedRows.some(row => row[axis] === label));
+      const chosen = new Set(selectedRows.map(row => row[axis]));
+      const selectedLabels = labels.filter(label => chosen.has(label));
       return selectedLabels.length === 1 ? selectedLabels[0] : `${selectedLabels[0]}–${selectedLabels.at(-1)}`;
     };
     selectionSummary = m('chartHeatmapRangeSelection', { count: active.length, yRange: range(spec.yLabels, 'y'), xRange: range(spec.xLabels, 'x') });

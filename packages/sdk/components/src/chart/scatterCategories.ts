@@ -184,12 +184,13 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
     seriesKeys: [...base.seriesKeys, ...statusOutlines.map(() => []), ...(groups ? [[]] : [])],
     option: active => {
       const original = base.option(active);
+      const chosen = new Set(active);
       const theme = chartTheme();
       const series = (original.series as ScatterSeriesOption[]).map((series, s) => ({ ...series,
         data: (series.data as { value: number[]; itemStyle: { color: string; borderColor: string; borderWidth: number } }[]).map((datum, d) => {
           const key = base.seriesKeys[s][d]; const point = pointForDatum(s, d)?.point;
           if (!point?.status) return datum;
-          const selected = key !== undefined && active.includes(key);
+          const selected = key !== undefined && chosen.has(key);
           if (quiet) return { ...datum, symbolSize: QUIET_SCATTER.statusSize,
             itemStyle: { ...datum.itemStyle, opacity: QUIET_SCATTER.statusOpacity,
               ...(selected ? { shadowBlur: 6, shadowColor: token('chart-selection-outline') } : {}) },
@@ -197,7 +198,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
             emphasis: { label: { ...statusMarker(point.status), position: 'top' as const } },
           };
           return { ...datum, itemStyle: { ...datum.itemStyle, borderColor: statusBorderColor(point.status, datum.itemStyle.color), borderWidth: 2,
-            ...(key !== undefined && active.includes(key) ? { shadowBlur: 6, shadowColor: token('chart-selection-outline') } : {}) }, label: { ...statusMarker(point.status), position: 'top' as const } };
+            ...(key !== undefined && chosen.has(key) ? { shadowBlur: 6, shadowColor: token('chart-selection-outline') } : {}) }, label: { ...statusMarker(point.status), position: 'top' as const } };
         }),
       }));
       if (categories?.bounds && series.length) {
