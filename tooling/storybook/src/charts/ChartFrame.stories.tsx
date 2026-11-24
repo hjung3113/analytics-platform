@@ -17,9 +17,10 @@ const choose = async (canvasElement: HTMLElement, select: string, option: string
   await user.click(await within(canvasElement).findByRole('combobox', { name: select }));
   await user.click(await within(document.body).findByRole('option', { name: option }));
 };
-/** Brush on, then 11-01 – 11-09 through the end picker (the keyboard path of the same range). */
+/** Brush on, then 11-04 – 11-09 through the start/end pickers (the keyboard path of the same range). */
 const brush = async (ctx: { canvasElement: HTMLElement }) => {
   await press('구간 선택')(ctx);
+  await choose(ctx.canvasElement, '구간 시작', '2026-11-04 00:00');
   await choose(ctx.canvasElement, '구간 끝', '2026-11-09 00:00');
   await press('선택')(ctx);
 };
@@ -43,8 +44,9 @@ type Story = StoryObj<typeof meta>;
 export const Line: Story = {};
 /** 확대를 한 번 누른 상태. 축소·좌우 이동이 생긴다. */
 export const Zoomed: Story = { args: { chartId: 'sb-zoom' }, play: press('확대') };
-/** 구간 선택을 켜고 구간을 고른 상태. 선택 요약에 시리즈별 n·평균·최대가 나온다. */
-export const Brushed: Story = { args: { chartId: 'sb-brush' }, play: brush };
+/** 구간 선택을 켜고 11-04 – 11-09를 고른 상태. 선택 요약에 시리즈별 n·평균·최대가 나온다. */
+// Its own iframe: on the shared docs page the other stories' plays raced the range pickers and the narrowed end did not stick.
+export const Brushed: Story = { args: { chartId: 'sb-brush' }, play: brush, parameters: { docs: { story: { inline: false, height: '600px' } } } };
 /** 비교를 켠 상태. 전 기간 시리즈가 점선으로 겹친다. */
 export const Compared: Story = { args: { chartId: 'sb-compare', compareSeries: UTIL_PREVIOUS }, play: press('비교') };
 /** 저장된 주석이 그려지고, 전체 구간을 고른 뒤 새 주석을 쓰는 편집기가 열린 상태. */

@@ -15,13 +15,13 @@ const CHOOSER: [chart: string, piece: string, use: Quote[], avoid: Quote[]][] = 
   ['가로 범주 막대', 'AnalysisChartFrame orientation="horizontal"', [[CHART, '드릴이 가능한 가로 막대는']], []],
   ['순위 막대', 'AnalysisChart topNBar', [[CHART, '단일 측정값 순위에 상위 N 자르기']], [[TOPN, '기타·누적률과 단순 순위의 의미가 섞인다']]],
   ['파레토', 'AnalysisChart pareto', [], [[TOPN, '기타·누적률과 단순 순위의 의미가 섞인다']]],
-  ['히트맵', 'AnalysisChart heatmap', [[SPEC, '히트맵은 두 범주축의 셀']], [[SPEC, 'threshold는 실제 승인된 판정에만 쓰고']]],
+  ['히트맵', 'AnalysisChart heatmap', [[SPEC, '히트맵은 두 범주축의 셀']], []],
   ['도넛', 'AnalysisChart donut', [[SPEC, '도넛은 분모가 있는 구성비를 받는다']], [[SPEC, '도넛의 `maxSlices`는 2–5로 제한한다']]],
   ['산점도', 'AnalysisChart scatter', [], []],
   ['상자 그림', 'AnalysisChart boxPlot', [[CHART, 'boxPlot은 원자료 대신 호출자가 계산한 통계를 받으며']], []],
   ['히스토그램', 'AnalysisChart histogram', [], []],
   ['레인 시간선', 'LaneTimeline', [[TOPN, 'React 렌더 없이 수십만 구간을 다룰 수 있기']], [[TOPN, '기존 시간축 Frame을 대체하지 않는다']]],
-  ['순서 트랙', 'OrderedIntervalTrack', [[TRACK, '위치는 소비자가 준 서수이고']], [[TRACK, '시간 축은 소비자가 명시했을 때만 쓴다']]],
+  ['순서 트랙', 'OrderedIntervalTrack', [[TRACK, '위치는 소비자가 준 서수이고']], []],
 ];
 // DESIGN.md token-table rows drawn with their live colors.
 const COLOR_ROWS = ['`chart-series-1`', '`chart-status-good`', '`chart-no-data`', '`chart-selection-outline`', '`chart-grid`'];
