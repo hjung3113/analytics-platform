@@ -1,0 +1,5 @@
+/* The app's stylesheet order (apps/platform-web/src/style.css) without the shell and menus. */
+@import "tailwindcss";
+@import "@ap/ui/styles.css";
+@import "@ap/components/styles.css";
+@source "../src";

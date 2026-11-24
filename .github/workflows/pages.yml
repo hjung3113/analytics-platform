@@ -1,9 +1,22 @@
 name: Pages
 
-# Paused: the intro site is not deployed on release (owner, 2026-11-15: the site is paused until
-# the owner restructures it). Only a manual run deploys. Reopen: when the owner resumes the site,
+# One Pages artifact holds the intro site (root) and the SDK Storybook (`/storybook/`, #2828).
+# The intro site is paused (owner, 2026-11-15) until the owner restructures it: a push to main only
+# refreshes Storybook and re-assembles the site at the ref that is live now, so its content stays
+# as it is. A manual run deploys the site at `inputs.ref`. Reopen: when the owner resumes the site,
 # restore the `release: types: [published]` trigger.
 on:
+  push:
+    branches: [main]
+    paths:
+      - tooling/storybook/**
+      - packages/sdk/ui/**
+      - packages/sdk/components/**
+      - packages/sdk/kernel/**
+      - DESIGN.md
+      - docs/contract/components.md
+      - pnpm-lock.yaml
+      - .github/workflows/pages.yml
   workflow_dispatch:
     inputs:
       ref:
@@ -22,15 +35,44 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  storybook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ap/storybook build-storybook
+      - uses: actions/upload-artifact@v7
+        with:
+          name: storybook
+          path: tooling/storybook/storybook-static
+          retention-days: 1
   build:
+    needs: storybook
     runs-on: ubuntu-latest
     # `sdk-v*` releases fail the github-pages environment protection (#1139): deploy only app tags (`v*`).
     # workflow_dispatch keeps its manual path; deploy is skipped with build via `needs`.
     if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'v')
     steps:
+      # A push keeps the live site: read the ref it was built from out of its `site-config.js`.
+      - name: Site ref
+        id: site
+        env:
+          REF: ${{ inputs.ref || github.event.release.tag_name || 'main' }}
+          LIVE: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/site-config.js
+        run: |
+          if [ "${{ github.event_name }}" = push ]; then
+            REF=$(curl -fsSL "$LIVE" | sed -n 's/.*"ref":"\([^"]*\)".*/\1/p')
+            if [ -z "$REF" ]; then echo "live site ref not found at $LIVE" >&2; exit 1; fi
+          fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref || github.event.release.tag_name || 'main' }}
+          ref: ${{ steps.site.outputs.ref }}
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -49,7 +91,7 @@ jobs:
           node site/scripts/shots.mjs --demo apps/platform-web/dist --out _shots
       - name: Assemble site
         env:
-          SITE_REF: ${{ inputs.ref || github.event.release.tag_name || 'main' }}
+          SITE_REF: ${{ steps.site.outputs.ref }}
           SITE_DEMO: ${{ vars.PAGES_DEMO }}
           SITE_ASSUMPTION: ${{ vars.PAGES_ASSUMPTION }}
         run: |
@@ -57,6 +99,10 @@ jobs:
           if [ "$SITE_DEMO" = true ]; then args+=(--demo apps/platform-web/dist --shots _shots); fi
           if [ "$SITE_ASSUMPTION" = true ]; then args+=(--assumption); fi
           node site/scripts/assemble.mjs "${args[@]}"
+      - uses: actions/download-artifact@v8
+        with:
+          name: storybook
+          path: _site/storybook
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

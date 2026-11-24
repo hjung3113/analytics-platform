@@ -709,6 +709,10 @@ export const app = [
   IME_ENTER_GUARD,
 ];
 
+// Storybook (#2828, tooling/storybook): a dev-only consumer that sees the SDK like a menu (public entries only).
+/** @type {import('eslint').Linter.Config[]} */
+export const storybook = [REACT_HOOKS, layerConfig({ restriction: MENU_RESTRICTION }), designSystem(), IME_ENTER_GUARD];
+
 /** @type {import('eslint').Linter.Config[]} */
 export const tooling = [
   layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),

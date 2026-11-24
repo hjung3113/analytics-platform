@@ -67,3 +67,4 @@ docs/.llmwiki/
 **/.env
 !**/.env.example
 /*.log
+storybook-static/
