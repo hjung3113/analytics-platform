@@ -32,6 +32,19 @@ const TAG = `RQ${randomUUID().slice(0, 6).toUpperCase()}`;
 const H = (c: string) => c.repeat(64);
 const Q = '/api/v1/validation-queue';
 const SATURDAY_NOON = new Date('2026-11-14T12:00:00+09:00'); // inside the default run window (weekend, Asia/Seoul)
+/** Tables the lifecycle and knowledge visibility predicates read (#1850). */
+const VISIBILITY_TABLES = [
+  'core.actors',
+  'knowledge.equipment_model',
+  'knowledge.software_version',
+  'knowledge.object_access_rule',
+  'log_lifecycle.development_project',
+  'log_lifecycle.validation_round',
+  'log_lifecycle.execution_request',
+  'log_lifecycle.execution_attempt',
+  'log_lifecycle.rule_result',
+  'log_lifecycle.rule_result_evidence',
+];
 const TUESDAY_NOON = new Date('2026-11-10T12:00:00+09:00'); // outside it
 
 interface Person {
@@ -165,6 +178,11 @@ describe.skipIf(!runIntegration)('validation request queue (#1445 d)', { timeout
       [WORKSPACE_ID],
     );
     await sql('delete from log_lifecycle.queue_settings where workspace_id = $1', [WORKSPACE_ID]);
+    // A fresh CI database has no planner statistics until autovacuum's first pass (about a minute in), and this file often runs
+    // first. Without them `workspace_id = $1` looks selective although every row shares the one workspace, so the visibility
+    // predicate's semi-joins scan the whole workspace once per outer row: an evidenceLinks read grew to 1–10 s as the file added
+    // rows and timed the test out (#1850). Fresh statistics give the planner the real row counts.
+    await sql(`analyze ${VISIBILITY_TABLES.join(', ')}`);
   });
 
   beforeAll(async () => {
