@@ -183,7 +183,7 @@ export type AnalysisChartFrameProps<P = never, T = never> = ChartChromeOptions &
   isPointSelectable?: (point: ChartPoint) => boolean;
   /** Default true. False omits the Frame's own series legend and checkboxes, for a page that owns visibility through `visibleSeriesIds`. */
   legend?: boolean;
-  /** `size="fill"` only: plot floor in full/minimal, initial unmeasured height in standard (then fits the remaining space). Default 320; values below 160 are raised to 160 with a dev warning. */
+  /** `size="fill"` only. Full/minimal: plot floor (default 320). Standard: initial unmeasured height (default 320), then the plot fits the remaining space but never below this value (default 160 when omitted); when the space runs short the card grows and the panel body scrolls (#2869). Values below 160 are raised to 160 with a dev warning. */
   fillMin?: number;
   unit: string;
   valueFormat?: (v: number) => string;
@@ -1307,7 +1307,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         <Button ref={showAllButton} type="button" variant="secondary" size="toolbar" onClick={showAllSeries}><Eye className="size-3.5" aria-hidden />{m('chartShowAll')}</Button>
       </div>
     </>}
-    <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || plotLegendCaption != null || categoryValueMarkLegend !== null)} keys={p.legend !== false} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={plotLegendCaption}>
+    <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || plotLegendCaption != null || categoryValueMarkLegend !== null)} keys={p.legend !== false} fill={size === 'fill'} floor={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={plotLegendCaption}>
     <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && fillPlotClass, rowPitch !== undefined && 'overflow-y-auto scrollbar-panel')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
       style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && chrome === 'standard' ? { minHeight: fillFloor } : size === 'fill' && loweredFill ? { minHeight: fillMin } : undefined} role={plotPointControls ? 'group' : undefined} aria-label={plotPointControls ? m('chartPointsGroup') : undefined} tabIndex={plotPointControls ? 0 : -1}
