@@ -88,6 +88,14 @@ export function newestReleaseFile(names) {
   return parsed[0]?.n ?? null;
 }
 
+/**
+ * The ref the scope check reads the base release file at: the base branch's tip, never `pr.base.sha`. GitHub sets `base.sha`
+ * when the PR opens and does not move it on a push or a job rerun, so a PR opened before a scope addition kept failing.
+ */
+export function scopeBaseRef(pr) {
+  return pr.base.ref;
+}
+
 export function scopeVerdict({ closes, baseScope, headScope, labels }) {
   const waived = labels.includes(SCOPE_LABEL);
   if (baseScope === null) return { closes, missing: closes, grew: [], noSection: true, waived, ok: waived };
@@ -158,6 +166,7 @@ function selfTest() {
   assert.equal(newestReleaseFile(['v0.44.0.md', 'v0.44.10.md', 'v0.44.9.md']), 'v0.44.10.md');
   assert.equal(newestReleaseFile(['README.md']), null);
   // scope verdict
+  assert.equal(scopeBaseRef({ base: { ref: 'main', sha: '5f443aeff4ab' } }), 'main', 'scope reads the base branch tip, not the base.sha frozen at PR open');
   const base = new Set([2553, 2529]);
   assert.equal(scopeVerdict({ closes: [2529], baseScope: base, headScope: base, labels: [] }).ok, true);
   assert.equal(scopeVerdict({ closes: [], baseScope: base, headScope: base, labels: [] }).ok, true, 'a PR without an issue is not scope-checked');
@@ -205,9 +214,10 @@ async function main() {
   const files = await paged(`/repos/${repo}/pulls/${n}/files`);
   const runs = (await paged(`/repos/${repo}/actions/workflows/ci.yml/runs?event=pull_request&branch=${encodeURIComponent(pr.head.ref)}`))
     .filter((r) => r.head_repository?.full_name === pr.head.repo?.full_name && r.created_at >= pr.created_at);
-  const dir = await api(`/repos/${repo}/contents/.planning/releases?ref=${pr.base.sha}`).catch(() => []);
+  const baseRef = encodeURIComponent(scopeBaseRef(pr));
+  const dir = await api(`/repos/${repo}/contents/.planning/releases?ref=${baseRef}`).catch(() => []);
   const releaseFile = newestReleaseFile((Array.isArray(dir) ? dir : []).map((e) => e.name));
-  const baseText = releaseFile ? await api(`/repos/${repo}/contents/.planning/releases/${releaseFile}?ref=${pr.base.sha}`, { raw: true }) : null;
+  const baseText = releaseFile ? await api(`/repos/${repo}/contents/.planning/releases/${releaseFile}?ref=${baseRef}`, { raw: true }) : null;
   const headText = releaseFile ? await api(`/repos/${repo}/contents/.planning/releases/${releaseFile}?ref=${pr.head.sha}`, { raw: true }) : null;
   const labelEvents = (await paged(`/repos/${repo}/issues/${n}/events`))
     .filter((e) => e.event === 'labeled' && e.label?.name?.startsWith('owner-ok:'))
