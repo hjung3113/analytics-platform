@@ -109,7 +109,7 @@ function ChoiceRows({ choices }: { choices: readonly Choice[] }) {
   return <>{choices.map(choice => <MenuItem key={choice.id} {...choice} />)}</>;
 }
 
-/** `focusKey`: the chart's output, stable when the row is rebuilt, so a panel addition can find its trigger again. */
+/** `focusKey`: the chart and its output, stable when the row is rebuilt, so a panel addition can find its trigger again. */
 function ActionMenu({ action, focusKey }: { action: GroupAction; focusKey?: string }) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -158,13 +158,17 @@ export function NextAnalysisMenuItem({ action, onSelect }: {
   </DropdownMenuSub>;
 }
 
-type RowProps = Props & { localActions: readonly DirectNextAnalysisAction[]; renderRow: (items: ReactNode) => ReactNode };
+type RowProps = Props & {
+  localActions: readonly DirectNextAnalysisAction[]; renderRow: (items: ReactNode) => ReactNode;
+  /** The chart drawing the row; with the output it tells apart two charts on the same output when a panel addition finds its trigger again. */
+  chartId?: string;
+};
 
-function RoutedItems({ localActions, renderRow, ...props }: RowProps) {
+function RoutedItems({ localActions, renderRow, chartId, ...props }: RowProps) {
   const workspace = useContext(AnalysisPanelAddContext);
   const actions = useNextAnalysisItems({ ...props, workspace });
   usePublishNextAnalysis(props.output, localActions, props.pointDrill);
-  const focusKey = props.output && `next-analysis-panel:${props.output.panelId}/${props.output.key}`;
+  const focusKey = props.output && JSON.stringify(['next-analysis-panel', chartId ?? null, props.output.panelId, props.output.key]);
   return renderRow(actions.map(action => <ActionMenu key={action.label} action={action} focusKey={focusKey ?? undefined} />));
 }
 

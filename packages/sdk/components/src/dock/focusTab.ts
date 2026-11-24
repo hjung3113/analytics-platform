@@ -48,6 +48,9 @@ const shown = (element: Element | null | undefined): element is HTMLElement =>
   element instanceof HTMLElement && element.isConnected && !element.closest('[inert], [hidden]')
   && (typeof element.checkVisibility !== 'function' || element.checkVisibility({ visibilityProperty: true }));
 
+/** The watch of the latest panel addition; there is one keyboard focus, so one watch at a time. */
+let activeWatch: (() => void) | null = null;
+
 /**
  * Keeps focus on a menu trigger inside a workspace panel after its menu added panel `panelId`. The engine lays the addition out a moment
  * later: it may rebuild the trigger, found again in the same dock panel by its `data-focus-key`, or put the new panel in front of the
@@ -59,14 +62,16 @@ export function keepFocusAfterPanelAdd(trigger: HTMLElement, panelId: string): v
   const layout = trigger.closest('[data-dock-layout]');
   const source = trigger.closest<HTMLElement>('[data-dock-panel]')?.dataset.dockPanel;
   const key = trigger.dataset.focusKey;
-  const isTrigger = (element: Element) => element === trigger
-    || (key !== undefined && element instanceof HTMLElement && element.dataset.focusKey === key);
   const hosts = () => Array.from(layout?.querySelectorAll<HTMLElement>('[data-dock-panel]') ?? [])
     .filter(host => host.dataset.dockPanel === source && host.closest('[data-dock-layout]') === layout);
+  const inSource = (element: Element) => element.closest('[data-dock-layout]') === layout
+    && element.closest<HTMLElement>('[data-dock-panel]')?.dataset.dockPanel === source;
+  const isTrigger = (element: Element) => element === trigger
+    || (key !== undefined && element instanceof HTMLElement && element.dataset.focusKey === key && inSource(element));
   const current = () => {
     if (trigger.isConnected || key === undefined || source === undefined) return trigger;
     return hosts().flatMap(host => Array.from(host.querySelectorAll<HTMLElement>('[data-focus-key]')))
-      .find(element => element.dataset.focusKey === key && element.closest('[data-dock-layout]') === layout && shown(element));
+      .find(element => element.dataset.focusKey === key && inSource(element) && shown(element));
   };
   // The new panel's tab is the fallback only once the trigger's panel is out of sight, or the watch ends without finding the trigger.
   const covered = () => source === undefined || !hosts().some(host => shown(host));
@@ -77,6 +82,7 @@ export function keepFocusAfterPanelAdd(trigger: HTMLElement, panelId: string): v
   let tries = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const stop = () => {
+    if (activeWatch === stop) activeWatch = null;
     clearTimeout(timer);
     document.removeEventListener('focusin', onFocus, true);
     document.removeEventListener('pointerdown', stop, true);
@@ -100,6 +106,9 @@ export function keepFocusAfterPanelAdd(trigger: HTMLElement, panelId: string): v
     if (++tries < 20) timer = setTimeout(attempt, 30);
     else stop();
   };
+  // A newer addition owns the focus hand-off: an earlier watch on the same trigger would otherwise reach its own tab first.
+  activeWatch?.();
+  activeWatch = stop;
   document.addEventListener('focusin', onFocus, true);
   document.addEventListener('pointerdown', stop, true);
   timer = setTimeout(attempt, 0);

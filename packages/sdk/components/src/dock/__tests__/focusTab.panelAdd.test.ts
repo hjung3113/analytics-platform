@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { focusTabSoon, keepFocusAfterPanelAdd } from '../focusTab';
 
-afterEach(() => { document.body.innerHTML = ''; vi.useRealTimers(); });
+// Emptying the page first lets a pending watch see its workspace gone and remove its listeners before the next test.
+afterEach(() => {
+  document.body.innerHTML = '';
+  if (vi.isFakeTimers()) vi.advanceTimersByTime(40);
+  vi.useRealTimers();
+});
 
 const KEY = 'next-analysis-panel:bars/equipment';
 
@@ -23,8 +28,8 @@ const rebuildRow = (get: (id: string) => HTMLElement) => {
   get('row').innerHTML = `<button id="rebuilt" data-focus-key="${KEY}">새 패널</button>`;
 };
 
-const addTab = (get: (id: string) => HTMLElement) => {
-  get('dock').insertAdjacentHTML('afterbegin', '<div role="tab" data-tab-panel-id="receiver" tabindex="0" id="receiver-tab"></div>');
+const addTab = (get: (id: string) => HTMLElement, id = 'receiver') => {
+  get('dock').insertAdjacentHTML('afterbegin', `<div role="tab" data-tab-panel-id="${id}" tabindex="0" id="${id}-tab"></div>`);
 };
 
 describe('keepFocusAfterPanelAdd (#2734)', () => {
@@ -36,6 +41,41 @@ describe('keepFocusAfterPanelAdd (#2734)', () => {
     rebuildRow(get);
     vi.advanceTimersByTime(40);
     expect(document.activeElement).toBe(get('rebuilt'));
+  });
+
+  it('looks for the rebuilt trigger only in its own dock panel, not a same-key button in another panel', () => {
+    vi.useFakeTimers();
+    const { get, trigger } = mount();
+    get('dock').insertAdjacentHTML('beforeend', `<div data-dock-panel="other"><button id="elsewhere" data-focus-key="${KEY}">새 패널</button></div>`);
+    get('dock').insertAdjacentHTML('beforeend', '<div data-dock-layout><div data-dock-panel="bars"><button id="nested" data-focus-key="' + KEY + '">새 패널</button></div></div>');
+    trigger.focus();
+    keepFocusAfterPanelAdd(trigger, 'receiver');
+    rebuildRow(get);
+    get('rebuilt').setAttribute('hidden', '');
+    vi.advanceTimersByTime(40);
+    expect(document.activeElement).toBe(document.body);
+    get('rebuilt').removeAttribute('hidden');
+    vi.advanceTimersByTime(40);
+    expect(document.activeElement).toBe(get('rebuilt'));
+  });
+
+  it('lets the latest addition from the same trigger own the hand-off', () => {
+    vi.useFakeTimers();
+    const { get, trigger } = mount();
+    trigger.focus();
+    keepFocusAfterPanelAdd(trigger, 'receiver');
+    addTab(get);
+    vi.advanceTimersByTime(40);
+    expect(document.activeElement).toBe(trigger);
+    // The second addition is laid out after its first check, and the first watch's next check (60 ms) comes before the second's (70 ms).
+    keepFocusAfterPanelAdd(trigger, 'second');
+    vi.advanceTimersByTime(1);
+    addTab(get, 'second');
+    get('host').setAttribute('inert', '');
+    vi.advanceTimersByTime(20);
+    expect(document.activeElement).not.toBe(get('receiver-tab'));
+    vi.advanceTimersByTime(10);
+    expect(document.activeElement).toBe(get('second-tab'));
   });
 
   it('moves to the added tab in the workspace dock, not a toolbar dock, when the trigger is covered', () => {

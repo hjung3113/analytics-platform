@@ -865,6 +865,8 @@ describe('Next analysis chip actions', () => {
     await addFromRow();
     await waitFor(() => expect(tabOf('receiver')).toBeDefined());
     await waitFor(() => expect(within(nextRow()).getByRole('button', { name: '새 패널' })).toHaveFocus());
+    // Two charts on one output keep apart: the key names the chart as well.
+    expect(JSON.parse(within(nextRow()).getByRole('button', { name: '새 패널' }).dataset.focusKey!)).toEqual(['next-analysis-panel', 'adding', setOutput.panelId, setOutput.key]);
   });
 
   it('moves focus to the added panel tab when the new tab covers the row «새 패널» trigger', async () => {

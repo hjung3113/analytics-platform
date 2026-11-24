@@ -1439,7 +1439,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     <ChartTrustFooter trust={p.trust} />
     </AnalysisChartPart>
     {nextAnalysis && !outputSuspended && (selection || urlSet || selectedPointKeys.length > 0) &&
-      <NextAnalysisItems output={output} selection={selectionOutput.selection}
+      <NextAnalysisItems chartId={p.chartId} output={output} selection={selectionOutput.selection}
         pointDrill={!setOutput && !selection && chosenPoints.length > 0 && p.nextAnalysisPointDrill ? {
           level: p.nextAnalysisPointDrill.level,
           value: chosenPoints.length === 1 ? p.nextAnalysisPointDrill.value(chosenPoints[0]!.point) : null,
