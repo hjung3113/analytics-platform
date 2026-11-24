@@ -4,7 +4,7 @@ import { SURVEY_OUTCOME_LINK_COPY as OUTCOME_LINK_COPY } from '../../../../lib/c
 import { listTasks } from '../../../../lib/api/tasks';
 import { Button, Combobox } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
-import * as React from 'react';
+import { useOutcomeTaskSearch } from '../../hooks/useOutcomeTaskSearch';
 
 export function SurveySettings({
   survey,
@@ -31,7 +31,7 @@ export function SurveySettings({
   onOutcomeTaskChange: (task: { id: string; display_id: string; title: string }) => void;
   onOutcomeTaskClear: () => void;
 }) {
-  const [taskSearch, setTaskSearch] = React.useState('');
+  const [taskSearch, setTaskSearch] = useOutcomeTaskSearch(`${survey.id}:${survey.primary_managed_system_id}`);
   const tasks = useQuery({
     queryKey: ['tasks', 'survey-outcome-picker', survey.primary_managed_system_id, taskSearch],
     queryFn: ({ signal }) =>

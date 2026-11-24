@@ -41,6 +41,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { listTasks } from '../../../../lib/api/tasks';
 import * as React from 'react';
+import { useOutcomeTaskSearch } from '../../hooks/useOutcomeTaskSearch';
 import {
   useCreateSurvey,
   useSurveyCopySource,
@@ -93,7 +94,7 @@ export function CreateSurveyDialog({
   const [system, setSystem] = React.useState('');
   const [outcomeTask, setOutcomeTask] = React.useState<TaskDto | null>(null);
   const [outcomeTaskError, setOutcomeTaskError] = React.useState<string | undefined>();
-  const [taskSearch, setTaskSearch] = React.useState('');
+  const [taskSearch, setTaskSearch] = useOutcomeTaskSearch(system);
   const [description, setDescription] = React.useState('');
   const [analyticsArea, setAnalyticsArea] = React.useState('');
   const [identityProtected, setIdentityProtected] = React.useState<'true' | 'false' | ''>('');
@@ -194,7 +195,7 @@ export function CreateSurveyDialog({
       setTaskSearch('');
       if (!titleEdited) setTitle(definition.title);
     }
-  }, [definition, titleEdited]);
+  }, [definition, titleEdited, setTaskSearch]);
   React.useEffect(() => {
     if (!canManage) {
       clearSelection();
@@ -299,7 +300,7 @@ export function CreateSurveyDialog({
     setTitleEdited(false);
     clearErrors();
     resetCreate();
-  }, [resetCreate, clearSelection, clearErrors]);
+  }, [resetCreate, clearSelection, clearErrors, setTaskSearch]);
   async function createSurvey(values: SurveyCreateValues): Promise<void> {
     if (
       submitting.current ||

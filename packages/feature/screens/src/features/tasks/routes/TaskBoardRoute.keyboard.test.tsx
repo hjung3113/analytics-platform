@@ -1149,17 +1149,11 @@ describe('TaskBoardRoute keyboard dragging', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     let releaseOlder!: () => void;
     let releaseNewer!: () => void;
-    vi.spyOn(client, 'cancelQueries')
-      .mockReturnValueOnce(
-        new Promise<void>((resolve) => {
-          releaseOlder = resolve;
-        }),
-      )
-      .mockReturnValueOnce(
-        new Promise<void>((resolve) => {
-          releaseNewer = resolve;
-        }),
-      );
+    vi.spyOn(client, 'cancelQueries').mockImplementation(async (filters) => {
+      const column = filters?.queryKey?.[2] as { status?: TaskStatus } | undefined;
+      if (column?.status === 'doing') await new Promise<void>((resolve) => { releaseOlder = resolve; });
+      if (column?.status === 'todo') await new Promise<void>((resolve) => { releaseNewer = resolve; });
+    });
     vi.mocked(updateTaskStatus).mockRejectedValueOnce(new Error('Older move rejected'));
     render(
       <QueryClientProvider client={client}>
