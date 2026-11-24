@@ -126,19 +126,23 @@ export type ServerConformanceHarness = {
    */
   asOtherAnnotator<T>(fn: () => Promise<T>): Promise<T>;
   /**
-   * Checks this server is known not to meet yet, each by its exact check id and the reason (#2894). A declared check that
+   * Checks this server is known not to meet yet, each by its check id and the reason (#2894). The id is the check's own
+   * name without a plan-time skip suffix (` — not implemented: …`, ` — no site grants`, …), so a declaration stays valid
+   * when an `implemented` or sample change starts skipping the check; it is then reported `skipped`. A declared check that
    * fails is reported as `known-limitation`, not `failed`; one that passes fails the run (remove the stale declaration); a
    * declaration naming no planned check throws before anything runs. Absent = none: results are unchanged.
    */
   knownLimitations?: readonly KnownLimitation[];
 };
 
-/** A check the server is known not to meet: its exact id and a non-empty reason, reported with the result (#2894). */
+/** A check the server is known not to meet: its id (without a plan-time skip suffix) and a non-empty reason (#2894). */
 export type KnownLimitation = { id: string; reason: string };
 
 /** One check: `run` resolves to null when the adapter conforms, otherwise to the reason it does not. */
 export type ConformanceCheck = {
   id: string;
+  /** The id before a plan-time skip appended its reason; `knownLimitations` names checks by it (#2894). Absent = `id`. */
+  baseId?: string;
   /**
    * 'granted' checks run concurrently as the granted actor; 'console' checks run concurrently as the console
    * actor after the granted batch; 'sequential' checks run one at a time after the console batch and before

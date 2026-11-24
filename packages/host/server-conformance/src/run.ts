@@ -46,13 +46,13 @@ export async function runServerConformance(harness: ServerConformanceHarness): P
     if (c.mode === 'skipped') return { id: c.id, status: 'skipped', failure: null };
     const result = byId.get(c.id);
     if (!result) throw new Error(`conformance check planned but not run: ${c.id}`);
-    return withKnownLimitation(result, limitations.get(c.id));
+    return withKnownLimitation(result, limitations.get(c.baseId ?? c.id));
   });
 }
 
 /** The harness's declarations by check id. A blank reason, a duplicate id or an id no planned check has throws (#2894). */
 function knownLimitationsOf(harness: ServerConformanceHarness, checks: readonly ConformanceCheck[]): Map<string, string> {
-  const planned = new Set(checks.map(check => check.id));
+  const planned = new Set(checks.map(check => check.baseId ?? check.id));
   const limitations = new Map<string, string>();
   for (const { id, reason } of harness.knownLimitations ?? []) {
     if (!reason?.trim()) throw new Error(`known limitation without a reason: ${id}`);

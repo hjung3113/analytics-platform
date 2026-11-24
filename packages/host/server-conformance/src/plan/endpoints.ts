@@ -206,6 +206,7 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     if (noSample) {
       for (const check of checks.slice(caseStart)) {
         check.mode = 'skipped';
+        check.baseId ??= check.id;
         check.id += ' — required Context: no valid sample';
       }
     }
@@ -232,9 +233,11 @@ function declareGaps(harness: ServerConformanceHarness, checks: ConformanceCheck
       : [];
     if (missing.length > 0) {
       check.mode = 'skipped';
+      check.baseId ??= check.id;
       check.id += ` — not implemented: ${missing.join(', ')}`;
     } else if (check.mode !== 'skipped' && harness.siteGrants === false && check.needsSites) {
       check.mode = 'skipped';
+      check.baseId ??= check.id;
       check.id += ' — no site grants';
     }
   }

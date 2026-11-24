@@ -2052,4 +2052,34 @@ describe('known limitations (#2894)', () => {
   it('leaves results unchanged without declarations', async () => {
     expect(await runServerConformance(harness(new Set(['envelope-missing-trust'])))).toEqual(await runServerConformance({ ...harness(new Set(['envelope-missing-trust'])), knownLimitations: [] }));
   });
+
+  it('keeps a declaration valid when `implemented` starts skipping the check, and reports the check skipped', async () => {
+    const h = harness();
+    const implemented = (Object.keys(h.adapter) as (keyof PlatformAdapter)[]).filter(m => m !== 'menuQuery');
+    const results = await runServerConformance({ ...h, implemented, knownLimitations: [{ id: 'unknown endpoint → error', reason: 'errors land later' }] });
+    expect(statusOf(results, 'unknown endpoint → error — not implemented: menuQuery')).toEqual({ id: 'unknown endpoint → error — not implemented: menuQuery', status: 'skipped', failure: null });
+    // The suffixed id is not a declaration name: it names no planned check.
+    await expect(runServerConformance({ ...h, implemented, knownLimitations: [{ id: 'unknown endpoint → error — not implemented: menuQuery', reason: 'x' }] }))
+      .rejects.toThrow('known limitation names no planned check');
+  });
+
+  it('reports a declared check whose adapter call throws as a known limitation that keeps the thrown message', async () => {
+    const h = harness();
+    const id = 'port · validateScope(granted site) → valid with its rooms';
+    const results = await runServerConformance({
+      ...h, adapter: { ...h.adapter, validateScope: async () => { throw new Error('boom'); } }, knownLimitations: [{ id, reason: 'scope service pending' }],
+    });
+    expect(statusOf(results, id)).toEqual({ id, status: 'known-limitation', reason: 'scope service pending', failure: 'the adapter threw: Error: boom' });
+  });
+
+  it('calls no adapter method when a declaration is refused', async () => {
+    const h = harness();
+    const called: string[] = [];
+    const adapter = new Proxy(h.adapter, { get: (target, key, receiver) => {
+      const value = Reflect.get(target, key, receiver);
+      return typeof value === 'function' ? (...args: unknown[]) => { called.push(String(key)); return value.apply(target, args); } : value;
+    } });
+    await expect(runServerConformance({ ...h, adapter, knownLimitations: [{ id: 'fixture.list · no such check', reason: 'x' }] })).rejects.toThrow('known limitation names no planned check');
+    expect(called).toEqual([]);
+  });
 });
