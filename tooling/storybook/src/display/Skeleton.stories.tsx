@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Skeleton, SkeletonRows } from '@ap/ui';
+import { Skeleton, SkeletonBlocks, SkeletonRows } from '@ap/ui';
 import { guidedPage } from '../guidance';
 
 /** 첫 로딩 동안 결과가 놓일 자리를 미리 잡는다. 목록 행은 48px(`compact`)·56px(`regular`). */
@@ -27,4 +27,10 @@ export const Rows: Story = {};
 /** 낱개 `Skeleton`: 크기만 정하고 채움은 바꾸지 않는다. */
 export const Blocks: Story = {
   render: () => <><Skeleton className="h-5 w-40" /><Skeleton className="h-24 w-full" /><Skeleton shape="rounded" className="h-8 w-24" /></>,
+};
+
+/** `SkeletonBlocks`: 상세 패널 로딩. 제목·배지·줄·본문 블록을 선언한 순서대로 그린다. */
+export const DetailBlocks: Story = {
+  render: () => <SkeletonBlocks blocks={[{ kind: 'title', size: 'large', width: 'half' }, { kind: 'badge', width: 'standard' },
+    { kind: 'line', width: 'full' }, { kind: 'line', width: 'five-sixths' }, { kind: 'body', size: 'regular', width: 'full' }]} />,
 };

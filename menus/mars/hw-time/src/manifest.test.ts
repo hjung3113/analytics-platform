@@ -5,13 +5,16 @@ import { manifests } from './index';
 import { HW_TIME_CONTEXT, hwTime } from './endpoints';
 
 describe('manifest', () => {
-  it('declares only moduleMotions as the writer of the repeated equipment selection consumed by the raw table', () => {
+  it('declares moduleMotions as the writer of the repeated equipment selection consumed by the raw table, and trend as the date range output', () => {
     const menu = manifests[0]!;
     expect(menu.pageKeys).toContain('motionEquipment');
     expect(menu.repeatedPageKeys).toContain('motionEquipment');
     expect(menu.contextResetKeys).toContain('motionEquipment');
     expect(menu.panels?.flatMap(panel => panel.outputs.filter(output => output.selection).map(output => [panel.id, output.key, output.selection])))
-      .toEqual([['moduleMotions', 'motionEquipment', { dimension: 'equipmentId', shape: 'set', label: { ko: '설비', en: 'Equipment' } }]]);
+      .toEqual([
+        ['trend', 'trendRange', { dimension: 'date', shape: 'range', label: { ko: '날짜', en: 'Date' } }],
+        ['moduleMotions', 'motionEquipment', { dimension: 'equipmentId', shape: 'set', label: { ko: '설비', en: 'Equipment' } }],
+      ]);
     expect(menu.panels?.find(panel => panel.id === 'table')?.queryInputs.page).toContainEqual({ key: 'motionEquipment', selection: 'filter' });
   });
 
@@ -48,9 +51,9 @@ describe('manifest', () => {
       expect(entry.pageKeys).toEqual(expect.arrayContaining(['trend', 'pins', 'barsSort', 'barsGroup', 'barsMinMax']));
       expect(entry.pageKeys).not.toEqual(expect.arrayContaining(['minmax']));
     }
-    expect(menu.contextResetKeys).toEqual(['date', 'moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend', 'motionEquipment']);
+    expect(menu.contextResetKeys).toEqual(['date', 'moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend', 'motionEquipment', 'trendRange']);
     expect(menu.drill?.levels.map(level => level.key)).toEqual(['moduleType', 'drillMotion', 'drillModule']);
-    expect(menu.drill?.resetKeys).toContain('trend');
+    expect(menu.drill?.resetKeys).toEqual(['focus', 'trend', 'trendRange']);
     expect(menu.repeatedPageKeys).toContain('pins');
     expect(menu.hiddenPageKeys).toEqual(expect.arrayContaining(['pins', 'trend', 'barsSort', 'barsGroup', 'barsMinMax']));
     const spaces: SpaceDef[] = [{ id: spaceId('mars'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];

@@ -1,4 +1,4 @@
-import type { AuditEvent, Trust } from '@ap/contracts';
+import type { ApiResponse, AuditEvent, Trust } from '@ap/contracts';
 import type { ChartSeries, DonutSlice, HeatmapCell, LegendTreeNode, OrderedTrackItem, OrderedTrackLane, PlatformColumn, ScatterPoint, TimelineLane } from '@ap/components';
 import type { TipTapDoc } from '@ap/ui';
 
@@ -69,3 +69,6 @@ export const RICH_DOC: TipTapDoc = { type: 'doc', content: [
   { type: 'paragraph', content: [{ type: 'mention', attrs: { actor_id: HONG } }, text(' 밸브 점검 부탁드립니다.')] },
 ] };
 export const PEOPLE: Record<string, string> = { [HONG]: '홍길동' };
+// A response envelope of the 상태 pages (synthetic): only `ok` carries data.
+export const answer = <T,>(outcome: ApiResponse<T>['outcome'], data: T | null = null): ApiResponse<T> =>
+  ({ outcome, data, assessments: [], trust: outcome === 'ok' ? TRUST : null, correlationId: 'sb-7f3a2c' });

@@ -7,6 +7,8 @@ import { HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES as O, HW_TIM
  */
 export type HwTimePanelDeclaration = PanelDeclaration & { readonly kind?: string; readonly csvExport?: boolean };
 
+export const TREND_RANGE_OUTPUT = { panelId: 'trend', key: 'trendRange' } as const;
+
 const common = ['scopeId', 'time', 'roomNames', 'prcGroup', 'condition', 'selection'] as const;
 const checks = [{ key: 'module' }, { key: 'motion' }] as const;
 const verdictDisplay = [...checks, { key: 'verdict' }] as const;
@@ -26,7 +28,8 @@ export const panelDeclarations = {
     queryInputs: { context: common, page: [{ key: 'moduleType', required: true }] }, displayInputs: { page: [...verdictDisplay, { key: 'drillMotion' }] },
     outputs: [{ key: 'row', action: 'highlight' }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix],
     availability: { requires: [{ anyOf: ['moduleType'] }], disabledReason: S.needsType }, pieces: ['AnalysisChart', 'QueryView'] },
-  trend: { id: 'trend', kind: 'line', title: S.trend, queryInputs: trendInputs, displayInputs: { page: [...checks, { key: 'date' }] }, outputs: [],
+  trend: { id: TREND_RANGE_OUTPUT.panelId, kind: 'line', title: S.trend, queryInputs: trendInputs, displayInputs: { page: [...checks, { key: 'date' }] },
+    outputs: [{ key: TREND_RANGE_OUTPUT.key, action: 'select', selection: { dimension: 'date', shape: 'range', label: N.date } }],
     display: [{ key: LENT_EQUIPMENT_LABELS }],
     grain: 'dailyStat', endpoints: [hwTimeOverview.runs], availability: pointAvailability, pieces: ['AnalysisChartFrame', 'AnalysisChart', 'FilterLine', 'QueryView'] },
   scatter: { id: 'scatter', kind: 'scatter', title: S.scatter, queryInputs: linkedRunInputs, displayInputs: { page: checks }, outputs: [],

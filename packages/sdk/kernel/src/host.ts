@@ -24,4 +24,4 @@ export { type ScopeSelectorRequest } from './scope/scopeSelectorRequest';
 export { useCustomGroupList, type CustomGroupList } from './saved-view/useCustomGroupList';
 export { useSavedViewTableState } from './saved-view/useSavedViewTableState';
 export { registerLentPanel } from './registry/LentPanel';
-export { useAnalysisSelectionHoverTarget, useAnalysisSelectionSourceHighlighted } from './context/analysisSelection';
+export { useOptionalAnalysisSelectionOutput, useAnalysisSelectionHoverTarget, useAnalysisSelectionSourceHighlighted } from './context/analysisSelection';
