@@ -112,6 +112,14 @@ describe('formatNumber keeps its formatters (#2811)', () => {
     expect(formatNumber(1234.56, 'en', ungrouped)).toBe('1234.56');
     expect(thrown(() => formatNumber(1234.56, 'en', currency))).toBe(thrown(() => oldNumber(1234.56, 'en', currency)));
     expect(thrown(() => formatNumber(1234.56, 'en', currency))).toMatch(/TypeError/);
+    // Keys are read once, from the copy Intl gets: a getter that removes itself while being copied still reaches Intl (review round 2).
+    const vanishing = (): object => {
+      const options: Record<string, unknown> = { decimals: 2 };
+      Object.defineProperty(options, 'useGrouping', { enumerable: true, configurable: true, get() { delete options.useGrouping; return false; } });
+      return options;
+    };
+    expect(formatNumber(1234.56, 'en', vanishing())).toBe(oldNumber(1234.56, 'en', vanishing()));
+    expect(formatNumber(1234.56, 'en', vanishing())).toBe('1234.56');
   });
 
   it('keeps no formatter for fractional digit values (review F2)', () => {

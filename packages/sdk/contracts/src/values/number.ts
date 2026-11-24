@@ -10,7 +10,7 @@ export interface FormatNumberOptions {
 
 const numberFormatters = new Map<string, Intl.NumberFormat>();
 
-const DIGIT_KEYS = new Set(['decimals', 'minimumFractionDigits', 'maximumFractionDigits']);
+const DIGIT_KEYS = new Set(['minimumFractionDigits', 'maximumFractionDigits']);
 const cacheableDigits = (digits: unknown) => digits === undefined || Number.isInteger(digits);
 
 /**
@@ -23,8 +23,9 @@ export function formatNumber(value: number, lang: 'ko' | 'en', options: FormatNu
   const locale = NUMBER_LOCALE[lang];
   const { minimumFractionDigits: min, maximumFractionDigits: max } = intl;
   // Only the declared digit fields with whole (or omitted) values are kept, so the key space is the valid digit range. Any other key a
-  // caller passes structurally, or a fractional/odd digit value, goes to Intl per call exactly as before.
-  if (!Object.keys(options).every(key => DIGIT_KEYS.has(key)) || !cacheableDigits(min) || !cacheableDigits(max)) return value.toLocaleString(locale, intl);
+  // caller passes structurally, or a fractional/odd digit value, goes to Intl per call exactly as before. The check reads `intl`, the
+  // object Intl would get, so the original options are enumerated once.
+  if (!Object.keys(intl).every(key => DIGIT_KEYS.has(key)) || !cacheableDigits(min) || !cacheableDigits(max)) return value.toLocaleString(locale, intl);
   // Built on the first call with these digits, so bad digits still throw from that call and a failure is never kept.
   const key = `${locale}|${min ?? ''}|${max ?? ''}`;
   let formatter = numberFormatters.get(key);
