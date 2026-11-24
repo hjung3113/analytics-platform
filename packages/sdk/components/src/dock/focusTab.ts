@@ -12,13 +12,21 @@ export function focusRevealing(element: HTMLElement, layout: HTMLElement | null 
  * moved to another group, so it retries for about 300 ms. Same retry as the board's `focusTabSoon`; the board keeps its own copy because the
  * dependency direction forbids `@ap/shell` importing it from here.
  */
+/** The workspace's own dock, not a standalone dock its toolbar actions may render first. */
+const workspaceDock = (root: HTMLElement | null | undefined): Element | null | undefined =>
+  (root?.querySelector('[data-workspace-dock]') ?? root)?.querySelector('[data-dock-layout]');
+
+const workspaceTab = (root: HTMLElement | null | undefined, panelId: string): HTMLElement | undefined => {
+  const layout = workspaceDock(root);
+  return Array.from(layout?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? [])
+    .find(item => item.dataset.tabPanelId === panelId && item.closest('[data-dock-layout]') === layout);
+};
+
 export function focusTabSoon(root: () => HTMLElement | null | undefined, panelId: string): void {
   let tries = 0;
   const attempt = () => {
     const element = root();
-    const layout = element?.querySelector('[data-dock-layout]');
-    const tab = Array.from(element?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? [])
-      .find(item => item.dataset.tabPanelId === panelId && item.closest('[data-dock-layout]') === layout);
+    const tab = workspaceTab(element, panelId);
     if (tab?.isConnected && !tab.closest('[inert], [hidden]')) { programmaticFocus(() => { focusRevealing(tab, element, element?.dataset.workspaceMode === 'stack'); }); return; }
     if (++tries < 10 && element?.isConnected) setTimeout(attempt, 30);
   };
@@ -38,37 +46,61 @@ export function focusSoon(find: () => HTMLElement | null | undefined): void {
 
 const shown = (element: Element | null | undefined): element is HTMLElement =>
   element instanceof HTMLElement && element.isConnected && !element.closest('[inert], [hidden]')
-  && (typeof element.checkVisibility !== 'function' || element.checkVisibility());
+  && (typeof element.checkVisibility !== 'function' || element.checkVisibility({ visibilityProperty: true }));
 
 /**
  * Keeps focus on a menu trigger inside a workspace panel after its menu added panel `panelId`. The engine lays the addition out a moment
- * later: it may rebuild the trigger (found again by its panel and text) or put the new panel in front of the trigger's panel, which drops
- * focus to the document; focus then moves to the added panel's tab. Watches for about 600 ms and never takes focus the user moved elsewhere.
+ * later: it may rebuild the trigger, found again in the same dock panel by its `data-focus-key`, or put the new panel in front of the
+ * trigger's panel, which drops focus to the document; focus then moves to the added panel's tab (also when the trigger never returns). Watches for about 600 ms and stops at
+ * the first focus or pointer input elsewhere, so it never takes back focus the user moved.
  */
 export function keepFocusAfterPanelAdd(trigger: HTMLElement, panelId: string): void {
   const root = trigger.closest<HTMLElement>('[data-panel-workspace]');
+  const layout = trigger.closest('[data-dock-layout]');
   const source = trigger.closest<HTMLElement>('[data-dock-panel]')?.dataset.dockPanel;
-  const label = trigger.textContent;
-  const current = () => trigger.isConnected || source === undefined ? trigger
-    : Array.from(root?.querySelectorAll<HTMLElement>('[data-dock-panel] button') ?? [])
-      .find(button => button.closest<HTMLElement>('[data-dock-panel]')?.dataset.dockPanel === source && button.textContent === label);
+  const key = trigger.dataset.focusKey;
+  const isTrigger = (element: Element) => element === trigger
+    || (key !== undefined && element instanceof HTMLElement && element.dataset.focusKey === key);
+  const hosts = () => Array.from(layout?.querySelectorAll<HTMLElement>('[data-dock-panel]') ?? [])
+    .filter(host => host.dataset.dockPanel === source && host.closest('[data-dock-layout]') === layout);
+  const current = () => {
+    if (trigger.isConnected || key === undefined || source === undefined) return trigger;
+    return hosts().flatMap(host => Array.from(host.querySelectorAll<HTMLElement>('[data-focus-key]')))
+      .find(element => element.dataset.focusKey === key && element.closest('[data-dock-layout]') === layout && shown(element));
+  };
+  // The new panel's tab is the fallback only once the trigger's panel is out of sight, or the watch ends without finding the trigger.
+  const covered = () => source === undefined || !hosts().some(host => shown(host));
   const lost = () => {
     const active = document.activeElement;
     return active === null || active === document.body || !shown(active);
   };
   let tries = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => {
+    clearTimeout(timer);
+    document.removeEventListener('focusin', onFocus, true);
+    document.removeEventListener('pointerdown', stop, true);
+  };
+  // Focus inside the closing menu or on the trigger (Radix returning it) is the hand-off itself; anywhere else is the user's move.
+  function onFocus(event: FocusEvent) {
+    const target = event.target;
+    if (target instanceof Element && (isTrigger(target) || target.closest('[role="menu"]'))) return;
+    stop();
+  }
   const attempt = () => {
+    if (!root?.isConnected) { stop(); return; }
     if (lost()) {
       const again = current();
       if (shown(again)) programmaticFocus(() => { again.focus({ preventScroll: true }); });
-      else {
-        const layout = root?.querySelector('[data-dock-layout]');
-        const tab = Array.from(root?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? [])
-          .find(item => item.dataset.tabPanelId === panelId && item.closest('[data-dock-layout]') === layout);
-        if (shown(tab)) { programmaticFocus(() => { focusRevealing(tab, root, root?.dataset.workspaceMode === 'stack'); }); return; }
+      else if (covered() || tries === 19) {
+        const tab = workspaceTab(root, panelId);
+        if (shown(tab)) { stop(); programmaticFocus(() => { focusRevealing(tab, root, root.dataset.workspaceMode === 'stack'); }); return; }
       }
     }
-    if (++tries < 20) setTimeout(attempt, 30);
+    if (++tries < 20) timer = setTimeout(attempt, 30);
+    else stop();
   };
-  setTimeout(attempt, 0);
+  document.addEventListener('focusin', onFocus, true);
+  document.addEventListener('pointerdown', stop, true);
+  timer = setTimeout(attempt, 0);
 }

@@ -109,7 +109,8 @@ function ChoiceRows({ choices }: { choices: readonly Choice[] }) {
   return <>{choices.map(choice => <MenuItem key={choice.id} {...choice} />)}</>;
 }
 
-function ActionMenu({ action }: { action: GroupAction }) {
+/** `focusKey`: the chart's output, stable when the row is rebuilt, so a panel addition can find its trigger again. */
+function ActionMenu({ action, focusKey }: { action: GroupAction; focusKey?: string }) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
   if (action.reason !== undefined) return <>
@@ -127,7 +128,7 @@ function ActionMenu({ action }: { action: GroupAction }) {
     : action.choices;
   return <DropdownMenu modal={false}>
     <DropdownMenuTrigger asChild>
-      <Button ref={trigger} type="button" size="toolbar" variant="ghost">{action.label}<Icon className="size-3.5" aria-hidden /></Button>
+      <Button ref={trigger} data-focus-key={action.addsPanel ? focusKey : undefined} type="button" size="toolbar" variant="ghost">{action.label}<Icon className="size-3.5" aria-hidden /></Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start"><ChoiceRows choices={choices} /></DropdownMenuContent>
   </DropdownMenu>;
@@ -163,7 +164,8 @@ function RoutedItems({ localActions, renderRow, ...props }: RowProps) {
   const workspace = useContext(AnalysisPanelAddContext);
   const actions = useNextAnalysisItems({ ...props, workspace });
   usePublishNextAnalysis(props.output, localActions, props.pointDrill);
-  return renderRow(actions.map(action => <ActionMenu key={action.label} action={action} />));
+  const focusKey = props.output && `next-analysis-panel:${props.output.panelId}/${props.output.key}`;
+  return renderRow(actions.map(action => <ActionMenu key={action.label} action={action} focusKey={focusKey ?? undefined} />));
 }
 
 export function NextAnalysisItems(props: RowProps) {
