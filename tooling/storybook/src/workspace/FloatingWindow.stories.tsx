@@ -24,13 +24,13 @@ function Frame({ mode }: { mode: FloatingWindowMode }) {
   </div>;
 }
 
-/** 도메인을 모르는 비모달 창 틀. 차단막·포커스 가두기·외부 클릭 닫기가 없고, 끌기·8방향 핸들·방향키·`⋯` 메뉴가 같은 결과를 낸다. */
+/** 작업 영역 안에 부가 정보를 비모달 창으로 띄워 끌기·크기 조절·⋯ 메뉴를 해 보는 예제. 규칙은 아래 원문 인용을 따른다. */
 const meta = {
   title: '페이지·작업 영역/FloatingWindow',
   component: FloatingWindow,
   parameters: { docs: {
     subtitle: '@ap/components · packages/sdk/components/src/floating/FloatingWindow.tsx',
-    page: guidedPage([['docs/contract/components.md', '창으로 못 그리는 폭은 `fitsArea`로 판정해 호출자가 `fill`을 고른다']]),
+    page: guidedPage([['docs/contract/components.md', '배경 차단막·포커스 가두기·외부 클릭 닫기 없음'], ['docs/contract/components.md', '창으로 못 그리는 폭은 `fitsArea`로 판정해 호출자가 `fill`을 고른다']]),
   } },
   render: () => <Frame mode="window" />,
 } satisfies Meta<typeof FloatingWindow>;

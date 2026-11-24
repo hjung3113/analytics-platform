@@ -39,10 +39,7 @@ function SelectionPage() {
   </div>;
 }
 
-/**
- * 차트에서 고른 값이 같은 화면 다른 패널의 입력이 된다(ADR-0175). 패널이 `outputs`에 선언한 키로 값 묶음·범위를 메뉴 URL에 싣고,
- * 받는 패널은 그 키를 `filter`·`highlight`로 읽는다. 칩 줄(`AnalysisSelectionChipZone`)이 걸린 선택을 보이고 지운다. 칩에 마우스를 올리면 출처 막대가 점선으로 강조된다.
- */
+/** 차트에서 설비를 고르면 같은 화면의 다른 패널과 위쪽 분석 선택 칩 줄이 함께 바뀌는 예제. 규칙은 아래 원문 인용(Chart §16, ADR-0175)을 따른다. */
 const meta = {
   title: '데이터 시각화/분석 선택',
   component: AnalysisSelectionChipZone,
