@@ -44,14 +44,13 @@ import { optionalIdempotencyKey } from '../../lib/http-headers.js';
 import { requireSession } from '../../middleware/require-session.js';
 import { requireWorkspace } from '../../middleware/require-workspace.js';
 import type { SessionService } from '../auth/session-service.js';
-import { applyAdminModuleBypass, capabilitiesOf } from './check-service.js';
-import type { ActorContext, CheckService, Decision } from './check-service.js';
+import { capabilitiesOf } from './check-service.js';
+import type { ActorContext, CheckService } from './check-service.js';
 import type { DecisionService } from './decision-service.js';
 import type { GrantAdminService } from './grant-admin-service.js';
 import type { GroupService } from './group-service.js';
 import type { RequestService } from './request-service.js';
 import type { SelectedReadService } from './selected-read-service.js';
-import { type FrontendState, toFrontendState } from './state-mapper.js';
 
 // Export the exact parser used by the approve route so its shared-contract
 // binding can be asserted without booting Fastify or opening a database.
@@ -227,34 +226,8 @@ export const permissionsRoutes: FastifyPluginAsync<PermissionsRoutesOptions> = a
         ...(q.managed_system_id !== undefined ? { managed_system_id: q.managed_system_id } : {}),
       };
 
-      // The generic check answers for `roleSatisfies` only. Domain modules that
-      // layer their own admin bypass (Finding, Task Request, Survey) would let
-      // this actor through, so mirror that rule here — otherwise the frontend
-      // gate hides an action the enforcing route allows (issue #372).
-      const decision: Decision = applyAdminModuleBypass(
-        sess.role_level,
-        capability,
-        await checkService.checkCapability(actor, capability, scope),
-        capabilities,
-      );
-
-      // Look up the actor's currently-open request (pending|needs_more_info)
-      // for this capability AND the same managed-system scope so the state
-      // mapper picks `pending_request` only for the matching scope tuple.
-      // Matches the scope predicate of the partial unique index
-      // `permission_requests_active_uq` (workspace, requester, capability,
-      // COALESCE(managed_system_id, sentinel)). A null query MS hits null
-      // rows; a concrete MS UUID hits exactly its own rows.
-      const [openRequestSummary, requestScopeSupported] = await Promise.all([
-        requestService.findOpenRequestSummary(actor, capability, scope),
-        !decision.allow && decision.requestable?.length && scope.managed_system_id !== undefined
-          ? requestService.supportsManagedSystemRequest(scope.workspace_id, capability, scope.managed_system_id)
-          : true,
-      ]);
-
-      const pointDecision = !decision.allow && !requestScopeSupported ? { ...decision, requestable: null } : decision;
-      const state: FrontendState = toFrontendState(pointDecision, openRequestSummary);
-      return { state, decision: pointDecision };
+      const { state, decision } = await requestService.checkRequestTarget(actor, capability, scope);
+      return { state, decision };
     },
   });
 

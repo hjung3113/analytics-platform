@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -7,9 +8,15 @@ import { buildServer } from '../../../server.js';
 import { insertActorRow } from '../../../test-support/actor-fixtures.js';
 import { SESSION_COOKIE_NAME, loginAs } from '../../../test-support/auth.js';
 import { insertMsDirectly } from '../../../test-support/core-fixtures.js';
-import { grantCapability } from '../../../test-support/permissions-fixtures.js';
+import {
+  denyCapability,
+  grantCapability,
+  insertPermissionRequestRow,
+} from '../../../test-support/permissions-fixtures.js';
 import { deleteRecoveryFixtureParents } from '../../../test-support/recovery-fixtures.js';
 import { cleanupTestActorsByExternalIdPrefix } from '../../../test-support/voc-fixtures.js';
+import { createCheckService } from '../../permissions/check-service.js';
+import { checkPermissionRequestTarget } from '../../permissions/request-target.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -170,5 +177,200 @@ describe.skipIf(!runIntegration)('GET /vocs?view=triage requests the missing rea
         managed_system_id: system === 'A' ? msA : null,
       },
     });
+  });
+
+  it.each([
+    {
+      name: 'triage fallback to the only System',
+      grants: [['voc.triage', 'A']],
+      view: 'triage',
+      selectSystem: false,
+      permission: 'voc.read',
+      code: 'permission.denied',
+      message: 'voc.read required to use voc.triage scope',
+    },
+    {
+      name: 'triage selection with an empty intersection',
+      grants: [['voc.triage', 'A']],
+      view: 'triage',
+      selectSystem: true,
+      permission: 'voc.read',
+      code: 'permission.denied',
+      message: 'voc.read required to use voc.triage scope',
+    },
+    {
+      name: 'triage selection outside read scope',
+      grants: [
+        ['voc.triage', 'A'],
+        ['voc.triage', 'B'],
+        ['voc.read', 'B'],
+      ],
+      view: 'triage',
+      selectSystem: true,
+      permission: 'voc.read',
+      code: 'permission.scope_required',
+      message: 'voc.read required for the selected managed system',
+    },
+    {
+      name: 'triage selection outside triage scope',
+      grants: [
+        ['voc.read', 'A'],
+        ['voc.triage', 'B'],
+        ['voc.read', 'B'],
+      ],
+      view: 'triage',
+      selectSystem: true,
+      permission: 'voc.triage',
+      code: 'permission.scope_required',
+      message: 'managed_system_id not in voc.triage scope',
+    },
+    {
+      name: 'inbox selection outside read scope',
+      grants: [['voc.read', 'B']],
+      view: 'inbox',
+      selectSystem: true,
+      permission: 'voc.read',
+      code: 'permission.scope_required',
+      message: 'managed_system_id not in voc.read scope',
+    },
+  ] as const)('$name drops the concrete hint after an explicit deny', async (scenario) => {
+    const { grants, view, selectSystem, permission, code, message } = scenario;
+    for (const [capability, system] of grants) {
+      await grant(capability, system);
+    }
+    const query = new URLSearchParams({ view });
+    if (selectSystem) query.set('managed_system_id', msA);
+    const getQueue = () =>
+      app.inject({
+        method: 'GET',
+        url: `/vocs?${query}`,
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${devCookie}` },
+      });
+    const beforeDeny = await getQueue();
+    expect(beforeDeny.statusCode).toBe(403);
+    expect(beforeDeny.json()).toMatchObject({
+      code,
+      message,
+      requestable_permission: { permission, managed_system_id: msA },
+    });
+
+    const denyId = await denyCapability(handle, WORKSPACE_ID, developer, permission, msA, admin);
+    try {
+      const afterDeny = await getQueue();
+      expect(afterDeny.statusCode).toBe(403);
+      expect(afterDeny.json()).toMatchObject({ code, message });
+      expect(afterDeny.json()).not.toHaveProperty('requestable_permission');
+    } finally {
+      await handle.pool.query('delete from permission.permission_denies where id = $1', [denyId]);
+    }
+  });
+
+  function get(url: string) {
+    return app.inject({ method: 'GET', url, headers: { cookie: `${SESSION_COOKIE_NAME}=${devCookie}` } });
+  }
+
+  async function assertReadHint(path: string, id: string, code: string, state: string, hasHint: boolean) {
+    const [list, check] = await Promise.all([
+      get(path),
+      get(`/me/permissions/check?capability=voc.read&managed_system_id=${id}`),
+    ]);
+    expect(check.statusCode).toBe(200);
+    const checkBody = check.json();
+    expect(checkBody).toMatchObject({ state, decision: { allow: false } });
+    expect(Boolean(checkBody.decision.requestable?.length)).toBe(hasHint);
+    expect(list.statusCode).toBe(403);
+    const body = list.json();
+    expect(body.code).toBe(code);
+    expect(Object.hasOwn(body, 'requestable_permission')).toBe(hasHint);
+    if (hasHint) {
+      expect(body.requestable_permission).toEqual({ permission: 'voc.read', managed_system_id: id });
+    }
+    return body;
+  }
+
+  it.each([
+    ['inbox selection', 'permission.scope_required'],
+    ['triage fallback', 'permission.denied'],
+  ])('%s agrees with the check route before and after archive', async (entry, code) => {
+    const path = entry === 'inbox selection'
+      ? `/vocs?view=inbox&managed_system_id=${msA}`
+      : '/vocs?view=triage';
+    if (entry === 'inbox selection') await grant('voc.read', 'B');
+    else await grant('voc.triage', 'A');
+
+    await assertReadHint(path, msA, code, 'request_access', true);
+    await handle.pool.query('update core.managed_systems set archived_at = now() where id = $1', [msA]);
+    try {
+      await assertReadHint(path, msA, code, 'blocked_non_requestable', false);
+    } finally {
+      await handle.pool.query('update core.managed_systems set archived_at = null where id = $1', [msA]);
+    }
+  });
+
+  it.each([
+    ['inbox selection', 'permission.scope_required'],
+    ['triage fallback', 'permission.denied'],
+  ])('%s omits the hint for a System registered in another workspace', async (entry, code) => {
+    const inbox = entry === 'inbox selection';
+    const system = randomUUID();
+    const workspace = randomUUID();
+    const path = inbox ? `/vocs?view=inbox&managed_system_id=${system}` : '/vocs?view=triage';
+    if (inbox) await grant('voc.read', 'B');
+    const unknown = inbox ? await get(path) : undefined;
+    const migrate = createDb(MIGRATE_URL);
+    try {
+      await migrate.pool.query('insert into core.workspaces (id, name) values ($1, $2)', [workspace, PREFIX]);
+      await migrate.pool.query(
+        'insert into core.managed_systems (id, workspace_id, slug, name) values ($1, $2, $3, $3)',
+        [system, workspace, PREFIX],
+      );
+      if (!inbox) await grantCapability(handle, WORKSPACE_ID, developer, 'voc.triage', system, admin);
+      const foreign = await assertReadHint(path, system, code, 'blocked_non_requestable', false);
+      if (unknown) {
+        expect(unknown.statusCode).toBe(403);
+        expect(unknown.json()).toEqual(foreign);
+      }
+    } finally {
+      await handle.pool.query('delete from permission.permission_grants where managed_system_id = $1', [system]);
+      await deleteRecoveryFixtureParents(migrate, 'delete from core.managed_systems where id = $1', [system]);
+      await deleteRecoveryFixtureParents(migrate, 'delete from core.workspaces where id = $1', [workspace]);
+      await migrate.close();
+    }
+  });
+
+  it.each(['pending', 'needs_more_info'] as const)('retains the hint for the actor’s own %s request', async (status) => {
+    await grant('voc.triage', 'A');
+    const request = await insertPermissionRequestRow(handle, {
+      workspaceId: WORKSPACE_ID,
+      requesterActorId: developer,
+      requestedCapability: 'voc.read',
+      requestedManagedSystemId: msA,
+      reason: 'Read the triage queue',
+      status,
+    });
+    try {
+      await assertReadHint('/vocs?view=triage', msA, 'permission.denied', 'pending_request', true);
+      const target = await checkPermissionRequestTarget(
+        handle.db,
+        createCheckService({ db: handle.db }),
+        { actor_id: developer, workspace_id: WORKSPACE_ID, role_level: 'developer' },
+        'voc.read',
+        { workspace_id: WORKSPACE_ID, managed_system_id: msA },
+      );
+      expect(target.requestAvailability).toBe('pending');
+      await handle.pool.query('update core.managed_systems set archived_at = now() where id = $1', [msA]);
+      try {
+        await assertReadHint('/vocs?view=triage', msA, 'permission.denied', 'pending_request', false);
+      } finally {
+        await handle.pool.query('update core.managed_systems set archived_at = null where id = $1', [msA]);
+      }
+    } finally {
+      const migrate = createDb(MIGRATE_URL);
+      try {
+        await migrate.pool.query('delete from permission.permission_requests where id = $1', [request.id]);
+      } finally {
+        await migrate.close();
+      }
+    }
   });
 });

@@ -30,7 +30,7 @@ import { RECOVERY_PERMISSION_ACTIVE_STATUSES } from './recovery-read.js';
 
 import { randomUUID } from 'node:crypto';
 
-import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { DatabaseError } from 'pg';
 
 import {
@@ -56,8 +56,8 @@ import { hashRequestBody } from '../core/idempotency/canonicalize.js';
 import type { IdempotencyService } from '../core/idempotency/idempotency-service.js';
 import type { NotificationNotifier } from '../notifications/index.js';
 import { type ActorContext, type CheckScope, type CheckService, capabilitiesOf } from './check-service.js';
-import type { OpenRequestSummary } from './state-mapper.js';
-import { isSupportedScope, supportedScopeCandidates, validateRequestExpiration, validateSupportedScope } from './supported-scope-policy.js';
+import { checkPermissionRequestTarget } from './request-target.js';
+import { validateRequestExpiration, validateSupportedScope } from './supported-scope-policy.js';
 import { permissionGroupOrigin, validateGroupBatch } from './group-service.js';
 import { assertBatchRevisions, lockRequestBatch } from './batch-requests.js';
 
@@ -758,39 +758,6 @@ export function createRequestService(deps: RequestServiceDeps) {
     });
   }
 
-  async function findOpenRequestSummary(
-    actor: ActorContext,
-    capability: CapabilityName,
-    scope: CheckScope,
-  ): Promise<OpenRequestSummary | null> {
-    const msFilter =
-      scope.managed_system_id !== undefined
-        ? eq(permissionRequests.requestedManagedSystemId, scope.managed_system_id)
-        : isNull(permissionRequests.requestedManagedSystemId);
-
-    const rows = await db
-      .select({ status: permissionRequests.status })
-      .from(permissionRequests)
-      .where(
-        and(
-          eq(permissionRequests.requestedScopeKind, 'managed_system'),
-          eq(permissionRequests.workspaceId, scope.workspace_id),
-          eq(permissionRequests.requesterActorId, actor.actor_id),
-          eq(permissionRequests.requestedCapability, capability),
-          msFilter,
-          inArray(permissionRequests.status, [...ACTIVE_STATUSES]),
-        ),
-      )
-      .limit(1);
-
-    const row = rows[0] ?? null;
-    if (!row) return null;
-    if (row.status === 'pending' || row.status === 'needs_more_info') {
-      return { status: row.status };
-    }
-    return null;
-  }
-
   // Admin-only workspace-wide list of open (pending|needs_more_info) requests.
   // Guarded by workspace.admin (issue #87). Mirrors the managed-system admin
   // gate: throws permission.denied (mapped to 403) for non-admins. The count
@@ -953,10 +920,8 @@ export function createRequestService(deps: RequestServiceDeps) {
 
   return {
     scopeCandidates: (actor: ActorContext) => scopeCatalogCandidates(db, actor.workspace_id, actor.actor_id, deps.scopeCatalog),
-    supportsManagedSystemRequest: async (workspaceId: string, capability: CapabilityName, managedSystemId: string) => {
-      const candidates = await supportedScopeCandidates(db, workspaceId, capability, capabilitiesOf(checkService));
-      return isSupportedScope(candidates, managedSystemId, null, null);
-    },
+    checkRequestTarget: (actor: ActorContext, capability: CapabilityName, scope: CheckScope) =>
+      checkPermissionRequestTarget(db, checkService, actor, capability, scope),
     createRequest,
     createRequestBatch,
     submitMoreInfoBatch,
@@ -968,7 +933,6 @@ export function createRequestService(deps: RequestServiceDeps) {
       options?: CreatePermissionRequestOptions,
     ) => submitMoreInfoRequest(actor, id, body, options, 'edit'),
     cancelRequest,
-    findOpenRequestSummary,
     listMine,
     listAllActive,
     resolveNotificationReference,
