@@ -20,7 +20,7 @@ import { SITE_BOUND_FIELDS } from '../context/siteBound';
 import { hasExplicitContext } from '../saved-view/restore';
 import type { InitialSavedView } from '../saved-view/useSavedViews';
 import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, type SpaceDef, type MainUsageVia, type UsageEvent } from '@ap/contracts';
-import type { HostPlatform, LinkOptions, LinkResolution, ObjectLinkOptions, ReturnContextKey, ReturnOrigin, ScopeState, SelectionLinkResolution } from './types';
+import type { DroppedSelection, HostPlatform, LinkOptions, LinkResolution, ObjectLinkOptions, ReturnContextKey, ReturnOrigin, ScopeState, SelectionLinkResolution } from './types';
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type CommitOptions, type PageWriteOptions, type ScreenAddress, type ScreenSource, type ScreenState } from './contexts';
 
 const noSelectionChannels = { panels: [] };
@@ -64,7 +64,6 @@ function consecutiveDrillTrail(menu: MenuEntry, search: string, lang: Lang): Ret
   return trail;
 }
 type RegisteredLink = Extract<LinkResolution, { kind: 'link' }>;
-type DroppedSelection = Extract<SelectionLinkResolution, { kind: 'tooLong' }>['droppedSelections'][number];
 
 function planSelectionCarry(source: MenuEntry | undefined, target: MenuEntry, page: Pair[], explicit: LinkOptions['page'], sameScope: boolean) {
   const inbound = target.analysisSelectionInbound ?? [];

@@ -186,7 +186,8 @@ export type LinkResolution = {
 export type ObjectLinkOptions = Pick<LinkOptions, 'returnTo' | 'page' | 'global'>;
 export type ObjectLink = Extract<LinkResolution, { kind: 'link' }> & { menuId: string; label: Text };
 
-type DroppedSelection = { dimension: string; reason: 'noInbound' | 'ambiguous' | 'scope' | 'length' };
+/** An analysis selection a link could not carry, by dimension, with why: no inbound declaration, more than one match, another Scope or the address length. */
+export type DroppedSelection = { dimension: string; reason: 'noInbound' | 'ambiguous' | 'scope' | 'length' };
 /** Selection-aware links also report dropped dimensions. `tooLong` has no href, even after every carried selection is dropped. */
 export type SelectionLinkResolution =
   | (Extract<LinkResolution, { kind: 'link' }> & { droppedSelections?: readonly DroppedSelection[] })
