@@ -18,6 +18,7 @@ import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
 import { HostLink, useHostSeam } from '../../../lib/host/host-seam';
 import { usePermissionCheckBridge } from '../../../lib/cross-system/usePermissionCheckBridge';
 import { NAV_COUNTS_QUERY_KEY } from '../../../lib/query/navCounts';
+import { shouldRefetchOnFocus } from '../../../lib/query/query-client';
 import {
   type MinePermissionRequestRow,
   type NotificationDto,
@@ -200,6 +201,9 @@ export function HomeTodoPanel({
     queryFn: ({ signal }) => fetchNavCounts({ signal }),
     enabled: canLinkTriage,
     retry: false,
+    // Badge counts only (no permission-gated content), and costly on the server (#2807): a tab return reads them again only
+    // after 30 seconds (#2819). Every observer of this key opts in, or the others would still refetch.
+    refetchOnWindowFocus: shouldRefetchOnFocus,
   });
   const permissionCheckQuery = usePermissionCheckBridge(
     { capability: PERMISSION_REVIEW_CAPABILITY },

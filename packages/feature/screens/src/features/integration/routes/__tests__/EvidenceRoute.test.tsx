@@ -542,7 +542,7 @@ it.each(['withheld', 'missing', 'denied'] as const)(
     expect(screen.queryByText(/비공개 원본 제목/)).toBeNull();
   },
 );
-it('re-checks source permission on a tab return within 30 seconds, in the list and the detail', async () => {
+it('re-checks source permission on every tab return, in the list and the detail', async () => {
   let revoked = false;
   const voc = getEvidenceInventoryResponseSchema.parse({
     ...item,
@@ -559,7 +559,7 @@ it('re-checks source permission on a tab return within 30 seconds, in the list a
     () => response({ items: revoked ? [safe, otherSafe] : [voc, other], page: { has_more: false } }),
     () => response(revoked ? safe : voc),
   );
-  // The app's shared feature client, whose default reads again on a tab return only after 30 seconds.
+  // The app's shared feature client: its default must keep reading on every tab return, so a withdrawn source disappears.
   await mount(`/integration/evidence?selected=${ID}`, createFeatureQueryClient());
   await screen.findByRole('link', { name: 'Finding 보기' });
   expect(screen.getAllByText(/비공개 원본 제목/).length).toBeGreaterThan(0);

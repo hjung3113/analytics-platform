@@ -15,24 +15,23 @@ export function shouldRetryQuery(failureCount: number, error: unknown): boolean 
   return failureCount < 3;
 }
 
-/** How old data may be before a tab return reads it again (#2819). */
+/** How old data may be before a tab return reads it again, for a query that opts in with `shouldRefetchOnFocus` (#2819). */
 export const FOCUS_REFETCH_AFTER_MS = 30_000;
 
 /**
- * Tab-return policy (#2819, owner 2026-11-23): judged at the moment of the tab return, a query reads again only when its
- * last successful data is 30 seconds old or older, or a write invalidated it. Mount, remount and invalidation after a write
- * still read as before (`staleTime` stays 0), so my own writes are never shown stale. A query's own `refetchOnWindowFocus`
- * still wins: reads whose content depends on a permission that can be withdrawn elsewhere keep `true` (Evidence, Survey
- * evidence candidates and results, VOC conversation, progress notes). The global `focusManager` is untouched: FO shares
- * the module (as ADR-0086 left `notifyManager`).
+ * Opt-in tab-return policy (#2819) for a query's `refetchOnWindowFocus`: on a tab return, read again only when the last
+ * successful data is 30 seconds old or older, or a write invalidated it (judged at the moment of the return). The default
+ * stays TanStack's (every tab return reads stale data again), because some reads rely on it to drop content after a
+ * permission is withdrawn elsewhere. Opt in only for a costly read that shows no permission-gated content, with that
+ * reason next to it, and on every observer of the same key (TanStack refetches when any observer asks to).
  */
-export function shouldRefetchOnFocus(query: Query): boolean {
+export function shouldRefetchOnFocus(query: { state: Pick<Query['state'], 'isInvalidated' | 'dataUpdatedAt'> }): boolean {
   return query.state.isInvalidated || Date.now() - query.state.dataUpdatedAt >= FOCUS_REFETCH_AFTER_MS;
 }
 
 export function createFeatureQueryClient(): QueryClient {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: shouldRetryQuery, refetchOnWindowFocus: shouldRefetchOnFocus } },
+    defaultOptions: { queries: { retry: shouldRetryQuery } },
   });
   // Sticky Survey results-read denial markers must never be garbage-collected
   // while the payloads they protect stay cached; see registerSurveyQueryDefaults.

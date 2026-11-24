@@ -1,7 +1,7 @@
 import { ApiError } from '../../api/types';
 import { focusManager, QueryObserver, type QueryClient } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createFeatureQueryClient, FOCUS_REFETCH_AFTER_MS, shouldRetryQuery } from '../query-client';
+import { createFeatureQueryClient, FOCUS_REFETCH_AFTER_MS, shouldRefetchOnFocus, shouldRetryQuery } from '../query-client';
 
 describe('shouldRetryQuery', () => {
   it('does not retry permission-denied 403 responses', () => {
@@ -29,15 +29,15 @@ describe('createFeatureQueryClient', () => {
   });
 });
 
-describe('tab return reads only data older than 30 seconds (#2819)', () => {
+describe('tab return: default unchanged, opt-in reads only data 30 seconds old (#2819)', () => {
   // Each case observes one query on a fresh client, then blurs and refocuses the tab the way the browser does.
   const clients: QueryClient[] = [];
   // QueryClientProvider mounts the client in the app; only a mounted client listens to focus.
   const mounted = () => { const client = createFeatureQueryClient(); client.mount(); clients.push(client); return client; };
-  async function observe() {
+  async function observe(optIn = true) {
     const client = mounted();
     const queryFn = vi.fn(async () => queryFn.mock.calls.length);
-    const observer = new QueryObserver(client, { queryKey: ['focus'], queryFn });
+    const observer = new QueryObserver(client, { queryKey: ['focus'], queryFn, ...(optIn ? { refetchOnWindowFocus: shouldRefetchOnFocus } : {}) });
     const unsubscribe = observer.subscribe(() => {});
     await vi.waitFor(() => expect(observer.getCurrentResult().isSuccess).toBe(true));
     return { client, queryFn, observer, unsubscribe };
@@ -55,7 +55,14 @@ describe('tab return reads only data older than 30 seconds (#2819)', () => {
     vi.useRealTimers();
   });
 
-  it('does not read again within 30 seconds', async () => {
+  it('keeps the default: a query that does not opt in reads again on every tab return', async () => {
+    const { queryFn, unsubscribe } = await observe(false);
+    await refocus();
+    expect(queryFn).toHaveBeenCalledTimes(2);
+    unsubscribe();
+  });
+
+  it('does not read an opted-in query again within 30 seconds', async () => {
     const { queryFn, unsubscribe } = await observe();
     vi.advanceTimersByTime(FOCUS_REFETCH_AFTER_MS - 1_000);
     await refocus();
@@ -82,19 +89,19 @@ describe('tab return reads only data older than 30 seconds (#2819)', () => {
   it('still reads again on a remount within 30 seconds', async () => {
     const { client, queryFn, unsubscribe } = await observe();
     unsubscribe();
-    const again = new QueryObserver(client, { queryKey: ['focus'], queryFn });
+    const again = new QueryObserver(client, { queryKey: ['focus'], queryFn, refetchOnWindowFocus: shouldRefetchOnFocus });
     const stop = again.subscribe(() => {});
     await vi.waitFor(() => expect(queryFn).toHaveBeenCalledTimes(2));
     stop();
   });
 
-  it("keeps a query's own focus setting", async () => {
-    const client = mounted();
-    const queryFn = vi.fn(async () => 1);
-    const stop = new QueryObserver(client, { queryKey: ['own'], queryFn, refetchOnWindowFocus: 'always' }).subscribe(() => {});
-    await vi.waitFor(() => expect(queryFn).toHaveBeenCalledTimes(1));
+  it('reads again within 30 seconds when another observer of the key did not opt in', async () => {
+    const { client, queryFn, unsubscribe } = await observe();
+    const stop = new QueryObserver(client, { queryKey: ['focus'], queryFn }).subscribe(() => {});
+    await vi.waitFor(() => expect(queryFn).toHaveBeenCalledTimes(2)); // its own mount read
     await refocus();
-    expect(queryFn).toHaveBeenCalledTimes(2);
+    expect(queryFn).toHaveBeenCalledTimes(3);
     stop();
+    unsubscribe();
   });
 });

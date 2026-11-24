@@ -1,7 +1,7 @@
 import { type ComponentType, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { usePlatform, type NavCountsSlot } from '@ap/kernel';
-import { fetchNavCounts, NAV_COUNTS_QUERY_KEY } from '@ap/feature-screens/global-screens/core';
+import { fetchNavCounts, NAV_COUNTS_QUERY_KEY, shouldRefetchOnFocus } from '@ap/feature-screens/global-screens/core';
 import { featureQueryClient, useFeatureSession } from './feature/session';
 import { isUuid } from './feature/uuid';
 import { SCOPE_KEY, usesNavCounts } from './operator-menus';
@@ -44,6 +44,9 @@ function useNavCounts(managedSystem: string | null): Record<string, number> | nu
     queryFn: ({ signal }) => fetchNavCounts({ ...(scope !== undefined ? { managedSystemId: scope } : {}), signal }),
     enabled: session.status === 'ready' && validScope,
     retry: false,
+    // Badge counts only (no permission-gated content), and costly on the server (#2807): a tab return reads them again only
+    // after 30 seconds (#2819). Every observer of this key opts in, or the others would still refetch.
+    refetchOnWindowFocus: shouldRefetchOnFocus,
   }, featureQueryClient);
   return session.status === 'ready' && validScope && !isError && data !== undefined ? toSlotCounts(data.counts) : null;
 }

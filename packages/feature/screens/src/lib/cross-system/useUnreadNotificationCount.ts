@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchUnreadNotificationCount, notificationsQueryKey } from '../api/notifications';
+import { shouldRefetchOnFocus } from '../query/query-client';
 
 export function useUnreadNotificationCount(options: { enabled?: boolean } = {}) {
   const query = useQuery({
@@ -8,6 +9,9 @@ export function useUnreadNotificationCount(options: { enabled?: boolean } = {}) 
     queryFn: ({ signal }) => fetchUnreadNotificationCount(signal),
     refetchInterval: 60_000,
     retry: false,
+    // A count only (no permission-gated content), read on every page: a tab return reads it again only after 30 seconds;
+    // the 60-second poll is unchanged (#2819).
+    refetchOnWindowFocus: shouldRefetchOnFocus,
     enabled: options.enabled ?? true,
   });
 

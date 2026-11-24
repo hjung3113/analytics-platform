@@ -9,7 +9,7 @@ export type { DetailParts } from '../lib/host/detail-parts';
 export type { HostLinkProps, HostNavigate, HostNotice, HostSeam } from '../lib/host/host-seam';
 export type { HostSearch } from '../lib/host/search';
 export { VOC_CREATE_TARGETS_QUERY_KEY, VOC_CREATE_TARGETS_STALE_MS } from '../lib/api/voc-create-targets';
-export { createFeatureQueryClient } from '../lib/query/query-client';
+export { createFeatureQueryClient, shouldRefetchOnFocus } from '../lib/query/query-client';
 export { FeatureScreenRoot } from './FeatureScreenRoot';
 export { scopeSwitchClears } from '../lib/host/scope-switch';
 export type { ScopeSwitchInput } from '../lib/host/scope-switch';
