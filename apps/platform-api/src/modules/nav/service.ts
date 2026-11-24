@@ -1,10 +1,13 @@
 import type { NavResolveResponse, RoleLevel } from '@ap/feature-shared';
 
 import type { FindingsService } from '../findings/index.js';
+import type { CheckService, DenyAndGrantRows } from '../permissions/check-service.js';
+import type { SurveysService } from '../surveys/index.js';
+import type { VocClustersService } from '../voc-clusters/index.js';
 import { isAuthorizationAbsence } from '../permissions/read-utility.js';
 import type { TaskRequestsService } from '../task-requests/index.js';
 import type { TasksService } from '../tasks/index.js';
-import type { CountVocsQuery, VocCountReader, VocDisplayIdReader } from '../voc/index.js';
+import type { CountVocsQuery, VocDisplayIdReader, VocReadService } from '../voc/index.js';
 
 export interface NavActor {
   actor_id: string;
@@ -23,21 +26,11 @@ async function authorizationAbsent<T>(read: () => Promise<T>): Promise<T | undef
 }
 
 type NavCountsDeps = {
-  vocReadService: VocCountReader;
-  findingsService: {
-    listFindings(args: { actor: NavActor; managedSystemId?: string; limit?: number }): Promise<{
-      /** `page.total` is the authorized population count on a first page. */
-      page?: { total?: number | undefined } | undefined;
-    }>;
-  };
-  surveysService: {
-    listSurvey(actor: NavActor, managedSystemId?: string): Promise<readonly unknown[]>;
-  };
-  vocClustersService: {
-    listClusters(args: { actor: NavActor; managedSystemId?: string }): Promise<{
-      items: readonly unknown[];
-    }>;
-  };
+  checkService?: CheckService;
+  vocReadService: Pick<VocReadService, 'countVocsMany'>;
+  findingsService: Pick<FindingsService, 'countFindings'>;
+  surveysService: Pick<SurveysService, 'countSurvey'>;
+  vocClustersService: Pick<VocClustersService, 'countClusters'>;
 };
 
 export function createNavCountsService(deps: NavCountsDeps) {
@@ -50,8 +43,6 @@ export function createNavCountsService(deps: NavCountsDeps) {
       ...(managedSystemId !== undefined ? { managed_system_id: managedSystemId } : {}),
       ...(tab !== undefined ? { tab } : {}),
     });
-    const count = (view: CountVocsQuery['view'], tab?: CountVocsQuery['tab']) =>
-      deps.vocReadService.countVocs({ actor, query: query(view, tab) });
     const vocCountEntries = [
       ['voc.inbox', 'inbox'],
       ['voc.triage', 'triage'],
@@ -62,38 +53,29 @@ export function createNavCountsService(deps: NavCountsDeps) {
       ['voc.tab.waiting', 'triage', 'waiting'],
       ['voc.inbox.no-link', 'inbox', 'no-link'],
     ] as const;
-    const vocCounts = Object.fromEntries(
-      (
-        await Promise.all(
-          vocCountEntries.map(async ([key, view, tab]) => {
-            const value = await authorizationAbsent(() => count(view, tab));
-            return value === undefined ? undefined : ([key, value] as const);
-          }),
-        )
-      ).flatMap((entry) => (entry === undefined ? [] : [entry])),
-    );
+    const queries = vocCountEntries.map(([, view, tab]) => query(view, tab));
+    // A batch-level authorization absence omits every VOC key, like a per-key one.
+    const batch = await authorizationAbsent(() => deps.vocReadService.countVocsMany({ actor, queries }));
+    const vocCounts = Object.fromEntries(vocCountEntries.flatMap(([key], index) => {
+      const value = batch?.[index];
+      if (value instanceof Error && !isAuthorizationAbsence(value)) throw value;
+      return typeof value === 'number' ? [[key, value] as const] : [];
+    }));
+    const args = { actor, ...(managedSystemId ? { managedSystemId } : {}) };
+    const loadRows = deps.checkService?.loadCapabilityRows;
+    let findingRows: Promise<DenyAndGrantRows> | undefined;
+    // Keep separate Finding decisions for the point and scope policies.
+    const readRows = loadRows ? () => findingRows ??= loadRows(actor, 'finding.read') : undefined;
     const [findings, surveys, vocClusters] = await Promise.all([
-      authorizationAbsent(() =>
-        deps.findingsService.listFindings({
-          actor,
-          // Count only: the first page's authorized `page.total` is the badge value.
-          limit: 1,
-          ...(managedSystemId ? { managedSystemId } : {}),
-        }),
-      ),
-      authorizationAbsent(() => deps.surveysService.listSurvey(actor, managedSystemId)),
-      authorizationAbsent(() =>
-        deps.vocClustersService.listClusters({
-          actor,
-          ...(managedSystemId ? { managedSystemId } : {}),
-        }),
-      ),
+      authorizationAbsent(() => deps.findingsService.countFindings(args, readRows)),
+      authorizationAbsent(() => deps.surveysService.countSurvey(actor, managedSystemId)),
+      authorizationAbsent(() => deps.vocClustersService.countClusters(args, readRows)),
     ]);
     return {
       ...vocCounts,
-      ...(findings === undefined ? {} : { 'findings.all': findings.page?.total ?? 0 }),
-      ...(surveys === undefined ? {} : { 'surveys.all': surveys.length }),
-      ...(vocClusters === undefined ? {} : { 'voc.clusters': vocClusters.items.length }),
+      ...(findings === undefined ? {} : { 'findings.all': findings }),
+      ...(surveys === undefined ? {} : { 'surveys.all': surveys }),
+      ...(vocClusters === undefined ? {} : { 'voc.clusters': vocClusters }),
     };
   }
   return { getCounts };

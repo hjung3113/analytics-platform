@@ -138,7 +138,8 @@ type ConcreteCheckService = ReturnType<typeof createCheckService>;
 export type CheckService = Omit<ConcreteCheckService, OptionalCheckMethods> &
   Partial<Pick<ConcreteCheckService, OptionalCheckMethods>>;
 
-type CheckOptions = { tx?: Tx; readRows?: () => Promise<DenyAndGrantRows> };
+export type CapabilityRowsReader = () => Promise<DenyAndGrantRows>;
+type CheckOptions = { tx?: Tx; readRows?: CapabilityRowsReader };
 
 export async function checkCapabilityAcross(
   service: CheckService,
@@ -602,12 +603,13 @@ export async function resolveCapabilityScope(
   capability: CapabilityName,
   now: () => Date = () => new Date(),
   capabilities: CapabilityRegistry = PLATFORM_CAPABILITY_REGISTRY,
+  readRows?: CapabilityRowsReader,
 ): Promise<CapabilityScope> {
   if (tokenDenial(capability, { capabilities })) return { kind: 'scoped', managed_system_ids: [] };
   const bypass = actor.role_level === 'admin' ? capabilities.meta(capability).adminModuleBypass : 'none';
   if (bypass === 'always') return { kind: 'all' };
 
-  const rows = await loadDenyAndGrantRows(db, actor, capability, capabilities);
+  const rows = await (readRows?.() ?? loadDenyAndGrantRows(db, actor, capability, capabilities));
   return scopeFromRows(actor, capability, rows, now(), () =>
     allManagedSystemIds(db, actor.workspace_id), capabilities,
   );

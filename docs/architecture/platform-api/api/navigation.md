@@ -13,7 +13,7 @@ Index and global rules: [03-api-contracts.md](../03-api-contracts.md). This file
 - Currently emitted keys are `voc.inbox`, `voc.triage`, `voc.my`, `voc.tab.high`,
   `voc.tab.unassigned`, `voc.tab.untriaged`, `voc.tab.waiting`, `voc.inbox.no-link`,
   `voc.clusters`, `findings.all`, and `surveys.all`. The VOC keys use the shared VOC list
-  predicate; the other keys call their owning list read services. A key is absent only when
+  predicate. The other keys use count-only reads from their owning modules with the backing list's scope and predicates. A key is absent only when
   it has no backing list filter or when scope resolution returns the expected
   `permission.denied` or `permission.scope_required` authorization outcome. An absent
   key is not zero and may be permission-shaped; any unexpected failure propagates as

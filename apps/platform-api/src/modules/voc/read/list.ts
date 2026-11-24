@@ -37,7 +37,7 @@ export function createVocListReaders(deps: VocReadServiceDeps) {
   async function countVocs(args: {
     actor: ReadActorContext;
     query: CountVocsQuery;
-  }): Promise<number> {
+  }, scopes?: { read(): Promise<Scope>; triage(): Promise<Scope> }): Promise<number> {
     const { actor, query } = args;
     const { view, tab } = query;
     assertMySeverityQuery(query);
@@ -53,8 +53,8 @@ export function createVocListReaders(deps: VocReadServiceDeps) {
       });
     }
     const [readScope, triageScope] = await Promise.all([
-      actorReadScope(deps.db, actor),
-      view === 'triage' ? actorTriageScope(deps.db, actor) : Promise.resolve(undefined),
+      scopes?.read() ?? actorReadScope(deps.db, actor),
+      view === 'triage' ? (scopes?.triage() ?? actorTriageScope(deps.db, actor)) : undefined,
     ]);
     const { scopeFilter, actorIdForMyFilter } = resolveVocListScope({
       actor,
@@ -75,6 +75,19 @@ export function createVocListReaders(deps: VocReadServiceDeps) {
       ...(areaFilter === 'unset' ? { filterAnalyticsAreaUnset: true } : {}),
       ...(query['filter.trace_id'] !== undefined ? { filterTraceId: query['filter.trace_id'] } : {}),
     });
+  }
+
+  function countVocsMany({ actor, queries }: { actor: ReadActorContext; queries: readonly CountVocsQuery[] }): Promise<(number | Error)[]> {
+    let read: Promise<Scope> | undefined;
+    let triage: Promise<Scope> | undefined;
+    const scopes = {
+      read: () => read ??= actorReadScope(deps.db, actor),
+      triage: () => triage ??= actorTriageScope(deps.db, actor),
+    };
+    return Promise.all(queries.map(query => countVocs({ actor, query }, scopes).catch(error => {
+      if (error instanceof Error) return error;
+      throw error;
+    })));
   }
 
   async function countGroupedVocs(args: VocGroupedCountArgs) {
@@ -306,5 +319,5 @@ export function createVocListReaders(deps: VocReadServiceDeps) {
       ...(out_of_scope_summary !== undefined ? { out_of_scope_summary } : {}),
     };
   }
-  return { listVocs, countVocs, countGroupedVocs };
+  return { listVocs, countVocs, countVocsMany, countGroupedVocs };
 }

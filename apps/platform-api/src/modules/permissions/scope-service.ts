@@ -3,7 +3,7 @@
 import type { Capability, RoleLevel } from '@ap/feature-shared';
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
-import { resolveCapabilityScope } from './check-service.js';
+import { type CapabilityRowsReader, resolveCapabilityScope } from './check-service.js';
 
 export type Scope = { kind: 'all' } | { kind: 'scoped'; managedSystemIds: string[] };
 
@@ -39,8 +39,9 @@ export async function actorScopeForCapability(
   db: Db | Tx,
   actor: ScopeActorContext,
   capability: Capability,
+  readRows?: CapabilityRowsReader,
 ): Promise<Scope> {
-  const scope = await resolveCapabilityScope(db, actor, capability);
+  const scope = await resolveCapabilityScope(db, actor, capability, undefined, undefined, readRows);
   return scope.kind === 'all'
     ? scope
     : { kind: 'scoped', managedSystemIds: scope.managed_system_ids };
