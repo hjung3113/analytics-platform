@@ -1,4 +1,5 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { PERIOD, PRODUCTIVITY, periodPreset } from './contract-helpers';
 import { pickTargetRoom, expandQueryBar, contextBar, evidence, expectScopeValid, mainHeading, nextFrames, query, settleOn, showSlowExecutions, signInAs, switchScope } from './support';
 

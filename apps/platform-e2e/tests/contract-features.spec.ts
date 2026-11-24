@@ -1,4 +1,5 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { PERIOD, PRODUCTIVITY, railSection, chooseSystem } from './contract-helpers';
 import { evidence, mainHeading, query, signInAs, switchScope } from './support';
 

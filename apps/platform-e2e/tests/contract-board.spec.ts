@@ -1,5 +1,6 @@
 import { browserPreferenceKey } from './support';
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { PERIOD, PRODUCTIVITY, openSwitcher, chooseSystem, headerMore, periodPreset, startWithQueryBarOpen } from './contract-helpers';
 import { evidence, expandPageHead, mainHeading, nextFrames, query, settleOn, setScenario, signInAs } from './support';
 

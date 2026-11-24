@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { evidence, expectScopeValid, expandQueryBar, pickTargetRoom, query, queryBar, signInAs } from './support';
 
 const SCREEN = '/mars/hw-time?v=1&scopeId=MEM';

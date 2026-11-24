@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { evidence, mainHeading, signInAs } from './support';
 
 test.describe('서비스 토큰 메뉴의 관리자 표시 (06 §9.1, ADR-0116 §7, #1443)', () => {

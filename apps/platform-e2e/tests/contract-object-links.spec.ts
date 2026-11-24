@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { PERIOD, PRODUCTIVITY, headerMore } from './contract-helpers';
 import { evidence, expectScopeValid, mainHeading, signInAs } from './support';
 

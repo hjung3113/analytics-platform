@@ -1,4 +1,5 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { type Locator, type Page } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { PERIOD, PRODUCTIVITY, railSection, headerMore, periodPreset, queryBarCollapsedKey } from './contract-helpers';
 import { pickTargetRoom, expandQueryBar, contextBar, evidence, expandPageHead, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, queryResultSurface, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, switchScope, tableStatusLine } from './support';
 
