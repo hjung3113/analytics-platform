@@ -17,7 +17,7 @@ const FILES = {
   components: path.join(ROOT, 'docs/contract/components.md'),
 };
 // Further rule sources quoted by the 데이터 시각화 and 템플릿 pages, keyed by their repository path (the key is also the link).
-const QUOTED = ['docs/contract/chart.md', 'docs/contract/kernel.md', 'docs/contract/layout.md', 'docs/adr/0058-analysis-chart-spec-union.md', 'docs/adr/0064-topn-bar-and-lane-timeline.md', 'docs/adr/0121-ordered-interval-track-sdk-piece.md',
+const QUOTED = ['docs/contract/chart.md', 'docs/contract/cross-menu-links.md', 'docs/contract/kernel.md', 'docs/contract/layout.md', 'docs/adr/0058-analysis-chart-spec-union.md', 'docs/adr/0064-topn-bar-and-lane-timeline.md', 'docs/adr/0121-ordered-interval-track-sdk-piece.md',
   'docs/adr/0175-chart-selection-feeds-next-analysis.md'];
 
 /** `--name: value; /* note *\/` declarations of a stylesheet, in file order. */
