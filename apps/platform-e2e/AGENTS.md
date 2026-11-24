@@ -10,6 +10,7 @@ Boots the assembled app (`apps/platform-web`, mock adapter) in a browser and che
 ## Rules
 
 - Black box: do not import `@ap/*` packages. Drive only the screen and dev tools.
+- Specs import `test` and `expect` from `./origin-guard`, never `test` from `@playwright/test` (lint enforces it). Its auto fixture fails any test whose browser context sends a request to an origin other than `baseURL` (`data:`, `blob:`, `about:` excepted), because the app must run on a closed network (#2897). It watches the test's own `context` only; a spec that opens `browser.newContext()` adds its own listener.
 - Selectors use roles and accessible names (Korean UI); update them when copy changes.
 - Attach evidence screenshots with `evidence(page, testInfo, name)` at the moment the contract is visible (right after a transition).
 - Only width-dependent contracts (ADR-0013 detail slot, ADR-0015 Context bar) use `setViewportSize` (1280, 1920, …) in their `test`.

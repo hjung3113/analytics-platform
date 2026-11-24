@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { evidence, signInAs } from './support';
 
 const query = 'STEP_PROCESS before PROCESS_START';

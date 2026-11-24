@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { evidence, signInAs } from './support';
 
 test.describe('열 묶음 넘김', () => {

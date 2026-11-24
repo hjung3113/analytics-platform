@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { evidence, signInAs } from './support';
 
 const investigation = (n: number) => `/log/explorer/14730000-0000-4000-8000-00000000000${n}?v=1`;

@@ -1,5 +1,6 @@
 import { browserPreferenceKey } from './support';
-import { expect, test, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
 import { contextBar, evidence, expandPageHead, expandQueryBar, fitWorkspace, pickTargetRoom, query, queryBar, setScenario, signInAs, tableStatusLine } from './support';
 

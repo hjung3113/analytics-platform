@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { PRODUCTIVITY } from './contract-helpers';
 import { mainHeading, setScenario, signInAs } from './support';
 
