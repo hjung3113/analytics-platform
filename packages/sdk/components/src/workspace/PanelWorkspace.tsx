@@ -37,6 +37,8 @@ export type PanelWorkspacePersistence = { key: string; storage?: PanelWorkspaceS
 export type PanelWorkspacePanel = {
   /** Static identifier (`^[a-z][a-z0-9._-]{0,63}$`): it is stored in the local preference. */
   id: string;
+  /** Declared analysis selection source hosted here when its id differs from this layout id. */
+  analysisSelectionSourceId?: string;
   title: Text;
   /** Icon in the collapsed left rail; absent = first character of the translated title. */
   icon?: LucideIcon;
@@ -527,6 +529,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const peekHeightFloor = Math.max(PEEK_BODY_FLOOR, peekPanel?.preferredHeight ?? 0, peekPanel?.minHeight ?? 0) + PEEK_HEADER_HEIGHT;
   const dockPanels: DockPanel[] = panels.filter(panel => shown.includes(panel.id) || floatingPanels.some(item => item.panelId === panel.id)).map(panel => ({
     id: panel.id, title: tx(panel.title), minWidth: panel.minWidth, minHeight: panel.minHeight,
+    analysisSelectionSourceId: panel.analysisSelectionSourceId,
     render: () => <InWorkspacePanelProvider value>{panel.render()}</InWorkspacePanelProvider>,
   }));
   // Badges reach the tab through these two callbacks; their identity follows the badges alone, so other changes do not rebuild the tabs.

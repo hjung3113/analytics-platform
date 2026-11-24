@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildChartOption } from '../buildChartOption';
+import { chartPointKey } from '../chartStatus';
 import { barStatusRing, baselineInput } from '../__fixtures__/baselineInput';
 
 const status = { tone: 'danger' as const, label: '<상한 초과>', reason: 'Recipe <script> & "unknown"' };
@@ -62,4 +63,22 @@ it('keeps status styling fixed when the active row changes, including startAlign
   const tip = active.tooltip.formatter([{ seriesId: '__spacer-1', name: 'R1', value: 1 }, { seriesId: 'a', name: 'R1', value: 800 }]);
   expect(tip).not.toContain('__spacer');
   expect(tip.match(/■/g)).toHaveLength(1);
+});
+
+it('keeps the selection, active-row and Min/Max borders when the chip outlines the same bars', () => {
+  const input = baselineInput({
+    activeCategory: 'R3',
+    extremes: new Map([['a', baselineInput().extremes!.get('a')!]]),
+    selectedPointKeys: [chartPointKey({ seriesId: 'a', x: 'R4' })],
+  });
+  const option = (highlightedValues?: string[]) => buildChartOption({ ...input, highlightedValues }) as unknown as Option;
+  const nativeBars = (o: Option) => o.series.filter(s => s.id === 'a' || s.id === 'b').map(s => s.data);
+  const plain = nativeBars(option());
+  expect(plain[0][3]).toMatchObject({ itemStyle: { borderWidth: 1.5 } });
+  expect(plain[0][0]).toMatchObject({ itemStyle: { borderColor: 'max', borderWidth: 3 } });
+  expect(plain[0][1]).toMatchObject({ itemStyle: { borderColor: 'min', borderWidth: 3 } });
+  expect(plain[1][2]).toMatchObject({ itemStyle: { borderColor: 'bStroke', borderWidth: 2 } });
+  expect(plain[1][3]).toBe(400);
+  const styles = (bars: ReturnType<typeof nativeBars>) => bars.map(data => data.map(datum => datum && typeof datum === 'object' ? datum.itemStyle : datum));
+  expect(styles(nativeBars(option(['R1', 'R2', 'R3', 'R4'])))).toEqual(styles(plain));
 });

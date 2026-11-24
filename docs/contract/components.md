@@ -135,7 +135,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - PlatformPage (페이지 머리·슬롯, §8. 별도 PageHeader 컴포넌트는 없다)
 - PageFilterBar
 - DataTrustIndicator
-- AnalysisChartFrame
+- AnalysisChartFrame. `highlightedValues?: readonly string[]`를 주면 X값(범주 ID 또는 시각 문자열)이 일치하는 범주 축 막대와 선 차트의 점에 `chart-selection-outline` 점선을 추가한다. 기존 선택 링, 활성 행·최소/최대 테두리와 상태 마크는 유지한다. 점선은 범주 축 막대 조각의 안쪽과 선 차트 상태 halo의 바깥에 그린다. 시간 축 막대 차트는 패널의 출처 링만 표시한다. 시간 축 막대 점선은 #2733 후속 작업으로 남긴다. 빈 배열로 점선을 지운다. 선택과 포커스는 그대로다. 이 기능을 쓰는 시리즈는 즉시 다시 그리며 인자를 생략한 차트는 기존대로 동작한다.
 - OrderedIntervalTrack (순서 축 구간·점의 범용 트랙, 선언·상태·성능 경계는 아래, 상호작용은 [§16](chart.md#orderedintervaltrack-순서-트랙-decided-adr-0121))
 - AnalysisChart (heatmap·donut·scatter·boxPlot·pareto·topNBar·histogram의 데이터·표·CSV 프레임, 종류별 로컬 선택, [§16](chart.md#16-analysis-chart-contract), [ADR-0058](../adr/0058-analysis-chart-spec-union.md))
 - LegendTree (계층 범례의 보이기·단일 현재 항목 또는 드릴 현재 단계(`onDrill`·`currentId`·`drillOnly`·`canDrill`, 보이기와 분리)·키보드 행 이동, [§16](chart.md#16-analysis-chart-contract), [ADR-0057](../adr/0057-legend-tree-arrow-key-row-navigation.md))

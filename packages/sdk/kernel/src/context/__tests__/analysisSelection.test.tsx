@@ -6,9 +6,10 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { analysisSelectionParam, parseAnalysisSelection, useAnalysisSelectionChips, useAnalysisSelectionInputs, useAnalysisSelectionOutput, usePlatform } from '../../index';
 import { I18nProvider } from '../../i18n';
 import { LentPanelPlatformContext } from '../../platform/contexts';
+import { useAnalysisSelectionHoverTarget } from '../analysisSelection';
 import { useLeaveRequest, useUnsavedGuard } from '../../platform/hooks';
 import { lentPanelPlatform } from '../../platform/lent-panel-platform';
-import { PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from '../../platform/platform';
+import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from '../../platform/platform';
 import { queryMissingRequired } from '../../query/draft-state';
 import { disabledReason, projectDisplayInputs, projectQueryInputs } from '../../registry/panel-inputs';
 import { createRegistry, type MenuEntry } from '../../registry/registry';
@@ -489,6 +490,46 @@ it('keeps reports separate for the main screen and each board pane', () => {
   const result = mount(useAnalysisSelectionChips, initialA, Board);
   expect(checks).toEqual({ main: false, one: true, two: false });
   expect(result.current.chips[0]?.available).toBe(false);
+});
+
+it('shares a transient hover with the first writer in the same board pane', () => {
+  window.history.replaceState(null, '', '/mars/analysis?v=1' + initialA);
+  const pane = { menuId: 'analysis', params: {}, query: '?v=1' + initialA };
+  const paneProps = { screen: pane, onChange: vi.fn(), onLeave: vi.fn() };
+  function Editor() {
+    const begin = useAnalysisSelectionHoverTarget(setKey);
+    useLayoutEffect(() => begin(), [begin]);
+    return null;
+  }
+  function Board({ children }: { children: ReactNode }) {
+    const [editing, setEditing] = useState(false);
+    return <Wrapper><PaneQueryDraftProvider screens={{ one: pane, two: pane }}>
+      <button onClick={() => setEditing(value => !value)}>Toggle editor</button>
+      {editing && <PaneScreenProvider paneId="one" {...paneProps}><Editor /></PaneScreenProvider>}
+      <PaneScreenProvider paneId="one" {...paneProps}>{children}</PaneScreenProvider>
+      <PaneScreenProvider paneId="two" {...paneProps}><Source label="other pane" /></PaneScreenProvider>
+      <Source label="main screen" />
+    </PaneQueryDraftProvider></Wrapper>;
+  }
+  function Source({ label }: { label: string }) {
+    const { highlighted } = useAnalysisSelectionOutput('source', setKey);
+    return <output aria-label={label}>{String(highlighted)}</output>;
+  }
+  const { result } = renderHook(() => ({
+    source: useAnalysisSelectionOutput('source', setKey).highlighted,
+    alternate: useAnalysisSelectionOutput('alternate', setKey).highlighted,
+  }), { wrapper: Board });
+  expect(result.current).toEqual({ source: false, alternate: false });
+  const address = window.location.href;
+  const toggle = screen.getByRole('button', { name: 'Toggle editor' });
+  fireEvent.click(toggle);
+  expect(result.current).toEqual({ source: true, alternate: false });
+  expect(screen.getByLabelText('other pane')).toHaveTextContent('false');
+  expect(screen.getByLabelText('main screen')).toHaveTextContent('false');
+  fireEvent.click(toggle);
+  expect(result.current.source).toBe(false);
+  expect(window.location.href).toBe(address);
+  expect(paneProps.onChange).not.toHaveBeenCalled();
 });
 
 it('drops reported availability after leaving and returning to the screen', async () => {

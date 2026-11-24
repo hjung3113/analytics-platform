@@ -50,6 +50,7 @@ export function createAnalysisSelectionAvailability() {
     for (const listener of listeners) listener();
   }
   return {
+    hover: createSelectionHover(),
     read: () => snapshot,
     subscribe(listener: () => void) {
       listeners.add(listener);
@@ -65,6 +66,35 @@ export function createAnalysisSelectionAvailability() {
         if (!reports.delete(token)) return;
         if (!reports.size) registrations.delete(key);
         update(key, [...reports.values()].at(-1));
+      };
+    },
+  };
+}
+
+type Hover = { key: string; drillAddress: string };
+
+function createSelectionHover() {
+  const active = new Set<Hover>();
+  const listeners = new Set<() => void>();
+  let current: Hover | undefined;
+  function update(next: Hover | undefined) {
+    if (next === current) return;
+    current = next;
+    for (const listener of listeners) listener();
+  }
+  return {
+    read: () => current,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
+    begin(key: string, drillAddress: string) {
+      const hover = { key, drillAddress };
+      active.add(hover);
+      update(hover);
+      return () => {
+        active.delete(hover);
+        if (current === hover) update([...active].at(-1));
       };
     },
   };

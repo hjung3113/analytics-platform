@@ -34,6 +34,21 @@ it('preserves the legacy time stacked-bar option and status rendering from origi
   expect(createHash('sha256').update(JSON.stringify({ option, rendered })).digest('hex')).toBe('2cccda153d237c5cbab5a763ecada5e1dcdc16f58319cb79fe7bd3a909666d1a');
 });
 
+it('adds a dashed emphasis around only the matching status bar', () => {
+  const displayed: ChartSeries[] = [{ id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [['R1', 8], ['R2', 4]] }];
+  const selection = '#872bd0';
+  const input = baselineInput({ categories: ['R1', 'R2'], displayed, activeCategory: null, extremes: undefined,
+    palette: { ...resolveChartPalette(displayed), selection }, pointStatus: () => ({ tone: 'warning', label: 'Status' }) });
+  const chart = echarts.init(null, CHART_ECHARTS_THEME, { renderer: 'svg', ssr: true, width: 800, height: 260 });
+  const emphasis = () => chart.renderToSVGString().split('\n').filter(line => line.includes(`stroke="${selection}"`) && line.includes('stroke-dasharray='));
+  try {
+    chart.setOption({ ...buildChartOption(input), animation: false }, { notMerge: true });
+    expect(emphasis()).toHaveLength(0);
+    chart.setOption({ ...buildChartOption({ ...input, highlightedValues: ['R1'] }), animation: false }, { notMerge: true });
+    expect(emphasis()).toHaveLength(1);
+  } finally { chart.dispose(); }
+});
+
 describe('effective status borders drawn by ECharts (#2326 C1)', () => {
   it.each([
     { horizontal: true, stacked: true, startAlign: false, xType: 'category' as const },
@@ -164,4 +179,84 @@ describe('status rings stay inside thin cells (#2351)', () => {
     const inner = Math.min(...rings.map(r => r.shape.height - r.style.lineWidth));
     expect(inner).toBeGreaterThanOrEqual(7 - 1e-9);
   });
+});
+
+it('draws a separate unfilled dashed line mark outside and above its status halo', () => {
+  const displayed: ChartSeries[] = [{ id: 'a', name: 'A', color: 'chart-blue', kind: 'line', points: [['R1', 8], ['R2', 4]] }];
+  const selection = '#872bd0';
+  const input = baselineInput({ horizontal: false, stacked: false, categories: ['R1', 'R2'], displayed,
+    activeCategory: null, extremes: undefined, highlightedValues: ['R1'],
+    palette: { ...resolveChartPalette(displayed), selection }, pointStatus: () => ({ tone: 'warning', label: 'Status' }) });
+  const option = buildChartOption(input) as { series: { id: string }[] };
+  const chart = echarts.init(null, CHART_ECHARTS_THEME, { renderer: 'svg', ssr: true, width: 800, height: 260 });
+  try {
+    chart.setOption({ ...option, animation: false });
+    const svg = chart.renderToSVGString();
+    const paths = svg.match(/<path[^>]*>/g)!;
+    const halo = paths.findIndex(path => path.includes(`ecmeta_series_index="${option.series.findIndex(s => s.id === '__line-halo-a')}"`));
+    const status = paths.findIndex(path => path.includes(`ecmeta_series_index="${option.series.findIndex(s => s.id === '__line-status-a')}"`));
+    const dashed = paths.filter(path => path.includes(`stroke="${selection}"`) && path.includes('stroke-dasharray='));
+    expect(dashed).toHaveLength(1);
+    expect(dashed[0]).toContain('fill="none"');
+    expect(halo).toBeGreaterThanOrEqual(0);
+    expect(status).toBeGreaterThan(halo);
+    expect(paths.indexOf(dashed[0])).toBeGreaterThan(status);
+    const radius = (path: string) => Number(path.match(/A([\d.]+) /)?.[1]) * Number(path.match(/matrix\(([\d.]+),/)?.[1] ?? 1);
+    expect(radius(dashed[0])).toBeGreaterThan(radius(paths[halo]) + 1);
+    expect(svg).toContain('◆');
+  } finally { chart.dispose(); }
+});
+
+it('keeps dashed outlines inside both thin adjacent category stacked pieces', () => {
+  const [firstX, secondX] = ['R1', 'R2'];
+  const displayed: ChartSeries[] = [
+    { id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [[firstX, 0.25], [secondX, 100]] },
+    { id: 'b', name: 'B', color: 'chart-teal', kind: 'bar', points: [[firstX, 0.25], [secondX, 100]] },
+  ];
+  const option = buildChartOption(baselineInput({ horizontal: true, xType: 'category', stacked: true, categories: [firstX, secondX], displayed,
+    activeCategory: null, extremes: undefined, highlightedValues: [firstX], palette: resolveChartPalette(displayed),
+    pointStatus: ({ seriesId }) => ({ tone: seriesId === 'a' ? 'danger' : 'warning', label: 'Status' }) })) as { series: CustomSeriesOption[] };
+  const dashed: { shape: Rect; style: { lineWidth: number } }[] = [];
+  for (const ring of option.series.filter(s => String(s.id).startsWith('__statusBarBacking')) as CustomSeriesOption[]) {
+    const original = ring.renderItem as Exclude<CustomSeriesOption['renderItem'], undefined | string>;
+    ring.renderItem = (params, api) => {
+      const result = original(params, api) as { children: { shape: Rect; style: { lineWidth: number; lineDash?: number[] } }[] };
+      dashed.push(...result.children.filter(child => child.style.lineDash));
+      return result as ReturnType<typeof original>;
+    };
+  }
+  const chart = echarts.init(null, CHART_ECHARTS_THEME, { renderer: 'svg', ssr: true, width: 800, height: 260 });
+  try {
+    chart.setOption({ ...option, animation: false });
+    const model = (chart as unknown as { getModel: () => NativeModel }).getModel();
+    const [first, second] = displayed.map(({ id }) => model.getSeriesByIndex(option.series.findIndex(s => s.id === id)).getData().getItemLayout(0));
+    expect(first.x + first.width).toBeCloseTo(second.x, 6);
+    expect(dashed).toHaveLength(2);
+    for (const [raw, { shape, style: { lineWidth } }] of [[first, dashed[0]], [second, dashed[1]]] as const) {
+      const x = Math.min(raw.x, raw.x + raw.width);
+      const y = Math.min(raw.y, raw.y + raw.height);
+      const width = Math.abs(raw.width);
+      const height = Math.abs(raw.height);
+      expect(Math.min(width, height)).toBeLessThan(2);
+      expect(lineWidth).toBeGreaterThan(0);
+      expect(shape.x - lineWidth / 2).toBeGreaterThanOrEqual(x - 1e-6);
+      expect(shape.x + shape.width + lineWidth / 2).toBeLessThanOrEqual(x + width + 1e-6);
+      expect(shape.y - lineWidth / 2).toBeGreaterThanOrEqual(y - 1e-6);
+      expect(shape.y + shape.height + lineWidth / 2).toBeLessThanOrEqual(y + height + 1e-6);
+    }
+  } finally { chart.dispose(); }
+});
+
+it('draws no dashed bar outline for highlightedValues on a time axis', () => {
+  const time = '2026-11-16T00:00:00';
+  const displayed: ChartSeries[] = [{ id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [[time, 8]] }];
+  const selection = '#872bd0';
+  const input = baselineInput({ xType: 'time', horizontal: false, displayed, activeCategory: null, extremes: undefined,
+    highlightedValues: [time], palette: { ...resolveChartPalette(displayed), selection } });
+  const chart = echarts.init(null, CHART_ECHARTS_THEME, { renderer: 'svg', ssr: true, width: 400, height: 260 });
+  try {
+    chart.setOption({ ...buildChartOption(input), animation: false });
+    const paths = chart.renderToSVGString().match(/<path[^>]*>/g) ?? [];
+    expect(paths.filter(path => path.includes(`stroke="${selection}"`) && path.includes('stroke-dasharray='))).toHaveLength(0);
+  } finally { chart.dispose(); }
 });

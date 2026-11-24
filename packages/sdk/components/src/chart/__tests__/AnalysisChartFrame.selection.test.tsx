@@ -28,6 +28,22 @@ afterEach(cleanup);
 const A: ChartSeries = { id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [['a', 1], ['b', 2], ['c', 3]] };
 const B: ChartSeries = { id: 'b', name: 'B', color: 'chart-series-3', kind: 'bar', points: [['a', 1], ['c', 3]] };
 
+it('outlines matching values across series and clears the emphasis without selecting them', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  const props = { series: [A, B], xType: 'category', orientation: 'horizontal' } satisfies Partial<AnalysisChartFrameProps>;
+  const view = render(tree({ ...props, highlightedValues: ['a', 'missing'] }));
+  await screen.findByRole('img');
+  const outlines = () => (plot.option as { series: { type: string; data: number[][] }[] }).series
+    .filter(s => s.type === 'custom').map(s => s.data.map(([category]) => category));
+  expect(outlines()).toEqual([[0], [0]]);
+  expect(dataOf('a')[0]).toBe(1);
+  expect(dataOf('b')[0]).toBe(1);
+  expect(dataOf('a')[1]).toBe(2);
+  view.rerender(tree({ ...props, highlightedValues: [] }));
+  expect(outlines()).toEqual([]);
+  expect(dataOf('a')[0]).toBe(1);
+});
+
 describe('category projection (#2020)', () => {
   it('draws, tabulates and summarizes a vertical category series by category name, missing = null', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM');

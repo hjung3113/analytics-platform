@@ -1,7 +1,7 @@
 import type { AnalysisSelection, AnalysisSelectionUse, Text } from '@ap/contracts';
-import { use, useEffect, useInsertionEffect, useMemo, useSyncExternalStore } from 'react';
+import { use, useCallback, useEffect, useInsertionEffect, useMemo, useSyncExternalStore } from 'react';
 import { PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
-import { usePlatform } from '../platform/hooks';
+import { usePlatform, usePlatformOptional } from '../platform/hooks';
 import type { MenuPlatform } from '../platform/types';
 import { menuAnalysisSelections } from '../registry/analysis-selections';
 import type { MenuEntry } from '../registry/registry';
@@ -33,6 +33,37 @@ function useReportedAvailability(screen: ReturnType<typeof useWriteScreen>, addr
   return (key: string) => readAvailability(snapshot, key, address);
 }
 
+/** Starts a transient chip interaction. Release it on leave, blur or unmount. */
+export function useAnalysisSelectionHoverTarget(key: string | undefined) {
+  const platform = usePlatformOptional();
+  const screen = useWriteScreen(platform?.route ?? null);
+  const hover = screen?.analysisSelectionAvailability.hover;
+  const address = screen ? drillAddress(screen.route?.menu, screen.pageParam) : '';
+  return useCallback(() => key === undefined ? undefined : hover?.begin(key, address), [hover, key, address]);
+}
+
+const noHighlight = () => false;
+function useSelectionHighlight(screen: ReturnType<typeof useWriteScreen>, address: string, matches: (key: string) => boolean) {
+  const hover = screen?.analysisSelectionAvailability.hover;
+  return useSyncExternalStore(hover?.subscribe ?? subscribeToEmptyAvailability, () => {
+    const current = hover?.read();
+    return current?.drillAddress === address && matches(current.key);
+  }, noHighlight);
+}
+
+/** Whether this panel is the first declared writer for the current chip interaction. */
+export function useAnalysisSelectionSourceHighlighted(panelId: string) {
+  const platform = usePlatformOptional();
+  const screen = useWriteScreen(platform?.route ?? null);
+  const channels = useChannels(platform?.route?.menu);
+  const address = screen ? drillAddress(screen.route?.menu, screen.pageParam) : '';
+  return useSelectionHighlight(screen, address, key => {
+    const channel = channels.get(key);
+    return !!screen && !!channel && channel.writers[0]?.panelId === panelId
+      && parseAnalysisSelection(channel.shape, screen.pageParams(key)) !== null;
+  });
+}
+
 function hasFilterCycle(channels: ReturnType<typeof menuAnalysisSelections>, key: string): boolean {
   const pending = [key];
   const visited = new Set(pending);
@@ -53,11 +84,15 @@ function hasFilterCycle(channels: ReturnType<typeof menuAnalysisSelections>, key
 export function useAnalysisSelectionOutput(panelId: string, key: string, options?: {
   /** Values present in the source's current data. Omit while availability is unknown. */
   available?: AnalysisSelectionAvailability | undefined;
+  /** Set false in callers that only write selections or report availability. */
+  subscribeHighlight?: boolean;
 }): {
   selection: AnalysisSelection | null;
   select: (next: AnalysisSelection | null) => boolean;
   /** Whether readers of this source see the supplied availability (or its withdrawal). */
   availabilityCurrent: boolean;
+  /** Whether a chip for this output is currently hovered or focused. First writer only. */
+  highlighted: boolean;
 } {
   const { route, pageParam, pageParams, setPage } = usePlatform();
   const screen = useWriteScreen(route);
@@ -77,10 +112,12 @@ export function useAnalysisSelectionOutput(panelId: string, key: string, options
     if (store && canReport && report !== undefined) return store.report(key, { drillAddress: address, available: report });
   }, [store, canReport, key, report, address]);
   const urlKey = selectionUrlKey(key);
-  if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
   const rendered = pageParams(urlKey);
   const selection = channel ? parseAnalysisSelection(channel.shape, rendered) : null;
-  return { selection, availabilityCurrent, select(next) {
+  const highlightScreen = isSource && options?.subscribeHighlight !== false ? screen : null;
+  const highlighted = useSelectionHighlight(highlightScreen, address, hoveredKey => hoveredKey === key && selection !== null);
+  if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
+  return { selection, availabilityCurrent, highlighted, select(next) {
     const current = screen?.pageParamsNow(urlKey);
     if (!current || !channel || (next && next.shape !== channel.shape)) return false;
     const param = next && analysisSelectionParam(next);

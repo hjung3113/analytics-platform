@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as kernel from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
 import type { MenuQuery } from '@ap/contracts';
-import { answer, fixtureMatrix, renderOverview, requests, settle } from './test-support';
+import { answer, chartRenders, fixtureMatrix, renderOverview, requests, settle } from './test-support';
 
 const workspace = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions&pins=table';
 const url = () => new URLSearchParams(window.location.search);
@@ -20,6 +20,42 @@ const tableOnlyLink = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=tabl
 
 beforeEach(() => { requests.length = 0; vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+
+it('emphasizes the selected equipment only while pointing to the selection chip', async () => {
+  await renderOverview(`${workspace}&row=EQ-002&motionEquipment=EQ-001`, answer, { showSelectionChips: true });
+  const chip = within(screen.getByRole('group', { name: '분석 선택' })).getByRole('img');
+  expect(chart().highlightedValues ?? []).toEqual([]);
+  fireEvent.pointerEnter(chip);
+  expect(chart().highlightedValues).toEqual(['EQ-001']);
+  expect(chart().activeCategory).toBe('EQ-002');
+  fireEvent.pointerLeave(chip);
+  expect(chart().highlightedValues ?? []).toEqual([]);
+});
+
+it.each(['pointer', 'keyboard'])('marks the default HW Time source panel and bars on %s interaction', async gesture => {
+  const picked = ['EQ-002', 'EQ-001'];
+  await renderOverview(`&moduleType=PM&drillMotion=Pump&drillModule=PM1${selection(picked)}`, answer, { showSelectionChips: true, realWorkspace: true });
+  const current = screen.getByTestId('hw-current');
+  expect(current.closest('[data-dock-panel="current"]')).not.toBeNull();
+  expect([...document.querySelectorAll('[data-dock-panel]')].map(panel => panel.getAttribute('data-dock-panel')).sort())
+    .toEqual(['current', 'previous', 'tree', 'trend']);
+  const chip = within(screen.getByRole('group', { name: '분석 선택' }));
+  const clear = chip.getByRole('button', { name: /선택 지우기/ });
+  const icon = chip.getByRole('img');
+  const highlightedPanels = () => [...document.querySelectorAll('[data-analysis-source-highlighted]')].map(panel => panel.getAttribute('data-dock-panel'));
+  const highlightedBars = () => JSON.parse(current.textContent!).highlightedValues ?? [];
+
+  expect(highlightedPanels()).toEqual([]);
+  expect(highlightedBars()).toEqual([]);
+  if (gesture === 'pointer') fireEvent.pointerEnter(icon);
+  else act(() => clear.focus());
+  expect.soft(highlightedPanels()).toEqual(['current']);
+  expect.soft(highlightedBars()).toEqual(picked);
+  if (gesture === 'pointer') fireEvent.pointerLeave(icon);
+  else act(() => clear.blur());
+  expect(highlightedPanels()).toEqual([]);
+  expect(highlightedBars()).toEqual([]);
+});
 
 it.each(['browse', 'select hw-module-motions'])('%s restores and changes the active row independently of the table filter', async gesture => {
   await renderOverview(`${workspace}&row=EQ-002&motionEquipment=EQ-001`);
@@ -95,7 +131,7 @@ it('reports equipment present in the moduleMotions source data', async () => {
   const output = vi.spyOn(kernel, 'useAnalysisSelectionOutput');
   try {
     await renderOverview(workspace, withoutSelectedEquipmentInModule);
-    expect(output).toHaveBeenCalledWith('moduleMotions', 'motionEquipment', { available: ['EQ-001'] });
+    expect(output).toHaveBeenCalledWith('moduleMotions', 'motionEquipment', { available: ['EQ-001'], subscribeHighlight: false });
   } finally {
     output.mockRestore();
   }
@@ -202,4 +238,38 @@ it('restores a filtered step 3 table after visiting an unpinned step 4 source', 
     .toEqual([{ moduleType: 'PM', motionEquipment: ['EQ-002'] }]);
   expect(restored.filter(request => request.endpoint === 'hwTime.tableRows').map(request => request.params))
     .toEqual([{ moduleType: 'PM', motionEquipment: ['EQ-002'], page: 0, pageSize: 25, sorting: [] }]);
+});
+
+it('keeps the current chart mounted when the dedicated moduleMotions panel is added', async () => {
+  await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
+  const current = screen.getByTestId('hw-current');
+  expect(screen.queryByTestId('hw-module-motions')).toBeNull();
+
+  const addPanel = within(screen.getByTestId('workspace-actions')).getByRole('button', { name: /패널 추가/ });
+  fireEvent.keyDown(addPanel, { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name: 'PM1 · Motion별' }));
+
+  expect(await screen.findByTestId('hw-module-motions')).toBeTruthy();
+  expect(screen.getByTestId('hw-current')).toBe(current);
+});
+
+it.each([
+  ['', 'hw-current'],
+  ['&pins=moduleMotions', 'hw-module-motions'],
+])('updates only the mapped source chart on a chip hover round trip (%s)', async (pins, sourceId) => {
+  chartRenders.mockClear();
+  await renderOverview(`&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=EQ-001${pins}`, answer, { showSelectionChips: true });
+  const previousRenders = () => chartRenders.mock.calls.filter(([id]) => id === 'hw-previous').length;
+  expect(previousRenders()).toBeGreaterThan(0);
+  const originalCount = previousRenders();
+  const originalUrl = window.location.href;
+  const chip = within(screen.getByRole('group', { name: '분석 선택' })).getByRole('img');
+  const marks = () => JSON.parse(screen.getByTestId(sourceId).textContent!).highlightedValues ?? [];
+
+  fireEvent.pointerEnter(chip);
+  expect(marks()).toEqual(['EQ-001']);
+  fireEvent.pointerLeave(chip);
+  expect(marks()).toEqual([]);
+  expect(window.location.href).toBe(originalUrl);
+  expect(previousRenders()).toBe(originalCount);
 });

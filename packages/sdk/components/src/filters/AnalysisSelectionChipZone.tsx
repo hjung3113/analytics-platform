@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useLayoutEffect, useRef, type RefCallback, type RefObject } from 'react';
 import { X } from 'lucide-react';
 import { useAnalysisSelectionChips, useI18n, useMessages, type AnalysisSelectionChip } from '@ap/kernel';
-import { useHostPlatformOptional } from '@ap/kernel/host';
+import { useAnalysisSelectionHoverTarget, useHostPlatformOptional } from '@ap/kernel/host';
 import { Popover, PopoverContent, PopoverTrigger, cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useElementSize, useObservedElementSize } from '../state/useElementSize';
@@ -9,6 +9,7 @@ import { useElementSize, useObservedElementSize } from '../state/useElementSize'
 type Fit = { container: HTMLElement | null; summary: HTMLElement | null };
 type ClearChip = (key: string) => void;
 type ClearButtonRef = RefCallback<HTMLButtonElement>;
+type ChipInteraction = 'pointer' | 'focus';
 type ClearFocus = { kind: 'clear'; key: string | null; index: number; from: string; to: string } | { kind: 'list'; index: number };
 const zoneClass = 'inline-flex shrink-0 items-center gap-2 pl-2 text-xs';
 const focusClass = 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring';
@@ -19,6 +20,24 @@ function Chip({ chip, clear, wrap, measuring, clearButtonRef }: {
 }) {
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
+  const beginHover = useAnalysisSelectionHoverTarget(measuring ? undefined : chip.key);
+  const releases = useRef(new Map<ChipInteraction, () => void>());
+  useLayoutEffect(() => {
+    const interactions = releases.current;
+    return () => {
+      for (const release of interactions.values()) release();
+      interactions.clear();
+    };
+  }, [beginHover]);
+  const enter = (interaction: ChipInteraction) => {
+    if (releases.current.has(interaction)) return;
+    const release = beginHover();
+    if (release) releases.current.set(interaction, release);
+  };
+  const leave = (interaction: ChipInteraction) => {
+    releases.current.get(interaction)?.();
+    releases.current.delete(interaction);
+  };
   const dimension = chip.label?.[lang] ?? chip.dimension;
   const title = chip.source.title[lang];
   const source = /\{[^{}]+\}/.test(title) ? undefined : title;
@@ -32,7 +51,9 @@ function Chip({ chip, clear, wrap, measuring, clearButtonRef }: {
   const text = `${dimension} ${value}`;
   return <span className={cn('inline-flex min-w-0 items-center gap-1 rounded-full pl-2 text-xs font-medium',
     wrap ? 'min-h-6.5' : 'h-6.5',
-    chip.available ? 'bg-accent-primary-soft text-accent-primary' : 'bg-accent-neutral-soft text-text-secondary')}>
+    chip.available ? 'bg-accent-primary-soft text-accent-primary' : 'bg-accent-neutral-soft text-text-secondary')}
+    onPointerEnter={event => { if (event.pointerType !== 'touch') enter('pointer'); }}
+    onPointerLeave={() => leave('pointer')} onFocus={() => enter('focus')} onBlur={() => leave('focus')}>
     <span role="img" aria-label={source ?? dimension} title={source} className="size-3.5 shrink-0 rounded-sm border border-current" />
     <span className={wrap ? '[overflow-wrap:anywhere]' : 'max-w-40 truncate'} title={text}>{text}</span>
     {!chip.available && <span className="shrink-0">{m('analysisSelectionUnavailable')}</span>}
