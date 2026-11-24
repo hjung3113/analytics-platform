@@ -690,6 +690,64 @@ describe('PanelWorkspace: height mode (#686)', () => {
     expect(rowHeights()).toEqual([367, 356, 356]);
   });
 
+  it('caps a new preference at the visible height when a below panel joins or leaves after mount', async () => {
+    vi.stubGlobal('innerHeight', 600);
+    try {
+      const primary = PANELS[0]!;
+      const extra = { ...PANELS[1]!, placement: 'below' as const };
+      const props = { presets: [{ id: 'single', label: BASE.label, layout: group([primary.id]) }], initialPreset: 'single' };
+      seed(stackStored([300], { preset: 'single', layout: group([primary.id]) }));
+      const view = mountWorkspace({ ...props, panels: [primary] });
+      await ready();
+      expect(rowHeights()).toEqual([300]);
+
+      view.rerender(shell(<PanelWorkspace {...BASE} {...props} panels={[{ ...primary, preferredHeight: 800 }, extra]} />));
+      await waitFor(() => { expect(rowHeights()).toEqual([600, 360]); });
+
+      rowSeparators()[0]!.focus();
+      await userEvent.keyboard('{ArrowUp}');
+      expect(rowHeights()).toEqual([576, 360]);
+      view.rerender(shell(<PanelWorkspace {...BASE} {...props} panels={[{ ...primary, preferredHeight: 900 }]} />));
+      await waitFor(() => { expect(rowHeights()).toEqual([600]); });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('keeps a shared row at its first-screen cap after hiding a member', async () => {
+    vi.stubGlobal('innerHeight', 600);
+    try {
+      const panels = PANELS.map(panel => (['selector', 'detail'].includes(panel.id) ? { ...panel, placement: { row: 'shared' }, preferredHeight: 800 } : panel));
+      seed(stackStored([300, 320, 360], { sharedRowSizes: [{ id: 'shared', height: 320 }] }));
+      mountWorkspace({ ...ROWS_PROPS, panels });
+      await ready();
+      await waitFor(() => { expect(rowHeights()).toEqual([300, 600, 360]); });
+      await chooseFromMenu('상세 동작', '숨기기');
+      expect(rowHeights()).toEqual([300, 600, 360]);
+      await sleep(400);
+      expect(lastStored()).toMatchObject({ rows: [300, 600, 360], sharedRowSizes: [{ id: 'shared', height: 600 }] });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('keeps a manual shrink after saving and remounting under the same declaration', async () => {
+    const panels = PANELS.map(panel => (panel.id === 'kpi' ? { ...panel, preferredHeight: 400 } : panel));
+    seed(stackStored([300, 400, 320]));
+    const view = mountWorkspace({ ...ROWS_PROPS, panels });
+    await ready();
+    expect(rowHeights()).toEqual([300, 400, 440]);
+
+    rowSeparators()[2]!.focus();
+    await userEvent.keyboard('{ArrowUp}{ArrowUp}');
+    await sleep(400);
+    expect(lastStored()).toMatchObject({ rows: [300, 400, 392], preferredSeen: { kpi: 400 } });
+    view.unmount();
+    mountWorkspace({ ...ROWS_PROPS, panels });
+    await ready();
+    expect(rowHeights()).toEqual([300, 400, 392]);
+  });
+
   it('a separator key resizes only the row above and the stored rows follow', async () => {
     storage.setItem(KEY(), stackStored([300, 400, 500]));
     mountWorkspace(ROWS_PROPS);
