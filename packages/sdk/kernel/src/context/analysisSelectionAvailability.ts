@@ -1,12 +1,12 @@
 import type { AnalysisSelection } from '@ap/contracts';
 import { sameItems } from '../stable';
 
-type Compare = (a: string, b: string) => number;
+export type AnalysisSelectionCompare = (a: string, b: string) => number;
 export type AnalysisSelectionAvailability = readonly string[] | {
   readonly from: string;
   readonly to: string;
   /** A stable comparator for both selection and report endpoints. Defaults to string order. */
-  readonly compare?: Compare;
+  readonly compare?: AnalysisSelectionCompare;
   /** Category endpoints in axis order, with the source’s display labels. */
   readonly candidates?: readonly { readonly value: string; readonly label: string }[];
 };
@@ -22,9 +22,9 @@ export function sameAvailability(a: AnalysisSelectionAvailability | undefined, b
   return !('from' in a) && !('from' in b) && sameItems(a, b);
 }
 
-const compareStrings: Compare = (a, b) => Number(a > b) - Number(a < b);
+const compareStrings: AnalysisSelectionCompare = (a, b) => Number(a > b) - Number(a < b);
 
-export function analysisSelectionRangeCompare(available: AnalysisSelectionAvailability | undefined): Compare {
+export function analysisSelectionRangeCompare(available: AnalysisSelectionAvailability | undefined): AnalysisSelectionCompare {
   if (!available || !('from' in available)) return compareStrings;
   const { candidates, compare } = available;
   if (!candidates) return compare ?? compareStrings;

@@ -7,10 +7,10 @@ import { COMPONENTS_MESSAGES } from '../messages';
 import { QueryView } from '../StateView';
 import { PlatformDataTable, type PlatformColumn } from '../table/PlatformDataTable';
 
-type SourceRows<T> = { rows: readonly T[]; total?: number; truncated?: boolean };
+export type NextAnalysisSourceRows<T> = { rows: readonly T[]; total?: number; truncated?: boolean };
 
 export type NextAnalysisRows<P, T> = {
-  endpoint: EndpointSpec<P, SourceRows<T>>;
+  endpoint: EndpointSpec<P, NextAnalysisSourceRows<T>>;
   params: (selection: AnalysisSelection) => P;
   columns: PlatformColumn<T>[];
   getRowId: (row: T) => string;

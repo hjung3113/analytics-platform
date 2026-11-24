@@ -39,8 +39,6 @@ color.chart-heat-seq-4
 color.chart-median-on-fill
 color.chart-no-data
 color.chart-no-data-pattern
-color.chart-purple
-color.chart-purple-stroke
 color.chart-remainder
 color.chart-selection-outline
 color.chart-series-1
