@@ -133,13 +133,56 @@ export interface CheckServiceDeps {
 }
 
 /** `capabilities` is optional on the type so a stand-in or a transaction-binding wrapper stays a check service; read it with `capabilitiesOf`. */
-export type CheckService = Omit<ReturnType<typeof createCheckService>, 'capabilities'> & { capabilities?: CapabilityRegistry };
+type OptionalCheckMethods = 'capabilities' | 'loadCapabilityRows' | 'checkCapabilityAcross';
+type ConcreteCheckService = ReturnType<typeof createCheckService>;
+export type CheckService = Omit<ConcreteCheckService, OptionalCheckMethods> &
+  Partial<Pick<ConcreteCheckService, OptionalCheckMethods>>;
+
+type CheckOptions = { tx?: Tx; readRows?: () => Promise<DenyAndGrantRows> };
+
+export async function checkCapabilityAcross(
+  service: CheckService,
+  actor: ActorContext,
+  capability: CapabilityName,
+  ids: readonly string[],
+  options: { tx?: Tx } = {},
+): Promise<Map<string, Decision>> {
+  if (service.checkCapabilityAcross) return service.checkCapabilityAcross(actor, capability, ids, options);
+  const decisions = new Map<string, Decision>();
+  for (const id of ids) {
+    decisions.set(id, await service.checkCapability(actor, capability, systemScope(actor, id), options));
+  }
+  return decisions;
+}
+
+function systemScope(actor: ActorContext, id: string): CheckScope {
+  return { workspace_id: actor.workspace_id, managed_system_id: id };
+}
 
 /** Scope to one read call; never hold this wrapper across requests or mutations. */
 export function memoizeCapabilityChecks(checkService: CheckService): CheckService {
   const decisions = new Map<string, Promise<Decision>>();
-  return {
+  const rows = new Map<string, Promise<DenyAndGrantRows>>();
+  const loadRows = checkService.loadCapabilityRows;
+  function readRows(load: NonNullable<CheckService['loadCapabilityRows']>, actor: ActorContext, capability: CapabilityName) {
+    const key = JSON.stringify([actor.actor_id, actor.workspace_id, actor.role_level, capability]);
+    const cached = rows.get(key);
+    if (cached) return cached;
+    const loaded = load(actor, capability).catch((error) => {
+      rows.delete(key);
+      throw error;
+    });
+    rows.set(key, loaded);
+    return loaded;
+  }
+  const memo: CheckService = {
     ...checkService,
+    async checkCapabilityAcross(actor, capability, ids, options) {
+      if (options?.tx) return checkCapabilityAcross(checkService, actor, capability, ids, options);
+      return new Map(await Promise.all(ids.map(async (id) => [
+        id, await memo.checkCapability(actor, capability, systemScope(actor, id), options),
+      ] as const)));
+    },
     checkCapability(actor, capability, scope, options) {
       if (options?.tx) return checkService.checkCapability(actor, capability, scope, options);
       const key = JSON.stringify([
@@ -153,7 +196,7 @@ export function memoizeCapabilityChecks(checkService: CheckService): CheckServic
       const cached = decisions.get(key);
       if (cached) return cached;
       const decision = checkService
-        .checkCapability(actor, capability, scope, options)
+        .checkCapability(actor, capability, scope, loadRows ? { readRows: () => readRows(loadRows, actor, capability) } : options)
         .catch((error) => {
           decisions.delete(key);
           throw error;
@@ -162,24 +205,27 @@ export function memoizeCapabilityChecks(checkService: CheckService): CheckServic
       return decision;
     },
   };
+  return memo;
 }
 
 export function createCheckService(deps: CheckServiceDeps) {
   const now = deps.now ?? (() => new Date());
   const capabilities = deps.capabilities ?? PLATFORM_CAPABILITY_REGISTRY;
 
+  function loadCapabilityRows(actor: ActorContext, capability: CapabilityName, options: { tx?: Tx } = {}) {
+    return loadDenyAndGrantRows(options.tx ?? deps.db, actor, capability, capabilities);
+  }
+
   async function checkCapability(
     actor: ActorContext,
     capability: CapabilityName,
     scope: CheckScope,
-    options: { tx?: Tx } = {},
+    options: CheckOptions = {},
   ): Promise<Decision> {
     // When invoked inside a mutation transaction, callers pass `tx` so steps
     // 2/3/5 observe writes the same tx just performed (S-002, FO ADR-0019
     // Section D). Without it, we fall back to the pool-bound handle for
     // read-only callers like the route-level pre-check at routes.ts.
-    const db: Tx = options.tx ?? deps.db;
-
     const byToken = tokenDenial(capability, { capabilities });
     if (byToken) return byToken;
 
@@ -189,8 +235,25 @@ export function createCheckService(deps: CheckServiceDeps) {
     }
 
     // One loader for decision and scope reads (#1531): it also drops grants the actor's CURRENT role may not exercise.
-    const rows = await loadDenyAndGrantRows(db, actor, capability, capabilities);
+    const rows = await (options.tx || !options.readRows
+      ? loadCapabilityRows(actor, capability, options)
+      : options.readRows());
     return decideFromRows(actor, capability, scope, rows, now(), capabilities);
+  }
+
+  async function checkCapabilityAcross(
+    actor: ActorContext,
+    capability: CapabilityName,
+    ids: readonly string[],
+    options: { tx?: Tx } = {},
+  ): Promise<Map<string, Decision>> {
+    if (ids.length === 0) return new Map();
+    const byToken = tokenDenial(capability, { capabilities });
+    if (byToken) return new Map(ids.map(id => [id, byToken]));
+    const rows = await loadCapabilityRows(actor, capability, options);
+    return new Map(ids.map(id => [
+      id, decideFromRows(actor, capability, systemScope(actor, id), rows, now(), capabilities),
+    ]));
   }
 
   async function capabilityScope(
@@ -238,8 +301,8 @@ export function createCheckService(deps: CheckServiceDeps) {
       return rows;
     };
     return {
-      decision(actor, capability) {
-        const byToken = tokenDenial(capability, tokenOptions);
+      decision(actor, capability, judgment) {
+        const byToken = tokenDenial(capability, { ...tokenOptions, ...judgment });
         if (byToken) return byToken;
         return decideFromRows(
           actor,
@@ -250,8 +313,8 @@ export function createCheckService(deps: CheckServiceDeps) {
           capabilities,
         );
       },
-      async scope(actor, capability) {
-        if (tokenDenial(capability, tokenOptions)) return { kind: 'scoped', managed_system_ids: [] };
+      async scope(actor, capability, judgment) {
+        if (tokenDenial(capability, { ...tokenOptions, ...judgment })) return { kind: 'scoped', managed_system_ids: [] };
         const bypass = actor.role_level === 'admin' ? capabilities.meta(capability).adminModuleBypass : 'none';
         if (bypass === 'always') return { kind: 'all' };
         return scopeFromRows(actor, capability, rowsOf(actor, capability), rightNow, () =>
@@ -261,7 +324,7 @@ export function createCheckService(deps: CheckServiceDeps) {
     };
   }
 
-  return { checkCapability, capabilityScope, loadCapabilitySnapshot, capabilities };
+  return { checkCapability, capabilityScope, loadCapabilitySnapshot, loadCapabilityRows, checkCapabilityAcross, capabilities };
 }
 
 /**
@@ -276,9 +339,9 @@ export function capabilitiesOf(checkService: Pick<CheckService, 'capabilities'>)
 /** Decisions and scopes of a preloaded set of (actor, capability) pairs; reading a pair that was not loaded throws. */
 export interface CapabilitySnapshot {
   /** What `checkCapability(actor, capability, { workspace_id: actor.workspace_id })` answers. */
-  decision(actor: ActorContext, capability: CapabilityName): Decision;
+  decision(actor: ActorContext, capability: CapabilityName, options?: { auditTokenDenials: boolean }): Decision;
   /** What `capabilityScope(actor, capability, { workspace_id: actor.workspace_id })` answers. */
-  scope(actor: ActorContext, capability: CapabilityName): Promise<CapabilityScope>;
+  scope(actor: ActorContext, capability: CapabilityName, options?: { auditTokenDenials: boolean }): Promise<CapabilityScope>;
 }
 
 interface DenyRow {

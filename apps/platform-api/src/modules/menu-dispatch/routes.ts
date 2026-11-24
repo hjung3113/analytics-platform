@@ -14,6 +14,7 @@ import type { Db } from '../../db/client.js';
 import { markAuthGuard } from '../../middleware/route-auth.js';
 import type { SessionService } from '../auth/session-service.js';
 import { refuseLostTokenContext } from '../api-tokens/gate.js';
+import type { PlatformActor, RequestReads } from '../platform-port/permissions.js';
 import { requireCsrf } from '../platform-port/csrf.js';
 import {
   type LoadedSession,
@@ -34,7 +35,8 @@ export interface MenuDispatchRoutesOptions {
   sessionService: SessionService;
   workspaceId: string;
   registry: MenuDispatchRegistry;
-  sessionVersionOf?: (loaded: LoadedSession) => Promise<string>;
+  sessionVersionOf?: (loaded: LoadedSession, reads?: RequestReads) => Promise<string>;
+  requestReadsFor?: (actor: PlatformActor) => RequestReads;
 }
 
 export interface MenuActionRoutesOptions extends MenuDispatchRoutesOptions {
@@ -71,13 +73,15 @@ export const menuQueryDispatchRoutes: FastifyPluginAsync<MenuDispatchRoutesOptio
     if (refuseLostTokenContext(req, reply)) return reply; // fail closed again right before dispatch authorizes
     const shape = judgeQueryShape(req.body === MALFORMED_BODY ? null : req.body, opts.registry);
     if (!shape.ok) return answerOf(req, { outcome: 'error', message: shape.message });
+    const actor = platformActorOf(loaded);
+    const reads = opts.requestReadsFor?.(actor);
     let version: Promise<string> | undefined;
     const sessionVersion = () => version ??= opts.sessionVersionOf
-      ? opts.sessionVersionOf(loaded)
+      ? opts.sessionVersionOf(loaded, reads)
       : unavailableSessionVersion();
     let answer;
     try {
-      answer = await runQuery(shape, platformActorOf(loaded), req.id, abandoned.signal, sessionVersion, arrivals.get(req));
+      answer = await runQuery(reads ? { ...shape, reads } : shape, actor, req.id, abandoned.signal, sessionVersion, arrivals.get(req));
     } catch (error) {
       // A forwarded endpoint's upstream failed as transport (forwarder.ts): 502/504 with the same
       // correlation id and none of the upstream's body text. Anything else keeps the 500 path.

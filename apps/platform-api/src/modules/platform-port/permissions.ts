@@ -14,11 +14,14 @@ import { currentAuthContext } from '../../lib/auth-context.js';
 import type { CapabilityName } from '@ap/feature-shared';
 import {
   type CapabilityScope,
+  type CapabilitySnapshot,
   type CheckService,
   type Decision,
   applyAdminModuleBypass,
   capabilitiesOf,
+  tokenDenial,
 } from '../permissions/check-service.js';
+import type { ScopeResolver } from '../menu-dispatch/index.js';
 import type { MenuPermissionDeclaration } from '../menu-dispatch/types.js';
 
 export type PlatformPermissionRule =
@@ -56,6 +59,28 @@ export interface PlatformActor {
  * (`MenuDispatchRegistry.permissions`, #1667). The declarations belong to the instance — an immutable copy — so two
  * servers in one process, built with different contributions, never read each other's rules.
  */
+export interface RequestReads {
+  capabilityRows(): Promise<CapabilitySnapshot>;
+  scopeGrants?: (signal?: AbortSignal) => ReturnType<ScopeResolver['resolve']>;
+}
+
+export function createRequestReads(
+  checkService: CheckService,
+  actor: PlatformActor,
+  menu: readonly MenuPermissionDeclaration[],
+  scopeResolver?: ScopeResolver,
+): RequestReads {
+  let rows: Promise<CapabilitySnapshot> | undefined;
+  let grants: ReturnType<ScopeResolver['resolve']> | undefined;
+  return {
+    capabilityRows: () => rows ??= checkService.loadCapabilitySnapshot([actor], capabilitiesRead(menu)),
+    ...(scopeResolver ? { scopeGrants: (signal?: AbortSignal) => grants ??= scopeResolver.resolve(actor, signal) } : {}),
+  };
+}
+
+type ResolveOptions = { auditTokenDenials?: boolean; reads?: RequestReads };
+type HoldOptions = { tx?: Tx; reads?: RequestReads };
+
 export interface PlatformPermissionResolver {
   /** Every permission this resolver can list, kernel first (canonical order), then the declared menu permissions. */
   order(): string[];
@@ -66,7 +91,7 @@ export interface PlatformPermissionResolver {
     options?: { tx?: Tx },
   ): Promise<Map<string, string[]>>;
   /** Sorted subset of the vocabulary this actor holds. */
-  resolve(checkService: CheckService, actor: PlatformActor, options?: { auditTokenDenials?: boolean }): Promise<string[]>;
+  resolve(checkService: CheckService, actor: PlatformActor, options?: ResolveOptions): Promise<string[]>;
   /** Whether this actor holds one permission, kernel or declared. */
   holds(checkService: CheckService, actor: PlatformActor, permission: string, options?: { tx?: Tx }): Promise<boolean>;
 }
@@ -89,7 +114,7 @@ export function createPlatformPermissionResolver(
     order: () => [...PLATFORM_PERMISSION_TABLE.map((e) => e.permission), ...menu.map((d) => d.permission)],
     resolveBatch: (checkService: CheckService, actors: readonly PlatformActor[], options: { tx?: Tx } = {}) =>
       resolveBatchWith(menu, checkService, actors, options),
-    resolve: async (checkService: CheckService, actor: PlatformActor, options: { auditTokenDenials?: boolean } = {}) =>
+    resolve: async (checkService: CheckService, actor: PlatformActor, options: ResolveOptions = {}) =>
       ((await resolveBatchWith(menu, checkService, [actor], options)).get(actor.actor_id) ?? []).sort(),
     holds: (checkService: CheckService, actor: PlatformActor, permission: string, options: { tx?: Tx } = {}) =>
       holdsPlatformPermission(checkService, actor, permission, { ...options, menuPermissions: menu }),
@@ -179,12 +204,18 @@ const bypassOf = (checkService: CheckService) => {
 const readerOf = (
   checkService: CheckService,
   actor: PlatformActor,
-  options: { tx?: Tx } = {},
+  { tx, reads }: HoldOptions = {},
 ): CapabilityReader => ({
-  decision: (capability) =>
-    checkService.checkCapability(actor, capability, { workspace_id: actor.workspace_id }, options),
-  scope: (capability) =>
-    checkService.capabilityScope(actor, capability, { workspace_id: actor.workspace_id }, options),
+  async decision(capability) {
+    if (!reads || tx) return checkService.checkCapability(actor, capability, { workspace_id: actor.workspace_id }, tx ? { tx } : {});
+    const denied = tokenDenial(capability, { capabilities: capabilitiesOf(checkService) });
+    return denied ?? (await reads.capabilityRows()).decision(actor, capability);
+  },
+  async scope(capability) {
+    if (!reads || tx) return checkService.capabilityScope(actor, capability, { workspace_id: actor.workspace_id }, tx ? { tx } : {});
+    if (tokenDenial(capability, { capabilities: capabilitiesOf(checkService) })) return { kind: 'scoped', managed_system_ids: [] };
+    return (await reads.capabilityRows()).scope(actor, capability);
+  },
   bypass: bypassOf(checkService),
 });
 
@@ -197,15 +228,18 @@ async function resolveBatchWith(
   menu: readonly MenuPermissionDeclaration[],
   checkService: CheckService,
   actors: readonly PlatformActor[],
-  options: { tx?: Tx; auditTokenDenials?: boolean } = {},
+  options: ResolveOptions & { tx?: Tx } = {},
 ): Promise<Map<string, string[]>> {
-  const snapshot = await checkService.loadCapabilitySnapshot(actors, capabilitiesRead(menu), options);
+  const { reads, ...snapshotOptions } = options;
+  const snapshot = await (reads?.capabilityRows() ??
+    checkService.loadCapabilitySnapshot(actors, capabilitiesRead(menu), snapshotOptions));
+  const judgment = options.auditTokenDenials === undefined ? undefined : { auditTokenDenials: options.auditTokenDenials };
   const out = new Map<string, string[]>();
   const bypass = bypassOf(checkService);
   for (const actor of actors) {
     const reader: CapabilityReader = {
-      decision: (capability) => snapshot.decision(actor, capability),
-      scope: (capability) => snapshot.scope(actor, capability),
+      decision: (capability) => snapshot.decision(actor, capability, judgment),
+      scope: (capability) => snapshot.scope(actor, capability, judgment),
       bypass,
     };
     const held: string[] = [];
@@ -229,7 +263,7 @@ export async function holdsPlatformPermission(
   checkService: CheckService,
   actor: PlatformActor,
   permission: string,
-  options: { tx?: Tx; menuPermissions?: readonly MenuPermissionDeclaration[] } = {},
+  options: HoldOptions & { menuPermissions?: readonly MenuPermissionDeclaration[] } = {},
 ): Promise<boolean> {
   const { menuPermissions, ...readOptions } = options;
   const reader = readerOf(checkService, actor, readOptions);

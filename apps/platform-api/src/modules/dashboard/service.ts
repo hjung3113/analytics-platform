@@ -50,7 +50,7 @@ import {
 import type { Db } from '../../db/client.js';
 import { actorFindingReadScope } from '../findings/authorization.js';
 import { allManagedSystemIds } from '../managed-systems/read-projections.js';
-import { type CheckService, memoizeCapabilityChecks } from '../permissions/check-service.js';
+import { type CheckService, checkCapabilityAcross, memoizeCapabilityChecks } from '../permissions/check-service.js';
 import { isAuthorizationAbsence } from '../permissions/read-utility.js';
 import type { RequestService } from '../permissions/request-service.js';
 import {
@@ -774,6 +774,7 @@ function createRecoveryReader(deps: {
     const check: CheckService = db === deps.db ? deps.checkService : {
       capabilityScope: (actor, capability, subject, options) => deps.checkService.capabilityScope(actor, capability, subject, { ...options, tx: db }),
       checkCapability: (actor, capability, subject, options) => deps.checkService.checkCapability(actor, capability, subject, { ...options, tx: db }),
+      checkCapabilityAcross: (actor, capability, ids) => checkCapabilityAcross(deps.checkService, actor, capability, ids, { tx: db }),
       loadCapabilitySnapshot: (actors, capabilities, options) => deps.checkService.loadCapabilitySnapshot(actors, capabilities, { ...options, tx: db }),
       ...(deps.checkService.capabilities ? { capabilities: deps.checkService.capabilities } : {}),
     };

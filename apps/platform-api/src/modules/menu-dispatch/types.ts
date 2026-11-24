@@ -1,3 +1,4 @@
+import type { RequestReads } from '../platform-port/permissions.js';
 // Server-side declarations of the menu ports (`menuQuery` / `menuAction`). The shapes mirror
 // `EndpointSpec` / `ActionSpec` of `@ap/contracts` (packages/sdk/contracts/src/menu/menu-query.ts,
 // adapter/action.ts) as plain data: platform-api source may not import that package at runtime
@@ -93,7 +94,7 @@ export interface MenuEndpointDeclaration {
   upstreamTimeoutMs?: number;
   spec: EndpointDeclarationSpec;
   /** Maps the declared permission to a platform permission or a capability check. */
-  authorize(actor: PlatformActor, tx?: Tx): Promise<boolean>;
+  authorize(actor: PlatformActor, tx?: Tx, reads?: RequestReads): Promise<boolean>;
   /** Value check of `params` (keys are already judged). A refusal is an `error`, not an empty result. */
   validate(params: Record<string, unknown>): ParamsJudgment;
   handle(args: EndpointHandlerArgs): Promise<EndpointResult>;

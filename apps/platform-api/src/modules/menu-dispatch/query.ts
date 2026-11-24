@@ -1,3 +1,4 @@
+import type { RequestReads } from '../platform-port/permissions.js';
 // `menuQuery` judgment (real-server-checklist §3 steps 1–10) against the server's own declarations.
 // Order is contract: shape → params → permission → scope → limits →
 // explicit empty set → time domain (`mergeTimeDomain`, time-domain.ts) → handler → row cap → response.
@@ -65,6 +66,7 @@ export type QueryShape =
       context: Record<string, unknown>;
       params: Record<string, unknown>;
       scopeResolver?: ScopeResolver;
+      reads?: RequestReads;
       timeDomains?: SiteTimeDomains;
     }
   | { ok: false; message: string };
@@ -297,13 +299,19 @@ async function runQuerySteps(
   checkActive: () => void = () => {},
 ): Promise<QueryAnswer> {
   const { declaration, context, params } = shape;
-  const authorized = await declaration.authorize(actor);
+  const authorized = shape.reads
+    ? await declaration.authorize(actor, undefined, shape.reads)
+    : await declaration.authorize(actor);
   checkActive();
   if (!authorized) {
     return answer('forbidden', { message: `No permission ${declaration.spec.permission}` });
   }
+  const scopeGrants = shape.reads?.scopeGrants;
+  const scopeResolver: ScopeResolver | undefined = scopeGrants
+    ? { resolve: (_actor, scopeSignal) => scopeGrants(scopeSignal) }
+    : shape.scopeResolver;
   const judgment: ScopeJudgment = declaration.spec.requiresScope
-    ? await judgeRequestScopes(shape.scopeResolver, actor, context, signal)
+    ? await judgeRequestScopes(scopeResolver, actor, context, signal)
     : { scopes: [] };
   checkActive();
   const { scopes } = judgment;

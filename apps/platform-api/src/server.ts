@@ -168,7 +168,7 @@ import {
 } from './modules/platform-port/index.js';
 import { createSessionState } from './modules/platform-port/session-snapshot.js';
 import type { LoadedSession } from './modules/platform-port/transport.js';
-import { createPlatformPermissionResolver, holdsPlatformPermission } from './modules/platform-port/permissions.js';
+import { createPlatformPermissionResolver, createRequestReads, holdsPlatformPermission, type RequestReads } from './modules/platform-port/permissions.js';
 import { platformSavedViewRoutes } from './modules/platform-saved-views/index.js';
 import { createSavedViewsService, savedViewsRoutes } from './modules/saved-views/index.js';
 import {
@@ -1127,7 +1127,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   // The dispatch identity token's `sv` claim must equal the `/bootstrap` `sessionVersion` (#1729 h):
   // one snapshot factory (platform-port/session-snapshot.ts) feeds both hashes.
   const buildMenuSession = createSessionState({ permissions: platformPermissions, checkService, ...scopeDeps, scopeWarning: () => app.log.warn('Scope resolution failed') });
-  const menuSessionVersionOf = async (loaded: LoadedSession) => (await buildMenuSession(loaded)).version;
+  const menuSessionVersionOf = async (loaded: LoadedSession, reads?: RequestReads) => (await buildMenuSession(loaded, reads)).version;
   // The catalog import upload (#1195 a) is a multipart route, which the menu-action port cannot carry: it is
   // registered here beside the module's contribution (the contribution type has no route hook).
   // The log explorer export (#1472) is a streamed download, which the JSON menu envelope cannot carry: its own REST route, session or token.
@@ -1165,6 +1165,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     db: dbHandle.db,
     registry: menuRegistry,
     sessionVersionOf: menuSessionVersionOf,
+    requestReadsFor: actor => createRequestReads(checkService, actor, menuRegistry.permissions, scopeResolver),
   });
   await app.register(menuActionRoutes, {
     prefix: MENU_ACTION_PREFIX,
