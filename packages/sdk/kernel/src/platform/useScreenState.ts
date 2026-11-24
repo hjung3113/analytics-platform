@@ -64,8 +64,9 @@ function consecutiveDrillTrail(menu: MenuEntry, search: string, lang: Lang): Ret
   return trail;
 }
 type RegisteredLink = Extract<LinkResolution, { kind: 'link' }>;
+type OpeningOutput = { key: string; objectId: string };
 
-function planSelectionCarry(source: MenuEntry | undefined, target: MenuEntry, page: Pair[], explicit: LinkOptions['page'], sameScope: boolean) {
+function planSelectionCarry(source: MenuEntry | undefined, target: MenuEntry, page: Pair[], explicit: LinkOptions['page'], sameScope: boolean, openingOutput?: OpeningOutput) {
   const inbound = target.analysisSelectionInbound ?? [];
   const candidates = new Map<string, Pair[][]>();
   const droppedSelections: DroppedSelection[] = [];
@@ -77,7 +78,11 @@ function planSelectionCarry(source: MenuEntry | undefined, target: MenuEntry, pa
     const match = inbound.find(declaration => declaration.dimension === dimension && declaration.shape === shape);
     if (match && Object.hasOwn(explicit ?? {}, match.key)) continue;
     if (!sameScope) droppedSelections.push({ dimension, reason: 'scope' });
-    else if (!match) droppedSelections.push({ dimension, reason: 'noInbound' });
+    else if (!match) {
+      const carriedAsObject = openingOutput?.key === key && selection.shape === 'set'
+        && selection.values.length === 1 && selection.values[0] === openingOutput.objectId;
+      if (!carriedAsObject) droppedSelections.push({ dimension, reason: 'noInbound' });
+    }
     else {
       const matches = candidates.get(match.key) ?? [];
       matches.push([analysisSelectionParam(selection)].flat().map(value => [match.key, value]));
@@ -276,7 +281,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // passes explicitly are meant for the destination and stay. `allowed` is a display hint (permission, plus
   // space entry for a space menu — a global utility menu is permission only, 06 §9.1); the server re-checks on arrival.
   // An id this assembly does not register resolves to `none` (no href, never a permission reason, ADR-0158); `linkTo` keeps throwing for it.
-  const resolveWith = useCallback((menuId: string, options: LinkOptions, carry: 'none' | 'page' | 'analysis'): SelectionLinkResolution => {
+  const resolveWith = useCallback((menuId: string, options: LinkOptions, carry: 'none' | 'page' | 'analysis', openingOutput?: OpeningOutput): SelectionLinkResolution => {
     if (!registry.has(menuId)) return { kind: 'none', href: null, allowed: false, droppedPageKeys: [] };
     const target = menuById(menuId);
     const carried: GlobalContext = options.global && 'scopeId' in options.global && options.global.scopeId !== global.scopeId
@@ -303,7 +308,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (options.returnTo && !sameCarryingSet && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY) && options.page?.[RETURN_TO_KEY] === undefined) pagePairs.push([RETURN_TO_KEY, stripDetailExpansion(visibleUrl)]);
     const path = pathFor(target, options.params);
     const basePairs: Pair[] = pagePairs.map(([key, value]) => [key, key === RETURN_TO_KEY ? stripDetailExpansion(value) : value]);
-    const plan = carry === 'analysis' ? planSelectionCarry(route?.menu, target, page, options.page, g.scopeId === global.scopeId) : undefined;
+    const plan = carry === 'analysis' ? planSelectionCarry(route?.menu, target, page, options.page, g.scopeId === global.scopeId, openingOutput) : undefined;
     let finalPairs = basePairs.concat(plan?.selections.flatMap(selection => selection.pairs) ?? []);
     let href = path + buildQuery(g, finalPairs);
     if (plan) {
@@ -360,7 +365,10 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       resolveLink,
       objectLinks: (object, options = {}) => resolveObjectLinks(resolveLink, object, options),
       resolveSelectionLink,
-      objectSelectionLinks: (object, options = {}) => resolveObjectLinks(resolveSelectionLink, object, options),
+      objectSelectionLinks: (object, { objectOutput, ...options } = {}) => {
+        const openingOutput = objectOutput === undefined ? undefined : { key: objectOutput, objectId: object.id };
+        return resolveObjectLinks((menuId, linkOptions) => resolveWith(menuId, linkOptions, 'analysis', openingOutput), object, options);
+      },
     } satisfies Pick<HostPlatform, 'resolveLink' | 'objectLinks' | 'resolveSelectionLink' | 'objectSelectionLinks'>;
   }, [registry, resolveWith, route?.menu.id]);
   // Kernel entries (space entry/resume) resolve only registered, openable menus; `linkTo` is for destinations the assembly guarantees (06 §22).

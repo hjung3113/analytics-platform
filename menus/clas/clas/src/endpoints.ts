@@ -1,5 +1,5 @@
 /** @ap/menu-clas — CLAS equipment operation time (#590). Synthetic sample contract; the real CLAS server owns the data. */
-import { defineEndpoint } from '@ap/contracts';
+import { defineEndpoint, periodFromDates, wallClockEpochMs, type GlobalContext } from '@ap/contracts';
 import { PERMISSION } from './permission';
 
 export const OPERATION_KINDS = ['process', 'transfer', 'wait'] as const;
@@ -22,11 +22,48 @@ export type OperationTimeData = {
 /** Prototype guard against unbounded analytics, same bound as the analytics sample menus. */
 const MAX_QUERY_HOURS = 2160;
 
-/** `eqp` is the page key; '' means "no equipment chosen". */
-export const operationTimeEndpoint = defineEndpoint<{ eqp: string }, OperationTimeData>({
+type OperationPeriod = { from: string; to: string };
+type AppliedPeriod = Pick<GlobalContext, 'from' | 'to'>;
+const MONTH_DAY = /^\d{2}-\d{2}$/;
+const MIDNIGHT = 'T00:00:00';
+
+function withinAppliedPeriod(range: OperationPeriod, applied: AppliedPeriod): boolean {
+  return applied.from !== null && applied.to !== null && applied.from <= range.from && range.from < range.to && range.to <= applied.to;
+}
+
+/** Resolve inclusive HW Time category labels to a whole-day wall-clock query interval. */
+export function resolveOperationDays(days: OperationPeriod, applied: AppliedPeriod): OperationPeriod | null {
+  if (!applied.from || !applied.to || !MONTH_DAY.test(days.from) || !MONTH_DAY.test(days.to)) return null;
+  // Start with the applied start year. A query spanning New Year can also contain dates in its end year.
+  const years = new Set([applied.from.slice(0, 4), applied.to.slice(0, 4)]);
+  const resolveDay = (monthDay: string) => {
+    for (const year of years) {
+      const date = `${year}-${monthDay}`;
+      const day = periodFromDates({ start: date, end: date });
+      if (day && withinAppliedPeriod(day, applied)) return day;
+    }
+    return null;
+  };
+  const start = resolveDay(days.from);
+  const end = resolveDay(days.to);
+  return start && end && start.from < end.to ? { from: start.from, to: end.to } : null;
+}
+
+/** Recheck the optional request interval at the mock boundary and when labeling an accepted result. */
+export function readOperationDays(value: unknown, applied: AppliedPeriod): OperationPeriod | null {
+  if (typeof value !== 'string' || value === '') return null;
+  const [from, to, extra] = value.split('/');
+  if (extra !== undefined || !from?.endsWith(MIDNIGHT) || !to?.endsWith(MIDNIGHT)) return null;
+  if (wallClockEpochMs(from) === null || wallClockEpochMs(to) === null) return null;
+  const range = { from, to };
+  return withinAppliedPeriod(range, applied) ? range : null;
+}
+
+/** `eqp` is the page key; '' means "no equipment chosen". `days` is an optional half-open wall-clock interval, with '' for no narrowing. */
+export const operationTimeEndpoint = defineEndpoint<{ eqp: string; days?: string }, OperationTimeData>({
   id: 'clas.operationTime',
   menuId: 'operation-time',
-  paramKeys: { eqp: true },
+  paramKeys: { eqp: true, days: true },
   permission: PERMISSION,
   requiresScope: true,
   context: { time: 'apply', roomNames: 'apply' },

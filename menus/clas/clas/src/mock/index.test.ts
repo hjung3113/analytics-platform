@@ -73,6 +73,29 @@ describe('clas operation time mock', () => {
     }
   });
 
+  it('narrows rankings and lanes to the received whole-day interval', async () => {
+    const applied = { ...context, from: '2026-09-24T00:00:00', to: '2026-09-26T00:00:00' };
+    const from = '2026-09-25T00:00:00';
+    const to = applied.to;
+    const response = await adapter.menuQuery({ endpoint: operationTimeEndpoint.id, params: { eqp: '', days: `${from}/${to}` }, context: applied });
+    const oneDay = await adapter.menuQuery({ endpoint: operationTimeEndpoint.id, params: { eqp: '' }, context: { ...applied, from } });
+    expect(response.outcome).toBe('ok');
+    expect(response.data).toEqual(oneDay.data);
+  });
+
+  it.each([
+    '2026-09-23T00:00:00/2026-09-26T00:00:00',
+    '2026-09-25T00:00:00/2026-09-27T00:00:00',
+    '2026-09-31T00:00:00/2026-10-01T00:00:00',
+    '2026-09-25T01:00:00/2026-09-26T00:00:00',
+  ])('keeps the applied window for an invalid or out-of-period request interval (%s)', async days => {
+    const applied = { ...context, from: '2026-09-24T00:00:00', to: '2026-09-26T00:00:00' };
+    const response = await adapter.menuQuery({ endpoint: operationTimeEndpoint.id, params: { eqp: '', days }, context: applied });
+    const full = await adapter.menuQuery({ endpoint: operationTimeEndpoint.id, params: { eqp: '' }, context: applied });
+    expect(response.outcome).toBe('ok');
+    expect(response.data).toEqual(full.data);
+  });
+
   it('shows the chosen equipment only when it is in Scope', () => {
     const equipment = EQUIPMENT.slice(0, 6);
     const pick = equipment[3].equipmentId;

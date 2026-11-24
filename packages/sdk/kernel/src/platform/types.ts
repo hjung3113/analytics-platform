@@ -184,6 +184,10 @@ export type LinkResolution = {
 } | { kind: 'none'; href: null; allowed: false; droppedPageKeys: [] };
 
 export type ObjectLinkOptions = Pick<LinkOptions, 'returnTo' | 'page' | 'global'>;
+export type ObjectSelectionLinkOptions = ObjectLinkOptions & {
+  /** Source output key whose single selected value opens the object. */
+  objectOutput?: string;
+};
 export type ObjectLink = Extract<LinkResolution, { kind: 'link' }> & { menuId: string; label: Text };
 
 /** An analysis selection a link could not carry, by dimension, with why: no inbound declaration, more than one match, another Scope or the address length. */
@@ -260,7 +264,7 @@ export type HostPlatform = {
   /** Resolves a link with the current screen's eligible analysis selections (06 §22). */
   resolveSelectionLink: (menuId: string, options?: LinkOptions) => SelectionLinkResolution;
   /** Registered object destinations with eligible analysis selections, in Registry order, excluding this menu (06 §22). */
-  objectSelectionLinks: (object: { kind: string; id: string }, options?: ObjectLinkOptions) => ObjectSelectionLink[];
+  objectSelectionLinks: (object: { kind: string; id: string }, options?: ObjectSelectionLinkOptions) => ObjectSelectionLink[];
   /**
    * Reports a render failure the route error boundary contained and returns the correlation id to show
    * (06 §4). Fire-and-forget: a rejected or throwing adapter is swallowed. Only the matched route's

@@ -15,7 +15,7 @@ type Props = {
   selection: AnalysisSelection | null;
   pointDrill?: NextAnalysisPointDrill;
 };
-type Choice = { id: string; label: string; reason?: string; note?: string; onSelect: () => void };
+type Choice = { id: string; label: string; reason?: string; note?: string; onSelect?: () => void };
 type GroupAction = { label: string } & (
   | { reason: string; choices?: never }
   /** `addsPanel`: each choice adds the panel named by its `id` to the workspace around the row. */
@@ -30,6 +30,12 @@ export type DirectNextAnalysisAction = {
   claimsFocus?: boolean;
 };
 export type NextAnalysisAction = GroupAction | DirectNextAnalysisAction;
+const selectionDropMessage = {
+  noInbound: 'chartNextSelectionNoInbound',
+  ambiguous: 'chartNextSelectionAmbiguous',
+  scope: 'chartNextSelectionScope',
+  length: 'chartNextSelectionLength',
+} as const;
 
 export function useNextAnalysisItems({ output, selection, pointDrill, workspace }: Props & { workspace: AnalysisPanelAddition | null }): GroupAction[] {
   const platform = usePlatform();
@@ -68,19 +74,29 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
     if (choices.length) actions.push({ label: m('chartNextPanel'), choices, addsPanel: true });
   }
 
-  if (channel?.objectKind) {
+  if (output && channel?.objectKind) {
     const label = m('chartNextObject');
     if (!value) actions.push({ label, reason: singleRequired });
     else {
-      const choices = platform.objectLinks({ kind: channel.objectKind, id: value }, { returnTo: true })
-        .filter(link => link.kind === 'link').map(link => {
+      const dimensionLabels = new Map<string, string>();
+      for (const { key, selection } of panels.flatMap(panel => panel.outputs)) {
+        if (!selection || dimensionLabels.has(selection.dimension)) continue;
+        const label = selection.label ?? menu.analysisSelectionInbound?.find(inbound => inbound.key === key)?.label;
+        if (label) dimensionLabels.set(selection.dimension, tx(label));
+      }
+      const choices = platform.objectSelectionLinks({ kind: channel.objectKind, id: value }, { returnTo: true, objectOutput: output.key })
+        .map(link => {
           const destination = tx(link.label);
           const dropped = link.droppedPageKeys.length ? m('chartNextDropped', { keys: link.droppedPageKeys.join(', ') }) : '';
+          const selectionNotes = link.droppedSelections?.map(({ dimension, reason }) =>
+            m(selectionDropMessage[reason], { dimension: dimensionLabels.get(dimension) ?? dimension })) ?? [];
+          const notes = [...new Set(selectionNotes)];
+          if (link.kind === 'tooLong') return { id: link.menuId, label: destination, reason: m('chartNextTooLong'), note: notes.join(' · ') };
           const missing = link.missingRequired?.length ? m('chartNextMissing', {
             destination, keys: link.missingRequired.map(item => tx(item.label)).join(', '),
           }) : '';
           const carried = link.allowed && !dropped ? m('chartNextCarriesObject', { value }) : '';
-          const note = [carried, dropped, missing].filter(Boolean).join(' · ');
+          const note = [carried, dropped, missing, ...notes].filter(Boolean).join(' · ');
           return { id: link.menuId, label: destination, reason: link.allowed ? undefined : t('menuDenied'), note,
             onSelect: () => platform.navigate(link.href, { focus: 'page' }) };
         });
@@ -123,7 +139,7 @@ function ActionMenu({ action, focusKey }: { action: GroupAction; focusKey?: stri
     // The addition can rebuild this row before the menu closes, so the focus hand-off starts on select, not on close.
     ? action.choices.map(choice => ({ ...choice, onSelect: () => {
       if (trigger.current) keepFocusAfterPanelAdd(trigger.current, choice.id);
-      choice.onSelect();
+      choice.onSelect?.();
     } }))
     : action.choices;
   return <DropdownMenu modal={false}>
