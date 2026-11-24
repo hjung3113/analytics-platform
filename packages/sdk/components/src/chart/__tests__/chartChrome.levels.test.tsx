@@ -93,6 +93,31 @@ describe('Chart chrome levels (#2372)', () => {
       cleanup();
     }
   });
+  it('keeps a fixed-size side legend visible with its own height; only a fill row zeroes it (#2889)', () => {
+    for (const kind of ['frame', 'heatmap', 'donut']) {
+      mount(kind, true, undefined, { legendPlacement: 'side', size: 'regular', height: 240 });
+      const keys = screen.getByTestId('chart-side-legend');
+      expect(keys).toHaveClass('w-max', 'min-w-32');
+      expect(keys).not.toHaveClass('h-0');
+      expect(keys).not.toHaveClass('min-h-full');
+      cleanup();
+    }
+    mount('frame', true, undefined, { legendPlacement: 'side' });
+    expect(screen.getByTestId('chart-side-legend')).toHaveClass('h-0', 'min-h-full');
+  });
+  it('never squeezes side legend rows; the list scrolls instead (#2889)', () => {
+    mount('heatmap', true, undefined, { legendPlacement: 'side' });
+    expect(screen.getByRole('group', { name: '범례' })).toHaveClass('[&>*]:shrink-0', 'overflow-y-auto');
+  });
+  it('ellipsizes a long heatmap null label and keeps its full name (#2889)', () => {
+    const nullLabel = '측정되지 않은 구간 — 장비가 꺼져 있거나 수집이 멈춘 시간';
+    render(<I18nProvider><InWorkspacePanelProvider value>
+      <AnalysisChart chartId="chart" title="Chart" description="Explanation" unit="s" size="fill" legendPlacement="side" spec={{ ...specs.heatmap, nullLabel } as ChartSpec} />
+    </InWorkspacePanelProvider></I18nProvider>);
+    const name = within(screen.getByRole('group', { name: '범례' })).getByText(nullLabel);
+    expect(name).toHaveAttribute('title', nullLabel);
+    expect(name).toHaveClass('truncate', 'min-w-0');
+  });
   it.each(['frame', 'heatmap', 'donut'])('%s wraps the top/bottom legend row and compact summary instead of scrolling sideways', kind => {
     for (const legendPlacement of ['top', 'bottom'] as const) {
       mount(kind, true, undefined, { legendPlacement, legendCaption: 'Context caption' });

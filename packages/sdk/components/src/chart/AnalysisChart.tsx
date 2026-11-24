@@ -440,7 +440,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
         {pivotLabel !== undefined && <ChartLegendLabel name={pivotLabel} />}
         <span>{format(domain[1])}</span>
       </>)}
-      <span className="inline-flex items-center gap-1"><Swatch color={token(colors.unknown)} unknown />{unknown}</span>
+      <span className="inline-flex min-w-0 max-w-full items-center gap-1"><Swatch color={token(colors.unknown)} unknown fixed /><ChartLegendLabel name={unknown} /></span>
       <ChartStatusLegend statuses={statusLegend} singleLine />
     </>}
     {extended && <KindLegend compact singleLine items={extended.legend} />}
