@@ -11,7 +11,7 @@ const query = (status: QueryState<Eq[]>['status'], response: ApiResponse<Eq[]> |
 const List = (rows: Eq[]) => <ul className="divide-y divide-border-subtle text-sm">{rows.slice(0, 5).map(e =>
   <li key={e.id} className="flex justify-between py-1.5"><span className="t-mono">{e.id}</span><span className="tabular">{e.util.toFixed(1)}%</span></li>)}</ul>;
 
-/** 조회 경계. 첫 로딩은 Skeleton, 같은 조건의 갱신은 값을 둔 채 띠로 알리고, 그 밖의 결과는 §19 상태(0건·권한 없음·오류 등)로 그린다. `ok`일 때만 `children`을 부른다. */
+/** 설비 가동률 목록으로 조회 경계의 상태(로딩·갱신·0건·권한 없음·오류)를 바꿔 보는 예제. 규칙은 아래 Components 원문 인용을 따른다. */
 const meta = {
   title: '표시/QueryView',
   component: QueryView,

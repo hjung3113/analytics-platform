@@ -247,7 +247,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 - **room_name은 Global Context(Decided)**: 공개 집합 키 후보는 `roomNames`이며 도메인 값 `room_name`과 매핑한다. 요청 Scope 안의 조회 범위를 좁히며 권한을 부여하지 않는다. 집합 정규화/공집합 규칙을 따르고 Page Filter `processIds`를 별도로 만들지 않는다.
 - **page-owned URL 키의 예시로 `granularity`(Candidate 필드명, Decided — 메커니즘)**: 조회 기간(`from`/`to`)과 집계 단위(시간별/일별/주별로 뭉쳐 보기)는 다른 축이다. 모든 메뉴가 집계 단위 선택을 갖는 게 아니므로 전역 Context Bar가 아니라 `metricId`+`metricVersion` 쌍과 같은 방식으로 화면마다 선언·등록하는 page-owned 계약으로 둔다. 값 후보: `hour`/`day`/`week`.
 - 딥링크 왕복은 조회조건·명시 선택·지표 버전을 재현한다. live Condition은 재방문 시 선언한 소속 기준의 멤버/매칭 결과를 재평가하므로 대상 집합이 달라질 수 있음을 표시한다. Selection은 고정이며, 지연 완료·마스터 정정으로 숫자는 달라질 수 있으므로 결과에는 계산 기준시각을 표시한다.
-- 차트 줌과 출력 미선언 Brush는 로컬 상태다. 선언한 분석 선택 출력은 메뉴 URL에 기록한다. 전역 기간은 «분석 구간으로 적용»을 확인할 때 바뀐다.
+- 차트 줌과 출력 미선언 Brush는 로컬 상태다. 선언한 분석 선택 출력은 메뉴 URL에 기록한다. 전역 기간과 설비 선택은 «분석 구간으로 적용»이나 «다음 분석»의 «조건으로»처럼 사용자가 명시적으로 적용할 때만 바뀐다([Chart §16](chart.md#분석-선택-전달-decided-adr-0175-2732)).
 - **분석 선택 ([ADR-0175](../adr/0175-chart-selection-feeds-next-analysis.md), #2732)**의 URL 키는 패널 출력 또는 `analysisSelectionInbound`에 선언한 메뉴 page key다. `set`은 빈 값과 중복을 뺀 최대 50개 값을 선택 순서대로 반복 키에 쓰고, `range`는 비어 있지 않고 `/`가 없는 끝점 두 개를 `from/to` 한 값으로 쓴다. 시간 끝점은 메뉴가 §6.3 형식으로 제공한다. 행 묶음은 화면에만 둔다.
 - 미지원 Context는 조용히 버리지 않고 적용되지 않음을 표시한다(모든 키가 `unsupported`인 화면은 바를 그리지 않는다, §11). 보존·재적용 방식은 §6.4를 따른다.
 - `savedViewToken`은 긴 URL을 대체할 후보 계약으로 예약한다(Deferred; 저장된 뷰 자체는 §21, ADR-0092). 저장된 뷰 구현 전에는 토큰 생성이나 비활성 버튼을 셸 필수 요소로 두지 않는다.
