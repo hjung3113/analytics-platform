@@ -9,5 +9,5 @@ export const missingText = (lang: 'ko' | 'en') => (formatText(HW_TIME_MESSAGES.f
 /** Two decimals with thousand separators in the user's language, the same grouping the chart axis uses. */
 export const formatSeconds = (value: number, lang: 'ko' | 'en') => formatNumber(value, lang, { decimals: 2 });
 
-/** `EQ-001.H1` → `EQ-001 · H1`: the row name in the detail labels and the trend legend. */
+/** `MEM-PHOTO-0103.H1` → `MEM-PHOTO-0103 · H1`: the row name in the detail labels and the trend legend. */
 export const rowIdLabel = (id: string) => id.replace('.', ' · ');

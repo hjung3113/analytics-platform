@@ -11,7 +11,7 @@ const respond = (query: MenuQuery): ApiResponse<unknown> => {
   const { drillModule, drillMotion } = query.params as { drillModule?: string; drillMotion?: string };
   const ids = drillModule ? ['Chuck', 'Dechuck'] : ['PM1', 'PM2'];
   const values = drillMotion ? { Chuck: 99 } : { [ids[0]!]: 99, [ids[1]!]: 2 };
-  const row = { id: drillModule ? 'EQ-001.H1' : 'EQ-001', equipmentId: 'EQ-001', ...(drillModule ? { subItem: 'H1' } : {}), values,
+  const row = { id: drillModule ? 'MEM-PHOTO-0103.H1' : 'MEM-PHOTO-0103', equipmentId: 'MEM-PHOTO-0103', ...(drillModule ? { subItem: 'H1' } : {}), values,
     total: drillMotion ? 99 : 101,
     judgements: Object.fromEntries(Object.entries(values).map(([id, value]) => [id, { value, lower: 1, upper: 5, status: value === 99 ? 'over' : 'under' }])) };
   const block = { series: Object.keys(values).map(id => ({ id, name: id, color: 'chart-blue' })), rows: [row], totals: { values, total: row.total } };

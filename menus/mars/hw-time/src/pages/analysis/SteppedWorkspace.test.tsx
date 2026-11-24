@@ -71,7 +71,7 @@ describe('HW Time approved stepped workspace', () => {
     if (step === 4) {
       await screen.findByTestId('hw-overview-trend');
       expect(chart().series.map((series: { id: string }) => series.id)).toEqual(['Pump']);
-      expect(chart().series[0].points.map(([x]: [string]) => x)).toEqual(['EQ-001', 'EQ-002']);
+      expect(chart().series[0].points.map(([x]: [string]) => x)).toEqual(['MEM-PHOTO-0103', 'MEM-PHOTO-0105']);
       expect(config().placement.trend).toBe('below');
     }
   });
@@ -107,7 +107,7 @@ describe('HW Time approved stepped workspace', () => {
     expect(within(tree()).getByRole('checkbox', { name: 'Pump' }).getAttribute('aria-checked')).toBe('false');
     expect(within(tree()).getByRole('checkbox', { name: 'PM2' }).getAttribute('aria-checked')).toBe('true');
     expect(chart().series.map((series: { id: string }) => series.id)).not.toContain('Pump');
-    expect(chart().series[0].points.map(([x]: [string]) => x)).toEqual(['EQ-001 · PM2', 'EQ-002 · PM2']);
+    expect(chart().series[0].points.map(([x]: [string]) => x)).toEqual(['MEM-PHOTO-0103 · PM2', 'MEM-PHOTO-0105 · PM2']);
     fireEvent.click(within(tree()).getByRole('checkbox', { name: 'PM2' })); await settle();
     expect(within(tree()).getByRole('checkbox', { name: 'PM2' }).getAttribute('aria-checked')).toBe('false');
     expect(within(tree()).getByRole('checkbox', { name: 'Pump' }).getAttribute('aria-checked')).toBe('false');
@@ -136,7 +136,7 @@ describe('HW Time approved stepped workspace', () => {
     fireEvent.click(within(tree()).getByRole('button', { name: 'Pump 펼치기' }));
     expect(within(tree()).getByRole('checkbox', { name: 'PM2' }).getAttribute('aria-checked')).toBe('true');
     expect(chart().series.map((series: { id: string }) => series.id)).toContain('Pump');
-    expect(chart().series[0].points.map(([x]: [string]) => x)).toContain('EQ-001 · PM2');
+    expect(chart().series[0].points.map(([x]: [string]) => x)).toContain('MEM-PHOTO-0103 · PM2');
   });
   it('writes toolbar options, preserves them across steps, and shares grammar with the previous chart', async () => {
     await renderOverview('&moduleType=PM&barsSort=total-desc&barsGroup=module&barsMinMax=1&align=1');
@@ -194,14 +194,14 @@ describe('HW Time approved stepped workspace', () => {
   });
   it('double-click opens the selected point trend, single click only selects, and step 1 activation drills to the type', async () => {
     await renderOverview();
-    fireEvent.click(screen.getByRole('button', { name: 'select hw-current EQ-001' }));
-    expect(new URLSearchParams(window.location.search).get('row')).toBe('EQ-001');
-    fireEvent.doubleClick(screen.getByRole('button', { name: 'activate hw-current EQ-001' })); await settle();
+    fireEvent.click(screen.getByRole('button', { name: 'select hw-current MEM-PHOTO-0103' }));
+    expect(new URLSearchParams(window.location.search).get('row')).toBe('MEM-PHOTO-0103');
+    fireEvent.doubleClick(screen.getByRole('button', { name: 'activate hw-current MEM-PHOTO-0103' })); await settle();
     expect(new URLSearchParams(window.location.search).get('moduleType')).toBe('PM');
-    expect(chart('hw-previous').activeCategory).toBe('EQ-001');
-    fireEvent.click(screen.getByRole('button', { name: 'select hw-current EQ-001 · PM1' }));
+    expect(chart('hw-previous').activeCategory).toBe('MEM-PHOTO-0103');
+    fireEvent.click(screen.getByRole('button', { name: 'select hw-current MEM-PHOTO-0103 · PM1' }));
     expect(new URLSearchParams(window.location.search).get('drillModule')).toBeNull();
-    fireEvent.doubleClick(screen.getByRole('button', { name: 'activate hw-current EQ-001 · PM1' }));
+    fireEvent.doubleClick(screen.getByRole('button', { name: 'activate hw-current MEM-PHOTO-0103 · PM1' }));
     await screen.findByTestId('hw-overview-trend');
     expect(config().ids).toContain('trend'); expect(config().placement.trend).toBeUndefined();
     expect(chart().activation).toBe('dblclick');
@@ -211,7 +211,7 @@ describe('HW Time approved stepped workspace', () => {
   it.each(['double-click', 'point action'])('re-reveals the same target after returning to the main tab via %s', async activation => {
     await renderOverview('&moduleType=PM');
     const open = () => {
-      if (activation === 'double-click') fireEvent.doubleClick(screen.getByRole('button', { name: 'activate hw-current EQ-001 · PM1' }));
+      if (activation === 'double-click') fireEvent.doubleClick(screen.getByRole('button', { name: 'activate hw-current MEM-PHOTO-0103 · PM1' }));
       else fireEvent.click(screen.getByRole('button', { name: 'point action hw-current trend' }));
     };
     open();
@@ -234,7 +234,7 @@ describe('HW Time approved stepped workspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'point action hw-current drill' })); await settle();
     expect(new URLSearchParams(window.location.search).get('drillMotion')).toBe('Chuck');
     expect(config().ids).not.toContain('trend');
-    expect(chart('hw-previous').activeCategory).toBe('EQ-001 · PM1');
+    expect(chart('hw-previous').activeCategory).toBe('MEM-PHOTO-0103 · PM1');
     await waitFor(() => expect(chart().legend).toBe(false));
   });
   it.each(['drill', 'explicit trend'] as const)('clears the trend range on %s change and restores it with one Back', async change => {
@@ -261,7 +261,7 @@ describe('HW Time approved stepped workspace', () => {
     await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM2&pins=scatter');
     await screen.findByTestId('hw-overview-trend');
     await screen.findByTestId('hw-overview-scatter');
-    if (activation === 'double-click') fireEvent.doubleClick(screen.getByRole('button', { name: 'activate hw-previous EQ-001 · PM1' }));
+    if (activation === 'double-click') fireEvent.doubleClick(screen.getByRole('button', { name: 'activate hw-previous MEM-PHOTO-0103 · PM1' }));
     else fireEvent.click(screen.getByRole('button', { name: 'point action hw-previous trend' }));
     await waitFor(() => expect(within(screen.getByTestId('hw-overview-trend')).getByRole('heading', { name: 'PM1 · Pump 일 평균' })).toBeTruthy());
     expect(new URLSearchParams(window.history.state.apHidden.pairs).get('trend')).toBe('PM1/Pump');

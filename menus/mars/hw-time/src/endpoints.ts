@@ -34,7 +34,9 @@ export type HwTimeTrendData = { rows: HwTimeTrendRow[]; limits: { maxRows: numbe
 /** No key lists L1 rows (EquipmentID × Module), `drillModule` L2 rows (EquipmentID × sub-item, with MEG), both keys L3 rows. */
 export const MOTION_EQUIPMENT_KEY = 'motionEquipment';
 export type HwTimeTableFilter = HwTimeDrill & { [MOTION_EQUIPMENT_KEY]?: readonly string[] };
-export const HW_TIME_EQUIPMENT_ID_PATTERN = /^EQ-\d{3}$/;
+/** An equipment master ID (`MEM-PHOTO-0103`): upper-case letters and digits in hyphen-joined parts, never `.` or `/`, so row and trend ids can append `.H1` (#2868). */
+const EQUIPMENT_ID = /[A-Z0-9]+(?:-[A-Z0-9]+)+/.source;
+export const HW_TIME_EQUIPMENT_ID_PATTERN = new RegExp(`^${EQUIPMENT_ID}$`);
 /** A table row also carries each series value as a flat field (`row['PM1']`, `row['Dechuck']`) so the server and the table sort it. */
 export type HwTimeTableRow = HwTimeRow & { [seriesId: string]: unknown };
 export type HwTimeTableParams = HwTimeTableFilter & PageQuery;
@@ -98,10 +100,10 @@ export const HW_TIME_UNIT = HW_TIME_MESSAGES.endpointHwTimeUnit;
 export const HW_TIME_MAX_ROWS = { level: 120, export: 120 } as const;
 /** The eight-row cap keeps request URLs short and multi-row trends legible. */
 export const HW_TIME_MAX_TREND_ROWS = 8;
-export const HW_TIME_ROW_ID_PATTERN = /^EQ-\d{3}\.H[1-4]$/;
+export const HW_TIME_ROW_ID_PATTERN = new RegExp(`^${EQUIPMENT_ID}\\.H[1-4]$`);
 
-/** `hwTime.trend` ids: a sub-item row (`EQ-001.H1`) or an equipment total (`EQ-001`, the sum over its four sub-items). */
-export const HW_TIME_TREND_ID_PATTERN = /^EQ-\d{3}(?:\.H[1-4])?$/;
+/** `hwTime.trend` ids: a sub-item row (`MEM-PHOTO-0103.H1`) or an equipment total (`MEM-PHOTO-0103`, the sum over its four sub-items). */
+export const HW_TIME_TREND_ID_PATTERN = new RegExp(`^${EQUIPMENT_ID}(?:\\.H[1-4])?$`);
 
 export function isHwTimeRowId(value: unknown): value is string {
   return typeof value === 'string' && HW_TIME_ROW_ID_PATTERN.test(value);

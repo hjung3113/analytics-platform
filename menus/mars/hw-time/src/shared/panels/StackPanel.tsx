@@ -43,7 +43,7 @@ const DEFAULT_ROW_PITCH = 26;
 /** Detail height floor: a short section (two trend rows under it at 1280×800) still shows a few 26 px rows; above 160 px the axes stay readable. */
 const DETAIL_FILL_MIN = 200;
 
-/** `EQ-001.H1` → `EQ-001 · H1`; an auxiliary row reads `EQ-001 MEG 4.03s` (two decimals, the endpoint's unit; no separators, so the value fits the Frame's label gutter instead of being ellipsized). Labels stay unique per row. */
+/** `MEM-PHOTO-0103.H1` → `MEM-PHOTO-0103 · H1`; an auxiliary row reads `MEM-PHOTO-0103 MEG 4.03s` (two decimals, the endpoint's unit; no separators, so the value fits the Frame's label gutter instead of being ellipsized). Labels stay unique per row. */
 export function rowLabel(row: HwTimeRow, lang: 'ko' | 'en' = 'ko') {
   if (!row.auxiliary) return rowIdLabel(row.id);
   const seconds = Number(/-?\d+(?:\.\d+)?\s*$/.exec(row.auxiliary.label)?.[0]);

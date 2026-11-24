@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { contextCapabilities, groupId, menuPermission, type ApiResponse, type MenuMeta } from '@ap/contracts';
 import { EQUIPMENT, createMockAdapter, getRole, setRole } from '@ap/mock-server';
-import { HW_TIME_UNIT, hwTime } from '../endpoints';
-import type { HwTimeDistribution, HwTimeLevelData, HwTimeRuns, HwTimeTableData, HwTimeTrendData, HwTimeRow } from '../endpoints';
+import { HW_TIME_UNIT, hwTime, hwTimeOverview } from '../endpoints';
+import type { HwTimeDistribution, HwTimeLevelData, HwTimeMatrix, HwTimeRuns, HwTimeTableData, HwTimeTrendData, HwTimeRow } from '../endpoints';
 import { hwTimeMock } from './index';
 
 const context = {
   scopeId: 'MEM', from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00',
-  roomNames: ['PHOTO'], prcGroups: null, condition: null, membershipBasis: null, selection: null,
+  roomNames: ['PHOTO', 'ETCH', 'CVD'], prcGroups: null, condition: null, membershipBasis: null, selection: null,
 };
 
 const menu: MenuMeta = {
@@ -51,9 +51,9 @@ describe('HW Time mock endpoint registration', () => {
 
 describe('distribution Context filtering', () => {
   it.each([
-    [{ roomNames: ['PHOTO'] }, 24],
-    [{ selection: EQUIPMENT.filter(e => e.site === 'MEM' && e.room === 'PHOTO').slice(0, 2).map(e => e.equipmentId) }, 6],
-    [{ condition: { maker: ['ASM'] } }, 0],
+    [{ roomNames: ['PHOTO'] }, 10],
+    [{ selection: EQUIPMENT.filter(e => e.site === 'MEM' && e.room === 'PHOTO').slice(0, 2).map(e => e.equipmentId) }, 2],
+    [{ condition: { maker: ['EBR'] } }, 0],
   ] as const)('uses the same resolved population as runs for %j', async (applied, equipment) => {
     const params = { moduleType: 'LK', drillModule: 'LK1', drillMotion: 'Pump' };
     const result = await query<HwTimeDistribution>('hwTime.distribution', params, applied);
@@ -75,7 +75,7 @@ describe('HW Time level rows', () => {
     expect(result.series.map(({ id }) => id)).toEqual(['PM1', 'PM2', 'PM3', 'PM4']);
     expect(result.rows).toHaveLength(24);
     expect(result.limits.maxRows).toBe(120);
-    expect(result.rows.map(({ id }) => id)).toEqual(Array.from({ length: 24 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}`));
+    expect(result.rows.map(({ id }) => id)).toEqual(EQUIPMENT.slice(0, 24).map(e => e.equipmentId));
     expect(result.rows.every(row => row.equipmentId === row.id)).toBe(true);
   });
 
@@ -89,8 +89,8 @@ describe('HW Time level rows', () => {
     expect(detailRows).toHaveLength(96);
     expect(auxiliary).toHaveLength(24);
     expect(auxiliary.every(row => row.id.endsWith('.MEG') && row.total === null)).toBe(true);
-    expect(detailRows.map(({ id }) => id)).toEqual(Array.from({ length: 24 }, (_, i) =>
-      ['H1', 'H2', 'H3', 'H4'].map(item => `EQ-${String(i + 1).padStart(3, '0')}.${item}`)).flat());
+    expect(detailRows.map(({ id }) => id)).toEqual(EQUIPMENT.slice(0, 24).flatMap(e =>
+      ['H1', 'H2', 'H3', 'H4'].map(item => `${e.equipmentId}.${item}`)));
     const expectedChuckTotal = detailRows.reduce((sum, row) => sum + (row.values.Chuck ?? 0), 0);
     expect(result.totals.values.Chuck).toBe(expectedChuckTotal);
     const firstChuck = detailRows[0]?.values.Chuck ?? 0;
@@ -139,10 +139,10 @@ describe('HW Time level rows', () => {
 
 describe('HW Time trends and table endpoints', () => {
   it('applies equipment selection before paging and shares that population with level rows and export', async () => {
-    const motionEquipment = ['EQ-002', 'EQ-006'];
+    const motionEquipment = ['MEM-PHOTO-0105', 'MEM-PHOTO-0111'];
     const page = await data<HwTimeTableData>(hwTime.tableRows.id, { motionEquipment, page: 1, pageSize: 1, sorting: [] });
     expect(page.total).toBe(2);
-    expect(page.rows.map(row => row.equipmentId)).toEqual(['EQ-006']);
+    expect(page.rows.map(row => row.equipmentId)).toEqual(['MEM-PHOTO-0111']);
     const level = await data<HwTimeLevelData>(hwTime.levelRows.id, { motionEquipment });
     expect(level.rows.map(row => row.equipmentId)).toEqual(motionEquipment);
     const exported = await data<HwTimeRow[]>(hwTime.exportRows.id, { motionEquipment, ids: null, sorting: [] });
@@ -150,10 +150,10 @@ describe('HW Time trends and table endpoints', () => {
   });
 
   it('returns daily points in the period whose values differ for adjacent rows', async () => {
-    const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1', 'EQ-001.H2'] });
+    const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['MEM-PHOTO-0103.H1', 'MEM-PHOTO-0103.H2'] });
     expect(result.rows).toHaveLength(2);
     expect(result.limits.maxRows).toBe(8);
-    expect(result.rows.map(({ id }) => id)).toEqual(['EQ-001.H1', 'EQ-001.H2']);
+    expect(result.rows.map(({ id }) => id)).toEqual(['MEM-PHOTO-0103.H1', 'MEM-PHOTO-0103.H2']);
     expect(result.rows[0]?.points).toHaveLength(2);
     expect(result.rows[0]?.points.map(point => point.at)).toEqual([
       '2026-09-25', '2026-09-26',
@@ -163,11 +163,11 @@ describe('HW Time trends and table endpoints', () => {
   });
 
   it('scales a sub-item trend to the table: the latest day is its measured L1 total and earlier days stay within ±15%', async () => {
-    const trend = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-002.H3', 'EQ-002'] });
+    const trend = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['MEM-PHOTO-0105.H3', 'MEM-PHOTO-0105'] });
     let known = 0;
     for (const drillModule of ['PM1', 'PM2', 'PM3', 'PM4']) {
       const level = await data<HwTimeLevelData>(hwTime.levelRows.id, { drillModule });
-      const row = level.rows.find(item => item.id === 'EQ-002.H3')!;
+      const row = level.rows.find(item => item.id === 'MEM-PHOTO-0105.H3')!;
       known += Object.values(row.values).reduce<number>((sum, value) => sum + (value ?? 0), 0);
     }
     const values = trend.rows[0]!.points.map(point => point.value as number);
@@ -177,11 +177,11 @@ describe('HW Time trends and table endpoints', () => {
   });
 
   it('gives an equipment total that equals the sum of its four sub-item trends on each day, deterministically', async () => {
-    const subs = ['H1', 'H2', 'H3', 'H4'].map(item => `EQ-002.${item}`);
-    const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-002', ...subs] });
-    const again = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-002'] });
+    const subs = ['H1', 'H2', 'H3', 'H4'].map(item => `MEM-PHOTO-0105.${item}`);
+    const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['MEM-PHOTO-0105', ...subs] });
+    const again = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['MEM-PHOTO-0105'] });
     const [total, ...items] = result.rows;
-    expect(total?.id).toBe('EQ-002');
+    expect(total?.id).toBe('MEM-PHOTO-0105');
     expect(total?.points).toHaveLength(2);
     total?.points.forEach((point, day) => {
       expect(point.value).toBeCloseTo(items.reduce((sum, item) => sum + (item.points[day]?.value ?? 0), 0), 9);
@@ -190,9 +190,9 @@ describe('HW Time trends and table endpoints', () => {
   });
 
   it('rejects more than eight trend rows and ids outside the static row format', async () => {
-    const tooMany = await query(hwTime.trend.id, { rowIds: Array.from({ length: 9 }, (_, i) => `EQ-${String(i + 1).padStart(3, '0')}.H1`) });
-    const malformed = await query(hwTime.trend.id, { rowIds: ['EQ-1.H1'] });
-    const shortEquipment = await query(hwTime.trend.id, { rowIds: ['EQ-1'] });
+    const tooMany = await query(hwTime.trend.id, { rowIds: EQUIPMENT.slice(0, 9).map(e => `${e.equipmentId}.H1`) });
+    const malformed = await query(hwTime.trend.id, { rowIds: ['MEM-PHOTO-0103.H5'] });
+    const shortEquipment = await query(hwTime.trend.id, { rowIds: ['mem-photo-0103'] });
     expect(tooMany.outcome).toBe('error');
     expect(malformed.outcome).toBe('error');
     expect(shortEquipment.outcome).toBe('error');
@@ -262,29 +262,29 @@ describe('HW Time trends and table endpoints', () => {
 describe('HW Time population follows the applied Scope and Condition', () => {
   const photo = EQUIPMENT.filter(e => e.site === 'MEM' && e.room === 'PHOTO').map(e => e.equipmentId);
   const narrowed = { selection: photo.slice(0, 2) };
-  const noMatch = { condition: { maker: ['ASM'] } };
+  const noMatch = { condition: { maker: ['EBR'] } };
   const tableParams = { drillModule: 'PM1', drillMotion: 'Pump', page: 0, pageSize: 200, sorting: [] };
   const exportParams = { drillModule: 'PM1', drillMotion: 'Pump', ids: null, sorting: [] };
 
   it('gives fewer rows when a Selection narrows the resolved equipment, keeping the values of the rows that remain', async () => {
     const full = await data<HwTimeLevelData>(hwTime.levelRows.id, {});
     const l1 = await data<HwTimeLevelData>(hwTime.levelRows.id, {}, narrowed);
-    expect(l1.rows.map(({ id }) => id)).toEqual(full.rows.slice(0, 6).map(({ id }) => id));
-    expect(l1.rows).toEqual(full.rows.slice(0, 6));
+    expect(l1.rows.map(({ id }) => id)).toEqual(full.rows.slice(0, 2).map(({ id }) => id));
+    expect(l1.rows).toEqual(full.rows.slice(0, 2));
     const l2 = await data<HwTimeLevelData>(hwTime.levelRows.id, { drillModule: 'PM1' }, narrowed);
-    expect(l2.rows).toHaveLength(30);
+    expect(l2.rows).toHaveLength(10);
     const l3 = await data<HwTimeLevelData>(hwTime.levelRows.id, { drillModule: 'PM1', drillMotion: 'Pump' }, narrowed);
-    expect(l3.context?.rows).toHaveLength(24);
-    expect(l3.detail?.rows).toHaveLength(24);
+    expect(l3.context?.rows).toHaveLength(8);
+    expect(l3.detail?.rows).toHaveLength(8);
     const table = await data<HwTimeTableData>(hwTime.tableRows.id, tableParams, narrowed);
-    expect(table.total).toBe(24);
+    expect(table.total).toBe(8);
     const exported = await data<HwTimeRow[]>(hwTime.exportRows.id, exportParams, narrowed);
-    expect(exported).toHaveLength(24);
+    expect(exported).toHaveLength(8);
   });
 
   it('drops trend rows outside the narrowed population', async () => {
-    const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1', 'EQ-020.H1'] }, narrowed);
-    expect(result.rows.map(({ id }) => id)).toEqual(['EQ-001.H1']);
+    const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['MEM-PHOTO-0103.H1', 'MEM-ETCH-0138.H1'] }, narrowed);
+    expect(result.rows.map(({ id }) => id)).toEqual(['MEM-PHOTO-0103.H1']);
   });
 
   it('resolves PRC groups through the same population as fixed equipment IDs', async () => {
@@ -299,11 +299,41 @@ describe('HW Time population follows the applied Scope and Condition', () => {
     expect(grouped.rows).toEqual(fixed.rows);
   });
 
+  it.each([
+    ['MEM · PHOTO', 'engineer', { roomNames: ['PHOTO'] }],
+    ['MEM · ETCH', 'engineer', { roomNames: ['ETCH'] }],
+    ['MEM · PRC', 'engineer', { roomNames: null, prcGroups: ['PRC-CVD-1'] }],
+    ['FDRY', 'engineer', { scopeId: 'FDRY', roomNames: null }],
+  ] as const)('accepts a shown bar as the equipment condition in %s and keeps that row and its values (#2868)', async (_, role, applied) => {
+    setRole(role);
+    const matrix = await data<HwTimeMatrix>(hwTimeOverview.matrix.id, { moduleType: 'PM' }, applied);
+    const shown = matrix.equipment[1]!;
+    const all = await data<HwTimeLevelData>(hwTime.levelRows.id, {}, applied);
+    expect(all.rows.map(row => row.equipmentId)).toEqual(matrix.equipment);
+    const narrowed = await data<HwTimeLevelData>(hwTime.levelRows.id, {}, { ...applied, selection: [shown] });
+    expect(narrowed.rows.map(row => row.equipmentId)).toEqual([shown]);
+    expect(narrowed.rows[0]!.values).toEqual(all.rows.find(row => row.equipmentId === shown)!.values);
+  });
+
+  it('refuses a fixed selection over 24 equipment instead of answering for part of it (#2868)', async () => {
+    const granted = EQUIPMENT.filter(e => e.site === 'MEM' && ['PHOTO', 'ETCH', 'CVD'].includes(e.room)).map(e => e.equipmentId);
+    expect((await query(hwTime.levelRows.id, {}, { selection: granted.slice(0, 24) })).outcome).toBe('ok');
+    const over = await query(hwTime.levelRows.id, {}, { selection: granted.slice(0, 25) });
+    expect(over.outcome).toBe('error');
+    expect(JSON.stringify(over)).toContain('at most 24 fixed equipment');
+  });
+
+  it('keeps every fixed ID of a mixed selection as its own row (#2868)', async () => {
+    const fixed = [photo[0]!, EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'CVD')!.equipmentId];
+    const result = await data<HwTimeLevelData>(hwTime.levelRows.id, {}, { selection: fixed });
+    expect(result.rows.map(row => row.equipmentId)).toEqual(fixed);
+  });
+
   it('answers empty for every endpoint when the Condition matches no equipment', async () => {
     const responses = await Promise.all([
       query<HwTimeLevelData>(hwTime.levelRows.id, {}, noMatch),
       query<HwTimeLevelData>(hwTime.levelRows.id, { drillModule: 'PM1', drillMotion: 'Pump' }, noMatch),
-      query<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1'] }, noMatch),
+      query<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['MEM-PHOTO-0103.H1'] }, noMatch),
       query<HwTimeTableData>(hwTime.tableRows.id, tableParams, noMatch),
       query<HwTimeRow[]>(hwTime.exportRows.id, exportParams, noMatch),
     ]);
@@ -313,9 +343,9 @@ describe('HW Time population follows the applied Scope and Condition', () => {
 
 
 it('MEN-51 keeps daily trend dates in the applied half-open period', async () => {
-  const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1'] });
+  const result = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['MEM-PHOTO-0103.H1'] });
   expect(result.rows[0]!.points.map(p => p.at)).toEqual(['2026-09-25', '2026-09-26']);
-  const midnight = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001.H1'] }, { from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' });
+  const midnight = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['MEM-PHOTO-0103.H1'] }, { from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' });
   expect(midnight.rows[0]!.points.map(p => p.at)).toEqual(['2026-09-25']);
 });
 
@@ -329,8 +359,8 @@ describe('HW Time Module types and server judgements (#2328)', () => {
     const table = await data<HwTimeTableData>(hwTime.tableRows.id, { ...params, page: 0, pageSize: 10, sorting: [] });
     const exported = await data<HwTimeRow[]>(hwTime.exportRows.id, { ...params, ids: [table.rows[0]!.id], sorting: [] });
     expect(exported[0]).toEqual(table.rows[0]);
-    const trend = await data<HwTimeTrendData>(hwTime.trend.id, { moduleType, rowIds: ['EQ-001'] });
-    const pm = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['EQ-001'] });
+    const trend = await data<HwTimeTrendData>(hwTime.trend.id, { moduleType, rowIds: ['MEM-PHOTO-0103'] });
+    const pm = await data<HwTimeTrendData>(hwTime.trend.id, { rowIds: ['MEM-PHOTO-0103'] });
     expect(trend.rows[0]?.points).not.toEqual(pm.rows[0]?.points);
   });
   it('provides LK over and under Motion judgements and worst-Motion Module roll-ups', async () => {

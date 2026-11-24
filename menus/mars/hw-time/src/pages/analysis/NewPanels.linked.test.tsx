@@ -45,9 +45,9 @@ const registry = createRegistry({ spaces: [{ id: spaceId('mars'), label: { ko: '
 const session = testSession(['analytics:view', 'platform:view']);
 function response(request: MenuQuery): ApiResponse<unknown> {
   let data: unknown = {};
-  if (request.endpoint === 'hwTime.matrix') data = { equipment: ['EQ-001'], modules: ['PM1'], motions: [{ id: 'Pump', color: 'chart-blue' }], cells: [{ equipmentId: 'EQ-001', moduleId: 'PM1', module: judgement, motions: { Pump: judgement } }], limits: { maxRows: 96 } };
-  if (request.endpoint === 'hwTime.equipmentDays') data = { rows: [{ equipmentId: 'EQ-001', date: '2026-09-20', judgement }] };
-  if (request.endpoint === 'hwTime.runs') data = { points: [], daily: ['2026-09-20', '2026-09-21'].map(date => ({ id: date, equipmentId: 'EQ-001', moduleId: 'PM1', motion: 'Pump', at: `${date}T00:00:00`, seconds: 6, judgement, motions: { Pump: judgement }, module: judgement })), shown: 0, total: 0, bounds: [] };
+  if (request.endpoint === 'hwTime.matrix') data = { equipment: ['MEM-PHOTO-0103'], modules: ['PM1'], motions: [{ id: 'Pump', color: 'chart-blue' }], cells: [{ equipmentId: 'MEM-PHOTO-0103', moduleId: 'PM1', module: judgement, motions: { Pump: judgement } }], limits: { maxRows: 96 } };
+  if (request.endpoint === 'hwTime.equipmentDays') data = { rows: [{ equipmentId: 'MEM-PHOTO-0103', date: '2026-09-20', judgement }] };
+  if (request.endpoint === 'hwTime.runs') data = { points: [], daily: ['2026-09-20', '2026-09-21'].map(date => ({ id: date, equipmentId: 'MEM-PHOTO-0103', moduleId: 'PM1', motion: 'Pump', at: `${date}T00:00:00`, seconds: 6, judgement, motions: { Pump: judgement }, module: judgement })), shown: 0, total: 0, bounds: [] };
   return { outcome: 'ok', data, assessments: [{ kind: 'collection', state: 'clear' }, { kind: 'processing_delay', state: 'clear' }, { kind: 'coverage', state: 'clear' }], trust: null, correlationId: 'new-panels-linked' };
 }
 beforeEach(() => { requests.length = 0; canvas.clear(); vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} }); vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); });

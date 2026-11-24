@@ -4,8 +4,8 @@ import { validPanelDate, verdictCodec, dateCodec } from '../../endpoints';
 import { heatmapValues, paretoItems, verdictCounts } from './newPanelData';
 
 const matrix: HwTimeMatrix = {
-  equipment: ['EQ-001'], modules: ['PM1'], motions: [{ id: 'Pump', color: 'chart-blue' }, { id: 'Vent', color: 'chart-teal' }],
-  cells: [{ equipmentId: 'EQ-001', moduleId: 'PM1', module: { value: 9, lower: null, upper: null, status: 'over' }, motions: {
+  equipment: ['MEM-PHOTO-0103'], modules: ['PM1'], motions: [{ id: 'Pump', color: 'chart-blue' }, { id: 'Vent', color: 'chart-teal' }],
+  cells: [{ equipmentId: 'MEM-PHOTO-0103', moduleId: 'PM1', module: { value: 9, lower: null, upper: null, status: 'over' }, motions: {
     Pump: { value: 6, lower: 1, upper: 5, status: 'over' }, Vent: { value: 3, lower: 1, upper: 5, status: 'normal' },
   } }], limits: { maxRows: 96 },
 };

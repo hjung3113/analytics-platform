@@ -35,14 +35,14 @@ const adapter = testAdapter({
 
 function Probe() {
   const [module, setModule] = useState<string | undefined>(undefined);
-  const [rows, setRows] = useState(['EQ-001.H1']);
+  const [rows, setRows] = useState(['MEM-PHOTO-0103.H1']);
   const level = useHwTimeLevel(module ? { drillModule: module } : {});
   const trend = useHwTimeTrend(rows);
   return <>
     <p data-testid="level">{level.status}:{(level.response?.data as { tag?: string } | null)?.tag ?? '-'}</p>
     <p data-testid="trend">{trend.status}:{trend.response?.data ? 'rows' : '-'}</p>
     <button type="button" onClick={() => setModule('PM1')}>drill</button>
-    <button type="button" onClick={() => setRows(['EQ-001.H2'])}>row</button>
+    <button type="button" onClick={() => setRows(['MEM-PHOTO-0103.H2'])}>row</button>
   </>;
 }
 const text = (id: string) => screen.getByTestId(id).textContent;

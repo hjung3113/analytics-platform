@@ -3,8 +3,8 @@ import { HW_TIME_MODULE_TYPES, type HwTimeMatrix } from '../../endpoints';
 import { chartRows, panelCatalog, stepOf, stepPreset, validTrend, workspaceOptions } from './stepped';
 
 const data: HwTimeMatrix = {
-  equipment: ['EQ-001'], modules: ['PM1', 'PM2'], motions: [{ id: 'Pump', color: 'chart-blue' }],
-  cells: [2, 6].map((value, i) => ({ equipmentId: 'EQ-001', moduleId: `PM${i + 1}`,
+  equipment: ['MEM-PHOTO-0103'], modules: ['PM1', 'PM2'], motions: [{ id: 'Pump', color: 'chart-blue' }],
+  cells: [2, 6].map((value, i) => ({ equipmentId: 'MEM-PHOTO-0103', moduleId: `PM${i + 1}`,
     motions: { Pump: { value, lower: null, upper: null, status: 'unjudgeable' } },
     module: { value, lower: null, upper: null, status: 'unjudgeable' } })), limits: { maxRows: 96 },
 };
@@ -23,15 +23,15 @@ describe('HW Time stepped declarations', () => {
   });
   it('uses a mean of checked Module sums per type and preserves unknown parts', () => {
     const shaped = chartRows({ depth: 1, matrices: { PM: data }, typeId: 'PM', motionId: null, moduleId: null, selection });
-    expect(shaped.series.find(series => series.id === 'PM')?.points).toEqual([['EQ-001', 4]]);
+    expect(shaped.series.find(series => series.id === 'PM')?.points).toEqual([['MEM-PHOTO-0103', 4]]);
     const unknown = { ...data, cells: data.cells.map((cell, index) => index ? { ...cell, motions: {} } : cell) };
     expect(chartRows({ depth: 1, matrices: { PM: unknown }, typeId: 'PM', motionId: null, moduleId: null, selection }).series[0]?.points[0]?.[1]).toBeNull();
   });
   it('keeps equipment–Module rows for steps 2–3, then one equipment row for the chosen Module', () => {
     const args = { matrices: { PM: data }, typeId: 'PM', motionId: 'Pump', moduleId: 'PM2', selection };
-    expect(chartRows({ ...args, depth: 2 }).series[0]?.points.map(([x]) => x)).toEqual(['EQ-001 · PM1', 'EQ-001 · PM2']);
+    expect(chartRows({ ...args, depth: 2 }).series[0]?.points.map(([x]) => x)).toEqual(['MEM-PHOTO-0103 · PM1', 'MEM-PHOTO-0103 · PM2']);
     expect(chartRows({ ...args, depth: 3 }).series.map(series => series.id)).toEqual(['Pump']);
-    expect(chartRows({ ...args, depth: 4 }).series[0]?.points).toEqual([['EQ-001', 6]]);
+    expect(chartRows({ ...args, depth: 4 }).series[0]?.points).toEqual([['MEM-PHOTO-0103', 6]]);
   });
   it.each([1, 2, 3, 4] as const)('gates the step-%s add list with explicit reasons', step => {
     const items = panelCatalog({ step, typeId: step > 1 ? 'PM' : null, moduleId: step === 4 ? 'PM2' : null, trend: null });

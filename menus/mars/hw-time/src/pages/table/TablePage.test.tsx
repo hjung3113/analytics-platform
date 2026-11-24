@@ -27,7 +27,7 @@ vi.mock('@ap/components', async importOriginal => {
 
 const MODULES = ['PM1', 'PM2', 'PM3', 'PM4'];
 const MOTIONS = ['Chuck', 'Dechuck', 'Pump', 'Vent', 'Transfer'];
-const eq = (n: number) => `EQ-${String(n).padStart(3, '0')}`;
+const eq = (n: number) => ['MEM-PHOTO-0103', 'MEM-PHOTO-0105', 'MEM-PHOTO-0106'][n - 1]!;
 const sum = (values: Record<string, number | null>) => Object.values(values).includes(null) ? null : Object.values(values).reduce<number>((a, v) => a + (v ?? 0), 0);
 const equipmentRows = (): HwTimeRow[] => Array.from({ length: 3 }, (_, i) => {
   const values = Object.fromEntries(MODULES.map(m => [m, m === 'PM3' && i === 0 ? null : 10 + i]));
@@ -183,7 +183,7 @@ describe('HW Time table page', () => {
 
   it('lists each series of the row under the drawer bar with its value and unit, and 미측정 for a missing one', async () => {
     await renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: 'EQ-001 보기' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'MEM-PHOTO-0103 보기' }));
     const legend = await screen.findByRole('list', { name: '구성 범례' });
     const items = within(legend).getAllByRole('listitem').map(item => item.textContent);
     expect(items).toEqual(['PM110.00 초', 'PM210.00 초', 'PM3미측정', 'PM410.00 초']);
@@ -195,38 +195,38 @@ describe('HW Time table page', () => {
     ['&moduleType=PM&drillMotion=Pump&drillModule=PM1', '하위 항목 전체 일 합계 · Module·Motion과 무관'],
   ])('names the drawer trend as the daily total, not the row value (%s)', async (search, caption) => {
     await renderPage(search);
-    fireEvent.click(await screen.findByRole('button', { name: search ? 'EQ-001 · H1 보기' : 'EQ-001 보기' }));
+    fireEvent.click(await screen.findByRole('button', { name: search ? 'MEM-PHOTO-0103 · H1 보기' : 'MEM-PHOTO-0103 보기' }));
     expect(await screen.findByRole('region', { name: '일 추세' })).toBeTruthy();
     expect(screen.getByRole('region', { name: '일 추세' }).textContent).toContain(caption);
   });
 
   it('opens the drawer with that row\'s stack and trend, and returns focus to the row action on close', async () => {
     await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
-    const action = await screen.findByRole('button', { name: 'EQ-001 · H1 보기' });
+    const action = await screen.findByRole('button', { name: 'MEM-PHOTO-0103 · H1 보기' });
     act(() => action.focus());
     fireEvent.click(action);
-    expect(searchParams().get('focus')).toBe('EQ-001.H1');
-    expect(await screen.findByRole('heading', { name: 'EQ-001 · H1' })).toBeTruthy();
-    expect(screen.getByTestId('hw-time-table-drawer-stack-series').textContent).toBe('Pump:EQ-001 · H1=1.5');
-    await waitFor(() => expect(screen.getByTestId('hw-time-table-drawer-trend-series').textContent).toContain('EQ-001.H1:2026-09-25=4'));
+    expect(searchParams().get('focus')).toBe('MEM-PHOTO-0103.H1');
+    expect(await screen.findByRole('heading', { name: 'MEM-PHOTO-0103 · H1' })).toBeTruthy();
+    expect(screen.getByTestId('hw-time-table-drawer-stack-series').textContent).toBe('Pump:MEM-PHOTO-0103 · H1=1.5');
+    await waitFor(() => expect(screen.getByTestId('hw-time-table-drawer-trend-series').textContent).toContain('MEM-PHOTO-0103.H1:2026-09-25=4'));
     fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
     await waitFor(() => expect(searchParams().get('focus')).toBeNull());
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'EQ-001 · H1 보기' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'MEM-PHOTO-0103 · H1 보기' }));
   });
 
   it('keeps the equipment-total trend caption in the linked root table after a Module and Motion are chosen', async () => {
     await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1', { linked: true });
-    fireEvent.click(await screen.findByRole('button', { name: 'EQ-001 보기' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'MEM-PHOTO-0103 보기' }));
     expect(await screen.findByText('설비 전체 일 합계')).toBeTruthy();
     expect(screen.queryByText(/하위 항목 전체 일 합계/)).toBeNull();
   });
 
   it('shows the equipment trend in the L1 drawer', async () => {
     await renderPage();
-    fireEvent.click(await screen.findByRole('button', { name: 'EQ-001 보기' }));
-    expect(await screen.findByRole('heading', { name: 'EQ-001' })).toBeTruthy();
-    await waitFor(() => expect(screen.getByTestId('hw-time-table-drawer-trend-series').textContent).toContain('EQ-001:2026-09-25=4'));
-    expect(calls.some(c => c.endpoint === hwTime.trend.id && JSON.stringify((c.params as { rowIds: string[] }).rowIds) === '["EQ-001"]')).toBe(true);
+    fireEvent.click(await screen.findByRole('button', { name: 'MEM-PHOTO-0103 보기' }));
+    expect(await screen.findByRole('heading', { name: 'MEM-PHOTO-0103' })).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId('hw-time-table-drawer-trend-series').textContent).toContain('MEM-PHOTO-0103:2026-09-25=4'));
+    expect(calls.some(c => c.endpoint === hwTime.trend.id && JSON.stringify((c.params as { rowIds: string[] }).rowIds) === '["MEM-PHOTO-0103"]')).toBe(true);
   });
 
   it('says so and retries inside the drawer and above the table when the level read fails but the table loads', async () => {
@@ -236,16 +236,16 @@ describe('HW Time table page', () => {
       ? { outcome: 'error', data: null, message: 'network_error', assessments, trust: null, correlationId: 'level-fail', recovery: { retryable: true } }
       : original(req));
     await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
-    fireEvent.click(await screen.findByRole('button', { name: 'EQ-001 · H1 보기' }));
-    const drawer = await screen.findByRole('heading', { name: 'EQ-001 · H1' });
-    expect(searchParams().get('focus')).toBe('EQ-001.H1');
+    fireEvent.click(await screen.findByRole('button', { name: 'MEM-PHOTO-0103 · H1 보기' }));
+    const drawer = await screen.findByRole('heading', { name: 'MEM-PHOTO-0103 · H1' });
+    expect(searchParams().get('focus')).toBe('MEM-PHOTO-0103.H1');
     const retries = await screen.findAllByRole('button', { name: '다시 시도' });
     expect(retries).toHaveLength(2);
     expect(screen.getAllByRole('alert').length).toBe(2);
     expect(drawer).toBeTruthy();
     failLevel = false;
     fireEvent.click(retries[retries.length - 1]);
-    await waitFor(() => expect(screen.getByTestId('hw-time-table-drawer-stack-series').textContent).toBe('Pump:EQ-001 · H1=1.5'), { timeout: 8000 });
+    await waitFor(() => expect(screen.getByTestId('hw-time-table-drawer-stack-series').textContent).toBe('Pump:MEM-PHOTO-0103 · H1=1.5'), { timeout: 8000 });
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -302,11 +302,11 @@ describe('HW Time table page', () => {
       await renderPage('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
       fireEvent.click(within(screen.getAllByRole('columnheader').find(h => h.textContent?.includes('합계'))!).getByRole('button'));
       await waitFor(() => expect(tableCalls().some(p => (p.sorting as unknown[]).length === 1)).toBe(true));
-      fireEvent.click(await screen.findByRole('checkbox', { name: '선택 EQ-001.H1' }));
-      fireEvent.click(screen.getByRole('checkbox', { name: '선택 EQ-002.H2' }));
+      fireEvent.click(await screen.findByRole('checkbox', { name: '선택 MEM-PHOTO-0103.H1' }));
+      fireEvent.click(screen.getByRole('checkbox', { name: '선택 MEM-PHOTO-0105.H2' }));
       await exportVia(/^선택 2행을 CSV로 내보내기$/);
       await waitFor(() => expect(exportCalls()).toHaveLength(1));
-      expect(exportCalls()[0]).toEqual({ drillModule: 'PM1', drillMotion: 'Pump', ids: ['EQ-001.H1', 'EQ-002.H2'], sorting: [{ id: 'total', desc: true }] });
+      expect(exportCalls()[0]).toEqual({ drillModule: 'PM1', drillMotion: 'Pump', ids: ['MEM-PHOTO-0103.H1', 'MEM-PHOTO-0105.H2'], sorting: [{ id: 'total', desc: true }] });
     });
 
     it.each([
@@ -337,7 +337,7 @@ it('MEN-48 warns about malformed focus and can clear it', async () => {
   expect(screen.getByText(/열린 행.*abc/)).toBeTruthy();
 });
 it('MEN-48 explains an unavailable focus and clears focus on drill', async () => {
-  await renderPage('&focus=EQ-001.H1');
+  await renderPage('&focus=MEM-PHOTO-0103.H1');
   expect(await screen.findByText('이 단계에 없는 행입니다.')).toBeTruthy();
   fireEvent.click(screen.getAllByRole('button', { name: 'PM2 들어가기' })[0]!);
   expect(searchParams().get('focus')).toBeNull();

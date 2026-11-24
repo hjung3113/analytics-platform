@@ -15,7 +15,7 @@ const registry = createRegistry({  permissions: [menuPermission('analytics:view'
 const session = testSession(['analytics:view', 'platform:view']);
 const query = vi.fn(async (request: MenuQuery) => ({ outcome: 'ok' as const, data: request.endpoint === 'hwTime.trend'
   ? { rows: [], limits: { maxRows: 8 } }
-  : { level: 0 as const, series: ['TR1', 'TR2'].map(id => ({ id, name: id, color: 'chart-blue' })), rows: [{ id: 'EQ-001', equipmentId: 'EQ-001', values: { TR1: 1, TR2: 2 }, total: 3 }], totals: { values: { TR1: 1, TR2: 2 }, total: 3 }, limits: { maxRows: 120 } },
+  : { level: 0 as const, series: ['TR1', 'TR2'].map(id => ({ id, name: id, color: 'chart-blue' })), rows: [{ id: 'MEM-PHOTO-0103', equipmentId: 'MEM-PHOTO-0103', values: { TR1: 1, TR2: 2 }, total: 3 }], totals: { values: { TR1: 1, TR2: 2 }, total: 3 }, limits: { maxRows: 120 } },
   assessments: [{ kind: 'collection' as const, state: 'clear' as const }, { kind: 'processing_delay' as const, state: 'clear' as const }, { kind: 'coverage' as const, state: 'clear' as const }], trust: null, correlationId: 'synthetic',
 }));
 const adapter = testAdapter({ session: () => session, menuQuery: query });
@@ -30,7 +30,7 @@ function setup(search: string) {
   query.mockClear();
   vi.stubGlobal('localStorage', memoryStorage());
   window.history.replaceState(null, '', `/mars/hw-time?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
-  return renderHook(() => ({ level: useHwTimeLevel({}), trend: useHwTimeTrend(['EQ-001']) }), { wrapper });
+  return renderHook(() => ({ level: useHwTimeLevel({}), trend: useHwTimeTrend(['MEM-PHOTO-0103']) }), { wrapper });
 }
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('shared filters on real menu queries', () => {
@@ -38,7 +38,7 @@ describe('shared filters on real menu queries', () => {
     const { result } = setup('&moduleType=TR&module=TR2');
     await waitFor(() => expect(result.current.level.response?.data?.series.map(s => s.id)).toEqual(['TR2']));
     expect(result.current.level.response?.data?.rows[0]?.total).toBe(2);
-    expect(query.mock.calls.map(([request]) => request.params)).toEqual([{ moduleType: 'TR' }, { rowIds: ['EQ-001'], moduleType: 'TR' }]);
+    expect(query.mock.calls.map(([request]) => request.params)).toEqual([{ moduleType: 'TR' }, { rowIds: ['MEM-PHOTO-0103'], moduleType: 'TR' }]);
   });
   it.each(['&split=recipe', '&module=~bogus', '&module=~none&module=PM1', '&moduleType=bogus'])('sends no query while a shared key is invalid (%s)', async search => {
     const { result } = setup(search);

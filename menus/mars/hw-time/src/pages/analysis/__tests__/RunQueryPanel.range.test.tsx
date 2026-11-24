@@ -25,7 +25,7 @@ const session = testSession(['analytics:view', 'platform:view']);
 const judgement = { value: 3, lower: 2, upper: 4, status: 'normal' } as const;
 const data: HwTimeRuns = {
   daily: ['2026-09-23', '2026-09-24', '2026-09-25'].map(day => ({
-    id: day, equipmentId: 'EQ-001', at: `${day}T00:00:00`, moduleId: 'PM1', motion: 'Pump',
+    id: day, equipmentId: 'MEM-PHOTO-0103', at: `${day}T00:00:00`, moduleId: 'PM1', motion: 'Pump',
     seconds: 3, judgement, motions: { Pump: judgement }, module: judgement,
   })),
   points: [], bounds: [], total: 3, shown: 0,

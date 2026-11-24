@@ -6,7 +6,7 @@ import {
   type HwTimeDistribution, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimeMotionParams, type HwTimeMotionStats, type HwTimeRunParams, type HwTimeRuns, type HwTimeRunObservation,
 } from '../endpoints';
 import { htmBounds, judge, rollUp } from './htm';
-import { syntheticEquipmentIds, syntheticUpperTail } from './syntheticEquipment';
+import { equipmentNumber as numberOfEquipment, syntheticEquipmentIds, syntheticUpperTail } from './syntheticEquipment';
 
 const RUNS_PER_EQUIPMENT = 24;
 const SAMPLE_LIMIT = 400;
@@ -52,7 +52,7 @@ function runValues(equipmentId: string, params: HwTimeRunParams): number[] {
   const type = HW_TIME_MODULE_TYPES.find(t => t.id === params.moduleType)!;
   const motionIndex = (type.motions as readonly string[]).indexOf(params.drillMotion);
   const moduleIndex = (type.modules as readonly string[]).indexOf(params.drillModule);
-  const equipmentNumber = Number(equipmentId.match(/\d+$/)?.[0]);
+  const equipmentNumber = numberOfEquipment(equipmentId);
   const bounds = htmBounds(params.moduleType, params.drillMotion);
   return Array.from({ length: RUNS_PER_EQUIPMENT }, (_, run) => {
     const jitter = ((equipmentNumber * 7 + moduleIndex * 11 + motionIndex * 3 + run * 5) % 17) / 100;
