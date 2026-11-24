@@ -282,6 +282,19 @@ it('applies a set edit with reported candidates and still lists unavailable sele
   await waitFor(() => expect(zone().getByRole('button', { name: 'equipment E1 외 1' })).toHaveFocus());
 });
 
+it('shows the set draft count as values are checked and unchecked', async () => {
+  await mountSelections('', [equipment], <SelectionSource />);
+  const user = userEvent.setup();
+  await user.click(zone().getByRole('button', { name: 'equipment E1' }));
+  const dialog = within(screen.getByRole('dialog', { name: 'equipment E1' }));
+  expect(dialog.getByText('1개 선택')).toBeVisible();
+  await user.click(dialog.getByRole('checkbox', { name: 'E2' }));
+  expect(dialog.getByText('2개 선택')).toBeVisible();
+  await user.click(dialog.getByRole('checkbox', { name: 'E1' }));
+  await user.click(dialog.getByRole('checkbox', { name: 'E2' }));
+  expect(dialog.getByText('0개 선택')).toBeVisible();
+});
+
 it('moves focus to the fallback if applying an empty set removes the chip', async () => {
   await mountSelections('', [equipment], <SelectionSource />);
   const user = userEvent.setup();
