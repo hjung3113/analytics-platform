@@ -212,6 +212,19 @@ test.describe('권한 — 메뉴 비노출·직접 URL 거부 (06 §6.2, §17)',
     await evidence(page, testInfo, 'forbidden-scope');
   });
 
+  test('공유 URL에 부여되지 않은 scopeId가 실리면 표 화면은 빈 결과가 아니라 권한 거부를 보인다 (#2896)', async ({ page }, testInfo) => {
+    // Engineer holds MEM and FDRY only; XIA arrives as a link someone else shared.
+    await page.goto('/mars/equipment-master?v=1&scopeId=XIA');
+    await expect(page.getByRole('button', { name: /^Scope:/ })).toContainText('접근 불가');
+    const main = page.getByRole('main');
+    await expect(main.getByText('이 Scope에 접근 권한이 없습니다').first()).toBeVisible();
+    // A denied Scope must not read as "no data": no table, no empty-result state, and the URL keeps the shared Scope.
+    await expect(main.getByRole('table')).toHaveCount(0);
+    await expect(main.getByText('조건에 맞는 결과가 없습니다')).toHaveCount(0);
+    expect(query(page).get('scopeId')).toBe('XIA');
+    await evidence(page, testInfo, 'shared-url-ungranted-scope');
+  });
+
   test('Scope 확인이 실패하면 "확인 중"에 멈추지 않고 실패와 다시 시도를 보이며, 서버가 돌아오면 다시 시도로 화면이 열린다 (#167)', async ({ page }, testInfo) => {
     await page.goto('/mars/equipment-master?v=1&scopeId=MEM');
     await expect(page.getByRole('table')).toBeVisible();
