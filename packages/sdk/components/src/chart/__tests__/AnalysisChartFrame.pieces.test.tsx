@@ -169,6 +169,16 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     view.rerender(frame({ visibleSeriesIds: ['two'], onVisibleSeriesChange }));
     await waitFor(() => expect((plot.option as any).series[0].id).toBe('two'));
   });
+  it('keeps the reference-line host ID when a legend toggle hides the series holding its base ID (#2718)', async () => {
+    const held: ChartSeries[] = [{ ...series[0]!, id: '__overlay', name: 'Held' }, series[1]!];
+    await mount({ series: held, markLines: [{ y: 3, label: 'Target' }] });
+    const host = () => (plot.option.series as { id?: string; markLine?: unknown }[]).find(s => s.markLine)?.id;
+    expect(host()).toBe('__overlay~1');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Held (s)' }));
+    expect(host()).toBe('__overlay~1');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Held (s)' }));
+    expect(host()).toBe('__overlay~1');
+  });
   it('keeps uncontrolled legend toggles and distinguishes all-off from empty data', async () => {
     await mount();
     fireEvent.click(screen.getByRole('checkbox', { name: 'One (s)' }));

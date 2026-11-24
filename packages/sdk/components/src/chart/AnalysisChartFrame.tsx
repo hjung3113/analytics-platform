@@ -489,6 +489,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const scopeId = global.scopeId;
   const { annotations, note, closeEditor } = editor;
 
+  const reservedSeriesIds = useMemo(() => [...p.series, ...(p.compareSeries ?? [])].map(s => s.id), [p.series, p.compareSeries]);
   const previousIds = useMemo(() => new Set(compare && canCompare ? p.compareSeries?.map(s => s.id) ?? [] : []), [compare, canCompare, p.compareSeries]);
   const showPeriodGroups = compare && canCompare;
   const periodLegendColumnCount = Math.max(p.series.length, p.compareSeries?.length ?? 0);
@@ -849,10 +850,10 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     // A root `data-theme` change re-resolves them too (#2723).
     void instanceReady; void themeRevision;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, highlightedValues: p.highlightedValues, displayed: plotSeries, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit, axisBreak, ...(zoomOnly ? {} : { selectedPointKeys }),
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, highlightedValues: p.highlightedValues, displayed: plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit, axisBreak, ...(zoomOnly ? {} : { selectedPointKeys }),
       palette: resolveChartPalette(plotSeries),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, p.highlightedValues, plotSeries, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, p.highlightedValues, plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
   useEffect(() => {
     const instance = chart.current;
     if (!yFit || !instance || instance.isDisposed?.()) { setAxisBreak(undefined); return; }

@@ -157,6 +157,8 @@ export type ChartOptionInput = {
   statuses?: ReadonlyMap<string, ChartStatus>;
   emphasisFocus?: 'series' | 'none';
   displayed: readonly ChartSeries[];
+  /** Consumer series IDs that helper IDs must avoid even while hidden, so a legend toggle keeps each helper's ID (#2718). */
+  reservedSeriesIds?: readonly string[];
   previousIds: ReadonlySet<string>;
   xType: 'time' | 'category';
   horizontal: boolean;
@@ -343,7 +345,7 @@ function timeAxisTicks(series: readonly ChartSeries[], zoom: readonly [number, n
 
 export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const { horizontal, xType, categories, palette, lang } = i;
-  const takenSeriesIds = new Set(i.displayed.map(series => series.id));
+  const takenSeriesIds = new Set([...i.displayed.map(series => series.id), ...(i.reservedSeriesIds ?? [])]);
   const theme = palette.theme;
   const groups = horizontal && xType === 'category' ? i.rowGroups : undefined;
   const groupLayout = groups ? rowGroupLayout(groups, categories) : undefined;
