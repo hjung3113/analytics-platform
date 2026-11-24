@@ -9,6 +9,7 @@ Lead-only sections of the conductor profile; workers and reviewers do not read i
 - **Direct edits:** the lead edits light-tier diffs and small-tier diffs of at most 100 changed lines in one package itself; the review the tier requires is unchanged. Larger work, or work after the lead's context has been compacted, goes to a worker. Reason: measured faster than a worker round with the same review yield.
 - **Subagents:** retro, audit and data-gathering subagents run at most 2–3 at a time, and one agent judges the result. Reason: gathering fans out, judgment does not.
 - **Periodic check:** what the lead reports to the owner is, per open PR, the three `PR guard` numbers (changed lines and files, pushes, scope verdict) and whether the capture link is in the PR body. Board drift and terminal hygiene stay in the tool output. Reason: a check that relays board warnings never showed the lead a fifth fix round or a 1,000-line PR.
+- **Idle lanes:** on every lane message and every periodic check, the lead runs `hosts-capacity.sh` and names each lane with no running work. An idle lane on a `start=yes` host gets work that can start now: the next release-scope issue, or the parts of a waiting issue that do not depend on the running one (a security or design review, a regression check, a spec). A dependency between issues sequences their merges, not their starts. Reason: chaining four issues on one lane left the desktop host idle for 8–11 hours of a 22-hour slice.
 
 ## Release spec
 
