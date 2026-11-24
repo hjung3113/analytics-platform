@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { stubCompactTableGeometry } from '@ap/components/testing';
+import { AnalysisSelectionChipZone } from '@ap/components';
 import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
@@ -94,11 +95,11 @@ export const registry = createRegistry({
 });
 export const session = testSession(['analytics:view', 'platform:view']);
 export const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
-export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true } = {}) {
+export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true, showSelectionChips = false } = {}) {
   const { default: HwTimePage } = await import('../../HwTimePage');
   const adapter = testAdapter({ session: () => session, menuQuery: async request => { requests.push(request); return respond(request); } });
   window.history.replaceState(null, '', `/mars/hw-time?view=overview&v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><HwTimePage params={{}} /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{showSelectionChips && <AnalysisSelectionChipZone />}<HwTimePage params={{}} /></PlatformProvider></I18nProvider>);
   if (waitForData) await screen.findByTestId('hw-current', {}, { timeout: 5000 });
   await settle();
 }

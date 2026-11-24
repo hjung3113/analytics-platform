@@ -1,6 +1,6 @@
 import type { AnalysisSelection, AnalysisSelectionUse, Text } from '@ap/contracts';
 import { use, useEffect, useInsertionEffect, useMemo, useSyncExternalStore } from 'react';
-import { PaneScreenContext, ScreenContext } from '../platform/contexts';
+import { PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
 import { usePlatform } from '../platform/hooks';
 import type { MenuPlatform } from '../platform/types';
 import { menuAnalysisSelections } from '../registry/analysis-selections';
@@ -180,8 +180,8 @@ function orderChips(chips: readonly AnalysisSelectionChip[]): AnalysisSelectionC
   return ordered;
 }
 
-/** Models URL-backed analysis selections. onClearCommit runs when a clear passes the navigation guard, before its write (null for clear-all). */
-export function useAnalysisSelectionChips(onClearCommit?: (key: string | null) => void): {
+/** Models URL-backed analysis selections. After the guard and before writing, onClearCommit receives the key (null for clear-all) and the address transition. */
+export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, address: AddressTransition) => void): {
   chips: readonly AnalysisSelectionChip[];
   clear: (key: string) => boolean;
   clearAll: () => boolean;
@@ -228,8 +228,8 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null) =
         if (current.length || (screen.screenMode === 'pane' && pageParams(key).length)) patch.set(key, null);
       }
       if (!patch.size) return false;
-      screen.setPage(Object.fromEntries(patch), { run: () => {
-        if (owner.clearKeys) onClearCommit?.(key);
+      screen.setPage(Object.fromEntries(patch), { run: address => {
+        if (owner.clearKeys) onClearCommit?.(key, address);
         return true;
       } });
       return true;

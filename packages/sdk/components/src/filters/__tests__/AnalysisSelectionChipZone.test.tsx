@@ -5,7 +5,7 @@ import { House } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChips, usePlatform, useUnsavedGuard, type AnalysisSelectionChip } from '@ap/kernel';
-import { useLeaveRequest } from '@ap/kernel/host';
+import { PaneScreenProvider, useLeaveRequest, type PaneScreen } from '@ap/kernel/host';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AnalysisSelectionChipZone } from '../AnalysisSelectionChipZone';
 
@@ -126,7 +126,7 @@ it('names the source mark with the chip label when the panel title has a placeho
   expect(zone().getByRole('img', { name: '설비' })).not.toHaveAttribute('title');
 });
 
-async function mountSelections(extra: string, selections = [equipment, module], children?: ReactNode) {
+async function mountSelections(extra: string, selections = [equipment, module], children?: ReactNode, wrap = (content: ReactNode) => content) {
   const actual = await vi.importActual<typeof import('@ap/kernel')>('@ap/kernel');
   vi.mocked(useAnalysisSelectionChips).mockImplementation(actual.useAnalysisSelectionChips);
   const title = equipment.source.title;
@@ -144,7 +144,7 @@ async function mountSelections(extra: string, selections = [equipment, module], 
   const adapter = testAdapter({ session: () => session });
   window.history.replaceState(null, '', `/?v=1&equip=E1${extra}`);
   const disclosureFocus = vi.fn(() => screen.queryByRole('group', { name: '분석 선택' }));
-  const { container } = render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><Harness onDisclosureFocus={disclosureFocus} />{children}</PlatformProvider></I18nProvider>);
+  const { container } = render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}>{wrap(<Harness onDisclosureFocus={disclosureFocus} />)}{children}</PlatformProvider></I18nProvider>);
   return { container, disclosureFocus };
 }
 
@@ -174,7 +174,7 @@ it.each([
   else expect(zone().queryByRole('button', { name: action })).toBeNull();
 });
 
-it('keeps focus on the same chip when clearing the folded last chip unfolds the row', async () => {
+it.each(['replacement', 'blur'] as const)('handles %s of the remaining focused chip when the row unfolds', async reason => {
   const { container } = await mountSelections('&mod=M1&time=T1', [equipment, module, time]);
   const probe = container.querySelector('[data-analysis-chip-probe]')!;
   act(() => {
@@ -185,10 +185,35 @@ it('keeps focus on the same chip when clearing the folded last chip unfolds the 
   expect(zone().getByRole('button', { name: '+2 ›' })).toBeVisible();
   zone().getByRole('button', { name: 'time 선택 지우기' }).focus();
   await userEvent.setup().keyboard('{Enter}');
-  expect(zone().getByRole('button', { name: 'module 선택 지우기' })).toHaveFocus();
+  const remaining = zone().getByRole('button', { name: 'module 선택 지우기' });
+  expect(remaining).toHaveFocus();
+  if (reason === 'blur') {
+    await act(async () => remaining.blur());
+    expect(document.body).toHaveFocus();
+  }
   act(() => resize(probe, 150));
   expect(zone().queryByRole('button', { name: '+1 ›' })).toBeNull();
-  expect(zone().getByRole('button', { name: 'module 선택 지우기' })).toHaveFocus();
+  expect(reason === 'blur' ? document.body : zone().getByRole('button', { name: 'module 선택 지우기' })).toHaveFocus();
+});
+
+it('hands off focus after a pane applies its deferred clear proposal', async () => {
+  let apply: (() => void) | undefined;
+  function DeferredPane({ children }: { children: ReactNode }) {
+    const [pane, setPane] = useState<PaneScreen>({ menuId: 'home', params: {}, query: '?v=1&equip=E1&mod=M1' });
+    return <PaneScreenProvider paneId="pane" screen={pane} onLeave={vi.fn()} onChange={next => { apply = () => setPane(next); }}>
+      {children}
+    </PaneScreenProvider>;
+  }
+  const { container } = await mountSelections('', [equipment, module], undefined, children => <DeferredPane>{children}</DeferredPane>);
+  const clearModule = zone().getByRole('button', { name: 'module 선택 지우기' });
+  clearModule.focus();
+  await userEvent.setup().keyboard('{Enter}');
+  expect(apply).toBeTypeOf('function');
+  act(() => resize(container.querySelector('[data-analysis-chip-probe]')!, 150));
+  expect(clearModule).toHaveFocus();
+  act(() => apply!());
+  expect(zone().queryByRole('button', { name: 'module 선택 지우기' })).toBeNull();
+  expect(zone().getByRole('button', { name: 'equipment 선택 지우기' })).toHaveFocus();
 });
 
 it('keeps focus on another control after a guarded chip clear is cancelled', async () => {

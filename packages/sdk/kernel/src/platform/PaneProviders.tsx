@@ -97,7 +97,7 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
       else if (!options.materialize) navigation.cancel();
       return false;
     }
-    if (options.run && !options.run()) return false;
+    if (options.run && !options.run({ from: current.renderedUrl, to: next })) return false;
     if (options.materialize) navigation.materialize(next);
     else navigation.advance(next, options.focus);
     current.url = next;

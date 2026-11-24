@@ -268,7 +268,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
   const { pageParam, pageParams, setPage } = usePlatform();
   const selectedEquipment = pageParams(MOTION_EQUIPMENT_KEY);
-  const sourceQuery = typeId && step === 4 && (selectedEquipment.length > 0 || extraIds.includes('moduleMotions')) ? queries[typeId] : undefined;
+  const sourceQuery = typeId && step === 4 ? queries[typeId] : undefined;
   const sourceResponse = sourceQuery?.showingPrevious ? null : sourceQuery?.response;
   const source = typeId && sourceResponse && isAnswered(sourceResponse.outcome)
     ? projectBarData(sourceResponse.data ?? undefined, filter.selectionFor(typeId), { depth: 4, moduleId, motionId, allMotions: true })

@@ -1,13 +1,14 @@
 import { Fragment, useLayoutEffect, useRef, type RefObject } from 'react';
 import { X } from 'lucide-react';
 import { useAnalysisSelectionChips, useI18n, useMessages, type AnalysisSelectionChip } from '@ap/kernel';
+import { useHostPlatformOptional } from '@ap/kernel/host';
 import { Popover, PopoverContent, PopoverTrigger, cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useElementSize, useObservedElementSize } from '../state/useElementSize';
 
 type Fit = { container: HTMLElement | null; summary: HTMLElement | null };
 type ClearChip = (key: string) => void;
-type ClearFocus = { kind: 'one'; key: string; index: number } | { kind: 'all' } | { kind: 'list'; index: number };
+type ClearFocus = { kind: 'clear'; key: string | null; index: number; from: string; to: string } | { kind: 'list'; index: number };
 const zoneClass = 'inline-flex shrink-0 items-center gap-2 pl-2 text-xs';
 const focusClass = 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring';
 const linkClass = cn('h-6.5 shrink-0 rounded-sm whitespace-nowrap text-xs font-medium text-accent-primary hover:underline', focusClass);
@@ -62,6 +63,8 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   fit?: Fit; fallbackFocus?: RefObject<HTMLElement | null>;
 }) {
   const { chips, clear, clearAll } = useAnalysisSelectionChips(onClearCommit);
+  const platform = useHostPlatformOptional();
+  const url = platform?.url;
   const m = useMessages(COMPONENTS_MESSAGES);
   const zone = useRef<HTMLDivElement>(null);
   const list = useRef<HTMLDivElement>(null);
@@ -81,14 +84,30 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
     focusedChip.current = target instanceof HTMLButtonElement && target.dataset.analysisChipClear ? target : null;
   };
   useLayoutEffect(() => {
+    const onBlur = (event: FocusEvent) => {
+      const button = focusedChip.current;
+      if (!button || event.target !== button) return;
+      // The browser can emit focusout before a replaced button is detached.
+      queueMicrotask(() => {
+        if (focusedChip.current === button && button.isConnected && document.activeElement !== button) focusedChip.current = null;
+      });
+    };
     const stopTracking = (event: FocusEvent) => {
       if (event.target !== focusedChip.current) focusedChip.current = null;
       if (clearFocus.current?.kind !== 'list' && event.target instanceof Node
         && !zone.current?.contains(event.target) && !list.current?.contains(event.target)) clearFocus.current = null;
     };
     document.addEventListener('focusin', stopTracking);
-    return () => document.removeEventListener('focusin', stopTracking);
+    document.addEventListener('focusout', onBlur);
+    return () => {
+      document.removeEventListener('focusin', stopTracking);
+      document.removeEventListener('focusout', onBlur);
+    };
   }, []);
+  useLayoutEffect(() => () => {
+    clearFocus.current = null;
+    focusedChip.current = null;
+  }, [platform?.adapter, platform?.session, platform?.revision, platform?.paneId, platform?.route?.menu, platform?.pathname, platform?.global.scopeId]);
   useLayoutEffect(() => {
     const previous = focusedChip.current;
     if (previous && !previous.isConnected && document.activeElement === document.body) {
@@ -99,17 +118,19 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
     }
     const request = clearFocus.current;
     if (!request || request.kind === 'list') return;
-    clearFocus.current = null;
-    if (chips.some(chip => request.kind === 'all' || chip.key === request.key)) return;
-    const index = request.kind === 'one' ? request.index : 0;
+    if (url !== request.to || chips.some(chip => request.key === null || chip.key === request.key)) {
+      if (url !== request.from) clearFocus.current = null;
+      return;
+    }
+    const { index } = request;
     const openList = list.current;
     // A new width measurement can unfold the row after focus has moved within the list.
     clearFocus.current = openList ? { kind: 'list', index } : null;
     focusChip(openList ?? zone.current, index);
   });
-  function onClearCommit(key: string | null) {
-    const index = chips.findIndex(chip => chip.key === key);
-    clearFocus.current = key === null ? { kind: 'all' } : { kind: 'one', key, index };
+  function onClearCommit(key: string | null, { from, to }: { from: string; to: string }) {
+    const index = key === null ? 0 : chips.findIndex(chip => chip.key === key);
+    clearFocus.current = { kind: 'clear', key, index, from, to };
   }
   if (!last) return null;
   const label = m('analysisSelectionGroup');
