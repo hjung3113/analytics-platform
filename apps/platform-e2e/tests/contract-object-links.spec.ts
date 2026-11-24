@@ -81,6 +81,6 @@ test.describe('다른 화면에서 열기 (06 §22, #1930)', () => {
     expect(params.get('eqp')).toBe(id);
     expect(params.get('returnTo')).toBe(returnTo);
     await expect(page.getByRole('region', { name: '설비별 동작시간', exact: true }).getByRole('region', { name: '선택 요약', exact: true })).toContainText(id);
-    await expect(page.getByRole('main').locator('[data-platform-page-body] > [data-return-row]:first-child').getByRole('link', { name: '← 생산성 개요로 돌아가기', exact: true })).toBeVisible();
+    await expect(page.getByRole('main').locator('[data-platform-page-body] > [data-return-row]:first-child').getByRole('link', { name: '← 이전 화면으로 돌아가기', exact: true })).toBeVisible();
   });
 });

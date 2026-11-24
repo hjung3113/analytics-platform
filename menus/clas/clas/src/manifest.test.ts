@@ -21,6 +21,10 @@ describe('manifest', () => {
     expect(registry.menuById(menu.id).analysisSelectionInbound).toEqual([
       { key: 'days', dimension: 'date', shape: 'range', label: { ko: '날짜', en: 'Date' } },
     ]);
+    expect(registry.panels(menu.id)).toEqual([expect.objectContaining({
+      endpoints: [operationTimeEndpoint],
+      queryInputs: expect.objectContaining({ page: [{ key: 'eqp' }, { key: 'days', selection: 'filter' }] }),
+    })]);
   });
 
   it('owns the operation-time endpoint with the same permission and Scope rule (#126)', () => {

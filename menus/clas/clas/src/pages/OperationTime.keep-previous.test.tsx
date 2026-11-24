@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyGlobal, formatWallClock, type ApiResponse, type Trust } from '@ap/contracts';
-import { formatSummaryTime, useMenuQuery } from '@ap/kernel';
+import { formatSummaryTime, parseAnalysisSelection, useMenuQuery } from '@ap/kernel';
 import { operationTimeEndpoint } from '../endpoints';
 import type { OperationRankRow, OperationTimeData } from '../endpoints';
 import OperationTimeScreen, { PreviousEquipmentLine, acceptedEquipment } from './OperationTime';
@@ -21,7 +21,12 @@ vi.mock('@ap/kernel', async importOriginal => ({
   ...(await importOriginal<typeof import('@ap/kernel')>()),
   useMenuQuery: vi.fn(() => ({ status: acceptedResponse ? 'success' : 'loading', response: acceptedResponse, showingPrevious: previousParams !== undefined, resultParams: previousParams })),
   useI18n: () => ({ lang: 'ko', tx: (text: { ko: string }) => text.ko }),
-  usePlatform: () => ({ pageParam: (key: string) => (key === 'eqp' ? 'EQ-07' : null), pageParams: (key: string) => key === 'days' ? receivedDays : [], global: { from: appliedFrom, to: QUERY_TO }, setPage: vi.fn() }),
+  useAnalysisSelectionInputs: () => {
+    const selection = parseAnalysisSelection('range', receivedDays);
+    return { applied: selection ? [{ key: 'days', use: 'filter', selection, dimension: 'date' }] : [],
+      rejected: receivedDays.length > 0 && !selection ? ['days'] : [] };
+  },
+  usePlatform: () => ({ pageParam: (key: string) => (key === 'eqp' ? 'EQ-07' : null), global: { from: appliedFrom, to: QUERY_TO }, setPage: vi.fn() }),
   useQueryContext: () => ({ ...emptyGlobal, from: appliedFrom, to: QUERY_TO }),
 }));
 vi.mock('@ap/components', () => ({
