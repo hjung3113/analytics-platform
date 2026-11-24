@@ -737,7 +737,7 @@ it.each(['metaKey', 'ctrlKey'] as const)('ignores %s undo in the board and uses 
   }, initialA);
   render(<>
     <main><button type="button">Main action</button></main>
-    <div data-floating-mode="window">
+    <div data-floating-window="">
       <button type="button">Window action</button>
       <div data-pane-id="p1"><button type="button">Pane action</button></div>
     </div>

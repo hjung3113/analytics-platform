@@ -131,6 +131,7 @@ export const FloatingWindow = /*#__PURE__*/ forwardRef<FloatingWindowHandle, Flo
       role={windowed ? 'group' : undefined}
       aria-labelledby={windowed ? titleId : undefined}
       data-floating-mode={mode}
+      data-floating-window={mode === 'off' ? undefined : ''}
       className={cn(mode === 'off' ? 'contents' : 'absolute isolate left-(--fw-left) top-(--fw-top) z-40 flex h-(--fw-height) w-(--fw-width) flex-col overflow-hidden bg-surface-card', windowed && 'rounded-md border border-border-subtle shadow-lg')}
       style={mode === 'off' ? undefined : ({ '--fw-left': `${String(area.left + box.x)}px`, '--fw-top': `${String(area.top + box.y)}px`, '--fw-width': `${String(box.width)}px`, '--fw-height': `${String(box.height)}px` } as CSSProperties)}
     >

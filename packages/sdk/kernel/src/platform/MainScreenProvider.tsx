@@ -12,7 +12,9 @@ import { readHistoryIdx, readHistorySeg, withHistoryIdx } from './navigationGuar
 
 const editableTarget = 'input, textarea, select, [role="textbox"], [role="combobox"]';
 const openOverlay = 'dialog[open], [role="dialog"]:not([aria-modal="false"]):not([data-state="closed"]), [role="menu"][data-state="open"], [role="listbox"][data-state="open"]';
-const boardOrWindow = '[data-pane-id], [data-board-host], [data-floating-mode="window"], [data-floating-mode="fill"]';
+// `data-floating-window` marks a shown floating frame (window or fill), title bar included. The frame's mode attribute name is a
+// lazy-chunk marker (tooling/scripts/check-lazy-chunks.mjs), so this start-up module must not spell it.
+const boardOrWindow = '[data-pane-id], [data-board-host], [data-floating-window]';
 
 function isAnalysisUndo(event: KeyboardEvent) {
   if (event.defaultPrevented || event.repeat || event.isComposing || event.shiftKey || event.altKey
