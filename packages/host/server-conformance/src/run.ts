@@ -50,14 +50,21 @@ export async function runServerConformance(harness: ServerConformanceHarness): P
   });
 }
 
-/** The harness's declarations by check id. A blank reason, a duplicate id or an id no planned check has throws (#2894). */
-function knownLimitationsOf(harness: ServerConformanceHarness, checks: readonly ConformanceCheck[]): Map<string, string> {
-  const planned = new Set(checks.map(check => check.baseId ?? check.id));
+/**
+ * The harness's declarations by check id (before a plan-time skip suffix). A blank reason, a repeated declaration, an id
+ * no planned check has, or an id more than one planned check shares (skipped ones counted) throws, so a declaration never
+ * binds to a check it was not written for (#2894).
+ */
+export function knownLimitationsOf(harness: ServerConformanceHarness, checks: readonly ConformanceCheck[]): Map<string, string> {
+  const planned = new Map<string, number>();
+  for (const check of checks) planned.set(check.baseId ?? check.id, (planned.get(check.baseId ?? check.id) ?? 0) + 1);
   const limitations = new Map<string, string>();
   for (const { id, reason } of harness.knownLimitations ?? []) {
     if (!reason?.trim()) throw new Error(`known limitation without a reason: ${id}`);
     if (limitations.has(id)) throw new Error(`known limitation declared twice: ${id}`);
-    if (!planned.has(id)) throw new Error(`known limitation names no planned check: ${id}`);
+    const matches = planned.get(id) ?? 0;
+    if (matches === 0) throw new Error(`known limitation names no planned check: ${id}`);
+    if (matches > 1) throw new Error(`known limitation names ${matches} planned checks, so it cannot tell which: ${id}`);
     limitations.set(id, reason);
   }
   return limitations;
@@ -77,12 +84,16 @@ function withKnownLimitation(result: ConformanceResult, reason: string | undefin
  * reports its own result.
  */
 export function describeServerConformance(title: string, harness: ServerConformanceHarness, timeoutMs = 120_000): void {
+  // Validated when the suite is registered, not only in `beforeAll`: a suite whose every check is planned skipped never
+  // runs that hook, and an invalid declaration would pass unseen (#2894 review).
+  const plan = planServerConformance(harness);
+  knownLimitationsOf(harness, plan);
   describe(title, () => {
     let results = new Map<string, ConformanceResult>();
     beforeAll(async () => {
       results = new Map((await runServerConformance(harness)).map(r => [r.id, r]));
     }, timeoutMs);
-    for (const check of planServerConformance(harness)) {
+    for (const check of plan) {
       if (check.mode === 'skipped') {
         it.skip(check.id, () => {});
         continue;

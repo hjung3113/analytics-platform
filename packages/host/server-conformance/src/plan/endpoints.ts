@@ -189,6 +189,8 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
         // vitest suite reports it as `it.skip` and the plan/run list it, instead of silently skipping the rule.
         checks.push({
           id: name('declares maxRows but has no oversizeParams sample — oversize check not run'),
+          // Declared by the runnable check's id, so a known limitation survives the sample's removal (#2894).
+          baseId: name('oversize result over the declared maxRows → too_large with no data'),
           mode: 'skipped',
           uses: ['menuQuery'],
           run: async () => null, // never called: skipped checks are filtered out of every run
