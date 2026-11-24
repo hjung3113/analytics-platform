@@ -51,9 +51,12 @@ it('keeps the single-permission review layout and batch decision for a one-item 
   await screen.findByTestId('permission-decision-section');
   expect(screen.getByRole('heading', { name: '권한 그룹 «기본 조회»' })).toBeInTheDocument();
   const review = within(screen.getByTestId('permission-request-risk-review'));
-  expect(review.getByText('요청 만료일 없음', { selector: 'p' })).toHaveClass('text-text-muted');
+  // #2679: the same bordered list item a single request and a two-permission group draw, not a muted line.
+  const noExpiration = review.getByText('요청 만료일 없음', { selector: 'p' });
+  expect(noExpiration).toHaveClass('font-medium', 'text-text-primary');
+  expect(noExpiration).not.toHaveClass('text-text-muted');
+  expect(noExpiration.closest('li')).toHaveClass('border-l-2', 'pl-3');
   expect(review.queryByRole('region', { name: '전체 읽기' })).not.toBeInTheDocument();
-  expect(review.queryByRole('listitem')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('radio', { name: '거절' }));
   fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'reviewed here' } });
   fireEvent.click(screen.getByTestId('permission-decision-submit'));

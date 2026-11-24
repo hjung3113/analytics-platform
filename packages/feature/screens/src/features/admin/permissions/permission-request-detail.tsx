@@ -208,7 +208,6 @@ function PermissionRequestRiskReview({
 }) {
   const copy = ADMIN_PERMISSIONS_COPY.riskReview;
   const headingId = React.useId();
-  const singleItemBatch = items?.length === 1;
   const noExpiration = items?.flatMap((item) => item.risk_indicators)
     .find((indicator) => indicator.code === 'no_expiration');
   return <section className="flex flex-col gap-2" data-testid="permission-request-risk-review">
@@ -235,16 +234,8 @@ function PermissionRequestRiskReview({
         ))}
       </ul>
     ) : (
-      <>
-        {singleItemBatch && noExpiration ? <p className="text-sm text-text-muted">{copy.noExpiration}</p> : null}
-        <PermissionMemberRiskReview
-          request={singleItemBatch
-            ? { ...request, risk_indicators: request.risk_indicators.filter(indicator => indicator.code !== 'no_expiration') }
-            : request}
-          managedSystemNames={managedSystemNames}
-          borderedIndicators={!singleItemBatch}
-        />
-      </>
+      // A one-permission group draws like a single request, so «요청 만료일 없음» has one look in every case (#2679).
+      <PermissionMemberRiskReview request={request} managedSystemNames={managedSystemNames} />
     )}
     <FieldRow label={copy.requesterRole} inset="none">{ROLE_LEVEL_DISPLAY_LABELS[request.requester.role_level]}</FieldRow>
     <FieldRow label={copy.reviewAuthority} inset="none">
