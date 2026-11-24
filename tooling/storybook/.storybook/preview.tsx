@@ -10,7 +10,7 @@ const preview: Preview = {
   tags: ['autodocs'],
   parameters: {
     options: { storySort: { order: ['기초', ['원칙', '색', '글자', '간격·모서리·그림자·모션'], '폼', '표 데이터', '조회·필터', '표시', '떠 있는 표면', '데이터 시각화', ['개요', 'Chart Frame', 'AnalysisChart', '분석 선택', 'LaneTimeline', 'OrderedIntervalTrack', 'LegendTree', 'MatrixEmphasisBar'],
-      '행렬', '템플릿', ['Overview', 'Analysis Workspace', 'Management', 'Catalog', 'Workflow']] } },
+      '행렬', '페이지·작업 영역', '저장된 뷰', '템플릿', ['Overview', 'Analysis Workspace', 'Management', 'Catalog', 'Workflow']] } },
     controls: { expanded: true },
   },
 };
