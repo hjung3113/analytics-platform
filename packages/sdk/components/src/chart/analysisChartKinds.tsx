@@ -63,6 +63,8 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
     const padding = (max - min || Math.abs(min) || 1) * 0.05;
     return { min: min - padding, max: max + padding };
   };
+  // One key per point, shared by the brush lookup and the selection ring (#2812).
+  const seriesKeys = plotted.map(g => g.map(p => rowKey('scatter', p.id)));
   const axisRange = (axis: 'x' | 'y') => ({ scale: true, min: (extent: { min: number; max: number }) => bounds(axis, extent).min, max: (extent: { min: number; max: number }) => bounds(axis, extent).max });
   return {
     rows, total: 0, empty: !plotted.some(g => g.length),
@@ -78,9 +80,10 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
     csvValues: points.map(p => [p.id, p.label ?? p.id, groups.find(g => g.key === groupKey(p.group))!.label, p.x ?? unknown, p.y ?? unknown]),
     csvHeaders: ['ID', formatText(COMPONENTS_MESSAGES.chartHeaderName, lang), formatText(COMPONENTS_MESSAGES.chartGroup, lang), `${spec.xLabel} (${spec.xUnit})`, `${spec.yLabel} (${unit})`],
     headers: ['ID', formatText(COMPONENTS_MESSAGES.chartHeaderName, lang), formatText(COMPONENTS_MESSAGES.chartGroup, lang), `${spec.xLabel} (${spec.xUnit})`, `${spec.yLabel} (${unit})`], tableValues, legend,
-    seriesKeys: plotted.map(g => g.map(p => rowKey('scatter', p.id))),
+    seriesKeys,
     option: active => {
       const theme = chartTheme();
+      const chosen = new Set(active);
       return {
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { seriesIndex: number; dataIndex: number }) => { const point = plotted[p.seriesIndex]?.[p.dataIndex]; return point ? `${point.label ?? point.id} · ${groups[p.seriesIndex].label}: ${spec.xLabel} ${text(point.x, spec.xUnit)} · ${spec.yLabel} ${text(point.y, unit)}` : ''; } },
         grid: { top: 32, bottom: 56, left: 48, right: 40, containLabel: true },
@@ -90,7 +93,7 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
         series: plotted.map((group, i) => ({ type: 'scatter', symbol: legend[i].symbol, emphasis: { focus: 'none' },
           ...(spec.density === 'quiet' ? { symbolSize: QUIET_SCATTER.normalSize } : {}),
           markLine: i === 0 ? { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, ...(r.axis === 'x' ? { xAxis: r.value, label: { position: 'end', rotate: 0, offset: [0, 8], verticalAlign: 'top' } } : { yAxis: r.value }) })) } : undefined,
-          data: group.map(p => ({ value: [p.x, p.y], itemStyle: { ...(spec.density === 'quiet' ? { opacity: QUIET_SCATTER.normalOpacity } : {}), color: legendColor(legend[i].color), borderColor: token('chart-selection-outline'), borderWidth: selectionRing(active.includes(rowKey('scatter', p.id))) } })),
+          data: group.map((p, j) => ({ value: [p.x, p.y], itemStyle: { ...(spec.density === 'quiet' ? { opacity: QUIET_SCATTER.normalOpacity } : {}), color: legendColor(legend[i].color), borderColor: token('chart-selection-outline'), borderWidth: selectionRing(chosen.has(seriesKeys[i]![j]!)) } })),
         })),
       };
     },
@@ -143,6 +146,7 @@ export function boxPlotData(spec: BoxPlotSpec, lang: Lang, unit: string): KindPr
     seriesKeys: [rows.map(r => r.key), outliers.map(o => rows[o.group].key), medianGroups.map(i => rows[i].key)],
     option: active => {
       const theme = chartTheme();
+      const chosen = new Set(active);
       return {
         grid: { top: 24, bottom: 24, left: 24, right: 24, containLabel: true },
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { seriesIndex: number; dataIndex: number }) => { const index = p.seriesIndex === 1 ? outliers[p.dataIndex]?.group : p.seriesIndex === 2 ? medianGroups[p.dataIndex] : p.dataIndex; return index === undefined ? '' : tableValues[index].map((value, i) => `${headers[i]}: ${value}`).join(' · '); } },
@@ -151,7 +155,7 @@ export function boxPlotData(spec: BoxPlotSpec, lang: Lang, unit: string): KindPr
         series: [
           { type: 'boxplot', boxWidth: [24, 24], itemStyle: { borderColor: token(strokeToken(fills[0])) },
             markLine: { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, yAxis: r.value })) },
-            data: groups.map((g, i) => ({ value: g.stats ? [g.stats.min, g.stats.q1, g.stats.median, g.stats.q3, g.stats.max] : ['-', '-', '-', '-', '-'], itemStyle: { color: token(fills[i % 4]), borderColor: token(strokeToken(fills[i % 4])), borderWidth: active.includes(rows[i].key) ? 3 : 1.5 } })), // A box is drawn by its outline, so selection thickens it instead of a ring that would hide its colour (#2736).
+            data: groups.map((g, i) => ({ value: g.stats ? [g.stats.min, g.stats.q1, g.stats.median, g.stats.q3, g.stats.max] : ['-', '-', '-', '-', '-'], itemStyle: { color: token(fills[i % 4]), borderColor: token(strokeToken(fills[i % 4])), borderWidth: chosen.has(rows[i].key) ? 3 : 1.5 } })), // A box is drawn by its outline, so selection thickens it instead of a ring that would hide its colour (#2736).
           },
           { type: 'scatter', symbolSize: 5, data: outliers.map(o => ({ value: [o.group, o.value], itemStyle: { color: token(strokeToken(fills[o.group % 4])) } })) },
           // ECharts boxplot draws its median and outline in one path. Overlay an exact-width median in the on-fill token.
@@ -203,13 +207,14 @@ export function paretoData(spec: ParetoSpec, lang: Lang, unit: string): KindProj
     seriesKeys: [rows.map(row => row.key), []],
     option: active => {
       const theme = chartTheme();
+      const chosen = new Set(active);
       return {
         grid: { top: 24, bottom: 24, left: 24, right: 48, containLabel: true },
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { dataIndex: number }) => tableValues[p.dataIndex]?.join(' · ') ?? '' },
         xAxis: { type: 'category', data: rows.map(row => row.label), axisLine: theme.axisLine, axisLabel: theme.axisLabel },
         yAxis: [{ type: 'value', min: 0, name: unit, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine }, { type: 'value', min: 0, max: 100, name: '%', position: 'right', axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, formatter: '{value}%' }, splitLine: { show: false } }],
         series: [
-          { type: 'bar', data: rows.map(row => ({ value: row.value, itemStyle: { color: token(row.color!), borderColor: token('chart-selection-outline'), borderWidth: selectionRing(active.includes(row.key)) } })) },
+          { type: 'bar', data: rows.map(row => ({ value: row.value, itemStyle: { color: token(row.color!), borderColor: token('chart-selection-outline'), borderWidth: selectionRing(chosen.has(row.key)) } })) },
           { type: 'line', yAxisIndex: 1, data: cumulative, showSymbol: lineSymbolShown(cumulative.length), lineStyle: { color: token('chart-series-2-stroke') }, itemStyle: { color: token('chart-series-2-stroke') }, markLine: { ...theme.referenceLine, data: [{ name: pct(target * 100), yAxis: target * 100 }] } },
         ],
       };

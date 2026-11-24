@@ -227,12 +227,15 @@ export function AnalysisChart(p: AnalysisChartProps) {
   if (rowFloor && spec.kind === 'heatmap') canvasHeight = Math.max(height, heatmapMinCanvasHeight(spec.yLabels.length, rowFloor));
   if (fittedDonut) canvasHeight = Math.max(donutMinimumHeight, height);
   const keys = useMemo(() => rows.map(row => row.key), [rows]);
+  // Selection lookups by set: a point count times a selection count of `includes` compares otherwise (#2812).
+  const keySet = useMemo(() => new Set(keys), [keys]);
   const contextKey = JSON.stringify([platform?.user?.id, platform?.revision, global]);
   const [previousContext, setPreviousContext] = useState(contextKey);
   const following = selected === null;
   const active = useMemo(() => previousContext !== contextKey ? []
-    : selected === null ? (followedKey !== null && keys.includes(followedKey) ? [followedKey] : [])
-    : selected.filter(key => keys.includes(key)), [previousContext, contextKey, selected, followedKey, keys]);
+    : selected === null ? (followedKey !== null && keySet.has(followedKey) ? [followedKey] : [])
+    : selected.filter(key => keySet.has(key)), [previousContext, contextKey, selected, followedKey, keySet]);
+  const activeSet = useMemo(() => new Set(active), [active]);
   if (previousContext !== contextKey) {
     setPreviousContext(contextKey);
     setSelected(unfollowed);
@@ -251,7 +254,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const toggle = (key: string, source: 'plot' | 'table') => {
     if (spec.kind === 'heatmap') setSelectionFromTable(source === 'table' && canPreferTableSelection);
     if (spec.kind === 'donut') {
-      const next = active.includes(key) ? [] : [key];
+      const next = activeSet.has(key) ? [] : [key];
       setSelected(next);
       spec.onSelectedChange?.(next.length ? spec.slices.find(slice => JSON.stringify(['slice', slice.id]) === key)?.id ?? null : null);
       return;
@@ -283,7 +286,6 @@ export function AnalysisChart(p: AnalysisChartProps) {
     const tone = (name: ThemeColorToken) => { let value = read.get(name); if (value === undefined) { value = token(name); read.set(name, value); } return value; };
     const xIndex = new Map(spec.kind === 'heatmap' ? spec.xLabels.map((label, index) => [label, index] as const) : []);
     const yIndex = new Map(spec.kind === 'heatmap' ? spec.yLabels.map((label, index) => [label, index] as const) : []);
-    const activeKeys = new Set(active);
     const borderOnly = spec.kind === 'heatmap' && spec.statusDisplay === 'border';
     const categories = spec.kind === 'heatmap' && spec.categories !== undefined ? new Map(spec.categories.map(category => [category.id, category])) : undefined;
     const categoryTokens = (cell: HeatmapCell) => {
@@ -305,7 +307,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     const cellStyle = (cell: HeatmapCell) => {
       const key = keyOf(cell.x, cell.y);
       const controlled = key === controlledKey;
-      const outlined = controlledCell === undefined ? activeKeys.has(key) : controlled;
+      const outlined = controlledCell === undefined ? activeSet.has(key) : controlled;
       const hasInsetStatus = cell.status && !controlled;
       return {
         color: fillColor(cell), ...(categories ? { opacity: 1 } : {}),
@@ -328,12 +330,12 @@ export function AnalysisChart(p: AnalysisChartProps) {
       })) }, ...heatmapStatusOutlines(cells.flatMap(c => c.status ? [{ value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value], status: c.status, fill: fillColor(c), ...(categories ? { opacity: 1 } : {}) }] : []), heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length))],
     } : {
       tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
-      series: [{ type: 'pie', radius: ['55%', '80%'], selectedMode: false, emphasis: { focus: 'none', scale: false }, label: { show: false }, data: rows.map(row => ({ name: row.label, value: row.value, itemStyle: { color: token(row.color!), borderColor: token(colors.selection), borderWidth: selectionRing(active.includes(row.key)) } })) }],
+      series: [{ type: 'pie', radius: ['55%', '80%'], selectedMode: false, emphasis: { focus: 'none', scale: false }, label: { show: false }, data: rows.map(row => ({ name: row.label, value: row.value, itemStyle: { color: token(row.color!), borderColor: token(colors.selection), borderWidth: selectionRing(activeSet.has(row.key)) } })) }],
     };
     return { option, scale, domain, ramp, validThreshold };
   // `size`, `height` and `lang` are deliberate re-run triggers: a new option object makes ECharts re-lay out the plot for the new size/language.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional triggers, see comment above
-  }, [spec, cells, rows, extended, active, controlledCell, controlledKey, plotSize, valueText, size, height, lang, rowFloor, themeRevision]);
+  }, [spec, cells, rows, extended, active, activeSet, controlledCell, controlledKey, plotSize, valueText, size, height, lang, rowFloor, themeRevision]);
   const measureGrid = useCallback((instance: ECharts | null) => {
     if (spec.kind !== 'heatmap' || !instance || instance.isDisposed?.()) return;
     // ECharts exposes the laid-out grid through its runtime model (not in its public TS surface).
@@ -351,7 +353,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const summary = extended?.summary ?? (spec.kind === 'heatmap'
     ? m('chartHeatmapSummary', { cells: cells.length, missing: spec.xLabels.length * spec.yLabels.length - cells.length, unknown: cells.filter(c => c.value === null).length, nullLabel: spec.nullLabel ?? unknown.toLowerCase(), unit: p.unit })
     : m('chartDonutSummary', { count: rows.length, total: format(total), unit: p.unit }));
-  const selectedRows = rows.filter(row => active.includes(row.key));
+  const selectedRows = useMemo(() => rows.filter(row => activeSet.has(row.key)), [rows, activeSet]);
   const controlledRow = controlledKey === null ? undefined : rows.find(row => row.key === controlledKey);
   const useTableSelection = canPreferTableSelection && selectionFromTable
     && selectedRows.length === 1 && selectedRows[0].value !== null;
@@ -546,9 +548,10 @@ export function AnalysisChart(p: AnalysisChartProps) {
           brushselected: params => { if (!brushable) return; const selections: { seriesIndex: number; dataIndex: number[] }[] = params.batch?.[0]?.selected ?? []; brushedKeys.current = [...new Set(selections.flatMap(s => s.dataIndex.flatMap(i => { const key = extended ? extended.seriesKeys[s.seriesIndex]?.[i] : s.seriesIndex === 0 ? rows[i]?.key : undefined; return key ? [key] : []; })))]; },
           brushEnd: () => {
             if (!brushable) return;
-            const next = brushedKeys.current.filter(key => keys.includes(key));
+            const next = brushedKeys.current.filter(key => keySet.has(key));
+            const nextSet = new Set(next);
             if (spec.kind === 'heatmap') setSelectionFromTable(false);
-            setSelected(old => old !== null && old.length === next.length && old.every(key => next.includes(key)) ? old : next);
+            setSelected(old => old !== null && old.length === next.length && old.every(key => nextSet.has(key)) ? old : next);
           },
         }} />
         {spec.kind === 'donut' && <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-xs text-text-secondary">
@@ -568,7 +571,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       {table && <div className="overflow-auto px-4 py-2"><table tabIndex={spec.kind === 'histogram' ? 0 : undefined} className="w-full text-xs"><caption>{p.title} · {p.unit}</caption>
         <thead className="bg-surface-sunken"><tr>{(spec.kind === 'histogram' ? headers : [...headers, m('chartSelect')]).map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>
         <tbody>{rows.map((row, i) => <tr key={row.key}>{tableValues[i].map((value, j) => <td key={j}>{value}</td>)}{spec.kind !== 'histogram' && <td>
-          <Checkbox aria-label={m('chartSelectItem', { label: row.label })} checked={active.includes(row.key)} onCheckedChange={() => toggle(row.key, 'table')} />
+          <Checkbox aria-label={m('chartSelectItem', { label: row.label })} checked={activeSet.has(row.key)} onCheckedChange={() => toggle(row.key, 'table')} />
           {row.drill && <Button size="toolbar" variant="ghost" onClick={row.drill}>{m('chartDetails')}</Button>}
         </td>}</tr>)}</tbody>
       </table></div>}
