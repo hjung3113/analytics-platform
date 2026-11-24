@@ -1,7 +1,7 @@
 import { EQUIPMENT, type Equipment } from '@ap/mock-server';
 
 /** Rows per response: the first equipment the server resolved for the applied Scope/Condition/Selection. */
-const MAX_EQUIPMENT_ROWS = 24;
+export const MAX_EQUIPMENT_ROWS = 24;
 
 /** Applied Scope/Condition/Selection resolves equipment first; the rows are those master IDs (at most 24, master order), so a
  * shown row can become the equipment condition and a narrowed population keeps its rows (#2868). No resolved equipment means no rows. */

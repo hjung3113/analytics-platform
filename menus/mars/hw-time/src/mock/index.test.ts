@@ -315,6 +315,14 @@ describe('HW Time population follows the applied Scope and Condition', () => {
     expect(narrowed.rows[0]!.values).toEqual(all.rows.find(row => row.equipmentId === shown)!.values);
   });
 
+  it('refuses a fixed selection over 24 equipment instead of answering for part of it (#2868)', async () => {
+    const granted = EQUIPMENT.filter(e => e.site === 'MEM' && ['PHOTO', 'ETCH', 'CVD'].includes(e.room)).map(e => e.equipmentId);
+    expect((await query(hwTime.levelRows.id, {}, { selection: granted.slice(0, 24) })).outcome).toBe('ok');
+    const over = await query(hwTime.levelRows.id, {}, { selection: granted.slice(0, 25) });
+    expect(over.outcome).toBe('error');
+    expect(JSON.stringify(over)).toContain('at most 24 fixed equipment');
+  });
+
   it('keeps every fixed ID of a mixed selection as its own row (#2868)', async () => {
     const fixed = [photo[0]!, EQUIPMENT.find(e => e.site === 'MEM' && e.room === 'CVD')!.equipmentId];
     const result = await data<HwTimeLevelData>(hwTime.levelRows.id, {}, { selection: fixed });
