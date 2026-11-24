@@ -80,8 +80,8 @@ export function heatmapStatusOutlines(cells: readonly { value: (number | null)[]
   const drawn = width > 0 && height > 0;
   const { border, backing: backingWidth } = statusRing(drawn ? Math.min(width, height) : Infinity);
   const data = cells.map(c => ({ ...c, effective: statusFill(c.fill, c.opacity ?? 0.8) }));
-  const ring = (id: string, z: number, items: readonly { value: (number | null)[]; stroke: string }[], lineWidth: number, inset: number) => ({
-    id, type: 'custom', z, silent: true, animation: false, clip: true, tooltip: { show: false }, emphasis: { disabled: true },
+  const ring = (z: number, items: readonly { value: (number | null)[]; stroke: string }[], lineWidth: number, inset: number) => ({
+    type: 'custom', z, silent: true, animation: false, clip: true, tooltip: { show: false }, emphasis: { disabled: true },
     data: items.map((c, index) => [c.value[0], c.value[1], index]),
     renderItem: (_params: unknown, api: { value: (dimension: number) => unknown; coord: (point: unknown[]) => number[] }) => {
       const [cx = 0, cy = 0] = api.coord([api.value(0), api.value(1)]);
@@ -91,8 +91,8 @@ export function heatmapStatusOutlines(cells: readonly { value: (number | null)[]
   });
   const backings = backingWidth ? data.flatMap(c => { const stroke = statusBacking(c.status, c.effective); return stroke ? [{ value: c.value, stroke }] : []; }) : [];
   return [
-    ...(backings.length ? [ring('__statusBacking', 3, backings, backingWidth, border + backingWidth / 2)] : []),
-    ring('__statusOutline', 4, data.map(c => ({ value: c.value, stroke: statusBorderColor(c.status, c.effective) })), border, border / 2),
+    ...(backings.length ? [ring(3, backings, backingWidth, border + backingWidth / 2)] : []),
+    ring(4, data.map(c => ({ value: c.value, stroke: statusBorderColor(c.status, c.effective) })), border, border / 2),
   ];
 }
 export const statusKey = (status: ChartStatus) => JSON.stringify([status.tone, status.label]);

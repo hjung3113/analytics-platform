@@ -45,11 +45,11 @@ export function lineStatusSeries(i: ChartOptionInput, statuses: ReadonlyMap<stri
     const base = { type: 'scatter' as const, silent: true, animation: false, symbol: 'circle', tooltip: { show: false }, ...(i.rightAxis && s.axis === 'right' ? { yAxisIndex: 1 } : {}) };
     const overlays: ScatterSeriesOption[] = [];
     if (data.length) overlays.push(
-      { ...base, id: `__line-halo-${s.id}`, z: 4, symbolSize: HALO_SIZE, itemStyle: { color: surface, opacity: 1 }, blur: { itemStyle: { opacity: 1 } }, data: data.map(d => d.value) },
-      { ...base, id: `__line-status-${s.id}`, z: 5, symbolSize: STATUS_SIZE, blur: { itemStyle: { opacity: STATUS_OPACITY }, label: { opacity: STATUS_OPACITY } }, data },
+      { ...base, z: 4, symbolSize: HALO_SIZE, itemStyle: { color: surface, opacity: 1 }, blur: { itemStyle: { opacity: 1 } }, data: data.map(d => d.value) },
+      { ...base, z: 5, symbolSize: STATUS_SIZE, blur: { itemStyle: { opacity: STATUS_OPACITY }, label: { opacity: STATUS_OPACITY } }, data },
     );
     if (highlights.length) overlays.push({
-      ...base, id: `__line-highlight-${s.id}`, z: 6, symbolSize: HIGHLIGHT_SIZE, data: highlights,
+      ...base, z: 6, symbolSize: HIGHLIGHT_SIZE, data: highlights,
       itemStyle: { color: 'none', borderColor: i.palette.selection, borderWidth: 2, borderType: 'dashed', opacity: 1 },
       blur: { itemStyle: { opacity: 1 } },
     });

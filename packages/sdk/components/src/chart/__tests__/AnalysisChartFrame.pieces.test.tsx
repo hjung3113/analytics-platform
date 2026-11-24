@@ -37,6 +37,22 @@ function pointEvent(name: string) {
 afterEach(() => { cleanup(); });
 
 describe('AnalysisChartFrame SDK pieces (#541)', () => {
+  it('selects and activates a consumer series with the former overlay ID', async () => {
+    const onSelect = vi.fn();
+    const onActivate = vi.fn();
+    const id = '__overlay';
+    await mount({
+      series: [{ ...series[0], id }],
+      pointActions: [{ id: 'inspect', label: 'Inspect', onSelect }],
+      pointActivation: { on: 'dblclick', onActivate },
+    });
+    const point = { x: 'Row B | B1', seriesId: id, value: 2 };
+    act(() => plot.onEvents?.contextmenu?.({ seriesId: id, dataIndex: 0 }, {} as never));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Inspect' }));
+    act(() => plot.onEvents?.dblclick?.({ seriesId: id, dataIndex: 0 }, {} as never));
+    expect(onSelect).toHaveBeenCalledWith(point);
+    expect(onActivate).toHaveBeenCalledWith(point);
+  });
   it('activates a double-clicked point with its category, series and value without navigation', async () => {
     const onActivate = vi.fn();
     await mount({ pointActivation: { on: 'click', onActivate } });

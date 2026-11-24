@@ -1070,7 +1070,6 @@ exports[`builds the same statusScatter option and summary from a fixed selection
         "emphasis": {
           "disabled": true,
         },
-        "id": "__scatterStatusBacking-0",
         "itemStyle": {
           "color": "transparent",
           "opacity": 1,
@@ -1120,7 +1119,6 @@ exports[`builds the same statusScatter option and summary from a fixed selection
         "emphasis": {
           "disabled": true,
         },
-        "id": "__scatterStatusOutline-0",
         "itemStyle": {
           "color": "transparent",
           "opacity": 1,

@@ -258,7 +258,6 @@
    ]
   },
   {
-   "id": "__overlay",
    "type": "line",
    "data": [],
    "silent": true,

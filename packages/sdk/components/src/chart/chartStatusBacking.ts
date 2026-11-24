@@ -97,7 +97,7 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
       }] };
     };
     return [{
-      id: slot === 0 ? '__statusBarBacking' : `__statusBarBacking-${slot}`, type: 'custom', silent: true, animation: false, clip: true, z: 3,
+      type: 'custom', silent: true, animation: false, clip: true, z: 3,
       tooltip: { show: false }, ...(input.rightAxis && series.axis === 'right' ? { yAxisIndex: 1 } : {}),
       encode: input.horizontal ? { x: [1, 2], y: 0 } : { x: 0, y: [1, 2] },
       data: pieces.map((p, index) => [p.category, p.start, p.end, index]), renderItem,

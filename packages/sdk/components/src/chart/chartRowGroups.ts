@@ -40,7 +40,7 @@ export function rowGroupLayout(groups: ChartRowGroups, categories: readonly stri
 /** One custom item per run. Coordinates come from the live category axis, so resize and Zoom keep labels and separators aligned. */
 export function rowGroupSeries(layout: ReturnType<typeof rowGroupLayout>, color: string, separator: string) {
   return {
-    id: '__rowGroups', type: 'custom', silent: true, animation: false, clip: false, tooltip: { show: false },
+    type: 'custom', silent: true, animation: false, clip: false, tooltip: { show: false },
     encode: { y: [0, 1], x: -1 }, data: layout.runs.map(run => [run.start, run.end]),
     renderItem: (params: RenderParams, api: RenderApi) => {
       const run = layout.runs[params.dataIndex];

@@ -9,11 +9,12 @@ import { buildChartOption, resolveChartPalette } from '../buildChartOption';
 import { baselineInput, type BaselineOverrides } from '../__fixtures__/baselineInput';
 
 echarts.use([BarChart, CustomChart, LineChart, ScatterChart, BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent, LabelLayout, SVGRenderer]);
-function draw(extra: BaselineOverrides) {
+function draw(extra: BaselineOverrides, check?: (chart: ReturnType<typeof echarts.init>) => void) {
   const input = baselineInput(extra);
   const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 800, height: 260 });
   try {
     chart.setOption({ ...buildChartOption({ ...input, palette: resolveChartPalette(input.displayed) }), animation: false });
+    check?.(chart);
     return chart.renderToSVGString();
   } finally { chart.dispose(); }
 }
@@ -21,6 +22,53 @@ const rowGroups = { header: '설비', byCategory: new Map([
   ['R1', { group: 'EQ1', label: 'PM1' }], ['R2', { group: 'EQ1', label: 'PM2' }], ['R3', { group: 'EQ2', label: 'PM1' }], ['R4', { group: 'EQ1', label: 'PM3' }],
 ]) };
 const texts = (svg: string) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(m => m[1]);
+
+const warning = () => ({ tone: 'warning' as const, label: 'High' });
+const total = { value: 900, partial: false, missing: [] };
+const categoryValueMarks = { label: 'Measured total', byCategory: new Map([['R1', 950]]) };
+const horizontalCollisions = [
+  ['__total', { valueLabels: 'total', totals: new Map([['R1', total]]), totalText: new Map([['R1', 'Row total']]) }, '>Row total</text>'],
+  ['__spacer-1', { startAlign: true }, 'ecmeta_series_index="1"'],
+  ['__categoryValueMark', { categoryValueMarks }, 'ecmeta_series_index="2"'],
+  ['__overlay', {}, '>목표</text>'],
+  ['__rowGroups', { rowGroups }, '>EQ2</text>'],
+  ['__statusBarBacking', { pointStatus: warning }, 'ecmeta_series_index="2"'],
+  ['__statusBarBacking-1', { pointStatus: warning, startAlign: true }, 'ecmeta_series_index="4"'],
+] satisfies [string, BaselineOverrides, string][];
+const verticalCollisions = [
+  ['__bounds-upper', 'stroke-dasharray="8,4"'],
+  ['__bounds-lower', 'stroke-dasharray="2,4"'],
+  ['__bounds-band', 'fill-opacity="0.12"'],
+  ['__line-halo-a', 'ecmeta_series_index="3"'],
+  ['__line-status-a', '>◆</text>'],
+  ['__line-highlight-a', 'ecmeta_series_index="5"'],
+] as const;
+
+function expectConsumerSeries(chart: ReturnType<typeof echarts.init>, id: string) {
+  const series = chart.getOption().series as { id?: string; name?: string }[];
+  expect(series.filter(entry => entry.id === id)).toEqual([expect.objectContaining({ name: 'Consumer series' })]);
+}
+
+it.each(horizontalCollisions)('renders a horizontal consumer series with ID %s and its reading aids', (id, options, marker) => {
+  const displayed = baselineInput().displayed.map((s, index) => index === 0 ? { ...s, id, name: 'Consumer series' } : s);
+  const svg = draw({ ...options, displayed, extremes: undefined }, chart => expectConsumerSeries(chart, id));
+  expect(svg).toContain('ecmeta_series_index="0"');
+  expect(svg).toContain(marker);
+});
+
+it.each(verticalCollisions)('renders a vertical consumer series with ID %s and its reading aids', (id, marker) => {
+  const displayed = baselineInput().displayed.map((s, index) => ({
+    ...s, ...(index === 1 ? { id, name: 'Consumer series' } : { kind: 'line' as const }),
+  }));
+  const svg = draw({
+    displayed, horizontal: false, stacked: false, rowPitch: undefined, extremes: undefined, markLines: undefined,
+    bounds: new Map([['R1', { lower: 1, upper: 1000 }]]),
+    pointStatus: point => point.seriesId === 'a' ? warning() : undefined,
+    highlightedValues: ['R1'],
+  }, chart => expectConsumerSeries(chart, id));
+  expect(svg).toContain('ecmeta_series_index="1"');
+  expect(svg).toContain(marker);
+});
 describe('ECharts draws the reading aids (#2326)', () => {
   it.each([26, undefined])('draws one group label per run and short labels, rowPitch=%s', rowPitch => {
     const drawn = texts(draw({ rowGroups, rowPitch }));

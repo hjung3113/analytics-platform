@@ -109,7 +109,7 @@ export function boundSeries(p: BoundProjection, palette: ChartPalette): CustomSe
   return p.parts.map(part => {
     const spans = p.segments.filter(s => hasBoundPart(s, part));
     return {
-      id: `__bounds-${part}`, name: p.labels[part], type: 'custom', silent: true, animation: false, clip: true, z: part === 'band' ? 0 : 3,
+      name: p.labels[part], type: 'custom', silent: true, animation: false, clip: true, z: part === 'band' ? 0 : 3,
       tooltip: { show: false }, encode: { x: -1, y: -1 }, data: spans.map((_, n) => n),
       renderItem: (params, api) => {
         const s = spans[params.dataIndex];

@@ -67,7 +67,7 @@ function categoryGroups(groups: ChartRowGroups, order: readonly string[]): Custo
   const { runs } = rowGroupLayout(groups, order);
   const theme = chartTheme();
   return {
-    id: '__scatterGroups', type: 'custom', silent: true, animation: false, clip: false, tooltip: { show: false },
+    type: 'custom', silent: true, animation: false, clip: false, tooltip: { show: false },
     encode: { x: [0, 1], y: -1 }, data: runs.map(run => [run.start, run.end]),
     renderItem: (params, api) => {
       const run = runs[params.dataIndex];
@@ -173,8 +173,8 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
       return backing ? [{ value: datum.value, itemStyle: { borderColor: backing, borderWidth: 6 } }] : [];
     });
     return [
-      ...(backings.length ? [{ ...outline, id: `__scatterStatusBacking-${groupIndex}`, z: 3, data: backings }] : []),
-      { ...outline, id: `__scatterStatusOutline-${groupIndex}`, z: 4, data: data.map(datum => ({ value: datum.value, itemStyle: { borderColor: statusBorderColor(datum.status, effectiveFill), borderWidth: quiet ? QUIET_SCATTER.ringWidth : 2 } })) },
+      ...(backings.length ? [{ ...outline, z: 3, data: backings }] : []),
+      { ...outline, z: 4, data: data.map(datum => ({ value: datum.value, itemStyle: { borderColor: statusBorderColor(datum.status, effectiveFill), borderWidth: quiet ? QUIET_SCATTER.ringWidth : 2 } })) },
     ];
   });
   return {

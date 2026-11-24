@@ -10,11 +10,11 @@ import type { EChartProps } from '../EChart';
 
 vi.mock('../EChartImpl', () => ({ default: FakePlot }));
 
-type Plotted = { id?: string; type?: string; stack?: string; silent?: boolean; tooltip?: { show?: boolean }; emphasis?: { disabled?: boolean }; itemStyle?: { color?: string }; data?: unknown[] };
+type Plotted = { id?: string; type?: string; markArea?: unknown; symbol?: string; stack?: string; silent?: boolean; tooltip?: { show?: boolean }; emphasis?: { disabled?: boolean }; itemStyle?: { color?: string }; data?: unknown[] };
 type Option = { series: Plotted[]; grid: { right: number }; xAxis: { axisLabel?: { show?: boolean }; name?: string; max?: number }; yAxis: { data: string[] } };
 let plotProps: EChartProps | null = null;
 const option = () => plotProps!.option as unknown as Option;
-const overlay = () => option().series.find(s => s.id === '__overlay') as unknown as { markLine?: { data: { name: string; xAxis: number; label: { width: number } }[] } };
+const overlay = () => option().series.find(s => s.markArea) as unknown as { markLine?: { data: { name: string; xAxis: number; label: { width: number } }[] } };
 function FakePlot(props: EChartProps) { plotProps = props; return <div role="img" aria-label={props.ariaLabel} />; }
 
 const registry = createRegistry({
@@ -41,8 +41,8 @@ const tableText = async () => {
   fireEvent.click(await screen.findByRole('button', { name: '표로 보기' }));
   return screen.getAllByRole('row').map(row => row.textContent);
 };
-const realSeries = () => option().series.filter(s => !s.id!.startsWith('__'));
-const spacers = () => option().series.filter(s => s.id!.startsWith('__spacer'));
+const realSeries = () => option().series.filter(s => s.id !== undefined);
+const spacers = () => option().series.filter(s => s.type === 'bar' && s.id === undefined);
 
 beforeEach(() => { plotProps = null; vi.spyOn(console, 'warn').mockImplementation(() => {}); vi.spyOn(console, 'error').mockImplementation(() => {}); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -110,7 +110,7 @@ describe('startAlign (#690o)', () => {
     const gap = 13 * LANE_GAP_RATIO;
     const bars = realSeries();
     expect(bars.map(s => s.id)).toEqual(VISIBLE);
-    expect(spacers().map(s => s.id)).toEqual(['__spacer-1', '__spacer-2']);
+    expect(spacers()).toHaveLength(2);
     const a = bars[0].data as (number | null)[]; const b = bars[1].data as (number | null)[];
     spacers()[0].data!.forEach((v, row) => expect(v).toBeCloseTo(widths[0] + gap - (a[row] ?? 0)));
     spacers()[1].data!.forEach((v, row) => expect(v).toBeCloseTo(widths[1] + gap - (b[row] ?? 0)));
@@ -118,7 +118,7 @@ describe('startAlign (#690o)', () => {
     const starts = [0, widths[0] + gap, widths[0] + widths[1] + 2 * gap];
     ROWS.forEach((_, row) => {
       let offset = 0;
-      option().series.filter(s => s.id !== '__overlay').forEach(s => {
+      option().series.filter(s => !s.markArea).forEach(s => {
         const real = bars.indexOf(s);
         if (real >= 0) { expect(offset).toBeCloseTo(starts[real]); }
         offset += (s.data![row] as number | null) ?? 0;
@@ -188,9 +188,9 @@ describe('startAlign (#690o)', () => {
 
   it('suppresses category marks only while startAlign is effective', async () => {
     const view = await mount({ startAlign: true, visibleSeriesIds: ['a'], categoryValueMarks: { label: 'Actual', byCategory: new Map([['R1', 9]]) } });
-    expect(option().series.some(series => series.id === '__categoryValueMark')).toBe(true);
+    expect(option().series.some(series => series.symbol === 'diamond')).toBe(true);
     view.update({ visibleSeriesIds: ['a', 'b'] });
-    expect(option().series.some(series => series.id === '__categoryValueMark')).toBe(false);
+    expect(option().series.some(series => series.symbol === 'diamond')).toBe(false);
   });
 
   it('warns and does nothing outside horizontal stacked', async () => {

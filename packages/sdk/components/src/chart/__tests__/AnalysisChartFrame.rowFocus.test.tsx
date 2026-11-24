@@ -13,7 +13,7 @@ import type { EChartProps } from '../EChart';
 
 vi.mock('../EChartImpl', () => ({ default: FakePlot }));
 
-type PlottedSeries = { id?: string; data?: unknown[] };
+type PlottedSeries = { id?: string; markArea?: unknown; data?: unknown[] };
 let plotProps: EChartProps | null = null;
 const plotOption = () => plotProps!.option as unknown as { dataZoom?: unknown[]; grid: { containLabel?: boolean; top: number; bottom: number; left: number }; series: PlottedSeries[]; yAxis: { axisLabel: { formatter?: (v: string) => string } } };
 
@@ -45,7 +45,7 @@ function mount(props: Partial<AnalysisChartFrameProps> = {}) {
   const view = render(frame(props));
   return { ...view, update: (extra: Partial<AnalysisChartFrameProps>) => view.rerender(frame({ ...props, ...extra })) };
 }
-const bars = (category: string) => plotOption().series.filter(s => s.id !== '__overlay').map(s => s.data![['R1', 'R2', 'R3'].indexOf(category)]);
+const bars = (category: string) => plotOption().series.filter(s => !s.markArea).map(s => s.data![['R1', 'R2', 'R3'].indexOf(category)]);
 const highlighted = () => ['R1', 'R2', 'R3'].filter(c => bars(c).every(d => typeof d === 'object' && d !== null));
 
 let warnSpy: ReturnType<typeof vi.spyOn>;
@@ -291,11 +291,11 @@ describe('gentle bar emphasis (#1141)', () => {
   it('forwards none for an arbitrary chart ID without changing active-row outlines or other series', async () => {
     const view = mount({ series: rows.map(s => ({ ...s, kind: 'bar' })), emphasisFocus: 'none', activeCategory: 'R2' });
     await screen.findByRole('img');
-    const gentle = plotOption().series.filter(s => s.id !== '__overlay') as (PlottedSeries & { emphasis: { focus: string } })[];
+    const gentle = plotOption().series.filter(s => !s.markArea) as (PlottedSeries & { emphasis: { focus: string } })[];
     expect(gentle.map(s => s.emphasis.focus)).toEqual(['none', 'none']);
     expect(bars('R2')).toEqual([expect.objectContaining({ itemStyle: expect.objectContaining({ borderWidth: 2 }) }), expect.objectContaining({ itemStyle: expect.objectContaining({ borderWidth: 2 }) })]);
     view.update({ emphasisFocus: 'series' });
-    const normal = plotOption().series.filter(s => s.id !== '__overlay') as (PlottedSeries & { emphasis: { focus: string } })[];
+    const normal = plotOption().series.filter(s => !s.markArea) as (PlottedSeries & { emphasis: { focus: string } })[];
     expect(normal.map(s => s.emphasis.focus)).toEqual(['series', 'series']);
     expect(gentle.map(({ emphasis: _emphasis, ...s }) => s)).toEqual(normal.map(({ emphasis: _emphasis, ...s }) => s));
   });
@@ -303,7 +303,7 @@ describe('gentle bar emphasis (#1141)', () => {
   it('dims no other series by default (#2342)', async () => {
     mount({ series: rows.map(s => ({ ...s, kind: 'bar' })) });
     await screen.findByRole('img');
-    const real = plotOption().series.filter(s => s.id !== '__overlay') as (PlottedSeries & { emphasis: { focus: string } })[];
+    const real = plotOption().series.filter(s => !s.markArea) as (PlottedSeries & { emphasis: { focus: string } })[];
     expect(real.map(s => s.emphasis.focus)).toEqual(['none', 'none']);
   });
 });

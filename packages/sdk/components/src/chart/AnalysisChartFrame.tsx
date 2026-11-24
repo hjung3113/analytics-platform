@@ -871,7 +871,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   useEffect(() => { if (brushMode || !selectedPoint || noActions) closePointMenu(); }, [brushMode, selectedPoint, noActions, closePointMenu]);
 
   const eventPoint = useCallback((params: PointEvent): ChartPoint | null => {
-    if (!params.seriesId || params.seriesId === '__overlay') return null;
+    if (!params.seriesId) return null;
     const series = displayed.find(s => s.id === params.seriesId);
     if (!series) return null;
     const datum = params.dataIndex !== undefined

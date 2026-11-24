@@ -13,13 +13,15 @@ vi.mock('../EChartImpl', () => ({ default: FakePlot }));
 
 type Label = { show?: boolean; color?: string; formatter?: unknown; offset?: number[] };
 type Datum = number | null | { value: unknown; label?: Label; symbol?: string; tip?: string };
-type Plotted = { id?: string; type?: string; label?: Label & { formatter?: (p: { value: unknown }) => string }; data?: Datum[]; tooltip?: unknown };
+type Plotted = { id?: string; type?: string; symbol?: string; markArea?: unknown; label?: Label & { formatter?: (p: { value: unknown }) => string }; data?: Datum[]; tooltip?: unknown };
 type Option = { series: Plotted[]; grid: { right: number } };
 let plotProps: EChartProps | null = null;
 const option = () => plotProps!.option as unknown as Option;
 const bySeries = (id: string) => option().series.find(s => s.id === id)!;
-const total = () => bySeries('__total');
-const overlay = () => option().series.find(s => s.id === '__overlay') as unknown as { markLine?: { data: { name: string }[] } };
+const isTotal = (s: Plotted) => s.type === 'scatter' && s.symbol === 'circle';
+const total = () => option().series.find(isTotal)!;
+const categoryMark = () => option().series.find(s => s.symbol === 'diamond')!;
+const overlay = () => option().series.find(s => s.markArea) as unknown as { markLine?: { data: { name: string }[] } };
 function FakePlot(props: EChartProps) { plotProps = props; return <div role="img" aria-label={props.ariaLabel} />; }
 
 const registry = createRegistry({
@@ -54,24 +56,32 @@ describe('valueLabels unset (#580d)', () => {
     await mount({ reaggregation: 'sum', serverTotals: new Map([['R1', 1]]) });
     const o = option();
     expect(o.grid.right).toBe(20);
-    expect(o.series.some(s => s.id === '__total' || s.label !== undefined)).toBe(false);
+    expect(o.series.some(s => isTotal(s) || s.label !== undefined)).toBe(false);
     expect(bySeries('a').data).toEqual([800, 20, null, 600]);
   });
   it('ignores valueLabels outside a horizontal stacked chart, with a dev warning', async () => {
     await mount({ valueLabels: 'both', stacked: false, reaggregation: 'sum' });
-    expect(option().series.some(s => s.id === '__total' || s.label !== undefined)).toBe(false);
+    expect(option().series.some(s => isTotal(s) || s.label !== undefined)).toBe(false);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('valueLabels applies only'));
   });
 });
 
 describe('category value marks', () => {
   const marks = { label: 'Actual <total>', byCategory: new Map([['R1', 950], ['R2', 12], ['R4', 0]]) };
+  it('distinguishes the category marker from a consumer series with its former ID', async () => {
+    const id = '__categoryValueMark';
+    await mount({ series: [{ ...SERIES[0], id }], categoryValueMarks: marks });
+    const { tooltip } = plotProps!.option as { tooltip: { formatter: (items: object[]) => string } };
+    const marker = { seriesIndex: option().series.indexOf(categoryMark()), value: [950, 'R1'] };
+    expect(tooltip.formatter([marker])).toBe('Actual &lt;total&gt;: 950 s');
+    expect(tooltip.formatter([{ seriesId: id, seriesIndex: 0, dataIndex: 0 }, marker])).toBe('R1 · A: 800 s<br/>Actual &lt;total&gt;: 950 s');
+  });
   it('renders an independent diamond and table column only when requested', async () => {
     const view = await mount();
-    expect(bySeries('__categoryValueMark')).toBeUndefined();
+    expect(categoryMark()).toBeUndefined();
     expect((await tableText())[0]).not.toContain(marks.label);
     view.update({ categoryValueMarks: marks });
-    expect(bySeries('__categoryValueMark')).toMatchObject({
+    expect(categoryMark()).toMatchObject({
       symbol: 'diamond', data: [[950, 'R1'], [12, 'R2'], [0, 'R4']],
     });
     expect(screen.getByRole('columnheader', { name: marks.label })).toBeVisible();
@@ -88,14 +98,14 @@ describe('category value marks', () => {
   it('keeps the mark on its category when rows reorder on a zoomable axis', async () => {
     const view = await mount({ rowPitch: undefined, categoryValueMarks: marks });
     view.update({ series: SERIES.map(s => ({ ...s, points: [...s.points].reverse() })) });
-    expect(bySeries('__categoryValueMark').data).toEqual([[0, 'R4'], [12, 'R2'], [950, 'R1']]);
+    expect(categoryMark().data).toEqual([[0, 'R4'], [12, 'R2'], [950, 'R1']]);
     expect(option()).toMatchObject({ dataZoom: [{ yAxisIndex: 0 }], yAxis: { data: ['R4', 'R3', 'R2', 'R1'] } });
   });
 
   it('includes the escaped mark label and independent value in the row tooltip', async () => {
     await mount({ categoryValueMarks: marks });
     const { tooltip } = plotProps!.option as { tooltip: { formatter: (items: object[]) => string } };
-    const tip = tooltip.formatter([{ seriesId: 'a', dataIndex: 0 }, { seriesId: 'b', dataIndex: 0 }, { seriesId: '__categoryValueMark', dataIndex: 0, value: [950, 'R1'] }]);
+    const tip = tooltip.formatter([{ seriesId: 'a', dataIndex: 0 }, { seriesId: 'b', dataIndex: 0 }, { seriesIndex: option().series.indexOf(categoryMark()), dataIndex: 0, value: [950, 'R1'] }]);
     expect(tip).toContain('R1 · A: 800 s');
     expect(tip).toContain('Actual &lt;total&gt;: 950 s');
     expect(tooltip.formatter([{ seriesId: 'b', dataIndex: 2 }])).not.toContain('Actual');
@@ -132,7 +142,7 @@ describe('segment labels (#580d, UX-6/12/13)', () => {
   it('draws no segment label for exactly one shown series, with startAlign too (the totals stay)', async () => {
     await mount({ valueLabels: 'segment', startAlign: true, visibleSeriesIds: ['a'] });
     expect(bySeries('a').label).toBeUndefined();
-    expect(option().series.some(s => s.id!.startsWith('__spacer'))).toBe(false);
+    expect(option().series.some(s => s.type === 'bar' && s.id === undefined)).toBe(false);
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('startAlign'));
   });
   it.each(['segment', 'both'] as const)('draws no segment label for one shown series, valueLabels %s, and keeps the total', async valueLabels => {
@@ -163,7 +173,7 @@ describe('totals (#580d, UX-7/8)', () => {
   });
   it('draws nothing per row for a measure that is not added and says so once', async () => {
     await mount({ valueLabels: 'both', reaggregation: 'ratioOfSums' });
-    expect(option().series.some(s => s.id === '__total')).toBe(false);
+    expect(option().series.some(s => isTotal(s))).toBe(false);
     expect(screen.getAllByText('합계 없음 · 합산 제외 측정')).toHaveLength(1);
   });
   it('draws the server total for a measure that is not added while every series is shown', async () => {
@@ -175,7 +185,7 @@ describe('totals (#580d, UX-7/8)', () => {
   });
   it('drops the server total while a series is hidden: no per-row number and the one-line 합계 없음', async () => {
     await mount({ valueLabels: 'total', reaggregation: 'ratioOfSums', serverTotals: new Map([['R1', 0.5]]), visibleSeriesIds: ['a'] });
-    expect(option().series.some(s => s.id === '__total')).toBe(false);
+    expect(option().series.some(s => isTotal(s))).toBe(false);
     expect(screen.getAllByText('합계 없음 · 합산 제외 측정')).toHaveLength(1);
   });
   it('names the number 표시 합계 once while a series is hidden, in the line and in the table', async () => {
@@ -264,7 +274,7 @@ describe('Compare series count as series (F3)', () => {
     const view = await compareOn({ valueLabels: 'total', reaggregation: 'ratioOfSums', serverTotals, visibleSeriesIds: ['a', 'b', 'pa', 'pb'] });
     expect(total().data).toHaveLength(1);
     view.update({ visibleSeriesIds: ['a', 'b', 'pa'] });
-    expect(option().series.some(s => s.id === '__total')).toBe(false);
+    expect(option().series.some(s => isTotal(s))).toBe(false);
     expect(screen.getAllByText('합계 없음 · 합산 제외 측정')).toHaveLength(1);
   });
 });

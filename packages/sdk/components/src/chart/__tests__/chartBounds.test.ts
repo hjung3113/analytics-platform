@@ -32,7 +32,7 @@ describe('per-x step bounds (#2333)', () => {
     const o = buildChartOption(i) as any;
     expect(o.yAxis.min({ min: 2, max: 5 })).toBe(-3);
     expect(o.yAxis.max({ min: 2, max: 5 })).toBe(50);
-    expect(o.series.find((s: any) => s.id === '__overlay').markLine.data).toEqual([{ name: '목표', yAxis: 300 }]);
+    expect(o.series.find((s: any) => s.markArea).markLine.data).toEqual([{ name: '목표', yAxis: 300 }]);
     const tip = o.tooltip.formatter([{ seriesId: 'a', dataIndex: 1 }]);
     expect(tip).toContain('&lt;low&gt;: &lt;-3&gt;'); expect(tip).toContain('&lt;high&gt;: &lt;50&gt;');
     expect(tip).not.toContain('<low>');
@@ -41,7 +41,7 @@ describe('per-x step bounds (#2333)', () => {
     const i = { ...input(), bounds: new Map([[times[0], { upper: 8 }], [times[1], { lower: 2, upper: 10 }]]) };
     const p = projectChartBounds(i)!;
     const series = boundSeries(p, i.palette);
-    expect(series.find(s => s.id === '__bounds-band')!.data).toHaveLength(1);
+    expect(series.find(s => s.name === p.labels.band)!.data).toHaveLength(1);
     const one = projectChartBounds({ ...i, bounds: new Map([[times[0], { upper: 8 }]]) })!;
     expect(one.parts).toEqual(['upper']);
   });
