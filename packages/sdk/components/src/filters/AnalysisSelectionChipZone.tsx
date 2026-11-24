@@ -1,8 +1,10 @@
 import { Fragment, useCallback, useId, useLayoutEffect, useRef, useState, type RefCallback, type RefObject } from 'react';
-import { X } from 'lucide-react';
-import { useAnalysisSelectionChips, useI18n, useMessages, type AnalysisSelectionChip } from '@ap/kernel';
+import { Ellipsis, X } from 'lucide-react';
+import { useAnalysisSelectionChips, useI18n, useMessages, usePlatformOptional, type AnalysisSelectionChip } from '@ap/kernel';
 import { useAnalysisSelectionHoverTarget, useHostPlatformOptional } from '@ap/kernel/host';
-import { Button, Checkbox, Input, Label, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from '@ap/ui';
+import { Button, Checkbox, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from '@ap/ui';
+import { usePublishedNextAnalysis } from '../chart/NextAnalysisBridge';
+import { NextAnalysisMenuItem, useNextAnalysisItems, type DirectNextAnalysisAction } from '../chart/NextAnalysisItems';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useElementSize, useObservedElementSize } from '../state/useElementSize';
 
@@ -71,6 +73,52 @@ function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip;
     </p>}
     <Button type="submit" size="sm" className="justify-self-end">{m('analysisSelectionApply')}</Button>
   </form>;
+}
+
+const chipButtonClass = cn('inline-flex size-6.5 shrink-0 items-center justify-center rounded-full hover:bg-surface-row-hover', focusClass);
+
+function ChipActionItems({ chip, onSelect }: { chip: AnalysisSelectionChip; onSelect: (action: DirectNextAnalysisAction) => void }) {
+  const output = { panelId: chip.source.panelId, key: chip.key };
+  const { actions, workspace } = usePublishedNextAnalysis(output);
+  const declarationItems = useNextAnalysisItems({ output, selection: chip.selection, workspace });
+  return <>{(actions ?? declarationItems).map(action => <NextAnalysisMenuItem
+    key={'onSelect' in action ? action.id : action.label} action={action} onSelect={onSelect} />)}</>;
+}
+
+function ChipActions({ chip, text, clear }: {
+  chip: AnalysisSelectionChip; text: string; clear: ClearChip;
+}) {
+  const platform = usePlatformOptional();
+  const { t } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const confirmation = useRef(false);
+  const openingPath = useRef<string | undefined>(undefined);
+  const path = () => platform?.location.read()?.split('?')[0];
+  return <DropdownMenu modal={false} onOpenChange={open => {
+    if (!open) return;
+    confirmation.current = false;
+    openingPath.current = path();
+  }}>
+    <DropdownMenuTrigger asChild>
+      <button ref={trigger} type="button" className={chipButtonClass} aria-label={m('analysisSelectionActions', { chip: text })}><Ellipsis className="size-3.5" aria-hidden /></button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end" onCloseAutoFocus={event => {
+      // The confirmation or the destination owns focus after this menu dismisses.
+      if (confirmation.current || openingPath.current !== path()) event.preventDefault();
+    }}>
+      {platform && <ChipActionItems chip={chip} onSelect={action => {
+        confirmation.current = action.opensConfirmation === true;
+        action.onSelect(() => {
+          const button = trigger.current;
+          if (!button?.isConnected) return false;
+          button.focus({ preventScroll: true });
+          return true;
+        });
+      }} />}
+      <DropdownMenuItem onSelect={() => clear(chip.key)}>{t('clear')}</DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>;
 }
 
 function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, editFocus }: {
@@ -159,10 +207,11 @@ function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, editFocus 
         }} />
       </PopoverContent>
     </Popover> : <span className="inline-flex min-w-0 items-center gap-1 pl-2 pr-1">{description}</span>}
-    <button ref={clearButtonRef} type="button" disabled={measuring} className={cn('inline-flex size-6.5 shrink-0 items-center justify-center rounded-full hover:bg-surface-row-hover', focusClass)}
+    <button ref={clearButtonRef} type="button" disabled={measuring} className={chipButtonClass}
       data-analysis-chip-clear={chip.key} aria-label={m('analysisSelectionClear', { dimension })} onClick={() => clear(chip.key)}>
       <X className="size-3.5" aria-hidden />
     </button>
+    {measuring ? <span className={chipButtonClass} /> : <ChipActions chip={chip} text={text} clear={clear} />}
   </span>;
 }
 

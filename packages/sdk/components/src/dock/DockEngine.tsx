@@ -16,6 +16,7 @@ import { DockSeparators, type DockRect } from './DockSeparators';
 import type { DockLayoutProps, DockPanel, DockRows, DockFloating } from './dockTypes';
 import { fromEngineLayout, keepStoredSizes, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
 import { PanelBoundary } from './PanelBoundary';
+import { WorkspacePanelVisibleContext } from '../workspace/panelContext';
 import { PageBoundContext, PageFlowContext } from '../pageFlow';
 import { isProgrammaticFocus, programmaticFocus } from './programmaticFocus';
 import { canonicalDockTree, type DockNode } from './schema';
@@ -69,6 +70,7 @@ function useEngine(): Context {
 function PanelHost({ api }: IDockviewPanelProps) {
   const engine = useEngine();
   const id = api.id;
+  const parentVisible = useContext(WorkspacePanelVisibleContext);
   const visible = engine.visible.has(id);
   const panel = engine.panels.get(id);
   const sourceHighlighted = useAnalysisSelectionSourceHighlighted(panel?.analysisSelectionSourceId ?? id);
@@ -104,7 +106,7 @@ function PanelHost({ api }: IDockviewPanelProps) {
       if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) engine.onActivate(id);
     }}>
     {/* A panel is a page-flow boundary: a workspace stacked inside it scrolls inside the panel and never changes the page around the dock. */}
-    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><div ref={content} data-dock-panel-content className="h-full min-w-0 w-full"><PanelBoundary render={panel?.render} /></div></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
+    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><WorkspacePanelVisibleContext.Provider value={parentVisible && visible}><div ref={content} data-dock-panel-content className="h-full min-w-0 w-full"><PanelBoundary render={panel?.render} /></div></WorkspacePanelVisibleContext.Provider></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
   </div>;
 }
 

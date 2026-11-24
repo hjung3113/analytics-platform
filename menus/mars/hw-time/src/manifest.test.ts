@@ -13,7 +13,7 @@ describe('manifest', () => {
     expect(menu.panels?.flatMap(panel => panel.outputs.filter(output => output.selection).map(output => [panel.id, output.key, output.selection])))
       .toEqual([
         ['trend', 'trendRange', { dimension: 'date', shape: 'range', label: { ko: '날짜', en: 'Date' } }],
-        ['moduleMotions', 'motionEquipment', { dimension: 'equipmentId', shape: 'set', label: { ko: '설비', en: 'Equipment' } }],
+        ['moduleMotions', 'motionEquipment', { dimension: 'equipmentId', shape: 'set', label: { ko: '설비', en: 'Equipment' }, objectKind: 'equipment' }],
       ]);
     expect(menu.panels?.find(panel => panel.id === 'table')?.queryInputs.page).toContainEqual({ key: 'motionEquipment', selection: 'filter' });
   });

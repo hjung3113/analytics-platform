@@ -127,7 +127,7 @@ live에서 전환한 메뉴는 `query.applyPeriodOnLegacyEntry: true`를 `autoAp
 | --- | --- |
 | `id`, `title` | 메뉴 안에서 유일한 id, 비어 있지 않은 ko/en 제목. 전체 표기는 `<menuId>/<panelId>` |
 | `queryInputs`, `displayInputs` | `{ context?: (ContextKey 또는 scopeId)[], page?: { key, required?, selection? }[] }`. `selection: 'filter'`는 필터, `'highlight'`는 강조(`displayInputs`만 허용). 분석 선택을 받으려면 해당 키에 `selection`을 선언하고, 무시하려면 키를 생략 |
-| `outputs` | 패널 컨트롤이 바꾸는 `{ key, action, selection?: { dimension, shape, label?: Text } }[]`. 메뉴 page key만 허용. `dimension`은 `^[a-z][a-zA-Z0-9]*$`, `shape`는 `set` 또는 `range`, `label`은 차원의 ko/en 표시 이름 |
+| `outputs` | 패널 컨트롤이 바꾸는 `{ key, action, selection?: { dimension, shape, label?: Text, drillLevel?, objectKind? } }[]`. 메뉴 page key만 허용. `dimension`은 `^[a-z][a-zA-Z0-9]*$`, `shape`는 `set` 또는 `range`, `label`은 차원의 ko/en 표시 이름. `drillLevel`은 같은 메뉴의 선언된 드릴 키, `objectKind`는 `opensObject`의 종류 식별자 형식을 따른다 |
 | `grain` | 메뉴가 이름 붙인 데이터 단위. `^[a-z][a-zA-Z0-9]*$` 형태만 검사 |
 | `endpoints` | 메뉴의 엔드포인트 spec 목록. 패널 등록은 `id`, `menuId`, `permission`을 읽고, 빌려주기 등록은 `requiresScope`, `context`, `requiredContext`도 읽음 |
 | `availability` | 선택 재정의 `{ requires: { anyOf: string[] }[], disabledReason: Text }`. OR 키 묶음들을 AND로 판정 |

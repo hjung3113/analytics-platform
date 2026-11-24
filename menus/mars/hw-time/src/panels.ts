@@ -45,7 +45,7 @@ export const panelDeclarations = {
     queryInputs: { context: common, page: [{ key: 'moduleType' }] },
     displayInputs: { page: [...verdictDisplay, { key: 'drillModule' }, { key: 'row' }, { key: 'barsSort' }, { key: 'barsGroup' }, { key: 'barsMinMax' }, { key: 'align' }] },
     outputs: [{ key: 'trend', action: 'drill' }, { key: 'row', action: 'highlight' },
-      { key: MOTION_EQUIPMENT_KEY, action: 'select', selection: { dimension: 'equipmentId', shape: 'set', label: { ko: '설비', en: 'Equipment' } } }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix],
+      { key: MOTION_EQUIPMENT_KEY, action: 'select', selection: { dimension: 'equipmentId', shape: 'set', label: { ko: '설비', en: 'Equipment' }, objectKind: 'equipment' } }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix],
     availability: { requires: [{ anyOf: ['step4'] }], disabledReason: S.needsStep4 }, pieces: ['AnalysisChartFrame', 'PanelOptions', 'PanelOptionChips', 'QueryView'] },
   table: { id: 'table', kind: 'table', csvExport: true, title: S.table,
     queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'page' }, { key: 'sort' }, { key: 'focus' },

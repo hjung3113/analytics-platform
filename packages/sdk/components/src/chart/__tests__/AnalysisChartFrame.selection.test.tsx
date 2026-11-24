@@ -1,7 +1,10 @@
+import { PlatformPage } from '../../archetypes/PlatformPage';
+import { PanelWorkspace } from '../../workspace/PanelWorkspace';
 import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { useId } from 'react';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, ANALYSIS_SELECTION_MAX_VALUES } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -593,4 +596,280 @@ it('points More help at the Next Analysis row when enabled', async () => {
   await screen.findByRole('img');
   fireEvent.click(screen.getByRole('button', { name: '더보기' }));
   expect(screen.getByText(/다음 분석.*조건으로/)).toBeTruthy();
+});
+
+it.each([['a', true], ['a&equipment=b', false]])('offers the declared next drill level for %s', async (values, single) => {
+  const level = { key: 'step', label: { ko: '단계', en: 'Step' } };
+  const declared = createRegistry({
+    spaces: setRegistry.spaces, groups: setRegistry.groups,
+    menus: setRegistry.menus.map(menu => ({
+      ...menu, pageKeys: [...menu.pageKeys, level.key], contextResetKeys: [...menu.contextResetKeys!, level.key], drill: { levels: [level] },
+      panels: [{ ...menu.panels![0]!, outputs: [{ key: setOutput.key, action: 'select',
+        selection: { shape: 'set', dimension: 'equipmentId', drillLevel: level.key } }] }],
+    })),
+  });
+  window.history.replaceState(null, '', `/?v=1&scopeId=MEM&equipment=${values}`);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={declared}>
+    <AnalysisChartFrame chartId="set" title="Set" series={[A]} unit="s" xType="category" analysisSelectionOutput={setOutput} nextAnalysis />
+  </PlatformProvider></I18nProvider>);
+  const drill = within(nextRow()).getByRole('button', { name: '나누기' });
+  if (!single) {
+    expect(drill.getAttribute('aria-disabled')).toBe('true');
+    expect(document.getElementById(drill.getAttribute('aria-describedby')!)?.textContent).toMatch(/하나/);
+    return;
+  }
+  const user = userEvent.setup();
+  await user.click(drill);
+  await user.click(screen.getByRole('menuitem', { name: '단계 · a' }));
+  expect(search().get('step')).toBe('a');
+  expect(within(nextRow()).queryByRole('button', { name: '나누기' })).toBeNull();
+});
+
+it('leaves standard items absent on an output without relevant declarations', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+  setChart();
+  expect(within(nextRow()).queryByRole('button', { name: /나누기|새 패널|다른 분석/ })).toBeNull();
+});
+
+it('renders object destinations, describes link conditions, and keeps permission-denied rows disabled', async () => {
+  const [source] = setRegistry.menus;
+  const label = (name: string) => ({ ko: name, en: name });
+  const destination = (id: string) => ({ ...source!, id, primary: false, path: `/${id}/:id`, aliases: [], label: label(id),
+    pageKeys: [], repeatedPageKeys: [], contextResetKeys: [], panels: [], opensObject: { equipment: { param: 'id' } } });
+  const linked = createRegistry({
+    spaces: setRegistry.spaces, groups: setRegistry.groups,
+    menus: [{ ...source!, panels: [{ ...source!.panels![0]!, outputs: [{ key: setOutput.key, action: 'select',
+      selection: { shape: 'set', dimension: 'equipmentId', objectKind: 'equipment' } }] }] },
+    { ...destination('allowed'), pageKeys: ['date', 'returnTo'], context: { ...noContext, time: 'apply' },
+      query: { mode: 'apply', required: { page: [{ key: 'date', label: label('Date') }] } } },
+    { ...destination('denied'), permission: 'console:access' }, destination('absent'),
+    { ...destination('dropped'), path: '/dropped', pageKeys: ['eqp'], opensObject: { equipment: { pageKey: 'eqp' } } }],
+  });
+  const has = linked.has;
+  const destinations = linked.objectDestinations;
+  vi.spyOn(linked, 'has').mockImplementation(id => id !== 'absent' && has(id));
+  // Simulate a stale destination index so the resolver returns a dropped page key.
+  vi.spyOn(linked, 'objectDestinations').mockImplementation(kind => destinations(kind).map(menu => (
+    menu.id === 'dropped' ? { ...menu, opensObject: { equipment: { pageKey: 'extra' } } } : menu
+  )));
+  function RoutedChart() {
+    const { route } = usePlatform();
+    return route?.menu.id === source!.id
+      ? <AnalysisChartFrame chartId="set" title="Set" series={[A]} unit="s" xType="category" analysisSelectionOutput={setOutput} nextAnalysis />
+      : null;
+  }
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={linked}><RoutedChart /></PlatformProvider></I18nProvider>);
+  const user = userEvent.setup();
+  await user.click(within(nextRow()).getByRole('button', { name: '다른 분석' }));
+  expect(screen.queryByRole('menuitem', { name: 'absent' })).toBeNull();
+  const allowed = screen.getByRole('menuitem', { name: 'allowed' });
+  const description = (item: HTMLElement) => document.getElementById(item.getAttribute('aria-describedby')!)?.textContent;
+  expect(description(allowed)).toContain('전달: a');
+  expect(description(allowed)).toMatch(/allowed.*Date/);
+  expect(description(screen.getByRole('menuitem', { name: 'dropped' }))).toContain('extra');
+  const denied = screen.getByRole('menuitem', { name: 'denied' });
+  expect(denied.getAttribute('aria-disabled')).toBe('true');
+  expect(description(denied)).toContain('권한');
+  await user.click(denied);
+  expect(await screen.findByRole('menu')).toBeTruthy();
+  await user.click(allowed);
+  expect(window.location.pathname).toBe('/mars/allowed/a');
+  expect(search().get('returnTo')).toContain('equipment=a');
+});
+
+it('explains unavailable single-value actions before the menu’s range actions', async () => {
+  const level = { key: 'step', label: { ko: '단계', en: 'Step' } };
+  const declared = createRegistry({
+    spaces: rangeRegistry.spaces, groups: rangeRegistry.groups,
+    menus: rangeRegistry.menus.map(menu => ({
+      ...menu, pageKeys: [...menu.pageKeys, level.key], contextResetKeys: [...menu.contextResetKeys!, level.key], drill: { levels: [level] },
+      panels: menu.panels!.map(panel => ({ ...panel, outputs: panel.outputs.map(item =>
+        ({ ...item, selection: { ...item.selection!, drillLevel: level.key, objectKind: 'equipment' } })) })),
+    })),
+  });
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM&range=a/b');
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={declared}>
+    <AnalysisChartFrame chartId="sel" title="Sel" series={[A]} unit="s" xType="category" analysisSelectionOutput={output} nextAnalysis
+      selectionActions={() => <Button>Extra</Button>} />
+  </PlatformProvider></I18nProvider>);
+  const buttons = within(nextRow()).getAllByRole('button');
+  expect(buttons.map(button => button.textContent)).toEqual(['나누기', '다른 분석', '주석 남기기', 'Extra', '지우기']);
+  for (const item of buttons.slice(0, 2)) {
+    expect(item.getAttribute('aria-disabled')).toBe('true');
+    expect(document.getElementById(item.getAttribute('aria-describedby')!)?.textContent).toMatch(/하나/);
+  }
+});
+
+const chipLabel = (name: string) => ({ ko: name, en: name });
+const chipRegistry = createRegistry({
+  spaces: setRegistry.spaces, groups: setRegistry.groups,
+  menus: setRegistry.menus.flatMap(menu => [{
+    ...menu, pageKeys: [...menu.pageKeys, 'step'], contextResetKeys: [...menu.contextResetKeys!, 'step'],
+    drill: { levels: [{ key: 'step', label: chipLabel('단계') }] },
+    panels: [
+      { ...menu.panels![0]!, outputs: [{ ...menu.panels![0]!.outputs[0]!,
+        selection: { shape: 'set' as const, dimension: 'equipmentId', drillLevel: 'step', objectKind: 'equipment' } }] },
+      { id: 'receiver', title: chipLabel('수신 패널'), grain: 'day', endpoints: [],
+        queryInputs: {}, displayInputs: { page: [{ key: setOutput.key, selection: 'highlight' as const }] }, outputs: [] },
+    ],
+  }, {
+    ...menu, id: 'equipment-detail', path: '/equipment/:id', primary: false, aliases: [],
+    pageKeys: ['returnTo'], repeatedPageKeys: [], contextResetKeys: [], panels: [],
+    label: chipLabel('설비 상세'), opensObject: { equipment: { param: 'id' } },
+  }]),
+});
+const chipSlots = { contextBar: <AnalysisSelectionChipZone /> };
+const chipControls = () => within(screen.getByRole('group', { name: '분석 선택' }));
+const chipMore = () => chipControls().getByRole('button', { name: /a 동작$/ });
+const chipItems = () => within(screen.getByRole('menu')).getAllByRole('menuitem');
+
+function chipPage(frame: 'live' | 'unmounted' | 'suspended', onAdd = vi.fn()) {
+  return <I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry} slots={chipSlots}>
+    <PlatformPage><ChartChipWorkspace frame={frame} onAdd={onAdd} /></PlatformPage>
+  </PlatformProvider></I18nProvider>;
+}
+
+function ChartChipWorkspace({ frame, onAdd }: { frame: 'live' | 'unmounted' | 'suspended'; onAdd: ReturnType<typeof vi.fn> }) {
+  const { route } = usePlatform();
+  const id = useId();
+  if (route?.menu.id !== 'home') return null;
+  return <PanelWorkspace label={chipLabel('Workspace')} persistKey={`chip-${id.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}`} initialMode="stack"
+      presets={[{ id: 'chip', label: chipLabel('Preset'), layout: { type: 'group', panels: ['bars', 'neighbor'], active: 'bars' } }]}
+      initialPreset="chip"
+      analysisPanelAddition={{ items: [{ id: 'receiver', title: chipLabel('수신 패널') }], onAdd }}
+      panels={[{ id: 'bars', title: chipLabel('Bars'), primary: true, render: () => frame === 'unmounted' ? null :
+        <AnalysisChartFrame chartId="chip" title="Chip chart" series={[A]} unit="s" xType="category"
+          analysisSelectionOutput={frame === 'live' ? setOutput : null} nextAnalysis /> },
+        { id: 'neighbor', title: chipLabel('옆 패널'), render: () => <p>옆 패널 본문</p> }]} />;
+}
+
+describe('Next analysis chip actions', () => {
+  beforeEach(() => {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each(['조건으로', '나누기', '새 패널', '다른 분석'] as const)('runs the same row action from the chip: %s', async action => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    const onAdd = vi.fn();
+    render(chipPage('live', onAdd));
+    const rowItems = within(await screen.findByRole('group', { name: '다음 분석' })).getAllByRole('button');
+    const user = userEvent.setup();
+    await user.click(chipMore());
+    expect(chipItems().map(item => item.getAttribute('aria-label') ?? item.textContent))
+      .toEqual(rowItems.map(item => item.textContent));
+    const item = screen.getByRole('menuitem', { name: action });
+    if (action === '조건으로') {
+      await user.click(item);
+      expect(search().getAll('selectedEquipmentIds')).toEqual(['a']);
+      expect(search().has('equipment')).toBe(false);
+    } else {
+      item.focus();
+      await user.keyboard('{ArrowRight}');
+      if (action === '나누기') {
+        await user.click(await screen.findByRole('menuitem', { name: '단계 · a' }));
+        expect(search().get('step')).toBe('a');
+      } else if (action === '새 패널') {
+        await user.click(await screen.findByRole('menuitem', { name: '수신 패널' }));
+        expect(onAdd).toHaveBeenCalledExactlyOnceWith({ source: 'home/receiver', inputs: { equipment: { shape: 'set', values: ['a'] } } });
+        expect(chipMore()).toHaveFocus();
+      } else {
+        await user.click(await screen.findByRole('menuitem', { name: '설비 상세' }));
+        expect(window.location.pathname).toBe('/mars/equipment-detail/a');
+      }
+    }
+  });
+
+  it.each(['unmounted', 'suspended'] as const)('shows only declaration actions after the live frame is %s', async frame => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    const onAdd = vi.fn();
+    const view = render(chipPage('live', onAdd));
+    await screen.findByRole('group', { name: '다음 분석' });
+    const user = userEvent.setup();
+    await user.click(chipMore());
+    expect(screen.getByRole('menuitem', { name: '조건으로' })).toBeVisible();
+    await user.keyboard('{Escape}');
+    view.rerender(chipPage(frame, onAdd));
+    await user.click(chipMore());
+    expect(chipItems().map(item => item.textContent)).toEqual(['나누기', '새 패널', '다른 분석', '지우기']);
+  });
+
+  it('falls back to declarations when the source panel stays mounted in a background tab', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(chipPage('live'));
+    await screen.findByRole('group', { name: '다음 분석' });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('tab', { name: '옆 패널' }));
+    await screen.findByText('옆 패널 본문');
+    await user.click(chipMore());
+    expect(chipItems().map(item => item.textContent)).toEqual(['나누기', '새 패널', '다른 분석', '지우기']);
+  });
+
+  it('shares disabled reasons and leaves a blocked action open', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a&equipment=b');
+    render(chipPage('live'));
+    const row = within(await screen.findByRole('group', { name: '다음 분석' }));
+    const user = userEvent.setup();
+    await user.click(chipControls().getByRole('button', { name: /동작$/ }));
+    const drill = screen.getByRole('menuitem', { name: '나누기' });
+    const reason = (item: HTMLElement) => document.getElementById(item.getAttribute('aria-describedby')!)?.textContent;
+    expect(drill).toHaveAttribute('aria-disabled', 'true');
+    expect(reason(drill)).toBe(reason(row.getByRole('button', { name: '나누기' })));
+    await user.click(drill);
+    expect(screen.getByRole('menu')).toBeVisible();
+    expect(search().has('step')).toBe(false);
+  });
+
+  it('shares plain range actions and returns from period confirmation to the chip', async () => {
+    const from = '2026-09-01T00:00:00';
+    const mid = '2026-09-01T01:00:00';
+    const to = '2026-09-01T02:00:00';
+    window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=${from}&to=${to}`);
+    const onSelect = vi.fn();
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry} slots={chipSlots}>
+      <PlatformPage><AnalysisChartFrame chartId="sel" title="Sel" unit="s" nextAnalysis analysisSelectionOutput={output}
+        series={[{ ...A, points: [[from, 1], [mid, 2], [to, 3]] }]}
+        selectionActions={[{ id: 'extra', label: '추가 동작', onSelect }]} /></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img');
+    brush([parseDateTime(mid, 'from').getTime(), parseDateTime(to, 'to').getTime()]);
+    expect(within(nextRow()).getByRole('button', { name: '추가 동작' })).toBeVisible();
+    const more = chipControls().getByRole('button', { name: /동작$/ });
+    const user = userEvent.setup();
+    await user.click(more);
+    await user.click(screen.getByRole('menuitem', { name: '추가 동작' }));
+    expect(onSelect).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ from: mid, to }));
+    expect(more).toHaveFocus();
+    await user.click(more);
+    await user.click(screen.getByRole('menuitem', { name: '조건으로' }));
+    const confirmation = within(screen.getByRole('group', { name: '구간 적용 확인' }));
+    expect(confirmation.getByRole('button', { name: '적용' })).toHaveFocus();
+    expect(search().get('from')).toBe(from);
+    await user.keyboard('{Escape}');
+    expect(more).toHaveFocus();
+    await user.click(more);
+    await user.click(screen.getByRole('menuitem', { name: '조건으로' }));
+    await user.click(within(screen.getByRole('group', { name: '구간 적용 확인' })).getByRole('button', { name: '적용' }));
+    expect(search().get('from')).toBe(mid);
+  });
+
+  it.each(['{Enter}', ' ', '{ArrowDown}'])('opens chip actions with %j and restores focus on Escape', async key => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(chipPage('live'));
+    const user = userEvent.setup();
+    const more = chipMore();
+    chipControls().getByRole('button', { name: /선택 지우기$/ }).focus();
+    await user.tab();
+    expect(more).toHaveFocus();
+    await user.keyboard(key);
+    expect(screen.getByRole('menuitem', { name: '나누기' })).toBeVisible();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(more).toHaveFocus();
+  });
 });

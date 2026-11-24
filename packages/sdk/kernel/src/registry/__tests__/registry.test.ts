@@ -1034,6 +1034,7 @@ describe('analysis selection registration (#2732)', () => {
     ['unknown shape', { shape: 'rows' }, /shape/],
     ['empty dimension', { dimension: '' }, /dimension/],
     ['invalid dimension', { dimension: 'Time-range' }, /dimension/],
+    ['undeclared drill level', { drillLevel: 'unknown' }, /drillLevel.*unknown/],
     ['non-string dimension', { dimension: 123 }, /dimension/],
     ['set on a single key', { shape: 'set' }, /repeatedPageKeys/],
   ])('rejects %s', (_name, patch, reason) => {

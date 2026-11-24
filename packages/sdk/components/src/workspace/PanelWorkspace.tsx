@@ -1,3 +1,4 @@
+import { usePublishAnalysisWorkspace } from '../chart/NextAnalysisBridge';
 import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n, useMessages, usePlatformOptional, type Text } from '@ap/kernel';
@@ -13,6 +14,7 @@ import { clampFloatingPanel, dockGroupsInReadingOrder, type DockFloatingPanel, t
 import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider, type WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { InWorkspacePanelProvider } from './panelContext';
 import { PanelBadge } from './PanelBadge';
+import { AnalysisPanelAddContext, type AnalysisPanelAddition } from './PanelAdd';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
@@ -128,6 +130,8 @@ export type PanelWorkspaceProps = {
    * Absent = output unchanged.
    */
   toolbarActions?: ReactNode;
+  /** Catalog and add handler for panels that follow the chart's URL selection. */
+  analysisPanelAddition?: AnalysisPanelAddition;
   /** Enabled collapsed edges. Default left and top; an empty array disables the edge strips. Below 692px strips and floating are off. */
   edges?: ('left' | 'top')[];
 };
@@ -207,7 +211,7 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
   return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} storage={storage} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, panelMenuItems, edges = DEFAULT_EDGES, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, edges = DEFAULT_EDGES, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -709,7 +713,13 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     setPeek(clampFloatingPanel({ panelId: id, x: (state.collapsed?.[id] ?? 'top') === 'top' ? Math.max(0, tab.left - (dock?.left ?? 0)) : 0, y: PEEK_TOP, width: FLOAT_SMALL.width, height: Math.min(FLOAT_SMALL.height, Math.max(1, area.height - PEEK_TOP)) }, area));
   };
 
+  const destinations = analysisPanelAddition ? {
+    ...analysisPanelAddition,
+    items: analysisPanelAddition.items.filter(item => !shown.includes(item.id) && !state.collapsed?.[item.id] && !isFloating(item.id)),
+  } : null;
+  usePublishAnalysisWorkspace(panels.map(panel => panel.analysisSelectionSourceId ?? panel.id), destinations, { root: depth === 1 });
   return <WorkspaceDepthProvider value={depth}>
+    <AnalysisPanelAddContext.Provider value={destinations}>
     <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} data-workspace-density={densePage ? 'compact' : undefined} className={cn(rows ? 'flex w-full min-w-0 flex-col' : 'flex h-full min-h-0 w-full min-w-0 flex-col', densePage ? 'gap-1.5' : 'gap-2')}
       onKeyDown={event => { if (event.key !== 'Escape' || event.defaultPrevented) return; if (activePeek) dismissPeek(); else if (maximizedId) requestMaximized(null); else return; event.preventDefault(); event.stopPropagation(); }}>
       {!hosted && <WorkspaceToolbar label={tx(label)} commands={commands} onShown={focusTab} actions={toolbarActions} />}
@@ -736,5 +746,6 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       </div>
       </div>
     </div>
+    </AnalysisPanelAddContext.Provider>
   </WorkspaceDepthProvider>;
 }
