@@ -18,11 +18,21 @@ export function sameAvailability(a: AnalysisSelectionAvailability | undefined, b
 
 const compareStrings: Compare = (a, b) => Number(a > b) - Number(a < b);
 
+export function analysisSelectionRangeCompare(available: AnalysisSelectionAvailability | undefined): Compare {
+  return (available && 'from' in available ? available.compare : undefined) ?? compareStrings;
+}
+
 export function isAnalysisSelectionAvailable(selection: AnalysisSelection, available: AnalysisSelectionAvailability | undefined): boolean {
   if (!available) return true;
   if ('from' in available) {
-    const compare = available.compare ?? compareStrings;
-    return selection.shape !== 'range' || (compare(selection.from, available.to) <= 0 && compare(available.from, selection.to) <= 0);
+    if (selection.shape !== 'range') return true;
+    const compare = analysisSelectionRangeCompare(available);
+    try {
+      return compare(selection.from, available.to) <= 0 && compare(available.from, selection.to) <= 0;
+    } catch {
+      // A late report may reject an endpoint already in the URL. Keep the chip and mark the range unavailable.
+      return false;
+    }
   }
   return selection.shape !== 'set' || selection.values.some(value => available.includes(value));
 }

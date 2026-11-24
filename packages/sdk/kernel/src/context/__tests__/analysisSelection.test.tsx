@@ -381,6 +381,87 @@ it('clears a rejected raw value as part of clearing all keys', () => {
   expect(search().has(rangeKey)).toBe(false);
 });
 
+it('edits just the selected key and clears it when the set becomes empty', () => {
+  const cleared = vi.fn();
+  const committed = vi.fn();
+  const result = mount(() => useAnalysisSelectionChips(cleared), chainQuery, ChipWrapper);
+  act(() => expect(result.current.editor?.replace(setKey, b, committed)).toBe(true));
+  expect(search().getAll(setKey)).toEqual(['B']);
+  expect(search().get('sort')).toBe('name');
+  expect(search().get(middleKey)).toBe('mod');
+  expect(committed).toHaveBeenCalledOnce();
+  expect(cleared).not.toHaveBeenCalled();
+  act(() => expect(result.current.editor?.replace(setKey, { shape: 'set', values: [] })).toBe(true));
+  expect(search().has(setKey)).toBe(false);
+  expect(cleared).toHaveBeenCalledOnce();
+});
+
+it('completes a chip edit only after the address guard approves it', () => {
+  const guard: { request?: ReturnType<typeof useLeaveRequest> } = {};
+  function Guarded() {
+    useUnsavedGuard(true, { leaves: 'address' });
+    const request = useLeaveRequest();
+    useLayoutEffect(() => { guard.request = request; }, [request]);
+    return null;
+  }
+  const result = mount(useAnalysisSelectionChips, initialA, ({ children }) => <Wrapper><Guarded />{children}</Wrapper>);
+  const committed = vi.fn();
+  act(() => { result.current.editor?.replace(setKey, b, committed); });
+  expect(guard.request).toBeTruthy();
+  act(() => guard.request!.cancel());
+  expect(search().getAll(setKey)).toEqual(['A']);
+  expect(committed).not.toHaveBeenCalled();
+  act(() => { result.current.editor?.replace(setKey, b, committed); });
+  act(() => guard.request!.confirm());
+  expect(search().getAll(setKey)).toEqual(['B']);
+  expect(committed).toHaveBeenCalledOnce();
+});
+
+it('edits only the proposing board pane', () => {
+  const propose = vi.fn<(screen: PaneScreen, how: 'push' | 'replace') => void>();
+  const sibling = vi.fn();
+  const pane = { menuId: 'analysis', params: {}, query: '?v=1' + chainQuery };
+  const Board = ({ children }: { children: ReactNode }) => <ChipWrapper>
+    <PaneScreenProvider paneId="one" screen={pane} onChange={propose} onLeave={() => {}}>{children}</PaneScreenProvider>
+    <PaneScreenProvider paneId="two" screen={pane} onChange={sibling} onLeave={() => {}}><span /></PaneScreenProvider>
+  </ChipWrapper>;
+  const result = mount(useAnalysisSelectionChips, '&equipmentSet=main', Board);
+  act(() => expect(result.current.editor?.replace(setKey, b)).toBe(true));
+  expect(propose).toHaveBeenCalledOnce();
+  expect(new URLSearchParams(propose.mock.calls[0][0].query).getAll(setKey)).toEqual(['B']);
+  expect(sibling).not.toHaveBeenCalled();
+  expect(search().get(setKey)).toBe('main');
+});
+
+it('resends an empty set edit while the board still renders the chip', () => {
+  const propose = vi.fn();
+  const Board = ({ children }: { children: ReactNode }) => <ChipWrapper><PaneScreenProvider paneId="one"
+    screen={{ menuId: 'analysis', params: {}, query: '?v=1' + chainQuery }} onChange={propose} onLeave={() => {}}>{children}</PaneScreenProvider></ChipWrapper>;
+  const result = mount(useAnalysisSelectionChips, '', Board);
+  const empty = { shape: 'set', values: [] } as const;
+  act(() => {
+    expect(result.current.editor?.replace(setKey, empty)).toBe(true);
+    expect(result.current.editor?.replace(setKey, empty)).toBe(true);
+  });
+  expect(propose).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  ['string order', undefined, '15:00', '16:00', true],
+  ['reversed string order', undefined, '17:00', '16:00', false],
+  ['malformed endpoint', undefined, '', '16:00', false],
+  ['numeric order', (a: string, b: string) => Number(a) - Number(b), '2', '10', true],
+  ['numeric comparator rejecting malformed input', (a: string, b: string) => Number(BigInt(a) - BigInt(b)), 'invalid', '10', false],
+] as const)('validates chip range edits with %s', (_, compare, from, to, valid) => {
+  const initial = compare ? '14/16' : '14:00/16:00';
+  const result = mount(() => {
+    useAnalysisSelectionOutput('source', rangeKey, { available: compare && { from: '0', to: '20', compare } });
+    return useAnalysisSelectionChips();
+  }, `&timeRange=${initial}`);
+  act(() => expect(result.current.editor?.replace(rangeKey, { shape: 'range', from, to })).toBe(valid));
+  expect(search().get(rangeKey)).toBe(valid ? `${from}/${to}` : initial);
+});
+
 it('returns empty chips and refuses writes in a lent panel', () => {
   const result = mount(useAnalysisSelectionChips, chainQuery, ({ children }) => <ChipWrapper><Lent>{children}</Lent></ChipWrapper>);
   expect(result.current.chips).toEqual([]);
@@ -448,6 +529,31 @@ it('applies a numeric range overlapping a shorter-width extent', () => {
   }, '&timeRange=2/10');
   expect(result.current.chips[0]?.available).toBe(true);
   expect(result.current.inputs.applied.map(input => input.key)).toEqual([rangeKey]);
+});
+
+it('releases a range filter when a late comparator rejects the edited value', () => {
+  const filterPanel: PanelDeclaration = { ...panel, id: 'range-filter', queryInputs: { page: [{ key: rangeKey, selection: 'filter' }] } };
+  const filterRegistry = createRegistry({
+    spaces: [testSpace()],
+    groups: [{ id: home.group, label: title, icon: House, space: spaceId('mars') }],
+    menus: [home, { ...home, id: 'analysis', path: '/analysis', primary: false, panels: [...panels, filterPanel],
+      pageKeys: [setKey, rangeKey], repeatedPageKeys: [setKey], contextResetKeys: [setKey, rangeKey] }],
+  });
+  const extent = { from: '0', to: '20', compare: (a: string, b: string) => Number(BigInt(a) - BigInt(b)) };
+  const result = mount(() => {
+    const [reported, report] = useState(false);
+    useAnalysisSelectionOutput('source', rangeKey, { available: reported ? extent : undefined });
+    return { report, model: useAnalysisSelectionChips(), inputs: useAnalysisSelectionInputs('range-filter') };
+  }, '&timeRange=2/10', ({ children }) => <I18nProvider><PlatformProvider adapter={adapter} registry={filterRegistry}>{children}</PlatformProvider></I18nProvider>);
+  const selection = { shape: 'range', from: '2', to: 'not-a-number' } as const;
+  act(() => expect(result.current.model.editor?.replace(rangeKey, selection)).toBe(true));
+  expect(result.current.inputs.filtered).toBe(true);
+  expect(result.current.inputs.applied[0]?.selection).toEqual(selection);
+
+  act(() => result.current.report(true));
+  expect(result.current.model.chips).toMatchObject([{ key: rangeKey, selection, available: false }]);
+  expect(result.current.inputs).toMatchObject({ filtered: false, applied: [], unavailable: [rangeKey], rejected: [] });
+  expect(search().get(rangeKey)).toBe('2/not-a-number');
 });
 
 it.each(['older', 'newer'] as const)('keeps a shared report when the %s reporter unmounts', removed => {

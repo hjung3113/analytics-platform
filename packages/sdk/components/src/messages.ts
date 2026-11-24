@@ -17,6 +17,11 @@ export const COMPONENTS_MESSAGES = {
   analysisSelectionUnavailable: { ko: '해당 없음', en: 'No match' },
   analysisSelectionClear: { ko: '{dimension} 선택 지우기', en: 'Clear {dimension} selection' },
   analysisSelectionClearAll: { ko: '모두 지우기', en: 'Clear all' },
+  analysisSelectionStart: { ko: '시작', en: 'Start' },
+  analysisSelectionEnd: { ko: '끝', en: 'End' },
+  analysisSelectionApply: { ko: '적용', en: 'Apply' },
+  analysisSelectionInvalidRange: { ko: '시작은 끝보다 늦을 수 없습니다. 시작과 끝을 확인해 주세요.', en: 'The start must be at or before the end. Check both values.' },
+  analysisSelectionInvalidSet: { ko: '선택한 값의 개수를 줄여 주세요.', en: 'Select fewer values.' },
 
   // FacetedSetDialog
   fsCancel: { ko: '취소', en: 'Cancel' },
