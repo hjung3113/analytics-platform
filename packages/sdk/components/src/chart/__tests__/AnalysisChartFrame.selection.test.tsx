@@ -911,6 +911,14 @@ describe('Next analysis chip actions', () => {
     const restored = surface === 'folded' ? within(await screen.findByRole('dialog', { name: '분석 선택' })) : chipControls();
     expect(restored.getByRole('button', origin)).toHaveFocus();
     expect(search().get('from')).toBe(from);
+    // Applying clears the selection with the period, so focus goes to the chart's brush tool, not the vanishing chip.
+    await user.click(restored.getByRole('button', origin));
+    await user.click(screen.getByRole('menuitem', { name: '조건으로' }));
+    await user.click(within(screen.getByRole('group', { name: '구간 적용 확인' })).getByRole('button', { name: '적용' }));
+    expect(search().get('from')).toBe(mid);
+    await waitFor(() => expect(screen.queryByRole('button', origin)).toBeNull());
+    expect(list()).toBeNull();
+    expect(screen.getByRole('button', { name: '구간 선택' })).toHaveFocus();
   });
 
   it('shares disabled reasons and leaves a blocked action open', async () => {

@@ -87,11 +87,14 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
   useEffect(() => {
     if (itemId) setReveal(current => current?.itemId === itemId ? current : { panelId: trend.id, itemId, seq: (current?.seq ?? 0) + 1 });
   }, [itemId]);
+  // Explicitly reopening a trend can restore either panel after the user hid it in its workspace menu. The linked request goes out
+  // in the render that first shows the panel, so a panel added when its mapping arrives counts as added with the reveal.
+  const linkedReveal = reveal?.restoreLinked && itemId === reveal.itemId && showHwTime
+    ? { panelId: HW_TIME_PANEL_ID, seq: reveal.seq + 1, itemId, restoreHidden: true } : null;
   useEffect(() => {
-    // Explicitly reopening a trend can restore either panel after the user hid it in its workspace menu.
-    if (!reveal?.restoreLinked || itemId !== reveal.itemId || !showHwTime) return;
-    setReveal(current => current === reveal ? { panelId: HW_TIME_PANEL_ID, seq: reveal.seq + 1, itemId, restoreHidden: true } : current);
-  }, [itemId, reveal, showHwTime]);
+    if (linkedReveal) setReveal(current => current === reveal ? linkedReveal : current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `linkedReveal` is rebuilt each render; its seq and `reveal` identify it.
+  }, [linkedReveal?.seq, reveal]);
   useEffect(() => {
     if (hwItem !== null || !returnHwTrendFocus.current) return;
     returnHwTrendFocus.current = false;
@@ -152,6 +155,6 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
   });
 
   return <PanelWorkspace panels={panels} presets={PRESETS} initialPreset="comparison" initialMode="stack" compactBelow={0}
-    persistKey="configuration-analysis" label={MESSAGES.conditions} revealRequest={reveal}
+    persistKey="configuration-analysis" label={MESSAGES.conditions} revealRequest={linkedReveal ?? reveal}
     panelMenuItems={id => id === HW_TIME_PANEL_ID ? [] : [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }]} />;
 }

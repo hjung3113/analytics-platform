@@ -1150,7 +1150,9 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       if (xType !== 'time' || !(compareRangeTimes(preview.from, preview.to) < 0)) return;
       applyPeriod(preview);
       notify(m('chartAppliedGlobalPeriodToast'));
-      restoreConfirmationFocus(brushToggle.current);
+      // Applying the period clears the analysis selection with it, so the chip that opened this row is about to unmount.
+      returnFromConfirmation.current = undefined;
+      brushToggle.current?.focus({ preventScroll: true });
     }}>{t('apply')}</Button>
     <Button size="toolbar" variant="secondary" onClick={cancelPeriod}>{t('cancel')}</Button>
   </div>;
