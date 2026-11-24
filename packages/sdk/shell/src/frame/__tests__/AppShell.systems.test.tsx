@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Boxes, House, Wrench } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformLink, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformLink, PlatformProvider, createRegistry, type PlatformSlots } from '@ap/kernel';
 import { PlatformPage } from '@ap/components';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '@ap/kernel/testing';
 import { AppShell } from '../AppShell';
@@ -224,10 +224,10 @@ describe('switcher on a denied space URL (#1314, 06 §9.1)', () => {
 });
 
 describe('space scope control slot (ADR-0081 decision 4)', () => {
-  function mountWith(slots: { scopeControl?: { For: (id: never) => ((props: { collapsed: boolean }) => React.ReactNode) | null } }, url: string) {
+  function mountWith(slots: PlatformSlots, url: string) {
     window.history.replaceState(null, '', url);
     const session = testSession(['platform:view', 'console:access']);
-    return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots as never}>
+    return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots}>
       <AppShell><PlatformPage><p>body</p></PlatformPage></AppShell>
     </PlatformProvider></I18nProvider>);
   }
