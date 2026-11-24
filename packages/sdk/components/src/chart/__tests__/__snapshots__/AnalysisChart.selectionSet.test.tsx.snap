@@ -1159,7 +1159,7 @@ exports[`builds the same statusScatter option and summary from a fixed selection
       },
       "max": [Function],
       "min": [Function],
-      "name": "X (undefined)",
+      "name": "X (s)",
       "nameGap": 32,
       "nameLocation": "middle",
       "scale": true,

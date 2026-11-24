@@ -19,7 +19,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 const labels = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'];
 const SPECS: Record<string, ChartSpec> = {
   scatter: { kind: 'scatter', xLabel: 'X', yLabel: 'Y', xUnit: 's', points: labels.map((label, i) => ({ id: label, label, x: i, y: i * 2 })) },
-  statusScatter: { kind: 'scatter', xLabel: 'X', yLabel: 'Y', points: labels.map((label, i) => ({ id: label, label, x: i, y: i * 2, ...(i % 2 ? {} : { status: { tone: 'danger' as const, label: 'Over' } }) })) },
+  statusScatter: { kind: 'scatter', xLabel: 'X', yLabel: 'Y', xUnit: 's', points: labels.map((label, i) => i % 2 ? { id: label, label, x: i, y: i * 2 } : { id: label, label, x: i, y: i * 2, status: { tone: 'danger' as const, label: 'Over' } }) },
   pareto: { kind: 'pareto', items: labels.map((label, i) => ({ id: label, label, value: 50 - i * 7 })) },
   topNBar: { kind: 'topNBar', expanded: true, items: labels.map((label, i) => ({ id: label, label, value: 50 - i * 7, colorToken: 'chart-series-1' })) },
   heatmap: { kind: 'heatmap', xLabels: ['A', 'B', 'C'], yLabels: ['R1', 'R2'], cells: ['A', 'B', 'C'].flatMap((x, i) => ['R1', 'R2'].map((y, j) => ({ x, y, value: i * 2 + j }))) },
