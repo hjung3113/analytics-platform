@@ -122,7 +122,10 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     const hereState = stamping ? location.readState?.() : null;
     const here = stamping ? readHistoryIdx(hereState) : null;
     const hereSeg = here === null ? null : readHistorySeg(hereState);
-    if (how === 'replace' || here === null || hereSeg !== segRef.current) selectionSteps.current.clear();
+    // A display-only replace changes the address of the current step, but its predecessor still undoes the selection.
+    const keepStep = how === 'replace' && options.preserveSelectionUndo && here !== null && hereSeg === segRef.current
+      && selectionSteps.current.get(here) === location.read();
+    if (here === null || hereSeg !== segRef.current || (how === 'replace' && !keepStep)) selectionSteps.current.clear();
     else for (const index of selectionSteps.current.keys()) if (index > here) selectionSteps.current.delete(index);
     const replaceState = declares ? withHiddenState(location.readState?.(), nextHidden) : undefined;
     if (how === 'replace') location.replace(split.url, { keepFragment: options.redirect || options.materialize, ...(here !== null ? { state: withHistoryIdx(replaceState, here, hereSeg) } : declares ? { state: replaceState } : {}) });
@@ -137,6 +140,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       if (options.analysisSelection) selectionSteps.current.set(base + 1, split.url);
     } else if (declares) location.push(split.url, withHiddenState(null, nextHidden)); else location.push(split.url);
     const writtenUrl = location.read() ?? '';
+    if (keepStep) selectionSteps.current.set(here, writtenUrl);
     const committed = { url: writtenUrl, hidden: nextHidden, rewrite: false };
     latestArrival.current = committed;
     setView({ arrival: committed, url: writtenUrl, hidden: nextHidden });

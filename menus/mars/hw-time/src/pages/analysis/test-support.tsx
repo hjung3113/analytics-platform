@@ -11,6 +11,7 @@ import { HW_TIME_MODULE_TYPES, type HwTimeMatrix, type HwTimeMotionStats, type H
 import { manifests } from '../../index';
 
 const RealWorkspace = createContext(false);
+const RealChart = createContext<string | undefined>(undefined);
 export const chartRenders = vi.fn<(chartId: string) => void>();
 
 // Canvas is unavailable in jsdom. Keep queries, filter, URL, table and status UI real; expose the public chart callbacks and declarations.
@@ -38,6 +39,7 @@ vi.mock('@ap/components', async importOriginal => {
       }}>{`activate ${cell.y} ${cell.x}`}</button>)}
     </section>,
     AnalysisChartFrame: (p: import('@ap/components').AnalysisChartFrameProps) => {
+      const real = useContext(RealChart) === p.chartId;
       chartRenders(p.chartId);
       return <section aria-label={p.chartId}>
       {p.title}{p.toolbarStart != null && <div data-chart-toolbar-start>{p.toolbarStart}</div>}{p.extraActions}
@@ -48,6 +50,7 @@ vi.mock('@ap/components', async importOriginal => {
         rowGroups: p.rowGroups && { header: p.rowGroups.header, byCategory: [...p.rowGroups.byCategory] },
         bounds: p.bounds && [...p.bounds],
         statuses: p.series.flatMap(s => s.points.flatMap(([x, value]) => { const st = p.pointStatus?.({ x, value, seriesId: s.id }); return st ? [`${s.id}@${x}:${st.tone}`] : []; })) })}</pre>
+      {real ? <actual.AnalysisChartFrame {...p} /> : <>
       {p.series[0]?.points.map(([x, value]) => <span key={x}>
         <button onClick={() => p.onActiveCategoryChange?.(x, 'pointer')}>{`select ${p.chartId} ${x}`}</button>
         {p.chartId === 'hw-module-motions' && <button onClick={() => p.onActiveCategoryChange?.(x, 'keyboard')}>{`browse ${x}`}</button>}
@@ -55,6 +58,7 @@ vi.mock('@ap/components', async importOriginal => {
       </span>)}
       {p.series[0]?.points[0] && (typeof p.pointActions === 'function' ? p.pointActions({ x: p.series[0].points[0][0], value: p.series[0].points[0][1], seriesId: p.series[0].id }) : []).map(action => <button key={action.id} disabled={action.disabled}
         onClick={() => action.onSelect({ x: p.series[0]!.points[0]![0], value: p.series[0]!.points[0]![1], seriesId: p.series[0]!.id })}>{`point action ${p.chartId} ${action.id}`}</button>)}
+      </>}
     </section>;
     },
   };
@@ -103,12 +107,12 @@ export const registry = createRegistry({
 });
 export const session = testSession(['analytics:view', 'platform:view']);
 export const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
-export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true, showSelectionChips = false, realWorkspace = false } = {}) {
+export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true, showSelectionChips = false, realWorkspace = false, realChart }: { waitForData?: boolean; showSelectionChips?: boolean; realWorkspace?: boolean; realChart?: string } = {}) {
   const { default: HwTimePage } = await import('../../HwTimePage');
   const adapter = testAdapter({ session: () => session, menuQuery: async request => { requests.push(request); return respond(request); } });
   window.history.replaceState(null, '', `/mars/hw-time?view=overview&v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
   const page = <HwTimePage params={{}} />;
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{showSelectionChips && <AnalysisSelectionChipZone />}{realWorkspace ? <RealWorkspace.Provider value>{page}</RealWorkspace.Provider> : page}</PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{showSelectionChips && <AnalysisSelectionChipZone />}<RealChart.Provider value={realChart}>{realWorkspace ? <RealWorkspace.Provider value>{page}</RealWorkspace.Provider> : page}</RealChart.Provider></PlatformProvider></I18nProvider>);
   if (waitForData) await screen.findByTestId('hw-current', {}, { timeout: 5000 });
   await settle();
 }

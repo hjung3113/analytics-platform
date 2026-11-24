@@ -6,10 +6,11 @@ import { toMs, unknownLabel, warnMissingChartUnit } from './analysisChartShared'
 import { emptyCategoryLabels } from './chartEmptyCategories';
 import { BrushIcon, Eye, GitCompare, MessageSquarePlus, RotateCcw, ZoomIn, ZoomOut, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
-import { useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
+import { ANALYSIS_SELECTION_MAX_VALUES, useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
 import { useOptionalAnalysisSelectionOutput } from '@ap/kernel/host';
-import { overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
+import { overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, normalizeSet, ContractError, type AnalysisSelectionShape, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, InfoTip, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import { useThemeRevision, type ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -183,8 +184,12 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
   canApplyRange?: boolean;
   /** Page-owned actions for the current brushed selection (e.g. filter a table). */
   selectionActions?: (selection: Selection) => ReactNode;
-  /** A declared panel range output. The menu URL holds the selection and its chip edits it. */
-  analysisSelectionOutput?: { panelId: string; key: string };
+  /** Show selection actions in a fixed row at the bottom of the chart. Default: false. */
+  nextAnalysis?: boolean;
+  /** Optional panel footer for the row. Null waits for the footer to mount. */
+  nextAnalysisTarget?: HTMLElement | null;
+  /** A declared URL-backed range or set output. Null suspends output on a retained result. */
+  analysisSelectionOutput?: { panelId: string; key: string } | null;
   /** Drill callback when pointActivation is absent, invoked on double-click or Enter. */
   onPointClick?: (x: string, seriesId: string) => void;
   /** @deprecated The SDK renders guidance from the available inputs. */
@@ -271,6 +276,9 @@ type FrameHost = {
   features: { compare: boolean; annotate: boolean; export: boolean };
   /** Promotes a brushed range to the period; null = analysis range application is unavailable. */
   applyPeriod: ((range: Selection) => void) | null;
+  applyEquipment?: (values: readonly string[]) => void;
+  outputShape?: AnalysisSelectionShape;
+  outputDimension?: string;
   notify: (text: string, tone?: 'warning') => void;
   url: string;
   /** The standalone result line (no `notify`): shown beside 내보내기. */
@@ -293,6 +301,9 @@ function PlatformFrame({ platform, ...p }: AnalysisChartFrameProps & { platform:
   const { setGlobal, toast, global, route, url } = platform;
   const features = route?.menu.features;
   const analyticsAllowed = platform.can('analytics:view');
+  const output = p.analysisSelectionOutput;
+  const declaration = route?.menu.panels?.find(panel => panel.id === output?.panelId)
+    ?.outputs.find(item => item.key === output?.key)?.selection;
   const canAnnotate = !p.zoomOnly && !!features?.annotate && analyticsAllowed;
   const editor = useAnnotationEditor({ chartId: p.chartId, scopeId: global.scopeId, canAnnotate, axisKind: p.xType ?? 'time', ...(p.xType !== 'category' ? { from: global.from, to: global.to } : {}) });
   const host: FrameHost = {
@@ -300,6 +311,8 @@ function PlatformFrame({ platform, ...p }: AnalysisChartFrameProps & { platform:
     analyticsAllowed,
     features: { compare: !!features?.compare, annotate: !!features?.annotate, export: !!features?.export },
     applyPeriod: analyticsAllowed ? range => setGlobal({ from: range.from, to: range.to }) : null,
+    ...(analyticsAllowed && { applyEquipment: (values: readonly string[]) => setGlobal({ selection: [...values] }) }),
+    ...(declaration && { outputShape: declaration.shape, outputDimension: declaration.dimension }),
   };
   return <FrameBody {...p} host={host} editor={editor} />;
 }
@@ -337,7 +350,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const chrome = (zoomOnly ? 'standard' : p.chrome) ?? (panel ? 'standard' : 'full');
   const compactChrome = chrome !== 'full';
   const [panelToolsOpen, setPanelToolsOpen] = useState(false);
-  const [selectedPointKeys, setSelectedPointKeys] = useState<readonly string[]>([]);
+  const [localPointKeys, setSelectedPointKeys] = useState<readonly string[]>([]);
   const toolbarButtonSize = compactChrome ? 'icon-xs' : 'toolbar';
   const analysisSection = useContext(AnalysisSectionContext);
   const size = resolveAnalysisChartSize(p.size, analysisSection);
@@ -354,6 +367,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const annotateReasonId = useId();
   const rangeAnnotateReasonId = useId();
   const applyReasonId = useId();
+  const equipmentReasonId = useId();
   const canExport = !zoomOnly && features.export;
   const titleId = useId();
   const currentPeriodId = useId();
@@ -387,6 +401,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   // Set when the keyboard turns brush mode on in a fill card: the range form appears then and takes focus (ADR-0067 decision 21).
   const focusRangeForm = useRef(false);
   const applyRangeButton = useRef<HTMLButtonElement | null>(null);
+  const confirmPeriodButton = useRef<HTMLButtonElement | null>(null);
   const annotateButton = useRef<HTMLButtonElement | null>(null);
   const menu = usePointMenu(url);
   const pointChart = menu.chartRef;
@@ -446,7 +461,13 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   // The chart instance's width in px: label budgets are cut from it, so a container resize must reach the option (#399 F3).
   const [chartWidth, setChartWidth] = useState(NOTE_FALLBACK_WIDTH);
   const { state: range, actions: rangeActions } = useChartRange();
-  const { preview, zoom, clipNotice, rangeDraft } = range;
+  const { analysisSelectionOutput: output, nextAnalysis, nextAnalysisTarget } = p;
+  const [outputChart, setOutputChart] = useState(output ? p.chartId : null);
+  if (output && outputChart !== p.chartId) setOutputChart(p.chartId);
+  const outputSuspended = nextAnalysis && !output && (output === null || outputChart === p.chartId);
+  const { zoom, rangeDraft } = range;
+  const clipNotice = outputSuspended ? null : range.clipNotice;
+  const preview = outputSuspended ? null : range.preview;
   const isZoomed = zoom[0] > 0 || zoom[1] < 100;
   /** One more zoom-out reaches the full range, which removes the zoom-out and pan buttons; focus then moves to 확대. */
   const zoomsBackToFull = zoom[1] - zoom[0] >= 50;
@@ -488,7 +509,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const emptyCategoryLabel = horizontal ? p.emptyCategoryLabel : undefined;
   const emptyLabels = useMemo(() => emptyCategoryLabels({ horizontal, xType, categories, displayed, emptyCategoryLabel }),
     [horizontal, xType, categories, displayed, emptyCategoryLabel]);
-  const plotPointControls = !zoomOnly && (canDrill || hasPointActions || !!p.pointStatus || (rawBounds && !horizontal && !percent));
+  const plotPointControls = !zoomOnly && (canDrill || hasPointActions || !!p.pointStatus || host.outputShape === 'set' || (rawBounds && !horizontal && !percent));
   const boundsProp = percent ? undefined : p.bounds; const boundLabels = p.boundLabels;
   const bounds = useMemo(() => projectChartBounds({ bounds: boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories }), [boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories]);
   const pointBoundsText = (point: ChartPoint) => bounds && !previousIds.has(point.seriesId) ? ` · ${boundText(bounds, point.x, format)}` : '';
@@ -498,10 +519,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const resolvedStatus = (point: ChartPoint) => statuses.get(chartPointKey(point));
   const labelOf = (x: string) => groupedRowText(rowGroups, x);
   const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
-  const output = p.analysisSelectionOutput;
-  const outputEnabled = output !== undefined;
+  const setOutput = host.outputShape === 'set';
+  const rangeOutput = !!output && !setOutput;
   const available = useMemo(() => {
-    if (!outputEnabled) return undefined;
+    if (!rangeOutput) return undefined;
     if (xType === 'category' && categories.length) return {
       from: categories[0], to: categories[categories.length - 1],
       candidates: categories.map(value => ({ value, label: groupedRowText(rowGroups, value) })),
@@ -509,8 +530,9 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     if (xType !== 'time') return undefined;
     const bounds = timeBounds.length ? timeBounds : p.series.flatMap(s => s.points.map(([x]) => x)).sort();
     return bounds.length ? { from: bounds[0], to: bounds[bounds.length - 1], compare: compareRangeTimes } : undefined;
-  }, [outputEnabled, xType, categories, rowGroups, timeBounds, p.series]);
-  const selectionOutput = useOptionalAnalysisSelectionOutput(output, { available, subscribeHighlight: false });
+  }, [rangeOutput, xType, categories, rowGroups, timeBounds, p.series]);
+  const selectionOutput = useOptionalAnalysisSelectionOutput(output ?? undefined, { available, subscribeHighlight: false });
+  const urlSet = selectionOutput.selection?.shape === 'set' ? selectionOutput.selection : null;
   const urlRange = selectionOutput.selection?.shape === 'range' ? selectionOutput.selection : null;
   const urlFrom = urlRange?.from; const urlTo = urlRange?.to;
   const urlStartIndex = urlFrom === undefined ? -1 : categories.indexOf(urlFrom);
@@ -519,17 +541,19 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     ? urlStartIndex >= 0 && urlEndIndex >= urlStartIndex
     : compareRangeTimes(urlRange.from, urlRange.to) < 0);
   const drawnUrlRange = validUrlRange ? urlRange : null;
-  const selection = outputEnabled ? drawnUrlRange : range.selection;
+  let selection = rangeOutput ? drawnUrlRange : range.selection;
+  if (outputSuspended) selection = null;
   const selectOutput = output ? selectionOutput.select : undefined;
+  const selectSet = setOutput ? selectOutput : undefined;
   const writeRange = useCallback((next: Selection | null) => {
-    selectOutput?.(next && { shape: 'range', from: next.from, to: next.to });
-  }, [selectOutput]);
+    if (rangeOutput) selectOutput?.(next && { shape: 'range', from: next.from, to: next.to });
+  }, [rangeOutput, selectOutput]);
   useEffect(() => {
-    if (!outputEnabled) return;
+    if (!rangeOutput && !outputSuspended) return;
     rangeActions.setPreview(null);
     rangeActions.setDraft(null);
     closeEditor();
-  }, [outputEnabled, output?.panelId, output?.key, urlFrom, urlTo, rangeActions, closeEditor]);
+  }, [rangeOutput, outputSuspended, output?.panelId, output?.key, urlFrom, urlTo, rangeActions, closeEditor]);
   const statusParts = (x: string) => displayed.flatMap(s => { const status = statuses.get(chartPointKey({ seriesId: s.id, x })); return status ? [{ id: s.id, name: s.name, status, csvLabel: frameStatusCsvLabel(s, horizontal, status) }] : []; });
   // One visible series has nothing to align to: StartAlign then does nothing (normal value axis, Brush stays); hiding series is a normal user action, so no diagnostic.
   const startAlign = !percent && !negativeShares && horizontal && !!stacked && !!p.startAlign && displayed.length >= 2;
@@ -545,7 +569,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     return { label: markDeclaration.label, byCategory };
   }, [markDeclaration, categories]);
   // StartAlign turns Brush off: x is no longer one value scale, so a dragged range would not mean seconds.
-  const brushMode = range.brushMode && !startAlign;
+  const brushMode = range.brushMode && !startAlign && !outputSuspended;
   // revealActive: an outside change of the active row scrolls it into the plot window (grid top + index × pitch). Focus never moves.
   // A row pitch that appears while a row is active (the rows stop fitting the panel) reveals that row again: the new scroll box starts at the top.
   const hadRowPitch = useRef(rowPitch !== undefined);
@@ -594,24 +618,40 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     resetPoint();
     setSelectedPointKeys([]);
   } else {
-    const retained = selectedPointKeys.filter(key => pointKeys.has(key));
-    if (retained.length !== selectedPointKeys.length) setSelectedPointKeys(retained);
+    const retained = localPointKeys.filter(key => pointKeys.has(key));
+    if (retained.length !== localPointKeys.length) setSelectedPointKeys(retained);
     if (selectedPointKey !== null && !pointKeys.has(selectedPointKey)) setSelectedPointKey(null);
   }
+  const selectedPointKeys = useMemo(() => {
+    if (!setOutput) return localPointKeys;
+    const values = new Set(urlSet?.values);
+    return pointEntries.filter(({ point }) => values.has(point.x)).map(({ key }) => key);
+  }, [setOutput, urlSet, pointEntries, localPointKeys]);
   const chosenPoints = useMemo(() => {
-    if (!selectedPointKeys.length) return [];
+    if (setOutput || !selectedPointKeys.length) return [];
     const chosen = new Set(selectedPointKeys);
     return pointEntries.filter(entry => chosen.has(entry.key));
-  }, [pointEntries, selectedPointKeys]);
+  }, [pointEntries, selectedPointKeys, setOutput]);
   const selectedPoint = points.find(point => chartPointKey(point) === selectedPointKey) ?? points[0];
   const choosePoint = useCallback((point: ChartPoint, { add }: { add: boolean }) => {
     const key = chartPointKey(point);
     setSelectedPointKey(key);
+    if (selectSet) {
+      const previous = urlSet?.values ?? [];
+      let values = [point.x];
+      if (add) {
+        if (previous.includes(point.x)) values = previous.filter(value => value !== point.x);
+        else if (previous.length >= ANALYSIS_SELECTION_MAX_VALUES) return;
+        else values = [...previous, point.x];
+      }
+      selectSet(values.length ? { shape: 'set', values } : null);
+      return;
+    }
     setSelectedPointKeys(previous => {
       if (add) return previous.includes(key) ? previous : [...previous, key];
       return previous.length === 1 && previous[0] === key ? previous : [key];
     });
-  }, [setSelectedPointKey]);
+  }, [setSelectedPointKey, selectSet, urlSet]);
   const actionsFor = useCallback((point: ChartPoint): readonly ChartPointAction[] => (typeof pointActions === 'function' ? pointActions(point) : pointActions ?? []), [pointActions]);
   const selectedActions = useMemo(() => (selectedPoint ? actionsFor(selectedPoint) : []), [selectedPoint, actionsFor]);
   const noActions = hasPointActions && selectedActions.length === 0;
@@ -660,8 +700,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const onVisibleSeriesChange = p.onVisibleSeriesChange;
   const { cancelDelete } = editor;
   const resetLocal = useCallback(() => {
-    setHidden(new Set()); onVisibleSeriesChange?.(allSeries.map(s => s.id)); resetPoint(); setCompare(false); rangeActions.buttonReset(); writeRange(null); closeEditor(); setSelectedPointKeys([]);
-  }, [closeEditor, onVisibleSeriesChange, allSeries, resetPoint, rangeActions, writeRange]);
+    setHidden(new Set()); onVisibleSeriesChange?.(allSeries.map(s => s.id)); resetPoint(); setCompare(false); rangeActions.buttonReset(); writeRange(null); selectSet?.(null); closeEditor(); setSelectedPointKeys([]);
+  }, [closeEditor, onVisibleSeriesChange, allSeries, resetPoint, rangeActions, writeRange, selectSet]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = host.contextKey;
   const appliedActive = useRef<{ identity: string; category: string } | null>(null);
@@ -679,13 +719,13 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     setSelectedPointKey(chartPointKey(target));
   }, [activeCategory, contextKey, pointIdentity, points, selectedPoint, setSelectedPointKey]);
 
-  const showKeyboard = !zoomOnly && xType === 'time' && global.to !== null && timeBounds.length >= 2;
+  const showKeyboard = !zoomOnly && !outputSuspended && xType === 'time' && global.to !== null && timeBounds.length >= 2;
   // A category axis has no query end to wait for: the start/end selects are the non-pointer path to a range (06 §16, #2024). StartAlign turns Brush off, and the selects with it.
-  const showCategoryKeyboard = !zoomOnly && xType === 'category' && categories.length > 0 && !startAlign;
+  const showCategoryKeyboard = !zoomOnly && !outputSuspended && xType === 'category' && categories.length > 0 && !startAlign;
   const rangeKeyboard = showKeyboard || showCategoryKeyboard;
   // The data under a kept selection changed (#2064): a new granularity or a new category list re-fits the selection the same way a fresh pick is fitted,
   // so the header and the counts never describe different ranges. Time: snap outward onto the new bars, then clip; nothing left clears it. Category: an end that is no longer drawn clears it.
-  const currentSelection = outputEnabled ? null : range.selection;
+  const currentSelection = rangeOutput ? null : range.selection;
   const currentPreview = preview;
   const compareClipOn = compare && canCompare;
   const periodFrom = global.from; const periodTo = global.to;
@@ -835,7 +875,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     brushEnd: (params: { areas?: { coordRange?: [number, number] }[] }, instance: ECharts) => {
       const brushed = params.areas?.[0]?.coordRange;
       instance.dispatchAction({ type: 'brush', areas: [] });
-      if (!brushed) return;
+      if (!brushed || outputSuspended) return;
       if (xType === 'time') {
         // Same snap as the keyboard path, then clip. A zero-width drag only drops an open confirm.
         const snapped = snapOutward(brushed[0], brushed[1], timeBounds);
@@ -860,11 +900,13 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       const point = eventPoint(params);
       if (!point) return;
       if (zoomOnly) return;
-      choosePoint(point, { add: !!(params.event?.event?.metaKey || params.event?.event?.shiftKey) });
+      const modifiers = { add: !!(params.event?.event?.metaKey || params.event?.event?.shiftKey) };
+      if (!setOutput) choosePoint(point, modifiers);
       if (horizontal && onActiveCategoryChange) {
         setPointerRequest(point.x);
         onActiveCategoryChange(point.x, 'pointer');
       }
+      if (setOutput) choosePoint(point, modifiers);
     },
     dblclick: (params: PointEvent) => {
       if (zoomOnly || brushMode || !canDrill) return;
@@ -883,7 +925,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         }
       }
     },
-  }), [xType, horizontal, onActiveCategoryChange, categories, brushMode, zoomOnly, compactChrome, canDrill, activatePoint, hasPointActions, actionsFor, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, writeRange, setSelectedPointKey, choosePoint]);
+  }), [xType, horizontal, onActiveCategoryChange, categories, brushMode, zoomOnly, compactChrome, canDrill, activatePoint, hasPointActions, actionsFor, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, writeRange, setSelectedPointKey, choosePoint, setOutput, outputSuspended]);
 
   const selectionCounts = selection ? displayed.map(s => {
     const inRange = s.points.filter(([x, y]) => y !== null && (xType === 'time' ? x >= selection.from && x < selection.to : categories.indexOf(x) >= categories.indexOf(selection.from) && categories.indexOf(x) <= categories.indexOf(selection.to)));
@@ -1052,7 +1094,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
             {pointEntries.map(({ key, point, series }) => <option key={key} value={key}>{labelOf(point.x)} · {series.name} · {point.value === null ? unknownLabel(lang) : fmtOf(series)(point.value)}{point.value !== null ? ` ${unitOf(series)}` : ''}{extremeText(point)}{pointBoundsText(point)}{statusEnabled && resolvedStatus(point) ? ` · ${statusText(resolvedStatus(point))}` : ''}</option>)}
           </select>
           <Button type="button" variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint) choosePoint(selectedPoint, { add: false }); }}>{m('chartSelectOnlyPoint')}</Button>
-          <Button type="button" variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint) choosePoint(selectedPoint, { add: true }); }}>{m('chartAddPoint')}</Button>
+          <Button type="button" variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint) choosePoint(selectedPoint, { add: true }); }}>{m(setOutput && selectedPoint && urlSet?.values.includes(selectedPoint.x) ? 'chartRemovePoint' : 'chartAddPoint')}</Button>
           {canDrill && <Button type="button" variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) activatePoint(selectedPoint); }}>{m('chartActivatePoint')}</Button>}
           {hasPointActions && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint && !noActions} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>
             <DropdownMenuTrigger asChild><Button type="button" ref={menu.triggerRef} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint || noActions}>{m('chartPointActions')}</Button></DropdownMenuTrigger>
@@ -1067,16 +1109,90 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   else if (!host.analyticsAllowed) annotateReason = m('chartAnnotateDenied');
   else if (scopeId === null) annotateReason = m('chartAnnotatePickScope');
 
-  const showApplyRange = !outputEnabled || xType === 'time';
+  const showApplyRange = xType === 'time' || (!p.nextAnalysis && !rangeOutput);
   let applyReason: string | undefined;
   if (xType !== 'time') applyReason = m('chartApplyRangeTimeOnly');
   else if (!host.inPlatform || p.canApplyRange === false) applyReason = m('chartApplyRangeUnavailable');
   else if (!applyPeriod) applyReason = m('chartApplyRangeDenied');
 
+  useLayoutEffect(() => {
+    if (p.nextAnalysis && preview) confirmPeriodButton.current?.focus({ preventScroll: true });
+  }, [p.nextAnalysis, preview]);
+  const cancelPeriod = () => {
+    rangeActions.setPreview(null);
+    applyRangeButton.current?.focus({ preventScroll: true });
+  };
+  const confirmPeriod = preview && applyPeriod && xType === 'time' && <div role="group" aria-label={m('chartConfirmRange')}
+    onKeyDown={p.nextAnalysis ? event => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      event.stopPropagation();
+      cancelPeriod();
+    } : undefined} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
+    <span className="tabular">{m('chartConfirmGlobalPeriodChange')} <b>{formatWallClock(preview.from)} → {formatWallClock(preview.to)}</b></span>
+    {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
+    <Button ref={confirmPeriodButton} size="toolbar" onClick={() => {
+      if (xType !== 'time' || !(compareRangeTimes(preview.from, preview.to) < 0)) return;
+      applyPeriod(preview);
+      notify(m('chartAppliedGlobalPeriodToast'));
+      brushToggle.current?.focus({ preventScroll: true });
+    }}>{t('apply')}</Button>
+    <Button size="toolbar" variant="secondary" onClick={cancelPeriod}>{t('cancel')}</Button>
+  </div>;
+  const rangeSelectionActions = selection && <>
+    {showAnnotate && <>
+      <Button type="button" size="toolbar" disabled={!!annotateReason} aria-describedby={annotateReason ? rangeAnnotateReasonId : undefined} onClick={editor.openEditor}>{m('chartAnnotateRange')}</Button>
+      {annotateReason && <span id={rangeAnnotateReasonId} className="text-text-secondary">{annotateReason}</span>}
+    </>}
+    {showApplyRange && <>
+      <Button type="button" ref={applyRangeButton} size="toolbar" disabled={!!applyReason} aria-describedby={applyReason ? applyReasonId : undefined} onClick={() => rangeActions.setPreview(selection)}>{m(p.nextAnalysis ? 'chartApplySelection' : 'chartApplyRange')}</Button>
+      {applyReason && <span id={applyReasonId} className="text-text-secondary">{applyReason}</span>}
+    </>}
+    {p.selectionActions?.(selection)}
+  </>;
+  const clearSelection = <Button size="toolbar" variant="ghost" onClick={() => {
+    if (p.nextAnalysis && !selection) pointChart.current?.focus({ preventScroll: true });
+    else if (rangeOutput || p.nextAnalysis) brushToggle.current?.focus();
+    rangeActions.clear();
+    writeRange(null);
+    if (p.nextAnalysis) {
+      selectSet?.(null);
+      setSelectedPointKeys([]);
+    }
+  }}>{t('clear')}</Button>;
+
   const quickRanges = showKeyboard && <div role="group" aria-label={m('chartQuickRange')} className="flex items-center gap-1">
     {oneHour && <Button type="button" variant="ghost" size="toolbar" onClick={() => commitRange(oneHour)}>{m('chartRange1h')}</Button>}
     {fourHour && <Button type="button" variant="ghost" size="toolbar" onClick={() => commitRange(fourHour)}>{m('chartRange4h')}</Button>}
     <Button type="button" variant="ghost" size="toolbar" onClick={() => commitRange({ from: timeBounds[0], to: timeBounds[timeBounds.length - 1] })}>{t('all')}</Button>
+  </div>;
+  const localStateNote = m(nextAnalysis ? 'chartNextAnalysisNote' : 'chartLocalStateNote');
+  const equipmentSet = urlSet && (!selection || xType !== 'time') && host.outputDimension === 'equipmentId' ? urlSet.values : null;
+  let equipmentReason = host.applyEquipment ? undefined : m('chartApplyRangeDenied');
+  if (nextAnalysis && equipmentSet) {
+    try { normalizeSet([...equipmentSet], 'selectedEquipmentIds'); }
+    catch (error) {
+      if (!(error instanceof ContractError) || error.code !== 'invalid_id') throw error;
+      equipmentReason = m('chartInvalidEquipmentSelection');
+    }
+  }
+  const nextAnalysisRow = nextAnalysis && !outputSuspended && (selection || urlSet || selectedPointKeys.length > 0) && <div className={cn('mt-auto shrink-0 border-t border-border-subtle bg-surface-card px-2 py-1', panel && nextAnalysisTarget === undefined && 'sticky bottom-0')}>
+    <div role="group" aria-label={m('chartNextAnalysis')} className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="font-semibold">{m('chartNextAnalysis')}</span>
+      {rangeSelectionActions}
+      {equipmentSet && <>
+        <Button type="button" size="toolbar" disabled={!!equipmentReason} aria-describedby={equipmentReason ? equipmentReasonId : undefined}
+          onClick={() => {
+            if (equipmentReason) return;
+            pointChart.current?.focus({ preventScroll: true });
+            host.applyEquipment?.(equipmentSet);
+          }}>{m('chartApplySelection')}</Button>
+        {equipmentReason && <span id={equipmentReasonId} role="status" className="text-text-secondary">{equipmentReason}</span>}
+      </>}
+      {urlSet && <span aria-live="polite" className="tabular text-text-secondary">{m('chartSetCount', { count: urlSet.values.length })}</span>}
+      {urlSet?.values.length === ANALYSIS_SELECTION_MAX_VALUES && <span role="status" className="text-text-secondary">{m('chartSetLimit', { limit: ANALYSIS_SELECTION_MAX_VALUES })}</span>}
+      {clearSelection}
+    </div>
+    {confirmPeriod}
   </div>;
   return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), compactEmbedded && !zoomOnly && 'rounded-none border-0 shadow-none')}>
     <AnalysisChartPart enabled={analysisSection !== null}>
@@ -1089,7 +1205,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
           compact={compact || compactChrome} hideTitle={compactChrome && !p.headingInToolbar} />}
         start={p.toolbarStart}
         zoom={zoomOnly ? <>
-          <InfoTip label={m('laneHowToInteract')}>{p.description ?? (rowPitch === undefined ? m('chartZoomTitle') : m('chartLocalStateNote'))}</InfoTip>
+          <InfoTip label={m('laneHowToInteract')}>{p.description ?? (rowPitch === undefined ? m('chartZoomTitle') : localStateNote)}</InfoTip>
           {rowPitch === undefined && <>
             <ChartZoomButton label={m('laneZoomIn')} icon={ZoomIn} onClick={rangeActions.zoomIn} />
             <ChartZoomButton label={m('laneZoomOut')} icon={ZoomOut} onClick={rangeActions.zoomOut} />
@@ -1102,7 +1218,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
             <Button type="button" variant={chartToolVariant(compactChrome)} size={toolbarButtonSize} aria-label={m('chartPanRight')} title={m('chartPanRight')} onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden />{!compactChrome && m('chartPanRight')}</Button>
           </>}
         </>}
-        brush={!zoomOnly && <Button type="button" ref={brushToggle} variant={chartToolVariant(compactChrome, brushMode)} size={toolbarButtonSize} aria-pressed={brushMode} aria-label={m('chartBrush')} disabled={startAlign} title={m(startAlign ? 'chartBrushStartAlignDisabled' : 'chartBrush')}
+        brush={!zoomOnly && !outputSuspended && <Button type="button" ref={brushToggle} variant={chartToolVariant(compactChrome, brushMode)} size={toolbarButtonSize} aria-pressed={brushMode} aria-label={m('chartBrush')} disabled={startAlign} title={m(startAlign ? 'chartBrushStartAlignDisabled' : 'chartBrush')}
           onClick={event => { if (size === 'fill' && !brushMode && event.detail === 0) focusRangeForm.current = true; rangeActions.toggleBrush(); }}><BrushIcon className="size-3.5" aria-hidden />{!compactChrome && m('chartBrush')}</Button>}
         reset={zoomOnly ? <ChartZoomButton label={m('laneZoomReset')} icon={RotateCcw} onClick={resetLocal} />
           : <Button type="button" variant={chartToolVariant(compactChrome)} size={toolbarButtonSize} aria-label={m('chartReset')} title={m('chartReset')} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}</Button>}
@@ -1118,7 +1234,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         secondary={!zoomOnly && <>
           {pointToolsInMore && pointTools}{p.extraActions}
           {chrome === 'minimal' && frameLegend}
-          <p className="border-t border-border-subtle pt-2 text-text-secondary">{m('chartLocalStateNote')}</p>
+          <p className="border-t border-border-subtle pt-2 text-text-secondary">{localStateNote}</p>
         </>} secondaryOpen={panelToolsOpen} onSecondaryOpenChange={setPanelToolsOpen} />
       {showAnnotate && annotateReason && <p id={annotateReasonId} className="px-2 py-0.5 text-xs text-text-secondary">{annotateReason}</p>}
       {!pointToolsInMore && pointTools && <div className="px-4 pt-1">{pointTools}</div>}
@@ -1154,7 +1270,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
 
     </ChartLegendLayout>
     {!zoomOnly && <ChartGestureHint point={canSelectPoint} drill={canDrill && canSelectPoint}
-      range={!startAlign && displayed.some(item => item.points.length > 1)} brushing={brushMode} />}
+      range={!startAlign && !outputSuspended && displayed.some(item => item.points.length > 1)} brushing={brushMode} />}
     {!selection && chosenPoints.length > 0 && <p aria-live="polite" className="px-2 py-0.5 text-xs text-text-secondary break-keep">
       {chosenPoints.map(({ point, series }) => {
         const value = point.value === null ? unknownLabel(lang) : `${fmtOf(series)(point.value)} ${unitOf(series)}`.trim();
@@ -1205,7 +1321,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
           </SelectContent>
         </Select>
         <Button size="toolbar" onClick={() => {
-          if (outputEnabled) brushToggle.current?.focus();
+          if (rangeOutput) brushToggle.current?.focus();
           if (xType === 'time') commitRange(draft);
           else { rangeActions.categorySelect(draft); writeRange(draft); }
         }}>{m('chartSelect')}</Button>
@@ -1222,21 +1338,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
           ? <span className="font-semibold tabular">{t('selectedRange')}: {xType === 'time' ? `${fmt(selection.from)} – ${fmt(selection.to)}` : `${labelOf(selection.from)} – ${labelOf(selection.to)}`}</span>
           : <span className="text-text-secondary">{m('chartQuickRange')}</span>}
         {quickRanges}
-        {selection && <div className="ml-auto flex flex-wrap items-center gap-2">
-          {showAnnotate && <>
-            <Button type="button" size="toolbar" disabled={!!annotateReason} aria-describedby={annotateReason ? rangeAnnotateReasonId : undefined} onClick={editor.openEditor}>{m('chartAnnotateRange')}</Button>
-            {annotateReason && <span id={rangeAnnotateReasonId} className="text-text-secondary">{annotateReason}</span>}
-          </>}
-          {showApplyRange && <>
-            <Button type="button" ref={applyRangeButton} size="toolbar" disabled={!!applyReason} aria-describedby={applyReason ? applyReasonId : undefined} onClick={() => rangeActions.setPreview(selection)}>{m('chartApplyRange')}</Button>
-            {applyReason && <span id={applyReasonId} className="text-text-secondary">{applyReason}</span>}
-          </>}
-          {p.selectionActions?.(selection)}
-          <Button size="toolbar" variant="ghost" onClick={() => {
-            if (outputEnabled) brushToggle.current?.focus();
-            rangeActions.clear();
-            writeRange(null);
-          }}>{t('clear')}</Button>
+        {selection && !p.nextAnalysis && <div className="ml-auto flex flex-wrap items-center gap-2">
+          {rangeSelectionActions}{clearSelection}
         </div>}
         {selection && <div className="flex w-full flex-wrap gap-x-4 gap-y-1">
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${fmtOf(c.s)(c.avg)} · max ${fmtOf(c.s)(c.max!)}`} {unitOf(c.s)}</span>)}
@@ -1247,17 +1350,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         {m('chartNoValuesInRange')}
       </p>}
       {clipNotice && <p className="mt-1 text-text-secondary">{m(clipNotice === 'partial' ? 'chartCutPreviousPeriod' : 'chartOnlyPreviousPeriod')}</p>}
-      {preview && applyPeriod && xType === 'time' && <div role="group" aria-label={m('chartConfirmRange')} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
-        <span className="tabular">{m('chartConfirmGlobalPeriodChange')} <b>{formatWallClock(preview.from)} → {formatWallClock(preview.to)}</b></span>
-        {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
-        <Button size="toolbar" onClick={() => {
-          if (xType !== 'time' || !(compareRangeTimes(preview.from, preview.to) < 0)) return;
-          applyPeriod(preview);
-          notify(m('chartAppliedGlobalPeriodToast'));
-          brushToggle.current?.focus({ preventScroll: true });
-        }}>{t('apply')}</Button>
-        <Button size="toolbar" variant="secondary" onClick={() => { rangeActions.setPreview(null); applyRangeButton.current?.focus({ preventScroll: true }); }}>{t('cancel')}</Button>
-      </div>}
+      {!p.nextAnalysis && confirmPeriod}
       {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void editor.saveNote(selection); }}>
         <input autoFocus aria-label={m('chartAnnotationLabel')} value={note} onChange={e => editor.setNote(e.target.value)} placeholder={m('chartAnnotationPlaceholder')} className="h-7 min-w-64 flex-1 rounded-md border border-border-control bg-surface-card px-2" />
         <Button size="toolbar" type="submit" disabled={editor.saving}>{m('chartSave')}</Button>
@@ -1288,5 +1381,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
 
     <ChartTrustFooter trust={p.trust} />
     </AnalysisChartPart>
+    {nextAnalysisTarget && nextAnalysisRow && createPortal(nextAnalysisRow, nextAnalysisTarget)}
+    {nextAnalysisTarget === undefined && nextAnalysisRow}
   </section>;
 }

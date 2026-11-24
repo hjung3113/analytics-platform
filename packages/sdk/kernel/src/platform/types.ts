@@ -236,7 +236,11 @@ export type HostPlatform = {
   navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia; guard?: boolean; run?: () => boolean }) => boolean;
   setGlobal: (patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => void;
   /** A value may be a list for a `repeatedPageKeys` key (one pair per item; more than one value on another key throws `RangeError`); `[]` and null remove the key. A hidden key is written to a new history entry (or `replace`) whose address is unchanged. */
-  setPage: (patch: Record<string, string | readonly string[] | null>, options?: { replace?: boolean; focus?: PageFocus }) => void;
+  setPage: (patch: Record<string, string | readonly string[] | null>, options?: {
+    replace?: boolean; focus?: PageFocus;
+    /** Keep selection undo through a display-only page replacement. */
+    preserveSelectionUndo?: boolean;
+  }) => void;
   resetContext: () => void;
   /** `resolveLink(...).href` as a string, for a destination the assembly guarantees (a menu of the same package, `linkTargets.required`). Throws `RegistryError` for an unregistered id (06 §22). */
   linkTo: (menuId: string, options?: LinkOptions) => string;

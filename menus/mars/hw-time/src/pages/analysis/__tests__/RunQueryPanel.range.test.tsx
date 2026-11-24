@@ -56,3 +56,15 @@ it('publishes a range from the analysis trend panel to the menu URL and chip zon
   expect(screen.getByRole('button', { name: '날짜 09-23 – 09-25' })).toBeTruthy();
   expect(chart.queryByRole('group', { name: '시작과 끝으로 구간 선택' })).toBeNull();
 });
+
+it('places the trend selection row after both charts at the panel bottom', async () => {
+  window.history.replaceState(null, '', '/mars/hw-time?v=1&scopeId=MEM&from=2026-09-23T00:00:00&to=2026-09-26T00:00:00&moduleType=PM&drillMotion=Pump&drillModule=PM1&trendRange=09-23/09-25');
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><AnalysisTrend /></PlatformProvider></I18nProvider>);
+  const panel = await screen.findByTestId('hw-overview-trend');
+  const row = within(panel).getByRole('group', { name: '다음 분석' });
+  expect(panel.lastElementChild).toBe(row.parentElement?.parentElement);
+  const clear = within(row).getByRole('button', { name: '지우기' });
+  const verdict = within(panel).getByRole('region', { name: '일별 HTM 판정 건수' });
+  expect(clear.tabIndex).toBe(0);
+  expect(verdict.compareDocumentPosition(clear)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+});

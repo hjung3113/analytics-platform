@@ -6,12 +6,16 @@ import { memoryStorage } from '@ap/kernel/testing';
 import type { MenuQuery } from '@ap/contracts';
 import { answer, chartRenders, fixtureMatrix, renderOverview, requests, settle } from './test-support';
 
+await vi.hoisted(async () => { (await import('@ap/components/testing/engines')).mockEchartsCanvas(); });
+
 const workspace = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions&pins=table';
 const url = () => new URLSearchParams(window.location.search);
 const filter = () => url().getAll('motionEquipment');
 const table = () => screen.getByRole('tab', { name: 'table' });
 const chart = () => JSON.parse(screen.getByTestId('hw-module-motions').textContent!);
-const action = (id: string) => screen.getByRole<HTMLButtonElement>('button', { name: `point action hw-module-motions ${id}` });
+const realChart = { realChart: 'hw-module-motions' };
+const equipmentAction = (name: string) => screen.getByRole('button', { name });
+const clearEquipment = () => within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '지우기' });
 const selection = (values: string[]) => values.map(value => `&motionEquipment=${value}`).join('');
 const fullSet = Array.from({ length: kernel.ANALYSIS_SELECTION_MAX_VALUES }, (_, index) => `EQ-${String(index + 2).padStart(3, '0')}`);
 const tableReads = () => requests.filter(request => ['hwTime.levelRows', 'hwTime.tableRows'].includes(request.endpoint));
@@ -66,32 +70,32 @@ it.each(['browse', 'select hw-module-motions'])('%s restores and changes the act
   expect(filter()).toEqual(['EQ-001']);
 });
 
-it('shows the receiver badge while explicit actions add and remove equipment', async () => {
+it('shows the receiver badge while the chart keyboard controls add and remove equipment', async () => {
   await renderOverview(`${workspace}&motionEquipment=EQ-002`, request => {
     const response = answer(request);
     if (request.endpoint !== 'hwTime.levelRows' || !(request.params as { motionEquipment?: string[] }).motionEquipment) return response;
     return { ...response, data: { level: 0, series: [], rows: [{ id: 'EQ-002', equipmentId: 'EQ-002', values: {}, total: null }], totals: { values: {}, total: null }, limits: { maxRows: 120 } } };
-  });
-  fireEvent.click(action('add-equipment'));
+  }, realChart);
+  fireEvent.click(equipmentAction('선택에 지점 추가'));
   expect(filter()).toEqual(['EQ-002', 'EQ-001']);
   await waitFor(() => expect(table().getAttribute('aria-description')).toBe('필터됨 · 1 · 선택 적용'));
-  fireEvent.click(action('remove-equipment'));
+  fireEvent.click(equipmentAction('선택에서 지점 빼기'));
   expect(filter()).toEqual(['EQ-002']);
-  fireEvent.click(action('add-equipment'));
-  fireEvent.click(action('clear-equipment'));
+  fireEvent.click(equipmentAction('선택에 지점 추가'));
+  fireEvent.click(clearEquipment());
   await waitFor(() => expect(table().hasAttribute('aria-description')).toBe(false));
 });
 
 it('can remove the last equipment or clear from a single-Motion chart while preserving other conditions', async () => {
-  await renderOverview(`${workspace}&motion=PM/Pump&row=EQ-002&motionEquipment=EQ-001`);
+  await renderOverview(`${workspace}&motion=PM/Pump&row=EQ-001&motionEquipment=EQ-001`, answer, realChart);
   expect(chart().series.map((series: { id: string }) => series.id)).toEqual(['Pump']);
-  fireEvent.click(action('remove-equipment'));
+  fireEvent.click(equipmentAction('선택에서 지점 빼기'));
   expect(filter()).toEqual([]);
-  fireEvent.click(action('add-equipment'));
-  fireEvent.click(action('clear-equipment'));
+  fireEvent.click(equipmentAction('선택에 지점 추가'));
+  fireEvent.click(clearEquipment());
   expect(filter()).toEqual([]);
   expect(chart().series.map((series: { id: string }) => series.id)).toEqual(['Pump']);
-  expect(url().get('row')).toBe('EQ-002');
+  expect(url().get('row')).toBe('EQ-001');
 });
 
 it('warns on an oversized shared filter and holds table reads until recovery', async () => {
@@ -105,13 +109,14 @@ it('warns on an oversized shared filter and holds table reads until recovery', a
   expect(await screen.findByTestId('hw-module-motions')).toBeTruthy();
 });
 
-it('applies a shared filter with 51 values and 50 distinct IDs and explains why adding is disabled', async () => {
-  await renderOverview(workspace + selection([...fullSet, fullSet[0]!]));
+it('applies a shared filter with 51 values and 50 distinct IDs and explains the limit on adding', async () => {
+  await renderOverview(workspace + selection([...fullSet, fullSet[0]!]), answer, realChart);
   expect(tableReads().length).toBeGreaterThan(0);
   for (const request of tableReads()) expect(request.params).toMatchObject({ motionEquipment: fullSet });
-  expect(action('add-equipment').disabled).toBe(true);
-  expect(chart().actions).toContain('원본 표 거르기에 추가 · EQ-001 (설비는 최대 50대까지 추가할 수 있습니다)');
-  expect(action('clear-equipment').disabled).toBe(false);
+  fireEvent.click(equipmentAction('선택에 지점 추가'));
+  expect(filter()).toEqual([...fullSet, fullSet[0]!]);
+  expect(within(screen.getByRole('group', { name: '다음 분석' })).getByRole('status').textContent).toContain('최대 50개');
+  expect(clearEquipment().hasAttribute('disabled')).toBe(false);
 });
 
 it.each([['empty', '0'], ['error', null]] as const)('shows the filtered count for a %s response only when answered', async (outcome, count) => {

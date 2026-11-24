@@ -36,6 +36,7 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, d
   const { lang } = useI18n();
   const [settings, setSettings] = useState<RunScatterSettings>(DEFAULT_SETTINGS[kind]);
   const [filters, setFilters] = useState<ColumnFilter[]>([]);
+  const [nextAnalysisTarget, setNextAnalysisTarget] = useState<HTMLDivElement | null>(null);
   const equipment = useMemo(() => [...new Set([...data.points, ...data.daily].map(point => point.equipmentId))], [data]);
   const fields = useMemo(() => runPanelFilterFields(equipment, lang), [equipment, lang]);
   const filterLine = {
@@ -115,10 +116,11 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, d
       </div>}
       {kind === 'trend' && (projected.trend.categories.length < 2 ? <p className="t-caption px-2 text-text-secondary">{m('trendNeedsDays')}</p> : <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         <div className="flex min-h-52 flex-1 flex-col"><RunTrendChart chartId="hw-overview-runs-trend" trend={projected.trend} description={contextNote} activeCategory={activeDay || null} toolbarStart={panelHeader}
-          analysisSelectionOutput={analysisSelectionOutput} /></div>
+          analysisSelectionOutput={analysisSelectionOutput} nextAnalysisTarget={nextAnalysisTarget} /></div>
         <div className="flex h-48 shrink-0 flex-col"><AnalysisChartFrame summary="quiet" chartId="hw-overview-runs-trend-verdicts" title={m('trendVerdicts')}
           series={projected.trend.verdictSeries} xType="category" stacked unit={m('equipmentCount')} size="fill" fillMin={VERDICT_HEIGHT}
           legendPlacement="side" toolsReveal="hover" canApplyRange={false} emphasisFocus="none" /></div>
       </div>)}
+    {analysisSelectionOutput !== undefined && joinTrendHeader && <div ref={setNextAnalysisTarget} className="shrink-0" />}
   </section>;
 }

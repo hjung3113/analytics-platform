@@ -110,7 +110,7 @@ type BarsProps = {
   options: readonly PanelOption[]; values: PanelOptionValues; onChange: (id: string, value: string | boolean) => void;
   onOpenTrend: (target: string, row: string) => void;
   previous?: boolean; allMotions?: boolean;
-  selectionOutput?: ReturnType<typeof useAnalysisSelectionOutput>;
+  analysisSelectionOutput?: { panelId: string; key: string } | null;
   highlightedValues?: readonly string[];
 };
 const noHighlightedEquipment: readonly string[] = [];
@@ -124,7 +124,7 @@ function barsTitle({ depth, typeId, motionId, moduleId, previous = false, allMot
   const title = { ko: formatText(message, 'ko', params), en: formatText(message, 'en', params) };
   return previous ? { ko: `${title.ko} · ${S.previous.ko}`, en: `${title.en} · ${S.previous.en}` } : title;
 }
-function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onOpenTrend, previous = false, allMotions = false, selectionOutput, highlightedValues }: BarsProps) {
+function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onOpenTrend, previous = false, allMotions = false, analysisSelectionOutput, highlightedValues }: BarsProps) {
   const m = useMessages(S);
   const overview = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const { lang } = useI18n();
@@ -161,8 +161,6 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
     }
     return statuses.barStatusOf(depth === 4 ? { ...point, x: rowLabel(point.x, moduleId!) } : point);
   };
-  const chartSelection = selectionOutput?.selection;
-  const selectedEquipment = chartSelection?.shape === 'set' ? chartSelection.values : [];
   const selected = pageParam('row');
   const activeCategory = shaped.series.some(series => series.points.some(([x]) => x === selected)) ? selected : null;
   const chartOptions = options.map(option => option.id === 'group' ? { ...option, hidden: depth === 1 || depth === 4 } : option);
@@ -170,19 +168,6 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
     const actions: ChartPointAction[] = [];
     if (depth > 1) actions.push({ id: 'trend', label: m('openTrend'), onSelect: openTrend });
     if (depth < 4) actions.push({ id: 'drill', label: m('drillTo', { value: depth === 3 ? point.x.split(' · ')[1]! : point.seriesId }), onSelect: drill });
-    if (!selectionOutput) return actions;
-    const equipment = point.x;
-    if (selectedEquipment.includes(equipment)) {
-      const values = selectedEquipment.filter(id => id !== equipment);
-      actions.push({ id: 'remove-equipment', label: m('selectionRemove', { equipment }), keepsFocus: true,
-        onSelect: () => selectionOutput.select(values.length ? { shape: 'set', values } : null) });
-    } else {
-      const disabled = selectedEquipment.length >= ANALYSIS_SELECTION_MAX_VALUES;
-      const label = m('selectionAdd', { equipment });
-      actions.push({ id: 'add-equipment', label: disabled ? m('selectionAddLimit', { label, limit: ANALYSIS_SELECTION_MAX_VALUES }) : label, disabled, keepsFocus: true,
-        onSelect: () => selectionOutput.select({ shape: 'set', values: [...selectedEquipment, equipment] }) });
-    }
-    if (chartSelection) actions.push({ id: 'clear-equipment', label: m('selectionClear'), keepsFocus: true, onSelect: () => selectionOutput.select(null) });
     return actions;
   };
   let chartId = previous ? 'hw-previous' : 'hw-current';
@@ -193,11 +178,12 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
   const toolbarStart = !previous && !allMotions ? <PanelOptions options={chartOptions} values={values} onChange={onChange} /> : undefined;
   const body = <div className="flex h-full min-h-0 flex-col">
     <AnalysisChartFrame chartId={chartId} title={title[lang]} summary="quiet" toolbarStart={toolbarStart}
-      highlightedValues={highlightedValues}
+      highlightedValues={highlightedValues} analysisSelectionOutput={analysisSelectionOutput} nextAnalysis={analysisSelectionOutput !== undefined}
       series={shaped.series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} description={<>{overview('synthetic')}<br />{scaleText}</>}
       legend={depth < 3 || allMotions} visibleSeriesIds={depth >= 3 && !allMotions ? shaped.series.map(series => series.id) : undefined} legendPlacement="bottom" toolsReveal="always" xType="category" orientation="horizontal" stacked
       startAlign={values.align === true} minMax={values.minMax === true} emphasisFocus="none" size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowLabelWidth="auto"
-      rowGroups={shaped.rowGroups} activeCategory={activeCategory} onActiveCategoryChange={row => setPage({ row }, { replace: true })} revealActive
+      rowGroups={shaped.rowGroups} activeCategory={activeCategory} revealActive
+      onActiveCategoryChange={(row, via) => setPage({ row }, { replace: true, preserveSelectionUndo: !!analysisSelectionOutput && via === 'pointer' })}
       canApplyRange={false} reaggregation="sum" valueLabels="both" pointStatus={statusOf}
       pointActivation={depth < 4 ? { on: 'dblclick', onActivate: openTrend } : undefined} pointActions={pointActions} />
   </div>;
@@ -257,12 +243,15 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
 }
 /** Keep the hover subscription inside the chart assigned to the selection source. */
 function SelectionSourceBars({ source, ...props }: Omit<BarsProps, 'highlightedValues'> & { source: boolean }) {
-  const { highlighted, selection } = useAnalysisSelectionOutput(panelDeclarations.moduleMotions.id, MOTION_EQUIPMENT_KEY, { subscribeHighlight: source });
+  const panelId = panelDeclarations.moduleMotions.id;
+  const { highlighted, selection } = useAnalysisSelectionOutput(panelId, MOTION_EQUIPMENT_KEY, { subscribeHighlight: source });
+  const showingPrevious = props.typeId ? props.queries[props.typeId]?.showingPrevious : false;
+  const output = showingPrevious ? null : { panelId, key: MOTION_EQUIPMENT_KEY };
   const highlightedValues = highlighted && selection?.shape === 'set' ? selection.values : noHighlightedEquipment;
-  return <Bars {...props} highlightedValues={source ? highlightedValues : undefined} />;
+  return <Bars {...props} highlightedValues={source ? highlightedValues : undefined} analysisSelectionOutput={source ? output : undefined} />;
 }
 
-function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'selectionOutput' | 'highlightedValues'> & {
+function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'analysisSelectionOutput' | 'highlightedValues'> & {
   step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void; filtered: boolean;
 }) {
   const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill, filtered } = props;
@@ -355,7 +344,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           case 'moduleMotions': {
             const input = projectQueryInputs(panelDeclarations.moduleMotions, panelContext);
             const display = projectDisplayInputs(panelDeclarations.moduleMotions, panelContext);
-            return <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions source selectionOutput={selectionOutput} />;
+            return <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions source />;
           }
           case 'table': return waitingForAvailability ? <LoadingBlock /> : <RawTablePanel params={{}} linked analysis={analysis} />;
           case 'donut': {
