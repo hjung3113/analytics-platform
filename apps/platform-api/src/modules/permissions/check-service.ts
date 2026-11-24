@@ -301,8 +301,8 @@ export function createCheckService(deps: CheckServiceDeps) {
       return rows;
     };
     return {
-      decision(actor, capability) {
-        const byToken = tokenDenial(capability, tokenOptions);
+      decision(actor, capability, judgment) {
+        const byToken = tokenDenial(capability, { ...tokenOptions, ...judgment });
         if (byToken) return byToken;
         return decideFromRows(
           actor,
@@ -313,8 +313,8 @@ export function createCheckService(deps: CheckServiceDeps) {
           capabilities,
         );
       },
-      async scope(actor, capability) {
-        if (tokenDenial(capability, tokenOptions)) return { kind: 'scoped', managed_system_ids: [] };
+      async scope(actor, capability, judgment) {
+        if (tokenDenial(capability, { ...tokenOptions, ...judgment })) return { kind: 'scoped', managed_system_ids: [] };
         const bypass = actor.role_level === 'admin' ? capabilities.meta(capability).adminModuleBypass : 'none';
         if (bypass === 'always') return { kind: 'all' };
         return scopeFromRows(actor, capability, rowsOf(actor, capability), rightNow, () =>
@@ -339,9 +339,9 @@ export function capabilitiesOf(checkService: Pick<CheckService, 'capabilities'>)
 /** Decisions and scopes of a preloaded set of (actor, capability) pairs; reading a pair that was not loaded throws. */
 export interface CapabilitySnapshot {
   /** What `checkCapability(actor, capability, { workspace_id: actor.workspace_id })` answers. */
-  decision(actor: ActorContext, capability: CapabilityName): Decision;
+  decision(actor: ActorContext, capability: CapabilityName, options?: { auditTokenDenials: boolean }): Decision;
   /** What `capabilityScope(actor, capability, { workspace_id: actor.workspace_id })` answers. */
-  scope(actor: ActorContext, capability: CapabilityName): Promise<CapabilityScope>;
+  scope(actor: ActorContext, capability: CapabilityName, options?: { auditTokenDenials: boolean }): Promise<CapabilityScope>;
 }
 
 interface DenyRow {

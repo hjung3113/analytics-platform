@@ -29,6 +29,7 @@ export interface MenuQueryRoutesOptions {
   /** The shared registry; absent = a registry holding only `home.notices`. */
   registry?: MenuDispatchRegistry;
   sessionVersionOf?: MenuDispatchRoutesOptions['sessionVersionOf'];
+  requestReadsFor?: MenuDispatchRoutesOptions['requestReadsFor'];
 }
 
 export const menuQueryRoutes: FastifyPluginAsync<MenuQueryRoutesOptions> = async (app, opts) => {
@@ -46,5 +47,6 @@ export const menuQueryRoutes: FastifyPluginAsync<MenuQueryRoutesOptions> = async
     workspaceId: opts.workspaceId,
     registry,
     ...(opts.sessionVersionOf ? { sessionVersionOf: opts.sessionVersionOf } : {}),
+    ...(opts.requestReadsFor ? { requestReadsFor: opts.requestReadsFor } : {}),
   });
 };
