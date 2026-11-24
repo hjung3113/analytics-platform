@@ -4,12 +4,11 @@ import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type Text } from '@ap/contracts';
-import { AnalysisSelectionChipZone, PlatformPage } from '@ap/components';
-import { createRegistry, I18nProvider, PlatformLink, PlatformProvider, useAnalysisSelectionOutput, useI18n, useUnsavedGuard, type UnsavedGuardOptions } from '@ap/kernel';
+import { PlatformPage } from '@ap/components';
+import { createRegistry, I18nProvider, PlatformLink, PlatformProvider, useI18n, useUnsavedGuard, type UnsavedGuardOptions } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AppShell } from '../../frame/AppShell';
-import { LeaveConfirmDialog } from '../LeaveConfirmDialog';
 
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'draft' })],
@@ -69,73 +68,6 @@ beforeEach(() => {
   editorLeaves = undefined;
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
-
-it.each(['inline', 'folded'] as const)('keeps the %s chip edit through Stay and restores the chip target on approval', async layout => {
-  const chipRegistry = createRegistry({
-    spaces: [testSpace({ homeMenuId: 'draft' })],
-    groups: registry.groups,
-    menus: [{ ...draftMenu, pageKeys: ['equip', 'mod'], repeatedPageKeys: ['equip', 'mod'], contextResetKeys: ['equip', 'mod'], panels: [{
-      id: 'source', title: draftMenu.label, grain: 'daily', endpoints: [], queryInputs: {}, displayInputs: {},
-      outputs: [
-        { key: 'equip', action: 'pick', selection: { shape: 'set', dimension: 'equipment' } },
-        { key: 'mod', action: 'pick', selection: { shape: 'set', dimension: 'module' } },
-      ],
-    }] }],
-  });
-  function Chips() {
-    const [container, setContainer] = useState<HTMLDivElement | null>(null);
-    const [summary, setSummary] = useState<HTMLSpanElement | null>(null);
-    useUnsavedGuard(true, { leaves: 'address' });
-    useAnalysisSelectionOutput('source', 'equip', { available: ['E1', 'E2'] });
-    return <div ref={setContainer} data-testid="chip-row">
-      <span ref={setSummary}>요약</span>
-      <AnalysisSelectionChipZone fit={{ container, summary }} />
-    </div>;
-  }
-  window.history.replaceState(null, '', '/mars/draft?v=1&equip=E1&mod=M1');
-  const session = testSession(['platform:view']);
-  const adapter = testAdapter({ session: () => session });
-  vi.stubGlobal('ResizeObserver', class {
-    constructor(private callback: ResizeObserverCallback) {}
-    observe(target: Element) {
-      const probeWidth = layout === 'folded' ? 400 : 150;
-      let width = 100;
-      if (target.hasAttribute('data-analysis-chip-probe')) width = probeWidth;
-      if (target.getAttribute('data-testid') === 'chip-row') width = 300;
-      this.callback([{ target, contentRect: { width, height: 26 } } as ResizeObserverEntry], this);
-    }
-    unobserve() {}
-    disconnect() {}
-  });
-  render(<I18nProvider><PlatformProvider registry={chipRegistry} adapter={adapter}>
-    <main id="platform-main" tabIndex={-1}><Chips /></main><LeaveConfirmDialog />
-  </PlatformProvider></I18nProvider>);
-  const user = userEvent.setup();
-  const group = within(screen.getByRole('group', { name: '분석 선택' }));
-  let controls = group;
-  if (layout === 'folded') {
-    await user.click(group.getByRole('button', { name: '+1 ›' }));
-    controls = within(screen.getByRole('dialog', { name: '분석 선택' }));
-  }
-  await user.click(controls.getByRole('button', { name: 'equipment E1' }));
-  const edit = within(screen.getByRole('dialog', { name: 'equipment E1' }));
-  await user.click(edit.getByRole('checkbox', { name: 'E2' }));
-  const apply = edit.getByRole('button', { name: '적용' });
-  await user.click(apply);
-  expect(stay()).toHaveFocus();
-  expect(apply).toBeInTheDocument();
-  await user.click(stay());
-  await waitFor(() => expect(apply).toHaveFocus());
-  expect(edit.getByRole('checkbox', { name: 'E2' })).toBeChecked();
-  if (layout === 'folded') expect(screen.getByRole('dialog', { name: '분석 선택' })).toBeVisible();
-  expect(new URLSearchParams(window.location.search).getAll('equip')).toEqual(['E1']);
-
-  await user.keyboard('{Enter}');
-  await user.click(leave());
-  expect(new URLSearchParams(window.location.search).getAll('equip')).toEqual(['E1', 'E2']);
-  const target = layout === 'folded' ? '+1 ›' : 'equipment E1 외 1';
-  await waitFor(() => expect(group.getByRole('button', { name: target })).toHaveFocus());
-});
 
 describe('leave confirmation (06 §6.4, §26)', () => {
   it('renders only for a pending request, and a clean sidebar move never asks', async () => {

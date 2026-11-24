@@ -19,22 +19,14 @@ type EditFocusHandlers = {
   onCommit: (key: string, options: { fromList: boolean }) => void;
   restore: () => void;
 };
-type FocusOutsideEvent = CustomEvent<{ originalEvent: FocusEvent }>;
 const zoneClass = 'inline-flex shrink-0 items-center gap-2 pl-2 text-xs';
 const focusClass = 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring';
 const linkClass = cn('h-6.5 shrink-0 rounded-sm whitespace-nowrap text-xs font-medium text-accent-primary hover:underline', focusClass);
-
-function keepOpenUnderConfirmation(event: FocusOutsideEvent) {
-  // The shell's modal temporarily owns focus while the address guard holds the write.
-  const target = event.target;
-  if (target instanceof Element && target.closest('[role="alertdialog"]')) event.preventDefault();
-}
 
 function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip; editor: ChipEditor; close: () => void }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const [draft, setDraft] = useState(chip.selection);
   const [rejected, setRejected] = useState(false);
-  const apply = useRef<HTMLButtonElement>(null);
   const id = useId();
   const errorId = `${id}-error`;
   const update = (next: Selection) => { setDraft(next); setRejected(false); };
@@ -46,7 +38,6 @@ function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip;
   const rangeError = draft.shape === 'range' && rejected;
   return <form className="grid gap-2" onSubmit={event => {
     event.preventDefault();
-    apply.current?.focus({ preventScroll: true });
     if (!editor.replace(chip.key, draft, close)) setRejected(true);
   }}>
     {draft.shape === 'set' ? <div className="grid max-h-64 gap-2 overflow-y-auto p-1">
@@ -72,7 +63,7 @@ function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip;
     {rejected && <p id={errorId} role="alert" className="text-xs text-text-danger-label">
       {m(draft.shape === 'range' ? 'analysisSelectionInvalidRange' : 'analysisSelectionInvalidSet')}
     </p>}
-    <Button ref={apply} type="submit" size="sm" className="justify-self-end">{m('analysisSelectionApply')}</Button>
+    <Button type="submit" size="sm" className="justify-self-end">{m('analysisSelectionApply')}</Button>
   </form>;
 }
 
@@ -151,7 +142,6 @@ function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, editFocus 
         </button>
       </PopoverTrigger>
       <PopoverContent aria-labelledby={labelId} align="start" className="max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto"
-        onFocusOutside={keepOpenUnderConfirmation}
         onCloseAutoFocus={event => {
           if (committed.current || !editTrigger.current?.isConnected) event.preventDefault();
           if (committed.current) editFocus?.restore();
@@ -325,7 +315,7 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
           <PopoverTrigger asChild>
             <button ref={listTriggerRef} type="button" className={linkClass}>+{chips.length - 1} ›</button>
           </PopoverTrigger>
-          <PopoverContent ref={list} aria-label={label} align="end" className="max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto" onFocusOutside={keepOpenUnderConfirmation} onCloseAutoFocus={event => {
+          <PopoverContent ref={list} aria-label={label} align="end" className="max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto" onCloseAutoFocus={event => {
             if (editFocus.current) { event.preventDefault(); return; }
             const request = clearFocus.current;
             if (request?.kind === 'list') clearFocus.current = null;
