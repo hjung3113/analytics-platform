@@ -24,8 +24,10 @@ const linkedMotionForItem = (id: string) => {
   return module ? { moduleType: 'LK', module, motion: 'Pump' } : null;
 };
 // Bounded transport fixture; real handlers and default hierarchy are covered in mock/index.test.ts.
-function windowPage(params: TreeParams): TreePage {
-  const totalItems = params.q === 'not-a-synthetic-item' ? 0 : TREE_WINDOW * 3;
+// `total` trims the matrix for tests that click through it: jsdom renders every row and re-renders the matrix per
+// selection, and 80 rows × 14 cells pushed a five-step test past 5 s on CI runners (#2858).
+function windowPage(params: TreeParams, total = TREE_WINDOW * 3): TreePage {
+  const totalItems = params.q === 'not-a-synthetic-item' ? 0 : total;
   const nodes: TreeRow[] = Array.from({ length: Math.min(TREE_WINDOW, totalItems - params.offset) }, (_, local) => {
     const id = `cfg-${String(params.offset + local).padStart(6, '0')}`;
     const item = { id, linkedMotion: linkedMotionForItem(id), key: id, module: 'PM1', category: 'Gas', item: 'Pressure', filename: 'config.cfg', group: 'PM1 / Gas', coreKnown: true, diff: true, violation: false, missing: false, notComparable: false, source: 'synthetic', collectedAt: '2026-11-17T00:00:00Z', values: Object.fromEntries(params.eq.map(eq => [eq, { value: eq === 'EQ03' ? 125 : 120, state: 'diff' as const }])) };
@@ -815,7 +817,7 @@ it('follows a second linked item and ignores the late HW Time result after selec
   let complete: ((response: ApiResponse<unknown>) => void) | undefined;
   let sourceSignal: AbortSignal | undefined;
   const requests = await mount(withLending(async ({ endpoint, params }: { endpoint: string; params: unknown }, signal?: AbortSignal) => {
-    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams, 3));
     if (endpoint !== sourceRuns.id) return { ...ok(null), outcome: 'empty' as const };
     if ((params as { module: string }).module === 'LK1') {
       sourceSignal = signal;
