@@ -214,8 +214,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     for (const [key, value] of Object.entries(requested)) {
       if (typeof value === 'object' && value !== null && value.filter(v => v !== '').length > 1 && !route?.menu.repeatedPageKeys?.includes(key)) throw new RangeError(`setPage: "${key}" is not a repeated page key`);
     }
-    // Drill resets look at one value per step; a repeated key is never a drill level, so its first value stands for it there.
-    const single: Record<string, string | null> = Object.assign(Object.create(null) as Record<string, string | null>, Object.fromEntries(Object.entries(requested).map(([k, v]) => [k, typeof v === 'string' || v === null ? v : (v[0] ?? null)])));
+    // Drill resets look at one value per step; a repeated key is never a drill level, so its first written (non-empty) value stands for it there.
+    const single: Record<string, string | null> = Object.assign(Object.create(null) as Record<string, string | null>, Object.fromEntries(Object.entries(requested).map(([k, v]) => [k, typeof v === 'string' || v === null ? v : (v.find(item => item !== '') ?? null)])));
     const dropped = dropDrillResetKeys(route?.menu, page, single);
     const patch: Record<string, string | readonly string[] | null> = Object.assign(Object.create(null) as Record<string, string | readonly string[] | null>, requested);
     for (const key of Object.keys(dropped)) if (!Object.hasOwn(patch, key)) patch[key] = dropped[key];

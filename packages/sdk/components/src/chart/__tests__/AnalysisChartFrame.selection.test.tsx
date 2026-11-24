@@ -513,6 +513,46 @@ it.each(['metaKey', 'ctrlKey'] as const)('undoes two pointer selections with %s 
   expect(search().get('row')).toBe('a');
 });
 
+it('does not keep the selection undo step across a drill write whose first array member is empty', async () => {
+  const drillRegistry = createRegistry({ spaces: setRegistry.spaces, groups: setRegistry.groups,
+    menus: setRegistry.menus.map(menu => ({ ...menu, pageKeys: [...(menu.pageKeys ?? []), 'drillModule'], contextResetKeys: [...(menu.contextResetKeys ?? []), 'drillModule'],
+      drill: { levels: [{ key: 'drillModule', label: { ko: 'Module', en: 'Module' } }] } })) });
+  let page: ReturnType<typeof usePlatform>['setPage'] | undefined;
+  function Bars() {
+    const { setPage } = usePlatform();
+    page = setPage;
+    return <AnalysisChartFrame chartId="set" title="Set" series={[A]} unit="s" xType="category" orientation="horizontal"
+      analysisSelectionOutput={setOutput} nextAnalysis />;
+  }
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={drillRegistry}><Bars /></PlatformProvider></I18nProvider>);
+  await screen.findByRole('img');
+  pointClick('a');
+  expect(search().getAll(setOutput.key)).toEqual(['a']);
+  act(() => page!({ drillModule: ['', 'PM1'] }, { replace: true, preserveSelectionUndo: true }));
+  expect(search().get('drillModule')).toBe('PM1');
+  fireEvent.keyDown(document.body, { key: 'z', metaKey: true });
+  await new Promise(resolve => setTimeout(resolve, 50));
+  expect(search().get('drillModule')).toBe('PM1');
+  expect(search().getAll(setOutput.key)).toEqual(['a']);
+});
+
+it('treats an explicit null output as suspended from the first mount', async () => {
+  const from = '2026-09-01T00:00:00';
+  const to = '2026-09-01T02:00:00';
+  window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=${from}&to=${to}`);
+  const series: ChartSeries[] = [{ ...A, points: [[from, 1], [to, 2]] }];
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry}>
+    <AnalysisChartFrame chartId="sel" title="Sel" series={series} unit="s" nextAnalysis analysisSelectionOutput={null} />
+  </PlatformProvider></I18nProvider>);
+  await screen.findByRole('img');
+  brush([parseDateTime(from, 'from').getTime(), parseDateTime(to, 'to').getTime()]);
+  expect(screen.queryByText(/선택 구간:/)).toBeNull();
+  expect(screen.queryByRole('button', { name: '분석 구간으로 적용' })).toBeNull();
+  expect(screen.queryByRole('group', { name: '다음 분석' })).toBeNull();
+  expect(search().has(output.key)).toBe(false);
+});
+
 it('hides the local range and closes confirmation while the output is suspended', async () => {
   const from = '2026-09-01T00:00:00';
   const to = '2026-09-01T02:00:00';
