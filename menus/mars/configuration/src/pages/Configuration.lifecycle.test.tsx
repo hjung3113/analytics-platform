@@ -24,9 +24,11 @@ const linkedMotionForItem = (id: string) => {
   return module ? { moduleType: 'LK', module, motion: 'Pump' } : null;
 };
 // Bounded transport fixture; real handlers and default hierarchy are covered in mock/index.test.ts.
-// `total` trims the matrix for tests that click through it: jsdom renders every row and re-renders the matrix per
-// selection, and 80 rows × 14 cells pushed a five-step test past 5 s on CI runners (#2858).
-function windowPage(params: TreeParams, total = TREE_WINDOW * 3): TreePage {
+// Three rows by default: jsdom renders every row and re-renders the matrix per selection, and 80 rows × 14 cells pushed
+// click-through tests past 5 s on loaded CI runners, one test at a time (#2858). Only a test about windowing or a
+// multi-window hierarchy passes FULL_TREE.
+const FULL_TREE = TREE_WINDOW * 3;
+function windowPage(params: TreeParams, total = 3): TreePage {
   const totalItems = params.q === 'not-a-synthetic-item' ? 0 : total;
   const nodes: TreeRow[] = Array.from({ length: Math.min(TREE_WINDOW, totalItems - params.offset) }, (_, local) => {
     const id = `cfg-${String(params.offset + local).padStart(6, '0')}`;
@@ -222,7 +224,7 @@ describe('Configuration lifecycle regressions', () => {
     const requests = vi.fn(async ({ params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => {
       const next = query as TreeParams;
       if (next.offset > 0) { pending = next; return new Promise(resolve => { complete = resolve; }); }
-      return ok(windowPage(next));
+      return ok(windowPage(next, FULL_TREE));
     });
     await mount(requests);
     const viewport = host.querySelector<HTMLElement>('[data-matrix-viewport]')!;
@@ -242,7 +244,7 @@ describe('Configuration lifecycle regressions', () => {
     expect(document.activeElement).toBe(cell);
     expect(viewport.getAttribute('aria-busy')).toBe('true');
     expect(headers()).toEqual(before);
-    const data: TreePage = windowPage(pending!);
+    const data: TreePage = windowPage(pending!, FULL_TREE);
     await act(async () => complete!(ok(data)));
     await settleQueries();
     expect(host.querySelector('[data-matrix-viewport]')).toBe(viewport);
@@ -339,8 +341,8 @@ describe('Configuration item drawer follows the selection (#2525)', () => {
   async function mountDrawer() {
     const menuQuery = vi.fn(async ({ endpoint, params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => {
       const { focus } = query as { focus?: string };
-      if (endpoint === 'configuration.detail') return focus === 'cfg-000001' ? new Promise(() => {}) : ok(named(windowPage({ ...(query as TreeParams), offset: Number(focus!.slice(4)) }).nodes[0]!).item);
-      const page = windowPage(query as TreeParams);
+      if (endpoint === 'configuration.detail') return focus === 'cfg-000001' ? new Promise(() => {}) : ok(named(windowPage({ ...(query as TreeParams), offset: Number(focus!.slice(4)) }, FULL_TREE).nodes[0]!).item);
+      const page = windowPage(query as TreeParams, FULL_TREE);
       return ok({ ...page, nodes: [group, ...page.nodes.map(named)] });
     });
     const session = testSession(['analytics:view']);
@@ -817,7 +819,7 @@ it('follows a second linked item and ignores the late HW Time result after selec
   let complete: ((response: ApiResponse<unknown>) => void) | undefined;
   let sourceSignal: AbortSignal | undefined;
   const requests = await mount(withLending(async ({ endpoint, params }: { endpoint: string; params: unknown }, signal?: AbortSignal) => {
-    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams, 3));
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
     if (endpoint !== sourceRuns.id) return { ...ok(null), outcome: 'empty' as const };
     if ((params as { module: string }).module === 'LK1') {
       sourceSignal = signal;
