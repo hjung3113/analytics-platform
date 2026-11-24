@@ -41,8 +41,8 @@ const tableText = async () => {
   fireEvent.click(await screen.findByRole('button', { name: '표로 보기' }));
   return screen.getAllByRole('row').map(row => row.textContent);
 };
-const realSeries = () => option().series.filter(s => s.id !== undefined);
-const spacers = () => option().series.filter(s => s.type === 'bar' && s.id === undefined);
+const realSeries = () => option().series.filter(s => s.type === 'bar' && !s.id?.startsWith('__spacer-'));
+const spacers = () => option().series.filter(s => s.id?.startsWith('__spacer-'));
 
 beforeEach(() => { plotProps = null; vi.spyOn(console, 'warn').mockImplementation(() => {}); vi.spyOn(console, 'error').mockImplementation(() => {}); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });

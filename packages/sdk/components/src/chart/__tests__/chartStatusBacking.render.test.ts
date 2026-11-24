@@ -30,13 +30,7 @@ it('preserves the legacy time stacked-bar option and status rendering from origi
   const rings = (option.series as CustomSeriesOption[]).filter(s => s.type === 'custom' && s.z === 3);
   const rendered = rings.map(({ data, renderItem }) => (data as number[][]).map(row =>
     (renderItem as (params: unknown, api: unknown) => unknown)({}, { value: (d: number) => row[d], coord: ([x, y]: number[]) => [x / 3_600_000, y * 20], barLayout: () => undefined, size: () => [20, 20] })));
-  // Restore the old IDs in the comparison so the origin/main hash still pins every other field and renderItem output.
-  const baselineSeries = (option.series as CustomSeriesOption[]).map(s => {
-    if ('markArea' in s) return { id: '__overlay', ...s };
-    const slot = rings.indexOf(s);
-    return slot < 0 ? s : { id: slot === 0 ? '__statusBarBacking' : `__statusBarBacking-${slot}`, ...s };
-  });
-  expect(createHash('sha256').update(JSON.stringify({ option: { ...option, series: baselineSeries }, rendered })).digest('hex')).toBe('2cccda153d237c5cbab5a763ecada5e1dcdc16f58319cb79fe7bd3a909666d1a');
+  expect(createHash('sha256').update(JSON.stringify({ option, rendered })).digest('hex')).toBe('2cccda153d237c5cbab5a763ecada5e1dcdc16f58319cb79fe7bd3a909666d1a');
 });
 
 it('adds a dashed emphasis around only the matching status bar', () => {
@@ -124,7 +118,7 @@ describe('effective status borders drawn by ECharts (#2326 C1)', () => {
     try {
       chart.setOption({ animation: false, xAxis: { type: 'category', data: ['A', 'B', 'C'] }, yAxis: { type: 'category', data: ['Row'] }, series: [
         { type: 'scatter', symbol: 'rect', symbolSize: [80, 40], data: cells.map(c => ({ value: c.value, itemStyle: { color: c.fill } })) },
-        ...heatmapStatusOutlines(cells, [80, 40]),
+        ...heatmapStatusOutlines(cells, [80, 40], new Set()),
       ] });
       const svg = chart.renderToSVGString();
       const paths = svg.match(/<path[^>]*ecmeta_ssr_type="chart"[^>]*>/g)!;
@@ -153,7 +147,7 @@ it('draws every bar status ring in the inset layer, including a status that need
 
 describe('status rings stay inside thin cells (#2351)', () => {
   type Drawn = { shape: Rect; style: { lineWidth: number } };
-  const drawn = (width: number, height: number) => (heatmapStatusOutlines([{ value: [0, 0, 25], status: { tone: 'danger', label: 'D' }, fill: token('chart-status-critical') }], [width, height]) as unknown as
+  const drawn = (width: number, height: number) => (heatmapStatusOutlines([{ value: [0, 0, 25], status: { tone: 'danger', label: 'D' }, fill: token('chart-status-critical') }], [width, height], new Set()) as unknown as
     { z: number; data: unknown[][]; renderItem: (params: unknown, api: unknown) => Drawn }[])
     .map(s => ({ z: s.z, ...s.renderItem({}, { value: (d: number) => s.data[0][d], coord: () => [100, 50] }) }));
   it.each([[80, 40], [24, 15], [30, 8], [6, 6]])('a %ix%i cell keeps both rings inside the cell and at most a quarter of its short side', (width, height) => {
@@ -174,7 +168,7 @@ describe('status rings stay inside thin cells (#2351)', () => {
     if (backing) expect(backing.shape.x - backing.style.lineWidth / 2).toBeCloseTo(cell.x + outline.style.lineWidth); // the backing meets the border's inner edge
   });
   it.each([[0, 15], [24, 0], [0, 0]])('a %ix%i cell (dense grid or unmeasured plot) draws no ring, and the layers clip to the plot (#2351 review C2)', (width, height) => {
-    const series = heatmapStatusOutlines([{ value: [0, 0, 25], status: { tone: 'danger', label: 'D' }, fill: token('chart-status-critical') }], [width, height]) as unknown as { clip: boolean }[];
+    const series = heatmapStatusOutlines([{ value: [0, 0, 25], status: { tone: 'danger', label: 'D' }, fill: token('chart-status-critical') }], [width, height], new Set()) as unknown as { clip: boolean }[];
     expect(series.every(s => s.clip)).toBe(true);
     expect(drawn(width, height).every(r => (r as { ignore?: boolean }).ignore)).toBe(true);
     expect(drawn(24, 15).some(r => (r as { ignore?: boolean }).ignore)).toBe(false);

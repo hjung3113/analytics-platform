@@ -37,7 +37,7 @@ it.each([26, undefined])('keeps row groups and category coordinates in startAlig
   expect(option.yAxis.data).toEqual(['R1', 'R2', 'R3', 'R4']);
   expect(option.yAxis.axisLabel.formatter('R2')).toBe('{active|PM2}');
   expect(option.series.find(s => s.type === 'custom' && s.clip === false)!.data).toEqual([[0, 1], [2, 2], [3, 3]]);
-  expect(option.series.filter(s => s.type === 'bar' && s.id === undefined)).toHaveLength(1);
+  expect(option.series.filter(s => s.id?.startsWith('__spacer-'))).toHaveLength(1);
 });
 
 describe('row group gutter fits its labels (#2356)', () => {

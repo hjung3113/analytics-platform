@@ -5,7 +5,7 @@ import { barStatusRing, baselineInput } from '../__fixtures__/baselineInput';
 
 const status = { tone: 'danger' as const, label: '<상한 초과>', reason: 'Recipe <script> & "unknown"' };
 type Datum = { value: number; itemStyle: { color: string; borderColor: string; borderWidth: number; borderType?: string; shadowColor?: string }; label: { formatter: string; rich: object } };
-type Option = { series: { id?: string; type?: string; data: (number | null | Datum)[] }[]; tooltip: { formatter: (params: { seriesId: string; name: string; value: number }[]) => string } };
+type Option = { series: { id: string; type?: string; data: (number | null | Datum)[] }[]; tooltip: { formatter: (params: { seriesId: string; name: string; value: number }[]) => string } };
 
 describe('consumer bar statuses (#2326)', () => {
   it('adds a token border and glyph only to measured bar pieces, preserving fill and min/max/active cues', () => {
@@ -58,11 +58,12 @@ it('keeps status styling fixed when the active row changes, including startAlign
   const make = (activeCategory: string | null) => buildChartOption(baselineInput({ startAlign: true, activeCategory, pointStatus: () => status })) as unknown as Option;
   const active = make('R2'); const inactive = make(null);
   expect((active.series.find(s => s.id === 'a')!.data[1] as Datum).itemStyle).toEqual((inactive.series.find(s => s.id === 'a')!.data[1] as Datum).itemStyle);
-  const spacer = active.series.find(s => s.type === 'bar' && s.id === undefined)!;
+  const spacer = active.series.find(s => s.id === '__spacer-1')!;
   expect(spacer.data.every(d => typeof d === 'number')).toBe(true);
-  const tip = active.tooltip.formatter([{ seriesId: '\0generated spacer ID', name: 'R1', value: 1 }, { seriesId: 'a', name: 'R1', value: 800 }]);
-  expect(tip).not.toContain('__spacer');
-  expect(tip.match(/■/g)).toHaveLength(1);
+  const bars = [{ seriesId: 'a', name: 'R1', value: 800 }, { seriesId: 'b', name: 'R1', value: 100 }];
+  const tip = active.tooltip.formatter([bars[0], { seriesId: spacer.id, name: 'R1', value: 1 }, bars[1]]);
+  expect(tip).toBe(active.tooltip.formatter(bars));
+  expect(tip.match(/■/g)).toHaveLength(2);
 });
 
 it('keeps the selection, active-row and Min/Max borders when the chip outlines the same bars', () => {

@@ -47,6 +47,11 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
       pointActivation: { on: 'dblclick', onActivate },
     });
     const point = { x: 'Row B | B1', seriesId: id, value: 2 };
+    const overlay = (plot.option.series as { id: string; markArea?: unknown }[]).find(s => s.markArea)!;
+    act(() => plot.onEvents?.contextmenu?.({ seriesId: overlay.id, dataIndex: 0 }, {} as never));
+    expect(screen.queryByRole('menuitem', { name: 'Inspect' })).toBeNull();
+    act(() => plot.onEvents?.dblclick?.({ seriesId: overlay.id, dataIndex: 0 }, {} as never));
+    expect(onActivate).not.toHaveBeenCalled();
     act(() => plot.onEvents?.contextmenu?.({ seriesId: id, dataIndex: 0 }, {} as never));
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Inspect' }));
     act(() => plot.onEvents?.dblclick?.({ seriesId: id, dataIndex: 0 }, {} as never));

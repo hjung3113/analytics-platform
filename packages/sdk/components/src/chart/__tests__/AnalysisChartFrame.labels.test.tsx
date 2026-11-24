@@ -142,7 +142,7 @@ describe('segment labels (#580d, UX-6/12/13)', () => {
   it('draws no segment label for exactly one shown series, with startAlign too (the totals stay)', async () => {
     await mount({ valueLabels: 'segment', startAlign: true, visibleSeriesIds: ['a'] });
     expect(bySeries('a').label).toBeUndefined();
-    expect(option().series.some(s => s.type === 'bar' && s.id === undefined)).toBe(false);
+    expect(option().series.some(s => s.id?.startsWith('__spacer-'))).toBe(false);
     expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('startAlign'));
   });
   it.each(['segment', 'both'] as const)('draws no segment label for one shown series, valueLabels %s, and keeps the total', async valueLabels => {

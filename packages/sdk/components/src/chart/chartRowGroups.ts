@@ -2,6 +2,7 @@ import type { CustomSeriesOption } from 'echarts/charts';
 type RenderItem = Exclude<CustomSeriesOption['renderItem'], undefined | string>;
 type RenderParams = Parameters<RenderItem>[0];
 type RenderApi = Parameters<RenderItem>[1];
+import { helperSeriesId } from './helperSeriesId';
 
 /** A reading aid only: the category remains the identity; no hierarchy, collapse or group values. */
 export type ChartRowGroups = {
@@ -38,9 +39,9 @@ export function rowGroupLayout(groups: ChartRowGroups, categories: readonly stri
 }
 
 /** One custom item per run. Coordinates come from the live category axis, so resize and Zoom keep labels and separators aligned. */
-export function rowGroupSeries(layout: ReturnType<typeof rowGroupLayout>, color: string, separator: string) {
+export function rowGroupSeries(layout: ReturnType<typeof rowGroupLayout>, color: string, separator: string, takenSeriesIds: Set<string>) {
   return {
-    type: 'custom', silent: true, animation: false, clip: false, tooltip: { show: false },
+    id: helperSeriesId('__rowGroups', takenSeriesIds), type: 'custom', silent: true, animation: false, clip: false, tooltip: { show: false },
     encode: { y: [0, 1], x: -1 }, data: layout.runs.map(run => [run.start, run.end]),
     renderItem: (params: RenderParams, api: RenderApi) => {
       const run = layout.runs[params.dataIndex];

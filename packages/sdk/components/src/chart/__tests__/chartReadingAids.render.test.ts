@@ -47,6 +47,7 @@ const verticalCollisions = [
 function expectConsumerSeries(chart: ReturnType<typeof echarts.init>, id: string) {
   const series = chart.getOption().series as { id?: string; name?: string }[];
   expect(series.filter(entry => entry.id === id)).toEqual([expect.objectContaining({ name: 'Consumer series' })]);
+  expect(series.filter(entry => entry.id === `${id}~1`)).toHaveLength(1);
 }
 
 it.each(horizontalCollisions)('renders a horizontal consumer series with ID %s and its reading aids', (id, options, marker) => {

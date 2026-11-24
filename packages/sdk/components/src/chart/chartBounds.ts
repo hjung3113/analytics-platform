@@ -5,6 +5,7 @@ import type { ChartPalette } from './buildChartOption';
 import { toMs } from './analysisChartShared';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { chartDiagnostic } from './analysisChartData';
+import { helperSeriesId } from './helperSeriesId';
 
 export type ChartBounds = ReadonlyMap<string, { lower?: number; upper?: number }>;
 export type ChartBoundLabels = { upper?: string; lower?: string; band?: string };
@@ -104,12 +105,12 @@ export function projectChartBounds(i: BoundInput): BoundProjection | undefined {
 }
 
 /** No data dimensions: these overlays must neither extend x nor get discarded by Zoom when a step crosses its window. */
-export function boundSeries(p: BoundProjection, palette: ChartPalette): CustomSeriesOption[] {
+export function boundSeries(p: BoundProjection, palette: ChartPalette, takenSeriesIds: Set<string>): CustomSeriesOption[] {
   const color = boundColor(palette.theme);
   return p.parts.map(part => {
     const spans = p.segments.filter(s => hasBoundPart(s, part));
     return {
-      name: p.labels[part], type: 'custom', silent: true, animation: false, clip: true, z: part === 'band' ? 0 : 3,
+      id: helperSeriesId(`__bounds-${part}`, takenSeriesIds), name: p.labels[part], type: 'custom', silent: true, animation: false, clip: true, z: part === 'band' ? 0 : 3,
       tooltip: { show: false }, encode: { x: -1, y: -1 }, data: spans.map((_, n) => n),
       renderItem: (params, api) => {
         const s = spans[params.dataIndex];

@@ -8,12 +8,13 @@ import { SVGRenderer } from 'echarts/renderers';
 import { renderToString } from 'react-dom/server';
 import { I18nProvider } from '@ap/kernel';
 import { describe, expect, it, vi } from 'vitest';
-import { AnalysisChart } from '../AnalysisChart';
+import { AnalysisChart, type ScatterSpec } from '../AnalysisChart';
 import { EChart, type EChartProps } from '../EChart';
 import { buildChartOption, resolveChartPalette } from '../buildChartOption';
 import { baselineInput } from '../__fixtures__/baselineInput';
 import { scatterData } from '../analysisChartKinds';
 import { heatmapStatusOutlines, type ChartStatus } from '../chartStatus';
+import { scatterExtras } from '../scatterCategories';
 
 // Capture the real heatmap option without mounting a browser/canvas; the interaction below uses real ECharts.
 vi.mock('../EChart', async importOriginal => ({
@@ -83,25 +84,39 @@ it.each([
   ['__statusBacking', 1],
   ['__statusOutline', 2],
 ] as const)('renders the host and the helper when the engine host ID is %s', (id, helperIndex) => {
-  const scatter = scatterData({
+  const spec: ScatterSpec = {
     kind: 'scatter', xLabel: 'X', xUnit: 'x', yLabel: 'Y',
     groups: [{ id, label: 'Group', color: 'chart-status-critical' }],
     points: [{ id, group: id, category: 'A', x: 0, y: 3, status: status('danger') }],
     xCategories: { order: categories, groups: { header: 'Run', byCategory: new Map([['A', { group: 'Run A' }]]) } },
-  }, 'en', 's').option([]);
-  const option = id.startsWith('__scatter') ? scatter : {
+  };
+  // Inject the ID on the host before the production decorator appends its helper series.
+  const scatter = scatterExtras(spec, 'en', 's', plain => {
+    const base = scatterData(plain, 'en', 's');
+    return {
+      ...base,
+      option: active => {
+        const option = base.option(active);
+        const [host, ...others] = option.series as object[];
+        return { ...option, series: [{ ...host, id }, ...others] };
+      },
+    };
+  });
+  const heatmapHost = { id, type: 'scatter', data: [[0, 0, 3]], symbol: 'rect', symbolSize: [80, 40] };
+  const option = id.startsWith('__scatter') ? scatter.option([]) : {
     xAxis: { type: 'category', data: categories },
     yAxis: { type: 'category', data: ['Row'] },
     series: [
-      { type: 'scatter', data: [[0, 0, 3]], symbol: 'rect', symbolSize: [80, 40] },
-      ...heatmapStatusOutlines([{ value: [0, 0, 3], fill: '#b91c1c', status: status('danger'), opacity: 1 }], [80, 40]),
+      heatmapHost,
+      ...heatmapStatusOutlines([{ value: [0, 0, 3], fill: '#b91c1c', status: status('danger'), opacity: 1 }], heatmapHost.symbolSize, new Set([heatmapHost.id])),
     ],
   };
-  // These chart kinds derive their engine series from points or cells. Inject the explicit ID at the engine boundary.
-  const [host, ...helpers] = option.series as object[];
   const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 800, height: 400 });
   try {
-    chart.setOption({ ...option, series: [{ ...host, id }, ...helpers], animation: false });
+    chart.setOption({ ...option, animation: false });
+    const series = chart.getOption().series as { id?: string }[];
+    expect(series[0].id).toBe(id);
+    expect(series[helperIndex].id).toBe(`${id}~1`);
     const svg = chart.renderToSVGString();
     expect(svg).toContain('ecmeta_series_index="0"');
     if (id === '__scatterGroups') expect(svg).toContain('>Run A</text>');

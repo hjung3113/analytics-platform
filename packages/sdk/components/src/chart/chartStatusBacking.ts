@@ -4,6 +4,7 @@ import type { LaneLayout } from './chartLanes';
 import { chartPointKey, statusBacking, statusBorderColor, statusRing, type ChartStatus } from './chartStatus';
 import { toMs } from './analysisChartShared';
 import { CHART_MARKS } from './chartMarks';
+import { helperSeriesId } from './helperSeriesId';
 
 type RenderItem = Exclude<CustomSeriesOption['renderItem'], undefined | string>;
 // The native bars' layout (CHART_ECHARTS_THEME), so each ring sits on its bar.
@@ -19,7 +20,7 @@ const SINGLE_TIME_BAND_RATIO = 0.8;
  * border cannot contrast with the fill. Both are sized from the real piece by `statusRing`, so a thin piece keeps its fill;
  * the native bar draws no status border. Bar chip highlights use this geometry as a separate stroke.
  */
-export function barStatusBackingSeries(input: ChartOptionInput, statuses: ReadonlyMap<string, ChartStatus>, lanes: LaneLayout | null, highlightedValues: ReadonlySet<string>, highlightedBarBorders: ReadonlyMap<string, number>): CustomSeriesOption[] {
+export function barStatusBackingSeries(input: ChartOptionInput, statuses: ReadonlyMap<string, ChartStatus>, lanes: LaneLayout | null, highlightedValues: ReadonlySet<string>, highlightedBarBorders: ReadonlyMap<string, number>, takenSeriesIds: Set<string>): CustomSeriesOption[] {
   if (!statuses.size && !highlightedValues.size) return [];
   const bars = input.displayed.filter(s => input.horizontal || s.kind === 'bar');
   const count = input.stacked ? 1 : bars.length;
@@ -97,7 +98,7 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
       }] };
     };
     return [{
-      type: 'custom', silent: true, animation: false, clip: true, z: 3,
+      id: helperSeriesId(slot === 0 ? '__statusBarBacking' : `__statusBarBacking-${slot}`, takenSeriesIds), type: 'custom', silent: true, animation: false, clip: true, z: 3,
       tooltip: { show: false }, ...(input.rightAxis && series.axis === 'right' ? { yAxisIndex: 1 } : {}),
       encode: input.horizontal ? { x: [1, 2], y: 0 } : { x: 0, y: [1, 2] },
       data: pieces.map((p, index) => [p.category, p.start, p.end, index]), renderItem,

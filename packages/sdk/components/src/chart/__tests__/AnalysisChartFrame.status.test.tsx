@@ -100,7 +100,7 @@ describe('Frame stack and area options (#2737)', () => {
       series: [{ ...series[0], points: [['EQ1 · PM1', -3]] }, series[1]] });
     await screen.findByRole('img');
     expect(plot.option?.xAxis).toMatchObject({ min: undefined, name: 's' });
-    expect(plottedSeries().some(s => (s.type === 'bar' && s.id === undefined))).toBe(false);
+    expect(plottedSeries().some(s => s.id?.startsWith('__spacer-'))).toBe(false);
   });
 
   it('updates the same fallback status as a negative series is shown and hidden by keyboard', async () => {
@@ -136,7 +136,7 @@ describe('Frame stack and area options (#2737)', () => {
     expect(option.tooltip.valueFormatter(75)).toBe('75 %');
     expect(option.series[0].label.formatter({ value: 75 })).toBe('75%');
     expect(option.series.some(s => s.type === 'scatter')).toBe(false);
-    expect(option.series.some(s => (s.type === 'bar' && s.id === undefined) || s.markLine)).toBe(false);
+    expect(option.series.some(s => s.id?.startsWith('__spacer-') || s.markLine)).toBe(false);
     expect(within(table).getByRole('columnheader', { name: 'M1 (%)' })).toBeVisible();
     expect(within(table).getAllByRole('row')[1]).toHaveTextContent('EQ1 · PM17525');
     fireEvent.click(screen.getByRole('button', { name: '내보내기' }));
@@ -274,7 +274,7 @@ it.each([false, true])('keeps startAlign spacers out of status legends, tables a
   await screen.findByRole('img');
   const plotted = plot.option as { series: { id?: string; type?: string; clip?: boolean; data: unknown[]; itemStyle?: { color: string } }[] };
   expect(plotted.series.find(s => s.type === 'custom' && s.clip === false)).toBeDefined();
-  const spacer = plotted.series.find(s => s.type === 'bar' && s.id === undefined)!;
+  const spacer = plotted.series.find(s => s.id?.startsWith('__spacer-'))!;
   expect(spacer.itemStyle?.color).toBe('transparent');
   expect(spacer.data.every(value => typeof value === 'number')).toBe(true);
   expect(pointStatus.mock.calls.every(([point]) => ['a', 'b'].includes(point.seriesId))).toBe(true);

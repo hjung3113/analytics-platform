@@ -82,6 +82,27 @@ describe('setOptionMode (#705)', () => {
     expect(series.find(entry => entry.id === 'a')?.label?.show).not.toBe(true);
   });
 
+  it.each([
+    [['a'], '__overlay'],
+    [['__overlay'], '__overlay~1'],
+    [['__overlay', '__overlay~1'], '__overlay~2'],
+  ] as const)('keeps the reference-line host ID when a bar is hidden, remaining IDs %j', (ids, expectedId) => {
+    const shown = [...ids, 'to-hide'].map(id => ({ ...line(id, [1, 2]), kind: 'bar' as const, points: [['A', 1], ['B', 2]] as [string, number][] }));
+    const config = { xType: 'category', horizontal: true, categories: ['A', 'B'], markLines: [{ y: 1, label: 'Target' }] } satisfies Partial<ChartOptionInput>;
+    const first = optionOf(shown, config);
+    const next = optionOf(shown.slice(0, -1), config);
+    const chart = chartWith(first);
+    const series = () => (chart as unknown as { getModel: () => { getSeries: () => { id: string; option: { markLine?: unknown } }[] } }).getModel().getSeries();
+    const hostId = () => series().find(entry => entry.option.markLine)?.id;
+    const before = hostId();
+    const mode = setOptionMode(first, next);
+    expect(mode).toHaveProperty('replaceMerge');
+    chart.setOption({ series: [] }, { replaceMerge: ['series'], silent: true, lazyUpdate: true });
+    chart.setOption(next, mode);
+    expect(series().map(entry => entry.id)).toEqual([...ids, before]);
+    expect(hostId()).toBe(expectedId);
+  });
+
   it('rebuilds when dataZoom goes away or changes shape, or the grid or brush shape changes', () => {
     const first = optionOf([line('a', [1, 2])]);
     expect(setOptionMode(first, { ...first, grid: [{}, {}] })).toEqual({ notMerge: true });

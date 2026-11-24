@@ -4,6 +4,7 @@ import { chartPointKey, statusBorderColor, statusMarker, statusText, type ChartS
 import { token } from './EChart';
 import { toMs } from './analysisChartShared';
 import type { ChartOptionInput } from './buildChartOption';
+import { helperSeriesId } from './helperSeriesId';
 
 /** Bars keep their existing CSV label; line statuses carry the same tone glyph as the other reading aids. Reason has its own CSV column. */
 export function frameStatusCsvLabel(series: ChartSeries, horizontal: boolean, status: ChartStatus) {
@@ -15,7 +16,7 @@ const HALO_SIZE = 13;
 const HIGHLIGHT_SIZE = HALO_SIZE + 4;
 const STATUS_OPACITY = 0.8; // ECharts scatter's normal opacity, also inherited by its label.
 /** Scatter overlays render even when the underlying line has showSymbol:false. */
-export function lineStatusSeries(i: ChartOptionInput, statuses: ReadonlyMap<string, ChartStatus>, highlightedValues: ReadonlySet<string>): ScatterSeriesOption[] {
+export function lineStatusSeries(i: ChartOptionInput, statuses: ReadonlyMap<string, ChartStatus>, highlightedValues: ReadonlySet<string>, takenSeriesIds: Set<string>): ScatterSeriesOption[] {
   if (i.horizontal || (!statuses.size && !highlightedValues.size)) return [];
   const surface = token('surface-card');
   const positive: number[] = [], negative: number[] = [], latest: number[] = [];
@@ -45,11 +46,11 @@ export function lineStatusSeries(i: ChartOptionInput, statuses: ReadonlyMap<stri
     const base = { type: 'scatter' as const, silent: true, animation: false, symbol: 'circle', tooltip: { show: false }, ...(i.rightAxis && s.axis === 'right' ? { yAxisIndex: 1 } : {}) };
     const overlays: ScatterSeriesOption[] = [];
     if (data.length) overlays.push(
-      { ...base, z: 4, symbolSize: HALO_SIZE, itemStyle: { color: surface, opacity: 1 }, blur: { itemStyle: { opacity: 1 } }, data: data.map(d => d.value) },
-      { ...base, z: 5, symbolSize: STATUS_SIZE, blur: { itemStyle: { opacity: STATUS_OPACITY }, label: { opacity: STATUS_OPACITY } }, data },
+      { ...base, id: helperSeriesId(`__line-halo-${s.id}`, takenSeriesIds), z: 4, symbolSize: HALO_SIZE, itemStyle: { color: surface, opacity: 1 }, blur: { itemStyle: { opacity: 1 } }, data: data.map(d => d.value) },
+      { ...base, id: helperSeriesId(`__line-status-${s.id}`, takenSeriesIds), z: 5, symbolSize: STATUS_SIZE, blur: { itemStyle: { opacity: STATUS_OPACITY }, label: { opacity: STATUS_OPACITY } }, data },
     );
     if (highlights.length) overlays.push({
-      ...base, z: 6, symbolSize: HIGHLIGHT_SIZE, data: highlights,
+      ...base, id: helperSeriesId(`__line-highlight-${s.id}`, takenSeriesIds), z: 6, symbolSize: HIGHLIGHT_SIZE, data: highlights,
       itemStyle: { color: 'none', borderColor: i.palette.selection, borderWidth: 2, borderType: 'dashed', opacity: 1 },
       blur: { itemStyle: { opacity: 1 } },
     });

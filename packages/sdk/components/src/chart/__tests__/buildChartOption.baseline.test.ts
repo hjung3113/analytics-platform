@@ -3,7 +3,7 @@ import { buildChartOption } from '../buildChartOption';
 import { baselineInput } from '../__fixtures__/baselineInput';
 import main from '../__fixtures__/buildChartOption.main.json';
 
-// `buildChartOption.main.json` is the option origin/main's builder (before node 580d) produced for `baselineInput()`, with the overlay ID removed in #2718. Functions are pinned below.
+// `buildChartOption.main.json` is the option origin/main's builder (before node 580d) produced for `baselineInput()`. Functions are pinned below.
 describe('main-derived option (#580d, F9)', () => {
   const built = () => buildChartOption(baselineInput()) as unknown as { tooltip: { valueFormatter: (v: number | null) => string }; yAxis: { axisLabel: { formatter: (v: string) => string } } };
   it('equals what main built for an existing stacked chart while no value labels are asked for', () => {

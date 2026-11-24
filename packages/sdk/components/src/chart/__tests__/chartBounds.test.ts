@@ -40,7 +40,7 @@ describe('per-x step bounds (#2333)', () => {
   it('includes only present legend parts and fills only steps with both sides', () => {
     const i = { ...input(), bounds: new Map([[times[0], { upper: 8 }], [times[1], { lower: 2, upper: 10 }]]) };
     const p = projectChartBounds(i)!;
-    const series = boundSeries(p, i.palette);
+    const series = boundSeries(p, i.palette, new Set());
     expect(series.find(s => s.name === p.labels.band)!.data).toHaveLength(1);
     const one = projectChartBounds({ ...i, bounds: new Map([[times[0], { upper: 8 }]]) })!;
     expect(one.parts).toEqual(['upper']);
