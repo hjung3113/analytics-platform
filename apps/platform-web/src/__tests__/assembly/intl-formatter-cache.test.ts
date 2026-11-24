@@ -52,18 +52,21 @@ describe('formatInstant keeps explicit-zone formatters (#2811)', () => {
     expect(built).toHaveBeenCalledTimes(2);
   });
 
-  it('throws for a bad zone on every call, as before', () => {
+  it('throws for a bad zone on every call, as before, and keeps no failure', () => {
+    const built = countBuilds('DateTimeFormat');
     for (const form of FORMS) {
       const expected = thrown(() => oldInstant(INSTANTS[0]!, 'en', 'Mars/Base', form));
       expect(expected).toMatch(/RangeError/);
+      built.mockClear();
       expect(thrown(() => formatInstant(INSTANTS[0]!, 'en', 'Mars/Base', form))).toBe(expected);
       expect(thrown(() => formatInstant(INSTANTS[0]!, 'en', 'Mars/Base', form))).toBe(expected);
+      expect(built).toHaveBeenCalledTimes(2);
     }
   });
 
   describe('the viewer zone', () => {
     const tz = process.env.TZ;
-    afterEach(() => { process.env.TZ = tz; });
+    afterEach(() => { if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz; });
 
     it('follows a TZ change instead of keeping the zone of an earlier call', () => {
       for (const form of FORMS) {
@@ -89,16 +92,43 @@ describe('formatNumber keeps its formatters (#2811)', () => {
     }
   });
 
-  it('builds one formatter per language and digits over many calls', () => {
+  it('builds one formatter per language and digits over many calls, shared by equal spellings', () => {
     const built = countBuilds('NumberFormat');
     for (let i = 0; i < 50; i++) formatNumber(i * 1.5, 'en', { decimals: 5 });
     expect(built).toHaveBeenCalledTimes(1);
+    built.mockClear();
+    // Digits no other test uses, since the cache outlives a test.
+    for (const options of [{ maximumFractionDigits: 9 }, { decimals: undefined, maximumFractionDigits: 9 }, { minimumFractionDigits: undefined, maximumFractionDigits: 9 }]) {
+      expect(formatNumber(1234.5, 'ko', options)).toBe(oldNumber(1234.5, 'ko', options));
+    }
+    expect(formatNumber(1234.5, 'ko', { decimals: 7 })).toBe(formatNumber(1234.5, 'ko', { minimumFractionDigits: 7, maximumFractionDigits: 7 }));
+    expect(built).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes options beyond the digit fields to Intl per call, as before (review F1)', () => {
+    // Structurally wider objects pass the public type; the old spread handed every key to Intl.
+    const ungrouped = { decimals: 2, useGrouping: false };
+    const currency = { decimals: 2, style: 'currency' };
+    expect(formatNumber(1234.56, 'en', ungrouped)).toBe('1234.56');
+    expect(thrown(() => formatNumber(1234.56, 'en', currency))).toBe(thrown(() => oldNumber(1234.56, 'en', currency)));
+    expect(thrown(() => formatNumber(1234.56, 'en', currency))).toMatch(/TypeError/);
+  });
+
+  it('keeps no formatter for fractional digit values (review F2)', () => {
+    const built = countBuilds('NumberFormat');
+    for (let i = 0; i < 100; i++) {
+      const options = { decimals: 4 + (i + 1) / 128 };
+      expect(formatNumber(1.234567, 'en', options)).toBe(oldNumber(1.234567, 'en', options));
+    }
+    expect(built).not.toHaveBeenCalled();
   });
 
   it.each([{ decimals: 200 }, { minimumFractionDigits: 3, maximumFractionDigits: 1 }, { decimals: -1 }])('throws for bad digits %o on every call, as before', options => {
     const expected = thrown(() => oldNumber(1, 'en', options));
     expect(expected).toMatch(/RangeError/);
+    const built = countBuilds('NumberFormat');
     expect(thrown(() => formatNumber(1, 'en', options))).toBe(expected);
     expect(thrown(() => formatNumber(1, 'en', options))).toBe(expected);
+    expect(built).toHaveBeenCalledTimes(2);
   });
 });

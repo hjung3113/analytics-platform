@@ -10,14 +10,21 @@ export interface FormatNumberOptions {
 
 const numberFormatters = new Map<string, Intl.NumberFormat>();
 
+const DIGIT_KEYS = new Set(['decimals', 'minimumFractionDigits', 'maximumFractionDigits']);
+const cacheableDigits = (digits: unknown) => digits === undefined || Number.isInteger(digits);
+
 /**
  * The one number display rule: digits grouped and rounded the way the user's language does (`ko` → `ko-KR`, `en` → `en-US`).
  * Menus call this instead of `toLocaleString`, so the language switch reaches every number. Pure; a non-finite value prints as `Intl` does (`NaN`, `∞`).
  */
 export function formatNumber(value: number, lang: 'ko' | 'en', options: FormatNumberOptions = {}): string {
   const { decimals, ...fraction } = options;
-  const { minimumFractionDigits: min, maximumFractionDigits: max } = decimals === undefined ? fraction : { minimumFractionDigits: decimals, maximumFractionDigits: decimals };
+  const intl: Intl.NumberFormatOptions = decimals === undefined ? fraction : { ...fraction, minimumFractionDigits: decimals, maximumFractionDigits: decimals };
   const locale = NUMBER_LOCALE[lang];
+  const { minimumFractionDigits: min, maximumFractionDigits: max } = intl;
+  // Only the declared digit fields with whole (or omitted) values are kept, so the key space is the valid digit range. Any other key a
+  // caller passes structurally, or a fractional/odd digit value, goes to Intl per call exactly as before.
+  if (!Object.keys(options).every(key => DIGIT_KEYS.has(key)) || !cacheableDigits(min) || !cacheableDigits(max)) return value.toLocaleString(locale, intl);
   // Built on the first call with these digits, so bad digits still throw from that call and a failure is never kept.
   const key = `${locale}|${min ?? ''}|${max ?? ''}`;
   let formatter = numberFormatters.get(key);
