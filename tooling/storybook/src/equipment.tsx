@@ -1,4 +1,4 @@
-import type { AuditEvent, Trust } from '@ap/contracts';
+import type { ApiResponse, AuditEvent, Trust } from '@ap/contracts';
 import type { ChartSeries, DonutSlice, HeatmapCell, LegendTreeNode, OrderedTrackItem, OrderedTrackLane, PlatformColumn, ScatterPoint, TimelineLane } from '@ap/components';
 
 // Synthetic equipment data shared by the stories (no real data).
@@ -58,3 +58,7 @@ export const AUDIT: AuditEvent[] = [
   { id: 'a2', at: '2026-11-08T09:05:00+09:00', actor: 'u1', actorLabel: '홍길동', action: 'update', source: 'user', target: eq0207, changes: { '기준 사이클타임(초)': ['165', '160'] } },
   { id: 'a1', at: '2026-10-02T10:00:00+09:00', actor: 'sync', action: 'sync', source: 'system', target: eq0207 },
 ];
+
+// A response envelope of the 상태 pages (synthetic): only `ok` carries data.
+export const answer = <T,>(outcome: ApiResponse<T>['outcome'], data: T | null = null): ApiResponse<T> =>
+  ({ outcome, data, assessments: [], trust: outcome === 'ok' ? TRUST : null, correlationId: 'sb-7f3a2c' });
