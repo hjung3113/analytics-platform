@@ -748,6 +748,61 @@ describe('PanelWorkspace: height mode (#686)', () => {
     expect(rowHeights()).toEqual([300, 400, 392]);
   });
 
+  it.each(['live', 'after remount'] as const)('keeps a shared row shrink when a declared member returns %s', async path => {
+    vi.stubGlobal('innerHeight', 600);
+    const panels = PANELS.filter(panel => panel.id !== 'kpi').map(panel => (
+      panel.primary ? panel : { ...panel, placement: { row: 'shared' }, preferredHeight: 420 }
+    ));
+    const withoutDetail = panels.filter(panel => panel.id !== 'detail');
+    const shared: PanelWorkspaceLayout = { type: 'branch', dir: 'row', sizes: [50, 50], children: [group(['selector']), group(['detail'])] };
+    const layout: PanelWorkspaceLayout = { type: 'branch', dir: 'column', sizes: [40, 60], children: [group(['trend']), shared] };
+    seed(stackStored([300, 460], { layout, sharedRowSizes: [{ id: 'shared', height: 460 }] }));
+    let view = mountWorkspace({ ...ROWS_PROPS, panels });
+    await ready();
+    expect(screen.getByRole('tab', { name: '상세' })).toBeInTheDocument();
+    expect(rowHeights()).toEqual([300, 460]);
+
+    rowSeparators()[1]!.focus();
+    await userEvent.keyboard('{ArrowUp}');
+    await sleep(400);
+    const shrunk = { rows: [300, 436], sharedRowSizes: [{ id: 'shared', height: 436 }] };
+    expect(lastStored()).toMatchObject({ ...shrunk, preferredSeen: { selector: 420, detail: 420 } });
+
+    if (path === 'after remount') {
+      view.unmount();
+      view = mountWorkspace({ ...ROWS_PROPS, panels: withoutDetail });
+      await ready();
+    } else {
+      view.rerender(shell(<PanelWorkspace {...BASE} {...ROWS_PROPS} panels={withoutDetail} />));
+    }
+    expect(screen.queryByRole('tab', { name: '상세' })).toBeNull();
+    expect(rowHeights()).toEqual(shrunk.rows);
+    await sleep(400);
+
+    view.rerender(shell(<PanelWorkspace {...BASE} {...ROWS_PROPS} panels={panels} />));
+    expect(await screen.findByRole('tab', { name: '상세' })).toBeInTheDocument();
+    expect(rowHeights()).toEqual(shrunk.rows);
+    await sleep(400);
+    expect(lastStored()).toMatchObject({
+      ...shrunk,
+      preferredSeen: { selector: 420, detail: 420 },
+      layout: { children: [{ panels: ['trend'] }, { children: [{ panels: ['selector'] }, { panels: ['detail'] }] }] },
+    });
+  });
+
+  it.each([NaN, Infinity])('raises a shared row to the valid preference beside %s', async invalid => {
+    vi.stubGlobal('innerHeight', 600);
+    const panels = PANELS.map(panel => {
+      if (panel.id === 'selector') return { ...panel, placement: { row: 'shared' }, preferredHeight: 480 };
+      if (panel.id === 'detail') return { ...panel, placement: { row: 'shared' }, preferredHeight: invalid };
+      return panel;
+    });
+    seed(stackStored([300, 320, 360], { sharedRowSizes: [{ id: 'shared', height: 320 }] }));
+    mountWorkspace({ ...ROWS_PROPS, panels });
+    await ready();
+    expect(rowHeights()).toEqual([300, 520, 360]);
+  });
+
   it('a separator key resizes only the row above and the stored rows follow', async () => {
     storage.setItem(KEY(), stackStored([300, 400, 500]));
     mountWorkspace(ROWS_PROPS);

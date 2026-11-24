@@ -21,7 +21,7 @@ import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { WorkspaceEdges } from './WorkspaceEdges';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
 import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withAdjustedRowHeights, withRows, workspacePreference, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
-import { canMoveBelow, clampRow, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows } from './workspaceRows';
+import { canMoveBelow, clampRow, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows, validPreferred } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
 import { alignUnderChrome, restoreScrollOffset, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
 
@@ -221,7 +221,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const presets: readonly PanelWorkspacePreset[] = given.length > 0 ? given : [{ id: initialPreset, label: COMPONENTS_MESSAGES.workspaceLayout, layout: { type: 'group', panels: panels.map(panel => panel.id) } }];
   const panelMinimums = new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }]));
   const rowMinimum = rowMinimumOf(panelMinimums);
-  const declaredHeights = new Map(panels.flatMap(panel => (panel.preferredHeight === undefined ? [] : [[panel.id, panel.preferredHeight] as const])));
+  const declaredHeights = new Map(panels.flatMap(panel => (validPreferred(panel.preferredHeight) ? [[panel.id, panel.preferredHeight] as const] : [])));
   const rowPreferred = declaredHeights.size > 0 ? rowPreferredOf(declaredHeights, panelMinimums, dockTheme(true).gap) : undefined;
   const below = panels.filter(panel => panel.placement === 'below' && panel.id !== primaryId).map(panel => panel.id);
   const declaredRows = new Map<string, string[]>();
