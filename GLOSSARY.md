@@ -602,6 +602,13 @@ _Avoid_: 커스텀 그룹 — 이 묶음의 옛 이름이다. 커스텀 조회 �
 사용자가 차트나 표에서 고른 값 묶음(예: 설비 두 대)이나 범위(예: 14:00–16:00). 패널이 선언한 출력 키로 페이지 키가 되어 URL에 실리고, 연결된 패널의 입력이 된다. 행 묶음은 화면 안에서만 유지한다([ADR-0175](docs/adr/0175-chart-selection-feeds-next-analysis.md), [ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md)).
 _Avoid_: Selection — 설비 선택(`selectedEquipmentIds`)이다. 전역 기간과 설비 선택은 분석 선택이 아니라 명시 동작으로만 바뀐다.
 
+**분석 선택 칩** (칩 구역 `AnalysisSelectionChipZone`):
+접힌 조회 조건 줄(과 보드 칸)에 현재 분석 선택의 차원과 값을 보여 주는 칩. 선택을 편집하거나 지울 수 있고, ⋯에서 다음 분석 동작을 연다([Components §13](docs/contract/components.md#13-shared-component-layers), [Chart §16](docs/contract/chart.md#분석-선택-전달-decided-adr-0175-2732)).
+
+**다음 분석** (`nextAnalysis`):
+현재 분석 선택에서 이어 갈 동작을 고르는 줄. 차트가 출력을 연결하면 그 패널 아래 줄과 분석 선택 칩의 ⋯에서 조건에 맞는 나누기·새 패널·다른 분석·조건으로를 제공한다([Chart §16](docs/contract/chart.md#분석-선택-전달-decided-adr-0175-2732)).
+_Avoid_: 동작 막대 — #2734 초기 명세의 설명이다.
+
 **분석 데이터셋** (`AnalysisDataset`):
 데이터 책임자가 발행한, 사용자 분석 메뉴의 원천 데이터. 데이터 단위, 필드 역할, 허용 집계, 승인된 관계, 버전을 가진다. 서버가 닫힌 질의로만 조회한다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md), #1704).
 _Avoid_: Dataset(단독) — 검증용 테스트 데이터셋이다(«표준 로그 개발»).
