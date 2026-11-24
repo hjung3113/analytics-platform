@@ -261,4 +261,37 @@ describe('TaskRequestsScreen over a bare host seam', () => {
     expect(document.querySelector('[data-list-toolbar]')).toBeInTheDocument();
     expect(screen.getAllByRole('tab').length).toBeGreaterThan(0);
   });
+
+  it.each(['list control', 'outside control'])('handles focus on a %s when a list read becomes denied', async (target) => {
+    render(<><button type="button">Outside queue</button><Harness search={BASE} autoSelect={false} /></>);
+    await screen.findByRole('button', { name: /REQ-A/ });
+    const tab = screen.getByRole('tab', { name: /^전체/ });
+    const outside = screen.getByRole('button', { name: 'Outside queue' });
+    const filter = screen.getByRole('combobox', { name: '검토자 필터' });
+    const focused = target === 'list control' ? filter : outside;
+    focused.focus();
+    expect(focused).toHaveFocus();
+    api.fetchTaskRequests.mockRejectedValue(
+      new ApiError(403, { code: 'permission.denied', message: 'finding.manage required' }),
+    );
+    fireEvent.mouseDown(tab, { button: 0, ctrlKey: false });
+    await screen.findByText(PERMISSION_BLOCKED_REASONS.taskRequestQueue);
+    expect(filter).not.toBeInTheDocument();
+    const destination = target === 'list control'
+      ? screen.getByRole('heading', { name: 'Task 요청 목록' }).closest('[data-state="denied"]')?.parentElement
+      : outside;
+    expect(destination).toHaveFocus();
+  });
+
+  it('preserves existing focus on a first-entry list denial', async () => {
+    render(<button type="button">Outside queue</button>);
+    const outside = screen.getByRole('button', { name: 'Outside queue' });
+    outside.focus();
+    api.fetchTaskRequests.mockRejectedValue(
+      new ApiError(403, { code: 'permission.denied', message: 'finding.manage required' }),
+    );
+    render(<Harness search={BASE} />);
+    await screen.findByText(PERMISSION_BLOCKED_REASONS.taskRequestQueue);
+    expect(outside).toHaveFocus();
+  });
 });
