@@ -88,7 +88,8 @@ it('moves focus to the list denial card after an expanded Finding closes', async
   const heading = await screen.findByRole('heading', { name: '전체 Finding', level: 2 });
   const card = heading.closest('[tabindex="-1"]')!;
   const target = card.querySelector('a[href], button:not([disabled])') ?? card;
-  expect(screen.queryByRole('dialog')).toBeNull();
+  // The drawer close is scheduled apart from the card render: wait for it instead of asserting it in the same tick.
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(body.hasAttribute('inert')).toBe(false);
   await waitFor(() => expect(document.activeElement === target, `Focused ${document.activeElement?.tagName}`).toBe(true));
 });
