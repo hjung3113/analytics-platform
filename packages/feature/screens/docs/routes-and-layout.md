@@ -687,7 +687,8 @@ Evidence, Findings, VOC Inbox, VOC Clusters, Task list, Task board and Milestone
 filters. If closing detail leaves focus on the page body, focus moves to the
 list blocked card's first available action or to the card itself. A later explicit VOC Inbox selection still goes through the
 independently authorized detail read. When a scoped empty-list permission check shows the shared blocked card («막힘 카드»),
-returning window focus rechecks that permission.
+returning window focus rechecks that permission. The Finding and Evidence cards show `확인 중` in place of the request action
+until the recheck settles. A failed check offers retry and keeps the request action unavailable.
 Findings, Evidence, VOC Clusters, the Task list (including My Tasks), the Task board, and
 Milestones use the same list blocked card, as does the Integration recovery queue: its denied
 card replaces the section title (h2, card named by that title when focus returns to it) and keeps the

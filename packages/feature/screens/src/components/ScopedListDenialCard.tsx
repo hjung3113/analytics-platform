@@ -4,10 +4,12 @@ import type { ReactNode, RefObject } from 'react';
 import { PERMISSION_BLOCKED_REASONS } from '../lib/copy/permission-reasons';
 import { PERMISSION_REQUEST_FLOW_COPY } from '../lib/copy/permission-requests';
 import { useArchivedSystemCheck } from '../lib/cross-system/useIsArchivedSystem';
+import type { ScopedEmptyListPermission } from '../lib/cross-system/useListDenial';
 import { useHostPermissionLinks, useHostSeam } from '../lib/host/host-seam';
 import { ListAccessRequestPanel, ListDenialFocus, type ListAccessRequest } from './ListAccessRequestPanel';
 import { MyVocsRecoveryLink } from './MyVocsRecoveryLink';
 import { PermissionDeniedCard } from './PermissionDeniedCard';
+import { PermissionRecheckAction } from './PermissionRecheckAction';
 import { permissionCardExitAction } from './permission-card-actions';
 
 export function ScopedListDenialCard({
@@ -24,6 +26,7 @@ export function ScopedListDenialCard({
   recoverToMyVocs,
   recoveryAction,
   restoreFocus,
+  recheck,
 }: {
   category: string;
   reason: string;
@@ -39,12 +42,13 @@ export function ScopedListDenialCard({
   recoverToMyVocs?: boolean;
   recoveryAction?: ReactNode;
   restoreFocus?: boolean | undefined;
+  recheck?: Extract<ScopedEmptyListPermission, { state: 'checking' | 'error' }> | undefined;
 }) {
   const { lang = 'ko' } = useHostSeam();
   const { permissionHomeHref } = useHostPermissionLinks();
   // No permission opens an archived System, so the capability card names the archive instead.
   const archive = useArchivedSystemCheck(
-    !request && !roleRequired && capability !== undefined ? managedSystemId : undefined,
+    !recheck && !request && !roleRequired && capability !== undefined ? managedSystemId : undefined,
     { retryOnMount: false },
   );
   const archivedSystem = archive.archived;
@@ -55,7 +59,15 @@ export function ScopedListDenialCard({
   const extraExitAction = recoverToMyVocs ? <MyVocsRecoveryLink /> : null;
   let panel: ReactNode;
   let label: string | undefined;
-  if (request) {
+  if (recheck) {
+    const home = permissionCardExitAction(permissionHomeHref, lang);
+    panel = <PermissionBlockedPanel layout="card" state="denied" lang={lang}
+      headingLevel={roleHeading?.level ?? headingLevel ?? 4} category={category} description={reason}
+      requestAction={<PermissionRecheckAction status={recheck.state === 'checking' ? 'pending' : 'error'}
+        retry={() => { if (recheck.state === 'error') recheck.retry(); }} />}
+      exitAction={extraExitAction ? <>{home}{extraExitAction}</> : home}
+    />;
+  } else if (request) {
     panel = <ListAccessRequestPanel {...{ category, reason, returnRouteIntent, request, extraExitAction }} />;
   } else if (roleRequired) {
     const home = permissionCardExitAction(permissionHomeHref, lang);
