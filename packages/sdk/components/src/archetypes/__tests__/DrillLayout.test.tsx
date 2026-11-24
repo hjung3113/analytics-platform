@@ -259,27 +259,38 @@ describe('DrillLayout keeps a body child across drill steps (06 §12.7, #912)', 
 });
 
 describe('ReturnLink (06 §22, ADR-0025)', () => {
+  const accepted = '/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillLine=L1&drillEquipment=E';
+  const target = `/mars/detail?v=1&returnTo=${encodeURIComponent(accepted)}`;
+
+  function OpenDetail({ children }: { children: ReactNode }) {
+    const { navigate, route } = usePlatform();
+    return route?.menu.id === 'detail' ? children : <button onClick={() => navigate(target)}>Open detail</button>;
+  }
+
+  it.each([
+    ['recorded', accepted, '← 생산성 개요 (PHOTO › A › L1 › E)', accepted],
+    ['unrecorded', target, '← 이전 화면', accepted],
+    ['parent fallback', '/mars/detail?v=1', '← 생산성 개요', '/mars/source?v=1'],
+  ])('uses the visible text as the accessible name for a %s return', (kind, url, name, href) => {
+    mount(url, <OpenDetail><ReturnLink /></OpenDetail>);
+    if (kind === 'recorded') fireEvent.click(screen.getByRole('button', { name: 'Open detail' }));
+    const link = screen.getByRole('link', { name });
+    expect(link).toHaveTextContent(name);
+    expect(link).toHaveAttribute('href', href);
+  });
+
   it.each([
     ['standalone link', <ReturnLink />, '← labeled (공정명 ETCH › A)'],
     ['page return row', <PlatformPage>{null}</PlatformPage>, '← labeled로 돌아가기 (공정명 ETCH › A)'],
-  ] as const)('combines formatted and raw drill steps in the %s', (_control, node, name) => {
-    const accepted = '/mars/labeled?v=1&drillRoom=ETCH&drillStgroup=A';
-    mount(`/mars/detail?v=1&returnTo=${encodeURIComponent(accepted)}`, node);
-    expect(screen.getByRole('link', { name })).toHaveAttribute('href', accepted);
-  });
-
-  it('names the origin menu and its drill trail', () => {
-    const accepted = '/mars/source?v=1&drillRoom=PHOTO&drillStgroup=A&drillLine=L1&drillEquipment=E';
-    mount(`/mars/detail?v=1&returnTo=${encodeURIComponent(accepted)}`, <ReturnLink />);
-    const link = screen.getByRole('link', { name: '← 생산성 개요 (PHOTO › A › L1 › E)' });
-    expect(link.getAttribute('href')).toBe(accepted);
-  });
-
-  it('names the parent menu when returnTo is absent', () => {
-    mount('/mars/detail?v=1', <ReturnLink />);
-    const link = screen.getByRole('link', { name: '← 생산성 개요' });
-    expect(link.getAttribute('href')).toBe('/mars/source?v=1');
-    expect(link.textContent).not.toContain('›');
+  ] as const)('combines formatted and raw drill steps in the %s after a recorded navigation', (_control, node, name) => {
+    const href = '/mars/labeled?v=1&drillRoom=ETCH&drillStgroup=A';
+    function Open() {
+      const { navigate, route } = usePlatform();
+      return route?.menu.id === 'detail' ? node : <button onClick={() => navigate(`/mars/detail?v=1&returnTo=${encodeURIComponent(href)}`)}>Open detail</button>;
+    }
+    mount(href, <Open />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open detail' }));
+    expect(screen.getByRole('link', { name })).toHaveAttribute('href', href);
   });
 });
 
@@ -463,7 +474,7 @@ it.each([true, false])('announces reverted Context exactly once after return: %s
   const origin = '/mars/source?v=1';
   mount(`/mars/detail?v=1${changed ? '&metricId=cycle_time&metricVersion=4' : ''}&returnTo=${encodeURIComponent(origin)}`, <Fixture />);
   expect(JSON.parse(screen.getByRole('status').textContent!).toasts).toHaveLength(0);
-  fireEvent.click(screen.getByRole('link', { name: '← 생산성 개요' }));
+  fireEvent.click(screen.getByRole('link', { name: '← 이전 화면' }));
   const result = JSON.parse(screen.getByRole('status').textContent!);
   expect(result.url).toBe(origin);
   expect(result.toasts).toHaveLength(changed ? 1 : 0);
@@ -479,7 +490,7 @@ it('announces reverted Scope exactly once after return', () => {
   const origin = '/mars/source?v=1&scopeId=MEM';
   mount(`/mars/detail?v=1&scopeId=FDRY&returnTo=${encodeURIComponent(origin)}`, <Fixture />);
   expect(JSON.parse(screen.getByRole('status').textContent!).toasts).toHaveLength(0);
-  fireEvent.click(screen.getByRole('link', { name: '← 생산성 개요' }));
+  fireEvent.click(screen.getByRole('link', { name: '← 이전 화면' }));
   const result = JSON.parse(screen.getByRole('status').textContent!);
   expect(result.url).toBe(origin);
   expect(result.toasts).toHaveLength(1);

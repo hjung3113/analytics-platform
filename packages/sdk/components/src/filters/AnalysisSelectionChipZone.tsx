@@ -117,18 +117,19 @@ function ChipActions({ chip, text, clear, returnFocus }: {
   </DropdownMenu>;
 }
 
-function ArrivalLink({ href, chipKey, linkRef }: { href: string; chipKey: string; linkRef?: RefCallback<HTMLAnchorElement> }) {
+function ArrivalLink({ href, chipKey, linkRef, menu }: { href: string; chipKey: string; linkRef?: RefCallback<HTMLAnchorElement>; menu?: string }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { onNavigate } = useReturnNavigation();
+  const label = menu === undefined ? m('analysisSelectionArrivalBack') : m('analysisSelectionArrivalNamedBack', { menu });
   return <PlatformLink ref={linkRef} data-analysis-chip-arrival={chipKey} via="return" className={chipButtonClass}
-    href={href} aria-label={m('analysisSelectionArrivalBack')} onNavigate={onNavigate}>←</PlatformLink>;
+    href={href} aria-label={label} onNavigate={onNavigate}>←</PlatformLink>;
 }
 
 function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, arrivalLinkRef, editFocus, returnActionFocus }: {
   chip: AnalysisSelectionChip; clear: ClearChip; editor?: ChipEditor; wrap?: boolean; measuring?: boolean;
   clearButtonRef?: ClearButtonRef; arrivalLinkRef?: RefCallback<HTMLAnchorElement>; editFocus?: EditFocusHandlers; returnActionFocus?: ReturnActionFocus;
 }) {
-  const { lang } = useI18n();
+  const { lang, tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const beginHover = useAnalysisSelectionHoverTarget(measuring ? undefined : chip.key);
   const labelId = useId();
@@ -178,27 +179,35 @@ function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, arrivalLin
     value = others.length > 0 ? m('analysisSelectionMoreValues', { first, count: others.length }) : first ?? '';
   }
   const text = `${dimension} ${value}`;
+  const origin = chip.arrival?.origin;
+  const menu = origin && tx(origin.menuLabel);
+  const arrivalPrefix = menu === undefined ? m('analysisSelectionArrivalPrefix') : m('analysisSelectionArrivalNamedPrefix', { menu });
+  const notApplied = chip.applied === false;
+  const muted = notApplied || !chip.available;
+  const statusId = `${labelId}-status`;
+  const status = notApplied ? m('analysisSelectionNotApplied') : m('analysisSelectionUnavailable');
   const description = <>
     {chip.source && <span role="img" aria-label={source ?? dimension} title={source} className="size-3.5 shrink-0 rounded-sm border border-current" />}
     <span id={labelId} className="inline-flex min-w-0 gap-1">
-      {chip.arrival && <span className="shrink-0 whitespace-nowrap">{m('analysisSelectionArrivalPrefix')}</span>}
+      {chip.arrival && <span className="shrink-0 whitespace-nowrap">{arrivalPrefix}</span>}
       <span className={wrap ? '[overflow-wrap:anywhere]' : 'max-w-40 truncate'} title={text}>{text}</span>
     </span>
-    {!chip.available && <span id={`${labelId}-status`} className="shrink-0">{m('analysisSelectionUnavailable')}</span>}
+    {muted && <span id={notApplied ? undefined : statusId} className="shrink-0">{status}</span>}
+    {notApplied && <span id={statusId} className="sr-only">{m('analysisSelectionNotAppliedDescription')}</span>}
   </>;
   return <span className={cn('inline-flex min-w-0 items-center rounded-full text-xs font-medium',
     wrap ? 'min-h-6.5' : 'h-6.5',
-    chip.available ? 'bg-accent-primary-soft text-accent-primary' : 'bg-accent-neutral-soft text-text-secondary')}
+    muted ? 'bg-accent-neutral-soft text-text-secondary' : 'bg-accent-primary-soft text-accent-primary')}
     onPointerEnter={event => { if (event.pointerType !== 'touch') enter('pointer'); }}
     onPointerLeave={() => leave('pointer')} onFocus={() => enter('focus')} onBlur={() => leave('focus')}>
     {chip.arrival && (measuring ? <span className={chipButtonClass}>←</span> :
-      <ArrivalLink href={chip.arrival.href} chipKey={chip.key} linkRef={arrivalLinkRef} />)}
+      <ArrivalLink href={chip.arrival.href} chipKey={chip.key} linkRef={arrivalLinkRef} menu={menu} />)}
     {editor && !measuring ? <Popover open={open} onOpenChange={next => {
       if (next) committed.current = false;
       setOpened(next ? { edit, selectionKey } : null);
     }}>
       <PopoverTrigger asChild>
-        <button ref={editTriggerRef} type="button" data-analysis-chip-edit={chip.key} aria-labelledby={labelId} aria-describedby={chip.available ? undefined : `${labelId}-status`}
+        <button ref={editTriggerRef} type="button" data-analysis-chip-edit={chip.key} aria-labelledby={labelId} aria-describedby={muted ? statusId : undefined}
           className={cn('inline-flex min-h-6.5 min-w-0 items-center gap-1 rounded-full pl-2 pr-1 text-start hover:bg-surface-row-hover', focusClass)}>
           {description}
         </button>
@@ -216,7 +225,7 @@ function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, arrivalLin
       </PopoverContent>
     </Popover> : <span className="inline-flex min-w-0 items-center gap-1 pl-2 pr-1">{description}</span>}
     <button ref={clearButtonRef} type="button" disabled={measuring} className={chipButtonClass}
-      data-analysis-chip-clear={chip.key} aria-label={m('analysisSelectionClear', { dimension })} onClick={() => clear(chip.key)}>
+      data-analysis-chip-clear={chip.key} aria-label={m('analysisSelectionClear', { dimension })} aria-describedby={notApplied ? statusId : undefined} onClick={() => clear(chip.key)}>
       <X className="size-3.5" aria-hidden />
     </button>
     {measuring ? <span className={chipButtonClass} /> : <ChipActions chip={chip} text={text} clear={clear} returnFocus={returnActionFocus && (() => returnActionFocus(chip.key, { fromList: wrap === true }))} />}

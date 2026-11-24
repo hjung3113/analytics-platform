@@ -2,9 +2,10 @@ import { formatWallClock, type GlobalContext, type Pair } from '@ap/contracts';
 import { useCallback, useMemo } from 'react';
 import { AlertTriangle, Clock, Cpu, Gauge } from 'lucide-react';
 import { formatNumber } from '@ap/contracts';
-import { formatSummaryTime, parseAnalysisSelection, useI18n, useMenuQuery, usePlatform, useQueryContext } from '@ap/kernel';
+import { formatSummaryTime, useAnalysisSelectionInputs, useI18n, useMenuQuery, usePlatform, useQueryContext } from '@ap/kernel';
 import { AnalysisChart, AnalysisLayout, DataTrustIndicator, LaneTimeline, PlatformPage, QueryView, RecoverButton, ReturnLink, StateMessage, StatCard, type TimelineLane } from '@ap/components';
 import { operationTimeEndpoint, readOperationDays, resolveOperationDays, type OperationKind, type OperationTimeData } from '../endpoints';
+import { operationTimePanel } from '../panels';
 
 const KIND_COLOR = { process: 'chart-series-1', transfer: 'chart-series-2', wait: 'chart-series-3' } as const;
 const KIND_LABEL: Record<OperationKind, { ko: string; en: string }> = {
@@ -21,13 +22,14 @@ export function operationTimeHistorySummary(page: readonly Pair[], lang: 'ko' | 
 }
 
 export default function OperationTimeScreen() {
-  const { pageParam, pageParams } = usePlatform();
+  const { pageParam } = usePlatform();
   const { lang, tx } = useI18n();
   const global = useQueryContext();
   const eqp = pageParam('eqp') ?? '';
-  const receivedDays = pageParams('days');
-  const selection = parseAnalysisSelection('range', receivedDays);
+  const { applied, rejected } = useAnalysisSelectionInputs(operationTimePanel.id);
+  const selection = applied.find(input => input.key === 'days')?.selection;
   const range = selection?.shape === 'range' ? resolveOperationDays(selection, global) : null;
+  const rejectedDays = rejected.includes('days') || (selection !== undefined && range === null);
   const days = range ? `${range.from}/${range.to}` : '';
   const historyPageSummary = useCallback((_global: GlobalContext, page: readonly Pair[]) => operationTimeHistorySummary(page, lang), [lang]);
   // keepPrevious (#1365, ADR-0114): the chart and flow describe the accepted params until a changed equipment or date range finishes loading.
@@ -38,7 +40,7 @@ export default function OperationTimeScreen() {
   const returning = pageParam('returnTo') !== null;
   // Only query-history rows describe page values (#2691); the current summaries stay as they are.
   return <PlatformPage queryBarExtension={{ historyPageSummary }} {...(returning ? { secondaryActions: <ReturnLink /> } : {})} dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
-    {receivedDays.length > 0 && !range && <p role="status" className="px-1 text-xs text-text-secondary">{tx({
+    {rejectedDays && <p role="status" className="px-1 text-xs text-text-secondary">{tx({
       ko: '넘겨받은 날짜 구간을 적용하지 않았습니다. 형식이 맞지 않거나 적용 기간을 벗어났습니다.',
       en: 'The received date range was skipped because it is invalid or falls outside the applied period.',
     })}</p>}

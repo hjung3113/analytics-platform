@@ -7,6 +7,7 @@ import { Timer } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId, type SavedViewSupport } from '@ap/contracts';
 import type { PlatformMenuEntry } from '@ap/kernel';
 import { PERMISSION } from './permission';
+import { operationTimePanel } from './panels';
 
 const GROUP = groupId('clas');
 const SAVED_VIEW_SUPPORT: SavedViewSupport = {
@@ -26,6 +27,7 @@ export const manifests: PlatformMenuEntry[] = [
     requiresScope: true, context: contextCapabilities({ time: 'apply', roomNames: 'apply' }), pageType: 'analysis',
     query: { mode: 'apply', autoApplyDefault: true, applyPeriodOnLegacyEntry: true },
     savedViewSupport: SAVED_VIEW_SUPPORT,
+    panels: [operationTimePanel],
     analysisSelectionInbound: [{ key: 'days', dimension: 'date', shape: 'range', label: { ko: '날짜', en: 'Date' } }],
     features: { ...NO_FEATURES, board: true }, pageKeys: ['eqp', 'returnTo', 'days'], contextResetKeys: ['eqp', 'days'], subjectPageKeys: { equipment: 'eqp' },
     component: lazy(() => import('./pages/OperationTime')),

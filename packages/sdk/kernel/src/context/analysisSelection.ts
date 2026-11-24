@@ -222,6 +222,8 @@ export type AnalysisSelectionChip = {
   readonly arrival?: { readonly href: string; readonly origin?: { readonly menuLabel: Text } };
   readonly after: string | null;
   readonly available: boolean;
+  /** False for an inbound-only channel with no declared reader panel. Absence means applied. */
+  readonly applied?: boolean;
 };
 
 function orderChips(chips: readonly AnalysisSelectionChip[]): AnalysisSelectionChip[] {
@@ -304,6 +306,7 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
     const reported = availability(key);
     if (reported !== undefined) reports.set(key, reported);
     active.push({ key, selection, dimension, label: label ?? null, available: isAnalysisSelectionAvailable(selection, reported),
+      ...(inbound && writers.length === 0 && readers.length === 0 && { applied: false }),
       ...(writer && { source: { panelId: writer.panelId, title: writer.title } }),
       ...(matchesOrigin && { arrival: { href: origin.href, ...(menuLabel && { origin: { menuLabel } }) } }),
     });
@@ -325,7 +328,7 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   const { chips } = useStable({ owner, chips: result }, (a, b) =>
     a.owner === b.owner
     && a.chips.length === b.chips.length && a.chips.every((chip, i) =>
-      chip.key === b.chips[i].key && chip.available === b.chips[i].available && chip.arrival?.href === b.chips[i].arrival?.href
+      chip.key === b.chips[i].key && chip.available === b.chips[i].available && chip.applied === b.chips[i].applied && chip.arrival?.href === b.chips[i].arrival?.href
       && chip.arrival?.origin?.menuLabel === b.chips[i].arrival?.origin?.menuLabel
       && sameSelection(chip.selection, b.chips[i].selection)),
   );

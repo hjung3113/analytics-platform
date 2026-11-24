@@ -96,6 +96,25 @@ it.each([
 });
 
 it.each([
+  ['no reader', {}, false],
+  ['query reader', { queryInputs: { page: [{ key: 'days', selection: 'filter' }] } }, undefined],
+  ['display reader', { displayInputs: { page: [{ key: 'days', selection: 'highlight' }] } }, undefined],
+] as const)('sets applied on a writerless inbound chip with %s', (kind, inputs, applied) => {
+  const receiver: MenuEntry = { ...home, id: 'receiver', primary: false, path: '/receiver',
+    pageKeys: ['days'], contextResetKeys: ['days'],
+    analysisSelectionInbound: [{ key: 'days', dimension: 'time', shape: 'range' }],
+    panels: kind === 'no reader' ? [] : [{ ...panel, ...inputs }],
+  };
+  const linked = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [home, receiver] });
+  window.history.replaceState(null, '', '/mars/receiver?v=1&days=14:00/16:00');
+  const { result } = renderHook(useAnalysisSelectionChips, { wrapper: ({ children }) =>
+    <I18nProvider><PlatformProvider adapter={adapter} registry={linked}>{children}</PlatformProvider></I18nProvider> });
+  expect(result.current.chips).toHaveLength(1);
+  expect(result.current.chips[0]?.source).toBeUndefined();
+  expect(result.current.chips[0]?.applied).toBe(applied);
+});
+
+it.each([
   [setKey, set, ['B', 'A']],
   [rangeKey, range, ['14:00/16:00']],
 ] as const)('encodes %s, reads it back, and restores it from a shared URL', (key, selection, values) => {
