@@ -25,7 +25,6 @@ export interface ManagedSystemScopePickerProps {
   isAdmin: boolean;
   /** Whether the actor's current scope is workspace-wide, rather than a granted union. */
   workspaceWideScope: boolean;
-  collapsed?: boolean;
   /** Visible label above the trigger; none by default (the standalone sidebar). */
   label?: string;
 }
@@ -38,7 +37,6 @@ export function ManagedSystemScopePicker({
   disabled = false,
   isAdmin,
   workspaceWideScope,
-  collapsed = false,
   label,
 }: ManagedSystemScopePickerProps) {
   const [open, setOpen] = React.useState(false);
@@ -59,7 +57,6 @@ export function ManagedSystemScopePicker({
     target?.focus();
   }, [open]);
 
-  if (collapsed) return null;
   const scopeControlEnabled = !disabled;
   const selectedSystem = managedSystems.find((system) => system.id === value);
   const archived = value !== undefined && !selectedSystem && archivedSystemName !== undefined;

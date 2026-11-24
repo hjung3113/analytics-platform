@@ -19,7 +19,6 @@ export interface ManagedSystemScopeControlProps {
   value?: string;
   onChange: (managedSystemId: string | undefined) => void;
   disabled?: boolean;
-  collapsed?: boolean;
   /**
    * The capability whose granted scope marks each system in or out of range («범위 밖»). The menu declares it for its list
    * (전체 Finding and 근거 read `finding.read`); absent keeps the VOC read scope (`voc.read`).
@@ -31,7 +30,6 @@ export function ManagedSystemScopeControl({
   value,
   onChange,
   disabled,
-  collapsed,
   capability = 'voc.read',
 }: ManagedSystemScopeControlProps) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -50,7 +48,7 @@ export function ManagedSystemScopeControl({
   });
   const catalogQuery = useQuery({
     ...managedSystemsCatalogBridgeQuery(),
-    enabled: !collapsed && !disabled && value !== undefined && systemsQuery.isSuccess &&
+    enabled: !disabled && value !== undefined && systemsQuery.isSuccess &&
       !systemsQuery.data.items.some(system => system.id === value),
   });
   const archivedSystemName = catalogQuery.data?.items.find(
@@ -64,12 +62,12 @@ export function ManagedSystemScopeControl({
     retry: false,
   });
   useLayoutEffect(() => {
-    if (collapsed || !systemsQuery.isSuccess || !retryOwnsFocus.current) return;
+    if (!systemsQuery.isSuccess || !retryOwnsFocus.current) return;
     retryOwnsFocus.current = false;
     if (document.activeElement === document.body) {
       rootRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
     }
-  }, [collapsed, systemsQuery.isSuccess]);
+  }, [systemsQuery.isSuccess]);
   const awaitingInitialScope =
     actorId !== undefined &&
     grantsQuery.data === undefined &&
@@ -86,7 +84,6 @@ export function ManagedSystemScopeControl({
       (grantsQuery.data?.scope.kind === 'scoped' &&
         grantsQuery.data.scope.managed_system_ids.includes(system.id)),
   }));
-  if (collapsed) return null;
   if (systemsQuery.isPending && !retryRequested) {
     return <p role="status" className="text-xs text-text-muted">{SCOPE_SELECTOR_COPY.loading}</p>;
   }
@@ -120,7 +117,6 @@ export function ManagedSystemScopeControl({
         {...(value !== undefined ? { value } : {})}
         onChange={onChange}
         {...(disabled !== undefined ? { disabled } : {})}
-        {...(collapsed !== undefined ? { collapsed } : {})}
         isAdmin={isAdmin}
         workspaceWideScope={
           isAdmin && (grantsQuery.data?.scope.kind === 'all' || awaitingInitialScope)

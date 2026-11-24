@@ -25,7 +25,7 @@ describe('목록 범위 capability on the Task menus', () => {
   it.each(['task-requests', 'tasks', 'task-list', 'milestones'])('passes finding.manage to the sidebar picker on %s', async id => {
     const menu = manifests.find(entry => entry.id === id)!;
     const Control = scopeControlSlot.For(spaceId('flow'), menu)!;
-    mountAt(menu.path, { extra: <Control collapsed={false} /> });
+    mountAt(menu.path, { extra: <Control /> });
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
     expect(picker.props.at(-1)?.capability).toBe('finding.manage');
   });
