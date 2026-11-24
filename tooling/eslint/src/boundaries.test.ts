@@ -114,8 +114,8 @@ const rows: Row[] = [
   { file: 'packages/sdk/contracts/src/x.ts', code: `import type { X } from '@ap/kernel';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/contracts/src/x.ts', code: `import type { ReactNode } from 'react';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/contracts/src/x.ts', code: `export const n = 1;`, rule: '' },
-  // --- storybook (#2828): public SDK entries only; no deep path, no menu ---
-  { file: 'tooling/storybook/src/x.tsx', code: `import { Button } from '@ap/ui';`, rule: '' },
+  // --- storybook (#2828): public SDK entries plus the kernel test entry; no deep path, no menu ---
+  { file: 'tooling/storybook/src/x.tsx', code: `import { testAdapter } from '@ap/kernel/testing';`, rule: '' },
   { file: 'tooling/storybook/src/x.tsx', code: `import { Button } from '@ap/ui/src/components/Button';`, rule: 'no-restricted-imports' },
   { file: 'tooling/storybook/src/x.tsx', code: `import { x } from '@ap/menu-home';`, rule: 'no-restricted-imports' },
   // --- contractSchemas (ADR-0096): zod only in src; tests may read @ap/contracts and its vocab.json ---

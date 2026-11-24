@@ -11,7 +11,9 @@
   },
   "devDependencies": {
     "@ap/components": "workspace:*",
+    "@ap/contracts": "workspace:*",
     "@ap/eslint-config": "workspace:*",
+    "@ap/kernel": "workspace:*",
     "@ap/tsconfig": "workspace:*",
     "@ap/ui": "workspace:*",
     "@fontsource-variable/inter": "5.3.0",
@@ -23,6 +25,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "eslint": "^10.14.0",
+    "lucide-react": "^1.72.0",
     "pretendard": "1.3.9",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
