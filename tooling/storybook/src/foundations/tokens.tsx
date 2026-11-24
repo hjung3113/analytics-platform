@@ -8,7 +8,7 @@ const live = (name: string) => getComputedStyle(document.documentElement).getPro
 const hex = (name: string) => /^(\d+) (\d+) (\d+)$/.exec(live(name))?.slice(1).map(n => Number(n).toString(16).padStart(2, '0')).join('');
 const prefixed = (prefix: string) => vars.filter(v => v.name.startsWith(prefix));
 // eslint-disable-next-line shadcn/no-arbitrary-values -- the token catalogue draws each token by name from `--sample`; no fixed class can
-const SAMPLE = { color: 'bg-[rgb(var(--sample))]', font: '[font-family:var(--sample)]', size: 'text-[length:var(--sample)]', radius: 'rounded-[var(--sample)]', shadow: 'shadow-[var(--sample)]' };
+export const SAMPLE = { color: 'bg-[rgb(var(--sample))]', font: '[font-family:var(--sample)]', size: 'text-[length:var(--sample)]', radius: 'rounded-[var(--sample)]', shadow: 'shadow-[var(--sample)]' };
 
 function Row({ name, value, sample, children }: { name: string; value: string; sample?: ReactNode; children?: ReactNode }) {
   return <div className="flex items-center gap-4 border-b border-border-row py-2">

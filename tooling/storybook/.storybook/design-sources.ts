@@ -16,6 +16,8 @@ const FILES = {
   design: path.join(ROOT, 'DESIGN.md'),
   components: path.join(ROOT, 'docs/contract/components.md'),
 };
+// Further rule sources quoted by the 데이터 시각화 pages, keyed by their repository path (the key is also the link).
+const QUOTED = ['docs/contract/chart.md', 'docs/adr/0058-analysis-chart-spec-union.md', 'docs/adr/0064-topn-bar-and-lane-timeline.md', 'docs/adr/0121-ordered-interval-track-sdk-piece.md'];
 
 /** `--name: value; /* note *\/` declarations of a stylesheet, in file order. */
 const cssVars = (css: string) => [...css.matchAll(/^\s*--([\w-]+):\s*([^;]+);[ \t]*(?:\/\*\s*(.*?)\s*\*\/)?/gm)]
@@ -27,14 +29,14 @@ export function designSources(): Plugin {
     resolveId: id => (id === ID ? `\0${ID}` : null),
     load(id) {
       if (id !== `\0${ID}`) return null;
-      for (const file of Object.values(FILES)) this.addWatchFile(file);
+      for (const file of [...Object.values(FILES), ...QUOTED.map(doc => path.join(ROOT, doc))]) this.addWatchFile(file);
       const read = (file: string) => readFileSync(file, 'utf8');
       const json = JSON.parse(read(FILES.colors)) as { color: Record<string, { $value: { hex: string } }> };
       const data = {
         colors: Object.entries(json.color).map(([name, token]) => ({ name, hex: token.$value.hex })),
         vars: [...cssVars(read(FILES.tokens)), ...cssVars(read(FILES.platform))],
         roles: [...read(FILES.roles).matchAll(/^\s*\.(t-[\w-]+|tabular)\s*\{\s*([^}]*?)\s*\}/gm)].map(([, name, css]) => ({ name: name!, css: css! })),
-        docs: { 'DESIGN.md': read(FILES.design), 'docs/contract/components.md': read(FILES.components) },
+        docs: { 'DESIGN.md': read(FILES.design), 'docs/contract/components.md': read(FILES.components), ...Object.fromEntries(QUOTED.map(doc => [doc, read(path.join(ROOT, doc))])) },
       };
       return Object.entries(data).map(([key, value]) => `export const ${key} = ${JSON.stringify(value)};`).join('\n');
     },
