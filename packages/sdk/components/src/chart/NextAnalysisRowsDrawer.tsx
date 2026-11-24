@@ -1,6 +1,7 @@
 import { useMemo, type RefObject } from 'react';
 import type { AnalysisSelection, EndpointSpec } from '@ap/contracts';
 import { useI18n, useMenuQuery, useMessages, type Text } from '@ap/kernel';
+import { useSurfacePaused } from '@ap/ui';
 import { DetailDrawer } from '../drawer/DetailDrawer';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { QueryView } from '../StateView';
@@ -43,7 +44,11 @@ function SourceRowsTable<P, T>({ declaration, selection, title, chartId }: {
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { endpoint, params, columns, getRowId, maxRows = endpoint.limits?.maxRows } = declaration;
-  const query = useMenuQuery(endpoint, params(selection));
+  const paused = useSurfacePaused();
+  const query = useMenuQuery(endpoint, params(selection), { enabled: !paused });
+  const filterKey = selection.shape === 'set'
+    ? JSON.stringify(['set', selection.values])
+    : JSON.stringify(['range', selection.from, selection.to]);
   const response = query.response;
   const data = response?.outcome === 'ok' && Array.isArray(response.data?.rows) ? response.data : null;
   const rows = useMemo(() => {
@@ -60,7 +65,7 @@ function SourceRowsTable<P, T>({ declaration, selection, title, chartId }: {
     {capped && <p role="status" className="mb-2 text-sm text-text-secondary">{m('chartSourceRowsCapped', { count: rows.length })}</p>}
     <QueryView query={result} widgetName={title} hideWidgetName compact>
       {page => <PlatformDataTable title={title} hideTitle ariaLabel={title} rows={rows ?? page.rows}
-        columns={columns} getRowId={getRowId} preferenceKey={`chart-source-rows:${endpoint.id}:${chartId}`} />}
+        columns={columns} getRowId={getRowId} filterKey={filterKey} preferenceKey={`chart-source-rows:${endpoint.id}:${chartId}`} />}
     </QueryView>
   </>;
 }
