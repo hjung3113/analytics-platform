@@ -24,7 +24,7 @@ import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, 
 import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
 import { distinctStatuses, heatmapStatusOutlines, statusMarker, statusText, type ChartStatus } from './chartStatus';
-import { AnalysisChartPart, ChartHeading, ChartTrustFooter, ChartLegendLayout } from './analysisChartFrameParts';
+import { AnalysisChartPart, ChartHeading, ChartTrustFooter, ChartLegendLabel, ChartLegendLayout } from './analysisChartFrameParts';
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import type { ChartRowGroups } from './chartRowGroups';
 import { HEATMAP_CATEGORY_TOKENS, UNKNOWN_HEATMAP_CATEGORY_TOKENS } from './heatmapCategories';
@@ -406,7 +406,10 @@ export function AnalysisChart(p: AnalysisChartProps) {
     }
     exportGate.say(m('chartExportedCsv', { chartId: p.chartId }));
   }
-  const categoryLegend = spec.kind === 'heatmap' && spec.categories?.map(category => <span key={category.id} className="inline-flex items-center gap-1"><Swatch color={token(HEATMAP_CATEGORY_TOKENS[category.tone].fill)} />{category.label[lang]}</span>);
+  const categoryLegend = spec.kind === 'heatmap' && spec.categories?.map(category => <span key={category.id} className={cn('inline-flex items-center gap-1', chrome === 'standard' && 'min-w-0 max-w-full')}>
+    <Swatch color={token(HEATMAP_CATEGORY_TOKENS[category.tone].fill)} fixed={chrome === 'standard'} />
+    {chrome === 'standard' ? <ChartLegendLabel name={category.label[lang]} /> : category.label[lang]}
+  </span>);
   const pivotLabel = scale?.type === 'diverging' ? scale.pivotLabel ?? m('chartTarget', { pivot: format(scale.pivot) }) : undefined;
   const kindLegend = <>{spec.kind === 'heatmap' && <div className={cn('px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
         {categorical && <div className="flex flex-wrap gap-3">{categoryLegend}</div>}
@@ -429,17 +432,21 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const standardLegend = <>
     {spec.kind === 'heatmap' && <>
       {categorical && categoryLegend}
-      {!categorical && (scale?.type === 'threshold' && validThreshold ? scale.labels.map((label, i) => <span key={i} className="inline-flex items-center gap-1"><Swatch color={token([colors.good, colors.warn, colors.critical][i])} />{label}</span>) : <>
+      {!categorical && (scale?.type === 'threshold' && validThreshold ? scale.labels.map((label, i) => <span key={i} className="inline-flex min-w-0 max-w-full items-center gap-1">
+        <Swatch color={token([colors.good, colors.warn, colors.critical][i])} fixed /><ChartLegendLabel name={label} />
+      </span>) : <>
         <span>{format(domain[0])}</span>
         <HeatmapRamp ramp={ramp} inline />
-        {scale?.type === 'diverging' && <span>{pivotLabel}</span>}
+        {pivotLabel !== undefined && <ChartLegendLabel name={pivotLabel} />}
         <span>{format(domain[1])}</span>
       </>)}
       <span className="inline-flex items-center gap-1"><Swatch color={token(colors.unknown)} unknown />{unknown}</span>
-      <ChartStatusLegend statuses={statusLegend} />
+      <ChartStatusLegend statuses={statusLegend} singleLine />
     </>}
     {extended && <KindLegend compact singleLine items={extended.legend} />}
-    {spec.kind === 'donut' && rows.map(row => <span key={row.key} className="inline-flex items-center gap-1"><Swatch color={token(row.color!)} />{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</span>)}
+    {spec.kind === 'donut' && rows.map(row => <span key={row.key} className="inline-flex min-w-0 max-w-full items-center gap-1">
+      <Swatch color={token(row.color!)} fixed /><ChartLegendLabel name={row.label}>{row.label} · {valueText(row.value)} · {percent(row.share ?? 0)}</ChartLegendLabel>
+    </span>)}
   </>;
   const rankingToolbar = spec.kind === 'topNBar' && <ChartInteractionToolbar compact={compactChrome} reserveCorner={section !== null}
     toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} secondaryOpen={panelToolsOpen} onSecondaryOpenChange={setPanelToolsOpen}
@@ -591,9 +598,9 @@ function HeatmapRamp({ ramp, inline = false }: { ramp: ThemeColorToken[]; inline
   return <div aria-hidden={inline || undefined} className={inline ? 'h-2 w-20 shrink-0 rounded' : 'h-2 w-full rounded'} style={{ background: `linear-gradient(to right, ${ramp.map(c => token(c)).join(', ')})` }} />;
 }
 
-function Swatch({ color, unknown = false }: { color: string; unknown?: boolean }) {
+function Swatch({ color, unknown = false, fixed = false }: { color: string; unknown?: boolean; fixed?: boolean }) {
   // eslint-disable-next-line shadcn/no-inline-styles -- swatch reflects runtime chart tokens; unknown matches the canvas dashed border
-  return <span aria-hidden className="inline-block size-3" style={{ backgroundColor: color, border: unknown ? `1px dashed ${token(colors.pattern)}` : undefined }} />;
+  return <span aria-hidden className={cn('inline-block size-3', fixed && 'shrink-0')} style={{ backgroundColor: color, border: unknown ? `1px dashed ${token(colors.pattern)}` : undefined }} />;
 }
 
 function ChartCollapseBody({ enabled, bodyRef, id, expanded, children }: { enabled: boolean; bodyRef: RefObject<HTMLDivElement | null>; id: string; expanded: boolean; children: ReactNode }) {

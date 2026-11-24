@@ -42,7 +42,7 @@ import { groupedRowText, rowGroup, rowLabel, type ChartRowGroups } from './chart
 export type { ChartStatus } from './chartStatus';
 export type { ChartRowGroups } from './chartRowGroups';
 
-import { AnalysisChartPart, ChartHeading, ChartTrustFooter, ChartZoomButton, ChartLegendLayout, summaryPresentation } from './analysisChartFrameParts';
+import { AnalysisChartPart, ChartHeading, ChartTrustFooter, ChartZoomButton, ChartLegendLabel, ChartLegendLayout, summaryPresentation } from './analysisChartFrameParts';
 
 export type ChartSeries = {
   id: string;
@@ -958,10 +958,12 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   function renderLegendSeries(s: ChartSeries, previous: boolean) {
     const kind = horizontal ? 'bar' : s.kind ?? 'line';
     const legendUnit = percent ? SHARE_UNIT : unitOf(s);
+    const legendText = legendUnit ? `${s.name} (${legendUnit})` : s.name;
+    const standard = chrome === 'standard';
     // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
     const stroke = token(kind === 'bar' && s.color === 'chart-remainder' ? 'border-control' : strokeToken(s.color));
-    return <label key={s.id} className={cn(chrome === 'standard' && 'shrink-0 whitespace-nowrap', 'inline-flex cursor-pointer items-center gap-1.5 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
-      <input type="checkbox" className="size-3.5 accent-accent-primary" checked={visibleIds ? visibleIds.has(s.id) : !hidden.has(s.id)} onChange={() => {
+    return <label key={s.id} className={cn(standard && 'min-w-0 max-w-full shrink-0', 'inline-flex cursor-pointer items-center gap-1.5 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>
+      <input type="checkbox" className={cn('size-3.5 accent-accent-primary', standard && 'shrink-0')} checked={visibleIds ? visibleIds.has(s.id) : !hidden.has(s.id)} onChange={() => {
         const next = new Set(p.visibleSeriesIds ?? allSeries.filter(item => !hidden.has(item.id)).map(item => item.id));
         if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
         if (p.visibleSeriesIds === undefined) setHidden(current => { const updated = new Set(current); if (updated.has(s.id)) updated.delete(s.id); else updated.add(s.id); return updated; });
@@ -969,9 +971,9 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       }} />
       {kind === 'bar'
         // eslint-disable-next-line shadcn/no-inline-styles -- swatch color is the series token resolved at runtime
-        ? <span aria-hidden className="inline-block size-3 border-2" style={{ backgroundColor: token(s.color), borderColor: stroke }} />
-        : <svg aria-hidden width="32" height="14"><line x1="0" y1="7" x2="32" y2="7" stroke={stroke} strokeWidth="2" strokeDasharray={svgDasharray(linePattern(s, previous))} /></svg>}
-      {legendUnit ? `${s.name} (${legendUnit})` : s.name}
+        ? <span aria-hidden className={cn('inline-block size-3 border-2', standard && 'shrink-0')} style={{ backgroundColor: token(s.color), borderColor: stroke }} />
+        : <svg aria-hidden width="32" height="14" className={standard ? 'shrink-0' : undefined}><line x1="0" y1="7" x2="32" y2="7" stroke={stroke} strokeWidth="2" strokeDasharray={svgDasharray(linePattern(s, previous))} /></svg>}
+      {standard ? <ChartLegendLabel name={s.name}>{legendText}</ChartLegendLabel> : legendText}
     </label>;
   }
 
@@ -1054,8 +1056,9 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     rangeActions.setDraft({ from: base.from, to: next });
   }
 
-  const categoryValueMarkLegend = categoryValueMarks?.byCategory.size ? <span data-chart-category-mark-legend className="inline-flex items-center gap-1 text-xs text-text-secondary">
-    <svg aria-hidden width="16" height="16"><path d="M8 3 13 8 8 13 3 8Z" fill="currentColor" /></svg>{categoryValueMarks.label}
+  const categoryValueMarkLegend = categoryValueMarks?.byCategory.size ? <span data-chart-category-mark-legend className={cn('inline-flex items-center gap-1 text-xs text-text-secondary', chrome === 'standard' && 'min-w-0 max-w-full')}>
+    <svg aria-hidden width="16" height="16" className={chrome === 'standard' ? 'shrink-0' : undefined}><path d="M8 3 13 8 8 13 3 8Z" fill="currentColor" /></svg>
+    {chrome === 'standard' ? <ChartLegendLabel name={categoryValueMarks.label} /> : categoryValueMarks.label}
   </span> : null;
   const frameLegend = (p.legend !== false || categoryValueMarkLegend) && <div role="group" aria-label={m('chartLegend')} className={cn('px-4 pt-2', showPeriodGroups ? 'flex flex-col gap-2' : 'flex flex-wrap items-center gap-x-4 gap-y-1')}>
       {p.legend !== false && <>
@@ -1077,7 +1080,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         {renderPeriodLegendGroup(currentPeriodId, t('currentPeriod'), p.series, false)}
         {renderPeriodLegendGroup(previousPeriodId, t('previousPeriod'), p.compareSeries ?? [], true)}
       </> : allSeries.map(series => renderLegendSeries(series, false))}
-      <ChartBoundsLegend bounds={bounds} /><ChartStatusLegend statuses={statusLegend} />
+      <ChartBoundsLegend bounds={bounds} singleLine /><ChartStatusLegend statuses={statusLegend} singleLine />
     </>}{categoryValueMarkLegend}
   </>;
 

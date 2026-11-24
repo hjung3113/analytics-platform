@@ -84,7 +84,10 @@ describe('Chart chrome levels (#2372)', () => {
       expect(within(layout).getByText('Context caption')).toHaveAttribute('title', 'Context caption');
       const children = [...layout.children];
       const legend = screen.getByLabelText('범례');
-      expect(children.indexOf(legend!)).toBe(legendPlacement === 'top' ? 0 : 1);
+      // Side keys sit in a column as wide as the longest name, 128px up to min(224px, 40% of the row) (#2889).
+      const keys = legendPlacement === 'side' ? screen.getByTestId('chart-side-legend') : legend;
+      if (legendPlacement === 'side') expect(keys).toHaveClass('w-max', 'min-w-32', 'max-w-[min(14rem,40%)]', 'shrink-0');
+      expect(children.indexOf(keys)).toBe(legendPlacement === 'top' ? 0 : 1);
       expect(legend!.lastElementChild).toHaveTextContent('Context caption');
       expect(legend).toHaveClass(legendPlacement === 'side' ? 'flex-col' : 'whitespace-nowrap');
       cleanup();
@@ -99,6 +102,30 @@ describe('Chart chrome levels (#2372)', () => {
       }
       cleanup();
     }
+  });
+  it.each(['side', 'top', 'bottom'] as const)('%s Frame legend truncates long series labels and keeps the full checkbox name', legendPlacement => {
+    const name = 'MEM-PHOTO-0103';
+    render(<I18nProvider>
+      <AnalysisChartFrame chartId="chart" title="Chart" unit="s" xType="category" chrome="standard"
+        legendPlacement={legendPlacement} series={[{ ...series[0], name }]} />
+    </I18nProvider>);
+    const legend = screen.getByRole('group', { name: '범례' });
+    const checkbox = within(legend).getByRole('checkbox', { name: `${name} (s)` });
+    const label = within(legend).getByText(`${name} (s)`);
+    expect(label).toHaveClass('truncate');
+    expect(label).toHaveAttribute('title', name);
+    expect(checkbox.closest('label')).toContainElement(label);
+  });
+  it('keeps the full name and metrics in a truncatable AnalysisChart side legend', () => {
+    const name = 'Equipment with a long identifier';
+    render(<I18nProvider>
+      <AnalysisChart chartId="chart" title="Chart" unit="s" chrome="standard" legendPlacement="side"
+        spec={{ kind: 'donut', slices: [{ id: 'a', label: name, value: 2 }] }} />
+    </I18nProvider>);
+    const legend = screen.getByRole('group', { name: '범례' });
+    const label = within(legend).getByText(`${name} · 2 s · 100%`);
+    expect(label).toHaveClass('truncate');
+    expect(label).toHaveAttribute('title', name);
   });
   it.each(['frame', 'heatmap'])('%s reveals hover tools on focus and while More is open, keeping keyboard/AT access', async kind => {
     const user = userEvent.setup();
