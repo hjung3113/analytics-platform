@@ -79,10 +79,10 @@ export function FocusGantt({
   }, [lanes]);
   const plotBottom = layoutTops.length ? layoutTops[layoutTops.length - 1]!.top + layoutTops[layoutTops.length - 1]!.height : AXIS_H;
 
+  const axisRef = useRef<SVGRectElement>(null);
   const drag = useRef<{ pointerId: number; x: number; captured: boolean; at: SiteWallClock | null } | null>(null);
   const seekFromPointer = useCallback((event: PointerEvent<SVGElement>): SiteWallClock | null => {
-    const axis = event.currentTarget.ownerSVGElement?.querySelector<SVGRectElement>('.eqv-rp-axis');
-    const box = axis?.getBoundingClientRect();
+    const box = axisRef.current?.getBoundingClientRect();
     if (!box || box.width <= 0) return null;
     const fraction = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
     const at = millisToWallClock(Math.min(lastMs, fromMs + Math.floor(fraction * spanMs)));
@@ -306,15 +306,14 @@ export function FocusGantt({
       <div className="relative max-w-full overflow-x-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring" role="region" aria-label="Gantt 차트" tabIndex={0}>
       <svg viewBox={viewBox} width="100%" style={chartSize} role="group" aria-label="Component 레인 Gantt" className="eqv-rp-svg">
         {plot}
-        <rect className="eqv-rp-axis" role="slider" tabIndex={0} aria-label="커서 시각" aria-orientation="horizontal"
+      </svg>
+      {/* Keep the cursor and focusable axis together above the static plot. */}
+      <svg viewBox={viewBox} style={chartSize} className="eqv-rp-cursor-layer" role="presentation">
+        <line className="eqv-rp-cursor" x1={cursorX} x2={cursorX} y1={0} y2={plotBottom} aria-hidden="true" />
+        <rect ref={axisRef} className="eqv-rp-axis" role="slider" tabIndex={0} aria-label="커서 시각" aria-orientation="horizontal"
           aria-valuemin={fromMs} aria-valuemax={lastMs} aria-valuenow={cursorMs} aria-valuetext={wallClockText(shownCursor)}
           x={LABEL_W} y={0} width={PLOT_W} height={AXIS_SEEK_H} onKeyDown={onSliderKey}
           onPointerDown={onAxisPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onPointerLeave={onPointerLeave} />
-      </svg>
-      {/* Paint the moving cursor and the translucent axis above it without rasterizing the bars again. */}
-      <svg viewBox={viewBox} style={chartSize} className="eqv-rp-cursor-layer" aria-hidden="true">
-        <line className="eqv-rp-cursor" x1={cursorX} x2={cursorX} y1={0} y2={plotBottom} />
-        <rect className="eqv-rp-axis-fill" x={LABEL_W} y={0} width={PLOT_W} height={AXIS_SEEK_H} />
       </svg>
       </div>
       <Legend label="범례" items={legend} />

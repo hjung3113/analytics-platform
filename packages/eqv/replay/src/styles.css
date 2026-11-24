@@ -50,13 +50,10 @@
   will-change: transform;
 }
 @utility eqv-rp-cursor { stroke: var(--eqv-selection, #1428a0); stroke-width: 1.5; pointer-events: none; }
-@utility eqv-rp-axis-fill {
+@utility eqv-rp-axis {
   fill: var(--eqv-selection-fill, #e4e8f6);
   opacity: 0.6;
-}
-@utility eqv-rp-axis {
-  fill: transparent;
-  opacity: 0.6;
+  pointer-events: auto;
   cursor: ew-resize;
   touch-action: none;
   &:focus-visible { outline: 2px solid var(--eqv-selection, #1428a0); outline-offset: 1px; }

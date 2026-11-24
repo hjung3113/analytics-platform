@@ -66,6 +66,15 @@ it('seeks on pointer down over the axis', () => {
   expect(onCursorChange).toHaveBeenCalledWith(time('10:15:00'));
 });
 
+it('paints the focusable axis after the cursor on the overlay', () => {
+  const { view, svg } = setup();
+  const slider = screen.getByRole('slider', { name: '커서 시각' });
+  const cursor = view.container.querySelector('.eqv-rp-cursor')!;
+  expect(cursor.parentElement?.previousElementSibling).toBe(svg);
+  expect(cursor.nextElementSibling === slider).toBe(true);
+  expect(slider.nextElementSibling).toBeNull();
+});
+
 it('moves the cursor without laying out the bars again and still updates the selection', () => {
   // Reading occurrences resolves the open-end labels in this fixture's plot.
   const readOccurrences = vi.fn(() => batch.occurrences);
@@ -109,7 +118,7 @@ it('ignores moves after a press released elsewhere, and keeps the Gantt at its d
 it('seeks to a clicked bar time, selects its Occurrence, and marks open Occurrences with an open end', () => {
   const { onCursorChange, onCursorCommit, onSelectOccurrence, svg } = setup(time('10:26:00'));
   const bar = Array.from(svg.querySelectorAll('[data-bar="material"][data-occurrence-id="occ-open"]')).at(-1)!;
-  const axis = svg.querySelector('.eqv-rp-axis')!;
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
   axis.getBoundingClientRect = () => ({ left: 100, width: 800, top: 0, height: 20, right: 900, bottom: 20, x: 100, y: 0, toJSON: () => ({}) });
   expect(bar.getAttribute('aria-label')).toMatch(/열림 · 위치 미확인$/);
   expect(bar.querySelector('[data-mark="open-end"]')).not.toBeNull();
@@ -125,7 +134,7 @@ it('seeks to a clicked bar time, selects its Occurrence, and marks open Occurren
 it('seeks on a lane-row click using the same horizontal scale as the axis', () => {
   const { onCursorChange, onCursorCommit, svg } = setup();
   const lane = svg.querySelector('[data-lane-seek="true"]')!;
-  const axis = svg.querySelector('.eqv-rp-axis')!;
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
   axis.getBoundingClientRect = () => ({ left: 100, width: 800, top: 0, height: 20, right: 900, bottom: 20, x: 100, y: 0, toJSON: () => ({}) });
   fireEvent.pointerDown(lane, { clientX: 300, pointerId: 1 });
   expect(onCursorChange).toHaveBeenCalledWith(time('10:07:30'));
