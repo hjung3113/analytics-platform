@@ -236,7 +236,8 @@ export function TaskListScreen({ capability = 'finding.manage', view, autoSelect
     scopedPermission,
     managedSystemId: managedSystem,
     identity: JSON.stringify(tasksKey),
-    ...(scopedBlocked ? { drawer: { selectedId, close: closePanel } } : {}),
+    ...(scopedBlocked || isPermissionDenied(tasksQuery.error)
+      ? { drawer: { selectedId, close: closePanel } } : {}),
   });
   // A denied refetch keeps the cached pages; the blocked state shows no count derived from them.
   const scopeUnverified = scopedPermission.state === 'checking' || scopedPermission.state === 'error';
