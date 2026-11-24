@@ -26,6 +26,19 @@ async function activatePoint(page: Page, row: string) {
 }
 
 test.describe('HW Time analysis selection', () => {
+  test('edits motionEquipment through the analysis selection chip', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions&motionEquipment=EQ-002`);
+    const chip = page.getByRole('button', { name: '설비 EQ-002', exact: true });
+    await chip.press('Enter');
+    const dialog = page.getByRole('dialog', { name: '설비 EQ-002', exact: true });
+    await expect(dialog.getByRole('checkbox', { name: 'EQ-002', exact: true })).toBeChecked();
+    await dialog.getByRole('checkbox', { name: 'EQ-001', exact: true }).check();
+    await evidence(page, testInfo, 'analysis-selection-chip-edit');
+    await dialog.getByRole('button', { name: '적용', exact: true }).click();
+    await expect.poll(() => query(page).getAll('motionEquipment')).toEqual(['EQ-002', 'EQ-001']);
+  });
+
   test('filters the source table and restores the selection through Back and a shared URL', async ({ context, page }, testInfo) => {
     await signInAs(page, 'engineer');
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);

@@ -4,7 +4,7 @@ import { groupId, NO_FEATURES, spaceId } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { useRef, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChips, usePlatform, useUnsavedGuard, type AnalysisSelectionChip } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChips, useAnalysisSelectionOutput, usePlatform, useUnsavedGuard, type AnalysisSelectionChip } from '@ap/kernel';
 import { PaneScreenProvider, useLeaveRequest, type PaneScreen } from '@ap/kernel/host';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AnalysisSelectionChipZone } from '../AnalysisSelectionChipZone';
@@ -149,6 +149,109 @@ async function mountSelections(extra: string, selections = [equipment, module], 
   return { container, disclosureFocus };
 }
 
+function SelectionSource() {
+  const { highlighted } = useAnalysisSelectionOutput('source', 'equip', { available: ['E1', 'E2', 'E2'] });
+  return <button type="button">{highlighted ? '출처 강조 중' : '출처'}</button>;
+}
+
+it.each(['{Enter}', ' '] as const)('opens with %j, keeps the source highlighted and restores focus on Escape', async key => {
+  await mountSelections('', [equipment], <SelectionSource />);
+  const user = userEvent.setup();
+  const edit = zone().getByRole('button', { name: 'equipment E1' });
+  edit.focus();
+  await user.keyboard(key);
+  const dialog = within(screen.getByRole('dialog', { name: 'equipment E1' }));
+  expect(dialog.getByRole('checkbox', { name: 'E1' })).toHaveFocus();
+  expect(screen.getByRole('button', { name: '출처 강조 중' })).toBeVisible();
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(edit).toHaveFocus());
+  expect(screen.queryByRole('dialog')).toBeNull();
+});
+
+it('leaves focus on the outside control that was clicked', async () => {
+  await mountSelections('', [equipment], <SelectionSource />);
+  const user = userEvent.setup();
+  await user.click(zone().getByRole('button', { name: 'equipment E1' }));
+  const outside = screen.getByRole('button', { name: '출처 강조 중' });
+  await user.click(outside);
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(outside).toHaveFocus();
+});
+
+it('returns to the chip inside the folded list when its editor closes', async () => {
+  const { container } = await mountSelections('&mod=M1', [equipment, module], <SelectionSource />);
+  act(() => {
+    resize(screen.getByTestId('row'), 300);
+    resize(screen.getByText('조회 요약'), 100);
+    resize(container.querySelector('[data-analysis-chip-probe]')!, 400);
+  });
+  const user = userEvent.setup();
+  const more = zone().getByRole('button', { name: '+1 ›' });
+  await user.click(more);
+  const list = within(screen.getByRole('dialog', { name: '분석 선택' }));
+  const edit = list.getByRole('button', { name: 'equipment E1' });
+  expect(edit).toHaveFocus();
+  await user.keyboard('{Enter}');
+  expect(screen.getByRole('checkbox', { name: 'E1' })).toHaveFocus();
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(edit).toHaveFocus());
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(more).toHaveFocus());
+});
+
+it('applies a set edit with reported candidates and still lists unavailable selected values', async () => {
+  await mountSelections('&equip=old', [equipment], <SelectionSource />);
+  const user = userEvent.setup();
+  await user.click(zone().getByRole('button', { name: 'equipment E1 외 1' }));
+  const dialog = within(screen.getByRole('dialog', { name: 'equipment E1 외 1' }));
+  expect(dialog.getByRole('checkbox', { name: 'E1' })).toBeChecked();
+  const unavailable = dialog.getByRole('checkbox', { name: 'old 해당 없음' });
+  expect(unavailable).toBeChecked();
+  await user.click(unavailable);
+  await user.click(dialog.getByRole('checkbox', { name: 'E2' }));
+  const selected = () => new URLSearchParams(window.location.search).getAll('equip');
+  expect(selected()).toEqual(['E1', 'old']);
+  await user.click(dialog.getByRole('button', { name: '적용' }));
+  expect(selected()).toEqual(['E1', 'E2']);
+  await waitFor(() => expect(zone().getByRole('button', { name: 'equipment E1 외 1' })).toHaveFocus());
+});
+
+it('moves focus to the fallback if applying an empty set removes the chip', async () => {
+  await mountSelections('', [equipment], <SelectionSource />);
+  const user = userEvent.setup();
+  await user.click(zone().getByRole('button', { name: 'equipment E1' }));
+  const dialog = within(screen.getByRole('dialog', { name: 'equipment E1' }));
+  await user.click(dialog.getByRole('checkbox', { name: 'E1' }));
+  await user.click(dialog.getByRole('button', { name: '적용' }));
+  expect(screen.queryByRole('group', { name: '분석 선택' })).toBeNull();
+  expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toHaveFocus();
+});
+
+it.each([['15:00', true], ['17:00', false]] as const)('handles range start %s with end 16:00', async (from, valid) => {
+  type Editor = NonNullable<ReturnType<typeof useAnalysisSelectionChips>['editor']>;
+  const replace = vi.fn<Editor['replace']>((_key, next, commit) => {
+    if (next.shape !== 'range' || next.from > next.to) return false;
+    commit?.();
+    return true;
+  });
+  vi.mocked(useAnalysisSelectionChips).mockReturnValue({
+    chips: [time], clear, clearAll, editor: { replace, availability: new Map() },
+  });
+  render(<Harness />);
+  const user = userEvent.setup();
+  await user.click(zone().getByRole('button', { name: '시간 14:00 – 16:00' }));
+  const dialog = within(screen.getByRole('dialog', { name: '시간 14:00 – 16:00' }));
+  const start = dialog.getByRole('textbox', { name: '시작' });
+  expect(start).toHaveValue('14:00');
+  expect(dialog.getByRole('textbox', { name: '끝' })).toHaveValue('16:00');
+  await user.clear(start);
+  await user.type(start, from);
+  await user.click(dialog.getByRole('button', { name: '적용' }));
+  expect(replace).toHaveBeenCalledExactlyOnceWith('time', { shape: 'range', from, to: '16:00' }, expect.any(Function));
+  if (valid) expect(screen.queryByRole('dialog')).toBeNull();
+  else expect(dialog.getByRole('alert')).toHaveTextContent('시작은 끝보다 늦을 수 없습니다.');
+});
+
 it.each(['pointer', 'keyboard', 'overlapping'] as const)('marks only the source panel during %s chip interaction', async interaction => {
   const panels = ['source', 'receiver'].map(id => ({ id, title: id, render: () => <p>{id} body</p> }));
   await mountSelections('', [equipment], <DockLayout panels={panels} label="Workspace" separatorLabel={() => 'Resize'}
@@ -157,7 +260,7 @@ it.each(['pointer', 'keyboard', 'overlapping'] as const)('marks only the source 
   const source = (await screen.findByText('source body')).closest('[data-dock-panel]')!;
   const receiver = (await screen.findByText('receiver body')).closest('[data-dock-panel]')!;
   const mark = 'data-analysis-source-highlighted';
-  const clearChip = zone().getByRole('button', { name: /equipment/ });
+  const clearChip = zone().getByRole('button', { name: 'equipment 선택 지우기' });
   const chip = zone().getByText('equipment E1');
   expect(source).not.toHaveAttribute(mark);
   if (interaction !== 'keyboard') fireEvent.pointerEnter(chip);

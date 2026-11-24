@@ -7,7 +7,7 @@ import { menuAnalysisSelections } from '../registry/analysis-selections';
 import type { MenuEntry } from '../registry/registry';
 import { sameItems, useStable } from '../stable';
 import { analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
-import { isAnalysisSelectionAvailable, readAvailability, readEmptyAvailability, sameAvailability, subscribeToEmptyAvailability, type AnalysisSelectionAvailability } from './analysisSelectionAvailability';
+import { analysisSelectionRangeCompare, isAnalysisSelectionAvailable, readAvailability, readEmptyAvailability, sameAvailability, subscribeToEmptyAvailability, type AnalysisSelectionAvailability } from './analysisSelectionAvailability';
 
 export { ANALYSIS_SELECTION_MAX_VALUES, analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
 
@@ -223,36 +223,54 @@ function orderChips(chips: readonly AnalysisSelectionChip[]): AnalysisSelectionC
   return ordered;
 }
 
+type ReplaceChipSelection = (key: string, next: AnalysisSelection, onCommit?: () => void) => boolean;
+type ChipSelectionEditor = {
+  /** Current source reports for active chips. A missing entry means availability is unknown. */
+  readonly availability: ReadonlyMap<string, AnalysisSelectionAvailability>;
+  /** Replaces an active selection. Returns false for invalid or stale edits. Calls onCommit when accepted. */
+  readonly replace: ReplaceChipSelection;
+};
+
 /** Models URL-backed analysis selections. After the guard and before writing, onClearCommit receives the key (null for clear-all) and the address transition. */
 export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, address: AddressTransition) => void): {
   chips: readonly AnalysisSelectionChip[];
   clear: (key: string) => boolean;
   clearAll: () => boolean;
+  editor?: ChipSelectionEditor;
 } {
   const { route, pathname, pageParam, pageParams, session, revision, global } = usePlatform();
   const screen = useWriteScreen(route);
-  const availability = useReportedAvailability(screen, drillAddress(route?.menu, pageParam));
+  const address = drillAddress(route?.menu, pageParam);
+  const availability = useReportedAvailability(screen, address);
   const menu = route?.menu;
   const paneId = screen?.paneId;
   const scopeId = global.scopeId;
   const channels = useChannels(menu);
   const active: Omit<AnalysisSelectionChip, 'after'>[] = [];
+  const reports = new Map<string, AnalysisSelectionAvailability>();
   const parentByPanel = new Map<string, string>();
   for (const [key, { shape, dimension, label, writers, readers }] of channels) {
     const selection = parseAnalysisSelection(shape, pageParams(key));
     if (!selection) continue;
     const [{ panelId, title }] = writers;
-    active.push({ key, selection, dimension, label: label ?? null, source: { panelId, title }, available: isAnalysisSelectionAvailable(selection, availability(key)) });
+    const reported = availability(key);
+    if (reported !== undefined) reports.set(key, reported);
+    active.push({ key, selection, dimension, label: label ?? null, source: { panelId, title }, available: isAnalysisSelectionAvailable(selection, reported) });
     for (const reader of readers) {
       if (reader.use === 'filter' && !parentByPanel.has(reader.panelId)) parentByPanel.set(reader.panelId, key);
     }
   }
   const result = orderChips(active.map(chip => ({ ...chip, after: parentByPanel.get(chip.source.panelId) ?? null })));
-  // The address's page values can change without retiring this screen's actions.
+  // Page values can change within this edit owner until the drill source changes.
   const owner = useMemo(() => ({
-    menu, pathname, paneId, session, revision, scopeId,
+    menu, pathname, paneId, session, revision, scopeId, address,
     clearKeys: null as ((keys: Iterable<string>, key: string | null) => boolean) | null,
-  }), [menu, pathname, paneId, session, revision, scopeId]);
+    replace: null as ReplaceChipSelection | null,
+  }), [menu, pathname, paneId, session, revision, scopeId, address]);
+  const replace = useCallback<ReplaceChipSelection>((key, next, onCommit) => owner.replace?.(key, next, onCommit) ?? false, [owner]);
+  const reportedAvailability = useStable(reports, (a, b) =>
+    a.size === b.size && [...a].every(([key, value]) => sameAvailability(value, b.get(key))),
+  );
   const { chips } = useStable({ owner, chips: result }, (a, b) =>
     a.owner === b.owner
     && a.chips.length === b.chips.length && a.chips.every((chip, i) =>
@@ -262,6 +280,10 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   // Bind the committed screen before descendant layout effects can clear it, as pane address writes do.
   useInsertionEffect(() => {
     if (!screen || !route) return;
+    const commit = (patch: Record<string, string | readonly string[] | null>, run: (address: AddressTransition) => boolean) => {
+      screen.setPage(patch, { run });
+      return true;
+    };
     owner.clearKeys = (keys, key) => {
       const patch = new Map<string, null>();
       for (const key of keys) {
@@ -271,18 +293,52 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
         if (current.length || (screen.screenMode === 'pane' && pageParams(key).length)) patch.set(key, null);
       }
       if (!patch.size) return false;
-      screen.setPage(Object.fromEntries(patch), { run: address => {
+      return commit(Object.fromEntries(patch), address => {
         if (owner.clearKeys) onClearCommit?.(key, address);
         return true;
-      } });
-      return true;
+      });
     };
-    return () => { owner.clearKeys = null; };
-  }, [owner, screen, route, pageParams, onClearCommit]);
+    owner.replace = (key, next, onCommit) => {
+      const shape = channels.get(key)?.shape;
+      if (shape !== next.shape) return false;
+      const values = screen.pageParamsNow(key);
+      const rendered = parseAnalysisSelection(shape, pageParams(key));
+      if (!values || !rendered) return false;
+      const current = parseAnalysisSelection(shape, values);
+      // The board can propose another edit until its parent applies the previous one.
+      if (!current && screen.screenMode !== 'pane') return false;
+      const param = analysisSelectionParam(next);
+      const written = typeof param === 'string' ? [param] : param;
+      const normalized = parseAnalysisSelection(shape, written);
+      if (!normalized && written.length) return false;
+      if (normalized?.shape === 'range') {
+        const compare = analysisSelectionRangeCompare(reportedAvailability.get(key));
+        try {
+          if (!(compare(normalized.from, normalized.to) <= 0)) return false;
+        } catch {
+          // A source comparator may reject malformed text. The editor displays its validation error.
+          return false;
+        }
+      }
+      if (sameSelection(current, normalized) && sameSelection(rendered, normalized)) {
+        onCommit?.();
+        return true;
+      }
+      return commit({ [key]: normalized ? param : null }, address => {
+        if (!owner.replace) return false;
+        if (!normalized) onClearCommit?.(key, address);
+        onCommit?.();
+        return true;
+      });
+    };
+    return () => { owner.clearKeys = null; owner.replace = null; };
+  }, [owner, screen, route, pageParams, channels, reportedAvailability, onClearCommit]);
 
+  const canEdit = screen !== null;
   return useMemo(() => ({
     chips,
     clear: (key: string) => channels.has(key) && (owner.clearKeys?.([key], key) ?? false),
     clearAll: () => owner.clearKeys?.(channels.keys(), null) ?? false,
-  }), [chips, channels, owner]);
+    ...(canEdit ? { editor: { availability: reportedAvailability, replace } } : {}),
+  }), [chips, channels, owner, canEdit, reportedAvailability, replace]);
 }

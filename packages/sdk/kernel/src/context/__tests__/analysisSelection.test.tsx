@@ -381,6 +381,87 @@ it('clears a rejected raw value as part of clearing all keys', () => {
   expect(search().has(rangeKey)).toBe(false);
 });
 
+it('edits just the selected key and clears it when the set becomes empty', () => {
+  const cleared = vi.fn();
+  const committed = vi.fn();
+  const result = mount(() => useAnalysisSelectionChips(cleared), chainQuery, ChipWrapper);
+  act(() => expect(result.current.editor?.replace(setKey, b, committed)).toBe(true));
+  expect(search().getAll(setKey)).toEqual(['B']);
+  expect(search().get('sort')).toBe('name');
+  expect(search().get(middleKey)).toBe('mod');
+  expect(committed).toHaveBeenCalledOnce();
+  expect(cleared).not.toHaveBeenCalled();
+  act(() => expect(result.current.editor?.replace(setKey, { shape: 'set', values: [] })).toBe(true));
+  expect(search().has(setKey)).toBe(false);
+  expect(cleared).toHaveBeenCalledOnce();
+});
+
+it('completes a chip edit only after the address guard approves it', () => {
+  const guard: { request?: ReturnType<typeof useLeaveRequest> } = {};
+  function Guarded() {
+    useUnsavedGuard(true, { leaves: 'address' });
+    const request = useLeaveRequest();
+    useLayoutEffect(() => { guard.request = request; }, [request]);
+    return null;
+  }
+  const result = mount(useAnalysisSelectionChips, initialA, ({ children }) => <Wrapper><Guarded />{children}</Wrapper>);
+  const committed = vi.fn();
+  act(() => { result.current.editor?.replace(setKey, b, committed); });
+  expect(guard.request).toBeTruthy();
+  act(() => guard.request!.cancel());
+  expect(search().getAll(setKey)).toEqual(['A']);
+  expect(committed).not.toHaveBeenCalled();
+  act(() => { result.current.editor?.replace(setKey, b, committed); });
+  act(() => guard.request!.confirm());
+  expect(search().getAll(setKey)).toEqual(['B']);
+  expect(committed).toHaveBeenCalledOnce();
+});
+
+it('edits only the proposing board pane', () => {
+  const propose = vi.fn<(screen: PaneScreen, how: 'push' | 'replace') => void>();
+  const sibling = vi.fn();
+  const pane = { menuId: 'analysis', params: {}, query: '?v=1' + chainQuery };
+  const Board = ({ children }: { children: ReactNode }) => <ChipWrapper>
+    <PaneScreenProvider paneId="one" screen={pane} onChange={propose} onLeave={() => {}}>{children}</PaneScreenProvider>
+    <PaneScreenProvider paneId="two" screen={pane} onChange={sibling} onLeave={() => {}}><span /></PaneScreenProvider>
+  </ChipWrapper>;
+  const result = mount(useAnalysisSelectionChips, '&equipmentSet=main', Board);
+  act(() => expect(result.current.editor?.replace(setKey, b)).toBe(true));
+  expect(propose).toHaveBeenCalledOnce();
+  expect(new URLSearchParams(propose.mock.calls[0][0].query).getAll(setKey)).toEqual(['B']);
+  expect(sibling).not.toHaveBeenCalled();
+  expect(search().get(setKey)).toBe('main');
+});
+
+it('resends an empty set edit while the board still renders the chip', () => {
+  const propose = vi.fn();
+  const Board = ({ children }: { children: ReactNode }) => <ChipWrapper><PaneScreenProvider paneId="one"
+    screen={{ menuId: 'analysis', params: {}, query: '?v=1' + chainQuery }} onChange={propose} onLeave={() => {}}>{children}</PaneScreenProvider></ChipWrapper>;
+  const result = mount(useAnalysisSelectionChips, '', Board);
+  const empty = { shape: 'set', values: [] } as const;
+  act(() => {
+    expect(result.current.editor?.replace(setKey, empty)).toBe(true);
+    expect(result.current.editor?.replace(setKey, empty)).toBe(true);
+  });
+  expect(propose).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  ['string order', undefined, '15:00', '16:00', true],
+  ['reversed string order', undefined, '17:00', '16:00', false],
+  ['malformed endpoint', undefined, '', '16:00', false],
+  ['numeric order', (a: string, b: string) => Number(a) - Number(b), '2', '10', true],
+  ['numeric comparator rejecting malformed input', (a: string, b: string) => Number(BigInt(a) - BigInt(b)), 'invalid', '10', false],
+] as const)('validates chip range edits with %s', (_, compare, from, to, valid) => {
+  const initial = compare ? '14/16' : '14:00/16:00';
+  const result = mount(() => {
+    useAnalysisSelectionOutput('source', rangeKey, { available: compare && { from: '0', to: '20', compare } });
+    return useAnalysisSelectionChips();
+  }, `&timeRange=${initial}`);
+  act(() => expect(result.current.editor?.replace(rangeKey, { shape: 'range', from, to })).toBe(valid));
+  expect(search().get(rangeKey)).toBe(valid ? `${from}/${to}` : initial);
+});
+
 it('returns empty chips and refuses writes in a lent panel', () => {
   const result = mount(useAnalysisSelectionChips, chainQuery, ({ children }) => <ChipWrapper><Lent>{children}</Lent></ChipWrapper>);
   expect(result.current.chips).toEqual([]);

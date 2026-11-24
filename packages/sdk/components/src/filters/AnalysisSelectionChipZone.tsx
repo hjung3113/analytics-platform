@@ -1,13 +1,15 @@
-import { Fragment, useCallback, useLayoutEffect, useRef, type RefCallback, type RefObject } from 'react';
+import { Fragment, useCallback, useId, useLayoutEffect, useRef, useState, type RefCallback, type RefObject } from 'react';
 import { X } from 'lucide-react';
 import { useAnalysisSelectionChips, useI18n, useMessages, type AnalysisSelectionChip } from '@ap/kernel';
 import { useAnalysisSelectionHoverTarget, useHostPlatformOptional } from '@ap/kernel/host';
-import { Popover, PopoverContent, PopoverTrigger, cn } from '@ap/ui';
+import { Button, Checkbox, Input, Label, Popover, PopoverContent, PopoverTrigger, cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useElementSize, useObservedElementSize } from '../state/useElementSize';
 
 type Fit = { container: HTMLElement | null; summary: HTMLElement | null };
 type ClearChip = (key: string) => void;
+type ChipEditor = NonNullable<ReturnType<typeof useAnalysisSelectionChips>['editor']>;
+type Selection = AnalysisSelectionChip['selection'];
 type ClearButtonRef = RefCallback<HTMLButtonElement>;
 type ChipInteraction = 'pointer' | 'focus';
 type ClearFocus = { kind: 'clear'; key: string | null; index: number; from: string; to: string } | { kind: 'list'; index: number };
@@ -15,12 +17,64 @@ const zoneClass = 'inline-flex shrink-0 items-center gap-2 pl-2 text-xs';
 const focusClass = 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring';
 const linkClass = cn('h-6.5 shrink-0 rounded-sm whitespace-nowrap text-xs font-medium text-accent-primary hover:underline', focusClass);
 
-function Chip({ chip, clear, wrap, measuring, clearButtonRef }: {
-  chip: AnalysisSelectionChip; clear: ClearChip; wrap?: boolean; measuring?: boolean; clearButtonRef?: ClearButtonRef;
+function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip; editor: ChipEditor; close: () => void }) {
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const [draft, setDraft] = useState(chip.selection);
+  const [rejected, setRejected] = useState(false);
+  const id = useId();
+  const errorId = `${id}-error`;
+  const update = (next: Selection) => { setDraft(next); setRejected(false); };
+  const report = editor.availability.get(chip.key);
+  const available = report && !('from' in report) ? new Set(report) : undefined;
+  const candidates = new Set(available);
+  if (chip.selection.shape === 'set') for (const value of chip.selection.values) candidates.add(value);
+  if (draft.shape === 'set') for (const value of draft.values) candidates.add(value);
+  const rangeError = draft.shape === 'range' && rejected;
+  return <form className="grid gap-2" onSubmit={event => {
+    event.preventDefault();
+    if (!editor.replace(chip.key, draft, close)) setRejected(true);
+  }}>
+    {draft.shape === 'set' ? <div className="grid max-h-64 gap-2 overflow-y-auto p-1">
+      {[...candidates].map(value => <Label key={value} className="flex items-center">
+        <Checkbox checked={draft.values.includes(value)} onCheckedChange={checked => {
+          const values = checked === true ? [...draft.values, value] : draft.values.filter(item => item !== value);
+          update({ shape: 'set', values });
+        }} />
+        <span className="ml-2 min-w-0 wrap-anywhere">{value}{available && !available.has(value) && <> <span className="text-text-secondary">{m('analysisSelectionUnavailable')}</span></>}</span>
+      </Label>)}
+    </div> : <>
+      <div className="grid gap-1">
+        <Label htmlFor={`${id}-start`}>{m('analysisSelectionStart')}</Label>
+        <Input id={`${id}-start`} value={draft.from} aria-invalid={rangeError || undefined} aria-describedby={rangeError ? errorId : undefined}
+          onChange={event => update({ ...draft, from: event.target.value })} />
+      </div>
+      <div className="grid gap-1">
+        <Label htmlFor={`${id}-end`}>{m('analysisSelectionEnd')}</Label>
+        <Input id={`${id}-end`} value={draft.to} aria-invalid={rangeError || undefined} aria-describedby={rangeError ? errorId : undefined}
+          onChange={event => update({ ...draft, to: event.target.value })} />
+      </div>
+    </>}
+    {rejected && <p id={errorId} role="alert" className="text-xs text-text-danger-label">
+      {m(draft.shape === 'range' ? 'analysisSelectionInvalidRange' : 'analysisSelectionInvalidSet')}
+    </p>}
+    <Button type="submit" size="sm" className="justify-self-end">{m('analysisSelectionApply')}</Button>
+  </form>;
+}
+
+function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef }: {
+  chip: AnalysisSelectionChip; clear: ClearChip; editor?: ChipEditor; wrap?: boolean; measuring?: boolean; clearButtonRef?: ClearButtonRef;
 }) {
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const beginHover = useAnalysisSelectionHoverTarget(measuring ? undefined : chip.key);
+  const labelId = useId();
+  const editTrigger = useRef<HTMLButtonElement>(null);
+  const edit = editor?.replace;
+  const selectionKey = JSON.stringify(chip.selection);
+  const [opened, setOpened] = useState<{ edit: typeof edit; selectionKey: string } | null>(null);
+  const open = opened !== null && opened.edit === edit && opened.selectionKey === selectionKey;
+  if (opened && !open) setOpened(null);
+  useLayoutEffect(() => { if (open) return beginHover(); }, [open, beginHover]);
   const releases = useRef(new Map<ChipInteraction, () => void>());
   useLayoutEffect(() => {
     const interactions = releases.current;
@@ -49,14 +103,28 @@ function Chip({ chip, clear, wrap, measuring, clearButtonRef }: {
     value = others.length > 0 ? m('analysisSelectionMoreValues', { first, count: others.length }) : first ?? '';
   }
   const text = `${dimension} ${value}`;
-  return <span className={cn('inline-flex min-w-0 items-center gap-1 rounded-full pl-2 text-xs font-medium',
+  const description = <>
+    <span role="img" aria-label={source ?? dimension} title={source} className="size-3.5 shrink-0 rounded-sm border border-current" />
+    <span id={labelId} className={wrap ? '[overflow-wrap:anywhere]' : 'max-w-40 truncate'} title={text}>{text}</span>
+    {!chip.available && <span id={`${labelId}-status`} className="shrink-0">{m('analysisSelectionUnavailable')}</span>}
+  </>;
+  return <span className={cn('inline-flex min-w-0 items-center rounded-full text-xs font-medium',
     wrap ? 'min-h-6.5' : 'h-6.5',
     chip.available ? 'bg-accent-primary-soft text-accent-primary' : 'bg-accent-neutral-soft text-text-secondary')}
     onPointerEnter={event => { if (event.pointerType !== 'touch') enter('pointer'); }}
     onPointerLeave={() => leave('pointer')} onFocus={() => enter('focus')} onBlur={() => leave('focus')}>
-    <span role="img" aria-label={source ?? dimension} title={source} className="size-3.5 shrink-0 rounded-sm border border-current" />
-    <span className={wrap ? '[overflow-wrap:anywhere]' : 'max-w-40 truncate'} title={text}>{text}</span>
-    {!chip.available && <span className="shrink-0">{m('analysisSelectionUnavailable')}</span>}
+    {editor && !measuring ? <Popover open={open} onOpenChange={next => setOpened(next ? { edit, selectionKey } : null)}>
+      <PopoverTrigger asChild>
+        <button ref={editTrigger} type="button" aria-labelledby={labelId} aria-describedby={chip.available ? undefined : `${labelId}-status`}
+          className={cn('inline-flex min-h-6.5 min-w-0 items-center gap-1 rounded-full pl-2 pr-1 text-start hover:bg-surface-row-hover', focusClass)}>
+          {description}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent aria-labelledby={labelId} align="start" className="max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto"
+        onCloseAutoFocus={event => { if (!editTrigger.current?.isConnected) event.preventDefault(); }}>
+        <SelectionFields chip={chip} editor={editor} close={() => setOpened(null)} />
+      </PopoverContent>
+    </Popover> : <span className="inline-flex min-w-0 items-center gap-1 pl-2 pr-1">{description}</span>}
     <button ref={clearButtonRef} type="button" disabled={measuring} className={cn('inline-flex size-6.5 shrink-0 items-center justify-center rounded-full hover:bg-surface-row-hover', focusClass)}
       data-analysis-chip-clear={chip.key} aria-label={m('analysisSelectionClear', { dimension })} onClick={() => clear(chip.key)}>
       <X className="size-3.5" aria-hidden />
@@ -68,15 +136,15 @@ function Separator() {
   return <span aria-hidden className="text-text-muted">|</span>;
 }
 
-function InlineChips({ chips, clear, clearAll, measuring, clearButtonRef }: {
-  chips: readonly AnalysisSelectionChip[]; clear: ClearChip; clearAll: () => void; measuring?: boolean; clearButtonRef?: ClearButtonRef;
+function InlineChips({ chips, clear, clearAll, editor, measuring, clearButtonRef }: {
+  chips: readonly AnalysisSelectionChip[]; clear: ClearChip; clearAll: () => void; editor?: ChipEditor; measuring?: boolean; clearButtonRef?: ClearButtonRef;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   return <>
     <Separator />
     {chips.map((chip, index) => <Fragment key={chip.key}>
       {index > 0 && <span aria-hidden className="text-text-muted">›</span>}
-      <Chip chip={chip} clear={clear} measuring={measuring} clearButtonRef={clearButtonRef} />
+      <Chip chip={chip} clear={clear} editor={editor} measuring={measuring} clearButtonRef={clearButtonRef} />
     </Fragment>)}
     <button type="button" disabled={measuring} className={linkClass} onClick={clearAll}>{m('analysisSelectionClearAll')}</button>
   </>;
@@ -86,7 +154,7 @@ function InlineChips({ chips, clear, clearAll, measuring, clearButtonRef }: {
 export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   fit?: Fit; fallbackFocus?: RefObject<HTMLElement | null>;
 }) {
-  const { chips, clear, clearAll } = useAnalysisSelectionChips(onClearCommit);
+  const { chips, clear, clearAll, editor } = useAnalysisSelectionChips(onClearCommit);
   const platform = useHostPlatformOptional();
   const url = platform?.url;
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -178,14 +246,14 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
             <ul className="grid gap-1">
               {chips.map(chip => <li key={chip.key} className="flex min-w-0 items-center gap-1">
                 {chip.after !== null && <span aria-hidden className="text-text-muted">›</span>}
-                <Chip chip={chip} clear={clear} wrap clearButtonRef={clearButtonRef} />
+                <Chip chip={chip} clear={clear} editor={editor} wrap clearButtonRef={clearButtonRef} />
               </li>)}
             </ul>
             <button type="button" className={linkClass} onClick={clearAll}>{m('analysisSelectionClearAll')}</button>
           </PopoverContent>
         </Popover>
-        <Chip key={last.key} chip={last} clear={clear} clearButtonRef={clearButtonRef} />
-      </> : <InlineChips chips={chips} clear={clear} clearAll={clearAll} clearButtonRef={clearButtonRef} />}
+        <Chip key={last.key} chip={last} clear={clear} editor={editor} clearButtonRef={clearButtonRef} />
+      </> : <InlineChips chips={chips} clear={clear} clearAll={clearAll} editor={editor} clearButtonRef={clearButtonRef} />}
     </div>
   </>;
 }
