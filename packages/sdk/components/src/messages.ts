@@ -15,6 +15,7 @@ export const COMPONENTS_MESSAGES = {
   analysisSelectionGroup: { ko: '분석 선택', en: 'Analysis selections' },
   analysisSelectionMoreValues: { ko: '{first} 외 {count}', en: '{first} + {count}' },
   analysisSelectionUnavailable: { ko: '해당 없음', en: 'No match' },
+  analysisSelectionFiltered: { ko: '필터됨 · {count} · 선택 적용', en: 'Filtered · {count} · Selection applied' },
   analysisSelectionNotApplied: { ko: '적용 안 됨', en: 'Not applied' },
   analysisSelectionNotAppliedDescription: { ko: '이 화면이 이 선택을 조회에 쓰지 않습니다', en: 'This screen does not use this selection in its query' },
   analysisSelectionActions: { ko: '{chip} 동작', en: 'Actions for {chip}' },

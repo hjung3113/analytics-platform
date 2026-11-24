@@ -168,7 +168,6 @@ export const HW_TIME_STEPPED_MESSAGES = {
   table: { ko: '원본 표', en: 'Source table' },
   selectionEquipment: { ko: '분석 선택 설비', en: 'Analysis selection equipment' },
   selectionInvalid: { ko: '원본 표 거르기에 사용할 설비는 1대 이상, 최대 {limit}대까지 지정할 수 있습니다.', en: 'The raw table filter needs between 1 and {limit} distinct equipment IDs.' },
-  selectionFiltered: { ko: '필터됨 · {count} · 선택 적용', en: 'Filtered · {count} · Selection applied' },
   needsType: { ko: 'Module 타입을 고르면 볼 수 있음', en: 'Choose a Module type to view' },
   needsModule: { ko: 'Module을 고르면 볼 수 있음', en: 'Choose a Module to view' },
   needsPoint: { ko: 'Module과 Motion 또는 막대 지점을 고르면 볼 수 있음', en: 'Choose Module and Motion, or a bar point to view' },
