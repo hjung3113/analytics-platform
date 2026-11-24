@@ -66,6 +66,35 @@ it('seeks on pointer down over the axis', () => {
   expect(onCursorChange).toHaveBeenCalledWith(time('10:15:00'));
 });
 
+it('moves the cursor without laying out the bars again and still updates the selection', () => {
+  // Reading occurrences resolves the open-end labels in this fixture's plot.
+  const readOccurrences = vi.fn(() => batch.occurrences);
+  const watchedBatch = { ...batch, get occurrences() { return readOccurrences(); } };
+  const props = {
+    timeline, layout: equipmentLayout, batch: watchedBatch, selectedComponentId: null, expanded: new Set<string>(),
+    onCursorChange: vi.fn(), onCursorCommit: vi.fn(), onSelectOccurrence: vi.fn(), onToggleExpand: vi.fn(),
+  };
+  const chart = (cursor: SiteWallClock, selectedOccurrenceId: string | null) =>
+    <FocusGantt {...props} cursor={cursor} selectedOccurrenceId={selectedOccurrenceId} />;
+  const { container, rerender } = render(chart(time('10:06:00'), null));
+  const slider = screen.getByRole('slider', { name: '커서 시각' });
+  const bar = container.querySelector('[data-bar][data-occurrence-id="occ-open"]')!;
+  const line = container.querySelector('.eqv-rp-cursor')!;
+  const initialX = line.getAttribute('x1');
+  expect(readOccurrences).toHaveBeenCalled();
+  readOccurrences.mockClear();
+
+  rerender(chart(time('10:07:00'), null));
+  expect(slider.getAttribute('aria-valuetext')).toBe('2026-01-01 10:07:00');
+  expect(line.getAttribute('x1')).not.toBe(initialX);
+  expect(readOccurrences).not.toHaveBeenCalled();
+
+  fireEvent.keyDown(bar, { key: 'Enter' });
+  expect(props.onSelectOccurrence).toHaveBeenCalledWith('occ-open');
+  rerender(chart(time('10:07:00'), 'occ-open'));
+  expect(bar.getAttribute('aria-pressed')).toBe('true');
+});
+
 it('ignores moves after a press released elsewhere, and keeps the Gantt at its design width inside a labelled scroller', () => {
   const { onCursorChange, svg } = setup();
   const slider = screen.getByRole('slider', { name: '커서 시각' });

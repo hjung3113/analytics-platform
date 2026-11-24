@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
+import { useCallback, useId, useMemo, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
 import {
   LEVEL_KO, millisToWallClock, wallClockToMillis, type EquipmentLayoutDocument, type OccurrenceBatch, type ReplayTimeline, type SiteWallClock,
 } from '@eqv/core';
@@ -24,6 +24,7 @@ const LABEL_W = 160;
 const PLOT_W = 800;
 const WIDTH = LABEL_W + PLOT_W + 12;
 const AXIS_H = 34;
+const AXIS_SEEK_H = AXIS_H - 14;
 const ROW_H = 18;
 const PAD = 4;
 const TICKS = 6;
@@ -60,7 +61,10 @@ export function FocusGantt({
   const cursorAtBatchEnd = range.to === batch.to && cursor === range.to;
   const lastMs = rangeToMs - (cursorAtBatchEnd ? 0 : 1);
   const spanMs = rangeToMs - fromMs;
-  const x = (t: SiteWallClock) => LABEL_W + Math.min(1, Math.max(0, (wallClockToMillis(t) - fromMs) / spanMs)) * PLOT_W;
+  const x = useCallback(
+    (t: SiteWallClock) => LABEL_W + Math.min(1, Math.max(0, (wallClockToMillis(t) - fromMs) / spanMs)) * PLOT_W,
+    [fromMs, spanMs],
+  );
   const cursorMs = Math.min(lastMs, Math.max(fromMs, wallClockToMillis(cursor)));
 
   const lanes = useMemo(() => buildLanes(timeline, layout, expanded), [timeline, layout, expanded]);
@@ -74,10 +78,9 @@ export function FocusGantt({
     });
   }, [lanes]);
   const plotBottom = layoutTops.length ? layoutTops[layoutTops.length - 1]!.top + layoutTops[layoutTops.length - 1]!.height : AXIS_H;
-  const laneIndex = new Map(lanes.map((lane, i) => [lane.id, i]));
 
   const drag = useRef<{ pointerId: number; x: number; captured: boolean; at: SiteWallClock | null } | null>(null);
-  const seekFromPointer = (event: PointerEvent<SVGElement>): SiteWallClock | null => {
+  const seekFromPointer = useCallback((event: PointerEvent<SVGElement>): SiteWallClock | null => {
     const axis = event.currentTarget.ownerSVGElement?.querySelector<SVGRectElement>('.eqv-rp-axis');
     const box = axis?.getBoundingClientRect();
     if (!box || box.width <= 0) return null;
@@ -85,19 +88,15 @@ export function FocusGantt({
     const at = millisToWallClock(Math.min(lastMs, fromMs + Math.floor(fraction * spanMs)));
     onCursorChange(at);
     return at;
-  };
+  }, [fromMs, lastMs, spanMs, onCursorChange]);
   const onAxisPointerDown = (event: PointerEvent<SVGElement>) => {
     const at = seekFromPointer(event);
     drag.current = { pointerId: event.pointerId, x: event.clientX, captured: false, at };
   };
-  const onLanePointerDown = (event: PointerEvent<SVGElement>) => {
+  const onPlotPointerDown = useCallback((event: PointerEvent<SVGElement>) => {
     const at = seekFromPointer(event);
     if (at !== null) onCursorCommit(at);
-  };
-  const onBarPointerDown = (event: PointerEvent<SVGElement>) => {
-    const at = seekFromPointer(event);
-    if (at !== null) onCursorCommit(at);
-  };
+  }, [seekFromPointer, onCursorCommit]);
   const onPointerMove = (event: PointerEvent<SVGElement>) => {
     const current = drag.current;
     if (!current || current.pointerId !== event.pointerId) return;
@@ -133,15 +132,6 @@ export function FocusGantt({
     }
   };
 
-  const barName = (bar: Bar, lane: (typeof lanes)[number], componentLabel: string) => {
-    const target = lane.holdingSiteId === undefined ? lane.label : `${componentLabel} ${lane.label}`;
-    const what = bar.kind === 'activity' ? ACTIVITY_KO[bar.what as keyof typeof ACTIVITY_KO]
-      : `${bar.what} ${bar.materialId ?? '익명'}`;
-    const end = openAtRangeEnd(bar, batch, range.to) ? '열림' : clock(bar.to);
-    const evidence = bar.kind === 'activity' ? LEVEL_KO[bar.evidence] : `위치 ${LEVEL_KO[bar.evidence]}`;
-    return `${target} ${what} ${clock(bar.from)}–${end} · ${evidence}`;
-  };
-
   const swatch = (fill: string, stroke: string, pattern?: string) => (
     <svg width="26" height="12" aria-hidden="true">
       <rect width="26" height="12" fill={fill} stroke={stroke} />
@@ -161,12 +151,13 @@ export function FocusGantt({
   ];
 
   const hasTimeAnomaly = timeline.markers.some(({ marker }) => marker.kind === 'time-anomaly');
-  const timeAnomalyKeys = new Set<string>();
-  let componentLabel = '';
-  return (
-    <div className="text-text-primary">
-      <div className="max-w-full overflow-x-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring" role="region" aria-label="Gantt 차트" tabIndex={0}>
-      <svg viewBox={`0 0 ${WIDTH} ${plotBottom + PAD + (hasTimeAnomaly ? LABEL_BAND : 0)}`} width="100%" style={{ '--eqv-rp-min': `${WIDTH}px` } as CSSProperties} role="group" aria-label="Component 레인 Gantt" className="eqv-rp-svg">
+  // Cursor moves reuse the plot's elements, including the lane and bar handlers.
+  const plot = useMemo(() => {
+    const timeAnomalyKeys = new Set<string>();
+    const laneIndex = new Map(lanes.map((lane, i) => [lane.id, i]));
+    let componentLabel = '';
+    return (
+      <>
         <defs>
           <pattern id={`${prefix}-observed`} width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="none" /></pattern>
           <pattern id={`${prefix}-derived`} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
@@ -227,7 +218,7 @@ export function FocusGantt({
               aria-current={current ? 'true' : undefined} data-lane-id={lane.id} className={current ? 'eqv-rp-lane-current' : undefined}>
               <rect className="eqv-rp-lane-bg" x={0} y={top} width={LABEL_W + PLOT_W} height={height} />
               <rect data-lane-seek="true" x={LABEL_W} y={top} width={PLOT_W} height={height} fill="transparent"
-                pointerEvents="all" onPointerDown={onLanePointerDown} />
+                pointerEvents="all" onPointerDown={onPlotPointerDown} />
               {canExpand ? (
                 <g role="button" tabIndex={0} aria-expanded={isOpen} aria-label={`${lane.label} Holding Site ${isOpen ? '접기' : '펼치기'}`}
                   className="eqv-rp-disclosure" onClick={() => onToggleExpand(lane.componentId!)}
@@ -245,12 +236,16 @@ export function FocusGantt({
                 const base = baseOf(bar);
                 const selected = selectedOccurrenceId !== null && bar.occurrenceIds.includes(selectedOccurrenceId);
                 const open = openAtRangeEnd(bar, batch, range.to);
-                const name = barName(bar, lane, componentLabel);
+                const target = lane.holdingSiteId === undefined ? lane.label : `${componentLabel} ${lane.label}`;
+                const what = bar.kind === 'activity' ? ACTIVITY_KO[bar.what as keyof typeof ACTIVITY_KO] : `${bar.what} ${bar.materialId ?? '익명'}`;
+                const end = open ? '열림' : clock(bar.to);
+                const evidence = bar.kind === 'activity' ? LEVEL_KO[bar.evidence] : `위치 ${LEVEL_KO[bar.evidence]}`;
+                const name = `${target} ${what} ${clock(bar.from)}–${end} · ${evidence}`;
                 const select = () => onSelectOccurrence(bar.occurrenceIds[0]!);
                 return (
                   <g key={bar.id} role="button" tabIndex={0} aria-label={name} aria-pressed={selected} data-bar={bar.kind}
                     data-evidence={bar.evidence} data-occurrence-id={bar.occurrenceIds.join(' ')} className={selected ? 'eqv-rp-bar eqv-rp-bar-selected' : 'eqv-rp-bar'}
-                    onPointerDown={onBarPointerDown} onClick={select} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(); } }}>
+                    onPointerDown={onPlotPointerDown} onClick={select} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); select(); } }}>
                     <title>{name}</title>
                     <rect x={left} y={y} width={right - left} height={ROW_H - 3} rx={2} fill={base.fill} stroke={base.stroke} strokeWidth={1} />
                     <rect x={left} y={y} width={right - left} height={ROW_H - 3} rx={2} fill={`url(#${prefix}-${bar.evidence})`} data-pattern={bar.evidence} />
@@ -297,11 +292,29 @@ export function FocusGantt({
           </g>
         ))}
 
-        <line className="eqv-rp-cursor" x1={x(millisToWallClock(cursorMs))} x2={x(millisToWallClock(cursorMs))} y1={0} y2={plotBottom} aria-hidden="true" />
+      </>
+    );
+  }, [batch, expanded, fromMs, lanes, lastMs, layout, layoutTops, onPlotPointerDown, onSelectOccurrence, onToggleExpand,
+    plotBottom, prefix, range, selectedComponentId, selectedOccurrenceId, spanMs, timeline, x]);
+
+  const viewBox = `0 0 ${WIDTH} ${plotBottom + PAD + (hasTimeAnomaly ? LABEL_BAND : 0)}`;
+  const chartSize = { '--eqv-rp-min': `${WIDTH}px` } as CSSProperties;
+  const shownCursor = millisToWallClock(cursorMs);
+  const cursorX = x(shownCursor);
+  return (
+    <div className="text-text-primary">
+      <div className="relative max-w-full overflow-x-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring" role="region" aria-label="Gantt 차트" tabIndex={0}>
+      <svg viewBox={viewBox} width="100%" style={chartSize} role="group" aria-label="Component 레인 Gantt" className="eqv-rp-svg">
+        {plot}
         <rect className="eqv-rp-axis" role="slider" tabIndex={0} aria-label="커서 시각" aria-orientation="horizontal"
-          aria-valuemin={fromMs} aria-valuemax={lastMs} aria-valuenow={cursorMs} aria-valuetext={wallClockText(millisToWallClock(cursorMs))}
-          x={LABEL_W} y={0} width={PLOT_W} height={AXIS_H - 14} onKeyDown={onSliderKey}
+          aria-valuemin={fromMs} aria-valuemax={lastMs} aria-valuenow={cursorMs} aria-valuetext={wallClockText(shownCursor)}
+          x={LABEL_W} y={0} width={PLOT_W} height={AXIS_SEEK_H} onKeyDown={onSliderKey}
           onPointerDown={onAxisPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onPointerLeave={onPointerLeave} />
+      </svg>
+      {/* Paint the moving cursor and the translucent axis above it without rasterizing the bars again. */}
+      <svg viewBox={viewBox} style={chartSize} className="eqv-rp-cursor-layer" aria-hidden="true">
+        <line className="eqv-rp-cursor" x1={cursorX} x2={cursorX} y1={0} y2={plotBottom} />
+        <rect className="eqv-rp-axis-fill" x={LABEL_W} y={0} width={PLOT_W} height={AXIS_SEEK_H} />
       </svg>
       </div>
       <Legend label="범례" items={legend} />

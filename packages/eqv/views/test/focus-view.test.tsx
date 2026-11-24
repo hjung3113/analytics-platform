@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { useState, type ReactNode } from 'react';
+import { isValidElement, useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
-  bindingsFileSchema, layoutDocumentSchema, mappingVersionSchema, occurrenceBatchSchema, type ReplayInput,
+  bindingsFileSchema, layoutDocumentSchema, mappingVersionSchema, occurrenceBatchSchema, seekSceneState, wallClockToMillis,
+  type ReplayInput, type SceneState,
 } from '@eqv/core';
 import { FocusView, NoticeList } from '../src/index.js';
 import { formatRangeDuration } from '../src/FocusView.js';
@@ -59,6 +60,31 @@ it('the playback slider moves the shared cursor, commits the URL value once, and
   expect(onCursorCommit).toHaveBeenCalledExactlyOnceWith(time('10:00:00'));
   const announcement = document.querySelector('[aria-live="polite"]');
   expect(announcement?.textContent).toBe('재생 커서를 2026-01-01 10:00:00로 옮겼습니다');
+});
+
+it('publishes the plain seek Scene State as the Gantt cursor moves across replay boundaries', () => {
+  const { from, to } = input.batch;
+  const renderDetail = vi.fn<(detail: Detail) => void>();
+  render(<FocusView input={input} notices={[]} entityType="occurrence" anchor={OCCURRENCE} resetKey="a"
+    initialCursor={to} range={{ value: { from, to }, onChange: vi.fn() }} renderDetail={renderDetail} />);
+  const expectSceneAt = (at: string) => {
+    const node = renderDetail.mock.lastCall?.[0]?.node;
+    if (!isValidElement<{ state: SceneState }>(node)) throw new Error('Expected selected Occurrence detail');
+    expect(node.props.state).toEqual(seekSceneState(input, at));
+  };
+  expectSceneAt(to);
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
+  const startMs = wallClockToMillis(from);
+  const width = wallClockToMillis(to) - startMs;
+  axis.getBoundingClientRect = () => ({ left: 0, width, top: 0, height: 20, right: width, bottom: 20, x: 0, y: 0, toJSON: () => ({}) });
+
+  // Equal-time records at 10:03, a DQI at 10:20, and both directions across the range.
+  for (const at of [from, time('10:03:00'), time('10:20:00'), time('10:02:59.999'), time('10:29:59.999')]) {
+    const clientX = wallClockToMillis(at) - startMs;
+    fireEvent(axis, new MouseEvent('pointerdown', { bubbles: true, clientX }));
+    fireEvent(axis, new MouseEvent('pointerup', { bubbles: true, clientX }));
+    expectSceneAt(at);
+  }
 });
 
 it('shows a no-data state after the watermark and keeps the range controls available', () => {

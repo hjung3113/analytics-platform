@@ -211,6 +211,12 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   }, [renderDetail, detail]);
 
   const patch = useCallback((changes: Partial<View>) => setView((previous) => ({ ...previous, ...changes })), []);
+  const selectGanttOccurrence = useCallback((id: string) => patch({ selectedOccurrenceId: id }), [patch]);
+  const toggleGanttLane = useCallback((id: string) => setView((previous) => {
+    const expanded = new Set(previous.expanded);
+    if (!expanded.delete(id)) expanded.add(id);
+    return { ...previous, expanded };
+  }), []);
   const updateCursor = useCallback((at: SiteWallClock) => patch({ cursor: at, mode: { kind: 'time' }, cursorMoveNotice: null, cursorAnnouncement: null }), [patch]);
   const playback = usePlayback({ cursor, range, onCursorChange: updateCursor, resetKey: JSON.stringify([resetKey, entryKey]), scheduler });
   const { pause: pausePlayback, play: playPlayback, playing } = playback;
@@ -277,9 +283,9 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
     patch({ applied: parsed.range, draft: null, rangeError: null, rangeExpanded: false, mode: { kind: 'time' }, cursor: nextCursor, cursorMoveNotice: cursorMove, cursorAnnouncement: null });
     changeButton.current?.focus();
   };
-  const select = (id: string, moveCursor: boolean) => {
+  const selectAndSeek = (id: string) => {
     const start = input.batch.occurrences.find((o) => o.id === id)?.start.at ?? null;
-    const move = moveCursor && start !== null && range !== null && cursorIsInRange(start, range);
+    const move = start !== null && range !== null && cursorIsInRange(start, range);
     patch({ selectedOccurrenceId: id, ...(move ? { cursor: start, mode: { kind: 'time' }, cursorMoveNotice: null } : {}) });
     if (move && start !== null) commitCursor(start);
   };
@@ -377,12 +383,8 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
             {timeline ? (
               <FocusGantt timeline={timeline} layout={layout} batch={input.batch} cursor={state.at}
                 onCursorChange={updateCursor} onCursorCommit={commitCursor} selectedOccurrenceId={selectedId}
-                onSelectOccurrence={(id) => select(id, false)} selectedComponentId={view.selectedComponentId}
-                expanded={view.expanded} onToggleExpand={(id) => setView((previous) => {
-                  const expanded = new Set(previous.expanded);
-                  if (!expanded.delete(id)) expanded.add(id);
-                  return { ...previous, expanded };
-                })} />
+                onSelectOccurrence={selectGanttOccurrence} selectedComponentId={view.selectedComponentId}
+                expanded={view.expanded} onToggleExpand={toggleGanttLane} />
             ) : tooLarge ? (
               <StateMessage tone="warning" icon={ChartGantt} title="구간이 커서 Gantt를 그리지 않습니다"
                 body={`범위를 좁히세요. 지금 범위는 기록 ${count(cost.records)}개 + 전환 시점 ${count(cost.breakpoints)}개 × (읽기마다 Binding·Layout 탐색 ${count(cost.context)} + (동시 open Occurrence ${count(cost.open)}개 + 시간 역전 ${count(cost.inversions)}개) × 위치 해석 ${count(cost.resolve)}) = ${count(cost.cost)}로 Gantt 계산 한도 ${count(timelineBudget)}을 넘습니다. Top View·커서 시점 상태·Occurrence 목록·Data Quality·근거 상세는 그대로 씁니다.`} />
@@ -399,9 +401,9 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
             </TabsList>
             <TabsContent value="list">
               <OccurrenceList batch={input.batch} timeline={frame} bindings={input.bindings} appliedSeq={state.appliedSeq}
-                anchorOccurrenceId={entryId} selectedOccurrenceId={selectedId} onSelectOccurrence={(id) => select(id, true)} />
+                anchorOccurrenceId={entryId} selectedOccurrenceId={selectedId} onSelectOccurrence={selectAndSeek} />
             </TabsContent>
-            <TabsContent value="quality"><DataQualityList timeline={frame} appliedSeq={state.appliedSeq} onSelectOccurrence={(id) => select(id, true)} /></TabsContent>
+            <TabsContent value="quality"><DataQualityList timeline={frame} appliedSeq={state.appliedSeq} onSelectOccurrence={selectAndSeek} /></TabsContent>
             {!renderDetail && <TabsContent value="detail"><EvidenceDetail batch={input.batch} state={state} selectedOccurrenceId={selectedId} /></TabsContent>}
           </Tabs>
           </div>
