@@ -10,6 +10,7 @@ import type { SupportRegistry } from '../saved-view/useSavedViewSupport';
 import type { createViewSlotStore } from '../saved-view/table-slots';
 import type { HostPlatform, Recent, Toast } from './types';
 import type { SessionDraftStore } from './sessionDraft';
+import type { CarriedSelection, CarryProof, OriginRecord } from './return-origin';
 import type { NavigationGuard } from './navigationGuard';
 import type { createAnalysisSelectionAvailability } from '../context/analysisSelectionAvailability';
 
@@ -21,6 +22,7 @@ export type ScreenState = Pick<HostPlatform, ScreenFields | 'screenMode' | 'pane
   setPage: (patch: Parameters<HostPlatform['setPage']>[0], options?: PageWriteOptions) => void;
   /** Event-time page values for kernel writers. Null means the source screen was left. */
   pageParamsNow: (key: string) => string[] | null;
+  returnCarry?: CarriedSelection;
   analysisSelectionAvailability: ReturnType<typeof createAnalysisSelectionAvailability>;
 };
 export type PageWriteOptions = NonNullable<Parameters<HostPlatform['setPage']>[1]> & { run?: CommitOptions['run'] };
@@ -70,7 +72,11 @@ export const RecentContext = createContext<readonly Recent[] | null>(null);
 
 /** `redirect`: replace an alias address by its canonical one (ADR-0093) — the same arrival, so a pending focus request and the address-bar hash survive. */
 export type AddressTransition = { from: string; to: string };
-export type CommitOptions = { analysisSelection?: boolean; preserveSelectionUndo?: boolean; focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** With `redirect`: a retired menu's page preset (#2330), added for the keys the kept query does not hold. */ redirectPage?: Readonly<Record<string, string>>; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[]; /** Internal: replay of a move the person confirmed leaving; skips the unsaved-edit guard (ADR-0115). */ bypassGuard?: boolean; /** Host only: this `replace` is held by the unsaved-edit guard like a push (board open, #2061). */ guard?: boolean; /** Host only: runs once the move is certain (after any confirmed leave, just before the write); `false` cancels it. Replayed with the confirmed move (#2061). */ run?: (address: AddressTransition) => boolean };
+export type ScreenNavigationOptions = NonNullable<Parameters<HostPlatform['navigate']>[1]> & {
+  restoreHidden?: readonly Pair[];
+};
+/** `redirect`: replace an alias address by its canonical one (ADR-0093) — the same arrival, so a pending focus request and the address-bar hash survive. */
+export type CommitOptions = { carryProof?: CarryProof; skipOrigin?: boolean; analysisSelection?: boolean; preserveSelectionUndo?: boolean; focus?: PageFocus; materialize?: boolean; redirect?: boolean; /** With `redirect`: a retired menu's page preset (#2330), added for the keys the kept query does not hold. */ redirectPage?: Readonly<Record<string, string>>; /** Hidden pairs restored for the destination (a return trip, F1): validated against the destination's declared hidden keys. */ restoreHidden?: readonly Pair[]; /** Internal: replay of a move the person confirmed leaving; skips the unsaved-edit guard (ADR-0115). */ bypassGuard?: boolean; /** Host only: this `replace` is held by the unsaved-edit guard like a push (board open, #2061). */ guard?: boolean; /** Host only: runs once the move is certain (after any confirmed leave, just before the write); `false` cancels it. Replayed with the confirmed move (#2061). */ run?: (address: AddressTransition) => boolean };
 export type ScreenAddress = {
   /** The browser URL for the main screen, or the pane's virtual path and query. */
   url: string;
@@ -80,6 +86,8 @@ export type ScreenAddress = {
 
 /** What the screen state hook needs from its owner: where the URL lives and how a write or a navigation lands. */
 export type ScreenSource = ScreenAddress & {
+  origin?: OriginRecord;
+  mintCarry?: (href: string, carried: CarriedSelection, scopeId: string | null) => CarryProof;
   draftStore?: DraftStore;
   availability?: ScreenState['analysisSelectionAvailability'];
   mode: 'main' | 'pane';
@@ -91,7 +99,7 @@ export type ScreenSource = ScreenAddress & {
   /** Writes this screen's own address (history for main, `onChange` for a pane). Stable identity. False when nothing was written. */
   commit: (next: string, how: 'push' | 'replace', options?: CommitOptions) => boolean;
   /** Imperative navigation to any app-relative href. Stable identity. */
-  go: (href: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[]; guard?: boolean; run?: () => boolean }) => boolean;
+  go: (href: string, options?: ScreenNavigationOptions) => boolean;
   /** A pane reads the sidebar space from the main screen; the main screen derives its own. */
   sidebarSpace?: SpaceDef | null;
   /** Main only: remember a Scope the server confirmed. */

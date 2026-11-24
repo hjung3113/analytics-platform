@@ -1,3 +1,4 @@
+import type { CarryProof } from './return-origin';
 import type { LucideIcon } from 'lucide-react';
 import type { ComponentType, ReactNode } from 'react';
 import type { PageFocus, PageNavigation } from '../context/pageNavigation';
@@ -194,7 +195,11 @@ export type ObjectLink = Extract<LinkResolution, { kind: 'link' }> & { menuId: s
 export type DroppedSelection = { dimension: string; reason: 'noInbound' | 'ambiguous' | 'scope' | 'length' };
 /** Selection-aware links also report dropped dimensions. `tooLong` has no href, even after every carried selection is dropped. */
 export type SelectionLinkResolution =
-  | (Extract<LinkResolution, { kind: 'link' }> & { droppedSelections?: readonly DroppedSelection[] })
+  | (Extract<LinkResolution, { kind: 'link' }> & {
+    droppedSelections?: readonly DroppedSelection[];
+    /** Opaque proof for the carried selections on this action. Forward it to `navigate` when activating the link. */
+    proof?: CarryProof;
+  })
   | Extract<LinkResolution, { kind: 'none' }>
   | { kind: 'tooLong'; href: null; allowed: false; droppedPageKeys: []; droppedSelections: readonly DroppedSelection[] };
 export type ObjectSelectionLink = Exclude<SelectionLinkResolution, { kind: 'none' }> & Pick<ObjectLink, 'menuId' | 'label'>;
@@ -246,7 +251,7 @@ export type HostPlatform = {
    * such as opening the analysis board (ADR-0087). Without it a `replace` is never held.
    * `run` (host only): a step that must happen only if the move does, such as saving the board before opening it. It runs once, after a confirmed leave and just before the write; returning `false` cancels the move.
    */
-  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia; guard?: boolean; run?: () => boolean }) => boolean;
+  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia; carryProof?: CarryProof; guard?: boolean; run?: () => boolean }) => boolean;
   setGlobal: (patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => void;
   /** A value may be a list for a `repeatedPageKeys` key (one pair per item; more than one value on another key throws `RangeError`); `[]` and null remove the key. A hidden key is written to a new history entry (or `replace`) whose address is unchanged. */
   setPage: (patch: Record<string, string | readonly string[] | null>, options?: {
@@ -342,7 +347,7 @@ export type HostPlatform = {
  */
 export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'pageParams' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'returnOrigin' | 'objectLinks' | 'resolveSelectionLink' | 'objectSelectionLinks' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'> & {
   /** The host's `navigate` without its host-only `guard` option (#2061). */
-  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia }) => boolean;
+  navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia; carryProof?: CarryProof }) => boolean;
 };
 
 /** Context items named by return notifications, separate from menu capabilities. */
@@ -360,6 +365,8 @@ export type ReturnOrigin = {
   revertedContext: ReturnContextKey[];
   /** True only when `href` is a `returnTo` that passed `safeReturnTo` and `canOpen`; parent/home fallbacks are false. */
   accepted: boolean;
+  /** True when the current main history entry proves this return address. Absence means false. */
+  recorded?: boolean;
   /** Space label of the accepted origin menu; null for a fallback or a global-menu origin. */
   spaceLabel: Text | null;
   /** Whether the accepted origin and destination are in the same Registry space. */

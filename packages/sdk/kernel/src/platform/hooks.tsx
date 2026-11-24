@@ -16,7 +16,7 @@ function useMerged(): HostPlatform | null {
   return useMemo(() => {
     if (lent) return lent;
     if (!app || !main || !screen) return null;
-    const { pageParamsNow: _pageParamsNow, analysisSelectionAvailability: _analysisSelectionAvailability, ...snapshot } = screen;
+    const { pageParamsNow: _pageParamsNow, analysisSelectionAvailability: _analysisSelectionAvailability, returnCarry: _returnCarry, ...snapshot } = screen;
     return { ...app.pub, ...main, ...snapshot };
   }, [app, main, screen, lent]);
 }

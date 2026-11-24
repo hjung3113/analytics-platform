@@ -215,7 +215,7 @@ export type AnalysisSelectionChip = {
   /** First declared local writer, absent for receive-only channels. */
   readonly source?: { readonly panelId: string; readonly title: Text };
   /** Validated return target whose URL contains the same selection in the same Scope. */
-  readonly arrival?: { readonly href: string };
+  readonly arrival?: { readonly href: string; readonly origin?: { readonly menuLabel: Text } };
   readonly after: string | null;
   readonly available: boolean;
 };
@@ -255,7 +255,7 @@ export type ChipSelectionEditor = {
 };
 
 function readSelectionOrigin({ returnOrigin, registry, global }: Pick<MenuPlatform, 'returnOrigin' | 'registry' | 'global'>) {
-  const { href, accepted } = returnOrigin();
+  const { href, accepted, recorded, menuLabel } = returnOrigin();
   if (!accepted) return null;
   const q = href.indexOf('?');
   const route = registry.matchRoute(q === -1 ? href : href.slice(0, q));
@@ -263,7 +263,7 @@ function readSelectionOrigin({ returnOrigin, registry, global }: Pick<MenuPlatfo
   const { menu } = route;
   const parsed = parseQuery(q === -1 ? '' : href.slice(q), menu.pageKeys, { repeated: menu.repeatedPageKeys });
   if (parsed.global.scopeId !== global.scopeId) return null;
-  return { href, page: parsed.page, channels: menuAnalysisSelections(menu) };
+  return { href, page: parsed.page, menuLabel: recorded ? menuLabel : undefined, channels: menuAnalysisSelections(menu) };
 }
 
 /** Models URL-backed analysis selections. After the guard and before writing, onClearCommit receives the key (null for clear-all) and the address transition. */
@@ -288,16 +288,20 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   const parentByPanel = new Map<string, string>();
   for (const [key, { shape, dimension, label, writers, readers, inbound }] of channels) {
     const [writer] = writers;
-    const selection = parseAnalysisSelection(shape, pageParams(key));
+    const values = pageParams(key);
+    const selection = parseAnalysisSelection(shape, values);
     if (!selection) continue;
     const matchesOrigin = inbound && origin && [...origin.channels].some(([sourceKey, source]) =>
       source.writers.length > 0 && source.dimension === dimension && source.shape === shape
       && sameSelection(selection, parseAnalysisSelection(shape, origin.page.filter(([k]) => k === sourceKey).map(([, value]) => value))));
+    const proof = screen?.returnCarry;
+    const carried = proof && Object.hasOwn(proof, key) ? proof[key] : undefined;
+    const menuLabel = origin?.menuLabel && carried && sameItems(carried, values) ? origin.menuLabel : undefined;
     const reported = availability(key);
     if (reported !== undefined) reports.set(key, reported);
     active.push({ key, selection, dimension, label: label ?? null, available: isAnalysisSelectionAvailable(selection, reported),
       ...(writer && { source: { panelId: writer.panelId, title: writer.title } }),
-      ...(matchesOrigin && { arrival: { href: origin.href } }),
+      ...(matchesOrigin && { arrival: { href: origin.href, ...(menuLabel && { origin: { menuLabel } }) } }),
     });
     for (const reader of readers) {
       if (reader.use === 'filter' && !parentByPanel.has(reader.panelId)) parentByPanel.set(reader.panelId, key);
@@ -318,6 +322,7 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
     a.owner === b.owner
     && a.chips.length === b.chips.length && a.chips.every((chip, i) =>
       chip.key === b.chips[i].key && chip.available === b.chips[i].available && chip.arrival?.href === b.chips[i].arrival?.href
+      && chip.arrival?.origin?.menuLabel === b.chips[i].arrival?.origin?.menuLabel
       && sameSelection(chip.selection, b.chips[i].selection)),
   );
 

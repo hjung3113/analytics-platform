@@ -1,13 +1,13 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { hasDotSegment, isAppPath } from '../context/location';
 import { readHiddenState, sameHidden, splitHidden, validateHidden, withHiddenState } from '../context/hiddenState';
-import type { PageFocus } from '../context/pageNavigation';
 import { isImplementedMenu, routeParamNames, withPagePreset } from '../registry/registry';
 import { incompleteMetricPair, menuPermissions, isAppRelativePath, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, type SpaceId } from '@ap/contracts';
 import { readSpaceLast, sameParams, writeSpaceLast } from './preferences';
 import { MainBoundContext, ScreenContext, type AppValue, type CommitOptions, type MainBound, type ScreenSource } from './contexts';
 import { useScreenState } from './useScreenState';
 import { ScreenSavedViews } from '../saved-view/useSavedViews';
+import { createOriginHistory, originPosition, recordOrigin, type OriginRecord } from './return-origin';
 import { readHistoryIdx, readHistorySeg, withHistoryIdx } from './navigationGuard';
 
 const editableTarget = 'input, textarea, select, [role="textbox"], [role="combobox"]';
@@ -27,7 +27,7 @@ function isAnalysisUndo(event: KeyboardEvent) {
 
 /** The main screen: the browser URL, history, and the shell navigation that follows it. */
 export const MainScreenProvider = memo(function MainScreenProvider({ app, children }: { app: AppValue; children: ReactNode }) {
-  const { location, registry, can, canOpen, accessibleSpaces, menusInSpace, user } = app.pub;
+  const { location, registry, can, canOpen, accessibleSpaces, menusInSpace, user, isCurrentGeneration } = app.pub;
   const { enters, mainNavigation: pageNavigation, guard, usageNav, initialUrl, recordVisit, rememberScope, spaceIdMigrations } = app.internal;
   const { matchRoute } = registry;
   const userId = user.id;
@@ -42,8 +42,10 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     if (split.hidden.length > 0) return { url: split.url, hidden: split.hidden, rewrite: true };
     return { url: raw, hidden: fromState.filter(([key]) => keys.includes(key)), rewrite: false };
   }, [hiddenKeysFor]);
+  const originHistory = useMemo(() => createOriginHistory(registry, isCurrentGeneration), [registry, isCurrentGeneration]);
   const [{ arrival, url, hidden }, setView] = useState(() => {
-    const arrival = arrive(initialUrl, readHiddenState(location.readState?.()));
+    const arrival: ReturnType<typeof arrive> & { generation: symbol; origin?: { history: typeof originHistory; record: OriginRecord } }
+      = { ...arrive(initialUrl, readHiddenState(location.readState?.())), generation: Symbol() };
     return { arrival, url: arrival.url, hidden: arrival.hidden };
   });
   // Writes and traversals publish here before React renders. A newer arrival also supersedes a pending rewrite.
@@ -122,6 +124,13 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     const hereState = stamping ? location.readState?.() : null;
     const here = stamping ? readHistoryIdx(hereState) : null;
     const hereSeg = here === null ? null : readHistorySeg(hereState);
+    // Guard callbacks and run can move the live history. Only the still-accepted entry can prove the departure.
+    const departure = location.read() ?? '';
+    const accepted = latestArrival.current;
+    const sameSegment = hereSeg === segRef.current;
+    const sameEntry = departure === accepted.url && here === idxRef.current && sameSegment;
+    const from = originHistory.address(accepted.url);
+    const prior = accepted.origin?.history === originHistory ? accepted.origin.record : undefined;
     // A display-only replace changes the address of the current step, but its predecessor still undoes the selection.
     const keepStep = how === 'replace' && options.preserveSelectionUndo && here !== null && hereSeg === segRef.current
       && selectionSteps.current.get(here) === location.read();
@@ -134,23 +143,50 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       const seg = here === null ? `s${Math.random().toString(36).slice(2, 10)}` : hereSeg;
       const at = location.read();
       if (here === null && at !== null) location.replace(at, { keepFragment: true, state: withHistoryIdx(location.readState?.(), base, seg) });
+      location.push(split.url, withHistoryIdx(declares ? withHiddenState(null, nextHidden) : null, base + 1, seg));
       idxRef.current = base + 1;
       segRef.current = seg;
-      location.push(split.url, withHistoryIdx(declares ? withHiddenState(null, nextHidden) : null, base + 1, seg));
       if (options.analysisSelection) selectionSteps.current.set(base + 1, split.url);
     } else if (declares) location.push(split.url, withHiddenState(null, nextHidden)); else location.push(split.url);
     const writtenUrl = location.read() ?? '';
+    const state = location.readState?.();
+    const index = readHistoryIdx(state);
+    const segment = readHistorySeg(state);
+    const to = originHistory.address(writtenUrl);
+    const wroteEntry = index !== null && segment === segRef.current
+      && (how === 'push' ? index === (here ?? 0) + 1 : index === here && segment === hereSeg);
+    const scopeChanged = (from?.scopeId ?? null) !== (to?.scopeId ?? null);
+    const crossedBoundary = here === null || !sameSegment || hereSeg !== segment;
+    if (crossedBoundary || scopeChanged) originHistory.entries.clear();
+    if (how === 'push' && wroteEntry) originHistory.pruneForward(index);
+    const carried = to && !scopeChanged
+      ? originHistory.readCarry(options.carryProof, { href: writtenUrl, departure, scopeId: to.scopeId, generation: accepted.generation })
+      : {};
+    const mint = how === 'push' && !options.redirect && !options.materialize;
+    const record = wroteEntry && sameEntry && from && to && !options.skipOrigin && originHistory.isCurrentGeneration()
+      ? recordOrigin(registry, departure, from, to, prior, { mint, carried })
+      : undefined;
+    if (wroteEntry) {
+      const position = originPosition(segment, index);
+      if (record) originHistory.entries.set(position, { index, url: writtenUrl, record });
+      else originHistory.entries.delete(position);
+    }
     if (keepStep) selectionSteps.current.set(here, writtenUrl);
-    const committed = { url: writtenUrl, hidden: nextHidden, rewrite: false };
+    const committed = { url: writtenUrl, hidden: nextHidden, rewrite: false, generation: Symbol(), origin: record ? { history: originHistory, record } : undefined };
     latestArrival.current = committed;
     setView({ arrival: committed, url: writtenUrl, hidden: nextHidden });
     if (how === 'push') document.getElementById('platform-main')?.scrollTo({ top: 0 });
     return true;
-  }, [pageNavigation, location, hiddenKeysFor, menuFor, guard, usageNav, stamping]);
+  }, [pageNavigation, location, hiddenKeysFor, menuFor, guard, usageNav, stamping, registry, originHistory]);
   useLayoutEffect(() => { commitRef.current = commit; }, [commit]);
-  const go = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; restoreHidden?: readonly Pair[]; guard?: boolean; run?: () => boolean }) => commit(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, restoreHidden: options?.restoreHidden, guard: options?.guard, run: options?.run }), [commit]);
+  const go = useCallback<ScreenSource['go']>((next, options) => commit(next, options?.replace ? 'replace' : 'push', {
+    focus: options?.focus, restoreHidden: options?.restoreHidden, guard: options?.guard, run: options?.run, carryProof: options?.carryProof,
+  }), [commit]);
 
-  const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, hidden, readAddress, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
+  const origin = arrival.origin?.history === originHistory ? arrival.origin.record : undefined;
+  const mintCarry = useCallback<NonNullable<ScreenSource['mintCarry']>>((href, carried, scopeId) =>
+    originHistory.mintCarry({ href, departure: arrival.url, scopeId, generation: arrival.generation }, carried), [originHistory, arrival]);
+  const source: ScreenSource = { origin, mintCarry, mode: 'main', paneId: null, paneLabel: null, url, hidden, readAddress, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
   const { screen, sidebarSpace, resolveEntryLink, initialSavedView } = useScreenState(app, source);
   const { pathname, route, contractError, navigate, currentSpace } = screen;
   useLayoutEffect(() => {
@@ -182,10 +218,16 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       // An entry without a stamp breaks the numbering: nothing is trusted from before it (F1). A stamped one brings its own segment.
       const segment = newIdx === null ? null : readHistorySeg(location.readState?.());
       if (newIdx === null || segment !== segRef.current) selectionSteps.current.clear();
+      if (newIdx === null || segment !== segRef.current
+        || (originHistory.address(latestArrival.current.url)?.scopeId ?? null) !== (originHistory.address(next)?.scopeId ?? null)) {
+        originHistory.entries.clear();
+      }
+      const entry = newIdx === null ? undefined : originHistory.entries.get(originPosition(segment, newIdx));
+      const origin = entry?.url === next ? { history: originHistory, record: entry.record } : undefined;
       idxRef.current = newIdx;
       segRef.current = segment;
       guard.dropRequest(); // an accepted arrival ends any request made from the entry we left (F3)
-      const traversed = { url: next, hidden: arrived.hidden, rewrite: false };
+      const traversed = { url: next, hidden: arrived.hidden, rewrite: false, generation: Symbol(), origin };
       latestArrival.current = traversed;
       guard.traversed();
       setView({ arrival: traversed, url: next, hidden: arrived.hidden });
@@ -218,7 +260,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
               replayIdx.current = null; failOpen('NavGuardHistoryError');
               usageNav.current.via = 'history';
               // Same accepted-arrival as a normal Back: hidden pairs, page focus across menus, and the traversal signal (R2-2..R2-4).
-              if (commitRef.current?.(raw, 'push', { bypassGuard: true, restoreHidden: destHidden, focus: crossMenu ? 'page' : undefined })) guard.traversed();
+              if (commitRef.current?.(raw, 'push', { bypassGuard: true, skipOrigin: true, restoreHidden: destHidden, focus: crossMenu ? 'page' : undefined })) guard.traversed();
             }
           } });
           return;
@@ -243,7 +285,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       window.removeEventListener('popstate', onPop);
       window.removeEventListener('keydown', onUndo);
     };
-  }, [pageNavigation, location, usageNav, arrive, guard, menuFor, hiddenKeysFor]);
+  }, [pageNavigation, location, usageNav, arrive, guard, menuFor, hiddenKeysFor, originHistory]);
 
   // Recent visits (the main screen's own history; a pane never writes them).
   useEffect(() => {
