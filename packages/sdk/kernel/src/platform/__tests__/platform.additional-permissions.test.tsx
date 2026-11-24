@@ -3,10 +3,12 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../i18n';
-import { PlatformProvider, useHostPlatform } from '../platform';
+import { PlatformProvider, useHostPlatform, useQueryEngine } from '../platform';
+import type { QueryEngine } from '../../query/query-engine';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from '../../registry/registry';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
-import { groupId, menuPermission, spaceId, type Permission, type Session, type UsageEvent } from '@ap/contracts';
+import { defineEndpoint, groupId, menuPermission, spaceId, type MenuQuery, type Permission, type Session, type UsageEvent } from '@ap/contracts';
+import { useMenuQuery } from '../../query/query';
 
 // A synthetic ungated global menu needs C (`console:access`, its primary) AND F (`features:access`, additional).
 // No space gate exists to mask the extra grant, so each single-grant actor is denied by that branch alone.
@@ -98,5 +100,45 @@ describe('additionalPermissions are ANDed with the primary permission', () => {
     session = testSession(['platform:view', C]);
     await act(async () => { for (const l of listeners) l(); });
     expect(screen.getByTestId('open').textContent).toBe('false');
+  });
+  it('revoking the open menu\'s grant mid-session (same user) closes it and leaves no earlier-generation query result (#2895)', async () => {
+    let session = testSession(['platform:view', F, C]);
+    const listeners = new Set<() => void>();
+    const requests: MenuQuery[] = [];
+    const endpoint = defineEndpoint<Record<string, never>, number>({
+      id: 'both.list', menuId: 'both', paramKeys: {}, permission: 'platform:view', requiresScope: false,
+      context: {}, kinds: ['collection'], mergeTimeDomain: false,
+    });
+    let engine!: QueryEngine;
+    function QueryProbe() {
+      engine = useQueryEngine();
+      const q = useMenuQuery(endpoint, {});
+      return <p data-testid="query">{q.status}:{q.response?.outcome === 'ok' ? q.response.data : '-'}</p>;
+    }
+    window.history.replaceState(null, '', '/both');
+    const adapter = testAdapter({
+      session: () => session,
+      subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; },
+      menuQuery: async request => {
+        requests.push(request);
+        return { outcome: 'ok', data: requests.length, assessments: [{ kind: 'collection', state: 'clear' }], trust: null, correlationId: `r${requests.length}` };
+      },
+    });
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Probe /><QueryProbe /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('done:1')).toBeTruthy();
+    expect(screen.getByTestId('listed').textContent?.split(',')).toContain('both');
+    const before = engine.gen;
+    expect(engine.client.getQueryCache().findAll().map(q => q.queryKey[1])).toContain(before);
+
+    // Same user id, one grant fewer: the server's next session snapshot after a revocation.
+    session = testSession(['platform:view', C]);
+    await act(async () => { for (const l of listeners) l(); });
+    expect(screen.getByTestId('open').textContent).toBe('false');
+    expect(screen.getByTestId('allowed').textContent).toBe('false');
+    expect(screen.getByTestId('listed').textContent?.split(',')).not.toContain('both');
+    // The earlier generation's answer is gone from memory, not only hidden behind a new key.
+    expect(engine.gen).not.toBe(before);
+    expect(engine.client.getQueryCache().findAll().map(q => q.queryKey[1])).not.toContain(before);
+    expect(screen.getByTestId('query').textContent).not.toBe('done:1');
   });
 });
