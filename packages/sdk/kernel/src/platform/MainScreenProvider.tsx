@@ -89,7 +89,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       }
     }
     // The host's own step (#2061): after any confirmed leave and before the write, so a cancelled leave never runs it; it may still refuse.
-    if (options.run && !options.run()) { pageNavigation.cancel(); return false; }
+    if (options.run && !options.run({ from: location.read() ?? '', to: split.url })) { pageNavigation.cancel(); return false; }
     // An accepted write changes the origin the pending request was made from (a replace, a Scope change, a confirmed replay): that request is stale (F3).
     guard.dropRequest();
     if (options.redirect) pageNavigation.redirect(split.url);

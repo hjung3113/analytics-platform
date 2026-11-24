@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createAnalysisSelectionAvailability } from '../context/analysisSelectionAvailability';
 import { hasDotSegment, isAppPath } from '../context/location';
 import { createPageNavigation, type PageFocus } from '../context/pageNavigation';
 import { paneHref } from '../context/paneContext';
@@ -10,26 +11,35 @@ import { useScreenState } from './useScreenState';
 /** One analysis-board pane's screen (ADR-0049). `query` is `buildQuery(global, page, extras)` of that pane, with its leading `?` (or empty). */
 export type PaneScreen = { menuId: string; params: Record<string, string>; query: string };
 
-const PaneDraftContext = createContext<ReadonlyMap<string, DraftStore> | null>(null);
+type PaneStores = { draft: DraftStore; availability: ReturnType<typeof createAnalysisSelectionAvailability> };
+const PaneStoresContext = createContext<ReadonlyMap<string, PaneStores> | null>(null);
 
-/** Owns drafts for the listed logical panes, across body/editor mounts. Remove a pane to release its draft. */
+/** Owns drafts and selection availability for each logical pane across body/editor mounts. */
 export function PaneQueryDraftProvider({ screens, children }: { screens: Readonly<Record<string, PaneScreen | null>>; children: ReactNode }) {
   const app = useContext(AppContext);
   if (!app) throw new Error('PaneQueryDraftProvider outside PlatformProvider');
-  const session = app.pub.session;
-  const identity = JSON.stringify(Object.entries(screens).map(([id, screen]) => [id, screen?.menuId, screen?.params]));
-  const [owned, setOwned] = useState(() => ({ identity, session, stores: new Map(Object.entries(screens).filter(([, screen]) => screen !== null).map(([id]) => [id, createDraftStore()])) }));
+  const { adapter, session, revision, registry } = app.pub;
+  const identity = JSON.stringify(Object.entries(screens).flatMap(([id, screen]) =>
+    screen ? [[id, JSON.stringify([screen.menuId, screen.params]), new URLSearchParams(screen.query).get('scopeId')]] : []));
+  const [owned, setOwned] = useState(() => ({
+    identity: '[]', adapter, session, revision, registry, stores: new Map<string, PaneStores>(),
+  }));
   let stores = owned.stores;
-  if (owned.identity !== identity || owned.session !== session) {
-    stores = new Map(Object.entries(screens).filter(([, screen]) => screen !== null).map(([id, screen]) => {
-      const oldIdentity = JSON.parse(owned.identity) as [string, string, Record<string, string>][];
-      const old = oldIdentity.find(([key]) => key === id);
-      const same = owned.session === session && old?.[1] === screen?.menuId && JSON.stringify(old?.[2]) === JSON.stringify(screen?.params);
-      return [id, same ? owned.stores.get(id) ?? createDraftStore() : createDraftStore()];
+  const sameGeneration = owned.adapter === adapter && owned.session === session && owned.revision === revision && owned.registry === registry;
+  if (owned.identity !== identity || !sameGeneration) {
+    type Identity = [id: string, route: string, scope: string | null];
+    const previous = JSON.parse(owned.identity) as Identity[];
+    stores = new Map((JSON.parse(identity) as Identity[]).map(([id, route, scope]) => {
+      const old = previous.find(([key]) => key === id);
+      const retained = old?.[1] === route ? owned.stores.get(id) : undefined;
+      return [id, {
+        draft: (owned.session === session ? retained?.draft : undefined) ?? createDraftStore(),
+        availability: (sameGeneration && old?.[2] === scope ? retained?.availability : undefined) ?? createAnalysisSelectionAvailability(),
+      }];
     }));
-    setOwned({ identity, session, stores });
+    setOwned({ identity, adapter, session, revision, registry, stores });
   }
-  return <PaneDraftContext.Provider value={stores}>{children}</PaneDraftContext.Provider>;
+  return <PaneStoresContext.Provider value={stores}>{children}</PaneStoresContext.Provider>;
 }
 
 /**
@@ -51,7 +61,7 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
 }) {
   const app = useContext(AppContext);
   const main = useContext(MainBoundContext);
-  const draftStores = useContext(PaneDraftContext);
+  const stores = useContext(PaneStoresContext)?.get(paneId);
   if (!app || !main) throw new Error('PaneScreenProvider outside PlatformProvider');
   const { registry, canOpen } = app.pub;
   const url = paneHref(registry, screen);
@@ -87,6 +97,7 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
       else if (!options.materialize) navigation.cancel();
       return false;
     }
+    if (options.run && !options.run({ from: current.renderedUrl, to: next })) return false;
     if (options.materialize) navigation.materialize(next);
     else navigation.advance(next, options.focus);
     current.url = next;
@@ -125,7 +136,7 @@ export function PaneScreenProvider({ paneId, paneLabel, screen, onChange, onLeav
   }, [navigation, url, readAddress, commit, matchRoute, canOpen, registry]);
 
   useEffect(() => app.internal.selectionPortCache.retain(`pane:${paneId}`), [app.internal.selectionPortCache, paneId]);
-  const source: ScreenSource = { draftStore: draftStores?.get(paneId), mode: 'pane', paneId, paneLabel, url, readAddress, navigation, commit, go, sidebarSpace: main.sidebarSpace, countsUsage: countUsage };
+  const source: ScreenSource = { draftStore: stores?.draft, availability: stores?.availability, mode: 'pane', paneId, paneLabel, url, readAddress, navigation, commit, go, sidebarSpace: main.sidebarSpace, countsUsage: countUsage };
   const state = useScreenState(app, source);
   useLayoutEffect(() => {
     reportRef.current = state.screen.reportError;

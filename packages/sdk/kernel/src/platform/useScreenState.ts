@@ -18,7 +18,7 @@ import { hasExplicitContext } from '../saved-view/restore';
 import type { InitialSavedView } from '../saved-view/useSavedViews';
 import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, type SpaceDef, type MainUsageVia, type UsageEvent } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
-import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type ScreenAddress, type ScreenSource, type ScreenState } from './contexts';
+import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type CommitOptions, type PageWriteOptions, type ScreenAddress, type ScreenSource, type ScreenState } from './contexts';
 
 // Hidden pairs are parsed with the public query, then split again by the main screen's commit (ADR-0105).
 function fullAddress({ url, hidden }: ScreenAddress): string {
@@ -180,8 +180,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // exactly (06 §6.4). History traversal (popstate, navigate) and no-op setGlobal calls never drop anything.
   // Writers commit this screen's own address; they are not cross-menu navigation (a pane keeps writing to itself
   // even after its menu lost permission or board support).
-  const write = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; bypassGuard?: boolean }) => {
-    commitState(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, bypassGuard: options?.bypassGuard });
+  const write = useCallback((next: string, options?: PageWriteOptions & Pick<CommitOptions, 'bypassGuard'>) => {
+    commitState(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, bypassGuard: options?.bypassGuard, run: options?.run });
   }, [commitState]);
 
   const setGlobal = useCallback((patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => {
@@ -202,7 +202,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   }, [readWriteBase, pathname, write, toast, t, route]);
 
   // A patch that changes a drill level value also drops the menu's `drill.resetKeys` in the same write (one history entry, 06 §6.4).
-  const setPage = useCallback((requested: Record<string, string | readonly string[] | null>, options?: { replace?: boolean; focus?: PageFocus }) => {
+  const setPage = useCallback<ScreenState['setPage']>((requested, options) => {
     const current = readWriteBase();
     if (!current) return;
     const { global, page, extras } = current;
@@ -553,7 +553,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     drillGap: drillGap(route?.menu.drill?.levels ?? [], page) !== null,
     ready: routeMenu?.query?.mode !== 'apply' || scopeReady, ...(autoApplyingDefault ? { autoApplyingDefault } : {}) }, sameQueryPolicy);
   const scopeId = global.scopeId;
-  const analysisSelectionAvailability = useMemo(createAnalysisSelectionAvailability, [routeMenu, pathname, paneId, session, revision, scopeId]);
+  const localAvailability = useMemo(createAnalysisSelectionAvailability, [routeMenu, pathname, paneId, session, revision, scopeId]);
+  const analysisSelectionAvailability = source.availability ?? localAvailability;
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
     detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, scopeGeneration, retryScope, screenMode: mode, paneId, paneLabel, analysisSelectionAvailability,

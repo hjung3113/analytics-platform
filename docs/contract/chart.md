@@ -253,12 +253,12 @@ Zoom·Brush·항목 선택은 Chart Local State이며 URL·Global Context를 바
 
 패널 입력 투영과 가용성 판정에는 값 묶음을 `pageParams` 배열로, 범위를 `pageParam` 문자열로 넘긴다. 같은 단일 범위 키가 반복되면 메뉴 URL 코덱이 `duplicate_page_key` 오류를 낸다. 코덱을 통과한 값 중 유효하지 않은 분석 선택 값은 투영과 가용성 판정에서 빠지고 입력 훅의 `rejected`에 해당 키가 표시된다. 출력 훅의 `select(null)`로 URL에서 그 키를 지운다.
 
-`useAnalysisSelectionChips()`는 현재 화면에서 유효한 분석 선택 키마다 값, 차원, 라벨(미선언 시 `null`), 첫 출력 패널을 돌려준다. 첫 출력 패널이 다른 칩의 키를 필터로 읽으면 그 칩의 키를 `after`에 담고 뒤에 놓는다. 앞선 키가 여럿이면 선언 순서상 첫 키를 쓴다. 복원한 URL에서 필터 입력이 순환하면 그 순환만 선언 순서상 첫 칩에서 끊고(그 칩의 `after`는 `null`), 순환 밖 칩의 `after`는 그대로 둔다. `clear(key)`는 해당 키 하나만 지우고, `clearAll()`은 화면의 분석 선택 키를 한 번에 지운다. 다른 페이지 키와 전역 Context는 유지한다.
+`useAnalysisSelectionChips(onClearCommit?)`는 현재 화면에서 유효한 분석 선택 키마다 값, 차원, 라벨(미선언 시 `null`), 첫 출력 패널을 돌려준다. 첫 출력 패널이 다른 칩의 키를 필터로 읽으면 그 칩의 키를 `after`에 담고 뒤에 놓는다. 앞선 키가 여럿이면 선언 순서상 첫 키를 쓴다. 복원한 URL에서 필터 입력이 순환하면 그 순환만 선언 순서상 첫 칩에서 끊고(그 칩의 `after`는 `null`), 순환 밖 칩의 `after`는 그대로 둔다. `clear(key)`는 해당 키 하나만 지우고, `clearAll()`은 화면의 분석 선택 키를 한 번에 지운다. 다른 페이지 키와 전역 Context는 유지한다. 주소 변경이 가드를 통과하면 주소를 쓰기 직전에 `onClearCommit`을 호출한다. 첫 인자는 지울 키이며 전체 지우기에서는 `null`이다. 두 번째 인자 `{ from, to }`는 현재 주소와 쓸 주소를 담는다. 보드에서는 부모가 `to`를 나중에 반영할 수 있다.
 
 첫 출력 패널은 `useAnalysisSelectionOutput(panelId, key, { available })`로 현재 데이터에 있는 값 묶음(`readonly string[]`) 또는 범위(`{ from, to, compare? }`)를 알릴 수 있다. 범위의 두 끝은 선택 값과 같은 형식으로 제공하며, 끝점이 닿아도 겹친 것으로 본다. 기본 문자열 순서는 같은 형식과 시간대의 ISO-8601 시각에 쓸 수 있으며, 숫자 축처럼 순서가 다른 경우에는 참조가 안정적인 비교 함수 `compare(a, b)`를 넘긴다. 값이 하나도 일치하지 않거나 범위가 겹치지 않으면 칩의 `available`은 `false`다. 일부만 일치하거나 가용성을 아직 모르면 `true`다. 로딩 중에는 `available`을 생략하거나 `undefined`로 둔다.
-첫 출력 패널의 `filter` 입력을 따라가 같은 키로 돌아오는 경우 그 키의 가용성은 미보고로 본다.
+첫 출력 패널의 `filter` 입력을 따라가 같은 키로 돌아오는 경우 그 키의 가용성은 미보고로 본다. `useAnalysisSelectionOutput()`의 `availabilityCurrent`는 현재 보고 값이나 보고 철회(`available: undefined`)가 가용성을 읽는 쪽에 반영되었을 때 `true`다.
 
-`filter`로 키를 받는 패널은 `useAnalysisSelectionInputs(panelId).applied`에서 필터 값을 읽는다. 가용하지 않은 키는 `unavailable`에 들어가고 `applied`와 `filtered` 판정에서 빠진다. 가용성은 주 화면과 각 보드 패널의 메모리에 따로 두며, 화면·메뉴·세션·리비전·Scope가 바뀌면 지운다. 빌려 온 패널은 가용성을 보고하지 않는다. URL, 저장된 뷰, 공유 링크에는 분석 선택 값만 남으므로 뒤로가기로 앞선 선택을 복원하면 출력 패널의 새 데이터에 맞춰 가용성을 다시 판정한다.
+`filter`로 키를 받는 패널은 `useAnalysisSelectionInputs(panelId).applied`에서 필터 값을 읽는다. 가용하지 않은 키는 `unavailable`에 들어가고 `applied`와 `filtered` 판정에서 빠진다. 가용성은 주 화면과 각 보드 칸의 메모리에 따로 둔다. 주 화면은 메뉴·경로·세션·리비전·Scope가 바뀌면 새 저장소를 쓴다. 보드에서는 칸 본문과 조회 편집기가 같은 저장소를 쓰며 페이지 키만 바뀌는 동안 재사용한다. 시트나 칸이 사라지거나 메뉴·경로 파라미터·Scope·어댑터·세션·리비전·Registry가 바뀌면 새 저장소를 쓴다. 조회 편집기가 열려 있어도 본문의 마지막 보고자가 내려가면 해당 보고를 지운다. 빌려 온 패널은 가용성을 보고하지 않는다. URL, 저장된 뷰, 공유 링크에는 분석 선택 값만 남으므로 뒤로가기로 앞선 선택을 복원하면 출력 패널의 현재 데이터에 맞춰 가용성을 다시 판정한다.
 
 ### 차트를 그릴 수 없는 환경
 

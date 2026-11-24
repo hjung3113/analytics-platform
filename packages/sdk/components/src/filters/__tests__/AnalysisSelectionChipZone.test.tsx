@@ -2,9 +2,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { groupId, NO_FEATURES, spaceId } from '@ap/contracts';
 import { House } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChips, type AnalysisSelectionChip } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChips, usePlatform, useUnsavedGuard, type AnalysisSelectionChip } from '@ap/kernel';
+import { PaneScreenProvider, useLeaveRequest, type PaneScreen } from '@ap/kernel/host';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AnalysisSelectionChipZone } from '../AnalysisSelectionChipZone';
 
@@ -125,16 +126,11 @@ it('names the source mark with the chip label when the panel title has a placeho
   expect(zone().getByRole('img', { name: '설비' })).not.toHaveAttribute('title');
 });
 
-it.each([
-  ['folded two to one', '&mod=M1', '+1 ›', 'equipment 선택 지우기', 'module 선택 지우기'],
-  ['inline two to one', '&mod=M1', '', 'module 선택 지우기', 'equipment 선택 지우기'],
-  ['one to none', '', '', 'equipment 선택 지우기', '조회 조건 펼치기'],
-  ['clear all from the list', '&mod=M1', '+1 ›', '모두 지우기', '조회 조건 펼치기'],
-])('moves focus after clearing: %s', async (_case, extra, more, action, target) => {
+async function mountSelections(extra: string, selections = [equipment, module], children?: ReactNode, wrap = (content: ReactNode) => content) {
   const actual = await vi.importActual<typeof import('@ap/kernel')>('@ap/kernel');
   vi.mocked(useAnalysisSelectionChips).mockImplementation(actual.useAnalysisSelectionChips);
   const title = equipment.source.title;
-  const keys = [equipment.key, module.key];
+  const keys = selections.map(chip => chip.key);
   const group = groupId('overview');
   const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: group, label: title, icon: House, space: spaceId('mars') }],
     menus: [{ id: 'home', path: '/', primary: true, group, label: title, description: title, icon: House,
@@ -142,13 +138,23 @@ it.each([
       query: { mode: 'live' },
       pageKeys: keys, repeatedPageKeys: keys, contextResetKeys: keys,
       panels: [{ id: 'source', title, grain: 'daily', endpoints: [], queryInputs: {}, displayInputs: {},
-        outputs: [equipment, module].map(({ key, dimension }) => ({ key, action: 'pick', selection: { shape: 'set', dimension } })) }],
+        outputs: selections.map(({ key, dimension }) => ({ key, action: 'pick', selection: { shape: 'set', dimension } })) }],
     }] });
   const session = testSession(['platform:view']);
   const adapter = testAdapter({ session: () => session });
   window.history.replaceState(null, '', `/?v=1&equip=E1${extra}`);
   const disclosureFocus = vi.fn(() => screen.queryByRole('group', { name: '분석 선택' }));
-  const { container } = render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}><Harness onDisclosureFocus={disclosureFocus} /></PlatformProvider></I18nProvider>);
+  const { container } = render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}>{wrap(<Harness onDisclosureFocus={disclosureFocus} />)}{children}</PlatformProvider></I18nProvider>);
+  return { container, disclosureFocus };
+}
+
+it.each([
+  ['folded two to one', '&mod=M1', '+1 ›', 'equipment 선택 지우기', 'module 선택 지우기'],
+  ['inline two to one', '&mod=M1', '', 'module 선택 지우기', 'equipment 선택 지우기'],
+  ['one to none', '', '', 'equipment 선택 지우기', '조회 조건 펼치기'],
+  ['clear all from the list', '&mod=M1', '+1 ›', '모두 지우기', '조회 조건 펼치기'],
+])('moves focus after clearing: %s', async (_case, extra, more, action, target) => {
+  const { container, disclosureFocus } = await mountSelections(extra);
   const user = userEvent.setup();
   if (more) {
     act(() => {
@@ -166,4 +172,67 @@ it.each([
   expect(screen.queryByRole('dialog', { name: '분석 선택' })).toBeNull();
   if (target === '조회 조건 펼치기') expect(disclosureFocus).toHaveReturnedWith(null);
   else expect(zone().queryByRole('button', { name: action })).toBeNull();
+});
+
+it.each(['replacement', 'blur'] as const)('handles %s of the remaining focused chip when the row unfolds', async reason => {
+  const { container } = await mountSelections('&mod=M1&time=T1', [equipment, module, time]);
+  const probe = container.querySelector('[data-analysis-chip-probe]')!;
+  act(() => {
+    resize(screen.getByTestId('row'), 300);
+    resize(screen.getByText('조회 요약'), 100);
+    resize(probe, 400);
+  });
+  expect(zone().getByRole('button', { name: '+2 ›' })).toBeVisible();
+  zone().getByRole('button', { name: 'time 선택 지우기' }).focus();
+  await userEvent.setup().keyboard('{Enter}');
+  const remaining = zone().getByRole('button', { name: 'module 선택 지우기' });
+  expect(remaining).toHaveFocus();
+  if (reason === 'blur') {
+    await act(async () => remaining.blur());
+    expect(document.body).toHaveFocus();
+  }
+  act(() => resize(probe, 150));
+  expect(zone().queryByRole('button', { name: '+1 ›' })).toBeNull();
+  expect(reason === 'blur' ? document.body : zone().getByRole('button', { name: 'module 선택 지우기' })).toHaveFocus();
+});
+
+it('hands off focus after a pane applies its deferred clear proposal', async () => {
+  let apply: (() => void) | undefined;
+  function DeferredPane({ children }: { children: ReactNode }) {
+    const [pane, setPane] = useState<PaneScreen>({ menuId: 'home', params: {}, query: '?v=1&equip=E1&mod=M1' });
+    return <PaneScreenProvider paneId="pane" screen={pane} onLeave={vi.fn()} onChange={next => { apply = () => setPane(next); }}>
+      {children}
+    </PaneScreenProvider>;
+  }
+  const { container } = await mountSelections('', [equipment, module], undefined, children => <DeferredPane>{children}</DeferredPane>);
+  const clearModule = zone().getByRole('button', { name: 'module 선택 지우기' });
+  clearModule.focus();
+  await userEvent.setup().keyboard('{Enter}');
+  expect(apply).toBeTypeOf('function');
+  act(() => resize(container.querySelector('[data-analysis-chip-probe]')!, 150));
+  expect(clearModule).toHaveFocus();
+  act(() => apply!());
+  expect(zone().queryByRole('button', { name: 'module 선택 지우기' })).toBeNull();
+  expect(zone().getByRole('button', { name: 'equipment 선택 지우기' })).toHaveFocus();
+});
+
+it('keeps focus on another control after a guarded chip clear is cancelled', async () => {
+  function GuardedControls() {
+    useUnsavedGuard(true, { leaves: 'address' });
+    const request = useLeaveRequest();
+    const { setPage } = usePlatform();
+    return <>
+      {request && <button onClick={request.cancel}>머무르기</button>}
+      <button onClick={() => setPage({ equip: null }, { replace: true })}>출처에서 지우기</button>
+    </>;
+  }
+  await mountSelections('', [equipment, module], <GuardedControls />);
+  const user = userEvent.setup();
+  await user.click(zone().getByRole('button', { name: 'equipment 선택 지우기' }));
+  await user.click(screen.getByRole('button', { name: '머무르기' }));
+  expect(zone().getByText('equipment E1')).toBeVisible();
+  const external = screen.getByRole('button', { name: '출처에서 지우기' });
+  await user.click(external);
+  expect(screen.queryByRole('group', { name: '분석 선택' })).toBeNull();
+  expect(external).toHaveFocus();
 });

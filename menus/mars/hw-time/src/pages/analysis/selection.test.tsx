@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as kernel from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
@@ -15,6 +15,8 @@ const action = (id: string) => screen.getByRole<HTMLButtonElement>('button', { n
 const selection = (values: string[]) => values.map(value => `&motionEquipment=${value}`).join('');
 const fullSet = Array.from({ length: kernel.ANALYSIS_SELECTION_MAX_VALUES }, (_, index) => `EQ-${String(index + 2).padStart(3, '0')}`);
 const tableReads = () => requests.filter(request => ['hwTime.levelRows', 'hwTime.tableRows'].includes(request.endpoint));
+const matrixReads = () => requests.filter(request => request.endpoint === 'hwTime.matrix');
+const tableOnlyLink = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=table&motionEquipment=EQ-002&motion=~none';
 
 beforeEach(() => { requests.length = 0; vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
@@ -114,9 +116,59 @@ it('leaves the table unfiltered when every Motion is unchecked', async () => {
   await renderOverview(workspace + '&motion=~none' + selection(['EQ-002']), answer, { waitForData: false });
   expect(screen.getByText('선택한 항목 없음')).toBeTruthy();
   expect(filter()).toEqual(['EQ-002']);
+  await waitFor(() => expect(tableReads()).toHaveLength(2));
   for (const endpoint of ['hwTime.levelRows', 'hwTime.tableRows']) {
     const latest = tableReads().filter(request => request.endpoint === endpoint).at(-1);
     expect(latest).toBeDefined();
     expect(latest?.params).not.toHaveProperty('motionEquipment');
   }
+});
+
+it.each(['ok', 'error'] as const)('waits for an unpinned matrix (%s) before reading the table once', async outcome => {
+  let releaseMatrix!: () => void;
+  const matrix = new Promise<void>(resolve => { releaseMatrix = resolve; });
+  await renderOverview(tableOnlyLink, async request => {
+    if (request.endpoint !== 'hwTime.matrix') return answer(request);
+    await matrix;
+    return outcome === 'ok' ? answer(request) : { ...answer(request), outcome, data: null };
+  }, { waitForData: false });
+  await waitFor(() => expect(matrixReads()).toHaveLength(1));
+  expect.soft(tableReads()).toEqual([]);
+  expect(screen.queryByRole('tab', { name: 'moduleMotions' })).toBeNull();
+
+  await act(async () => releaseMatrix());
+  await waitFor(() => expect(tableReads()).toHaveLength(2));
+  await settle();
+  expect(matrixReads()).toHaveLength(1);
+  const context = {
+    scopeId: 'MEM', from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00',
+    roomNames: null, prcGroups: null, condition: null, membershipBasis: null, selection: null,
+  };
+  const params = { moduleType: 'PM', ...(outcome === 'error' ? { motionEquipment: ['EQ-002'] } : {}) };
+  expect(tableReads().filter(request => request.endpoint === 'hwTime.levelRows')).toEqual([
+    { endpoint: 'hwTime.levelRows', context, params },
+  ]);
+  expect(tableReads().filter(request => request.endpoint === 'hwTime.tableRows')).toEqual([
+    { endpoint: 'hwTime.tableRows', context, params: { ...params, page: 0, pageSize: 25, sorting: [] } },
+  ]);
+  expect(filter()).toEqual(['EQ-002']);
+});
+
+it('keeps the table loaded when Back restores an unavailable equipment chip on a table-only link', async () => {
+  await renderOverview(tableOnlyLink, answer, { waitForData: false, showSelectionChips: true });
+  const panel = within(screen.getByRole('region', { name: 'panel table' }));
+  const loadedTable = await panel.findByRole('table');
+  expect(tableReads().map(read => read.endpoint).sort()).toEqual(['hwTime.levelRows', 'hwTime.tableRows']);
+  const before = tableReads().length;
+  fireEvent.click(screen.getByRole('button', { name: '설비 선택 지우기' }));
+  expect(filter()).toEqual([]);
+  await act(async () => {
+    const traversed = new Promise<void>(resolve => window.addEventListener('popstate', () => resolve(), { once: true }));
+    window.history.back();
+    await traversed;
+  });
+  expect(filter()).toEqual(['EQ-002']);
+  expect(matrixReads()).toHaveLength(1);
+  expect(tableReads().slice(before)).toEqual([]);
+  expect(panel.getByRole('table')).toBe(loadedTable);
 });

@@ -1,6 +1,6 @@
 import type { AnalysisSelection, AnalysisSelectionUse, Text } from '@ap/contracts';
 import { use, useEffect, useInsertionEffect, useMemo, useSyncExternalStore } from 'react';
-import { PaneScreenContext, ScreenContext } from '../platform/contexts';
+import { PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
 import { usePlatform } from '../platform/hooks';
 import type { MenuPlatform } from '../platform/types';
 import { menuAnalysisSelections } from '../registry/analysis-selections';
@@ -48,7 +48,12 @@ function hasFilterCycle(channels: ReturnType<typeof menuAnalysisSelections>, key
 export function useAnalysisSelectionOutput(panelId: string, key: string, options?: {
   /** Values present in the source's current data. Omit while availability is unknown. */
   available?: AnalysisSelectionAvailability | undefined;
-}): { selection: AnalysisSelection | null; select: (next: AnalysisSelection | null) => boolean } {
+}): {
+  selection: AnalysisSelection | null;
+  select: (next: AnalysisSelection | null) => boolean;
+  /** Whether readers of this source see the supplied availability (or its withdrawal). */
+  availabilityCurrent: boolean;
+} {
   const { route, pageParams, setPage } = usePlatform();
   const screen = useWriteScreen(route);
   const channels = useChannels(route?.menu);
@@ -57,6 +62,11 @@ export function useAnalysisSelectionOutput(panelId: string, key: string, options
   const report = useStable(options?.available, sameAvailability);
   const isSource = channel?.writers[0]?.panelId === panelId;
   const canReport = useMemo(() => isSource && !hasFilterCycle(channels, key), [channels, isSource, key]);
+  const availabilityCurrent = useSyncExternalStore(
+    canReport && store ? store.subscribe : subscribeToEmptyAvailability,
+    () => canReport && store !== undefined && sameAvailability(store.read().get(key), report),
+    () => false,
+  );
   useEffect(() => {
     if (store && canReport && report !== undefined) return store.report(key, report);
   }, [store, canReport, key, report]);
@@ -64,7 +74,7 @@ export function useAnalysisSelectionOutput(panelId: string, key: string, options
   if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
   const rendered = pageParams(urlKey);
   const selection = channel ? parseAnalysisSelection(channel.shape, rendered) : null;
-  return { selection, select(next) {
+  return { selection, availabilityCurrent, select(next) {
     const current = screen?.pageParamsNow(urlKey);
     if (!current || !channel || (next && next.shape !== channel.shape)) return false;
     const param = next && analysisSelectionParam(next);
@@ -170,13 +180,13 @@ function orderChips(chips: readonly AnalysisSelectionChip[]): AnalysisSelectionC
   return ordered;
 }
 
-/** Models the current screen's URL-backed analysis selections and clears them through its page write boundary. */
-export function useAnalysisSelectionChips(): {
+/** Models URL-backed analysis selections. After the guard and before writing, onClearCommit receives the key (null for clear-all) and the address transition. */
+export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, address: AddressTransition) => void): {
   chips: readonly AnalysisSelectionChip[];
   clear: (key: string) => boolean;
   clearAll: () => boolean;
 } {
-  const { route, pathname, pageParams, setPage, session, revision, global } = usePlatform();
+  const { route, pathname, pageParams, session, revision, global } = usePlatform();
   const screen = useWriteScreen(route);
   const availability = useReportedAvailability(screen);
   const menu = route?.menu;
@@ -198,7 +208,7 @@ export function useAnalysisSelectionChips(): {
   // The address's page values can change without retiring this screen's actions.
   const owner = useMemo(() => ({
     menu, pathname, paneId, session, revision, scopeId,
-    clearKeys: null as ((keys: Iterable<string>) => boolean) | null,
+    clearKeys: null as ((keys: Iterable<string>, key: string | null) => boolean) | null,
   }), [menu, pathname, paneId, session, revision, scopeId]);
   const { chips } = useStable({ owner, chips: result }, (a, b) =>
     a.owner === b.owner
@@ -209,7 +219,7 @@ export function useAnalysisSelectionChips(): {
   // Bind the committed screen before descendant layout effects can clear it, as pane address writes do.
   useInsertionEffect(() => {
     if (!screen || !route) return;
-    owner.clearKeys = keys => {
+    owner.clearKeys = (keys, key) => {
       const patch = new Map<string, null>();
       for (const key of keys) {
         const current = screen.pageParamsNow(key);
@@ -218,15 +228,18 @@ export function useAnalysisSelectionChips(): {
         if (current.length || (screen.screenMode === 'pane' && pageParams(key).length)) patch.set(key, null);
       }
       if (!patch.size) return false;
-      setPage(Object.fromEntries(patch));
+      screen.setPage(Object.fromEntries(patch), { run: address => {
+        if (owner.clearKeys) onClearCommit?.(key, address);
+        return true;
+      } });
       return true;
     };
     return () => { owner.clearKeys = null; };
-  }, [owner, screen, route, pageParams, setPage]);
+  }, [owner, screen, route, pageParams, onClearCommit]);
 
   return useMemo(() => ({
     chips,
-    clear: (key: string) => channels.has(key) && (owner.clearKeys?.([key]) ?? false),
-    clearAll: () => owner.clearKeys?.(channels.keys()) ?? false,
+    clear: (key: string) => channels.has(key) && (owner.clearKeys?.([key], key) ?? false),
+    clearAll: () => owner.clearKeys?.(channels.keys(), null) ?? false,
   }), [chips, channels, owner]);
 }

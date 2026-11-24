@@ -3,7 +3,7 @@ import { ChartNoAxesCombined, History, ListTree } from 'lucide-react';
 import { isAnswered } from '@ap/contracts';
 import { ANALYSIS_SELECTION_MAX_VALUES, formatText, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
 import {
-  AnalysisChart, AnalysisChartFrame, LegendTree, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView,
+  AnalysisChart, AnalysisChartFrame, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView,
   usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
 import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams } from '../../endpoints';
@@ -267,7 +267,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const extraIds = [...new Set([...added, ...pins.pinned, ...(trend || step === 4 ? ['trend'] : [])])].filter(id => available.some(item => item.id === id));
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
   const { pageParam, pageParams, setPage } = usePlatform();
-  const sourceQuery = typeId && extraIds.includes('moduleMotions') ? queries[typeId] : undefined;
+  const selectedEquipment = pageParams(MOTION_EQUIPMENT_KEY);
+  const sourceQuery = typeId && step === 4 ? queries[typeId] : undefined;
   const sourceResponse = sourceQuery?.showingPrevious ? null : sourceQuery?.response;
   const source = typeId && sourceResponse && isAnswered(sourceResponse.outcome)
     ? projectBarData(sourceResponse.data ?? undefined, filter.selectionFor(typeId), { depth: 4, moduleId, motionId, allMotions: true })
@@ -280,9 +281,11 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   };
   const verdict = verdictCodec.decode(pageParam('verdict') ?? '');
   const date = pageParam('date');
-  const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date, [MOTION_EQUIPMENT_KEY]: pageParams(MOTION_EQUIPMENT_KEY) };
+  const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date, [MOTION_EQUIPMENT_KEY]: selectedEquipment };
   const equipment = projectQueryInputs(panelDeclarations.table, panelContext)[MOTION_EQUIPMENT_KEY];
-  const filterTable = filtered && equipment !== undefined && extraIds.includes('table');
+  const waitingForAvailability = equipment !== undefined && sourceQuery !== undefined
+    && (sourceQuery.status === 'loading' || sourceQuery.showingPrevious || !selectionOutput.availabilityCurrent);
+  const filterTable = !waitingForAvailability && filtered && equipment !== undefined && extraIds.includes('table');
   const tableLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, filterTable);
   const analysis = filterTable ? { equipment, level: tableLevel } : undefined;
   const levelResponse = tableLevel.response;
@@ -338,7 +341,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
             const display = projectDisplayInputs(panelDeclarations.moduleMotions, panelContext);
             return <Bars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions selectionOutput={selectionOutput} />;
           }
-          case 'table': return <RawTablePanel params={{}} linked analysis={analysis} />;
+          case 'table': return waitingForAvailability ? <LoadingBlock /> : <RawTablePanel params={{}} linked analysis={analysis} />;
           case 'donut': {
             const data = matrixData(projectQueryInputs(panelDeclarations.donut, panelContext));
             return matricesView(queries, data.required, <VerdictDonut matrices={data.matrices} filter={filter} verdict={verdict} />);
