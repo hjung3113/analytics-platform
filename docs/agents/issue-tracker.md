@@ -29,7 +29,7 @@ Add the `on-hold` label to an issue while an external condition remains unresolv
 
 ## Owner Labels
 
-`owner-ok:size` and `owner-ok:scope` go on a pull request, and only the owner applies them. They are the only way past the `PR guard` CI check: `owner-ok:size` lets this one PR exceed 400 lines or 40 files, `owner-ok:scope` lets it close an issue outside the release's `## 범위` or add numbers to that section. An agent never applies, removes or asks a worker to apply one; it asks the owner with `질문 #n`. Reason: the check prints who applied the label and when, so the label is the owner's recorded decision ([`PROFILE.md`](../../.agents/conductor/PROFILE.md) §Size and path).
+`owner-ok:size` and `owner-ok:scope` go on a pull request, and only the owner applies them. `owner-ok:size` lets this one PR exceed 400 lines or 40 files (the lead can also pass the size check with a `Size: lead — <reason>` body line, [`PROFILE.md`](../../.agents/conductor/PROFILE.md) §Size and path); `owner-ok:scope` lets it close an issue outside the release's `## 범위` or add numbers to that section. An agent never applies, removes or asks a worker to apply one; it asks the owner with `질문 #n`. Reason: the check prints who applied the label and when, so the label is the owner's recorded decision ([`PROFILE.md`](../../.agents/conductor/PROFILE.md) §Size and path).
 
 ## Pull Requests as a Triage Surface
 
