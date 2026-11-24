@@ -128,9 +128,8 @@ function installFetch(
     }),
   );
 }
-function mount(search: Search) {
+function mount(search: Search, client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   current = { ...search };
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
       <HostSeamProvider value={seam}>
@@ -162,6 +161,37 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+});
+
+it('holds the scoped empty Evidence request during a recheck', async () => {
+  installFetch(() => response({ items: [], page: { has_more: false } }));
+  const initialFetch = globalThis.fetch;
+  let resolve!: (value: Response) => void;
+  const recheck = new Promise<Response>(done => { resolve = done; });
+  const check = vi.fn(() => recheck)
+    .mockResolvedValueOnce(response({ state: 'request_access', decision: { allow: false } }));
+  vi.stubGlobal('fetch', (input: RequestInfo | URL) => {
+    const { pathname } = new URL(String(input), 'http://localhost');
+    if (pathname === '/me/permissions/check') return check();
+    if (pathname === '/managed-systems') return Promise.resolve(response({ items: [] }));
+    return initialFetch(input);
+  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  mount({ managedSystem: MS }, client);
+  const request = await screen.findByRole('button', { name: '권한 요청' });
+  request.focus();
+  await act(async () => { void client.invalidateQueries({ queryKey: ['permission-check', 'finding.read', MS] }); });
+  await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
+  expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
+  expect(screen.getByText('확인 중')).toBeInTheDocument();
+  expect(document.activeElement).not.toBe(document.body);
+  await act(async () => resolve(response({
+    state: 'blocked_non_requestable', decision: { allow: false, reason: 'explicit_deny' },
+  })));
+  await waitFor(() => expect(screen.queryByText('확인 중')).toBeNull());
+  expect(screen.getByRole('heading', { name: '근거' }).closest('[data-state]'))
+    .toHaveAttribute('data-state', 'denied');
+  expect(screen.queryByRole('button', { name: '권한 요청' })).toBeNull();
 });
 
 it('pushes a source tab with every other key kept and the cursor dropped', async () => {

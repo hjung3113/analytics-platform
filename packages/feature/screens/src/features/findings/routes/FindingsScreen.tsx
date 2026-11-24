@@ -226,6 +226,7 @@ function FindingsListShell({
     capability,
     managedSystemId,
     empty: listQuery.isSuccess && findings.length === 0,
+    recheckPolicy: 'hold-request',
   });
   const total = listQuery.data?.pages[0]?.page?.total;
   const selectedQuery = useFindingDetail(selectedId);

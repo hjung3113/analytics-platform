@@ -1,4 +1,5 @@
 import { concreteListSystemId, isListForbidden, listForbiddenHint } from '../../../lib/cross-system/useListDenial';
+import { permissionCheckStatus } from '../../../lib/cross-system/permission-check-status';
 import { permissionCheckQueryOptions } from '../../../lib/cross-system/usePermissionCheckBridge';
 import { placeholderDataForSearchOnly } from '../../../lib/query/placeholder-data-for-search';
 import { hashKey, useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -116,30 +117,37 @@ export function useVocListPages(params: UseVocListPagesParams) {
     capability: 'voc.read',
     ...(systemId !== undefined ? { managedSystemId: systemId } : {}),
   });
+  const denialIdentity = [keyHash, list.errorUpdatedAt, list.errorUpdateCount] as const;
   const check = useQuery({
     ...checkOptions,
     // A new denial needs its own response, even if a shared point check is still in flight.
     // Keep the shared key prefix so permission-request mutations can invalidate this check.
-    queryKey: [...checkOptions.queryKey, 'voc-inbox-denial', keyHash, list.errorUpdatedAt, list.errorUpdateCount],
+    queryKey: [...checkOptions.queryKey, 'voc-inbox-denial', ...denialIdentity],
     enabled: checkSystem,
     placeholderData: () => undefined,
   });
   const decision = check.data?.decision;
+  const checkStatus = permissionCheckStatus(check);
+  const requestPending = checkSystem && checkStatus === 'success' && check.data?.state === 'pending_request';
   const systemRequestable =
     checkSystem &&
-    check.isSuccess &&
+    checkStatus === 'success' &&
+    !requestPending &&
     decision?.allow === false &&
     decision.reason !== 'role_required' &&
     Array.isArray(decision.requestable) &&
     decision.requestable.length > 0;
   const requestSystemId = systemRequestable ? systemId : undefined;
-  const checkStatus = check.isError && check.isFetching ? 'pending' : check.status;
   return {
     ...list,
     keyHash,
     requestSystemId,
-    exactScopeTarget: systemRequestable && target == null,
+    requestPending,
+    exactScopeTarget: checkSystem && target == null,
+    requestCheckSystemId: checkSystem ? systemId : undefined,
     requestCheckStatus: checkSystem ? checkStatus : undefined,
+    requestCheckAllowed: checkSystem && checkStatus === 'success' &&
+      (check.data?.state === 'approved' || decision?.allow === true),
     requestCheckRetry: check.refetch,
   };
 }

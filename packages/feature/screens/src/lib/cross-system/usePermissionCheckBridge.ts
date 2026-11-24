@@ -29,7 +29,16 @@ export function permissionCheckQueryOptions(args: UsePermissionCheckArgs) {
 
 export function usePermissionCheckBridge(
   args: UsePermissionCheckArgs,
-  options: Pick<UseQueryOptions<PermissionCheckResponse>, 'enabled' | 'refetchOnWindowFocus'> = {},
+  { denialIdentity, ...options }: Pick<UseQueryOptions<PermissionCheckResponse>, 'enabled' | 'refetchOnWindowFocus'> &
+    { denialIdentity?: readonly (string | number)[] } = {},
 ) {
-  return useQuery<PermissionCheckResponse>({ ...permissionCheckQueryOptions(args), enabled: true, ...options });
+  const query = permissionCheckQueryOptions(args);
+  return useQuery<PermissionCheckResponse>({
+    ...query, enabled: true, ...options,
+    ...(denialIdentity && {
+      // Denials need a check that starts after they arrive, even if a point check is in flight.
+      queryKey: [...query.queryKey, ...denialIdentity],
+      placeholderData: () => undefined,
+    }),
+  });
 }

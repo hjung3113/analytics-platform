@@ -4,13 +4,14 @@
 // module never imports the detail tree. URL state: see useInboxState.
 
 import { ListLoadMore } from '../../../components/ListLoadMore';
+import { ListDenialFocus } from '../../../components/ListAccessRequestPanel';
 import { MyVocsRecoveryLink } from '../../../components/MyVocsRecoveryLink';
+import { PermissionRecheckAction } from '../../../components/PermissionRecheckAction';
 import { permissionCardExitAction } from '../../../components/permission-card-actions';
 import { RequestAccessButton } from '../../admin/public';
 import { GLOSSARY, createLabel } from '../../../lib/copy/glossary';
 import { LIST_SEARCH_PLACEHOLDER } from '../../../lib/copy/list-search';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
-import { PERMISSION_REQUEST_FLOW_COPY } from '../../../lib/copy/permission-requests';
 import { VOC_INBOX_LABEL } from '../../../lib/copy/voc-views';
 import { HostLink, useHostPermissionLinks, useHostPrimaryActionTarget, useHostSeam } from '../../../lib/host/host-seam';
 import { HostPrimaryAction } from '../../../lib/host/HostPrimaryAction';
@@ -28,12 +29,16 @@ import {
 } from '@ap/ui';
 import { Plus } from 'lucide-react';
 import type * as React from 'react';
+import { useState } from 'react';
 import { VocAreaFilterSelect } from '../components/VocAreaFilterSelect';
 import { VocList } from '../components/list/VocList';
 import { DEFAULT_SORT, FILTER_CATEGORIES, INBOX_TABS, SORT_OPTIONS } from './inbox-config';
 import { useInboxState } from './useInboxState';
 
 const CREATE_HREF = '/vocs?action=create';
+const REQUEST_CAPABILITY = 'voc.read';
+
+type InboxRequestTarget = { listKey: string; systemId: string; dialogExactScopeTarget?: boolean | undefined };
 
 export interface InboxScreenProps {
   view: 'inbox' | 'my';
@@ -80,27 +85,50 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
     handleCreate,
   } = useInboxState(view);
 
-  const { exactScopeTarget, requestCheckStatus, requestCheckRetry } = vocList;
-  const requestCopy = PERMISSION_REQUEST_FLOW_COPY[lang];
-  let requestCheckAction: React.ReactNode;
-  switch (requestCheckStatus) {
-    case 'pending':
-      requestCheckAction = <span role="status">{requestCopy.checkingEligibility}</span>;
-      break;
-    case 'error':
-      requestCheckAction = (
-        <>
-          <span role="alert">{requestCopy.eligibilityCheckError}</span>
-          <Button type="button" size="sm" variant="secondary" onClick={() => void requestCheckRetry()}>
-            {requestCopy.retry}
-          </Button>
-        </>
-      );
-      break;
+  const { keyHash, exactScopeTarget, requestCheckSystemId, requestCheckRetry, requestPending } = vocList;
+  const currentSystemId = requestCheckSystemId ?? request?.managedSystemId;
+  // The host already remounts the screen per session. Keep this target across a refetch
+  // of the same list, while each new 403 still gets its own permission-check query.
+  const [deniedTarget, setDeniedTarget] = useState<InboxRequestTarget>();
+  let requestTarget = deniedTarget;
+  if (currentSystemId !== undefined) {
+    if (!deniedTarget || deniedTarget.listKey !== keyHash || deniedTarget.systemId !== currentSystemId) {
+      requestTarget = { listKey: keyHash, systemId: currentSystemId };
+      setDeniedTarget(requestTarget);
+    }
+  } else if (deniedTarget && (deniedTarget.listKey !== keyHash || permissionError !== null || vocList.isSuccess)) {
+    requestTarget = undefined;
+    setDeniedTarget(undefined);
   }
+
+  const requestCheckStatus = requestTarget && vocList.isFetching ? 'pending' : vocList.requestCheckStatus;
+  const requestCheckAction = requestCheckStatus === 'pending' || requestCheckStatus === 'error'
+    ? <PermissionRecheckAction status={requestCheckStatus} retry={() => void requestCheckRetry()} />
+    : undefined;
+  const showRequestPanel = requestCheckAction === undefined && (request !== undefined || requestPending);
+  let requestEligibility: React.ComponentProps<typeof RequestAccessButton>['requestEligibility'] = 'unavailable';
+  if (requestCheckStatus === 'pending' || requestCheckStatus === 'error') requestEligibility = requestCheckStatus;
+  else if (requestPending) requestEligibility = 'in-review';
+  else if (request) requestEligibility = 'available';
   const needsSystemSelection =
-    request === undefined && requestable?.permission === 'voc.read' &&
-    requestable.managed_system_id == null && requestCheckAction === undefined;
+    !showRequestPanel && requestCheckAction === undefined && requestable?.permission === REQUEST_CAPABILITY &&
+    requestable.managed_system_id == null;
+  const blockedPanel = (
+    <PermissionBlockedPanel
+      state="blocked_not_requestable"
+      layout="card"
+      headingLevel={3}
+      announceBody
+      lang={lang}
+      category={VOC_INBOX_LABEL}
+      description={PERMISSION_BLOCKED_REASONS.vocInbox}
+      {...(needsSystemSelection ? { reason: PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem } : {})}
+      {...(requestCheckAction === undefined
+        ? { requestStatus: 'not-requestable' }
+        : { requestAction: requestCheckAction })}
+      exitAction={permissionCardExitAction(permissionHomeHref, lang)}
+    />
+  );
 
   const outOfScopeBanner = outOfScopeSummary ? (
     <PermissionBlockedPanel
@@ -208,53 +236,48 @@ export function InboxScreen({ view, renderDetail }: InboxScreenProps): React.Rea
           className="mx-4 my-2"
         />
       )}
-      {permissionError !== null ? (
-        <div ref={deniedRef} tabIndex={-1} className="m-4 space-y-3">
-          {request ? (
+      {(permissionError !== null || requestTarget !== undefined) && (
+        <ListDenialFocus container={deniedRef} {...(permissionError !== null ? { className: 'm-4 space-y-3' } : {})}>
+          {requestTarget ? (
             <RequestAccessButton
-              key={request.managedSystemId}
+              key={JSON.stringify([requestTarget.listKey, REQUEST_CAPABILITY, requestTarget.systemId])}
               layout="card"
-              capability={request.capability}
+              capability={REQUEST_CAPABILITY}
               returnRouteIntent={`/vocs?view=${view}`}
-              exactScopeTarget={exactScopeTarget}
-              managedSystemId={request.managedSystemId}
-              renderTrigger={(_onRequestAccess, panel) => (
-                <PermissionBlockedPanel
-                  layout="card"
-                  headingLevel={3}
-                  announceBody
-                  state="request_access"
-                  category={VOC_INBOX_LABEL}
-                  // #562 copy: a named Managed System means this selected scope is out of reach.
-                  reason={PERMISSION_BLOCKED_REASONS.vocInboxManagedSystem}
-                  {...panel}
-                />
-              )}
+              exactScopeTarget={requestTarget.dialogExactScopeTarget ?? exactScopeTarget}
+              onOpenChange={open => setDeniedTarget({
+                ...requestTarget, dialogExactScopeTarget: open ? exactScopeTarget : undefined,
+              })}
+              {...(vocList.requestCheckAllowed && !vocList.isFetching ? {
+                onAccessGranted: () => { void vocList.refetch(); },
+              } : {})}
+              managedSystemId={requestTarget.systemId}
+              {...(requestPending ? { pending: true } : {})}
+              requestEligibility={requestEligibility}
+              renderTrigger={(_onRequestAccess, panel) => {
+                if (permissionError === null) return null;
+                if (!showRequestPanel) return blockedPanel;
+                return (
+                  <PermissionBlockedPanel
+                    layout="card"
+                    headingLevel={3}
+                    announceBody
+                    state="request_access"
+                    category={VOC_INBOX_LABEL}
+                    // #562 copy: a named Managed System means this selected scope is out of reach.
+                    reason={PERMISSION_BLOCKED_REASONS.vocInboxManagedSystem}
+                    {...panel}
+                  />
+                );
+              }}
             />
-          ) : (
-            <PermissionBlockedPanel
-              // packages/feature/screens/docs/specs/voc.md R-VOC-INBOX: no read scope and nothing requestable
-              // -> blocked_not_requestable (#562).
-              state="blocked_not_requestable"
-              layout="card"
-              headingLevel={3}
-              announceBody
-              lang={lang}
-              category={VOC_INBOX_LABEL}
-              description={PERMISSION_BLOCKED_REASONS.vocInbox}
-              // #2619: a targetless VOC read denial names the next step inside the card.
-              {...(needsSystemSelection ? { reason: PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem } : {})}
-              {...(requestCheckAction === undefined
-                ? { requestStatus: 'not-requestable' }
-                : { requestAction: requestCheckAction })}
-              exitAction={permissionCardExitAction(permissionHomeHref, lang)}
-            />
-          )}
-          {view === 'inbox' && requestable === undefined ? (
+          ) : blockedPanel}
+          {permissionError !== null && view === 'inbox' && requestable === undefined ? (
             <MyVocsRecoveryLink />
           ) : null}
-        </div>
-      ) : (
+        </ListDenialFocus>
+      )}
+      {permissionError === null && (
         <>
           {outOfScopeBanner}
           <VocList

@@ -24,10 +24,12 @@ const A = '00000000-0000-4000-8000-000000000001';
 const B = '00000000-0000-4000-8000-000000000002';
 const clients: QueryClient[] = [];
 function mount(state: string, queueDenied = false, requestableSystem: string | null = B) {
-  vi.mocked(usePermissionCheck).mockReturnValue({
+  vi.mocked(usePermissionCheck).mockImplementation(({ capability, managedSystemId }) => ({
     isPending: false,
-    data: { state, decision: { allow: state === 'approved' } },
-  } as unknown as ReturnType<typeof usePermissionCheck>);
+    data: capability === 'voc.read' && managedSystemId === requestableSystem
+      ? { state: 'request_access', decision: { allow: false } }
+      : { state, decision: { allow: state === 'approved' } },
+  }) as unknown as ReturnType<typeof usePermissionCheck>);
   const requests: unknown[] = [];
   vi.stubGlobal(
     'fetch',

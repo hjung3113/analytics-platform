@@ -613,6 +613,29 @@ describe('FindingsScreen under a host seam', () => {
     );
   });
 
+  it('holds the scoped empty Finding request during a recheck', async () => {
+    const initialFetch = installEmptyListFetch('request_access');
+    const recheck = deferredResponse();
+    const check = vi.fn(() => recheck.promise);
+    globalThis.fetch = vi.fn((input: RequestInfo | URL) =>
+      new URL(String(input), 'http://localhost').pathname === '/me/permissions/check' ? check() : initialFetch(input));
+    check.mockImplementationOnce(async () => json({ state: 'request_access', decision: { allow: false } }));
+    const { client } = mount({ managedSystem: MS }, { usePermissionLinks: () => ({
+      permissionRequestHref: () => '/request-target', permissionHomeHref: '/',
+    }) });
+    const request = await screen.findByRole('link', { name: '권한 요청' });
+    request.focus();
+    await act(async () => { void client.invalidateQueries({ queryKey: ['permission-check', 'finding.read', MS] }); });
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
+    expect(screen.getByText('확인 중')).toBeInTheDocument();
+    expect(document.activeElement).not.toBe(document.body);
+    recheck.resolve(json({ state: 'blocked_non_requestable', decision: { allow: false, reason: 'explicit_deny' } }));
+    await waitFor(() => expect(screen.queryByText('확인 중')).toBeNull());
+    expect(screen.getByText('Finding 목록을 볼 권한이 없습니다.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '권한 요청' })).toBeNull();
+  });
+
   it('blocks a scoped 200-empty list when the permission cannot be requested', async () => {
     const fetchMock = installEmptyListFetch('blocked_non_requestable');
     const permissionRequestHref = vi.fn(() => '/request-target');
