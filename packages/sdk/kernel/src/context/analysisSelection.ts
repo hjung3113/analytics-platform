@@ -1,4 +1,4 @@
-import { parseQuery, type AnalysisSelection, type AnalysisSelectionUse, type Text } from '@ap/contracts';
+import { parseQuery, type AnalysisSelection, type AnalysisSelectionShape, type AnalysisSelectionUse, type Text } from '@ap/contracts';
 import { use, useCallback, useEffect, useInsertionEffect, useMemo, useSyncExternalStore } from 'react';
 import { PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
 import { usePlatform, usePlatformOptional } from '../platform/hooks';
@@ -11,7 +11,13 @@ import { analysisSelectionRangeCompare, isAnalysisSelectionAvailable, readAvaila
 
 export { ANALYSIS_SELECTION_MAX_VALUES, analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
 
-const selectionUrlKey = (key: string) => key;
+/** What a proposed selection writes to the URL and how it reads back; null when the codec would not read it back (#2870 Q6). */
+function writeProposal(shape: AnalysisSelectionShape, next: AnalysisSelection | null): { param: string | string[] | null; normalized: AnalysisSelection | null } | null {
+  const param = next && analysisSelectionParam(next);
+  const written = typeof param === 'string' ? [param] : param ?? [];
+  const normalized = parseAnalysisSelection(shape, written);
+  return !normalized && written.length ? null : { param, normalized };
+}
 
 function sameSelection(a: AnalysisSelection | null, b: AnalysisSelection | null): boolean {
   if (a === null || b === null) return a === b;
@@ -123,24 +129,22 @@ function useSelectionOutput(platform: MenuPlatform | null, output: { panelId: st
   useEffect(() => {
     if (key !== undefined && store && canReport && report !== undefined) return store.report(key, { drillAddress: address, available: report });
   }, [store, canReport, key, report, address]);
-  const urlKey = key === undefined ? undefined : selectionUrlKey(key);
-  const rendered = urlKey === undefined ? undefined : pageParams?.(urlKey);
+  const rendered = key === undefined ? undefined : pageParams?.(key);
   const selection = channel && rendered ? parseAnalysisSelection(channel.shape, rendered) : null;
   const highlightScreen = isSource && options?.subscribeHighlight !== false ? screen : null;
   const highlighted = useSelectionHighlight(highlightScreen, address, hoveredKey => hoveredKey === key && selection !== null);
   if (output && route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
   return { selection, availabilityCurrent, highlighted, select(next) {
-    if (urlKey === undefined || !rendered || !setPage) return false;
-    const current = screen?.pageParamsNow(urlKey);
+    if (key === undefined || !rendered || !setPage) return false;
+    const current = screen?.pageParamsNow(key);
     if (!current || !channel || (next && next.shape !== channel.shape)) return false;
-    const param = next && analysisSelectionParam(next);
-    const written = typeof param === 'string' ? [param] : param ?? [];
-    const normalized = parseAnalysisSelection(channel.shape, written);
-    if (!normalized && written.length) return false;
+    const proposal = writeProposal(channel.shape, next);
+    if (!proposal) return false;
+    const { param, normalized } = proposal;
     const holds = (values: readonly string[]) => normalized === null ? values.length === 0 : sameSelection(parseAnalysisSelection(channel.shape, values), normalized);
     // Skip only when both the rendered and the latest proposed address hold it, so a board pane can resend an unaccepted proposal.
     if (holds(current) && holds(rendered)) return true;
-    setPage({ [urlKey]: normalized ? param : null });
+    setPage({ [key]: normalized ? param : null });
     return true;
   } };
 }
@@ -179,7 +183,7 @@ export function useAnalysisSelectionInputs(panelId: string): {
   for (const [key, { readers, writers, dimension, shape }] of channels) {
     const inputs = readers.filter(reader => reader.panelId === panelId);
     if (!inputs.length) continue;
-    const values = pageParams(selectionUrlKey(key));
+    const values = pageParams(key);
     if (!values.length) continue;
     const selection = parseAnalysisSelection(shape, values);
     if (!selection) {
@@ -356,10 +360,9 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
       const current = parseAnalysisSelection(shape, values);
       // The board can propose another edit until its parent applies the previous one.
       if (!current && screen.screenMode !== 'pane') return false;
-      const param = analysisSelectionParam(next);
-      const written = typeof param === 'string' ? [param] : param;
-      const normalized = parseAnalysisSelection(shape, written);
-      if (!normalized && written.length) return false;
+      const proposal = writeProposal(shape, next);
+      if (!proposal) return false;
+      const { param, normalized } = proposal;
       if (normalized?.shape === 'range') {
         // The selection carries no axis, so equal ends stay valid here (a one-category range); a time-axis chart refuses
         // to draw or apply a zero-length range itself (#2854 C5).

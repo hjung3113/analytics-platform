@@ -13,7 +13,7 @@ import { Ban, BrushIcon, Inbox, Info, RotateCcw, ServerCrash, ZoomIn, ZoomOut } 
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
 import { isThemeColorToken, readColorToken, useThemeRevision } from '@ap/ui/theme';
 import { formatNumber } from '@ap/contracts';
-import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { useRangeBrush } from './useRangeBrush';
@@ -21,10 +21,9 @@ import { LoadingBlock, StateMessage } from '../StateView';
 import { ChartTrustFooter } from './analysisChartFrameParts';
 import { chartToolVariant } from './chartChrome';
 import { ChartExportMenu, ChartTableToggle } from './ChartInteractionToolbar';
-import { ImageActionStatus, useImageActionGate } from './ChartImageCopyButton';
+import { ImageActionStatus } from './ChartImageCopyButton';
 import { IntervalTable } from './canvasChartTable';
-import { downloadChartCsv } from './analysisChartCsv';
-import { displayFileName } from '../table/download';
+import { useCanvasChartCsv } from './useCanvasChartCsv';
 import { OrderedIntervalPlot } from './OrderedIntervalPlot';
 import {
   clampOrderView,
@@ -78,7 +77,6 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   const brushRange = brush.range;
   const [textView, setTextView] = useState(false);
   const [page, setPage] = useState(0);
-  const global = usePlatformOptional()?.global ?? null;
   const [timeLabels, setTimeLabels] = useState(false);
   const [hover, setHover] = useState<{ item: OrderedTrackItem; x: number; y: number } | null>(null);
   const helpId = useId();
@@ -118,11 +116,8 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   const [requestGen, setRequestGen] = useState({ view, key: requestKey, n: 0 });
   if (requestGen.view !== view || requestGen.key !== requestKey) setRequestGen({ view, key: requestKey, n: requestGen.n + 1 });
   // The standalone result line belongs to the CSV's rows, lanes, range, title and permission; a notice alone keeps it (#2792 PR2 C3, C6).
-  const exportKey = `${view[0]}|${view[1]}|${restricted}|${props.ariaLabel}|${props.exportActions?.exportAllowed}`;
-  const [exportGeneration, setExportGeneration] = useState({ items: sourceItems, lanes: props.lanes, key: exportKey, n: 0 });
-  if (exportGeneration.items !== sourceItems || exportGeneration.lanes !== props.lanes || exportGeneration.key !== exportKey)
-    setExportGeneration({ items: sourceItems, lanes: props.lanes, key: exportKey, n: exportGeneration.n + 1 });
-  const exportGate = useImageActionGate(props.exportActions, exportGeneration.n);
+  const csv = useCanvasChartCsv({ title: props.ariaLabel, fallbackName: 'track', exportActions: props.exportActions, resetOn: [sourceItems, props.lanes, view[0] + 0, view[1] + 0, restricted] }); // `+ 0` folds -0 into 0: the same range keeps its CSV status, as the old string key did (#2888 review)
+  const exportGate = csv.gate;
   const loadObserver = useRef(props.onLoadStateChange);
   useEffect(() => {
     loadObserver.current = props.onLoadStateChange;
@@ -336,24 +331,10 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   // A positive length never reads 0: below the table's six decimals it is written as an exponent (#2792 C7).
   const lengthText = (length: number) => Number.isInteger(length) ? formatNumber(length, lang, { maximumFractionDigits: 0 })
     : Math.abs(length) < 1e-6 ? length.toExponential() : formatNumber(length, lang, { maximumFractionDigits: 6 });
-  const fileBase = displayFileName(props.ariaLabel) || 'track';
-  function exportCsv() {
-    const rows = visible.map((item) => {
-      const end = itemEnd(item);
-      return [laneLabel(item), item.label, item.orderStart, end ?? '', itemState(item), end === undefined ? '' : end - item.orderStart];
-    });
-    try {
-      downloadChartCsv(
-        { chartId: fileBase, fileName: fileBase, title: props.ariaLabel, context: global ?? {} },
-        tableColumns.map((column) => column.label),
-        rows,
-      );
-    } catch {
-      exportGate.say(m('chartExportCsvFailed', { chartId: fileBase }), 'warning');
-      return;
-    }
-    exportGate.say(m('chartExportedCsv', { chartId: fileBase }));
-  }
+  const exportCsv = () => csv.exportCsv(tableColumns.map((column) => column.label), () => visible.map((item) => {
+    const end = itemEnd(item);
+    return [laneLabel(item), item.label, item.orderStart, end ?? '', itemState(item), end === undefined ? '' : end - item.orderStart];
+  }));
   const retry = () => {
     props.state?.onRetry?.();
     if (kind === 'error' && props.onRangeRequest)

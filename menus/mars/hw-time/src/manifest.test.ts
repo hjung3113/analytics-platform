@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildQuery, contextCapabilities, groupId, parseQuery, menuPermission, NO_FEATURES, spaceId, type SpaceDef } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, buildQuery, contextCapabilities, groupId, parseQuery, menuPermission, NO_FEATURES, spaceId, type SpaceDef } from '@ap/contracts';
 import { createRegistry, type GroupDef } from '@ap/kernel';
 import { manifests } from './index';
 import { HW_TIME_CONTEXT, hwTime } from './endpoints';
@@ -13,7 +13,7 @@ describe('manifest', () => {
     expect(menu.panels?.flatMap(panel => panel.outputs.filter(output => output.selection).map(output => [panel.id, output.key, output.selection])))
       .toEqual([
         ['trend', 'trendRange', { dimension: 'date', shape: 'range', label: { ko: '날짜', en: 'Date' } }],
-        ['moduleMotions', 'motionEquipment', { dimension: 'equipmentId', shape: 'set', label: { ko: '설비', en: 'Equipment' }, objectKind: 'equipment' }],
+        ['moduleMotions', 'motionEquipment', { dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set', label: { ko: '설비', en: 'Equipment' }, objectKind: 'equipment' }],
       ]);
     expect(menu.panels?.find(panel => panel.id === 'table')?.queryInputs.page).toContainEqual({ key: 'motionEquipment', selection: 'filter' });
   });

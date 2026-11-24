@@ -1093,6 +1093,25 @@ describe('analysis selection registration (#2732)', () => {
       { ...writer, id: 'third', outputs: [{ ...labeled, selection: { ...selection, label } }] },
     ])).toThrow(/agree on label/);
   });
+
+  const drillKeys = ['step', 'unit'];
+  const drilled = { pageKeys: [key, ...drillKeys], contextResetKeys: [key, ...drillKeys], drill: { levels: drillKeys.map(k => ({ key: k, label: { ko: k, en: k } })) } };
+  // The channel used the first writer's drill level and object kind and adopted a disagreeing writer silently (#2870 Q4).
+  it.each([
+    ['drill level', { drillLevel: 'step' }, { drillLevel: 'unit' }],
+    ['drill level on one writer only', { drillLevel: 'step' }, {}],
+    ['object kind', { objectKind: 'equipment' }, { objectKind: 'module' }],
+  ])('rejects writers that disagree on %s', (_name, first, second) => {
+    expect(() => build([
+      { ...writer, outputs: [{ ...output, selection: { ...selection, ...first } }] },
+      { ...other, outputs: [{ ...output, selection: { ...selection, ...second } }] },
+    ], drilled)).toThrow(/agree on drillLevel and objectKind/);
+  });
+
+  it('accepts writers that agree on drill level and object kind', () => {
+    const shared = { ...output, selection: { ...selection, drillLevel: 'step', objectKind: 'equipment' } };
+    expect(() => build([{ ...writer, outputs: [shared] }, { ...other, outputs: [shared] }], drilled)).not.toThrow();
+  });
 });
 
 describe('inbound analysis selection registration (#2735)', () => {

@@ -128,9 +128,12 @@ function validateAnalysisSelections(menu: MenuEntry, carryKeys: readonly string[
   ] as const;
   for (const [key, { shape, dimension, label, inbound, writers }] of channels) {
     const invalid = (message: string): never => error(`selection key "${key}" ${message}`);
+    const first = writers[0]?.selection;
     for (const { selection } of writers) {
       if (!selection) invalid('must declare selection on every output');
       if (selection?.shape !== shape || selection.dimension !== dimension) invalid('writers must agree on shape and dimension');
+      // The channel reads drill level and object kind from its first writer; a writer that disagrees would be adopted silently (#2870 Q4).
+      if (selection?.drillLevel !== first?.drillLevel || selection?.objectKind !== first?.objectKind) invalid('writers must agree on drillLevel and objectKind');
       if (selection?.label !== undefined && !textPresent(selection.label)) invalid('label must have non-empty ko/en text');
       if ((inbound || selection?.label !== undefined) && (selection?.label?.ko !== label?.ko || selection?.label?.en !== label?.en)) invalid('writers must agree on label');
     }
