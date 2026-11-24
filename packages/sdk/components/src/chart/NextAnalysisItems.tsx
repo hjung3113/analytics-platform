@@ -1,4 +1,4 @@
-import { useContext, useId, type ReactNode, type Ref } from 'react';
+import { useContext, useId, useRef, type ReactNode, type Ref } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { AnalysisSelection } from '@ap/contracts';
 import { useDrill, useI18n, useMessages, usePlatform, usePlatformOptional } from '@ap/kernel';
@@ -6,6 +6,7 @@ import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMe
 import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisPanelAddContext, type AnalysisPanelAddition } from '../workspace/PanelAdd';
 import { usePublishNextAnalysis } from './NextAnalysisBridge';
+import { keepFocusAfterPanelAdd } from '../dock/focusTab';
 
 export type NextAnalysisPointDrill = { level: string; value: string | null };
 
@@ -17,7 +18,8 @@ type Props = {
 type Choice = { id: string; label: string; reason?: string; note?: string; onSelect: () => void };
 type GroupAction = { label: string } & (
   | { reason: string; choices?: never }
-  | { reason?: never; choices: Choice[]; direction?: 'right' }
+  /** `addsPanel`: each choice adds the panel named by its `id` to the workspace around the row. */
+  | { reason?: never; choices: Choice[]; direction?: 'right'; addsPanel?: boolean }
 );
 
 export type DirectNextAnalysisAction = {
@@ -63,7 +65,7 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
         workspace.onAdd({ source: `${menu.id}/${panel.id}`, inputs: { [key]: selection } });
       } }];
     });
-    if (choices.length) actions.push({ label: m('chartNextPanel'), choices });
+    if (choices.length) actions.push({ label: m('chartNextPanel'), choices, addsPanel: true });
   }
 
   if (channel?.objectKind) {
@@ -107,19 +109,28 @@ function ChoiceRows({ choices }: { choices: readonly Choice[] }) {
   return <>{choices.map(choice => <MenuItem key={choice.id} {...choice} />)}</>;
 }
 
-function ActionMenu({ action }: { action: GroupAction }) {
+/** `focusKey`: the chart and its output, stable when the row is rebuilt, so a panel addition can find its trigger again. */
+function ActionMenu({ action, focusKey }: { action: GroupAction; focusKey?: string }) {
   const id = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
   if (action.reason !== undefined) return <>
     <Button type="button" size="toolbar" variant="ghost" aria-disabled="true" aria-describedby={id}
       className="aria-disabled:opacity-50">{action.label}</Button>
     <span id={id} className="text-text-secondary">{action.reason}</span>
   </>;
   const Icon = action.direction === 'right' ? ChevronRight : ChevronDown;
+  const choices = action.addsPanel
+    // The addition can rebuild this row before the menu closes, so the focus hand-off starts on select, not on close.
+    ? action.choices.map(choice => ({ ...choice, onSelect: () => {
+      if (trigger.current) keepFocusAfterPanelAdd(trigger.current, choice.id);
+      choice.onSelect();
+    } }))
+    : action.choices;
   return <DropdownMenu modal={false}>
     <DropdownMenuTrigger asChild>
-      <Button type="button" size="toolbar" variant="ghost">{action.label}<Icon className="size-3.5" aria-hidden /></Button>
+      <Button ref={trigger} data-focus-key={action.addsPanel ? focusKey : undefined} type="button" size="toolbar" variant="ghost">{action.label}<Icon className="size-3.5" aria-hidden /></Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start"><ChoiceRows choices={action.choices} /></DropdownMenuContent>
+    <DropdownMenuContent align="start"><ChoiceRows choices={choices} /></DropdownMenuContent>
   </DropdownMenu>;
 }
 
@@ -147,13 +158,18 @@ export function NextAnalysisMenuItem({ action, onSelect }: {
   </DropdownMenuSub>;
 }
 
-type RowProps = Props & { localActions: readonly DirectNextAnalysisAction[]; renderRow: (items: ReactNode) => ReactNode };
+type RowProps = Props & {
+  localActions: readonly DirectNextAnalysisAction[]; renderRow: (items: ReactNode) => ReactNode;
+  /** The chart drawing the row; with the output it tells apart two charts on the same output when a panel addition finds its trigger again. */
+  chartId?: string;
+};
 
-function RoutedItems({ localActions, renderRow, ...props }: RowProps) {
+function RoutedItems({ localActions, renderRow, chartId, ...props }: RowProps) {
   const workspace = useContext(AnalysisPanelAddContext);
   const actions = useNextAnalysisItems({ ...props, workspace });
   usePublishNextAnalysis(props.output, localActions, props.pointDrill);
-  return renderRow(actions.map(action => <ActionMenu key={action.label} action={action} />));
+  const focusKey = props.output && JSON.stringify(['next-analysis-panel', chartId ?? null, props.output.panelId, props.output.key]);
+  return renderRow(actions.map(action => <ActionMenu key={action.label} action={action} focusKey={focusKey ?? undefined} />));
 }
 
 export function NextAnalysisItems(props: RowProps) {

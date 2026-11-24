@@ -730,7 +730,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       <WorkspaceEdges edge="top" items={edgeItems('top')} label={m('workspaceTopEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
       <div className={cn('flex min-w-0', !rows && 'min-h-0 flex-1')}>
       <WorkspaceEdges edge="left" items={edgeItems('left')} label={m('workspaceLeftEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
-      <div ref={fitSlot} className="min-h-0 min-w-0 flex-1">
+      <div ref={fitSlot} data-workspace-dock className="min-h-0 min-w-0 flex-1">
         <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
           floating={edgesNarrow ? undefined : { panels: floatingPanels, peekId: activePeek?.panelId, peekHeightFloor, onDismissPeek: dismissPeek, onChange: (next, tree) => { update(current => {
             const returned = (current.floating ?? []).filter(item => !next.some(panel => panel.panelId === item.panelId)).map(item => item.panelId);
