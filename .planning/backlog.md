@@ -444,7 +444,7 @@
 채택 결정이 아니다. 필요해지면 이슈로 올린다.
 
 - z-index/오버레이 스택 계약(Dropdown·Popover·Drawer·Modal·Palette·Toast).
-- 상태 갤러리 / Storybook(정상·빈값·권한 없음·긴 한글·부분 실패, 토큰·상태 분류 시각 확인) — #2828에서 진행 중: 1차는 `tooling/storybook`(기초 토큰·Button·Pages 배포). Input·Select·Analysis Workspace 템플릿·플랫폼 데코레이터는 2차, 상태 갤러리는 아직 구현하지 않음(다시 열 조건: 2차 병합 뒤).
+- 상태 갤러리 / Storybook(정상·빈값·권한 없음·긴 한글·부분 실패, 토큰·상태 분류 시각 확인) — Storybook은 #2828에서 완료: `tooling/storybook`의 기초 토큰, `@ap/ui`·`@ap/components` 화면 export 문서, 템플릿 다섯. 자기 페이지가 없는 export와 이유는 Storybook «기초/문서 범위». 응답 상태(정상·빈값·권한 없음·부분 실패)는 표시/QueryView·OutcomeView 등 상태 페이지가 보인다. 부품 전체를 한 상태씩 가로지르는 갤러리(긴 한글 포함)는 구현하지 않음(다시 열 조건: 시각 회귀 게이트 이슈를 열 때).
 - 시간역(timeDomain) 매핑 관리 화면 — 복수 설비 병합을 제공하면 필수.
 - 지연 완료·정정/backfill 후보 목록 화면.
 - 운영 이벤트 뷰어(적재 중단·mart 실패 — 원천이 확인한 사건만).

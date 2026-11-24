@@ -1,0 +1,23 @@
+import { Meta } from '@storybook/addon-docs/blocks';
+
+<Meta title="기초/문서 범위" />
+
+# 문서 범위
+
+`@ap/ui`·`@ap/components`의 화면 export는 저마다 문서 페이지가 있거나, 함께 쓰는 부품의 페이지에서 보인다. 아래는 자기 페이지가 없는 export와 그 이유다. 새 화면 export를 더하면 페이지를 만들거나 이 목록에 이유와 함께 적는다.
+
+## 다른 페이지 안에서 보이는 것
+
+- 복합 부품의 하위 부품(`DialogContent`·`SelectItem`·`DropdownMenuItem`·`PopoverContent`·`TooltipContent`·`AlertDialog*`·`Sheet*`·`Card*`·`Table*`·`Tabs*`·`RadioGroupItem`·`ToggleGroupItem` 등): 상위 부품 페이지의 예시가 함께 그린다.
+- `Dot`: 표시/StatusBadge. `SkeletonBlocks`: 표시/Skeleton. `Avatar`·`UserAvatar`: 표시/UserChip. `Label`·`FieldLabel`·`RequiredMark`·`LineErrorList`: 폼/폼 필드. `DecisionImpactConfirmDialog`: 떠 있는 표면/의사결정 규칙. `DetailPanelHeaderActions`: 셸·패널/DetailPanelHeader.
+- `DetailPanelFullscreenToggle`·`DetailPanelReadingColumn`: `DetailDrawer`·`DetailPanelHeader`가 안에 쓰고, 셸의 상세 패널 슬롯이 주는 `DetailPanelFullscreenContext`가 있을 때만 크게 보기가 나타난다. Storybook에는 셸이 없다.
+- `NavCurrentMarker`: 사이드바 행의 현재 표시 막대. 셸 사이드바와 `HierarchyNav`가 현재 행에 그린다.
+
+## 일부러 페이지를 두지 않는 것
+
+- `WorkspaceQueryBarRow`: 셸의 작업 영역 조회 줄 슬롯이다. `WorkspaceQueryBarContext` 밖에서는 아무것도 그리지 않는다.
+- `EChart`: 루트 export는 deprecated(다음 SDK minor에서 제거)이고 새 위치 `@ap/components/host`는 셸 전용이라 메뉴가 쓸 수 없다.
+- `Toaster`: sonner 재export로 이전 소비자를 위해 남겨 둔 것이다. 셸 토스트 스택이 대신한다.
+- `TabsListBase`·`TabsTriggerBase`·`DialogContentBare`: 플랫폼 래퍼 밑의 원형이다. 래퍼(`Tabs`·`Dialog`) 페이지를 본다.
+- Provider·Context(`TooltipProvider`·`DetailPanelSlotProvider`·`DetailPanelFullscreenContext`·`SurfacePauseScope`·`TransientOverlayScope`·`QueryBarExtensionContext`·`QueryBarExtensionsProvider`·`PlatformPageBodyBoundary`·`PlatformPageTitleLead`): 그리는 것이 없다.
+- 오류·상태 클래스, 편집기 확장·타입, 상수(`HierarchyNavState`·`TipTapEditor`·`WorkbookError`·`WorkbookRefusal`·`PageConditionOptionsError`·`AttachmentRef`·`Mention`·`*_MOTION`·`*_LIMIT(S)`·`*_LABELS`·`*_MESSAGES` 등): 컴포넌트가 아니다.
