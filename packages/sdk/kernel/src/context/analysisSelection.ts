@@ -7,7 +7,7 @@ import { menuAnalysisSelections } from '../registry/analysis-selections';
 import type { MenuEntry } from '../registry/registry';
 import { sameItems, useStable } from '../stable';
 import { analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
-import { isAnalysisSelectionAvailable, readEmptyAvailability, sameAvailability, subscribeToEmptyAvailability, type AnalysisSelectionAvailability } from './analysisSelectionAvailability';
+import { isAnalysisSelectionAvailable, readAvailability, readEmptyAvailability, sameAvailability, subscribeToEmptyAvailability, type AnalysisSelectionAvailability } from './analysisSelectionAvailability';
 
 export { ANALYSIS_SELECTION_MAX_VALUES, analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
 
@@ -23,9 +23,14 @@ const noRoute = { panels: [] };
 const useChannels = (menu: MenuEntry | undefined) => useMemo(() => menuAnalysisSelections(menu ?? noRoute), [menu]);
 const useWriteScreen = (route: MenuPlatform['route']) => route ? use(PaneScreenContext) ?? use(ScreenContext) : null;
 
-function useReportedAvailability(screen: ReturnType<typeof useWriteScreen>) {
+function drillAddress(menu: MenuEntry | undefined, pageParam: MenuPlatform['pageParam']) {
+  return JSON.stringify(menu?.drill?.levels.map(({ key }) => pageParam(key)) ?? []);
+}
+
+function useReportedAvailability(screen: ReturnType<typeof useWriteScreen>, address: string) {
   const store = screen?.analysisSelectionAvailability;
-  return useSyncExternalStore(store?.subscribe ?? subscribeToEmptyAvailability, store?.read ?? readEmptyAvailability, readEmptyAvailability);
+  const snapshot = useSyncExternalStore(store?.subscribe ?? subscribeToEmptyAvailability, store?.read ?? readEmptyAvailability, readEmptyAvailability);
+  return (key: string) => readAvailability(snapshot, key, address);
 }
 
 function hasFilterCycle(channels: ReturnType<typeof menuAnalysisSelections>, key: string): boolean {
@@ -54,22 +59,23 @@ export function useAnalysisSelectionOutput(panelId: string, key: string, options
   /** Whether readers of this source see the supplied availability (or its withdrawal). */
   availabilityCurrent: boolean;
 } {
-  const { route, pageParams, setPage } = usePlatform();
+  const { route, pageParam, pageParams, setPage } = usePlatform();
   const screen = useWriteScreen(route);
   const channels = useChannels(route?.menu);
   const channel = channels.get(key);
   const store = screen?.analysisSelectionAvailability;
+  const address = drillAddress(route?.menu, pageParam);
   const report = useStable(options?.available, sameAvailability);
   const isSource = channel?.writers[0]?.panelId === panelId;
   const canReport = useMemo(() => isSource && !hasFilterCycle(channels, key), [channels, isSource, key]);
   const availabilityCurrent = useSyncExternalStore(
     canReport && store ? store.subscribe : subscribeToEmptyAvailability,
-    () => canReport && store !== undefined && sameAvailability(store.read().get(key), report),
+    () => canReport && store !== undefined && sameAvailability(readAvailability(store.read(), key, address), report),
     () => false,
   );
   useEffect(() => {
-    if (store && canReport && report !== undefined) return store.report(key, report);
-  }, [store, canReport, key, report]);
+    if (store && canReport && report !== undefined) return store.report(key, { drillAddress: address, available: report });
+  }, [store, canReport, key, report, address]);
   const urlKey = selectionUrlKey(key);
   if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
   const rendered = pageParams(urlKey);
@@ -106,8 +112,8 @@ export function useAnalysisSelectionInputs(panelId: string): {
   /** Declared input keys whose valid values are absent from the source data. */
   unavailable: readonly string[];
 } {
-  const { route, pageParams, session, revision, global } = usePlatform();
-  const availability = useReportedAvailability(useWriteScreen(route));
+  const { route, pageParam, pageParams, session, revision, global } = usePlatform();
+  const availability = useReportedAvailability(useWriteScreen(route), drillAddress(route?.menu, pageParam));
   const menu = route?.menu;
   const channels = useChannels(menu);
   if (menu && !menu.panels?.some(panel => panel.id === panelId)) throw new RangeError(`Unknown panel "${panelId}" in menu "${menu.id}"`);
@@ -124,7 +130,7 @@ export function useAnalysisSelectionInputs(panelId: string): {
       rejected.push(key);
       continue;
     }
-    if (!isAnalysisSelectionAvailable(selection, availability.get(key))) {
+    if (!isAnalysisSelectionAvailable(selection, availability(key))) {
       unavailable.push(key);
       continue;
     }
@@ -186,9 +192,9 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   clear: (key: string) => boolean;
   clearAll: () => boolean;
 } {
-  const { route, pathname, pageParams, session, revision, global } = usePlatform();
+  const { route, pathname, pageParam, pageParams, session, revision, global } = usePlatform();
   const screen = useWriteScreen(route);
-  const availability = useReportedAvailability(screen);
+  const availability = useReportedAvailability(screen, drillAddress(route?.menu, pageParam));
   const menu = route?.menu;
   const paneId = screen?.paneId;
   const scopeId = global.scopeId;
@@ -199,7 +205,7 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
     const selection = parseAnalysisSelection(shape, pageParams(key));
     if (!selection) continue;
     const [{ panelId, title }] = writers;
-    active.push({ key, selection, dimension, label: label ?? null, source: { panelId, title }, available: isAnalysisSelectionAvailable(selection, availability.get(key)) });
+    active.push({ key, selection, dimension, label: label ?? null, source: { panelId, title }, available: isAnalysisSelectionAvailable(selection, availability(key)) });
     for (const reader of readers) {
       if (reader.use === 'filter' && !parentByPanel.has(reader.panelId)) parentByPanel.set(reader.panelId, key);
     }

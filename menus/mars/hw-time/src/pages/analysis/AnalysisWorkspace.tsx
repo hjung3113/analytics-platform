@@ -283,8 +283,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const date = pageParam('date');
   const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date, [MOTION_EQUIPMENT_KEY]: selectedEquipment };
   const equipment = projectQueryInputs(panelDeclarations.table, panelContext)[MOTION_EQUIPMENT_KEY];
-  const waitingForAvailability = equipment !== undefined && sourceQuery !== undefined
-    && (sourceQuery.status === 'loading' || sourceQuery.showingPrevious || !selectionOutput.availabilityCurrent);
+  const waitingForAvailability = equipment !== undefined
+    && (!selectionOutput.availabilityCurrent || sourceQuery?.status === 'loading' || sourceQuery?.showingPrevious);
   const filterTable = !waitingForAvailability && filtered && equipment !== undefined && extraIds.includes('table');
   const tableLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, filterTable);
   const analysis = filterTable ? { equipment, level: tableLevel } : undefined;

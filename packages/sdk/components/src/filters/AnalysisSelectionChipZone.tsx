@@ -1,4 +1,4 @@
-import { Fragment, useLayoutEffect, useRef, type RefObject } from 'react';
+import { Fragment, useCallback, useLayoutEffect, useRef, type RefCallback, type RefObject } from 'react';
 import { X } from 'lucide-react';
 import { useAnalysisSelectionChips, useI18n, useMessages, type AnalysisSelectionChip } from '@ap/kernel';
 import { useHostPlatformOptional } from '@ap/kernel/host';
@@ -8,12 +8,15 @@ import { useElementSize, useObservedElementSize } from '../state/useElementSize'
 
 type Fit = { container: HTMLElement | null; summary: HTMLElement | null };
 type ClearChip = (key: string) => void;
+type ClearButtonRef = RefCallback<HTMLButtonElement>;
 type ClearFocus = { kind: 'clear'; key: string | null; index: number; from: string; to: string } | { kind: 'list'; index: number };
 const zoneClass = 'inline-flex shrink-0 items-center gap-2 pl-2 text-xs';
 const focusClass = 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring';
 const linkClass = cn('h-6.5 shrink-0 rounded-sm whitespace-nowrap text-xs font-medium text-accent-primary hover:underline', focusClass);
 
-function Chip({ chip, clear, wrap, measuring }: { chip: AnalysisSelectionChip; clear: ClearChip; wrap?: boolean; measuring?: boolean }) {
+function Chip({ chip, clear, wrap, measuring, clearButtonRef }: {
+  chip: AnalysisSelectionChip; clear: ClearChip; wrap?: boolean; measuring?: boolean; clearButtonRef?: ClearButtonRef;
+}) {
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const dimension = chip.label?.[lang] ?? chip.dimension;
@@ -33,7 +36,7 @@ function Chip({ chip, clear, wrap, measuring }: { chip: AnalysisSelectionChip; c
     <span role="img" aria-label={source ?? dimension} title={source} className="size-3.5 shrink-0 rounded-sm border border-current" />
     <span className={wrap ? '[overflow-wrap:anywhere]' : 'max-w-40 truncate'} title={text}>{text}</span>
     {!chip.available && <span className="shrink-0">{m('analysisSelectionUnavailable')}</span>}
-    <button type="button" disabled={measuring} className={cn('inline-flex size-6.5 shrink-0 items-center justify-center rounded-full hover:bg-surface-row-hover', focusClass)}
+    <button ref={clearButtonRef} type="button" disabled={measuring} className={cn('inline-flex size-6.5 shrink-0 items-center justify-center rounded-full hover:bg-surface-row-hover', focusClass)}
       data-analysis-chip-clear={chip.key} aria-label={m('analysisSelectionClear', { dimension })} onClick={() => clear(chip.key)}>
       <X className="size-3.5" aria-hidden />
     </button>
@@ -44,15 +47,15 @@ function Separator() {
   return <span aria-hidden className="text-text-muted">|</span>;
 }
 
-function InlineChips({ chips, clear, clearAll, measuring }: {
-  chips: readonly AnalysisSelectionChip[]; clear: ClearChip; clearAll: () => void; measuring?: boolean;
+function InlineChips({ chips, clear, clearAll, measuring, clearButtonRef }: {
+  chips: readonly AnalysisSelectionChip[]; clear: ClearChip; clearAll: () => void; measuring?: boolean; clearButtonRef?: ClearButtonRef;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   return <>
     <Separator />
     {chips.map((chip, index) => <Fragment key={chip.key}>
       {index > 0 && <span aria-hidden className="text-text-muted">›</span>}
-      <Chip chip={chip} clear={clear} measuring={measuring} />
+      <Chip chip={chip} clear={clear} measuring={measuring} clearButtonRef={clearButtonRef} />
     </Fragment>)}
     <button type="button" disabled={measuring} className={linkClass} onClick={clearAll}>{m('analysisSelectionClearAll')}</button>
   </>;
@@ -71,6 +74,13 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   const trigger = useRef<HTMLButtonElement>(null);
   const clearFocus = useRef<ClearFocus | null>(null);
   const focusedChip = useRef<HTMLButtonElement | null>(null);
+  const clearButtonRef = useCallback<ClearButtonRef>(button => {
+    if (!button) return;
+    return () => {
+      // Capture focus before React removes the button. A prior blur cancels the handoff.
+      if (focusedChip.current === button && button.ownerDocument.activeElement !== button) focusedChip.current = null;
+    };
+  }, []);
   const last = chips[chips.length - 1];
   const canFold = chips.length > 1 && fit !== undefined;
   const row = useObservedElementSize(fit?.container ?? null, { enabled: canFold });
@@ -84,24 +94,14 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
     focusedChip.current = target instanceof HTMLButtonElement && target.dataset.analysisChipClear ? target : null;
   };
   useLayoutEffect(() => {
-    const onBlur = (event: FocusEvent) => {
-      const button = focusedChip.current;
-      if (!button || event.target !== button) return;
-      // The browser can emit focusout before a replaced button is detached.
-      queueMicrotask(() => {
-        if (focusedChip.current === button && button.isConnected && document.activeElement !== button) focusedChip.current = null;
-      });
-    };
     const stopTracking = (event: FocusEvent) => {
       if (event.target !== focusedChip.current) focusedChip.current = null;
       if (clearFocus.current?.kind !== 'list' && event.target instanceof Node
         && !zone.current?.contains(event.target) && !list.current?.contains(event.target)) clearFocus.current = null;
     };
     document.addEventListener('focusin', stopTracking);
-    document.addEventListener('focusout', onBlur);
     return () => {
       document.removeEventListener('focusin', stopTracking);
-      document.removeEventListener('focusout', onBlur);
     };
   }, []);
   useLayoutEffect(() => () => {
@@ -157,14 +157,14 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
             <ul className="grid gap-1">
               {chips.map(chip => <li key={chip.key} className="flex min-w-0 items-center gap-1">
                 {chip.after !== null && <span aria-hidden className="text-text-muted">›</span>}
-                <Chip chip={chip} clear={clear} wrap />
+                <Chip chip={chip} clear={clear} wrap clearButtonRef={clearButtonRef} />
               </li>)}
             </ul>
             <button type="button" className={linkClass} onClick={clearAll}>{m('analysisSelectionClearAll')}</button>
           </PopoverContent>
         </Popover>
-        <Chip key={last.key} chip={last} clear={clear} />
-      </> : <InlineChips chips={chips} clear={clear} clearAll={clearAll} />}
+        <Chip key={last.key} chip={last} clear={clear} clearButtonRef={clearButtonRef} />
+      </> : <InlineChips chips={chips} clear={clear} clearAll={clearAll} clearButtonRef={clearButtonRef} />}
     </div>
   </>;
 }
