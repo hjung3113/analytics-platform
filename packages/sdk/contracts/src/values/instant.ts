@@ -61,8 +61,21 @@ export function isIsoInstant(value: unknown): value is string {
  *  `YYYY-MM-DD HH:mm` and `'monthDayMinute'` is `MM-DD HH:mm` — digits only, 24-hour, the same in every language. */
 export type InstantForm = 'short' | 'minute' | 'monthDayMinute';
 
+/**
+ * Formatters for an explicit zone, built on the first call that needs them, so a bad zone still throws from that call and a failure is never
+ * kept. The viewer's zone (no `timeZone`) is not kept: a formatter would hold the zone it was built in after `TZ` changes.
+ */
+const zonedFormatters = new Map<string, Intl.DateTimeFormat>();
+const zonedFormatter = (key: string, timeZone: string | undefined, build: () => Intl.DateTimeFormat): Intl.DateTimeFormat => {
+  if (timeZone === undefined) return build();
+  const cacheKey = `${key}|${timeZone}`;
+  let formatter = zonedFormatters.get(cacheKey);
+  if (!formatter) zonedFormatters.set(cacheKey, formatter = build());
+  return formatter;
+};
+
 const digitParts = (date: Date, timeZone: string | undefined): Record<'year' | 'month' | 'day' | 'hour' | 'minute', string> => {
-  const parts = new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone }).formatToParts(date);
+  const parts = zonedFormatter('digits', timeZone, () => new Intl.DateTimeFormat('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone })).formatToParts(date);
   const get = (type: Intl.DateTimeFormatPartTypes) => parts.find(p => p.type === type)?.value ?? '';
   return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute') };
 };
@@ -74,7 +87,10 @@ export function formatInstant(instant: number | string, lang: keyof Text, timeZo
   const value = typeof instant === 'string' ? parseInstant(instant) : instant;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return fail('invalid_time', 'instant: not a parseable epoch-ms or offset ISO-8601 value');
-  if (form === 'short') return date.toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { dateStyle: 'short', timeStyle: 'short', timeZone });
+  if (form === 'short') {
+    const locale = lang === 'ko' ? 'ko-KR' : 'en-US';
+    return zonedFormatter(`short|${locale}`, timeZone, () => new Intl.DateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short', timeZone })).format(date);
+  }
   const p = digitParts(date, timeZone);
   const monthDayMinute = `${p.month}-${p.day} ${p.hour}:${p.minute}`;
   return form === 'minute' ? `${p.year}-${monthDayMinute}` : monthDayMinute;
