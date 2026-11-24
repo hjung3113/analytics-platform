@@ -14,7 +14,7 @@ import type { NavigationGuard } from './navigationGuard';
 import type { createAnalysisSelectionAvailability } from '../context/analysisSelectionAvailability';
 
 /** Fields of the screen state: what a menu page reads about the screen it is shown on (the main screen or one board pane). */
-export type ScreenFields = 'detailExpanded' | 'setDetailExpanded' | 'queryHistory' | 'queryDraft' | 'queryPolicy' | 'url' | 'appliedUrl' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageParams' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'objectLinks' | 'reportError' | 'reportShellError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'scopeGeneration' | 'retryScope' | 'currentSpace';
+export type ScreenFields = 'detailExpanded' | 'setDetailExpanded' | 'queryHistory' | 'queryDraft' | 'queryPolicy' | 'url' | 'appliedUrl' | 'pathname' | 'route' | 'platformScreen' | 'contractError' | 'metricInit' | 'global' | 'page' | 'extras' | 'pageParam' | 'pageParams' | 'pageNavigation' | 'navigate' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'objectLinks' | 'resolveSelectionLink' | 'objectSelectionLinks' | 'reportError' | 'reportShellError' | 'returnTarget' | 'returnOrigin' | 'scope' | 'scopeGeneration' | 'retryScope' | 'currentSpace';
 /** Shell navigation state that always follows the main screen, even when read from inside a pane (ADR-0049). */
 export type MainBoundFields = 'visibleMenus' | 'sidebarSpace' | 'spaceResume' | 'spaceEntry' | 'switchSpace';
 export type ScreenState = Pick<HostPlatform, ScreenFields | 'screenMode' | 'paneId' | 'paneLabel'> & {

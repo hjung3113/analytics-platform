@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PageFocus } from '../context/pageNavigation';
 import { createAnalysisSelectionAvailability } from '../context/analysisSelectionAvailability';
+import { analysisSelectionParam, parseAnalysisSelection } from '../context/analysisSelectionCodec';
+import { NAVIGATION_URL_MAX_LENGTH } from '../context/shareLink';
 import { menuAnalysisSelections } from '../registry/analysis-selections';
 import { classifyMetricInit, sameMetricInit } from '../registry/metric-init';
 import { sameItems, useStable } from '../stable';
@@ -18,7 +20,7 @@ import { SITE_BOUND_FIELDS } from '../context/siteBound';
 import { hasExplicitContext } from '../saved-view/restore';
 import type { InitialSavedView } from '../saved-view/useSavedViews';
 import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, type SpaceDef, type MainUsageVia, type UsageEvent } from '@ap/contracts';
-import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
+import type { HostPlatform, LinkOptions, LinkResolution, ObjectLinkOptions, ReturnContextKey, ReturnOrigin, ScopeState, SelectionLinkResolution } from './types';
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type CommitOptions, type PageWriteOptions, type ScreenAddress, type ScreenSource, type ScreenState } from './contexts';
 
 const noSelectionChannels = { panels: [] };
@@ -61,20 +63,50 @@ function consecutiveDrillTrail(menu: MenuEntry, search: string, lang: Lang): Ret
   }
   return trail;
 }
+type RegisteredLink = Extract<LinkResolution, { kind: 'link' }>;
+type DroppedSelection = Extract<SelectionLinkResolution, { kind: 'tooLong' }>['droppedSelections'][number];
+
+function planSelectionCarry(source: MenuEntry | undefined, target: MenuEntry, page: Pair[], explicit: LinkOptions['page'], sameScope: boolean) {
+  const inbound = target.analysisSelectionInbound ?? [];
+  const candidates = new Map<string, Pair[][]>();
+  const droppedSelections: DroppedSelection[] = [];
+  for (const [key, channel] of menuAnalysisSelections(source ?? noSelectionChannels)) {
+    if (channel.writers.length === 0) continue;
+    const { dimension, shape } = channel;
+    const selection = parseAnalysisSelection(shape, page.filter(([name]) => name === key).map(([, value]) => value));
+    if (!selection) continue;
+    const match = inbound.find(declaration => declaration.dimension === dimension && declaration.shape === shape);
+    if (match && Object.hasOwn(explicit ?? {}, match.key)) continue;
+    if (!sameScope) droppedSelections.push({ dimension, reason: 'scope' });
+    else if (!match) droppedSelections.push({ dimension, reason: 'noInbound' });
+    else {
+      const matches = candidates.get(match.key) ?? [];
+      matches.push([analysisSelectionParam(selection)].flat().map(value => [match.key, value]));
+      candidates.set(match.key, matches);
+    }
+  }
+  const selections = inbound.flatMap(({ key, dimension }) => {
+    const matches = candidates.get(key);
+    if (matches?.length === 1) return [{ dimension, pairs: matches[0] }];
+    if (matches) droppedSelections.push({ dimension, reason: 'ambiguous' });
+    return [];
+  });
+  return { selections, droppedSelections };
+}
+
+/** The same `RegistryError` `menuById` throws (`Unknown menu …`) when the id is not registered. */
+function registered(link: SelectionLinkResolution, menuId: string): RegisteredLink {
+  if (link.kind === 'link') return link;
+  throw new RegistryError(`Unknown menu ${menuId}`);
+}
+
 /**
  * Everything derived from one screen's address (06 §6.4): route, Context, page state, writes, links, Scope and the
  * usage stay. The main screen feeds it the browser URL; a board pane feeds it its own `PaneScreen` (ADR-0049), so
  * the same rules run per screen.
  */
-type RegisteredLink = Extract<LinkResolution, { kind: 'link' }>;
-/** The same `RegistryError` `menuById` throws (`Unknown menu …`) when the id is not registered. */
-function registered(link: LinkResolution, menuId: string): RegisteredLink {
-  if (link.kind === 'link') return link;
-  throw new RegistryError(`Unknown menu ${menuId}`);
-}
-
 export function useScreenState(app: AppValue, source: ScreenSource): { screen: ScreenState; sidebarSpace: SpaceDef | null; resolveEntryLink: (menuId: string, options?: LinkOptions) => RegisteredLink; initialSavedView: InitialSavedView | null } {
-  const { registry, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes, isCurrentGeneration } = app.pub;
+  const { registry, location, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes, isCurrentGeneration } = app.pub;
   const { enters, usageSessionId, userIdRef, usageNav } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
   const { url: visibleUrl, hidden, readAddress, navigation: pageNavigation, commit, go, mode, paneId } = source;
@@ -245,7 +277,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // passes explicitly are meant for the destination and stay. `allowed` is a display hint (permission, plus
   // space entry for a space menu — a global utility menu is permission only, 06 §9.1); the server re-checks on arrival.
   // An id this assembly does not register resolves to `none` (no href, never a permission reason, ADR-0158); `linkTo` keeps throwing for it.
-  const resolveWith = useCallback((menuId: string, options: LinkOptions, carry: boolean): LinkResolution => {
+  const resolveWith = useCallback((menuId: string, options: LinkOptions, carry: 'none' | 'page' | 'analysis'): SelectionLinkResolution => {
     if (!registry.has(menuId)) return { kind: 'none', href: null, allowed: false, droppedPageKeys: [] };
     const target = menuById(menuId);
     const carried: GlobalContext = options.global && 'scopeId' in options.global && options.global.scopeId !== global.scopeId
@@ -257,10 +289,10 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     for (const [k, v] of requested) if (v !== null && target.pageKeys.includes(k)) for (const item of typeof v === 'string' ? [v] : v) pagePairs.push([k, item]);
     // Carried keys: same carry set, every member declares them; explicit value wins, explicit null omits.
     // A set that carries `returnTo` only carries it: inside that set `options.returnTo` never mints or replaces the origin (#760, ADR-0081 UX-10).
-    // `carry` is false only for kernel entries (space entry/resume): they start clean and never borrow the current set state. Favorites use the public resolver with explicit nulls.
+    // Kernel entries (space entry/resume) start clean. Favorites use the public resolver with explicit nulls.
     const targetSet = registry.carrySetOf(target);
     let sameCarryingSet = false;
-    if (carry && route && targetSet && registry.carrySetOf(route.menu)?.id === targetSet.id) {
+    if (carry !== 'none' && route && targetSet && registry.carrySetOf(route.menu)?.id === targetSet.id) {
       sameCarryingSet = carriesReturnTo(targetSet);
       for (const k of targetSet.pageKeys) {
         if (!target.pageKeys.includes(k) || options.page?.[k] !== undefined) continue;
@@ -270,34 +302,71 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       }
     }
     if (options.returnTo && !sameCarryingSet && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY) && options.page?.[RETURN_TO_KEY] === undefined) pagePairs.push([RETURN_TO_KEY, stripDetailExpansion(visibleUrl)]);
+    const path = pathFor(target, options.params);
+    const basePairs: Pair[] = pagePairs.map(([key, value]) => [key, key === RETURN_TO_KEY ? stripDetailExpansion(value) : value]);
+    const plan = carry === 'analysis' ? planSelectionCarry(route?.menu, target, page, options.page, g.scopeId === global.scopeId) : undefined;
+    let finalPairs = basePairs.concat(plan?.selections.flatMap(selection => selection.pairs) ?? []);
+    let href = path + buildQuery(g, finalPairs);
+    if (plan) {
+      while (true) {
+        const deployed = new URL(location.href(href), 'http://app.invalid');
+        if (deployed.pathname.length + deployed.search.length <= NAVIGATION_URL_MAX_LENGTH) break;
+        const dropped = plan.selections.pop();
+        if (!dropped) return { kind: 'tooLong', href: null, allowed: false, droppedPageKeys: [], droppedSelections: plan.droppedSelections };
+        plan.droppedSelections.push({ dimension: dropped.dimension, reason: 'length' });
+        finalPairs = finalPairs.slice(0, finalPairs.length - dropped.pairs.length);
+        href = path + buildQuery(g, finalPairs);
+      }
+    }
     const allowed = canOpen(menuId);
-    const missingRequired = allowed ? queryMissingRequired(target, g, pagePairs) : [];
+    const requiredPagePairs = plan ? finalPairs : pagePairs;
+    const missingRequired = allowed ? queryMissingRequired(target, g, requiredPagePairs) : [];
     return {
       kind: 'link',
-      href: pathFor(target, options.params) + buildQuery(g, pagePairs.map(([key, value]) => [key, key === RETURN_TO_KEY ? stripDetailExpansion(value) : value])),
+      href,
       allowed,
+      ...(plan && { droppedSelections: plan.droppedSelections }),
       ...(missingRequired.length > 0 && { missingRequired }),
       droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
     };
-  }, [global, visibleUrl, menuById, canOpen, page, route, registry]);
-  const resolveLink = useCallback((menuId: string, options: LinkOptions = {}): LinkResolution => resolveWith(menuId, options, true), [resolveWith]);
-  const objectLinks = useCallback<HostPlatform['objectLinks']>(({ kind, id }, options = {}) => {
-    if (!id) return [];
-    return registry.objectDestinations(kind).flatMap(menu => {
-      if (menu.id === route?.menu.id) return [];
-      const declarations = menu.opensObject;
-      if (declarations === undefined) throw new Error('Object destination must declare opensObject');
-      const declaration = declarations[kind];
-      if (declaration === undefined) throw new Error('Object destination must declare the requested kind');
-      const link = resolveLink(menu.id, declaration.param !== undefined
-        ? { ...options, params: { [declaration.param]: id } }
-        : { ...options, page: { ...options.page, [declaration.pageKey]: id } });
-      return link.kind === 'none' ? [] : [{ ...link, menuId: menu.id, label: menu.label }];
-    });
-  }, [registry, resolveLink, route?.menu.id]);
+  }, [global, visibleUrl, menuById, canOpen, page, route, registry, location]);
+  const { resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks } = useMemo(() => {
+    function resolveLink(menuId: string, options: LinkOptions = {}): LinkResolution {
+      const link = resolveWith(menuId, options, 'page');
+      if (link.kind === 'tooLong') throw new Error('Page links do not enforce the selection URL limit');
+      return link;
+    }
+    function resolveSelectionLink(menuId: string, options: LinkOptions = {}): SelectionLinkResolution {
+      return resolveWith(menuId, options, 'analysis');
+    }
+    function resolveObjectLinks<Result extends Exclude<SelectionLinkResolution, { kind: 'none' }>>(
+      resolve: (menuId: string, options: LinkOptions) => Result | Extract<LinkResolution, { kind: 'none' }>,
+      { kind, id }: { kind: string; id: string },
+      options: ObjectLinkOptions,
+    ) {
+      if (!id) return [];
+      return registry.objectDestinations(kind).flatMap(menu => {
+        if (menu.id === route?.menu.id) return [];
+        const declarations = menu.opensObject;
+        if (declarations === undefined) throw new Error('Object destination must declare opensObject');
+        const declaration = declarations[kind];
+        if (declaration === undefined) throw new Error('Object destination must declare the requested kind');
+        const link = resolve(menu.id, declaration.param !== undefined
+          ? { ...options, params: { [declaration.param]: id } }
+          : { ...options, page: { ...options.page, [declaration.pageKey]: id } });
+        return link.kind === 'none' ? [] : [{ ...link, menuId: menu.id, label: menu.label }];
+      });
+    }
+    return {
+      resolveLink,
+      objectLinks: (object, options = {}) => resolveObjectLinks(resolveLink, object, options),
+      resolveSelectionLink,
+      objectSelectionLinks: (object, options = {}) => resolveObjectLinks(resolveSelectionLink, object, options),
+    } satisfies Pick<HostPlatform, 'resolveLink' | 'objectLinks' | 'resolveSelectionLink' | 'objectSelectionLinks'>;
+  }, [registry, resolveWith, route?.menu.id]);
   // Kernel entries (space entry/resume) resolve only registered, openable menus; `linkTo` is for destinations the assembly guarantees (06 §22).
-  const resolveEntryLink = useCallback((menuId: string, options: LinkOptions = {}): RegisteredLink => registered(resolveWith(menuId, options, false), menuId), [resolveWith]);
-  const linkTo = useCallback((menuId: string, options: LinkOptions = {}): string => registered(resolveLink(menuId, options), menuId).href, [resolveLink]);
+  const resolveEntryLink = useCallback((menuId: string, options: LinkOptions = {}): RegisteredLink => registered(resolveWith(menuId, options, 'none'), menuId), [resolveWith]);
+  const linkTo = useCallback((menuId: string, options: LinkOptions = {}): string => registered(resolveWith(menuId, options, 'page'), menuId).href, [resolveWith]);
 
   const currentSpace = useMemo(() => (route ? registry.spaceOf(route.menu) : null), [registry, route]);
   const ownSidebarSpace = source.sidebarSpace;
@@ -564,8 +633,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const localAvailability = useMemo(createAnalysisSelectionAvailability, [routeMenu, pathname, paneId, session, revision, scopeId]);
   const analysisSelectionAvailability = source.availability ?? localAvailability;
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
-    detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin,
+    detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, scopeGeneration, retryScope, screenMode: mode, paneId, paneLabel, analysisSelectionAvailability,
-  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel, analysisSelectionAvailability]);
+  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel, analysisSelectionAvailability]);
   return { screen, sidebarSpace, resolveEntryLink, initialSavedView };
 }

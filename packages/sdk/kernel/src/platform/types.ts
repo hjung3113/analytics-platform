@@ -186,6 +186,14 @@ export type LinkResolution = {
 export type ObjectLinkOptions = Pick<LinkOptions, 'returnTo' | 'page' | 'global'>;
 export type ObjectLink = Extract<LinkResolution, { kind: 'link' }> & { menuId: string; label: Text };
 
+type DroppedSelection = { dimension: string; reason: 'noInbound' | 'ambiguous' | 'scope' | 'length' };
+/** Selection-aware links also report dropped dimensions. `tooLong` has no href, even after every carried selection is dropped. */
+export type SelectionLinkResolution =
+  | (Extract<LinkResolution, { kind: 'link' }> & { droppedSelections?: readonly DroppedSelection[] })
+  | Extract<LinkResolution, { kind: 'none' }>
+  | { kind: 'tooLong'; href: null; allowed: false; droppedPageKeys: []; droppedSelections: readonly DroppedSelection[] };
+export type ObjectSelectionLink = Exclude<SelectionLinkResolution, { kind: 'none' }> & Pick<ObjectLink, 'menuId' | 'label'>;
+
 /**
  * The full platform value the shell, the platform components and the app read through `useHostPlatform()` (`@ap/kernel/host`, ADR-0076).
  * Menus see the narrow `MenuPlatform` of the same runtime value, so a change to a shell-only field never breaks a menu.
@@ -248,6 +256,10 @@ export type HostPlatform = {
   resolveLink: (menuId: string, options?: LinkOptions) => LinkResolution;
   /** Registered destinations for this object, in Registry order, excluding this menu (06 §22). */
   objectLinks: (object: { kind: string; id: string }, options?: ObjectLinkOptions) => ObjectLink[];
+  /** Resolves a link with the current screen's eligible analysis selections (06 §22). */
+  resolveSelectionLink: (menuId: string, options?: LinkOptions) => SelectionLinkResolution;
+  /** Registered object destinations with eligible analysis selections, in Registry order, excluding this menu (06 §22). */
+  objectSelectionLinks: (object: { kind: string; id: string }, options?: ObjectLinkOptions) => ObjectSelectionLink[];
   /**
    * Reports a render failure the route error boundary contained and returns the correlation id to show
    * (06 §4). Fire-and-forget: a rejected or throwing adapter is swallowed. Only the matched route's
@@ -323,7 +335,7 @@ export type HostPlatform = {
  * What a menu page sees through `usePlatform()` (ADR-0076): the same runtime value as `HostPlatform`, narrowed to the menu contract.
  * A field a menu needs that is missing here moves up from `HostPlatform`; a menu never imports `@ap/kernel/host`.
  */
-export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'pageParams' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'returnOrigin' | 'objectLinks' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'> & {
+export type MenuPlatform = Pick<HostPlatform, 'route' | 'url' | 'pathname' | 'absoluteUrl' | 'location' | 'global' | 'page' | 'pageParam' | 'pageParams' | 'setGlobal' | 'setPage' | 'resetContext' | 'linkTo' | 'resolveLink' | 'returnOrigin' | 'objectLinks' | 'resolveSelectionLink' | 'objectSelectionLinks' | 'session' | 'user' | 'revision' | 'can' | 'canOpen' | 'scope' | 'toast' | 'dismissToast' | 'registry' | 'adapter' | 'favorites' | 'toggleFavorite' | 'accessibleSpaces' | 'spaceEntry' | 'homeTodo'> & {
   /** The host's `navigate` without its host-only `guard` option (#2061). */
   navigate: (url: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia }) => boolean;
 };

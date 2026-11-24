@@ -2,12 +2,13 @@ import type { AnalysisSelectionUse, MenuMeta, PanelDeclaration, Text } from '@ap
 
 type SelectionOutput = PanelDeclaration['outputs'][number]['selection'];
 type Channel = NonNullable<SelectionOutput> & {
+  inbound?: true;
   writers: { panelId: string; title: Text; selection: SelectionOutput }[];
   readers: { panelId: string; use: AnalysisSelectionUse }[];
 };
 
 /** Indexes analysis selection declarations by their page key (ADR-0175). */
-export function menuAnalysisSelections(menu: Pick<MenuMeta, 'panels'>): ReadonlyMap<string, Channel> {
+export function menuAnalysisSelections(menu: Pick<MenuMeta, 'panels' | 'analysisSelectionInbound'>): ReadonlyMap<string, Channel> {
   const channels = new Map<string, Channel>();
   for (const panel of menu.panels ?? []) {
     for (const { key, selection } of panel.outputs) {
@@ -16,6 +17,9 @@ export function menuAnalysisSelections(menu: Pick<MenuMeta, 'panels'>): Readonly
       if (!channel) channels.set(key, { ...selection, writers: [], readers: [] });
       else if (channel.label === undefined && selection.label !== undefined) channels.set(key, { ...channel, label: selection.label });
     }
+  }
+  for (const { key, dimension, shape, label } of menu.analysisSelectionInbound ?? []) {
+    channels.set(key, { ...channels.get(key), dimension, shape, label, inbound: true, writers: [], readers: [] });
   }
   for (const { id: panelId, title, outputs, queryInputs, displayInputs } of menu.panels ?? []) {
     for (const { key, selection } of outputs) channels.get(key)?.writers.push({ panelId, title, selection });

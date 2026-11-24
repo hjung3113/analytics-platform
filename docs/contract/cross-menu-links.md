@@ -32,7 +32,7 @@ Create VOC with current context
 - unsupported context
 - permission
 
-을 공통 처리한다. 구현은 Kernel `resolveLink(menuId, options)`다. 목적지가 Registry에 있으면(`kind: 'link'`) 결과는 세 가지다.
+을 공통 처리한다. 구현은 Kernel `resolveLink(menuId, options)`다. `kind: 'link'`의 기본 결과는 다음과 같다.
 
 - `href`: 전역 Context는 목적지 지원 여부와 무관하게 실어 보낸다(미지원 표시는 목적지 화면 몫). 목적지가 다른 Scope(site)면 이전 site에 묶인 값(room_name·Line·PRC 그룹·Condition·Selection·Lot·Recipe·PPID)은 비우고 호출자가 명시한 값만 남긴다. page key는 목적지 manifest `pageKeys`에 있는 것만 싣는다.
 - `allowed`: 목적지 메뉴 권한과 공간 진입 권한을 링크가 안다. 표시용이며 서버가 다시 검사한다. 등록된 목적지가 `false`면 호출자는 링크 대신 사유를 보인다(임의로 숨기지 않는다).
@@ -40,7 +40,9 @@ Create VOC with current context
 
 **목적지가 Registry에 없을 때 (Decided, 2026-11-13, [ADR-0158](../adr/0158-unregistered-link-destinations-and-declared-link-targets.md), #1903; 필드명 Candidate):** `resolveLink`는 던지지 않고 `kind: 'none'`을 돌려준다(`href`는 `null`, `allowed`는 `false`, `droppedPageKeys`는 빈 목록). `canOpen`도 등록되지 않은 id에 `false`다. 이유: 조립마다 메뉴 묶음이 다르고, 저장된 기록과 서버 응답의 메뉴 id는 지금 없는 메뉴를 가리킬 수 있다. 호출자는 `allowed`보다 `kind`를 먼저 본다. `none`이면 고정 진입점(버튼·동작)은 그리지 않고, 기록이 가리키는 목적지는 링크 없이 값만 글자로 보인다. 권한 사유로 표시하지 않으며(§17: 권한 없음과 구분), id나 다른 문자열로 URL을 대신 만들지 않는다. `linkTo`는 `resolveLink`의 `href`를 문자열로 돌려주는 줄임이고, 등록이 보증된 목적지(같은 패키지의 메뉴, 아래 `linkTargets.required`)에만 쓴다. 등록되지 않은 id에는 `RegistryError`를 던진다.
 
-**목적지 선언 `linkTargets` (선택; Decided, 같은 ADR; 필드명 Candidate):** 메뉴 manifest는 다른 메뉴로 가는 링크의 목적지 메뉴 id를 `linkTargets: { required?, optional? }`로 적을 수 있다. `required`는 그 목적지가 없으면 이 메뉴의 주 흐름이 끊기는 경우에만 적고, `createRegistry`는 등록되지 않은 `required` 목적지를 `RegistryError`로 거부한다(조립 시점 오류). `optional`은 없어도 되는 목적지이고, 등록되지 않았으면 링크는 `none`이다. 선언됐지만 등록되지 않은 목적지는 `registry.missingLinkTargets`(`{ menuId, target, level }`)에 나온다. 자기 메뉴만 올리는 Registry(패키지 단위 시험, 다른 메뉴를 아직 붙이지 않은 시작 키트)는 `createRegistry({ linkTargetCheck: 'report' })`로 `required` 거부를 끄고 목록으로만 받는다. 배포하는 조립은 이 값을 쓰지 않는다. `linkTargets`를 적지 않은 메뉴는 검사하지 않는다. 모듈 메뉴(ADR-0053)는 `linkTargets`를 선언할 수 없다. 선언은 목적지 id만 담는다: Context·page 값·경로 값을 싣지 않고, 어떤 키도 이어받게 하지 않으며(이어받기는 carry set뿐), 권한을 주지 않고, 목적지로 들어오는 주소를 제한하지 않는다(직접 URL, `allowed`, 서버 재검사는 그대로). `required` 목적지는 다른 공간에 있어도 된다.
+**목적지 선언 `linkTargets` (선택; Decided, 같은 ADR; 필드명 Candidate):** 메뉴 manifest는 다른 메뉴로 가는 링크의 목적지 메뉴 id를 `linkTargets: { required?, optional? }`로 적을 수 있다. `required`는 그 목적지가 없으면 이 메뉴의 주 흐름이 끊기는 경우에만 적고, `createRegistry`는 등록되지 않은 `required` 목적지를 `RegistryError`로 거부한다(조립 시점 오류). `optional`은 없어도 되는 목적지이고, 등록되지 않았으면 링크는 `none`이다. 선언됐지만 등록되지 않은 목적지는 `registry.missingLinkTargets`(`{ menuId, target, level }`)에 나온다. 자기 메뉴만 올리는 Registry(패키지 단위 시험, 다른 메뉴를 아직 붙이지 않은 시작 키트)는 `createRegistry({ linkTargetCheck: 'report' })`로 `required` 거부를 끄고 목록으로만 받는다. 배포하는 조립은 이 값을 쓰지 않는다. `linkTargets`를 적지 않은 메뉴는 검사하지 않는다. 모듈 메뉴(ADR-0053)는 `linkTargets`를 선언할 수 없다. 선언은 목적지 id만 담는다: Context·page 값·경로 값을 싣지 않고, 어떤 키도 이어받게 하지 않으며, 권한을 주지 않고, 목적지로 들어오는 주소를 제한하지 않는다(직접 URL, `allowed`, 서버 재검사는 그대로). `required` 목적지는 다른 공간에 있어도 된다.
+
+**분석 선택 싣기 (Decided, ADR-0175/0176, #2735).** `resolveSelectionLink(menuId, options?)`와 `objectSelectionLinks({ kind, id }, options?)`는 현재 메뉴의 패널 출력에 선언된 유효한 분석 선택을 읽는다. 각각 `SelectionLinkResolution`과 `ObjectSelectionLink[]`을 돌려준다. `resolveLink`, `objectLinks`, `linkTo`와 Kernel 진입용 `resolveEntryLink`는 분석 선택을 싣지 않는다. 목적지가 `analysisSelectionInbound`에 같은 차원과 형태를 선언하고 그 키에 맞는 출발 선택이 하나일 때만 목적지 키에 싣는다. 명시한 page 값이 우선하며 `null`은 키를 뺀다. 유효 Scope가 바뀌면 분석 선택을 모두 뺀다. 배포 경로 접두사와 중첩된 `returnTo`를 포함한 인코딩 주소가 8000자를 넘으면 목적지 선언의 역순으로 선택 단위로 뺀다. 그래도 넘으면 `tooLong`으로 응답하며 이동 주소는 없다. 요청 결과의 `droppedSelections`에는 빠진 차원과 사유(`noInbound`, `ambiguous`, `scope`, `length`)만 담는다. 도착 화면에는 PR2에서 정하는 출처 이름 없는 분석 선택 칩을 표시한다.
 
 ### 객체 종류로 다른 화면 열기 (Decided, 2026-11-14, #1930)
 

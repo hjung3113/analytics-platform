@@ -7,6 +7,7 @@ export type ShareLinkResult = { ok: true; href: string } | { ok: false; reason: 
 
 /** Default bound on the copied address; longer addresses are refused, never truncated (06 §6.4 / kernel.md §11). */
 export const SHARE_LINK_MAX_LENGTH = 4000;
+export const NAVIGATION_URL_MAX_LENGTH = 8000;
 
 /**
  * The one serializer behind "share current conditions", "copy menu address" and the VOC repro link (cross-menu-links.md).
