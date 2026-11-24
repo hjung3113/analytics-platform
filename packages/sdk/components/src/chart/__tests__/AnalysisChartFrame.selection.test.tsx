@@ -306,8 +306,8 @@ it.each(['chip edit', 'deep link'] as const)('keeps an equal time range out of t
   const from = '2026-09-01T00:00:00';
   const end = '2026-09-01T01:00:00';
   const to = '2026-09-01T02:00:00';
-  const expectedRange = `${from}/${source === 'chip edit' ? end : from}`;
-  window.history.replaceState(null, '', `/?${new URLSearchParams({ v: '1', scopeId: 'MEM', from, to, range: expectedRange })}`);
+  const expectedRange = `${from}/${from}`;
+  window.history.replaceState(null, '', `/?${new URLSearchParams({ v: '1', scopeId: 'MEM', from, to, range: source === 'chip edit' ? `${from}/${end}` : expectedRange })}`);
   const series: ChartSeries[] = [{ ...A, points: [[from, 1], [end, 2]] }];
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry}>
     <AnalysisSelectionChipZone />
@@ -319,11 +319,11 @@ it.each(['chip edit', 'deep link'] as const)('keeps an equal time range out of t
     const picker = within(screen.getByRole('dialog'));
     fireEvent.change(picker.getAllByRole('textbox')[1], { target: { value: from } });
     fireEvent.click(picker.getByRole('button', { name: '적용' }));
-    expect.soft(screen.queryByRole('dialog')).not.toBeNull();
   }
-  const apply = within(summary()).queryByRole('button', { name: '분석 구간으로 적용' });
-  if (source === 'deep link') expect.soft(apply).toBeNull();
-  if (apply && source === 'deep link') {
+  // The chip may hold the zero-length range; the time-axis chart neither draws nor offers it as a period.
+  const apply = screen.queryByRole('button', { name: '분석 구간으로 적용' });
+  expect.soft(apply).toBeNull();
+  if (apply) {
     fireEvent.click(apply);
     const confirmation = screen.queryByRole('group', { name: '구간 적용 확인' });
     if (confirmation) fireEvent.click(within(confirmation).getByRole('button', { name: '적용' }));
@@ -352,4 +352,20 @@ it.each([
   expect(within(summary()).getByText(/선택 구간:/)).toBeTruthy();
   expect(within(summary()).queryByRole('button', { name: '분석 구간으로 적용' }) !== null).toBe(shown);
   expect(within(summary()).queryByText('시간축에서만 분석 구간으로 적용할 수 있습니다.') !== null).toBe(xType === 'category' && shown);
+});
+
+it('closes the global-period confirmation when the same frame leaves the time axis', async () => {
+  const from = '2026-09-01T00:00:00';
+  const to = '2026-09-01T02:00:00';
+  window.history.replaceState(null, '', `/?${new URLSearchParams({ v: '1', scopeId: 'MEM', from, to, range: `${from}/${to}` })}`);
+  const series: ChartSeries[] = [{ ...A, points: [[from, 1], [to, 2]] }];
+  const frame = (xType: 'time' | 'category') => <I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry}>
+    <AnalysisChartFrame chartId="sel" title="Sel" series={series} unit="s" xType={xType} analysisSelectionOutput={output} />
+  </PlatformProvider></I18nProvider>;
+  const { rerender } = render(frame('time'));
+  await screen.findByRole('img');
+  fireEvent.click(within(summary()).getByRole('button', { name: '분석 구간으로 적용' }));
+  expect(screen.getByRole('group', { name: '구간 적용 확인' })).toBeTruthy();
+  rerender(frame('category'));
+  expect(screen.queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
 });

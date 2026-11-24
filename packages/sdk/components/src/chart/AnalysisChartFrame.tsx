@@ -705,7 +705,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       const snapped = snapOutward(toMs(r.from), toMs(r.to), timeBounds);
       return snapped ? clipToPeriod(snapped, periodFrom, periodTo, compareClipOn) : { range: null, notice: 'outside' };
     };
-    const next = fit(currentSelection); const nextPreview = fit(currentPreview);
+    // The global-period preview exists only on a time axis: leaving it closes the confirmation (#2854 C6).
+    const next = fit(currentSelection); const nextPreview = xType === 'time' ? fit(currentPreview) : { range: null, notice: null };
     const same = (a: Selection | null, b: Selection | null) => a === b || (!!a && !!b && a.from === b.from && a.to === b.to);
     if (same(next.range, currentSelection) && same(nextPreview.range, currentPreview)) return;
     rangeActions.refit(next.range, nextPreview.range, next.notice ?? nextPreview.notice);
@@ -1246,7 +1247,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         {m('chartNoValuesInRange')}
       </p>}
       {clipNotice && <p className="mt-1 text-text-secondary">{m(clipNotice === 'partial' ? 'chartCutPreviousPeriod' : 'chartOnlyPreviousPeriod')}</p>}
-      {preview && applyPeriod && <div role="group" aria-label={m('chartConfirmRange')} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
+      {preview && applyPeriod && xType === 'time' && <div role="group" aria-label={m('chartConfirmRange')} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
         <span className="tabular">{m('chartConfirmGlobalPeriodChange')} <b>{formatWallClock(preview.from)} → {formatWallClock(preview.to)}</b></span>
         {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
         <Button size="toolbar" onClick={() => {

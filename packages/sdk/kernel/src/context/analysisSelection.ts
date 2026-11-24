@@ -1,4 +1,4 @@
-import { wallClockEpochMs, type AnalysisSelection, type AnalysisSelectionUse, type Text } from '@ap/contracts';
+import type { AnalysisSelection, AnalysisSelectionUse, Text } from '@ap/contracts';
 import { use, useCallback, useEffect, useInsertionEffect, useMemo, useSyncExternalStore } from 'react';
 import { PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
 import { usePlatform, usePlatformOptional } from '../platform/hooks';
@@ -325,14 +325,11 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
       const normalized = parseAnalysisSelection(shape, written);
       if (!normalized && written.length) return false;
       if (normalized?.shape === 'range') {
-        const available = reportedAvailability.get(key);
-        const compare = analysisSelectionRangeCompare(available);
+        // The selection carries no axis, so equal ends stay valid here (a one-category range); a time-axis chart refuses
+        // to draw or apply a zero-length range itself (#2854 C5).
+        const compare = analysisSelectionRangeCompare(reportedAvailability.get(key));
         try {
-          const order = compare(normalized.from, normalized.to);
-          if (!(order <= 0)) return false;
-          const hasCategories = available && 'from' in available && available.candidates !== undefined;
-          if (order === 0 && !hasCategories && wallClockEpochMs(normalized.from) !== null
-            && wallClockEpochMs(normalized.to) !== null) return false;
+          if (!(compare(normalized.from, normalized.to) <= 0)) return false;
         } catch {
           // A source comparator may reject malformed text. The editor displays its validation error.
           return false;

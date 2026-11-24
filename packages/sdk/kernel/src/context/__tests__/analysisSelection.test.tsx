@@ -471,9 +471,9 @@ it('returns empty chips and refuses writes in a lent panel', () => {
 });
 
 it.each([
-  ['time', undefined, false],
+  ['source without candidates (time axis or unreported categories)', undefined, true],
   ['category with timestamp labels', [{ value: '2026-09-01T14:00:00', label: 'First' }, { value: '2026-09-01T16:00:00', label: 'Last' }], true],
-] as const)('validates equal chip range endpoints on a %s axis', (_, candidates, valid) => {
+] as const)('accepts equal chip range endpoints from a %s', (_, candidates, valid) => {
   const from = '2026-09-01T14:00:00';
   const to = '2026-09-01T16:00:00';
   const result = mount(() => {
