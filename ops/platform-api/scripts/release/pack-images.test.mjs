@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
@@ -30,7 +38,12 @@ function withFixture(fn) {
     const run = (args, arch = 'linux/amd64') =>
       spawnSync('bash', [script, ...args], {
         encoding: 'utf8',
-        env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, DOCKER_LOG: log, FAKE_ARCH: arch },
+        env: {
+          ...process.env,
+          PATH: `${bin}:${process.env.PATH}`,
+          DOCKER_LOG: log,
+          FAKE_ARCH: arch,
+        },
       });
     const calls = () => (existsSync(log) ? readFileSync(log, 'utf8') : '');
     fn({ root, run, calls });
@@ -47,12 +60,19 @@ test('saves the three release images of one tag with a SHA256SUMS that checks', 
     const files = ['backend', 'migrate', 'web'].map((n) => `platform-release-${n}-v0.49.0.tar.gz`);
     assert.deepEqual(readdirSync(out).sort(), ['SHA256SUMS', ...files].sort());
     for (const [i, n] of ['backend', 'migrate', 'web'].entries()) {
-      assert.equal(gunzipSync(readFileSync(join(out, files[i]))).toString(), `image:platform-release-${n}:v0.49.0`);
+      assert.equal(
+        gunzipSync(readFileSync(join(out, files[i]))).toString(),
+        `image:platform-release-${n}:v0.49.0`,
+      );
     }
     const sums = readFileSync(join(out, 'SHA256SUMS'), 'utf8').trim().split('\n');
     assert.deepEqual(sums.map((l) => l.split(/\s+\*?/)[1]).sort(), files.sort());
     assert.doesNotMatch(calls(), /^build /m, '--no-build never builds');
-    assert.equal(calls().match(/^save --platform linux\/amd64 /gm)?.length, 3, 'each save keeps only linux/amd64');
+    assert.equal(
+      calls().match(/^save --platform linux\/amd64 /gm)?.length,
+      3,
+      'each save keeps only linux/amd64',
+    );
     assert.equal(calls().match(/^image inspect --platform linux\/amd64 /gm)?.length, 3);
   });
 });
@@ -90,7 +110,9 @@ test('a build targets linux/amd64 for both server images', () => {
       .filter((l) => l.startsWith('build '));
     for (const target of ['runtime', 'migrate']) {
       assert.ok(
-        builds.some((l) => l.includes('--platform linux/amd64') && l.includes(`--target ${target}`)),
+        builds.some(
+          (l) => l.includes('--platform linux/amd64') && l.includes(`--target ${target}`),
+        ),
         `${target} build: ${builds.join(' | ')}`,
       );
     }
