@@ -8,12 +8,12 @@ const REPO = 'https://github.com/hjung3113/analytics-platform/blob/main/';
 /** Shown instead of invented rules when the design files hold no sentence to quote (owner decision, #2828). */
 export const NO_RULE = '문서화된 사용 규칙 없음 — 규칙이 필요하면 DESIGN.md 또는 docs/contract에 먼저 추가';
 
-/** The table cell or sentence of `doc` that holds `phrase`, links reduced to their text; null when the source no longer says it. */
+/** The table cell or sentence of `doc` that holds `phrase`, links reduced to their text and bold marks dropped; null when the source no longer says it. */
 export function quote([doc, phrase]: Quote): string | null {
   const line = docs[doc].split('\n').find(text => text.includes(phrase));
   if (!line) return null;
   const parts = line.startsWith('|') ? line.split('|') : line.replace(/^[-*]\s+/, '').split(/(?<=\.)\s+/);
-  return parts.find(part => part.includes(phrase))!.trim().replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  return parts.find(part => part.includes(phrase))!.trim().replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replaceAll('**', '');
 }
 
 function Rules({ title, quotes }: { title: string; quotes: Quote[] }) {
