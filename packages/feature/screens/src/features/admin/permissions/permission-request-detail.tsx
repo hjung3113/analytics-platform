@@ -154,13 +154,17 @@ export function PermissionRequestDetail({
       />
     </div>
   );
-  const title = <>{requester} · <ReviewCapabilityName id={request.requested_capability} /></>;
+  // The capability alone is the title so it stays on one line at 1440 beside the header actions (#2674); the requester
+  // moves to the subtitle line under it, for a group too.
+  const title = <ReviewCapabilityName id={request.requested_capability} />;
+  const subtitle = `${COPY.request[lang]} · ${requester}`;
 
   if (renderDetail) {
     return renderDetail({
       title,
+      // Two lines stack the subtitle under the title instead of beside it, so a long requester never truncates the title.
       titleLines: 2,
-      subtitle: COPY.request[lang],
+      subtitle,
       headerActions: <OutlineBadge className="shrink-0 whitespace-nowrap">{permissionRequestStatusText[request.status][lang]}</OutlineBadge>,
       body,
       footer: hasPermissionDecisionActions(request) ? <div ref={setDecisionFooter} /> : undefined,
@@ -175,7 +179,7 @@ export function PermissionRequestDetail({
     >
       <header className="flex h-toolbar items-center gap-3 border-b border-border-subtle px-6">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-text-muted">{COPY.request[lang]}</p>
+          <p className="text-xs font-medium text-text-muted">{subtitle}</p>
           <p className="truncate text-sm font-medium text-text-primary">
             {title}
           </p>

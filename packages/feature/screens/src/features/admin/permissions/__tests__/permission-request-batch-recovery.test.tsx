@@ -54,7 +54,7 @@ it('keeps the single-permission review layout and batch decision for a one-item 
   expect(review.getByText('요청 만료일 없음', { selector: 'p' })).toHaveClass('text-text-muted');
   expect(review.queryByRole('region', { name: '전체 읽기' })).not.toBeInTheDocument();
   expect(review.queryByRole('listitem')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: '거절' }));
+  fireEvent.click(screen.getByRole('radio', { name: '거절' }));
   fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'reviewed here' } });
   fireEvent.click(screen.getByTestId('permission-decision-submit'));
   await screen.findByText('승인 0 · 거절 1');
@@ -101,7 +101,7 @@ it.each(['supported', 'unsupported'] as const)('requires a safe batch POST when 
     </QueryClientProvider>,
   );
   await screen.findByTestId('permission-decision-section');
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   const otherCheck = screen.getAllByRole('checkbox')[1];
   if (!otherCheck) throw new Error('Expected the second checklist item');
   if (mode === 'unsupported') fireEvent.click(otherCheck);
@@ -177,7 +177,7 @@ it.each([
     </QueryClientProvider>,
   );
   await screen.findByTestId('permission-decision-section');
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   const scopeCheck = screen.getByRole('checkbox', { name: 'Site·공정 조회' });
   fireEvent.click(scopeCheck);
   fireEvent.click(screen.getByRole('radio', { name: 'Alpha' }));
@@ -217,7 +217,7 @@ it.each(['background', 'conflict'] as const)('preserves same-revision drafts and
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(<QueryClientProvider client={client}><PermissionRequestBatchDetail rows={initial.map(({ id, requester_actor_id, requested_capability, requested_managed_system_id, status, revision, requested_expiration, reason, created_at }) => ({ id, requester_actor_id, requested_capability, requested_managed_system_id, status, revision, requested_expiration, reason, created_at }))} id={batch} managedSystemNames={{}} onClose={vi.fn()} /></QueryClientProvider>);
   await screen.findByTestId('permission-decision-section');
-  fireEvent.click(screen.getByRole('button', { name: '거절' }));
+  fireEvent.click(screen.getByRole('radio', { name: '거절' }));
   fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'draft review reason' } });
   await act(async () => { await client.invalidateQueries({ queryKey: ['permission-requests', 'admin-detail'] }); });
   expect(screen.getByLabelText(/^사유/)).toHaveValue('draft review reason');
@@ -234,7 +234,7 @@ it.each(['background', 'conflict'] as const)('preserves same-revision drafts and
   expect(await screen.findByTestId('permission-decision-reset-notice')).toHaveTextContent('draft review reason');
   expect(screen.getByLabelText(/^사유/)).toHaveValue('');
   expect(screen.getByTestId('permission-decision-submit')).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: '거절' }));
+  fireEvent.click(screen.getByRole('radio', { name: '거절' }));
   expect(screen.queryByTestId('permission-decision-reset-notice')).not.toBeInTheDocument();
   expect(screen.queryByTestId('permission-request-stale-alert')).not.toBeInTheDocument();
 });
@@ -254,7 +254,7 @@ it('recognizes its own successful whole-batch decision without a discarded-draft
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(<QueryClientProvider client={client}><PermissionRequestBatchDetail rows={initial.map(({ id, requester_actor_id, requested_capability, requested_managed_system_id, status, revision, requested_expiration, reason, created_at }) => ({ id, requester_actor_id, requested_capability, requested_managed_system_id, status, revision, requested_expiration, reason, created_at }))} id={batch} managedSystemNames={{}} onClose={vi.fn()} /></QueryClientProvider>);
   await screen.findByTestId('permission-decision-section');
-  fireEvent.click(screen.getByRole('button', { name: '거절' }));
+  fireEvent.click(screen.getByRole('radio', { name: '거절' }));
   fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'reviewed here' } });
   fireEvent.click(screen.getByTestId('permission-decision-submit'));
   await screen.findByText('승인 0 · 거절 2');
@@ -280,7 +280,7 @@ it('recognizes its own decision when an untouched closed member stays in the bat
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(<QueryClientProvider client={client}><PermissionRequestBatchDetail rows={items.map(({ id, requester_actor_id, requested_capability, requested_managed_system_id, status, revision, requested_expiration, reason, created_at }) => ({ id, requester_actor_id, requested_capability, requested_managed_system_id, status, revision, requested_expiration, reason, created_at }))} id={batch} managedSystemNames={{}} onClose={vi.fn()} /></QueryClientProvider>);
   await screen.findByTestId('permission-decision-section');
-  fireEvent.click(screen.getByRole('button', { name: '추가 정보 요청' }));
+  fireEvent.click(screen.getByRole('radio', { name: '추가 정보 요청' }));
   fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'please add detail' } });
   fireEvent.click(screen.getByTestId('permission-decision-submit'));
   await waitFor(() => expect(client.getQueryData(permissionRequestAdminDetailKey(open.id))).toMatchObject({ revision: 2 }));

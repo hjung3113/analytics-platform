@@ -31,7 +31,7 @@ describe('PermissionRequestDetail identity', () => {
     expect(screen.getByText('승인해도 요청자는 Finding 목록·상세를 열 수 없습니다. Developer 이상 역할이 필요합니다.')).toBeInTheDocument();
   });
 
-  it('leads with requester and readable capability in a two-line header', () => {
+  it('titles the panel with the readable capability and names the requester in the subtitle (#2674)', () => {
     render(
       <PermissionRequestDetail
         request={adminDetailFixture(REQUEST)}
@@ -41,8 +41,8 @@ describe('PermissionRequestDetail identity', () => {
       />,
     );
 
-    expect(screen.getByText('김하나 · Finding 관리')).toBeInTheDocument();
-    expect(screen.getByText('Finding 관리')).toBeInTheDocument();
+    expect(screen.getByText('권한 요청 · 김하나')).toBeInTheDocument();
+    expect(screen.getAllByText('Finding 관리')).toHaveLength(2);
     expect(screen.getByText(/finding\.manage/)).not.toBeVisible();
     expect(screen.queryByText('상태', { exact: true })).not.toBeInTheDocument();
     expect(screen.getByText('김하나')).toBeInTheDocument();
@@ -51,7 +51,7 @@ describe('PermissionRequestDetail identity', () => {
     expect(original).not.toHaveAttribute('open');
     expect(original).toHaveTextContent(REQUEST.id);
     expect(original).toHaveTextContent(REQUEST.requester_actor_id);
-    const header = screen.getByText('권한 요청').closest('header');
+    const header = screen.getByText('권한 요청 · 김하나').closest('header');
     expect(header?.querySelectorAll('p')).toHaveLength(2);
   });
 
@@ -66,8 +66,8 @@ describe('PermissionRequestDetail identity', () => {
     expect(screen.getByText('원본').closest('details')).toHaveTextContent('30000000-0000-0000-0000-000000000003');
   });
 
-  it('opts the hosted title into two lines while keeping the status badge on one line', () => {
-    const renderDetail = vi.fn(({ title, headerActions }: ClosableDetailParts) => <header><h2>{title}</h2>{headerActions}</header>);
+  it('titles the hosted panel with the capability alone, puts the requester on the subtitle line and keeps the status badge on one line (#2674)', () => {
+    const renderDetail = vi.fn(({ title, subtitle, headerActions }: ClosableDetailParts) => <header><h2>{title}</h2><p>{subtitle}</p>{headerActions}</header>);
     render(
       <PermissionRequestDetail
         request={adminDetailFixture(REQUEST)}
@@ -77,9 +77,10 @@ describe('PermissionRequestDetail identity', () => {
       />,
     );
 
-    const title = screen.getByRole('heading', { name: 'Mock Developer One · Finding 관리' });
+    const title = screen.getByRole('heading', { name: 'Finding 관리' });
     expect(renderDetail.mock.lastCall?.[0]).toHaveProperty('titleLines', 2);
     expect(title.firstElementChild).toBeNull();
+    expect(screen.getByText('권한 요청 · Mock Developer One')).toBeInTheDocument();
     expect(screen.getByText('검토 중')).toHaveClass('whitespace-nowrap', 'shrink-0');
   });
 });

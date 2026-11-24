@@ -255,7 +255,7 @@ describe('/admin/permissions/requests', () => {
       </QueryClientProvider>,
     );
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'preserved review' } });
 
     detail = { ...detail, status: 'needs_more_info', revision: 8, reason: 'latest request' };
@@ -324,7 +324,7 @@ describe('/admin/permissions/requests', () => {
         </QueryClientProvider>,
       );
       await screen.findByTestId('permission-decision-section');
-      fireEvent.click(screen.getByRole('button', { name: '거절' }));
+      fireEvent.click(screen.getByRole('radio', { name: '거절' }));
       fireEvent.change(screen.getByLabelText(/^사유/), {
         target: { value: 'discarded Admin reason' },
       });
@@ -341,14 +341,14 @@ describe('/admin/permissions/requests', () => {
       );
       expect(notice).toHaveTextContent('discarded Admin reason');
       expect(screen.getByLabelText(/^사유/)).toHaveValue('');
-      expect(screen.getByRole('button', { name: '거절' })).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByRole('radio', { name: '거절' })).toHaveAttribute('aria-checked', 'false');
       expect(screen.getByTestId('permission-decision-submit')).toBeDisabled();
       await act(async () => {
         await Promise.resolve();
       });
       expect(decisionPosts()).toHaveLength(0);
       if (dismissal === 'new decision') {
-        fireEvent.click(screen.getByRole('button', { name: '거절' }));
+        fireEvent.click(screen.getByRole('radio', { name: '거절' }));
       } else {
         fireEvent.mouseDown(screen.getByRole('tab', { name: /^추가 정보 필요/ }));
         await screen.findByText(REQUESTS[1].reason);
@@ -373,7 +373,7 @@ describe('/admin/permissions/requests', () => {
       });
       renderRoute();
       await screen.findByTestId('permission-decision-section');
-      fireEvent.click(screen.getByRole('button', { name: action }));
+      fireEvent.click(screen.getByRole('radio', { name: action }));
       fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'my own reason' } });
       fireEvent.click(screen.getByTestId('permission-decision-submit'));
       await waitFor(() =>
@@ -408,7 +408,7 @@ describe('/admin/permissions/requests', () => {
       </QueryClientProvider>,
     );
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'pending reason' } });
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(1));
@@ -449,7 +449,7 @@ describe('/admin/permissions/requests', () => {
       </QueryClientProvider>,
     );
     await screen.findByText('전체 범위');
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     fireEvent.change(screen.getByLabelText(/^사유/), {
       target: { value: 'old risk review' },
     });
@@ -488,7 +488,7 @@ describe('/admin/permissions/requests', () => {
       </QueryClientProvider>,
     );
     await screen.findByText('요청 만료일 없음');
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     fireEvent.change(screen.getByLabelText(/^사유/), {
       target: { value: 'keep this review' },
     });
@@ -516,7 +516,7 @@ describe('/admin/permissions/requests', () => {
       </QueryClientProvider>,
     );
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'old reason' } });
     fireEvent.change(screen.getByLabelText(/정책 근거/), {
       target: { value: 'old policy citation' },
@@ -546,7 +546,7 @@ describe('/admin/permissions/requests', () => {
       await Promise.resolve();
     });
     expect(decisionPosts()).toHaveLength(0);
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     expect(screen.getByLabelText(/정책 근거/)).toHaveValue('');
     expect(screen.getByLabelText(/동료 검토자 부재 사유/)).toHaveValue('');
     expect(screen.getByRole('radio', { name: '요청 만료일 유지 · 만료 없음' })).toHaveAttribute(
@@ -565,7 +565,7 @@ describe('/admin/permissions/requests', () => {
       </QueryClientProvider>,
     );
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'kept review' } });
     await act(async () => {
       await queryClient.invalidateQueries({
@@ -573,7 +573,7 @@ describe('/admin/permissions/requests', () => {
       });
     });
     await waitFor(() => expect(screen.getByLabelText(/^사유/)).toHaveValue('kept review'));
-    expect(screen.getByRole('button', { name: '승인' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radio', { name: '승인' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('permission-decision-submit')).toBeEnabled();
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(1));
@@ -613,7 +613,7 @@ describe('/admin/permissions/requests', () => {
       }) as typeof fetch;
       renderRoute();
       await screen.findByTestId('permission-decision-section');
-      fireEvent.click(screen.getByRole('button', { name: '승인' }));
+      fireEvent.click(screen.getByRole('radio', { name: '승인' }));
       fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'old review' } });
       fireEvent.click(screen.getByTestId('permission-decision-submit'));
       if (failedRead) {
@@ -651,7 +651,7 @@ describe('/admin/permissions/requests', () => {
       </QueryClientProvider>,
     );
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(1));
     await act(async () => {
@@ -694,7 +694,7 @@ describe('/admin/permissions/requests', () => {
       </QueryClientProvider>,
     );
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     await act(async () => {
@@ -728,7 +728,7 @@ describe('/admin/permissions/requests', () => {
     });
     renderRoute();
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await screen.findByText('latest ask');
     const alerts = screen.getAllByText(ADMIN_PERMISSIONS_COPY.reviewAgain);
@@ -740,7 +740,7 @@ describe('/admin/permissions/requests', () => {
       await Promise.resolve();
     });
     expect(screen.getByTestId('permission-request-stale-alert')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     expect(screen.queryByTestId('permission-request-stale-alert')).not.toBeInTheDocument();
   });
 
@@ -760,7 +760,7 @@ describe('/admin/permissions/requests', () => {
     }) as typeof fetch;
     renderRoute();
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(reads).toBe(2));
     const clear = screen.queryByRole('radio', { name: '만료 없음' });
@@ -786,7 +786,7 @@ describe('/admin/permissions/requests', () => {
       </QueryClientProvider>,
     );
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
@@ -801,7 +801,7 @@ describe('/admin/permissions/requests', () => {
       });
     });
     await waitFor(() => expect(screen.getByTestId('permission-decision-submit')).toBeDisabled());
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'fresh review' } });
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(3));
@@ -825,12 +825,12 @@ describe('/admin/permissions/requests', () => {
     ) as typeof fetch;
     renderRoute();
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(1));
     fireEvent.mouseDown(screen.getByRole('tab', { name: /^추가 정보 필요/ }));
     await screen.findByText('need detail');
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'new selection review' } });
     await act(async () => {
       finish?.(
@@ -871,10 +871,10 @@ describe('/admin/permissions/requests', () => {
       <PermissionRequestsScreen renderDetail={({ body, footer }) => <><main>{body}</main><footer>{footer}</footer></>} />
     ) : undefined);
     await screen.findByTestId('permission-decision-section');
-    expect(screen.queryByRole('button', { name: '거절' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '추가 정보 요청' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '명시적 거부' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    expect(screen.queryByRole('radio', { name: '거절' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: '추가 정보 요청' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: '명시적 거부' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     const scope = role === 'option' ? (() => {
       const select = screen.getByRole('combobox', { name: '승인 범위' });
       fireEvent.keyDown(select, { key: 'ArrowDown' });
@@ -930,7 +930,7 @@ describe('/admin/permissions/requests', () => {
     ));
     render(<QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>);
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.click(await screen.findByRole('radio', { name: 'Alpha' }));
     fireEvent.change(screen.getByLabelText('사유 · 필수'), { target: { value: 'Review survey export' } });
     const submit = within(screen.getByRole('contentinfo')).getByTestId('permission-decision-submit');
@@ -979,7 +979,7 @@ describe('/admin/permissions/requests', () => {
     });
     renderRoute();
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     const decision = within(screen.getByTestId('permission-decision-section'));
     await decision.findByRole('button', { name: '시스템 이름 다시 불러오기' });
     const original = present(screen.getByText('원본').closest('details'));
@@ -998,7 +998,7 @@ describe('/admin/permissions/requests', () => {
     installFetch();
     renderRoute();
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     await act(async () => {
       fireEvent.click(screen.getByTestId('permission-decision-submit'));
       fireEvent.click(screen.getByTestId('permission-decision-submit'));
@@ -1012,13 +1012,13 @@ describe('/admin/permissions/requests', () => {
     installFetch();
     renderRoute();
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'first request draft' } });
     fireEvent.mouseDown(screen.getByRole('tab', { name: /^추가 정보 필요/ }));
     await screen.findByText('need detail');
     expect(screen.getByLabelText(/^사유/)).toHaveValue('');
     expect(screen.getByTestId('permission-decision-submit')).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: '추가 정보 요청' }));
+    fireEvent.click(screen.getByRole('radio', { name: '추가 정보 요청' }));
     fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'new question' } });
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(decisionPosts()).toHaveLength(1));
@@ -1118,7 +1118,7 @@ describe('/admin/permissions/requests', () => {
       await waitFor(() =>
         expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
       );
-      fireEvent.click(screen.getByRole('button', { name: action }));
+      fireEvent.click(screen.getByRole('radio', { name: action }));
       if (reason)
         fireEvent.change(screen.getByLabelText(/사유/), {
           target: { value: reason },
@@ -1154,7 +1154,7 @@ describe('/admin/permissions/requests', () => {
       await waitFor(() =>
         expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
       );
-      fireEvent.click(screen.getByRole('button', { name: '거절' }));
+      fireEvent.click(screen.getByRole('radio', { name: '거절' }));
       const field = screen.getByLabelText(/사유/);
       if (reason) fireEvent.change(field, { target: { value: reason } });
       const submit = screen.getByTestId('permission-decision-submit');
@@ -1191,7 +1191,7 @@ describe('/admin/permissions/requests', () => {
     );
 
     for (const label of ['승인', '추가 정보 요청', '거절', '명시적 거부']) {
-      expect(screen.getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'false');
+      expect(screen.getByRole('radio', { name: label })).toHaveAttribute('aria-checked', 'false');
     }
     expect(screen.getByTestId('permission-decision-submit')).toBeDisabled();
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
@@ -1201,8 +1201,8 @@ describe('/admin/permissions/requests', () => {
       ),
     ).toBe(false);
 
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
-    expect(screen.getByRole('button', { name: '승인' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
+    expect(screen.getByRole('radio', { name: '승인' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('permission-decision-submit')).toBeEnabled();
   });
 
@@ -1216,7 +1216,7 @@ describe('/admin/permissions/requests', () => {
     });
     renderRoute();
     await screen.findByTestId('permission-decision-section');
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
 
     const capture = screen.getByTestId('self-approval-audit-capture');
     expect(capture).toHaveTextContent('감사 로그에 본인 승인으로 기록됩니다');
@@ -1234,11 +1234,11 @@ describe('/admin/permissions/requests', () => {
       expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
     expect(screen.queryByTestId('self-approval-audit-capture')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     expect(screen.getByTestId('self-approval-audit-capture')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     expect(screen.queryByTestId('self-approval-audit-capture')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     expect(screen.getByTestId('self-approval-audit-capture')).toBeInTheDocument();
 
     fireEvent.mouseDown(screen.getByRole('tab', { name: /^추가 정보 필요\s*,\s*1$/ }));
@@ -1253,7 +1253,7 @@ describe('/admin/permissions/requests', () => {
     await waitFor(() =>
       expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     await waitFor(() =>
       expect(screen.getByTestId('self-approval-audit-capture')).toBeInTheDocument(),
     );
@@ -1301,7 +1301,7 @@ describe('/admin/permissions/requests', () => {
     await waitFor(() =>
       expect(screen.getByText(/운영 정책에서 직접 승인을 금지합니다/)).toBeInTheDocument(),
     );
-    expect(screen.getByRole('button', { name: '승인' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: '승인' })).toBeDisabled();
     expect(screen.getByTestId('permission-decision-submit')).toBeDisabled();
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     expect(decisionPosts()).toHaveLength(0);
@@ -1321,8 +1321,8 @@ describe('/admin/permissions/requests', () => {
       await waitFor(() =>
         expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
       );
-      expect(screen.getByRole('button', { name: '승인' })).toBeEnabled();
-      fireEvent.click(screen.getByRole('button', { name: '승인' }));
+      expect(screen.getByRole('radio', { name: '승인' })).toBeEnabled();
+      fireEvent.click(screen.getByRole('radio', { name: '승인' }));
       await waitFor(() =>
         expect(screen.getByTestId('self-approval-audit-capture')).toBeInTheDocument(),
       );
@@ -1354,7 +1354,7 @@ describe('/admin/permissions/requests', () => {
     await waitFor(() =>
       expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
 
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() =>
@@ -1366,7 +1366,7 @@ describe('/admin/permissions/requests', () => {
     );
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('권한 요청이 처리되었습니다.'));
     await waitFor(() => expect(screen.getByTestId('permission-decision-submit')).toBeDisabled());
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() =>
       expect(
@@ -1397,7 +1397,7 @@ describe('/admin/permissions/requests', () => {
     await waitFor(() =>
       expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     expect(
       (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.some(
@@ -1413,7 +1413,7 @@ describe('/admin/permissions/requests', () => {
         ([, init]) => init?.method === 'POST',
       ),
     ).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(listCalls).toBeGreaterThanOrEqual(2));
 
@@ -1427,7 +1427,7 @@ describe('/admin/permissions/requests', () => {
       },
     });
     await waitFor(() => expect(screen.getByTestId('permission-decision-submit')).toBeDisabled());
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith(
@@ -1444,7 +1444,7 @@ describe('/admin/permissions/requests', () => {
       expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '명시적 거부' }));
+    fireEvent.click(screen.getByRole('radio', { name: '명시적 거부' }));
     fireEvent.change(screen.getByLabelText(/사유/), {
       target: { value: '   ' },
     });
@@ -1464,7 +1464,7 @@ describe('/admin/permissions/requests', () => {
       expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '추가 정보 요청' }));
+    fireEvent.click(screen.getByRole('radio', { name: '추가 정보 요청' }));
     expect(screen.getByLabelText('사유 · 필수')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     fireEvent.change(screen.getByLabelText(/사유/), {
@@ -1488,7 +1488,7 @@ describe('/admin/permissions/requests', () => {
       expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     expect(screen.getByLabelText('사유 · 필수')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
 
@@ -1506,7 +1506,7 @@ describe('/admin/permissions/requests', () => {
       expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     expect(screen.getByLabelText('사유 · 선택')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
 
@@ -1530,7 +1530,7 @@ describe('/admin/permissions/requests', () => {
       expect(screen.getByTestId('permission-decision-section')).toBeInTheDocument(),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '승인' }));
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith(errorMapper(envelope).message));
   });

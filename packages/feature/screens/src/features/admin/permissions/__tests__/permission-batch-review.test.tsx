@@ -37,7 +37,7 @@ it('renders the final decision in the hosted footer and submits the action chose
   const footer = within(screen.getByRole('contentinfo'));
   expect(body.queryByTestId('permission-decision-submit')).not.toBeInTheDocument();
   expect(footer.getByRole('button', { name: '결정을 선택하세요' })).toBeDisabled();
-  fireEvent.click(body.getByRole('button', { name: '거절' }));
+  fireEvent.click(body.getByRole('radio', { name: '거절' }));
   fireEvent.change(body.getByLabelText('사유 · 필수'), { target: { value: '요청 범위 검토' } });
   fireEvent.click(footer.getByRole('button', { name: '거절 처리' }));
   expect(state.mutate).toHaveBeenCalledWith(expect.objectContaining({ action: 'reject', reason: '요청 범위 검토' }));
@@ -53,14 +53,14 @@ it('shows the declared capability name in the approval checklist', () => {
       <PermissionRequestDecisionForm request={first} batch={{ id: batchId, items: [first, declared] }} />
     </QueryClientProvider>,
   );
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   expect(screen.getByRole('checkbox', { name: '검사 결과 조회' })).toBeInTheDocument();
   expect(screen.queryByText(capability)).not.toBeInTheDocument();
 });
 
 it('partial approval requires one reason and includes every revision with only checked approval ids', () => {
   render(<PermissionRequestDecisionForm request={first} batch={{ id: batchId, items }} />);
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   expect(screen.getByRole('radiogroup', { name: '승인 만료일' })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('checkbox', { name: 'Finding 조회' }));
   fireEvent.click(screen.getByRole('button', { name: '고른 1개 승인' }));
@@ -73,10 +73,10 @@ it('partial approval requires one reason and includes every revision with only c
 
 it.each([['거절', 'reject'], ['추가 정보 요청', 'need-more-info']])('%s ignores approval selection and targets the whole batch', (label, action) => {
   render(<PermissionRequestDecisionForm request={first} batch={{ id: batchId, items }} />);
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   fireEvent.click(screen.getByRole('checkbox', { name: 'Finding 조회' }));
-  fireEvent.click(screen.getByRole('button', { name: label }));
-  expect(screen.getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'true');
+  fireEvent.click(screen.getByRole('radio', { name: label }));
+  expect(screen.getByRole('radio', { name: label })).toHaveAttribute('aria-checked', 'true');
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('사유 · 필수'), { target: { value: '전체 요청 검토 사유' } });
   fireEvent.click(screen.getByTestId('permission-decision-submit'));
@@ -86,7 +86,7 @@ it.each([['거절', 'reject'], ['추가 정보 요청', 'need-more-info']])('%s 
 it('held rows are disabled and unchecked, and unchecked decidable rows require a reason', () => {
   const held = { ...second, effective_access: { ...second.effective_access, decision: { allow: true as const, via: 'direct_grant' as const } } };
   render(<PermissionRequestDecisionForm request={first} batch={{ id: batchId, items: [first, held] }} />);
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   const checks = screen.getAllByRole('checkbox');
   expect(checks[1]).toBeDisabled();
   expect(checks[1]).toHaveAttribute('aria-checked', 'false');
@@ -98,7 +98,7 @@ it('held rows are disabled and unchecked, and unchecked decidable rows require a
 
 it('zero selection submits validation with an alert and focuses the reason', () => {
   render(<PermissionRequestDecisionForm request={first} batch={{ id: batchId, items }} />);
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   for (const checkbox of screen.getAllByRole('checkbox')) fireEvent.click(checkbox);
   fireEvent.click(screen.getByRole('button', { name: '고른 0개 승인' }));
   expect(screen.getByRole('alert')).toHaveTextContent('승인할 권한을 하나 이상 고르세요');
@@ -109,13 +109,13 @@ it('zero selection submits validation with an alert and focuses the reason', () 
 it('offers only approval scopes shared by checked batch members', () => {
   const otherScope = { ...second, approval_scope_candidates: [{ managed_system_id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }] };
   render(<PermissionRequestDecisionForm request={first} batch={{ id: batchId, items: [first, otherScope] }} />);
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   expect(screen.queryByRole('combobox', { name: '승인 범위' })).not.toBeInTheDocument();
 });
 
 it('unchecks a member that becomes held during a fresh access read', () => {
   const view = render(<PermissionRequestDecisionForm request={first} batch={{ id: batchId, items }} />);
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   const held = { ...second, effective_access: { ...second.effective_access, decision: { allow: true as const, via: 'role' as const } } };
   view.rerender(<PermissionRequestDecisionForm request={first} batch={{ id: batchId, items: [first, held] }} />);
   expect(screen.getByRole('checkbox', { name: /Finding 조회/ })).toHaveAttribute('aria-checked', 'false');
@@ -139,7 +139,7 @@ it.each(['system', 'site', 'room'] as const)('previews each checked grant with a
   const items = [targets[lead], ...Object.values(targets).filter(item => item !== targets[lead]), workspace];
   render(<PermissionRequestDecisionForm request={targets[lead]} batch={{ id: batchId, items }}
     scopeRadios approvalSystemNames={{ [system]: 'Alpha' }} />);
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   const preview = within(impactRow('승인 후 열리는 것'));
   expect(preview.getByText('설문 데이터 내보내기 · Alpha')).toBeInTheDocument();
   expect(preview.getByText('Site·공정 조회 · Site SITE-A 전체')).toBeInTheDocument();
@@ -173,7 +173,7 @@ it('keeps an unresolved system override disabled during loading and offers retri
       systemNamesRead={{ isFetching: catalog.isFetching, retry: () => void catalog.refetch() }} />;
   }
   mountCatalogReview(<Review />);
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   expect(screen.getByRole('radio', { name: '시스템 이름 확인 중' })).toBeDisabled();
   expect(screen.getByTestId('permission-decision-submit')).toBeEnabled();
   await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
@@ -208,7 +208,7 @@ it.each(['single', 'batch'] as const)('blocks the concrete requested scope in a 
       systemNamesRead={{ isFetching: catalog.isFetching, retry: () => void catalog.refetch() }} />;
   }
   mountCatalogReview(<Review />);
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
   const submit = screen.getByTestId('permission-decision-submit');
   expect(submit).toBeDisabled();
   expect(impactRow('승인 후 열리는 것')).toHaveTextContent('시스템 이름 확인 중');

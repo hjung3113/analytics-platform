@@ -22,6 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
   Textarea,
+  ToggleGroup,
+  ToggleGroupItem,
 } from '@ap/ui';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
@@ -457,7 +459,32 @@ export function PermissionRequestDecisionForm({
     >
       <PanelSectionTitle>결정</PanelSectionTitle>
       {resetNotice}
-      <fieldset className="flex flex-wrap gap-2" aria-label="결정 선택">
+      {/* The shared single-choice control, so the choices read as selectable and the pick shows (#2674). */}
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        appearance="filter"
+        className="w-fit flex-wrap justify-start"
+        aria-label="결정 선택"
+        value={action ?? ''}
+        disabled={
+          reviewBlocked ||
+          mutation.isPending ||
+          mutation.isSuccess ||
+          mutation.error?.code === 'conflict.stale_write'
+        }
+        onValueChange={(value) => {
+          const picked = ACTIONS.find((candidate) => candidate.value === value);
+          // A single choice stays picked: clicking the current one again does not clear it.
+          if (!picked || picked.value === action) return;
+          setAction(picked.value);
+          setReasonAttempted(false);
+          setExpirationValidationAttempted(false);
+          mutation.reset();
+          onActionPicked?.();
+        }}
+      >
         {ACTIONS.filter(
           (candidate) =>
             request.allowed_actions.includes(
@@ -466,31 +493,16 @@ export function PermissionRequestDecisionForm({
             // Site·공정 grants have no explicit deny (ADR-0154 decision 2); revocation does that job.
             !(candidate.value === 'deny' && request.requested_capability === 'scope.read'),
         ).filter(candidate => !batch || candidate.value !== 'deny').map((candidate) => (
-          <Button
+          <ToggleGroupItem
             key={candidate.value}
-            type="button"
-            size="sm"
-            variant={action === candidate.value ? 'secondary' : 'ghost'}
-            aria-pressed={action === candidate.value}
-            disabled={
-              reviewBlocked ||
-              mutation.isPending ||
-              mutation.isSuccess ||
-              mutation.error?.code === 'conflict.stale_write' ||
-              (candidate.value === 'approve' && selfApprovalBlockedByPolicy)
-            }
-            onClick={() => {
-              setAction(candidate.value);
-              setReasonAttempted(false);
-              setExpirationValidationAttempted(false);
-              mutation.reset();
-              onActionPicked?.();
-            }}
+            value={candidate.value}
+            appearance="selected-filter"
+            disabled={candidate.value === 'approve' && selfApprovalBlockedByPolicy}
           >
             {candidate.label}
-          </Button>
+          </ToggleGroupItem>
         ))}
-      </fieldset>
+      </ToggleGroup>
       {batch && action === 'approve' ? <fieldset className="flex flex-col gap-2"><legend className="text-sm font-medium">{PERMISSION_GROUP_COPY.checklist}</legend>{batch.items.map(item => <div key={item.id} className="flex items-center gap-2"><Checkbox id={`batch-approve-${item.id}`} checked={approveIds.includes(item.id) && grantable.some(candidate => candidate.id === item.id)} disabled={mutation.isPending || !grantable.some(candidate => candidate.id === item.id)} onCheckedChange={checked => {
         setApproveIds(previous => checked ? [...previous, item.id] : previous.filter(id => id !== item.id));
       }} /><label htmlFor={`batch-approve-${item.id}`}><ReviewCapabilityName id={item.requested_capability} />{item.effective_access.decision.allow ? ` · ${PERMISSION_GROUP_COPY.held}` : ''}</label></div>)}<p className="text-xs text-text-secondary">{PERMISSION_GROUP_COPY.unchecked}</p></fieldset> : null}
