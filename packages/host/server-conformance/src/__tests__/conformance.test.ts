@@ -1,7 +1,7 @@
 import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
 import { describe, expect, it } from 'vitest';
 import { UPLOAD_FILE_MAX_BYTES, defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type UploadedFile, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
-import { planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from '../index';
+import { describeServerConformance, planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from '../index';
 import { SAVED_VIEW_PORT_METHODS } from '../plan/ports/saved-views';
 
 const SELECTION_PORT_SKIP_IDS = [
@@ -1345,6 +1345,14 @@ describe('declared maxRows oversize check (#175)', () => {
     expect(skipped).toEqual({ id: `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, status: 'skipped', failure: null });
   });
 
+  it('keeps a known limitation on the oversize check valid when the oversize sample is removed (#2894)', async () => {
+    const knownLimitations = [{ id: CHECK_ID, reason: 'paging lands later' }];
+    expect((await runServerConformance({ ...oversizeHarness('ok'), knownLimitations })).find(r => r.id === CHECK_ID)?.status).toBe('known-limitation');
+    const cases = [{ spec: exportSpec, params: { tail: 'p95' } }];
+    const skippedId = `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`;
+    expect((await runServerConformance({ ...oversizeHarness('ok'), cases, knownLimitations })).find(r => r.id === skippedId)?.status).toBe('skipped');
+  });
+
   it('flags an oversize sample on an endpoint that declares no maxRows (P3-B)', async () => {
     const { limits: _limits, ...uncapped } = exportSpec;
     const h = { ...oversizeHarness('too_large'), cases: [{ spec: uncapped as typeof exportSpec, params: { tail: 'p95' }, oversizeParams: { tail: 'p50' } }] };
@@ -2016,5 +2024,90 @@ describe('requestable Scope disjointness (ADR-0154)', () => {
     const check = planServerConformance({ ...sample, adapter }).find(row => row.id === 'port · requestableScopes never lists a site present in scopes');
     expect(check).toBeDefined();
     expect(await check!.run()).toEqual(overlap ? 'requestableScopes must not list a granted site' : null);
+  });
+});
+
+// #1706, #2894: four result states — passed, known-limitation, failed, skipped (not tested); only passed is a pass.
+describe('known limitations: the vitest binding validates at registration (#2894)', () => {
+  // Every check planned skipped: vitest would skip the whole suite and never run `beforeAll`.
+  let refused: unknown = null;
+  try {
+    describeServerConformance('all skipped', { ...harness(), implemented: [], knownLimitations: [{ id: 'no such check', reason: 'x' }] });
+  } catch (error) {
+    refused = error;
+  }
+  it('throws for an invalid declaration before registering any test', () => {
+    expect(String(refused)).toContain('known limitation names no planned check: no such check');
+  });
+});
+
+describe('known limitations (#2894)', () => {
+  const TRUST = 'fixture.list · granted response trust is null or complete (06 §18)';
+  const statusOf = (results: readonly ConformanceResult[], id: string) => results.find(r => r.id === id);
+
+  it('reports a declared failing check as a known limitation with its reason and failure, never as a pass', async () => {
+    const results = await runServerConformance({ ...harness(new Set(['envelope-missing-trust'])), knownLimitations: [{ id: TRUST, reason: 'trust lands with #9999' }] });
+    expect(statusOf(results, TRUST)).toEqual({
+      id: TRUST, status: 'known-limitation', reason: 'trust lands with #9999', failure: '`trust` is missing — send null for non-mart data (06 §18)',
+    });
+    expect(results.filter(r => r.status === 'failed').map(r => r.id)).not.toContain(TRUST);
+  });
+
+  it('fails a declared check that passes, so a stale declaration is removed', async () => {
+    const results = await runServerConformance({ ...harness(), knownLimitations: [{ id: TRUST, reason: 'old gap' }] });
+    expect(statusOf(results, TRUST)).toEqual({ id: TRUST, status: 'failed', failure: 'declared as a known limitation (old gap) but passed — remove the declaration' });
+  });
+
+  it('keeps a declared check that was not tested as skipped', async () => {
+    const id = SELECTION_PORT_SKIP_IDS[0]!;
+    const results = await runServerConformance({ ...harness(), knownLimitations: [{ id, reason: 'not built yet' }] });
+    expect(statusOf(results, id)?.status).toBe('skipped');
+  });
+
+  it('refuses a declaration that names no planned check, has no reason or repeats an id, before anything runs', async () => {
+    await expect(runServerConformance({ ...harness(), knownLimitations: [{ id: 'fixture.list · no such check', reason: 'x' }] })).rejects.toThrow('known limitation names no planned check: fixture.list · no such check');
+    await expect(runServerConformance({ ...harness(), knownLimitations: [{ id: TRUST, reason: ' ' }] })).rejects.toThrow(`known limitation without a reason: ${TRUST}`);
+    await expect(runServerConformance({ ...harness(), knownLimitations: [{ id: TRUST, reason: 'a' }, { id: TRUST, reason: 'b' }] })).rejects.toThrow(`known limitation declared twice: ${TRUST}`);
+  });
+
+  it('leaves results unchanged without declarations', async () => {
+    expect(await runServerConformance(harness(new Set(['envelope-missing-trust'])))).toEqual(await runServerConformance({ ...harness(new Set(['envelope-missing-trust'])), knownLimitations: [] }));
+  });
+
+  it('keeps a declaration valid when `implemented` starts skipping the check, and reports the check skipped', async () => {
+    const h = harness();
+    const implemented = (Object.keys(h.adapter) as (keyof PlatformAdapter)[]).filter(m => m !== 'menuQuery');
+    const results = await runServerConformance({ ...h, implemented, knownLimitations: [{ id: 'unknown endpoint → error', reason: 'errors land later' }] });
+    expect(statusOf(results, 'unknown endpoint → error — not implemented: menuQuery')).toEqual({ id: 'unknown endpoint → error — not implemented: menuQuery', status: 'skipped', failure: null });
+    // The suffixed id is not a declaration name: it names no planned check.
+    await expect(runServerConformance({ ...h, implemented, knownLimitations: [{ id: 'unknown endpoint → error — not implemented: menuQuery', reason: 'x' }] }))
+      .rejects.toThrow('known limitation names no planned check');
+  });
+
+  it('reports a declared check whose adapter call throws as a known limitation that keeps the thrown message', async () => {
+    const h = harness();
+    const id = 'port · validateScope(granted site) → valid with its rooms';
+    const results = await runServerConformance({
+      ...h, adapter: { ...h.adapter, validateScope: async () => { throw new Error('boom'); } }, knownLimitations: [{ id, reason: 'scope service pending' }],
+    });
+    expect(statusOf(results, id)).toEqual({ id, status: 'known-limitation', reason: 'scope service pending', failure: 'the adapter threw: Error: boom' });
+  });
+
+  it('refuses a declaration that more than one planned check answers to, skipped ones counted', async () => {
+    const h = harness();
+    const twice = { ...h, cases: [h.cases[0]!, h.cases[0]!] };
+    const id = planServerConformance(twice).find(c => c.mode !== 'skipped' && c.id.startsWith(`${h.cases[0]!.spec.id} · `))!.id;
+    await expect(runServerConformance({ ...twice, knownLimitations: [{ id, reason: 'x' }] })).rejects.toThrow(`known limitation names 2 planned checks, so it cannot tell which: ${id}`);
+  });
+
+  it('calls no adapter method when a declaration is refused', async () => {
+    const h = harness();
+    const called: string[] = [];
+    const adapter = new Proxy(h.adapter, { get: (target, key, receiver) => {
+      const value = Reflect.get(target, key, receiver);
+      return typeof value === 'function' ? (...args: unknown[]) => { called.push(String(key)); return value.apply(target, args); } : value;
+    } });
+    await expect(runServerConformance({ ...h, adapter, knownLimitations: [{ id: 'fixture.list · no such check', reason: 'x' }] })).rejects.toThrow('known limitation names no planned check');
+    expect(called).toEqual([]);
   });
 });
