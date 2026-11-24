@@ -35,6 +35,8 @@ export function lentPanelPlatform(receiver: HostPlatform, inputs: LentPanelProps
     resolveLink: () => ({ kind: 'none', href: null, allowed: false, droppedPageKeys: [] }),
     linkTo: () => { throw new Error('Lent panel navigation belongs to the receiving screen'); },
     objectLinks: () => [],
+    resolveSelectionLink: () => ({ kind: 'none', href: null, allowed: false, droppedPageKeys: [] }),
+    objectSelectionLinks: () => [],
     returnTarget: () => url,
     returnOrigin: () => ({ href: url, menuLabel: { ko: '', en: '' }, trail: [], revertedContext: [], accepted: false, spaceLabel: null }),
     reportError: receiver.reportShellError,

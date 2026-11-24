@@ -137,7 +137,9 @@ live에서 전환한 메뉴는 `query.applyPeriodOnLegacyEntry: true`를 `autoAp
 
 `registry.panels(menuId)`는 선언 순서대로 `menuId`, 중복을 제거한 `permissions`(메뉴의 모든 권한 AND 엔드포인트 권한), `disabledReason(context)`를 더한 등록을 돌려준다. `registry.panelsReading(key)`는 조회·표시 입력을, `registry.panelsWriting(key)`는 출력을 역방향으로 찾는다. 가용성 재정의가 없으면 누락된 필수 page 입력의 드릴 레벨·`query.required.page` 라벨을 이유로 쓰며 라벨이 없으면 키 이름을 쓴다. Scope와 전역 Context 준비 판정은 기존 Kernel 게이트가 소유한다.
 
-분석 선택 입력은 같은 메뉴의 다른 패널이 선언한 분석 선택 출력을 참조한다. 해당 키를 쓰는 모든 출력의 차원과 형태가 같아야 하며, 라벨을 선언한 출력끼리는 라벨도 같아야 한다. 입력의 `source`는 선언 순서상 첫 출력 패널이며 공유 링크와 뒤로가기에서도 같다. `set`만 `repeatedPageKeys`에 넣고 두 형태 모두 `contextResetKeys`에 넣는다. 드릴 단계, `pageConditions`, `conditionPreset`, `navViews` 프리셋, `subjectPageKeys`, `returnTo`, `hiddenPageKeys`, 소속 carry set과 키를 공유할 수 없다.
+분석 선택 입력은 같은 메뉴의 다른 패널이 선언한 분석 선택 출력이나 메뉴의 `analysisSelectionInbound` 선언을 참조한다. 해당 키를 쓰는 모든 출력의 차원과 형태가 같아야 하며, 라벨을 선언한 출력끼리는 라벨도 같아야 한다. 입력의 `source`는 선언 순서상 첫 출력 패널이며 공유 링크와 뒤로가기에서도 같다. 출력이 없는 수신 전용 키에는 출발 패널이 없다. `set`만 `repeatedPageKeys`에 넣고 두 형태 모두 `contextResetKeys`에 넣는다. 드릴 단계, `pageConditions`, `conditionPreset`, `navViews` 프리셋, `subjectPageKeys`, `opensObject`의 `pageKey`, `returnTo`, `hiddenPageKeys`, 소속 carry set과 키를 공유할 수 없다.
+
+`MenuMeta.analysisSelectionInbound`는 `resolveSelectionLink`와 `objectSelectionLinks`가 채울 수 있는 `{ key, dimension, shape, label? }[]`다(§22). 메뉴가 선언한 page key를 차원마다 하나씩 사용하고, 같은 키의 출력과 차원·형태·라벨이 일치해야 한다. 모듈 메뉴는 선언할 수 없다.
 
 순수 도우미 `projectQueryInputs`, `projectDisplayInputs`, `disabledReason`, `panelQueryIdentity`는 `@ap/kernel`에 있다. 동일 조회 입력에서 재조회를 하지 않는 실행 불변식은 Registry가 보장하지 않으므로 메뉴 단위 테스트로 검증한다. 개발 도구 카탈로그는 실제 등록을 표와 키 필터로 읽는다. 저장 가능한 패널 인스턴스(#911), 저장 검증·version 의미(#294), 개인 대시보드 위젯과 운영 콘솔 카탈로그는 S1 범위 밖이다.
 
@@ -246,7 +248,7 @@ Global Context와 Page-local Filter를 같은 Chip 스타일로 혼용하지 않
 - **page-owned URL 키의 예시로 `granularity`(Candidate 필드명, Decided — 메커니즘)**: 조회 기간(`from`/`to`)과 집계 단위(시간별/일별/주별로 뭉쳐 보기)는 다른 축이다. 모든 메뉴가 집계 단위 선택을 갖는 게 아니므로 전역 Context Bar가 아니라 `metricId`+`metricVersion` 쌍과 같은 방식으로 화면마다 선언·등록하는 page-owned 계약으로 둔다. 값 후보: `hour`/`day`/`week`.
 - 딥링크 왕복은 조회조건·명시 선택·지표 버전을 재현한다. live Condition은 재방문 시 선언한 소속 기준의 멤버/매칭 결과를 재평가하므로 대상 집합이 달라질 수 있음을 표시한다. Selection은 고정이며, 지연 완료·마스터 정정으로 숫자는 달라질 수 있으므로 결과에는 계산 기준시각을 표시한다.
 - 차트 줌과 출력 미선언 Brush는 로컬 상태다. 선언한 분석 선택 출력은 메뉴 URL에 기록한다. 전역 기간은 «분석 구간으로 적용»을 확인할 때 바뀐다.
-- **분석 선택 ([ADR-0175](../adr/0175-chart-selection-feeds-next-analysis.md), #2732)**의 URL 키는 패널 출력에 선언한 메뉴 page key다. `set`은 빈 값과 중복을 뺀 최대 50개 값을 선택 순서대로 반복 키에 쓰고, `range`는 비어 있지 않고 `/`가 없는 끝점 두 개를 `from/to` 한 값으로 쓴다. 시간 끝점은 메뉴가 §6.3 형식으로 제공한다. 행 묶음은 화면에만 둔다.
+- **분석 선택 ([ADR-0175](../adr/0175-chart-selection-feeds-next-analysis.md), #2732)**의 URL 키는 패널 출력 또는 `analysisSelectionInbound`에 선언한 메뉴 page key다. `set`은 빈 값과 중복을 뺀 최대 50개 값을 선택 순서대로 반복 키에 쓰고, `range`는 비어 있지 않고 `/`가 없는 끝점 두 개를 `from/to` 한 값으로 쓴다. 시간 끝점은 메뉴가 §6.3 형식으로 제공한다. 행 묶음은 화면에만 둔다.
 - 미지원 Context는 조용히 버리지 않고 적용되지 않음을 표시한다(모든 키가 `unsupported`인 화면은 바를 그리지 않는다, §11). 보존·재적용 방식은 §6.4를 따른다.
 - `savedViewToken`은 긴 URL을 대체할 후보 계약으로 예약한다(Deferred; 저장된 뷰 자체는 §21, ADR-0092). 저장된 뷰 구현 전에는 토큰 생성이나 비활성 버튼을 셸 필수 요소로 두지 않는다.
 
@@ -562,6 +564,8 @@ Context 바는 전역 Context를 표시·편집하는 셸 자리다. 초안/적�
 **다중축·소속 기준(Decided, 2026-10-21; Apply 모드 구현 — [ADR-0059](../adr/0059-app-injected-equipment-axes-and-condition.md)):** 바는 앱이 주입한 여러 축과 축별 여러 값을 표시·편집하고 축 간 AND / 축 안 OR의 적용 조건을 요약한다. «지금 소속 / 그 시점 소속»은 대상 대화창의 하단에서 대상과 함께 적용한다. 대상 요약은 «그 시점 소속»일 때만 기준을 덧붙이며, 이력 없는 축을 쓰면 지금 소속만 허용한다. 미지원 축·무효 조합·옵션 갱신 시 기존 값을 조용히 지우지 않고 사유를 표시한다. 대상 대화창은 §6.4의 설비 기본 정보 전량을 사용한다. Apply 모드는 대화창 적용으로 초안만 바꾸고 바의 적용으로 조회하며 live 모드는 대화창 적용으로 즉시 반영한다.
 
 **링크 복사 두 갈래 (Decided, 사용자 위임 2026-10-27, #961 노드 961f):** 펼친 조회 바와 live 바 오른쪽 끝의 `링크 복사` 묶음은 분할 버튼이다. 본 버튼 `현재 조건 공유`는 항상 적용된 조건의 링크를 복사하고(마지막 선택을 기억하지 않는다), 접힌 조회 바의 `조회 조건 동작` 메뉴에서는 `현재 조건 공유`를 고르면 바로 복사한다(#2539). 펼친 바의 화살표 `링크 복사 방식 선택` 메뉴는 `현재 조건 공유`와 `메뉴 주소 복사`(조건 없는 정규 경로)를 도움말 줄과 함께 둔다. 페이로드는 호스트의 **적용된** `global`/`page`만으로 `buildShareLink`(셸 `context/shareLink.ts`)가 v1 codec으로 만든다: 조회 바의 초안, `returnTo`, 등록되지 않은 extras는 들어가지 않고 §6.4의 carried page key는 `page`가 가진 그대로 남는다. 경로 파라미터가 없거나 직렬화에 실패하거나 4000자를 넘으면 잘라 내거나 맨 경로로 대신하지 않고 실패 문구만 보인다(4000자는 되돌릴 수 있는 기본값). 성공 문구는 클립보드 쓰기가 끝난 뒤에만 낸다. 쓰기가 거부되면 의도별 실패 문구와 다시 시도, 생성한 링크 그대로를 담은 읽기 전용 칸을 보이며 직렬화 실패 뒤에는 칸을 보이지 않는다. 조회 바의 미적용 변경은 `미적용 변경 N개 · 공유에서 제외`로, 한 번도 적용하지 않은 조회는 `아직 조회 조건을 적용하지 않았습니다.`로 알린다. 보드 칸에서는 그 칸의 경로·적용 상태를 복사하고 보드 주소는 칸 링크가 아니다. 이후 링크 종류(예: 스냅샷 `/share/:snapshotId`, 2단계 #294)는 이 메뉴의 항목으로 늘린다. VOC 재현 링크도 같은 `buildShareLink`를 쓴다.
+
+**`resolveSelectionLink`와 `objectSelectionLinks`의 이동 주소 상한은 8000자**다(§22). 배포 경로 접두사를 포함한 인코딩된 경로와 검색 문자열의 길이를 잰다.
 
 Condition 프리셋(§6.4)은 조회 투영만 좁히므로 뒤로가기·보드 칸 복원에서 Condition 전체와 프리셋 page key가 주소 그대로 복원된다.
 

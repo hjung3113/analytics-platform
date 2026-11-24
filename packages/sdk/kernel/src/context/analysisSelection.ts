@@ -149,9 +149,15 @@ export type AppliedAnalysisSelection = {
   readonly key: string;
   readonly use: AnalysisSelectionUse;
   readonly selection: AnalysisSelection;
+} & ({
   /** First declared writer for this key, so the source is deterministic on shared links and Back. */
   readonly source: { readonly panelId: string; readonly title: Text; readonly dimension: string };
-};
+  readonly dimension?: never;
+} | {
+  /** A receive-only channel has no local writer. Its dimension comes from the inbound declaration. */
+  readonly source?: never;
+  readonly dimension: string;
+});
 
 /** Reports applied inputs without running queries. Panels reading a filter use its value from applied. */
 export function useAnalysisSelectionInputs(panelId: string): {
@@ -185,7 +191,8 @@ export function useAnalysisSelectionInputs(panelId: string): {
       continue;
     }
     const [writer] = writers;
-    for (const { use } of inputs) applied.push({ key, use, selection, source: { panelId: writer.panelId, title: writer.title, dimension } });
+    const writerDetails = writer ? { source: { panelId: writer.panelId, title: writer.title, dimension } } : { dimension };
+    for (const { use } of inputs) applied.push({ key, use, selection, ...writerDetails });
   }
   const result = { applied, filtered: applied.some(input => input.use === 'filter'), rejected, unavailable };
   return useStable({ menu, panelId, session, revision, scopeId: global.scopeId, result }, (a, b) =>
@@ -263,9 +270,11 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   const reports = new Map<string, AnalysisSelectionAvailability>();
   const parentByPanel = new Map<string, string>();
   for (const [key, { shape, dimension, label, writers, readers }] of channels) {
+    const [writer] = writers;
+    if (!writer) continue;
     const selection = parseAnalysisSelection(shape, pageParams(key));
     if (!selection) continue;
-    const [{ panelId, title }] = writers;
+    const { panelId, title } = writer;
     const reported = availability(key);
     if (reported !== undefined) reports.set(key, reported);
     active.push({ key, selection, dimension, label: label ?? null, source: { panelId, title }, available: isAnalysisSelectionAvailable(selection, reported) });

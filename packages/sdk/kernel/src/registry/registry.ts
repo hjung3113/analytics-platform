@@ -417,6 +417,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       }
     }
     const menuCarrySet = m.carrySet === undefined ? undefined : carrySetByIdMap.get(m.carrySet) ?? fail(`Menu "${m.id}" uses undeclared carry set "${String(m.carrySet)}"`);
+    if (m.analysisSelectionInbound !== undefined && m.module !== undefined) fail(`Menu "${m.id}" cannot declare analysisSelectionInbound (module contract 1, ADR-0053)`);
     for (const field of ['opensObject', 'subjectLinks'] as const) {
       const declaration = m[field];
       if (declaration === undefined) continue;

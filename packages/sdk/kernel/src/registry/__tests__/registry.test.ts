@@ -8,6 +8,7 @@ import { PlatformProvider } from '../../platform/platform';
 import { testAdapter, testSession } from '../../testing';
 import { createRegistry as create, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '../registry';
 import * as shapes from '../shapes';
+import { menuAnalysisSelections } from '../analysis-selections';
 import { disabledReason, projectQueryInputs } from '../panel-inputs';
 import { carrySetId, emptyGlobal, groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, NO_FEATURES, spaceId, type Pair, type PanelDeclaration, type SpaceDef } from '@ap/contracts';
 
@@ -1091,6 +1092,49 @@ describe('analysis selection registration (#2732)', () => {
       { ...other, outputs: [labeled] },
       { ...writer, id: 'third', outputs: [{ ...labeled, selection: { ...selection, label } }] },
     ])).toThrow(/agree on label/);
+  });
+});
+
+describe('inbound analysis selection registration (#2735)', () => {
+  const inbound = { key: 'choice', dimension: 'time', shape: 'range', label: { ko: '기간', en: 'Period' } } as const;
+  const panel: PanelDeclaration = { id: 'timeline', title: inbound.label, grain: 'daily', endpoints: [], queryInputs: {}, displayInputs: {}, outputs: [] };
+  const writer = { ...panel, outputs: [{ key: inbound.key, action: 'brush', selection: inbound }] };
+  const target = { ...catalog, pageKeys: [inbound.key], contextResetKeys: [inbound.key], analysisSelectionInbound: [inbound] };
+  const build = (entry: MenuEntry = target) => createRegistry({
+    spaces, groups: entry.module ? [{ ...groups[0], id: 'fixture:main', module: 'fixture' }] : groups, menus: [entry],
+  });
+
+  it('indexes an inbound-only channel and accepts a panel that reads it', () => {
+    const registry = build({ ...target, panels: [{ ...panel, queryInputs: { page: [{ key: inbound.key, selection: 'filter' }] } }] });
+    expect(menuAnalysisSelections(registry.menuById('catalog')).get(inbound.key)).toMatchObject({
+      inbound: true, writers: [], readers: [{ panelId: panel.id, use: 'filter' }],
+    });
+  });
+
+  it('joins an inbound declaration with an agreeing writer', () => {
+    const registry = build({ ...target, panels: [writer] });
+    expect(menuAnalysisSelections(registry.menuById('catalog')).get(inbound.key)).toMatchObject({
+      inbound: true, writers: [{ panelId: panel.id }], label: inbound.label,
+    });
+  });
+
+  it.each<[string, Partial<MenuEntry>, RegExp]>([
+    ['an undeclared key on a menu without panels', { analysisSelectionInbound: [{ ...inbound, key: 'other' }] }, /must be in pageKeys/],
+    ['a set on a singleton key', { analysisSelectionInbound: [{ ...inbound, shape: 'set' }] }, /repeatedPageKeys/],
+    ['a range on a repeated key', { repeatedPageKeys: [inbound.key] }, /repeatedPageKeys/],
+    ['a missing reset key', { contextResetKeys: [] }, /contextResetKeys/],
+    ['a hidden key', { hiddenPageKeys: [inbound.key] }, /hiddenPageKeys/],
+    ['an object selector', { opensObject: { equipment: { pageKey: inbound.key } } }, /opensObject pageKey/],
+    ['an output used as an object selector', { analysisSelectionInbound: undefined, panels: [writer], opensObject: { equipment: { pageKey: inbound.key } } }, /opensObject pageKey/],
+    ['a duplicate dimension', { pageKeys: [inbound.key, 'other'], contextResetKeys: [inbound.key, 'other'], analysisSelectionInbound: [inbound, { ...inbound, key: 'other' }] }, /duplicate inbound dimension/],
+    ['a different writer dimension', { panels: [{ ...writer, outputs: [{ ...writer.outputs[0], selection: { ...inbound, dimension: 'equipment' } }] }] }, /agree on shape and dimension/],
+    ['a different writer label', { panels: [{ ...writer, outputs: [{ ...writer.outputs[0], selection: { ...inbound, label: undefined } }] }] }, /agree on label/],
+    ['an empty label', { analysisSelectionInbound: [{ ...inbound, label: { ko: ' ', en: 'Time' } }] }, /non-empty ko\/en/],
+    ['an invalid dimension', { analysisSelectionInbound: [{ ...inbound, dimension: 'Time-window' }] }, /dimension must match/],
+    ['an invalid shape', { analysisSelectionInbound: [{ ...inbound, shape: 'rows' as never }] }, /shape must be set or range/],
+    ['a module menu', { module: 'fixture', group: 'fixture:main', permission: 'fixture:view', moduleScreen: () => null }, /cannot declare analysisSelectionInbound/],
+  ])('rejects %s', (_name, extra, reason) => {
+    expect(() => build({ ...target, ...extra } as MenuEntry)).toThrow(reason);
   });
 });
 

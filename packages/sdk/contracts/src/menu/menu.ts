@@ -1,4 +1,4 @@
-import type { PanelBinding, PanelDeclaration } from './panels';
+import type { AnalysisSelectionShape, PanelBinding, PanelDeclaration } from './panels';
 import type { Text } from '../i18n.js';
 import type { PageConditions } from './page-conditions.js';
 
@@ -106,6 +106,8 @@ export type MenuMeta = {
   paletteDescription?: Text;
   /** Optional panel declarations; createRegistry validates and indexes them (#2433). */
   panels?: readonly PanelDeclaration[];
+  /** A link from another menu may fill `key` with a selection of this dimension and shape (ADR-0175/0176, 06 §22). */
+  analysisSelectionInbound?: readonly { key: string; dimension: string; shape: AnalysisSelectionShape; label?: Text }[];
   /** Registered panels rendered within this menu, with read-only input bindings. */
   lentPanels?: readonly PanelBinding[];
   id: string;

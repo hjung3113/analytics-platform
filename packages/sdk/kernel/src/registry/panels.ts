@@ -17,16 +17,15 @@ const textPresent = (text: Text | undefined) => typeof text?.ko === 'string' && 
 
 /** Registration only: no query execution, URL writes or reset rules. */
 export function registerPanels(menu: MenuEntry, carryKeys: readonly string[], fail: (message: string) => never): RegisteredPanel[] {
-  if (menu.panels === undefined) return [];
   const error = (message: string): never => fail(`Menu "${menu.id}" panel ${message}`);
-  if (!Array.isArray(menu.panels)) error('panels must be an array');
+  if (menu.panels !== undefined && !Array.isArray(menu.panels)) error('panels must be an array');
   const ids = new Set<string>();
   const requiredPage = menu.query?.mode === 'apply' ? menu.query.required?.page ?? [] : [];
   const labels: Record<string, Text> = Object.fromEntries([
     ...requiredPage.map(input => [input.key, input.label]),
     ...(menu.drill?.levels ?? []).map(level => [level.key, level.label]),
   ]);
-  const registered = menu.panels.map((panel: PanelDeclaration): RegisteredPanel => {
+  const registered = (menu.panels ?? []).map((panel: PanelDeclaration): RegisteredPanel => {
     if (!panel || !isIdShape(panel.id)) error('id must be nonempty and contain no URL separators');
     if (ids.has(panel.id)) error(`duplicate id "${panel.id}"`);
     ids.add(panel.id);
@@ -69,7 +68,7 @@ export function registerPanels(menu: MenuEntry, carryKeys: readonly string[], fa
       if (output.selection !== undefined) {
         const { shape, dimension, drillLevel, objectKind } = output.selection ?? {};
         if (shape !== 'set' && shape !== 'range') invalid('output selection shape must be set or range');
-        if (typeof dimension !== 'string' || !/^[a-z][a-zA-Z0-9]*$/.test(dimension)) invalid('output selection dimension must match /^[a-z][a-zA-Z0-9]*$/');
+        if (!isObjectKindShape(dimension)) invalid('output selection dimension must match /^[a-z][a-zA-Z0-9]*$/');
         if (drillLevel !== undefined && !menu.drill?.levels.some(level => level.key === drillLevel)) invalid(`output selection drillLevel "${drillLevel}" must name a declared drill level`);
         if (objectKind !== undefined && !isObjectKindShape(objectKind)) invalid('output selection objectKind must match /^[a-z][a-zA-Z0-9]*$/');
       }
@@ -91,6 +90,22 @@ export function registerPanels(menu: MenuEntry, carryKeys: readonly string[], fa
 }
 
 function validateAnalysisSelections(menu: MenuEntry, carryKeys: readonly string[], error: (message: string) => never) {
+  const declarations = menu.analysisSelectionInbound;
+  if (declarations !== undefined && !Array.isArray(declarations)) error('analysisSelectionInbound must be an array');
+  const dimensions = new Set<string>();
+  const keys = new Set<string>();
+  for (const declaration of declarations ?? []) {
+    const invalid = (message: string): never => error(`inbound selection key "${declaration?.key}" ${message}`);
+    if (!declaration || !menu.pageKeys.includes(declaration.key)) invalid('must be in pageKeys');
+    const { key, dimension, shape, label } = declaration;
+    if (!isObjectKindShape(dimension)) invalid('dimension must match /^[a-z][a-zA-Z0-9]*$/');
+    if (shape !== 'set' && shape !== 'range') invalid('shape must be set or range');
+    if (label !== undefined && !textPresent(label)) invalid('label must have non-empty ko/en text');
+    if (dimensions.has(dimension)) invalid(`has duplicate inbound dimension "${dimension}"`);
+    if (keys.has(key)) invalid('is declared twice');
+    dimensions.add(dimension);
+    keys.add(key);
+  }
   const channels = menuAnalysisSelections(menu);
   for (const panel of menu.panels ?? []) {
     for (const { key, selection } of [...panel.queryInputs.page ?? [], ...panel.displayInputs.page ?? []]) {
@@ -107,18 +122,17 @@ function validateAnalysisSelections(menu: MenuEntry, carryKeys: readonly string[
     ...singleValuePageKeyRoles(menu),
     ['pageConditions', menu.pageConditions?.categories.flatMap(pageConditionKeys) ?? []],
     ['subjectPageKeys', Object.values(menu.subjectPageKeys ?? {})],
+    ['opensObject pageKey', Object.values(menu.opensObject ?? {}).flatMap(({ pageKey }) => pageKey ?? [])],
     ['hiddenPageKeys', menu.hiddenPageKeys ?? []],
     ['a carry set page key', carryKeys],
   ] as const;
-  for (const [key, { shape, dimension, label, writers }] of channels) {
+  for (const [key, { shape, dimension, label, inbound, writers }] of channels) {
     const invalid = (message: string): never => error(`selection key "${key}" ${message}`);
     for (const { selection } of writers) {
       if (!selection) invalid('must declare selection on every output');
       if (selection?.shape !== shape || selection.dimension !== dimension) invalid('writers must agree on shape and dimension');
-      if (selection?.label !== undefined) {
-        if (!textPresent(selection.label)) invalid('label must have non-empty ko/en text');
-        if (selection.label.ko !== label?.ko || selection.label.en !== label.en) invalid('writers must agree on label');
-      }
+      if (selection?.label !== undefined && !textPresent(selection.label)) invalid('label must have non-empty ko/en text');
+      if ((inbound || selection?.label !== undefined) && (selection?.label?.ko !== label?.ko || selection?.label?.en !== label?.en)) invalid('writers must agree on label');
     }
     if (Boolean(menu.repeatedPageKeys?.includes(key)) !== (shape === 'set')) invalid(`shape "${shape}" conflicts with repeatedPageKeys`);
     if (!menu.contextResetKeys?.includes(key)) invalid('must be in contextResetKeys');

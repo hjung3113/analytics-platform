@@ -1,10 +1,14 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, renderHook, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { LinkOptions, LinkResolution } from '../platform';
+import type { ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
+import type { HostPlatform, LinkOptions, LinkResolution, ObjectLink, ObjectLinkOptions, ObjectSelectionLink, SelectionLinkResolution } from '../platform';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform } from '../platform';
 import { createRegistry } from '../../registry/registry';
+import { useAnalysisSelectionChips, useAnalysisSelectionInputs } from '../../context/analysisSelection';
+import { createBasePathLocation } from '../../context/location';
+import { NAVIGATION_URL_MAX_LENGTH } from '../../context/shareLink';
 import { writeSpaceLast } from '../preferences';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
 import { carrySetId, groupId, spaceId, type Permission, menuPermission, type Session, type SpaceDef } from '@ap/contracts';
@@ -61,9 +65,8 @@ function resolve(url: string, permissions: Session['user']['permissions'], menuI
   screen.getByTestId('ready');
   return captured!(menuId, options);
 }
-// `href` is null only for an unregistered destination (`kind: 'none'`); every query read here targets a registered menu.
 const query = (href: string | null) => {
-  if (href === null) throw new Error('expected a registered destination');
+  if (href === null) throw new Error('expected a destination href');
   return new URLSearchParams(href.slice(href.indexOf('?') + 1));
 };
 
@@ -114,6 +117,169 @@ describe('resolveLink (06 §22, issue #102)', () => {
   });
 });
 
+
+describe('cross-menu analysis selection carry (#2735)', () => {
+  const equipment = { dimension: 'equipment', shape: 'set' } as const;
+  const interval = { dimension: 'time', shape: 'range' } as const;
+  const output = (key: string, selection: typeof equipment | typeof interval) => ({ key, action: 'brush', selection });
+  const location = createBasePathLocation('/deployment/' + '한'.repeat(20));
+  const source = '/mars/selection-source?v=1&picked=E%26A&picked=E2';
+  const target = { ...entry('inbound', 'equipment', '/inbound', 'platform:view', ['received', 'window', 'object', 'returnTo', 'pad']),
+    repeatedPageKeys: ['received'], contextResetKeys: ['received', 'window'],
+    analysisSelectionInbound: [{ key: 'window', ...interval }, { key: 'received', ...equipment }],
+    panels: [{ id: 'reader', title: { ko: '수신', en: 'Reader' }, grain: 'daily', endpoints: [],
+      queryInputs: { page: [{ key: 'received', selection: 'filter' as const }] }, displayInputs: {}, outputs: [] }],
+    opensObject: { equipment: { pageKey: 'object' } } };
+  const carryRegistry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces, groups: registry.groups,
+    menus: [...registry.menus, target, {
+      ...entry('wrong-shape', 'equipment', '/wrong-shape', 'platform:view', ['received']),
+      repeatedPageKeys: ['received'], contextResetKeys: ['received'],
+      analysisSelectionInbound: [{ key: 'received', dimension: interval.dimension, shape: 'set' }],
+    }, {
+      ...entry('wrong-dimension', 'equipment', '/wrong-dimension', 'platform:view', ['received']),
+      repeatedPageKeys: ['received'], contextResetKeys: ['received'],
+      analysisSelectionInbound: [{ key: 'received', dimension: 'lot', shape: 'set' }],
+    }, {
+      ...entry('selection-source', 'equipment', '/selection-source', 'platform:view', ['picked', 'other', 'period', 'private']),
+      repeatedPageKeys: ['picked', 'other'], contextResetKeys: ['picked', 'other', 'period'],
+      panels: [{ id: 'chart', title: target.label, grain: 'daily', queryInputs: {}, displayInputs: {}, endpoints: [],
+        outputs: [output('picked', equipment), output('other', equipment), output('period', interval)] }],
+    }] });
+
+  function mount(url = source): HostPlatform {
+    let platform!: HostPlatform;
+    function Capture() {
+      platform = useHostPlatform();
+      return null;
+    }
+    window.history.replaceState(null, '', location.href(url));
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(ANALYST)} registry={carryRegistry} location={location}><Capture /></PlatformProvider></I18nProvider>);
+    return platform;
+  }
+
+  it('omits selections and drop metadata by default', () => {
+    const link = mount().resolveLink('inbound');
+    expect(query(link.href).has('received')).toBe(false);
+    expect(link).not.toHaveProperty('droppedSelections');
+  });
+
+  it('carries only the matching selection under the target key', () => {
+    const link = mount(source + '&private=keep&extra=keep&selectedEquipmentIds=E0').resolveSelectionLink('inbound');
+    const q = query(link.href);
+    expect([...q]).toEqual([['v', '1'], ['selectedEquipmentIds', 'E0'], ['received', 'E&A'], ['received', 'E2']]);
+    expect(link).toMatchObject({ droppedSelections: [] });
+  });
+
+  it('applies a carried filter on arrival without a local writer', () => {
+    const link = mount().resolveSelectionLink('inbound');
+    if (link.kind !== 'link') throw new Error('expected a carried link');
+    cleanup();
+    window.history.replaceState(null, '', location.href(link.href));
+
+    const adapter = fixture(ANALYST);
+    function Arrival({ children }: { children: ReactNode }) {
+      return <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={carryRegistry} location={location}>{children}</PlatformProvider></I18nProvider>;
+    }
+    const { result } = renderHook(() => ({
+      inputs: useAnalysisSelectionInputs('reader'),
+      chips: useAnalysisSelectionChips().chips,
+    }), { wrapper: Arrival });
+    expect(result.current.inputs.filtered).toBe(true);
+    expect(result.current.inputs.applied).toEqual([{
+      key: 'received', use: 'filter', dimension: 'equipment', selection: { shape: 'set', values: ['E&A', 'E2'] },
+    }]);
+    expect(result.current.inputs.applied[0]).not.toHaveProperty('source');
+    expect(result.current.chips).toEqual([]);
+  });
+
+  it('keeps the legacy types and exposes structured results through separate methods', () => {
+    const { resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks } = mount();
+    const linkOptions: LinkOptions = { returnTo: true };
+    const objectOptions: ObjectLinkOptions = { returnTo: true };
+    const object = { kind: 'equipment', id: 'object-id' };
+
+    expectTypeOf(resolveLink).toEqualTypeOf<(menuId: string, options?: LinkOptions) => LinkResolution>();
+    expectTypeOf(resolveLink('inbound', linkOptions).kind).toEqualTypeOf<'link' | 'none'>();
+    expectTypeOf(objectLinks).toEqualTypeOf<(object: { kind: string; id: string }, options?: ObjectLinkOptions) => ObjectLink[]>();
+    expectTypeOf(objectLinks(object, objectOptions)[0]!.kind).toEqualTypeOf<'link'>();
+    expectTypeOf(resolveSelectionLink('inbound', linkOptions)).toEqualTypeOf<SelectionLinkResolution>();
+    expectTypeOf(objectSelectionLinks(object, objectOptions)).toEqualTypeOf<ObjectSelectionLink[]>();
+    // @ts-expect-error Analysis selection carry requires the separate resolver.
+    resolveLink('inbound', { analysisSelection: 'carry' });
+    // @ts-expect-error Analysis selection carry requires the separate object resolver.
+    objectLinks(object, { analysisSelection: 'carry' });
+  });
+
+  it.each([
+    ['no destination declaration', source, 'analysis', 'equipment', 'noInbound'],
+    ['a dimension with a different shape', '/mars/selection-source?v=1&period=one%2Ftwo', 'wrong-shape', 'time', 'noInbound'],
+    ['the same shape with a different dimension', source, 'wrong-dimension', 'equipment', 'noInbound'],
+    ['two matching sources', source + '&other=E3', 'inbound', 'equipment', 'ambiguous'],
+  ])('reports %s', (_name, url, menuId, dimension, reason) => {
+    const link = mount(url).resolveSelectionLink(menuId);
+    expect(query(link.href).has('received')).toBe(false);
+    expect(link).toMatchObject({ droppedSelections: [{ dimension, reason }] });
+  });
+
+  it.each([[source, 'MEM'], [source + '&scopeId=MEM', 'FDRY'], [source + '&scopeId=MEM', null]])('drops selections on a Scope change', (url, scopeId) => {
+    const link = mount(url).resolveSelectionLink('inbound', { global: { scopeId } });
+    expect(query(link.href).has('received')).toBe(false);
+    expect(link).toMatchObject({ droppedSelections: [{ dimension: 'equipment', reason: 'scope' }] });
+  });
+
+  it.each(['explicit', null])('honors explicit target input %j', value => {
+    const link = mount().resolveSelectionLink('inbound', { page: { received: value } });
+    expect(query(link.href).getAll('received')).toEqual(value === null ? [] : [value]);
+    expect(link).toMatchObject({ droppedSelections: [] });
+  });
+
+  it.each(['/mars/inbound?v=1&received=E1', '/mars/selection-source?v=1&period=bad%2Frange%2Fvalue'])('ignores writerless or invalid selections at %s', url => {
+    const link = mount(url).resolveSelectionLink('inbound');
+    expect([...query(link.href)]).toEqual([['v', '1']]);
+    expect(link).toMatchObject({ droppedSelections: [] });
+  });
+
+  it('counts the encoded deployment prefix and nested returnTo, then drops the last inbound selection whole', () => {
+    const url = source + '&period=%ED%95%9C%2Fend';
+    const { resolveLink, resolveSelectionLink } = mount(url);
+    const unpadded = resolveLink('inbound', { returnTo: true, page: { received: ['E&A', 'E2'], window: '한/end', pad: 'x' } });
+    const padding = NAVIGATION_URL_MAX_LENGTH - location.href(unpadded.href!).length + 1;
+    const opts = { returnTo: true };
+    const boundary = resolveSelectionLink('inbound', { ...opts, page: { pad: 'x'.repeat(padding) } });
+    expect(location.href(boundary.href!).length).toBe(NAVIGATION_URL_MAX_LENGTH);
+    expect(query(boundary.href).get('window')).toBe('한/end');
+    expect(query(boundary.href).getAll('received')).toEqual(['E&A', 'E2']);
+    const trimmed = resolveSelectionLink('inbound', { ...opts, page: { pad: 'x'.repeat(padding + 1) } });
+    expect(query(trimmed.href).get('window')).toBe('한/end');
+    expect(query(trimmed.href).getAll('received')).toEqual([]);
+    expect(query(trimmed.href).get('returnTo')).toBe(url);
+    expect(trimmed).toMatchObject({ droppedSelections: [{ dimension: 'equipment', reason: 'length' }] });
+  });
+
+  it('returns no href when even the link without carried selections is too long', () => {
+    const { resolveLink, resolveSelectionLink } = mount(source + '&private=' + 'x'.repeat(NAVIGATION_URL_MAX_LENGTH));
+    expect(resolveLink('inbound', { returnTo: true }).kind).toBe('link');
+    expect(resolveSelectionLink('inbound', { returnTo: true })).toEqual({
+      kind: 'tooLong', href: null, allowed: false, droppedPageKeys: [], droppedSelections: [{ dimension: 'equipment', reason: 'length' }],
+    });
+  });
+
+  it('keeps the object selector separate from the carried selection', () => {
+    const { objectSelectionLinks } = mount();
+    const [link] = objectSelectionLinks({ kind: 'equipment', id: 'object-id' });
+    expect(query(link.href).get('object')).toBe('object-id');
+    expect(query(link.href).getAll('received')).toEqual(['E&A', 'E2']);
+    expect(objectSelectionLinks({ kind: 'equipment', id: 'x'.repeat(NAVIGATION_URL_MAX_LENGTH) })[0]?.kind).toBe('tooLong');
+  });
+
+  it('keeps carry out of linkTo, including when given a wider options object', () => {
+    const { linkTo } = mount();
+    const widerOptions = { analysisSelection: 'carry', returnTo: true };
+    expect(query(linkTo('inbound', widerOptions)).has('received')).toBe(false);
+    // @ts-expect-error Carry requires the structured resolver.
+    expect(query(linkTo('inbound', { analysisSelection: 'carry' })).has('received')).toBe(false);
+  });
+});
 
 describe('carry-set page keys (ADR-0081 decision 4 as replaced by #1099b, 06 §6.4 exception)', () => {
   const carryRegistry = createRegistry({
