@@ -10,7 +10,7 @@ import { ignoresListScope, listScopeCapability } from '../operator-menus';
 const SEAM: HostSeam = { canLink: () => false, Link: UnlinkedLink, notifyError: () => undefined, notifySuccess: () => undefined };
 
 /** The sidebar `목록 범위` for a ready session: the `managedSystem` page key in, the picker's choice out (replace, so a scope change is not a history step). */
-export default function ScopeControl({ collapsed }: { collapsed: boolean }) {
+export default function ScopeControl() {
   const { route } = usePlatform();
   const session = useFeatureSession();
   const { value, change } = useListScope();
@@ -18,6 +18,6 @@ export default function ScopeControl({ collapsed }: { collapsed: boolean }) {
   const off = ignoresListScope(route?.menu ?? null);
   const capability = listScopeCapability(route?.menu ?? null);
   return <FeatureScreenRoot client={featureQueryClient} host={SEAM} key={session.status === 'ready' ? session.epoch : 0}>
-    <ManagedSystemScopeControl {...(value !== undefined ? { value } : {})} collapsed={collapsed} onChange={change} {...(off ? { disabled: true } : {})} {...(capability !== undefined ? { capability } : {})} />
+    <ManagedSystemScopeControl {...(value !== undefined ? { value } : {})} onChange={change} {...(off ? { disabled: true } : {})} {...(capability !== undefined ? { capability } : {})} />
   </FeatureScreenRoot>;
 }

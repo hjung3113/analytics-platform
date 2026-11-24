@@ -231,12 +231,13 @@ describe('space scope control slot (ADR-0081 decision 4)', () => {
       <AppShell><PlatformPage><p>body</p></PlatformPage></AppShell>
     </PlatformProvider></I18nProvider>);
   }
-  const Own = ({ collapsed }: { collapsed: boolean }) => <div data-testid="own-scope" data-collapsed={String(collapsed)} />;
+  // The slot component takes no props since #2803 (the removed `collapsed` was always false).
+  const Own = (props: object) => <div data-testid="own-scope" data-props={Object.keys(props).join(',')} />;
 
   it('S1 renders the space control instead of ScopeSelector, and ScopeSelector elsewhere or without the slot', () => {
     const For = (id: string) => (id === 'bravo' ? Own : null);
     mountWith({ scopeControl: { For } }, '/metrics?v=1');
-    expect(screen.getByTestId('own-scope')).toHaveAttribute('data-collapsed', 'false');
+    expect(screen.getByTestId('own-scope')).toHaveAttribute('data-props', '');
     expect(screen.queryByRole('button', { name: /^Scope:/ })).toBeNull();
     cleanup();
     mountWith({ scopeControl: { For } }, '/cycle?v=1');

@@ -85,10 +85,7 @@ export type HomeTodoSlot = { Todo: ComponentType };
  * accessRequest: the blocked-place request entry (`AccessRequestSlot`, ADR-0154 decision 6); the shell and `PlatformPage` draw the places.
  */
 export type ScopeControlSlot = {
-  For: (spaceId: SpaceId, menu: MenuEntry | null) => ComponentType<{
-    /** @deprecated Always `false`: the sidebar is never drawn collapsed (#2727). Removed in sdk-v0.49.0 (#2803); do not read it. */
-    collapsed: boolean;
-  }> | null;
+  For: (spaceId: SpaceId, menu: MenuEntry | null) => ComponentType | null;
 };
 /**
  * Per-menu sidebar counts for one space (06 §8 `navCounts`, #761). `For` returns a module-level component (same stability rule as `scopeControl`:

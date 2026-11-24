@@ -163,11 +163,11 @@ function SidebarScope() {
   const { slots, sidebarSpace, route, canOpen } = useHostPlatform();
   const denied = route !== null && !canOpen(route.menu.id);
   if (sidebarSpace === null || denied || !slots.scopeControl) return null;
-  return <ShellBoundary key={`scope:${sidebarSpace.id}`}><ScopeControlSlot spaceId={sidebarSpace.id} menu={route?.menu ?? null}>{Control => Control && <Control collapsed={false} />}</ScopeControlSlot></ShellBoundary>;
+  return <ShellBoundary key={`scope:${sidebarSpace.id}`}><ScopeControlSlot spaceId={sidebarSpace.id} menu={route?.menu ?? null}>{Control => Control && <Control />}</ScopeControlSlot></ShellBoundary>;
 }
 
 /** Leaf of its own so the `scopeControl.For` selector runs under the caller's boundary. The sidebar is never collapsed while it is drawn. */
-function ScopeControlSlot({ spaceId, menu, children }: { spaceId: SpaceId; menu: MenuEntry | null; children: (control: ComponentType<{ collapsed: boolean }> | null) => ReactNode }) {
+function ScopeControlSlot({ spaceId, menu, children }: { spaceId: SpaceId; menu: MenuEntry | null; children: (control: ComponentType | null) => ReactNode }) {
   const { slots } = useHostPlatform();
   return children(slots.scopeControl?.For(spaceId, menu) ?? null);
 }

@@ -180,7 +180,6 @@ export const PACK_17_TOKENS: TokenEntry[] = [
 
   // --- Layout tokens ---
   { tokenName: '--sidebar-width', raw: '240px' },
-  { tokenName: '--sidebar-width-collapsed', raw: '56px' },
   { tokenName: '--rail-width', raw: '52px' },
   { tokenName: '--detail-panel-width', raw: '440px' },
   // #2339: declared page-condition overlay, separate from the detail aside.

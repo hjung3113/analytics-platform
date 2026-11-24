@@ -194,7 +194,6 @@
 
   /* --- Layout tokens --- */
   --sidebar-width: 240px;
-  --sidebar-width-collapsed: 56px;  /* 사용 중단, 셸이 쓰지 않는다(접으면 레일만, #2727), sdk-v0.49.0에서 제거(#2803). */
   --rail-width: 52px;
   --detail-panel-width: 440px;
   --page-condition-layer-width: 360px;

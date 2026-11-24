@@ -34,7 +34,7 @@ Scope는 개념적으로 Global Context에 포함되지만 선택기는 **주 �
 ```text
 Rail                 52px   (--rail-width)
 Sidebar expanded    240px   (--sidebar-width)
-Sidebar collapsed      0px   (사이드바 없음, 레일만; #2727. 토큰 `--sidebar-width-collapsed` 56px와 `ScopeControlSlot`의 `collapsed` 인자는 sdk-v0.48.0부터 사용 중단, sdk-v0.49.0에서 제거 #2803)
+Sidebar collapsed      0px   (사이드바 없음, 레일만; #2727)
 Detail slot         440px   (--detail-panel-width; 미제공 시 440px, 360–520px clamp; 비어 있으면 0)
 Top header           없음
 Page header          50px   (--toolbar-height)

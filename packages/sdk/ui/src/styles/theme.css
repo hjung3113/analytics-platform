@@ -189,7 +189,6 @@
 
   /* --- Layout tokens exposed as spacing utilities --- */
   --spacing-sidebar: var(--sidebar-width);
-  --spacing-sidebar-collapsed: var(--sidebar-width-collapsed);  /* 사용 중단(w-sidebar-collapsed), sdk-v0.49.0에서 제거(#2803). */
   --spacing-rail: var(--rail-width);
   --spacing-detail-panel: var(--detail-panel-width);
   --spacing-toolbar: var(--toolbar-height);
