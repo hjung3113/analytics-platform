@@ -183,7 +183,7 @@ export type AnalysisChartFrameProps<P = never, T = never> = ChartChromeOptions &
   isPointSelectable?: (point: ChartPoint) => boolean;
   /** Default true. False omits the Frame's own series legend and checkboxes, for a page that owns visibility through `visibleSeriesIds`. */
   legend?: boolean;
-  /** `size="fill"` only: plot floor in full/minimal, initial unmeasured height in standard (then fits the remaining space). Default 320; values below 160 are raised to 160 with a dev warning. */
+  /** `size="fill"` only. Full/minimal: plot floor (default 320). Standard: initial unmeasured height (default 320), then the plot fits the remaining space but never below this value (default 160 when omitted); when the space runs short the card grows and the panel body scrolls (#2869). Values below 160 are raised to 160 with a dev warning. */
   fillMin?: number;
   unit: string;
   valueFormat?: (v: number) => string;
@@ -372,7 +372,8 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const fill = useElementSize(size === 'fill');
   const fillMin = p.fillMin === undefined ? FILL_CHART_MIN_HEIGHT : Math.max(FILL_MIN_FLOOR, p.fillMin);
   const loweredFill = fillMin !== FILL_CHART_MIN_HEIGHT;
-  const fillFloor = chrome === 'standard' ? 0 : fillMin;
+  // `standard` fits the panel, but never below a readable plot: the declared `fillMin`, else the floor. The panel body scrolls the rest (#2869).
+  const fillFloor = chrome === 'standard' && p.fillMin === undefined ? FILL_MIN_FLOOR : fillMin;
   const viewportHeight = p.height ?? (size === 'fill' ? Math.max(fillFloor, fill.height ?? fillMin) : analysisChartHeight(size, CHART_HEIGHTS.regularFrame));
   const { global, features, notify, url, applyPeriod } = host;
   const canCompare = !zoomOnly && features.compare && !!p.compareSeries?.length;
@@ -1084,7 +1085,8 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   // grid cell can never shrink the card (the ResizeObserver then never sees a smaller width on column switch).
   let fillPlotClass = loweredFill ? FILL_PLOT_BASE_CLASS : FILL_PLOT_CLASS;
   if (rowPitch !== undefined) fillPlotClass = loweredFill ? FILL_PLOT_SCROLL_BASE_CLASS : FILL_PLOT_SCROLL_CLASS;
-  if (chrome === 'standard') fillPlotClass = 'min-h-0 grow basis-0 overflow-hidden';
+  // contain-size: the drawn canvas never feeds the card's min-content, so the floor below is the only lower bound (#2869).
+  if (chrome === 'standard') fillPlotClass = 'min-h-0 grow basis-0 overflow-hidden contain-size';
   let stackNote = timeStack?.mismatched ? m('chartStackTimeMismatch') : null;
   if (negativeShares) stackNote = m('chartStackNegativeShares');
   const hasChartNotes = !!(totalNote || partialNote || stackNote || mismatchedLines.length > 0);
@@ -1251,7 +1253,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     if (nextAnalysisTarget === undefined) return row;
     return nextAnalysisTarget ? createPortal(row, nextAnalysisTarget) : confirmPeriod;
   };
-  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), compactEmbedded && !zoomOnly && 'rounded-none border-0 shadow-none')}>
+  return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-min' : FILL_CARD_CLASS), compactEmbedded && !zoomOnly && 'rounded-none border-0 shadow-none')}>
     <AnalysisChartPart enabled={analysisSection !== null}>
       <ChartInteractionToolbar compact={compactChrome} reserveCorner={analysisSection !== null}
         toolsReveal={chrome === 'standard' && !p.toolbarStart && !p.headingInToolbar ? p.toolsReveal : undefined}
@@ -1305,10 +1307,10 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         <Button ref={showAllButton} type="button" variant="secondary" size="toolbar" onClick={showAllSeries}><Eye className="size-3.5" aria-hidden />{m('chartShowAll')}</Button>
       </div>
     </>}
-    <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || plotLegendCaption != null || categoryValueMarkLegend !== null)} keys={p.legend !== false} fill={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={plotLegendCaption}>
+    <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || plotLegendCaption != null || categoryValueMarkLegend !== null)} keys={p.legend !== false} fill={size === 'fill'} floor={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={plotLegendCaption}>
     <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', size === 'fill' && fillPlotClass, rowPitch !== undefined && 'overflow-y-auto scrollbar-panel')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
-      style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && loweredFill && chrome !== 'standard' ? { minHeight: fillMin } : undefined} role={plotPointControls ? 'group' : undefined} aria-label={plotPointControls ? m('chartPointsGroup') : undefined} tabIndex={plotPointControls ? 0 : -1}
+      style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && chrome === 'standard' ? { minHeight: fillFloor } : size === 'fill' && loweredFill ? { minHeight: fillMin } : undefined} role={plotPointControls ? 'group' : undefined} aria-label={plotPointControls ? m('chartPointsGroup') : undefined} tabIndex={plotPointControls ? 0 : -1}
       onContextMenu={event => { if (hasPointActions) event.preventDefault(); }}
       onKeyDown={event => {
         if ((event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) && hasPointActions) {

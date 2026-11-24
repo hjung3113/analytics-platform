@@ -163,6 +163,36 @@ describe('fillMin (#690n)', () => {
   });
 });
 
+// standard chrome fits the panel, but a selection summary or range form must not squeeze the plot below a readable floor:
+// the declared fillMin, else 160. The card grows instead and the panel body scrolls (#2869, #2855).
+describe('fillMin floor in standard chrome (#2869)', () => {
+  let observer: ReturnType<typeof installResizeObserver>;
+  beforeAll(() => { observer = installResizeObserver(); });
+  afterAll(() => { observer.restore(); });
+  const plotBox = (container: HTMLElement) => container.querySelector<HTMLElement>('.grow')!;
+  it.each<[string, number, number | undefined, number]>([
+    ['a range form leaves 83 px of a 200 px declaration', 83, 200, 200],
+    ['without a declaration the floor is 160 px', 90, undefined, 160],
+    ['room above the floor is used', 300, 200, 300],
+  ])('%s', async (_name, measured, fillMin, expected) => {
+    observer.resize(900, measured);
+    const { container } = mount({ size: 'fill', chrome: 'standard', ...(fillMin === undefined ? {} : { fillMin }) });
+    await screen.findByRole('img');
+    await waitFor(() => { expect(plotProps!.height).toBe(expected); });
+    expect(plotBox(container).style.minHeight).toBe(`${fillMin ?? 160}px`);
+    // The drawn canvas and a long side legend never feed the card's min-content, so the floor stays the only lower bound.
+    expect(plotBox(container).className).toContain('contain-size');
+    expect(container.querySelector('section')!.className).toContain('min-h-min');
+  });
+
+  it('keeps a long side legend out of the height the card asks for', async () => {
+    const { container } = mount({ size: 'fill', chrome: 'standard', legendPlacement: 'side' });
+    await screen.findByRole('img');
+    expect(screen.getByRole('group', { name: '범례' }).className).toContain('contain-size');
+    expect(container.querySelector('[data-testid="chart-legend-layout"]')!.className).toContain('min-h-min');
+  });
+});
+
 describe('isPointSelectable (#690n)', () => {
   const selectable = (point: ChartPoint) => point.x !== 'AUX';
 

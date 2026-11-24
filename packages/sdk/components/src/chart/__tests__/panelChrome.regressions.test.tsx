@@ -71,7 +71,7 @@ describe('Panel chart regression fixes (#2372)', () => {
     const layout = screen.getByTestId('chart-legend-layout');
     const plot = screen.getByRole('img', { name: 'plot' }).parentElement!;
     const summary = screen.getByRole('region', { name: '선택 요약' });
-    expect(layout).toHaveClass('basis-0', 'min-h-0', 'overflow-hidden');
+    expect(layout).toHaveClass('basis-0', 'min-h-min', 'overflow-hidden'); // never shorter than the plot floor plus keys (#2869)
     expect(plot).toHaveClass('min-h-0', 'basis-0', 'overflow-hidden');
     expect(plot).not.toHaveClass('min-h-80');
     expect(layout).not.toContainElement(summary);
@@ -80,6 +80,15 @@ describe('Panel chart regression fixes (#2372)', () => {
     expect(summary).toContainElement(screen.getByRole('combobox', { name: '구간 시작' }));
   });
 
+  // Only the Frame sets its own plot floor; AnalysisChart's fill plot shrinks with the panel, so its row keeps no content minimum (#2886 review F2).
+  it.each(['top', 'bottom', 'side'] as const)('%s AnalysisChart fill row keeps a zero minimum and uncontained keys', async legendPlacement => {
+    mount(<AnalysisChart chartId="heat" title="Heat" unit="s" spec={heatmap} size="fill" legendPlacement={legendPlacement} />);
+    await screen.findByRole('img', { name: 'plot' });
+    const layout = screen.getByTestId('chart-legend-layout');
+    expect(layout).toHaveClass('basis-0', 'min-h-0', 'overflow-hidden');
+    expect(layout).not.toHaveClass('min-h-min');
+    expect(layout.querySelector('.contain-size')).toBeNull();
+  });
   it('opens the heatmap table from the toolbar and lets keyboard selection activate a cell', async () => {
     const user = userEvent.setup();
     const onActivate = vi.fn();
