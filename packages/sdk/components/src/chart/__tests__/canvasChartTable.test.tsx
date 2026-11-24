@@ -286,6 +286,13 @@ describe('OrderedIntervalTrack export (#2792)', () => {
     expect(screen.getByText('Track.csv 내보냄')).toBeTruthy();
   });
 
+  it('a domain that only flips the sign of a zero start keeps the result line (#2888 review)', async () => {
+    const { rerender } = render(trackView({ domain: [-0, 100], initialView: [-0, 100] }));
+    await exportedTrack();
+    rerender(trackView({ domain: [0, 100], initialView: [-0, 100] }));
+    expect(screen.getByText('Track.csv 내보냄')).toBeTruthy();
+  });
+
   it('inside a platform the menu manifest decides, whatever exportActions says (PR2 C5)', () => {
     const session = testSession(['platform:view']);
     const adapter = testAdapter({ session: () => session });

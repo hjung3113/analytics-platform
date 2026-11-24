@@ -308,7 +308,10 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   // The value the table filters by and whether it filters come from the same contract read (#2870 Q1).
   const tableFilter = applied.find(input => input.key === MOTION_EQUIPMENT_KEY && input.use === 'filter')?.selection;
   const equipment = tableFilter?.shape === 'set' ? tableFilter.values : undefined;
-  const waitingForAvailability = equipment !== undefined
+  // Waiting reads the valid URL selection before availability: a previous report that excluded it must not let the table
+  // read unfiltered until the source reports again (#2888 review).
+  const selected = projectQueryInputs(panelDeclarations.table, panelContext)[MOTION_EQUIPMENT_KEY];
+  const waitingForAvailability = selected !== undefined
     && (!selectionOutput.availabilityCurrent || sourceQuery?.status === 'loading' || sourceQuery?.showingPrevious);
   const filterTable = !waitingForAvailability && equipment !== undefined && extraIds.includes('table');
   const tableLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, filterTable);

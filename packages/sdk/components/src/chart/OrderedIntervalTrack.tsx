@@ -116,7 +116,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   const [requestGen, setRequestGen] = useState({ view, key: requestKey, n: 0 });
   if (requestGen.view !== view || requestGen.key !== requestKey) setRequestGen({ view, key: requestKey, n: requestGen.n + 1 });
   // The standalone result line belongs to the CSV's rows, lanes, range, title and permission; a notice alone keeps it (#2792 PR2 C3, C6).
-  const csv = useCanvasChartCsv({ title: props.ariaLabel, fallbackName: 'track', exportActions: props.exportActions, resetOn: [sourceItems, props.lanes, view[0], view[1], restricted] });
+  const csv = useCanvasChartCsv({ title: props.ariaLabel, fallbackName: 'track', exportActions: props.exportActions, resetOn: [sourceItems, props.lanes, view[0] + 0, view[1] + 0, restricted] }); // `+ 0` folds -0 into 0: the same range keeps its CSV status, as the old string key did (#2888 review)
   const exportGate = csv.gate;
   const loadObserver = useRef(props.onLoadStateChange);
   useEffect(() => {

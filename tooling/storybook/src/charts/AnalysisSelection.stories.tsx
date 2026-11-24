@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { PanelDeclaration } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, type PanelDeclaration } from '@ap/contracts';
 import { useAnalysisSelectionInputs, useAnalysisSelectionOutput } from '@ap/kernel';
 import { AnalysisChartFrame, AnalysisSelectionChipZone, PlatformDataTable, type ChartPoint, type ChartPointAction } from '@ap/components';
 import { ALARM_SERIES, COLUMNS, EQUIPMENT, type Eq } from '../equipment';
@@ -11,7 +11,7 @@ import { platformDecorator } from '../platform';
 const KEY = 'alarmEquipment';
 const PANELS: PanelDeclaration[] = [
   { id: 'alarms', title: { ko: '설비별 알람', en: 'Alarms by equipment' }, queryInputs: {}, displayInputs: {}, grain: 'equipment', endpoints: [],
-    outputs: [{ key: KEY, action: 'select', selection: { dimension: 'equipmentId', shape: 'set', label: { ko: '설비', en: 'Equipment' } } }] },
+    outputs: [{ key: KEY, action: 'select', selection: { dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set', label: { ko: '설비', en: 'Equipment' } } }] },
   { id: 'detail', title: { ko: '설비 상세', en: 'Equipment detail' }, queryInputs: { page: [{ key: KEY, selection: 'filter' }] }, displayInputs: {}, outputs: [], grain: 'equipment', endpoints: [] },
 ];
 // The table keeps four columns so it fits half the page.
