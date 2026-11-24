@@ -360,10 +360,9 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
       <ListShell
         list={
           <>
-            {/* Mount hosted HostPrimaryAction in one stable position outside
-                the denied/readable branches so settling a 403 does not unmount
-                the head button or drop its focus. */}
-            {primaryActionTarget !== null ? createAction : null}
+            {/* Keep the hosted action mounted through loading so the denial
+                focus handler can move focus when the button disappears. */}
+            {!denied && primaryActionTarget !== null ? createAction : null}
             {!denied && <>
             {/* CP-pixel finding 1 (.review/pixel-514-findings.md): with detail
                 open the list column is 708px. Keep the action side shrinkable

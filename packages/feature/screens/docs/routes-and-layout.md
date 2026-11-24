@@ -394,6 +394,7 @@ caller's effective scope. Shipped queue routes:
 - Tasks views remain list-first or board-first operational surfaces.
 - `view=milestones` shows a compact Milestone list with source, scope, owner, status, due date, and progress.
 - Selecting a Milestone opens RightDetailPanel as Milestone Detail.
+- A confirmed Milestone list denial hides the create action and moves focus to the denial card if the create button held focus.
 - Milestone Detail presents Overview, Tasks, Evidence, and Activity.
 - Reporter-safe summaries derived from Milestone or Task work use explicit public-safe fields and do not expose internal Task status, backlog priority, private due dates, or Developer discussion.
 ```
