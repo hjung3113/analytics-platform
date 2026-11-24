@@ -5,7 +5,7 @@ import { checkFindingManage } from '../findings/authorization.js';
 import { lockFindingRecoverySubjects } from '../findings/recovery-read.js';
 import type { CheckService } from '../permissions/check-service.js';
 import type { Scope, ScopeActorContext } from '../permissions/scope-service.js';
-import { checkSurveyPersonalResponseRead, checkSurveyRead } from './authorization.js';
+import { checkSurveyPersonalResponseRead, readableSurveySystems } from './authorization.js';
 import { surveyFollowUpStateLateral } from './follow-up-sql.js';
 
 /** Safe Survey-grain batch adapter; never calls the personal reader or exposes responses. */
@@ -25,19 +25,17 @@ export async function surveyRecoveryProjection(
       FROM survey.surveys WHERE workspace_id = ${actor.workspace_id}::uuid`)
         ).rows.map((row) => row.id)
       : scope.managedSystemIds;
-  const checks = await Promise.all(
-    systems.map(async (id) => {
-      const read = await checkSurveyRead(check, actor, id);
-      if (!read.allow) return { id, read: false, repair: false };
+  const readIds = [...await readableSurveySystems(check, actor, systems)];
+  const repair = await Promise.all(
+    readIds.map(async (id) => {
       const [personal, manage] = await Promise.all([
         checkSurveyPersonalResponseRead(check, actor, id),
         checkFindingManage(check, actor, id, { requireElevatedRole: false }),
       ]);
-      return { id, read: true, repair: personal.allow && manage.allow };
+      return personal.allow && manage.allow;
     }),
   );
-  const readIds = checks.filter((row) => row.read).map((row) => row.id);
-  const repairIds = checks.filter((row) => row.repair).map((row) => row.id);
+  const repairIds = readIds.filter((_, i) => repair[i]);
   // Materialize the authorized source set before the lateral safe-definer calls.
   return {
     repairSystems: repairIds,

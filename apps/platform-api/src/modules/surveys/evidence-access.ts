@@ -6,11 +6,13 @@ import {
 } from '@ap/feature-shared';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';
+import type { CheckService } from '../permissions/check-service.js';
 import { getResolvedWorkspaceSettingsForUpdate } from '../workspace-settings/index.js';
 import {
   checkSurveyManage,
   checkSurveyPersonalResponseRead,
   checkSurveyRead,
+  readableSurveySystems,
 } from './authorization.js';
 import { resolveExcerptResultAudience } from './evidence-candidates.js';
 import {
@@ -341,19 +343,7 @@ export async function resolveFindingSurveyHighlights(
   highlightIds: string[],
 ): Promise<Map<string, FindingHighlightEvidence>> {
   const rows = await readFindingHighlightEvidence(tx, actor.workspace_id, findingId, highlightIds);
-  const sourceDecisions = new Map<string, boolean>();
-  const permitted = new Map<string, FindingHighlightEvidence>();
-  for (const row of rows) {
-    let allowed = sourceDecisions.get(row.primary_managed_system_id);
-    if (allowed === undefined) {
-      allowed = (
-        await checkSurveyRead(deps.checkService, actor, row.primary_managed_system_id, { tx })
-      ).allow;
-      sourceDecisions.set(row.primary_managed_system_id, allowed);
-    }
-    if (allowed) permitted.set(row.highlight_id, row);
-  }
-  return permitted;
+  return readableFindingHighlightEvidence(deps.checkService, tx, actor, rows);
 }
 
 /** Every supplied parent is authorized by Findings in this bounded batch transaction. */
@@ -364,17 +354,20 @@ export async function resolveInventorySurveyHighlights(
   highlightIds: string[],
 ): Promise<Map<string, FindingHighlightEvidence>> {
   const rows = await readInventoryHighlightEvidence(tx, actor.workspace_id, highlightIds);
-  const sourceDecisions = new Map<string, boolean>();
+  return readableFindingHighlightEvidence(deps.checkService, tx, actor, rows);
+}
+
+async function readableFindingHighlightEvidence(
+  checkService: CheckService,
+  tx: Tx,
+  actor: SurveysActor,
+  rows: FindingHighlightEvidence[],
+): Promise<Map<string, FindingHighlightEvidence>> {
+  const ids = [...new Set(rows.map(row => row.primary_managed_system_id))];
+  const allowed = await readableSurveySystems(checkService, actor, ids, { tx });
   const permitted = new Map<string, FindingHighlightEvidence>();
   for (const row of rows) {
-    let allowed = sourceDecisions.get(row.primary_managed_system_id);
-    if (allowed === undefined) {
-      allowed = (
-        await checkSurveyRead(deps.checkService, actor, row.primary_managed_system_id, { tx })
-      ).allow;
-      sourceDecisions.set(row.primary_managed_system_id, allowed);
-    }
-    if (allowed) permitted.set(row.highlight_id, row);
+    if (allowed.has(row.primary_managed_system_id)) permitted.set(row.highlight_id, row);
   }
   return permitted;
 }

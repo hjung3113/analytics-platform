@@ -2,7 +2,7 @@ import { FINDING_SCREEN_ROLE_FLOOR, ROLE_LEVEL_LABELS } from '@ap/feature-shared
 import type { Db } from '../../db/client.js';
 import { HttpError } from '../../lib/errors.js';
 import type { Tx } from '../../db/tx.js';
-import type { CheckService, Decision } from '../permissions/check-service.js';
+import { checkCapabilityAcross, type CheckService, type Decision } from '../permissions/check-service.js';
 import {
   type Scope,
   type ScopeActorContext,
@@ -104,12 +104,8 @@ export async function readableEvidenceInventorySystems(
   managedSystemIds: string[],
   tx: Tx,
 ): Promise<string[]> {
-  const allowed: string[] = [];
-  for (const id of managedSystemIds) {
-    if (
-      (await checkFindingRead(checkService, actor, id, { requireElevatedRole: true }, { tx })).allow
-    )
-      allowed.push(id);
-  }
-  return allowed;
+  if (actor.role_level === 'admin') return managedSystemIds;
+  if (!hasElevatedFindingRole(actor)) return [];
+  const decisions = await checkCapabilityAcross(checkService, actor, 'finding.read', managedSystemIds, { tx });
+  return managedSystemIds.filter(id => decisions.get(id)?.allow);
 }

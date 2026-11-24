@@ -1,7 +1,7 @@
 import type { Db } from '../../db/client.js';
 import type { Tx } from '../../db/tx.js';
 import { allManagedSystemIds } from '../managed-systems/read-projections.js';
-import type { CheckService, Decision } from '../permissions/check-service.js';
+import { checkCapabilityAcross, type CheckService, type Decision } from '../permissions/check-service.js';
 import {
   type Scope,
   type ScopeActorContext,
@@ -18,15 +18,8 @@ export async function actorSurveyReadScope(
 ): Promise<Scope> {
   if (actor.role_level === 'admin') {
     const managedSystemIds = await listSurveyManagedSystemIds(db, actor.workspace_id);
-    const decisions = await Promise.all(
-      managedSystemIds.map((managedSystemId) =>
-        checkSurveyRead(checkService, actor, managedSystemId),
-      ),
-    );
-    return {
-      kind: 'scoped',
-      managedSystemIds: managedSystemIds.filter((_, index) => decisions[index]?.allow),
-    };
+    const allowed = await readableSurveySystems(checkService, actor, managedSystemIds);
+    return { kind: 'scoped', managedSystemIds: managedSystemIds.filter(id => allowed.has(id)) };
   }
   return actorScopeForCapability(db, actor, 'survey.read');
 }
@@ -48,6 +41,20 @@ export async function checkSurveyRead(
     },
     options,
   );
+  return surveyReadDecision(actor, decision);
+}
+
+export async function readableSurveySystems(
+  checkService: CheckService,
+  actor: SurveyAuthorizationActor,
+  ids: readonly string[],
+  options?: { tx?: Tx },
+): Promise<Set<string>> {
+  const decisions = await checkCapabilityAcross(checkService, actor, 'survey.read', ids, options);
+  return new Set([...decisions].flatMap(([id, decision]) => surveyReadDecision(actor, decision).allow ? [id] : []));
+}
+
+function surveyReadDecision(actor: SurveyAuthorizationActor, decision: Decision): Decision {
   // FO ADR-0033 §C. Declared as `adminModuleBypass: 'unless_denied'` in
   // `CAPABILITY_META` — change both together or the advisory
   // `GET /me/permissions/check` drifts from this route (issue #372).
@@ -110,8 +117,5 @@ export async function actorSurveyRecoveryScope(
       ...(await listSurveyManagedSystemIds(db, actor.workspace_id)),
     ]),
   ];
-  const decisions = await Promise.all(
-    systems.map((id) => checkSurveyRead(checkService, actor, id)),
-  );
-  return { kind: 'scoped', managedSystemIds: systems.filter((_, i) => decisions[i]?.allow) };
+  return { kind: 'scoped', managedSystemIds: [...await readableSurveySystems(checkService, actor, systems)] };
 }

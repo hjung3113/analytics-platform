@@ -17,6 +17,7 @@ import { HttpError } from '../../../lib/errors.js';
 import { SESSION_COOKIE_NAME } from '../../../middleware/require-session.js';
 import { buildServer } from '../../../server.js';
 import { insertActorRow, insertDevActor } from '../../../test-support/actor-fixtures.js';
+import { recordStatements } from '../../../test-support/statement-recorder.js';
 import { loginAs } from '../../../test-support/auth.js';
 import { insertMsDirectly } from '../../../test-support/core-fixtures.js';
 import { insertFindingRow } from '../../../test-support/findings-fixtures.js';
@@ -2145,6 +2146,25 @@ describe.skipIf(!runIntegration)('GET /dashboard/summary (#217)', () => {
       `category=high-severity-unlinked&limit=2&cursor=${body.page.cursor}`,
     );
     expect(incompatible.statusCode).toBe(422);
+  });
+
+  it('reads one Survey permission pair per recovery stage and retains readable archived systems', async () => {
+    const seed = await createDashboardScope();
+    const readableSurvey = await seedSurveyGaps(seed.msA, 2);
+    const deniedSurvey = await seedSurveyGaps(seed.msB, 2);
+    await migrateHandle.pool.query('UPDATE core.managed_systems SET archived_at = now() WHERE id = $1', [seed.msA]);
+    await denyCapability(migrateHandle, WORKSPACE_ID, adminActorId, 'survey.read', seed.msB, adminActorId);
+    const recorder = recordStatements(dbHandle);
+    const { result, statements } = await recorder.capture(() =>
+      recoveryList(adminCookie, 'category=bad-outcome-no-followup'),
+    );
+    const surveyIds = result.items.map((item) => item.source?.id);
+    expect(surveyIds).toContain(readableSurvey);
+    expect(surveyIds).not.toContain(deniedSurvey);
+    const reads = statements.filter(({ params }) => params.includes('survey.read'));
+    // Recovery resolves the broad scope, then authorizes the selected projection.
+    expect(reads.filter(({ text }) => text.includes('permission_denies'))).toHaveLength(2);
+    expect(reads.filter(({ text }) => text.includes('permission_grants'))).toHaveLength(2);
   });
 
   it('fails closed when every Survey system is denied to an Admin', async () => {
