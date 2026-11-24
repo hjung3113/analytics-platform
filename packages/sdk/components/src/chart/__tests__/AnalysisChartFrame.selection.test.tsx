@@ -3,7 +3,7 @@ import { PanelWorkspace } from '../../workspace/PanelWorkspace';
 import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, ANALYSIS_SELECTION_MAX_VALUES } from '@ap/kernel';
@@ -808,6 +808,109 @@ describe('Next analysis chip actions', () => {
     await screen.findByText('옆 패널 본문');
     await user.click(chipMore());
     expect(chipItems().map(item => item.textContent)).toEqual(['나누기', '새 패널', '다른 분석', '지우기']);
+  });
+
+  it.each(['hidden', 'absent', 'duplicate'] as const)('hides add actions for a %s source without a unique add-enabled owner', async source => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    const onAdd = vi.fn();
+    const workspaces = [
+      { id: 'owner', source: source !== 'absent', add: false },
+      { id: 'other', source: source === 'duplicate', add: true },
+    ];
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry} slots={chipSlots}>
+      <PlatformPage>{workspaces.map(workspace => {
+        const panelId = workspace.source ? setOutput.panelId : 'unrelated';
+        return <PanelWorkspace key={workspace.id} label={chipLabel(workspace.id)} persistKey={workspace.id}
+          presets={[{ id: 'only', label: chipLabel('Preset'), layout: { type: 'group', panels: ['primary', panelId], active: panelId } }]}
+          initialPreset="only"
+          analysisPanelAddition={workspace.add ? { items: [{ id: 'receiver', title: chipLabel('수신 패널') }], onAdd } : undefined}
+          panels={[
+            { id: 'primary', title: chipLabel('Primary'), primary: true, render: () => null },
+            { id: panelId, title: chipLabel(workspace.id === 'owner' ? 'Bars' : 'Other bars'), render: () => workspace.source
+              ? <AnalysisChartFrame chartId={workspace.id} title="Chart" series={[A]} unit="s" xType="category" analysisSelectionOutput={setOutput} nextAnalysis />
+              : null },
+          ]} />;
+      })}</PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    const user = userEvent.setup();
+    if (source === 'hidden') {
+      await screen.findByRole('group', { name: '다음 분석' });
+      await user.click(screen.getByRole('button', { name: 'Bars 동작' }));
+      await user.click(screen.getByRole('menuitem', { name: '숨기기' }));
+      await waitFor(() => expect(screen.queryByRole('group', { name: '다음 분석' })).toBeNull());
+    }
+    if (source === 'duplicate') await waitFor(() => expect(screen.getAllByRole('group', { name: '다음 분석' })).toHaveLength(2));
+    await user.click(chipMore());
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(chipItems().map(item => item.textContent)).toEqual(['나누기', '다른 분석', '지우기']);
+  });
+
+  it('uses the set output drill declaration when a local point drill is also configured', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    const value = vi.fn(() => 'local-value');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry}>
+      <AnalysisChartFrame chartId="set" title="Set" series={[A]} unit="s" xType="category" analysisSelectionOutput={setOutput}
+        nextAnalysis nextAnalysisPointDrill={{ level: 'step', value }} />
+    </PlatformProvider></I18nProvider>);
+    const user = userEvent.setup();
+    await user.click(within(nextRow()).getByRole('button', { name: '나누기' }));
+    await user.click(screen.getByRole('menuitem', { name: '단계 · a' }));
+    expect(search().get('step')).toBe('a');
+    expect(value).not.toHaveBeenCalled();
+  });
+
+  it.each(['inline', 'folded'] as const)('returns period cancellation to the origin chip actions in the %s surface', async surface => {
+    const from = '2026-09-01T00:00:00';
+    const mid = '2026-09-01T01:00:00';
+    const to = '2026-09-01T02:00:00';
+    const declared = createRegistry({
+      spaces: rangeRegistry.spaces, groups: rangeRegistry.groups,
+      menus: rangeRegistry.menus.map(menu => ({ ...menu,
+        pageKeys: [...menu.pageKeys, setOutput.key], repeatedPageKeys: [setOutput.key],
+        contextResetKeys: [...menu.contextResetKeys!, setOutput.key], panels: [...menu.panels!, ...setRegistry.menus[0]!.panels!],
+      })),
+    });
+    window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=${from}&to=${to}&range=${mid}/${to}&equipment=a`);
+    const observers = new Map<Element, ResizeObserverCallback>();
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(private callback: ResizeObserverCallback) {}
+      observe(target: Element) { observers.set(target, this.callback); }
+      disconnect() {}
+    });
+    function FittedChips() {
+      const [container, setContainer] = useState<HTMLDivElement | null>(null);
+      const [summary, setSummary] = useState<HTMLSpanElement | null>(null);
+      return <div ref={setContainer} data-testid="chip-row">
+        <span ref={setSummary}>조회 요약</span>
+        <AnalysisSelectionChipZone fit={{ container, summary }} />
+      </div>;
+    }
+    const { container } = render(<I18nProvider><PlatformProvider adapter={adapter} registry={declared} slots={{ contextBar: <FittedChips /> }}>
+      <PlatformPage><AnalysisChartFrame chartId="sel" title="Sel" unit="s" nextAnalysis analysisSelectionOutput={output}
+        series={[{ ...A, points: [[from, 1], [mid, 2], [to, 3]] }]} /></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img', { name: /Sel/ });
+    const user = userEvent.setup();
+    const origin = { name: /date .* 동작$/ };
+    const list = () => screen.queryByRole('dialog', { name: '분석 선택' });
+    if (surface === 'folded') {
+      const measure = (target: Element, width: number) => observers.get(target)!(
+        [{ target, contentRect: { width, height: 26 } } as ResizeObserverEntry], {} as ResizeObserver);
+      act(() => {
+        measure(screen.getByTestId('chip-row'), 300);
+        measure(screen.getByText('조회 요약'), 100);
+        measure(container.querySelector('[data-analysis-chip-probe]')!, 400);
+      });
+      await user.click(chipControls().getByRole('button', { name: '+1 ›' }));
+    }
+    await user.click((surface === 'folded' ? within(list()!) : chipControls()).getByRole('button', origin));
+    await user.click(screen.getByRole('menuitem', { name: '조건으로' }));
+    expect(within(screen.getByRole('group', { name: '구간 적용 확인' })).getByRole('button', { name: '적용' })).toHaveFocus();
+    expect(list()).toBeNull();
+    await user.keyboard('{Escape}');
+    const restored = surface === 'folded' ? within(await screen.findByRole('dialog', { name: '분석 선택' })) : chipControls();
+    expect(restored.getByRole('button', origin)).toHaveFocus();
+    expect(search().get('from')).toBe(from);
   });
 
   it('shares disabled reasons and leaves a blocked action open', async () => {

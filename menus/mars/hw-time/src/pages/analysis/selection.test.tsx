@@ -299,6 +299,21 @@ it('adds the eligible raw table and follows the equipment set from the workspace
   await waitFor(() => expect(tableReads().at(-1)?.params).toMatchObject({ motionEquipment: ['EQ-001'] }));
 });
 
+it('opens the raw table body on the first add from a maximized chart', async () => {
+  await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=EQ-002', answer,
+    { realWorkspace: true, realChart: 'hw-current' });
+  fireEvent.click(screen.getByRole('button', { name: 'PM1 · Pump · 설비별 최대화' }));
+  expect(screen.getByRole('button', { name: '원래 크기로' })).toBeTruthy();
+  const add = within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' });
+  fireEvent.keyDown(add, { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name: '원본 표' }));
+  await waitFor(() => {
+    expect(document.querySelector('[role="tab"][data-tab-panel-id="table"]')?.getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('region', { name: 'HW Time 동작시간 표' })
+      .closest('[data-dock-panel="table"]')?.getAttribute('data-dock-visible')).toBe('true');
+  });
+});
+
 it('drills the selected point into its module from the current bars', async () => {
   await renderOverview('&moduleType=PM&drillMotion=Pump', answer, { realChart: 'hw-current' });
   fireEvent.click(screen.getByRole('button', { name: '이 지점만 선택' }));

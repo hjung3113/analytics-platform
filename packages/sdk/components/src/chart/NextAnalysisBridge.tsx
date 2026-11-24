@@ -1,6 +1,6 @@
 import { createContext, useContext, useLayoutEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { usePlatform } from '@ap/kernel';
-import type { NextAnalysisAction } from './NextAnalysisItems';
+import type { DirectNextAnalysisAction, NextAnalysisPointDrill } from './NextAnalysisItems';
 import type { AnalysisPanelAddition } from '../workspace/PanelAdd';
 import { WorkspacePanelVisibleContext } from '../workspace/panelContext';
 
@@ -12,9 +12,6 @@ function createPublications<T>() {
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => { listeners.delete(listener); };
-    },
-    read(key: string) {
-      return Array.from(entries.get(key)?.values() ?? []).at(-1);
     },
     readUnique(key: string) {
       const publishers = entries.get(key);
@@ -40,10 +37,15 @@ function createPublications<T>() {
   };
 }
 
+type PublishedAnalysis = {
+  actions: readonly DirectNextAnalysisAction[];
+  pointDrill?: NextAnalysisPointDrill;
+};
+
 function createBridge() {
   return {
-    actions: createPublications<readonly NextAnalysisAction[]>(),
-    workspaces: createPublications<AnalysisPanelAddition>(),
+    actions: createPublications<PublishedAnalysis>(),
+    workspaces: createPublications<AnalysisPanelAddition | null>(),
   };
 }
 
@@ -61,29 +63,27 @@ export function NextAnalysisBridge({ children }: { children: ReactNode }) {
   return <BridgeContext.Provider value={bridge}>{children}</BridgeContext.Provider>;
 }
 
-export function usePublishNextAnalysis(output: Output | null | undefined, actions: readonly NextAnalysisAction[]) {
+export function usePublishNextAnalysis(output: Output | null | undefined, actions: readonly DirectNextAnalysisAction[], pointDrill?: NextAnalysisPointDrill) {
   const bridge = useContext(BridgeContext);
   const visible = useContext(WorkspacePanelVisibleContext);
   const key = visible && output ? outputKey(output) : null;
   useLayoutEffect(() => {
-    if (key !== null) return bridge?.actions.publish([key], actions);
-  }, [bridge, key, actions]);
+    if (key !== null) return bridge?.actions.publish([key], { actions, pointDrill });
+  }, [bridge, key, actions, pointDrill]);
 }
 
-const ROOT_WORKSPACE = '';
-
-export function usePublishAnalysisWorkspace(panelIds: readonly string[], addition: AnalysisPanelAddition | null, { root }: { root: boolean }) {
+export function usePublishAnalysisWorkspace(panelIds: readonly string[], addition: AnalysisPanelAddition | null) {
   const bridge = useContext(BridgeContext);
   const visible = useContext(WorkspacePanelVisibleContext);
   useLayoutEffect(() => {
-    if (visible && addition) return bridge?.workspaces.publish(root ? [...panelIds, ROOT_WORKSPACE] : panelIds, addition);
-  }, [bridge, panelIds, addition, visible, root]);
+    if (visible) return bridge?.workspaces.publish(panelIds, addition);
+  }, [bridge, panelIds, addition, visible]);
 }
 
 export function usePublishedNextAnalysis(output: Output) {
   const bridge = useContext(BridgeContext);
   const key = outputKey(output);
-  const actions = useSyncExternalStore(bridge?.actions.subscribe ?? emptySubscribe, () => bridge?.actions.read(key), emptySnapshot);
-  const workspace = useSyncExternalStore(bridge?.workspaces.subscribe ?? emptySubscribe, () => bridge?.workspaces.read(output.panelId) ?? bridge?.workspaces.readUnique(ROOT_WORKSPACE), emptySnapshot);
-  return { actions, workspace };
+  const publication = useSyncExternalStore(bridge?.actions.subscribe ?? emptySubscribe, () => bridge?.actions.readUnique(key), emptySnapshot);
+  const workspace = useSyncExternalStore(bridge?.workspaces.subscribe ?? emptySubscribe, () => bridge?.workspaces.readUnique(output.panelId), emptySnapshot);
+  return { publication, workspace };
 }

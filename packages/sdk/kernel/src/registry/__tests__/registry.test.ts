@@ -7,6 +7,7 @@ import { I18nProvider } from '../../i18n';
 import { PlatformProvider } from '../../platform/platform';
 import { testAdapter, testSession } from '../../testing';
 import { createRegistry as create, routeParamNames, RegistryError, type GroupDef, type MenuEntry, type ModuleMenuEntry, type PlatformMenuEntry } from '../registry';
+import * as shapes from '../shapes';
 import { disabledReason, projectQueryInputs } from '../panel-inputs';
 import { carrySetId, emptyGlobal, groupId, KERNEL_PERMISSIONS, menuPermission, menuPermissions, NO_FEATURES, spaceId, type Pair, type PanelDeclaration, type SpaceDef } from '@ap/contracts';
 
@@ -1034,11 +1035,25 @@ describe('analysis selection registration (#2732)', () => {
     ['unknown shape', { shape: 'rows' }, /shape/],
     ['empty dimension', { dimension: '' }, /dimension/],
     ['invalid dimension', { dimension: 'Time-range' }, /dimension/],
+    ['invalid object kind', { objectKind: 'equipment-id' }, /objectKind/],
+    ['non-string object kind', { objectKind: ['equipment'] }, /objectKind/],
     ['undeclared drill level', { drillLevel: 'unknown' }, /drillLevel.*unknown/],
     ['non-string dimension', { dimension: 123 }, /dimension/],
     ['set on a single key', { shape: 'set' }, /repeatedPageKeys/],
   ])('rejects %s', (_name, patch, reason) => {
     expect(() => build([{ ...writer, outputs: [{ ...output, selection: { ...selection, ...patch } }] }])).toThrow(reason);
+  });
+
+  it('accepts a valid object kind without a destination', () => {
+    const objectKind = 'futureEquipment2';
+    const registry = build([{ ...writer, outputs: [{ ...output, selection: { ...selection, objectKind } }] }]);
+    expect(registry.panels('catalog')[0]?.outputs[0]?.selection?.objectKind).toBe(objectKind);
+    expect(registry.objectDestinations(objectKind)).toEqual([]);
+  });
+
+  it('uses a shared string-only identifier shape for object kinds', () => {
+    expect([shapes.isObjectKindShape('futureEquipment2'), shapes.isObjectKindShape('equipment-id'),
+      shapes.isObjectKindShape(['equipment'])]).toEqual([true, false, false]);
   });
 
   it.each([

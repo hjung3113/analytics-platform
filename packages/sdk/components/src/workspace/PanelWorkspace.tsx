@@ -111,9 +111,10 @@ export type PanelWorkspaceProps = {
   stackPreset?: string;
   /**
    * Brings `panelId` to the front of its tab group when `seq` changes (a menu counts up: `{ panelId: 'trend', seq: n + 1 }`). Only the active tab
-   * changes: a hidden panel stays hidden (hiding is the user's decision), another panel's maximize is kept (it is a no-op, not queued) and focus
-   * never moves. An explicit user action can opt into `restoreHidden` to show a hidden panel, ending another panel's maximize
-   * so the restored panel is visible. It uses its declared placement when it has no preset sibling to rejoin. Collapsed and
+   * changes for an existing panel: a hidden panel stays hidden, another panel's maximize is kept (it is a no-op, not queued)
+   * and focus never moves. A panel added with the reveal request becomes active, ending maximize if it joins a different group.
+   * An explicit user action can opt into `restoreHidden` to show a hidden panel, ending another panel's maximize so the restored
+   * panel is visible. It uses its declared placement when it has no preset sibling to rejoin. Collapsed and
    * floating panels keep their placement. An unknown `panelId`, a repeated `seq` and `null` do nothing. A request present on
    * mount is not applied.
    */
@@ -244,7 +245,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   });
   const [storedState, setStored] = useState(initial.state);
   const panelIdentity = JSON.stringify([primaryId, [...spec.panelIds].sort(), sharedRows]);
-  const [seenPanels, setSeenPanels] = useState({ identity: panelIdentity, below });
+  const [seenPanels, setSeenPanels] = useState({ identity: panelIdentity, below, ids: spec.panelIds });
   const panelsChanged = seenPanels.identity !== panelIdentity;
   // A changed panel set renders its repaired state at once and commits it before paint. Not a render-phase setState: an observer
   // update queued right after one is computed eagerly against the state before it and would put the old panel set back (#2518).
@@ -253,7 +254,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     [panelsChanged, storedState, seenPanels, panelIdentity]);
   useLayoutEffect(() => {
     if (!panelsChanged) return;
-    setSeenPanels({ identity: panelIdentity, below });
+    setSeenPanels({ identity: panelIdentity, below, ids: spec.panelIds });
     setStored(previous => (previous === storedState ? stored : updateWorkspacePanels(previous, spec, seenPanels.below)));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `spec` is rebuilt each render; the effect acts only while `panelsChanged`, whose inputs are listed.
   }, [panelsChanged, panelIdentity, below, seenPanels, storedState, stored]);
@@ -351,6 +352,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const revealSeq = revealRequest?.seq;
   const revealId = revealRequest?.panelId;
   const restoreHidden = revealRequest?.restoreHidden;
+  const addedWithReveal = revealId !== undefined && !seenPanels.ids.includes(revealId);
   const [dockReveal, setDockReveal] = useState<{ panelId: string; seq: number } | null>(null);
   useEffect(() => {
     if (revealSeq === undefined || revealId === undefined || revealSeq === handledSeq.current) return;
@@ -359,12 +361,13 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) console.error(`[PanelWorkspace] revealRequest names "${revealId}", which is not a panel`);
       return;
     }
-    const { maximizedId: other, primaryId, presets, derived, below, sharedRows } = live.current;
-    const restoring = restoreHidden === true && derived.hidden.includes(revealId)
-      && !derived.collapsed?.[revealId] && !derived.floating?.some(panel => panel.panelId === revealId);
-    if (other !== null && other !== revealId) {
-      if (!restoring) return;
-      setMaximized(null);
+    const { primaryId, presets, below, sharedRows } = live.current;
+    const restoring = restoreHidden === true && state.hidden.includes(revealId)
+      && !state.collapsed?.[revealId] && !state.floating?.some(panel => panel.panelId === revealId);
+    const targetGroup = groupOf(state.layout, revealId);
+    if (maximizedId !== null && maximizedId !== revealId) {
+      if (!restoring && !(addedWithReveal && targetGroup)) return;
+      if (restoring || !targetGroup?.panels.includes(maximizedId)) setMaximized(null);
     }
     update(current => {
       const next = restoring
@@ -374,8 +377,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       return home && home.active !== revealId ? { ...next, layout: activatePanel(next.layout, revealId) } : next;
     }, restoring ? 'keep' : 'raw');
     // The one-group narrow display has its own selection.
-    if (restoring || panelOrder(derived.layout).includes(revealId)) setDockReveal({ panelId: revealId, seq: revealSeq });
-  }, [revealSeq, revealId, restoreHidden, knownIds, update]);
+    if (restoring || targetGroup) setDockReveal({ panelId: revealId, seq: revealSeq });
+  }, [revealSeq, revealId, restoreHidden, knownIds, addedWithReveal, maximizedId, state, update]);
   const setMode = useCallback((mode: 'fit' | 'stack') => {
     if (live.current.narrow) return;
     if (mode === 'stack' && fitSlot.current && !live.current.stackActive) { const height = fitSlot.current.getBoundingClientRect().height; if (height > 0) lastFit.current = height; }
@@ -717,7 +720,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     ...analysisPanelAddition,
     items: analysisPanelAddition.items.filter(item => !shown.includes(item.id) && !state.collapsed?.[item.id] && !isFloating(item.id)),
   } : null;
-  usePublishAnalysisWorkspace(panels.map(panel => panel.analysisSelectionSourceId ?? panel.id), destinations, { root: depth === 1 });
+  usePublishAnalysisWorkspace(panels.map(panel => panel.analysisSelectionSourceId ?? panel.id), destinations);
   return <WorkspaceDepthProvider value={depth}>
     <AnalysisPanelAddContext.Provider value={destinations}>
     <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} data-workspace-density={densePage ? 'compact' : undefined} className={cn(rows ? 'flex w-full min-w-0 flex-col' : 'flex h-full min-h-0 w-full min-w-0 flex-col', densePage ? 'gap-1.5' : 'gap-2')}

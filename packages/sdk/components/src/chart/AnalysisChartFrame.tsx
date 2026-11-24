@@ -1416,10 +1416,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     </AnalysisChartPart>
     {nextAnalysis && !outputSuspended && (selection || urlSet || selectedPointKeys.length > 0) &&
       <NextAnalysisItems output={output} selection={selectionOutput.selection}
-        pointDrill={p.nextAnalysisPointDrill && {
+        pointDrill={!setOutput && !selection && chosenPoints.length > 0 && p.nextAnalysisPointDrill ? {
           level: p.nextAnalysisPointDrill.level,
-          value: !selection && chosenPoints.length === 1 ? p.nextAnalysisPointDrill.value(chosenPoints[0]!.point) : null,
-        }}
+          value: chosenPoints.length === 1 ? p.nextAnalysisPointDrill.value(chosenPoints[0]!.point) : null,
+        } : undefined}
         localActions={[...plainSelectionActions, ...[applyRangeAction, equipmentAction].filter(action => action !== null)]}
         renderRow={renderNextAnalysisRow} />}
   </section>;

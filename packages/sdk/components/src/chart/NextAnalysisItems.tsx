@@ -7,11 +7,12 @@ import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisPanelAddContext, type AnalysisPanelAddition } from '../workspace/PanelAdd';
 import { usePublishNextAnalysis } from './NextAnalysisBridge';
 
+export type NextAnalysisPointDrill = { level: string; value: string | null };
+
 type Props = {
   output?: { panelId: string; key: string } | null;
   selection: AnalysisSelection | null;
-  workspace?: AnalysisPanelAddition;
-  pointDrill?: { level: string; value: string | null };
+  pointDrill?: NextAnalysisPointDrill;
 };
 type Choice = { id: string; label: string; reason?: string; note?: string; onSelect: () => void };
 type GroupAction = { label: string } & (
@@ -28,11 +29,9 @@ export type DirectNextAnalysisAction = {
 };
 export type NextAnalysisAction = GroupAction | DirectNextAnalysisAction;
 
-export function useNextAnalysisItems({ output, selection, pointDrill, workspace: publishedWorkspace }: Props): GroupAction[] {
+export function useNextAnalysisItems({ output, selection, pointDrill, workspace }: Props & { workspace: AnalysisPanelAddition | null }): GroupAction[] {
   const platform = usePlatform();
   const { depth, levels, enter, invalid } = useDrill();
-  const localWorkspace = useContext(AnalysisPanelAddContext);
-  const workspace = publishedWorkspace ?? localWorkspace;
   const { tx, t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const menu = platform.route?.menu;
@@ -146,11 +145,12 @@ export function NextAnalysisMenuItem({ action, onSelect }: {
   </DropdownMenuSub>;
 }
 
-type RowProps = Props & { localActions: readonly NextAnalysisAction[]; renderRow: (items: ReactNode) => ReactNode };
+type RowProps = Props & { localActions: readonly DirectNextAnalysisAction[]; renderRow: (items: ReactNode) => ReactNode };
 
 function RoutedItems({ localActions, renderRow, ...props }: RowProps) {
-  const actions = useNextAnalysisItems(props);
-  usePublishNextAnalysis(props.output, [...actions, ...localActions]);
+  const workspace = useContext(AnalysisPanelAddContext);
+  const actions = useNextAnalysisItems({ ...props, workspace });
+  usePublishNextAnalysis(props.output, localActions, props.pointDrill);
   return renderRow(actions.map(action => <ActionMenu key={action.label} action={action} />));
 }
 
