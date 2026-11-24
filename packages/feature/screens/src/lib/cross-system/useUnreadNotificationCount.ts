@@ -7,7 +7,6 @@ export function useUnreadNotificationCount(options: { enabled?: boolean } = {}) 
     queryKey: [...notificationsQueryKey, 'unread-count'] as const,
     queryFn: ({ signal }) => fetchUnreadNotificationCount(signal),
     refetchInterval: 60_000,
-    refetchOnWindowFocus: true,
     retry: false,
     enabled: options.enabled ?? true,
   });
