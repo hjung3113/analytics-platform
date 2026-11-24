@@ -179,7 +179,7 @@ export function PermissionRequestDetail({
     >
       <header className="flex h-toolbar items-center gap-3 border-b border-border-subtle px-6">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-text-muted">{subtitle}</p>
+          <p className="truncate text-xs font-medium text-text-muted">{subtitle}</p>
           <p className="truncate text-sm font-medium text-text-primary">
             {title}
           </p>

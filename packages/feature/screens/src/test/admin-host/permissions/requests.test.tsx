@@ -1302,6 +1302,7 @@ describe('/admin/permissions/requests', () => {
       expect(screen.getByText(/운영 정책에서 직접 승인을 금지합니다/)).toBeInTheDocument(),
     );
     expect(screen.getByRole('radio', { name: '승인' })).toBeDisabled();
+    expect(screen.getByRole('radio', { name: '승인' })).toHaveClass('disabled:opacity-50', 'disabled:pointer-events-none');
     expect(screen.getByTestId('permission-decision-submit')).toBeDisabled();
     fireEvent.click(screen.getByTestId('permission-decision-submit'));
     expect(decisionPosts()).toHaveLength(0);
