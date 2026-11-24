@@ -553,8 +553,8 @@ jobs:
         if: ${{ steps.scope.outputs.run == 'true' }}
         run: node tooling/sdk/sdk-upgrade-gate.mjs --self-test
 
-  # PR guard (#2643): the three caps no lead or worker decision can waive — PR size (400 lines / 40 files; generated files, snapshots and lockfiles
-  # excluded), fix rounds (the fourth push of the branch needs a `Round cap:` line in the PR body) and release scope (`Closes #n` must be in the
+  # PR guard (#2643): the three caps, each passed only by a recorded answer — PR size (400 lines / 40 files; generated files, snapshots and lockfiles
+  # excluded; a `Size:` line in the PR body or `owner-ok:size`), fix rounds (the fourth push of the branch needs a `Round cap:` line in the PR body) and release scope (`Closes #n` must be in the
   # release spec's `## 범위` on the base branch, or the PR carries the owner's `owner-ok:scope`). Rules: .agents/conductor/PROFILE.md §Size and path.
   # `Platform workspace` requires it, so the ruleset enforces it without a new required check. PR only: on a main push or manual run the step is
   # skipped and the job succeeds. API calls only, seconds; a failed call fails the job (fail-closed), so rerun it.
