@@ -1,7 +1,8 @@
 import { useCompactPageDensity } from '../pageDensity';
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, type CSSProperties, type ReactNode, type RefObject } from 'react';
 import { flexRender, getCoreRowModel, useReactTable, type Column, type ColumnDef, type ColumnPinningState, type Header, type Row } from '@tanstack/react-table';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import type { VirtualItem } from '@tanstack/react-virtual';
+import { VirtualRows, type VirtualRowsHandle } from './VirtualRows';
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Columns3, Copy, Download, FileSpreadsheet, FileText, GripVertical, Loader2, Pin, PinOff } from 'lucide-react';
 import { useEndpointRefreshEpoch, useI18n, useMessages, usePlatform } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -613,23 +614,27 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     : null, [groupColumn, rows, data.groups, collapsed]);
   const pinnedRow = groupedItems || p.pinnedRowId == null ? undefined : rows.find(row => row.id === p.pinnedRowId);
   const items = groupedItems ?? rows.filter(row => row !== pinnedRow).map(row => ({ kind: 'row' as const, key: row.id, row }));
-  const virtual = useVirtualizer({ count: items.length, getScrollElement: () => viewport.current, estimateSize: () => rowHeight, overscan: 8, getItemKey: i => items[i].key });
-  useLayoutEffect(() => { virtual.measure(); }, [rowHeight]); // eslint-disable-line react-hooks/exhaustive-deps -- `virtual` is stable; a size change re-measures the cached rows
+  // The virtualizer lives in `VirtualRows`, so scrolling re-renders the rows only (#2813). A grid table hears the mounted keys when the range
+  // changes: the re-render runs `useTableCellNavigation`'s layout effect, which focuses a keyboard target once it mounts and recovers focus
+  // when scrolling removes the focused row; the pinned row's tab stop reads them too.
+  const rowsHandle = useRef<VirtualRowsHandle>(null);
+  const [mountedKeys, setMountedKeys] = useState<readonly string[]>([]);
   // Selected rows of this page that a collapsed group hides: the page selection still covers them, and the count says so.
-  const virtualItems = virtual.getVirtualItems();
   const grid = !!p.onSelectCell;
   const cellRowIds = grid ? [...(pinnedRow ? [pinnedRow.id] : []), ...items.flatMap(item => item.kind === 'row' ? [item.row.id] : [])] : [];
   const cellColumnIds = grid ? [...table.getLeftVisibleLeafColumns(), ...table.getCenterVisibleLeafColumns(), ...table.getRightVisibleLeafColumns()]
     .filter(column => declarations.has(column.id) && declarations.get(column.id)?.selectableCell !== false).map(column => column.id) : [];
-  let tabStops: CellTabStops | undefined;
-  if (grid) {
-    const mountedRows = new Set([...(pinnedRow ? [pinnedRow.id] : []), ...virtualItems.map(item => items[item.index].key)]);
-    tabStops = { mountedRows, visibleColumns: new Set(cellColumnIds), fallbackRow: cellRowIds.find(id => mountedRows.has(id)), fallbackColumn: cellColumnIds[0] };
-  }
+  const tabStopsFor = (mounted: readonly string[]): CellTabStops | undefined => {
+    if (!grid) return undefined;
+    const mountedRows = new Set([...(pinnedRow ? [pinnedRow.id] : []), ...mounted]);
+    return { mountedRows, visibleColumns: new Set(cellColumnIds), fallbackRow: cellRowIds.find(id => mountedRows.has(id)), fallbackColumn: cellColumnIds[0] };
+  };
+  // The pinned row renders outside `VirtualRows`, so it reads the range the rows last reported; body rows get theirs in the same render.
+  const pinnedTabStops = pinnedRow ? tabStopsFor(mountedKeys) : undefined;
   const cellNavigation = useTableCellNavigation({
     viewport, rows: cellRowIds, columns: cellColumnIds, onSelect: p.onSelectCell, onActivate: p.onActivateCell,
     pinnedWidths: () => ({ left: displayedSize(table.getLeftVisibleLeafColumns()), right: displayedSize(table.getRightVisibleLeafColumns()) }),
-    scrollRow: id => { const index = items.findIndex(item => item.kind === 'row' && item.row.id === id); if (index >= 0) virtual.scrollToIndex(index, { align: 'center' }); },
+    scrollRow: id => { const index = items.findIndex(item => item.kind === 'row' && item.row.id === id); if (index >= 0) rowsHandle.current?.scrollToIndex(index); },
     // Rows that scroll under the sticky block (header bands and a pinned row); its rendered height, one row before it mounts.
     pageRows: () => {
       const port = viewport.current;
@@ -1025,13 +1030,13 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
       </span>
     </div>
   );
-  function renderDataRow(row: Row<T>, item?: (typeof virtualItems)[number], selectedColumn?: string, tabColumn?: string) {
+  function renderDataRow(row: Row<T>, item?: VirtualItem, measure?: (node: Element | null) => void, selectedColumn?: string, tabColumn?: string) {
     const active = p.activeRowId === row.id;
     const cells = row.getVisibleCells();
     const firstDataCell = cells.findIndex(cell => cell.column.id !== '_select' && cell.column.id !== '_action');
     const muted = p.isRowMuted?.(row.original) === true;
     const rowIndex = item ? item.index + Number(!!pinnedRow) : 0;
-    return <div role="row" key={row.id} ref={item ? virtual.measureElement : undefined} data-index={item?.index}
+    return <div role="row" key={row.id} ref={item ? measure : undefined} data-index={item?.index}
       aria-rowindex={(groupedItems ? 0 : shownPage * pageSize) + rowIndex + headerRowCount + 1}
       data-table-focus-row={cellNavigation.rowIndices.get(row.id)} aria-selected={grid ? undefined : row.getIsSelected()} aria-current={active ? 'true' : undefined} data-row-id={row.id} data-muted={muted ? 'true' : undefined}
       // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
@@ -1060,10 +1065,10 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     </div>;
   }
 
-  function dataRow(row: Row<T>, item?: (typeof virtualItems)[number]) {
-    if (!tabStops) return renderDataRow(row, item);
+  function dataRow(row: Row<T>, tabStops: CellTabStops | undefined, item?: VirtualItem, measure?: (node: Element | null) => void) {
+    if (!tabStops) return renderDataRow(row, item, measure);
     return <SelectableDataRow key={row.id} rowId={row.id} tabStops={tabStops}
-      render={(selectedColumn, tabColumn) => renderDataRow(row, item, selectedColumn, tabColumn)} />;
+      render={(selectedColumn, tabColumn) => renderDataRow(row, item, measure, selectedColumn, tabColumn)} />;
   }
 
   const showOutcome = shown && shown.outcome !== 'ok';
@@ -1157,18 +1162,20 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
                 </div>}
               </div>;
             })}</div>)}
-            {pinnedRow && dataRow(pinnedRow)}
+            {pinnedRow && dataRow(pinnedRow, pinnedTabStops)}
           </div>
           {!shown ? <div className="space-y-2 p-3" aria-hidden>{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-5" />)}</div> :
-            // eslint-disable-next-line shadcn/no-inline-styles -- total row height comes from the virtualizer at runtime
-            <div role="rowgroup" className="relative" style={{ height: virtual.getTotalSize() }}>{virtualItems.map(item => {
+            <VirtualRows count={items.length} getKey={index => items[index].key} scrollElement={viewport} rowHeight={rowHeight} handle={rowsHandle}
+              onMounted={grid ? setMountedKeys : undefined} renderItems={(mountedItems, measure, mounted) => {
+              const tabStops = tabStopsFor(mounted);
+              return mountedItems.map(item => {
               const entry = items[item.index];
               if (entry.kind === 'group') {
                 // Layout from the DISPLAYED order (left-pinned, centre, right-pinned — as header and row cells): the leading label cell stops before the first subtotal column, so every subtotal stays under its own column.
                 const displayed = [...table.getLeftVisibleLeafColumns(), ...table.getCenterVisibleLeafColumns(), ...table.getRightVisibleLeafColumns()];
                 const subtotalIds = new Set(p.columns.filter(c => c.subtotal).map(c => c.id));
                 const { leading, trailing, leadSubtotal } = groupHeaderLayout<Column<T>>(displayedUnits(displayed, c => inWidthGroup(c.id) ? paths.get(c.id) : undefined), c => c.getIsPinned() === 'right', subtotalIds);
-                return <div role="row" key={entry.key} ref={virtual.measureElement} data-index={item.index} data-group-row={entry.group.key} aria-rowindex={item.index + headerRowCount + 1}
+                return <div role="row" key={entry.key} ref={measure} data-index={item.index} data-group-row={entry.group.key} aria-rowindex={item.index + headerRowCount + 1}
                   // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                   className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
                   <GroupHeaderCells lang={lang} item={entry} onToggle={() => toggleGroup(entry.group.key)}
@@ -1179,8 +1186,9 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
                     trailing={trailing.map(c => ({ id: c.id, subtotal: subtotalIds.has(c.id), style: cellStyle(c), className: cn(lineClass(c.id), c.getIsPinned() === 'right' && pinEdge) }))} />
                 </div>;
               }
-              return dataRow(entry.row, item);
-            })}</div>}
+              return dataRow(entry.row, tabStops, item, measure);
+            });
+            }} />}
         </div>}
       </div>}
     </div>
