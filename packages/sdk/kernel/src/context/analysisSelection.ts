@@ -80,7 +80,7 @@ function hasFilterCycle(channels: ReturnType<typeof menuAnalysisSelections>, key
   return false;
 }
 
-type AnalysisSelectionOutputOptions = {
+export type AnalysisSelectionOutputOptions = {
   /** Values present in the source's current data. Omit while availability is unknown. */
   available?: AnalysisSelectionAvailability | undefined;
   /** Set false in callers that only write selections or report availability. */
@@ -236,8 +236,8 @@ function orderChips(chips: readonly AnalysisSelectionChip[]): AnalysisSelectionC
   return ordered;
 }
 
-type ReplaceChipSelection = (key: string, next: AnalysisSelection, onCommit?: () => void) => boolean;
-type ChipSelectionEditor = {
+export type ReplaceChipSelection = (key: string, next: AnalysisSelection, onCommit?: () => void) => boolean;
+export type ChipSelectionEditor = {
   /** Current source reports for active chips. A missing entry means availability is unknown. */
   readonly availability: ReadonlyMap<string, AnalysisSelectionAvailability>;
   /** Replaces an active selection. Returns false for invalid or stale edits. Calls onCommit when accepted. */

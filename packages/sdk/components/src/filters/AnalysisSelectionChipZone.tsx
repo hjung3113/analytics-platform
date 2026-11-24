@@ -8,7 +8,7 @@ import { NextAnalysisMenuItem, useNextAnalysisItems, type DirectNextAnalysisActi
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useElementSize, useObservedElementSize } from '../state/useElementSize';
 
-type Fit = { container: HTMLElement | null; summary: HTMLElement | null };
+export type AnalysisSelectionChipZoneFit = { container: HTMLElement | null; summary: HTMLElement | null };
 type ClearChip = (key: string) => void;
 type ChipEditor = NonNullable<ReturnType<typeof useAnalysisSelectionChips>['editor']>;
 type Selection = AnalysisSelectionChip['selection'];
@@ -238,7 +238,7 @@ function focusActionTrigger(surface: HTMLElement | null, key: string): boolean {
 
 /** Shows the active screen's analysis selections. The optional fit elements supply the row's budget and the summary's intrinsic width. */
 export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
-  fit?: Fit; fallbackFocus?: RefObject<HTMLElement | null>;
+  fit?: AnalysisSelectionChipZoneFit; fallbackFocus?: RefObject<HTMLElement | null>;
 }) {
   const { chips, clear, clearAll, editor } = useAnalysisSelectionChips(onClearCommit);
   const platform = useHostPlatformOptional();
