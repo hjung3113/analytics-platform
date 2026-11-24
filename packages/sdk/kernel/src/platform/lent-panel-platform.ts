@@ -38,7 +38,7 @@ export function lentPanelPlatform(receiver: HostPlatform, inputs: LentPanelProps
     resolveSelectionLink: () => ({ kind: 'none', href: null, allowed: false, droppedPageKeys: [] }),
     objectSelectionLinks: () => [],
     returnTarget: () => url,
-    returnOrigin: () => ({ href: url, menuLabel: { ko: '', en: '' }, trail: [], revertedContext: [], accepted: false, spaceLabel: null }),
+    returnOrigin: () => ({ href: url, menuLabel: { ko: '', en: '' }, trail: [], revertedContext: [], accepted: false, recorded: false, spaceLabel: null }),
     reportError: receiver.reportShellError,
     queryDraft: {
       mode: 'live', draft: { global, page }, dirty: [], missing: [], canApply: false, applying: false,

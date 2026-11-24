@@ -43,3 +43,16 @@ it('disables oversized links and explains each drop the resolver reports without
     '전달: EQ-01 · 날짜 선택은 이 화면이 받지 않습니다 · equipment 선택은 이 화면이 받지 않습니다 · equipment 선택이 여럿이라 넘기지 않습니다 · Scope가 달라 선택을 넘기지 않습니다 · 주소가 길어 날짜 선택을 뺐습니다',
   );
 });
+
+it('passes the selected object link proof to navigation', async () => {
+  const proof = Object.freeze({});
+  objectSelectionLinks.mockReturnValue([
+    { kind: 'link', menuId: 'allowed', label: { ko: '분석', en: 'Analysis' }, href: '/analysis', allowed: true, droppedPageKeys: [], proof },
+  ]);
+  const user = userEvent.setup();
+  render(<I18nProvider><NextAnalysisItems output={{ panelId: 'matrix', key: 'equipment' }}
+    selection={{ shape: 'set', values: ['EQ-01'] }} localActions={[]} renderRow={items => items} /></I18nProvider>);
+  await user.click(screen.getByRole('button', { name: '다른 분석' }));
+  await user.click(screen.getByRole('menuitem', { name: '분석' }));
+  expect(navigate).toHaveBeenLastCalledWith('/analysis', { focus: 'page', carryProof: proof });
+});

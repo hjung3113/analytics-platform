@@ -98,7 +98,7 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
           const carried = link.allowed && !dropped ? m('chartNextCarriesObject', { value }) : '';
           const note = [carried, dropped, missing, ...notes].filter(Boolean).join(' · ');
           return { id: link.menuId, label: destination, reason: link.allowed ? undefined : t('menuDenied'), note,
-            onSelect: () => platform.navigate(link.href, { focus: 'page' }) };
+            onSelect: () => platform.navigate(link.href, { focus: 'page', carryProof: link.proof }) };
         });
       if (choices.length) actions.push({ label, choices, direction: 'right' });
     }

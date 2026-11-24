@@ -1,10 +1,10 @@
-import { cleanup, render, renderHook, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import type { HostPlatform, LinkOptions, LinkResolution, ObjectLink, ObjectLinkOptions, ObjectSelectionLink, SelectionLinkResolution } from '../platform';
 import { I18nProvider } from '../../i18n';
-import { PlatformProvider, useHostPlatform } from '../platform';
+import { PlatformLink, PlatformProvider, useHostPlatform, useLeaveRequest, useUnsavedGuard } from '../platform';
 import { createRegistry } from '../../registry/registry';
 import { useAnalysisSelectionChips, useAnalysisSelectionInputs } from '../../context/analysisSelection';
 import { createBasePathLocation } from '../../context/location';
@@ -193,6 +193,183 @@ describe('cross-menu analysis selection carry (#2735)', () => {
       key: 'received', dimension: 'equipment', label: null, after: null, available: true,
       selection: { shape: 'set', values: ['E&A', 'E2'] },
     }]);
+  });
+
+  function trackCarries({ guarded = false, testRegistry = carryRegistry } = {}) {
+    window.history.replaceState(null, '', location.href(source));
+    const adapter = fixture(ANALYST);
+    let activeAdapter = adapter;
+    let activeRegistry = testRegistry;
+    let anchorHref: string | undefined;
+    const hook = renderHook(() => {
+      useUnsavedGuard(guarded);
+      return { host: useHostPlatform(), chips: useAnalysisSelectionChips().chips, leave: useLeaveRequest() };
+    }, {
+      wrapper: ({ children }) => <I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={activeAdapter} registry={activeRegistry} location={location}>
+        {children}{anchorHref && <PlatformLink href={anchorHref}>Open inbound</PlatformLink>}
+      </PlatformProvider></I18nProvider>,
+    });
+    return {
+      ...hook,
+      showAnchor(href: string) { anchorHref = href; hook.rerender(); },
+      swapRegistry() { activeRegistry = { ...activeRegistry }; hook.rerender(); },
+      swapAdapter() { activeAdapter = fixture(ANALYST); hook.rerender(); },
+      arrival: () => hook.result.current.chips.find(chip => chip.key === 'received')?.arrival,
+    };
+  }
+
+  it.each(['carried', 'object', 'changed object', 'explicit', 'manual'])('adds chip origin only for serialized carries (%s)', kind => {
+    const { result, arrival } = trackCarries();
+    const { host } = result.current;
+    const options = { returnTo: true };
+    if (kind === 'manual') {
+      act(() => { host.navigate('/mars/inbound?v=1&returnTo=' + encodeURIComponent(source) + '&received=E%26A&received=E2'); });
+    } else {
+      const link = kind === 'object' || kind === 'changed object'
+        ? host.objectSelectionLinks({ kind: 'equipment', id: 'E1' }, options)[0]
+        : host.resolveSelectionLink('inbound', kind === 'explicit' ? { page: { returnTo: source, received: ['E&A', 'E2'] } } : options);
+      if (link.kind !== 'link') throw new Error('expected a selection link');
+      act(() => { host.navigate(link.href, { carryProof: link.proof }); });
+    }
+    expect(result.current.host.returnOrigin().recorded).toBe(true);
+    expect(arrival()?.href).toBe(source);
+    if (kind === 'explicit' || kind === 'manual') {
+      expect(arrival()?.origin).toBeUndefined();
+      return;
+    }
+    expect(arrival()?.origin?.menuLabel.en).toBe('selection-source');
+    if (kind === 'changed object') {
+      act(() => result.current.host.setPage({ object: 'E2' }, { replace: true }));
+      expect(result.current.host.returnOrigin().recorded).toBe(false);
+      expect(arrival()?.origin).toBeUndefined();
+      return;
+    }
+    act(() => result.current.host.setPage({ received: 'different' }, { replace: true }));
+    act(() => result.current.host.setPage({ received: ['E&A', 'E2'] }, { replace: true }));
+    expect(arrival()?.href).toBe(source);
+    expect(arrival()?.origin).toBeUndefined();
+  });
+
+  it.each([
+    ['carried first', true, 'carried', true],
+    ['carried last', false, 'carried', true],
+    ['explicit first', false, 'explicit', false],
+    ['explicit last', true, 'explicit', false],
+  ] as const)('ties proof to the activated action with identical hrefs (%s)', (_label, carriedFirst, action, hasProof) => {
+    const { result, arrival } = trackCarries();
+    const { host } = result.current;
+    const page = { returnTo: source, received: ['E&A', 'E2'] };
+    const proposeCarry = () => host.resolveSelectionLink('inbound', { returnTo: true });
+    const proposeExplicit = () => host.resolveSelectionLink('inbound', { page });
+    const first = carriedFirst ? proposeCarry() : proposeExplicit();
+    const second = carriedFirst ? proposeExplicit() : proposeCarry();
+    const carried = carriedFirst ? first : second;
+    const explicit = carriedFirst ? second : first;
+    expect(explicit.href).toBe(carried.href);
+    const link = action === 'carried' ? carried : explicit;
+    if (link.kind !== 'link') throw new Error('expected a selection link');
+    act(() => { host.navigate(link.href, { carryProof: link.proof }); });
+    expect(result.current.host.returnOrigin().recorded).toBe(true);
+    expect(arrival()?.href).toBe(source);
+    expect(arrival()?.origin?.menuLabel.en).toBe(hasProof ? 'selection-source' : undefined);
+  });
+
+  it.each(['ordinary resolveLink', 'bare navigate', 'PlatformLink', 'forged proof'])('does not borrow a matching proposal through %s', action => {
+    const { result, arrival, showAnchor } = trackCarries();
+    const { host } = result.current;
+    const carried = host.resolveSelectionLink('inbound', { returnTo: true });
+    if (carried.kind !== 'link') throw new Error('expected a selection link');
+    if (action === 'PlatformLink') {
+      showAnchor(carried.href);
+      fireEvent.click(screen.getByRole('link', { name: 'Open inbound' }));
+    } else {
+      act(() => {
+        if (action === 'ordinary resolveLink') {
+          const ordinary = host.resolveLink('inbound', { page: { returnTo: source, received: ['E&A', 'E2'] } });
+          expect(ordinary.href).toBe(carried.href);
+          host.navigate(ordinary.href!);
+        } else if (action === 'forged proof') {
+          host.navigate(carried.href, { carryProof: { ...carried.proof } as typeof carried.proof });
+        } else host.navigate(carried.href);
+      });
+    }
+    expect(result.current.host.returnOrigin().recorded).toBe(true);
+    expect(arrival()?.href).toBe(source);
+    expect(arrival()?.origin).toBeUndefined();
+  });
+
+  it.each(['arrival', 'registry', 'adapter', 'href'] as const)('rejects proof after a change to %s', async change => {
+    const { result, arrival, swapRegistry, swapAdapter } = trackCarries();
+    const link = result.current.host.resolveSelectionLink('inbound', { returnTo: true });
+    if (link.kind !== 'link') throw new Error('expected a selection link');
+    let href = link.href;
+    if (change === 'arrival') {
+      act(() => { result.current.host.navigate('/mars/source'); });
+      act(() => window.history.back());
+      await waitFor(() => expect(result.current.host.url).toBe(source));
+    } else if (change === 'registry') swapRegistry();
+    else if (change === 'adapter') swapAdapter();
+    else href += '&pad=changed';
+    act(() => { result.current.host.navigate(href, { carryProof: link.proof }); });
+    expect(result.current.host.returnOrigin().recorded).toBe(true);
+    expect(arrival()?.href).toBe(source);
+    expect(arrival()?.origin).toBeUndefined();
+  });
+
+  it('keeps action proof through confirmed leave replay', () => {
+    const { result, arrival } = trackCarries({ guarded: true });
+    const link = result.current.host.resolveSelectionLink('inbound', { returnTo: true });
+    if (link.kind !== 'link') throw new Error('expected a selection link');
+    act(() => { result.current.host.navigate(link.href, { carryProof: link.proof }); });
+    expect(result.current.host.url).toBe(source);
+    expect(result.current.leave).not.toBeNull();
+    act(() => result.current.leave!.confirm());
+    expect(result.current.host.returnOrigin().recorded).toBe(true);
+    expect(arrival()?.origin?.menuLabel.en).toBe('selection-source');
+  });
+
+  it('keeps the return record but drops chip proof on a carry-set hop with an equal explicit value', () => {
+    const set = carrySetId('selection-return');
+    const testRegistry = createRegistry({
+      carrySets: [{ id: set, pageKeys: ['returnTo'] }],
+      permissions: [menuPermission('analytics:view')], spaces, groups: carryRegistry.groups,
+      menus: [...carryRegistry.menus.filter(menu => menu.id !== target.id), { ...target, carrySet: set },
+        { ...target, carrySet: set, id: 'inbound-next', path: '/inbound-next' }],
+    });
+    const { result, arrival } = trackCarries({ testRegistry });
+    const link = result.current.host.resolveSelectionLink('inbound', { returnTo: true });
+    if (link.kind !== 'link') throw new Error('expected a selection link');
+    act(() => { result.current.host.navigate(link.href, { carryProof: link.proof }); });
+    expect(arrival()?.origin?.menuLabel.en).toBe('selection-source');
+
+    const { host } = result.current;
+    const hop = host.resolveLink('inbound-next', { page: { received: ['E&A', 'E2'] } });
+    if (hop.kind !== 'link') throw new Error('expected a carry-set link');
+    act(() => { host.navigate(hop.href); });
+    expect(result.current.host.returnOrigin().recorded).toBe(true);
+    expect(arrival()?.href).toBe(source);
+    expect(arrival()?.origin).toBeUndefined();
+  });
+
+  it('preserves forward chip proof after a failed push', async () => {
+    const { result, arrival } = trackCarries();
+    const link = result.current.host.resolveSelectionLink('inbound', { returnTo: true });
+    if (link.kind !== 'link') throw new Error('expected a selection link');
+    act(() => { result.current.host.navigate(link.href, { carryProof: link.proof }); });
+    expect(arrival()?.origin?.menuLabel.en).toBe('selection-source');
+    act(() => window.history.back());
+    await waitFor(() => expect(result.current.host.url).toBe(source));
+
+    const push = vi.spyOn(window.history, 'pushState').mockImplementationOnce(() => { throw new DOMException('rate', 'SecurityError'); });
+    try {
+      expect(() => act(() => { result.current.host.navigate('/mars/source'); })).toThrow('rate');
+    } finally {
+      push.mockRestore();
+    }
+    act(() => window.history.forward());
+    await waitFor(() => expect(result.current.host.url).toBe(link.href));
+    expect(result.current.host.returnOrigin().recorded).toBe(true);
+    expect(arrival()?.origin?.menuLabel.en).toBe('selection-source');
   });
 
   it('keeps the legacy types and exposes structured results through separate methods', () => {

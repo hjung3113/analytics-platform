@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, useUnsavedGuard, type UnsavedGuardOptions } from '../../index';
 import { PaneScreenProvider, useHostPlatform, useLeaveRequest, type LeaveRequest } from '../../host';
 import { AppContext } from '../contexts';
+import { useAnalysisSelectionChips } from '../../context/analysisSelection';
 import { noContext, testAdapter, testSession, testSpace } from '../../testing';
 import { groupId, spaceId, type PlatformAdapter } from '@ap/contracts';
 
@@ -14,13 +15,20 @@ const entry = (partial: { id: string; path: string; pageKeys: string[]; primary?
   permission: 'platform:view' as const, requiresScope: false, context: noContext, pageType: 'overview' as const, features,
   ...partial,
 });
+const selection = { dimension: 'equipment', shape: 'set' } as const;
+const withOutput = {
+  repeatedPageKeys: ['picked'], contextResetKeys: ['picked'],
+  panels: [{ id: 'chart', title: { ko: '차트', en: 'Chart' }, grain: 'daily', queryInputs: {}, displayInputs: {}, endpoints: [],
+    outputs: [{ key: 'picked', action: 'brush', selection }] }],
+};
+const withInbound = { repeatedPageKeys: ['received'], contextResetKeys: ['received'], analysisSelectionInbound: [{ key: 'received', ...selection }] };
 const registry = createRegistry({
   spaces: [testSpace({ homeMenuId: 'editor' })],
   groups: [{ id: groupId('g'), label: { ko: '그룹', en: 'G' }, icon: House, space: spaceId('mars') }],
   menus: [
-    entry({ id: 'editor', path: '/mars/editor', pageKeys: ['q', 't'], primary: true }),
+    { ...entry({ id: 'editor', path: '/mars/editor', pageKeys: ['q', 't', 'picked'], primary: true }), ...withOutput },
     entry({ id: 'other', path: '/mars/other', pageKeys: [] }),
-    entry({ id: 'third', path: '/mars/third', pageKeys: [] }),
+    { ...entry({ id: 'third', path: '/mars/third', pageKeys: ['returnTo', 'received'] }), ...withInbound },
     entry({ id: 'hid', path: '/mars/hid', pageKeys: ['hk'], hiddenPageKeys: ['hk'] }),
   ],
 });
@@ -32,6 +40,7 @@ let setDirty: (v: boolean) => void = () => {};
 let setMounted: (v: boolean) => void = () => {};
 let guardOptions: UnsavedGuardOptions = {};
 let traversals = 0;
+let chipArrival: ReturnType<typeof useAnalysisSelectionChips>['chips'][number]['arrival'];
 function Editor() {
   const [dirty, d] = useState(false);
   setDirty = d;
@@ -46,6 +55,7 @@ function Gate() {
 function Probe() {
   platform = useHostPlatform();
   request = useLeaveRequest();
+  chipArrival = useAnalysisSelectionChips().chips.find(chip => chip.key === 'received')?.arrival;
   const guard = useContext(AppContext)!.internal.guard;
   useEffect(() => guard.onTraversal(() => { traversals++; }), [guard]);
   return null;
@@ -353,7 +363,13 @@ function DirtyFromStart() {
 
 describe('menu leave guard: browser Back and Forward (ADR-0115)', () => {
   it('clears a coalesced compensation after two Back arrivals (#2034 KER-17)', () => {
-    stack();
+    const source = '/mars/editor?v=1&picked=E1';
+    mount('/mars/other');
+    act(() => { platform.navigate(source); });
+    const link = platform.resolveSelectionLink('third', { returnTo: true });
+    if (link.kind !== 'link') throw new Error('expected a selection link');
+    act(() => { platform.navigate(link.href, { carryProof: link.proof }); });
+    expect(chipArrival?.origin?.menuLabel.en).toBe('editor');
     act(() => setDirty(true));
     const state = window.history.state as Record<string, unknown>;
     const go = vi.spyOn(window.history, 'go').mockImplementation(() => {});
@@ -362,16 +378,19 @@ describe('menu leave guard: browser Back and Forward (ADR-0115)', () => {
       window.dispatchEvent(new PopStateEvent('popstate', { state: window.history.state }));
     });
     // Two Back arrivals before either correction lands. Chromium may coalesce both corrections into one pop at the origin.
-    pop(1, '/mars/editor');
+    pop(1, source);
     pop(0, '/mars/other');
     expect(go.mock.calls).toEqual([[1], [2]]);
-    pop(2, '/mars/third');
+    pop(2, link.href);
     expect(platform.pathname).toBe('/mars/third');
+    expect(platform.pageParam('returnTo')).toBe(source);
+    expect(platform.returnOrigin()).toMatchObject({ recorded: true });
+    expect(chipArrival?.origin?.menuLabel.en).toBe('editor');
     expect(traversals).toBe(0);
     expect(request?.destination).toEqual({ ko: 'other', en: 'other' });
     act(() => request!.cancel());
     // A later same-position fragment arrival is ordinary history, not another compensation to swallow.
-    pop(2, '/mars/third#section');
+    pop(2, link.href + '#section');
     expect(traversals).toBe(1);
     expect(request).toBeNull();
   });
@@ -504,20 +523,28 @@ describe('menu leave guard: browser Back and Forward (ADR-0115)', () => {
     const onDiscard = vi.fn();
     guardOptions = { onDiscard };
     const reportClientError = vi.fn(async () => ({ accepted: true as const }));
-    mount('/mars/other', { reportClientError });
-    act(() => { platform.navigate('/mars/editor'); });
-    act(() => { platform.navigate('/mars/third'); });
+    const source = '/mars/editor?v=1&picked=E1';
+    mount(source, { reportClientError });
+    const link = platform.resolveSelectionLink('third', { returnTo: true });
+    if (link.kind !== 'link') throw new Error('expected a selection link');
+    act(() => { platform.navigate(link.href, { carryProof: link.proof }); });
+    expect(chipArrival?.origin?.menuLabel.en).toBe('editor');
+    act(() => { platform.navigate(source); });
     act(() => setDirty(true));
     window.history.back();
     await settle();
-    expect(here()).toBe('/mars/third');
+    expect(here()).toBe(source);
     expect(request).not.toBeNull();
     const real = window.history.go.bind(window.history);
     vi.spyOn(window.history, 'go').mockImplementation((d?: number) => { if (d !== undefined && d < 0) throw new DOMException('rate', 'SecurityError'); real(d); });
     act(() => request!.confirm());
     await settle();
-    expect(here()).toBe('/mars/editor');
-    expect(platform.pathname).toBe('/mars/editor');
+    expect(here()).toBe(link.href);
+    expect(platform.pathname).toBe('/mars/third');
+    expect(platform.pageParam('returnTo')).toBe(source);
+    expect(platform.returnOrigin()).toMatchObject({ accepted: true, recorded: false });
+    expect(chipArrival?.href).toBe(source);
+    expect(chipArrival?.origin).toBeUndefined();
     expect(onDiscard).toHaveBeenCalledTimes(1);
     expect(reportClientError.mock.calls).toEqual(expect.arrayContaining([[expect.objectContaining({ name: 'NavGuardHistoryError' })]]));
   });

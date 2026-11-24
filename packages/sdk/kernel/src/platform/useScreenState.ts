@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { PageFocus } from '../context/pageNavigation';
 import { createAnalysisSelectionAvailability } from '../context/analysisSelectionAvailability';
 import { analysisSelectionParam, parseAnalysisSelection } from '../context/analysisSelectionCodec';
 import { NAVIGATION_URL_MAX_LENGTH } from '../context/shareLink';
@@ -8,7 +7,7 @@ import { classifyMetricInit, sameMetricInit } from '../registry/metric-init';
 import { sameItems, useStable } from '../stable';
 import { isBoardPath, pathFor, RegistryError, type MenuEntry } from '../registry/registry';
 import { useI18n, type Lang } from '../i18n';
-import { hasDotSegment } from '../context/location';
+import { roundTrips } from './return-origin';
 import { readReturnHidden, rememberReturnHidden, type ReturnHiddenOwner } from '../context/returnHidden';
 import { DETAIL_EXPAND_KEY, stripDetailExpansion, withDetailExpansion } from '../links/detail-expansion';
 import { sameParams } from './preferences';
@@ -19,7 +18,7 @@ import { appliedQueryPolicy, defaultQueryPeriod, queryMissingRequired, useScreen
 import { SITE_BOUND_FIELDS } from '../context/siteBound';
 import { hasExplicitContext } from '../saved-view/restore';
 import type { InitialSavedView } from '../saved-view/useSavedViews';
-import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, type SpaceDef, type MainUsageVia, type UsageEvent } from '@ap/contracts';
+import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, type SpaceDef, type UsageEvent } from '@ap/contracts';
 import type { DroppedSelection, HostPlatform, LinkOptions, LinkResolution, ObjectLinkOptions, ReturnContextKey, ReturnOrigin, ScopeState, SelectionLinkResolution } from './types';
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type CommitOptions, type PageWriteOptions, type ScreenAddress, type ScreenSource, type ScreenState } from './contexts';
 
@@ -113,7 +112,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const { registry, location, adapter, session, user, can, canOpen, toast, accessibleSpaces, defaultRangeTo, equipmentAxes, isCurrentGeneration } = app.pub;
   const { enters, usageSessionId, userIdRef, usageNav } = app.internal;
   const { matchRoute, menuById, safeReturnTo } = registry;
-  const { url: visibleUrl, hidden, readAddress, navigation: pageNavigation, commit, go, mode, paneId } = source;
+  const { url: visibleUrl, hidden, readAddress, navigation: pageNavigation, commit, go, mode, paneId, origin, mintCarry } = source;
   const url = useMemo(() => fullAddress({ url: visibleUrl, hidden }), [visibleUrl, hidden]);
   const paneLabel = source.paneLabel ?? null;
   const { t, lang } = useI18n();
@@ -141,13 +140,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const route = useMemo(() => {
     if (outsideDeployment || platformScreen !== null) return null;
     const matched = matchRoute(pathname);
-    if (!matched?.viaAlias) return matched;
-    // The redirect destination must open the same menu with the same decoded params (a dot segment or an empty value would not): otherwise the alias is not a route.
-    const destination = pathFor(matched.menu, matched.params);
-    if (hasDotSegment(destination)) return null;
-    const back = matchRoute(destination);
-    return back && !back.viaAlias && back.menu.id === matched.menu.id && sameParams(back.params, matched.params) ? matched : null;
-  }, [matchRoute, pathname, outsideDeployment, platformScreen]);
+    return matched && roundTrips(registry, matched) ? matched : null;
+  }, [matchRoute, pathname, outsideDeployment, platformScreen, registry]);
   const parseScreenQuery = useCallback((search: string): { parsed: ParsedQuery | null; contractError: ContractError | null } => {
     // The board owns its own query (`?sheet=`), not the Context codec: the main Context there is empty.
     if (platformScreen !== null) return { parsed: null, contractError: null };
@@ -196,7 +190,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const menu = matchRoute(address.split('?')[0] || '/')?.menu.id;
     return menu === undefined ? null : { user: userId, deployment: app.pub.location.absoluteUrl('/'), menu };
   }, [matchRoute, userId, app.pub.location]);
-  const navigate = useCallback((next: string, options?: { replace?: boolean; focus?: PageFocus; via?: MainUsageVia; guard?: boolean; run?: () => boolean }) => {
+  const navigate = useCallback<HostPlatform['navigate']>((next, options) => {
     const trail = usageNav.current;
     const before = trail.via;
     if (mode === 'main') trail.via = options?.via ?? null;
@@ -322,6 +316,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
         href = path + buildQuery(g, finalPairs);
       }
     }
+    const proof = plan?.selections.length
+      ? mintCarry?.(href, Object.fromEntries(plan.selections.map(({ pairs }) => [pairs[0][0], pairs.map(([, value]) => value)])), g.scopeId)
+      : undefined;
     const allowed = canOpen(menuId);
     const requiredPagePairs = plan ? finalPairs : pagePairs;
     const missingRequired = allowed ? queryMissingRequired(target, g, requiredPagePairs) : [];
@@ -330,10 +327,11 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       href,
       allowed,
       ...(plan && { droppedSelections: plan.droppedSelections }),
+      ...(proof && { proof }),
       ...(missingRequired.length > 0 && { missingRequired }),
       droppedPageKeys: requested.map(([k]) => k).filter(k => !target.pageKeys.includes(k)),
     };
-  }, [global, visibleUrl, menuById, canOpen, page, route, registry, location]);
+  }, [global, visibleUrl, menuById, canOpen, page, route, registry, location, mintCarry]);
   const { resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks } = useMemo(() => {
     function resolveLink(menuId: string, options: LinkOptions = {}): LinkResolution {
       const link = resolveWith(menuId, options, 'page');
@@ -594,7 +592,10 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
         });
         const originSpace = registry.spaceOf(matched.menu);
         const destinationSpace = route ? registry.spaceOf(route.menu) : null;
-        return { href: safe, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search, lang), revertedContext, accepted: true,
+        const recorded = origin?.returnTo === original && origin.sourceMenuId === matched.menu.id
+          && origin.scopeId === scopeView.scopeId && (scopeView.status === 'valid' || scopeView.status === 'none')
+          && routeContractError === null && roundTrips(registry, matched);
+        return { href: safe, recorded, menuLabel: matched.menu.label, trail: consecutiveDrillTrail(matched.menu, search, lang), revertedContext, accepted: true,
           spaceLabel: originSpace?.label ?? null, sameSpace: originSpace?.id === destinationSpace?.id };
       }
     }
@@ -608,7 +609,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (home) return { href: linkTo(home.id), menuLabel: home.label, trail: [], revertedContext: [], accepted: false, spaceLabel: null };
     // Emergency exception-prevention fallback only; '/' is not guaranteed to be a valid or accessible home.
     return { href: '/', menuLabel: { ko: '홈', en: 'Home' }, trail: [], revertedContext: [], accepted: false, spaceLabel: null };
-  }, [pageParam, safeReturnTo, matchRoute, route, linkTo, menuById, sidebarSpace, canOpen, global, registry, lang]);
+  }, [pageParam, safeReturnTo, matchRoute, route, linkTo, menuById, sidebarSpace, canOpen, global, registry, lang, origin, scopeView, routeContractError]);
   const returnTarget = useCallback(() => resolveReturnOrigin().href, [resolveReturnOrigin]);
   const returnOrigin = useCallback((): ReturnOrigin => resolveReturnOrigin(), [resolveReturnOrigin]);
 
@@ -641,7 +642,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const analysisSelectionAvailability = source.availability ?? localAvailability;
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy,
     detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin,
-    currentSpace, scope: scopeView, scopeGeneration, retryScope, screenMode: mode, paneId, paneLabel, analysisSelectionAvailability,
-  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel, analysisSelectionAvailability]);
+    currentSpace, scope: scopeView, scopeGeneration, retryScope, screenMode: mode, paneId, paneLabel, analysisSelectionAvailability, returnCarry: origin?.carried,
+  }), [queryDraft, queryHistory, queryPolicy, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel, analysisSelectionAvailability, origin]);
   return { screen, sidebarSpace, resolveEntryLink, initialSavedView };
 }

@@ -1,8 +1,9 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useUnsavedGuard, useLeaveRequest } from '../hooks';
 import { I18nProvider } from '../../i18n';
-import { PlatformProvider, useHostPlatform, type LinkOptions, type ReturnOrigin } from '../platform';
+import { PaneScreenProvider, PlatformProvider, useHostPlatform, type LinkOptions, type ReturnOrigin } from '../platform';
 import { createRegistry } from '../../registry/registry';
 import { stripReturnToFromUrl } from '../../links/return-to';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '../../testing';
@@ -228,5 +229,203 @@ describe('a carry set across spaces and a global menu survives Back, Forward and
     mountSpan(`/left/l1?v=1&k=x&returnTo=${encodeURIComponent('https://evil.test/origin')}`);
     await waitFor(() => expect(spanHost!.route?.menu.id).toBe('l1'));
     expect(spanHost!.returnOrigin().accepted).toBe(false);
+  });
+});
+
+describe('recorded return origin (#2866)', () => {
+  const sourceUrl = registry.canonicalHref(ORIGIN);
+  let notify: () => void;
+  let session: ReturnType<typeof testSession>;
+  let leave: ReturnType<typeof useLeaveRequest>;
+  let pane: ReturnOrigin;
+  const recordingRegistry = createRegistry({
+    spaces: registry.spaces, groups: registry.groups, carrySets: registry.carrySets,
+    menus: [...registry.menus.map(menu => menu.id === 'origin' ? { ...menu, aliases: ['/old-origin'] } : menu),
+      entry('origin-detail', 'plain', '/origin/:id', ['level'], { contextResetKeys: ['level'], drill: { levels: [{ key: 'level', label: { ko: '단계', en: 'Level' } }] } })],
+    retiredMenus: [{ id: 'old-detail', successor: 'origin-detail', paths: ['/old-detail/:legacyId'], page: { level: 'preset' } }],
+  });
+  function mount(url: string | null = sourceUrl, onDiscard?: () => void, showPane = false) {
+    if (url !== null) window.history.replaceState(null, '', url);
+    session = testSession(['platform:view']);
+    const adapter = testAdapter({
+      session: () => session,
+      subscribe: listener => { notify = listener; return () => {}; },
+    });
+    function Guard() {
+      useUnsavedGuard(onDiscard !== undefined, { onDiscard });
+      leave = useLeaveRequest();
+      return null;
+    }
+    function PaneProbe() {
+      pane = useHostPlatform().returnOrigin();
+      return null;
+    }
+    const tree = (activeAdapter = adapter, activeRegistry = recordingRegistry) => <I18nProvider><PlatformProvider adapter={activeAdapter} registry={activeRegistry}>
+      <Probe /><Guard />
+      {showPane && <PaneScreenProvider paneId="return-test" screen={{ menuId: 'carry-a', params: {}, query: detail.slice(detail.indexOf('?')) }}
+        onLeave={() => {}} onChange={() => {}}><PaneProbe /></PaneScreenProvider>}
+    </PlatformProvider></I18nProvider>;
+    const { rerender } = render(tree());
+    return {
+      swapRegistry: () => rerender(tree(adapter, { ...recordingRegistry })),
+      swapAdapter: () => rerender(tree(testAdapter({ session: () => session }))),
+    };
+  }
+  const recorded = () => host!.returnOrigin().recorded ?? false;
+  const go = (href: string, options?: { replace?: boolean }) => act(() => { host!.navigate(href, options); });
+  const atOrigin = (path: string, source = sourceUrl) => path + '&returnTo=' + encodeURIComponent(source);
+  const detail = atOrigin('/carry/carry-a?v=1');
+  async function traverse(delta: number, href: string) {
+    act(() => window.history.go(delta));
+    await waitFor(() => expect(host!.url).toBe(href));
+  }
+
+  it.each([
+    ['the canonical departure', sourceUrl, detail, true],
+    ['a different departure', '/plain/origin?v=1', detail, false],
+    ['an alias departure', '/old-origin?v=1', atOrigin('/carry/carry-a?v=1', '/old-origin?v=1'), true],
+  ])('checks the actual source address for %s', (_label, source, target, expected) => {
+    mount(source.startsWith('/old-origin') ? sourceUrl : source);
+    act(() => {
+      // Leave the alias before its canonicalizing effect, while it is the last accepted entry.
+      if (source.startsWith('/old-origin')) host!.navigate(source);
+      host!.navigate(target);
+    });
+    expect(recorded()).toBe(expected);
+  });
+
+  it('records a real departure from a scoped address to a destination without a Scope (a feature menu)', () => {
+    const scoped = sourceUrl + (sourceUrl.includes('?') ? '&' : '?') + 'scopeId=S1';
+    mount(scoped);
+    go(atOrigin('/carry/carry-a?v=1', host!.url));
+    expect(host!.returnOrigin()).toMatchObject({ accepted: true, recorded: true });
+  });
+
+  it('round-trips a parameterized alias and reads the original query before its preset', () => {
+    mount();
+    const alias = '/old-detail/E%202?v=1';
+    expect(recordingRegistry.canonicalHref(alias)).toContain('level=preset');
+    act(() => {
+      host!.navigate(alias);
+      host!.navigate(atOrigin('/carry/carry-a?v=1', alias));
+    });
+    expect(host!.returnOrigin()).toMatchObject({ accepted: true, recorded: true, href: alias, trail: [] });
+  });
+
+  it('stays neutral on initial entry and provider remount', () => {
+    mount(detail);
+    expect(recorded()).toBe(false);
+    cleanup();
+    mount();
+    go(detail);
+    expect(recorded()).toBe(true);
+    cleanup();
+    mount(null);
+    expect(recorded()).toBe(false);
+  });
+
+  it('keeps local edits and carry-set hops, then drops an unrelated destination', () => {
+    mount();
+    go(detail);
+    act(() => host!.setPage({ m: 'edit' }));
+    expect(recorded()).toBe(true);
+    go(host!.linkTo('carry-b'));
+    expect(recorded()).toBe(true);
+    go(atOrigin('/plain/p-detail?v=1'));
+    expect(recorded()).toBe(false);
+  });
+
+  it('updates the replaced position, restores Back and Forward, and prunes a discarded branch', async () => {
+    mount();
+    go(detail);
+    const edited = atOrigin('/carry/carry-a?v=1&m=edit');
+    go(edited, { replace: true });
+    await traverse(-1, sourceUrl);
+    await traverse(1, edited);
+    expect(recorded()).toBe(true);
+    go('/carry/carry-a?v=1', { replace: true });
+    go(edited, { replace: true });
+    expect(recorded()).toBe(false);
+    await traverse(-1, sourceUrl);
+    go(detail);
+    await traverse(-1, sourceUrl);
+    go('/plain/p-detail?v=1');
+    go(detail, { replace: true });
+    expect(recorded()).toBe(false);
+  });
+
+  it.each(['unchanged', 'url', 'stamp'])('checks the live departure after discard (%s)', changed => {
+    const transient = '/plain/origin?v=1';
+    const target = changed === 'url' ? atOrigin('/carry/carry-a?v=1', transient) : detail;
+    mount(sourceUrl, () => {
+      if (changed === 'url') window.history.replaceState(window.history.state, '', transient);
+      if (changed === 'stamp') window.history.replaceState({ apIdx: 4, apSeg: 'external' }, '', sourceUrl);
+    });
+    go(target);
+    act(() => leave!.cancel());
+    expect(host!.url).toBe(sourceUrl);
+    expect(recorded()).toBe(false);
+    go(target);
+    act(() => leave!.confirm());
+    expect(recorded()).toBe(changed === 'unchanged');
+  });
+
+  it.each(['scope', 'revision', 'session'])('clears records when %s changes', kind => {
+    mount();
+    go(detail);
+    expect(recorded()).toBe(true);
+    if (kind === 'scope') {
+      act(() => host!.setGlobal({ scopeId: 'MEM' }, { replace: true }));
+      go(detail, { replace: true });
+    } else {
+      if (kind === 'session') session = testSession(['platform:view'], { user: { id: 'u2' } });
+      act(() => notify());
+    }
+    expect(recorded()).toBe(false);
+  });
+
+  it.each(['registry', 'adapter'])('retires existing history records after swapping the %s', async changed => {
+    const { swapRegistry, swapAdapter } = mount();
+    go(detail);
+    expect(recorded()).toBe(true);
+    await traverse(-1, sourceUrl);
+    if (changed === 'registry') swapRegistry();
+    else swapAdapter();
+    await traverse(1, detail);
+    expect(host!.returnOrigin().accepted).toBe(true);
+    expect(recorded()).toBe(false);
+  });
+
+  it.each([null, { apIdx: 0, apSeg: 'foreign-segment' }])('retires older records after traversing a foreign entry (%j)', state => {
+    mount();
+    go(detail);
+    expect(recorded()).toBe(true);
+    const ownStamp: unknown = window.history.state;
+    const pop = (entryState: unknown, href: string) => act(() => {
+      window.history.replaceState(entryState, '', href);
+      window.dispatchEvent(new PopStateEvent('popstate', { state: entryState }));
+    });
+    pop(state, sourceUrl);
+    expect(host!.url).toBe(sourceUrl);
+    pop(ownStamp, detail);
+    expect(host!.returnOrigin().accepted).toBe(true);
+    expect(recorded()).toBe(false);
+  });
+
+  it('publishes a scoped record only after Scope validation', async () => {
+    const scoped = sourceUrl + '&scopeId=MEM';
+    mount(scoped);
+    go(atOrigin('/carry/carry-a?v=1&scopeId=MEM', scoped));
+    expect(host!.returnOrigin().accepted).toBe(true);
+    expect(recorded()).toBe(false);
+    await waitFor(() => expect(recorded()).toBe(true));
+  });
+
+  it('keeps a pane neutral even when the main entry proves the same return address', () => {
+    mount(sourceUrl, undefined, true);
+    go(detail);
+    expect(recorded()).toBe(true);
+    expect(pane.accepted).toBe(true);
+    expect(pane.recorded ?? false).toBe(false);
   });
 });
