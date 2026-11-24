@@ -956,7 +956,7 @@ focus recovery, with its scope (grouping, Managed System, `public_update`, `q` a
 personal filters) memoized on primitive inputs separately from loaded-card availability
 across all columns. A rejected keyboard move follows that Task's
 rendered card through rollback and the following refetch, in any status column, only if focus
-is on the body or inside the board and no newer drag has started. Recovery retires when every post-rejection board column refetch settles, after the
+is on the body or inside the board and no newer drag has started. Recovery retires when the post-rejection refetches settle, after the
 focus attempt or outside-focus guard declines. Newer drags, scope changes, unmount, and another
 route status mutation of the same Task clear keyboard focus ownership and pending recovery;
 an older move's failure cannot clear a newer drag's request.
@@ -967,9 +967,12 @@ count delta, so a later move of another Task is never overwritten. Settlement in
 immediately but defers active list refetches until no status move remains pending or the oldest
 deferred settlement has waited 1,500 ms, whichever comes first. One timer per board is cleared
 on flush and unmount; unmount and scope, grouping or filter changes flush immediately.
-Deadline reads rebase outstanding per-invocation deltas on fresh pages so later rollback
-still undoes only that move. Per-Task tokens guard rollback and detail invalidation;
-the last settlement also flushes any queued list refresh. Rejected keyboard recovery stays
+Board reconciliation re-reads the touched columns or open set, all three summary totals,
+and the active detail for each moved Task. A move settling after a context change includes the
+affected keys in the current board. A stale-write conflict or a move settling after unmount
+re-reads all active Task lists. Reconciliation restarts affected in-flight reads. Deadline
+reads rebase outstanding per-invocation deltas on fresh pages so later rollback
+still undoes only that move. Per-Task tokens guard rollback. Rejected keyboard recovery stays
 alive while reconciliation is queued and until that flush's reads settle.
 A detail fallback changes column membership and totals only when it matches the current board
 population. Excluded fallbacks still send the status write and refresh detail/lists. Unloaded

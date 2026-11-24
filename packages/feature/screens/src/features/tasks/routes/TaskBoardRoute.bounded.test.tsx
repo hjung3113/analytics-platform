@@ -189,6 +189,7 @@ function startServer(initial: TaskDto[]) {
   const detailReads: string[] = [];
   const holds = {
     lists: false,
+    doingSummary: undefined as Promise<void> | undefined,
     patch: new Map<string, { gate: Promise<void>; fail: boolean }>(),
     release: new Map<string, (fail: boolean) => void>(),
   };
@@ -203,6 +204,7 @@ function startServer(initial: TaskDto[]) {
         const query = parseBoardQuery(Object.fromEntries(url.searchParams));
         lists.push(query);
         const body = listBoardTasks(tasks, Object.fromEntries(url.searchParams));
+        if (holds.doingSummary && query.limit === 1 && query.status === 'doing') await holds.doingSummary;
         if (holds.lists) await new Promise(() => {});
         return json(body);
       }
@@ -426,6 +428,53 @@ describe('bounded Task board (#1178)', () => {
     expect(screen.queryByText((done[0] as TaskDto).display_id)).not.toBeInTheDocument();
   });
 
+  it.each(['priority grouping', 'Managed System'])('reconciles a held move after switching %s', async (context) => {
+    const moved = makeTask('doing');
+    server = startServer([moved, makeTask('doing')]);
+    const { rerenderBoard } = mount();
+    const card = { name: new RegExp(`${moved.display_id}:`) };
+    await screen.findByRole('button', card);
+    server.hold(moved.id);
+    await drag(moved, 'done');
+    await waitFor(() => expect(server.patches).toHaveLength(1));
+    const grouped = context === 'priority grouping';
+    if (grouped) {
+      fireEvent.click(screen.getByRole('button', { name: '그룹화' }));
+      fireEvent.click(await screen.findByRole('radio', { name: '우선순위' }));
+    } else {
+      rerenderBoard({ managedSystem: MS });
+    }
+    const before = await screen.findByLabelText(grouped ? '높음 열' : '진행 중 열');
+    await within(before).findByRole('button', card);
+    expect(stat('진행 중')).toHaveTextContent('2');
+    await act(async () => server.holds.release.get(moved.id)?.(false));
+    await waitFor(() => {
+      const current = grouped ? screen.getByLabelText('높음 열') : column('doing');
+      expect(within(current).queryByRole('button', card)).not.toBeInTheDocument();
+      expect(stat('진행 중')).toHaveTextContent('1');
+    });
+    if (!grouped) expect(await within(column('done')).findByRole('button', card)).toBeInTheDocument();
+  });
+
+  it('restarts a held first Doing summary after a move settles', async () => {
+    let releaseFirst!: () => void;
+    server.holds.doingSummary = new Promise((resolve) => (releaseFirst = resolve));
+    mount();
+    const moved = backlog[0] as TaskDto;
+    await screen.findByRole('button', { name: new RegExp(`${moved.display_id}:`) });
+    const doingReads = () => server.lists.filter((query) => query.limit === 1 && query.status === 'doing');
+    expect(doingReads()).toHaveLength(1);
+    server.holds.doingSummary = undefined;
+    try {
+      await drag(moved, 'doing');
+      await waitFor(() => expect(doingReads()).toHaveLength(2));
+      await waitFor(() => expect(stat('진행 중')).toHaveTextContent('2'));
+    } finally {
+      await act(async () => releaseFirst());
+    }
+    expect(stat('진행 중')).toHaveTextContent('2');
+  });
+
   it('follows the cursor so a grouped open set past one page is not truncated', async () => {
     server = startServer(many('backlog', 130));
     mount();
@@ -469,6 +518,42 @@ describe('bounded Task board (#1178)', () => {
     });
     await waitFor(() => expect(headerCount('todo')).toHaveTextContent('2'));
     expect(headerCount('backlog')).toHaveTextContent('60');
+  });
+
+  it('restores a rejected move while the Backlog page read is being restarted', async () => {
+    mount();
+    const moved = backlog[0] as TaskDto;
+    const card = { name: new RegExp(`${moved.display_id}:`) };
+    await within(await screen.findByLabelText('대기 열')).findByRole('button', card);
+    await waitFor(() => expect(headerCount('todo')).toHaveTextContent('2'));
+    server.hold(moved.id);
+    await drag(moved, 'todo');
+    await within(column('todo')).findByRole('button', card);
+    expect(headerCount('backlog')).toHaveTextContent('59');
+    expect(headerCount('todo')).toHaveTextContent('3');
+
+    server.holds.lists = true;
+    const beforeLoadMore = server.lists.length;
+    fireEvent.click(within(column('backlog')).getByRole('button', { name: '더 불러오기' }));
+    await waitFor(() =>
+      expect(server.lists.slice(beforeLoadMore)).toContainEqual(
+        expect.objectContaining({ status: 'backlog', cursor: '50' }),
+      ),
+    );
+
+    const beforeRejection = server.lists.length;
+    await act(async () => server.holds.release.get(moved.id)?.(true));
+    await waitFor(() =>
+      expect(server.lists.slice(beforeRejection).find(
+        (query) => query.status === 'backlog' && query.cursor === undefined,
+      )).toBeDefined(),
+    );
+    await waitFor(() => {
+      expect(headerCount('backlog')).toHaveTextContent('60');
+      expect(headerCount('todo')).toHaveTextContent('2');
+      expect(within(column('backlog')).getByRole('button', card)).toBeInTheDocument();
+      expect(within(column('todo')).queryByRole('button', card)).not.toBeInTheDocument();
+    });
   });
 
   it('keeps a later move when an earlier move between the same columns is rejected', async () => {
@@ -617,12 +702,16 @@ describe('bounded Task board (#1178)', () => {
       server.holds.release.get(a.id)?.(false);
     });
     await waitFor(() => expect(client.isMutating()).toBe(1));
-    const before = server.lists.length;
+    // #2809: the flush marks every Task list stale but re-reads only the touched columns and summaries (none are mounted after
+    // unmount), so the immediate flush shows as its invalidation call, not as a request from an unrelated list.
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
     try {
       unmount();
-      await waitFor(() => expect(server.lists.length).toBeGreaterThan(before));
+      // Synchronous: the unmount itself flushes, not a later settlement or the deadline timer.
+      expect(invalidate).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ['tasks'] }));
       expect(client.isMutating()).toBe(1);
     } finally {
+      invalidate.mockRestore();
       unsubscribe();
     }
   });

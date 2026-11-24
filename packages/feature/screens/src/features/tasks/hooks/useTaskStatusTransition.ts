@@ -14,13 +14,12 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import * as React from 'react';
-import { TASK_BOARD_STATUS_COLUMNS } from './useTaskBoardData';
+import { type TaskBoardScope, TASK_BOARD_STATUS_COLUMNS, TASK_BOARD_SUMMARY_KINDS, taskBoardSummaryKey } from './useTaskBoardData';
 
 type ColumnPages = InfiniteData<ListTasksResponse, string | undefined>;
 type Position = { page: number; index: number };
 
-/** Where the board's caches live right now; read at each invocation, never retained. */
-export type TaskBoardCaches =
+type BoardLists =
   | {
       mode: 'status';
       includesFallback: (task: TaskDto) => boolean;
@@ -28,12 +27,17 @@ export type TaskBoardCaches =
       /** Loads a column's first page when no cache exists so the moved card can render there. */
       ensureColumn: (status: TaskStatus) => Promise<unknown>;
     }
-  | { mode: 'open'; openKey: QueryKey }
+  | { mode: 'open'; openKey: QueryKey };
+
+/** Where the board's caches live right now; read at each invocation. */
+export type TaskBoardCaches =
+  | (BoardLists & { summaryScope?: TaskBoardScope })
   | { mode: 'detail'; detailKey: QueryKey };
 
 // One invocation's own delta. Rollback undoes exactly this, never a whole-column snapshot.
 type Delta = {
   taskId: string;
+  scopeKey: string;
   token: number;
   previous: TaskDto;
   target: TaskStatus;
@@ -46,9 +50,21 @@ type Delta = {
   openKey: QueryKey | null;
   openPrevious: { item: TaskDto; index: number } | null;
   detailKey: QueryKey | null;
+  readKeys: QueryKey[];
 };
 
 const CLOSED: readonly TaskStatus[] = ['done', 'released'];
+const REFETCH_DEADLINE_MS = 1_500;
+
+function summaryKeys(scope?: TaskBoardScope) {
+  return scope ? Object.values(TASK_BOARD_SUMMARY_KINDS).map((kind) => taskBoardSummaryKey(kind, scope)) : [];
+}
+
+type Reconciliation = { keys: Map<string, QueryKey>; broad: boolean };
+
+function isStaleWrite(error: unknown) {
+  return error instanceof ApiError && error.code === 'conflict.stale_write';
+}
 
 function stripDetail(task: TaskDto): TaskDto {
   const { source: _source, ...rest } = task as TaskDto & { source?: unknown };
@@ -120,37 +136,73 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
   const { notifyError } = useHostSeam();
   const mutationTokens = React.useRef(new Map<string, number>());
   const pendingDeltas = React.useRef(new Set<Delta>());
-  const deferredRefetch = React.useRef(false);
+  const queued = React.useRef<Reconciliation | null>(null);
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = React.useRef(false);
+  const currentBoard = React.useRef({ caches, scopeKey });
   const reads = React.useRef(0);
   const [isReconciling, setIsReconciling] = React.useState(false);
 
   const flush = React.useCallback(() => {
+    const batch = queued.current;
+    if (!batch) return;
     if (timer.current !== null) clearTimeout(timer.current);
     timer.current = null;
-    deferredRefetch.current = false;
+    queued.current = null;
+    for (const delta of pendingDeltas.current) {
+      for (const key of delta.readKeys) batch.keys.set(hashKey(key), key);
+    }
     reads.current += 1;
     if (mounted.current) setIsReconciling(true);
-    void client.invalidateQueries({ queryKey: ['tasks'] }).finally(() => {
+    if (batch.broad) {
+      for (const query of client.getQueryCache().findAll({ queryKey: ['tasks'], type: 'active' })) {
+        batch.keys.set(query.queryHash, query.queryKey);
+      }
+    }
+    const activeKeys = Array.from(batch.keys.values(), (queryKey) => ({
+      queryKey, exact: true, type: 'active' as const,
+    }));
+    // Refetch alone can reuse an in-flight first read with no cached data.
+    const cancellations = Promise.all(activeKeys.map((key) =>
+      client.cancelQueries({
+        ...key,
+        fetchStatus: 'fetching',
+        predicate: (query) => query.state.data === undefined,
+      }),
+    ));
+    // Cancellation reverts query state, so mark it stale after cancelling.
+    void client.invalidateQueries({ queryKey: ['tasks'], refetchType: 'none' });
+    const touched = activeKeys.map(async (active) => {
+      await cancellations;
+      const { queryKey } = active;
+      if (queryKey[0] === 'task') {
+        void client.invalidateQueries({ queryKey, exact: true, refetchType: 'none' });
+      }
+      await client.refetchQueries(active);
+    });
+    void Promise.all(touched).finally(() => {
       reads.current -= 1;
-      if (mounted.current && reads.current === 0 && !deferredRefetch.current) {
+      if (mounted.current && reads.current === 0 && !queued.current) {
         setIsReconciling(false);
       }
     });
   }, [client]);
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
+    currentBoard.current = { caches, scopeKey };
+  }, [caches, scopeKey]);
+
+  React.useLayoutEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      if (deferredRefetch.current) flush();
+      flush();
     };
   }, [flush]);
 
   const previousScope = React.useRef(scopeKey);
   React.useEffect(() => {
-    if (previousScope.current !== scopeKey && deferredRefetch.current) flush();
+    if (previousScope.current !== scopeKey) flush();
     previousScope.current = scopeKey;
   }, [scopeKey, flush]);
 
@@ -213,17 +265,27 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
     [client],
   );
 
-  function invalidateLists() {
+  function queueReconciliation(delta: Delta | undefined, { broad }: { broad: boolean }) {
+    const batch = (queued.current ??= { keys: new Map(), broad: false });
+    batch.broad ||= broad || !mounted.current;
+    for (const key of delta?.readKeys ?? []) batch.keys.set(hashKey(key), key);
+    const active = currentBoard.current;
+    if (delta && delta.scopeKey !== active.scopeKey && active.caches.mode !== 'detail') {
+      const board = active.caches;
+      const lists = board.mode === 'open'
+        ? [board.openKey]
+        : [board.columnKey(delta.previous.status), board.columnKey(delta.target)];
+      for (const key of [...lists, ...summaryKeys(board.summaryScope)]) batch.keys.set(hashKey(key), key);
+    }
     // onSettled still counts this invocation. Never extend the oldest settlement's deadline.
     const overlapping = client.isMutating({ mutationKey: ['task-status-transition'] }) > 1;
     if (!overlapping || !mounted.current) {
       flush();
       return;
     }
-    deferredRefetch.current = true;
     setIsReconciling(true);
     void client.invalidateQueries({ queryKey: ['tasks'], refetchType: 'none' });
-    if (timer.current === null) timer.current = setTimeout(flush, 1_500);
+    if (timer.current === null) timer.current = setTimeout(flush, REFETCH_DEADLINE_MS);
   }
 
   function rollback(delta: Delta) {
@@ -273,6 +335,7 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
       mutationTokens.current.set(task.id, token);
       const delta: Delta = {
         taskId: task.id,
+        scopeKey,
         token,
         previous: stripDetail(task),
         target: status,
@@ -285,10 +348,15 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
         openKey: null,
         openPrevious: null,
         detailKey: null,
+        readKeys: [['task', task.id]],
       };
-      await client.cancelQueries({ queryKey: ['tasks'] });
-      await client.cancelQueries({ queryKey: ['task', task.id], exact: true });
+      if (caches.mode !== 'detail') delta.readKeys.push(...summaryKeys(caches.summaryScope));
       if (caches.mode === 'open') {
+        delta.readKeys.push(caches.openKey);
+        const beforeCancel = client.getQueryData<ListTasksResponse>(caches.openKey);
+        if (beforeCancel?.items.some((item) => item.id === task.id)) {
+          await client.cancelQueries({ queryKey: caches.openKey, exact: true });
+        }
         const open = client.getQueryData<ListTasksResponse>(caches.openKey);
         const index = open?.items.findIndex((item) => item.id === task.id) ?? -1;
         const item = open?.items[index];
@@ -308,6 +376,9 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
         return delta;
       }
       if (caches.mode === 'detail') {
+        if (client.getQueryData(caches.detailKey)) {
+          await client.cancelQueries({ queryKey: caches.detailKey, exact: true });
+        }
         const detail = client.getQueryData<TaskDetailDto>(caches.detailKey);
         if (detail) {
           delta.detailKey = caches.detailKey;
@@ -321,13 +392,17 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
         return delta;
       }
       const sourceStatus = locate(client, caches, task);
-      if (sourceStatus === status) return delta;
       const sourceKey = caches.columnKey(sourceStatus);
+      const targetKey = caches.columnKey(status);
+      delta.readKeys.push(sourceKey, targetKey);
+      if (sourceStatus === status) return delta;
       const sourceBeforeLoad = client.getQueryData<ColumnPages>(sourceKey);
       if (!findPosition(sourceBeforeLoad, task.id) && !caches.includesFallback(task)) return delta;
       // A destination without data cannot render the moved card: load it before writing.
-      const targetKey = caches.columnKey(status);
       if (!client.getQueryData(targetKey)) await caches.ensureColumn(status);
+      await Promise.all([sourceKey, targetKey]
+        .filter((key) => client.getQueryData(key) !== undefined)
+        .map((queryKey) => client.cancelQueries({ queryKey, exact: true })));
       const source = client.getQueryData<ColumnPages>(sourceKey);
       const position = findPosition(source, task.id);
       const current = position ? source?.pages[position.page]?.items[position.index] : undefined;
@@ -355,9 +430,7 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
       if (context) pendingDeltas.current.delete(context);
       const latest = context && mutationTokens.current.get(context.taskId) === context.token;
       if (context && latest) rollback(context);
-      if (error instanceof ApiError && error.code === 'conflict.stale_write' && latest) {
-        invalidateLists();
-      }
+      if (isStaleWrite(error)) queueReconciliation(context, { broad: true });
       if (caches.mode !== 'detail' || !mounted.current)
         notifyError(mapUnknownError(error).message);
     },
@@ -366,19 +439,10 @@ export function useTaskStatusTransition(caches: TaskBoardCaches, scopeKey = '') 
       if (context?.detailKey) client.setQueryData(context.detailKey, data);
       void invalidateRecovery(client);
     },
-    onSettled: (_data, _error, _variables, context) => {
-      // A superseded last invocation may flush a refetch queued by a valid earlier settlement.
-      const latest = !context || mutationTokens.current.get(context.taskId) === context.token;
-      if (
-        !latest &&
-        deferredRefetch.current &&
-        client.isMutating({ mutationKey: ['task-status-transition'] }) === 1
-      ) {
-        invalidateLists();
-      }
-      if (latest) {
-        invalidateLists();
-        if (context) void client.invalidateQueries({ queryKey: ['task', context.taskId] });
+    onSettled: (_data, error, _variables, context) => {
+      const staleWrite = isStaleWrite(error);
+      if (!staleWrite || queued.current) {
+        queueReconciliation(context, { broad: caches.mode === 'detail' || staleWrite });
       }
     },
   });
