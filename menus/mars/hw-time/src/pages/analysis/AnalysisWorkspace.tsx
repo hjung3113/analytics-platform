@@ -254,6 +254,13 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
       setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null, row: null, trend: null, focus: null });
     }} />}</MatrixSources>;
 }
+/** Keep the hover subscription inside the chart assigned to the selection source. */
+function SelectionSourceBars(props: Omit<BarsProps, 'highlightedValues'>) {
+  const { highlighted, selection } = useAnalysisSelectionOutput(panelDeclarations.moduleMotions.id, MOTION_EQUIPMENT_KEY);
+  const highlightedValues = highlighted && selection?.shape === 'set' ? selection.values : noHighlightedEquipment;
+  return <Bars {...props} highlightedValues={highlightedValues} />;
+}
+
 function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'selectionOutput' | 'highlightedValues'> & {
   step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void; filtered: boolean;
 }) {
@@ -278,10 +285,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     : undefined;
   const sourceEquipment = source && (source.motions.length ? source.cells.map(cell => cell.equipmentId) : []);
   const sourcePanelId = panelDeclarations.moduleMotions.id;
-  const selectionOutput = useAnalysisSelectionOutput(sourcePanelId, MOTION_EQUIPMENT_KEY, { available: sourceEquipment });
+  const selectionOutput = useAnalysisSelectionOutput(sourcePanelId, MOTION_EQUIPMENT_KEY, { available: sourceEquipment, subscribeHighlight: false });
   const currentHostsSelection = step === 4 && !extraIds.includes(sourcePanelId);
-  const highlightedEquipment = selectionOutput.highlighted && selectionOutput.selection?.shape === 'set'
-    ? selectionOutput.selection.values : noHighlightedEquipment;
   const onOpenTrend = (target: string, row: string) => {
     setPage({ trend: target, row });
     setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
@@ -319,7 +324,9 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     ...(step > 1 ? [{ id: 'previous', icon: History, title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={(step - 1) as Step} previous /> }] : []),
     { id: 'current', title: barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640,
       analysisSelectionSourceId: currentHostsSelection ? sourcePanelId : undefined,
-      render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={step} highlightedValues={currentHostsSelection ? highlightedEquipment : undefined} /> },
+      render: () => currentHostsSelection
+        ? <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} />
+        : <Bars {...props} onOpenTrend={onOpenTrend} depth={step} /> },
     ...extraIds.map(id => {
       const item = catalog.find(item => item.id === id)!;
       const renderPanel = (panel: CatalogId) => {
@@ -348,7 +355,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           case 'moduleMotions': {
             const input = projectQueryInputs(panelDeclarations.moduleMotions, panelContext);
             const display = projectDisplayInputs(panelDeclarations.moduleMotions, panelContext);
-            return <Bars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions selectionOutput={selectionOutput} highlightedValues={highlightedEquipment} />;
+            return <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions selectionOutput={selectionOutput} />;
           }
           case 'table': return waitingForAvailability ? <LoadingBlock /> : <RawTablePanel params={{}} linked analysis={analysis} />;
           case 'donut': {

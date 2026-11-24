@@ -162,10 +162,16 @@
 [data-dock-panel][data-analysis-source-highlighted] > [data-dock-panel-content]::after {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: 4px;
   z-index: 1;
   border: 2px solid var(--color-accent-primary);
   pointer-events: none;
+}
+
+/* Paint focus on top of the content too, at the original panel boundary. */
+[data-dock-panel]:focus-visible[data-analysis-source-highlighted] > [data-dock-panel-content]::after {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 [data-dock-tab][data-analysis-source-highlighted] {

@@ -11,6 +11,7 @@ import { HW_TIME_MODULE_TYPES, type HwTimeMatrix, type HwTimeMotionStats, type H
 import { manifests } from '../../index';
 
 const RealWorkspace = createContext(false);
+export const chartRenders = vi.fn<(chartId: string) => void>();
 
 // Canvas is unavailable in jsdom. Keep queries, filter, URL, table and status UI real; expose the public chart callbacks and declarations.
 vi.mock('@ap/components', async importOriginal => {
@@ -36,7 +37,9 @@ vi.mock('@ap/components', async importOriginal => {
         if (p.spec.kind === 'heatmap') p.spec.cellActivation?.onActivate(cell.x, cell.y);
       }}>{`activate ${cell.y} ${cell.x}`}</button>)}
     </section>,
-    AnalysisChartFrame: (p: import('@ap/components').AnalysisChartFrameProps) => <section aria-label={p.chartId}>
+    AnalysisChartFrame: (p: import('@ap/components').AnalysisChartFrameProps) => {
+      chartRenders(p.chartId);
+      return <section aria-label={p.chartId}>
       {p.title}{p.toolbarStart != null && <div data-chart-toolbar-start>{p.toolbarStart}</div>}{p.extraActions}
       <pre data-testid={p.chartId}>{JSON.stringify({ series: p.series, activeCategory: p.activeCategory, revealActive: p.revealActive, rowPitch: p.rowPitch, startAlign: p.startAlign, minMax: p.minMax, legend: p.legend, activation: p.pointActivation?.on,
         highlightedValues: p.highlightedValues,
@@ -52,7 +55,8 @@ vi.mock('@ap/components', async importOriginal => {
       </span>)}
       {p.series[0]?.points[0] && (typeof p.pointActions === 'function' ? p.pointActions({ x: p.series[0].points[0][0], value: p.series[0].points[0][1], seriesId: p.series[0].id }) : []).map(action => <button key={action.id} disabled={action.disabled}
         onClick={() => action.onSelect({ x: p.series[0]!.points[0]![0], value: p.series[0]!.points[0]![1], seriesId: p.series[0]!.id })}>{`point action ${p.chartId} ${action.id}`}</button>)}
-    </section>,
+    </section>;
+    },
   };
 });
 

@@ -37,3 +37,11 @@ it('paints only the dock root canvas while panels retain their card surface, bor
   expect(css).toContain('--dv-group-view-background-color: var(--color-surface-card);');
   expect(css).toMatch(/\.ap-dock \.dv-groupview\s*\{[^}]*border: 1px solid rgb\(var\(--border-card\)\);[^}]*box-shadow: var\(--shadow-sm\);/);
 });
+
+it('keeps the content source ring inset from the keyboard focus ring', () => {
+  const css = source('../dock.css');
+  const sourceRing = css.match(/\[data-dock-panel\]\[data-analysis-source-highlighted\] > \[data-dock-panel-content\]::after\s*\{([^}]+)\}/)?.[1];
+  expect(sourceRing).toContain('inset: 4px;');
+  expect(sourceRing).toContain('pointer-events: none;');
+  expect(css).toMatch(/\[data-dock-panel\]:focus-visible\[data-analysis-source-highlighted\] > \[data-dock-panel-content\]::after\s*\{[^}]*outline: 2px solid var\(--color-focus-ring\);[^}]*outline-offset: 2px;/);
+});

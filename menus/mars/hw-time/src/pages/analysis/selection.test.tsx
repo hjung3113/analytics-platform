@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as kernel from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
 import type { MenuQuery } from '@ap/contracts';
-import { answer, fixtureMatrix, renderOverview, requests, settle } from './test-support';
+import { answer, chartRenders, fixtureMatrix, renderOverview, requests, settle } from './test-support';
 
 const workspace = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions&pins=table';
 const url = () => new URLSearchParams(window.location.search);
@@ -131,7 +131,7 @@ it('reports equipment present in the moduleMotions source data', async () => {
   const output = vi.spyOn(kernel, 'useAnalysisSelectionOutput');
   try {
     await renderOverview(workspace, withoutSelectedEquipmentInModule);
-    expect(output).toHaveBeenCalledWith('moduleMotions', 'motionEquipment', { available: ['EQ-001'] });
+    expect(output).toHaveBeenCalledWith('moduleMotions', 'motionEquipment', { available: ['EQ-001'], subscribeHighlight: false });
   } finally {
     output.mockRestore();
   }
@@ -238,4 +238,25 @@ it('restores a filtered step 3 table after visiting an unpinned step 4 source', 
     .toEqual([{ moduleType: 'PM', motionEquipment: ['EQ-002'] }]);
   expect(restored.filter(request => request.endpoint === 'hwTime.tableRows').map(request => request.params))
     .toEqual([{ moduleType: 'PM', motionEquipment: ['EQ-002'], page: 0, pageSize: 25, sorting: [] }]);
+});
+
+it.each([
+  ['', 'hw-current'],
+  ['&pins=moduleMotions', 'hw-module-motions'],
+])('updates only the mapped source chart on a chip hover round trip (%s)', async (pins, sourceId) => {
+  chartRenders.mockClear();
+  await renderOverview(`&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=EQ-001${pins}`, answer, { showSelectionChips: true });
+  const previousRenders = () => chartRenders.mock.calls.filter(([id]) => id === 'hw-previous').length;
+  expect(previousRenders()).toBeGreaterThan(0);
+  const originalCount = previousRenders();
+  const originalUrl = window.location.href;
+  const chip = within(screen.getByRole('group', { name: '분석 선택' })).getByRole('img');
+  const marks = () => JSON.parse(screen.getByTestId(sourceId).textContent!).highlightedValues ?? [];
+
+  fireEvent.pointerEnter(chip);
+  expect(marks()).toEqual(['EQ-001']);
+  fireEvent.pointerLeave(chip);
+  expect(marks()).toEqual([]);
+  expect(window.location.href).toBe(originalUrl);
+  expect(previousRenders()).toBe(originalCount);
 });

@@ -33,11 +33,14 @@ it('outlines matching values across series and clears the emphasis without selec
   const props = { series: [A, B], xType: 'category', orientation: 'horizontal' } satisfies Partial<AnalysisChartFrameProps>;
   const view = render(tree({ ...props, highlightedValues: ['a', 'missing'] }));
   await screen.findByRole('img');
-  expect(dataOf('a')[0]).toMatchObject({ value: 1, itemStyle: { borderType: 'dashed' } });
-  expect(dataOf('b')[0]).toMatchObject({ value: 1, itemStyle: { borderType: 'dashed' } });
-  expect(dataOf('a')[0]).not.toHaveProperty('label');
+  const outlines = () => (plot.option as { series: { type: string; data: number[][] }[] }).series
+    .filter(s => s.type === 'custom').map(s => s.data.map(([category]) => category));
+  expect(outlines()).toEqual([[0], [0]]);
+  expect(dataOf('a')[0]).toBe(1);
+  expect(dataOf('b')[0]).toBe(1);
   expect(dataOf('a')[1]).toBe(2);
   view.rerender(tree({ ...props, highlightedValues: [] }));
+  expect(outlines()).toEqual([]);
   expect(dataOf('a')[0]).toBe(1);
 });
 

@@ -84,6 +84,8 @@ function hasFilterCycle(channels: ReturnType<typeof menuAnalysisSelections>, key
 export function useAnalysisSelectionOutput(panelId: string, key: string, options?: {
   /** Values present in the source's current data. Omit while availability is unknown. */
   available?: AnalysisSelectionAvailability | undefined;
+  /** Set false in callers that only write selections or report availability. */
+  subscribeHighlight?: boolean;
 }): {
   selection: AnalysisSelection | null;
   select: (next: AnalysisSelection | null) => boolean;
@@ -112,7 +114,8 @@ export function useAnalysisSelectionOutput(panelId: string, key: string, options
   const urlKey = selectionUrlKey(key);
   const rendered = pageParams(urlKey);
   const selection = channel ? parseAnalysisSelection(channel.shape, rendered) : null;
-  const highlighted = useSelectionHighlight(screen, address, hoveredKey => isSource && hoveredKey === key && selection !== null);
+  const highlightScreen = isSource && options?.subscribeHighlight !== false ? screen : null;
+  const highlighted = useSelectionHighlight(highlightScreen, address, hoveredKey => hoveredKey === key && selection !== null);
   if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
   return { selection, availabilityCurrent, highlighted, select(next) {
     const current = screen?.pageParamsNow(urlKey);
