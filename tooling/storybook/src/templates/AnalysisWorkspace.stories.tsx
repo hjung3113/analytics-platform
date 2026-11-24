@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Bell, Gauge, Timer } from 'lucide-react';
-import { AnalysisChartFrame, AnalysisLayout, PlatformDataTable, PlatformPage, StatCard, type ChartSeries } from '@ap/components';
-import { COLUMNS, EQUIPMENT, PROCESSES, type Eq } from '../equipment';
+import { AnalysisChartFrame, AnalysisLayout, DataTrustIndicator, PlatformDataTable, PlatformPage, StatCard, type ChartSeries } from '@ap/components';
+import { COLUMNS, EQUIPMENT, PROCESSES, TRUST, type Eq } from '../equipment';
+import { Frame, templatePage } from './assembly';
 
 // Synthetic series (no real data): three processes over 14 days.
 const days = Array.from({ length: 14 }, (_, i) => `2026-11-${String(i + 1).padStart(2, '0')}T00:00:00`);
@@ -10,18 +11,25 @@ const UTIL: ChartSeries[] = PROCESSES.map((name, i) => ({ id: name, name, color:
 const avg = (p: string) => Math.round(EQUIPMENT.filter(e => e.process === p).reduce((s, e) => s + e.cycle, 0) / EQUIPMENT.filter(e => e.process === p).length);
 const CYCLE: ChartSeries[] = [{ id: 'cycle', name: '평균 사이클타임', color: 'chart-series-1', unit: '초', kind: 'bar', points: PROCESSES.map(p => [p, avg(p)]) }];
 
-/** Analysis Workspace(06 §12.2): 조건 → KPI → 차트 → 분해 표를 한 화면에 둔다. */
+/** Analysis Workspace(layout.md §12.2): 조건 → KPI → 차트 → 분해 표를 한 화면에 둔다. `AnalysisLayout`이 KPI·차트·분해 표 자리를 잡는다. */
 const meta = {
   title: '템플릿/Analysis Workspace',
-  component: PlatformPage,
-  tags: ['!autodocs'],
-  parameters: { layout: 'fullscreen' },
-} satisfies Meta<typeof PlatformPage>;
+  component: AnalysisLayout,
+  parameters: { layout: 'fullscreen', docs: { page: templatePage('12.2 Analysis Workspace', 'Analysis Workspace', {
+    'Page Header': 'PlatformPage — title · description',
+    'Global Context': '셸의 Context 바(§8 셸 슬롯). Storybook에는 셸이 없어 그리지 않는다',
+    'KPI Summary': 'AnalysisLayout kpi ← StatCard 셋',
+    'Primary Chart': 'AnalysisLayout charts ← AnalysisChartFrame 둘(2열)',
+    'Selection / Annotation': 'AnalysisChartFrame 안의 선택·주석(«데이터 시각화/Chart Frame» 문서)',
+    'Breakdown Table': 'AnalysisLayout breakdown ← PlatformDataTable',
+    'Data Trust': 'PlatformPage dataTrustSummary ← DataTrustIndicator(응답 Trust)',
+  }) } },
+} satisfies Meta<typeof AnalysisLayout>;
 export default meta;
 
 /** 1440px 폭의 공정 가동 분석 화면. KPI 띠, 차트 두 개, 설비별 분해 표. */
 export const ProcessUtilization: StoryObj = {
-  render: () => <div className="min-h-screen w-[1440px] bg-surface-canvas"><PlatformPage title="공정 가동 분석" description="공정별 가동률과 사이클타임을 비교하고 설비 단위로 나눠 본다.">
+  render: () => <Frame><PlatformPage title="공정 가동 분석" description="공정별 가동률과 사이클타임을 비교하고 설비 단위로 나눠 본다." dataTrustSummary={<DataTrustIndicator trust={TRUST} assessments={[]} />}>
     <AnalysisLayout
       kpi={{ id: 'kpi', title: '가동 요약', node: <div className="grid grid-cols-3 gap-3">
         <StatCard icon={Gauge} chip="blue" label="평균 가동률" value="86.2" unit="%" delta={{ value: '+1.8%p', direction: 'up', good: true }} caption="11-01 – 11-14" />
@@ -34,5 +42,5 @@ export const ProcessUtilization: StoryObj = {
       ]}
       breakdown={{ id: 'breakdown', title: '설비별 분해', node: <PlatformDataTable<Eq> title="설비별 분해" ariaLabel="설비별 분해 표" columns={COLUMNS} rows={EQUIPMENT} getRowId={e => e.id} preferenceKey="storybook:breakdown:v1" /> }}
     />
-  </PlatformPage></div>,
+  </PlatformPage></Frame>,
 };

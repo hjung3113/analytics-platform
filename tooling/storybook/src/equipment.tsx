@@ -1,4 +1,5 @@
-import type { ChartSeries, DonutSlice, HeatmapCell, PlatformColumn, ScatterPoint, TimelineLane } from '@ap/components';
+import type { AuditEvent, Trust } from '@ap/contracts';
+import type { ChartSeries, DonutSlice, HeatmapCell, LegendTreeNode, OrderedTrackItem, OrderedTrackLane, PlatformColumn, ScatterPoint, TimelineLane } from '@ap/components';
 
 // Synthetic equipment data shared by the stories (no real data).
 export type Eq = { id: string; process: string; util: number; cycle: number; alarms: number };
@@ -38,3 +39,22 @@ const STATE_COLOR = { 가동: 'chart-series-1', 대기: 'chart-series-2', 정지
 const STATES = [[6, 9.5, '가동'], [9.5, 10, '대기'], [10, 13, '가동'], [13, 15, '정지'], [15, 18, '가동']] as const;
 export const LANES: TimelineLane[] = EQUIPMENT.slice(0, 5).map((e, r) => ({ id: e.id, label: e.id, segments: STATES.filter(([s]) => !(r === 1 && s === 13))
   .map(([s, end, state], i) => ({ id: `${e.id}-${i}`, start: at(s + r * 0.25), end: at(end + r * 0.25), rank: state, colorToken: STATE_COLOR[state] })) }));
+// Log-order track (ADR-0121): the position is the log line number, never re-sorted by time. EQ-0142 starts with a run carried over from
+// the previous file, EQ-0207's last run has no end yet (open), and lines 150–165 were not received.
+export const TRACK_LANES: OrderedTrackLane[] = EQUIPMENT.slice(0, 3).map(e => ({ laneKey: e.id, label: e.id }));
+export const TRACK_STATES = { run: { label: '가동', colorToken: 'chart-series-1' }, idle: { label: '대기', colorToken: 'chart-series-2' }, stop: { label: '정지', colorToken: 'chart-series-3' } } as const;
+const RUNS = [[0, 40, 'run'], [40, 52, 'idle'], [52, 110, 'run'], [110, 128, 'stop'], [128, 190, 'run']] as const;
+export const TRACK_ITEMS: OrderedTrackItem[] = [...TRACK_LANES.flatMap(({ laneKey }, r) => RUNS.map(([s, end, state], i): OrderedTrackItem => ({
+  id: `${laneKey}-${i}`, laneKey, orderStart: s + r * 6, state, label: `${TRACK_STATES[state].label} #${i + 1}`, carryover: r === 0 && i === 0, ...(r === 1 && i === 4 ? {} : { orderEnd: end + r * 6 }),
+}))), { id: 'EQ-0207-alarm', laneKey: 'EQ-0207', kind: 'point', orderStart: 121, state: 'stop', label: '진공 알람 A-102' }];
+// Process → equipment legend of the LegendTree page.
+export const LEGEND: LegendTreeNode[] = PROCESSES.map((p, i) => ({ id: p, label: p, color: SERIES[i]!, children: EQUIPMENT.filter(e => e.process === p).map(e => ({ id: e.id, label: e.id })) }));
+
+// Page data of the 템플릿: a response Trust and the change history of EQ-0207.
+export const TRUST: Trust = { updatedAt: '2026-11-14T06:10:00+09:00', dataThrough: '2026-11-14T06:00:00', coverage: 0.97, provisional: false, source: '설비 로그(합성)' };
+const eq0207 = { type: 'equipment', id: 'EQ-0207', label: 'EQ-0207', scopeId: 'fab1' };
+export const AUDIT: AuditEvent[] = [
+  { id: 'a3', at: '2026-11-13T15:20:00+09:00', actor: 'u2', actorLabel: '김민수', action: 'update', source: 'user', target: eq0207, changes: { 상태: ['가동', '점검 필요'] }, reason: '진공 알람 반복' },
+  { id: 'a2', at: '2026-11-08T09:05:00+09:00', actor: 'u1', actorLabel: '홍길동', action: 'update', source: 'user', target: eq0207, changes: { '기준 사이클타임(초)': ['165', '160'] } },
+  { id: 'a1', at: '2026-10-02T10:00:00+09:00', actor: 'sync', action: 'sync', source: 'system', target: eq0207 },
+];
