@@ -1,5 +1,6 @@
 import type { AuditEvent, Trust } from '@ap/contracts';
 import type { ChartSeries, DonutSlice, HeatmapCell, LegendTreeNode, OrderedTrackItem, OrderedTrackLane, PlatformColumn, ScatterPoint, TimelineLane } from '@ap/components';
+import type { TipTapDoc } from '@ap/ui';
 
 // Synthetic equipment data shared by the stories (no real data).
 export type Eq = { id: string; process: string; util: number; cycle: number; alarms: number };
@@ -58,3 +59,13 @@ export const AUDIT: AuditEvent[] = [
   { id: 'a2', at: '2026-11-08T09:05:00+09:00', actor: 'u1', actorLabel: '홍길동', action: 'update', source: 'user', target: eq0207, changes: { '기준 사이클타임(초)': ['165', '160'] } },
   { id: 'a1', at: '2026-10-02T10:00:00+09:00', actor: 'sync', action: 'sync', source: 'system', target: eq0207 },
 ];
+
+// A synthetic internal comment (Tiptap JSON): bold, a list and a mention that stores only `actor_id` (a UUID, or the allowlist drops it).
+const HONG = '00000000-0000-4000-8000-000000000001';
+const text = (t: string, bold = false) => ({ type: 'text', text: t, ...(bold ? { marks: [{ type: 'bold' }] } : {}) });
+export const RICH_DOC: TipTapDoc = { type: 'doc', content: [
+  { type: 'paragraph', content: [text('EQ-0207 '), text('진공 알람 반복', true), text(' — 확인한 내용:')] },
+  { type: 'bulletList', content: ['11-12 02:10 챔버 B 압력 상승', '펌프 교체 뒤에도 재발'].map(t => ({ type: 'listItem', content: [{ type: 'paragraph', content: [text(t)] }] })) },
+  { type: 'paragraph', content: [{ type: 'mention', attrs: { actor_id: HONG } }, text(' 밸브 점검 부탁드립니다.')] },
+] };
+export const PEOPLE: Record<string, string> = { [HONG]: '홍길동' };
