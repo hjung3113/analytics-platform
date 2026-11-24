@@ -71,7 +71,7 @@ describe('ManagedSystemScopePicker', () => {
     expect(screen.getByTestId('scope-name')).toHaveTextContent('전체');
   });
 
-  it('renders the visible label only when given, and nothing when collapsed', () => {
+  it('renders the visible label only when given', () => {
     const { rerender } = render(
       <ManagedSystemScopePicker
         managedSystems={SYSTEMS}
@@ -91,16 +91,6 @@ describe('ManagedSystemScopePicker', () => {
       />,
     );
     expect(screen.getByTestId('scope-label')).toHaveTextContent('시스템');
-    rerender(
-      <ManagedSystemScopePicker
-        managedSystems={SYSTEMS}
-        onChange={vi.fn()}
-        isAdmin
-        workspaceWideScope
-        collapsed
-      />,
-    );
-    expect(screen.queryByTestId('scope-selector')).toBeNull();
   });
 
   it('reports the id or undefined and keeps no value of its own', () => {

@@ -32,19 +32,16 @@ describe('scopeControlSlot', () => {
 
   it('in the mock preview draws the 시스템 label and a disabled 전체 button titled 실서버 필요', () => {
     const Control = scopeControlSlot.For(spaceId('flow'), DASHBOARD)!;
-    mountAt('/flow/dashboard', { extra: <Control collapsed={false} /> });
+    mountAt('/flow/dashboard', { extra: <Control /> });
     expect(screen.getByTestId('scope-label').textContent).toBe('시스템');
     const button = screen.getByRole('button', { name: /전체/ }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(button.title).toBe('실서버 필요');
   });
 
-  it('draws nothing when collapsed, and nothing off a menu without the managedSystem page key', () => {
+  it('draws nothing off a menu without the managedSystem page key', () => {
     const Control = scopeControlSlot.For(spaceId('flow'), DASHBOARD)!;
-    mountAt('/flow/dashboard', { extra: <Control collapsed /> });
-    expect(screen.queryByTestId('scope-label')).toBeNull();
-    cleanup();
-    mountAt('/nowhere', { extra: <Control collapsed={false} /> });
+    mountAt('/nowhere', { extra: <Control /> });
     expect(screen.queryByTestId('scope-label')).toBeNull();
   });
 });

@@ -23,7 +23,7 @@ const registry = createRegistry({
   })),
 });
 
-const Own: ComponentType<{ collapsed: boolean }> = () => <p>own scope control</p>;
+const Own: ComponentType = () => <p>own scope control</p>;
 
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });

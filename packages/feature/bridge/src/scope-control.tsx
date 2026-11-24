@@ -23,17 +23,17 @@ function MockScope() {
  * The feature sidebar `목록 범위` (ADR-0081 decision 4). It shows only on a menu that registers the `managedSystem` page key (on a global
  * route the sidebar may still draw the remembered space; nothing is drawn there), and renders nothing while the session is pending or retired.
  */
-function Control({ collapsed }: { collapsed: boolean }) {
+function Control() {
   const { route } = usePlatform();
   const session = useFeatureSession();
   if (!route?.menu.pageKeys.includes(SCOPE_KEY)) return null;
-  if (featureApi() === null) return collapsed ? null : <MockScope />;
+  if (featureApi() === null) return <MockScope />;
   if (session.status !== 'ready') return null;
-  return <Suspense fallback={null}><ScopeControl collapsed={collapsed} /></Suspense>;
+  return <Suspense fallback={null}><ScopeControl /></Suspense>;
 }
 
 /** One component for the page's lifetime: a new one per `For` call would remount the sidebar picker on every render. */
-const CONTROL: ComponentType<{ collapsed: boolean }> = Control;
+const CONTROL: ComponentType = Control;
 
 /** The sidebar list-scope slot for the operator menus of the operations console (ADR-0081 decision 4, #759; #1099c: the menu's own declaration decides, so platform administration mounts nothing). Only `apps/platform-web/src/main.tsx` imports this. */
 export const scopeControlSlot: ScopeControlSlot = { For: (_id, menu) => usesListScope(menu) ? CONTROL : null };

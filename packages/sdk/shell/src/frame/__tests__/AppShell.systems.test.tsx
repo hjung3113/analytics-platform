@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Boxes, House, Wrench } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { I18nProvider, PlatformLink, PlatformProvider, createRegistry } from '@ap/kernel';
+import { I18nProvider, PlatformLink, PlatformProvider, createRegistry, type PlatformSlots } from '@ap/kernel';
 import { PlatformPage } from '@ap/components';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace, testScreen } from '@ap/kernel/testing';
 import { AppShell } from '../AppShell';
@@ -224,19 +224,20 @@ describe('switcher on a denied space URL (#1314, 06 §9.1)', () => {
 });
 
 describe('space scope control slot (ADR-0081 decision 4)', () => {
-  function mountWith(slots: { scopeControl?: { For: (id: never) => ((props: { collapsed: boolean }) => React.ReactNode) | null } }, url: string) {
+  function mountWith(slots: PlatformSlots, url: string) {
     window.history.replaceState(null, '', url);
     const session = testSession(['platform:view', 'console:access']);
-    return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots as never}>
+    return render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry} slots={slots}>
       <AppShell><PlatformPage><p>body</p></PlatformPage></AppShell>
     </PlatformProvider></I18nProvider>);
   }
-  const Own = ({ collapsed }: { collapsed: boolean }) => <div data-testid="own-scope" data-collapsed={String(collapsed)} />;
+  // The slot component takes no props since #2803 (the removed `collapsed` was always false).
+  const Own = (props: object) => <div data-testid="own-scope" data-props={Object.keys(props).join(',')} />;
 
   it('S1 renders the space control instead of ScopeSelector, and ScopeSelector elsewhere or without the slot', () => {
     const For = (id: string) => (id === 'bravo' ? Own : null);
     mountWith({ scopeControl: { For } }, '/metrics?v=1');
-    expect(screen.getByTestId('own-scope')).toHaveAttribute('data-collapsed', 'false');
+    expect(screen.getByTestId('own-scope')).toHaveAttribute('data-props', '');
     expect(screen.queryByRole('button', { name: /^Scope:/ })).toBeNull();
     cleanup();
     mountWith({ scopeControl: { For } }, '/cycle?v=1');

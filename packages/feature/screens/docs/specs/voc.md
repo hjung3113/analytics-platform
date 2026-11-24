@@ -508,7 +508,6 @@ Values: `@ap/ui/styles/tokens.css` and `packages/feature/screens/docs/tokens.md`
 | `--row-height-default` | `h-row-default` | 60px | VOC Inbox / My rows |
 | `--row-height-expanded` | `h-row-expanded` | 96px | Triage Console rows |
 | `--sidebar-width` | `w-sidebar` | 240px | Sidebar |
-| `--sidebar-width-collapsed` | `w-sidebar-collapsed` | 56px | Collapsed sidebar |
 | `--rail-width` | `w-rail` | 52px | Global rail (Slice 3 keeps the prototype's rail) |
 | `--detail-panel-width` | `w-detail-panel` | 440px | Right detail panel (`min 360, max 520` per ui-design-system.md — Tailwind utility `min-w-[360px] max-w-[520px]`) |
 | `--radius-sm` | `rounded-sm` | 2px | Tags |

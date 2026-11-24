@@ -22,7 +22,7 @@ describe('목록 범위 capability on the Findings menus', () => {
   it.each(['findings', 'evidence'])('passes finding.read to the picker on %s', async id => {
     const menu = manifests.find(entry => entry.id === id)!;
     const Control = scopeControlSlot.For(spaceId('flow'), menu)!;
-    mountAt(menu.path, { extra: <Control collapsed={false} /> });
+    mountAt(menu.path, { extra: <Control /> });
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
     expect(picker.props.at(-1)?.capability).toBe('finding.read');
   });

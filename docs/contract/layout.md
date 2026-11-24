@@ -34,7 +34,7 @@ Scope는 개념적으로 Global Context에 포함되지만 선택기는 **주 �
 ```text
 Rail                 52px   (--rail-width)
 Sidebar expanded    240px   (--sidebar-width)
-Sidebar collapsed      0px   (사이드바 없음, 레일만; #2727. 토큰 `--sidebar-width-collapsed` 56px와 `ScopeControlSlot`의 `collapsed` 인자는 sdk-v0.48.0부터 사용 중단, sdk-v0.49.0에서 제거 #2803)
+Sidebar collapsed      0px   (사이드바 없음, 레일만; #2727)
 Detail slot         440px   (--detail-panel-width; 미제공 시 440px, 360–520px clamp; 비어 있으면 0)
 Top header           없음
 Page header          50px   (--toolbar-height)
@@ -109,7 +109,7 @@ Kernel 세션이 바뀌거나 `vocCompose` 슬롯이 사라지면 고정 Context
 앱이 조립 때 주입하는 셸 슬롯은 `PlatformSlots`의 `contextBar`(PlatformPage가 페이지 머리 아래에 그린다), `topBarTools`(레일 아래 도구), `features`(공간별 기능 진입.
 `overall` 필드는 SDK 타입에 남아 있고 다른 앱이 쓸 수 있지만 이 앱은 늘 `null`이라 사용자 메뉴 `FeedbackOps 전체`는 없다, #764 p2. 진입 항목은 합 타입이다 — `{ key, label, href, icon }`은 기능을 새 탭으로 열고(`href: null`은 비활성), `{ key, label, menuId, page?, icon }`은 등록된 메뉴를 같은 탭에서 연다: 셸이 `resolveLink(menuId, { global: emptyGlobal, page, returnTo: true })`로 풀고 `allowed`일 때만 그린다(전역 Context는 싣지 않고 `page`와 `returnTo`만, #760).
 선택 `permission`은 블록 게이트로, 있으면 셸이 `can(permission)`일 때만 블록을 그린다(셸은 앱 권한 이름을 모른다, ADR-0081 결정 8).
-[ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)·[ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)), `scopeControl`(`{ For(spaceId, menu) }` — 사이드바 머리 아래에 그 공간 전용 선택기 컴포넌트(`{ collapsed }`를 받으며 그려질 때는 늘 false)를 돌려주고, `null`이면 그 공간은 제목 줄의 분석 Scope 칩을 쓴다(§7).
+[ADR-0027](../adr/0027-feedbackops-stays-standalone-entry-links.md)·[ADR-0028](../adr/0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md)), `scopeControl`(`{ For(spaceId, menu) }` — 사이드바 머리 아래에 그 공간 전용 선택기 컴포넌트(props 없음; 접힌 사이드바에는 그리지 않는다, #2803)를 돌려주고, `null`이면 그 공간은 제목 줄의 분석 Scope 칩을 쓴다(§7).
 예외: `SpaceDef.scopePresentation: 'hidden'`인 공간은 `null`일 때(슬롯이 없을 때도) `ScopeSelector` 대신 아무것도 그리지 않고, 컴포넌트를 돌려주면 그대로 그린다, #1251. 슬롯인 이유: 공간의 목록 범위가 분석 Scope가 아닌 경우(예: 기능의 Managed System)에도 화면의 Scope 선택기를 하나로 두고(§7: 제목 줄 칩 또는 공간의 `scopeControl`) 셸이 메뉴를 import하지 않으려는 것이다.
 넘기지 않으면 `scopePresentation`이 `default`(또는 없음)인 모든 공간이 `ScopeSelector`를 쓴다, [ADR-0081](../adr/0081-feedbackops-operator-screens-platform-frame.md) 결정 4, #759).
 `plannedSpaces`(전환기의 `준비 중` 행 `{ id, label, subtitle?, icon }[]`), `analysisActions`(`{ Actions, appliesTo?, pageTypes? }` — `pageTypes`(기본 `['analysis']`)가 슬롯이 붙을 화면 종류를 고르고, `Actions`는 메뉴가 `subjectPageKeys`로 선언한 설비·공정 키의 현재 값을 `subject`로 받는다(#1429).

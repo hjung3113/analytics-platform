@@ -25,7 +25,7 @@ describe('목록 범위 picker (ready session)', () => {
   const Control = scopeControlSlot.For(spaceId('flow'), manifests[0]!)!;
 
   it('gets a uuid managedSystem as its value', async () => {
-    mountAt(`/flow/dashboard?managedSystem=${SYSTEM}`, { extra: <Control collapsed={false} /> });
+    mountAt(`/flow/dashboard?managedSystem=${SYSTEM}`, { extra: <Control /> });
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
     expect(picker.props.at(-1)?.value).toBe(SYSTEM);
     // #2630: the dashboard declares no list capability, so the picker keeps its default.
@@ -33,7 +33,7 @@ describe('목록 범위 picker (ready session)', () => {
   });
 
   it.each(['not-a-uuid', ''])('does not pass the invalid managedSystem %j to the picker as a selection', async value => {
-    mountAt(`/flow/dashboard?managedSystem=${value}`, { extra: <Control collapsed={false} /> });
+    mountAt(`/flow/dashboard?managedSystem=${value}`, { extra: <Control /> });
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
     await waitFor(() => expect(picker.props.length).toBeGreaterThan(0));
     expect(picker.props.every(props => props.value === undefined)).toBe(true);
@@ -65,7 +65,7 @@ describe('scope change (screen parity, #762 k)', () => {
     ['/flow/probe-cursor', `managedSystem=${S1}&cursor=c1`, undefined, { managedSystem: null, cursor: null }],
   ])('%s?%s choosing %s', async (path, query, next, expected) => {
     window.history.replaceState(null, '', `${path}?${query}`);
-    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control collapsed={false} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control /></PlatformProvider></I18nProvider>);
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
     act(() => picker.props.at(-1)!.onChange(next));
     const params = new URLSearchParams(window.location.search);
@@ -74,7 +74,7 @@ describe('scope change (screen parity, #762 k)', () => {
 
   it('writes only managedSystem on a menu that declares neither area nor cursor', async () => {
     window.history.replaceState(null, '', `/flow/dashboard?managedSystem=${S1}`);
-    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control collapsed={false} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control /></PlatformProvider></I18nProvider>);
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
     act(() => picker.props.at(-1)!.onChange(S2));
     // The kernel adds its own `v` version key to every written query; it is not a page key.
@@ -97,7 +97,7 @@ describe('관리자 group turns 목록 범위 off (#764 k, ADR-0081 d4)', () => 
   const Control = scopeControlSlot.For(spaceId('flow'), manifests[0]!)!;
   const mount = async (path: string) => {
     window.history.replaceState(null, '', `${path}?managedSystem=${S1}`);
-    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control collapsed={false} /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Control /></PlatformProvider></I18nProvider>);
     await screen.findByTestId('picker', undefined, LAZY_MOUNT_WAIT);
   };
 
