@@ -1,3 +1,4 @@
+import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -237,4 +238,66 @@ describe('category keyboard walk (#2024, FIX1 C4)', () => {
     await screen.findByRole('img');
     expect(screen.queryByRole('combobox', { name: '구간 시작' })).toBeNull();
   });
+});
+
+const output = { panelId: 'trend', key: 'range' };
+const rangeRegistry = createRegistry({
+  spaces: registry.spaces, groups: registry.groups,
+  menus: registry.menus.map(menu => ({ ...menu, pageKeys: [output.key], contextResetKeys: [output.key], panels: [{
+    id: output.panelId, title: { ko: '추세', en: 'Trend' }, queryInputs: {}, displayInputs: {}, grain: 'day', endpoints: [],
+    outputs: [{ key: output.key, action: 'select', selection: { shape: 'range', dimension: 'date' } }],
+  }] })),
+});
+
+it('creates a URL range with the chart form, edits it through the chip, and clears it from the chart', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  const user = userEvent.setup();
+  const series: ChartSeries[] = [{ ...A, points: [['c', 3], ['b', 2], ['a', 1]] }];
+  const rowGroups = { header: 'Group', byCategory: new Map([['b', { group: 'B', label: 'Bravo' }]]) };
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry}>
+    <AnalysisSelectionChipZone />
+    <AnalysisChartFrame chartId="sel" title="Sel" series={series} unit="s" xType="category" orientation="horizontal" rowGroups={rowGroups} analysisSelectionOutput={output} />
+  </PlatformProvider></I18nProvider>);
+  await screen.findByRole('img');
+  const search = () => new URLSearchParams(window.location.search);
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+  expect(within(summary()).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
+  fireEvent.click(within(summary()).getByRole('button', { name: '선택' }));
+  expect(search().get('range')).toBe('c/a');
+  expect(within(summary()).queryByRole('combobox', { name: '구간 시작' })).toBeNull();
+  const chip = screen.getByRole('button', { name: 'date c – a' });
+  chip.focus();
+  await user.keyboard('{Enter}');
+  expect(screen.getByRole('dialog')).toBeTruthy();
+  await user.keyboard('{Escape}');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(chip);
+  await user.keyboard('{Enter}');
+  const picker = screen.getByRole('dialog');
+  fireEvent.click(within(picker).getAllByRole('combobox')[0]);
+  fireEvent.click(await screen.findByRole('option', { name: 'Group: B · Bravo' }));
+  fireEvent.click(within(picker).getByRole('button', { name: '적용' }));
+  expect(search().get('range')).toBe('b/a');
+  expect(summary().textContent).toContain('선택 구간: Group: B · Bravo –');
+  fireEvent.click(within(summary()).getByRole('button', { name: '지우기' }));
+  expect(search().has('range')).toBe(false);
+  expect(within(summary()).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
+});
+
+it('restores a shared wall-clock range and writes a quick range using the same bounds', () => {
+  const day = '2026-09-01';
+  const at = (hour: string) => `${day}T${hour}:00:00`;
+  const url = new URLSearchParams({ v: '1', scopeId: 'MEM', from: at('00'), to: at('02'), range: `${at('00')}/${at('01')}` });
+  window.history.replaceState(null, '', `/?${url}`);
+  const series: ChartSeries[] = [{ ...A, points: [[at('00'), 1], [at('01'), 2]] }];
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry}>
+    <AnalysisSelectionChipZone />
+    <AnalysisChartFrame chartId="sel" title="Sel" series={series} unit="s" analysisSelectionOutput={output} />
+  </PlatformProvider></I18nProvider>);
+  expect(summary().textContent).toContain(`선택 구간: ${day} 00:00 – ${day} 01:00`);
+  fireEvent.click(within(summary()).getByRole('button', { name: '1시간' }));
+  expect(new URLSearchParams(window.location.search).get('range')).toBe(`${at('01')}/${at('02')}`);
+  const chip = screen.getByRole('button', { name: `date ${at('01')} – ${at('02')}` });
+  fireEvent.click(chip);
+  expect(within(screen.getByRole('dialog')).getAllByRole('textbox')).toHaveLength(2);
 });

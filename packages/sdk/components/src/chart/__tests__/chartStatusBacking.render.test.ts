@@ -247,16 +247,30 @@ it('keeps dashed outlines inside both thin adjacent category stacked pieces', ()
   } finally { chart.dispose(); }
 });
 
-it('draws no dashed bar outline for highlightedValues on a time axis', () => {
+it.each([{ stacked: false, count: 6 }, { stacked: true, count: 2 }])('keeps time bar outlines inside the native layout ($stacked)', ({ stacked, count }) => {
   const time = '2026-11-16T00:00:00';
-  const displayed: ChartSeries[] = [{ id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [[time, 8]] }];
+  const displayed: ChartSeries[] = Array.from({ length: count }, (_, index) => ({
+    id: String(index), name: String(index), color: 'chart-blue', kind: 'bar',
+    points: stacked ? [[time, 8], ['2026-11-17T00:00:00', 10]] : [[time, 8]],
+  }));
   const selection = '#872bd0';
-  const input = baselineInput({ xType: 'time', horizontal: false, displayed, activeCategory: null, extremes: undefined,
-    highlightedValues: [time], palette: { ...resolveChartPalette(displayed), selection } });
+  const option = buildChartOption(baselineInput({ xType: 'time', horizontal: false, stacked, displayed, activeCategory: null, extremes: undefined,
+    highlightedValues: [time], palette: { ...resolveChartPalette(displayed), selection } })) as { series: CustomSeriesOption[] };
   const chart = echarts.init(null, CHART_ECHARTS_THEME, { renderer: 'svg', ssr: true, width: 400, height: 260 });
   try {
-    chart.setOption({ ...buildChartOption(input), animation: false });
+    chart.setOption({ ...option, animation: false });
+    const model = (chart as unknown as { getModel: () => NativeModel }).getModel();
     const paths = chart.renderToSVGString().match(/<path[^>]*>/g) ?? [];
-    expect(paths.filter(path => path.includes(`stroke="${selection}"`) && path.includes('stroke-dasharray='))).toHaveLength(0);
+    const dashed = paths.filter(path => path.includes(`stroke="${selection}"`) && path.includes('stroke-dasharray='));
+    expect(dashed).toHaveLength(count);
+    for (const [index, series] of displayed.entries()) {
+      const raw = model.getSeriesByIndex(option.series.findIndex(s => s.id === series.id)).getData().getItemLayout(0);
+      // zrender emits a starting point followed by relative horizontal and vertical edges.
+      const [, left, top, width, height] = dashed[index].match(/ d="M(-?[\d.]+) (-?[\d.]+)l([\d.]+) 0l0 ([\d.]+)/)?.map(Number) ?? [];
+      expect(left).toBeCloseTo(raw.x + 1, 0);
+      expect(left + width).toBeCloseTo(raw.x + raw.width - 1, 0);
+      expect(top).toBeCloseTo(Math.min(raw.y, raw.y + raw.height) + 1, 0);
+      expect(top + height).toBeCloseTo(Math.max(raw.y, raw.y + raw.height) - 1, 0);
+    }
   } finally { chart.dispose(); }
 });

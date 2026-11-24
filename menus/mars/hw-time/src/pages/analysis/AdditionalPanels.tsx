@@ -5,6 +5,7 @@ import { StatusBadge } from '@ap/ui';
 import { ChartScatter } from 'lucide-react';
 import { HW_TIME_MODULE_TYPES, HW_TIME_UNIT, hwTimeOverview, type HtmStatus, type HwTimeMotionStats } from '../../endpoints';
 import { HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
+import { TREND_RANGE_OUTPUT } from '../../panels';
 import { formatSeconds, missingText } from '../../shared/format';
 import { htmStatusText, htmStatusView } from '../../shared/htm';
 import type { HwTimeFilter } from '../../shared/useHwTimeFilter';
@@ -51,8 +52,10 @@ export function RunQueryPanel({ kind, target, filter, verdict, date }: { kind: '
     ...(kind === 'scatter' && verdict ? { verdict } : {}), ...(kind === 'scatter' && date ? { date } : {}) });
   const checks = filter.selectionFor(type.id);
   const hidden = !checks.modules.includes(moduleId!) || !checks.motions.includes(motionId!);
+  const analysisSelectionOutput = kind === 'trend' && !query.showingPrevious ? TREND_RANGE_OUTPUT : undefined;
   return <div hidden={hidden} className={hidden ? 'hidden' : 'flex h-full min-h-0 flex-col'}>
-    <QueryView fill query={query}>{data => <RunPanel key={`${target}/${query.completedAt}`} kind={kind} data={data} moduleId={moduleId!} motionId={motionId!} motions={checks.motions} date={kind === 'trend' ? date : undefined} />}</QueryView>
+    <QueryView fill query={query}>{data => <RunPanel key={`${target}/${query.completedAt}`} kind={kind} data={data} moduleId={moduleId!} motionId={motionId!} motions={checks.motions} date={kind === 'trend' ? date : undefined}
+      analysisSelectionOutput={analysisSelectionOutput} />}</QueryView>
   </div>;
 }
 

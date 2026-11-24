@@ -8,6 +8,7 @@ import { BrushIcon, Eye, GitCompare, MessageSquarePlus, RotateCcw, ZoomIn, ZoomO
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
+import { useOptionalAnalysisSelectionOutput } from '@ap/kernel/host';
 import { overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, InfoTip, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import { useThemeRevision, type ThemeColorToken } from '@ap/ui/theme';
@@ -70,6 +71,7 @@ const TICK_ROOM_STEP = 64;
 const TICK_ROOM_CAP = 1024;
 const fmt = (v: string) => formatWallClock(v, 'minute');
 const HOUR_MS = 3_600_000;
+const compareRangeTimes = (a: string, b: string) => (wallClockEpochMs(a) ?? NaN) - (wallClockEpochMs(b) ?? NaN);
 
 /** Current-period bar starts, plus the query end, plus a query start that precedes the first bar. No invented spacing. Without a query end there are no boundaries: snapping falls back to raw seconds (06 §16). */
 function timeBoundaries(series: ChartSeries[], periodFrom: string | null, periodTo: string | null): string[] {
@@ -181,6 +183,8 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
   canApplyRange?: boolean;
   /** Page-owned actions for the current brushed selection (e.g. filter a table). */
   selectionActions?: (selection: Selection) => ReactNode;
+  /** A declared panel range output. The menu URL holds the selection and its chip edits it. */
+  analysisSelectionOutput?: { panelId: string; key: string };
   /** Drill callback when pointActivation is absent, invoked on double-click or Enter. */
   onPointClick?: (x: string, seriesId: string) => void;
   /** @deprecated The SDK renders guidance from the available inputs. */
@@ -442,7 +446,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   // The chart instance's width in px: label budgets are cut from it, so a container resize must reach the option (#399 F3).
   const [chartWidth, setChartWidth] = useState(NOTE_FALLBACK_WIDTH);
   const { state: range, actions: rangeActions } = useChartRange();
-  const { selection, preview, zoom, clipNotice, rangeDraft } = range;
+  const { preview, zoom, clipNotice, rangeDraft } = range;
   const isZoomed = zoom[0] > 0 || zoom[1] < 100;
   /** One more zoom-out reaches the full range, which removes the zoom-out and pan buttons; focus then moves to 확대. */
   const zoomsBackToFull = zoom[1] - zoom[0] >= 50;
@@ -493,6 +497,39 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const statusEnabled = !!p.pointStatus && displayed.length > 0;
   const resolvedStatus = (point: ChartPoint) => statuses.get(chartPointKey(point));
   const labelOf = (x: string) => groupedRowText(rowGroups, x);
+  const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
+  const output = p.analysisSelectionOutput;
+  const outputEnabled = output !== undefined;
+  const available = useMemo(() => {
+    if (!outputEnabled) return undefined;
+    if (xType === 'category' && categories.length) return {
+      from: categories[0], to: categories[categories.length - 1],
+      candidates: categories.map(value => ({ value, label: groupedRowText(rowGroups, value) })),
+    };
+    if (xType !== 'time') return undefined;
+    const bounds = timeBounds.length ? timeBounds : p.series.flatMap(s => s.points.map(([x]) => x)).sort();
+    return bounds.length ? { from: bounds[0], to: bounds[bounds.length - 1], compare: compareRangeTimes } : undefined;
+  }, [outputEnabled, xType, categories, rowGroups, timeBounds, p.series]);
+  const selectionOutput = useOptionalAnalysisSelectionOutput(output, { available, subscribeHighlight: false });
+  const urlRange = selectionOutput.selection?.shape === 'range' ? selectionOutput.selection : null;
+  const urlFrom = urlRange?.from; const urlTo = urlRange?.to;
+  const urlStartIndex = urlFrom === undefined ? -1 : categories.indexOf(urlFrom);
+  const urlEndIndex = urlTo === undefined ? -1 : categories.indexOf(urlTo);
+  const validUrlRange = urlRange && (xType === 'category'
+    ? urlStartIndex >= 0 && urlEndIndex >= urlStartIndex
+    : compareRangeTimes(urlRange.from, urlRange.to) <= 0);
+  const drawnUrlRange = validUrlRange ? urlRange : null;
+  const selection = outputEnabled ? drawnUrlRange : range.selection;
+  const selectOutput = output ? selectionOutput.select : undefined;
+  const writeRange = useCallback((next: Selection | null) => {
+    selectOutput?.(next && { shape: 'range', from: next.from, to: next.to });
+  }, [selectOutput]);
+  useEffect(() => {
+    if (!outputEnabled) return;
+    rangeActions.setPreview(null);
+    rangeActions.setDraft(null);
+    closeEditor();
+  }, [outputEnabled, output?.panelId, output?.key, urlFrom, urlTo, rangeActions, closeEditor]);
   const statusParts = (x: string) => displayed.flatMap(s => { const status = statuses.get(chartPointKey({ seriesId: s.id, x })); return status ? [{ id: s.id, name: s.name, status, csvLabel: frameStatusCsvLabel(s, horizontal, status) }] : []; });
   // One visible series has nothing to align to: StartAlign then does nothing (normal value axis, Brush stays); hiding series is a normal user action, so no diagnostic.
   const startAlign = !percent && !negativeShares && horizontal && !!stacked && !!p.startAlign && displayed.length >= 2;
@@ -623,8 +660,8 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const onVisibleSeriesChange = p.onVisibleSeriesChange;
   const { cancelDelete } = editor;
   const resetLocal = useCallback(() => {
-    setHidden(new Set()); onVisibleSeriesChange?.(allSeries.map(s => s.id)); resetPoint(); setCompare(false); rangeActions.buttonReset(); closeEditor(); setSelectedPointKeys([]);
-  }, [closeEditor, onVisibleSeriesChange, allSeries, resetPoint, rangeActions]);
+    setHidden(new Set()); onVisibleSeriesChange?.(allSeries.map(s => s.id)); resetPoint(); setCompare(false); rangeActions.buttonReset(); writeRange(null); closeEditor(); setSelectedPointKeys([]);
+  }, [closeEditor, onVisibleSeriesChange, allSeries, resetPoint, rangeActions, writeRange]);
   // Global Context changes invalidate local selection (it described the previous result).
   const contextKey = host.contextKey;
   const appliedActive = useRef<{ identity: string; category: string } | null>(null);
@@ -642,14 +679,14 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     setSelectedPointKey(chartPointKey(target));
   }, [activeCategory, contextKey, pointIdentity, points, selectedPoint, setSelectedPointKey]);
 
-  const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
   const showKeyboard = !zoomOnly && xType === 'time' && global.to !== null && timeBounds.length >= 2;
   // A category axis has no query end to wait for: the start/end selects are the non-pointer path to a range (06 §16, #2024). StartAlign turns Brush off, and the selects with it.
   const showCategoryKeyboard = !zoomOnly && xType === 'category' && categories.length > 0 && !startAlign;
   const rangeKeyboard = showKeyboard || showCategoryKeyboard;
   // The data under a kept selection changed (#2064): a new granularity or a new category list re-fits the selection the same way a fresh pick is fitted,
   // so the header and the counts never describe different ranges. Time: snap outward onto the new bars, then clip; nothing left clears it. Category: an end that is no longer drawn clears it.
-  const { selection: currentSelection, preview: currentPreview } = range;
+  const currentSelection = outputEnabled ? null : range.selection;
+  const currentPreview = preview;
   const compareClipOn = compare && canCompare;
   const periodFrom = global.from; const periodTo = global.to;
   // A Context change invalidates the old ranges (the reset effect above ran in this commit): this effect must not fit them back, so the first run after a new key only records it.
@@ -804,10 +841,13 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         if (!snapped) { rangeActions.snapSelect(null); return; }
         const result = clipToPeriod(snapped, global.from, global.to, compare && canCompare);
         rangeActions.snapSelect(result);
+        writeRange(result.range);
         if (!result.range) closeEditor();
       } else {
         const a = categories[Math.max(0, Math.round(brushed[0]))]; const b = categories[Math.min(categories.length - 1, Math.round(brushed[1]))];
-        rangeActions.categorySelect(a && b ? { from: a, to: b } : null);
+        const next = a && b ? { from: a, to: b } : null;
+        rangeActions.categorySelect(next);
+        if (next) writeRange(next);
       }
     },
     datazoom: (_: unknown, instance: ECharts) => {
@@ -842,7 +882,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
         }
       }
     },
-  }), [xType, horizontal, onActiveCategoryChange, categories, brushMode, zoomOnly, compactChrome, canDrill, activatePoint, hasPointActions, actionsFor, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, setSelectedPointKey, choosePoint]);
+  }), [xType, horizontal, onActiveCategoryChange, categories, brushMode, zoomOnly, compactChrome, canDrill, activatePoint, hasPointActions, actionsFor, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, writeRange, setSelectedPointKey, choosePoint]);
 
   const selectionCounts = selection ? displayed.map(s => {
     const inRange = s.points.filter(([x, y]) => y !== null && (xType === 'time' ? x >= selection.from && x < selection.to : categories.indexOf(x) >= categories.indexOf(selection.from) && categories.indexOf(x) <= categories.indexOf(selection.to)));
@@ -913,7 +953,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const drawnActive = activeCategory != null && categories.includes(activeCategory) ? activeCategory : null;
   const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !isAnswered(editor.query.response.outcome);
   const { quiet: quietSummary, show: showSummary, rest: quietRest, showRangeForm, focusable: summaryFocusable } = summaryPresentation({
-    chrome, summary: p.summary, quickRanges: showKeyboard, fill: size === 'fill', brushMode, selection: !!selection, rangeKeyboard, draft: !!draft,
+    chrome, summary: p.summary, quickRanges: showKeyboard, fill: size === 'fill', brushMode, selection: !!selection, rangeKeyboard: rangeKeyboard && !urlRange, draft: !!draft,
     preview: !!preview, applyPeriod: !!applyPeriod, note: note !== null, clipNotice: !!clipNotice, annotationAlert,
     annotations: annotations.length, ownAnnotation: annotations.some(a => a.mine), activeRow: drawnActive !== null,
     selectedPoint: !!selectedPoint, pointDetail: !!(rowGroups || statusEnabled || bounds),
@@ -929,6 +969,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     if (!snapped) { rangeActions.snapSelect(null); return; }
     const result = clipToPeriod(snapped, global.from, global.to, compare && canCompare && xType === 'time');
     rangeActions.snapSelect(result);
+    writeRange(result.range);
     if (!result.range) closeEditor();
   }
   function toggleCompare() {
@@ -938,6 +979,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       const snapped = snapOutward(toMs(source.from), toMs(source.to), timeBounds);
       const result: ClipResult = snapped ? clipToPeriod(snapped, global.from, global.to, true) : { range: null, notice: 'outside' };
       rangeActions.compareClip(result);
+      if (selection) writeRange(result.range);
       if (selection && !result.range) closeEditor();
     }
     setCompare(next);
@@ -1160,7 +1202,11 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
             {(xType === 'category' ? categories.slice(categories.indexOf(draft.from)) : withBound(timeBounds.filter(bound => bound > draft.from), draft.to)).map(value => <SelectItem key={value} value={value}>{xType === 'category' ? labelOf(value) : fmt(value)}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button size="toolbar" onClick={() => (xType === 'category' ? rangeActions.categorySelect(draft) : commitRange(draft))}>{m('chartSelect')}</Button>
+        <Button size="toolbar" onClick={() => {
+          if (outputEnabled) brushToggle.current?.focus();
+          if (xType === 'time') commitRange(draft);
+          else { rangeActions.categorySelect(draft); writeRange(draft); }
+        }}>{m('chartSelect')}</Button>
       </div>}
       {drawnActive !== null && <p className={quietSummary ? 'sr-only' : 'mb-1 font-semibold'}>{m('chartActiveRow')}: {labelOf(drawnActive)}</p>}
       {(rowGroups || statusEnabled) && selectedPoint && <p className={quietSummary ? 'sr-only' : 'mb-1'}>{labelOf(selectedPoint.x)} · {allSeries.find(s => s.id === selectedPoint.seriesId)?.name}{resolvedStatus(selectedPoint) ? `: ${statusText(resolvedStatus(selectedPoint))}` : ''}</p>}
@@ -1182,7 +1228,11 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
           <Button type="button" ref={applyRangeButton} size="toolbar" disabled={!!applyReason} aria-describedby={applyReason ? applyReasonId : undefined} onClick={() => rangeActions.setPreview(selection)}>{m('chartApplyRange')}</Button>
           {applyReason && <span id={applyReasonId} className="text-text-secondary">{applyReason}</span>}
           {p.selectionActions?.(selection)}
-          <Button size="toolbar" variant="ghost" onClick={rangeActions.clear}>{t('clear')}</Button>
+          <Button size="toolbar" variant="ghost" onClick={() => {
+            if (outputEnabled) brushToggle.current?.focus();
+            rangeActions.clear();
+            writeRange(null);
+          }}>{t('clear')}</Button>
         </div>}
         {selection && <div className="flex w-full flex-wrap gap-x-4 gap-y-1">
           {selectionCounts.map(c => <span key={c.s.id} className="tabular text-text-secondary">{c.s.name}: n={c.n}{c.avg !== null && ` · avg ${fmtOf(c.s)(c.avg)} · max ${fmtOf(c.s)(c.max!)}`} {unitOf(c.s)}</span>)}
