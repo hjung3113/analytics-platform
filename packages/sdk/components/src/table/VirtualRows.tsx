@@ -6,7 +6,7 @@ export type VirtualRowsHandle = { scrollToIndex: (index: number) => void };
 /**
  * The table's virtual row area. The virtualizer re-renders its host on every scroll and row measure, so it lives here: scrolling
  * re-renders these rows only, never the toolbar, header or pager around them (#2813). `renderItem` is the table's own row render.
- * `onMounted` (grid tables only) hears the mounted item keys when the range changes, for the tab stops of rows rendered outside (the pinned row).
+ * `onMounted` (grid tables only) hears the mounted item keys when the range changes, so the table re-renders then and only then.
  */
 export function VirtualRows({ count, getKey, scrollElement, rowHeight, handle, onMounted, renderItems }: {
   count: number;
@@ -23,7 +23,7 @@ export function VirtualRows({ count, getKey, scrollElement, rowHeight, handle, o
   useImperativeHandle(handle, () => ({ scrollToIndex: index => virtual.scrollToIndex(index, { align: 'center' }) }), [virtual]);
   const items = virtual.getVirtualItems();
   const keys = items.map(item => getKey(item.index));
-  const range = keys.join('\u0000');
+  const range = JSON.stringify(keys);
   useLayoutEffect(() => { onMounted?.(keys); }, [range, onMounted]); // eslint-disable-line react-hooks/exhaustive-deps -- `range` is `keys` by value
   // eslint-disable-next-line shadcn/no-inline-styles -- total row height comes from the virtualizer at runtime
   return <div role="rowgroup" className="relative" style={{ height: virtual.getTotalSize() }}>{renderItems(items, virtual.measureElement, keys)}</div>;

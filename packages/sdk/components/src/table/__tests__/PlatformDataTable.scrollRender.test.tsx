@@ -1,11 +1,12 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { House } from 'lucide-react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { stubCompactTableGeometry } from '../../testing';
-import { PlatformDataTable, type PlatformColumn } from '../PlatformDataTable';
+import { PlatformDataTable, type PlatformColumn, type PlatformDataTableProps } from '../PlatformDataTable';
 
 // #2813: scrolling re-renders the virtual rows only. `collapsedControls` runs once per render of the table around them (toolbar,
 // header, pager), so its call count is that render count.
@@ -38,7 +39,7 @@ const mountTable = () => render(<I18nProvider><PlatformProvider adapter={adapter
 
 const bodyRows = () => [...document.querySelectorAll<HTMLElement>('[role="rowgroup"] > [role="row"][data-row-id]')];
 const scrollTo = async (top: number) => {
-  const port = screen.getByRole('table', { name: 'table' }).querySelector<HTMLElement>('[tabindex="0"].overflow-auto') ?? document.querySelector<HTMLElement>('.overflow-auto')!;
+  const port = document.querySelector<HTMLElement>('.scrollbar-panel.overflow-auto')!;
   await act(async () => { port.scrollTop = top; fireEvent.scroll(port); });
 };
 
@@ -60,5 +61,31 @@ describe('PlatformDataTable scroll (#2813)', () => {
     await screen.findByText('row 0');
     await scrollTo(40 * ROW_HEIGHT);
     expect(bodyRows().map(row => row.outerHTML).join('\n')).toMatchSnapshot();
+  });
+
+  it('focuses a keyboard target beyond the mounted rows once it mounts, in a grid without a pinned row (review)', async () => {
+    // jsdom has no scrolling: the virtualizer's scrollTo moves scrollTop and fires the scroll it would cause.
+    Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, value(this: HTMLElement, options?: ScrollToOptions) {
+      if (options?.top !== undefined) { this.scrollTop = options.top; this.dispatchEvent(new Event('scroll')); }
+    } });
+    type Cell = NonNullable<PlatformDataTableProps<Row>['selectedCell']>;
+    function Grid() {
+      const [cell, setCell] = useState<Cell>({ row: 'r0', column: 'value' });
+      return <I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+        <PlatformDataTable<Row> title="T" ariaLabel="table" columns={columns} getRowId={r => r.id} rows={ROWS} preferenceKey="scroll-grid" pageSize={300} height={420}
+          selectedCell={cell} onSelectCell={setCell} />
+      </PlatformProvider></I18nProvider>;
+    }
+    render(<Grid />);
+    await screen.findByText('row 0');
+    const first = document.querySelector<HTMLElement>('[data-row-id="r0"] [data-column="value"]')!;
+    first.focus();
+    await act(async () => { fireEvent.keyDown(first, { key: 'End', ctrlKey: true }); });
+    // jsdom clamps the virtualizer's own scroll to zero height, so the scroll that mounts the target comes from here.
+    await scrollTo(299 * ROW_HEIGHT);
+    const last = document.querySelector<HTMLElement>('[data-row-id="r299"] [data-column="value"]');
+    expect(last).not.toBeNull();
+    expect(document.activeElement).toBe(last);
+    delete (HTMLElement.prototype as Partial<HTMLElement>).scrollTo;
   });
 });

@@ -614,7 +614,9 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     : null, [groupColumn, rows, data.groups, collapsed]);
   const pinnedRow = groupedItems || p.pinnedRowId == null ? undefined : rows.find(row => row.id === p.pinnedRowId);
   const items = groupedItems ?? rows.filter(row => row !== pinnedRow).map(row => ({ kind: 'row' as const, key: row.id, row }));
-  // The virtualizer lives in `VirtualRows`, so scrolling re-renders the rows only (#2813). A grid table hears the mounted keys for its tab stops.
+  // The virtualizer lives in `VirtualRows`, so scrolling re-renders the rows only (#2813). A grid table hears the mounted keys when the range
+  // changes: the re-render runs `useTableCellNavigation`'s layout effect, which focuses a keyboard target once it mounts and recovers focus
+  // when scrolling removes the focused row; the pinned row's tab stop reads them too.
   const rowsHandle = useRef<VirtualRowsHandle>(null);
   const [mountedKeys, setMountedKeys] = useState<readonly string[]>([]);
   // Selected rows of this page that a collapsed group hides: the page selection still covers them, and the count says so.
@@ -1164,7 +1166,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
           </div>
           {!shown ? <div className="space-y-2 p-3" aria-hidden>{Array.from({ length: 8 }, (_, i) => <Skeleton key={i} className="h-5" />)}</div> :
             <VirtualRows count={items.length} getKey={index => items[index].key} scrollElement={viewport} rowHeight={rowHeight} handle={rowsHandle}
-              onMounted={grid && pinnedRow ? setMountedKeys : undefined} renderItems={(mountedItems, measure, mounted) => {
+              onMounted={grid ? setMountedKeys : undefined} renderItems={(mountedItems, measure, mounted) => {
               const tabStops = tabStopsFor(mounted);
               return mountedItems.map(item => {
               const entry = items[item.index];
