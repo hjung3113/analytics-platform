@@ -495,6 +495,41 @@ it('keeps the list controls on a general list failure and drops them once the re
   expect(screen.queryByRole('tablist')).toBeNull();
   expect(screen.queryByRole('button', { name: '새로고침' })).toBeNull();
 });
+it.each(['list control', 'outside control'])('handles focus on a %s when a recovery list read becomes denied', async (target) => {
+  let denied = false;
+  setup({
+    list: () => denied
+      ? response({ code: 'permission.denied' }, 403)
+      : response({
+          computed_at: time, items: [item], total: 1, visible_total: 1, hidden_total: 0,
+          page: { has_more: false },
+        }),
+  });
+  render(<button type="button">Outside queue</button>);
+  await mount(`/integration?returnTo=${encodeURIComponent('/integration/coverage')}`);
+  await screen.findByText(item.reason);
+  const filter = screen.getByRole('combobox', { name: '항목 종류' });
+  const outside = screen.getByRole('button', { name: 'Outside queue' });
+  const focused = target === 'list control' ? filter : outside;
+  focused.focus();
+  expect(focused).toHaveFocus();
+  denied = true;
+  fireEvent.click(screen.getByRole('button', { name: '새로고침' }));
+  await screen.findByText('이 목록을 볼 권한이 없습니다.');
+  expect(filter).not.toBeInTheDocument();
+  expect(target === 'list control' ? screen.getByRole('link', { name: '목록으로 돌아가기' }) : outside).toHaveFocus();
+});
+
+it('preserves existing focus on a first-entry recovery list denial', async () => {
+  setup({ list: () => response({ code: 'permission.denied' }, 403) });
+  render(<button type="button">Outside queue</button>);
+  const outside = screen.getByRole('button', { name: 'Outside queue' });
+  outside.focus();
+  await mount(`/integration?returnTo=${encodeURIComponent('/integration/coverage')}`);
+  await screen.findByText('이 목록을 볼 권한이 없습니다.');
+  expect(outside).toHaveFocus();
+});
+
 it('keeps a confirmed list denial when the session refetch also fails (#2677)', async () => {
   let failing = false;
   setup({

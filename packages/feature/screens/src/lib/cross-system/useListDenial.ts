@@ -5,7 +5,10 @@ import { isRequestablePermissionState } from '../api/permission-request-progress
 import type { PermissionCheckResponse } from '../api/permission-reads';
 import { ApiError, isPermissionDenied } from '../api/types';
 import { permissionCheckStatus } from './permission-check-status';
+import { focusListDenialCard, useDenialFocusReturn } from './useDenialFocusReturn';
 import { usePermissionCheckBridge } from './usePermissionCheckBridge';
+
+export { focusListDenialCard } from './useDenialFocusReturn';
 
 type ListDenialRequest = { capability: string; managedSystemId: string; pending?: boolean };
 type ScopedListBlock = { state: 'blocked'; roleRequired: boolean; request: ListDenialRequest | null };
@@ -100,10 +103,6 @@ type Drawer = {
 
 type ListIdentity = { keptSystemId: string | undefined; query: string | undefined };
 
-export function focusListDenialCard(card: HTMLDivElement | null, options?: FocusOptions) {
-  (card?.querySelector<HTMLElement>('a[href], button:not([disabled])') ?? card)?.focus(options);
-}
-
 /** Surface a confirmed list denial and return focus once its drawer has closed. */
 export function useListDenial({
   error,
@@ -176,37 +175,7 @@ export function useListDenial({
     closeDrawer();
   }, [closeOn, denied, identity, keptSystemId, selectedId]);
 
-  // A denial replaces the list controls; when it removed the control that held focus, focus lands
-  // on the card instead of the page body. Focus that survives, or none before, stays put (#2677).
-  const lastFocused = useRef<Element | null>(null);
-  useEffect(() => {
-    const record = (event: FocusEvent) => {
-      lastFocused.current = event.target instanceof Element ? event.target : null;
-    };
-    // Focus that leaves a still-connected element was moved by the user, not by a removal.
-    const release = (event: FocusEvent) => {
-      const target = event.target;
-      queueMicrotask(() => {
-        if (target instanceof Element && target.isConnected && lastFocused.current === target) {
-          lastFocused.current = null;
-        }
-      });
-    };
-    document.addEventListener('focusin', record);
-    document.addEventListener('focusout', release);
-    return () => {
-      document.removeEventListener('focusin', record);
-      document.removeEventListener('focusout', release);
-    };
-  }, []);
-  useLayoutEffect(() => {
-    if (!denied) return;
-    const previous = lastFocused.current;
-    lastFocused.current = null;
-    if (previous && !previous.isConnected && document.activeElement === document.body) {
-      focusListDenialCard(deniedRef.current);
-    }
-  }, [denied]);
+  useDenialFocusReturn(denied, deniedRef);
 
   // The host can apply the selection's URL change in a later commit.
   useLayoutEffect(() => {

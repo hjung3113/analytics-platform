@@ -266,8 +266,10 @@ as the other surfaces.
   selection. Approval keeps the approved request URL-selected until the reviewer
   chooses `다음 요청` or navigates away.
 - Task Request status tabs stay mounted during initial load, uncached-tab loading,
-  cached refresh, and queue errors/permission denial; loading/error content replaces
-  only the list body. Empty/rows motion boundaries keep their existing context keys.
+  cached refresh, and ordinary queue errors. A list denial hides the toolbar and
+  shows the blocked card. If the denial removes the focused control and leaves
+  focus on the page body, focus moves to the card. Empty/rows motion boundaries keep
+  their existing context keys.
   A manual tab or scope change still reconciles selection by the rules above.
 - Rejection/additional-evidence completion retains the old panel and successful
   dialog content until the newly selected current-tab row (or a confirmed
@@ -697,7 +699,9 @@ optional session retry under the card. On the platform the page's own return row
 or its status. A role denial names the required Developer role, and other denials
 show the required permission where applicable. The action row ends with
 `홈으로` and `내 VOC` when Home is available. If a redraw removes the focused
-action, focus moves to the first available action or to the card.
+action, focus moves to the first available action or to the card. The same focus
+destination applies when a recovery queue denial removes the focused list control
+and focus falls to the page body.
 Rows use the default compact Integration density: snippet title plus one truncated
 metadata line containing Finding identity, source and classification. Withheld
 row titles and panel text are muted and italic. A readable VOC's panel source label
