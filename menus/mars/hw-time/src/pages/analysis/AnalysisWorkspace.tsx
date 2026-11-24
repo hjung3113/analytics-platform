@@ -255,10 +255,10 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     }} />}</MatrixSources>;
 }
 /** Keep the hover subscription inside the chart assigned to the selection source. */
-function SelectionSourceBars(props: Omit<BarsProps, 'highlightedValues'>) {
-  const { highlighted, selection } = useAnalysisSelectionOutput(panelDeclarations.moduleMotions.id, MOTION_EQUIPMENT_KEY);
+function SelectionSourceBars({ source, ...props }: Omit<BarsProps, 'highlightedValues'> & { source: boolean }) {
+  const { highlighted, selection } = useAnalysisSelectionOutput(panelDeclarations.moduleMotions.id, MOTION_EQUIPMENT_KEY, { subscribeHighlight: source });
   const highlightedValues = highlighted && selection?.shape === 'set' ? selection.values : noHighlightedEquipment;
-  return <Bars {...props} highlightedValues={highlightedValues} />;
+  return <Bars {...props} highlightedValues={source ? highlightedValues : undefined} />;
 }
 
 function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'selectionOutput' | 'highlightedValues'> & {
@@ -324,9 +324,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     ...(step > 1 ? [{ id: 'previous', icon: History, title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={(step - 1) as Step} previous /> }] : []),
     { id: 'current', title: barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640,
       analysisSelectionSourceId: currentHostsSelection ? sourcePanelId : undefined,
-      render: () => currentHostsSelection
-        ? <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} />
-        : <Bars {...props} onOpenTrend={onOpenTrend} depth={step} /> },
+      render: () => <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} source={currentHostsSelection} /> },
     ...extraIds.map(id => {
       const item = catalog.find(item => item.id === id)!;
       const renderPanel = (panel: CatalogId) => {
@@ -355,7 +353,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           case 'moduleMotions': {
             const input = projectQueryInputs(panelDeclarations.moduleMotions, panelContext);
             const display = projectDisplayInputs(panelDeclarations.moduleMotions, panelContext);
-            return <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions selectionOutput={selectionOutput} />;
+            return <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions source selectionOutput={selectionOutput} />;
           }
           case 'table': return waitingForAvailability ? <LoadingBlock /> : <RawTablePanel params={{}} linked analysis={analysis} />;
           case 'donut': {

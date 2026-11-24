@@ -15,15 +15,13 @@ const HIGHLIGHT_WIDTH = 2;
 /**
  * The status ring of every status bar piece (#2351): a border inside the piece, plus a backing just inside it where the
  * border cannot contrast with the fill. Both are sized from the real piece by `statusRing`, so a thin piece keeps its fill;
- * the native bar draws no status border. Chip highlights use this same geometry as a separate stroke.
+ * the native bar draws no status border. Category bar chip highlights use this geometry as a separate stroke.
  */
 export function barStatusBackingSeries(input: ChartOptionInput, statuses: ReadonlyMap<string, ChartStatus>, lanes: LaneLayout | null, highlightedValues: ReadonlySet<string>, highlightedBarBorders: ReadonlyMap<string, number>): CustomSeriesOption[] {
   if (!statuses.size && !highlightedValues.size) return [];
   const bars = input.displayed.filter(s => input.horizontal || s.kind === 'bar');
   const count = input.stacked ? 1 : bars.length;
   const alignedByIndex = input.explicitStack && input.xType === 'time';
-  // Legacy time status rings matched timestamps, but ECharts stacks time bars by row index.
-  const legacyTimeStack = !!input.stacked && input.xType === 'time' && !alignedByIndex;
   const times = input.xType === 'time' ? [...new Set(bars.flatMap(s => s.points.map(([x]) => toMs(x))))].sort((a, b) => a - b) : [];
   const interval = times.reduce((min, x, index) => index === 0 ? min : Math.min(min, x - times[index - 1]), Infinity);
   return bars.flatMap((series, slot) => {
@@ -37,19 +35,14 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
       const fill = input.palette.series[n].fill;
       const backing = status && statusBacking(status, fill);
       const stroke = status && statusBorderColor(status, fill);
-      const stackStart = ({ byIndex }: { byIndex: boolean }) => {
-        let start = 0;
-        for (const previous of previousBars) {
-          const v = byIndex ? previous.points[index]?.[1] : previous.points.find(([category]) => category === x)?.[1];
-          if (typeof v === 'number' && Number.isFinite(v) && (v >= 0) === (value >= 0)) start += v;
-        }
-        return start;
-      };
-      const lane = lanes?.lanes[n];
-      const start = lane?.start ?? (input.stacked ? stackStart({ byIndex: alignedByIndex || (legacyTimeStack && !status) }) : 0);
-      const highlightStart = legacyTimeStack && highlighted && status ? stackStart({ byIndex: true }) : start;
+      let start = 0;
+      if (lanes) start = lanes.lanes[n].start;
+      else if (input.stacked) for (const previous of previousBars) {
+        const v = alignedByIndex ? previous.points[index]?.[1] : previous.points.find(([category]) => category === x)?.[1];
+        if (typeof v === 'number' && Number.isFinite(v) && (v >= 0) === (value >= 0)) start += v;
+      }
       const category = input.xType === 'time' ? toMs(x) : input.categories.indexOf(x);
-      return [{ category, start, end: start + value, highlightStart, value, backing, stroke, highlighted, nativeBorder: highlightedBarBorders.get(key) ?? 0 }];
+      return [{ category, start, end: start + value, backing, stroke, highlighted, nativeBorder: highlightedBarBorders.get(key) ?? 0 }];
     });
     if (!pieces.length) return [];
     const renderItem: RenderItem = (_params, api) => {
@@ -57,46 +50,36 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
       const category = Number(api.value(0));
       const start = Number(api.value(1)); const end = Number(api.value(2));
       const layouts = api.barLayout!({ count, barMaxWidth: BAR_MAX_WIDTH, barMinWidth: 1, barGap, barCategoryGap });
-      const measured = layouts?.[input.stacked ? 0 : slot];
-      let layout: { width: number; offset: number } | undefined = measured;
-      let stackOffset = 0;
+      let layout: { width: number; offset: number } | undefined = layouts?.[input.stacked ? 0 : slot];
       if (!layout) {
         // Time axes do not expose barLayout. Use the same minimum interval and category gap.
         const band = Math.abs((api.size!([interval, 0]) as number[])[0]);
         const width = Math.max(1, Math.min(BAR_MAX_WIDTH, band * (1 - CATEGORY_GAP) / (count + (count - 1) * BAR_GAP)));
         const totalWidth = width * (count + (count - 1) * BAR_GAP);
-        stackOffset = -totalWidth / 2;
-        layout = { width, offset: stackOffset + (alignedByIndex ? 0 : slot) * width * (1 + BAR_GAP) };
+        layout = { width, offset: -totalWidth / 2 + (alignedByIndex ? 0 : slot) * width * (1 + BAR_GAP) };
       }
       const { width, offset } = layout;
-      const geometry = (fromValue: number, toValue: number, bandOffset: number) => {
-        const from = api.coord(input.horizontal ? [fromValue, category] : [category, fromValue]);
-        const to = api.coord(input.horizontal ? [toValue, category] : [category, toValue]);
-        const length = input.horizontal ? Math.abs(to[0] - from[0]) : Math.abs(to[1] - from[1]);
-        const rect = (inset: number) => input.horizontal
-          ? { x: Math.min(from[0], to[0]) + inset, y: from[1] + bandOffset + inset, width: Math.max(0, length - 2 * inset), height: Math.max(0, width - 2 * inset) }
-          : { x: from[0] + bandOffset + inset, y: Math.min(from[1], to[1]) + inset, width: Math.max(0, width - 2 * inset), height: Math.max(0, length - 2 * inset) };
-        return { shortSide: Math.min(width, length), rect };
-      };
+      const from = api.coord(input.horizontal ? [start, category] : [category, start]);
+      const to = api.coord(input.horizontal ? [end, category] : [category, end]);
+      const length = input.horizontal ? Math.abs(to[0] - from[0]) : Math.abs(to[1] - from[1]);
+      const rect = (inset: number) => input.horizontal
+        ? { x: Math.min(from[0], to[0]) + inset, y: from[1] + offset + inset, width: Math.max(0, length - 2 * inset), height: Math.max(0, width - 2 * inset) }
+        : { x: from[0] + offset + inset, y: Math.min(from[1], to[1]) + inset, width: Math.max(0, width - 2 * inset), height: Math.max(0, length - 2 * inset) };
       // The status strokes stay inside their piece (#2351).
-      const { shortSide, rect } = geometry(start, end, offset);
+      const shortSide = Math.min(width, length);
       const { border, backing: ringBacking } = statusRing(shortSide);
       const backing = piece.backing ? ringBacking : 0;
       const children = [
         ...(piece.backing && backing ? [{ type: 'rect' as const, shape: rect(border + backing / 2), style: { fill: 'none', stroke: piece.backing, lineWidth: backing }, blur: { style: { opacity: 1 } } }] : []),
         ...(piece.stroke ? [{ type: 'rect' as const, ignore: !border, shape: rect(border / 2), style: { fill: 'none', stroke: piece.stroke, lineWidth: border }, blur: { style: { opacity: 1 } } }] : []),
       ];
-      if (!piece.highlighted) return { type: 'group', children };
-      const highlight = legacyTimeStack
-        ? geometry(piece.highlightStart, piece.highlightStart + piece.value, measured?.offset ?? stackOffset)
-        : { shortSide, rect };
-      if (!(highlight.shortSide > 0)) return { type: 'group', children };
+      if (!piece.highlighted || !(shortSide > 0)) return { type: 'group', children };
       // Leave room for the existing cue and for the fill, even in a subpixel stack segment.
       const occupied = piece.stroke ? border + backing : piece.nativeBorder;
-      const inset = Math.min(occupied, highlight.shortSide / 4);
-      const lineWidth = Math.min(HIGHLIGHT_WIDTH, (highlight.shortSide - 2 * inset) / 4);
+      const inset = Math.min(occupied, shortSide / 4);
+      const lineWidth = Math.min(HIGHLIGHT_WIDTH, (shortSide - 2 * inset) / 4);
       return { type: 'group', children: [...children, {
-        type: 'rect', shape: highlight.rect(inset + lineWidth / 2),
+        type: 'rect', shape: rect(inset + lineWidth / 2),
         style: { fill: 'none', stroke: input.palette.selection, lineWidth, lineDash: [4, 2] },
       }] };
     };

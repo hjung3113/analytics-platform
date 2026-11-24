@@ -240,6 +240,19 @@ it('restores a filtered step 3 table after visiting an unpinned step 4 source', 
     .toEqual([{ moduleType: 'PM', motionEquipment: ['EQ-002'], page: 0, pageSize: 25, sorting: [] }]);
 });
 
+it('keeps the current chart mounted when the dedicated moduleMotions panel is added', async () => {
+  await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM1');
+  const current = screen.getByTestId('hw-current');
+  expect(screen.queryByTestId('hw-module-motions')).toBeNull();
+
+  const addPanel = within(screen.getByTestId('workspace-actions')).getByRole('button', { name: /패널 추가/ });
+  fireEvent.keyDown(addPanel, { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name: 'PM1 · Motion별' }));
+
+  expect(await screen.findByTestId('hw-module-motions')).toBeTruthy();
+  expect(screen.getByTestId('hw-current')).toBe(current);
+});
+
 it.each([
   ['', 'hw-current'],
   ['&pins=moduleMotions', 'hw-module-motions'],

@@ -207,14 +207,13 @@ it('draws a separate unfilled dashed line mark outside and above its status halo
   } finally { chart.dispose(); }
 });
 
-it.each(['category', 'time'] as const)('keeps dashed outlines inside both thin adjacent %s stacked pieces', xType => {
-  const horizontal = xType === 'category';
-  const [firstX, secondX] = horizontal ? ['R1', 'R2'] : ['2026-11-16T00:00:00', '2026-11-16T01:00:00'];
+it('keeps dashed outlines inside both thin adjacent category stacked pieces', () => {
+  const [firstX, secondX] = ['R1', 'R2'];
   const displayed: ChartSeries[] = [
     { id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [[firstX, 0.25], [secondX, 100]] },
     { id: 'b', name: 'B', color: 'chart-teal', kind: 'bar', points: [[firstX, 0.25], [secondX, 100]] },
   ];
-  const option = buildChartOption(baselineInput({ horizontal, xType, stacked: true, categories: [firstX, secondX], displayed,
+  const option = buildChartOption(baselineInput({ horizontal: true, xType: 'category', stacked: true, categories: [firstX, secondX], displayed,
     activeCategory: null, extremes: undefined, highlightedValues: [firstX], palette: resolveChartPalette(displayed),
     pointStatus: ({ seriesId }) => ({ tone: seriesId === 'a' ? 'danger' : 'warning', label: 'Status' }) })) as { series: CustomSeriesOption[] };
   const dashed: { shape: Rect; style: { lineWidth: number } }[] = [];
@@ -231,8 +230,7 @@ it.each(['category', 'time'] as const)('keeps dashed outlines inside both thin a
     chart.setOption({ ...option, animation: false });
     const model = (chart as unknown as { getModel: () => NativeModel }).getModel();
     const [first, second] = displayed.map(({ id }) => model.getSeriesByIndex(option.series.findIndex(s => s.id === id)).getData().getItemLayout(0));
-    if (horizontal) expect(first.x + first.width).toBeCloseTo(second.x, 6);
-    else expect(first.y + first.height).toBeCloseTo(second.y, 6);
+    expect(first.x + first.width).toBeCloseTo(second.x, 6);
     expect(dashed).toHaveLength(2);
     for (const [raw, { shape, style: { lineWidth } }] of [[first, dashed[0]], [second, dashed[1]]] as const) {
       const x = Math.min(raw.x, raw.x + raw.width);
@@ -246,5 +244,19 @@ it.each(['category', 'time'] as const)('keeps dashed outlines inside both thin a
       expect(shape.y - lineWidth / 2).toBeGreaterThanOrEqual(y - 1e-6);
       expect(shape.y + shape.height + lineWidth / 2).toBeLessThanOrEqual(y + height + 1e-6);
     }
+  } finally { chart.dispose(); }
+});
+
+it('draws no dashed bar outline for highlightedValues on a time axis', () => {
+  const time = '2026-11-16T00:00:00';
+  const displayed: ChartSeries[] = [{ id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [[time, 8]] }];
+  const selection = '#872bd0';
+  const input = baselineInput({ xType: 'time', horizontal: false, displayed, activeCategory: null, extremes: undefined,
+    highlightedValues: [time], palette: { ...resolveChartPalette(displayed), selection } });
+  const chart = echarts.init(null, CHART_ECHARTS_THEME, { renderer: 'svg', ssr: true, width: 400, height: 260 });
+  try {
+    chart.setOption({ ...buildChartOption(input), animation: false });
+    const paths = chart.renderToSVGString().match(/<path[^>]*>/g) ?? [];
+    expect(paths.filter(path => path.includes(`stroke="${selection}"`) && path.includes('stroke-dasharray='))).toHaveLength(0);
   } finally { chart.dispose(); }
 });
