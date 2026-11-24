@@ -637,9 +637,7 @@ describe('MilestonesRoute counts suppression (R5)', () => {
     expect(screen.getByRole('tab', { name: /^릴리스됨\s*,\s*0$/ })).toBeInTheDocument();
   });
 
-  // R6 correction — a settled error on the LIST read hides the totals and
-  // badges too (the original requirement), while the already-selected
-  // record's independent detail read is untouched.
+  // A permission 403 hides list totals and badges even when counts still have data.
   it('hides totals and badges when the list read itself is denied while counts stay cached', async () => {
     const user = userEvent.setup();
     vi.mocked(listMilestones)
@@ -660,8 +658,7 @@ describe('MilestonesRoute counts suppression (R5)', () => {
       await queryClient.invalidateQueries({ queryKey: ['milestones', 'list', null, 'all'] });
     });
 
-    // The denial presents in the list slot; retained rows stay hidden while
-    // the shell (and the draft) survive.
+    // The denial replaces the list, and the clean detail closes.
     expect(
       await screen.findByText(
         'Milestone 목록을 볼 권한이 없습니다.',
@@ -672,8 +669,9 @@ describe('MilestonesRoute counts suppression (R5)', () => {
     // …and the summary strip and status tabs are hidden too.
     expect(screen.queryByTestId('milestone-summary-in-flight')).not.toBeInTheDocument();
     expect(screen.queryAllByRole('tab')).toHaveLength(0);
-    // The selected record's independent detail read is unchanged.
-    expect(screen.getByRole('heading', { name: 'SSO Stabilization' })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: 'SSO Stabilization' })).not.toBeInTheDocument(),
+    );
   });
 });
 

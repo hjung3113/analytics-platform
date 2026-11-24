@@ -9,6 +9,8 @@ import { DirtyConfirmation, PermissionBlockedPanel } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import * as React from 'react';
 import { MilestoneDetailContent } from './MilestoneDetailContent';
+import { useMilestoneStatusEdit } from './useMilestoneStatusEdit';
+import { useMilestoneTitleEdit } from './useMilestoneTitleEdit';
 import { MilestoneHeaderActions } from './MilestoneHeaderActions';
 
 // #514 B2d — Milestone detail, as the parts a host places in its own frame
@@ -17,6 +19,7 @@ import { MilestoneHeaderActions } from './MilestoneHeaderActions';
 // (TaskGantt). Needs a `HostSeamProvider` and the feature providers.
 export interface MilestoneDetailPanelProps {
   milestoneId: string;
+  listDenied?: boolean;
   onClose: () => void;
   actorNamesById: ReadonlyMap<string, string>;
   managedSystemNamesById: ReadonlyMap<string, string>;
@@ -39,6 +42,7 @@ export type MilestoneDetailParts = ClosableDetailParts & {
 
 export function useMilestoneDetailParts({
   milestoneId,
+  listDenied = false,
   onClose,
   actorNamesById,
   managedSystemNamesById,
@@ -51,34 +55,25 @@ export function useMilestoneDetailParts({
     queryFn: ({ signal }) => getMilestone(milestoneId, signal),
     staleTime: 30 * 1000,
   });
+  const error = milestoneQuery.error;
+  const denied = listDenied || isPermissionDenied(error);
+  const loading = !denied && milestoneQuery.isLoading;
+  // Query data can outlive a permission failure. Keep the editor state in this
+  // slot, and use only a permitted record for rendering and writes.
+  const milestone = !denied && error === null ? milestoneQuery.data : undefined;
   useHostTitle(
-    milestoneQuery.isSuccess &&
-      !milestoneQuery.isFetching &&
-      milestoneQuery.data?.id === milestoneId
-      ? formatRecordDocumentTitle({
-          displayId: milestoneQuery.data.display_id,
-          title: milestoneQuery.data.title,
-        })
+    milestone?.id === milestoneId && milestoneQuery.isSuccess && !milestoneQuery.isFetching
+      ? formatRecordDocumentTitle({ displayId: milestone.display_id, title: milestone.title })
       : null,
   );
-  const error = milestoneQuery.error;
-  // React Query keeps the last success when a refetch fails, and exposes both
-  // data and error. A settled read error is the detail permission contract:
-  // hide retained identity, record actions, and body. Do not clear the cache.
-  const milestone = error == null ? milestoneQuery.data : undefined;
+  const titleEdit = useMilestoneTitleEdit(milestoneId, milestone);
+  const statusEdit = useMilestoneStatusEdit({ milestone, titleEdit });
+  const { titleDirty, discardTitleEdit } = titleEdit;
+  React.useLayoutEffect(() => {
+    onTitleDirtyChange?.(titleDirty);
+    return () => onTitleDirtyChange?.(false);
+  }, [titleDirty, onTitleDirtyChange]);
 
-  // B2e fixup — a dirty title edit confirms before the header close discards
-  // it (ui-design-system: "Dirty forms warn before close"). Clean, loading,
-  // and failed-read states keep closing immediately. R3 — the same dirty
-  // state is also reported upward so the route can confirm record switches.
-  const [titleDirty, setTitleDirty] = React.useState(false);
-  const handleTitleDirtyChange = React.useCallback(
-    (dirty: boolean) => {
-      setTitleDirty(dirty);
-      onTitleDirtyChange?.(dirty);
-    },
-    [onTitleDirtyChange],
-  );
   const [discardTitleOpen, setDiscardTitleOpen] = React.useState(false);
 
   function requestClose(): void {
@@ -94,7 +89,7 @@ export function useMilestoneDetailParts({
       open={discardTitleOpen}
       onConfirm={() => {
         setDiscardTitleOpen(false);
-        setTitleDirty(false);
+        discardTitleEdit();
         onClose();
       }}
       onCancel={() => setDiscardTitleOpen(false)}
@@ -106,19 +101,15 @@ export function useMilestoneDetailParts({
       kind: 'detail',
       requestClose,
       view: {
-        kind: milestoneQuery.isLoading
-          ? 'loading'
-          : error !== null && isPermissionDenied(error)
-            ? 'denied'
-            : 'error',
+        kind: loading ? 'loading' : denied ? 'denied' : 'error',
       },
       title: 'Milestone',
       body: (
         <>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {milestoneQuery.isLoading ? (
+            {loading ? (
               <div className="p-4 text-sm text-text-muted">Milestone을 불러오는 중…</div>
-            ) : error !== null && isPermissionDenied(error) ? (
+            ) : denied ? (
               <PermissionBlockedPanel
                 state="denied"
                 category="Milestone 상세"
@@ -148,16 +139,14 @@ export function useMilestoneDetailParts({
     body: (
       <>
         <MilestoneDetailContent
-          // B2e fixup — editor state is per record: the keyed remount drops
-          // editingTitle/titleDraft when the selected milestone changes, so a
-          // cached destination can never inherit another record's draft.
           key={milestone.id}
           milestone={milestone}
           scrollRef={scrollRef}
           actorNamesById={actorNamesById}
           managedSystemNamesById={managedSystemNamesById}
           analyticsAreaNamesById={analyticsAreaNamesById}
-          onTitleDirtyChange={handleTitleDirtyChange}
+          titleEdit={titleEdit}
+          statusEdit={statusEdit}
         />
         {discardConfirmation}
       </>

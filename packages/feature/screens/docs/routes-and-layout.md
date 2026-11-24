@@ -686,7 +686,11 @@ permission invalidation still clears stale content. A denied list read shows onl
 the list blocked card («목록 막힘 카드», `ScopedListDenialCard`): source tabs, search, refresh and the description row are hidden.
 A denied selected detail keeps the list controls (#2677). A confirmed list denial clears an open selection in
 Evidence, Findings, VOC Inbox, VOC Clusters, Task list, Task board and Milestones while keeping the selected Managed System and
-filters. If closing detail leaves focus on the page body, focus moves to the
+filters. Milestones retains an open create form. An unsaved Milestone title keeps its selection through a list or
+detail denial. The detail slot shows the blocked state and restores the editor and its save version when reads resume.
+A pending status write keeps title Save disabled through recovery. If it succeeds against the draft's version,
+the next title save uses the version returned by that write.
+If closing detail leaves focus on the page body, focus moves to the
 list blocked card's first available action or to the card itself. A later explicit VOC Inbox selection still goes through the
 independently authorized detail read. When a scoped empty-list permission check shows the shared blocked card («막힘 카드»),
 returning window focus rechecks that permission. The Finding and Evidence cards show `확인 중` in place of the request action
