@@ -16,7 +16,7 @@
 | mock 조립 | 서버 없이 도는 어댑터 조립(`@ap/mock-server`) |
 | 스크립트 | `install`, `dev`, `build`, `build:real`, `check` |
 | 실서버 빌드 산출물 | `build:real`이 `dist/`에 웹과 함께 메뉴 선언 스냅샷 `menu-declarations.snapshot.json`을 쓴다. `menus.ts`의 선언과 각 메뉴 `endpoints.ts`에서 만들고 손으로 고치지 않는다. 코어 서버가 선언 묶음을 이 파일과 대조한다(`MENU_DECLARATIONS_SNAPSHOT_FILE`, [ADR-0156](../adr/0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md)) |
-| 설치 재료와 검사 | `vendor/`의 tarball 아홉, `pnpm-lock.yaml`, `third-party.json`, 설치 검사 `sdk-bundle-check.mjs`, `SHA256SUMS` |
+| 설치 재료와 검사 | `vendor/`의 tarball 아홉, `pnpm-lock.yaml`, `third-party.json`, SBOM `sbom.cdx.json`, 설치 검사 `sdk-bundle-check.mjs`, `SHA256SUMS` |
 | README | 이 글의 내용 |
 
 넣지 않는 것: 새 CLI, 생성기, 메뉴 lint 프리셋([ADR-0142](../adr/0142-out-of-repo-menu-package-and-host-module-split.md) Deferred). 메뉴는 견본을 복사해 만든다.
@@ -38,7 +38,7 @@
 | 몫 | 파일 | 교체 때 |
 | --- | --- | --- |
 | 조립 | `menus/`(견본 포함 메뉴 폴더 전체), `menus.ts`, `mock/assembly.ts`, 키트 `SHA256SUMS`에 없는 파일(직접 더한 파일) | 지금 폴더에서 그대로 옮긴다 |
-| 키트 | 키트 `SHA256SUMS`에 적힌 나머지 전부: `vendor/`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `patches/`, `package.json`, `third-party.json`, `src/`, `real/`, `index.html`, `vite.config.ts`, `tsconfig*.json`, `sdk-bundle-check.mjs`, README | 목표 키트의 것을 통째로 쓴다 |
+| 키트 | 키트 `SHA256SUMS`에 적힌 나머지 전부: `vendor/`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `patches/`, `package.json`, `third-party.json`, `sbom.cdx.json`, `src/`, `real/`, `index.html`, `vite.config.ts`, `tsconfig*.json`, `sdk-bundle-check.mjs`, README | 목표 키트의 것을 통째로 쓴다 |
 
 키트 몫은 릴리스마다 바뀐다(설정, 진입 파일, 시험 파일이 더해지거나 바뀐다). lockfile은 레지스트리가 있어야 만들 수 있으므로 다시 만들지 않는다. 목표 키트에 실린 lockfile로 `--frozen-lockfile` 설치만 한다. 그래서 키트 몫 파일은 고치지 않는다. 고쳐야 하는 일은 조립 몫으로 옮기거나 [환류 절차](../integration/upstream-feedback-procedure.md)로 공개 저장소에 보낸다.
 
