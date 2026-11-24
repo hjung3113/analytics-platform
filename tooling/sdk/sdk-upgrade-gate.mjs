@@ -80,6 +80,53 @@ export function unpackKit(root, file) {
   for (const script of ['check', 'build']) if (!scripts[script]) throw new Error(`Start kit ${basename(file)} has no "${script}" script`);
 }
 
+const RELEASE_TAG_URL = 'https://github.com/hjung3113/analytics-platform/releases/tag/';
+const stable = /^sdk-v(\d+)\.(\d+)\.(\d+)$/;
+
+/** Stable `sdk-vX.Y.Z` versions (no pre-release) from tag names or `git ls-remote --tags` lines, newest first. */
+export function stableVersions(lines) {
+  const versions = new Set();
+  for (const line of lines) {
+    const tag = line.trim().split(/\s+/).at(-1)?.replace(/^refs\/tags\//, '').replace(/\^\{\}$/, '');
+    if (tag && stable.test(tag)) versions.add(tag.slice('sdk-v'.length));
+  }
+  const key = version => version.split('.').map(Number);
+  return [...versions].sort((a, b) => {
+    const [x, y] = [key(a), key(b)];
+    return y[0] - x[0] || y[1] - x[1] || y[2] - x[2];
+  });
+}
+
+/**
+ * The round trip must start from the previous release (ADR-0143 «같은 열차 N, 롤백용 N-1», #2892). The pin may be the newest
+ * stable release or the one before it, so the main push right after a new tag stays green until the next release-docs PR moves it.
+ */
+export function assertPinFresh(pin, lines) {
+  const [newest, before] = stableVersions(lines);
+  if (!newest) throw new Error('No stable sdk-v* release tag found; cannot check the previous-bundle pin');
+  if (pin.version === newest || pin.version === before) return;
+  throw new Error(`previous-bundle pin ${pin.version} is older than the previous release (newest sdk-v${newest}); `
+    + `run \`node tooling/sdk/sdk-upgrade-gate.mjs --pin ${newest}\` and commit tooling/sdk/previous-bundle.json`);
+}
+
+/** Pin record for a published release: its tag URL and the sha256 of its SHA256SUMS asset. */
+export async function pinFor(version, download = async url => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Download ${url}: HTTP ${response.status}`);
+  return Buffer.from(await response.arrayBuffer());
+}) {
+  if (!stable.test(`sdk-v${version}`)) throw new Error(`--pin takes a stable release version (X.Y.Z), got ${version}`);
+  const url = `${RELEASE_TAG_URL}sdk-v${version}`;
+  const sums = await download(`${url.replace('/releases/tag/', '/releases/download/')}/SHA256SUMS`);
+  return { url, version, sha256: digest(sums) };
+}
+
+function releaseTags() {
+  const result = spawnSync('git', ['ls-remote', '--tags', 'origin', 'refs/tags/sdk-v*'], { cwd: repo, encoding: 'utf8' });
+  if (result.status !== 0) throw new Error(`git ls-remote --tags failed: ${result.stderr.trim()}`);
+  return result.stdout.split('\n');
+}
+
 async function fetchPrevious(pin, destination) {
   const url = new URL(pin.url);
   if (url.origin !== 'https://github.com' || !url.pathname.startsWith('/hjung3113/analytics-platform/releases/tag/')) throw new Error('Previous bundle must be pinned to this repository release');
@@ -307,7 +354,13 @@ async function integration(previous, formal, work, { mutate = false } = {}) {
 }
 
 async function main(args) {
-  if (args.length !== 1) throw new Error('usage: sdk-upgrade-gate <current bundle directory> | --self-test');
+  if (args[0] === '--pin' && args.length === 2) {
+    const pin = await pinFor(args[1]);
+    writeFileSync(join(repo, 'tooling/sdk/previous-bundle.json'), `${JSON.stringify(pin, null, 2)}\n`);
+    console.log(`sdk:upgrade-gate pinned previous bundle ${pin.version} (SHA256SUMS ${pin.sha256})`);
+    return;
+  }
+  if (args.length !== 1) throw new Error('usage: sdk-upgrade-gate <current bundle directory> | --self-test | --pin <X.Y.Z>');
   const work = mkdtempSync(join(tmpdir(), 'ap-sdk-upgrade-'));
   try {
     if (args[0] === '--self-test') {
@@ -327,6 +380,7 @@ async function main(args) {
     const formal = resolve(args[0]);
     verifyBundle(formal);
     const pin = JSON.parse(readFileSync(join(repo, 'tooling/sdk/previous-bundle.json'), 'utf8'));
+    assertPinFresh(pin, releaseTags());
     console.log(`sdk:upgrade-gate download previous bundle ${pin.version} (${pin.url})`);
     const previous = await downloadPrevious(pin, join(work, 'previous'));
     await integration(previous, formal, work);
