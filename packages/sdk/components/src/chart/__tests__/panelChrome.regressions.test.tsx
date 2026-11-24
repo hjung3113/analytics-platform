@@ -71,7 +71,7 @@ describe('Panel chart regression fixes (#2372)', () => {
     const layout = screen.getByTestId('chart-legend-layout');
     const plot = screen.getByRole('img', { name: 'plot' }).parentElement!;
     const summary = screen.getByRole('region', { name: '선택 요약' });
-    expect(layout).toHaveClass('basis-0', 'min-h-0', 'overflow-hidden');
+    expect(layout).toHaveClass('basis-0', 'min-h-min', 'overflow-hidden'); // never shorter than the plot floor plus keys (#2869)
     expect(plot).toHaveClass('min-h-0', 'basis-0', 'overflow-hidden');
     expect(plot).not.toHaveClass('min-h-80');
     expect(layout).not.toContainElement(summary);

@@ -60,11 +60,12 @@ export function ChartLegendLayout({ enabled, keys: named = true, placement = 'bo
   const m = useMessages(COMPONENTS_MESSAGES);
   if (!enabled) return <>{children}</>;
   const side = placement === 'side';
-  const keys = <div tabIndex={named ? 0 : undefined} role={named ? 'group' : undefined} aria-label={named ? m('chartLegend') : undefined} className={cn('text-xs text-text-secondary', side ? 'flex max-h-full w-32 shrink-0 flex-col gap-1 overflow-auto px-2 py-1' : 'flex max-h-20 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 overflow-y-auto whitespace-nowrap px-2 py-1')}>
+  const keys = <div tabIndex={named ? 0 : undefined} role={named ? 'group' : undefined} aria-label={named ? m('chartLegend') : undefined} className={cn('text-xs text-text-secondary', side ? cn('flex max-h-full w-32 shrink-0 flex-col gap-1 overflow-auto px-2 py-1', fill && 'contain-size') : 'flex max-h-20 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 overflow-y-auto whitespace-nowrap px-2 py-1')}>
     {legend}
     {caption && <span className="min-w-0 max-w-56 truncate text-text-muted" title={typeof caption === 'string' ? caption : undefined}>{caption}</span>}
   </div>;
-  return <div data-testid="chart-legend-layout" data-legend-placement={placement} className={cn('flex min-h-0 min-w-0 flex-1', fill && 'basis-0 overflow-hidden', side ? 'flex-row' : 'flex-col')}>
+  // fill: never shorter than the plot's floor plus the keys, so the clip never squeezes the plot (#2869); the panel body scrolls instead.
+  return <div data-testid="chart-legend-layout" data-legend-placement={placement} className={cn('flex min-w-0 flex-1', fill ? 'min-h-min basis-0 overflow-hidden' : 'min-h-0', side ? 'flex-row' : 'flex-col')}>
     {placement === 'top' && keys}
     {side ? <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div> : children}
     {placement !== 'top' && keys}
