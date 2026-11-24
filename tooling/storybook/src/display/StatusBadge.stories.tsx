@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { StatusBadge } from '@ap/ui';
+import { Dot, StatusBadge } from '@ap/ui';
 import { guidedPage } from '../guidance';
 
 const TONES = [['success', '가동'], ['warning', '점검 필요'], ['danger', '정지'], ['neutral', '미평가'], ['info', '예약됨']] as const;
@@ -30,4 +30,9 @@ export const Tones: Story = {
   render: () => <div className="grid gap-2">{(['soft', 'outline'] as const).map(variant => <div key={variant} className="flex gap-2">
     {TONES.map(([tone, label]) => <StatusBadge key={tone} tone={tone} variant={variant} dot>{label}</StatusBadge>)}
   </div>)}</div>,
+};
+
+/** `Dot`: 배지 밖에서 tone만 표시하는 8px 점(범례·행 머리). 글자와 함께 쓴다. */
+export const Dots: Story = {
+  render: () => <div className="flex gap-4 text-sm">{TONES.map(([tone, label]) => <span key={tone} className="inline-flex items-center gap-1.5"><Dot tone={tone} />{label}</span>)}</div>,
 };
