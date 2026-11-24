@@ -137,7 +137,18 @@ env problem → fix `.env.production`) and restore into a new `--project` name. 
 
 ## Upgrade
 
-Step 1 is the web image: build it from the same commit as the backend and migrate images with
+**From the release assets (a host that reaches no registry, ADR-0177).** Each app release `v<X.Y.Z>` carries
+`platform-release-{backend,migrate,web}-v<X.Y.Z>.tar.gz` (linux/amd64) and `SHA256SUMS`, written by
+`scripts/release/pack-images.sh`. Copy the four files to the docker host, then:
+
+    sha256sum -c SHA256SUMS
+    for f in platform-release-*-v<X.Y.Z>.tar.gz; do docker load -i "$f"; done
+    export BACKUP_ROOT=/srv/platform-backups
+    bash scripts/release/upgrade.sh v<X.Y.Z>
+
+The checkout on the host must be the same tag (the compose files and scripts come from it). Skip the build steps below.
+
+**From a checkout (build on the host).** Step 1 is the web image: build it from the same commit as the backend and migrate images with
 `bash scripts/release/build-web-image.sh` (it writes only `platform-release-web:local`), then tag it with the release tag:
 `docker tag platform-release-web:local platform-release-web:<tag>`. Load the other two images under
 `platform-release-backend:<tag>` and `platform-release-migrate:<tag>`, then:
