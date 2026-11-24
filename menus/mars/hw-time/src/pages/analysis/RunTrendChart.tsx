@@ -25,5 +25,5 @@ export function RunTrendChart({ chartId, trend, description, activeCategory, too
     toolbarStart={toolbarStart} title={m('trend')} series={trend.series} xType="category" unit={HW_TIME_UNIT[lang]}
     valueFormat={value => formatSeconds(value, lang)} size="fill" fillMin={RUN_FILL_MIN}
     emphasisFocus="none" canApplyRange={false} activeCategory={activeCategory} pointStatus={pointStatus}
-    bounds={trend.bounds.size ? trend.bounds : undefined} boundLabels={trend.boundLabels} analysisSelectionOutput={analysisSelectionOutput} />;
+    bounds={trend.bounds.size ? trend.bounds : undefined} boundLabels={trend.boundLabels} analysisSelectionOutput={analysisSelectionOutput} nextAnalysis={!!analysisSelectionOutput} />;
 }
