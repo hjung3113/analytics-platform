@@ -28,7 +28,6 @@ import { usePermissionCheckBridge } from '../../../../lib/cross-system/usePermis
 import { HostLink, useHostPermissionLinks, useHostSeam } from '../../../../lib/host/host-seam';
 import { useHostSearchWriter } from '../../../../lib/host/useHostSearchWriter';
 import { NAV_COUNTS_QUERY_KEY } from '../../../../lib/query/navCounts';
-import { shouldRefetchOnFocus } from '../../../../lib/query/query-client';
 import { Button, PermissionBlockedPanel } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
@@ -113,9 +112,6 @@ export function TriageScreen(): React.ReactElement {
       }),
     enabled: isApproved,
     retry: false,
-    // Badge counts only (no permission-gated content), and costly on the server (#2807): a tab return reads them again only
-    // after 30 seconds (#2819). Every observer of this key opts in, or the others would still refetch.
-    refetchOnWindowFocus: shouldRefetchOnFocus,
   });
 
   // Fetch triage queue — server-pinned sort, no sort param sent (D-1.2).

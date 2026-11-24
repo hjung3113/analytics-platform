@@ -62,6 +62,16 @@ describe('tab return: default unchanged, opt-in reads only data 30 seconds old (
     unsubscribe();
   });
 
+  it('keeps the default: data still fresh by its own staleTime is not read again on a tab return', async () => {
+    const client = mounted();
+    const queryFn = vi.fn(async () => 1);
+    const stop = new QueryObserver(client, { queryKey: ['fresh'], queryFn, staleTime: 10_000 }).subscribe(() => {});
+    await vi.waitFor(() => expect(queryFn).toHaveBeenCalledTimes(1));
+    await refocus();
+    expect(queryFn).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
   it('does not read an opted-in query again within 30 seconds', async () => {
     const { queryFn, unsubscribe } = await observe();
     vi.advanceTimersByTime(FOCUS_REFETCH_AFTER_MS - 1_000);

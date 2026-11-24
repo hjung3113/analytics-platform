@@ -9,8 +9,8 @@ export function useUnreadNotificationCount(options: { enabled?: boolean } = {}) 
     queryFn: ({ signal }) => fetchUnreadNotificationCount(signal),
     refetchInterval: 60_000,
     retry: false,
-    // A count only (no permission-gated content), read on every page: a tab return reads it again only after 30 seconds;
-    // the 60-second poll is unchanged (#2819).
+    // The actor's own unread rows, independent of any withdrawable permission, read on every page: a tab return reads it
+    // again only after 30 seconds; the 60-second poll is unchanged (#2819).
     refetchOnWindowFocus: shouldRefetchOnFocus,
     enabled: options.enabled ?? true,
   });

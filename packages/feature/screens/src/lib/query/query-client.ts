@@ -22,8 +22,9 @@ export const FOCUS_REFETCH_AFTER_MS = 30_000;
  * Opt-in tab-return policy (#2819) for a query's `refetchOnWindowFocus`: on a tab return, read again only when the last
  * successful data is 30 seconds old or older, or a write invalidated it (judged at the moment of the return). The default
  * stays TanStack's (every tab return reads stale data again), because some reads rely on it to drop content after a
- * permission is withdrawn elsewhere. Opt in only for a costly read that shows no permission-gated content, with that
- * reason next to it, and on every observer of the same key (TanStack refetches when any observer asks to).
+ * permission is withdrawn elsewhere. Opt in only for a costly read whose response does not depend on a permission that can
+ * be withdrawn (not `/nav/counts`: its keys follow the VOC read scope), with that reason next to it, and on every observer
+ * of the same key (TanStack refetches when any observer asks to).
  */
 export function shouldRefetchOnFocus(query: { state: Pick<Query['state'], 'isInvalidated' | 'dataUpdatedAt'> }): boolean {
   return query.state.isInvalidated || Date.now() - query.state.dataUpdatedAt >= FOCUS_REFETCH_AFTER_MS;

@@ -104,7 +104,7 @@ describe('navCounts slot with an active feature observer on the same key', () =>
 });
 
 describe('navCounts on a tab return (#2819)', () => {
-  it('reads /nav/counts again only once its data is 30 seconds old', async () => {
+  it('reads /nav/counts again on a tab return within 30 seconds, because its keys follow a withdrawable read scope (#2819)', async () => {
     const calls: string[] = [];
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       calls.push(String(input));
@@ -132,11 +132,7 @@ describe('navCounts on a tab return (#2819)', () => {
       await act(async () => { await vi.waitFor(() => expect(calls).toHaveLength(1)); });
       const refocus = async () => act(async () => { focusManager.setFocused(false); focusManager.setFocused(true); await Promise.resolve(); });
 
-      now += 29_000;
-      await refocus();
-      expect(calls).toHaveLength(1);
-
-      now += 1_000;
+      now += 10_000;
       await refocus();
       await act(async () => { await vi.waitFor(() => expect(calls).toEqual(['/api/features/nav/counts', '/api/features/nav/counts'])); });
     } finally {
