@@ -58,6 +58,44 @@ beforeEach(() => vi.stubGlobal('localStorage', memoryStorage()));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it.each([
+  ['matching origin', '/mars/analysis?v=1&scopeId=MEM&timeRange=14:00/16:00', true],
+  ['no returnTo', null, false],
+  ['rejected returnTo', '/mars/denied?v=1&scopeId=MEM&timeRange=14:00/16:00', false],
+  ['different value', '/mars/analysis?v=1&scopeId=MEM&timeRange=14:00/15:00', false],
+  ['different Scope', '/mars/analysis?v=1&scopeId=OTHER&timeRange=14:00/16:00', false],
+  ['writerless origin', '/mars/receiver?v=1&scopeId=MEM&days=14:00/16:00', false],
+  ['different shape', '/mars/set-origin?v=1&scopeId=MEM&timeRange=14:00/16:00', false],
+] as const)('models a writerless inbound chip with %s', (_, origin, arrives) => {
+  const source = registry.menuById('analysis');
+  const inbound: MenuEntry = { ...home, id: 'receiver', primary: false, path: '/receiver',
+    pageKeys: ['days', 'returnTo'], contextResetKeys: ['days'],
+    analysisSelectionInbound: [{ key: 'days', dimension: 'time', shape: 'range' }] };
+  const linked = createRegistry({ spaces: registry.spaces, groups: registry.groups,
+    menus: [...registry.menus, inbound,
+      { ...source, id: 'denied', path: '/denied', aliases: [], permission: 'console:access' },
+      { ...source, id: 'set-origin', path: '/set-origin', aliases: [], pageKeys: [rangeKey], repeatedPageKeys: [rangeKey], contextResetKeys: [rangeKey],
+        panels: [{ ...panel, outputs: [{ key: rangeKey, action: 'pick', selection: { dimension: 'time', shape: 'set' } }] }] },
+    ] });
+  const query = new URLSearchParams({ v: '1', scopeId: 'MEM', days: '14:00/16:00' });
+  if (origin) query.set('returnTo', origin);
+  window.history.replaceState(null, '', `/mars/receiver?${query}`);
+  const { result } = renderHook(() => ({ model: useAnalysisSelectionChips(), setPage: usePlatform().setPage }), { wrapper: ({ children }) =>
+    <I18nProvider><PlatformProvider adapter={adapter} registry={linked}>{children}</PlatformProvider></I18nProvider> });
+  expect(result.current.model.chips).toMatchObject([{ key: 'days', selection: range, available: true }]);
+  expect(result.current.model.chips[0]?.source).toBeUndefined();
+  expect(result.current.model.chips[0]?.arrival).toEqual(arrives ? { href: origin } : undefined);
+  if (arrives) {
+    const updated = `${origin}&sort=desc`;
+    act(() => result.current.setPage({ returnTo: updated }));
+    expect(result.current.model.chips[0]?.arrival).toEqual({ href: updated });
+    act(() => result.current.setPage({ returnTo: origin }));
+  }
+  act(() => expect(result.current.model.clear('days')).toBe(true));
+  expect(search().has('days')).toBe(false);
+  expect(search().get('returnTo')).toBe(origin);
+});
+
+it.each([
   [setKey, set, ['B', 'A']],
   [rangeKey, range, ['14:00/16:00']],
 ] as const)('encodes %s, reads it back, and restores it from a shared URL', (key, selection, values) => {

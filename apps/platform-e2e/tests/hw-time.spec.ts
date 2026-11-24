@@ -107,6 +107,60 @@ test.describe('HW Time analysis selection', () => {
   });
 });
 
+test.describe('분석 선택 메뉴 간 링크 (#2735)', () => {
+  test('carries the trend range to CLAS, returns with it, and clears the received range', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions`);
+    const trend = panel(page, 'trend').getByRole('region', { name: '추세', exact: true });
+    await expect(trend.getByRole('img', { name: /^추세:/ })).toBeVisible();
+    await trend.getByRole('button', { name: '구간 선택', exact: true }).press('Enter');
+    const rangeForm = trend.getByRole('group', { name: '시작과 끝으로 구간 선택' });
+    await rangeForm.getByRole('combobox', { name: '구간 끝' }).click();
+    await page.getByRole('option', { name: '09-24', exact: true }).click();
+    await rangeForm.getByRole('button', { name: '선택', exact: true }).click();
+    await expect.poll(() => query(page).get('trendRange')).toMatch(/^\d{2}-\d{2}\/\d{2}-\d{2}$/);
+    const range = query(page).get('trendRange');
+    expect(range).toBe('09-24/09-24');
+
+    const matrixTab = workspace(page).getByRole('tab', { name: 'PM1 · Motion별', exact: true });
+    await matrixTab.click();
+    const matrix = panel(page, 'moduleMotions');
+    await matrix.getByRole('button', { name: '더보기', exact: true }).press('Enter');
+    const tools = page.getByRole('dialog', { name: '더보기', exact: true });
+    const picker = tools.getByRole('combobox', { name: '차트 지점 선택' });
+    // The equipment ids depend on the mock assembly (EQ-… locally, MEM-… in CI), so take the first point and read its id.
+    const option = picker.locator('option').first();
+    const equipment = (await option.textContent())!.split(' · ')[0]!;
+    await picker.selectOption({ value: (await option.getAttribute('value'))! });
+    await tools.getByRole('button', { name: '선택에 지점 추가', exact: true }).press('Enter');
+    if (await tools.isVisible()) await page.keyboard.press('Escape');
+    await expect.poll(() => query(page).getAll('motionEquipment')).toEqual([equipment]);
+
+    const openClas = async () => {
+      await matrixTab.click();
+      await matrix.getByRole('button', { name: '다른 분석', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'CLAS', exact: true }).click();
+      await expect(page).toHaveURL(/\/clas\/operation-time\?/);
+      await expect.poll(() => query(page).get('days')).toBe(range);
+    };
+    await openClas();
+    const ranking = page.getByRole('region', { name: '설비별 동작시간', exact: true });
+    await expect(ranking.getByText(/^합성 데이터 · 2026-09-24 00:00:00 – 2026-09-25 00:00:00/)).toBeVisible();
+    const chips = queryBar(page).getByRole('group', { name: '분석 선택' });
+    await expect(chips.getByText('이전 화면에서:', { exact: true })).toBeVisible();
+    await evidence(page, testInfo, 'analysis-selection-arrival');
+    await chips.getByRole('link', { name: '이전 화면으로 돌아가기 (선택 유지)' }).click();
+    await expect(page).toHaveURL(/\/mars\/hw-time\?/);
+    await expect.poll(() => query(page).get('trendRange')).toBe(range);
+
+    await openClas();
+    const origin = query(page).get('returnTo');
+    await chips.getByRole('button', { name: '날짜 선택 지우기' }).click();
+    await expect.poll(() => query(page).has('days')).toBe(false);
+    expect(query(page).get('returnTo')).toBe(origin);
+  });
+});
+
 test.describe('HW Time stepped workspace — drill, options, add and pin', () => {
   test.beforeEach(async ({ page }) => { await signInAs(page, 'engineer'); });
 

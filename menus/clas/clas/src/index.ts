@@ -26,7 +26,8 @@ export const manifests: PlatformMenuEntry[] = [
     requiresScope: true, context: contextCapabilities({ time: 'apply', roomNames: 'apply' }), pageType: 'analysis',
     query: { mode: 'apply', autoApplyDefault: true, applyPeriodOnLegacyEntry: true },
     savedViewSupport: SAVED_VIEW_SUPPORT,
-    features: { ...NO_FEATURES, board: true }, pageKeys: ['eqp', 'returnTo'], contextResetKeys: ['eqp'], subjectPageKeys: { equipment: 'eqp' },
+    analysisSelectionInbound: [{ key: 'days', dimension: 'date', shape: 'range', label: { ko: '날짜', en: 'Date' } }],
+    features: { ...NO_FEATURES, board: true }, pageKeys: ['eqp', 'returnTo', 'days'], contextResetKeys: ['eqp', 'days'], subjectPageKeys: { equipment: 'eqp' },
     component: lazy(() => import('./pages/OperationTime')),
   },
 ];

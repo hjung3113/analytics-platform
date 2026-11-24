@@ -3,7 +3,7 @@
  * pages never import this module. */
 import { parseDateTime } from '@ap/contracts';
 import { defineMockEndpoint, type AnyMockEndpoint } from '@ap/mock-server';
-import { OPERATION_KINDS, operationTimeEndpoint, type OperationLane, type OperationTimeData } from '../endpoints';
+import { OPERATION_KINDS, operationTimeEndpoint, readOperationDays, type OperationLane, type OperationTimeData } from '../endpoints';
 
 const MODULES = ['LL1', 'TM', 'CH1', 'CH2', 'CH3', 'LL2'];
 const RANK_LIMIT = 30;
@@ -20,8 +20,9 @@ export const operationTimeMock = defineMockEndpoint(operationTimeEndpoint, {
   handle: ({ context, equipment, params }): OperationTimeData => {
     const empty: OperationTimeData = { ranking: [], equipmentId: null, missingEquipment: null, lanes: [] };
     if (context.from === null || context.to === null || equipment.length === 0) return empty;
-    const start = parseDateTime(context.from, 'from').getTime();
-    const duration = parseDateTime(context.to, 'to').getTime() - start;
+    const days = readOperationDays(params.days, context);
+    const start = parseDateTime(days?.from ?? context.from, 'from').getTime();
+    const duration = parseDateTime(days?.to ?? context.to, 'to').getTime() - start;
     if (duration <= 0) return empty;
     const hours = duration / 3_600_000;
     const all = equipment

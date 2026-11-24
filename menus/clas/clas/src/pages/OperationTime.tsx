@@ -2,9 +2,9 @@ import { formatWallClock, type GlobalContext, type Pair } from '@ap/contracts';
 import { useCallback, useMemo } from 'react';
 import { AlertTriangle, Clock, Cpu, Gauge } from 'lucide-react';
 import { formatNumber } from '@ap/contracts';
-import { formatSummaryTime, useI18n, useMenuQuery, usePlatform } from '@ap/kernel';
+import { formatSummaryTime, parseAnalysisSelection, useI18n, useMenuQuery, usePlatform, useQueryContext } from '@ap/kernel';
 import { AnalysisChart, AnalysisLayout, DataTrustIndicator, LaneTimeline, PlatformPage, QueryView, RecoverButton, ReturnLink, StateMessage, StatCard, type TimelineLane } from '@ap/components';
-import { operationTimeEndpoint, type OperationKind, type OperationTimeData } from '../endpoints';
+import { operationTimeEndpoint, readOperationDays, resolveOperationDays, type OperationKind, type OperationTimeData } from '../endpoints';
 
 const KIND_COLOR = { process: 'chart-series-1', transfer: 'chart-series-2', wait: 'chart-series-3' } as const;
 const KIND_LABEL: Record<OperationKind, { ko: string; en: string }> = {
@@ -21,16 +21,28 @@ export function operationTimeHistorySummary(page: readonly Pair[], lang: 'ko' | 
 }
 
 export default function OperationTimeScreen() {
-  const { pageParam } = usePlatform();
-  const { lang } = useI18n();
+  const { pageParam, pageParams } = usePlatform();
+  const { lang, tx } = useI18n();
+  const global = useQueryContext();
+  const eqp = pageParam('eqp') ?? '';
+  const receivedDays = pageParams('days');
+  const selection = parseAnalysisSelection('range', receivedDays);
+  const range = selection?.shape === 'range' ? resolveOperationDays(selection, global) : null;
+  const days = range ? `${range.from}/${range.to}` : '';
   const historyPageSummary = useCallback((_global: GlobalContext, page: readonly Pair[]) => operationTimeHistorySummary(page, lang), [lang]);
-  // keepPrevious ON (#1365, ADR-0114): picking another equipment re-reads the same period and Scope; the ranking and the flow title (from the data) stay until the new flow arrives.
-  const query = useMenuQuery(operationTimeEndpoint, { eqp: pageParam('eqp') ?? '' }, { keepPrevious: true });
+  // keepPrevious (#1365, ADR-0114): the chart and flow describe the accepted params until a changed equipment or date range finishes loading.
+  const query = useMenuQuery(operationTimeEndpoint, { eqp, days }, { keepPrevious: true });
+  const resultPeriod = readOperationDays(query.resultParams?.days ?? days, global) ?? global;
+  const previousEquipment = query.showingPrevious && query.resultParams?.eqp !== eqp;
   // Opened from another screen's object list (06 §22, #1930): the way back to that screen.
   const returning = pageParam('returnTo') !== null;
   // Only query-history rows describe page values (#2691); the current summaries stay as they are.
   return <PlatformPage queryBarExtension={{ historyPageSummary }} {...(returning ? { secondaryActions: <ReturnLink /> } : {})} dataTrustSummary={query.response ? <DataTrustIndicator trust={query.response.trust} assessments={query.response.assessments} /> : undefined}>
-    <QueryView query={query}>{data => <OperationTimeBody data={data} updatedAt={query.response?.trust?.updatedAt ?? null} previousEquipment={query.showingPrevious ? acceptedEquipment(query.resultParams?.eqp, data.equipmentId) : null} />}</QueryView>
+    {receivedDays.length > 0 && !range && <p role="status" className="px-1 text-xs text-text-secondary">{tx({
+      ko: '넘겨받은 날짜 구간을 적용하지 않았습니다. 형식이 맞지 않거나 적용 기간을 벗어났습니다.',
+      en: 'The received date range was skipped because it is invalid or falls outside the applied period.',
+    })}</p>}
+    <QueryView query={query}>{data => <OperationTimeBody data={data} updatedAt={query.response?.trust?.updatedAt ?? null} resultPeriod={resultPeriod} previousEquipment={previousEquipment ? acceptedEquipment(query.resultParams?.eqp, data.equipmentId) : null} />}</QueryView>
   </PlatformPage>;
 }
 
@@ -44,9 +56,9 @@ export function PreviousEquipmentLine({ equipment }: { equipment: string | null 
   return <p className="px-1 text-xs text-text-secondary">{tx({ ko: `이전 설비(${equipment})의 결과 · 갱신 중`, en: `Result of the previous equipment (${equipment}) · refreshing` })}</p>;
 }
 
-function OperationTimeBody({ data, updatedAt, previousEquipment }: { data: OperationTimeData; updatedAt: string | null; previousEquipment: string | null }) {
+function OperationTimeBody({ data, updatedAt, resultPeriod, previousEquipment }: { data: OperationTimeData; updatedAt: string | null; resultPeriod: Pick<GlobalContext, 'from' | 'to'>; previousEquipment: string | null }) {
   const { tx, lang } = useI18n();
-  const { global, setPage } = usePlatform();
+  const { setPage } = usePlatform();
   const number = (value: number) => formatNumber(value, lang);
   // The shown equipment's own row joins the chart input only when it ranks below the response's cap (#2187).
   const chartRows = useMemo(() => data.equipmentRow ? [...data.ranking, data.equipmentRow] : data.ranking, [data.ranking, data.equipmentRow]);
@@ -62,7 +74,7 @@ function OperationTimeBody({ data, updatedAt, previousEquipment }: { data: Opera
   if (leaders.length > 1) leaderCaption = tx({ ko: `공동 1위 ${leaders.length}대 · ${leaders.join(', ')}`, en: `Tied first, ${leaders.length} · ${leaders.join(', ')}` });
   else if (leaders.length === 1) leaderCaption = tx({ ko: `최장 ${leaders[0]}`, en: `Longest ${leaders[0]}` });
   const minutes = tx({ ko: '분', en: 'min' });
-  const period = `${tx({ ko: '합성 데이터', en: 'Synthetic data' })} · ${formatWallClock(global.from)} – ${formatWallClock(global.to)}`;
+  const period = `${tx({ ko: '합성 데이터', en: 'Synthetic data' })} · ${formatWallClock(resultPeriod.from)} – ${formatWallClock(resultPeriod.to)}`;
   const updated = formatSummaryTime(updatedAt, lang);
   const trust = { source: tx({ ko: '합성 데이터', en: 'Synthetic data' }), updated, coverage: tx({ ko: '견본 데이터', en: 'Sample data' }) };
   const flowTitle = `${data.equipmentId ?? ''} ${tx({ ko: '모듈별 동작 흐름', en: 'operation flow by module' })}`.trim();

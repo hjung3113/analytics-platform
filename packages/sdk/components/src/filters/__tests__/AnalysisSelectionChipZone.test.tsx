@@ -15,11 +15,11 @@ vi.mock('@ap/kernel', async importOriginal => ({
   useAnalysisSelectionChips: vi.fn(),
 }));
 
-const equipment: AnalysisSelectionChip = {
+const equipment = {
   key: 'equip', dimension: 'equipment', label: { ko: '설비', en: 'Equipment' },
   selection: { shape: 'set', values: ['E1', 'E2'] }, after: null, available: true,
   source: { panelId: 'trend', title: { ko: '설비 추세', en: 'Equipment trend' } },
-};
+} satisfies AnalysisSelectionChip;
 const module: AnalysisSelectionChip = {
   ...equipment, key: 'mod', dimension: 'module', label: null, available: false,
   selection: { shape: 'set', values: ['M1'] }, after: 'equip',
@@ -148,6 +148,37 @@ async function mountSelections(extra: string, selections = [equipment, module], 
   const { container } = render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}>{wrap(<Harness onDisclosureFocus={disclosureFocus} />)}{children}</PlatformProvider></I18nProvider>);
   return { container, disclosureFocus };
 }
+
+it('keeps the writerless arrival first, preserves its clear action and links to the previous screen', async () => {
+  const href = '/?v=1&equip=E2';
+  const arrival = { ...time, source: undefined, arrival: { href } };
+  const mounted = await mountSelections('', undefined, undefined, content => {
+    vi.mocked(useAnalysisSelectionChips).mockReturnValue({ chips: [equipment, arrival], clear, clearAll });
+    return content;
+  });
+  expect(zone().getByText('이전 화면에서:')).toBeVisible();
+  expect(zone().getByText('시간 14:00 – 16:00')).toBeVisible();
+  expect(zone().getAllByRole('button', { name: /선택 지우기/ })[0]).toHaveAccessibleName('시간 선택 지우기');
+  expect(zone().queryByRole('img', { name: '시간' })).toBeNull();
+  const user = userEvent.setup();
+  await user.click(zone().getByRole('button', { name: '시간 14:00 – 16:00 동작' }));
+  expect(screen.getAllByRole('menuitem').map(item => item.textContent)).toEqual(['지우기']);
+  await user.keyboard('{Escape}');
+  fireEvent.click(zone().getByRole('button', { name: '시간 선택 지우기' }));
+  expect(clear).toHaveBeenCalledExactlyOnceWith('time');
+  const back = zone().getByRole('link', { name: '이전 화면으로 돌아가기 (선택 유지)' });
+  expect(back).toHaveAttribute('href', href);
+  const row = screen.getByTestId('row');
+  const probe = mounted.container.querySelector('[data-analysis-chip-probe]')!;
+  back.focus();
+  act(() => { resize(row, 300); resize(screen.getByText('조회 요약'), 100); resize(probe, 300); });
+  expect(zone().getByRole('link', { name: '이전 화면으로 돌아가기 (선택 유지)' })).toBeVisible();
+  expect(zone().getByRole('link', { name: '이전 화면으로 돌아가기 (선택 유지)' })).toHaveFocus();
+  act(() => resize(row, 500));
+  expect(zone().getByRole('link', { name: '이전 화면으로 돌아가기 (선택 유지)' })).toHaveFocus();
+  await user.click(zone().getByRole('link', { name: '이전 화면으로 돌아가기 (선택 유지)' }));
+  expect(window.location.search).toBe('?v=1&equip=E2');
+});
 
 function SelectionSource() {
   const { highlighted } = useAnalysisSelectionOutput('source', 'equip', { available: ['E1', 'E2', 'E2'] });

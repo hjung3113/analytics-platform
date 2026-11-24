@@ -65,7 +65,7 @@ export function useHostPlatformOptional(): HostPlatform | null {
 }
 
 /** Anchor that navigates through the kernel (keeps modifier-click/open-in-new-tab behavior). */
-export function PlatformLink({ href, children, className, onNavigate, via, ...rest }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string; onNavigate?: () => void; /** How this link is reported in the usage entry it leads to (default `link`). */ via?: MainUsageVia }) {
+export function PlatformLink({ href, children, className, onNavigate, via, ...rest }: React.ComponentPropsWithRef<'a'> & { href: string; onNavigate?: () => void; /** How this link is reported in the usage entry it leads to (default `link`). */ via?: MainUsageVia }) {
   const { navigate, location, pathname } = usePlatform();
   return <a href={location.href(href)} className={className} {...rest} onClick={e => {
     rest.onClick?.(e);

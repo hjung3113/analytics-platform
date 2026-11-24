@@ -10,7 +10,7 @@ describe('manifest', () => {
     expect(manifests).toHaveLength(1);
     const menu = manifests[0];
     expect(menu.primary).toBe(true);
-    expect(menu.pageKeys).toEqual(['eqp', 'returnTo']);
+    expect(menu.pageKeys).toEqual(['eqp', 'returnTo', 'days']);
     expect(menu.pageType).toBe('analysis');
     expect(menu.group).toBe('clas');
     const spaces: SpaceDef[] = [{ id: spaceId('clas'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];
@@ -18,6 +18,9 @@ describe('manifest', () => {
     const registry = createRegistry({ spaces, groups, menus: manifests, permissions: [PERMISSION] });
     expect(registry.menuById('operation-time').path).toBe('/clas/operation-time');
     expect(registry.spaceOf(menu)?.id).toBe('clas');
+    expect(registry.menuById(menu.id).analysisSelectionInbound).toEqual([
+      { key: 'days', dimension: 'date', shape: 'range', label: { ko: '날짜', en: 'Date' } },
+    ]);
   });
 
   it('owns the operation-time endpoint with the same permission and Scope rule (#126)', () => {

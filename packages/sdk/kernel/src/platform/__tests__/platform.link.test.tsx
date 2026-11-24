@@ -146,14 +146,14 @@ describe('cross-menu analysis selection carry (#2735)', () => {
         outputs: [output('picked', equipment), output('other', equipment), output('period', interval)] }],
     }] });
 
-  function mount(url = source): HostPlatform {
+  function mount(url = source, testRegistry = carryRegistry): HostPlatform {
     let platform!: HostPlatform;
     function Capture() {
       platform = useHostPlatform();
       return null;
     }
     window.history.replaceState(null, '', location.href(url));
-    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(ANALYST)} registry={carryRegistry} location={location}><Capture /></PlatformProvider></I18nProvider>);
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={fixture(ANALYST)} registry={testRegistry} location={location}><Capture /></PlatformProvider></I18nProvider>);
     return platform;
   }
 
@@ -189,7 +189,10 @@ describe('cross-menu analysis selection carry (#2735)', () => {
       key: 'received', use: 'filter', dimension: 'equipment', selection: { shape: 'set', values: ['E&A', 'E2'] },
     }]);
     expect(result.current.inputs.applied[0]).not.toHaveProperty('source');
-    expect(result.current.chips).toEqual([]);
+    expect(result.current.chips).toEqual([{
+      key: 'received', dimension: 'equipment', label: null, after: null, available: true,
+      selection: { shape: 'set', values: ['E&A', 'E2'] },
+    }]);
   });
 
   it('keeps the legacy types and exposes structured results through separate methods', () => {
@@ -270,6 +273,20 @@ describe('cross-menu analysis selection carry (#2735)', () => {
     expect(query(link.href).get('object')).toBe('object-id');
     expect(query(link.href).getAll('received')).toEqual(['E&A', 'E2']);
     expect(objectSelectionLinks({ kind: 'equipment', id: 'x'.repeat(NAVIGATION_URL_MAX_LENGTH) })[0]?.kind).toBe('tooLong');
+  });
+
+  it.each([
+    ['picked=E1', 1],
+    ['picked=E2', 2],
+    ['picked=E1&picked=E2', 2],
+  ])('only treats the named output as conveyed by the object id when it has that single value (%s)', (picked, missing) => {
+    const objectTarget = { ...target, analysisSelectionInbound: undefined, panels: [] };
+    const objectRegistry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces, groups: carryRegistry.groups,
+      menus: carryRegistry.menus.map(menu => menu.id === objectTarget.id ? objectTarget : menu) });
+    const { objectSelectionLinks } = mount(`/mars/selection-source?v=1&${picked}&other=E1`, objectRegistry);
+    const [link] = objectSelectionLinks({ kind: 'equipment', id: 'E1' }, { objectOutput: 'picked' });
+    expect(query(link.href).get('object')).toBe('E1');
+    expect(link.droppedSelections).toEqual(Array.from({ length: missing }, () => ({ dimension: 'equipment', reason: 'noInbound' })));
   });
 
   it('keeps carry out of linkTo, including when given a wider options object', () => {

@@ -347,7 +347,8 @@
     "id": "clas.operationTime",
     "menuId": "operation-time",
     "paramKeys": [
-      "eqp"
+      "eqp",
+      "days"
     ],
     "permission": "analytics:view",
     "requiresScope": true,

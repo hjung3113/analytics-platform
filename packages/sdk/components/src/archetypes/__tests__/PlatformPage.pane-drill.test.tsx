@@ -7,7 +7,9 @@ import { PaneScreenProvider, type PaneScreen } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { DrillLayout, ReturnLink } from '../DrillLayout';
 import { PlatformPage } from '../PlatformPage';
+import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
 import { groupId, spaceId } from '@ap/contracts';
+import userEvent from '@testing-library/user-event';
 
 const features = { export: false, savedView: false, annotate: false, compare: false, board: true };
 const keys = ['drillRoom', 'drillStgroup'] as const;
@@ -170,5 +172,45 @@ describe('ReturnLink inside a board pane (#497)', () => {
     fireEvent.click(link);
     await settle();
     expect(b).toHaveFocus();
+  });
+
+  it('pressing Enter on an arrival chip returns focus to the owning pane', async () => {
+    const selection = { dimension: 'equipment', shape: 'set' } as const;
+    const arrivalRegistry = createRegistry({
+      spaces: returnRegistry.spaces,
+      groups: returnRegistry.groups,
+      menus: returnRegistry.menus.map(menu => menu.id === 'source' ? {
+        ...menu, pageKeys: ['picked'], repeatedPageKeys: ['picked'], contextResetKeys: ['picked'],
+        panels: [{ id: 'chart', title: menu.label, grain: 'daily', endpoints: [], queryInputs: {}, displayInputs: {},
+          outputs: [{ key: 'picked', action: 'pick', selection }] }],
+      } : {
+        ...menu, pageKeys: ['returnTo', 'received'], repeatedPageKeys: ['received'], contextResetKeys: ['received'],
+        analysisSelectionInbound: [{ key: 'received', ...selection }],
+      }),
+    });
+    const href = '/mars/source?v=1&picked=E1';
+    function ArrivalPane() {
+      const [state, setState] = useState<PaneScreen>({
+        menuId: 'target', params: {}, query: `?v=1&received=E1&returnTo=${encodeURIComponent(href)}`,
+      });
+      return <div data-pane-id="arrival" data-testid="arrival" tabIndex={-1}>
+        <PaneScreenProvider paneId="arrival" screen={state} onChange={next => setState(next)} onLeave={() => {}}>
+          <PlatformPage>{state.menuId === 'target' ? <AnalysisSelectionChipZone /> : <span>source content</span>}</PlatformPage>
+        </PaneScreenProvider>
+      </div>;
+    }
+    window.history.replaceState(null, '', '/mars/source');
+    const session = testSession(['platform:view']);
+    render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={arrivalRegistry}>
+      <main tabIndex={-1}><PlatformPage><span>main</span></PlatformPage><ArrivalPane /></main>
+    </PlatformProvider></I18nProvider>);
+    const pane = screen.getByTestId('arrival');
+    const back = within(pane).getByRole('link', { name: '이전 화면으로 돌아가기 (선택 유지)' });
+    expect(back).toHaveAttribute('href', href);
+    back.focus();
+    await userEvent.setup().keyboard('{Enter}');
+    await settle();
+    expect(within(pane).getByText('source content')).toBeVisible();
+    expect(pane).toHaveFocus();
   });
 });
