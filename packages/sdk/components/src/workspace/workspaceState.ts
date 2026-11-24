@@ -273,7 +273,8 @@ function restoreRows(raw: Record<string, unknown>, state: WorkspaceState, spec: 
   if (stored && appended) {
     const previous = normalizeDockTree(raw.layout, [...namedIds(raw.layout)]);
     if (topLevelRows(previous).length === stored.length) {
-      const matched = reconcileRows(previous, stored, state.layout, minimum, MAX_STORED_ROW_PX);
+      // A row with no stored predecessor opens at its declared preference: there is no user height to keep, whatever `preferredSeen` remembers (#2820).
+      const matched = reconcileRows(previous, stored, state.layout, minimum, Math.min(maxRow, MAX_STORED_ROW_PX), undefined, spec.rowPreferred);
       return raiseToPreferred(withRestoredSharedHeights(state, matched, spec), seen, spec, maxRow);
     }
   }

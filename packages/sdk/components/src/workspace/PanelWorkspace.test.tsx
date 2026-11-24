@@ -748,6 +748,21 @@ describe('PanelWorkspace: height mode (#686)', () => {
     expect(rowHeights()).toEqual([300, 400, 392]);
   });
 
+  it('opens a row a returning standalone panel recreates at its declared height (#2820)', async () => {
+    vi.stubGlobal('innerHeight', 900);
+    const panels = [PANELS[0]!, { ...PANELS[2]!, placement: 'below' as const, preferredHeight: 360 }];
+    seed(stackStored([480], { layout: group(['trend']) }));
+    const view = mountWorkspace({ ...ROWS_PROPS, panels });
+    await ready();
+    const opened = rowHeights();
+    expect(opened).toEqual([480, 400]);
+    view.rerender(shell(<PanelWorkspace {...BASE} {...ROWS_PROPS} panels={[PANELS[0]!]} />));
+    await sleep(400);
+    view.rerender(shell(<PanelWorkspace {...BASE} {...ROWS_PROPS} panels={panels} />));
+    expect(await screen.findByRole('tab', { name: '상세' })).toBeInTheDocument();
+    expect(rowHeights()).toEqual(opened);
+  });
+
   it.each(['live', 'after remount'] as const)('keeps a shared row shrink when a declared member returns %s', async path => {
     vi.stubGlobal('innerHeight', 600);
     const panels = PANELS.filter(panel => panel.id !== 'kpi').map(panel => (
