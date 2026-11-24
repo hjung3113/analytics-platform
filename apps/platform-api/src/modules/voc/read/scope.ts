@@ -1,11 +1,23 @@
 // VOC list view scope resolution and shared scope membership helper.
 import type { ListVocsQuery } from '@ap/feature-shared';
+import pg from 'pg';
+import type { Db } from '../../../db/client.js';
 import { HttpError } from '../../../lib/errors.js';
+import type { CheckService } from '../../permissions/check-service.js';
+import { checkPermissionRequestTarget } from '../../permissions/read-projections.js';
 import { scopeIncludes, scopeIsNonEmpty } from '../../permissions/scope-service.js';
 import type { Scope } from '../authorization.js';
 import type { ReadActorContext } from '../read-service.js';
 
 // ── Scope helpers ────────────────────────────────────────────────────────────
+
+/** A failure of the database itself (a PostgreSQL error, a lost or refused connection), not a bug in the caller. */
+function isDatabaseFailure(error: unknown): boolean {
+  if (error instanceof pg.DatabaseError) return true;
+  if (!(error instanceof Error)) return false;
+  const code = (error as { code?: unknown }).code;
+  return (typeof code === 'string' && /^E[A-Z]+$/.test(code)) || /^Connection terminated|timeout exceeded when trying to connect/.test(error.message);
+}
 
 export function msInScope(scope: Scope, msId: string): boolean {
   return scopeIncludes(scope, msId);
@@ -29,15 +41,44 @@ type ResolvedVocListScope = {
   actorIdForMyFilter?: string;
 };
 
-/** Shared view-to-scope decision for VOC lists and their navigation counts. */
-export function resolveVocListScope(args: {
+/**
+ * Resolve the view's VOC scope. List denials may include a hint to request access
+ * or view the actor's own pending or needs_more_info request. Count callers
+ * consume the denial code and can skip hints entirely.
+ */
+export async function resolveVocListScope(args: {
   actor: ReadActorContext;
+  db: Db;
+  checkService: Pick<CheckService, 'checkCapability' | 'capabilities'>;
   query: Pick<ListVocsQuery, 'view' | 'managed_system_id'>;
   readScope: Scope;
   triageScope: Scope | undefined;
-}): ResolvedVocListScope {
-  const { actor, query, readScope, triageScope } = args;
+  withRequestHint?: boolean;
+}): Promise<ResolvedVocListScope> {
+  const { actor, db, checkService, query, readScope, triageScope, withRequestHint = true } = args;
   const { view, managed_system_id } = query;
+
+  async function requestablePermissionDetail(
+    permission: 'voc.read' | 'voc.triage',
+    managedSystemId: string | null,
+  ) {
+    if (!withRequestHint) return undefined;
+    if (managedSystemId !== null) {
+      try {
+        const { requestAvailability } = await checkPermissionRequestTarget(db, checkService, actor, permission, {
+          workspace_id: actor.workspace_id,
+          managed_system_id: managedSystemId,
+        });
+        if (requestAvailability === 'none') return undefined;
+      } catch (error) {
+        // The scope already denied the list read: a database that cannot answer the hint lookup must not turn that 403
+        // into a 500. Any other error is a bug in the lookup and propagates.
+        if (isDatabaseFailure(error)) return undefined;
+        throw error;
+      }
+    }
+    return { requestable_permission: { permission, managed_system_id: managedSystemId } };
+  }
 
   if (view === 'my') {
     if (managed_system_id === 'all') {
@@ -62,7 +103,7 @@ export function resolveVocListScope(args: {
           'voc.read capability required; developer needs MS-scoped grant',
           {
             requiredScope: [],
-            requestable_permission: { permission: 'voc.read', managed_system_id: null },
+            ...(await requestablePermissionDetail('voc.read', null)),
           },
         );
       }
@@ -77,7 +118,7 @@ export function resolveVocListScope(args: {
           'managed_system_id not in voc.read scope',
           {
             requiredScope: [managed_system_id],
-            requestable_permission: { permission: 'voc.read', managed_system_id },
+            ...(await requestablePermissionDetail('voc.read', managed_system_id)),
           },
         );
       }
@@ -87,9 +128,11 @@ export function resolveVocListScope(args: {
   }
 
   if (!triageScope) {
-    throw new HttpError('permission.denied', 'no voc.triage scope for actor', {
-      requestable_permission: { permission: 'voc.triage', managed_system_id: null },
-    });
+    throw new HttpError(
+      'permission.denied',
+      'no voc.triage scope for actor',
+      await requestablePermissionDetail('voc.triage', null),
+    );
   }
   const triage = triageScope;
   const intersected = intersectScopes(readScope, triage);
@@ -105,16 +148,17 @@ export function resolveVocListScope(args: {
         triage.kind === 'scoped' && triage.managedSystemIds.length === 1
           ? (triage.managedSystemIds[0] ?? null)
           : null;
-      throw new HttpError('permission.denied', 'voc.read required to use voc.triage scope', {
-        requestable_permission: {
-          permission: 'voc.read',
-          managed_system_id: selected ?? fallbackSystemId,
-        },
-      });
+      throw new HttpError(
+        'permission.denied',
+        'voc.read required to use voc.triage scope',
+        await requestablePermissionDetail('voc.read', selected ?? fallbackSystemId),
+      );
     }
-    throw new HttpError('permission.denied', 'no voc.triage scope for actor', {
-      requestable_permission: { permission: 'voc.triage', managed_system_id: null },
-    });
+    throw new HttpError(
+      'permission.denied',
+      'no voc.triage scope for actor',
+      await requestablePermissionDetail('voc.triage', null),
+    );
   }
   if (selected) {
     if (!msInScope(intersected, selected)) {
@@ -126,10 +170,10 @@ export function resolveVocListScope(args: {
           : 'managed_system_id not in voc.triage scope',
         {
           requiredScope: [selected],
-          requestable_permission: {
-            permission: asksForRead ? 'voc.read' : 'voc.triage',
-            managed_system_id: selected,
-          },
+          ...(await requestablePermissionDetail(
+            asksForRead ? 'voc.read' : 'voc.triage',
+            selected,
+          )),
         },
       );
     }
