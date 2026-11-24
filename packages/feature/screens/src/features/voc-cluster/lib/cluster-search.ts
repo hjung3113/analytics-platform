@@ -3,6 +3,13 @@
 import { isSearchFieldValueValid, parseRouteSearch } from '../../../lib/host/search-fields';
 import { z } from 'zod';
 
+const managedSystemUuid = z.string().uuid();
+
+export function movesVocClusterScope(current: string | null | undefined, created: string): boolean {
+  return current != null && managedSystemUuid.safeParse(current).success &&
+    managedSystemUuid.safeParse(created).success && current.toLowerCase() !== created.toLowerCase();
+}
+
 // Selection + Managed System scope are URL state (packages/feature/screens/docs/routes-and-layout.md
 // §URL State Rules): /voc-clusters?managedSystem=:managedSystemId|all&selected=:clusterId.
 // Defaults (scope union / nothing selected) are omitted from the URL. `all` and an
@@ -11,7 +18,7 @@ import { z } from 'zod';
 // Managed System selector UI — the URL param is supported for deep links only.
 export const vocClustersSearchSchema = z
   .object({
-    managedSystem: z.union([z.string().uuid(), z.literal('all')]).optional(),
+    managedSystem: z.union([managedSystemUuid, z.literal('all')]).optional(),
     selected: z.string().uuid().optional(),
   })
   .strict();

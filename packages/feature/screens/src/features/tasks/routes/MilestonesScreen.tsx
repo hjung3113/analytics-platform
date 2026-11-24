@@ -79,6 +79,14 @@ const STATUS_TABS: Array<{ value: MilestoneTab; label: string }> = [
   { value: 'released', label: GLOSSARY.milestoneStatusReleased },
 ];
 
+function milestoneListKey(managedSystem: string | undefined, tab: MilestoneTab) {
+  return ['milestones', 'list', managedSystem ?? null, tab] as const;
+}
+
+function milestoneCountKey(managedSystem: string | undefined) {
+  return ['milestones', 'counts', managedSystem ?? null] as const;
+}
+
 export function MilestonesScreen({ capability = 'finding.manage', renderDetail }: MilestonesScreenProps) {
   const navigate = useHostNavigate();
   const primaryActionTarget = useHostPrimaryActionTarget();
@@ -138,7 +146,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
   }, [selectedParam, creating, createDirty, detailTitleDirty]);
 
   const listQuery = useQuery({
-    queryKey: ['milestones', 'list', managedSystem ?? null, activeTab] as const,
+    queryKey: milestoneListKey(managedSystem, activeTab),
     queryFn: ({ signal }) =>
       listMilestones({
         signal,
@@ -151,7 +159,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
   // Tab badges and the summary strip read a real unfiltered list response so
   // counts never depend on the active status tab (LinksRoute count pattern).
   const countQuery = useQuery({
-    queryKey: ['milestones', 'counts', managedSystem ?? null] as const,
+    queryKey: milestoneCountKey(managedSystem),
     queryFn: ({ signal }) =>
       listMilestones({
         signal,
@@ -522,12 +530,23 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
           defaultManagedSystemId={
             managedSystem !== undefined && managedSystem !== 'all' ? managedSystem : null
           }
-          onCreated={(createdId) => {
+          onCreated={(createdId, createdSystemId) => {
             setCreating(false);
-            // The list refetches so the new row appears; selection rides the
-            // existing `param` key with the Managed System scope preserved.
-            // No discard confirm: success consumes the form, it is not lost.
             void queryClient.invalidateQueries({ queryKey: ['milestones'] });
+            const moveScope = managedSystem !== undefined && managedSystem !== 'all' &&
+              managedSystem.toLowerCase() !== createdSystemId.toLowerCase();
+            if (moveScope) {
+              const queryKeys = [
+                milestoneListKey(createdSystemId, activeTab),
+                milestoneCountKey(createdSystemId),
+                permissionCheckQueryKey({ capability, managedSystemId: createdSystemId }),
+              ];
+              for (const queryKey of queryKeys) queryClient.removeQueries({ queryKey, exact: true });
+              // Let the new URL select the record after the scope changes.
+              setSelectedId(null);
+              navigate(searchHref('/tasks', { view: 'milestones', param: createdId, managedSystem: createdSystemId }));
+              return;
+            }
             applySelection(createdId);
           }}
           onDirtyChange={setCreateDirty}

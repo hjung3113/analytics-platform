@@ -52,7 +52,7 @@ export interface MilestoneCreatePanelProps {
   actors: ReadonlyArray<{ id: string; display_name: string }>;
   /** Concrete Managed System uuid to preselect; the `all` scope passes null. */
   defaultManagedSystemId: string | null;
-  onCreated: (id: string) => void;
+  onCreated: (id: string, managedSystemId: string) => void;
   /** B2e fixup — reports whether the form holds unsaved edits, so the route
       can confirm before a selection discards them. */
   onDirtyChange?: (dirty: boolean) => void;
@@ -181,7 +181,7 @@ export function useMilestoneCreateParts({
       // session: ignore it so it cannot close a newer create form or select
       // the abandoned record.
       if (!sessionMountedRef.current) return;
-      onCreated(created.id);
+      onCreated(created.id, created.primary_managed_system_id);
     },
     onError: (err) => setFormError(mapUnknownError(err).message),
   });

@@ -1,4 +1,4 @@
-// CreateClusterModal: the "Cluster 생성" dialog. It reports the new cluster id; where to go next is the host screen's call.
+// CreateClusterModal reports the new cluster's selection and scope to its host.
 
 import { useCreateVocCluster } from '../../hooks/useCreateVocCluster';
 import { errorMapper } from '../../../../lib/api/errorMapper';
@@ -38,7 +38,7 @@ export function CreateClusterModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onCreated: (id: string) => void;
+  onCreated: (id: string, managedSystemId: string) => void;
 }): React.ReactElement {
   const ime = useImeEnterGuard();
   const [title, setTitle] = useState('');
@@ -102,7 +102,7 @@ export function CreateClusterModal({
     mutation.mutate(body, {
       onSuccess: (cluster) => {
         closeAndReset();
-        onCreated(cluster.id);
+        onCreated(cluster.id, cluster.primary_managed_system_id);
       },
       onError: (err: ApiError) => {
         const permissionDenied: boolean = isPermissionDenied(err);

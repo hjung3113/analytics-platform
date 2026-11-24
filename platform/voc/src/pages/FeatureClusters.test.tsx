@@ -13,7 +13,7 @@ import { mountAt, warmPages } from '../test-support';
 
 const screenMock = vi.hoisted(() => ({
   render: undefined as undefined | ((id: string, options: { onClose: () => void }) => unknown),
-  onCreated: undefined as undefined | ((id: string) => void),
+  onCreated: undefined as undefined | ((id: string, managedSystemId: string) => void),
   detailArgs: [] as { clusterId: string }[],
   mounts: 0,
   screens: 0,
@@ -21,7 +21,7 @@ const screenMock = vi.hoisted(() => ({
 vi.mock('@ap/feature-screens/operator-screens/voc-clusters', async importOriginal => ({
   // The strict value check is the feature screens' real cluster schema, not a double.
   ...(await importOriginal<typeof import('@ap/feature-screens/operator-screens/voc-clusters')>()),
-  ClusterListScreen: (props: { renderDetail: typeof screenMock.render; onCreated: (id: string) => void }) => {
+  ClusterListScreen: (props: { renderDetail: typeof screenMock.render; onCreated: NonNullable<typeof screenMock.onCreated> }) => {
     screenMock.screens += 1;
     screenMock.render = props.renderDetail;
     screenMock.onCreated = props.onCreated;
@@ -170,7 +170,7 @@ describe('Clusters through the feature bridge', () => {
   it('opens the new cluster after a create (onCreated sets focus)', async () => {
     mountAt('/flow/clusters');
     await screen.findByTestId('clusters');
-    screenMock.onCreated!(CLUSTER_Z);
+    screenMock.onCreated!(CLUSTER_Z, SYSTEM);
     await waitFor(() => expect(window.location.search).toContain(`focus=${CLUSTER_Z}`));
     expect(await screen.findByText(`상세 본문 ${CLUSTER_Z}`)).toBeTruthy();
   });

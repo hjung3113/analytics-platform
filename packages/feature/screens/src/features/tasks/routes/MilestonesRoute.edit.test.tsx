@@ -1666,6 +1666,17 @@ describe('MilestonesRoute tab switch draft preservation (R6)', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /SSO Stabilization/ })).not.toBeInTheDocument();
-    expectDraftIntact(viaCreate);
+    if (viaCreate) {
+      expectDraftIntact(true);
+    } else {
+      expect(screen.queryByRole('heading', { name: SSO_ROW.title })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('milestone-detail-scroll')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '저장' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '링크 복사' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument();
+      expect(screen.getByText('이 Milestone을 볼 권한이 없습니다.')).toBeInTheDocument();
+      expect(titleMock).toHaveBeenLastCalledWith(null);
+      expect(navigateMock).not.toHaveBeenCalled();
+    }
   });
 });

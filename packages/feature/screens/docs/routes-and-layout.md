@@ -707,6 +707,12 @@ show the required permission where applicable. The action row ends with
 action, focus moves to the first available action or to the card. The same focus
 destination applies when a recovery queue denial removes the focused list control
 and focus falls to the page body.
+
+After VOC Cluster or Milestone creation, an explicitly scoped list moves to the new record's Primary Managed System
+and selects the record in the same URL update. The destination list checks fresh permission and list data.
+A VOC Cluster scope change after creation opens the «전체» tab so the new draft stays visible.
+The effective scope union stays selected when the URL omits the System
+or uses `all`.
 Rows use the default compact Integration density: snippet title plus one truncated
 metadata line containing Finding identity, source and classification. Withheld
 row titles and panel text are muted and italic. A readable VOC's panel source label

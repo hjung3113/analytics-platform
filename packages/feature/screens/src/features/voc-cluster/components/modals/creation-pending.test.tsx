@@ -6,7 +6,11 @@ import { CreateClusterModal } from './CreateClusterModal';
 import { CreateFindingFromClusterModal } from './CreateFindingFromClusterModal';
 
 const api = vi.hoisted(() => ({ apiClient: vi.fn() }));
-vi.mock('../../../../lib/api/client', async (original) => ({ ...(await original<typeof import('../../../../lib/api/client')>()), apiClient: api.apiClient }));
+vi.mock('../../../../lib/api/client', async (original) => ({
+  ...(await original<typeof import('../../../../lib/api/client')>()),
+  apiClient: api.apiClient,
+  apiRequest: api.apiClient,
+}));
 vi.mock('../../../../lib/api/registry-reads', () => ({ fetchManagedSystems: async () => ({ items: [{ id: '00000000-0000-4000-8000-000000000001', name: 'System A' }], total: 1 }) }));
 vi.mock('../../../../lib/api/permission-reads', () => ({ fetchCapabilityScopeViaClient: async () => ({ scope: { kind: 'all' } }) }));
 
@@ -37,9 +41,14 @@ describe('creation pending dismissal', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' });
     fireEvent.click(screen.getByRole('button', { name: '닫기' }));
     expect(onClose).not.toHaveBeenCalled();
-    await act(async () => resolve({ data: { id: '00000000-0000-4000-8000-000000000003' } }));
+    await act(async () => resolve({ data: {
+      id: '00000000-0000-4000-8000-000000000003',
+      primary_managed_system_id: '00000000-0000-4000-8000-000000000001',
+    } }));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    if (kind === 'cluster') expect(onCreated).toHaveBeenCalledWith('00000000-0000-4000-8000-000000000003');
+    if (kind === 'cluster') expect(onCreated).toHaveBeenCalledWith(
+      '00000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000001',
+    );
     else expect(navigate).toHaveBeenCalledWith('/findings/00000000-0000-4000-8000-000000000003');
     expect(api.apiClient).toHaveBeenCalledTimes(1);
     api.apiClient.mockReset();

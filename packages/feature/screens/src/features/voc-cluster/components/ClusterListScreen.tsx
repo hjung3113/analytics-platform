@@ -2,10 +2,13 @@
 // platform bridge). Selection and the Managed System scope are the host's search (`selected`, `managedSystem`) read and
 // written through the host seam; where a created cluster opens is the host's call (`onCreated`).
 
-import { VocClusterListShell } from './detail/VocClusterListShell';
+import { CLUSTER_LIST_CAPABILITY, VocClusterListShell, clusterListScopeKey } from './detail/VocClusterListShell';
 import { CreateClusterModal } from './modals/CreateClusterModal';
-import { useVocClusterList } from '../hooks/useVocClusterList';
-import { vocClustersSearchSchema } from '../lib/cluster-search';
+import { useVocClusterList, vocClusterListKey } from '../hooks/useVocClusterList';
+import { clusterSuggestionActorContext } from '../hooks/useClusterSuggestions';
+import { movesVocClusterScope, vocClustersSearchSchema } from '../lib/cluster-search';
+import { useQueryClient } from '@tanstack/react-query';
+import { permissionCheckQueryKey } from '../../../lib/cross-system/usePermissionCheckBridge';
 import { useMeBridge } from '../../../lib/api/me';
 import { useHostNavigate, useHostSearch } from '../../../lib/host/host-seam';
 import { HostPrimaryAction } from '../../../lib/host/HostPrimaryAction';
@@ -20,15 +23,17 @@ export function ClusterListScreen({
   onCreated,
   renderDetail,
 }: {
-  /** Called with the new cluster's id once the create dialog succeeded. */
-  onCreated: (id: string) => void;
+  /** Called with the new cluster's id and primary system after creation. */
+  onCreated: (id: string, managedSystemId: string) => void;
   /** A host that draws the cluster detail itself (the platform); absent = the built-in side panel. */
   renderDetail?: (
     clusterId: string,
     options: { onClose: () => void },
   ) => React.ReactNode | undefined;
 }): React.ReactElement {
+  const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [resetTabFor, setResetTabFor] = useState<string>();
   const [suggestionMode, setSuggestionMode] = useState(false);
   const [preserveSuggestionSelection, setPreserveSuggestionSelection] = useState(false);
   const changeSuggestionMode = React.useCallback(
@@ -105,6 +110,7 @@ export function ClusterListScreen({
         defaultToFirst={false}
         onSuggestionModeChange={changeSuggestionMode}
         managedSystemId={managedSystemId}
+        resetTabFor={resetTabFor}
         {...(renderDetail !== undefined ? { renderDetail } : {})}
         primaryAction={
           canCreate ? (
@@ -134,9 +140,21 @@ export function ClusterListScreen({
         <CreateClusterModal
           open={createOpen}
           onClose={() => setCreateOpen(false)}
-          onCreated={(id) => {
+          onCreated={(id, createdSystemId) => {
             setCreateOpen(false);
-            onCreated(id);
+            if (movesVocClusterScope(managedSystemId, createdSystemId)) {
+              const queryKeys = [
+                vocClusterListKey(createdSystemId),
+                clusterListScopeKey(clusterSuggestionActorContext(me)),
+                permissionCheckQueryKey({
+                  capability: CLUSTER_LIST_CAPABILITY,
+                  managedSystemId: createdSystemId.toLowerCase(),
+                }),
+              ];
+              for (const queryKey of queryKeys) queryClient.removeQueries({ queryKey, exact: true });
+              setResetTabFor(id);
+            }
+            onCreated(id, createdSystemId);
           }}
         />
       )}

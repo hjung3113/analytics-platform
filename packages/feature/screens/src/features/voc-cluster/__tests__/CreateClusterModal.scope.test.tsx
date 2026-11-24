@@ -21,6 +21,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({ removeQueries: vi.fn() }),
   useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => {
     if (queryKey[0] === 'permission-scope') {
       const { pending, error, scope } = mocks.scopeState;
