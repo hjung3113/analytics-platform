@@ -18,48 +18,71 @@ function selectedBlock(editor: Editor, type: 'table' | 'codeBlock'): HTMLElement
   return null;
 }
 
+type Placement = { type: 'table' | 'codeBlock'; top: number; left: number };
+
 /** Selection owns visibility, rather than editor focus. A portalled menu therefore cannot detach its own anchor. */
 export function EditorContextBars({ editor }: { editor: Editor }) {
   const marker = React.useRef<HTMLDivElement>(null);
   const bar = React.useRef<HTMLDivElement>(null);
   const roving = useToolbarRovingFocus(bar);
-  const [placement, setPlacement] = React.useState<{ type: 'table' | 'codeBlock'; top: number; left: number } | null>(null);
+  const [placement, setPlacement] = React.useState<Placement | null>(null);
   const [, update] = React.useReducer(n => n + 1, 0);
   const [codeOpen, setCodeOpen] = React.useState(false);
   React.useEffect(() => { editor.on('transaction', update); editor.on('update', update); return () => { editor.off('transaction', update); editor.off('update', update); }; }, [editor]);
   const type = editor.isEditable ? editor.isActive('table') ? 'table' : editor.isActive('codeBlock') ? 'codeBlock' : null : null;
+  // Listeners follow the watched elements (block, marker, bar), not the document: a transaction only re-measures, so typing in a table
+  // neither resubscribes the ResizeObserver nor replays its first callback (#2814).
+  const watch = React.useRef<{ anchor: HTMLElement; origin: HTMLElement; bar: HTMLElement | null; type: 'table' | 'codeBlock'; position: () => void; stop: () => void } | null>(null);
+  // The placement last set, so an unchanged measure sets nothing and adds no render.
+  const placed = React.useRef(placement);
+  const shown = placement !== null;
   React.useLayoutEffect(() => {
-    if (!type) { setPlacement(null); return; }
-    const block = selectedBlock(editor, type);
+    const block = type ? selectedBlock(editor, type) : null;
     const origin = marker.current;
-    if (!block || !origin) { setPlacement(null); return; }
+    if (!type || !block || !origin) { watch.current?.stop(); watch.current = null; placed.current = null; setPlacement(null); return; }
     // compat.css always reserves a strip inside editable blocks, so the bar never covers text and selecting never shifts layout.
     // Never write attributes on these nodes: mutating a code block's PRE makes ProseMirror replace the node being measured.
     const anchor = type === 'table' ? block.closest<HTMLElement>('.tableWrapper') ?? block : block;
+    const current = watch.current;
+    if (current && current.anchor === anchor && current.origin === origin && current.bar === bar.current && current.type === type) { current.position(); return; }
+    current?.stop();
     const position = () => {
       const rect = anchor.getBoundingClientRect(); const bounds = origin.getBoundingClientRect();
       const barWidth = bar.current?.getBoundingClientRect().width ?? 0;
       const proposed = type === 'table' ? rect.left - bounds.left : rect.right - bounds.left - barWidth;
-      setPlacement({ type, top: rect.top - bounds.top, left: Math.max(0, Math.min(proposed, bounds.width - barWidth)) });
+      const next: Placement = { type, top: rect.top - bounds.top, left: Math.max(0, Math.min(proposed, bounds.width - barWidth)) };
+      const previous = placed.current;
+      if (previous?.type === next.type && previous.top === next.top && previous.left === next.left) return;
+      placed.current = next;
+      setPlacement(next);
     };
-    position();
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(position);
     observer?.observe(anchor); observer?.observe(origin);
     if (bar.current) observer?.observe(bar.current);
     window.addEventListener('resize', position);
     document.addEventListener('scroll', position, true);
-    return () => { observer?.disconnect(); window.removeEventListener('resize', position); document.removeEventListener('scroll', position, true); };
-  }, [editor, type, editor.state.selection.from, editor.state.doc]);
-  const actions = type === 'table' ? [
-    ['위에 행 추가', BetweenHorizontalStart, () => editor.chain().focus().addRowBefore().run(), editor.can().addRowBefore()],
-    ['아래에 행 추가', BetweenHorizontalEnd, () => editor.chain().focus().addRowAfter().run(), editor.can().addRowAfter()],
-    ['왼쪽에 열 추가', BetweenVerticalStart, () => editor.chain().focus().addColumnBefore().run(), editor.can().addColumnBefore()],
-    ['오른쪽에 열 추가', BetweenVerticalEnd, () => editor.chain().focus().addColumnAfter().run(), editor.can().addColumnAfter()],
-    ['행 삭제', TableRowsSplit, () => editor.chain().focus().deleteRow().run(), editor.can().deleteRow()],
-    ['열 삭제', TableColumnsSplit, () => editor.chain().focus().deleteColumn().run(), editor.can().deleteColumn()],
-    ['머리 행', TableProperties, () => editor.chain().focus().toggleHeaderRow().run(), editor.can().toggleHeaderRow()],
-    ['칸 병합 / 나누기', TableCellsMerge, () => editor.chain().focus().mergeOrSplit().run(), editor.can().mergeOrSplit()],
-    ['표 삭제', Trash2, () => editor.chain().focus().deleteTable().run(), editor.can().deleteTable()],
+    watch.current = { anchor, origin, bar: bar.current, type, position, stop: () => { observer?.disconnect(); window.removeEventListener('resize', position); document.removeEventListener('scroll', position, true); } };
+    position();
+  // `editor.state` re-runs the measure on every transaction; `shown` lets the bar element join the watch once it is rendered.
+  }, [editor, type, editor.state, shown]);
+  React.useLayoutEffect(() => () => { watch.current?.stop(); watch.current = null; }, []);
+  // The nine `can()` checks once per editor state, not on every render of the bar (#2814).
+  const allowed = React.useMemo(() => type === 'table' ? {
+    addRowBefore: editor.can().addRowBefore(), addRowAfter: editor.can().addRowAfter(), addColumnBefore: editor.can().addColumnBefore(),
+    addColumnAfter: editor.can().addColumnAfter(), deleteRow: editor.can().deleteRow(), deleteColumn: editor.can().deleteColumn(),
+    toggleHeaderRow: editor.can().toggleHeaderRow(), mergeOrSplit: editor.can().mergeOrSplit(), deleteTable: editor.can().deleteTable(),
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `editor.state` is what every `can()` reads
+  } : null, [editor, type, editor.state]);
+  const actions = type === 'table' && allowed ? [
+    ['위에 행 추가', BetweenHorizontalStart, () => editor.chain().focus().addRowBefore().run(), allowed.addRowBefore],
+    ['아래에 행 추가', BetweenHorizontalEnd, () => editor.chain().focus().addRowAfter().run(), allowed.addRowAfter],
+    ['왼쪽에 열 추가', BetweenVerticalStart, () => editor.chain().focus().addColumnBefore().run(), allowed.addColumnBefore],
+    ['오른쪽에 열 추가', BetweenVerticalEnd, () => editor.chain().focus().addColumnAfter().run(), allowed.addColumnAfter],
+    ['행 삭제', TableRowsSplit, () => editor.chain().focus().deleteRow().run(), allowed.deleteRow],
+    ['열 삭제', TableColumnsSplit, () => editor.chain().focus().deleteColumn().run(), allowed.deleteColumn],
+    ['머리 행', TableProperties, () => editor.chain().focus().toggleHeaderRow().run(), allowed.toggleHeaderRow],
+    ['칸 병합 / 나누기', TableCellsMerge, () => editor.chain().focus().mergeOrSplit().run(), allowed.mergeOrSplit],
+    ['표 삭제', Trash2, () => editor.chain().focus().deleteTable().run(), allowed.deleteTable],
   ] as const : [];
   return <div ref={marker} className="relative z-5">
     {placement && <div ref={bar} {...roving} data-context-placement={placement.type === 'table' ? 'top-start' : 'top-end'} className="absolute top-(--rich-context-top) left-(--rich-context-left) max-w-full rounded-md border border-border-subtle bg-surface-popover p-1 shadow-md break-keep" style={{ '--rich-context-top': `${placement.top}px`, '--rich-context-left': `${placement.left}px` } as React.CSSProperties}>
