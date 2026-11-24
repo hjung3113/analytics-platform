@@ -73,7 +73,7 @@ it('shows the only chip, its source and the inline clear-all action', () => {
   expect(zone().getByText('설비 E1 외 1')).toBeVisible();
   expect(zone().getByRole('img', { name: '설비 추세' })).toHaveAttribute('title', '설비 추세');
   expect(zone().getByRole('button', { name: '모두 지우기' })).toBeVisible();
-  expect(zone().queryByRole('button', { expanded: false })).toBeNull();
+  expect(zone().queryByRole('button', { name: /^\+\d+ ›$/ })).toBeNull();
 });
 
 it('shows every chip in order with connectors when the row fits', () => {
@@ -108,7 +108,7 @@ it('folds on a longer summary, opens the full list by keyboard, and unfolds on r
   expect(clearAll).toHaveBeenCalledOnce();
   await user.keyboard('{Escape}');
   act(() => resize(row, 700));
-  expect(zone().queryByRole('button', { expanded: false })).toBeNull();
+  expect(zone().queryByRole('button', { name: /^\+\d+ ›$/ })).toBeNull();
   expect(zone().getByText('설비 E1 외 1')).toBeVisible();
 });
 
@@ -389,4 +389,25 @@ it('keeps focus on another control after a guarded chip clear is cancelled', asy
   await user.click(external);
   expect(screen.queryByRole('group', { name: '분석 선택' })).toBeNull();
   expect(external).toHaveFocus();
+});
+
+it('opens and clears from the action menu inside the folded chip list', async () => {
+  const { container } = await mountSelections('&mod=M1', [equipment, module]);
+  act(() => {
+    resize(screen.getByTestId('row'), 300);
+    resize(screen.getByText('조회 요약'), 100);
+    resize(container.querySelector('[data-analysis-chip-probe]')!, 400);
+  });
+  const user = userEvent.setup();
+  await user.click(zone().getByRole('button', { name: '+1 ›' }));
+  const list = within(screen.getByRole('dialog', { name: '분석 선택' }));
+  const more = list.getByRole('button', { name: 'equipment E1 동작' });
+  await user.click(more);
+  await user.keyboard('{Escape}');
+  expect(screen.queryByRole('menu')).toBeNull();
+  expect(more).toHaveFocus();
+  await user.keyboard('{Enter}');
+  await user.click(screen.getByRole('menuitem', { name: '지우기' }));
+  expect(new URLSearchParams(window.location.search).has('equip')).toBe(false);
+  expect(zone().getByRole('button', { name: 'module 선택 지우기' })).toHaveFocus();
 });

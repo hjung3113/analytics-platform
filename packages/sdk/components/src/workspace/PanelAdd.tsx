@@ -1,9 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, cn } from '@ap/ui';
 import { useI18n, useMessages, usePlatform, type Text } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PageKeyRule } from '../table/tableUrlWarning';
+import type { AnalysisSelection } from '@ap/contracts';
+
+export type AnalysisPanelDraft = {
+  source: `${string}/${string}`;
+  inputs: Readonly<Record<string, AnalysisSelection>>;
+};
+
+export type AnalysisPanelAddition = {
+  items: readonly PanelAddItem[];
+  onAdd: (draft: AnalysisPanelDraft) => void;
+};
+
+export const AnalysisPanelAddContext = createContext<AnalysisPanelAddition | null>(null);
 
 /**
  * Panels a menu keeps across its drill steps (#2398, #2391), in one repeated page key (`pageKey`, kernel identifier rule, declared in the

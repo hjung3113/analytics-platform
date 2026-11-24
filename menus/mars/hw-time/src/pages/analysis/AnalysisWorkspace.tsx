@@ -12,6 +12,7 @@ import { TREND_RANGE_OUTPUT } from '../../panels';
 import { formatSeconds } from '../../shared/format';
 import { useHwTimeLevel } from '../../shared/data';
 import { htmEmphasisStatus, htmStatusView } from '../../shared/htm';
+import { HW_TIME_DRILL } from '../../shared/historySummary';
 import type { HwTimeFilter } from '../../shared/useHwTimeFilter';
 import { useHwTimeDrillRules } from '../../shared/useHwTimeDrillRules';
 import RawTablePanel from '../table/RawTablePanel';
@@ -135,10 +136,12 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
   const required = depth === 1 ? HW_TIME_MODULE_TYPES.map(type => type.id) : [typeId!];
   const statuses = useMemo(() => data ? chartStatuses(data, lang) : null, [data, lang]);
   const title = barsTitle({ depth, typeId, motionId, moduleId, previous, allMotions });
+  const drillLevel = HW_TIME_DRILL.levels[depth - 1]?.key;
+  const drillValue = (point: ChartPoint) => depth === 3 ? point.x.split(' · ')[1]! : point.seriesId;
   const drill = (point: ChartPoint) => {
-    if (depth === 1) setPage({ moduleType: point.seriesId, drillMotion: null, drillModule: null, row: point.x, trend: null, focus: null });
-    if (depth === 2) setPage({ drillMotion: point.seriesId, drillModule: null, row: point.x, trend: null, focus: null });
-    if (depth === 3) setPage({ drillModule: point.x.split(' · ')[1]!, row: point.x, trend: null, focus: null });
+    if (!drillLevel) return;
+    const later = Object.fromEntries(HW_TIME_DRILL.levels.slice(depth).map(level => [level.key, null]));
+    setPage({ ...later, [drillLevel]: drillValue(point), row: point.x, trend: null, focus: null });
   };
   const openTrend = (point: ChartPoint) => {
     if (depth === 1) { drill(point); return; }
@@ -167,7 +170,7 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
   const pointActions = (point: ChartPoint) => {
     const actions: ChartPointAction[] = [];
     if (depth > 1) actions.push({ id: 'trend', label: m('openTrend'), onSelect: openTrend });
-    if (depth < 4) actions.push({ id: 'drill', label: m('drillTo', { value: depth === 3 ? point.x.split(' · ')[1]! : point.seriesId }), onSelect: drill });
+    if (drillLevel) actions.push({ id: 'drill', label: m('drillTo', { value: drillValue(point) }), onSelect: drill });
     return actions;
   };
   let chartId = previous ? 'hw-previous' : 'hw-current';
@@ -176,9 +179,11 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
     : m('scale', { equipment: String(shaped.equipmentCount), modules: String(shaped.moduleCount) });
   // The panel options open the chart's tool row (#2459, owner-confirmed variant B): the inline values say the state, so no chip row.
   const toolbarStart = !previous && !allMotions ? <PanelOptions options={chartOptions} values={values} onChange={onChange} /> : undefined;
+  const nextAnalysisPointDrill = !previous && drillLevel ? { level: drillLevel, value: drillValue } : undefined;
   const body = <div className="flex h-full min-h-0 flex-col">
     <AnalysisChartFrame chartId={chartId} title={title[lang]} summary="quiet" toolbarStart={toolbarStart}
-      highlightedValues={highlightedValues} analysisSelectionOutput={analysisSelectionOutput} nextAnalysis={analysisSelectionOutput !== undefined}
+      highlightedValues={highlightedValues} analysisSelectionOutput={analysisSelectionOutput}
+      nextAnalysis={analysisSelectionOutput !== undefined || !!nextAnalysisPointDrill} nextAnalysisPointDrill={nextAnalysisPointDrill}
       series={shaped.series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} description={<>{overview('synthetic')}<br />{scaleText}</>}
       legend={depth < 3 || allMotions} visibleSeriesIds={depth >= 3 && !allMotions ? shaped.series.map(series => series.id) : undefined} legendPlacement="bottom" toolsReveal="always" xType="category" orientation="horizontal" stacked
       startAlign={values.align === true} minMax={values.minMax === true} emphasisFocus="none" size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowLabelWidth="auto"
@@ -258,7 +263,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const common = useMessages(HW_TIME_MESSAGES);
   const [explained, setExplained] = useState<string | null>(null);
   const [added, setAdded] = useState<readonly string[]>([]);
-  const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
+  const [reveal, setReveal] = useState<{ panelId: string; seq: number; restoreHidden?: boolean } | null>(null);
   useEffect(() => {
     if (trend && step !== 4) setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
   }, [trend, step]);
@@ -365,15 +370,22 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         render: () => <RecipePanel id={id} open={explained === id} context={panelContext} onClose={() => setExplained(null)}>{renderPanel(id as CatalogId)}</RecipePanel> };
     }),
   ];
+  const addPanel = (id: string, pin: boolean, options?: { restoreHidden: boolean }) => {
+    setAdded(current => [...new Set([...current, id])]);
+    if (pin) pins.pin(id);
+    setReveal(current => ({ panelId: id, seq: (current?.seq ?? 0) + 1, ...options }));
+  };
   return <div className="flex min-h-0 flex-1 flex-col gap-2">
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
     <PanelWorkspace panels={panels} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
       panelMenuItems={id => Object.hasOwn(panelDeclarations, id) ? [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }] : []}
       revealRequest={reveal}
-      toolbarActions={<PanelAddMenu items={catalog} shown={panels.map(panel => panel.id)} onAdd={(id, pin) => {
-        setAdded(current => [...new Set([...current, id])]); if (pin) pins.pin(id);
-        setReveal(current => ({ panelId: id, seq: (current?.seq ?? 0) + 1 }));
-      }} />}
+      toolbarActions={<PanelAddMenu items={catalog} shown={panels.map(panel => panel.id)} onAdd={addPanel} />}
+      analysisPanelAddition={{ items: catalog, onAdd: draft => {
+        // The receiver reads the existing URL selection so subsequent picks also apply.
+        const panelId = draft.source.split('/')[1]!;
+        addPanel(panelId, pins.isPinned(panelId), { restoreHidden: true });
+      } }}
       persistKey={`hw-time-s${step}-v1`} label={HW_TIME_WORKSPACE_MESSAGES.workspace} />
   </div>;
 }

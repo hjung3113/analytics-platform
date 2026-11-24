@@ -278,3 +278,47 @@ it.each([
   expect(window.location.href).toBe(originalUrl);
   expect(previousRenders()).toBe(originalCount);
 });
+
+it('adds the eligible raw table and follows the equipment set from the workspace', async () => {
+  await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=EQ-002', answer,
+    { realWorkspace: true, realChart: 'hw-current', showSelectionChips: true });
+  const row = within(screen.getByRole('group', { name: '다음 분석' }));
+  const add = row.getByRole('button', { name: '새 패널' });
+  expect(tableReads()).toEqual([]);
+  fireEvent.keyDown(add, { key: 'Enter' });
+  const menu = within(await screen.findByRole('menu'));
+  expect(menu.getAllByRole('menuitem')).toHaveLength(1);
+  fireEvent.click(menu.getByRole('menuitem'));
+  await waitFor(() => expect(tableReads()[0]?.params).toMatchObject({ motionEquipment: ['EQ-002'] }));
+  expect(row.queryByRole('button', { name: '새 패널' })).toBeNull();
+  fireEvent.click(within(screen.getByRole('group', { name: '분석 선택' })).getByRole('button', { name: '설비 EQ-002' }));
+  const editor = within(screen.getByRole('dialog', { name: '설비 EQ-002' }));
+  fireEvent.click(editor.getByRole('checkbox', { name: 'EQ-001' }));
+  fireEvent.click(editor.getByRole('checkbox', { name: 'EQ-002' }));
+  fireEvent.click(editor.getByRole('button', { name: '적용' }));
+  await waitFor(() => expect(tableReads().at(-1)?.params).toMatchObject({ motionEquipment: ['EQ-001'] }));
+});
+
+it('opens the raw table body on the first add from a maximized chart', async () => {
+  await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=EQ-002', answer,
+    { realWorkspace: true, realChart: 'hw-current' });
+  fireEvent.click(screen.getByRole('button', { name: 'PM1 · Pump · 설비별 최대화' }));
+  expect(screen.getByRole('button', { name: '원래 크기로' })).toBeTruthy();
+  const add = within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' });
+  fireEvent.keyDown(add, { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name: '원본 표' }));
+  await waitFor(() => {
+    expect(document.querySelector('[role="tab"][data-tab-panel-id="table"]')?.getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('region', { name: 'HW Time 동작시간 표' })
+      .closest('[data-dock-panel="table"]')?.getAttribute('data-dock-visible')).toBe('true');
+  });
+});
+
+it('drills the selected point into its module from the current bars', async () => {
+  await renderOverview('&moduleType=PM&drillMotion=Pump', answer, { realChart: 'hw-current' });
+  fireEvent.click(screen.getByRole('button', { name: '이 지점만 선택' }));
+  const drill = within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '나누기' });
+  fireEvent.keyDown(drill, { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name: 'Module · PM1' }));
+  expect(url().get('drillModule')).toBe('PM1');
+});

@@ -7,7 +7,7 @@ import { hasDotSegment } from '../context/location';
 import type { ComponentType, LazyExoticComponent, ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { GLOBAL_KEYS, KERNEL_PERMISSIONS, isAppRelativePath, parseQuery, requiredContextError, RETURN_TO_KEY, menuPermissions, type CarrySetDef, type CarrySetId, type ContextKey, type GroupId, type HostFeature, type HierarchySource, type MenuMeta, type MenuPermission, type ModuleScopedId, type ModuleScreenProps, type PageType, type Permission, type SavedViewSupport, type SpaceDef, type SpaceId, type Text } from '@ap/contracts';
-import { isIdShape, isPermissionShape } from './shapes';
+import { isIdShape, isObjectKindShape, isPermissionShape } from './shapes';
 
 /** docs/06 §5: menus declare, the shell consumes. Metadata lives in @ap/contracts; this adds the React bindings. */
 export type PageProps = { params: Record<string, string> };
@@ -411,7 +411,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     if (m.subjectPageKeys !== undefined) {
       if (typeof m.subjectPageKeys !== 'object' || m.subjectPageKeys === null || Array.isArray(m.subjectPageKeys)) fail(`Menu "${m.id}" subjectPageKeys must be an object`);
       for (const [kind, key] of Object.entries(m.subjectPageKeys)) {
-        if (!/^[a-z][a-zA-Z0-9]*$/.test(kind)) fail(`Menu "${m.id}" subjectPageKeys kind "${kind}" must be an identifier`);
+        if (!isObjectKindShape(kind)) fail(`Menu "${m.id}" subjectPageKeys kind "${kind}" must be an identifier`);
         if (!m.pageKeys.includes(key)) fail(`Menu "${m.id}" subjectPageKeys ${kind} key "${String(key)}" is not a declared page key`);
         if (m.repeatedPageKeys?.includes(key)) fail(`Menu "${m.id}" subjectPageKeys ${kind} key "${key}" cannot be a repeated page key`);
       }
@@ -424,7 +424,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
       if (typeof declaration !== 'object' || declaration === null || Array.isArray(declaration)) fail(`Menu "${m.id}" ${field} must be an object`);
       for (const [kind, value] of Object.entries(declaration)) {
         const invalid = (): never => fail(`Menu "${m.id}" invalid ${field} declaration for kind "${kind}"`);
-        if (!/^[a-z][a-zA-Z0-9]*$/.test(kind)) invalid();
+        if (!isObjectKindShape(kind)) invalid();
         if (field === 'subjectLinks' && value === true) {
           if (!Object.hasOwn(m.subjectPageKeys ?? {}, kind)) invalid();
           continue;

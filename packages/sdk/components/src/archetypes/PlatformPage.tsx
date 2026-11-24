@@ -1,3 +1,4 @@
+import { NextAnalysisBridge } from '../chart/NextAnalysisBridge';
 import { DeclaredPageConditions, PageConditionTriggerSlot, type PageConditionLayerOptions } from '../filters/DeclaredPageConditions';
 import { PageDensityProvider, pageInsetX, useCompactPageDensity } from '../pageDensity';
 import { carriesReturnTo, pageConditionKeys } from '@ap/contracts';
@@ -156,10 +157,11 @@ export type PlatformPageProps = {
 export function PlatformPage(props: PlatformPageProps) {
   const { route } = useHostPlatform();
   const declaration = route?.menu.pageConditions;
-  if (!declaration) return <PlatformPageFrame {...props} />;
-  return <DeclaredPageConditions declaration={declaration} options={props.pageConditionOptions} extension={props.queryBarExtension}>
-    {binding => <PlatformPageFrame {...props} queryBarExtension={binding.extension} conditionTrigger={binding.trigger} conditionLayer={binding.layer} />}
-  </DeclaredPageConditions>;
+  return <NextAnalysisBridge>
+    {declaration ? <DeclaredPageConditions declaration={declaration} options={props.pageConditionOptions} extension={props.queryBarExtension}>
+      {binding => <PlatformPageFrame {...props} queryBarExtension={binding.extension} conditionTrigger={binding.trigger} conditionLayer={binding.layer} />}
+    </DeclaredPageConditions> : <PlatformPageFrame {...props} />}
+  </NextAnalysisBridge>;
 }
 
 /** Host wrapper for the mounted content body, leaving the page chrome outside its error boundary. */

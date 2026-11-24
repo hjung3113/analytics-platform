@@ -1014,6 +1014,20 @@ describe('PanelWorkspace: revealRequest (#690)', () => {
     expect(tab('trend').compareDocumentPosition(tab('selector')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it.each(['same', 'other'] as const)('activates a newly added panel in the %s group during maximize', async target => {
+    const panels = [PANELS[0]!, PANELS[1]!];
+    const detail = { ...PANELS[2]!, placement: target === 'other' ? 'below' as const : undefined };
+    const extra = { panels, initialMode: 'stack' as const, compactBelow: 0 };
+    const view = render(withRequest(null, extra));
+    await ready();
+    await userEvent.click(screen.getByRole('button', { name: '추세 최대화' }));
+    expect(screen.getByRole('button', { name: '원래 크기로' })).toBeInTheDocument();
+    view.rerender(withRequest({ panelId: 'detail', seq: 1 }, { ...extra, panels: [...panels, detail] }));
+    await waitFor(() => expect(tab('detail')).toHaveAttribute('aria-selected', 'true'));
+    expect(document.querySelector('[data-dock-panel="detail"]')).toHaveAttribute('data-dock-visible', 'true');
+    expect(screen.queryAllByRole('button', { name: '원래 크기로' })).toHaveLength(target === 'same' ? 1 : 0);
+  });
+
   it('while another panel is maximized it is a no-op: the maximize is kept and the request is not queued', async () => {
     const view = render(withRequest(null));
     await ready();

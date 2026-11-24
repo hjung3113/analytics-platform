@@ -1,3 +1,4 @@
+import { isObjectKindShape } from './shapes';
 import { CONTEXT_FIELDS, GLOBAL_KEYS, menuPermissions, pageConditionKeys, RETURN_TO_KEY, type PanelDeclaration, type Permission, type Text } from '@ap/contracts';
 import type { MenuEntry } from './registry';
 import { menuAnalysisSelections } from './analysis-selections';
@@ -66,9 +67,11 @@ export function registerPanels(menu: MenuEntry, carryKeys: readonly string[], fa
       if (!output || GLOBAL_KEYS.has(output.key) || !menu.pageKeys.includes(output.key)) invalid(`output "${output?.key}" must be a page key`);
       if (typeof output.action !== 'string' || !output.action.trim()) invalid('output action must be nonempty');
       if (output.selection !== undefined) {
-        const { shape, dimension } = output.selection ?? {};
+        const { shape, dimension, drillLevel, objectKind } = output.selection ?? {};
         if (shape !== 'set' && shape !== 'range') invalid('output selection shape must be set or range');
         if (typeof dimension !== 'string' || !/^[a-z][a-zA-Z0-9]*$/.test(dimension)) invalid('output selection dimension must match /^[a-z][a-zA-Z0-9]*$/');
+        if (drillLevel !== undefined && !menu.drill?.levels.some(level => level.key === drillLevel)) invalid(`output selection drillLevel "${drillLevel}" must name a declared drill level`);
+        if (objectKind !== undefined && !isObjectKindShape(objectKind)) invalid('output selection objectKind must match /^[a-z][a-zA-Z0-9]*$/');
       }
     }
     if (!Array.isArray(panel.endpoints)) invalid('endpoints must be an array');

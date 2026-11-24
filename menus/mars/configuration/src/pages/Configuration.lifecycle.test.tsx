@@ -887,6 +887,34 @@ it('follows the latest selection while a previous lending mapping is still loadi
   expect(requests.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id)).toHaveLength(1);
 });
 
+it('shows the linked HW Time trend over a maximized matrix when its mapping arrives later (#2734)', async () => {
+  registerLentPanel('hw-time/trend', SourceTrend);
+  const url = new URL(window.location.href);
+  url.searchParams.set('equipment', 'EQ01,EQ03');
+  window.history.replaceState(null, '', url);
+  let complete: (() => void) | undefined;
+  await mount(vi.fn(async ({ endpoint, params }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => {
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
+    if (endpoint === configurationLendingEndpoint.id) {
+      const request = params as HistoryParams;
+      return new Promise(resolve => { complete = () => resolve(ok(lendingFixture(request))); });
+    }
+    if (endpoint === sourceRuns.id) return { ...ok('linked motion'), assessments: [] };
+    return { ...ok(null), outcome: 'empty' };
+  }));
+  const cell = host.querySelector<HTMLElement>('[data-matrix-row="cfg-000000"] [data-matrix-column="EQ03"]')!;
+  await act(async () => { cell.focus(); cell.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); });
+  await vi.waitFor(() => expect(complete).toBeDefined());
+  const maximize = Array.from(host.querySelectorAll<HTMLButtonElement>('button[aria-label$=" 최대화"]'))
+    .find(button => !button.closest('[data-dock-panel="trend"]'))!;
+  await act(async () => maximize.click());
+  expect(host.querySelector('button[aria-label="원래 크기로"]')).not.toBeNull();
+  await act(async () => complete!());
+  await settleQueries();
+  await vi.waitFor(() => expect(host.querySelector('[data-dock-panel="hw-time-trend"]')?.getAttribute('data-dock-visible')).toBe('true'));
+  expect(host.querySelector('button[aria-label="원래 크기로"]')).toBeNull();
+});
+
 it.each(['explicit activation', 'restored URL'])('C2 follows successive selections before the first mapping completes from %s', async entry => {
   registerLentPanel('hw-time/trend', SourceTrend);
   const url = new URL(window.location.href);

@@ -1,5 +1,8 @@
 import { createContext, createElement, useContext, type ReactElement, type ReactNode } from 'react';
 
+/** Effective visibility of the nearest dock panel, including any parent dock. */
+export const WorkspacePanelVisibleContext = createContext(true);
+
 /**
  * What the nearest container around a card, chart frame or table is. `true` = a `PanelWorkspace` panel: the tab already shows the panel's
  * name, so a card or chart frame inside draws its title heading visually hidden (`sr-only`, the accessible name stays), and a table's row area

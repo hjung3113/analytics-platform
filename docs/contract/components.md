@@ -46,6 +46,8 @@ EquipmentDeactivateButton
 
 Decided (#2432). `PanelWorkspaceProps.panelMenuItems?: (panelId: string) => readonly { id: string; label: Text; onSelect: () => void }[]` lets a menu declare actions for each active panel. Translated items follow **all** platform items (collapse/float included), preceded by one separator. Absent or empty results leave the existing menu unchanged. The SDK does not filter primary panels: the menu decides by returning items or an empty list. Items use the existing dropdown keyboard selection, close and trigger-focus return behavior. Selection calls `onSelect`; the SDK owns no menu content or panel presentation state.
 
+`PanelWorkspaceProps.analysisPanelAddition?: AnalysisPanelAddition` (#2734)는 `PanelAddItem` 목록과 `onAdd(draft: AnalysisPanelDraft)`를 받는다. 작업 영역은 이미 표시하거나 접거나 띄운 패널을 제외하고, 차트는 현재 메뉴에서 분석 선택 키를 읽는 패널을 고른다. 추가 요청은 `{ source: '<menuId>/<panelId>', inputs: { [outputKey]: AnalysisSelection } }`다. 작업 영역을 조립하는 메뉴는 이 요청으로 패널을 열고, 패널은 URL의 선택 입력을 따라간다. 이 옵션을 생략하면 차트에서 패널을 추가할 수 없다.
+
 ### Panel recipe
 
 Decided (#2471, look confirmed in #2432). `panelRecipe({ panel, menu, context, host, labels?, shape?, code? })` builds a panel's recipe from the Registry panel (`registry.panels(menuId)`), the menu's `features` and the hosting workspace's facts (`add`, `pin`, `hide`, `layout`, `maximize`, `range`, optional `image` and `csv`); the SDK reads no menu-only declaration field. Annotate and CSV follow `features` (CSV needs a chart piece or `host.csv`), empty and error states follow a `QueryView` piece, the permission note lists the grants registration derived, link is always on (Kernel URL contract) and audit stays unknown. Words for page keys, grains and output actions, the shape name and code line counts are optional menu inputs; a missing word shows its id, and without `code` the summary drops the line count. `PanelRecipeBack` draws three columns (menu → SDK → platform); `PanelRecipeFrame` swaps front and back and returns focus to the frame when closed from inside; its `back` render prop may be a lazy component, with the front shown while it loads.
@@ -128,6 +130,10 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 여러 도메인에서 동일한 플랫폼 의미를 갖는 컴포넌트다.
 
 `AnalysisSelectionChipZone` (`@ap/components`, #2733)은 현재 화면의 [분석 선택 모델](chart.md#분석-선택-전달-decided-adr-0175-2732)을 읽어 차원·값과 출력 패널 이름을 표시한다. 패널 이름에 미해결 치환자가 있으면 칩 라벨을 접근성 이름으로 쓰고 툴팁을 생략한다. 값이 가용하지 않으면 «해당 없음»을 붙인다. 칩 본문은 편집 팝오버를 열고, «적용»은 해당 선택의 값 묶음이나 범위를 바꾼다. 칩의 ×는 해당 선택을, «모두 지우기»는 분석 선택 전체를 지운다. 접힌 줄 배치는 [Layout §12.2](layout.md#122-analysis-workspace)를 따른다.
+
+칩의 ⋯는 선택의 동작과 «지우기»를 제공한다(#2734). Tab으로 이동하고 Enter·Space·아래쪽 화살표로 연다. Esc로 닫거나 칩이 남는 동작을 고르면 ⋯로 포커스를 돌려준다. 기간 적용을 취소하면 출발한 칩의 ⋯로 포커스를 돌려준다. 접힌 목록에서 시작했다면 목록을 다시 연다. 비활성 항목에는 행과 같은 사유를 표시한다.
+
+`PlatformPage` 내부 브리지가 주 화면의 조회 바와 패널을 연결한다. 차트는 출력 패널 ID와 키로 동작을 등록하고, 패널이 가려지거나 내려가거나 출력을 중단하면 등록을 해제한다. 칩은 출력 선언과 객체 링크로 표준 동작을 구한다. 출처 패널을 소유한 `PanelWorkspace`가 한 곳이고 그곳에서 추가를 지원할 때 «새 패널»을 표시한다. 차트에서 등록한 동작은 같은 출력 패널 ID와 키로 등록한 차트가 하나일 때 공유한다. `AnalysisChartFrame.selectionActions`에 `ChartSelectionAction[]`을 넘기면 범위 동작을 행과 칩에 함께 표시한다. 렌더 함수가 돌려주는 노드와 차트 주석 동작은 차트에서 제공한다.
 
 예:
 

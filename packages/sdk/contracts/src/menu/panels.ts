@@ -36,6 +36,10 @@ export type PanelDeclaration<K extends string = string> = {
       readonly shape: AnalysisSelectionShape;
       /** Display name of the dimension for analysis selection chips. */
       readonly label?: Text;
+      /** A single selected value can fill this declared drill level. */
+      readonly drillLevel?: string;
+      /** Object kind in the assembly's opensObject namespace. */
+      readonly objectKind?: string;
     };
   }[];
   readonly grain: string;
