@@ -9,7 +9,8 @@ import {
   getEvidenceInventoryResponseSchema,
   listEvidenceInventoryResponseSchema,
 } from '@ap/feature-shared';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createFeatureQueryClient } from '../../../../lib/query/query-client';
+import { QueryClient, QueryClientProvider, focusManager } from '@tanstack/react-query';
 import {
   Outlet,
   RouterProvider,
@@ -115,8 +116,10 @@ function installFetch(
     }),
   );
 }
-async function mount(url = '/integration/evidence') {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+async function mount(
+  url = '/integration/evidence',
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   const root = createRootRoute({ component: Outlet });
   const evidence = createRoute({
     getParentRoute: () => root,
@@ -539,6 +542,36 @@ it.each(['withheld', 'missing', 'denied'] as const)(
     expect(screen.queryByText(/비공개 원본 제목/)).toBeNull();
   },
 );
+it('re-checks source permission on a tab return within 30 seconds, in the list and the detail', async () => {
+  let revoked = false;
+  const voc = getEvidenceInventoryResponseSchema.parse({
+    ...item,
+    source_type: 'voc',
+    source: { id: PARENT, display_id: 'VOC-77', title: '비공개 원본 제목', route: `/vocs?selected=${PARENT}` },
+  });
+  if (voc.source_type !== 'voc') throw new Error('Expected VOC fixture');
+  const { quote_or_summary: _quote, source: _source, ...metadata } = voc;
+  const safe = getEvidenceInventoryResponseSchema.parse({ ...metadata, content_state: 'withheld' });
+  installFetch(
+    () => response({ items: [revoked ? safe : voc], page: { has_more: false } }),
+    () => response(revoked ? safe : voc),
+  );
+  // The app's shared feature client, whose default reads again on a tab return only after 30 seconds.
+  await mount(`/integration/evidence?selected=${ID}`, createFeatureQueryClient());
+  await screen.findByRole('link', { name: 'Finding 보기' });
+  expect(screen.getAllByText(/비공개 원본 제목/).length).toBeGreaterThan(0);
+  revoked = true;
+  try {
+    await act(async () => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await waitFor(() => expect(screen.queryByText(/비공개 원본 제목/)).toBeNull());
+    expect(screen.queryByText(item.quote_or_summary as string)).toBeNull();
+  } finally {
+    focusManager.setFocused(undefined);
+  }
+});
 it('resets draft, selection focus lifetime and old caches when the session changes', async () => {
   let block = false;
   installFetch(() =>

@@ -153,6 +153,8 @@ function EvidenceSession({
     retry: false,
     gcTime: 0,
     staleTime: 0,
+    // A source's read permission can be withdrawn elsewhere; every tab return re-checks it, not only after 30 s (#2819).
+    refetchOnWindowFocus: true,
   });
   const detail = useQuery({
     queryKey: [
@@ -171,6 +173,8 @@ function EvidenceSession({
     retry: false,
     gcTime: 0,
     staleTime: 0,
+    // A source's read permission can be withdrawn elsewhere; every tab return re-checks it, not only after 30 s (#2819).
+    refetchOnWindowFocus: true,
   });
   const [wasFetching, setWasFetching] = useState(false);
   if (wasFetching !== list.isFetching) {

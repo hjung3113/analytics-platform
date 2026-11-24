@@ -19,10 +19,11 @@ export function shouldRetryQuery(failureCount: number, error: unknown): boolean 
 export const FOCUS_REFETCH_AFTER_MS = 30_000;
 
 /**
- * Tab-return policy (#2819, owner 2026-11-23): coming back to the tab reads again only data older than 30 seconds, or data a
- * write invalidated. Mount, remount and invalidation after a write still read as before (`staleTime` stays 0), so my own writes
- * are never shown stale; another user's change can show up to 30 seconds later on a tab return. A query's own
- * `refetchOnWindowFocus` still wins. The global `focusManager` is untouched: FO shares the module (as ADR-0086 left `notifyManager`).
+ * Tab-return policy (#2819, owner 2026-11-23): on a tab return, a query reads again only when its last successful data is 30
+ * seconds old or older, or a write invalidated it. Mount, remount and invalidation after a write still read as before
+ * (`staleTime` stays 0), so my own writes are never shown stale; another user's change can show up to 30 seconds later on a
+ * tab return. A query's own `refetchOnWindowFocus` still wins: permission-sensitive reads (Evidence, Survey evidence
+ * candidates) keep `true`. The global `focusManager` is untouched: FO shares the module (as ADR-0086 left `notifyManager`).
  */
 export function shouldRefetchOnFocus(query: Query): boolean {
   return query.state.isInvalidated || Date.now() - query.state.dataUpdatedAt >= FOCUS_REFETCH_AFTER_MS;

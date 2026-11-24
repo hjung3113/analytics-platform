@@ -55,5 +55,7 @@ export function useSurveyEvidenceCandidates(surveyId: string | null) {
     retry: false,
     staleTime: 0,
     gcTime: 0,
+    // Candidate excerpts are source text under read permission; every tab return re-checks it, not only after 30 s (#2819).
+    refetchOnWindowFocus: true,
   });
 }
