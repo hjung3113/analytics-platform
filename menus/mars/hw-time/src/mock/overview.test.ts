@@ -174,9 +174,9 @@ describe('overview server projections', () => {
     expect(stats.rows[0]!.judgement.status).toBe('normal');
     expect(stats.rows[1]!.judgement.status).toBe('normal');
     for (const moduleId of lkType.modules) {
-      expect(data.cells.find(cell => cell.equipmentId === 'EQ-003' && cell.moduleId === moduleId)?.module.status).toBe('over');
-      expect(data.cells.find(cell => cell.equipmentId === 'EQ-006' && cell.moduleId === moduleId)?.module.status).toBe('under');
-      expect(data.cells.find(cell => cell.equipmentId === 'EQ-001' && cell.moduleId === moduleId)?.module.status).toBe('normal');
+      expect(data.cells.find(cell => cell.equipmentId === 'MEM-PHOTO-0106' && cell.moduleId === moduleId)?.module.status).toBe('over');
+      expect(data.cells.find(cell => cell.equipmentId === 'MEM-PHOTO-0111' && cell.moduleId === moduleId)?.module.status).toBe('under');
+      expect(data.cells.find(cell => cell.equipmentId === 'MEM-PHOTO-0103' && cell.moduleId === moduleId)?.module.status).toBe('normal');
     }
     const values = data.cells.filter(cell => cell.moduleId === 'LK1').map(cell => cell.motions.Pump!.value!);
     expect(stats.rows[0]!.judgement.value).toBeCloseTo(values.reduce((sum, value) => sum + value, 0) / values.length);

@@ -9,7 +9,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(
 const base = '&moduleType=PM&drillMotion=Pump&drillModule=PM1';
 const respond: typeof answer = request => {
   const response = answer(request);
-  if (request.endpoint === 'hwTime.equipmentDays') return { ...response, data: { rows: [{ equipmentId: 'EQ-001', date: '2026-09-20', judgement: { value: 4, lower: 2, upper: 3, status: 'over' } }] } };
+  if (request.endpoint === 'hwTime.equipmentDays') return { ...response, data: { rows: [{ equipmentId: 'MEM-PHOTO-0103', date: '2026-09-20', judgement: { value: 4, lower: 2, upper: 3, status: 'over' } }] } };
   if (request.endpoint === 'hwTime.boundHistory') return { ...response, data: [] };
   return response;
 };

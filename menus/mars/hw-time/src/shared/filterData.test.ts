@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { filterBlock, filterRow } from './filterData';
 import type { HwTimeBlock } from '../endpoints';
-const row = { id: 'EQ-001', equipmentId: 'EQ-001', values: { PM1: 2, PM2: null, PM3: 4 }, total: null,
+const row = { id: 'MEM-PHOTO-0103', equipmentId: 'MEM-PHOTO-0103', values: { PM1: 2, PM2: null, PM3: 4 }, total: null,
   judgements: { PM1: { value: 2, status: 'normal' as const, lower: 1, upper: 3 }, PM2: { value: null, status: 'unjudgeable' as const, lower: null, upper: null } } };
 describe('checked HW Time series', () => {
   it('filters values, totals and server judgements together, including an empty selection', () => {

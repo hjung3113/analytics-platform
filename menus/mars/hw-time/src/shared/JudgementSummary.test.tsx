@@ -6,7 +6,7 @@ import type { HtmJudgement } from '../endpoints';
 const unjudgeable: HtmJudgement = { value: 2, lower: null, upper: null, status: 'unjudgeable', reason: 'recipe-unsplit' };
 describe('server judgement presentation', () => {
   it('uses the common unjudgeable wording with its reason', () => {
-    const html = renderToStaticMarkup(<I18nProvider><JudgementSummary block={{ series: [], totals: { values: {}, total: 2 }, rows: [{ id: 'EQ-001', equipmentId: 'EQ-001', values: { PM1: 2 }, total: 2, judgements: { PM1: unjudgeable } }] }} /></I18nProvider>);
+    const html = renderToStaticMarkup(<I18nProvider><JudgementSummary block={{ series: [], totals: { values: {}, total: 2 }, rows: [{ id: 'MEM-PHOTO-0103', equipmentId: 'MEM-PHOTO-0103', values: { PM1: 2 }, total: 2, judgements: { PM1: unjudgeable } }] }} /></I18nProvider>);
     expect(html).toContain('판정:');
     expect(html).toContain('Recipe');
   });

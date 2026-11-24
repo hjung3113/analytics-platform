@@ -56,8 +56,8 @@ describe('HW Time optional panels and projections', () => {
       }
       return response;
     });
-    expect(chart('hw-current').statuses).toContain('Chuck@EQ-001 · PM1:danger');
-    expect(chart('hw-current').statuses).toContain('Dechuck@EQ-001 · PM1:warning');
+    expect(chart('hw-current').statuses).toContain('Chuck@MEM-PHOTO-0103 · PM1:danger');
+    expect(chart('hw-current').statuses).toContain('Dechuck@MEM-PHOTO-0103 · PM1:warning');
     expect(chart('hw-overview-matrix').cells[0].status.tone).toBe('danger');
   });
 
@@ -72,7 +72,7 @@ describe('HW Time optional panels and projections', () => {
     fireEvent.click(within(line).getByRole('button', { name: '필터 추가' }));
     fireEvent.click(await screen.findByRole('button', { name: '설비' }));
     const dialog = await screen.findByRole('dialog', { name: '설비' });
-    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'EQ-001' }));
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: 'MEM-PHOTO-0103' }));
     fireEvent.click(within(dialog).getByRole('button', { name: '적용' }));
     await waitFor(() => expect(within(scatter).getByText('표시할 회차 1개 · 일별 평균 1개')).toBeTruthy());
     fireEvent.click(within(trend).getByText('패널 표시 설정'));

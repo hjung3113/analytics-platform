@@ -49,10 +49,10 @@ const adapter = testAdapter({
 });
 
 function Harness() {
-  const [rowIds, setRowIds] = useState(['EQ-001.H1']);
+  const [rowIds, setRowIds] = useState(['MEM-PHOTO-0103.H1']);
   const query = useHwTimeTrend(rowIds);
   return <>
-    <button type="button" onClick={() => setRowIds(['EQ-001.H1', 'EQ-020.H1'])}>add-b</button>
+    <button type="button" onClick={() => setRowIds(['MEM-PHOTO-0103.H1', 'MEM-ETCH-0138.H1'])}>add-b</button>
     <p data-testid="query-state">{`${query.status}:${String(query.showingPrevious)}`}</p>
     <TrendPanel chartId="hw-trend-test" title="Daily trend" rowIds={rowIds} query={query} level={1} />
   </>;
@@ -70,34 +70,34 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(
 describe('TrendPanel with keepPrevious (#2077 MEN-48)', () => {
   it('keeps showing the previous result without labelling an added ID unavailable until the current result arrives', async () => {
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Harness /></PlatformProvider></I18nProvider>);
-    await waitFor(() => expect(screen.getByTestId('trend-series').textContent).toBe('EQ-001.H1'));
+    await waitFor(() => expect(screen.getByTestId('trend-series').textContent).toBe('MEM-PHOTO-0103.H1'));
     expect(screen.queryByText('현재 Scope·조건에 없는 행')).toBeNull();
 
     holdNext = true;
     fireEvent.click(screen.getByRole('button', { name: 'add-b' }));
     await waitFor(() => expect(screen.getByTestId('query-state').textContent).toBe('refreshing:true'));
-    expect(screen.getByTestId('trend-series').textContent).toBe('EQ-001.H1');
+    expect(screen.getByTestId('trend-series').textContent).toBe('MEM-PHOTO-0103.H1');
     expect(screen.queryByText('현재 Scope·조건에 없는 행')).toBeNull();
-    expect(screen.queryByRole('button', { name: '추세에서 제거 EQ-020 · H1' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '추세에서 제거 MEM-ETCH-0138 · H1' })).toBeNull();
 
-    await act(async () => { pending.shift()!.resolve(['EQ-001.H1']); });
+    await act(async () => { pending.shift()!.resolve(['MEM-PHOTO-0103.H1']); });
     await waitFor(() => expect(screen.getByTestId('query-state').textContent).toBe('done:false'));
     expect(screen.getByText('현재 Scope·조건에 없는 행')).toBeTruthy();
-    expect(screen.getByRole('button', { name: '추세에서 제거 EQ-020 · H1' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '추세에서 제거 MEM-ETCH-0138 · H1' })).toBeTruthy();
   });
 
   it('shows both rows with no unavailable label once the current result includes the added ID', async () => {
     render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><Harness /></PlatformProvider></I18nProvider>);
-    await waitFor(() => expect(screen.getByTestId('trend-series').textContent).toBe('EQ-001.H1'));
+    await waitFor(() => expect(screen.getByTestId('trend-series').textContent).toBe('MEM-PHOTO-0103.H1'));
 
     holdNext = true;
     fireEvent.click(screen.getByRole('button', { name: 'add-b' }));
     await waitFor(() => expect(screen.getByTestId('query-state').textContent).toBe('refreshing:true'));
     expect(screen.queryByText('현재 Scope·조건에 없는 행')).toBeNull();
 
-    await act(async () => { pending.shift()!.resolve(['EQ-001.H1', 'EQ-020.H1']); });
+    await act(async () => { pending.shift()!.resolve(['MEM-PHOTO-0103.H1', 'MEM-ETCH-0138.H1']); });
     await waitFor(() => expect(screen.getByTestId('query-state').textContent).toBe('done:false'));
-    expect(screen.getByTestId('trend-series').textContent).toBe('EQ-001.H1,EQ-020.H1');
+    expect(screen.getByTestId('trend-series').textContent).toBe('MEM-PHOTO-0103.H1,MEM-ETCH-0138.H1');
     expect(screen.queryByText('현재 Scope·조건에 없는 행')).toBeNull();
   });
 });

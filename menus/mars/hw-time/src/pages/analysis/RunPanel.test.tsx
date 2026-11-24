@@ -17,7 +17,7 @@ const row = (equipmentId: string, at: string, status: HtmJudgement['status']) =>
   return { id: `${equipmentId}/${at}`, equipmentId, at, moduleId: 'LK1', motion: 'Pump', seconds: 3,
     judgement, motions: { Pump: judgement }, module: judgement };
 };
-const data: HwTimeRuns = { points: [], daily: [row('EQ-001', '2026-09-19T00:00:00', 'over'), row('EQ-002', '2026-09-20T00:00:00', 'under')], bounds: [], shown: 0, total: 0 };
+const data: HwTimeRuns = { points: [], daily: [row('MEM-PHOTO-0103', '2026-09-19T00:00:00', 'over'), row('MEM-PHOTO-0105', '2026-09-20T00:00:00', 'under')], bounds: [], shown: 0, total: 0 };
 function mount(runs = data) { render(<I18nProvider><RunPanel kind="trend" data={runs} moduleId="LK1" motionId="Pump" motions={['Pump']} /></I18nProvider>); }
 it('opts the daily trend into quiet selection summaries', () => {
   mount();
@@ -46,8 +46,8 @@ it.each([{ daily: [] }, { daily: data.daily.slice(0, 1) }])('shows only the shor
 it('recounts the same daily domain after the panel equipment filter', async () => {
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
   mount({ ...data, daily: [
-    row('EQ-001', '2026-09-19T00:00:00', 'over'), row('EQ-002', '2026-09-19T00:00:00', 'over'),
-    row('EQ-001', '2026-09-20T00:00:00', 'under'), row('EQ-002', '2026-09-20T00:00:00', 'normal'),
+    row('MEM-PHOTO-0103', '2026-09-19T00:00:00', 'over'), row('MEM-PHOTO-0105', '2026-09-19T00:00:00', 'over'),
+    row('MEM-PHOTO-0103', '2026-09-20T00:00:00', 'under'), row('MEM-PHOTO-0105', '2026-09-20T00:00:00', 'normal'),
   ] });
   const bars = () => frames.mock.calls.filter(([p]) => p.chartId === 'hw-overview-runs-trend-verdicts').at(-1)![0] as AnalysisChartFrameProps;
   expect(bars().series[0]!.points).toEqual([['09-19', 2], ['09-20', 0]]);
@@ -59,7 +59,7 @@ it('recounts the same daily domain after the panel equipment filter', async () =
   fireEvent.click(within(within(settings).getByRole('group', { name: '이 패널만' })).getByRole('button', { name: '필터 추가' }));
   fireEvent.click(await screen.findByRole('button', { name: '설비' }));
   const dialog = await screen.findByRole('dialog', { name: '설비' });
-  fireEvent.click(within(dialog).getByRole('checkbox', { name: 'EQ-001' }));
+  fireEvent.click(within(dialog).getByRole('checkbox', { name: 'MEM-PHOTO-0103' }));
   fireEvent.click(within(dialog).getByRole('button', { name: '적용' }));
   expect(bars().series[0]!.points).toEqual([['09-19', 1], ['09-20', 0]]);
   expect(bars().series[1]!.points).toEqual([['09-19', 0], ['09-20', 1]]);

@@ -14,7 +14,7 @@ const registry = createRegistry({  permissions: [menuPermission('analytics:view'
   spaces: [{ id: spaceId('mars'), label: { ko: 'MARS', en: 'MARS' }, description: { ko: '분석', en: 'Analysis' }, homeMenuId: 'hw-time' }],
   groups: [{ id: groupId('hwTime'), label: { ko: 'HW Time', en: 'HW Time' }, icon: manifests[0].icon, space: spaceId('mars') }], menus: manifests });
 const session = testSession(['analytics:view', 'platform:view']);
-const row = { id: 'EQ-001', equipmentId: 'EQ-001', values: { LK1: 99, LK2: 2 }, total: 101,
+const row = { id: 'MEM-PHOTO-0103', equipmentId: 'MEM-PHOTO-0103', values: { LK1: 99, LK2: 2 }, total: 101,
   judgements: { LK1: { value: 99, lower: 1, upper: 2, status: 'under' as const }, LK2: { value: 2, lower: 1, upper: 2, status: 'over' as const } } };
 const request = vi.fn(async (query: MenuQuery) => {
   const data = query.endpoint === 'hwTime.levelRows' ? { level: 0, series: ['LK1', 'LK2'].map(id => ({ id, name: id, color: 'chart-blue' })), rows: [row], totals: { values: row.values, total: 101 }, limits: { maxRows: 120 } }

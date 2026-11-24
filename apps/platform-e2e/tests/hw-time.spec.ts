@@ -28,15 +28,15 @@ async function activatePoint(page: Page, row: string) {
 test.describe('HW Time analysis selection', () => {
   test('edits motionEquipment through the analysis selection chip', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
-    await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions&motionEquipment=EQ-002`);
-    const chip = page.getByRole('button', { name: '설비 EQ-002', exact: true });
+    await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions&motionEquipment=MEM-PHOTO-0105`);
+    const chip = page.getByRole('button', { name: '설비 MEM-PHOTO-0105', exact: true });
     await chip.press('Enter');
-    const dialog = page.getByRole('dialog', { name: '설비 EQ-002', exact: true });
-    await expect(dialog.getByRole('checkbox', { name: 'EQ-002', exact: true })).toBeChecked();
-    await dialog.getByRole('checkbox', { name: 'EQ-001', exact: true }).check();
+    const dialog = page.getByRole('dialog', { name: '설비 MEM-PHOTO-0105', exact: true });
+    await expect(dialog.getByRole('checkbox', { name: 'MEM-PHOTO-0105', exact: true })).toBeChecked();
+    await dialog.getByRole('checkbox', { name: 'MEM-PHOTO-0103', exact: true }).check();
     await evidence(page, testInfo, 'analysis-selection-chip-edit');
     await dialog.getByRole('button', { name: '적용', exact: true }).click();
-    await expect.poll(() => query(page).getAll('motionEquipment')).toEqual(['EQ-002', 'EQ-001']);
+    await expect.poll(() => query(page).getAll('motionEquipment')).toEqual(['MEM-PHOTO-0105', 'MEM-PHOTO-0103']);
   });
 
   test('filters the source table and restores the selection through Back and a shared URL', async ({ context, page }, testInfo) => {
@@ -45,8 +45,8 @@ test.describe('HW Time analysis selection', () => {
     await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions&pins=table`);
     const tableTab = workspace(page).getByRole('tab', { name: '원본 표', exact: true });
     const table = panel(page, 'table').getByRole('table', { name: 'HW Time 동작시간 표' });
-    const unselectedRow = table.getByRole('cell', { name: 'EQ-001', exact: true });
-    const selectedRow = table.getByRole('cell', { name: 'EQ-002', exact: true });
+    const unselectedRow = table.getByRole('cell', { name: 'MEM-PHOTO-0103', exact: true });
+    const selectedRow = table.getByRole('cell', { name: 'MEM-PHOTO-0105', exact: true });
     await tableTab.click();
     await expect(unselectedRow).toBeVisible();
     await expect(tableTab).not.toHaveAttribute('aria-description', /필터됨/);
@@ -59,14 +59,14 @@ test.describe('HW Time analysis selection', () => {
     const picker = tools.getByRole('combobox', { name: '차트 지점 선택' });
     const addPoint = tools.getByRole('button', { name: '선택에 지점 추가', exact: true });
     const removePoint = tools.getByRole('button', { name: '선택에서 지점 빼기', exact: true });
-    const option = picker.locator('option').filter({ hasText: /^EQ-002 ·/ }).first();
+    const option = picker.locator('option').filter({ hasText: /^MEM-PHOTO-0105 ·/ }).first();
     await picker.selectOption({ value: (await option.getAttribute('value'))! });
-    await expect.poll(() => query(page).get('row')).toBe('EQ-002');
+    await expect.poll(() => query(page).get('row')).toBe('MEM-PHOTO-0105');
     expect(query(page).has('motionEquipment')).toBe(false);
     await expect(addPoint).toBeEnabled();
     await addPoint.press('Enter');
     if (await tools.isVisible()) await page.keyboard.press('Escape');
-    await expect.poll(() => query(page).getAll('motionEquipment')).toEqual(['EQ-002']);
+    await expect.poll(() => query(page).getAll('motionEquipment')).toEqual(['MEM-PHOTO-0105']);
     await tableTab.click();
     await expect(selectedRow).toBeVisible();
     await expect(unselectedRow).toHaveCount(0);
@@ -77,12 +77,12 @@ test.describe('HW Time analysis selection', () => {
     await expandQueryBar(page, bar);
     await bar.getByRole('button', { name: '현재 조건 공유', exact: true }).click();
     const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
-    await expect.poll(clipboard).toContain('motionEquipment=EQ-002');
+    await expect.poll(clipboard).toContain('motionEquipment=MEM-PHOTO-0105');
     const sharedUrl = await clipboard();
 
     await page.goBack();
     await expect.poll(() => query(page).has('motionEquipment')).toBe(false);
-    expect(query(page).get('row')).toBe('EQ-002');
+    expect(query(page).get('row')).toBe('MEM-PHOTO-0105');
     await tableTab.click();
     await expect(unselectedRow).toBeVisible();
     await expect(tableTab).not.toHaveAttribute('aria-description', /필터됨/);
@@ -95,12 +95,12 @@ test.describe('HW Time analysis selection', () => {
     await expect(tableTab).toHaveAttribute('aria-description', '필터됨 · 1 · 선택 적용');
     await chartTab.click();
     await more.press('Enter');
-    await expect(picker.locator('option:checked')).toHaveText(/^EQ-002 ·/);
+    await expect(picker.locator('option:checked')).toHaveText(/^MEM-PHOTO-0105 ·/);
     await expect(removePoint).toBeEnabled();
     await removePoint.press('Enter');
     if (await tools.isVisible()) await page.keyboard.press('Escape');
     await expect.poll(() => query(page).has('motionEquipment')).toBe(false);
-    expect(query(page).get('row')).toBe('EQ-002');
+    expect(query(page).get('row')).toBe('MEM-PHOTO-0105');
     await tableTab.click();
     await expect(unselectedRow).toBeVisible();
     await expect(tableTab).not.toHaveAttribute('aria-description', /필터됨/);
@@ -193,10 +193,10 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
 
   test('step-1 activation drills, step-2 activation opens the point trend, and pinned scatter follows the drill', async ({ page }) => {
     await page.goto(`${SCREEN}${TWO_DAYS}`);
-    await activatePoint(page, 'EQ-001');
+    await activatePoint(page, 'MEM-PHOTO-0103');
     await expect.poll(() => query(page).get('moduleType')).toBe('PM');
     await expect(panel(page, 'previous')).toContainText('설비별 Module 타입 평균');
-    await activatePoint(page, 'EQ-001 · PM1');
+    await activatePoint(page, 'MEM-PHOTO-0103 · PM1');
     await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
     expect(query(page).get('drillModule')).toBeNull();
     await add(page, '분포');
@@ -249,7 +249,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
       localStorage.setItem('platform:board-layout-engine', 'dock');
       localStorage.setItem('platform:board:engineer', JSON.stringify({ v: 1, activeSheetId: 'hw-legacy', sheets: [{
         id: 'hw-legacy', name: 'HW legacy', layout: '1x1', selected: 0, panes: [{ menuId: 'hw-time-steps', params: {},
-          query: '?v=1&scopeId=MEM&from=2026-09-24T00%3A00%3A00&to=2026-09-26T00%3A00%3A00&view=steps&moduleType=PM&drillMotion=Chuck&drillModule=PM1&row=EQ-001%20%C2%B7%20PM1' }],
+          query: '?v=1&scopeId=MEM&from=2026-09-24T00%3A00%3A00&to=2026-09-26T00%3A00%3A00&view=steps&moduleType=PM&drillMotion=Chuck&drillModule=PM1&row=MEM-PHOTO-0103%20%C2%B7%20PM1' }],
       }] }));
       sessionStorage.setItem(marker, '1');
     });

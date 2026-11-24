@@ -69,7 +69,7 @@ export const requests: MenuQuery[] = [];
 const normal = (value: number) => ({ value, lower: 1, upper: 7, status: 'normal' as const });
 export const fixtureMatrix = (typeId: string): HwTimeMatrix => {
   const type = HW_TIME_MODULE_TYPES.find(t => t.id === typeId)!;
-  const equipment = ['EQ-001', 'EQ-002'];
+  const equipment = ['MEM-PHOTO-0103', 'MEM-PHOTO-0105'];
   const modules = type.modules.slice(0, 2);
   return { equipment, modules, motions: type.motions.map((id, i) => ({ id, color: i === 0 ? 'chart-blue' : 'chart-teal' })),
     cells: equipment.flatMap(equipmentId => modules.map(moduleId => ({ equipmentId, moduleId,
@@ -88,7 +88,7 @@ const runFixture: HwTimeRuns = {
     return { id: `run-${index}`, equipmentId: `EQ-00${index + 1}`, moduleId: 'PM1', motion: 'Chuck', at: '2026-09-19T10:00:00', seconds, judgement,
       motions: Object.fromEntries(HW_TIME_MODULE_TYPES[0].motions.map(motion => [motion, judgement])), module: { ...judgement, lower: null, upper: null } };
   }), daily: [], shown: 2, total: 576,
-  bounds: ['EQ-001', 'EQ-002'].map(equipmentId => ({ equipmentId, moduleId: 'PM1', motion: 'Chuck', lower: 3, upper: 4 })),
+  bounds: ['MEM-PHOTO-0103', 'MEM-PHOTO-0105'].map(equipmentId => ({ equipmentId, moduleId: 'PM1', motion: 'Chuck', lower: 3, upper: 4 })),
 };
 runFixture.daily = runFixture.points.map(point => ({ ...point, at: '2026-09-19T00:00:00' }));
 export const answer = (request: MenuQuery): ApiResponse<unknown> => {

@@ -23,8 +23,8 @@ describe('HW Time query hooks', () => {
   });
 
   it('queries the trend endpoint with the row ids as params', () => {
-    render(() => useHwTimeTrend(['EQ-001.H1']));
-    expect(useMenuQuery).toHaveBeenCalledWith(hwTime.trend, { rowIds: ['EQ-001.H1'] }, true, { keepPrevious: true });
+    render(() => useHwTimeTrend(['MEM-PHOTO-0103.H1']));
+    expect(useMenuQuery).toHaveBeenCalledWith(hwTime.trend, { rowIds: ['MEM-PHOTO-0103.H1'] }, true, { keepPrevious: true });
   });
 
   it.each([

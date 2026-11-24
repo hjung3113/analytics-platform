@@ -6,10 +6,10 @@ import { describe, expect, it } from 'vitest';
 describe('shared synthetic population rule', () => {
   it('preserves zero, multiplier, cap and stable sequential IDs', () => {
     expect(syntheticEquipmentIds([])).toEqual([]);
-    expect(syntheticEquipmentIds(EQUIPMENT.slice(0, 1))).toEqual(['EQ-001', 'EQ-002', 'EQ-003']);
+    expect(syntheticEquipmentIds(EQUIPMENT.slice(0, 1))).toEqual(['MEM-PHOTO-0103', 'MEM-PHOTO-0105', 'MEM-PHOTO-0106']);
     const large = syntheticEquipmentIds(Array.from({ length: 20 }, () => EQUIPMENT[0]!));
     expect(large).toHaveLength(24);
-    expect(large.at(-1)).toBe('EQ-024');
+    expect(large.at(-1)).toBe('MEM-CVD-0146');
   });
   it.each(['overview', 'newPanels', 'hwTime'])('%s consumes the single mock helper', name => {
     const source = readFileSync(new URL(`./${name}.ts`, import.meta.url), 'utf8');
