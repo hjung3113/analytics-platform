@@ -552,14 +552,18 @@ it('re-checks source permission on a tab return within 30 seconds, in the list a
   if (voc.source_type !== 'voc') throw new Error('Expected VOC fixture');
   const { quote_or_summary: _quote, source: _source, ...metadata } = voc;
   const safe = getEvidenceInventoryResponseSchema.parse({ ...metadata, content_state: 'withheld' });
+  // A second, unselected row: only the list query can hide its text, so the list and the detail are checked separately.
+  const other = getEvidenceInventoryResponseSchema.parse({ ...voc, id: PARENT, quote_or_summary: '선택 안 한 비공개 메모' });
+  const otherSafe = getEvidenceInventoryResponseSchema.parse({ ...safe, id: PARENT });
   installFetch(
-    () => response({ items: [revoked ? safe : voc], page: { has_more: false } }),
+    () => response({ items: revoked ? [safe, otherSafe] : [voc, other], page: { has_more: false } }),
     () => response(revoked ? safe : voc),
   );
   // The app's shared feature client, whose default reads again on a tab return only after 30 seconds.
   await mount(`/integration/evidence?selected=${ID}`, createFeatureQueryClient());
   await screen.findByRole('link', { name: 'Finding 보기' });
   expect(screen.getAllByText(/비공개 원본 제목/).length).toBeGreaterThan(0);
+  expect(screen.getByText(/선택 안 한 비공개 메모/)).toBeVisible();
   revoked = true;
   try {
     await act(async () => {
@@ -567,6 +571,7 @@ it('re-checks source permission on a tab return within 30 seconds, in the list a
       focusManager.setFocused(true);
     });
     await waitFor(() => expect(screen.queryByText(/비공개 원본 제목/)).toBeNull());
+    await waitFor(() => expect(screen.queryByText(/선택 안 한 비공개 메모/)).toBeNull());
     expect(screen.queryByText(item.quote_or_summary as string)).toBeNull();
   } finally {
     focusManager.setFocused(undefined);

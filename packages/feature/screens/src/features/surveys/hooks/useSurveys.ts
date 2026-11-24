@@ -177,6 +177,9 @@ export function useSurveyResults(id: string, enabled = true) {
       ),
     enabled: Boolean(id) && enabled,
     retry: false,
+    // Excerpts depend on the individual-response permission, which can be withdrawn elsewhere: every tab return re-checks
+    // it, not only once the data is 30 seconds old (#2819).
+    refetchOnWindowFocus: true,
   });
 }
 

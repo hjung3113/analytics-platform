@@ -31,5 +31,8 @@ export function useVocConversation(
       lastPage.page.has_more ? lastPage.page.cursor : undefined,
     enabled: Boolean(vocId),
     staleTime: 10_000,
+    // Reporter replies depend on `voc.triage`, which can be withdrawn elsewhere: a tab return after 10 seconds re-checks it,
+    // not only once the data is 30 seconds old (#2819).
+    refetchOnWindowFocus: true,
   });
 }

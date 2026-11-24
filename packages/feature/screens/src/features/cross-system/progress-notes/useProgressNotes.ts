@@ -49,6 +49,9 @@ export function useProgressNotesList(resource: ProgressNotesResource) {
       lastPage.page.has_more && lastPage.page.cursor ? lastPage.page.cursor : undefined,
     enabled: Boolean(resource.id),
     staleTime: 10_000,
+    // Notes depend on `finding.manage`, which can be withdrawn elsewhere: a tab return after 10 seconds re-checks it, not
+    // only once the data is 30 seconds old (#2819).
+    refetchOnWindowFocus: true,
   });
 }
 
