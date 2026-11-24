@@ -2018,3 +2018,38 @@ describe('requestable Scope disjointness (ADR-0154)', () => {
     expect(await check!.run()).toEqual(overlap ? 'requestableScopes must not list a granted site' : null);
   });
 });
+
+// #1706, #2894: four result states — passed, known-limitation, failed, skipped (not tested); only passed is a pass.
+describe('known limitations (#2894)', () => {
+  const TRUST = 'fixture.list · granted response trust is null or complete (06 §18)';
+  const statusOf = (results: readonly ConformanceResult[], id: string) => results.find(r => r.id === id);
+
+  it('reports a declared failing check as a known limitation with its reason and failure, never as a pass', async () => {
+    const results = await runServerConformance({ ...harness(new Set(['envelope-missing-trust'])), knownLimitations: [{ id: TRUST, reason: 'trust lands with #9999' }] });
+    expect(statusOf(results, TRUST)).toEqual({
+      id: TRUST, status: 'known-limitation', reason: 'trust lands with #9999', failure: '`trust` is missing — send null for non-mart data (06 §18)',
+    });
+    expect(results.filter(r => r.status === 'failed').map(r => r.id)).not.toContain(TRUST);
+  });
+
+  it('fails a declared check that passes, so a stale declaration is removed', async () => {
+    const results = await runServerConformance({ ...harness(), knownLimitations: [{ id: TRUST, reason: 'old gap' }] });
+    expect(statusOf(results, TRUST)).toEqual({ id: TRUST, status: 'failed', failure: 'declared as a known limitation (old gap) but passed — remove the declaration' });
+  });
+
+  it('keeps a declared check that was not tested as skipped', async () => {
+    const id = SELECTION_PORT_SKIP_IDS[0]!;
+    const results = await runServerConformance({ ...harness(), knownLimitations: [{ id, reason: 'not built yet' }] });
+    expect(statusOf(results, id)?.status).toBe('skipped');
+  });
+
+  it('refuses a declaration that names no planned check, has no reason or repeats an id, before anything runs', async () => {
+    await expect(runServerConformance({ ...harness(), knownLimitations: [{ id: 'fixture.list · no such check', reason: 'x' }] })).rejects.toThrow('known limitation names no planned check: fixture.list · no such check');
+    await expect(runServerConformance({ ...harness(), knownLimitations: [{ id: TRUST, reason: ' ' }] })).rejects.toThrow(`known limitation without a reason: ${TRUST}`);
+    await expect(runServerConformance({ ...harness(), knownLimitations: [{ id: TRUST, reason: 'a' }, { id: TRUST, reason: 'b' }] })).rejects.toThrow(`known limitation declared twice: ${TRUST}`);
+  });
+
+  it('leaves results unchanged without declarations', async () => {
+    expect(await runServerConformance(harness(new Set(['envelope-missing-trust'])))).toEqual(await runServerConformance({ ...harness(new Set(['envelope-missing-trust'])), knownLimitations: [] }));
+  });
+});

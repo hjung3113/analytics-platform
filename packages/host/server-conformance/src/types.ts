@@ -125,7 +125,16 @@ export type ServerConformanceHarness = {
    * authorship when this account is allowed to annotate, so the kit first proves it can (#399).
    */
   asOtherAnnotator<T>(fn: () => Promise<T>): Promise<T>;
+  /**
+   * Checks this server is known not to meet yet, each by its exact check id and the reason (#2894). A declared check that
+   * fails is reported as `known-limitation`, not `failed`; one that passes fails the run (remove the stale declaration); a
+   * declaration naming no planned check throws before anything runs. Absent = none: results are unchanged.
+   */
+  knownLimitations?: readonly KnownLimitation[];
 };
+
+/** A check the server is known not to meet: its exact id and a non-empty reason, reported with the result (#2894). */
+export type KnownLimitation = { id: string; reason: string };
 
 /** One check: `run` resolves to null when the adapter conforms, otherwise to the reason it does not. */
 export type ConformanceCheck = {
@@ -158,5 +167,15 @@ export type ConformanceCheck = {
 /** A check that decided at run time it has nothing to judge (e.g. a server that does not page `entityAudit`). */
 export type ConformanceSkipped = { skipped: string };
 
-/** `skipped`: planned but not run (e.g. no oversize sample) — never counted as a pass. `failure` is null unless `failed`. */
-export type ConformanceResult = { id: string; status: 'passed' | 'failed' | 'skipped'; failure: string | null; /** Why a run-time skip happened; plan-time skips say it in the id. */ reason?: string };
+/**
+ * The four compatibility states (#1706, #2894): `passed`; `known-limitation` — failed, and the harness declared it with a
+ * reason (`failure` keeps the check's message); `failed`; `skipped` — not tested (planned but not run, e.g. no oversize
+ * sample, or a run-time precondition missing). Only `passed` is a pass. `failure` is null unless `failed` or `known-limitation`.
+ */
+export type ConformanceResult = {
+  id: string;
+  status: 'passed' | 'failed' | 'skipped' | 'known-limitation';
+  failure: string | null;
+  /** Why a run-time skip happened (plan-time skips say it in the id), or the declared reason of a known limitation. */
+  reason?: string;
+};
