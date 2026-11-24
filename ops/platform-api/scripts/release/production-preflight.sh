@@ -106,6 +106,18 @@ if [ -n "$(val_of STORAGE_S3_SECRET_ACCESS_KEY)" ] && [ "$(val_of STORAGE_S3_SEC
   fail "STORAGE_S3_SECRET_ACCESS_KEY must differ from MINIO_ROOT_PASSWORD"
 fi
 
+# minio-bootstrap creates the backend account with `mc admin user svcacct add`, which takes an access key of 3-20 and a
+# secret key of 8-40 characters; outside that it fails with a hidden mc message (#2922).
+key_length_ok() { # name min max hint
+  local v
+  v="$(val_of "$1")"
+  if [ -n "$v" ] && [ "$v" != "CHANGE_ME" ] && { [ "${#v}" -lt "$2" ] || [ "${#v}" -gt "$3" ]; }; then
+    fail "$1 must be $2-$3 characters ($4)"
+  fi
+}
+key_length_ok STORAGE_S3_ACCESS_KEY_ID 3 20 'openssl rand -hex 8'
+key_length_ok STORAGE_S3_SECRET_ACCESS_KEY 8 40 'openssl rand -hex 16'
+
 # DB login-role passwords sit unencoded in postgresql://user:pass@host URLs: restricted charset, and two different values.
 for name in PLATFORM_APP_DB_PASSWORD PLATFORM_MIGRATE_DB_PASSWORD; do
   v="$(val_of "$name")"
