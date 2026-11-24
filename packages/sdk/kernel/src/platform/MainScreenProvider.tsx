@@ -10,6 +10,21 @@ import { useScreenState } from './useScreenState';
 import { ScreenSavedViews } from '../saved-view/useSavedViews';
 import { readHistoryIdx, readHistorySeg, withHistoryIdx } from './navigationGuard';
 
+const editableTarget = 'input, textarea, select, [role="textbox"], [role="combobox"]';
+const openOverlay = 'dialog[open], [role="dialog"]:not([aria-modal="false"]):not([data-state="closed"]), [role="menu"][data-state="open"], [role="listbox"][data-state="open"]';
+// `data-floating-window` marks a shown floating frame (window or fill), title bar included. The frame's mode attribute name is a
+// lazy-chunk marker (tooling/scripts/check-lazy-chunks.mjs), so this start-up module must not spell it.
+const boardOrWindow = '[data-pane-id], [data-board-host], [data-floating-window]';
+
+function isAnalysisUndo(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.repeat || event.isComposing || event.shiftKey || event.altKey
+    || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return false;
+  const focused = document.activeElement;
+  if ((event.target instanceof Element && event.target.closest(boardOrWindow)) || focused?.closest(boardOrWindow)) return false;
+  if (focused instanceof HTMLElement && (focused.isContentEditable || focused.closest(`${editableTarget}, [role="dialog"], dialog[open]`))) return false;
+  return !Array.from(document.querySelectorAll(openOverlay)).some(node => !node.closest('[hidden], [aria-hidden="true"]'));
+}
+
 /** The main screen: the browser URL, history, and the shell navigation that follows it. */
 export const MainScreenProvider = memo(function MainScreenProvider({ app, children }: { app: AppValue; children: ReactNode }) {
   const { location, registry, can, canOpen, accessibleSpaces, menusInSpace, user } = app.pub;
@@ -39,6 +54,9 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const idxRef = useRef<number | null>(bootIdx);
   // The numbering segment of the entry on screen (null = unnamed). A rebase always names a NEW segment, so no write ever continues an older one (R2-1).
   const segRef = useRef<string | null>(bootIdx === null ? null : readHistorySeg(location.readState?.()));
+  // Memory only. Each entry marks a selection-only push whose adjacent predecessor can safely be reached by Back.
+  const selectionSteps = useRef(new Map<number, string>());
+  const selectionUndoPending = useRef(false);
   const stamping = location.readState !== undefined;
   const commitRef = useRef<((next: string, how: 'push' | 'replace', options?: CommitOptions) => boolean) | null>(null);
   // Refusals raised before the reporter is wired (a child's first layout effect runs before this provider's) wait here and are delivered once.
@@ -104,6 +122,8 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
     const hereState = stamping ? location.readState?.() : null;
     const here = stamping ? readHistoryIdx(hereState) : null;
     const hereSeg = here === null ? null : readHistorySeg(hereState);
+    if (how === 'replace' || here === null || hereSeg !== segRef.current) selectionSteps.current.clear();
+    else for (const index of selectionSteps.current.keys()) if (index > here) selectionSteps.current.delete(index);
     const replaceState = declares ? withHiddenState(location.readState?.(), nextHidden) : undefined;
     if (how === 'replace') location.replace(split.url, { keepFragment: options.redirect || options.materialize, ...(here !== null ? { state: withHistoryIdx(replaceState, here, hereSeg) } : declares ? { state: replaceState } : {}) });
     else if (stamping) {
@@ -114,6 +134,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       idxRef.current = base + 1;
       segRef.current = seg;
       location.push(split.url, withHistoryIdx(declares ? withHiddenState(null, nextHidden) : null, base + 1, seg));
+      if (options.analysisSelection) selectionSteps.current.set(base + 1, split.url);
     } else if (declares) location.push(split.url, withHiddenState(null, nextHidden)); else location.push(split.url);
     const writtenUrl = location.read() ?? '';
     const committed = { url: writtenUrl, hidden: nextHidden, rewrite: false };
@@ -128,6 +149,10 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const source: ScreenSource = { mode: 'main', paneId: null, paneLabel: null, url, hidden, readAddress, navigation: pageNavigation, commit, go, onScopeValid: rememberScope };
   const { screen, sidebarSpace, resolveEntryLink, initialSavedView } = useScreenState(app, source);
   const { pathname, route, contractError, navigate, currentSpace } = screen;
+  useLayoutEffect(() => {
+    const steps = selectionSteps.current;
+    return () => { steps.clear(); selectionUndoPending.current = false; };
+  }, [app.pub.session, app.pub.revision, registry, pathname, screen.global.scopeId]);
 
   useLayoutEffect(() => {
     reportRef.current = screen.reportError;
@@ -151,8 +176,10 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       pageNavigation.advance(next, next.split('?')[0] !== latestArrival.current.url.split('?')[0] ? 'page' : undefined);
       usageNav.current.via = 'history';
       // An entry without a stamp breaks the numbering: nothing is trusted from before it (F1). A stamped one brings its own segment.
+      const segment = newIdx === null ? null : readHistorySeg(location.readState?.());
+      if (newIdx === null || segment !== segRef.current) selectionSteps.current.clear();
       idxRef.current = newIdx;
-      segRef.current = newIdx === null ? null : readHistorySeg(location.readState?.());
+      segRef.current = segment;
       guard.dropRequest(); // an accepted arrival ends any request made from the entry we left (F3)
       const traversed = { url: next, hidden: arrived.hidden, rewrite: false };
       latestArrival.current = traversed;
@@ -160,6 +187,7 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       setView({ arrival: traversed, url: next, hidden: arrived.hidden });
     };
     const onPop = () => {
+      selectionUndoPending.current = false;
       const newIdx = readHistoryIdx(location.readState?.());
       const cur = idxRef.current;
       // Positions of different segments are not comparable: such a pop is neither a compensation nor a measurable distance.
@@ -196,8 +224,21 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
       }
       arrivePop(newIdx);
     };
+    const onUndo = (event: KeyboardEvent) => {
+      const idx = idxRef.current;
+      if (!location.go || idx === null || selectionUndoPending.current || compensatingTo.current !== null || replayIdx.current !== null || guard.pending()) return;
+      const state = location.readState?.();
+      if (selectionSteps.current.get(idx) !== location.read() || readHistoryIdx(state) !== idx || readHistorySeg(state) !== segRef.current || !isAnalysisUndo(event)) return;
+      event.preventDefault();
+      selectionUndoPending.current = true;
+      try { location.go(-1); } catch { selectionUndoPending.current = false; failOpen('AnalysisSelectionUndoHistoryError'); }
+    };
     window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
+    window.addEventListener('keydown', onUndo);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('keydown', onUndo);
+    };
   }, [pageNavigation, location, usageNav, arrive, guard, menuFor, hiddenKeysFor]);
 
   // Recent visits (the main screen's own history; a pane never writes them).

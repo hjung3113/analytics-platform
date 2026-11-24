@@ -2,6 +2,7 @@ import type { Pair } from '@ap/contracts';
 import { formatText } from '@ap/kernel';
 import { verdictCodec } from '../endpoints';
 import { HW_TIME_MESSAGES, HW_TIME_NEW_PANEL_MESSAGES } from '../messages';
+import { TREND_RANGE_OUTPUT } from '../panels';
 import { HW_TIME_FILTER_KEYS, HW_TIME_FILTER_NONE } from './useHwTimeFilter';
 
 /** Drill steps of the HW Time screen (06 §6.4): Module type → Motion → Module. */
@@ -9,7 +10,7 @@ export const HW_TIME_DRILL = { levels: [
   { key: 'moduleType', label: { ko: 'Module 타입', en: 'Module type' } },
   { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } },
   { key: 'drillModule', label: { ko: 'Module', en: 'Module' } },
-], resetKeys: ['focus', 'trend'] };
+], resetKeys: ['focus', 'trend', TREND_RANGE_OUTPUT.key] };
 
 type SummaryItem = { key: string; label: string; value: string };
 

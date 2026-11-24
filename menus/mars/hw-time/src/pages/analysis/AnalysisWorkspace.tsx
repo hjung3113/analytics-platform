@@ -8,6 +8,7 @@ import {
 } from '@ap/components';
 import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams } from '../../endpoints';
 import { HW_TIME_MESSAGES, HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKSPACE_MESSAGES } from '../../messages';
+import { TREND_RANGE_OUTPUT } from '../../panels';
 import { formatSeconds } from '../../shared/format';
 import { useHwTimeLevel } from '../../shared/data';
 import { htmEmphasisStatus, htmStatusView } from '../../shared/htm';
@@ -287,13 +288,16 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const sourcePanelId = panelDeclarations.moduleMotions.id;
   const selectionOutput = useAnalysisSelectionOutput(sourcePanelId, MOTION_EQUIPMENT_KEY, { available: sourceEquipment, subscribeHighlight: false });
   const currentHostsSelection = step === 4 && !extraIds.includes(sourcePanelId);
-  const onOpenTrend = (target: string, row: string) => {
-    setPage({ trend: target, row });
-    setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
-  };
   const verdict = verdictCodec.decode(pageParam('verdict') ?? '');
   const date = pageParam('date');
   const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date, [MOTION_EQUIPMENT_KEY]: selectedEquipment };
+  const trendTarget = panelRunTarget('trend', projectQueryInputs(panelDeclarations.trend, panelContext));
+  const onOpenTrend = (target: string, row: string) => {
+    const patch: Record<string, string | null> = { trend: target, row };
+    if (target !== trendTarget) patch[TREND_RANGE_OUTPUT.key] = null;
+    setPage(patch);
+    setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
+  };
   const equipment = projectQueryInputs(panelDeclarations.table, panelContext)[MOTION_EQUIPMENT_KEY];
   const waitingForAvailability = equipment !== undefined
     && (!selectionOutput.availabilityCurrent || sourceQuery?.status === 'loading' || sourceQuery?.showingPrevious);
@@ -336,10 +340,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
             return input.moduleType ? <Heatmap query={queries[input.moduleType]!} filter={filter} typeId={input.moduleType} motionId={display.drillMotion} verdict={display.verdict} /> : null;
           }
           case 'trend': {
-            const input = projectQueryInputs(panelDeclarations.trend, panelContext);
-            const target = panelRunTarget(panel, input);
             const display = projectDisplayInputs(panelDeclarations.trend, panelContext);
-            return target ? <RunQueryPanel kind={panel} target={target} filter={filter} date={display.date} /> : null;
+            return trendTarget ? <RunQueryPanel kind={panel} target={trendTarget} filter={filter} date={display.date} /> : null;
           }
           case 'scatter': {
             const input = projectQueryInputs(panelDeclarations.scatter, panelContext);

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, renderHook, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { emptyGlobal, groupId, NO_FEATURES, spaceId, type AnalysisSelection, type PanelDeclaration } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { useLayoutEffect, useState, type ReactNode } from 'react';
@@ -470,6 +470,21 @@ it('returns empty chips and refuses writes in a lent panel', () => {
   expect(search().get(setKey)).toBe('A');
 });
 
+it.each([
+  ['source without candidates (time axis or unreported categories)', undefined, true],
+  ['category with timestamp labels', [{ value: '2026-09-01T14:00:00', label: 'First' }, { value: '2026-09-01T16:00:00', label: 'Last' }], true],
+] as const)('accepts equal chip range endpoints from a %s', (_, candidates, valid) => {
+  const from = '2026-09-01T14:00:00';
+  const to = '2026-09-01T16:00:00';
+  const result = mount(() => {
+    useAnalysisSelectionOutput('source', rangeKey, { available: { from, to, candidates } });
+    return useAnalysisSelectionChips();
+  }, `&timeRange=${from}/${to}`);
+
+  act(() => expect(result.current.editor?.replace(rangeKey, { shape: 'range', from, to: from })).toBe(valid));
+  expect(search().get(rangeKey)).toBe(`${from}/${valid ? from : to}`);
+});
+
 it('refuses a stale clear after leaving the screen in the same event', () => {
   const { current: { model, platform } } = mount(() => ({ model: useAnalysisSelectionChips(), platform: usePlatform() }), chainQuery, ChipWrapper);
   act(() => {
@@ -666,4 +681,86 @@ it('re-evaluates the later chip when Back restores a cleared middle chip', async
   expect(last()?.available).toBe(false);
   window.history.back();
   await waitFor(() => expect(last()).toMatchObject({ after: middleKey, available: true }));
+});
+
+it.each(['metaKey', 'ctrlKey'] as const)('undoes only consecutive selection steps with %s and preserves native editing', async modifier => {
+  const result = mount(useWriter);
+  const go = vi.spyOn(window.history, 'go');
+  try {
+    act(() => result.current.platform.setPage({ sort: 'name' }));
+    act(() => result.current.output.select({ shape: 'set', values: ['A'] }));
+    act(() => result.current.output.select({ shape: 'set', values: ['B'] }));
+    const { unmount } = render(<><input aria-label="local edit" /><div role="dialog" hidden><button type="button">dialog</button></div></>);
+    const undo = (target: HTMLElement = document.body) => fireEvent.keyDown(target, { key: 'z', [modifier]: true });
+    screen.getByRole('textbox').focus();
+    undo(screen.getByRole('textbox'));
+    expect(go).not.toHaveBeenCalled();
+    screen.getByRole('textbox').blur();
+    const dialog = screen.getByRole('dialog', { hidden: true });
+    dialog.removeAttribute('hidden');
+    undo();
+    expect(go).not.toHaveBeenCalled();
+    unmount();
+    undo();
+    await waitFor(() => expect(search().get(setKey)).toBe('A'));
+    undo();
+    await waitFor(() => expect(search().has(setKey)).toBe(false));
+    undo();
+    expect(go.mock.calls).toEqual([[-1], [-1]]);
+    expect(search().get('sort')).toBe('name');
+  } finally { go.mockRestore(); }
+});
+
+it('runs undo through the Back guard and waits for discard confirmation', async () => {
+  const result = mount(() => {
+    const writer = useWriter();
+    const [dirty, setDirty] = useState(false);
+    useUnsavedGuard(dirty, { leaves: 'address' });
+    return { ...writer, setDirty, request: useLeaveRequest() };
+  }, initialA);
+  act(() => result.current.output.select(b));
+  act(() => result.current.setDirty(true));
+  fireEvent.keyDown(document.body, { key: 'z', metaKey: true });
+  await waitFor(() => expect(result.current.request).toBeTruthy());
+  await waitFor(() => expect(search().get(setKey)).toBe('B'));
+  expect(result.current.output.selection).toEqual(b);
+  act(() => result.current.request!.confirm());
+  await waitFor(() => expect(result.current.output.selection).toEqual({ shape: 'set', values: ['A'] }));
+});
+
+it.each(['metaKey', 'ctrlKey'] as const)('ignores %s undo in the board and uses guarded Back on the main screen', async modifier => {
+  const result = mount(() => {
+    const writer = useWriter();
+    const [dirty, setDirty] = useState(false);
+    useUnsavedGuard(dirty, { leaves: 'address' });
+    return { ...writer, setDirty, request: useLeaveRequest() };
+  }, initialA);
+  render(<>
+    <main><button type="button">Main action</button></main>
+    <div data-floating-window="">
+      <button type="button">Window action</button>
+      <div data-pane-id="p1"><button type="button">Pane action</button></div>
+    </div>
+  </>);
+  const go = vi.spyOn(window.history, 'go');
+  const undoOn = (name: string) => {
+    const button = screen.getByRole('button', { name });
+    button.focus();
+    fireEvent.keyDown(button, { key: 'z', [modifier]: true });
+  };
+  try {
+    act(() => result.current.output.select(b));
+    act(() => result.current.setDirty(true));
+    undoOn('Pane action');
+    undoOn('Window action');
+    expect(go).not.toHaveBeenCalled();
+    expect(result.current.request).toBeNull();
+    expect(search().get(setKey)).toBe('B');
+
+    undoOn('Main action');
+    await waitFor(() => expect(result.current.request).toBeTruthy());
+    expect(search().get(setKey)).toBe('B');
+    act(() => result.current.request!.confirm());
+    await waitFor(() => expect(search().get(setKey)).toBe('A'));
+  } finally { go.mockRestore(); }
 });

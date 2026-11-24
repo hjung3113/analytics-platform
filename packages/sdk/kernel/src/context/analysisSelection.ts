@@ -80,13 +80,24 @@ function hasFilterCycle(channels: ReturnType<typeof menuAnalysisSelections>, key
   return false;
 }
 
-/** Reads and writes a declared analysis selection through the menu page key (ADR-0175). */
-export function useAnalysisSelectionOutput(panelId: string, key: string, options?: {
+type AnalysisSelectionOutputOptions = {
   /** Values present in the source's current data. Omit while availability is unknown. */
   available?: AnalysisSelectionAvailability | undefined;
   /** Set false in callers that only write selections or report availability. */
   subscribeHighlight?: boolean;
-}): {
+};
+
+/** Reads and writes a declared analysis selection through the menu page key (ADR-0175). */
+export function useAnalysisSelectionOutput(panelId: string, key: string, options?: AnalysisSelectionOutputOptions) {
+  return useSelectionOutput(usePlatform(), { panelId, key }, options);
+}
+
+/** The chart can omit the output and also runs without a platform provider. */
+export function useOptionalAnalysisSelectionOutput(output: { panelId: string; key: string } | undefined, options?: AnalysisSelectionOutputOptions) {
+  return useSelectionOutput(usePlatformOptional(), output, options);
+}
+
+function useSelectionOutput(platform: MenuPlatform | null, output: { panelId: string; key: string } | undefined, options?: AnalysisSelectionOutputOptions): {
   selection: AnalysisSelection | null;
   select: (next: AnalysisSelection | null) => boolean;
   /** Whether readers of this source see the supplied availability (or its withdrawal). */
@@ -94,30 +105,32 @@ export function useAnalysisSelectionOutput(panelId: string, key: string, options
   /** Whether a chip for this output is currently hovered or focused. First writer only. */
   highlighted: boolean;
 } {
-  const { route, pageParam, pageParams, setPage } = usePlatform();
-  const screen = useWriteScreen(route);
+  const { route, pageParam, pageParams, setPage } = (output && platform) || {};
+  const { panelId, key } = output ?? {};
+  const screen = useWriteScreen(route ?? null);
   const channels = useChannels(route?.menu);
-  const channel = channels.get(key);
+  const channel = key === undefined ? undefined : channels.get(key);
   const store = screen?.analysisSelectionAvailability;
-  const address = drillAddress(route?.menu, pageParam);
+  const address = pageParam ? drillAddress(route?.menu, pageParam) : '';
   const report = useStable(options?.available, sameAvailability);
   const isSource = channel?.writers[0]?.panelId === panelId;
-  const canReport = useMemo(() => isSource && !hasFilterCycle(channels, key), [channels, isSource, key]);
+  const canReport = useMemo(() => key !== undefined && isSource && !hasFilterCycle(channels, key), [channels, isSource, key]);
   const availabilityCurrent = useSyncExternalStore(
     canReport && store ? store.subscribe : subscribeToEmptyAvailability,
-    () => canReport && store !== undefined && sameAvailability(readAvailability(store.read(), key, address), report),
+    () => key !== undefined && canReport && store !== undefined && sameAvailability(readAvailability(store.read(), key, address), report),
     () => false,
   );
   useEffect(() => {
-    if (store && canReport && report !== undefined) return store.report(key, { drillAddress: address, available: report });
+    if (key !== undefined && store && canReport && report !== undefined) return store.report(key, { drillAddress: address, available: report });
   }, [store, canReport, key, report, address]);
-  const urlKey = selectionUrlKey(key);
-  const rendered = pageParams(urlKey);
-  const selection = channel ? parseAnalysisSelection(channel.shape, rendered) : null;
+  const urlKey = key === undefined ? undefined : selectionUrlKey(key);
+  const rendered = urlKey === undefined ? undefined : pageParams?.(urlKey);
+  const selection = channel && rendered ? parseAnalysisSelection(channel.shape, rendered) : null;
   const highlightScreen = isSource && options?.subscribeHighlight !== false ? screen : null;
   const highlighted = useSelectionHighlight(highlightScreen, address, hoveredKey => hoveredKey === key && selection !== null);
-  if (route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
+  if (output && route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
   return { selection, availabilityCurrent, highlighted, select(next) {
+    if (urlKey === undefined || !rendered || !setPage) return false;
     const current = screen?.pageParamsNow(urlKey);
     if (!current || !channel || (next && next.shape !== channel.shape)) return false;
     const param = next && analysisSelectionParam(next);
@@ -312,6 +325,8 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
       const normalized = parseAnalysisSelection(shape, written);
       if (!normalized && written.length) return false;
       if (normalized?.shape === 'range') {
+        // The selection carries no axis, so equal ends stay valid here (a one-category range); a time-axis chart refuses
+        // to draw or apply a zero-length range itself (#2854 C5).
         const compare = analysisSelectionRangeCompare(reportedAvailability.get(key));
         try {
           if (!(compare(normalized.from, normalized.to) <= 0)) return false;

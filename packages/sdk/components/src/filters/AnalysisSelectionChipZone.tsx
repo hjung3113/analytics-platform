@@ -2,7 +2,7 @@ import { Fragment, useCallback, useId, useLayoutEffect, useRef, useState, type R
 import { X } from 'lucide-react';
 import { useAnalysisSelectionChips, useI18n, useMessages, type AnalysisSelectionChip } from '@ap/kernel';
 import { useAnalysisSelectionHoverTarget, useHostPlatformOptional } from '@ap/kernel/host';
-import { Button, Checkbox, Input, Label, Popover, PopoverContent, PopoverTrigger, cn } from '@ap/ui';
+import { Button, Checkbox, Input, Label, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useElementSize, useObservedElementSize } from '../state/useElementSize';
 
@@ -36,6 +36,7 @@ function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip;
   if (chip.selection.shape === 'set') for (const value of chip.selection.values) candidates.add(value);
   if (draft.shape === 'set') for (const value of draft.values) candidates.add(value);
   const rangeError = draft.shape === 'range' && rejected;
+  const rangeCandidates = report && 'from' in report ? report.candidates : undefined;
   return <form className="grid gap-2" onSubmit={event => {
     event.preventDefault();
     if (!editor.replace(chip.key, draft, close)) setRejected(true);
@@ -48,18 +49,23 @@ function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip;
         }} />
         <span className="ml-2 min-w-0 wrap-anywhere">{value}{available && !available.has(value) && <> <span className="text-text-secondary">{m('analysisSelectionUnavailable')}</span></>}</span>
       </Label>)}
-    </div> : <>
-      <div className="grid gap-1">
-        <Label htmlFor={`${id}-start`}>{m('analysisSelectionStart')}</Label>
-        <Input id={`${id}-start`} value={draft.from} aria-invalid={rangeError || undefined} aria-describedby={rangeError ? errorId : undefined}
-          onChange={event => update({ ...draft, from: event.target.value })} />
-      </div>
-      <div className="grid gap-1">
-        <Label htmlFor={`${id}-end`}>{m('analysisSelectionEnd')}</Label>
-        <Input id={`${id}-end`} value={draft.to} aria-invalid={rangeError || undefined} aria-describedby={rangeError ? errorId : undefined}
-          onChange={event => update({ ...draft, to: event.target.value })} />
-      </div>
-    </>}
+    </div> : (['from', 'to'] as const).map(endpoint => {
+      const fieldId = `${id}-${endpoint}`;
+      const label = m(endpoint === 'from' ? 'analysisSelectionStart' : 'analysisSelectionEnd');
+      const value = draft[endpoint];
+      const change = (next: string) => update({ ...draft, [endpoint]: next });
+      const validation = { 'aria-invalid': rangeError || undefined, 'aria-describedby': rangeError ? errorId : undefined };
+      return <div className="grid gap-1" key={endpoint}>
+        <Label htmlFor={fieldId}>{label}</Label>
+        {rangeCandidates?.length ? <Select value={value} onValueChange={change}>
+          <SelectTrigger id={fieldId} {...validation}><SelectValue placeholder={label} /></SelectTrigger>
+          <SelectContent>
+            {!rangeCandidates.some(candidate => candidate.value === value) && <SelectItem value={value} disabled>{value}</SelectItem>}
+            {rangeCandidates.map(candidate => <SelectItem key={candidate.value} value={candidate.value}>{candidate.label}</SelectItem>)}
+          </SelectContent>
+        </Select> : <Input id={fieldId} value={value} {...validation} onChange={event => change(event.target.value)} />}
+      </div>;
+    })}
     {rejected && <p id={errorId} role="alert" className="text-xs text-text-danger-label">
       {m(draft.shape === 'range' ? 'analysisSelectionInvalidRange' : 'analysisSelectionInvalidSet')}
     </p>}

@@ -350,7 +350,6 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
   const selectedPoints = new Set(i.selectedPointKeys);
   const highlightedValues = new Set(i.highlightedValues);
-  const highlightedBarValues = xType === 'time' ? new Set<string>() : highlightedValues;
   const highlightedBarBorders = new Map<string, number>();
   const statuses = i.statuses ?? new Map<string, ChartStatus>();
   const categoryMarks = i.categoryValueMarks;
@@ -516,7 +515,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           // A line point is a hollow symbol stroked in the series colour, which hides a datum border: a selected one is a solid circle in its own
           // colour, a little larger, so the ring shows around it (UX-2).
           const solidPoint = kind === 'line' ? { symbol: 'circle', symbolSize: CHART_MARKS.selectedPointSize } : {};
-          const highlightBar = kind === 'bar' && y !== null && highlightedBarValues.has(x);
+          const highlightBar = kind === 'bar' && y !== null && highlightedValues.has(x);
           if (!isActive && !mark && !status) {
             if (!label) return y;
             const borderWidth = selectionRing(true);
@@ -542,7 +541,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         const real = {
           id: s.id, name: s.name, type: kind,
           // Hover updates replace series. Apply and clear emphasis without replaying entrance motion.
-          ...(i.highlightedValues !== undefined && (kind === 'line' || xType === 'category') ? { animation: false } : {}),
+          ...(i.highlightedValues !== undefined ? { animation: false } : {}),
           stack: kind === 'bar' ? (i.stacked ? 'total' : undefined) : (i.explicitStack ? 'line-total' : undefined),
           // Over 12 points they show on hover only; a series with a selected point keeps them, since its label rides on the symbol.
           showSymbol: showSymbols, symbolSize: 5, connectNulls: false,
@@ -570,7 +569,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         }] : [];
         return [...spacer, real];
       }),
-      ...barStatusBackingSeries(i, statuses, lanes, highlightedBarValues, highlightedBarBorders),
+      ...barStatusBackingSeries(i, statuses, lanes, highlightedValues, highlightedBarBorders),
       ...lineStatusSeries(i, statuses, highlightedValues),
       ...(bounds ? boundSeries(bounds, palette) : []),
       ...(totalTexts ? [totalSeries(totalTexts)] : []),

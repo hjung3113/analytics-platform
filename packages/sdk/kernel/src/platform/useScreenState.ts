@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PageFocus } from '../context/pageNavigation';
 import { createAnalysisSelectionAvailability } from '../context/analysisSelectionAvailability';
+import { menuAnalysisSelections } from '../registry/analysis-selections';
 import { classifyMetricInit, sameMetricInit } from '../registry/metric-init';
 import { sameItems, useStable } from '../stable';
 import { isBoardPath, pathFor, RegistryError, type MenuEntry } from '../registry/registry';
@@ -19,6 +20,8 @@ import type { InitialSavedView } from '../saved-view/useSavedViews';
 import { buildQuery, carriesReturnTo, clientCorrelationId, ContractError, CUSTOM_GROUP_AXIS, emptyGlobal, incompleteMetricPair, menuPermissions, type GlobalContext, type Pair, type ParsedQuery, parseQuery, RETURN_TO_KEY, sameGlobal, type SpaceDef, type MainUsageVia, type UsageEvent } from '@ap/contracts';
 import type { HostPlatform, LinkOptions, LinkResolution, ReturnContextKey, ReturnOrigin, ScopeState } from './types';
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type CommitOptions, type PageWriteOptions, type ScreenAddress, type ScreenSource, type ScreenState } from './contexts';
+
+const noSelectionChannels = { panels: [] };
 
 // Hidden pairs are parsed with the public query, then split again by the main screen's commit (ADR-0105).
 function fullAddress({ url, hidden }: ScreenAddress): string {
@@ -180,8 +183,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // exactly (06 §6.4). History traversal (popstate, navigate) and no-op setGlobal calls never drop anything.
   // Writers commit this screen's own address; they are not cross-menu navigation (a pane keeps writing to itself
   // even after its menu lost permission or board support).
-  const write = useCallback((next: string, options?: PageWriteOptions & Pick<CommitOptions, 'bypassGuard'>) => {
-    commitState(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, bypassGuard: options?.bypassGuard, run: options?.run });
+  const write = useCallback((next: string, options?: PageWriteOptions & Pick<CommitOptions, 'bypassGuard' | 'analysisSelection'>) => {
+    commitState(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, bypassGuard: options?.bypassGuard, run: options?.run, analysisSelection: options?.analysisSelection });
   }, [commitState]);
 
   const setGlobal = useCallback((patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => {
@@ -201,6 +204,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     write(pathname + buildQuery(next, dropResetKeys(route?.menu, page, global, next), extras), 'scopeId' in patch && patch.scopeId !== global.scopeId ? { ...options, bypassGuard: true } : options);
   }, [readWriteBase, pathname, write, toast, t, route]);
 
+  const selectionChannels = useMemo(() => menuAnalysisSelections(route?.menu ?? noSelectionChannels), [route?.menu]);
   // A patch that changes a drill level value also drops the menu's `drill.resetKeys` in the same write (one history entry, 06 §6.4).
   const setPage = useCallback<ScreenState['setPage']>((requested, options) => {
     const current = readWriteBase();
@@ -218,8 +222,10 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const keys = Object.keys(patch);
     const kept = page.filter(([k]) => !keys.includes(k));
     const added = Object.entries(patch).flatMap(([k, v]): Pair[] => (v === null ? [] : (typeof v === 'string' ? [v] : v).map((item): Pair => [k, item]))).filter(([, item]) => item !== '');
-    write(pathname + buildQuery(global, [...kept, ...added], extras), options);
-  }, [readWriteBase, pathname, write, route]);
+    const analysisSelection = mode === 'main' && keys.length > 0 && keys.every(key => selectionChannels.has(key))
+      && keys.some(key => !sameItems(page.filter(([k]) => k === key).map(([, v]) => v), added.filter(([k]) => k === key).map(([, v]) => v)));
+    write(pathname + buildQuery(global, [...kept, ...added], extras), { ...options, analysisSelection });
+  }, [readWriteBase, pathname, write, route, mode, selectionChannels]);
 
   // Reset clears analysis Context but keeps the requested Scope (a separate header control).
   const resetContext = useCallback(() => {

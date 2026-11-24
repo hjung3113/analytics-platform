@@ -1,6 +1,6 @@
 import { SlidersHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { AnalysisChart, AnalysisChartFrame, FilterLine, type ScatterSpec } from '@ap/components';
+import { AnalysisChart, AnalysisChartFrame, FilterLine, type AnalysisChartFrameProps, type ScatterSpec } from '@ap/components';
 import type { ColumnFilter } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { Button, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge } from '@ap/ui';
@@ -25,8 +25,11 @@ function Setting<T extends string>({ label, value, options, onChange }: { label:
   </label>;
 }
 
-/** Keyed by query generation at the caller: state is local to one authorised population, never persisted or written to the URL. */
-export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, date }: { kind: 'scatter' | 'trend'; data: HwTimeRuns; moduleId: string; motionId: string; motions: readonly string[]; judgement?: HtmJudgement; date?: string | null }) {
+/** Keyed by query generation at the caller so display settings and filters stay local to one authorised population. */
+export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, date, analysisSelectionOutput }: {
+  kind: 'scatter' | 'trend'; data: HwTimeRuns; moduleId: string; motionId: string; motions: readonly string[]; judgement?: HtmJudgement; date?: string | null;
+  analysisSelectionOutput?: AnalysisChartFrameProps['analysisSelectionOutput'];
+}) {
   const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const n = useMessages(N);
   const subtitle = kind === 'trend' ? n('dailyRuns', { module: moduleId, motion: motionId }) : m('runs', { module: moduleId, motion: motionId });
@@ -111,7 +114,8 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, d
         <div className="flex min-h-0 flex-1 flex-col"><AnalysisChart legendPlacement="bottom" toolsReveal="always" legendCaption={contextNote} description={contextNote} chartId="hw-overview-runs-scatter" title={m('distribution')} spec={scatter} unit={HW_TIME_UNIT[lang]} size="fill" /></div>
       </div>}
       {kind === 'trend' && (projected.trend.categories.length < 2 ? <p className="t-caption px-2 text-text-secondary">{m('trendNeedsDays')}</p> : <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-        <div className="flex min-h-52 flex-1 flex-col"><RunTrendChart chartId="hw-overview-runs-trend" trend={projected.trend} description={contextNote} activeCategory={activeDay || null} toolbarStart={panelHeader} /></div>
+        <div className="flex min-h-52 flex-1 flex-col"><RunTrendChart chartId="hw-overview-runs-trend" trend={projected.trend} description={contextNote} activeCategory={activeDay || null} toolbarStart={panelHeader}
+          analysisSelectionOutput={analysisSelectionOutput} /></div>
         <div className="flex h-48 shrink-0 flex-col"><AnalysisChartFrame summary="quiet" chartId="hw-overview-runs-trend-verdicts" title={m('trendVerdicts')}
           series={projected.trend.verdictSeries} xType="category" stacked unit={m('equipmentCount')} size="fill" fillMin={VERDICT_HEIGHT}
           legendPlacement="side" toolsReveal="hover" canApplyRange={false} emphasisFocus="none" /></div>

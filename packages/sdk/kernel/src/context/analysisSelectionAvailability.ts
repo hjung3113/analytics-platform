@@ -7,19 +7,32 @@ export type AnalysisSelectionAvailability = readonly string[] | {
   readonly to: string;
   /** A stable comparator for both selection and report endpoints. Defaults to string order. */
   readonly compare?: Compare;
+  /** Category endpoints in axis order, with the source’s display labels. */
+  readonly candidates?: readonly { readonly value: string; readonly label: string }[];
 };
 
 export function sameAvailability(a: AnalysisSelectionAvailability | undefined, b: AnalysisSelectionAvailability | undefined): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  if ('from' in a && 'from' in b) return a.from === b.from && a.to === b.to && a.compare === b.compare;
+  if ('from' in a && 'from' in b) {
+    const x = a.candidates; const y = b.candidates;
+    return a.from === b.from && a.to === b.to && a.compare === b.compare
+      && (x === y || (!!x && !!y && x.length === y.length && x.every((item, i) => item.value === y[i].value && item.label === y[i].label)));
+  }
   return !('from' in a) && !('from' in b) && sameItems(a, b);
 }
 
 const compareStrings: Compare = (a, b) => Number(a > b) - Number(a < b);
 
 export function analysisSelectionRangeCompare(available: AnalysisSelectionAvailability | undefined): Compare {
-  return (available && 'from' in available ? available.compare : undefined) ?? compareStrings;
+  if (!available || !('from' in available)) return compareStrings;
+  const { candidates, compare } = available;
+  if (!candidates) return compare ?? compareStrings;
+  return (a, b) => {
+    const first = candidates.findIndex(item => item.value === a);
+    const last = candidates.findIndex(item => item.value === b);
+    return first < 0 || last < 0 ? NaN : first - last;
+  };
 }
 
 export function isAnalysisSelectionAvailable(selection: AnalysisSelection, available: AnalysisSelectionAvailability | undefined): boolean {
@@ -28,6 +41,7 @@ export function isAnalysisSelectionAvailable(selection: AnalysisSelection, avail
     if (selection.shape !== 'range') return true;
     const compare = analysisSelectionRangeCompare(available);
     try {
+      if (available.candidates) return compare(selection.from, selection.to) <= 0;
       return compare(selection.from, available.to) <= 0 && compare(available.from, selection.to) <= 0;
     } catch {
       // A late report may reject an endpoint already in the URL. Keep the chip and mark the range unavailable.
