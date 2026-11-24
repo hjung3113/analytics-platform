@@ -1,0 +1,1343 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`builds the same boxPlot option and summary from a fixed selection 1`] = `
+{
+  "checked": [
+    "unchecked",
+    "checked",
+    "unchecked",
+    "unchecked",
+    "unchecked",
+  ],
+  "option": {
+    "grid": {
+      "bottom": 24,
+      "containLabel": true,
+      "left": 24,
+      "right": 24,
+      "top": 24,
+    },
+    "series": [
+      {
+        "boxWidth": [
+          24,
+          24,
+        ],
+        "data": [
+          {
+            "itemStyle": {
+              "borderColor": "rgb(46,107,217)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": [
+              0,
+              1,
+              2,
+              3,
+              4,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(11,127,117)",
+              "borderWidth": 3,
+              "color": "rgb(11,127,117)",
+            },
+            "value": [
+              1,
+              2,
+              3,
+              4,
+              5,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(200,105,10)",
+              "borderWidth": 1.5,
+              "color": "rgb(200,105,10)",
+            },
+            "value": [
+              2,
+              3,
+              4,
+              5,
+              6,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(162,62,140)",
+              "borderWidth": 1.5,
+              "color": "rgb(162,62,140)",
+            },
+            "value": [
+              3,
+              4,
+              5,
+              6,
+              7,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(46,107,217)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": [
+              4,
+              5,
+              6,
+              7,
+              8,
+            ],
+          },
+        ],
+        "itemStyle": {
+          "borderColor": "rgb(46,107,217)",
+        },
+        "markLine": {
+          "data": undefined,
+          "label": {
+            "color": "rgb(55,65,81)",
+            "fontSize": 10,
+            "formatter": "{b}",
+            "position": "insideEndTop",
+          },
+          "lineStyle": {
+            "color": "rgb(55,65,81)",
+            "type": "dashed",
+          },
+          "silent": true,
+          "symbol": "none",
+        },
+        "type": "boxplot",
+      },
+      {
+        "data": [],
+        "symbolSize": 5,
+        "type": "scatter",
+      },
+      {
+        "data": [
+          {
+            "value": [
+              0,
+              2,
+            ],
+          },
+          {
+            "value": [
+              1,
+              3,
+            ],
+          },
+          {
+            "value": [
+              2,
+              4,
+            ],
+          },
+          {
+            "value": [
+              3,
+              5,
+            ],
+          },
+          {
+            "value": [
+              4,
+              6,
+            ],
+          },
+        ],
+        "itemStyle": {
+          "color": "rgb(255,255,255)",
+        },
+        "symbol": "rect",
+        "symbolSize": [
+          24,
+          2,
+        ],
+        "type": "scatter",
+        "z": 3,
+      },
+      {
+        "data": [],
+        "label": {
+          "color": "rgb(91,102,120)",
+          "formatter": "미확인",
+          "position": "inside",
+          "show": true,
+        },
+        "silent": true,
+        "symbolSize": 0,
+        "tooltip": {
+          "show": false,
+        },
+        "type": "scatter",
+        "yAxisIndex": 1,
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgb(255,255,255)",
+      "borderColor": "rgb(229,234,240)",
+      "formatter": [Function],
+      "renderMode": "richText",
+      "textStyle": {
+        "color": "rgb(16,24,40)",
+      },
+    },
+    "xAxis": {
+      "axisLabel": {
+        "color": "rgb(91,102,120)",
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(102,112,131)",
+        },
+      },
+      "data": [
+        "Alpha",
+        "Beta",
+        "Gamma",
+        "Delta",
+        "Epsilon",
+      ],
+      "type": "category",
+    },
+    "yAxis": [
+      {
+        "axisLabel": {
+          "color": "rgb(91,102,120)",
+        },
+        "axisLine": {
+          "lineStyle": {
+            "color": "rgb(102,112,131)",
+          },
+        },
+        "name": "ea",
+        "splitLine": {
+          "lineStyle": {
+            "color": "rgb(238,241,245)",
+          },
+        },
+        "type": "value",
+      },
+      {
+        "max": 1,
+        "min": 0,
+        "show": false,
+        "type": "value",
+      },
+    ],
+  },
+  "summary": "Beta · 1개 선택",
+}
+`;
+
+exports[`builds the same donut option and summary from a fixed selection 1`] = `
+{
+  "checked": [
+    "unchecked",
+    "checked",
+    "unchecked",
+    "unchecked",
+    "unchecked",
+  ],
+  "option": {
+    "series": [
+      {
+        "data": [
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 0,
+              "color": "rgb(46,107,217)",
+            },
+            "name": "Alpha",
+            "value": 10,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(11,127,117)",
+            },
+            "name": "Beta",
+            "value": 11,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 0,
+              "color": "rgb(200,105,10)",
+            },
+            "name": "Gamma",
+            "value": 12,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 0,
+              "color": "rgb(162,62,140)",
+            },
+            "name": "Delta",
+            "value": 13,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 0,
+              "color": "rgb(46,107,217)",
+            },
+            "name": "Epsilon",
+            "value": 14,
+          },
+        ],
+        "emphasis": {
+          "focus": "none",
+          "scale": false,
+        },
+        "label": {
+          "show": false,
+        },
+        "radius": [
+          "55%",
+          "80%",
+        ],
+        "selectedMode": false,
+        "type": "pie",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgb(255,255,255)",
+      "borderColor": "rgb(229,234,240)",
+      "formatter": [Function],
+      "renderMode": "richText",
+      "textStyle": {
+        "color": "rgb(16,24,40)",
+      },
+    },
+  },
+  "summary": "Beta · 1개 선택",
+}
+`;
+
+exports[`builds the same heatmap option and summary from a fixed selection 1`] = `
+{
+  "checked": [
+    "checked",
+    "checked",
+    "unchecked",
+    "checked",
+    "checked",
+    "unchecked",
+  ],
+  "option": {
+    "brush": {
+      "brushStyle": {
+        "borderColor": "rgb(20,40,160)",
+        "borderWidth": 1,
+        "color": "rgba(20,40,160,0.1)",
+      },
+      "brushType": "rect",
+      "inBrush": {},
+      "outOfBrush": {},
+      "toolbox": [],
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+    },
+    "grid": {
+      "bottom": 16,
+      "containLabel": true,
+      "left": 16,
+      "right": 16,
+      "top": 16,
+    },
+    "series": [
+      {
+        "data": [
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderType": "solid",
+              "borderWidth": 1.5,
+              "color": "rgb(227,237,251)",
+            },
+            "value": [
+              0,
+              0,
+              0,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderType": "solid",
+              "borderWidth": 1.5,
+              "color": "rgb(175,205,245)",
+            },
+            "value": [
+              0,
+              1,
+              1,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(102,112,131)",
+              "borderType": "solid",
+              "borderWidth": 0,
+              "color": "rgb(127,174,236)",
+            },
+            "value": [
+              1,
+              0,
+              2,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderType": "solid",
+              "borderWidth": 1.5,
+              "color": "rgb(127,174,236)",
+            },
+            "value": [
+              1,
+              1,
+              3,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderType": "solid",
+              "borderWidth": 1.5,
+              "color": "rgb(43,107,203)",
+            },
+            "value": [
+              2,
+              0,
+              4,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(102,112,131)",
+              "borderType": "solid",
+              "borderWidth": 0,
+              "color": "rgb(18,58,122)",
+            },
+            "value": [
+              2,
+              1,
+              5,
+            ],
+          },
+        ],
+        "emphasis": {
+          "focus": "none",
+        },
+        "symbol": "rect",
+        "symbolSize": [
+          0,
+          0,
+        ],
+        "type": "scatter",
+      },
+    ],
+    "toolbox": {
+      "show": false,
+    },
+    "tooltip": {
+      "backgroundColor": "rgb(255,255,255)",
+      "borderColor": "rgb(229,234,240)",
+      "formatter": [Function],
+      "renderMode": "richText",
+      "textStyle": {
+        "color": "rgb(16,24,40)",
+      },
+    },
+    "xAxis": {
+      "axisLabel": {
+        "color": "rgb(91,102,120)",
+        "hideOverlap": true,
+        "interval": "auto",
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(102,112,131)",
+        },
+      },
+      "data": [
+        "A",
+        "B",
+        "C",
+      ],
+      "splitLine": {
+        "lineStyle": {
+          "color": "rgb(238,241,245)",
+        },
+      },
+      "type": "category",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "color": "rgb(91,102,120)",
+        "hideOverlap": true,
+        "interval": "auto",
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(102,112,131)",
+        },
+      },
+      "data": [
+        "R1",
+        "R2",
+      ],
+      "splitLine": {
+        "lineStyle": {
+          "color": "rgb(238,241,245)",
+        },
+      },
+      "type": "category",
+    },
+  },
+  "summary": "4칸 선택 · R1–R2 · A–C",
+}
+`;
+
+exports[`builds the same pareto option and summary from a fixed selection 1`] = `
+{
+  "checked": [
+    "checked",
+    "checked",
+    "unchecked",
+    "checked",
+    "checked",
+  ],
+  "option": {
+    "grid": {
+      "bottom": 24,
+      "containLabel": true,
+      "left": 24,
+      "right": 48,
+      "top": 24,
+    },
+    "series": [
+      {
+        "data": [
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": 50,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": 43,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 0,
+              "color": "rgb(46,107,217)",
+            },
+            "value": 36,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": 29,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": 22,
+          },
+        ],
+        "type": "bar",
+      },
+      {
+        "data": [
+          27.77777777777778,
+          51.66666666666667,
+          71.66666666666667,
+          87.77777777777777,
+          100,
+        ],
+        "itemStyle": {
+          "color": "rgb(11,127,117)",
+        },
+        "lineStyle": {
+          "color": "rgb(11,127,117)",
+        },
+        "markLine": {
+          "data": [
+            {
+              "name": "80%",
+              "yAxis": 80,
+            },
+          ],
+          "label": {
+            "color": "rgb(55,65,81)",
+            "fontSize": 10,
+            "formatter": "{b}",
+            "position": "insideEndTop",
+          },
+          "lineStyle": {
+            "color": "rgb(55,65,81)",
+            "type": "dashed",
+          },
+          "silent": true,
+          "symbol": "none",
+        },
+        "showSymbol": true,
+        "type": "line",
+        "yAxisIndex": 1,
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgb(255,255,255)",
+      "borderColor": "rgb(229,234,240)",
+      "formatter": [Function],
+      "renderMode": "richText",
+      "textStyle": {
+        "color": "rgb(16,24,40)",
+      },
+    },
+    "xAxis": {
+      "axisLabel": {
+        "color": "rgb(91,102,120)",
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(102,112,131)",
+        },
+      },
+      "data": [
+        "Alpha",
+        "Beta",
+        "Gamma",
+        "Delta",
+        "Epsilon",
+      ],
+      "type": "category",
+    },
+    "yAxis": [
+      {
+        "axisLabel": {
+          "color": "rgb(91,102,120)",
+        },
+        "axisLine": {
+          "lineStyle": {
+            "color": "rgb(102,112,131)",
+          },
+        },
+        "min": 0,
+        "name": "ea",
+        "splitLine": {
+          "lineStyle": {
+            "color": "rgb(238,241,245)",
+          },
+        },
+        "type": "value",
+      },
+      {
+        "axisLabel": {
+          "color": "rgb(91,102,120)",
+          "formatter": "{value}%",
+        },
+        "axisLine": {
+          "lineStyle": {
+            "color": "rgb(102,112,131)",
+          },
+        },
+        "max": 100,
+        "min": 0,
+        "name": "%",
+        "position": "right",
+        "splitLine": {
+          "show": false,
+        },
+        "type": "value",
+      },
+    ],
+  },
+  "summary": "4개 선택 · Alpha, Beta, Delta 외 1개",
+}
+`;
+
+exports[`builds the same scatter option and summary from a fixed selection 1`] = `
+{
+  "checked": [
+    "checked",
+    "checked",
+    "unchecked",
+    "checked",
+    "checked",
+  ],
+  "option": {
+    "brush": {
+      "brushStyle": {
+        "borderColor": "rgb(20,40,160)",
+        "borderWidth": 1,
+        "color": "rgba(20,40,160,0.1)",
+      },
+      "brushType": "rect",
+      "inBrush": {},
+      "outOfBrush": {},
+      "toolbox": [],
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+    },
+    "grid": {
+      "bottom": 56,
+      "containLabel": true,
+      "left": 48,
+      "right": 40,
+      "top": 32,
+    },
+    "series": [
+      {
+        "data": [
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": [
+              0,
+              0,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": [
+              1,
+              2,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 0,
+              "color": "rgb(46,107,217)",
+            },
+            "value": [
+              2,
+              4,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": [
+              3,
+              6,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": [
+              4,
+              8,
+            ],
+          },
+        ],
+        "emphasis": {
+          "focus": "none",
+        },
+        "markLine": {
+          "data": undefined,
+          "label": {
+            "color": "rgb(55,65,81)",
+            "fontSize": 10,
+            "formatter": "{b}",
+            "position": "insideEndTop",
+          },
+          "lineStyle": {
+            "color": "rgb(55,65,81)",
+            "type": "dashed",
+          },
+          "silent": true,
+          "symbol": "none",
+        },
+        "symbol": "circle",
+        "type": "scatter",
+      },
+    ],
+    "toolbox": {
+      "show": false,
+    },
+    "tooltip": {
+      "backgroundColor": "rgb(255,255,255)",
+      "borderColor": "rgb(229,234,240)",
+      "formatter": [Function],
+      "renderMode": "richText",
+      "textStyle": {
+        "color": "rgb(16,24,40)",
+      },
+    },
+    "xAxis": {
+      "axisLabel": {
+        "color": "rgb(91,102,120)",
+        "showMaxLabel": false,
+        "showMinLabel": false,
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(102,112,131)",
+        },
+      },
+      "max": [Function],
+      "min": [Function],
+      "name": "X (s)",
+      "nameGap": 32,
+      "nameLocation": "middle",
+      "scale": true,
+      "splitLine": {
+        "lineStyle": {
+          "color": "rgb(238,241,245)",
+        },
+      },
+      "type": "value",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "color": "rgb(91,102,120)",
+        "showMaxLabel": false,
+        "showMinLabel": false,
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(102,112,131)",
+        },
+      },
+      "max": [Function],
+      "min": [Function],
+      "name": "Y (ea)",
+      "scale": true,
+      "splitLine": {
+        "lineStyle": {
+          "color": "rgb(238,241,245)",
+        },
+      },
+      "type": "value",
+    },
+  },
+  "summary": "4개 선택 · Alpha, Beta, Delta 외 1개",
+}
+`;
+
+exports[`builds the same statusScatter option and summary from a fixed selection 1`] = `
+{
+  "checked": [
+    "checked",
+    "checked",
+    "unchecked",
+    "checked",
+    "checked",
+  ],
+  "option": {
+    "brush": {
+      "brushStyle": {
+        "borderColor": "rgb(20,40,160)",
+        "borderWidth": 1,
+        "color": "rgba(20,40,160,0.1)",
+      },
+      "brushType": "rect",
+      "inBrush": {},
+      "outOfBrush": {},
+      "toolbox": [],
+      "xAxisIndex": 0,
+      "yAxisIndex": 0,
+    },
+    "grid": {
+      "bottom": 56,
+      "containLabel": true,
+      "left": 48,
+      "right": 40,
+      "top": 32,
+    },
+    "series": [
+      {
+        "data": [
+          {
+            "itemStyle": {
+              "borderColor": "rgb(217,45,58)",
+              "borderWidth": 2,
+              "color": "rgb(46,107,217)",
+              "shadowBlur": 6,
+              "shadowColor": "rgb(20,40,160)",
+            },
+            "label": {
+              "fontSize": 10,
+              "formatter": "{status|■}",
+              "position": "top",
+              "rich": {
+                "status": {
+                  "backgroundColor": "rgb(255,255,255)",
+                  "borderColor": "rgb(217,45,58)",
+                  "borderRadius": 2,
+                  "borderWidth": 1,
+                  "color": "rgb(217,45,58)",
+                  "fontSize": 10,
+                  "padding": [
+                    0,
+                    2,
+                  ],
+                },
+              },
+              "show": true,
+            },
+            "value": [
+              0,
+              0,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": [
+              1,
+              2,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(217,45,58)",
+              "borderWidth": 2,
+              "color": "rgb(46,107,217)",
+            },
+            "label": {
+              "fontSize": 10,
+              "formatter": "{status|■}",
+              "position": "top",
+              "rich": {
+                "status": {
+                  "backgroundColor": "rgb(255,255,255)",
+                  "borderColor": "rgb(217,45,58)",
+                  "borderRadius": 2,
+                  "borderWidth": 1,
+                  "color": "rgb(217,45,58)",
+                  "fontSize": 10,
+                  "padding": [
+                    0,
+                    2,
+                  ],
+                },
+              },
+              "show": true,
+            },
+            "value": [
+              2,
+              4,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "value": [
+              3,
+              6,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(217,45,58)",
+              "borderWidth": 2,
+              "color": "rgb(46,107,217)",
+              "shadowBlur": 6,
+              "shadowColor": "rgb(20,40,160)",
+            },
+            "label": {
+              "fontSize": 10,
+              "formatter": "{status|■}",
+              "position": "top",
+              "rich": {
+                "status": {
+                  "backgroundColor": "rgb(255,255,255)",
+                  "borderColor": "rgb(217,45,58)",
+                  "borderRadius": 2,
+                  "borderWidth": 1,
+                  "color": "rgb(217,45,58)",
+                  "fontSize": 10,
+                  "padding": [
+                    0,
+                    2,
+                  ],
+                },
+              },
+              "show": true,
+            },
+            "value": [
+              4,
+              8,
+            ],
+          },
+        ],
+        "emphasis": {
+          "focus": "none",
+        },
+        "markLine": {
+          "data": undefined,
+          "label": {
+            "color": "rgb(55,65,81)",
+            "fontSize": 10,
+            "formatter": "{b}",
+            "position": "insideEndTop",
+          },
+          "lineStyle": {
+            "color": "rgb(55,65,81)",
+            "type": "dashed",
+          },
+          "silent": true,
+          "symbol": "none",
+        },
+        "symbol": "circle",
+        "type": "scatter",
+      },
+      {
+        "animation": false,
+        "data": [
+          {
+            "itemStyle": {
+              "borderColor": "rgb(16,24,40)",
+              "borderWidth": 6,
+            },
+            "value": [
+              0,
+              0,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(16,24,40)",
+              "borderWidth": 6,
+            },
+            "value": [
+              2,
+              4,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(16,24,40)",
+              "borderWidth": 6,
+            },
+            "value": [
+              4,
+              8,
+            ],
+          },
+        ],
+        "emphasis": {
+          "disabled": true,
+        },
+        "id": "__scatterStatusBacking-0",
+        "itemStyle": {
+          "color": "transparent",
+          "opacity": 1,
+        },
+        "silent": true,
+        "symbol": "circle",
+        "tooltip": {
+          "show": false,
+        },
+        "type": "scatter",
+        "z": 3,
+      },
+      {
+        "animation": false,
+        "data": [
+          {
+            "itemStyle": {
+              "borderColor": "rgb(217,45,58)",
+              "borderWidth": 2,
+            },
+            "value": [
+              0,
+              0,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(217,45,58)",
+              "borderWidth": 2,
+            },
+            "value": [
+              2,
+              4,
+            ],
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(217,45,58)",
+              "borderWidth": 2,
+            },
+            "value": [
+              4,
+              8,
+            ],
+          },
+        ],
+        "emphasis": {
+          "disabled": true,
+        },
+        "id": "__scatterStatusOutline-0",
+        "itemStyle": {
+          "color": "transparent",
+          "opacity": 1,
+        },
+        "silent": true,
+        "symbol": "circle",
+        "tooltip": {
+          "show": false,
+        },
+        "type": "scatter",
+        "z": 4,
+      },
+    ],
+    "toolbox": {
+      "show": false,
+    },
+    "tooltip": {
+      "backgroundColor": "rgb(255,255,255)",
+      "borderColor": "rgb(229,234,240)",
+      "formatter": [Function],
+      "renderMode": "html",
+      "textStyle": {
+        "color": "rgb(16,24,40)",
+      },
+    },
+    "xAxis": {
+      "axisLabel": {
+        "color": "rgb(91,102,120)",
+        "showMaxLabel": false,
+        "showMinLabel": false,
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(102,112,131)",
+        },
+      },
+      "max": [Function],
+      "min": [Function],
+      "name": "X (s)",
+      "nameGap": 32,
+      "nameLocation": "middle",
+      "scale": true,
+      "splitLine": {
+        "lineStyle": {
+          "color": "rgb(238,241,245)",
+        },
+      },
+      "type": "value",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "color": "rgb(91,102,120)",
+        "showMaxLabel": false,
+        "showMinLabel": false,
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(102,112,131)",
+        },
+      },
+      "max": [Function],
+      "min": [Function],
+      "name": "Y (ea)",
+      "scale": true,
+      "splitLine": {
+        "lineStyle": {
+          "color": "rgb(238,241,245)",
+        },
+      },
+      "type": "value",
+    },
+  },
+  "summary": "4개 선택 · Alpha · ■ Over, Beta, Delta 외 1개",
+}
+`;
+
+exports[`builds the same topNBar option and summary from a fixed selection 1`] = `
+{
+  "checked": [
+    "checked",
+    "checked",
+    "unchecked",
+    "checked",
+    "checked",
+  ],
+  "option": {
+    "grid": {
+      "bottom": 12,
+      "containLabel": true,
+      "left": 16,
+      "right": 24,
+      "top": 12,
+    },
+    "series": [
+      {
+        "data": [
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "label": {
+              "color": "rgb(255,255,255)",
+            },
+            "value": 50,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "label": {
+              "color": "rgb(255,255,255)",
+            },
+            "value": 43,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 0,
+              "color": "rgb(46,107,217)",
+            },
+            "label": {
+              "color": "rgb(255,255,255)",
+            },
+            "value": 36,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "label": {
+              "color": "rgb(255,255,255)",
+            },
+            "value": 29,
+          },
+          {
+            "itemStyle": {
+              "borderColor": "rgb(20,40,160)",
+              "borderWidth": 1.5,
+              "color": "rgb(46,107,217)",
+            },
+            "label": {
+              "color": "rgb(255,255,255)",
+            },
+            "value": 22,
+          },
+        ],
+        "itemStyle": {
+          "borderRadius": [
+            0,
+            2,
+            2,
+            0,
+          ],
+        },
+        "label": {
+          "formatter": [Function],
+          "position": "insideRight",
+          "show": true,
+        },
+        "type": "bar",
+      },
+    ],
+    "tooltip": {
+      "backgroundColor": "rgb(255,255,255)",
+      "borderColor": "rgb(229,234,240)",
+      "formatter": [Function],
+      "renderMode": "richText",
+      "textStyle": {
+        "color": "rgb(16,24,40)",
+      },
+    },
+    "xAxis": {
+      "axisLabel": {
+        "color": "rgb(91,102,120)",
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(102,112,131)",
+        },
+      },
+      "min": 0,
+      "splitLine": {
+        "lineStyle": {
+          "color": "rgb(238,241,245)",
+        },
+      },
+      "type": "value",
+    },
+    "yAxis": {
+      "axisLabel": {
+        "color": "rgb(91,102,120)",
+        "interval": 0,
+        "overflow": "truncate",
+        "width": 112,
+      },
+      "axisLine": {
+        "lineStyle": {
+          "color": "rgb(102,112,131)",
+        },
+      },
+      "data": [
+        "Alpha",
+        "Beta",
+        "Gamma",
+        "Delta",
+        "Epsilon",
+      ],
+      "inverse": true,
+      "type": "category",
+    },
+  },
+  "summary": "Alpha, Beta, Delta, Epsilon · 4개 선택",
+}
+`;
