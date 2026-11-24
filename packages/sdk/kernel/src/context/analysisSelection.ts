@@ -1,4 +1,4 @@
-import type { AnalysisSelection, AnalysisSelectionUse, Text } from '@ap/contracts';
+import { wallClockEpochMs, type AnalysisSelection, type AnalysisSelectionUse, type Text } from '@ap/contracts';
 import { use, useCallback, useEffect, useInsertionEffect, useMemo, useSyncExternalStore } from 'react';
 import { PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
 import { usePlatform, usePlatformOptional } from '../platform/hooks';
@@ -325,9 +325,14 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
       const normalized = parseAnalysisSelection(shape, written);
       if (!normalized && written.length) return false;
       if (normalized?.shape === 'range') {
-        const compare = analysisSelectionRangeCompare(reportedAvailability.get(key));
+        const available = reportedAvailability.get(key);
+        const compare = analysisSelectionRangeCompare(available);
         try {
-          if (!(compare(normalized.from, normalized.to) <= 0)) return false;
+          const order = compare(normalized.from, normalized.to);
+          if (!(order <= 0)) return false;
+          const hasCategories = available && 'from' in available && available.candidates !== undefined;
+          if (order === 0 && !hasCategories && wallClockEpochMs(normalized.from) !== null
+            && wallClockEpochMs(normalized.to) !== null) return false;
         } catch {
           // A source comparator may reject malformed text. The editor displays its validation error.
           return false;

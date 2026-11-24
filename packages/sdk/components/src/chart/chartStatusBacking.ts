@@ -37,10 +37,12 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
       const fill = input.palette.series[n].fill;
       const backing = status && statusBacking(status, fill);
       const stroke = status && statusBorderColor(status, fill);
+      // ECharts stacks time bars by data index. Keep the legacy geometry for status-only pieces.
+      const stackByIndex = alignedByIndex || (highlighted && input.xType === 'time');
       let start = 0;
       if (lanes) start = lanes.lanes[n].start;
       else if (input.stacked) for (const previous of previousBars) {
-        const v = alignedByIndex ? previous.points[index]?.[1] : previous.points.find(([category]) => category === x)?.[1];
+        const v = stackByIndex ? previous.points[index]?.[1] : previous.points.find(([category]) => category === x)?.[1];
         if (typeof v === 'number' && Number.isFinite(v) && (v >= 0) === (value >= 0)) start += v;
       }
       const category = input.xType === 'time' ? toMs(x) : input.categories.indexOf(x);

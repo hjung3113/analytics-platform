@@ -301,3 +301,55 @@ it('restores a shared wall-clock range and writes a quick range using the same b
   fireEvent.click(chip);
   expect(within(screen.getByRole('dialog')).getAllByRole('textbox')).toHaveLength(2);
 });
+
+it.each(['chip edit', 'deep link'] as const)('keeps an equal time range out of the global period after a %s', async source => {
+  const from = '2026-09-01T00:00:00';
+  const end = '2026-09-01T01:00:00';
+  const to = '2026-09-01T02:00:00';
+  const expectedRange = `${from}/${source === 'chip edit' ? end : from}`;
+  window.history.replaceState(null, '', `/?${new URLSearchParams({ v: '1', scopeId: 'MEM', from, to, range: expectedRange })}`);
+  const series: ChartSeries[] = [{ ...A, points: [[from, 1], [end, 2]] }];
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry}>
+    <AnalysisSelectionChipZone />
+    <AnalysisChartFrame chartId="sel" title="Sel" series={series} unit="s" analysisSelectionOutput={output} />
+  </PlatformProvider></I18nProvider>);
+  await screen.findByRole('img', { name: 'Sel: A' });
+  if (source === 'chip edit') {
+    fireEvent.click(screen.getByRole('button', { name: `date ${from} – ${end}` }));
+    const picker = within(screen.getByRole('dialog'));
+    fireEvent.change(picker.getAllByRole('textbox')[1], { target: { value: from } });
+    fireEvent.click(picker.getByRole('button', { name: '적용' }));
+    expect.soft(screen.queryByRole('dialog')).not.toBeNull();
+  }
+  const apply = within(summary()).queryByRole('button', { name: '분석 구간으로 적용' });
+  if (source === 'deep link') expect.soft(apply).toBeNull();
+  if (apply && source === 'deep link') {
+    fireEvent.click(apply);
+    const confirmation = screen.queryByRole('group', { name: '구간 적용 확인' });
+    if (confirmation) fireEvent.click(within(confirmation).getByRole('button', { name: '적용' }));
+  }
+  const search = new URLSearchParams(window.location.search);
+  expect(search.get('range')).toBe(expectedRange);
+  expect([search.get('from'), search.get('to')]).toEqual([from, to]);
+});
+
+it.each([
+  ['category', output, false],
+  ['category', undefined, true],
+  ['time', output, true],
+] as const)('renders the global apply control by axis (%s) and URL output (%j)', async (xType, selectionOutput, shown) => {
+  const from = '2026-09-01T00:00:00';
+  const to = '2026-09-01T02:00:00';
+  const series = xType === 'time' ? [{ ...A, points: [[from, 1], [to, 2]] as ChartSeries['points'] }] : [A];
+  const params = new URLSearchParams({ v: '1', scopeId: 'MEM', from, to });
+  if (selectionOutput) params.set('range', xType === 'time' ? `${from}/${to}` : 'a/a');
+  window.history.replaceState(null, '', `/?${params}`);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={selectionOutput ? rangeRegistry : registry}>
+    <AnalysisChartFrame chartId="sel" title="Sel" series={series} unit="s" xType={xType} analysisSelectionOutput={selectionOutput} />
+  </PlatformProvider></I18nProvider>);
+  await screen.findByRole('img');
+  if (!selectionOutput) brush([0, 0]);
+  expect(within(summary()).getByText(/선택 구간:/)).toBeTruthy();
+  expect(within(summary()).queryByRole('button', { name: '분석 구간으로 적용' }) !== null).toBe(shown);
+  expect(within(summary()).queryByText('시간축에서만 분석 구간으로 적용할 수 있습니다.') !== null).toBe(xType === 'category' && shown);
+});

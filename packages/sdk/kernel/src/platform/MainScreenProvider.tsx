@@ -12,11 +12,13 @@ import { readHistoryIdx, readHistorySeg, withHistoryIdx } from './navigationGuar
 
 const editableTarget = 'input, textarea, select, [role="textbox"], [role="combobox"]';
 const openOverlay = 'dialog[open], [role="dialog"]:not([aria-modal="false"]):not([data-state="closed"]), [role="menu"][data-state="open"], [role="listbox"][data-state="open"]';
+const boardOrWindow = '[data-pane-id], [data-board-host], [data-floating-mode="window"], [data-floating-mode="fill"]';
 
 function isAnalysisUndo(event: KeyboardEvent) {
   if (event.defaultPrevented || event.repeat || event.isComposing || event.shiftKey || event.altKey
     || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return false;
   const focused = document.activeElement;
+  if ((event.target instanceof Element && event.target.closest(boardOrWindow)) || focused?.closest(boardOrWindow)) return false;
   if (focused instanceof HTMLElement && (focused.isContentEditable || focused.closest(`${editableTarget}, [role="dialog"], dialog[open]`))) return false;
   return !Array.from(document.querySelectorAll(openOverlay)).some(node => !node.closest('[hidden], [aria-hidden="true"]'));
 }

@@ -237,6 +237,26 @@ describe('HW Time approved stepped workspace', () => {
     expect(chart('hw-previous').activeCategory).toBe('EQ-001 · PM1');
     await waitFor(() => expect(chart().legend).toBe(false));
   });
+  it.each(['drill', 'explicit trend'] as const)('clears the trend range on %s change and restores it with one Back', async change => {
+    await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM2&trend=PM2/Pump&trendRange=09-23/09-25');
+    const search = () => new URLSearchParams(window.location.search);
+    const trend = () => new URLSearchParams(window.history.state?.apHidden?.pairs).get('trend') ?? search().get('trend');
+    expect(trend()).toBe('PM2/Pump');
+    expect(search().get('trendRange')).toBe('09-23/09-25');
+
+    if (change === 'drill') fireEvent.click(node('PM1'));
+    else fireEvent.click(screen.getByRole('button', { name: 'point action hw-previous trend' }));
+    if (change === 'drill') expect(search().get('drillModule')).toBe('PM1');
+    else expect(trend()).toBe('PM1/Pump');
+    expect(search().has('trendRange')).toBe(false);
+
+    window.history.back();
+    await waitFor(() => {
+      expect(search().get('drillModule')).toBe('PM2');
+      expect(trend()).toBe('PM2/Pump');
+      expect(search().get('trendRange')).toBe('09-23/09-25');
+    });
+  });
   it.each(['double-click', 'point action'])('step 4 %s opens the previous point trend while pinned scatter follows the drill', async activation => {
     await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM2&pins=scatter');
     await screen.findByTestId('hw-overview-trend');

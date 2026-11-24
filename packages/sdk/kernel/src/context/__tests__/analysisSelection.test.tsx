@@ -470,6 +470,21 @@ it('returns empty chips and refuses writes in a lent panel', () => {
   expect(search().get(setKey)).toBe('A');
 });
 
+it.each([
+  ['time', undefined, false],
+  ['category with timestamp labels', [{ value: '2026-09-01T14:00:00', label: 'First' }, { value: '2026-09-01T16:00:00', label: 'Last' }], true],
+] as const)('validates equal chip range endpoints on a %s axis', (_, candidates, valid) => {
+  const from = '2026-09-01T14:00:00';
+  const to = '2026-09-01T16:00:00';
+  const result = mount(() => {
+    useAnalysisSelectionOutput('source', rangeKey, { available: { from, to, candidates } });
+    return useAnalysisSelectionChips();
+  }, `&timeRange=${from}/${to}`);
+
+  act(() => expect(result.current.editor?.replace(rangeKey, { shape: 'range', from, to: from })).toBe(valid));
+  expect(search().get(rangeKey)).toBe(`${from}/${valid ? from : to}`);
+});
+
 it('refuses a stale clear after leaving the screen in the same event', () => {
   const { current: { model, platform } } = mount(() => ({ model: useAnalysisSelectionChips(), platform: usePlatform() }), chainQuery, ChipWrapper);
   act(() => {
@@ -711,4 +726,41 @@ it('runs undo through the Back guard and waits for discard confirmation', async 
   expect(result.current.output.selection).toEqual(b);
   act(() => result.current.request!.confirm());
   await waitFor(() => expect(result.current.output.selection).toEqual({ shape: 'set', values: ['A'] }));
+});
+
+it.each(['metaKey', 'ctrlKey'] as const)('ignores %s undo in the board and uses guarded Back on the main screen', async modifier => {
+  const result = mount(() => {
+    const writer = useWriter();
+    const [dirty, setDirty] = useState(false);
+    useUnsavedGuard(dirty, { leaves: 'address' });
+    return { ...writer, setDirty, request: useLeaveRequest() };
+  }, initialA);
+  render(<>
+    <main><button type="button">Main action</button></main>
+    <div data-floating-mode="window">
+      <button type="button">Window action</button>
+      <div data-pane-id="p1"><button type="button">Pane action</button></div>
+    </div>
+  </>);
+  const go = vi.spyOn(window.history, 'go');
+  const undoOn = (name: string) => {
+    const button = screen.getByRole('button', { name });
+    button.focus();
+    fireEvent.keyDown(button, { key: 'z', [modifier]: true });
+  };
+  try {
+    act(() => result.current.output.select(b));
+    act(() => result.current.setDirty(true));
+    undoOn('Pane action');
+    undoOn('Window action');
+    expect(go).not.toHaveBeenCalled();
+    expect(result.current.request).toBeNull();
+    expect(search().get(setKey)).toBe('B');
+
+    undoOn('Main action');
+    await waitFor(() => expect(result.current.request).toBeTruthy());
+    expect(search().get(setKey)).toBe('B');
+    act(() => result.current.request!.confirm());
+    await waitFor(() => expect(search().get(setKey)).toBe('A'));
+  } finally { go.mockRestore(); }
 });

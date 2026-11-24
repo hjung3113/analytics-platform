@@ -274,3 +274,28 @@ it.each([{ stacked: false, count: 6 }, { stacked: true, count: 2 }])('keeps time
     }
   } finally { chart.dispose(); }
 });
+
+it('aligns a time bar outline with the native stack when timestamps differ by series', () => {
+  const [first, second, third] = ['2026-11-16T00:00:00', '2026-11-16T01:00:00', '2026-11-16T02:00:00'];
+  const displayed: ChartSeries[] = [
+    { id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [[first, 2], [second, 4]] },
+    { id: 'b', name: 'B', color: 'chart-teal', kind: 'bar', points: [[second, 3], [third, 8]] },
+  ];
+  const selection = '#872bd0';
+  const option = buildChartOption(baselineInput({ xType: 'time', horizontal: false, stacked: true, displayed, activeCategory: null, extremes: undefined,
+    highlightedValues: [third], palette: { ...resolveChartPalette(displayed), selection } })) as { series: CustomSeriesOption[] };
+  const chart = echarts.init(null, CHART_ECHARTS_THEME, { renderer: 'svg', ssr: true, width: 400, height: 260 });
+  try {
+    chart.setOption({ ...option, animation: false });
+    const model = (chart as unknown as { getModel: () => NativeModel }).getModel();
+    const raw = model.getSeriesByIndex(option.series.findIndex(s => s.id === 'b')).getData().getItemLayout(1);
+    const paths = chart.renderToSVGString().match(/<path[^>]*>/g) ?? [];
+    const dashed = paths.filter(path => path.includes(`stroke="${selection}"`) && path.includes('stroke-dasharray='));
+    expect(dashed).toHaveLength(1);
+    const [, left, top, width, height] = dashed[0].match(/ d="M(-?[\d.]+) (-?[\d.]+)l([\d.]+) 0l0 ([\d.]+)/)?.map(Number) ?? [];
+    expect(left).toBeCloseTo(raw.x + 1, 0);
+    expect(left + width).toBeCloseTo(raw.x + raw.width - 1, 0);
+    expect(top).toBeCloseTo(Math.min(raw.y, raw.y + raw.height) + 1, 0);
+    expect(top + height).toBeCloseTo(Math.max(raw.y, raw.y + raw.height) - 1, 0);
+  } finally { chart.dispose(); }
+});

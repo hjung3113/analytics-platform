@@ -53,7 +53,7 @@ describe('manifest', () => {
     }
     expect(menu.contextResetKeys).toEqual(['date', 'moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend', 'motionEquipment', 'trendRange']);
     expect(menu.drill?.levels.map(level => level.key)).toEqual(['moduleType', 'drillMotion', 'drillModule']);
-    expect(menu.drill?.resetKeys).toContain('trend');
+    expect(menu.drill?.resetKeys).toEqual(['focus', 'trend', 'trendRange']);
     expect(menu.repeatedPageKeys).toContain('pins');
     expect(menu.hiddenPageKeys).toEqual(expect.arrayContaining(['pins', 'trend', 'barsSort', 'barsGroup', 'barsMinMax']));
     const spaces: SpaceDef[] = [{ id: spaceId('mars'), label: { ko: '공간', en: 'Space' }, description: { ko: '목적', en: 'Purpose' }, homeMenuId: menu.id }];

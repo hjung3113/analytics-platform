@@ -517,7 +517,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   const urlEndIndex = urlTo === undefined ? -1 : categories.indexOf(urlTo);
   const validUrlRange = urlRange && (xType === 'category'
     ? urlStartIndex >= 0 && urlEndIndex >= urlStartIndex
-    : compareRangeTimes(urlRange.from, urlRange.to) <= 0);
+    : compareRangeTimes(urlRange.from, urlRange.to) < 0);
   const drawnUrlRange = validUrlRange ? urlRange : null;
   const selection = outputEnabled ? drawnUrlRange : range.selection;
   const selectOutput = output ? selectionOutput.select : undefined;
@@ -1066,6 +1066,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
   else if (!host.analyticsAllowed) annotateReason = m('chartAnnotateDenied');
   else if (scopeId === null) annotateReason = m('chartAnnotatePickScope');
 
+  const showApplyRange = !outputEnabled || xType === 'time';
   let applyReason: string | undefined;
   if (xType !== 'time') applyReason = m('chartApplyRangeTimeOnly');
   else if (!host.inPlatform || p.canApplyRange === false) applyReason = m('chartApplyRangeUnavailable');
@@ -1225,8 +1226,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
             <Button type="button" size="toolbar" disabled={!!annotateReason} aria-describedby={annotateReason ? rangeAnnotateReasonId : undefined} onClick={editor.openEditor}>{m('chartAnnotateRange')}</Button>
             {annotateReason && <span id={rangeAnnotateReasonId} className="text-text-secondary">{annotateReason}</span>}
           </>}
-          <Button type="button" ref={applyRangeButton} size="toolbar" disabled={!!applyReason} aria-describedby={applyReason ? applyReasonId : undefined} onClick={() => rangeActions.setPreview(selection)}>{m('chartApplyRange')}</Button>
-          {applyReason && <span id={applyReasonId} className="text-text-secondary">{applyReason}</span>}
+          {showApplyRange && <>
+            <Button type="button" ref={applyRangeButton} size="toolbar" disabled={!!applyReason} aria-describedby={applyReason ? applyReasonId : undefined} onClick={() => rangeActions.setPreview(selection)}>{m('chartApplyRange')}</Button>
+            {applyReason && <span id={applyReasonId} className="text-text-secondary">{applyReason}</span>}
+          </>}
           {p.selectionActions?.(selection)}
           <Button size="toolbar" variant="ghost" onClick={() => {
             if (outputEnabled) brushToggle.current?.focus();
@@ -1246,7 +1249,12 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       {preview && applyPeriod && <div role="group" aria-label={m('chartConfirmRange')} className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-accent-primary bg-surface-card p-2">
         <span className="tabular">{m('chartConfirmGlobalPeriodChange')} <b>{formatWallClock(preview.from)} → {formatWallClock(preview.to)}</b></span>
         {/* The row unmounts on either button; hand keyboard focus back instead of dropping it to body (#297 UX). */}
-        <Button size="toolbar" onClick={() => { applyPeriod(preview); notify(m('chartAppliedGlobalPeriodToast')); brushToggle.current?.focus({ preventScroll: true }); }}>{t('apply')}</Button>
+        <Button size="toolbar" onClick={() => {
+          if (xType !== 'time' || !(compareRangeTimes(preview.from, preview.to) < 0)) return;
+          applyPeriod(preview);
+          notify(m('chartAppliedGlobalPeriodToast'));
+          brushToggle.current?.focus({ preventScroll: true });
+        }}>{t('apply')}</Button>
         <Button size="toolbar" variant="secondary" onClick={() => { rangeActions.setPreview(null); applyRangeButton.current?.focus({ preventScroll: true }); }}>{t('cancel')}</Button>
       </div>}
       {canAnnotate && note !== null && selection && <form className="mt-2 flex flex-wrap items-center gap-2" onSubmit={e => { e.preventDefault(); void editor.saveNote(selection); }}>
