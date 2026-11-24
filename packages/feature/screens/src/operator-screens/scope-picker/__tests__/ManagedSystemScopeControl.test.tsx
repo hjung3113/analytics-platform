@@ -194,6 +194,32 @@ describe('ManagedSystemScopeControl', () => {
     expect(screen.getByTestId('scope-selector')).not.toHaveTextContent('내 담당:');
   });
 
+  it.each([
+    '04104C71-1111-4111-8111-111111111111',
+    '04104c71-1111-4111-8111-111111111111',
+  ])('selects the catalog system for a managedSystem link with %s', async (id) => {
+    const catalogId = '04104c71-1111-4111-8111-111111111111';
+    respond('developer', { kind: 'scoped', managed_system_ids: [catalogId] });
+    const defaultResponse = apiRequest.getMockImplementation();
+    if (!defaultResponse) throw new Error('Expected the default API fixture');
+    apiRequest.mockImplementation((method, url, parser) =>
+      url === '/managed-systems'
+        ? Promise.resolve({ data: { items: [system(catalogId, 'Tableau')], total: 1 } })
+        : defaultResponse(method, url, parser),
+    );
+    const client = new QueryClient();
+    const onChange = vi.fn();
+    render(
+      <QueryClientProvider client={client}>
+        <ManagedSystemScopeControl value={id} onChange={onChange} />
+      </QueryClientProvider>,
+    );
+    const trigger = await screen.findByRole('button', { name: '시스템, Tableau' });
+    fireEvent.click(trigger);
+    expect(screen.getByRole('option', { name: /Tableau/, selected: true })).toHaveFocus();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('names an archived selection from the catalog without offering it as a switch target', async () => {
     respond('admin', { kind: 'all' });
     const defaultResponse = apiRequest.getMockImplementation();
