@@ -139,8 +139,10 @@ export function FocusView({ input, notices, trust, entityType, anchor, resetKey,
   if (view.resetKey !== resetKey) setView(fresh());
   else if (view.entryKey !== entryKey) setView({ ...view, entryKey, applied: null, draft: null, rangeError: null, rangeExpanded: false, cursorMoveNotice, cursorAnnouncement: null, cursor: entry.cursor, selectedOccurrenceId: entryId, mode: { kind: 'time' } });
 
-  const range = (hostRange ? hostRange.value : view.applied) ?? entry.range ?? null;
-  const noData = range !== null && !hasKnownOccurrenceInWindow(input.batch, range);
+  // The host can rebuild the applied range on each cursor commit without changing its bounds.
+  const { from, to } = (hostRange ? hostRange.value : view.applied) ?? entry.range;
+  const range = useMemo(() => ({ from, to }), [from, to]);
+  const noData = useMemo(() => !hasKnownOccurrenceInWindow(input.batch, range), [input.batch, range]);
   const rawCursor = view.cursor ?? entry.cursor ?? null;
   const cursorIsInRange = (at: SiteWallClock, candidate: Range) => at >= candidate.from && (at < candidate.to || (at === candidate.to && candidate.to === input.batch.to));
   const cursor = range && rawCursor && cursorIsInRange(rawCursor, range) ? rawCursor : range?.from ?? null;

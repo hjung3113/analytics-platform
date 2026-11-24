@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { isValidElement, useState, type ReactNode } from 'react';
+import { isValidElement, useCallback, useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import {
@@ -100,6 +100,71 @@ it('shows a no-data state after the watermark and keeps the range controls avail
 });
 
 type Detail = { node: ReactNode; label: string } | null;
+
+it.each(['stable', 'fresh'] as const)('reuses the Gantt plot through detail and cursor updates with a %s host range', (rangeIdentity) => {
+  const { from, to } = input.batch;
+  const bounds = { from, to };
+  const occurrences = [...input.batch.occurrences];
+  // The plot looks up the open-ended bar. The host and detail look up the selected, closed Occurrence.
+  const findOccurrence = vi.spyOn(occurrences, 'find');
+  const plotLookups = () => findOccurrence.mock.results.filter(({ value }) => value?.id === 'occ-open').length;
+  const watchedInput = { ...input, batch: { ...input.batch, occurrences } };
+  const onRangeChange = vi.fn();
+  const commit = vi.fn();
+  let lastDetailAt: SceneState['at'] | undefined;
+  function Host() {
+    const [initialCursor, setInitialCursor] = useState(time('10:06:00'));
+    const [detail, setDetail] = useState<Detail>(null);
+    const renderDetail = useCallback((next: Detail) => {
+      if (isValidElement<{ state: SceneState }>(next?.node)) {
+        // In this fixture only the cursor changes. A repeated publish would render the host again indefinitely.
+        const { at } = next.node.props.state;
+        if (at === lastDetailAt) throw new Error(`Evidence was republished at ${at}`);
+        lastDetailAt = at;
+      }
+      setDetail(next);
+    }, []);
+    return (
+      <>
+        <section aria-label="host-detail">{detail && <><h2>{detail.label}</h2>{detail.node}</>}</section>
+        <output aria-label="host cursor">{initialCursor}</output>
+        <FocusView input={watchedInput} notices={[]} entityType="occurrence" anchor={OCCURRENCE} resetKey="a"
+          range={{ value: rangeIdentity === 'fresh' ? { ...bounds } : bounds, onChange: onRangeChange }}
+          initialCursor={initialCursor} renderDetail={renderDetail}
+          onCursorCommit={(at) => { commit(at, detail); setInitialCursor(at); }} />
+      </>
+    );
+  }
+  render(<Host />);
+  const initialDetail = within(screen.getByRole('region', { name: 'host-detail' }));
+  expect(initialDetail.getByRole('heading', { name: `근거 상세 · ${OCCURRENCE}` })).toBeTruthy();
+  expect(plotLookups()).toBeGreaterThan(0);
+  findOccurrence.mockClear();
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
+  const width = wallClockToMillis(to) - wallClockToMillis(from);
+  axis.getBoundingClientRect = () => new DOMRect(0, 0, width, 20);
+  const at = time('10:10:00');
+  const clientX = wallClockToMillis(at) - wallClockToMillis(from);
+  fireEvent(axis, new MouseEvent('pointerdown', { bubbles: true, clientX, buttons: 1 }));
+  expect(shownAt()).toBe('2026-01-01 10:10:00');
+  expect(commit).not.toHaveBeenCalled();
+  expect.soft(plotLookups()).toBe(0);
+
+  findOccurrence.mockClear();
+  fireEvent(axis, new MouseEvent('pointerup', { bubbles: true, clientX }));
+  expect(screen.getByLabelText('host cursor').textContent).toBe(at);
+  expect(commit).toHaveBeenCalledExactlyOnceWith(at, expect.objectContaining({ label: `근거 상세 · ${OCCURRENCE}` }));
+  expect(plotLookups()).toBe(0);
+
+  const lane = screen.getByRole('region', { name: 'Gantt 차트' }).querySelector('[data-lane-seek]')!;
+  const nextAt = time('10:12:00');
+  fireEvent(lane, new MouseEvent('pointerdown', { bubbles: true, clientX: wallClockToMillis(nextAt) - wallClockToMillis(from) }));
+  expect(screen.getByLabelText('host cursor').textContent).toBe(nextAt);
+  const previousDetail = commit.mock.lastCall?.[1]?.node;
+  expect(isValidElement<{ state: SceneState }>(previousDetail) && previousDetail.props.state.at).toBe(at);
+  expect(plotLookups()).toBe(0);
+});
+
 /** A host that renders the detail slot it is handed; `attached` false removes the callback. */
 function DetailHost({ resetKey = 'a', attached = true, actions }: { resetKey?: string; attached?: boolean; actions?: ReactNode }) {
   const [detail, setDetail] = useState<Detail>(null);

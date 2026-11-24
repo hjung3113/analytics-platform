@@ -115,6 +115,29 @@ it('ignores moves after a press released elsewhere, and keeps the Gantt at its d
   expect(svg.closest('[role="region"]')?.getAttribute('aria-label')).toBe('Gantt 차트');
 });
 
+it('captures an axis drag and commits its last move once when released outside the axis', () => {
+  const { onCursorChange, onCursorCommit } = setup();
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
+  axis.getBoundingClientRect = () => new DOMRect(100, 0, 800, 20);
+  const capture = vi.fn();
+  const release = vi.fn();
+  Object.assign(axis, { setPointerCapture: capture, releasePointerCapture: release });
+
+  fireEvent.pointerDown(axis, { clientX: 300, clientY: 10, pointerId: 1, buttons: 1 });
+  expect(capture).toHaveBeenCalledExactlyOnceWith(1);
+  fireEvent.pointerMove(axis, { clientX: 302, clientY: 10, pointerId: 1, buttons: 1 });
+  expect(onCursorChange).toHaveBeenCalledExactlyOnceWith(time('10:07:30'));
+  fireEvent.pointerMove(axis, { clientX: 500, clientY: 10, pointerId: 1, buttons: 1 });
+  expect(onCursorChange.mock.calls).toEqual([[time('10:07:30')], [time('10:15:00')]]);
+  expect(onCursorCommit).not.toHaveBeenCalled();
+
+  // jsdom has no capture retargeting. Deliver the physical release below the axis to its captor.
+  fireEvent.pointerUp(axis, { clientX: 640, clientY: 40, pointerId: 1, buttons: 0 });
+  fireEvent.pointerCancel(axis, { pointerId: 1 });
+  expect(onCursorCommit).toHaveBeenCalledExactlyOnceWith(time('10:15:00'));
+  expect(release).toHaveBeenCalledExactlyOnceWith(1);
+});
+
 it('seeks to a clicked bar time, selects its Occurrence, and marks open Occurrences with an open end', () => {
   const { onCursorChange, onCursorCommit, onSelectOccurrence, svg } = setup(time('10:26:00'));
   const bar = Array.from(svg.querySelectorAll('[data-bar="material"][data-occurrence-id="occ-open"]')).at(-1)!;

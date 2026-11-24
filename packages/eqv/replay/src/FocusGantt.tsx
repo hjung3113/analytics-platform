@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
 import {
   LEVEL_KO, millisToWallClock, wallClockToMillis, type EquipmentLayoutDocument, type OccurrenceBatch, type ReplayTimeline, type SiteWallClock,
 } from '@eqv/core';
@@ -80,32 +80,40 @@ export function FocusGantt({
   const plotBottom = layoutTops.length ? layoutTops[layoutTops.length - 1]!.top + layoutTops[layoutTops.length - 1]!.height : AXIS_H;
 
   const axisRef = useRef<SVGRectElement>(null);
-  const drag = useRef<{ pointerId: number; x: number; captured: boolean; at: SiteWallClock | null } | null>(null);
+  const drag = useRef<{ pointerId: number; x: number; captured: boolean; moved: boolean; at: SiteWallClock | null } | null>(null);
+  // Memoized plot handlers should use the current host callbacks without rebuilding the plot.
+  const cursorCallbacks = useRef({ onCursorChange, onCursorCommit });
+  useLayoutEffect(() => {
+    cursorCallbacks.current = { onCursorChange, onCursorCommit };
+  }, [onCursorChange, onCursorCommit]);
   const seekFromPointer = useCallback((event: PointerEvent<SVGElement>): SiteWallClock | null => {
     const box = axisRef.current?.getBoundingClientRect();
     if (!box || box.width <= 0) return null;
     const fraction = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
     const at = millisToWallClock(Math.min(lastMs, fromMs + Math.floor(fraction * spanMs)));
-    onCursorChange(at);
+    cursorCallbacks.current.onCursorChange(at);
     return at;
-  }, [fromMs, lastMs, spanMs, onCursorChange]);
-  const onAxisPointerDown = (event: PointerEvent<SVGElement>) => {
+  }, [fromMs, lastMs, spanMs]);
+  const onAxisPointerDown = (event: PointerEvent<SVGRectElement>) => {
+    // Seeking can move the axis as the surrounding view updates. Keep the release on the axis.
+    let captured = false;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      captured = true;
+    } catch { /* not supported (jsdom) */ }
     const at = seekFromPointer(event);
-    drag.current = { pointerId: event.pointerId, x: event.clientX, captured: false, at };
+    drag.current = { pointerId: event.pointerId, x: event.clientX, captured, moved: false, at };
   };
   const onPlotPointerDown = useCallback((event: PointerEvent<SVGElement>) => {
     const at = seekFromPointer(event);
-    if (at !== null) onCursorCommit(at);
-  }, [seekFromPointer, onCursorCommit]);
+    if (at !== null) cursorCallbacks.current.onCursorCommit(at);
+  }, [seekFromPointer]);
   const onPointerMove = (event: PointerEvent<SVGElement>) => {
     const current = drag.current;
     if (!current || current.pointerId !== event.pointerId) return;
     if (event.buttons === 0) { drag.current = null; return; }
-    if (!current.captured) {
-      if (Math.abs(event.clientX - current.x) < DRAG_THRESHOLD) return;
-      current.captured = true;
-      try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* not supported (jsdom) */ }
-    }
+    if (!current.moved && Math.abs(event.clientX - current.x) < DRAG_THRESHOLD) return;
+    current.moved = true;
     current.at = seekFromPointer(event);
   };
   const onPointerEnd = (event: PointerEvent<SVGElement>) => {
