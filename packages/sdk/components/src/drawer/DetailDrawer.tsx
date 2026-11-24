@@ -33,6 +33,8 @@ type DetailDrawerProps = {
   /** For consumers with a detail identity other than focus=: false preserves arrival focus; true claims a user-opened detail. Default follows Kernel navigation. */
   focusOnOpen?: boolean;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  /** Restore a trigger that can move or remount. Return false to use the normal drawer fallback. */
+  returnFocus?: () => boolean;
   /** Settled membership in the applied list. While unknown, omit it. False closes the drawer. */
   isInList?: boolean;
   /** The focusable list destination for automatic closure, separate from the manual opener. */
@@ -93,7 +95,7 @@ function useCloseOnPaneChange(onClose: () => void) {
   }, [identity]);
 }
 
-function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title, titleLines = 1, fullPageHref, copyPage, missing, subtitle, headerActions, context, footer, tabs = [], onClose, tab, onTabChange, onTabRecover, returnFocusRef, isInList, listFocusRef, onListLeave = onClose }: DetailDrawerProps & { superseded: MutableRefObject<boolean> }) {
+function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title, titleLines = 1, fullPageHref, copyPage, missing, subtitle, headerActions, context, footer, tabs = [], onClose, tab, onTabChange, onTabRecover, returnFocusRef, returnFocus, isInList, listFocusRef, onListLeave = onClose }: DetailDrawerProps & { superseded: MutableRefObject<boolean> }) {
   const { lang, t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const onKeyDown = useDetailPanelEscape(onClose);
@@ -115,6 +117,8 @@ function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title,
   const expandedValue = useContext(DetailPanelFullscreenContext)?.expanded === true;
   const expandedNow = useRef(expandedValue);
   useInsertionEffect(() => { expandedNow.current = expandedValue; });
+  const returnFocusLatest = useRef(returnFocus);
+  useInsertionEffect(() => { returnFocusLatest.current = returnFocus; });
   const paneId = platform?.paneId ?? null;
   const paneLabel = platform?.paneLabel ?? null;
   useEffect(() => {
@@ -153,13 +157,16 @@ function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title,
       const inside = panel.current?.contains(document.activeElement) ?? false;
       // A panel that never took focus must not treat the untouched body as its own.
       // `focusInside` follows React's tree, so a dialog the panel opened (portaled to body, e.g. a discard confirm) counts: closing through it still returns focus.
-      const restore = inside || focusInside.current || (claim && (document.activeElement === document.body || returnFocusRef !== undefined));
+      const explicitReturn = returnFocusRef !== undefined || returnFocusLatest.current !== undefined;
+      const restore = inside || focusInside.current || (claim && (document.activeElement === document.body || explicitReturn));
       if (!restore) return;
       // The panel is portaled out of its pane, so a pane's fallback is found by id (compared, not interpolated into a selector).
       const paneRoot = paneId === null ? null : paneRootById(paneId);
       const available = (element: HTMLElement | null): element is HTMLElement => !!element?.isConnected
         && element !== document.body && !element.closest('[hidden], [inert], [aria-hidden="true"]');
-      const restoreFocus = () => detailFocusFallback(opener, paneRoot, available)?.focus({ preventScroll: true });
+      const restoreFocus = () => {
+        if (!returnFocusLatest.current?.()) detailFocusFallback(opener, paneRoot, available)?.focus({ preventScroll: true });
+      };
       // A modal dialog the panel opened (a discard confirm) hides everything else with aria-hidden until it unmounts, which is after this cleanup;
       // the opener is unavailable only because of it (not hidden or inert), so wait one task and restore only if focus has landed nowhere.
       // Closing an expanded panel: the opener is inert only until the slot collapses in this same commit, so restore one task later, once the body is usable again.
@@ -168,7 +175,7 @@ function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title,
         return;
       }
       // An explicit trigger can still be disabled until the same closing commit finishes.
-      if (returnFocusRef) {
+      if (explicitReturn) {
         setTimeout(() => { if (document.activeElement === document.body || document.activeElement === null) restoreFocus(); }, 0);
       } else restoreFocus();
     };

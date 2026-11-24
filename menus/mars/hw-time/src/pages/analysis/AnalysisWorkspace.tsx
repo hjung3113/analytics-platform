@@ -4,9 +4,9 @@ import { isAnswered } from '@ap/contracts';
 import { ANALYSIS_SELECTION_MAX_VALUES, formatText, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView,
-  usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
+  usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
-import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams } from '../../endpoints';
+import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MAX_ROWS, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTime, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams, type HwTimeTableParams, type HwTimeTableRow } from '../../endpoints';
 import { HW_TIME_MESSAGES, HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKSPACE_MESSAGES } from '../../messages';
 import { TREND_RANGE_OUTPUT } from '../../panels';
 import { formatSeconds } from '../../shared/format';
@@ -15,7 +15,8 @@ import { htmEmphasisStatus, htmStatusView } from '../../shared/htm';
 import { HW_TIME_DRILL } from '../../shared/historySummary';
 import type { HwTimeFilter } from '../../shared/useHwTimeFilter';
 import { useHwTimeDrillRules } from '../../shared/useHwTimeDrillRules';
-import RawTablePanel from '../table/RawTablePanel';
+import RawTablePanel, { useRawTableColumns } from '../table/RawTablePanel';
+import { drillParams, levelOf } from '../table/tableData';
 import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
@@ -28,6 +29,7 @@ import { RecipePanel } from './RecipeFace';
 /** Lowest plot height before its panel body scrolls (px). */
 const CHART_FILL_MIN = 200;
 const BAR_ROW_PITCH = 28;
+const sourceRowId = (row: HwTimeTableRow) => row.id;
 export function chartStatuses(data: HwTimeMatrix, lang: 'ko' | 'en') {
   const byLabel = new Map(data.cells.map(cell => [rowLabel(cell.equipmentId, cell.moduleId), cell]));
   const pointStatusOf = (point: Pick<ChartPoint, 'x' | 'seriesId'>) => htmStatusView(byLabel.get(point.x)?.motions[point.seriesId], lang);
@@ -180,10 +182,21 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
   // The panel options open the chart's tool row (#2459, owner-confirmed variant B): the inline values say the state, so no chip row.
   const toolbarStart = !previous && !allMotions ? <PanelOptions options={chartOptions} values={values} onChange={onChange} /> : undefined;
   const nextAnalysisPointDrill = !previous && drillLevel ? { level: drillLevel, value: drillValue } : undefined;
+  const sourceMotion = allMotions ? null : motionId;
+  const sourceColumns = useRawTableColumns(levelOf(moduleId, sourceMotion), sourceMotion, filter.motions);
+  const sourceRows: NextAnalysisRows<HwTimeTableParams, HwTimeTableRow> | undefined = analysisSelectionOutput && moduleId ? {
+    endpoint: hwTime.tableRows,
+    params: selection => ({
+      ...drillParams(moduleId, sourceMotion), moduleType: filter.moduleType.id,
+      [MOTION_EQUIPMENT_KEY]: selection.shape === 'set' ? selection.values : [],
+      page: 0, pageSize: HW_TIME_MAX_ROWS.level, sorting: [],
+    }),
+    columns: sourceColumns, getRowId: sourceRowId, maxRows: HW_TIME_MAX_ROWS.level,
+  } : undefined;
   const body = <div className="flex h-full min-h-0 flex-col">
     <AnalysisChartFrame chartId={chartId} title={title[lang]} summary="quiet" toolbarStart={toolbarStart}
       highlightedValues={highlightedValues} analysisSelectionOutput={analysisSelectionOutput}
-      nextAnalysis={analysisSelectionOutput !== undefined || !!nextAnalysisPointDrill} nextAnalysisPointDrill={nextAnalysisPointDrill}
+      nextAnalysis={analysisSelectionOutput !== undefined || !!nextAnalysisPointDrill} nextAnalysisPointDrill={nextAnalysisPointDrill} nextAnalysisRows={sourceRows}
       series={shaped.series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} description={<>{overview('synthetic')}<br />{scaleText}</>}
       legend={depth < 3 || allMotions} visibleSeriesIds={depth >= 3 && !allMotions ? shaped.series.map(series => series.id) : undefined} legendPlacement="bottom" toolsReveal="always" xType="category" orientation="horizontal" stacked
       startAlign={values.align === true} minMax={values.minMax === true} emphasisFocus="none" size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowLabelWidth="auto"

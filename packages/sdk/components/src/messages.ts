@@ -176,6 +176,8 @@ export const COMPONENTS_MESSAGES = {
   chartApplySelection: { ko: '조건으로', en: 'Use as filter' },
   chartSetCount: { ko: '{count}개 선택', en: '{count} selected' },
   chartSetLimit: { ko: '최대 {limit}개까지 선택할 수 있습니다.', en: 'You can select up to {limit} values.' },
+  chartSourceRows: { ko: '원본 행', en: 'Source rows' },
+  chartSourceRowsCapped: { ko: '원본 행 {count}개 표시 · 조회 한도에 도달했습니다.', en: 'Showing {count} source rows · query limit reached.' },
   chartAddPoint: { ko: '선택에 지점 추가', en: 'Add point to selection' },
   chartNoPoints: { ko: '선택할 지점 없음', en: 'No points available' },
   chartActivatePoint: { ko: '선택 지점 실행', en: 'Activate selected point' },

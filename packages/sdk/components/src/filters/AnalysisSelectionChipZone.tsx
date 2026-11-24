@@ -92,23 +92,23 @@ function ChipActions({ chip, text, clear, returnFocus }: {
   const platform = usePlatformOptional();
   const { t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const confirmation = useRef(false);
+  const actionClaimsFocus = useRef(false);
   const openingPath = useRef<string | undefined>(undefined);
   const path = () => platform?.location.read()?.split('?')[0];
   return <DropdownMenu modal={false} onOpenChange={open => {
     if (!open) return;
-    confirmation.current = false;
+    actionClaimsFocus.current = false;
     openingPath.current = path();
   }}>
     <DropdownMenuTrigger asChild>
       <button data-analysis-chip-action={chip.key} type="button" className={chipButtonClass} aria-label={m('analysisSelectionActions', { chip: text })}><Ellipsis className="size-3.5" aria-hidden /></button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="end" onCloseAutoFocus={event => {
-      // The confirmation or the destination owns focus after this menu dismisses.
-      if (confirmation.current || openingPath.current !== path()) event.preventDefault();
+      // The action or the destination owns focus after this menu dismisses.
+      if (actionClaimsFocus.current || openingPath.current !== path()) event.preventDefault();
     }}>
       {platform && <ChipActionItems chip={chip} onSelect={action => {
-        confirmation.current = action.opensConfirmation === true;
+        actionClaimsFocus.current = action.claimsFocus === true;
         action.onSelect(returnFocus);
       }} />}
       <DropdownMenuItem onSelect={() => clear(chip.key)}>{t('clear')}</DropdownMenuItem>

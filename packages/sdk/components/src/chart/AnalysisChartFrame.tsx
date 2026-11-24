@@ -1,8 +1,9 @@
 import { ChartGestureHint, ChartInteractionToolbar } from './ChartInteractionToolbar';
 import { chartToolVariant, type ChartChromeOptions } from './chartChrome';
 import type { ChartTrust } from '../state/trustFormat';
-import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
+import { useEmbeddedChrome, useInWorkspacePanel, WorkspacePanelVisibleContext } from '../workspace/panelContext';
 import { NextAnalysisActionButton, NextAnalysisItems, type DirectNextAnalysisAction } from './NextAnalysisItems';
+import { NextAnalysisRowsDrawer, type NextAnalysisRows } from './NextAnalysisRowsDrawer';
 import { toMs, unknownLabel, warnMissingChartUnit } from './analysisChartShared';
 import { emptyCategoryLabels } from './chartEmptyCategories';
 import { BrushIcon, Eye, GitCompare, MessageSquarePlus, RotateCcw, ZoomIn, ZoomOut, ArrowLeft, ArrowRight } from 'lucide-react';
@@ -146,7 +147,7 @@ export type ChartSelectionAction = {
   onSelect: (selection: Selection) => void;
 };
 
-export type AnalysisChartFrameProps = ChartChromeOptions & {
+export type AnalysisChartFrameProps<P = never, T = never> = ChartChromeOptions & {
   /** Use standard plot sizing with a visible card title, optional legend caption below it, and only info and zoom tools. */
   zoomOnly?: boolean;
   /** Selection summary presentation in standard/minimal chrome. Quiet hides resting text visually; full ignores it. Default: standard. */
@@ -195,6 +196,8 @@ export type AnalysisChartFrameProps = ChartChromeOptions & {
   selectionActions?: readonly ChartSelectionAction[] | ((selection: Selection) => ReactNode);
   /** Show selection actions in a fixed row at the bottom of the chart. Default: false. */
   nextAnalysis?: boolean;
+  /** Opt in to a source-rows drawer for the current set or range. Requires the platform detail slot. */
+  nextAnalysisRows?: NextAnalysisRows<P, T>;
   /** Optional drill target for a chart-local point selection. */
   nextAnalysisPointDrill?: { level: string; value: (point: ChartPoint) => string };
   /** Optional panel footer for the row. Null waits for the footer to mount. */
@@ -303,12 +306,12 @@ type FrameHost = {
  * Without a `PlatformProvider` (#1953 C) the chart behaviour (Zoom, Brush, local selection, point actions, tooltip, table) works on its own;
  * Compare is absent, range actions show their unavailable reasons, and export follows `exportActions`.
  */
-export function AnalysisChartFrame(p: AnalysisChartFrameProps) {
+export function AnalysisChartFrame<P, T>(p: AnalysisChartFrameProps<P, T>) {
   const platform = usePlatformOptional();
   return platform ? <PlatformFrame {...p} platform={platform} /> : <StandaloneFrame {...p} />;
 }
 
-function PlatformFrame({ platform, ...p }: AnalysisChartFrameProps & { platform: MenuPlatform }) {
+function PlatformFrame<P, T>({ platform, ...p }: AnalysisChartFrameProps<P, T> & { platform: MenuPlatform }) {
   const { setGlobal, toast, global, route, url } = platform;
   const features = route?.menu.features;
   const analyticsAllowed = platform.can('analytics:view');
@@ -334,7 +337,7 @@ function wallClockOrNull(value: string | null | undefined, field: string): strin
   try { parseDateTime(value, field); return value; } catch { rowFocusDiagnostic(`${field} "${value}" is not YYYY-MM-DDTHH:mm:ss wall-clock time; ignored.`); return null; }
 }
 
-function StandaloneFrame(p: AnalysisChartFrameProps) {
+function StandaloneFrame<P, T>(p: AnalysisChartFrameProps<P, T>) {
   const editor = useNoAnnotationEditor();
   const [status, setStatus] = useState('');
   const rawFrom = p.period?.from; const rawTo = p.period?.to;
@@ -352,7 +355,7 @@ function StandaloneFrame(p: AnalysisChartFrameProps) {
   return <FrameBody {...p} host={host} editor={editor} />;
 }
 
-function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: FrameHost; editor: AnnotationEditor }) {
+function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> & { host: FrameHost; editor: AnnotationEditor }) {
   const { t, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const compactEmbedded = useEmbeddedChrome();
@@ -1164,7 +1167,7 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
     id: 'apply-range',
     label: m(p.nextAnalysis ? 'chartApplySelection' : 'chartApplyRange'),
     reason: applyReason,
-    opensConfirmation: true,
+    claimsFocus: true,
     onSelect: returnFocus => {
       returnFromConfirmation.current = returnFocus;
       rangeActions.setPreview(selection);
@@ -1214,11 +1217,30 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
       host.applyEquipment?.(equipmentSet);
     },
   } : null;
+  const rowsDeclaration = p.nextAnalysisRows;
+  const rowsSelection = urlSet ?? (selection && { shape: 'range' as const, from: selection.from, to: selection.to });
+  const rowsOrigin = usePlatformOptional();
+  const rowsVisible = useContext(WorkspacePanelVisibleContext);
+  const rowsKey = rowsOrigin && rowsVisible && nextAnalysis && !outputSuspended && rowsDeclaration?.endpoint.requiresScope && rowsSelection
+    ? JSON.stringify([p.chartId, rowsOrigin.pathname, host.contextKey, output, rowsDeclaration.endpoint.id]) : null;
+  const [rowsOpen, setRowsOpen] = useState<{
+    key: string; session: MenuPlatform['session']; adapter: MenuPlatform['adapter']; returnFocus?: () => boolean;
+  } | null>(null);
+  const rowsButton = useRef<HTMLButtonElement>(null);
+  const rowsOwnerChanged = rowsOpen !== null && (rowsOpen.key !== rowsKey || rowsOpen.session !== rowsOrigin?.session || rowsOpen.adapter !== rowsOrigin?.adapter);
+  if (rowsOwnerChanged) setRowsOpen(null);
+  const rowsAction: DirectNextAnalysisAction | null = rowsKey && rowsOrigin ? {
+    id: 'source-rows', label: m('chartSourceRows'), claimsFocus: true,
+    onSelect: returnFocus => setRowsOpen({ key: rowsKey, session: rowsOrigin.session, adapter: rowsOrigin.adapter, returnFocus }),
+  } : null;
+  const formatRowsRange = xType === 'time' ? fmt : labelOf;
   const renderNextAnalysisRow = (items: ReactNode) => {
     const row = <div className={cn('mt-auto shrink-0 border-t border-border-subtle bg-surface-card px-2 py-1', panel && nextAnalysisTarget === undefined && 'sticky bottom-0')}>
       <div role="group" aria-label={m('chartNextAnalysis')} className="flex flex-wrap items-center gap-2 text-xs">
         <span className="font-semibold">{m('chartNextAnalysis')}</span>
-        {items}{annotateRange}{extraSelectionActions}{applyRange}
+        {items}
+        {rowsAction && <NextAnalysisActionButton action={rowsAction} buttonRef={rowsButton} quiet />}
+        {annotateRange}{extraSelectionActions}{applyRange}
         {equipmentAction && <NextAnalysisActionButton action={equipmentAction} announceReason />}
         {nextSelectionCount > 0 && <span aria-live="polite" className="tabular text-text-secondary">{m('chartSetCount', { count: nextSelectionCount })}</span>}
         {urlSet?.values.length === ANALYSIS_SELECTION_MAX_VALUES && <span role="status" className="text-text-secondary">{m('chartSetLimit', { limit: ANALYSIS_SELECTION_MAX_VALUES })}</span>}
@@ -1422,7 +1444,10 @@ function FrameBody({ host, editor, ...p }: AnalysisChartFrameProps & { host: Fra
           level: p.nextAnalysisPointDrill.level,
           value: chosenPoints.length === 1 ? p.nextAnalysisPointDrill.value(chosenPoints[0]!.point) : null,
         } : undefined}
-        localActions={[...plainSelectionActions, ...[applyRangeAction, equipmentAction].filter(action => action !== null)]}
+        localActions={[rowsAction, ...plainSelectionActions, applyRangeAction, equipmentAction].filter(action => action !== null)}
         renderRow={renderNextAnalysisRow} />}
+    {rowsOpen && !rowsOwnerChanged && rowsDeclaration && rowsSelection &&
+      <NextAnalysisRowsDrawer chartId={p.chartId} declaration={rowsDeclaration} selection={rowsSelection} formatRange={formatRowsRange}
+        returnFocus={rowsOpen.returnFocus} returnFocusRef={rowsButton} onClose={() => setRowsOpen(null)} />}
   </section>;
 }

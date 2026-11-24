@@ -25,7 +25,7 @@ export type DirectNextAnalysisAction = {
   label: string;
   reason?: string;
   onSelect: (returnFocus?: () => boolean) => void;
-  opensConfirmation?: boolean;
+  claimsFocus?: boolean;
 };
 export type NextAnalysisAction = GroupAction | DirectNextAnalysisAction;
 
@@ -123,12 +123,14 @@ function ActionMenu({ action }: { action: GroupAction }) {
   </DropdownMenu>;
 }
 
-export function NextAnalysisActionButton({ action, buttonRef, announceReason }: {
+export function NextAnalysisActionButton({ action, buttonRef, announceReason, quiet }: {
   action: DirectNextAnalysisAction; buttonRef?: Ref<HTMLButtonElement>; announceReason?: boolean;
+  /** A view-only action drawn like the row's menu items, leaving the filled style to actions that change conditions. */
+  quiet?: boolean;
 }) {
   const id = useId();
   return <>
-    <Button type="button" ref={buttonRef} size="toolbar" disabled={!!action.reason} aria-describedby={action.reason ? id : undefined}
+    <Button type="button" ref={buttonRef} size="toolbar" variant={quiet ? 'ghost' : undefined} disabled={!!action.reason} aria-describedby={action.reason ? id : undefined}
       onClick={() => action.onSelect()}>{action.label}</Button>
     {action.reason && <span id={id} role={announceReason ? 'status' : undefined} className="text-text-secondary">{action.reason}</span>}
   </>;

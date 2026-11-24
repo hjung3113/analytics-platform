@@ -6,6 +6,7 @@ import { AnalysisSelectionChipZone } from '@ap/components';
 import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
 import { testAdapter, testSession } from '@ap/kernel/testing';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { LayoutDashboard } from 'lucide-react';
 import { HW_TIME_MODULE_TYPES, type HwTimeMatrix, type HwTimeMotionStats, type HwTimeRuns } from '../../endpoints';
 import { manifests } from '../../index';
@@ -107,11 +108,15 @@ export const registry = createRegistry({
 });
 export const session = testSession(['analytics:view', 'platform:view']);
 export const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
-export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true, showSelectionChips = false, realWorkspace = false, realChart }: { waitForData?: boolean; showSelectionChips?: boolean; realWorkspace?: boolean; realChart?: string } = {}) {
+function DetailSlot() {
+  const { ref } = useDetailPanelSlotHost();
+  return <aside ref={ref} />;
+}
+export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true, showSelectionChips = false, realWorkspace = false, realChart, showDetail = false }: { waitForData?: boolean; showSelectionChips?: boolean; realWorkspace?: boolean; realChart?: string; showDetail?: boolean } = {}) {
   const { default: HwTimePage } = await import('../../HwTimePage');
   const adapter = testAdapter({ session: () => session, menuQuery: async request => { requests.push(request); return respond(request); } });
   window.history.replaceState(null, '', `/mars/hw-time?view=overview&v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
-  const page = <HwTimePage params={{}} />;
+  const page = showDetail ? <DetailPanelSlotProvider><HwTimePage params={{}} /><DetailSlot /></DetailPanelSlotProvider> : <HwTimePage params={{}} />;
   render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{showSelectionChips && <AnalysisSelectionChipZone />}<RealChart.Provider value={realChart}>{realWorkspace ? <RealWorkspace.Provider value>{page}</RealWorkspace.Provider> : page}</RealChart.Provider></PlatformProvider></I18nProvider>);
   if (waitForData) await screen.findByTestId('hw-current', {}, { timeout: 5000 });
   await settle();
