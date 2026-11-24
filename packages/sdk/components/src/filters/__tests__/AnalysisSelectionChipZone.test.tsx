@@ -8,6 +8,7 @@ import { createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChi
 import { PaneScreenProvider, useLeaveRequest, type PaneScreen } from '@ap/kernel/host';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AnalysisSelectionChipZone } from '../AnalysisSelectionChipZone';
+import { DockLayout } from '../../dock/DockLayout';
 
 vi.mock('@ap/kernel', async importOriginal => ({
   ...await importOriginal<typeof import('@ap/kernel')>(),
@@ -147,6 +148,27 @@ async function mountSelections(extra: string, selections = [equipment, module], 
   const { container } = render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}>{wrap(<Harness onDisclosureFocus={disclosureFocus} />)}{children}</PlatformProvider></I18nProvider>);
   return { container, disclosureFocus };
 }
+
+it.each(['pointer', 'keyboard', 'overlapping'] as const)('marks only the source panel during %s chip interaction', async interaction => {
+  const panels = ['source', 'receiver'].map(id => ({ id, title: id, render: () => <p>{id} body</p> }));
+  await mountSelections('', [equipment], <DockLayout panels={panels} label="Workspace" separatorLabel={() => 'Resize'}
+    layout={{ type: 'branch', dir: 'row', sizes: [50, 50], children: panels.map(({ id }) => ({ type: 'group', panels: [id], active: id })) }}
+    onLayoutChange={() => {}} />);
+  const source = (await screen.findByText('source body')).closest('[data-dock-panel]')!;
+  const receiver = (await screen.findByText('receiver body')).closest('[data-dock-panel]')!;
+  const mark = 'data-analysis-source-highlighted';
+  const clearChip = zone().getByRole('button', { name: /equipment/ });
+  const chip = zone().getByText('equipment E1');
+  expect(source).not.toHaveAttribute(mark);
+  if (interaction !== 'keyboard') fireEvent.pointerEnter(chip);
+  if (interaction !== 'pointer') act(() => clearChip.focus());
+  expect(source).toHaveAttribute(mark);
+  expect(receiver).not.toHaveAttribute(mark);
+  if (interaction !== 'keyboard') fireEvent.pointerLeave(chip);
+  if (interaction === 'overlapping') expect(source).toHaveAttribute(mark);
+  if (interaction !== 'pointer') act(() => clearChip.blur());
+  expect(source).not.toHaveAttribute(mark);
+});
 
 it.each([
   ['folded two to one', '&mod=M1', '+1 ›', 'equipment 선택 지우기', 'module 선택 지우기'],

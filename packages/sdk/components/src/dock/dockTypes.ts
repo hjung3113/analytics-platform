@@ -14,6 +14,7 @@ export type DockFloating = {
 
 export type DockPanel = {
   id: string;
+  analysisSelectionSourceId?: string;
   /** Accessible name of the tab and the panel, already localised. */
   title: string;
   render: () => ReactNode;

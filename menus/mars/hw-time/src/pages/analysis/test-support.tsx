@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { stubCompactTableGeometry } from '@ap/components/testing';
@@ -10,6 +10,8 @@ import { LayoutDashboard } from 'lucide-react';
 import { HW_TIME_MODULE_TYPES, type HwTimeMatrix, type HwTimeMotionStats, type HwTimeRuns } from '../../endpoints';
 import { manifests } from '../../index';
 
+const RealWorkspace = createContext(false);
+
 // Canvas is unavailable in jsdom. Keep queries, filter, URL, table and status UI real; expose the public chart callbacks and declarations.
 vi.mock('@ap/components', async importOriginal => {
   const actual = await importOriginal<typeof import('@ap/components')>();
@@ -18,6 +20,7 @@ vi.mock('@ap/components', async importOriginal => {
       const [active, setActive] = useState('current');
       const seq = p.revealRequest?.seq, panelId = p.revealRequest?.panelId;
       useEffect(() => { if (panelId) setActive(panelId); }, [seq, panelId]);
+      if (useContext(RealWorkspace)) return <actual.PanelWorkspace {...p} />;
       return <div data-testid="workspace" data-config={JSON.stringify({ revealRequest: p.revealRequest, ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], persistKey: p.persistKey, placement: Object.fromEntries(p.panels.map(panel => [panel.id, panel.placement])), pins: Object.fromEntries(p.panels.map(panel => [panel.id, panel.pin?.pinned])) })}>
       <div role="tablist" aria-label="workspace test tabs">{p.panels.map(panel => <button key={panel.id} role="tab" aria-description={panel.badge?.description.ko} data-count={panel.badge?.count} aria-selected={active === panel.id} onClick={() => setActive(panel.id)}>{panel.id}</button>)}</div>
       <div data-testid="workspace-actions">{p.toolbarActions}</div>
@@ -36,6 +39,7 @@ vi.mock('@ap/components', async importOriginal => {
     AnalysisChartFrame: (p: import('@ap/components').AnalysisChartFrameProps) => <section aria-label={p.chartId}>
       {p.title}{p.toolbarStart != null && <div data-chart-toolbar-start>{p.toolbarStart}</div>}{p.extraActions}
       <pre data-testid={p.chartId}>{JSON.stringify({ series: p.series, activeCategory: p.activeCategory, revealActive: p.revealActive, rowPitch: p.rowPitch, startAlign: p.startAlign, minMax: p.minMax, legend: p.legend, activation: p.pointActivation?.on,
+        highlightedValues: p.highlightedValues,
         optionKeys: ((p.toolbarStart ?? p.extraActions) as import('react').ReactElement<import('@ap/components').PanelOptionsProps> | undefined)?.props.options.filter(option => !option.hidden).map(option => option.id),
         actions: (typeof p.pointActions === 'function' && p.series[0]?.points[0] ? p.pointActions({ x: p.series[0].points[0][0], value: p.series[0].points[0][1], seriesId: p.series[0].id }) : []).map(action => action.label), emphasisFocus: p.emphasisFocus,
         rowGroups: p.rowGroups && { header: p.rowGroups.header, byCategory: [...p.rowGroups.byCategory] },
@@ -95,11 +99,12 @@ export const registry = createRegistry({
 });
 export const session = testSession(['analytics:view', 'platform:view']);
 export const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 40)); });
-export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true, showSelectionChips = false } = {}) {
+export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true, showSelectionChips = false, realWorkspace = false } = {}) {
   const { default: HwTimePage } = await import('../../HwTimePage');
   const adapter = testAdapter({ session: () => session, menuQuery: async request => { requests.push(request); return respond(request); } });
   window.history.replaceState(null, '', `/mars/hw-time?view=overview&v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{showSelectionChips && <AnalysisSelectionChipZone />}<HwTimePage params={{}} /></PlatformProvider></I18nProvider>);
+  const page = <HwTimePage params={{}} />;
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>{showSelectionChips && <AnalysisSelectionChipZone />}{realWorkspace ? <RealWorkspace.Provider value>{page}</RealWorkspace.Provider> : page}</PlatformProvider></I18nProvider>);
   if (waitForData) await screen.findByTestId('hw-current', {}, { timeout: 5000 });
   await settle();
 }

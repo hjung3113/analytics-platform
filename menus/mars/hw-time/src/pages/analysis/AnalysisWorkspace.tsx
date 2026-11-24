@@ -110,7 +110,9 @@ type BarsProps = {
   onOpenTrend: (target: string, row: string) => void;
   previous?: boolean; allMotions?: boolean;
   selectionOutput?: ReturnType<typeof useAnalysisSelectionOutput>;
+  highlightedValues?: readonly string[];
 };
+const noHighlightedEquipment: readonly string[] = [];
 /** Workspace tabs stay visible when the Frame's own title is hidden by panel chrome. */
 function barsTitle({ depth, typeId, motionId, moduleId, previous = false, allMotions = false }: Pick<BarsProps, 'depth' | 'typeId' | 'motionId' | 'moduleId' | 'previous' | 'allMotions'>) {
   let message: Text = S.overview;
@@ -121,7 +123,7 @@ function barsTitle({ depth, typeId, motionId, moduleId, previous = false, allMot
   const title = { ko: formatText(message, 'ko', params), en: formatText(message, 'en', params) };
   return previous ? { ko: `${title.ko} · ${S.previous.ko}`, en: `${title.en} · ${S.previous.en}` } : title;
 }
-function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onOpenTrend, previous = false, allMotions = false, selectionOutput }: BarsProps) {
+function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onOpenTrend, previous = false, allMotions = false, selectionOutput, highlightedValues }: BarsProps) {
   const m = useMessages(S);
   const overview = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const { lang } = useI18n();
@@ -190,6 +192,7 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
   const toolbarStart = !previous && !allMotions ? <PanelOptions options={chartOptions} values={values} onChange={onChange} /> : undefined;
   const body = <div className="flex h-full min-h-0 flex-col">
     <AnalysisChartFrame chartId={chartId} title={title[lang]} summary="quiet" toolbarStart={toolbarStart}
+      highlightedValues={highlightedValues}
       series={shaped.series} unit={HW_TIME_UNIT[lang]} valueFormat={value => formatSeconds(value, lang)} description={<>{overview('synthetic')}<br />{scaleText}</>}
       legend={depth < 3 || allMotions} visibleSeriesIds={depth >= 3 && !allMotions ? shaped.series.map(series => series.id) : undefined} legendPlacement="bottom" toolsReveal="always" xType="category" orientation="horizontal" stacked
       startAlign={values.align === true} minMax={values.minMax === true} emphasisFocus="none" size="fill" fillMin={CHART_FILL_MIN} rowPitch={BAR_ROW_PITCH} rowLabelWidth="auto"
@@ -251,7 +254,7 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
       setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null, row: null, trend: null, focus: null });
     }} />}</MatrixSources>;
 }
-function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'selectionOutput'> & {
+function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'selectionOutput' | 'highlightedValues'> & {
   step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void; filtered: boolean;
 }) {
   const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill, filtered } = props;
@@ -274,7 +277,11 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     ? projectBarData(sourceResponse.data ?? undefined, filter.selectionFor(typeId), { depth: 4, moduleId, motionId, allMotions: true })
     : undefined;
   const sourceEquipment = source && (source.motions.length ? source.cells.map(cell => cell.equipmentId) : []);
-  const selectionOutput = useAnalysisSelectionOutput(panelDeclarations.moduleMotions.id, MOTION_EQUIPMENT_KEY, { available: sourceEquipment });
+  const sourcePanelId = panelDeclarations.moduleMotions.id;
+  const selectionOutput = useAnalysisSelectionOutput(sourcePanelId, MOTION_EQUIPMENT_KEY, { available: sourceEquipment });
+  const currentHostsSelection = step === 4 && !extraIds.includes(sourcePanelId);
+  const highlightedEquipment = selectionOutput.highlighted && selectionOutput.selection?.shape === 'set'
+    ? selectionOutput.selection.values : noHighlightedEquipment;
   const onOpenTrend = (target: string, row: string) => {
     setPage({ trend: target, row });
     setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
@@ -310,7 +317,9 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const panels: PanelWorkspacePanel[] = [
     { id: 'tree', icon: ListTree, title: S.tree, minWidth: 200, preferredHeight: 640, render: () => <Hierarchy filter={filter} currentId={currentId} onDrill={onDrill} /> },
     ...(step > 1 ? [{ id: 'previous', icon: History, title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={(step - 1) as Step} previous /> }] : []),
-    { id: 'current', title: barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640, render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={step} /> },
+    { id: 'current', title: barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640,
+      analysisSelectionSourceId: currentHostsSelection ? sourcePanelId : undefined,
+      render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={step} highlightedValues={currentHostsSelection ? highlightedEquipment : undefined} /> },
     ...extraIds.map(id => {
       const item = catalog.find(item => item.id === id)!;
       const renderPanel = (panel: CatalogId) => {
@@ -339,7 +348,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           case 'moduleMotions': {
             const input = projectQueryInputs(panelDeclarations.moduleMotions, panelContext);
             const display = projectDisplayInputs(panelDeclarations.moduleMotions, panelContext);
-            return <Bars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions selectionOutput={selectionOutput} />;
+            return <Bars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions selectionOutput={selectionOutput} highlightedValues={highlightedEquipment} />;
           }
           case 'table': return waitingForAvailability ? <LoadingBlock /> : <RawTablePanel params={{}} linked analysis={analysis} />;
           case 'donut': {

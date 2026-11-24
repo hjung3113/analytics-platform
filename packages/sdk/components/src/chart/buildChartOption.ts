@@ -198,6 +198,7 @@ export type ChartOptionInput = {
   /** Horizontal stacked only; absent = no value labels and the option is unchanged. */
   valueLabels?: ValueLabels;
   selectedPointKeys?: readonly string[];
+  highlightedValues?: readonly string[];
   /** Per category total to draw (`resolveRowTotals`); only read when `valueLabels` includes `total`. */
   totals?: ReadonlyMap<string, RowTotal>;
   /** Each total's text under the render's own formatter: the text and the grid room are built from it, not from the lazy `valueFormat`. */
@@ -348,6 +349,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const active = horizontal ? i.activeCategory ?? null : null;
   const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
   const selectedPoints = new Set(i.selectedPointKeys);
+  const highlightedValues = new Set(i.highlightedValues);
   const statuses = i.statuses ?? new Map<string, ChartStatus>();
   const categoryMarks = i.categoryValueMarks;
   const emptyLabels = i.percent ? i.emptyLabels : emptyCategoryLabels(i);
@@ -496,6 +498,10 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         const right = i.rightAxis && s.axis === 'right' ? i.rightAxis : null;
         const axis = right ?? i;
         const unit = s.unit?.trim() || axis.unit;
+        const showSymbols = i.selectedPointKeys !== undefined && (lineSymbolShown(s.points.length)
+          || s.points.some(([x]) => selectedPoints.has(chartPointKey({ seriesId: s.id, x }))));
+        const revealHighlightedSymbols = kind === 'line' && !showSymbols && highlightedValues.size > 0
+          && s.points.some(([x, y]) => y !== null && highlightedValues.has(x));
         const datum = (x: string, y: number | null) => {
           const isActive = active !== null && x === active;
           const mark = extreme?.min.x === x ? 'min' : extreme?.max.x === x ? 'max' : null;
@@ -505,11 +511,16 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
             : undefined;
           // A selected point keeps its fill and gets the selection ring (#2736).
           // A datum with its own border keeps it on hover (`keep`), so the hover edge never hides a selection, focus, Min/Max or status cue.
-          const keep = (itemStyle: { borderColor?: string; borderWidth: number }) => ({ itemStyle, emphasis: { itemStyle } });
+          const keep = (itemStyle: { borderColor?: string; borderWidth: number; borderType?: 'dashed' }) => ({ itemStyle, emphasis: { itemStyle } });
           // A line point is a hollow symbol stroked in the series colour, which hides a datum border: a selected one is a solid circle in its own
           // colour, a little larger, so the ring shows around it (UX-2).
           const solidPoint = kind === 'line' ? { symbol: 'circle', symbolSize: CHART_MARKS.selectedPointSize } : {};
-          if (!isActive && !mark && !status) return label ? { value: y, label, ...solidPoint, ...keep({ borderColor: palette.selection, borderWidth: selectionRing(true) }) } : y;
+          const highlight = y !== null && highlightedValues.has(x) ? { borderColor: palette.selection, borderWidth: 2, borderType: 'dashed' as const } : undefined;
+          if (!isActive && !mark && !status) {
+            if (label || highlight) return { value: y, ...(label ? { label } : {}), ...solidPoint, ...keep(highlight ?? { borderColor: palette.selection, borderWidth: selectionRing(true) }) };
+            if (revealHighlightedSymbols) return { value: y, symbol: 'none' };
+            return y;
+          }
           // Row focus keeps its series-coloured border; a min/max segment's thicker outline replaces it, so the active one adds a glow instead and both cues show.
           if (status) {
             // The status ring is drawn inside the piece by the __statusBarBacking layer (#2351). The active label stays bold; Min/Max retains its glow and chip.
@@ -519,7 +530,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
               label: { ...extremeChip, ...marker, position: extremeChip?.position ?? 'insideRight', formatter: `${marker.formatter}${mark ? ` ${extremeName(mark, lang)}` : ''}`, rich: marker.rich },
             };
           }
-          const border = { borderColor: mark ? palette.minMax[mark] : palette.series[n].stroke, borderWidth: mark ? 3 : 2 };
+          const border = highlight ?? { borderColor: mark ? palette.minMax[mark] : palette.series[n].stroke, borderWidth: mark ? 3 : 2 };
           return { value: y, itemStyle: {
             color: palette.series[n].fill, ...border,
             ...(mark && isActive ? { shadowBlur: 6, shadowColor: palette.series[n].stroke } : {}),
@@ -527,9 +538,11 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         };
         const real = {
           id: s.id, name: s.name, type: kind,
+          // Hover updates replace series. Apply and clear emphasis without replaying entrance motion.
+          ...(i.highlightedValues === undefined ? {} : { animation: false }),
           stack: kind === 'bar' ? (i.stacked ? 'total' : undefined) : (i.explicitStack ? 'line-total' : undefined),
           // Over 12 points they show on hover only; a series with a selected point keeps them, since its label rides on the symbol.
-          showSymbol: i.selectedPointKeys !== undefined && (lineSymbolShown(s.points.length) || s.points.some(([x]) => selectedPoints.has(chartPointKey({ seriesId: s.id, x })))), symbolSize: 5, connectNulls: false,
+          showSymbol: showSymbols || revealHighlightedSymbols, symbolSize: 5, connectNulls: false,
           ...(kind === 'line' && s.step ? { step: s.step } : {}),
           lineStyle: { ...(kind === 'line' ? { color } : {}), width: pattern === 'solid' ? CHART_MARKS.lineWidth : CHART_MARKS.patternLineWidth, type: pattern },
           itemStyle: { color: palette.series[n].fill, ...(kind === 'bar' ? { borderRadius: barRadius(horizontal, i.stacked || lanes !== null) } : {}) },
@@ -554,7 +567,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         }] : [];
         return [...spacer, real];
       }),
-      ...barStatusBackingSeries(i, statuses, lanes),
+      ...barStatusBackingSeries(i, statuses, lanes, highlightedValues),
       ...lineStatusSeries(i, statuses),
       ...(bounds ? boundSeries(bounds, palette) : []),
       ...(totalTexts ? [totalSeries(totalTexts)] : []),

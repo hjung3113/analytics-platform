@@ -10,6 +10,7 @@ import {
   DockviewReact, getPanelData, type DockviewApi, type DockviewReadyEvent, type DockviewWillDropEvent, type DockviewWillShowOverlayLocationEvent, type IDockviewHeaderActionsProps, type IDockviewPanelHeaderProps, type IDockviewPanelProps,
 } from 'dockview-react';
 import { TransientOverlayScope, prefersReducedMotion } from '@ap/ui';
+import { useAnalysisSelectionSourceHighlighted } from '@ap/kernel/host';
 import { groupOf } from './commands';
 import { DockSeparators, type DockRect } from './DockSeparators';
 import type { DockLayoutProps, DockPanel, DockRows, DockFloating } from './dockTypes';
@@ -70,6 +71,7 @@ function PanelHost({ api }: IDockviewPanelProps) {
   const id = api.id;
   const visible = engine.visible.has(id);
   const panel = engine.panels.get(id);
+  const sourceHighlighted = useAnalysisSelectionSourceHighlighted(panel?.analysisSelectionSourceId ?? id);
   const content = useRef<HTMLDivElement>(null);
   const fitPeek = engine.floating?.peekId === id;
   const peekHeightFloor = engine.floating?.peekHeightFloor ?? PEEK_HEIGHT;
@@ -92,7 +94,7 @@ function PanelHost({ api }: IDockviewPanelProps) {
     fit();
     return () => { observer.disconnect(); };
   }, [api, fitPeek, peekHeightFloor, engine.reconciles]);
-  return <div id={`${engine.instanceId}-panel-${id}`} data-dock-panel={id} data-dock-visible={visible} inert={!visible} tabIndex={-1} className="h-full min-h-0 min-w-0 scrollbar-panel overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+  return <div id={`${engine.instanceId}-panel-${id}`} data-dock-panel={id} data-dock-visible={visible} data-analysis-source-highlighted={visible && sourceHighlighted ? '' : undefined} inert={!visible} tabIndex={-1} className="h-full min-h-0 min-w-0 scrollbar-panel overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
     onFocus={event => {
       // Focus moving into the panel from outside it is the user choosing the panel. Not: focus the dock itself moved, or an event of a nested
       // layout (its panel belongs to that layout's `onActivate`).
@@ -111,6 +113,7 @@ function DockTab({ api }: IDockviewPanelHeaderProps) {
   const engine = useEngine();
   const id = api.id;
   const mark = useRef<HTMLSpanElement>(null);
+  const sourceHighlighted = useAnalysisSelectionSourceHighlighted(engine.panels.get(id)?.analysisSelectionSourceId ?? id);
   const a11y = engine.tabA11y?.(id);
   const description = a11y?.description;
   const keyShortcuts = a11y?.keyShortcuts;
@@ -122,7 +125,7 @@ function DockTab({ api }: IDockviewPanelHeaderProps) {
     set('aria-description', description);
     set('aria-keyshortcuts', keyShortcuts);
   }, [description, keyShortcuts, engine.reconciles, engine.moves]);
-  return <span ref={mark} data-dock-tab={id} className="flex min-w-0 items-center truncate">
+  return <span ref={mark} data-dock-tab={id} data-analysis-source-highlighted={sourceHighlighted && !engine.visible.has(id) ? '' : undefined} className="flex min-w-0 items-center truncate">
     {engine.renderTab?.(id, { active: engine.active.has(id), groupFocused: engine.focused.has(id) }) ?? engine.panels.get(id)?.title ?? id}
   </span>;
 }

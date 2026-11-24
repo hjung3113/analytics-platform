@@ -34,6 +34,21 @@ it('preserves the legacy time stacked-bar option and status rendering from origi
   expect(createHash('sha256').update(JSON.stringify({ option, rendered })).digest('hex')).toBe('2cccda153d237c5cbab5a763ecada5e1dcdc16f58319cb79fe7bd3a909666d1a');
 });
 
+it('adds a dashed emphasis around only the matching status bar', () => {
+  const displayed: ChartSeries[] = [{ id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [['R1', 8], ['R2', 4]] }];
+  const selection = '#872bd0';
+  const input = baselineInput({ categories: ['R1', 'R2'], displayed, activeCategory: null, extremes: undefined,
+    palette: { ...resolveChartPalette(displayed), selection }, pointStatus: () => ({ tone: 'warning', label: 'Status' }) });
+  const chart = echarts.init(null, CHART_ECHARTS_THEME, { renderer: 'svg', ssr: true, width: 800, height: 260 });
+  const emphasis = () => chart.renderToSVGString().split('\n').filter(line => line.includes(`stroke="${selection}"`) && line.includes('stroke-dasharray='));
+  try {
+    chart.setOption({ ...buildChartOption(input), animation: false }, { notMerge: true });
+    expect(emphasis()).toHaveLength(0);
+    chart.setOption({ ...buildChartOption({ ...input, highlightedValues: ['R1'] }), animation: false }, { notMerge: true });
+    expect(emphasis()).toHaveLength(1);
+  } finally { chart.dispose(); }
+});
+
 describe('effective status borders drawn by ECharts (#2326 C1)', () => {
   it.each([
     { horizontal: true, stacked: true, startAlign: false, xType: 'category' as const },

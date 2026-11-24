@@ -21,6 +21,42 @@ const tableOnlyLink = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=tabl
 beforeEach(() => { requests.length = 0; vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
+it('emphasizes the selected equipment only while pointing to the selection chip', async () => {
+  await renderOverview(`${workspace}&row=EQ-002&motionEquipment=EQ-001`, answer, { showSelectionChips: true });
+  const chip = within(screen.getByRole('group', { name: '분석 선택' })).getByRole('img');
+  expect(chart().highlightedValues ?? []).toEqual([]);
+  fireEvent.pointerEnter(chip);
+  expect(chart().highlightedValues).toEqual(['EQ-001']);
+  expect(chart().activeCategory).toBe('EQ-002');
+  fireEvent.pointerLeave(chip);
+  expect(chart().highlightedValues ?? []).toEqual([]);
+});
+
+it.each(['pointer', 'keyboard'])('marks the default HW Time source panel and bars on %s interaction', async gesture => {
+  const picked = ['EQ-002', 'EQ-001'];
+  await renderOverview(`&moduleType=PM&drillMotion=Pump&drillModule=PM1${selection(picked)}`, answer, { showSelectionChips: true, realWorkspace: true });
+  const current = screen.getByTestId('hw-current');
+  expect(current.closest('[data-dock-panel="current"]')).not.toBeNull();
+  expect([...document.querySelectorAll('[data-dock-panel]')].map(panel => panel.getAttribute('data-dock-panel')).sort())
+    .toEqual(['current', 'previous', 'tree', 'trend']);
+  const chip = within(screen.getByRole('group', { name: '분석 선택' }));
+  const clear = chip.getByRole('button', { name: /선택 지우기/ });
+  const icon = chip.getByRole('img');
+  const highlightedPanels = () => [...document.querySelectorAll('[data-analysis-source-highlighted]')].map(panel => panel.getAttribute('data-dock-panel'));
+  const highlightedBars = () => JSON.parse(current.textContent!).highlightedValues ?? [];
+
+  expect(highlightedPanels()).toEqual([]);
+  expect(highlightedBars()).toEqual([]);
+  if (gesture === 'pointer') fireEvent.pointerEnter(icon);
+  else act(() => clear.focus());
+  expect.soft(highlightedPanels()).toEqual(['current']);
+  expect.soft(highlightedBars()).toEqual(picked);
+  if (gesture === 'pointer') fireEvent.pointerLeave(icon);
+  else act(() => clear.blur());
+  expect(highlightedPanels()).toEqual([]);
+  expect(highlightedBars()).toEqual([]);
+});
+
 it.each(['browse', 'select hw-module-motions'])('%s restores and changes the active row independently of the table filter', async gesture => {
   await renderOverview(`${workspace}&row=EQ-002&motionEquipment=EQ-001`);
   expect(chart().activeCategory).toBe('EQ-002');

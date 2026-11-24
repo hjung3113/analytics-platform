@@ -16,7 +16,7 @@ const CATEGORY_GAP = parseFloat(barCategoryGap) / 100;
  * border cannot contrast with the fill. Both are sized from the real piece by `statusRing`, so a thin piece keeps its fill;
  * the native bar draws no status border.
  */
-export function barStatusBackingSeries(input: ChartOptionInput, statuses: ReadonlyMap<string, ChartStatus>, lanes: LaneLayout | null): CustomSeriesOption[] {
+export function barStatusBackingSeries(input: ChartOptionInput, statuses: ReadonlyMap<string, ChartStatus>, lanes: LaneLayout | null, highlightedValues: ReadonlySet<string>): CustomSeriesOption[] {
   if (!statuses.size) return [];
   const bars = input.displayed.filter(s => input.horizontal || s.kind === 'bar');
   const count = input.stacked ? 1 : bars.length;
@@ -36,7 +36,7 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
         if (typeof v === 'number' && Number.isFinite(v) && (v >= 0) === (value >= 0)) start += v;
       }
       const category = input.xType === 'time' ? toMs(x) : input.categories.indexOf(x);
-      return [{ category, start, end: start + value, backing, stroke: statusBorderColor(status, input.palette.series[n].fill) }];
+      return [{ category, start, end: start + value, backing, stroke: statusBorderColor(status, input.palette.series[n].fill), highlighted: highlightedValues.has(x) }];
     });
     if (!pieces.length) return [];
     const renderItem: RenderItem = (_params, api) => {
@@ -64,6 +64,7 @@ export function barStatusBackingSeries(input: ChartOptionInput, statuses: Readon
       return { type: 'group', children: [
         ...(backing ? [{ type: 'rect' as const, shape: rect(border + backing / 2), style: { fill: 'none', stroke: piece.backing!, lineWidth: backing }, blur: { style: { opacity: 1 } } }] : []),
         { type: 'rect', ignore: !border, shape: rect(border / 2), style: { fill: 'none', stroke: piece.stroke, lineWidth: border }, blur: { style: { opacity: 1 } } },
+        ...(piece.highlighted ? [{ type: 'rect' as const, shape: rect(-1), style: { fill: 'none', stroke: input.palette.selection, lineWidth: 2, lineDash: [4, 2] } }] : []),
       ] };
     };
     return [{
