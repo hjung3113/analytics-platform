@@ -148,6 +148,12 @@ env problem → fix `.env.production`) and restore into a new `--project` name. 
 
 The checkout on the host must be the same tag (the compose files and scripts come from it). Skip the build steps below.
 
+The **Server release unit** workflow checks these four files on main pushes and manual runs. To rehearse locally, run
+`bash scripts/release/offline-start-check.sh --unit <dir> --tag <tag>` from `ops/platform-api` on a disposable Docker host
+with Docker 28+, a current Compose plugin, and OpenSSL. The check verifies the checksums and caches Postgres, MinIO, and
+the mock IdP before it removes and reloads the three release tags. It starts a fresh production stack on an internal network with
+builds and pulls disabled. The check requires `GET /health/ready` to return 200 and then removes its project and volumes.
+
 **From a checkout (build on the host).** Step 1 is the web image: build it from the same commit as the backend and migrate images with
 `bash scripts/release/build-web-image.sh` (it writes only `platform-release-web:local`), then tag it with the release tag:
 `docker tag platform-release-web:local platform-release-web:<tag>`. Load the other two images under

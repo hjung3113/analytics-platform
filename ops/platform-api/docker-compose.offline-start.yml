@@ -1,0 +1,50 @@
+# Only for scripts/release/offline-start-check.sh. The internal network allows DB, storage and OIDC traffic
+# within this project while the stack starts without host port bindings or external network access.
+x-migrate: &migrate
+  image: platform-release-migrate:${OFFLINE_TAG:?set by offline-start-check.sh}
+  platform: linux/amd64
+  build: !reset null
+
+services:
+  migrate: *migrate
+  set-role-passwords: *migrate
+  cutover: *migrate
+  bootstrap: *migrate
+  set-actor-role: *migrate
+  oidc:
+    image: ghcr.io/navikt/mock-oauth2-server:6.0.4
+    mem_limit: 512m
+    environment:
+      JSON_CONFIG: >-
+        {"httpServer":{"type":"NettyWrapper","ssl":{"keystoreFile":"/tls/issuer.p12",
+        "keystoreType":"PKCS12","keystorePassword":"offline-start","keyPassword":"offline-start"}}}
+    volumes:
+      - ${OFFLINE_TLS_DIR:?set by offline-start-check.sh}/issuer.p12:/tls/issuer.p12:ro
+  backend:
+    image: platform-release-backend:${OFFLINE_TAG:?set by offline-start-check.sh}
+    platform: linux/amd64
+    build: !reset null
+    environment:
+      NODE_EXTRA_CA_CERTS: /tls/issuer.pem
+      PLATFORM_SYSTEMS_FILE: /app/platform-systems.json
+      MENU_DECLARATIONS_FILE: ""
+      MENU_DECLARATIONS_SNAPSHOT_FILE: ""
+      MENU_UPSTREAM_BASE_URL: ""
+      MENU_IDENTITY_KEY_FILE: ""
+      MENU_IDENTITY_KEY_ID: ""
+      MENU_SCOPE_GRANT_SERVICE_URL: ""
+    volumes:
+      - ./menu-assembly:/menu-assembly:ro
+      - ./menu-assembly:/menu-identity:ro
+      - ${OFFLINE_TLS_DIR:?set by offline-start-check.sh}/issuer.pem:/tls/issuer.pem:ro
+    depends_on:
+      oidc:
+        condition: service_started
+  edge:
+    image: platform-release-web:${OFFLINE_TAG:?set by offline-start-check.sh}
+    platform: linux/amd64
+    ports: !reset []
+
+networks:
+  default:
+    internal: true
