@@ -705,3 +705,23 @@
 | 미구현 | `@ap/components` 루트의 `EChart`·`chartTheme`·`token`·`EChartProps` 호환 export 삭제 | SHE-26 소유자 결정: `/host` 이전을 위해 한 릴리스 유지 | 다음 SDK minor 릴리스 |
 | 미구현 | `DetailPanelHeader.kind`·`KIND_LABELS`·기존 kind accent 맵 삭제 | SHE-45 소유자 결정: 소비자 label·accent 선언으로 이전할 한 릴리스 유지 | 다음 SDK minor 릴리스 |
 | 미구현 | `DetailPanelHeaderActions.entityKind`·`entityId` prop 삭제 | SHE-45 소유자 결정: 사용하지 않는 prop의 소스 호환을 한 릴리스 유지 | 다음 SDK minor 릴리스 |
+
+## 성능 감사 2026-11-23 보류 (#2816)
+
+같은 감사(정적 점검 → 교차 확인·설계 → 고문 검토)에서 확인했지만 구현하지 않는 항목이다. 따로 적지 않은 수치는 측정하지 않았다(unmeasured). 구현하는 항목은 #2806–#2815·#2819.
+
+- **구현 안 함 — fleet 모델·벤더 순차 조회 (`modules/eqv/onboarding-fleet.ts:65-77`):** 이유: 지금 규모에서 체감되지 않고, `Promise.all`은 요청 하나가 연결 N개를 잡아 쓰지 않는다(고친다면 배치 조회). 다시 여는 조건: fleet 응답이 느리다는 측정.
+- **구현 안 함 — 클러스터 제안의 행별 적격성 검사 (`voc/cluster-suggestions/repo.ts:198-216`):** 이유: 상한이 pending 20건이라 영향이 작다. 다시 여는 조건: 측정.
+- **구현 안 함 — 의견 요약의 JS 정렬·자르기 (`log-lifecycle/repositories/opinion-read.ts:149-169`):** 이유: `localeCompare`와 Postgres collation이 달라 SQL로 옮기면 동작이 바뀔 수 있다. 다시 여는 조건: attempt당 item 수가 수천 개.
+- **구현 안 함 — 비교 페이지 전체 재계산 (`log-datasets/comparison-endpoints.ts:55-68`):** 이유: 지금 규모에서 체감되지 않는다. 다시 여는 조건: 측정.
+- **구현 안 함 — findings·tasks·vocs `title`의 `ILIKE '%…%'` trigram 인덱스:** 이유: 쓰기 비용이 늘어난다. 다시 여는 조건: 테이블이 수만 행 이상이거나 검색이 느리다는 측정.
+- **구현 안 함 — `rows` 모드 표의 정렬 결과 캐시 (`packages/sdk/components/src/table/useRowsSource.ts:61-76`):** 이유: 메뉴가 행을 제자리에서 바꾸면 오래된 결과가 남고, 효과는 1만 행 이상에서만 난다. 다시 여는 조건: 1만 행 이상 rows 모드를 쓰는 메뉴.
+- **구현 안 함 — managed-systems 조회 키 통일 (`'scope-selector'`와 `{includeArchived:false}`):** 이유: 아끼는 건 1건이고 retry 정책이 바뀐다. 다시 여는 조건: 중복 요청이 측정될 때.
+- **구현 안 함 — Kernel `structuralSharing: false` 바꾸기:** 이유: ADR-0086 결정이고, 켜면 데이터 동일성에 기대는 effect가 바뀐다. 다시 여는 조건: 비용 측정.
+- **구현 안 함 — AppShell 펼친 상세 측정의 rAF 합치기:** 이유: 효과가 없다(스크롤과 MutationObserver가 이미 프레임 단위로 묶여 온다). 다시 여는 조건: 프레임 안에서 측정이 여러 번 도는 프로파일.
+- **구현 안 함(결정 필요) — 세션 `last_seen_at`을 요청마다 갱신 (`auth/session-service.ts:283-330`):** 이유: 테스트로 고정된 계약(`platform-port.integration.test.ts:432-435`)이고 읽는 곳이 없어 #150(세션 만료 정책)과 함께 정한다. 다시 여는 조건: `loadAndTouch` p95 측정, 또는 #150이 유휴 정책을 정할 때.
+- **구현 안 함(결정 필요) — rate limit을 Postgres에 저장:** 이유: FO ADR-0015(파드 간 유지). 다시 여는 조건: UPSERT 비용이 측정될 때. 그때 첫 수단은 그 테이블의 내구성을 낮추는 것(unlogged 또는 async commit)이고 ADR 메모만 있으면 된다.
+- **기각 — rate-limit 세션 조회 제거:** 이유: FO ADR-0015가 정했다. 다시 열지 않는다.
+- **기각 — 요청 사이 권한·scope 캐시:** 이유: 즉시 회수를 깬다(ADR-0154). 다시 열지 않는다.
+- **확인만 — Task를 released로 옮긴 뒤 VOC 캐시:** 서버는 VOC를 바로 쓰지 않고 pg-boss 잡을 큐에 넣는다(`tasks/service.ts:951-974`). 그래서 settle 시점에 무효화해도 잡보다 먼저 돈다. 이유: 결함이 재현되지 않았다. 다시 여는 조건: staleTime 30초를 넘어서도 오래된 값이 남는 재현.
+- Kernel `staleTime > 0`은 이 백로그의 «#825, ADR-0086» 줄이 맡는다(#165 대기).
