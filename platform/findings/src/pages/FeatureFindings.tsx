@@ -12,10 +12,10 @@ export default function FeatureFindings() {
   const { setPage } = usePlatform();
   const capability = useMenuCapability();
   return <FeatureScreenPage route={findingsRoute} isValid={isFindingsSearchValueValid} useSearch={useFindingsSearch} useHere={useFindingsHere}>
-    <FindingsScreen {...(capability === undefined ? {} : { capability })} renderDetailInPlace renderDetail={(id, { isInList }) => {
+    <FindingsScreen {...(capability === undefined ? {} : { capability })} renderDetailInPlace renderDetail={(id, { isInList, listFocusRef }) => {
       if (id === null) return undefined;
       const closeOptions = isInList === false ? { replace: true } : undefined;
-      return <FindingDetailDrawer key={id} findingId={id} isInList={isInList} onClose={() => setPage({ focus: null }, closeOptions)} />;
+      return <FindingDetailDrawer key={id} findingId={id} isInList={isInList} listFocusRef={listFocusRef} onClose={() => setPage({ focus: null }, closeOptions)} />;
     }} />
   </FeatureScreenPage>;
 }
