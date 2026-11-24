@@ -227,6 +227,32 @@ it('moves focus to the fallback if applying an empty set removes the chip', asyn
   expect(screen.getByRole('button', { name: '조회 조건 펼치기' })).toHaveFocus();
 });
 
+it.each([
+  ['inline to folded', '&mod=M1', 150, 400, 'equipment E1', 'equipment E1 외 1', '+1 ›'],
+  ['folded to inline', '&equip=E2&mod=M1', 400, 150, 'equipment E1 외 1', '+1 ›', 'equipment E1'],
+] as const)('restores edit focus by selection key after Apply and remeasurement: %s', async (direction, extra, before, after, name, applied, target) => {
+  const { container } = await mountSelections(extra, [equipment, module], <SelectionSource />);
+  const probe = container.querySelector('[data-analysis-chip-probe]')!;
+  act(() => {
+    resize(screen.getByTestId('row'), 300);
+    resize(screen.getByText('조회 요약'), 100);
+    resize(probe, before);
+  });
+  const user = userEvent.setup();
+  let controls = zone();
+  if (direction === 'folded to inline') {
+    await user.click(controls.getByRole('button', { name: '+1 ›' }));
+    controls = within(screen.getByRole('dialog', { name: '분석 선택' }));
+  }
+  await user.click(controls.getByRole('button', { name }));
+  const editor = within(screen.getByRole('dialog', { name }));
+  await user.click(editor.getByRole('checkbox', { name: 'E2' }));
+  await user.click(editor.getByRole('button', { name: '적용' }));
+  await waitFor(() => expect(zone().getByRole('button', { name: applied })).toHaveFocus());
+  act(() => resize(probe, after));
+  await waitFor(() => expect(zone().getByRole('button', { name: target })).toHaveFocus());
+});
+
 it.each([['15:00', true], ['17:00', false]] as const)('handles range start %s with end 16:00', async (from, valid) => {
   type Editor = NonNullable<ReturnType<typeof useAnalysisSelectionChips>['editor']>;
   const replace = vi.fn<Editor['replace']>((_key, next, commit) => {

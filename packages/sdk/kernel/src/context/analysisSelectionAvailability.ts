@@ -25,8 +25,14 @@ export function analysisSelectionRangeCompare(available: AnalysisSelectionAvaila
 export function isAnalysisSelectionAvailable(selection: AnalysisSelection, available: AnalysisSelectionAvailability | undefined): boolean {
   if (!available) return true;
   if ('from' in available) {
+    if (selection.shape !== 'range') return true;
     const compare = analysisSelectionRangeCompare(available);
-    return selection.shape !== 'range' || (compare(selection.from, available.to) <= 0 && compare(available.from, selection.to) <= 0);
+    try {
+      return compare(selection.from, available.to) <= 0 && compare(available.from, selection.to) <= 0;
+    } catch {
+      // A late report may reject an endpoint already in the URL. Keep the chip and mark the range unavailable.
+      return false;
+    }
   }
   return selection.shape !== 'set' || selection.values.some(value => available.includes(value));
 }

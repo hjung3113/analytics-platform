@@ -13,14 +13,28 @@ type Selection = AnalysisSelectionChip['selection'];
 type ClearButtonRef = RefCallback<HTMLButtonElement>;
 type ChipInteraction = 'pointer' | 'focus';
 type ClearFocus = { kind: 'clear'; key: string | null; index: number; from: string; to: string } | { kind: 'list'; index: number };
+type EditFocus = { kind: 'commit'; key: string } | { kind: 'focused'; key: string; button: HTMLButtonElement };
+type EditFocusHandlers = {
+  trackButton: (button: HTMLButtonElement) => () => void;
+  onCommit: (key: string, options: { fromList: boolean }) => void;
+  restore: () => void;
+};
+type FocusOutsideEvent = CustomEvent<{ originalEvent: FocusEvent }>;
 const zoneClass = 'inline-flex shrink-0 items-center gap-2 pl-2 text-xs';
 const focusClass = 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring';
 const linkClass = cn('h-6.5 shrink-0 rounded-sm whitespace-nowrap text-xs font-medium text-accent-primary hover:underline', focusClass);
+
+function keepOpenUnderConfirmation(event: FocusOutsideEvent) {
+  // The shell's modal temporarily owns focus while the address guard holds the write.
+  const target = event.target;
+  if (target instanceof Element && target.closest('[role="alertdialog"]')) event.preventDefault();
+}
 
 function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip; editor: ChipEditor; close: () => void }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const [draft, setDraft] = useState(chip.selection);
   const [rejected, setRejected] = useState(false);
+  const apply = useRef<HTMLButtonElement>(null);
   const id = useId();
   const errorId = `${id}-error`;
   const update = (next: Selection) => { setDraft(next); setRejected(false); };
@@ -32,6 +46,7 @@ function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip;
   const rangeError = draft.shape === 'range' && rejected;
   return <form className="grid gap-2" onSubmit={event => {
     event.preventDefault();
+    apply.current?.focus({ preventScroll: true });
     if (!editor.replace(chip.key, draft, close)) setRejected(true);
   }}>
     {draft.shape === 'set' ? <div className="grid max-h-64 gap-2 overflow-y-auto p-1">
@@ -57,18 +72,30 @@ function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip;
     {rejected && <p id={errorId} role="alert" className="text-xs text-text-danger-label">
       {m(draft.shape === 'range' ? 'analysisSelectionInvalidRange' : 'analysisSelectionInvalidSet')}
     </p>}
-    <Button type="submit" size="sm" className="justify-self-end">{m('analysisSelectionApply')}</Button>
+    <Button ref={apply} type="submit" size="sm" className="justify-self-end">{m('analysisSelectionApply')}</Button>
   </form>;
 }
 
-function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef }: {
-  chip: AnalysisSelectionChip; clear: ClearChip; editor?: ChipEditor; wrap?: boolean; measuring?: boolean; clearButtonRef?: ClearButtonRef;
+function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, editFocus }: {
+  chip: AnalysisSelectionChip; clear: ClearChip; editor?: ChipEditor; wrap?: boolean; measuring?: boolean;
+  clearButtonRef?: ClearButtonRef; editFocus?: EditFocusHandlers;
 }) {
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const beginHover = useAnalysisSelectionHoverTarget(measuring ? undefined : chip.key);
   const labelId = useId();
   const editTrigger = useRef<HTMLButtonElement>(null);
+  const committed = useRef(false);
+  const trackButton = editFocus?.trackButton;
+  const editTriggerRef = useCallback<RefCallback<HTMLButtonElement>>(button => {
+    if (!button) return;
+    editTrigger.current = button;
+    const detach = trackButton?.(button);
+    return () => {
+      detach?.();
+      editTrigger.current = null;
+    };
+  }, [trackButton]);
   const edit = editor?.replace;
   const selectionKey = JSON.stringify(chip.selection);
   const [opened, setOpened] = useState<{ edit: typeof edit; selectionKey: string } | null>(null);
@@ -113,16 +140,27 @@ function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef }: {
     chip.available ? 'bg-accent-primary-soft text-accent-primary' : 'bg-accent-neutral-soft text-text-secondary')}
     onPointerEnter={event => { if (event.pointerType !== 'touch') enter('pointer'); }}
     onPointerLeave={() => leave('pointer')} onFocus={() => enter('focus')} onBlur={() => leave('focus')}>
-    {editor && !measuring ? <Popover open={open} onOpenChange={next => setOpened(next ? { edit, selectionKey } : null)}>
+    {editor && !measuring ? <Popover open={open} onOpenChange={next => {
+      if (next) committed.current = false;
+      setOpened(next ? { edit, selectionKey } : null);
+    }}>
       <PopoverTrigger asChild>
-        <button ref={editTrigger} type="button" aria-labelledby={labelId} aria-describedby={chip.available ? undefined : `${labelId}-status`}
+        <button ref={editTriggerRef} type="button" data-analysis-chip-edit={chip.key} aria-labelledby={labelId} aria-describedby={chip.available ? undefined : `${labelId}-status`}
           className={cn('inline-flex min-h-6.5 min-w-0 items-center gap-1 rounded-full pl-2 pr-1 text-start hover:bg-surface-row-hover', focusClass)}>
           {description}
         </button>
       </PopoverTrigger>
       <PopoverContent aria-labelledby={labelId} align="start" className="max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto"
-        onCloseAutoFocus={event => { if (!editTrigger.current?.isConnected) event.preventDefault(); }}>
-        <SelectionFields chip={chip} editor={editor} close={() => setOpened(null)} />
+        onFocusOutside={keepOpenUnderConfirmation}
+        onCloseAutoFocus={event => {
+          if (committed.current || !editTrigger.current?.isConnected) event.preventDefault();
+          if (committed.current) editFocus?.restore();
+        }}>
+        <SelectionFields chip={chip} editor={editor} close={() => {
+          committed.current = true;
+          editFocus?.onCommit(chip.key, { fromList: wrap === true });
+          setOpened(null);
+        }} />
       </PopoverContent>
     </Popover> : <span className="inline-flex min-w-0 items-center gap-1 pl-2 pr-1">{description}</span>}
     <button ref={clearButtonRef} type="button" disabled={measuring} className={cn('inline-flex size-6.5 shrink-0 items-center justify-center rounded-full hover:bg-surface-row-hover', focusClass)}
@@ -136,15 +174,16 @@ function Separator() {
   return <span aria-hidden className="text-text-muted">|</span>;
 }
 
-function InlineChips({ chips, clear, clearAll, editor, measuring, clearButtonRef }: {
+function InlineChips({ chips, clear, clearAll, editor, measuring, clearButtonRef, editFocus }: {
   chips: readonly AnalysisSelectionChip[]; clear: ClearChip; clearAll: () => void; editor?: ChipEditor; measuring?: boolean; clearButtonRef?: ClearButtonRef;
+  editFocus?: EditFocusHandlers;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   return <>
     <Separator />
     {chips.map((chip, index) => <Fragment key={chip.key}>
       {index > 0 && <span aria-hidden className="text-text-muted">›</span>}
-      <Chip chip={chip} clear={clear} editor={editor} measuring={measuring} clearButtonRef={clearButtonRef} />
+      <Chip chip={chip} clear={clear} editor={editor} measuring={measuring} clearButtonRef={clearButtonRef} editFocus={editFocus} />
     </Fragment>)}
     <button type="button" disabled={measuring} className={linkClass} onClick={clearAll}>{m('analysisSelectionClearAll')}</button>
   </>;
@@ -162,7 +201,24 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   const list = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const clearFocus = useRef<ClearFocus | null>(null);
+  const editFocus = useRef<EditFocus | null>(null);
   const focusedChip = useRef<HTMLButtonElement | null>(null);
+  const [listOpen, setListOpen] = useState(false);
+  const trackEditButton = useCallback((button: HTMLButtonElement) => {
+    return () => {
+      const request = editFocus.current;
+      if (request?.kind === 'focused' && request.button === button && button.ownerDocument.activeElement !== button) editFocus.current = null;
+    };
+  }, []);
+  const listTriggerRef = useCallback<RefCallback<HTMLButtonElement>>(button => {
+    if (!button) return;
+    trigger.current = button;
+    const detach = trackEditButton(button);
+    return () => {
+      detach();
+      trigger.current = null;
+    };
+  }, [trackEditButton]);
   const clearButtonRef = useCallback<ClearButtonRef>(button => {
     if (!button) return;
     return () => {
@@ -176,6 +232,7 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   const summary = useObservedElementSize(fit?.summary ?? null, { enabled: canFold });
   const probe = useElementSize(canFold);
   const folded = canFold && row !== null && summary !== null && probe.width !== null && summary.width + probe.width > row.width;
+  if (listOpen && !folded) setListOpen(false);
   const focusChip = (surface: HTMLElement | null, index: number) => {
     const buttons = surface?.querySelectorAll<HTMLButtonElement>('[data-analysis-chip-clear]');
     const target = buttons?.[Math.min(index, buttons.length - 1)] ?? fallbackFocus?.current;
@@ -185,6 +242,8 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   useLayoutEffect(() => {
     const stopTracking = (event: FocusEvent) => {
       if (event.target !== focusedChip.current) focusedChip.current = null;
+      const request = editFocus.current;
+      if (request?.kind === 'focused' && event.target !== request.button) editFocus.current = null;
       if (clearFocus.current?.kind !== 'list' && event.target instanceof Node
         && !zone.current?.contains(event.target) && !list.current?.contains(event.target)) clearFocus.current = null;
     };
@@ -197,7 +256,37 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
     clearFocus.current = null;
     focusedChip.current = null;
   }, [platform?.adapter, platform?.session, platform?.revision, platform?.paneId, platform?.route?.menu, platform?.pathname, platform?.global.scopeId]);
+  useLayoutEffect(() => () => { editFocus.current = null; }, [editor?.replace]);
+  function restoreEditFocus() {
+    const request = editFocus.current;
+    if (!request) return;
+    const region = zone.current;
+    const button = Array.from(region?.querySelectorAll<HTMLButtonElement>('[data-analysis-chip-edit]') ?? [])
+      .find(candidate => candidate.dataset.analysisChipEdit === request.key) ?? trigger.current;
+    editFocus.current = null;
+    if (!button) return;
+    const { activeElement, body } = button.ownerDocument;
+    if (activeElement !== body && activeElement !== button) return;
+    editFocus.current = { kind: 'focused', key: request.key, button };
+    button.focus();
+  }
+  const editFocusHandlers: EditFocusHandlers = {
+    trackButton: trackEditButton,
+    onCommit: (key, { fromList }) => {
+      // Empty-set edits already enter the clear hand-off before the editor's commit callback.
+      const clearRequest = clearFocus.current;
+      if (clearRequest?.kind === 'clear' && clearRequest.key === key) return;
+      editFocus.current = { kind: 'commit', key };
+      if (fromList) setListOpen(false);
+    },
+    restore: restoreEditFocus,
+  };
   useLayoutEffect(() => {
+    const editRequest = editFocus.current;
+    if (editRequest?.kind === 'focused' && !editRequest.button.isConnected && document.activeElement === document.body) {
+      if (chips.some(chip => chip.key === editRequest.key)) restoreEditFocus();
+      else editFocus.current = null;
+    }
     const previous = focusedChip.current;
     if (previous && !previous.isConnected && document.activeElement === document.body) {
       const replacement = Array.from(zone.current?.querySelectorAll<HTMLButtonElement>('[data-analysis-chip-clear]') ?? [])
@@ -232,11 +321,12 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
     <div ref={zone} role="group" aria-label={label} className={zoneClass}>
       {folded ? <>
         <Separator />
-        <Popover>
+        <Popover open={listOpen} onOpenChange={setListOpen}>
           <PopoverTrigger asChild>
-            <button ref={trigger} type="button" className={linkClass}>+{chips.length - 1} ›</button>
+            <button ref={listTriggerRef} type="button" className={linkClass}>+{chips.length - 1} ›</button>
           </PopoverTrigger>
-          <PopoverContent ref={list} aria-label={label} align="end" className="max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto" onCloseAutoFocus={event => {
+          <PopoverContent ref={list} aria-label={label} align="end" className="max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto" onFocusOutside={keepOpenUnderConfirmation} onCloseAutoFocus={event => {
+            if (editFocus.current) { event.preventDefault(); return; }
             const request = clearFocus.current;
             if (request?.kind === 'list') clearFocus.current = null;
             if (trigger.current?.isConnected) return;
@@ -246,14 +336,14 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
             <ul className="grid gap-1">
               {chips.map(chip => <li key={chip.key} className="flex min-w-0 items-center gap-1">
                 {chip.after !== null && <span aria-hidden className="text-text-muted">›</span>}
-                <Chip chip={chip} clear={clear} editor={editor} wrap clearButtonRef={clearButtonRef} />
+                <Chip chip={chip} clear={clear} editor={editor} wrap clearButtonRef={clearButtonRef} editFocus={editFocusHandlers} />
               </li>)}
             </ul>
             <button type="button" className={linkClass} onClick={clearAll}>{m('analysisSelectionClearAll')}</button>
           </PopoverContent>
         </Popover>
-        <Chip key={last.key} chip={last} clear={clear} editor={editor} clearButtonRef={clearButtonRef} />
-      </> : <InlineChips chips={chips} clear={clear} clearAll={clearAll} editor={editor} clearButtonRef={clearButtonRef} />}
+        <Chip key={last.key} chip={last} clear={clear} editor={editor} clearButtonRef={clearButtonRef} editFocus={editFocusHandlers} />
+      </> : <InlineChips chips={chips} clear={clear} clearAll={clearAll} editor={editor} clearButtonRef={clearButtonRef} editFocus={editFocusHandlers} />}
     </div>
   </>;
 }

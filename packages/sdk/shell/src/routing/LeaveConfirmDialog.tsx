@@ -46,7 +46,10 @@ function PendingLeave({ request }: { request: LeaveRequest }) {
       onOpenAutoFocus={event => {
         event.preventDefault();
         const active = document.activeElement;
-        opener.current = request.via !== 'history' && active instanceof HTMLElement && active !== document.body && (request.via !== null || active.matches('a[href]'))
+        const inPlaceSubmit = request.destination === route?.menu.label
+          && active?.matches('[role="dialog"] button[type="submit"]');
+        opener.current = request.via !== 'history' && active instanceof HTMLElement && active !== document.body
+          && (request.via !== null || active.matches('a[href]') || inPlaceSubmit)
           ? active : document.getElementById('platform-main');
         safe.current?.focus();
       }}

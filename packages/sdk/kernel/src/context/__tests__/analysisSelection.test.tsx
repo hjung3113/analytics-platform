@@ -531,6 +531,31 @@ it('applies a numeric range overlapping a shorter-width extent', () => {
   expect(result.current.inputs.applied.map(input => input.key)).toEqual([rangeKey]);
 });
 
+it('releases a range filter when a late comparator rejects the edited value', () => {
+  const filterPanel: PanelDeclaration = { ...panel, id: 'range-filter', queryInputs: { page: [{ key: rangeKey, selection: 'filter' }] } };
+  const filterRegistry = createRegistry({
+    spaces: [testSpace()],
+    groups: [{ id: home.group, label: title, icon: House, space: spaceId('mars') }],
+    menus: [home, { ...home, id: 'analysis', path: '/analysis', primary: false, panels: [...panels, filterPanel],
+      pageKeys: [setKey, rangeKey], repeatedPageKeys: [setKey], contextResetKeys: [setKey, rangeKey] }],
+  });
+  const extent = { from: '0', to: '20', compare: (a: string, b: string) => Number(BigInt(a) - BigInt(b)) };
+  const result = mount(() => {
+    const [reported, report] = useState(false);
+    useAnalysisSelectionOutput('source', rangeKey, { available: reported ? extent : undefined });
+    return { report, model: useAnalysisSelectionChips(), inputs: useAnalysisSelectionInputs('range-filter') };
+  }, '&timeRange=2/10', ({ children }) => <I18nProvider><PlatformProvider adapter={adapter} registry={filterRegistry}>{children}</PlatformProvider></I18nProvider>);
+  const selection = { shape: 'range', from: '2', to: 'not-a-number' } as const;
+  act(() => expect(result.current.model.editor?.replace(rangeKey, selection)).toBe(true));
+  expect(result.current.inputs.filtered).toBe(true);
+  expect(result.current.inputs.applied[0]?.selection).toEqual(selection);
+
+  act(() => result.current.report(true));
+  expect(result.current.model.chips).toMatchObject([{ key: rangeKey, selection, available: false }]);
+  expect(result.current.inputs).toMatchObject({ filtered: false, applied: [], unavailable: [rangeKey], rejected: [] });
+  expect(search().get(rangeKey)).toBe('2/not-a-number');
+});
+
 it.each(['older', 'newer'] as const)('keeps a shared report when the %s reporter unmounts', removed => {
   const available: readonly string[] = [];
   function Reporter() {
