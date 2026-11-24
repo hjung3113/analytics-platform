@@ -1,5 +1,6 @@
 import type { ChartTrust } from '../state/trustFormat';
 import type { ReactNode } from 'react';
+import type { ChartExportActionsPolicy } from './ChartImageCopyButton';
 import type { ThemeColorToken } from '@ap/ui/theme';
 
 /** Performance boundary per initial input / range response, not a lane or domain limit. */
@@ -67,6 +68,8 @@ export type OrderedIntervalTrackProps = {
     orderTo: number,
     signal: AbortSignal,
   ) => Promise<readonly OrderedTrackItem[]>;
+  /** Outside a platform only: allows the `내보내기` menu (`내보내기 CSV` of the visible-range table; default off). Inside a `PlatformProvider` it is ignored and the menu manifest's `features.export` decides (#2792). */
+  exportActions?: ChartExportActionsPolicy;
   /** Consumers can reflect asynchronous failures in their page-head trust indicator. */
   onLoadStateChange?: (state: OrderedTrackLoadState) => void;
 };

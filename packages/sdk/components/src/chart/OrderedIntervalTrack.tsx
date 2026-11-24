@@ -13,13 +13,18 @@ import { Ban, BrushIcon, Inbox, Info, RotateCcw, ServerCrash, ZoomIn, ZoomOut } 
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from '@ap/ui';
 import { isThemeColorToken, readColorToken, useThemeRevision } from '@ap/ui/theme';
 import { formatNumber } from '@ap/contracts';
-import { useI18n, useMessages } from '@ap/kernel';
+import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { useRangeBrush } from './useRangeBrush';
 import { LoadingBlock, StateMessage } from '../StateView';
 import { ChartTrustFooter } from './analysisChartFrameParts';
 import { chartToolVariant } from './chartChrome';
+import { ChartExportMenu, ChartTableToggle } from './ChartInteractionToolbar';
+import { ImageActionStatus, useImageActionGate } from './ChartImageCopyButton';
+import { IntervalTable } from './canvasChartTable';
+import { downloadChartCsv } from './analysisChartCsv';
+import { displayFileName } from '../table/download';
 import { OrderedIntervalPlot } from './OrderedIntervalPlot';
 import {
   clampOrderView,
@@ -63,6 +68,8 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   const [loaded, setLoaded] = useState<readonly OrderedTrackItem[] | null>(null);
   const [request, setRequest] = useState<OrderedTrackLoadState>('ready');
   const [round, setRound] = useState(0);
+  // The request generation of the last successful response: CSV exports only the answer to the current request (#2792 C2).
+  const [answered, setAnswered] = useState<number | null>(null);
   const [recovered, setRecovered] = useState<{ title?: string; body?: unknown } | null>(null);
   const [selection, setSelection] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -70,7 +77,8 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   const brush = useRangeBrush();
   const brushRange = brush.range;
   const [textView, setTextView] = useState(false);
-  const [pageState, setPage] = useState(0);
+  const [page, setPage] = useState(0);
+  const global = usePlatformOptional()?.global ?? null;
   const [timeLabels, setTimeLabels] = useState(false);
   const [hover, setHover] = useState<{ item: OrderedTrackItem; x: number; y: number } | null>(null);
   const helpId = useId();
@@ -104,6 +112,17 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
     recovered.title === props.state?.title &&
     recovered.body === props.state?.body;
   const failed = overCap || (kind === 'error' && !recoveringError) || request === 'error';
+  // The request effect's inputs (`view` reference included: a new domain re-requests the same ends) get a new generation in this
+  // render, before the effect runs, so a restored permission or new range never offers the old answer as CSV (#2792 PR2 C2).
+  const requestKey = `${round}|${restricted}|${kind}|${recoveringError}|${!!props.onRangeRequest}`;
+  const [requestGen, setRequestGen] = useState({ view, key: requestKey, n: 0 });
+  if (requestGen.view !== view || requestGen.key !== requestKey) setRequestGen({ view, key: requestKey, n: requestGen.n + 1 });
+  // The standalone result line belongs to the CSV's rows, lanes, range, title and permission; a notice alone keeps it (#2792 PR2 C3, C6).
+  const exportKey = `${view[0]}|${view[1]}|${restricted}|${props.ariaLabel}|${props.exportActions?.exportAllowed}`;
+  const [exportGeneration, setExportGeneration] = useState({ items: sourceItems, lanes: props.lanes, key: exportKey, n: 0 });
+  if (exportGeneration.items !== sourceItems || exportGeneration.lanes !== props.lanes || exportGeneration.key !== exportKey)
+    setExportGeneration({ items: sourceItems, lanes: props.lanes, key: exportKey, n: exportGeneration.n + 1 });
+  const exportGate = useImageActionGate(props.exportActions, exportGeneration.n);
   const loadObserver = useRef(props.onLoadStateChange);
   useEffect(() => {
     loadObserver.current = props.onLoadStateChange;
@@ -125,6 +144,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
     }
     const controller = new AbortController();
     const loader = rangeLoader.current!;
+    const generation = requestGen.n;
     setRequest('loading');
     reportLoad('loading');
     async function load() {
@@ -134,6 +154,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
         if (result.length > ORDERED_TRACK_RESPONSE_LIMIT)
           throw new Error('OrderedIntervalTrack response limit exceeded');
         setLoaded(result);
+        setAnswered(generation);
         setRequest('ready');
         reportLoad('ready');
       } catch {
@@ -145,7 +166,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
     }
     void load();
     return () => controller.abort();
-  }, [restricted, kind, recoveringError, hasRangeLoader, view, round, reportLoad]);
+  }, [restricted, kind, recoveringError, hasRangeLoader, view, round, reportLoad, requestGen.n]);
   useEffect(() => {
     const element = tooltip.current;
     if (!element || !hover) return;
@@ -278,8 +299,61 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
     if (next) { setFocusId(next.id); setLaneReveal(n => n + 1); }
   }
   const help = m('intervalHelp');
-  const pages = Math.max(1, Math.ceil(visible.length / 20));
-  const page = Math.min(pageState, pages - 1);
+  const laneLabel = (item: OrderedTrackItem) => props.lanes.find((lane) => lane.laneKey === item.laneKey)?.label ?? '';
+  const itemEnd = (item: OrderedTrackItem) => (item.kind === 'point' ? undefined : item.orderEnd);
+  const tableColumns = [
+    { label: m('intervalColLane') },
+    { label: m('intervalColItem') },
+    { label: m('chartStart'), numeric: true, nowrap: true },
+    { label: m('chartEnd'), numeric: true, nowrap: true },
+    { label: m('intervalColState') },
+    { label: m('intervalColLength'), numeric: true, nowrap: true },
+  ];
+  const tableRows = (from: number, to: number) =>
+    visible.slice(from, to).map((item) => {
+      const end = itemEnd(item);
+      return {
+        key: item.id,
+        selected: selectedId === item.id,
+        cells: [
+          laneLabel(item),
+          <button
+            type="button"
+            className="rounded-sm text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
+            aria-pressed={selectedId === item.id}
+            onClick={() => select(item)}
+          >
+            {item.label}
+          </button>,
+          displayOrder(item.orderStart),
+          end === undefined ? '—' : displayOrder(end),
+          itemState(item),
+          end === undefined ? '—' : lengthText(end - item.orderStart),
+        ],
+      };
+    });
+  const answeredCurrent = !props.onRangeRequest || answered === requestGen.n;
+  // A positive length never reads 0: below the table's six decimals it is written as an exponent (#2792 C7).
+  const lengthText = (length: number) => Number.isInteger(length) ? formatNumber(length, lang, { maximumFractionDigits: 0 })
+    : Math.abs(length) < 1e-6 ? length.toExponential() : formatNumber(length, lang, { maximumFractionDigits: 6 });
+  const fileBase = displayFileName(props.ariaLabel) || 'track';
+  function exportCsv() {
+    const rows = visible.map((item) => {
+      const end = itemEnd(item);
+      return [laneLabel(item), item.label, item.orderStart, end ?? '', itemState(item), end === undefined ? '' : end - item.orderStart];
+    });
+    try {
+      downloadChartCsv(
+        { chartId: fileBase, fileName: fileBase, title: props.ariaLabel, context: global ?? {} },
+        tableColumns.map((column) => column.label),
+        rows,
+      );
+    } catch {
+      exportGate.say(m('chartExportCsvFailed', { chartId: fileBase }), 'warning');
+      return;
+    }
+    exportGate.say(m('chartExportedCsv', { chartId: fileBase }));
+  }
   const retry = () => {
     props.state?.onRetry?.();
     if (kind === 'error' && props.onRangeRequest)
@@ -366,16 +440,10 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
               {m('intervalTimeLabels')}
             </Button>
           )}
-          <Button
-            type="button"
-            size="toolbar"
-            variant="toggle"
-            disabled={restricted}
-            aria-pressed={textView}
-            onClick={() => setTextView(!textView)}
-          >
-            {m('intervalItemList')}
-          </Button>
+          <ChartTableToggle shown={textView} disabled={restricted} toggle={() => setTextView(!textView)} />
+          {/* Only the answered current range exports: not while a range loads or after it failed (#2792 C2). */}
+          {exportGate.allowed && !restricted && !loading && !failed && answeredCurrent && <ChartExportMenu exportCsv={exportCsv} />}
+          {exportGate.allowed && !restricted && <ImageActionStatus text={exportGate.status} />}
         </div>
       </header>
       <p id={helpId} className="sr-only">
@@ -477,88 +545,16 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
           ) : (
             <div className={loading ? 'opacity-50' : undefined}>
               {textView ? (
-                <>
-                  <p className="px-4 py-2 t-caption">
-                    {m('intervalVisibleItemList')} · {page + 1}/
-                    {pages}
-                  </p>
-                  <div className="mx-4 mb-2 rounded-md border border-border-subtle">
-                    <table aria-describedby={summaryId} className="w-full text-xs tabular">
-                      <caption className="text-left t-caption text-text-secondary">
-                        {rangeAnnotations()}
-                      </caption>
-                      <thead className="bg-surface-sunken">
-                        <tr>
-                          {[
-                            m('intervalColLane'),
-                            m('intervalColItem'),
-                            m('intervalColState'),
-                            m('intervalColOrder'),
-                          ].map((label, index) => (
-                            <th
-                              key={label}
-                              scope="col"
-                              className={cn(
-                                't-table-header px-3 py-1.5 text-text-secondary',
-                                index === 3 ? 'text-right' : 'text-left',
-                              )}
-                            >
-                              {label}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {visible.slice(page * 20, (page + 1) * 20).map((item) => (
-                          <tr
-                            key={item.id}
-                            aria-selected={selectedId === item.id}
-                            className={cn(
-                              'border-t border-border-subtle',
-                              selectedId === item.id && 'bg-surface-row-selected',
-                            )}
-                          >
-                            <td className="px-3 py-1">
-                              {props.lanes.find((lane) => lane.laneKey === item.laneKey)?.label}
-                            </td>
-                            <td className="px-3 py-1">
-                              <button
-                                type="button"
-                                className="rounded-sm text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
-                                aria-pressed={selectedId === item.id}
-                                onClick={() => select(item)}
-                              >
-                                {item.label}
-                              </button>
-                            </td>
-                            <td className="px-3 py-1">{itemState(item)}</td>
-                            <td className="px-3 py-1 text-right">{itemOrder(item)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div className="px-4 pb-2">
-                    <Button
-                      type="button"
-                      size="toolbar"
-                      variant="ghost"
-                      disabled={page === 0}
-                      onClick={() => setPage(page - 1)}
-                    >
-                      {m('intervalPreviousPage')}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="toolbar"
-                      variant="ghost"
-                      disabled={page === pages - 1}
-                      onClick={() => setPage(page + 1)}
-                    >
-                      {m('intervalNextPage')}
-                    </Button>
-                  </div>
-                </>
+                <IntervalTable
+                  title={m('intervalVisibleItemList')}
+                  columns={tableColumns}
+                  count={visible.length}
+                  rows={tableRows}
+                  page={page}
+                  onPage={setPage}
+                  caption={rangeAnnotations()}
+                  describedBy={summaryId}
+                />
               ) : (
                 <OrderedIntervalPlot
                   {...props}

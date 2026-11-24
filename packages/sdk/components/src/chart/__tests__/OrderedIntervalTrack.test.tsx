@@ -87,7 +87,7 @@ it('aborts superseded requests and ignores stale successes, even when the loader
       { ...items[0], kind: 'interval', orderStart: 30, orderEnd: 40, label: 'Stale' },
     ]),
   );
-  fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   expect(screen.getByRole('table')).toHaveTextContent('Fresh');
   expect(screen.getByRole('table')).not.toHaveTextContent('Stale');
   unmount();
@@ -128,7 +128,7 @@ it('moves by item and lane with keys, selects and clears, and supplies paged tex
   expect(onSelect).toHaveBeenLastCalledWith(items[24]);
   fireEvent.keyDown(root, { key: 'Escape' });
   expect(onSelect).toHaveBeenLastCalledWith(null);
-  fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   expect(within(screen.getByRole('table')).getAllByRole('row').slice(1)).toHaveLength(20);
   expect(screen.getByRole('table')).toHaveTextContent('완료');
   fireEvent.click(screen.getByRole('button', { name: '다음 쪽' }));
@@ -357,7 +357,7 @@ it('never submits the containing form from toolbar, help, retry, list, paging or
     '축소',
     '확대 초기화',
     '구간 선택',
-    '항목 목록',
+    '표로 보기',
     '다음 쪽',
     '이전 쪽',
   ]) {
@@ -419,7 +419,7 @@ it('shades only declared visible partial gaps and describes their ranges in the 
   expect(context.fillText.mock.calls.some((call) => call[0] === '미수신')).toBe(true);
   expect(document.querySelector('output')).toHaveTextContent('미수신: 60–100');
   expect(document.querySelector('output')).not.toHaveTextContent('-30');
-  fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   expect(screen.getByRole('table')).toHaveAccessibleDescription(
     expect.stringContaining('미수신: 60–100'),
   );
@@ -436,7 +436,7 @@ it('includes declared marker labels, kinds and order positions for only the curr
   expect(screen.getByRole('status')).toHaveTextContent('파일 경계 · File B · 40');
   expect(screen.getByRole('status')).toHaveTextContent('시간 역전 · Clock reversal · 45');
   expect(screen.getByRole('status')).not.toHaveTextContent('Outside');
-  fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   expect(screen.getByRole('table')).toHaveAccessibleDescription(
     expect.stringContaining('Clock reversal · 45'),
   );
@@ -523,15 +523,20 @@ it('does not suppress a new consumer error after retrying an internal loader fai
 it('uses compact table semantics, named columns, selection and twenty-item paging', () => {
   const onSelect = vi.fn();
   mount({ onSelect });
-  fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   const table = screen.getByRole('table');
-  expect(table).toHaveClass('w-full', 'text-xs', 'tabular');
+  // The shared IntervalTable (#2792): `@ap/ui` Table in compact density, tabular figures on its wrapper.
+  expect(table).toHaveClass('w-full', 'text-xs');
+  expect(table.parentElement).toHaveClass('tabular');
   expect(
     within(table)
       .getAllByRole('columnheader')
       .map((cell) => cell.textContent),
-  ).toEqual(['줄', '항목', '상태', '순번']);
+  ).toEqual(['줄', '항목', '시작', '끝', '상태', '길이']);
   expect(within(table).getAllByRole('row')).toHaveLength(21);
+  // One row per interval: start, end, state and length after the lane and item (#2792).
+  expect(within(table).getAllByRole('row')[1].querySelectorAll('td')[2].textContent).toBe('0');
+  expect([...within(table).getAllByRole('row')[2].querySelectorAll('td')].slice(2).map((cell) => cell.textContent)).toEqual(['3', '5', '완료', '2']);
   const select = within(table).getByRole('button', { name: '항목 0' });
   expect(select.closest('tr')).toHaveAttribute('aria-selected', 'false');
   expect(select).toHaveAttribute('aria-pressed', 'false');
@@ -539,7 +544,7 @@ it('uses compact table semantics, named columns, selection and twenty-item pagin
   expect(onSelect).toHaveBeenLastCalledWith(items[0]);
   expect(select).toHaveAttribute('aria-pressed', 'true');
   expect(select.closest('tr')).toHaveAttribute('aria-selected', 'true');
-  expect(select.closest('tr')).toHaveClass('bg-surface-row-selected');
+  expect(select.closest('tr')).toHaveAttribute('aria-current', 'true');
   expect(table.parentElement).toHaveClass(
     'mx-4',
     'mb-2',
@@ -554,7 +559,7 @@ it('uses compact table semantics, named columns, selection and twenty-item pagin
   fireEvent.click(screen.getByRole('button', { name: '이전 쪽' }));
   expect(within(table).getAllByRole('row')).toHaveLength(21);
 });
-it.each(['구간 선택', '시간 라벨', '항목 목록'])(
+it.each(['구간 선택', '시간 라벨', '표로 보기'])(
   'gives the %s toggle the shared toggle look (#2720): bordered, the selected surface while pressed',
   (name) => {
     mount({ formatTime: String });
@@ -661,7 +666,7 @@ it('keeps range annotations in the accessible summary and shows them above the t
   expect(marker.parentElement).toHaveClass('sr-only');
   expect(marker.closest('[aria-hidden="true"]')).toBeNull();
   expect(summary).toHaveTextContent('미수신: 60–70');
-  fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
   const table = screen.getByRole('table');
   expect(table).toHaveAccessibleDescription(expect.stringContaining('파일 경계 · File B · 40'));
   expect(within(table).getByText('파일 경계 · File B · 40').closest('caption')).toBeVisible();
@@ -685,8 +690,8 @@ it.each(['view', 'empty items', 'height', 'list remount'] as const)(
     if (change === 'empty items') rerender(<I18nProvider><OrderedIntervalTrack {...props} items={[]} /></I18nProvider>);
     if (change === 'height') rerender(<I18nProvider><OrderedIntervalTrack {...props} height={48} /></I18nProvider>);
     if (change === 'list remount') {
-      fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
-      fireEvent.click(screen.getByRole('button', { name: '항목 목록' }));
+      fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+      fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
       expect(document.querySelector('[data-ordered-scroll]')!.scrollTop).toBe(0);
       return;
     }

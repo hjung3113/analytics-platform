@@ -302,11 +302,10 @@ export const COMPONENTS_MESSAGES = {
   intervalTimeInversion: { ko: '시간 역전', en: 'Time inversion' },
   intervalPartialBoundary: { ko: '부분 결과 경계', en: 'Partial boundary' },
   intervalHelp: {
-    ko: 'Shift 또는 Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 구간 선택을 켠 뒤 끌기 / Shift+←→ · 방향키: 줄·항목 탐색 · Enter: 선택 · Escape: 해제 · +/−: 확대·축소 · 촘촘한 점은 축 아래 밀도로 표시 · 항목 목록: 현재 범위의 텍스트 대안',
-    en: 'Shift or Ctrl/⌘ + wheel: Zoom · Drag: Pan · Turn on range selection, then drag / Shift+arrows · Arrows: Lanes/items · Enter: Select · Escape: Clear · +/−: Zoom · Dense points appear below the axis · Item list: Visible-range text alternative',
+    ko: 'Shift 또는 Ctrl/⌘ + 휠: 확대 · 끌기: 이동 · 구간 선택을 켠 뒤 끌기 / Shift+←→ · 방향키: 줄·항목 탐색 · Enter: 선택 · Escape: 해제 · +/−: 확대·축소 · 촘촘한 점은 축 아래 밀도로 표시 · 표로 보기: 현재 범위의 텍스트 대안',
+    en: 'Shift or Ctrl/⌘ + wheel: Zoom · Drag: Pan · Turn on range selection, then drag / Shift+arrows · Arrows: Lanes/items · Enter: Select · Escape: Clear · +/−: Zoom · Dense points appear below the axis · Show as table: Visible-range text alternative',
   },
   intervalTimeLabels: { ko: '시간 라벨', en: 'Time labels' },
-  intervalItemList: { ko: '항목 목록', en: 'Item list' },
   intervalUnsupportedRange: { ko: '지원하지 않는 범위', en: 'Unsupported range' },
   intervalRangeFailed: { ko: '구간 불러오기 실패', en: 'Range request failed' },
   intervalSummaryCount: { ko: '{lanes}개 줄 · {items}개 항목', en: '{lanes} lanes · {items} items' },
