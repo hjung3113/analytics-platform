@@ -1,4 +1,4 @@
-import { useContext, useId, type ReactNode, type Ref } from 'react';
+import { useContext, useId, useRef, type ReactNode, type Ref } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { AnalysisSelection } from '@ap/contracts';
 import { useDrill, useI18n, useMessages, usePlatform, usePlatformOptional } from '@ap/kernel';
@@ -6,6 +6,7 @@ import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMe
 import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisPanelAddContext, type AnalysisPanelAddition } from '../workspace/PanelAdd';
 import { usePublishNextAnalysis } from './NextAnalysisBridge';
+import { keepFocusAfterPanelAdd } from '../dock/focusTab';
 
 export type NextAnalysisPointDrill = { level: string; value: string | null };
 
@@ -17,7 +18,8 @@ type Props = {
 type Choice = { id: string; label: string; reason?: string; note?: string; onSelect: () => void };
 type GroupAction = { label: string } & (
   | { reason: string; choices?: never }
-  | { reason?: never; choices: Choice[]; direction?: 'right' }
+  /** `addsPanel`: each choice adds the panel named by its `id` to the workspace around the row. */
+  | { reason?: never; choices: Choice[]; direction?: 'right'; addsPanel?: boolean }
 );
 
 export type DirectNextAnalysisAction = {
@@ -63,7 +65,7 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
         workspace.onAdd({ source: `${menu.id}/${panel.id}`, inputs: { [key]: selection } });
       } }];
     });
-    if (choices.length) actions.push({ label: m('chartNextPanel'), choices });
+    if (choices.length) actions.push({ label: m('chartNextPanel'), choices, addsPanel: true });
   }
 
   if (channel?.objectKind) {
@@ -109,17 +111,25 @@ function ChoiceRows({ choices }: { choices: readonly Choice[] }) {
 
 function ActionMenu({ action }: { action: GroupAction }) {
   const id = useId();
+  const trigger = useRef<HTMLButtonElement>(null);
   if (action.reason !== undefined) return <>
     <Button type="button" size="toolbar" variant="ghost" aria-disabled="true" aria-describedby={id}
       className="aria-disabled:opacity-50">{action.label}</Button>
     <span id={id} className="text-text-secondary">{action.reason}</span>
   </>;
   const Icon = action.direction === 'right' ? ChevronRight : ChevronDown;
+  const choices = action.addsPanel
+    // The addition can rebuild this row before the menu closes, so the focus hand-off starts on select, not on close.
+    ? action.choices.map(choice => ({ ...choice, onSelect: () => {
+      if (trigger.current) keepFocusAfterPanelAdd(trigger.current, choice.id);
+      choice.onSelect();
+    } }))
+    : action.choices;
   return <DropdownMenu modal={false}>
     <DropdownMenuTrigger asChild>
-      <Button type="button" size="toolbar" variant="ghost">{action.label}<Icon className="size-3.5" aria-hidden /></Button>
+      <Button ref={trigger} type="button" size="toolbar" variant="ghost">{action.label}<Icon className="size-3.5" aria-hidden /></Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="start"><ChoiceRows choices={action.choices} /></DropdownMenuContent>
+    <DropdownMenuContent align="start"><ChoiceRows choices={choices} /></DropdownMenuContent>
   </DropdownMenu>;
 }
 

@@ -782,6 +782,24 @@ function ChartChipWorkspace({ frame, onAdd }: { frame: 'live' | 'unmounted' | 's
         { id: 'neighbor', title: chipLabel('옆 패널'), render: () => <p>옆 패널 본문</p> }]} />;
 }
 
+/** Adds the receiver panel for real: it joins the source panel's group as the active tab, as in HW Time. */
+function AddingWorkspace() {
+  const { route } = usePlatform();
+  const [added, setAdded] = useState(false);
+  const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
+  if (route?.menu.id !== 'home') return null;
+  return <PanelWorkspace label={chipLabel('Workspace')} persistKey="adding" initialMode="stack"
+    presets={[{ id: 'chip', label: chipLabel('Preset'), layout: { type: 'group', panels: ['bars'], active: 'bars' } }]} initialPreset="chip"
+    revealRequest={reveal}
+    analysisPanelAddition={{ items: [{ id: 'receiver', title: chipLabel('수신 패널') }], onAdd: () => {
+      setAdded(true);
+      setReveal(current => ({ panelId: 'receiver', seq: (current?.seq ?? 0) + 1 }));
+    } }}
+    panels={[{ id: 'bars', title: chipLabel('Bars'), primary: true, render: () =>
+      <AnalysisChartFrame chartId="adding" title="Adding chart" series={[A]} unit="s" xType="category" analysisSelectionOutput={setOutput} nextAnalysis /> },
+      ...(added ? [{ id: 'receiver', title: chipLabel('수신 패널'), render: () => <p>수신 패널 본문</p> }] : [])]} />;
+}
+
 describe('Next analysis chip actions', () => {
   beforeEach(() => {
     vi.stubGlobal('ResizeObserver', class {
@@ -821,6 +839,31 @@ describe('Next analysis chip actions', () => {
         expect(window.location.pathname).toBe('/mars/equipment-detail/a');
       }
     }
+  });
+
+  const addFromRow = async () => {
+    const user = userEvent.setup();
+    within(await screen.findByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' }).focus();
+    await user.keyboard('{Enter}');
+    await user.click(await screen.findByRole('menuitem', { name: '수신 패널' }));
+  };
+
+  it('keeps focus on the row «새 패널» trigger when the addition leaves its panel in place', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    const onAdd = vi.fn();
+    render(chipPage('live', onAdd));
+    await addFromRow();
+    expect(onAdd).toHaveBeenCalledOnce();
+    await waitFor(() => expect(within(nextRow()).getByRole('button', { name: '새 패널' })).toHaveFocus());
+  });
+
+  it('moves focus to the added panel tab when the new tab covers the row «새 패널» trigger', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry} slots={chipSlots}>
+      <PlatformPage><AddingWorkspace /></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await addFromRow();
+    await waitFor(() => expect(screen.getAllByRole('tab').find(tab => tab.dataset.tabPanelId === 'receiver')).toHaveFocus());
   });
 
   it.each(['unmounted', 'suspended'] as const)('shows only declaration actions after the live frame is %s', async frame => {
