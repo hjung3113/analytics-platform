@@ -135,6 +135,8 @@ export function FocusGantt({
     else return;
     event.preventDefault();
     if (next !== undefined) {
+      // A key commit ends any press on the axis, so its later release cannot write the pressed time over this one.
+      drag.current = null;
       onCursorChange(next);
       onCursorCommit(next);
     }
@@ -321,7 +323,7 @@ export function FocusGantt({
         <rect ref={axisRef} className="eqv-rp-axis" role="slider" tabIndex={0} aria-label="커서 시각" aria-orientation="horizontal"
           aria-valuemin={fromMs} aria-valuemax={lastMs} aria-valuenow={cursorMs} aria-valuetext={wallClockText(shownCursor)}
           x={LABEL_W} y={0} width={PLOT_W} height={AXIS_SEEK_H} onKeyDown={onSliderKey}
-          onPointerDown={onAxisPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onPointerLeave={onPointerLeave} />
+          onPointerDown={onAxisPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerEnd} onPointerCancel={onPointerEnd} onLostPointerCapture={onPointerEnd} onPointerLeave={onPointerLeave} />
       </svg>
       </div>
       <Legend label="범례" items={legend} />

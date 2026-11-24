@@ -138,6 +138,34 @@ it('captures an axis drag and commits its last move once when released outside t
   expect(release).toHaveBeenCalledExactlyOnceWith(1);
 });
 
+it('ends an axis press that loses its capture before release, committing the shown time once', () => {
+  const { onCursorCommit } = setup();
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
+  axis.getBoundingClientRect = () => new DOMRect(100, 0, 800, 20);
+  Object.assign(axis, { setPointerCapture: vi.fn(), releasePointerCapture: vi.fn() });
+
+  fireEvent.pointerDown(axis, { clientX: 500, clientY: 10, pointerId: 1, buttons: 1 });
+  fireEvent(axis, new PointerEvent('lostpointercapture', { bubbles: true, pointerId: 1 }));
+  expect(onCursorCommit).toHaveBeenCalledExactlyOnceWith(time('10:15:00'));
+  // A normal release followed by its own lostpointercapture still commits once.
+  fireEvent.pointerDown(axis, { clientX: 300, clientY: 10, pointerId: 2, buttons: 1 });
+  fireEvent.pointerUp(axis, { clientX: 300, clientY: 10, pointerId: 2, buttons: 0 });
+  fireEvent(axis, new PointerEvent('lostpointercapture', { bubbles: true, pointerId: 2 }));
+  expect(onCursorCommit.mock.calls).toEqual([[time('10:15:00')], [time('10:07:30')]]);
+});
+
+it('keeps a key commit made during an axis press when the press is released', () => {
+  const { onCursorCommit } = setup();
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
+  axis.getBoundingClientRect = () => new DOMRect(100, 0, 800, 20);
+  Object.assign(axis, { setPointerCapture: vi.fn(), releasePointerCapture: vi.fn() });
+
+  fireEvent.pointerDown(axis, { clientX: 500, clientY: 10, pointerId: 1, buttons: 1 });
+  fireEvent.keyDown(axis, { key: 'Home' });
+  fireEvent.pointerUp(axis, { clientX: 500, clientY: 40, pointerId: 1, buttons: 0 });
+  expect(onCursorCommit.mock.calls).toEqual([[timeline.range.from]]);
+});
+
 it('seeks to a clicked bar time, selects its Occurrence, and marks open Occurrences with an open end', () => {
   const { onCursorChange, onCursorCommit, onSelectOccurrence, svg } = setup(time('10:26:00'));
   const bar = Array.from(svg.querySelectorAll('[data-bar="material"][data-occurrence-id="occ-open"]')).at(-1)!;
