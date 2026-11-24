@@ -174,7 +174,7 @@ it.each([
   else expect(zone().queryByRole('button', { name: action })).toBeNull();
 });
 
-it.each(['replacement', 'blur'] as const)('handles %s of the remaining focused chip when the row unfolds', async reason => {
+it.each(['replacement', 'blur', 'synchronous blur'] as const)('handles %s of the remaining focused chip when the row unfolds', async reason => {
   const { container } = await mountSelections('&mod=M1&time=T1', [equipment, module, time]);
   const probe = container.querySelector('[data-analysis-chip-probe]')!;
   act(() => {
@@ -191,9 +191,12 @@ it.each(['replacement', 'blur'] as const)('handles %s of the remaining focused c
     await act(async () => remaining.blur());
     expect(document.body).toHaveFocus();
   }
-  act(() => resize(probe, 150));
+  act(() => {
+    if (reason === 'synchronous blur') remaining.blur();
+    resize(probe, 150);
+  });
   expect(zone().queryByRole('button', { name: '+1 ›' })).toBeNull();
-  expect(reason === 'blur' ? document.body : zone().getByRole('button', { name: 'module 선택 지우기' })).toHaveFocus();
+  expect(reason === 'replacement' ? zone().getByRole('button', { name: 'module 선택 지우기' }) : document.body).toHaveFocus();
 });
 
 it('hands off focus after a pane applies its deferred clear proposal', async () => {

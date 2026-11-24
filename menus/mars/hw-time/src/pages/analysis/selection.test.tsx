@@ -172,3 +172,34 @@ it('keeps the table loaded when Back restores an unavailable equipment chip on a
   expect(tableReads().slice(before)).toEqual([]);
   expect(panel.getByRole('table')).toBe(loadedTable);
 });
+
+it('restores a filtered step 3 table after visiting an unpinned step 4 source', async () => {
+  await renderOverview('&moduleType=PM&drillMotion=Pump&pins=table&motionEquipment=EQ-002',
+    withoutSelectedEquipmentInModule, { showSelectionChips: true });
+  const original = window.location.href;
+  expect(filter()).toEqual(['EQ-002']);
+  fireEvent.click(screen.getByRole('button', { name: '설비 선택 지우기' }));
+  expect(filter()).toEqual([]);
+
+  const tree = within(screen.getByRole('region', { name: 'panel tree' }));
+  fireEvent.click(tree.getByRole('button', { name: 'PM1 단계로 이동' }));
+  expect(url().get('drillModule')).toBe('PM1');
+  expect(screen.queryByRole('tab', { name: 'moduleMotions' })).toBeNull();
+  await screen.findByTestId('hw-overview-trend');
+  await settle();
+  expect(matrixReads()).toHaveLength(1);
+
+  const before = tableReads().length;
+  await act(async () => {
+    const traversed = new Promise<void>(resolve => window.addEventListener('popstate', () => resolve(), { once: true }));
+    window.history.go(-2);
+    await traversed;
+  });
+  await settle();
+  expect(window.location.href).toBe(original);
+  const restored = tableReads().slice(before);
+  expect(restored.filter(request => request.endpoint === 'hwTime.levelRows').map(request => request.params))
+    .toEqual([{ moduleType: 'PM', motionEquipment: ['EQ-002'] }]);
+  expect(restored.filter(request => request.endpoint === 'hwTime.tableRows').map(request => request.params))
+    .toEqual([{ moduleType: 'PM', motionEquipment: ['EQ-002'], page: 0, pageSize: 25, sorting: [] }]);
+});

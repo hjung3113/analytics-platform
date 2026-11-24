@@ -27,15 +27,21 @@ export function isAnalysisSelectionAvailable(selection: AnalysisSelection, avail
   return selection.shape !== 'set' || selection.values.some(value => available.includes(value));
 }
 
-const emptyAvailability: ReadonlyMap<string, AnalysisSelectionAvailability> = new Map();
+type AvailabilityReport = { drillAddress: string; available: AnalysisSelectionAvailability };
+const emptyAvailability: ReadonlyMap<string, AvailabilityReport> = new Map();
 export const readEmptyAvailability = () => emptyAvailability;
 export const subscribeToEmptyAvailability = () => () => {};
+
+export function readAvailability(snapshot: typeof emptyAvailability, key: string, drillAddress: string) {
+  const report = snapshot.get(key);
+  return report?.drillAddress === drillAddress ? report.available : undefined;
+}
 
 export function createAnalysisSelectionAvailability() {
   let snapshot = emptyAvailability;
   const listeners = new Set<() => void>();
-  const registrations = new Map<string, Map<symbol, AnalysisSelectionAvailability>>();
-  function update(key: string, value: AnalysisSelectionAvailability | undefined) {
+  const registrations = new Map<string, Map<symbol, AvailabilityReport>>();
+  function update(key: string, value: AvailabilityReport | undefined) {
     if (snapshot.get(key) === value) return;
     const next = new Map(snapshot);
     if (value === undefined) next.delete(key);
@@ -49,12 +55,12 @@ export function createAnalysisSelectionAvailability() {
       listeners.add(listener);
       return () => { listeners.delete(listener); };
     },
-    report(key: string, available: AnalysisSelectionAvailability) {
+    report(key: string, value: AvailabilityReport) {
       const reports = registrations.get(key) ?? new Map();
       const token = Symbol();
-      reports.set(token, available);
+      reports.set(token, value);
       registrations.set(key, reports);
-      update(key, available);
+      update(key, value);
       return () => {
         if (!reports.delete(token)) return;
         if (!reports.size) registrations.delete(key);
