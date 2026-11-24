@@ -709,9 +709,11 @@ export const app = [
   IME_ENTER_GUARD,
 ];
 
-// Storybook (#2828, tooling/storybook): a dev-only consumer that sees the SDK like a menu (public entries only).
+// Storybook (#2828, tooling/storybook): a dev-only consumer that sees the SDK like a menu (public entries only). Its story
+// fixtures (adapter, session, space) come from the kernel test entry (`TEST_ENTRY_SUBPATH`), the one subpath it adds.
+const STORYBOOK_RESTRICTION = { ...MENU_RESTRICTION, allowSubpaths: [...UI_THEME_SUBPATHS, TEST_ENTRY_SUBPATH] };
 /** @type {import('eslint').Linter.Config[]} */
-export const storybook = [REACT_HOOKS, layerConfig({ restriction: MENU_RESTRICTION }), designSystem(), IME_ENTER_GUARD];
+export const storybook = [REACT_HOOKS, layerConfig({ restriction: STORYBOOK_RESTRICTION }), designSystem(), IME_ENTER_GUARD];
 
 /** @type {import('eslint').Linter.Config[]} */
 export const tooling = [

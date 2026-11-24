@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
+import { Download, Filter, RefreshCw } from 'lucide-react';
 import { Button } from '@ap/ui';
 import { guidedPage } from '../guidance';
 
@@ -34,8 +36,28 @@ export const VariantsBySize: Story = {
   </div>)}</div>,
 };
 
+/** 켜고 끄는 도구 버튼: `variant="toggle"`과 `aria-pressed`. 눌러서 상태를 바꿔 본다. */
+export const Toggle: Story = {
+  render: function ToggleStory() {
+    const [pressed, setPressed] = useState(true);
+    return <div className="flex gap-2">
+      <Button variant="toggle" size="toolbar" aria-pressed={pressed} onClick={() => setPressed(!pressed)}><Filter className="size-4" aria-hidden />필터 {pressed ? '켜짐' : '꺼짐'}</Button>
+      <Button variant="toggle" size="toolbar" aria-pressed={false}>꺼진 상태</Button>
+    </div>;
+  },
+};
+
 /** 비활성은 `disabledReason`으로 이유를 함께 보인다. */
 export const Disabled: Story = { args: { disabled: true, disabledReason: '조회 기간을 먼저 고르세요.' } };
 
 /** 처리 중: `loading`이면 스피너를 보이고 `aria-busy`로 알린다. */
 export const Busy: Story = { args: { loading: true, children: '저장 중' } };
+
+/** 아이콘 버튼 `icon-sm`·`icon-xs`. 보이는 글이 없으니 `aria-label`을 단다. */
+export const IconButtons: Story = {
+  render: () => <div className="flex items-center gap-2">
+    <Button variant="ghost" size="icon-sm" aria-label="새로 고침"><RefreshCw className="size-4" aria-hidden /></Button>
+    <Button variant="secondary" size="icon-sm" aria-label="내보내기"><Download className="size-4" aria-hidden /></Button>
+    <Button variant="ghost" size="icon-xs" aria-label="필터"><Filter className="size-3.5" aria-hidden /></Button>
+  </div>,
+};

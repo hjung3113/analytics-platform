@@ -3395,9 +3395,15 @@ importers:
       '@ap/components':
         specifier: workspace:*
         version: link:../../packages/sdk/components
+      '@ap/contracts':
+        specifier: workspace:*
+        version: link:../../packages/sdk/contracts
       '@ap/eslint-config':
         specifier: workspace:*
         version: link:../eslint
+      '@ap/kernel':
+        specifier: workspace:*
+        version: link:../../packages/sdk/kernel
       '@ap/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
@@ -3431,6 +3437,9 @@ importers:
       eslint:
         specifier: ^10.14.0
         version: 10.14.0(jiti@2.7.0)
+      lucide-react:
+        specifier: ^1.72.0
+        version: 1.73.0(@types/react@19.3.0)(react@19.3.1)
       pretendard:
         specifier: 1.3.9
         version: 1.3.9
