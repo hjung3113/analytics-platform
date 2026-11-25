@@ -94,7 +94,10 @@ export default function RichEditorImpl({
     // Every surface emits the send-ready document (#2043): attrs the surface allowlist does not define
     // (link target/rel/class/title, orderedList start/type, attachment display attrs) and null attrs are
     // removed, or the server rejects the document. An ordered list therefore always restarts at 1.
-    onUpdate({ editor }) {
+    onUpdate({ editor, transaction, appendedTransactions }) {
+      // tiptap's setEditable also emits `update`, with an empty transaction: toggling editable is not a content change, so it
+      // must not reach onChange and dirty a form before anyone types (#3043). Views that follow `isEditable` still get the event.
+      if (!transaction.docChanged && !appendedTransactions.some(tr => tr.docChanged)) return;
       const normalized = normalizeClient(editor.getJSON() as TipTapDoc, surface);
       setOverLimit(normalized.overLimit);
       const emitted = normalized.doc;
