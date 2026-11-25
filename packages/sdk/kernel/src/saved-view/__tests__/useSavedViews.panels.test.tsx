@@ -245,6 +245,50 @@ it('preserves a pending main screen panel restore when the board pane opens a vi
   expect(opened).toHaveBeenCalledExactlyOnceWith(panels);
 });
 
+it('restores the main screen selection and panels after a pane picks a view at the same address', async () => {
+  const panePanels: MenuViewPanels = { ...panels, instances: panels.instances.slice(0, 1) };
+  const store = await mountPane(createFakeSavedViewStore([row(), row({ id: 'pane-saved', panels: panePanels })]));
+  await act(async () => {
+    expect(await views.select('saved')).toMatchObject({ ok: true });
+    expect(await paneViews.select('pane-saved')).toMatchObject({ ok: true });
+  });
+
+  cleanup();
+  opened.mockClear();
+  await mount({ store });
+
+  expect(opened).toHaveBeenCalledExactlyOnceWith(panels);
+  expect(views.selected?.view.id).toBe('saved');
+});
+
+it('keeps the main screen selection on re-entry after a pane clears its selection', async () => {
+  const store = await mountPane(createFakeSavedViewStore([row(), row({ id: 'pane-saved', panels: null })]));
+  await act(async () => {
+    expect(await views.select('saved')).toMatchObject({ ok: true });
+    expect(await paneViews.select('pane-saved')).toMatchObject({ ok: true });
+  });
+  act(() => paneViews.clearSelection());
+  expect(paneViews.selected).toBeNull();
+
+  cleanup();
+  await mount({ store });
+
+  expect(views.selected?.view.id).toBe('saved');
+});
+
+it('restores the same pane selection on remount after the main screen picks another view', async () => {
+  const store = await mountPane(createFakeSavedViewStore([row(), row({ id: 'pane-saved', panels: null })]));
+  await act(async () => {
+    expect(await paneViews.select('pane-saved')).toMatchObject({ ok: true });
+    expect(await views.select('saved')).toMatchObject({ ok: true });
+  });
+
+  cleanup();
+  await mountPane(store);
+
+  expect(paneViews.selected?.view.id).toBe('pane-saved');
+});
+
 it('keeps lent saved views disabled and preserves the main screen panel restore when they unmount', async () => {
   let hideLent!: () => void;
   function LentProbe() {

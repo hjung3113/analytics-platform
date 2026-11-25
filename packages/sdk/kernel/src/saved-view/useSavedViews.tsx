@@ -86,9 +86,11 @@ const NO_UNSUPPORTED: readonly Unsupported[] = [];
 const NO_KEYS: readonly string[] = [];
 const OFF: Result<never> = { ok: false, reason: 'unavailable' };
 const OFF_STATE: ViewState = { modified: false, unsaved: false, unapplied: false };
-const selectionKey = (userId: string, menuId: string) => `platform:saved-view:selected:${userId}:${menuId}`;
+const selectionKey = (userId: string, menuId: string, paneId: string | null) => paneId === null
+  ? `platform:saved-view:selected:${userId}:${menuId}`
+  : `platform:saved-view:pane-selected:${JSON.stringify([userId, menuId, paneId])}`;
 
-// The selected view id lives per tab (sessionStorage), never in the address (06 §21.3, `savedViewToken` stays reserved).
+// The main screen and each pane keep separate selections in the tab's sessionStorage (06 §21.3, `savedViewToken` stays reserved).
 const memory = new Map<string, string>();
 function readSelected(key: string): string | null {
   try { return window.sessionStorage.getItem(key); } catch { return memory.get(key) ?? null; }
@@ -210,7 +212,7 @@ function useSavedViewController(
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the inputs are triggers only
   const entryGen = useMemo(() => ({}), [identity, enabled, paneId, entryPath]);
 
-  const key = mode === 'inactive' ? null : selectionKey(userId, menuId);
+  const key = mode === 'inactive' ? null : selectionKey(userId, menuId, paneId);
   const [selection, setSelection] = useState(() => ({ key, id: key === null ? null : readSelected(key) }));
   if (selection.key !== key) setSelection({ key, id: key === null ? null : readSelected(key) });
   const selectedId = selection.key === key ? selection.id : null;
