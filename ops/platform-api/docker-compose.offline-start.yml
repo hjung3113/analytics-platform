@@ -1,4 +1,4 @@
-# Only for scripts/release/offline-start-check.sh. The internal network allows DB, storage and OIDC traffic
+# Only for the offline start and rollback round-trip checks. The internal network allows DB, storage and OIDC traffic
 # within this project while the stack starts without host port bindings or external network access.
 x-migrate: &migrate
   image: platform-release-migrate:${OFFLINE_TAG:?set by offline-start-check.sh}

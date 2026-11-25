@@ -62,6 +62,7 @@ stage_static_extra() {
   step node --test "$FEATURE_OPS/scripts/release/build-web-image.test.mjs"
   step node --test "$FEATURE_OPS/scripts/release/pack-images.test.mjs"
   step node --test "$FEATURE_OPS/scripts/release/offline-start-check.test.mjs"
+  step node --test "$FEATURE_OPS/scripts/release/rollback-round-trip-check.test.mjs"
   step node "$FEATURE_OPS/edge/nginx.test.mjs"
   step node "$FEATURE_OPS/scripts/db/cutover-0076.test.mjs"
   step node "$FEATURE_OPS/scripts/db/set-role-passwords.test.mjs"
