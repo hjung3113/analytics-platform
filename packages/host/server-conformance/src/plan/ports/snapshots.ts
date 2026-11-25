@@ -1,4 +1,5 @@
 import type { ConformanceCheck, ServerConformanceHarness } from '../../types';
+import { ConformanceCallTimeout } from '../../call-timeout';
 import { parseDateTime } from '@ap/contracts';
 
 export function planSnapshotChecks(harness: ServerConformanceHarness): ConformanceCheck[] {
@@ -106,7 +107,8 @@ export function planSnapshotChecks(harness: ServerConformanceHarness): Conforman
       let evaluation;
       try {
         evaluation = await adapter.evaluateSelection({ scopeId: harness.foreignScopeId, roomNames: null, condition: null, lineNames: null, prcGroups: null, membershipBasis: null, selection: null });
-      } catch {
+      } catch (error) {
+        if (error instanceof ConformanceCallTimeout) throw error;
         return null;
       }
       if (!Array.isArray(evaluation.inCondition)) return 'evaluateSelection answers an inCondition array (adapter.ts SelectionEvaluation)';

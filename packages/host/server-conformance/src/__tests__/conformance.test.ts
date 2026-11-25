@@ -756,34 +756,119 @@ describe('named server faults (#2972)', () => {
   it.each([
     { label: 'default', callTimeoutMs: undefined, deadlineMs: 60_000 },
     { label: 'overridden', callTimeoutMs: 25, deadlineMs: 25 },
-  ])('isolates a hung menuQuery and fails later calls at the $label call deadline', async ({ callTimeoutMs, deadlineMs }) => {
-    const h = harness();
+  ])('stops after a granted batch stalls at the $label call deadline', async ({ callTimeoutMs, deadlineMs }) => {
+    const h = actionHarness();
     h.adapter.menuQuery = () => new Promise(() => {});
-    const configured = { ...h, implemented: ['menuQuery', 'getEntity'] as const, callTimeoutMs };
-    const queryChecks = planServerConformance(configured)
-      .filter(c => c.mode !== 'skipped' && c.uses?.includes('menuQuery'));
-    const expectedFailures = new Set(queryChecks.map(c => c.id));
-    const permissionCheck = queryChecks.find(c => c.mode === 'permission')!;
+    const asConsole = vi.spyOn(h, 'asConsole');
+    const configured = {
+      ...h, implemented: ['menuQuery', 'getEntity', 'usageSummary', 'menuAction'] as const, callTimeoutMs,
+    };
+    const plan = planServerConformance(configured).filter(c => c.mode !== 'skipped');
+    const later = plan.filter(c => c.mode !== 'granted');
+    expect(new Set(later.map(c => c.mode))).toEqual(new Set(['console', 'sequential', 'permission']));
+
     vi.useFakeTimers();
     try {
-      const started = Date.now();
-      let elapsed: number | undefined;
+      const run = runServerConformance(configured);
       let results: ConformanceResult[] | undefined;
-      void runServerConformance(configured).then(completed => {
-        elapsed = Date.now() - started;
-        results = completed;
-      });
+      void run.then(completed => { results = completed; });
       await vi.advanceTimersByTimeAsync(deadlineMs - 1);
-      expect(elapsed).toBeUndefined();
+      expect(results).toBeUndefined();
       await vi.advanceTimersByTimeAsync(1);
-      expect(elapsed).toBe(deadlineMs);
-      const failed = results!.filter(r => r.status === 'failed');
-      expect(new Set(failed.map(r => r.id))).toEqual(expectedFailures);
+      expect(results).toBeDefined();
       const reason = `menuQuery did not answer within ${deadlineMs} ms`;
-      expect(failed.every(r => r.failure?.includes(reason))).toBe(true);
-      expect(failed.find(r => r.id === 'unknown endpoint → error')?.failure).toContain(`Error: ${reason}`);
-      expect(failed.find(r => r.id === permissionCheck.id)?.failure).toContain(`${reason} earlier in this run`);
-      expect(results!.find(r => r.id === 'port · getEntity(sample) → ok with the row')?.status).toBe('passed');
+      for (const check of plan.filter(c => c.mode === 'granted')) {
+        expect(results!.find(r => r.id === check.id), check.id).toMatchObject(check.uses?.includes('menuQuery')
+          ? { status: 'failed', failure: expect.stringContaining(reason) }
+          : { status: 'passed', failure: null });
+      }
+      expect(asConsole).not.toHaveBeenCalled();
+      for (const check of later) {
+        expect(results!.find(r => r.id === check.id)).toEqual({
+          id: check.id, status: 'failed', failure: `not run: ${reason} earlier in this run`,
+        });
+      }
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ['malformed map', (i) => Array.isArray(i.condition)],
+    ['empty axis array', (i) => Array.isArray(i.condition?.alpha) && i.condition.alpha.length === 0],
+    ['scalar axis', (i) => typeof i.condition?.alpha === 'string'],
+    ['blank axis ID', (i) => i.condition?.alpha?.[0] === ' '],
+    ['scalar Line', (i) => typeof i.lineNames === 'string'],
+    ['scalar PRC', (i) => typeof i.prcGroups === 'string'],
+    ['invalid basis', (i) => String(i.membershipBasis) === 'current'],
+    ['orphan basis', (i) => i.membershipBasis === 'asOf' && i.condition === null],
+  ] satisfies [string, (input: Parameters<PlatformAdapter['evaluateSelection']>[0]) => boolean][])('fails the %s check when only that rejected input stalls', async (label, stalls) => {
+    const h = harness();
+    const evaluate = h.adapter.evaluateSelection;
+    h.ports = {
+      ...h.ports,
+      condition: { endpoint: spec.id, axisA: { id: 'alpha', values: ['a1', 'a2'] }, axisB: { id: 'beta', value: 'b1' }, nonHistoryAxisId: 'alpha' },
+    };
+    h.adapter.evaluateSelection = async input => {
+      if (stalls(input)) return new Promise(() => {});
+      if (Array.isArray(input.condition) || input.condition?.alpha?.length === 0
+        || typeof input.condition?.alpha === 'string' || input.condition?.alpha?.[0] === ' '
+        || typeof input.lineNames === 'string' || typeof input.prcGroups === 'string' || input.membershipBasis !== null) {
+        throw new Error('invalid Selection input');
+      }
+      const result = await evaluate(input);
+      const { alpha, beta } = input.condition ?? {};
+      const inCondition = result.inCondition.filter((_, index) =>
+        (alpha?.includes('a1') || (index === 1 && alpha?.includes('a2'))) && (!beta || index === 0),
+      );
+      return { ...result, inCondition };
+    };
+    vi.useFakeTimers();
+    try {
+      const run = runServerConformance({ ...h, implemented: ['evaluateSelection'], callTimeoutMs: 25 });
+      await vi.advanceTimersByTimeAsync(25);
+      const id = `condition · evaluateSelection rejects ${label}`;
+      const failures = (await run).filter(r => r.status === 'failed');
+      expect(failures).toEqual([{
+        id, status: 'failed', failure: 'the adapter threw: ConformanceCallTimeout: evaluateSelection did not answer within 25 ms',
+      }]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('fails the foreign-Site Selection check when only the foreign request stalls', async () => {
+    const h = harness();
+    const evaluate = h.adapter.evaluateSelection;
+    h.adapter.evaluateSelection = input => input.scopeId === h.foreignScopeId ? new Promise(() => {}) : evaluate(input);
+    vi.useFakeTimers();
+    try {
+      const run = runServerConformance({ ...h, implemented: ['evaluateSelection', 'validateScope'], callTimeoutMs: 25 });
+      await vi.advanceTimersByTimeAsync(25);
+      const results = await run;
+      expect(results.find(r => r.id === 'port · evaluateSelection at a site without a grant lists no equipment')).toMatchObject({
+        status: 'failed', failure: 'the adapter threw: ConformanceCallTimeout: evaluateSelection did not answer within 25 ms',
+      });
+      expect(results.find(r => r.id === 'port · evaluateSelection lists only equipment in granted rooms')?.status).toBe('passed');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('propagates a call timeout from a check expecting a typed PortError', async () => {
+    const h = harness();
+    const { resolveSelection } = referenceSelectionPorts();
+    h.adapter.resolveSelection = input => input.ids.some(id => typeof id !== 'string') ? new Promise(() => {}) : resolveSelection(input);
+    vi.useFakeTimers();
+    try {
+      const run = runServerConformance({
+        ...h, ports: { ...h.ports, options: optionSamples }, implemented: ['resolveSelection'], callTimeoutMs: 25,
+      });
+      await vi.advanceTimersByTimeAsync(25);
+      expect((await run).find(r => r.id === 'selection ports · resolution invalid input')).toMatchObject({
+        status: 'failed', failure: expect.stringContaining('the adapter threw: ConformanceCallTimeout: resolveSelection did not answer within 25 ms'),
+      });
     } finally {
       vi.useRealTimers();
     }
@@ -825,7 +910,7 @@ describe('named server faults (#2972)', () => {
     }
   });
 
-  it('restores the actor before the next permission check after a hung getEntity', async () => {
+  it('restores the actor and skips later permission checks after a hung getEntity', async () => {
     const h = harness();
     const getEntity = h.adapter.getEntity;
     let actor = 'granted';
@@ -850,12 +935,13 @@ describe('named server faults (#2972)', () => {
       let results: ConformanceResult[] | undefined;
       void runServerConformance(configured).then(completed => { results = completed; });
       await vi.advanceTimersByTimeAsync(60_000);
-      expect(actorsAtEntry.length).toBeGreaterThan(1);
-      expect(new Set(actorsAtEntry)).toEqual(new Set(['granted']));
+      expect(actorsAtEntry).toEqual(['granted']);
       expect(actor).toBe('granted');
       expect(results?.find(r => r.id === 'port · getEntity without equipment:view → forbidden')?.failure)
         .toContain('getEntity did not answer within 60000 ms');
-      expect(results?.find(r => r.id === 'port · entityAudit without equipment:view → forbidden')?.status).toBe('passed');
+      expect(results?.find(r => r.id === 'port · entityAudit without equipment:view → forbidden')).toMatchObject({
+        status: 'failed', failure: 'not run: getEntity did not answer within 60000 ms earlier in this run',
+      });
     } finally {
       vi.useRealTimers();
     }
@@ -907,6 +993,7 @@ describe('named server faults (#2972)', () => {
         status: 'failed',
         failure: 'did not finish within its own deadline of 60000 ms',
       });
+      expect(vi.getTimerCount()).toBe(0);
     } finally {
       vi.useRealTimers();
     }
@@ -2214,6 +2301,23 @@ describe('savedViews denied-entry shape (ADR-0099 §1)', () => {
     });
     return { user: storeOf('fixture-user'), admin: storeOf('fixture-admin'), menuId: 'fixture-menu' };
   };
+  it.each(['harness', 'adapter', 'store', 'all'] as const)('plans and runs with frozen %s', async frozen => {
+    const h = harness();
+    const sample = sampleOf(false);
+    const getUser = vi.fn(() => sample.user);
+    h.ports = Object.freeze({ ...h.ports, get savedViews() {
+      return { menuId: sample.menuId, get user() { return getUser(); }, admin: sample.admin };
+    } });
+    if (frozen === 'harness' || frozen === 'all') Object.freeze(h);
+    if (frozen === 'adapter' || frozen === 'all') Object.freeze(h.adapter);
+    if (frozen === 'store' || frozen === 'all') Object.freeze(sample.user);
+    const invisibility = planServerConformance(h).find(c => c.id.includes('a private view is invisible'))!;
+    expect(getUser).not.toHaveBeenCalled();
+    const results = await runServerConformance(h);
+    expect(results.find(r => r.id === 'port · getEntity(sample) → ok with the row')?.status).toBe('passed');
+    expect(results.find(r => r.id === invisibility.id)?.status).toBe('passed');
+    expect(getUser).toHaveBeenCalled();
+  });
   const runInvisibility = async (leak: boolean) => {
     const check = planServerConformance({ ...harness(), ports: { ...PORTS, savedViews: sampleOf(leak) } })
       .find(c => c.id.includes('a private view is invisible'))!;

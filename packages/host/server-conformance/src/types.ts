@@ -106,8 +106,10 @@ export type ServerConformanceHarness = {
   actions?: readonly ActionCase[];
   /**
    * Deadline in milliseconds for each asynchronous adapter or saved-view store call. Defaults to 60,000 ms.
-   * After a method times out, later calls to that method reject immediately for the rest of the run.
+   * The active batch settles after a call times out, then checks that have not started are reported as failed.
    * An explicit check `timeoutMs` can still end the whole check sooner.
+   * If a harness raises this above about 55 seconds, also raise the suite timeout (default 120 seconds)
+   * with the third argument to `describeServerConformance`.
    */
   callTimeoutMs?: number;
   /**
@@ -178,8 +180,11 @@ export type ConformanceCheck = {
   uses?: readonly ConformanceUse[];
   /** The check needs a granted site; `harness.siteGrants: false` turns it into a skipped one. */
   needsSites?: boolean;
-  /** null = conforms, a string = the reason it does not, `{ skipped }` = the run found a precondition missing (a visible skip, never a pass). */
-  run: () => Promise<string | null | ConformanceSkipped>;
+  /**
+   * null = conforms, a string = the reason it does not, `{ skipped }` = the run found a precondition missing (a visible skip, never a pass).
+   * Checks with an explicit `timeoutMs` use the supplied adapter so the runner can clear their call timers at check end.
+   */
+  run: (deadlineAdapter?: PlatformAdapter) => Promise<string | null | ConformanceSkipped>;
 };
 /** A check that decided at run time it has nothing to judge (e.g. a server that does not page `entityAudit`). */
 export type ConformanceSkipped = { skipped: string };

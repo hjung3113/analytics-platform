@@ -1,4 +1,5 @@
 import { emptyGlobal, parseQuery, type Condition, type PlatformAdapter } from '@ap/contracts';
+import { ConformanceCallTimeout } from '../call-timeout';
 import type { ConformanceCheck, ServerConformanceHarness } from '../types';
 import { baseRequest, expectOutcome } from '../helpers';
 
@@ -31,6 +32,7 @@ export function planConditionChecks(harness: ServerConformanceHarness): Conforma
           await harness.adapter.evaluateSelection({ ...emptyGlobal, scopeId: harness.context.scopeId, ...patch } as Parameters<PlatformAdapter['evaluateSelection']>[0]);
           return 'invalid Selection input must reject';
         } catch (error) {
+          if (error instanceof ConformanceCallTimeout) throw error;
           return error instanceof Error && error.name !== 'TypeError' ? null : 'invalid input must be rejected explicitly, not crash during matching';
         }
       },
