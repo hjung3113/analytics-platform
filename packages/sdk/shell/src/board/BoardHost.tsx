@@ -59,7 +59,7 @@ export function BoardHost({ Outlet, display }: { Outlet: ComponentType; display:
   // `fill` is the maximized display: the whole box, no page header or toast band kept clear (the board covers the page like the maximized one).
   const area: FloatingArea = display === 'window' ? (narrow ? fillArea(box.width, box.height) : windowBox) : NO_AREA;
   const mode = display === 'window' ? (narrow ? 'fill' : 'window') : 'off';
-  // The rail's "bring forward" lands on the title bar; where the frame draws none (`fill`) it lands on the board's own heading. Read through a ref so the
+  // The rail's "bring forward" lands on the movable title bar in window mode and on the board heading in fill mode. Read through a ref so the
   // registered callback sees the display of the moment it is called, not the one of the render that registered it.
   useEffect(() => { rememberWindowFill(user.id, mode === 'fill'); }, [mode, user.id]);
   const modeNow = useRef(mode);
@@ -70,7 +70,7 @@ export function BoardHost({ Outlet, display }: { Outlet: ComponentType; display:
     else focusHeading();
   }), [user.id]);
   // `창으로 보기` and window `최대화` unmount the pressed button: once the new display is on screen focus goes to its title bar / the board heading.
-  // A window waits for its first measured area (before it the frame is still `fill` and has no title bar).
+  // A window waits for its first measured area to determine whether it can move.
   useEffect(() => {
     if (display === 'window' && area.width > 0 && takeDisplayFocus(user.id, 'window')) {
       if (modeNow.current === 'window') frame.current?.focusTitleBar();

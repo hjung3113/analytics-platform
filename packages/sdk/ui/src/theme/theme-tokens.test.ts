@@ -81,6 +81,12 @@ it('no longer accepts the removed chart-purple token (#2796)', () => {
   expect(isThemeColorToken('chart-purple')).toBe(false);
 });
 
+it('publishes text-link as an alias of the primary accent', () => {
+  expect(platformCss).toContain('--text-link: var(--accent-primary);');
+  expect(themeCss).toContain('--color-text-link: rgb(var(--text-link));');
+  expect(THEME_COLOR_FALLBACK).toMatchObject({ 'text-link': THEME_COLOR_FALLBACK['accent-primary'] });
+});
+
 it('commits byte-for-byte generator output from the source CSS', () => {
   const generated = generateThemeTokens({ tokensCss, platformCss });
   expect(generated.json).toBe(themeJson);

@@ -122,7 +122,7 @@ export function RichContentRenderer({
 
   return (
     <div
-      className={cn('rich-content max-w-none [&_a]:text-accent-primary [&_a]:underline-offset-4 [&_a]:hover:underline', size === 'sm' && 'text-sm', className)}
+      className={cn('rich-content max-w-none [&_a]:text-text-link [&_a]:underline-offset-4 [&_a]:hover:underline', size === 'sm' && 'text-sm', className)}
       data-mode={mode}
       data-rich-list-content=""
       data-rich-extended={surface && getExtensionsForSurface(surface).includes('heading') || undefined}

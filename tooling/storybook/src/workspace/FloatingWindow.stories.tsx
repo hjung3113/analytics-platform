@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
 import { FloatingWindow, type FloatingWindowLabels, type FloatingWindowMode } from '@ap/components';
+import { Button } from '@ap/ui';
 import { EQUIPMENT } from '../equipment';
 import { guidedPage } from '../guidance';
 
@@ -14,11 +15,13 @@ const LABELS: FloatingWindowLabels = {
 };
 const AREA = { left: 0, top: 0, width: 920, height: 540 }; // the frame never shrinks below FLOATING_MIN_SIZE (640×420)
 
-function Frame({ mode }: { mode: FloatingWindowMode }) {
+function Frame({ initialMode }: { initialMode: FloatingWindowMode }) {
+  const [mode, setMode] = useState(initialMode);
   const [geometry, setGeometry] = useState({ x: 260, y: 40, width: 640, height: 440 });
   return <div className="relative h-[540px] w-[920px] bg-surface-sunken">
     <p className="p-4 text-sm text-text-secondary">작업 영역(창 아래 화면은 계속 쓸 수 있다)</p>
-    <FloatingWindow area={AREA} geometry={geometry} onGeometryChange={setGeometry} mode={mode} title="EQ-0207 알람 이력" titleId={`fw-${mode}`} labels={LABELS}>
+    <FloatingWindow area={AREA} geometry={geometry} onGeometryChange={setGeometry} mode={mode} title="EQ-0207 알람 이력" titleId={`fw-${mode}`} labels={LABELS}
+      actions={<Button type="button" size="sm" variant="ghost" onClick={() => setMode(mode === 'fill' ? 'window' : 'fill')}>{mode === 'fill' ? '창으로 보기' : '영역 채우기'}</Button>}>
       <ul className="grid gap-1 p-3 text-sm">{EQUIPMENT.slice(0, 5).map(e => <li key={e.id} className="flex justify-between"><span>{e.id}</span><span className="tabular">{e.alarms}건</span></li>)}</ul>
     </FloatingWindow>
   </div>;
@@ -32,7 +35,7 @@ const meta = {
     subtitle: '@ap/components · packages/sdk/components/src/floating/FloatingWindow.tsx',
     page: guidedPage([['docs/contract/components.md', '배경 차단막·포커스 가두기·외부 클릭 닫기 없음'], ['docs/contract/components.md', '창으로 못 그리는 폭은 `fitsArea`로 판정해 호출자가 `fill`을 고른다']]),
   } },
-  render: () => <Frame mode="window" />,
+  render: () => <Frame initialMode="window" />,
 } satisfies Meta<typeof FloatingWindow>;
 export default meta;
 type Story = StoryObj;
@@ -40,4 +43,4 @@ type Story = StoryObj;
 /** `window`: 영역 오른쪽 위의 창. 제목줄을 끌거나 포커스 뒤 방향키로 옮긴다. */
 export const Windowed: Story = {};
 /** `fill`: 좁은 폭에서 영역 전체를 채운다. 내용은 다시 마운트되지 않는다. */
-export const Fill: Story = { render: () => <Frame mode="fill" /> };
+export const Fill: Story = { render: () => <Frame initialMode="fill" /> };

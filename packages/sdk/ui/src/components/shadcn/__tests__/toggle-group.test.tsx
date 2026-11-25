@@ -27,6 +27,21 @@ function Axis({ arrowSelects, rovingFocus, onKeyDown }: {
 
 const radio = (name: string) => screen.getByRole('radio', { name });
 
+it.each([
+  [{}, true],
+  [{ variant: 'default', appearance: 'default' } as const, true],
+  [{ variant: 'outline' } as const, false],
+  [{ appearance: 'filter' } as const, false],
+])('uses the selected-filter pairing only for the default segment (%j)', (props, selected) => {
+  render(<ToggleGroup type="single" defaultValue="item" {...props}><ToggleGroupItem value="item">항목</ToggleGroupItem></ToggleGroup>);
+  const item = radio('항목');
+  expect(item).toHaveAttribute('data-state', 'on');
+  expect(item).toHaveClass('data-[state=on]:text-text-primary');
+  for (const token of ['data-[state=on]:bg-surface-row-selected', 'data-[state=on]:border-border-selected', 'data-[state=on]:font-semibold']) {
+    expect(item.classList.contains(token)).toBe(selected);
+  }
+});
+
 describe('ToggleGroup type="single" (#2552)', () => {
   it('moves the selection with the focus on arrow keys, both ways, like a radio group', async () => {
     const user = userEvent.setup();

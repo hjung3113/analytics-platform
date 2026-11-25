@@ -30,10 +30,11 @@ export function useHorizontalOverflow<
     if (!viewport) return;
 
     const maxScroll = viewport.scrollWidth - viewport.clientWidth;
-    setOverflowState({
-      canScrollLeft: viewport.scrollLeft > 1,
-      canScrollRight: maxScroll - viewport.scrollLeft > 1,
-    });
+    const canScrollLeft = viewport.scrollLeft > 1;
+    const canScrollRight = maxScroll - viewport.scrollLeft > 1;
+    setOverflowState(previous => previous.canScrollLeft === canScrollLeft && previous.canScrollRight === canScrollRight
+      ? previous
+      : { canScrollLeft, canScrollRight });
   }, [viewportRef]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: contentKey rebinds observation when dynamic children change.

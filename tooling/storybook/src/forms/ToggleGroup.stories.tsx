@@ -9,7 +9,7 @@ const meta = {
   component: ToggleGroup,
   args: { type: 'multiple', defaultValue: ['식각', '증착'], 'aria-label': '공정' },
   render: args => <ToggleGroup {...args}>{PROCESSES.map(p => <ToggleGroupItem key={p} value={p}>{p}</ToggleGroupItem>)}</ToggleGroup>,
-  // The on state fills with `surface-card`, so the group sits on the canvas as in a toolbar band.
+  // Show the selected segments on the canvas as in a toolbar band.
   decorators: [Story => <div className="inline-flex rounded-md bg-surface-canvas p-3"><Story /></div>],
   parameters: {
     docs: {

@@ -2,7 +2,7 @@
  *   document.documentElement.dataset.theme = 'violet'   // on
  *   delete document.documentElement.dataset.theme       // off (default blue)
  * A theme block redefines ONLY the accent-primary family. Everything derived from it by var() follows on its own
- * (--accent-primary, --focus-ring, --shadow-focus, --primary, --ring, --chart-selection-outline). Surfaces, text, status and
+ * (--accent-primary, --text-link, --focus-ring, --shadow-focus, --primary, --ring, --chart-selection-outline). Surfaces, other text, status and
  * chart series stay. Open charts redraw on the attribute change through `useThemeRevision` (@ap/ui/theme). */
 :root[data-theme="violet"] {
   --color-neon-lime: 99 91 206;       /* #635bce */

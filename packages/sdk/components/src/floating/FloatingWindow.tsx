@@ -126,23 +126,28 @@ export const FloatingWindow = /*#__PURE__*/ forwardRef<FloatingWindowHandle, Flo
   };
 
   const windowed = mode === 'window';
+  const showTitleBar = mode !== 'off';
   const box = mode === 'fill' ? { x: 0, y: 0, width: area.width, height: area.height } : shown;
   return (
     <div
-      role={windowed ? 'group' : undefined}
-      aria-labelledby={windowed ? titleId : undefined}
+      role={showTitleBar ? 'group' : undefined}
+      aria-labelledby={showTitleBar ? titleId : undefined}
       data-floating-mode={mode}
       data-floating-window={mode === 'off' ? undefined : ''}
       className={cn(mode === 'off' ? 'contents' : 'absolute isolate left-(--fw-left) top-(--fw-top) z-40 flex h-(--fw-height) w-(--fw-width) flex-col overflow-hidden bg-surface-card', windowed && 'rounded-md border border-border-subtle shadow-lg')}
       style={mode === 'off' ? undefined : ({ '--fw-left': `${String(area.left + box.x)}px`, '--fw-top': `${String(area.top + box.y)}px`, '--fw-width': `${String(box.width)}px`, '--fw-height': `${String(box.height)}px` } as CSSProperties)}
     >
-      {windowed ? (
+      {showTitleBar ? (
         <div
-          ref={titleBar} role="group" tabIndex={0} aria-label={labels.titleBar} onKeyDown={onKeyDown} {...pointerProps('move')}
-          className="flex h-10 shrink-0 cursor-move touch-none items-center gap-1 border-b border-border-subtle bg-surface-sunken px-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+          ref={titleBar} role={windowed ? 'group' : undefined} tabIndex={windowed ? 0 : -1} aria-label={windowed ? labels.titleBar : undefined}
+          onKeyDown={windowed ? onKeyDown : undefined} {...(windowed ? pointerProps('move') : {})}
+          className={cn(
+            'flex h-10 shrink-0 items-center gap-1 border-b border-border-subtle bg-surface-sunken px-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
+            windowed && 'cursor-move touch-none',
+          )}
         >
           <span id={titleId} className="min-w-0 flex-1 truncate text-sm font-medium">{title}</span>
-          <DropdownMenu modal={false}>
+          {windowed && <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button type="button" variant="ghost" size="sm" aria-label={labels.menu}><Ellipsis className="size-3.5" aria-hidden />{labels.menu}</Button>
             </DropdownMenuTrigger>
@@ -154,7 +159,7 @@ export const FloatingWindow = /*#__PURE__*/ forwardRef<FloatingWindowHandle, Flo
               {SIZES.map(preset => <DropdownMenuItem key={preset} onSelect={() => { commit(sizeGeometry(preset, shown, area, minSize)); }}>{labels.size[preset]}</DropdownMenuItem>)}
               {menuExtra ? <><DropdownMenuSeparator />{menuExtra}</> : null}
             </DropdownMenuContent>
-          </DropdownMenu>
+          </DropdownMenu>}
           {actions}
         </div>
       ) : null}

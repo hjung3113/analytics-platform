@@ -293,7 +293,7 @@ describe('board window: one instance across every display (B1)', () => {
 });
 
 describe('board window: narrow width, geometry, rail, toast strip', () => {
-  it('under 900 wide the window is the maximized display with the note; the address does not become /board; the stored geometry is kept', async () => {
+  it('under 900 wide the window fills the area with one set of title actions and keeps the background address', async () => {
     seedTwo();
     mount('/beta?scopeId=MEM');
     await settle();
@@ -306,7 +306,12 @@ describe('board window: narrow width, geometry, rail, toast strip', () => {
     expect(mode()).toBe('fill');
     expect(screen.getByText('창 대신 최대화 표시로 열립니다')).toBeTruthy();
     expect(path()).toBe(BG);
-    expect(screen.getByRole('button', { name: '최소화' })).toBeTruthy();
+    const title = document.getElementById(frame()?.getAttribute('aria-labelledby') ?? '');
+    expect(title).toHaveTextContent(/분석 보드/);
+    for (const name of ['최소화', '최대화', '보드 닫기']) {
+      const action = screen.getByRole('button', { name });
+      expect(title?.parentElement).toContainElement(action);
+    }
     expect(screen.queryByRole('button', { name: '창으로 보기' })).toBeNull();
     // The chip comes back from the fill display too, and it returns to the same display.
     fireEvent.click(screen.getByRole('button', { name: '최소화' }));
@@ -318,7 +323,7 @@ describe('board window: narrow width, geometry, rail, toast strip', () => {
     expect(screen.queryByText('창 대신 최대화 표시로 열립니다')).toBeNull();
   });
 
-  it('fill: the rail moves focus to the board heading (no title bar is drawn) and leaves the background address alone', async () => {
+  it('fill: the rail moves focus to the board heading and leaves the background address alone', async () => {
     seedTwo();
     mount('/beta?scopeId=MEM');
     await settle();
@@ -422,7 +427,7 @@ describe('board window: narrow width, geometry, rail, toast strip', () => {
     expect(path()).toContain('/board');
   });
 
-  it('UX-1: `창으로 보기` in the narrow display lands focus on the board heading (no title bar)', async () => {
+  it('UX-1: `창으로 보기` in the narrow display lands focus on the board heading', async () => {
     seedTwo();
     mount('/beta?scopeId=MEM');
     await settle();

@@ -33,6 +33,37 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+it('fits unpinned compact columns down to the shared minimum', () => {
+  mount({ columns: columns.map(column => column.id === 'name' ? column : { ...column, width: 'compact' }) });
+  const grid = screen.getByRole('treegrid');
+  expect(grid.parentElement).toHaveStyle({
+    '--matrix-compact-min-width': 'calc(var(--spacing) * 16)',
+    '--matrix-fit-min-width': 'calc(416px + 2 * var(--matrix-compact-min-width))',
+  });
+  expect(grid.firstElementChild).toHaveClass('w-full', 'min-w-(--matrix-fit-min-width)');
+  expect(screen.getByRole('columnheader', { name: 'X' })).toHaveClass('grow', 'shrink', 'min-w-(--matrix-compact-min-width)');
+  expect(cell('a', 'x')).toHaveClass('grow', 'shrink', 'min-w-(--matrix-compact-min-width)');
+  for (const id of ['name', 'z']) expect(cell('a', id)).toHaveClass('shrink-0');
+});
+
+it('shows a surface fade only where more columns can be scrolled into view', () => {
+  mount();
+  const grid = screen.getByRole('treegrid');
+  const [head, row] = within(grid).getAllByRole('row');
+  const fade = (element: HTMLElement, side: string) => element.querySelector(`[data-matrix-fade="${side}"]`);
+  expect(grid.querySelector('[data-matrix-fade]')).toBeNull();
+  Object.defineProperties(grid, { clientWidth: { value: 400 }, scrollWidth: { value: 600 } });
+  fireEvent.scroll(grid, { target: { scrollLeft: 0 } });
+  expect(fade(head, 'left')).toBeNull();
+  expect(fade(head, 'right')).toHaveClass('right-(--matrix-right-width)', 'before:to-surface-sunken');
+  fireEvent.scroll(grid, { target: { scrollLeft: 100 } });
+  expect(fade(row, 'left')).toHaveClass('left-(--matrix-left-width)', 'before:to-surface-card');
+  expect(fade(row, 'right')).toHaveClass('before:to-surface-card');
+  fireEvent.scroll(grid, { target: { scrollLeft: 200 } });
+  expect(fade(row, 'left')).toBeInTheDocument();
+  expect(grid.querySelector('[data-matrix-fade="right"]')).toBeNull();
+});
+
 describe('TreeMatrix controlled window', () => {
   it.each(['End', 'PageDown'])('requests preceding viewport rows for remote %s near the result end', key => {
     const onWindowChange = vi.fn(); const onSelectCell = vi.fn();
