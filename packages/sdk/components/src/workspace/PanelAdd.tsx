@@ -15,16 +15,19 @@ export type AnalysisPanelDraft = {
 
 export type AnalysisPanelAddition = {
   items: readonly PanelAddItem[];
+  /** Adds the panel. Its return value is ignored unless `returnsOpened` is set. */
+  onAdd: (draft: AnalysisPanelDraft) => void;
   /**
-   * Adds the panel. It may return the workspace panel id it opened when that is not the item id (a second instance, #2862 ②): the «새 패널»
-   * trigger hands focus to that tab. Returning nothing keeps the item id.
+   * Opt-in (#2862 ②): `onAdd` returns the workspace panel id it opened (a string) when that is not the item id, such as a second instance.
+   * When the «새 패널» row button is no longer there to keep focus (its chart is covered or the row lost its last choice), focus goes to
+   * that tab instead of the item id's. Without it, any value `onAdd` returns is ignored.
    */
-  onAdd: (draft: AnalysisPanelDraft) => void | string;
+  returnsOpened?: boolean;
   /** Offers «붙잡기» beside each panel of «새 패널». The menu keeps the held inputs and wraps that panel in `HeldAnalysisSelections` (#2862). */
   hold?: boolean;
 };
-/** What the workspace hands «새 패널»: the items still offered, a placed one marked with `placed` (SDK internal, #2862 ②). */
-export type AnalysisPanelDestinations = Omit<AnalysisPanelAddition, 'items'> & { items: readonly (PanelAddItem & { placed?: boolean })[] };
+/** What the workspace hands «새 패널»: the items still offered, each with `placed` computed by the workspace (SDK internal, #2862 ②). */
+export type AnalysisPanelDestinations = Omit<AnalysisPanelAddition, 'items'> & { items: readonly (PanelAddItem & { placed: boolean })[] };
 
 export const AnalysisPanelAddContext = createContext<AnalysisPanelDestinations | null>(null);
 
@@ -75,13 +78,14 @@ export type PanelAddItem = {
   id: string; title: Text; description?: Text; disabledReason?: Text;
   /**
    * «새 패널» of `AnalysisPanelAddition` only (#2862 ②): a panel already placed is normally not offered; with `again` it still offers that one
-   * mode, and the menu adds a second instance beside it (a held one beside a following one, or the reverse). `'hold'` needs the addition's
-   * `hold`: without it the placed panel is not offered. The toolbar menu ignores it.
+   * mode, and the menu adds a second instance beside it (a held one beside a following one, or the reverse). A placed item with `'hold'`
+   * needs the addition's `hold`: without it that item is not offered (`'follow'` still is). A panel collapsed or floating with none of
+   * its slots in view is not offered. The toolbar menu ignores it.
    */
   again?: 'follow' | 'hold';
   /**
-   * «새 패널» only: the workspace panel ids that show this item when they are not just `id` (its instances, a restored slot). Whether the item
-   * is placed, collapsed or floating is judged on them. Default `[id]`.
+   * «새 패널» only: the workspace panel ids that show this item when they are not just `id` (its instances, a restored slot). The item is
+   * placed when one of them is in view; when none is in view but one is collapsed or floating, it is not offered. Default `[id]`.
    */
   slots?: readonly string[];
 };

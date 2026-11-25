@@ -4,7 +4,7 @@ import type { AnalysisSelection } from '@ap/contracts';
 import { useDrill, useI18n, useMessages, usePlatform, usePlatformOptional } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { AnalysisPanelAddContext, type AnalysisPanelDestinations } from '../workspace/PanelAdd';
+import { AnalysisPanelAddContext, type AnalysisPanelDestinations, type AnalysisPanelDraft } from '../workspace/PanelAdd';
 import { usePublishNextAnalysis } from './NextAnalysisBridge';
 import { keepFocusAfterPanelAdd } from '../dock/focusTab';
 
@@ -69,14 +69,19 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
       const reason = panel.permissions.every(permission => platform.can(permission))
         ? item.disabledReason && tx(item.disabledReason) : t('menuDenied');
       const source = `${menu.id}/${panel.id}` as const;
-      const follow = { id: panel.id, label: tx(item.title), reason: reason || undefined, onSelect: () => workspace.onAdd({ source, inputs: { [key]: selection } }) };
+      // The menu's return value names the opened slot only when it opted in (#2862 ②); otherwise it is ignored.
+      const add = (draft: AnalysisPanelDraft): unknown => {
+        const opened: unknown = (workspace.onAdd as (draft: AnalysisPanelDraft) => unknown)(draft);
+        return workspace.returnsOpened && typeof opened === 'string' ? opened : undefined;
+      };
+      const follow = { id: panel.id, label: tx(item.title), reason: reason || undefined, onSelect: () => add({ source, inputs: { [key]: selection } }) };
       // A placed panel offers only its `again` mode, as a second instance (#2862 ②).
       const placed = item.placed ? item.again : undefined;
       if (!workspace.hold) return placed === 'hold' ? [] : [follow];
       // Follow keeps reading the URL; hold fixes the new panel to this selection (#2862).
       const hold = {
         id: `${panel.id}:hold`, panelId: panel.id, label: m('chartNextPanelHold', { panel: tx(item.title) }), reason: reason || undefined,
-        note: m('chartNextPanelHoldNote'), onSelect: () => workspace.onAdd({ source, inputs: { [key]: selection }, mode: 'hold' }),
+        note: m('chartNextPanelHoldNote'), onSelect: () => add({ source, inputs: { [key]: selection }, mode: 'hold' }),
       };
       if (placed === 'hold') return [hold];
       if (placed === 'follow') return [{ ...follow, note: m('chartNextPanelFollowNote') }];
