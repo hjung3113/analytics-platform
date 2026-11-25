@@ -791,9 +791,9 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     const next = fit(currentSelection); const nextPreview = xType === 'time' ? fit(currentPreview) : { range: null, notice: null };
     const same = (a: Selection | null, b: Selection | null) => a === b || (!!a && !!b && a.from === b.from && a.to === b.to);
     if (same(next.range, currentSelection) && same(nextPreview.range, currentPreview)) return;
-    rangeActions.refit(next.range, nextPreview.range, next.notice ?? nextPreview.notice);
+    rangeActions.refit(next.range, nextPreview.range, next.notice ?? nextPreview.notice, xType === 'category' && !!rawTopN);
     if (currentSelection && !next.range) closeEditor();
-  }, [contextKey, xType, realCategories, timeBounds, periodFrom, periodTo, compareClipOn, currentSelection, currentPreview, rangeActions, closeEditor]);
+  }, [contextKey, xType, realCategories, timeBounds, periodFrom, periodTo, compareClipOn, currentSelection, currentPreview, rangeActions, closeEditor, rawTopN]);
   // Label geometry, cached by what it depends on: the spans and rows change with the notes only, the data extent with the series,
   // so zoom, resize, editor typing and busy state redo none of it. Nothing runs while there are no notes.
   const resolvedNotes = useMemo(() => annotations.flatMap(annotation => {
@@ -1037,11 +1037,13 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     const start = realCategories.indexOf(next.from);
     return start >= 0 && realCategories.indexOf(next.to) >= start;
   };
-  const invalidDraft = !!categoryTopN && !!rangeDraft && !isRetainedRange(rangeDraft);
+  // Checked against the declared option, not the effective one: a series toggle can switch ranking off and restore source order (#2742 C7).
+  const rankedAxis = xType === 'category' && !!rawTopN;
+  const invalidDraft = rankedAxis && !!rangeDraft && !isRetainedRange(rangeDraft);
   useEffect(() => {
     if (invalidDraft) rangeActions.setDraft(null);
   }, [invalidDraft, rangeActions]);
-  const draftSelection = categoryTopN && selection && !isRetainedRange(selection) ? null : selection;
+  const draftSelection = rankedAxis && selection && !isRetainedRange(selection) ? null : selection;
   const draft = (invalidDraft ? null : rangeDraft) ?? draftSelection ?? fallbackRange;
   // A fill card gives the plot the space: the start/end form and the empty-selection hint appear while brushing or once a range exists
   // (ADR-0067 decision 21); notes, errors and the confirm row keep their place. Other sizes always show them.
@@ -1430,7 +1432,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         <Button size="toolbar" onClick={() => {
           if (rangeOutput) brushToggle.current?.focus();
           if (xType === 'time') commitRange(draft);
-          else if (!categoryTopN || isRetainedRange(draft)) { rangeActions.categorySelect(draft); writeRange(draft); }
+          else if (!rankedAxis || isRetainedRange(draft)) { rangeActions.categorySelect(draft); writeRange(draft); }
         }}>{m('chartSelect')}</Button>
       </div>}
       {drawnActive !== null && <p className={quietSummary ? 'sr-only' : 'mb-1 font-semibold'}>{m('chartActiveRow')}: {labelOf(drawnActive)}</p>}
