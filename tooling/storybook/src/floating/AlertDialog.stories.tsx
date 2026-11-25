@@ -2,6 +2,10 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@ap/ui';
 import { guidedPage } from '../guidance';
 
+type AlertDialogStoryArgs = React.ComponentProps<typeof AlertDialog> & {
+  actionVariant?: React.ComponentProps<typeof AlertDialogAction>['variant'];
+};
+
 /** 되돌릴 수 없는 동작 앞에서 확인을 받는 모달(`alertdialog`). 바깥 클릭으로 닫히지 않고 취소나 확인을 고른다. */
 const meta = {
   title: '떠 있는 표면/AlertDialog',
@@ -17,7 +21,7 @@ const meta = {
       ),
     },
   },
-  render: args => <AlertDialog {...args}>
+  render: ({ actionVariant, ...args }) => <AlertDialog {...args}>
     <AlertDialogContent>
       <AlertDialogHeader>
         <AlertDialogTitle>설비를 폐기 처리할까요?</AlertDialogTitle>
@@ -25,13 +29,15 @@ const meta = {
       </AlertDialogHeader>
       <AlertDialogFooter>
         <AlertDialogCancel>취소</AlertDialogCancel>
-        <AlertDialogAction>폐기</AlertDialogAction>
+        <AlertDialogAction variant={actionVariant}>폐기</AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>,
-} satisfies Meta<typeof AlertDialog>;
+} satisfies Meta<AlertDialogStoryArgs>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 /** 열린 확인: 영향 한 문장, 취소와 확인. */
 export const Open: Story = {};
+
+export const Destructive: Story = { args: { actionVariant: 'destructive' } };

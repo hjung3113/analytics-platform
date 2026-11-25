@@ -41,3 +41,18 @@ it('rapid hide/show does not revive an outgoing dialog autofocus handoff', async
   expect(autofocus).not.toHaveBeenCalled();
   expect(screen.queryByText('rapid')).toBeNull();
 });
+
+it('requests close once on hide while a controlled caller keeps open and rerenders with a new callback', () => {
+  const requests: boolean[] = [];
+  function Fixture({ active, tick }: { active: boolean; tick: number }) {
+    return <TransientOverlayScope active={active}>
+      <Popover open onOpenChange={next => { requests.push(next); }}><PopoverTrigger>open {tick}</PopoverTrigger><PopoverContent>overlay</PopoverContent></Popover>
+    </TransientOverlayScope>;
+  }
+  const view = render(<Fixture active tick={0} />);
+  view.rerender(<Fixture active={false} tick={1} />);
+  view.rerender(<Fixture active={false} tick={2} />);
+  view.rerender(<Fixture active={false} tick={3} />);
+  expect(requests).toEqual([false]);
+  expect(screen.queryByText('overlay')).toBeNull();
+});

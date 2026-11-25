@@ -23,6 +23,9 @@ export type RowActionProps = {
   textLink?: 'primary' | 'secondary';
   /** Optional body action list; the same control opens a Popover and retains its density/focus identity. */
   menu?: ReactNode;
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
   disabled?: boolean;
   'aria-describedby'?: string;
 };
@@ -31,8 +34,14 @@ export type RowActionProps = {
  * One row-action control for the pinned action column. It renders the same element tree in both forms, so the DOM node
  * (and the focus on it) survives the compact ↔ full switch when the dock opens or closes (ADR-0037, #399).
  */
-export function RowAction({ compact, icon: Icon, label, text, variant = 'ghost', onClick, link, textLink, menu, disabled, 'aria-describedby': describedBy }: RowActionProps) {
-  const [open, setOpen] = useState(false);
+export function RowAction({ compact, icon: Icon, label, text, variant = 'ghost', onClick, link, textLink, menu, open, defaultOpen, onOpenChange, disabled, 'aria-describedby': describedBy }: RowActionProps) {
+  // Radix convention: `open` controls, `defaultOpen` seeds the uncontrolled state, `onOpenChange` hears every request.
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen ?? false);
+  const shown = open ?? uncontrolledOpen;
+  const setShown = (next: boolean) => {
+    if (open === undefined) setUncontrolledOpen(next);
+    onOpenChange?.(next);
+  };
   const className = !compact && textLink ? TEXT_LINK[textLink] : buttonVariants({ variant, size: 'toolbar' });
   const named = compact || label !== text ? label : undefined;
   const content = compact ? <Icon className="size-4" aria-hidden /> : text;
@@ -43,10 +52,10 @@ export function RowAction({ compact, icon: Icon, label, text, variant = 'ghost',
     <TooltipTrigger asChild>{menu ? <PopoverTrigger asChild>{control}</PopoverTrigger> : control}</TooltipTrigger>
     {compact && <TooltipContent>{text}</TooltipContent>}
   </Tooltip></TooltipProvider>;
-  return menu ? <Popover open={open} onOpenChange={setOpen}>
+  return menu ? <Popover open={shown} onOpenChange={setShown}>
     {trigger}
     <PopoverContent align="end" role="group" aria-label={label} className="min-w-56" padding="compact">
-      <div className="grid gap-2 p-1" onClick={() => setOpen(false)}>{menu}</div>
+      <div className="grid gap-2 p-1" onClick={() => setShown(false)}>{menu}</div>
     </PopoverContent>
   </Popover> : trigger;
 }

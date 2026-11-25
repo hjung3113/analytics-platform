@@ -6,10 +6,10 @@ import { guidedPage } from '../guidance';
 
 const LEVELS = [{ id: 'process', label: '공정' }, { id: 'equipment', label: '설비' }, { id: 'module', label: '모듈' }, { id: 'recipe', label: '레시피' }];
 const DEFAULT = ['process', 'equipment'];
-function Order() {
+function Order({ defaultOpen }: { defaultOpen?: boolean }) {
   const [value, setValue] = useState(['equipment', 'process', 'module']);
   return <div className="flex items-center gap-3">
-    <MatrixLevelOrder label="행 단계" levels={LEVELS} value={value} defaultValue={DEFAULT} onChange={setValue} />
+    <MatrixLevelOrder label="행 단계" levels={LEVELS} value={value} defaultValue={DEFAULT} onChange={setValue} defaultOpen={defaultOpen} />
     <span className="t-caption text-text-secondary">{value.map(id => LEVELS.find(l => l.id === id)!.label).join(' → ')}</span>
   </div>;
 }
@@ -30,3 +30,5 @@ type Story = StoryObj;
 
 /** 설비 → 공정 → 모듈 순서를 고른 상태에서 팝오버를 연다. 레시피는 빠져 있다. */
 export const Open: Story = { play: async ({ canvasElement }) => { await userEvent.click(within(canvasElement).getByRole('button', { name: '행 단계' })); } };
+
+export const InitiallyOpen: Story = { render: () => <Order defaultOpen /> };

@@ -1,6 +1,6 @@
 import type * as React from 'react';
 import { createElement } from 'react';
-import { createContext, useContext, useInsertionEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useInsertionEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 const OverlayVisibility = createContext<{ active: boolean; status: { current: boolean } } | null>(null);
 
@@ -33,9 +33,13 @@ function useScopedOverlay(props: OpenProps): OpenProps {
   const active = scope?.active ?? true;
   const open = props.open ?? local;
   const onOpenChange = props.onOpenChange;
+  // One close request per hide: a new callback identity (an inline handler) must not repeat it while the caller keeps `open`.
+  // A ref, not useEffectEvent (React 19.2+), keeps the `react ^19.0.0` peer range.
+  const latestOnOpenChange = useRef(onOpenChange);
+  useInsertionEffect(() => { latestOnOpenChange.current = onOpenChange; });
   useLayoutEffect(() => {
-    if (!active && open) { setLocal(false); onOpenChange?.(false); }
-  }, [active, open, onOpenChange]);
+    if (!active && open) { setLocal(false); latestOnOpenChange.current?.(false); }
+  }, [active, open]);
   return { open: active && open, onOpenChange: next => { setLocal(next); onOpenChange?.(next); } };
 }
 
