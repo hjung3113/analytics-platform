@@ -68,7 +68,7 @@ function localDateValue(date: Date) {
 }
 
 function chooseApproval() {
-  fireEvent.click(screen.getByRole('button', { name: '승인' }));
+  fireEvent.click(screen.getByRole('radio', { name: '승인' }));
 }
 
 beforeEach(() => {
@@ -108,7 +108,7 @@ describe('permission request expiration visibility and approval', () => {
     );
     expect(screen.getByLabelText(/사유/)).toHaveValue('');
     expect(screen.getByTestId('permission-decision-submit')).toBeDisabled();
-    expect(screen.getByRole('button', { name: '승인' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('radio', { name: '승인' })).toHaveAttribute('aria-checked', 'false');
   });
 
   it('shows the requested expiration in the compact row', () => {
