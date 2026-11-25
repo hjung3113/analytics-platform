@@ -9,14 +9,14 @@ const source = {
   exports: { '.': './src/index.ts' },
   dependencies: { '@ap/contracts': 'workspace:*', '@ap/kernel': 'workspace:*', echarts: '^6.1.0' },
   devDependencies: { vitest: '^5.1.2' },
-  peerDependencies: { react: '^19.0.0', vitest: '^3.2.7 || ^5.1.2' },
+  peerDependencies: { react: '^19.0.0', vitest: '^3.2.7 || ^4.0.0 || ^5.1.2' },
   peerDependenciesMeta: { vitest: { optional: true } },
 };
 
 test('siblings become exact-version peers, never dependencies (#806)', () => {
   const manifest = releaseManifest('components', source, '1.2.3');
   assert.deepEqual(manifest.dependencies, { echarts: '^6.1.0' });
-  assert.deepEqual(manifest.peerDependencies, { react: '^19.0.0', vitest: '^3.2.7 || ^5.1.2', '@ap/contracts': '1.2.3', '@ap/kernel': '1.2.3' });
+  assert.deepEqual(manifest.peerDependencies, { react: '^19.0.0', vitest: '^3.2.7 || ^4.0.0 || ^5.1.2', '@ap/contracts': '1.2.3', '@ap/kernel': '1.2.3' });
   assert.deepEqual(manifest.peerDependenciesMeta, { vitest: { optional: true } });
 });
 

@@ -316,10 +316,6 @@ jobs:
       # with the cap vs 2.6-3.5 s without, for a 10-15 % longer package run). Same values as ~/.zshenv; the 5 s timeout stays as is.
       # Shard 1 runs one package, so its cap is 4 (one package × 4 workers = 4 vCPUs).
       VITEST_MAX_WORKERS: ${{ matrix.workers }}
-      VITEST_MAX_FORKS: ${{ matrix.workers }}
-      VITEST_MAX_THREADS: ${{ matrix.workers }}
-      VITEST_MIN_FORKS: '1'
-      VITEST_MIN_THREADS: '1'
     steps:
       - uses: actions/checkout@v7
         if: ${{ env.DOCS_ONLY != 'true' }}

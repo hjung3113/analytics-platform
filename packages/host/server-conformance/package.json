@@ -16,7 +16,7 @@
     "@ap/contracts": "workspace:*"
   },
   "peerDependencies": {
-    "vitest": "^3.2.7 || ^5.1.2"
+    "vitest": "^3.2.7 || ^4.0.0 || ^5.1.2"
   },
   "devDependencies": {
     "@ap/eslint-config": "workspace:*",

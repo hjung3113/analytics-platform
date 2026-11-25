@@ -103,7 +103,8 @@ describe('page-owned comparison table options', () => {
     const readings = Array.from({ length: 12 }, (_, index) => ({ id: `r${index}`, value: index, limit: 100 + index }));
     // The geometry stub already spied the method; spyOn returns that same spy (Vitest 4+), so wrap its current implementation.
     const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
-    const rect = spy.getMockImplementation()!;
+    const rect = spy.getMockImplementation();
+    if (!rect) throw new Error('the geometry stub must spy getBoundingClientRect before this test');
     spy.mockImplementation(function (this: HTMLElement) {
       return this.hasAttribute('data-table-sticky-rows')
         ? { width: 1280, height: 96, x: 0, y: 0, top: 0, left: 0, right: 1280, bottom: 96, toJSON() {} }
