@@ -1,8 +1,8 @@
-import { useEffect, useId, useInsertionEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useInsertionEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, Inbox, ServerCrash } from 'lucide-react';
 import { pageConditionKeys, wallClockEpochMs, type PageConditionCategory, type PageConditionOption, type PageConditions, type Pair, type HierarchySource } from '@ap/contracts';
 import { decodePageConditions, encodePageConditions, PAGE_CONDITION_EMPTY, PageConditionError, useI18n, useMessages, type PageConditionIssue, type PageConditionValue, type PageConditionValues } from '@ap/kernel';
-import { Button, Checkbox, GROUPED_SELECTION_MESSAGES, GroupedSelectionList, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useImeEnterGuard } from '@ap/ui';
+import { Button, Checkbox, GROUPED_SELECTION_MESSAGES, GroupedSelectionList, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, isProductionEnv, useImeEnterGuard } from '@ap/ui';
 import { LoadingBlock, OutcomeView, StateMessage } from '../StateView';
 import { PAGE_CONDITION_ISSUE_MESSAGES, PAGE_CONDITION_MESSAGES } from './pageConditionMessages';
 import { checkPageConditionOptions, type PageConditionOptions, type PageConditionOptionsLoader } from './pageConditionOptions';
@@ -32,6 +32,7 @@ const NO_ISSUES: readonly PageConditionIssue[] = [];
 const NO_PAIRS: readonly Pair[] = [];
 const NUMBER = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
 const WALL_CLOCK_MINUTES = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+const checkedDeclarations = new WeakSet<PageConditions>();
 
 function arrayValue(value: PageConditionValue | undefined): readonly string[] {
   return Array.isArray(value) ? value : [];
@@ -53,16 +54,34 @@ export function PageConditionCategories(props: PageConditionCategoriesProps) {
   // Remounting on declared inputs removes stale options before paint and aborts every previous request.
   return <CategorySequence key={JSON.stringify([props.inputsKey, props.declaration])} {...props} />;
 }
-function CategorySequence(props: PageConditionCategoriesProps) {
-  const { lang } = useI18n();
+function categoryRuns(declaration: PageConditions) {
   const runs: { key: string; section?: NonNullable<PageConditions['sections']>[number]; categories: PageConditionCategory[] }[] = [];
   // Sections are visual only: even a noncontiguous section never reorders the declaration.
-  for (const category of props.declaration.categories) {
-    const section = props.declaration.sections?.find(item => item.categories.includes(category.id));
+  for (const category of declaration.categories) {
+    const section = declaration.sections?.find(item => item.categories.includes(category.id));
     const last = runs.at(-1);
     if (section && last?.section?.id === section.id) last.categories.push(category);
     else runs.push({ key: category.id, section, categories: [category] });
   }
+  return runs;
+}
+function CategorySequence(props: PageConditionCategoriesProps) {
+  const { lang } = useI18n();
+  const { declaration } = props;
+  const runs = useMemo(() => categoryRuns(declaration), [declaration]);
+  useEffect(() => {
+    if (isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) return;
+    if (checkedDeclarations.has(declaration)) return;
+    checkedDeclarations.add(declaration);
+    const seenSections = new Set<string>();
+    const splits: string[] = [];
+    for (const { section, key } of runs) {
+      if (!section) continue;
+      if (seenSections.has(section.id)) splits.push(`section "${section.id}" at category "${key}"`);
+      seenSections.add(section.id);
+    }
+    if (splits.length) console.warn(`PageConditionCategories: noncontiguous ${splits.join(', ')}. Categories render in declaration order.`);
+  }, [declaration, runs]);
   return <div className="min-w-0 space-y-4 break-keep">
     {runs.map(run => {
       const content = run.categories.map(category => <ConditionCategory key={category.id} {...props} category={category} />);

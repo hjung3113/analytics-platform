@@ -31,6 +31,13 @@ it('contains pasted tables and wraps unbroken cell text in editor and reader CSS
   expect(css).toMatch(/\.rich-editor\[data-surface="voc-description"\] \.ProseMirror \.tableWrapper, \.rich-content\[data-rich-extended\] \[data-rich-table-scroll\] \{[^}]*overflow-x: auto;/);
 });
 
+it.each(Object.entries(recipes))('publishes list markers under the shared rich text hook through the %s recipe', async (_recipe, imports) => {
+  const compiler = await compile(imports.join('\n'), { base, onDependency: () => {} });
+  const css = compiler.build([]).replace(/\s+/g, ' ');
+  expect(css).toMatch(/\[data-rich-list-content\] ul \{[^}]*list-style-type: disc;/);
+  expect(css).toMatch(/\[data-rich-list-content\] ol \{[^}]*list-style-type: decimal;/);
+});
+
 it('publishes the inset radius without changing the outer radius token', async () => {
   const compiler = await compile(recipes.shared.join('\n'), { base, onDependency: () => {} });
   const css = compiler.build(['rounded-inset-md']).replace(/\s+/g, ' ');

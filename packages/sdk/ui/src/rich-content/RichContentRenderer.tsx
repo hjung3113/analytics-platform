@@ -123,6 +123,7 @@ export function RichContentRenderer({
     <div
       className={cn('rich-content max-w-none [&_a]:text-accent-primary [&_a]:underline-offset-4 [&_a]:hover:underline', size === 'sm' && 'text-sm', className)}
       data-mode={mode}
+      data-rich-list-content=""
       data-rich-extended={surface && getExtensionsForSurface(surface).includes('heading') || undefined}
       // biome-ignore lint/security/noDangerouslySetInnerHtml: BE sanitizer is authoritative per ADR-0011
       dangerouslySetInnerHTML={{ __html: html }}

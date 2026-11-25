@@ -152,14 +152,17 @@
 
 /* ADR-0127: Tiptap-owned DOM; both supported CSS entry recipes include this file. */
 @layer base {
+  [data-rich-list-content] {
+    ul { @apply pl-6 list-disc; }
+    ol { @apply pl-6 list-decimal; }
+  }
   :is(.rich-editor[data-surface="voc-description"] .ProseMirror, .rich-content[data-rich-extended]) {
     @apply text-sm leading-relaxed break-keep;
     p { @apply my-2; }
     h1 { @apply mt-4 mb-2 text-xl font-semibold; }
     h2 { @apply mt-4 mb-2 text-lg font-semibold; }
     h3 { @apply mt-3 mb-2 text-base font-semibold; }
-    ul { @apply my-2 pl-6 list-disc; }
-    ol { @apply my-2 pl-6 list-decimal; }
+    :is(ul, ol) { @apply my-2; }
     blockquote { @apply my-3 border-l border-border-strong pl-3 text-text-secondary; }
     hr { @apply my-4 border-border-subtle; }
     pre { @apply my-3 rounded-md bg-surface-popover p-3 font-mono text-xs whitespace-pre-wrap; }
