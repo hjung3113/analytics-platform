@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { releaseManifest, validateArchive, validateImports } from './sdk-pack.mjs';
+import { releaseSourceEntries } from './sdk-exports.mjs';
 
 const source = {
   name: '@ap/components',
@@ -22,6 +23,41 @@ test('a package with only siblings gets no dependencies field', () => {
   const manifest = releaseManifest('kernel', { name: '@ap/kernel', exports: { '.': './src/index.ts' }, dependencies: { '@ap/contracts': 'workspace:*' } }, '1.2.3');
   assert.equal('dependencies' in manifest, false);
   assert.deepEqual(manifest.peerDependencies, { '@ap/contracts': '1.2.3' });
+});
+
+test('workspace-only exports stay out of the release manifest', () => {
+  const exports = { '.': { types: './dist/index.d.ts', import: './dist/index.js' } };
+  const manifest = releaseManifest('contracts', {
+    name: '@ap/contracts',
+    exports: { '.': './src/index.ts', './testing/saved-view-panels': './test-support/saved-view-panels.ts' },
+    publishConfig: { exports },
+  }, '1.2.3');
+  assert.deepEqual(manifest.exports, exports);
+});
+
+test('the workspace-only test entry stays out without publishConfig and fails when published', () => {
+  const testEntry = { './testing/saved-view-panels': './test-support/saved-view-panels.ts' };
+  const bare = { name: '@ap/contracts', exports: { '.': './src/index.ts', ...testEntry } };
+  assert.deepEqual(releaseSourceEntries(bare).map(([subpath]) => subpath), ['.']);
+  const published = { ...bare, publishConfig: { exports: { '.': './dist/index.js', './testing/saved-view-panels': './dist/x.js' } } };
+  assert.throws(() => releaseSourceEntries(published), /workspace-only export.*must not be in publishConfig\.exports/);
+});
+
+test('a non-test workspace export missing from publishConfig.exports fails', () => {
+  const manifest = {
+    ...source,
+    exports: { ...source.exports, './extra': './src/extra.ts' },
+    publishConfig: { exports: { '.': './dist/index.js' } },
+  };
+  assert.throws(() => releaseManifest('components', manifest, '1.2.3'), /\.\/extra.*missing from publishConfig\.exports/);
+});
+
+test('a published export missing from workspace exports fails', () => {
+  const manifest = {
+    ...source,
+    publishConfig: { exports: { '.': './dist/index.js', './extra': './dist/extra.js' } },
+  };
+  assert.throws(() => releaseManifest('components', manifest, '1.2.3'), /\.\/extra.*missing from workspace exports/);
 });
 
 test('the archive check rejects a sibling dependency and a loose sibling peer', () => {

@@ -14,7 +14,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { distTarget, releasePackages } from './sdk-exports.mjs';
+import { distTarget, releasePackages, releaseSourceEntries } from './sdk-exports.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const SCOPE = '@ap/';
@@ -70,7 +70,7 @@ function readJson(path) {
  */
 export function releaseManifest(name, source, version) {
   const exports = {};
-  for (const [subpath, target] of Object.entries(source.exports ?? {})) exports[subpath] = distTarget(target, `${name} exports["${subpath}"]`);
+  for (const [subpath, target] of releaseSourceEntries(source)) exports[subpath] = distTarget(target, `${name} exports["${subpath}"]`);
   if (Object.keys(exports).length === 0) fail(`${name}: source manifest has no exports`);
   const external = Object.fromEntries(Object.entries(source.dependencies ?? {}).filter(([dep]) => !dep.startsWith(SCOPE)));
   const siblings = Object.fromEntries(Object.keys(source.dependencies ?? {}).filter((dep) => dep.startsWith(SCOPE)).map((dep) => [dep, version]));

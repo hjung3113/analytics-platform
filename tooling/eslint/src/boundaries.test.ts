@@ -222,6 +222,10 @@ const rows: Row[] = [
   { file: 'packages/host/mock-server/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
   { file: 'packages/host/mock-server/src/x.ts', code: `import type { X } from 'react';`, rule: 'no-restricted-imports' },
   { file: 'packages/host/mock-server/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: '' },
+  { file: 'packages/host/mock-server/src/x.test.ts', code: `import { storedPanelCases } from '@ap/contracts/testing/saved-view-panels';`, rule: '' },
+  { file: 'packages/host/mock-server/src/x.ts', code: `import { storedPanelCases } from '@ap/contracts/testing/saved-view-panels';`, rule: 'no-restricted-imports' },
+  { file: 'packages/host/http-adapter/src/x.test.ts', code: `import { storedPanelCases } from '@ap/contracts/testing/saved-view-panels';`, rule: '' },
+  { file: 'packages/host/http-adapter/src/x.ts', code: `import { storedPanelCases } from '@ap/contracts/testing/saved-view-panels';`, rule: 'no-restricted-imports' },
 
   // --- hostModule (ADR-0053): contracts and ui (with CSS subpaths) only ---
   { file: 'modules/fixture/src/x.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },

@@ -5,7 +5,7 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readd
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { SDK_PACKAGES, distTarget } from './sdk-exports.mjs';
+import { SDK_PACKAGES, distTarget, releaseSourceEntries } from './sdk-exports.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const snapshotDirectory = join(repoRoot, 'tooling/sdk/api');
@@ -530,7 +530,7 @@ function packageConfigs() {
 function workspaceTypePaths(configs) {
   const paths = {};
   for (const config of configs) {
-    for (const [subpath, target] of Object.entries(config.manifest.exports ?? {})) {
+    for (const [subpath, target] of releaseSourceEntries(config.manifest)) {
       const dist = distTarget(target, config.manifest.name + ' exports[' + JSON.stringify(subpath) + ']');
       if (typeof dist === 'string') continue;
       const key = config.manifest.name + (subpath === '.' ? '' : subpath.slice(1));
@@ -545,7 +545,7 @@ function collectSnapshots(ts) {
   const entriesByPackage = new Map();
 
   for (const config of configs) {
-    const entries = Object.entries(config.manifest.exports ?? {}).map(([subpath, target]) => {
+    const entries = releaseSourceEntries(config.manifest).map(([subpath, target]) => {
       const dist = distTarget(target, config.manifest.name + ' exports[' + JSON.stringify(subpath) + ']');
       const artifact = typeof dist === 'string' ? dist : dist.types;
       const artifactPath = resolve(config.packageRoot, artifact);

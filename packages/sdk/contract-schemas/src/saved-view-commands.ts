@@ -313,7 +313,7 @@ export const savedViewSchema = z.discriminatedUnion('kind', [
     approval: z.literal('none'),
   }).omit({ context: true }),
   z.strictObject({ ...record, kind: z.literal('condition-set') }),
-  z.strictObject({ ...record, kind: z.literal('menu-view'), menuId: id, menuSchemaVersion: version, page: pageSchema, chartOptions: chartOptionsSchema, layout: layoutSchema, panels: menuViewPanelsSchema, tables: tablesSchema.optional() }),
+  z.strictObject({ ...record, kind: z.literal('menu-view'), menuId: id, menuSchemaVersion: version, page: pageSchema, chartOptions: chartOptionsSchema, layout: layoutSchema, panels: menuViewPanelsSchema, panelsUnreadable: z.literal(true).optional(), tables: tablesSchema.optional() }),
 ]);
 const capabilities = z.strictObject({ canView: z.boolean(), canCopy: z.boolean(), canEdit: z.boolean(), canShare: z.boolean(), canApprove: z.boolean(), canRevoke: z.boolean(), reason: z.string().optional() });
 export const savedViewEntrySchema = z.strictObject({ denied: z.literal(false).optional(), view: savedViewSchema, capabilities });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateSavedView } from '@ap/contracts';
 import { savedViewCommandSchema, savedViewResponseSchemas } from '@ap/contract-schemas/source';
+import { storedPanelCases, unicodePanelCases } from '@ap/contracts/testing/saved-view-panels';
 import { TransportError } from '../calls/calls.js';
 import { isSavedViewCommand, responseGuards, withinDepth } from '../saved-views/guards.js';
 import { bootstrapBody, json, server, type Handler } from './test-support.js';
@@ -199,6 +200,21 @@ describe('HTTP saved-view store (#1105)', () => {
 });
 
 describe('guards equal the wire schemas', () => {
+  it.each(storedPanelCases)('projects $label consistently on get and update', ({ stored, read, rename }) => {
+    const get = { ...entry, view: { ...view, ...read } };
+    const updated = ok({ ...get, view: { ...get.view, name: rename, version: 2 } });
+    expect(savedViewResponseSchemas.get.safeParse(get).success).toBe(true);
+    expect(responseGuards.get(get)).toBe(true);
+    expect(savedViewResponseSchemas.list.safeParse([get]).success).toBe(true);
+    expect(responseGuards.list([get])).toBe(true);
+    expect(savedViewResponseSchemas.update.safeParse(updated).success).toBe(true);
+    expect(responseGuards.update(updated)).toBe(true);
+    const raw = { ...entry, view: { ...view, panels: stored } };
+    const readable = !('panelsUnreadable' in read);
+    expect(savedViewResponseSchemas.get.safeParse(raw).success).toBe(readable);
+    expect(responseGuards.get(raw)).toBe(readable);
+  });
+
   const base = { version: 1, op: 'save', draft: menuDraft };
   const variants: [string, unknown][] = [
     ['valid', base],
@@ -241,6 +257,22 @@ describe('guards equal the wire schemas', () => {
     expect(isSavedViewCommand(body)).toBe(savedViewCommandSchema.safeParse(body).success);
   });
 
+  it.each([
+    ['draft', { ...base, draft: { ...menuDraft, panelsUnreadable: true } }],
+    ['patch', { version: 1, op: 'update', id: 'a', patch: { panelsUnreadable: true }, expectedVersion: 1 }],
+    ['import row', { version: 1, op: 'importLocal', importToken: 't', rows: [{ legacyKey: 'k', draft: menuDraft, panelsUnreadable: true }], defaults: [] }],
+    ['import draft', { version: 1, op: 'importLocal', importToken: 't', rows: [{ legacyKey: 'k', draft: { ...menuDraft, panelsUnreadable: true } }], defaults: [] }],
+  ])('rejects the response-only panels flag in a %s', (_name, body) => {
+    expect(isSavedViewCommand(body)).toBe(false);
+    expect(savedViewCommandSchema.safeParse(body).success).toBe(false);
+  });
+
+  it.each(unicodePanelCases)('refuses to send $label', ({ panels }) => {
+    const body = { ...base, draft: { ...menuDraft, panels } };
+    expect(savedViewCommandSchema.safeParse(body).success).toBe(true);
+    expect(isSavedViewCommand(body)).toBe(false);
+  });
+
   it('rejects an unsafe-Unicode name that the schema alone cannot express', () => {
     expect(isSavedViewCommand({ ...base, draft: { ...menuDraft, name: 'a\u0000b' } })).toBe(false);
     expect(isSavedViewCommand({ ...base, draft: { ...menuDraft, name: 'a\ud800b' } })).toBe(false);
@@ -248,6 +280,8 @@ describe('guards equal the wire schemas', () => {
 
   const replies: [keyof typeof responseGuards, string, unknown][] = [
     ['list', 'valid', [entry]],
+    ['list', 'unreadable panels flag', [{ ...entry, view: { ...view, panelsUnreadable: true } }]],
+    ['list', 'false panels flag', [{ ...entry, view: { ...view, panelsUnreadable: false } }]],
     ['list', 'entry extra key', [{ ...entry, extra: 1 }]],
     ['list', 'capabilities missing', [{ view, capabilities: { canView: true } }]],
     ['list', 'bad visibility', [{ ...entry, view: { ...view, visibility: { kind: 'x' } } }]],

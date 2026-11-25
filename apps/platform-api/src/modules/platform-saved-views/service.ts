@@ -72,7 +72,7 @@ class Abort extends Error {
 const scopeOf = (draft: SavedViewDraftIn) =>
   draft.savedScopeId === undefined ? {} : { savedScopeId: draft.savedScopeId };
 
-const bodyOf = (draft: SavedViewDraftIn): ViewBody => {
+const bodyOf = (draft: SavedViewDraftIn, storedPanels?: Pick<ViewBody, 'panels'>): ViewBody => {
   if (draft.kind === 'custom-group') return { savedScopeId: draft.savedScopeId, target: draft.target };
   if (draft.kind === 'condition-set') return { context: draft.context, ...scopeOf(draft) };
   return {
@@ -82,7 +82,7 @@ const bodyOf = (draft: SavedViewDraftIn): ViewBody => {
         page: draft.page,
         chartOptions: draft.chartOptions,
         layout: draft.layout,
-        panels: draft.panels,
+        ...(storedPanels ?? { panels: draft.panels }),
         ...(draft.tables === undefined ? {} : { tables: draft.tables }),
       };
 };
@@ -281,6 +281,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       const shown = shownTo(view, actor);
       const { name: patchName, ...patchBody } = patch;
       const { savedScopeId: patchedScope, ...otherPatch } = patchBody as typeof patchBody & { savedScopeId?: string | null };
+      const keepPanels = view.kind === 'menu-view' && !Object.hasOwn(patch, 'panels');
       const candidate = {
         schemaVersion: 1,
         kind: view.kind,
@@ -288,6 +289,7 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
         ...(view.kind === 'menu-view' ? { menuId: view.menuId } : {}),
         ...shown.content,
         ...otherPatch,
+        ...(keepPanels ? { panels: null } : {}),
         // `savedScopeId: null` clears the recorded Scope (#2175); the draft schema takes the key absent, not null.
         ...(patchedScope === undefined ? {} : { savedScopeId: patchedScope ?? undefined }),
       };
@@ -295,7 +297,8 @@ export function createSavedViewService(deps: SavedViewServiceDeps) {
       if (!checked.success)
         return fail('invalid', checked.error.issues[0]?.message ?? 'invalid view');
       const name = checked.data.name.trim();
-      const content = bodyOf(checked.data);
+      const storedPanels = Object.hasOwn(shown.content, 'panels') ? { panels: shown.content.panels } : {};
+      const content = bodyOf(checked.data, keepPanels ? storedPanels : undefined);
       if (
         canonicalJson({ name, content }) ===
         canonicalJson({ name: shown.name, content: shown.content })

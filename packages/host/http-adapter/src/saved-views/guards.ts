@@ -98,13 +98,13 @@ const keyMap: Guard = (v) => isRecord(v) && Object.entries(v).every(([k, list]) 
 const page = anyOf(pairs, keyMap);
 const chartOptions = noForbiddenKeys((v) => isRecord(v) && json(v));
 const layout = noForbiddenKeys(json);
-/** Writes (save, update, import) take only `null` or a v1 panel-instance value, like the wire schema; a chart config has the `chartOptions` key rule.
- *  Reads keep `panels: json`: a view saved before the format (#2760) still arrives and `readMenuViewPanels` classifies it. */
-const panelsWrite: Guard = (v) => {
+/** Commands also check whether chart config strings can be persisted by the server. */
+const panels: Guard = (v) => {
   const read = readMenuViewPanels(v);
   if (read.status === 'default') return v === null;
-  return read.status === 'ok' && read.panels.instances.every((instance) => instance.source.kind !== 'chart' || chartOptions(instance.source.config));
+  return read.status === 'ok' && read.panels.instances.every((instance) => instance.source.kind !== 'chart' || json(instance.source.config));
 };
+const responsePanels: Guard = (v) => v === null || readMenuViewPanels(v).status === 'ok';
 const name: Guard = (v) => typeof v === 'string' && v.trim() !== '' && isWellFormedText(v);
 const savedScopeId: Guard = v => typeof v === 'string' && v.length > 0 && v.length <= SAVED_SCOPE_ID_MAX && isWellFormedText(v);
 const menuId: Guard = (v) => typeof v === 'string' && v.length > 0 && isWellFormedText(v);
@@ -117,10 +117,10 @@ const target: Guard = anyOf(
 export const isSavedViewDraft: Guard = anyOf(
   strict({ schemaVersion: lit(1), kind: lit('custom-group'), name, savedScopeId, target }),
   strict({ schemaVersion: lit(1), kind: lit('condition-set'), name, context }, { savedScopeId }),
-  strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels: panelsWrite }, { savedScopeId, tables: isTableViewStates }),
+  strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels }, { savedScopeId, tables: isTableViewStates }),
 );
 
-const patch = strict({}, { target, savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels: panelsWrite, tables: isTableViewStates });
+const patch = strict({}, { target, savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels, tables: isTableViewStates });
 const visibility: Guard = (v) =>
   isRecord(v) &&
   (v['kind'] === 'private' || v['kind'] === 'official'
@@ -196,7 +196,7 @@ void _context;
 const savedView: Guard = anyOf(
   strict({ ...groupRecord, kind: lit('custom-group'), savedScopeId, target, approval: lit('none'), visibility: anyOf(strict({ kind: lit('private') }), strict({ kind: lit('groups'), groupIds: textList })) }, approvalNote),
   strict({ ...record, kind: lit('condition-set') }, { ...approvalNote, savedScopeId }),
-  strict({ ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: json }, { ...approvalNote, savedScopeId, tables: isTableViewStates }),
+  strict({ ...record, kind: lit('menu-view'), menuId: id, menuSchemaVersion: int, page, chartOptions, layout, panels: responsePanels }, { ...approvalNote, savedScopeId, panelsUnreadable: lit(true), tables: isTableViewStates }),
 );
 const entry = strict({ view: savedView, capabilities }, { denied: lit(false) });
 const denied = strict({ id, denied: lit(true), reason: str });

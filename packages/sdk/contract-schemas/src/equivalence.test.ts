@@ -50,6 +50,10 @@ describe('schemas and @ap/contracts types are the same type', () => {
     expectTypeOf<Wire<Extract<z.infer<typeof savedViewDraftSchema>, { kind: 'menu-view' }>['panels']>>().toEqualTypeOf<Wire<MenuViewDraft['panels']>>();
     expectTypeOf<Wire<z.infer<typeof savedViewPatchSchema>['panels']>>().toEqualTypeOf<Wire<SavedViewPatch['panels']>>();
     expectTypeOf<Wire<Extract<z.infer<typeof savedViewSchema>, { kind: 'menu-view' }>['panels']>>().toEqualTypeOf<Wire<MenuView['panels']>>();
+    expectTypeOf<Pick<Extract<z.infer<typeof savedViewSchema>, { kind: 'menu-view' }>, 'panelsUnreadable'>>()
+      .toEqualTypeOf<Pick<MenuView, 'panelsUnreadable'>>();
+    expectTypeOf<Extract<'panelsUnreadable', keyof MenuViewDraft | keyof SavedViewPatch>>().toEqualTypeOf<never>();
+    expectTypeOf<Extract<'panelsUnreadable', keyof Extract<z.infer<typeof savedViewDraftSchema>, { kind: 'menu-view' }> | keyof z.infer<typeof savedViewPatchSchema>>>().toEqualTypeOf<never>();
   });
 
   it('outcome and assessment kind', () => {

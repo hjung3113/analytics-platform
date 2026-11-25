@@ -23,6 +23,8 @@ const VOCAB_DIST = './dist/vocab.json';
 /** The build-tool entry point (ADR-0156): `@ap/contracts/build`. */
 const BUILD_ENTRY = './build';
 const BUILD_SOURCE = './src/build.ts';
+const TEST_ENTRY = './testing/saved-view-panels';
+const TEST_SOURCE = './test-support/saved-view-panels.ts';
 const ENTRY_POINTS = ['.', BUILD_ENTRY, VOCAB_ENTRY].join(',');
 let temporaryRoot;
 
@@ -72,11 +74,12 @@ function validateExports(entry, label, key = '.') {
 
 function validateSourceManifest() {
   const manifest = readJson(sourceManifestPath);
-  if (manifest.exports?.['.'] !== './src/index.ts') {
+  const { [TEST_ENTRY]: fixture, ...workspaceExports } = manifest.exports ?? {};
+  if (workspaceExports['.'] !== './src/index.ts') {
     fail('workspace exports["."] must keep pointing to ./src/index.ts');
   }
-  if (Object.keys(manifest.exports ?? {}).join(',') !== ENTRY_POINTS || manifest.exports[VOCAB_ENTRY] !== VOCAB_SOURCE || manifest.exports[BUILD_ENTRY] !== BUILD_SOURCE) {
-    fail(`the package must expose only the ., ${BUILD_ENTRY} and ${VOCAB_ENTRY} entry points`);
+  if (Object.keys(workspaceExports).join(',') !== ENTRY_POINTS || workspaceExports[VOCAB_ENTRY] !== VOCAB_SOURCE || workspaceExports[BUILD_ENTRY] !== BUILD_SOURCE || fixture !== TEST_SOURCE) {
+    fail(`workspace exports must expose only ., ${BUILD_ENTRY}, ${VOCAB_ENTRY} and ${TEST_ENTRY} at their source paths`);
   }
   if (!Array.isArray(manifest.files) || !manifest.files.includes('dist')) {
     fail('package.json files must include dist');

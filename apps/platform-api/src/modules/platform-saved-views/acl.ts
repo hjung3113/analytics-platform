@@ -2,6 +2,8 @@
 // group memberships, and answers who may see/copy/edit/share/approve/revoke it. Menu and Scope are never judged
 // here; the data boundary does that when a view is opened.
 
+import { menuViewPanelsSchema } from '@ap/contract-schemas';
+
 import type { SavedViewJson } from './types.js';
 
 export type ApprovalState = 'none' | 'pending' | 'approved' | 'rejected';
@@ -198,6 +200,7 @@ export function savedViewOf(
   };
   if (view.kind === 'custom-group') return { ...base, kind: 'custom-group', target: shown.content.target } as SavedViewJson;
   if (view.kind === 'condition-set') return { ...base, context: shown.content.context, kind: 'condition-set' } as SavedViewJson;
+  const panels = menuViewPanelsSchema.safeParse(shown.content.panels);
   return {
     ...base,
     context: shown.content.context,
@@ -207,7 +210,7 @@ export function savedViewOf(
     page: shown.content.page,
     chartOptions: shown.content.chartOptions,
     layout: shown.content.layout,
-    panels: shown.content.panels,
+    ...(panels.success ? { panels: panels.data } : { panels: null, panelsUnreadable: true }),
     ...(shown.content.tables === undefined ? {} : { tables: shown.content.tables }),
   } as SavedViewJson;
 }

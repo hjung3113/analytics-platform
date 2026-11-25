@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./build": "./src/build.ts",
+    "./testing/saved-view-panels": "./test-support/saved-view-panels.ts",
     "./vocab.json": "./src/vocab.json"
   },
   "publishConfig": {

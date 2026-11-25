@@ -550,18 +550,20 @@ export const appHost = [
   designSystem(),
 ];
 
-const HTTP_ADAPTER_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllowed: false };
+const CONTRACTS_ONLY_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllowed: false };
+const SAVED_VIEW_PANEL_TEST_ENTRY = 'contracts/testing/saved-view-panels';
 
 /** @type {import('eslint').Linter.Config[]} */
 export const httpAdapter = [
-  layerConfig({ restriction: HTTP_ADAPTER_RESTRICTION }),
-  // Test files alone compare the hand-written response guards with the wire schemas (ADR-0099); production code stays contracts-only.
-  testEntryOverride({ ...HTTP_ADAPTER_RESTRICTION, allow: ['contracts', 'contract-schemas'] }, ['contract-schemas/source'], ['**/*.test.ts']),
+  layerConfig({ restriction: CONTRACTS_ONLY_RESTRICTION }),
+  // Test files compare the response guards with the wire schemas and share stored-panel fixtures.
+  testEntryOverride({ ...CONTRACTS_ONLY_RESTRICTION, allow: ['contracts', 'contract-schemas'] }, ['contract-schemas/source', SAVED_VIEW_PANEL_TEST_ENTRY], ['**/*.test.ts']),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
 export const mockServer = [
-  layerConfig({ restriction: { allow: ['contracts'], denyReact: true, mockAllowed: false } }),
+  layerConfig({ restriction: CONTRACTS_ONLY_RESTRICTION }),
+  testEntryOverride(CONTRACTS_ONLY_RESTRICTION, [SAVED_VIEW_PANEL_TEST_ENTRY], ['**/*.test.ts']),
 ];
 
 // Menu: mock-server is limited to src/mock/** (the step-11 removal of src/api.ts and serve, #132);

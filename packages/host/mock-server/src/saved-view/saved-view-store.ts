@@ -44,9 +44,10 @@ const viewShape = (v: unknown, ownerId: string, menuId: string | null): v is Rec
   if (!visibilityOk(v.visibility) || typeof v.approval !== 'string' || !APPROVALS.includes(v.approval)) return false;
   if (v.approvalNote !== undefined && typeof v.approvalNote !== 'string') return false;
   const { pending: _p, ...content } = v; void _p;
-  // A row saved before the panel-instance format (#2760) is still read and kept: only saving checks `panels` (readMenuViewPanels classifies it).
-  // Stored JSON can still hold a non-finite number (`1e400` parses to Infinity), which no later write could keep: such a row stays unreadable.
-  const readable = readMenuViewPanels(content.panels).status === 'legacy' && finiteJson(content.panels) ? { ...content, panels: null } : content;
+  // Stored panels predate the format. Validate the rest of the row while retaining the raw JSON.
+  // A number like `1e400` parses to Infinity and could not survive a later write.
+  if (content.kind === 'menu-view' && !finiteJson(content.panels)) return false;
+  const readable = content.kind === 'menu-view' ? { ...content, panels: null } : content;
   if (!validateSavedView(readable).ok) return false;
   return viewMenuId(content as { kind: string; menuId?: string }) === menuId;
 };
@@ -68,8 +69,8 @@ const viewMenuId = (v: { kind: string; menuId?: string }) => (v.kind === 'menu-v
 
 const isMember = (g: GroupRecord, a: Actor) => g.memberIds.includes(a.userId);
 const isManager = (g: GroupRecord, a: Actor) => g.managerIds.includes(a.userId);
-const sharedGroups = (v: SavedView, groups: readonly GroupRecord[]) => { const vis = v.visibility; return vis.kind === 'groups' ? groups.filter(g => vis.groupIds.includes(g.id)) : []; };
-const isOfficial = (v: SavedView) => v.visibility.kind === 'official';
+const sharedGroups = (v: Pick<SavedView, 'visibility'>, groups: readonly GroupRecord[]) => { const vis = v.visibility; return vis.kind === 'groups' ? groups.filter(g => vis.groupIds.includes(g.id)) : []; };
+const isOfficial = (v: Pick<SavedView, 'visibility'>) => v.visibility.kind === 'official';
 
 function groupCapabilities(g: GroupRecord, a: Actor): GroupCapabilities {
   const canView = a.admin || isMember(g, a) || isManager(g, a);
@@ -92,11 +93,13 @@ type LocalSavedViewStoreOptions = {
   seed?: SavedViewSeed;
 };
 /** A stored view; `pending` is an edit of the approved official copy waiting for (re)approval, kept apart so readers keep the approved content. */
-type Stored = SavedView & { pending?: SavedView };
+type StoredContent = Exclude<SavedView, { kind: 'menu-view' }>
+  | (Omit<Extract<SavedView, { kind: 'menu-view' }>, 'panels' | 'panelsUnreadable'> & { panels?: unknown });
+type Stored = StoredContent & { pending?: StoredContent };
 /** The owner and an approver see the proposed change; everyone else the approved copy. */
-const shownTo = (v: Stored, a: Actor, owner: boolean): SavedView => { const { pending, ...published } = v; return pending && (owner || a.admin) ? pending : (published as SavedView); };
+const shownTo = (v: Stored, a: Actor, owner: boolean): StoredContent => { const { pending, ...published } = v; return pending && (owner || a.admin) ? pending : published; };
 /** Why this content is out of the actor's reach, or null. An unknown menu is denied, not waved through. The messages are shown as-is by the ViewSelector. */
-function denial(content: SavedViewDraft, a: Actor, perm: MenuPermissionsOf): string | null {
+function denial(content: SavedViewDraft | StoredContent, a: Actor, perm: MenuPermissionsOf): string | null {
   if (content.kind === 'custom-group') return null;
   const menuId = viewMenuId(content);
   if (menuId !== null) {
@@ -126,7 +129,15 @@ function evaluate(stored: Stored, a: Actor, groups: readonly GroupRecord[], perm
     canRevoke: v.kind !== 'custom-group' && a.admin && isOfficial(v) && canTransition(v.approval, 'revoke'),
     ...(canEdit ? {} : { reason: published ? '공식 등록본은 직접 편집할 수 없습니다. 변경하면 재승인을 요청합니다.' : '다른 사람의 뷰입니다. 복제해서 편집하세요.' }),
   };
-  return { view: shown, capabilities };
+  if (shown.kind !== 'menu-view') return { view: shown, capabilities };
+  const read = readMenuViewPanels(shown.panels);
+  const unreadable = read.status !== 'ok' && shown.panels !== null;
+  const view: SavedView = {
+    ...shown,
+    panels: read.status === 'ok' ? read.panels : null,
+    ...(unreadable ? { panelsUnreadable: true } : {}),
+  };
+  return { view, capabilities };
 }
 
 /** Plain lines for what an approval would publish: the fields a pending edit changes, or the plain request for a first publication. */
@@ -167,7 +178,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
     const r = readEnvelope<GroupRecord>(storage, savedViewGroupsStorageKey(), 'groups', storedGroup);
     return { future: r.future, groups: r.value ?? seed.groups() };
   };
-  const matchesKey = (view: SavedView, key: SavedViewKey) => key.menuId === null ? view.kind === (key.kind ?? 'condition-set') : !key.kind && view.kind === 'menu-view' && view.menuId === key.menuId;
+  const matchesKey = (view: StoredContent, key: SavedViewKey) => key.menuId === null ? view.kind === (key.kind ?? 'condition-set') : !key.kind && view.kind === 'menu-view' && view.menuId === key.menuId;
   const visibleIn = (storage: StoragePort, a: Actor, key: SavedViewKey, groups: readonly GroupRecord[]) =>
     seed.directory.flatMap(p => readBucket(storage, p.userId, key.menuId).views.filter(v => matchesKey(v, key)).map(v => ev(v, a, groups))).filter((x): x is SavedViewListItem => x !== null);
   const find = (storage: StoragePort, a: Actor, id: string, groups: readonly GroupRecord[]) => {
@@ -259,13 +270,14 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       const merged: Record<string, unknown> = { ...content, ...patch };
       // `savedScopeId: null` clears the recorded Scope (#2175); the stored shape has the key absent.
       if (merged['savedScopeId'] === null) delete merged['savedScopeId'];
-      const checked = validateSavedView(merged); if (!checked.ok) return checked;
+      const keepPanels = view.kind === 'menu-view' && !Object.hasOwn(patch, 'panels');
+      const checked = validateSavedView(keepPanels ? { ...merged, panels: null } : merged); if (!checked.ok) return checked;
       // The edit is judged like a save: a context the editor may not read is refused before anything is written.
-      if (denial(merged as SavedView, c.actor, menuPermissionsOf)) return fail('forbidden', 'context');
-      const next = { ...(merged as SavedView), id: view.id, ownerId: view.ownerId, version: view.version, updatedAt: view.updatedAt, visibility };
+      if (denial(checked.value, c.actor, menuPermissionsOf)) return fail('forbidden', 'context');
+      const next = { ...merged, id: view.id, ownerId: view.ownerId, version: view.version, updatedAt: view.updatedAt, visibility };
       // A personal edit of an official copy is a separate pending change: readers keep the approved copy, visibility is unchanged.
-      if (isOfficial(stored)) return commit(c, { ...stored, pending: { ...next, approval: 'pending' } as SavedView }, c.actor, c.groups);
-      return commit(c, { ...next, approval, ...(approvalNote === undefined ? {} : { approvalNote }) } as SavedView, c.actor, c.groups);
+      if (isOfficial(stored)) return commit(c, { ...stored, pending: { ...next, approval: 'pending' } as StoredContent }, c.actor, c.groups);
+      return commit(c, { ...next, approval, ...(approvalNote === undefined ? {} : { approvalNote }) } as StoredContent, c.actor, c.groups);
     }),
     remove: id => run(c => {
       const at = parseId(id); const views = at ? c.bucket(at.ownerId, at.menuId) : null;
@@ -312,7 +324,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       const shown = shownTo(t.value, c.actor, true);
       if (!canTransition(shown.approval, 'request')) return fail('invalid', 'approval-state');
       if (t.value.pending) return commit(c, { ...t.value, pending: { ...t.value.pending, approval: 'pending', approvalNote: undefined } }, c.actor, c.groups);
-      return commit(c, { ...t.value, approval: 'pending', approvalNote: undefined } as SavedView, c.actor, c.groups);
+      return commit(c, { ...t.value, approval: 'pending', approvalNote: undefined }, c.actor, c.groups);
     }),
     decide: (id, decision, note, { expectedVersion }) => run(c => {
       // The approval right gates the call (ADR-0099 §2); the pending state is checked after it, as the server does.
@@ -323,10 +335,10 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       if (!canTransition(shown.approval, action)) return fail('invalid', 'approval-state');
       const note1 = note?.trim() || undefined;
       const { pending, ...published } = stored;
-      if (decision === 'approve') return commit(c, { ...(pending ?? published), approval: 'approved', visibility: { kind: 'official' }, approvalNote: note1 } as SavedView, c.actor, c.groups);
+      if (decision === 'approve') return commit(c, { ...(pending ?? published), approval: 'approved', visibility: { kind: 'official' }, approvalNote: note1 }, c.actor, c.groups);
       // A rejected change never reaches readers: the approved copy stays and only the proposal carries the rejection.
       if (pending) return commit(c, { ...stored, pending: { ...pending, approval: 'rejected', approvalNote: note1 } }, c.actor, c.groups);
-      return commit(c, { ...published, approval: 'rejected', approvalNote: note1 } as SavedView, c.actor, c.groups);
+      return commit(c, { ...published, approval: 'rejected', approvalNote: note1 }, c.actor, c.groups);
     }),
     // Revoke republishes nowhere (policy undecided): the view goes back to private and carries a note the UI can show.
     revoke: (id, { expectedVersion }) => run(c => {
@@ -334,7 +346,7 @@ export function createLocalSavedViewStore({ getStorage = () => localStorage, loc
       const t = target(c, id, expectedVersion, () => c.actor.admin); if (!t.ok) return t;
       if (t.value.kind === 'custom-group') return fail('invalid', 'custom-group-approval');
       if (!isOfficial(t.value) || !canTransition(t.value.approval, 'revoke')) return fail('invalid', 'approval-state');
-      return commit(c, { ...(({ pending: _drop, ...rest }) => (void _drop, rest))(t.value), approval: 'none', visibility: { kind: 'private' }, approvalNote: REVOKE_NOTE } as SavedView, c.actor, c.groups);
+      return commit(c, { ...(({ pending: _drop, ...rest }) => (void _drop, rest))(t.value), approval: 'none', visibility: { kind: 'private' }, approvalNote: REVOKE_NOTE }, c.actor, c.groups);
     }),
     listApprovalRequests: async key => {
       const storage = getStorage(); const a = actorNow(); if (key.userId !== a.userId) return [];

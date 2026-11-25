@@ -939,6 +939,10 @@
             }
           ]
         },
+        "panelsUnreadable": {
+          "type": "boolean",
+          "const": true
+        },
         "tables": {
           "maxProperties": 20,
           "type": "object",

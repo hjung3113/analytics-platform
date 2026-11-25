@@ -201,6 +201,22 @@ describe('pending proposal and approved copy are separate', () => {
     expect(proposalChanges(official)).toEqual(['이름 "Mine" → "Proposed"', '레이아웃 변경']);
     expect(proposalChanges(view({ approval: 'pending' }))).toEqual(['공식 등록 신청: "Mine"']);
   });
+
+  it('classifies approved and proposed panels independently and compares their stored values', () => {
+    const content = { ...official.content, panels: { before: 1 } };
+    const pending = { name: official.name, content: { ...content, panels: [1] }, approval: 'pending', note: null } as const;
+    const legacy = view({ ...official, content, pending });
+    expect(savedViewOf(legacy, other, none)).toMatchObject({ panels: null, panelsUnreadable: true });
+    expect(savedViewOf(legacy, approver, none)).toMatchObject({ panels: null, panelsUnreadable: true });
+    expect(proposalChanges(legacy)).toEqual(['패널 변경']);
+    const cleared = view({ ...legacy, pending: { ...pending, content: { ...content, panels: null } } });
+    const ownerView = savedViewOf(cleared, owner, none);
+    expect(ownerView).toMatchObject({ approval: 'pending', panels: null });
+    expect(ownerView).not.toHaveProperty('panelsUnreadable');
+    expect(savedViewOf(cleared, other, none)).toMatchObject({ approval: 'approved', panels: null, panelsUnreadable: true });
+    expect(cleared.content.panels).toStrictEqual({ before: 1 });
+    expect(proposalChanges(cleared)).toEqual(['패널 변경']);
+  });
 });
 
 describe('visibility redaction', () => {
