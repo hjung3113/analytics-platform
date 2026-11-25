@@ -11,7 +11,7 @@ const fixture = (categorical: boolean): ScatterSpec => ({ kind: 'scatter', xUnit
   { id: 'unknown', x: null, y: null, category: 'a' },
 ], ...(categorical ? { xCategories: { order: ['a', 'b'], bounds: new Map([['a', { lower: 0, upper: 10 }], ['b', { lower: 0, upper: 10 }]]) } } : {}) });
 type Datum = { symbolSize?: number; itemStyle: { color: string; opacity?: number; borderWidth: number; borderColor: string; shadowBlur?: number; shadowColor?: string }; label?: { show: boolean; formatter: string }; emphasis?: { label: { show: boolean; formatter: string } } };
-type Series = { id?: string; symbolSize?: number; silent?: boolean; data: Datum[]; itemStyle?: { opacity: number }; markArea?: { itemStyle: { opacity: number } }; markLine?: { data: unknown[] } };
+type Series = { z?: number; symbolSize?: number; silent?: boolean; data: Datum[]; itemStyle?: { opacity: number }; markArea?: { itemStyle: { opacity: number } }; markLine?: { data: unknown[] } };
 type Option = { series: Series[]; tooltip: { formatter: (p: { seriesIndex: number; dataIndex: number }) => string } };
 
 it.each([false, true])('quiet styles normal/status points without backing or resting glyph (categorical=%s)', categorical => {
@@ -21,8 +21,8 @@ it.each([false, true])('quiet styles normal/status points without backing or res
   const high = o.series[0].data[1];
   expect(high.symbolSize).toBe(6); expect(high.itemStyle.opacity).toBe(0.6); expect(high.itemStyle.borderWidth).toBe(0);
   expect(high.label?.show).toBe(false); expect(high.emphasis?.label).toMatchObject({ show: true, formatter: '{status|■}' });
-  expect(o.series.some(series => series.id?.startsWith('__scatterStatusBacking'))).toBe(false);
-  const outlineIndex = o.series.findIndex(series => series.id?.startsWith('__scatterStatusOutline'));
+  expect(o.series.some(series => series.silent && series.z === 3)).toBe(false);
+  const outlineIndex = o.series.findIndex(series => series.silent && series.z === 4);
   expect(outlineIndex).toBeGreaterThan(0);
   expect(o.series[outlineIndex]).toMatchObject({ symbolSize: 6, silent: true, itemStyle: { opacity: 0.75 } });
   expect(o.series[outlineIndex].data[0].itemStyle).toMatchObject({ borderWidth: 1, borderColor: statusBorderColor(status, statusFill(high.itemStyle.color, 0.6)) });
@@ -64,7 +64,7 @@ it.each([false, true])('explicit default preserves legacy status options (catego
   const o = absent as Option;
   expect(o.series[0].symbolSize).toBeUndefined(); expect(o.series[0].data[0].itemStyle.opacity).toBeUndefined();
   expect(o.series[0].data[1].itemStyle.borderWidth).toBe(2); expect(o.series[0].data[1].label).toMatchObject({ show: true, formatter: '{status|■}' });
-  const outline = o.series.find(series => series.id?.startsWith('__scatterStatusOutline'))!;
+  const outline = o.series.find(series => series.silent && series.z === 4)!;
   expect(outline.data[0].itemStyle.borderWidth).toBe(2);
 });
 it('quiet also mutes a numeric scatter with no status decorator', () => {

@@ -19,7 +19,7 @@ function mount(spec: HeatmapSpec, chrome?: 'standard') {
   return { ...view, update: (next: HeatmapSpec) => view.rerender(wrap(next)) };
 }
 type Datum = { itemStyle: { color: string }; label?: { show: boolean; color: string; formatter: string; rich?: unknown } };
-const option = () => plot.option as { series: { id?: string; data: Datum[] }[]; tooltip: { formatter: (params: { dataIndex: number }) => string } };
+const option = () => plot.option as { series: { z?: number; data: Datum[] }[]; tooltip: { formatter: (params: { dataIndex: number }) => string } };
 
 it('names held values in the legend, tooltip, accessible description and table', async () => {
   mount({ ...heat, nullLabel: '비교 보류' });
@@ -212,7 +212,7 @@ it.each([undefined, 'standard'] as const)('uses category fills and legend with %
   expect(option().series[0].data.map(d => d.itemStyle.color)).toEqual([readColorToken('accent-success-soft'), readColorToken('accent-danger-soft')]);
   expect(screen.getByText('정상')).toBeVisible(); expect(screen.getByText('초과')).toBeVisible();
   expect(screen.queryByText('Medium')).toBeNull(); expect(screen.queryByText('Low')).toBeNull();
-  expect(option().series.some(s => s.id === '__statusOutline')).toBe(true);
+  expect(option().series.some(s => s.z === 4)).toBe(true);
   expect(option().series[0].data[0].label?.formatter).toContain('15 s');
   expect(option().series[0].data[0].label?.formatter).toContain('◆');
   expect(option().tooltip.formatter({ dataIndex: 0 })).toBe('A · Row: 15 s · 정상 · ◆ Check · Review');

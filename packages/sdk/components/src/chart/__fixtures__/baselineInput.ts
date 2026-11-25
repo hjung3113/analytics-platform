@@ -25,10 +25,10 @@ export const baselineInput = (extra: BaselineOverrides = {}): ChartOptionInput =
 }) as ChartOptionInput;
 };
 
-type StatusRingSeries = { id: string; data: unknown[][]; renderItem: (params: unknown, api: unknown) => { children: { ignore?: boolean; style: { stroke: string; lineWidth: number } }[] } };
+type StatusRingSeries = { type: string; z?: number; data: unknown[][]; renderItem: (params: unknown, api: unknown) => { children: { ignore?: boolean; style: { stroke: string; lineWidth: number } }[] } };
 /** The strokes the inset bar status layer draws for one piece (#2351): `[backing?, border]`, read from a 20×18px piece. */
 export function barStatusRing(option: unknown, slot = 0, piece = 0) {
-  const series = (option as { series: StatusRingSeries[] }).series.find(s => s.id === (slot ? `__statusBarBacking-${slot}` : '__statusBarBacking'));
+  const series = (option as { series: StatusRingSeries[] }).series.filter(s => s.type === 'custom' && s.z === 3)[slot];
   if (!series) return undefined;
   const row = series.data[piece];
   const api = { value: (d: number) => row[d], coord: ([a, b]: number[]) => [a * 20, b * 20], barLayout: () => [{ width: 18, offset: -9 }], size: () => [20, 20] };
