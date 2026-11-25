@@ -33,7 +33,7 @@ Layer boundaries live in `docs/agents/feature-implementation.md` → Implementat
 - Cover, when touched: permission policy, entity-link side effects, API error codes, validation paths, audit events, transaction behavior. Never rely on frontend checks as the source of authorization truth.
 
 - `src/modules/platform-port/__tests__/platform-conformance.integration.test.ts` runs the conformance kit over the real HTTP adapter via `app.inject`; an unserved port is a skipped test (the readiness table), never a pass.
-- A test importing those packages is excluded from `tsconfig.json` and type-checked by `tsconfig.platform-tests.json`; `typecheck` runs both — list a new such test in both.
+- A test importing those packages is excluded from `tsconfig.json` and type-checked by `tsconfig.platform-tests.json`; `typecheck` runs both — list a new such test in both. Reason: the image build installs them from their manifest only and its `tsc` would fail with TS2307, which only main push builds. `src/__tests__/image-build-tsconfig.test.ts` reads the manifest-only packages from `Dockerfile` and fails a PR that misses either list.
 - **`test:integration` is the gate; the default `test` proves only the non-DB path.**
   - Suites use `describe.skipIf(!runIntegration)`; `runIntegration` needs `DATABASE_URL`, `DATABASE_URL_MIGRATE` and (most files) `WORKSPACE_ID` — a bare `pnpm --filter @ap/platform-api test` skips every integration suite and touches no database.
   - An opt-out run is never a gate result.
