@@ -1,3 +1,4 @@
+import { isProduction } from '../context/drillValueLabel';
 type Slot = { value: unknown; apply: (value: never) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
 export type ViewSlots = ReturnType<typeof createScreenSlots>;
 function sameValue(left: unknown, right: unknown): boolean {
@@ -35,7 +36,7 @@ function createScreenSlots() {
       if (!keys) { keys = new Map(); fields.set(field, keys); }
       const entry = slot as Slot;
       const previous = keys.get(key) ?? [];
-      if (process.env.NODE_ENV !== 'production' && slot.single && previous.length > 0) {
+      if (!isProduction() && slot.single && previous.length > 0) {
         console.warn(`Saved view slot "${field}" accepts one registration per screen.`);
       }
       keys.set(key, [...previous, entry]);
