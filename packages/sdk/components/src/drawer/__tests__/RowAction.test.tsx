@@ -159,6 +159,17 @@ describe('RowAction optional body menu (#1930)', () => {
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
   });
 
+  it('requests close on a menu click in controlled mode and stays open until the parent closes it', () => {
+    const onOpenChange = vi.fn();
+    const { rerender } = render(rowAction({ open: true, onOpenChange }));
+    fireEvent.click(screen.getByRole('link', { name: 'Destination' }));
+    expect(onOpenChange).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+    expect(screen.getByRole('group', { name: 'Object links' })).toBeVisible();
+    rerender(rowAction({ open: false, onOpenChange }));
+    expect(screen.queryByRole('group', { name: 'Object links' })).not.toBeInTheDocument();
+  });
+
   it('keeps the focused trigger node and open menu across compact/full changes', async () => {
     const menu = <button type="button">Destination</button>;
     const view = render(<RowAction compact icon={PanelRight} label="Object links" text="Other screens" menu={menu} />);
