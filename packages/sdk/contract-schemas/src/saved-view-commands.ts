@@ -36,10 +36,12 @@ function withinDepth(value: unknown): boolean {
   return true;
 }
 
-/** Forbidden key at any depth of an object (array positions are not keys). */
+/** Forbidden key at any depth of an object (array positions are not keys). An array is walked by its elements only, the same walk as
+ *  `isJsonValue`, so an extra (non-JSON) property on an array never leads into a cycle (#2760). */
 function hasForbiddenKey(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false;
-  return Object.entries(value).some(([key, child]) => (!Array.isArray(value) && isForbiddenSavedViewWireKey(key)) || hasForbiddenKey(child));
+  if (Array.isArray(value)) return value.some(hasForbiddenKey);
+  return Object.entries(value).some(([key, child]) => isForbiddenSavedViewWireKey(key) || hasForbiddenKey(child));
 }
 const noForbiddenKeys = <T extends z.ZodType>(schema: T) => schema.refine((value) => !hasForbiddenKey(value), { message: 'transient or raw-data key must not be saved' });
 

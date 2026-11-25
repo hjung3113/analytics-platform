@@ -518,3 +518,11 @@ it('a view saved before the panel-instance format stays readable and is kept whe
   expect(visible(await s.list(key(ENG))).map(i => i.view.name)).toEqual(expect.arrayContaining(['옛 패널', '새 뷰']));
   expect(await s.save({ ...draft(), panels: { narrow: {} } } as unknown as SavedViewDraft)).toMatchObject({ ok: false, reason: 'invalid' });
 });
+
+it('an old panels value holding a non-finite number stays unreadable instead of turning into null on the next write (#2760)', async () => {
+  const s = store();
+  const saved = ok(await s.save(draft('무한')));
+  const raw = JSON.stringify({ schemaVersion: 1, views: [{ ...saved.view, panels: { n: 7 } }] }).replace('"n":7', '"n":1e400');
+  storage.setItem(savedViewsStorageKey(ENG, MENU), raw);
+  expect(await s.get(saved.view.id)).toBeNull();
+});

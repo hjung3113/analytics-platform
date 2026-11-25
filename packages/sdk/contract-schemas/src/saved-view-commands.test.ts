@@ -287,6 +287,13 @@ describe('saved-view commands', () => {
     expect(parse(withDraft({ ...condDraft, context: { condition: { axis: [] } } })).success).toBe(false);
   });
 
+  it('a cyclic extra property on a chart config array is refused without throwing, like the SDK (#2760)', () => {
+    const data: unknown[] & { annotation?: unknown } = [1]; data.annotation = data;
+    const cyclic = { ...menuDraft, panels: { version: 1, instances: [{ ...chart, inputs: [], source: { kind: 'chart', config: { data } } }] } };
+    expect(() => parse(withDraft(cyclic))).not.toThrow();
+    expect(validateSavedView(cyclic).ok).toBe(false);
+  });
+
   it('forbidden keys: same names as the SDK in chartOptions/layout/chart config (#2760), Scope-named keys allowed', () => {
     for (const k of ['hoverRow', 'zoomLevel', 'modalOpen', 'openModal', 'draftFilter', 'rows', 'rawData', 'engineState', 'dockLayout', 'scopeId', 'scope', 'rowsX', 'Rows']) {
       expect(isForbiddenSavedViewWireKey(k), k).toBe(isForbiddenSavedViewKey(k));

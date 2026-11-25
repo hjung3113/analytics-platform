@@ -57,6 +57,14 @@ describe('reading the legacy buckets (#1105)', () => {
     const read = readLegacyRows(storage, ACTOR);
     expect(read.rows.map(row => (row.draft as { panels: unknown }).panels)).toEqual([null, v1]);
   });
+  it('resuming a manifest written before the panel-instance format sends its unanswered old panels value as null (#2760)', async () => {
+    const legacy = { legacyKey: 'k1', draft: { schemaVersion: 1, kind: 'menu-view', name: 'v', menuId: 'home', menuSchemaVersion: 1, context: {}, page: [], chartOptions: {}, layout: null, panels: { narrow: {} } } };
+    const acked = { legacyKey: 'k0', draft: { ...legacy.draft, panels: { narrow: {} } } };
+    const storage = memory({ [importManifestKey(ACTOR)]: JSON.stringify({ schemaVersion: 1, actorId: ACTOR, token: 'tok-0', rows: [acked, legacy], defaults: [], receipts: { k0: { status: 'acked', id: 's0' } } }) });
+    const send = vi.fn(acceptAll);
+    expect(await runLocalImport(deps(storage, send))).toMatchObject({ status: 'done' });
+    expect(send.mock.calls[0]?.[0].rows.map((row) => (row.draft as { panels: unknown }).panels)).toEqual([null]);
+  });
   it('an absent bucket is zero rows and sends and writes nothing', async () => {
     const storage = memory();
     const send = vi.fn(acceptAll);

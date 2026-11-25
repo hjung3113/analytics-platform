@@ -48,12 +48,15 @@ function rowMatches(row: unknown, actorId: string, menuId: string | null): row i
   return (kind === 'menu-view' ? row['menuId'] : null) === menuId;
 }
 
-/** The owner-visible content (pending proposal before the published copy) as exactly the strict wire draft fields. A `panels` value saved
- *  before the panel-instance format (#2760) imports as `null` (the menu's declared panels), so one old row cannot refuse its batch. */
+/** A `panels` value saved before the panel-instance format (#2760) imports as `null` (the menu's declared panels), so one old row cannot
+ *  refuse its batch. Applied when a manifest is made and to the unanswered rows of a manifest written before the format existed. */
+const readablePanels = (panels: unknown): unknown => (readMenuViewPanels(panels).status === 'legacy' ? null : panels);
+
+/** The owner-visible content (pending proposal before the published copy) as exactly the strict wire draft fields. */
 function project(content: Record<string, unknown>): unknown {
   const common = { schemaVersion: content['schemaVersion'], kind: content['kind'], name: content['name'], context: content['context'] };
   if (content['kind'] === 'condition-set') return common;
-  return { ...common, menuId: content['menuId'], menuSchemaVersion: content['menuSchemaVersion'], page: content['page'], chartOptions: content['chartOptions'], layout: content['layout'], panels: readMenuViewPanels(content['panels']).status === 'legacy' ? null : content['panels'], ...(content['tables'] === undefined ? {} : { tables: content['tables'] }) };
+  return { ...common, menuId: content['menuId'], menuSchemaVersion: content['menuSchemaVersion'], page: content['page'], chartOptions: content['chartOptions'], layout: content['layout'], panels: readablePanels(content['panels']), ...(content['tables'] === undefined ? {} : { tables: content['tables'] }) };
 }
 
 /** The server refuses NUL and unpaired surrogates in `legacyKey`; a row carrying one stays in the browser and never joins a request, so it cannot invalidate its neighbours. */
@@ -170,7 +173,10 @@ export async function runLocalImport(deps: LocalImportDeps): Promise<ImportRepor
       let manifest: ImportManifest;
       const existing = loadManifest(storage, actorId);
       if (existing === 'corrupt') return report('unavailable');
-      if (existing) manifest = existing;
+      if (existing) {
+        const rows = existing.rows.map((row) => (existing.receipts[row.legacyKey] === undefined && row.draft.kind === 'menu-view' ? { ...row, draft: { ...row.draft, panels: readablePanels(row.draft.panels) } as SavedViewDraft } : row));
+        manifest = { ...existing, rows };
+      }
       else {
         const source = readLegacyRows(storage, actorId);
         if (source.rows.length === 0) return report('none');
