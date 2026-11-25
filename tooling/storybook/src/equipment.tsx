@@ -28,7 +28,7 @@ export const UTIL_PREVIOUS: ChartSeries[] = UTIL_SERIES.map(s => ({ ...s, id: `$
 export const ALARM_SERIES: ChartSeries[] = ['진공', '온도', '이송'].map((name, k) => ({ id: name, name, color: SERIES[k]!, unit: '건', kind: 'bar',
   points: EQUIPMENT.map(e => [e.id, e.id === 'EQ-0315' && k === 2 ? null : Math.round(e.alarms * [0.5, 0.3, 0.2][k]! + k)]) }));
 export const HEAT_CELLS: HeatmapCell[] = EQUIPMENT.flatMap((e, r) => DAYS.slice(0, 7).map((d, c) => ({ x: d.slice(5, 10), y: e.id, value: r === 1 && c === 3 ? null : Math.min(100, Math.round(e.util + 6 * Math.sin(r + c))) })));
-export const DOWNTIME: DonutSlice[] = ([['pm', '정기 보전', 38], ['wait', '자재 대기', 24], ['alarm', '알람 정지', 19], ['setup', '셋업', 11]] as const).map(([id, label, value]) => ({ id, label, value }));
+export const DOWNTIME: DonutSlice[] = ([['pm', '정기 보전', 38], ['wait', '자재 대기', 24], ['alarm', '알람 정지', 19], ['setup', '셋업', 11], ['verify', '품질 확인', 8]] as const).map(([id, label, value]) => ({ id, label, value }));
 export const SCATTER: ScatterPoint[] = [...EQUIPMENT.map(e => ({ id: e.id, label: e.id, x: e.cycle, y: e.util, group: e.process })), { id: 'EQ-0711', label: 'EQ-0711', x: null, y: 83.1, group: '세정' }];
 export const CYCLE_STATS = PROCESSES.map((p, i) => ({ id: p, label: p, stats: i === 2 ? null : { min: [118, 140][i]!, q1: [131, 152][i]!, median: [138, 160][i]!, q3: [143, 170][i]!, max: [152, 181][i]!, outliers: [[166], [196]][i]!, n: [42, 38][i]! } }));
 export const ALARM_CODES = ([['A-102', '진공 누설', 41], ['T-221', '챔버 과열', 27], ['M-310', '로봇 위치 오차', 18], ['A-118', '배기 압력', 9], ['T-205', '히터 단선', 6], ['M-302', '도어 인터록', 4]] as const)

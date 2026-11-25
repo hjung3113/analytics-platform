@@ -21,6 +21,7 @@ const SEGMENT_TEXT = {
   'chart-status-good': 'text-primary', 'chart-remainder': 'text-primary',
   'chart-blue': 'text-on-accent', 'chart-teal': 'text-on-accent', 'chart-green': 'text-on-accent', 'cat-teal': 'text-on-accent',
   'chart-series-1': 'text-on-accent', 'chart-series-2': 'text-on-accent', 'chart-series-4': 'text-on-accent',
+  'chart-series-5': 'text-on-accent',
   'cat-purple': 'text-on-accent', 'chart-status-warn': 'text-on-accent', 'chart-status-critical': 'text-on-accent',
 } as const satisfies Partial<Record<ThemeColorToken, 'text-primary' | 'text-on-accent'>>;
 export const SEGMENT_LABEL_FILLS = Object.keys(SEGMENT_TEXT) as ThemeColorToken[];

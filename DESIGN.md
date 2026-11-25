@@ -44,6 +44,8 @@ colors:
   chart-series-3-stroke: "#c8690a"
   chart-series-4: "#a23e8c"
   chart-series-4-stroke: "#a23e8c"
+  chart-series-5: "var(--chart-green)"
+  chart-series-5-stroke: "var(--chart-series-5)"
   chart-heat-seq-0: "#e3edfb"
   chart-heat-seq-1: "#afcdf5"
   chart-heat-seq-2: "#7faeec"
@@ -138,8 +140,8 @@ components:
 | `accent-neutral` / `accent-neutral-soft` | 미평가·보조 상태의 dot 및 배경 | 공유 `color-storm-cloud` / `color-deep-slate` 참조 |
 | `border-control` | 입력·select·checkbox 등 식별에 필요한 interactive 경계 | 공유 `color-storm-cloud` 참조 |
 | `surface-sunken` | 표 열 머리·검색 배경·progress track·recessed 보조 영역 | 공유 `color-deep-slate` 참조 |
-| `chart-series-1` / `chart-series-2` / `chart-series-3` / `chart-series-4` | 신규 chart kinds의 기본 범주 순서; 기존 chart token 이름도 유효 | 플랫폼 literal `#2e6bd9` / `#0b7f75` / `#c8690a` / `#a23e8c` (#2724) |
-| `chart-series-1-stroke` / `chart-series-2-stroke` / `chart-series-3-stroke` / `chart-series-4-stroke` | 얇은 line/outline mark와 line legend 전용; 카드에서 각 series fill과 같은 값, ≥3:1 | 플랫폼 literal `#2e6bd9` / `#0b7f75` / `#c8690a` / `#a23e8c` |
+| `chart-series-1` / `chart-series-2` / `chart-series-3` / `chart-series-4` / `chart-series-5` | 기본 범주 색 순서 | 1–4는 `#2e6bd9` / `#0b7f75` / `#c8690a` / `#a23e8c` (#2724), 5는 `chart-green` 별칭 (#2945) |
+| `chart-series-1-stroke` / `chart-series-2-stroke` / `chart-series-3-stroke` / `chart-series-4-stroke` / `chart-series-5-stroke` | 얇은 선·외곽선과 선 범례에 사용. 카드 대비 ≥3:1 | 각 계열의 채움과 같은 값. `chart-series-5-stroke`는 `chart-series-5` 별칭 |
 | `chart-heat-seq-0..4` | 값이 낮음에서 높음으로 가는 순차 heatmap ramp | 플랫폼 literal `#e3edfb` → `#afcdf5` → `#7faeec` → `#2b6bcb` → `#123a7a` |
 | `chart-heat-div-0..4` | 목표와 방향이 정의된 경우의 diverging heatmap ramp | 플랫폼 literal `#1b4fa3` → `#afcdf5` → `#f1f4f8` → `#e8796b` → `#c4281c` |
 | `chart-status-good` / `chart-status-warn` / `chart-status-critical` | 승인된 실제 판정의 상태색만; 작은 글자는 의미 label token을 사용 | `accent-success` / `accent-warn` / `accent-danger` alias |
@@ -277,7 +279,7 @@ Opt-in page density and embedded chart/table chrome follow [06 §12](docs/contra
 
 [06 §16](docs/contract/chart.md#16-analysis-chart-contract)과 [§26](docs/contract/platform-ui-contract.md#26-accessibility-baseline)의 Chart Frame/interaction 계약을 따른다. 모든 차트에는 **title, unit, textual summary, 동일 데이터 table 접근 경로**가 있다. legend는 이름+선 모양/기호+색을 제공한다. Tooltip은 hover와 keyboard focus에 대응하고 label/value/unit을 포함한다. passive mark에 가짜 pressed 동작을 넣지 않는다.
 
-새 chart kind의 기본 범주 순서는 `chart-series-1` → `chart-series-2` → `chart-series-3` → `chart-series-4`이며, 기존 `chart-blue` / `chart-teal` / `chart-green`도 계속 유효하다(`chart-purple`은 sdk-v0.48.0에서 제거, `chart-series-3`을 쓴다). series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. `chart-status-*`는 실제 판정일 때만 쓴다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 이전 기간의 `cat-amber` 선·외곽선 마크는 `cat-amber-stroke` 별칭을 쓴다. stroke 별칭은 EChart의 JS 매핑(`EChart.tsx` `strokeAliases`)으로만 쓰며 Tailwind 유틸리티가 아니다. 기준선은 `text-secondary` 점선과 label을 쓰고 null은 빗금으로 구분한다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
+기본 범주 색 순서는 `chart-series-1` → `chart-series-2` → `chart-series-3` → `chart-series-4` → `chart-series-5`다. 다섯 번째 자동색은 도넛에 적용한다. 기존 `chart-blue` / `chart-teal` / `chart-green`도 계속 유효하다(`chart-purple`은 sdk-v0.48.0에서 제거, `chart-series-3`을 쓴다). series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. `chart-status-*`는 실제 판정일 때만 쓴다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 이전 기간의 `cat-amber` 선·외곽선 마크는 `cat-amber-stroke` 별칭을 쓴다. stroke 별칭은 EChart의 JS 매핑(`EChart.tsx` `strokeAliases`)으로만 쓰며 Tailwind 유틸리티가 아니다. 기준선은 `text-secondary` 점선과 label을 쓰고 null은 빗금으로 구분한다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
 
 reference quality recipe는 coverage→blue, traceability→teal, consistency→green, missing/untraced→이름 있는 remainder, inconsistent→cat-amber다. 분자·분모를 detail/table에서 제공하며 donut/gauge의 기본 허용 범위는 [06 §24](docs/contract/platform-ui-contract.md#decorative-visualization)를 따른다. defect bar는 zero baseline·정수 ticks·날짜·단위를 갖고 max는 데이터로 산정한다. queue/progress는 완료율과 성공률을 분리하고 분모 없는 회색 remainder를 만들어내지 않는다. pipeline/queue/lifecycle의 도메인 의미는 Consumer 후보이며 반복 확인 전 범용 플랫폼 컴포넌트로 승격하지 않는다.
 
@@ -316,6 +318,10 @@ cellPadding: 4px 16px
 `StatusBadge` vocabulary는 **success / warning / danger / neutral / info**다. 실제 데이터 판정은 [06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 원천·관측 시각에 근거한다. success는 확인된 긍정, warning은 확인된 주의, danger는 확인된 실패, neutral은 미평가/보조, info는 정보 전달의 시각 역할이다. unknown·permission 제한·미수집을 화면 임의로 success/failure로 바꾸지 않는다.
 
 작은 badge text는 공유 `text-text-*-label`, neutral은 secondary이며 soft fill/dot은 별도 vivid accent를 쓴다. text+icon/shape로 의미를 함께 전달한다. 평범한 label에 새 상태 색을 만들지 않는다. 범주/제품 milestone label은 성공 판정과 다르다. 새로운 Tone은 플랫폼 디자인 결정으로 다룬다.
+
+`Badge`의 `secondary`는 `bg-surface-sunken` 바탕과 `border-border-subtle` 테두리를 쓴다. Hover는 `hover:bg-surface-sunken/80`으로 표시한다.
+
+`SeverityIndicator` 미지정 표시는 막대 폭에 맞춘 `min-w-4` 안에 가운데 정렬한 줄표(—)다. `text-sm`, `leading-tight`, `text-text-secondary`를 쓴다.
 
 ## Reference component bindings
 
@@ -428,7 +434,7 @@ v2 팔레트에서 카드 위 thin line mark의 `chart-blue`는 **2.79:1**, `cha
 
 **v3 팔레트(#2724)** 이후 stroke 별칭은 fill과 같은 값이며 모두 3:1을 넘는다: 카드 / 캔버스 `#eceff3` / sunken `#f8fafc` 기준 blue `#2e6bd9` 4.97 / 4.31 / 4.75, teal `#0b7f75` 4.88 / 4.23 / 4.66, 주황 `#c8690a`(`chart-series-3`·amber 자리) 3.83 / 3.32 / 3.66. 막대 안 값 label은 흰 글자 4.5:1을 넘는 blue·teal·green·magenta에 `text-on-accent`, 주황(흰 3.83:1, 진한 글자 4.63:1)과 회색 기타에 `text-primary`를 쓴다(`chartValueLabels.ts`). `chart-green` `#57822b`는 흰 글자 4.53:1을 넘도록 정한 값이다.
 
-`AnalysisChartFrame`은 blue/teal/`chart-series-1…4`/amber 시리즈 선, 선 범례 견본, 브러시 외곽선에 해당하는 stroke 별칭을 쓴다. 막대·영역 채움과 선 위 심볼은 원래 채움 색을 유지하고, 그래서 툴팁 마커(심볼 색을 따름)도 채움 색이다. `chart-green`은 얇은 선으로 쓰는 곳이 없어 stroke 값을 두지 않았다.
+`AnalysisChartFrame`은 blue/teal/`chart-series-1…5`/amber 시리즈 선, 선 범례 견본, 브러시 외곽선에 해당하는 stroke 별칭을 쓴다. 막대·영역 채움과 선 위 심볼은 원래 채움 색을 유지하고, 그래서 툴팁 마커(심볼 색을 따름)도 채움 색이다. 녹색 계열의 얇은 선은 `chart-series-5`를 지정해 `chart-series-5-stroke`를 쓴다. `chart-green`은 채움 이름으로 쓴다.
 
 ### Chart legend and series encoding — Decided (B, 2026-10-04)
 

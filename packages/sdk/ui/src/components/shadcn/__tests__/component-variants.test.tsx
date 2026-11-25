@@ -1,9 +1,17 @@
 /// <reference types="@testing-library/jest-dom" />
 import { render, screen } from '@testing-library/react';
+import { Badge } from '../badge.js';
 import { Popover, PopoverContent } from '../popover.js';
 import { RadioGroup, RadioGroupItem } from '../radio-group.js';
 
 describe('shadcn component variants', () => {
+  it('uses a sunken fill, subtle border and matching hover fill for a secondary Badge', () => {
+    render(<Badge variant="secondary">식각</Badge>);
+    expect(screen.getByText('식각')).toHaveClass(
+      'bg-surface-sunken', 'border-border-subtle', 'hover:bg-surface-sunken/80',
+    );
+  });
+
   it('applies compact spacing to a RadioGroup', () => {
     render(
       <RadioGroup value="direct" spacing="compact">

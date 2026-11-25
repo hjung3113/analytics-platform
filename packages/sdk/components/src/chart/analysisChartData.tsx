@@ -2,12 +2,11 @@ import { formatText, type Lang } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { topNData } from './topNBar';
 import { histogramData } from './histogram';
-import { seriesColors } from './analysisChartShared';
+import { seriesColors, unknownLabel } from './analysisChartShared';
 import { scatterData, boxPlotData, paretoData, type KindProjection } from './analysisChartKinds';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ChartStatus } from './chartStatus';
 import type { ChartSpec, HeatmapCell } from './AnalysisChart';
-import { unknownLabel } from './analysisChartShared';
 
 export type ChartRow = { status?: ChartStatus; categoryLabel?: string; key: string; label: string; value: number | null; x?: string; y?: string; share?: number; color?: ThemeColorToken; drill?: () => void };
 export const cellKey = (x: string, y: string) => JSON.stringify([x, y]);
@@ -20,6 +19,8 @@ export const chartColors = {
   unknown: 'chart-no-data', pattern: 'chart-no-data-pattern', selection: 'chart-selection-outline',
   series1: 'chart-series-1', series2: 'chart-series-2', series3: 'chart-series-3', series4: 'chart-series-4', remainder: 'chart-remainder',
 } as const satisfies Record<string, ThemeColorToken>;
+
+const donutSeriesColors = [...seriesColors, 'chart-series-5'] as const;
 
 /** One projection for plot, table, selection and CSV. Synthetic aggregate rows never invent drill IDs. */
 export function chartData(spec: ChartSpec, lang: Lang, unit = ''): { cells: HeatmapCell[]; rows: ChartRow[]; total: number; extended?: KindProjection } {
@@ -44,12 +45,11 @@ export function chartData(spec: ChartSpec, lang: Lang, unit = ''): { cells: Heat
       return { key: cellKey(c.x, c.y), label, ...(categoryLabel === undefined ? {} : { categoryLabel }), x: c.x, y: c.y, value: c.value, ...(c.status ? { status: c.status } : {}), drill: spec.onCellClick ? () => spec.onCellClick?.(c.x, c.y) : undefined };
     }) };
   }
-  let colorIndex = 0;
   const seen = new Set<string>();
   const slices = spec.slices.filter(slice => {
     if (slice.value < 0 || !Number.isFinite(slice.value) || seen.has(slice.id)) { chartDiagnostic('negative, non-finite or duplicate slice dropped'); return false; }
     seen.add(slice.id); return true;
-  }).map(slice => ({ ...slice, color: slice.color ?? seriesColors[colorIndex++ % seriesColors.length] }));
+  });
   const sum = slices.reduce((n, slice) => n + slice.value, 0);
   if (spec.total !== undefined && (!Number.isFinite(spec.total) || spec.total < sum)) chartDiagnostic('total is below sum or non-finite; using sum');
   const total = spec.total !== undefined && Number.isFinite(spec.total) ? Math.max(sum, spec.total) : sum;
@@ -57,7 +57,13 @@ export function chartData(spec: ChartSpec, lang: Lang, unit = ''): { cells: Heat
   // Stable descending order only when grouping is needed; otherwise retain caller order.
   const ordered = slices.length > max ? [...slices].sort((a, b) => b.value - a.value) : slices;
   const keep = ordered.length > max ? ordered.slice(0, max - 1) : ordered;
-  const rows: ChartRow[] = keep.map(slice => ({ key: JSON.stringify(['slice', slice.id]), label: slice.label, value: slice.value, color: slice.color, share: total ? slice.value / total * 100 : 0, drill: spec.onSliceClick ? () => spec.onSliceClick?.(slice.id) : undefined }));
+  let colorIndex = 0;
+  const rows: ChartRow[] = keep.map(slice => ({
+    key: JSON.stringify(['slice', slice.id]), label: slice.label, value: slice.value,
+    color: slice.color ?? donutSeriesColors[colorIndex++],
+    share: total ? slice.value / total * 100 : 0,
+    drill: spec.onSliceClick ? () => spec.onSliceClick?.(slice.id) : undefined,
+  }));
   if (ordered.length > max) {
     const value = ordered.slice(max - 1).reduce((n, slice) => n + slice.value, 0);
     rows.push({ key: 'other', label: formatText(COMPONENTS_MESSAGES.chartOther, lang), value, share: total ? value / total * 100 : 0, color: chartColors.remainder });

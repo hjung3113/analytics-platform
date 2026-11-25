@@ -9,6 +9,14 @@ const severities: Array<{ severity: SeverityEnum; expectedFilled: number }> = [
 ];
 
 describe('SeverityIndicator', () => {
+  it('shows an accessible, centered em dash in the same width as the bars for unset severity', () => {
+    render(<SeverityIndicator severity={null} />);
+    const indicator = screen.getByRole('img', { name: '심각도 미지정' });
+    expect(indicator).toHaveTextContent(/^—$/);
+    expect(indicator).toHaveClass('min-w-4', 'justify-center', 'text-sm', 'leading-tight', 'text-text-secondary');
+    expect(indicator.querySelector('[data-filled]')).toBeNull();
+  });
+
   severities.forEach(({ severity, expectedFilled }) => {
     describe(`severity="${severity}"`, () => {
       it(`renders ${expectedFilled} filled bar(s) and ${3 - expectedFilled} dimmed bar(s)`, () => {
