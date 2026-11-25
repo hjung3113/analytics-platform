@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { groupId, spaceId, type MenuView, type MenuViewPanels, type SavedViewSupport } from '@ap/contracts';
+import { followHeldSets, groupId, spaceId, type MenuView, type MenuViewPanels, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useSavedViewPanels, useSavedViewSupport } from '../../index';
 import { useSavedViews, type SavedViews } from '../../host';
 import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSpace } from '../../testing';
@@ -166,4 +166,43 @@ it('warns about a second registration without blocking the screen', async () => 
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   await mount({ registrations: 2 });
   expect(warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('panels'));
+});
+
+// #2862 (owner 2026-11-25): in another Scope a held set does not apply and follows instead; a held absolute range stays.
+const held: MenuViewPanels = {
+  version: 1,
+  instances: [
+    { id: 'trend', source: { kind: 'declared', panel: 'trend' }, inputs: [], outputs: [{ key: 'room', dimension: 'room', shape: 'set' }, { key: 'span', dimension: 'time', shape: 'range' }] },
+    { id: 'distribution', source: { kind: 'declared', panel: 'distribution' }, inputs: [
+      { key: 'room', from: 'trend.room', mode: 'hold', value: { shape: 'set', values: ['R1'] } },
+      { key: 'span', from: 'trend.span', mode: 'hold', value: { shape: 'range', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' } },
+    ], outputs: [] },
+  ],
+};
+const followed: MenuViewPanels = { ...held, instances: [held.instances[0]!, { ...held.instances[1]!, inputs: [{ key: 'room', from: 'trend.room', mode: 'follow' }, held.instances[1]!.inputs[1]!] }] };
+
+it('opens held sets of a view saved in another Scope as following, and lists them with the Site-bound keys (#2862)', async () => {
+  await mount({ saved: row({ panels: held, savedScopeId: 'OTHER' }) });
+  let excluded: readonly string[] | undefined;
+  await act(async () => { const outcome = await views.select('saved'); excluded = outcome.ok ? outcome.excludedByScope : undefined; });
+  expect(opened).toHaveBeenCalledExactlyOnceWith(followed);
+  expect(excluded).toEqual(['room']);
+  expect(views.scopeExcluded).toEqual({ savedScopeId: 'OTHER', keys: ['room'], panelKeys: ['room'] });
+  expect(views.crossScopeSave?.keys).toEqual(['room']);
+  // What the screen opened is the saved view as it applies here: not modified.
+  expect(views.state.modified).toBe(false);
+});
+
+it('keeps held sets of a view saved in the current Scope (#2862)', async () => {
+  await mount({ saved: row({ panels: held }) });
+  await act(async () => { await views.select('saved'); });
+  expect(opened).toHaveBeenCalledExactlyOnceWith(held);
+  expect(views.scopeExcluded).toBeNull();
+  expect(views.state.modified).toBe(false);
+});
+
+it('followHeldSets returns panels with no held set unchanged (#2862)', () => {
+  expect(followHeldSets(panels)).toEqual({ panels, keys: [] });
+  expect(followHeldSets(panels).panels).toBe(panels);
+  expect(followHeldSets(held)).toEqual({ panels: followed, keys: ['room'] });
 });

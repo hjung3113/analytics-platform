@@ -23,5 +23,6 @@ export { type LeaveRequest } from './platform/navigationGuard';
 export { type ScopeSelectorRequest } from './scope/scopeSelectorRequest';
 export { useCustomGroupList, type CustomGroupList } from './saved-view/useCustomGroupList';
 export { useSavedViewTableState } from './saved-view/useSavedViewTableState';
+export { useHoldsPanels } from './saved-view/useSavedViewPanels';
 export { registerLentPanel } from './registry/LentPanel';
 export { useOptionalAnalysisSelectionOutput, useAnalysisSelectionHoverTarget, useAnalysisSelectionSourceHighlighted } from './context/analysisSelection';

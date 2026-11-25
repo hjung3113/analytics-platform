@@ -1,7 +1,7 @@
 import { ChevronDown, Link2 } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useI18n } from '@ap/kernel';
-import { useHostPlatform } from '@ap/kernel/host';
+import { useHoldsPanels, useHostPlatform } from '@ap/kernel/host';
 import { useCopyLink } from '@ap/components';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Popover, PopoverAnchor, PopoverContent, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { buildShareLink, type ShareLinkFailure, type ShareLinkKind } from './shareLink';
@@ -10,7 +10,7 @@ const TEXT = {
   ko: {
     group: '링크 복사', conditions: '현재 조건 공유', menu: '메뉴 주소 복사', choose: '링크 복사 방식 선택',
     conditionsHelp: '적용된 조건의 링크를 복사합니다. 편집 중인 변경은 제외합니다.', menuHelp: '조건 없이 메뉴 주소만 복사합니다.',
-    conditionsDone: '현재 적용된 조건의 링크를 복사했습니다. 편집 중인 변경은 제외됩니다.', menuDone: '조건 없는 메뉴 주소를 복사했습니다.',
+    conditionsDone: '현재 적용된 조건의 링크를 복사했습니다. 편집 중인 변경은 제외됩니다.', held: '붙잡은 패널은 저장해야 전달됩니다.', menuDone: '조건 없는 메뉴 주소를 복사했습니다.',
     conditionsFailed: '현재 조건 링크를 복사하지 못했습니다.', menuFailed: '메뉴 주소를 복사하지 못했습니다.',
     tooLong: '조건 링크가 너무 길어 복사하지 못했습니다. 조건을 줄인 뒤 다시 시도하세요.',
     serialize: '조건 링크를 만들지 못했습니다. 적용된 조건을 확인한 뒤 다시 시도하세요.',
@@ -20,7 +20,7 @@ const TEXT = {
   en: {
     group: 'Copy link', conditions: 'Share current conditions', menu: 'Copy menu address', choose: 'Choose link to copy',
     conditionsHelp: 'Copies a link to the applied conditions. Changes being edited are excluded.', menuHelp: 'Copies the menu address only, without conditions.',
-    conditionsDone: 'Copied a link to the currently applied conditions. Changes being edited are excluded.', menuDone: 'Copied the menu address without conditions.',
+    conditionsDone: 'Copied a link to the currently applied conditions. Changes being edited are excluded.', held: 'Held panels travel only in a saved view.', menuDone: 'Copied the menu address without conditions.',
     conditionsFailed: 'Could not copy the current conditions link.', menuFailed: 'Could not copy the menu address.',
     tooLong: 'The conditions link is too long to copy. Reduce the conditions and try again.',
     serialize: 'Could not build the conditions link. Check the applied conditions and try again.',
@@ -48,6 +48,9 @@ export function ShareControl({ compact = false, align = 'end', overflowRef, rend
   const [busy, setBusy] = useState(false);
   const [fallback, setFallback] = useState<{ kind: ShareLinkKind; link: string } | null>(null);
   const copyConditions = useCopyLink(text.conditionsDone, { absolute: true, failureText: text.conditionsFailed, onFailure: link => setFallback({ kind: 'conditions', link }) });
+  // Held panel values never reach the address (ADR-0176), so the conditions link says how to pass them on (#2862).
+  const copyConditionsHeld = useCopyLink(`${text.conditionsDone} ${text.held}`, { absolute: true, failureText: text.conditionsFailed, onFailure: link => setFallback({ kind: 'conditions', link }) });
+  const holdsPanels = useHoldsPanels();
   const copyMenu = useCopyLink(text.menuDone, { absolute: true, failureText: text.menuFailed, onFailure: link => setFallback({ kind: 'menu', link }) });
   const failure = (kind: ShareLinkKind, reason: ShareLinkFailure) => reason === 'too-long' ? text.tooLong : kind === 'conditions' ? text.serialize : text.menuUnavailable;
 
@@ -72,7 +75,7 @@ export function ShareControl({ compact = false, align = 'end', overflowRef, rend
     pending.current = true; setBusy(true);
     try {
       setFallback(null);
-      await (kind === 'conditions' ? copyConditions : copyMenu)(href);
+      await (kind === 'menu' ? copyMenu : holdsPanels() ? copyConditionsHeld : copyConditions)(href);
     } finally { pending.current = false; setBusy(false); }
   };
 

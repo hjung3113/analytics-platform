@@ -900,4 +900,49 @@ describe('a view saved in another Scope (#2175)', () => {
     expect(dialog.textContent).toContain('공정, Line, PRC 그룹, 설비 그룹 조건');
     expect(dialog.textContent).not.toMatch(/lineNames|prcGroups|membershipBasis/);
   });
+
+  const heldView = (keys: string[], context: Record<string, unknown>) => viewOf({ id: 'p1', name: '붙잡은 뷰', kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, page: [], chartOptions: {}, layout: null, savedScopeId: 'MEM',
+    context: { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', ...context },
+    panels: { version: 1, instances: [
+      { id: 'src', source: { kind: 'declared', panel: 'src' }, inputs: [], outputs: keys.map(key => ({ key, dimension: key, shape: 'set' })) },
+      { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [], inputs: keys.map(key => ({ key, from: `src.${key}`, mode: 'hold', value: { shape: 'set', values: ['A'] } })) },
+    ] } } as never);
+  async function overwrite(user: ReturnType<typeof userEvent.setup>) {
+    act(() => platform.setGlobal({ roomNames: ['ETCH'] }));
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    await user.click(await screen.findByRole('menuitem', { name: '현재 뷰에 저장' }));
+    return (await screen.findByRole('alertdialog')).textContent ?? '';
+  }
+
+  it('names held panel sets by their input keys, and the confirmation says Context keys take this Scope values while panels keep their inputs (#2862 R2862C C4·C5)', async () => {
+    const user = userEvent.setup();
+    mount(createFakeViewStore([heldView(['room', 'constructor'], { roomNames: ['PHOTO'] })]), `/?scopeId=FDRY&${period}`);
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await pick(user, '붙잡은 뷰');
+    expect((await screen.findByText(/다른 Scope라 제외:/)).textContent).toContain('다른 Scope라 제외: 공정, room, constructor');
+    const dialog = await overwrite(user);
+    expect(dialog).toContain('저장해 둔 공정 값이 지워지고');
+    expect(dialog).toContain('이전 Scope에서 붙잡은 패널 값(room, constructor)은 지워지고, 지금 패널의 입력 방식이 저장됩니다.');
+  });
+
+  it('lists a panel key that shares a Context key name once (#2862 R2862C-2 C4)', async () => {
+    const user = userEvent.setup();
+    mount(createFakeViewStore([heldView(['roomNames'], { roomNames: ['PHOTO'] })]), `/?scopeId=FDRY&${period}`);
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await pick(user, '붙잡은 뷰');
+    const note = (await screen.findByText(/다른 Scope라 제외:/)).textContent ?? '';
+    expect(note.match(/roomNames/g)).toHaveLength(1);
+    expect(note).not.toMatch(/공정, 공정|roomNames, roomNames/);
+  });
+
+  it('a view with only held panel sets says the panels keep their inputs, not that this Scope values replace them (#2862 R2862C-2 C5)', async () => {
+    const user = userEvent.setup();
+    mount(createFakeViewStore([heldView(['room'], {})]), `/?scopeId=FDRY&${period}`);
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await pick(user, '붙잡은 뷰');
+    const dialog = await overwrite(user);
+    expect(dialog).toContain('현재와 다른 Scope에서 저장한 뷰입니다. 현재 Scope로 저장하면 그곳에서 붙잡은 패널 값(room)이 지워지고, 지금 패널의 입력 방식이 저장됩니다.');
+    expect(dialog).toContain('«새 뷰로 저장»');
+    expect(dialog).not.toContain('현재 Scope의 값으로 바뀝니다');
+  });
 });
