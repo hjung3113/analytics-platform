@@ -1,6 +1,6 @@
 import { type VocListItem, vocListItemSchema } from '@ap/feature-shared';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { VocRow } from '../VocRow';
 
 // ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ describe('<VocRow>', () => {
     expect(id.parentElement?.parentElement).toHaveClass('flex-1', 'min-w-0');
   });
 
-  let onSelect: ReturnType<typeof vi.fn>;
+  let onSelect: Mock<() => void>;
 
   beforeEach(() => {
     onSelect = vi.fn();

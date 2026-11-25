@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clientCorrelationId, filterRows, groupPage, sortAndPage, validateFilters, type ApiResponse, type GroupedPageResult, type TableQuery } from '@ap/contracts';
-import { isDevelopment } from '@ap/ui';
 import type { PlatformColumn, TableLoadPage } from './PlatformDataTable';
 import type { TableFilterField } from './filterFields';
 
@@ -36,7 +35,7 @@ export function useRowsSource<T>({ rows, rowsLoading, external, columns, filterF
   const ignored = active && external && (columns.some(c => c.filter || c.groupable) || (filterFields?.length ?? 0) > 0);
   const sortingIgnored = active && external && !urlSorting && columns.some(column => column.sortable !== false);
   useEffect(() => {
-    if (!(ignored || sortingIgnored) || !isDevelopment()) return;
+    if (!(ignored || sortingIgnored) || process.env.NODE_ENV === 'production') return;
     console.warn('[PlatformDataTable] `filter`, `filterFields` and `groupable` are ignored with `rows` and `externalPagination`: the menu owns the window, so the table cannot filter or group the whole result. Sorting is disabled without `urlState` because the menu must fetch the sorted window.');
   }, [ignored, sortingIgnored]);
   const shownColumns = useMemo(() => {

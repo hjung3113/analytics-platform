@@ -19,6 +19,6 @@
       "@ap/ui/theme": ["../ui/dist/theme/index.d.ts"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "node_modules/@ap/tsconfig/sdk-dist-env.d.ts"],
   "exclude": ["**/*.test.*", "**/__tests__/**", "**/__fixtures__/**", "src/test-setup.ts", "src/vitest.setup.ts"]
 }

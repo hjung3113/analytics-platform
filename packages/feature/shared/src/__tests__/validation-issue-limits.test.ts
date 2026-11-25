@@ -1,3 +1,5 @@
+// Node APIs in this test only; the package config keeps `types: []` so source stays Node-free (#3030).
+/// <reference types="node" />
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';

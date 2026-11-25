@@ -3,9 +3,9 @@
 // production imports. Call each function inside `vi.hoisted(async () => (await import('@ap/components/testing/engines')).fn())`,
 // before the test's static imports run. This module must never import the chart or dock implementation: the engine would load before the mock.
 import type { ComponentType } from 'react';
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
 
-export type CanvasProbe = { init: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn>; options: unknown[] };
+export type CanvasProbe = { init: Mock<(...args: unknown[]) => void>; dispose: Mock<() => void>; options: unknown[] };
 
 /** Replaces the `echarts/core` canvas with a fake instance. Returns the probe: `init` calls, `dispose` calls and every `setOption` payload. */
 export function mockEchartsCanvas(): CanvasProbe {

@@ -63,7 +63,7 @@ function Receiver({ selection }: { selection: Readonly<Record<string, unknown>> 
   </>;
 }
 
-function mount(selection: Readonly<Record<string, unknown>>, { permission = true, menuQuery = vi.fn(async () => answer), panelRegistry = registry } = {}) {
+function mount(selection: Readonly<Record<string, unknown>>, { permission = true, menuQuery = vi.fn(async (_request: MenuQuery, _signal?: AbortSignal) => answer), panelRegistry = registry } = {}) {
   const session = testSession(permission ? [receiving, owning, reading] : [receiving, owning]);
   const adapter = testAdapter({ session: () => session, menuQuery });
   window.history.replaceState(null, '', url);

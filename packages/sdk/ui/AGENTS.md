@@ -14,7 +14,7 @@ UI Primitive layer (06 §13) and the design-system CSS. It knows no platform con
 - In the platform, pass `closeLabel` when rendering `DialogContent`/`SheetContent`, and `listboxLabel`/`emptyText` for `Combobox`, from i18n.
 - The command palette uses `DialogContent scrim="palette"`; other `DialogContent` keep the default modal scrim.
 - To publish a shadcn component, export it from `src/index.ts` and update the list in `src/public-exports.test.ts` in the same change.
-- Transferred tests run under `vitest.config.ts` (`globals`, jest-dom setup `src/vitest.setup.ts`) on dependency versions that differ from the feature's (vitest 3, jsdom 26, lucide 1.x). Find the cause of a new failure before changing code.
+- Transferred tests run under `vitest.config.ts` (`globals`, jest-dom setup `src/vitest.setup.ts`) on dependency versions that differ from the feature's (jsdom 26, lucide 1.x). Find the cause of a new failure before changing code.
 
 ## Structure
 

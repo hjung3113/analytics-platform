@@ -132,7 +132,7 @@ function packageJson(i: MenuInputs): string {
       'react': '^19.3.1',
       'react-dom': '^19.3.1',
       'typescript': '^5.9.3',
-      'vitest': '^3.2.7',
+      'vitest': '^5.1.2',
     },
   };
   return `${JSON.stringify(body, null, 2)}\n`;

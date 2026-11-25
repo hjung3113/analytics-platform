@@ -33,6 +33,9 @@ function Harness(extra: Extra) {
   </PlatformProvider></I18nProvider>;
 }
 let restore: () => void;
+/** One element's own rect. The prototype method is already a spy (stubCompactTableGeometry), and spyOn on an instance returns that
+ * same spy (Vitest 4+), so an instance spy would move every element. */
+const placeAt = (element: Element, rect: Pick<DOMRect, 'left' | 'right' | 'width'>) => { element.getBoundingClientRect = () => rect as DOMRect; };
 beforeEach(() => { restore = stubCompactTableGeometry(800); vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('PointerEvent', MouseEvent); });
 afterEach(() => { cleanup(); restore(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 const ready = () => screen.findByRole('button', { name: 'mark' });
@@ -238,8 +241,8 @@ describe('declared column group width (#2418 N2)', () => {
   it('reveals a focused clipped cell without scrolling its clip box', async () => {
     render(<Harness columns={columns.map(c => c.id === 'c' ? { ...c, cell: () => <button>last cell</button> } : c)} />); await ready();
     const box = clip(body());
-    vi.spyOn(box, 'getBoundingClientRect').mockReturnValue({ left: 100, right: 420, width: 320 } as DOMRect);
-    vi.spyOn(screen.getByRole('button', { name: 'last cell' }).closest('[role=cell]')!, 'getBoundingClientRect').mockReturnValue({ left: 700, right: 1000, width: 300 } as DOMRect);
+    placeAt(box, { left: 100, right: 420, width: 320 });
+    placeAt(screen.getByRole('button', { name: 'last cell' }).closest('[role=cell]')!, { left: 700, right: 1000, width: 300 });
     fireEvent.focusIn(screen.getByRole('button', { name: 'last cell' }));
     expect(offset()).toBe(580);
     expect(box.scrollLeft).toBe(0);
@@ -253,10 +256,10 @@ describe('declared column group width (#2418 N2)', () => {
     const box = clip(body());
     const button = screen.getByRole('button', { name: 'edge action' });
     const at = (travel: number) => {
-      vi.spyOn(button.closest('[role=cell]')!, 'getBoundingClientRect').mockReturnValue({ left: 100 - travel, right: 700 - travel, width: 600 } as DOMRect);
-      vi.spyOn(button, 'getBoundingClientRect').mockReturnValue({ left: 620 - travel, right: 680 - travel, width: 60 } as DOMRect);
+      placeAt(button.closest('[role=cell]')!, { left: 100 - travel, right: 700 - travel, width: 600 });
+      placeAt(button, { left: 620 - travel, right: 680 - travel, width: 60 });
     };
-    vi.spyOn(box, 'getBoundingClientRect').mockReturnValue({ left: 100, right: 420, width: 320 } as DOMRect);
+    placeAt(box, { left: 100, right: 420, width: 320 });
     at(0);
     fireEvent.focusIn(button);
     expect(offset()).toBe(260);

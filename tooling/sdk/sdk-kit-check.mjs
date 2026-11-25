@@ -21,8 +21,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
  * - www.w3.org: XML namespace identifiers (SVG, XHTML, MathML).
  * - react.dev: React's error-decoder link in production error messages.
  * - app.invalid, x: base URLs @ap/kernel hands `new URL()` to parse a path (context/location.ts, MainScreenProvider.tsx).
+ * - tailwindcss.com: the URL in Tailwind's `/*!` license comment, which Vite 8's CSS minifier (Lightning CSS) keeps as a legal
+ *   comment (#3030).
  */
-export const ALLOWED_ORIGINS = Object.freeze(['http://www.w3.org', 'https://www.w3.org', 'https://react.dev', 'http://app.invalid', 'http://x']);
+export const ALLOWED_ORIGINS = Object.freeze(['http://www.w3.org', 'https://www.w3.org', 'https://react.dev', 'http://app.invalid', 'http://x', 'https://tailwindcss.com']);
 
 let step = 'setup';
 

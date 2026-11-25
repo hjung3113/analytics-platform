@@ -1,9 +1,9 @@
 import { useAnalysisSelectionChips, useAnalysisSelectionOutput } from '../../context/analysisSelection';
 import { useEquipmentSearch } from '../../scope/selection-ports';
-import { StrictMode, useLayoutEffect, useState, type ReactNode } from 'react';
+import { StrictMode, useLayoutEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { defineEndpoint, type ApiResponse, type EndpointSpec, type MenuQuery, type PlatformAdapter, type Session, type UsageEvent, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
 import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from '../platform';
@@ -63,7 +63,8 @@ function Probe({ id }: { id: string }) {
 }
 const at = (id: string) => seen.get(id)!;
 
-type Spies = { onChange: ReturnType<typeof vi.fn>; onLeave: ReturnType<typeof vi.fn> };
+type PaneHandlers = ComponentProps<typeof PaneScreenProvider>;
+type Spies = { onChange: Mock<NonNullable<PaneHandlers['onChange']>>; onLeave: Mock<NonNullable<PaneHandlers['onLeave']>> };
 /** A controlled pane: parent state follows `onChange` when `echo` is on, and stays put when it is off. */
 function Pane({ id, initial, spies, echo = true, children }: { id: string; initial: PaneScreen; spies: Spies; echo?: boolean; children?: ReactNode }) {
   const [screen, setScreen] = useState(initial);

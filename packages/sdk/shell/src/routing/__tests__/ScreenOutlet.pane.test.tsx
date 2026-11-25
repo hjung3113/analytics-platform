@@ -1,7 +1,7 @@
-import { StrictMode, useEffect, useState, type ReactNode } from 'react';
+import { StrictMode, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { House, ListTodo } from 'lucide-react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry, mountModule, type FeatureSlot } from '@ap/kernel';
 import { PaneScreenProvider, useHostPlatform, type PaneScreen } from '@ap/kernel/host';
 import { DetailPanelSlotProvider } from '@ap/ui';
@@ -87,8 +87,8 @@ function fixtureAdapter(permissions: readonly (Permission | ModuleScopedId)[], e
 type PaneSpec = { id: string; screen: PaneScreen; echo?: boolean };
 function mount(mainUrl: string, panes: PaneSpec[], adapter: PlatformAdapter, options: { strict?: boolean; outside?: ReactNode; slots?: Parameters<typeof PlatformProvider>[0]['slots'] } = {}) {
   window.history.replaceState(null, '', mainUrl);
-  const changes: Record<string, ReturnType<typeof vi.fn>> = {};
-  const leaves: Record<string, ReturnType<typeof vi.fn>> = {};
+  const changes: Record<string, Mock<NonNullable<ComponentProps<typeof PaneScreenProvider>['onChange']>>> = {};
+  const leaves: Record<string, Mock<NonNullable<ComponentProps<typeof PaneScreenProvider>['onLeave']>>> = {};
   function ControlledPane({ spec }: { spec: PaneSpec }) {
     const [current, setCurrent] = useState(spec.screen);
     changes[spec.id] ??= vi.fn();

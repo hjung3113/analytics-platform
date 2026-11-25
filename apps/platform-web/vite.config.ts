@@ -1,6 +1,6 @@
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import type { Plugin } from 'vite';
+import type { Plugin, Rolldown } from 'vite';
 import { runnerImport } from 'vite';
 import { defineConfig } from 'vitest/config';
 import tailwindcss from '@tailwindcss/vite';
@@ -27,6 +27,13 @@ const eqvCoreZod = (): Plugin => ({
   },
 });
 const BACKEND_ORIGIN = process.env.AP_BACKEND_ORIGIN ?? 'http://127.0.0.1:3011';
+
+/** Radix, TanStack Query, sonner and lucide ship a module-level "use client" directive for React Server Components; a client-only
+ * bundle ignores it, and Rolldown (Vite 8) warns once per module (#3030). Only that warning is dropped; every other log passes. */
+const dropUseClientDirective: NonNullable<Rolldown.InputOptions['onLog']> = (level, log, handler) => {
+  if (log.code === 'MODULE_LEVEL_DIRECTIVE' && log.message.includes('"use client"')) return;
+  handler(level, log);
+};
 
 /**
  * dev server (`development`), `--mode mock` and vitest → the mock assembly with DevTools. `vite --mode real` (dev server only) → this
@@ -64,6 +71,7 @@ export default defineConfig(async ({ mode, command, isPreview = false }) => {
     optimizeDeps: { exclude: ['zod'], include: ['echarts/core', 'echarts/charts', 'echarts/components', 'echarts/features', 'echarts/renderers'].map(entry => `@ap/components > ${entry}`) },
     resolve: { alias: { '@': FEATURE_SRC, ...assemblyAlias(choice) } },
     server: choice.kind === 'real-dev' ? { proxy: realDevProxy(BACKEND_ORIGIN) } : undefined,
+    build: { rolldownOptions: { onLog: dropUseClientDirective } },
     test: { environment: 'jsdom', setupFiles: ['./src/test-setup.ts'] },
   };
 });

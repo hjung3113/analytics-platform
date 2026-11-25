@@ -121,8 +121,9 @@ describe('page header yield order (#303)', () => {
       clientWidth: { value: 292 },
     });
     header.scrollLeft = scrollLeft;
-    vi.spyOn(header, 'getBoundingClientRect').mockReturnValue(new DOMRect(292, 0, 292, 50));
-    vi.spyOn(primary, 'getBoundingClientRect').mockReturnValue(new DOMRect(actionLeft, 0, 154, 30));
+    // Own per-element rects: the prototype is already a spy (headerWidths), and spyOn on an instance returns that same spy (Vitest 4+).
+    header.getBoundingClientRect = () => new DOMRect(292, 0, 292, 50);
+    primary.getBoundingClientRect = () => new DOMRect(actionLeft, 0, 154, 30);
 
     act(() => primary.focus());
 

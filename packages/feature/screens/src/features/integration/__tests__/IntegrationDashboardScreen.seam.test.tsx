@@ -1,5 +1,5 @@
 import { HOME_QUEUE_COPY } from '../../../lib/copy/home';
-import { type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
+import { type HostNavigate, type HostSeam, HostSeamProvider } from '../../../lib/host/host-seam';
 import {
   RECOVERY_VISUAL_ID,
   recoveryVisualDetail,
@@ -10,7 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi, type Mock } from 'vitest';
 import type { RecoveryPanelParts } from '../recovery/RecoveryPanel';
 import { IntegrationDashboardScreen } from '../routes/IntegrationDashboardScreen';
 
@@ -98,13 +98,13 @@ function record(href: string) {
 
 type Harness = {
   search: Record<string, string>;
-  navigate: ReturnType<typeof vi.fn>;
-  canLink: ReturnType<typeof vi.fn>;
+  navigate: Mock<HostNavigate>;
+  canLink: Mock<HostSeam['canLink']>;
   denied: Set<string>;
   hostCarriesReturn: boolean;
   parts: RecoveryPanelParts[];
-  notifyError: ReturnType<typeof vi.fn>;
-  renderRequestAccess: ReturnType<typeof vi.fn>;
+  notifyError: Mock<HostSeam['notifyError']>;
+  renderRequestAccess: Mock<(parts: RecoveryPanelParts) => ReactNode>;
 };
 let harness: Harness;
 beforeEach(() => {

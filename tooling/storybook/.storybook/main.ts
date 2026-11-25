@@ -1,6 +1,7 @@
 import type { StorybookConfig } from '@storybook/react-vite';
 import tailwindcss from '@tailwindcss/vite';
 import ts from 'typescript';
+import type { Rolldown } from 'vite';
 import { designSources } from './design-sources';
 
 // Inherited props worth a Props row on the @ap/ui wrappers: the public state and value props of Radix (the rest of Radix stays out)
@@ -10,6 +11,12 @@ const RADIX_PROPS = new Set(['open', 'defaultOpen', 'onOpenChange', 'modal', 'si
 // Not defaultValue/defaultChecked: every element's HTMLAttributes carries them, so they would add a row to each div-based part.
 const DOM_PROPS = new Set(['checked', 'value', 'disabled']);
 const SDK = new URL('../../../packages/sdk/', import.meta.url).pathname;
+/** Radix, TanStack Query, sonner and lucide ship a module-level "use client" directive for React Server Components; a client-only
+ * bundle ignores it, and Rolldown (Vite 8) warns once per module (#3030). Only that warning is dropped; every other log passes. */
+const dropUseClientDirective: NonNullable<Rolldown.InputOptions['onLog']> = (level, log, handler) => {
+  if (log.code === 'MODULE_LEVEL_DIRECTIVE' && log.message.includes('"use client"')) return;
+  handler(level, log);
+};
 
 const config: StorybookConfig = {
   framework: '@storybook/react-vite',
@@ -30,6 +37,10 @@ const config: StorybookConfig = {
         || (/[/@]types\/react\//.test(prop.parent.fileName) && DOM_PROPS.has(prop.name)),
     },
   },
-  viteFinal: vite => ({ ...vite, plugins: [...(vite.plugins ?? []), tailwindcss(), designSources()] }),
+  viteFinal: vite => ({
+    ...vite,
+    plugins: [...(vite.plugins ?? []), tailwindcss(), designSources()],
+    build: { ...vite.build, rolldownOptions: { ...vite.build?.rolldownOptions, onLog: dropUseClientDirective } },
+  }),
 };
 export default config;

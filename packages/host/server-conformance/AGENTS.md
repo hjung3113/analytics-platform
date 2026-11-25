@@ -7,7 +7,7 @@ Server-boundary conformance suite. It checks the whole `PlatformAdapter` the sam
 - Import only `@ap/contracts` and vitest. Never import `mock-server`, menus or React: the real server must be judged by the same yardstick as the mock, so the suite knows no implementation (lint preset `serverConformance`).
 - Add only checks derivable from declarations. Menu-specific data expectations (numbers, rows) belong to menu tests.
 - When a contract rule changes (06 §5, §19; package boundary §4), fix the checks here and the checklist document in the same PR.
-- vitest is a peer (`^3.2.7`). The platform API runs this suite on an older Vitest major; `describe`/`it`/`expect` attach to the running vitest instance at import time, so it works, and pnpm only warns about the mismatch. Upgrade the platform API's vitest first before using a vitest-3-only API here.
+- vitest is a peer (`^3.2.7 || ^4.0.0 || ^5.1.2`): the repo and the platform API run Vitest 5, and a consumer kit may still run Vitest 3 or 4 (#3030). `describe`/`it`/`expect` attach to the running vitest instance at import time. Use only APIs both majors share.
 
 ## Skips
 

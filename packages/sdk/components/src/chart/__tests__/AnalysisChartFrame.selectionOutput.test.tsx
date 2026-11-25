@@ -1,6 +1,6 @@
 import { PlatformPage } from '../../archetypes/PlatformPage';
 import { PanelWorkspace } from '../../workspace/PanelWorkspace';
-import { AnalysisPanelAddContext } from '../../workspace/PanelAdd';
+import { AnalysisPanelAddContext, type AnalysisPanelDraft } from '../../workspace/PanelAdd';
 import { InWorkspacePanelProvider } from '../../workspace/panelContext';
 import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
 import { stubCompactTableGeometry } from '../../testing';
@@ -8,7 +8,7 @@ import * as visibleArea from '../../visibleArea';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, ANALYSIS_SELECTION_MAX_VALUES } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
@@ -763,7 +763,7 @@ function chipPage(frame: 'live' | 'unmounted' | 'suspended', onAdd = vi.fn(), ho
   </PlatformProvider></I18nProvider>;
 }
 
-function ChartChipWorkspace({ frame, onAdd, hold = false }: { frame: 'live' | 'unmounted' | 'suspended'; onAdd: ReturnType<typeof vi.fn>; hold?: boolean }) {
+function ChartChipWorkspace({ frame, onAdd, hold = false }: { frame: 'live' | 'unmounted' | 'suspended'; onAdd: Mock<(draft: AnalysisPanelDraft) => void>; hold?: boolean }) {
   const { route } = usePlatform();
   const id = useId();
   if (route?.menu.id !== 'home') return null;

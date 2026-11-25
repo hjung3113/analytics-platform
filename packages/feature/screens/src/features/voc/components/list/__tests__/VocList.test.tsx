@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-quer
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type * as React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import { VocList } from '../VocList';
 
 const permissionStates = new Map<string, string>();
@@ -106,7 +106,7 @@ function present<T>(value: T | null | undefined): T {
 }
 
 describe('<VocList>', () => {
-  let onSelect: ReturnType<typeof vi.fn>;
+  let onSelect: Mock<(id: string) => void>;
 
   beforeEach(() => {
     onSelect = vi.fn();
