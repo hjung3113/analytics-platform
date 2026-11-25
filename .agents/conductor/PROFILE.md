@@ -133,6 +133,7 @@ Every step must exit 0 before commit.
 - **References:** root and `packages/AGENTS.md` and the touched folders' `AGENTS.md`; `docs/integration/platform-packages.md` §3; 06 §24; `docs/AGENTS.md`.
 - **Look for:** boundary leaks (Kernel, components or shell know about menus or mocks; reverse imports; menus using `@ap/*` internals; screen primitives outside `@ap/ui`; the frontend treated as the permission authority), wrong commonization, missing `$TURBO_ROOT$` turbo inputs, dead code (including `?variant=` leftovers), doc drift.
 - **Release blocker:** only boundary, 06 or permission violations that produce wrong behavior or data.
+- **Input:** `pnpm dlx fallow@3.48.0 architecture` (import cycles) and `pnpm dlx fallow@3.48.0 dupes` (copy-paste), config `.fallowrc.json`. Report only cycles and clones the slice added or touched; the main baseline on 2026-11-26 was 48 cycles, 21 of them one permissions ↔ voc/tasks barrel knot (#3033). Not a CI gate; no fallow skill, MCP or hook (#3032).
 
 ## Pre-go-live
 
