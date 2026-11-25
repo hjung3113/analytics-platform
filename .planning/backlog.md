@@ -53,6 +53,7 @@
 
 ## 작은 후속 (확인된 것)
 
+- **구현 안 함 — HW Time 자체 추세의 `MM-DD` 날짜가 Configuration에서 빌린 추세의 연도 있는 후보와 안 맞음 (#2763 리뷰 R2 C11):** HW Time 자체 추세의 `trendRange`(`MM-DD`)가 메뉴 간 전달로 Configuration `hwDays`에 실리면, 빌린 추세가 `YYYY-MM-DD` 후보를 보고해 가용성 불일치로 강조가 빠진다. 이유: 자체 추세를 연도 있는 값으로 바꾸면 기존 HW Time 링크·저장 값이 바뀌고(화면 시험 B), 받는 쪽 정규화는 SDK 가용성 비교 변경이라 이 PR 범위 밖이다. 다시 열 조건: HW Time → Configuration 날짜 전달이 실제로 쓰이거나, 분석 선택 날짜 값의 연도 규칙을 정할 때.
 - **미구현 — RCC 수동 Step 매칭·NonProcess View·L3/L4 (#2496, 닫힘):** v0.45 RCC 시간 비교는 같은 구성 유형만 비교하고 다른 구성은 «비교 보류»로 둔다. 이유: 매칭 승인·감사·권한과 NonProcess·하위 계층은 실데이터 구조 확인 뒤 정한다. 다시 여는 조건: [#2694](https://github.com/hjung3113/analytics-platform/issues/2694)로 실데이터가 연결되고 소유자가 다음 RCC 범위를 정할 때.
 
 - **구현 안 함 — Finding 상세 «근거 VOC»의 VOC 읽기 상한(#2531 리뷰 C3):** 근거 링크마다 `GET /vocs/:id`를 한 번 읽는다(상한 없음, 30초 캐시). 이유: `vocEntityLinkProvider.getInternalSummary`가 `null`이고 `entityLinkTargetSummarySchema`에 `voc`가 없어 링크 응답만으로 제목을 낼 수 없다. 다시 여는 조건: 한 Finding의 근거 링크가 수십 건을 넘는 실사용이 보이거나, entity-links가 VOC 요약을 줄 때.

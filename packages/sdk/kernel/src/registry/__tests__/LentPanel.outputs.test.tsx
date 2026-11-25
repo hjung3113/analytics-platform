@@ -145,18 +145,28 @@ describe('lent panel outputs (#2763)', () => {
   });
 
   it('gives the lent writer a setPage that refuses any key the binding does not map', () => {
-    const calls: unknown[] = [];
-    const receiver = { setPage: (patch: unknown) => calls.push(patch) } as unknown as Parameters<typeof lentPanelOutputs>[0];
+    const calls: unknown[][] = [];
+    // A full receiver double: the output object must not carry any of its other writes (R2 C1).
+    const receiver = {
+      setPage: (...args: unknown[]) => calls.push(args), navigate: () => true, setGlobal: () => {}, resetContext: () => {},
+      route: null, pageParam: () => null, pageParams: () => [], registry: {},
+    } as unknown as Parameters<typeof lentPanelOutputs>[0];
     const lifetime = new AbortController();
-    const outputs = lentPanelOutputs(receiver, source, { picked: { key: 'days' } }, lifetime.signal)!;
-    outputs.receiver.setPage({ days: '2026-09-21/2026-09-23' });
+    let current = true;
+    const outputs = lentPanelOutputs(receiver, source, { picked: { key: 'days' } }, lifetime.signal, () => current)!;
+    (outputs.receiver.setPage as (...args: unknown[]) => void)({ days: '2026-09-21/2026-09-23' }, { replace: true, focus: 'main' });
+    // A session or revision change ends writes at call time, before React commits (R2 C2).
+    current = false;
+    expect(outputs.alive()).toBe(false);
+    outputs.receiver.setPage({ days: '2026-09-20/2026-09-21' });
+    current = true;
     expect(() => outputs.receiver.setPage({ other: 'x' })).toThrow(/only the receiving keys/);
     expect(() => outputs.receiver.setPage({ days: null, other: 'x' })).toThrow(/only the receiving keys/);
     expect(Object.keys(outputs.receiver).sort()).toEqual(['pageParam', 'pageParams', 'registry', 'route', 'setPage']);
     lifetime.abort();
     outputs.receiver.setPage({ days: '2026-09-22/2026-09-23' });
     expect(outputs.alive()).toBe(false);
-    expect(calls).toEqual([{ days: '2026-09-21/2026-09-23' }]);
+    expect(calls).toEqual([[{ days: '2026-09-21/2026-09-23' }]]);
     expect(lentPanelOutputs(receiver, source, undefined, lifetime.signal)).toBeNull();
   });
 

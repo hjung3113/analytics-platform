@@ -68,7 +68,7 @@ export const LentPanelPlatformContext = createContext<HostPlatform | null>(null)
  * `alive` turns false when the binding ends, so a callback kept from an earlier render cannot write.
  */
 export type LentPanelOutputs = {
-  receiver: Pick<HostPlatform, 'route' | 'pageParam' | 'pageParams' | 'registry' | 'setPage'>;
+  receiver: Pick<HostPlatform, 'route' | 'pageParam' | 'pageParams' | 'registry'> & { setPage: (patch: Parameters<HostPlatform['setPage']>[0]) => void };
   writerId: string;
   keys: ReadonlyMap<string, string>;
   alive: () => boolean;

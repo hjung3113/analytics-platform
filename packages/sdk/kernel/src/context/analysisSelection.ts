@@ -303,7 +303,7 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   const origin = menu?.analysisSelectionInbound?.length ? readSelectionOrigin(platform) : null;
   const active: Omit<AnalysisSelectionChip, 'after'>[] = [];
   const reports = new Map<string, AnalysisSelectionAvailability>();
-  const parentByPanel = new Map<string, string>();
+  const filtersByPanel = new Map<string, string[]>();
   for (const [key, { shape, dimension, label, writers, readers, inbound }] of channels) {
     const [writer] = writers;
     const values = pageParams(key);
@@ -323,10 +323,11 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
       ...(matchesOrigin && { arrival: { href: origin.href, ...(menuLabel && { origin: { menuLabel } }) } }),
     });
     for (const reader of readers) {
-      if (reader.use === 'filter' && !parentByPanel.has(reader.panelId)) parentByPanel.set(reader.panelId, key);
+      if (reader.use === 'filter') filtersByPanel.set(reader.panelId, [...filtersByPanel.get(reader.panelId) ?? [], key]);
     }
   }
-  const result = orderChips(active.map(chip => ({ ...chip, after: chip.source ? parentByPanel.get(chip.source.panelId) ?? null : null })));
+  // A chip follows the first other active key its source filters by; a writer that also filters by its own key is not its own parent (#2763 R2 C12).
+  const result = orderChips(active.map(chip => ({ ...chip, after: chip.source ? filtersByPanel.get(chip.source.panelId)?.find(key => key !== chip.key) ?? null : null })));
   // Page values can change within this edit owner until the drill source changes.
   const owner = useMemo(() => ({
     menu, pathname, paneId, session, revision, scopeId, address,

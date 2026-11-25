@@ -56,15 +56,18 @@ export function lentPanelPlatform(receiver: HostPlatform, inputs: LentPanelProps
  * receiving keys the binding maps, while the binding lives. Every other write (URL, Context, drill, draft) stays as in
  * `lentPanelPlatform`.
  */
-export function lentPanelOutputs(receiver: HostPlatform, writerId: string, outputs: Readonly<Record<string, { key: string }>> | undefined, signal: AbortSignal): LentPanelOutputs | null {
+export function lentPanelOutputs(receiver: HostPlatform, writerId: string, outputs: Readonly<Record<string, { key: string }>> | undefined, signal: AbortSignal, current: () => boolean = () => true): LentPanelOutputs | null {
   const keys = new Map(Object.entries(outputs ?? {}).map(([source, target]) => [source, target.key]));
   if (!keys.size) return null;
   const allowed = new Set(keys.values());
-  const setPage: HostPlatform['setPage'] = (patch, options) => {
-    if (signal.aborted) return;
+  // `current` is the binding's call-time session and revision check, shared with its queries (R2 C2).
+  const alive = () => !signal.aborted && current();
+  // Only the patch travels: no history, focus or other write option of the receiver (R2 C1).
+  const setPage = (patch: Parameters<HostPlatform['setPage']>[0]) => {
+    if (!alive()) return;
     if (!Object.keys(patch).every(key => allowed.has(key))) throw new Error('A lent panel writes only the receiving keys its binding maps');
-    receiver.setPage(patch, options);
+    receiver.setPage(patch);
   };
   const { route, pageParam, pageParams, registry } = receiver;
-  return { receiver: { route, pageParam, pageParams, registry, setPage }, writerId, keys, alive: () => !signal.aborted };
+  return { receiver: { route, pageParam, pageParams, registry, setPage }, writerId, keys, alive };
 }

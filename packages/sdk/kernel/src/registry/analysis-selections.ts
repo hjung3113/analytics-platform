@@ -10,7 +10,7 @@ type Channel = NonNullable<SelectionOutput> & {
 /** A lent panel whose outputs write receiver keys (`outputs`: source output key → receiver page key). */
 export type LentSelectionWriter = {
   readonly binding: Pick<PanelBinding, 'source' | 'outputs' | 'page'>;
-  readonly source: Pick<PanelDeclaration, 'title' | 'outputs' | 'queryInputs' | 'displayInputs'>;
+  readonly source: Pick<PanelDeclaration, 'title' | 'outputs' | 'queryInputs'>;
 };
 
 /**
@@ -54,8 +54,9 @@ export function menuAnalysisSelections(menu: Pick<MenuMeta, 'panels' | 'analysis
     }
   }
   for (const { binding, source } of lent) {
-    // A lent panel that reads a receiver selection key (a page binding) is its reader, so a filter cycle through it is seen (R C6).
-    for (const { key, selection: use } of [...source.queryInputs.page ?? [], ...source.displayInputs.page ?? []]) {
+    // A lent panel that reads a receiver selection key (a page binding; only query inputs can be bound) is its reader, so a
+    // filter cycle through it is seen (R C6).
+    for (const { key, selection: use } of source.queryInputs.page ?? []) {
       const input = binding.page?.[key];
       if (use !== undefined && input?.kind === 'page') channels.get(input.key)?.readers.push({ panelId: binding.source, use });
     }

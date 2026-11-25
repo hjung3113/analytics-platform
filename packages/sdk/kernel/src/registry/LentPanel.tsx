@@ -166,13 +166,18 @@ function LentPanelSource({ resolved, actions }: {
   // Revoke before layout effects can use a previous callback. StrictMode's layout-effect replay does not end this binding.
   useInsertionEffect(() => () => controller.abort(), [controller]);
   const platform = useMemo(() => lentPanelPlatform(receiverPlatform, queryInputs), [receiverPlatform, queryInputs]);
-  // Writes end with the binding lifetime, as its queries do (#2763 R C2).
-  const outputs = useMemo(() => lentPanelOutputs(receiverPlatform, lending.source, lending.outputs, controller.signal), [receiverPlatform, lending, controller]);
-  const outputKeys = useMemo(() => outputs ? [...outputs.keys.keys()] : undefined, [outputs]);
   const query = useMemo(() => ({
     source, context: structuredClone(queryInputs.context), instanceId: `${instanceId}:${generation}`, signal: controller.signal,
     current: () => !controller.signal.aborted && adapter.session() === session && currentRevision?.() === revision,
   }), [source, queryInputs, instanceId, generation, controller, adapter, session, currentRevision, revision]);
+  // Writes end with the binding, with any input change (display too, without cancelling queries) and, at call time, with a
+  // session or revision change, so a callback kept from an earlier render cannot write (#2763 R C2, R2 C2).
+  const outputBinding = useStable({ controller, inputs }, shallowEqual);
+  const { output: outputLifetime } = useMemo(() => ({ binding: outputBinding, output: new AbortController() }), [outputBinding]);
+  useInsertionEffect(() => () => outputLifetime.abort(), [outputLifetime]);
+  const outputs = useMemo(() => lentPanelOutputs(receiverPlatform, lending.source, lending.outputs, outputLifetime.signal, query.current),
+    [receiverPlatform, lending, outputLifetime, query]);
+  const outputKeys = useMemo(() => outputs ? [...outputs.keys.keys()] : undefined, [outputs]);
   return <LentPanelActionsContext.Provider value={actions}>
     <LentPanelQueryContext.Provider value={query}>
       <LentPanelPlatformContext.Provider value={platform}>
