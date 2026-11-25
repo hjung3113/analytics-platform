@@ -37,16 +37,21 @@ export type ChartReferenceOptions = {
 type Theme = ReturnType<typeof chartTheme>;
 type MarkLine = NonNullable<ScatterSeriesOption['markLine']>;
 type MarkArea = NonNullable<ScatterSeriesOption['markArea']>;
+// ECharts MarkLineModel defaults to two decimals before MarkLineView checks the axis extent.
+const MARK_LINE_PRECISION = 2;
 
 export function isFiniteReferenceMark(mark: ChartReferenceMark) {
   return mark.type === 'line' ? Number.isFinite(mark.value) : Number.isFinite(mark.from) && Number.isFinite(mark.to);
 }
 
-export function referenceValues(marks: readonly ChartReferenceMark[] | undefined, axis: ChartReferenceAxis, { whenBandDeclared = false } = {}): number[] {
+export function referenceValues(marks: readonly ChartReferenceMark[] | undefined, axis: ChartReferenceAxis, { bandExtent }: { bandExtent?: 'required' | 'optional' } = {}): number[] {
   const valid = (marks ?? []).filter(mark => mark.axis === axis && isFiniteReferenceMark(mark));
-  // Leave the legacy line-only extents intact on axes that opt in with a band.
-  if (whenBandDeclared && !valid.some(mark => mark.type === 'band')) return [];
-  return valid.flatMap(mark => mark.type === 'line' ? [mark.value] : [mark.from, mark.to]);
+  const hasBandExtent = bandExtent !== undefined && valid.some(mark => mark.type === 'band');
+  if (bandExtent === 'required' && !hasBandExtent) return [];
+  return valid.flatMap(mark => {
+    if (mark.type === 'band') return [mark.from, mark.to];
+    return hasBandExtent ? [mark.value, Number(mark.value.toFixed(MARK_LINE_PRECISION))] : [mark.value];
+  });
 }
 
 type FrameMarkLine = { y: number; label: string; unit?: string; metricVersion?: string };

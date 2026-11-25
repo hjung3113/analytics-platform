@@ -3,10 +3,14 @@ import * as echarts from 'echarts/core';
 import { BarChart, BoxplotChart, CustomChart, LineChart, ScatterChart } from 'echarts/charts';
 import { BrushComponent, DataZoomComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
 import { SVGRenderer } from 'echarts/renderers';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it, vi } from 'vitest';
 import type { ParetoSpec, ScatterSpec } from '../AnalysisChart';
-import { boxPlotData, paretoData, scatterData } from '../analysisChartKinds';
+import { boxPlotData, KindLegend, paretoData, scatterData } from '../analysisChartKinds';
 import { buildChartOption, resolveChartPalette } from '../buildChartOption';
+import { projectChartBounds } from '../chartBounds';
+import { ChartBoundsLegend } from '../ChartBoundsLegend';
 import { histogramData } from '../histogram';
 import { topNData } from '../topNBar';
 import { chartReferenceLineTheme, token } from '../EChart';
@@ -37,9 +41,9 @@ function frameOption(referenceMarks: ChartReferenceMark[], horizontal: boolean) 
 it.each([
   { name: 'horizontal Frame', axis: 'x', option: (marks: ChartReferenceMark[]) => frameOption(marks, true) },
   { name: 'vertical Frame', axis: 'y', option: (marks: ChartReferenceMark[]) => frameOption(marks, false) },
-  { name: 'histogram', axis: 'y', option: (referenceMarks: ChartReferenceMark[]) => histogramData({
+  ...(['x', 'y'] as const).map(axis => ({ name: 'histogram', axis, option: (referenceMarks: ChartReferenceMark[]) => histogramData({
     kind: 'histogram', xLabel: 'Duration', xUnit: 's', bins: [{ start: 1, end: 5, count: 4 }], referenceMarks,
-  }, 'en').option([]) },
+  }, 'en').option([]) })),
   { name: 'box plot', axis: 'y', option: (referenceMarks: ChartReferenceMark[]) => boxPlotData({
     kind: 'boxPlot', whisker: 'minMax',
     groups: [{ id: 'a', label: 'A', stats: { min: 4, q1: 4, median: 5, q3: 6, max: 6 } }], referenceMarks,
@@ -47,34 +51,59 @@ it.each([
   { name: 'Top N', axis: 'x', option: (referenceMarks: ChartReferenceMark[]) => topNData({
     kind: 'topNBar', items: [{ id: 'a', label: 'A', value: 6, colorToken: 'chart-blue' }], referenceMarks,
   }, 'en', 's').option([]) },
-] as const)('renders out-of-data bands and a line on the $name numeric axis', ({ axis, option }) => {
+] as const)('renders out-of-data bands and fractional lines on the $name $axis axis', ({ axis, option }) => {
   const svg = renderOption(option([
     { type: 'band', axis, from: 10, to: 20, label: 'High band' },
     { type: 'band', axis, from: -20, to: -10, label: 'Low band' },
-    { type: 'line', axis, value: 30, label: 'Outside line' },
+    { type: 'line', axis, value: -30.126, label: 'Low line' },
+    { type: 'line', axis, value: 30.126, label: 'High line' },
   ]));
-  for (const label of ['High band', 'Low band', 'Outside line']) expect(svg).toContain(`>${label}</text>`);
+  const labels = ['High band', 'Low band', 'Low line', 'High line'];
+  expect(labels.filter(label => svg.includes(`>${label}</text>`))).toEqual(labels);
 });
 
-it('keeps declared bands and scatter bounds at their original color when reference lines change color', () => {
+it.each(['Frame', 'category scatter'] as const)('keeps $0 bound strokes, fills and legend unchanged when reference lines are restyled', kind => {
   const lineColor = token('chart-series-1');
   const boundColor = token('text-secondary');
-  const base = chartReferenceLineTheme.base;
-  const restyle = vi.spyOn(chartReferenceLineTheme, 'base').mockImplementation(() => base(lineColor));
-  try {
-    const svg = renderOption(scatterData({
+  const referenceMarks: ChartReferenceMark[] = [
+    { type: 'band', axis: 'y', from: 10, to: 20, label: 'Operating range' },
+    { type: 'line', axis: 'y', value: 5, label: 'Target' },
+  ];
+  const bounds = new Map([['R1', { lower: 1, upper: 7 }]]);
+  function render() {
+    if (kind === 'Frame') {
+      const input = baselineInput({ horizontal: false, bounds, referenceMarks });
+      const option = buildChartOption({ ...input, palette: resolveChartPalette(input.displayed) });
+      return { svg: renderOption(option), legend: renderToStaticMarkup(createElement(ChartBoundsLegend, { bounds: projectChartBounds(input) })) };
+    }
+    const projection = scatterData({
       kind: 'scatter', xLabel: 'Cell', yLabel: 'Duration', xUnit: 's', points: [{ id: 'a', category: 'a', x: null, y: 4 }],
-      xCategories: { order: ['a'], bounds: new Map([['a', { lower: 1, upper: 7 }]]) },
-      referenceMarks: [
-        { type: 'band', axis: 'y', from: 10, to: 20, label: 'Operating range' },
-        { type: 'line', axis: 'y', value: 5, label: 'Target' },
-      ],
-    }, 'en', 's').option([]));
+      xCategories: { order: ['a'], bounds: new Map([['a', { lower: 1, upper: 7 }]]) }, referenceMarks,
+    }, 'en', 's');
+    return { svg: renderOption(projection.option([])), legend: renderToStaticMarkup(createElement(KindLegend, { items: projection.legend.slice(-3) })) };
+  }
+  const plotMarks = (svg: string) => [...svg.matchAll(/<(?:path|polygon)[^>]+>/g)].map(([tag]) => tag.replace(/ class="[^"]+"/, ''));
+  const strokes = (svg: string) => plotMarks(svg)
+    .filter(tag => tag.includes(`stroke="${boundColor}"`) && /stroke-dasharray="(8,4|2,4)"/.test(tag));
+  const fills = (svg: string) => plotMarks(svg)
+    .filter(tag => tag.includes(`fill="${boundColor}"`) && tag.includes('fill-opacity="0.12"'));
+  const original = render();
+  expect(strokes(original.svg)).toHaveLength(2);
+  expect(fills(original.svg)).toHaveLength(2);
+  expect(original.legend).toContain(boundColor);
+  const base = chartReferenceLineTheme.base;
+  const restyle = vi.spyOn(chartReferenceLineTheme, 'base').mockImplementation(() => {
+    const style = base(lineColor);
+    return { ...style, lineStyle: { ...style.lineStyle, opacity: 0.5 } };
+  });
+  try {
+    const { svg, legend } = render();
     expect(svg).toContain('>Operating range</text>');
-    expect(svg).toContain(`fill="${lineColor}">Target</text>`);
-    const fills = [...svg.matchAll(/<polygon[^>]+fill="([^"]+)"[^>]+fill-opacity="0\.12"/g)].map(match => match[1]);
-    expect(fills).toEqual([boundColor, boundColor]);
-    expect(svg).toContain(`stroke="${boundColor}" stroke-dasharray="8,4"`);
+    expect(svg.match(/<text[^>]+>Target<\/text>/)?.[0]).toContain(`fill="${lineColor}"`);
+    expect(plotMarks(svg).some(tag => tag.includes(`stroke="${lineColor}"`) && tag.includes('stroke-opacity="0.5"'))).toBe(true);
+    expect(strokes(svg)).toEqual(strokes(original.svg));
+    expect(fills(svg)).toEqual(fills(original.svg));
+    expect(legend).toBe(original.legend);
   } finally { restyle.mockRestore(); }
 });
 

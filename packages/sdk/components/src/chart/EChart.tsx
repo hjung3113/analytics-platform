@@ -46,22 +46,19 @@ export function strokeToken(name: ThemeColorToken): ThemeColorToken {
 
 export const CHART_BAND_OPACITY = 0.12;
 
-function dashedLineDefaults(color: string) {
-  return {
-    silent: true,
-    symbol: 'none',
-    lineStyle: { color, type: 'dashed' },
-    label: { formatter: '{b}', fontSize: 10, color, position: 'insideEndTop' },
-  } as const;
-}
-
 export function chartSegmentedBoundsTheme() {
-  return dashedLineDefaults(token(chartThemeTokens.segmentedBounds));
+  const color = token(chartThemeTokens.segmentedBounds);
+  return { silent: true, symbol: 'none', lineStyle: { color, type: 'dashed' }, label: { show: false } } as const;
 }
 
 /** Reference-line defaults and the established chart-specific label placements. */
 export const chartReferenceLineTheme = {
-  base: dashedLineDefaults,
+  base: (color: string) => ({
+    silent: true,
+    symbol: 'none',
+    lineStyle: { color, type: 'dashed' },
+    label: { formatter: '{b}', fontSize: 10, color, position: 'insideEndTop' },
+  } as const),
   scatterXLabel: { position: 'end' as const, rotate: 0, offset: [0, 8], verticalAlign: 'top' as const },
   // Point labels toward the plot's middle to keep the outermost labels inside.
   histogramXLabel: (position: 'insideEndTop', color: string, label: string, leftHalf: boolean) => ({

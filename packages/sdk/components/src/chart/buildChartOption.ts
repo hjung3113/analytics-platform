@@ -60,8 +60,8 @@ export function buildHistogramOption({ spec, bins, rows, countLabel, selectedKey
     return true;
   });
   let min = bins[0]?.start ?? 0; let max = bins.at(-1)?.end ?? 1;
-  for (const value of referenceValues(references, 'x')) { min = Math.min(min, value); max = Math.max(max, value); }
-  const yReferences = referenceValues(references, 'y', { whenBandDeclared: true });
+  for (const value of referenceValues(references, 'x', { bandExtent: 'optional' })) { min = Math.min(min, value); max = Math.max(max, value); }
+  const yReferences = referenceValues(references, 'y', { bandExtent: 'required' });
   const bands = referenceBandData(theme, references);
   const statusPeaks: number[] = [];
   for (const [i, bin] of bins.entries()) {
@@ -367,7 +367,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const valueAxisDirection = horizontal ? 'x' : 'y';
   const marks = lanes || i.percent ? undefined : i.referenceMarks ?? frameReferenceLines(i.markLines ?? [], valueAxisDirection);
   const references = referenceMarkOptions(theme, marks);
-  const valueReferences = referenceValues(marks, valueAxisDirection, { whenBandDeclared: true });
+  const valueReferences = referenceValues(marks, valueAxisDirection, { bandExtent: 'required' });
   const selectedPoints = new Set(i.selectedPointKeys);
   const highlightedValues = new Set(i.highlightedValues);
   const highlightedBarBorders = new Map<string, number>();

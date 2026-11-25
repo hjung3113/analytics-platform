@@ -139,7 +139,7 @@ export function boxPlotData(spec: BoxPlotSpec, lang: Lang, unit: string): KindPr
   const medianGroups = groups.flatMap((g, i) => g.stats ? [i] : []);
   const unknownGroups = groups.flatMap((g, i) => g.stats ? [] : [i]);
   const marks = (spec.referenceMarks ?? spec.referenceLines?.map<ChartReferenceMark>(line => ({ ...line, type: 'line', axis: 'y' })))?.filter(isFiniteReferenceMark);
-  const yReferences = referenceValues(marks, 'y', { whenBandDeclared: true });
+  const yReferences = referenceValues(marks, 'y', { bandExtent: 'required' });
   return {
     rows, total: 0, empty: !groups.some(g => g.stats),
     headers, tableValues,

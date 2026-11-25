@@ -120,6 +120,9 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
   const upper = spans(cells?.bounds ?? [], 'upper');
   const lower = spans(cells?.bounds ?? [], 'lower');
   const bands = spans(cells?.bounds ?? [], 'band');
+  const referenceMarks = scatterReferenceMarks(spec);
+  const separateBoundLines = base.seriesKeys.length > 0 && (upper.length > 0 || lower.length > 0)
+    && (referenceMarks?.some(mark => mark.type === 'line') ?? false);
   const legend: KindProjection['legend'] = [...base.legend,
     ...(upper.length ? [{ label: labels.upper, color: { resolved: color }, symbol: 'line', dash: BOUND_DASH.upper.join(' ') }] : []),
     ...(lower.length ? [{ label: labels.lower, color: { resolved: color }, symbol: 'line', dash: BOUND_DASH.lower.join(' ') }] : []),
@@ -183,7 +186,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
     ...base, rows, headers, csvHeaders, tableValues, csvValues, legend,
     // Per-point detail lives in rows (keyboard table, point selector, selection summary); the visible summary stays an aggregate.
     summary: [summary, ...statuses.map(status => `${statusGlyph(status)} ${status.label}: ${points.filter(point => point.status && statusKey(point.status) === statusKey(status)).length}`)].join(' · '),
-    seriesKeys: [...base.seriesKeys, ...statusOutlines.map(() => []), ...(groups ? [[]] : [])],
+    seriesKeys: [...base.seriesKeys, ...statusOutlines.map(() => []), ...(groups ? [[]] : []), ...(separateBoundLines ? [[]] : [])],
     option: active => {
       const original = base.option(active);
       const chosen = new Set(active);
@@ -203,14 +206,17 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
             ...(key !== undefined && chosen.has(key) ? { shadowBlur: 6, shadowColor: token('chart-selection-outline') } : {}) }, label: { ...statusMarker(point.status), position: 'top' as const } };
         }),
       }));
+      let boundMarker: ScatterSeriesOption['markLine'];
       if (categories?.bounds && series.length) {
         const boundTheme = chartSegmentedBoundsTheme();
-        const references = series[0].markLine;
         const lines = (segments: Span[], part: 'upper' | 'lower', dash: number[]): NonNullable<NonNullable<ScatterSeriesOption['markLine']>['data']> => segments.map(span => [
           { name: labels[part], coord: [span.start - HALF_CELL, span[part]!], lineStyle: { ...boundTheme.lineStyle, type: dash }, label: { show: false } },
           { coord: [span.end + HALF_CELL, span[part]!] },
         ]);
-        series[0].markLine = { ...boundTheme, ...(references?.data?.length ? references : {}), data: [...(references?.data ?? []), ...lines(upper, 'upper', BOUND_DASH.upper), ...lines(lower, 'lower', BOUND_DASH.lower)] };
+        const marker = { ...boundTheme, data: [...lines(upper, 'upper', BOUND_DASH.upper), ...lines(lower, 'lower', BOUND_DASH.lower)] };
+        // A markLine shares its parent style with every item. Use a separate carrier for the bounds.
+        if (separateBoundLines) boundMarker = marker;
+        else if (!series[0].markLine?.data?.length) series[0].markLine = marker;
         series[0].markArea = { silent: true, itemStyle: { color: boundTheme.lineStyle.color, opacity: CHART_BAND_OPACITY }, label: { show: false }, data: [
           ...bands.map((span): [{ coord: number[] }, { coord: number[] }] => [
             { coord: [span.start - HALF_CELL, span.lower!] }, { coord: [span.end + HALF_CELL, span.upper!] },
@@ -222,7 +228,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
       const yAxis = original.yAxis as YAXisComponentOption;
       const boundValues = (cells?.bounds ?? []).flatMap(bound => [bound.lower, bound.upper].filter((value): value is number => value !== undefined));
       const yRange = (extent: { min: number; max: number }) => {
-        const references = referenceValues(scatterReferenceMarks(spec), 'y');
+        const references = referenceValues(referenceMarks, 'y');
         const min = Math.min(extent.min, ...boundValues, ...references); const max = Math.max(extent.max, ...boundValues, ...references);
         const padding = (max - min || Math.abs(min) || 1) * RANGE_PADDING;
         return { min: min - padding, max: max + padding };
@@ -247,6 +253,8 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
           ...series,
           ...statusOutlines.map(outline => ({ ...outline, id: helperSeriesId(outline.id, takenSeriesIds) })),
           ...(groups && cells ? [categoryGroups(groups, cells.order, takenSeriesIds)] : []),
+          ...(boundMarker ? [{ id: helperSeriesId('__scatterBounds', takenSeriesIds), type: 'scatter', silent: true,
+            tooltip: { show: false }, data: [], markLine: boundMarker } satisfies ScatterSeriesOption] : []),
         ],
       };
     },

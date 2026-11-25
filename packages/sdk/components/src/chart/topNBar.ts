@@ -39,7 +39,7 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
     legendSeen.add(entry.colorToken); return true;
   }).map(entry => ({ label: unit ? `${entry.label} (${unit})` : entry.label, color: entry.colorToken, symbol: 'rect' }));
   const tableValues = rows.map(row => [row.groupLabel ?? row.label, `${row.value} ${unit}`.trim()]);
-  const xReferences = referenceValues(spec.referenceMarks, 'x', { whenBandDeclared: true });
+  const xReferences = referenceValues(spec.referenceMarks, 'x', { bandExtent: 'required' });
   return {
     rows, total: rows.reduce((n, row) => n + row.value, 0), empty: !rows.length,
     summary: formatText(COMPONENTS_MESSAGES.chartTopNSummary, resolved, { count: rows.length, unit }),
