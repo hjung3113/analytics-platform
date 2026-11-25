@@ -84,11 +84,39 @@ describe('Chart chrome levels (#2372)', () => {
       expect(within(layout).getByText('Context caption')).toHaveAttribute('title', 'Context caption');
       const children = [...layout.children];
       const legend = screen.getByLabelText('범례');
-      expect(children.indexOf(legend!)).toBe(legendPlacement === 'top' ? 0 : 1);
+      // Side keys sit in a column as wide as the longest name, 128px up to min(224px, 40% of the row) (#2889).
+      const keys = legendPlacement === 'side' ? screen.getByTestId('chart-side-legend') : legend;
+      if (legendPlacement === 'side') expect(keys).toHaveClass('w-max', 'min-w-32', 'max-w-[min(14rem,40%)]', 'shrink-0');
+      expect(children.indexOf(keys)).toBe(legendPlacement === 'top' ? 0 : 1);
       expect(legend!.lastElementChild).toHaveTextContent('Context caption');
       expect(legend).toHaveClass(legendPlacement === 'side' ? 'flex-col' : 'whitespace-nowrap');
       cleanup();
     }
+  });
+  it('keeps a fixed-size side legend visible with its own height; only a fill row zeroes it (#2889)', () => {
+    for (const kind of ['frame', 'heatmap', 'donut']) {
+      mount(kind, true, undefined, { legendPlacement: 'side', size: 'regular', height: 240 });
+      const keys = screen.getByTestId('chart-side-legend');
+      expect(keys).toHaveClass('w-max', 'min-w-32');
+      expect(keys).not.toHaveClass('h-0');
+      expect(keys).not.toHaveClass('min-h-full');
+      cleanup();
+    }
+    mount('frame', true, undefined, { legendPlacement: 'side' });
+    expect(screen.getByTestId('chart-side-legend')).toHaveClass('h-0', 'min-h-full');
+  });
+  it('never squeezes side legend rows; the list scrolls instead (#2889)', () => {
+    mount('heatmap', true, undefined, { legendPlacement: 'side' });
+    expect(screen.getByRole('group', { name: '범례' })).toHaveClass('[&>*]:shrink-0', 'overflow-y-auto');
+  });
+  it('ellipsizes a long heatmap null label and keeps its full name (#2889)', () => {
+    const nullLabel = '측정되지 않은 구간 — 장비가 꺼져 있거나 수집이 멈춘 시간';
+    render(<I18nProvider><InWorkspacePanelProvider value>
+      <AnalysisChart chartId="chart" title="Chart" description="Explanation" unit="s" size="fill" legendPlacement="side" spec={{ ...specs.heatmap, nullLabel } as ChartSpec} />
+    </InWorkspacePanelProvider></I18nProvider>);
+    const name = within(screen.getByRole('group', { name: '범례' })).getByText(nullLabel);
+    expect(name).toHaveAttribute('title', nullLabel);
+    expect(name).toHaveClass('truncate', 'min-w-0');
   });
   it.each(['frame', 'heatmap', 'donut'])('%s wraps the top/bottom legend row and compact summary instead of scrolling sideways', kind => {
     for (const legendPlacement of ['top', 'bottom'] as const) {
@@ -99,6 +127,30 @@ describe('Chart chrome levels (#2372)', () => {
       }
       cleanup();
     }
+  });
+  it.each(['side', 'top', 'bottom'] as const)('%s Frame legend truncates long series labels and keeps the full checkbox name', legendPlacement => {
+    const name = 'MEM-PHOTO-0103';
+    render(<I18nProvider>
+      <AnalysisChartFrame chartId="chart" title="Chart" unit="s" xType="category" chrome="standard"
+        legendPlacement={legendPlacement} series={[{ ...series[0], name }]} />
+    </I18nProvider>);
+    const legend = screen.getByRole('group', { name: '범례' });
+    const checkbox = within(legend).getByRole('checkbox', { name: `${name} (s)` });
+    const label = within(legend).getByText(`${name} (s)`);
+    expect(label).toHaveClass('truncate');
+    expect(label).toHaveAttribute('title', name);
+    expect(checkbox.closest('label')).toContainElement(label);
+  });
+  it('keeps the full name and metrics in a truncatable AnalysisChart side legend', () => {
+    const name = 'Equipment with a long identifier';
+    render(<I18nProvider>
+      <AnalysisChart chartId="chart" title="Chart" unit="s" chrome="standard" legendPlacement="side"
+        spec={{ kind: 'donut', slices: [{ id: 'a', label: name, value: 2 }] }} />
+    </I18nProvider>);
+    const legend = screen.getByRole('group', { name: '범례' });
+    const label = within(legend).getByText(`${name} · 2 s · 100%`);
+    expect(label).toHaveClass('truncate');
+    expect(label).toHaveAttribute('title', name);
   });
   it.each(['frame', 'heatmap'])('%s reveals hover tools on focus and while More is open, keeping keyboard/AT access', async kind => {
     const user = userEvent.setup();

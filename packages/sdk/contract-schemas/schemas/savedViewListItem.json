@@ -729,7 +729,224 @@
                   ]
                 },
                 "panels": {
-                  "$ref": "#/$defs/__schema0"
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "type": "number",
+                          "const": 1
+                        },
+                        "instances": {
+                          "maxItems": 24,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "maxLength": 200,
+                                "pattern": "\\S"
+                              },
+                              "source": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "const": "declared"
+                                      },
+                                      "panel": {
+                                        "type": "string",
+                                        "maxLength": 200,
+                                        "pattern": "\\S"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "panel"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "kind": {
+                                        "type": "string",
+                                        "const": "chart"
+                                      },
+                                      "config": {
+                                        "type": "object"
+                                      }
+                                    },
+                                    "required": [
+                                      "kind",
+                                      "config"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
+                              "inputs": {
+                                "maxItems": 16,
+                                "type": "array",
+                                "items": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "key": {
+                                          "type": "string",
+                                          "maxLength": 200,
+                                          "pattern": "\\S"
+                                        },
+                                        "from": {
+                                          "type": "string"
+                                        },
+                                        "mode": {
+                                          "type": "string",
+                                          "const": "follow"
+                                        }
+                                      },
+                                      "required": [
+                                        "key",
+                                        "from",
+                                        "mode"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "key": {
+                                          "type": "string",
+                                          "maxLength": 200,
+                                          "pattern": "\\S"
+                                        },
+                                        "from": {
+                                          "type": "string"
+                                        },
+                                        "mode": {
+                                          "type": "string",
+                                          "const": "hold"
+                                        },
+                                        "value": {
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "shape": {
+                                                  "type": "string",
+                                                  "const": "set"
+                                                },
+                                                "values": {
+                                                  "uniqueItems": true,
+                                                  "minItems": 1,
+                                                  "maxItems": 5000,
+                                                  "type": "array",
+                                                  "items": {
+                                                    "type": "string",
+                                                    "pattern": "\\S"
+                                                  }
+                                                }
+                                              },
+                                              "required": [
+                                                "shape",
+                                                "values"
+                                              ],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "shape": {
+                                                  "type": "string",
+                                                  "const": "range"
+                                                },
+                                                "from": {
+                                                  "type": "string",
+                                                  "pattern": "\\S"
+                                                },
+                                                "to": {
+                                                  "type": "string",
+                                                  "pattern": "\\S"
+                                                }
+                                              },
+                                              "required": [
+                                                "shape",
+                                                "from",
+                                                "to"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "key",
+                                        "from",
+                                        "mode",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                }
+                              },
+                              "outputs": {
+                                "maxItems": 16,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "key": {
+                                      "type": "string",
+                                      "maxLength": 200,
+                                      "pattern": "\\S"
+                                    },
+                                    "dimension": {
+                                      "type": "string",
+                                      "maxLength": 200,
+                                      "pattern": "\\S"
+                                    },
+                                    "shape": {
+                                      "type": "string",
+                                      "enum": [
+                                        "set",
+                                        "range"
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "key",
+                                    "dimension",
+                                    "shape"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "source",
+                              "inputs",
+                              "outputs"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "version",
+                        "instances"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "tables": {
                   "maxProperties": 20,

@@ -32,6 +32,8 @@ export type { QueryHistoryKey, QueryHistoryEntry, QueryHistoryStore } from './li
 export { APPROVAL_TRANSITIONS, canTransition, CUSTOM_GROUP_AXIS, CUSTOM_GROUP_FIXED_MAX, isForbiddenSavedViewKey, SAVED_SCOPE_ID_MAX, validateSavedView } from './links/saved-view.js';
 export type { CustomGroupDraft, CustomGroupTarget, CustomGroupView } from './links/saved-view.js';
 export type { ApprovalAction, ApprovalRequestInfo, ChangeLine, ConditionSetDraft, ConditionSetView, DeniedSavedView, ExpectedVersion, GroupCapabilities, GroupMember, JsonValue, MenuView, MenuViewDraft, MigrateResult, Result, SavedView, SavedViewBase, SavedViewContext, SavedViewDraft, SavedViewEntry, SavedViewKey, SavedViewKind, SavedViewListItem, SavedViewPatch, SavedViewStore, SavedViewSupport, ViewApproval, ViewCapabilities, ViewGroup, ViewGroupEntry, ViewSharing, ViewVisibility } from './links/saved-view.js';
+export { PANEL_INSTANCES_MAX, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCE_TOKEN_MAX, readMenuViewPanels } from './links/menu-view-panels.js';
+export type { MenuViewPanels, PanelInstance, PanelInstanceInput, PanelInstanceOutput, PanelInstanceSource } from './links/menu-view-panels.js';
 
 export { HierarchyFailure, isHierarchyFailure, type HierarchyNode, type HierarchyPage, type HierarchySource } from './menu/hierarchy.js';
 export * from './values/number.js';

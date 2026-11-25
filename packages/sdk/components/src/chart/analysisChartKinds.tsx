@@ -13,6 +13,7 @@ import { scatterExtras } from './scatterCategories';
 import { QUIET_SCATTER } from './scatterDensity';
 import type { ChartStatus } from './chartStatus';
 import { ChartStatusLegend } from './ChartStatusLegend';
+import { ChartLegendLabel } from './analysisChartFrameParts';
 
 export const legendColor = (color: KindProjection['legend'][number]['color']) => typeof color === 'string' ? token(color) : color.resolved;
 
@@ -102,10 +103,10 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
 
 /** Accessible legends use the same geometry and token as the canvas marks. */
 export function KindLegend({ items, label, compact = false, singleLine = false }: { singleLine?: boolean; compact?: boolean; items: KindProjection['legend']; label?: string }) {
-  return <ul aria-label={label} className={cn(singleLine ? 'contents' : 'flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{items.map((item, i) => <li key={i} className={cn('flex items-center gap-1', singleLine && 'shrink-0 whitespace-nowrap')}>
-    {item.status ? <ChartStatusLegend statuses={[item.status]} /> : <><svg aria-hidden width="14" height="14" viewBox="0 0 14 14" opacity={item.opacity}>
+  return <ul aria-label={label} className={cn(singleLine ? 'contents' : 'flex flex-wrap gap-3 px-4 py-2 text-text-secondary', compact ? 'text-tiny' : 'text-xs')}>{items.map((item, i) => <li key={i} className={cn('flex items-center gap-1', singleLine && 'min-w-0 max-w-full shrink-0')}>
+    {item.status ? <ChartStatusLegend statuses={[item.status]} singleLine={singleLine} /> : <><svg aria-hidden width="14" height="14" viewBox="0 0 14 14" opacity={item.opacity} className={singleLine ? 'shrink-0' : undefined}>
       {item.symbol === 'circle' ? <circle cx="7" cy="7" r="5" fill={legendColor(item.color)} /> : item.symbol === 'rect' ? <rect x="2" y="2" width="10" height="10" fill={legendColor(item.color)} stroke={item.stroke ? token(item.stroke) : undefined} strokeDasharray={item.unknown ? '2 2' : undefined} /> : item.symbol === 'triangle' ? <path d="M7 1 L13 13 L1 13 Z" fill={legendColor(item.color)} /> : item.symbol === 'line' ? <path d="M1 7 H13" stroke={legendColor(item.color)} strokeWidth="2" strokeDasharray={item.dash} /> : <path d="M7 1 L13 7 L7 13 L1 7 Z" fill={legendColor(item.color)} />}
-    </svg>{item.label}</>}
+    </svg>{singleLine ? <ChartLegendLabel name={item.label} /> : item.label}</>}
   </li>)}</ul>;
 }
 

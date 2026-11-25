@@ -7,7 +7,7 @@ import { activatePanel, addPanel, groupOf, moveToNewRow, panelOrder, removePanel
 import { dockTheme } from '../dock/dockPresentation';
 import { dockGroupsInReadingOrder, isValidDockTree, normalizeDockTree, parseFloatingPanels, type DockNode, type DockFloatingPanel, type PanelEdge } from '../dock/schema';
 import { legacyFitShares, placeSharedRows, readSharedRowSizes, rememberSharedRowSizes, restoreSharedRowHeights, sharedRowOf, type LegacyFitShare, type SharedRow, type SharedRowSize } from './workspaceSharedRows';
-import { clampRow, enterRows, isFillRow, NEW_ROW_HEIGHT, reconcileRows, ROW_MIN_HEIGHT, topLevelRows, withRowShares, type PreferredHeight, type RowMinimum } from './workspaceRows';
+import { clampRow, enterRows, isFillRow, NEW_ROW_HEIGHT, reconcileRows, ROW_MIN_HEIGHT, topLevelRows, validPreferred, withRowShares, type PreferredHeight, type RowMinimum } from './workspaceRows';
 
 /** The arrangement a preset describes. Structurally the dock tree; `sizes` are ratios (any positive numbers, only their proportions count). */
 export type PanelWorkspaceLayout =
@@ -25,8 +25,8 @@ type AutoFill = { kind: 'single' } | { kind: 'below'; panelId: string } | { kind
 const SINGLE_FILL: AutoFill = { kind: 'single' };
 
 /**
- * `preferredSeen`: the panels' declared `preferredHeight` px this state was last restored against (#2786). A stored stack row under its preferred
- * height is raised once when a panel in it declares a height the state has not seen; after that the user's own smaller height stays.
+ * `preferredSeen`: the last checked `preferredHeight` px for each panel, including panels temporarily absent from the workspace. A stored stack row
+ * under its preferred height is raised once on a new or larger declaration (#2786); after that the user's own smaller height stays.
  */
 export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[]; preferredSeen?: Record<string, number>; collapsed?: Record<string, PanelEdge>; floating?: DockFloatingPanel[]; sharedRowSizes?: SharedRowSize[]; [AUTO_FILL]?: AutoFill; [LEGACY_FIT_SHARES]?: LegacyFitShare[] };
 export type WorkspacePreset = { id: string; layout: PanelWorkspaceLayout };
@@ -77,10 +77,20 @@ export type WorkspaceSpec = {
   rowPreferred?: PreferredHeight;
 };
 
-/** `state` recording the declared heights it was restored against; without declarations the field is absent. */
-function withPreferredSeen(state: WorkspaceState, spec: Pick<WorkspaceSpec, 'preferredHeights'>): WorkspaceState {
-  const { preferredSeen: _seen, ...base } = state;
-  return spec.preferredHeights?.size ? { ...base, preferredSeen: Object.fromEntries(spec.preferredHeights) } : base;
+/** Refresh the current panels' declarations while remembering the heights of panels outside this panel set. */
+function withPreferredSeen(state: WorkspaceState, spec: WorkspaceSpec, previous?: unknown): WorkspaceState {
+  const seen = new Map<string, number>();
+  if (isRecord(previous)) {
+    for (const [id, px] of Object.entries(previous)) {
+      if (WORKSPACE_ID.test(id) && validPreferred(px)) seen.set(id, px);
+    }
+  }
+  for (const id of spec.panelIds) {
+    const px = spec.preferredHeights?.get(id);
+    if (validPreferred(px)) seen.set(id, px);
+    else seen.delete(id);
+  }
+  return seen.size ? { ...state, preferredSeen: Object.fromEntries(seen) } : state;
 }
 
 /** Sanity bound on a stored row height: anything above is a corrupt value, not a layout. */
@@ -91,6 +101,24 @@ export function withRows(state: WorkspaceState, mode: 'fit' | 'stack', rows?: re
   const { mode: _mode, rows: _rows, [AUTO_FILL]: _autoFill, ...base } = state;
   if (mode === 'fit') return base;
   return rows ? { ...base, layout: withRowShares(base.layout, rows), mode: 'stack', rows: [...rows] } : { ...base, mode: 'stack' };
+}
+
+/** Adjust measured rows while keeping already-remembered shared heights in sync with their changed rows. */
+export function withAdjustedRowHeights(state: WorkspaceState, heights: readonly number[], declarations: readonly SharedRow[]): WorkspaceState {
+  if (heights.length === state.rows?.length && heights.every((px, index) => px === state.rows?.[index])) return state;
+  const next = withRows(state, 'stack', heights);
+  if (!declarations.length || !state.sharedRowSizes?.some(size => size.height !== undefined)) return next;
+  const changed = new Map<string, number>();
+  topLevelRows(state.layout).forEach((row, index) => {
+    const px = heights[index]!;
+    if (px === state.rows?.[index]) return;
+    const shared = sharedRowOf(row, declarations);
+    if (shared) changed.set(shared.id, px);
+  });
+  return { ...next, sharedRowSizes: state.sharedRowSizes.map(size => {
+    const height = changed.get(size.id);
+    return height === undefined || size.height === undefined ? size : { ...size, height };
+  }) };
 }
 
 /**
@@ -182,8 +210,8 @@ function withRestoredSharedHeights(state: WorkspaceState, heights: readonly numb
 }
 
 /** Repair the live panel set while keeping the height of a survivor when its declared below panel leaves. */
-export function updateWorkspacePanels(previous: WorkspaceState, spec: WorkspaceSpec, previousBelow: readonly string[]): WorkspaceState {
-  const next = normalizeWorkspaceState(previous, spec);
+export function updateWorkspacePanels(previous: WorkspaceState, spec: WorkspaceSpec, previousBelow: readonly string[], maxRow = MAX_STORED_ROW_PX): WorkspaceState {
+  const next = normalizeWorkspaceState(previous, spec, { maxRow });
   if (next.mode !== 'stack') return next;
   const shared = followSharedPanel(previous, next, spec.sharedRows ?? []);
   if (shared !== next) return shared;
@@ -192,7 +220,7 @@ export function updateWorkspacePanels(previous: WorkspaceState, spec: WorkspaceS
   if (hasAutomaticRows(followed)) return followed;
   const removedBelow = appendedPanel(topLevelRows(next.layout), topLevelRows(previous.layout));
   if (removedBelow !== undefined && previousBelow.includes(removedBelow) && previous.rows?.length === 2) {
-    return withRows(next, 'stack', previous.rows.slice(0, 1));
+    return raiseToPreferred(withRows(next, 'stack', previous.rows.slice(0, 1)), previous.preferredSeen ?? {}, spec, maxRow);
   }
   return next;
 }
@@ -236,28 +264,44 @@ export function settleRows(previous: WorkspaceState, next: WorkspaceState, how: 
  * `appended`: the repair added rows (a `below` panel that joined, #2398). The stored rows are then matched to the new rows by their panels
  * (`reconcileRows` over the stored layout): a surviving row keeps its px wherever it now sits, a new row gets `NEW_ROW_HEIGHT`, a gone row is dropped.
  */
-function restoreRows(raw: Record<string, unknown>, state: WorkspaceState, spec: WorkspaceSpec, appended = false): WorkspaceState {
+function restoreRows(raw: Record<string, unknown>, state: WorkspaceState, spec: WorkspaceSpec, maxRow: number, appended = false): WorkspaceState {
   if (raw.mode !== 'stack') return state;
   const rows = topLevelRows(state.layout);
   const minimum = spec.rowMinimum ?? (() => ROW_MIN_HEIGHT);
   const stored = Array.isArray(raw.rows) && raw.rows.every(px => typeof px === 'number' && Number.isFinite(px) && px > 0 && px <= MAX_STORED_ROW_PX) ? (raw.rows as number[]).map(px => Math.round(px)) : undefined;
+  const seen = isRecord(raw.preferredSeen) ? raw.preferredSeen : {};
   if (stored && appended) {
     const previous = normalizeDockTree(raw.layout, [...namedIds(raw.layout)]);
-    if (topLevelRows(previous).length === stored.length) return withRestoredSharedHeights(state, reconcileRows(previous, stored, state.layout, minimum, MAX_STORED_ROW_PX), spec);
+    if (topLevelRows(previous).length === stored.length) {
+      // A row with no stored predecessor opens at its declared preference: there is no user height to keep, whatever `preferredSeen` remembers (#2820).
+      const matched = reconcileRows(previous, stored, state.layout, minimum, Math.min(maxRow, MAX_STORED_ROW_PX), undefined, spec.rowPreferred);
+      return raiseToPreferred(withRestoredSharedHeights(state, matched, spec), seen, spec, maxRow);
+    }
   }
   if (stored?.length !== rows.length) return withRows(state, 'stack');
-  const seen = isRecord(raw.preferredSeen) ? raw.preferredSeen : {};
+  return raiseToPreferred(withRows(state, 'stack', stored.map((px, index) => Math.max(minimum(rows[index]!), px))), seen, spec, maxRow);
+}
+
+/** A row under an unseen preference is raised once (#2786). The cap only limits the raise, so existing taller rows keep their px. */
+function raiseToPreferred(state: WorkspaceState, seen: Record<string, unknown>, spec: WorkspaceSpec, maxRow: number): WorkspaceState {
+  const { rows } = state;
+  const { rowPreferred, preferredHeights } = spec;
+  if (!rows || !rowPreferred || !preferredHeights?.size) return state;
+  const maximum = Math.min(maxRow, MAX_STORED_ROW_PX);
   const declaredAnew = (row: DockNode) => panelOrder(row).some(id => {
-    const declared = spec.preferredHeights?.get(id);
+    const declared = preferredHeights.get(id);
     const before = seen[id];
-    return declared !== undefined && !(typeof before === 'number' && before >= declared);
+    return validPreferred(declared) && (!validPreferred(before) || before < declared);
   });
-  // A row saved under a preferred height it has not seen is raised once (#2786); fit mode and rows without a new declaration keep their px.
-  const raised = (row: DockNode, px: number) => {
-    const preferred = spec.rowPreferred?.(row);
-    return preferred !== undefined && px < preferred && declaredAnew(row) ? Math.min(preferred, MAX_STORED_ROW_PX) : px;
-  };
-  return withRows(state, 'stack', rows.map((row, index) => Math.max(minimum(row), raised(row, stored[index]!))));
+  const heights = topLevelRows(state.layout).map((row, index) => {
+    const px = rows[index]!;
+    const preferred = rowPreferred(row);
+    if (validPreferred(preferred) && px < preferred && declaredAnew(row)) {
+      return Math.max(px, clampRow(preferred, spec.rowMinimum?.(row) ?? ROW_MIN_HEIGHT, maximum));
+    }
+    return px;
+  });
+  return withAdjustedRowHeights(state, heights, spec.sharedRows ?? []);
 }
 
 const presetOf = (spec: WorkspaceSpec, id: string) => spec.presets.find(preset => preset.id === id) ?? spec.presets[0]!;
@@ -313,7 +357,7 @@ export function changeMode(current: WorkspaceState, mode: 'fit' | 'stack', spec:
  * than `'stack'` is fit; stack `rows` that are not finite positive numbers, or not one per top-level row, are dropped (the workspace measures
  * them again), and each is raised to its row's minimum.
  */
-export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec, { fromStorage = false } = {}): WorkspaceState {
+export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec, { fromStorage = false, maxRow = MAX_STORED_ROW_PX } = {}): WorkspaceState {
   try {
     if (!isRecord(raw) || raw.v !== 1) return initialWorkspaceState(spec);
     const known = new Set(spec.panelIds);
@@ -343,7 +387,7 @@ export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec, { fro
     const sharedChanged = shared.some(row => row.panels.some(id => shown.includes(id) !== named.has(id)));
     extra = { ...extra, ...(sizes.length ? { sharedRowSizes: sizes } : {}), ...(pending.length ? { [LEGACY_FIT_SHARES]: pending } : {}) };
     const placed = shown.filter(id => named.has(id) || id === spec.primaryId);
-    if (!shown.some(id => named.has(id))) return withPreferredSeen(restoreRows(raw, { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown, spec.below, shared), hidden, ...extra }, spec), spec);
+    if (!shown.some(id => named.has(id))) return withPreferredSeen(restoreRows(raw, { v: 1, preset, layout: presetTree(presetOf(spec, preset).layout, shown, spec.below, shared), hidden, ...extra }, spec, maxRow), spec, raw.preferredSeen);
     let layout = normalizeDockTree(raw.layout, placed);
     let appended = false;
     const incoming = shown.filter(id => !placed.includes(id));
@@ -355,7 +399,7 @@ export function normalizeWorkspaceState(raw: unknown, spec: WorkspaceSpec, { fro
       if (spec.below?.includes(id) && panelOrder(layout).length > 1) { layout = moveToNewRow(layout, id); appended = true; }
     }
     if (sharedChanged) layout = placeSharedRows(layout, shown, shared, sizes, spec.below ?? []);
-    return withPreferredSeen(restoreRows(raw, { v: 1, preset, layout, hidden, ...extra }, spec, appended || sharedChanged || (sizes.length > 0 && named.size !== shown.length)), spec);
+    return withPreferredSeen(restoreRows(raw, { v: 1, preset, layout, hidden, ...extra }, spec, maxRow, appended || sharedChanged || (sizes.length > 0 && named.size !== shown.length)), spec, raw.preferredSeen);
   } catch {
     return initialWorkspaceState(spec);
   }

@@ -554,7 +554,7 @@ describe('chart legend and comparison encoding (#207)', () => {
       expect(barSwatch.style.backgroundColor).toBe('rgb(161, 116, 245)');
       expect(barSwatch.style.borderColor).toBe('rgb(129, 84, 206)');
 
-      const markLine = plotted('__overlay')?.markLine;
+      const markLine = plottedSeries.find(s => s.markArea)?.markLine;
       expect(markLine?.lineStyle?.color).toBe('rgb(35,45,55)');
       expect(markLine?.label?.color).toBe('rgb(35,45,55)');
       // The label sits inside the plot end so the right grid edge does not clip it.
@@ -587,7 +587,7 @@ describe('chart annotations are keyed by chart and Scope (06 §16 layer 4)', () 
     fireEvent.change(screen.getByLabelText('주석 내용'), { target: { value: 'PM 작업' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await screen.findByText(/PM 작업/);
-    const areas = plottedSeries.find(s => s.id === '__overlay')?.markArea?.data ?? [];
+    const areas = plottedSeries.find(s => s.markArea)?.markArea?.data ?? [];
     // markArea labels default to `top`: same range + same position = the two labels draw on top of each other.
     const position = (name: string) => areas.find(([start]) => start.name === name)?.[0].label?.position ?? 'top';
     expect(areas.map(([start]) => start.name)).toEqual(['선택', 'PM 작업']);
@@ -931,13 +931,13 @@ describe('author-only annotation delete (#399, ADR-0041)', () => {
     f.rows.push(note('x1', '첫 메모', true), note('x2', '둘째 메모는 아주 길다'.repeat(8), false), note('x3', '떨어진 메모', false, { from: '2026-09-01T00:00:00', to: '2026-09-01T00:00:00' }));
     mount(f.adapter, on);
     await screen.findByText(/첫 메모/);
-    const areas = (plottedSeries.find(s => s.id === '__overlay')?.markArea?.data ?? []) as unknown as [{ label?: { offset?: [number, number]; width?: number; overflow?: string } }, unknown][];
+    const areas = (plottedSeries.find(s => s.markArea)?.markArea?.data ?? []) as unknown as [{ label?: { offset?: [number, number]; width?: number; overflow?: string } }, unknown][];
     const labels = areas.map(([start]) => start.label);
     expect(labels.map(l => l?.offset?.[1])).toEqual([0, 12, 24]);
     for (const l of labels) { expect(l?.overflow).toBe('truncate'); expect(l?.width).toBeGreaterThan(0); }
   });
 
-  const labelWidths = () => ((plottedSeries.find(s => s.id === '__overlay')?.markArea?.data ?? []) as unknown as [{ label?: { width?: number } }, unknown][]).map(([start]) => start.label?.width);
+  const labelWidths = () => ((plottedSeries.find(s => s.markArea)?.markArea?.data ?? []) as unknown as [{ label?: { width?: number } }, unknown][]).map(([start]) => start.label?.width);
   const plotInstance = (width: number) => ({ getWidth: () => width, dispatchAction: () => {} }) as never;
 
   // F2: a Context change resets the whole delete operation, so the frame stays usable while still mounted.

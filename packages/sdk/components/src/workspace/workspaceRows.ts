@@ -30,6 +30,8 @@ const sum = (values: readonly number[]) => values.reduce((total, value) => total
 /** The px a row asks for, or undefined when no panel in it declares a `preferredHeight` (the row then follows the share formula). */
 export type PreferredHeight = (row: DockNode) => number | undefined;
 
+export const validPreferred = (px: unknown): px is number => typeof px === 'number' && Number.isFinite(px) && px > 0;
+
 /**
  * Preferred px of a row from the panels' declared body heights: a group is its tallest declared body plus the strip (never under its own minimum), a
  * row branch takes its tallest child, a column branch adds its children and the engine gaps. Undeclared parts contribute their minimum.

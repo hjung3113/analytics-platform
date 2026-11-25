@@ -188,7 +188,11 @@ describe('fillMin floor in standard chrome (#2869)', () => {
   it('keeps a long side legend out of the height the card asks for', async () => {
     const { container } = mount({ size: 'fill', chrome: 'standard', legendPlacement: 'side' });
     await screen.findByRole('img');
-    expect(screen.getByRole('group', { name: '범례' }).className).toContain('contain-size');
+    // The side column has no height of its own (h-0, then min-h-full of the row) and the list fills it and scrolls; width still follows
+    // the names (#2889), so the column is not size-contained.
+    expect(screen.getByTestId('chart-side-legend')).toHaveClass('h-0', 'min-h-full');
+    expect(screen.getByTestId('chart-side-legend').className).not.toContain('contain-size');
+    expect(screen.getByRole('group', { name: '범례' })).toHaveClass('min-h-0', 'flex-1', 'overflow-y-auto');
     expect(container.querySelector('[data-testid="chart-legend-layout"]')!.className).toContain('min-h-min');
   });
 });

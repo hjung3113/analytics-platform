@@ -37,6 +37,27 @@ function pointEvent(name: string) {
 afterEach(() => { cleanup(); });
 
 describe('AnalysisChartFrame SDK pieces (#541)', () => {
+  it('selects and activates a consumer series with the former overlay ID', async () => {
+    const onSelect = vi.fn();
+    const onActivate = vi.fn();
+    const id = '__overlay';
+    await mount({
+      series: [{ ...series[0], id }],
+      pointActions: [{ id: 'inspect', label: 'Inspect', onSelect }],
+      pointActivation: { on: 'dblclick', onActivate },
+    });
+    const point = { x: 'Row B | B1', seriesId: id, value: 2 };
+    const overlay = (plot.option.series as { id: string; markArea?: unknown }[]).find(s => s.markArea)!;
+    act(() => plot.onEvents?.contextmenu?.({ seriesId: overlay.id, dataIndex: 0 }, {} as never));
+    expect(screen.queryByRole('menuitem', { name: 'Inspect' })).toBeNull();
+    act(() => plot.onEvents?.dblclick?.({ seriesId: overlay.id, dataIndex: 0 }, {} as never));
+    expect(onActivate).not.toHaveBeenCalled();
+    act(() => plot.onEvents?.contextmenu?.({ seriesId: id, dataIndex: 0 }, {} as never));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Inspect' }));
+    act(() => plot.onEvents?.dblclick?.({ seriesId: id, dataIndex: 0 }, {} as never));
+    expect(onSelect).toHaveBeenCalledWith(point);
+    expect(onActivate).toHaveBeenCalledWith(point);
+  });
   it('activates a double-clicked point with its category, series and value without navigation', async () => {
     const onActivate = vi.fn();
     await mount({ pointActivation: { on: 'click', onActivate } });
@@ -147,6 +168,16 @@ describe('AnalysisChartFrame SDK pieces (#541)', () => {
     expect((screen.getByRole('checkbox', { name: 'Two (s)' }) as HTMLInputElement).checked).toBe(false);
     view.rerender(frame({ visibleSeriesIds: ['two'], onVisibleSeriesChange }));
     await waitFor(() => expect((plot.option as any).series[0].id).toBe('two'));
+  });
+  it('keeps the reference-line host ID when a legend toggle hides the series holding its base ID (#2718)', async () => {
+    const held: ChartSeries[] = [{ ...series[0]!, id: '__overlay', name: 'Held' }, series[1]!];
+    await mount({ series: held, markLines: [{ y: 3, label: 'Target' }] });
+    const host = () => (plot.option.series as { id?: string; markLine?: unknown }[]).find(s => s.markLine)?.id;
+    expect(host()).toBe('__overlay~1');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Held (s)' }));
+    expect(host()).toBe('__overlay~1');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Held (s)' }));
+    expect(host()).toBe('__overlay~1');
   });
   it('keeps uncontrolled legend toggles and distinguishes all-off from empty data', async () => {
     await mount();

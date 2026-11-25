@@ -51,6 +51,20 @@ describe('reading the legacy buckets (#1105)', () => {
     expect(read.rows).toHaveLength(1);
     expect(read.rows[0]?.draft).toMatchObject({ tables });
   });
+  it('imports a view saved before the panel-instance format with panels null and keeps a v1 value, so one old row cannot refuse its batch (#2760)', () => {
+    const v1 = { version: 1, instances: [{ id: 'a', source: { kind: 'declared', panel: 'trend' }, inputs: [], outputs: [] }] };
+    const storage = memory({ [rowsKey(ACTOR, 'home')]: bucket(view(1, { panels: { narrow: { selection: ['E1'] } } }), view(2, { panels: v1 })) });
+    const read = readLegacyRows(storage, ACTOR);
+    expect(read.rows.map(row => (row.draft as { panels: unknown }).panels)).toEqual([null, v1]);
+  });
+  it('resuming a manifest written before the panel-instance format sends its unanswered old panels value as null (#2760)', async () => {
+    const legacy = { legacyKey: 'k1', draft: { schemaVersion: 1, kind: 'menu-view', name: 'v', menuId: 'home', menuSchemaVersion: 1, context: {}, page: [], chartOptions: {}, layout: null, panels: { narrow: {} } } };
+    const acked = { legacyKey: 'k0', draft: { ...legacy.draft, panels: { narrow: {} } } };
+    const storage = memory({ [importManifestKey(ACTOR)]: JSON.stringify({ schemaVersion: 1, actorId: ACTOR, token: 'tok-0', rows: [acked, legacy], defaults: [], receipts: { k0: { status: 'acked', id: 's0' } } }) });
+    const send = vi.fn(acceptAll);
+    expect(await runLocalImport(deps(storage, send))).toMatchObject({ status: 'done' });
+    expect(send.mock.calls[0]?.[0].rows.map((row) => (row.draft as { panels: unknown }).panels)).toEqual([null]);
+  });
   it('an absent bucket is zero rows and sends and writes nothing', async () => {
     const storage = memory();
     const send = vi.fn(acceptAll);
@@ -162,7 +176,7 @@ describe('the import protocol (#1105)', () => {
 
   it('splits by the 200-row, byte and depth bounds before any send, and rejects a row too large alone without sending it', async () => {
     const many = Array.from({ length: 450 }, (_, i) => view(i + 1));
-    const storage = memory({ [rowsKey(ACTOR, 'home')]: bucket(...many, view(900, { panels: 'x'.repeat(270_000) })) });
+    const storage = memory({ [rowsKey(ACTOR, 'home')]: bucket(...many, view(900, { chartOptions: { note: 'x'.repeat(270_000) } })) });
     const send = vi.fn(acceptAll);
     const out = await runLocalImport(deps(storage, send));
     expect(out).toMatchObject({ status: 'done', acked: 450, rejected: 1 });

@@ -25,7 +25,7 @@ import {
   isFindingInReadScope,
 } from '../findings/authorization.js';
 import { lockManagedSystem } from '../managed-systems/index.js';
-import type { CheckService } from '../permissions/check-service.js';
+import type { CapabilityRowsReader, CheckService } from '../permissions/check-service.js';
 import { actorEffectiveScope, actorReadScope, inReporterArm } from '../voc/authorization.js';
 import type { ConversationService } from '../voc/conversation-service.js';
 import { type Scope, isVocVisibleToActor, selectVocForUpdate } from '../voc/index.js';
@@ -43,6 +43,7 @@ import {
   listSameManagedSystemCandidatePeers,
   listVocClusterMembers,
   listVocClusterMembersForClusters,
+  countVocClusters,
   listVocClustersByWorkspace,
   lockVocClusterById,
   updateVocCluster,
@@ -282,13 +283,23 @@ export function createVocClustersService(deps: VocClustersServiceDeps) {
     });
   }
 
+  function assertClusterListRole(actor: VocClustersActor) {
+    if (actor.role_level !== 'admin' && actor.role_level !== 'developer') {
+      throw new HttpError('permission.denied', 'finding.read capability required');
+    }
+  }
+
+  async function countClusters({ actor, managedSystemId }: { actor: VocClustersActor; managedSystemId?: string }, readRows?: CapabilityRowsReader) {
+    assertClusterListRole(actor);
+    const scope = await actorFindingReadScope(deps.db, actor, { requireElevatedRole: true }, readRows);
+    return countVocClusters(deps.db, { workspaceId: actor.workspace_id, scope, ...(managedSystemId === undefined ? {} : { managedSystemId }) });
+  }
+
   async function listClusters(args: {
     actor: VocClustersActor;
     managedSystemId?: string;
   }): Promise<ListVocClustersResponse> {
-    if (args.actor.role_level !== 'admin' && args.actor.role_level !== 'developer') {
-      throw new HttpError('permission.denied', 'finding.read capability required');
-    }
+    assertClusterListRole(args.actor);
     const rows = await listVocClustersByWorkspace(deps.db, {
       workspaceId: args.actor.workspace_id,
       ...(args.managedSystemId !== undefined ? { managedSystemId: args.managedSystemId } : {}),
@@ -765,6 +776,7 @@ export function createVocClustersService(deps: VocClustersServiceDeps) {
   return {
     createCluster,
     listClusters,
+    countClusters,
     getCluster,
     listCandidatePeers,
     updateCluster,

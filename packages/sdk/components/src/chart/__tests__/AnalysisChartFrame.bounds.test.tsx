@@ -97,7 +97,7 @@ async function compareAlternatingTimes() {
   const points = (parity: number): ChartSeries['points'] => hours.flatMap((x, n) => n % 2 === parity ? [[x, n]] : []);
   mount({ xType: 'time', stackMode: 'stack', reaggregation: 'sum', bounds: new Map([[hours[0], { upper: 20 }]]),
     series: [{ ...series[0], points: points(1) }], compareSeries: [{ ...series[0], id: 'p', points: points(0) }] });
-  const options = () => (plot.option as { series: { id: string; data: unknown[]; renderItem: (params: { dataIndex: number }, api: { coord: (point: number[]) => number[] }) => { shape: unknown } }[] }).series;
+  const options = () => (plot.option as { series: { name?: string; data: unknown[]; renderItem: (params: { dataIndex: number }, api: { coord: (point: number[]) => number[] }) => { shape: unknown } }[] }).series;
   await screen.findByRole('img');
   const before = options();
   fireEvent.click(screen.getByRole('button', { name: '비교' }));
@@ -110,11 +110,11 @@ it('includes matching comparison values and falls back for mismatched sparse tim
   const previous: ChartSeries = { ...current, id: 'p', points: [[first, 2], [last, 1]] };
   const view = mount({ xType: 'time', stackMode: 'percent', reaggregation: 'sum', series: [current], compareSeries: [previous],
     bounds: new Map([[first, { upper: 8 }]]) });
-  const options = () => (plot.option as { series: { id: string; data: [number, number][] }[] }).series;
+  const options = () => (plot.option as { series: { name?: string; data: [number, number][] }[] }).series;
   const values = () => options().slice(0, 2).map(s => s.data.map(([, y]) => y));
   await screen.findByRole('img');
   expect(values()[0]).toEqual([100, 100]);
-  expect(options().some(s => s.id === '__bounds-upper')).toBe(false);
+  expect(options().some(s => s.name === '상한')).toBe(false);
   fireEvent.click(screen.getByRole('button', { name: '비교' }));
   expect(values()).toEqual([[50, 75], [50, 25]]);
   view.update({ compareSeries: [{ ...previous, points: [[last, 1]] }] });
@@ -124,7 +124,7 @@ it('includes matching comparison values and falls back for mismatched sparse tim
 
 it('keeps the plotted baseline within the current period when compare adds earlier and later times', async () => {
   const { before, after } = await compareAlternatingTimes();
-  const ends = (options: typeof before) => options.find(s => s.id === '__bounds-upper')!.renderItem({ dataIndex: 0 }, { coord: (p: number[]) => p }).shape;
+  const ends = (options: typeof before) => options.find(s => s.name === '상한')!.renderItem({ dataIndex: 0 }, { coord: (p: number[]) => p }).shape;
   expect(ends(after)).toEqual(ends(before));
 });
 

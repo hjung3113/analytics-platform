@@ -98,9 +98,9 @@ describe('review console — Site·공정 requests', () => {
     );
 
     expect(screen.getByText('Site SITE-A 전체')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '명시적 거부' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: '명시적 거부' })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: '승인' }));
+    await user.click(screen.getByRole('radio', { name: '승인' }));
     const scope = screen.getByRole('combobox', { name: '승인 범위' });
     expect(scope).toHaveTextContent('Site SITE-A 전체');
     scope.focus();
@@ -128,7 +128,7 @@ describe('review console — Site·공정 requests', () => {
     );
 
     expect(screen.getByText('Site SITE-B · 공정 RB4')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '승인' }));
+    await user.click(screen.getByRole('radio', { name: '승인' }));
     expect(screen.queryByRole('combobox', { name: '승인 범위' })).not.toBeInTheDocument();
     await user.click(screen.getByTestId('permission-decision-submit'));
 
@@ -164,8 +164,8 @@ describe('review console — Site·공정 requests', () => {
         onClose={() => undefined}
       />,
     );
-    expect(screen.getByRole('button', { name: '거절' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '명시적 거부' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '거절' })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: '명시적 거부' })).not.toBeInTheDocument();
   });
 });
 
@@ -226,7 +226,7 @@ describe('review console — requests for a capability the bundle no longer decl
     );
 
     expect(screen.getByText('선언에 없음')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '거절' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '승인' })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '거절' })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: '승인' })).not.toBeInTheDocument();
   });
 });

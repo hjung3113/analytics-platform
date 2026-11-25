@@ -4,7 +4,8 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../utils/cn.js';
 
 const toggleGroupItemVariants = cva(
-  'inline-flex items-center justify-center text-sm font-medium transition-colors',
+  // Disabled items dim and drop hover like Button and Tabs, so a blocked choice does not look pickable (#2674).
+  'inline-flex items-center justify-center text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {

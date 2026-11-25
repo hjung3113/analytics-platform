@@ -1,3 +1,6 @@
+import { invalidMenuViewPanels, type MenuViewPanels } from './menu-view-panels.js';
+import { CUSTOM_GROUP_FIXED_MAX } from './custom-group.js';
+import { nonSerializable } from './saved-view-json.js';
 import type { GlobalContext, Pair } from './url.js';
 import { isTableViewStates, type TableViewState } from './table-view-state.js';
 
@@ -6,7 +9,7 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | { [key:
 
 export type SavedViewKind = 'condition-set' | 'menu-view' | 'custom-group';
 export const CUSTOM_GROUP_AXIS = 'customGroup';
-export const CUSTOM_GROUP_FIXED_MAX = 5_000;
+export { CUSTOM_GROUP_FIXED_MAX } from './custom-group.js';
 export type CustomGroupTarget = { rule: Readonly<Record<string, readonly string[]>> } | { fixed: readonly string[] };
 
 /**
@@ -38,8 +41,8 @@ export type MenuView = SavedViewBase & {
   chartOptions: Record<string, JsonValue>;
   /** Engine-neutral arrangement; never an engine's raw JSON. */
   layout: JsonValue;
-  /** Opaque slot (#911): validation does not read the content. */
-  panels: unknown;
+  /** Null uses the panels declared by this menu. */
+  panels: MenuViewPanels | null;
   tables?: Record<string, TableViewState>;
 };
 
@@ -56,7 +59,7 @@ export type CustomGroupDraft = Omit<CustomGroupView, 'id' | 'ownerId' | 'version
 export type SavedViewDraft = ConditionSetDraft | MenuViewDraft | CustomGroupDraft;
 /** `menuSchemaVersion` is for menu views only: a migration that rewrote the content raises it in the same write. */
 /** `savedScopeId: null` clears the recorded Scope (an overwrite made with no current Scope). */
-export type SavedViewPatch = { name?: string; target?: CustomGroupTarget; menuSchemaVersion?: number; context?: SavedViewContext; savedScopeId?: string | null; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: unknown; tables?: MenuView['tables'] };
+export type SavedViewPatch = { name?: string; target?: CustomGroupTarget; menuSchemaVersion?: number; context?: SavedViewContext; savedScopeId?: string | null; page?: MenuView['page']; chartOptions?: MenuView['chartOptions']; layout?: JsonValue; panels?: MenuView['panels']; tables?: MenuView['tables'] };
 
 export type ViewGroup = { id: string; kind: 'org-team' | 'custom'; name: string; memberCount: number; managerIds?: string[] };
 /** `affiliation` tells same-named people apart in people search and member lists. */
@@ -151,16 +154,6 @@ export const isForbiddenSavedViewKey = (key: string): boolean => TRANSIENT_KEY.t
 const invalid = (detail: string): Result<never> => ({ ok: false, reason: 'invalid', detail });
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
-function nonSerializable(value: unknown, path: string, ancestors: unknown[]): string | null {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return null;
-  if (typeof value === 'number') return Number.isFinite(value) ? null : `${path}: non-finite number`;
-  if (typeof value !== 'object') return `${path}: ${typeof value} is not serializable`;
-  if (ancestors.includes(value)) return `${path}: circular reference`;
-  if (!Array.isArray(value)) { const proto = Object.getPrototypeOf(value); if (proto !== Object.prototype && proto !== null) return `${path}: not a plain object`; }
-  for (const [k, v] of Object.entries(value)) { const bad = nonSerializable(v, `${path}.${k}`, [...ancestors, value]); if (bad) return bad; }
-  return null;
-}
-
 const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => typeof x === 'string');
 const isNullOr = (check: (v: unknown) => boolean) => (v: unknown) => v === null || check(v);
 const CONTEXT_SHAPES: Record<string, (v: unknown) => boolean> = {
@@ -198,6 +191,17 @@ function invalidPage(page: unknown): string | null {
   return null;
 }
 
+/** A chart-source instance stores its settings, never raw data or engine state: the same key rule as `chartOptions` (#2760). */
+function forbiddenChartConfigKey(panels: unknown): string | null {
+  if (panels === null) return null;
+  for (const [i, instance] of (panels as MenuViewPanels).instances.entries()) {
+    if (instance.source.kind !== 'chart') continue;
+    const bad = forbiddenKey(instance.source.config, `panels.instances[${i}].source.config`);
+    if (bad) return bad;
+  }
+  return null;
+}
+
 function forbiddenKey(value: unknown, path: string): string | null {
   if (typeof value !== 'object' || value === null) return null;
   for (const [k, v] of Object.entries(value)) {
@@ -208,7 +212,7 @@ function forbiddenKey(value: unknown, path: string): string | null {
   return null;
 }
 
-/** Pure check of a draft before it is saved. `panels` is opaque: only its serializability is checked, never its content. */
+/** Pure check of a draft before it is saved, including the versioned menu panel configuration and its connections. */
 export function validateSavedView(input: unknown): Result<SavedViewDraft> {
   if (!isObject(input)) return invalid('view must be an object');
   if (input.schemaVersion !== 1) return invalid('unknown schemaVersion');
@@ -246,12 +250,16 @@ export function validateSavedView(input: unknown): Result<SavedViewDraft> {
     if (!isObject(input.chartOptions)) return invalid('chartOptions must be an object');
     if ('tables' in input && !isTableViewStates(input.tables)) return invalid('tables has the wrong shape');
     if (!('layout' in input) || !('panels' in input)) return invalid('layout and panels are required');
+    if (input.panels !== null) {
+      const badPanels = invalidMenuViewPanels(input.panels);
+      if (badPanels) return invalid(badPanels);
+    }
   } else return invalid('unknown kind');
   for (const [k, v] of Object.entries(input)) {
-    const bad = nonSerializable(v, k, [input]);
+    const bad = nonSerializable(v, k, [input], { requireDenseArrays: k === 'panels' });
     if (bad) return invalid(bad);
     if (isForbiddenSavedViewKey(k)) return invalid(`${k} must not be saved`);
-    const key = k === 'chartOptions' || k === 'layout' ? forbiddenKey(v, k) : null;
+    const key = k === 'chartOptions' || k === 'layout' ? forbiddenKey(v, k) : k === 'panels' ? forbiddenChartConfigKey(v) : null;
     if (key) return invalid(`${key} must not be saved`);
   }
   return { ok: true, value: input as SavedViewDraft };

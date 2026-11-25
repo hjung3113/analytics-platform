@@ -705,6 +705,7 @@
 | 미구현 | `@ap/components` 루트의 `EChart`·`chartTheme`·`token`·`EChartProps` 호환 export 삭제 | SHE-26 소유자 결정: `/host` 이전을 위해 한 릴리스 유지 | 다음 SDK minor 릴리스 |
 | 미구현 | `DetailPanelHeader.kind`·`KIND_LABELS`·기존 kind accent 맵 삭제 | SHE-45 소유자 결정: 소비자 label·accent 선언으로 이전할 한 릴리스 유지 | 다음 SDK minor 릴리스 |
 | 미구현 | `DetailPanelHeaderActions.entityKind`·`entityId` prop 삭제 | SHE-45 소유자 결정: 사용하지 않는 prop의 소스 호환을 한 릴리스 유지 | 다음 SDK minor 릴리스 |
+| 미구현 | `AnalysisChartFrame.stacked` 삭제와 메뉴 사용처(hw-time 3곳, analytics 2곳, rcc 2곳)의 `stackMode="stack"` 이전 (#2887 F2) | 팀장 결정: 이번에는 사용 중단 표시만 하고 동작은 그대로 둔다. `stackMode`는 집계 선언이 없거나 더할 수 없는 측정을 쌓지 않으므로, 메뉴마다 측정이 더할 수 있는지 확인하고 `reaggregation`을 선언해야 한다 | 다음 SDK minor 릴리스, 또는 메뉴가 쌓기 차트를 손볼 때 |
 
 ## 성능 감사 2026-11-23 보류 (#2816)
 

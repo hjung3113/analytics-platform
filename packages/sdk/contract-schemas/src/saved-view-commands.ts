@@ -36,10 +36,12 @@ function withinDepth(value: unknown): boolean {
   return true;
 }
 
-/** Forbidden key at any depth of an object (array positions are not keys). */
+/** Forbidden key at any depth of an object (array positions are not keys). An array is walked by its elements only, the same walk as
+ *  `isJsonValue`, so an extra (non-JSON) property on an array never leads into a cycle (#2760). */
 function hasForbiddenKey(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false;
-  return Object.entries(value).some(([key, child]) => (!Array.isArray(value) && isForbiddenSavedViewWireKey(key)) || hasForbiddenKey(child));
+  if (Array.isArray(value)) return value.some(hasForbiddenKey);
+  return Object.entries(value).some(([key, child]) => isForbiddenSavedViewWireKey(key) || hasForbiddenKey(child));
 }
 const noForbiddenKeys = <T extends z.ZodType>(schema: T) => schema.refine((value) => !hasForbiddenKey(value), { message: 'transient or raw-data key must not be saved' });
 
@@ -68,8 +70,118 @@ const pageSchema = z.union([
 ]);
 const chartOptionsSchema = noForbiddenKeys(z.record(z.string(), json));
 const layoutSchema = noForbiddenKeys(json);
-/** Opaque slot: finite JSON only; its content (including key names) is never inspected. */
-const panelsSchema = json;
+// Literal copies: contracts is test-only here. The saved-view tests pin the limits and graph rules.
+export const PANEL_INSTANCES_MAX = 24;
+export const PANEL_INSTANCE_INPUTS_MAX = 16;
+export const PANEL_INSTANCE_TOKEN_MAX = 200;
+export const CUSTOM_GROUP_FIXED_MAX = 5_000;
+
+const nonBlank = z.string().regex(/\S/, { message: 'must be non-blank' });
+const panelToken = nonBlank.max(PANEL_INSTANCE_TOKEN_MAX);
+const panelShape = z.enum(['set', 'range']);
+const heldSelectionSchema = z.discriminatedUnion('shape', [
+  z.strictObject({
+    shape: z.literal('set'),
+    values: z.array(nonBlank).min(1).max(CUSTOM_GROUP_FIXED_MAX)
+      .refine(values => new Set(values).size === values.length, { message: 'values must be distinct' })
+      .meta({ uniqueItems: true }),
+  }),
+  z.strictObject({ shape: z.literal('range'), from: nonBlank, to: nonBlank }),
+]);
+const panelInputSchema = z.discriminatedUnion('mode', [
+  z.strictObject({ key: panelToken, from: z.string(), mode: z.literal('follow') }),
+  z.strictObject({ key: panelToken, from: z.string(), mode: z.literal('hold'), value: heldSelectionSchema }),
+]);
+const panelOutputSchema = z.strictObject({ key: panelToken, dimension: panelToken, shape: panelShape });
+function isJsonValue(value: unknown, ancestors: Set<object>): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'object' || ancestors.has(value)) return false;
+  if (!Array.isArray(value)) {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return false;
+  }
+  ancestors.add(value);
+  for (const child of Array.isArray(value) ? value : Object.values(value)) {
+    if (!isJsonValue(child, ancestors)) return false;
+  }
+  ancestors.delete(value);
+  return true;
+}
+
+// A JSON Schema object already contains only JSON values. Check that guarantee on JS inputs too, without
+// letting Zod's record parser drop an own "__proto__" key or interpret an own "constructor" key.
+const chartConfigSchema = z.unknown().refine(
+  config => typeof config === 'object' && config !== null && !Array.isArray(config) && isJsonValue(config, new Set()),
+  { message: 'config must be a finite JSON object', abort: true },
+).refine(config => !hasForbiddenKey(config), { message: 'transient or raw-data key must not be saved' }).meta({ type: 'object' }) as z.ZodType<Record<string, JsonValue>>;
+
+const panelSourceSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('declared'), panel: panelToken }),
+  z.strictObject({ kind: z.literal('chart'), config: chartConfigSchema }),
+]);
+const panelInstanceSchema = z.strictObject({
+  id: panelToken,
+  source: panelSourceSchema,
+  inputs: z.array(panelInputSchema).max(PANEL_INSTANCE_INPUTS_MAX),
+  outputs: z.array(panelOutputSchema).max(PANEL_INSTANCE_INPUTS_MAX),
+});
+
+/** Same graph rules and messages as @ap/contracts, tested against the same cases. */
+function invalidPanelConnections(instances: z.infer<typeof panelInstanceSchema>[]): string | null {
+  const ids = new Set<string>();
+  const outputs = new Map<string, { id: string; shape: z.infer<typeof panelOutputSchema>['shape'] }>();
+  for (const instance of instances) {
+    if (instance.id.includes('.')) return 'panels instance ids must not contain "."';
+    if (ids.has(instance.id)) return 'panels instance ids must be unique';
+    ids.add(instance.id);
+    for (const output of instance.outputs) {
+      const ref = `${instance.id}.${output.key}`;
+      if (outputs.has(ref)) return 'panels output keys must be unique per instance';
+      outputs.set(ref, { id: instance.id, shape: output.shape });
+    }
+    if (new Set(instance.inputs.map(input => input.key)).size !== instance.inputs.length) {
+      return 'panels input keys must be unique per instance';
+    }
+  }
+
+  const dependencies = new Map<string, string[]>();
+  for (const { id, inputs } of instances) {
+    const upstream: string[] = [];
+    for (const input of inputs) {
+      const output = outputs.get(input.from);
+      if (!output) return 'panels input from must name an existing instance output';
+      if (output.id === id) return 'panels input from must not name its own instance';
+      if (input.mode === 'hold' && input.value.shape !== output.shape) {
+        return 'panels held selection shape must match the referenced output';
+      }
+      upstream.push(output.id);
+    }
+    dependencies.set(id, upstream);
+  }
+
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  function hasCycle(id: string): boolean {
+    if (visiting.has(id)) return true;
+    if (visited.has(id)) return false;
+    visiting.add(id);
+    if (dependencies.get(id)?.some(hasCycle)) return true;
+    visiting.delete(id);
+    visited.add(id);
+    return false;
+  }
+  return instances.some(({ id }) => hasCycle(id)) ? 'panels connections must not contain a cycle' : null;
+}
+
+/** Connection and reference checks run in Zod. JSON Schema consumers must apply these checks themselves. */
+export const menuViewPanelsSchema = z.strictObject({
+  version: z.literal(1),
+  instances: z.array(panelInstanceSchema).max(PANEL_INSTANCES_MAX, { abort: true }),
+}).superRefine(({ instances }, ctx) => {
+  const message = invalidPanelConnections(instances);
+  if (message) ctx.addIssue({ code: 'custom', message });
+}).nullable();
 // Literal copy: contracts is test-only here. table-view-state tests pin all caps.
 export const TABLE_VIEW_CAPS = { tables: 20, key: 200, basis: 16_384, items: 200, id: 200, members: 500, label: 60, width: 60 } as const;
 const tableId = z.string().min(1).max(TABLE_VIEW_CAPS.id);
@@ -93,7 +205,7 @@ const groupId = z.string().min(1).regex(/\S/, { message: 'id is empty' });
 const ruleAxisId = groupId.refine(axis => axis !== 'customGroup', { message: 'nested custom groups are forbidden' }).meta({ not: { const: 'customGroup' } });
 const customGroupTarget = z.union([
   z.strictObject({ rule: z.record(ruleAxisId, z.array(groupId).min(1)) }),
-  z.strictObject({ fixed: z.array(groupId).min(1).max(5_000).refine(ids => new Set(ids).size === ids.length, { message: 'fixed ids must be unique' }).meta({ uniqueItems: true }) }),
+  z.strictObject({ fixed: z.array(groupId).min(1).max(CUSTOM_GROUP_FIXED_MAX).refine(ids => new Set(ids).size === ids.length, { message: 'fixed ids must be unique' }).meta({ uniqueItems: true }) }),
 ]);
 
 export const savedViewDraftSchema = z.discriminatedUnion('kind', [
@@ -110,7 +222,7 @@ export const savedViewDraftSchema = z.discriminatedUnion('kind', [
     page: pageSchema,
     chartOptions: chartOptionsSchema,
     layout: layoutSchema,
-    panels: panelsSchema,
+    panels: menuViewPanelsSchema,
     tables: tablesSchema.optional(),
   }),
 ]);
@@ -125,7 +237,7 @@ export const savedViewPatchSchema = z.strictObject({
   page: pageSchema.optional(),
   chartOptions: chartOptionsSchema.optional(),
   layout: layoutSchema.optional(),
-  panels: panelsSchema.optional(),
+  panels: menuViewPanelsSchema.optional(),
   tables: tablesSchema.optional(),
 });
 
@@ -201,7 +313,7 @@ export const savedViewSchema = z.discriminatedUnion('kind', [
     approval: z.literal('none'),
   }).omit({ context: true }),
   z.strictObject({ ...record, kind: z.literal('condition-set') }),
-  z.strictObject({ ...record, kind: z.literal('menu-view'), menuId: id, menuSchemaVersion: version, page: pageSchema, chartOptions: chartOptionsSchema, layout: layoutSchema, panels: panelsSchema, tables: tablesSchema.optional() }),
+  z.strictObject({ ...record, kind: z.literal('menu-view'), menuId: id, menuSchemaVersion: version, page: pageSchema, chartOptions: chartOptionsSchema, layout: layoutSchema, panels: menuViewPanelsSchema, tables: tablesSchema.optional() }),
 ]);
 const capabilities = z.strictObject({ canView: z.boolean(), canCopy: z.boolean(), canEdit: z.boolean(), canShare: z.boolean(), canApprove: z.boolean(), canRevoke: z.boolean(), reason: z.string().optional() });
 export const savedViewEntrySchema = z.strictObject({ denied: z.literal(false).optional(), view: savedViewSchema, capabilities });

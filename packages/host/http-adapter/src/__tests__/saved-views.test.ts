@@ -7,7 +7,7 @@ import { bootstrapBody, json, server, type Handler } from './test-support.js';
 import { bootstrapHttpAdapter } from '../index.js';
 
 const PATH = '/api/v1/platform/saved-views/commands';
-const menuDraft = { schemaVersion: 1, kind: 'menu-view', name: 'v', menuId: 'home', menuSchemaVersion: 1, context: { roomNames: ['A'] }, page: [['k', 'v']], chartOptions: { a: 1 }, layout: null, panels: [{ x: 1 }] };
+const menuDraft = { schemaVersion: 1, kind: 'menu-view', name: 'v', menuId: 'home', menuSchemaVersion: 1, context: { roomNames: ['A'] }, page: [['k', 'v']], chartOptions: { a: 1 }, layout: null, panels: { version: 1, instances: [{ id: 'a', source: { kind: 'declared', panel: 'trend' }, inputs: [], outputs: [] }] } };
 const view = { id: 'v1', kind: 'menu-view', schemaVersion: 1, name: 'v', ownerId: 'u1', version: 1, updatedAt: 1, visibility: { kind: 'private' }, approval: 'none', context: {}, menuId: 'home', menuSchemaVersion: 1, page: [], chartOptions: {}, layout: null, panels: null };
 const caps = { canView: true, canCopy: true, canEdit: true, canShare: true, canApprove: false, canRevoke: false };
 const entry = { view, capabilities: caps };
@@ -182,7 +182,7 @@ describe('HTTP saved-view store (#1105)', () => {
 
   it('refuses an over-bound draft as invalid without sending it', async () => {
     const { store, sent } = await open();
-    const big = { ...menuDraft, panels: 'x'.repeat(262_144) };
+    const big = { ...menuDraft, chartOptions: { note: 'x'.repeat(262_144) } };
     expect(await store.save(big as never)).toMatchObject({ ok: false, reason: 'invalid' });
     let deep: unknown = 1;
     for (let i = 0; i < 40; i += 1) deep = [deep];
@@ -208,7 +208,10 @@ describe('guards equal the wire schemas', () => {
     ['forbidden chartOptions key (nested)', { ...base, draft: { ...menuDraft, chartOptions: { a: { hoverRow: 1 } } } }],
     ['applied page key with transient-looking name', { ...base, draft: { ...menuDraft, page: [['zoomLevel', '1']] } }],
     ['scopeId in context', { ...base, draft: { ...menuDraft, context: { scopeId: 'S' } } }],
-    ['panels with forbidden-looking keys is opaque', { ...base, draft: { ...menuDraft, panels: { hoverX: 1 } } }],
+    ['panels saved before the panel-instance format (#2760)', { ...base, draft: { ...menuDraft, panels: { hoverX: 1 } } }],
+    ['forbidden key in a chart panel config (#2760)', { ...base, draft: { ...menuDraft, panels: { version: 1, instances: [{ id: 'a', source: { kind: 'chart', config: { a: { hoverRow: 1 } } }, inputs: [], outputs: [] }] } } }],
+    ['panel input naming a missing output (#2760)', { ...base, draft: { ...menuDraft, panels: { version: 1, instances: [{ id: 'a', source: { kind: 'declared', panel: 'p' }, inputs: [{ key: 'k', mode: 'follow', from: 'b.x' }], outputs: [] }] } } }],
+    ['update with an old panels value (#2760)', { version: 1, op: 'update', id: 'a', patch: { panels: [1] }, expectedVersion: 1 }],
     ['bad visibility enum', { version: 1, op: 'setVisibility', id: 'a', visibility: { kind: 'everyone' }, expectedVersion: 1 }],
     ['extra visibility key', { version: 1, op: 'setVisibility', id: 'a', visibility: { kind: 'private', userIds: [] }, expectedVersion: 1 }],
     ['bad decision', { version: 1, op: 'decide', id: 'a', decision: 'maybe', expectedVersion: 1 }],

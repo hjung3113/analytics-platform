@@ -12,6 +12,7 @@ import { groupedRowText, rowGroup, rowGroupLayout, rowLabel, type ChartRowGroups
 import { distinctStatuses, statusBacking, statusBorderColor, statusFill, statusGlyph, statusKey, statusMarker, statusText } from './chartStatus';
 import { chartTheme, token } from './EChart';
 import { QUIET_SCATTER } from './scatterDensity';
+import { helperSeriesId } from './helperSeriesId';
 import { COMPONENTS_MESSAGES } from '../messages';
 
 const DEFAULT_JITTER = 0.6;
@@ -63,11 +64,11 @@ function spans(bounds: Bound[], part: 'upper' | 'lower' | 'band'): Span[] {
   });
   return result;
 }
-function categoryGroups(groups: ChartRowGroups, order: readonly string[]): CustomSeriesOption {
+function categoryGroups(groups: ChartRowGroups, order: readonly string[], takenSeriesIds: Set<string>): CustomSeriesOption {
   const { runs } = rowGroupLayout(groups, order);
   const theme = chartTheme();
   return {
-    id: '__scatterGroups', type: 'custom', silent: true, animation: false, clip: false, tooltip: { show: false },
+    id: helperSeriesId('__scatterGroups', takenSeriesIds), type: 'custom', silent: true, animation: false, clip: false, tooltip: { show: false },
     encode: { x: [0, 1], y: -1 }, data: runs.map(run => [run.start, run.end]),
     renderItem: (params, api) => {
       const run = runs[params.dataIndex];
@@ -159,7 +160,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
     total: points.length, unknown: points.filter(point => point.y === null).length,
     legend: quiet ? formatText(COMPONENTS_MESSAGES.chartScatterGroupCount, lang, { count: base.legend.length }) : base.legend.map(item => item.label).join(', '), xLabel: spec.xLabel, yLabel: spec.yLabel, unit,
   }) : base.summary;
-  const statusOutlines: ScatterSeriesOption[] = base.seriesKeys.flatMap((keys, groupIndex) => {
+  const statusOutlines = base.seriesKeys.flatMap((keys, groupIndex) => {
     const data = keys.flatMap(key => {
       const point = key === undefined ? undefined : pointByRowKey.get(key)?.point;
       return point?.status ? [{ value: [point.x, point.y], status: point.status }] : [];
@@ -211,6 +212,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
           { coord: [span.start - HALF_CELL, span.lower!] }, { coord: [span.end + HALF_CELL, span.upper!] },
         ]) };
       }
+      const takenSeriesIds = new Set(series.flatMap(({ id }) => id === undefined ? [] : [String(id)]));
       const yAxis = original.yAxis as YAXisComponentOption;
       const boundValues = (cells?.bounds ?? []).flatMap(bound => [bound.lower, bound.upper].filter((value): value is number => value !== undefined));
       const yRange = (extent: { min: number; max: number }) => {
@@ -235,7 +237,11 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
           const record = pointForDatum(p.seriesIndex, p.dataIndex);
           return record === undefined ? '' : tableValues[record.rowIndex].map((value, column) => escapeHtml(`${headers[column]}: ${value}`)).join(' · ');
         } },
-        series: [...series, ...statusOutlines, ...(groups && cells ? [categoryGroups(groups, cells.order)] : [])],
+        series: [
+          ...series,
+          ...statusOutlines.map(outline => ({ ...outline, id: helperSeriesId(outline.id, takenSeriesIds) })),
+          ...(groups && cells ? [categoryGroups(groups, cells.order, takenSeriesIds)] : []),
+        ],
       };
     },
   };

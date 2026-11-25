@@ -415,7 +415,7 @@ describe('/admin/permissions/requests URL state', () => {
     await screen.findByText('요청 상세를 불러오는 중입니다.');
     fireEvent.mouseDown(screen.getByRole('tab', { name: /^추가 정보 필요/ }));
     await screen.findByText('need detail');
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     fireEvent.change(screen.getByLabelText(/^사유/), { target: { value: 'new selected draft' } });
     await act(async () => {
       resolveOld?.(response(adminDetailFixture(REQUESTS[0])));
@@ -464,7 +464,7 @@ describe('/admin/permissions/requests URL state', () => {
     );
 
     await screen.findByText('민감한 권한 · 전체 읽기');
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     fireEvent.change(screen.getByLabelText(/^사유/), {
       target: { value: 'previous request draft' },
     });
@@ -472,7 +472,7 @@ describe('/admin/permissions/requests URL state', () => {
 
     await screen.findByText('요청 만료일 없음');
     expect(screen.queryByText('민감한 권한 · 전체 읽기')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     expect(screen.getByLabelText(/^사유/)).toHaveValue('');
   });
 
@@ -512,7 +512,7 @@ describe('/admin/permissions/requests URL state', () => {
     await screen.findByText('요청 상세를 불러오는 중입니다.');
     fireEvent.mouseDown(screen.getByRole('tab', { name: /^추가 정보 필요/ }));
     await screen.findByText('요청 만료일 없음');
-    fireEvent.click(screen.getByRole('button', { name: '거절' }));
+    fireEvent.click(screen.getByRole('radio', { name: '거절' }));
     fireEvent.change(screen.getByLabelText(/^사유/), {
       target: { value: 'new selected draft' },
     });

@@ -315,6 +315,16 @@ describe('height mode and rows (#686)', () => {
       expect(initialWorkspaceState(preferredSpec).preferredSeen).toEqual({ kpi: 480 });
       expect(initialWorkspaceState(rowSpec).preferredSeen).toBeUndefined();
     });
+
+    it.each([NaN, Infinity, -1])('raises a valid declaration during re-match and leaves the row with %s alone', invalid => {
+      const next = normalizeWorkspaceState(stored({ mode: 'stack', rows: [300, 420, 380] }), {
+        ...preferredSpec, panelIds: [...IDS, 'extra'], below: ['extra'],
+        preferredHeights: new Map([['trend', invalid], ['kpi', 480]]),
+        rowPreferred: row => (panelOrder(row).includes('trend') ? invalid : preferredSpec.rowPreferred?.(row)),
+      });
+      expect(next.rows).toEqual([300, 420, 480, 360]);
+      expect(next.preferredSeen).toEqual({ kpi: 480 });
+    });
   });
 
   it('never throws on garbage and gives a usable fit state', () => {
@@ -474,6 +484,17 @@ describe('placement below (#2398)', () => {
     expect(groupOf(placed.layout, 'extra')?.panels).toEqual(['trend', 'extra']);
   });
 
+  it('uses the prior row height and declarations when a below panel leaves', () => {
+    const previous = withRows(initialWorkspaceState(below), 'stack', [300, 500]);
+    const remaining = { ...below, panelIds: IDS, below: [], preferredHeights: new Map([['trend', 480]]), rowPreferred: () => 480 };
+    expect(updateWorkspacePanels(previous, remaining, ['extra'])).toMatchObject({ rows: [480], preferredSeen: { trend: 480 } });
+    expect(updateWorkspacePanels({ ...previous, preferredSeen: { trend: 480 } }, remaining, ['extra']).rows).toEqual([300]);
+    expect(updateWorkspacePanels(previous, { ...remaining, rowMinimum: () => 650 }, ['extra'], 400).rows).toEqual([650]);
+    const taller = withRows(previous, 'stack', [720, 500]);
+    const grown = { ...remaining, preferredHeights: new Map([['trend', 800]]), rowPreferred: () => 800 };
+    expect(updateWorkspacePanels(taller, grown, ['extra'], 600).rows).toEqual([720]);
+  });
+
   it('a panel without placement still joins the primary group as a tab', () => {
     const next = normalizeWorkspaceState(initialWorkspaceState({ ...spec, presets: [focus], initialPreset: 'focus' }), { ...below, below: [] });
     expect(groupOf(next.layout, 'extra')?.panels).toContain('trend');
@@ -490,6 +511,17 @@ describe('shared lower rows (#2490)', () => {
     sharedRows: [{ id: 'trends', panels: ['settings', 'runs'] }],
   };
   const only = (id: string): WorkspaceSpec => ({ ...base, panelIds: ['matrix', id] });
+
+  it('keeps a raised shared row height when a member leaves', () => {
+    const size = { id: 'trends', share: 35, height: 300, widths: { settings: 40, runs: 60 } };
+    const raw = { ...withRows(initialWorkspaceState(base), 'stack', [410, 300]), sharedRowSizes: [size] };
+    const preferred = { ...base, preferredHeights: new Map([['settings', 480]]), rowPreferred: (row: DockNode) => (panelOrder(row).includes('settings') ? 480 : undefined) };
+    const restored = normalizeWorkspaceState(raw, preferred);
+    const remaining = { ...preferred, panelIds: ['matrix', 'settings'], sharedRows: [{ id: 'trends', panels: ['settings'] }] };
+    expect(restored.rows).toEqual([410, 480]);
+    expect(restored.sharedRowSizes).toEqual([{ ...size, height: 480 }]);
+    expect(updateWorkspacePanels(restored, remaining, []).rows).toEqual([410, 480]);
+  });
 
   it('uses the stored fit share when the settings trend first joins the live panel set', () => {
     const stored = JSON.stringify({

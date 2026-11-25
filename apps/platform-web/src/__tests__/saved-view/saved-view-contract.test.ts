@@ -26,7 +26,7 @@ const menuView = {
   page: [['grain', 'hour']],
   chartOptions: { stacked: true },
   layout: { split: [1, 2] },
-  panels: { anything: 1 },
+  panels: { version: 1, instances: [{ id: 'a', source: { kind: 'declared', panel: 'trend' }, inputs: [], outputs: [] }] },
 };
 
 describe('validateSavedView (21.1 두 저장 단위)', () => {
@@ -84,11 +84,16 @@ describe('validateSavedView (21.1 두 저장 단위)', () => {
     ['Date', new Date(0)],
   ])('직렬화 불가능한 %s는 chartOptions·panels 모두에서 거부', (_n, value) => {
     expect(validateSavedView({ ...menuView, chartOptions: { x: value } }).ok).toBe(false);
-    expect(validateSavedView({ ...menuView, panels: { x: value } }).ok).toBe(false);
+    const chart = { id: 'a', source: { kind: 'chart', config: { x: value } }, inputs: [], outputs: [] };
+    expect(validateSavedView({ ...menuView, panels: { version: 1, instances: [chart] } }).ok).toBe(false);
   });
 
-  it.each([['문자열', 'x'], ['null', null], ['배열', [1, [2]]], ['엔진 이름 키를 가진 객체', { rows: [1], hover: 2 }]])('panels는 불투명: %s 통과', (_n, panels) => {
-    expect(validateSavedView({ ...menuView, panels }).ok).toBe(true);
+  it('panels null은 메뉴가 선언한 패널로 통과 (#2760)', () => {
+    expect(validateSavedView({ ...menuView, panels: null }).ok).toBe(true);
+  });
+
+  it.each([['문자열', 'x'], ['배열', [1, [2]]], ['옛 불투명 객체', { rows: [1], hover: 2 }]])('panels 옛 형식 %s는 저장 거부 (#2760)', (_n, panels) => {
+    expect(validateSavedView({ ...menuView, panels }).ok).toBe(false);
   });
 });
 

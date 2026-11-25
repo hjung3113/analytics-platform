@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useInsertionEffect, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, Inbox, ServerCrash } from 'lucide-react';
 import { pageConditionKeys, wallClockEpochMs, type PageConditionCategory, type PageConditionOption, type PageConditions, type Pair, type HierarchySource } from '@ap/contracts';
 import { decodePageConditions, encodePageConditions, PAGE_CONDITION_EMPTY, PageConditionError, useI18n, useMessages, type PageConditionIssue, type PageConditionValue, type PageConditionValues } from '@ap/kernel';
@@ -86,14 +86,18 @@ function useOptions(category: PageConditionCategory, loadOptions?: PageCondition
   const kind = category.kind;
   const dynamic = kind.type === 'groupedChecks' || ((kind.type === 'select' || kind.type === 'multi') && 'endpoint' in kind.options);
   // Loader callbacks often close over fresh params. inputsKey, not function identity, owns reloads.
-  const load = useEffectEvent(async (signal: AbortSignal) => {
-    if (!loadOptions) throw new Error('No page condition options loader supplied');
-    return checkPageConditionOptions(category, await loadOptions(category, { signal }));
+  // The latest render's loader, read when the effect runs (React 19.0-safe, not `useEffectEvent` #2955).
+  const loadLatest = useRef<(signal: AbortSignal) => Promise<PageConditionOptions>>(null!);
+  useInsertionEffect(() => {
+    loadLatest.current = async signal => {
+      if (!loadOptions) throw new Error('No page condition options loader supplied');
+      return checkPageConditionOptions(category, await loadOptions(category, { signal }));
+    };
   });
   useEffect(() => {
     if (!dynamic) return;
     const controller = new AbortController();
-    void load(controller.signal).then(data => {
+    void loadLatest.current(controller.signal).then(data => {
       if (!controller.signal.aborted) setState({ status: 'ready', data });
     }, error => {
       // Only our own abort means superseded; a loader timeout/AbortError is a visible failure.

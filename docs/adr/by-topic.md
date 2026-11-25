@@ -229,6 +229,7 @@ SDK 소유와 배포, 디자인 시스템, 저장소·패키지 구조, 테스�
 - [0141](0141-in-house-assembly-in-separate-repository.md) — 사내 조립은 이 저장소 밖의 별도 저장소에서 한다(방향 채택, 전제 변경은 저장소 밖 조립 시험 통과 뒤 발효)
 - [0142](0142-out-of-repo-menu-package-and-host-module-split.md) — 사내 메뉴는 «저장소 밖 메뉴 패키지», 자체 UI 제품은 호스트 모듈로 나눈다
 - [0143](0143-release-units-and-compatibility-train.md) — 릴리스 단위는 셋(SDK, Host·어댑터, 코어 서버 묶음), 호환은 «같은 열차 N, 롤백용 N-1»만
+- [0177](0177-core-server-release-unit-image-tarballs.md) — 코어 서버 릴리스 단위는 태그마다 이미지 tar 셋과 SHA256SUMS를 공개 Release에 싣는다
 - [0150](0150-no-external-ai-or-embedding-calls-in-the-in-house-profile.md) — 사내 프로필에서는 외부 AI·임베딩 호출을 하지 않고 시작 검사로 지킨다
 - [0151](0151-public-domain-vocabulary-is-frozen-by-an-allowlist.md) — 공개 저장소의 기존 도메인 어휘는 허용 목록으로 동결하고 목록 밖 신규만 막는다
 
