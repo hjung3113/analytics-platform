@@ -1298,3 +1298,33 @@ describe('lent panel registration (#2490)', () => {
     expect(assemble).toThrow(/source\.unscoped.*scopeId/);
   });
 });
+
+describe('chart fields registration (#2761)', () => {
+  const label = { ko: '라벨', en: 'Label' };
+  const fields = {
+    time: { field: 'at', label },
+    breakdowns: [{ id: 'equipment', label, dimension: 'equipmentId' }],
+    measures: [{ id: 'runTime', label, unit: 'h', reaggregation: 'sum' }],
+  };
+  const build = (chartFields: unknown) => createRegistry({ spaces, groups, menus: [{ ...catalog, chartFields } as MenuEntry] });
+  it('registers a valid declaration and leaves a menu without one as it is', () => {
+    expect(() => build(fields)).not.toThrow();
+    expect(() => build(undefined)).not.toThrow();
+  });
+  it.each([
+    [{ ...fields, measures: [] }, /at least one measure/],
+    [{ ...fields, breakdowns: [...fields.breakdowns, { id: 'runTime', label, dimension: 'x' }] }, /duplicate field "runTime"/],
+    [{ ...fields, time: { field: 'equipment', label } }, /duplicate field "equipment"/],
+    [{ ...fields, breakdowns: [{ id: 'a/b', label, dimension: 'x' }] }, /breakdown id/],
+    [{ ...fields, breakdowns: [{ id: 'b', label, dimension: 'equipment-id' }] }, /dimension must match/],
+    [{ ...fields, breakdowns: [{ id: 'b', label, dimension: 'd'.repeat(201) }] }, /at most 200/],
+    [{ ...fields, measures: [{ ...fields.measures[0], unit: '' }] }, /unit/],
+    [{ ...fields, measures: [{ ...fields.measures[0], reaggregation: 'avg' }] }, /reaggregation/],
+    [{ ...fields, measures: [{ ...fields.measures[0], label: { ko: '', en: 'x' } }] }, /label/],
+    [{ ...fields, measures: [{ ...fields.measures[0], permission: 'yield' }] }, /permission/],
+    [{ ...fields, measures: [{ ...fields.measures[0], breakdowns: ['line'] }] }, /unknown breakdown "line"/],
+  ])('rejects a malformed declaration %#', (chartFields, message) => {
+    expect(() => build(chartFields)).toThrow(/Menu "catalog" chartFields/);
+    expect(() => build(chartFields)).toThrow(message);
+  });
+});

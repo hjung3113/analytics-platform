@@ -1,6 +1,6 @@
-import { CHART_CONFIG_FIELD_MAX, type MenuChartFields, type Text } from '@ap/contracts';
+import { CHART_CONFIG_FIELD_MAX, PANEL_INSTANCE_TOKEN_MAX, type MenuChartFields, type Text } from '@ap/contracts';
 import type { MenuEntry } from './registry';
-import { isIdShape, isPermissionShape } from './shapes';
+import { isIdShape, isObjectKindShape, isPermissionShape } from './shapes';
 
 const REAGGREGATIONS = ['sum', 'ratioOfSums', 'recomputeFromDistribution', 'none'];
 const textPresent = (text: Text | undefined) => typeof text?.ko === 'string' && text.ko.trim() !== '' && typeof text.en === 'string' && text.en.trim() !== '';
@@ -29,7 +29,10 @@ export function registerChartFields(menu: Pick<MenuEntry, 'id' | 'chartFields'>,
   for (const breakdown of fields.breakdowns) {
     claim(breakdown?.id, 'breakdown');
     if (!textPresent(breakdown.label)) error(`breakdown "${breakdown.id}" label needs nonempty ko and en`);
-    if (typeof breakdown.dimension !== 'string' || breakdown.dimension.trim() === '') error(`breakdown "${breakdown.id}" dimension must be nonempty`);
+    // The same rule as a code panel's output selection dimension, and the saved-view token cap, so the bar's output is storable and linkable.
+    if (!isObjectKindShape(breakdown.dimension) || breakdown.dimension.length > PANEL_INSTANCE_TOKEN_MAX) {
+      error(`breakdown "${breakdown.id}" dimension must match /^[a-z][a-zA-Z0-9]*$/ and have at most ${PANEL_INSTANCE_TOKEN_MAX} characters`);
+    }
   }
   for (const measure of fields.measures) {
     claim(measure?.id, 'measure');
