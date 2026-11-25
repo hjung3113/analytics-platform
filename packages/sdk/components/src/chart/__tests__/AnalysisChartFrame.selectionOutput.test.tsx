@@ -787,7 +787,7 @@ function ChartChipWorkspace({ frame, onAdd, hold = false }: { frame: 'live' | 'u
  * Adds the receiver panel for real: it joins the source panel's group as the active tab, as in HW Time. `below` opens it as a new row
  * instead and keeps a second candidate, so the source panel and its row «새 패널» stay in place.
  */
-function AddingWorkspace({ below = false, hold = false }: { below?: boolean; hold?: boolean }) {
+function AddingWorkspace({ below = false, hold = false, again }: { below?: boolean; hold?: boolean; again?: 'follow' | 'hold' }) {
   const { route } = usePlatform();
   const [added, setAdded] = useState(false);
   const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
@@ -795,7 +795,7 @@ function AddingWorkspace({ below = false, hold = false }: { below?: boolean; hol
   return <PanelWorkspace label={chipLabel('Workspace')} persistKey="adding" initialMode="stack"
     presets={[{ id: 'chip', label: chipLabel('Preset'), layout: { type: 'group', panels: ['bars'], active: 'bars' } }]} initialPreset="chip"
     revealRequest={reveal}
-    analysisPanelAddition={{ items: [{ id: 'receiver', title: chipLabel('수신 패널') },
+    analysisPanelAddition={{ items: [{ id: 'receiver', title: chipLabel('수신 패널'), again },
       ...(below ? [{ id: 'receiver-two', title: chipLabel('둘째 수신 패널') }] : [])], onAdd: () => {
       setAdded(true);
       setReveal(current => ({ panelId: 'receiver', seq: (current?.seq ?? 0) + 1 }));
@@ -872,8 +872,8 @@ describe('Next analysis chip actions', () => {
     await user.click(await screen.findByRole('menuitem', { name: item }));
   };
 
-  const addingPage = (below: boolean, hold = false) => <I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry} slots={chipSlots}>
-    <PlatformPage><AddingWorkspace below={below} hold={hold} /></PlatformPage>
+  const addingPage = (below: boolean, hold = false, again?: 'follow' | 'hold') => <I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry} slots={chipSlots}>
+    <PlatformPage><AddingWorkspace below={below} hold={hold} again={again} /></PlatformPage>
   </PlatformProvider></I18nProvider>;
   const tabOf = (id: string) => screen.getAllByRole('tab').find(tab => tab.dataset.tabPanelId === id);
 
@@ -894,6 +894,23 @@ describe('Next analysis chip actions', () => {
     await waitFor(() => expect(tabOf('receiver')).toHaveFocus());
     expect(tabOf('receiver')).toHaveAttribute('aria-selected', 'true');
     expect(document.querySelector('[data-dock-panel="bars"]')).toHaveAttribute('inert');
+  });
+
+  it.each([
+    ['no `again` (as before)', undefined, []],
+    ['`again: hold`', 'hold', ['수신 패널 · 붙잡기']],
+    ['`again: follow`', 'follow', ['수신 패널']],
+  ] as const)('a placed panel with %s offers only that mode in «새 패널» (#2862 ②)', async (_name, again, offered) => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(addingPage(true, true, again));
+    await addFromRow();
+    await waitFor(() => expect(tabOf('receiver')).toBeDefined());
+    const user = userEvent.setup();
+    within(nextRow()).getByRole('button', { name: '새 패널' }).focus();
+    await user.keyboard('{Enter}');
+    await screen.findByRole('menuitem', { name: '둘째 수신 패널' });
+    const names = screen.getAllByRole('menuitem').map(item => item.textContent ?? '').filter(text => text.startsWith('수신 패널'));
+    expect(names.map(text => text.replace(/(선택을 따라감|지금 선택으로 고정)$/, ''))).toEqual(offered);
   });
 
   it('moves focus to the added panel tab after «붙잡기» too, by the panel id of the held choice (#2862 R C5)', async () => {

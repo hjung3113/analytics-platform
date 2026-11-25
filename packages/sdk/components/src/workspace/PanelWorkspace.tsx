@@ -727,7 +727,12 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
 
   const destinations = analysisPanelAddition ? {
     ...analysisPanelAddition,
-    items: analysisPanelAddition.items.filter(item => !shown.includes(item.id) && !state.collapsed?.[item.id] && !isFloating(item.id)),
+    // A placed panel stays only for its `again` mode (#2862 ②); the item carries `placed` so «새 패널» offers just that mode.
+    items: analysisPanelAddition.items.flatMap(item => {
+      if (state.collapsed?.[item.id] || isFloating(item.id)) return [];
+      if (!shown.includes(item.id)) return [item];
+      return item.again ? [{ ...item, placed: true }] : [];
+    }),
   } : null;
   usePublishAnalysisWorkspace(panels.map(panel => panel.analysisSelectionSourceId ?? panel.id), destinations);
   return <WorkspaceDepthProvider value={depth}>

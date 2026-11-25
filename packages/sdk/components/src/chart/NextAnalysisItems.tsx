@@ -72,12 +72,17 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
       const follow = { id: panel.id, label: tx(item.title), reason: reason || undefined, onSelect: () => {
         workspace.onAdd({ source, inputs: { [key]: selection } });
       } };
-      if (!workspace.hold) return [follow];
+      // A placed panel offers only its `again` mode, as a second instance (#2862 ②).
+      const placed = (item as { placed?: boolean }).placed ? item.again : undefined;
+      if (!workspace.hold) return placed === 'hold' ? [] : [follow];
       // Follow keeps reading the URL; hold fixes the new panel to this selection (#2862).
-      return [{ ...follow, note: m('chartNextPanelFollowNote') }, {
+      const hold = {
         id: `${panel.id}:hold`, panelId: panel.id, label: m('chartNextPanelHold', { panel: tx(item.title) }), reason: reason || undefined,
         note: m('chartNextPanelHoldNote'), onSelect: () => workspace.onAdd({ source, inputs: { [key]: selection }, mode: 'hold' }),
-      }];
+      };
+      if (placed === 'hold') return [hold];
+      if (placed === 'follow') return [{ ...follow, note: m('chartNextPanelFollowNote') }];
+      return [{ ...follow, note: m('chartNextPanelFollowNote') }, hold];
     });
     if (choices.length) actions.push({ label: m('chartNextPanel'), choices, addsPanel: true });
   }

@@ -65,7 +65,14 @@ export function usePinnedPanels(pageKey: string, known: readonly string[]): {
  * One panel the menu offers in «패널 추가». `disabledReason` disables the item and says why (for example «이 단계에서는 쓸 수 없음»). A disabled item
  * stays a focusable `aria-disabled` item, so arrow keys reach it and its reason is read; choosing it does nothing and keeps the menu open.
  */
-export type PanelAddItem = { id: string; title: Text; description?: Text; disabledReason?: Text };
+export type PanelAddItem = {
+  id: string; title: Text; description?: Text; disabledReason?: Text;
+  /**
+   * «새 패널» of `AnalysisPanelAddition` only (#2862 ②): a panel already placed is normally not offered; with `again` it still offers that one
+   * mode, and the menu adds a second instance beside it (a held one beside a following one, or the reverse). The toolbar menu ignores it.
+   */
+  again?: 'follow' | 'hold';
+};
 
 export type PanelAddMenuProps = {
   items: readonly PanelAddItem[];
