@@ -1,4 +1,5 @@
 import { formatText, type Lang } from '@ap/kernel';
+import { canClientSum, type Reaggregation } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { ChartSeries } from './AnalysisChartFrame';
 
@@ -9,12 +10,16 @@ export type CategoryTopN = {
   direction?: 'top' | 'bottom';
   /** Defaults to value. Original uses input order (reversed for bottom). */
   sortBy?: 'value' | 'original';
-  /** Defaults to true. */
+  /** Defaults to true. Grouping requires the chart's reaggregation to be 'sum'. */
   other?: boolean;
 };
 
 export const REMAINDER_COLOR = 'chart-remainder';
 export const validCategoryTopN = ({ count }: CategoryTopN) => Number.isSafeInteger(count) && count > 0;
+export const categoryOtherBlocked = (options: CategoryTopN | undefined, reaggregation: Reaggregation | undefined) =>
+  !!options && validCategoryTopN(options) && options.other !== false
+    && (reaggregation === undefined || !canClientSum({ reaggregation }));
+export const categoryOtherWarning = 'categoryTopN Other requires reaggregation="sum"; showing the ranked categories without Other.';
 export const otherLabel = (lang: Lang) => formatText(COMPONENTS_MESSAGES.chartOther, lang);
 export const otherGroupLabel = (lang: Lang, count: number) =>
   formatText(COMPONENTS_MESSAGES.chartOtherGroup, lang, { label: otherLabel(lang), count });

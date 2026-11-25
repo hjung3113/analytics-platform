@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
+import type { Reaggregation } from '@ap/contracts';
 import { I18nProvider } from '@ap/kernel';
 import { readColorToken } from '@ap/ui/theme';
 import { AnalysisChart, type ChartSpec } from '../AnalysisChart';
@@ -39,7 +40,7 @@ const kindSpec = (kind: 'donut' | 'pareto' | 'topNBar') => {
 };
 
 it.each(['topNBar', 'donut', 'pareto'] as const)('keeps five %s categories and renders the sum of the seven remaining categories last', async kind => {
-  mountKind({ ...kindSpec(kind), categoryTopN: { count: 5 } });
+  mountKind({ ...kindSpec(kind), reaggregation: 'sum', categoryTopN: { count: 5 } });
   await screen.findByRole('img');
   expect(values()).toEqual([12, 11, 10, 9, 8, 28]);
   expect(option().series[0].data.at(-1)).toMatchObject({ itemStyle: { color: readColorToken('chart-remainder') } });
@@ -47,7 +48,7 @@ it.each(['topNBar', 'donut', 'pareto'] as const)('keeps five %s categories and r
 });
 
 it.each(['vertical', 'horizontal'] as const)('keeps five categories and appends Other to the %s Frame axis', async orientation => {
-  mountFrame({ orientation, categoryTopN: { count: 5 } });
+  mountFrame({ orientation, reaggregation: 'sum', categoryTopN: { count: 5 } });
   await screen.findByRole('img');
   expect(values()).toEqual([12, 11, 10, 9, 8, 28]);
   const axis = (orientation === 'horizontal' ? option().yAxis : option().xAxis)!;
@@ -57,8 +58,25 @@ it.each(['vertical', 'horizontal'] as const)('keeps five categories and appends 
   expect(option().tooltip.formatter([{ seriesId: 'a', seriesIndex: 0, dataIndex: 5 }])).toContain('기타 (7개 범주 묶음)');
 });
 
+it.each([
+  ['Frame', undefined], ['Frame', 'ratioOfSums'],
+  ['topNBar', undefined], ['topNBar', 'ratioOfSums'],
+  ['donut', undefined], ['donut', 'ratioOfSums'],
+  ['pareto', undefined], ['pareto', 'ratioOfSums'],
+] satisfies [('Frame' | 'topNBar' | 'donut' | 'pareto'), Reaggregation | undefined][])('%s keeps the ranking without Other for reaggregation %s', async (kind, reaggregation) => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const categoryTopN = { count: 2 };
+  if (kind === 'Frame') mountFrame({ categoryTopN, reaggregation });
+  else mountKind({ ...kindSpec(kind), categoryTopN, reaggregation });
+  await screen.findByRole('img');
+  expect.soft(values()).toEqual([12, 11]);
+  expect(warn.mock.calls.filter(([message]) => String(message).includes('categoryTopN'))).toEqual([
+    [expect.stringMatching(/categoryTopN.*Other.*reaggregation="sum"/)],
+  ]);
+});
+
 it('takes the smallest values first when the direction is bottom', async () => {
-  mountKind({ ...kindSpec('topNBar'), categoryTopN: { count: 2, direction: 'bottom' } });
+  mountKind({ ...kindSpec('topNBar'), reaggregation: 'sum', categoryTopN: { count: 2, direction: 'bottom' } });
   await screen.findByRole('img');
   expect(values()).toEqual([1, 2, 75]);
 });
@@ -83,8 +101,8 @@ it.each(['topNBar', 'donut', 'pareto'] as const)('exposes the %s group name with
   const drill = vi.fn();
   const selection = vi.fn();
   const categoryTopN = { count: 5 };
-  if (kind === 'donut') mountKind({ kind, slices: items, categoryTopN, onSliceClick: drill, onSelectedChange: selection });
-  else mountKind({ kind, items, categoryTopN, onItemClick: drill, ...(kind === 'topNBar' ? { defaultExpanded: true } : {}) });
+  if (kind === 'donut') mountKind({ kind, slices: items, reaggregation: 'sum', categoryTopN, onSliceClick: drill, onSelectedChange: selection });
+  else mountKind({ kind, items, reaggregation: 'sum', categoryTopN, onItemClick: drill, ...(kind === 'topNBar' ? { defaultExpanded: true } : {}) });
   await screen.findByRole('img');
   const event = { componentType: 'series', seriesIndex: 0, dataIndex: 5 };
   act(() => {
@@ -103,7 +121,7 @@ it.each(['topNBar', 'donut', 'pareto'] as const)('exposes the %s group name with
 it('does not send a synthetic Frame category to point selection or activation', async () => {
   const onActivate = vi.fn();
   const onActiveCategoryChange = vi.fn();
-  mountFrame({ orientation: 'horizontal', categoryTopN: { count: 5 }, onActiveCategoryChange, pointActivation: { on: 'dblclick', onActivate } });
+  mountFrame({ orientation: 'horizontal', reaggregation: 'sum', categoryTopN: { count: 5 }, onActiveCategoryChange, pointActivation: { on: 'dblclick', onActivate } });
   await screen.findByRole('img');
   const event = { componentType: 'series', seriesId: 'a', seriesIndex: 0, dataIndex: 5 };
   act(() => {
@@ -120,9 +138,9 @@ it('does not send a synthetic Frame category to point selection or activation', 
   expect(onActivate).toHaveBeenCalledWith({ x: 'Item 12', seriesId: 'a', value: 12 });
 });
 
-it('uses the visible donut total for shares when omitted categories have no slice', async () => {
-  mountKind({ ...kindSpec('donut'), categoryTopN: { count: 2, other: false } });
+it('uses the full donut total for shares when omitted categories have no slice', async () => {
+  mountKind({ kind: 'donut', slices: items, total: 100, categoryTopN: { count: 2, other: false } });
   await screen.findByRole('img');
-  expect(values()).toEqual([12, 11]);
-  expect(option().tooltip.formatter({ dataIndex: 0 })).toContain('52.2%');
+  expect(values()).toEqual([12, 11, 22]);
+  expect(option().tooltip.formatter({ dataIndex: 0 })).toContain('12%');
 });

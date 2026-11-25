@@ -13,7 +13,7 @@ import { insideLabelStyle, segmentLabelStyle } from './chartValueLabels';
 export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string): KindProjection {
   const resolved: Lang = typeof lang === 'string' ? lang : lang ? 'ko' : 'en';
   const seen = new Set<string>();
-  const options = readCategoryTopN(spec.categoryTopN);
+  const options = readCategoryTopN(spec.categoryTopN, spec.reaggregation);
   const validN = spec.topN === undefined || (Number.isInteger(spec.topN) && spec.topN >= 1);
   if (!options && !validN) chartDiagnostic('invalid TopN limit; using 8');
   const valid = spec.items.filter(item => {

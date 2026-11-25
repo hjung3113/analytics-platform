@@ -31,7 +31,7 @@ import { useChartRange, type ClipResult, type Selection } from './useChartRange'
 import { usePointMenu } from './usePointMenu';
 import { equalSeriesIds, seriesExtremes } from './chartLanes';
 import { resolveRowTotals, type ValueLabels } from './chartValueLabels';
-import { projectCategoryBars, validCategoryTopN, type CategoryTopN } from './categoryTopN';
+import { categoryOtherBlocked, categoryOtherWarning, projectCategoryBars, validCategoryTopN, type CategoryTopN } from './categoryTopN';
 import { clampRowPitch, projectStackShares, projectTimeStack, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN, SHARE_UNIT } from './analysisChartGeometry';
 import { CHART_HEIGHTS } from './chartMarks';
 
@@ -452,13 +452,16 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const rawRightAxis = p.rightAxis !== undefined; const rawHasRight = [...p.series, ...(p.compareSeries ?? [])].some(s => s.axis === 'right');
   const { categoryTopN: rawTopN } = p;
   const ranksValues = rawTopN?.sortBy !== 'original';
-  const needsAdditiveValues = rawTopN?.other !== false || (ranksValues && allSeries.length > 1);
   const unsupportedTopN = !!rawTopN && (xType !== 'category' || (horizontal && !!stacked && !!rawStartAlign)
     || (!horizontal && allSeries.some(s => s.kind !== 'bar'))
-    || (ranksValues && (rightActive || allSeries.some(s => s.unit?.trim() && s.unit.trim() !== p.unit)))
-    || (needsAdditiveValues && rawReaggregation !== undefined && !mayClientSum));
+    || (ranksValues && (rightActive || allSeries.some(s => s.unit?.trim() && s.unit.trim() !== p.unit))));
   const invalidTopN = !!rawTopN && !validCategoryTopN(rawTopN);
-  const categoryTopN = unsupportedTopN || invalidTopN ? undefined : rawTopN;
+  const blockedValueRanking = !!rawTopN && !unsupportedTopN && !invalidTopN && ranksValues && visible.length > 1 && !mayClientSum;
+  const blockedOther = !unsupportedTopN && !blockedValueRanking && categoryOtherBlocked(rawTopN, rawReaggregation);
+  const categoryTopN = useMemo(() => {
+    if (!rawTopN || invalidTopN || unsupportedTopN || blockedValueRanking) return undefined;
+    return blockedOther ? { ...rawTopN, other: false } : rawTopN;
+  }, [rawTopN, invalidTopN, unsupportedTopN, blockedValueRanking, blockedOther]);
   const { rowPitch: rawRowPitch, activeCategory: rawActive, onActiveCategoryChange, revealActive } = p;
   // A misuse warns once while it lasts (an unrelated active-row or callback change re-runs this effect), and again if it goes away and comes back.
   const warned = useRef(new Set<string>());
@@ -471,8 +474,10 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     if (rawStartAlign && !(horizontal && stacked)) rowFocusDiagnostic('startAlign applies only to a stacked chart with orientation="horizontal"; ignored.');
     if (rawMinMax && !horizontal) rowFocusDiagnostic('minMax applies only to orientation="horizontal" with a category x axis; ignored.');
     once('bounds', rawBounds && horizontal, 'bounds applies only to vertical charts; ignored.');
-    once('categoryTopNUnsupported', unsupportedTopN, 'categoryTopN requires category bars on a common scale for value ranking, additive values for grouping or ranking a series sum, and no startAlign; ignored.');
+    once('categoryTopNUnsupported', unsupportedTopN, 'categoryTopN requires category bars on a common scale for value ranking and no startAlign; ignored.');
     once('categoryTopNInvalid', invalidTopN, 'categoryTopN.count must be a positive safe integer; ignored.');
+    once('categoryTopNValueRanking', blockedValueRanking, 'categoryTopN value ranking across visible series requires reaggregation="sum"; ignored.');
+    once('categoryTopNOther', blockedOther, categoryOtherWarning);
     once('rowGroups', rawRowGroups && !horizontal, 'rowGroups applies only to orientation="horizontal" with a category x axis; ignored.');
     once('valueLabels', !!rawValueLabels && !(horizontal && stacked), 'valueLabels applies only to a stacked chart with orientation="horizontal"; ignored.');
     once('nonAdditive', stackMode === undefined && !!stacked && rawReaggregation !== undefined && !mayClientSum, `stacked draws a sum of the segments, but reaggregation "${rawReaggregation}" is not additive; draw grouped bars instead.`);
@@ -483,7 +488,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     once('rightAxisUnsupported', (rawRightAxis || rawHasRight) && (horizontal || !!stacked), 'axis: "right" and rightAxis apply only to a vertical, unstacked chart; every series is drawn on the left.');
     once('rightAxisMissing', rawHasRight && !rawRightAxis && !horizontal && !stacked, 'a series has axis: "right" but rightAxis is not given; it is drawn on the left.');
     if (horizontal && rawRowPitch !== undefined && !(rawRowPitch >= ROW_PITCH_MIN)) rowFocusDiagnostic(`rowPitch ${rawRowPitch} is below the ${ROW_PITCH_MIN}px target size; using ${ROW_PITCH_MIN}.`);
-  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, stacked, stackMode, requestsStack, timeStack, mayClientSum, rawMinMax, rawValueLabels, rawReaggregation, rawRightAxis, rawHasRight, rawRowGroups, rawBounds, unsupportedTopN, invalidTopN]);
+  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, stacked, stackMode, requestsStack, timeStack, mayClientSum, rawMinMax, rawValueLabels, rawReaggregation, rawRightAxis, rawHasRight, rawRowGroups, rawBounds, unsupportedTopN, invalidTopN, blockedValueRanking, blockedOther]);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
   // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
   const rawFillMin = p.fillMin; const legendProp = p.legend; const controlledVisibility = p.visibleSeriesIds !== undefined;
@@ -1028,7 +1033,16 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const oneHour = global.to ? presetWindow(1, timeBounds, global.to) : null;
   const fourHour = global.to ? presetWindow(4, timeBounds, global.to) : null;
   const fallbackRange: Selection | null = xType === 'category' ? (realCategories.length > 0 ? { from: realCategories[0], to: realCategories[realCategories.length - 1] } : null) : timeBounds.length >= 2 ? { from: timeBounds[0], to: timeBounds[timeBounds.length - 1] } : null;
-  const draft = rangeDraft ?? selection ?? fallbackRange;
+  const isRetainedRange = (next: Selection) => {
+    const start = realCategories.indexOf(next.from);
+    return start >= 0 && realCategories.indexOf(next.to) >= start;
+  };
+  const invalidDraft = !!categoryTopN && !!rangeDraft && !isRetainedRange(rangeDraft);
+  useEffect(() => {
+    if (invalidDraft) rangeActions.setDraft(null);
+  }, [invalidDraft, rangeActions]);
+  const draftSelection = categoryTopN && selection && !isRetainedRange(selection) ? null : selection;
+  const draft = (invalidDraft ? null : rangeDraft) ?? draftSelection ?? fallbackRange;
   // A fill card gives the plot the space: the start/end form and the empty-selection hint appear while brushing or once a range exists
   // (ADR-0067 decision 21); notes, errors and the confirm row keep their place. Other sizes always show them.
   // The controlled value stays as given (the reveal and selection effects read it); only the summary names a row the plot draws.
@@ -1074,14 +1088,14 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     setCompare(next);
   }
   function chooseStart(next: string) {
-    const base = rangeDraft ?? selection ?? fallbackRange;
+    const base = draft;
     if (!base) return;
     if (xType === 'category') { rangeActions.setDraft({ from: next, to: realCategories.indexOf(base.to) >= realCategories.indexOf(next) ? base.to : next }); return; }
     const to = base.to > next ? base.to : timeBounds.find(bound => bound > next) ?? base.to;
     rangeActions.setDraft({ from: next, to });
   }
   function chooseEnd(next: string) {
-    const base = rangeDraft ?? selection ?? fallbackRange;
+    const base = draft;
     if (!base) return;
     rangeActions.setDraft({ from: base.from, to: next });
   }
@@ -1416,7 +1430,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         <Button size="toolbar" onClick={() => {
           if (rangeOutput) brushToggle.current?.focus();
           if (xType === 'time') commitRange(draft);
-          else { rangeActions.categorySelect(draft); writeRange(draft); }
+          else if (!categoryTopN || isRetainedRange(draft)) { rangeActions.categorySelect(draft); writeRange(draft); }
         }}>{m('chartSelect')}</Button>
       </div>}
       {drawnActive !== null && <p className={quietSummary ? 'sr-only' : 'mb-1 font-semibold'}>{m('chartActiveRow')}: {labelOf(drawnActive)}</p>}

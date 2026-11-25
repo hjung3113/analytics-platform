@@ -7,7 +7,7 @@ import { percent, unknownLabel, brushOptions, followedChartKey, isBrushableKind,
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { Button, Checkbox, cn, type Tone } from '@ap/ui';
-import type { Text } from '@ap/contracts';
+import type { Reaggregation, Text } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useThemeRevision, type ThemeColorToken } from '@ap/ui/theme';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
@@ -20,7 +20,7 @@ import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as 
 import { KindLegend } from './analysisChartKinds';
 import { heatmapMinCanvasHeight, heatmapSymbolSize } from './analysisChartGeometry';
 import { CHART_HEIGHTS, selectionRing } from './chartMarks';
-import { validCategoryTopN, type CategoryTopN } from './categoryTopN';
+import { categoryOtherBlocked, categoryOtherWarning, validCategoryTopN, type CategoryTopN } from './categoryTopN';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
 import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
@@ -60,6 +60,8 @@ export type DonutSlice = { id: string; label: string; value: number; color?: The
 export type DonutSpec = {
   kind: 'donut'; slices: DonutSlice[];
   categoryTopN?: CategoryTopN;
+  /** Set to 'sum' to allow categoryTopN to group omitted values. */
+  reaggregation?: Reaggregation;
   /** Known denominator; excess is Unclassified. A denominator below the sum falls back to the sum. */
   total?: number;
   /** Defaults to 5, clamps to 2..5 including Other; Unclassified is always separate. */
@@ -114,6 +116,8 @@ export type BoxPlotSpec = {
 export type ParetoSpec = {
   kind: 'pareto'; items: { id: string; label: string; value: number }[];
   categoryTopN?: CategoryTopN;
+  /** Set to 'sum' to allow categoryTopN to group omitted values. */
+  reaggregation?: Reaggregation;
   selectedId?: string | null;
   /** Finite fraction in (0,1], default 0.8. */
   cumulativeTarget?: number;
@@ -124,6 +128,8 @@ export type TopNBarItem = { id: string; label: string; value: number; colorToken
 export type TopNBarSpec = {
   kind: 'topNBar'; items: TopNBarItem[];
   categoryTopN?: CategoryTopN;
+  /** Set to 'sum' to allow categoryTopN to group omitted values. */
+  reaggregation?: Reaggregation;
   legend?: { label: string; colorToken: ThemeColorToken }[];
   topN?: number; expanded?: boolean; defaultExpanded?: boolean;
   onExpandedChange?: (next: boolean) => void; hideWhenEmpty?: boolean;
@@ -217,6 +223,14 @@ export function AnalysisChart(p: AnalysisChartProps) {
   useEffect(() => {
     if (topN && !p.unit.trim()) warnMissingChartUnit(p.chartId);
   }, [p.chartId, p.unit, topN]);
+  const blockedOther = 'categoryTopN' in spec && categoryOtherBlocked(spec.categoryTopN, spec.reaggregation);
+  const warnedOther = useRef(false);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production' && blockedOther && !warnedOther.current) {
+      console.warn(`AnalysisChart: ${categoryOtherWarning}`);
+    }
+    warnedOther.current = blockedOther;
+  }, [blockedOther]);
   const brushable = isBrushableKind(spec.kind);
   const singleSelect = isSingleSelectKind(spec.kind);
   const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang, p.unit), [spec, lang, p.unit]);

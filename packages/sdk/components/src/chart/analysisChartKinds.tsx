@@ -178,7 +178,7 @@ export function paretoData(spec: ParetoSpec, lang: Lang, unit: string): KindProj
   });
   const items = [...source].sort((a, b) => b.value - a.value);
   const total = items.reduce((sum, item) => sum + item.value, 0);
-  const options = readCategoryTopN(spec.categoryTopN);
+  const options = readCategoryTopN(spec.categoryTopN, spec.reaggregation);
   if (!options && spec.maxItems !== undefined && !Number.isFinite(spec.maxItems)) chartDiagnostic('non-finite Pareto cap; using 10');
   const cap = Math.max(2, Math.floor(Number.isFinite(spec.maxItems) ? spec.maxItems! : 10));
   const validTarget = spec.cumulativeTarget === undefined || (Number.isFinite(spec.cumulativeTarget) && spec.cumulativeTarget > 0 && spec.cumulativeTarget <= 1);

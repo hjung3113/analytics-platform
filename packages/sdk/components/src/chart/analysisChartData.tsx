@@ -1,4 +1,5 @@
 import { formatText, type Lang } from '@ap/kernel';
+import type { Reaggregation } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { topNData } from './topNBar';
 import { histogramData } from './histogram';
@@ -7,7 +8,7 @@ import { scatterData, boxPlotData, paretoData, type KindProjection } from './ana
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ChartStatus } from './chartStatus';
 import type { ChartSpec, HeatmapCell } from './AnalysisChart';
-import { otherGroupLabel, otherLabel, rankCategories, REMAINDER_COLOR, splitCategories, sumCategoryValues, validCategoryTopN, type CategoryTopN } from './categoryTopN';
+import { categoryOtherBlocked, otherGroupLabel, otherLabel, rankCategories, REMAINDER_COLOR, splitCategories, sumCategoryValues, validCategoryTopN, type CategoryTopN } from './categoryTopN';
 
 export type ChartRow = { groupLabel?: string; status?: ChartStatus; categoryLabel?: string; key: string; label: string; value: number | null; x?: string; y?: string; share?: number; color?: ThemeColorToken; drill?: () => void };
 export const cellKey = (x: string, y: string) => JSON.stringify([x, y]);
@@ -21,10 +22,13 @@ export const chartColors = {
   series1: 'chart-series-1', series2: 'chart-series-2', series3: 'chart-series-3', series4: 'chart-series-4', remainder: REMAINDER_COLOR,
 } as const satisfies Record<string, ThemeColorToken>;
 
-export function readCategoryTopN(options: CategoryTopN | undefined) {
-  if (!options || validCategoryTopN(options)) return options;
-  chartDiagnostic('categoryTopN.count must be a positive safe integer; ignored');
-  return undefined;
+export function readCategoryTopN(options: CategoryTopN | undefined, reaggregation: Reaggregation | undefined) {
+  if (!options) return undefined;
+  if (!validCategoryTopN(options)) {
+    chartDiagnostic('categoryTopN.count must be a positive safe integer; ignored');
+    return undefined;
+  }
+  return categoryOtherBlocked(options, reaggregation) ? { ...options, other: false } : options;
 }
 
 const donutSeriesColors = [...seriesColors, 'chart-series-5'] as const;
@@ -59,16 +63,14 @@ export function chartData(spec: ChartSpec, lang: Lang, unit = ''): { cells: Heat
   });
   const sum = slices.reduce((n, slice) => n + slice.value, 0);
   if (spec.total !== undefined && (!Number.isFinite(spec.total) || spec.total < sum)) chartDiagnostic('total is below sum or non-finite; using sum');
-  const sourceTotal = spec.total !== undefined && Number.isFinite(spec.total) ? Math.max(sum, spec.total) : sum;
-  const options = readCategoryTopN(spec.categoryTopN);
+  const total = spec.total !== undefined && Number.isFinite(spec.total) ? Math.max(sum, spec.total) : sum;
+  const options = readCategoryTopN(spec.categoryTopN, spec.reaggregation);
   const max = Math.max(2, Math.min(5, Number.isFinite(spec.maxSlices) ? Math.floor(spec.maxSlices!) : 5));
   // Legacy donut sorts only when grouping is needed.
   const { kept, remainder } = options ? rankCategories(slices, options, slice => slice.value)
     : slices.length > max ? splitCategories([...slices].sort((a, b) => b.value - a.value), max - 1, { other: true })
     : { kept: slices, remainder: [] };
-  const unclassified = sourceTotal - sum;
-  const total = options?.other === false && kept.length < slices.length
-    ? kept.reduce((n, slice) => n + slice.value, unclassified) : sourceTotal;
+  const unclassified = total - sum;
   let colorIndex = 0;
   const rows: ChartRow[] = kept.map(slice => ({
     key: JSON.stringify(['slice', slice.id]), label: slice.label, value: slice.value,
