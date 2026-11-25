@@ -274,7 +274,8 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
 
   // Context keys read as Korean condition names; a menu-declared page key has no shared label and stays as declared.
   const excluded = views.unsupported.map(item => item.kind === 'context' ? keyText([item.key]) : item.key);
-  const panelCount = (view: SavedView) => view.kind === 'menu-view' && Array.isArray(view.panels) ? view.panels.length : 0;
+  const panelCount = (view: SavedView) => view.kind === 'menu-view' && !view.panelsUnreadable
+    ? view.panels?.instances?.length ?? 0 : 0;
   const panels = selected ? panelCount(selected.view) : 0;
   const scoped = views.scopeExcluded;
   // The unsupported list and the other-Scope list stay apart: one is the menu's limit, the other a rule of the Scope (#2175).

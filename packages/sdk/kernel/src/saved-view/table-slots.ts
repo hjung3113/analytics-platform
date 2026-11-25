@@ -30,11 +30,15 @@ function createScreenSlots() {
     snapshot: () => revision,
     changed: emit,
     retry(field: string, key: string) { applyKey(field, key); emit(); },
-    register<T>(field: string, key: string, slot: { value: T; apply: (value: T) => void; accepts?: (value: T) => boolean; project?: (value: T) => T }) {
+    register<T>(field: string, key: string, slot: { value: T; apply: (value: T) => void; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
       let keys = fields.get(field);
       if (!keys) { keys = new Map(); fields.set(field, keys); }
       const entry = slot as Slot;
-      keys.set(key, [...(keys.get(key) ?? []), entry]);
+      const previous = keys.get(key) ?? [];
+      if (process.env.NODE_ENV !== 'production' && slot.single && previous.length > 0) {
+        console.warn(`Saved view slot "${field}" accepts one registration per screen.`);
+      }
+      keys.set(key, [...previous, entry]);
       emit(); applyKey(field, key);
       return () => {
         const rest = (keys.get(key) ?? []).filter(item => item !== entry);

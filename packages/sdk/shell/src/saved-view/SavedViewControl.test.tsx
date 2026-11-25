@@ -591,6 +591,23 @@ describe('group filters (C7)', () => {
 });
 
 describe('selected view', () => {
+  it.each([false, true])('shows the v1 panel count only for readable views (unreadable=%s)', async unreadable => {
+    const user = userEvent.setup();
+    const view = viewOf({
+      ...L1, kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, page: [], chartOptions: {}, layout: null,
+      panels: unreadable ? null : {
+        version: 1, instances: ['trend', 'distribution'].map(id => ({ id, source: { kind: 'declared', panel: id }, inputs: [], outputs: [] })),
+      },
+      ...(unreadable && { panelsUnreadable: true }),
+    });
+    mount(createFakeViewStore([view]), `/?scopeId=MEM&${period}`);
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await pick(user, '포토 뷰');
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+    if (unreadable) expect(screen.queryByText('패널 2개 포함')).not.toBeInTheDocument();
+    else expect(screen.getByText('패널 2개 포함')).toBeInTheDocument();
+  });
+
   it('is picked only after the store answers (a denied view leaves the current one)', async () => {
     const user = userEvent.setup();
     const store = createFakeViewStore([L1]);
