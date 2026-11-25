@@ -40,6 +40,7 @@ const cases: [string, unknown, boolean, string?][] = [
   ['a class instance', Object.assign(new (class Config {})(), line), false],
   ['an inherited x field', { ...line, x: Object.assign(Object.create({ field: 'time' }), { type: 'time' }) }, false],
   ['a named property on measures', { ...line, measures: Object.assign([{ field: 'a' }], { annotation: { rows: [1] } }) }, false],
+  ['a measures array with its own prototype', { ...line, measures: Object.setPrototypeOf([{ field: 'a' }], { map: () => [] }) }, false],
   ['a sparse measures array', { ...line, measures: [{ field: 'a' }, , { field: 'b' }] }, false],
   ['a cyclic measures array', (() => { const measures: unknown[] = [{ field: 'a' }]; measures.push(measures); return { ...line, measures }; })(), false],
   ['repeated measure', { ...line, measures: [{ field: 'a' }, { field: 'a' }] }, false, 'config.measures fields must be distinct'],

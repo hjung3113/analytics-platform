@@ -52,7 +52,7 @@ export function isPlainChartData(value: unknown, ancestors: object[] = []): bool
   if (typeof value === 'number') return Number.isFinite(value);
   if (typeof value !== 'object' || ancestors.includes(value)) return false;
   const array = Array.isArray(value);
-  if (!array && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return false;
+  if (!(array ? [Array.prototype] : [Object.prototype, null]).includes(Object.getPrototypeOf(value))) return false;
   const keys = Reflect.ownKeys(value);
   const length = array ? (value as unknown[]).length : 0;
   if (array && keys.length !== length + 1) return false;
