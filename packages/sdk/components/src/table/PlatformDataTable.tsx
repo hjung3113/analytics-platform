@@ -236,6 +236,8 @@ type TableBaseProps<T> = {
    */
   exportContext?: Readonly<Partial<Record<ContextKey, Capability>>>;
   activeRowId?: string | null;
+  /** Passively emphasize rows by getRowId. Omit to leave all row surfaces at their defaults. */
+  highlightedRowIds?: readonly string[];
   /**
    * Opt-in: rows for which this returns true read as secondary. Their data cells take `text-text-muted` at rest and
    * `text-text-secondary` while hovered, selected or active (muted text fails contrast on those surfaces, DESIGN.md §색);
@@ -338,6 +340,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   const dataVersion = props.rows ? source.version : epoch;
   const { t, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
+  const highlightedRows = useMemo(() => p.highlightedRowIds?.length ? new Set(p.highlightedRowIds) : undefined, [p.highlightedRowIds]);
   const analysisSection = useContext(AnalysisSectionContext);
   const inPanel = useInWorkspacePanel();
   const densePage = useCompactPageDensity();
@@ -1035,6 +1038,8 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     const cells = row.getVisibleCells();
     const firstDataCell = cells.findIndex(cell => cell.column.id !== '_select' && cell.column.id !== '_action');
     const muted = p.isRowMuted?.(row.original) === true;
+    const highlighted = highlightedRows?.has(row.id) === true;
+    const showHighlightEdge = highlighted && !active && !row.getIsSelected();
     const rowIndex = item ? item.index + Number(!!pinnedRow) : 0;
     return <div role="row" key={row.id} ref={item ? measure : undefined} data-index={item?.index}
       aria-rowindex={(groupedItems ? 0 : shownPage * pageSize) + rowIndex + headerRowCount + 1}
@@ -1051,15 +1056,24 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
         const selectableCell = grid && !!declaration && declaration.selectableCell !== false;
         const selected = selectableCell && selectedColumn === column.id;
         const tone = declaration?.cellTone?.(row.original);
-        const background = cn('bg-surface-card', !tone && 'group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected', active && 'bg-surface-row-selected', tone && MATRIX_TONE_CLASS[tone], selected && 'bg-surface-row-selected ring-2 ring-inset ring-border-selected');
+        const firstData = cells.indexOf(cell) === firstDataCell;
+        // The hard stop confines the accent background to the first cell's padding, including in pinned columns.
+        const highlightEdge = showHighlightEdge && firstData && !selected && 'bg-linear-to-r from-accent-primary from-(length:--spacing) to-transparent to-(length:--spacing)';
+        const background = cn('bg-surface-card', !tone && 'group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected',
+          highlightEdge,
+          active && 'bg-surface-row-selected', tone && MATRIX_TONE_CLASS[tone], selected && 'bg-surface-row-selected ring-2 ring-inset ring-border-selected');
+        const label = declaration?.cellLabel?.(row.original);
+        const match = highlighted && cells.indexOf(cell) === Math.max(0, firstDataCell);
+        const matchId = match && label ? `${columnPrefsId}-match-${rowIndex}` : undefined;
         const interaction = selectableCell ? cellNavigation.props(column.id, tabColumn === column.id) : undefined;
         // eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime
-        return <div role={grid ? 'gridcell' : 'cell'} key={cell.id} data-column={column.id} style={cellStyle(column)} aria-label={declaration?.cellLabel?.(row.original)}
+        return <div role={grid ? 'gridcell' : 'cell'} key={cell.id} data-column={column.id} style={cellStyle(column)} aria-label={label} aria-describedby={matchId}
           aria-selected={selectableCell ? selected : undefined} {...interaction}
-          className={cn(cellBase, 'border-b border-border-row', cellText, background, active && cells.indexOf(cell) === firstDataCell && 'font-medium', muted && declaration && cn('text-text-muted group-hover:text-text-secondary group-aria-selected:text-text-secondary', active && 'text-text-secondary'), column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), lineClass(column.id), column.getIsPinned() === 'right' && pinEdge, fadeClass(inWidthGroup(column.id) ? false : column.getIsPinned(), true, active), align(column),
+          className={cn(cellBase, 'border-b border-border-row', cellText, background, active && firstData && 'font-medium', muted && declaration && cn('text-text-muted group-hover:text-text-secondary group-aria-selected:text-text-secondary', active && 'text-text-secondary'), column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), lineClass(column.id), column.getIsPinned() === 'right' && pinEdge, fadeClass(inWidthGroup(column.id) ? false : column.getIsPinned(), true, active), align(column),
             selectableCell && 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring')}>
           {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
           {column.id === '_action' ? p.rowAction?.(row.original, { compact: actionCompact }) : flexRender(column.columnDef.cell, cell.getContext())}
+          {match && <span id={matchId} className="sr-only"> {m('tableHighlightedRow')}</span>}
         </div>;
       }, { body: true, active })}
     </div>;

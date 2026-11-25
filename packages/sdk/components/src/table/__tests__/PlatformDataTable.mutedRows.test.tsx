@@ -101,3 +101,24 @@ describe('PlatformDataTable isRowMuted', () => {
     expect(screen.getByRole('button', { name: 'r2 열기' })).toBeTruthy();
   });
 });
+
+it('limits the accent to matching row edges, including muted rows, until selection', async () => {
+  render(<I18nProvider><PlatformProvider equipmentAxes={axes} adapter={adapter} registry={registry}>
+    <PlatformDataTable<Row> title="T" ariaLabel="table" columns={columns} getRowId={row => row.id} loadPage={loadPage}
+      filterKey="f" preferenceKey="test-highlight" pageSize={25} height={200} highlightedRowIds={['r1', 'r2']} isRowMuted={mutedIfInactive}
+      exportRows={async () => ({ outcome: 'ok', data: rows, assessments: [], trust: null, correlationId: 'c' })} />
+  </PlatformProvider></I18nProvider>);
+  await screen.findByText('alpha');
+  for (const id of ['r1', 'r2']) {
+    expect(cellOf(id, 'name')).toHaveClass('bg-surface-card', 'from-accent-primary', 'from-(length:--spacing)', 'to-(length:--spacing)');
+    expect(cellOf(id, 'name')).toHaveTextContent('분석 선택에 포함');
+    expect(cellOf(id, 'state')).not.toHaveClass('bg-linear-to-r');
+  }
+  expect(cellOf('r2', 'name')).toHaveClass('text-text-muted');
+  expect(cellOf('r2', 'name')).not.toHaveClass('bg-accent-primary-soft');
+  expect(rowOf('r1')).toHaveAttribute('aria-selected', 'false');
+  fireEvent.click(screen.getByRole('checkbox', { name: '선택 r1' }));
+  expect(rowOf('r1')).toHaveAttribute('aria-selected', 'true');
+  expect(cellOf('r1', 'name')).toHaveClass('group-aria-selected:bg-surface-row-selected');
+  expect(cellOf('r1', 'name')).not.toHaveClass('bg-linear-to-r');
+});

@@ -499,6 +499,7 @@ export const COMPONENTS_MESSAGES = {
   tableNoGrouping: { ko: '그룹 없음', en: 'No grouping' },
   tableSizeLabel: { ko: '표 크기', en: 'Table size' },
   tableSelectAllClear: { ko: '필터 결과 전체 선택 해제', en: 'Clear the whole-result selection' },
+  tableHighlightedRow: { ko: '분석 선택에 포함', en: 'In analysis selection' },
   tableSelectAllPage: { ko: '현재 페이지 전체 선택', en: 'Select all rows on this page' },
   tableSelectRow: { ko: '선택 {id}', en: 'Select {id}' },
   tableActionColumn: { ko: '동작', en: 'Actions' },
