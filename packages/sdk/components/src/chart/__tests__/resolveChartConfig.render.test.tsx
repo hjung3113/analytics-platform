@@ -21,6 +21,7 @@ const meta: Record<string, ChartFieldMeta> = {
   time: { label: '시각' },
   eqp: { label: '설비' },
   count: { label: '건수', unit: '건', reaggregation: 'sum' },
+  yield: { label: '수율', unit: 'ratio', reaggregation: 'ratioOfSums' },
 };
 const splitRows = [
   { time: '2026-11-01T00:00:00', eqp: 'E1', count: 3 },
@@ -65,6 +66,16 @@ describe('a stored ChartConfig draws through the Chart Frame (#2745)', () => {
     expect(series.map(ys)).toEqual([[3, 2], [4, null]]);
     expect(new Set(series.map(s => s.stack)).size).toBe(1);
     expect(series[0]?.stack).toBeTruthy();
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it('draws a percent format on the percent scale the axis and tooltip label', async () => {
+    draw('{"version":1,"kind":"line","x":{"field":"time","type":"time"},"measures":[{"field":"yield"}],"valueFormat":{"kind":"percent","decimals":1}}',
+      [{ time: '2026-11-01T00:00:00', yield: 0.5 }, { time: '2026-11-01T01:00:00', yield: 0.25 }]);
+    await screen.findByRole('img');
+    expect(ys(plotted()[0])).toEqual([50, 25]);
+    const axis = (plotProps!.option as unknown as { yAxis: { name?: string } | { name?: string }[] }).yAxis;
+    expect(JSON.stringify(axis)).toContain('%');
     expect(console.warn).not.toHaveBeenCalled();
   });
 });

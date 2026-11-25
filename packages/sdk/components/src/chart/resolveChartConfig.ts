@@ -12,24 +12,26 @@ export type ResolvedChartFrame = Pick<AnalysisChartFrameProps, 'series' | 'unit'
 /**
  * Why a valid config cannot be drawn from these rows and fields. The menu shows its own words; nothing is repaired.
  * - `unknown-field`: the field has no meta (renamed or removed from the dataset).
- * - `missing-unit`: a plotted measure has no display unit. A dimensionless measure declares one anyway (`배`, `건`, `ratio`); a percent format shows `%`.
+ * - `missing-unit`: a plotted measure declares no unit. A dimensionless measure declares one anyway (`배`, `건`, `ratio`), also under a percent format.
  * - `mixed-units`: measures on one axis have different units; `field` is the first that differs from that axis' first measure.
  * - `not-additive`: `stack` asks to add measures whose reaggregation is not `sum`.
  * - `right-axis-only`: every measure is on the right axis; the left axis would be an empty scale.
+ * - `format-conflict`: a percent format on a percent stack. The stack shows shares of summed amounts, and the picker shows each amount
+ *   in its own unit, so a ratio format would print an amount of 3 as `300 %`; `field` is the first measure.
  * - `bad-value`: a measure that is not a finite number (or negative in a percent stack); an x that is not a wall-clock time
  *   (`YYYY-MM-DDTHH:mm:ss`) on a time axis or blank text on a category axis; a blank or non-text, non-number split value.
  * - `duplicate-point`: two rows draw the same point (same x without a split, same x and split value with one), or a number and a text
  *   value draw the same label (`1` and `'1'`); `field` is the x or split field that collides.
  */
-export type ChartConfigProblem = { code: 'unknown-field' | 'missing-unit' | 'mixed-units' | 'not-additive' | 'right-axis-only' | 'bad-value' | 'duplicate-point'; field: string };
+export type ChartConfigProblem = { code: 'unknown-field' | 'missing-unit' | 'mixed-units' | 'not-additive' | 'right-axis-only' | 'format-conflict' | 'bad-value' | 'duplicate-point'; field: string };
 
 export type ResolveChartConfigResult = { status: 'ok'; frame: ResolvedChartFrame } | { status: 'problem'; problem: ChartConfigProblem };
 
-/** The Frame appends the series unit to a formatted value, so a percent format multiplies and leaves the `%` to the unit. */
+/** The Frame appends the series unit to a formatted value; a percent format's values are already scaled to percent points. */
 function formatter(format: ChartValueFormat | undefined, lang: 'ko' | 'en'): ((v: number) => string) | undefined {
   if (!format) return undefined;
   const options = format.decimals === undefined ? {} : { decimals: format.decimals };
-  return format.kind === 'percent' ? v => formatNumber(v * 100, lang, options) : v => formatNumber(v, lang, options);
+  return v => formatNumber(v, lang, options);
 }
 
 type Key = { label: string; raw: 'string' | 'number' };
@@ -51,7 +53,7 @@ export function resolveChartConfig(config: ChartConfig, rows: readonly ChartConf
   const percent = config.valueFormat?.kind === 'percent';
   const metaUnit = (field: string) => meta(field)?.unit?.trim() ?? '';
   const unitOf = (field: string) => (percent ? '%' : metaUnit(field));
-  const missing = config.measures.find(m => unitOf(m.field) === '');
+  const missing = config.measures.find(m => metaUnit(m.field) === '');
   if (missing) return problem('missing-unit', missing.field);
   const left = config.measures.filter(m => m.axis !== 'right');
   const right = config.measures.filter(m => m.axis === 'right');
@@ -63,6 +65,7 @@ export function resolveChartConfig(config: ChartConfig, rows: readonly ChartConf
   const reaggregations = new Set(config.measures.map(m => meta(m.field)?.reaggregation));
   const reaggregation = reaggregations.size === 1 ? [...reaggregations][0] : undefined;
   const stackMode = config.stack ?? 'none';
+  if (stackMode === 'percent' && percent) return problem('format-conflict', config.measures[0]!.field);
   if (stackMode !== 'none') {
     const notAdditive = config.measures.find(m => { const r = meta(m.field)?.reaggregation; return r === undefined || !canClientSum({ reaggregation: r }); });
     if (notAdditive) return problem('not-additive', notAdditive.field);
@@ -87,7 +90,8 @@ export function resolveChartConfig(config: ChartConfig, rows: readonly ChartConf
     const v = read(row, field);
     if (v === null || v === undefined) return null;
     if (typeof v !== 'number' || !Number.isFinite(v) || (stackMode === 'percent' && v < 0)) return undefined;
-    return v;
+    // A percent format draws ratios as percent points, so the axis ticks, tooltip, picker and CSV all read `50 %` for 0.5.
+    return percent ? v * 100 : v;
   };
 
   const series: ChartSeries[] = [];

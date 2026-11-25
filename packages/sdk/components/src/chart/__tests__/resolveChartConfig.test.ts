@@ -55,11 +55,14 @@ describe('resolveChartConfig (#2745)', () => {
     expect(frame.reaggregation).toBeUndefined();
   });
 
-  it('turns the format descriptor into the formatter for both axes', () => {
+  it('draws a percent format as percent points, so ticks, tooltip, picker and export read one number', () => {
     const frame = ok({ ...line, measures: [{ field: 'count' }, { field: 'yield', axis: 'right' }], valueFormat: { kind: 'percent', decimals: 1 } });
+    // 0.91 is drawn as 91: the axis has no formatter of its own and the CSV writes the drawn value under unit=%.
+    expect(frame.series[1]?.points[0]).toEqual(['2026-11-01T00:00:00', 91]);
+    expect(frame.series[0]?.points[0]).toEqual(['2026-11-01T00:00:00', 300]);
     // The Frame appends the unit, so the formatter leaves the % to it: «12.3 %», never «12.3% %».
-    expect(frame.valueFormat?.(0.1234)).toBe('12.3');
-    expect(frame.rightAxis?.valueFormat?.(0.5)).toBe('50.0');
+    expect(frame.valueFormat?.(12.34)).toBe('12.3');
+    expect(frame.rightAxis?.valueFormat?.(50)).toBe('50.0');
     expect([frame.unit, frame.rightAxis?.unit, ...frame.series.map(s => s.unit)]).toEqual(['%', '%', '%', '%']);
     expect(ok({ ...line, valueFormat: { kind: 'number', decimals: 0 } }).valueFormat?.(1234.5)).toBe('1,235');
   });
@@ -95,6 +98,9 @@ describe('resolveChartConfig (#2745)', () => {
     ['two units on one axis', { ...line, measures: [{ field: 'count' }, { field: 'yield' }] }, { code: 'mixed-units', field: 'yield' }],
     ['a measure without a unit', { ...line, measures: [{ field: 'nounit' }] }, { code: 'missing-unit', field: 'nounit' }],
     ['a blank unit', { ...line, measures: [{ field: 'blank' }] }, { code: 'missing-unit', field: 'blank' }],
+    ['a measure without a unit under a percent format', { ...line, measures: [{ field: 'nounit' }], valueFormat: { kind: 'percent' } }, { code: 'missing-unit', field: 'nounit' }],
+    ['a blank unit under a percent format', { ...line, measures: [{ field: 'blank' }], valueFormat: { kind: 'percent' } }, { code: 'missing-unit', field: 'blank' }],
+    ['a percent format on a percent stack', { ...line, measures: [{ field: 'count' }, { field: 'moves' }], stack: 'percent', valueFormat: { kind: 'percent', decimals: 2 } }, { code: 'format-conflict', field: 'count' }],
     ['every measure on the right axis', { ...line, measures: [{ field: 'count', axis: 'right' }] }, { code: 'right-axis-only', field: 'count' }],
     ['the first measure that differs from the axis\' first', { ...line, measures: [{ field: 'count' }, { field: 'moves' }, { field: 'yield' }] }, { code: 'mixed-units', field: 'yield' }],
     ['stacking a ratio', { ...line, measures: [{ field: 'yield' }], stack: 'stack' }, { code: 'not-additive', field: 'yield' }],
