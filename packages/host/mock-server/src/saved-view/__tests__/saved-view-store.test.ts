@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewStore } from '@ap/contracts';
-import { storedPanelCases } from '@ap/contracts/testing/saved-view-panels';
+import type { SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewPatch, SavedViewStore } from '@ap/contracts';
+import { rejectedChartConfigCases, storedPanelCases } from '@ap/contracts/testing/saved-view-panels';
 import { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsStorageKey, savedViewsStorageKey } from '../saved-view-store';
 // The kernel `testing` entry is not a dependency of this package, so the storage helper is defined here with the same semantics.
 const memoryStorage = (): Storage => {
@@ -49,6 +49,15 @@ it.each(storedPanelCases)('projects $label panels and preserves the stored value
   expect(JSON.parse(storage.getItem(bucket) ?? '{}')).toEqual({
     schemaVersion: 1, views: [{ ...view, name: rename, version: 2, panels: stored }],
   });
+});
+
+it.each(rejectedChartConfigCases)('refuses to save or patch in a $label and writes nothing (#2745)', async ({ panels }) => {
+  const s = store();
+  const { view } = ok(await s.save(draft()));
+  const before = storage.getItem(savedViewsStorageKey(ENG, MENU));
+  expect(await s.save({ ...draft('차트'), panels } as unknown as SavedViewDraft)).toMatchObject({ ok: false, reason: 'invalid' });
+  expect(await s.update(view.id, { panels } as unknown as SavedViewPatch, { expectedVersion: 1 })).toMatchObject({ ok: false, reason: 'invalid' });
+  expect(storage.getItem(savedViewsStorageKey(ENG, MENU))).toBe(before);
 });
 
 it('rejects the response-only panels flag in both drafts and patches', async () => {

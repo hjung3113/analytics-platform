@@ -21,7 +21,7 @@ export type ChartConfig = {
   /** `horizontal`: bar charts on a category axis only. */
   orientation?: 'vertical' | 'horizontal';
   stack?: 'none' | 'stack' | 'percent';
-  /** Line charts only. */
+  /** Line charts only: a bar config carries no `areaFill` key at all. */
   areaFill?: boolean;
   valueFormat?: ChartValueFormat;
 };
@@ -42,9 +42,33 @@ const field = (value: unknown) => typeof value === 'string' && /\S/.test(value) 
 const fieldRule = `must be a non-blank string of at most ${CHART_CONFIG_FIELD_MAX} characters`;
 const oneOf = (value: unknown, values: readonly unknown[]) => values.includes(value);
 
+/**
+ * Plain JSON data as JSON.parse makes it: plain objects and dense arrays whose own keys are strings with enumerable data properties (no
+ * getters, symbols, hidden or extra array keys), finite numbers, no `undefined` and no cycles. Checking the raw value means the value that
+ * passed is the value that is stored and sent.
+ */
+export function isPlainChartData(value: unknown, ancestors: object[] = []): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'object' || ancestors.includes(value)) return false;
+  const array = Array.isArray(value);
+  if (!array && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return false;
+  const keys = Reflect.ownKeys(value);
+  const length = array ? (value as unknown[]).length : 0;
+  if (array && keys.length !== length + 1) return false;
+  for (const key of keys) {
+    if (array && key === 'length') continue;
+    if (typeof key !== 'string' || (array && key !== String(Number(key))) || (array && Number(key) >= length)) return false;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !('value' in descriptor) || !descriptor.enumerable || !isPlainChartData(descriptor.value, [...ancestors, value])) return false;
+  }
+  return true;
+}
+
 /** Null when `raw` is a ChartConfig v1, else the first reason. The wire schema in @ap/contract-schemas mirrors these rules. */
 export function invalidChartConfig(raw: unknown, path = 'config'): string | null {
   if (!isRecord(raw)) return `${path} must be an object`;
+  if (!isPlainChartData(raw)) return `${path} must be plain JSON data`;
   const unknown = Object.keys(raw).find(key => !KEYS.includes(key));
   if (unknown !== undefined) return `${path}.${unknown} is not a chart config key`;
   if (raw.version !== 1) return `${path}.version must be 1`;
@@ -76,21 +100,23 @@ export function invalidChartConfig(raw: unknown, path = 'config'): string | null
       return `${path}.valueFormat.decimals must be an integer from 0 to ${CHART_CONFIG_DECIMALS_MAX}`;
     }
   }
-  return invalidCombination(raw as ChartConfig, path);
+  const combination = invalidCombination(raw as ChartConfig);
+  return combination ? `${path}.${combination[0]} ${combination[1]}` : null;
 }
 
-/** Cross-field rules, run after the shape is known to be valid. Same order and messages as the wire schema. */
-function invalidCombination(config: ChartConfig, path: string): string | null {
+/** Cross-field rules, run only after the shape is valid: `[key, rule]`, reported as `<path>.<key> <rule>`. The wire schema reports the
+ *  same rule as an issue at `<key>` with the same text. */
+function invalidCombination(config: ChartConfig): [string, string] | null {
   const fields = config.measures.map(measure => measure.field);
-  if (new Set(fields).size !== fields.length) return `${path}.measures fields must be distinct`;
-  if (config.split && config.measures.length !== 1) return `${path}.split needs exactly one measure`;
+  if (new Set(fields).size !== fields.length) return ['measures', 'fields must be distinct'];
+  if (config.split && config.measures.length !== 1) return ['split', 'needs exactly one measure'];
   if (config.orientation === 'horizontal' && (config.kind !== 'bar' || config.x.type !== 'category')) {
-    return `${path}.orientation horizontal needs a bar chart on a category axis`;
+    return ['orientation', 'horizontal needs a bar chart on a category axis'];
   }
-  if (config.areaFill === true && config.kind !== 'line') return `${path}.areaFill needs a line chart`;
+  if (config.areaFill !== undefined && config.kind !== 'line') return ['areaFill', 'needs a line chart'];
   const stacked = config.stack !== undefined && config.stack !== 'none';
   if (config.measures.some(measure => measure.axis === 'right') && (stacked || config.orientation === 'horizontal')) {
-    return `${path}.measures axis right needs a vertical, unstacked chart`;
+    return ['measures', 'axis right needs a vertical, unstacked chart'];
   }
   return null;
 }

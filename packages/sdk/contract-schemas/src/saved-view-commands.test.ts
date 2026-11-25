@@ -291,9 +291,9 @@ describe('saved-view commands', () => {
     expect(parse(withDraft({ ...condDraft, context: { condition: { axis: [] } } })).success).toBe(false);
   });
 
-  it('a cyclic extra property on a chart config array is refused without throwing, like the SDK (#2760)', () => {
-    const data: unknown[] & { annotation?: unknown } = [1]; data.annotation = data;
-    const cyclic = { ...menuDraft, panels: { version: 1, instances: [{ ...chart, inputs: [], source: { kind: 'chart', config: { data } } }] } };
+  it('a cyclic extra property on the chart measures array is refused without throwing, like the SDK (#2760, #2745)', () => {
+    const measures: unknown[] & { annotation?: unknown } = [{ field: 'count' }]; measures.annotation = measures;
+    const cyclic = { ...menuDraft, panels: { version: 1, instances: [{ ...chart, inputs: [], source: { kind: 'chart', config: { ...chart.source.config, measures } } }] } };
     expect(() => parse(withDraft(cyclic))).not.toThrow();
     expect(validateSavedView(cyclic).ok).toBe(false);
   });
@@ -302,7 +302,7 @@ describe('saved-view commands', () => {
     for (const k of ['hoverRow', 'zoomLevel', 'modalOpen', 'openModal', 'draftFilter', 'rows', 'rawData', 'engineState', 'dockLayout', 'scopeId', 'scope', 'rowsX', 'Rows']) {
       expect(isForbiddenSavedViewWireKey(k), k).toBe(isForbiddenSavedViewKey(k));
     }
-    const rawConfig = { version: 1, instances: [{ ...chart, inputs: [], source: { kind: 'chart', config: { nested: { rawData: [1] } } } }] };
+    const rawConfig = { version: 1, instances: [{ ...chart, inputs: [], source: { kind: 'chart', config: { ...chart.source.config, nested: { rawData: [1] } } } }] };
     for (const bad of [{ ...menuDraft, chartOptions: { nested: { rows: [] } } }, { ...menuDraft, layout: [{ engineState: 1 }] }, { ...menuDraft, panels: rawConfig }]) {
       expect(parse(withDraft(bad)).success).toBe(false);
       expect(validateSavedView(bad).ok).toBe(false);

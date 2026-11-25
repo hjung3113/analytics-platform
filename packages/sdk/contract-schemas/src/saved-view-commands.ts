@@ -104,8 +104,43 @@ const chartMeasureSchema = z.strictObject({
   color: z.enum(CHART_CONFIG_COLORS).optional(),
   axis: z.enum(['left', 'right']).optional(),
 });
-/** Closed: unknown keys, data arrays, hex, px and font values have no place to go. Cross-field rules match `invalidChartConfig`. */
-export const chartConfigSchema = z.strictObject({
+/** Same rule as `isPlainChartData` in @ap/contracts: the raw value is plain JSON data, so the value checked is the value stored. */
+function isPlainChartData(value: unknown, ancestors: object[] = []): boolean {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'object' || ancestors.includes(value)) return false;
+  const array = Array.isArray(value);
+  if (!array && ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return false;
+  const keys = Reflect.ownKeys(value);
+  const length = array ? (value as unknown[]).length : 0;
+  if (array && keys.length !== length + 1) return false;
+  for (const key of keys) {
+    if (array && key === 'length') continue;
+    if (typeof key !== 'string' || (array && key !== String(Number(key))) || (array && Number(key) >= length)) return false;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !('value' in descriptor) || !descriptor.enumerable || !isPlainChartData(descriptor.value, [...ancestors, value])) return false;
+  }
+  return true;
+}
+
+type ChartCombination = { kind: string; x: { type: string }; measures: { field: string; axis?: string }[]; split?: unknown; orientation?: string; stack?: string; areaFill?: boolean };
+/** Same rules, keys and texts as `invalidCombination` in @ap/contracts. */
+function invalidChartCombination(config: ChartCombination): [string, string] | null {
+  const fields = config.measures.map(measure => measure.field);
+  if (new Set(fields).size !== fields.length) return ['measures', 'fields must be distinct'];
+  if (config.split && config.measures.length !== 1) return ['split', 'needs exactly one measure'];
+  if (config.orientation === 'horizontal' && (config.kind !== 'bar' || config.x.type !== 'category')) {
+    return ['orientation', 'horizontal needs a bar chart on a category axis'];
+  }
+  if (config.areaFill !== undefined && config.kind !== 'line') return ['areaFill', 'needs a line chart'];
+  const stacked = config.stack !== undefined && config.stack !== 'none';
+  if (config.measures.some(measure => measure.axis === 'right') && (stacked || config.orientation === 'horizontal')) {
+    return ['measures', 'axis right needs a vertical, unstacked chart'];
+  }
+  return null;
+}
+
+const chartConfigShape = z.strictObject({
   version: z.literal(1),
   kind: z.enum(['line', 'bar']),
   x: z.strictObject({ field: chartField, type: z.enum(['time', 'category']) }),
@@ -119,24 +154,15 @@ export const chartConfigSchema = z.strictObject({
     decimals: z.number().int().min(0).max(CHART_CONFIG_DECIMALS_MAX).optional(),
   }).optional(),
 }).superRefine((config, ctx) => {
-  const message = invalidChartCombination(config);
-  if (message) ctx.addIssue({ code: 'custom', message });
+  // Cross-field rules only judge a valid shape, like the SDK (which stops at the first shape reason).
+  if (ctx.issues.length > 0) return;
+  const combination = invalidChartCombination(config);
+  if (combination) ctx.addIssue({ code: 'custom', path: [combination[0]], message: combination[1] });
 });
-
-function invalidChartCombination(config: { kind: string; x: { type: string }; measures: { field: string; axis?: string }[]; split?: unknown; orientation?: string; stack?: string; areaFill?: boolean }): string | null {
-  const fields = config.measures.map(measure => measure.field);
-  if (new Set(fields).size !== fields.length) return 'config.measures fields must be distinct';
-  if (config.split && config.measures.length !== 1) return 'config.split needs exactly one measure';
-  if (config.orientation === 'horizontal' && (config.kind !== 'bar' || config.x.type !== 'category')) {
-    return 'config.orientation horizontal needs a bar chart on a category axis';
-  }
-  if (config.areaFill === true && config.kind !== 'line') return 'config.areaFill needs a line chart';
-  const stacked = config.stack !== undefined && config.stack !== 'none';
-  if (config.measures.some(measure => measure.axis === 'right') && (stacked || config.orientation === 'horizontal')) {
-    return 'config.measures axis right needs a vertical, unstacked chart';
-  }
-  return null;
-}
+/** Closed: unknown keys, data arrays, hex, px and font values have no place to go. The plain-data gate and cross-field rules are runtime only. */
+export const chartConfigSchema = z.unknown()
+  .refine(isPlainChartData, { message: 'must be plain JSON data', abort: true })
+  .pipe(chartConfigShape);
 
 const panelSourceSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('declared'), panel: panelToken }),

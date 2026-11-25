@@ -30,6 +30,18 @@ const cases: [string, unknown, boolean, string?][] = [
   ['fractional decimals', { ...bar, valueFormat: { kind: 'number', decimals: 1.5 } }, false],
   ['a currency format', { ...bar, valueFormat: { kind: 'currency' } }, false],
   ['a string areaFill', { ...line, areaFill: 'yes' }, false],
+  ['areaFill false on a bar', { ...bar, areaFill: false }, false, 'config.areaFill needs a line chart'],
+  ['a long field with a horizontal line (shape first)', { ...line, x: { field: 'f'.repeat(CHART_CONFIG_FIELD_MAX + 1), type: 'category' }, orientation: 'horizontal' }, false],
+  ['an explicit undefined option', { ...line, orientation: undefined }, false],
+  ['an explicit undefined colour', { ...line, measures: [{ field: 'a', color: undefined }] }, false],
+  ['a getter', Object.defineProperty({ ...line }, 'version', { get: () => 1, enumerable: true }), false],
+  ['a hidden key', Object.defineProperty({ ...line }, 'rows', { value: [1], enumerable: false }), false],
+  ['a symbol key', { ...line, [Symbol('rows')]: [1] }, false],
+  ['a class instance', Object.assign(new (class Config {})(), line), false],
+  ['an inherited x field', { ...line, x: Object.assign(Object.create({ field: 'time' }), { type: 'time' }) }, false],
+  ['a named property on measures', { ...line, measures: Object.assign([{ field: 'a' }], { annotation: { rows: [1] } }) }, false],
+  ['a sparse measures array', { ...line, measures: [{ field: 'a' }, , { field: 'b' }] }, false],
+  ['a cyclic measures array', (() => { const measures: unknown[] = [{ field: 'a' }]; measures.push(measures); return { ...line, measures }; })(), false],
   ['repeated measure', { ...line, measures: [{ field: 'a' }, { field: 'a' }] }, false, 'config.measures fields must be distinct'],
   ['split with two measures', { ...bar, split: { field: 'eqp' }, measures: measures(2) }, false, 'config.split needs exactly one measure'],
   ['horizontal line', { ...line, x: { field: 'lot', type: 'category' }, orientation: 'horizontal' }, false, 'config.orientation horizontal needs a bar chart on a category axis'],
@@ -47,9 +59,10 @@ describe('ChartConfig v1: wire schema and @ap/contracts agree (#2745)', () => {
     const parsed = chartConfigSchema.safeParse(config);
     expect(parsed.success).toBe(valid);
     expect(invalidChartConfig(config) === null).toBe(valid);
+    if (!valid && !message) expect(parsed.error?.issues.some(issue => issue.code === 'custom' && issue.message !== 'must be plain JSON data')).toBe(false);
     if (message) {
       expect(invalidChartConfig(config)).toBe(message);
-      expect(parsed.error?.issues.map(issue => issue.message)).toEqual([message]);
+      expect(parsed.error?.issues.map(issue => `config.${issue.path.join('.')} ${issue.message}`)).toEqual([message]);
     }
   });
 
