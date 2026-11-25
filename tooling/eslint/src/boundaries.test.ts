@@ -168,6 +168,12 @@ const rows: Row[] = [
   { file: 'platform/voc/src/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
   { file: 'apps/platform-web/src/dev/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
   { file: 'platform/home/src/pages/x.test.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: '' },
+  // #2955: SDK packages support React 19.0+, so no useEffectEvent (19.2) in any import or member form; menus run on the app's React.
+  { file: 'packages/sdk/ui/src/x.tsx', code: `import { useEffectEvent } from 'react';`, rule: 'no-restricted-syntax', token: 'useInsertionEffect' },
+  { file: 'packages/sdk/kernel/src/x.tsx', code: `import { useEffectEvent as later } from 'react';`, rule: 'no-restricted-syntax', token: 'React 19.2' },
+  { file: 'packages/sdk/components/src/x.tsx', code: `import * as React from 'react'; export const later = React.useEffectEvent;`, rule: 'no-restricted-syntax', token: 'React 19.2' },
+  { file: 'packages/sdk/shell/src/x.test.tsx', code: `import { useEffectEvent } from 'react';`, rule: 'no-restricted-syntax', token: 'useLatestRef' },
+  { file: 'menus/bravo/metrics/src/x.tsx', code: `import { useEffectEvent } from 'react';`, rule: '' },
   // #2215: a text field's Enter handler goes through useImeEnterGuard().isComposingEnter (ui, components, shell, menu, app).
   { file: 'packages/sdk/ui/src/x.tsx', code: 'export const A = () => <input onKeyDown={e => { if (e.key === \'Enter\') go(); }} />;', rule: 'ap/ime-enter-guard', token: 'confirms a Korean composition' },
   { file: 'packages/sdk/ui/src/x.tsx', code: 'export function A() { function down(e) { switch (e.key) { case \'Enter\': go(); } } return <input onKeyDown={down} />; }', rule: 'ap/ime-enter-guard', token: 'confirms a Korean composition' },

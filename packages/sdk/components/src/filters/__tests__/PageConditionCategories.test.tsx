@@ -237,6 +237,21 @@ describe('page condition options', () => {
     view.unmount();
     expect(pending[2].signal.aborted).toBe(true);
   });
+  it('a new inline loader on rerender does not reload; a retry calls the latest one (#2955)', async () => {
+    const first = vi.fn().mockRejectedValue(new Error('offline'));
+    const latest = vi.fn().mockResolvedValue({ options });
+    const props = { declaration: { categories: [dynamic] }, values: {}, inputsKey: 'same', onChange: vi.fn() };
+    const view = render(<I18nProvider><PageConditionCategories {...props} loadOptions={(...args) => first(...args)} /></I18nProvider>);
+    expect(await screen.findByText('항목을 불러오지 못했습니다.')).toBeVisible();
+    view.rerender(<I18nProvider><PageConditionCategories {...props} loadOptions={(...args) => first(...args)} /></I18nProvider>);
+    view.rerender(<I18nProvider><PageConditionCategories {...props} loadOptions={(...args) => latest(...args)} /></I18nProvider>);
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(latest).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+    expect(await screen.findByRole('checkbox', { name: 'Alpha' })).toBeVisible();
+    expect(latest).toHaveBeenCalledTimes(1);
+    expect(first).toHaveBeenCalledTimes(1);
+  });
   it('shows truncation and rejects malformed/duplicate options instead of displaying a partial list', async () => {
     mount({ declaration: { categories: [dynamic] }, loadOptions: async () => ({ options, truncated: true }) });
     expect(await screen.findByText('일부 항목만 불러왔습니다.')).toBeVisible();
