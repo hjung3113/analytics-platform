@@ -194,6 +194,14 @@ Source · Updated · Coverage
 - `invalidChartConfig`(`@ap/contracts`)와 `chartConfigSchema`(`@ap/contract-schemas`)가 같은 규칙으로 판정하고, 서버·HTTP 어댑터·mock 저장소는 이 판정으로 저장을 거부하거나 저장된 값을 읽을 수 없음(`panelsUnreadable`)으로 연다.
 - 필드 메타데이터에 따른 판정(쌓을 수 없는 측정 등)과 `resolve(config, rows, fieldMeta)`는 다음 단계다.
 
+**메뉴가 선언한 지표·기준으로 만드는 차트 패널 (#2761, [ADR-0176](../adr/0176-user-analysis-menu-one-definition-two-homes.md)).** 메뉴는 `MenuMeta.chartFields`에 사용자가 고를 수 있는 지표와 기준을 선언한다. 선언하지 않은 메뉴의 패널 추가는 지금과 같다.
+
+- 지표 `{ id, label, unit, reaggregation, metricVersion?, permission?, breakdowns? }`, 기준 `{ id, label, dimension }`, 선 차트용 시간 필드 `time?: { field, label }`. 분석 데이터셋(#1704)의 필드 설명과 같은 모양으로 맞춰 데이터셋 단계에서는 원천만 바꾸는 것이 계획이다(데이터셋 필드 계약은 아직 코드에 없다). `id`와 `time.field`는 메뉴의 차트 조회가 돌려주는 행의 필드이자 저장되는 `ChartConfig`의 필드라 한 이름 공간을 쓴다. `createRegistry`가 이름 겹침, 빈 라벨·단위, 모르는 `reaggregation`, 권한 형식, 지표의 `breakdowns`가 가리키는 기준, 기준 `dimension`의 형식(코드 패널 출력 차원과 같은 규칙, 200자 이하)을 검사한다.
+- 차트 하나에 지표 하나(소유자 2026-11-25). 종류는 선·막대만이며 아직 못 만드는 종류는 목록에 두지 않는다. 선은 `time` 위에 지표를 그리고 기준 값마다 계열 하나(`split`), 막대는 기준을 범주 축으로 그리고 고른 값을 기준 `dimension`의 `set` 분석 선택(출력 키 `selection`)으로 낸다. 메뉴의 차트 조회는 선이면 시각·기준 값마다, 막대면 기준 값마다 한 행을 돌려준다. 쌓기는 선의 기준 계열만이고 `sum` 지표만 된다. 백분율 쌓기는 지표가 음수 없음을 선언할 수 있을 때 연다. 기본 제목은 «지표 · 기준»이며 저장하지 않고 선언에서 읽는다.
+- `chartPanelProblem(fields, draft, granted)`가 조합마다 첫 사유를 ko/en으로 돌려준다: 없는 지표·기준, 지표 권한 없음, 지표가 그 기준을 내지 않음, 시간 필드 없는 메뉴의 선, `sum`이 아닌 지표 쌓기, 막대 쌓기, 아직 덜 고름(`incomplete`). 권한 판정 `granted`는 필수라 권한을 모르는 호출이 보호된 지표를 통과시키지 않는다. 패널 추가의 칩 흐리기와 패널 설정 서랍(#2762)이 같은 함수를 쓴다. 지표 칩은 지표만으로 판정하므로 아직 고르지 않은 기준 때문에 흐려지지 않으며 `incomplete`인 칩은 고를 수 있다. «더하기»는 `null`일 때만 켠다.
+- `createChartPanel`이 `chart` 인스턴스를 만들고(`nextChartPanelId`가 `chart-<n>` id, 저장 규칙에 맞지 않는 id는 예외), 저장된 뷰를 열 때 `readChartPanel(fields, instance, granted)`이 저장된 설정과 출력이 지금 선언으로 만들 것과 정확히 같은지 대조한다. 메뉴가 지표·기준을 없앴거나 권한이 사라졌으면 그 사유를, 시간 필드·매핑·옵션·출력 차원이 달라졌으면 `changed`를 돌려준다. 그 패널만 사유를 보이고 나머지는 그리며, 저장된 인스턴스와 선택 출력은 바꾸지 않는다. `chartFieldMeta(fields, lang)`는 그리기의 필드 메타데이터를 낸다. 데이터 조회는 메뉴가 선언한 조회 하나이며 SDK가 클라이언트에서 합치지 않는다.
+- 선택기 화면(«종류로 만들기» 구역과 키보드 경로)은 시안 선택 뒤 다음 단계다.
+
 | 종류 | Zoom | Brush·선택 | Reset | Compare | Annotate | Export | Drill | 표로 보기 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | heatmap | — | 클릭·사각 끌기·표 체크박스로 셀 다중 선택 | 선택 해제 | — | — | manifest `features.export` | 단일 선택 요약·표 행의 상세 버튼 | 같은 셀 데이터·선택·상세 |

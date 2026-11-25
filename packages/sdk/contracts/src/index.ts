@@ -49,5 +49,7 @@ export type { EndpointId, PageConditionCategory, PageConditions, PageConditionOp
 
 export type { AnalysisSelection, AnalysisSelectionShape, AnalysisSelectionUse, PanelBinding, PanelContextKey, PanelDeclaration, PanelInputBinding, PanelInputs, PanelOutputBinding } from './menu/panels';
 export { EQUIPMENT_SELECTION_DIMENSION } from './menu/panels';
+export { CHART_PANEL_KINDS, CHART_PANEL_OUTPUT_KEY, chartFieldMeta, chartPanelProblem, chartPanelTitle, createChartPanel, nextChartPanelId, readChartPanel } from './menu/chart-fields.js';
+export type { ChartBreakdownDeclaration, ChartMeasureDeclaration, ChartPanelDraft, ChartPermissionCheck, ChartPanelKind, ChartPanelProblem, ChartPanelProblemCode, MenuChartFields, ReadChartPanel } from './menu/chart-fields.js';
 export { MIN_GROUP_WIDTH, MAX_GROUP_LABEL_LENGTH, MAX_VIEW_TABLES, MAX_TABLE_KEY_LENGTH, MAX_GROUP_BASIS_LENGTH, MAX_COLUMN_GROUPS, MAX_GROUP_ID_LENGTH, MAX_GROUP_MEMBERS, isStoredColumnGroupItem, isStoredColumnGroups, isTableViewStates } from './links/table-view-state.js';
 export type { StoredColumnGroupItem, StoredColumnGroups, TableViewState } from './links/table-view-state.js';
