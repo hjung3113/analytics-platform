@@ -7,7 +7,7 @@
 
 ## 결정
 
-- **URL**: 단계마다 메뉴가 등록한 page key 하나(예: `drillRoom=PHOTO&drillStgroup=STG-PHOTO-A`). 메뉴 manifest가 단계 순서를 선언하고, 새 단계로 들어가기·올라가기·같은 단계의 다른 값으로 바꾸기는 history push다. 올라가거나 바꾸면 그 뒤 단계 키를 모두 지운다.
+- **URL**: 단계마다 메뉴가 등록한 page key 하나(예: `drillRoom=PHOTO&drillStgroup=STG-PHOTO-A`, 대안 기준은 [ADR-0178](0178-drill-alternative-basis.md)에서 개정). 메뉴 manifest가 단계 순서를 선언하고, 새 단계로 들어가기·올라가기·같은 단계의 다른 값으로 바꾸기는 history push다. 올라가거나 바꾸면 그 뒤 단계 키를 모두 지운다.
 - **전역 Context 변경**: 사용자가 Context 바(기간·room_name·조건 등)를 바꾸면 단계 키를 모두 지운다. 단계 값은 그 조건의 결과에서 고른 값이라 표 페이지 번호와 같은 `contextResetKeys` 규칙을 따른다. 뒤로/앞으로 가기와 URL 진입은 지우지 않는다.
 - **레이아웃**: 경로 바(`전체 › 공정: PHOTO › StGroup: STG-PHOTO-A`)를 두고 단계마다 본문을 통째로 바꾼다. 마지막 단계(객체 하나)는 오른쪽 상세 슬롯(ADR-0013)으로 연다. 경로 칩의 ▾로 같은 단계의 다른 값으로 바로 바꾼다.
 

@@ -1,15 +1,16 @@
-import { useCallback, useMemo } from 'react';
+import { use, useCallback, useMemo } from 'react';
 import type { Text } from '@ap/contracts';
 import { useI18n } from '../i18n';
 import { usePlatform } from '../platform/platform';
-import { drillGap, drillLevelChanged } from './drillReset';
+import { LentPanelPlatformContext, PaneScreenContext, ScreenContext } from '../platform/contexts';
+import { drillGap, drillLevelChanged, drillLevelKeys } from './drillReset';
 import { drillValueLabel } from './drillValueLabel';
 
 /** One declared step plus the current page value. Empty string is absent (`null`). */
-export type DrillLevelState = { key: string; label: Text; value: string | null; valueLabel?: string };
+export type DrillLevelState = { key: string; label: Text; value: string | null; valueLabel?: string; basis?: string };
 /** A filled step on the leading run. `value` is the raw page-key string (06 §6.4). */
-export type DrillTrailStep = { key: string; label: Text; value: string; valueLabel?: string };
-/** First later step that has a value while an earlier step is empty (06 §6.4 format error). */
+export type DrillTrailStep = DrillLevelState & { value: string };
+/** First value after an empty step, or a basis without a step value (06 §6.4 format errors). */
 export type DrillInvalid = DrillTrailStep;
 
 export type DrillState = {
@@ -18,11 +19,14 @@ export type DrillState = {
   depth: number;
   trail: DrillTrailStep[];
   invalid: DrillInvalid | null;
+  /** Level that was dropped because its explicit basis was unavailable. */
+  rejectedBasis: { levelKey: string } | null;
   /**
    * Write `key` and clear every later step in one `setPage` (history push); the menu's `drill.resetKeys` go in the same write.
-   * Only the next step (`index === depth`) or an already filled step is allowed.
+   * Only the next step (`index === depth`) or an already filled step is allowed. Omit options to keep
+   * the step's basis, or pass `{ basis: undefined }` to choose the default.
    */
-  enter: (key: string, value: string) => void;
+  enter: (key: string, value: string, options?: { basis?: string | undefined }) => void;
   /** Keep the first `n` steps and clear the rest (push, `drill.resetKeys` cleared too when a step changes). `n === 0` is the summary. */
   goTo: (n: number) => void;
 };
@@ -33,14 +37,17 @@ export type DrillState = {
  * A menu without `drill` reports no levels. Step changes are not usage events.
  */
 export function useDrill(): DrillState {
-  const { route, pageParam, setPage } = usePlatform();
+  const { route, page, pageParam, setPage } = usePlatform();
+  const lent = use(LentPanelPlatformContext);
+  const screen = lent ? null : use(PaneScreenContext) ?? use(ScreenContext);
   const { lang } = useI18n();
   const declared = route?.menu.drill?.levels;
 
   const levels = useMemo<DrillLevelState[]>(() => (declared ?? []).map(level => {
     const raw = pageParam(level.key);
     const value = raw || null;
-    return { key: level.key, label: level.label, value, ...drillValueLabel(level, value, lang) };
+    const basis = level.basisKey === undefined ? null : pageParam(level.basisKey);
+    return { key: level.key, label: level.label, value, ...drillValueLabel(level, value, lang), ...(value !== null && basis !== null ? { basis } : {}) };
   }), [declared, pageParam, lang]);
 
   const depth = useMemo(() => {
@@ -56,31 +63,37 @@ export function useDrill(): DrillState {
     level.value === null ? [] : [{ ...level, value: level.value }]
   )), [levels, depth]);
 
-  const current = useMemo(() => levels.map((level): [string, string | null] => [level.key, level.value]), [levels]);
-
   const invalid = useMemo<DrillInvalid | null>(() => {
-    const gap = drillGap(levels, current);
-    return gap === null ? null : { ...gap.level, value: gap.value };
-  }, [levels, current]);
+    const gap = drillGap(declared ?? [], page);
+    if (gap === null) return null;
+    const { key, label } = gap.level;
+    const valueLabel = levels.find(level => level.key === key)?.valueLabel;
+    return { key, label, value: gap.value, ...(valueLabel === undefined ? {} : { valueLabel }) };
+  }, [declared, page, levels]);
 
-  const enter = useCallback((key: string, value: string) => {
+  const enter = useCallback<DrillState['enter']>((key, value, options) => {
     const list = declared ?? [];
     const index = list.findIndex(level => level.key === key);
     if (index < 0) throw new Error(`drill enter "${key}" is not a declared level`);
     if (index > depth) throw new Error(`drill enter "${key}" is past the next level`);
     const patch = Object.create(null) as Record<string, string | null>;
     patch[key] = value;
-    for (const level of list.slice(index + 1)) patch[level.key] = null;
-    setPage(patch, drillLevelChanged(route?.menu, current, patch) ? { focus: 'drill' } : undefined);
-  }, [declared, depth, current, route, setPage]);
+    const { basisKey } = list[index];
+    if (options?.basis !== undefined && !list[index].bases?.some(basis => basis.id === options.basis)) {
+      throw new Error(`drill enter "${key}" needs a declared basis`);
+    }
+    if (basisKey !== undefined && (options !== undefined || value === '')) patch[basisKey] = value === '' ? null : options?.basis ?? null;
+    for (const laterKey of list.slice(index + 1).flatMap(drillLevelKeys)) patch[laterKey] = null;
+    setPage(patch, drillLevelChanged(route?.menu, page, patch) ? { focus: 'drill' } : undefined);
+  }, [declared, depth, page, route, setPage]);
 
   const goTo = useCallback((n: number) => {
     const list = declared ?? [];
     if (!Number.isInteger(n) || n < 0 || n > list.length) throw new Error(`drill goTo ${n} is outside 0..${list.length}`);
     const patch = Object.create(null) as Record<string, string | null>;
-    for (const level of list.slice(n)) patch[level.key] = null;
-    setPage(patch, drillLevelChanged(route?.menu, current, patch) ? { focus: 'drill' } : undefined);
-  }, [declared, current, route, setPage]);
+    for (const key of list.slice(n).flatMap(drillLevelKeys)) patch[key] = null;
+    setPage(patch, drillLevelChanged(route?.menu, page, patch) ? { focus: 'drill' } : undefined);
+  }, [declared, page, route, setPage]);
 
-  return { levels, depth, trail, invalid, enter, goTo };
+  return { levels, depth, trail, invalid, rejectedBasis: screen?.rejectedBasis ?? null, enter, goTo };
 }

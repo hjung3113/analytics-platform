@@ -776,8 +776,11 @@ _Avoid_: 행 — 표 행·보드 격자의 행과 섞인다.
 메뉴가 manifest에 선언하고 URL에 쓰는 그 화면 고유의 상태 키(예: 표 페이지 번호, 드릴 단계 값, `returnTo`). 전역 Context 키가 아니다. 그중 `contextResetKeys`에 함께 선언한 키는 사용자가 전역 Context를 바꾸면 지워진다([06 §6.4](docs/contract/platform-ui-contract.md)).
 
 **드릴** (드릴 단계, `drill.levels`):
-한 화면 안에서 단계별로 좁혀 들어가는 조회(예: room_name → StGroup → 설비). 메뉴가 manifest에 단계 순서(page key와 표시 이름)를 선언하고 단계 수에 상한이 없다. 단계마다 page key 하나를 URL에 쓰고, 올라가거나 값을 바꾸면 뒤 단계 키를 지운다. `DrillLayout` 화면에서는 경로 바로 보이고 단계마다 본문을 바꾸며, 연결 패널 화면(HW Time, [ADR-0078](docs/adr/0078-hw-time-layout-recipes.md))에서는 같은 단계 키를 패널들이 읽는다([ADR-0025](docs/adr/0025-drilldown-level-page-keys-path-bar-layout.md), [ADR-0063](docs/adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)).
+한 화면 안에서 단계별로 좁혀 들어가는 조회(예: room_name → StGroup → 설비). 메뉴가 manifest에 단계 순서(page key와 표시 이름)를 선언하고 단계 수에 상한이 없다. 단계 값은 각각 page key에 쓰고, 대안 나누기 기준을 고른 단계에는 기준 키도 쓴다. 올라가거나 값을 바꾸면 뒤 단계 키를 지운다. `DrillLayout` 화면에서는 경로 바로 보이고 단계마다 본문을 바꾸며, 연결 패널 화면(HW Time, [ADR-0078](docs/adr/0078-hw-time-layout-recipes.md))에서는 같은 단계 키를 패널들이 읽는다([ADR-0025](docs/adr/0025-drilldown-level-page-keys-path-bar-layout.md), [ADR-0063](docs/adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)).
 _Avoid_: 드릴다운 메뉴 — 별도 메뉴가 아니라 한 메뉴 안의 단계다.
+
+**나누기 기준** (drill basis):
+드릴 단계에서 결과를 나눌 축. 메뉴가 대안을 선언하며 선택한 대안 id는 그 단계의 별도 page key에 남는다. 기준 키가 없는 단계는 기본 기준을 쓴다([ADR-0178](docs/adr/0178-drill-alternative-basis.md)).
 
 **초안 / 적용** (Draft / Apply, `query.mode: 'apply'`):
 여러 조회 조건을 모아 한 번에 실행하는 메뉴의 조회 방식. 편집 중인 조건은 칸의 초안에만 있고, `적용`을 눌러야 URL(적용 주소)에 쓰이고 조회가 실행된다. 선언이 없는 메뉴는 바꾸는 즉시 적용되는 live 모드다. 필수 조건이 비면 조회하지 않는 idle 상태다([ADR-0061](docs/adr/0061-query-draft-applied-address-and-required-gate.md)).

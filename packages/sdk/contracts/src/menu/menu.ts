@@ -2,6 +2,8 @@ import type { AnalysisSelectionShape, PanelBinding, PanelDeclaration } from './p
 import type { MenuChartFields } from './chart-fields.js';
 import type { Text } from '../i18n.js';
 import type { PageConditions } from './page-conditions.js';
+import type { GlobalContext } from '../links/url.js';
+import type { ModuleScopedId } from '../host/host.js';
 
 /**
  * Menu manifest metadata (docs/06 §5): menus declare, the shell consumes. Field names are Candidates.
@@ -86,12 +88,18 @@ export function menuPermissions(menu: { readonly permission: string; readonly ad
   return [menu.permission as Permission, ...(menu.additionalPermissions ?? [])];
 }
 
+/** Explicit alternative to a drill step's implicit default basis. */
+export type DrillBasis = { id: string; label: string | ((lang: keyof Text) => string) };
+
 /** One drill step: a page key plus the name the path bar shows (06 §6.4, ADR-0025). */
 export type DrillLevel = {
   key: string;
   label: Text;
   /** Display text for the raw page value in the current language. */
   valueLabel?: (value: string, lang: keyof Text) => string;
+  bases?: readonly DrillBasis[];
+  /** Single page key for the selected alternative. Required when `bases` is non-empty. */
+  basisKey?: string;
 };
 
 /** One selectable axis set of a menu's Condition (`MenuMeta.conditionPresets`, 06 §6.4, ADR-0083). `axes` are equipment axis ids. */
@@ -223,10 +231,15 @@ export type MenuMeta = {
    * Ordered in-page drill (06 §6.4, ADR-0025). Each level key must also be a `pageKey` and a `contextResetKey`.
    * One or more levels, no upper bound (ADR-0063). `returnTo` is not a level key. Values stay page-owned and are not promoted to global Context.
    * `resetKeys` (field name Candidate): other `pageKeys` entries bound to the drill path (e.g. a picked row). A `setPage` write that changes
-   * the value of any level key drops them in the SAME navigation (one history entry), so enter, breadcrumb and `goTo` all clear them.
+   * a level value or its basis drops them in the SAME navigation (one history entry), so enter, breadcrumb and `goTo` all clear them.
    * A reset key the same patch sets explicitly keeps that value. Writes that leave every level value unchanged drop nothing.
    * History traversal (popstate, `navigate`, Back/Forward) never clears them — restored entries are exact (§6.4). Each entry must be a
-   * declared `pageKeys` entry, not a level key and not `returnTo`; it need not be a `contextResetKeys` entry.
+   * declared `pageKeys` entry, not a level key, basis key or `returnTo`; it need not be a `contextResetKeys` entry.
    */
-  drill?: { levels: readonly DrillLevel[]; resetKeys?: readonly string[] };
+  drill?: {
+    levels: readonly DrillLevel[];
+    resetKeys?: readonly string[];
+    /** Current client availability of a declared alternative. The server also checks every request. */
+    isBasisAvailable?: (levelKey: string, basisId: string, context: GlobalContext, can: (permission: Permission | ModuleScopedId) => boolean) => boolean;
+  };
 };

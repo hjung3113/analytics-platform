@@ -5,8 +5,11 @@ import { useDrill, type DrillState } from '../drill';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform, type ReturnOrigin } from '../../platform/platform';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from '../../registry/registry';
-import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '../../testing';
+import { memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '../../testing';
 import { groupId, spaceId } from '@ap/contracts';
+import { buildShareLink } from '../shareLink';
+import { captureApplied } from '../../saved-view/capture';
+import { restoreSavedView } from '../../saved-view/restore';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const drillKeys = ['drillRoom', 'drillStgroup', 'drillEquipment'] as const;
@@ -192,6 +195,113 @@ describe('useDrill (06 §6.4, ADR-0025)', () => {
       await waitFor(() => expect(url()).toBe(originUrl));
     });
     expect(drill!.trail.map(step => step.value)).toEqual(['PHOTO', 'A']);
+  });
+});
+
+describe('alternative drill bases', () => {
+  const path = '/mars/bases';
+  const keys = ['drillRoom', 'roomBasis', 'drillStgroup', 'groupBasis'];
+  const support = { menuId: 'bases', menuSchemaVersion: 1, contextKeys: [], pageKeys: keys };
+  const from = `${path}?v=1&drillRoom=PHOTO&roomBasis=alt&drillStgroup=A&groupBasis=alt&row=r1`;
+  function mountBases(href: string) {
+    const bases = [{ id: 'alt', label: 'Alternative' }, { id: 'other', label: 'Other' }, { id: 'denied', label: 'Denied' }];
+    const menu = entry({
+      id: 'bases', path: '/bases', pageKeys: [...keys, 'row'], contextResetKeys: keys,
+      drill: { levels: [
+        { ...level('drillRoom', '공정', 'Process'), basisKey: 'roomBasis', bases },
+        { ...level('drillStgroup', 'StGroup', 'StGroup'), basisKey: 'groupBasis', bases },
+      ], resetKeys: ['row'], isBasisAvailable: (_key, id) => id !== 'denied' },
+    });
+    const withBases = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [...registry.menus, menu] });
+    window.history.replaceState(null, '', href);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={withBases}><Probe /></PlatformProvider></I18nProvider>);
+  }
+
+  it('pushes a basis-only change once and clears later value and basis keys and drill resets', () => {
+    mountBases(from);
+    const push = vi.spyOn(window.history, 'pushState');
+    act(() => { drill!.enter('drillRoom', 'PHOTO', { basis: 'other' }); });
+    const pushes = push.mock.calls.length;
+    push.mockRestore();
+    expect(url()).toBe(`${path}?v=1&drillRoom=PHOTO&roomBasis=other`);
+    expect(pushes).toBe(1);
+    expect(drill!.trail[0]?.basis).toBe('other');
+
+    act(() => { host!.setPage({ row: 'r2' }); });
+    act(() => { drill!.enter('drillRoom', 'PHOTO', { basis: 'alt' }); });
+    expect(url()).toBe(`${path}?v=1&drillRoom=PHOTO&roomBasis=alt`);
+  });
+
+  it('keeps the basis for a sibling and removes it for an explicit default', () => {
+    mountBases(from);
+    act(() => { drill!.enter('drillRoom', 'ETCH'); });
+    expect(drill!.trail[0]?.basis).toBe('alt');
+    act(() => { drill!.enter('drillRoom', 'ETCH', { basis: undefined }); });
+    expect(url()).toBe(`${path}?v=1&drillRoom=ETCH`);
+  });
+
+  it('drops later basis keys when going up', () => {
+    mountBases(from);
+    act(() => { drill!.goTo(1); });
+    expect(url()).toBe(`${path}?v=1&drillRoom=PHOTO&roomBasis=alt`);
+  });
+
+  it('clears declared basis and step keys on Context change', () => {
+    mountBases(from);
+    act(() => { screen.getByRole('button', { name: 'scope' }).click(); });
+    expect(url()).toBe(`${path}?v=1&scopeId=FDRY&row=r1`);
+  });
+
+  it('reports a basis without a step as a format error and closes the query gate', () => {
+    const href = `${path}?v=1&roomBasis=alt`;
+    mountBases(href);
+    expect(drill!.invalid?.key).toBe('drillRoom');
+    expect(host!.queryPolicy.drillGap).toBe(true);
+    expect(url()).toBe(href);
+  });
+
+  it.each(['unknown', 'denied'])('replaces a rejected basis (%s) with its parent and reports only the level key', id => {
+    const start = window.history.length;
+    mountBases(from.replace('groupBasis=alt', `groupBasis=${id}`));
+    expect(drill!.depth).toBe(1);
+    expect(drill!.rejectedBasis).toEqual({ levelKey: 'drillStgroup' });
+    expect(url()).toBe(`${path}?v=1&drillRoom=PHOTO&roomBasis=alt`);
+    expect(window.history.length).toBe(start);
+    act(() => { drill!.enter('drillStgroup', 'B'); });
+    expect(drill!.rejectedBasis).toBeNull();
+  });
+
+  it('round-trips a basis key through a share link and a saved view', () => {
+    mountBases(`${path}?v=1`);
+    act(() => { drill!.enter('drillRoom', 'A+', { basis: 'alt' }); });
+    const current = host!;
+    const captured = captureApplied(current, support);
+    expect(buildShareLink({ ...current, kind: 'conditions', absoluteUrl: href => href })).toEqual({
+      ok: true, href: `${path}?v=1&drillRoom=A%2B&roomBasis=alt`,
+    });
+    const view = testSavedView({ id: 'alt', kind: 'menu-view', menuId: support.menuId, menuSchemaVersion: 1, ...captured });
+    expect(restoreSavedView({ view, support, current: { global: current.global, page: [] }, extras: [], pathname: path, anchor: null, source: 'selected' }))
+      .toMatchObject({ href: `${path}?v=1&drillRoom=A%2B&roomBasis=alt` });
+  });
+
+  it('preserves the no-bases URL, share link and serialized saved page through drill transitions', () => {
+    const path = '/mars/rows';
+    mount(`${path}?v=1&scopeId=MEM&drillRoom=A%2BB`);
+    const golden = (query: string, page: string) => {
+      expect(url()).toBe(path + query);
+      expect(buildShareLink({ ...host!, kind: 'conditions', absoluteUrl: href => href })).toEqual({ ok: true, href: path + query });
+      expect(JSON.stringify(captureApplied(host!, { pageKeys: ['drillRoom', 'drillStgroup'], contextKeys: [] }).page)).toBe(page);
+    };
+    act(() => { drill!.enter('drillStgroup', 'x y'); });
+    golden('?v=1&scopeId=MEM&drillRoom=A%2BB&drillStgroup=x+y', '[["drillRoom","A+B"],["drillStgroup","x y"]]');
+    act(() => { host!.setPage({ drillStgroup: 'direct' }); });
+    golden('?v=1&scopeId=MEM&drillRoom=A%2BB&drillStgroup=direct', '[["drillRoom","A+B"],["drillStgroup","direct"]]');
+    act(() => { drill!.enter('drillStgroup', 'Z'); });
+    golden('?v=1&scopeId=MEM&drillRoom=A%2BB&drillStgroup=Z', '[["drillRoom","A+B"],["drillStgroup","Z"]]');
+    act(() => { drill!.goTo(1); });
+    golden('?v=1&scopeId=MEM&drillRoom=A%2BB', '[["drillRoom","A+B"]]');
+    act(() => { screen.getByRole('button', { name: 'scope' }).click(); });
+    golden('?v=1&scopeId=FDRY', '[]');
   });
 });
 

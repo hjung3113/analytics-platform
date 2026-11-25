@@ -8,6 +8,7 @@ import type { MenuEntry } from '../registry/registry';
 import { sameItems, useStable } from '../stable';
 import { analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
 import { analysisSelectionRangeCompare, isAnalysisSelectionAvailable, readAvailability, readEmptyAvailability, sameAvailability, subscribeToEmptyAvailability, type AnalysisSelectionAvailability } from './analysisSelectionAvailability';
+import { drillLevelKeys } from './drillReset';
 
 export { ANALYSIS_SELECTION_MAX_VALUES, analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
 
@@ -35,7 +36,7 @@ const useChannels = (menu: MenuEntry | undefined, registry: MenuPlatform['regist
 const useWriteScreen = (route: MenuPlatform['route']) => route ? use(PaneScreenContext) ?? use(ScreenContext) : null;
 
 function drillAddress(menu: MenuEntry | undefined, pageParam: MenuPlatform['pageParam']) {
-  return JSON.stringify(menu?.drill?.levels.map(({ key }) => pageParam(key)) ?? []);
+  return JSON.stringify(menu?.drill?.levels.flatMap(drillLevelKeys).map(pageParam) ?? []);
 }
 
 function useReportedAvailability(screen: ReturnType<typeof useWriteScreen>, address: string) {
