@@ -120,17 +120,16 @@ export function DetailPanelHeader({
   const hasKind = kicker !== undefined || dataKind !== undefined;
   const wrapsTitle = titleLines === 2;
   // Keep numeric tokens like 11-04 together while allowing wraps between words.
-  const metadataText = typeof metadata === 'string'
-    ? metadata.split(/(\s+)/u).map((word, index) => {
-      if (/\d[-/]\d/u.test(word)) {
-        return <span key={index} className="whitespace-nowrap">{word}</span>;
-      }
-      return word;
-    })
+  // Only plain text gets the ellipsis wrapper; consumer nodes (such as a Fragment of blocks) stay direct flex children.
+  const metadataContent = typeof metadata === 'string'
+    ? metadata !== '' && (
+      <div className="min-w-0 overflow-hidden text-ellipsis">
+        {metadata.split(/(\s+)/u).map((word, index) => (
+          /\d[-/]\d/u.test(word) ? <span key={index} className="whitespace-nowrap">{word}</span> : word
+        ))}
+      </div>
+    )
     : metadata;
-  const metadataContent = (Boolean(metadata) || metadata === 0) && (
-    <div className="min-w-0 overflow-hidden text-ellipsis">{metadataText}</div>
-  );
   const kickerBadge = kicker !== undefined && <StatusBadgeFrame
     appearance="compact"
     textClassName={accent.textClass}
@@ -176,7 +175,7 @@ export function DetailPanelHeader({
             {title != null && <h2 id={headingId} className={cn('t-section-title min-w-0 break-keep', wrapsTitle ? 'line-clamp-2 wrap-anywhere' : 'truncate')}>{title}</h2>}
           </div>
           {wrapsTitle
-            ? (kicker !== undefined || metadataContent) && <div className="flex min-w-0 max-w-full items-center gap-2">{kickerBadge}{metadataContent}</div>
+            ? (kicker !== undefined || Boolean(metadataContent)) && <div className="flex min-w-0 max-w-full items-center gap-2">{kickerBadge}{metadataContent}</div>
             : <>{kickerBadge}{metadataContent}</>}
         </div>
 

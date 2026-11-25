@@ -220,10 +220,26 @@ describe('DetailPanelHeader — title lines', () => {
     const heading = screen.getByRole('heading', { name: 'A long record title' });
     const titleBlock = heading.parentElement?.parentElement;
     expect(titleBlock).toHaveClass('flex-col');
-    const metaRow = screen.getByText('Request').parentElement?.parentElement;
+    const metaRow = screen.getByText('Request').parentElement;
     expect(metaRow?.parentElement).toBe(titleBlock);
     expect(metaRow).toContainElement(screen.getByText('Kind'));
     expect(metaRow).not.toContainElement(heading);
+  });
+
+  it.each([1, 2] as const)('keeps each block of Fragment metadata a direct flex child with %i title lines', titleLines => {
+    render(
+      <DetailPanelHeader
+        title="Record title"
+        titleLines={titleLines}
+        label="Kind"
+        metadata={<><div>가동</div><div>서울</div></>}
+      />,
+    );
+    const first = screen.getByText('가동');
+    const row = first.parentElement;
+    expect(screen.getByText('서울').parentElement).toBe(row);
+    expect(row).toHaveClass('flex');
+    expect(row).toContainElement(screen.getByText('Kind'));
   });
 
   it('adds no empty line under a two-line title without metadata', () => {
