@@ -59,7 +59,7 @@ describe('column groups (#2418)', () => {
     expect(consoleError.mock.calls.flat().join(' ')).toContain(error);
   });
   it('keeps declaration diagnostics silent in production', async () => {
-    vi.stubEnv('PROD', true);
+    vi.stubEnv('NODE_ENV', 'production'); // the value a production build replaces statically (#2951)
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     render(<Harness columnGroups={{}} />);
     await screen.findByRole('button', { name: 'r1' });

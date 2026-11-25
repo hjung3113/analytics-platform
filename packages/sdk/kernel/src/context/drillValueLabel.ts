@@ -1,11 +1,10 @@
 import type { DrillLevel, MenuMeta, Pair } from '@ap/contracts';
 import type { Lang } from '../i18n';
 
-// Same signal as @ap/ui isProductionEnv, read without `process` types so the kernel dist build (types: []) compiles.
+// @ap/ui isDevelopment's check, inline because the kernel does not depend on @ap/ui (#2951). Bundlers replace
+// `process.env.NODE_ENV` statically, so production builds drop the warning.
 export function isProduction(): boolean {
-  const meta = import.meta as { env?: { PROD?: boolean } };
-  const g = globalThis as { process?: { env?: { NODE_ENV?: string } } };
-  return meta.env?.PROD === true || g.process?.env?.NODE_ENV === 'production';
+  return process.env.NODE_ENV === 'production';
 }
 
 const warned = new Set<string>();

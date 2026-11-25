@@ -54,7 +54,7 @@ it('cleaning up an overridden registrant leaves the winner in place', () => {
 });
 
 it('suppresses overlap warnings in production', () => {
-  vi.stubEnv('PROD', true);
+  vi.stubEnv('NODE_ENV', 'production'); // the value a production build replaces statically (#2951)
   const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
   render(<Fixture second />);
   expect(warning).not.toHaveBeenCalled();

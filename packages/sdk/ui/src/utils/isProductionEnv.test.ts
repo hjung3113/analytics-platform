@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { isProductionEnv } from './isProductionEnv';
 
 describe('isProductionEnv', () => {
@@ -19,4 +19,11 @@ describe('isProductionEnv', () => {
     expect(isProductionEnv({}, { process: { env: {} } })).toBe(false);
     expect(isProductionEnv({}, { process: { env: { NODE_ENV: 'development' } } })).toBe(false);
   });
+
+  it('is true from the statically replaced NODE_ENV alone, as in a Vite production bundle (#2951)', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    expect(isProductionEnv({}, {})).toBe(true);
+  });
+
+  afterEach(() => { vi.unstubAllEnvs(); });
 });

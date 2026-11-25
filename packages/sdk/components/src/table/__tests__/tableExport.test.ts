@@ -103,7 +103,7 @@ describe('exportCell coercion (#173)', () => {
   });
 
   it('production coerces the same value to an empty cell instead of throwing (#173 P3-8)', () => {
-    vi.stubEnv('PROD', true); // isProductionEnv: positive production signal from the bundler env
+    vi.stubEnv('NODE_ENV', 'production'); // isDevelopment reads the NODE_ENV a production build replaces statically (#2951)
     try {
       const row = { id: 'a', at: new Date('2026-10-02T00:00:00Z') } as unknown as Row;
       expect(exportCell({ id: 'at', header: 'At' }, row)).toBe('');

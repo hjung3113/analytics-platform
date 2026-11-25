@@ -30,7 +30,7 @@ const PUBLIC_EXPORTS = [
   'Tooltip', 'TooltipContent', 'TooltipProvider', 'TooltipTrigger',
   'cn',
   'copyText',
-  'isMacPlatform', 'isProductionEnv',
+  'isDevelopment', 'isMacPlatform', 'isProductionEnv',
   'prefersReducedMotion',
   'readLocalStorage', 'writeLocalStorage',
   'shortcutLabel',

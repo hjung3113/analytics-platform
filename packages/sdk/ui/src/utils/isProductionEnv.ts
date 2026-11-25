@@ -1,5 +1,8 @@
-// PlatformDataTable and tableExport use this bundler-neutral helper for development diagnostics.
-// Only a positive Vite PROD or NODE_ENV=production signal suppresses those diagnostics.
+// Kept for consumers that already call it; the SDK itself uses `isDevelopment` (#2951).
+/**
+ * @deprecated Use `!isDevelopment()` (#2951). In a Vite production bundle `meta.env` and `g.process` are absent, so this
+ * read alone missed production; it now also reads the statically replaced `process.env.NODE_ENV`. Removed next SDK minor.
+ */
 export function isProductionEnv(meta: { env?: { PROD?: boolean } }, g: { process?: { env?: { NODE_ENV?: string } } }): boolean {
-  return meta.env?.PROD === true || g.process?.env?.NODE_ENV === 'production';
+  return process.env.NODE_ENV === 'production' || meta.env?.PROD === true || g.process?.env?.NODE_ENV === 'production';
 }

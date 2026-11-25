@@ -2,7 +2,7 @@ import { ChevronDown } from 'lucide-react';
 import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { useI18n, usePlatformOptional, type Text } from '@ap/kernel';
 import {
-  Button, cn, isProductionEnv,
+  Button, cn, isDevelopment,
   Popover, PopoverContent, PopoverTrigger,
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@ap/ui';
@@ -39,7 +39,7 @@ export type InspectorProps = {
 function useDevChecks({ sections, persistKey }: InspectorProps) {
   const signature = JSON.stringify([sections.map(section => section.id), persistKey]);
   useEffect(() => {
-    if (isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) return;
+    if (!isDevelopment()) return;
     const problems: string[] = [];
     if (persistKey !== undefined && !INSPECTOR_ID.test(persistKey)) problems.push(`persistKey "${persistKey}" must match ${String(INSPECTOR_ID)}`);
     for (const section of sections) if (!INSPECTOR_ID.test(section.id)) problems.push(`section id "${section.id}" must match ${String(INSPECTOR_ID)}`);

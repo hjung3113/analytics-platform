@@ -19,6 +19,7 @@ export * from './components/shadcn/tooltip';
 export { cn } from './utils/cn';
 // First consumer: EChartImpl forces echarts canvas animation off under the OS preference (#297, 06 §26).
 export { prefersReducedMotion } from './utils/motion';
+export { isDevelopment } from './utils/isDevelopment';
 export { isProductionEnv } from './utils/isProductionEnv';
 export { isMacPlatform, shortcutLabel } from './utils/platform';
 export { copyText } from './utils/copyText';
