@@ -25,6 +25,7 @@ import {
   actorCanAnswerSurvey,
   findSurvey,
   listQuestions,
+  countSurveys,
   listSurveys,
 } from './repo-read.js';
 import {
@@ -1206,6 +1207,10 @@ export function createSurveyAuthoring(deps: SurveysServiceDeps) {
     getSurvey,
     getRespondentForm,
     listSurvey,
+    async countSurvey(actor: SurveysActor, managedSystemId?: string) {
+      const scope = await actorSurveyReadScope(deps.db, deps.checkService, actor);
+      return countSurveys(deps.db, actor.workspace_id, scope, managedSystemId);
+    },
     submitResponse,
   };
 }

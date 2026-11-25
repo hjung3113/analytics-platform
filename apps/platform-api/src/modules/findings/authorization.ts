@@ -2,7 +2,7 @@ import { FINDING_SCREEN_ROLE_FLOOR, ROLE_LEVEL_LABELS } from '@ap/feature-shared
 import type { Db } from '../../db/client.js';
 import { HttpError } from '../../lib/errors.js';
 import type { Tx } from '../../db/tx.js';
-import { checkCapabilityAcross, type CheckService, type Decision } from '../permissions/check-service.js';
+import { checkCapabilityAcross, type CapabilityRowsReader, type CheckService, type Decision } from '../permissions/check-service.js';
 import {
   type Scope,
   type ScopeActorContext,
@@ -34,11 +34,12 @@ export async function actorFindingReadScope(
   db: Db | Tx,
   actor: FindingAuthorizationActor,
   policy: FindingPointAuthorizationPolicy,
+  readRows?: CapabilityRowsReader,
 ): Promise<Scope> {
   if (policy.requireElevatedRole && !hasElevatedFindingRole(actor)) {
     return { kind: 'scoped', managedSystemIds: [] };
   }
-  return actorScopeForCapability(db, actor, 'finding.read');
+  return actorScopeForCapability(db, actor, 'finding.read', readRows);
 }
 
 export function isFindingInReadScope(scope: Scope, managedSystemId: string): boolean {

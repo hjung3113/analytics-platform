@@ -206,10 +206,6 @@ export async function listVocClustersByWorkspace(
   db: Db | Tx,
   input: { workspaceId: string; managedSystemId?: string },
 ): Promise<VocClusterRow[]> {
-  const managedSystemPredicate =
-    input.managedSystemId === undefined
-      ? sql`TRUE`
-      : sql`c.primary_managed_system_id = ${input.managedSystemId}`;
   const result = await (db as Db).execute<Record<string, unknown>>(sql`
     SELECT
       c.id, c.workspace_id, c.display_id, c.title, c.summary, c.severity, c.confidence,
@@ -224,11 +220,26 @@ export async function listVocClustersByWorkspace(
           AND v.primary_managed_system_id = c.primary_managed_system_id
       ) AS member_count
     FROM voc_cluster.voc_clusters c
-    WHERE c.workspace_id = ${input.workspaceId}
-      AND ${managedSystemPredicate}
+    WHERE ${clusterListPredicate(input)}
     ORDER BY c.created_at DESC, c.id DESC
   `);
   return result.rows.map(mapClusterRow);
+}
+
+function clusterListPredicate(input: { workspaceId: string; managedSystemId?: string }) {
+  return sql`c.workspace_id = ${input.workspaceId}
+    ${input.managedSystemId === undefined ? sql`` : sql`AND c.primary_managed_system_id = ${input.managedSystemId}`}`;
+}
+
+export async function countVocClusters(db: Db, input: { workspaceId: string; managedSystemId?: string; scope: Scope }) {
+  if (input.scope.kind === 'scoped' && input.scope.managedSystemIds.length === 0) return 0;
+  const scope = input.scope.kind === 'all'
+    ? sql``
+    : sql`AND c.primary_managed_system_id = ANY(${sql.param(input.scope.managedSystemIds)}::uuid[])`;
+  const result = await db.execute<{ count: string }>(sql`
+    SELECT count(*) FROM voc_cluster.voc_clusters c WHERE ${clusterListPredicate(input)} ${scope}
+  `);
+  return Number(result.rows[0]?.count ?? 0);
 }
 
 export async function listCreatedFindingsForClusters(

@@ -999,6 +999,7 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
   const navCountsService =
     opts.navCountsService ??
     createNavCountsService({
+      checkService,
       vocReadService,
       findingsService,
       surveysService,

@@ -1,3 +1,4 @@
+import type { CapabilityRowsReader } from '../permissions/check-service.js';
 import type { ListFindingsResponse } from '@ap/feature-shared';
 import {
   type FindingDto,
@@ -163,6 +164,17 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
           : {}),
       },
     };
+  }
+
+  async function countFindings({ actor, managedSystemId }: { actor: FindingsActor; managedSystemId?: string }, readRows?: CapabilityRowsReader): Promise<number> {
+    const checkService = readRows ? { ...deps.checkService, loadCapabilityRows: readRows } : deps.checkService;
+    const scope = await actorFindingListScope(deps.db, checkService, actor, managedSystemId);
+    if (scope.kind === 'scoped' && scope.managedSystemIds.length === 0) return 0;
+    return countListRows(deps.db, {
+      workspaceId: actor.workspace_id,
+      ...(managedSystemId === undefined ? {} : { managedSystemId }),
+      ...(scope.kind === 'all' ? {} : { allowedSystemIds: scope.managedSystemIds }),
+    });
   }
 
   async function patchFinding(args: {
@@ -516,6 +528,7 @@ export function createFindingRecord(deps: FindingsServiceDeps) {
   return {
     getFinding,
     listFindings,
+    countFindings,
     patchFinding,
     linkTask,
     resolveDisplayId,
