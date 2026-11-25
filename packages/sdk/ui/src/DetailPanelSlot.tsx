@@ -16,7 +16,7 @@ interface DetailPanelSlot {
   setHost: (host: HTMLElement | null) => void;
   /** The shell reports another visible right-hand surface (the VOC drawer) so in-memory expansion can serve it too. */
   setSurfaceVisible: (visible: boolean) => void;
-  register: (key: string, onSuperseded: (winner: string, sameScope: boolean) => void, paused?: boolean, localExpansion?: boolean, scope?: string) => () => void;
+  register: (key: string, onSuperseded: (winner: string, sameScope: boolean) => void, paused?: boolean, localExpansion?: boolean, scope?: () => string | undefined) => () => void;
 }
 
 /** Stable callbacks for content registrants; never changes, so `useDetailPanelContent` callers do not re-render with the slot state. */
@@ -58,8 +58,10 @@ export function DetailPanelSlotProvider({ children, expanded: controlledExpanded
   const shown = useRef(new Map<string, boolean>());
   // Counts detail panels that became visible; the shell hides a docked drawer on each increment (06 §13).
   const [activation, setActivation] = useState(0);
-  // Each portal registrant's takeover callback and its optional scope (a board pane): a winner from the same scope hands off rather than ends it.
-  const portals = useRef(new Map<string, { notify: (winner: string, sameScope: boolean) => void; scope: string | undefined }>());
+  // Each portal registrant's takeover callback and a reader of its current scope (a board pane): a winner from the same scope hands off rather than ends it.
+  const portals = useRef(new Map<string, { notify: (winner: string, sameScope: boolean) => void; scope: () => string | undefined }>());
+  // Registrants displaced by a same-scope handoff and not yet back in front: the chain behind the winner, ended together by a takeover from elsewhere.
+  const handedOff = useRef<string[]>([]);
   // Registrants whose owning surface is paused; the ref is read synchronously by the handlers, the state drives rendering.
   const pausedRef = useRef(new Set<string>());
   const [pausedKeys, setPausedKeys] = useState<ReadonlySet<string>>(() => new Set());
@@ -69,6 +71,8 @@ export function DetailPanelSlotProvider({ children, expanded: controlledExpanded
     setLocalKeys(previous => { if (!previous.has(key)) return previous; const next = new Set(previous); next.delete(key); return next; });
     if (pausedRef.current.delete(key)) syncPaused();
     keys.current = keys.current.filter(existing => existing !== key);
+    // The registrant back in front resumes; it is no longer part of a handoff chain.
+    handedOff.current = handedOff.current.filter(existing => existing !== key && existing !== keys.current.at(-1));
     setActiveKey(keys.current.at(-1));
   }, [syncPaused]);
   const takeSlot = useCallback((key: string, visible: boolean, paused: boolean, scope?: string) => {
@@ -90,12 +94,23 @@ export function DetailPanelSlotProvider({ children, expanded: controlledExpanded
     // Synchronous, after list mutation and before React can remove the outgoing portal content.
     // No deferred delivery: neither source nor winner can disappear between takeover and notification.
     const loser = outgoing === undefined ? undefined : portals.current.get(outgoing);
-    loser?.notify(key, scope !== undefined && loser.scope === scope);
+    if (!loser) return;
+    const sameScope = scope !== undefined && loser.scope() === scope;
+    if (sameScope) {
+      handedOff.current = [...handedOff.current, outgoing!];
+      loser.notify(key, true);
+      return;
+    }
+    // A takeover from another scope ends the outgoing winner and every registrant it was holding the slot for, newest first.
+    const chain = [...handedOff.current].reverse();
+    handedOff.current = [];
+    loser.notify(key, false);
+    for (const held of chain) portals.current.get(held)?.notify(key, false);
   }, [syncPaused]);
-  const register = useCallback((key: string, onSuperseded: (winner: string, sameScope: boolean) => void, paused = false, localExpansion = false, scope?: string) => {
+  const register = useCallback((key: string, onSuperseded: (winner: string, sameScope: boolean) => void, paused = false, localExpansion = false, scope: () => string | undefined = () => undefined) => {
     if (localExpansion) setLocalKeys(previous => new Set(previous).add(key));
     portals.current.set(key, { notify: onSuperseded, scope });
-    takeSlot(key, true, paused, scope);
+    takeSlot(key, true, paused, scope());
     return () => unregister(key);
   }, [takeSlot, unregister]);
   const actions = useMemo<DetailPanelSlotActions>(() => ({
@@ -212,9 +227,12 @@ export function useDetailPanelSlot(options?: {
     lastWinner.current = winner;
     latest.current?.({ sameScope });
   }, []);
-  const scope = options?.scope;
+  // Scope is metadata read at takeover time; a change must not re-register (and so reclaim the slot).
+  const scope = useRef(options?.scope);
+  useInsertionEffect(() => { scope.current = options?.scope; });
+  const readScope = useCallback(() => scope.current, []);
   // Register before paint so a deep link does not briefly show a full-width main without its detail.
-  useLayoutEffect(() => register?.(key, supersede, pausedAtRegister.current, localExpansion, scope), [register, key, supersede, localExpansion, scope]);
+  useLayoutEffect(() => register?.(key, supersede, pausedAtRegister.current, localExpansion, readScope), [register, key, supersede, localExpansion, readScope]);
   const setPaused = actions?.setPaused;
   useLayoutEffect(() => { setPaused?.(key, paused); }, [setPaused, key, paused]);
   if (!slot) throw new Error('Detail panel requires DetailPanelSlotProvider (provided by AppShell).');

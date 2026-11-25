@@ -68,6 +68,8 @@ export function DetailDrawer(props: DetailDrawerProps) {
   // A detail from another pane ends this one (docs/16 §6); one from the same pane only hands off, and this one resumes when it closes (#3002).
   const superseded = useRef(false);
   const handedOff = useRef(false);
+  // The trigger focused when this detail first opened; it outlives content remounts after a handoff, so a resumed detail still returns there.
+  const opener = useRef<HTMLElement | null | undefined>(undefined);
   const host = useDetailPanelSlot(paneId != null ? { localExpansion: true, scope: paneId, onSuperseded: ({ sameScope }) => {
     superseded.current = true;
     if (sameScope) handedOff.current = true;
@@ -80,7 +82,7 @@ export function DetailDrawer(props: DetailDrawerProps) {
   useCloseOnPaneChange(onClose);
   // A drawer whose owning surface is covered stays mounted in the hidden host; its own transient UI is dismissed, as a docked detail owns its visibility.
   const paused = useSurfacePaused();
-  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent {...props} superseded={superseded} /></OutcomeScope></TransientOverlayScope>, host) : null;
+  return host ? createPortal(<TransientOverlayScope active={!paused} detached><OutcomeScope><DetailContent {...props} superseded={superseded} opener={opener} /></OutcomeScope></TransientOverlayScope>, host) : null;
 }
 
 /**
@@ -102,7 +104,7 @@ function useCloseOnPaneChange(onClose: () => void) {
   }, [identity]);
 }
 
-function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title, titleLines = 1, fullPageHref, copyPage, missing, subtitle, headerActions, context, footer, tabs = [], onClose, tab, onTabChange, onTabRecover, returnFocusRef, returnFocus, isInList, listFocusRef, onListLeave = onClose }: DetailDrawerProps & { superseded: MutableRefObject<boolean> }) {
+function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title, titleLines = 1, fullPageHref, copyPage, missing, subtitle, headerActions, context, footer, tabs = [], onClose, tab, onTabChange, onTabRecover, returnFocusRef, returnFocus, isInList, listFocusRef, onListLeave = onClose, opener: firstOpener }: DetailDrawerProps & { superseded: MutableRefObject<boolean>; opener: MutableRefObject<HTMLElement | null | undefined> }) {
   const { lang, t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const onKeyDown = useDetailPanelEscape(onClose);
@@ -144,7 +146,8 @@ function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title,
     }, 0);
   }, [isInList, listClosedMessage, listFocusRef, missing, onListLeave, pausedNow, platform, superseded]);
   useLayoutEffect(() => {
-    const opener = returnFocusRef?.current ?? document.activeElement as HTMLElement | null;
+    if (firstOpener.current === undefined) firstOpener.current = document.activeElement as HTMLElement | null;
+    const opener = returnFocusRef?.current ?? firstOpener.current;
     // Arrival with focus= leaves the title focused (§26). Same-screen open still moves here.
     // No provider means a locally mounted drawer, which still claims the close button.
     const claim = (focusOnOpen ?? pageNavigation?.claimsDetailFocus() ?? true) && !paused.current;
@@ -186,7 +189,7 @@ function DetailContent({ identity, focusOnOpen, superseded, id: recordId, title,
         setTimeout(() => { if (document.activeElement === document.body || document.activeElement === null) restoreFocus(); }, 0);
       } else restoreFocus();
     };
-  }, [pageNavigation, paneId, superseded, paused, focusOnOpen, returnFocusRef, listFocusRef]);
+  }, [pageNavigation, paneId, superseded, firstOpener, paused, focusOnOpen, returnFocusRef, listFocusRef]);
   useLayoutEffect(() => {
     // A pointerdown outside the panel is the user choosing a focus destination (often body).
     const onPointerDown = (e: PointerEvent) => { if (!panel.current?.contains(e.target as Node)) focusInside.current = false; };

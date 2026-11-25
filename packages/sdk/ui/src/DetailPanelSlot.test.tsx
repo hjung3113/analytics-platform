@@ -332,3 +332,46 @@ it.each([
   view.rerender(<StrictMode><Pair /></StrictMode>);
   expect(screen.getByRole('button', { name: 'first' })).toBeTruthy();
 });
+
+it('an unscoped takeover ends the outgoing winner and the registrants it held by handoff; unrelated ones are untouched (#3026 C1)', () => {
+  const calls: string[] = [];
+  const note = (name: string) => ({ sameScope }: { sameScope: boolean }) => calls.push(`${name}:${sameScope}`);
+  function Chain({ b = false, c = false }: { b?: boolean; c?: boolean }) {
+    return <DetailPanelSlotProvider>
+      <ScopedPortal name="other" scope="p9" onSuperseded={note('other')} />
+      <ScopedPortal name="a" scope="p1" onSuperseded={note('a')} />
+      {b && <ScopedPortal name="b" scope="p1" onSuperseded={note('b')} />}
+      {c && <ScopedPortal name="c" onSuperseded={note('c')} />}
+      <Host />
+    </DetailPanelSlotProvider>;
+  }
+  const view = render(<Chain />);
+  expect(calls).toEqual(['other:false']);
+  view.rerender(<Chain b />);
+  expect(calls).toEqual(['other:false', 'a:true']);
+  view.rerender(<Chain b c />);
+  expect(calls).toEqual(['other:false', 'a:true', 'b:false', 'a:false']);
+});
+
+it('changing only a parked portal\'s scope neither re-registers nor takes the slot; the next takeover reads the new scope (#3026 C3)', () => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const a = vi.fn();
+  const b = vi.fn();
+  function Pair({ scope, third = false }: { scope?: string; third?: boolean }) {
+    return <DetailPanelSlotProvider>
+      <ScopedPortal name="a" scope={scope} onSuperseded={a} />
+      <ScopedPortal name="b" scope="p1" onSuperseded={b} />
+      {third && <ScopedPortal name="third" scope="p2" onSuperseded={() => {}} />}
+      <Host />
+    </DetailPanelSlotProvider>;
+  }
+  const view = render(<Pair />);
+  expect(a).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('button', { name: 'b' })).toBeTruthy();
+  view.rerender(<Pair scope="p2" />);
+  expect(b).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'b' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'a' })).toBeNull();
+  view.rerender(<Pair scope="p2" third />);
+  expect(b).toHaveBeenCalledWith({ sameScope: false });
+});
