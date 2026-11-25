@@ -55,6 +55,7 @@ function config(): AppConfig {
     MENU_RESOLVER_TIMEOUT_MS: 3_000,
     MENU_UPSTREAM_TIMEOUT_MS: 27_000,
     JOBS_DISABLED: false,
+    PLATFORM_IN_HOUSE: false,
   };
 }
 

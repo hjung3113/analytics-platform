@@ -12,6 +12,18 @@ const optionalPositiveInt = z.preprocess(
   z.coerce.number().int().positive().optional(),
 );
 
+export const EMBEDDING_PROVIDERS = ['voyage', 'fake', 'disabled'] as const;
+
+/**
+ * ADR-0150 decision 2: the one list of where each provider sends request content. 'external' leaves the site and is
+ * refused on an in-house install. Typed over every provider, so a new provider does not compile until it is classified.
+ */
+export const EMBEDDING_PROVIDER_REACH: Readonly<Record<(typeof EMBEDDING_PROVIDERS)[number], 'external' | 'local'>> = {
+  voyage: 'external',
+  fake: 'local',
+  disabled: 'local',
+};
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -66,7 +78,7 @@ const envSchema = z
     SMTP_PASSWORD: optionalEnvString,
     SMTP_FROM: optionalEnvString,
     VOC_SIMILARITY_PREVIEW: z.enum(['enabled', 'disabled']).default('enabled'),
-    EMBEDDING_PROVIDER: z.enum(['voyage', 'fake', 'disabled']).default('disabled'),
+    EMBEDDING_PROVIDER: z.enum(EMBEDDING_PROVIDERS).default('disabled'),
     EMBEDDING_API_KEY: optionalEnvString,
     EMBEDDING_VERSION: z.coerce.number().int().positive().default(1),
     // #1266 b3: runtime DB time budgets and HTTP request timeout. The DB
@@ -84,6 +96,12 @@ const envSchema = z
     // supervisor or cron scheduler and registers no job worker, so copied pending jobs are neither run nor stamped.
     // Used by restore verification; never set it on a serving stack.
     JOBS_DISABLED: z.preprocess(
+      (value) => (value === '' ? undefined : value),
+      z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+    ),
+    // ADR-0150: true on an in-house install (the production compose sets it). The server then refuses to start with any
+    // provider that sends request content outside the site (EMBEDDING_PROVIDER_REACH 'external').
+    PLATFORM_IN_HOUSE: z.preprocess(
       (value) => (value === '' ? undefined : value),
       z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
     ),
@@ -126,6 +144,13 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         path: [oidcIssue.path],
         message: oidcIssue.message,
+      });
+    }
+    if (config.PLATFORM_IN_HOUSE && EMBEDDING_PROVIDER_REACH[config.EMBEDDING_PROVIDER] === 'external') {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['EMBEDDING_PROVIDER'],
+        message: `EMBEDDING_PROVIDER=${config.EMBEDDING_PROVIDER} calls an external AI service; an in-house install (PLATFORM_IN_HOUSE=true) never calls external AI or embedding providers (ADR-0150). Use disabled.`,
       });
     }
     if (config.EMBEDDING_PROVIDER === 'voyage' && !config.EMBEDDING_API_KEY) {
