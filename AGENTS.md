@@ -1,5 +1,13 @@
 # AGENTS.md — analytics-platform
 
+## Ownership
+
+You build this codebase, and you will maintain and extend it for its whole life. Write every change as its long-term owner:
+
+- Pick the design that stays easy to change and extend over the one that only closes today's issue.
+- Write in the current idioms of the language, framework and library versions this repo pins (check the docs for that version). In code you touch, replace legacy patterns and anti-patterns with the current form; report ones outside the task separately.
+- Reviewers judge a diff as the engineer who inherits it: outdated idioms, anti-patterns and designs that block extension are findings.
+
 ## Purpose of this repository
 
 The goal is not to build menus such as equipment management, master data, productivity analysis, metrics, notices or VOC. The goal is **the platform those menus sit on**. The platform provides the five areas below, and the menu screens in this repo are only samples (Consumers) that verify those areas. The real menus are built in-house.
