@@ -1,5 +1,5 @@
 import {
-  canTransition, validateSavedView,
+  canTransition, readMenuViewPanels, validateSavedView,
   type ApprovalRequestInfo, type GroupCapabilities, type GroupMember, type Result, type SavedView, type SavedViewDraft, type SavedViewEntry, type SavedViewKey,
   type SavedViewListItem, type SavedViewPatch, type SavedViewStore, type ViewCapabilities, type ViewGroupEntry, type ViewVisibility,
 } from '@ap/contracts';
@@ -32,6 +32,7 @@ function readEnvelope<T>(storage: StoragePort, name: string, field: string, item
   if (parsed.schemaVersion !== 1 || !Array.isArray(list)) return { future: false, value: [] };
   return { future: false, value: list.filter(item) as T[] };
 }
+const finiteJson = (v: unknown): boolean => typeof v === 'number' ? Number.isFinite(v) : typeof v === 'object' && v !== null ? Object.values(v).every(finiteJson) : true;
 const isStrings = (v: unknown): v is string[] => Array.isArray(v) && v.every(x => typeof x === 'string');
 const APPROVALS: readonly string[] = ['none', 'pending', 'approved', 'rejected'];
 const visibilityOk = (v: unknown) => isObject(v) && (v.kind === 'private' || v.kind === 'official' || (v.kind === 'people' && isStrings(v.userIds)) || (v.kind === 'groups' && isStrings(v.groupIds)));
@@ -43,7 +44,10 @@ const viewShape = (v: unknown, ownerId: string, menuId: string | null): v is Rec
   if (!visibilityOk(v.visibility) || typeof v.approval !== 'string' || !APPROVALS.includes(v.approval)) return false;
   if (v.approvalNote !== undefined && typeof v.approvalNote !== 'string') return false;
   const { pending: _p, ...content } = v; void _p;
-  if (!validateSavedView(content).ok) return false;
+  // A row saved before the panel-instance format (#2760) is still read and kept: only saving checks `panels` (readMenuViewPanels classifies it).
+  // Stored JSON can still hold a non-finite number (`1e400` parses to Infinity), which no later write could keep: such a row stays unreadable.
+  const readable = readMenuViewPanels(content.panels).status === 'legacy' && finiteJson(content.panels) ? { ...content, panels: null } : content;
+  if (!validateSavedView(readable).ok) return false;
   return viewMenuId(content as { kind: string; menuId?: string }) === menuId;
 };
 const storedView = (ownerId: string, menuId: string | null) => (v: unknown) => viewShape(v, ownerId, menuId) && (v.pending === undefined || viewShape(v.pending, ownerId, menuId));

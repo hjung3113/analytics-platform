@@ -189,6 +189,7 @@
 | [0174](0174-decision-rules-opt-in.md) | 의사결정 규칙은 선택 적용 가능한 SDK 조각으로 제공한다 | Decided(2026-11-19, 소유자 결정 via lead) |
 | [0175](0175-chart-selection-feeds-next-analysis.md) | 차트 선택은 다음 분석의 입력이 되고, 값 묶음·범위만 URL과 메뉴 간 링크에 싣는다 | Decided(2026-11-23, 소유자 결정) |
 | [0176](0176-user-analysis-menu-one-definition-two-homes.md) | 사용자 분석 메뉴는 정의 형식 하나를 두 곳에 담고, 숫자 등급을 화면이 말한다 | Decided(2026-11-23, 소유자 결정) |
+| [0177](0177-core-server-release-unit-image-tarballs.md) | 코어 서버 릴리스 단위는 태그마다 이미지 tar 셋과 SHA256SUMS를 공개 Release에 싣는다 | Decided(2026-11-25, 소유자 결정, #2891) |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

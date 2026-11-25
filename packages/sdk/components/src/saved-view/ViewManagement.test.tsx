@@ -209,9 +209,9 @@ describe('review round: shared-with names and saved contents', () => {
   it('shows what the caller says about charts, layout and panels, so two menu views differ', async () => {
     const menu = (id: string): SavedViewEntry => {
       const base = entry(id, 'none');
-      return { ...base, view: { ...base.view, kind: 'menu-view', menuId: 'm', menuSchemaVersion: 1, page: {}, chartOptions: { stack: id === 'x' }, layout: {}, panels: { id } } as never };
+      return { ...base, view: { ...base.view, kind: 'menu-view', menuId: 'm', menuSchemaVersion: 1, page: {}, chartOptions: { stack: id === 'x' }, layout: {}, panels: { version: 1, instances: [{ id, source: { kind: 'declared', panel: 'trend' }, inputs: [], outputs: [] }] } } as never };
     };
-    render(<Host entries={[menu('x'), menu('y')]} describeView={view => view.kind === 'menu-view' ? [`패널 조건 ${(view.panels as { id: string }).id}`] : []} />);
+    render(<Host entries={[menu('x'), menu('y')]} describeView={view => view.kind === 'menu-view' ? [`패널 조건 ${view.panels?.instances[0]?.id}`] : []} />);
     await open();
     await userEvent.click(screen.getByRole('button', { name: /뷰 x/ }));
     expect(within(screen.getByRole('region', { name: '뷰 x' })).getByText('패널 조건 x')).toBeInTheDocument();

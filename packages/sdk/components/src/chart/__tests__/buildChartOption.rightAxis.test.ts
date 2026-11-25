@@ -38,7 +38,7 @@ describe('right value axis (#1657)', () => {
 
   it('leaves reference lines on the left axis and makes room on the right', () => {
     const o = vertical({ rightAxis: { unit: '%', valueFormat: String } });
-    const markLine = o.series.find(s => s.id === '__overlay')!.markLine!;
+    const markLine = o.series.find(s => s.markLine)!.markLine!;
     expect(markLine.data[0]).toEqual({ name: '목표', yAxis: 5 });
     expect(o.grid.right).toBeGreaterThan(vertical().grid.right);
   });

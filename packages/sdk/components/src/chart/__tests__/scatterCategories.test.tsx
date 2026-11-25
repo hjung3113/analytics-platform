@@ -97,7 +97,7 @@ describe('scatter categories (#2332)', () => {
     expect(o.xAxis.axisLabel.formatter(0)).toBe('A'); expect(p.headers).toContain('Rack');
     expect(p.tableValues[0]).toEqual(['one', 'one', 'G', 'R1', 'A', '4 s']);
     expect(p.csvValues[0]).toEqual(['one', 'one', 'G', 'R1', 'A', 4]); expect(p.rows[0].label).toContain('Rack: R1 · A'); expect(p.summary).not.toContain('Rack: R1');
-    const groups = o.series.find(s => s.id === '__scatterGroups')!; expect(groups.data).toEqual([[0, 1], [2, 2]]);
+    const groups = o.series.find(s => s.type === 'custom')!; expect(groups.data).toEqual([[0, 1], [2, 2]]);
     const api = { coord: ([x, y]: number[]) => [100 + x * 50, 200 - y], size: () => [50, 20] };
     expect(groups.renderItem!({ dataIndex: 0, coordSys: { x: 75, y: 0, width: 150, height: 200 } }, api)).toMatchObject({ children: expect.arrayContaining([expect.objectContaining({ type: 'text', style: expect.objectContaining({ text: 'R1', x: 125 }) })]) });
     expect(groups.renderItem!({ dataIndex: 1, coordSys: { x: 75, y: 0, width: 150, height: 200 } }, api)).toMatchObject({ children: expect.arrayContaining([expect.objectContaining({ type: 'line' })]) });

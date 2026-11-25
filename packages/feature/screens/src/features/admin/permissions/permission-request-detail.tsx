@@ -154,13 +154,17 @@ export function PermissionRequestDetail({
       />
     </div>
   );
-  const title = <>{requester} · <ReviewCapabilityName id={request.requested_capability} /></>;
+  // The capability alone is the title so it stays on one line at 1440 beside the header actions (#2674); the requester
+  // moves to the subtitle line under it, for a group too.
+  const title = <ReviewCapabilityName id={request.requested_capability} />;
+  const subtitle = `${COPY.request[lang]} · ${requester}`;
 
   if (renderDetail) {
     return renderDetail({
       title,
+      // Two lines stack the subtitle under the title instead of beside it, so a long requester never truncates the title.
       titleLines: 2,
-      subtitle: COPY.request[lang],
+      subtitle,
       headerActions: <OutlineBadge className="shrink-0 whitespace-nowrap">{permissionRequestStatusText[request.status][lang]}</OutlineBadge>,
       body,
       footer: hasPermissionDecisionActions(request) ? <div ref={setDecisionFooter} /> : undefined,
@@ -175,7 +179,7 @@ export function PermissionRequestDetail({
     >
       <header className="flex h-toolbar items-center gap-3 border-b border-border-subtle px-6">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-medium text-text-muted">{COPY.request[lang]}</p>
+          <p className="truncate text-xs font-medium text-text-muted">{subtitle}</p>
           <p className="truncate text-sm font-medium text-text-primary">
             {title}
           </p>
@@ -204,7 +208,6 @@ function PermissionRequestRiskReview({
 }) {
   const copy = ADMIN_PERMISSIONS_COPY.riskReview;
   const headingId = React.useId();
-  const singleItemBatch = items?.length === 1;
   const noExpiration = items?.flatMap((item) => item.risk_indicators)
     .find((indicator) => indicator.code === 'no_expiration');
   return <section className="flex flex-col gap-2" data-testid="permission-request-risk-review">
@@ -231,16 +234,8 @@ function PermissionRequestRiskReview({
         ))}
       </ul>
     ) : (
-      <>
-        {singleItemBatch && noExpiration ? <p className="text-sm text-text-muted">{copy.noExpiration}</p> : null}
-        <PermissionMemberRiskReview
-          request={singleItemBatch
-            ? { ...request, risk_indicators: request.risk_indicators.filter(indicator => indicator.code !== 'no_expiration') }
-            : request}
-          managedSystemNames={managedSystemNames}
-          borderedIndicators={!singleItemBatch}
-        />
-      </>
+      // A one-permission group draws like a single request, so «요청 만료일 없음» has one look in every case (#2679).
+      <PermissionMemberRiskReview request={request} managedSystemNames={managedSystemNames} />
     )}
     <FieldRow label={copy.requesterRole} inset="none">{ROLE_LEVEL_DISPLAY_LABELS[request.requester.role_level]}</FieldRow>
     <FieldRow label={copy.reviewAuthority} inset="none">

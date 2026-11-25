@@ -10,11 +10,14 @@ import { loginAs } from '../../../test-support/auth.js';
 import { insertMsDirectly } from '../../../test-support/core-fixtures.js';
 import { insertFindingRow } from '../../../test-support/findings-fixtures.js';
 import { uid } from '../../../test-support/ids.js';
-import { grantCapability } from '../../../test-support/permissions-fixtures.js';
-import { insertVocClusterRow } from '../../../test-support/voc-cluster-fixtures.js';
+import { denyCapability, grantCapability } from '../../../test-support/permissions-fixtures.js';
+import { insertVocClusterMemberRow, insertVocClusterRow } from '../../../test-support/voc-cluster-fixtures.js';
 import { cleanupReadTestTables, insertVocDirectly } from '../../../test-support/voc-fixtures.js';
+import { recordStatements } from '../../../test-support/statement-recorder.js';
+import { generateToken } from '../../api-tokens/token-format.js';
 import { createNavCountsService } from '../service.js';
 import { defined } from '../../../test-support/defined.js';
+import { HttpError } from '../../../lib/errors.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
 const MIGRATE_URL = process.env.DATABASE_URL_MIGRATE ?? '';
@@ -387,16 +390,127 @@ describe.skipIf(!runIntegration)('GET /nav/counts (#143)', () => {
     expect(Object.hasOwn(result.body.counts, 'findings.all')).toBe(false);
   });
 
+  it('preserves the badge and list matrix with at most 22 Developer SQL statements', async () => {
+    const adminBaseline = (await counts(adminCookie)).body.counts;
+    const userBaseline = (await counts(userCookie)).body.counts;
+    let memberClusterId: string | undefined;
+    try {
+      const allowed = await insertMsDirectly(dbHandle, WORKSPACE_ID, `${PREFIX}-gold-a`, 'Badge A');
+      const denied = await insertMsDirectly(dbHandle, WORKSPACE_ID, `${PREFIX}-gold-b`, 'Badge B');
+      const dev = await insertDevActor(dbHandle, WORKSPACE_ID, uid(PREFIX));
+      const emptyDev = await insertDevActor(dbHandle, WORKSPACE_ID, uid(PREFIX));
+      for (const id of [allowed, denied]) {
+        const voc = await insertVocDirectly(dbHandle, WORKSPACE_ID, id, reporterId, 'Badge source', { severity: 'high' });
+        await insertFindingRow(dbHandle, {
+          workspaceId: WORKSPACE_ID, primaryManagedSystemId: id, sourceId: voc.id, createdBy: adminActorId,
+        });
+        const cluster = await insertVocClusterRow(dbHandle, {
+          workspaceId: WORKSPACE_ID, primaryManagedSystemId: id, createdBy: adminActorId,
+        });
+        if (id === allowed) {
+          memberClusterId = cluster.id;
+          const archived = await insertVocDirectly(dbHandle, WORKSPACE_ID, id, reporterId, 'Archived member');
+          await insertVocClusterMemberRow(dbHandle, { clusterId: cluster.id, vocId: archived.id, addedBy: adminActorId });
+          await dbHandle.pool.query('update voc.vocs set archived_at = now() where id = $1', [archived.id]);
+        }
+        await dbHandle.pool.query(
+          `insert into survey.surveys (
+            workspace_id, display_id, type, status, title, primary_managed_system_id,
+            operator_actor_id, responses_identity_protected, created_by, opened_at
+          ) values ($1, $4, 'validation', 'open', 'Badge survey', $2, $3, true, $3, now())`,
+          [WORKSPACE_ID, id, adminActorId, id === allowed ? 'S-nav-gold-a' : 'S-nav-gold-b'],
+        );
+        for (const capability of ['voc.read', 'voc.triage', 'finding.read', 'survey.read']) {
+          await grantCapability(migrateHandle, WORKSPACE_ID, dev.id, capability, id, adminActorId);
+          if (id === denied) await denyCapability(migrateHandle, WORKSPACE_ID, dev.id, capability, id, adminActorId);
+        }
+      }
+
+      const devCookie = await loginAs(app, dev.externalId);
+      const emptyCookie = await loginAs(app, emptyDev.externalId);
+      const recorder = recordStatements(dbHandle);
+      await counts(devCookie);
+      await counts(adminCookie);
+      const developer = await recorder.capture(() => counts(devCookie));
+      const admin = await recorder.capture(() => counts(adminCookie));
+      const domains = (n: number) => ({ 'findings.all': n, 'surveys.all': n, 'voc.clusters': n });
+      const badgeSet = (n: number) => ({
+        'voc.inbox': n, 'voc.triage': n, 'voc.my': 0, 'voc.tab.high': n, 'voc.tab.unassigned': n,
+        'voc.tab.untriaged': n, 'voc.tab.waiting': 0, 'voc.inbox.no-link': n, ...domains(n),
+      });
+      const adminAll = Object.fromEntries(Object.entries(badgeSet(2)).map(([key, value]) =>
+        [key, value + (adminBaseline[key] ?? 0)],
+      ));
+      const userAll = { 'voc.my': (userBaseline['voc.my'] ?? 0) + 2, 'surveys.all': userBaseline['surveys.all'] ?? 0 };
+      expect(developer.result.body.counts).toEqual(badgeSet(1));
+      expect(admin.result.body.counts).toEqual(adminAll);
+      for (const [credential, global, inScope, outOfScope] of [
+        [adminCookie, adminAll, badgeSet(1), badgeSet(1)],
+        [devCookie, badgeSet(1), badgeSet(1), { 'voc.my': 0, ...domains(0) }],
+        [userCookie, userAll, { 'voc.my': 1, 'surveys.all': 0 }, { 'voc.my': 1, 'surveys.all': 0 }],
+        [emptyCookie, { 'voc.my': 0, ...domains(0) }, { 'voc.my': 0, ...domains(0) }, { 'voc.my': 0, ...domains(0) }],
+      ] as const) {
+        for (const [query, expected] of [
+          ['', global], [`?managed_system_id=${allowed}`, inScope], [`?managed_system_id=${denied}`, outOfScope],
+        ] as const) {
+          const { response, body } = await counts(credential, query);
+          expect(response.statusCode).toBe(200);
+          expect(response.headers['cache-control']).toBe('private, no-cache');
+          expect(body.counts).toEqual(expected);
+        }
+      }
+
+      const token = generateToken();
+      await migrateHandle.pool.query(`insert into core.api_tokens
+        (workspace_id, actor_id, kind, name, prefix, secret_hash, scopes, created_by)
+        values ($1,$2,'personal','nav badge fixture',$3,$4,'{}',$2)`, [WORKSPACE_ID, dev.id, token.prefix, token.hash]);
+      try {
+        for (const scope of ['', `?managed_system_id=${allowed}`, `?managed_system_id=${denied}`]) {
+          const response = await app.inject({ method: 'GET', url: `/nav/counts${scope}`, headers: { authorization: `Bearer ${token.value}` } });
+          expect(response.statusCode).toBe(403);
+          expect(response.json()).toMatchObject({ code: 'permission.session_required' });
+        }
+      } finally {
+        await migrateHandle.pool.query('delete from core.api_tokens where secret_hash = $1', [token.hash]);
+      }
+
+      for (const [url, key] of [
+        ['/vocs?view=inbox', 'voc.inbox'], ['/vocs?view=triage', 'voc.triage'], ['/vocs?view=my', 'voc.my'],
+        ['/vocs?view=triage&tab=high', 'voc.tab.high'], ['/vocs?view=triage&tab=unassigned', 'voc.tab.unassigned'],
+        ['/vocs?view=triage&tab=untriaged', 'voc.tab.untriaged'], ['/vocs?view=triage&tab=waiting', 'voc.tab.waiting'],
+        ['/vocs?view=inbox&tab=no-link', 'voc.inbox.no-link'], ['/findings', 'findings.all'],
+        ['/surveys', 'surveys.all'], ['/voc-clusters', 'voc.clusters'],
+      ] as const) {
+        const response = await app.inject({ method: 'GET', url, headers: headers(devCookie) });
+        expect(response.statusCode, url).toBe(200);
+        const body = response.json<unknown[] | { items: unknown[] }>();
+        const items = Array.isArray(body) ? body : body.items;
+        expect(developer.result.body.counts[key], url).toBe(items.length);
+      }
+      const duplicates = (sql: typeof developer.statements) => sql.filter((row, index) =>
+        sql.findIndex(candidate => JSON.stringify(candidate) === JSON.stringify(row)) !== index,
+      );
+      const countSql = (row: { text: string }) => /select count\(\*\)::int as count from "voc"\."vocs"/i.test(row.text);
+      console.info('nav counts SQL', { developer: developer.statements.length, admin: admin.statements.length,
+        developerDuplicates: duplicates(developer.statements).length, adminDuplicates: duplicates(admin.statements).length });
+      expect(developer.statements.filter(countSql)).toHaveLength(8);
+      expect(duplicates(developer.statements).filter(row => !countSql(row))).toEqual([]);
+      expect(developer.statements.length).toBeLessThanOrEqual(22);
+    } finally {
+      if (memberClusterId) await migrateHandle.pool.query('delete from voc_cluster.voc_cluster_members where cluster_id = $1', [memberClusterId]);
+    }
+  });
+
   it('surfaces an unexpected VOC count failure as an error response', async () => {
     const failingNavCountsService = createNavCountsService({
       vocReadService: {
-        async countVocs() {
+        async countVocsMany() {
           throw new Error('injected VOC count failure');
         },
       },
-      findingsService: { listFindings: async () => ({ page: { total: 0 } }) },
-      surveysService: { listSurvey: async () => [] },
-      vocClustersService: { listClusters: async () => ({ items: [] }) },
+      findingsService: { countFindings: async () => 0 },
+      surveysService: { countSurvey: async () => 0 },
+      vocClustersService: { countClusters: async () => 0 },
     });
     const failingApp = await buildServer({
       config: loadConfig(),
@@ -414,6 +528,32 @@ describe.skipIf(!runIntegration)('GET /nav/counts (#143)', () => {
       expect(response.json<{ code: string }>().code).toBe('internal.unexpected');
     } finally {
       await failingApp.close();
+    }
+  });
+
+  it('omits only the VOC keys when the VOC count batch is refused as a whole', async () => {
+    const refusingNavCountsService = createNavCountsService({
+      vocReadService: {
+        async countVocsMany() {
+          throw new HttpError('permission.denied', 'injected batch refusal');
+        },
+      },
+      findingsService: { countFindings: async () => 3 },
+      surveysService: { countSurvey: async () => 2 },
+      vocClustersService: { countClusters: async () => 1 },
+    });
+    const refusingApp = await buildServer({ config: loadConfig(), dbHandle, navCountsService: refusingNavCountsService });
+    await refusingApp.ready();
+    try {
+      const response = await refusingApp.inject({ method: 'GET', url: '/nav/counts', headers: headers(adminCookie) });
+      expect(response.statusCode).toBe(200);
+      expect(response.json<{ counts: Record<string, number> }>().counts).toEqual({
+        'findings.all': 3,
+        'surveys.all': 2,
+        'voc.clusters': 1,
+      });
+    } finally {
+      await refusingApp.close();
     }
   });
 });

@@ -63,6 +63,7 @@ export function createVocReadService(deps: VocReadServiceDeps) {
   return {
     listVocs: listReaders.listVocs,
     countVocs: listReaders.countVocs,
+    countVocsMany: listReaders.countVocsMany,
     countGroupedVocs: listReaders.countGroupedVocs,
     getVocDetail: detailReaders.getVocDetail,
     getOwnerCandidates: createVocOwnerCandidatesReader(deps, detailReaders.resolveVocAccess),

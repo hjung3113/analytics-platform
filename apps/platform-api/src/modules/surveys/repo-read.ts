@@ -358,6 +358,15 @@ export async function listSurveys(
   return x.rows.map(mapSurvey);
 }
 
+export async function countSurveys(db: Db | Tx, workspaceId: string, scope: Scope, managedSystemId?: string) {
+  if (scope.kind === 'scoped' && scope.managedSystemIds.length === 0) return 0;
+  const predicates = surveyListPredicates(workspaceId, scope, managedSystemId);
+  const result = await db.execute<{ count: string }>(sql`
+    SELECT count(*) FROM survey.surveys WHERE ${sql.join(predicates, sql` AND `)}
+  `);
+  return Number(result.rows[0]?.count ?? 0);
+}
+
 export async function listSurveyManagedSystemIds(db: Db | Tx, workspaceId: string) {
   const x = await db.execute<{ primary_managed_system_id: string }>(
     sql`select distinct primary_managed_system_id from survey.surveys where workspace_id=${workspaceId}`,

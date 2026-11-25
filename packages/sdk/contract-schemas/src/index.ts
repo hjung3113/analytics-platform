@@ -46,12 +46,16 @@ export {
 } from './service-ports.ts';
 export type { JsonValue } from './service-ports.ts';
 export {
+  PANEL_INSTANCES_MAX,
+  PANEL_INSTANCE_INPUTS_MAX,
+  PANEL_INSTANCE_TOKEN_MAX,
   SAVED_VIEW_COMMAND_MAX_BYTES,
   SAVED_VIEW_COMMAND_MAX_DEPTH,
   SAVED_VIEW_COMMAND_VERSION,
   SAVED_VIEW_IMPORT_ROWS_MAX,
   SAVED_VIEW_TOKEN_MAX,
   isForbiddenSavedViewWireKey,
+  menuViewPanelsSchema,
   savedViewCommandSchema,
   savedViewDraftSchema,
   savedViewEntrySchema,
@@ -239,6 +243,7 @@ export const SCHEMA_FILES: Readonly<Record<string, z.ZodType>> = {
   savedViewCommand: views.savedViewCommandSchema,
   savedViewDraft: views.savedViewDraftSchema,
   savedViewPatch: views.savedViewPatchSchema,
+  menuViewPanels: views.menuViewPanelsSchema,
   viewVisibility: views.viewVisibilitySchema,
   savedView: views.savedViewSchema,
   savedViewEntry: views.savedViewEntrySchema,

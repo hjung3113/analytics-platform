@@ -57,12 +57,12 @@ it.each([
 ] as const)('draws an opaque contrasting %s outline without altering the heatmap fill', async (tone, value, fill) => {
   mount({ ...heat, cells: [{ x: 'PM1', y: 'EQ1', value, status: { tone, label: 'Status' } }] });
   await screen.findByRole('img');
-  const series = plot.option.series as { id?: string; itemStyle?: { opacity?: number; borderColor?: string; borderWidth?: number }; data: Datum[] }[];
+  const series = plot.option.series as { z?: number; itemStyle?: { opacity?: number; borderColor?: string; borderWidth?: number }; data: Datum[] }[];
   expect(series[0].data[0].itemStyle.color).toBe(readColorToken(fill));
   expect(series[0].itemStyle?.opacity).toBeUndefined(); // value scatter keeps its actual 0.8 default
   type Ring = { renderItem: (params: unknown, api: unknown) => { style: { stroke: string; opacity?: number } }; data: unknown[][] };
   const stroke0 = (s: unknown) => { const ring = s as Ring; return ring.renderItem({}, { value: (d: number) => ring.data[0][d], coord: () => [0, 0] }).style; };
-  const outline = series.find(s => s.id === '__statusOutline')!;
+  const outline = series.find(s => s.z === 4)!;
   expect(outline).toBeDefined();
   expect(stroke0(outline).opacity).toBeUndefined(); // opaque
   const rgb = (color: string) => color.match(/[\d.]+/g)!.slice(0, 3).map(Number);
@@ -71,7 +71,7 @@ it.each([
   const luminance = (color: string) => rgb(color).map(v => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }).reduce((sum, v, n) => sum + v * [0.2126, 0.7152, 0.0722][n], 0);
   const ratio = (a: string, b: string) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
   const stroke = stroke0(outline).stroke;
-  const backing = series.find(s => s.id === '__statusBacking');
+  const backing = series.find(s => s.z === 3);
   const background = backing ? stroke0(backing).stroke : effective;
   expect(ratio(stroke, background)).toBeGreaterThanOrEqual(3);
   if (backing) expect(ratio(background, effective)).toBeGreaterThanOrEqual(3);
