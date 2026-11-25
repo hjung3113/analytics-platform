@@ -1,4 +1,4 @@
-import { storedPanelCases } from '@ap/contracts/testing/saved-view-panels';
+import { storedPanelCases, unicodePanelCases } from '@ap/contracts/testing/saved-view-panels';
 import { savedViewResponseSchemas } from '@ap/contract-schemas';
 import { expect, it, vi } from 'vitest';
 
@@ -53,4 +53,13 @@ it.each(storedPanelCases)('projects $label panels and preserves the stored value
     capabilities: expect.any(Object),
   } });
   expect(row.content.panels).toEqual(stored);
+});
+
+it.each(unicodePanelCases)('refuses to save $label', async ({ panels }) => {
+  vi.mocked(repo.standingsOf).mockResolvedValue(new Map());
+  const { execute } = createSavedViewService({ db, checkService });
+  expect(await execute(session, {
+    version, op: 'save',
+    draft: { schemaVersion: 1, kind: 'menu-view', menuId: 'menu', name: 'New', menuSchemaVersion: 1, context: {}, page: [], chartOptions: {}, layout: null, panels },
+  })).toEqual({ ok: false, reason: 'invalid', detail: 'unicode' });
 });

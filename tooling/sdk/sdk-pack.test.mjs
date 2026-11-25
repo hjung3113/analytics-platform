@@ -28,10 +28,27 @@ test('workspace-only exports stay out of the release manifest', () => {
   const exports = { '.': { types: './dist/index.d.ts', import: './dist/index.js' } };
   const manifest = releaseManifest('contracts', {
     name: '@ap/contracts',
-    exports: { '.': './src/index.ts', './testing/fixture': './test-support/fixture.ts' },
+    exports: { '.': './src/index.ts', './testing/saved-view-panels': './test-support/saved-view-panels.ts' },
     publishConfig: { exports },
   }, '1.2.3');
   assert.deepEqual(manifest.exports, exports);
+});
+
+test('a non-test workspace export missing from publishConfig.exports fails', () => {
+  const manifest = {
+    ...source,
+    exports: { ...source.exports, './extra': './src/extra.ts' },
+    publishConfig: { exports: { '.': './dist/index.js' } },
+  };
+  assert.throws(() => releaseManifest('components', manifest, '1.2.3'), /\.\/extra.*missing from publishConfig\.exports/);
+});
+
+test('a published export missing from workspace exports fails', () => {
+  const manifest = {
+    ...source,
+    publishConfig: { exports: { '.': './dist/index.js', './extra': './dist/extra.js' } },
+  };
+  assert.throws(() => releaseManifest('components', manifest, '1.2.3'), /\.\/extra.*missing from workspace exports/);
 });
 
 test('the archive check rejects a sibling dependency and a loose sibling peer', () => {

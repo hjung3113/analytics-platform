@@ -16,9 +16,21 @@ export function releasePackages() {
 
 /** Source exports included in the released package. */
 export function releaseSourceEntries(manifest) {
-  const entries = Object.entries(manifest.exports ?? {});
+  const workspace = manifest.exports ?? {};
+  const entries = Object.entries(workspace);
   const published = manifest.publishConfig?.exports;
-  return published ? entries.filter(([subpath]) => Object.hasOwn(published, subpath)) : entries;
+  if (!published) return entries;
+
+  for (const subpath of Object.keys(published)) {
+    if (!Object.hasOwn(workspace, subpath)) {
+      throw new Error(`${manifest.name}: export "${subpath}" is missing from workspace exports`);
+    }
+  }
+  return entries.filter(([subpath]) => {
+    if (Object.hasOwn(published, subpath)) return true;
+    if (subpath === './testing/saved-view-panels') return false;
+    throw new Error(`${manifest.name}: export "${subpath}" is missing from publishConfig.exports`);
+  });
 }
 
 /** './src/theme/index.ts' → { types: './dist/theme/index.d.ts', import: './dist/theme/index.js' }; CSS/JSON → './dist/…'. */

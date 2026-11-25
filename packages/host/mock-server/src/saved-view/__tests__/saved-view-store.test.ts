@@ -335,6 +335,30 @@ it('C3: editing an official copy keeps readers on the approved content until re-
   expect(again).toMatchObject({ view: { name: '공식 (수정)', approval: 'rejected' } });
 });
 
+it('clears legacy panels in a proposal while readers still see the approved copy', async () => {
+  const s = store();
+  const { view: saved } = ok(await s.save(draft()));
+  const { view: requested } = ok(await s.requestOfficial(saved.id, { expectedVersion: saved.version }));
+  as('admin');
+  const { view: approved } = ok(await s.decide(saved.id, 'approve', undefined, { expectedVersion: requested.version }));
+  const bucket = savedViewsStorageKey(ENG, MENU);
+  const oldPanels = { before: 1 };
+  storage.setItem(bucket, JSON.stringify({ schemaVersion: 1, views: [{ ...approved, panels: oldPanels }] }));
+
+  as('engineer');
+  ok(await s.update(saved.id, { panels: null }, { expectedVersion: approved.version }));
+  const ownerView = await s.get(saved.id);
+  expect(ownerView).toMatchObject({ view: { approval: 'pending', panels: null } });
+  expect(ownerView).not.toHaveProperty('view.panelsUnreadable');
+
+  const reader = createLocalSavedViewStore({ getStorage: () => storage, locks, now: () => 5, getActor: () => ({ userId: 'viewer', admin: false, permissions: ['analytics:view'], rooms: ['PHOTO'] }), menuPermissionsOf: permissionOf });
+  expect(await reader.get(saved.id)).toMatchObject({ view: { approval: 'approved', panels: null, panelsUnreadable: true } });
+  const stored = JSON.parse(storage.getItem(bucket) ?? '{}');
+  expect(stored.views).toMatchObject([{ id: saved.id, pending: { panels: null } }]);
+  expect(stored.views[0].panels).toStrictEqual(oldPanels);
+  expect((await s.listApprovalRequests(key(ENG))).find(request => request.viewId === saved.id)?.changes).toEqual(['패널 변경']);
+});
+
 it('C4: updating a readable view with a context the caller may not read is forbidden and changes nothing', async () => {
   const s = store(); const a = ok(await s.save(draft('a')));
   const snapshot = storage.getItem(savedViewsStorageKey(ENG, MENU));

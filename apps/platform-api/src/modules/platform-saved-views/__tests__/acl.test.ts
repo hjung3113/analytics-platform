@@ -210,8 +210,12 @@ describe('pending proposal and approved copy are separate', () => {
     expect(savedViewOf(legacy, approver, none)).toMatchObject({ panels: null, panelsUnreadable: true });
     expect(proposalChanges(legacy)).toEqual(['패널 변경']);
     const cleared = view({ ...legacy, pending: { ...pending, content: { ...content, panels: null } } });
-    expect(savedViewOf(cleared, owner, none)).not.toHaveProperty('panelsUnreadable');
-    expect(savedViewOf(cleared, other, none)).toMatchObject({ panels: null, panelsUnreadable: true });
+    const ownerView = savedViewOf(cleared, owner, none);
+    expect(ownerView).toMatchObject({ approval: 'pending', panels: null });
+    expect(ownerView).not.toHaveProperty('panelsUnreadable');
+    expect(savedViewOf(cleared, other, none)).toMatchObject({ approval: 'approved', panels: null, panelsUnreadable: true });
+    expect(cleared.content.panels).toStrictEqual({ before: 1 });
+    expect(proposalChanges(cleared)).toEqual(['패널 변경']);
   });
 });
 
