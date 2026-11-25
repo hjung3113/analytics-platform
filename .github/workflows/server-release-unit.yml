@@ -44,6 +44,57 @@ jobs:
           node ops/platform-api/scripts/release/web-image-output-check.mjs "platform-release-web:$tag"
           bash ops/platform-api/scripts/release/offline-start-check.sh --unit "$unit" --tag "$tag"
 
+  rollback-round-trip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 24
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Find the previous stable release
+        id: release
+        run: |
+          previous="$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude '*-*' HEAD)"
+          if [ "$(git rev-parse "$previous^{commit}")" = "$(git rev-parse HEAD)" ]; then
+            echo "Skipping rollback round-trip: HEAD is already the stable release $previous."
+            exit 0
+          fi
+          echo "Testing rollback from HEAD to $previous."
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+      - uses: pnpm/action-setup@v6
+        if: steps.release.outputs.previous != ''
+      - uses: actions/setup-node@v7
+        if: steps.release.outputs.previous != ''
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Build both release sets and rehearse image-only rollback
+        if: steps.release.outputs.previous != ''
+        env:
+          PREVIOUS_RELEASE: ${{ steps.release.outputs.previous }}
+          DOCKER_BUILDKIT: '1'
+          DOCKER_DEFAULT_PLATFORM: linux/amd64
+        run: |
+          previous_tree="$RUNNER_TEMP/previous-server-release"
+          git worktree add --detach "$previous_tree" "$PREVIOUS_RELEASE"
+          trap 'git worktree remove --force "$previous_tree"' EXIT
+
+          # Both trees use the same recipe. The previous tag may predate pack-images.sh.
+          build_release() (
+            cd "$1"
+            tag="$2"
+            docker build --platform linux/amd64 -f apps/platform-api/Dockerfile --target runtime \
+              -t "platform-release-backend:$tag" .
+            docker build --platform linux/amd64 -f apps/platform-api/Dockerfile --target migrate \
+              -t "platform-release-migrate:$tag" .
+            pnpm install --frozen-lockfile
+            bash ops/platform-api/scripts/release/build-web-image.sh --tag "$tag"
+          )
+          build_release "$previous_tree" prev
+          tag="ci-${GITHUB_SHA:0:7}"
+          build_release "$GITHUB_WORKSPACE" "$tag"
+          bash ops/platform-api/scripts/release/rollback-round-trip-check.sh --prev-tag prev --tag "$tag"
+
   migrations-additive:
     runs-on: ubuntu-latest
     timeout-minutes: 5

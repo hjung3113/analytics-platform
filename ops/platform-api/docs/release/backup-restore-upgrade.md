@@ -157,6 +157,13 @@ Before that start, the workflow runs `node scripts/release/web-image-output-chec
 image's static files must hold no source map and no origin outside the allowed lists (the start kit's list plus the
 web image's own, each origin with its reason in the script).
 
+The same workflow rehearses an image-only rollback. It installs the previous stable release, upgrades with `upgrade.sh`,
+then starts the previous backend and edge on the upgraded database. All three stages must return 200 from
+`GET /health/ready`, and the migration journal must stay unchanged during rollback. With both linux/amd64 image sets
+already loaded, run `bash scripts/release/rollback-round-trip-check.sh --prev-tag <previous-tag> --tag <new-tag>` from
+`ops/platform-api`. Use a disposable Docker host with the same tools as the offline check and free
+`platform-release-{backend,migrate,web}:local` tags. The rehearsal reserves those tags until cleanup.
+
 **From a checkout (build on the host).** Step 1 is the web image: build it from the same commit as the backend and migrate images with
 `bash scripts/release/build-web-image.sh` (it writes only `platform-release-web:local`), then tag it with the release tag:
 `docker tag platform-release-web:local platform-release-web:<tag>`. Load the other two images under
