@@ -3,6 +3,7 @@ import { PanelWorkspace } from '../../workspace/PanelWorkspace';
 import { AnalysisPanelAddContext } from '../../workspace/PanelAdd';
 import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
 import { stubCompactTableGeometry } from '../../testing';
+import * as visibleArea from '../../visibleArea';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
@@ -516,6 +517,89 @@ const chipSlots = { contextBar: <AnalysisSelectionChipZone /> };
 const chipControls = () => within(screen.getByRole('group', { name: '분석 선택' }));
 const chipMore = () => chipControls().getByRole('button', { name: /a 동작$/ });
 const chipItems = () => within(screen.getByRole('menu')).getAllByRole('menuitem');
+
+describe('Next Analysis focus reveal (#3010)', () => {
+  const confirmation = () => within(screen.getByRole('group', { name: '구간 적용 확인' }));
+
+  async function mountTimeRange() {
+    const from = '2026-09-01T00:00:00';
+    const mid = '2026-09-01T01:00:00';
+    const to = '2026-09-01T02:00:00';
+    window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=${from}&to=${to}&range=${mid}/${to}`);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry} slots={chipSlots}>
+      <PlatformPage><AnalysisChartFrame chartId="sel" title="Sel" unit="s" nextAnalysis analysisSelectionOutput={output}
+        series={[{ ...A, points: [[from, 1], [mid, 2], [to, 3]] }]} /></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img', { name: 'Sel: A' });
+    return userEvent.setup();
+  }
+
+  it('reveals the focused confirm button when opened from a selection chip', async () => {
+    const user = await mountTimeRange();
+    const chip = chipControls().getByRole('button', { name: /date .* 동작$/ });
+    await user.click(chip);
+    const reveal = vi.spyOn(visibleArea, 'revealFocused');
+    try {
+      await user.click(screen.getByRole('menuitem', { name: '조건으로' }));
+      const apply = confirmation().getByRole('button', { name: '적용' });
+      expect(apply).toHaveFocus();
+      expect(reveal).toHaveBeenCalledExactlyOnceWith(apply, { bottomInset: expect.any(Function) });
+      await user.keyboard('{Escape}');
+      expect(chip).toHaveFocus();
+      expect(reveal).toHaveBeenCalledTimes(1);
+    } finally {
+      reveal.mockRestore();
+    }
+  });
+
+  it.each([
+    ['취소', '조건으로'],
+    ['적용', '구간 선택'],
+  ])('reveals the focused button after period confirmation closes via %s', async (action, destination) => {
+    const user = await mountTimeRange();
+    const opener = within(nextRow()).getByRole('button', { name: '조건으로' });
+    const target = destination === '조건으로' ? opener : screen.getByRole('button', { name: destination });
+    if (action === '적용') {
+      await user.click(chipControls().getByRole('button', { name: /date .* 동작$/ }));
+      await user.click(screen.getByRole('menuitem', { name: '조건으로' }));
+    } else await user.click(opener);
+    const reveal = vi.spyOn(visibleArea, 'revealFocused');
+    try {
+      await user.click(confirmation().getByRole('button', { name: action }));
+      expect(target).toHaveFocus();
+      expect(reveal).toHaveBeenCalledExactlyOnceWith(target, { bottomInset: expect.any(Function) });
+    } finally {
+      reveal.mockRestore();
+    }
+  });
+
+  it.each(['지우기', '조건으로'])('reveals the focused plot after keyboard activation of %s in a separate row', async action => {
+    function ChartWithSeparateRow() {
+      const [target, setTarget] = useState<HTMLDivElement | null>(null);
+      return <>
+        <AnalysisChartFrame chartId="set" title="Set" series={[A]} unit="s" xType="category" orientation="horizontal"
+          analysisSelectionOutput={setOutput} nextAnalysis nextAnalysisTarget={target} />
+        <div ref={setTarget} />
+      </>;
+    }
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={setRegistry}>
+      <ChartWithSeparateRow />
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img');
+    const target = screen.getByRole('group', { name: '차트 지점' });
+    pointClick('a');
+    within(nextRow()).getByRole('button', { name: action }).focus();
+    const reveal = vi.spyOn(visibleArea, 'revealFocused');
+    try {
+      await userEvent.setup().keyboard('{Enter}');
+      expect(target).toHaveFocus();
+      expect(reveal).toHaveBeenCalledExactlyOnceWith(target, { bottomInset: expect.any(Function) });
+    } finally {
+      reveal.mockRestore();
+    }
+  });
+});
 
 function FittedChips() {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);

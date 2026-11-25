@@ -1026,18 +1026,23 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     selectedPoint: !!selectedPoint, pointDetail: !!(rowGroups || statusEnabled || bounds),
     pointExtremes: !!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)),
   });
+  const revealWithStickyRow = useCallback((element: HTMLElement | null) => {
+    if (!element || element.ownerDocument.activeElement !== element) return;
+    const row = stickyNextAnalysisRow.current;
+    // Reserve room for the sticky row only when it can cover the focused control.
+    const rowScroller = row && !row.contains(element)
+      ? scrollContainerOf(row) ?? document.scrollingElement ?? document.documentElement
+      : null;
+    revealFocused(element, {
+      bottomInset: container => row && container === rowScroller ? row.getBoundingClientRect().height : 0,
+    });
+  }, []);
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
     rangeStart.current?.focus({ preventScroll: true });
-    if (!rangeStart.current) return;
-    // Keep the focused field above the sticky action row.
-    const row = stickyNextAnalysisRow.current;
-    const rowScroller = row ? scrollContainerOf(row) ?? document.scrollingElement ?? document.documentElement : null;
-    revealFocused(rangeStart.current, {
-      bottomInset: container => row && container === rowScroller ? row.getBoundingClientRect().height : 0,
-    });
-  }, [brushMode, showSummary]);
+    revealWithStickyRow(rangeStart.current);
+  }, [brushMode, showSummary, revealWithStickyRow]);
   function commitRange(next: Selection) {
     const snapped = snapOutward(toMs(next.from), toMs(next.to), timeBounds);
     if (!snapped) { rangeActions.snapSelect(null); return; }
@@ -1150,12 +1155,18 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
 
   useLayoutEffect(() => {
     if (!preview) returnFromConfirmation.current = undefined;
-    if (p.nextAnalysis && preview) confirmPeriodButton.current?.focus({ preventScroll: true });
-  }, [p.nextAnalysis, preview]);
+    if (p.nextAnalysis && preview) {
+      confirmPeriodButton.current?.focus({ preventScroll: true });
+      revealWithStickyRow(confirmPeriodButton.current);
+    }
+  }, [p.nextAnalysis, preview, revealWithStickyRow]);
   const restoreConfirmationFocus = (fallback: HTMLElement | null) => {
     const restore = returnFromConfirmation.current;
     returnFromConfirmation.current = undefined;
-    if (!restore?.()) fallback?.focus({ preventScroll: true });
+    if (!restore?.()) {
+      fallback?.focus({ preventScroll: true });
+      revealWithStickyRow(fallback);
+    }
   };
   const cancelPeriod = () => {
     rangeActions.setPreview(null);
@@ -1176,6 +1187,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       // Applying the period clears the analysis selection with it, so the chip that opened this row is about to unmount.
       returnFromConfirmation.current = undefined;
       brushToggle.current?.focus({ preventScroll: true });
+      revealWithStickyRow(brushToggle.current);
     }}>{t('apply')}</Button>
     <Button size="toolbar" variant="secondary" onClick={cancelPeriod}>{t('cancel')}</Button>
   </div>;
@@ -1202,8 +1214,10 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     ? selectionActions(selection)
     : plainSelectionActions.map(item => <NextAnalysisActionButton key={item.id} action={item} />);
   const clearSelection = <Button size="toolbar" variant="ghost" onClick={() => {
-    if (p.nextAnalysis && !selection) pointChart.current?.focus({ preventScroll: true });
-    else if (rangeOutput || p.nextAnalysis) brushToggle.current?.focus();
+    if (p.nextAnalysis && !selection) {
+      pointChart.current?.focus({ preventScroll: true });
+      revealWithStickyRow(pointChart.current);
+    } else if (rangeOutput || p.nextAnalysis) brushToggle.current?.focus();
     rangeActions.clear();
     writeRange(null);
     if (p.nextAnalysis) {
@@ -1233,7 +1247,10 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     label: m('chartApplySelection'),
     reason: equipmentReason,
     onSelect: fromChip => {
-      if (!fromChip) pointChart.current?.focus({ preventScroll: true });
+      if (!fromChip) {
+        pointChart.current?.focus({ preventScroll: true });
+        revealWithStickyRow(pointChart.current);
+      }
       host.applyEquipment?.(equipmentSet);
     },
   } : null;
