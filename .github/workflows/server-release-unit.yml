@@ -1,0 +1,44 @@
+name: Server release unit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/platform-api/**'
+      - 'apps/platform-web/**'
+      - 'packages/**'
+      - 'menus/**'
+      - 'platform/**'
+      - 'ops/platform-api/**'
+      - 'tooling/**'
+      - 'patches/**'
+      - '.dockerignore'
+      - '.nvmrc'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+      - '.github/workflows/server-release-unit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-start:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Pack the images and start the production stack offline
+        run: |
+          tag="ci-${GITHUB_SHA:0:7}"
+          unit="$RUNNER_TEMP/server-release-unit"
+          bash ops/platform-api/scripts/release/pack-images.sh --tag "$tag" --out "$unit"
+          bash ops/platform-api/scripts/release/offline-start-check.sh --unit "$unit" --tag "$tag"
