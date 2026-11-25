@@ -49,6 +49,8 @@ export type PanelWorkspacePanel = {
   /** Floating inside the workspace is on by default. The primary panel can never float. */
   float?: false;
   render: () => ReactNode;
+  /** Replace the normal Hide action with removal from the consumer's panels. The consumer must remove this entry. */
+  onRemove?: () => void;
   /** Exactly one panel is primary (the first when none is): it can never be hidden and keeps the space other panels free. */
   primary?: boolean;
   /** px; default 240 × 160. */
@@ -694,6 +696,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
         setMaximized(null);
         const next = hidePanel(state, id, primaryId);
         closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
+        if (panel?.onRemove) { panel.onRemove(); return; }
         layoutChange(current => {
           const next = hidePanel(current, id, primaryId);
           // Explicit hide chooses the hidden list instead of the remembered edge destination.

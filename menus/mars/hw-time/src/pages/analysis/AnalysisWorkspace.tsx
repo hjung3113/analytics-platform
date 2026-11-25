@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ChartNoAxesCombined, History, ListTree } from 'lucide-react';
-import { isAnswered } from '@ap/contracts';
-import { ANALYSIS_SELECTION_MAX_VALUES, formatText, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
+import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-react';
+import { isAnswered, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
+import { ANALYSIS_SELECTION_MAX_VALUES, formatText, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type MenuQueryState, type Text } from '@ap/kernel';
 import {
-  AnalysisChart, AnalysisChartFrame, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView,
+  AnalysisChart, AnalysisChartFrame, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView, StateMessage,
   getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
 import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MAX_ROWS, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTime, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams, type HwTimeTableParams, type HwTimeTableRow } from '../../endpoints';
@@ -221,12 +221,71 @@ function Heatmap({ query, filter, typeId, motionId, verdict }: { query: MatrixQu
   }}</QueryView>;
 }
 
+type AddedPanel = { slot: string; instance: PanelInstance };
+type PanelConfiguration =
+  | { kind: 'default' | 'unreadable' }
+  | { kind: 'custom'; added: readonly AddedPanel[] };
+const defaultPanels: PanelConfiguration = { kind: 'default' };
+
+/** The save boundary for additions and their inputs/outputs. Layout and URL pins are owned elsewhere. */
+function buildSavedPanels(config: PanelConfiguration, step: Step): MenuViewPanels | null {
+  if (config.kind !== 'custom') return null;
+  return { version: 1, instances: config.added.filter(panel => step !== 4 || panel.slot !== 'trend').map(panel => panel.instance) };
+}
+
+function restoredPanel(instance: PanelInstance, index: number): AddedPanel {
+  const panel = instance.source.kind === 'declared' ? instance.source.panel : null;
+  // A saved identifier is a wire token, not necessarily a workspace identifier.
+  const slot = panel === instance.id && CATALOG_IDS.some(id => id === panel) ? panel : `saved-panel-${index}`;
+  return { slot, instance };
+}
+
+function useWorkspacePanels(owner: string, population: string, step: Step) {
+  const [state, setState] = useState(() => ({ owner, population, config: defaultPanels, opening: false }));
+  const samePopulation = state.population === population;
+  const config = state.owner === owner && (samePopulation || state.opening) ? state.config : defaultPanels;
+  // Opening can update the step and query Context in the same navigation. Carry that open across
+  // the population change, while a normal drill or query change still clears local additions.
+  if (state.owner !== owner || !samePopulation || state.opening) setState({ owner, population, config, opening: false });
+  useSavedViewPanels({
+    value: buildSavedPanels(config, step),
+    onOpen: outcome => {
+      let next: PanelConfiguration;
+      switch (outcome) {
+        case null: next = defaultPanels; break;
+        case 'unreadable': next = { kind: 'unreadable' }; break;
+        default: next = { kind: 'custom', added: outcome.instances.map(restoredPanel) };
+      }
+      setState(current => ({ ...current, config: next, opening: true }));
+    },
+  });
+  const add = (id: string) => setState(current => {
+    if (step === 4 && id === 'trend') return current;
+    const added = current.config.kind === 'custom' ? current.config.added : [];
+    if (added.some(panel => panel.slot === id)) return current;
+    const instance: PanelInstance = { id, source: { kind: 'declared', panel: id }, inputs: [], outputs: [] };
+    return { ...current, config: { kind: 'custom', added: [...added, { slot: id, instance }] } };
+  });
+  const remove = (instanceId: string) => setState(current => {
+    if (current.config.kind !== 'custom') return current;
+    const added = current.config.added.filter(panel => panel.instance.id !== instanceId).map(panel => {
+      const inputs = panel.instance.inputs.filter(input => !input.from.startsWith(`${instanceId}.`));
+      return inputs.length === panel.instance.inputs.length ? panel : { ...panel, instance: { ...panel.instance, inputs } };
+    });
+    return { ...current, config: { kind: 'custom', added } };
+  });
+  return { config, add, remove };
+}
+
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const m = useMessages(S);
   const { pageParam, setPage, session } = usePlatform();
   const context = useQueryContext();
   const typeId = pageParam('moduleType'), motionId = pageParam('drillMotion'), moduleId = pageParam('drillModule');
   const step = stepOf(typeId, motionId, moduleId);
+  const owner = JSON.stringify([session.user.id, context.scopeId]);
+  const population = JSON.stringify([step, owner, context]);
+  const savedPanels = useWorkspacePanels(owner, population, step);
   const options = useMemo(() => workspaceOptions(step), [step]);
   const state = usePanelOptions(options);
   const pins = usePinnedPanels('pins', CATALOG_IDS);
@@ -252,8 +311,7 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     return <PageKeyWarning sentences={sentences} onRecover={keys.recover} />;
   }
   const required = step <= 2 ? HW_TIME_MODULE_TYPES.map(type => type.id) : [typeId!];
-  const population = JSON.stringify([step, session.user.id, context]);
-  return <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins }} applied={selectionInputs.applied} values={state.values} onChange={state.setValue}
+  return <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins, savedPanels }} applied={selectionInputs.applied} values={state.values} onChange={state.setValue}
     onDrill={id => {
       const [type, motion, module] = id.split('/');
       setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null, row: null, trend: null, focus: null });
@@ -271,18 +329,30 @@ function SelectionSourceBars({ source, ...props }: Omit<BarsProps, 'highlightedV
 
 function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'analysisSelectionOutput' | 'highlightedValues'> & {
   step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void; applied: ReturnType<typeof useAnalysisSelectionInputs>['applied'];
+  savedPanels: ReturnType<typeof useWorkspacePanels>;
 }) {
-  const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill, applied } = props;
+  const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill, applied, savedPanels } = props;
   const common = useMessages(HW_TIME_MESSAGES);
+  const workspace = useMessages(HW_TIME_WORKSPACE_MESSAGES);
+  const { lang } = useI18n();
   const [explained, setExplained] = useState<string | null>(null);
-  const [added, setAdded] = useState<readonly string[]>([]);
   const [reveal, setReveal] = useState<{ panelId: string; seq: number; restoreHidden?: boolean } | null>(null);
   useEffect(() => {
     if (trend && step !== 4) setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
   }, [trend, step]);
   const catalog = panelCatalog({ step, typeId, moduleId, trend });
   const available = catalog.filter(item => !item.disabledReason);
-  const extraIds = [...new Set([...added, ...pins.pinned, ...(trend || step === 4 ? ['trend'] : [])])].filter(id => available.some(item => item.id === id));
+  const added = savedPanels.config.kind === 'custom' ? savedPanels.config.added : [];
+  const extras = added.filter(panel => step !== 4 || panel.slot !== 'trend').map(({ slot, instance }) => ({
+    id: slot, instance, item: catalog.find(item => instance.source.kind === 'declared' && item.id === instance.source.panel),
+  }));
+  const autoIds = new Set([...pins.pinned, ...(trend || step === 4 ? ['trend'] : [])]);
+  const automatic = [...autoIds].flatMap(id => {
+    const item = available.find(item => item.id === id);
+    return item && !extras.some(extra => extra.id === id) ? [{ id, item, instance: undefined }] : [];
+  });
+  const extraPanels = [...extras, ...automatic];
+  const extraIds = extraPanels.map(({ id }) => id);
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
   const { pageParam, pageParams, setPage } = usePlatform();
   const selectedEquipment = pageParams(MOTION_EQUIPMENT_KEY);
@@ -294,7 +364,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const sourceEquipment = source && (source.motions.length ? source.cells.map(cell => cell.equipmentId) : []);
   const sourcePanelId = panelDeclarations.moduleMotions.id;
   const selectionOutput = useAnalysisSelectionOutput(sourcePanelId, MOTION_EQUIPMENT_KEY, { available: sourceEquipment, subscribeHighlight: false });
-  const currentHostsSelection = step === 4 && !extraIds.includes(sourcePanelId);
+  const currentHostsSelection = step === 4 && !extraPanels.some(({ item }) => item?.id === sourcePanelId && !item.disabledReason);
   const verdict = verdictCodec.decode(pageParam('verdict') ?? '');
   const date = pageParam('date');
   const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date, [MOTION_EQUIPMENT_KEY]: selectedEquipment };
@@ -311,7 +381,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     source: { availabilityCurrent: selectionOutput.availabilityCurrent, query: sourceQuery },
   });
   const equipment = tableFilter.kind === 'filtered' && tableFilter.selection.shape === 'set' ? tableFilter.selection.values : undefined;
-  const filterTable = equipment !== undefined && extraIds.includes('table');
+  const filterTable = equipment !== undefined && extraPanels.some(({ item }) => item?.id === 'table' && !item.disabledReason);
   const tableLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, filterTable);
   const analysis = filterTable ? { equipment, level: tableLevel } : undefined;
   const badge = getAnalysisSelectionFilterBadge(tableFilter, analysis?.level, data => data.rows.length);
@@ -329,8 +399,15 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     { id: 'current', title: barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640,
       analysisSelectionSourceId: currentHostsSelection ? sourcePanelId : undefined,
       render: () => <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} source={currentHostsSelection} /> },
-    ...extraIds.map(id => {
-      const item = catalog.find(item => item.id === id)!;
+    ...extraPanels.map(({ id, instance, item }): PanelWorkspacePanel => {
+      if (instance && (!item || item.disabledReason)) {
+        const panel = instance.source.kind === 'declared' ? instance.source.panel : instance.id;
+        const reason = item?.disabledReason?.[lang] ?? workspace(instance.source.kind === 'declared' ? 'missingPanel' : 'unsupportedPanel', { id: panel });
+        return { id, title: item?.title ?? { ko: panel, en: panel }, float: false, collapse: false,
+          onRemove: () => savedPanels.remove(instance.id),
+          render: () => <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={reason} /> };
+      }
+      const panel = item!.id as CatalogId;
       const renderPanel = (panel: CatalogId) => {
         switch (panel) {
           case 'distribution': return <DistributionPanel input={panelContext} filter={filter} />;
@@ -370,19 +447,20 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           case 'boundHistory': return <BoundHistoryPanel input={endpointInput(panel)} />;
         }
       };
-      return { id, icon: ChartNoAxesCombined, title: item.title, ...(step === 4 && id === 'trend' ? { placement: 'below' as const } : {}), preferredHeight: 360, minWidth: 200,
-        badge: id === 'table' ? badge : undefined,
-        pin: { pinned: pins.isPinned(id), onToggle: () => { setAdded(current => [...new Set([...current, id])]); pins.toggle(id); } },
-        render: () => <RecipePanel id={id} open={explained === id} context={panelContext} onClose={() => setExplained(null)}>{renderPanel(id as CatalogId)}</RecipePanel> };
+      return { id, icon: ChartNoAxesCombined, title: item!.title, ...(step === 4 && id === 'trend' ? { placement: 'below' as const } : {}), preferredHeight: 360, minWidth: 200,
+        badge: panel === 'table' ? badge : undefined,
+        pin: id === panel ? { pinned: pins.isPinned(id), onToggle: () => { savedPanels.add(id); pins.toggle(id); } } : undefined,
+        render: () => <RecipePanel id={panel} open={explained === id} context={panelContext} onClose={() => setExplained(null)}>{renderPanel(panel)}</RecipePanel> };
     }),
   ];
   const addPanel = (id: string, pin: boolean, options?: { restoreHidden: boolean }) => {
-    setAdded(current => [...new Set([...current, id])]);
+    savedPanels.add(id);
     if (pin) pins.pin(id);
     setReveal(current => ({ panelId: id, seq: (current?.seq ?? 0) + 1, ...options }));
   };
   return <div className="flex min-h-0 flex-1 flex-col gap-2">
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
+    {savedPanels.config.kind === 'unreadable' && <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={workspace('unreadablePanels')} />}
     <PanelWorkspace panels={panels} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
       panelMenuItems={id => Object.hasOwn(panelDeclarations, id) ? [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }] : []}
       revealRequest={reveal}
