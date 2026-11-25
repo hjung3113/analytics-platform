@@ -1144,7 +1144,7 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
       ['NUL in a name', menuDraft('a\u0000b')],
       ['NUL in a page key', menuDraft('p', { page: { 'k\u0000': ['v'] } })],
       ['NUL in a layout value', menuDraft('l', { layout: { a: 'x\u0000y' } })],
-      ['NUL inside opaque panels', menuDraft('o', { panels: { 'p\u0000': 1 } })],
+      ['NUL inside a chart panel config', menuDraft('o', { panels: { version: 1, instances: [{ id: 'a', source: { kind: 'chart', config: { 'p\u0000': 1 } }, inputs: [], outputs: [] }] } })],
       ['a lone surrogate', menuDraft('s\ud800')],
     ])('save: %s → invalid unicode, nothing written', async (_label, draft) => {
       const before = await rowSnapshot();

@@ -1,4 +1,4 @@
-import { CUSTOM_GROUP_AXIS, CUSTOM_GROUP_FIXED_MAX, isForbiddenSavedViewKey, isRecord, isTableViewStates, SAVED_SCOPE_ID_MAX } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, CUSTOM_GROUP_FIXED_MAX, isForbiddenSavedViewKey, isRecord, isTableViewStates, readMenuViewPanels, SAVED_SCOPE_ID_MAX } from '@ap/contracts';
 
 // Runtime guards that deeply match the wire schemas in `@ap/contract-schemas/src/saved-view-commands.ts` (ADR-0099 section 3).
 // This package has no runtime Zod dependency; `__tests__/saved-view-guards.test.ts` proves the equivalence against the schemas.
@@ -98,6 +98,13 @@ const keyMap: Guard = (v) => isRecord(v) && Object.entries(v).every(([k, list]) 
 const page = anyOf(pairs, keyMap);
 const chartOptions = noForbiddenKeys((v) => isRecord(v) && json(v));
 const layout = noForbiddenKeys(json);
+/** Writes (save, update, import) take only `null` or a v1 panel-instance value, like the wire schema; a chart config has the `chartOptions` key rule.
+ *  Reads keep `panels: json`: a view saved before the format (#2760) still arrives and `readMenuViewPanels` classifies it. */
+const panelsWrite: Guard = (v) => {
+  const read = readMenuViewPanels(v);
+  if (read.status === 'default') return v === null;
+  return read.status === 'ok' && read.panels.instances.every((instance) => instance.source.kind !== 'chart' || chartOptions(instance.source.config));
+};
 const name: Guard = (v) => typeof v === 'string' && v.trim() !== '' && isWellFormedText(v);
 const savedScopeId: Guard = v => typeof v === 'string' && v.length > 0 && v.length <= SAVED_SCOPE_ID_MAX && isWellFormedText(v);
 const menuId: Guard = (v) => typeof v === 'string' && v.length > 0 && isWellFormedText(v);
@@ -110,10 +117,10 @@ const target: Guard = anyOf(
 export const isSavedViewDraft: Guard = anyOf(
   strict({ schemaVersion: lit(1), kind: lit('custom-group'), name, savedScopeId, target }),
   strict({ schemaVersion: lit(1), kind: lit('condition-set'), name, context }, { savedScopeId }),
-  strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels: json }, { savedScopeId, tables: isTableViewStates }),
+  strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels: panelsWrite }, { savedScopeId, tables: isTableViewStates }),
 );
 
-const patch = strict({}, { target, savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels: json, tables: isTableViewStates });
+const patch = strict({}, { target, savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels: panelsWrite, tables: isTableViewStates });
 const visibility: Guard = (v) =>
   isRecord(v) &&
   (v['kind'] === 'private' || v['kind'] === 'official'
