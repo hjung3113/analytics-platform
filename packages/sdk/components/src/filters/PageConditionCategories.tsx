@@ -1,4 +1,4 @@
-import { useEffect, useId, useInsertionEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useInsertionEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, Inbox, ServerCrash } from 'lucide-react';
 import { pageConditionKeys, wallClockEpochMs, type PageConditionCategory, type PageConditionOption, type PageConditions, type Pair, type HierarchySource } from '@ap/contracts';
 import { decodePageConditions, encodePageConditions, PAGE_CONDITION_EMPTY, PageConditionError, useI18n, useMessages, type PageConditionIssue, type PageConditionValue, type PageConditionValues } from '@ap/kernel';
@@ -50,19 +50,45 @@ function compactValues(values: PageConditionValues): PageConditionValues | null 
 
 /** A declaration-ordered, controlled editor. The parent owns URL/draft/apply and the single scroll layer. */
 export function PageConditionCategories(props: PageConditionCategoriesProps) {
+  const { declaration } = props;
+  const declarationKey = JSON.stringify(declaration);
+  const warnedSplits = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      const seenSections = new Set<string>();
+      const splits: [sectionId: string, categoryId: string][] = [];
+      for (const { section, key } of categoryRuns(declaration)) {
+        if (!section) continue;
+        if (seenSections.has(section.id)) splits.push([section.id, key]);
+        seenSections.add(section.id);
+      }
+      if (splits.length === 0) return;
+      const signature = JSON.stringify(splits);
+      const signatures = warnedSplits.current ??= new Set<string>();
+      if (signatures.has(signature)) return;
+      signatures.add(signature);
+      const locations = splits.map(([sectionId, categoryId]) => `section "${sectionId}" at category "${categoryId}"`);
+      console.warn(`PageConditionCategories: noncontiguous ${locations.join(', ')}. Categories render in declaration order.`);
+    }
+  }, [declaration, declarationKey]);
   // Remounting on declared inputs removes stale options before paint and aborts every previous request.
-  return <CategorySequence key={JSON.stringify([props.inputsKey, props.declaration])} {...props} />;
+  // Runs are derived inside the keyed child, so a declaration mutated in place under a new key never keeps the old order.
+  return <CategorySequence key={JSON.stringify([props.inputsKey, declarationKey])} {...props} />;
 }
-function CategorySequence(props: PageConditionCategoriesProps) {
-  const { lang } = useI18n();
+function categoryRuns(declaration: PageConditions) {
   const runs: { key: string; section?: NonNullable<PageConditions['sections']>[number]; categories: PageConditionCategory[] }[] = [];
   // Sections are visual only: even a noncontiguous section never reorders the declaration.
-  for (const category of props.declaration.categories) {
-    const section = props.declaration.sections?.find(item => item.categories.includes(category.id));
+  for (const category of declaration.categories) {
+    const section = declaration.sections?.find(item => item.categories.includes(category.id));
     const last = runs.at(-1);
     if (section && last?.section?.id === section.id) last.categories.push(category);
     else runs.push({ key: category.id, section, categories: [category] });
   }
+  return runs;
+}
+function CategorySequence(props: PageConditionCategoriesProps) {
+  const { lang } = useI18n();
+  const runs = useMemo(() => categoryRuns(props.declaration), [props.declaration]);
   return <div className="min-w-0 space-y-4 break-keep">
     {runs.map(run => {
       const content = run.categories.map(category => <ConditionCategory key={category.id} {...props} category={category} />);

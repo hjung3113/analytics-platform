@@ -71,6 +71,7 @@ export default function RichEditorImpl({
     () => ({
       attributes: {
         role: 'textbox',
+        'data-rich-list-content': '',
         'aria-multiline': 'true',
         ...(ariaLabel ? { 'aria-label': ariaLabel } : {}),
         ...(getExtensionsForSurface(surface).includes('heading') ? {

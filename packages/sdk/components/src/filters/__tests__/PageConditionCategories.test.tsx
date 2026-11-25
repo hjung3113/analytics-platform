@@ -203,6 +203,60 @@ describe('PageConditionCategories', () => {
     expect(fold).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('combobox')).toBeNull();
   });
+  it.each([
+    { mode: 'development', order: [0, 2, 1], warn: true },
+    { mode: 'production', order: [0, 2, 1], warn: false },
+    { mode: 'development', order: [0, 1, 2], warn: false },
+  ])('warns $warn for section order $order in $mode', ({ mode, order, warn }) => {
+    vi.stubEnv('NODE_ENV', mode);
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const declaration: PageConditions = {
+        categories: order.map(index => categories[index]!),
+        sections: [{ id: 'choiceSection', label: text('선택 범주'), categories: ['single', 'many'] }],
+      };
+      const props = { declaration, values: {}, inputsKey: 'first', onChange: vi.fn() };
+      const element = (inputsKey: string) => <I18nProvider><PageConditionCategories {...props} inputsKey={inputsKey} /></I18nProvider>;
+      const view = render(element('first'));
+      view.rerender(element('first'));
+      view.rerender(element('second'));
+      expect(warning).toHaveBeenCalledTimes(warn ? 1 : 0);
+      if (warn) expect(warning).toHaveBeenCalledWith(expect.stringMatching(/choiceSection.*many/));
+      expect([...view.container.querySelectorAll('[data-page-condition]')].map(node => node.getAttribute('data-page-condition')))
+        .toEqual(declaration.categories.map(category => category.id));
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+  it('renders the new order when one declaration object is mutated in place under a new inputsKey', () => {
+    const declaration: PageConditions = { categories: [categories[0], categories[2], categories[1]] };
+    const element = (inputsKey: string) => <I18nProvider><PageConditionCategories declaration={declaration} values={{}} inputsKey={inputsKey} onChange={vi.fn()} /></I18nProvider>;
+    const view = render(element('first'));
+    const order = () => [...view.container.querySelectorAll('[data-page-condition]')].map(node => node.getAttribute('data-page-condition'));
+    expect(order()).toEqual(['single', 'query', 'many']);
+    declaration.categories = [categories[4], categories[0], categories[1]];
+    view.rerender(element('second'));
+    expect(order()).toEqual(['period', 'single', 'many']);
+  });
+  it('warns once for equivalent split declarations during a mount', () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const declaration: PageConditions = {
+        categories: [categories[0], categories[2], categories[1]],
+        sections: [{ id: 'choiceSection', label: text('선택 범주'), categories: ['single', 'many'] }],
+      };
+      const onChange = vi.fn();
+      const element = () => <I18nProvider><PageConditionCategories declaration={{ ...declaration }} values={{}} inputsKey="first" onChange={onChange} /></I18nProvider>;
+      const view = render(element());
+      view.rerender(element());
+      view.rerender(element());
+      view.rerender(element());
+      expect(warning).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
 describe('page condition options', () => {
   const dynamic = { ...categories[1], kind: { type: 'multi', key: 'many', options: { endpoint: 'options' } } } satisfies PageConditionCategory;
