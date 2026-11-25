@@ -1,5 +1,6 @@
 import { registerPanels, type RegisteredPanel } from './panels';
 import { registerLentPanels, type RegisteredLentPanel } from './lent-panels';
+import { registerChartFields } from './chart-fields';
 import { registerPageConditions } from './page-conditions';
 import { singleValuePageKeyRoles } from './page-key-roles';
 import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
@@ -594,6 +595,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     const carryKeys = menu.carrySet === undefined ? [] : carrySetByIdMap.get(menu.carrySet)?.pageKeys ?? [];
     return registerPanels(menu, carryKeys, fail);
   });
+  for (const menu of menus) registerChartFields(menu, fail);
   const lentPanels = registerLentPanels(menus, registeredPanels, (menuId, target) => {
     if (!missingLinkTargets.some(entry => entry.menuId === menuId && entry.target === target)) {
       missingLinkTargets.push({ menuId, target, level: 'optional' });

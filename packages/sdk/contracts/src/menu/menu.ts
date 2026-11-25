@@ -1,4 +1,5 @@
 import type { AnalysisSelectionShape, PanelBinding, PanelDeclaration } from './panels';
+import type { MenuChartFields } from './chart-fields.js';
 import type { Text } from '../i18n.js';
 import type { PageConditions } from './page-conditions.js';
 
@@ -110,6 +111,8 @@ export type MenuMeta = {
   analysisSelectionInbound?: readonly { key: string; dimension: string; shape: AnalysisSelectionShape; label?: Text }[];
   /** Registered panels rendered within this menu, with read-only input bindings. */
   lentPanels?: readonly PanelBinding[];
+  /** Measures and breakdowns (기준) a user may chart from settings in this menu's panel menu; createRegistry validates them (#2761). */
+  chartFields?: MenuChartFields;
   id: string;
   group: GroupId;
   label: Text;

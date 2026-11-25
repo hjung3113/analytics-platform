@@ -632,6 +632,10 @@ _Avoid_: 사용자 메뉴(Registry 메뉴로 읽힌다).
 **패널 인스턴스**:
 사용자 분석 메뉴 정의 안의 패널 하나. `source`는 `declared`(코드 패널, 빌린 패널 포함) 또는 `chart`(설정으로 만든 패널)이고, URL 선택 키는 `<인스턴스>.<출력 키>`다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md)).
 
+**기준** (차트 기준, en `Breakdown`, 코드 `ChartBreakdownDeclaration`):
+설정으로 만드는 차트를 갈라 보는 범주 차원(예: 설비, 모듈). 막대는 기준 값마다 막대 하나, 선은 기준 값마다 선 하나를 그린다. 메뉴가 `chartFields`에 지표와 함께 선언하고, 사용자는 차트 하나에 지표 하나와 기준 하나를 고른다(소유자 2026-11-25 «ㅇㅋ 추천대로», #2761).
+_Avoid_: 나누기 — «다음 분석»에서 한 단계 아래로 드릴하는 동작이다. 분할(`split`) — 저장되는 `ChartConfig`의 필드 이름일 뿐 화면 말이 아니다.
+
 **패널 좁히기**:
 한 패널이 메뉴 Context 안에서 적용하는 추가 범위 제한. 같은 메뉴의 다른 패널은 각자의 범위를 유지한다([Kernel §21.1](docs/contract/kernel.md#211-저장-단위-decided)).
 
