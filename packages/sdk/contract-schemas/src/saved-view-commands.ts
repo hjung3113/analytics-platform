@@ -36,8 +36,8 @@ function withinDepth(value: unknown): boolean {
   return true;
 }
 
-/** Forbidden key at any depth of an object (array positions are not keys). An array is walked by its elements only, the same walk as
- *  `isJsonValue`, so an extra (non-JSON) property on an array never leads into a cycle (#2760). */
+/** Forbidden key at any depth of an object (array positions are not keys). An array is walked by its elements only, so an extra
+ *  (non-JSON) property on an array never leads into a cycle (#2760). */
 function hasForbiddenKey(value: unknown): boolean {
   if (typeof value !== 'object' || value === null) return false;
   if (Array.isArray(value)) return value.some(hasForbiddenKey);
@@ -93,28 +93,50 @@ const panelInputSchema = z.discriminatedUnion('mode', [
   z.strictObject({ key: panelToken, from: z.string(), mode: z.literal('hold'), value: heldSelectionSchema }),
 ]);
 const panelOutputSchema = z.strictObject({ key: panelToken, dimension: panelToken, shape: panelShape });
-function isJsonValue(value: unknown, ancestors: Set<object>): boolean {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
-  if (typeof value === 'number') return Number.isFinite(value);
-  if (typeof value !== 'object' || ancestors.has(value)) return false;
-  if (!Array.isArray(value)) {
-    const prototype = Object.getPrototypeOf(value);
-    if (prototype !== Object.prototype && prototype !== null) return false;
-  }
-  ancestors.add(value);
-  for (const child of Array.isArray(value) ? value : Object.values(value)) {
-    if (!isJsonValue(child, ancestors)) return false;
-  }
-  ancestors.delete(value);
-  return true;
-}
+// Literal copies of the ChartConfig v1 rules in @ap/contracts (ADR-0176, #2745); chart-config.test.ts runs both on the same cases.
+export const CHART_CONFIG_COLORS = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'] as const;
+export const CHART_CONFIG_MEASURES_MAX = 8;
+export const CHART_CONFIG_FIELD_MAX = 200;
+export const CHART_CONFIG_DECIMALS_MAX = 6;
+const chartField = nonBlank.max(CHART_CONFIG_FIELD_MAX);
+const chartMeasureSchema = z.strictObject({
+  field: chartField,
+  color: z.enum(CHART_CONFIG_COLORS).optional(),
+  axis: z.enum(['left', 'right']).optional(),
+});
+/** Closed: unknown keys, data arrays, hex, px and font values have no place to go. Cross-field rules match `invalidChartConfig`. */
+export const chartConfigSchema = z.strictObject({
+  version: z.literal(1),
+  kind: z.enum(['line', 'bar']),
+  x: z.strictObject({ field: chartField, type: z.enum(['time', 'category']) }),
+  measures: z.array(chartMeasureSchema).min(1).max(CHART_CONFIG_MEASURES_MAX),
+  split: z.strictObject({ field: chartField }).optional(),
+  orientation: z.enum(['vertical', 'horizontal']).optional(),
+  stack: z.enum(['none', 'stack', 'percent']).optional(),
+  areaFill: z.boolean().optional(),
+  valueFormat: z.strictObject({
+    kind: z.enum(['number', 'percent']),
+    decimals: z.number().int().min(0).max(CHART_CONFIG_DECIMALS_MAX).optional(),
+  }).optional(),
+}).superRefine((config, ctx) => {
+  const message = invalidChartCombination(config);
+  if (message) ctx.addIssue({ code: 'custom', message });
+});
 
-// A JSON Schema object already contains only JSON values. Check that guarantee on JS inputs too, without
-// letting Zod's record parser drop an own "__proto__" key or interpret an own "constructor" key.
-const chartConfigSchema = z.unknown().refine(
-  config => typeof config === 'object' && config !== null && !Array.isArray(config) && isJsonValue(config, new Set()),
-  { message: 'config must be a finite JSON object', abort: true },
-).refine(config => !hasForbiddenKey(config), { message: 'transient or raw-data key must not be saved' }).meta({ type: 'object' }) as z.ZodType<Record<string, JsonValue>>;
+function invalidChartCombination(config: { kind: string; x: { type: string }; measures: { field: string; axis?: string }[]; split?: unknown; orientation?: string; stack?: string; areaFill?: boolean }): string | null {
+  const fields = config.measures.map(measure => measure.field);
+  if (new Set(fields).size !== fields.length) return 'config.measures fields must be distinct';
+  if (config.split && config.measures.length !== 1) return 'config.split needs exactly one measure';
+  if (config.orientation === 'horizontal' && (config.kind !== 'bar' || config.x.type !== 'category')) {
+    return 'config.orientation horizontal needs a bar chart on a category axis';
+  }
+  if (config.areaFill === true && config.kind !== 'line') return 'config.areaFill needs a line chart';
+  const stacked = config.stack !== undefined && config.stack !== 'none';
+  if (config.measures.some(measure => measure.axis === 'right') && (stacked || config.orientation === 'horizontal')) {
+    return 'config.measures axis right needs a vertical, unstacked chart';
+  }
+  return null;
+}
 
 const panelSourceSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('declared'), panel: panelToken }),

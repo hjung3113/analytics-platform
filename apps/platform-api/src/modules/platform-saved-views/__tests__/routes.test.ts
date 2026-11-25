@@ -1,5 +1,6 @@
 // DB-free route checks: everything that must be refused before a query runs (session, CSRF, strict wire schema).
 import cookiePlugin from '@fastify/cookie';
+import { rejectedChartConfigCases } from '@ap/contracts/testing/saved-view-panels';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -175,6 +176,14 @@ describe('saved-view command route (DB-free refusals)', () => {
     expect(res.statusCode).toBe(422);
     expect(res.json()).toMatchObject({ code: 'validation.malformed_request' });
     expect(res.headers['cache-control']).toBe('no-store');
+    expect(queries).toEqual([]);
+  });
+
+  it.each(rejectedChartConfigCases)('a $label in panels → 422 validation, nothing written (#2745)', async ({ panels }) => {
+    const draft = { schemaVersion: 1, kind: 'menu-view', menuId: 'menu', name: 'x', menuSchemaVersion: 1, context: {}, page: [], chartOptions: {}, layout: null, panels };
+    const res = await post('/saved-views/commands', { version: 1, op: 'save', draft });
+    expect(res.statusCode).toBe(422);
+    expect(res.json()).toMatchObject({ code: 'validation.malformed_request' });
     expect(queries).toEqual([]);
   });
 

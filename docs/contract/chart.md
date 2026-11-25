@@ -180,6 +180,13 @@ Source · Updated · Coverage
 
 `AnalysisChart`의 `ChartSpec`은 종류와 입력 데이터의 유효 조합을 고정한다([ADR-0058](../adr/0058-analysis-chart-spec-union.md)). 기존 line/bar `AnalysisChartFrame` 소비자는 그대로 유지한다.
 
+**저장되는 차트 설정 `ChartConfig` v1 (#2745, [ADR-0176](../adr/0176-user-analysis-menu-one-definition-two-homes.md)).** 설정으로 만든 패널(`panels`의 `source.kind: 'chart'`)이 저장하는 값이다. 그리는 입력(`ChartSpec`, Chart Frame props)과 따로이며, 종류·필드 매핑·옵션만 담는다.
+
+- 종류는 `line`·`bar`. `x`(필드와 `time`/`category`), `measures`(1–8개, 필드는 서로 다름), 선택 `split`(차원 값마다 계열 하나, 이때 측정 하나), `orientation`(`horizontal`은 범주 축 막대만), `stack`(`none`/`stack`/`percent`), `areaFill`(선만), `valueFormat`(`number`/`percent`와 소수 자릿수 0–6). 오른쪽 축 측정은 세로·쌓지 않은 차트만.
+- 닫힌 형식이다: 모르는 키를 거부하므로 데이터 배열·행·hex·px·글꼴 값이 들어갈 자리가 없다. 색은 계열 토큰 이름(`chart-series-1`–`4`)만 받고, 없으면 순서대로 정한다. 숫자 표시는 함수가 아니라 서술자다.
+- `invalidChartConfig`(`@ap/contracts`)와 `chartConfigSchema`(`@ap/contract-schemas`)가 같은 규칙으로 판정하고, 서버·HTTP 어댑터·mock 저장소는 이 판정으로 저장을 거부하거나 저장된 값을 읽을 수 없음(`panelsUnreadable`)으로 연다.
+- 필드 메타데이터에 따른 판정(쌓을 수 없는 측정 등)과 `resolve(config, rows, fieldMeta)`는 다음 단계다.
+
 | 종류 | Zoom | Brush·선택 | Reset | Compare | Annotate | Export | Drill | 표로 보기 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | heatmap | — | 클릭·사각 끌기·표 체크박스로 셀 다중 선택 | 선택 해제 | — | — | manifest `features.export` | 단일 선택 요약·표 행의 상세 버튼 | 같은 셀 데이터·선택·상세 |

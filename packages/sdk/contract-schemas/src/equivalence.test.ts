@@ -30,8 +30,8 @@ import {
 } from './index.ts';
 import { contextCapabilitySchema } from './menu-query.ts';
 import { APPLIED_CAPABILITIES } from './vocab.ts';
-import type { MenuView, MenuViewDraft, MenuViewPanels, SavedViewPatch, TableViewState } from '@ap/contracts';
-import { menuViewPanelsSchema, savedViewDraftSchema, savedViewPatchSchema, savedViewSchema, tableViewStateSchema } from './saved-view-commands.ts';
+import type { ChartConfig, MenuView, MenuViewDraft, MenuViewPanels, SavedViewPatch, TableViewState } from '@ap/contracts';
+import { chartConfigSchema, menuViewPanelsSchema, savedViewDraftSchema, savedViewPatchSchema, savedViewSchema, tableViewStateSchema } from './saved-view-commands.ts';
 
 it('table state schema equals its contracts type', () => {
   expectTypeOf<z.infer<typeof tableViewStateSchema>>().toEqualTypeOf<TableViewState>();
@@ -46,6 +46,7 @@ type EndpointDeclaration = Omit<AnyEndpointSpec, '_types' | 'paramKeys' | 'permi
 
 describe('schemas and @ap/contracts types are the same type', () => {
   it('menu-view panel configuration in drafts, patches and stored views', () => {
+    expectTypeOf<Wire<z.infer<typeof chartConfigSchema>>>().toEqualTypeOf<Wire<ChartConfig>>();
     expectTypeOf<Wire<z.infer<typeof menuViewPanelsSchema>>>().toEqualTypeOf<Wire<MenuViewPanels | null>>();
     expectTypeOf<Wire<Extract<z.infer<typeof savedViewDraftSchema>, { kind: 'menu-view' }>['panels']>>().toEqualTypeOf<Wire<MenuViewDraft['panels']>>();
     expectTypeOf<Wire<z.infer<typeof savedViewPatchSchema>['panels']>>().toEqualTypeOf<Wire<SavedViewPatch['panels']>>();

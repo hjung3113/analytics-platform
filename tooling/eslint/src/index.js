@@ -453,7 +453,9 @@ export const contracts = [
 ];
 
 // contract-schemas (ADR-0096): production code imports no other platform package and no React; "zod only" is held by the manifest and review, not lint.
-// Its tests compare the schemas with the hand-written types, so test files alone may import contracts, its vocab.json and its build entry (the snapshot emitter the schema pins).
+// Its tests compare the schemas with the hand-written types, so test files alone may import contracts, its vocab.json, its build entry (the snapshot emitter the schema pins)
+// and the shared stored-panel cases (the ChartConfig rules run through both validators, #2745).
+const SAVED_VIEW_PANEL_TEST_ENTRY = 'contracts/testing/saved-view-panels';
 const CONTRACT_SCHEMAS_RESTRICTION = { allow: [], denyReact: true, mockAllowed: false };
 const CONTRACT_SCHEMAS_TEST_RESTRICTION = { ...CONTRACT_SCHEMAS_RESTRICTION, allow: ['contracts'] };
 
@@ -461,7 +463,7 @@ const CONTRACT_SCHEMAS_TEST_RESTRICTION = { ...CONTRACT_SCHEMAS_RESTRICTION, all
 export const contractSchemas = [
   BUILD_OUTPUT,
   layerConfig({ restriction: CONTRACT_SCHEMAS_RESTRICTION }),
-  testEntryOverride(CONTRACT_SCHEMAS_TEST_RESTRICTION, ['contracts/vocab.json', 'contracts/build'], ['**/*.test.ts']),
+  testEntryOverride(CONTRACT_SCHEMAS_TEST_RESTRICTION, ['contracts/vocab.json', 'contracts/build', SAVED_VIEW_PANEL_TEST_ENTRY], ['**/*.test.ts']),
 ];
 
 // #2955: SDK packages promise peer `react ^19.0.0`; `useEffectEvent` exists only from React 19.2, so a 19.0/19.1 consumer gets undefined.
@@ -551,7 +553,6 @@ export const appHost = [
 ];
 
 const CONTRACTS_ONLY_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllowed: false };
-const SAVED_VIEW_PANEL_TEST_ENTRY = 'contracts/testing/saved-view-panels';
 
 /** @type {import('eslint').Linter.Config[]} */
 export const httpAdapter = [

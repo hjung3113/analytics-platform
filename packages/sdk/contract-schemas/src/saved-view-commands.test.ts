@@ -30,7 +30,7 @@ const declared = {
   outputs: [{ key: 'time.range', dimension: 'time', shape: 'range' }, { key: 'lots', dimension: 'lot', shape: 'set' }],
 };
 const chart = {
-  id: 'B', source: { kind: 'chart', config: { anything: ['goes', null], scope: 'all' } },
+  id: 'B', source: { kind: 'chart', config: { version: 1, kind: 'bar', x: { field: 'lot', type: 'category' }, measures: [{ field: 'count' }], orientation: 'horizontal' } },
   inputs: [{ key: 'period', mode: 'follow', from: 'A.time.range' }],
   outputs: [{ key: 'time', dimension: 'time', shape: 'range' }],
 };
@@ -83,13 +83,17 @@ describe('saved panel instances (#2760)', () => {
     expect(update(panels).success).toBe(true);
   });
 
-  it('preserves all JSON keys in opaque chart config', () => {
-    const draft = { ...menuDraft, panels: withChartConfig(JSON.parse('{"constructor": "kind", "nested": {"__proto__": {"enabled": true}}}')) };
-    expect(savedViewDraftSchema.parse(draft)).toEqual(draft);
+  it('refuses own "__proto__" and "constructor" keys in a closed chart config, like the SDK (#2745)', () => {
+    for (const extra of ['"constructor": "kind"', '"__proto__": {"enabled": true}']) {
+      const config = JSON.parse(`{"version": 1, "kind": "line", "x": {"field": "t", "type": "time"}, "measures": [{"field": "m"}], ${extra}}`);
+      const draft = { ...menuDraft, panels: withChartConfig(config) };
+      expect(savedViewDraftSchema.safeParse(draft).success, extra).toBe(false);
+      expect(validateSavedView(draft).ok, extra).toBe(false);
+    }
   });
 
   it('refuses sparse chart config arrays before serialization', () => {
-    const raw = withChartConfig({ values: Array(1) });
+    const raw = withChartConfig({ ...chart.source.config, measures: Array(1) });
     expect(validateSavedView({ ...menuDraft, panels: raw }).ok).toBe(false);
     expect(savedViewDraftSchema.safeParse({ ...menuDraft, panels: raw }).success).toBe(false);
     expect(readMenuViewPanels(raw)).toEqual({ status: 'legacy', reason: 'unreadable' });
@@ -337,12 +341,12 @@ describe('saved-view commands', () => {
   });
 
   it('transport bounds reject an SDK-valid draft with a recoverable invalid result (bytes)', () => {
-    const tooBig = { ...menuDraft, panels: withChartConfig({ text: 'x'.repeat(SAVED_VIEW_COMMAND_MAX_BYTES) }) };
+    const tooBig = { ...menuDraft, layout: { text: 'x'.repeat(SAVED_VIEW_COMMAND_MAX_BYTES) } };
     expect(validateSavedView(tooBig).ok).toBe(true);
     const result = parse(withDraft(tooBig));
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.message).toContain('bytes');
-    expect(parse(withDraft({ ...menuDraft, panels: withChartConfig({ text: 'x'.repeat(1000) }) })).success).toBe(true);
+    expect(parse(withDraft({ ...menuDraft, layout: { text: 'x'.repeat(1000) } })).success).toBe(true);
   });
 
   it('import: stable token, per-row legacy keys, defaults must point at rows, no foreign authority', () => {

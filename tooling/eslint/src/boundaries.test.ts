@@ -127,6 +127,8 @@ const rows: Row[] = [
   { file: 'packages/sdk/contract-schemas/src/x.test.ts', code: `import vocab from '@ap/contracts/vocab.json';`, rule: '' },
   { file: 'packages/sdk/contract-schemas/src/x.test.ts', code: `import { menuDeclarationSnapshot } from '@ap/contracts/build';`, rule: '' },
   { file: 'packages/sdk/contract-schemas/src/x.ts', code: `import { menuDeclarationSnapshot } from '@ap/contracts/build';`, rule: 'no-restricted-imports' },
+  { file: 'packages/sdk/contract-schemas/src/x.test.ts', code: `import { lineChartConfig } from '@ap/contracts/testing/saved-view-panels';`, rule: '' },
+  { file: 'packages/sdk/contract-schemas/src/x.ts', code: `import { lineChartConfig } from '@ap/contracts/testing/saved-view-panels';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/contract-schemas/src/x.test.ts', code: `import { x } from '@ap/kernel';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/contract-schemas/src/x.test.ts', code: `import { x } from '@ap/contracts/src/url';`, rule: 'no-restricted-imports' },
   { file: 'packages/sdk/ui/src/x.ts', code: `import { x } from '@ap/contracts';`, rule: 'no-restricted-imports' },
