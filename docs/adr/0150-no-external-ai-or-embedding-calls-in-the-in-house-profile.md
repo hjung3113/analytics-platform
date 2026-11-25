@@ -1,9 +1,9 @@
 # 사내 프로필에서는 외부 AI·임베딩 호출을 하지 않고, 시작 검사로 지킨다
 
-상태: **Decided (2026-11-11)** — 규칙. 시작 검사의 구현은 [#1705](https://github.com/hjung3113/analytics-platform/issues/1705)가 이어받는다.
+상태: **Decided (2026-11-11)** — 규칙. 시작 검사는 [#2981](https://github.com/hjung3113/analytics-platform/issues/2981)에서 구현됨(2026-11-25 소유자 결정).
 - 결정자: 사용자(소유자) — 2026-11-11, [#1700](https://github.com/hjung3113/analytics-platform/issues/1700) 보강 §3의 소유자 결정 13행 전부에 «추천대로». 이 ADR은 그중 10번이다.
 - Scope: [#1705](https://github.com/hjung3113/analytics-platform/issues/1705), [#1711](https://github.com/hjung3113/analytics-platform/issues/1711), [#1714](https://github.com/hjung3113/analytics-platform/issues/1714). 관련: [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) P4(외부 AI API 금지는 유지), [ADR-0125](0125-event-order-search-uses-structured-event-relation-records.md), [로그 지식 검색 설계](../design/features/log-knowledge-search/README.md) §9.
-- 구현 없음.
+- 구현: `apps/platform-api/src/config.ts`(`PLATFORM_IN_HOUSE`, `EMBEDDING_PROVIDER_REACH`, 시작 거부), `ops/platform-api/docker-compose.production.yml`(`PLATFORM_IN_HOUSE: "true"`), 시험 `apps/platform-api/src/__tests__/config-in-house.test.ts`.
 
 ## 맥락
 
@@ -12,7 +12,7 @@
 ## 결정
 
 1. **사내 프로필에서 플랫폼은 외부 AI·임베딩 공급자를 호출하지 않는다.** 외부 공급자란 요청 내용이 사내 밖의 서비스로 나가는 모든 호출이다.
-2. **시작 검사로 지킨다.** 코어 서버는 사내 프로필로 기동할 때 외부 공급자를 가리키는 설정(현재는 `EMBEDDING_PROVIDER=voyage`)을 보면 기동을 거부한다. 프로필의 이름과 검사 목록은 #1705가 정한다. 새 공급자 설정이 생기면 같은 목록에 넣는다.
+2. **시작 검사로 지킨다.** 코어 서버는 사내 프로필로 기동할 때 외부 공급자를 가리키는 설정(현재는 `EMBEDDING_PROVIDER=voyage`)을 보면 기동을 거부한다. 사내 프로필은 설정 `PLATFORM_IN_HOUSE=true`이고(운영 compose가 켠다), 검사 목록은 `EMBEDDING_PROVIDER_REACH`다. 새 공급자는 이 목록에 `external` 또는 `local`로 분류해야 컴파일된다.
 3. **공개 저장소의 기본값은 지금처럼 꺼짐이다.** 사내 프로필이 아닌 개발·시험 환경의 `fake` 공급자는 외부로 나가지 않으므로 허용한다.
 4. **사내 모델은 이 규칙의 대상이 아니다.** 사내에서 도는 모델은 [ADR-0095](0095-dual-backend-fastify-core-fastapi-analytics.md) P4가 따로 다룬다.
 
@@ -24,7 +24,7 @@
 
 ## Deferred (구현 안 함)
 
-- 사내 프로필의 정의와 시작 검사, 외부 공급자 목록. 이유: #1705(공개 CI 검사 / 사내 정책)가 소유한다. 다시 여는 조건: #1705 착수.
+- ~~사내 프로필의 정의와 시작 검사, 외부 공급자 목록.~~ 구현됨([#2981](https://github.com/hjung3113/analytics-platform/issues/2981)).
 - 사내 조립 저장소에서 외부 클라우드 코딩 에이전트·원격 LLM을 쓰는 문제(소유자 결정 9: 사내 규정 확인 전에는 쓰지 않는 것이 기본값). 이 ADR은 플랫폼의 런타임 호출만 정한다. 기본값 문장은 시작 키트 README에 넣는다([#1790](https://github.com/hjung3113/analytics-platform/issues/1790)).
 
 ## 결과

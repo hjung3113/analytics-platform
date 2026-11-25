@@ -227,6 +227,8 @@ services:
     stop_grace_period: 45s
     environment:
       NODE_ENV: production
+      # ADR-0150: an in-house install refuses to start with an external AI or embedding provider.
+      PLATFORM_IN_HOUSE: "true"
       HOST: 0.0.0.0
       PORT: 3001
       AUTH_PROVIDER: oidc
