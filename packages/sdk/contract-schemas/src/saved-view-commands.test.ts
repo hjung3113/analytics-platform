@@ -1,4 +1,4 @@
-import { isForbiddenSavedViewKey, validateSavedView } from '@ap/contracts';
+import { CUSTOM_GROUP_FIXED_MAX, PANEL_INSTANCES_MAX, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCE_TOKEN_MAX, isForbiddenSavedViewKey, readMenuViewPanels, validateSavedView } from '@ap/contracts';
 import type { ApprovalRequestInfo, GroupMember, Result, SavedViewEntry, SavedViewListItem, SavedViewStore, ViewGroupEntry } from '@ap/contracts';
 import { describe, expect, it } from 'vitest';
 import type { z } from 'zod/v4';
@@ -9,19 +9,148 @@ import {
   isForbiddenSavedViewWireKey,
   savedViewCommandSchema,
   savedViewDraftSchema,
+  savedViewPatchSchema,
   savedViewResponseSchemas,
 } from './index.ts';
 import type { SavedViewOp } from './index.ts';
 import { MAX_VIEW_TABLES, MAX_TABLE_KEY_LENGTH, MAX_GROUP_BASIS_LENGTH, MAX_COLUMN_GROUPS, MAX_GROUP_ID_LENGTH, MAX_GROUP_MEMBERS, MAX_GROUP_LABEL_LENGTH, MIN_GROUP_WIDTH } from '@ap/contracts';
-import { TABLE_VIEW_CAPS } from './saved-view-commands.ts';
+import {
+  CUSTOM_GROUP_FIXED_MAX as WIRE_CUSTOM_GROUP_FIXED_MAX,
+  PANEL_INSTANCES_MAX as WIRE_PANEL_INSTANCES_MAX,
+  PANEL_INSTANCE_INPUTS_MAX as WIRE_PANEL_INSTANCE_INPUTS_MAX,
+  PANEL_INSTANCE_TOKEN_MAX as WIRE_PANEL_INSTANCE_TOKEN_MAX,
+  TABLE_VIEW_CAPS,
+} from './saved-view-commands.ts';
 
 const V = { version: 1 } as const;
 const key = { menuId: 'm1' };
 const condDraft = { schemaVersion: 1, kind: 'condition-set', name: 'Set', context: { from: '2026-10-01T00:00:00', to: null, selection: ['a'], membershipBasis: null } };
+const declared = {
+  id: 'A', source: { kind: 'declared', panel: 'other-menu/panel' }, inputs: [],
+  outputs: [{ key: 'time.range', dimension: 'time', shape: 'range' }, { key: 'lots', dimension: 'lot', shape: 'set' }],
+};
+const chart = {
+  id: 'B', source: { kind: 'chart', config: { anything: ['goes', null], draftX: 1 } },
+  inputs: [{ key: 'period', mode: 'follow', from: 'A.time.range' }],
+  outputs: [{ key: 'time', dimension: 'time', shape: 'range' }],
+};
+const held = {
+  id: 'C', source: { kind: 'declared', panel: 'local' }, outputs: [],
+  inputs: [
+    { key: 'lots', mode: 'hold', from: 'A.lots', value: { shape: 'set', values: ['L1', 'L2'] } },
+    { key: 'period', mode: 'hold', from: 'B.time', value: { shape: 'range', from: '2026-11-25T00:00:00', to: '2026-11-26T00:00:00' } },
+  ],
+};
+const panels = { version: 1, instances: [declared, chart, held] };
 const menuDraft = {
   schemaVersion: 1, kind: 'menu-view', name: 'View', menuId: 'm1', menuSchemaVersion: 2,
-  context: { relativePeriod: { hours: 24 }, condition: { axis: ['x'] } }, page: { tab: ['a'] }, chartOptions: { stack: true }, layout: [], panels: { anything: 'goes', draftX: 1 },
+  context: { relativePeriod: { hours: 24 }, condition: { axis: ['x'] } }, page: { tab: ['a'] }, chartOptions: { stack: true }, layout: [], panels,
 };
+
+const withChartConfig = (config: unknown) => ({ ...panels, instances: [declared, { ...chart, source: { ...chart.source, config } }, held] });
+
+describe('saved panel instances (#2760)', () => {
+  const withB = (patch: Partial<typeof chart>) => ({ ...panels, instances: [declared, { ...chart, ...patch }, held] });
+  const withEdge = (from: string) => withB({ inputs: [{ ...chart.inputs[0]!, from }] });
+  const withSet = (values: string[]) => ({
+    ...panels, instances: [declared, chart, { ...held, inputs: [{ key: 'lots', from: 'A.lots', mode: 'hold', value: { shape: 'set', values } }] }],
+  });
+  const update = (raw: unknown) => savedViewCommandSchema.safeParse({ ...V, op: 'update', id: 'v1', expectedVersion: 1, patch: { panels: raw } });
+  const invalidPanels = (raw: unknown, message?: string) => {
+    const contract = validateSavedView({ ...menuDraft, panels: raw });
+    const wire = savedViewDraftSchema.safeParse({ ...menuDraft, panels: raw });
+    const patch = savedViewPatchSchema.safeParse({ panels: raw });
+    expect(contract.ok).toBe(false);
+    expect(wire.success).toBe(false);
+    expect(patch.success).toBe(false);
+    expect(update(raw).success).toBe(false);
+    if (message !== undefined) {
+      expect(contract).toMatchObject({ reason: 'invalid', detail: message });
+      expect(wire.error?.issues.map(issue => issue.message)).toContain(message);
+      expect(patch.error?.issues.map(issue => issue.message)).toContain(message);
+    }
+  };
+
+  it('pins matching validation limits', () => {
+    expect([WIRE_PANEL_INSTANCES_MAX, WIRE_PANEL_INSTANCE_INPUTS_MAX, WIRE_PANEL_INSTANCE_TOKEN_MAX, WIRE_CUSTOM_GROUP_FIXED_MAX])
+      .toEqual([PANEL_INSTANCES_MAX, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCE_TOKEN_MAX, CUSTOM_GROUP_FIXED_MAX]);
+  });
+
+  it('round-trips a declared range, a chart following it, and held set and range selections', () => {
+    const draft = { ...menuDraft, panels: JSON.parse(JSON.stringify(panels)) };
+    expect(validateSavedView(draft)).toEqual({ ok: true, value: menuDraft });
+    expect(savedViewDraftSchema.parse(draft)).toEqual(menuDraft);
+    expect(update(panels).success).toBe(true);
+  });
+
+  it('preserves all JSON keys in opaque chart config', () => {
+    const draft = { ...menuDraft, panels: withChartConfig(JSON.parse('{"constructor": "kind", "nested": {"__proto__": {"enabled": true}}}')) };
+    expect(savedViewDraftSchema.parse(draft)).toEqual(draft);
+  });
+
+  it('refuses sparse chart config arrays before serialization', () => {
+    const raw = withChartConfig({ values: Array(1) });
+    expect(validateSavedView({ ...menuDraft, panels: raw }).ok).toBe(false);
+    expect(savedViewDraftSchema.safeParse({ ...menuDraft, panels: raw }).success).toBe(false);
+    expect(readMenuViewPanels(raw)).toEqual({ status: 'legacy', reason: 'unreadable' });
+  });
+
+  it.each([
+    ['panels instance ids must be unique', { ...panels, instances: [declared, declared] }],
+    ['panels instance ids must not contain "."', withB({ id: 'B.child' })],
+    ['panels output keys must be unique per instance', withB({ outputs: [chart.outputs[0]!, chart.outputs[0]!] })],
+    ['panels input keys must be unique per instance', withB({ inputs: [chart.inputs[0]!, chart.inputs[0]!] })],
+    ['panels input from must name an existing instance output', withEdge('missing.time')],
+    ['panels input from must name an existing instance output', withEdge('A.missing')],
+    ['panels input from must name an existing instance output', withEdge('A')],
+    ['panels input from must not name its own instance', withEdge('B.time')],
+    ['panels connections must not contain a cycle', {
+      ...panels, instances: [{ ...declared, inputs: [{ key: 'time', from: 'B.time', mode: 'hold', value: { shape: 'range', from: 'start', to: 'end' } }] }, chart, held],
+    }],
+    ['panels held selection shape must match the referenced output', {
+      ...panels, instances: [declared, chart, { ...held, inputs: [{ ...held.inputs[0]!, from: 'A.time.range' }] }],
+    }],
+  ] as const)('rejects %s on save and update', (message, raw) => invalidPanels(raw, message));
+
+  it.each([
+    ['instances', { ...panels, instances: Array.from({ length: 25 }, (_, n) => ({ ...declared, id: String(n) })) }],
+    ['inputs', withB({ inputs: Array.from({ length: 17 }, (_, n) => ({ ...chart.inputs[0]!, key: String(n) })) })],
+    ['outputs', withB({ outputs: Array.from({ length: 17 }, (_, n) => ({ ...chart.outputs[0]!, key: String(n) })) })],
+    ['id length', withB({ id: 'x'.repeat(201) })],
+    ['input key length', withB({ inputs: [{ ...chart.inputs[0]!, key: 'x'.repeat(201) }] })],
+    ['output key length', withB({ outputs: [...chart.outputs, { key: 'x'.repeat(201), dimension: 'time', shape: 'range' }] })],
+    ['dimension length', withB({ outputs: [{ ...chart.outputs[0]!, dimension: 'x'.repeat(201) }] })],
+    ['source panel length', { ...panels, instances: [{ ...declared, source: { ...declared.source, panel: 'x'.repeat(201) } }, chart, held] }],
+    ['blank id', withB({ id: ' ' })],
+    ['blank input key', withB({ inputs: [{ ...chart.inputs[0]!, key: ' ' }] })],
+    ['blank output key', withB({ outputs: [...chart.outputs, { key: ' ', dimension: 'time', shape: 'range' }] })],
+    ['blank dimension', withB({ outputs: [{ ...chart.outputs[0]!, dimension: ' ', shape: 'range' }] })],
+    ['blank source panel', { ...panels, instances: [{ ...declared, source: { ...declared.source, panel: ' ' } }, chart, held] }],
+    ['oversized held set', withSet(Array.from({ length: 5_001 }, (_, n) => String(n)))],
+    ['empty held set', withSet([])],
+    ['duplicate held set values', withSet(['L1', 'L1'])],
+    ['blank held set value', withSet([' '])],
+    ['blank held range end', { ...panels, instances: [declared, chart, { ...held, inputs: [{ key: 'period', from: 'B.time', mode: 'hold', value: { shape: 'range', from: 'start', to: ' ' } }] }] }],
+    ['non-object chart config', withChartConfig([])],
+    ['legacy object', { anything: 'goes' }],
+    ['future version', { ...panels, version: 2 }],
+  ])('rejects invalid %s', (_name, raw) => invalidPanels(raw));
+
+  it('reads a valid configuration or the declared-panel default', () => {
+    expect(readMenuViewPanels(null)).toEqual({ status: 'default' });
+    expect(readMenuViewPanels(undefined)).toEqual({ status: 'default' });
+    expect(readMenuViewPanels(panels)).toEqual({ status: 'ok', panels });
+  });
+
+  it.each([[{ anything: 'goes' }], [[1]], ['x'], [{ ...panels, version: 2 }]])('reports unreadable legacy panels %j', raw => {
+    expect(readMenuViewPanels(raw)).toEqual({ status: 'legacy', reason: 'unreadable' });
+  });
+
+  it('reports a legacy value even when reading its properties throws', () => {
+    const raw = { get version() { throw new Error('unreadable'); } };
+    expect(readMenuViewPanels(raw)).toEqual({ status: 'legacy', reason: 'unreadable' });
+  });
+});
 
 describe('table view state (#2492)', () => {
   it('pins the schema cap copy to contracts', () => {
@@ -158,7 +287,7 @@ describe('saved-view commands', () => {
     expect(parse(withDraft({ ...condDraft, context: { condition: { axis: [] } } })).success).toBe(false);
   });
 
-  it('forbidden keys: same names as the SDK in chartOptions/layout, Scope-named keys allowed, panels opaque', () => {
+  it('forbidden keys: same names as the SDK in chartOptions/layout, Scope-named keys and opaque chart config keys allowed', () => {
     for (const k of ['hoverRow', 'zoomLevel', 'modalOpen', 'openModal', 'draftFilter', 'rows', 'rawData', 'engineState', 'dockLayout', 'scopeId', 'scope', 'rowsX', 'Rows']) {
       expect(isForbiddenSavedViewWireKey(k), k).toBe(isForbiddenSavedViewKey(k));
     }
@@ -186,7 +315,7 @@ describe('saved-view commands', () => {
 
   it('finite JSON only: non-finite numbers are refused', () => {
     expect(parse(withDraft({ ...menuDraft, layout: Number.NaN })).success).toBe(false);
-    expect(parse(withDraft({ ...menuDraft, panels: [Number.POSITIVE_INFINITY] })).success).toBe(false);
+    expect(parse(withDraft({ ...menuDraft, panels: withChartConfig({ value: Number.POSITIVE_INFINITY }) })).success).toBe(false);
   });
 
   it('transport bounds reject an SDK-valid draft with a recoverable invalid result (depth)', () => {
@@ -199,12 +328,12 @@ describe('saved-view commands', () => {
   });
 
   it('transport bounds reject an SDK-valid draft with a recoverable invalid result (bytes)', () => {
-    const tooBig = { ...menuDraft, panels: 'x'.repeat(SAVED_VIEW_COMMAND_MAX_BYTES) };
+    const tooBig = { ...menuDraft, panels: withChartConfig({ text: 'x'.repeat(SAVED_VIEW_COMMAND_MAX_BYTES) }) };
     expect(validateSavedView(tooBig).ok).toBe(true);
     const result = parse(withDraft(tooBig));
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.message).toContain('bytes');
-    expect(parse(withDraft({ ...menuDraft, panels: 'x'.repeat(1000) })).success).toBe(true);
+    expect(parse(withDraft({ ...menuDraft, panels: withChartConfig({ text: 'x'.repeat(1000) }) })).success).toBe(true);
   });
 
   it('import: stable token, per-row legacy keys, defaults must point at rows, no foreign authority', () => {

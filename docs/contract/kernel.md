@@ -663,14 +663,14 @@ Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산�
 | --- | --- |
 | 조건 세트 | 지원 Context(기간 규칙, 설비 Selection/Condition, `membershipBasis`, Line·PRC 그룹). 메뉴 사이에 재사용한다. 메뉴가 지원하지 않는 값은 §6.4대로 적용되지 않음을 표시한다. |
 | 메뉴 뷰의 표 상태(`tables`) | 메인 화면의 편집 가능한 표별 `preferenceKey` → `{ groups?: StoredColumnGroups }`. 보드 칸·조건 세트는 참여하지 않는다([ADR-0168](../adr/0168-saved-view-table-state.md)). |
-| 메뉴 뷰 | 한 메뉴의 적용 조건 + page-owned 키(필터·분석 표시) + 표 상태(`tables`) + 차트 옵션 + 배치 + 패널별 좁히기 설정(`panels`) + `schemaVersion`·메뉴 안정 ID·메뉴 스키마 버전. |
+| 메뉴 뷰 | 한 메뉴의 적용 조건 + page-owned 키(필터·분석 표시) + 표 상태(`tables`) + 차트 옵션 + 배치 + 패널 인스턴스 정의(`panels`, `MenuViewPanels` v1 또는 `null`=메뉴가 선언한 패널) + `schemaVersion`·메뉴 안정 ID·메뉴 스키마 버전. |
 
 `custom-group`은 한 Scope(`savedScopeId` 필수)의 조회 대상 묶음을 저장하는 세 번째 kind다. 구성원은 그 메뉴의 조회 대상 단위(HW Time은 설비)이고, 규칙은 어느 축으로든 쓸 수 있다. `target.rule`은 축 간 AND·축 안 OR 규칙이며 `customGroup` 중첩은 금지하고, `target.fixed`는 중복 없는 대상 ID 1~5,000개다(지금 구현은 설비 ID). 공개 대상은 나만(`private`) 또는 공유 그룹(`groups`)이며 공식 등급·승인·개인 기본이 없고 뷰로 복원하지 않는다. `{ menuId: null }` 목록은 계속 조건 세트만 반환하며 커스텀 조회 그룹은 `kind: 'custom-group'`을 명시해 읽는다([ADR-0164](https://github.com/hjung3113/analytics-platform/blob/main/docs/adr/0164-target-picker-dialog-and-custom-groups.md) 결정 6–8). 공유는 데이터 권한을 주지 않으며 소유자만 고치고 지운다.
 
 - 보드 시트는 메뉴 뷰 여러 개의 배치이며 새 형식이 없다. 패널은 따로 저장하지 않고 메뉴 뷰의 `panels`다.
 - 저장하지 않는 것: 일시 hover, 단순 chart zoom, 열린 modal, 미적용 draft. 원시 데이터와 엔진 raw JSON은 저장하지 않는다(엔진 중립 배치만). 이름 제한은 자유 형식 `chartOptions`·`layout`에 적용하며, 선언된 적용 page 키(`returnTo` 제외)와 Condition 축 ID는 이름과 관계없이 저장한다.
 - **저장 Scope (#2175):** 뷰는 내용 버전(현재/승인본, 공식 뷰의 대기 수정)마다 `savedScopeId`(저장한 Scope id, 1~200자)를 한 값으로 기록한다. 메타데이터이며 권한 입력도 감사 항목도 아니고(`scopeId`는 `context` 안에서 여전히 저장 불가 키다), `importLocal`은 만들지 않는다. 값이 없는 옛 뷰는 지금처럼 전부 적용한다. 현재 Scope가 기록과 다르면(현재 Scope 없음 포함) `SITE_BOUND_CONTEXT_KEYS`와 `membershipBasis`에 해당하는 저장 값(설비실·Line·PRC 그룹·Condition·Selection)은 적용하지 않고, 메뉴가 지원하지 않는 값 목록과 따로 «다른 Scope라 제외» 안내를 보인다. 제외 판정은 함수 하나(`siteBoundDropped`)이며 복원·안내·`수정됨`·`저장본으로 되돌리기`·Scope 전환이 같이 쓴다. Scope를 넘는 `현재 뷰에 저장`은 확인을 거치고(`새 뷰로 저장` 안내), 저장하면 기록을 현재 Scope로 바꾸며 다른 Scope의 Site-bound 값은 남기지 않는다.
-- **패널 좁히기**는 메뉴 Context를 좁히기만 한다(단계 자르기, 부분 선택, 메뉴 기간 안의 부분 구간). 메뉴 Context를 바꾸거나 넓히지 않는다. 좁힌 뒤 메뉴 조건이 바뀌어 범위 밖이 된 구성원은 교집합만 그리고 제외된 값과 사유를 보인다(0개면 빈 결과). 이 규칙은 패널 설정에만 적용되며 메뉴 전역 Selection을 자동 교집합으로 바꾸는 근거가 아니다(§6.4). 이번 단계는 `panels` 슬롯과 읽기 전용 요약만 두고 저장·복원은 #911 계약 뒤다.
+- **패널 좁히기**는 메뉴 Context를 좁히기만 한다(단계 자르기, 부분 선택, 메뉴 기간 안의 부분 구간). 메뉴 Context를 바꾸거나 넓히지 않는다. 좁힌 뒤 메뉴 조건이 바뀌어 범위 밖이 된 구성원은 교집합만 그리고 제외된 값과 사유를 보인다(0개면 빈 결과). 이 규칙은 패널 설정에만 적용되며 메뉴 전역 Selection을 자동 교집합으로 바꾸는 근거가 아니다(§6.4). `panels`는 패널 인스턴스 목록과 연결(따라가기·붙잡기)이며 `@ap/contract-schemas`의 `menuViewPanelsSchema`가 원천이다(상한 인스턴스 24개, 인스턴스당 입력·출력 각 16개). 형식이 맞지 않는 옛 값은 `readMenuViewPanels`가 `legacy`로 읽고 자동으로 다시 쓰지 않는다(#2760, [ADR-0176](../adr/0176-user-analysis-menu-one-definition-two-homes.md)).
 
 ### 21.2 소유·공유 (Decided)
 
