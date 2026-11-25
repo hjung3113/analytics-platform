@@ -37,17 +37,16 @@ export type ChartReferenceOptions = {
 type Theme = ReturnType<typeof chartTheme>;
 type MarkLine = NonNullable<ScatterSeriesOption['markLine']>;
 type MarkArea = NonNullable<ScatterSeriesOption['markArea']>;
-const BAND_OPACITY = 0.12;
 
 export function isFiniteReferenceMark(mark: ChartReferenceMark) {
   return mark.type === 'line' ? Number.isFinite(mark.value) : Number.isFinite(mark.from) && Number.isFinite(mark.to);
 }
 
-export function referenceValues(marks: readonly ChartReferenceMark[] | undefined, axis: ChartReferenceAxis): number[] {
-  return (marks ?? []).flatMap(mark => {
-    if (mark.axis !== axis) return [];
-    return mark.type === 'line' ? [mark.value] : [mark.from, mark.to];
-  });
+export function referenceValues(marks: readonly ChartReferenceMark[] | undefined, axis: ChartReferenceAxis, { whenBandDeclared = false } = {}): number[] {
+  const valid = (marks ?? []).filter(mark => mark.axis === axis && isFiniteReferenceMark(mark));
+  // Leave the legacy line-only extents intact on axes that opt in with a band.
+  if (whenBandDeclared && !valid.some(mark => mark.type === 'band')) return [];
+  return valid.flatMap(mark => mark.type === 'line' ? [mark.value] : [mark.from, mark.to]);
 }
 
 type FrameMarkLine = { y: number; label: string; unit?: string; metricVersion?: string };
@@ -88,12 +87,11 @@ export function referenceLineOption(theme: Theme, marks: readonly ChartReference
 }
 
 export function referenceBandData(theme: Theme, marks?: readonly ChartReferenceMark[]): NonNullable<MarkArea['data']> {
-  const color = theme.referenceLine.lineStyle.color;
   return (marks ?? []).flatMap(mark => {
     if (mark.type !== 'band') return [];
     const axis = mark.axis === 'x' ? 'xAxis' : 'yAxis';
     return [[{ name: mark.label, [axis]: Math.min(mark.from, mark.to),
-      itemStyle: { color, opacity: BAND_OPACITY }, label: { show: true, color } },
+      itemStyle: theme.referenceBand, label: { show: true, color: theme.referenceBand.color } },
     { [axis]: Math.max(mark.from, mark.to) }]];
   });
 }

@@ -29,6 +29,14 @@ async function table() {
 }
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 describe('Frame bounds and line status reading aids (#2333)', () => {
+  it('passes a declared population P95 statistic to the chart on the y-axis', async () => {
+    mount({ referenceMarks: [{ type: 'line', axis: 'y', value: 4, label: 'P95 4 s', kind: 'statistic' }] });
+    await screen.findByRole('img');
+    expect(plot.option.series).toContainEqual(expect.objectContaining({
+      markLine: expect.objectContaining({ data: [{ name: 'P95 4 s', yAxis: 4 }] }),
+    }));
+  });
+
   it('adds bounds to table, selector, summary and CSV with an empty missing side', async () => {
     mount({ bounds }); await screen.findByRole('img');
     expect(screen.getByRole('combobox', { name: '차트 지점 선택' })).toHaveTextContent('하한: 1 · 상한: 4');

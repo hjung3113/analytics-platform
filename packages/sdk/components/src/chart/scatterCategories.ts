@@ -6,12 +6,12 @@ import type { ScatterPoint, ScatterSpec } from './AnalysisChart';
 import { legendColor, type KindProjection } from './analysisChartKinds';
 import { rowKey } from './analysisChartShared';
 import { escapeHtml } from './chartText';
-import { BOUND_DASH, BOUND_OPACITY, boundColor, boundLabelsOf, normalizeBound, type Bound } from './chartBounds';
+import { BOUND_DASH, boundLabelsOf, normalizeBound, type Bound } from './chartBounds';
 import { referenceValues, scatterReferenceMarks } from './referenceMarks';
 import { chartDiagnostic } from './analysisChartData';
 import { groupedRowText, rowGroup, rowGroupLayout, rowLabel, type ChartRowGroups } from './chartRowGroups';
 import { distinctStatuses, statusBacking, statusBorderColor, statusFill, statusGlyph, statusKey, statusMarker, statusText } from './chartStatus';
-import { chartTheme, token } from './EChart';
+import { CHART_BAND_OPACITY, chartSegmentedBoundsTheme, chartTheme, token } from './EChart';
 import { QUIET_SCATTER } from './scatterDensity';
 import { helperSeriesId } from './helperSeriesId';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -115,7 +115,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
   const statuses = distinctStatuses(points.map(point => point.status));
   const m = (key: keyof typeof COMPONENTS_MESSAGES) => formatText(COMPONENTS_MESSAGES[key], lang);
   const labels = boundLabelsOf(categories?.boundLabels, lang);
-  const color = boundColor(chartTheme());
+  const color = chartSegmentedBoundsTheme().lineStyle.color;
   const formatBound = (value: number) => formatNumber(value, lang, { maximumFractionDigits: 1 });
   const upper = spans(cells?.bounds ?? [], 'upper');
   const lower = spans(cells?.bounds ?? [], 'lower');
@@ -123,7 +123,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
   const legend: KindProjection['legend'] = [...base.legend,
     ...(upper.length ? [{ label: labels.upper, color: { resolved: color }, symbol: 'line', dash: BOUND_DASH.upper.join(' ') }] : []),
     ...(lower.length ? [{ label: labels.lower, color: { resolved: color }, symbol: 'line', dash: BOUND_DASH.lower.join(' ') }] : []),
-    ...(bands.length ? [{ label: labels.band, color: { resolved: color }, symbol: 'rect', opacity: BOUND_OPACITY }] : []),
+    ...(bands.length ? [{ label: labels.band, color: { resolved: color }, symbol: 'rect', opacity: CHART_BAND_OPACITY }] : []),
     ...statuses.map(status => ({ label: status.label, color: 'chart-no-data-pattern' as const, symbol: 'status', status })),
   ];
   const headers = [...base.headers];
@@ -204,12 +204,14 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
         }),
       }));
       if (categories?.bounds && series.length) {
+        const boundTheme = chartSegmentedBoundsTheme();
+        const references = series[0].markLine;
         const lines = (segments: Span[], part: 'upper' | 'lower', dash: number[]): NonNullable<NonNullable<ScatterSeriesOption['markLine']>['data']> => segments.map(span => [
-          { name: labels[part], coord: [span.start - HALF_CELL, span[part]!], lineStyle: { ...theme.referenceLine.lineStyle, color: boundColor(theme), type: dash }, label: { show: false } },
+          { name: labels[part], coord: [span.start - HALF_CELL, span[part]!], lineStyle: { ...boundTheme.lineStyle, type: dash }, label: { show: false } },
           { coord: [span.end + HALF_CELL, span[part]!] },
         ]);
-        series[0].markLine = { ...theme.referenceLine, ...series[0].markLine, data: [...(series[0].markLine?.data ?? []), ...lines(upper, 'upper', BOUND_DASH.upper), ...lines(lower, 'lower', BOUND_DASH.lower)] };
-        series[0].markArea = { silent: true, itemStyle: { color: boundColor(theme), opacity: BOUND_OPACITY }, label: { show: false }, data: [
+        series[0].markLine = { ...boundTheme, ...(references?.data?.length ? references : {}), data: [...(references?.data ?? []), ...lines(upper, 'upper', BOUND_DASH.upper), ...lines(lower, 'lower', BOUND_DASH.lower)] };
+        series[0].markArea = { silent: true, itemStyle: { color: boundTheme.lineStyle.color, opacity: CHART_BAND_OPACITY }, label: { show: false }, data: [
           ...bands.map((span): [{ coord: number[] }, { coord: number[] }] => [
             { coord: [span.start - HALF_CELL, span.lower!] }, { coord: [span.end + HALF_CELL, span.upper!] },
           ]),

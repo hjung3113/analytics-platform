@@ -139,6 +139,7 @@ export function boxPlotData(spec: BoxPlotSpec, lang: Lang, unit: string): KindPr
   const medianGroups = groups.flatMap((g, i) => g.stats ? [i] : []);
   const unknownGroups = groups.flatMap((g, i) => g.stats ? [] : [i]);
   const marks = (spec.referenceMarks ?? spec.referenceLines?.map<ChartReferenceMark>(line => ({ ...line, type: 'line', axis: 'y' })))?.filter(isFiniteReferenceMark);
+  const yReferences = referenceValues(marks, 'y', { whenBandDeclared: true });
   return {
     rows, total: 0, empty: !groups.some(g => g.stats),
     headers, tableValues,
@@ -159,7 +160,12 @@ export function boxPlotData(spec: BoxPlotSpec, lang: Lang, unit: string): KindPr
         grid: { top: 24, bottom: 24, left: 24, right: 24, containLabel: true },
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { seriesIndex: number; dataIndex: number }) => { const index = p.seriesIndex === 1 ? outliers[p.dataIndex]?.group : p.seriesIndex === 2 ? medianGroups[p.dataIndex] : p.dataIndex; return index === undefined ? '' : tableValues[index].map((value, i) => `${headers[i]}: ${value}`).join(' · '); } },
         xAxis: { type: 'category', data: groups.map(g => g.label), axisLine: theme.axisLine, axisLabel: theme.axisLabel },
-        yAxis: [{ type: 'value', name: unit, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine }, { type: 'value', show: false, min: 0, max: 1 }],
+        yAxis: [{ type: 'value', name: unit, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine,
+          ...(yReferences.length ? {
+            min: (extent: { min: number }) => Math.min(0, extent.min, ...yReferences),
+            max: (extent: { max: number }) => Math.max(0, extent.max, ...yReferences),
+          } : {}),
+        }, { type: 'value', show: false, min: 0, max: 1 }],
         series: [
           { type: 'boxplot', boxWidth: [24, 24], itemStyle: { borderColor: token(strokeToken(fills[0])) },
             markLine: referenceLineOption(theme, marks),

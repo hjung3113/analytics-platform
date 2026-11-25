@@ -23,6 +23,8 @@ const chartThemeTokens = {
   tooltipBorder: 'border-subtle',
   tooltipText: 'text-primary',
   referenceText: 'text-secondary',
+  referenceBand: 'text-secondary',
+  segmentedBounds: 'text-secondary',
 } as const satisfies Record<string, ThemeColorToken>;
 /* eslint-enable shadcn/no-raw-colors */
 
@@ -42,14 +44,24 @@ export function strokeToken(name: ThemeColorToken): ThemeColorToken {
   return strokeAliases[name] ?? name;
 }
 
-/** Reference-line defaults and the established chart-specific label placements. */
-export const chartReferenceLineTheme = {
-  base: (color: string) => ({
+export const CHART_BAND_OPACITY = 0.12;
+
+function dashedLineDefaults(color: string) {
+  return {
     silent: true,
     symbol: 'none',
     lineStyle: { color, type: 'dashed' },
     label: { formatter: '{b}', fontSize: 10, color, position: 'insideEndTop' },
-  } as const),
+  } as const;
+}
+
+export function chartSegmentedBoundsTheme() {
+  return dashedLineDefaults(token(chartThemeTokens.segmentedBounds));
+}
+
+/** Reference-line defaults and the established chart-specific label placements. */
+export const chartReferenceLineTheme = {
+  base: dashedLineDefaults,
   scatterXLabel: { position: 'end' as const, rotate: 0, offset: [0, 8], verticalAlign: 'top' as const },
   // Point labels toward the plot's middle to keep the outermost labels inside.
   histogramXLabel: (position: 'insideEndTop', color: string, label: string, leftHalf: boolean) => ({
@@ -73,6 +85,7 @@ export function chartTheme() {
       textStyle: { color: token(chartThemeTokens.tooltipText) },
     },
     referenceLine: chartReferenceLineTheme.base(referenceText),
+    referenceBand: { color: token(chartThemeTokens.referenceBand), opacity: CHART_BAND_OPACITY },
   } as const;
 }
 

@@ -61,6 +61,7 @@ export function buildHistogramOption({ spec, bins, rows, countLabel, selectedKey
   });
   let min = bins[0]?.start ?? 0; let max = bins.at(-1)?.end ?? 1;
   for (const value of referenceValues(references, 'x')) { min = Math.min(min, value); max = Math.max(max, value); }
+  const yReferences = referenceValues(references, 'y', { whenBandDeclared: true });
   const bands = referenceBandData(theme, references);
   const statusPeaks: number[] = [];
   for (const [i, bin] of bins.entries()) {
@@ -81,7 +82,9 @@ export function buildHistogramOption({ spec, bins, rows, countLabel, selectedKey
     } },
     xAxis: { type: 'value', min, max, name: `${spec.xLabel} (${spec.xUnit})`, nameLocation: 'middle', nameGap: 32,
       splitNumber: DEFAULT_TICKS, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, hideOverlap: true }, splitLine: { show: false } },
-    yAxis: { type: 'value', min: 0, minInterval: 1, name: countLabel, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
+    yAxis: { type: 'value', min: Math.min(0, ...yReferences),
+      ...(yReferences.length ? { max: (extent: { max: number }) => Math.max(extent.max, ...yReferences) } : {}),
+      minInterval: 1, name: countLabel, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
     series: [
       { type: 'custom', clip: true, emphasis: { disabled: true }, encode: { x: [0, 1], y: 2 },
         renderItem: (params: { dataIndex: number }, api: { value: (dimension: number) => unknown; coord: (point: unknown[]) => number[]; visual: (key: string) => string }) => {
@@ -361,8 +364,10 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const remainderFill = other ? token(REMAINDER_COLOR) : undefined;
   const active = horizontal && i.activeCategory !== other?.key ? i.activeCategory ?? null : null;
   const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
-  const references = lanes || i.percent ? {} : referenceMarkOptions(theme,
-    i.referenceMarks ?? frameReferenceLines(i.markLines ?? [], horizontal ? 'x' : 'y'));
+  const valueAxisDirection = horizontal ? 'x' : 'y';
+  const marks = lanes || i.percent ? undefined : i.referenceMarks ?? frameReferenceLines(i.markLines ?? [], valueAxisDirection);
+  const references = referenceMarkOptions(theme, marks);
+  const valueReferences = referenceValues(marks, valueAxisDirection, { whenBandDeclared: true });
   const selectedPoints = new Set(i.selectedPointKeys);
   const highlightedValues = new Set(i.highlightedValues);
   const highlightedBarBorders = new Map<string, number>();
@@ -375,7 +380,8 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   }
   // A signed raw fallback must leave room for the negative side of the stack.
   const valueMin = i.negativeShares ? undefined : 0;
-  const horizontalMin = markMin < 0 ? (extent: { min: number }) => Math.min(extent.min, markMin) : valueMin;
+  const horizontalMin = markMin < 0 || valueReferences.length
+    ? (extent: { min: number }) => Math.min(extent.min, markMin, ...valueReferences) : valueMin;
   const bounds = projectChartBounds(i);
   const chips = !!i.extremes?.size && horizontal;
   const segments = !chips && horizontal && !!i.stacked && i.displayed.length > 1 && (i.valueLabels === 'segment' || i.valueLabels === 'both');
@@ -486,8 +492,12 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const areaLine = !horizontal && i.displayed.length === 1 && (i.displayed[0].kind ?? 'line') === 'line' && linePattern(i.displayed[0], i.previousIds.has(i.displayed[0].id)) === 'solid';
   /** Value labels inside a bar piece: the text token that reads on that fill, on a surface chip when the fill is outside the checked set. */
   const insideLabel = (n: number) => insideLabelStyle(palette.segmentText[n], palette.labelSurface);
+  const boundExtent = bounds?.extent;
   const valueAxis = { type: 'value', ...(fitY ? { scale: true } : { min: valueMin }), ...shareAxis, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine,
-    ...(bounds?.extent ? { min: (extent: { min: number }) => Math.min(fitY ? extent.min : 0, extent.min, bounds.extent!.min), max: (extent: { max: number }) => Math.max(extent.max, bounds.extent!.max) } : {}),
+    ...(boundExtent || valueReferences.length ? {
+      min: (extent: { min: number }) => Math.min(fitY ? extent.min : 0, extent.min, boundExtent?.min ?? Infinity, ...valueReferences),
+      max: (extent: { max: number }) => Math.max(extent.max, boundExtent?.max ?? -Infinity, ...valueReferences),
+    } : {}),
   };
   const option = {
     // Row-pitch mode: no containLabel, so the category band is exactly height - top - bottom = rows × pitch and row i starts at top + i × pitch (the reveal maths relies on it).
@@ -501,7 +511,9 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     },
     // Lane mode: ticks sit at scale intervals and cannot mark lane starts, so the numbers and the unit go; lane names are drawn by the overlay's markLine.
     xAxis: lanes ? { type: 'value', min: 0, max: lanes.span || undefined, axisLabel: { show: false }, axisTick: { show: false }, splitLine: { show: false } }
-      : horizontal ? { type: 'value', min: horizontalMin, ...shareAxis, name: i.unit, splitLine: theme.splitLine, ...valueAxisTicks } : xType === 'time'
+      : horizontal ? { type: 'value', min: horizontalMin,
+        ...(valueReferences.length ? { max: (extent: { max: number }) => Math.max(extent.max, ...valueReferences) } : {}),
+        ...shareAxis, name: i.unit, splitLine: theme.splitLine, ...valueAxisTicks } : xType === 'time'
       ? { type: 'time', axisLine: theme.axisLine, splitLine: { show: false }, ...timeAxisTicks(i.displayed, i.zoom, plotWidth) }
       : { type: 'category', data: categories, axisLine: theme.axisLine, axisTick: { alignWithLabel: true }, ...(other ? { axisLabel: { formatter: axisLabel } } : {}) },
     yAxis: horizontal ? { type: 'category', data: categories, inverse: true, axisLine: theme.axisLine, axisLabel: { interval: i.rowPitch !== undefined ? 0 : 'auto', ...(i.rowPitch !== undefined ? { width: rowGutter - 12, overflow: 'truncate', ellipsis: '…' } : {}), ...(groups ? { formatter: (v: string) => (v === active ? `{active|${axisLabel(v)}}` : axisLabel(v)), width: groupLayout!.rowWidth - 12, overflow: 'truncate', rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : active ? { formatter: (v: string) => (v === active ? `{active|${axisLabel(v)}}` : axisLabel(v)), rich: { active: { fontWeight: 'bold', color: theme.axisLabel.color } } } : other ? { formatter: axisLabel } : {}) }, axisTick: { alignWithLabel: true } } : i.rightAxis ? [valueAxis, rightValueAxis(i.rightAxis)] : valueAxis,
@@ -596,7 +608,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       }),
       ...barStatusBackingSeries(i, statuses, lanes, highlightedValues, highlightedBarBorders, takenSeriesIds),
       ...lineStatusSeries(i, statuses, highlightedValues, takenSeriesIds),
-      ...(bounds ? boundSeries(bounds, palette, takenSeriesIds) : []),
+      ...(bounds ? boundSeries(bounds, takenSeriesIds) : []),
       ...(totalTexts ? [totalSeries(totalTexts)] : []),
       ...(categoryMarkSeries ? [categoryMarkSeries] : []),
       ...(emptyLabels?.size ? [emptyCategorySeries(categories, emptyLabels, theme.axisLabel.color)] : []),

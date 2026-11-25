@@ -11,6 +11,8 @@ import { installWorkspaceGeometry } from './workspaceTestSupport';
 import { groupId, menuPermission, spaceId, type ApiResponse, type MenuQuery, type PlatformAdapter } from '@ap/contracts';
 import { TEST_AXES } from '../test-axes';
 
+const chartCanvas = await vi.hoisted(async () => (await import('@ap/components/testing/engines')).mockEchartsCanvas());
+
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 let restoreGeometry = () => {};
 beforeAll(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); restoreGeometry = installWorkspaceGeometry(); });
@@ -43,6 +45,35 @@ function renderPage(path: string) {
   window.history.replaceState(null, '', path);
   render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
 }
+
+it('renders the population P95 as a reference line on the trend y-axis', async () => {
+  const menuQuery = vi.spyOn(adapter, 'menuQuery').mockImplementation(async request => request.endpoint.endsWith('.trend')
+    ? { ...empty, outcome: 'ok', assessments: [
+      { kind: 'collection', state: 'clear' }, { kind: 'processing_delay', state: 'clear' }, { kind: 'coverage', state: 'clear' },
+    ], data: { count: 10, populationP95: 3.5,
+      current: { p50: [['2026-09-26T01:00:00', 1]], p95: [['2026-09-26T01:00:00', 4]] },
+      previous: { p50: [], p95: [] } } }
+    : empty);
+  const url = window.location.href;
+  chartCanvas.options.length = 0;
+  const storage = memoryStorage();
+  storage.setItem('platform:page-head-collapsed:cycle-time', 'false');
+  vi.stubGlobal('localStorage', storage);
+  vi.stubGlobal('sessionStorage', memoryStorage());
+  try {
+    renderPage('/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00');
+    await waitFor(() => expect(chartCanvas.options).toContainEqual(expect.objectContaining({
+      series: expect.arrayContaining([expect.objectContaining({
+        markLine: expect.objectContaining({ data: [{ name: 'P95 3.5', yAxis: 3.5 }] }),
+      })]),
+    })), { timeout: 8000 });
+  } finally {
+    cleanup();
+    menuQuery.mockRestore();
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, '', url);
+  }
+}, 10_000);
 
 it('declares icons for the summary, distribution and slow workspace panels (#2435)', async () => {
   const components = await import('@ap/components');
