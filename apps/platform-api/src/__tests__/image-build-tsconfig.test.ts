@@ -16,14 +16,35 @@ const TESTS = 'apps/platform-api/tsconfig.platform-tests.json include';
 
 type Sources = { buildExclude: readonly string[]; testsInclude: readonly string[]; files: ReadonlyMap<string, string> };
 
-/** The sources of every `COPY` from the build context, in shell or JSON form; a `COPY` this cannot read throws instead of being skipped. */
+/**
+ * The context sources the image's API compile sees: every `COPY`/`ADD` in the stage that runs `@ap/platform-api run build`
+ * and in the stages it is built `FROM`. Instructions are case-insensitive and may be indented or continued with `\`;
+ * options come before the operands in any order, and a copy `--from` another stage or image is not from the context.
+ * A copy this cannot read throws instead of being skipped.
+ */
 function copySources(dockerfile: string): string[] {
-  return dockerfile.split('\n').filter(line => /^COPY\s/.test(line)).flatMap(line => {
-    const args = line.replace(/^COPY\s+/, '').trim();
-    if (args.startsWith('--from=')) return []; // another stage, not the build context
-    const parts = args.startsWith('[') ? (JSON.parse(args) as unknown) : args.split(/\s+/);
-    if (!Array.isArray(parts) || parts.length < 2 || !parts.every(part => typeof part === 'string')) throw new Error(`Dockerfile: cannot read «${line}»`);
-    return (parts as string[]).slice(0, -1).map(source => source.replace(/\/$/, ''));
+  const lines = dockerfile.replace(/\\\r?\n/g, ' ').split(/\r?\n/).map(line => line.trim()).filter(line => line !== '' && !line.startsWith('#'));
+  const stages: { name: string | null; base: string; lines: string[] }[] = [];
+  for (const line of lines) {
+    const from = /^FROM\s+(?:--\S+\s+)*(\S+)(?:\s+AS\s+(\S+))?\s*$/i.exec(line);
+    if (from) stages.push({ base: from[1] ?? '', name: from[2]?.toLowerCase() ?? null, lines: [] });
+    else stages.at(-1)?.lines.push(line);
+  }
+  const target = stages.find(stage => stage.lines.some(line => /^RUN\s/i.test(line) && line.includes('@ap/platform-api run build')));
+  if (!target) throw new Error('Dockerfile: no stage runs `pnpm --filter @ap/platform-api run build`');
+  const chain: typeof stages = [];
+  for (let stage: (typeof stages)[number] | undefined = target; stage && !chain.includes(stage); stage = stages.find(other => other.name === stage?.base.toLowerCase())) chain.push(stage);
+  return chain.flatMap(stage => stage.lines).flatMap(line => {
+    const copy = /^(?:COPY|ADD)\s+(.*)$/i.exec(line);
+    if (!copy) return [];
+    let rest = copy[1] ?? '';
+    const options: string[] = [];
+    for (let option = /^(--\S+)\s+/.exec(rest); option; option = /^(--\S+)\s+/.exec(rest)) { options.push(option[1] ?? ''); rest = rest.slice(option[0].length); }
+    if (options.some(option => /^--from(=|$)/.test(option))) return [];
+    let parts: unknown;
+    try { parts = rest.startsWith('[') ? JSON.parse(rest) : rest.split(/\s+/); } catch { parts = null; }
+    if (!Array.isArray(parts) || parts.length < 2 || !parts.every(part => typeof part === 'string' && part !== '')) throw new Error(`Dockerfile: cannot read «${line}»`);
+    return (parts as string[]).slice(0, -1).map(source => source.replace(/^\.\//, '').replace(/\/$/, ''));
   });
 }
 
@@ -106,6 +127,20 @@ describe('image build tsconfig (#3015)', () => {
     expect(dockerfile).toContain(line);
     expect(manifestOnlyPackages(dockerfile.replace(line, `COPY ["${http}/package.json", "./${http}/package.json"]`), dependencies)).toEqual(packages);
     expect(() => manifestOnlyPackages(dockerfile.replace(line, ''), dependencies)).toThrow(/@ap\/http-adapter/);
+  });
+
+  it('counts only context copies of the stage that compiles the API, whatever the option order', () => {
+    const http = dependencies.get('@ap/http-adapter');
+    const line = `COPY ${http}/package.json ./${http}/package.json`;
+    const withOptions = `  copy --chown=0:0 --link ["${http}/package.json", "./${http}/package.json"]`;
+    expect(manifestOnlyPackages(dockerfile.replace(line, withOptions), dependencies)).toEqual(packages);
+    const fromStage = `${line}\nCOPY --chown=0:0 --from=seed ${http} /probe/`;
+    expect(manifestOnlyPackages(dockerfile.replace(line, fromStage), dependencies)).toContain('@ap/http-adapter');
+    const otherStage = `${dockerfile}\nFROM scratch AS inventory\nCOPY ${http} /inventory/http-adapter/\n`;
+    expect(manifestOnlyPackages(otherStage, dependencies)).toContain('@ap/http-adapter');
+    for (const unreadable of ['COPY ["only-one"]', '  copy ["only-one"]', 'COPY --chown=0:0 ["only-one"]', 'COPY [not json']) {
+      expect(() => manifestOnlyPackages(dockerfile.replace(line, unreadable), dependencies)).toThrow(/cannot read/);
+    }
   });
 
   it('reads the specifiers the compiler resolves and ignores comments', () => {
