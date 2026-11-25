@@ -87,6 +87,7 @@
 | 15 | [design/multi-workspace-ui.md](design/multi-workspace-ui.md) |
 | 16 | [design/analysis-board.md](design/analysis-board.md) |
 | 17 | [product/platform-requirements.md](product/platform-requirements.md) |
+| 18 | [design/user-analysis-menu-direction.md](design/user-analysis-menu-direction.md) |
 
 ## 문서 목록
 
@@ -101,6 +102,7 @@
 - [05 결정 상태](overview/roadmap-and-open-questions.md) — ADR 없는 계약 결정 목록, MVP 지원 환경, 메뉴 활용률 계측 정책.
 - [기대 동작표](product/expected-behavior/README.md) — 전수 점검의 대상, 점검 방법, 공통 기대, 통과·결함·심각도 기준, 검증 분담(ADR-0136).
 - [17 플랫폼 요구사항](product/platform-requirements.md) — 플랫폼이 제공해야 하는 기능 전체(된 것·만들 것)를 사용자·운영자·개발자 언어로 모은 요구 목록과 상태. 소개 사이트(#468)의 근거. Candidate.
+- [18 사용자 분석 메뉴 방향](design/user-analysis-menu-direction.md) — 패널 조합 → 저장 → 공유로 가는 제품 방향, 하지 않는 것, 0~5단계와 미결 항목(#2906, ADR-0176).
 - [06 플랫폼 UI 계약](contract/platform-ui-contract.md)(색인; 절은 갈래별 문서에 있고 §번호는 그대로) — Platform Kernel, Menu Registry, Context Capability, Shell Slot, Page Archetype, 공통 컴포넌트 승격 기준, Data Trust·권한·상태 UX, navigation IA. **전역 계약의 원본.**
 - [07 App Shell](design/app-shell.md) — 셸 구조(ADR-0011·0013·0015로 Decided)와 IA.
 - [첫 메뉴 화면 만들기](guides/first-menu-screen.md) — 메뉴 그룹 행 추가 → `pnpm gen:menu` → 검사 → 화면 확인까지 따라 하는 글(#1603). 서버 실행은 [배포판 실행 안내](../ops/platform-api/docs/release/run-guide.md)(#1606).

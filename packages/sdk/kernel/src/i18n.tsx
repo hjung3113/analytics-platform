@@ -113,6 +113,8 @@ const dict = {
   back: { ko: '뒤로', en: 'Back' },
   returnContextReverted: { ko: '출발 화면의 Context로 돌아왔습니다. 상세에서 바꾼 항목을 되돌렸습니다: {items}', en: 'Returned to the starting context. Reverted: {items}.' },
   returnRowBack: { ko: '← {menu}로 돌아가기', en: '← Back to {menu}' },
+  returnRowPrevious: { ko: '← 이전 화면으로 돌아가기', en: '← Back to previous screen' },
+  returnLinkPrevious: { ko: '← 이전 화면', en: '← Previous screen' },
   returnRowFrom: { ko: '{system}에서 왔습니다', en: 'From {system}' },
   retry: { ko: '다시 시도', en: 'Retry' },
   loading: { ko: '불러오는 중…', en: 'Loading…' },

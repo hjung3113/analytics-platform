@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { evidence, signInAs } from './support';
 
 const model = '00000003-0000-4000-8000-000000000008';

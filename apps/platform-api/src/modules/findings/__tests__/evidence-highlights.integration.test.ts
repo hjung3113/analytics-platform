@@ -24,6 +24,7 @@ import {
   revokeCapabilityGrant,
   seedPermissionSelectedReadScale,
 } from '../../../test-support/permissions-fixtures.js';
+import { recordStatements } from '../../../test-support/statement-recorder.js';
 import { cleanupReadTestTables, insertVocDirectly } from '../../../test-support/voc-fixtures.js';
 import { insertFindingRow } from './_seed-helpers.js';
 
@@ -765,6 +766,74 @@ describe.skipIf(!runIntegration)('Evidence Highlights backend (#124)', () => {
       page: { has_more: false },
     });
     expect((await inventoryDetail(cookie, hidden.json().id)).statusCode).toBe(200);
+  });
+
+  it('keeps five-system Developer inventory and cursor while reading Finding grants once per batch', async () => {
+    const sources = await Promise.all(Array.from({ length: 5 }, (_, i) => seedSource(`inventory-query-count-${i}`)));
+    const dev = await insertDevActor(dbHandle, WORKSPACE_ID, uid(SLUG_PREFIX));
+    const ids: string[] = [];
+    for (const [index, source] of sources.entries()) {
+      const finding = await seedFinding({
+        managedSystemId: source.msId,
+        sourceVocId: source.vocId,
+        ...(index === 4 ? { title: 'inventory-count quote' } : {}),
+      });
+      const highlightId = randomUUID();
+      ids.push(highlightId);
+      await migrateHandle.pool.query(
+        `insert into finding.evidence_highlights (id,workspace_id,finding_id,primary_managed_system_id,
+          source_type,source_id,quote_or_summary,created_by,created_at)
+         values ($1,$2,$3,$4,$5,$6,'inventory-count quote',$7,$8)`,
+        [highlightId, WORKSPACE_ID, finding.id, source.msId, index === 4 ? 'voc' : 'note',
+          index === 4 ? source.vocId : null, adminActorId, `2026-10-13T00:00:0${index}.000Z`],
+      );
+      if (index === 1) await migrateHandle.pool.query(
+        `insert into finding.evidence_highlights (workspace_id,finding_id,primary_managed_system_id,
+           source_type,quote_or_summary,created_by,created_at)
+         select $1,$2,$3,'note','nonmatching filler',$4,'2026-10-14T00:00:00Z'
+         from generate_series(1,100)`,
+        [WORKSPACE_ID, finding.id, source.msId, adminActorId],
+      );
+      if (index > 0) await grantCapability(dbHandle, WORKSPACE_ID, dev.id, 'finding.read', source.msId, adminActorId);
+      if (index === 3) await denyCapability(migrateHandle, WORKSPACE_ID, dev.id, 'finding.read', source.msId, adminActorId);
+    }
+    const cookie = await loginAs(app, dev.externalId);
+    const recorder = recordStatements(dbHandle);
+    const { result: first, statements } = await recorder.capture(() => inventory(cookie, '?q=inventory-count+quote&limit=1'));
+    expect(first.statusCode).toBe(200);
+    const page = listEvidenceInventoryResponseSchema.parse(first.json());
+    expect(page.items.map(({ id, content_state }) => ({ id, content_state }))).toEqual([
+      { id: ids[4], content_state: 'withheld' },
+    ]);
+    expect(page.page).toEqual({
+      has_more: true,
+      cursor: Buffer.from(JSON.stringify({
+        workspace: WORKSPACE_ID, actor: dev.id, scope: 'all', source: 'all', q: 'inventory-count quote',
+        id: ids[4], timestamp: '2026-10-13T00:00:04+00:00',
+      })).toString('base64url'),
+    });
+    const next = await inventory(cookie, `?q=inventory-count+quote&limit=5&cursor=${page.page.cursor}`);
+    expect(next.statusCode).toBe(200);
+    expect(listEvidenceInventoryResponseSchema.parse(next.json()).items.map(({ id, content_state }) =>
+      ({ id, content_state }),
+    )).toEqual([
+      { id: ids[2], content_state: 'available' },
+      { id: ids[1], content_state: 'available' },
+    ]);
+    const batches: Array<typeof statements> = [];
+    for (const statement of statements) {
+      if (statement.text === 'begin') batches.push([]);
+      const batch = batches.at(-1);
+      if (batch && batch.at(-1)?.text !== 'commit') batch.push(statement);
+    }
+    expect(batches.length).toBeGreaterThanOrEqual(2);
+    for (const batch of batches) {
+      expect(batch.at(-1)?.text).toBe('commit');
+      const checks = batch.filter(({ params }) => params.includes('finding.read'));
+      expect(checks.filter(({ text }) => text.includes('permission_denies'))).toHaveLength(1);
+      expect(checks.filter(({ text }) => text.includes('permission_grants'))).toHaveLength(1);
+      console.info('inventory batch SQL', batch.length - 2, 'Finding', checks.length);
+    }
   });
 
   it('inventory blocks a User even with a Finding grant and validates selected reads', async () => {

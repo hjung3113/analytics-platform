@@ -180,6 +180,41 @@ it('keeps the writerless arrival first, preserves its clear action and links to 
   expect(window.location.search).toBe('?v=1&equip=E2');
 });
 
+it('names the recorded source menu in the arrival chip and its return link', async () => {
+  const arrival = { href: '/?v=1&equip=E2', origin: { menuLabel: { ko: 'HW Time', en: 'HW Time' } } };
+  await mountSelections('', undefined, undefined, content => {
+    vi.mocked(useAnalysisSelectionChips).mockReturnValue({ chips: [{ ...time, source: undefined, arrival }], clear, clearAll });
+    return content;
+  });
+  expect(zone().getByText('HW Time에서:')).toBeVisible();
+  expect(zone().getByRole('link', { name: 'HW Time로 돌아가기 (선택 유지)' })).toHaveAttribute('href', arrival.href);
+});
+
+it.each([false, true])('shows the not-applied status only without a reader (hasReader=%s)', async hasReader => {
+  const actual = await vi.importActual<typeof import('@ap/kernel')>('@ap/kernel');
+  vi.mocked(useAnalysisSelectionChips).mockImplementation(actual.useAnalysisSelectionChips);
+  const title = { ko: '시간', en: 'Time' };
+  const group = groupId('overview');
+  const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: group, label: title, icon: House, space: spaceId('mars') }],
+    menus: [{ id: 'home', path: '/', primary: true, group, label: title, description: title, icon: House,
+      permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'overview', features: NO_FEATURES,
+      pageKeys: ['days'], contextResetKeys: ['days'],
+      analysisSelectionInbound: [{ key: 'days', label: title, shape: 'range', dimension: 'time' }],
+      panels: hasReader ? [{ id: 'reader', title, grain: 'daily', endpoints: [], outputs: [], displayInputs: {},
+        queryInputs: { page: [{ key: 'days', selection: 'filter' }] } }] : [],
+    }] });
+  window.history.replaceState(null, '', '/?v=1&days=14:00/16:00');
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })}><AnalysisSelectionChipZone /></PlatformProvider></I18nProvider>);
+  if (hasReader) {
+    expect(zone().getByText('시간 14:00 – 16:00')).toBeVisible();
+    expect(zone().queryByText('적용 안 됨')).toBeNull();
+  } else {
+    expect(zone().getByText('적용 안 됨')).toBeVisible();
+    expect(zone().getByRole('button', { name: '시간 14:00 – 16:00' })).toHaveAccessibleDescription('이 화면이 이 선택을 조회에 쓰지 않습니다');
+  }
+});
+
 function SelectionSource() {
   const { highlighted } = useAnalysisSelectionOutput('source', 'equip', { available: ['E1', 'E2', 'E2'] });
   return <button type="button">{highlighted ? '출처 강조 중' : '출처'}</button>;

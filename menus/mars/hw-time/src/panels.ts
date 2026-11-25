@@ -1,4 +1,4 @@
-import type { PanelDeclaration } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, type PanelDeclaration } from '@ap/contracts';
 import { hwTime, hwTimeOverview, MOTION_EQUIPMENT_KEY } from './endpoints';
 import { HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES as O, HW_TIME_STEPPED_MESSAGES as S } from './messages';
 
@@ -45,7 +45,7 @@ export const panelDeclarations = {
     queryInputs: { context: common, page: [{ key: 'moduleType' }] },
     displayInputs: { page: [...verdictDisplay, { key: 'drillModule' }, { key: 'row' }, { key: 'barsSort' }, { key: 'barsGroup' }, { key: 'barsMinMax' }, { key: 'align' }] },
     outputs: [{ key: 'trend', action: 'drill' }, { key: 'row', action: 'highlight' },
-      { key: MOTION_EQUIPMENT_KEY, action: 'select', selection: { dimension: 'equipmentId', shape: 'set', label: { ko: '설비', en: 'Equipment' }, objectKind: 'equipment' } }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix],
+      { key: MOTION_EQUIPMENT_KEY, action: 'select', selection: { dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set', label: { ko: '설비', en: 'Equipment' }, objectKind: 'equipment' } }], grain: 'matrixStat', endpoints: [hwTimeOverview.matrix],
     availability: { requires: [{ anyOf: ['step4'] }], disabledReason: S.needsStep4 }, pieces: ['AnalysisChartFrame', 'PanelOptions', 'PanelOptionChips', 'QueryView'] },
   table: { id: 'table', kind: 'table', csvExport: true, title: S.table,
     queryInputs: { context: common, page: [{ key: 'moduleType' }, { key: 'page' }, { key: 'sort' }, { key: 'focus' },

@@ -50,6 +50,7 @@ export const PERMISSION_REQUEST_FLOW_COPY = {
     requestCheckError: '요청 상태를 확인하지 못했습니다.',
     checkingEligibility: '확인 중',
     eligibilityCheckError: '권한을 요청할 수 있는지 확인하지 못했습니다.',
+    requestUnavailable: '현재 이 권한을 요청할 수 없습니다.',
   },
   en: {
     request: 'Request access',
@@ -64,5 +65,6 @@ export const PERMISSION_REQUEST_FLOW_COPY = {
     requestCheckError: 'Could not check request status.',
     checkingEligibility: 'Checking…',
     eligibilityCheckError: 'Could not check whether access can be requested.',
+    requestUnavailable: 'This permission cannot be requested right now.',
   },
 } as const;

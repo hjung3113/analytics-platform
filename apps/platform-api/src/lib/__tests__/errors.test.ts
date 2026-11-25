@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { batchItemDetail, statusForCode } from '../errors.js';
+import { HttpError, batchItemDetail, statusForCode } from '../errors.js';
+
+it('rejects a malformed request hint spread into a scope denial', () => {
+  const malformedHint = { requestable_permission: { permission: 42 } };
+  // @ts-expect-error Scope-only detail must reject a malformed request hint.
+  new HttpError('permission.scope_required', 'scope required', {
+    requiredScope: ['A'], ...malformedHint,
+  });
+});
 
 describe('batch row details', () => {
   it('retains the conflict destination and adds the zero-based row index without mutating the source', () => {

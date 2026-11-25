@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { evidence, expandQueryBar, queryBar, signInAs } from './support';
 
 // Menu-query/menu-action Consumers: observable permission, versioned confirmation and URL Context contracts.

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { signInAs } from './support';
 
 // Alpha 100 links the mock's synthetic Layout as its model default (menus/log-dev/log-knowledge/src/mock/topview.ts); Alpha 200 has nothing linked.

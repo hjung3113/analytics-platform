@@ -1,9 +1,11 @@
+import { ListDenialFocus } from '../../../components/ListAccessRequestPanel';
 import { ListLoadMore } from '../../../components/ListLoadMore';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons';
 import { TASK_REQUEST_COPY, TASK_REQUEST_LINK_MISSING_MESSAGE } from '../../../lib/copy/task-requests';
 import { RESPONSIBILITY_COPY } from '../../../lib/copy/tasks';
+import { useDenialFocusReturn } from '../../../lib/cross-system/useDenialFocusReturn';
 import { formatRecordDocumentTitle } from '../../../lib/host/document-title-format';
 import { useHostTitle } from '../../../lib/host/host-seam';
 import type { HostSearch } from '../../../lib/host/search';
@@ -102,6 +104,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader, re
     setHandoff(null);
   }, []);
   const listRef = useRef<HTMLDivElement>(null);
+  const denialCard = useRef<HTMLDivElement>(null);
   const replaceSelection = useCallback(
     (id: string | null, replace: boolean) => {
       if (replace)
@@ -122,6 +125,7 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader, re
     keepMissingSelection: renderMissingDetail !== undefined,
     ...(detailOnly ? { detailOnly } : {}),
   });
+  useDenialFocusReturn(!detailOnly && !queue.isLoading && queue.permissionDeniedError !== null, denialCard);
   // The reviewer filter is fully controlled by the committed search state
   // (route props on history navigation), so Back/Forward always re-sync it.
   const eligibleActors = useEligibleResponsibilityActors(true);
@@ -439,13 +443,15 @@ export function TaskRequestsScreen({ autoSelect, renderDetail, titleInHeader, re
               {queue.isLoading ? (
                 <div className="p-4 text-sm text-text-muted">Task 요청을 불러오는 중…</div>
               ) : queue.permissionDeniedError ? (
-                <PermissionBlockedPanel
-                  layout="card"
-                  announceBody
-                  state="denied"
-                  category="Task 요청 목록"
-                  reason={PERMISSION_BLOCKED_REASONS.taskRequestQueue}
-                />
+                <ListDenialFocus container={denialCard} className="flex flex-col" label={TASK_REQUEST_COPY.queueTitle}>
+                  <PermissionBlockedPanel
+                    layout="card"
+                    announceBody
+                    state="denied"
+                    category={TASK_REQUEST_COPY.queueTitle}
+                    reason={PERMISSION_BLOCKED_REASONS.taskRequestQueue}
+                  />
+                </ListDenialFocus>
               ) : queue.hasError ? (
                 <ListStateMessage
                   variant="error"

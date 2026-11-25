@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { Tx } from '../../db/tx.js';
-import type { ActorContext, CheckService } from '../permissions/check-service.js';
+import { checkCapabilityAcross, type ActorContext, type CheckService } from '../permissions/check-service.js';
 import { isVocVisibleToActor } from './authorization.js';
 
 /** VOC-owned, batch-safe source metadata for attached Evidence; no domain writes. */
@@ -24,23 +24,9 @@ export async function readVocEvidenceSources(
   }>(sql`SELECT id,display_id,title,primary_managed_system_id,reporter_id FROM voc.vocs
     WHERE workspace_id=${actor.workspace_id} AND id=ANY(${sql.param(ids)}::uuid[])
       AND archived_at IS NULL`);
-  const allowedSystemIds: string[] = [];
-  for (const id of new Set(result.rows.map((row) => row.primary_managed_system_id))) {
-    if (
-      (
-        await checkService.checkCapability(
-          actor,
-          'voc.read',
-          {
-            workspace_id: actor.workspace_id,
-            managed_system_id: id,
-          },
-          { tx },
-        )
-      ).allow
-    )
-      allowedSystemIds.push(id);
-  }
+  const systemIds = [...new Set(result.rows.map((row) => row.primary_managed_system_id))];
+  const decisions = await checkCapabilityAcross(checkService, actor, 'voc.read', systemIds, { tx });
+  const allowedSystemIds = systemIds.filter(id => decisions.get(id)?.allow);
   for (const row of result.rows) {
     if (
       !isVocVisibleToActor(

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { evidence, signInAs } from './support';
 
 const PROJECT = '14470000-0000-4000-8000-000000000101';

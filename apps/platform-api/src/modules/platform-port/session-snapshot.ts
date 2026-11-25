@@ -1,7 +1,7 @@
 import type { ScopeResolver } from '../menu-dispatch/index.js';
 import type { ScopeCatalog } from '../permissions/index.js';
 import { tokenDenial, type CheckService } from '../permissions/check-service.js';
-import type { PlatformPermissionResolver } from './permissions.js';
+import type { PlatformPermissionResolver, RequestReads } from './permissions.js';
 import { sessionVersionOf } from './session-version.js';
 import { titleFor } from './titles.js';
 import { platformActorOf, type LoadedSession } from './transport.js';
@@ -24,9 +24,9 @@ interface SessionSnapshotDeps {
  * opaque SHA-256, never a response body.
  */
 export function createSessionState(deps: SessionSnapshotDeps) {
-  return async (loaded: LoadedSession) => {
+  return async (loaded: LoadedSession, reads?: RequestReads) => {
     // Enumerating permissions is descriptive: unrelated denied capabilities are not attempted calls.
-    const permissions = await deps.permissions.resolve(deps.checkService, platformActorOf(loaded), { auditTokenDenials: false });
+    const permissions = await deps.permissions.resolve(deps.checkService, platformActorOf(loaded), { auditTokenDenials: false, ...(reads ? { reads } : {}) });
     // `grantKey` (server-private) is the effective granted set, sorted; it feeds only the version hash.
     const scopeState = await (async (): Promise<{ scopes: ScopeOption[]; requestableScopes?: RequestableScope[]; grantKey?: string[] }> => {
       if (!deps.scopeCatalog || !deps.scopeResolver) return { scopes: [] };
@@ -35,7 +35,7 @@ export function createSessionState(deps: SessionSnapshotDeps) {
       if (tokenDenial('scope.read', { auditTokenDenials: false })) return { scopes: [] };
 
       try {
-        const grants = await deps.scopeResolver.resolve(platformActorOf(loaded));
+        const grants = await (reads?.scopeGrants?.() ?? deps.scopeResolver.resolve(platformActorOf(loaded)));
         const held = deps.scopeCatalog.sites.map(({ site, label, rooms }) => ({
           site, label, totalRooms: rooms.length,
           rooms: rooms.filter(room => grants.some(grant => grant.site === site && grant.rooms.includes(room))),

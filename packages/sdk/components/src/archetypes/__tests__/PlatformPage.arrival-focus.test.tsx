@@ -88,7 +88,7 @@ function expectArrivalFocus() {
 describe('arrival focus wins over a restored detail panel (#356)', () => {
   it.each(['page link', 'return link'])('keeps the title when a %s restores the panel on the next commit', (kind) => {
     const view = mount(kind === 'return link' ? RETURN_HREF : '/?v=1');
-    fireEvent.click(screen.getByRole('link', { name: kind === 'return link' ? '← 설비 마스터로 돌아가기' : '설비로' }));
+    fireEvent.click(screen.getByRole('link', { name: kind === 'return link' ? '← 이전 화면으로 돌아가기' : '설비로' }));
     expect(screen.getByRole('heading', { name: '설비 마스터' })).toHaveFocus();
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.queryByRole('tooltip')).toBeNull();

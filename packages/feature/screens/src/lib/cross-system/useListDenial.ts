@@ -4,16 +4,22 @@ import { z } from 'zod';
 import { isRequestablePermissionState } from '../api/permission-request-progress';
 import type { PermissionCheckResponse } from '../api/permission-reads';
 import { ApiError, isPermissionDenied } from '../api/types';
+import { permissionCheckStatus } from './permission-check-status';
+import { focusListDenialCard, useDenialFocusReturn } from './useDenialFocusReturn';
 import { usePermissionCheckBridge } from './usePermissionCheckBridge';
+
+export { focusListDenialCard } from './useDenialFocusReturn';
 
 type ListDenialRequest = { capability: string; managedSystemId: string; pending?: boolean };
 type ScopedListBlock = { state: 'blocked'; roleRequired: boolean; request: ListDenialRequest | null };
+type ScopedListRecheck = { lastBlocked?: ScopedListBlock | undefined; heldBlock?: undefined }
+  | { heldBlock: ScopedListBlock | undefined; lastBlocked?: undefined };
 const systemIdSchema = z.string().uuid();
 
 export type ScopedEmptyListPermission =
   | { state: 'unchecked' | 'allowed' }
-  | { state: 'checking'; lastBlocked?: ScopedListBlock | undefined }
-  | { state: 'error'; retry: () => void; lastBlocked?: ScopedListBlock | undefined }
+  | ({ state: 'checking' } & ScopedListRecheck)
+  | ({ state: 'error'; retry: () => void } & ScopedListRecheck)
   | ScopedListBlock;
 
 export function listSystemId(managedSystemId: string | undefined) {
@@ -45,10 +51,12 @@ export function useScopedEmptyListPermission({
   capability,
   managedSystemId,
   empty,
+  recheckPolicy = 'retain-request',
 }: {
   capability: string;
   managedSystemId: string | undefined;
   empty: boolean;
+  recheckPolicy?: 'hold-request' | 'retain-request';
 }): ScopedEmptyListPermission {
   const systemId = concreteListSystemId(managedSystemId);
   const enabled = empty && systemId !== undefined;
@@ -66,10 +74,12 @@ export function useScopedEmptyListPermission({
   const block: ScopedListBlock | undefined = check.data?.decision.allow === false
     ? { state: 'blocked', ...classifyPermissionBlock(check.data, capability, systemId) }
     : undefined;
-  // A recheck (window focus) keeps the last decision on screen until the new one lands.
-  if (check.isFetching && !check.isSuccess) return { state: 'checking', lastBlocked: block };
-  if (check.isError) return { state: 'error', retry: () => void check.refetch(), lastBlocked: block };
-  if (!check.isSuccess) return { state: 'checking' };
+  const status = permissionCheckStatus(check);
+  // Retain the denial card while a fresh result determines its available actions.
+  const holdsRequest = recheckPolicy === 'hold-request';
+  const recheck = holdsRequest ? { heldBlock: block && { ...block, request: null } } : { lastBlocked: block };
+  if (status === 'pending' && (!check.isSuccess || (holdsRequest && block))) return { state: 'checking', ...recheck };
+  if (status === 'error') return { state: 'error', retry: () => void check.refetch(), ...recheck };
   return block ?? { state: 'allowed' };
 }
 
@@ -92,10 +102,6 @@ type Drawer = {
 };
 
 type ListIdentity = { keptSystemId: string | undefined; query: string | undefined };
-
-export function focusListDenialCard(card: HTMLDivElement | null, options?: FocusOptions) {
-  (card?.querySelector<HTMLElement>('a[href], button:not([disabled])') ?? card)?.focus(options);
-}
 
 /** Surface a confirmed list denial and return focus once its drawer has closed. */
 export function useListDenial({
@@ -120,8 +126,10 @@ export function useListDenial({
   const keptSystemId = listSystemId(managedSystemId);
   const isForbidden = forbidden === 'permission' ? isPermissionDenied : isListForbidden;
   const permissionError = isForbidden(error) ? error : null;
-  const scopedBlock = scopedPermission?.state === 'blocked' &&
-    !(error instanceof ApiError && error.status === 401) ? scopedPermission : null;
+  const scopedRecheck = scopedPermission?.state === 'checking' || scopedPermission?.state === 'error'
+    ? scopedPermission : undefined;
+  const lastScopedBlock = scopedPermission?.state === 'blocked' ? scopedPermission : scopedRecheck?.heldBlock;
+  const scopedBlock = error instanceof ApiError && error.status === 401 ? null : lastScopedBlock;
   const roleRequired = permissionError
     ? permissionError.detail?.reason === 'role_required'
     : scopedBlock?.roleRequired === true;
@@ -135,7 +143,7 @@ export function useListDenial({
   let request: ListDenialRequest | null | undefined;
   if (permissionError) request = listForbiddenRequest(requestable);
   else if (scopedBlock) {
-    request = roleRequired ? null : scopedBlock.request;
+    request = roleRequired || scopedRecheck ? null : scopedBlock.request;
   }
 
   const deniedRef = useRef<HTMLDivElement>(null);
@@ -167,37 +175,7 @@ export function useListDenial({
     closeDrawer();
   }, [closeOn, denied, identity, keptSystemId, selectedId]);
 
-  // A denial replaces the list controls; when it removed the control that held focus, focus lands
-  // on the card instead of the page body. Focus that survives, or none before, stays put (#2677).
-  const lastFocused = useRef<Element | null>(null);
-  useEffect(() => {
-    const record = (event: FocusEvent) => {
-      lastFocused.current = event.target instanceof Element ? event.target : null;
-    };
-    // Focus that leaves a still-connected element was moved by the user, not by a removal.
-    const release = (event: FocusEvent) => {
-      const target = event.target;
-      queueMicrotask(() => {
-        if (target instanceof Element && target.isConnected && lastFocused.current === target) {
-          lastFocused.current = null;
-        }
-      });
-    };
-    document.addEventListener('focusin', record);
-    document.addEventListener('focusout', release);
-    return () => {
-      document.removeEventListener('focusin', record);
-      document.removeEventListener('focusout', release);
-    };
-  }, []);
-  useLayoutEffect(() => {
-    if (!denied) return;
-    const previous = lastFocused.current;
-    lastFocused.current = null;
-    if (previous && !previous.isConnected && document.activeElement === document.body) {
-      focusListDenialCard(deniedRef.current);
-    }
-  }, [denied]);
+  useDenialFocusReturn(denied, deniedRef);
 
   // The host can apply the selection's URL change in a later commit.
   useLayoutEffect(() => {
@@ -210,11 +188,13 @@ export function useListDenial({
 
   const { capability, managedSystemId: requestSystemId, pending: requestPending } = request ?? {};
   const absentRequest = request === null ? null : undefined;
+  const recheck = !permissionError && scopedBlock ? scopedRecheck : undefined;
   const cardProps = useMemo(() => ({
     request: capability === undefined || requestSystemId === undefined ? absentRequest
       : { capability, managedSystemId: requestSystemId, ...(requestPending === undefined ? {} : { pending: requestPending }) },
     roleRequired, deniedRef, managedSystemId: keptSystemId,
-  }), [absentRequest, capability, requestSystemId, requestPending, roleRequired, keptSystemId]);
+    recheck,
+  }), [absentRequest, capability, requestSystemId, requestPending, roleRequired, keptSystemId, recheck]);
   return {
     kind, denied, roleRequired, permissionError, request, requestable, keptSystemId, deniedRef,
     cardProps,

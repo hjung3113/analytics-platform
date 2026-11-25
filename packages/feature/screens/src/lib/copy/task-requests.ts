@@ -4,6 +4,7 @@ export const TASK_REQUEST_LINK_MISSING_MESSAGE =
   '요청한 Task 요청을 찾을 수 없습니다. 삭제되었거나 현재 권한·범위 밖일 수 있습니다.';
 
 export const TASK_REQUEST_COPY = {
+  queueTitle: 'Task 요청 목록',
   pendingForSource: '이 소스에 검토 중인 Task 요청이 있습니다.',
   pendingQueueEmpty: '검토 중인 Task 요청이 없습니다',
   decisions: {

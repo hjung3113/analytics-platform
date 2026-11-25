@@ -166,6 +166,29 @@ it('leaves the table unfiltered when every Motion is unchecked', async () => {
   }
 });
 
+// #2888 review: re-checking a Motion keeps the selection; until the source reports the new availability, the table waits
+// instead of asking for unfiltered rows on the previous (empty) report.
+it('never reads the table unfiltered while re-checking a Motion waits for the new availability', async () => {
+  await renderOverview(workspace + '&motion=~none' + selection(['MEM-PHOTO-0105']), answer, { waitForData: false });
+  await waitFor(() => expect(tableReads()).toHaveLength(2));
+  await settle();
+  // The unfiltered read is cached, so the adapter sees no request: watch what the table asks for on every render.
+  const realQuery = kernel.useMenuQuery;
+  const asked: unknown[] = [];
+  const query = vi.spyOn(kernel, 'useMenuQuery').mockImplementation(((endpoint: Parameters<typeof realQuery>[0], params: unknown, enabled?: boolean, options?: unknown) => {
+    if ((endpoint as { id: string }).id === 'hwTime.levelRows' && enabled !== false) asked.push(params);
+    return (realQuery as (...args: unknown[]) => unknown)(endpoint, params, enabled, options);
+  }) as never);
+  try {
+    fireEvent.click(within(screen.getByRole('tree', { name: '계층' })).getByRole('checkbox', { name: 'Pump' }));
+    await settle();
+    expect(asked.length).toBeGreaterThan(0);
+    for (const params of asked) expect(params).toHaveProperty('motionEquipment', ['MEM-PHOTO-0105']);
+  } finally {
+    query.mockRestore();
+  }
+});
+
 it.each(['ok', 'error'] as const)('waits for an unpinned matrix (%s) before reading the table once', async outcome => {
   let releaseMatrix!: () => void;
   const matrix = new Promise<void>(resolve => { releaseMatrix = resolve; });

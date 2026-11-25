@@ -253,7 +253,7 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   }
   const required = step <= 2 ? HW_TIME_MODULE_TYPES.map(type => type.id) : [typeId!];
   const population = JSON.stringify([step, session.user.id, context]);
-  return <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins }} filtered={selectionInputs.filtered} values={state.values} onChange={state.setValue}
+  return <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins }} applied={selectionInputs.applied} values={state.values} onChange={state.setValue}
     onDrill={id => {
       const [type, motion, module] = id.split('/');
       setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null, row: null, trend: null, focus: null });
@@ -270,9 +270,9 @@ function SelectionSourceBars({ source, ...props }: Omit<BarsProps, 'highlightedV
 }
 
 function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'analysisSelectionOutput' | 'highlightedValues'> & {
-  step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void; filtered: boolean;
+  step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void; applied: ReturnType<typeof useAnalysisSelectionInputs>['applied'];
 }) {
-  const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill, filtered } = props;
+  const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill, applied } = props;
   const common = useMessages(HW_TIME_MESSAGES);
   const [explained, setExplained] = useState<string | null>(null);
   const [added, setAdded] = useState<readonly string[]>([]);
@@ -305,10 +305,15 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     setPage(patch);
     setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
   };
-  const equipment = projectQueryInputs(panelDeclarations.table, panelContext)[MOTION_EQUIPMENT_KEY];
-  const waitingForAvailability = equipment !== undefined
+  // The value the table filters by and whether it filters come from the same contract read (#2870 Q1).
+  const tableFilter = applied.find(input => input.key === MOTION_EQUIPMENT_KEY && input.use === 'filter')?.selection;
+  const equipment = tableFilter?.shape === 'set' ? tableFilter.values : undefined;
+  // Waiting reads the valid URL selection before availability: a previous report that excluded it must not let the table
+  // read unfiltered until the source reports again (#2888 review).
+  const selected = projectQueryInputs(panelDeclarations.table, panelContext)[MOTION_EQUIPMENT_KEY];
+  const waitingForAvailability = selected !== undefined
     && (!selectionOutput.availabilityCurrent || sourceQuery?.status === 'loading' || sourceQuery?.showingPrevious);
-  const filterTable = !waitingForAvailability && filtered && equipment !== undefined && extraIds.includes('table');
+  const filterTable = !waitingForAvailability && equipment !== undefined && extraIds.includes('table');
   const tableLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, filterTable);
   const analysis = filterTable ? { equipment, level: tableLevel } : undefined;
   const levelResponse = tableLevel.response;

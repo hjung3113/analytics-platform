@@ -105,7 +105,7 @@ export function declaredContribution({ bundle: input, snapshot, forwarder, check
           ...(routed ? (limits === undefined ? {} : { limits: { ...(limits.maxHours === undefined ? {} : { maxHours: limits.maxHours }), ...(limits.maxRows === undefined ? {} : { maxRows: limits.maxRows }) } }) : (limits?.maxHours === undefined ? {} : { limits: { maxHours: limits.maxHours } })),
         },
         ...(routed ? { upstreamTimeoutMs: timeoutMs } : {}),
-        authorize: (actor, tx) => holdsPlatformPermission(checkService, actor, spec.permission, { ...(tx ? { tx } : {}), menuPermissions: permissions }),
+        authorize: (actor, tx, reads) => holdsPlatformPermission(checkService, actor, spec.permission, { ...(tx ? { tx } : {}), ...(reads ? { reads } : {}), menuPermissions: permissions }),
         // Step 2: routed calls judge typed values here; legacy envelope values stay upstream-owned.
         validate: (params) => routed ? validateParamValues(spec.paramTypes ?? {}, params) : { ok: true },
         handle: (args) => {

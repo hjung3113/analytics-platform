@@ -41,6 +41,7 @@ export function planPortChecks(harness: ServerConformanceHarness): ConformanceCh
     // A siteless destination type answers `scopeId: null` (checklist §2 entityAudit): no site to refuse, no room to re-check.
     if (!siteScopedEntity && check.mode !== 'skipped') {
       check.mode = 'skipped';
+      check.baseId ??= check.id;
       check.id += ' — siteless destination type';
     }
   }

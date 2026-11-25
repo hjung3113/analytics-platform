@@ -97,6 +97,9 @@ function planSelectionCarry(source: MenuEntry | undefined, target: MenuEntry, pa
   return { selections, droppedSelections };
 }
 
+/** The path part of a screen address (`/` for an empty one). */
+const pathOf = (address: string) => address.split('?')[0] || '/';
+
 /** The same `RegistryError` `menuById` throws (`Unknown menu …`) when the id is not registered. */
 function registered(link: SelectionLinkResolution, menuId: string): RegisteredLink {
   if (link.kind === 'link') return link;
@@ -118,7 +121,12 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const { t, lang } = useI18n();
   const userId = user.id;
 
-  const pathname = url.split('?')[0] || '/';
+  const pathname = pathOf(url);
+  /** The live address while it is still this screen; null once the screen has moved on, so a late writer does nothing (#2870 Q5). */
+  const readSameScreen = useCallback(() => {
+    const current = readAddress();
+    return current && pathOf(current.url) === pathname ? current : null;
+  }, [readAddress, pathname]);
   const appliedUrl = useMemo(() => stripDetailExpansion(url), [url]);
   const search = appliedUrl.includes('?') ? appliedUrl.slice(appliedUrl.indexOf('?')) : '';
   const outsideDeployment = url === '';
@@ -127,16 +135,16 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const detailExpanded = mode === 'main' && platformScreen === null && hasDetailExpansion(url);
   const setDetailExpanded = useCallback((on: boolean) => {
     if (mode !== 'main' || platformScreen !== null) return;
-    const current = readAddress();
-    if (!current || (current.url.split('?')[0] || '/') !== pathname) return;
+    const current = readSameScreen();
+    if (!current) return;
     commit(withDetailExpansion(fullAddress(current), on), 'replace');
-  }, [mode, platformScreen, pathname, readAddress, commit]);
+  }, [mode, platformScreen, readSameScreen, commit]);
   // All same-screen writers (including Apply and materialization) retain presentation state.
   const commitState = useCallback<typeof commit>((next, how, options) => {
-    const current = readAddress();
-    if (!current || (current.url.split('?')[0] || '/') !== pathname) return false;
+    const current = readSameScreen();
+    if (!current) return false;
     return commit(withDetailExpansion(next, mode === 'main' && platformScreen === null && hasDetailExpansion(current.url)), how, options);
-  }, [commit, mode, pathname, platformScreen, readAddress]);
+  }, [commit, mode, platformScreen, readSameScreen]);
   const route = useMemo(() => {
     if (outsideDeployment || platformScreen !== null) return null;
     const matched = matchRoute(pathname);
@@ -173,13 +181,13 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const page = useMemo(() => parsed?.page ?? [], [parsed]);
   const extras = useMemo(() => parsed?.extras ?? [], [parsed]);
   const readWriteBase = useCallback(() => {
-    const current = readAddress();
-    if (!current || (current.url.split('?')[0] || '/') !== pathname) return null;
+    const current = readSameScreen();
+    if (!current) return null;
     const currentUrl = stripDetailExpansion(fullAddress(current));
     const q = currentUrl.indexOf('?');
     const state = currentUrl === appliedUrl ? parsed : parseScreenQuery(q === -1 ? '' : currentUrl.slice(q)).parsed;
     return state ?? { global: emptyGlobal, page: [], extras: [] };
-  }, [readAddress, pathname, appliedUrl, parsed, parseScreenQuery]);
+  }, [readSameScreen, appliedUrl, parsed, parseScreenQuery]);
   const pageParamsNow = useCallback((key: string) => {
     const current = readWriteBase();
     return current && current.page.filter(([k]) => k === key).map(([, v]) => v);
@@ -187,7 +195,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
 
   // Only the main screen's navigation marks how the next entry was reached; a pane that leaves hands over to the main one (onLeave).
   const returnOwner = useCallback((address: string): ReturnHiddenOwner | null => {
-    const menu = matchRoute(address.split('?')[0] || '/')?.menu.id;
+    const menu = matchRoute(pathOf(address))?.menu.id;
     return menu === undefined ? null : { user: userId, deployment: app.pub.location.absoluteUrl('/'), menu };
   }, [matchRoute, userId, app.pub.location]);
   const navigate = useCallback<HostPlatform['navigate']>((next, options) => {

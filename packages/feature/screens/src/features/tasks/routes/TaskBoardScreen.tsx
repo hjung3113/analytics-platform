@@ -248,6 +248,7 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
       statusGrouping
         ? ({
             mode: 'status',
+            summaryScope: scope,
             includesFallback: (task: TaskDto) =>
               taskMatchesBoardPopulation(task, scope, serverFilters),
             columnKey: (status: TaskStatus) => taskBoardColumnKey(scope, serverFilters, status),
@@ -256,7 +257,7 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
                 taskBoardColumnOptions(scope, serverFilters, status),
               ),
           } as const)
-        : ({ mode: 'open', openKey: data.openKey } as const),
+        : ({ mode: 'open', openKey: data.openKey, summaryScope: scope } as const),
     [statusGrouping, scope, serverFilters, queryClient, data.openKey],
   );
   const mutation = useTaskStatusTransition(

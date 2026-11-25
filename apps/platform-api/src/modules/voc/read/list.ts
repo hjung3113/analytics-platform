@@ -56,11 +56,14 @@ export function createVocListReaders(deps: VocReadServiceDeps) {
       actorReadScope(deps.db, actor),
       view === 'triage' ? actorTriageScope(deps.db, actor) : Promise.resolve(undefined),
     ]);
-    const { scopeFilter, actorIdForMyFilter } = resolveVocListScope({
+    const { scopeFilter, actorIdForMyFilter } = await resolveVocListScope({
       actor,
+      db: deps.db,
+      checkService: deps.checkService,
       query,
       readScope,
       triageScope,
+      withRequestHint: false,
     });
     return repoRead.countVocsForRead(deps.db, {
       workspaceId: actor.workspace_id,
@@ -78,14 +81,17 @@ export function createVocListReaders(deps: VocReadServiceDeps) {
   }
 
   async function countGroupedVocs(args: VocGroupedCountArgs) {
-    const { scopeFilter } = resolveVocListScope({
+    const { scopeFilter } = await resolveVocListScope({
       actor: args.actor,
+      db: deps.db,
+      checkService: deps.checkService,
       query: {
         view: 'inbox',
         ...(args.managedSystemId !== undefined ? { managed_system_id: args.managedSystemId } : {}),
       },
       readScope: args.readScope,
       triageScope: undefined,
+      withRequestHint: false,
     });
     return repoRead.countGroupedVocsForRead(deps.db, {
       workspaceId: args.actor.workspace_id,
@@ -185,8 +191,10 @@ export function createVocListReaders(deps: VocReadServiceDeps) {
     }
 
     // ── 6. Resolve view-specific scope and validation ─────────────────────────
-    const { scopeFilter, actorIdForMyFilter } = resolveVocListScope({
+    const { scopeFilter, actorIdForMyFilter } = await resolveVocListScope({
       actor,
+      db: deps.db,
+      checkService: deps.checkService,
       query,
       readScope,
       triageScope,

@@ -40,6 +40,7 @@ export function ManagedSystemScopeControl({
   const actorId = typeof actor?.id === 'string' ? actor.id : undefined;
   const roleLevel = actor?.role_level;
   const isAdmin = typeof roleLevel === 'string' && roleLevel.toLowerCase() === 'admin';
+  const lookupId = value?.toLowerCase();
   const systemsQuery = useQuery({
     queryKey: ['managed-systems', 'scope-selector'] as const,
     queryFn: ({ signal }) => fetchManagedSystems({ signal }),
@@ -48,11 +49,11 @@ export function ManagedSystemScopeControl({
   });
   const catalogQuery = useQuery({
     ...managedSystemsCatalogBridgeQuery(),
-    enabled: !disabled && value !== undefined && systemsQuery.isSuccess &&
-      !systemsQuery.data.items.some(system => system.id === value),
+    enabled: !disabled && lookupId !== undefined && systemsQuery.isSuccess &&
+      !systemsQuery.data.items.some(system => system.id === lookupId),
   });
   const archivedSystemName = catalogQuery.data?.items.find(
-    system => system.id === value && typeof system.archived_at === 'string',
+    system => system.id === lookupId && typeof system.archived_at === 'string',
   )?.name;
   const grantsQuery = useQuery({
     queryKey: ['managed-system-scope', actorId, capability] as const,
@@ -114,7 +115,7 @@ export function ManagedSystemScopeControl({
       <ManagedSystemScopePicker
         managedSystems={managedSystems}
         {...(archivedSystemName !== undefined ? { archivedSystemName } : {})}
-        {...(value !== undefined ? { value } : {})}
+        {...(lookupId !== undefined ? { value: lookupId } : {})}
         onChange={onChange}
         {...(disabled !== undefined ? { disabled } : {})}
         isAdmin={isAdmin}

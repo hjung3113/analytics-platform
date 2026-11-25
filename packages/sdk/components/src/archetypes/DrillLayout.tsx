@@ -165,7 +165,8 @@ export function useReturnNavigation({ announceReverted = true }: { announceRever
   const { returnOrigin, pageNavigation, toast } = useHostPlatform();
   const { tx, t } = useI18n();
   const origin = returnOrigin();
-  const displayTrail = origin.trail.map(step => step.valueLabel ?? step.value).join(' › ');
+  const showTrail = !origin.accepted || origin.recorded;
+  const displayTrail = showTrail ? origin.trail.map(step => step.valueLabel ?? step.value).join(' › ') : '';
   const onNavigate = () => {
     requestReturnFocus(pageNavigation, origin.href);
     if (announceReverted && origin.revertedContext.length) toast(t('returnContextReverted', { items: origin.revertedContext.map(key => tx(RETURN_CONTEXT_LABELS[key])).join(', ') }));
@@ -177,10 +178,11 @@ export const ReturnRowShown = createContext(false);
 
 /** Return control (06 §22). The accessible name is the visible label, trail values included. */
 export function ReturnLink() {
-  const { tx } = useI18n();
+  const { tx, t } = useI18n();
   const { origin, displayTrail, onNavigate } = useReturnNavigation();
   const rowShown = useContext(ReturnRowShown);
-  const text = displayTrail ? `← ${tx(origin.menuLabel)} (${displayTrail})` : `← ${tx(origin.menuLabel)}`;
+  const label = origin.accepted && !origin.recorded ? t('returnLinkPrevious') : `← ${tx(origin.menuLabel)}`;
+  const text = displayTrail ? `${label} (${displayTrail})` : label;
   if (rowShown) return <></>;
   return <Button asChild variant="secondary" size="sm"><PlatformLink via="return" href={origin.href} onNavigate={onNavigate}>{text}</PlatformLink></Button>;
 }

@@ -1,4 +1,6 @@
 import { RequestAccessButton } from '../../../../components/request-access-button';
+import { ListDenialFocus } from '../../../../components/ListAccessRequestPanel';
+import { PermissionRecheckAction } from '../../../../components/PermissionRecheckAction';
 import { permissionCardExitAction } from '../../../../components/permission-card-actions';
 // TriageScreen — the triage workbench (queue, tabs with counts, selection, advance, inline panel, undo) over the host seam.
 //
@@ -21,9 +23,11 @@ import { MyVocsRecoveryLink } from '../../../../components/MyVocsRecoveryLink';
 import { useMeBridge } from '../../../../lib/api/me';
 import { type NavCounts, fetchNavCounts } from '../../../../lib/api/nav';
 import { fetchCapabilityScopeViaClient } from '../../../../lib/api/permission-reads';
+import { isPermissionDenied } from '../../../../lib/api/types';
 import { createLabel } from '../../../../lib/copy/glossary';
 import { PERMISSION_BLOCKED_REASONS } from '../../../../lib/copy/permission-reasons';
 import { useListDenial } from '../../../../lib/cross-system/useListDenial';
+import { permissionCheckStatus } from '../../../../lib/cross-system/permission-check-status';
 import { usePermissionCheckBridge } from '../../../../lib/cross-system/usePermissionCheckBridge';
 import { HostLink, useHostPermissionLinks, useHostSeam } from '../../../../lib/host/host-seam';
 import { useHostSearchWriter } from '../../../../lib/host/useHostSearchWriter';
@@ -32,7 +36,7 @@ import { Button, PermissionBlockedPanel } from '@ap/ui';
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import type * as React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useId, useState } from 'react';
 import { useTriagePages } from '../../hooks/useTriagePages';
 import { VOC_TRIAGE_PAGING_COPY } from '../../../../lib/copy/voc-views';
 import { validateVocSearch } from '../../routes/voc-search';
@@ -131,10 +135,35 @@ export function TriageScreen(): React.ReactElement {
       enabled: isApproved,
     });
 
+  const queueContext = JSON.stringify([activeTab, search.managedSystem, area]);
+  const queueKey = JSON.stringify([queueContext, search.selected]);
+  const instance = useId();
+  const [lastDenial, setLastDenial] = useState<{ queueKey: string; error: typeof error; generation: number }>({
+    queueKey, error: null, generation: 0,
+  });
+  // A retry of an empty query temporarily drops its error. Keep the denial card in place.
+  const heldError = isFetching && lastDenial.queueKey === queueKey ? lastDenial.error : null;
+  const denialError = isPermissionDenied(error) ? error : heldError;
+  const denialChanged = denialError !== lastDenial.error || queueKey !== lastDenial.queueKey;
+  const generation = lastDenial.generation + Number(denialChanged);
+  if (denialChanged) {
+    setLastDenial({ queueKey, error: denialError, generation });
+  }
   const { denied: queueDenied, requestable: queueHint, request: deniedRequest } = useListDenial({
-    error,
+    error: denialError,
     forbidden: 'permission',
     managedSystemId: search.managedSystem,
+  });
+  const missingRead = queueHint?.permission === 'voc.read';
+  const queueRequest = missingRead || queueHint?.permission === 'voc.triage'
+    ? deniedRequest ?? undefined
+    : undefined;
+  const hintedCheck = usePermissionCheckBridge({
+    capability: queueRequest?.capability ?? 'voc.triage',
+    ...(queueRequest ? { managedSystemId: queueRequest.managedSystemId } : {}),
+  }, {
+    denialIdentity: ['voc-triage-denial', instance, generation],
+    enabled: queueRequest !== undefined,
   });
   const items = data?.items ?? [];
   // #935: a failed queue read shows the load-error state only when there are
@@ -195,16 +224,20 @@ export function TriageScreen(): React.ReactElement {
     );
   }
 
-  // An authoritative queue denial wins over cached/retained rows and selection.
+  // A queue denial gates cached rows while the triage pre-check admits the queue.
   if (!isApproved || queueDenied) {
-    const missingRead = queueHint?.permission === 'voc.read';
-    const queueRequest = missingRead || queueHint?.permission === 'voc.triage'
-      ? deniedRequest ?? undefined
-      : undefined;
-    const permissionState = capCheck.data?.state;
-    const pending = !queueDenied && permissionState === 'pending_request';
-    const gateState = queueDenied ? queueRequest && 'request_access' : permissionState;
-    const panelState = mapToPanelState(gateState);
+    const check = queueDenied ? hintedCheck : capCheck;
+    const checkStatus = queueDenied && queueRequest === undefined ? 'success' : permissionCheckStatus({
+      isPending: check.isPending, isError: check.isError,
+      isFetching: check.isFetching || (queueDenied && isFetching),
+    });
+    const permissionState = checkStatus === 'success' &&
+      (!queueDenied || (queueRequest && check.data?.decision.allow === false)) ? check.data?.state : undefined;
+    const pending = permissionState === 'pending_request';
+    const panelState = mapToPanelState(permissionState);
+    const blockedRequestProps = checkStatus === 'success'
+      ? { requestStatus: 'not-requestable' as const }
+      : { requestAction: <PermissionRecheckAction status={checkStatus} retry={() => void check.refetch()} /> };
     const capability = queueDenied ? queueRequest?.capability : 'voc.triage';
     const managedSystemId = queueDenied ? queueRequest?.managedSystemId : search.managedSystem;
     // #1170: `voc.read` is requestable only per Managed System. A queue denial
@@ -217,7 +250,7 @@ export function TriageScreen(): React.ReactElement {
     else if (missingRead) reason = PERMISSION_BLOCKED_REASONS.vocTriageMissingReadManagedSystem;
     else if (search.managedSystem !== undefined) reason = PERMISSION_BLOCKED_REASONS.vocTriageManagedSystem;
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 p-6">
+      <ListDenialFocus className="flex flex-col items-center justify-center h-full gap-4 p-6" label="분류">
         <div className="flex items-center gap-2">
           {canLink('/vocs?action=create') && (
             <Button asChild variant="secondary" size="sm" spacing="compact">
@@ -233,7 +266,7 @@ export function TriageScreen(): React.ReactElement {
           <RequestAccessButton
             layout="card"
             capability={capability}
-            {...(!queueDenied ? { pending } : {})}
+            {...(!queueDenied || pending ? { pending } : {})}
             returnRouteIntent="/vocs?view=triage"
             {...(typeof managedSystemId === 'string' ? { managedSystemId } : {})}
             renderTrigger={(_onRequestAccess, panel) => (
@@ -252,12 +285,12 @@ export function TriageScreen(): React.ReactElement {
           <PermissionBlockedPanel layout="card" headingLevel={2} announceBody lang={lang} state={panelState} category="분류"
             {...(panelState === 'summary_visible' ? {} : {
               description: reason,
-              requestStatus: 'not-requestable' as const,
+              ...blockedRequestProps,
               exitAction: permissionCardExitAction(permissionHomeHref, lang),
             })} />
         )}
         {readNeedsSystemSelection && <p className="text-sm text-text-muted">{PERMISSION_BLOCKED_REASONS.vocTriageMissingReadSelectSystem}</p>}
-      </div>
+      </ListDenialFocus>
     );
   }
 
@@ -289,7 +322,7 @@ export function TriageScreen(): React.ReactElement {
       queuePending={isLoading}
       {...(queueError ? { queueError } : {})}
       onRetryQueue={handleRetryQueue}
-      queueContext={JSON.stringify([activeTab, search.managedSystem ?? null, area ?? null])}
+      queueContext={queueContext}
       {...(search.managedSystem !== undefined ? { managedSystemId: search.managedSystem } : {})}
       {...(area !== undefined ? { areaFilter: area } : {})}
       onAreaChange={handleAreaChange}

@@ -342,14 +342,16 @@ export function createApiTokenService(deps: ApiTokenServiceDeps) {
     }
     if (t.kind === 'service' && hit.actor.actorType !== 'system') return fail('owner_mismatch', ref);
 
-    // Throttled use stamp: at most once per interval per token (the conditional update is the throttle).
+    // Skip a known no-op, and keep the SQL predicate to arbitrate concurrent requests.
     const cutoff = new Date(now().getTime() - LAST_USED_STAMP_INTERVAL_MS);
-    await deps.db
-      .update(apiTokens)
-      .set({ lastUsedAt: now(), lastUsedIp: summarizeIp(ip) })
-      .where(
-        and(eq(apiTokens.id, t.id), or(isNull(apiTokens.lastUsedAt), sql`${apiTokens.lastUsedAt} < ${cutoff}`)),
-      );
+    if (t.lastUsedAt === null || t.lastUsedAt < cutoff) {
+      await deps.db
+        .update(apiTokens)
+        .set({ lastUsedAt: now(), lastUsedIp: summarizeIp(ip) })
+        .where(
+          and(eq(apiTokens.id, t.id), or(isNull(apiTokens.lastUsedAt), sql`${apiTokens.lastUsedAt} < ${cutoff}`)),
+        );
+    }
     return {
       ok: true,
       tokenId: t.id,

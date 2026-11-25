@@ -17,7 +17,8 @@ import { investigationContribution } from '../../log-explorer/index.js';
 import { logKnowledgeContribution } from '../../log-knowledge/catalog-endpoints.js';
 import { logLifecycleContribution } from '../../log-lifecycle/index.js';
 import { createMenuDispatchRegistry } from '../../menu-dispatch/registry.js';
-import { createCheckService } from '../../permissions/check-service.js';
+import { recordStatements } from '../../../test-support/statement-recorder.js';
+import { createCheckService, memoizeCapabilityChecks } from '../../permissions/check-service.js';
 import { createAccessDirectoryService } from '../access-directory.js';
 import { createPlatformPermissionResolver } from '../permissions.js';
 
@@ -115,5 +116,40 @@ describe.skipIf(!runIntegration)('permission resolution query counts (#1667)', (
     expect(after.count).toBe(before.count);
     // console:access (2) + member list (1) + batched deny/grant rows (2); a Managed System lookup would add at most one more.
     expect(after.count).toBe(5);
+  });
+
+  it('reads one permission pair for five memoized systems and keeps the first exact decision', async () => {
+    const recordingHandle = createDb(APP_URL);
+    try {
+      const recorder = recordStatements(recordingHandle);
+      const actor = await newActor('developer');
+      await grantCapability(migrateHandle, WORKSPACE_ID, actor.actor_id, 'finding.read', null, admin.actor_id);
+      let now = new Date('2026-10-13T00:00:00Z');
+      const expires = new Date(now.getTime() + 1);
+      await migrateHandle.pool.query(
+        'update permission.permission_grants set expires_at = $1 where actor_id = $2',
+        [expires, actor.actor_id],
+      );
+      const checks = memoizeCapabilityChecks(createCheckService({ db: recorder.handle.db, now: () => now }));
+      const check = (system: string) => checks.checkCapability(actor, 'finding.read', {
+        workspace_id: WORKSPACE_ID, managed_system_id: system,
+      });
+      const { statements, drizzleStatements } = await recorder.capture(async () => {
+        const first = await check('system-1');
+        expect(first).toMatchObject({ allow: true, via: 'direct_grant' });
+        now = expires;
+        expect(await check('system-1')).toEqual(first);
+        for (const system of ['system-2', 'system-3', 'system-4', 'system-5']) {
+          expect(await check(system)).toMatchObject({ allow: false, reason: 'grant_expired' });
+        }
+      });
+      // Parallel pool acquisition can reverse the order seen by the Drizzle logger.
+      const byText = (a: { text: string }, b: { text: string }) => a.text.localeCompare(b.text);
+      expect(statements.sort(byText)).toEqual(drizzleStatements.sort(byText));
+      console.info('memoized permission SQL', statements.length);
+      expect(statements).toHaveLength(2);
+    } finally {
+      await recordingHandle.close();
+    }
   });
 });

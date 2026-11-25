@@ -24,8 +24,12 @@ const linkedMotionForItem = (id: string) => {
   return module ? { moduleType: 'LK', module, motion: 'Pump' } : null;
 };
 // Bounded transport fixture; real handlers and default hierarchy are covered in mock/index.test.ts.
-function windowPage(params: TreeParams): TreePage {
-  const totalItems = params.q === 'not-a-synthetic-item' ? 0 : TREE_WINDOW * 3;
+// Three rows by default: jsdom renders every row and re-renders the matrix per selection, and 80 rows × 14 cells pushed
+// click-through tests past 5 s on loaded CI runners, one test at a time (#2858). Only a test about windowing or a
+// multi-window hierarchy passes FULL_TREE.
+const FULL_TREE = TREE_WINDOW * 3;
+function windowPage(params: TreeParams, total = 3): TreePage {
+  const totalItems = params.q === 'not-a-synthetic-item' ? 0 : total;
   const nodes: TreeRow[] = Array.from({ length: Math.min(TREE_WINDOW, totalItems - params.offset) }, (_, local) => {
     const id = `cfg-${String(params.offset + local).padStart(6, '0')}`;
     const item = { id, linkedMotion: linkedMotionForItem(id), key: id, module: 'PM1', category: 'Gas', item: 'Pressure', filename: 'config.cfg', group: 'PM1 / Gas', coreKnown: true, diff: true, violation: false, missing: false, notComparable: false, source: 'synthetic', collectedAt: '2026-11-17T00:00:00Z', values: Object.fromEntries(params.eq.map(eq => [eq, { value: eq === 'EQ03' ? 125 : 120, state: 'diff' as const }])) };
@@ -220,7 +224,7 @@ describe('Configuration lifecycle regressions', () => {
     const requests = vi.fn(async ({ params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => {
       const next = query as TreeParams;
       if (next.offset > 0) { pending = next; return new Promise(resolve => { complete = resolve; }); }
-      return ok(windowPage(next));
+      return ok(windowPage(next, FULL_TREE));
     });
     await mount(requests);
     const viewport = host.querySelector<HTMLElement>('[data-matrix-viewport]')!;
@@ -240,7 +244,7 @@ describe('Configuration lifecycle regressions', () => {
     expect(document.activeElement).toBe(cell);
     expect(viewport.getAttribute('aria-busy')).toBe('true');
     expect(headers()).toEqual(before);
-    const data: TreePage = windowPage(pending!);
+    const data: TreePage = windowPage(pending!, FULL_TREE);
     await act(async () => complete!(ok(data)));
     await settleQueries();
     expect(host.querySelector('[data-matrix-viewport]')).toBe(viewport);
@@ -337,8 +341,8 @@ describe('Configuration item drawer follows the selection (#2525)', () => {
   async function mountDrawer() {
     const menuQuery = vi.fn(async ({ endpoint, params: query }: { endpoint: string; params: unknown }): Promise<ApiResponse<unknown>> => {
       const { focus } = query as { focus?: string };
-      if (endpoint === 'configuration.detail') return focus === 'cfg-000001' ? new Promise(() => {}) : ok(named(windowPage({ ...(query as TreeParams), offset: Number(focus!.slice(4)) }).nodes[0]!).item);
-      const page = windowPage(query as TreeParams);
+      if (endpoint === 'configuration.detail') return focus === 'cfg-000001' ? new Promise(() => {}) : ok(named(windowPage({ ...(query as TreeParams), offset: Number(focus!.slice(4)) }, FULL_TREE).nodes[0]!).item);
+      const page = windowPage(query as TreeParams, FULL_TREE);
       return ok({ ...page, nodes: [group, ...page.nodes.map(named)] });
     });
     const session = testSession(['analytics:view']);

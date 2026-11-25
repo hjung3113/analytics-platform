@@ -68,6 +68,10 @@ function mountGate(route: 'inbox' | 'triage', homePermission: Permission, spaceH
           decision: { allow: false, reason: 'no_grant', requestable: eligible ? [{ workspace_id: ME.workspace_id }] : null },
         });
       }
+      // Triage's queue 403 names voc.read; with the actor's own request pending the server answers pending_request (#2675).
+      if (route === 'triage' && url.searchParams.get('capability') === 'voc.read') {
+        return Response.json({ state: 'pending_request', decision: { allow: false, reason: 'no_grant', requestable: [{ workspace_id: ME.workspace_id }] } });
+      }
       return Response.json({ state: 'approved', decision: { allow: true } });
     }
     if (path === '/me/permissions/scope' && zeroReadScope) return Response.json({ scope: { kind: 'scoped', managed_system_ids: [] } });

@@ -21,6 +21,12 @@ export type PanelInputs<K extends string = string> = {
 /** #911: 조회 입력 / 표시 입력 / 출력 / 데이터 단위 / 쓸 수 있는 조건.
  * Page outputs never write global Context; permissions stay Kernel-owned.
  */
+/**
+ * The output selection dimension that «조건으로» writes into the global equipment selection (URL `selectedEquipmentIds`; 06 §16,
+ * ADR-0059). Declare an equipment set by this name: any other spelling is an ordinary dimension and loses «조건으로» without an error.
+ */
+export const EQUIPMENT_SELECTION_DIMENSION = 'equipmentId';
+
 export type PanelDeclaration<K extends string = string> = {
   readonly id: string;
   readonly title: Text;

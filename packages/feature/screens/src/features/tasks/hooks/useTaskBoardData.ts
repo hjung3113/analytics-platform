@@ -206,10 +206,11 @@ export function useTaskBoardData({
 }
 
 /** Operational totals: board scope and `q` only, never the personal filters. */
-export type TaskBoardSummaryKind = 'all' | 'unassigned' | 'doing';
+export const TASK_BOARD_SUMMARY_KINDS = { all: 'all', unassigned: 'unassigned', doing: 'doing' } as const;
+export type TaskBoardSummaryKind = keyof typeof TASK_BOARD_SUMMARY_KINDS;
 
-function useBoardSummary(kind: TaskBoardSummaryKind, scope: TaskBoardScope) {
-  const queryKey = [
+export function taskBoardSummaryKey(kind: TaskBoardSummaryKind, scope: TaskBoardScope) {
+  return [
     'tasks',
     'board-summary',
     {
@@ -219,6 +220,10 @@ function useBoardSummary(kind: TaskBoardSummaryKind, scope: TaskBoardScope) {
       kind,
     },
   ] as const;
+}
+
+function useBoardSummary(kind: TaskBoardSummaryKind, scope: TaskBoardScope) {
+  const queryKey = taskBoardSummaryKey(kind, scope);
   const query = useQuery<ListTasksResponse>({
     queryKey,
     placeholderData: (previousData, previousQuery) =>
@@ -246,9 +251,9 @@ function useBoardSummary(kind: TaskBoardSummaryKind, scope: TaskBoardScope) {
 }
 
 export function useTaskBoardSummary(scope: TaskBoardScope) {
-  const all = useBoardSummary('all', scope);
-  const unassigned = useBoardSummary('unassigned', scope);
-  const doing = useBoardSummary('doing', scope);
+  const all = useBoardSummary(TASK_BOARD_SUMMARY_KINDS.all, scope);
+  const unassigned = useBoardSummary(TASK_BOARD_SUMMARY_KINDS.unassigned, scope);
+  const doing = useBoardSummary(TASK_BOARD_SUMMARY_KINDS.doing, scope);
   return {
     all: all.total,
     unassigned: unassigned.total,

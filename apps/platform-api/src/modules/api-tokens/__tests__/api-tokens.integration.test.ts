@@ -19,6 +19,8 @@ import { grantCapability, revokeCapabilityGrant } from '../../../test-support/pe
 import { createAuditService } from '../../core/audit/index.js';
 import type { MenuActionDeclaration, MenuDispatchContribution, MenuEndpointDeclaration } from '../../menu-dispatch/types.js';
 import { type CheckService, applyAdminModuleBypass, createCheckService } from '../../permissions/check-service.js';
+import { recordStatements } from '../../../test-support/statement-recorder.js';
+import { createApiTokenService, LAST_USED_STAMP_INTERVAL_MS } from '../service.js';
 import { hashToken } from '../token-format.js';
 
 const APP_URL = process.env.DATABASE_URL ?? '';
@@ -427,6 +429,41 @@ describe.skipIf(!runIntegration)('API tokens: issue, revoke, auth hook, scope âˆ
       await query(bearer(t.value));
       const second = (await migrate.pool.query('select last_used_at from core.api_tokens where id = $1', [t.id])).rows[0];
       expect(second.last_used_at.getTime()).toBe(first.last_used_at.getTime());
+    });
+
+    it('skips SQL for an unchanged token stamp until strictly after the interval', async () => {
+      const token = await rawToken({ actorId: dev.id, scopes: ['knowledge.catalog.import'] });
+      const recorder = recordStatements(dbHandle);
+      let clock = new Date('2026-10-13T00:00:00Z');
+      const service = createApiTokenService({
+        db: recorder.handle.db, auditService: createAuditService(), workspaceId: WORKSPACE_ID,
+        unusedWarningDays: 30, now: () => clock,
+      });
+      const stamp = async () => (await migrate.pool.query<{ last_used_at: Date }>(
+        'select last_used_at from core.api_tokens where id = $1', [token.id],
+      )).rows[0]?.last_used_at;
+      const capture = () => recorder.capture(() => service.authenticate(token.value, '127.0.0.1'));
+      const updates = (rows: { text: string }[]) => rows.filter(({ text }) => /^update "core"\."api_tokens"/i.test(text));
+      const first = await capture();
+      expect(first.result.ok).toBe(true);
+      expect(updates(first.statements)).toHaveLength(1);
+      expect(await stamp()).toEqual(clock);
+      const original = clock;
+      clock = new Date(original.getTime() + LAST_USED_STAMP_INTERVAL_MS - 1);
+      const second = await capture();
+      expect(second.result).toEqual(first.result);
+      expect(await stamp()).toEqual(original);
+      clock = new Date(original.getTime() + LAST_USED_STAMP_INTERVAL_MS);
+      const boundary = await capture();
+      expect(await stamp()).toEqual(original);
+      clock = new Date(original.getTime() + LAST_USED_STAMP_INTERVAL_MS + 1);
+      const renewed = await capture();
+      expect(renewed.result).toEqual(first.result);
+      expect(updates(renewed.statements)).toHaveLength(1);
+      expect(await stamp()).toEqual(clock);
+      console.info('token second call SQL', second.statements.length, 'UPDATE', updates(second.statements).length);
+      expect(updates(second.statements)).toHaveLength(0);
+      expect(updates(boundary.statements)).toHaveLength(0);
     });
 
     it('uses a per-token rate-limit bucket', async () => {

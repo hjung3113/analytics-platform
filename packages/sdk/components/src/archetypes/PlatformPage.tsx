@@ -470,9 +470,10 @@ function ScopeGate({ root, selectorAvailable }: { root: React.RefObject<HTMLDivE
 function ReturnRow({ navigation: { origin, displayTrail, onNavigate } }: { navigation: ReturnType<typeof useReturnNavigation> }) {
   const { t, tx } = useI18n();
   const compact = useCompactPageDensity();
+  const label = origin.recorded ? t('returnRowBack', { menu: tx(origin.menuLabel) }) : t('returnRowPrevious');
   return <div data-return-row className={cn('flex min-h-8 shrink-0 flex-wrap items-center gap-x-3 border-b border-border-subtle py-1 text-xs break-keep', pageInsetX(compact))}>
-    <PlatformLink via="return" href={origin.href} onNavigate={onNavigate} className="font-medium text-accent-primary hover:underline [overflow-wrap:anywhere]">{t('returnRowBack', { menu: tx(origin.menuLabel) })}{displayTrail && ` (${displayTrail})`}</PlatformLink>
-    {origin.spaceLabel !== null && !origin.sameSpace && <span className="text-text-muted">{t('returnRowFrom', { system: tx(origin.spaceLabel) })}</span>}
+    <PlatformLink via="return" href={origin.href} onNavigate={onNavigate} className="font-medium text-accent-primary hover:underline [overflow-wrap:anywhere]">{label}{displayTrail && ` (${displayTrail})`}</PlatformLink>
+    {origin.recorded && origin.spaceLabel !== null && !origin.sameSpace && <span className="text-text-muted">{t('returnRowFrom', { system: tx(origin.spaceLabel) })}</span>}
   </div>;
 }
 

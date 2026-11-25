@@ -12,7 +12,7 @@ import { createPortal } from 'react-dom';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { ANALYSIS_SELECTION_MAX_VALUES, useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
 import { useOptionalAnalysisSelectionOutput } from '@ap/kernel/host';
-import { overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, normalizeSet, ContractError, type AnalysisSelectionShape, type Reaggregation } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, normalizeSet, ContractError, type AnalysisSelectionShape, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, InfoTip, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import { useThemeRevision, type ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -1200,7 +1200,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     <Button type="button" variant="ghost" size="toolbar" onClick={() => commitRange({ from: timeBounds[0], to: timeBounds[timeBounds.length - 1] })}>{t('all')}</Button>
   </div>;
   const localStateNote = m(nextAnalysis ? 'chartNextAnalysisNote' : 'chartLocalStateNote');
-  const equipmentSet = urlSet && (!selection || xType !== 'time') && host.outputDimension === 'equipmentId' ? urlSet.values : null;
+  const equipmentSet = urlSet && (!selection || xType !== 'time') && host.outputDimension === EQUIPMENT_SELECTION_DIMENSION ? urlSet.values : null;
   let equipmentReason = host.applyEquipment ? undefined : m('chartApplyRangeDenied');
   if (nextAnalysis && equipmentSet) {
     try { normalizeSet([...equipmentSet], 'selectedEquipmentIds'); }

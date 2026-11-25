@@ -1,7 +1,7 @@
 import { act, lazy } from 'react';
 import { Inbox } from 'lucide-react';
 import { createRoot, type Root } from 'react-dom/client';
-import { useQuery } from '@tanstack/react-query';
+import { focusManager, useQuery } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NO_FEATURES, contextCapabilities, carrySetId, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
@@ -100,5 +100,45 @@ describe('navCounts slot with an active feature observer on the same key', () =>
       );
     });
     await act(async () => { await vi.waitFor(() => expect(host!.querySelector('[data-testid="counts"]')!.textContent).toBe('{"findings":3,"survey-management":7}')); });
+  });
+});
+
+describe('navCounts on a tab return (#2819)', () => {
+  it('reads /nav/counts again on a tab return within 30 seconds, because its keys follow a withdrawable read scope (#2819)', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      calls.push(String(input));
+      return new Response(JSON.stringify({ counts: { 'voc.inbox': calls.length } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }));
+    // The notification bell's FeatureScreenRoot mounts the shared client on every page; only a mounted client hears focus.
+    featureQueryClient.mount();
+    let now = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      window.history.replaceState(null, '', '/flow/inbox');
+      const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+      host = document.createElement('div');
+      document.body.append(host);
+      root = createRoot(host);
+      await act(async () => {
+        root!.render(
+          <I18nProvider>
+            <PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}>
+              <Counts>{counts => <p data-testid="counts">{JSON.stringify(counts)}</p>}</Counts>
+            </PlatformProvider>
+          </I18nProvider>,
+        );
+      });
+      await act(async () => { await vi.waitFor(() => expect(calls).toHaveLength(1)); });
+      const refocus = async () => act(async () => { focusManager.setFocused(false); focusManager.setFocused(true); await Promise.resolve(); });
+
+      now += 10_000;
+      await refocus();
+      await act(async () => { await vi.waitFor(() => expect(calls).toEqual(['/api/features/nav/counts', '/api/features/nav/counts'])); });
+    } finally {
+      clock.mockRestore();
+      focusManager.setFocused(undefined);
+      featureQueryClient.unmount();
+    }
   });
 });

@@ -28,7 +28,7 @@ export function bindingValue(binding: Binding, args: EndpointHandlerArgs, site: 
 export const sameBinding = (left: Binding, right: Binding): boolean => typeof left === 'string' ? left === right : JSON.stringify(left) === JSON.stringify(right);
 
 export function resolveBindings(call: Call, args: EndpointHandlerArgs, site: string | null, rooms: readonly string[], override?: { binding: Binding; value: unknown }): Record<string, Record<string, unknown>> {
-  const sections = 'statement' in call ? { params: call.params } : 'procedure' in call ? { args: call.args } : call.mode === 'mapped' ? { pathParams: call.pathParams ?? {}, query: call.query ?? {}, body: call.body ?? {} } : {};
+  const sections: Record<string, Record<string, Binding>> = 'statement' in call ? { params: call.params } : 'procedure' in call ? { args: call.args } : call.mode === 'mapped' ? { pathParams: call.pathParams ?? {}, query: call.query ?? {}, body: call.body ?? {} } : {};
   return Object.fromEntries(Object.entries(sections).map(([section, bindings]) => [section, Object.fromEntries(Object.entries(bindings).map(([key, binding]) => [key,
     override && sameBinding(binding, override.binding) ? override.value : bindingValue(binding, args, site, rooms),
   ]))]));

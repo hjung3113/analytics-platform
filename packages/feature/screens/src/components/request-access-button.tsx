@@ -35,7 +35,7 @@ import {
   type PermissionBlockedPanelProps,
 } from '@ap/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { type ReactNode, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useEffectEvent, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { mapUnknownError } from '../lib/api/errorMapper';
 import { mintIdempotencyKey } from '../lib/api/idempotency';
@@ -90,12 +90,17 @@ interface RequestAccessButtonCommonProps {
   renderTrigger?: (open: () => void, panel?: Partial<PermissionBlockedPanelProps>) => ReactNode;
   /** The exact target's open-request state, when supplied by the permission check. */
   pending?: boolean;
+  /** Live eligibility of the checked denial that owns this request flow. */
+  requestEligibility?: 'available' | 'pending' | 'in-review' | 'error' | 'unavailable' | undefined;
   /**
    * Controlled mode (the platform's blocked-place request slot, ADR-0154 decision 6): the caller owns the open state and
    * its own trigger, so no trigger and no wrapper are drawn. Absent = the component owns `open`.
    */
   open?: boolean;
+  /** Observe dialog open changes or handle them in controlled mode. */
   onOpenChange?: (open: boolean) => void;
+  /** Set after a settled allow so an open dialog closes and refreshes its source. */
+  onAccessGranted?: () => void;
 }
 
 const SCOPE_CAPABILITY = 'scope.read';
@@ -137,7 +142,7 @@ function useOpenRequest(capability: string, managedSystemId: string | undefined,
   return { open, hasPending, statusKnown };
 }
 
-function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger, useAccessRequestState }: RequestAccessButtonCommonProps & {
+function RequestAccessLink({ capability, managedSystemId, pending, requestEligibility, renderTrigger, useAccessRequestState }: RequestAccessButtonCommonProps & {
   capability: string;
   managedSystemId?: string;
   renderTrigger: NonNullable<RequestAccessButtonCommonProps['renderTrigger']>;
@@ -147,13 +152,14 @@ function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger
   const { permissionRequestHref, permissionHomeHref } = useHostPermissionLinks();
   const container = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
+  const canRequest = requestEligibility === undefined || requestEligibility === 'available';
   const mine = useQuery({
     queryKey: permissionRequestsMineAllKey,
     queryFn: ({ signal }) => fetchPermissionRequestsMine({ status: 'all', signal }),
-    enabled: pending !== true,
+    enabled: canRequest && pending !== true,
     retry: false,
   });
-  const { open, hasPending, statusKnown } = useOpenRequest(capability, managedSystemId, { enabled: true, pending });
+  const { open, hasPending, statusKnown } = useOpenRequest(capability, managedSystemId, { enabled: canRequest, pending });
   const names = useManagedSystemNames({ enabled: managedSystemId !== undefined });
   const system = managedSystemId ? names.get(managedSystemId) : undefined;
   const progress = permissionRequestProgress(
@@ -163,7 +169,7 @@ function RequestAccessLink({ capability, managedSystemId, pending, renderTrigger
   const failed = !statusKnown || mine.isError;
   const read = waiting ? 'checking' : failed ? 'error' : undefined;
   const statusHref = hasPending ? permissionRequestHref?.({}) ?? null : null;
-  const requestHref = hasPending || read !== undefined ? undefined : permissionRequestHref?.({
+  const requestHref = !canRequest || hasPending || read !== undefined ? undefined : permissionRequestHref?.({
     capability,
     ...(managedSystemId !== undefined ? { managedSystemId } : {}),
   }) ?? null;
@@ -222,22 +228,33 @@ function RequestAccessDialog(props: RequestAccessButtonProps) {
   const controlled = props.open !== undefined;
   const card = !controlled && props.layout === 'card' && props.renderTrigger !== undefined;
   const cardHost = useRef<HTMLDivElement>(null);
+  const receiptConfirm = useRef<HTMLButtonElement>(null);
   const open = controlled ? props.open === true : ownOpen;
   const setOpen = (next: boolean) => {
     setConflict(null);
-    if (controlled) props.onOpenChange?.(next);
-    else setOwnOpen(next);
+    if (!controlled) setOwnOpen(next);
+    props.onOpenChange?.(next);
   };
   const [reason, setReason] = useState('');
   const [expiration, setExpiration] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { canLink, lang = 'ko' } = useHostSeam();
+  const copy = PERMISSION_REQUEST_FLOW_COPY[lang];
+  const tracksEligibility = props.requestEligibility !== undefined;
+  const holdId = useId();
+  const holdReason = {
+    available: undefined,
+    pending: copy.checkingEligibility,
+    'in-review': copy.pendingExplanation,
+    error: copy.eligibilityCheckError,
+    unavailable: copy.requestUnavailable,
+  }[props.requestEligibility ?? 'available'];
   const { permissionHomeHref } = useHostPermissionLinks();
   const scopeTarget = props.scopeTarget;
   const capability = scopeTarget ? SCOPE_CAPABILITY : props.capability;
   const needsOpenRequest = card && scopeTarget === undefined && props.pending === undefined;
   const { open: openRequests, hasPending, statusKnown } = useOpenRequest(capability, props.managedSystemId, {
-    enabled: needsOpenRequest,
+    enabled: needsOpenRequest && (open || holdReason === undefined),
     pending: props.pending,
   });
   const initialScopeKind: PermissionScopeTargetKind | '' =
@@ -309,6 +326,14 @@ function RequestAccessDialog(props: RequestAccessButtonProps) {
     discardDraft();
     setOpen(false);
   };
+  const accessGranted = props.onAccessGranted !== undefined;
+  const handleAccessGranted = useEffectEvent(() => {
+    closeDialog();
+    props.onAccessGranted?.();
+  });
+  useEffect(() => {
+    if (open && accessGranted) handleAccessGranted();
+  }, [open, accessGranted]);
 
   // The dep list here is an *intent key*, not a value dependency: one
   // Idempotency-Key per logical intent (FO ADR-0015:71-90). Narrowing it to what the
@@ -360,7 +385,7 @@ function RequestAccessDialog(props: RequestAccessButtonProps) {
           scopeTargetLabel: submission.scopeTargetLabel,
         });
       };
-      if (!card) showReceipt();
+      if (!card || tracksEligibility) showReceipt();
       // Successful submit — rotate the key so a future click counts as a
       // new logical intent.
       setAttempt((n) => n + 1);
@@ -369,7 +394,7 @@ function RequestAccessDialog(props: RequestAccessButtonProps) {
         qc.invalidateQueries({ queryKey: permissionRequestsMineKey }),
       ]);
       // The card's replacement action comes from the refreshed server state.
-      if (card) showReceipt();
+      if (card && !tracksEligibility) showReceipt();
       props.onRequestSubmitted?.();
     },
     onError: async (err) => {
@@ -397,12 +422,19 @@ function RequestAccessDialog(props: RequestAccessButtonProps) {
       setErrorMessage(mapUnknownError(err).message);
     },
   });
+  useLayoutEffect(() => {
+    if (tracksEligibility && submitted) receiptConfirm.current?.focus();
+  }, [tracksEligibility, submitted]);
+  const actionHeld = holdReason !== undefined || (tracksEligibility && mutation.isPending);
+  const holdDescription = holdReason === undefined ? undefined : holdId;
+  const holdNotice = holdReason !== undefined ? <p id={holdId} role="status">{holdReason}</p> : null;
 
   const dialog = (
       <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : closeDialog())}>
         <DialogContent data-testid="permission-request-dialog" onCloseAutoFocus={event => {
-          if (!card || !submitted) return;
-          const current = cardHost.current?.querySelector('[data-request-status]');
+          if (!card || (!submitted && holdReason === undefined)) return;
+          const current = cardHost.current?.querySelector('[data-request-status]')
+            ?? (tracksEligibility ? cardHost.current : null);
           const target = current?.querySelector<HTMLElement>('[data-permission-status-link]')
             ?? current?.querySelector<HTMLElement>('[data-permission-home-link]')
             ?? current?.querySelector<HTMLElement>('h2, h3, h4');
@@ -460,11 +492,16 @@ function RequestAccessDialog(props: RequestAccessButtonProps) {
                   </>
                 ) : null}
               </dl>
+              {holdNotice}
               <DialogFooter>
                 <Button
                   type="button"
                   variant="secondary"
+                  aria-disabled={actionHeld || undefined}
+                  aria-describedby={holdDescription}
+                  className="aria-disabled:opacity-50"
                   onClick={() => {
+                    if (actionHeld) return;
                     mutation.reset();
                     setSubmitted(null);
                     setReason('');
@@ -475,7 +512,7 @@ function RequestAccessDialog(props: RequestAccessButtonProps) {
                 >
                   다른 권한 요청
                 </Button>
-                <Button type="button" onClick={closeDialog}>
+                <Button ref={receiptConfirm} type="button" onClick={closeDialog}>
                   확인
                 </Button>
               </DialogFooter>
@@ -497,6 +534,7 @@ function RequestAccessDialog(props: RequestAccessButtonProps) {
                 data-testid="permission-request-form"
                 onSubmit={(event) => {
                   event.preventDefault();
+                  if (actionHeld || mutation.isPending) return;
                   if (scopeTarget && scopeKind === '') {
                     setErrorMessage(PERMISSION_SCOPE_COPY.kindMissing);
                     return;
@@ -646,11 +684,13 @@ function RequestAccessDialog(props: RequestAccessButtonProps) {
                     {errorMessage}
                   </p>
                 ) : null}
+                {holdNotice}
                 <DialogFooter>
                   <Button type="button" variant="secondary" onClick={closeDialog}>
                     {GLOSSARY.cancel}
                   </Button>
-                  <Button type="submit" disabled={mutation.isPending}>
+                  <Button type="submit" disabled={!tracksEligibility && mutation.isPending}
+                    aria-disabled={actionHeld || undefined} aria-describedby={holdDescription} className="aria-disabled:opacity-50">
                     요청 제출
                   </Button>
                 </DialogFooter>
@@ -664,12 +704,12 @@ function RequestAccessDialog(props: RequestAccessButtonProps) {
   // Controlled: the caller draws its own entry and owns where the dialog sits (outside any menu).
   if (controlled) return dialog;
   const openDialog = () => {
+    if (holdReason !== undefined) return;
     if (card) setSubmitted(null);
     setOpen(true);
   };
   let panel: Partial<PermissionBlockedPanelProps> | undefined;
   if (card) {
-    const copy = PERMISSION_REQUEST_FLOW_COPY[lang];
     let requestAction: ReactNode = null;
     if (hasPending) {
       if (canLink(REQUEST_STATUS_ROUTE)) {

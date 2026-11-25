@@ -10,7 +10,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import userEvent from '@testing-library/user-event';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, ANALYSIS_SELECTION_MAX_VALUES } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { defineEndpoint, groupId, parseDateTime, spaceId, type AnalysisSelection, type ApiResponse, type MenuQuery, type PlatformAdapter, type ScopeCheck } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, defineEndpoint, groupId, parseDateTime, spaceId, type AnalysisSelection, type ApiResponse, type MenuQuery, type PlatformAdapter, type ScopeCheck } from '@ap/contracts';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import { Button, DetailPanelSlotProvider, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, SurfacePauseScope, useDetailPanelSlotHost } from '@ap/ui';
 import type { EChartProps } from '../EChart';
@@ -381,7 +381,7 @@ const setRegistry = createRegistry({
   spaces: registry.spaces, groups: registry.groups,
   menus: registry.menus.map(menu => ({ ...menu, pageKeys: [setOutput.key], repeatedPageKeys: [setOutput.key], contextResetKeys: [setOutput.key], panels: [{
     id: setOutput.panelId, title: { ko: '설비', en: 'Equipment' }, queryInputs: {}, displayInputs: {}, grain: 'day', endpoints: [],
-    outputs: [{ key: setOutput.key, action: 'select', selection: { shape: 'set', dimension: 'equipmentId' } }],
+    outputs: [{ key: setOutput.key, action: 'select', selection: { shape: 'set', dimension: EQUIPMENT_SELECTION_DIMENSION } }],
   }] })),
 });
 const nextRow = () => screen.getByRole('group', { name: '다음 분석' });
@@ -607,7 +607,7 @@ it.each([['a', true], ['a&equipment=b', false]])('offers the declared next drill
     menus: setRegistry.menus.map(menu => ({
       ...menu, pageKeys: [...menu.pageKeys, level.key], contextResetKeys: [...menu.contextResetKeys!, level.key], drill: { levels: [level] },
       panels: [{ ...menu.panels![0]!, outputs: [{ key: setOutput.key, action: 'select',
-        selection: { shape: 'set', dimension: 'equipmentId', drillLevel: level.key } }] }],
+        selection: { shape: 'set', dimension: EQUIPMENT_SELECTION_DIMENSION, drillLevel: level.key } }] }],
     })),
   });
   window.history.replaceState(null, '', `/?v=1&scopeId=MEM&equipment=${values}`);
@@ -641,7 +641,7 @@ it('renders object destinations, describes link conditions, and keeps permission
   const linked = createRegistry({
     spaces: setRegistry.spaces, groups: setRegistry.groups,
     menus: [{ ...source!, panels: [{ ...source!.panels![0]!, outputs: [{ key: setOutput.key, action: 'select',
-      selection: { shape: 'set', dimension: 'equipmentId', objectKind: 'equipment' } }] }] },
+      selection: { shape: 'set', dimension: EQUIPMENT_SELECTION_DIMENSION, objectKind: 'equipment' } }] }] },
     { ...destination('allowed'), pageKeys: ['date', 'returnTo'], context: { ...noContext, time: 'apply' },
       query: { mode: 'apply', required: { page: [{ key: 'date', label: label('Date') }] } } },
     { ...destination('denied'), permission: 'console:access' }, destination('absent'),
@@ -711,7 +711,7 @@ const chipRegistry = createRegistry({
     drill: { levels: [{ key: 'step', label: chipLabel('단계') }] },
     panels: [
       { ...menu.panels![0]!, outputs: [{ ...menu.panels![0]!.outputs[0]!,
-        selection: { shape: 'set' as const, dimension: 'equipmentId', drillLevel: 'step', objectKind: 'equipment' } }] },
+        selection: { shape: 'set' as const, dimension: EQUIPMENT_SELECTION_DIMENSION, drillLevel: 'step', objectKind: 'equipment' } }] },
       { id: 'receiver', title: chipLabel('수신 패널'), grain: 'day', endpoints: [],
         queryInputs: {}, displayInputs: { page: [{ key: setOutput.key, selection: 'highlight' as const }] }, outputs: [] },
       { id: 'receiver-two', title: chipLabel('둘째 수신 패널'), grain: 'day', endpoints: [],

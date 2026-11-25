@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { type Page } from '@playwright/test';
+import { expect, test } from './origin-guard';
 import { evidence, expectScopeValid, expandQueryBar, pickTargetRoom, query, queryBar, signInAs } from './support';
 
 const SCREEN = '/mars/hw-time?v=1&scopeId=MEM';
@@ -108,6 +109,8 @@ test.describe('HW Time analysis selection', () => {
 });
 
 test.describe('분석 선택 메뉴 간 링크 (#2735)', () => {
+  const returnRow = (page: Page) => page.getByRole('main').locator('[data-return-row]');
+
   test('carries the trend range to CLAS, returns with it, and clears the received range', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions`);
@@ -147,9 +150,11 @@ test.describe('분석 선택 메뉴 간 링크 (#2735)', () => {
     const ranking = page.getByRole('region', { name: '설비별 동작시간', exact: true });
     await expect(ranking.getByText(/^합성 데이터 · 2026-09-24 00:00:00 – 2026-09-25 00:00:00/)).toBeVisible();
     const chips = queryBar(page).getByRole('group', { name: '분석 선택' });
-    await expect(chips.getByText('이전 화면에서:', { exact: true })).toBeVisible();
+    await expect(chips.getByText('HW Time에서:', { exact: true })).toBeVisible();
+    // A recorded navigation names the origin and keeps its drill trail («(PM › Pump › PM1)»).
+    await expect(returnRow(page).getByRole('link', { name: /^← HW Time로 돌아가기 \(/ })).toBeVisible();
     await evidence(page, testInfo, 'analysis-selection-arrival');
-    await chips.getByRole('link', { name: '이전 화면으로 돌아가기 (선택 유지)' }).click();
+    await chips.getByRole('link', { name: 'HW Time로 돌아가기 (선택 유지)' }).click();
     await expect(page).toHaveURL(/\/mars\/hw-time\?/);
     await expect.poll(() => query(page).get('trendRange')).toBe(range);
 
@@ -158,6 +163,14 @@ test.describe('분석 선택 메뉴 간 링크 (#2735)', () => {
     await chips.getByRole('button', { name: '날짜 선택 지우기' }).click();
     await expect.poll(() => query(page).has('days')).toBe(false);
     expect(query(page).get('returnTo')).toBe(origin);
+  });
+
+  test('uses neutral wording when the CLAS arrival URL is opened directly', async ({ page }) => {
+    await signInAs(page, 'engineer');
+    const origin = `${SCREEN}${TWO_DAYS}&trendRange=09-24/09-24`;
+    await page.goto(`/clas/operation-time?v=1&scopeId=MEM${TWO_DAYS}&eqp=MEM-PHOTO-0103&days=09-24/09-24&returnTo=${encodeURIComponent(origin)}`);
+    await expect(returnRow(page).getByRole('link', { name: '← 이전 화면으로 돌아가기', exact: true })).toBeVisible();
+    await expect(queryBar(page).getByRole('group', { name: '분석 선택' }).getByText('이전 화면에서:', { exact: true })).toBeVisible();
   });
 });
 

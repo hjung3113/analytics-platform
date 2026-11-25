@@ -58,6 +58,7 @@ export type DetailShape =
   | { capability: string }
   | { reason: string; minimum_role?: RoleLevel }
   | { item_index: number }
+  | { requiredScope: string[]; requestable_permission?: never }
   | {
       requiredScope?: string[];
       requestable_permission: {

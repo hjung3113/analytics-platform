@@ -6,6 +6,7 @@ import { fetchRecoveryDetail, fetchRecoveryHistory, fetchRecoveryItems } from '.
 import { ApiError } from '../../../lib/api/types';
 import { HOME_QUEUE_COPY } from '../../../lib/copy/home';
 import { RECOVERY_COPY as COPY } from '../../../lib/copy/recovery';
+import { useDenialFocusReturn } from '../../../lib/cross-system/useDenialFocusReturn';
 import { HostLink, useHostHere, useHostSeam } from '../../../lib/host/host-seam';
 import type { HostSearch } from '../../../lib/host/search';
 import { type RecoverySearch, safeRecoveryReturnTo } from '../../../lib/host/search-fields';
@@ -249,6 +250,7 @@ export function useRecoveryQueueCore(
   // A denied list read shows only its card: the card carries the section title and the list
   // controls cannot act on a denied read; the way back stays under the card (#2677).
   const listDenied = denied && !me.isPending;
+  useDenialFocusReturn(listDenied, denialCard);
   const controls = (
     <>
       <h2 ref={heading} tabIndex={-1} className="mb-3 text-sm font-semibold">

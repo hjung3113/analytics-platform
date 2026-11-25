@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { releasePackages } from './sdk-exports.mjs';
-import { assemblyHash, assertAssembly, assertKitVersion, downloadPrevious, kitAsset, kitSequence, runSequence, unpackKit, verifyBundle, verifyStartKit, FINAL_REPORT } from './sdk-upgrade-gate.mjs';
+import { assemblyHash, assertAssembly, assertKitVersion, assertPinFresh, downloadPrevious, pinFor, stableVersions, kitAsset, kitSequence, runSequence, unpackKit, verifyBundle, verifyStartKit, FINAL_REPORT } from './sdk-upgrade-gate.mjs';
 
 const names = releasePackages().map(({ name }) => name);
 const hash = value => createHash('sha256').update(value).digest('hex');
@@ -33,11 +33,33 @@ function project(root) {
   return directory;
 }
 
-test('pin identifies the actual rc and authenticated sums', () => {
+test('pin names a stable release of this repository by tag URL and SHA256SUMS digest (#2892)', () => {
   const pin = JSON.parse(readFileSync(new URL('./previous-bundle.json', import.meta.url)));
-  assert.equal(pin.version, '0.35.0-rc.1');
-  assert.equal(pin.url, 'https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.35.0-rc.1');
-  assert.equal(pin.sha256, 'be7d57614b56be98c6d659728b989192d0abd558603e7b7d122d5c944fa77b52');
+  assert.match(pin.version, /^\d+\.\d+\.\d+$/);
+  assert.equal(pin.url, `https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v${pin.version}`);
+  assert.match(pin.sha256, /^[0-9a-f]{64}$/);
+});
+test('stable versions come from ls-remote lines and tag names, newest first, without pre-releases or app tags', () => {
+  const lines = [
+    'aaa\trefs/tags/sdk-v0.9.0', 'bbb\trefs/tags/sdk-v0.47.0', 'ccc\trefs/tags/sdk-v0.47.0^{}', 'ddd\trefs/tags/sdk-v0.48.0-rc.1',
+    'eee\trefs/tags/sdk-v0.10.2', 'fff\trefs/tags/v0.49.0', 'sdk-v0.46.0', '',
+  ];
+  assert.deepEqual(stableVersions(lines), ['0.47.0', '0.46.0', '0.10.2', '0.9.0']);
+});
+test('a pin older than the previous stable release fails with the --pin command; newest and the one before pass', () => {
+  const tags = ['sdk-v0.35.0-rc.1', 'sdk-v0.45.0', 'sdk-v0.46.0', 'sdk-v0.47.0'];
+  assert.doesNotThrow(() => assertPinFresh({ version: '0.47.0' }, tags));
+  assert.doesNotThrow(() => assertPinFresh({ version: '0.46.0' }, tags));
+  assert.throws(() => assertPinFresh({ version: '0.45.0' }, tags), /older than the previous release \(newest sdk-v0\.47\.0\).*--pin 0\.47\.0/);
+  assert.throws(() => assertPinFresh({ version: '0.35.0-rc.1' }, tags), /--pin 0\.47\.0/);
+  assert.throws(() => assertPinFresh({ version: '0.47.0' }, ['sdk-v0.47.0-rc.1']), /No stable sdk-v\* release tag/);
+});
+test('--pin records the release tag URL and the digest of the downloaded SHA256SUMS; pre-release versions are refused', async () => {
+  const requested = [];
+  const pin = await pinFor('0.47.0', async url => { requested.push(url); return Buffer.from('sums\n'); });
+  assert.deepEqual(requested, ['https://github.com/hjung3113/analytics-platform/releases/download/sdk-v0.47.0/SHA256SUMS']);
+  assert.deepEqual(pin, { url: 'https://github.com/hjung3113/analytics-platform/releases/tag/sdk-v0.47.0', version: '0.47.0', sha256: hash('sums\n') });
+  await assert.rejects(pinFor('0.48.0-rc.1', async () => Buffer.from('')), /stable release version/);
 });
 test('download is injectable with a local directory and always verifies checksums', () => fixture(async root => {
   const previous = bundle(root, '0.35.0-rc.1');

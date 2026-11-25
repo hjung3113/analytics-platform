@@ -66,6 +66,44 @@ it('seeks on pointer down over the axis', () => {
   expect(onCursorChange).toHaveBeenCalledWith(time('10:15:00'));
 });
 
+it('paints the focusable axis after the cursor on the overlay', () => {
+  const { view, svg } = setup();
+  const slider = screen.getByRole('slider', { name: '커서 시각' });
+  const cursor = view.container.querySelector('.eqv-rp-cursor')!;
+  expect(cursor.parentElement?.previousElementSibling).toBe(svg);
+  expect(cursor.nextElementSibling === slider).toBe(true);
+  expect(slider.nextElementSibling).toBeNull();
+});
+
+it('moves the cursor without laying out the bars again and still updates the selection', () => {
+  // Reading occurrences resolves the open-end labels in this fixture's plot.
+  const readOccurrences = vi.fn(() => batch.occurrences);
+  const watchedBatch = { ...batch, get occurrences() { return readOccurrences(); } };
+  const props = {
+    timeline, layout: equipmentLayout, batch: watchedBatch, selectedComponentId: null, expanded: new Set<string>(),
+    onCursorChange: vi.fn(), onCursorCommit: vi.fn(), onSelectOccurrence: vi.fn(), onToggleExpand: vi.fn(),
+  };
+  const chart = (cursor: SiteWallClock, selectedOccurrenceId: string | null) =>
+    <FocusGantt {...props} cursor={cursor} selectedOccurrenceId={selectedOccurrenceId} />;
+  const { container, rerender } = render(chart(time('10:06:00'), null));
+  const slider = screen.getByRole('slider', { name: '커서 시각' });
+  const bar = container.querySelector('[data-bar][data-occurrence-id="occ-open"]')!;
+  const line = container.querySelector('.eqv-rp-cursor')!;
+  const initialX = line.getAttribute('x1');
+  expect(readOccurrences).toHaveBeenCalled();
+  readOccurrences.mockClear();
+
+  rerender(chart(time('10:07:00'), null));
+  expect(slider.getAttribute('aria-valuetext')).toBe('2026-01-01 10:07:00');
+  expect(line.getAttribute('x1')).not.toBe(initialX);
+  expect(readOccurrences).not.toHaveBeenCalled();
+
+  fireEvent.keyDown(bar, { key: 'Enter' });
+  expect(props.onSelectOccurrence).toHaveBeenCalledWith('occ-open');
+  rerender(chart(time('10:07:00'), 'occ-open'));
+  expect(bar.getAttribute('aria-pressed')).toBe('true');
+});
+
 it('ignores moves after a press released elsewhere, and keeps the Gantt at its design width inside a labelled scroller', () => {
   const { onCursorChange, svg } = setup();
   const slider = screen.getByRole('slider', { name: '커서 시각' });
@@ -77,10 +115,61 @@ it('ignores moves after a press released elsewhere, and keeps the Gantt at its d
   expect(svg.closest('[role="region"]')?.getAttribute('aria-label')).toBe('Gantt 차트');
 });
 
+it('captures an axis drag and commits its last move once when released outside the axis', () => {
+  const { onCursorChange, onCursorCommit } = setup();
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
+  axis.getBoundingClientRect = () => new DOMRect(100, 0, 800, 20);
+  const capture = vi.fn();
+  const release = vi.fn();
+  Object.assign(axis, { setPointerCapture: capture, releasePointerCapture: release });
+
+  fireEvent.pointerDown(axis, { clientX: 300, clientY: 10, pointerId: 1, buttons: 1 });
+  expect(capture).toHaveBeenCalledExactlyOnceWith(1);
+  fireEvent.pointerMove(axis, { clientX: 302, clientY: 10, pointerId: 1, buttons: 1 });
+  expect(onCursorChange).toHaveBeenCalledExactlyOnceWith(time('10:07:30'));
+  fireEvent.pointerMove(axis, { clientX: 500, clientY: 10, pointerId: 1, buttons: 1 });
+  expect(onCursorChange.mock.calls).toEqual([[time('10:07:30')], [time('10:15:00')]]);
+  expect(onCursorCommit).not.toHaveBeenCalled();
+
+  // jsdom has no capture retargeting. Deliver the physical release below the axis to its captor.
+  fireEvent.pointerUp(axis, { clientX: 640, clientY: 40, pointerId: 1, buttons: 0 });
+  fireEvent.pointerCancel(axis, { pointerId: 1 });
+  expect(onCursorCommit).toHaveBeenCalledExactlyOnceWith(time('10:15:00'));
+  expect(release).toHaveBeenCalledExactlyOnceWith(1);
+});
+
+it('ends an axis press that loses its capture before release, committing the shown time once', () => {
+  const { onCursorCommit } = setup();
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
+  axis.getBoundingClientRect = () => new DOMRect(100, 0, 800, 20);
+  Object.assign(axis, { setPointerCapture: vi.fn(), releasePointerCapture: vi.fn() });
+
+  fireEvent.pointerDown(axis, { clientX: 500, clientY: 10, pointerId: 1, buttons: 1 });
+  fireEvent(axis, new PointerEvent('lostpointercapture', { bubbles: true, pointerId: 1 }));
+  expect(onCursorCommit).toHaveBeenCalledExactlyOnceWith(time('10:15:00'));
+  // A normal release followed by its own lostpointercapture still commits once.
+  fireEvent.pointerDown(axis, { clientX: 300, clientY: 10, pointerId: 2, buttons: 1 });
+  fireEvent.pointerUp(axis, { clientX: 300, clientY: 10, pointerId: 2, buttons: 0 });
+  fireEvent(axis, new PointerEvent('lostpointercapture', { bubbles: true, pointerId: 2 }));
+  expect(onCursorCommit.mock.calls).toEqual([[time('10:15:00')], [time('10:07:30')]]);
+});
+
+it('keeps a key commit made during an axis press when the press is released', () => {
+  const { onCursorCommit } = setup();
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
+  axis.getBoundingClientRect = () => new DOMRect(100, 0, 800, 20);
+  Object.assign(axis, { setPointerCapture: vi.fn(), releasePointerCapture: vi.fn() });
+
+  fireEvent.pointerDown(axis, { clientX: 500, clientY: 10, pointerId: 1, buttons: 1 });
+  fireEvent.keyDown(axis, { key: 'Home' });
+  fireEvent.pointerUp(axis, { clientX: 500, clientY: 40, pointerId: 1, buttons: 0 });
+  expect(onCursorCommit.mock.calls).toEqual([[timeline.range.from]]);
+});
+
 it('seeks to a clicked bar time, selects its Occurrence, and marks open Occurrences with an open end', () => {
   const { onCursorChange, onCursorCommit, onSelectOccurrence, svg } = setup(time('10:26:00'));
   const bar = Array.from(svg.querySelectorAll('[data-bar="material"][data-occurrence-id="occ-open"]')).at(-1)!;
-  const axis = svg.querySelector('.eqv-rp-axis')!;
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
   axis.getBoundingClientRect = () => ({ left: 100, width: 800, top: 0, height: 20, right: 900, bottom: 20, x: 100, y: 0, toJSON: () => ({}) });
   expect(bar.getAttribute('aria-label')).toMatch(/열림 · 위치 미확인$/);
   expect(bar.querySelector('[data-mark="open-end"]')).not.toBeNull();
@@ -96,7 +185,7 @@ it('seeks to a clicked bar time, selects its Occurrence, and marks open Occurren
 it('seeks on a lane-row click using the same horizontal scale as the axis', () => {
   const { onCursorChange, onCursorCommit, svg } = setup();
   const lane = svg.querySelector('[data-lane-seek="true"]')!;
-  const axis = svg.querySelector('.eqv-rp-axis')!;
+  const axis = screen.getByRole('slider', { name: '커서 시각' });
   axis.getBoundingClientRect = () => ({ left: 100, width: 800, top: 0, height: 20, right: 900, bottom: 20, x: 100, y: 0, toJSON: () => ({}) });
   fireEvent.pointerDown(lane, { clientX: 300, pointerId: 1 });
   expect(onCursorChange).toHaveBeenCalledWith(time('10:07:30'));

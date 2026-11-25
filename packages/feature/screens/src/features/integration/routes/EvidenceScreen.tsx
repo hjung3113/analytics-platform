@@ -243,6 +243,7 @@ function EvidenceSession({
     capability,
     managedSystemId: listSystemId(search.managedSystem),
     empty: list.isSuccess && list.data.items.length === 0,
+    recheckPolicy: 'hold-request',
   });
   const { denied: listBlocked, cardProps, keptSystemId } = useListDenial({
     error: list.error,

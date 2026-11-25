@@ -2,7 +2,7 @@ import type { ChartTrust } from '../state/trustFormat';
 import { useCallback, useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
 import { BrushIcon, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button, InfoTip } from '@ap/ui';
-import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
+import { useI18n, useMessages } from '@ap/kernel';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { boundaryNotes, prepareLanes, segmentText, utcTick } from './laneTimelineGeometry';
@@ -11,14 +11,13 @@ import { ChartCardHeader, ChartTrustFooter, ChartZoomButton } from './analysisCh
 import { createLaneRenderer, type RendererState } from './laneTimelineRenderer';
 import { overlaySummaries, validateOverlays } from './laneTimelineOverlays';
 import type { TimelineOverlay } from './laneTimelineTypes';
-import { ChartImageCopyButton, ChartImagePrintButton, ImageActionStatus, useImageActionGate, type ChartExportActionsPolicy } from './ChartImageCopyButton';
+import { ChartImageCopyButton, ChartImagePrintButton, ImageActionStatus, type ChartExportActionsPolicy } from './ChartImageCopyButton';
 import { ChartExportMenu, ChartTableToggle } from './ChartInteractionToolbar';
 import { IntervalTable, formatDurationMs } from './canvasChartTable';
-import { downloadChartCsv } from './analysisChartCsv';
+import { useCanvasChartCsv } from './useCanvasChartCsv';
 import { CsvVerbatim } from '../table/tableExport';
 import { BodyTooltipPortal } from './bodyTooltipPortal';
 import { laneImageBlob } from './chartImageCopy';
-import { displayFileName } from '../table/download';
 import type { LaneItem } from './laneTimelineModel';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { useRangeBrush, type RangeBrushOptions } from './useRangeBrush';
@@ -97,11 +96,8 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const [tablePageOf, setTablePageOf] = useState({ lanes: props.lanes, page: 0 });
   if (tablePageOf.lanes !== props.lanes) setTablePageOf({ lanes: props.lanes, page: 0 });
   // A standalone result line belongs to one data set, title and permission: any change clears it (#2792 C9).
-  const [exportGeneration, setExportGeneration] = useState({ lanes: props.lanes, label: props.ariaLabel, allowed: props.exportActions?.exportAllowed, n: 0 });
-  if (exportGeneration.lanes !== props.lanes || exportGeneration.label !== props.ariaLabel || exportGeneration.allowed !== props.exportActions?.exportAllowed)
-    setExportGeneration({ lanes: props.lanes, label: props.ariaLabel, allowed: props.exportActions?.exportAllowed, n: exportGeneration.n + 1 });
-  const exportGate = useImageActionGate(props.exportActions, exportGeneration.n);
-  const global = usePlatformOptional()?.global ?? null;
+  const csv = useCanvasChartCsv({ title: props.ariaLabel, fallbackName: 'timeline', exportActions: props.exportActions, resetOn: [props.lanes] });
+  const exportGate = csv.gate;
   const brushOn = props.rangeBrush !== undefined;
   const brushRange = brushOn ? brush.range : null;
   const zoomControl = (label: string, Icon: typeof ZoomIn, onClick: () => void) => props.quiet
@@ -133,7 +129,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
   });
   useEffect(() => () => { engine.current?.destroy(); engine.current = null; }, []);
   const tickText = (time: number) => props.formatTick?.(time) ?? utcTick(time);
-  const fileBase = displayFileName(props.ariaLabel) || 'timeline';
+  const fileBase = csv.fileBase;
   const tablePage = tablePageOf.page;
   // The state cell: the consumer's `formatState` text (a trend value), else the rank, then the boundary notes (#2792 C4).
   const segmentState = (segment: TimelineSegment, lane: TimelineLane) => [
@@ -151,22 +147,15 @@ export function LaneTimeline(props: LaneTimelineProps) {
     }
     return rows;
   };
-  function exportCsv() {
-    // Rows are built inside the try: a throwing consumer `formatState` reports the failure like a failed download (#2792 C12).
-    try {
-      const rows: (string | number | CsvVerbatim)[][] = [];
-      for (let i = 0; i < model.flat.length; i += 1) {
-        const { segment, laneIndex } = model.flat[i] as LaneItem;
-        rows.push([model.lanes[laneIndex].label, wallClockCsv(segment.start), wallClockCsv(segment.end), segmentState(segment, model.lanes[laneIndex]), segment.end - segment.start]);
-      }
-      // The table's columns, with the CSV length in ms (#2792 C14).
-      downloadChartCsv({ chartId: fileBase, fileName: fileBase, title: props.ariaLabel, context: global ?? {} }, tableColumns.map(column => column.numeric ? `${column.label} (ms)` : column.label), rows);
-    } catch {
-      exportGate.say(m('chartExportCsvFailed', { chartId: fileBase }), 'warning');
-      return;
+  // The table's columns, with the CSV length in ms (#2792 C14).
+  const exportCsv = () => csv.exportCsv(tableColumns.map(column => column.numeric ? `${column.label} (ms)` : column.label), () => {
+    const rows: (string | number | CsvVerbatim)[][] = [];
+    for (let i = 0; i < model.flat.length; i += 1) {
+      const { segment, laneIndex } = model.flat[i] as LaneItem;
+      rows.push([model.lanes[laneIndex].label, wallClockCsv(segment.start), wallClockCsv(segment.end), segmentState(segment, model.lanes[laneIndex]), segment.end - segment.start]);
     }
-    exportGate.say(m('chartExportedCsv', { chartId: fileBase }));
-  }
+    return rows;
+  });
   const capture = () => laneImageBlob({ axis: axis.current, plot: canvas.current, overlay: overlay.current, labels: spacer.current, scroll: scroll.current });
   function summary(item: typeof focused) {
     if (!item) return '';

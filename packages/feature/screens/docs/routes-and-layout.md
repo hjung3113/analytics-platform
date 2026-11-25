@@ -266,8 +266,10 @@ as the other surfaces.
   selection. Approval keeps the approved request URL-selected until the reviewer
   chooses `다음 요청` or navigates away.
 - Task Request status tabs stay mounted during initial load, uncached-tab loading,
-  cached refresh, and queue errors/permission denial; loading/error content replaces
-  only the list body. Empty/rows motion boundaries keep their existing context keys.
+  cached refresh, and ordinary queue errors. A list denial hides the toolbar and
+  shows the blocked card. If the denial removes the focused control and leaves
+  focus on the page body, focus moves to the card. Empty/rows motion boundaries keep
+  their existing context keys.
   A manual tab or scope change still reconciles selection by the rules above.
 - Rejection/additional-evidence completion retains the old panel and successful
   dialog content until the newly selected current-tab row (or a confirmed
@@ -320,7 +322,7 @@ The platform bridge supplies `ManagedSystemScopeControl` over `ManagedSystemScop
 - Every workspace Managed System is listed. Systems outside the actor's scope for the list's capability (`GET /me/permissions/scope`), including Admin denies, are dimmed and marked `범위 밖`, with a note that names are workspace-visible and access is requested separately (#282). Both the sidebar and the page-owned picker read the active menu's declaration ([Kernel §5](../../../../docs/contract/kernel.md#5-menu-extension-contract), #2641). The picker defaults to `voc.read` when no capability is supplied. Option and selected names follow the shared label rule (`managedSystemLabels`): the name alone, `이름 (slug)` only where names are shared.
 - The list is a real `listbox` of `option`s (`aria-selected` on the current value). ArrowUp/ArrowDown/Home/End move focus (no wrap), Enter/Space select, Esc closes (from the list or the trigger), Tab or a click elsewhere closes; selecting or Esc returns focus to the trigger. With a visible label (the platform `목록 범위`) the trigger's accessible name starts with it.
 - Opening focuses the current value's option. The `전체` option's name is `전체 Managed System`; its helper (`워크스페이스 전체` / `내 담당 n / m`) is its description.
-- A `managedSystem` uuid that is not in the loaded list shows `알 수 없는 Managed System` (glyph `?`, no `범위 밖` badge, no option selected). After a successful empty catalog read the picker keeps `전체 Managed System`.
+- The picker matches a `managedSystem` UUID case-insensitively. A UUID absent from the loaded list shows `알 수 없는 Managed System` (glyph `?`, no `범위 밖` badge, no option selected). After a successful empty catalog read the picker keeps `전체 Managed System`.
 ```
 
 Changing Managed System scope updates URL state and list queries. It must not
@@ -687,7 +689,8 @@ Evidence, Findings, VOC Inbox, VOC Clusters, Task list, Task board and Milestone
 filters. If closing detail leaves focus on the page body, focus moves to the
 list blocked card's first available action or to the card itself. A later explicit VOC Inbox selection still goes through the
 independently authorized detail read. When a scoped empty-list permission check shows the shared blocked card («막힘 카드»),
-returning window focus rechecks that permission.
+returning window focus rechecks that permission. The Finding and Evidence cards show `확인 중` in place of the request action
+until the recheck settles. A failed check offers retry and keeps the request action unavailable.
 Findings, Evidence, VOC Clusters, the Task list (including My Tasks), the Task board, and
 Milestones use the same list blocked card, as does the Integration recovery queue: its denied
 card replaces the section title (h2, card named by that title when focus returns to it) and keeps the
@@ -696,7 +699,9 @@ optional session retry under the card. On the platform the page's own return row
 or its status. A role denial names the required Developer role, and other denials
 show the required permission where applicable. The action row ends with
 `홈으로` and `내 VOC` when Home is available. If a redraw removes the focused
-action, focus moves to the first available action or to the card.
+action, focus moves to the first available action or to the card. The same focus
+destination applies when a recovery queue denial removes the focused list control
+and focus falls to the page body.
 Rows use the default compact Integration density: snippet title plus one truncated
 metadata line containing Finding identity, source and classification. Withheld
 row titles and panel text are muted and italic. A readable VOC's panel source label
