@@ -242,6 +242,11 @@ describe('DetailPanelHeader — title lines', () => {
     expect(row).toContainElement(screen.getByText('Kind'));
   });
 
+  it('shows numeric 0 metadata under a two-line title', () => {
+    render(<DetailPanelHeader title="A long record title" titleLines={2} metadata={0} />);
+    expect(screen.getByText('0')).toBeInTheDocument();
+  });
+
   it('adds no empty line under a two-line title without metadata', () => {
     render(<DetailPanelHeader title="A long record title" titleLines={2} metadata={false} />);
     const titleBlock = screen.getByRole('heading', { name: 'A long record title' }).parentElement?.parentElement;

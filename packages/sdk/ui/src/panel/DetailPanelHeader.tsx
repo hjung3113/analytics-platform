@@ -175,7 +175,7 @@ export function DetailPanelHeader({
             {title != null && <h2 id={headingId} className={cn('t-section-title min-w-0 break-keep', wrapsTitle ? 'line-clamp-2 wrap-anywhere' : 'truncate')}>{title}</h2>}
           </div>
           {wrapsTitle
-            ? (kicker !== undefined || Boolean(metadataContent)) && <div className="flex min-w-0 max-w-full items-center gap-2">{kickerBadge}{metadataContent}</div>
+            ? (kicker !== undefined || (metadataContent != null && metadataContent !== false)) && <div className="flex min-w-0 max-w-full items-center gap-2">{kickerBadge}{metadataContent}</div>
             : <>{kickerBadge}{metadataContent}</>}
         </div>
 
