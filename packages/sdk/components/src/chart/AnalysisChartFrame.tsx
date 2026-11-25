@@ -1473,7 +1473,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         setRangeEditorOpen(open);
         if (!brushMode || !open) rangeActions.toggleBrush();
       } else rangeActions.toggleBrush();
-    }}><BrushIcon className="size-3.5" aria-hidden />{!compactTools && m('chartBrush')}</Button>;
+    }}><BrushIcon className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartBrush')}</span>}</Button>;
   const gestureHint = useChartGestureHint({
     point: !zoomOnly && canSelectPoint,
     drill: !zoomOnly && canDrill && canSelectPoint,
@@ -1482,7 +1482,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   });
   const inlineHeading = zoomOnly ? <div className="min-w-0">
     <h3 id={titleId} className="t-card-title">{p.title}</h3>
-    {p.legendCaption != null && <div className="text-xs text-text-muted">{p.legendCaption}</div>}
+    {p.legendCaption != null && <div className="t-caption">{p.legendCaption}</div>}
   </div> : <ChartHeading titleId={titleId} title={p.title} description={p.description} gestureHint={gestureHint} descriptionId={gestureDescriptionId} metricVersion={p.metricVersion}
     compact={compact || compactChrome} hideTitle={(compactChrome || queryPanel !== null) && !p.headingInToolbar} />;
   const toolbar = <ChartInteractionToolbar compact={compactTools} reserveCorner={!docked && analysisSection !== null}
@@ -1499,11 +1499,11 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         <ChartZoomButton label={m('laneZoomOut')} icon={ZoomOut} onClick={rangeActions.zoomOut} />
       </>}
     </> : rowPitch === undefined && <>
-      <Button type="button" ref={zoomInButton} variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartZoom')} title={m('chartZoomTitle')} onClick={rangeActions.zoomIn}><ZoomIn className="size-3.5" aria-hidden />{!compactTools && m('chartZoom')}</Button>
+      <Button type="button" ref={zoomInButton} variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartZoom')} title={m('chartZoomTitle')} onClick={rangeActions.zoomIn}><ZoomIn className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartZoom')}</span>}</Button>
       {isZoomed && <>
-        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartZoomOut')} title={m('chartZoomOut')} onClick={() => { if (zoomsBackToFull) zoomInButton.current?.focus(); rangeActions.zoomOut(); }}><ZoomOut className="size-3.5" aria-hidden />{!compactTools && m('chartZoomOut')}</Button>
-        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartPanLeft')} title={m('chartPanLeft')} onClick={() => rangeActions.pan(-1)} disabled={zoom[0] <= 0}><ArrowLeft className="size-3.5" aria-hidden />{!compactTools && m('chartPanLeft')}</Button>
-        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartPanRight')} title={m('chartPanRight')} onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden />{!compactTools && m('chartPanRight')}</Button>
+        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartZoomOut')} title={m('chartZoomOut')} onClick={() => { if (zoomsBackToFull) zoomInButton.current?.focus(); rangeActions.zoomOut(); }}><ZoomOut className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartZoomOut')}</span>}</Button>
+        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartPanLeft')} title={m('chartPanLeft')} onClick={() => rangeActions.pan(-1)} disabled={zoom[0] <= 0}><ArrowLeft className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartPanLeft')}</span>}</Button>
+        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartPanRight')} title={m('chartPanRight')} onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartPanRight')}</span>}</Button>
       </>}
     </>}
     brush={!zoomOnly && !outputSuspended && <Popover open={canEditRange && rangeEditorOpen} onOpenChange={setRangeEditorOpen}>
@@ -1519,10 +1519,10 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       </PopoverContent>}
     </Popover>}
     reset={zoomOnly ? <ChartZoomButton label={m('laneZoomReset')} icon={RotateCcw} onClick={resetLocal} />
-      : <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartReset')} title={m('chartReset')} disabled={priorResult} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{!compactTools && m('chartReset')}</Button>}
-    compare={canCompare && <Button type="button" variant={chartToolVariant(compactTools, compare)} size={toolbarButtonSize} aria-label={m('chartCompare')} title={m('chartCompare')} aria-pressed={compare} disabled={priorResult} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{!compactTools && m('chartCompare')}</Button>}
+      : <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartReset')} title={m('chartReset')} disabled={priorResult} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartReset')}</span>}</Button>}
+    compare={canCompare && <Button type="button" variant={chartToolVariant(compactTools, compare)} size={toolbarButtonSize} aria-label={m('chartCompare')} title={m('chartCompare')} aria-pressed={compare} disabled={priorResult} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartCompare')}</span>}</Button>}
     annotate={showAnnotate && <Button type="button" ref={annotateButton} variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartAnnotate')} aria-describedby={annotateReason ? annotateReasonId : undefined} disabled={!selection || !!annotateReason}
-      title={annotateReason ?? (selection ? m('chartAnnotate') : m('chartAnnotateBrushFirst'))} onClick={editor.openEditor}><MessageSquarePlus className="size-3.5" aria-hidden />{!compactTools && m('chartAnnotate')}</Button>}
+      title={annotateReason ?? (selection ? m('chartAnnotate') : m('chartAnnotateBrushFirst'))} onClick={editor.openEditor}><MessageSquarePlus className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartAnnotate')}</span>}</Button>}
     table={zoomOnly && !docked ? undefined : { shown: showTable, toggle: () => setShowTable(open => !open) }}
     exportCsv={canExport ? exportCsv : undefined}
     exportDisabled={priorResult}
@@ -1541,7 +1541,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     <AnalysisChartPart enabled={analysisSection !== null}>
       {dockHead?.toolbar ? <>
         <h2 id={titleId} className="sr-only">{p.title}</h2>
-        {zoomOnly && p.legendCaption != null && <p className="px-2 text-xs text-text-muted">{p.legendCaption}</p>}
+        {zoomOnly && p.legendCaption != null && <p className="t-caption px-2">{p.legendCaption}</p>}
         {(p.description || gestureHint) && dockHead.description && createPortal(
           <InfoTip label={m('chartDescription')} descriptionId={gestureDescriptionId}>{chartDescriptionContent(p.description, gestureHint)}</InfoTip>, dockHead.description,
         )}
@@ -1598,7 +1598,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     </p>}
 
     {rows && <div className="mx-4 mb-2 max-h-56 overflow-auto rounded-md border border-border-subtle">
-      <table aria-labelledby={titleId} className="w-full text-xs tabular">
+      <table aria-labelledby={titleId} className="t-body w-full tabular">
         <thead className="sticky top-0 bg-surface-sunken"><tr>{rowGroups && <th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{rowGroups.header}</th>}<th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{xType === 'time' ? m('chartAxisTime') : m('chartAxisCategory')}</th>{visible.map(s => <th key={s.id} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{columnName(s)}</th>)}{totals && totals.size > 0 && <th className="t-table-header px-3 py-1.5 text-right text-text-secondary">{totalName}</th>}{bounds && [bounds.labels.lower, bounds.labels.upper].map((label, index) => <th key={`bound-${index}`} className="t-table-header px-3 py-1.5 text-right text-text-secondary">{label}</th>)}{statusEnabled && <th className="t-table-header px-3 py-1.5 text-left text-text-secondary">{m('chartHeaderStatus')}</th>}
           {categoryValueMarks && <th scope="col" className="t-table-header px-3 py-1.5 text-right text-text-secondary">{categoryValueMarks.label}</th>}
         </tr></thead>

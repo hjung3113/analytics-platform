@@ -1,11 +1,29 @@
+import { readColorToken } from '@ap/ui/theme';
+
+const AXIS_FONT_FALLBACK = 12;
+const MARK_FONT_FALLBACK = 12;
+
+function readTextSize(element: Element | undefined, token: string, fallback: number) {
+  if (typeof window === 'undefined') return fallback;
+  const css = getComputedStyle(element ?? document.documentElement);
+  const size = Number.parseFloat(css.getPropertyValue(token));
+  return Number.isFinite(size) && size > 0 ? size : fallback;
+}
+
+export function chartAxisFontSize(element?: Element) {
+  return readTextSize(element, '--text-caption', AXIS_FONT_FALLBACK);
+}
+
+export function chartMarkFontSize(element?: Element) {
+  return Math.max(MARK_FONT_FALLBACK, readTextSize(element, '--text-chart-mark', MARK_FONT_FALLBACK));
+}
+
 /**
- * Chart mark, axis and grid defaults (#2725): the one home of their numbers. `CHART_ECHARTS_THEME` is the ECharts theme every
+ * Chart mark, axis and grid defaults (#2725): the one home of their numbers. `CHART_ECHARTS_GEOMETRY` is the ECharts theme every
  * `EChart` starts from, so `AnalysisChart`, `AnalysisChartFrame`, `topNBar` and a consumer's own option get the same defaults; an
  * option value still wins. Colours stay in the option (`chartTheme()`), resolved per build, so a theme switch needs no re-init.
  */
 export const CHART_MARKS = {
-  /** Chart text, axis labels and axis names. Values inside marks keep their own smaller size (`LABEL_FONT`). */
-  fontSize: 12,
   barMaxWidth: 40,
   barCategoryGap: '35%',
   barGap: '12%',
@@ -87,21 +105,19 @@ export function lineSymbolShown(points: number, markPoints = false): boolean {
   return markPoints || points <= CHART_MARKS.maxShownSymbols;
 }
 
-const axisText = { axisLabel: { fontSize: CHART_MARKS.fontSize }, nameTextStyle: { fontSize: CHART_MARKS.fontSize } };
+export function chartAxisTextStyle(element?: Element) {
+  // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for readColorToken(), not a class
+  return { fontSize: chartAxisFontSize(element), fontWeight: 400, color: readColorToken('text-secondary', element) };
+}
 /** Category and time axes: the baseline stays (colour from the option), no ticks, no grid lines. */
-const baseAxis = { ...axisText, axisTick: { show: false }, splitLine: { show: false } };
+const baseAxis = { axisTick: { show: false }, splitLine: { show: false } };
 /** Value axes: no line and no ticks; their split lines are the only grid (horizontal on a vertical chart). */
-const valueAxis = { ...axisText, axisTick: { show: false }, axisLine: { show: false }, splitLine: { show: true, lineStyle: { width: 1, type: 'solid' } } };
+const valueAxis = { axisTick: { show: false }, axisLine: { show: false }, splitLine: { show: true, lineStyle: { width: 1, type: 'solid' } } };
 
 /** Dimmed look of the series a hover does not target; drawn only when a chart opts into `focus: 'series'`. */
 const blur = { itemStyle: { opacity: CHART_MARKS.blurOpacity }, lineStyle: { opacity: CHART_MARKS.blurOpacity }, areaStyle: { opacity: CHART_MARKS.blurOpacity * CHART_MARKS.singleLineAreaOpacity }, label: { opacity: CHART_MARKS.blurOpacity } };
 
-export const CHART_ECHARTS_THEME = {
-  textStyle: { fontSize: CHART_MARKS.fontSize },
-  categoryAxis: baseAxis,
-  timeAxis: baseAxis,
-  valueAxis,
-  logAxis: valueAxis,
+const seriesTheme = {
   bar: {
     barMaxWidth: CHART_MARKS.barMaxWidth, barCategoryGap: CHART_MARKS.barCategoryGap, barGap: CHART_MARKS.barGap,
     itemStyle: { borderRadius: barRadius(false) }, blur,
@@ -110,4 +126,24 @@ export const CHART_ECHARTS_THEME = {
   scatter: { blur },
   pie: { blur },
   boxplot: { blur },
+};
+
+export const CHART_ECHARTS_GEOMETRY = {
+  ...seriesTheme,
+  categoryAxis: baseAxis,
+  timeAxis: baseAxis,
+  valueAxis,
+  logAxis: valueAxis,
+};
+
+// Default theme for the server-side SVG renderer and chart geometry tests.
+const defaultAxisText = chartAxisTextStyle();
+const defaultAxis = { axisLabel: defaultAxisText, nameTextStyle: defaultAxisText };
+export const CHART_ECHARTS_THEME = {
+  ...CHART_ECHARTS_GEOMETRY,
+  textStyle: { fontSize: defaultAxisText.fontSize },
+  categoryAxis: { ...baseAxis, ...defaultAxis },
+  timeAxis: { ...baseAxis, ...defaultAxis },
+  valueAxis: { ...valueAxis, ...defaultAxis },
+  logAxis: { ...valueAxis, ...defaultAxis },
 };

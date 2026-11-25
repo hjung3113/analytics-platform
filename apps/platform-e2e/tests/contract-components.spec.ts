@@ -14,12 +14,30 @@ test.describe('토큰 소비 계약 (06 §23, ADR-0011/ADR-0058)', () => {
     // #1218: the page filter row is gone — the toolbar quick search is the screen's platform control (components.md §15).
     const search = page.getByRole('searchbox', { name: '이름 또는 지표 ID' });
     await expect(search).toBeVisible();
-    await expect(page.locator('body')).toHaveCSS('font-size', '14px');
+    await expect(page.locator('body')).toHaveCSS('font-size', '13px');
     await expect(page.locator('body')).toHaveCSS('font-family', /Pretendard Variable/);
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(236, 239, 243)');
     // Shared toolbar Input primitive (inputSize="toolbar"): 32px surface with 13px text.
     await expect(search).toHaveCSS('font-size', '13px');
     await evidence(page, testInfo, 'feedbackops-token-cascade');
+  });
+});
+
+test.describe('Mono table typography (#2726)', () => {
+  test('the metric ID link keeps the accent color', async ({ page }) => {
+    await page.goto('/bravo/metric-catalog?v=1&scopeId=MEM');
+    const id = page.getByRole('table').locator('a.t-mono').first();
+    await expect(id).toBeVisible();
+    await expect(id).toHaveCSS('color', 'rgb(20, 40, 160)');
+  });
+
+  test('the retired software version inherits its muted cell color', async ({ page }) => {
+    await signInAs(page, 'admin');
+    // B-10 has a retired v3.1 in the mock catalog.
+    await page.goto('/log/knowledge/models/00000003-0000-4000-8000-00000000000a?v=1&scopeId=MEM');
+    const cell = page.getByRole('table', { name: 'SW 버전 목록' }).getByRole('cell', { name: 'v3.1', exact: true });
+    await expect(cell).toHaveCSS('color', 'rgb(91, 102, 120)');
+    await expect(cell.locator('.t-mono')).toHaveCSS('color', 'rgb(91, 102, 120)');
   });
 });
 

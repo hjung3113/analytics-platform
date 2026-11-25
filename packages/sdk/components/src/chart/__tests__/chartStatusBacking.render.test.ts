@@ -20,7 +20,7 @@ type NativeData = { count: () => number; getItemLayout: (n: number) => Rect; get
 type NativeModel = { getSeriesByIndex: (n: number) => { getData: () => NativeData } };
 const closeRect = (a: Rect, b: Rect) => { for (const key of ['x', 'y', 'width', 'height'] as const) expect(a[key], key).toBeCloseTo(b[key], 5); };
 
-it('preserves the legacy time stacked-bar option and status rendering from origin/main', () => {
+it('preserves the legacy time stacked-bar option and status rendering with shared typography', () => {
   const times = ['2026-11-16T00:00:00', '2026-11-16T01:00:00', '2026-11-16T02:00:00'];
   const displayed: ChartSeries[] = [
     { id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [[times[0], 2], [times[1], 4]] },
@@ -30,7 +30,8 @@ it('preserves the legacy time stacked-bar option and status rendering from origi
   const rings = (option.series as CustomSeriesOption[]).filter(s => s.type === 'custom' && s.z === 3);
   const rendered = rings.map(({ data, renderItem }) => (data as number[][]).map(row =>
     (renderItem as (params: unknown, api: unknown) => unknown)({}, { value: (d: number) => row[d], coord: ([x, y]: number[]) => [x / 3_600_000, y * 20], barLayout: () => undefined, size: () => [20, 20] })));
-  expect(createHash('sha256').update(JSON.stringify({ option, rendered })).digest('hex')).toBe('2cccda153d237c5cbab5a763ecada5e1dcdc16f58319cb79fe7bd3a909666d1a');
+  // #2726 changes only the status and reference mark font sizes in this baseline.
+  expect(createHash('sha256').update(JSON.stringify({ option, rendered })).digest('hex')).toBe('76429f529ed6ab9024f243b63934fdaf6127e6b73fb4da81d91a02b86f737670');
 });
 
 it('adds a dashed emphasis around only the matching status bar', () => {

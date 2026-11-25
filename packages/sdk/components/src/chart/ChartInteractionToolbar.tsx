@@ -89,7 +89,7 @@ export function ChartInteractionToolbar(p: Props) {
 export function ChartTableToggle({ shown, toggle, compact = false, disabled, buttonRef }: { shown: boolean; toggle: () => void; compact?: boolean; disabled?: boolean; buttonRef?: Ref<HTMLButtonElement> }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   return <Button ref={buttonRef} type="button" variant={chartToolVariant(compact, shown)} size={compact ? 'icon-xs' : 'toolbar'} aria-label={m('chartShowAsTable')} title={m('chartShowAsTable')} aria-pressed={shown} disabled={disabled} onClick={toggle}>
-    <Table2 className="size-3.5" aria-hidden />{!compact && m('chartShowAsTable')}
+    <Table2 className="size-3.5" aria-hidden />{!compact && <span className="t-chart-tool">{m('chartShowAsTable')}</span>}
   </Button>;
 }
 
@@ -99,9 +99,9 @@ export function ChartExportMenu({ exportCsv, tools, compact = false, disabled }:
   const [open, setOpen] = useState(false);
   if (disabled && open) setOpen(false);
   return <Popover open={open && !disabled} onOpenChange={setOpen}>
-    <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(compact)} size={compact ? 'icon-xs' : 'toolbar'} aria-label={t('export')} title={t('export')} disabled={disabled}><Download className="size-3.5" aria-hidden />{!compact && t('export')}</Button></PopoverTrigger>
+    <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(compact)} size={compact ? 'icon-xs' : 'toolbar'} aria-label={t('export')} title={t('export')} disabled={disabled}><Download className="size-3.5" aria-hidden />{!compact && <span className="t-chart-tool">{t('export')}</span>}</Button></PopoverTrigger>
     <PopoverContent align="end" aria-label={t('export')} className="w-auto break-keep"><div className="flex flex-wrap gap-1">
-      <Button type="button" variant="ghost" size="toolbar" onClick={() => { exportCsv(); setOpen(false); }}>{t('export')} CSV</Button>
+      <Button type="button" variant="ghost" size="toolbar" onClick={() => { exportCsv(); setOpen(false); }}><span className="t-chart-tool">{t('export')} CSV</span></Button>
       {tools}
     </div></PopoverContent>
   </Popover>;

@@ -344,13 +344,13 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   const analysisSection = useContext(AnalysisSectionContext);
   const inPanel = useInWorkspacePanel();
   const densePage = useCompactPageDensity();
-  // 1217d: one per-user size for every table, a step relative to this context's baseline; 보통 renders exactly as before (no size class or style is added).
+  // One per-user density adjusts geometry; all sizes share the same text roles.
   const [tableSize, setTableSize] = useTableSize();
   const sized = tableSize !== 'normal';
   const step = TABLE_SIZE_STEPS[tableSize];
   const rowHeight = BASE_ROW_HEIGHT + step.rowDelta;
   const widthScale = step.widthScale;
-  const sizeVars = { '--ap-table-font': step.font, '--ap-table-mono-font': `calc(${step.font} - 1px)`, '--ap-table-head-font': step.head, '--ap-table-row-h': `${rowHeight}px` } as CSSProperties;
+  const sizeVars = { '--ap-table-row-h': `${rowHeight}px` } as CSSProperties;
   const embedded = useEmbeddedChrome();
   // #2310: every table outside a workspace panel is one band when it fits — [title ⓘ][search][page controls][filters] … [count · trust][controls].
   // A titled or searchable table falls back to its two bands when the measured lead, page controls, filter basis, count and controls do not fit
@@ -714,14 +714,11 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     h.getResizeHandler()(event);
   };
   const align = (column: Column<T>) => ((column.columnDef.meta as ColumnMeta | undefined)?.align === 'right' ? 'justify-end text-right tabular' : '');
-  // 보통 keeps today's literal; 작게/크게 take the row height and font from the section's variables (checkboxes are excluded from the 작게 button height: they stay 14×14).
+  // 작게/크게 use the row-height variable. 작게 caps row buttons but keeps checkboxes at 14×14.
   const headerBase = sized ? 'flex min-h-(--ap-table-row-h) items-center overflow-hidden whitespace-nowrap px-4 py-0 pointer-coarse:min-h-11' : 'flex min-h-8 items-center overflow-hidden whitespace-nowrap px-4 py-1 pointer-coarse:min-h-11';
   const cellBase = cn(headerBase, 'overflow-visible whitespace-normal [overflow-wrap:anywhere]',
-    sized && 'py-0.5 [&_a]:text-(length:--ap-table-font) [&_button:not([role=checkbox])]:text-(length:--ap-table-font) [&_.t-mono]:text-(length:--ap-table-mono-font)',
+    sized && 'py-0.5',
     tableSize === 'small' && '[&_button:not([role=checkbox])]:h-6 [&_a.h-8]:h-6');
-  const cellText = sized ? 'text-(length:--ap-table-font)' : 'text-sm';
-  const headStyle = (column: Column<T>): CSSProperties => sized ? { ...cellStyle(column), fontSize: 'var(--ap-table-head-font)' } : cellStyle(column);
-  const groupHeadStyle = (h: Header<T, unknown>, side: 'left' | 'right' | false): CSSProperties => sized ? { ...groupSpanStyle(h, side), fontSize: 'var(--ap-table-head-font)' } : groupSpanStyle(h, side);
   /** The right-pinned action column keeps a visible edge while content scrolls beneath it (a border token; DESIGN.md allows no shadow). */
   const pinEdge = 'border-l border-l-border-control';
   const fadeClass = (side: 'left' | 'right' | false | null, body: boolean, active = false) => !side || !(side === 'right' ? fade.right : fade.left) ? undefined
@@ -1069,7 +1066,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
         // eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime
         return <div role={grid ? 'gridcell' : 'cell'} key={cell.id} data-column={column.id} style={cellStyle(column)} aria-label={label} aria-describedby={matchId}
           aria-selected={selectableCell ? selected : undefined} {...interaction}
-          className={cn(cellBase, 'border-b border-border-row', cellText, background, active && firstData && 'font-medium', muted && declaration && cn('text-text-muted group-hover:text-text-secondary group-aria-selected:text-text-secondary', active && 'text-text-secondary'), column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), lineClass(column.id), column.getIsPinned() === 'right' && pinEdge, fadeClass(inWidthGroup(column.id) ? false : column.getIsPinned(), true, active), align(column),
+          className={cn(cellBase, 't-body border-b border-border-row', background, active && firstData && 'font-medium', muted && declaration && cn('text-text-muted group-hover:text-text-secondary group-aria-selected:text-text-secondary', active && 'text-text-secondary'), column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), lineClass(column.id), column.getIsPinned() === 'right' && pinEdge, fadeClass(inWidthGroup(column.id) ? false : column.getIsPinned(), true, active), align(column),
             selectableCell && 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring')}>
           {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
           {column.id === '_action' ? p.rowAction?.(row.original, { compact: actionCompact }) : flexRender(column.columnDef.cell, cell.getContext())}
@@ -1146,7 +1143,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
               const editableGroup = !!p.editableColumnGroups && isGroup && !h.column.parent;
               if (isGroup || h.isPlaceholder) {
                 // eslint-disable-next-line shadcn/no-inline-styles -- group span and pin offsets sum the rendered leaf widths
-                return <div role="columnheader" key={h.id} data-column={h.column.id} aria-label={editableGroup ? nameOf(h.column) : undefined} aria-colspan={isGroup ? h.colSpan : undefined} tabIndex={panGroup && panGroup.max > 0 ? 0 : undefined} aria-description={panGroup && panGroup.max > 0 ? m('tableColumnGroupPanHint') : undefined} style={isGroup ? groupHeadStyle(h, side) : headStyle(h.column)}
+                return <div role="columnheader" key={h.id} data-column={h.column.id} aria-label={editableGroup ? nameOf(h.column) : undefined} aria-colspan={isGroup ? h.colSpan : undefined} tabIndex={panGroup && panGroup.max > 0 ? 0 : undefined} aria-description={panGroup && panGroup.max > 0 ? m('tableColumnGroupPanHint') : undefined} style={isGroup ? groupSpanStyle(h, side) : cellStyle(h.column)}
                   className={cn(headerBase, 't-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', isGroup && 'overflow-visible', lineClass(h.column.getLeafColumns()[0]?.id ?? h.column.id, false), panGroup && panGroup.max > 0 && 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring', side === 'right' && pinEdge, fadeClass(h.column.getLeafColumns().some(c => inWidthGroup(c.id)) ? false : side, false))}>
                   {/* eslint-disable-next-line shadcn/no-inline-styles -- keep the top-level label in its declared clip span as member columns pan underneath */}
                   {isGroup && <span className={cn('sticky left-0 min-w-0', editableGroup ? 'flex h-full w-full items-center break-keep' : 'truncate')} style={panGroup ? { transform: `translateX(var(${panGroup.variable}, 0px))`, maxWidth: panGroup.width - CELL_INLINE_PADDING } : undefined} title={nameOf(h.column)}>
@@ -1156,7 +1153,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
                 </div>;
               }
               // eslint-disable-next-line shadcn/no-inline-styles -- column width and pin offset come from column sizing at runtime
-              return <div role="columnheader" key={h.id} data-column={h.column.id} style={headStyle(h.column)} title={declarations.get(h.column.id)?.headerLabel ?? (typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : undefined)}
+              return <div role="columnheader" key={h.id} data-column={h.column.id} style={cellStyle(h.column)} title={declarations.get(h.column.id)?.headerLabel ?? (typeof h.column.columnDef.header === 'string' ? h.column.columnDef.header : undefined)}
                 aria-label={declarations.get(h.column.id)?.headerLabel}
                 aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : h.column.getCanSort() ? 'none' : undefined}
                 className={cn(headerBase, 'group/head t-table-header border-b border-border-subtle bg-surface-sunken text-text-secondary', actionCompact && h.column.id === '_action' && 'px-2', lineClass(h.column.id), h.column.getIsPinned() === 'right' && pinEdge, fadeClass(inWidthGroup(h.column.id) ? false : h.column.getIsPinned(), false), align(h.column))}>
@@ -1193,7 +1190,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
                   // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
                   className="group absolute left-0 top-0 flex w-full" style={{ transform: `translateY(${item.start}px)` }}>
                   <GroupHeaderCells lang={lang} item={entry} onToggle={() => toggleGroup(entry.group.key)}
-                    cellClassName={cn(cellBase, 'border-b border-border-subtle bg-surface-sunken', cellText)} labelClassName={cellText}
+                    cellClassName={cn(cellBase, 't-body border-b border-border-subtle bg-surface-sunken')} labelClassName="t-body"
                     lead={{ style: { width: displayedSize(leading), flexShrink: 0 }, span: leading.length, stickyLeft: displayedSize(table.getLeftVisibleLeafColumns()), subtotal: leadSubtotal ? { id: leadSubtotal.id } : undefined }}
                     leadingCells={hasColumnGroups ? leading.map(c => ({ id: c.id, subtotal: subtotalIds.has(c.id), style: cellStyle(c), className: cn(lineClass(c.id), c.getIsPinned() === 'right' && pinEdge) })) : undefined}
                     renderCells={(cells, render) => renderCells(cells, cell => table.getColumn(cell.id)!, render)}

@@ -22,6 +22,7 @@ export const legendColor = (color: KindProjection['legend'][number]['color']) =>
 const shapes = ['circle', 'rect', 'triangle', 'diamond'] as const;
 export type KindProjection = {
   rows: ChartRow[]; total: number; empty: boolean; summary: string; headers: string[]; tableValues: string[][]; csvHeaders: string[]; csvValues: (string | number)[][];
+  numericColumns?: readonly number[];
   legend: { label: string; color: ThemeColorToken | { resolved: string }; symbol: string; stroke?: ThemeColorToken; unknown?: boolean; dash?: string; opacity?: number; status?: ChartStatus }[];
   seriesKeys: (string | undefined)[][];
   option: (active: string[]) => EChartsCoreOption;

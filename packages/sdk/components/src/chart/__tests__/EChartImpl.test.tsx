@@ -1,6 +1,7 @@
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as EChartsCore from 'echarts/core';
+import { init } from 'echarts/core';
 import EChartImpl from '../EChartImpl';
 
 type EChartsModule = typeof EChartsCore;
@@ -34,6 +35,118 @@ const option: EChartsCore.EChartsCoreOption = {
 
 beforeEach(() => { state.setOption.mockClear(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+describe('EChartImpl typography (#2726)', () => {
+  it('floors positive label sizes across option shapes and preserves series data and consumer options', () => {
+    const data = [{ value: 1, label: { fontSize: 9 } }];
+    const label = Object.freeze({ fontSize: 9, rich: { strong: { fontSize: 16 }, yielded: { fontSize: 0 } } });
+    const mark = { data: [[{ label: { fontSize: 9 } }, { label: { fontSize: 16 } }]] };
+    const input = {
+      series: { type: 'bar', label, data, markLine: mark, emphasis: { label: { fontSize: 0 } } },
+      baseOption: { series: [{ type: 'bar', label }] },
+      media: [{ option: { series: { type: 'bar', label } } }],
+    };
+    const original = JSON.stringify(input);
+    render(<EChartImpl option={input} ariaLabel="plot" />);
+    const merged = state.setOption.mock.calls[0][0];
+    const expected = { fontSize: 12, rich: { strong: { fontSize: 16 }, yielded: { fontSize: 0 } } };
+    expect(merged.series.label).toEqual(expected);
+    expect(merged.series.emphasis.label.fontSize).toBe(0);
+    expect(merged.series.markLine.data[0]).toEqual([{ label: { fontSize: 12 } }, { label: { fontSize: 16 } }]);
+    expect(merged.series.data).toBe(data);
+    expect(merged.baseOption.series[0].label).toEqual(expected);
+    expect(merged.media[0].option.series.label).toEqual(expected);
+    expect(JSON.stringify(input)).toBe(original);
+  });
+
+  it('updates axis defaults on the mounted engine while preserving explicit styles and zoom', async () => {
+    const root = document.documentElement;
+    const previousTheme = root.getAttribute('data-theme');
+    vi.mocked(init).mockClear();
+    const input = {
+      xAxis: { type: 'category', axisLabel: { fontSize: 9, fontWeight: 600 } },
+      yAxis: [{ name: 'Value', nameTextStyle: { color: 'currentColor' } }],
+      dataZoom: [{ type: 'inside', start: 10, end: 90 }],
+      series: [{ type: 'bar', data: [1] }],
+    };
+    try {
+      render(<>
+        <style>{`
+          [aria-label="axis-plot"] { --text-caption: 12px; --text-secondary: 55 65 81; }
+          [data-theme="chart-typography-test"] [aria-label="axis-plot"] { --text-caption: 14px; --text-secondary: 61 71 91; }
+        `}</style>
+        <EChartImpl option={input} ariaLabel="axis-plot" />
+      </>);
+      expect(init).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({
+        categoryAxis: { axisTick: { show: false }, splitLine: { show: false } },
+      }), { renderer: 'canvas' });
+      expect(state.setOption.mock.lastCall?.[0].xAxis.nameTextStyle).toEqual({ fontSize: 12, fontWeight: 400, color: 'rgb(55,65,81)' });
+      root.setAttribute('data-theme', 'chart-typography-test');
+      await waitFor(() => {
+        const [next, mode] = state.setOption.mock.lastCall!;
+        expect(next.xAxis[0].axisLabel).toEqual({ fontSize: 9, fontWeight: 600, color: 'rgb(61,71,91)' });
+        expect(next.xAxis[0].nameTextStyle).toEqual({ fontSize: 14, fontWeight: 400, color: 'rgb(61,71,91)' });
+        expect(next.yAxis[0].nameTextStyle).toEqual({ fontSize: 14, fontWeight: 400, color: 'currentColor' });
+        // Only the axis typography is sent, merged: no series, zoom or other declaration is replayed.
+        expect(Object.keys(next).sort()).toEqual(['xAxis', 'yAxis']);
+        expect(mode).toEqual({ notMerge: false, silent: true });
+      });
+      expect(init).toHaveBeenCalledTimes(1);
+    } finally {
+      cleanup();
+      if (previousTheme === null) root.removeAttribute('data-theme'); else root.setAttribute('data-theme', previousTheme);
+    }
+  });
+});
+
+describe('EChartImpl typography on compound options (#2726 review 2)', () => {
+  it('keeps baseOption and media zoom out of a theme-only redraw, and a new option still sets the range', async () => {
+    const root = document.documentElement;
+    const previousTheme = root.getAttribute('data-theme');
+    const input = {
+      baseOption: { xAxis: { type: 'category' }, dataZoom: [{ type: 'inside', start: 0, end: 100 }], series: [{ type: 'bar', data: [1] }] },
+      media: [{ query: { minWidth: 1 }, option: { dataZoom: [{ start: 0, end: 50 }] } }],
+    };
+    try {
+      const { rerender } = render(<EChartImpl option={input} ariaLabel="zoom-plot" />);
+      const calls = state.setOption.mock.calls.length;
+      root.setAttribute('data-theme', 'compound-zoom-test');
+      await waitFor(() => expect(state.setOption.mock.calls.length).toBeGreaterThan(calls));
+      const [patch] = state.setOption.mock.lastCall!;
+      expect(JSON.stringify(patch)).not.toContain('dataZoom');
+      expect(patch).not.toHaveProperty('baseOption');
+      expect(patch).not.toHaveProperty('media');
+      const changed = { ...input, baseOption: { ...input.baseOption, dataZoom: [{ type: 'inside', start: 20, end: 60 }] } };
+      rerender(<EChartImpl option={changed} ariaLabel="zoom-plot" />);
+      expect(state.setOption.mock.lastCall![0].baseOption.dataZoom).toEqual([{ type: 'inside', start: 20, end: 60 }]);
+    } finally {
+      cleanup();
+      if (previousTheme === null) root.removeAttribute('data-theme'); else root.setAttribute('data-theme', previousTheme);
+    }
+  });
+
+  it('styles a frozen class-backed baseOption without writing to it', () => {
+    class Base { xAxis = { type: 'category' }; series = [{ type: 'bar', data: [1] }]; }
+    const base = Object.freeze(new Base());
+    render(<EChartImpl option={{ baseOption: base as unknown as EChartsCore.EChartsCoreOption }} ariaLabel="frozen-plot" />);
+    const sent = state.setOption.mock.calls[0][0];
+    expect(sent.baseOption.xAxis.axisLabel).toEqual(expect.objectContaining({ fontWeight: 400 }));
+    expect(base.xAxis).toEqual({ type: 'category' });
+  });
+
+  it('gives a media-added axis the defaults and leaves a branch patch to an existing axis sparse', () => {
+    const input = {
+      baseOption: { yAxis: [{ id: 'left', type: 'value', axisLabel: { fontWeight: 600 } }], series: [{ type: 'line', data: [1] }] },
+      media: [{ query: { minWidth: 1 }, option: { yAxis: [{ id: 'left', axisLabel: { color: 'red' } }, { id: 'right', type: 'value' }] } }],
+    };
+    render(<EChartImpl option={input} ariaLabel="media-plot" />);
+    const [left, right] = state.setOption.mock.calls[0][0].media[0].option.yAxis;
+    expect(left).toEqual({ id: 'left', axisLabel: { color: 'red' } });
+    expect(right.axisLabel).toEqual(expect.objectContaining({ fontWeight: 400 }));
+    expect(right.nameTextStyle).toEqual(expect.objectContaining({ fontWeight: 400 }));
+    expect(input.media[0].option.yAxis[1]).toEqual({ id: 'right', type: 'value' });
+  });
+});
 
 describe('EChartImpl reduced-motion (#297, 06 §26)', () => {
   it('forces the global and each series animation off after the consumer merge when the OS asks for reduced motion', () => {

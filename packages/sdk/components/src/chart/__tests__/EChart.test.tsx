@@ -6,6 +6,7 @@ import type { ECharts } from 'echarts/core';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { AnalysisChartFrame, type ChartSeries } from '../AnalysisChartFrame';
 import { baseTextStyle, chartTheme, strokeToken, token, type EChartProps } from '../EChart';
+import { chartAxisTextStyle, chartMarkFontSize } from '../chartMarks';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 
@@ -92,6 +93,25 @@ describe('chart text tokens (#193)', () => {
   });
 });
 
+it('resolves axis and mark font sizes from CSS and keeps the canvas mark minimum (#2726)', () => {
+  const root = document.documentElement;
+  const tokens = ['--text-caption', '--text-chart-mark'] as const;
+  const previous = tokens.map(name => root.style.getPropertyValue(name));
+  try {
+    root.style.setProperty('--text-caption', '14px');
+    root.style.setProperty('--text-chart-mark', '13px');
+    expect(chartAxisTextStyle(root)).toMatchObject({ fontSize: 14, fontWeight: 400 });
+    expect(chartMarkFontSize()).toBe(13);
+    root.style.setProperty('--text-chart-mark', '10px');
+    expect(chartMarkFontSize()).toBe(12);
+  } finally {
+    tokens.forEach((name, i) => {
+      if (previous[i]) root.style.setProperty(name, previous[i]);
+      else root.style.removeProperty(name);
+    });
+  }
+});
+
 describe('ECharts base theme (#544)', () => {
   it('resolves existing axis and reference roles and token-backed tooltip roles', () => {
     const root = document.documentElement;
@@ -111,7 +131,7 @@ describe('ECharts base theme (#544)', () => {
       const theme = chartTheme();
       expect(theme.axisLine.lineStyle.color).toBe('rgb(184,196,214)');
       expect(theme.splitLine.lineStyle.color).toBe('rgb(237,241,247)');
-      expect(theme.axisLabel.color).toBe('rgb(95,105,123)');
+      expect(theme.axisLabel.color).toBe('rgb(55,65,81)');
       expect(theme.tooltip.backgroundColor).toBe('rgb(237,243,251)');
       expect(theme.tooltip.borderColor).toBe('rgb(203,214,230)');
       expect(theme.tooltip.textStyle.color).toBe('rgb(16,24,40)');
@@ -119,7 +139,7 @@ describe('ECharts base theme (#544)', () => {
         silent: true,
         symbol: 'none',
         lineStyle: { color: 'rgb(55,65,81)', type: 'dashed' },
-        label: { formatter: '{b}', fontSize: 10, color: 'rgb(55,65,81)', position: 'insideEndTop' },
+        label: { formatter: '{b}', fontSize: 12, color: 'rgb(55,65,81)', position: 'insideEndTop' },
       });
       expect(token('border-control')).toBe(theme.axisLine.lineStyle.color);
       expect(token('chart-grid')).toBe(theme.splitLine.lineStyle.color);

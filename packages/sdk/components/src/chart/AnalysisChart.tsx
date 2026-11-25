@@ -444,6 +444,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const categorical = spec.kind === 'heatmap' && spec.categories !== undefined;
   const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', m('chartHeaderValue'), ...(categorical ? [m('chartHeaderCategory')] : []), ...(hasStatuses ? [m('chartHeaderStatus')] : [])] : [m('chartHeaderName'), m('chartHeaderValue'), '%']);
   const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value), ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [statusText(row.status)] : [])] : [row.groupLabel ?? row.label, valueText(row.value), percent(row.share ?? 0)]);
+  const numericColumns = extended?.numericColumns ?? (spec.kind === 'donut' ? [1, 2] : []);
   function exportCsv() {
     const csvHeaders = extended?.csvHeaders ?? [...headers.map((header, i) => i === (spec.kind === 'heatmap' ? 2 : 1) ? `${header} (${p.unit})` : header), ...(hasStatuses ? [m('chartHeaderReason')] : [])];
     const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknown, ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [row.status?.label ?? '', row.status?.reason ?? ''] : [])] : [row.groupLabel ?? row.label, row.value ?? unknown, row.share ?? 0]);
@@ -505,10 +506,10 @@ export function AnalysisChart(p: AnalysisChartProps) {
         if (spec.expanded === undefined) setLocalExpanded(next);
         spec.onExpandedChange?.(next);
       }}>{expanded ? <ChevronUp className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
-      {!compactChrome && m(expanded ? 'chartHide' : 'chartShow')}
+      {!compactChrome && <span className="t-chart-tool">{m(expanded ? 'chartHide' : 'chartShow')}</span>}
     </Button>}
     reset={<Button type="button" variant={chartToolVariant(compactChrome)} size={compactChrome ? 'icon-xs' : 'toolbar'} aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}>
-      <RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}
+      <RotateCcw className="size-3.5" aria-hidden />{!compactChrome && <span className="t-chart-tool">{m('chartReset')}</span>}
     </Button>}
     table={{ shown: expanded && table, toggle: () => {
       if (!expanded) {
@@ -543,9 +544,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
     heading={<ChartHeading titleId={titleId} title={p.title} description={p.description} metricVersion={p.metricVersion}
       compact={compact || compactChrome} hideTitle={compactChrome} />}
     brush={brushable && <Button type="button" size={toolbarButtonSize} variant={chartToolVariant(compactChrome, brushMode)}
-      aria-label={m('chartBrush')} title={m('chartBrush')} aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}><BrushIcon className="size-3.5" aria-hidden />{!compactChrome && m('chartBrush')}</Button>}
+      aria-label={m('chartBrush')} title={m('chartBrush')} aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}><BrushIcon className="size-3.5" aria-hidden />{!compactChrome && <span className="t-chart-tool">{m('chartBrush')}</span>}</Button>}
     reset={selectionEnabled && <Button type="button" size={toolbarButtonSize} variant={chartToolVariant(compactChrome)}
-      aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}><RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}</Button>}
+      aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}><RotateCcw className="size-3.5" aria-hidden />{!compactChrome && <span className="t-chart-tool">{m('chartReset')}</span>}</Button>}
     table={{ shown: table, toggle: () => setTable(current => !current), buttonRef: tableToggle }}
     exportCsv={exportGate.allowed ? exportCsv : undefined}
     exportTools={exportGate.allowed && <>
@@ -624,9 +625,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
         {spec.kind === 'heatmap' && spec.cellActivation && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartActivatePoint') : undefined} title={compactChrome ? m('chartActivatePoint') : undefined} disabled={brushMode || !selectedCell} onClick={() => { if (!brushMode && selectedCell) spec.cellActivation?.onActivate(selectedCell.x, selectedCell.y); }}>{compactChrome ? <Play className="size-3.5" aria-hidden /> : m('chartActivatePoint')}</Button>}
         {(selectedActionRow?.drill || showDisabledHeatmapDetails) && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartDetails') : undefined} title={compactChrome ? m('chartDetails') : undefined} disabled={!selectedActionRow?.drill} onClick={selectedActionRow?.drill}>{compactChrome ? <ExternalLink className="size-3.5" aria-hidden /> : m('chartDetails')}</Button>}
       </section>}
-      {table && <div className="overflow-auto px-4 py-2"><table tabIndex={spec.kind === 'histogram' ? 0 : undefined} className="w-full text-xs"><caption>{p.title} · {p.unit}</caption>
-        <thead className="bg-surface-sunken"><tr>{(selectionEnabled ? [...headers, m('chartSelect')] : headers).map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>
-        <tbody>{rows.map((row, i) => <tr key={row.key}>{tableValues[i].map((value, j) => <td key={j}>{value}</td>)}{selectionEnabled && <td>
+      {table && <div className="overflow-auto px-4 py-2"><table tabIndex={spec.kind === 'histogram' ? 0 : undefined} className="t-body w-full"><caption className="t-caption">{p.title} · {p.unit}</caption>
+        <thead className="bg-surface-sunken"><tr>{(selectionEnabled ? [...headers, m('chartSelect')] : headers).map((h, i) => <th key={h} scope="col" className={cn('t-table-header', numericColumns.includes(i) && 'text-right')}>{h}</th>)}</tr></thead>
+        <tbody>{rows.map((row, i) => <tr key={row.key}>{tableValues[i].map((value, j) => <td key={j} className={numericColumns.includes(j) ? 'text-right tabular-nums' : undefined}>{value}</td>)}{selectionEnabled && <td>
           {keySet.has(row.key) && <Checkbox aria-label={m('chartSelectItem', { label: row.label })} checked={activeSet.has(row.key)} onCheckedChange={() => toggle(row.key, 'table')} />}
           {row.drill && <Button size="toolbar" variant="ghost" onClick={row.drill}>{m('chartDetails')}</Button>}
         </td>}</tr>)}</tbody>

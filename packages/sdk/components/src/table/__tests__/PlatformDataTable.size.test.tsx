@@ -76,15 +76,16 @@ describe('PlatformDataTable table size (1217d)', () => {
   });
 
   it.each([
-    ['small', '작게', 'var(--text-xs)', '11px', '28px'],
-    ['normal', '보통', 'var(--text-sm)', '12px', '32px'],
-    ['large', '크게', 'calc(var(--text-sm) + 2px)', '14px', '40px'],
-  ] as const)('%s sets the font, header font and row height variables (the virtualizer uses the same row height)', async (size, name, font, head, row) => {
+    ['small', '작게', '28px'],
+    ['normal', '보통', '32px'],
+    ['large', '크게', '40px'],
+  ] as const)('%s sets row height and keeps the shared body and header roles', async (size, name, row) => {
     const user = userEvent.setup();
     await mount();
     if (size !== 'normal') await choose(user, name);
-    expect(section().style.getPropertyValue('--ap-table-font')).toBe(font);
-    expect(section().style.getPropertyValue('--ap-table-head-font')).toBe(head);
+    expect(cell('line')).toHaveClass('t-body');
+    expect(header('line')).toHaveClass('t-table-header');
+    expect(header('line').style.fontSize).toBe('');
     expect(section().style.getPropertyValue('--ap-table-row-h')).toBe(row);
     expect(TABLE_SIZE_STEPS[size].rowDelta + 32).toBe(Number.parseInt(row));
   });
@@ -93,14 +94,14 @@ describe('PlatformDataTable table size (1217d)', () => {
     const user = userEvent.setup();
     await mount();
     await choose(user, '작게');
-    expect(cell('line')).toHaveClass('min-h-(--ap-table-row-h)', 'text-(length:--ap-table-font)');
+    expect(cell('line')).toHaveClass('min-h-(--ap-table-row-h)', 't-body');
     expect(cell('line').className).toContain('[&_button:not([role=checkbox])]:h-6');
     expect(header('line')).toHaveClass('min-h-(--ap-table-row-h)');
-    expect(header('line').style.fontSize).toBe('var(--ap-table-head-font)');
+    expect(header('line').style.fontSize).toBe('');
     await choose(user, '크게');
     expect(cell('line').className).not.toContain(':h-6');
-    expect(cell('line').className).toContain('[&_.t-mono]:');
-    expect(header('qty').style.fontSize).toBe('var(--ap-table-head-font)');
+    expect(cell('line').className).not.toContain('[&_.t-mono]:');
+    expect(header('qty').style.fontSize).toBe('');
   });
 
   it.each(['small', 'normal', 'large'] as const)('%s keeps every checkbox 14×14 (size-3.5) in the header and the rows', async size => {
@@ -153,7 +154,7 @@ describe('PlatformDataTable table size (1217d)', () => {
   it("보통: no size variable class, no inline font size", async () => {
     await mount();
     expect(header('line').style.fontSize).toBe('');
-    expect(cell('line')).toHaveClass('text-sm');
+    expect(cell('line')).toHaveClass('t-body');
     expect(section().className).not.toContain('ap-table');
     expect(cell('line').className).not.toContain('ap-table');
     expect(header('line').style.width).toBe('128px');
