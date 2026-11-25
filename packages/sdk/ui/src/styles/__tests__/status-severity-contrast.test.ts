@@ -16,12 +16,12 @@ import { describe, expect, it } from 'vitest';
 
 const TOKENS_CSS_PATH = path.resolve(__dirname, '../tokens.css');
 
-function parseCustomProps(cssPath: string): Map<string, string> {
+function parseCustomProps(cssPath: string, selector = ':root'): Map<string, string> {
   const source = fs.readFileSync(cssPath, 'utf-8');
   const root = postcss.parse(source);
   const props = new Map<string, string>();
   root.walkRules((rule) => {
-    if (rule.selector.trim() === ':root') {
+    if (rule.selector.trim() === selector) {
       rule.walkDecls(/^--/, (decl) => {
         props.set(decl.prop, decl.value.trim());
       });
@@ -30,16 +30,13 @@ function parseCustomProps(cssPath: string): Map<string, string> {
   return props;
 }
 
-/** Resolve a token's value to an [r,g,b] triple, following one level of `var(--x)` indirection. */
+/** Resolve a token's value to an [r,g,b] triple, following `var(--x)` aliases. */
 function resolveRgb(props: Map<string, string>, tokenName: string): [number, number, number] {
-  let value = props.get(tokenName);
+  const value = props.get(tokenName);
   if (value === undefined) throw new Error(`token not found: ${tokenName}`);
   const varMatch = value.match(/^var\((--[\w-]+)\)$/);
   const indirectName = varMatch?.[1];
-  if (indirectName !== undefined) {
-    value = props.get(indirectName);
-    if (value === undefined) throw new Error(`indirect token not found: ${indirectName}`);
-  }
+  if (indirectName !== undefined) return resolveRgb(props, indirectName);
   const parts = value.split(/\s+/).map(Number);
   if (parts.length !== 3 || parts.some(Number.isNaN)) {
     throw new Error(`${tokenName} is not an R G B triple: "${value}"`);
@@ -257,4 +254,23 @@ describe('#750 semantic text label contrast (WCAG AA)', () => {
       contrastRatio(resolveRgb(props, '--text-danger-label'), selectedTint),
     ).toBeGreaterThanOrEqual(WCAG_AA_TEXT);
   });
+});
+
+
+it.each(['blue', 'violet'])('keeps the %s table highlight edge distinct and its card text readable', theme => {
+  const defaults = parseCustomProps(TOKENS_CSS_PATH);
+  const platform = parseCustomProps(path.resolve(__dirname, '../platform-tokens.css'));
+  const overrides = theme === 'violet' ? parseCustomProps(path.resolve(__dirname, '../themes.css'), ':root[data-theme="violet"]') : [];
+  const props = new Map([...defaults, ...platform, ...overrides]);
+  const accent = resolveRgb(props, '--accent-primary');
+  const card = resolveRgb(props, '--surface-card');
+
+  expect(accent).toEqual(resolveRgb(props, '--chart-selection-outline'));
+  for (const surface of ['--surface-card', '--surface-row-hover', '--surface-row-selected']) {
+    expect(contrastRatio(accent, resolveRgb(props, surface)), surface).toBeGreaterThanOrEqual(3);
+  }
+  for (const text of ['--text-primary', '--text-secondary', '--text-muted', '--text-link',
+    '--text-success-label', '--text-info-label', '--text-warning-label', '--text-danger-label']) {
+    expect(contrastRatio(resolveRgb(props, text), card), text).toBeGreaterThanOrEqual(WCAG_AA_TEXT);
+  }
 });
