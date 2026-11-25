@@ -10,6 +10,7 @@ export type { ChartBounds, ChartBoundLabels } from './chart/chartBounds';
 export type { ChartStatus, ChartRowGroups } from './chart';
 export { orderRows, type OrderableRow, type RowOrderOptions, type RowOrderResult, type RowOrderSort } from './chart/rowOrder';
 export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type HeatmapCategory, type DonutSpec, type DonutSlice, type ScatterPoint, type ScatterSpec, type BoxStats, type BoxPlotSpec, type ParetoSpec, type TopNBarSpec, type TopNBarItem, type HistogramSpec, type HistogramBin } from './chart/AnalysisChart';
+export { resolveChartConfig, type ChartConfigProblem, type ChartConfigRow, type ChartFieldMeta, type ResolveChartConfigResult, type ResolvedChartFrame } from './chart/resolveChartConfig';
 export { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries, type ChartPoint, type ChartPointAction, type ChartSelectionAction } from './chart/AnalysisChartFrame';
 export type { NextAnalysisRows, NextAnalysisSourceRows } from './chart/NextAnalysisRowsDrawer';
 export { heatmapMinCanvasHeight, rowPitchChartHeight } from './chart/analysisChartGeometry';

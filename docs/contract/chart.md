@@ -192,7 +192,8 @@ Source · Updated · Coverage
 - 날 값이 `JSON.parse`가 만드는 평범한 데이터여야 한다(getter·심볼·숨은 키·배열의 이름 붙은 키·`undefined`·순환 없음). 검사한 값이 곧 저장·전송되는 값이다.
 - 닫힌 형식이다: 모르는 키를 거부하므로 데이터 배열·행·hex·px·글꼴 값이 들어갈 자리가 없다. 색은 계열 토큰 이름(`chart-series-1`–`4`)만 받고, 없으면 순서대로 정한다. 숫자 표시는 함수가 아니라 서술자다.
 - `invalidChartConfig`(`@ap/contracts`)와 `chartConfigSchema`(`@ap/contract-schemas`)가 같은 규칙으로 판정하고, 서버·HTTP 어댑터·mock 저장소는 이 판정으로 저장을 거부하거나 저장된 값을 읽을 수 없음(`panelsUnreadable`)으로 연다.
-- 필드 메타데이터에 따른 판정(쌓을 수 없는 측정 등)과 `resolve(config, rows, fieldMeta)`는 다음 단계다.
+- 그리기: `resolveChartConfig(config, rows, fieldMeta, lang)`(`@ap/components`, 순수 함수)가 Chart Frame props(`series`·`unit`·`xType`·`orientation`·`stackMode`·`areaFill`·`reaggregation`·`valueFormat`·`rightAxis`·`metricVersion`)를 낸다. 선·막대의 그리는 입력은 이 props다(ADR-0176의 `ChartSpec` 자리). 차트 id·제목·Trust·콜백은 메뉴가 그대로 넘긴다. 계열은 측정 순서, `split`이면 처음 나온 값 순서이며, `split` 계열은 모든 x를 갖고 행이 없는 x는 미확인(`null`)이다.
+- 고치지 않고 거부한다(`status: 'problem'`): 필드 메타 없음(`unknown-field`), 한 축에 단위가 둘(`mixed-units`), `sum`이 아닌 측정 쌓기(`not-additive`), 숫자가 아닌 측정·글자/숫자가 아닌 x·split 값(`bad-value`), 같은 x·split 값의 행 둘(`duplicate-point`). 사유 문구는 메뉴가 정한다.
 
 | 종류 | Zoom | Brush·선택 | Reset | Compare | Annotate | Export | Drill | 표로 보기 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
