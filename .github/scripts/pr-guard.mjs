@@ -1,8 +1,9 @@
 // CI `PR guard` job (#2643): the three caps, each passed only by a recorded answer. Rules: .agents/conductor/PROFILE.md §Size and path, «Mechanical caps».
 //
-//   size    more than MAX_LINES changed lines (additions + deletions) or MAX_FILES files, tests included, generated files, snapshots,
-//           lockfiles (EXCLUDED) and release mechanical changes (isReleaseMechanical: package.json changing only its version or ap.sdk line, deleted SDK change
-//           fragments) excluded → fails unless the PR body has a `Size: <who> — <reason>` line (the lead's judgment that the change is simple
+//   size    more than MAX_LINES changed lines (additions + deletions) or MAX_FILES files, tests included, generated files (the
+//           contract-schemas JSON Schema artifacts, whose drift the package test catches), snapshots, lockfiles (EXCLUDED) and release
+//           mechanical changes (isReleaseMechanical: package.json changing only its version or ap.sdk line, deleted SDK change fragments)
+//           excluded → fails unless the PR body has a `Size: <who> — <reason>` line (the lead's judgment that the change is simple
 //           or low regression risk) or the PR carries the owner's `owner-ok:size` label.
 //   rounds  the PR's branch has had more than MAX_PUSHES pull_request runs of ci.yml (open + two fix rounds; superseded and cancelled runs
 //           count, a force-push does not erase them) → fails unless the PR body has a `Round cap: <who> — <revert | split | 질문 #n>` line.
@@ -22,7 +23,7 @@ export const MAX_FILES = 40;
 export const MAX_PUSHES = 3;
 export const SIZE_LABEL = 'owner-ok:size';
 export const SCOPE_LABEL = 'owner-ok:scope';
-export const EXCLUDED = /((^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$|\/__snapshots__\/|\.snap$|^tooling\/sdk\/api\/|^packages\/sdk\/CHANGELOG\.md$)/;
+export const EXCLUDED = /((^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$|\/__snapshots__\/|\.snap$|^tooling\/sdk\/api\/|^packages\/sdk\/CHANGELOG\.md$|^packages\/sdk\/contract-schemas\/schemas\/[^/]+\.json$)/;
 const ROUND_LINE = /^[ \t]*Round cap:[ \t]*(\S.*)$/m;
 const SIZE_LINE = /^[ \t]*Size:[ \t]*(\S.*)$/m;
 const RELEASE_FILE = /^v(\d+)\.(\d+)\.(\d+)\.md$/;
@@ -122,7 +123,7 @@ export function summarize({ size, rounds, scope, labelEvents, releaseFile }) {
 function selfTest() {
   const f = (filename, additions, deletions, previous_filename) => ({ filename, additions, deletions, previous_filename });
   // size
-  assert.deepEqual(sizeVerdict([f('a.ts', 10, 5), f('pnpm-lock.yaml', 900, 0), f('x/__snapshots__/a.snap', 50, 0), f('tooling/sdk/api/ui.md', 70, 0), f('packages/sdk/CHANGELOG.md', 20, 0)], []), { lines: 15, files: 1, excluded: 4, over: false, answer: null, waived: false, ok: true });
+  assert.deepEqual(sizeVerdict([f('a.ts', 10, 5), f('pnpm-lock.yaml', 900, 0), f('x/__snapshots__/a.snap', 50, 0), f('tooling/sdk/api/ui.md', 70, 0), f('packages/sdk/CHANGELOG.md', 20, 0), f('packages/sdk/contract-schemas/schemas/chartConfig.json', 130, 0)], []), { lines: 15, files: 1, excluded: 5, over: false, answer: null, waived: false, ok: true });
   assert.equal(sizeVerdict([f('a.ts', 401, 0)], []).ok, false);
   assert.equal(sizeVerdict([f('a.ts', 400, 0)], []).ok, true);
   assert.equal(sizeVerdict([f('a.test.ts', 300, 101)], []).ok, false, 'tests count');
