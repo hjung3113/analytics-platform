@@ -17,6 +17,8 @@ type Values = Readonly<Record<string, unknown>>;
 export type LentPanelOptions = {
   /** Reads this key and dimension from HeldAnalysisSelections for the bound Context time input. */
   holdTime?: { readonly key: string; readonly dimension: string };
+  /** Withholds the bound output keys from this instance and disables its writes and availability reports to the receiving page. */
+  disablePageOutputs?: boolean;
 };
 
 /** Bound source inputs and the receiver's optional header actions. */
@@ -147,10 +149,10 @@ export function useLentPanel(source: Source, values?: Values, options?: LentPane
 }
 
 /** A disallowed source never mounts, so it cannot start a query or restore a previous answer. */
-export function LentPanel({ source, values, actions, holdTime }: LentPanelOptions & { source: Source; values?: Values; actions?: ReactNode }) {
+export function LentPanel({ source, values, actions, holdTime, disablePageOutputs }: LentPanelOptions & { source: Source; values?: Values; actions?: ReactNode }) {
   const resolved = useResolvedLending(source, values, { holdTime });
   if (!resolved.allowed) return null;
-  return <LentPanelSource key={source} resolved={resolved} actions={actions} />;
+  return <LentPanelSource key={source} resolved={resolved} actions={actions} disablePageOutputs={disablePageOutputs} />;
 }
 
 const LentPanelActionsContext = createContext<ReactNode>(null);
@@ -166,9 +168,10 @@ function LentPanelActions() {
 
 const headerActions = <LentPanelActions />;
 
-function LentPanelSource({ resolved, actions }: {
+function LentPanelSource({ resolved, actions, disablePageOutputs }: {
   resolved: Extract<ReturnType<typeof useResolvedLending>, { allowed: true }>;
   actions?: ReactNode;
+  disablePageOutputs?: boolean;
 }) {
   const { Component, receiverPlatform, source, binding: lending } = resolved;
   const inputs = useStable(resolved.inputs, sameInputs);
@@ -194,11 +197,11 @@ function LentPanelSource({ resolved, actions }: {
   }), [source, queryInputs, instanceId, generation, controller, adapter, session, currentRevision, revision]);
   // Writes end with the binding, with any input change (display too, without cancelling queries) and, at call time, with a
   // session or revision change, so a callback kept from an earlier render cannot write (#2763 R C2, R2 C2).
-  const outputBinding = useStable({ controller, inputs }, shallowEqual);
+  const outputBinding = useStable({ controller, inputs, disablePageOutputs }, shallowEqual);
   const { output: outputLifetime } = useMemo(() => ({ binding: outputBinding, output: new AbortController() }), [outputBinding]);
   useInsertionEffect(() => () => outputLifetime.abort(), [outputLifetime]);
-  const outputs = useMemo(() => lentPanelOutputs(receiverPlatform, lending.source, lending.outputs, outputLifetime.signal, query.current),
-    [receiverPlatform, lending, outputLifetime, query]);
+  const outputs = useMemo(() => disablePageOutputs ? null : lentPanelOutputs(receiverPlatform, lending.source, lending.outputs, outputLifetime.signal, query.current),
+    [receiverPlatform, lending, outputLifetime, query, disablePageOutputs]);
   const outputKeys = useMemo(() => outputs ? [...outputs.keys.keys()] : undefined, [outputs]);
   return <LentPanelActionsContext.Provider value={actions}>
     <LentPanelQueryContext.Provider value={query}>

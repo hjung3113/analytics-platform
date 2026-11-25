@@ -9,7 +9,7 @@ import { Button, StatusBadge } from '@ap/ui';
 import { HW_TIME_TREND, hwTimeTrendBinding } from '../lentTrendMapping';
 import { MESSAGES } from '../messages';
 import { configurationPanels } from '../panels';
-import { HOLD_TIME, HW_TIME_COMPARISON_ID, HW_TIME_PANEL_ID, useHwTimeComparison } from './heldTrend';
+import { COMPARISON_OPTIONS, HW_TIME_COMPARISON_ID, HW_TIME_PANEL_ID, useHwTimePanels } from './heldTrend';
 import { TrendPanel } from './TrendPanel';
 
 const { matrix, trend } = configurationPanels;
@@ -38,7 +38,7 @@ function HwTimeComparison({ values, time, badge, waiting, reason, follow, close 
     <div className="min-h-0 flex-1">
       {waiting && <LoadingBlock />}
       {!waiting && reason && <StateMessage compact tone="warning" icon={<TriangleAlert aria-hidden />} title={reason} />}
-      {!waiting && !reason && <HeldAnalysisSelections held={time ? { [HOLD_TIME.holdTime.key]: time } : {}}>
+      {!waiting && !reason && <HeldAnalysisSelections held={time ? { [COMPARISON_OPTIONS.holdTime.key]: time } : {}}>
         <ComparisonLentPanel values={values} />
       </HeldAnalysisSelections>}
     </div>
@@ -47,9 +47,9 @@ function HwTimeComparison({ values, time, badge, waiting, reason, follow, close 
 
 function ComparisonLentPanel({ values }: { values: ReturnType<typeof hwTimeTrendBinding>['values'] }) {
   const { tx } = useI18n();
-  const verdict = useLentPanel(HW_TIME_TREND, values, HOLD_TIME);
+  const verdict = useLentPanel(HW_TIME_TREND, values, COMPARISON_OPTIONS);
   if (!verdict.allowed) return <StateMessage compact tone="warning" icon={<TriangleAlert aria-hidden />} title={tx(verdict.reason.text)} />;
-  return <LentPanel source={HW_TIME_TREND} values={values} {...HOLD_TIME} />;
+  return <LentPanel source={HW_TIME_TREND} values={values} {...COMPARISON_OPTIONS} />;
 }
 
 export function OpenHwTimeLink({ link }: { link: LinkResolution }) {
@@ -93,12 +93,14 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
   const m = useMessages(MESSAGES);
   const matrixRoot = useRef<HTMLDivElement>(null);
   const returnHwTrendFocus = useRef(false);
-  const savedComparison = useHwTimeComparison(JSON.stringify([session.user.id, revision, global.scopeId]));
-  const { comparison } = savedComparison;
+  const hwPanels = useHwTimePanels(JSON.stringify([session.user.id, revision, global.scopeId]));
+  const { original, comparison } = hwPanels;
   const hwKey = pageParam(HW_TREND_ITEM_KEY);
-  // The URL owns the follow target, including while its mapping request is pending.
-  const hwItem = hwKey === HW_TREND_CLOSED ? null : hwKey ?? itemId;
-  const mappingItem = hwItem ?? (comparison ? itemId : null);
+  // Both slots follow the URL target. A saved graph or a close while comparing controls which slots use it.
+  const target = hwKey === HW_TREND_CLOSED ? null : hwKey ?? itemId;
+  const originalOpen = original === 'open' || (original === 'page' && target !== null);
+  const hwItem = originalOpen ? target : null;
+  const mappingItem = comparison ? target : hwItem;
   const canMap = mappingItem !== null && registry.has('hw-time');
   const lending = useMenuQuery(configurationLendingEndpoint, { itemId: mappingItem ?? '', equipment: params.eq }, {
     enabled: canMap, keepPrevious: true,
@@ -135,7 +137,6 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
   }, [linkedReveal?.seq, reveal]);
   useEffect(() => {
     if (hwItem !== null || !returnHwTrendFocus.current) return;
-    returnHwTrendFocus.current = false;
     const root = matrixRoot.current;
     const selected = root?.querySelector<HTMLElement>('[role="gridcell"][aria-selected="true"]');
     if (selected && !selected.closest('[hidden], [inert], [aria-hidden="true"]')
@@ -144,23 +145,33 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
     } else {
       focusPageFallback(root);
     }
+    returnHwTrendFocus.current = false;
   }, [hwItem]);
 
   function openTrend(id: string, linkedMotion?: LinkedMotion | null) {
+    hwPanels.openOriginal();
     setPage({ [TREND_ITEM_KEY]: id, [HW_TREND_ITEM_KEY]: null });
     setReveal(current => ({ panelId: trend.id, itemId: id, seq: (current?.seq ?? 0) + 1, restoreHidden: true, restoreLinked: Boolean(linkedMotion) }));
   }
   function closeTrend() {
     setExplained(null);
-    setPage({ [TREND_ITEM_KEY]: null, [HW_TREND_ITEM_KEY]: values && verdict.allowed ? hwItem : null });
+    const keepTarget = comparison !== null || (values && verdict.allowed);
+    setPage({ [TREND_ITEM_KEY]: null, [HW_TREND_ITEM_KEY]: keepTarget ? mappingItem : null });
   }
   function followSelection(id: string, linkedMotion?: LinkedMotion | null) {
-    if (hwItem === null || hwItem === id || verdict.reason?.kind === 'not-registered') return;
-    setPage({ [HW_TREND_ITEM_KEY]: linkedMotion ? id : itemId && HW_TREND_CLOSED }, { replace: true });
+    // The matrix reports a selection on focus. Returning focus after close must keep the comparison's target.
+    if (returnHwTrendFocus.current || (!originalOpen && !comparison) || mappingItem === id || verdict.reason?.kind === 'not-registered') return;
+    const unlinked = itemId || comparison ? HW_TREND_CLOSED : null;
+    setPage({ [HW_TREND_ITEM_KEY]: linkedMotion ? id : unlinked }, { replace: true });
   }
   function closeHwTrend() {
     returnHwTrendFocus.current = true;
-    setPage({ [HW_TREND_ITEM_KEY]: itemId && HW_TREND_CLOSED });
+    hwPanels.closeOriginal();
+    setPage({ [HW_TREND_ITEM_KEY]: comparison ? target : itemId && HW_TREND_CLOSED });
+  }
+  function closeComparison() {
+    if (!originalOpen) setPage({ [HW_TREND_ITEM_KEY]: itemId && HW_TREND_CLOSED });
+    hwPanels.closeComparison();
   }
   function lentPanel() {
     if (!verdict.allowed || !values?.equipmentIds?.length) return null;
@@ -209,10 +220,9 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
     panels.push({
       id: HW_TIME_COMPARISON_ID, title: MESSAGES.hwTimeComparison, placement: COMPARISON_ROW, preferredHeight: TREND_HEIGHT,
       badge: badge && { description: badge },
-      analysisSelectionSourceId: HW_TIME_TREND,
-      onRemove: savedComparison.close,
+      onRemove: closeComparison,
       render: () => <HwTimeComparison values={values} time={time} badge={badge} waiting={waiting} reason={comparisonReason}
-        follow={comparison.mode === 'follow' ? undefined : savedComparison.follow} close={savedComparison.close} />,
+        follow={comparison.mode === 'follow' ? undefined : hwPanels.follow} close={closeComparison} />,
     });
   }
 
@@ -222,9 +232,9 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
     if (draft.source !== HW_TIME_TREND || !hwItem) return;
     let panelId = HW_TIME_PANEL_ID;
     if (draft.mode === 'hold') {
-      const range = draft.inputs[HOLD_TIME.holdTime.key];
+      const range = draft.inputs[COMPARISON_OPTIONS.holdTime.key];
       if (range?.shape !== 'range') return;
-      savedComparison.hold(range);
+      hwPanels.hold(range);
       panelId = HW_TIME_COMPARISON_ID;
     }
     setReveal(current => ({ panelId, itemId: hwItem, seq: (current?.seq ?? 0) + 1, restoreHidden: true }));
@@ -236,7 +246,7 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
       items: [{ id: HW_TIME_PANEL_ID, title: MESSAGES.hwTimeTrend, again: 'hold', slots: [HW_TIME_PANEL_ID, HW_TIME_COMPARISON_ID] }],
       hold: true,
       returnsOpened: true,
-      toolbarDraft: () => ({ source: HW_TIME_TREND, inputs: { [HOLD_TIME.holdTime.key]: { shape: 'range', from: addPeriod.from, to: addPeriod.to } } }),
+      toolbarDraft: () => ({ source: HW_TIME_TREND, inputs: { [COMPARISON_OPTIONS.holdTime.key]: { shape: 'range', from: addPeriod.from, to: addPeriod.to } } }),
       onAdd: addHwTime,
     } : undefined}
     panelMenuItems={id => id === HW_TIME_PANEL_ID || id === HW_TIME_COMPARISON_ID ? [] : [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }]} />;

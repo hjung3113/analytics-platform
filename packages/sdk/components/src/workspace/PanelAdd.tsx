@@ -25,7 +25,10 @@ export type AnalysisPanelAddition = {
   returnsOpened?: boolean;
   /** Offers «붙잡기» beside each panel of «새 패널». The menu keeps the held inputs and wraps that panel in `HeldAnalysisSelections` (#2862). */
   hold?: boolean;
-  /** Shows «새 패널» in the workspace toolbar using inputs the menu already resolved, such as an applied period. */
+  /**
+   * Shows «새 패널» in the workspace toolbar using inputs the caller already resolved. The caller checks availability and permission
+   * for its draft and uses the item's `disabledReason` to display any restriction. Offer each add in one place, the toolbar or selection row.
+   */
   toolbarDraft?: (item: PanelAddItem) => Omit<AnalysisPanelDraft, 'mode'> | undefined;
 };
 /** What the workspace hands «새 패널»: the items still offered, each with `placed` computed by the workspace (SDK internal, #2862 ②). */
@@ -82,7 +85,7 @@ export type PanelAddItem = {
    * «새 패널» of `AnalysisPanelAddition` only (#2862 ②): a panel already placed is normally not offered; with `again` it still offers that one
    * mode, and the menu adds a second instance beside it (a held one beside a following one, or the reverse). A placed item with `'hold'`
    * needs the addition's `hold`: without it that item is not offered (`'follow'` still is). A panel collapsed or floating with none of
-   * its slots in view is not offered. The toolbar menu ignores it.
+   * its slots in view is not offered. `PanelAddMenu` ignores this option.
    */
   again?: 'follow' | 'hold';
   /**

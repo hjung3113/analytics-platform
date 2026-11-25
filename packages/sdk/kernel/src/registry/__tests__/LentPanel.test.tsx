@@ -82,8 +82,8 @@ describe('LentPanel held time', () => {
   const heldPeriod = { shape: 'range', from: '2026-09-21T00:00:00', to: '2026-09-23T00:00:00' } as const;
   const heldValue = { dimension: holdTime.dimension, selection: heldPeriod };
 
-  function mountHeld(held: HeldAnalysisSelection, accepts: (inputs: LentPanelProps['inputs']) => string | undefined) {
-    registerLentPanel(source, { component: SourceSummary, accepts });
+  function mountHeld(held: HeldAnalysisSelection, accepts: (inputs: LentPanelProps['inputs']) => string | undefined, { panelRegistry = registry, component = SourceSummary } = {}) {
+    registerLentPanel(source, { component, accepts });
     const session = testSession([receiving, owning, reading]);
     const menuQuery = vi.fn(async () => answer);
     const adapter = testAdapter({ session: () => session, menuQuery });
@@ -97,7 +97,7 @@ describe('LentPanel held time', () => {
       </>;
     }
     const tree = (current: Readonly<Record<string, HeldAnalysisSelection>>, optIn = true) =>
-      <I18nProvider><PlatformProvider registry={registry} adapter={adapter}>
+      <I18nProvider><PlatformProvider registry={panelRegistry} adapter={adapter}>
         <HeldAnalysisSelections held={current}><Instance optIn={optIn} /></HeldAnalysisSelections>
       </PlatformProvider></I18nProvider>;
     const { rerender } = render(tree({ period: held }));
@@ -131,6 +131,33 @@ describe('LentPanel held time', () => {
     expect(menuQuery).not.toHaveBeenCalled();
     expect(screen.queryByText('from source')).toBeNull();
     optOut();
+    await screen.findByText('from source');
+    expect(menuQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a held period when the source has no bound time and never queries', async () => {
+    const [originalBinding] = receiver.lentPanels!;
+    const { time: _time, ...bindingContext } = originalBinding!.context!;
+    const timelessSpec = { ...spec, context: { selection: 'apply' as const } };
+    const timelessContext = contextCapabilities(timelessSpec.context);
+    const withoutTime = createRegistry({
+      spaces: registry.spaces, groups: registry.groups, permissions: [receiving, owning, reading],
+      menus: [
+        home,
+        { ...receiver, context: timelessContext, lentPanels: [{ ...originalBinding!, context: bindingContext }] },
+        { ...owner, context: timelessContext, panels: owner.panels!.map(panel => ({ ...panel, endpoints: [timelessSpec] })) },
+      ],
+    });
+    function SourceWithoutTime({ inputs }: LentPanelProps) {
+      const query = useMenuQuery(timelessSpec, { level: inputs.page.level });
+      return <p>{query.response?.data}</p>;
+    }
+    const accepts = vi.fn();
+    const { menuQuery, follow } = mountHeld(heldValue, accepts, { panelRegistry: withoutTime, component: SourceWithoutTime });
+    await screen.findByText('rejected-held:period');
+    expect(accepts).not.toHaveBeenCalled();
+    expect(menuQuery).not.toHaveBeenCalled();
+    follow();
     await screen.findByText('from source');
     expect(menuQuery).toHaveBeenCalledTimes(1);
   });
