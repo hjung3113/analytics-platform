@@ -49,6 +49,8 @@ color.chart-series-3
 color.chart-series-3-stroke
 color.chart-series-4
 color.chart-series-4-stroke
+color.chart-series-5
+color.chart-series-5-stroke
 color.chart-status-critical
 color.chart-status-good
 color.chart-status-warn
@@ -85,6 +87,7 @@ color.text-danger-label
 color.text-disabled
 color.text-info
 color.text-info-label
+color.text-link
 color.text-muted
 color.text-on-accent
 color.text-primary

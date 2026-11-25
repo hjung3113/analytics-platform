@@ -33,6 +33,10 @@ AxisOption | type | type AxisOption = { id: string; label: string; }
 AxisOptionsInput | type | type AxisOptionsInput = { axisId: string; cursor?: null | string; limit: number; membershipBasis?: 'asOf' | null; parents?: Readonly<Record<string, readonly string[]>>; period?: @ap/contracts#MembershipPeriod | null; query?: string; scopeId: string; }
 AxisOptionsPage | type | type AxisOptionsPage = { items: @ap/contracts#AxisOption[]; nextCursor: null | string; }
 BeforeAfterPeriods | interface | interface BeforeAfterPeriods { after: null | { from: string; to: string; }; before: { from: string; to: string; }; }
+CHART_CONFIG_COLORS | const | const CHART_CONFIG_COLORS: readonly [ "chart-series-1", "chart-series-2", "chart-series-3", "chart-series-4" ]
+CHART_CONFIG_DECIMALS_MAX | const | const CHART_CONFIG_DECIMALS_MAX: 6
+CHART_CONFIG_FIELD_MAX | const | const CHART_CONFIG_FIELD_MAX: 200
+CHART_CONFIG_MEASURES_MAX | const | const CHART_CONFIG_MEASURES_MAX: 8
 CONTEXT_FIELDS | const | const CONTEXT_FIELDS: Readonly<Record<@ap/contracts#ContextKey, readonly (keyof @ap/contracts#GlobalContext)[]>>
 CUSTOM_GROUP_AXIS | const | const CUSTOM_GROUP_AXIS: "customGroup"
 CUSTOM_GROUP_FIXED_MAX | const | const CUSTOM_GROUP_FIXED_MAX: 5000
@@ -41,6 +45,10 @@ CarrySetDef | type | type CarrySetDef = { id: @ap/contracts#CarrySetId; pageKeys
 CarrySetId | type | type CarrySetId = Brand<'CarrySetId'>
 ChangeLine | type | type ChangeLine = { after: @ap/contracts#JsonValue; before: @ap/contracts#JsonValue; key: string; note?: string; }
 ChartAnnotation | type | type ChartAnnotation = { at: string; chartId: string; from: string; id: string; mine: boolean; scopeId: string; text: string; to: string; }
+ChartConfig | type | type ChartConfig = { areaFill?: boolean; kind: 'bar' | 'line'; measures: @ap/contracts#ChartConfigMeasure[]; orientation?: 'horizontal' | 'vertical'; split?: { field: string; }; stack?: 'none' | 'percent' | 'stack'; valueFormat?: @ap/contracts#ChartValueFormat; version: 1; x: { field: string; type: 'category' | 'time'; }; }
+ChartConfigColor | type | type ChartConfigColor = (typeof @ap/contracts#CHART_CONFIG_COLORS)[number]
+ChartConfigMeasure | type | type ChartConfigMeasure = { axis?: 'left' | 'right'; color?: @ap/contracts#ChartConfigColor; field: string; }
+ChartValueFormat | type | type ChartValueFormat = { decimals?: number; kind: 'number' | 'percent'; }
 ClientErrorReport | type | type ClientErrorReport = { correlationId: string; menuId: string; name: string; path: string; spaceId: @ap/contracts#SpaceId | null; }
 ColumnFilter | type | type ColumnFilter = { id: string; op: 'after' | 'before'; value: string; } | { id: string; op: 'between'; value: [ number, number ]; } | { id: string; op: 'between'; value: { from?: string; to?: string; }; } | { id: string; op: 'contains' | 'endsWith' | 'equals' | 'notContains' | 'notEquals' | 'startsWith'; value: string; } | { id: string; op: 'eq' | 'gt' | 'gte' | 'lt' | 'lte' | 'neq'; value: number; } | { id: string; op: 'in' | 'notIn'; value: string[]; } | { id: string; op: 'isEmpty' | 'isNotEmpty'; }
 ColumnFilterOp | type | type ColumnFilterOp = @ap/contracts#DateOp | @ap/contracts#EnumOp | @ap/contracts#InstantOp | @ap/contracts#NumberOp | @ap/contracts#TextOp
@@ -65,6 +73,7 @@ DrillLevel | type | type DrillLevel = { key: string; label: @ap/contracts#Text; 
 EMPTY_GROUP_LABEL | const | const EMPTY_GROUP_LABEL: "(값 없음)"
 ENTITY_AUDIT_PAGE_MAX | const | const ENTITY_AUDIT_PAGE_MAX: 50
 ENUM_OPS | const | const ENUM_OPS: readonly [ "in", "notIn", "isEmpty", "isNotEmpty" ]
+EQUIPMENT_SELECTION_DIMENSION | const | const EQUIPMENT_SELECTION_DIMENSION: "equipmentId"
 EndpointId | type | type EndpointId = string
 EndpointSpec | type | type EndpointSpec<P, T> = { readonly _types?: { data: T; params: P; }; context: Partial<Record<@ap/contracts#ContextKey, Exclude<@ap/contracts#Capability, 'unsupported'>>>; id: string; kinds: readonly @ap/contracts#AssessmentKind[]; limits?: { maxHours?: number; maxRows?: number; }; menuId: string; mergeTimeDomain: boolean; paramKeys: Readonly<Record<keyof P & string, true>>; permission: @ap/contracts#Permission; requiredContext?: readonly @ap/contracts#ContextKey[]; requiresScope: boolean; }
 EntityAuditPage | type | type EntityAuditPage = { events: readonly @ap/contracts#AuditEvent[]; nextCursor?: null | string; }
@@ -133,8 +142,9 @@ MenuMeta | type | type MenuMeta = { additionalPermissions?: readonly @ap/contrac
 MenuPermission | type | type MenuPermission = Brand<'MenuPermission'>
 MenuQuery | type | type MenuQuery<P = unknown> = { context: @ap/contracts#MenuQueryContext; endpoint: string; params: P; }
 MenuQueryContext | type | type MenuQueryContext = Partial<@ap/contracts#GlobalContext>
-MenuView | type | type MenuView = @ap/contracts#SavedViewBase & { chartOptions: Record<string, @ap/contracts#JsonValue>; context: @ap/contracts#SavedViewContext; kind: 'menu-view'; layout: @ap/contracts#JsonValue; menuId: string; menuSchemaVersion: number; page: @ap/contracts#Pair[] | Record<string, string[]>; panels: unknown; savedScopeId?: string; tables?: Record<string, @ap/contracts#TableViewState>; }
-MenuViewDraft | type | type MenuViewDraft = Omit<@ap/contracts#MenuView, 'id' | 'ownerId' | 'updatedAt' | 'version'>
+MenuView | type | type MenuView = @ap/contracts#SavedViewBase & { chartOptions: Record<string, @ap/contracts#JsonValue>; context: @ap/contracts#SavedViewContext; kind: 'menu-view'; layout: @ap/contracts#JsonValue; menuId: string; menuSchemaVersion: number; page: @ap/contracts#Pair[] | Record<string, string[]>; panels: @ap/contracts#MenuViewPanels | null; panelsUnreadable?: true; savedScopeId?: string; tables?: Record<string, @ap/contracts#TableViewState>; }
+MenuViewDraft | type | type MenuViewDraft = Omit<@ap/contracts#MenuView, 'id' | 'ownerId' | 'panelsUnreadable' | 'updatedAt' | 'version'>
+MenuViewPanels | type | type MenuViewPanels = { instances: @ap/contracts#PanelInstance[]; version: 1; }
 MigrateResult | type | type MigrateResult = { ok: false; reason: string; } | { ok: true; preview: @ap/contracts#ChangeLine[]; view: @ap/contracts#MenuViewDraft; }
 ModuleHost | type | type ModuleHost = { act?<I, T>(spec: @ap/contracts#ActionSpec<I, T>, input: I, options?: { expectedVersion?: string; }): Promise<@ap/contracts#ActionResult<T>>; can(permission: string): boolean; config(key: string): null | string; context(): { unsupported: readonly @ap/contracts#ContextKey[]; values: Partial<@ap/contracts#GlobalContext>; }; contract: @ap/contracts#HostContract; detail?: { clear(): void; show(node: unknown, label: string): void; }; focusTarget(el: unknown): void; href(target: @ap/contracts#ModuleTarget): null | { allowed: boolean; href: string; }; lang(): 'en' | 'ko'; navigate(target: @ap/contracts#ModuleTarget, options?: { replace?: boolean; }): boolean; notify(text: string, tone?: 'danger' | 'info' | 'warning'): void; page(key: string): null | string; pages?(key: string): string[]; params(): Readonly<Record<string, string>>; query?<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, params: P, signal?: AbortSignal): Promise<@ap/contracts#ApiResponse<T>>; reportError(error: unknown): string; returnTarget(): string; session(): { generation: number; user: null | { id: string; name: string; }; }; setPage(patch: Record<string, null | readonly string[] | string>, options?: { replace?: boolean; }): void; setTime?(range: { from: string; to: string; }): void; signal: AbortSignal; status(next: @ap/contracts#ModuleStatus): void; subscribe(onChange: () => void): () => void; }
 ModuleManifest | type | type ModuleManifest = { config?: readonly string[]; groups: readonly { id: @ap/contracts#ModuleScopedId; label: @ap/contracts#Text; }[]; module: { contract: @ap/contracts#HostContract; id: string; label: @ap/contracts#Text; languages: readonly ('en' | 'ko')[]; }; optional?: readonly @ap/contracts#HostFeature[]; requires: readonly @ap/contracts#HostFeature[]; screens: readonly @ap/contracts#ModuleScreenMeta[]; }
@@ -152,6 +162,9 @@ NoticeListPage | type | type NoticeListPage = { items: readonly @ap/contracts#No
 NumberOp | type | type NumberOp = (typeof @ap/contracts#NUMBER_OPS)[number]
 OUTCOMES | const | const OUTCOMES: readonly [ "ok", "empty", "error", "forbidden", "too_large", "timeout" ]
 Outcome | type | type Outcome = (typeof @ap/contracts#OUTCOMES)[number]
+PANEL_INSTANCES_MAX | const | const PANEL_INSTANCES_MAX: 24
+PANEL_INSTANCE_INPUTS_MAX | const | const PANEL_INSTANCE_INPUTS_MAX: 16
+PANEL_INSTANCE_TOKEN_MAX | const | const PANEL_INSTANCE_TOKEN_MAX: 200
 PANE_USAGE_VIAS | const | const PANE_USAGE_VIAS: readonly [ "paneOpen", "paneReplace" ]
 PEOPLE_LOOKUP_MAX | const | const PEOPLE_LOOKUP_MAX: 200
 PORT_ERROR_CODES | const | const PORT_ERROR_CODES: readonly [ "invalid_input", "unknown_axis", "invalid_cursor", "invalid_period", "membership_basis_unsupported", "unknown_scope", "scope_forbidden", "room_forbidden" ]
@@ -173,11 +186,16 @@ PageResult | type | type PageResult<T> = { rows: T[]; total: number; }
 PageSort | type | type PageSort = { desc: boolean; id: string; }
 PageType | type | type PageType = 'analysis' | 'catalog' | 'management' | 'overview' | 'workflow'
 Pair | type | type Pair = [ string, string ]
-PanelBinding | type | type PanelBinding<K extends string = string> = { readonly context?: Readonly<Partial<Record<@ap/contracts#PanelContextKey, @ap/contracts#PanelInputBinding<K>>>>; readonly display?: Readonly<Record<string, Extract<@ap/contracts#PanelInputBinding<K>, { kind: 'value'; }>>>; readonly page?: Readonly<Record<string, @ap/contracts#PanelInputBinding<K>>>; readonly source: `${string}/${string}`; }
+PanelBinding | type | type PanelBinding<K extends string = string> = { readonly context?: Readonly<Partial<Record<@ap/contracts#PanelContextKey, @ap/contracts#PanelInputBinding<K>>>>; readonly display?: Readonly<Record<string, Extract<@ap/contracts#PanelInputBinding<K>, { kind: 'value'; }>>>; readonly outputs?: Readonly<Record<string, @ap/contracts#PanelOutputBinding<K>>>; readonly page?: Readonly<Record<string, @ap/contracts#PanelInputBinding<K>>>; readonly source: `${string}/${string}`; }
 PanelContextKey | type | type PanelContextKey = 'scopeId' | @ap/contracts#ContextKey
 PanelDeclaration | type | type PanelDeclaration<K extends string = string> = { readonly availability?: { readonly disabledReason: @ap/contracts#Text; readonly requires: readonly { readonly anyOf: readonly string[]; }[]; }; readonly display?: readonly { readonly key: string; }[]; readonly displayInputs: @ap/contracts#PanelInputs<K>; readonly endpoints: readonly (Pick<@ap/contracts#AnyEndpointSpec, 'id' | 'menuId' | 'permission'> & Partial<Pick<@ap/contracts#AnyEndpointSpec, 'context' | 'requiredContext' | 'requiresScope'>>)[]; readonly grain: string; readonly id: string; readonly outputs: readonly { readonly action: string; readonly key: K; readonly selection?: { readonly dimension: string; readonly drillLevel?: string; readonly label?: @ap/contracts#Text; readonly objectKind?: string; readonly shape: @ap/contracts#AnalysisSelectionShape; }; }[]; readonly pieces?: readonly string[]; readonly queryInputs: @ap/contracts#PanelInputs<K>; readonly title: @ap/contracts#Text; readonly version?: unknown; }
 PanelInputBinding | type | type PanelInputBinding<K extends string = string> = { readonly key: @ap/contracts#PanelContextKey; readonly kind: 'context'; } | { readonly key: K; readonly kind: 'page'; } | { readonly key: string; readonly kind: 'value'; }
 PanelInputs | type | type PanelInputs<K extends string = string> = { readonly context?: readonly @ap/contracts#PanelContextKey[]; readonly page?: readonly { readonly key: K; readonly label?: @ap/contracts#Text; readonly required?: boolean; readonly selection?: @ap/contracts#AnalysisSelectionUse; }[]; }
+PanelInstance | type | type PanelInstance = { id: string; inputs: @ap/contracts#PanelInstanceInput[]; outputs: @ap/contracts#PanelInstanceOutput[]; source: @ap/contracts#PanelInstanceSource; }
+PanelInstanceInput | type | type PanelInstanceInput = { from: string; key: string; mode: 'follow'; } | { from: string; key: string; mode: 'hold'; value: @ap/contracts#AnalysisSelection; }
+PanelInstanceOutput | type | type PanelInstanceOutput = { dimension: string; key: string; shape: @ap/contracts#AnalysisSelectionShape; }
+PanelInstanceSource | type | type PanelInstanceSource = { config: @ap/contracts#ChartConfig; kind: 'chart'; } | { kind: 'declared'; panel: string; }
+PanelOutputBinding | type | type PanelOutputBinding<K extends string = string> = { readonly key: K; readonly kind: 'page'; }
 ParsedQuery | type | type ParsedQuery = { extras: @ap/contracts#Pair[]; global: @ap/contracts#GlobalContext; page: @ap/contracts#Pair[]; }
 PeriodLength | type | type PeriodLength = { days: number; hours?: never; } | { days?: never; hours: number; }
 Permission | type | type Permission = @ap/contracts#KernelPermission | @ap/contracts#MenuPermission
@@ -210,7 +228,7 @@ SavedViewEntry | type | type SavedViewEntry = { capabilities: @ap/contracts#View
 SavedViewKey | type | type SavedViewKey = { kind?: 'custom-group'; menuId: null | string; userId: string; }
 SavedViewKind | type | type SavedViewKind = 'condition-set' | 'custom-group' | 'menu-view'
 SavedViewListItem | type | type SavedViewListItem = @ap/contracts#DeniedSavedView | @ap/contracts#SavedViewEntry
-SavedViewPatch | type | type SavedViewPatch = { chartOptions?: @ap/contracts#MenuView['chartOptions']; context?: @ap/contracts#SavedViewContext; layout?: @ap/contracts#JsonValue; menuSchemaVersion?: number; name?: string; page?: @ap/contracts#MenuView['page']; panels?: unknown; savedScopeId?: null | string; tables?: @ap/contracts#MenuView['tables']; target?: @ap/contracts#CustomGroupTarget; }
+SavedViewPatch | type | type SavedViewPatch = { chartOptions?: @ap/contracts#MenuView['chartOptions']; context?: @ap/contracts#SavedViewContext; layout?: @ap/contracts#JsonValue; menuSchemaVersion?: number; name?: string; page?: @ap/contracts#MenuView['page']; panels?: @ap/contracts#MenuView['panels']; savedScopeId?: null | string; tables?: @ap/contracts#MenuView['tables']; target?: @ap/contracts#CustomGroupTarget; }
 SavedViewStore | type | type SavedViewStore = { createGroup(input: { memberIds: string[]; name: string; }): Promise<@ap/contracts#Result<@ap/contracts#ViewGroupEntry>>; decide(id: string, decision: 'approve' | 'reject', note: string | undefined, opts: @ap/contracts#ExpectedVersion): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; get(id: string): Promise<@ap/contracts#SavedViewListItem | null>; getDefaultId(key: @ap/contracts#SavedViewKey): Promise<null | string>; list(key: @ap/contracts#SavedViewKey): Promise<readonly @ap/contracts#SavedViewListItem[]>; listApprovalRequests(key: @ap/contracts#SavedViewKey): Promise<readonly @ap/contracts#ApprovalRequestInfo[]>; listGroups(): Promise<readonly @ap/contracts#ViewGroupEntry[]>; remove(id: string): Promise<@ap/contracts#Result<null>>; requestOfficial(id: string, opts: @ap/contracts#ExpectedVersion): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; revoke(id: string, opts: @ap/contracts#ExpectedVersion): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; save(input: @ap/contracts#SavedViewDraft): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; searchPeople(query: string, signal: AbortSignal): Promise<readonly @ap/contracts#GroupMember[]>; setDefault(key: @ap/contracts#SavedViewKey, id: null | string): Promise<@ap/contracts#Result<null>>; setVisibility(id: string, visibility: @ap/contracts#ViewVisibility, opts: @ap/contracts#ExpectedVersion): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; update(id: string, patch: @ap/contracts#SavedViewPatch, opts: @ap/contracts#ExpectedVersion): Promise<@ap/contracts#Result<@ap/contracts#SavedViewEntry>>; updateGroup(id: string, patch: { addMembers?: string[]; name?: string; removeMembers?: string[]; }): Promise<@ap/contracts#Result<@ap/contracts#ViewGroupEntry>>; }
 SavedViewSupport | type | type SavedViewSupport = { contextKeys: readonly string[]; menuId: string; menuSchemaVersion: number; migrate?(from: number, view: @ap/contracts#MenuViewDraft): @ap/contracts#MigrateResult; pageKeys: readonly string[]; serialize?(page: Record<string, unknown>): Record<string, @ap/contracts#JsonValue>; }
 ScopeCheck | type | type ScopeCheck = { grantedRooms: string[]; status: 'forbidden' | 'unknown_scope' | 'valid'; }
@@ -288,6 +306,7 @@ groupPage | function | function groupPage<T>(rows: readonly T[], options: GroupP
 inboundDestinationsOf | function | function inboundDestinationsOf(menus: readonly @ap/contracts#InboundDestinationSource[]): @ap/contracts#PlatformDestination[]
 incompleteMetricPair | function | function incompleteMetricPair(menu: null | { initializesMetric?: boolean; }, metricId: null | string, metricVersion: null | string): @ap/contracts#ContractError | null
 instantEpochMs | function | function instantEpochMs(instant: string): number
+invalidChartConfig | function | function invalidChartConfig(raw: unknown, path?: string): null | string
 invalidFilterText | const | const invalidFilterText: (value: unknown) => boolean
 isAnswered | const | const isAnswered: (outcome: @ap/contracts#Outcome) => outcome is "empty" | "ok"
 isAppRelativePath | function | function isAppRelativePath(value: string): boolean
@@ -300,6 +319,8 @@ isRepeatedPageCondition | function | function isRepeatedPageCondition(category: 
 isStoredColumnGroupItem | function | function isStoredColumnGroupItem(value: unknown): value is @ap/contracts#StoredColumnGroupItem
 isStoredColumnGroups | function | function isStoredColumnGroups(value: unknown): value is @ap/contracts#StoredColumnGroups
 isTableViewStates | function | function isTableViewStates(value: unknown): value is Record<string, @ap/contracts#TableViewState>
+isWellFormedText | function | function isWellFormedText(value: string): boolean
+malformedTextPath | function | function malformedTextPath(value: unknown, path?: string): null | string
 menuPermission | const | const menuPermission: <const S extends string>(id: S) => S & @ap/contracts#MenuPermission
 menuPermissions | function | function menuPermissions(menu: { readonly additionalPermissions?: readonly @ap/contracts#Permission[]; readonly permission: string; }): readonly @ap/contracts#Permission[]
 missingRequiredContext | function | function missingRequiredContext(keys: readonly @ap/contracts#ContextKey[], context: Partial<@ap/contracts#GlobalContext>): @ap/contracts#ContextKey[]
@@ -319,6 +340,7 @@ periodSpan | function | function periodSpan(hours: number, lang: 'en' | 'ko'): s
 projectContext | function | function projectContext<P, T>(spec: @ap/contracts#EndpointSpec<P, T>, g: @ap/contracts#GlobalContext): @ap/contracts#MenuQueryContext
 queryHistoryId | function | function queryHistoryId(query: string): string
 randomUuidV4 | function | function randomUuidV4(): string
+readMenuViewPanels | function | function readMenuViewPanels(raw: unknown): { panels: @ap/contracts#MenuViewPanels; status: 'ok'; } | { reason: 'unreadable'; status: 'legacy'; } | { status: 'default'; }
 readQueryRecovery | function | function readQueryRecovery(value: unknown): @ap/contracts#QueryRecovery | undefined
 requiredContextError | function | function requiredContextError(keys: readonly @ap/contracts#ContextKey[], capabilities: Partial<Record<@ap/contracts#ContextKey, @ap/contracts#Capability>>): null | string
 sameGlobal | function | function sameGlobal(a: @ap/contracts#GlobalContext, b: @ap/contracts#GlobalContext): boolean
@@ -329,7 +351,7 @@ sortAndPage | function | function sortAndPage<T>(rows: readonly T[], q: @ap/cont
 sortRows | function | function sortRows<T>(rows: readonly T[], sorting: @ap/contracts#PageSort[], accessor?: (row: T, id: string) => unknown): T[]
 spaceId | const | const spaceId: <const S extends string>(id: S) => S & @ap/contracts#SpaceId
 validateFilters | function | function validateFilters(filters: readonly @ap/contracts#ColumnFilter[], specs: Readonly<Record<string, @ap/contracts#ColumnFilterSpec>>): @ap/contracts#FilterValidation
-validateSavedView | function | function validateSavedView(input: unknown): @ap/contracts#Result<@ap/contracts#SavedViewDraft>
+validateSavedView | function | function validateSavedView(input: unknown): @ap/contracts#Result<@ap/contracts#SavedViewDraft> ; function validateSavedView(input: unknown, options: { allowMalformedText?: boolean; }): @ap/contracts#Result<@ap/contracts#SavedViewDraft>
 wallClockEpochMs | function | function wallClockEpochMs(value: string): null | number
 withoutReturnTo | function | function withoutReturnTo(pairs: readonly @ap/contracts#Pair[]): @ap/contracts#Pair[]
 # reachable types
