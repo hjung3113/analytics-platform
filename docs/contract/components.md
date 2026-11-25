@@ -293,6 +293,14 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 결정과 비교 선택지는 [ADR-0013](../adr/0013-detail-panel-shell-docked-slot.md), 배치는 [07](../design/app-shell.md), 시각 규칙은 [DESIGN](../../DESIGN.md#shell-visual-rules)을 따른다.
 
+### PanelSettingsDrawer (Decided, #2762)
+
+`PanelWorkspacePanel.onOpenSettings`를 선언하면 패널 ⋯ 메뉴에 «패널 설정»이 생긴다. 단일 차트와 패널이 머리줄을 공유하면 차트의 «더보기»에 이 항목을 둔다. `PanelSettingsDrawer`는 패널 이름을 제목으로 쓰고, 공용 상세 슬롯에 `Inspector` 스택의 «연결» 구역을 연다. Escape로 닫으면 서랍을 연 ⋯ 또는 «더보기» 버튼으로 포커스가 돌아간다. 다른 상세가 열리면 설정 서랍을 닫는다. 소비자는 조회·Context 변경 시 서랍을 닫고, 검사를 통과한 `MenuViewPanels` 편집은 저장된 뷰 슬롯에 남긴다.
+
+새 연결의 발신 출력은 소비자가 `sourceReference`로 지정한다(`<인스턴스 id>.<출력 키>`). 저장된 연결은 기존 `from`을 유지한다.
+
+저장 슬롯이 후보 그래프를 따로 구성하면 소비자가 `projectCandidate`를 지정한다. 서랍은 편집한 패널을 이 함수에 넘기고 반환된 그래프를 검사한다. 검사를 통과한 그래프는 `onChange`로 전달한다. 기본 동작은 `value`에서 편집한 패널의 입력을 교체한다.
+
 ### FormField — 라벨·입력·도움말·오류 (Decided, #1890, [ADR-0161](../adr/0161-form-field-hint-always-visible-render-function.md))
 
 - `@ap/ui`의 `FormField({ label, required?, showRequiredMark?, requiredMark?, requiredText?, tip?, hint?, error?, errorRole?, id?, describedBy?, className?, children })`. `children`은 렌더 함수이고 `control`(`id`·`aria-describedby`·`aria-invalid`·`aria-required`)을 라벨 가능한 입력 **하나**에 펼친다(`<Input {...control} />`). `id` 기본값은 `useId()`이고 `describedBy`는 도움말·오류 id 뒤에 붙는다. 한 필드에 입력이 여럿이면 `FormField`를 나눈다.

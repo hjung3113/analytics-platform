@@ -2,6 +2,7 @@ import { PlatformPage } from '../../archetypes/PlatformPage';
 import { PanelWorkspace } from '../../workspace/PanelWorkspace';
 import { AnalysisPanelAddContext } from '../../workspace/PanelAdd';
 import { InWorkspacePanelProvider } from '../../workspace/panelContext';
+import { PanelSettingsDrawer } from '../../workspace/PanelSettingsDrawer';
 import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
 import { stubCompactTableGeometry } from '../../testing';
 import * as visibleArea from '../../visibleArea';
@@ -1097,13 +1098,14 @@ function SourceRowsSlot() {
   return <aside ref={ref} />;
 }
 function sourceRowsChart({ outcome = 'ok', data = { rows: [{ id: 'source-1' }] }, declared = true, url = 'equipment=a',
-  axis = 'category', mounted = true, validateScope, readRows, maxRows, wrapChart, fittedChips = false }: {
+  axis = 'category', mounted = true, validateScope, readRows, maxRows, wrapChart, fittedChips = false, closeOnSuperseded }: {
   outcome?: ApiResponse<SourcePage>['outcome']; data?: SourcePage | null; declared?: boolean;
   url?: string; axis?: 'category' | 'time'; mounted?: boolean; validateScope?: PlatformAdapter['validateScope'];
   readRows?: ReadSourceRows;
   maxRows?: number;
   wrapChart?: (chart: ReactNode) => ReactNode;
   fittedChips?: boolean;
+  closeOnSuperseded?: boolean;
 } = {}) {
   const menuQuery = vi.fn(readRows ?? (async () => ({ ...await none(), data, outcome })));
   const sourceAdapter = testAdapter({ session: () => session, menuQuery, ...(validateScope && { validateScope }) });
@@ -1112,7 +1114,8 @@ function sourceRowsChart({ outcome = 'ok', data = { rows: [{ id: 'source-1' }] }
   const series = axis === 'time' ? { ...A, points: dates.map((date, index): [string, number] => [date, index + 1]) } : A;
   window.history.replaceState(null, '', `/?v=1&scopeId=MEM&${url}`);
   const chartRegistry = fittedChips ? fittedChipRegistry : range ? rangeRegistry : chipRegistry;
-  const declaration = maxRows === undefined ? sourceDeclaration : { ...sourceDeclaration, maxRows };
+  const rowDeclaration = maxRows === undefined ? sourceDeclaration : { ...sourceDeclaration, maxRows };
+  const declaration = closeOnSuperseded === undefined ? rowDeclaration : { ...rowDeclaration, closeOnSuperseded };
   const chart = mounted && <AnalysisChartFrame chartId="source" title="Source" unit="s" series={[series]} xType={axis} nextAnalysis
     analysisSelectionOutput={range ? output : setOutput} selectionActions={() => <Button>Extra</Button>}
     nextAnalysisRows={declared ? declaration : undefined} />;
@@ -1133,6 +1136,34 @@ describe('Next analysis source rows', () => {
   let restoreGeometry: () => void;
   beforeEach(() => { restoreGeometry = stubCompactTableGeometry(800); });
   afterEach(() => { restoreGeometry(); });
+
+  it.each([
+    { incoming: 'settings', closeOnSuperseded: true, restoresRows: false },
+    { incoming: 'rows', closeOnSuperseded: true, restoresRows: false },
+    { incoming: 'settings', closeOnSuperseded: undefined, restoresRows: true },
+  ])('shares the detail slot when $incoming opens (closeOnSuperseded=$closeOnSuperseded)', async ({ incoming, closeOnSuperseded, restoresRows }) => {
+    function Workspace({ chart }: { chart: ReactNode }) {
+      const [settings, setSettings] = useState(false);
+      const panel = { id: 'target', source: { kind: 'declared', panel: 'target' } as const, inputs: [], outputs: [] };
+      return <>{chart}<button onClick={() => setSettings(true)}>Open settings</button>
+        {settings && <PanelSettingsDrawer title={{ ko: '대상', en: 'Target' }} panel={panel} value={{ version: 1, instances: [panel] }}
+          selectionOf={() => null} onChange={vi.fn()} onClose={() => setSettings(false)} />}
+      </>;
+    }
+    sourceRowsChart({ closeOnSuperseded, wrapChart: chart => <Workspace chart={chart} /> });
+    const opens = {
+      settings: async () => {
+        await userEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+        return screen.findByRole('dialog', { name: '대상' });
+      },
+      rows: async () => { await userEvent.click(sourceRowButton()); return sourceDrawer(); },
+    };
+    await opens[incoming === 'settings' ? 'rows' : 'settings']();
+    const active = await opens[incoming === 'settings' ? 'settings' : 'rows']();
+    fireEvent.keyDown(active, { key: 'Escape' });
+    if (restoresRows) expect(await sourceDrawer()).toBeVisible();
+    else expect(screen.queryByRole('dialog')).toBeNull();
+  });
 
   it.each([
     ['equipment=a', ['나누기', '새 패널', '다른 분석', '원본 행', '조건으로', '지우기']],

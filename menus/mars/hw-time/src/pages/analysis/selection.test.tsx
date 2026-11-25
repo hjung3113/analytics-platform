@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as kernel from '@ap/kernel';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { EQUIPMENT_SELECTION_DIMENSION, type MenuQuery, type PanelInstance } from '@ap/contracts';
+import { MOTION_EQUIPMENT_KEY } from '../../endpoints';
 import { answer, chartRenders, fixtureMatrix, renderOverview, requests, settle } from './test-support';
 
 await vi.hoisted(async () => { (await import('@ap/components/testing/engines')).mockEchartsCanvas(); });
@@ -362,6 +363,70 @@ it('holds the raw table to the equipment of that moment and follows again on req
   fireEvent.click(tableTab());
   fireEvent.click(await panelMenu('원본 표', '따라가기로 바꾸기'));
   await followsTo('MEM-PHOTO-0103');
+});
+
+it('stores the same held table input through panel settings and New Panel, and reopens both', async () => {
+  const store = createFakeSavedViewStore([]);
+  let views!: SavedViews;
+  let setPage!: ReturnType<typeof kernel.usePlatform>['setPage'];
+  function Probe() {
+    views = useSavedViews();
+    ({ setPage } = kernel.usePlatform());
+    return null;
+  }
+  await renderOverview(heldLink, answer, {
+    realWorkspace: true, realChart: 'hw-current', showDetail: true, savedViews: store, children: <Probe />,
+  });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  const save = async (name: string) => {
+    const result = await act(() => views.saveAs({ name, kind: 'menu-view' }));
+    if (!result.ok || result.value.view.kind !== 'menu-view' || !result.value.view.panels) throw new Error('Failed to save held table');
+    return result.value.view;
+  };
+  const settings = async () => {
+    fireEvent.click(tableTab());
+    fireEvent.click(await panelMenu('원본 표', '패널 설정'));
+    return within(await screen.findByRole('dialog', { name: '원본 표' }));
+  };
+
+  await newPanel('원본 표 · 붙잡기');
+  const added = await save('Held from New Panel');
+  fireEvent.click(tableTab());
+  fireEvent.click(await panelMenu('원본 표', '따라가기로 바꾸기'));
+  const drawer = await settings();
+  expect(drawer.getByRole('radio', { name: '따라가기', checked: true })).toBeTruthy();
+  fireEvent.click(drawer.getByRole('radio', { name: '무시' }));
+  fireEvent.click(drawer.getByRole('radio', { name: '거르기' }));
+  fireEvent.click(drawer.getByRole('radio', { name: '붙잡기' }));
+  await waitFor(() => expect(tableTab().getAttribute('aria-description')).toContain('붙잡음 · 설비 1대'));
+  const edited = await save('Held from Settings');
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+
+  const heldInput = (view: typeof added) => {
+    const panels = view.panels!.instances;
+    const input = panels.find(panel => panel.id === 'table')?.inputs[0];
+    if (input?.mode !== 'hold') throw new Error('Missing held table input');
+    const { from, ...held } = input;
+    const source = panels.flatMap(panel => panel.outputs.map(output => ({ reference: `${panel.id}.${output.key}`, output })))
+      .find(entry => entry.reference === from)?.output;
+    return { ...held, source };
+  };
+  expect(heldInput(edited)).toEqual(heldInput(added));
+  expect(heldInput(added)).toEqual({
+    key: MOTION_EQUIPMENT_KEY, mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] },
+    source: { key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' },
+  });
+  for (const view of [added, edited]) {
+    await act(async () => { expect(await views.select(view.id)).toMatchObject({ ok: true }); });
+    await followsTo('MEM-PHOTO-0105');
+    expect(tableTab().getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
+    expect((await save(`Reopened ${view.id}`)).panels).toEqual(view.panels);
+    const before = tableReads().length;
+    act(() => setPage({ [MOTION_EQUIPMENT_KEY]: ['MEM-PHOTO-0103'] }));
+    await settle();
+    expect(filter()).toEqual(['MEM-PHOTO-0103']);
+    expect(tableReads()).toHaveLength(before);
+  }
 });
 
 it('keeps a held table when the drill moves up a step (#2862 R C3)', async () => {

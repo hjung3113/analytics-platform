@@ -32,6 +32,8 @@ export type DetailDrawerTab = { id: string; label: ReactNode } & (
 type DetailDrawerProps = {
   /** For consumers with a detail identity other than focus=: false preserves arrival focus; true claims a user-opened detail. Default follows Kernel navigation. */
   focusOnOpen?: boolean;
+  /** Close this drawer when another registrant takes the detail slot. */
+  closeOnSuperseded?: boolean;
   returnFocusRef?: RefObject<HTMLElement | null>;
   /** Restore a trigger that can move or remount. Return false to use the normal drawer fallback. */
   returnFocus?: () => boolean;
@@ -61,19 +63,19 @@ type DetailDrawerProps = {
 /** §13: URL-controlled detail content rendered into the shell-owned docked slot. */
 export function DetailDrawer(props: DetailDrawerProps) {
   const { onClose } = props;
-  const paneId = useHostPlatformOptional()?.paneId;
+  const paneId = useHostPlatformOptional()?.paneId ?? undefined;
   const closeLatest = useRef(onClose);
   useInsertionEffect(() => { closeLatest.current = onClose; });
   // Set while another detail holds the slot, so the outgoing content's cleanup and replays neither return focus nor auto-close.
-  // A detail from another pane ends this one (docs/16 §6); one from the same pane only hands off, and this one resumes when it closes (#3002).
+  // Same-pane details hand off and resume by default (#3002). An opted-in drawer closes on any takeover.
   const superseded = useRef(false);
   const handedOff = useRef(false);
   // The trigger focused when this detail first opened; it outlives content remounts after a handoff, so a resumed detail still returns there.
   const opener = useRef<HTMLElement | null | undefined>(undefined);
-  const host = useDetailPanelSlot(paneId != null ? { localExpansion: true, scope: paneId, onSuperseded: ({ sameScope }) => {
+  const host = useDetailPanelSlot(paneId != null || props.closeOnSuperseded ? { localExpansion: paneId != null, scope: paneId, onSuperseded: ({ sameScope }) => {
     superseded.current = true;
-    if (sameScope) handedOff.current = true;
-    else closeLatest.current();
+    if (props.closeOnSuperseded || !sameScope) closeLatest.current();
+    else handedOff.current = true;
   } } : undefined);
   // Back in the slot after a handoff: a fresh content lifetime again owns focus return and list closure. Insertion runs before the content's effects.
   useInsertionEffect(() => {

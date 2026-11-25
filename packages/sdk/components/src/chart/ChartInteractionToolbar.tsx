@@ -32,6 +32,7 @@ type Props = {
 export function ChartInteractionToolbar(p: Props) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const handedOffFocus = useRef(false);
+  const moreTrigger = useRef<HTMLButtonElement>(null);
   const docked = p.dockMaximize !== undefined;
   const exportMenu = p.exportCsv && <ChartExportMenu compact={p.compact} exportCsv={p.exportCsv} tools={p.exportTools} />;
   return <header data-dock-chart-options={docked && p.start != null ? '' : undefined} data-tools-reveal={p.toolsReveal} className={cn(
@@ -62,7 +63,7 @@ export function ChartInteractionToolbar(p: Props) {
           if (open) handedOffFocus.current = false;
           p.onSecondaryOpenChange?.(open);
         }}>
-          <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(!!p.compact)} size={p.compact ? 'icon-xs' : 'icon-sm'} data-dock-group-menu={p.dockLayoutActions ? '' : undefined} aria-label={m('chartMore')} title={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
+          <PopoverTrigger asChild><Button ref={moreTrigger} type="button" variant={chartToolVariant(!!p.compact)} size={p.compact ? 'icon-xs' : 'icon-sm'} data-dock-group-menu={p.dockLayoutActions ? '' : undefined} aria-label={m('chartMore')} title={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
           <PopoverContent align="end" aria-label={m('chartMore')} className="max-h-96 w-80 overflow-auto break-keep"
             onCloseAutoFocus={event => {
               if (handedOffFocus.current) event.preventDefault();
@@ -73,7 +74,7 @@ export function ChartInteractionToolbar(p: Props) {
                 const focus = p.dockLayoutActions?.takeCloseFocus();
                 handedOffFocus.current = !!focus;
                 p.onSecondaryOpenChange?.(false);
-                focus?.();
+                focus?.(moreTrigger.current);
               }}>{p.dockLayoutActions.content}</DockChartCloseMore.Provider>}
             </div>
           </PopoverContent>

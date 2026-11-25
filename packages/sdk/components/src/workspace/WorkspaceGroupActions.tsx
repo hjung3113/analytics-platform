@@ -1,9 +1,9 @@
-import { useContext, useId, useLayoutEffect, type ReactNode, type RefObject } from 'react';
+import { useContext, useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, MoreHorizontal, Pin, X } from 'lucide-react';
 import { useMessages } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
-import { DockChartCloseMore, DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartLayoutActions } from '../dock/DockChartHead';
+import { DockChartCloseMore, DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartCloseFocus, type DockChartLayoutActions } from '../dock/DockChartHead';
 import type { DockLayoutMenu } from '../dock/layoutMenu';
 import { COMPONENTS_MESSAGES } from '../messages';
 
@@ -13,14 +13,15 @@ const ICON = 'size-7';
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
  * group's active panel. Collapse and float are absent for primary panels. Floating headers offer pin, close and keyboard geometry.
  */
-export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, hideBlocked, pin, edgeActions, menuItems }: {
+export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, hideBlocked, pin, edgeActions, menuItems, onOpenSettings }: {
+  onOpenSettings?: (trigger: HTMLButtonElement) => void;
   menuItems?: readonly { id: string; label: string; onSelect: () => void }[];
   title: string;
   /** A panel's title, naming each move target by its active panel. */
   titleOf: (panelId: string) => string;
   menu: DockLayoutMenu;
-  /** Set by an action that moves the panel: run once the menu has closed, instead of returning focus to the `⋯` trigger (which may be gone). */
-  closeFocus: RefObject<(() => void) | null>;
+  /** An action can take over focus when closing its menu. The menu supplies its trigger, if still mounted. */
+  closeFocus: RefObject<DockChartCloseFocus | null>;
   /** `fromMenu`: the `원래 크기로` item; the menu closes over a trigger that the layout change may replace, so the host sets `closeFocus`. */
   onMaximize: (maximize: boolean, fromMenu?: boolean) => void;
   onSplit: (position: 'right' | 'bottom') => void;
@@ -37,6 +38,7 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   /** The active panel opted into `pin` (#2398): a pressed-state pin button before the workspace actions. */
   pin?: { pinned: boolean; onToggle: () => void };
 }) {
+  const trigger = useRef<HTMLButtonElement>(null);
   const m = useMessages(COMPONENTS_MESSAGES);
   const maximized = menu.maximized;
   const toggle = maximized ? m('workspaceRestore') : m('workspaceMaximize', { title });
@@ -92,7 +94,10 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
           </>}
         </>}
     </>}
-    {!!menuItems?.length && separator}
+    {(onOpenSettings || !!menuItems?.length) && separator}
+    {onOpenSettings && <LayoutItem onSelect={() => {
+      closeFocus.current = opener => { if (opener) onOpenSettings(opener); };
+    }}>{m('panelSettings')}</LayoutItem>}
     {menuItems?.map(item => <LayoutItem key={item.id} onSelect={item.onSelect}>{item.label}</LayoutItem>)}
   </>;
   const takeCloseFocus = () => {
@@ -114,13 +119,13 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
     </MergedLayoutActions>}
     {!layoutActionsSlot && <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon-sm" className={ICON} data-dock-group-menu aria-label={actions} title={actions}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
+        <Button type="button" variant="ghost" size="icon-sm" className={ICON} ref={trigger} data-dock-group-menu aria-label={actions} title={actions}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" onCloseAutoFocus={event => {
         const next = takeCloseFocus();
         if (next === null) return;
         event.preventDefault();
-        next();
+        next(trigger.current);
       }}>
         {items}
       </DropdownMenuContent>
