@@ -100,7 +100,7 @@ export function PanelAddMenu({ items, shown = [], onAdd, pinByDefault = true, cl
           if (disabled) { event.preventDefault(); return; }
           onAdd(item.id, pinOnAdd);
         }}>
-          <span className="flex min-w-0 flex-col">
+          <span className="flex min-w-0 flex-col break-keep">
             <span className={disabled ? 'text-text-muted' : undefined}>{item.title[lang]}</span>
             {(reason ?? item.description?.[lang]) && <span className="text-xs text-text-muted">{reason ?? item.description?.[lang]}</span>}
           </span>

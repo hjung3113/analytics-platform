@@ -206,7 +206,7 @@ describe('PanelWorkspace: remount 0, query 0', () => {
     expect(menuQuery.mock.calls.length).toBe(queries);
   });
 
-  it('lets the normal hide action remove a consumer-owned panel and returns focus to the primary', async () => {
+  it('deletes a consumer-owned panel and returns focus to the primary', async () => {
     function RemovableWorkspace() {
       const [panels, setPanels] = useState(PANELS);
       return <PanelWorkspace {...BASE} panels={panels.map(panel => panel.id === 'selector'
@@ -215,10 +215,22 @@ describe('PanelWorkspace: remount 0, query 0', () => {
     }
     render(shell(<RemovableWorkspace />));
     await ready();
-    await chooseFromMenu('선택기 동작', '숨기기');
+    await chooseFromMenu('선택기 동작', '삭제');
     expect(screen.queryByRole('tab', { name: '선택기' })).toBeNull();
     expect(screen.getByRole('button', { name: '숨긴 패널 0' })).toBeDisabled();
     await waitFor(() => expect(screen.getByRole('tab', { name: '추세' })).toHaveFocus());
+  });
+
+  it('does not offer delete on a declared panel or on the primary panel', async () => {
+    mountWorkspace({ panels: PANELS.map(panel => panel.primary ? { ...panel, onRemove: vi.fn() } : panel) });
+    await ready();
+    await userEvent.click(screen.getByRole('button', { name: '추세 동작' }));
+    await screen.findByRole('menuitem', { name: '추세 최대화' });
+    expect(screen.queryByRole('menuitem', { name: '삭제' })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: '상세 동작' }));
+    expect(await screen.findByRole('menuitem', { name: '숨기기' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '삭제' })).toBeNull();
   });
 });
 

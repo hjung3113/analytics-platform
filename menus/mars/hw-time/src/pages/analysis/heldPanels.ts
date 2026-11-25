@@ -91,9 +91,14 @@ export function withAdded(config: PanelConfiguration, id: string, step: Step, in
   return put({ slot: existing.slot, instance: { ...existing.instance, inputs } });
 }
 
-/** Whether a hold would take the saved panels past the v1 limit: measured on what would be saved, so a replaced hold's dropped source is not counted (R2 C11). */
-export function holdOverflows(config: PanelConfiguration, step: Step, id: string, intent: AddIntent): boolean {
-  return (buildSavedPanels(withAdded(config, id, step, intent) ?? config, step)?.instances.length ?? 0) > PANEL_INSTANCES_MAX;
+export function exceedsPanelLimit(config: PanelConfiguration, step: Step): boolean {
+  return (buildSavedPanels(config, step)?.instances.length ?? 0) > PANEL_INSTANCES_MAX;
+}
+
+/** Count what the view would save, including required sources and excluding any source the addition makes unused. */
+export function panelAdditionOverflows(config: PanelConfiguration, step: Step, id: string, intent?: AddIntent): boolean {
+  const next = withAdded(config, id, step, intent);
+  return next !== null && exceedsPanelLimit(next, step);
 }
 
 /**
