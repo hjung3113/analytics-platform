@@ -241,6 +241,10 @@ export type AnalysisChartFrameProps<P = never, T = never> = ChartChromeOptions &
    * a date only) is not used, with a dev warning. Ignored inside a `PlatformProvider`.
    */
   period?: { from?: string | null; to?: string | null };
+  /**
+   * @deprecated Use `stackMode="stack"` with `reaggregation="sum"` (#2887). Behavior is unchanged until removal: bars stack even when the measure
+   * is not additive (a dev warning only), and lines never stack. `stackMode` refuses a non-additive or undeclared measure and also stacks lines.
+   */
   stacked?: boolean;
   /** Overrides stacked. Requires additive reaggregation and matching time coordinates per mark kind. Percent uses the visible total at each x. */
   stackMode?: 'none' | 'stack' | 'percent';
