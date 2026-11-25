@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "ap-tsc --noEmit",
     "test": "vitest run"
   },
   "devDependencies": {

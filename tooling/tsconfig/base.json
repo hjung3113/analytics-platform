@@ -9,6 +9,8 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    // TS 7 turns this on by default; CSS side-effect imports (`import './x.css'`) have no types (#3029).
+    "noUncheckedSideEffectImports": false
   }
 }

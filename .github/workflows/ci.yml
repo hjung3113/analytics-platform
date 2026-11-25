@@ -277,6 +277,12 @@ jobs:
       # The job runs nothing else, so it may use all 4 vCPUs (turbo.json keeps 2 for local runs and the vitest jobs).
       - run: pnpm typecheck --concurrency=4
         if: ${{ env.DOCS_ONLY != 'true' }}
+      # Typecheck runs on TypeScript 7 (#3029); editors, lint and SDK consumers stay on 5.9. The weekly full run checks with 5.9 too.
+      - name: Typecheck with TypeScript 5.9
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full == true }}
+        run: pnpm typecheck --concurrency=4
+        env:
+          AP_TSC: '5'
       - name: Prune turbo cache
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
         run: find .turbo/cache -type f -mtime +7 -delete || true

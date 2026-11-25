@@ -53,7 +53,7 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "ap-tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@ap/feature-shared": "workspace:*",
@@ -99,6 +99,7 @@
   },
   "devDependencies": {
     "@ap/eslint-config": "workspace:*",
+    "@ap/tsconfig": "workspace:*",
     "@tailwindcss/node": "4.3.3",
     "@tanstack/react-router": "1.170.1",
     "@testing-library/jest-dom": "6.6.3",

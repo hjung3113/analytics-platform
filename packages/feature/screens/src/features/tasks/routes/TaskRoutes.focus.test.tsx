@@ -465,7 +465,7 @@ it('returns focus to the row after closing a fullscreen panel in the real AppFra
   // tell a synchronous focus of the hidden row from the real rAF retry. The row
   // must receive focus only after the retry saw it visible: pin the hidden state
   // of AppFrame's main at the moment the row is focused.
-  let rowFocusMainHidden: boolean | null = null;
+  let rowFocusMainHidden: HTMLElement['hidden'] | null = null;
   const onFocusIn = (event: FocusEvent) => {
     if (event.target === row) rowFocusMainHidden = screen.getByTestId('app-main').hidden;
   };
@@ -611,7 +611,7 @@ it.each([false, true] as const)(
     ));
     const disconnectedFocus: Element[] = [];
     let dialog: HTMLElement | undefined;
-    let hiddenAtHeadingFocus: boolean | undefined;
+    let hiddenAtHeadingFocus: HTMLElement['hidden'] | undefined;
     const observer = new MutationObserver(() => {
       if (dialog && !dialog.isConnected && document.activeElement)
         disconnectedFocus.push(document.activeElement);
@@ -677,7 +677,7 @@ it('collapses an expanded rejection panel before the next row receives focus', a
       {children}
     </AppFrame>
   ));
-  let hiddenAtFocus: boolean | undefined;
+  let hiddenAtFocus: HTMLElement['hidden'] | undefined;
   const record = (event: FocusEvent) => {
     if ((event.target as HTMLElement)?.dataset.requestId === request2.id)
       hiddenAtFocus = screen.getByTestId('app-main').hidden;

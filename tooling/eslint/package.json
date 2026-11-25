@@ -9,7 +9,7 @@
   "scripts": {
     "lint": "eslint .",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "ap-tsc --noEmit"
   },
   "dependencies": {
     "@eslint/compat": "2.1.1",
