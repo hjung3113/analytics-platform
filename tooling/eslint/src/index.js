@@ -472,6 +472,10 @@ const REACT_FLOOR = {
     'no-restricted-syntax': ['error',
       { selector: "ImportSpecifier[imported.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
       { selector: "MemberExpression[property.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+      { selector: "MemberExpression[computed=true][property.value='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+      { selector: "ExportSpecifier[local.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+      { selector: "ObjectPattern > Property[key.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+      { selector: "ObjectPattern > Property[key.value='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
     ],
   },
 };

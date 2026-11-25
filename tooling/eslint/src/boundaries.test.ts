@@ -173,6 +173,10 @@ const rows: Row[] = [
   { file: 'packages/sdk/kernel/src/x.tsx', code: `import { useEffectEvent as later } from 'react';`, rule: 'no-restricted-syntax', token: 'React 19.2' },
   { file: 'packages/sdk/components/src/x.tsx', code: `import * as React from 'react'; export const later = React.useEffectEvent;`, rule: 'no-restricted-syntax', token: 'React 19.2' },
   { file: 'packages/sdk/shell/src/x.test.tsx', code: `import { useEffectEvent } from 'react';`, rule: 'no-restricted-syntax', token: 'useLatestRef' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `export { useEffectEvent } from 'react';`, rule: 'no-restricted-syntax', token: 'React 19.2' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import * as React from 'react'; export const { useEffectEvent: later } = React;`, rule: 'no-restricted-syntax', token: 'React 19.2' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import * as React from 'react'; export const { 'useEffectEvent': later } = React;`, rule: 'no-restricted-syntax', token: 'React 19.2' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `import * as React from 'react'; export const later = React['useEffectEvent'];`, rule: 'no-restricted-syntax', token: 'React 19.2' },
   { file: 'menus/bravo/metrics/src/x.tsx', code: `import { useEffectEvent } from 'react';`, rule: '' },
   // #2215: a text field's Enter handler goes through useImeEnterGuard().isComposingEnter (ui, components, shell, menu, app).
   { file: 'packages/sdk/ui/src/x.tsx', code: 'export const A = () => <input onKeyDown={e => { if (e.key === \'Enter\') go(); }} />;', rule: 'ap/ime-enter-guard', token: 'confirms a Korean composition' },
