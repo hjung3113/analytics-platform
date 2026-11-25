@@ -1,11 +1,12 @@
-import { useState } from 'react';
-import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { useState, type ReactNode } from 'react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { followHeldSets, groupId, spaceId, type MenuView, type MenuViewPanels, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useSavedViewPanels, useSavedViewSupport } from '../../index';
-import { useSavedViews, type SavedViews } from '../../host';
+import { PaneScreenProvider, useHostPlatform, useSavedViews, type SavedViews } from '../../host';
 import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSpace } from '../../testing';
+import { LentPanelPlatformContext } from '../../platform/contexts';
 
 const support: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: [], pageKeys: [] };
 const makeRegistry = (autoApplyDefault: boolean) => createRegistry({
@@ -49,7 +50,14 @@ function PanelSlot() {
   return null;
 }
 
-async function mount({ saved = row(), registrations = 1, store = createFakeSavedViewStore([saved]), declared = support, menus = registry } = {}) {
+async function mount({ saved = row(), registrations = 1, store = createFakeSavedViewStore([saved]), declared = support, menus = registry, children }: {
+  saved?: ReturnType<typeof row>;
+  registrations?: number;
+  store?: ReturnType<typeof createFakeSavedViewStore>;
+  declared?: SavedViewSupport;
+  menus?: typeof registry;
+  children?: ReactNode;
+} = {}) {
   function Probe() {
     const [mounted, show] = useState(true);
     setMounted = show;
@@ -57,7 +65,7 @@ async function mount({ saved = row(), registrations = 1, store = createFakeSaved
     views = useSavedViews();
     return <>{mounted && Array.from({ length: registrations }, (_, index) => <PanelSlot key={index} />)}</>;
   }
-  render(<I18nProvider><PlatformProvider registry={menus} adapter={testAdapter()} savedViews={store}><Probe /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider registry={menus} adapter={testAdapter()} savedViews={store}><Probe />{children}</PlatformProvider></I18nProvider>);
   await waitFor(() => expect(views.status).toBe('ready'));
   return store;
 }
@@ -166,6 +174,96 @@ it('warns about a second registration without blocking the screen', async () => 
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   await mount({ registrations: 2 });
   expect(warn).toHaveBeenCalledExactlyOnceWith(expect.stringContaining('panels'));
+});
+
+let paneViews: SavedViews;
+
+async function mountPane(store = createFakeSavedViewStore([row()])) {
+  function PaneProbe() {
+    paneViews = useSavedViews();
+    return null;
+  }
+  await mount({
+    store,
+    children: <PaneScreenProvider paneId="board-pane" screen={{ menuId: 'home', params: {}, query: '' }} onChange={() => {}} onLeave={() => {}}>
+      <PaneProbe />
+    </PaneScreenProvider>,
+  });
+  await waitFor(() => expect(paneViews.status).toBe('ready'));
+  return store;
+}
+
+it('does not open a board pane selection into the main screen panels', async () => {
+  await mountPane();
+  await act(async () => {
+    expect(await paneViews.select('saved')).toMatchObject({ ok: true });
+  });
+  expect(opened).not.toHaveBeenCalled();
+});
+
+it.each([
+  { name: 'no pane panels', input: undefined },
+  { name: 'explicit pane panels', input: { ...panels, instances: panels.instances.slice(0, 1) } },
+])('saves a new board pane view with $name independently of the main screen', async ({ input }) => {
+  await mountPane();
+  act(() => setPanels(panels));
+  await act(async () => {
+    expect(await paneViews.saveAs({ name: 'pane copy', kind: 'menu-view', panels: input }))
+      .toMatchObject({ ok: true, value: { view: { panels: input ?? null } } });
+  });
+});
+
+it('omits the main screen panels when overwriting a view from a board pane', async () => {
+  const store = await mountPane();
+  const update = vi.spyOn(store, 'update');
+  await act(async () => { await paneViews.select('saved'); });
+  act(() => setPanels(null));
+  await act(async () => {
+    expect(await paneViews.saveToSelected()).toMatchObject({ ok: true });
+  });
+  expect(update.mock.calls[0]?.[1]).not.toHaveProperty('panels');
+  expect(await store.get('saved')).toMatchObject({ view: { panels } });
+});
+
+it('ignores main screen panel edits in the board pane modified flag', async () => {
+  await mountPane();
+  await act(async () => { await paneViews.select('saved'); });
+  act(() => setPanels(panels));
+  expect(paneViews.state.modified).toBe(false);
+  act(() => setPanels(null));
+  expect(paneViews.state.modified).toBe(false);
+});
+
+it('preserves a pending main screen panel restore when the board pane opens a view', async () => {
+  await mountPane(createFakeSavedViewStore([row(), row({ id: 'pane-saved', panels: null })]));
+  act(() => setMounted(false));
+  await act(async () => { await views.select('saved'); });
+  await act(async () => {
+    expect(await paneViews.select('pane-saved')).toMatchObject({ ok: true });
+  });
+  act(() => setMounted(true));
+  expect(opened).toHaveBeenCalledExactlyOnceWith(panels);
+});
+
+it('keeps lent saved views disabled and preserves the main screen panel restore when they unmount', async () => {
+  let hideLent!: () => void;
+  function LentProbe() {
+    const lentViews = useSavedViews();
+    return <span>{lentViews.status}</span>;
+  }
+  function LentControl() {
+    const host = useHostPlatform();
+    const [mounted, show] = useState(true);
+    hideLent = () => show(false);
+    return mounted && <LentPanelPlatformContext.Provider value={host}><LentProbe /></LentPanelPlatformContext.Provider>;
+  }
+  await mount({ children: <LentControl /> });
+  expect(screen.getByText('disabled')).toBeTruthy();
+  act(() => setMounted(false));
+  await act(async () => { await views.select('saved'); });
+  act(() => hideLent());
+  act(() => setMounted(true));
+  expect(opened).toHaveBeenCalledExactlyOnceWith(panels);
 });
 
 // #2862 (owner 2026-11-25): in another Scope a held set does not apply and follows instead; a held absolute range stays.
