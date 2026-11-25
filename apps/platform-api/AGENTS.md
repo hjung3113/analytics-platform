@@ -19,6 +19,7 @@ Layer boundaries live in `docs/agents/feature-implementation.md` → Implementat
 
 - Mutation services type their handle `Tx` (`Db | DrizzleTx`, `db/tx.ts`) and run inside the caller's transaction; never re-introduce `type Tx = Db`.
 - Register every new drizzle migration in `migrations/meta/_journal.json` in the same chunk — drizzle silently skips an unregistered `.sql` while `db:migrate` reports success.
+- A release's migrations only add: no `DROP TABLE`/`DROP COLUMN`, `RENAME`, `ALTER COLUMN … TYPE` or `SET NOT NULL`; the removing step goes in the next release. Reason: a rollback runs the previous backend on this schema (ADR-0177). `ops/platform-api/scripts/release/migration-additive-check.mjs` enforces it on main push; an exception carries `-- additive-check: allow <reason>`.
 
 ## Cross-System Commands
 
