@@ -94,7 +94,7 @@ export function revealInScrollContainer(element: HTMLElement, workspaceRoot: HTM
   else if (rectBottom > bottom) container.scrollTop += Math.min(rectBottom - bottom, rectTop - top);
 }
 
-/** Reveals a focused element vertically, starting with its nearest scroll container. Reads layout. */
+/** Reveals a focused element vertically and within horizontal scrollers, starting with the nearest containers. Reads layout. */
 export function revealFocused(element: HTMLElement, options?: { bottomInset?: (container: HTMLElement) => number }): void {
   const page = element.closest<HTMLElement>('[data-platform-page]');
   const pageContainer = page ? scrollContainerOf(page) : null;
@@ -114,6 +114,22 @@ export function revealFocused(element: HTMLElement, options?: { bottomInset?: (c
       else if (below > 0 && above > 0) scroller.scrollTop += Math.min(above, below);
     }
     if (!container) break;
+  }
+  revealHorizontally(element);
+}
+
+function revealHorizontally(element: HTMLElement): void {
+  const { body, documentElement } = element.ownerDocument;
+  for (let container = element.parentElement; container && container !== body && container !== documentElement; container = container.parentElement) {
+    const { clientWidth, scrollWidth } = container;
+    if (scrollWidth <= clientWidth || !/(auto|scroll|overlay)/.test(getComputedStyle(container).overflowX)) continue;
+    const left = container.getBoundingClientRect().left + container.clientLeft;
+    const right = left + clientWidth;
+    const rect = element.getBoundingClientRect();
+    const before = rect.left - left;
+    const after = rect.right - right;
+    if (before < 0 && after < 0) container.scrollLeft += Math.max(before, after);
+    else if (before > 0 && after > 0) container.scrollLeft += Math.min(before, after);
   }
 }
 

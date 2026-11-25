@@ -418,6 +418,8 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const zoomInButton = useRef<HTMLButtonElement | null>(null);
   const rangeStart = useRef<HTMLButtonElement | null>(null);
   const stickyNextAnalysisRow = useRef<HTMLDivElement | null>(null);
+  const pendingFocusReveal = useRef<HTMLElement | null>(null);
+  const [, setFocusRevealVersion] = useState(0);
   // Set when the keyboard turns brush mode on in a fill card: the range form appears then and takes focus (ADR-0067 decision 21).
   const focusRangeForm = useRef(false);
   const applyRangeButton = useRef<HTMLButtonElement | null>(null);
@@ -1037,6 +1039,20 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       bottomInset: container => row && container === rowScroller ? row.getBoundingClientRect().height : 0,
     });
   }, []);
+  const focusAndQueueReveal = (element: HTMLElement | null) => {
+    if (!element) return;
+    element.focus({ preventScroll: true });
+    pendingFocusReveal.current = element;
+    // Schedule a commit even when applying the existing Context is a no-op.
+    setFocusRevealVersion(version => version + 1);
+  };
+  useLayoutEffect(() => {
+    const element = pendingFocusReveal.current;
+    // A new Context clears the old chart state in an effect, with its own commit.
+    if (!element || fittedContext.current !== contextKey) return;
+    pendingFocusReveal.current = null;
+    revealWithStickyRow(element);
+  });
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
@@ -1163,10 +1179,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const restoreConfirmationFocus = (fallback: HTMLElement | null) => {
     const restore = returnFromConfirmation.current;
     returnFromConfirmation.current = undefined;
-    if (!restore?.()) {
-      fallback?.focus({ preventScroll: true });
-      revealWithStickyRow(fallback);
-    }
+    if (!restore?.()) focusAndQueueReveal(fallback);
   };
   const cancelPeriod = () => {
     rangeActions.setPreview(null);
@@ -1186,8 +1199,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       notify(m('chartAppliedGlobalPeriodToast'));
       // Applying the period clears the analysis selection with it, so the chip that opened this row is about to unmount.
       returnFromConfirmation.current = undefined;
-      brushToggle.current?.focus({ preventScroll: true });
-      revealWithStickyRow(brushToggle.current);
+      focusAndQueueReveal(brushToggle.current);
     }}>{t('apply')}</Button>
     <Button size="toolbar" variant="secondary" onClick={cancelPeriod}>{t('cancel')}</Button>
   </div>;
@@ -1215,9 +1227,8 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     : plainSelectionActions.map(item => <NextAnalysisActionButton key={item.id} action={item} />);
   const clearSelection = <Button size="toolbar" variant="ghost" onClick={() => {
     if (p.nextAnalysis && !selection) {
-      pointChart.current?.focus({ preventScroll: true });
-      revealWithStickyRow(pointChart.current);
-    } else if (rangeOutput || p.nextAnalysis) brushToggle.current?.focus();
+      focusAndQueueReveal(pointChart.current);
+    } else if (rangeOutput || p.nextAnalysis) focusAndQueueReveal(brushToggle.current);
     rangeActions.clear();
     writeRange(null);
     if (p.nextAnalysis) {
@@ -1247,10 +1258,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     label: m('chartApplySelection'),
     reason: equipmentReason,
     onSelect: fromChip => {
-      if (!fromChip) {
-        pointChart.current?.focus({ preventScroll: true });
-        revealWithStickyRow(pointChart.current);
-      }
+      if (!fromChip) focusAndQueueReveal(pointChart.current);
       host.applyEquipment?.(equipmentSet);
     },
   } : null;
@@ -1416,7 +1424,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
           </SelectContent>
         </Select>
         <Button size="toolbar" onClick={() => {
-          if (rangeOutput) brushToggle.current?.focus();
+          if (rangeOutput) focusAndQueueReveal(brushToggle.current);
           if (xType === 'time') commitRange(draft);
           else { rangeActions.categorySelect(draft); writeRange(draft); }
         }}>{m('chartSelect')}</Button>

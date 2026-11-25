@@ -147,6 +147,26 @@ describe('revealFocused', () => {
       root.scrollTop = initialScroll;
     }
   });
+
+  it('reveals Brush with the nearest horizontal adjustment inside a clipped toolbar', () => {
+    document.body.innerHTML = '<main style="overflow-y:auto"><div role="toolbar" style="overflow-x:auto"><button>Brush</button></div></main>';
+    const main = document.querySelector('main')!;
+    const toolbar = document.querySelector<HTMLElement>('[role="toolbar"]')!;
+    const brush = document.querySelector('button')!;
+    size(main, { clientHeight: 500 });
+    Object.defineProperties(toolbar, { clientWidth: { value: 120 }, scrollWidth: { value: 220 } });
+    vi.spyOn(toolbar, 'getBoundingClientRect').mockReturnValue({ left: 20 } as DOMRect);
+    vi.spyOn(brush, 'getBoundingClientRect').mockImplementation(() => {
+      const left = 148 - toolbar.scrollLeft;
+      return { left, right: left + 32, top: 60, bottom: 88 } as DOMRect;
+    });
+
+    revealFocused(brush);
+
+    expect(toolbar.scrollLeft).toBe(40);
+    expect(brush.getBoundingClientRect().right).toBe(140);
+    expect(main.scrollTop).toBe(0);
+  });
 });
 
 describe('revealInScrollContainer (focus reveal, ADR-0130)', () => {
