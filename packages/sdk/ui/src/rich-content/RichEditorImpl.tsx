@@ -31,7 +31,8 @@ export default function RichEditorImpl({
   const draftGeneration = React.useRef(0);
   const completedAttachments = React.useRef<JSONContent[]>([]);
   const [uploadError, setUploadError] = React.useState(false);
-  const [overLimit, setOverLimit] = React.useState(false);
+  // From the first document: no update event reports a value that arrives over the limit until the author edits (#3043).
+  const [overLimit, setOverLimit] = React.useState(() => normalizeClient(value ?? defaultValue ?? { type: 'doc', content: [{ type: 'paragraph' }] }, surface).overLimit);
   // The last value handed to onChange: a parent that echoes this same object needs no comparison.
   const lastEmitted = React.useRef<TipTapDoc | null>(null);
   const [slashMenu, setSlashMenu] = React.useState<SlashMenuAssociation | null>(null);
