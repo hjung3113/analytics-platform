@@ -316,9 +316,9 @@ export function planServiceChecks(harness: ServerConformanceHarness): Conformanc
     mode: 'granted',
     // Serializing and sending 32 MiB + 1 is slower than any other check: its own deadline, not the suite's.
     timeoutMs: 60_000,
-    run: async () => {
-      if (typeof adapter.uploadFile !== 'function') return NO_UPLOAD;
-      const r = await adapter.uploadFile({ file: new Blob([new Uint8Array(UPLOAD_FILE_MAX_BYTES + 1)], { type: 'application/json' }), name: 'conformance-too-large.json', idempotencyKey: crypto.randomUUID() });
+    run: async (deadlineAdapter = adapter) => {
+      if (typeof deadlineAdapter.uploadFile !== 'function') return NO_UPLOAD;
+      const r = await deadlineAdapter.uploadFile({ file: new Blob([new Uint8Array(UPLOAD_FILE_MAX_BYTES + 1)], { type: 'application/json' }), name: 'conformance-too-large.json', idempotencyKey: crypto.randomUUID() });
       if (r.outcome !== 'invalid') return `a file of ${UPLOAD_FILE_MAX_BYTES + 1} bytes: expected invalid, got ${describeAction(r)}`;
       if (r.data !== null) return 'a refused upload carries no data';
       return null;

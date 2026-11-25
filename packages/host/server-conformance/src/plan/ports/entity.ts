@@ -60,3 +60,36 @@ export function planEntityChecks(harness: ServerConformanceHarness, atSite: AtSi
   });
   return checks;
 }
+
+export function planGrantWithdrawalCheck(harness: ServerConformanceHarness): ConformanceCheck {
+  const { adapter, ports, withdrawGrant } = harness;
+  const id = 'port · getEntity after grant withdrawal → forbidden';
+  if (!withdrawGrant) {
+    return {
+      id: `${id} — no withdrawGrant hook`,
+      baseId: id,
+      uses: ['getEntity'],
+      mode: 'skipped',
+      run: async () => null, // never called: skipped checks are filtered out of every run
+    };
+  }
+  return {
+    id,
+    uses: ['getEntity'],
+    needsSites: ports.entity.ref.scopeId !== null,
+    mode: 'permission',
+    run: () => harness.asGranted(async () => {
+      const ref = ports.entity.ref;
+      const send = () => adapter.getEntity(ref);
+      const before = await send();
+      if (before.outcome !== 'ok') return `before grant withdrawal: expected ok, got ${describeResponse(before)}`;
+      if (before.data === null) return 'before grant withdrawal: the sample destination row is missing';
+      const restore = await withdrawGrant.call(harness, ref);
+      try {
+        return await expectOutcome(send, 'forbidden', 'after grant withdrawal')();
+      } finally {
+        await restore();
+      }
+    }),
+  };
+}

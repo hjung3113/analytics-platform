@@ -184,6 +184,8 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 실어댑터를 붙이면 같은 하네스를 실어댑터로 만든다. 사내에서 준비할 것:
 
 - `adapter`: 실어댑터(테스트 환경 서버를 가리킴).
+- `callTimeoutMs`(선택). 어댑터와 Saved View 저장소의 비동기 호출당 기본 제한 시간은 60초다. 하네스에서 밀리초 단위로 바꿀 수 있다. 첫 시간 초과가 발생하면 진행 중인 검사 묶음은 마저 끝낸다. 시간 초과가 난 검사는 메서드 이름과 제한 시간을 담아 실패로 기록하고, 시작하지 않은 검사는 모두 같은 `not run:` 사유로 실패 처리한다. 검사에 별도 `timeoutMs`가 있으면 검사 전체에 적용한다. 호출 제한을 약 55초보다 높이면 `describeServerConformance`의 세 번째 인자로 Vitest 묶음의 제한 시간도 늘려야 한다. 기본값은 120초다.
+- `withdrawGrant`(선택): 부여 계정의 같은 세션에서 `ports.entity.ref`의 조회 부여를 회수하고 복구 함수를 돌려준다. 부여 상태의 `ok`를 확인한 뒤 회수하고, 같은 `getEntity` 요청의 `forbidden`과 데이터 없음 여부를 검사한다. 두 번째 조회가 시간 초과로 실패해도 복구가 끝날 때까지 기다린다. 훅과 복구 함수는 제한 시간이 따로 없으므로 반드시 완료되어야 한다. 훅이 없으면 계획에서 `no withdrawGrant hook`으로 건너뛴다.
 - `cases`: 엔드포인트 선언과 표본 요청 — 앱 테스트의 `PARAMS` 표를 그대로 쓸 수 있다.
 - `implemented`(선택, #674): 서버가 구현한 `PlatformAdapter` 메서드 목록. 없으면 전부 구현한 것으로 본다. 목록 밖 메서드를 부르는 검사는 id 끝에 ` — not implemented: <메서드>`를 단 건너뛴 검사가 된다(통과·실패로 세지 않음). 표본이 없어 이미 건너뛴 검사도 그 메서드를 함께 적는다.
 - `siteGrants`(선택, #674): site 부여가 아직 없는 서버(`session().scopes`가 `[]` — 기능, ADR-0069 결정 8)는 `false`. 부여된 site가 필요한 검사가 ` — no site grants`로 건너뛰어지고, `context.scopeId`·`foreignScopeId`·`otherGrantedScopeId`는 어떤 실행 검사도 읽지 않는 자리값이 된다.

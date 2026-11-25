@@ -105,6 +105,21 @@ export type ServerConformanceHarness = {
   /** Declared writes to derive the menuAction checks from. Absent or empty plans one visible skipped check (`actions: no sample`). */
   actions?: readonly ActionCase[];
   /**
+   * Deadline in milliseconds for each asynchronous adapter or saved-view store call. Defaults to 60,000 ms.
+   * The active batch settles after a call times out, then checks that have not started are reported as failed.
+   * An explicit check `timeoutMs` can still end the whole check sooner.
+   * If a harness raises this above about 55 seconds, also raise the suite timeout (default 120 seconds)
+   * with the third argument to `describeServerConformance`.
+   */
+  callTimeoutMs?: number;
+  /**
+   * Withdraw the granted actor's access to the sampled destination in the current session and return a cleanup that
+   * restores the grant. The kit calls this as the granted actor between two identical getEntity requests, after all
+   * other checks. The hook and its cleanup must settle: the kit awaits both and applies no deadline to either.
+   * Without the hook, the withdrawal check is visibly skipped.
+   */
+  withdrawGrant?: (ref: EntityRef) => Promise<() => void | Promise<void>>;
+  /**
    * Run `fn` as the granted actor: every case permission plus `ports.entity.permission`,
    * `ports.annotation.permission` and every action permission, holding grants at `context.scopeId` and `ports.otherGrantedScopeId`.
    * It need not hold `console:access`.
@@ -148,7 +163,7 @@ export type ConformanceCheck = {
    * actor after the granted batch; 'sequential' checks run one at a time after the console batch and before
    * the permission checks — their `run` switches actors itself (never inside a concurrent batch: the mock's
    * role is global, so a mid-batch switch would race the other checks); 'permission' checks run one at a
-   * time without a permission; 'skipped' checks never run (#175: a maxRows declaration with no oversize
+   * time to check a missing permission or grant; 'skipped' checks never run (#175: a maxRows declaration with no oversize
    * sample) — they surface in the plan and as `it.skip` in the vitest suite so the gap stays visible.
    */
   mode: 'granted' | 'console' | 'sequential' | 'permission' | 'skipped';
@@ -165,8 +180,11 @@ export type ConformanceCheck = {
   uses?: readonly ConformanceUse[];
   /** The check needs a granted site; `harness.siteGrants: false` turns it into a skipped one. */
   needsSites?: boolean;
-  /** null = conforms, a string = the reason it does not, `{ skipped }` = the run found a precondition missing (a visible skip, never a pass). */
-  run: () => Promise<string | null | ConformanceSkipped>;
+  /**
+   * null = conforms, a string = the reason it does not, `{ skipped }` = the run found a precondition missing (a visible skip, never a pass).
+   * Checks with an explicit `timeoutMs` use the supplied adapter so the runner can clear their call timers at check end.
+   */
+  run: (deadlineAdapter?: PlatformAdapter) => Promise<string | null | ConformanceSkipped>;
 };
 /** A check that decided at run time it has nothing to judge (e.g. a server that does not page `entityAudit`). */
 export type ConformanceSkipped = { skipped: string };

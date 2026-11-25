@@ -1,4 +1,5 @@
 import { isPortError, menuPermission, type EquipmentSummary, type PortErrorCode } from '@ap/contracts';
+import { ConformanceCallTimeout } from '../../call-timeout';
 import type { ConformanceCheck, ServerConformanceHarness } from '../../types';
 import { sameJson } from './shared';
 
@@ -18,7 +19,10 @@ const names = ['global lineNames options', 'global prcGroups options', 'options 
 const same = sameJson;
 async function rejects(run: () => Promise<unknown>, code: PortErrorCode): Promise<string | null> {
   try { await run(); return `Expected rejection ${code}, received successful data`; }
-  catch (e) { return isPortError(e) && e.code === code ? null : `Expected PortError ${code}, got ${String(e)}`; }
+  catch (error) {
+    if (error instanceof ConformanceCallTimeout) throw error;
+    return isPortError(error) && error.code === code ? null : `Expected PortError ${code}, got ${String(error)}`;
+  }
 }
 async function pages<T>(send: (cursor: string | null) => Promise<{ items: T[]; nextCursor: string | null }>, id: (item: T) => string): Promise<{ items: T[]; failure: string | null }> {
   const cursors = new Set<string>(); const ids = new Set<string>(); const items: T[] = [];

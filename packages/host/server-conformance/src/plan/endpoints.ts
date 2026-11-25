@@ -4,6 +4,7 @@ import { CONTEXT_KEYS, SET_KEYS, UNKNOWN_ENDPOINT, UNKNOWN_KEY, assessmentProble
 import { planActionChecks } from './actions';
 import { planConditionChecks } from './conditions';
 import { planPortChecks } from './ports';
+import { planGrantWithdrawalCheck } from './ports/entity';
 import { SAVED_VIEW_PORT_METHODS } from './ports/saved-views';
 import { planSelectionPortChecks } from './ports/selection-ports';
 
@@ -214,7 +215,11 @@ export function planServerConformance(harness: ServerConformanceHarness): Confor
     }
   }
 
-  return declareGaps(harness, [...checks, ...planPortChecks(harness), ...planActionChecks(harness), ...planConditionChecks(harness), ...planSelectionPortChecks(harness)]);
+  // Run withdrawal last among the serial permission checks so a stalled request cannot affect their grants.
+  return declareGaps(harness, [
+    ...checks, ...planPortChecks(harness), ...planActionChecks(harness),
+    ...planConditionChecks(harness), ...planSelectionPortChecks(harness), planGrantWithdrawalCheck(harness),
+  ]);
 }
 
 /**
