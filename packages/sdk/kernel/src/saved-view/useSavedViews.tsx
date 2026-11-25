@@ -11,7 +11,7 @@ import { PANELS_SLOT, type SavedViewPanelsOutcome } from './useSavedViewPanels';
 import { resolveSavedViewSupport } from './useSavedViewSupport';
 
 /** `held` awaits the leave decision; `cancelled` was superseded. Both are silent and preserve the current selection. */
-export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[]; /** Context keys, and held-set panel input keys (#2862), a view saved in another Scope did not apply here (#2175). */ excludedByScope: readonly string[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' | 'held' | 'cancelled' };
+export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[]; /** Context keys, and held-set panel input keys (#2862), a view saved in another Scope did not apply here (#2175); each key once. */ excludedByScope: readonly string[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' | 'held' | 'cancelled' };
 export type SaveInput = { name: string; kind: 'condition-set' | 'menu-view'; chartOptions?: Record<string, JsonValue>; layout?: JsonValue; panels?: MenuViewPanels | null };
 export type SavedViews = {
   /** `disabled`: no store injected, the menu does not declare `features.savedView`, or no support is available. */

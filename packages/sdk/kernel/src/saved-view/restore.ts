@@ -48,7 +48,10 @@ export function savedStateOf(view: SavedView, support: SavedViewSupport, anchor:
 /** Saved fields as the Context keys the user reads in a notice or confirmation, each key once (`membershipBasis` reads as `condition`). */
 export const contextKeysOf = (fields: readonly (keyof SavedViewContext)[]): string[] => [...new Set(fields.map(field => KEY_OF[field]))];
 
-/** The Context keys (as the user reads them in the notice) a view saved in another Scope does not apply in this menu. Fields the menu does not support are listed by `unsupportedOf`, not here. */
+/**
+ * What a view saved in another Scope does not apply in this menu, each key once: the Context keys (as the user reads them in the notice) and the input keys of held
+ * panel sets the menu schema would open (#2862). Fields the menu does not support are listed by `unsupportedOf`, not here.
+ */
 export function excludedByScope(view: SavedView, support: SavedViewSupport, scopeId: string | null): string[] {
   if (view.kind === 'custom-group') return [];
   const fields = supportedFields(support);

@@ -291,12 +291,16 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const noteTitle = [note, scopeFull].filter(Boolean).join('\n');
   const noteText = note && <span role="status" className="break-words text-xs text-text-secondary" title={noteTitle}>{note}</span>;
   const cross = views.crossScopeSave;
-  const crossKeys = cross ? keyText(cross.keys, cross.panelKeys) : '';
-  const crossScopeMessage = !cross ? '' : [
-    scopeName(cross.savedScopeId) === null ? m('savedViewCrossScopeMessageOther', { keys: crossKeys }) : m('savedViewCrossScopeMessage', { scope: scopeName(cross.savedScopeId) ?? '', keys: crossKeys }),
-    // Held panel sets are not replaced by this Scope's values: the panels are saved as their inputs now are (#2862 R2862C C5).
-    cross.panelKeys?.length ? m('savedViewCrossScopePanels', { keys: cross.panelKeys.join(', ') }) : '',
-  ].filter(Boolean).join(' ');
+  // Context keys take this Scope's values; held panel sets do not, they are saved as the panels' inputs now are (#2862 R2862C-2 C5).
+  const crossPanels = cross?.panelKeys ?? [];
+  const crossContext = cross ? cross.keys.filter(key => !crossPanels.includes(key)) : [];
+  const crossScope = cross ? scopeName(cross.savedScopeId) : null;
+  const crossScopeMessage = !cross ? '' : crossContext.length === 0
+    ? (crossScope === null ? m('savedViewCrossScopePanelsOnlyOther', { keys: crossPanels.join(', ') }) : m('savedViewCrossScopePanelsOnly', { scope: crossScope, keys: crossPanels.join(', ') }))
+    : [
+      crossScope === null ? m('savedViewCrossScopeMessageOther', { keys: keyText(crossContext) }) : m('savedViewCrossScopeMessage', { scope: crossScope, keys: keyText(crossContext) }),
+      crossPanels.length ? m('savedViewCrossScopePanels', { keys: crossPanels.join(', ') }) : '',
+    ].filter(Boolean).join(' ');
   const picker = external ? { open: external.active === 'view', onOpenChange: (open: boolean) => { if (!open) external.close(); }, anchorRef: external.anchorRef, note: noteText } : undefined;
 
   return <span ref={wrapper} className="inline-flex flex-wrap items-center gap-1">

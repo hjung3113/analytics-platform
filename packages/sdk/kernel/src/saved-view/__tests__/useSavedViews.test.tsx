@@ -1411,12 +1411,14 @@ const followingPanels: MenuViewPanels = { ...heldPanels, instances: [heldPanels.
 const menuView = (over: Parameters<typeof viewOf>[0]) => viewOf({ kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, context: period, page: [], chartOptions: {}, layout: null, savedScopeId: 'MEM', panels: heldPanels, ...over });
 const HELD_VIEW = menuView({ id: 'h1', name: '붙잡은 뷰' });
 let screenPanels: MenuViewPanels | null = null;
+let setScreen: (value: MenuViewPanels | null) => void = () => {};
 let holdsNow: (() => boolean) | undefined;
 let paneHolds: (() => boolean) | undefined;
 function PanelScreen() {
   useSavedViewSupport(support); views = useSavedViews(); host = useHostPlatform();
   const [value, update] = useState<MenuViewPanels | null>(null);
   screenPanels = value;
+  setScreen = update;
   holdsNow = useHoldsPanels();
   useSavedViewPanels({ value, onOpen: (outcome: SavedViewPanelsOutcome) => { if (outcome !== 'unreadable') update(outcome); } });
   return null;
@@ -1477,4 +1479,33 @@ it('a kept selection of another menu schema hands no panels, so it lists no held
   expect(screenPanels).toBeNull();
   expect(views.scopeExcluded).toBeNull();
   expect(views.state.modified).toBe(false);
+});
+
+it('a Scope switch turns the screen held sets to following at once, so a new view saved before the list answers carries none (#2862 R2862C-2 C1)', async () => {
+  const store = createFakeStore([]);
+  mountPanels(store, inScope('MEM'));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  act(() => setScreen(heldPanels));
+  // The list of the new Scope never answers.
+  vi.spyOn(store, 'list').mockReturnValue(new Promise(() => {}));
+  act(() => host.setGlobal({ scopeId: 'FDRY' }));
+  await waitFor(() => expect(host.global.scopeId).toBe('FDRY'));
+  expect(screenPanels).toEqual(followingPanels);
+  await act(async () => { await views.saveAs({ name: '새 Scope', kind: 'menu-view' }); });
+  expect([...store.rows.values()].find(row => row.name === '새 Scope')).toMatchObject({ savedScopeId: 'FDRY', panels: followingPanels });
+});
+
+it('a screen with no saved-view list still drops held sets on a Scope switch (#2862 R2862C-2 C1)', async () => {
+  function Bare() {
+    useSavedViewSupport(support); host = useHostPlatform();
+    const [value, update] = useState<MenuViewPanels | null>(heldPanels);
+    screenPanels = value;
+    useSavedViewPanels({ value, onOpen: (outcome: SavedViewPanelsOutcome) => { if (outcome !== 'unreadable') update(outcome); } });
+    return null;
+  }
+  mountPanels(createFakeStore([]), inScope('MEM'), Bare);
+  await waitFor(() => expect(screenPanels).toEqual(heldPanels));
+  act(() => host.setGlobal({ scopeId: 'FDRY' }));
+  await waitFor(() => expect(host.global.scopeId).toBe('FDRY'));
+  expect(screenPanels).toEqual(followingPanels);
 });

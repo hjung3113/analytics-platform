@@ -1,5 +1,5 @@
 import { useCallback, useContext, useLayoutEffect, useMemo, useRef } from 'react';
-import type { MenuViewPanels } from '@ap/contracts';
+import { followHeldSets, type MenuViewPanels } from '@ap/contracts';
 import { AppContext, LentPanelPlatformContext } from '../platform/contexts';
 import { useHostPlatformOptional } from '../platform/platform';
 import { resolveSavedViewSupport } from './useSavedViewSupport';
@@ -28,6 +28,17 @@ export function useSavedViewPanels(options: {
   const supports = app?.internal.savedViewSupports;
   const committed = useRef(options);
   useLayoutEffect(() => { committed.current = options; });
+  // Held sets belong to the Scope they were held in (#2862): on a Scope switch the screen's panels follow at once, before any view list or
+  // selection answers, so nothing saved in the new Scope carries the previous Scope's members (R2862C-2 C1).
+  const heldScope = useRef(scopeId);
+  useLayoutEffect(() => {
+    if (heldScope.current === scopeId) return;
+    heldScope.current = scopeId;
+    const value = committed.current.value;
+    if (!participates || !value) return;
+    const next = followHeldSets(value);
+    if (next.keys.length) committed.current.onOpen(next.panels);
+  }, [scopeId, participates]);
   const valueKey = useMemo(() => JSON.stringify(options.value), [options.value]);
   useLayoutEffect(() => { slots?.changed(); }, [slots, valueKey]);
 
