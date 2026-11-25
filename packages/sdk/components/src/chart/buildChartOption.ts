@@ -42,8 +42,8 @@ const PARTIAL_MARKER = 8;
 /** Upper bound of the category-label allowance in a `containLabel` horizontal grid. */
 const MAX_CATEGORY_ROOM = 160;
 /** Histogram numeric axis uses the same sparse tick budget as the frame. */
-export function buildHistogramOption({ spec, bins, rows, countLabel }: {
-  spec: HistogramSpec; bins: HistogramBin[]; rows: ChartRow[]; countLabel: string;
+export function buildHistogramOption({ spec, bins, rows, countLabel, selectedKey }: {
+  spec: HistogramSpec; bins: HistogramBin[]; rows: ChartRow[]; countLabel: string; selectedKey?: string;
 }): EChartsCoreOption {
   const theme = chartTheme();
   const ids = new Set<string>();
@@ -75,10 +75,12 @@ export function buildHistogramOption({ spec, bins, rows, countLabel }: {
     yAxis: { type: 'value', min: 0, minInterval: 1, name: countLabel, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
     series: [
       { type: 'custom', clip: true, emphasis: { disabled: true }, encode: { x: [0, 1], y: 2 },
-        renderItem: (_params: unknown, api: { value: (dimension: number) => unknown; coord: (point: unknown[]) => number[]; visual: (key: string) => string }) => {
+        renderItem: (params: { dataIndex: number }, api: { value: (dimension: number) => unknown; coord: (point: unknown[]) => number[]; visual: (key: string) => string }) => {
           const [left, top] = api.coord([api.value(0), api.value(2)]);
           const [right, baseline] = api.coord([api.value(1), 0]);
-          return { type: 'rect', shape: { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, baseline - top) }, style: { fill: api.visual('color') } };
+          const selected = selectedKey !== undefined && rows[params.dataIndex]?.key === selectedKey;
+          return { type: 'rect', shape: { x: left, y: top, width: Math.max(0, right - left), height: Math.max(0, baseline - top) },
+            style: { fill: api.visual('color'), ...(selected ? { stroke: token('chart-selection-outline'), lineWidth: selectionRing(selected) } : {}) } };
         },
         data: bins.map((bin, i) => ({ value: [bin.start, bin.end, bin.count], itemStyle: { color: rows[i].status ? statusColor(rows[i].status!) : token('chart-series-1') } })),
         markLine: { ...theme.referenceLine, symbol: ['none', 'none'], data: references.map(line => {

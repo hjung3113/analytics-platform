@@ -3,7 +3,7 @@ import { COMPONENTS_MESSAGES } from '../messages';
 import type { HistogramBin, HistogramSpec } from './AnalysisChart';
 import { chartDiagnostic, type ChartRow } from './analysisChartData';
 import type { KindProjection } from './analysisChartKinds';
-import { percent } from './analysisChartShared';
+import { histogramBinKey, percent } from './analysisChartShared';
 import { buildHistogramOption } from './buildChartOption';
 import { distinctStatuses, statusGlyph, statusText } from './chartStatus';
 
@@ -87,7 +87,7 @@ export function histogramBins(spec: HistogramSpec): HistogramBin[] {
 export function histogramData(spec: HistogramSpec, lang: Lang): KindProjection {
   const bins = histogramBins(spec);
   const total = bins.reduce((sum, bin) => sum + bin.count, 0);
-  const rows: ChartRow[] = bins.map(bin => ({ key: JSON.stringify(['histogram', bin.start, bin.end]),
+  const rows: ChartRow[] = bins.map(bin => ({ key: histogramBinKey(bin),
     label: `${bin.start}–${bin.end}`, value: bin.count, share: total ? bin.count / total * 100 : 0,
     status: spec.binStatus?.(bin), color: 'chart-series-1' }));
   const statuses = distinctStatuses(rows.map(row => row.status));
@@ -103,7 +103,7 @@ export function histogramData(spec: HistogramSpec, lang: Lang): KindProjection {
     csvHeaders: [...headers, ...(hasStatuses ? [text('chartHeaderStatus'), text('chartHeaderReason')] : [])],
     csvValues: bins.map((bin, i) => { const status = rows[i].status; return [bin.start, bin.end, bin.count, rows[i].share!, ...(hasStatuses ? [status ? `${statusGlyph(status)} ${status.label}` : '', status?.reason ?? ''] : [])]; }),
     legend: [{ label: count, color: 'chart-series-1', symbol: 'rect' }, ...statuses.map(status => ({ label: status.label, color: 'chart-series-1' as const, symbol: 'rect', status }))],
-    seriesKeys: [[], []],
-    option: () => buildHistogramOption({ spec, bins, rows, countLabel: count }),
+    seriesKeys: [spec.selectedBin === undefined ? [] : rows.map(row => row.key), []],
+    option: active => buildHistogramOption({ spec, bins, rows, countLabel: count, selectedKey: active[0] }),
   };
 }

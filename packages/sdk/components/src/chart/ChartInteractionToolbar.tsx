@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { Download, MoreHorizontal, Table2 } from 'lucide-react';
 import { useI18n, useMessages } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
@@ -14,7 +14,7 @@ type Props = {
   reset?: ReactNode;
   compare?: ReactNode;
   annotate?: ReactNode;
-  table?: { shown: boolean; toggle: () => void };
+  table?: { shown: boolean; toggle: () => void; buttonRef?: Ref<HTMLButtonElement> };
   exportCsv?: () => void;
   exportTools?: ReactNode;
   secondary?: ReactNode;
@@ -43,7 +43,7 @@ export function ChartInteractionToolbar(p: Props) {
         {p.zoom}{p.brush}{p.reset}{p.compare}{p.annotate}
       </div>
       {(p.table || p.exportCsv || p.secondary) && <div data-chart-toolbar-tail className="ml-auto flex shrink-0 items-center gap-1">
-        {p.table && <ChartTableToggle compact={p.compact} shown={p.table.shown} toggle={p.table.toggle} />}
+        {p.table && <ChartTableToggle compact={p.compact} shown={p.table.shown} toggle={p.table.toggle} buttonRef={p.table.buttonRef} />}
         {p.exportCsv && <ChartExportMenu compact={p.compact} exportCsv={p.exportCsv} tools={p.exportTools} />}
         {p.secondary && <Popover open={p.secondaryOpen} onOpenChange={p.onSecondaryOpenChange}>
           <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(!!p.compact)} size={p.compact ? 'icon-xs' : 'icon-sm'} aria-label={m('chartMore')} title={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
@@ -55,9 +55,9 @@ export function ChartInteractionToolbar(p: Props) {
 }
 
 /** `표로 보기`: the chart tool row's table toggle, shared by the Frame, category and canvas charts (#2792). */
-export function ChartTableToggle({ shown, toggle, compact = false, disabled }: { shown: boolean; toggle: () => void; compact?: boolean; disabled?: boolean }) {
+export function ChartTableToggle({ shown, toggle, compact = false, disabled, buttonRef }: { shown: boolean; toggle: () => void; compact?: boolean; disabled?: boolean; buttonRef?: Ref<HTMLButtonElement> }) {
   const m = useMessages(COMPONENTS_MESSAGES);
-  return <Button type="button" variant={chartToolVariant(compact, shown)} size={compact ? 'icon-xs' : 'toolbar'} aria-label={m('chartShowAsTable')} title={m('chartShowAsTable')} aria-pressed={shown} disabled={disabled} onClick={toggle}>
+  return <Button ref={buttonRef} type="button" variant={chartToolVariant(compact, shown)} size={compact ? 'icon-xs' : 'toolbar'} aria-label={m('chartShowAsTable')} title={m('chartShowAsTable')} aria-pressed={shown} disabled={disabled} onClick={toggle}>
     <Table2 className="size-3.5" aria-hidden />{!compact && m('chartShowAsTable')}
   </Button>;
 }
