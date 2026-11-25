@@ -116,6 +116,36 @@ describe('reading the legacy buckets (#1105)', () => {
 });
 
 describe('the import protocol (#1105)', () => {
+  it.each([
+    ['the only waiting row', false],
+    ['a row whose valid neighbour is answered unavailable', true],
+  ])('resuming persists the local rejection of %s before any request (#2991)', async (_label, neighbour) => {
+    const storage = seeded();
+    const down: ImportLocal = async () => ({ ok: false, reason: 'unavailable' });
+    await runLocalImport(deps(storage, down));
+    const manifest = JSON.parse(storage.getItem(importManifestKey(ACTOR))!);
+    manifest.rows[0].draft.panels = { version: 1, instances: [{ id: 'a', source: { kind: 'declared', panel: 'trend\u0000' }, inputs: [], outputs: [] }] };
+    if (!neighbour) manifest.receipts[manifest.rows[1].legacyKey] = { status: 'acked', id: 's2' };
+    storage.setItem(importManifestKey(ACTOR), JSON.stringify(manifest));
+    const send = vi.fn(down);
+    expect(await runLocalImport(deps(storage, send))).toMatchObject(neighbour ? { status: 'pending', rejected: 1, pending: 1 } : { status: 'done', rejected: 1 });
+    expect(send).toHaveBeenCalledTimes(neighbour ? 1 : 0);
+    expect(JSON.parse(storage.getItem(importManifestKey(ACTOR))!).receipts[`${ACTOR}|home|1`]).toEqual({ status: 'rejected', reason: 'invalid' });
+  });
+
+  it('resuming a manifest that holds a malformed-Unicode draft refuses that row alone and still sends its valid neighbours (#2991)', async () => {
+    const storage = seeded();
+    const down: ImportLocal = async () => ({ ok: false, reason: 'unavailable' });
+    await runLocalImport(deps(storage, down));
+    const manifest = JSON.parse(storage.getItem(importManifestKey(ACTOR))!);
+    manifest.rows[0].draft.name = 'a\u0000b';
+    storage.setItem(importManifestKey(ACTOR), JSON.stringify(manifest));
+    const send = vi.fn(acceptAll);
+    expect(await runLocalImport(deps(storage, send))).toEqual({ status: 'done', acked: 1, rejected: 1, pending: 0 });
+    expect(send.mock.calls.flatMap(([c]) => c.rows.map((r: { legacyKey: string }) => r.legacyKey))).toEqual([`${ACTOR}|home|2`]);
+    expect(JSON.parse(storage.getItem(importManifestKey(ACTOR))!).receipts[`${ACTOR}|home|1`]).toEqual({ status: 'rejected', reason: 'invalid' });
+  });
+
   it('sends own rows and the default under one persisted token, acknowledges per row and keeps every original byte-identical', async () => {
     const storage = seeded();
     const before = snapshot(storage);

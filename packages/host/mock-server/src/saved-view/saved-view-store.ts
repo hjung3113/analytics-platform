@@ -48,7 +48,8 @@ const viewShape = (v: unknown, ownerId: string, menuId: string | null): v is Rec
   // A number like `1e400` parses to Infinity and could not survive a later write.
   if (content.kind === 'menu-view' && !finiteJson(content.panels)) return false;
   const readable = content.kind === 'menu-view' ? { ...content, panels: null } : content;
-  if (!validateSavedView(readable).ok) return false;
+  // A row stored before the shared text rule (#2991) is still read and kept, so an unrelated write never drops it; saving and editing check the text.
+  if (!validateSavedView(readable, { allowMalformedText: true }).ok) return false;
   return viewMenuId(content as { kind: string; menuId?: string }) === menuId;
 };
 const storedView = (ownerId: string, menuId: string | null) => (v: unknown) => viewShape(v, ownerId, menuId) && (v.pending === undefined || viewShape(v.pending, ownerId, menuId));

@@ -584,3 +584,28 @@ it('an old panels value holding a non-finite number stays unreadable instead of 
   storage.setItem(savedViewsStorageKey(ENG, MENU), raw);
   expect(await s.get(saved.view.id)).toBeNull();
 });
+
+it.each([
+  ['a NUL in the name', { name: 'a\u0000b' }],
+  ['an unpaired surrogate in a page value', { page: { grain: ['\ud800x'] } }],
+  ['a NUL in a page key', { page: { grain: ['hour'], ['a\u0000']: ['x'] } }],
+])('refuses %s on save and on update like the server and the HTTP adapter, and writes nothing (#2991)', async (_label, over) => {
+  const s = store();
+  expect(await s.save({ ...draft(), ...over } as SavedViewDraft)).toMatchObject({ ok: false, reason: 'invalid' });
+  const saved = ok(await s.save(draft()));
+  const dump = () => Array.from({ length: storage.length }, (_, i) => storage.key(i)!).map(k => `${k}=${storage.getItem(k)}`).join('\n');
+  const before = dump();
+  expect(await s.update(saved.view.id, over as never, { expectedVersion: 1 })).toMatchObject({ ok: false, reason: 'invalid' });
+  expect(dump()).toBe(before);
+});
+
+it('keeps a row stored before the text rule readable, and an unrelated save never drops it (#2991)', async () => {
+  const s = store();
+  const old = ok(await s.save(draft('old')));
+  const name = Array.from({ length: storage.length }, (_, i) => storage.key(i)!).find(k => storage.getItem(k)!.includes(old.view.id))!;
+  storage.setItem(name, storage.getItem(name)!.replace('"name":"old"', '"name":"o\\u0000ld"'));
+  expect(await s.get(old.view.id)).toMatchObject({ view: { name: 'o\u0000ld' } });
+  ok(await s.save(draft('new')));
+  expect(storage.getItem(name)).toContain(old.view.id);
+  expect(await s.get(old.view.id)).toMatchObject({ view: { name: 'o\u0000ld' } });
+});

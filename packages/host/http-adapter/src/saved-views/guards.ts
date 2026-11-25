@@ -1,4 +1,4 @@
-import { CUSTOM_GROUP_AXIS, CUSTOM_GROUP_FIXED_MAX, isForbiddenSavedViewKey, isRecord, isTableViewStates, readMenuViewPanels, SAVED_SCOPE_ID_MAX } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, CUSTOM_GROUP_FIXED_MAX, isForbiddenSavedViewKey, isRecord, isTableViewStates, isWellFormedText, malformedTextPath, readMenuViewPanels, SAVED_SCOPE_ID_MAX } from '@ap/contracts';
 
 // Runtime guards that deeply match the wire schemas in `@ap/contract-schemas/src/saved-view-commands.ts` (ADR-0099 section 3).
 // This package has no runtime Zod dependency; `__tests__/saved-view-guards.test.ts` proves the equivalence against the schemas.
@@ -33,20 +33,6 @@ function strict(required: Record<string, Guard>, optional: Record<string, Guard>
     for (const [key, guard] of Object.entries(optional)) if (v[key] !== undefined && !guard(v[key])) return false;
     return true;
   };
-}
-
-/** Lone surrogates and NUL cannot be stored; the server refuses them, so the client refuses to send them. */
-export function isWellFormedText(value: string): boolean {
-  if (value.includes('\u0000')) return false;
-  for (let i = 0; i < value.length; i += 1) {
-    const unit = value.charCodeAt(i);
-    if (unit >= 0xd800 && unit <= 0xdbff) {
-      const next = value.charCodeAt(i + 1);
-      if (!(next >= 0xdc00 && next <= 0xdfff)) return false;
-      i += 1;
-    } else if (unit >= 0xdc00 && unit <= 0xdfff) return false;
-  }
-  return true;
 }
 
 /** Finite JSON whose strings (values and key names) are well formed. Iterative: a hostile value cannot overflow the stack. */
@@ -114,13 +100,17 @@ const target: Guard = anyOf(
   strict({ fixed: v => Array.isArray(v) && v.length >= 1 && v.length <= CUSTOM_GROUP_FIXED_MAX && v.every(nonBlank) && new Set(v).size === v.length }),
   strict({ rule: v => isRecord(v) && Object.entries(v).every(([axis, values]) => nonBlank(axis) && axis !== CUSTOM_GROUP_AXIS && Array.isArray(values) && values.length > 0 && values.every(nonBlank)) }),
 );
-export const isSavedViewDraft: Guard = anyOf(
+const draftShape: Guard = anyOf(
   strict({ schemaVersion: lit(1), kind: lit('custom-group'), name, savedScopeId, target }),
   strict({ schemaVersion: lit(1), kind: lit('condition-set'), name, context }, { savedScopeId }),
   strict({ schemaVersion: lit(1), kind: lit('menu-view'), name, menuId, menuSchemaVersion: int, context, page, chartOptions, layout, panels }, { savedScopeId, tables: isTableViewStates }),
 );
 
-const patch = strict({}, { target, savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels, tables: isTableViewStates });
+/** The exact draft shape, and every string value and key (panels, tables included) is well-formed text: the server's row rule (#2991). */
+export const isSavedViewDraft: Guard = (v) => draftShape(v) && malformedTextPath(v) === null;
+
+const patchShape = strict({}, { target, savedScopeId: v => v === null || savedScopeId(v), name: text, menuSchemaVersion: int, context, page, chartOptions, layout, panels, tables: isTableViewStates });
+const patch: Guard = (v) => patchShape(v) && malformedTextPath(v) === null;
 const visibility: Guard = (v) =>
   isRecord(v) &&
   (v['kind'] === 'private' || v['kind'] === 'official'

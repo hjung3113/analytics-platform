@@ -1,6 +1,6 @@
 import { invalidMenuViewPanels, type MenuViewPanels } from './menu-view-panels.js';
 import { CUSTOM_GROUP_FIXED_MAX } from './custom-group.js';
-import { forbiddenKey, isForbiddenSavedViewKey, nonSerializable } from './saved-view-json.js';
+import { forbiddenKey, isForbiddenSavedViewKey, malformedTextPath, nonSerializable } from './saved-view-json.js';
 import type { GlobalContext, Pair } from './url.js';
 import { isTableViewStates, type TableViewState } from './table-view-state.js';
 
@@ -189,9 +189,17 @@ function invalidPage(page: unknown): string | null {
   return null;
 }
 
-/** Pure check of a draft before it is saved, including the versioned menu panel configuration and its connections. */
-export function validateSavedView(input: unknown): Result<SavedViewDraft> {
+/**
+ * Pure check of a draft before it is saved, including the versioned menu panel configuration and its connections.
+ * `allowMalformedText` is for reading rows stored before the text rule (#2991): a store keeps and shows them, and only a new save or edit is refused.
+ */
+export function validateSavedView(input: unknown): Result<SavedViewDraft>;
+export function validateSavedView(input: unknown, options: { allowMalformedText?: boolean }): Result<SavedViewDraft>;
+export function validateSavedView(input: unknown, options?: unknown): Result<SavedViewDraft> {
   if (!isObject(input)) return invalid('view must be an object');
+  // A callback caller (`drafts.map(validateSavedView)`) passes an index here: only an explicit `true` opts out.
+  const badText = isObject(options) && options.allowMalformedText === true ? null : malformedTextPath(input);
+  if (badText) return invalid(`${badText} holds NUL or an unpaired surrogate`);
   if ('panelsUnreadable' in input) return invalid('panelsUnreadable is read-only');
   if (input.schemaVersion !== 1) return invalid('unknown schemaVersion');
   if (typeof input.name !== 'string' || input.name.trim() === '') return invalid('name is empty');

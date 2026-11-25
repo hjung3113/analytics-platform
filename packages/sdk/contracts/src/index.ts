@@ -29,6 +29,7 @@ export { PortError, PORT_ERROR_CODES, isPortError } from './adapter/selection-po
 export type { PortErrorCode, MembershipPeriod, AxisOptionsInput, AxisOption, AxisOptionsPage, EquipmentSummary, EquipmentFacts, EquipmentSearchInput, EquipmentSearchPage, SelectionResolveInput, SelectionResolution, SelectionResolveResult } from './adapter/selection-ports.js';
 export { compareHistoryText, compareQueryHistory, queryHistoryId } from './links/query-history.js';
 export type { QueryHistoryKey, QueryHistoryEntry, QueryHistoryStore } from './links/query-history.js';
+export { isWellFormedText, malformedTextPath } from './links/saved-view-json.js';
 export { APPROVAL_TRANSITIONS, canTransition, CUSTOM_GROUP_AXIS, CUSTOM_GROUP_FIXED_MAX, isForbiddenSavedViewKey, SAVED_SCOPE_ID_MAX, validateSavedView } from './links/saved-view.js';
 export type { CustomGroupDraft, CustomGroupTarget, CustomGroupView } from './links/saved-view.js';
 export type { ApprovalAction, ApprovalRequestInfo, ChangeLine, ConditionSetDraft, ConditionSetView, DeniedSavedView, ExpectedVersion, GroupCapabilities, GroupMember, JsonValue, MenuView, MenuViewDraft, MigrateResult, Result, SavedView, SavedViewBase, SavedViewContext, SavedViewDraft, SavedViewEntry, SavedViewKey, SavedViewKind, SavedViewListItem, SavedViewPatch, SavedViewStore, SavedViewSupport, ViewApproval, ViewCapabilities, ViewGroup, ViewGroupEntry, ViewSharing, ViewVisibility } from './links/saved-view.js';
