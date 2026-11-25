@@ -104,12 +104,17 @@ export type ServerConformanceHarness = {
   ports: PortSamples;
   /** Declared writes to derive the menuAction checks from. Absent or empty plans one visible skipped check (`actions: no sample`). */
   actions?: readonly ActionCase[];
-  /** Default deadline in milliseconds for each check. Defaults to 20,000 ms. A check's own `timeoutMs` takes precedence. */
-  checkTimeoutMs?: number;
+  /**
+   * Deadline in milliseconds for each asynchronous adapter or saved-view store call. Defaults to 60,000 ms.
+   * After a method times out, later calls to that method reject immediately for the rest of the run.
+   * An explicit check `timeoutMs` can still end the whole check sooner.
+   */
+  callTimeoutMs?: number;
   /**
    * Withdraw the granted actor's access to the sampled destination in the current session and return a cleanup that
    * restores the grant. The kit calls this as the granted actor between two identical getEntity requests, after all
-   * other checks. Without the hook, the withdrawal check is visibly skipped.
+   * other checks. The hook and its cleanup must settle: the kit awaits both and applies no deadline to either.
+   * Without the hook, the withdrawal check is visibly skipped.
    */
   withdrawGrant?: (ref: EntityRef) => Promise<() => void | Promise<void>>;
   /**

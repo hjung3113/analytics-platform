@@ -2,19 +2,65 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { ConformanceCheck, ConformanceResult, ServerConformanceHarness } from './types';
 import { planServerConformance } from './plan/endpoints';
 
-const DEFAULT_CHECK_TIMEOUT_MS = 20_000;
-const DEFAULT_SUITE_TIMEOUT_MS = 120_000;
-const SUITE_TIMEOUT_MARGIN_MS = 1_000;
+// Twice the core server's 30 s request budget (apps/platform-api/src/config.ts) and equal to the upload check's 60 s deadline.
+const DEFAULT_CALL_TIMEOUT_MS = 60_000;
 
-function checkTimeout(check: ConformanceCheck, harness: ServerConformanceHarness): number {
-  return check.timeoutMs ?? harness.checkTimeoutMs ?? DEFAULT_CHECK_TIMEOUT_MS;
+/** Reject stalled calls inside the check so its cleanup and actor wrappers can finish before the runner moves on. */
+function withCallDeadlines(harness: ServerConformanceHarness): ServerConformanceHarness {
+  const timeoutMs = harness.callTimeoutMs ?? DEFAULT_CALL_TIMEOUT_MS;
+  const timedOut = new Set<PropertyKey>();
+  function wrap<T extends object>(port: T): T {
+    return new Proxy(port, {
+      get(target, method) {
+        const value = Reflect.get(target, method);
+        if (typeof value !== 'function') return value;
+        return (...args: unknown[]) => {
+          const message = `${String(method)} did not answer within ${timeoutMs} ms`;
+          if (timedOut.has(method)) return Promise.reject(new Error(`${message} earlier in this run`));
+          const result = Reflect.apply(value, target, args);
+          if (typeof result?.then !== 'function') return result;
+
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          const deadline = new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              timedOut.add(method);
+              reject(new Error(message));
+            }, timeoutMs);
+          });
+          return Promise.race([result, deadline]).finally(() => clearTimeout(timer));
+        };
+      },
+    });
+  }
+
+  const adapter = wrap(harness.adapter);
+  const ports = new Proxy(harness.ports, {
+    get(target, key) {
+      if (key !== 'savedViews') return Reflect.get(target, key);
+      const sample = target.savedViews;
+      return sample && {
+        get menuId() { return sample.menuId; },
+        get user() { return wrap(sample.user); },
+        get admin() { return wrap(sample.admin); },
+      };
+    },
+  });
+  return new Proxy(harness, {
+    get(target, key) {
+      if (key === 'adapter') return adapter;
+      if (key === 'ports') return ports;
+      const value = Reflect.get(target, key);
+      return typeof value === 'function' ? value.bind(target) : value;
+    },
+  });
 }
 
-/** The deadline bounds how long the runner waits for a result. */
-async function withDeadline(check: ConformanceCheck, timeoutMs: number): ReturnType<ConformanceCheck['run']> {
+/** The check's own deadline bounds the whole check when it names one. */
+async function withDeadline(check: ConformanceCheck): ReturnType<ConformanceCheck['run']> {
+  if (check.timeoutMs === undefined) return check.run();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<string>(resolve => {
-    timer = setTimeout(() => resolve(`did not finish within its check deadline of ${timeoutMs} ms`), timeoutMs);
+    timer = setTimeout(() => resolve(`did not finish within its own deadline of ${check.timeoutMs} ms`), check.timeoutMs);
   });
   try {
     return await Promise.race([check.run(), deadline]);
@@ -25,11 +71,11 @@ async function withDeadline(check: ConformanceCheck, timeoutMs: number): ReturnT
 
 /** Runs every planned check: granted checks concurrently as the granted actor, then console checks concurrently as the console actor, then sequential checks one at a time (each switching actors itself), then permission checks one at a time. Skipped checks are not run — they stay visible in the returned list by id. */
 export async function runServerConformance(harness: ServerConformanceHarness): Promise<ConformanceResult[]> {
-  const checks = planServerConformance(harness);
+  const checks = planServerConformance(withCallDeadlines(harness));
   const limitations = knownLimitationsOf(harness, checks);
   const failureOf = async (check: ConformanceCheck): Promise<ConformanceResult> => {
     try {
-      const failure = await withDeadline(check, checkTimeout(check, harness));
+      const failure = await withDeadline(check);
       if (failure !== null && typeof failure === 'object') return { id: check.id, status: 'skipped', failure: null, reason: failure.skipped };
       return { id: check.id, status: failure === null ? 'passed' : 'failed', failure };
     } catch (error) {
@@ -42,8 +88,10 @@ export async function runServerConformance(harness: ServerConformanceHarness): P
       };
     }
   };
-  const granted = await harness.asGranted(() => Promise.all(checks.filter(c => c.mode === 'granted').map(failureOf)));
-  const consoleResults = await harness.asConsole(() => Promise.all(checks.filter(c => c.mode === 'console').map(failureOf)));
+  const grantedChecks = checks.filter(c => c.mode === 'granted');
+  const consoleChecks = checks.filter(c => c.mode === 'console');
+  const granted = grantedChecks.length ? await harness.asGranted(() => Promise.all(grantedChecks.map(failureOf))) : [];
+  const consoleResults = consoleChecks.length ? await harness.asConsole(() => Promise.all(consoleChecks.map(failureOf))) : [];
   const sequential: ConformanceResult[] = [];
   for (const check of checks.filter(c => c.mode === 'sequential')) sequential.push(await failureOf(check));
   const permission: ConformanceResult[] = [];
@@ -90,7 +138,7 @@ function withKnownLimitation(result: ConformanceResult, reason: string | undefin
  * (concurrently where the actor allows, one at a time for sequential/permission checks), then each test
  * reports its own result.
  */
-export function describeServerConformance(title: string, harness: ServerConformanceHarness, timeoutMs?: number): void {
+export function describeServerConformance(title: string, harness: ServerConformanceHarness, timeoutMs = 120_000): void {
   // Validated when the suite is registered, not only in `beforeAll`: a suite whose every check is planned skipped never
   // runs that hook, and an invalid declaration would pass unseen (#2894 review).
   const plan = planServerConformance(harness);
@@ -99,7 +147,7 @@ export function describeServerConformance(title: string, harness: ServerConforma
     let results = new Map<string, ConformanceResult>();
     beforeAll(async () => {
       results = new Map((await runServerConformance(harness)).map(r => [r.id, r]));
-    }, timeoutMs ?? suiteTimeout(plan, harness));
+    }, timeoutMs);
     for (const check of plan) {
       if (check.mode === 'skipped') {
         it.skip(check.id, () => {});
@@ -115,19 +163,4 @@ export function describeServerConformance(title: string, harness: ServerConforma
       });
     }
   });
-}
-
-/** Allow each serial deadline and the longest deadline in each concurrent batch to expire before the suite times out. */
-function suiteTimeout(plan: readonly ConformanceCheck[], harness: ServerConformanceHarness): number {
-  let granted = 0;
-  let consoleChecks = 0;
-  let serial = 0;
-  for (const check of plan) {
-    if (check.mode === 'skipped') continue;
-    const timeout = checkTimeout(check, harness);
-    if (check.mode === 'granted') granted = Math.max(granted, timeout);
-    else if (check.mode === 'console') consoleChecks = Math.max(consoleChecks, timeout);
-    else serial += timeout;
-  }
-  return Math.max(DEFAULT_SUITE_TIMEOUT_MS, granted + consoleChecks + serial + SUITE_TIMEOUT_MARGIN_MS);
 }

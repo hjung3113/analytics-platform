@@ -754,53 +754,171 @@ async function failing(breaks: string[]): Promise<string[]> {
 
 describe('named server faults (#2972)', () => {
   it.each([
-    { label: 'default', timeoutMs: undefined, advanceMs: 20_000 },
-    { label: 'override', timeoutMs: 25, advanceMs: 25 },
-  ])('reports an unsettled menuQuery at the $label check deadline and completes the run', async ({ timeoutMs, advanceMs }) => {
+    { label: 'default', callTimeoutMs: undefined, deadlineMs: 60_000 },
+    { label: 'overridden', callTimeoutMs: 25, deadlineMs: 25 },
+  ])('isolates a hung menuQuery and fails later calls at the $label call deadline', async ({ callTimeoutMs, deadlineMs }) => {
     const h = harness();
-    const menuQuery = h.adapter.menuQuery;
-    h.adapter.menuQuery = req => req.endpoint === UNKNOWN_ENDPOINT ? new Promise(() => {}) : menuQuery(req);
-    const configured: ServerConformanceHarness = {
-      ...h, implemented: ['menuQuery', 'getEntity'], checkTimeoutMs: timeoutMs,
-    };
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    h.adapter.menuQuery = () => new Promise(() => {});
+    const configured = { ...h, implemented: ['menuQuery', 'getEntity'] as const, callTimeoutMs };
+    const queryChecks = planServerConformance(configured)
+      .filter(c => c.mode !== 'skipped' && c.uses?.includes('menuQuery'));
+    const expectedFailures = new Set(queryChecks.map(c => c.id));
+    const permissionCheck = queryChecks.find(c => c.mode === 'permission')!;
+    vi.useFakeTimers();
     try {
+      const started = Date.now();
+      let elapsed: number | undefined;
       let results: ConformanceResult[] | undefined;
-      const run = runServerConformance(configured).then(completed => { results = completed; });
-      await vi.advanceTimersByTimeAsync(advanceMs);
-      expect(results?.filter(r => r.status === 'failed')).toEqual([
-        { id: 'unknown endpoint → error', status: 'failed', failure: `did not finish within its check deadline of ${advanceMs} ms` },
-      ]);
-      expect(results?.find(r => r.id === 'port · getEntity of a destination in an ungranted room → forbidden')?.status).toBe('passed');
-      await run;
+      void runServerConformance(configured).then(completed => {
+        elapsed = Date.now() - started;
+        results = completed;
+      });
+      await vi.advanceTimersByTimeAsync(deadlineMs - 1);
+      expect(elapsed).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(elapsed).toBe(deadlineMs);
+      const failed = results!.filter(r => r.status === 'failed');
+      expect(new Set(failed.map(r => r.id))).toEqual(expectedFailures);
+      const reason = `menuQuery did not answer within ${deadlineMs} ms`;
+      expect(failed.every(r => r.failure?.includes(reason))).toBe(true);
+      expect(failed.find(r => r.id === 'unknown endpoint → error')?.failure).toContain(`Error: ${reason}`);
+      expect(failed.find(r => r.id === permissionCheck.id)?.failure).toContain(`${reason} earlier in this run`);
+      expect(results!.find(r => r.id === 'port · getEntity(sample) → ok with the row')?.status).toBe('passed');
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('uses the upload size check’s own deadline ahead of the harness override', async () => {
-    const id = 'port · uploadFile refuses a file over the size limit as invalid, and stores nothing';
+  it('awaits grant restoration when the post-withdrawal getEntity hangs', async () => {
     const h = harness();
-    const uploadFile = h.adapter.uploadFile!;
-    h.adapter.uploadFile = input => input.file.size > UPLOAD_FILE_MAX_BYTES
-      ? new Promise(() => {}) : uploadFile(input);
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const getEntity = h.adapter.getEntity;
+    let withdrawn = false;
+    const restore = vi.fn(async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+      withdrawn = false;
+    });
+    h.adapter.getEntity = ref => withdrawn ? new Promise(() => {}) : getEntity(ref);
+    const configured: ServerConformanceHarness = {
+      ...h,
+      implemented: ['getEntity'],
+      withdrawGrant: async () => {
+        withdrawn = true;
+        return restore;
+      },
+    };
+    vi.useFakeTimers();
     try {
-      let completed = false;
-      const run = runServerConformance({ ...h, implemented: ['uploadFile'], checkTimeoutMs: 25 })
-        .finally(() => { completed = true; });
-      await vi.advanceTimersByTimeAsync(25);
-      expect(completed).toBe(false);
-      await vi.advanceTimersByTimeAsync(60_000 - 25);
-      expect(completed).toBe(true);
-      expect((await run).find(r => r.id === id)).toEqual({
-        id,
+      let results: ConformanceResult[] | undefined;
+      void runServerConformance(configured).then(completed => { results = completed; });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(restore).toHaveBeenCalledOnce();
+      expect(withdrawn).toBe(true);
+      expect(results).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(10);
+      expect(results?.find(r => r.id === GRANT_WITHDRAWAL_ID)).toMatchObject({
         status: 'failed',
-        failure: 'did not finish within its check deadline of 60000 ms',
+        failure: expect.stringContaining('getEntity did not answer within 60000 ms'),
+      });
+      expect(withdrawn).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('restores the actor before the next permission check after a hung getEntity', async () => {
+    const h = harness();
+    const getEntity = h.adapter.getEntity;
+    let actor = 'granted';
+    const actorsAtEntry: string[] = [];
+    h.adapter.getEntity = ref => actor === 'denied' ? new Promise(() => {}) : getEntity(ref);
+    const configured: ServerConformanceHarness = {
+      ...h,
+      implemented: ['getEntity', 'entityAudit'],
+      withoutPermission: async (permission, fn) => {
+        const previous = actor;
+        actorsAtEntry.push(previous);
+        actor = 'denied';
+        try {
+          return await h.withoutPermission(permission, fn);
+        } finally {
+          actor = previous;
+        }
+      },
+    };
+    vi.useFakeTimers();
+    try {
+      let results: ConformanceResult[] | undefined;
+      void runServerConformance(configured).then(completed => { results = completed; });
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(actorsAtEntry.length).toBeGreaterThan(1);
+      expect(new Set(actorsAtEntry)).toEqual(new Set(['granted']));
+      expect(actor).toBe('granted');
+      expect(results?.find(r => r.id === 'port · getEntity without equipment:view → forbidden')?.failure)
+        .toContain('getEntity did not answer within 60000 ms');
+      expect(results?.find(r => r.id === 'port · entityAudit without equipment:view → forbidden')?.status).toBe('passed');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('passes a 30-second search walk made of responsive calls', async () => {
+    const h = harness();
+    const options = {
+      ...optionSamples,
+      equipment: Array.from({ length: 29 }, (_, i) => ({
+        ...optionSamples.equipment[i % 2],
+        equipmentId: `eq-${String(i + 1).padStart(2, '0')}`,
+      })),
+    };
+    const { searchEquipment } = referenceSelectionPorts(options);
+    h.adapter.searchEquipment = async input => {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return searchEquipment(input);
+    };
+    vi.useFakeTimers();
+    try {
+      const run = runServerConformance({ ...h, implemented: ['searchEquipment'], ports: { ...h.ports, options } });
+      await vi.runAllTimersAsync();
+      expect((await run).find(r => r.id === 'selection ports · search paging')).toMatchObject({
+        status: 'passed', failure: null,
       });
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('uses the upload size check’s own deadline ahead of a longer call deadline', async () => {
+    const id = 'port · uploadFile refuses a file over the size limit as invalid, and stores nothing';
+    const h = harness();
+    h.adapter.uploadFile = async input => {
+      if (input.file.size > UPLOAD_FILE_MAX_BYTES) return new Promise(() => {});
+      return { outcome: 'invalid', data: null, version: null, fieldErrors: [], replayed: false, correlationId: 'ref' };
+    };
+    const configured = { ...h, implemented: ['uploadFile'] as const, callTimeoutMs: 90_000 };
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      let results: ConformanceResult[] | undefined;
+      void runServerConformance(configured).then(completed => { results = completed; });
+      await vi.advanceTimersByTimeAsync(59_999);
+      expect(results).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(results?.find(r => r.id === id)).toEqual({
+        id,
+        status: 'failed',
+        failure: 'did not finish within its own deadline of 60000 ms',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('skips actor setup when the granted and console batches are empty', async () => {
+    const h = harness();
+    const asGranted = vi.spyOn(h, 'asGranted');
+    const asConsole = vi.spyOn(h, 'asConsole');
+    await runServerConformance({ ...h, implemented: [] });
+    expect(asGranted).not.toHaveBeenCalled();
+    expect(asConsole).not.toHaveBeenCalled();
   });
 
   it.each([
