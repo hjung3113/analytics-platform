@@ -30,6 +30,7 @@ export { type EChartProps } from './chart/EChart';
 export * from './filters/PageFilterBar';
 export { FilterLine, type FilterLineProps } from './filters/FilterLine';
 export { AnalysisSelectionChipZone, type AnalysisSelectionChipZoneFit } from './filters/AnalysisSelectionChipZone';
+export { getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, type AnalysisSelectionFilter } from './filters/analysisSelectionFilter';
 export { PageConditionCategories, type PageConditionCategoriesProps, type PageConditionOptions, type PageConditionOptionsLoader } from './filters/PageConditionCategories';
 export { PageConditionTree, type PageConditionTreeProps } from './filters/PageConditionTree';
 export { usePageConditionOptionsLoader, PageConditionOptionsError } from './filters/usePageConditionOptionsLoader';

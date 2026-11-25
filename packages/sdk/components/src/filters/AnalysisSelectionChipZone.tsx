@@ -45,15 +45,18 @@ function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip;
     event.preventDefault();
     if (!editor.replace(chip.key, draft, close)) setRejected(true);
   }}>
-    {draft.shape === 'set' ? <div className="grid max-h-64 gap-2 overflow-y-auto p-1">
-      {[...candidates].map(value => <Label key={value} className="flex items-center">
-        <Checkbox checked={draft.values.includes(value)} onCheckedChange={checked => {
-          const values = checked === true ? [...draft.values, value] : draft.values.filter(item => item !== value);
-          update({ shape: 'set', values });
-        }} />
-        <span className="ml-2 min-w-0 wrap-anywhere">{value}{available && !available.has(value) && <> <span className="text-text-secondary">{m('analysisSelectionUnavailable')}</span></>}</span>
-      </Label>)}
-    </div> : (['from', 'to'] as const).map(endpoint => {
+    {draft.shape === 'set' ? <>
+      <p className="text-xs text-text-secondary">{m('analysisSelectionDraftCount', { count: draft.values.length })}</p>
+      <div className="grid max-h-64 gap-2 overflow-y-auto p-1">
+        {[...candidates].map(value => <Label key={value} className="flex items-center">
+          <Checkbox checked={draft.values.includes(value)} onCheckedChange={checked => {
+            const values = checked === true ? [...draft.values, value] : draft.values.filter(item => item !== value);
+            update({ shape: 'set', values });
+          }} />
+          <span className="ml-2 min-w-0 wrap-anywhere">{value}{available && !available.has(value) && <> <span className="text-text-secondary">{m('analysisSelectionUnavailable')}</span></>}</span>
+        </Label>)}
+      </div>
+    </> : (['from', 'to'] as const).map(endpoint => {
       const fieldId = `${id}-${endpoint}`;
       const label = m(endpoint === 'from' ? 'analysisSelectionStart' : 'analysisSelectionEnd');
       const value = draft[endpoint];

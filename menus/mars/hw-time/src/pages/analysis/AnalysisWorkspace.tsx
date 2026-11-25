@@ -4,7 +4,7 @@ import { isAnswered } from '@ap/contracts';
 import { ANALYSIS_SELECTION_MAX_VALUES, formatText, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView,
-  usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
+  getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
 import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MAX_ROWS, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTime, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams, type HwTimeTableParams, type HwTimeTableRow } from '../../endpoints';
 import { HW_TIME_MESSAGES, HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKSPACE_MESSAGES } from '../../messages';
@@ -305,28 +305,16 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     setPage(patch);
     setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
   };
-  // The value the table filters by and whether it filters come from the same contract read (#2870 Q1).
-  const tableFilter = applied.find(input => input.key === MOTION_EQUIPMENT_KEY && input.use === 'filter')?.selection;
-  const equipment = tableFilter?.shape === 'set' ? tableFilter.values : undefined;
-  // Waiting reads the valid URL selection before availability: a previous report that excluded it must not let the table
-  // read unfiltered until the source reports again (#2888 review).
-  const selected = projectQueryInputs(panelDeclarations.table, panelContext)[MOTION_EQUIPMENT_KEY];
-  const waitingForAvailability = selected !== undefined
-    && (!selectionOutput.availabilityCurrent || sourceQuery?.status === 'loading' || sourceQuery?.showingPrevious);
-  const filterTable = !waitingForAvailability && equipment !== undefined && extraIds.includes('table');
+  const tableFilter = resolveAnalysisSelectionFilter({
+    requested: projectQueryInputs(panelDeclarations.table, panelContext)[MOTION_EQUIPMENT_KEY] !== undefined,
+    applied: applied.find(input => input.key === MOTION_EQUIPMENT_KEY && input.use === 'filter')?.selection,
+    source: { availabilityCurrent: selectionOutput.availabilityCurrent, query: sourceQuery },
+  });
+  const equipment = tableFilter.kind === 'filtered' && tableFilter.selection.shape === 'set' ? tableFilter.selection.values : undefined;
+  const filterTable = equipment !== undefined && extraIds.includes('table');
   const tableLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, filterTable);
   const analysis = filterTable ? { equipment, level: tableLevel } : undefined;
-  const levelResponse = tableLevel.response;
-  let count: number | undefined;
-  if (analysis && !tableLevel.showingPrevious && levelResponse && isAnswered(levelResponse.outcome)) {
-    count = levelResponse.outcome === 'empty' ? 0 : levelResponse.data?.rows.length;
-  }
-  const badge = count === undefined ? undefined : {
-    count, description: {
-      ko: formatText(S.selectionFiltered, 'ko', { count }),
-      en: formatText(S.selectionFiltered, 'en', { count }),
-    },
-  };
+  const badge = getAnalysisSelectionFilterBadge(tableFilter, analysis?.level, data => data.rows.length);
   const matrixData = (input: { moduleType?: string | null }) => {
     const required = input.moduleType ? [input.moduleType] : Object.keys(queries);
     return { required, matrices: required.flatMap(id => queries[id]?.response?.data ? [queries[id]!.response!.data!] : []) };
@@ -369,7 +357,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
             const display = projectDisplayInputs(panelDeclarations.moduleMotions, panelContext);
             return <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions source />;
           }
-          case 'table': return waitingForAvailability ? <LoadingBlock /> : <RawTablePanel params={{}} linked analysis={analysis} />;
+          case 'table': return tableFilter.kind === 'waiting' ? <LoadingBlock /> : <RawTablePanel params={{}} linked analysis={analysis} />;
           case 'donut': {
             const data = matrixData(projectQueryInputs(panelDeclarations.donut, panelContext));
             return matricesView(queries, data.required, <VerdictDonut matrices={data.matrices} filter={filter} verdict={verdict} />);
