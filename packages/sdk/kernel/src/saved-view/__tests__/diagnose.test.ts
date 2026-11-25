@@ -109,7 +109,7 @@ describe('diagnoseSavedView', () => {
     });
 
     it('offers a preview and applies without touching sharing, owner or the global selection, even with panels', () => {
-      const view = menuView({ panels: { narrow: { selection: ['E1'] } } });
+      const view = menuView({ panels: { version: 1, instances: [{ id: 'a', source: { kind: 'declared', panel: 'trend' }, inputs: [], outputs: [] }] } });
       const d = diagnoseSavedView(view, support({ menuSchemaVersion: 2, migrate: upgrade() }), ctx());
       expect(d.status).toBe('stale');
       if (d.status !== 'stale' || !d.migration) throw new Error('expected a migration');

@@ -507,3 +507,22 @@ it('a replacement seed falls back to its first actor when the stored role is mis
     seed: { actors: {}, directory: [], groups: () => [], views: () => [] },
   })).toThrow(/at least one actor/);
 });
+
+it('a view saved before the panel-instance format stays readable and is kept when another view is saved; saving the old value is refused (#2760)', async () => {
+  const s = store();
+  const saved = ok(await s.save(draft('옛 패널')));
+  const old = { ...saved.view, panels: { narrow: { selection: ['E1'] } } };
+  storage.setItem(savedViewsStorageKey(ENG, MENU), JSON.stringify({ schemaVersion: 1, views: [old] }));
+  expect(await s.get(old.id)).toMatchObject({ view: { id: old.id, panels: { narrow: { selection: ['E1'] } } } });
+  ok(await s.save(draft('새 뷰')));
+  expect(visible(await s.list(key(ENG))).map(i => i.view.name)).toEqual(expect.arrayContaining(['옛 패널', '새 뷰']));
+  expect(await s.save({ ...draft(), panels: { narrow: {} } } as unknown as SavedViewDraft)).toMatchObject({ ok: false, reason: 'invalid' });
+});
+
+it('an old panels value holding a non-finite number stays unreadable instead of turning into null on the next write (#2760)', async () => {
+  const s = store();
+  const saved = ok(await s.save(draft('무한')));
+  const raw = JSON.stringify({ schemaVersion: 1, views: [{ ...saved.view, panels: { n: 7 } }] }).replace('"n":7', '"n":1e400');
+  storage.setItem(savedViewsStorageKey(ENG, MENU), raw);
+  expect(await s.get(saved.view.id)).toBeNull();
+});

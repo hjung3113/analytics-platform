@@ -1,0 +1,1 @@
+export const CUSTOM_GROUP_FIXED_MAX = 5_000;
