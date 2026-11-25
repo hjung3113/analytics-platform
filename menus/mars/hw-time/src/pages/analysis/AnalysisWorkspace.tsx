@@ -21,7 +21,7 @@ import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
 import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
-import { buildSavedPanels, defaultPanels, heldOf, heldOutput, heldSourceFor, heldTableInput, holdOverflows, holds, isHeldSource, keepHeld, names, newPanelInstance, withAdded, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
+import { buildSavedPanels, defaultPanels, exceedsPanelLimit, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isHeldSource, keepHeld, names, newPanelInstance, panelAdditionOverflows, withAdded, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
 import { CATALOG_IDS, chartRows, panelCatalog, projectBarData, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
@@ -278,20 +278,22 @@ function useWorkspacePanels(owner: string, query: string, step: Step) {
   });
   const add = (id: string, intent?: AddIntent) => setState(current => {
     const next = withAdded(current.config, id, step, intent);
-    return next ? { ...current, config: next } : current;
+    return next && !exceedsPanelLimit(buildSavedPanels(next, step)) ? { ...current, config: next } : current;
   });
   /** «따라가기로 바꾸기»: the panel drops its held values and reads the URL again. */
   const follow = (slot: string) => add(slot, { mode: 'follow' });
   const remove = (instanceId: string) => setState(current => {
     if (current.config.kind !== 'custom') return current;
-    const added = current.config.added.filter(panel => panel.instance.id !== instanceId).map(panel => {
-      const inputs = panel.instance.inputs.filter(input => !input.from.startsWith(`${instanceId}.`));
-      return inputs.length === panel.instance.inputs.length ? panel : { ...panel, instance: { ...panel.instance, inputs } };
-    });
-    return { ...current, config: { ...current.config, added } };
+    const disconnect = (instance: PanelInstance) => {
+      const inputs = instance.inputs.filter(input => !input.from.startsWith(`${instanceId}.`));
+      return inputs.length === instance.inputs.length ? instance : { ...instance, inputs };
+    };
+    const added = current.config.added.filter(panel => panel.instance.id !== instanceId)
+      .map(panel => ({ ...panel, instance: disconnect(panel.instance) }));
+    return { ...current, config: { ...current.config, added, sources: current.config.sources.map(disconnect) } };
   });
   const editConnections = (config: CustomPanels) => setState(current => ({ ...current, config: { ...config, connectionsEdited: true } }));
-  return { config, add, remove, follow, editConnections, holdOverflows: (id: string, intent: AddIntent) => holdOverflows(config, step, id, intent) };
+  return { config, add, remove, follow, editConnections, additionOverflows: (id: string, intent?: AddIntent) => panelAdditionOverflows(config, step, id, intent) };
 }
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
@@ -469,6 +471,14 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     const input = projectQueryInputs(panelDeclarations[panel], panelContext);
     return { ...(input.moduleType ? { moduleType: input.moduleType } : {}), ...(input.drillModule ? { drillModule: input.drillModule } : {}), ...(input.drillMotion ? { drillMotion: input.drillMotion } : {}) };
   };
+  const limitParams = { max: PANEL_INSTANCES_MAX };
+  const limitMessage = HW_TIME_WORKSPACE_MESSAGES.panelsFull;
+  const limitReason = { ko: formatText(limitMessage, 'ko', limitParams), en: formatText(limitMessage, 'en', limitParams) };
+  const checkAddition = (id: string, intent?: AddIntent) => {
+    if (!savedPanels.additionOverflows(id, intent)) return true;
+    toast(limitReason[lang], 'warning');
+    return false;
+  };
   const panels: PanelWorkspacePanel[] = [
     { id: 'tree', icon: ListTree, title: S.tree, minWidth: 200, preferredHeight: 640, render: () => <Hierarchy filter={filter} currentId={currentId} onDrill={onDrill} /> },
     ...(step > 1 ? [{ id: 'previous', icon: History, title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={(step - 1) as Step} previous /> }] : []),
@@ -476,11 +486,21 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       analysisSelectionSourceId: currentHostsSelection ? sourcePanelId : undefined,
       render: () => <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} source={currentHostsSelection} /> },
     ...extraPanels.map(({ id, instance, item }): PanelWorkspacePanel => {
+      const keep = keptSources.has(id) ? { reason: HW_TIME_WORKSPACE_MESSAGES.heldSource } : undefined;
+      const onRemove = instance && (() => {
+        savedPanels.remove(instance.id);
+        if (id === 'trend' && trend) {
+          const remainingPins = pins.pinned.filter(pin => pin !== id);
+          setPage({ trend: null, [TREND_RANGE_OUTPUT.key]: null, pins: remainingPins.length > 0 ? remainingPins : null });
+        } else {
+          pins.unpin(id);
+        }
+      });
       if (instance && (!item || item.disabledReason)) {
         const panel = declaredPanelId(instance) ?? instance.id;
         const reason = item?.disabledReason?.[lang] ?? workspace(instance.source.kind === 'declared' ? 'missingPanel' : 'unsupportedPanel', { id: panel });
         return { id, title: item?.title ?? { ko: panel, en: panel }, float: false, collapse: false,
-          onRemove: () => savedPanels.remove(instance.id),
+          onRemove, keep,
           render: () => <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={reason} /> };
       }
       const panel = item!.id as CatalogId;
@@ -528,9 +548,14 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         }
       };
       return { id, icon: ChartNoAxesCombined, title: item!.title, ...(step === 4 && id === 'trend' ? { placement: 'below' as const } : {}), preferredHeight: 360, minWidth: 200,
+        onRemove,
         badge: tableBadge(panel, heldTable),
-        keep: keptSources.has(id) ? { reason: HW_TIME_WORKSPACE_MESSAGES.heldSource } : undefined,
-        pin: id === panel ? { pinned: pins.isPinned(id), onToggle: () => { savedPanels.add(id); pins.toggle(id); } } : undefined,
+        keep,
+        pin: id === panel ? { pinned: pins.isPinned(id), onToggle: () => {
+          if (!pins.isPinned(id) && !checkAddition(id)) return;
+          savedPanels.add(id);
+          pins.toggle(id);
+        } } : undefined,
         render: () => <RecipePanel id={panel} open={explained === id} context={panelContext} onClose={() => setExplained(null)}>{renderPanel(panel)}</RecipePanel> };
     }),
   ];
@@ -594,17 +619,20 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   };
 
   const addPanel = (id: string, pin: boolean, options?: { restoreHidden: boolean }, intent?: AddIntent) => {
-    if (intent?.mode === 'hold' && savedPanels.holdOverflows(id, intent)) { toast(formatText(HW_TIME_WORKSPACE_MESSAGES.heldFull, lang, { max: PANEL_INSTANCES_MAX }), 'warning'); return; }
+    if (!checkAddition(id, intent)) return;
     savedPanels.add(id, intent);
     if (pin) pins.pin(id);
     setReveal(current => ({ panelId: id, seq: (current?.seq ?? 0) + 1, ...options }));
   };
+  const toolbarCatalog = catalog.map(item => item.disabledReason || !savedPanels.additionOverflows(item.id)
+    ? item : { ...item, disabledReason: limitReason });
   return <div className="flex min-h-0 flex-1 flex-col gap-2">
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
     {savedPanels.config.kind === 'unreadable' && <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={workspace('unreadablePanels')} />}
     {settings && settingsPanel && instance && <PanelSettingsDrawer key={settings.id} title={settingsPanel.title} panel={instance}
       value={{ version: 1, instances: [...drawerInstances.values()] }} trigger={settings.trigger} onClose={() => setSettings(null)}
       projectCandidate={updated => buildSavedPanels(settingsConfig(settingsPanel.id, updated), step)}
+      validateCandidate={candidate => exceedsPanelLimit(candidate) ? limitReason : undefined}
       declaredInputs={[...declaration?.queryInputs.page ?? [], ...declaration?.displayInputs.page ?? []]}
       sourceReference={key => {
         if (declaration?.id !== panelDeclarations.table.id || key !== MOTION_EQUIPMENT_KEY || !selectionSource) return;
@@ -637,7 +665,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         ...(heldSlots.some(slot => slot.id === id) ? [{ id: 'follow', label: HW_TIME_WORKSPACE_MESSAGES.followInstead, onSelect: () => savedPanels.follow(id) }] : []),
       ]}
       revealRequest={reveal}
-      toolbarActions={<PanelAddMenu items={catalog} shown={panels.map(panel => panel.id)} onAdd={addPanel} />}
+      toolbarActions={<PanelAddMenu items={toolbarCatalog} shown={panels.map(panel => panel.id)} onAdd={addPanel} />}
       analysisPanelAddition={{ items: catalog, hold: true, onAdd: draft => {
         // Follow reads the URL selection so later picks also apply; hold keeps the draft's inputs (#2862).
         const panelId = draft.source.split('/')[1]!;

@@ -134,7 +134,7 @@ export const HW_TIME_WORKSPACE_MESSAGES = {
   followInstead: { ko: '따라가기로 바꾸기', en: 'Follow the selection instead' },
   heldSource: { ko: '이 차트에서 붙잡은 패널이 있습니다', en: 'A panel holds this chart’s selection' },
   heldRejected: { ko: '붙잡은 설비 선택을 적용할 수 없어 표를 거르지 않았습니다.', en: 'The held equipment selection could not be applied, so the table is not filtered.' },
-  heldFull: { ko: '저장할 수 있는 패널이 {max}개를 넘어 붙잡지 못했습니다. 패널을 하나 지운 뒤 다시 붙잡으세요.', en: 'Could not hold: saved panels would exceed {max}. Remove a panel and try again.' },
+  panelsFull: { ko: '저장 한도 {max}개. 패널 ⋯에서 삭제하세요.', en: 'Limit: {max} saved panels. Choose Delete from a panel’s ⋯ menu.' },
   unsupportedPanel: { ko: '이 저장된 패널을 열 수 없습니다: {id}', en: 'This saved panel cannot be opened: {id}' },
   /** The minimized 표시 조건 chip: the current conditions in one line. */
   filterSummary: { ko: '{type} · Module {modules}/{moduleTotal} · Motion {motions}/{motionTotal}', en: '{type} · Module {modules}/{moduleTotal} · Motion {motions}/{motionTotal}' },

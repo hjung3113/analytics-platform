@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EQUIPMENT_SELECTION_DIMENSION } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX } from '@ap/contracts';
 import type { MenuView, PanelInstance } from '@ap/contracts';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { answer, renderOverview, requests, settle } from './test-support';
@@ -62,6 +62,50 @@ describe('HW Time saved view panels', () => {
     cleanup();
     await mount(store);
     await waitFor(() => expect(config().ids).toEqual(['tree', 'current', 'pareto', 'donut']));
+  });
+
+  it('frees one slot at the saved panel limit and lets the user add another panel', async () => {
+    const copies = Array.from({ length: PANEL_INSTANCES_MAX - 1 }, (_, index) => ({ ...donut, id: `donut-${index}` }));
+    const instances = [donut, ...copies];
+    await mount(createFakeSavedViewStore([saved({ panels: { version: 1, instances } })]));
+    await open('saved');
+    await waitFor(() => expect(config().ids).toContain('donut'));
+    fireEvent.keyDown(addButton(), { key: 'Enter' });
+    const blocked = await screen.findByRole('menuitem', { name: /상한 초과 파레토/ });
+    expect(blocked.getAttribute('aria-disabled')).toBe('true');
+    expect(blocked.textContent).toContain('패널 ⋯에서 삭제하세요.');
+    fireEvent.keyDown(blocked, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+
+    fireEvent.click(screen.getByRole('button', { name: 'remove donut' }));
+    await settle();
+    expect(await act(() => views.saveAs({ name: '23 panels', kind: 'menu-view' })))
+      .toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: copies } } } });
+    await add('상한 초과 파레토');
+    expect(await act(() => views.saveAs({ name: '24 panels', kind: 'menu-view' })))
+      .toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: [...copies, pareto] } } } });
+  });
+
+  it('can revert deletion before saving, and reopens without the deleted pinned instance after saving', async () => {
+    const store = createFakeSavedViewStore([saved({ page: [['pins', 'donut']], panels: { version: 1, instances: [donut, pareto] } })]);
+    await mount(store);
+    await open('saved');
+    await waitFor(() => expect(config().pins.donut).toBe(true));
+    expect(screen.queryByRole('button', { name: 'remove tree' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'remove current' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'remove donut' }));
+    await settle();
+    expect(config().ids).toEqual(['tree', 'current', 'pareto']);
+    await act(async () => { expect(await views.revertToSaved()).toMatchObject({ ok: true }); });
+    await waitFor(() => expect(config().pins.donut).toBe(true));
+    fireEvent.click(screen.getByRole('button', { name: 'remove donut' }));
+    await settle();
+    expect(await act(() => views.saveToSelected()))
+      .toMatchObject({ ok: true, value: { view: { page: [], panels: { version: 1, instances: [pareto] } } } });
+    cleanup();
+    await mount(store);
+    await open('saved');
+    await waitFor(() => expect(config().ids).toEqual(['tree', 'current', 'pareto']));
   });
 
   it('restores a held table without drawing its selection source, and saves the same instances again (#2862)', async () => {

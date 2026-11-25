@@ -52,7 +52,7 @@ export type PanelWorkspacePanel = {
   /** Floating inside the workspace is on by default. The primary panel can never float. */
   float?: false;
   render: () => ReactNode;
-  /** Replace the normal Hide action with removal from the consumer's panels. The consumer must remove this entry. */
+  /** Opt-in for user-added panels only. Delete calls the consumer to remove the panel from its configuration. Primary panels ignore it. */
   onRemove?: () => void;
   /** Exactly one panel is primary (the first when none is): it can never be hidden and keeps the space other panels free. */
   primary?: boolean;
@@ -89,7 +89,7 @@ export type PanelWorkspacePanel = {
    */
   pin?: { pinned: boolean; onToggle: () => void };
   /**
-   * The panel must stay (#2862: another panel holds this panel's selection). «숨기기» stays in the `⋯` menu, disabled, and says `reason`;
+   * The panel must stay (#2862: another panel holds this panel's selection). «숨기기» and «삭제» stay disabled with `reason`;
    * collapsing and floating, which keep the panel, still work. The menu sets it and removes it when nothing depends on the panel.
    */
   keep?: { reason: Text };
@@ -681,6 +681,11 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       closeFocus.current = () => { focusTab(id); };
     };
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
+    const prepareToLeave = () => {
+      setMaximized(null);
+      const next = hidePanel(state, id, primaryId);
+      closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
+    };
     return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
       onOpenSettings={panel?.onOpenSettings}
       menuItems={panelMenuItems?.(id).map(item => ({ ...item, label: tx(item.label) }))}
@@ -702,11 +707,12 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       onMove={target => { closeFocus.current = () => { focusTab(id); }; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}
       onMoveBelow={rows && canMoveBelow(state.layout, id) ? () => { closeFocus.current = () => { focusTab(id); }; moveBelow(id); } : undefined}
       hideBlocked={panel?.keep ? { reason: tx(panel.keep.reason) } : undefined}
+      onRemove={id !== primaryId && panel?.onRemove ? () => {
+        prepareToLeave();
+        panel.onRemove?.();
+      } : undefined}
       onHide={id === primaryId ? undefined : () => {
-        setMaximized(null);
-        const next = hidePanel(state, id, primaryId);
-        closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
-        if (panel?.onRemove) { panel.onRemove(); return; }
+        prepareToLeave();
         layoutChange(current => {
           const next = hidePanel(current, id, primaryId);
           // Explicit hide chooses the hidden list instead of the remembered edge destination.

@@ -10,10 +10,13 @@ import { answer, renderOverview } from './test-support';
 const context = { from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00' };
 const page: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['pins', 'table']];
 let views: SavedViews;
-function Controls() {
-  const { setGlobal } = usePlatform();
+function Controls({ equipment }: { equipment?: string }) {
+  const { setGlobal, setPage } = usePlatform();
   views = useSavedViews();
-  return <button onClick={() => setGlobal({ from: '2026-09-20T09:00:00' })}>Change period</button>;
+  return <>
+    <button onClick={() => setGlobal({ from: '2026-09-20T09:00:00' })}>Change period</button>
+    {equipment && <button onClick={() => setPage({ [MOTION_EQUIPMENT_KEY]: [equipment] })}>Select equipment</button>}
+  </>;
 }
 async function openSettings() {
   const store = createFakeSavedViewStore([testSavedView({
@@ -60,13 +63,13 @@ async function openTableSettings(tab?: HTMLElement) {
   return screen.findByRole('dialog', { name: '원본 표' });
 }
 
-async function mountPanelView(instances: PanelInstance[]) {
+async function mountPanelView(instances: PanelInstance[], equipment?: string) {
   const store = createFakeSavedViewStore([testSavedView({
     id: 'saved', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM',
     context, page, chartOptions: {}, layout: null, panels: { version: 1, instances },
   })]);
   const open = async (id: string) => {
-    await renderOverview('', answer, { savedViews: store, children: <Controls />, realWorkspace: true, showDetail: true });
+    await renderOverview('', answer, { savedViews: store, children: <Controls equipment={equipment} />, realWorkspace: true, showDetail: true });
     await waitFor(() => expect(views.status).toBe('ready'));
     await act(async () => { expect(await views.select(id)).toMatchObject({ ok: true }); });
   };
@@ -122,6 +125,78 @@ it.each([['무시', 'ignore'], ['따라가기', 'follow']] as const)('applies %s
     ...others, { ...table, inputs: follow ? [{ key: MOTION_EQUIPMENT_KEY, from, mode: 'follow' }] : [] },
     ...(follow ? [hidden] : []),
   ] } } } });
+});
+
+it.each([
+  ['reuses a saved chart', [{ id: 'motions', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [] }]],
+  ['adds a new source', []],
+] satisfies [string, PanelInstance[]][])('rejects an overflowing connection that %s and accepts it after deletion', async (_name, charts) => {
+  const removable: PanelInstance = { id: 'removable', source: { kind: 'declared', panel: 'retired-removable' }, inputs: [], outputs: [] };
+  const others: PanelInstance[] = Array.from({ length: PANEL_INSTANCES_MAX - 2 }, (_, index) => ({
+    id: `other-${index}`, source: { kind: 'declared', panel: 'retired' }, inputs: [], outputs: [],
+  }));
+  await mountPanelView([...charts, removable, ...others]);
+  const drawer = await openTableSettings();
+  fireEvent.click(within(drawer).getByRole('radio', { name: '강조만' }));
+  expect(within(drawer).getByRole('alert').textContent).toBe('저장 한도 24개. 패널 ⋯에서 삭제하세요.');
+  expect(within(drawer).getByRole('radio', { name: '무시', checked: true })).toBeTruthy();
+  expect(views.state.modified).toBe(false);
+
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  const tab = screen.getByRole('tab', { name: 'retired-removable' });
+  fireEvent.click(tab);
+  fireEvent.keyDown(tab, { key: 'F10', shiftKey: true });
+  fireEvent.click(await screen.findByRole('menuitem', { name: '삭제' }));
+  await waitFor(() => expect(screen.queryByRole('tab', { name: 'retired-removable' })).toBeNull());
+  const table = screen.getByRole('tab', { name: '원본 표' });
+  fireEvent.click(table);
+  const retry = await openTableSettings(table);
+  fireEvent.click(within(retry).getByRole('radio', { name: '강조만' }));
+  expect(within(retry).queryByRole('alert')).toBeNull();
+  expect(within(retry).getByRole('radio', { name: '강조만', checked: true })).toBeTruthy();
+
+  const saved = await act(() => views.saveAs({ name: 'Connected after deletion', kind: 'menu-view' }));
+  if (!saved.ok || saved.value.view.kind !== 'menu-view') throw new Error('Failed to save connected view');
+  const instances = saved.value.view.panels?.instances;
+  expect(instances).toHaveLength(PANEL_INSTANCES_MAX);
+  const publisher = instances?.find(panel => panel.source.kind === 'declared' && panel.source.panel === 'moduleMotions');
+  expect(publisher?.outputs).toEqual([{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }]);
+  expect(instances?.find(panel => panel.id === 'table')?.inputs).toEqual([
+    { key: MOTION_EQUIPMENT_KEY, from: `${publisher?.id}.${MOTION_EQUIPMENT_KEY}`, mode: 'follow', use: 'highlight' },
+  ]);
+});
+
+it('protects an unavailable source and saves the input held through panel settings after drilling up', async () => {
+  const chart: PanelInstance = { id: 'motions', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [] };
+  const equipment = 'MEM-PHOTO-0105';
+  await mountPanelView([chart], equipment);
+  fireEvent.click(screen.getByRole('button', { name: 'Select equipment' }));
+  const drawer = await openTableSettings();
+  fireEvent.click(within(drawer).getByRole('radio', { name: '거르기' }));
+  fireEvent.click(within(drawer).getByRole('radio', { name: '붙잡기' }));
+  expect(within(drawer).getByRole('radio', { name: '붙잡기', checked: true })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Pump 단계로 이동' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(new URLSearchParams(window.location.search).get('drillModule')).toBeNull();
+  const source = await screen.findByRole('tab', { name: 'Module · Motion별' });
+  fireEvent.click(source);
+  expect(await screen.findByText('Module 단계에서 볼 수 있음')).toBeTruthy();
+  fireEvent.keyDown(source, { key: 'F10', shiftKey: true });
+  const menu = await screen.findByRole('menu');
+  const reason = '이 차트에서 붙잡은 패널이 있습니다';
+  for (const name of ['삭제', '숨기기']) {
+    expect(within(menu).getByRole('menuitem', { name }).getAttribute('aria-disabled')).toBe('true');
+    expect(within(menu).getByRole('menuitem', { name, description: reason })).toBeTruthy();
+  }
+
+  const saved = await act(() => views.saveAs({ name: 'Held after drilling up', kind: 'menu-view' }));
+  expect(saved).toMatchObject({ ok: true, value: { view: { panels: { instances: expect.arrayContaining([
+    { ...chart, outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] },
+    expect.objectContaining({ id: 'table', inputs: [{
+      key: MOTION_EQUIPMENT_KEY, from: `${chart.id}.${MOTION_EQUIPMENT_KEY}`, mode: 'hold', value: { shape: 'set', values: [equipment] },
+    }] }),
+  ]) } } } });
 });
 
 it.each(['edit connections', 'add a panel'] as const)('keeps colliding wire IDs after save and reopen when users %s', async action => {

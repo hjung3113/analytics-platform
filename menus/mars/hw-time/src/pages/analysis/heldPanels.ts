@@ -68,7 +68,7 @@ export function heldSourceFor(config: CustomPanels, { reservedOnly = false } = {
  * The configuration after adding `id` (null: nothing changes). From the toolbar or a pin (no intent) an open panel keeps its inputs; «새 패널» states
  * follow (an open held panel reads the URL again, R C5) or hold (its inputs become the held values, naming a source output, R C2).
  */
-export function withAdded(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent): PanelConfiguration | null {
+export function withAdded(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent): CustomPanels | null {
   if (step === 4 && id === 'trend') return null;
   const custom = config.kind === 'custom' ? config : noPanels;
   const existing = custom.added.find(panel => panel.slot === id);
@@ -91,9 +91,14 @@ export function withAdded(config: PanelConfiguration, id: string, step: Step, in
   return put({ slot: existing.slot, instance: { ...existing.instance, inputs } });
 }
 
-/** Whether a hold would take the saved panels past the v1 limit: measured on what would be saved, so a replaced hold's dropped source is not counted (R2 C11). */
-export function holdOverflows(config: PanelConfiguration, step: Step, id: string, intent: AddIntent): boolean {
-  return (buildSavedPanels(withAdded(config, id, step, intent) ?? config, step)?.instances.length ?? 0) > PANEL_INSTANCES_MAX;
+export function exceedsPanelLimit(panels: MenuViewPanels): boolean {
+  return panels.instances.length > PANEL_INSTANCES_MAX;
+}
+
+/** Count what the view would save, including required sources and excluding any source the addition makes unused. */
+export function panelAdditionOverflows(config: PanelConfiguration, step: Step, id: string, intent?: AddIntent): boolean {
+  const next = withAdded(config, id, step, intent);
+  return next !== null && exceedsPanelLimit(buildSavedPanels(next, step));
 }
 
 /**

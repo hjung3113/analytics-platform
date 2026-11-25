@@ -751,6 +751,7 @@ export const COMPONENTS_MESSAGES = {
   workspaceSplitDown: { ko: '아래로 나누기', en: 'Split below' },
   workspaceMoveToGroup: { ko: '{title} 묶음으로 옮기기', en: "Move into {title}'s group" },
   workspaceHide: { ko: '숨기기', en: 'Hide' },
+  workspaceDelete: { ko: '삭제', en: 'Delete' },
   workspaceCollapseLeft: { ko: '왼쪽으로 접기', en: 'Collapse to left' },
   workspaceCollapseTop: { ko: '위로 접기', en: 'Collapse to top' },
   workspaceFloat: { ko: '띄우기', en: 'Float' },

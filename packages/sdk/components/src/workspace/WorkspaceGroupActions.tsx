@@ -13,7 +13,7 @@ const ICON = 'size-7';
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
  * group's active panel. Collapse and float are absent for primary panels. Floating headers offer pin, close and keyboard geometry.
  */
-export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, hideBlocked, pin, edgeActions, menuItems, onOpenSettings }: {
+export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onRemove, hideBlocked, pin, edgeActions, menuItems, onOpenSettings }: {
   onOpenSettings?: (trigger: HTMLButtonElement) => void;
   menuItems?: readonly { id: string; label: string; onSelect: () => void }[];
   title: string;
@@ -29,7 +29,8 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   /** Stack mode only, and absent when the panel already is alone in the last row. */
   onMoveBelow?: () => void;
   onHide?: () => void;
-  /** «숨기기» is unavailable while present (`PanelWorkspacePanel.keep`): the item stays, disabled, and shows the reason. */
+  onRemove?: () => void;
+  /** The hide/delete action stays disabled and shows the reason while `PanelWorkspacePanel.keep` is set. */
   hideBlocked?: { reason: string };
   edgeActions?: {
     left?: () => void; top?: () => void; float?: () => void;
@@ -45,6 +46,7 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   const actions = m('workspaceActions', { title });
   const pinLabel = m('panelPin', { title });
   const hideReasonId = useId();
+  const hideDescription = hideBlocked?.reason ? hideReasonId : undefined;
   const maximizeTarget = useContext(DockChartMaximizeTarget);
   const maximizeButton = !edgeActions?.overlay && <Button type="button" variant="ghost" size={maximizeTarget ? 'icon-xs' : 'icon-sm'} className={maximizeTarget ? undefined : ICON} data-workspace-maximize aria-label={toggle} title={toggle} onClick={() => { onMaximize(!maximized); }}>
     {maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
@@ -87,10 +89,11 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
             {separator}
             {hideBlocked
               // Named by the action and described by the visible reason, as a disabled «다음 분석» item (#2862 R C4).
-              ? <LayoutItem aria-label={m('workspaceHide')} aria-disabled aria-describedby={hideBlocked.reason ? hideReasonId : undefined}>
-                <span className="flex min-w-0 flex-col"><span>{m('workspaceHide')}</span>{hideBlocked.reason && <span id={hideReasonId} className="text-xs text-text-muted">{hideBlocked.reason}</span>}</span>
+              ? <LayoutItem aria-label={m('workspaceHide')} aria-disabled aria-describedby={hideDescription}>
+                <span className="flex min-w-0 flex-col break-keep"><span>{m('workspaceHide')}</span>{hideBlocked.reason && <span id={hideReasonId} className="text-xs text-text-muted">{hideBlocked.reason}</span>}</span>
               </LayoutItem>
               : <LayoutItem onSelect={onHide}>{m('workspaceHide')}</LayoutItem>}
+            {onRemove && <LayoutItem aria-disabled={hideBlocked ? true : undefined} aria-describedby={hideDescription} onSelect={onRemove}>{m('workspaceDelete')}</LayoutItem>}
           </>}
         </>}
     </>}
