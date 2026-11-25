@@ -305,3 +305,30 @@ it('own unregister and removing the winner never notify an inactive portal', () 
   view.rerender(<Pair />);
   expect(closed).toHaveBeenCalledTimes(1);
 });
+
+function ScopedPortal({ name, scope, onSuperseded }: { name: string; scope?: string; onSuperseded: (takeover: { sameScope: boolean }) => void }) {
+  const target = useDetailPanelSlot({ onSuperseded, ...(scope === undefined ? {} : { scope }) });
+  return target ? createPortal(<button>{name}</button>, target) : null;
+}
+
+it.each([
+  ['p1', 'p1', true],
+  ['p1', 'p2', false],
+  ['p1', undefined, false],
+  [undefined, undefined, false],
+] as const)('a takeover tells the outgoing portal whether the winner shares its scope (%s ← %s)', (outgoingScope, winnerScope, sameScope) => {
+  const outgoing = vi.fn();
+  function Pair({ second = false }: { second?: boolean }) {
+    return <DetailPanelSlotProvider>
+      <ScopedPortal name="first" scope={outgoingScope} onSuperseded={outgoing} />
+      {second && <ScopedPortal name="second" scope={winnerScope} onSuperseded={() => {}} />}
+      <Host />
+    </DetailPanelSlotProvider>;
+  }
+  const view = render(<StrictMode><Pair /></StrictMode>);
+  view.rerender(<StrictMode><Pair second /></StrictMode>);
+  expect(outgoing).toHaveBeenCalledTimes(1);
+  expect(outgoing).toHaveBeenCalledWith({ sameScope });
+  view.rerender(<StrictMode><Pair /></StrictMode>);
+  expect(screen.getByRole('button', { name: 'first' })).toBeTruthy();
+});

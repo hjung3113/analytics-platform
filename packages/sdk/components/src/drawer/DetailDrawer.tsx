@@ -64,12 +64,19 @@ export function DetailDrawer(props: DetailDrawerProps) {
   const paneId = useHostPlatformOptional()?.paneId;
   const closeLatest = useRef(onClose);
   useInsertionEffect(() => { closeLatest.current = onClose; });
-  // A terminal reason for this drawer lifetime, including every outgoing content cleanup/replay.
+  // Set while another detail holds the slot, so the outgoing content's cleanup and replays neither return focus nor auto-close.
+  // A detail from another pane ends this one (docs/16 §6); one from the same pane only hands off, and this one resumes when it closes (#3002).
   const superseded = useRef(false);
-  const host = useDetailPanelSlot(paneId != null ? { localExpansion: true, onSuperseded: () => {
+  const handedOff = useRef(false);
+  const host = useDetailPanelSlot(paneId != null ? { localExpansion: true, scope: paneId, onSuperseded: ({ sameScope }) => {
     superseded.current = true;
-    closeLatest.current();
+    if (sameScope) handedOff.current = true;
+    else closeLatest.current();
   } } : undefined);
+  // Back in the slot after a handoff: a fresh content lifetime again owns focus return and list closure. Insertion runs before the content's effects.
+  useInsertionEffect(() => {
+    if (host && handedOff.current) { handedOff.current = false; superseded.current = false; }
+  }, [host]);
   useCloseOnPaneChange(onClose);
   // A drawer whose owning surface is covered stays mounted in the hidden host; its own transient UI is dismissed, as a docked detail owns its visibility.
   const paused = useSurfacePaused();
