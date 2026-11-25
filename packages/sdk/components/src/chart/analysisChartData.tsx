@@ -1,4 +1,5 @@
 import { formatText, type Lang } from '@ap/kernel';
+import type { Reaggregation } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { topNData } from './topNBar';
 import { histogramData } from './histogram';
@@ -7,8 +8,9 @@ import { scatterData, boxPlotData, paretoData, type KindProjection } from './ana
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ChartStatus } from './chartStatus';
 import type { ChartSpec, HeatmapCell } from './AnalysisChart';
+import { categoryOtherBlocked, otherGroupLabel, otherLabel, rankCategories, REMAINDER_COLOR, splitCategories, sumCategoryValues, validCategoryTopN, type CategoryTopN } from './categoryTopN';
 
-export type ChartRow = { status?: ChartStatus; categoryLabel?: string; key: string; label: string; value: number | null; x?: string; y?: string; share?: number; color?: ThemeColorToken; drill?: () => void };
+export type ChartRow = { groupLabel?: string; status?: ChartStatus; categoryLabel?: string; key: string; label: string; value: number | null; x?: string; y?: string; share?: number; color?: ThemeColorToken; drill?: () => void };
 export const cellKey = (x: string, y: string) => JSON.stringify([x, y]);
 export function chartDiagnostic(message: string) { if (process.env.NODE_ENV !== 'production') console.error(`AnalysisChart: ${message}`); }
 
@@ -17,8 +19,17 @@ export const chartColors = {
   div0: 'chart-heat-div-0', div1: 'chart-heat-div-1', div2: 'chart-heat-div-2', div3: 'chart-heat-div-3', div4: 'chart-heat-div-4',
   good: 'chart-status-good', warn: 'chart-status-warn', critical: 'chart-status-critical',
   unknown: 'chart-no-data', pattern: 'chart-no-data-pattern', selection: 'chart-selection-outline',
-  series1: 'chart-series-1', series2: 'chart-series-2', series3: 'chart-series-3', series4: 'chart-series-4', remainder: 'chart-remainder',
+  series1: 'chart-series-1', series2: 'chart-series-2', series3: 'chart-series-3', series4: 'chart-series-4', remainder: REMAINDER_COLOR,
 } as const satisfies Record<string, ThemeColorToken>;
+
+export function readCategoryTopN(options: CategoryTopN | undefined, reaggregation: Reaggregation | undefined) {
+  if (!options) return undefined;
+  if (!validCategoryTopN(options)) {
+    chartDiagnostic('categoryTopN.count must be a positive safe integer; ignored');
+    return undefined;
+  }
+  return categoryOtherBlocked(options, reaggregation) ? { ...options, other: false } : options;
+}
 
 const donutSeriesColors = [...seriesColors, 'chart-series-5'] as const;
 
@@ -53,21 +64,27 @@ export function chartData(spec: ChartSpec, lang: Lang, unit = ''): { cells: Heat
   const sum = slices.reduce((n, slice) => n + slice.value, 0);
   if (spec.total !== undefined && (!Number.isFinite(spec.total) || spec.total < sum)) chartDiagnostic('total is below sum or non-finite; using sum');
   const total = spec.total !== undefined && Number.isFinite(spec.total) ? Math.max(sum, spec.total) : sum;
+  const options = readCategoryTopN(spec.categoryTopN, spec.reaggregation);
   const max = Math.max(2, Math.min(5, Number.isFinite(spec.maxSlices) ? Math.floor(spec.maxSlices!) : 5));
-  // Stable descending order only when grouping is needed; otherwise retain caller order.
-  const ordered = slices.length > max ? [...slices].sort((a, b) => b.value - a.value) : slices;
-  const keep = ordered.length > max ? ordered.slice(0, max - 1) : ordered;
+  // Legacy donut sorts only when grouping is needed.
+  const { kept, remainder } = options ? rankCategories(slices, options, slice => slice.value)
+    : slices.length > max ? splitCategories([...slices].sort((a, b) => b.value - a.value), max - 1, { other: true })
+    : { kept: slices, remainder: [] };
+  const unclassified = total - sum;
   let colorIndex = 0;
-  const rows: ChartRow[] = keep.map(slice => ({
+  const rows: ChartRow[] = kept.map(slice => ({
     key: JSON.stringify(['slice', slice.id]), label: slice.label, value: slice.value,
-    color: slice.color ?? donutSeriesColors[colorIndex++],
+    color: slice.color ?? donutSeriesColors[colorIndex++ % donutSeriesColors.length],
     share: total ? slice.value / total * 100 : 0,
     drill: spec.onSliceClick ? () => spec.onSliceClick?.(slice.id) : undefined,
   }));
-  if (ordered.length > max) {
-    const value = ordered.slice(max - 1).reduce((n, slice) => n + slice.value, 0);
-    rows.push({ key: 'other', label: formatText(COMPONENTS_MESSAGES.chartOther, lang), value, share: total ? value / total * 100 : 0, color: chartColors.remainder });
-  }
-  if (total > sum) rows.push({ key: 'unclassified', label: formatText(COMPONENTS_MESSAGES.chartUnclassified, lang), value: total - sum, share: (total - sum) / total * 100, color: chartColors.unknown });
+  const remainderValue = sumCategoryValues(remainder, slice => slice.value);
+  const other = remainderValue === null ? undefined : {
+    key: 'other', label: otherLabel(lang), value: remainderValue, share: total ? remainderValue / total * 100 : 0,
+    color: chartColors.remainder, ...(options ? { groupLabel: otherGroupLabel(lang, remainder.length) } : {}),
+  };
+  if (other && !options) rows.push(other);
+  if (unclassified > 0) rows.push({ key: 'unclassified', label: formatText(COMPONENTS_MESSAGES.chartUnclassified, lang), value: unclassified, share: unclassified / total * 100, color: chartColors.unknown });
+  if (other && options) rows.push(other);
   return { cells: [], rows, total };
 }

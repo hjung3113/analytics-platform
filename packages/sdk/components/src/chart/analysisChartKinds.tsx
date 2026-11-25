@@ -6,7 +6,8 @@ import type { EChartsCoreOption } from 'echarts/core';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { BoxPlotSpec, BoxStats, ParetoSpec, ScatterSpec } from './AnalysisChart';
 import type { ChartRow } from './analysisChartData';
-import { chartDiagnostic } from './analysisChartData';
+import { chartDiagnostic, readCategoryTopN } from './analysisChartData';
+import { otherGroupLabel, otherLabel, rankCategories, REMAINDER_COLOR, splitCategories, sumCategoryValues } from './categoryTopN';
 import { chartTheme, strokeToken, token } from './EChart';
 import { lineSymbolShown, selectionRing } from './chartMarks';
 import { scatterExtras } from './scatterCategories';
@@ -171,28 +172,32 @@ export function boxPlotData(spec: BoxPlotSpec, lang: Lang, unit: string): KindPr
 }
 
 export function paretoData(spec: ParetoSpec, lang: Lang, unit: string): KindProjection {
-  const items = unique(spec.items).filter(item => {
+  const source = unique(spec.items).filter(item => {
     if (!Number.isFinite(item.value) || item.value < 0) { chartDiagnostic('negative or non-finite Pareto value dropped'); return false; }
     return true;
-  }).sort((a, b) => b.value - a.value);
+  });
+  const items = [...source].sort((a, b) => b.value - a.value);
   const total = items.reduce((sum, item) => sum + item.value, 0);
-  if (spec.maxItems !== undefined && !Number.isFinite(spec.maxItems)) chartDiagnostic('non-finite Pareto cap; using 10');
+  const options = readCategoryTopN(spec.categoryTopN, spec.reaggregation);
+  if (!options && spec.maxItems !== undefined && !Number.isFinite(spec.maxItems)) chartDiagnostic('non-finite Pareto cap; using 10');
   const cap = Math.max(2, Math.floor(Number.isFinite(spec.maxItems) ? spec.maxItems! : 10));
   const validTarget = spec.cumulativeTarget === undefined || (Number.isFinite(spec.cumulativeTarget) && spec.cumulativeTarget > 0 && spec.cumulativeTarget <= 1);
   if (!validTarget) chartDiagnostic('invalid Pareto target; using 0.8');
   const target = validTarget ? spec.cumulativeTarget ?? 0.8 : 0.8;
-  const kept = items.length > cap ? items.slice(0, cap - 1) : items;
-  const otherLabel = formatText(COMPONENTS_MESSAGES.chartOther, lang);
+  const { kept, remainder } = options ? rankCategories(source, options, item => item.value)
+    : splitCategories(items, items.length > cap ? cap - 1 : cap, { other: true });
+  const grouped = remainder.length > 0;
+  const label = otherLabel(lang);
   const rows: ChartRow[] = kept.map(item => ({ key: rowKey('pareto', item.id), label: item.label, value: item.value, color: 'chart-series-1', drill: spec.onItemClick ? () => spec.onItemClick?.(item.id) : undefined }));
-  if (items.length > cap) rows.push({ key: JSON.stringify(['pareto', 'other', null]), label: otherLabel, value: items.slice(cap - 1).reduce((sum, item) => sum + item.value, 0), color: 'chart-remainder' });
+  if (grouped) rows.push({ key: JSON.stringify(['pareto', 'other', null]), label, value: sumCategoryValues(remainder, item => item.value), color: REMAINDER_COLOR, ...(options ? { groupLabel: otherGroupLabel(lang, remainder.length) } : {}) });
   let sum = 0;
   const cumulative = rows.map(row => { sum += row.value!; return total ? sum / total * 100 : 0; });
   let originalSum = 0;
   const reached = total ? items.findIndex(item => { originalSum += item.value; return originalSum >= total * target; }) + 1 : 0;
-  const tableValues = rows.map((row, i) => [row.label, `${row.value} ${unit}`, pct(cumulative[i])]);
+  const tableValues = rows.map((row, i) => [row.groupLabel ?? row.label, `${row.value} ${unit}`, pct(cumulative[i])]);
   // Both counts are source items, so «상위 n개» never exceeds the item count; a grouped chart also names its shown rows (#2720).
-  const itemCount = items.length > cap
-    ? formatText(COMPONENTS_MESSAGES.chartParetoItemsGrouped, lang, { count: items.length, shown: rows.length, other: otherLabel })
+  const itemCount = grouped
+    ? formatText(COMPONENTS_MESSAGES.chartParetoItemsGrouped, lang, { count: items.length, shown: rows.length, other: label })
     : formatText(COMPONENTS_MESSAGES.chartParetoItems, lang, { count: items.length });
   const valueHeader = formatText(COMPONENTS_MESSAGES.chartHeaderValue, lang);
   const cumulativeLabel = formatText(COMPONENTS_MESSAGES.chartCumulativePct, lang);
@@ -203,8 +208,8 @@ export function paretoData(spec: ParetoSpec, lang: Lang, unit: string): KindProj
       : formatText(COMPONENTS_MESSAGES.chartParetoSummary, lang, { items: itemCount, total, unit }),
     headers: [formatText(COMPONENTS_MESSAGES.chartHeaderName, lang), valueHeader, cumulativeLabel], tableValues,
     csvHeaders: [formatText(COMPONENTS_MESSAGES.chartHeaderName, lang), `${valueHeader} (${unit})`, cumulativeLabel],
-    csvValues: rows.map((row, i) => [row.label, row.value!, cumulative[i]]),
-    legend: [{ label: valueHeader, color: 'chart-series-1', symbol: 'rect' }, ...(items.length > cap ? [{ label: otherLabel, color: 'chart-remainder' as const, symbol: 'rect' }] : []), { label: cumulativeLabel, color: 'chart-series-2-stroke', symbol: 'line' }],
+    csvValues: rows.map((row, i) => [row.groupLabel ?? row.label, row.value!, cumulative[i]]),
+    legend: [{ label: valueHeader, color: 'chart-series-1', symbol: 'rect' }, ...(grouped ? [{ label, color: REMAINDER_COLOR, symbol: 'rect' } satisfies KindProjection['legend'][number]] : []), { label: cumulativeLabel, color: 'chart-series-2-stroke', symbol: 'line' }],
     seriesKeys: [rows.map(row => row.key), []],
     option: active => {
       const theme = chartTheme();

@@ -81,6 +81,27 @@ it('creates a URL range with the chart form, edits it through the chip, and clea
   expect(within(summary()).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
 });
 
+it('clears an omitted keyboard draft endpoint when the Top N ranking changes', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  const second: ChartSeries = { ...B, points: [['a', 6], ['c', 7]] };
+  const frame = (visibleSeriesIds: string[]) => <I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry}>
+    <AnalysisChartFrame chartId="sel" title="Sel" series={[A, second]} visibleSeriesIds={visibleSeriesIds}
+      unit="s" xType="category" orientation="horizontal" reaggregation="sum" categoryTopN={{ count: 2 }} analysisSelectionOutput={output} />
+  </PlatformProvider></I18nProvider>;
+  const view = render(frame(['a']));
+  await screen.findByRole('img');
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+  const start = () => within(summary()).getByRole('combobox', { name: '구간 시작' });
+  fireEvent.click(start());
+  fireEvent.click(await screen.findByRole('option', { name: 'b' }));
+  expect(start()).toHaveTextContent('b');
+
+  view.rerender(frame(['b']));
+  expect.soft(start()).toHaveTextContent('c');
+  fireEvent.click(within(summary()).getByRole('button', { name: '선택' }));
+  expect(new URLSearchParams(window.location.search).get(output.key)).toBe('c/a');
+});
+
 it('restores a shared wall-clock range and writes a quick range using the same bounds', () => {
   const day = '2026-09-01';
   const at = (hour: string) => `${day}T${hour}:00:00`;

@@ -7,7 +7,7 @@ import { percent, unknownLabel, brushOptions, followedChartKey, isBrushableKind,
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { Button, Checkbox, cn, type Tone } from '@ap/ui';
-import type { Text } from '@ap/contracts';
+import type { Reaggregation, Text } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useThemeRevision, type ThemeColorToken } from '@ap/ui/theme';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
@@ -20,6 +20,7 @@ import { chartData, chartColors as colors, cellKey as keyOf, chartDiagnostic as 
 import { KindLegend } from './analysisChartKinds';
 import { heatmapMinCanvasHeight, heatmapSymbolSize } from './analysisChartGeometry';
 import { CHART_HEIGHTS, selectionRing } from './chartMarks';
+import { categoryOtherBlocked, categoryOtherWarning, validCategoryTopN, type CategoryTopN } from './categoryTopN';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, fillChartHeight, FILL_CARD_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
 import { useElementSize } from '../state/useElementSize';
 import { ChartStatusLegend } from './ChartStatusLegend';
@@ -58,6 +59,9 @@ export type HeatmapSpec = {
 export type DonutSlice = { id: string; label: string; value: number; color?: ThemeColorToken };
 export type DonutSpec = {
   kind: 'donut'; slices: DonutSlice[];
+  categoryTopN?: CategoryTopN;
+  /** Set to 'sum' to allow categoryTopN to group omitted values. */
+  reaggregation?: Reaggregation;
   /** Known denominator; excess is Unclassified. A denominator below the sum falls back to the sum. */
   total?: number;
   /** Defaults to 5, clamps to 2..5 including Other; Unclassified is always separate. */
@@ -111,6 +115,9 @@ export type BoxPlotSpec = {
 };
 export type ParetoSpec = {
   kind: 'pareto'; items: { id: string; label: string; value: number }[];
+  categoryTopN?: CategoryTopN;
+  /** Set to 'sum' to allow categoryTopN to group omitted values. */
+  reaggregation?: Reaggregation;
   selectedId?: string | null;
   /** Finite fraction in (0,1], default 0.8. */
   cumulativeTarget?: number;
@@ -120,6 +127,9 @@ export type ParetoSpec = {
 export type TopNBarItem = { id: string; label: string; value: number; colorToken: ThemeColorToken };
 export type TopNBarSpec = {
   kind: 'topNBar'; items: TopNBarItem[];
+  categoryTopN?: CategoryTopN;
+  /** Set to 'sum' to allow categoryTopN to group omitted values. */
+  reaggregation?: Reaggregation;
   legend?: { label: string; colorToken: ThemeColorToken }[];
   topN?: number; expanded?: boolean; defaultExpanded?: boolean;
   onExpandedChange?: (next: boolean) => void; hideWhenEmpty?: boolean;
@@ -213,6 +223,14 @@ export function AnalysisChart(p: AnalysisChartProps) {
   useEffect(() => {
     if (topN && !p.unit.trim()) warnMissingChartUnit(p.chartId);
   }, [p.chartId, p.unit, topN]);
+  const blockedOther = 'categoryTopN' in spec && categoryOtherBlocked(spec.categoryTopN, spec.reaggregation);
+  const warnedOther = useRef(false);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production' && blockedOther && !warnedOther.current) {
+      console.warn(`AnalysisChart: ${categoryOtherWarning}`);
+    }
+    warnedOther.current = blockedOther;
+  }, [blockedOther]);
   const brushable = isBrushableKind(spec.kind);
   const singleSelect = isSingleSelectKind(spec.kind);
   const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang, p.unit), [spec, lang, p.unit]);
@@ -229,7 +247,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   let canvasHeight = height;
   if (rowFloor && spec.kind === 'heatmap') canvasHeight = Math.max(height, heatmapMinCanvasHeight(spec.yLabels.length, rowFloor));
   if (fittedDonut) canvasHeight = Math.max(donutMinimumHeight, height);
-  const keys = useMemo(() => rows.map(row => row.key), [rows]);
+  const keys = useMemo(() => rows.flatMap(row => row.groupLabel === undefined ? [row.key] : []), [rows]);
   // Selection lookups by set: a point count times a selection count of `includes` compares otherwise (#2812).
   const keySet = useMemo(() => new Set(keys), [keys]);
   const contextKey = JSON.stringify([platform?.user?.id, platform?.revision, global]);
@@ -352,7 +370,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
         ...(categories || (c.status && !borderOnly) ? { label: { ...cellLabel(c), position: 'inside' } } : {}),
       })) }, ...heatmapStatusOutlines(cells.flatMap(c => c.status ? [{ value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value], status: c.status, fill: fillColor(c), ...(categories ? { opacity: 1 } : {}) }] : []), heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), new Set())],
     } : {
-      tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
+      tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (params: { dataIndex: number }) => { const row = rows[params.dataIndex]; return row ? `${row.groupLabel ?? row.label}: ${valueText(row.value)} · ${percent(row.share ?? 0)}` : ''; } },
       series: [{ type: 'pie', radius: ['55%', '80%'], selectedMode: false, emphasis: { focus: 'none', scale: false }, label: { show: false }, data: rows.map(row => ({ name: row.label, value: row.value, itemStyle: { color: token(row.color!), borderColor: token(colors.selection), borderWidth: selectionRing(activeSet.has(row.key)) } })) }],
     };
     return { option, scale, domain, ramp, validThreshold };
@@ -394,7 +412,11 @@ export function AnalysisChart(p: AnalysisChartProps) {
   // Still following an item whose bar is not drawn: name it as outside the drawn top N (only a valid input item; a rejected one is no rank).
   const outsideLabel = following && spec.kind === 'topNBar' && spec.selectedId != null && !active.length
     ? extended?.labels?.get(spec.selectedId) : undefined;
-  if (outsideLabel !== undefined) selectionSummary = m('chartSelectionOutsideTopN', { label: outsideLabel, count: rows.length });
+  if (outsideLabel !== undefined && spec.kind === 'topNBar') {
+    selectionSummary = spec.categoryTopN && validCategoryTopN(spec.categoryTopN)
+      ? m('chartSelectionOutsideCategories', { label: outsideLabel })
+      : m('chartSelectionOutsideTopN', { label: outsideLabel, count: rows.length });
+  }
   if (spec.kind === 'heatmap' && summaryRows.length > 3) {
     const range = (labels: string[], axis: 'x' | 'y') => {
       const chosen = new Set(selectedRows.map(row => row[axis]));
@@ -419,10 +441,10 @@ export function AnalysisChart(p: AnalysisChartProps) {
   };
   const categorical = spec.kind === 'heatmap' && spec.categories !== undefined;
   const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', m('chartHeaderValue'), ...(categorical ? [m('chartHeaderCategory')] : []), ...(hasStatuses ? [m('chartHeaderStatus')] : [])] : [m('chartHeaderName'), m('chartHeaderValue'), '%']);
-  const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value), ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [statusText(row.status)] : [])] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
+  const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value), ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [statusText(row.status)] : [])] : [row.groupLabel ?? row.label, valueText(row.value), percent(row.share ?? 0)]);
   function exportCsv() {
     const csvHeaders = extended?.csvHeaders ?? [...headers.map((header, i) => i === (spec.kind === 'heatmap' ? 2 : 1) ? `${header} (${p.unit})` : header), ...(hasStatuses ? [m('chartHeaderReason')] : [])];
-    const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknown, ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [row.status?.label ?? '', row.status?.reason ?? ''] : [])] : [row.label, row.value ?? unknown, row.share ?? 0]);
+    const csvValues = extended?.csvValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, row.value ?? unknown, ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [row.status?.label ?? '', row.status?.reason ?? ''] : [])] : [row.groupLabel ?? row.label, row.value ?? unknown, row.share ?? 0]);
     try { downloadChartCsv({ ...p, context: global ?? {} }, csvHeaders, csvValues); } catch {
       exportGate.say(m('chartExportCsvFailed', { chartId: p.chartId }), 'warning');
       return;
@@ -504,7 +526,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
         <select aria-label={m('chartSelectPoint')} className="max-w-56 rounded-md border border-border-control bg-surface-card px-2 py-1 text-xs"
           value={lastSelected?.key ?? ''} onChange={event => setSelected([event.target.value])}>
           <option value="" disabled>{m('chartSelectPoint')}</option>
-          {rows.map(row => <option key={row.key} value={row.key}>{row.label} · {valueText(row.value)}</option>)}
+          {rows.filter(row => keySet.has(row.key)).map(row => <option key={row.key} value={row.key}>{row.label} · {valueText(row.value)}</option>)}
         </select>
         <Button type="button" size="toolbar" variant="ghost" disabled={!lastSelected?.drill} onClick={lastSelected?.drill}>{m('chartActivatePoint')}</Button>
       </div>}
@@ -559,7 +581,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
             if (!selectionEnabled || params.componentType !== 'series' || (spec.kind === 'heatmap' && params.seriesIndex > 0)) return;
             activateCell('click', params);
             const key = plotKey(params.seriesIndex, params.dataIndex);
-            if (!key) return;
+            if (!key || !keySet.has(key)) return;
             if (!topN) {
               toggle(key, 'plot');
               return;
@@ -601,7 +623,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       {table && <div className="overflow-auto px-4 py-2"><table tabIndex={spec.kind === 'histogram' ? 0 : undefined} className="w-full text-xs"><caption>{p.title} · {p.unit}</caption>
         <thead className="bg-surface-sunken"><tr>{(selectionEnabled ? [...headers, m('chartSelect')] : headers).map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>
         <tbody>{rows.map((row, i) => <tr key={row.key}>{tableValues[i].map((value, j) => <td key={j}>{value}</td>)}{selectionEnabled && <td>
-          <Checkbox aria-label={m('chartSelectItem', { label: row.label })} checked={activeSet.has(row.key)} onCheckedChange={() => toggle(row.key, 'table')} />
+          {keySet.has(row.key) && <Checkbox aria-label={m('chartSelectItem', { label: row.label })} checked={activeSet.has(row.key)} onCheckedChange={() => toggle(row.key, 'table')} />}
           {row.drill && <Button size="toolbar" variant="ghost" onClick={row.drill}>{m('chartDetails')}</Button>}
         </td>}</tr>)}</tbody>
       </table></div>}

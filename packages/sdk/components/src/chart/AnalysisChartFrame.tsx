@@ -31,6 +31,7 @@ import { useChartRange, type ClipResult, type Selection } from './useChartRange'
 import { usePointMenu } from './usePointMenu';
 import { equalSeriesIds, seriesExtremes } from './chartLanes';
 import { resolveRowTotals, type ValueLabels } from './chartValueLabels';
+import { categoryOtherBlocked, categoryOtherWarning, projectCategoryBars, validCategoryTopN, type CategoryTopN } from './categoryTopN';
 import { clampRowPitch, projectStackShares, projectTimeStack, revealScrollTop, rowFocusDiagnostic, rowPitchChartHeight, ROW_PITCH_MIN, SHARE_UNIT } from './analysisChartGeometry';
 import { CHART_HEIGHTS } from './chartMarks';
 
@@ -171,6 +172,8 @@ export type AnalysisChartFrameProps<P = never, T = never> = ChartChromeOptions &
   /** Shown only while Compare is on (e.g. previous period, other group). */
   compareSeries?: ChartSeries[];
   xType?: 'time' | 'category';
+  /** Category bars only. Rank the visible values and optionally sum the remaining rows. */
+  categoryTopN?: CategoryTopN;
   /** Category axes only: horizontal bars with consumer labels in top-to-bottom order. */
   orientation?: 'vertical' | 'horizontal';
   /** Controlled visibility includes current and comparison series IDs. */
@@ -450,6 +453,18 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const { startAlign: rawStartAlign, minMax: rawMinMax, valueLabels: rawValueLabels } = p;
   const rawBounds = p.bounds !== undefined;
   const rawRightAxis = p.rightAxis !== undefined; const rawHasRight = [...p.series, ...(p.compareSeries ?? [])].some(s => s.axis === 'right');
+  const { categoryTopN: rawTopN } = p;
+  const ranksValues = rawTopN?.sortBy !== 'original';
+  const unsupportedTopN = !!rawTopN && (xType !== 'category' || (horizontal && !!stacked && !!rawStartAlign)
+    || (!horizontal && allSeries.some(s => s.kind !== 'bar'))
+    || (ranksValues && (rightActive || allSeries.some(s => s.unit?.trim() && s.unit.trim() !== p.unit))));
+  const invalidTopN = !!rawTopN && !validCategoryTopN(rawTopN);
+  const blockedValueRanking = !!rawTopN && !unsupportedTopN && !invalidTopN && ranksValues && visible.length > 1 && !mayClientSum;
+  const blockedOther = !unsupportedTopN && !blockedValueRanking && categoryOtherBlocked(rawTopN, rawReaggregation);
+  const categoryTopN = useMemo(() => {
+    if (!rawTopN || invalidTopN || unsupportedTopN || blockedValueRanking) return undefined;
+    return blockedOther ? { ...rawTopN, other: false } : rawTopN;
+  }, [rawTopN, invalidTopN, unsupportedTopN, blockedValueRanking, blockedOther]);
   const { rowPitch: rawRowPitch, activeCategory: rawActive, onActiveCategoryChange, revealActive } = p;
   // A misuse warns once while it lasts (an unrelated active-row or callback change re-runs this effect), and again if it goes away and comes back.
   const warned = useRef(new Set<string>());
@@ -462,6 +477,10 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     if (rawStartAlign && !(horizontal && stacked)) rowFocusDiagnostic('startAlign applies only to a stacked chart with orientation="horizontal"; ignored.');
     if (rawMinMax && !horizontal) rowFocusDiagnostic('minMax applies only to orientation="horizontal" with a category x axis; ignored.');
     once('bounds', rawBounds && horizontal, 'bounds applies only to vertical charts; ignored.');
+    once('categoryTopNUnsupported', unsupportedTopN, 'categoryTopN requires category bars on a common scale for value ranking and no startAlign; ignored.');
+    once('categoryTopNInvalid', invalidTopN, 'categoryTopN.count must be a positive safe integer; ignored.');
+    once('categoryTopNValueRanking', blockedValueRanking, 'categoryTopN value ranking across visible series requires reaggregation="sum"; ignored.');
+    once('categoryTopNOther', blockedOther, categoryOtherWarning);
     once('rowGroups', rawRowGroups && !horizontal, 'rowGroups applies only to orientation="horizontal" with a category x axis; ignored.');
     once('valueLabels', !!rawValueLabels && !(horizontal && stacked), 'valueLabels applies only to a stacked chart with orientation="horizontal"; ignored.');
     once('nonAdditive', stackMode === undefined && !!stacked && rawReaggregation !== undefined && !mayClientSum, `stacked draws a sum of the segments, but reaggregation "${rawReaggregation}" is not additive; draw grouped bars instead.`);
@@ -472,7 +491,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     once('rightAxisUnsupported', (rawRightAxis || rawHasRight) && (horizontal || !!stacked), 'axis: "right" and rightAxis apply only to a vertical, unstacked chart; every series is drawn on the left.');
     once('rightAxisMissing', rawHasRight && !rawRightAxis && !horizontal && !stacked, 'a series has axis: "right" but rightAxis is not given; it is drawn on the left.');
     if (horizontal && rawRowPitch !== undefined && !(rawRowPitch >= ROW_PITCH_MIN)) rowFocusDiagnostic(`rowPitch ${rawRowPitch} is below the ${ROW_PITCH_MIN}px target size; using ${ROW_PITCH_MIN}.`);
-  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, stacked, stackMode, requestsStack, timeStack, mayClientSum, rawMinMax, rawValueLabels, rawReaggregation, rawRightAxis, rawHasRight, rawRowGroups, rawBounds]);
+  }, [horizontal, rawRowPitch, rawActive, onActiveCategoryChange, revealActive, rawStartAlign, stacked, stackMode, requestsStack, timeStack, mayClientSum, rawMinMax, rawValueLabels, rawReaggregation, rawRightAxis, rawHasRight, rawRowGroups, rawBounds, unsupportedTopN, invalidTopN, blockedValueRanking, blockedOther]);
   // Bumped from onReady: imperative instance effects below must replay once the lazy EChartImpl
   // creates the instance (a Brush click during chunk load would otherwise never reach it, #48 P1).
   const rawFillMin = p.fillMin; const legendProp = p.legend; const controlledVisibility = p.visibleSeriesIds !== undefined;
@@ -513,16 +532,16 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   }, [pointActivation, onPointClick]);
   const canDrill = !!pointActivation || !!onPointClick;
   const isPointSelectable = p.isPointSelectable;
-  const categories = useMemo(() => (xType === 'category' ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : []), [xType, p.series]);
+  const sourceCategories = useMemo(() => xType === 'category' ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : [], [xType, p.series]);
+  const categoryProjection = useMemo(() => xType === 'category' ? projectCategoryBars(sourceCategories, visible, categoryTopN, lang) : undefined,
+    [xType, sourceCategories, visible, categoryTopN, lang]);
+  const { categories, realCategories, other: categoryOther } = categoryProjection ?? { categories: sourceCategories, realCategories: sourceCategories };
   // With a row pitch the chart is as tall as its rows and `viewportHeight` is only the window the plot box scrolls in.
   const height = rowPitch !== undefined ? rowPitchChartHeight(categories.length, rowPitch) : viewportHeight;
-  // Every category chart (either orientation) shares the plotted axis and first-occurrence value policy, so the plot, table, CSV and summary read one projection (06 §16, #2020).
-  // One lookup per category (a series' first point for a label wins, as `find` did): categories × points was quadratic on long bars (#822).
-  const displayed = useMemo(() => xType === 'category' ? visible.map(s => {
-    const byLabel = new Map<string, number | null>();
-    for (const [label, value] of s.points) if (!byLabel.has(label)) byLabel.set(label, value);
-    return { ...s, points: categories.map(x => [x, byLabel.get(x) ?? null] as [string, number | null]) };
-  }) : timeStack?.displayed ?? visible, [xType, visible, categories, timeStack]);
+  const displayed = categoryProjection?.displayed ?? timeStack?.displayed ?? visible;
+  // Synthetic rows have no consumer point judgment or measured extreme.
+  const realSeries = useMemo(() => categoryOther ? displayed.map(s => ({ ...s, points: s.points.slice(0, -1) })) : displayed,
+    [categoryOther, displayed]);
   const wantsShares = stackMode === 'percent' && explicitStack;
   const shares = useMemo(() => wantsShares ? projectStackShares(displayed) : undefined, [wantsShares, displayed]);
   const percent = shares?.kind === 'shares';
@@ -538,30 +557,31 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const boundsProp = percent ? undefined : p.bounds; const boundLabels = p.boundLabels;
   const bounds = useMemo(() => projectChartBounds({ bounds: boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories }), [boundsProp, boundLabels, lang, displayed, previousIds, xType, horizontal, categories]);
   const pointBoundsText = (point: ChartPoint) => bounds && !previousIds.has(point.seriesId) ? ` · ${boundText(bounds, point.x, format)}` : '';
-  const statuses = useMemo(() => pointStatuses(displayed, p.pointStatus), [displayed, p.pointStatus]);
+  const statuses = useMemo(() => pointStatuses(realSeries, p.pointStatus), [realSeries, p.pointStatus]);
   const statusLegend = useMemo(() => distinctStatuses([...statuses.values()]), [statuses]);
   const statusEnabled = !!p.pointStatus && displayed.length > 0;
   const resolvedStatus = (point: ChartPoint) => statuses.get(chartPointKey(point));
   const labelOf = (x: string) => groupedRowText(rowGroups, x);
+  const categoryTableLabel = (x: string) => x === categoryOther?.key ? categoryOther.groupLabel : rowLabel(rowGroups, x);
   const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
   const setOutput = host.outputShape === 'set';
   const rangeOutput = !!output && !setOutput;
   const available = useMemo(() => {
     if (!rangeOutput) return undefined;
-    if (xType === 'category' && categories.length) return {
-      from: categories[0], to: categories[categories.length - 1],
-      candidates: categories.map(value => ({ value, label: groupedRowText(rowGroups, value) })),
+    if (xType === 'category' && realCategories.length) return {
+      from: realCategories[0], to: realCategories[realCategories.length - 1],
+      candidates: realCategories.map(value => ({ value, label: groupedRowText(rowGroups, value) })),
     };
     if (xType !== 'time') return undefined;
     const bounds = timeBounds.length ? timeBounds : p.series.flatMap(s => s.points.map(([x]) => x)).sort();
     return bounds.length ? { from: bounds[0], to: bounds[bounds.length - 1], compare: compareRangeTimes } : undefined;
-  }, [rangeOutput, xType, categories, rowGroups, timeBounds, p.series]);
+  }, [rangeOutput, xType, realCategories, rowGroups, timeBounds, p.series]);
   const selectionOutput = useOptionalAnalysisSelectionOutput(output ?? undefined, { available, subscribeHighlight: false });
   const urlSet = selectionOutput.selection?.shape === 'set' ? selectionOutput.selection : null;
   const urlRange = selectionOutput.selection?.shape === 'range' ? selectionOutput.selection : null;
   const urlFrom = urlRange?.from; const urlTo = urlRange?.to;
-  const urlStartIndex = urlFrom === undefined ? -1 : categories.indexOf(urlFrom);
-  const urlEndIndex = urlTo === undefined ? -1 : categories.indexOf(urlTo);
+  const urlStartIndex = urlFrom === undefined ? -1 : realCategories.indexOf(urlFrom);
+  const urlEndIndex = urlTo === undefined ? -1 : realCategories.indexOf(urlTo);
   const validUrlRange = urlRange && (xType === 'category'
     ? urlStartIndex >= 0 && urlEndIndex >= urlStartIndex
     : compareRangeTimes(urlRange.from, urlRange.to) < 0);
@@ -608,20 +628,20 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     revealedCategory.current = activeCategory;
     const own = pointerRequest === activeCategory;
     const node = pointChart.current;
-    const index = categories.indexOf(activeCategory);
+    const index = realCategories.indexOf(activeCategory);
     if (own || !node || index < 0) return;
     const target = revealScrollTop(index, rowPitch, node.scrollTop, node.clientHeight);
     if (target !== null) node.scrollTop = target;
-  }, [rowPitch, revealActive, activeCategory, categories, pointChart, pointerRequest]);
+  }, [rowPitch, revealActive, activeCategory, realCategories, pointChart, pointerRequest]);
   // Declared after the reveal effect: the request lives for the render of its own click only, so an ignored one cannot swallow a later outside reveal of the same row.
   useEffect(() => { if (pointerRequest !== null) setPointerRequest(null); }, [pointerRequest]);
   // Computed from the displayed (visible) series, so a hidden series has none; the point selector's own rule decides which rows count.
   const showExtremes = !percent && horizontal && !!p.minMax;
-  const extremes = useMemo(() => showExtremes ? seriesExtremes(displayed, isPointSelectable) : undefined, [showExtremes, displayed, isPointSelectable]);
-  const equalIds = useMemo(() => showExtremes ? equalSeriesIds(displayed, isPointSelectable) : undefined, [showExtremes, displayed, isPointSelectable]);
+  const extremes = useMemo(() => showExtremes ? seriesExtremes(realSeries, isPointSelectable) : undefined, [showExtremes, realSeries, isPointSelectable]);
+  const equalIds = useMemo(() => showExtremes ? equalSeriesIds(realSeries, isPointSelectable) : undefined, [showExtremes, realSeries, isPointSelectable]);
   const pointEntries = useMemo(() => {
     if (zoomOnly) return [];
-    return displayed.flatMap((series, i) => {
+    return realSeries.flatMap((series, i) => {
       // A missing category is projected as null for the plot and table, but it has no point to select.
       const sourceCategories = xType === 'category' ? new Set(visible[i].points.map(([x]) => x)) : null;
       return series.points.flatMap(([x, value]) => {
@@ -630,7 +650,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         return [{ key: chartPointKey(point), point, series }];
       });
     });
-  }, [displayed, visible, xType, zoomOnly, isPointSelectable]);
+  }, [realSeries, visible, xType, zoomOnly, isPointSelectable]);
   const pointKeys = useMemo(() => new Set(pointEntries.map(entry => entry.key)), [pointEntries]);
   const points = useMemo(() => pointEntries.map(entry => entry.point), [pointEntries]);
   const canSelectPoint = points.length > 0;
@@ -746,7 +766,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
 
   const showKeyboard = !zoomOnly && !outputSuspended && xType === 'time' && global.to !== null && timeBounds.length >= 2;
   // A category axis has no query end to wait for: the start/end selects are the non-pointer path to a range (06 §16, #2024). StartAlign turns Brush off, and the selects with it.
-  const showCategoryKeyboard = !zoomOnly && !outputSuspended && xType === 'category' && categories.length > 0 && !startAlign;
+  const showCategoryKeyboard = !zoomOnly && !outputSuspended && xType === 'category' && realCategories.length > 0 && !startAlign;
   const rangeKeyboard = showKeyboard || showCategoryKeyboard;
   // The data under a kept selection changed (#2064): a new granularity or a new category list re-fits the selection the same way a fresh pick is fitted,
   // so the header and the counts never describe different ranges. Time: snap outward onto the new bars, then clip; nothing left clears it. Category: an end that is no longer drawn clears it.
@@ -763,7 +783,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       if (!r) return { range: null, notice: null };
       if (xType === 'category') {
         // Both ends must still be drawn; the pair is returned in the current axis order (a reorder can reverse it).
-        const i = categories.indexOf(r.from); const j = categories.indexOf(r.to);
+        const i = realCategories.indexOf(r.from); const j = realCategories.indexOf(r.to);
         if (i < 0 || j < 0) return { range: null, notice: null };
         return { range: i <= j ? r : { from: r.to, to: r.from }, notice: null };
       }
@@ -774,9 +794,9 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     const next = fit(currentSelection); const nextPreview = xType === 'time' ? fit(currentPreview) : { range: null, notice: null };
     const same = (a: Selection | null, b: Selection | null) => a === b || (!!a && !!b && a.from === b.from && a.to === b.to);
     if (same(next.range, currentSelection) && same(nextPreview.range, currentPreview)) return;
-    rangeActions.refit(next.range, nextPreview.range, next.notice ?? nextPreview.notice);
+    rangeActions.refit(next.range, nextPreview.range, next.notice ?? nextPreview.notice, xType === 'category' && !!rawTopN);
     if (currentSelection && !next.range) closeEditor();
-  }, [contextKey, xType, categories, timeBounds, periodFrom, periodTo, compareClipOn, currentSelection, currentPreview, rangeActions, closeEditor]);
+  }, [contextKey, xType, realCategories, timeBounds, periodFrom, periodTo, compareClipOn, currentSelection, currentPreview, rangeActions, closeEditor, rawTopN]);
   // Label geometry, cached by what it depends on: the spans and rows change with the notes only, the data extent with the series,
   // so zoom, resize, editor typing and busy state redo none of it. Nothing runs while there are no notes.
   const resolvedNotes = useMemo(() => annotations.flatMap(annotation => {
@@ -860,10 +880,10 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     // A root `data-theme` change re-resolves them too (#2723).
     void instanceReady; void themeRevision;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, highlightedValues: p.highlightedValues, displayed: plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit, axisBreak, ...(zoomOnly ? {} : { selectedPointKeys }),
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, highlightedValues: p.highlightedValues, displayed: plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, categoryOther, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit, axisBreak, ...(zoomOnly ? {} : { selectedPointKeys }),
       palette: resolveChartPalette(plotSeries),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, p.highlightedValues, plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, p.highlightedValues, plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, categoryOther, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
   useEffect(() => {
     const instance = chart.current;
     if (!yFit || !instance || instance.isDisposed?.()) { setAxisBreak(undefined); return; }
@@ -910,7 +930,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         writeRange(result.range);
         if (!result.range) closeEditor();
       } else {
-        const a = categories[Math.max(0, Math.round(brushed[0]))]; const b = categories[Math.min(categories.length - 1, Math.round(brushed[1]))];
+        const a = realCategories[Math.max(0, Math.round(brushed[0]))]; const b = realCategories[Math.min(realCategories.length - 1, Math.round(brushed[1]))];
         const next = a && b ? { from: a, to: b } : null;
         rangeActions.categorySelect(next);
         if (next) writeRange(next);
@@ -950,7 +970,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         }
       }
     },
-  }), [xType, horizontal, onActiveCategoryChange, categories, brushMode, zoomOnly, compactChrome, canDrill, activatePoint, hasPointActions, actionsFor, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, writeRange, setSelectedPointKey, choosePoint, setOutput, outputSuspended]);
+  }), [xType, horizontal, onActiveCategoryChange, realCategories, brushMode, zoomOnly, compactChrome, canDrill, activatePoint, hasPointActions, actionsFor, eventPoint, openPointMenu, pointChart, timeBounds, global.from, global.to, compare, canCompare, closeEditor, rangeActions, writeRange, setSelectedPointKey, choosePoint, setOutput, outputSuspended]);
 
   const selectionCounts = selection ? displayed.map(s => {
     const inRange = s.points.filter(([x, y]) => y !== null && (xType === 'time' ? x >= selection.from && x < selection.to : categories.indexOf(x) >= categories.indexOf(selection.from) && categories.indexOf(x) <= categories.indexOf(selection.to)));
@@ -1008,19 +1028,30 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   function exportCsv() {
     const header = [...(rowGroups ? [rowGroups.header] : []), 'x', ...visible.map(columnName), ...(bounds ? [bounds.labels.lower, bounds.labels.upper] : []), ...(statusEnabled ? [m('chartHeaderStatus'), m('chartHeaderReason')] : []), ...(categoryValueMarks ? [categoryValueMarks.label] : [])];
     // The table projection verbatim: numbers stay numbers so the formula guard never prefixes them (#297).
-    const body = (rows ?? chartRows()).map(([x, values]) => [...(rowGroups ? [rowGroup(rowGroups, x)] : []), rowLabel(rowGroups, x), ...values.map(v => v ?? emptyLabels?.get(x) ?? ''), ...(bounds ? [bounds.at(x).lower ?? '', bounds.at(x).upper ?? ''] : []), ...(statusEnabled ? [statusParts(x).map(({ name, csvLabel }) => `${name}: ${csvLabel}`).join('\n'), statusParts(x).filter(({ status }) => status.reason).map(({ name, status }) => `${name}: ${status.reason}`).join('\n')] : []), ...(categoryValueMarks ? [categoryValueMarks.byCategory.get(x) ?? ''] : [])]);
+    const body = (rows ?? chartRows()).map(([x, values]) => [...(rowGroups ? [rowGroup(rowGroups, x)] : []), categoryTableLabel(x), ...values.map(v => v ?? emptyLabels?.get(x) ?? ''), ...(bounds ? [bounds.at(x).lower ?? '', bounds.at(x).upper ?? ''] : []), ...(statusEnabled ? [statusParts(x).map(({ name, csvLabel }) => `${name}: ${csvLabel}`).join('\n'), statusParts(x).filter(({ status }) => status.reason).map(({ name, status }) => `${name}: ${status.reason}`).join('\n')] : []), ...(categoryValueMarks ? [categoryValueMarks.byCategory.get(x) ?? ''] : [])]);
     downloadChartCsv({ ...p, unit, context: global }, header, body);
     notify(m(host.inPlatform ? 'chartExportedVisibleCsv' : 'chartExportedVisibleCsvStandalone', { chartId: p.chartId }));
   }
 
   const oneHour = global.to ? presetWindow(1, timeBounds, global.to) : null;
   const fourHour = global.to ? presetWindow(4, timeBounds, global.to) : null;
-  const fallbackRange: Selection | null = xType === 'category' ? (categories.length > 0 ? { from: categories[0], to: categories[categories.length - 1] } : null) : timeBounds.length >= 2 ? { from: timeBounds[0], to: timeBounds[timeBounds.length - 1] } : null;
-  const draft = rangeDraft ?? selection ?? fallbackRange;
+  const fallbackRange: Selection | null = xType === 'category' ? (realCategories.length > 0 ? { from: realCategories[0], to: realCategories[realCategories.length - 1] } : null) : timeBounds.length >= 2 ? { from: timeBounds[0], to: timeBounds[timeBounds.length - 1] } : null;
+  const isRetainedRange = (next: Selection) => {
+    const start = realCategories.indexOf(next.from);
+    return start >= 0 && realCategories.indexOf(next.to) >= start;
+  };
+  // Checked against the declared option, not the effective one: a series toggle can switch ranking off and restore source order (#2742 C7).
+  const rankedAxis = xType === 'category' && !!rawTopN;
+  const invalidDraft = rankedAxis && !!rangeDraft && !isRetainedRange(rangeDraft);
+  useEffect(() => {
+    if (invalidDraft) rangeActions.setDraft(null);
+  }, [invalidDraft, rangeActions]);
+  const draftSelection = rankedAxis && selection && !isRetainedRange(selection) ? null : selection;
+  const draft = (invalidDraft ? null : rangeDraft) ?? draftSelection ?? fallbackRange;
   // A fill card gives the plot the space: the start/end form and the empty-selection hint appear while brushing or once a range exists
   // (ADR-0067 decision 21); notes, errors and the confirm row keep their place. Other sizes always show them.
   // The controlled value stays as given (the reveal and selection effects read it); only the summary names a row the plot draws.
-  const drawnActive = activeCategory != null && categories.includes(activeCategory) ? activeCategory : null;
+  const drawnActive = activeCategory != null && realCategories.includes(activeCategory) ? activeCategory : null;
   const annotationAlert = canAnnotate && scopeId !== null && !!editor.query.response && !isAnswered(editor.query.response.outcome);
   const { quiet: quietSummary, show: showSummary, rest: quietRest, showRangeForm, focusable: summaryFocusable } = summaryPresentation({
     chrome, summary: p.summary, quickRanges: showKeyboard, fill: size === 'fill', brushMode, selection: !!selection, rangeKeyboard: rangeKeyboard && !urlRange, draft: !!draft,
@@ -1088,14 +1119,14 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     setCompare(next);
   }
   function chooseStart(next: string) {
-    const base = rangeDraft ?? selection ?? fallbackRange;
+    const base = draft;
     if (!base) return;
-    if (xType === 'category') { rangeActions.setDraft({ from: next, to: categories.indexOf(base.to) >= categories.indexOf(next) ? base.to : next }); return; }
+    if (xType === 'category') { rangeActions.setDraft({ from: next, to: realCategories.indexOf(base.to) >= realCategories.indexOf(next) ? base.to : next }); return; }
     const to = base.to > next ? base.to : timeBounds.find(bound => bound > next) ?? base.to;
     rangeActions.setDraft({ from: next, to });
   }
   function chooseEnd(next: string) {
-    const base = rangeDraft ?? selection ?? fallbackRange;
+    const base = draft;
     if (!base) return;
     rangeActions.setDraft({ from: base.from, to: next });
   }
@@ -1395,7 +1426,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
           {categoryValueMarks && <th scope="col" className="t-table-header px-3 py-1.5 text-right text-text-secondary">{categoryValueMarks.label}</th>}
         </tr></thead>
         <tbody>{rows.map(([x, values]) => <tr key={x} className="border-t border-border-subtle">
-          <>{rowGroups && <td className="px-3 py-1">{rowGroup(rowGroups, x)}</td>}<td className="px-3 py-1">{xType === 'time' ? fmt(x) : rowLabel(rowGroups, x)}</td></>
+          <>{rowGroups && <td className="px-3 py-1">{rowGroup(rowGroups, x)}</td>}<td className="px-3 py-1">{xType === 'time' ? fmt(x) : categoryTableLabel(x)}</td></>
           {values.map((v, i) => <td key={visible[i].id} className="px-3 py-1 text-right">{v === null ? emptyLabels?.get(x) ?? '—' : tableFormat(visible[i])(v)}</td>)}
           {totals && totals.size > 0 && <td className="px-3 py-1 text-right">{(() => { const t = totals.get(x); return t ? (t.partial ? `≥ ${format(t.value)} (${missingText(t.missing)})` : format(t.value)) : '—'; })()}</td>}
           {bounds && [bounds.at(x).lower, bounds.at(x).upper].map((value, index) => <td key={`bound-${index}`} className="px-3 py-1 text-right">{value === undefined ? '' : format(value)}</td>)}
@@ -1419,7 +1450,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {(xType === 'category' ? categories : withBound(timeBounds.slice(0, -1), draft.from)).map(value => <SelectItem key={value} value={value}>{xType === 'category' ? labelOf(value) : fmt(value)}</SelectItem>)}
+            {(xType === 'category' ? realCategories : withBound(timeBounds.slice(0, -1), draft.from)).map(value => <SelectItem key={value} value={value}>{xType === 'category' ? labelOf(value) : fmt(value)}</SelectItem>)}
           </SelectContent>
         </Select>
         <span className="text-text-secondary">{m('chartEnd')}</span>
@@ -1428,13 +1459,13 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {(xType === 'category' ? categories.slice(categories.indexOf(draft.from)) : withBound(timeBounds.filter(bound => bound > draft.from), draft.to)).map(value => <SelectItem key={value} value={value}>{xType === 'category' ? labelOf(value) : fmt(value)}</SelectItem>)}
+            {(xType === 'category' ? realCategories.slice(realCategories.indexOf(draft.from)) : withBound(timeBounds.filter(bound => bound > draft.from), draft.to)).map(value => <SelectItem key={value} value={value}>{xType === 'category' ? labelOf(value) : fmt(value)}</SelectItem>)}
           </SelectContent>
         </Select>
         <Button size="toolbar" onClick={() => {
           if (rangeOutput) focusAndQueueReveal(brushToggle.current);
           if (xType === 'time') commitRange(draft);
-          else { rangeActions.categorySelect(draft); writeRange(draft); }
+          else if (!rankedAxis || isRetainedRange(draft)) { rangeActions.categorySelect(draft); writeRange(draft); }
         }}>{m('chartSelect')}</Button>
       </div>}
       {drawnActive !== null && <p className={quietSummary ? 'sr-only' : 'mb-1 font-semibold'}>{m('chartActiveRow')}: {labelOf(drawnActive)}</p>}
