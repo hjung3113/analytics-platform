@@ -42,6 +42,7 @@ function HistorySession() {
   const [confirmation, setConfirmation] = useState<HistoryConfirmation | null>(null);
   const restorePromptId = useId();
   const trigger = useRef<HTMLButtonElement>(null);
+  const interactedOutside = useRef(false);
   const focusTrigger = () => (external?.anchorRef ?? trigger).current?.focus();
   const setOpen = (value: boolean) => {
     setConfirmation(null);
@@ -107,11 +108,19 @@ function HistorySession() {
     {external ? <PopoverAnchor virtualRef={external.anchorRef} /> : <PopoverTrigger asChild><Button ref={trigger} type="button" variant="ghost" size="toolbar" disabled={queryPolicy.autoApplyingDefault}>{m('historyButton')}</Button></PopoverTrigger>}
     <PopoverContent align="end" aria-label={m('historyDialogLabel')} className="w-96 max-w-[calc(100vw-2rem)]"
       onOpenAutoFocus={event => {
+        interactedOutside.current = false;
         if (external) openHistory();
         event.preventDefault();
         list.current?.focus();
       }}
-      onCloseAutoFocus={event => { if (external) { event.preventDefault(); focusTrigger(); } }}
+      onInteractOutside={() => { interactedOutside.current = true; }}
+      onCloseAutoFocus={event => {
+        if (!external) return;
+        event.preventDefault();
+        const active = document.activeElement;
+        if (interactedOutside.current && active?.isConnected && active !== document.body) return;
+        focusTrigger();
+      }}
       onEscapeKeyDown={() => { setOpen(false); focusTrigger(); }}>
       <div className="space-y-2">
       <p className="text-xs text-text-secondary">{m('historyRestoresNote')}</p>

@@ -80,6 +80,7 @@ export function ViewSelector(props: ViewSelectorProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const localTrigger = useRef<HTMLButtonElement>(null);
   const trigger = props.picker?.anchorRef ?? localTrigger;
+  const interactedOutside = useRef(false);
   const search = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const back = useRef<HTMLButtonElement>(null);
@@ -183,7 +184,22 @@ export function ViewSelector(props: ViewSelectorProps) {
             <ChevronDown className="h-3.5 w-3.5" aria-hidden />
           </Button>
         </PopoverTrigger>}
-        <PopoverContent onInteractOutside={event => { if (deleteId !== null) event.preventDefault(); }} align="start" className="w-96 max-w-[calc(100vw-2rem)]" onKeyDown={moveRow} onFocusCapture={trackFocus} onOpenAutoFocus={event => { event.preventDefault(); search.current?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}>
+        <PopoverContent align="start" className="w-96 max-w-[calc(100vw-2rem)]" onKeyDown={moveRow} onFocusCapture={trackFocus}
+          onOpenAutoFocus={event => {
+            interactedOutside.current = false;
+            event.preventDefault();
+            search.current?.focus();
+          }}
+          onInteractOutside={event => {
+            if (deleteId !== null) event.preventDefault();
+            else interactedOutside.current = true;
+          }}
+          onCloseAutoFocus={event => {
+            event.preventDefault();
+            const active = document.activeElement;
+            if (interactedOutside.current && active?.isConnected && active !== document.body) return;
+            trigger.current?.focus();
+          }}>
           {detail ? (
             <section aria-label={m('svDetails')} className="space-y-2 text-xs">
               <Button ref={back} type="button" variant="ghost" size="toolbar" onClick={() => { const id = detail.view.id; setDetailId(null); focusAfter.current = { kind: 'more', id }; }}>{m('svBackToList')}</Button>

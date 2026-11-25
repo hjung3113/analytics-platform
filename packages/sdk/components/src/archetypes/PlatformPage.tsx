@@ -7,6 +7,7 @@ import { QueryBarExtensionContext, usePublishQueryBarExtension, type QueryBarExt
 import { QueryBarStatusContext, type ContextEditorFocus, useQueryBarStatus, type QueryBarStatus } from '../filters/QueryBarStatus';
 import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
 import { WorkspaceQueryBarContext } from './WorkspaceQueryBar';
+import type { PageFilterSummaryItem } from '../filters/PageFilterBar';
 import { PageContextHead, PageHeadBody } from './PageContextHead';
 import { ChevronRight, Info, Loader2, MapPinOff, MoreHorizontal, RotateCw, ServerCrash, Star } from 'lucide-react';
 import { cloneElement, createContext, isValidElement, useCallback, useContext, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactElement, type ReactNode } from 'react';
@@ -119,11 +120,11 @@ export type PlatformPageProps = {
   description?: ReactNode;
   primaryAction?: ReactNode;
   secondaryActions?: ReactNode;
-  /** Page-owned controls rendered directly under the global Context bar (never a second global filter). */
+  /** Page-owned controls. The context line opens them in the page editor on an apply-mode Analysis Workspace. */
   contextExtension?: ReactNode;
   /**
-   * Explanatory notes shown above `contextExtension`, one array element per note (`null`/`false` elements are dropped). On a `fill`
-   * page they sit at the top of the collapsible head and the collapsed line shows only their count.
+   * Explanatory notes, one array element per note (`null`/`false` elements are dropped).
+   * The context line puts them in the notices popover. Other pages show them above `contextExtension`.
    */
   contextNotes?: readonly ReactNode[];
   dataTrustSummary?: ReactNode;
@@ -183,6 +184,17 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   const [barStatus, setBarStatus] = useState<QueryBarStatus | null>(null);
   const [parameterTarget, setParameterTarget] = useState<HTMLDivElement | null>(null);
   const [toolbarTarget, setToolbarTarget] = useState<HTMLDivElement | null>(null);
+  const [workspaceCount, setWorkspaceCount] = useState(0);
+  const registerToolbar = useCallback(() => {
+    setWorkspaceCount(count => count + 1);
+    return () => setWorkspaceCount(count => count - 1);
+  }, []);
+  const [filterSummaries, setFilterSummaries] = useState<readonly { items: readonly PageFilterSummaryItem[] }[]>([]);
+  const publishSummary = useCallback((items: readonly PageFilterSummaryItem[]) => {
+    const registration = { items };
+    setFilterSummaries(current => [...current, registration]);
+    return () => setFilterSummaries(current => current.filter(entry => entry !== registration));
+  }, []);
   const [editorFocus, setEditorFocus] = useState<ContextEditorFocus | null>(null);
   const localBarStatus = useMemo(() => ({ status: barStatus, report: setBarStatus, editorFocus, setEditorFocus }), [barStatus, editorFocus]);
   const paneBarStatus = useQueryBarStatus();
@@ -298,7 +310,10 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   const notes = (contextNotes ?? []).filter(note => note != null && note !== false);
   const headVisible = (notes.length > 0 || Boolean(contextExtension)) && !gate;
   // Declared keys already have their own chips and polite region; legacy head metadata keeps only menu-published keys.
-  const headSummary = (queryBarExtension?.appliedPageSummary ?? queryBarExtension?.pageSummary ?? []).filter(item => !conditionTrigger || !menu.pageConditions?.categories.some(category => pageConditionKeys(category).includes(item.key)));
+  const legacySummary = queryBarExtension?.pageSummary;
+  const appliedSummary = queryBarExtension?.appliedPageSummary;
+  const withoutDeclaredConditions = (items: readonly PageFilterSummaryItem[]) => items.filter(item => !conditionTrigger || !menu.pageConditions?.categories.some(category => pageConditionKeys(category).includes(item.key)));
+  const headSummary = withoutDeclaredConditions(appliedSummary ?? legacySummary ?? []);
   const titleResolved = title ?? tx(menu.label);
   const descriptionResolved = description ?? tx(menu.description);
   const hasDescription = typeof descriptionResolved === 'string' ? descriptionResolved.trim().length > 0 : descriptionResolved != null && descriptionResolved !== false;
@@ -317,14 +332,26 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   const fixedFill = layout === 'fill' && flowing === 0;
   // A folded bar that is not editing already prints the applied values in its summary (#1170): the strip keeps only the completion time.
   const appliedValuesShown = !(shownBarStatus?.folded && !shownBarStatus.editing);
-  const workspaceQueryBar = !inPane && layout === 'fill' && menu.pageType === 'analysis' && menu.query?.mode === 'apply' && Boolean(slots.contextBar) && !gate && shownBarStatus?.folded === true;
-  const workspaceQueryRowReady = workspaceQueryBar && parameterTarget !== null && toolbarTarget !== null;
+  const workspaceCandidate = !inPane && layout === 'fill' && menu.pageType === 'analysis' && menu.query?.mode === 'apply' && Boolean(slots.contextBar) && !gate;
+  // Draft-only extension metadata still belongs to the legacy page-condition disclosure.
+  const draftOnlySummary = appliedSummary === undefined && legacySummary !== undefined;
+  const workspaceActive = workspaceCandidate && workspaceCount > 0 && !draftOnlySummary;
+  const workspaceQueryRowReady = workspaceActive && toolbarTarget !== null;
+  const legacyQueryRowReady = !workspaceActive && parameterTarget !== null;
   const failedKey = queryResult?.failed && errorGuidance(queryResult.message).blocked ? 'sharedOutcomeBlocked' : 'stateError';
-  const workspaceStatus = queryResult && queryResult.status !== 'idle' ? <span role="status" className="max-w-56 text-xs text-text-secondary break-keep">
-    {queryResult.status === 'loading' || queryResult.status === 'refreshing' ? t(queryResult.status) : queryResult.failed ? t(failedKey) : m('workspaceQueryCompleted')}
-    {queryResult.completedAt !== null && <> {formatSummaryTime(queryResult.completedAt, lang)}</>}
+  const completion = queryResult?.completedAt != null
+    ? `${queryResult.failed ? t(failedKey) : m('workspaceQueryCompleted')} ${formatSummaryTime(queryResult.completedAt, lang)}`
+    : null;
+  const workspaceStatus = queryResult && queryResult.status !== 'idle' ? <span role="status" className="shrink-0 whitespace-nowrap t-caption text-text-secondary">
+    {queryResult.status === 'loading' || queryResult.status === 'refreshing'
+      ? <>{t(queryResult.status)}{queryResult.completedAt !== null && <> {formatSummaryTime(queryResult.completedAt, lang)}</>}</>
+      : completion ?? (queryResult.failed ? t(failedKey) : m('workspaceQueryCompleted'))}
   </span> : null;
-  const completionShown = queryResult != null && queryResult.completedAt !== null && (queryResult.status === 'done' || queryResult.status === 'refreshing');
+  const completionShown = completion && (queryResult?.status === 'done' || queryResult?.status === 'refreshing');
+  const issueCount = queryBarExtension?.issues?.length ?? 0;
+  const pending = queryDraft.dirty.some(key => menu.pageKeys.includes(key));
+  const pageSummary = new Map(filterSummaries.flatMap(entry => entry.items).map(item => [item.key, item]));
+  for (const item of withoutDeclaredConditions(appliedSummary ?? [])) pageSummary.set(item.key, item);
   const carriesOrigin = carriesReturnTo(registry.carrySetOf(menu));
   const navigation = useReturnNavigation({ announceReverted: !carriesOrigin });
   const showReturn = showReturnRow && !gate && navigation.origin.accepted;
@@ -335,7 +362,13 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
       : <OutcomeBanners compact />}
     {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
   </OutcomeScope>;
-  return <WorkspaceQueryBarContext.Provider value={workspaceQueryBar ? { status: workspaceStatus, parameterTarget, setParameterTarget, toolbarTarget, setToolbarTarget } : null}><PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><PageBoundContext.Provider value={layout === 'fill' ? registerBound : null}><ReturnRowShown.Provider value={showReturn}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
+  return <WorkspaceQueryBarContext.Provider value={workspaceCandidate ? {
+    status: workspaceStatus, parameterTarget, setParameterTarget, toolbarTarget, setToolbarTarget, legacyFolded: shownBarStatus?.folded === true,
+    line: { active: workspaceActive, extension: contextExtension, notes,
+      noticeStatus: completion ? <p className="mb-2 t-caption text-text-secondary">{completion}</p> : workspaceStatus,
+      summary: [...pageSummary.values()], pending: pending ? t('pageFilterPendingChanges') : '',
+      issues: issueCount > 0 ? t('pageIssuesCount', { count: issueCount }) : '', publishSummary, registerToolbar },
+  } : null}><PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><PageBoundContext.Provider value={layout === 'fill' ? registerBound : null}><ReturnRowShown.Provider value={showReturn}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
     {!inPane && <div ref={stickyHeader} data-page-sticky-header data-canvas-band className="sticky top-0 z-20 shrink-0 border-b border-border-chrome bg-surface-band">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
@@ -393,15 +426,15 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
     <div data-platform-page-body className="contents" inert={covered || undefined}>
     {showReturn && <ReturnRow navigation={navigation} />}
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
-    {!workspaceQueryRowReady && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={m('pageAppliedQueryConditions')} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
+    {!workspaceQueryRowReady && !legacyQueryRowReady && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={m('pageAppliedQueryConditions')} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
       {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
-      {completionShown && <span>{queryResult!.failed ? t(failedKey) : m('workspaceQueryCompleted')} {formatSummaryTime(queryResult!.completedAt!, lang)}</span>}
+      {completionShown && <span>{completion}</span>}
     </section>}
     {!gate && conditionTrigger && <PageConditionTriggerSlot>{conditionTrigger}</PageConditionTriggerSlot>}
-    {headVisible && (layout === 'fill'
+    {!workspaceQueryRowReady && headVisible && (layout === 'fill'
       ? <PageContextHead key={menu.id} menuId={menu.id} notes={notes} extension={contextExtension}
           summary={headSummary}
-          pendingChanges={queryDraft.dirty.some(key => menu.pageKeys.includes(key))} issueCount={queryBarExtension?.issues?.length ?? 0} />
+          pendingChanges={pending} issueCount={issueCount} />
       : <div className={cn(pageInsetX(density === 'compact'), 'pt-3')}><PageHeadBody notes={notes} extension={contextExtension} /></div>)}
     {!gate && conditionLayer}
     <div data-platform-page-content tabIndex={-1} data-body-inset={bodyInset === 'none' ? 'none' : undefined} className={cn(conditionLayer && 'isolate', layout === 'fill' ? 'flex flex-1 flex-col' : 'flex-1', fixedFill && bounding > 0 && 'min-h-0', bodyInset === 'none' ? undefined : [pageInsetX(density === 'compact'), density === 'compact' ? 'pb-4 pt-3' : 'pb-9 pt-7'])}>{gate

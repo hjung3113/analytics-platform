@@ -2,13 +2,13 @@ import { TargetPicker, TARGET_KEYS, type TargetPickerRequest } from './TargetPic
 import { useCustomGroupOptions } from './customGroupOptions';
 import { createPortal } from 'react-dom';
 import { isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronUp, MoreHorizontal } from 'lucide-react';
+import { ChevronDown, ChevronUp, MoreHorizontal, Pin, PinOff } from 'lucide-react';
 import { CUSTOM_GROUP_AXIS, formatPeriod, periodDates, periodFromDates, type GlobalContext, type IdSet } from '@ap/contracts';
 import { useConditionPreset, queryMissingSentence, useI18n, useMessages, useQueryDraft } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { useRegisterContextEditorFocus, useCollapsePreference, AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
 import { AnalysisSelectionChipZone } from '@ap/components';
-import { Alert, AlertDescription, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Alert, AlertDescription, Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { PeriodFields, type PeriodDates } from './PeriodFields';
 import { useSessionKey } from '../frame/sessionKey';
 import { SHELL_MESSAGES } from '../messages';
@@ -16,6 +16,9 @@ import { ShareControl } from './ShareControl';
 import { QueryHistoryControl } from './QueryHistoryControl';
 import { SavedViewControl } from '../saved-view/SavedViewControl';
 import { QueryBarTools, type QueryBarTool } from './queryBarTools';
+import { CONTEXT_CHIP, CONTEXT_CHIP_FILLED, CONTEXT_CHIP_TONE } from './contextChip';
+
+const CONDITION_CHIP = { query: cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE), page: cn(CONTEXT_CHIP, CONTEXT_CHIP_FILLED) };
 
 export type QueryBarProps = {
   label?: { visible: string; region: string };
@@ -45,7 +48,7 @@ export function QueryBar(props: QueryBarProps) {
     setAnnounced(pending ? applyingText : '');
   }, [pending, applyingText, screenKey]);
   return <>
-    <QueryBarSession key={JSON.stringify([identity.generation, revision, global.scopeId, paneId, route?.menu.id, route?.params])} {...props} />
+    <WorkspaceQueryBarRow render={(workspace, pinText) => <QueryBarSession key={JSON.stringify([identity.generation, revision, global.scopeId, paneId, route?.menu.id, route?.params])} {...props} workspace={workspace} pinText={pinText} />} />
     {/* Persistent polite region: mounts empty before pending status arrives, stays mounted across remounts, and portals outside the root so modal hideOthers does not hide sibling test probes directly. */}
     {typeof document !== 'undefined' && createPortal(<div aria-live="polite" aria-atomic="false" className="sr-only">{announced}</div>, document.body)}
   </>;
@@ -54,6 +57,7 @@ export function QueryBar(props: QueryBarProps) {
  * The view slot keeps one React position while the bar folds: the action group is drawn in the header row when folded and under the
  * editor when open, and a node that moves between two React parents would remount (and lose a selected, edited view). The slot is
  * portalled into one host element that the visible action group adopts, so folding moves the DOM node but never the component.
+ * Key each provider so registering or removing the compact workspace line also preserves the slot across layouts.
  */
 function useStableSlot(slot: ReactNode) {
   const [host] = useState(() => (slot === undefined || slot === null || typeof document === 'undefined' ? null : Object.assign(document.createElement('span'), { className: 'inline-flex' })));
@@ -61,7 +65,7 @@ function useStableSlot(slot: ReactNode) {
   return { adopt, portal: host && slot ? createPortal(slot, host) : null, present: host !== null };
 }
 
-function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
+function QueryBarSession({ label, historySlot, viewSlot, workspace, pinText }: QueryBarProps & { workspace: boolean; pinText: { pin: string; unpin: string } }) {
   const stableView = useStableSlot(viewSlot);
   const stableHistory = useStableSlot(historySlot);
   const builtInView = isValidElement(viewSlot) && viewSlot.type === SavedViewControl;
@@ -94,17 +98,24 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   // `null` = no stored choice yet. Without one, an arrival whose URL already carries an applied query starts collapsed (#1892);
   // a bar that cannot run yet (required conditions missing) starts expanded. A stored choice always wins.
   const collapsePreference = useCollapsePreference(preference, '', { defaultCollapsed: board ? true : null, persist: !board });
+  const [pinned, setPinned] = useState(false);
+  const [pagePinTarget, setPagePinTarget] = useState<HTMLDivElement | null>(null);
+  const queryOpener = useRef<HTMLButtonElement | null>(null);
+  const interactedOutside = useRef(false);
+  const pinTrigger = useRef<HTMLButtonElement>(null);
   const [seenApply, setSeenApply] = useState(query.appliedRevision);
   if (query.appliedRevision !== seenApply) {
     setSeenApply(query.appliedRevision);
-    if (query.appliedRevision !== undefined) collapsePreference.choose(true);
+    if (query.appliedRevision !== undefined && !(workspace && pinned)) collapsePreference.choose(true);
   }
   const choice = collapsePreference.choice === null ? null : !collapsePreference.choice;
   const setChoice = (open: boolean) => collapsePreference.choose(!open);
   // Until the decision is taken an address with an applied period is drawn collapsed already, so the common deep link has no open-then-fold flash.
   const expanded = choice ?? !(global.from !== null && global.to !== null);
-  if (expanded && tool !== null) setTool(null);
-  const tools = { folded: !expanded, active: tool, close: closeTool, anchorRef: overflow, reportViewAvailable: setViewAvailable };
+  // The pinned workspace still uses the context line's overflow as the tools' opener.
+  const overflowTools = !expanded || (workspace && pinned);
+  if (!overflowTools && tool !== null) setTool(null);
+  const tools = { folded: overflowTools, active: tool, close: closeTool, anchorRef: overflow, reportViewAvailable: setViewAvailable };
   // Scope and metric validation settle after mount, so the arrival decision is taken once they have; an edit seals it as expanded.
   // A Scope that is absent or failed is a finished state that cannot run a query: it settles the decision as expanded, it does not wait.
   const scopeStatus = platform.scope.status;
@@ -124,14 +135,19 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
   const roomRequest = (roomNames: IdSet, name: string) => accessRequest && roomScope && roomScope.grantedRooms < roomScope.totalRooms
     ? <AccessRequestEntry slot={accessRequest} size="field" label={t('accessRequestField', { name })} target={scopeRequestTarget(roomScope.id, roomNames, scope.grantedRooms)} />
     : null;
-  const focusEditor = (to: 'first' | 'period') => {
+  const focusEditor = useCallback((to: 'first' | 'period') => {
     const selector = to === 'period' ? 'input[type="date"]:enabled' : 'button:enabled, input:enabled';
-    editor.current?.querySelector<HTMLElement>(selector)?.focus({ preventScroll: true });
-  };
+    const target = editor.current?.querySelector<HTMLElement>(selector) ?? (workspace ? pinTrigger.current : null);
+    target?.focus({ preventScroll: true });
+  }, [workspace]);
   useLayoutEffect(() => {
+    if (workspace && expanded) {
+      if (pinned) pinTrigger.current?.focus({ preventScroll: true });
+      return;
+    }
     if (expanded && focusOnOpen.current) focusEditor(focusOnOpen.current);
     focusOnOpen.current = null;
-  }, [expanded]);
+  }, [expanded, focusEditor, pinned, workspace]);
   useLayoutEffect(() => {
     const previous = focusedApply.current;
     if (!expanded && previous) {
@@ -139,11 +155,20 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
       focusedApply.current = null;
     }
   }, [expanded, seenApply]);
+  const focusQueryHandle = () => {
+    const target = queryOpener.current?.isConnected ? queryOpener.current : disclosure.current;
+    target?.focus({ preventScroll: true });
+  };
   const toggle = (open: boolean) => {
     focusOnOpen.current = open ? 'first' : null;
     setChoice(open);
     if (!board) collapsePreference.toggle(!open);
-    if (!open) disclosure.current?.focus();
+    if (!open) {
+      if (workspace) {
+        setPinned(false);
+        if (pinned) focusQueryHandle();
+      } else disclosure.current?.focus();
+    }
   };
   const write = (patch: Partial<GlobalContext>) => {
     try {
@@ -189,9 +214,13 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     ...(cap.time === 'apply' && (g.from === null || g.to === null) ? ['time'] : []),
   ];
   const periodAwaitingApply = (global.from === null || global.to === null) && g.from !== null && g.to !== null;
-  useReportQueryBarStatus({ folded: !expanded, editing, reasonKeys: reasons.map(r => r.key), conditionEditorKeys, periodAwaitingApply });
+  useReportQueryBarStatus({ folded: !expanded, editing, reasonKeys: workspace && !expanded ? [] : reasons.map(r => r.key), conditionEditorKeys, periodAwaitingApply });
   // The page-condition layer's «조회 조건에서 바꾸기»: open the editor when folded, else move focus into it.
   const requestEditor = (request?: TargetPickerRequest) => {
+    if (workspace && !expanded) {
+      queryOpener.current = request?.opener instanceof HTMLButtonElement ? request.opener : null;
+      interactedOutside.current = false;
+    }
     if (!request) {
       if (expanded) focusEditor('first');
       else toggle(true);
@@ -242,13 +271,13 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     {applyAction}
   </div>;
   const foldedActions = <div role="group" aria-label={m('queryActionsLabel')} className="flex shrink-0 items-center gap-2">
-    {draftStatus}
-    {stableHistory.present && <span ref={stableHistory.adopt} className="contents" />}
-    {stableView.present && <span ref={stableView.adopt} className="contents" />}
-    {editing && applyAction}
+    {(!workspace || !expanded) && draftStatus}
+    {(!workspace || !expanded && builtInHistory) && stableHistory.present && <span ref={stableHistory.adopt} className={workspace ? 'hidden' : 'contents'} />}
+    {(!workspace || !expanded && builtInView) && stableView.present && <span ref={stableView.adopt} className={workspace ? 'hidden' : 'contents'} />}
+    {editing && (!workspace || !expanded) && applyAction}
     <ShareControl overflowRef={overflow} align="end" renderOverflow={({ label: shareLabel, description: shareDescription, busy, copy }) => <DropdownMenu modal={false}>
       <TooltipProvider delayDuration={200}><Tooltip><TooltipTrigger asChild>
-        <DropdownMenuTrigger asChild><Button ref={overflow} type="button" variant="ghost" size="icon-sm" aria-label={m('queryActionsLabel')}><MoreHorizontal className="size-4" aria-hidden /></Button></DropdownMenuTrigger>
+        <DropdownMenuTrigger asChild><Button ref={overflow} type="button" variant="ghost" size="icon-sm" aria-label={m('queryActionsLabel')} title={m('queryActionsLabel')}><MoreHorizontal className="size-4" aria-hidden /></Button></DropdownMenuTrigger>
       </TooltipTrigger><TooltipContent>{m('queryActionsLabel')}</TooltipContent></Tooltip></TooltipProvider>
       <DropdownMenuContent align="end" onCloseAutoFocus={event => {
         if (nextTool.current === null) return;
@@ -258,8 +287,8 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
       }}>
         <DropdownMenuItem disabled={pendingDefault} onSelect={revertDraft}>{m('queryRevertDraft')}</DropdownMenuItem>
         <DropdownMenuItem disabled={pendingDefault} onSelect={resetDraft}>{t('resetContext')}</DropdownMenuItem>
-        {builtInHistory && platform.queryHistoryStore && <DropdownMenuItem disabled={pendingDefault} onSelect={() => { nextTool.current = 'history'; }}>{m('historyButton')}</DropdownMenuItem>}
-        {builtInView && viewAvailable && <DropdownMenuItem disabled={pendingDefault} onSelect={() => { nextTool.current = 'view'; }}>{m('queryViewSelect')}</DropdownMenuItem>}
+        {overflowTools && builtInHistory && platform.queryHistoryStore && <DropdownMenuItem disabled={pendingDefault} onSelect={() => { nextTool.current = 'history'; }}>{m('historyButton')}</DropdownMenuItem>}
+        {overflowTools && builtInView && viewAvailable && <DropdownMenuItem disabled={pendingDefault} onSelect={() => { nextTool.current = 'view'; }}>{m('queryViewSelect')}</DropdownMenuItem>}
         <DropdownMenuItem disabled={busy} aria-description={shareDescription} onSelect={copy}>{shareLabel}</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>} />
@@ -285,9 +314,9 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     const name = nextPreset?.label[lang] ?? next;
     setPresetNotice({ id: next, text: left ? m('queryPresetNoticeWithUnused', { name, count: left }) : m('queryPresetNotice', { name }) });
   };
-  const content = <div ref={editor} id={`${id}-editor`} className={`grid min-w-0 gap-3 ${inset} pb-2`} onKeyDown={event => {
+  const content = <div ref={editor} id={workspace ? undefined : `${id}-editor`} className={`grid min-w-0 gap-3 ${workspace ? 'pb-2' : `${inset} pb-2`}`} onKeyDown={event => {
     // Child Radix popovers handle their first Escape before it reaches this inline surface.
-    if (event.key === 'Escape' && !event.defaultPrevented && event.currentTarget.contains(event.target as Node)) { event.preventDefault(); toggle(false); }
+    if (!workspace && event.key === 'Escape' && !event.defaultPrevented && event.currentTarget.contains(event.target as Node)) { event.preventDefault(); toggle(false); }
   }}>
     <div role="group" aria-label={m('queryPeriodAndScope')} className="flex min-w-0 flex-wrap items-start gap-3">
       {cap.time === 'apply' && <div role="group" aria-label={t('period')} className="flex min-w-0 max-w-full flex-wrap items-center gap-1 text-xs text-text-secondary">
@@ -314,6 +343,100 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     {board && <><p className="text-xs [overflow-wrap:anywhere]">{m('queryEditingConditions')} · {summary}</p><p className="text-xs [overflow-wrap:anywhere]">{m('queryAppliedConditions')} · {applied}</p>{actions}{issues}<Button type="button" variant="ghost" size="toolbar" onClick={() => toggle(false)}>{t('close')}</Button></>}
   </div>;
   const trigger = <Button ref={disclosure} type="button" variant="secondary" size="toolbar" aria-label={expanded ? m('queryCollapseConditions') : m('queryExpandConditions')} aria-expanded={expanded} aria-controls={`${id}-editor`} onClick={board ? undefined : () => toggle(!expanded)}>{expanded ? <ChevronUp aria-hidden className="size-4" /> : <ChevronDown aria-hidden className="size-4" />}{label?.visible ?? m('queryConditionsTitle')}</Button>;
+  if (workspace) {
+    const appliedPreset = summaryPreset(conditionPreset, 'applied');
+    const preset = appliedPreset?.presets.find(item => item.id === appliedPreset.id);
+    const outsideApplied = new Set(appliedPreset ? presetOutsideAxes(global, appliedPreset).map(axis => `condition:${axis}`) : []);
+    const queryChips = querySummaryItems(global, { lang, axes: equipmentAxes, context: cap })
+      .filter(item => !outsideApplied.has(item.key))
+      .map(item => {
+        if (item.capability === 'unsupported') return { ...item, value: `${item.value} · ${t('notUsed')}` };
+        if (item.capability === 'reference') return { ...item, value: `${item.value} · ${t('referenceOnly')}` };
+        return item;
+      });
+    const chips = preset && appliedPreset
+      ? [...queryChips, { key: appliedPreset.key, label: m('queryConditionSet'), value: preset.label[lang] }]
+      : queryChips;
+    const region = label?.region ?? m('queryConditionsTitle');
+    const editorId = `${id}-editor`;
+    const pinLabel = pinText[pinned ? 'unpin' : 'pin'];
+    const toggleFrom = (opener: HTMLButtonElement) => {
+      queryOpener.current = opener;
+      interactedOutside.current = false;
+      toggle(!expanded);
+    };
+    const editorBody = <>
+      <div className="mb-2 flex justify-end">
+        <Button ref={pinTrigger} type="button" variant="ghost" size="toolbar" title={pinLabel} onClick={() => setPinned(!pinned)}>
+          {pinned ? <PinOff className="size-4" aria-hidden /> : <Pin className="size-4" aria-hidden />}{pinLabel}
+        </Button>
+      </div>
+      {content}
+      {issues}
+      {actions}
+    </>;
+    return <>
+      <section role="region" aria-label={region} data-query-bar data-query-bar-collapsed data-canvas-band
+        className="sticky top-12.5 z-20 min-w-0 bg-surface-band">
+        {/* Measure the selection's share of the row independently of the chips it currently fits. */}
+        <div ref={setFoldedLane} aria-hidden className="pointer-events-none absolute h-0 w-1/3" />
+        <Popover open={expanded && !pinned} onOpenChange={open => { if (!open) toggle(false); }}>
+          <WorkspaceQueryBarRow line={{
+            query: chips, queryOpen: expanded, queryEditorId: editorId, chip: CONDITION_CHIP,
+            onQueryChip: event => toggleFrom(event.currentTarget),
+            queryHandle: <PopoverTrigger asChild>
+              <Button ref={disclosure} type="button" variant="secondary" size="toolbar" className="shrink-0"
+                aria-label={expanded ? m('queryCollapseConditions') : m('queryExpandConditions')} aria-expanded={expanded} aria-controls={editorId}
+                title={expanded ? m('queryCollapseConditions') : m('queryExpandConditions')}
+                onClick={event => { event.preventDefault(); toggleFrom(event.currentTarget); }}>
+                {expanded ? <ChevronUp className="size-4" aria-hidden /> : <ChevronDown className="size-4" aria-hidden />}
+                {label?.visible ?? m('queryConditionsTitle')}
+              </Button>
+            </PopoverTrigger>,
+            actions: foldedActions,
+            pinnedTarget: pagePinTarget,
+            selection: <div className="relative hidden min-w-0 max-w-1/3 has-[[role=group]]:flex">
+              <span ref={setSummaryProbe} aria-hidden className="absolute size-0" />
+              <AnalysisSelectionChipZone fit={{ container: foldedLane, summary: summaryProbe }} fallbackFocus={disclosure} />
+            </div>,
+          }} />
+          <PopoverContent id={editorId} align="start" aria-label={region}
+            className="max-h-[var(--radix-popover-content-available-height)] w-[min(64rem,var(--radix-popover-content-available-width))] overflow-y-auto"
+            onOpenAutoFocus={event => {
+              event.preventDefault();
+              focusEditor(focusOnOpen.current ?? 'first');
+              focusOnOpen.current = null;
+            }}
+            // Child controls can move focus into a body portal while the editor is still in use.
+            onFocusOutside={event => {
+              if (event.target instanceof Element && event.target.closest('[data-radix-popper-content-wrapper], [role="dialog"], [role="alertdialog"]')) event.preventDefault();
+            }}
+            onInteractOutside={event => {
+              if (event.defaultPrevented) return;
+              if (event.target instanceof Node && queryOpener.current?.contains(event.target)) event.preventDefault();
+              else interactedOutside.current = true;
+            }}
+            onCloseAutoFocus={event => {
+              event.preventDefault();
+              if (!pinned && !interactedOutside.current) focusQueryHandle();
+            }}>
+            {expanded && !pinned && editorBody}
+          </PopoverContent>
+        </Popover>
+      </section>
+      <div ref={setPagePinTarget} className="empty:hidden" />
+      {!expanded && <span id={reasonId} className="sr-only">{reasons.map(reason => reason.reason).join(' · ')}</span>}
+      {pinned && expanded && <section role="region" aria-label={region} id={editorId} data-context-editor-pinned
+        className={`border-b border-border-chrome bg-surface-band py-2 ${inset}`} onKeyDown={event => {
+          if (event.key !== 'Escape' || event.defaultPrevented || !event.currentTarget.contains(event.target as Node)) return;
+          event.preventDefault();
+          event.stopPropagation();
+          toggle(false);
+        }}>{editorBody}</section>}
+      <QueryBarTools.Provider key="history" value={builtInHistory ? tools : null}>{stableHistory.portal}</QueryBarTools.Provider>
+      <QueryBarTools.Provider key="view" value={builtInView ? tools : null}>{stableView.portal}</QueryBarTools.Provider>
+    </>;
+  }
   const foldedText = `${editing ? m('queryEditing') : m('queryAppliedConditions')} · ${foldedSummary}`;
   return <><section role="region" aria-label={label?.region ?? m('queryConditionsTitle')} data-query-bar data-canvas-band data-query-bar-collapsed={!board && !expanded ? '' : undefined} className={!board && !expanded ? 'sticky top-[50px] z-20 min-w-0 border-b border-border-chrome bg-surface-band' : 'min-w-0 border-b border-border-chrome bg-surface-band'}>
     <div className={board ? `flex h-12 min-w-0 items-center gap-2 overflow-x-auto ${inset}` : `flex min-h-12 min-w-0 items-center gap-2 ${expanded ? 'flex-wrap' : ''} ${inset}`}>
@@ -335,8 +458,8 @@ function QueryBarSession({ label, historySlot, viewSlot }: QueryBarProps) {
     {(!board || !expanded) && <div className={reasons.length ? `${inset} pb-2` : undefined}>{issues}</div>}
     {!board && expanded && <div className={`${inset} pb-3`}>{actions}</div>}
   </section>
-    <QueryBarTools.Provider value={builtInHistory ? tools : null}>{stableHistory.portal}</QueryBarTools.Provider>
-    <QueryBarTools.Provider value={builtInView ? tools : null}>{stableView.portal}</QueryBarTools.Provider>
+    <QueryBarTools.Provider key="history" value={builtInHistory ? tools : null}>{stableHistory.portal}</QueryBarTools.Provider>
+    <QueryBarTools.Provider key="view" value={builtInView ? tools : null}>{stableView.portal}</QueryBarTools.Provider>
   </>;
 }
 

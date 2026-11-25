@@ -1,7 +1,7 @@
 import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './origin-guard';
 import { PERIOD, PRODUCTIVITY, periodPreset } from './contract-helpers';
-import { pickTargetRoom, expandQueryBar, contextBar, evidence, expectScopeValid, mainHeading, nextFrames, query, settleOn, showSlowExecutions, signInAs, switchScope } from './support';
+import { chooseWorkspacePreset, queryEditor, pickTargetRoom, expandQueryBar, contextBar, evidence, expectScopeValid, mainHeading, nextFrames, query, settleOn, showSlowExecutions, signInAs, switchScope } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -15,7 +15,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     const bar = contextBar(page);
     await expandQueryBar(page, bar);
     await pickTargetRoom(page, bar, room);
-    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await queryEditor(page, bar).getByRole('button', { name: '적용', exact: true }).click();
   }
 
   async function brush(page: Page) {
@@ -572,7 +572,7 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
     await expect.poll(() => main(page).evaluate(element => element.scrollTop)).toBeGreaterThan(0);
 
     // 기본 is the preset with the two-tab group; an untouched workspace starts on 세로, where every group has one tab (ADR-0130).
-    await page.getByRole('radio', { name: '기본', exact: true }).click();
+    await chooseWorkspacePreset(page, '기본');
     // Force an overflowing strip on the two-tab group (분포 · 느린 실행): the second tab starts clipped, the wheel scrolls the strip
     // until it is reachable, and the page stays put while the strip still has room (dockview keeps the wheel until its edge).
     await page.addStyleTag({ content: '.ap-dock .dv-tab { flex-shrink: 0; min-width: 600px; }' });

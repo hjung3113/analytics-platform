@@ -1,6 +1,6 @@
 import { type Page } from '@playwright/test';
 import { expect, test } from './origin-guard';
-import { evidence, expandPageHead, query, queryBar, signInAs } from './support';
+import { evidence, expandPageHead, expandQueryBar, query, queryBar, queryEditor, signInAs } from './support';
 
 const SCREEN = '/mars/configuration?v=1&scopeId=MEM&from=2026-11-16T00:00:00&to=2026-11-18T00:00:00';
 const grid = (page: Page) => page.getByRole('treegrid', { name: 'Configuration', exact: true });
@@ -41,7 +41,8 @@ test.describe('Configuration', () => {
     await page.getByRole('option', { name: '기준 설비 비교', exact: true }).click();
     await expect(page.getByRole('combobox', { name: '기준 설비', exact: true })).toBeVisible();
     await expect.poll(() => query(page).has('mode')).toBe(false);
-    await queryBar(page).getByRole('button', { name: '적용', exact: true }).click();
+    await expandQueryBar(page);
+    await queryEditor(page).getByRole('button', { name: '적용', exact: true }).click();
     await expect.poll(() => query(page).get('mode')).toBe('reference');
     await expect(page.locator('[data-platform-page]')).toContainText('기준 설비 비교');
     await expect(page.locator('[data-platform-page]')).not.toContainText('mode reference');
@@ -52,8 +53,9 @@ test.describe('Configuration', () => {
     await conditions.getByRole('button', { name: '설비 12대 선택', exact: true }).click();
     await page.getByRole('button', { name: '모두 지우기', exact: true }).click();
     await page.keyboard.press('Escape');
-    await expect(queryBar(page).getByRole('button', { name: '적용', exact: true })).toBeDisabled();
-    await expect(queryBar(page)).toContainText('설비를 2대 이상 선택하세요');
+    await expandQueryBar(page);
+    await expect(queryEditor(page).getByRole('button', { name: '적용', exact: true })).toBeDisabled();
+    await expect(queryEditor(page)).toContainText('설비를 2대 이상 선택하세요');
     await expect.poll(() => query(page).has('equipment')).toBe(false);
     await evidence(page, testInfo, 'configuration-kernel-draft-empty');
   });
@@ -228,22 +230,14 @@ test.describe('Configuration', () => {
 
   test('captures and restores the trend item in a saved menu view', async ({ page }, testInfo) => {
     await open(page, '&status=all');
-    await expandPageHead(page);
     const trend = page.locator('[data-configuration-trend]');
     await grid(page).locator('[data-matrix-row="cfg-000001"] [data-matrix-column="identity"]').dblclick();
     await expect(trend.locator('[data-lane-scroll]')).toBeVisible();
-    await page.getByRole('button', { name: '저장', exact: true }).click();
-    await page.getByRole('menuitem', { name: '새 뷰로 저장', exact: true }).click();
-    const dialog = page.getByRole('dialog', { name: '뷰 저장' });
-    await dialog.getByRole('radio', { name: /^메뉴 뷰/ }).click();
-    await dialog.getByLabel('뷰 이름').fill('Configuration 추세');
-    await dialog.getByRole('button', { name: '저장', exact: true }).click();
-    await expect(page.getByRole('button', { name: '저장된 뷰: Configuration 추세' })).toBeVisible();
+    await saveConfigurationView(page, 'Configuration 추세');
 
     await trend.getByRole('button', { name: '추세 닫기' }).click();
     await expect.poll(() => query(page).has('trendItem')).toBe(false);
-    await page.getByRole('button', { name: '저장', exact: true }).click();
-    await page.getByRole('menuitem', { name: '저장본으로 되돌리기', exact: true }).click();
+    await revertConfigurationView(page);
     await expect.poll(() => query(page).get('trendItem')).toBe('cfg-000001');
     await expect(trend.locator('[data-lane-scroll]')).toBeVisible();
     await evidence(page, testInfo, 'configuration-saved-trend');
@@ -254,13 +248,16 @@ const equipmentGrid = (page: Page) => page.getByRole('grid', { name: 'Configurat
 const axis = (page: Page, name: '설비 기준' | '항목 기준') => page.getByRole('radio', { name, exact: true });
 
 async function saveConfigurationView(page: Page, name: string) {
-  await page.getByRole('button', { name: '저장', exact: true }).click();
+  await expandQueryBar(page);
+  await queryEditor(page).getByRole('button', { name: '저장', exact: true }).click();
   await page.getByRole('menuitem', { name: '새 뷰로 저장', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '뷰 저장' });
   await dialog.getByRole('radio', { name: /^메뉴 뷰/ }).click();
   await dialog.getByLabel('뷰 이름').fill(name);
   await dialog.getByRole('button', { name: '저장', exact: true }).click();
-  await expect(page.getByRole('button', { name: `저장된 뷰: ${name}` })).toBeVisible();
+  await expandQueryBar(page);
+  await expect(queryEditor(page).getByRole('button', { name: `저장된 뷰: ${name}` })).toBeVisible();
+  await page.keyboard.press('Escape');
 }
 
 test.describe('Configuration lent HW Time trend', () => {
@@ -275,7 +272,6 @@ test.describe('Configuration lent HW Time trend', () => {
   test('opens both trends side by side, closes to the selected cell, and restores the saved and shared views', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1600, height: 900 });
     await open(page, scopeComparison);
-    await expandPageHead(page);
     const selected = cell(page, 'cfg-000000');
     await selected.dblclick();
     const settings = page.locator('[data-dock-panel="trend"]');
@@ -329,8 +325,11 @@ test.describe('Configuration lent HW Time trend', () => {
 });
 
 async function revertConfigurationView(page: Page) {
-  await page.getByRole('button', { name: '저장', exact: true }).click();
+  await expandQueryBar(page);
+  await queryEditor(page).getByRole('button', { name: '저장', exact: true }).click();
   await page.getByRole('menuitem', { name: '저장본으로 되돌리기', exact: true }).click();
+  const editor = page.getByRole('dialog', { name: '조회 조건', exact: true });
+  if (await editor.isVisible()) await page.keyboard.press('Escape');
 }
 
 test.describe('Configuration equipment axis', () => {
@@ -374,7 +373,6 @@ test.describe('Configuration equipment axis', () => {
   test('restores a saved equipment axis and filter with the limit notice', async ({ page }) => {
     await open(page, '&status=all');
     await filter(page, 'Module', 'PM1');
-    await expandPageHead(page);
     await axis(page, '설비 기준').click();
     const limit = page.getByRole('status').filter({ hasText: '항목 15,000개 · 최대 200개까지 표시할 수 있습니다.' });
     await expect(limit).toBeVisible();
@@ -392,7 +390,6 @@ test.describe('Configuration equipment axis', () => {
 
   test('restores a saved view created without an axis key to item axis', async ({ page }) => {
     await open(page, '&status=all&q=cfg-0000');
-    await expandPageHead(page);
     await saveConfigurationView(page, 'Configuration 항목 기준');
     await axis(page, '설비 기준').click();
     await expect(equipmentGrid(page)).toBeVisible();
