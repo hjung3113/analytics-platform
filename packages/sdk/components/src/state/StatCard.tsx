@@ -7,7 +7,10 @@ import { useCompactPageDensity } from '../pageDensity';
 
 export type Delta = { value: string; direction: 'up' | 'down'; /** Whether this direction is good for the metric. */ good: boolean };
 
-/** stat-card: icon chip + label + one primary number + delta + caption. One metric per tile. */
+/**
+ * stat-card: icon chip + label + one primary number + delta + caption. One metric per tile.
+ * `secondary` renders between `value` and `unit`, so including the unit in `secondary` repeats it when `unit` is also supplied.
+ */
 export function StatCard({ icon: Icon, label, value, unit, delta, caption, chip = 'blue', onClick, active, footnote, secondary }: {
   icon: LucideIcon; label: ReactNode; value: ReactNode; unit?: ReactNode; delta?: Delta; caption?: ReactNode;
   /** Icon chip colour: `blue` or `teal` (DESIGN.md). Deprecated: `purple` renders as `teal`, `amber` as `blue`; both are removed from the type in the next SDK minor (#1945). */

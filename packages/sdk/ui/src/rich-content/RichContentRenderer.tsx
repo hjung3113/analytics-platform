@@ -81,6 +81,7 @@ function stripMentions(doc: TipTapDoc): TipTapDoc {
   return walk(doc) as TipTapDoc;
 }
 
+/** The surface allowlist silently drops mentions whose `actor_id` is missing or is not a UUID. */
 export function RichContentRenderer({
   doc,
   mode,

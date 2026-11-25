@@ -273,6 +273,8 @@ Opt-in page density and embedded chart/table chrome follow [06 §12](docs/contra
 
 ## Charts
 
+[차트 고르기](docs/contract/chart.md#차트-고르기)
+
 [06 §16](docs/contract/chart.md#16-analysis-chart-contract)과 [§26](docs/contract/platform-ui-contract.md#26-accessibility-baseline)의 Chart Frame/interaction 계약을 따른다. 모든 차트에는 **title, unit, textual summary, 동일 데이터 table 접근 경로**가 있다. legend는 이름+선 모양/기호+색을 제공한다. Tooltip은 hover와 keyboard focus에 대응하고 label/value/unit을 포함한다. passive mark에 가짜 pressed 동작을 넣지 않는다.
 
 새 chart kind의 기본 범주 순서는 `chart-series-1` → `chart-series-2` → `chart-series-3` → `chart-series-4`이며, 기존 `chart-blue` / `chart-teal` / `chart-green`도 계속 유효하다(`chart-purple`은 sdk-v0.48.0에서 제거, `chart-series-3`을 쓴다). series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. `chart-status-*`는 실제 판정일 때만 쓴다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 이전 기간의 `cat-amber` 선·외곽선 마크는 `cat-amber-stroke` 별칭을 쓴다. stroke 별칭은 EChart의 JS 매핑(`EChart.tsx` `strokeAliases`)으로만 쓰며 Tailwind 유틸리티가 아니다. 기준선은 `text-secondary` 점선과 label을 쓰고 null은 빗금으로 구분한다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
@@ -308,6 +310,8 @@ cellPadding: 4px 16px
 - copy Tooltip과 표 column menu도 공유 floating 표면(그림자 포함)을 쓴다([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 표에 따로 둔 border-only 처리는 없다.
 
 ## Status & Badges
+
+[SeverityIndicator 사용 규칙](docs/contract/components.md#ui-primitive)
 
 `StatusBadge` vocabulary는 **success / warning / danger / neutral / info**다. 실제 데이터 판정은 [06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 원천·관측 시각에 근거한다. success는 확인된 긍정, warning은 확인된 주의, danger는 확인된 실패, neutral은 미평가/보조, info는 정보 전달의 시각 역할이다. unknown·permission 제한·미수집을 화면 임의로 success/failure로 바꾸지 않는다.
 
@@ -354,6 +358,8 @@ primitive 상태·keyboard 동작의 원본은 `@ap/ui`(ADR-0046)이고, [공유
 첫 load는 reserved geometry와 region `aria-busy`를 유지하며 fabricated 값을 만들지 않는다. 공유 Skeleton의 기본 fill은 공유 UI 계약이 소유하며, 플랫폼 호출부(PlatformDataTable·StateView·EChart lazy)는 크기만 지정하고 fill을 덮어쓰지 않는다(ADR-0023). 동일 Context refresh는 값+Refreshing을 유지할 수 있다. Context/Scope가 바뀌면 이전 결과를 새 결과처럼 표시하지 않고 권한을 재검증한다(06 §11). 부분 실패는 해당 widget에 국한하고 정상 panel을 유지한다.
 
 Empty/error는 원인 설명·허용된 다음 행동·추적 번호를 읽을 수 있게 표시한다. [06 §19](docs/contract/components.md#19-loading--empty--error-taxonomy)의 no-match/not-collected/delayed/coverage/forbidden/too-large/unknown을 하나로 합치지 않는다. 조회 0건에서 수집/파서 지연을 추론하지 않는다. 실제 비활성·busy도 필요한 이유를 opacity로 숨기지 않는다.
+
+[EmptyState 사용 규칙](docs/contract/components.md#ui-primitive)
 
 `live-dot`은 기본 static이다. pulse는 **Candidate**로 실제 live freshness source가 확인될 때만 허용하며 label/layout을 움직이지 않는다. reduced-motion에서는 animation을 끄고 freshness가 사라지면 Updated/Data through/Unknown으로 전환한다. Live는 completeness의 증거가 아니다. optional breadcrumb는 nested page의 ancestor link와 current page를 구별하고 Context를 보존한다.
 

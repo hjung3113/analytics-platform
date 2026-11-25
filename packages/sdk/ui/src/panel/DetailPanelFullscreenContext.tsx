@@ -41,7 +41,10 @@ export function DetailPanelReadingColumn({
   );
 }
 
-/** Labels are supplied by the host's i18n; defaults keep existing Korean-only feature consumers compatible. */
+/**
+ * Labels are supplied by the host's i18n; defaults keep existing Korean-only feature consumers compatible.
+ * Renders nothing outside the fullscreen context provided by `AppShell` or `DetailPanelSlotProvider`.
+ */
 export function DetailPanelFullscreenToggle({ expandLabel = '크게 보기', collapseLabel = '원래 크기로' }: { expandLabel?: string; collapseLabel?: string } = {}): React.ReactElement | null {
   const fullscreen = useContext(DetailPanelFullscreenContext);
   if (fullscreen === null) return null;
