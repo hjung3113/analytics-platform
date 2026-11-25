@@ -42,6 +42,10 @@ const registry = createRegistry({
         level('drillStgroup', 'StGroup', 'StGroup'),
       ] },
     }),
+    entry({
+      id: 'bases', path: '/bases', pageKeys: ['motion', 'basis'], contextResetKeys: ['motion', 'basis'],
+      drill: { levels: [{ ...level('motion', 'Motion', 'Motion'), basisKey: 'basis', bases: [{ id: 'recipe', label: () => 'Recipe' }] }] },
+    }),
     entry({ id: 'plain', path: '/plain', label: { ko: '사이클타임 상세', en: 'Cycle time detail' } }),
     entry({ id: 'detail', path: '/detail', parent: 'source', navHidden: true, pageKeys: ['returnTo'] }),
   ],
@@ -71,6 +75,19 @@ const siblings = {
   drillRoom: [{ value: 'PHOTO', hint: '12.0%' }, { value: 'ETCH', hint: '1.0%' }],
   drillStgroup: [{ value: 'A', hint: '4.0%' }, { value: 'B', hint: '2.0%' }],
 };
+
+it('shows the basis label beside the step value', () => {
+  mount('/mars/bases?v=1&motion=Pump&basis=recipe', <DrillLayout />);
+  expect(screen.getByRole('button', { name: 'Motion: Pump · Recipe' })).toBeTruthy();
+});
+
+it('shows the rejection notice and the recovered body at depth zero', async () => {
+  mount('/mars/bases?v=1&motion=Pump&basis=secret', <DrillLayout><p>본문</p></DrillLayout>);
+  expect(await screen.findByRole('status')).toHaveTextContent('나누기 기준을 사용할 수 없어 이전 단계로 이동했습니다.');
+  expect(screen.queryByText(/secret/)).toBeNull();
+  expect(screen.getByText('본문')).toBeTruthy();
+  expect(window.location.search).toBe('?v=1');
+});
 
 describe('DrillLayout (06 §12.7, ADR-0025)', () => {
   it('shows the display label in the path and for the checked sibling', async () => {

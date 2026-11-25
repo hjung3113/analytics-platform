@@ -1,5 +1,5 @@
 export { createBrowserLocation, createBasePathLocation, type PlatformLocation } from './context/location';
-export { useDrill, type DrillInvalid, type DrillLevelState, type DrillState, type DrillTrailStep } from './context/drill';
+export { drillEntryPage, useDrill, type DrillInvalid, type DrillLevelState, type DrillState, type DrillTrailStep } from './context/drill';
 export { ANALYSIS_SELECTION_MAX_VALUES, analysisSelectionParam, parseAnalysisSelection, useAnalysisSelectionChips, useAnalysisSelectionInputs, useAnalysisSelectionOutput, HeldAnalysisSelections, type HeldAnalysisSelection, type AnalysisSelectionChip, type AnalysisSelectionOutputOptions, type AppliedAnalysisSelection, type ChipSelectionEditor, type ReplaceChipSelection } from './context/analysisSelection';
 export type { AnalysisSelectionAvailability, AnalysisSelectionCompare } from './context/analysisSelectionAvailability';
 export type { AddressTransition } from './platform/contexts';

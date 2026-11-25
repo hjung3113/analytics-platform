@@ -19,15 +19,13 @@ async function add(page: Page, title: string) {
   await page.getByRole('button', { name: '패널 추가', exact: true }).click();
   await page.getByRole('menuitem', { name: title, exact: true }).click();
 }
-async function activatePoint(page: Page, row: string) {
+async function selectPoint(page: Page, row: string) {
   await chartMore(page, 'current').click();
   const tools = page.getByRole('dialog', { name: '더보기', exact: true });
   const picker = tools.getByRole('combobox', { name: '차트 지점 선택' });
   const option = picker.locator('option').filter({ hasText: row }).first();
   await picker.selectOption({ value: (await option.getAttribute('value'))! });
-  // The Frame's keyboard command uses the same callback as pointer double-click.
-  await tools.getByRole('button', { name: '선택 지점 실행' }).click();
-  if (await tools.isVisible()) await page.keyboard.press('Escape');
+  return tools;
 }
 
 test.describe('HW Time analysis selection', () => {
@@ -262,12 +260,28 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     });
   }
 
-  test('step-1 activation drills, step-2 activation opens the point trend, and pinned scatter follows the drill', async ({ page }) => {
+  test('step-1 activation drills, step-2 activation offers the basis, and pinned scatter follows the drill', async ({ page }) => {
     await page.goto(`${SCREEN}${TWO_DAYS}`);
-    await activatePoint(page, 'MEM-PHOTO-0103');
+    const firstTools = await selectPoint(page, 'MEM-PHOTO-0103');
+    await firstTools.getByRole('button', { name: '선택 지점 실행' }).click();
+    if (await firstTools.isVisible()) await page.keyboard.press('Escape');
     await expect.poll(() => query(page).get('moduleType')).toBe('PM');
     await expect(panel(page, 'previous')).toContainText('설비별 Module 타입 평균');
-    await activatePoint(page, 'MEM-PHOTO-0103 · PM1');
+
+    const motionRow = 'MEM-PHOTO-0103 · PM1';
+    const motionTools = await selectPoint(page, motionRow);
+    await motionTools.getByRole('button', { name: '선택 지점 실행' }).click();
+    const basis = page.getByRole('menu', { name: '나누기 기준', exact: true });
+    await expect(basis.getByRole('menuitemradio', { name: '일별', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(basis).toBeHidden();
+    expect(query(page).get('drillMotion')).toBeNull();
+    if (await motionTools.isVisible()) await page.keyboard.press('Escape');
+
+    const trendTools = await selectPoint(page, motionRow);
+    await trendTools.getByRole('button', { name: '지점 동작' }).click();
+    await page.getByRole('menuitem', { name: 'HTM 추세 열기', exact: true }).click();
+    if (await trendTools.isVisible()) await page.keyboard.press('Escape');
     await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
     expect(query(page).get('drillModule')).toBeNull();
     await add(page, '분포');

@@ -2,6 +2,7 @@ import { createContext, useContext, useLayoutEffect, useMemo, useSyncExternalSto
 import { usePlatform } from '@ap/kernel';
 import type { DirectNextAnalysisAction, NextAnalysisPointDrill } from './NextAnalysisItems';
 import type { AnalysisPanelDestinations } from '../workspace/PanelAdd';
+import { DrillBasisMemory, useDrillBasisMemory } from './ChartDrillBasisMenu';
 import { WorkspacePanelVisibleContext } from '../workspace/panelContext';
 
 function createPublications<T>() {
@@ -56,11 +57,13 @@ type Output = { panelId: string; key: string };
 const outputKey = ({ panelId, key }: Output) => JSON.stringify([panelId, key]);
 
 export function NextAnalysisBridge({ children }: { children: ReactNode }) {
-  const { session, revision, global: { scopeId }, route, pathname } = usePlatform();
+  const platform = usePlatform();
+  const { session, revision, global: { scopeId }, route, pathname } = platform;
+  const memory = useDrillBasisMemory(platform);
   const menu = route?.menu;
   // A publication belongs to the current screen, session and Scope.
   const bridge = useMemo(createBridge, [session, revision, scopeId, menu, pathname]);
-  return <BridgeContext.Provider value={bridge}>{children}</BridgeContext.Provider>;
+  return <BridgeContext value={bridge}><DrillBasisMemory value={memory}>{children}</DrillBasisMemory></BridgeContext>;
 }
 
 export function usePublishNextAnalysis(output: Output | null | undefined, actions: readonly DirectNextAnalysisAction[], pointDrill?: NextAnalysisPointDrill) {

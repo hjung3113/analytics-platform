@@ -57,7 +57,7 @@ export function firstDrillProblem(drill: MenuEntry['drill'], page: readonly Pair
     const { key, basisKey, bases } = level;
     if (basisKey === undefined) continue;
     const id = page.find(([name]) => name === basisKey)?.[1];
-    if (id !== undefined && (!bases?.some(basis => basis.id === id) || drill.isBasisAvailable?.(key, id, global, can) === false)) {
+    if (id !== undefined && (!bases?.some(basis => basis.id === id) || drill.isBasisAvailable?.(key, id, global, can, page) === false)) {
       return { kind: 'basis', index };
     }
   }

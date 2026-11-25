@@ -1,6 +1,6 @@
 import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { createContext, useContext, useRef, type ReactNode } from 'react';
-import { RETURN_CONTEXT_LABELS, PlatformLink, type ReturnOrigin, invalidValueSentence, useDrill, useI18n, useMessages } from '@ap/kernel';
+import { RETURN_CONTEXT_LABELS, PlatformLink, type ReturnOrigin, invalidValueSentence, useDrill, useI18n, useMessages, usePlatform, type DrillTrailStep } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import {
   Button, cn,
@@ -73,7 +73,8 @@ function SiblingMenu({ label, value, valueLabel, items, onSwitch, scopeRef }: {
 export function DrillPath(props: DrillPathProps) {
   const { siblings, summary } = props;
   const drill = useDrill();
-  const { t, tx } = useI18n();
+  const { route } = usePlatform();
+  const { t, tx, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const wentUp = useRef(false);
   const nav = useRef<HTMLElement>(null);
@@ -83,6 +84,13 @@ export function DrillPath(props: DrillPathProps) {
   const hidden = collapsed ? drill.trail.slice(0, drill.trail.length - 2) : [];
   const visible = collapsed ? drill.trail.slice(drill.trail.length - 2) : drill.trail;
 
+  const stepValue = (step: DrillTrailStep) => {
+    const value = step.valueLabel ?? step.value;
+    const basis = route?.menu.drill?.levels.find(level => level.key === step.key)?.bases?.find(basis => basis.id === step.basis);
+    if (!basis) return value;
+    return `${value} · ${typeof basis.label === 'function' ? basis.label(lang) : basis.label}`;
+  };
+
   const chipFor = (index: number) => {
     const step = drill.trail[index];
     if (!step) return null;
@@ -91,8 +99,8 @@ export function DrillPath(props: DrillPathProps) {
     const current = index === drill.depth - 1;
     return <span key={step.key} className="inline-flex items-center">
       <button type="button" aria-current={current ? 'step' : undefined} onClick={() => drill.goTo(index + 1)}
-        className={cn('rounded-md px-2 py-1', current ? 'bg-accent-primary-soft font-medium text-text-primary' : 'text-text-secondary hover:bg-surface-sunken')}>
-        {name}: {step.valueLabel ?? step.value}
+        className={cn('rounded-md px-2 py-1', step.basis && 'break-keep', current ? 'bg-accent-primary-soft font-medium text-text-primary' : 'text-text-secondary hover:bg-surface-sunken')}>
+        {name}: {stepValue(step)}
       </button>
       {options && options.length > 0 && <SiblingMenu label={name} value={step.value} valueLabel={step.valueLabel} items={options} onSwitch={value => drill.enter(step.key, value)} scopeRef={nav} />}
     </span>;
@@ -108,8 +116,8 @@ export function DrillPath(props: DrillPathProps) {
           <button type="button" aria-label={m('drillMiddleSteps')} className="rounded-md px-2 py-1 text-text-secondary hover:bg-surface-sunken">…</button>
         </DropdownMenuTrigger>
         <DropdownMenuContent onCloseAutoFocus={event => { if (wentUp.current) { event.preventDefault(); wentUp.current = false; focusDrillDestination(nav.current); } }} align="start" className="w-56">
-          {hidden.map((step, index) => <DropdownMenuItem key={step.key} className={focusRing} onSelect={() => { wentUp.current = true; drill.goTo(index + 1); }}>
-            {tx(step.label)}: {step.valueLabel ?? step.value}
+          {hidden.map((step, index) => <DropdownMenuItem key={step.key} className={cn(focusRing, step.basis && 'break-keep')} onSelect={() => { wentUp.current = true; drill.goTo(index + 1); }}>
+            {tx(step.label)}: {stepValue(step)}
           </DropdownMenuItem>)}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -153,12 +161,17 @@ export function DrillLayout(props: DrillLayoutProps) {
         title={m('drillNoValueInContext', { value: missingStep?.valueLabel ?? notFound.value })}
         body={m('drillNothingSubstituted')} />
       : children;
+  const notice = drill.rejectedBasis && <div className="break-keep"><StateMessage tone="warning" compact
+    icon={<AlertTriangle className="size-4" aria-hidden />}
+    title={m('drillBasisRejected')} /></div>;
   if (fill) return <div className="flex min-h-0 flex-1 flex-col gap-2">
     <DrillPath {...pathProps} />
+    {notice}
     <div className="flex min-h-0 flex-1 flex-col">{body}</div>
   </div>;
   return <div className="space-y-4">
     <DrillPath {...pathProps} />
+    {notice}
     {body}
   </div>;
 }

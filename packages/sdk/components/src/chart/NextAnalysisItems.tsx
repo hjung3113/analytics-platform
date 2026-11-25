@@ -5,6 +5,7 @@ import { useDrill, useI18n, useMessages, usePlatform, usePlatformOptional } from
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisPanelAddContext, type AnalysisPanelDestinations, type AnalysisPanelDraft, type PanelAddItem } from '../workspace/PanelAdd';
+import { drillBasisChoices, useDrillBasisChoice } from './ChartDrillBasisMenu';
 import { usePublishNextAnalysis } from './NextAnalysisBridge';
 import { keepFocusAfterPanelAdd } from '../dock/focusTab';
 
@@ -61,8 +62,9 @@ function usePanelChoices() {
 
 export function useNextAnalysisItems({ output, selection, pointDrill, workspace }: Props & { workspace: AnalysisPanelDestinations | null }): GroupAction[] {
   const platform = usePlatform();
-  const { depth, levels, enter, invalid } = useDrill();
-  const { tx, t } = useI18n();
+  const { depth, levels, enter, invalid, trail } = useDrill();
+  const basisMemory = useDrillBasisChoice(platform, trail);
+  const { tx, t, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const panelChoices = usePanelChoices();
   const menu = platform.route?.menu;
@@ -77,8 +79,16 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
   if (next && (pointDrill?.level ?? channel?.drillLevel) === next.key) {
     const drillValue = pointDrill ? pointDrill.value : value;
     const label = m('chartNextDrill');
+    const defaultLabel = tx(next.label);
+    const bases = drillValue ? drillBasisChoices(platform, next.key, drillValue, defaultLabel, lang) : undefined;
     actions.push(drillValue ? {
-      label, choices: [{ id: next.key, label: `${tx(next.label)} · ${drillValue}`, onSelect: () => enter(next.key, drillValue) }],
+      label, choices: bases?.map(basis => ({
+        ...basis, onSelect: () => {
+          const picked = basis.id || undefined;
+          basisMemory.remember(next.key, drillValue, picked);
+          enter(next.key, drillValue, { basis: picked });
+        },
+      })) ?? [{ id: next.key, label: `${defaultLabel} · ${drillValue}`, onSelect: () => enter(next.key, drillValue) }],
     } : { label, reason: singleRequired });
   }
 

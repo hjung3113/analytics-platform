@@ -2,7 +2,7 @@ import type { AnalysisSelectionShape, PanelBinding, PanelDeclaration } from './p
 import type { MenuChartFields } from './chart-fields.js';
 import type { Text } from '../i18n.js';
 import type { PageConditions } from './page-conditions.js';
-import type { GlobalContext } from '../links/url.js';
+import type { GlobalContext, Pair } from '../links/url.js';
 import type { ModuleScopedId } from '../host/host.js';
 
 /**
@@ -242,7 +242,7 @@ export type MenuMeta = {
   drill?: {
     levels: readonly DrillLevel[];
     resetKeys?: readonly string[];
-    /** Current client availability of a declared alternative. The server also checks every request. */
-    isBasisAvailable?: (levelKey: string, basisId: string, context: GlobalContext, can: (permission: Permission | ModuleScopedId) => boolean) => boolean;
+    /** Availability of a declared alternative for the candidate page and applied Context. The server also checks every request. */
+    isBasisAvailable?: (levelKey: string, basisId: string, context: GlobalContext, can: (permission: Permission | ModuleScopedId) => boolean, page: readonly Pair[]) => boolean;
   };
 };

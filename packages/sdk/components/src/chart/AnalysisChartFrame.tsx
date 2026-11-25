@@ -11,7 +11,7 @@ import { BrushIcon, Eye, GitCompare, MessageSquarePlus, RotateCcw, ZoomIn, ZoomO
 import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
-import { ANALYSIS_SELECTION_MAX_VALUES, useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
+import { ANALYSIS_SELECTION_MAX_VALUES, useDrill, useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
 import { useOptionalAnalysisSelectionOutput } from '@ap/kernel/host';
 import { EQUIPMENT_SELECTION_DIMENSION, overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, normalizeSet, ContractError, type AnalysisSelectionShape, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, InfoTip, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
@@ -30,6 +30,7 @@ import { buildChartOption, linePattern, resolveChartPalette } from './buildChart
 import { useAnnotationDeleteFocus, useAnnotationEditor, useNoAnnotationEditor, type AnnotationEditor } from './useAnnotationEditor';
 import { useChartRange, type ClipResult, type Selection } from './useChartRange';
 import { usePointMenu } from './usePointMenu';
+import { ChartDrillBasisMenu, chartBasisAnchor, drillBasisChoices, useDrillBasisChoice } from './ChartDrillBasisMenu';
 import { equalSeriesIds, seriesExtremes } from './chartLanes';
 import { resolveRowTotals, type ValueLabels } from './chartValueLabels';
 import { categoryOtherBlocked, categoryOtherWarning, projectCategoryBars, validCategoryTopN, type CategoryTopN } from './categoryTopN';
@@ -287,11 +288,19 @@ export type AnalysisChartFrameProps<P = never, T = never> = ChartChromeOptions &
   serverTotals?: ReadonlyMap<string, number | null>;
 };
 
+type ChartBasisDrill = {
+  choices: (value: string) => NonNullable<ReturnType<typeof drillBasisChoices>>;
+  current: (value: string) => string | undefined;
+  value: (point: ChartPoint) => string;
+  enter: (value: string, basis: string | undefined) => void;
+};
+
 /**
  * What the frame takes from its host (#1953 C): the period and Scope its local state is keyed by, the actions the host allows, and where results are said.
  * Inside a platform this is the global Context, the menu manifest and the toast; outside one it comes from props, with Compare, Annotate and Apply off.
  */
 type FrameHost = {
+  basisDrill?: ChartBasisDrill;
   /** Inside a `PlatformProvider` (the CSV note then names the applied Context). */
   inPlatform: boolean;
   global: { scopeId: string | null; from: string | null; to: string | null };
@@ -329,10 +338,26 @@ function PlatformFrame<P, T>({ platform, ...p }: AnalysisChartFrameProps<P, T> &
   const output = p.analysisSelectionOutput;
   const declaration = route?.menu.panels?.find(panel => panel.id === output?.panelId)
     ?.outputs.find(item => item.key === output?.key)?.selection;
+  const drill = useDrill();
+  const memory = useDrillBasisChoice(platform, drill.trail);
+  const { tx, lang } = useI18n();
+  const next = drill.levels[drill.depth];
+  const pointTarget = p.nextAnalysisPointDrill;
+  const outputLevel = declaration?.shape === 'set' ? declaration.drillLevel : undefined;
+  const canChooseBasis = !p.zoomOnly && route && platform.canOpen(route.menu.id) && !drill.invalid && next &&
+    (pointTarget?.level ?? outputLevel) === next.key;
+  const basisDrill: ChartBasisDrill | undefined = canChooseBasis && route.menu.drill?.levels[drill.depth]?.bases?.length ? {
+    choices: value => drillBasisChoices(platform, next.key, value, tx(next.label), lang)!,
+    current: value => memory.current(next.key, value), value: pointTarget?.value ?? (point => point.x),
+    enter: (value, basis) => {
+      memory.remember(next.key, value, basis);
+      drill.enter(next.key, value, { basis });
+    },
+  } : undefined;
   const canAnnotate = !p.zoomOnly && !!features?.annotate && analyticsAllowed;
   const editor = useAnnotationEditor({ chartId: p.chartId, scopeId: global.scopeId, canAnnotate, axisKind: p.xType ?? 'time', ...(p.xType !== 'category' ? { from: global.from, to: global.to } : {}) });
   const host: FrameHost = {
-    inPlatform: true, global, contextKey: JSON.stringify([platform.user?.id, platform.revision, analyticsAllowed, global]), url, status: '', notify: toast,
+    inPlatform: true, basisDrill, global, contextKey: JSON.stringify([platform.user?.id, platform.revision, analyticsAllowed, global]), url, status: '', notify: toast,
     analyticsAllowed,
     features: { compare: !!features?.compare, annotate: !!features?.annotate, export: !!features?.export },
     applyPeriod: analyticsAllowed ? range => setGlobal({ from: range.from, to: range.to }) : null,
@@ -538,11 +563,8 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const pointActions = priorResult ? undefined : p.pointActions;
   const hasPointActions = typeof pointActions === 'function' || !!pointActions?.length;
   const { pointActivation, onPointClick } = p;
-  const activatePoint = useCallback((point: ChartPoint) => {
-    if (pointActivation) pointActivation.onActivate(point);
-    else onPointClick?.(point.x, point.seriesId);
-  }, [pointActivation, onPointClick]);
-  const canDrill = !priorResult && (!!pointActivation || !!onPointClick);
+  const basisDrill = priorResult ? undefined : host.basisDrill;
+  const canDrill = !priorResult && (!!basisDrill || !!pointActivation || !!onPointClick);
   const isPointSelectable = p.isPointSelectable;
   const sourceCategories = useMemo(() => xType === 'category' ? [...new Set(p.series[0]?.points.map(([x]) => x) ?? [])] : [], [xType, p.series]);
   const categoryProjection = useMemo(() => xType === 'category' ? projectCategoryBars(sourceCategories, visible, categoryTopN, lang) : undefined,
@@ -559,6 +581,76 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const percent = shares?.kind === 'shares';
   const negativeShares = shares?.kind === 'negative';
   const plotSeries = shares?.kind === 'shares' ? shares.displayed : displayed;
+  const pointEntries = useMemo(() => {
+    if (zoomOnly) return [];
+    return realSeries.flatMap((series, i) => {
+      // A missing category is projected as null for the plot and table, but it has no point to select.
+      const sourceCategories = xType === 'category' ? new Set(visible[i].points.map(([x]) => x)) : null;
+      return series.points.flatMap(([x, value]) => {
+        const point = { x, seriesId: series.id, value };
+        if ((sourceCategories && !sourceCategories.has(x)) || isPointSelectable?.(point) === false) return [];
+        return [{ key: chartPointKey(point), point, series }];
+      });
+    });
+  }, [realSeries, visible, xType, zoomOnly, isPointSelectable]);
+  const basisOwner = JSON.stringify([host.contextKey, url, p.chartId]);
+  const [basisActivation, setBasisActivation] = useState<{
+    owner: string; value: string; point: ChartPoint; reveal: boolean; anchor: ReturnType<typeof chartBasisAnchor>;
+  } | null>(null);
+  if (basisActivation && (basisActivation.owner !== basisOwner || !basisDrill)) setBasisActivation(null);
+  const basisBarIndex = useCallback((point: ChartPoint) => {
+    const series = plotSeries.find(series => series.id === point.seriesId);
+    if (!series || (!horizontal && series.kind !== 'bar')) return -1;
+    return series.points.findIndex(([x, y]) => x === point.x && Number.isFinite(y));
+  }, [plotSeries, horizontal]);
+  const measureBasis = useCallback((seriesId: string, index: number, options?: { reveal: boolean }) => {
+    const reveal = options?.reveal === true;
+    return chartBasisAnchor(chart.current, pointChart.current, seriesId, index, { reveal, revealRow: reveal && rowPitch !== undefined });
+  }, [pointChart, rowPitch]);
+  const basisTarget = basisDrill?.value;
+  const basisPoint = basisActivation?.point;
+  const basisValue = basisActivation?.value;
+  const revealPendingBasis = basisActivation?.reveal ?? false;
+  const resolveBasisMark = useCallback(() => {
+    if (!basisPoint || !basisTarget) return;
+    const key = chartPointKey(basisPoint);
+    const point = pointEntries.find(entry => entry.key === key)?.point;
+    if (!point || basisTarget(point) !== basisValue) return;
+    const index = basisBarIndex(point);
+    if (index >= 0) return { seriesId: point.seriesId, index };
+  }, [basisPoint, basisTarget, basisValue, pointEntries, basisBarIndex]);
+  useEffect(() => {
+    if (!basisPoint) return;
+    let frame: number;
+    const refresh = () => {
+      const mark = resolveBasisMark();
+      const anchor = mark && measureBasis(mark.seriesId, mark.index, { reveal: revealPendingBasis });
+      setBasisActivation(previous => {
+        if (!previous || previous.point !== basisPoint) return previous;
+        if (!anchor) return null;
+        const old = previous.anchor;
+        if (old && old.left === anchor.left && old.top === anchor.top && old.width === anchor.width && old.height === anchor.height) return previous;
+        return { ...previous, anchor, reveal: false };
+      });
+      if (anchor && !revealPendingBasis) frame = requestAnimationFrame(refresh);
+    };
+    frame = requestAnimationFrame(refresh);
+    return () => cancelAnimationFrame(frame);
+  }, [basisPoint, measureBasis, resolveBasisMark, revealPendingBasis]);
+  const activatePoint = useCallback((point: ChartPoint, options?: { reveal: boolean }) => {
+    if (basisDrill) {
+      const index = basisBarIndex(point);
+      const value = index >= 0 && basisDrill.value(point);
+      if (value) {
+        const anchor = measureBasis(point.seriesId, index, options);
+        if (!anchor && isZoomed) rangeActions.setZoom([0, 100]);
+        setBasisActivation({ owner: basisOwner, value, point, anchor, reveal: !anchor && options?.reveal === true });
+        return;
+      }
+    }
+    if (pointActivation) pointActivation.onActivate(point);
+    else onPointClick?.(point.x, point.seriesId);
+  }, [basisDrill, basisOwner, basisBarIndex, measureBasis, isZoomed, rangeActions, pointActivation, onPointClick]);
   useEffect(() => {
     if (negativeShares) rowFocusDiagnostic('stackMode="percent" cannot normalize negative values; drawing a raw stack.');
   }, [negativeShares]);
@@ -651,18 +743,6 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const showExtremes = !percent && horizontal && !!p.minMax;
   const extremes = useMemo(() => showExtremes ? seriesExtremes(realSeries, isPointSelectable) : undefined, [showExtremes, realSeries, isPointSelectable]);
   const equalIds = useMemo(() => showExtremes ? equalSeriesIds(realSeries, isPointSelectable) : undefined, [showExtremes, realSeries, isPointSelectable]);
-  const pointEntries = useMemo(() => {
-    if (zoomOnly) return [];
-    return realSeries.flatMap((series, i) => {
-      // A missing category is projected as null for the plot and table, but it has no point to select.
-      const sourceCategories = xType === 'category' ? new Set(visible[i].points.map(([x]) => x)) : null;
-      return series.points.flatMap(([x, value]) => {
-        const point = { x, seriesId: series.id, value };
-        if ((sourceCategories && !sourceCategories.has(x)) || isPointSelectable?.(point) === false) return [];
-        return [{ key: chartPointKey(point), point, series }];
-      });
-    });
-  }, [realSeries, visible, xType, zoomOnly, isPointSelectable]);
   const pointKeys = useMemo(() => new Set(pointEntries.map(entry => entry.key)), [pointEntries]);
   const points = useMemo(() => pointEntries.map(entry => entry.point), [pointEntries]);
   const canSelectPoint = !priorResult && points.length > 0;
@@ -1207,7 +1287,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
           </select>
           <Button type="button" variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint) choosePoint(selectedPoint, { add: false }); }}>{m('chartSelectOnlyPoint')}</Button>
           <Button type="button" variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint) choosePoint(selectedPoint, { add: true }); }}>{m(setOutput && selectedPoint && urlSet?.values.includes(selectedPoint.x) ? 'chartRemovePoint' : 'chartAddPoint')}</Button>
-          {canDrill && <Button type="button" variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) activatePoint(selectedPoint); }}>{m('chartActivatePoint')}</Button>}
+          {canDrill && <Button type="button" variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint} onClick={() => { if (selectedPoint && !brushMode) activatePoint(selectedPoint, { reveal: true }); }}>{m('chartActivatePoint')}</Button>}
           {hasPointActions && <DropdownMenu open={menu.open && !brushMode && !!selectedPoint && !noActions} onOpenChange={open => { if (open) openPointMenu(menu.triggerRef.current); else menu.close(); }}>
             <DropdownMenuTrigger asChild><Button type="button" ref={menu.triggerRef} variant="ghost" size="toolbar" disabled={brushMode || !selectedPoint || noActions}>{m('chartPointActions')}</Button></DropdownMenuTrigger>
             <DropdownMenuContent ref={menu.contentRef} align="end" onCloseAutoFocus={menu.onCloseAutoFocus}>
@@ -1455,6 +1535,8 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       {chrome === 'minimal' && frameLegend}
       <p className="border-t border-border-subtle pt-2 text-text-secondary">{localStateNote}</p>
     </>} secondaryOpen={panelToolsOpen} onSecondaryOpenChange={setPanelToolsOpen} />;
+  const basisChoices = basisActivation && basisDrill?.choices(basisActivation.value);
+  const rememberedBasis = basisActivation && basisDrill?.current(basisActivation.value);
   return <section role="region" aria-labelledby={titleId} data-analysis-chart={analysisSection ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-min' : FILL_CARD_CLASS), (docked || (compactEmbedded && !zoomOnly)) && 'rounded-none border-0 shadow-none')}>
     <AnalysisChartPart enabled={analysisSection !== null}>
       {dockHead?.toolbar ? <>
@@ -1478,7 +1560,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       </div>
     </>}
     <ChartLegendLayout enabled={chrome === 'standard' && (p.legend !== false || plotLegendCaption != null || categoryValueMarkLegend !== null)} keys={p.legend !== false} fill={size === 'fill'} floor={size === 'fill'} placement={p.legendPlacement} legend={standardLegend} caption={plotLegendCaption}>
-    <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', docked && 'pt-2', size === 'fill' && fillPlotClass, rowPitch !== undefined && 'overflow-y-auto scrollbar-panel')}
+    <div ref={node => { pointChart.current = node; fill.ref(node); wheelPassThrough(node); }} className={cn('px-2', docked && 'pt-2', basisDrill && 'relative', size === 'fill' && fillPlotClass, rowPitch !== undefined && 'overflow-y-auto scrollbar-panel')}
       // eslint-disable-next-line shadcn/no-inline-styles -- the scroll window is the given height at runtime
       style={rowPitch !== undefined && size !== 'fill' ? { maxHeight: viewportHeight } : size === 'fill' && chrome === 'standard' ? { minHeight: fillFloor } : size === 'fill' && loweredFill ? { minHeight: fillMin } : undefined} role={plotPointControls ? 'group' : undefined} aria-label={plotPointControls ? m('chartPointsGroup') : undefined} tabIndex={plotPointControls && !priorResult ? 0 : -1}
       aria-describedby={gestureHint ? gestureDescriptionId : undefined}
@@ -1493,10 +1575,19 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         }
         if (event.key === 'Enter' && canDrill && selectedPoint && !brushMode) {
           event.preventDefault();
-          activatePoint(selectedPoint);
+          activatePoint(selectedPoint, { reveal: true });
         }
       }}><EChart option={option} height={height} onEvents={onEvents} onReady={c => { chart.current = c; setChartWidth(c.getWidth()); setInstanceReady(v => v + 1); }} onResize={setChartWidth}
-      ariaLabel={`${typeof p.title === 'string' ? p.title : p.chartId}: ${visible.map(s => s.name).join(', ')}`} /></div>
+      ariaLabel={`${typeof p.title === 'string' ? p.title : p.chartId}: ${visible.map(s => s.name).join(', ')}`} />
+      {basisDrill && basisChoices && <ChartDrillBasisMenu anchor={basisActivation?.anchor} choices={basisChoices}
+        current={basisChoices.some(choice => choice.id === rememberedBasis) ? rememberedBasis ?? undefined : undefined}
+        onClose={() => setBasisActivation(null)} onCancel={() => pointChart.current?.focus({ preventScroll: true })}
+        onPick={basis => {
+          const mark = resolveBasisMark();
+          if (basisActivation && mark && measureBasis(mark.seriesId, mark.index)) basisDrill.enter(basisActivation.value, basis);
+          else setBasisActivation(null);
+        }} />}
+    </div>
 
     </ChartLegendLayout>
     {!selection && chosenPoints.length > 0 && <p aria-live="polite" className="px-2 py-0.5 text-xs text-text-secondary break-keep">

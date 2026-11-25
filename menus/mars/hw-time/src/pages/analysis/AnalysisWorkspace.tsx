@@ -3,7 +3,7 @@ import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-re
 import { isAnswered, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance } from '@ap/contracts';
 import { ANALYSIS_SELECTION_MAX_VALUES, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type MenuQueryState, type Text } from '@ap/kernel';
 import {
-  AnalysisChart, AnalysisChartFrame, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
+  AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
   getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
 import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MAX_ROWS, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTime, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams, type HwTimeTableParams, type HwTimeTableRow } from '../../endpoints';
@@ -12,8 +12,8 @@ import { TREND_RANGE_OUTPUT } from '../../panels';
 import { formatSeconds } from '../../shared/format';
 import { useHwTimeLevel } from '../../shared/data';
 import { htmEmphasisStatus, htmStatusView } from '../../shared/htm';
-import { HW_TIME_DRILL } from '../../shared/historySummary';
-import type { HwTimeFilter } from '../../shared/useHwTimeFilter';
+import { DAY_BASIS_ID, HW_TIME_DRILL, MOTION_BASIS_KEY } from '../../shared/historySummary';
+import { equipmentDaysAvailable, type HwTimeFilter } from '../../shared/useHwTimeFilter';
 import { useHwTimeDrillRules } from '../../shared/useHwTimeDrillRules';
 import RawTablePanel, { useRawTableColumns } from '../table/RawTablePanel';
 import { drillParams, levelOf } from '../table/tableData';
@@ -144,7 +144,7 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
   const drill = (point: ChartPoint) => {
     if (!drillLevel) return;
     const later = Object.fromEntries(HW_TIME_DRILL.levels.slice(depth).map(level => [level.key, null]));
-    setPage({ ...later, [drillLevel]: drillValue(point), row: point.x, trend: null, focus: null });
+    setPage({ ...later, ...(depth === 1 && { [MOTION_BASIS_KEY]: null }), [drillLevel]: drillValue(point), row: point.x, trend: null, focus: null });
   };
   const openTrend = (point: ChartPoint) => {
     if (depth === 1) { drill(point); return; }
@@ -350,11 +350,13 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     return <PageKeyWarning sentences={sentences} onRecover={keys.recover} />;
   }
   const required = step <= 2 ? HW_TIME_MODULE_TYPES.map(type => type.id) : [typeId!];
-  return <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins, savedPanels }} applied={selectionInputs.applied} values={state.values} onChange={state.setValue}
+  return <DrillLayout fill><MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins, savedPanels }} applied={selectionInputs.applied} values={state.values} onChange={state.setValue}
     onDrill={id => {
       const [type, motion, module] = id.split('/');
-      setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null, row: null, trend: null, focus: null });
-    }} />}</MatrixSources>;
+      const sameMotion = !!motion && type === typeId && motion === motionId;
+      setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null,
+        [MOTION_BASIS_KEY]: sameMotion ? pageParam(MOTION_BASIS_KEY) : null, row: null, trend: null, focus: null });
+    }} />}</MatrixSources></DrillLayout>;
 }
 /** Keep the hover subscription inside the chart assigned to the selection source. */
 function SelectionSourceBars({ source, ...props }: Omit<BarsProps, 'highlightedValues'> & { source: boolean }) {
@@ -438,6 +440,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   useEffect(() => {
     if (trend && step !== 4) setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
   }, [trend, step]);
+  const { page, pageParam, pageParams, setPage, toast } = usePlatform();
+  const dayPanel = step === 3 && pageParam(MOTION_BASIS_KEY) === DAY_BASIS_ID ? panelDeclarations.equipmentDays : null;
   const catalog = panelCatalog({ step, typeId, moduleId, trend });
   const available = catalog.filter(item => !item.disabledReason);
   const added = savedPanels.config.kind === 'custom' ? savedPanels.config.added : [];
@@ -458,7 +462,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     for (let n = 2; id === 'table' && taken.has(slot); n += 1) slot = `${id}-${n}`;
     return item && !tableTaken && !taken.has(slot) ? [{ id: slot, item, instance: undefined, heldFrom: undefined }] : [];
   });
-  const extraPanels = [...extras, ...automatic];
+  // When the heatmap is the primary panel, keep its saved pin or slot for the default basis.
+  const extraPanels = [...extras, ...automatic].filter(({ item }) => !dayPanel || item?.id !== dayPanel.id);
   // «붙잡기» (#2862): each held table reads its own values (R C4); a chart a held value came from stays while it holds (R C7).
   const savedInstances = useMemo(() => savedPanels.config.kind === 'custom'
     ? [...savedPanels.config.added.map(panel => panel.instance), ...savedPanels.config.sources] : [], [savedPanels.config]);
@@ -477,7 +482,6 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const keptSources = new Set(heldSlots.flatMap(({ heldFrom }) => heldFrom ? [heldFrom] : []));
   const extraIds = extraPanels.map(({ id }) => id).filter(id => !tables.pair.includes(id));
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
-  const { pageParam, pageParams, setPage, toast } = usePlatform();
   const selectedEquipment = pageParams(MOTION_EQUIPMENT_KEY);
   const sourceQuery = typeId && step === 4 ? queries[typeId] : undefined;
   const sourceResponse = sourceQuery?.showingPrevious ? null : sourceQuery?.response;
@@ -491,7 +495,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const verdict = verdictCodec.decode(pageParam('verdict') ?? '');
   const date = pageParam('date');
   const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date, [MOTION_EQUIPMENT_KEY]: selectedEquipment };
-  const settingsQuery = JSON.stringify([panelContext, pageParams('module'), pageParams('motion'), pageParam('sort'), pageParam('page')]);
+  const settingsQuery = JSON.stringify([panelContext, dayPanel?.id, pageParams('module'), pageParams('motion'), pageParam('sort'), pageParam('page')]);
   const trendTarget = panelRunTarget('trend', projectQueryInputs(panelDeclarations.trend, panelContext));
   const onOpenTrend = (target: string, row: string) => {
     const patch: Record<string, string | null> = { trend: target, row };
@@ -529,12 +533,19 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const limitParams = { max: PANEL_INSTANCES_MAX };
   const limitMessage = HW_TIME_WORKSPACE_MESSAGES.panelsFull;
   const limitReason = { ko: formatText(limitMessage, 'ko', limitParams), en: formatText(limitMessage, 'en', limitParams) };
+  const renderEquipmentDays = () => {
+    const input = endpointInput('equipmentDays');
+    if (equipmentDaysAvailable(input, page)) return <EquipmentDaysPanel input={input} verdict={verdict} date={date} />;
+    return <p role="status" className="text-sm text-text-secondary">{filter.empty ? common('filterNoneSelected') : N.equipmentDaysUnavailable[lang]}</p>;
+  };
   const panels: PanelWorkspacePanel[] = [
     { id: 'tree', icon: ListTree, title: S.tree, minWidth: 200, preferredHeight: 640, render: () => <Hierarchy filter={filter} currentId={currentId} onDrill={onDrill} /> },
     ...(step > 1 ? [{ id: 'previous', icon: History, title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={(step - 1) as Step} previous /> }] : []),
-    { id: 'current', title: barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640,
+    { id: 'current', title: dayPanel?.title ?? barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640,
       analysisSelectionSourceId: currentHostsSelection ? sourcePanelId : undefined,
-      render: () => <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} source={currentHostsSelection} /> },
+      render: () => dayPanel
+        ? renderEquipmentDays()
+        : <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} source={currentHostsSelection} /> },
     ...extraPanels.map(({ id, instance, item }): PanelWorkspacePanel => {
       const keep = keptSources.has(id) ? { reason: HW_TIME_WORKSPACE_MESSAGES.heldSource } : undefined;
       const onRemove = instance && (() => {
@@ -599,7 +610,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
             const data = matrixData(projectQueryInputs(panelDeclarations.pareto, panelContext));
             return matricesView(queries, data.required, <ParetoPanel matrices={data.matrices} filter={filter} />);
           }
-          case 'equipmentDays': return <EquipmentDaysPanel input={endpointInput(panel)} verdict={verdict} date={date} />;
+          case 'equipmentDays': return renderEquipmentDays();
           case 'boundHistory': return <BoundHistoryPanel input={endpointInput(panel)} />;
         }
       };
@@ -744,7 +755,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         ...(heldSlots.some(slot => slot.id === id) ? [{ id: 'follow', label: HW_TIME_WORKSPACE_MESSAGES.followInstead, onSelect: () => savedPanels.follow(id) }] : []),
       ]}
       revealRequest={reveal}
-      toolbarActions={<PanelAddMenu items={toolbarCatalog} shown={[...panels.map(panel => panel.id), ...(tables.open.length ? ['table'] : [])]} onAdd={(id, pin) => { addPanel(id, pin); }} />}
+      toolbarActions={<PanelAddMenu items={toolbarCatalog} shown={[...panels.map(panel => panel.id === 'current' && dayPanel ? dayPanel.id : panel.id), ...(tables.open.length ? ['table'] : [])]} onAdd={(id, pin) => { addPanel(id, pin); }} />}
       analysisPanelAddition={{ items: additionItems, hold: true, returnsOpened: true, onAdd: draft => {
         // Follow reads the URL selection so later picks also apply; hold keeps the draft's inputs (#2862).
         const panelId = draft.source.split('/')[1]!;
