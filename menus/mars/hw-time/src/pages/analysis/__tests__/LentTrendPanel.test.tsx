@@ -157,3 +157,37 @@ it.each([
     endpoint: 'hwTime.runs', params: expect.objectContaining({ equipmentIds: selection }),
   }), expect.any(AbortSignal));
 });
+
+it.each([
+  ['binds trendRange', { trendRange: { kind: 'page', key: 'days' } } as const, ['trendRange']],
+  ['binds no output', undefined, undefined],
+])('tells the lent trend which outputs the receiver %s (#2763)', async (_case, outputs, expected) => {
+  const source = 'hw-time/trend';
+  const component = vi.fn((props: LentPanelProps) => <LentTrendPanel {...props} />);
+  registerLentPanel(source, { ...lentTrendPanel, component });
+  const receiver = testMenu({
+    id: 'receiver', path: '/receiver', group: groupId('hwTime'), primary: false, requiresScope: true,
+    pageKeys: ['days'], contextResetKeys: ['days'], analysisSelectionInbound: [{ key: 'days', dimension: 'date', shape: 'range', label: { ko: '날짜', en: 'Date' } }],
+    lentPanels: [{
+      source,
+      context: {
+        scopeId: { kind: 'context', key: 'scopeId' }, time: { kind: 'context', key: 'time' },
+        roomNames: { kind: 'context', key: 'roomNames' }, condition: { kind: 'context', key: 'condition' }, prcGroup: { kind: 'context', key: 'prcGroup' },
+        selection: { kind: 'context', key: 'selection' },
+      },
+      page: { moduleType: { kind: 'value', key: 'moduleType' }, drillModule: { kind: 'value', key: 'module' }, drillMotion: { kind: 'value', key: 'motion' } },
+      ...(outputs && { outputs }),
+    }],
+  });
+  const testRegistry = createRegistry({
+    spaces: registry.spaces, groups: registry.groups, permissions: [menuPermission('analytics:view')], menus: [...registry.menus, receiver],
+  });
+  const adapter = testAdapter({ session: () => session, menuQuery: vi.fn(async (request: MenuQuery) => answer(request)) });
+  window.history.replaceState(null, '', '/mars/receiver?v=1&scopeId=MEM&from=2026-09-20T00:00:00&to=2026-09-22T00:00:00&selectedEquipmentIds=MEM-PHOTO-0103');
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={testRegistry}>
+    <LentPanel source={source} values={{ moduleType: 'LK', module: 'LK1', motion: 'Pump' }} />
+  </PlatformProvider></I18nProvider>);
+  await settleQueries();
+  expect(component).toHaveBeenCalled();
+  expect(component.mock.lastCall?.[0].outputs).toEqual(expected);
+});

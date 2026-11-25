@@ -19,6 +19,13 @@ describe('CLAS received date range', () => {
     });
   });
 
+  it('accepts a dated range, as a lent chart output carried by a link (#2763)', () => {
+    expect(resolveOperationDays({ from: '2026-09-24', to: '2026-09-25' }, applied)).toEqual({
+      from: '2026-09-24T00:00:00', to: '2026-09-26T00:00:00',
+    });
+    expect(resolveOperationDays({ from: '2025-09-24', to: '2025-09-25' }, applied)).toBeNull();
+  });
+
   it.each([
     ['09-20', '09-21'], // wholly outside
     ['09-22', '09-24'], // starts outside

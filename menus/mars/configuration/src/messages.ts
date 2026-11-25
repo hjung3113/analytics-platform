@@ -2,6 +2,7 @@ import type { Text } from '@ap/contracts';
 
 export const MESSAGES = {
   hwTimeTrend: { ko: 'HW Time', en: 'HW Time' },
+  hwDays: { ko: 'HW Time 날짜', en: 'HW Time days' },
   closeHwTime: { ko: 'HW Time 추세 닫기', en: 'Close HW Time trend' },
   openHwTime: { ko: 'HW Time에서 열기', en: 'Open in HW Time' },
   hwTimeUnmappedColumns: { ko: '다음 열은 HW Time 설비와 연결되지 않습니다. {columns}', en: 'These columns are not linked to HW Time equipment. {columns}' },

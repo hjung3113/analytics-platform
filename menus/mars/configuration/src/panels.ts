@@ -1,5 +1,5 @@
 import type { PanelDeclaration } from '@ap/contracts';
-import { AXIS_KEY, configurationDetailEndpoint, configurationExportEndpoint, configurationHistoryEndpoint, configurationLendingEndpoint, configurationPivotEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, TREND_ITEM_KEY } from './endpoints';
+import { AXIS_KEY, HW_DAYS_KEY, configurationDetailEndpoint, configurationExportEndpoint, configurationHistoryEndpoint, configurationLendingEndpoint, configurationPivotEndpoint, configurationTreeEndpoint, configurationTreeNavigationEndpoint, TREND_ITEM_KEY } from './endpoints';
 import { MESSAGES } from './messages';
 
 const context = ['time'] as const;
@@ -18,7 +18,7 @@ export const configurationPanels = {
   trend: {
     id: 'trend', title: MESSAGES.trend, grain: 'configItemEquipmentChange',
     queryInputs: { context, page: [equipment, { key: TREND_ITEM_KEY, required: true }] },
-    displayInputs: { page: comparison },
+    displayInputs: { page: [...comparison, { key: HW_DAYS_KEY, selection: 'highlight' }] },
     outputs: [], endpoints: [configurationHistoryEndpoint],
     availability: { requires: [{ anyOf: [TREND_ITEM_KEY] }], disabledReason: MESSAGES.trendItem },
     pieces: ['AnalysisChartFrame', 'LaneTimeline', 'QueryView'],

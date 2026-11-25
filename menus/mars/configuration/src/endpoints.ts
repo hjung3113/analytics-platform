@@ -60,10 +60,12 @@ export const readFilters = (values: readonly string[], equipment: readonly strin
 
 export const TREND_ITEM_KEY = 'trendItem';
 export const HW_TREND_ITEM_KEY = 'hwTrendItem';
+/** Days picked in the lent HW Time trend (#2763): the receiving analysis selection key of its `trendRange` output. */
+export const HW_DAYS_KEY = 'hwDays';
 export const HW_TREND_CLOSED = 'off';
 export const AXIS_KEY = 'axis';
 export const EQUIPMENT_AXIS = 'equipment';
-export const PAGE_KEYS = [AXIS_KEY, 'equipment', 'mode', 'ref', 'asOf', 'core', 'status', 'q', 'levels', 'filter', 'hideSameCols', TREND_ITEM_KEY, HW_TREND_ITEM_KEY];
+export const PAGE_KEYS = [AXIS_KEY, 'equipment', 'mode', 'ref', 'asOf', 'core', 'status', 'q', 'levels', 'filter', 'hideSameCols', TREND_ITEM_KEY, HW_TREND_ITEM_KEY, HW_DAYS_KEY];
 export const SAVED_VIEW_SUPPORT: SavedViewSupport = { menuId: 'configuration', menuSchemaVersion: 1, contextKeys: ['time'], pageKeys: PAGE_KEYS };
 // The synthetic latest value represents the end-of-period snapshot.
 const base = { menuId: 'configuration', permission: menuPermission('analytics:view'), requiresScope: true, context: { time: 'apply' } as const, kinds: ['collection', 'coverage'] as const, mergeTimeDomain: false };

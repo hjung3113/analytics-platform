@@ -26,6 +26,7 @@ type OperationPeriod = { from: string; to: string };
 type AppliedPeriod = Pick<GlobalContext, 'from' | 'to'>;
 const MONTH_DAY = /^\d{2}-\d{2}$/;
 const MIDNIGHT = 'T00:00:00';
+const FULL_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 function withinAppliedPeriod(range: OperationPeriod, applied: AppliedPeriod): boolean {
   return applied.from !== null && applied.to !== null && applied.from <= range.from && range.from < range.to && range.to <= applied.to;
@@ -33,10 +34,16 @@ function withinAppliedPeriod(range: OperationPeriod, applied: AppliedPeriod): bo
 
 /** Resolve inclusive HW Time category labels to a whole-day wall-clock query interval. */
 export function resolveOperationDays(days: OperationPeriod, applied: AppliedPeriod): OperationPeriod | null {
-  if (!applied.from || !applied.to || !MONTH_DAY.test(days.from) || !MONTH_DAY.test(days.to)) return null;
+  const dayLike = (value: string) => MONTH_DAY.test(value) || FULL_DATE.test(value);
+  if (!applied.from || !applied.to || !dayLike(days.from) || !dayLike(days.to)) return null;
   // Start with the applied start year. A query spanning New Year can also contain dates in its end year.
   const years = new Set([applied.from.slice(0, 4), applied.to.slice(0, 4)]);
   const resolveDay = (monthDay: string) => {
+    // A dated range (a lent chart's output carried by a link, #2763) names its year.
+    if (FULL_DATE.test(monthDay)) {
+      const day = periodFromDates({ start: monthDay, end: monthDay });
+      return day && withinAppliedPeriod(day, applied) ? day : null;
+    }
     for (const year of years) {
       const date = `${year}-${monthDay}`;
       const day = periodFromDates({ start: date, end: date });

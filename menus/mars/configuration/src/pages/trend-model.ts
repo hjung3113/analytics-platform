@@ -74,3 +74,25 @@ export function timelineModel(history: ConfigHistory, to: string, reference?: st
   }
   return { lanes, values, labels, hasMissing: lanes.some(lane => lane.segments.some(segment => segment.neutral)) };
 }
+
+/** A received HW Time day, `YYYY-MM-DD` or `MM-DD` (the year comes from the applied period, as on the HW Time axis). */
+export function resolveDay(value: string, period: { from: string; to: string }): string | null {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  if (!/^\d{2}-\d{2}$/.test(value)) return null;
+  const start = period.from.slice(0, 10);
+  const end = period.to.slice(0, 10);
+  for (const year of new Set([period.from.slice(0, 4), period.to.slice(0, 4)])) {
+    const day = `${year}-${value}`;
+    if (day >= start && day <= end) return day;
+  }
+  return null;
+}
+
+/** The change points on the received days, for the chart's highlight (#2763): not each line's period-start value or period-end carry point. */
+export function pointsOnDays(series: readonly ChartSeries[], days: { from: string; to: string } | null, period: { from: string; to: string }): string[] {
+  const from = days && resolveDay(days.from, period);
+  const to = days && resolveDay(days.to, period);
+  if (!from || !to || from > to) return [];
+  const xs = series.flatMap(line => line.points.slice(1).map(([x]) => String(x))).filter(x => x !== period.to && x.slice(0, 10) >= from && x.slice(0, 10) <= to);
+  return [...new Set(xs)].sort();
+}

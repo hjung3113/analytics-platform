@@ -68,11 +68,16 @@ export type PanelInputBinding<K extends string = string> =
   | { readonly kind: 'page'; readonly key: K }
   | { readonly kind: 'value'; readonly key: string };
 
-/** Read-only wiring from the receiving menu to the panel identified by `source`. */
+/** The receiving menu's analysis selection key that a lent panel's output writes (ADR-0176). */
+export type PanelOutputBinding<K extends string = string> = { readonly kind: 'page'; readonly key: K };
+
+/** Wiring from the receiving menu to the panel identified by `source`: inputs are read-only; `outputs` lets the
+ * source's analysis selection outputs (by source output key) write the receiver's own selection keys only. */
 export type PanelBinding<K extends string = string> = {
   readonly source: `${string}/${string}`;
   readonly context?: Readonly<Partial<Record<PanelContextKey, PanelInputBinding<K>>>>;
   readonly page?: Readonly<Record<string, PanelInputBinding<K>>>;
   readonly display?: Readonly<Record<string, Extract<PanelInputBinding<K>, { kind: 'value' }>>>;
+  readonly outputs?: Readonly<Record<string, PanelOutputBinding<K>>>;
 };
 

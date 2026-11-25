@@ -4,25 +4,26 @@ import { isRecord } from '@ap/contracts';
 import { useI18n, useMenuQuery, useMessages, type LentPanelProps } from '@ap/kernel';
 import { hwTimeOverview, type HwTimeRunQueryParams, type HwTimeRuns } from '../../endpoints';
 import { HW_TIME_NEW_PANEL_MESSAGES, HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
-import { LENT_EQUIPMENT_LABELS } from '../../panels';
+import { LENT_EQUIPMENT_LABELS, TREND_RANGE_OUTPUT } from '../../panels';
 import { readLentTrendInputs } from './lentTrendInputs';
 import { RunTrendChart } from './RunTrendChart';
 import { DEFAULT_RUN_TREND_SETTINGS, shapeRunTrend } from './runTrendData';
 
-function DailyTrend({ daily, requested, equipmentLabels }: { daily: HwTimeRuns['daily']; requested: number; equipmentLabels: ReadonlyMap<string, string> }) {
+function DailyTrend({ daily, requested, equipmentLabels, bound }: { daily: HwTimeRuns['daily']; requested: number; equipmentLabels: ReadonlyMap<string, string>; bound: boolean }) {
   const { lang } = useI18n();
   const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const panel = useMessages(HW_TIME_NEW_PANEL_MESSAGES);
-  const trend = useMemo(() => shapeRunTrend(daily, DEFAULT_RUN_TREND_SETTINGS, [], lang, { sharedBounds: true, equipmentLabels }), [daily, equipmentLabels, lang]);
+  const trend = useMemo(() => shapeRunTrend(daily, DEFAULT_RUN_TREND_SETTINGS, [], lang, { sharedBounds: true, equipmentLabels, fullDates: bound }), [daily, equipmentLabels, lang, bound]);
   const returned = trend.series.length;
   return <>
     {returned < requested && <p className="t-caption shrink-0 px-4 text-text-secondary">{panel('lentEquipmentCoverage', { requested, returned })}</p>}
     {trend.categories.length < 2 ? <p className="t-caption px-4 text-text-secondary">{m('trendNeedsDays')}</p>
-      : <RunTrendChart chartId="hw-time-lent-trend" trend={trend} description={m('synthetic')} />}
+      // Only a receiver that binds `trendRange` gets the picked days (#2763); otherwise the chart keeps its own local range.
+      : <RunTrendChart chartId="hw-time-lent-trend" trend={trend} description={m('synthetic')} analysisSelectionOutput={bound ? TREND_RANGE_OUTPUT : undefined} nextAnalysis={false} />}
   </>;
 }
 
-export default function LentTrendPanel({ inputs, actions }: LentPanelProps) {
+export default function LentTrendPanel({ inputs, actions, outputs }: LentPanelProps) {
   const result = readLentTrendInputs(inputs);
   if ('missing' in result) return null;
   const labels = inputs.display?.[LENT_EQUIPMENT_LABELS];
@@ -33,10 +34,10 @@ export default function LentTrendPanel({ inputs, actions }: LentPanelProps) {
       if (typeof label === 'string' && label.trim()) equipmentLabels.set(id, label);
     }
   }
-  return <BoundTrend params={result.params} equipmentLabels={equipmentLabels} actions={actions} />;
+  return <BoundTrend params={result.params} equipmentLabels={equipmentLabels} actions={actions} bound={!!outputs?.includes(TREND_RANGE_OUTPUT.key)} />;
 }
 
-function BoundTrend({ params, equipmentLabels, actions }: { params: HwTimeRunQueryParams; equipmentLabels: ReadonlyMap<string, string>; actions?: LentPanelProps['actions'] }) {
+function BoundTrend({ params, equipmentLabels, actions, bound }: { params: HwTimeRunQueryParams; equipmentLabels: ReadonlyMap<string, string>; actions?: LentPanelProps['actions']; bound: boolean }) {
   const query = useMenuQuery(hwTimeOverview.runs, params);
   const m = useMessages(HW_TIME_NEW_PANEL_MESSAGES);
   const title = m('dailyRuns', { module: params.drillModule, motion: params.drillMotion });
@@ -47,7 +48,7 @@ function BoundTrend({ params, equipmentLabels, actions }: { params: HwTimeRunQue
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </div>
     <div className="flex min-h-0 flex-1 flex-col">
-      <QueryView fill query={query}>{data => <DailyTrend daily={data.daily} equipmentLabels={equipmentLabels} requested={params.equipmentIds?.length ?? 1} />}</QueryView>
+      <QueryView fill query={query}>{data => <DailyTrend daily={data.daily} equipmentLabels={equipmentLabels} requested={params.equipmentIds?.length ?? 1} bound={bound} />}</QueryView>
     </div>
   </section>;
 }

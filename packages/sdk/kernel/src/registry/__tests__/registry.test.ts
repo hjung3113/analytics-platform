@@ -1271,7 +1271,8 @@ describe('lent panel registration (#2490)', () => {
     [{ ...binding, page: { level: { kind: 'page', key: 'unknown' } } }, /undeclared receiving page key "unknown"/],
     [{ ...binding, display: { unknown: { kind: 'value', key: 'label' } } }, /unknown source display input "unknown"/],
     [{ ...binding, source: 'source/other' }, /unknown source panel "source\/other"/],
-    [{ ...binding, outputs: { level: { kind: 'context', key: 'time' } } }, /cannot bind outputs/],
+    // A drill output is not an analysis selection, so a lent binding cannot write it (#2763).
+    [{ ...binding, outputs: { level: { kind: 'page', key: 'chosen' } } }, /not an analysis selection output/],
   ])('rejects invalid binding %j', (declaration, message) => {
     expect(() => build([declaration])).toThrow(RegistryError);
     expect(() => build([declaration])).toThrow(message);

@@ -49,9 +49,11 @@ const sourceRuns = defineEndpoint<{ equipment: readonly string[] | null; moduleT
 const sourcePageKeys = ['moduleType', 'drillModule', 'drillMotion'];
 const sourceMenu = testMenu({
   id: 'hw-time', path: '/hw-time', group: sourceGroup, permission: analytics, requiresScope: true,
-  context: contextCapabilities(sourceRuns.context), pageKeys: sourcePageKeys,
+  context: contextCapabilities(sourceRuns.context), pageKeys: [...sourcePageKeys, 'trendRange'], contextResetKeys: ['trendRange'],
   panels: [{
-    id: 'trend', title: sourceTitle, grain: 'dailyStat', endpoints: [sourceRuns], displayInputs: {}, outputs: [],
+    id: 'trend', title: sourceTitle, grain: 'dailyStat', endpoints: [sourceRuns], displayInputs: {},
+    // As the real HW Time panel: Configuration binds this output to its own `hwDays` key (#2763).
+    outputs: [{ key: 'trendRange', action: 'select', selection: { dimension: 'date', shape: 'range' } }],
     queryInputs: { context: ['scopeId', 'time', 'selection', 'roomNames', 'prcGroup', 'condition'], page: sourcePageKeys.map(key => ({ key, required: true })) },
     display: [{ key: 'equipmentLabels' }],
   }],
