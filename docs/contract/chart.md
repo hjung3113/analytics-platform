@@ -192,7 +192,8 @@ Source · Updated · Coverage
 - 날 값이 `JSON.parse`가 만드는 평범한 데이터여야 한다(getter·심볼·숨은 키·배열의 이름 붙은 키·`undefined`·순환 없음). 검사한 값이 곧 저장·전송되는 값이다.
 - 닫힌 형식이다: 모르는 키를 거부하므로 데이터 배열·행·hex·px·글꼴 값이 들어갈 자리가 없다. 색은 계열 토큰 이름(`chart-series-1`–`4`)만 받고, 없으면 순서대로 정한다. 숫자 표시는 함수가 아니라 서술자다.
 - `invalidChartConfig`(`@ap/contracts`)와 `chartConfigSchema`(`@ap/contract-schemas`)가 같은 규칙으로 판정하고, 서버·HTTP 어댑터·mock 저장소는 이 판정으로 저장을 거부하거나 저장된 값을 읽을 수 없음(`panelsUnreadable`)으로 연다.
-- 필드 메타데이터에 따른 판정(쌓을 수 없는 측정 등)과 `resolve(config, rows, fieldMeta)`는 다음 단계다.
+- 그리기: `resolveChartConfig(config, rows, fieldMeta, lang)`(`@ap/components`, 순수 함수)가 Chart Frame props(`series`·`unit`·`xType`·`orientation`·`stackMode`·`areaFill`·`reaggregation`·`valueFormat`·`rightAxis`·`metricVersion`)를 낸다. 선·막대의 그리는 입력은 이 props다(ADR-0176의 `ChartSpec` 자리). 차트 id·제목·Trust·콜백은 메뉴가 그대로 넘긴다. 계열은 측정 순서, `split`이면 처음 나온 값 순서이며, `split` 계열은 모든 x를 갖고 행이 없는 x는 미확인(`null`)이다.
+- 고치지 않고 거부한다(`status: 'problem'`, `field`는 걸린 필드): 필드 메타 없음(`unknown-field`), 측정이 선언한 단위 없음·빈 단위(`missing-unit`; 무차원 측정도 `배`·`건`·`ratio`처럼 단위를 선언하고, 백분율 서술자여도 같다), 한 축에 단위가 둘(`mixed-units`, 그 축 첫 측정과 다른 첫 측정), 모든 측정이 오른쪽 축(`right-axis-only`), 백분율 쌓기에 백분율 서술자(`format-conflict`: 쌓기는 합한 양의 몫을, 선택기는 양을 원래 단위로 보이므로 3이 `300 %`로 읽힌다), `sum`이 아닌 측정 쌓기(`not-additive`), 유한수가 아닌 측정·백분율 쌓기의 음수·벽시계 시각(`YYYY-MM-DDTHH:mm:ss`)이 아닌 time x·빈 category x·빈 split 값(`bad-value`), 같은 점의 행 둘 또는 숫자와 글자가 같은 이름으로 그려지는 x·split 값(`1`과 `'1'`, `duplicate-point`). 행 값과 필드 메타는 자기 키만 읽는다. 백분율 서술자는 값을 ×100한 백분율 점수로 그리고 단위를 `%`로 둔다. 축 눈금·툴팁·선택기·CSV가 0.5를 모두 `50 %`로 읽고, 점 콜백도 그린 값(50)을 받는다. `areaFill`은 준 값 그대로 넘기고, `split` 계열 색은 측정 토큰부터 순서대로 돈다. 사유 문구는 메뉴가 정한다.
 
 **메뉴가 선언한 지표·기준으로 만드는 차트 패널 (#2761, [ADR-0176](../adr/0176-user-analysis-menu-one-definition-two-homes.md)).** 메뉴는 `MenuMeta.chartFields`에 사용자가 고를 수 있는 지표와 기준을 선언한다. 선언하지 않은 메뉴의 패널 추가는 지금과 같다.
 
