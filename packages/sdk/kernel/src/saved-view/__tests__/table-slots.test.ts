@@ -26,3 +26,17 @@ it('late mounts apply once, absent entries stay untouched, and selection changes
   screen.register('tables', 'late', { value: {}, apply });
   expect(apply).toHaveBeenCalledOnce();
 });
+it('restore and a default apply of the same view reach each slot once in either order; a pick reapplies', () => {
+  for (const order of ['restore-first', 'default-first'] as const) {
+    const screen = createViewSlotStore().screen('home'); const panels = vi.fn(); const tables = vi.fn();
+    screen.register('panels', 'panels', { value: null, apply: panels });
+    screen.register('tables', 'raw', { value: {}, apply: tables });
+    const reentry = () => screen.restore('v', { panels: { panels: 'saved' } });
+    const viaDefault = () => screen.restore('v', { tables: { raw: {} }, panels: { panels: 'saved' } });
+    if (order === 'restore-first') { reentry(); viaDefault(); } else { viaDefault(); reentry(); }
+    expect(panels).toHaveBeenCalledExactlyOnceWith('saved');
+    expect(tables).toHaveBeenCalledOnce();
+    screen.apply('v', { tables: { raw: {} }, panels: { panels: 'saved' } });
+    expect(panels).toHaveBeenCalledTimes(2);
+  }
+});

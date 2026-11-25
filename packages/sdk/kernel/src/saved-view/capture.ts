@@ -59,9 +59,9 @@ export type ViewState = {
   unapplied: boolean;
 };
 /** The three states the selector shows; they never merge (06 §21.3). `saved` is the selected view resolved at `anchor`, null without a selection. */
-export function viewState(input: { applied: SavedState; saved: SavedState | null; draftDirty: readonly string[]; tableModified?: boolean }): ViewState {
+export function viewState(input: { applied: SavedState; saved: SavedState | null; draftDirty: readonly string[]; slotModified?: boolean }): ViewState {
   const same = input.saved !== null && stateKey(input.applied) === stateKey(input.saved);
   const hasContent = Object.keys(input.applied.context).length > 0 || input.applied.page.length > 0;
-  const modified = input.saved !== null && (!same || input.tableModified === true);
+  const modified = input.saved !== null && (!same || input.slotModified === true);
   return { modified, unsaved: modified || (input.saved === null && hasContent), unapplied: input.draftDirty.length > 0 };
 }

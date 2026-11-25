@@ -1,3 +1,4 @@
+import { isProduction } from '../context/drillValueLabel';
 type Slot = { value: unknown; apply: (value: never) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
 export type ViewSlots = ReturnType<typeof createScreenSlots>;
 function sameValue(left: unknown, right: unknown): boolean {
@@ -30,11 +31,15 @@ function createScreenSlots() {
     snapshot: () => revision,
     changed: emit,
     retry(field: string, key: string) { applyKey(field, key); emit(); },
-    register<T>(field: string, key: string, slot: { value: T; apply: (value: T) => void; accepts?: (value: T) => boolean; project?: (value: T) => T }) {
+    register<T>(field: string, key: string, slot: { value: T; apply: (value: T) => void; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
       let keys = fields.get(field);
       if (!keys) { keys = new Map(); fields.set(field, keys); }
       const entry = slot as Slot;
-      keys.set(key, [...(keys.get(key) ?? []), entry]);
+      const previous = keys.get(key) ?? [];
+      if (!isProduction() && slot.single && previous.length > 0) {
+        console.warn(`Saved view slot "${field}" accepts one registration per screen.`);
+      }
+      keys.set(key, [...previous, entry]);
       emit(); applyKey(field, key);
       return () => {
         const rest = (keys.get(key) ?? []).filter(item => item !== entry);
@@ -58,6 +63,19 @@ function createScreenSlots() {
     apply(viewId: string, values: Record<string, Record<string, unknown> | undefined>) {
       applied = { token: {}, viewId, fields: values, consumed: new Set() };
       for (const [field, keys] of fields) for (const key of keys.keys()) applyKey(field, key);
+    },
+    /**
+     * Re-entry and the personal default: deliver a view's values once. For the view already applied, only fields it did not carry yet are
+     * added, so a re-entry restore and a default apply of the same view, in either order, reach each slot once. A pick uses `apply`.
+     */
+    restore(viewId: string, values: Record<string, Record<string, unknown> | undefined>) {
+      if (applied?.viewId !== viewId) { this.apply(viewId, values); return; }
+      const current = applied;
+      for (const [field, value] of Object.entries(values)) {
+        if (Object.hasOwn(current.fields, field)) continue;
+        current.fields[field] = value;
+        for (const key of fields.get(field)?.keys() ?? []) applyKey(field, key);
+      }
     },
     select(viewId: string | null) { if (applied?.viewId !== viewId) applied = null; },
   };
