@@ -1,9 +1,9 @@
 import { parseQuery, type AnalysisSelection, type AnalysisSelectionShape, type AnalysisSelectionUse, type Text } from '@ap/contracts';
 import { use, useCallback, useEffect, useInsertionEffect, useMemo, useSyncExternalStore } from 'react';
-import { PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
+import { LentPanelOutputsContext, PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
 import { usePlatform, usePlatformOptional } from '../platform/hooks';
 import type { MenuPlatform } from '../platform/types';
-import { menuAnalysisSelections } from '../registry/analysis-selections';
+import { menuAnalysisSelections, type LentSelectionWriter } from '../registry/analysis-selections';
 import type { MenuEntry } from '../registry/registry';
 import { sameItems, useStable } from '../stable';
 import { analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
@@ -26,7 +26,12 @@ function sameSelection(a: AnalysisSelection | null, b: AnalysisSelection | null)
 }
 
 const noRoute = { panels: [] };
-const useChannels = (menu: MenuEntry | undefined) => useMemo(() => menuAnalysisSelections(menu ?? noRoute), [menu]);
+const noLent: readonly LentSelectionWriter[] = [];
+/** The menu's channels, with lent panels that bind outputs as writers after its own (#2763). */
+const useChannels = (menu: MenuEntry | undefined, registry: MenuPlatform['registry'] | undefined) => {
+  const lent = menu && registry ? registry.lentPanels(menu.id) : noLent;
+  return useMemo(() => menuAnalysisSelections(menu ?? noRoute, lent), [menu, lent]);
+};
 const useWriteScreen = (route: MenuPlatform['route']) => route ? use(PaneScreenContext) ?? use(ScreenContext) : null;
 
 function drillAddress(menu: MenuEntry | undefined, pageParam: MenuPlatform['pageParam']) {
@@ -61,7 +66,7 @@ function useSelectionHighlight(screen: ReturnType<typeof useWriteScreen>, addres
 export function useAnalysisSelectionSourceHighlighted(panelId: string) {
   const platform = usePlatformOptional();
   const screen = useWriteScreen(platform?.route ?? null);
-  const channels = useChannels(platform?.route?.menu);
+  const channels = useChannels(platform?.route?.menu, platform?.registry);
   const address = screen ? drillAddress(screen.route?.menu, screen.pageParam) : '';
   return useSelectionHighlight(screen, address, key => {
     const channel = channels.get(key);
@@ -103,7 +108,7 @@ export function useOptionalAnalysisSelectionOutput(output: { panelId: string; ke
   return useSelectionOutput(usePlatformOptional(), output, options);
 }
 
-function useSelectionOutput(platform: MenuPlatform | null, output: { panelId: string; key: string } | undefined, options?: AnalysisSelectionOutputOptions): {
+function useSelectionOutput(sourcePlatform: MenuPlatform | null, sourceOutput: { panelId: string; key: string } | undefined, options?: AnalysisSelectionOutputOptions): {
   selection: AnalysisSelection | null;
   select: (next: AnalysisSelection | null) => boolean;
   /** Whether readers of this source see the supplied availability (or its withdrawal). */
@@ -111,10 +116,15 @@ function useSelectionOutput(platform: MenuPlatform | null, output: { panelId: st
   /** Whether a chip for this output is currently hovered or focused. First writer only. */
   highlighted: boolean;
 } {
-  const { route, pageParam, pageParams, setPage } = (output && platform) || {};
+  // A lent panel's bound output writes the receiver's key as the lent writer, through a setPage limited to that key (#2763).
+  const lent = use(LentPanelOutputsContext);
+  const mapped = sourceOutput && lent?.keys.get(sourceOutput.key);
+  const platform: MenuPlatform | null = lent && mapped !== undefined ? lent.receiver : sourcePlatform;
+  const output = lent && mapped !== undefined ? { panelId: lent.writerId, key: mapped } : sourceOutput;
+  const { route, pageParam, pageParams, setPage, registry } = (output && platform) || {};
   const { panelId, key } = output ?? {};
   const screen = useWriteScreen(route ?? null);
-  const channels = useChannels(route?.menu);
+  const channels = useChannels(route?.menu, registry);
   const channel = key === undefined ? undefined : channels.get(key);
   const store = screen?.analysisSelectionAvailability;
   const address = pageParam ? drillAddress(route?.menu, pageParam) : '';
@@ -172,10 +182,10 @@ export function useAnalysisSelectionInputs(panelId: string): {
   /** Declared input keys whose valid values are absent from the source data. */
   unavailable: readonly string[];
 } {
-  const { route, pageParam, pageParams, session, revision, global } = usePlatform();
+  const { route, pageParam, pageParams, session, revision, global, registry } = usePlatform();
   const availability = useReportedAvailability(useWriteScreen(route), drillAddress(route?.menu, pageParam));
   const menu = route?.menu;
-  const channels = useChannels(menu);
+  const channels = useChannels(menu, registry);
   if (menu && !menu.panels?.some(panel => panel.id === panelId)) throw new RangeError(`Unknown panel "${panelId}" in menu "${menu.id}"`);
   const applied: AppliedAnalysisSelection[] = [];
   const rejected: string[] = [];
@@ -287,7 +297,7 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   const menu = route?.menu;
   const paneId = screen?.paneId;
   const scopeId = global.scopeId;
-  const channels = useChannels(menu);
+  const channels = useChannels(menu, platform.registry);
   const origin = menu?.analysisSelectionInbound?.length ? readSelectionOrigin(platform) : null;
   const active: Omit<AnalysisSelectionChip, 'after'>[] = [];
   const reports = new Map<string, AnalysisSelectionAvailability>();

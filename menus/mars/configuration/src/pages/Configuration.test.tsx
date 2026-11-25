@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PageFilterField, PanelWorkspaceProps, QueryBarExtension, TreeMatrixProps } from '@ap/components';
 import { encodeFilterParams, parseQuery, buildQuery, emptyGlobal, type MatrixColumn } from '@ap/contracts';
 import { I18nProvider } from '@ap/kernel';
-import { DEFAULT_LEVELS, PAGE_KEYS, SAVED_VIEW_SUPPORT, HW_TREND_ITEM_KEY, TREND_ITEM_KEY, equipmentFromKey, equipmentToKey, validEquipmentKey, type TreeRow } from '../endpoints';
+import { DEFAULT_LEVELS, PAGE_KEYS, SAVED_VIEW_SUPPORT, HW_DAYS_KEY, HW_TREND_ITEM_KEY, TREND_ITEM_KEY, equipmentFromKey, equipmentToKey, validEquipmentKey, type TreeRow } from '../endpoints';
 import { manifests } from '../index';
 import Configuration from './Configuration';
 
@@ -40,7 +40,7 @@ describe('Configuration page', () => {
   it('labels toolbar keys and formats arbitrary history candidates without capturing current values', () => {
     state.page = { equipment: 'EQ01,EQ02', mode: 'reference', ref: 'EQ01', core: '1', levels: 'category,module', hideSameCols: '1', q: 'Pressure', status: 'all', filter: ['module:eq:PM1'] };
     draw();
-    expect(extension.appliedPageSummary?.map(item => item.key)).toEqual(expect.arrayContaining(PAGE_KEYS.filter(key => key !== TREND_ITEM_KEY && key !== HW_TREND_ITEM_KEY)));
+    expect(extension.appliedPageSummary?.map(item => item.key)).toEqual(expect.arrayContaining(PAGE_KEYS.filter(key => key !== TREND_ITEM_KEY && key !== HW_TREND_ITEM_KEY && key !== HW_DAYS_KEY)));
     expect(extension.appliedPageSummary?.find(item => item.key === 'levels')?.value).toBe('Category › Module');
     expect(extension.appliedPageSummary?.find(item => item.key === 'mode')?.value).toBe('referenceMode');
     expect(extension.appliedPageSummary?.find(item => item.key === 'hideSameCols')).toEqual({ key: 'hideSameCols', label: '차이 없는 설비 숨기기', value: 'enabled' });

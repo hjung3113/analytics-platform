@@ -10,13 +10,15 @@ import type { shapeRunTrend } from './runTrendData';
 /** Lowest plot height before the panel body scrolls (px). */
 const RUN_FILL_MIN = 200;
 
-export function RunTrendChart({ chartId, trend, description, activeCategory, toolbarStart, analysisSelectionOutput, nextAnalysisTarget }: {
+export function RunTrendChart({ chartId, trend, description, activeCategory, toolbarStart, analysisSelectionOutput, nextAnalysis = analysisSelectionOutput !== undefined, nextAnalysisTarget }: {
   chartId: string;
   trend: ReturnType<typeof shapeRunTrend>;
   description: string;
   activeCategory?: string | null;
   toolbarStart?: ReactNode;
   analysisSelectionOutput?: AnalysisChartFrameProps['analysisSelectionOutput'];
+  /** Default: on with an output. A lent chart turns it off; «다음 분석» belongs to the HW Time screen. */
+  nextAnalysis?: boolean;
   nextAnalysisTarget?: AnalysisChartFrameProps['nextAnalysisTarget'];
 }) {
   const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
@@ -27,5 +29,5 @@ export function RunTrendChart({ chartId, trend, description, activeCategory, too
     valueFormat={value => formatSeconds(value, lang)} size="fill" fillMin={RUN_FILL_MIN}
     emphasisFocus="none" canApplyRange={false} activeCategory={activeCategory} pointStatus={pointStatus}
     bounds={trend.bounds.size ? trend.bounds : undefined} boundLabels={trend.boundLabels} analysisSelectionOutput={analysisSelectionOutput}
-    nextAnalysis={analysisSelectionOutput !== undefined} nextAnalysisTarget={nextAnalysisTarget} />;
+    nextAnalysis={nextAnalysis} nextAnalysisTarget={nextAnalysisTarget} />;
 }

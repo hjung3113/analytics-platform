@@ -2,8 +2,8 @@ import { createContext, memo, Suspense, useContext, useId, useInsertionEffect, u
 import { replaceEqualDeep } from '@tanstack/react-query';
 import type { GlobalContext, PanelBinding } from '@ap/contracts';
 import { messageText } from '../i18n';
-import { AppContext, LentPanelPlatformContext } from '../platform/contexts';
-import { lentPanelPlatform } from '../platform/lent-panel-platform';
+import { AppContext, LentPanelOutputsContext, LentPanelPlatformContext } from '../platform/contexts';
+import { lentPanelOutputs, lentPanelPlatform } from '../platform/lent-panel-platform';
 import { useHostPlatform } from '../platform/platform';
 import { useQueryContext } from '../query/condition-preset';
 import { LentPanelQueryContext } from '../query/lent-panel-context';
@@ -17,6 +17,8 @@ type Values = Readonly<Record<string, unknown>>;
 export type LentPanelProps = {
   inputs: { context: Readonly<GlobalContext>; page: Values; display?: Values };
   actions?: ReactNode;
+  /** Source output keys the receiving menu binds (#2763). Declare `analysisSelectionOutput` only for these; absent = none. */
+  outputs?: readonly string[];
 };
 
 export type LentPanelRegistration = {
@@ -113,7 +115,7 @@ function useResolvedLending(source: Source, values: Values | undefined) {
   if (missing !== undefined && !binding.source.display?.some(input => input.key === missing)) return missingLentPanelInput(missing, binding.source);
   const inputs = sourceCopy(resolved.inputs);
   if ('missing' in inputs) return missingLentPanelInput(inputs.missing, binding.source, 'page');
-  return { ...resolved, inputs, Component: registration.component, source: binding.source, receiverPlatform };
+  return { ...resolved, inputs, Component: registration.component, source: binding.source, binding: binding.binding, receiverPlatform };
 }
 
 /** The receiving menu reads this verdict to place a reason next to the selection. */
@@ -134,7 +136,9 @@ const LentPanelActionsContext = createContext<ReactNode>(null);
 function LentPanelActions() {
   const actions = useContext(LentPanelActionsContext);
   return <LentPanelPlatformContext.Provider value={null}>
-    <LentPanelQueryContext.Provider value={null}>{actions}</LentPanelQueryContext.Provider>
+    <LentPanelOutputsContext.Provider value={null}>
+      <LentPanelQueryContext.Provider value={null}>{actions}</LentPanelQueryContext.Provider>
+    </LentPanelOutputsContext.Provider>
   </LentPanelPlatformContext.Provider>;
 }
 
@@ -144,7 +148,7 @@ function LentPanelSource({ resolved, actions }: {
   resolved: Extract<ReturnType<typeof useResolvedLending>, { allowed: true }>;
   actions?: ReactNode;
 }) {
-  const { Component, receiverPlatform, source } = resolved;
+  const { Component, receiverPlatform, source, binding: lending } = resolved;
   const inputs = useStable(resolved.inputs, sameInputs);
   const queryInputs = useStable({ context: inputs.context, page: inputs.page }, (held, next) => replaceEqualDeep(held, next) === held);
   const { adapter, route, session, revision, queryPolicy } = receiverPlatform;
@@ -162,6 +166,8 @@ function LentPanelSource({ resolved, actions }: {
   // Revoke before layout effects can use a previous callback. StrictMode's layout-effect replay does not end this binding.
   useInsertionEffect(() => () => controller.abort(), [controller]);
   const platform = useMemo(() => lentPanelPlatform(receiverPlatform, queryInputs), [receiverPlatform, queryInputs]);
+  const outputs = useMemo(() => lentPanelOutputs(receiverPlatform, lending.source, lending.outputs), [receiverPlatform, lending]);
+  const outputKeys = useMemo(() => outputs ? [...outputs.keys.keys()] : undefined, [outputs]);
   const query = useMemo(() => ({
     source, context: structuredClone(queryInputs.context), instanceId: `${instanceId}:${generation}`, signal: controller.signal,
     current: () => !controller.signal.aborted && adapter.session() === session && currentRevision?.() === revision,
@@ -169,9 +175,11 @@ function LentPanelSource({ resolved, actions }: {
   return <LentPanelActionsContext.Provider value={actions}>
     <LentPanelQueryContext.Provider value={query}>
       <LentPanelPlatformContext.Provider value={platform}>
-        <Suspense fallback={null}>
-          <Component inputs={inputs} actions={actions == null ? actions : headerActions} />
-        </Suspense>
+        <LentPanelOutputsContext.Provider value={outputs}>
+          <Suspense fallback={null}>
+            <Component inputs={inputs} actions={actions == null ? actions : headerActions} {...(outputKeys && { outputs: outputKeys })} />
+          </Suspense>
+        </LentPanelOutputsContext.Provider>
       </LentPanelPlatformContext.Provider>
     </LentPanelQueryContext.Provider>
   </LentPanelActionsContext.Provider>;

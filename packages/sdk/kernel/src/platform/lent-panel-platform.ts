@@ -1,6 +1,7 @@
 import { buildQuery, type Pair } from '@ap/contracts';
 import { createPageNavigation } from '../context/pageNavigation';
 import type { LentPanelProps } from '../registry/LentPanel';
+import type { LentPanelOutputs } from './contexts';
 import type { HostPlatform } from './types';
 
 const noWrite = () => {};
@@ -48,4 +49,19 @@ export function lentPanelPlatform(receiver: HostPlatform, inputs: LentPanelProps
       status: 'disabled', entries: [], restore: async () => false, remove: async () => {}, clear: async () => {}, open: noWrite,
     },
   };
+}
+
+/**
+ * The write side of a lent panel's bound outputs (#2763): the receiver's own screen state with a `setPage` that writes only
+ * the receiving keys the binding maps. Every other write (URL, Context, drill, draft) stays as in `lentPanelPlatform`.
+ */
+export function lentPanelOutputs(receiver: HostPlatform, writerId: string, outputs: Readonly<Record<string, { key: string }>> | undefined): LentPanelOutputs | null {
+  const keys = new Map(Object.entries(outputs ?? {}).map(([source, target]) => [source, target.key]));
+  if (!keys.size) return null;
+  const allowed = new Set(keys.values());
+  const setPage: HostPlatform['setPage'] = (patch, options) => {
+    if (!Object.keys(patch).every(key => allowed.has(key))) throw new Error('A lent panel writes only the receiving keys its binding maps');
+    receiver.setPage(patch, options);
+  };
+  return { receiver: { ...receiver, setPage }, writerId, keys };
 }

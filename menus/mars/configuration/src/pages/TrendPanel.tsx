@@ -1,13 +1,14 @@
 import { useMemo } from 'react';
 import { X } from 'lucide-react';
 import { formatWallClock } from '@ap/contracts';
-import { useMenuQuery, useMessages, useQueryContext } from '@ap/kernel';
+import { useAnalysisSelectionInputs, useMenuQuery, useMessages, useQueryContext } from '@ap/kernel';
 import { AnalysisChartFrame, LaneTimeline, QueryView, type ChartSeries } from '@ap/components';
 import { Button, EmptyState } from '@ap/ui';
-import { configurationHistoryEndpoint, historyPeriod, type CompareParams, type ConfigHistory } from '../endpoints';
+import { configurationHistoryEndpoint, historyPeriod, HW_DAYS_KEY, type CompareParams, type ConfigHistory } from '../endpoints';
 import { MESSAGES } from '../messages';
+import { configurationPanels } from '../panels';
 import type { Message } from './comparison';
-import { historyColors, historyPoints, MISSING, NEUTRAL, REFERENCE, timelineModel, trendSwatches } from './trend-model';
+import { historyColors, historyPoints, MISSING, NEUTRAL, pointsOnDays, REFERENCE, timelineModel, trendSwatches } from './trend-model';
 
 const TREND_TICK_SPACING = 72;
 const TREND_CHART_MIN = 200;
@@ -23,8 +24,10 @@ function TrendLegend({ entries, m }: { entries: LegendEntry[]; m: Message }) {
   </span>;
 }
 
-function NumericTrend({ history, itemId, period, reference, trust, m }: {
-  history: ConfigHistory; itemId: string; period: Period; reference?: string; trust: Parameters<typeof AnalysisChartFrame>[0]['trust']; m: Message;
+type HwDays = { from: string; to: string } | null;
+
+function NumericTrend({ history, itemId, period, reference, trust, m, hwDays }: {
+  history: ConfigHistory; itemId: string; period: Period; reference?: string; trust: Parameters<typeof AnalysisChartFrame>[0]['trust']; m: Message; hwDays: HwDays;
 }) {
   const colors = historyColors(history, reference);
   const order = { [NEUTRAL]: 0, [REFERENCE]: 2 };
@@ -37,19 +40,21 @@ function NumericTrend({ history, itemId, period, reference, trust, m }: {
   const count = lines.filter(line => line.color === NEUTRAL).length;
   const legend: LegendEntry[] = lines.filter(line => line.color !== NEUTRAL).map(line => ({ value: line.name, color: line.color }));
   if (count > 0) legend.unshift({ value: m('trendRemainder', { count }), color: NEUTRAL });
+  const highlighted = pointsOnDays(lines, hwDays, period);
   return <div className="flex min-h-0 flex-1 flex-col" data-configuration-numeric>
     <AnalysisChartFrame chartId={`configuration-trend-${itemId}`} title={m('values')} unit="" series={lines}
       yFit xType="time" period={period} size="fill" fillMin={TREND_CHART_MIN} summary="quiet" zoomOnly
-      legend={false} legendCaption={<TrendLegend entries={legend} m={m} />} visibleSeriesIds={lines.map(line => line.id)} trust={trust} />
+      legend={false} legendCaption={<TrendLegend entries={legend} m={m} />} visibleSeriesIds={lines.map(line => line.id)} trust={trust}
+      highlightedValues={highlighted} />
   </div>;
 }
 
-function HistoryChart({ history, itemId, period, reference, trust, m }: Parameters<typeof NumericTrend>[0]) {
+function HistoryChart({ history, itemId, period, reference, trust, m, hwDays }: Parameters<typeof NumericTrend>[0]) {
   const referenceLabel = m('reference');
   const { to } = period;
   const timeline = useMemo(() => history.valueType === 'string' ? timelineModel(history, to, reference, referenceLabel) : null,
     [history, to, reference, referenceLabel]);
-  if (!timeline) return <NumericTrend {...{ history, itemId, period, reference, trust, m }} />;
+  if (!timeline) return <NumericTrend {...{ history, itemId, period, reference, trust, m, hwDays }} />;
   const { lanes, values, labels, hasMissing } = timeline;
   const legend: LegendEntry[] = hasMissing ? [...values, { value: m('missing'), color: MISSING }] : values;
   const valueOf = (segment: { id: string }) => labels.get(segment.id) ?? m('missing');
@@ -83,6 +88,9 @@ export function TrendPanel({ itemId, params, close }: { itemId: string; params: 
   const query = useMenuQuery(configurationHistoryEndpoint, { itemId, equipment: params.eq }, { enabled: period !== null });
   const trust = query.response?.trust;
   const reference = params.mode === 'reference' ? params.ref : undefined;
+  // Days picked in the lent HW Time trend (#2763) outline the changes made on those days; the query is unchanged.
+  const received = useAnalysisSelectionInputs(configurationPanels.trend.id).applied.find(input => input.key === HW_DAYS_KEY)?.selection;
+  const hwDays = received?.shape === 'range' ? { from: received.from, to: received.to } : null;
   return <div className="flex h-full min-h-0 min-w-0 flex-col overflow-auto break-keep" data-configuration-trend>
     <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border-subtle px-4 py-2">
       <div className="min-w-0">
@@ -92,7 +100,7 @@ export function TrendPanel({ itemId, params, close }: { itemId: string; params: 
       <Button variant="ghost" size="icon-sm" aria-label={m('closeTrend')} onClick={close}><X aria-hidden /></Button>
     </div>
     <QueryView query={query} fill>{history => period && validHistory(history, params.eq, period)
-      ? <HistoryChart {...{ history, itemId, period, reference, trust, m }} />
+      ? <HistoryChart {...{ history, itemId, period, reference, trust, m, hwDays }} />
       : <EmptyState title={m('invalidHistory')} />}</QueryView>
   </div>;
 }

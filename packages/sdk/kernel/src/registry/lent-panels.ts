@@ -3,6 +3,7 @@ import {
   type ContextKey, type GlobalContext, type Pair, type PanelBinding, type PanelContextKey, type PanelInputBinding, type Session, type Text,
 } from '@ap/contracts';
 import { messageText, queryMissingSentence } from '../i18n';
+import { lentOutputProblem, menuAnalysisSelections } from './analysis-selections';
 import type { RegisteredPanel } from './panels';
 import { CONTEXT_LABELS, type MenuEntry } from './registry';
 import { isIdShape } from './shapes';
@@ -267,7 +268,6 @@ export function registerLentPanels(menus: readonly MenuEntry[], panels: readonly
       if (parts.length !== 2 || !isIdShape(sourceMenuId) || !isIdShape(panelId)) return invalid('must identify a menu and panel');
       if (seen.has(binding.source)) invalid('has a duplicate binding');
       seen.add(binding.source);
-      if ('outputs' in binding) invalid('cannot bind outputs');
       for (const map of [binding.context, binding.page, binding.display]) {
         if (map !== undefined && (!map || typeof map !== 'object' || Array.isArray(map))) invalid('input bindings must be maps');
         for (const input of Object.values(map ?? {})) validateReceiverInput(menu, input, invalid);
@@ -281,6 +281,15 @@ export function registerLentPanels(menus: readonly MenuEntry[], panels: readonly
         return [];
       }
       const source = sources.get(binding.source) ?? invalid(`has unknown source panel "${binding.source}"`);
+      if (binding.outputs !== undefined) {
+        if (!binding.outputs || typeof binding.outputs !== 'object' || Array.isArray(binding.outputs)) invalid('outputs must be a map');
+        // Only the receiver's own channels: a lent output never writes URL, Context, drill or draft state (ADR-0176).
+        const channels = menuAnalysisSelections(menu);
+        for (const [key, target] of Object.entries(binding.outputs)) {
+          const problem = lentOutputProblem(channels, source, key, target);
+          if (problem) invalid(problem);
+        }
+      }
       return [registerBinding(menu, binding, source, label, invalid)];
     }));
   }
