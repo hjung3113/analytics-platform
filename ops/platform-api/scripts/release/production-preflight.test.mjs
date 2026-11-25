@@ -108,6 +108,36 @@ test('preflight: a specific IPv6 address needs no acknowledgement', () => {
   assert.equal(r.code, 0, r.lines.join('\n'));
 });
 
+test('preflight: MinIO service-account key lengths match mc svcacct add (#2922)', () => {
+  // mc admin user svcacct add takes an access key of 3-20 and a secret key of 8-40 characters.
+  const longKey = run({ STORAGE_S3_ACCESS_KEY_ID: 'k'.repeat(21) });
+  assert.equal(longKey.code, 1);
+  assert.ok(
+    longKey.lines.includes(
+      'preflight: STORAGE_S3_ACCESS_KEY_ID must be 3-20 characters (openssl rand -hex 8)',
+    ),
+  );
+  assert.ok(!longKey.lines.some((l) => l.includes('k'.repeat(21))), 'the value is never printed');
+  const longSecret = run({ STORAGE_S3_SECRET_ACCESS_KEY: 's'.repeat(41) });
+  assert.equal(longSecret.code, 1);
+  assert.ok(
+    longSecret.lines.includes(
+      'preflight: STORAGE_S3_SECRET_ACCESS_KEY must be 8-40 characters (openssl rand -hex 16)',
+    ),
+  );
+  assert.equal(run({ STORAGE_S3_SECRET_ACCESS_KEY: 's'.repeat(7) }).code, 1);
+  assert.equal(run({ STORAGE_S3_ACCESS_KEY_ID: 'ab' }).code, 1);
+  assert.equal(
+    run({ STORAGE_S3_ACCESS_KEY_ID: 'k'.repeat(20), STORAGE_S3_SECRET_ACCESS_KEY: 's'.repeat(40) })
+      .code,
+    0,
+  );
+  assert.equal(
+    run({ STORAGE_S3_ACCESS_KEY_ID: 'abc', STORAGE_S3_SECRET_ACCESS_KEY: 's'.repeat(8) }).code,
+    0,
+  );
+});
+
 test('preflight: usage error without a file', () => {
   assert.equal(spawnSync('bash', [PREFLIGHT], { encoding: 'utf8' }).status, 2);
 });

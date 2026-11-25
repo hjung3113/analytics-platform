@@ -42,7 +42,7 @@ bash scripts/release/stack-status.sh .env.production
 
 ### MinIO backend 키 분리·교체
 
-운영 backend에는 root 키 대신 `STORAGE_S3_ACCESS_KEY_ID`·`STORAGE_S3_SECRET_ACCESS_KEY`를 줍니다. `minio-bootstrap`은 기존 `MINIO_IMAGE`의 `mc`로 버킷을 만들고, root 아래 서비스 계정을 생성하거나 같은 access key의 secret·정책을 갱신합니다. 이미지에는 `mc admin user svcacct add/edit/info`가 있어야 합니다. 정책은 지정 버킷의 위치·목록 조회와 객체 get/put/delete와 실패한 multipart 업로드 중단만 허용하며, 다른 버킷·버킷 삭제·관리 API는 허용하지 않습니다. root 키는 MinIO 서버와 일회성 bootstrap에만 전달됩니다.
+운영 backend에는 root 키 대신 `STORAGE_S3_ACCESS_KEY_ID`·`STORAGE_S3_SECRET_ACCESS_KEY`를 줍니다. `minio-bootstrap`은 기존 `MINIO_IMAGE`의 `mc`로 버킷을 만들고, root 아래 서비스 계정을 생성하거나 같은 access key의 secret·정책을 갱신합니다. 이미지에는 `mc admin user svcacct add/edit/info`가 있어야 합니다. `mc`는 access key 3~20자, secret key 8~40자만 받습니다(`openssl rand -hex 8`, `openssl rand -hex 16`). 길이가 벗어나면 `production-preflight.sh`가 먼저 멈춥니다. 정책은 지정 버킷의 위치·목록 조회와 객체 get/put/delete와 실패한 multipart 업로드 중단만 허용하며, 다른 버킷·버킷 삭제·관리 API는 허용하지 않습니다. root 키는 MinIO 서버와 일회성 bootstrap에만 전달됩니다.
 
 복구 pin 파일을 쓰는 기존 설치도 먼저 아래 1~2단계로 새 키를 설정합니다. 그 뒤 이 버전의 `upgrade.sh`를 실행하면 예전 `minio-bootstrap`의 backend 이미지 pin을 `MINIO_IMAGE`로 교체합니다. 아래 3단계처럼 bootstrap을 직접 실행할 때는 먼저 pin 파일에서 해당 서비스의 `image`를 현재 `MINIO_IMAGE`로 고치고, 아래 명령에도 그 pin 파일을 `-f`로 포함합니다. 새 볼륨 복구는 객체 검증 뒤 같은 bootstrap을 실행하고 나서 backend 준비 상태를 확인합니다.
 
