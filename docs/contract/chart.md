@@ -212,6 +212,7 @@ boxPlot은 원자료 대신 호출자가 계산한 통계를 받으며 min/max�
 - `HistogramSpec.selectedBin`은 시작·끝이 모두 같은 bin을 선택한다. 이 prop을 주면 클릭·표 선택·초기화가 가능하며, 경계 값이나 전역 Context가 바뀔 때까지 차트 안 선택을 유지한다(#2943).
 
 네 선택 prop에서 `null`·그려지지 않은 값은 선택 없음이며, 생략하면 기존 동작을 유지한다.
+`AnalysisChart`가 선택 prop을 따르는 동안 빈 상태를 표시하면 아무 항목도 선택하지 않으며 선택 요약도 숨긴다.
 
 ### TopN·Lane 시간선 (Decided, #576)
 

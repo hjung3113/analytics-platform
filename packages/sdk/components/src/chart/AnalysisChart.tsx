@@ -216,6 +216,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const brushable = isBrushableKind(spec.kind);
   const singleSelect = isSingleSelectKind(spec.kind);
   const { cells, rows, total, extended } = useMemo(() => chartData(spec, lang, p.unit), [spec, lang, p.unit]);
+  const empty = extended ? extended.empty : spec.kind === 'heatmap' ? !cells.length : total === 0;
   const statusLegend = useMemo(() => distinctStatuses(cells.map(c => c.status)), [cells]);
   const hasStatuses = statusLegend.length > 0;
   // `fill`: the plot box takes the height its container leaves; a top-N bar keeps its row-count height only until that is measured.
@@ -234,13 +235,14 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const contextKey = JSON.stringify([platform?.user?.id, platform?.revision, global]);
   const [previousContext, setPreviousContext] = useState(contextKey);
   const following = selected === null;
+  const followingEmptyChart = following && empty;
   const active = useMemo(() => {
     if (previousContext !== contextKey) return [];
     if (selected !== null) return selected.filter(key => keySet.has(key));
-    if (followedKey == null) return [];
+    if (followedKey == null || empty) return [];
     const drawn = extended ? extended.seriesKeys.some(keys => keys.includes(followedKey)) : keySet.has(followedKey);
     return drawn ? [followedKey] : [];
-  }, [previousContext, contextKey, selected, followedKey, keySet, extended]);
+  }, [previousContext, contextKey, selected, followedKey, keySet, extended, empty]);
   const activeSet = useMemo(() => new Set(active), [active]);
   if (previousContext !== contextKey) {
     setPreviousContext(contextKey);
@@ -402,7 +404,6 @@ export function AnalysisChart(p: AnalysisChartProps) {
     const cell = cells[params.dataIndex];
     if (cell) spec.cellActivation.onActivate(cell.x, cell.y);
   };
-  const empty = extended ? extended.empty : spec.kind === 'heatmap' ? !cells.length : total === 0;
   const categorical = spec.kind === 'heatmap' && spec.categories !== undefined;
   const headers = extended?.headers ?? (spec.kind === 'heatmap' ? ['x', 'y', m('chartHeaderValue'), ...(categorical ? [m('chartHeaderCategory')] : []), ...(hasStatuses ? [m('chartHeaderStatus')] : [])] : [m('chartHeaderName'), m('chartHeaderValue'), '%']);
   const tableValues = extended?.tableValues ?? rows.map(row => spec.kind === 'heatmap' ? [row.x!, row.y!, valueText(row.value), ...(categorical ? [row.categoryLabel!] : []), ...(hasStatuses ? [statusText(row.status)] : [])] : [row.label, valueText(row.value), percent(row.share ?? 0)]);
@@ -578,7 +579,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       </div>}
       </ChartLegendLayout>
       {topN && expanded && <ChartGestureHint point={rows.length > 0} additive={!singleSelect} drill={canDrill} />}
-      {selectionEnabled && <section tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !selectedActionRow?.drill ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs text-text-secondary' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
+      {selectionEnabled && !followingEmptyChart && <section tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !selectedActionRow?.drill ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs text-text-secondary' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
         {selectionSummary}
         {hasStatuses && summaryRows.filter(row => row.status).map(row => <p key={row.key}>{row.label}: {statusText(row.status)}</p>)}
         {spec.kind === 'heatmap' && spec.cellActivation && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartActivatePoint') : undefined} title={compactChrome ? m('chartActivatePoint') : undefined} disabled={brushMode || !selectedCell} onClick={() => { if (!brushMode && selectedCell) spec.cellActivation?.onActivate(selectedCell.x, selectedCell.y); }}>{compactChrome ? <Play className="size-3.5" aria-hidden /> : m('chartActivatePoint')}</Button>}

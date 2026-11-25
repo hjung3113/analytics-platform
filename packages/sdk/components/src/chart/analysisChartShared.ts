@@ -8,7 +8,9 @@ import { token } from './EChart';
 
 export const seriesColors: ThemeColorToken[] = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'];
 export const rowKey = (kind: string, id: string) => JSON.stringify([kind, 'row', id]);
-export const histogramBinKey = ({ start, end }: Pick<HistogramBin, 'start' | 'end'>) => JSON.stringify(['histogram', start, end]);
+const histogramBoundKey = (value: number) => Number.isFinite(value) ? value : String(value);
+export const histogramBinKey = ({ start, end }: Pick<HistogramBin, 'start' | 'end'>) =>
+  JSON.stringify(['histogram', histogramBoundKey(start), histogramBoundKey(end)]);
 export function followedChartKey(spec: ChartSpec): string | null | undefined {
   switch (spec.kind) {
     case 'heatmap': return undefined;

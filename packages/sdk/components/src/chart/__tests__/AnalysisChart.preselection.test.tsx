@@ -155,3 +155,56 @@ it('keeps the existing non-selectable histogram when the prop is omitted', async
   expect(screen.queryByRole('checkbox')).toBeNull();
   expect([markWidth(0), markWidth(1)]).toEqual([0, 0]);
 });
+
+it('hides the page selection summary when Pareto becomes empty', () => {
+  const spec = (value: number): ChartSpec => ({
+    kind: 'pareto', items: [{ id: 'a', label: 'Alpha', value }], selectedId: 'a',
+  });
+  const view = mount(spec(1));
+  expect(summary()).toHaveTextContent('Alpha · 1개 선택');
+
+  view.update(spec(0));
+  expect(screen.getByText('데이터 없음')).toBeVisible();
+  expect(screen.queryByRole('region', { name: '선택 요약' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+  expect(screen.getByRole('table')).toHaveTextContent('Alpha');
+  expect(screen.getByRole('checkbox', { name: '선택 Alpha' })).not.toBeChecked();
+});
+
+it('clears local histogram selection when the page changes a NaN bound to Infinity', async () => {
+  const spec = (start: number): ChartSpec => ({
+    kind: 'histogram', xUnit: 's', xLabel: 'Duration', bins, selectedBin: { start, end: 1 },
+  });
+  const view = mount(spec(NaN));
+  await screen.findByRole('img');
+  expect(summary()).toHaveTextContent('선택 없음');
+  clickMark(0);
+  expect(summary()).toHaveTextContent('0–1 · 1개 선택');
+
+  view.update(spec(Infinity));
+  expect(summary()).toHaveTextContent('선택 없음');
+  expect(markWidth(0)).toBe(0);
+});
+
+it('supports histogram table selection, Reset and plot clicks when selectedBin starts as null', async () => {
+  mount(cases[3].spec(null));
+  await screen.findByRole('img');
+  expect(summary()).toHaveTextContent('선택 없음');
+
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+  const firstBin = screen.getByRole('checkbox', { name: '선택 0–1' });
+  fireEvent.click(firstBin);
+  expect(firstBin).toBeChecked();
+  expect(summary()).toHaveTextContent('0–1 · 1개 선택');
+  expect(markWidth(0)).toBe(1.5);
+
+  fireEvent.click(screen.getByRole('button', { name: '초기화' }));
+  expect(firstBin).not.toBeChecked();
+  expect(summary()).toHaveTextContent('선택 없음');
+  expect(markWidth(0)).toBe(0);
+
+  clickMark(1);
+  expect(screen.getByRole('checkbox', { name: '선택 1–2' })).toBeChecked();
+  expect(summary()).toHaveTextContent('1–2 · 1개 선택');
+  expect(markWidth(1)).toBe(1.5);
+});
