@@ -101,7 +101,7 @@ export function referenceBandData(theme: Theme, marks?: readonly ChartReferenceM
   });
 }
 
-export function referenceMarkOptions(theme: Theme, marks?: readonly ChartReferenceMark[]) {
+export function referenceMarkOptions(theme: Theme, marks?: readonly ChartReferenceMark[]): { markLine?: MarkLine; markArea?: MarkArea } {
   const valid = marks?.filter(isFiniteReferenceMark);
   const bands = referenceBandData(theme, valid);
   return {
