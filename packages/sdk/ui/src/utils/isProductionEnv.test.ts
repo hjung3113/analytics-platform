@@ -25,5 +25,16 @@ describe('isProductionEnv', () => {
     expect(isProductionEnv({}, {})).toBe(true);
   });
 
+  it('keeps its old answers where no global process exists (a browser bundle without NODE_ENV replacement)', () => {
+    vi.stubGlobal('process', undefined);
+    try {
+      expect(isProductionEnv({}, {})).toBe(false);
+      expect(isProductionEnv({ env: { PROD: true } }, {})).toBe(true);
+      expect(isProductionEnv({}, { process: { env: { NODE_ENV: 'production' } } })).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   afterEach(() => { vi.unstubAllEnvs(); });
 });
