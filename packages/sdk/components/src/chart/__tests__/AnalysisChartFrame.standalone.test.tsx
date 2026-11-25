@@ -58,6 +58,7 @@ describe('AnalysisChartFrame without a PlatformProvider (#1953 C)', () => {
     expect(screen.queryByRole('group', { name: '빠른 구간 선택' })).toBeNull();
     cleanup();
     bare(frame({ period: { from: hours[0], to: '2026-09-01T06:00:00' } }));
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     const quick = screen.getByRole('group', { name: '빠른 구간 선택' });
     fireEvent.click(within(quick).getByRole('button', { name: '1시간' }));
     expect(screen.getByText(/선택 구간:/).textContent).toContain('05:00');
@@ -74,6 +75,7 @@ describe('AnalysisChartFrame without a PlatformProvider (#1953 C)', () => {
   it('a new period resets the local selection; a period in another form is not used', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { rerender } = bare(frame({ period: { to: '2026-09-01T06:00:00' } }));
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     fireEvent.click(within(screen.getByRole('group', { name: '빠른 구간 선택' })).getByRole('button', { name: '1시간' }));
     expect(screen.getByText(/선택 구간:/)).toBeTruthy();
     rerender(<I18nProvider>{frame({ period: { to: '2026-09-01T07:00:00' } })}</I18nProvider>);

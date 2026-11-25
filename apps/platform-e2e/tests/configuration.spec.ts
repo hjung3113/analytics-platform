@@ -170,8 +170,9 @@ test.describe('Configuration', () => {
     expect(trendBounds!.y).toBeGreaterThanOrEqual(matrixBounds!.y + matrixBounds!.height);
     await expect(workspace.locator('[data-dock-row-separator="0"]')).toBeVisible();
 
-    await workspace.getByRole('button', { name: '설정값 추세 동작', exact: true }).click();
-    await page.getByRole('menuitem', { name: '숨기기', exact: true }).click();
+    await workspace.getByRole('tab', { name: '설정값 추세', exact: true }).press('Shift+F10');
+    const more = page.getByRole('dialog', { name: '더보기', exact: true });
+    await more.getByRole('group', { name: '배치', exact: true }).getByRole('button', { name: '숨기기', exact: true }).click();
     await expect(trend).toHaveCount(0);
     await grid(page).locator('[data-matrix-row="cfg-000001"] [data-matrix-column="identity"]').dblclick();
     await expect(trend.locator('[data-lane-scroll]')).toBeVisible();
@@ -198,8 +199,13 @@ test.describe('Configuration', () => {
     await row.locator('[data-matrix-column="identity"]').dblclick();
     await expect.poll(() => query(page).get('trendItem')).toBe(id);
     await expect(trendPanel).toBeInViewport({ ratio: 1 });
+    // The split gives both panes the same outer height. Their headers have different heights.
+    const group = (id: string) => workspace.locator('.dv-groupview').filter({
+      has: page.locator(`[role="tab"][data-tab-panel-id="${id}"]`),
+    });
+    await expect(matrixPanel).toBeInViewport({ ratio: 1 });
     await expect.poll(async () => {
-      const [matrix, trend] = await Promise.all([matrixPanel.boundingBox(), trendPanel.boundingBox()]);
+      const [matrix, trend] = await Promise.all([group('matrix').boundingBox(), group('trend').boundingBox()]);
       return matrix && trend ? Math.abs(matrix.height - trend.height) : Infinity;
     }).toBeLessThanOrEqual(2);
     // Vertically inside the matrix viewport, below its sticky header (the row is wider than the viewport, so not a whole-element ratio).

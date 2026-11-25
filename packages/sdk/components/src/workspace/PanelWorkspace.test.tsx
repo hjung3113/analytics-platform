@@ -1,3 +1,4 @@
+import { AnalysisChartFrame } from '../chart/AnalysisChartFrame';
 import { PageDensityProvider } from '../pageDensity';
 import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -12,6 +13,8 @@ import { groupsOnScreen, installResizeObserver } from '../dock/__tests__/harness
 import { movePanel } from '../dock/commands';
 import { PageFlowContext } from '../pageFlow';
 import { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspaceProps } from './PanelWorkspace';
+
+vi.mock('../chart/EChartImpl', () => ({ default: () => <div role="img" aria-label="plot" /> }));
 
 // The props the workspace hands the layout, to play the engine's drop report (a real drop needs engine geometry jsdom has not).
 const dockProps = vi.hoisted(() => ({ current: null as null | { layout: unknown; onLayoutChange: (layout: unknown) => void; rows?: { onPanelDrop?: (panelId: string | null) => void } } }));
@@ -75,11 +78,14 @@ function shell(children: ReactNode) {
 const mountWorkspace = (props: Partial<PanelWorkspaceProps> = {}) => render(shell(<PanelWorkspace {...BASE} {...props} />));
 
 it.each(['ko', 'en'] as const)('appends translated %s menu declarations on a primary panel after platform actions, selects by keyboard and returns focus', async lang => {
+  // The cold DockEngine import runs on the real clock. This menu test has no timer-driven assertions.
+  vi.useRealTimers();
   const selected = vi.fn();
   storage.setItem('platform:lang', lang);
   mountWorkspace({ panels: PANELS.map(panel => ({ ...panel, primary: panel.id === 'selector' })), panelMenuItems: () => [{ id: 'recipe', label: { ko: '만든 방법', en: 'Recipe' }, onSelect: selected }] });
   await ready();
-  const trigger = document.querySelector<HTMLButtonElement>('[data-dock-group-menu]')!;
+  const label = lang === 'ko' ? '선택기 동작' : 'Selector actions';
+  const trigger = screen.getByRole('button', { name: label });
   await userEvent.click(trigger);
   const item = await screen.findByRole('menuitem', { name: lang === 'ko' ? '만든 방법' : 'Recipe' });
   expect(screen.queryByRole('menuitem', { name: lang === 'ko' ? 'Recipe' : '만든 방법' })).toBeNull();
@@ -1897,4 +1903,26 @@ it.each(['settings', 'runs'])('joins the shared trend row after %s without remou
     children: [{ panels: [top] }, { sizes: [31, 69], children: [{ panels: [bottom] }, { panels: ['runs'] }] }],
   }));
   expect(screen.getByTestId(`probe-${first}`)).toBe(survivor);
+});
+
+it.each(['위로 접기', '숨기기'])('hands focus off when a secondary chart is removed with %s from merged More', async action => {
+  const user = userEvent.setup();
+  mountWorkspace({ panels: PANELS.map(panel => panel.id === 'selector' ? {
+    ...panel, render: () => <AnalysisChartFrame chartId="secondary" title="Secondary chart" unit="s" series={[]} xType="category" />,
+  } : panel) });
+  await ready();
+  const tab = screen.getByRole('tab', { name: '선택기' });
+  const strip = within(tab.closest('.dv-tabs-and-actions-container')!);
+  await strip.findByRole('button', { name: '더보기' });
+  act(() => { tab.focus(); });
+  await user.keyboard('{Shift>}{F10}{/Shift}');
+  const popup = await screen.findByRole('dialog', { name: '더보기' });
+  const command = within(popup).getByRole('button', { name: action });
+  act(() => { command.focus(); });
+  await user.keyboard('{Enter}');
+  await waitFor(() => { expect(tab).not.toBeInTheDocument(); });
+  const target = action === '위로 접기'
+    ? screen.getByRole('button', { name: '선택기' })
+    : screen.getByRole('tab', { name: '추세' });
+  await waitFor(() => { expect(target).toHaveFocus(); });
 });

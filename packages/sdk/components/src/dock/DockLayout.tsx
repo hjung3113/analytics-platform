@@ -133,7 +133,7 @@ export function DockLayout(props: DockLayoutProps) {
 }
 
 /** Internal workspace capabilities: rows, reveal, floating and a narrow projection measured once outside the edge strips. */
-export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; reveal?: { panelId: string; seq: number } | null; floating?: import('./dockTypes').DockFloating; narrow?: boolean }) {
+export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; reveal?: { panelId: string; seq: number } | null; floating?: import('./dockTypes').DockFloating; narrow?: boolean; mergeChartHead?: boolean }) {
   const { rows, reveal, panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, renderGroupTabsEnd, separatorLabel, stackBelow, label, currentPanelId, tabA11y, canDropAt } = props;
   const { t } = useI18n();
   const instanceId = useId();
@@ -352,7 +352,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
       <Suspense fallback={<div role="status" aria-busy className="h-full w-full"><Skeleton className="h-full w-full" /></div>}>
         <DockEngine panels={panels} layout={layout} display={display} interactive={!narrow} maximizedPanelId={maximized} visible={visible} minPanelSize={minPanelSize}
           onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} renderGroupTabsEnd={renderGroupTabsEnd} tabA11y={tabA11y} separatorLabel={separatorLabel} canDropAt={canDropAt}
-          containerRef={container} instanceId={instanceId} rows={narrow ? undefined : rows} floating={floating} />
+          containerRef={container} instanceId={instanceId} mergeChartHead={props.mergeChartHead ?? false} rows={narrow ? undefined : rows} floating={floating} />
       </Suspense>
     </ChunkLoadBoundary>
   </div>;

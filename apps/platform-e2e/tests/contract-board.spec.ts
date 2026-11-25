@@ -2015,10 +2015,11 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await group.getByRole('button', { name: `${TITLES.trend} 최대화` }).focus();
     await page.keyboard.press('Enter');
     await expect(group.getByRole('button', { name: '원래 크기로' })).toBeVisible();
-    await group.getByRole('button', { name: `${TITLES.trend} 동작` }).focus();
+    await group.getByRole('tab', { name: TITLES.trend }).press('Shift+F10');
+    const more = page.getByRole('dialog', { name: '더보기', exact: true });
+    await more.getByRole('group', { name: '배치', exact: true }).getByRole('button', { name: '원래 크기로', exact: true }).focus();
     await page.keyboard.press('Enter');
-    await page.getByRole('menuitem', { name: '원래 크기로' }).focus();
-    await page.keyboard.press('Enter');
+    await expect(more).toBeHidden();
     await expect(group.getByRole('button', { name: '원래 크기로' })).toHaveCount(0);
     await expect(page.getByRole('tab', { name: TITLES.trend })).toBeFocused();
   });

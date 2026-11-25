@@ -58,8 +58,8 @@ it('creates a URL range with the chart form, edits it through the chip, and clea
   await screen.findByRole('img');
   const search = () => new URLSearchParams(window.location.search);
   fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
-  expect(within(summary()).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
-  fireEvent.click(within(summary()).getByRole('button', { name: '선택' }));
+  expect(within(screen.getByRole('dialog')).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '선택' }));
   expect(search().get('range')).toBe('c/a');
   expect(within(summary()).queryByRole('combobox', { name: '구간 시작' })).toBeNull();
   const chip = screen.getByRole('button', { name: 'date c – a' });
@@ -78,7 +78,9 @@ it('creates a URL range with the chart form, edits it through the chip, and clea
   expect(summary().textContent).toContain('선택 구간: Group: B · Bravo –');
   fireEvent.click(within(summary()).getByRole('button', { name: '지우기' }));
   expect(search().has('range')).toBe(false);
-  expect(within(summary()).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
+  expect(within(summary()).queryByText(/선택 구간:/)).toBeNull();
+  await user.keyboard('{Enter}');
+  expect(within(screen.getByRole('dialog')).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
 });
 
 it('clears an omitted keyboard draft endpoint when the Top N ranking changes', async () => {
@@ -91,14 +93,18 @@ it('clears an omitted keyboard draft endpoint when the Top N ranking changes', a
   const view = render(frame(['a']));
   await screen.findByRole('img');
   fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
-  const start = () => within(summary()).getByRole('combobox', { name: '구간 시작' });
+  const editor = () => within(screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' }));
+  const start = () => editor().getByRole('combobox', { name: '구간 시작' });
+  expect(editor().getByRole('combobox', { name: '구간 끝' })).toHaveTextContent('b');
   fireEvent.click(start());
-  fireEvent.click(await screen.findByRole('option', { name: 'b' }));
+  const category = await screen.findByRole('option', { name: 'b' });
+  expect(screen.queryByRole('option', { name: '기타' })).not.toBeInTheDocument();
+  fireEvent.click(category);
   expect(start()).toHaveTextContent('b');
 
   view.rerender(frame(['b']));
-  expect.soft(start()).toHaveTextContent('c');
-  fireEvent.click(within(summary()).getByRole('button', { name: '선택' }));
+  expect(start()).toHaveTextContent('c');
+  fireEvent.click(editor().getByRole('button', { name: '선택' }));
   expect(new URLSearchParams(window.location.search).get(output.key)).toBe('c/a');
 });
 
@@ -388,7 +394,7 @@ it('hides the local range and closes confirmation while the output is suspended'
   expect(screen.queryByRole('button', { name: '분석 구간으로 적용' })).toBeNull();
   expect(screen.queryByRole('group', { name: '다음 분석' })).toBeNull();
   expect(screen.queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
-  expect(within(summary()).queryByText(/선택 구간:/)).toBeNull();
+  expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
   rerender(frame(output));
   expect(screen.queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
   fireEvent.click(apply());

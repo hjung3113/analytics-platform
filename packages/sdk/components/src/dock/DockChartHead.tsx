@@ -3,7 +3,7 @@ import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useSt
 type Target = 'toolbar' | 'description' | 'maximize';
 type Targets = Partial<Record<Target, HTMLElement>>;
 export type DockChartLayoutActions = { content: ReactNode; takeCloseFocus: () => (() => void) | null };
-type Pane = { charts: ReadonlyMap<string, boolean>; targets: Targets; layoutActions?: DockChartLayoutActions | undefined };
+type Pane = { charts: ReadonlyMap<string, boolean>; targets: Targets; layoutActions?: DockChartLayoutActions | undefined; stripWidth?: number | undefined };
 const EMPTY_PANE: Pane = { charts: new Map(), targets: {} };
 
 function singleFrameId(pane: Pane | undefined) {
@@ -17,8 +17,11 @@ const DockChartContext = createContext<{
   panes: ReadonlyMap<string, Pane>;
   registerChart: (panel: string, chart: string, acceptsHead: boolean | null) => void;
   setTarget: (panel: string, slot: Target, node: HTMLElement | null) => void;
+  setStripWidth: (panel: string, width: number | undefined) => void;
   setLayoutActions: (panel: string, actions: DockChartLayoutActions | undefined) => void;
 } | null>(null);
+export const DockChartPaneEngaged = createContext(false);
+export const DockChartToolbarWidth = createContext<number | null | undefined>(undefined);
 export const DockChartPaneId = createContext<string | null>(null);
 export const DockChartMaximizeTarget = createContext<HTMLElement | undefined>(undefined);
 export const DockChartLayoutActionsSlot = createContext<((actions: DockChartLayoutActions | undefined) => void) | undefined>(undefined);
@@ -32,7 +35,7 @@ export function DockChartHeadProvider({ children }: { children: ReactNode }) {
       const next = change(pane);
       if (next === pane) return previous;
       const result = new Map(previous);
-      if (!next.charts.size && !next.layoutActions && !Object.values(next.targets).some(Boolean)) result.delete(panel);
+      if (!next.charts.size && !next.layoutActions && next.stripWidth === undefined && !Object.values(next.targets).some(Boolean)) result.delete(panel);
       else result.set(panel, next);
       return result;
     });
@@ -55,7 +58,10 @@ export function DockChartHeadProvider({ children }: { children: ReactNode }) {
   const setLayoutActions = useCallback((panel: string, actions: DockChartLayoutActions | undefined) => {
     update(panel, pane => pane.layoutActions === actions ? pane : { ...pane, layoutActions: actions });
   }, [update]);
-  const value = useMemo(() => ({ panes, registerChart, setTarget, setLayoutActions }), [panes, registerChart, setTarget, setLayoutActions]);
+  const setStripWidth = useCallback((panel: string, width: number | undefined) => {
+    update(panel, pane => pane.stripWidth === width ? pane : { ...pane, stripWidth: width });
+  }, [update]);
+  const value = useMemo(() => ({ panes, registerChart, setTarget, setLayoutActions, setStripWidth }), [panes, registerChart, setTarget, setLayoutActions, setStripWidth]);
   return <DockChartContext.Provider value={value}>{children}</DockChartContext.Provider>;
 }
 
@@ -75,13 +81,14 @@ export function useDockChartHead(chart: string, { mounted = true, acceptsHead = 
   }, [panel, setTarget]);
   const pane = panel ? dock?.panes.get(panel) : undefined;
   const single = singleFrameId(pane) === chart;
-  return { targets: single ? pane?.targets : undefined, layoutActions: single ? pane?.layoutActions : undefined, setMaximize };
+  return { targets: single ? pane?.targets : undefined, stripWidth: single ? pane?.stripWidth : undefined, layoutActions: single ? pane?.layoutActions : undefined, setMaximize };
 }
 
 export function useDockChartSlot(panel: string | undefined, slot: 'toolbar' | 'description') {
   const dock = useContext(DockChartContext);
   const setTarget = dock?.setTarget;
   const setLayoutActions = dock?.setLayoutActions;
+  const setStripWidth = dock?.setStripWidth;
   const ref = useCallback((node: HTMLDivElement | null) => {
     if (panel) setTarget?.(panel, slot, node);
   }, [panel, slot, setTarget]);
@@ -89,5 +96,8 @@ export function useDockChartSlot(panel: string | undefined, slot: 'toolbar' | 'd
     if (panel) setLayoutActions?.(panel, actions);
   }, [panel, setLayoutActions]);
   const pane = panel ? dock?.panes.get(panel) : undefined;
-  return { ref, singleChart: singleFrameId(pane) !== undefined, maximize: pane?.targets.maximize, registerLayoutActions };
+  const publishStripWidth = useCallback((width: number | undefined) => {
+    if (panel) setStripWidth?.(panel, width);
+  }, [panel, setStripWidth]);
+  return { ref, publishStripWidth, singleChart: singleFrameId(pane) !== undefined, maximize: pane?.targets.maximize, registerLayoutActions };
 }

@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
@@ -29,16 +30,43 @@ const summary = () => screen.getByRole('region', { name: '선택 요약' });
 const brush = (range: [number, number]) => act(() => plot.onEvents?.brushEnd?.({ areas: [{ coordRange: range }] }, { dispatchAction: () => {} } as never));
 afterEach(cleanup);
 
-it('keeps the default hint visually present', async () => {
+it('renders a single range row only while a selection exists and keeps Clear last', async () => {
   await mount();
-  expect(within(summary()).getByText(/선택 구간 없음/)).not.toHaveClass('sr-only');
-  expect(summary()).not.toHaveClass('sr-only');
+  expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
+  brush([0, 1]);
+  const label = within(summary()).getByText('선택 구간: A – B');
+  const row = label.closest<HTMLElement>('[data-reveal-x]')!;
+  // Range and stats wrap in their own column (stats drop to a second line); the row itself never scrolls sideways.
+  expect(row).toHaveClass('flex', 'py-0.5');
+  expect(row).not.toHaveClass('overflow-x-auto');
+  expect(label.parentElement).toHaveClass('flex-wrap', 'min-w-0');
+  const clear = within(row).getByRole('button', { name: '지우기' });
+  expect(clear.parentElement).toHaveClass('ms-auto', 'flex', 'shrink-0', 'items-center', 'gap-1');
+  expect(clear.parentElement?.lastElementChild).toBe(clear);
+  fireEvent.click(clear);
+  expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
 });
-it.each(['standard', 'minimal'] as const)('quiet %s keeps live hint, active row and point accessible at rest', async chrome => {
+
+it('opens start and end from the tab sequence without mounting a range row', async () => {
+  const user = userEvent.setup();
+  await mount();
+  const chart = screen.getByRole('region', { name: 'Quiet' });
+  const brushButton = within(chart).getByRole('button', { name: '구간 선택' });
+  const first = within(chart).getByRole('button', { name: '확대' });
+  first.focus();
+  await user.tab();
+  expect(brushButton).toHaveFocus();
+  await user.keyboard('{Enter}');
+  const panel = await screen.findByRole('dialog');
+  expect(within(panel).getByRole('combobox', { name: '구간 시작' })).toHaveFocus();
+  expect(within(panel).getByRole('combobox', { name: '구간 끝' })).toBeVisible();
+  expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
+});
+
+it.each(['standard', 'minimal'] as const)('quiet %s keeps live active row and point details accessible at rest', async chrome => {
   await mount({ chrome, summary: 'quiet', activeCategory: 'A', pointStatus: () => ({ tone: 'warning', label: 'Check' }) });
   expect(summary()).toHaveAttribute('aria-live', 'polite');
   expect(summary()).toHaveClass('sr-only');
-  expect(within(summary()).getByText(/선택 구간 없음/)).toHaveClass('sr-only');
   expect(within(summary()).getByText('활성 행: A')).toHaveClass('sr-only');
   expect(within(summary()).getByText(/A · Series/)).toHaveClass('sr-only');
   expect(within(summary()).queryByRole('combobox')).toBeNull();
@@ -47,8 +75,9 @@ it('shows a compact committed range with counts, existing actions and clear', as
   await mount({ summary: 'quiet', activeCategory: 'A', selectionActions: () => <button>Range action</button> });
   brush([0, 1]);
   expect(summary()).not.toHaveClass('sr-only');
-  const line = within(summary()).getByText('선택 구간: A – B').parentElement!;
-  expect(line).toHaveClass('flex', 'flex-wrap');
+  const line = within(summary()).getByText('선택 구간: A – B').closest<HTMLElement>('[data-reveal-x]')!;
+  expect(line).toHaveClass('flex');
+  expect(line).not.toHaveClass('overflow-x-auto');
   expect(line).toHaveTextContent('Series: n=2 · avg 2 · max 3');
   expect(within(line).getByRole('button', { name: 'Range action' })).toBeTruthy();
   expect(within(summary()).getByText('활성 행: A')).toHaveClass('sr-only');
@@ -65,11 +94,11 @@ it('keeps selected-point bounds accessible but visually hidden', async () => {
 it('shows the keyboard form only while brush mode is on', async () => {
   await mount({ summary: 'quiet' });
   fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
-  expect(summary()).not.toHaveClass('sr-only');
-  expect(within(summary()).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
-  fireEvent.click(within(summary()).getByRole('button', { name: '선택' }));
-  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
-  expect(within(summary()).queryByRole('combobox')).toBeNull();
+  expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
+  const editor = screen.getByRole('dialog');
+  expect(within(editor).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
+  fireEvent.click(within(editor).getByRole('button', { name: '선택' }));
+  expect(screen.queryByRole('combobox')).toBeNull();
   expect(summary()).toHaveTextContent('선택 구간: A – B');
 });
 it('keeps apply preview and the note editor visually present', async () => {
@@ -99,7 +128,7 @@ it('shows a titled zoom-only header with the legend below the title and working 
     expect(buttons[index]).toHaveAccessibleName(name);
   });
   expect(screen.queryByRole('button', { name: '더보기' })).toBeNull();
-  expect(summary()).toHaveClass('sr-only');
+  expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
 
   const zoom = () => (plot.option as { dataZoom: { start: number; end: number }[] }).dataZoom[0];
   fireEvent.click(buttons[1]);
@@ -116,7 +145,7 @@ it('reveals the focused start field after keyboard activation of 구간 선택 o
     await mount({ summary: 'quiet', size: 'fill' });
     // A keyboard activation (`detail: 0`) opens the form and moves focus to its first field.
     fireEvent.click(screen.getByRole('button', { name: '구간 선택' }), { detail: 0 });
-    const start = within(summary()).getByRole('combobox', { name: '구간 시작' });
+    const start = screen.getByRole('combobox', { name: '구간 시작' });
     expect(start).toHaveFocus();
     expect(reveal).toHaveBeenCalledExactlyOnceWith(start, { bottomInset: expect.any(Function) });
   } finally {

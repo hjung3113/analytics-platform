@@ -3,13 +3,18 @@ import { expect, test } from './origin-guard';
 import { PERIOD, PRODUCTIVITY, periodPreset } from './contract-helpers';
 import { pickTargetRoom, expandQueryBar, contextBar, evidence, expectScopeValid, mainHeading, nextFrames, query, settleOn, showSlowExecutions, signInAs, switchScope } from './support';
 
+const cycleTrend = (page: Page) => page.getByRole('region', { name: '사이클타임 추세', exact: true });
+const cycleTrendHead = (page: Page) => page.locator('.dv-tabs-and-actions-container').filter({
+  has: page.getByRole('tab', { name: '사이클타임 추세', exact: true }),
+});
+const rangeEditor = (page: Page) => page.getByRole('dialog', { name: '시작과 끝으로 구간 선택', exact: true });
+
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
  * Menu screens are only the consumers the contract is observed through — assertions target kernel/shell behavior.
  */
 test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석 Scope 격리, manifest features)', () => {
   const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
-  const trend = (page: Page) => page.getByRole('region', { name: '사이클타임 추세' });
 
   async function applyRoomInQueryBar(page: Page, room: string) {
     const bar = contextBar(page);
@@ -19,8 +24,11 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
   }
 
   async function brush(page: Page) {
-    const frame = trend(page);
-    await frame.getByRole('button', { name: '구간 선택' }).click();
+    const frame = cycleTrend(page);
+    await frame.hover();
+    const trigger = cycleTrendHead(page).getByRole('button', { name: '구간 선택', exact: true });
+    if (await trigger.getAttribute('aria-pressed') !== 'true') await trigger.click();
+    await expect(trigger).toHaveAttribute('aria-pressed', 'true');
     const plot = frame.getByRole('img', { name: /^사이클타임 추세/ });
     await expect(plot).toBeVisible();
     await plot.scrollIntoViewIfNeeded();
@@ -29,7 +37,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     await page.mouse.down();
     await page.mouse.move(box.x + box.width * 0.65, box.y + box.height * 0.5, { steps: 8 });
     await page.mouse.up();
-    await expect(frame.getByRole('region', { name: '선택 요약' })).toContainText(/선택 구간: /); // the empty state reads `선택 구간 없음`
+    await expect(frame.getByRole('region', { name: '선택 요약' })).toContainText(/선택 구간: /);
   }
 
   test('Brush는 URL을 바꾸지 않고, 구간 적용은 확인을 거쳐야만 전역 기간을 바꾼다', async ({ page }, testInfo) => {
@@ -39,7 +47,7 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
     expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
 
-    const frame = trend(page);
+    const frame = cycleTrend(page);
     await frame.getByRole('button', { name: '분석 구간으로 적용' }).click();
     const confirmRow = frame.getByRole('group', { name: '구간 적용 확인' });
     await expect(confirmRow).toBeVisible();
@@ -59,13 +67,21 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
 
   test('선택 요약과 시작·끝 조작은 차트 카드 안에 머문다 (#307)', async ({ page }) => {
     await page.goto(CYCLE);
-    const frame = trend(page);
+    const frame = cycleTrend(page);
     await expect(frame.getByRole('img', { name: /^사이클타임 추세/ })).toBeVisible();
-    // The standard legend and quick ranges are available directly from the chart.
     await expect(frame.getByRole('group', { name: '범례', exact: true })).toBeVisible();
     const summary = frame.getByRole('region', { name: '선택 요약' });
-    await expect(summary).toBeVisible();
-    await summary.getByRole('button', { name: '1시간' }).click();
+    await expect(summary).toHaveCount(0);
+    const head = cycleTrendHead(page);
+    const info = head.getByRole('button', { name: '차트 설명', exact: true });
+    await expect(info).toHaveAccessibleDescription(/구간 선택을 켠 뒤 끌기/);
+    await frame.hover();
+    await head.getByRole('button', { name: '구간 선택', exact: true }).click();
+    const editor = rangeEditor(page);
+    await expect(editor.getByText('끌어서 구간 선택', { exact: true })).toBeVisible();
+    await expect(editor.getByRole('combobox', { name: '구간 시작' })).toBeInViewport({ ratio: 1 });
+    await expect(editor.getByRole('combobox', { name: '구간 끝' })).toBeInViewport({ ratio: 1 });
+    await editor.getByRole('button', { name: '1시간', exact: true }).click();
     await expect(summary).toContainText('선택 구간');
     await expect.poll(async () => {
       const [card, inner] = await Promise.all([frame.boundingBox(), summary.boundingBox()]);
@@ -76,13 +92,19 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
   test('키보드만으로 빠른 구간을 골라 분석 구간을 적용한다 (#307)', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
     await expect(mainHeading(page)).toHaveText('사이클타임 상세');
-    const frame = trend(page);
+    const frame = cycleTrend(page);
     // PERIOD is 24 h of hourly bars, so "1시간" is the last bar, ending at the query end.
     const summary = frame.getByRole('region', { name: '선택 요약' });
-    await summary.getByRole('button', { name: '1시간' }).press('Enter');
+    await cycleTrendHead(page).getByRole('button', { name: '구간 선택', exact: true }).press('Enter');
+    const editor = rangeEditor(page);
+    const preset = editor.getByRole('button', { name: '1시간', exact: true });
+    await preset.press('Enter');
+    await expect(preset).toBeFocused();
     await expect(summary).toContainText('2026-09-26 08:00 – 2026-09-26 09:00');
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
 
+    await page.keyboard.press('Escape');
+    await expect(editor).toBeHidden();
     await frame.getByRole('button', { name: '분석 구간으로 적용' }).press('Enter');
     const confirmRow = frame.getByRole('group', { name: '구간 적용 확인' });
     await expect(confirmRow).toContainText('2026-09-26 08:00:00 → 2026-09-26 09:00:00');
@@ -95,15 +117,17 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
   test('키보드만으로 시작·끝을 골라 선택하고 분석 구간을 적용한다 (#374)', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
     await expect(mainHeading(page)).toHaveText('사이클타임 상세');
-    const frame = trend(page);
+    const frame = cycleTrend(page);
     const plot = frame.getByRole('img', { name: /^사이클타임 추세/ });
     await expect(plot).toBeVisible();
 
-    const start = frame.getByRole('combobox', { name: '구간 시작' });
-    const end = frame.getByRole('combobox', { name: '구간 끝' });
+    const head = cycleTrendHead(page);
+    const editor = rangeEditor(page);
+    const start = editor.getByRole('combobox', { name: '구간 시작' });
+    const end = editor.getByRole('combobox', { name: '구간 끝' });
     const summary = frame.getByRole('region', { name: '선택 요약' });
     async function tabToControl(accessibleName: string, control: Locator) {
-      for (let attempt = 0; attempt < 40; attempt += 1) {
+      for (let attempt = 0; attempt < 300; attempt += 1) {
         await page.keyboard.press('Tab');
         const activeSnapshot = await page.locator(':focus').ariaSnapshot();
         if (activeSnapshot.includes(`"${accessibleName}"`)) {
@@ -111,16 +135,14 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
           return;
         }
       }
-      throw new Error(`Tab did not reach ${accessibleName} within 40 steps`);
+      throw new Error(`Tab did not reach ${accessibleName} within 300 steps`);
     }
 
-    // A fill chart (cycle-time is a workspace page, ADR-0067 decision 21) shows the start/end form on demand: open it with the
-    // keyboard from `구간 선택`, which puts focus on the start control. Then Tab traversal from an earlier action still reaches it.
-    await frame.getByRole('button', { name: '구간 선택', exact: true }).focus();
+    // Tab reaches the dock tool. Opening the portaled editor moves focus into its first input.
+    await head.getByRole('tab', { name: '사이클타임 추세', exact: true }).focus();
+    await tabToControl('구간 선택', head.getByRole('button', { name: '구간 선택', exact: true }));
     await page.keyboard.press('Enter');
     await expect(start).toBeFocused();
-    await frame.getByRole('button', { name: '초기화', exact: true }).focus();
-    await tabToControl('구간 시작', start);
 
     // fallbackRange spans 09:00–09:00 next day; two start steps pick 11:00 and one end step picks 08:00.
     const initialStart = '2026-09-25 09:00';
@@ -147,14 +169,15 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     await expect(end).toContainText(chosenEnd);
     await expect(end).toBeFocused();
 
-    await expect(summary).toContainText('선택 구간 없음');
+    await expect(summary).toHaveCount(0);
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
     expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
 
-    const choose = frame.getByRole('button', { name: '선택', exact: true });
+    const choose = editor.getByRole('button', { name: '선택', exact: true });
     await page.keyboard.press('Tab');
     await expect(choose).toBeFocused();
     await page.keyboard.press('Enter');
+    await expect(editor).toBeHidden();
     await expect(summary).toContainText(`선택 구간: ${chosenStart} – ${chosenEnd}`);
     expect(query(page).get('from')).toBe('2026-09-25T09:00:00');
     expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
@@ -175,8 +198,8 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     // then dropped the brush being drawn: no brushEnd, and the selection stayed the previous one.
     await page.goto(CYCLE);
     await brush(page);
-    const frame = trend(page);
-    await frame.getByRole('button', { name: '주석', exact: true }).click();
+    const frame = cycleTrend(page);
+    await cycleTrendHead(page).getByRole('button', { name: '주석', exact: true }).click();
     await frame.getByRole('textbox', { name: '주석 내용' }).fill('끌기 중 폭 변경');
     await frame.getByRole('button', { name: '저장' }).click();
     await expect(frame.getByText(/끌기 중 폭 변경/)).toBeVisible();
@@ -201,8 +224,8 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
   test('주석은 사이트(Scope)별로 저장되어 다른 사이트에는 보이지 않고, 돌아오면 다시 보인다', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
     await brush(page);
-    const frame = trend(page);
-    await frame.getByRole('button', { name: '주석', exact: true }).click();
+    const frame = cycleTrend(page);
+    await cycleTrendHead(page).getByRole('button', { name: '주석', exact: true }).click();
     await frame.getByRole('textbox', { name: '주석 내용' }).fill('MEM 전용 PM 작업');
     await frame.getByRole('button', { name: '저장' }).click();
     const note = frame.getByText(/MEM 전용 PM 작업/);
@@ -214,23 +237,25 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
     // Apply mode (ADR-0061): the Scope switch clears the required room; pick it again in the query bar and apply
     // in-app (a reload would reset the in-browser mock and lose the annotation).
     await applyRoomInQueryBar(page, 'PHOTO');
-    await expect(trend(page).getByRole('button', { name: '구간 선택' })).toBeVisible();
-    await expect(trend(page).getByText(/MEM 전용 PM 작업/)).toHaveCount(0);
+    await cycleTrend(page).hover();
+    await expect(cycleTrendHead(page).getByRole('button', { name: '구간 선택', exact: true })).toBeVisible();
+    await expect(cycleTrend(page).getByText(/MEM 전용 PM 작업/)).toHaveCount(0);
     await evidence(page, testInfo, 'annotation-fdry-isolated');
 
     await switchScope(page, 'MEM');
     await expectScopeValid(page, 'MEM · 메모리');
     await applyRoomInQueryBar(page, 'PHOTO');
-    await expect(trend(page).getByText(/MEM 전용 PM 작업/)).toBeVisible();
+    await expect(cycleTrend(page).getByText(/MEM 전용 PM 작업/)).toBeVisible();
   });
 
   test('주석 삭제를 키보드로 확정하면 포커스가 남은 주석의 삭제 버튼으로 옮겨진다 (06 §26)', async ({ page }) => {
     const tag = `삭제포커스${Date.now()}`;
     await page.goto(CYCLE);
-    const frame = trend(page);
+    const frame = cycleTrend(page);
     await brush(page);
     for (const suffix of ['가', '나']) {
-      const annotate = frame.getByRole('button', { name: '주석', exact: true });
+      await frame.hover();
+      const annotate = cycleTrendHead(page).getByRole('button', { name: '주석', exact: true });
       if (await annotate.isDisabled()) await brush(page);
       await annotate.click();
       await frame.getByRole('textbox', { name: '주석 내용' }).fill(`${tag}-${suffix}`);
@@ -259,7 +284,8 @@ test.describe('차트 계약 (06 §16 — Brush → 구간 적용 확인, 주석
 
   test('차트 동작은 메뉴 manifest features를 따른다: 사이클타임은 비교·주석·내보내기, 생산성 개요는 내보내기만', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
-    const toolbar = trend(page).getByRole('toolbar', { name: '차트 동작' });
+    await cycleTrend(page).hover();
+    const toolbar = cycleTrendHead(page).getByRole('toolbar', { name: '차트 동작' });
     for (const name of ['비교', '주석', '내보내기']) await expect(toolbar.getByRole('button', { name, exact: true })).toBeVisible();
 
     await page.goto(PRODUCTIVITY);
@@ -295,7 +321,8 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
       const url = page.url();
       const summary = workspace.getByRole('region', { name: '선택 요약' });
       if (kind === 'line' || kind === 'bar') {
-        await summary.getByRole('button', { name: '선택', exact: true }).click();
+        await workspace.getByRole('button', { name: '구간 선택', exact: true }).click();
+        await rangeEditor(page).getByRole('button', { name: '선택', exact: true }).click();
         await expect(summary).toContainText('n=8');
         await workspace.getByRole('button', { name: '비교', exact: true }).click();
         await expect(workspace.getByRole('group', { name: '범례', exact: true })).toContainText('이전 동일 기간');
@@ -530,15 +557,16 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
   });
 
   test('키보드로 확대·이동·축소한다 (#2065)', async ({ page }) => {
-    const frame = page.getByRole('region', { name: '사이클타임 추세' });
-    const zoomIn = frame.getByRole('button', { name: '확대', exact: true });
-    const zoomOut = frame.getByRole('button', { name: '축소', exact: true });
-    const left = frame.getByRole('button', { name: '왼쪽으로 이동', exact: true });
-    const right = frame.getByRole('button', { name: '오른쪽으로 이동', exact: true });
+    const head = cycleTrendHead(page);
+    const zoomIn = head.getByRole('button', { name: '확대', exact: true });
+    const zoomOut = head.getByRole('button', { name: '축소', exact: true });
+    const left = head.getByRole('button', { name: '왼쪽으로 이동', exact: true });
+    const right = head.getByRole('button', { name: '오른쪽으로 이동', exact: true });
+    await zoomIn.focus();
+    await expect(zoomIn).toBeFocused();
     await expect(zoomIn).toBeVisible();
     await expect(zoomOut).toHaveCount(0);
     await expect(left).toHaveCount(0);
-    await zoomIn.focus();
     await page.keyboard.press('Enter');
     await expect(left).toBeEnabled();
     await left.focus();
@@ -556,9 +584,15 @@ test.describe('휠 스크롤 (#700, 06 §16·§15, 16 §4.1)', () => {
   });
 
   test('확대 버튼은 그대로 동작한다', async ({ page }) => {
-    const frame = page.getByRole('region', { name: '사이클타임 추세' });
+    const head = cycleTrendHead(page);
+    const zoomIn = head.getByRole('button', { name: '확대', exact: true });
+    const zoomOut = head.getByRole('button', { name: '축소', exact: true });
+    await head.getByRole('tab', { name: '사이클타임 추세', exact: true }).hover();
+    await zoomIn.hover();
     const flat = await trendPlot(page).screenshot();
-    await frame.getByRole('button', { name: '확대' }).click();
+    await expect(zoomOut).toHaveCount(0);
+    await zoomIn.click();
+    await expect(zoomOut).toBeVisible();
     await expect.poll(async () => !(await trendPlot(page).screenshot()).equals(flat)).toBe(true);
   });
 

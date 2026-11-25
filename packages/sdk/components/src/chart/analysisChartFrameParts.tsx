@@ -30,28 +30,40 @@ export function ChartZoomButton({ label, icon: Icon, onClick }: { label: string;
   return <Button size="icon-xs" variant="ghost" aria-label={label} title={label} onClick={onClick}><Icon className="size-3.5" aria-hidden /></Button>;
 }
 
-export function ChartHeading({ titleId, title, description, metricVersion, compact = false, hideTitle = false }: { hideTitle?: boolean; titleId: string; title: ReactNode; description?: ReactNode; metricVersion?: string; compact?: boolean }) {
+export function chartDescriptionContent(description: ReactNode, gestureHint: string | undefined) {
+  if (!gestureHint) return description;
+  return <>
+    {description && <div>{description}</div>}
+    <p className={cn(description && 'mt-2')}>{gestureHint}</p>
+  </>;
+}
+
+export function ChartHeading({ titleId, title, description, gestureHint, descriptionId, metricVersion, compact = false, hideTitle = false }: { hideTitle?: boolean; titleId: string; title: ReactNode; description?: ReactNode; gestureHint?: string; descriptionId?: string; metricVersion?: string; compact?: boolean }) {
   const { t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const [infoFocused, setInfoFocused] = useState(false);
+  const info = chartDescriptionContent(compact || infoFocused ? description : undefined, gestureHint);
   // The resolved chrome level decides whether the title is already carried by a workspace tab.
   return <div className="min-w-0">
     <div className="flex items-center gap-1">
       <h2 id={titleId} className={cn('t-card-title', hideTitle && 'sr-only')}>{title}</h2>
       {/* Compact charts carry the description in an InfoTip (#2364): a persistent sr-only copy describes the button, so screen readers get it
           without the tooltip. Full charts show it as the visible subtitle below; a focused ⓘ stays mounted when the chart leaves compact size. */}
-      {description && (compact || infoFocused) && <InfoTip label={m('chartDescription')} onFocus={() => setInfoFocused(true)} onBlur={() => setInfoFocused(false)}>{description}</InfoTip>}
+      {info && <InfoTip label={m('chartDescription')} descriptionId={descriptionId} onFocus={() => setInfoFocused(compact)} onBlur={() => setInfoFocused(false)}>{info}</InfoTip>}
     </div>
     {hideTitle && metricVersion && <span className="sr-only">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span>}
     {!hideTitle && ((!compact && description) || metricVersion) && <p className="text-xs text-text-muted">{!compact && description}{metricVersion && <>{!compact ? ' · ' : null}<span className="tabular">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}</p>}
   </div>;
 }
 
-export function ChartTrustFooter({ trust: input }: { trust?: ChartTrust }) {
+export function ChartTrustFooter({ trust: input, metricVersion, singleLine }: { trust?: ChartTrust; metricVersion?: string; singleLine?: boolean }) {
   const { t, lang } = useI18n();
   const trust = chartTrustText(input, lang);
-  return trust && <footer className="shrink-0 border-t border-border-subtle px-4 py-2 text-tiny text-text-muted tabular">
-    {t('source')}: <span className="t-mono text-tiny">{trust.source}</span> · {t('updated')}: {trust.updated} · {t('coverage')}: {trust.coverage}
+  // singleLine: each item stays whole and a narrow pane wraps between items, never a sideways scroll.
+  const item = singleLine ? 'whitespace-nowrap' : undefined;
+  return (trust || metricVersion) && <footer className={cn('shrink-0 border-t border-border-subtle px-4 py-2 text-tiny text-text-muted tabular')}>
+    {trust && <><span className={item}>{t('source')}: <span className="t-mono text-tiny">{trust.source}</span></span> · <span className={item}>{t('updated')}: {trust.updated}</span> · <span className={item}>{t('coverage')}: {trust.coverage}</span></>}
+    {metricVersion && <>{trust && ' · '}<span className={item}>{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}
   </footer>;
 }
 
@@ -85,14 +97,7 @@ export function ChartLegendLayout({ enabled, keys: named = true, placement = 'bo
 export type SummaryFacts = {
   chrome: ChartChrome;
   summary?: AnalysisChartFrameProps['summary'];
-  /** `size="fill"`: the plot keeps the space until the user brushes or a range exists (ADR-0067 decision 21). */
-  fill: boolean;
-  brushMode: boolean;
   selection: boolean;
-  /** The start/end selects exist for this axis (time or category keyboard range). */
-  rangeKeyboard: boolean;
-  quickRanges?: boolean;
-  draft: boolean;
   preview: boolean;
   applyPeriod: boolean;
   note: boolean;
@@ -116,9 +121,6 @@ export type SummaryPresentation = {
   show: boolean;
   /** Quiet and nothing to say: the region stays for screen readers only (`sr-only`). */
   rest: boolean;
-  /** The range form and the empty-selection hint have room (not a fill card at rest). */
-  rangeUi: boolean;
-  showRangeForm: boolean;
   /** The region holds its own controls, so it is not a tab stop itself. */
   hasControls: boolean;
   /** Compact chrome with only text: the region is a tab stop so keyboard users can read it. */
@@ -129,12 +131,9 @@ export type SummaryPresentation = {
 export function summaryPresentation(f: SummaryFacts): SummaryPresentation {
   const compact = f.chrome !== 'full';
   const quiet = compact && f.summary === 'quiet';
-  const rangeUi = !f.fill || f.brushMode || f.selection;
-  const showRangeForm = rangeUi && f.rangeKeyboard && f.draft && (!quiet || f.brushMode);
-  const busy = f.preview || f.note || f.clipNotice || f.annotationAlert || f.annotations > 0 || (f.brushMode && f.rangeKeyboard);
-  const rest = quiet && !f.selection && !busy && !f.quickRanges;
-  const hasControls = !!f.quickRanges || showRangeForm || f.selection || (f.preview && f.applyPeriod) || f.annotationAlert || f.ownAnnotation;
-  const show = !!f.quickRanges || quiet || f.chrome === 'standard' || rangeUi || f.clipNotice || f.preview || f.note || f.annotations > 0 || f.annotationAlert
-    || f.activeRow || (f.pointDetail && f.selectedPoint) || (f.selectedPoint && f.pointExtremes);
-  return { quiet, show, rest, rangeUi, showRangeForm, hasControls, focusable: compact && !hasControls && !rest };
+  const feedback = f.preview || f.note || f.clipNotice || f.annotationAlert || f.annotations > 0;
+  const show = f.selection || feedback || f.activeRow || (f.selectedPoint && (f.pointDetail || f.pointExtremes));
+  const rest = quiet && !f.selection && !feedback;
+  const hasControls = f.selection || (f.preview && f.applyPeriod) || f.annotationAlert || f.ownAnnotation;
+  return { quiet, show, rest, hasControls, focusable: show && compact && !hasControls && !rest };
 }

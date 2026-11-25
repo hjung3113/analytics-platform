@@ -1,8 +1,12 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { useEffect, useState } from 'react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest';
 import { AnalysisChart } from '../../chart/AnalysisChart';
 import { AnalysisChartFrame } from '../../chart/AnalysisChartFrame';
+import { LaneTimeline } from '../../chart/LaneTimeline';
+import { OrderedIntervalTrack } from '../../chart/OrderedIntervalTrack';
+import { PanelOptions } from '../../workspace/PanelOptions';
 import { WorkspaceGroupActions } from '../../workspace/WorkspaceGroupActions';
 import { group, installResizeObserver, mountDock } from './harness';
 
@@ -13,9 +17,10 @@ let observer: ReturnType<typeof installResizeObserver>;
 beforeEach(() => { observer = installResizeObserver(); });
 afterEach(() => { cleanup(); observer.restore(); });
 
-function mount(companion?: 'frame' | 'heatmap', onMaximize = vi.fn()) {
+function mount(companion?: 'frame' | 'heatmap' | 'timeline' | 'track', onMaximize = vi.fn()) {
   mountDock({
     layout: group(['a']),
+    mergeChartHead: true,
     inner: () => <>
       <AnalysisChartFrame chartId="first" title="Trend" description="Chart description" metricVersion="1"
         unit="s" series={series.map(item => ({ ...item, points: item.points.map(([key, value]): [string, number] => [key, value]) }))}
@@ -23,6 +28,8 @@ function mount(companion?: 'frame' | 'heatmap', onMaximize = vi.fn()) {
       {companion === 'frame' && <AnalysisChartFrame chartId="first" title="Distribution" unit="s" series={[]} xType="category" />}
       {companion === 'heatmap' && <AnalysisChart chartId="second" title="Distribution" unit="s"
         spec={{ kind: 'heatmap', xLabels: ['A'], yLabels: ['B'], cells: [{ x: 'A', y: 'B', value: 1 }] }} />}
+      {companion === 'timeline' && <LaneTimeline ariaLabel="Timeline" lanes={[]} />}
+      {companion === 'track' && <OrderedIntervalTrack ariaLabel="Track" lanes={[]} items={[]} states={{}} domain={[0, 10]} />}
     </>,
     props: {
       renderGroupActions: () => <WorkspaceGroupActions title="패널 a" titleOf={id => id}
@@ -59,6 +66,9 @@ it('puts the title, view options and actions in a single pane head with a stable
   expect(chart.querySelector('footer')).toHaveTextContent('지표 버전 v1');
   expect(within(chart).queryByRole('toolbar')).toBeNull();
   const plot = (await within(chart).findByRole('img', { name: 'plot' })).parentElement!;
+  const description = document.getElementById(plot.getAttribute('aria-describedby')!);
+  expect(head).toContainElement(description);
+  expect(plot).toHaveAccessibleDescription(/Chart description 클릭으로 선택.*구간 선택을 켠 뒤 끌기/);
   act(() => { plot.focus(); });
   expect(reveal).toHaveAttribute('data-revealed');
   act(() => { plot.blur(); });
@@ -110,4 +120,90 @@ it('keeps the pane action trigger when two frames share the pane', async () => {
   mount('frame');
   const tab = await screen.findByRole('tab', { name: '패널 a' });
   expect(within(tab.closest<HTMLElement>('.dv-tabs-and-actions-container')!).getByRole('button', { name: '패널 a 동작' })).toBeVisible();
+});
+
+it.each(['timeline', 'track'] as const)('counts a companion %s and keeps the Frame toolbar inline', async companion => {
+  const context = {
+    setTransform: vi.fn(), clearRect: vi.fn(), fillRect: vi.fn(), strokeRect: vi.fn(), fillText: vi.fn(),
+    beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), save: vi.fn(), restore: vi.fn(),
+    rect: vi.fn(), clip: vi.fn(), setLineDash: vi.fn(), measureText: () => ({ width: 10 }),
+  };
+  const canvas = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as unknown as CanvasRenderingContext2D);
+  onTestFinished(() => { canvas.mockRestore(); });
+  mount(companion);
+  const frame = await screen.findByRole('region', { name: 'Trend' });
+  expect(within(frame).getByRole('toolbar')).toBeInTheDocument();
+  const tab = screen.getByRole('tab', { name: '패널 a' });
+  expect(tab.closest('.dv-tabs-and-actions-container')?.querySelector('[data-dock-chart-tools]')).toBeNull();
+});
+
+it('tracks the retained pane while its chart count moves between one and two', async () => {
+  let setCompanion!: (show: boolean) => void;
+  function Body() {
+    const [companion, setShown] = useState(false);
+    useEffect(() => { setCompanion = setShown; }, []);
+    return <>
+      <button>Pane tool outside the chart</button>
+      <AnalysisChartFrame chartId="first" title="Trend" unit="s" series={[]} xType="category" />
+      {companion && <AnalysisChartFrame chartId="second" title="Companion" unit="s" series={[]} xType="category" />}
+    </>;
+  }
+  const view = mountDock({ layout: group(['a']), mergeChartHead: true, inner: () => <Body /> });
+  const tab = await screen.findByRole('tab', { name: '패널 a' });
+  const head = tab.closest('.dv-tabs-and-actions-container')!;
+  const tools = () => head.querySelector('[data-dock-chart-tools]');
+  const retained = screen.getByRole('region', { name: 'Trend' });
+  const paneTool = screen.getByRole('button', { name: 'Pane tool outside the chart' });
+
+  act(() => { paneTool.focus(); });
+  expect(tools()).toHaveAttribute('data-revealed');
+  act(() => { setCompanion(true); });
+  expect(tools()).toBeNull();
+  act(() => { tab.focus(); });
+  act(() => { setCompanion(false); });
+  expect(tools()).not.toHaveAttribute('data-revealed');
+
+  act(() => { setCompanion(true); });
+  act(() => { paneTool.focus(); });
+  act(() => { setCompanion(false); });
+  expect(tools()).toHaveAttribute('data-revealed');
+  expect(screen.getByRole('region', { name: 'Trend' })).toBe(retained);
+
+  view.controls.setLayout(group(['a', 'b'], 'b'));
+  view.controls.setLayout(group(['a']));
+  expect(screen.getByRole('region', { name: 'Trend' })).toBe(retained);
+  expect(view.container.querySelector('[data-dock-chart-tools]')).not.toHaveAttribute('data-revealed');
+});
+
+it('refits the mounted chart options when the owning strip crosses 480px in both directions', async () => {
+  let width = 700;
+  const mounts = vi.fn();
+  function Options() {
+    useEffect(mounts, []);
+    return <PanelOptions options={[{ id: 'stack', pageKey: 'stack', kind: 'toggle',
+      label: { ko: '쌓기', en: 'Stack' }, on: { ko: '켬', en: 'On' }, off: { ko: '끔', en: 'Off' } }]}
+      values={{ stack: true }} onChange={vi.fn()} />;
+  }
+  const measure = HTMLElement.prototype.getBoundingClientRect;
+  const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    return this.matches('.dv-tabs-and-actions-container') ? { ...measure.call(this), width } : measure.call(this);
+  });
+  try {
+    mountDock({ layout: group(['a']), mergeChartHead: true, inner: () => <AnalysisChartFrame
+      chartId="first" title="Trend" unit="s" series={[]} xType="category" toolbarStart={<Options />} /> });
+    const tab = await screen.findByRole('tab', { name: '패널 a' });
+    const strip = tab.closest('.dv-tabs-and-actions-container')!;
+    const options = () => strip.querySelector('[data-panel-options]');
+    expect(options()).toHaveAttribute('data-panel-options', 'inline');
+    const mountedAtDesktopWidth = mounts.mock.calls.length;
+    width = 479;
+    observer.touch(target => target === strip, width);
+    expect(options()).toHaveAttribute('data-panel-options', 'folded');
+    width = 480;
+    observer.touch(target => target === strip, width);
+    expect(options()).toHaveAttribute('data-panel-options', 'inline');
+    expect(mounts).toHaveBeenCalledTimes(mountedAtDesktopWidth);
+  } finally {
+    rect.mockRestore();
+  }
 });

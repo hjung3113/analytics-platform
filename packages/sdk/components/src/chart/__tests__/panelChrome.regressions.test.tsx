@@ -43,11 +43,20 @@ describe('Panel chart regression fixes (#2372)', () => {
     expect(screen.getAllByRole('status')).toEqual([status]);
   });
 
-  it('omits the panel summary Tab stop while the range form is open', () => {
+  it('omits a summary Tab stop and sends keyboard focus to the range editor', async () => {
+    const user = userEvent.setup();
     mount(charts.frame);
-    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+    const brush = screen.getByRole('button', { name: '구간 선택' });
+    brush.focus();
+    await user.keyboard('{Enter}');
+    const editor = screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
+    expect(within(editor).getByRole('combobox', { name: '구간 시작' })).toHaveFocus();
+    expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
+    await user.click(within(editor).getByRole('button', { name: '선택' }));
+    brush.focus();
+    await user.keyboard('{Enter}');
     const summary = screen.getByRole('region', { name: '선택 요약' });
-    expect(within(summary).getByRole('combobox', { name: '구간 시작' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '구간 시작' })).toHaveFocus();
     expect(summary).not.toHaveAttribute('tabindex');
   });
 
@@ -67,7 +76,11 @@ describe('Panel chart regression fixes (#2372)', () => {
   it.each(['top', 'bottom', 'side'] as const)('%s fill layout bounds the shrinking plot separately from range/annotation rows', async legendPlacement => {
     mount(<AnalysisChartFrame chartId="layout" title="Layout" unit="s" xType="category" series={series} size="fill" legendPlacement={legendPlacement} />);
     await screen.findByRole('img', { name: 'plot' });
-    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+    const brush = screen.getByRole('button', { name: '구간 선택' });
+    fireEvent.click(brush);
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '선택' }));
+    fireEvent.click(brush, { detail: 0 });
+    const editor = screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
     const layout = screen.getByTestId('chart-legend-layout');
     const plot = screen.getByRole('img', { name: 'plot' }).parentElement!;
     const summary = screen.getByRole('region', { name: '선택 요약' });
@@ -77,7 +90,9 @@ describe('Panel chart regression fixes (#2372)', () => {
     expect(layout).not.toContainElement(summary);
     expect(layout.parentElement).toBe(summary.parentElement);
     expect(summary).toHaveClass('shrink-0');
-    expect(summary).toContainElement(screen.getByRole('combobox', { name: '구간 시작' }));
+    expect(layout).not.toContainElement(editor);
+    expect(summary).not.toContainElement(editor);
+    expect(within(editor).getByRole('combobox', { name: '구간 시작' })).toBeVisible();
   });
 
   // Only the Frame sets its own plot floor; AnalysisChart's fill plot shrinks with the panel, so its row keeps no content minimum (#2886 review F2).

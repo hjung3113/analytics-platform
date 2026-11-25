@@ -173,7 +173,7 @@ describe('startAlign (#690o)', () => {
     const brush = screen.getByRole('button', { name: '구간 선택' }) as HTMLButtonElement;
     expect(brush.disabled).toBe(true);
     expect(brush.title).toContain('시작 위치 맞춤');
-    expect(screen.getByRole('region', { name: '선택 요약' }).textContent).not.toContain('구간 선택으로');
+    expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
   });
 
   it('does nothing with fewer than 2 visible series: normal value axis and unit, Brush stays, no warning', async () => {
