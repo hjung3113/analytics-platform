@@ -18,11 +18,12 @@ import { InWorkspacePanelProvider } from './panelContext';
 import { PanelBadge } from './PanelBadge';
 import { AnalysisPanelAddContext, type AnalysisPanelAddition, type AnalysisPanelDestinations, type PanelAddItem } from './PanelAdd';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { PANEL_RECIPE_ITEM } from '../panel-recipe/panelRecipe';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { WorkspaceEdges } from './WorkspaceEdges';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
-import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withAdjustedRowHeights, withRows, workspacePreference, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withAdjustedRowHeights, withRows, workspacePreference, WORKSPACE_ID, WORKSPACE_PANEL_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
 import { canMoveBelow, clampRow, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows, validPreferred } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
 import { alignUnderChrome, restoreScrollOffset, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
@@ -39,8 +40,10 @@ export type { PanelWorkspaceStorage } from './workspaceStorage';
 export type PanelWorkspacePersistence = { key: string; storage?: PanelWorkspaceStorage };
 
 export type PanelWorkspacePanel = {
-  /** Static identifier (`^[a-z][a-z0-9._-]{0,63}$`): it is stored in the local preference. */
+  /** Stable slot identifier (`^[a-z][a-z0-9._-]{0,1023}$`): it is stored in the local preference. */
   id: string;
+  /** Declaration used for the recipe when its id differs from this workspace slot id. */
+  declarationId?: string;
   /** Declared analysis selection source hosted here when its id differs from this layout id. */
   analysisSelectionSourceId?: string;
   /** Offer Panel settings and pass the menu trigger after the menu closes. */
@@ -101,6 +104,8 @@ export type PanelWorkspacePreset = { id: string; label: Text; layout: PanelWorks
 export type PanelWorkspaceProps = {
   /** Menu-declared actions for the active panel, after all platform items and a separator. Absent/empty leaves the menu unchanged; primary panels are not filtered. */
   panelMenuItems?: (panelId: string) => readonly { id: string; label: Text; onSelect: () => void }[];
+  /** Return the recipe opener for this declaration and slot, or omit it if no recipe is available. */
+  panelRecipe?: (declarationId: string, slotId: string) => (() => void) | undefined;
   panels: readonly PanelWorkspacePanel[];
   presets: readonly PanelWorkspacePreset[];
   initialPreset: string;
@@ -108,6 +113,8 @@ export type PanelWorkspaceProps = {
   compactPreset?: string;
   /** Static identifier of this workspace within its menu (`^[a-z][a-z0-9._-]{0,63}$`): part of the local preference key. */
   persistKey: string;
+  /** Optional namespace for this menu workspace's local preference. New namespaces start from the unscoped preference. */
+  persistenceScope?: string;
   /** Accessible name of the region. */
   label: Text;
   /** Container width in px under which the compact arrangement is shown. Default 900. */
@@ -172,7 +179,7 @@ function useDevChecks(props: PanelWorkspaceProps) {
     const problems: string[] = [];
     if (panels.filter(panel => panel.primary).length !== 1) problems.push('exactly one panel must be primary (the first is used)');
     if (!WORKSPACE_ID.test(persistKey)) problems.push(`persistKey "${persistKey}" must match ${String(WORKSPACE_ID)}`);
-    for (const panel of panels) if (!WORKSPACE_ID.test(panel.id)) problems.push(`panel id "${panel.id}" must match ${String(WORKSPACE_ID)}`);
+    for (const panel of panels) if (!WORKSPACE_PANEL_ID.test(panel.id)) problems.push(`panel id "${panel.id}" must match ${String(WORKSPACE_PANEL_ID)}`);
     if (new Set(panels.map(panel => panel.id)).size !== panels.length) problems.push('panel ids must be unique');
     if (!presets.some(preset => preset.id === initialPreset)) problems.push(`initialPreset "${initialPreset}" is not a preset`);
     if (compactPreset !== undefined && !presets.some(preset => preset.id === compactPreset)) problems.push(`compactPreset "${compactPreset}" is not a preset`);
@@ -210,20 +217,25 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
   useDevChecks(props);
   if (props.panels.length === 0) return null;
   let storageKey: string | null;
+  let defaultStorageKey: string | undefined;
   let storage: PanelWorkspaceStorage | undefined;
   if (platform) {
     const userId = platform.session.user.id;
     const menuId = platform.route?.menu.id;
     storageKey = userId && menuId ? workspaceStorageKey(userId, menuId, props.persistKey) : null;
+    if (storageKey && props.persistenceScope !== undefined) {
+      defaultStorageKey = storageKey;
+      storageKey = `${storageKey}:scope:${props.persistenceScope}`;
+    }
   } else {
     storageKey = props.persistence?.key || null;
     storage = props.persistence?.storage;
   }
-  // A persistKey (or menu, or user, or standalone key) change is a different workspace: its body remounts and restores that key's state on its own.
-  return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} storage={storage} />;
+  // A different preference key remounts the body to restore that workspace's layout.
+  return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} defaultStorageKey={defaultStorageKey} storage={storage} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, edges = DEFAULT_EDGES, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, panelRecipe, edges = DEFAULT_EDGES, storageKey, defaultStorageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; defaultStorageKey?: string; storage: PanelWorkspaceStorage | undefined }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -252,7 +264,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
 
   const [initial] = useState(() => {
     const saved = storageKey ? readWorkspaceState(storageKey, spec, storage) : null;
-    return { saved, state: saved ?? initialWorkspaceState(spec) };
+    const baseline = saved ?? (defaultStorageKey ? readWorkspaceState(defaultStorageKey, spec, storage) : null);
+    return { saved, state: baseline ?? initialWorkspaceState(spec) };
   });
   const [storedState, setStored] = useState(initial.state);
   const root = useRef<HTMLDivElement>(null);
@@ -687,9 +700,11 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       const next = hidePanel(state, id, primaryId);
       closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
     };
+    const openRecipe = panelRecipe?.(panel?.declarationId ?? id, id);
     return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
       onOpenSettings={panel?.onOpenSettings}
       menuItems={panelMenuItems?.(id).map(item => ({ ...item, label: tx(item.label) }))}
+      recipeItem={openRecipe && { label: tx(PANEL_RECIPE_ITEM), onSelect: openRecipe }}
       edgeActions={id === primaryId || edgesNarrow ? undefined : {
         left: panel?.collapse !== false && edges.includes('left') ? () => { collapse('left', { fromMenu: true }); } : undefined,
         top: panel?.collapse !== false && edges.includes('top') ? () => { collapse('top', { fromMenu: true }); } : undefined,

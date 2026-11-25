@@ -12,7 +12,7 @@ export type AddedPanel = { slot: string; instance: PanelInstance; heldFrom?: str
 export type PanelConfiguration =
   | { kind: 'default' | 'unreadable' }
   /** `sources`: the output-only instances held inputs name, kept as restored and never drawn (#2862). */
-  | { kind: 'custom'; added: readonly AddedPanel[]; sources: readonly PanelInstance[]; connectionsEdited?: true };
+  | { kind: 'custom'; added: readonly AddedPanel[]; sources: readonly PanelInstance[]; viewId?: string; connectionsEdited?: true };
 export const defaultPanels: PanelConfiguration = { kind: 'default' };
 export type CustomPanels = Extract<PanelConfiguration, { kind: 'custom' }>;
 export const noPanels: CustomPanels = { kind: 'custom', added: [], sources: [] };
@@ -171,7 +171,7 @@ export function keepHeld(config: PanelConfiguration): PanelConfiguration {
   if (!kept.length) return defaultPanels;
   const keptInstances = kept.map(panel => panel.instance);
   const named = config.added.filter(panel => !holds(panel.instance) && names(keptInstances, panel.instance.id)).map(panel => panel.instance);
-  return { kind: 'custom', added: kept.map(({ slot, instance }) => ({ slot, instance })), sources: [...config.sources, ...named] };
+  return { ...config, added: kept.map(({ slot, instance }) => ({ slot, instance })), sources: [...config.sources, ...named] };
 }
 
 /**

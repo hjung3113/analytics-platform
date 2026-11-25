@@ -1,6 +1,6 @@
 // Inline NODE_ENV comparison so production builds drop the warning (#3028); typed locally as in context/drillValueLabel.ts.
 declare const process: { env: { NODE_ENV?: string } };
-type Slot = { value: unknown; apply: (value: never) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
+type Slot = { value: unknown; apply: (value: never, viewId: string) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
 export type ViewSlots = ReturnType<typeof createScreenSlots>;
 function sameValue(left: unknown, right: unknown): boolean {
   if (left === right) return true;
@@ -25,14 +25,15 @@ function createScreenSlots() {
     const accepted = entries.filter(entry => !entry.accepts || entry.accepts(values[key] as never));
     if (!accepted.length) return;
     applied.consumed.add(tokenKey);
-    for (const entry of accepted) entry.apply(values[key] as never);
+    const { viewId } = applied;
+    for (const entry of accepted) entry.apply(values[key] as never, viewId);
   };
   return {
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     snapshot: () => revision,
     changed: emit,
     retry(field: string, key: string) { applyKey(field, key); emit(); },
-    register<T>(field: string, key: string, slot: { value: T; apply: (value: T) => void; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
+    register<T>(field: string, key: string, slot: { value: T; apply: (value: T, viewId: string) => void; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
       let keys = fields.get(field);
       if (!keys) { keys = new Map(); fields.set(field, keys); }
       const entry = slot as Slot;

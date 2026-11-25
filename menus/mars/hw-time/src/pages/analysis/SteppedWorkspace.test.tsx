@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX } from '@ap/contracts';
 import type { MenuView, PanelInstance } from '@ap/contracts';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
-import { answer, renderOverview, requests, settle } from './test-support';
+import { answer, renderOverview, requests, session, settle } from './test-support';
 
 const chart = (id = 'hw-current') => JSON.parse(screen.getByTestId(id).textContent!);
 const config = () => JSON.parse(screen.getByTestId('workspace').getAttribute('data-config')!);
@@ -16,9 +16,11 @@ async function add(title: string) {
   fireEvent.click(await screen.findByRole('menuitem', { name: title }));
   await settle();
 }
+let workspaceStorage: ReturnType<typeof memoryStorage>;
 beforeEach(() => {
   requests.length = 0;
-  vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage());
+  workspaceStorage = memoryStorage();
+  vi.stubGlobal('localStorage', workspaceStorage); vi.stubGlobal('sessionStorage', memoryStorage());
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
@@ -117,7 +119,7 @@ describe('HW Time saved view panels', () => {
     await mount(store, '&moduleType=PM&drillMotion=Pump&drillModule=PM1');
     await open('saved');
     await waitFor(() => expect(config().ids).toContain('table'));
-    expect(config().ids).not.toContain('saved-panel-1');
+    expect(config().ids).not.toContain('saved-instance-held-source');
     expect(config().ids).not.toContain('moduleMotions');
     const result = await act(() => views.saveAs({ name: 'Held', kind: 'menu-view' }));
     expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: [table, source] } } } });
@@ -135,8 +137,8 @@ describe('HW Time saved view panels', () => {
     const page: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1']];
     await mount(createFakeSavedViewStore([saved({ page, panels: { version: 1, instances } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0103');
     await open('saved');
-    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1'])));
-    expect(screen.getByRole('tab', { name: 'saved-panel-1' }).getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
+    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-instance-kept'])));
+    expect(screen.getByRole('tab', { name: 'saved-instance-kept' }).getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
     expect(screen.getByRole('tab', { name: 'table' }).getAttribute('aria-description') ?? '').not.toContain('붙잡음');
     await waitFor(() => {
       const equipment = new Set(tableReads().map(read => (read.params as { motionEquipment?: string[] }).motionEquipment?.join()));
@@ -180,12 +182,12 @@ describe('HW Time saved view panels', () => {
     const step4: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['motionEquipment', 'MEM-PHOTO-0105']];
     await mount(createFakeSavedViewStore([saved({ page: step4, panels: { version: 1, instances: tables } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105');
     await open('saved');
-    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1'])));
-    expect([config().titles.table, config().titles['saved-panel-1']]).toEqual(['원본 표', '원본 표 2']);
+    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-instance-table-2'])));
+    expect([config().titles.table, config().titles['saved-instance-table-2']]).toEqual(['원본 표', '원본 표 2']);
     fireEvent.click(screen.getByRole('button', { name: 'hold table' }));
     await settle();
-    expect([config().titles.table, config().titles['saved-panel-1']]).toEqual(['원본 표', '원본 표 · 붙잡음']);
-    expect(config().ids.filter((id: string) => id === 'table' || id.startsWith('saved-panel') || id.startsWith('table-'))).toHaveLength(2);
+    expect([config().titles.table, config().titles['saved-instance-table-2']]).toEqual(['원본 표', '원본 표 · 붙잡음']);
+    expect(config().ids.filter((id: string) => id === 'table' || id.startsWith('saved-instance-') || id.startsWith('table-'))).toHaveLength(2);
   });
 
   const step4Page: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['motionEquipment', 'MEM-PHOTO-0105']];
@@ -195,16 +197,16 @@ describe('HW Time saved view panels', () => {
     const tables = ['table', 'table-2', 'table-3'].map(id => ({ ...makeInstance('table'), id }));
     await mount(createFakeSavedViewStore([saved({ page: step4Page, panels: { version: 1, instances: tables } })]), step4Search);
     await open('saved');
-    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1', 'saved-panel-2'])));
-    expect([config().titles.table, config().titles['saved-panel-1']]).toEqual(['원본 표', '원본 표 2']);
-    expect(config().placement['saved-panel-2']).toBeUndefined();
-    const third = screen.getByRole('region', { name: 'panel saved-panel-2' });
+    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-instance-table-2', 'saved-instance-table-3'])));
+    expect([config().titles.table, config().titles['saved-instance-table-2']]).toEqual(['원본 표', '원본 표 2']);
+    expect(config().placement['saved-instance-table-3']).toBeUndefined();
+    const third = screen.getByRole('region', { name: 'panel saved-instance-table-3' });
     expect(within(third).getByText('같은 패널은 2개까지 함께 엽니다. 이 패널은 저장된 뷰에만 있습니다.')).toBeTruthy();
     const saveAs = async () => act(() => views.saveAs({ name: `Tables ${Math.random()}`, kind: 'menu-view' }));
     expect(await saveAs()).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: tables } } } });
-    fireEvent.click(within(third).getByRole('button', { name: 'remove saved-panel-2' }));
+    fireEvent.click(within(third).getByRole('button', { name: 'remove saved-instance-table-3' }));
     await settle();
-    expect(config().ids).not.toContain('saved-panel-2');
+    expect(config().ids).not.toContain('saved-instance-table-3');
     expect(await saveAs()).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: tables.slice(0, 2) } } } });
   });
 
@@ -212,7 +214,7 @@ describe('HW Time saved view panels', () => {
     const trend = { ...makeInstance('trend'), id: 'trend-2' };
     await mount(createFakeSavedViewStore([saved({ page: step4Page, panels: { version: 1, instances: [makeInstance('donut'), trend] } })]), step4Search);
     await open('saved');
-    await waitFor(() => expect(config().ids).toContain('saved-panel-1'));
+    await waitFor(() => expect(config().ids).toContain('saved-instance-trend-2'));
     expect(config().ids).toContain('trend');
     expect(config().placement.trend).toBe('below');
   });
@@ -279,7 +281,7 @@ describe('HW Time saved view panels', () => {
     expect(result.value.view).toMatchObject({ panels: storedPanels });
     expect((result.value.view as MenuView).page).toContainEqual(['pins', 'donut']);
     expect((result.value.view as MenuView).page).not.toContainEqual(['pins', 'retired']);
-    fireEvent.click(screen.getByRole('button', { name: 'remove saved-panel-0' }));
+    fireEvent.click(screen.getByRole('button', { name: 'remove saved-instance-retired' }));
     await settle();
     expect(screen.queryByText('이 패널은 더 이상 없습니다: retired')).toBeNull();
     expect(config().pins.donut).toBe(true);
@@ -318,19 +320,58 @@ describe('HW Time saved view panels', () => {
     await mount(store);
     await open(copy.value.view.id);
     expect(panelSlots()).toEqual(before);
-    expect(before).toEqual(['saved-panel-0', 'panel saved-panel-1']);
+    expect(before).toEqual(['saved-instance-table.007e1', 'panel saved-instance-donut.007e1']);
   });
 
-  it.each([['trend~1', 'trend'], ['current~1', 'moduleMotions'], ['table~1', 'table']])(
+  it('drops an old index preference and retains the new hidden state only for the view that set it', async () => {
+    workspaceStorage.setItem(`platform:workspace:v1:${session.user.id}:hw-time:hw-time-s1-v1`, JSON.stringify({
+      v: 1, preset: 'step', hidden: ['saved-panel-0'], layout: { type: 'group', panels: ['tree', 'current'] },
+    }));
+    const store = createFakeSavedViewStore([
+      saved({ id: 'first', panels: { version: 1, instances: [{ ...donut, id: 'extra' }] } }),
+      saved({ id: 'second', panels: { version: 1, instances: [{ ...pareto, id: 'extra' }] } }),
+    ]);
+    await renderOverview('', answer, { savedViews: store, children: <Probe />, realWorkspace: true });
+    await waitFor(() => expect(views.status).toBe('ready'));
+    await open('first');
+    const first = await screen.findByRole('tab', { name: '판정 비율 도넛' });
+    fireEvent.keyDown(first, { key: 'F10', shiftKey: true });
+    fireEvent.click(await screen.findByRole('menuitem', { name: '숨기기' }));
+    await waitFor(() => expect(screen.queryByRole('tab', { name: '판정 비율 도넛' })).toBeNull());
+    await open('second');
+    expect(await screen.findByRole('tab', { name: '상한 초과 파레토' })).toBeTruthy();
+    await open('first');
+    expect(await screen.findByRole('button', { name: /숨긴 패널 1/ })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: '판정 비율 도넛' })).toBeNull();
+  });
+
+  it.each([
+    ['판정 비율 도넛', { ...donut, id: 'extra' }],
+    ['상한 초과 파레토', pareto],
+  ] as const)('opens the recipe for %s', async (title, instance) => {
+    const store = createFakeSavedViewStore([saved({ panels: { version: 1, instances: [instance] } })]);
+    await renderOverview('', answer, { savedViews: store, children: <Probe />, realWorkspace: true });
+    await waitFor(() => expect(views.status).toBe('ready'));
+    await open('saved');
+    fireEvent.keyDown(await screen.findByRole('tab', { name: title }), { key: 'F10', shiftKey: true });
+    fireEvent.click(await screen.findByRole('menuitem', { name: '이 패널 만든 방법' }));
+    expect(await screen.findByRole('region', { name: '패널 설명 본문' })).toBeTruthy();
+  });
+
+  it.each([
+    ['trend~1', 'trend', 'saved-instance-trend.007e1'],
+    ['current~1', 'moduleMotions', 'saved-instance-current.007e1'],
+    ['table~1', 'table', 'saved-instance-table.007e1'],
+  ])(
     'opens %s in its own slot and preserves its record on save',
-    async (id, panel) => {
+    async (id, panel, slot) => {
       const panels = { version: 1 as const, instances: [{ ...makeInstance(panel), id }] };
       await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels })]));
       await open('saved');
       const result = await act(() => views.saveAs({ name: 'Copy', kind: 'menu-view' }));
       expect(result).toMatchObject({ ok: true, value: { view: { panels } } });
       const tableSlot = panel === 'table' ? [] : ['table'];
-      expect(config().ids).toEqual(['tree', 'previous', 'current', 'saved-panel-0', ...tableSlot, 'trend']);
+      expect(config().ids).toEqual(['tree', 'previous', 'current', slot, ...tableSlot, 'trend']);
     },
   );
 
@@ -341,7 +382,8 @@ describe('HW Time saved view panels', () => {
     await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels: { version: 1, instances } })]));
     await open('saved');
     expect(config().pins.table).toBe(true);
-    const slots = canonicalIndex === 0 ? ['table', 'saved-panel-1'] : ['saved-panel-0', 'table'];
+    const alias = 'saved-instance-table.007e1';
+    const slots = canonicalIndex === 0 ? ['table', alias] : [alias, 'table'];
     expect(config().ids).toEqual(['tree', 'previous', 'current', ...slots, 'trend']);
   });
 
@@ -349,7 +391,7 @@ describe('HW Time saved view panels', () => {
     const instances = [{ ...makeInstance('table'), id: 'table~1' }];
     await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels: { version: 1, instances } })]));
     await open('saved');
-    expect(config().pins['saved-panel-0']).toBe(true);
+    expect(config().pins['saved-instance-table.007e1']).toBe(true);
   });
 });
 

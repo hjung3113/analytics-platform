@@ -25,10 +25,12 @@ export function useMainScreenPanelSlots(host: HostPlatform | null) {
 /**
  * Register the current panel configuration once per main screen.
  * On open, null selects the menu's declared panels. 'unreadable' reports that the saved panels could not be opened.
+ * The opened view id lets the screen scope local workspace preferences to that view. A local Scope
+ * change can release held sets before a saved view is applied, in which case there is no view id.
  */
 export function useSavedViewPanels(options: {
   value: MenuViewPanels | null;
-  onOpen(outcome: SavedViewPanelsOutcome): void;
+  onOpen(outcome: SavedViewPanelsOutcome, viewId?: string): void;
 }): void {
   const app = useContext(AppContext);
   const host = useHostPlatformOptional();
@@ -61,7 +63,7 @@ export function useSavedViewPanels(options: {
       const supported = resolveSavedViewSupport(menu, supports) !== undefined;
       if (supported && !release) release = slots.register<SavedViewPanelsOutcome>(PANELS_SLOT, PANELS_SLOT, {
         get value() { return committed.current.value; },
-        apply: outcome => committed.current.onOpen(outcome),
+        apply: (outcome, viewId) => committed.current.onOpen(outcome, viewId),
         single: true,
       });
       else if (!supported && release) { release(); release = undefined; }

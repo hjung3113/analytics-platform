@@ -42,8 +42,8 @@ function PanelSlot() {
   setPanels = update;
   useSavedViewPanels({
     value,
-    onOpen: outcome => {
-      opened(outcome);
+    onOpen: (outcome, viewId) => {
+      opened(outcome, viewId);
       if (outcome !== 'unreadable') update(outcome);
     },
   });
@@ -95,7 +95,7 @@ it.each([panels, null])('delivers the opened menu view panels to its screen (%j)
   await act(async () => { await views.select('saved'); });
   expect(opened).not.toHaveBeenCalled();
   act(() => setMounted(true));
-  expect(opened).toHaveBeenCalledExactlyOnceWith(savedPanels);
+  expect(opened).toHaveBeenCalledExactlyOnceWith(savedPanels, 'saved');
 });
 
 it('restores the selected view panels after a reload and overwrite keeps them', async () => {
@@ -105,7 +105,7 @@ it('restores the selected view panels after a reload and overwrite keeps them', 
   opened.mockClear();
   await mount({ store });
   await waitFor(() => expect(views.selected?.view.id).toBe('saved'));
-  expect(opened).toHaveBeenCalledExactlyOnceWith(panels);
+  expect(opened).toHaveBeenCalledExactlyOnceWith(panels, 'saved');
   expect(views.state.modified).toBe(false);
   await act(async () => { await views.saveToSelected(); });
   expect(await store.get('saved')).toMatchObject({ view: { panels } });
@@ -134,14 +134,14 @@ it('delivers a reloaded personal default view once while its default lookup is s
   await act(async () => { release(); await Promise.resolve(); });
   await waitFor(() => expect(views.selected?.view.id).toBe('saved'));
   await act(async () => {});
-  expect(opened).toHaveBeenCalledExactlyOnceWith(panels);
+  expect(opened).toHaveBeenCalledExactlyOnceWith(panels, 'saved');
 });
 
 it('reports unreadable panels and keeps the current panels available to save', async () => {
   await mount({ saved: row({ panels: null, panelsUnreadable: true }) });
   act(() => setPanels(panels));
   await act(async () => { await views.select('saved'); });
-  expect(opened).toHaveBeenCalledExactlyOnceWith('unreadable');
+  expect(opened).toHaveBeenCalledExactlyOnceWith('unreadable', 'saved');
   expect(views.state.modified).toBe(true);
   await act(async () => {
     expect(await views.saveAs({ name: 'copy', kind: 'menu-view' })).toMatchObject({ ok: true, value: { view: { panels } } });
@@ -242,7 +242,7 @@ it('preserves a pending main screen panel restore when the board pane opens a vi
     expect(await paneViews.select('pane-saved')).toMatchObject({ ok: true });
   });
   act(() => setMounted(true));
-  expect(opened).toHaveBeenCalledExactlyOnceWith(panels);
+  expect(opened).toHaveBeenCalledExactlyOnceWith(panels, 'saved');
 });
 
 it('restores the main screen selection and panels after a pane picks a view at the same address', async () => {
@@ -257,7 +257,7 @@ it('restores the main screen selection and panels after a pane picks a view at t
   opened.mockClear();
   await mount({ store });
 
-  expect(opened).toHaveBeenCalledExactlyOnceWith(panels);
+  expect(opened).toHaveBeenCalledExactlyOnceWith(panels, 'saved');
   expect(views.selected?.view.id).toBe('saved');
 });
 
@@ -307,7 +307,7 @@ it('keeps lent saved views disabled and preserves the main screen panel restore 
   await act(async () => { await views.select('saved'); });
   act(() => hideLent());
   act(() => setMounted(true));
-  expect(opened).toHaveBeenCalledExactlyOnceWith(panels);
+  expect(opened).toHaveBeenCalledExactlyOnceWith(panels, 'saved');
 });
 
 // #2862 (owner 2026-11-25): in another Scope a held set does not apply and follows instead; a held absolute range stays.
@@ -327,7 +327,7 @@ it('opens held sets of a view saved in another Scope as following, and lists the
   await mount({ saved: row({ panels: held, savedScopeId: 'OTHER' }) });
   let excluded: readonly string[] | undefined;
   await act(async () => { const outcome = await views.select('saved'); excluded = outcome.ok ? outcome.excludedByScope : undefined; });
-  expect(opened).toHaveBeenCalledExactlyOnceWith(followed);
+  expect(opened).toHaveBeenCalledExactlyOnceWith(followed, 'saved');
   expect(excluded).toEqual(['room']);
   expect(views.scopeExcluded).toEqual({ savedScopeId: 'OTHER', keys: ['room'], panelKeys: ['room'] });
   expect(views.crossScopeSave?.keys).toEqual(['room']);
@@ -338,7 +338,7 @@ it('opens held sets of a view saved in another Scope as following, and lists the
 it('keeps held sets of a view saved in the current Scope (#2862)', async () => {
   await mount({ saved: row({ panels: held }) });
   await act(async () => { await views.select('saved'); });
-  expect(opened).toHaveBeenCalledExactlyOnceWith(held);
+  expect(opened).toHaveBeenCalledExactlyOnceWith(held, 'saved');
   expect(views.scopeExcluded).toBeNull();
   expect(views.state.modified).toBe(false);
 });

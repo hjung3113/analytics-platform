@@ -31,8 +31,9 @@ const SINGLE_FILL: AutoFill = { kind: 'single' };
 export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[]; preferredSeen?: Record<string, number>; collapsed?: Record<string, PanelEdge>; floating?: DockFloatingPanel[]; sharedRowSizes?: SharedRowSize[]; [AUTO_FILL]?: AutoFill; [LEGACY_FIT_SHARES]?: LegacyFitShare[] };
 export type WorkspacePreset = { id: string; layout: PanelWorkspaceLayout };
 
-/** Static identifiers only: nothing from data can reach a storage key. */
+/** The workspace key segment is static. Panel slots also admit encoded instance IDs. */
 export const WORKSPACE_ID = /^[a-z][a-z0-9._-]{0,63}$/;
+export const WORKSPACE_PANEL_ID = /^[a-z][a-z0-9._-]{0,1023}$/;
 
 /** Ratios -> shares of 100; anything unusable is left for `normalizeDockTree` (equal shares). */
 function toShares(layout: unknown): unknown {
@@ -82,7 +83,7 @@ function withPreferredSeen(state: WorkspaceState, spec: WorkspaceSpec, previous?
   const seen = new Map<string, number>();
   if (isRecord(previous)) {
     for (const [id, px] of Object.entries(previous)) {
-      if (WORKSPACE_ID.test(id) && validPreferred(px)) seen.set(id, px);
+      if (WORKSPACE_PANEL_ID.test(id) && validPreferred(px)) seen.set(id, px);
     }
   }
   for (const id of spec.panelIds) {

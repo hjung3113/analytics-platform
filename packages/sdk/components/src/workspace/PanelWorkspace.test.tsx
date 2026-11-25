@@ -558,6 +558,23 @@ describe('PanelWorkspace: local preference', () => {
     expect(written()).toEqual([]);
   });
 
+  it('restores adjusted widths for the same slot in each preference scope', async () => {
+    const view = mountWorkspace({ persistenceScope: 'first', initialPreset: 'focus' });
+    await ready();
+    const width = () => screen.getByRole('separator').getAttribute('aria-valuenow');
+    const initial = width();
+    fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' });
+    await waitFor(() => expect(width()).not.toBe(initial));
+    const adjusted = width();
+
+    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="second" initialPreset="focus" />));
+    await ready();
+    expect(width()).toBe(initial);
+    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="first" initialPreset="focus" />));
+    await ready();
+    expect(width()).toBe(adjusted);
+  });
+
   it('per drill step (#2397): each step declares its own panels, presets and persistKey; a step-only panel never shows elsewhere and each step restores its own layout', async () => {
     // Step 1 has no detail panel (it cannot answer there); step 2 adds it and arranges differently.
     const STEP1: Partial<PanelWorkspaceProps> = { persistKey: 'step1', panels: PANELS.filter(panel => panel.id !== 'detail'), presets: [{ id: 'balanced', label: { ko: '균형', en: 'Balanced' }, layout: { type: 'branch', dir: 'row', sizes: [1, 2], children: [group(['selector']), group(['trend', 'kpi'])] } }] };
