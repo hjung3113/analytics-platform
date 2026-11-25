@@ -289,10 +289,14 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const options = useMemo(() => workspaceOptions(step), [step]);
   const state = usePanelOptions(options);
   const pins = usePinnedPanels('pins', CATALOG_IDS);
+  // A saved view can pin a panel the catalog no longer has; its reason slot shows it, so that pin is not a broken address.
+  const missingPins = savedPanels.config.kind === 'custom' ? savedPanels.config.added.flatMap(({ instance: { source } }) =>
+    source.kind === 'declared' && !CATALOG_IDS.some(id => id === source.panel) ? [source.panel] : []) : [];
+  const pinRules = pins.rules.map(rule => ({ ...rule, valid: (raw: string) => rule.valid(raw) || missingPins.includes(raw) }));
   const trend = pageParam('trend');
   const selectionInputs = useAnalysisSelectionInputs(panelDeclarations.table.id);
   const selectionRejected = selectionInputs.rejected.includes(MOTION_EQUIPMENT_KEY);
-  const keys = useHwTimeDrillRules([...state.rules, ...pins.rules,
+  const keys = useHwTimeDrillRules([...state.rules, ...pinRules,
     { key: 'verdict', label: N.verdict, valid: raw => verdictCodec.decode(raw) !== null },
     { key: 'date', label: N.date, valid: raw => validPanelDate(raw, context.from, context.to) },
     { key: 'trend', label: S.trend, valid: validTrend },
@@ -404,7 +408,11 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         const panel = instance.source.kind === 'declared' ? instance.source.panel : instance.id;
         const reason = item?.disabledReason?.[lang] ?? workspace(instance.source.kind === 'declared' ? 'missingPanel' : 'unsupportedPanel', { id: panel });
         return { id, title: item?.title ?? { ko: panel, en: panel }, float: false, collapse: false,
-          onRemove: () => savedPanels.remove(instance.id),
+          onRemove: () => {
+            savedPanels.remove(instance.id);
+            const pinned = pageParams('pins');
+            if (pinned.includes(panel)) setPage({ pins: pinned.length > 1 ? pinned.filter(id => id !== panel) : null });
+          },
           render: () => <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={reason} /> };
       }
       const panel = item!.id as CatalogId;

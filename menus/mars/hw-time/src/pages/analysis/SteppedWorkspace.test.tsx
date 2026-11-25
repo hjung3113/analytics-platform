@@ -83,6 +83,22 @@ describe('HW Time saved view panels', () => {
     expect(result).toMatchObject({ ok: true, value: { view: { panels: null } } });
   });
 
+  it('opens a view that pins a missing panel with the reason slot, and closing it drops the instance and the pin', async () => {
+    await mount(createFakeSavedViewStore([saved({ page: [['pins', 'retired'], ['pins', 'donut']] })]));
+    await open('saved');
+    expect(await screen.findByText('이 패널은 더 이상 없습니다: retired')).toBeTruthy();
+    expect(await screen.findByTestId('hw-verdict-donut')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'remove saved-panel-0' }));
+    await settle();
+    expect(screen.queryByText('이 패널은 더 이상 없습니다: retired')).toBeNull();
+    expect(screen.getByTestId('hw-current')).toBeTruthy();
+    const result = await act(() => views.saveAs({ name: 'Closed', kind: 'menu-view' }));
+    expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: [donut] } } } });
+    if (!result.ok) throw new Error('Failed to save view');
+    expect((result.value.view as MenuView).page).toContainEqual(['pins', 'donut']);
+    expect((result.value.view as MenuView).page).not.toContainEqual(['pins', 'retired']);
+  });
+
   it('keeps the missing instance when saving after open', async () => {
     await mount(createFakeSavedViewStore([saved()]));
     await open('saved');
