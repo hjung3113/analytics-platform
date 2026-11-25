@@ -12,7 +12,7 @@ const slot = (pending: boolean): AccessRequestSlot => ({
   </DialogContent></Dialog>,
 });
 
-/** 막힌 자리의 «권한 요청» 진입점. 요청이 처리 전이면 «요청 대기 중» 배지와 «요청 상태» 링크를 보인다. 대화창은 그 자리에서 열리고 URL·Context를 바꾸지 않는다. */
+/** 막힌 자리의 «권한 요청» 진입점. 요청이 처리 전이면 «검토 중» 배지와 «요청 상태» 링크를 보인다. 대화창은 그 자리에서 열리고 URL·Context를 바꾸지 않는다. */
 const meta = {
   title: '표시/AccessRequestEntry',
   component: AccessRequestEntry,
@@ -30,5 +30,5 @@ type Story = StoryObj<typeof meta>;
 export const Request: Story = {};
 /** `emphasis="primary"`: 신청 동작을 기본 버튼으로 강조한다. */
 export const Primary: Story = { args: { emphasis: 'primary' } };
-/** 처리 전: «요청 대기 중» 배지와 «요청 상태» 링크. */
+/** 처리 전: «검토 중» 배지와 «요청 상태» 링크. */
 export const Pending: Story = { args: { slot: slot(true) } };

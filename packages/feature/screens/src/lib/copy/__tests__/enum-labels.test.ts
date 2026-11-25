@@ -36,6 +36,7 @@ import {
   TASK_REQUEST_STATUS_LABELS,
   TASK_STATUS_LABELS,
   TRIAGE_STATE_LABELS,
+  permissionRequestStatusText,
 } from '../enum-labels';
 
 function expectCompleteLabels<T extends string>(values: readonly T[], labels: Record<T, string>) {
@@ -47,6 +48,10 @@ function expectCompleteLabels<T extends string>(values: readonly T[], labels: Re
 }
 
 describe('enum display labels', () => {
+  it('uses the shared permission-request pending wording in both languages', () => {
+    expect(permissionRequestStatusText.pending).toEqual({ ko: '검토 중', en: 'Under review' });
+  });
+
   it('covers every triage state', () => {
     expectCompleteLabels(triageStateEnumSchema.options, TRIAGE_STATE_LABELS);
   });
