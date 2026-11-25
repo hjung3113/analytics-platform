@@ -1,5 +1,5 @@
 import {
-  canTransition, validateSavedView,
+  canTransition, readMenuViewPanels, validateSavedView,
   type ApprovalRequestInfo, type GroupCapabilities, type GroupMember, type Result, type SavedView, type SavedViewDraft, type SavedViewEntry, type SavedViewKey,
   type SavedViewListItem, type SavedViewPatch, type SavedViewStore, type ViewCapabilities, type ViewGroupEntry, type ViewVisibility,
 } from '@ap/contracts';
@@ -43,7 +43,9 @@ const viewShape = (v: unknown, ownerId: string, menuId: string | null): v is Rec
   if (!visibilityOk(v.visibility) || typeof v.approval !== 'string' || !APPROVALS.includes(v.approval)) return false;
   if (v.approvalNote !== undefined && typeof v.approvalNote !== 'string') return false;
   const { pending: _p, ...content } = v; void _p;
-  if (!validateSavedView(content).ok) return false;
+  // A row saved before the panel-instance format (#2760) is still read and kept: only saving checks `panels` (readMenuViewPanels classifies it).
+  const readable = readMenuViewPanels(content.panels).status === 'legacy' ? { ...content, panels: null } : content;
+  if (!validateSavedView(readable).ok) return false;
   return viewMenuId(content as { kind: string; menuId?: string }) === menuId;
 };
 const storedView = (ownerId: string, menuId: string | null) => (v: unknown) => viewShape(v, ownerId, menuId) && (v.pending === undefined || viewShape(v.pending, ownerId, menuId));

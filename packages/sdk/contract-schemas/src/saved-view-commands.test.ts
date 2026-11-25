@@ -30,7 +30,7 @@ const declared = {
   outputs: [{ key: 'time.range', dimension: 'time', shape: 'range' }, { key: 'lots', dimension: 'lot', shape: 'set' }],
 };
 const chart = {
-  id: 'B', source: { kind: 'chart', config: { anything: ['goes', null], draftX: 1 } },
+  id: 'B', source: { kind: 'chart', config: { anything: ['goes', null], scope: 'all' } },
   inputs: [{ key: 'period', mode: 'follow', from: 'A.time.range' }],
   outputs: [{ key: 'time', dimension: 'time', shape: 'range' }],
 };
@@ -287,14 +287,16 @@ describe('saved-view commands', () => {
     expect(parse(withDraft({ ...condDraft, context: { condition: { axis: [] } } })).success).toBe(false);
   });
 
-  it('forbidden keys: same names as the SDK in chartOptions/layout, Scope-named keys and opaque chart config keys allowed', () => {
+  it('forbidden keys: same names as the SDK in chartOptions/layout/chart config (#2760), Scope-named keys allowed', () => {
     for (const k of ['hoverRow', 'zoomLevel', 'modalOpen', 'openModal', 'draftFilter', 'rows', 'rawData', 'engineState', 'dockLayout', 'scopeId', 'scope', 'rowsX', 'Rows']) {
       expect(isForbiddenSavedViewWireKey(k), k).toBe(isForbiddenSavedViewKey(k));
     }
-    for (const bad of [{ ...menuDraft, chartOptions: { nested: { rows: [] } } }, { ...menuDraft, layout: [{ engineState: 1 }] }]) {
+    const rawConfig = { version: 1, instances: [{ ...chart, inputs: [], source: { kind: 'chart', config: { nested: { rawData: [1] } } } }] };
+    for (const bad of [{ ...menuDraft, chartOptions: { nested: { rows: [] } } }, { ...menuDraft, layout: [{ engineState: 1 }] }, { ...menuDraft, panels: rawConfig }]) {
       expect(parse(withDraft(bad)).success).toBe(false);
       expect(validateSavedView(bad).ok).toBe(false);
     }
+    expect(savedViewPatchSchema.safeParse({ panels: rawConfig }).success).toBe(false);
     const scoped = { ...menuDraft, page: { scopeId: ['s1'], scope: ['x'] }, chartOptions: { scope: 'all' }, layout: { scopeId: 'x' } };
     expect(parse(withDraft(scoped)).success).toBe(true);
     expect(validateSavedView(scoped).ok).toBe(true);

@@ -9,7 +9,7 @@ export type PanelInstanceInput =
   /** 따라가기: reads the current selection of `from` (`<instance id>.<output key>`). */
   | { key: string; from: string; mode: 'follow' }
   /** 붙잡기: keeps the selection `from` had when it was held. The value is stored as is: a range is the absolute wall-clock
-   *  `from`/`to` pair of the selection, never a relative period (#2760, lead decision 2026-11-25, owner check pending). */
+   *  `from`/`to` pair of the selection, never a relative period (#2760, owner 2026-11-25). */
   | { key: string; from: string; mode: 'hold'; value: AnalysisSelection };
 export type PanelInstanceOutput = { key: string; dimension: string; shape: AnalysisSelectionShape };
 export type PanelInstanceSource =

@@ -111,8 +111,8 @@ function isJsonValue(value: unknown, ancestors: Set<object>): boolean {
 // letting Zod's record parser drop an own "__proto__" key or interpret an own "constructor" key.
 const chartConfigSchema = z.unknown().refine(
   config => typeof config === 'object' && config !== null && !Array.isArray(config) && isJsonValue(config, new Set()),
-  { message: 'config must be a finite JSON object' },
-).meta({ type: 'object' }) as z.ZodType<Record<string, JsonValue>>;
+  { message: 'config must be a finite JSON object', abort: true },
+).refine(config => !hasForbiddenKey(config), { message: 'transient or raw-data key must not be saved' }).meta({ type: 'object' }) as z.ZodType<Record<string, JsonValue>>;
 
 const panelSourceSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('declared'), panel: panelToken }),

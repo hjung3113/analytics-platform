@@ -191,6 +191,17 @@ function invalidPage(page: unknown): string | null {
   return null;
 }
 
+/** A chart-source instance stores its settings, never raw data or engine state: the same key rule as `chartOptions` (#2760). */
+function forbiddenChartConfigKey(panels: unknown): string | null {
+  if (panels === null) return null;
+  for (const [i, instance] of (panels as MenuViewPanels).instances.entries()) {
+    if (instance.source.kind !== 'chart') continue;
+    const bad = forbiddenKey(instance.source.config, `panels.instances[${i}].source.config`);
+    if (bad) return bad;
+  }
+  return null;
+}
+
 function forbiddenKey(value: unknown, path: string): string | null {
   if (typeof value !== 'object' || value === null) return null;
   for (const [k, v] of Object.entries(value)) {
@@ -248,7 +259,7 @@ export function validateSavedView(input: unknown): Result<SavedViewDraft> {
     const bad = nonSerializable(v, k, [input], { requireDenseArrays: k === 'panels' });
     if (bad) return invalid(bad);
     if (isForbiddenSavedViewKey(k)) return invalid(`${k} must not be saved`);
-    const key = k === 'chartOptions' || k === 'layout' ? forbiddenKey(v, k) : null;
+    const key = k === 'chartOptions' || k === 'layout' ? forbiddenKey(v, k) : k === 'panels' ? forbiddenChartConfigKey(v) : null;
     if (key) return invalid(`${key} must not be saved`);
   }
   return { ok: true, value: input as SavedViewDraft };

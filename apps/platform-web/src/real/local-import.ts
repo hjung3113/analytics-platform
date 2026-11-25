@@ -1,4 +1,4 @@
-import type { SavedViewDraft, SavedViewStore } from '@ap/contracts';
+import { readMenuViewPanels, type SavedViewDraft, type SavedViewStore } from '@ap/contracts';
 import { COMMAND_MAX_BYTES, IMPORT_ROWS_MAX, isSavedViewDraft, jsonBytes, withinDepth, type ImportLocal, type SavedViewImportCommand, type SavedViewImportOutcome } from '@ap/http-adapter';
 
 /**
@@ -48,11 +48,12 @@ function rowMatches(row: unknown, actorId: string, menuId: string | null): row i
   return (kind === 'menu-view' ? row['menuId'] : null) === menuId;
 }
 
-/** The owner-visible content (pending proposal before the published copy) as exactly the strict wire draft fields. */
+/** The owner-visible content (pending proposal before the published copy) as exactly the strict wire draft fields. A `panels` value saved
+ *  before the panel-instance format (#2760) imports as `null` (the menu's declared panels), so one old row cannot refuse its batch. */
 function project(content: Record<string, unknown>): unknown {
   const common = { schemaVersion: content['schemaVersion'], kind: content['kind'], name: content['name'], context: content['context'] };
   if (content['kind'] === 'condition-set') return common;
-  return { ...common, menuId: content['menuId'], menuSchemaVersion: content['menuSchemaVersion'], page: content['page'], chartOptions: content['chartOptions'], layout: content['layout'], panels: content['panels'], ...(content['tables'] === undefined ? {} : { tables: content['tables'] }) };
+  return { ...common, menuId: content['menuId'], menuSchemaVersion: content['menuSchemaVersion'], page: content['page'], chartOptions: content['chartOptions'], layout: content['layout'], panels: readMenuViewPanels(content['panels']).status === 'legacy' ? null : content['panels'], ...(content['tables'] === undefined ? {} : { tables: content['tables'] }) };
 }
 
 /** The server refuses NUL and unpaired surrogates in `legacyKey`; a row carrying one stays in the browser and never joins a request, so it cannot invalidate its neighbours. */
