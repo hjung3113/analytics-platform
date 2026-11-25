@@ -63,7 +63,7 @@ trap 'exit 143' TERM
 # Export these values so a caller's production settings cannot override the disposable project configuration.
 export OFFLINE_TAG="$tag" OFFLINE_TLS_DIR="$scratch" COMPOSE_PROFILES=''
 export RELEASE_OWNER="$project" RELEASE_POSTGRES_VOLUME="$project-postgres" RELEASE_MINIO_VOLUME="$project-minio"
-export MINIO_IMAGE=minio/minio:RELEASE.2024-12-18T13-15-44Z
+export MINIO_IMAGE=bitnamilegacy/minio:2024.7.16-debian-12-r0
 export EDGE_BIND=127.0.0.1 EDGE_PORT=8080
 export WORKSPACE_ID=54d0040f-7131-442a-8e58-7cdee4af2a38
 export OIDC_ISSUER_URL=https://oidc:8080/default OIDC_CLIENT_ID=offline-start
