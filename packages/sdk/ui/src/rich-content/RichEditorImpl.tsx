@@ -211,12 +211,18 @@ export default function RichEditorImpl({
     [editor, surface, toolbarStickyOffset],
   );
 
+  const supportsHeading = getExtensionsForSurface(surface).includes('heading');
+  const toolbarContent = toolbar
+    ? toolbar(editor, toolbarApi)
+    : editor && <RichEditorToolbar editor={editor} surface={surface} stickyOffset={toolbarStickyOffset} minimal={!supportsHeading}
+      {...(supportsHeading && onAttach ? { attach: toolbarApi.attach } : {})} />;
+
   return (
     <>
-      {toolbar ? toolbar(editor, toolbarApi) : editor && getExtensionsForSurface(surface).includes('heading') ? <RichEditorToolbar editor={editor} surface={surface} stickyOffset={toolbarStickyOffset} {...(onAttach ? { attach: toolbarApi.attach } : {})} /> : null}
+      {toolbarContent}
       {uploadError && <p role="alert" className="break-keep px-3 text-sm text-text-danger-label">첨부 파일을 올리지 못했습니다. 다시 시도해 주세요.</p>}
       {overLimit && <p role="alert" className="break-keep px-3 text-sm text-text-danger-label">내용이 너무 깁니다. 줄여야 저장할 수 있습니다.</p>}
-      {editor && getExtensionsForSurface(surface).includes('heading') && <EditorExtras editor={editor} surface={surface} actionMessages={actionMessages} onMenuChange={setSlashMenu} />}
+      {editor && supportsHeading && <EditorExtras editor={editor} surface={surface} actionMessages={actionMessages} onMenuChange={setSlashMenu} />}
       {/*
         `minHeight` sizes this wrapper, but the editable element TipTap renders
         inside it (`.ProseMirror`) is only as tall as its content. Everything
@@ -230,7 +236,7 @@ export default function RichEditorImpl({
       */}
       <EditorContent
         editor={editor}
-        data-rich-gutter={!disabled && getExtensionsForSurface(surface).includes('heading') ? '' : undefined}
+        data-rich-gutter={!disabled && supportsHeading ? '' : undefined}
         className={cn(
           'flex max-w-none flex-col focus:outline-hidden [&_.ProseMirror]:flex-1 [&_.ProseMirror]:px-3 [&_.ProseMirror]:py-2',
           minHeight ? 'min-h-(--rich-editor-min-height)' : undefined,

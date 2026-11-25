@@ -35,6 +35,7 @@ const PUBLIC_EXPORTS = [
   'readLocalStorage', 'writeLocalStorage',
   'shortcutLabel',
   'useDetailPanelSlot', 'useDetailPanelSlotHost', 'useDetailPanelEscape',
+  'useHorizontalOverflow',
   // Moved from FeedbackOps in #442 (ADR-0046/0047).
   'ActiveFilterBar', 'Callout', 'DatePicker', 'DetailPanelFullscreenContext', 'DetailPanelFullscreenToggle', 'DetailPanelHeader', 'DetailPanelHeaderActions', 'DetailPanelReadingColumn', 'DetailPanelSectionNav', 'StatusBadgeFrame', 'DirtyConfirmation', 'EmptyState', 'FieldLabel', 'FieldList', 'FieldRow', 'FormField', 'GROUPED_SELECTION_MESSAGES', 'GroupedSelectionList', 'InfoTip', 'LineErrorList', 'ListFilterButton', 'ListShell', 'ListSortButton', 'ListTabs', 'ListToolbar', 'NestedTextBlock', 'PageShell', 'PanelSectionTitle', 'PanelTitleBlock', 'PreviewModal', 'SearchInput', 'useImeEnterGuard', 'useValidatedSubmit', 'validateLines', 'ShellHeader', 'ToolbarKicker', 'UndoToast', 'WorkbenchShell', 'useDetailPanelContent',
   // Re-exported sonner for the analysis board's single <Toaster> and toast.custom() undo (#497).

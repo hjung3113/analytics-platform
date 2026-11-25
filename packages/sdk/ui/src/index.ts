@@ -128,6 +128,7 @@ export {
 } from './utils/motion';
 export { useListMotion } from './utils/useListMotion';
 export { useIsTruncated } from './utils/useIsTruncated';
+export { useHorizontalOverflow } from './internal/useHorizontalOverflow';
 export { isToastTarget } from './utils/toast-target';
 export { TransientOverlayScope } from './components/TransientOverlayScope';
 

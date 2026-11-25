@@ -7,6 +7,7 @@ import { isThemeColorToken, readColorToken } from './index';
 
 const tokensCss = readFileSync(join(process.cwd(), 'src/styles/tokens.css'), 'utf8');
 const platformCss = readFileSync(join(process.cwd(), 'src/styles/platform-tokens.css'), 'utf8');
+const sharedThemeCss = readFileSync(join(process.cwd(), 'src/styles/theme.css'), 'utf8');
 const themeCss = readFileSync(join(process.cwd(), 'src/styles/index.css'), 'utf8');
 const themeJson = readFileSync(join(process.cwd(), 'src/theme/theme-tokens.json'), 'utf8');
 const themeTs = readFileSync(join(process.cwd(), 'src/theme/tokens.generated.ts'), 'utf8');
@@ -79,6 +80,12 @@ it('no longer accepts the removed chart-purple token (#2796)', () => {
   expect(THEME_COLOR_TOKENS).not.toContain(removed);
   expect(THEME_COLOR_TOKENS).not.toContain('chart-purple-stroke');
   expect(isThemeColorToken('chart-purple')).toBe(false);
+});
+
+it('publishes text-link as an alias of the primary accent', () => {
+  expect(tokensCss).toContain('--text-link: var(--accent-primary);');
+  expect(sharedThemeCss).toContain('--color-text-link: rgb(var(--text-link));');
+  expect(THEME_COLOR_FALLBACK).toMatchObject({ 'text-link': THEME_COLOR_FALLBACK['accent-primary'] });
 });
 
 it('commits byte-for-byte generator output from the source CSS', () => {

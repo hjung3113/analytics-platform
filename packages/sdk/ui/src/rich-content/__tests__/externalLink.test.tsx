@@ -45,6 +45,12 @@ function renderDoc(href: string): HTMLAnchorElement {
 }
 
 describe('RichContentRenderer — external link decoration (PLAN-22 C10, #42)', () => {
+  it('uses the link token and underlines on hover only', () => {
+    const wrapper = renderDoc('#anchor').closest('.rich-content');
+    expect(wrapper).toHaveClass('[&_a]:text-text-link', '[&_a]:hover:underline', '[&_a]:underline-offset-4');
+    expect(wrapper).not.toHaveClass('[&_a]:underline');
+  });
+
   // jsdom default origin is http://localhost:3000 unless overridden.
   // External = any http(s) URL whose origin differs from window.location.origin.
 
@@ -95,7 +101,7 @@ describe('RichContentRenderer — link treatment (#740)', () => {
     // the wrapper carries the descendant link treatment (accent + hover underline).
     const a = renderDoc('https://example.com/path');
     const wrapper = a.closest('div');
-    expect(wrapper?.className).toContain('[&_a]:text-accent-primary');
+    expect(wrapper?.className).toContain('[&_a]:text-text-link');
     expect(wrapper?.className).toContain('[&_a]:hover:underline');
   });
 });

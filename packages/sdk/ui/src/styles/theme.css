@@ -55,6 +55,7 @@
   /* --- Text tokens --- */
   --color-text-primary: rgb(var(--text-primary));
   --color-text-secondary: rgb(var(--text-secondary));
+  --color-text-link: rgb(var(--text-link));
   --color-text-muted: rgb(var(--text-muted));
   --color-text-disabled: rgb(var(--text-disabled));
   --color-text-danger: rgb(var(--text-danger));

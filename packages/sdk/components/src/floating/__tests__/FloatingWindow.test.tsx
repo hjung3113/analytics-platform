@@ -226,15 +226,23 @@ describe('FloatingWindow modes', () => {
     expect(mounts).toHaveBeenCalledTimes(1);
   });
 
-  it('fill covers the whole area without frame chrome; off adds no box', () => {
+  it('fill covers the area and keeps the title and actions; off adds no box', () => {
     const { rerender, container } = render(<Harness mode="fill" />);
     expect(container.querySelector('[data-floating-mode="fill"]')?.hasAttribute('data-floating-window')).toBe(true);
     expect(container.querySelector('[data-floating-mode="fill"]')).toHaveStyle({ '--fw-left': '10px', '--fw-top': '20px', '--fw-width': '1200px', '--fw-height': '800px' });
     expect(container.querySelectorAll('[data-resize]')).toHaveLength(0);
     expect(screen.queryByRole('group', { name: 'bar' })).toBeNull();
+    const title = screen.getByText('Board');
+    expect(title).toHaveClass('text-sm');
+    expect(title.parentElement).toHaveClass('h-10');
+    expect(title.parentElement).not.toHaveClass('cursor-move');
+    expect(title.parentElement).toContainElement(screen.getByRole('button', { name: 'close' }));
+    expect(screen.queryByRole('button', { name: 'win-menu' })).toBeNull();
     rerender(<Harness mode="off" />);
     expect(container.querySelector('[data-floating-mode="off"]')?.className).toBe('contents');
     expect(container.querySelector('[data-floating-mode="off"]')?.hasAttribute('data-floating-window')).toBe(false);
+    expect(screen.queryByText('Board')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'close' })).toBeNull();
   });
 
   it('shows the clamped geometry and restores the stored one on expansion, without ever calling onGeometryChange', () => {

@@ -1,6 +1,6 @@
 /** Generic semantic and platform-owned colour roles published by @ap/ui/theme. */
 export const includePrefixes = [
-  'text-',
+  'text-', // Includes text-link, the semantic link foreground.
   'surface-',
   'border-',
   'focus-ring',

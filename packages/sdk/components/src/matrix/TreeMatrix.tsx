@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import type { MatrixCell, MatrixColumn, MatrixEmphasisRule, MatrixNode, MatrixWindow } from '@ap/contracts';
 import { useMessages } from '@ap/kernel';
-import { Button, cn, useImeEnterGuard } from '@ap/ui';
+import { Button, cn, useHorizontalOverflow, useImeEnterGuard } from '@ap/ui';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useRegisterPageBound } from '../pageFlow';
 import { BASE_ROW_HEIGHT, TABLE_SIZE_STEPS, useTableSize } from '../table/tableSize';
+import { FADE_BASE } from '../table/useColumnGroupLayout';
 import { MatrixRowMenu } from './MatrixRowMenu';
 import type { MatrixValueOf } from './emphasis';
 import { MATRIX_MESSAGES } from './messages';
@@ -51,10 +52,55 @@ export type TreeMatrixProps<N extends MatrixNode = MatrixNode> = Omit<MatrixWind
 };
 
 const WIDTH: Record<NonNullable<MatrixColumn['width']>, number> = { identity: 320, compact: 96, value: 96, wide: 384 };
+const COMPACT_MIN_WIDTH = 'calc(var(--spacing) * 16)';
 const EMPTY_RULES: readonly MatrixEmphasisRule[] = [];
 const EMPTY_IDS: readonly string[] = [];
-const CELL = 'relative flex h-(--ap-table-row-h) w-(--matrix-width) shrink-0 items-center border-r border-b border-border-subtle px-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
+const CELL = 'relative z-0 flex h-(--ap-table-row-h) w-(--matrix-width) shrink-0 items-center border-r border-b border-border-subtle px-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 type PendingFocus = { index: number; column: string; generation: string | number } | null;
+
+function MatrixCellBox({ compact, fullText, ...props }: ComponentProps<'div'> & { compact: boolean; fullText?: string }) {
+  const [hovered, setHovered] = useState<HTMLDivElement | null>(null);
+  // Recheck after each commit because the text can change without resizing its box.
+  useLayoutEffect(() => {
+    if (!hovered) return;
+    if (!compact) {
+      hovered.removeAttribute('title');
+      return;
+    }
+    let boxes: HTMLElement[] = [];
+    const refreshTitle = () => {
+      let clipped: HTMLElement | undefined;
+      for (const box of boxes) {
+        if (clipped && !clipped.contains(box)) continue;
+        if (box.scrollWidth > box.clientWidth && box.textContent?.trim()) clipped = box;
+      }
+      const title = clipped && (fullText ?? clipped.textContent);
+      if (title) {
+        if (hovered.title !== title) hovered.title = title;
+      } else {
+        hovered.removeAttribute('title');
+      }
+    };
+    const resize = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(refreshTitle);
+    const refreshBoxes = () => {
+      // The cell and its direct children have SDK clipping styles. A custom renderer can also truncate deeper inside its own layout.
+      boxes = [hovered, ...Array.from(hovered.querySelectorAll('*')).filter((box): box is HTMLElement =>
+        box instanceof HTMLElement && (box.parentElement === hovered || box.classList.contains('truncate') || getComputedStyle(box).textOverflow === 'ellipsis'),
+      )];
+      resize?.disconnect();
+      for (const box of boxes) resize?.observe(box);
+      refreshTitle();
+    };
+    refreshBoxes();
+    // A custom renderer can also update independently of the matrix.
+    const mutations = new MutationObserver(refreshBoxes);
+    mutations.observe(hovered, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] });
+    return () => { resize?.disconnect(); mutations.disconnect(); };
+  });
+  return <div {...props}
+    onMouseEnter={compact ? event => setHovered(event.currentTarget) : undefined}
+    onMouseLeave={hovered ? event => { event.currentTarget.removeAttribute('title'); setHovered(null); } : undefined} />;
+}
 
 /** Controlled server-windowed treegrid. Owns presentation and local focus only; fetching, counts and meaning remain consumer-owned. */
 const unmodified = (event: KeyboardEvent) => !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
@@ -86,12 +132,26 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
   const left = new Map<string, number>();
   const right = new Map<string, number>();
   let leftWidth = 0;
-  let rightWidth = emphasis.length > 0 ? WIDTH.compact * step.widthScale : 0;
+  const emphasisWidth = emphasis.length > 0 ? WIDTH.compact * step.widthScale : 0;
+  let rightWidth = emphasisWidth;
   for (const column of visible) if (column.id === identityColumn || column.pin === 'left') { left.set(column.id, leftWidth); leftWidth += widths.get(column.id)!; }
   for (const column of [...visible].reverse()) if (column.pin === 'right' && column.id !== identityColumn) { right.set(column.id, rightWidth); rightWidth += widths.get(column.id)!; }
-  const pinnedClass = (column: MatrixColumn) => cn(left.has(column.id) && 'sticky left-(--matrix-left) z-10', right.has(column.id) && 'sticky right-(--matrix-right) z-10');
+  const isFlexibleCompact = (column: MatrixColumn) => column.width === 'compact' && !left.has(column.id) && !right.has(column.id);
+  const columnLayoutClass = (column: MatrixColumn) => cn(
+    left.has(column.id) && 'sticky left-(--matrix-left) z-10',
+    right.has(column.id) && 'sticky right-(--matrix-right) z-10',
+    isFlexibleCompact(column) && 'min-w-(--matrix-compact-min-width) grow shrink overflow-hidden [&>*]:min-w-0 [&>*]:truncate',
+  );
   const selectionVisible = nodes.some(node => node.id === selectedCell?.row) && visible.some(column => column.id === selectedCell?.column);
-  const vars = { '--ap-table-row-h': `${rowHeight}px`, '--ap-table-font': step.font, '--ap-table-head-font': step.head, '--matrix-left-width': `${leftWidth}px`, '--matrix-right-width': `${rightWidth}px` } as CSSProperties;
+  const compactCount = visible.filter(isFlexibleCompact).length;
+  const fixedWidth = visible.reduce((sum, column) => isFlexibleCompact(column) ? sum : sum + widths.get(column.id)!, emphasisWidth);
+  const vars = {
+    '--ap-table-row-h': `${rowHeight}px`, '--ap-table-font': step.font, '--ap-table-head-font': step.head,
+    '--matrix-left-width': `${leftWidth}px`, '--matrix-right-width': `${rightWidth}px`,
+    '--matrix-compact-min-width': COMPACT_MIN_WIDTH,
+    '--matrix-fit-min-width': `calc(${fixedWidth}px + ${compactCount} * var(--matrix-compact-min-width))`,
+  } as CSSProperties;
+  const { canScrollLeft, canScrollRight } = useHorizontalOverflow(viewport, { contentKey: '' });
 
   const focusCell = useCallback((row: string, column: string) => {
     const root = viewport.current;
@@ -184,6 +244,15 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
     event.preventDefault();
     if (next !== 'stay') move(next.row, visible[next.column]);
   };
+  const edgeFade = (side: 'left' | 'right', surface: 'card' | 'sunken') => {
+    if (!(side === 'left' ? canScrollLeft : canScrollRight)) return null;
+    // Zero-width sticky markers track the pin edges and paint between center and pinned cells.
+    return <span aria-hidden data-matrix-fade={side} className={cn(
+      'pointer-events-none sticky z-5 w-0 shrink-0', FADE_BASE,
+      side === 'left' ? 'left-(--matrix-left-width) before:left-0 before:bg-linear-to-l' : 'right-(--matrix-right-width) before:right-0 before:bg-linear-to-r',
+      surface === 'sunken' ? 'before:to-surface-sunken' : 'before:to-surface-card',
+    )} />;
+  };
   return <section aria-label={label} style={vars} className={cn('flex min-h-0 min-w-0 flex-col text-(length:--ap-table-font) break-keep', fill && 'h-full flex-1 overflow-hidden')}>
     <div ref={viewport} data-matrix-viewport role="treegrid" aria-label={label} aria-rowcount={totalVisible + 1} aria-colcount={visible.length + (emphasis.length > 0 ? 1 : 0)} aria-busy={busy}
       className={cn('scrollbar-panel min-h-0 min-w-0 scroll-pt-(--ap-table-row-h) scroll-pl-(--matrix-left-width) scroll-pr-(--matrix-right-width) overflow-auto overscroll-contain', fill ? 'flex-1' : 'max-h-96')}
@@ -196,27 +265,40 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
         const next = Math.min(Math.max(0, totalVisible - 1), Math.floor(Math.max(0, first - stride / 2) / stride) * stride);
         request(next);
       }}>
-      <div className="min-w-full w-max">
+      <div className="w-full min-w-(--matrix-fit-min-width)">
         <div role="row" aria-rowindex={1} className="sticky top-0 z-20 flex h-(--ap-table-row-h) min-w-full bg-surface-sunken">
-          {visible.map((column, index) => <div key={column.id} role="columnheader" aria-colindex={index + 1}
-            style={{ '--matrix-width': `${widths.get(column.id)}px`, '--matrix-left': `${left.get(column.id) ?? 0}px`, '--matrix-right': `${right.get(column.id) ?? 0}px` } as CSSProperties}
-            className={cn(CELL, 't-table-header bg-surface-sunken text-(length:--ap-table-head-font) text-text-secondary', pinnedClass(column))}>
-            {column.label}{column.headerNote && <span className="ml-1 font-normal">{column.headerNote}</span>}
-          </div>)}
+          {edgeFade('left', 'sunken')}
+          {visible.map((column, index) => {
+            const content = <>{column.label}{column.headerNote && <span className="ml-1 font-normal">{column.headerNote}</span>}</>;
+            const fullText = column.headerNote ? `${column.label} ${column.headerNote}` : column.label;
+            return <MatrixCellBox key={column.id} role="columnheader" aria-colindex={index + 1}
+              style={{ '--matrix-width': `${widths.get(column.id)}px`, '--matrix-left': `${left.get(column.id) ?? 0}px`, '--matrix-right': `${right.get(column.id) ?? 0}px` } as CSSProperties}
+              className={cn(CELL, 't-table-header bg-surface-sunken text-(length:--ap-table-head-font) text-text-secondary', columnLayoutClass(column))}
+              compact={isFlexibleCompact(column)} fullText={fullText}>
+              {isFlexibleCompact(column) ? <div>{content}</div> : content}
+            </MatrixCellBox>;
+          })}
           {emphasis.length > 0 && <div role="columnheader" aria-colindex={visible.length + 1} style={{ '--matrix-width': `${WIDTH.compact * step.widthScale}px` } as CSSProperties} className={cn(CELL, 'sticky right-0 z-10 t-table-header bg-surface-sunken text-(length:--ap-table-head-font) text-text-secondary')}>{emphasisColumnLabel ?? m('emphasis')}</div>}
+          {edgeFade('right', 'sunken')}
         </div>
         <div aria-hidden data-matrix-spacer="before" className="h-(--matrix-spacer)" style={{ '--matrix-spacer': `${offset * rowHeight}px` } as CSSProperties} />
         {nodes.map((node, rowIndex) => <div key={node.id} data-matrix-row={node.id} role="row" aria-rowindex={offset + rowIndex + 2} aria-level={node.level + 1} aria-expanded={node.hasChildren ? node.expanded : undefined}
           className={cn('group/matrix-row flex h-(--ap-table-row-h) min-w-full', node.kind === 'group' ? 'bg-surface-sunken' : 'bg-surface-card')}>
+          {edgeFade('left', node.kind === 'group' ? 'sunken' : 'card')}
           {visible.map((column, columnIndex) => {
             const selected = selectedCell?.row === node.id && selectedCell.column === column.id;
             const tone = cellTone?.(node, column);
             const emphasized = matching.entries.get(node.id)?.columns.has(column.id) ?? false;
-            return <div key={column.id} role="gridcell" data-matrix-column={column.id} aria-colindex={columnIndex + 1} aria-selected={selected}
+            const content = renderCell(node, column);
+            // Give plain text a box to truncate while keeping custom content in the cell's flex layout.
+            const wrapText = isFlexibleCompact(column) && (typeof content === 'string' || typeof content === 'number' || typeof content === 'bigint');
+            const cellContent = wrapText ? <div>{content}</div> : content;
+            return <MatrixCellBox key={column.id} role="gridcell" data-matrix-column={column.id} aria-colindex={columnIndex + 1} aria-selected={selected}
               tabIndex={selected || (!selectionVisible && rowIndex === 0 && columnIndex === 0) ? 0 : -1}
               style={{ '--matrix-width': `${widths.get(column.id)}px`, '--matrix-left': `${left.get(column.id) ?? 0}px`, '--matrix-right': `${right.get(column.id) ?? 0}px` } as CSSProperties}
-              className={cn(CELL, node.kind === 'group' ? 'bg-surface-sunken' : 'bg-surface-card', pinnedClass(column), tone && MATRIX_TONE_CLASS[tone],
+              className={cn(CELL, node.kind === 'group' ? 'bg-surface-sunken' : 'bg-surface-card', columnLayoutClass(column), tone && MATRIX_TONE_CLASS[tone],
                 selected && 'bg-surface-row-selected ring-2 ring-inset ring-border-selected', emphasized && 'outline outline-1 -outline-offset-4 outline-dashed outline-accent-primary')}
+              compact={isFlexibleCompact(column)}
               onFocus={event => { if (event.target === event.currentTarget) onSelectCell({ row: node.id, column: column.id }); }}
               onKeyDown={event => keyDown(event, node, rowIndex, column, columnIndex)}
               onClick={event => {
@@ -232,14 +314,15 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
                   onClick={() => onToggle(node.id)} onKeyDown={event => {
                     if (togglesExpansion(event, node)) { event.preventDefault(); event.stopPropagation(); onToggle(node.id); }
                   }}>{node.expanded ? <ChevronDown className="size-3" aria-hidden /> : <ChevronRight className="size-3" aria-hidden />}</Button>}
-                <span className="flex min-w-0 flex-1 items-center gap-1">{renderCell(node, column)}</span>
+                <span className="flex min-w-0 flex-1 items-center gap-1">{content}</span>
                 {onEmphasisChange && <MatrixRowMenu key={generation} node={node} columns={valueColumns} valueOf={valueOf} emphasis={emphasis} onChange={onEmphasisChange} label={emphasisActionLabel} />}
-              </div> : renderCell(node, column)}
-            </div>;
+              </div> : cellContent}
+            </MatrixCellBox>;
           })}
           {emphasis.length > 0 && <div role="gridcell" aria-colindex={visible.length + 1} style={{ '--matrix-width': `${WIDTH.compact * step.widthScale}px` } as CSSProperties} className={cn(CELL, 'sticky right-0 z-10', node.kind === 'group' ? 'bg-surface-sunken' : 'bg-surface-card')}>
             {matching.entries.has(node.id) && (formatEmphasisCount?.(matching.entries.get(node.id)!.columns.size, node) ?? m('matchCount', { count: matching.entries.get(node.id)!.columns.size }))}
           </div>}
+          {edgeFade('right', node.kind === 'group' ? 'sunken' : 'card')}
         </div>)}
         <div aria-hidden data-matrix-spacer="after" className="h-(--matrix-spacer)" style={{ '--matrix-spacer': `${Math.max(0, totalVisible - offset - nodes.length) * rowHeight}px` } as CSSProperties} />
       </div>

@@ -3,11 +3,18 @@ import { RichContentRenderer } from '@ap/ui';
 import { PEOPLE, RICH_DOC } from '../equipment';
 import { guidedPage } from '../guidance';
 
+const docWithLink = {
+  ...RICH_DOC,
+  content: [...(RICH_DOC.content ?? []), { type: 'paragraph', content: [
+    { type: 'text', text: '알람 기록 보기', marks: [{ type: 'link', attrs: { href: 'https://example.com/alarms' } }] },
+  ] }],
+};
+
 /** 편집기 없이 같은 Tiptap JSON을 읽기 전용으로 그린다. 그리기 전에 `surface` 허용 목록으로 한 번 더 거른다. */
 const meta = {
   title: '표시/RichContentRenderer',
   component: RichContentRenderer,
-  args: { doc: RICH_DOC, mode: 'internal', surface: 'internal-comment', resolveMentionLabel: (id: string): string | null | undefined => PEOPLE[id] },
+  args: { doc: docWithLink, mode: 'internal', surface: 'internal-comment', resolveMentionLabel: (id: string): string | null | undefined => PEOPLE[id] },
   argTypes: { doc: { control: false } },
   decorators: [Story => <div className="w-[560px]"><Story /></div>],
   parameters: {

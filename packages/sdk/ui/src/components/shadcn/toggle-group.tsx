@@ -140,15 +140,19 @@ export const ToggleGroupItem = React.forwardRef<
   ToggleGroupItemProps & VariantProps<typeof toggleGroupItemVariants>
 >(({ className, children, variant, size, appearance = 'default', ...props }, ref) => {
   const context = React.useContext(ToggleGroupContext);
+  const resolvedVariant = context.variant || variant;
+  const defaultSegment = context.appearance !== 'filter' && appearance === 'default' && (resolvedVariant ?? 'default') === 'default';
   return (
     <ToggleGroupPrimitive.Item
       ref={ref}
       className={cn(
         toggleGroupItemVariants({
-          variant: context.variant || variant,
+          variant: resolvedVariant,
           size: context.size || size,
         }),
         context.appearance === 'filter' && 'rounded-inset-md',
+        defaultSegment && 'rounded-inset-md border border-transparent',
+        defaultSegment && TOGGLE_GROUP_ITEM_APPEARANCE_CLASSES['selected-filter'],
         appearance !== 'default' && TOGGLE_GROUP_ITEM_APPEARANCE_CLASSES[appearance],
         className,
       )}

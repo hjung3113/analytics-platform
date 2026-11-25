@@ -39,6 +39,6 @@ export function BoardScreen({ Outlet, visible = true, display }: { Outlet: Compo
   }, [ownsAddress, matched, board.activeSheetId, sheet.id, update, navigate]);
 
   return <BoardSurface sheetId={sheet.id} arrivalKey={ownsAddress ? url : ''} Outlet={Outlet} visible={visible} windowed={display !== undefined}
-    onMinimize={display === 'window' ? undefined : commands.minimize} onClose={display === 'window' ? undefined : commands.close} onFloat={ownsAddress ? commands.float : undefined}
+    onMinimize={display === undefined ? commands.minimize : undefined} onClose={display === undefined ? commands.close : undefined} onFloat={ownsAddress ? commands.float : undefined}
     onSheetChange={(id, options) => { if (!visible) return; if (!ownsAddress) { update(b => setActiveSheet(b, id)); return; } if (options?.replace) navigate(sheetHref(id), { replace: true }); else navigate(sheetHref(id)); }} />;
 }

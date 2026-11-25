@@ -33,6 +33,192 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+it('fits unpinned compact columns down to the shared minimum', () => {
+  mount({ columns: columns.map(column => column.id === 'name' ? column : { ...column, width: 'compact' }) });
+  const grid = screen.getByRole('treegrid');
+  expect(grid.parentElement).toHaveStyle({
+    '--matrix-compact-min-width': 'calc(var(--spacing) * 16)',
+    '--matrix-fit-min-width': 'calc(416px + 2 * var(--matrix-compact-min-width))',
+  });
+  expect(grid.firstElementChild).toHaveClass('w-full', 'min-w-(--matrix-fit-min-width)');
+  expect(screen.getByRole('columnheader', { name: 'X' })).toHaveClass('grow', 'shrink', 'min-w-(--matrix-compact-min-width)');
+  expect(cell('a', 'x')).toHaveClass('grow', 'shrink', 'min-w-(--matrix-compact-min-width)');
+  for (const id of ['name', 'z']) expect(cell('a', id)).toHaveClass('shrink-0');
+});
+
+it('shows a surface fade only where more columns can be scrolled into view', () => {
+  mount();
+  const grid = screen.getByRole('treegrid');
+  const [head, row] = within(grid).getAllByRole('row');
+  const fade = (element: HTMLElement, side: string) => element.querySelector(`[data-matrix-fade="${side}"]`);
+  expect(grid.querySelector('[data-matrix-fade]')).toBeNull();
+  Object.defineProperties(grid, { clientWidth: { value: 400 }, scrollWidth: { value: 600 } });
+  fireEvent.scroll(grid, { target: { scrollLeft: 0 } });
+  expect(fade(head, 'left')).toBeNull();
+  expect(fade(head, 'right')).toHaveClass('right-(--matrix-right-width)', 'before:to-surface-sunken');
+  fireEvent.scroll(grid, { target: { scrollLeft: 100 } });
+  expect(fade(row, 'left')).toHaveClass('left-(--matrix-left-width)', 'before:to-surface-card');
+  expect(fade(row, 'right')).toHaveClass('before:to-surface-card');
+  fireEvent.scroll(grid, { target: { scrollLeft: 200 } });
+  expect(fade(row, 'left')).toBeInTheDocument();
+  expect(grid.querySelector('[data-matrix-fade="right"]')).toBeNull();
+});
+
+it.each([
+  { viewportWidth: 388, expectedWidth: 388 },
+  { viewportWidth: 380, expectedWidth: 384 },
+])('contains compact text with a $viewportWidth px viewport', ({ viewportWidth, expectedWidth }) => {
+  const label = 'LongUnbrokenLabel';
+  const value = 'LongUnbrokenValue';
+  const identityWidth = 320;
+  const compactMinimum = 64;
+  const padding = 8;
+  const textWidth = 72;
+  mount({
+    columns: [columns[0], { id: 'x', label, width: 'compact' }],
+    nodes: [leaf('a', { x: value })],
+  });
+  const grid = screen.getByRole('treegrid');
+  const header = screen.getByRole('columnheader', { name: label });
+  const body = screen.getByRole('gridcell', { name: value });
+  const rowWidth = Math.max(viewportWidth, identityWidth + compactMinimum);
+  const cells = [header, body];
+  // jsdom has no layout. Model the overflow of the text only if its flex
+  // child is allowed to keep its intrinsic width or paint outside its box.
+  Object.defineProperties(grid, {
+    clientWidth: { value: viewportWidth },
+    scrollWidth: { get: () => cells.every(element => element.firstElementChild
+      && element.classList.contains('[&>*]:truncate') && element.classList.contains('overflow-hidden'))
+      ? rowWidth : Math.max(rowWidth, identityWidth + padding + textWidth) },
+  });
+  expect(grid.scrollWidth).toBe(expectedWidth);
+  fireEvent.scroll(grid, { target: { scrollLeft: 0 } });
+  expect(Boolean(grid.querySelector('[data-matrix-fade="right"]'))).toBe(expectedWidth > viewportWidth);
+
+  for (const [index, text] of [label, value].entries()) {
+    const content = within(cells[index]).getByText(text);
+    Object.defineProperties(content, {
+      clientWidth: { configurable: true, value: rowWidth - identityWidth - 2 * padding - 1 },
+      scrollWidth: { value: textWidth },
+    });
+    fireEvent.mouseEnter(content);
+    expect(cells[index]).toHaveAttribute('title', text);
+    fireEvent.mouseLeave(content);
+    Object.defineProperty(content, 'clientWidth', { value: textWidth });
+    fireEvent.mouseEnter(content);
+    expect(cells[index]).not.toHaveAttribute('title');
+    expect(cells[index]).toHaveAccessibleName(text);
+  }
+});
+
+it('layers both fades between the center cells and pins when the center strip is narrower than a fade', () => {
+  mount();
+  const grid = screen.getByRole('treegrid');
+  const viewportWidth = 428; // 320px left pin + 12px center strip + 96px right pin.
+  Object.defineProperties(grid, { clientWidth: { value: viewportWidth }, scrollWidth: { value: 608 } });
+  fireEvent.scroll(grid, { target: { scrollLeft: 90 } });
+
+  const stackingLevel = (element: Element) => Number([...element.classList].find(name => /^z-\d+$/.test(name))?.slice(2) ?? 0);
+  const [head, row] = within(grid).getAllByRole('row');
+  for (const [element, role] of [[head, 'columnheader'], [row, 'gridcell']] as const) {
+    const [leftPin, center, , rightPin] = within(element).getAllByRole(role);
+    for (const side of ['left', 'right']) {
+      const fade = element.querySelector(`[data-matrix-fade="${side}"]`)!;
+      expect(fade).toHaveClass('before:w-5');
+      expect(stackingLevel(fade)).toBeGreaterThan(stackingLevel(center));
+      expect(stackingLevel(fade)).toBeLessThan(stackingLevel(leftPin));
+      expect(stackingLevel(fade)).toBeLessThan(stackingLevel(rightPin));
+    }
+  }
+});
+
+it('preserves flex alignment and clips custom content in a compact cell', () => {
+  const value = 'LongUnbrokenValue';
+  mount({
+    columns: [columns[0], { id: 'x', label: 'X', width: 'compact' }],
+    renderCell: (node, column) => column.id === 'name' ? node.label : <span className="ml-auto">{value}</span>,
+  });
+  const body = cell('a', 'x');
+  const content = within(body).getByText(value);
+  expect(content.parentElement).toBe(body);
+  expect(body).toHaveClass('flex', 'overflow-hidden', '[&>*]:min-w-0', '[&>*]:truncate');
+  expect(content).toHaveClass('ml-auto');
+  Object.defineProperties(content, { clientWidth: { value: 51 }, scrollWidth: { value: 72 } });
+  fireEvent.mouseEnter(content);
+  expect(body).toHaveAttribute('title', value);
+  expect(body).toHaveAccessibleName(value);
+});
+
+it('titles the nested clipping box when its custom flex row and cell both fit', () => {
+  const value = 'LongUnbrokenValue';
+  mount({
+    columns: [columns[0], { id: 'x', label: 'X', width: 'compact' }],
+    renderCell: (node, column) => column.id === 'name' ? node.label : (
+      <div className="ml-auto flex"><span>OK</span><span className="truncate">{value}</span></div>
+    ),
+  });
+  const body = cell('a', 'x');
+  const label = within(body).getByText(value);
+  const row = label.parentElement!;
+  expect(row.parentElement).toBe(body);
+  expect(row).toHaveClass('ml-auto', 'flex');
+  Object.defineProperties(body, { clientWidth: { value: 64 }, scrollWidth: { value: 64 } });
+  Object.defineProperties(row, { clientWidth: { value: 48 }, scrollWidth: { value: 48 } });
+  Object.defineProperties(label, { clientWidth: { value: 32 }, scrollWidth: { value: 72 } });
+
+  fireEvent.mouseEnter(label);
+  expect(body).toHaveAttribute('title', value);
+});
+
+it.each([
+  { location: 'header', next: 'SecondClippedValue', expectedTitle: 'SecondClippedValue' },
+  { location: 'body', next: 'SecondClippedValue', expectedTitle: 'SecondClippedValue' },
+  { location: 'header', next: 'Fits', expectedTitle: null },
+  { location: 'body', next: 'Fits', expectedTitle: null },
+])('refreshes the hovered compact $location title when text changes to $next', ({ location, next, expectedTitle }) => {
+  const view = (value: string) => <I18nProvider><TreeMatrix {...base}
+    columns={[columns[0], { id: 'x', label: location === 'header' ? value : 'X', width: 'compact' }]}
+    nodes={[leaf('a', { x: value })]} /></I18nProvider>;
+  const first = 'FirstClippedValue';
+  const { rerender } = render(view(first));
+  const hovered = location === 'header' ? screen.getByRole('columnheader', { name: first }) : cell('a', 'x');
+  const content = within(hovered).getByText(first);
+  Object.defineProperties(content, {
+    clientWidth: { value: 48 },
+    scrollWidth: { get: () => content.textContent === 'Fits' ? 24 : 72 },
+  });
+  fireEvent.mouseEnter(content);
+  expect(hovered).toHaveAttribute('title', first);
+
+  rerender(view(next));
+  expect(hovered.getAttribute('title')).toBe(expectedTitle);
+});
+
+it('clears the hovered compact title when the text box widens enough to fit', () => {
+  const callbacks = new Map<Element, () => void>();
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(private readonly callback: () => void) {}
+    observe(element: Element) { callbacks.set(element, this.callback); }
+    disconnect() {
+      for (const [element, callback] of callbacks) if (callback === this.callback) callbacks.delete(element);
+    }
+  });
+  const value = 'LongUnbrokenValue';
+  mount({
+    columns: [columns[0], { id: 'x', label: 'X', width: 'compact' }],
+    nodes: [leaf('a', { x: value })],
+  });
+  const body = cell('a', 'x');
+  const content = within(body).getByText(value);
+  Object.defineProperties(content, { clientWidth: { configurable: true, value: 48 }, scrollWidth: { value: 72 } });
+  fireEvent.mouseEnter(content);
+  expect(body).toHaveAttribute('title', value);
+
+  Object.defineProperty(content, 'clientWidth', { value: 72 });
+  act(() => callbacks.get(content)?.());
+  expect(body).not.toHaveAttribute('title');
+});
+
 describe('TreeMatrix controlled window', () => {
   it.each(['End', 'PageDown'])('requests preceding viewport rows for remote %s near the result end', key => {
     const onWindowChange = vi.fn(); const onSelectCell = vi.fn();

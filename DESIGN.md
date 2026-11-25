@@ -16,6 +16,7 @@ sources:
   extensionMappings: packages/sdk/ui/src/styles/index.css
 colors:
   accent-primary: "var(--color-neon-lime)"
+  text-link: "var(--accent-primary)"
   accent-primary-hover: "#102080"
   accent-primary-soft: "#e4e8f6"
   accent-info: "var(--color-cyan-spark)"
@@ -130,7 +131,8 @@ components:
 
 | 플랫폼 token | 역할·사용 시점 | 값 출처 |
 | --- | --- | --- |
-| `accent-primary` | 주요 동작·링크·현재 위치·focus 계열의 일관된 강조 | 공유 `color-neon-lime` 참조 |
+| `accent-primary` | 주요 동작·현재 위치·focus 계열의 일관된 강조 | 공유 `color-neon-lime` 참조 |
+| `text-link` | 본문 링크 글자. `RichContentRenderer`는 hover에서 밑줄 표시 | `accent-primary` alias |
 | `accent-primary-hover` | primary 동작 hover | 플랫폼 literal `#102080` |
 | `accent-primary-soft` | 선택 요약·강조의 옅은 배경; 선택 표식 동반 | 플랫폼 literal `#e4e8f6` |
 | `accent-info` / `accent-success` / `accent-warn` / `accent-danger` | 의미 dot·icon·tint; 작은 의미 글자에 쓰지 않음 | 공유 `color-cyan-spark` / `color-emerald` / `color-amber` / `color-warning-red` 참조 |
@@ -245,13 +247,17 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 
 ### 표면 위계·선택 표시 — Decided (#2456)
 
+- 기본 `ToggleGroup`의 켠 항목은 `surface-row-selected` 바탕, `border-selected` 테두리, `text-primary` 및 `font-semibold`를 쓴다 (#2950).
+- `FloatingWindow`의 `window`와 `fill`은 `h-10` 제목줄, `text-sm` 제목과 호출자가 건넨 동작을 공유한다 (#2950).
+- 제목 서식을 지원하지 않는 `RichEditor`의 기본 도구줄은 `surface-band` 바탕과 아래 `border-chrome` 선의 한 줄이다 (#2950).
+
 페이지 제목은 `t-section-title`로 표시해 50px 헤더 안에서 위계를 구분한다. 최상위 카드와 분석 패널은 `elevation-panel`(`shadow-sm`)로 캔버스와 분리하며, 카드·상세 표면(`surface-card`·`surface-detail`)이나 도킹 패널 안에서는 그림자를 겹치지 않는다. 목록 선택은 selected surface와 2px `border-selected` 막대(`RowSelectionBar`)를 함께 써서 색과 형태로 현재 행을 표시한다. 캔버스 띠는 카드 밖에서 캔버스 표면 위에 놓인 가로 컨트롤 줄(조회·Context 막대, 도구줄)이다. 띠 소유자가 자기 요소에 `data-canvas-band`를 단다(셸의 Context·조회 막대, 페이지·보드 머리, 목록 도구줄, 리치 에디터 도구줄, 화면이 직접 그린 도구줄: 설문 빌더·결과 머리, 모델 프로필 섹션 이동). 카드 안 캔버스색 우물, sticky 아래 줄, 페이지 셸처럼 띠가 아닌 캔버스색 영역은 표식이 없어 그 안 컨트롤이 제 면을 유지한다. 캔버스 띠 위의 컨트롤은 `on-canvas-band:` variant로 띠의 표면색을 따른다. 도킹 패널 사이 간격은 캔버스 표면색을 쓴다.
 
 ### 표면·선·그림자 v3 — Decided (#2722)
 
 캔버스 `#eceff3`, 크롬(사이드바·레일·캔버스 띠) 흰색 `surface-band`·`surface-sidebar`, 크롬과 캔버스가 만나는 선 `border-chrome` `#e3e7ec`(페이지 sticky 머리 아래 포함). 최상위 카드와 도킹 그룹은 `elevation-panel`이 `border-card` `#dce1e7`·`radius-card` 10px·두 겹 `shadow-sm`을 주고, 카드 안 보조 면은 `surface-sunken` `#f6f8fa`다(`elevation-panel`·도킹 그룹이 `surface-sunken`을 `surface-sunken-in-card`로 바꾼다). 카드 안 선 `border-subtle` `#e5eaf0`, 표 행 선 `border-row` `#eef1f5`, 열린 상세 서랍과 팝오버는 L3 `shadow-xl`/`shadow-md`, 그 표면은 흰색이다. `text-muted` `#5b6678`은 캔버스에서 5.03:1. 입력 경계 `border-control`은 3:1 하한 때문에 프로토타입의 `#cbd5e1`(1.48:1) 대신 기존 값을 유지한다.
 
-**강조색 테마 (#2723).** 기본은 파랑이다. 루트에 `data-theme="violet"`을 달면 강조색 계열(`accent-primary`·hover·soft, 선택 행·선택 경계·focus)만 `#635bce`로 바뀌고 표면·상태·차트 계열 색은 그대로다. 정의는 `@ap/ui/styles/themes.css`. 캔버스에 토큰 색을 직접 그리는 부품은 `useThemeRevision()`(`@ap/ui/theme`)을 다시 그리는 의존성에 넣는다.
+**강조색 테마 (#2723).** 기본은 파랑이다. 루트에 `data-theme="violet"`을 달면 `accent-primary`가 `#635bce`로 바뀐다. hover·soft, `text-link`, 선택 행·선택 경계·focus도 강조색 테마를 따르며 표면·상태·차트 계열 색은 그대로다. 정의는 `@ap/ui/styles/themes.css`. 캔버스에 토큰 색을 직접 그리는 부품은 `useThemeRevision()`(`@ap/ui/theme`)을 다시 그리는 의존성에 넣는다.
 
 ### Compact analysis — Decided (#1141)
 
@@ -284,6 +290,8 @@ Opt-in page density and embedded chart/table chrome follow [06 §12](docs/contra
 reference quality recipe는 coverage→blue, traceability→teal, consistency→green, missing/untraced→이름 있는 remainder, inconsistent→cat-amber다. 분자·분모를 detail/table에서 제공하며 donut/gauge의 기본 허용 범위는 [06 §24](docs/contract/platform-ui-contract.md#decorative-visualization)를 따른다. defect bar는 zero baseline·정수 ticks·날짜·단위를 갖고 max는 데이터로 산정한다. queue/progress는 완료율과 성공률을 분리하고 분모 없는 회색 remainder를 만들어내지 않는다. pipeline/queue/lifecycle의 도메인 의미는 Consumer 후보이며 반복 확인 전 범용 플랫폼 컴포넌트로 승격하지 않는다.
 
 ## Tables
+
+- `TreeMatrix`의 고정하지 않은 compact 열은 폭에 맞춰 줄어들며 최소 폭은 spacing 16단계다. 더 줄일 수 없으면 가로로 스크롤한다. 넘치는 쪽 고정 열의 안쪽 가장자리에 머리와 그룹은 `surface-sunken`, 본문은 `surface-card`로 옅어지는 그라데이션을 표시한다 (#2950).
 
 - 열 묶음 편집은 «컬럼» 팝오버 안의 별도 선택 화면에서 한다. 선택 체크박스는 «열 이름 선택», 숨은 열은 «숨김»으로 구별하고 이동·핀·보이기 컨트롤은 함께 놓지 않는다. 일반 목록의 묶음 행은 기존 컨트롤 옆 `icon-xs` 메뉴 하나로 편집하며, footer는 «묶음 만들기» 다음 «기본값으로»다([ADR-0167](docs/adr/0167-editable-column-groups.md)).
 
