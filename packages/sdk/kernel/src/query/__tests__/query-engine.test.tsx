@@ -25,7 +25,7 @@ const applyRegistry = createRegistry({ spaces: [testSpace()], groups: [group], m
 
 const flush = settleQueries;
 
-type Call = { request: MenuQuery; signal: AbortSignal | undefined; resolve: (n: number) => void; reject: (error: unknown) => void };
+type Call = { request: MenuQuery; signal: AbortSignal | undefined; resolve: (n: number) => void; forbid: () => void; reject: (error: unknown) => void };
 
 function harness(over: Partial<PlatformAdapter> = {}) {
   const calls: Call[] = [];
@@ -36,7 +36,7 @@ function harness(over: Partial<PlatformAdapter> = {}) {
     session: () => current,
     subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; },
     menuQuery: vi.fn((request: MenuQuery, signal?: AbortSignal) => new Promise<ApiResponse<unknown>>((resolve, reject) => {
-      calls.push({ request, signal, reject, resolve: n => resolve({ outcome: 'ok', data: { n }, assessments: [], trust: null, correlationId: `c${n}` }) });
+      calls.push({ request, signal, reject, forbid: () => resolve({ outcome: 'forbidden', data: null, assessments: [], trust: null, correlationId: 'denied' }), resolve: n => resolve({ outcome: 'ok', data: { n }, assessments: [], trust: null, correlationId: `c${n}` }) });
     })) as never,
     ...over,
   });
@@ -117,6 +117,79 @@ describe('Kernel query engine (ADR-0086)', () => {
     await flush();
     expect(h2.calls[0]!.signal?.aborted).toBe(true);
     view.unmount();
+  });
+
+  it('pauses one observer without aborting its peer and aborts when the last observer cancels', async () => {
+    const h = harness();
+    render(tree(h.adapter, <><Menu id="x" /><Menu id="y" /></>));
+    await flush();
+    act(() => state('x').cancel?.());
+    expect(state('x').cancelled).toBe(true);
+    expect(h.calls[0]!.signal?.aborted).toBe(false);
+    act(() => state('y').cancel?.());
+    await flush();
+    expect(h.calls[0]!.signal?.aborted).toBe(true);
+    act(() => state('x').refetch());
+    await flush();
+    expect(h.calls).toHaveLength(2);
+    expect(state('x').cancelled).toBeUndefined();
+    expect(state('y').cancelled).toBe(true);
+  });
+
+  it('discards the old cache answer only for the observer whose gate closed', async () => {
+    const h = harness();
+    const ui = (enabled: boolean) => tree(h.adapter, <><Menu id="x" enabled={enabled} /><Menu id="y" /></>);
+    const view = render(ui(true));
+    await flush();
+    h.calls[0]!.resolve(5);
+    await flush();
+    view.rerender(ui(false));
+    view.rerender(ui(true));
+    await flush();
+    expect(state('x').response).toBeNull();
+    expect(state('y').response?.data?.n).toBe(5);
+    h.calls[1]!.reject(new Error('unavailable'));
+    await flush();
+    expect(state('x').response?.outcome).toBe('error');
+    expect(state('x').previousResult).toBeUndefined();
+    expect(state('y').previousResult?.response.data?.n).toBe(5);
+  });
+
+  it('discards a cancelled observer’s accepted data on a peer’s permission denial', async () => {
+    const h = harness();
+    render(tree(h.adapter, <><Menu id="x" /><Menu id="y" /></>));
+    await flush();
+    h.calls[0]!.resolve(5);
+    await flush();
+    act(() => state('y').refetch());
+    await flush();
+    act(() => state('x').cancel?.());
+    expect(state('x').response?.data?.n).toBe(5);
+    h.calls[1]!.forbid();
+    await flush();
+    expect(state('x').response?.outcome).toBe('forbidden');
+    expect(state('x').previousResult).toBeUndefined();
+    expect(state('y').response?.outcome).toBe('forbidden');
+  });
+
+  it('offers the last success on error only within the same query identity and session generation', async () => {
+    const h = harness();
+    render(tree(h.adapter, <Menu id="x" />));
+    await flush();
+    await act(async () => { h.calls[0]!.resolve(5); });
+    await flush();
+    act(() => state('x').refetch());
+    await flush();
+    await act(async () => { h.calls[1]!.reject(new DOMException('network', 'NetworkError')); });
+    await flush();
+    expect(state('x').response?.outcome).toBe('error');
+    expect(state('x').previousResult?.response.data).toEqual({ n: 5 });
+    h.switchUser('u2');
+    await flush();
+    await act(async () => { h.calls[2]!.reject(new DOMException('network', 'NetworkError')); });
+    await flush();
+    expect(state('x').response?.outcome).toBe('error');
+    expect(state('x').previousResult).toBeUndefined();
   });
 
   it('A2: two panes of one menu and Context send one request', async () => {

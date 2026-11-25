@@ -16,9 +16,14 @@ function useMerged(): HostPlatform | null {
   return useMemo(() => {
     if (lent) return lent;
     if (!app || !main || !screen) return null;
-    const { pageParamsNow: _pageParamsNow, analysisSelectionAvailability: _analysisSelectionAvailability, returnCarry: _returnCarry, rejectedBasis: _rejectedBasis, explicitSavedViewEntry: _explicitSavedViewEntry, ...snapshot } = screen;
+    const { pageParamsNow: _pageParamsNow, analysisSelectionAvailability: _analysisSelectionAvailability, returnCarry: _returnCarry, rejectedBasis: _rejectedBasis, explicitSavedViewEntry: _explicitSavedViewEntry, scopeValidationId: _scopeValidationId, ...snapshot } = screen;
     return { ...app.pub, ...main, ...snapshot };
   }, [app, main, screen, lent]);
+}
+
+export function useScopeValidationId(): number | null {
+  const paneScreen = useContext(PaneScreenContext);
+  return (paneScreen ?? use(ScreenContext))?.scopeValidationId ?? null;
 }
 
 /** Recent visits of the main screen, newest first. For a rendered list; an event handler reads `readRecent()` (host). Throws outside a provider. */

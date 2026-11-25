@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { customGroupListQueryOptions } from '../../saved-view/custom-group-list-cache';
-import { equipmentFactsQueryOptions } from '../../scope/equipment-facts-cache';
+import { equipmentFactsQueryKey, equipmentFactsQueryOptions } from '../../scope/equipment-facts-cache';
 import { useCustomGroupList } from '../../saved-view/useCustomGroupList';
-import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { useLayoutEffect } from 'react';
 import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -232,6 +232,31 @@ it('keeps the list failure refusal and retries the next run', async () => {
   expect(list).toHaveBeenCalledTimes(2);
 });
 
+it.each(['saved groups', 'equipment facts'])('discards the previous success when %s fail before transport', async source => {
+  window.history.replaceState(null, '', queryAddress({ customGroup: ['g1'] }, null));
+  const store = createFakeSavedViewStore([testSavedView({ id: 'g1', kind: 'custom-group', savedScopeId: 'MEM', target: { fixed: ['E1'] } })]);
+  const list = vi.spyOn(store, 'list');
+  const listEquipmentFacts = vi.fn(async () => facts);
+  const menuQuery = menuQuerySpy();
+  let engine!: ReturnType<typeof useQueryEngine>;
+  function Probe() {
+    const current = useQueryEngine();
+    useLayoutEffect(() => { engine = current; });
+    return <QueryProbe />;
+  }
+  render(tree({ session: () => session, menuQuery, listEquipmentFacts }, store, <Probe />));
+  await waitFor(() => expect(state?.response?.outcome).toBe('ok'));
+  if (source === 'saved groups') list.mockRejectedValueOnce(new Error('offline'));
+  else {
+    listEquipmentFacts.mockRejectedValueOnce(new Error('offline'));
+    engine.client.removeQueries({ queryKey: equipmentFactsQueryKey(engine.gen, 'MEM'), exact: true });
+  }
+  act(() => state?.refetch());
+  await waitFor(() => expect(state?.response?.message).toContain(`customGroup expansion blocked: ${source} could not load`));
+  expect(menuQuery).toHaveBeenCalledOnce();
+  expect(state?.previousResult).toBeUndefined();
+});
+
 it('rechecks denial on a later Apply after sharing changes', async () => {
   window.history.replaceState(null, '', queryAddress({ customGroup: ['g1'] }, null));
   const store = createFakeSavedViewStore([testSavedView({ id: 'g1', kind: 'custom-group', savedScopeId: 'MEM', target: { fixed: ['E1'] } })]);
@@ -244,6 +269,46 @@ it('rechecks denial on a later Apply after sharing changes', async () => {
   await waitFor(() => expect(state?.response?.message).toBe('customGroup blocked: g1 (scope)'));
   expect(list).toHaveBeenCalledTimes(2);
   expect(menuQuery).toHaveBeenCalledTimes(1);
+});
+
+it('clears the cancelled observer’s values and source when a shared Custom Group is revoked', async () => {
+  window.history.replaceState(null, '', queryAddress({ customGroup: ['g1'] }, null));
+  const store = createFakeSavedViewStore([testSavedView({ id: 'g1', kind: 'custom-group', savedScopeId: 'MEM', target: { fixed: ['E1'] } })]);
+  const list = vi.spyOn(store, 'list');
+  const menuQuery = vi.fn(async () => ({ ...response(), trust: { source: 'Group source', updatedAt: period.to, dataThrough: null, coverage: null, provisional: false } }));
+  let cancelledObserver!: QueryState<{ hits: number }>;
+  function PanelProbe({ name }: { name: string }) {
+    const query = useMenuQuery(endpoint, null);
+    useLayoutEffect(() => { if (name === 'cancelled panel') cancelledObserver = query; });
+    return <section aria-label={name}>
+      {query.response?.data && <p>Hits: {query.response.data.hits}</p>}
+      {query.response?.trust?.source && <p>{query.response.trust.source}</p>}
+      <p>{query.response?.message}</p>
+    </section>;
+  }
+  render(tree({ session: () => session, menuQuery, listEquipmentFacts: async () => facts }, store,
+    <><PanelProbe name="cancelled panel" /><PanelProbe name="active panel" /></>));
+  const cancelled = within(screen.getByRole('region', { name: 'cancelled panel' }));
+  const active = within(screen.getByRole('region', { name: 'active panel' }));
+  expect(await cancelled.findByText('Hits: 1')).toBeVisible();
+  expect(cancelled.getByText('Group source')).toBeVisible();
+  let reportRevocation!: (value: Awaited<ReturnType<typeof store.list>>) => void;
+  list.mockReturnValueOnce(new Promise(resolve => { reportRevocation = resolve; }));
+  act(() => cancelledObserver.refetch());
+  await waitFor(() => {
+    expect(list).toHaveBeenCalledTimes(2);
+    expect(cancelledObserver.cancel).toBeDefined();
+  });
+  act(() => cancelledObserver.cancel?.());
+  expect(cancelledObserver.cancelled).toBe(true);
+  expect(cancelled.getByText('Hits: 1')).toBeVisible();
+  await act(async () => reportRevocation([{ id: 'g1', denied: true, reason: 'scope' }]));
+  expect(await active.findByText('customGroup blocked: g1 (scope)')).toBeVisible();
+  await waitFor(() => expect(cancelledObserver.response?.data).toBeNull());
+  expect(cancelled.queryByText('Hits: 1')).toBeNull();
+  expect(cancelled.queryByText('Group source')).toBeNull();
+  expect(cancelledObserver.previousResult).toBeUndefined();
+  expect(menuQuery).toHaveBeenCalledOnce();
 });
 
 it('reads a separate list in a new session generation without showing the old result', async () => {

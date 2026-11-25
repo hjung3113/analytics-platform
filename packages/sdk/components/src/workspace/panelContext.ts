@@ -11,11 +11,16 @@ export const WorkspacePanelVisibleContext = createContext(true);
  * Internal; only `EmbeddedPane` is exported from the package.
  */
 const InWorkspacePanelContext = createContext<boolean | 'pane'>(false);
+export const QueryPanelContentContext = createContext<'current' | 'prior' | null>(null);
+export const useInQueryPanel = () => useContext(QueryPanelContentContext) !== null;
 export const InWorkspacePanelProvider = InWorkspacePanelContext.Provider;
 /** True inside a `PanelWorkspace` panel only (title and wheel behaviour). */
 export const useInWorkspacePanel = () => useContext(InWorkspacePanelContext) === true;
 /** True inside a panel or a board pane: the container owns the border, radius and outer padding. */
-export const useEmbeddedChrome = () => useContext(InWorkspacePanelContext) !== false;
+export function useEmbeddedChrome() {
+  const embedded = useContext(InWorkspacePanelContext);
+  return useInQueryPanel() || embedded !== false;
+}
 
 /** Board hosts wrap a pane's screen in this: chart frames and tables inside draw no card border of their own (the pane draws it). */
 export function EmbeddedPane({ children }: { children: ReactNode }): ReactElement {

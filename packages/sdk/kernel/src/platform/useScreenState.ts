@@ -23,6 +23,7 @@ import type { DroppedSelection, HostPlatform, LinkOptions, LinkResolution, Objec
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type CommitOptions, type PageWriteOptions, type ScreenAddress, type ScreenSource, type ScreenState } from './contexts';
 
 const noSelectionChannels = { panels: [] };
+let lastScopeValidationId = 0;
 
 // Hidden pairs are parsed with the public query, then split again by the main screen's commit (ADR-0105).
 function fullAddress({ url, hidden }: ScreenAddress): string {
@@ -413,7 +414,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // without making a same-session adapter notice restart the screen's check.
   const copyGeneration = useRef(isCurrentGeneration);
   useLayoutEffect(() => { copyGeneration.current = isCurrentGeneration; }, [isCurrentGeneration]);
-  const [scopeCheck, setScopeCheck] = useState<{ adapter: HostPlatform['adapter']; generation: HostPlatform['scopeGeneration']; scope: ScopeState } | null>(null);
+  const [scopeCheck, setScopeCheck] = useState<{ adapter: HostPlatform['adapter']; generation: HostPlatform['scopeGeneration']; validationId: number; retry: number; scope: ScopeState } | null>(null);
   const [scopeRetry, setScopeRetry] = useState(0);
   const retryScope = useCallback(() => setScopeRetry(n => n + 1), []);
   const { onScopeValid } = source;
@@ -424,8 +425,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (scopeId === null) { setScopeCheck(null); return; }
     const controller = new AbortController();
     const generation = copyGeneration.current;
+    const validationId = ++lastScopeValidationId;
     const setVerdict = (status: ScopeState['status'], grantedRooms: string[] = []) => {
-      setScopeCheck({ adapter, generation, scope: { scopeId, status, validatedFor: session, grantedRooms } });
+      setScopeCheck({ adapter, generation, validationId, retry: scopeRetry, scope: { scopeId, status, validatedFor: session, grantedRooms } });
     };
     setVerdict('validating');
     adapter.validateScope(scopeId, controller.signal).then(result => {
@@ -441,9 +443,11 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     return () => controller.abort();
   }, [global.scopeId, session, adapter, scopeRetry]);
 
-  // A Scope, session or adapter change masks the old verdict before the validation effect runs.
-  const currentCheck = scopeCheck?.adapter === adapter && scopeCheck.scope.validatedFor === session && scopeCheck.scope.scopeId === global.scopeId ? scopeCheck : null;
+  // A Scope, session, adapter change or explicit retry masks the old verdict before the validation effect runs.
+  const currentCheck = scopeCheck?.adapter === adapter && scopeCheck.scope.validatedFor === session
+    && scopeCheck.scope.scopeId === global.scopeId && scopeCheck.retry === scopeRetry ? scopeCheck : null;
   const scopeGeneration = currentCheck?.generation ?? isCurrentGeneration;
+  const scopeValidationId = currentCheck?.scope.status === 'valid' ? currentCheck.validationId : null;
   const maskedScope: ScopeState = currentCheck
     ? currentCheck.scope
     : { scopeId: global.scopeId, status: global.scopeId === null ? 'none' : 'validating', validatedFor: session, grantedRooms: [] };
@@ -676,7 +680,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const analysisSelectionAvailability = source.availability ?? localAvailability;
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy, rejectedBasis, explicitSavedViewEntry,
     detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin,
-    currentSpace, scope: scopeView, scopeGeneration, retryScope, screenMode: mode, paneId, paneLabel, analysisSelectionAvailability, returnCarry: origin?.carried,
-  }), [queryDraft, queryHistory, queryPolicy, rejectedBasis, explicitSavedViewEntry, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel, analysisSelectionAvailability, origin]);
+    currentSpace, scope: scopeView, scopeGeneration, scopeValidationId, retryScope, screenMode: mode, paneId, paneLabel, analysisSelectionAvailability, returnCarry: origin?.carried,
+  }), [queryDraft, queryHistory, queryPolicy, rejectedBasis, explicitSavedViewEntry, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, scopeValidationId, retryScope, mode, paneId, paneLabel, analysisSelectionAvailability, origin]);
   return { screen, sidebarSpace, resolveEntryLink, initialSavedView };
 }

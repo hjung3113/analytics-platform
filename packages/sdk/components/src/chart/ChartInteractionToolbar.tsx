@@ -17,6 +17,7 @@ type Props = {
   annotate?: ReactNode;
   table?: { shown: boolean; toggle: () => void; buttonRef?: Ref<HTMLButtonElement> };
   exportCsv?: () => void;
+  exportDisabled?: boolean;
   exportTools?: ReactNode;
   secondary?: ReactNode;
   secondaryOpen?: boolean;
@@ -34,7 +35,7 @@ export function ChartInteractionToolbar(p: Props) {
   const handedOffFocus = useRef(false);
   const moreTrigger = useRef<HTMLButtonElement>(null);
   const docked = p.dockMaximize !== undefined;
-  const exportMenu = p.exportCsv && <ChartExportMenu compact={p.compact} exportCsv={p.exportCsv} tools={p.exportTools} />;
+  const exportMenu = p.exportCsv && <ChartExportMenu compact={p.compact} exportCsv={p.exportCsv} tools={p.exportTools} disabled={p.exportDisabled} />;
   return <header data-dock-chart-options={docked && p.start != null ? '' : undefined} data-tools-reveal={p.toolsReveal} className={cn(
     'flex shrink-0 items-center gap-1 break-keep',
     p.compact ? 'min-w-0 px-2 pt-1' : 'flex-wrap px-4 pt-3',
@@ -93,11 +94,12 @@ export function ChartTableToggle({ shown, toggle, compact = false, disabled, but
 }
 
 /** `내보내기`: a menu with `내보내기 CSV` first and the chart's image actions (`tools`) after it (#2792). Mount it only when export is allowed. */
-export function ChartExportMenu({ exportCsv, tools, compact = false }: { exportCsv: () => void; tools?: ReactNode; compact?: boolean }) {
+export function ChartExportMenu({ exportCsv, tools, compact = false, disabled }: { exportCsv: () => void; tools?: ReactNode; compact?: boolean; disabled?: boolean }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  return <Popover open={open} onOpenChange={setOpen}>
-    <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(compact)} size={compact ? 'icon-xs' : 'toolbar'} aria-label={t('export')} title={t('export')}><Download className="size-3.5" aria-hidden />{!compact && t('export')}</Button></PopoverTrigger>
+  if (disabled && open) setOpen(false);
+  return <Popover open={open && !disabled} onOpenChange={setOpen}>
+    <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(compact)} size={compact ? 'icon-xs' : 'toolbar'} aria-label={t('export')} title={t('export')} disabled={disabled}><Download className="size-3.5" aria-hidden />{!compact && t('export')}</Button></PopoverTrigger>
     <PopoverContent align="end" aria-label={t('export')} className="w-auto break-keep"><div className="flex flex-wrap gap-1">
       <Button type="button" variant="ghost" size="toolbar" onClick={() => { exportCsv(); setOpen(false); }}>{t('export')} CSV</Button>
       {tools}

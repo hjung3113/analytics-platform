@@ -25,6 +25,8 @@ export type ScreenState = Pick<HostPlatform, ScreenFields | 'screenMode' | 'pane
   /** Event-time page values for kernel writers. Null means the source screen was left. */
   pageParamsNow: (key: string) => string[] | null;
   returnCarry?: CarriedSelection;
+  /** Identifies the validation that authorized this screen's current Scope. */
+  scopeValidationId: number | null;
   analysisSelectionAvailability: ReturnType<typeof createAnalysisSelectionAvailability>;
 };
 export type PageWriteOptions = NonNullable<Parameters<HostPlatform['setPage']>[1]> & { run?: CommitOptions['run'] };

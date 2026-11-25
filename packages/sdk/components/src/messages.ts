@@ -3,6 +3,22 @@ import { CUSTOM_GROUP_LABELS } from '@ap/kernel';
 
 /** Component SDK UI copy (docs/06 §23): domain values and identifiers stay untranslated. */
 export const COMPONENTS_MESSAGES = {
+  panelTrustChecking: { ko: '확인 중', en: 'Checking' },
+  panelTrustEmpty: { ko: '결과 없음', en: 'No results' },
+  panelTrustUnavailable: { ko: '확인 불가', en: 'Unavailable' },
+  panelElapsed: { ko: '조회 중 · {seconds}초', en: 'Loading · {seconds}s' },
+  panelSlow: { ko: '오래 걸립니다', en: 'Taking longer' },
+  panelNarrow: { ko: '조건 좁히기', en: 'Narrow conditions' },
+  panelPrior: { ko: '이전 결과 · {time}', en: 'Previous result · {time}' },
+  panelEmpty: { ko: '결과 0건', en: '0 results' },
+  panelSelectionEmpty: { ko: '선택 {selection}에 해당하는 데이터 없음', en: 'No data matches the selection {selection}' },
+  panelClearSelection: { ko: '선택 지우기', en: 'Clear selection' },
+  panelCancelled: { ko: '조회 취소됨', en: 'Query cancelled' },
+  panelErrorDetails: { ko: '오류 내용', en: 'Error details' },
+  panelMenu: { ko: '{panel} 더보기', en: 'More for {panel}' },
+  outcomePanelRegion: { ko: '패널 상태 요약', en: 'Panel state summary' },
+  outcomePanelSummary: { ko: '패널 {count}개에 같은 안내가 있습니다', en: '{count} panels have the same notice' },
+  outcomeRetryAll: { ko: '모두 다시 시도', en: 'Retry all' },
   outcomeOpenConditions: { ko: '조건 열기', en: 'Open conditions' },
   outcomeExcludeEquipment: { ko: '이 {count}대 빼고 다시 조회', en: 'Exclude {count} from query' },
   outcomeAffectedEquipment: { ko: '영향 설비 {ids}', en: 'Affected equipment {ids}' },

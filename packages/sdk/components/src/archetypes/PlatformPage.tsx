@@ -24,7 +24,6 @@ import { PageBoundContext, PageFlowContext } from '../pageFlow';
 import { stickyChromeHeight } from '../visibleArea';
 import { StateMessage } from '../StateView';
 import { ObjectLinkItems } from './ObjectLinkItems';
-import { useInWorkspacePanel } from '../workspace/panelContext';
 
 function withTrustYield(node: ReactNode, yieldState: HeaderYield): ReactNode {
   if (!isValidElement(node) || node.type !== DataTrustIndicator) return node;
@@ -511,19 +510,4 @@ function ReturnRow({ navigation: { origin, displayTrail, onNavigate } }: { navig
 }
 
 /** panel-card: hairline border, shared radius and one top-level shadow. */
-export function Panel({ title, subtitle, actions, children, className, bodyClassName, id }: {
-  title?: ReactNode; subtitle?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; bodyClassName?: string; id?: string;
-}) {
-  // The workspace tab already shows this title.
-  const inPanel = useInWorkspacePanel();
-  return <section aria-labelledby={title && id ? id : undefined} className={cn('rounded-lg border border-border-subtle bg-surface-card', inPanel ? 'elevation-flat' : 'elevation-panel', className)}>
-    {(title || actions) && <header className="flex flex-wrap items-start justify-between gap-2 px-4 pb-2 pt-3">
-      <div>
-        {title && <h2 id={id} className={cn('t-card-title', inPanel && 'sr-only')}>{title}</h2>}
-        {subtitle && <p className="text-xs text-text-muted">{subtitle}</p>}
-      </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-    </header>}
-    <div className={cn('px-4 pb-4', !title && !actions && 'pt-4', bodyClassName)}>{children}</div>
-  </section>;
-}
+export { Panel } from './Panel';

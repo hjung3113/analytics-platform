@@ -62,6 +62,7 @@ export { RowAction, type RowActionProps } from './drawer/RowAction';
 export * from './state/StatCard';
 // Explicit: OutcomeContent stays package-internal (QueryView and PlatformDataTable draw through it; no new public contract).
 export { LoadingBlock, OutcomeView, QueryView, StateMessage } from './StateView';
+export type { QueryPanelOptions } from './state/QueryPanel';
 
 export { ManagementLayout, type ManagementLayoutProps } from './archetypes/ManagementLayout';
 

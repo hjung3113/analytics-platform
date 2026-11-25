@@ -402,39 +402,44 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
     await expect(page.getByRole('heading', { name: '지표 요약' })).toBeVisible();
     await setScenario(page, '서버 오류 (error)');
     const main = page.getByRole('main');
-    const banner = main.getByRole('group', { name: '위젯 상태 요약' });
+    const banner = main.getByRole('group', { name: '패널 상태 요약' });
     await expect(main.locator('[data-outcome-banner]')).toHaveCount(1);
     await expect(banner).toHaveAttribute('data-outcome-compact', 'true');
-    const summary = '위젯 4개가 같은 이유로 열리지 않았습니다.';
+    const summary = '패널 4개에 같은 안내가 있습니다';
     await expect(banner.getByText('서버 오류 ·', { exact: true })).toBeVisible();
     await expect(banner.getByText(summary, { exact: true })).toBeVisible();
-    for (const action of ['자세히', '다시 시도', '조건 열기']) {
+    for (const action of ['자세히', '모두 다시 시도', '조건 열기']) {
       await expect(banner.getByRole('button', { name: action, exact: true })).toBeVisible();
     }
-    await expect(banner.getByRole('button')).toHaveCount(3);
     await expect(banner).not.toContainText('Correlation ID');
-    await expect(main.locator('[data-widget-state]')).toHaveCount(4);
     const traces = new Set<string>();
     for (const name of ['지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
-      const state = main.getByRole('group', { name, exact: true });
-      await expect(state).toBeVisible();
+      const panel = main.getByRole('region', { name, exact: true });
+      await banner.getByRole('button', { name, exact: true }).click();
+      await expect(panel).toBeFocused();
+      const state = panel.getByRole('group', { name, exact: true });
       await expect(state.getByText('불러오지 못함', { exact: true })).toBeVisible();
       await expect(state.getByText('데이터를 불러오지 못했습니다')).toHaveCount(0);
-      await expect(state.getByRole('button')).toHaveCount(1);
+      // One retry per panel, in its header chip (no second button in the body).
+      await expect(panel.getByRole('button', { name: '다시 시도', exact: true })).toHaveCount(1);
+      await expect(state.getByRole('button', { name: '다시 시도', exact: true })).toHaveCount(0);
       await expect(state.getByRole('link')).toHaveCount(0);
       await expect(state).not.toContainText('corr-');
-      const technicalInfo = state.getByRole('button', { name: '기술 정보', exact: true });
+      await panel.getByRole('button', { name: '불러오지 못함', exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: '불러오지 못함', exact: true });
+      const technicalInfo = dialog.getByRole('button', { name: '오류 내용 ▸', exact: true });
       await expect(technicalInfo).toHaveAttribute('aria-expanded', 'false');
       await technicalInfo.click();
       await expect(technicalInfo).toHaveAttribute('aria-expanded', 'true');
-      const trace = state.getByRole('note', { name: '서버 세부' }).getByText(/^추적 번호: corr-/);
-      await expect(trace).toBeVisible();
+      const trace = dialog.getByRole('note', { name: '서버 세부' });
+      await expect(trace).toContainText(/^추적 번호: corr-/);
       traces.add(await trace.innerText());
+      await technicalInfo.press('Escape');
     }
     expect(traces.size).toBe(4);
     await expect(main.getByRole('alert')).toHaveCount(0);
     await expect(main.locator('[data-outcome-announcer="assertive"]')).toHaveText(summary);
-    await expect(main.getByText('지표 요약', { exact: true })).toHaveCount(1);
+    await expect(main.getByRole('heading', { name: '지표 요약', exact: true })).toHaveCount(1);
     await evidence(page, testInfo, 'shared-error-banner');
   });
 
@@ -445,9 +450,9 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
     const main = page.getByRole('main');
     await expect(main.locator('[data-outcome-banner], [data-access-request-banner]')).toHaveCount(1);
     for (const name of ['지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
-      const state = main.getByRole('group', { name, exact: true });
+      const state = main.getByRole('region', { name, exact: true });
       await expect(state.getByText('불러오지 못함')).toBeVisible();
-      await expect(main.getByText(name, { exact: true })).toHaveCount(1);
+      await expect(state.getByRole('heading', { name, exact: true })).toHaveCount(1);
     }
     await expect(main.getByRole('button', { name: '다시 시도' })).toHaveCount(0);
     await evidence(page, testInfo, 'shared-forbidden-banner');
