@@ -4,7 +4,7 @@ import type { AnalysisSelection } from '@ap/contracts';
 import { useDrill, useI18n, useMessages, usePlatform, usePlatformOptional } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { AnalysisPanelAddContext, type AnalysisPanelDestinations, type AnalysisPanelDraft } from '../workspace/PanelAdd';
+import { AnalysisPanelAddContext, type AnalysisPanelDestinations, type AnalysisPanelDraft, type PanelAddItem } from '../workspace/PanelAdd';
 import { usePublishNextAnalysis } from './NextAnalysisBridge';
 import { keepFocusAfterPanelAdd } from '../dock/focusTab';
 
@@ -38,11 +38,33 @@ const selectionDropMessage = {
   length: 'chartNextSelectionLength',
 } as const;
 
+function usePanelChoices() {
+  const { tx } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
+  return (workspace: AnalysisPanelDestinations, item: PanelAddItem & { placed: boolean }, draft: Omit<AnalysisPanelDraft, 'mode'>, reason?: string): Choice[] => {
+    const add = (input: AnalysisPanelDraft): unknown => {
+      const opened: unknown = workspace.onAdd(input);
+      return workspace.returnsOpened && typeof opened === 'string' ? opened : undefined;
+    };
+    const follow = { id: item.id, label: tx(item.title), reason, onSelect: () => add(draft) };
+    const placed = item.placed ? item.again : undefined;
+    if (!workspace.hold) return placed === 'hold' ? [] : [follow];
+    const hold = {
+      id: `${item.id}:hold`, panelId: item.id, label: m('chartNextPanelHold', { panel: tx(item.title) }), reason,
+      note: m('chartNextPanelHoldNote'), onSelect: () => add({ ...draft, mode: 'hold' }),
+    };
+    if (placed === 'hold') return [hold];
+    if (placed === 'follow') return [{ ...follow, note: m('chartNextPanelFollowNote') }];
+    return [{ ...follow, note: m('chartNextPanelFollowNote') }, hold];
+  };
+}
+
 export function useNextAnalysisItems({ output, selection, pointDrill, workspace }: Props & { workspace: AnalysisPanelDestinations | null }): GroupAction[] {
   const platform = usePlatform();
   const { depth, levels, enter, invalid } = useDrill();
   const { tx, t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
+  const panelChoices = usePanelChoices();
   const menu = platform.route?.menu;
   if (!menu || !platform.canOpen(menu.id)) return [];
 
@@ -69,23 +91,7 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
       const reason = panel.permissions.every(permission => platform.can(permission))
         ? item.disabledReason && tx(item.disabledReason) : t('menuDenied');
       const source = `${menu.id}/${panel.id}` as const;
-      // The menu's return value names the opened slot only when it opted in (#2862 ②); otherwise it is ignored.
-      const add = (draft: AnalysisPanelDraft): unknown => {
-        const opened: unknown = (workspace.onAdd as (draft: AnalysisPanelDraft) => unknown)(draft);
-        return workspace.returnsOpened && typeof opened === 'string' ? opened : undefined;
-      };
-      const follow = { id: panel.id, label: tx(item.title), reason: reason || undefined, onSelect: () => add({ source, inputs: { [key]: selection } }) };
-      // A placed panel offers only its `again` mode, as a second instance (#2862 ②).
-      const placed = item.placed ? item.again : undefined;
-      if (!workspace.hold) return placed === 'hold' ? [] : [follow];
-      // Follow keeps reading the URL; hold fixes the new panel to this selection (#2862).
-      const hold = {
-        id: `${panel.id}:hold`, panelId: panel.id, label: m('chartNextPanelHold', { panel: tx(item.title) }), reason: reason || undefined,
-        note: m('chartNextPanelHoldNote'), onSelect: () => add({ source, inputs: { [key]: selection }, mode: 'hold' }),
-      };
-      if (placed === 'hold') return [hold];
-      if (placed === 'follow') return [{ ...follow, note: m('chartNextPanelFollowNote') }];
-      return [{ ...follow, note: m('chartNextPanelFollowNote') }, hold];
+      return panelChoices(workspace, item, { source, inputs: { [key]: selection } }, reason || undefined);
     });
     if (choices.length) actions.push({ label: m('chartNextPanel'), choices, addsPanel: true });
   }
@@ -165,6 +171,19 @@ function ActionMenu({ action, focusKey }: { action: GroupAction; focusKey?: stri
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start"><ChoiceRows choices={choices} /></DropdownMenuContent>
   </DropdownMenu>;
+}
+
+/** A workspace can use the same choices and focus behavior with explicit inputs instead of a chart selection. */
+export function ToolbarAnalysisPanelAdd({ workspace }: { workspace: AnalysisPanelDestinations }) {
+  const { tx } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const panelChoices = usePanelChoices();
+  const focusKey = useId();
+  const choices = workspace.items.flatMap(item => {
+    const draft = workspace.toolbarDraft?.(item);
+    return draft ? panelChoices(workspace, item, draft, item.disabledReason && tx(item.disabledReason)) : [];
+  });
+  return choices.length ? <ActionMenu focusKey={focusKey} action={{ label: m('chartNextPanel'), choices, addsPanel: true }} /> : null;
 }
 
 export function NextAnalysisActionButton({ action, buttonRef, announceReason, quiet }: {

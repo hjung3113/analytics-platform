@@ -3,10 +3,10 @@ import { act, type ReactElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Settings } from 'lucide-react';
-import { contextCapabilities, defineEndpoint, groupId, menuPermission, spaceId, type ApiResponse } from '@ap/contracts';
+import { contextCapabilities, defineEndpoint, groupId, menuPermission, spaceId, type ApiResponse, type GlobalContext } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, useMenuQuery, useQueryDraft, type LentPanelProps } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { registerLentPanel, settleQueries, testAdapter, testMenu, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
+import { createFakeSavedViewStore, registerLentPanel, settleQueries, testAdapter, testMenu, testSession, testSpace, useSavedViews, useToastsForTest, type SavedViews } from '@ap/kernel/testing';
 import type { PageFilterField } from '@ap/components';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, DEFAULT_EQUIPMENT, DEFAULT_LEVELS, EXPORT_LIMIT, SAVED_VIEW_SUPPORT, TREE_WINDOW, filterDeclarations, configurationLendingEndpoint, type ConfigHistory, type ConfigurationLending, type HistoryParams, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
@@ -714,6 +714,81 @@ it('binds a selected Configuration item to its scoped equipment and opens both t
   expect(destination.searchParams.get('to')).toBe('2026-11-18T00:00:00');
   expect(destination.searchParams.get('drillModule')).toBe('LK1');
   expect(destination.searchParams.get('drillMotion')).toBe('Pump');
+});
+
+it('keeps two borrowed HW Time periods, saves and restores the hold, and lets the copy follow again', async () => {
+  registerLentPanel('hw-time/trend', SourceTrend);
+  const savedViews = createFakeSavedViewStore();
+  let views!: SavedViews;
+  function ViewsProbe() { views = useSavedViews(); return null; }
+  const original = { from: '2026-11-16T00:00:00', to: '2026-11-18T00:00:00' };
+  const later = { from: '2026-11-19T00:00:00', to: '2026-11-21T00:00:00' };
+  const url = new URL(window.location.href);
+  url.searchParams.set('trendItem', 'cfg-000000');
+  url.searchParams.set('equipment', 'EQ01,EQ03');
+  window.history.replaceState(null, '', url);
+  const session = testSession(['analytics:view']);
+  const menuQuery = withLending(async ({ endpoint, params, context }: { endpoint: string; params: unknown; context: Partial<GlobalContext> }) => {
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
+    if (endpoint === sourceRuns.id) return { ...ok(context.from), assessments: [] };
+    return { ...ok(null), outcome: 'empty' as const };
+  });
+  const adapter = testAdapter({ session: () => session, menuQuery });
+  await act(async () => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} savedViews={savedViews}>
+    <Configuration /><ViewsProbe />
+  </PlatformProvider></I18nProvider>));
+
+  const periods = () => [...host.querySelectorAll('[data-test-source-result]')].map(node => node.textContent).sort();
+  const followAgain = () => [...host.querySelectorAll('button')].find(node => node.textContent === '따라가기로 바꾸기');
+  await settleQueries();
+  await vi.waitFor(() => expect(periods()).toEqual([original.from]));
+  const before = window.location.href;
+  const add = [...host.querySelectorAll('button')].find(node => node.textContent === '새 패널');
+  expect(add).toBeDefined();
+  await act(async () => add!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })));
+  const hold = await vi.waitFor(() => {
+    const item = document.querySelector<HTMLElement>('[role="menuitem"][aria-label="HW Time · 붙잡기"]');
+    expect(item).not.toBeNull();
+    return item!;
+  });
+  await act(async () => hold.click());
+  await settleQueries();
+  await vi.waitFor(() => expect(periods()).toEqual([original.from, original.from]));
+  expect(window.location.href).toBe(before);
+  expect(host.textContent).toContain('붙잡음');
+
+  await act(async () => {
+    url.searchParams.set('from', later.from);
+    url.searchParams.set('to', later.to);
+    window.history.pushState(null, '', url);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await settleQueries();
+  await vi.waitFor(() => expect(periods()).toEqual([original.from, later.from]));
+  expect(window.location.search).not.toContain('2026-11-16');
+  let viewId = '';
+  await act(async () => {
+    const saved = await views.saveAs({ name: 'Before and after 2997', kind: 'menu-view' });
+    expect(saved).toMatchObject({ ok: true, value: { view: {
+      panels: { version: 1, instances: expect.arrayContaining([
+        expect.objectContaining({ source: { kind: 'declared', panel: 'hw-time/trend' }, inputs: [
+          expect.objectContaining({ mode: 'hold', value: { shape: 'range', ...original } }),
+        ] }),
+      ]) },
+    } } });
+    if (saved.ok) viewId = saved.value.view.id;
+  });
+
+  await act(async () => followAgain()!.click());
+  await settleQueries();
+  await vi.waitFor(() => expect(periods()).toEqual([later.from, later.from]));
+  expect(followAgain()).toBeUndefined();
+  expect(window.location.search).not.toContain('2026-11-16');
+
+  await act(async () => { expect(await views.select(viewId)).toMatchObject({ ok: true }); });
+  await settleQueries();
+  await vi.waitFor(() => expect(periods()).toEqual([original.from, later.from]));
+  expect(followAgain()).toBeDefined();
 });
 
 it.each([

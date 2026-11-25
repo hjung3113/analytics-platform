@@ -40,5 +40,5 @@ export type { PageConditionMenu, PageConditionIssueReason, PageConditionSummaryI
 
 export { disabledReason, projectQueryInputs, projectDisplayInputs, panelQueryIdentity } from './registry/panel-inputs';
 export type { RegisteredPanel } from './registry/panels';
-export { LentPanel, useLentPanel, type LentPanelProps, type LentPanelRegistration } from './registry/LentPanel';
+export { LentPanel, useLentPanel, type LentPanelOptions, type LentPanelProps, type LentPanelRegistration } from './registry/LentPanel';
 export type { LentPanelBindingValues, LentPanelReason, LentPanelVerdict, RegisteredLentPanel } from './registry/lent-panels';

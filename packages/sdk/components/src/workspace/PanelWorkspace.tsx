@@ -1,4 +1,5 @@
 import { usePublishAnalysisWorkspace } from '../chart/NextAnalysisBridge';
+import { ToolbarAnalysisPanelAdd } from '../chart/NextAnalysisItems';
 import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n, useMessages, usePlatformOptional, type Text } from '@ap/kernel';
@@ -742,12 +743,15 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     }),
   } : null;
   usePublishAnalysisWorkspace(panels.map(panel => panel.analysisSelectionSourceId ?? panel.id), destinations);
+  const actions = destinations?.toolbarDraft && destinations.items.length
+    ? <><ToolbarAnalysisPanelAdd workspace={destinations} />{toolbarActions}</>
+    : toolbarActions;
   return <WorkspaceDepthProvider value={depth}>
     <AnalysisPanelAddContext.Provider value={destinations}>
     <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} data-workspace-density={densePage ? 'compact' : undefined} className={cn(rows ? 'flex w-full min-w-0 flex-col' : 'flex h-full min-h-0 w-full min-w-0 flex-col', densePage ? 'gap-1.5' : 'gap-2')}
       onKeyDown={event => { if (event.key !== 'Escape' || event.defaultPrevented) return; if (activePeek) dismissPeek(); else if (maximizedId) requestMaximized(null); else return; event.preventDefault(); event.stopPropagation(); }}>
-      {!hosted && <WorkspaceToolbar label={tx(label)} commands={commands} onShown={focusTab} actions={toolbarActions} />}
-      {hosted && toolbarActions !== undefined && <div data-workspace-actions className="flex items-center justify-end gap-2">{toolbarActions}</div>}
+      {!hosted && <WorkspaceToolbar label={tx(label)} commands={commands} onShown={focusTab} actions={actions} />}
+      {hosted && actions !== undefined && <div data-workspace-actions className="flex items-center justify-end gap-2">{actions}</div>}
       <WorkspaceEdges edge="top" items={edgeItems('top')} label={m('workspaceTopEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
       <div className={cn('flex min-w-0', !rows && 'min-h-0 flex-1')}>
       <WorkspaceEdges edge="left" items={edgeItems('left')} label={m('workspaceLeftEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />

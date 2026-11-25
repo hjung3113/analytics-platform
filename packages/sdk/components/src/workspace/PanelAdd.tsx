@@ -25,6 +25,8 @@ export type AnalysisPanelAddition = {
   returnsOpened?: boolean;
   /** Offers «붙잡기» beside each panel of «새 패널». The menu keeps the held inputs and wraps that panel in `HeldAnalysisSelections` (#2862). */
   hold?: boolean;
+  /** Shows «새 패널» in the workspace toolbar using inputs the menu already resolved, such as an applied period. */
+  toolbarDraft?: (item: PanelAddItem) => Omit<AnalysisPanelDraft, 'mode'> | undefined;
 };
 /** What the workspace hands «새 패널»: the items still offered, each with `placed` computed by the workspace (SDK internal, #2862 ②). */
 export type AnalysisPanelDestinations = Omit<AnalysisPanelAddition, 'items'> & { items: readonly (PanelAddItem & { placed: boolean })[] };

@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contextCapabilities, defineEndpoint, emptyGlobal, groupId, menuPermission, type ApiResponse, type MenuQuery } from '@ap/contracts';
 import { useEffect, useState } from 'react';
+import { HeldAnalysisSelections, type HeldAnalysisSelection } from '../../context/analysisSelection';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, usePlatform } from '../../platform/platform';
 import { useQueryDraft } from '../../query/query-draft';
@@ -75,6 +76,78 @@ function mount(selection: Readonly<Record<string, unknown>>, { permission = true
 }
 
 afterEach(cleanup);
+
+describe('LentPanel held time', () => {
+  const holdTime = { key: 'period', dimension: 'wall-clock' };
+  const heldPeriod = { shape: 'range', from: '2026-09-21T00:00:00', to: '2026-09-23T00:00:00' } as const;
+  const heldValue = { dimension: holdTime.dimension, selection: heldPeriod };
+
+  function mountHeld(held: HeldAnalysisSelection, accepts: (inputs: LentPanelProps['inputs']) => string | undefined) {
+    registerLentPanel(source, { component: SourceSummary, accepts });
+    const session = testSession([receiving, owning, reading]);
+    const menuQuery = vi.fn(async () => answer);
+    const adapter = testAdapter({ session: () => session, menuQuery });
+    window.history.replaceState(null, '', url);
+    function Instance({ optIn }: { optIn: boolean }) {
+      const options = optIn ? { holdTime } : undefined;
+      const verdict = useLentPanel(source, values, options);
+      return <>
+        {!verdict.allowed && <p>{verdict.reason.kind}:{verdict.reason.key}</p>}
+        <LentPanel source={source} values={values} {...options} />
+      </>;
+    }
+    const tree = (current: Readonly<Record<string, HeldAnalysisSelection>>, optIn = true) =>
+      <I18nProvider><PlatformProvider registry={registry} adapter={adapter}>
+        <HeldAnalysisSelections held={current}><Instance optIn={optIn} /></HeldAnalysisSelections>
+      </PlatformProvider></I18nProvider>;
+    const { rerender } = render(tree({ period: held }));
+    return { menuQuery, follow: () => rerender(tree({})), optOut: () => rerender(tree({ period: held }, false)) };
+  }
+
+  it('passes only the held period to the source and endpoint, and follows again when cleared', async () => {
+    const accepts = vi.fn((_inputs: LentPanelProps['inputs']) => undefined);
+    const { menuQuery, follow } = mountHeld(heldValue, accepts);
+    await screen.findByText('from source');
+    expect(accepts).toHaveBeenCalledWith(expect.objectContaining({
+      context: { ...emptyGlobal, scopeId: 'MEM', from: heldPeriod.from, to: heldPeriod.to, selection: ['EQ02'] },
+      page: { level: 'mapped-level' },
+    }));
+    expect(menuQuery).toHaveBeenCalledExactlyOnceWith({
+      endpoint: spec.id,
+      context: { scopeId: 'MEM', from: heldPeriod.from, to: heldPeriod.to, selection: ['EQ02'] },
+      params: { level: 'mapped-level' },
+    }, expect.any(AbortSignal));
+    expect(window.location.pathname + window.location.search).toBe(url);
+    follow();
+    await waitFor(() => expect(menuQuery).toHaveBeenLastCalledWith({
+      endpoint: spec.id, context: { ...queryContext, selection: ['EQ02'] }, params: { level: 'mapped-level' },
+    }, expect.any(AbortSignal)));
+  });
+
+  it('reports a source rejection of the held period without querying or falling back', async () => {
+    const accepts = vi.fn((inputs: LentPanelProps['inputs']) => inputs.context.from === heldPeriod.from ? 'time' : undefined);
+    const { menuQuery, optOut } = mountHeld(heldValue, accepts);
+    await screen.findByText('rejected-held:period');
+    expect(menuQuery).not.toHaveBeenCalled();
+    expect(screen.queryByText('from source')).toBeNull();
+    optOut();
+    await screen.findByText('from source');
+    expect(menuQuery).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { dimension: 'date', selection: heldPeriod },
+    { dimension: holdTime.dimension, selection: { shape: 'set', values: ['EQ02'] } as const },
+    { dimension: holdTime.dimension, selection: { ...heldPeriod, from: '2026-02-30T00:00:00' } },
+    { dimension: holdTime.dimension, selection: { ...heldPeriod, from: heldPeriod.to } },
+  ] satisfies HeldAnalysisSelection[])('rejects a held time with a mismatched dimension, shape or invalid period (%j)', async held => {
+    const accepts = vi.fn();
+    const { menuQuery } = mountHeld(held, accepts);
+    await screen.findByText('rejected-held:period');
+    expect(accepts).not.toHaveBeenCalled();
+    expect(menuQuery).not.toHaveBeenCalled();
+  });
+});
 
 describe('LentPanel', () => {
   it('keeps source rendering and its platform reference stable across an equivalent receiver rerender', async () => {
