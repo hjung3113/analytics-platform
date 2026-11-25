@@ -117,7 +117,7 @@ shadcn/ui + Radix 조합은 [04 프론트엔드 기술 스택](../architecture/f
 - Tabs
 - Badge
 - `SeverityIndicator`는 심각도를 막대로 표시할 때 쓰며, 옆에 심각도 라벨을 이미 표시하면 `decorative`로 접근 이름이 중복되지 않게 한다.
-- `EmptyState`는 목록이나 패널에 표시할 항목이 없을 때 쓰며, 제목에 빈 이유를 알리고 필요한 경우 설명이나 다음 동작을 함께 표시한다.
+- `EmptyState`는 목록이나 패널에 표시할 항목이 없을 때 쓰며, 제목에 비어 있는 상태나 다음 할 일을 적고, 필요하면 설명이나 다음 동작을 함께 표시한다.
 
 **Dialog 닫은 뒤 포커스 (#1169):** `DialogContent`·`DialogContentBare`·`AlertDialogContent`는 열릴 때 `document.activeElement`를 기억하고, 닫을 때 Radix 기본 처리 뒤에도 포커스가 `body`에 있으면(`DialogTrigger`가 없어 Radix가 null 트리거에 포커스를 보낸 경우) 그 요소가 연결돼 있을 때 되돌린다. Escape·닫기 버튼 모두 같다. 트리거가 있는 대화상자는 Radix가 트리거로 보내므로 달라지지 않는다. 소비자의 `onCloseAutoFocus`가 `preventDefault`하면 소비자가 이긴다(다른 요소로 보내거나 되돌리지 않을 때). 오버레이 scope가 숨겨져 `useScopedAutofocus`가 이벤트를 막은 경로는 소비자 호출도 복원도 하지 않는다. 화면은 이 동작을 손으로 되풀이하지 않고, 열기 요소와 다른 대상(행 트리거·목록 제목 등)으로 보낼 때만 `onCloseAutoFocus`를 쓴다.
 
@@ -167,7 +167,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - HeaderOverflowItem (`@ap/components`, 페이지 머리 `⋯` 메뉴의 항목 한 줄. `allowed: false`면 숨기지 않고 비활성 + `reason`을 보인다. 셸 슬롯 `analysisActions`의 `Actions`가 이것으로 항목을 그린다, [layout.md](layout.md) 슬롯, §22, #1424)
 - ReturnLink (다른 메뉴에서 출발 화면으로 돌아가는 버튼, §22)
 - FloatingWindow (`@ap/components`, 도메인을 모르는 비모달 창 틀 — 배경 차단막·포커스 가두기·외부 클릭 닫기 없음, 제목줄 끌기·8방향 핸들·방향키(Alt=크기)·`⋯` 메뉴(위치 5·크기 3)의 같은 결과, 호출자가 준 `area` 안에서만 그리고 `mode`(`window`/`fill`/`off`)가 바뀌어도 children은 재마운트되지 않는다. 창으로 못 그리는 폭은 `fitsArea`로 판정해 호출자가 `fill`을 고른다, #893)
-  `FloatingWindow`는 `minSize`를 생략하면 기본 최소 크기 640×420px(`FLOATING_MIN_SIZE`)를 사용하며, 그보다 작은 `geometry`는 `area`가 허용하는 만큼 최소 크기까지 키워 그린다.
+  `FloatingWindow`는 `minSize`를 생략하면 기본 최소 크기 640×420px(`FLOATING_MIN_SIZE`)를 사용하며, `window` 모드에서 최소보다 작은 폭이나 높이는 각각 `area`가 허용하는 만큼 그 최소값까지 키워 그린다(`fill`은 영역 전체, `off`는 창 크기를 쓰지 않는다).
 
 `Inspector`(`@ap/components`, **Decided**, [ADR-0080](../adr/0080-inspector-forms.md))는 분석 화면의 보조 설정(대상·범례·옵션)을 `sections`(`id`·`title`·`icon`·`summary?`·`render`)로 한 번 선언하고 `form`으로 보인다. `stack`은 [WAI-ARIA APG 아코디언](https://www.w3.org/WAI/ARIA/apg/patterns/accordion/)을 따른다: 제목(`h3`) 안의 버튼이 `aria-expanded`·`aria-controls`를 갖고 Enter·Space로 바뀌며, 여러 섹션을 함께 열 수 있는 것이 기본이다(`defaultExpanded` 생략 = 모두 열림). 제목은 줄어들지 않고 접힌 섹션의 `summary`는 머리에 말줄임과 `title` 속성으로 남으며, 스택 전체가 스크롤하고 섹션 안은 스크롤하지 않는다([Carbon 아코디언](https://carbondesignsystem.com/components/accordion/usage/)의 원칙). 내용 패널은 `region`이 아니다(APG의 landmark 남용 경고). `rail`은 40 px 열에 섹션당 아이콘 버튼 하나이고, 버튼은 섹션 제목을 접근 가능한 이름으로 갖고 `@ap/ui` Tooltip이 포커스에서도 보인다. 클릭·Enter는 그 섹션을 비모달 Popover peek로 열고(오른쪽으로, 맨 위에 섹션 제목(`h3`)이 보이고 peek의 이름이 된다), Escape는 닫고 포커스를 그 버튼으로 돌리며, peek은 한 번에 하나다. 열린 버튼은 색만이 아니라 막대 표시와 `aria-expanded`로 드러난다. **섹션 내용은 질의를 소유하지 않는다**: 질의는 Inspector 위(메뉴)에 두고 결과를 `render`에 넘긴다. 섹션 토글·peek·`form` 전환은 Inspector 밖의 어떤 것도 다시 실행하지 않는다(`stack`은 섹션을 마운트한 채 유지, `rail`은 peek 중인 섹션만 마운트하고 닫힌 섹션의 `render`는 호출하지 않으며 `form` 전환 때 섹션 내용은 다시 마운트된다). 펼침 집합은 `persistKey`(정적 id)로 `platform:inspector-expanded:v1:<user>:<menu>:<persistKey>`에 기억하며(PanelWorkspace와 같은 사용자·메뉴 범위, 사용자나 라우팅된 메뉴가 없으면 메모리에만 둔다) `expanded`/`onExpandedChange`로 controlled도 된다. "모두 접으면 레일" 전이는 만들지 않는다(사용자 변형 컨펌 선행).
 

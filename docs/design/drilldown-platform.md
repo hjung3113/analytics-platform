@@ -56,7 +56,7 @@
 | 층 | 책임 |
 | --- | --- |
 | Contracts | manifest `drill.levels`(단계 page key와 표시 이름) 타입 |
-| Kernel | Registry가 단계 선언을 검사(키가 `pageKeys`·`contextResetKeys`에 있음, 1개 이상, 깊이 상한 없음(ADR-0063), 중복 없음). 현재 단계·경로 읽기, 형식 오류 판정, 들어가기·올라가기·형제 바꾸기(push, 뒤 단계 지움). 채택한 `returnTo`에서 출발 메뉴 이름과 단계 값 읽기 |
+| Kernel | Registry가 단계 선언을 검사([Kernel §6.4](../contract/kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)). 현재 단계·경로 읽기, 형식 오류 판정, 들어가기·올라가기·형제 바꾸기(push, 뒤 단계 지움). 채택한 `returnTo`에서 출발 메뉴 이름과 단계 값 읽기 |
 | 공통 컴포넌트 | `DrillPath`(경로 바, ▾ 형제 메뉴, 깊이 4 이상에서 가운데 접기), `DrillLayout`(경로 바 + 본문, 형식 오류·없는 값 상태), `ReturnLink`(복귀 버튼) |
 | 메뉴 | 단계 선언, 단계마다 본문과 조회, 행 끝 들어가기 버튼, 형제 목록, 마지막 단계 상세 슬롯 |
 
