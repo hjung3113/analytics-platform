@@ -1,8 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createContext, use, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { buildQuery, validateSavedView, type JsonValue, type MenuView, type MenuViewPanels, type Pair, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewStore, type SavedViewSupport, type TableViewState } from '@ap/contracts';
 import { useI18n } from '../i18n';
 import { useHostPlatform } from '../platform/hooks';
-import { AppContext, LentPanelPlatformContext } from '../platform/contexts';
+import { AppContext, LentPanelPlatformContext, PaneScreenContext, ScreenContext } from '../platform/contexts';
 import type { LeaveRequest } from '../platform/navigationGuard';
 import { pathFor } from '../registry/registry';
 import { captureApplied, viewState, type ViewState } from './capture';
@@ -174,6 +174,9 @@ function useSavedViewController(
 ): SavedViews {
   const { t } = useI18n();
   const app = useContext(AppContext);
+  const pane = useContext(PaneScreenContext);
+  const screen = pane ?? (mode === 'inactive' ? null : use(ScreenContext));
+  const explicitEntry = screen?.explicitSavedViewEntry;
   const registry = mode === 'inactive' ? undefined : app?.internal.savedViewSupports;
   const guard = app?.internal.guard;
   const store = host.savedViewStore;
@@ -250,7 +253,7 @@ function useSavedViewController(
   }, [selected, currentScope]);
 
   // Latest values for async callbacks. `intent` numbers the user's latest restore/pick/save: a result that arrives after a newer one, a changed address or generation, or the screen's unmount is dropped.
-  const live = useRef({ gen, host, initial, t, selectedId, selectedVersion: selected?.view.version ?? null });
+  const live = useRef({ gen, host, initial, explicitEntry, t, selectedId, selectedVersion: selected?.view.version ?? null });
   const initialWork = useRef<InitialWork | null>(null);
   const expiredInitial = useRef<InitialSavedView | null>(null);
   const deadlineTimer = useRef<{ initial: InitialSavedView; id: ReturnType<typeof setTimeout> } | null>(null);
@@ -319,7 +322,7 @@ function useSavedViewController(
     };
   }, [initial, enabled]);
   useLayoutEffect(() => {
-    live.current = { gen, host, initial, t, selectedId, selectedVersion: selected?.view.version ?? null };
+    live.current = { gen, host, initial, explicitEntry, t, selectedId, selectedVersion: selected?.view.version ?? null };
     const work = initialWork.current;
     if (work && (work.initial !== initial || (work.gen !== gen && work.phase !== 'accepted' && work.phase !== 'settled'))) initialWork.current = null;
   });
@@ -395,7 +398,7 @@ function useSavedViewController(
     // A relative period needs the server anchor; without one it is not restorable (absolute views still are).
     if (found.view.context.relativePeriod && anchor === null) return fail('unavailable');
     const current = live.current.host;
-    const result = restoreSavedView({ view: found.view, support, current: { global: current.global, page: current.page }, extras: current.extras, pathname: current.pathname, anchor, source, includeReturnTo: current.route?.menu.query?.mode === 'apply' ? current.route.menu.query.autoApplyDefault : undefined });
+    const result = restoreSavedView({ view: found.view, support, current: { global: current.global, page: current.page }, extras: current.extras, pathname: current.pathname, anchor, source, explicitEntry: live.current.explicitEntry });
     if (!result.ok) return fail(result.reason);
     if (!result.applied) { unchanged(); return { ok: true, unsupported: NO_UNSUPPORTED, excludedByScope: NO_KEYS }; }
     // One write: a default replaces the bare entry so Back leaves the app; a picked view is a normal push.
@@ -482,9 +485,9 @@ function useSavedViewController(
       if (selected.view.kind === 'menu-view' && selected.view.menuSchemaVersion === support.menuSchemaVersion) slots?.restore(selected.view.id, { [PANELS_SLOT]: savedPanelsSlot(selected.view) });
       return;
     }
-    if (mode === 'legacy' && loaded.defaultId !== null) void apply(loaded.defaultId, 'default');
+    if (mode === 'legacy' && !explicitEntry && loaded.defaultId !== null) void apply(loaded.defaultId, 'default');
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `differs` is rebuilt every render from `applied`/`anchor`, both listed
-  }, [enabled, support, blocked, loaded, entryGen, rearmed, selected, selectedId, applied, anchor, apply, clearSelection, mode, slots]);
+  }, [enabled, support, blocked, loaded, entryGen, rearmed, selected, selectedId, applied, anchor, apply, clearSelection, mode, explicitEntry, slots]);
   // Back/Forward is an address arrival too: the arrived address wins over the selected view.
   // Fed by the Kernel's accepted-traversal signal, not the raw popstate: a Back the unsaved-edit guard cancelled (ADR-0115) is no arrival.
   const traversed = useRef(false);

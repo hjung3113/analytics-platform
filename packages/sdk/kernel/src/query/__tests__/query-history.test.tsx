@@ -97,6 +97,35 @@ it('restores newest bare-route history only to draft and records once after expl
   expect(send).toHaveBeenCalledTimes(1);
   expect(store.record).toHaveBeenCalledWith({ userId: screen.user.id, menuId: 'home', scopeId: null }, expect.objectContaining({ count: 1, query: buildQuery(global, [['filter', 'old']]) }));
 });
+
+it.each(['recent restore', 'direct edit'])('pushes and records a no-bases drill gap after %s while blocking analysis', async source => {
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{
+    ...menu, contextResetKeys: ['filter', 'page'], drill: { levels: [{ key: 'filter', label: menu.label }, { key: 'page', label: menu.label }] },
+  }] });
+  const query = '?v=1&from=2026-09-01T00%3A00%3A00&to=2026-09-02T00%3A00%3A00&page=PHOTO';
+  const fromHistory = source === 'recent restore';
+  const { store, send } = mount(fromHistory ? [entry(query)] : [], '/' + buildQuery(global), chosen);
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+
+  if (fromHistory) {
+    act(() => history.open());
+    await waitFor(() => expect(['ready', 'unavailable']).toContain(history.entries[0]?.status));
+    expect(history.entries[0]?.status).toBe('ready');
+    await act(async () => { expect(await history.restore(history.entries[0])).toBe(true); });
+  } else {
+    act(() => screen.queryDraft.setDraftPage({ page: 'PHOTO' }));
+  }
+  expect(screen.queryDraft.draft.page).toEqual([['page', 'PHOTO']]);
+  expect(screen.queryDraft.canApply).toBe(true);
+  const start = window.history.length;
+  await act(async () => { screen.queryDraft.apply(); });
+  expect(window.location.search).toBe(query);
+  expect(window.history.length).toBe(start + 1);
+  expect(screen.queryPolicy.drillGap).toBe(true);
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(store.record).toHaveBeenCalledTimes(1);
+  expect(store.record).toHaveBeenCalledWith({ userId: screen.user.id, menuId: 'home', scopeId: null }, expect.objectContaining({ count: 1, query }));
+});
 it.each([
   ['bad period', '?v=1&from=bad&to=worse'],
   ['unknown axis', buildQuery({ ...global, condition: { missing: ['PRIVATE'] } })],
@@ -355,6 +384,62 @@ it('preserves restored reset-key provenance after an older pane Apply acknowledg
 });
 
 const scopedRegistry = () => createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, requiresScope: true }] });
+it.each(['success', 'rejection', 'replacement', 'session change'])('settles a pane Apply echoed during Scope validation after %s', async scenario => {
+  const scoped = { ...global, scopeId: 'MEM' };
+  const start = { menuId: 'home', params: {}, query: buildQuery(scoped) };
+  const store: QueryHistoryStore = { list: async () => [], record: vi.fn(async () => {}), remove: async () => {}, clear: async () => {} };
+  const changed = vi.fn<(value: PaneScreen, how: 'push' | 'replace') => void>();
+  let echo!: (value: PaneScreen) => void;
+  function Pane() {
+    const [value, setValue] = useState<PaneScreen>(start);
+    useLayoutEffect(() => { echo = setValue; }, []);
+    return <PaneQueryDraftProvider screens={{ one: value }}><PaneScreenProvider paneId="one" screen={value} onChange={changed} onLeave={() => {}}><Probe /></PaneScreenProvider></PaneQueryDraftProvider>;
+  }
+  let session = testSession(['platform:view']);
+  const listeners = new Set<() => void>();
+  const valid = { status: 'valid' as const, grantedRooms: [] };
+  const held = deferred<Awaited<ReturnType<ReturnType<typeof testAdapter>['validateScope']>>>();
+  let hold = false;
+  const adapter = testAdapter({
+    session: () => session,
+    subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
+    validateScope: () => hold ? held.promise : Promise.resolve(valid),
+  });
+  window.history.replaceState(null, '', '/');
+  render(<I18nProvider><PlatformProvider registry={scopedRegistry()} adapter={adapter} queryHistory={store}><Pane /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(screen.scope.status).toBe('valid'));
+  act(() => { screen.queryDraft.setDraftPage({ filter: 'new' }); screen.queryDraft.apply(); });
+  const [target, how] = changed.mock.calls[0];
+  expect(how).toBe('push');
+  hold = true;
+  act(() => screen.retryScope());
+  expect(screen.scope.status).toBe('validating');
+  await act(async () => { echo(target); });
+  expect(screen.page).toEqual([['filter', 'new']]);
+  expect(store.record).not.toHaveBeenCalled();
+
+  if (scenario === 'replacement') {
+    act(() => { echo(start); });
+    act(() => { echo(target); });
+  }
+  if (scenario === 'session change') {
+    act(() => { session = testSession(['platform:view']); listeners.forEach(listener => listener()); });
+  }
+  hold = false;
+  await act(async () => { held.resolve(scenario === 'rejection' ? { status: 'forbidden', grantedRooms: [] } : valid); });
+  if (scenario === 'rejection') {
+    expect(screen.scope.status).toBe('forbidden');
+    await act(async () => { screen.retryScope(); });
+  }
+  expect(screen.scope.status).toBe('valid');
+  if (scenario === 'success') {
+    expect(store.record).toHaveBeenCalledTimes(1);
+    expect(store.record).toHaveBeenCalledWith({ userId: session.user.id, menuId: 'home', scopeId: 'MEM' }, expect.objectContaining({ count: 1, query: target.query }));
+  } else {
+    expect(store.record).not.toHaveBeenCalled();
+  }
+});
+
 it('masks ready rows while the same Scope re-validates without a render loop, then shows them again (#824 F1)', async () => {
   const session = testSession(['platform:view']);
   let hold: ReturnType<typeof deferred<{ status: 'valid'; grantedRooms: string[] }>> | null = null;

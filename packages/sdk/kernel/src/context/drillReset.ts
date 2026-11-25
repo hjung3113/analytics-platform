@@ -15,6 +15,11 @@ export function drillLevelKeys({ key, basisKey }: LevelKeys): string[] {
   return basisKey === undefined ? [key] : [key, basisKey];
 }
 
+/** A retained basis key still opts in after the last alternative is removed. */
+export function hasDrillBasis(drill: MenuEntry['drill']): boolean {
+  return drill?.levels.some(level => level.basisKey !== undefined) ?? false;
+}
+
 /**
  * Whether `patch` changes the value of any declared drill level, comparing against `current` page pairs with `''`/missing = `null`.
  * `useDrill` uses it for its focus request, `setPage` for `dropDrillResetKeys`. Kernel-internal.

@@ -12,6 +12,7 @@ import { useMenuQuery } from '../../query/query';
 import { buildShareLink } from '../shareLink';
 import { captureApplied } from '../../saved-view/capture';
 import { restoreSavedView } from '../../saved-view/restore';
+import { useSavedViews } from '../../saved-view/useSavedViews';
 
 const features = { export: false, savedView: false, annotate: false, compare: false };
 const drillKeys = ['drillRoom', 'drillStgroup', 'drillEquipment'] as const;
@@ -206,11 +207,11 @@ describe('alternative drill bases', () => {
   const support: SavedViewSupport = { menuId: 'bases', menuSchemaVersion: 1, contextKeys: [], pageKeys: keys };
   const endpoint = defineEndpoint<{ room: string | null; basis?: string }, null>({ id: 'fixture.bases', menuId: 'bases', permission: 'platform:view', requiresScope: false, context: {}, paramKeys: { room: true, basis: true }, kinds: [], mergeTimeDomain: false });
   const from = `${path}?v=1&drillRoom=PHOTO&roomBasis=alt&drillStgroup=A&groupBasis=alt&row=r1`;
-  function mountBases(href: string, { queryProbe, savedViews, removedBases }: { queryProbe?: boolean; savedViews?: ReturnType<typeof createFakeSavedViewStore>; removedBases?: boolean } = {}) {
+  function mountBases(href: string, { queryProbe, savedViews, removedBases, legacySelector }: { queryProbe?: boolean; savedViews?: ReturnType<typeof createFakeSavedViewStore>; removedBases?: boolean; legacySelector?: boolean } = {}) {
     const bases = [{ id: 'alt', label: 'Alternative' }, { id: 'other', label: 'Other' }, { id: 'denied', label: 'Denied' }];
     const menu = entry({
       id: 'bases', path: '/bases', pageKeys: [...keys, 'row'], contextResetKeys: keys,
-      ...(savedViews ? { context: { ...noContext, time: 'apply' }, features: { ...features, savedView: true }, savedViewSupport: { ...support, contextKeys: ['time'] }, query: { mode: 'apply', autoApplyDefault: true } } : {}),
+      ...(savedViews ? { context: { ...noContext, time: 'apply' }, features: { ...features, savedView: true }, savedViewSupport: { ...support, contextKeys: ['time'] }, query: { mode: 'apply', ...(legacySelector ? {} : { autoApplyDefault: true }) } } : {}),
       drill: { levels: [
         { ...level('drillRoom', '공정', 'Process'), basisKey: 'roomBasis', bases: removedBases ? [] : bases },
         { ...level('drillStgroup', 'StGroup', 'StGroup'), basisKey: 'groupBasis', bases },
@@ -234,7 +235,11 @@ describe('alternative drill bases', () => {
       useMenuQuery(endpoint, { room: step?.value ?? null, basis: step?.basis });
       return null;
     }
-    render(<I18nProvider><PlatformProvider adapter={queryProbe ? testAdapter({ session: () => session, menuQuery: send }) : adapter} registry={withBases} savedViews={savedViews}><Probe />{queryProbe && <QueryProbe />}</PlatformProvider></I18nProvider>);
+    function SavedViewSelector() {
+      const views = useSavedViews();
+      return <output aria-label="Saved Views">{views.status}:{views.defaultId}</output>;
+    }
+    render(<I18nProvider><PlatformProvider adapter={queryProbe ? testAdapter({ session: () => session, menuQuery: send }) : adapter} registry={withBases} savedViews={savedViews}><Probe />{queryProbe && <QueryProbe />}{legacySelector && <SavedViewSelector />}</PlatformProvider></I18nProvider>);
     return { replace, send, dispatchUrls, callsAtReplace };
   }
 
@@ -324,6 +329,17 @@ describe('alternative drill bases', () => {
     const view = testSavedView({ id: 'personal', kind: 'menu-view', menuId: 'bases', menuSchemaVersion: 1, context: { from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' }, page: [['drillRoom', 'ETCH']] });
     const savedViews = createFakeSavedViewStore([view], { 'u1:bases': view.id });
     const { replace } = mountBases(`${path}?v=1&drillRoom=PHOTO&roomBasis=denied`, { savedViews });
+    await act(async () => {});
+    expect(url()).toBe(`${path}?v=1`);
+    expect(drill!.rejectedBasis).toEqual({ levelKey: 'drillRoom' });
+    expect(replace).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps first-step basis recovery when the legacy selector loads a personal default', async () => {
+    const view = testSavedView({ id: 'personal', kind: 'menu-view', menuId: 'bases', menuSchemaVersion: 1, context: {}, page: [['drillRoom', 'ETCH']] });
+    const savedViews = createFakeSavedViewStore([view], { 'u1:bases': view.id });
+    const { replace } = mountBases(`${path}?v=1&drillRoom=PHOTO&roomBasis=denied`, { savedViews, legacySelector: true });
+    await waitFor(() => expect(screen.getByLabelText('Saved Views').textContent).toBe('ready:personal'));
     await act(async () => {});
     expect(url()).toBe(`${path}?v=1`);
     expect(drill!.rejectedBasis).toEqual({ levelKey: 'drillRoom' });

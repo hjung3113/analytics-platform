@@ -7,7 +7,7 @@ import { classifyMetricInit } from '../registry/metric-init';
 import { menuAnalysisSelections } from '../registry/analysis-selections';
 import { CONTEXT_LABELS, CUSTOM_GROUP_LABELS, type MenuEntry } from '../registry/registry';
 import { dropResetKeys } from '../context/paneContext';
-import { firstDrillProblem } from '../context/drillReset';
+import { firstDrillProblem, hasDrillBasis } from '../context/drillReset';
 import { parseAnalysisSelection } from '../context/analysisSelectionCodec';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import type { ScopeState } from '../platform/platform';
@@ -17,7 +17,7 @@ import { shallowEqual, useStable } from '../stable';
 export type DraftValues = QueryDraft['draft'];
 type Values = DraftValues;
 type RecordEvent = { port: QueryHistoryStore; key: QueryHistoryKey; entry: QueryHistoryEntry };
-type Snapshot = { identity: string; session: Session; address: string; addressGeneration: number; appliedRevision?: number; draft: Values; editRevision: number; historyInitialized: boolean; pageBasis?: GlobalContext; lastRestoreRevision?: number; pending: { source: string; target: string; dispatching: boolean; editRevision: number; record?: RecordEvent } | null };
+type Snapshot = { identity: string; session: Session; address: string; addressGeneration: number; appliedRevision?: number; draft: Values; editRevision: number; historyInitialized: boolean; pageBasis?: GlobalContext; lastRestoreRevision?: number; pending: { target: string; dispatching: boolean; editRevision: number; record?: RecordEvent } | null };
 export function createDraftStore() {
   let snapshot: Snapshot | null = null;
   const listeners = new Set<() => void>();
@@ -53,10 +53,11 @@ function initial(input: DraftInputs): Values {
 function reconcile(state: Snapshot | null, input: DraftInputs): Snapshot {
   if (!state || state.identity !== input.identity || state.session !== input.session) return { identity: input.identity, session: input.session, address: input.url, addressGeneration: (state?.addressGeneration ?? -1) + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, pending: null };
   if (state.pending && state.pending.target === input.url) {
+    if (state.address === input.url) return state;
     const restoredAfterClick = (state.lastRestoreRevision ?? -1) > state.pending.editRevision;
-    return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, appliedRevision: state.addressGeneration + 1, pageBasis: restoredAfterClick ? state.pageBasis : input.global, pending: null };
+    return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, appliedRevision: state.addressGeneration + 1, pageBasis: restoredAfterClick ? state.pageBasis : input.global };
   }
-  if (state.pending?.source === input.url || state.address === input.url) return state;
+  if (state.address === input.url) return state;
   return { ...state, address: input.url, addressGeneration: state.addressGeneration + 1, draft: initial(input), editRevision: 0, historyInitialized: false, pageBasis: undefined, lastRestoreRevision: undefined, pending: null };
 }
 export function queryMissingRequired(menu: MenuEntry | null, global: GlobalContext, page: Pair[]): QueryMissing[] {
@@ -89,6 +90,14 @@ export function appliedQueryPolicy(menu: MenuEntry | null, global: GlobalContext
 
 function scopeValid(input: DraftInputs, global: GlobalContext) {
   return !input.menu?.requiresScope || (input.scope.status === 'valid' && input.scope.scopeId === global.scopeId && input.scope.validatedFor === input.session);
+}
+
+function historyAcknowledgement(input: DraftInputs): 'record' | 'waiting' | 'discard' {
+  if (!input.allowed || (input.badDrillFormat && hasDrillBasis(input.menu?.drill))
+    || appliedQueryPolicy(input.menu, input.global, input.page, input.invalid).idle) return 'discard';
+  if (scopeValid(input, input.global)) return 'record';
+  return input.scope.status === 'validating' && input.scope.scopeId === input.global.scopeId
+    && input.scope.validatedFor === input.session ? 'waiting' : 'discard';
 }
 
 /** Round-trip through the codec, checking the fields the serializer deliberately omits for incomplete pairs. */
@@ -147,13 +156,18 @@ export function useScreenDraft(rawInput: DraftInputs) {
   const mode = input.menu?.query?.mode ?? 'live';
   useLayoutEffect(() => {
     if (mode !== 'apply') return;
-    const previous = store.get();
-    const pending = previous?.session === input.session && previous.identity === input.identity ? previous.pending : null;
-    store.put(reconcile(previous, input));
-    if (pending?.target === input.url && pending.record && input.allowed && !input.badDrillFormat
-      && scopeValid(input, input.global) && !appliedQueryPolicy(input.menu, input.global, input.page, input.invalid).idle) {
+    const next = reconcile(store.get(), input);
+    const { pending } = next;
+    if (pending?.target !== input.url) { store.put(next); return; }
+    const acknowledgement = pending.record ? historyAcknowledgement(input) : 'discard';
+    store.put(acknowledgement === 'waiting' ? next : { ...next, pending: null });
+    if (pending.record && acknowledgement === 'record') {
       const event = pending.record;
-      void Promise.resolve().then(() => event.port.record(event.key, event.entry)).then(() => historyChanged(event.port, event.key)).catch(() => {
+      void Promise.resolve().then(async () => {
+        if (input.adapter.session() !== input.session) return;
+        await event.port.record(event.key, event.entry);
+        historyChanged(event.port, event.key);
+      }).catch(() => {
         const view = store.history.get();
         if (view.tag?.session === input.session && view.tag.revision === input.revision && view.tag.identity === input.identity && view.tag.port === event.port) store.history.put({ ...view, status: 'unavailable', rows: [] });
       });
@@ -177,7 +191,8 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
     const next = normalize(input, values, retained);
     return { ...next, page: dropResetKeys(input.menu, next.page, current().pageBasis ?? input.global, next.global) };
   };
-  const validDrill = ({ global, page }: Values) => firstDrillProblem(input.menu?.drill, page, global, input.can) === null;
+  const drill = input.menu?.drill;
+  const validDrill = ({ global, page }: Values) => !hasDrillBasis(drill) || firstDrillProblem(drill, page, global, input.can) === null;
   let final = state.draft; let valid = !input.invalid;
   try { final = candidate(state.draft); } catch { valid = false; }
   const missing = queryMissing(input.menu, final.global, final.page);
@@ -214,7 +229,7 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
       const target = input.url.split('?')[0] + buildQuery(next.global, page, input.extras);
       const query = canonicalHistoryQuery(next, input.menu?.pageKeys ?? [], input.menu?.repeatedPageKeys);
       const record: RecordEvent | undefined = input.history && input.menu ? { port: input.history, key: { userId: input.session.user.id, menuId: input.menu.id, scopeId: next.global.scopeId }, entry: { id: queryHistoryId(query), query, schemaVersion: 1, lastAppliedAt: Date.now(), count: 1 } } : undefined;
-      const pending = { source: input.url, target, dispatching: true, editRevision: previous.editRevision + 1, record };
+      const pending = { target, dispatching: true, editRevision: previous.editRevision + 1, record };
       store.put({ ...previous, draft: next, pending, editRevision: previous.editRevision + 1 });
       try { if (!input.commit(target, 'push')) store.put({ ...previous, draft: next, pending: null }); }
       catch (error) { store.put({ ...previous, pending: null }); throw error; }

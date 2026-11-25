@@ -453,10 +453,11 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // Closing first entry on a complete or invalid address also keeps a later Reset or Back exact.
   const query = route?.menu.query;
   const autoApplyRoute = query?.mode === 'apply' && query.autoApplyDefault === true ? route : null;
+  // Recovery keeps the original entry explicit even when its corrected address has no page keys.
+  const explicitSavedViewEntry = settledNotice !== null || hasExplicitContext({ global, page: rawPage }, { includeReturnTo: autoApplyRoute !== null });
   let candidate: 'bare' | 'legacy' | null = null;
   if (autoApplyRoute !== null && routeContractError === null && global.from === null && global.to === null) {
-    // Recovery keeps the original entry explicit even when its corrected address has no page keys.
-    if (!settledNotice && !hasExplicitContext({ global, page: rawPage }, { includeReturnTo: true })) candidate = 'bare';
+    if (!explicitSavedViewEntry) candidate = 'bare';
     else if (autoApplyRoute.menu.query?.mode === 'apply' && autoApplyRoute.menu.query.applyPeriodOnLegacyEntry === true) candidate = 'legacy';
   }
   const [traversal, setTraversal] = useState(0);
@@ -673,9 +674,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const scopeId = global.scopeId;
   const localAvailability = useMemo(createAnalysisSelectionAvailability, [routeMenu, pathname, paneId, session, revision, scopeId]);
   const analysisSelectionAvailability = source.availability ?? localAvailability;
-  const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy, rejectedBasis,
+  const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy, rejectedBasis, explicitSavedViewEntry,
     detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, scopeGeneration, retryScope, screenMode: mode, paneId, paneLabel, analysisSelectionAvailability, returnCarry: origin?.carried,
-  }), [queryDraft, queryHistory, queryPolicy, rejectedBasis, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel, analysisSelectionAvailability, origin]);
+  }), [queryDraft, queryHistory, queryPolicy, rejectedBasis, explicitSavedViewEntry, detailExpanded, setDetailExpanded, visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin, currentSpace, scopeView, scopeGeneration, retryScope, mode, paneId, paneLabel, analysisSelectionAvailability, origin]);
   return { screen, sidebarSpace, resolveEntryLink, initialSavedView };
 }
