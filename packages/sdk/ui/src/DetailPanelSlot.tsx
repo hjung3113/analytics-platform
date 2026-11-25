@@ -2,7 +2,6 @@ import { createContext, useCallback, useContext, useEffect, useInsertionEffect, 
 import { createPortal } from 'react-dom';
 import { DetailPanelFullscreenContext, focusDetailPanelToggle, popupOwnsEscape, rememberPopupEscape } from './panel/DetailPanelFullscreenContext';
 import { useSurfacePaused } from './SurfacePauseScope';
-import { isDevelopment } from './utils/isDevelopment';
 
 interface DetailPanelSlot {
   host: HTMLElement | null;
@@ -32,7 +31,7 @@ const DetailPanelSlotContext = createContext<DetailPanelSlot | null>(null);
 export const DetailPanelSlotActionsContext = createContext<DetailPanelSlotActions | null>(null);
 
 function warnOnOverlap(registrants: number) {
-  if (registrants && isDevelopment()) {
+  if (registrants && process.env.NODE_ENV !== 'production') {
     console.warn('[DetailPanelSlot] Multiple registrants; the last registrant wins.');
   }
 }

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKey, PageSort } from '@ap/contracts';
 import { useEquipmentAxes, useI18n, useMessages, usePlatform, useQueryContext } from '@ap/kernel';
-import { isDevelopment } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PlatformColumn } from './PlatformDataTable';
 import type { ColumnGroups } from './columnGroups';
@@ -144,7 +143,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
       try {
         ({ headers, headerRows, cells } = serialize(rows));
       } catch (error) {
-        if (isDevelopment()) console.error(error);
+        if (process.env.NODE_ENV !== 'production') console.error(error);
         toast(EXPORT_REFUSAL.error[lang], 'warning');
         return;
       }
@@ -204,7 +203,7 @@ export function useTableTransfer<T>(input: TransferInput<T>) {
   function payload(rows: T[]): CopyPayload {
     let serialized: ReturnType<typeof serialize>;
     try { serialized = serialize(rows); } catch (error) {
-      if (isDevelopment()) console.error(error);
+      if (process.env.NODE_ENV !== 'production') console.error(error);
       throw new CopyStop(EXPORT_REFUSAL.error[lang]);
     }
     return { tsv: toTsv(serialized.headers, serialized.cells), html: toClipboardHtml(serialized.headerRows, serialized.cells), count: rows.length };

@@ -2,7 +2,7 @@ import { usePublishAnalysisWorkspace } from '../chart/NextAnalysisBridge';
 import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useI18n, useMessages, usePlatformOptional, type Text } from '@ap/kernel';
-import { cn, isDevelopment } from '@ap/ui';
+import { cn } from '@ap/ui';
 import type { LucideIcon } from 'lucide-react';
 import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands';
 import { focusSoon, focusTabSoon } from '../dock/focusTab';
@@ -159,7 +159,7 @@ function useDevChecks(props: PanelWorkspaceProps) {
   const { panels, presets, initialPreset, compactPreset, stackPreset, persistKey } = props;
   const signature = JSON.stringify([panels.map(panel => [panel.id, panel.primary === true]), presets.map(preset => preset.id), initialPreset, compactPreset, stackPreset, persistKey]);
   useEffect(() => {
-    if (!isDevelopment()) return;
+    if (process.env.NODE_ENV === 'production') return;
     const problems: string[] = [];
     if (panels.filter(panel => panel.primary).length !== 1) problems.push('exactly one panel must be primary (the first is used)');
     if (!WORKSPACE_ID.test(persistKey)) problems.push(`persistKey "${persistKey}" must match ${String(WORKSPACE_ID)}`);
@@ -360,7 +360,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     if (revealSeq === undefined || revealId === undefined || revealSeq === handledSeq.current) return;
     handledSeq.current = revealSeq;
     if (!knownIds.split('|').includes(revealId)) {
-      if (isDevelopment()) console.error(`[PanelWorkspace] revealRequest names "${revealId}", which is not a panel`);
+      if (process.env.NODE_ENV !== 'production') console.error(`[PanelWorkspace] revealRequest names "${revealId}", which is not a panel`);
       return;
     }
     const { primaryId, presets, below, sharedRows } = live.current;
