@@ -33,6 +33,7 @@ const strokeAliases: Partial<Record<ThemeColorToken, ThemeColorToken>> = {
   'chart-series-2': 'chart-series-2-stroke',
   'chart-series-3': 'chart-series-3-stroke',
   'chart-series-4': 'chart-series-4-stroke',
+  'chart-series-5': 'chart-series-5-stroke',
   'cat-amber': 'cat-amber-stroke',
 };
 

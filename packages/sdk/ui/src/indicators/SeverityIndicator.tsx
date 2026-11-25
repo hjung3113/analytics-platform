@@ -33,7 +33,7 @@ const SEVERITY_BAR_CLASS: Record<SeverityEnum, string> = {
 };
 
 /**
- * 3-bar vertical indicator. Each bar is 4 px wide × 16 px tall.
+ * A centered em dash marks unset severity. Assigned severity has three vertical bars.
  * Filled bars use `--severity-<level>`. Dimmed bars use the same color
  * at 30% opacity. `critical` uses the same 3-bar fill as `high` but
  * the color token shifts to `--severity-critical`.
@@ -44,20 +44,21 @@ export function SeverityIndicator({
   label,
   decorative = false,
 }: SeverityIndicatorProps) {
-  const filled = severity === null ? 0 : FILL_COUNT[severity];
+  const isUnset = severity === null;
+  const filled = isUnset ? 0 : FILL_COUNT[severity];
   return (
     <span
-      className={cn('inline-flex items-end gap-0.5', className)}
+      className={cn('inline-flex items-end gap-0.5', isUnset && 'min-w-4 justify-center text-sm leading-tight text-text-secondary', className)}
       role={decorative ? undefined : 'img'}
       aria-hidden={decorative || undefined}
       aria-label={
         decorative
           ? undefined
-          : (label ?? `심각도 ${severity === null ? '미지정' : SEVERITY_LABELS[severity]}`)
+          : (label ?? `심각도 ${isUnset ? '미지정' : SEVERITY_LABELS[severity]}`)
       }
       data-severity={severity ?? 'unset'}
     >
-      {([0, 1, 2] as const).map((i) => {
+      {isUnset ? '—' : ([0, 1, 2] as const).map((i) => {
         const isFilled = i < filled;
         return (
           <span
@@ -66,11 +67,11 @@ export function SeverityIndicator({
               'inline-block h-4 w-1',
               // eslint-disable-next-line shadcn/no-arbitrary-values -- the three-bar severity indicator uses a one-pixel corner radius
               'rounded-[1px]',
-              severity === null ? 'bg-border-strong' : SEVERITY_BAR_CLASS[severity],
+              SEVERITY_BAR_CLASS[severity],
               isFilled ? 'opacity-100' : 'opacity-30',
             )}
             data-filled={isFilled ? 'true' : 'false'}
-            data-token={severity === null ? undefined : `--severity-${severity}`}
+            data-token={`--severity-${severity}`}
           />
         );
       })}

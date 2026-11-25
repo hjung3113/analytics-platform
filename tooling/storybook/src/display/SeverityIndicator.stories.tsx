@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { SeverityIndicator } from '@ap/ui';
 import { guidedPage } from '../guidance';
 
-/** 세 막대로 심각도를 보이는 표시. 막대 수와 색이 함께 바뀌고 접근 이름은 «심각도 높음»처럼 읽힌다. */
+/** 막대 수와 색으로 심각도를 표시하며 미지정은 «—»로 표시한다. 접근 이름은 «심각도 높음»처럼 읽힌다. */
 const meta = {
   title: '표시/SeverityIndicator',
   component: SeverityIndicator,

@@ -34,6 +34,25 @@ describe('AnalysisChart heatmap', () => {
 });
 
 describe('AnalysisChart donut', () => {
+  it('uses five distinct series colours for five auto-coloured slices', async () => {
+    mount({ kind: 'donut', slices: [50, 40, 30, 20, 10].map((value, i) => ({ id: String(i), label: `S${i}`, value })) });
+    await screen.findByRole('img');
+    const data = option().series[0].data;
+    const palette: ThemeColorToken[] = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4', 'chart-green'];
+    expect(data.map(slice => slice.itemStyle.color)).toEqual(palette.map(name => readColorToken(name)));
+  });
+
+  it('colours retained slices in display order and preserves the explicit and Other colours', async () => {
+    mount({ kind: 'donut', slices: [10, 50, 20, 60, 30, 40].map(value => ({
+      id: String(value), label: `S${value}`, value, ...(value === 50 ? { color: 'chart-green' as const } : {}),
+    })) });
+    await screen.findByRole('img');
+    const data = option().series[0].data;
+    const palette: ThemeColorToken[] = ['chart-series-1', 'chart-green', 'chart-series-2', 'chart-series-3', 'chart-remainder'];
+    expect(data.map(slice => slice.name)).toEqual(['S60', 'S50', 'S40', 'S30', '기타']);
+    expect(data.map(slice => slice.itemStyle.color)).toEqual(palette.map(name => readColorToken(name)));
+  });
+
   it('groups smallest slices into Other, keeps Unclassified separate, and preserves the denominator', async () => {
     mount({ kind: 'donut', slices: [10, 9, 8, 7, 6, 5].map((value, i) => ({ id: String(i), label: `S${i}`, value })), total: 50, maxSlices: 3 });
     await screen.findByRole('img');

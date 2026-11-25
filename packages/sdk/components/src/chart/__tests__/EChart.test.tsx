@@ -135,6 +135,7 @@ describe('ECharts base theme (#544)', () => {
     ['chart-series-2', 'chart-series-2-stroke'],
     ['chart-series-3', 'chart-series-3-stroke'],
     ['chart-series-4', 'chart-series-4-stroke'],
+    ['chart-series-5', 'chart-series-5-stroke'],
   ])('maps %s to its stroke token', (series, stroke) => {
     expect(strokeToken(series as never)).toBe(stroke);
   });

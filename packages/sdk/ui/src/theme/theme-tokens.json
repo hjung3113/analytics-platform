@@ -600,6 +600,30 @@
         "hex": "#a23e8c"
       }
     },
+    "chart-series-5": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.3412,
+          0.5098,
+          0.1686
+        ],
+        "hex": "#57822b"
+      }
+    },
+    "chart-series-5-stroke": {
+      "$type": "color",
+      "$value": {
+        "colorSpace": "srgb",
+        "components": [
+          0.3412,
+          0.5098,
+          0.1686
+        ],
+        "hex": "#57822b"
+      }
+    },
     "chart-status-critical": {
       "$type": "color",
       "$value": {

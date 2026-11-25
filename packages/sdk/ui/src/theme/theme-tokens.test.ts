@@ -17,6 +17,7 @@ const manifest = JSON.parse(themeJson) as {
 const newChartTokens = [
   'chart-series-1', 'chart-series-1-stroke', 'chart-series-2', 'chart-series-2-stroke',
   'chart-series-3', 'chart-series-3-stroke', 'chart-series-4', 'chart-series-4-stroke',
+  'chart-series-5', 'chart-series-5-stroke',
   'chart-heat-seq-0', 'chart-heat-seq-1', 'chart-heat-seq-2', 'chart-heat-seq-3', 'chart-heat-seq-4',
   'chart-heat-div-0', 'chart-heat-div-1', 'chart-heat-div-2', 'chart-heat-div-3', 'chart-heat-div-4',
   'chart-status-good', 'chart-status-warn', 'chart-status-critical',
@@ -24,7 +25,7 @@ const newChartTokens = [
 ] as const;
 
 const classChartTokens = [
-  'chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4', 'chart-no-data',
+  'chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4', 'chart-series-5', 'chart-no-data',
   'chart-status-good', 'chart-status-warn', 'chart-status-critical',
 ] as const;
 
@@ -159,11 +160,15 @@ it('publishes and resolves every adopted chart colour token', () => {
   }
 });
 
-it('keeps all four categorical stroke tokens at least 3:1 against the card surface', () => {
+it('keeps every categorical stroke token at least 3:1 against the card surface', () => {
   const card = resolveCssColor('surface-card');
-  for (const name of ['chart-series-1-stroke', 'chart-series-2-stroke', 'chart-series-3-stroke', 'chart-series-4-stroke']) {
+  for (const name of newChartTokens.filter(token => token.endsWith('-stroke'))) {
     expect(contrastRatio(resolveCssColor(name), card), name).toBeGreaterThanOrEqual(3);
   }
+});
+
+it.each(['chart-series-5', 'chart-series-5-stroke'] as const)('uses the existing chart green for %s', name => {
+  expect(resolveCssColor(name)).toEqual(resolveCssColor('chart-green'));
 });
 
 it('aliases chart status roles to their semantic accent tokens', () => {
@@ -179,6 +184,7 @@ it('adds Tailwind aliases only for the chart roles consumed as classes', () => {
     expect(themeCss).toContain(`--color-${name}: rgb(var(--${name}));`);
   }
   expect(themeCss).not.toContain('--color-chart-series-1-stroke:');
+  expect(themeCss).not.toContain('--color-chart-series-5-stroke:');
   expect(themeCss).not.toContain('--color-chart-heat-seq-0:');
 });
 
