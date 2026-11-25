@@ -88,10 +88,15 @@ const heldSelectionSchema = z.discriminatedUnion('shape', [
   }),
   z.strictObject({ shape: z.literal('range'), from: nonBlank, to: nonBlank }),
 ]);
+const panelInputFields = { key: panelToken, from: z.string(), use: z.enum(['filter', 'highlight']).optional() };
 const panelInputSchema = z.discriminatedUnion('mode', [
-  z.strictObject({ key: panelToken, from: z.string(), mode: z.literal('follow') }),
-  z.strictObject({ key: panelToken, from: z.string(), mode: z.literal('hold'), value: heldSelectionSchema }),
-]);
+  z.strictObject({ ...panelInputFields, mode: z.literal('follow') }),
+  z.strictObject({ ...panelInputFields, mode: z.literal('hold'), value: heldSelectionSchema }),
+]).superRefine((input, ctx) => {
+  if (Object.hasOwn(input, 'use') && input.use === undefined) {
+    ctx.addIssue({ code: 'custom', path: ['use'], message: 'must be filter or highlight' });
+  }
+});
 const panelOutputSchema = z.strictObject({ key: panelToken, dimension: panelToken, shape: panelShape });
 // Literal copies of the ChartConfig v1 rules in @ap/contracts (ADR-0176, #2745); chart-config.test.ts runs both on the same cases.
 export const CHART_CONFIG_COLORS = ['chart-series-1', 'chart-series-2', 'chart-series-3', 'chart-series-4'] as const;
@@ -203,7 +208,8 @@ function invalidPanelConnections(instances: z.infer<typeof panelInstanceSchema>[
       if (input.mode === 'hold' && input.value.shape !== output.shape) {
         return 'panels held selection shape must match the referenced output';
       }
-      upstream.push(output.id);
+      // Stored validation cannot see declarations. Count omitted use as filter, the default receiving mode.
+      if (input.use !== 'highlight') upstream.push(output.id);
     }
     dependencies.set(id, upstream);
   }
@@ -219,7 +225,7 @@ function invalidPanelConnections(instances: z.infer<typeof panelInstanceSchema>[
     visited.add(id);
     return false;
   }
-  return instances.some(({ id }) => hasCycle(id)) ? 'panels connections must not contain a cycle' : null;
+  return instances.some(({ id }) => hasCycle(id)) ? 'panels connections must not contain a filter cycle' : null;
 }
 
 /** Connection and reference checks run in Zod. JSON Schema consumers must apply these checks themselves. */

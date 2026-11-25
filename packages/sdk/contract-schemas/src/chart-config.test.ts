@@ -25,6 +25,8 @@ const cases: [string, unknown, boolean, string?][] = [
   ['a fifth series token', { ...line, measures: [{ field: 'a', color: 'chart-series-5' }] }, false],
   ['a theme token that is not a series', { ...line, measures: [{ field: 'a', color: 'chart-blue' }] }, false],
   ['an rgb colour', { ...line, measures: [{ field: 'a', color: 'rgb(0,0,0)' }] }, false],
+  ['a px size in the colour field', { ...line, measures: [{ field: 'a', color: '320px' }] }, false],
+  ['a font name in the colour field', { ...line, measures: [{ field: 'a', color: 'Arial' }] }, false],
   ['a label on a measure', { ...line, measures: [{ field: 'a', label: '수율' }] }, false],
   ['decimals 7', { ...bar, valueFormat: { kind: 'number', decimals: CHART_CONFIG_DECIMALS_MAX + 1 } }, false],
   ['fractional decimals', { ...bar, valueFormat: { kind: 'number', decimals: 1.5 } }, false],
