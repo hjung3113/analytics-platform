@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import type { MatrixCell, MatrixColumn, MatrixEmphasisRule, MatrixNode, MatrixWindow } from '@ap/contracts';
 import { useMessages } from '@ap/kernel';
 import { Button, cn, useHorizontalOverflow, useImeEnterGuard } from '@ap/ui';
@@ -58,6 +58,50 @@ const EMPTY_IDS: readonly string[] = [];
 const CELL = 'relative z-0 flex h-(--ap-table-row-h) w-(--matrix-width) shrink-0 items-center border-r border-b border-border-subtle px-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 type PendingFocus = { index: number; column: string; generation: string | number } | null;
 
+function MatrixCellBox({ compact, fullText, ...props }: ComponentProps<'div'> & { compact: boolean; fullText?: string }) {
+  const [hovered, setHovered] = useState<HTMLDivElement | null>(null);
+  // Recheck after each commit because the text can change without resizing its box.
+  useLayoutEffect(() => {
+    if (!hovered) return;
+    if (!compact) {
+      hovered.removeAttribute('title');
+      return;
+    }
+    let boxes: HTMLElement[] = [];
+    const refreshTitle = () => {
+      let clipped: HTMLElement | undefined;
+      for (const box of boxes) {
+        if (clipped && !clipped.contains(box)) continue;
+        if (box.scrollWidth > box.clientWidth && box.textContent?.trim()) clipped = box;
+      }
+      const title = clipped && (fullText ?? clipped.textContent);
+      if (title) {
+        if (hovered.title !== title) hovered.title = title;
+      } else {
+        hovered.removeAttribute('title');
+      }
+    };
+    const resize = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(refreshTitle);
+    const refreshBoxes = () => {
+      // The cell and its direct children have SDK clipping styles. A custom renderer can also truncate deeper inside its own layout.
+      boxes = [hovered, ...Array.from(hovered.querySelectorAll('*')).filter((box): box is HTMLElement =>
+        box instanceof HTMLElement && (box.parentElement === hovered || box.classList.contains('truncate') || getComputedStyle(box).textOverflow === 'ellipsis'),
+      )];
+      resize?.disconnect();
+      for (const box of boxes) resize?.observe(box);
+      refreshTitle();
+    };
+    refreshBoxes();
+    // A custom renderer can also update independently of the matrix.
+    const mutations = new MutationObserver(refreshBoxes);
+    mutations.observe(hovered, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class', 'style'] });
+    return () => { resize?.disconnect(); mutations.disconnect(); };
+  });
+  return <div {...props}
+    onMouseEnter={compact ? event => setHovered(event.currentTarget) : undefined}
+    onMouseLeave={hovered ? event => { event.currentTarget.removeAttribute('title'); setHovered(null); } : undefined} />;
+}
+
 /** Controlled server-windowed treegrid. Owns presentation and local focus only; fetching, counts and meaning remain consumer-owned. */
 const unmodified = (event: KeyboardEvent) => !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
 const togglesExpansion = (event: KeyboardEvent, node: { expanded: boolean }) => unmodified(event)
@@ -98,18 +142,6 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
     right.has(column.id) && 'sticky right-(--matrix-right) z-10',
     isFlexibleCompact(column) && 'min-w-(--matrix-compact-min-width) grow shrink overflow-hidden [&>*]:min-w-0 [&>*]:truncate',
   );
-  const compactTitleProps = (column: MatrixColumn, fullText?: string) => {
-    if (!isFlexibleCompact(column)) return {};
-    return {
-      onMouseEnter: ({ currentTarget }: MouseEvent<HTMLDivElement>) => {
-        const overflows = (element: Element) => element.scrollWidth > element.clientWidth;
-        if (!overflows(currentTarget) && !Array.from(currentTarget.children).some(overflows)) return;
-        const title = fullText ?? currentTarget.textContent;
-        if (title) currentTarget.title = title;
-      },
-      onMouseLeave: ({ currentTarget }: MouseEvent<HTMLDivElement>) => currentTarget.removeAttribute('title'),
-    };
-  };
   const selectionVisible = nodes.some(node => node.id === selectedCell?.row) && visible.some(column => column.id === selectedCell?.column);
   const compactCount = visible.filter(isFlexibleCompact).length;
   const fixedWidth = visible.reduce((sum, column) => isFlexibleCompact(column) ? sum : sum + widths.get(column.id)!, emphasisWidth);
@@ -239,12 +271,12 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
           {visible.map((column, index) => {
             const content = <>{column.label}{column.headerNote && <span className="ml-1 font-normal">{column.headerNote}</span>}</>;
             const fullText = column.headerNote ? `${column.label} ${column.headerNote}` : column.label;
-            return <div key={column.id} role="columnheader" aria-colindex={index + 1}
+            return <MatrixCellBox key={column.id} role="columnheader" aria-colindex={index + 1}
               style={{ '--matrix-width': `${widths.get(column.id)}px`, '--matrix-left': `${left.get(column.id) ?? 0}px`, '--matrix-right': `${right.get(column.id) ?? 0}px` } as CSSProperties}
               className={cn(CELL, 't-table-header bg-surface-sunken text-(length:--ap-table-head-font) text-text-secondary', columnLayoutClass(column))}
-              {...compactTitleProps(column, fullText)}>
+              compact={isFlexibleCompact(column)} fullText={fullText}>
               {isFlexibleCompact(column) ? <div>{content}</div> : content}
-            </div>;
+            </MatrixCellBox>;
           })}
           {emphasis.length > 0 && <div role="columnheader" aria-colindex={visible.length + 1} style={{ '--matrix-width': `${WIDTH.compact * step.widthScale}px` } as CSSProperties} className={cn(CELL, 'sticky right-0 z-10 t-table-header bg-surface-sunken text-(length:--ap-table-head-font) text-text-secondary')}>{emphasisColumnLabel ?? m('emphasis')}</div>}
           {edgeFade('right', 'sunken')}
@@ -261,12 +293,12 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
             // Give plain text a box to truncate while keeping custom content in the cell's flex layout.
             const wrapText = isFlexibleCompact(column) && (typeof content === 'string' || typeof content === 'number' || typeof content === 'bigint');
             const cellContent = wrapText ? <div>{content}</div> : content;
-            return <div key={column.id} role="gridcell" data-matrix-column={column.id} aria-colindex={columnIndex + 1} aria-selected={selected}
+            return <MatrixCellBox key={column.id} role="gridcell" data-matrix-column={column.id} aria-colindex={columnIndex + 1} aria-selected={selected}
               tabIndex={selected || (!selectionVisible && rowIndex === 0 && columnIndex === 0) ? 0 : -1}
               style={{ '--matrix-width': `${widths.get(column.id)}px`, '--matrix-left': `${left.get(column.id) ?? 0}px`, '--matrix-right': `${right.get(column.id) ?? 0}px` } as CSSProperties}
               className={cn(CELL, node.kind === 'group' ? 'bg-surface-sunken' : 'bg-surface-card', columnLayoutClass(column), tone && MATRIX_TONE_CLASS[tone],
                 selected && 'bg-surface-row-selected ring-2 ring-inset ring-border-selected', emphasized && 'outline outline-1 -outline-offset-4 outline-dashed outline-accent-primary')}
-              {...compactTitleProps(column)}
+              compact={isFlexibleCompact(column)}
               onFocus={event => { if (event.target === event.currentTarget) onSelectCell({ row: node.id, column: column.id }); }}
               onKeyDown={event => keyDown(event, node, rowIndex, column, columnIndex)}
               onClick={event => {
@@ -285,7 +317,7 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
                 <span className="flex min-w-0 flex-1 items-center gap-1">{content}</span>
                 {onEmphasisChange && <MatrixRowMenu key={generation} node={node} columns={valueColumns} valueOf={valueOf} emphasis={emphasis} onChange={onEmphasisChange} label={emphasisActionLabel} />}
               </div> : cellContent}
-            </div>;
+            </MatrixCellBox>;
           })}
           {emphasis.length > 0 && <div role="gridcell" aria-colindex={visible.length + 1} style={{ '--matrix-width': `${WIDTH.compact * step.widthScale}px` } as CSSProperties} className={cn(CELL, 'sticky right-0 z-10', node.kind === 'group' ? 'bg-surface-sunken' : 'bg-surface-card')}>
             {matching.entries.has(node.id) && (formatEmphasisCount?.(matching.entries.get(node.id)!.columns.size, node) ?? m('matchCount', { count: matching.entries.get(node.id)!.columns.size }))}

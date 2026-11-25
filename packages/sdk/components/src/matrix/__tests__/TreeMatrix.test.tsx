@@ -149,6 +149,76 @@ it('preserves flex alignment and clips custom content in a compact cell', () => 
   expect(body).toHaveAccessibleName(value);
 });
 
+it('titles the nested clipping box when its custom flex row and cell both fit', () => {
+  const value = 'LongUnbrokenValue';
+  mount({
+    columns: [columns[0], { id: 'x', label: 'X', width: 'compact' }],
+    renderCell: (node, column) => column.id === 'name' ? node.label : (
+      <div className="ml-auto flex"><span>OK</span><span className="truncate">{value}</span></div>
+    ),
+  });
+  const body = cell('a', 'x');
+  const label = within(body).getByText(value);
+  const row = label.parentElement!;
+  expect(row.parentElement).toBe(body);
+  expect(row).toHaveClass('ml-auto', 'flex');
+  Object.defineProperties(body, { clientWidth: { value: 64 }, scrollWidth: { value: 64 } });
+  Object.defineProperties(row, { clientWidth: { value: 48 }, scrollWidth: { value: 48 } });
+  Object.defineProperties(label, { clientWidth: { value: 32 }, scrollWidth: { value: 72 } });
+
+  fireEvent.mouseEnter(label);
+  expect(body).toHaveAttribute('title', value);
+});
+
+it.each([
+  { location: 'header', next: 'SecondClippedValue', expectedTitle: 'SecondClippedValue' },
+  { location: 'body', next: 'SecondClippedValue', expectedTitle: 'SecondClippedValue' },
+  { location: 'header', next: 'Fits', expectedTitle: null },
+  { location: 'body', next: 'Fits', expectedTitle: null },
+])('refreshes the hovered compact $location title when text changes to $next', ({ location, next, expectedTitle }) => {
+  const view = (value: string) => <I18nProvider><TreeMatrix {...base}
+    columns={[columns[0], { id: 'x', label: location === 'header' ? value : 'X', width: 'compact' }]}
+    nodes={[leaf('a', { x: value })]} /></I18nProvider>;
+  const first = 'FirstClippedValue';
+  const { rerender } = render(view(first));
+  const hovered = location === 'header' ? screen.getByRole('columnheader', { name: first }) : cell('a', 'x');
+  const content = within(hovered).getByText(first);
+  Object.defineProperties(content, {
+    clientWidth: { value: 48 },
+    scrollWidth: { get: () => content.textContent === 'Fits' ? 24 : 72 },
+  });
+  fireEvent.mouseEnter(content);
+  expect(hovered).toHaveAttribute('title', first);
+
+  rerender(view(next));
+  expect(hovered.getAttribute('title')).toBe(expectedTitle);
+});
+
+it('clears the hovered compact title when the text box widens enough to fit', () => {
+  const callbacks = new Map<Element, () => void>();
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(private readonly callback: () => void) {}
+    observe(element: Element) { callbacks.set(element, this.callback); }
+    disconnect() {
+      for (const [element, callback] of callbacks) if (callback === this.callback) callbacks.delete(element);
+    }
+  });
+  const value = 'LongUnbrokenValue';
+  mount({
+    columns: [columns[0], { id: 'x', label: 'X', width: 'compact' }],
+    nodes: [leaf('a', { x: value })],
+  });
+  const body = cell('a', 'x');
+  const content = within(body).getByText(value);
+  Object.defineProperties(content, { clientWidth: { configurable: true, value: 48 }, scrollWidth: { value: 72 } });
+  fireEvent.mouseEnter(content);
+  expect(body).toHaveAttribute('title', value);
+
+  Object.defineProperty(content, 'clientWidth', { value: 72 });
+  act(() => callbacks.get(content)?.());
+  expect(body).not.toHaveAttribute('title');
+});
+
 describe('TreeMatrix controlled window', () => {
   it.each(['End', 'PageDown'])('requests preceding viewport rows for remote %s near the result end', key => {
     const onWindowChange = vi.fn(); const onSelectCell = vi.fn();
