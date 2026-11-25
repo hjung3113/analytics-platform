@@ -10,7 +10,7 @@ const SPEC = 'docs/adr/0058-analysis-chart-spec-union.md';
 const TOPN = 'docs/adr/0064-topn-bar-and-lane-timeline.md';
 const TRACK = 'docs/adr/0121-ordered-interval-track-sdk-piece.md';
 const CHOOSER: [chart: string, piece: string, use: Quote[], avoid: Quote[]][] = [
-  ['선·막대 (시간축·범주축)', 'AnalysisChartFrame', [['DESIGN.md', '변화·분포는 차트']], [[CHART, '선은 순서가 없는 범주'], [CHART, '범주 막대로 구간별 빈도를 그리면']]],
+  ['선·막대 (시간축·범주축)', 'AnalysisChartFrame', [['DESIGN.md', '변화·분포는 차트']], [[CHART, '선은 순서가 없는 범주'], [CHART, '유한한 구간의 실제 폭과 간격을 보여야 하면']]],
   ['누적·100% 누적', 'AnalysisChartFrame stackMode', [[CHART, '`stack`은 `canClientSum`이 허용하는 측정']], [[CHART, '집계 선언이 없거나 더할 수 없으면 쌓지 않고']]],
   ['가로 범주 막대', 'AnalysisChartFrame orientation="horizontal"', [[CHART, '드릴이 가능한 가로 막대는']], []],
   ['순위 막대', 'AnalysisChart topNBar', [[CHART, '단일 측정값 순위에 상위 N 자르기']], [[TOPN, '기타·누적률과 단순 순위의 의미가 섞인다']]],
