@@ -208,3 +208,20 @@ it('supports histogram table selection, Reset and plot clicks when selectedBin s
   expect(summary()).toHaveTextContent('1–2 · 1개 선택');
   expect(markWidth(1)).toBe(1.5);
 });
+
+it('moves focus to the table toggle when a followed histogram empties under a focused selection summary', async () => {
+  const spec = (data: typeof bins): ChartSpec => ({
+    kind: 'histogram', xUnit: 's', xLabel: 'Duration', bins: data, selectedBin: { start: 0, end: 1 },
+  });
+  const view = mount(spec(bins));
+  await screen.findByRole('img');
+  const region = summary();
+  const target = region.querySelector<HTMLElement>('button:not(:disabled), [tabindex]') ?? region;
+  if (target === region) region.tabIndex = -1;
+  act(() => { target.focus(); });
+  expect(region.contains(document.activeElement)).toBe(true);
+
+  view.update(spec([]));
+  expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: '표로 보기' }));
+});

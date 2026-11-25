@@ -4,7 +4,7 @@ import type { ChartBounds, ChartBoundLabels } from './chartBounds';
 import { BrushIcon, ChevronDown, ChevronUp, RotateCcw, Play, ExternalLink } from 'lucide-react';
 import type { ChartTrust } from '../state/trustFormat';
 import { percent, unknownLabel, brushOptions, followedChartKey, isBrushableKind, isSingleSelectKind, warnMissingChartUnit } from './analysisChartShared';
-import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { Button, Checkbox, cn, type Tone } from '@ap/ui';
 import type { Text } from '@ap/contracts';
@@ -236,6 +236,19 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [previousContext, setPreviousContext] = useState(contextKey);
   const following = selected === null;
   const followingEmptyChart = following && empty;
+  // The selection summary unmounts when a followed chart empties; if it held focus, hand it to the table toggle (or the chart).
+  const chartRoot = useRef<HTMLElement>(null);
+  const tableToggle = useRef<HTMLButtonElement>(null);
+  const summaryHadFocus = useRef(false);
+  useLayoutEffect(() => {
+    if (!followingEmptyChart || !summaryHadFocus.current) return;
+    summaryHadFocus.current = false;
+    if (document.activeElement !== document.body) return;
+    const root = chartRoot.current;
+    const toggle = tableToggle.current;
+    if (toggle?.isConnected && !toggle.disabled) toggle.focus();
+    else if (root) { root.tabIndex = -1; root.focus(); }
+  }, [followingEmptyChart]);
   const active = useMemo(() => {
     if (previousContext !== contextKey) return [];
     if (selected !== null) return selected.filter(key => keySet.has(key));
@@ -507,7 +520,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       aria-label={m('chartBrush')} title={m('chartBrush')} aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}><BrushIcon className="size-3.5" aria-hidden />{!compactChrome && m('chartBrush')}</Button>}
     reset={selectionEnabled && <Button type="button" size={toolbarButtonSize} variant={chartToolVariant(compactChrome)}
       aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}><RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}</Button>}
-    table={{ shown: table, toggle: () => setTable(current => !current) }}
+    table={{ shown: table, toggle: () => setTable(current => !current), buttonRef: tableToggle }}
     exportCsv={exportGate.allowed ? exportCsv : undefined}
     exportTools={exportGate.allowed && <>
       {p.imageCopy && <ChartImageCopyButton standalone={p.exportActions} onOutcome={exportGate.say} fileName={`${safeFileName(p.chartId)}.png`} capture={() => echartImageBlob(chart.current)} />}
@@ -517,7 +530,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       {chrome === 'minimal' && kindLegend}
       <p className="border-t border-border-subtle pt-2 text-text-secondary">{summary}</p>
     </>} />;
-  return <section role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), fittedDonut && 'min-h-64 overflow-y-auto', embedded && 'rounded-none border-0 shadow-none')}>
+  return <section ref={chartRoot} role="region" aria-labelledby={titleId} aria-describedby={summaryId} data-analysis-chart={section ? '' : undefined} className={cn(compactChrome && 'group/chart', 'relative flex min-w-0 flex-col rounded-lg border border-border-subtle bg-surface-card elevation-panel', size === 'fill' && (chrome === 'standard' ? 'h-full min-h-0' : FILL_CARD_CLASS), fittedDonut && 'min-h-64 overflow-y-auto', embedded && 'rounded-none border-0 shadow-none')}>
     <AnalysisChartPart enabled={section !== null}>
       {topN ? <>{rankingToolbar}{chrome === 'full' && kindLegend}
         {!compactChrome && <p id={summaryId} className="px-4 py-2 text-xs text-text-secondary">{summary}</p>}
@@ -579,7 +592,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       </div>}
       </ChartLegendLayout>
       {topN && expanded && <ChartGestureHint point={rows.length > 0} additive={!singleSelect} drill={canDrill} />}
-      {selectionEnabled && !followingEmptyChart && <section tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !selectedActionRow?.drill ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs text-text-secondary' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
+      {selectionEnabled && !followingEmptyChart && <section onFocus={() => { summaryHadFocus.current = true; }} onBlur={(event) => { const summary = event.currentTarget; queueMicrotask(() => { if (summary.isConnected) summaryHadFocus.current = false; }); }} tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !selectedActionRow?.drill ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs text-text-secondary' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
         {selectionSummary}
         {hasStatuses && summaryRows.filter(row => row.status).map(row => <p key={row.key}>{row.label}: {statusText(row.status)}</p>)}
         {spec.kind === 'heatmap' && spec.cellActivation && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartActivatePoint') : undefined} title={compactChrome ? m('chartActivatePoint') : undefined} disabled={brushMode || !selectedCell} onClick={() => { if (!brushMode && selectedCell) spec.cellActivation?.onActivate(selectedCell.x, selectedCell.y); }}>{compactChrome ? <Play className="size-3.5" aria-hidden /> : m('chartActivatePoint')}</Button>}
