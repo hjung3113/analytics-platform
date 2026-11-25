@@ -58,6 +58,7 @@ type Gesture = { pointerId: number; kind: 'move' | FloatingHandle; startX: numbe
 
 /**
  * A non-modal window frame (06 §13): no backdrop, no focus trap, no outside-click close. Drawn `absolute` inside the caller's positioned container.
+ * Without `minSize`, in `window` mode each dimension below 640 × 420 px is raised to that default minimum independently, capped by the available `area`.
  * Pointer drags keep their coordinates in local state and report once on release; keys and the `⋯` menu report immediately (WCAG 2.5.7: every drag has a button/key path).
  */
 export const FloatingWindow = /*#__PURE__*/ forwardRef<FloatingWindowHandle, FloatingWindowProps>(function FloatingWindow(props, ref) {

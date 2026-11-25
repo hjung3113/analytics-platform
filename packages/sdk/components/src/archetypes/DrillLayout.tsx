@@ -130,7 +130,10 @@ export function DrillPath(props: DrillPathProps) {
   </div>;
 }
 
-/** Path bar, then the current step's body. A format error or a missing value replaces the body and substitutes nothing. */
+/**
+ * Path bar, then the current step's body. A format error or a missing value replaces the body and substitutes nothing.
+ * The Registry throws if a drill level key is missing from the menu's `contextResetKeys`.
+ */
 export function DrillLayout(props: DrillLayoutProps) {
   const { siblings, notFound, children, fill } = props;
   // Forward `summary` only when the caller passed it, so DrillPath can tell "no summary prop" from "summary not ready yet".

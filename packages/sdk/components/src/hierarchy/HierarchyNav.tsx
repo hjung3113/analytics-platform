@@ -49,7 +49,10 @@ function treeRows(snapshot: HierarchySnapshot): Row[] {
   return result;
 }
 
-/** Sidebar data navigation. Menus own source/endpoints; Kernel owns destinations and permissions. */
+/**
+ * Sidebar data navigation. Menus own source/endpoints; Kernel owns destinations and permissions.
+ * Rendering item labels outside a `TooltipProvider` throws.
+ */
 export function HierarchyNav({ menuId, label, source, mode = 'drill', currentNodeId = null, levelIcon, pageSize = 50, state: shared, onNavigate }: HierarchyNavProps) {
   const own = useHierarchyNavState(menuId);
   // Refuse even a mistakenly retained cache from a different user/revision in this very render.

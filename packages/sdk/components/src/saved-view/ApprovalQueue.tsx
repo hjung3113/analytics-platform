@@ -46,7 +46,10 @@ export type QueuePanelProps = ApprovalQueueProps & {
 const involves = (entry: SavedViewEntry, request: ApprovalRequestInfo | undefined, userId: string): boolean =>
   entry.view.approval !== 'none' && ((request?.requestedBy ?? entry.view.ownerId) === userId || entry.capabilities.canApprove || entry.capabilities.canRevoke);
 
-/** The applications a requester made or an approver can act on: search, status filter, a scrolling list and the detail. */
+/**
+ * The applications a requester made or an approver can act on: search, status filter, a scrolling list and the detail.
+ * Pending and rejected applications are hidden unless the current user requested them (owner fallback) or can approve or revoke them.
+ */
 export function ApprovalQueue(props: ApprovalQueueProps) {
   return <QueuePanel {...props} />;
 }

@@ -29,6 +29,7 @@ export type DrillState = {
 
 /**
  * In-page drill for the matched menu (06 §6.4, ADR-0025).
+ * The Registry throws if a drill level key is missing from the menu's `contextResetKeys`.
  * A menu without `drill` reports no levels. Step changes are not usage events.
  */
 export function useDrill(): DrillState {

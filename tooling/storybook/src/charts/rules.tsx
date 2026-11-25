@@ -10,16 +10,16 @@ const SPEC = 'docs/adr/0058-analysis-chart-spec-union.md';
 const TOPN = 'docs/adr/0064-topn-bar-and-lane-timeline.md';
 const TRACK = 'docs/adr/0121-ordered-interval-track-sdk-piece.md';
 const CHOOSER: [chart: string, piece: string, use: Quote[], avoid: Quote[]][] = [
-  ['선·막대 (시간축·범주축)', 'AnalysisChartFrame', [['DESIGN.md', '변화·분포는 차트']], []],
+  ['선·막대 (시간축·범주축)', 'AnalysisChartFrame', [['DESIGN.md', '변화·분포는 차트']], [[CHART, '선은 순서가 없는 범주'], [CHART, '유한한 구간의 실제 폭과 간격을 보여야 하면']]],
   ['누적·100% 누적', 'AnalysisChartFrame stackMode', [[CHART, '`stack`은 `canClientSum`이 허용하는 측정']], [[CHART, '집계 선언이 없거나 더할 수 없으면 쌓지 않고']]],
   ['가로 범주 막대', 'AnalysisChartFrame orientation="horizontal"', [[CHART, '드릴이 가능한 가로 막대는']], []],
   ['순위 막대', 'AnalysisChart topNBar', [[CHART, '단일 측정값 순위에 상위 N 자르기']], [[TOPN, '기타·누적률과 단순 순위의 의미가 섞인다']]],
-  ['파레토', 'AnalysisChart pareto', [], [[TOPN, '기타·누적률과 단순 순위의 의미가 섞인다']]],
+  ['파레토', 'AnalysisChart pareto', [[CHART, '파레토(pareto)는']], [[TOPN, '기타·누적률과 단순 순위의 의미가 섞인다']]],
   ['히트맵', 'AnalysisChart heatmap', [[SPEC, '히트맵은 두 범주축의 셀']], []],
   ['도넛', 'AnalysisChart donut', [[SPEC, '도넛은 분모가 있는 구성비를 받는다']], [[SPEC, '도넛의 `maxSlices`는 2–5로 제한한다']]],
-  ['산점도', 'AnalysisChart scatter', [], []],
+  ['산점도', 'AnalysisChart scatter', [[CHART, '산점도(scatter)는']], []],
   ['상자 그림', 'AnalysisChart boxPlot', [[CHART, 'boxPlot은 원자료 대신 호출자가 계산한 통계를 받으며']], []],
-  ['히스토그램', 'AnalysisChart histogram', [], []],
+  ['히스토그램', 'AnalysisChart histogram', [[CHART, '히스토그램(histogram)은']], []],
   ['레인 시간선', 'LaneTimeline', [[TOPN, 'React 렌더 없이 수십만 구간을 다룰 수 있기']], [[TOPN, '기존 시간축 Frame을 대체하지 않는다']]],
   ['순서 트랙', 'OrderedIntervalTrack', [[TRACK, '위치는 소비자가 준 서수이고']], []],
 ];
