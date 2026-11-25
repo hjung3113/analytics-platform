@@ -1,8 +1,10 @@
 import { PlatformPage } from '../../archetypes/PlatformPage';
 import { PanelWorkspace } from '../../workspace/PanelWorkspace';
 import { AnalysisPanelAddContext } from '../../workspace/PanelAdd';
+import { InWorkspacePanelProvider } from '../../workspace/panelContext';
 import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
 import { stubCompactTableGeometry } from '../../testing';
+import * as visibleArea from '../../visibleArea';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
@@ -516,6 +518,187 @@ const chipSlots = { contextBar: <AnalysisSelectionChipZone /> };
 const chipControls = () => within(screen.getByRole('group', { name: '분석 선택' }));
 const chipMore = () => chipControls().getByRole('button', { name: /a 동작$/ });
 const chipItems = () => within(screen.getByRole('menu')).getAllByRole('menuitem');
+
+describe('Next Analysis focus reveal (#3010)', () => {
+  const confirmation = () => within(screen.getByRole('group', { name: '구간 적용 확인' }));
+
+  async function mountTimeRange() {
+    const from = '2026-09-01T00:00:00';
+    const mid = '2026-09-01T01:00:00';
+    const to = '2026-09-01T02:00:00';
+    window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=${from}&to=${to}&range=${mid}/${to}`);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry} slots={chipSlots}>
+      <PlatformPage><AnalysisChartFrame chartId="sel" title="Sel" unit="s" nextAnalysis analysisSelectionOutput={output}
+        series={[{ ...A, points: [[from, 1], [mid, 2], [to, 3]] }]} /></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img', { name: 'Sel: A' });
+    return userEvent.setup();
+  }
+
+  it('reveals the focused confirm button when opened from a selection chip', async () => {
+    const user = await mountTimeRange();
+    const chip = chipControls().getByRole('button', { name: /date .* 동작$/ });
+    await user.click(chip);
+    const reveal = vi.spyOn(visibleArea, 'revealFocused');
+    try {
+      await user.click(screen.getByRole('menuitem', { name: '조건으로' }));
+      const apply = confirmation().getByRole('button', { name: '적용' });
+      expect(apply).toHaveFocus();
+      expect(reveal).toHaveBeenCalledExactlyOnceWith(apply, { bottomInset: expect.any(Function) });
+      await user.keyboard('{Escape}');
+      expect(chip).toHaveFocus();
+      expect(reveal).toHaveBeenCalledTimes(1);
+    } finally {
+      reveal.mockRestore();
+    }
+  });
+
+  it.each([
+    ['취소', '조건으로'],
+    ['적용', '구간 선택'],
+  ])('reveals the focused button after period confirmation closes via %s', async (action, destination) => {
+    const user = await mountTimeRange();
+    const opener = within(nextRow()).getByRole('button', { name: '조건으로' });
+    const target = destination === '조건으로' ? opener : screen.getByRole('button', { name: destination });
+    if (action === '적용') {
+      await user.click(chipControls().getByRole('button', { name: /date .* 동작$/ }));
+      await user.click(screen.getByRole('menuitem', { name: '조건으로' }));
+    } else await user.click(opener);
+    const reveal = vi.spyOn(visibleArea, 'revealFocused');
+    try {
+      await user.click(confirmation().getByRole('button', { name: action }));
+      expect(target).toHaveFocus();
+      expect(reveal).toHaveBeenCalledExactlyOnceWith(target, { bottomInset: expect.any(Function) });
+    } finally {
+      reveal.mockRestore();
+    }
+  });
+
+  it.each(['지우기', '조건으로'])('reveals the focused plot after keyboard activation of %s in a separate row', async action => {
+    function ChartWithSeparateRow() {
+      const [target, setTarget] = useState<HTMLDivElement | null>(null);
+      return <>
+        <AnalysisChartFrame chartId="set" title="Set" series={[A]} unit="s" xType="category" orientation="horizontal"
+          analysisSelectionOutput={setOutput} nextAnalysis nextAnalysisTarget={target} />
+        <div ref={setTarget} />
+      </>;
+    }
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={setRegistry}>
+      <ChartWithSeparateRow />
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img');
+    const target = screen.getByRole('group', { name: '차트 지점' });
+    pointClick('a');
+    within(nextRow()).getByRole('button', { name: action }).focus();
+    const reveal = vi.spyOn(visibleArea, 'revealFocused');
+    try {
+      await userEvent.setup().keyboard('{Enter}');
+      expect(target).toHaveFocus();
+      expect(reveal).toHaveBeenCalledExactlyOnceWith(target, { bottomInset: expect.any(Function) });
+    } finally {
+      reveal.mockRestore();
+    }
+  });
+});
+
+describe('Chart focus reveal after the action commits (#3010 fix round)', () => {
+  function stubPageScroll() {
+    const scroller = screen.getByRole('main');
+    Object.defineProperty(scroller, 'clientHeight', { value: 500 });
+    vi.spyOn(scroller.querySelector('[data-page-sticky-header]')!, 'getBoundingClientRect')
+      .mockReturnValue({ height: 50 } as DOMRect);
+    return scroller;
+  }
+
+  async function mountTimeChart({ selected = true }: { selected?: boolean } = {}) {
+    const from = '2026-09-01T00:00:00';
+    const mid = '2026-09-01T01:00:00';
+    const to = '2026-09-01T02:00:00';
+    const search = new URLSearchParams({ v: '1', scopeId: 'MEM', from, to });
+    if (selected) search.set('range', `${mid}/${to}`);
+    window.history.replaceState(null, '', `/?${search}`);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry}>
+      <main style={{ overflowY: 'auto' }}><PlatformPage>
+        <InWorkspacePanelProvider value>
+          <div data-testid="dock-body" style={{ overflowY: 'auto' }}>
+            <AnalysisChartFrame chartId="sel" title="Sel" unit="s" nextAnalysis analysisSelectionOutput={output}
+              series={[{ ...A, points: [[from, 1], [mid, 2], [to, 3]] }]} />
+          </div>
+        </InWorkspacePanelProvider>
+      </PlatformPage></main>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img', { name: 'Sel: A' });
+    Object.defineProperty(screen.getByTestId('dock-body'), 'clientHeight', { value: 560 });
+    return stubPageScroll();
+  }
+
+  it('reveals the sticky-row opener using the geometry after Cancel collapses the confirmation', async () => {
+    const scroller = await mountTimeChart();
+    const opener = within(nextRow()).getByRole('button', { name: '조건으로' });
+    const confirmation = () => screen.queryByRole('group', { name: '구간 적용 확인' });
+    fireEvent.click(opener);
+    scroller.scrollTop = 0;
+    const rect = vi.spyOn(opener, 'getBoundingClientRect').mockImplementation(() => {
+      const top = (confirmation() ? 466 : 524) - scroller.scrollTop;
+      return { top, bottom: top + 32 } as DOMRect;
+    });
+    try {
+      fireEvent.click(within(confirmation()!).getByRole('button', { name: '취소' }));
+      expect(confirmation()).toBeNull();
+      expect(opener).toHaveFocus();
+      expect(scroller.scrollTop).toBe(56);
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
+  it('reveals the focused plot only after point Clear removes the sticky action row', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={setRegistry}>
+      <InWorkspacePanelProvider value>
+        <AnalysisChartFrame chartId="set" title="Set" series={[A]} unit="s" xType="category" orientation="horizontal"
+          analysisSelectionOutput={setOutput} nextAnalysis />
+      </InWorkspacePanelProvider>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img');
+    const target = screen.getByRole('group', { name: '차트 지점' });
+    pointClick('a');
+    const row = nextRow();
+    const connectedAtReveal: boolean[] = [];
+    const reveal = vi.spyOn(visibleArea, 'revealFocused').mockImplementation(() => { connectedAtReveal.push(row.isConnected); });
+    try {
+      fireEvent.click(within(row).getByRole('button', { name: '지우기' }));
+      expect(target).toHaveFocus();
+      expect(row.isConnected).toBe(false);
+      expect(connectedAtReveal).toEqual([false]);
+    } finally {
+      reveal.mockRestore();
+    }
+  });
+
+  it.each([
+    { action: '지우기', selected: true },
+    { action: '선택', selected: false },
+  ])('reveals Brush below the sticky page header after $action', async ({ action, selected }) => {
+    const scroller = await mountTimeChart({ selected });
+    const toggle = screen.getByRole('button', { name: '구간 선택' });
+    if (!selected) fireEvent.click(toggle);
+    const controls = selected ? nextRow() : screen.getByRole('group', { name: '시작과 끝으로 구간 선택' });
+    scroller.scrollTop = 100;
+    const rect = vi.spyOn(toggle, 'getBoundingClientRect').mockImplementation(() => {
+      const top = 120 - scroller.scrollTop;
+      return { top, bottom: top + 28 } as DOMRect;
+    });
+    try {
+      fireEvent.click(within(controls).getByRole('button', { name: action }));
+      expect(toggle).toHaveFocus();
+      expect(scroller.scrollTop).toBe(70);
+    } finally {
+      rect.mockRestore();
+    }
+  });
+});
 
 function FittedChips() {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);

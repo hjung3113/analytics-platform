@@ -94,7 +94,7 @@ export function revealInScrollContainer(element: HTMLElement, workspaceRoot: HTM
   else if (rectBottom > bottom) container.scrollTop += Math.min(rectBottom - bottom, rectTop - top);
 }
 
-/** Reveals a focused element vertically, starting with its nearest scroll container. Reads layout. */
+/** Reveals a focused element vertically and within horizontal scrollers, starting with the nearest containers. Reads layout. */
 export function revealFocused(element: HTMLElement, options?: { bottomInset?: (container: HTMLElement) => number }): void {
   const page = element.closest<HTMLElement>('[data-platform-page]');
   const pageContainer = page ? scrollContainerOf(page) : null;
@@ -115,6 +115,21 @@ export function revealFocused(element: HTMLElement, options?: { bottomInset?: (c
     }
     if (!container) break;
   }
+  revealHorizontally(element);
+}
+
+function revealHorizontally(element: HTMLElement): void {
+  // Only a strip that opts in (`data-reveal-x`, the compact chart toolbar) scrolls sideways: a page or panel scroller whose
+  // `overflow-x` merely computes to auto next to `overflow-y: auto` (#platform-main) must never move horizontally.
+  const container = element.closest<HTMLElement>('[data-reveal-x]');
+  if (!container || container.scrollWidth <= container.clientWidth) return;
+  const left = container.getBoundingClientRect().left + container.clientLeft;
+  const right = left + container.clientWidth;
+  const rect = element.getBoundingClientRect();
+  const before = rect.left - left;
+  const after = rect.right - right;
+  if (before < 0 && after < 0) container.scrollLeft += Math.max(before, after);
+  else if (before > 0 && after > 0) container.scrollLeft += Math.min(before, after);
 }
 
 /** Scrolls the workspace's scroll container so `element` sits directly under the sticky page chrome (a new row's header, the workspace top on maximize). Reads layout. */

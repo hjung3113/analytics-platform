@@ -418,6 +418,9 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const zoomInButton = useRef<HTMLButtonElement | null>(null);
   const rangeStart = useRef<HTMLButtonElement | null>(null);
   const stickyNextAnalysisRow = useRef<HTMLDivElement | null>(null);
+  // One queued reveal: its target and the Context it waits to settle on (set at the first mismatching commit).
+  const pendingFocusReveal = useRef<{ element: HTMLElement; waitsFor?: string } | null>(null);
+  const [, setFocusRevealVersion] = useState(0);
   // Set when the keyboard turns brush mode on in a fill card: the range form appears then and takes focus (ADR-0067 decision 21).
   const focusRangeForm = useRef(false);
   const applyRangeButton = useRef<HTMLButtonElement | null>(null);
@@ -1026,18 +1029,44 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     selectedPoint: !!selectedPoint, pointDetail: !!(rowGroups || statusEnabled || bounds),
     pointExtremes: !!selectedPoint && (!!extremes?.has(selectedPoint.seriesId) || !!equalIds?.has(selectedPoint.seriesId)),
   });
+  const revealWithStickyRow = useCallback((element: HTMLElement | null) => {
+    if (!element || element.ownerDocument.activeElement !== element) return;
+    const row = stickyNextAnalysisRow.current;
+    // Reserve room for the sticky row only when it can cover the focused control.
+    const rowScroller = row && !row.contains(element)
+      ? scrollContainerOf(row) ?? document.scrollingElement ?? document.documentElement
+      : null;
+    revealFocused(element, {
+      bottomInset: container => row && container === rowScroller ? row.getBoundingClientRect().height : 0,
+    });
+  }, []);
+  const focusAndQueueReveal = (element: HTMLElement | null) => {
+    if (!element) return;
+    element.focus({ preventScroll: true });
+    pendingFocusReveal.current = { element };
+    // Schedule a commit even when applying the existing Context is a no-op.
+    setFocusRevealVersion(version => version + 1);
+  };
+  useLayoutEffect(() => {
+    const pending = pendingFocusReveal.current;
+    if (!pending) return;
+    // Drop a request whose target left or lost focus: it must never scroll later for an old action.
+    if (!pending.element.isConnected || pending.element.ownerDocument.activeElement !== pending.element) { pendingFocusReveal.current = null; return; }
+    // A new Context clears the old chart state in an effect, with its own commit. Wait for that one reset only; a further Context change drops it.
+    if (fittedContext.current !== contextKey) {
+      if (pending.waitsFor !== undefined && pending.waitsFor !== contextKey) pendingFocusReveal.current = null;
+      else pending.waitsFor = contextKey;
+      return;
+    }
+    pendingFocusReveal.current = null;
+    revealWithStickyRow(pending.element);
+  });
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
     rangeStart.current?.focus({ preventScroll: true });
-    if (!rangeStart.current) return;
-    // Keep the focused field above the sticky action row.
-    const row = stickyNextAnalysisRow.current;
-    const rowScroller = row ? scrollContainerOf(row) ?? document.scrollingElement ?? document.documentElement : null;
-    revealFocused(rangeStart.current, {
-      bottomInset: container => row && container === rowScroller ? row.getBoundingClientRect().height : 0,
-    });
-  }, [brushMode, showSummary]);
+    revealWithStickyRow(rangeStart.current);
+  }, [brushMode, showSummary, revealWithStickyRow]);
   function commitRange(next: Selection) {
     const snapped = snapOutward(toMs(next.from), toMs(next.to), timeBounds);
     if (!snapped) { rangeActions.snapSelect(null); return; }
@@ -1150,12 +1179,15 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
 
   useLayoutEffect(() => {
     if (!preview) returnFromConfirmation.current = undefined;
-    if (p.nextAnalysis && preview) confirmPeriodButton.current?.focus({ preventScroll: true });
-  }, [p.nextAnalysis, preview]);
+    if (p.nextAnalysis && preview) {
+      confirmPeriodButton.current?.focus({ preventScroll: true });
+      revealWithStickyRow(confirmPeriodButton.current);
+    }
+  }, [p.nextAnalysis, preview, revealWithStickyRow]);
   const restoreConfirmationFocus = (fallback: HTMLElement | null) => {
     const restore = returnFromConfirmation.current;
     returnFromConfirmation.current = undefined;
-    if (!restore?.()) fallback?.focus({ preventScroll: true });
+    if (!restore?.()) focusAndQueueReveal(fallback);
   };
   const cancelPeriod = () => {
     rangeActions.setPreview(null);
@@ -1175,7 +1207,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       notify(m('chartAppliedGlobalPeriodToast'));
       // Applying the period clears the analysis selection with it, so the chip that opened this row is about to unmount.
       returnFromConfirmation.current = undefined;
-      brushToggle.current?.focus({ preventScroll: true });
+      focusAndQueueReveal(brushToggle.current);
     }}>{t('apply')}</Button>
     <Button size="toolbar" variant="secondary" onClick={cancelPeriod}>{t('cancel')}</Button>
   </div>;
@@ -1202,8 +1234,9 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     ? selectionActions(selection)
     : plainSelectionActions.map(item => <NextAnalysisActionButton key={item.id} action={item} />);
   const clearSelection = <Button size="toolbar" variant="ghost" onClick={() => {
-    if (p.nextAnalysis && !selection) pointChart.current?.focus({ preventScroll: true });
-    else if (rangeOutput || p.nextAnalysis) brushToggle.current?.focus();
+    if (p.nextAnalysis && !selection) {
+      focusAndQueueReveal(pointChart.current);
+    } else if (rangeOutput || p.nextAnalysis) focusAndQueueReveal(brushToggle.current);
     rangeActions.clear();
     writeRange(null);
     if (p.nextAnalysis) {
@@ -1233,7 +1266,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     label: m('chartApplySelection'),
     reason: equipmentReason,
     onSelect: fromChip => {
-      if (!fromChip) pointChart.current?.focus({ preventScroll: true });
+      if (!fromChip) focusAndQueueReveal(pointChart.current);
       host.applyEquipment?.(equipmentSet);
     },
   } : null;
@@ -1399,7 +1432,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
           </SelectContent>
         </Select>
         <Button size="toolbar" onClick={() => {
-          if (rangeOutput) brushToggle.current?.focus();
+          if (rangeOutput) focusAndQueueReveal(brushToggle.current);
           if (xType === 'time') commitRange(draft);
           else { rangeActions.categorySelect(draft); writeRange(draft); }
         }}>{m('chartSelect')}</Button>
