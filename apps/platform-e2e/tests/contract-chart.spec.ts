@@ -378,6 +378,73 @@ test.describe('차트 카탈로그 — 종류별 상호작용 (06 §16, #530)', 
     await expect(stack).toBeChecked();
     await evidence(page, testInfo, 'chart-toolbar-start-with-support');
   });
+  for (const width of [1366, 1440]) {
+    test(`동작·지원 패널과 차트 너비 (${width}px, #2731)`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await signInAs(page, 'engineer');
+      await page.goto(`${catalog}&kind=line`);
+      const chart = page.getByRole('region', { name: '차트 작업 영역', exact: true });
+      await expect(chart.getByRole('img')).toBeVisible();
+      const handle = page.getByRole('button', { name: /^동작·지원 (열기|접기)$/ });
+      const panel = page.getByRole('complementary', { name: '동작·지원' });
+      const separator = page.getByRole('separator', { name: '동작·지원 너비' });
+      await expect(handle).toHaveAccessibleName('동작·지원 열기');
+      await expect(handle).toHaveAttribute('aria-expanded', 'false');
+      expect(await handle.boundingBox()).toMatchObject({ width: 28, height: 28 });
+      const panelId = await handle.getAttribute('aria-controls');
+      expect(panelId).toBeTruthy();
+      const controlledPanel = page.locator(`[id="${panelId}"]`);
+      await expect(controlledPanel).toBeHidden();
+      expect(await controlledPanel.boundingBox()).toBeNull();
+      const collapsedWidth = (await chart.boundingBox())!.width;
+      await page.getByRole('button', { name: '집중', exact: true }).focus();
+      await page.keyboard.press('Tab');
+      await expect(handle).toBeFocused();
+      await page.keyboard.press('Enter');
+      await expect(handle).toHaveAttribute('aria-expanded', 'true');
+      await expect(panel).toHaveAttribute('id', panelId!);
+      if (width === 1440) {
+        await expect(handle).toBeFocused();
+        await expect(separator).toBeVisible();
+        await expect.poll(async () => (await chart.boundingBox())!.width).toBeLessThan(collapsedWidth);
+      } else {
+        await expect(panel).toBeFocused();
+        await expect(separator).toBeHidden();
+        await expect.poll(async () => (await chart.boundingBox())!.width).toBe(collapsedWidth);
+        const panelBox = (await panel.boundingBox())!;
+        const chartBox = (await chart.boundingBox())!;
+        expect(panelBox.x).toBeLessThan(chartBox.x + chartBox.width);
+      }
+      await evidence(page, testInfo, `chart-catalog-support-open-${width}`);
+      if (width === 1440) await page.keyboard.press('Enter');
+      else await page.keyboard.press('Escape');
+      await expect(panel).toBeHidden();
+      await expect(handle).toHaveAttribute('aria-expanded', 'false');
+      await expect(handle).toBeFocused();
+      await expect.poll(async () => (await chart.boundingBox())!.width).toBe(collapsedWidth);
+    });
+  }
+  test('동작·지원 패널에서 역방향 Tab으로 차트에 돌아오면 패널을 닫는다 (#2731)', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1366, height: 900 });
+    await signInAs(page, 'engineer');
+    await page.goto(`${catalog}&kind=line`);
+    const chart = page.getByRole('region', { name: '차트 작업 영역', exact: true });
+    await expect(chart.getByRole('img')).toBeVisible();
+    await expect(chart.getByRole('button', { name: '표로 보기', exact: true })).toBeEnabled();
+    const handle = page.getByRole('button', { name: /^동작·지원 (열기|접기)$/ });
+    const panel = page.getByRole('complementary', { name: '동작·지원' });
+    await handle.focus();
+    await page.keyboard.press('Enter');
+    await expect(panel).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(handle).toHaveAttribute('aria-expanded', 'false');
+    await expect(panel).toBeHidden();
+    const focusedControl = chart.locator(':focus');
+    await expect(focusedControl).toBeFocused();
+    await expect(focusedControl).toBeVisible();
+    await expect(focusedControl).toBeInViewport();
+    await evidence(page, testInfo, 'chart-catalog-support-reverse-tab');
+  });
   test('분해 막대 — 합계 열·합계 없음·트리 드릴 (#580h)', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto(`${catalog}&kind=breakdown`);

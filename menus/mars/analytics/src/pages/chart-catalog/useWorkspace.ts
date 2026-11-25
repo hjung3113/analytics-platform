@@ -1,10 +1,13 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 
+const SUPPORT_DOCK_VIEWPORT_WIDTH = 1440;
+
 /** Measurements stay menu-local until #575 defines a reusable workspace contract. */
 export function useWorkspace() {
   const root = useRef<HTMLDivElement>(null);
   const chart = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(1024);
+  const [dockSupport, setDockSupport] = useState(false);
   const [plotHeight, setPlotHeight] = useState(360);
   useLayoutEffect(() => {
     const element = root.current;
@@ -17,6 +20,7 @@ export function useWorkspace() {
       // Includes the actual shell header/Context, page padding and any outcome banners above us.
       element.style.height = `${Math.max(240, window.innerHeight - bounds.top - bottomPadding)}px`;
       if (bounds.width > 0) setWidth(bounds.width);
+      setDockSupport(window.innerWidth >= SUPPORT_DOCK_VIEWPORT_WIDTH);
       const section = scrollport.querySelector('section');
       const plot = section?.querySelector<HTMLElement>('[role="img"], [aria-busy]');
       if (section && plot && scrollport.clientHeight > 0) {
@@ -39,5 +43,5 @@ export function useWorkspace() {
     window.addEventListener('resize', measure);
     return () => { observer?.disconnect(); mutations.disconnect(); window.removeEventListener('resize', measure); };
   }, []);
-  return { root, chart, width, plotHeight };
+  return { root, chart, width, plotHeight, dockSupport };
 }

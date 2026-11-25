@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Activity } from 'lucide-react';
 import { createRegistry, I18nProvider, PlatformProvider, usePlatform } from '@ap/kernel';
@@ -125,10 +125,40 @@ describe('chart catalog route and lifetime', () => {
     cleanup(); mount(new URL(state).searchParams.get('kind')!);
     expect((await screen.findByRole('tab', { name: /^막대 / })).getAttribute('aria-selected')).toBe('true');
   });
-  it('opens/closes the rail with focus return, supports separator keys, and keeps the width while the page stays open', async () => {
+  it('keeps the collapsed support column hidden and puts its handle after focus mode in the chart-type row', async () => {
+    mount();
+    const handle = await screen.findByRole('button', { name: '동작·지원 열기' });
+    const focusToggle = screen.getByRole('button', { name: '집중' });
+    expect(handle.previousElementSibling).toBe(focusToggle);
+    expect(within(handle.parentElement!).getByRole('tablist', { name: '차트 종류' })).toBeTruthy();
+    expect(handle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.getElementById(handle.getAttribute('aria-controls')!)?.hidden).toBe(true);
+    expect(screen.queryByRole('complementary', { name: '동작·지원' })).toBeNull();
+    expect(screen.queryByRole('separator', { name: '동작·지원 너비' })).toBeNull();
+  });
+  it('dismisses the overlay on Escape and returns focus to the tab-row handle', async () => {
+    vi.stubGlobal('innerWidth', 1439);
     mount(); await screen.findByRole('img');
-    click('동작·지원 열기');
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: '동작·지원 접기' }));
+    const handle = screen.getByRole('button', { name: '동작·지원 열기' });
+    handle.focus();
+    fireEvent.click(handle);
+    const panel = screen.getByRole('complementary', { name: '동작·지원' });
+    expect(screen.queryByRole('separator', { name: '동작·지원 너비' })).toBeNull();
+    expect(document.activeElement).toBe(panel);
+    expect(handle.getAttribute('aria-expanded')).toBe('true');
+    expect(handle.getAttribute('aria-controls')).toBe(panel.id);
+    fireEvent.keyDown(panel, { key: 'Escape' });
+    expect(screen.queryByRole('complementary', { name: '동작·지원' })).toBeNull();
+    expect(handle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(handle);
+  });
+  it('opens/closes the rail with focus return, supports separator keys, and keeps the width while the page stays open', async () => {
+    vi.stubGlobal('innerWidth', 1440);
+    mount(); await screen.findByRole('img');
+    const handle = screen.getByRole('button', { name: '동작·지원 열기' });
+    handle.focus();
+    fireEvent.click(handle);
+    expect(document.activeElement).toBe(handle);
     const separator = screen.getByRole('separator');
     fireEvent.keyDown(separator, { key: 'ArrowLeft' }); expect(separator.getAttribute('aria-valuenow')).toBe('316');
     fireEvent.keyDown(separator, { key: 'ArrowRight' }); expect(separator.getAttribute('aria-valuenow')).toBe('300');
@@ -141,21 +171,103 @@ describe('chart catalog route and lifetime', () => {
     click('동작·지원 열기'); expect(screen.getByRole('separator').getAttribute('aria-valuenow')).toBe('420');
     click('너비 초기화'); expect(screen.getByRole('separator').getAttribute('aria-valuenow')).toBe('300');
   });
-  it('clamps to actual content width, stacks support when narrow and restores the saved preferred width', async () => {
+  it('closes docked support on Escape from an aside control and returns focus to the handle', async () => {
+    vi.stubGlobal('innerWidth', 1440);
+    mount(); await screen.findByRole('img');
+    const handle = screen.getByRole('button', { name: '동작·지원 열기' });
+    fireEvent.click(handle);
+    const reset = screen.getByRole('button', { name: '너비 초기화' });
+    reset.focus();
+    fireEvent.keyDown(reset, { key: 'Escape' });
+    expect(handle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(handle);
+  });
+  it.each(['표로 보기', 'Change time'])('dismisses the overlay and keeps focus on %s', async name => {
+    vi.stubGlobal('innerWidth', 1439);
+    mount(); await screen.findByRole('img');
+    const handle = screen.getByRole('button', { name: '동작·지원 열기' });
+    fireEvent.click(handle);
+    const panel = screen.getByRole('complementary', { name: '동작·지원' });
+    expect(document.activeElement).toBe(panel);
+    const target = screen.getByRole('button', { name });
+    act(() => target.focus());
+    expect(handle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(target);
+  });
+  it('keeps the overlay open when focus returns to the handle, then closes on activation', async () => {
+    vi.stubGlobal('innerWidth', 1439);
+    mount(); await screen.findByRole('img');
+    const handle = screen.getByRole('button', { name: '동작·지원 열기' });
+    fireEvent.click(handle);
+    act(() => handle.focus());
+    expect(handle.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(handle);
+    expect(handle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(handle);
+  });
+  it('clamps to actual content width when docked and restores the preferred width across the overlay breakpoint', async () => {
+    vi.stubGlobal('innerWidth', 1440);
     mount(); await screen.findByRole('img'); click('동작·지원 열기');
     fireEvent.keyDown(screen.getByRole('separator'), { key: 'End' });
     const workspace = screen.getByRole('region', { name: '차트 카탈로그 작업 영역' });
     let width = 800;
     vi.spyOn(workspace, 'getBoundingClientRect').mockImplementation(() => ({ width, top: 126, left: 0, right: width, bottom: 800, height: 674, x: 0, y: 126, toJSON: () => ({}) }));
     fireEvent(window, new Event('resize'));
-    expect(screen.getByRole('separator').getAttribute('aria-valuenow')).toBe('296');
-    width = 650; fireEvent(window, new Event('resize'));
+    const separator = screen.getByRole('separator');
+    expect(separator.getAttribute('aria-valuenow')).toBe('296');
+    separator.focus();
+    vi.stubGlobal('innerWidth', 1439);
+    fireEvent(window, new Event('resize'));
     expect(screen.queryByRole('separator')).toBeNull();
-    expect(screen.getByRole('complementary', { name: '동작·지원' }).className).toContain('catalog-support-stacked');
-    width = 1100; fireEvent(window, new Event('resize'));
+    const panel = screen.getByRole('complementary', { name: '동작·지원' });
+    expect(document.activeElement).toBe(panel);
+    width = 1100;
+    vi.stubGlobal('innerWidth', 1440);
+    fireEvent(window, new Event('resize'));
     expect(screen.getByRole('separator').getAttribute('aria-valuenow')).toBe('420');
+    expect(document.activeElement).toBe(panel);
+    vi.stubGlobal('innerWidth', 1439);
+    fireEvent(window, new Event('resize'));
+    fireEvent.keyDown(panel, { key: 'Escape' });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '동작·지원 열기' }));
+  });
+  it.each(['aside', 'aside control', 'handle', 'chart control'] as const)('keeps focus on the %s when docking ends', async position => {
+    vi.stubGlobal('innerWidth', 1440);
+    mount(); await screen.findByRole('img');
+    const handle = screen.getByRole('button', { name: '동작·지원 열기' });
+    fireEvent.click(handle);
+    const panel = screen.getByRole('complementary', { name: '동작·지원' });
+    const targets = {
+      aside: panel,
+      'aside control': within(panel).getByRole('button', { name: '너비 초기화' }),
+      handle,
+      'chart control': screen.getByRole('button', { name: '표로 보기' }),
+    };
+    const target = targets[position];
+    target.focus();
+    vi.stubGlobal('innerWidth', 1439);
+    fireEvent(window, new Event('resize'));
+    expect(screen.queryByRole('separator')).toBeNull();
+    // A focused chart control would sit under the overlay, so crossing the breakpoint dismisses support instead.
+    expect(handle.getAttribute('aria-expanded')).toBe(position === 'chart control' ? 'false' : 'true');
+    expect(document.activeElement).toBe(target);
+  });
+  it('keeps the overlay preference through focus mode entered from the overlay', async () => {
+    vi.stubGlobal('innerWidth', 1366);
+    mount(); await screen.findByRole('img');
+    click('동작·지원 열기');
+    const focusToggle = screen.getByRole('button', { name: '집중' });
+    focusToggle.focus();
+    fireEvent.click(focusToggle);
+    expect(screen.queryByRole('button', { name: /동작·지원/ })).toBeNull();
+    expect(screen.queryByRole('complementary', { name: '동작·지원' })).toBeNull();
+    fireEvent.keyDown(focusToggle, { key: 'Escape' });
+    expect(focusToggle.getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('complementary', { name: '동작·지원' }).hidden).toBe(false);
+    expect(document.activeElement).toBe(focusToggle);
   });
   it('pointer resizing changes only support width', async () => {
+    vi.stubGlobal('innerWidth', 1440);
     mount('donut'); await screen.findByRole('img'); click('동작·지원 열기');
     const separator = screen.getByRole('separator');
     separator.setPointerCapture = vi.fn(); separator.releasePointerCapture = vi.fn();
@@ -167,7 +279,40 @@ describe('chart catalog route and lifetime', () => {
     expect(separator.getAttribute('aria-valuenow')).toBe('340');
     expect(query.mock.calls.length).toBe(count);
   });
+  it('recovers focus during a breakpoint-crossing drag and starts the next drag at the retained width', async () => {
+    vi.stubGlobal('innerWidth', 1440);
+    vi.stubGlobal('PointerEvent', MouseEvent);
+    mount(); await screen.findByRole('img');
+    const handle = screen.getByRole('button', { name: '동작·지원 열기' });
+    fireEvent.click(handle);
+    screen.getByRole('complementary', { name: '동작·지원' }).blur();
+    const separator = screen.getByRole('separator');
+    separator.setPointerCapture = vi.fn();
+    fireEvent.pointerDown(separator, { button: 0, clientX: 900, pointerId: 1 });
+    fireEvent.pointerMove(separator, { clientX: 860, pointerId: 1 });
+    expect(separator.getAttribute('aria-valuenow')).toBe('340');
+    vi.stubGlobal('innerWidth', 1439);
+    fireEvent(window, new Event('resize'));
+    const panel = screen.getByRole('complementary', { name: '동작·지원' });
+    expect(document.activeElement).toBe(panel);
+    fireEvent.keyDown(panel, { key: 'Escape' });
+    expect(document.activeElement).toBe(handle);
+    vi.stubGlobal('innerWidth', 1440);
+    fireEvent(window, new Event('resize'));
+    fireEvent.click(handle);
+    const nextSeparator = screen.getByRole('separator');
+    nextSeparator.setPointerCapture = vi.fn();
+    nextSeparator.releasePointerCapture = vi.fn();
+    expect(nextSeparator.getAttribute('aria-valuenow')).toBe('340');
+    fireEvent.pointerMove(nextSeparator, { clientX: 840, pointerId: 1 });
+    expect(nextSeparator.getAttribute('aria-valuenow')).toBe('340');
+    fireEvent.pointerDown(nextSeparator, { button: 0, clientX: 800, pointerId: 2 });
+    fireEvent.pointerMove(nextSeparator, { clientX: 780, pointerId: 2 });
+    fireEvent.pointerUp(nextSeparator, { pointerId: 2 });
+    expect(nextSeparator.getAttribute('aria-valuenow')).toBe('360');
+  });
   it.each(['heatmap', 'donut', 'scatter', 'boxPlot', 'pareto'] as const)('%s keeps selection/table/instance through layout changes, Details only on explicit actions, Reset clears', async kind => {
+    vi.stubGlobal('innerWidth', 1440);
     mount(kind); await screen.findByRole('img');
     const dataTable = await table();
     const checkbox = within(dataTable).getAllByRole('checkbox')[0];
@@ -251,6 +396,7 @@ describe('chart catalog route and lifetime', () => {
     expect(screen.getAllByText(/이전 동일 기간/).length).toBeGreaterThan(0);
   });
   it.each(['line', 'bar'] as const)('%s preserves zoom, legend, table, selection and unaffected focus across layout', async kind => {
+    vi.stubGlobal('innerWidth', 1440);
     mount(kind); await screen.findByRole('img');
     const brush = screen.getByRole('button', { name: '구간 선택' });
     click('비교'); click('확대');
