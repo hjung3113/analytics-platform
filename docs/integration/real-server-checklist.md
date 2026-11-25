@@ -184,6 +184,8 @@ platform-api의 `menuQuery`·`menuAction`은 `apps/platform-api/src/modules/menu
 실어댑터를 붙이면 같은 하네스를 실어댑터로 만든다. 사내에서 준비할 것:
 
 - `adapter`: 실어댑터(테스트 환경 서버를 가리킴).
+- `checkTimeoutMs`(선택): 검사 하나의 기본 제한 시간은 20초다. 하네스는 밀리초로 기본값을 바꿀 수 있고, 검사 자체에 `timeoutMs`가 있으면 그 값을 우선한다. 제한을 넘긴 검사는 이름과 제한 시간을 담아 실패로 기록하고 다음 검사도 실행한다.
+- `withdrawGrant`(선택): 부여 계정의 같은 세션에서 `ports.entity.ref`의 조회 부여를 회수하고 복구 함수를 돌려준다. 묶음은 부여 상태의 `ok`를 확인한 뒤 회수하고, 같은 `getEntity` 요청의 `forbidden`과 데이터 없음 여부를 검사한 뒤 부여를 복구한다. 훅이 없으면 계획에서 `no withdrawGrant hook`으로 건너뛴다.
 - `cases`: 엔드포인트 선언과 표본 요청 — 앱 테스트의 `PARAMS` 표를 그대로 쓸 수 있다.
 - `implemented`(선택, #674): 서버가 구현한 `PlatformAdapter` 메서드 목록. 없으면 전부 구현한 것으로 본다. 목록 밖 메서드를 부르는 검사는 id 끝에 ` — not implemented: <메서드>`를 단 건너뛴 검사가 된다(통과·실패로 세지 않음). 표본이 없어 이미 건너뛴 검사도 그 메서드를 함께 적는다.
 - `siteGrants`(선택, #674): site 부여가 아직 없는 서버(`session().scopes`가 `[]` — 기능, ADR-0069 결정 8)는 `false`. 부여된 site가 필요한 검사가 ` — no site grants`로 건너뛰어지고, `context.scopeId`·`foreignScopeId`·`otherGrantedScopeId`는 어떤 실행 검사도 읽지 않는 자리값이 된다.

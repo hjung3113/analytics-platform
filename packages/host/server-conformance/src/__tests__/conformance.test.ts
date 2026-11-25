@@ -1,8 +1,12 @@
 import { optionSamples, referenceSelectionPorts } from './selection-ports.test-support';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { UPLOAD_FILE_MAX_BYTES, defineAction, defineEndpoint, emptyGlobal, projectContext, type ActionResponse, type ApiResponse, type Assessment, type AuditEvent, type ChartAnnotation, type EntityAuditPage, type GroupMember, type JsonValue, type Notice, type PreferencesSnapshot, type UploadedFile, type ClientErrorReport, type GlobalContext, type MenuAction, type MenuQuery, type Permission, type PlatformAdapter, type SavedView, type SavedViewListItem, type SavedViewStore, type Session, type Trust, type UsageEvent, type UsageNextQuery, type UsageNextScreens, type UsageRange, type UsageSummary, type ViewCapabilities, menuPermission, spaceId } from '@ap/contracts';
 import { describeServerConformance, planServerConformance, runServerConformance, type ActionCase, type ConformanceResult, type ConformanceCase, type PortSamples, type ServerConformanceHarness } from '../index';
 import { SAVED_VIEW_PORT_METHODS } from '../plan/ports/saved-views';
+import { UNKNOWN_ENDPOINT } from '../helpers';
+
+const GRANT_WITHDRAWAL_ID = 'port · getEntity after grant withdrawal → forbidden';
+const GRANT_WITHDRAWAL_SKIP_ID = `${GRANT_WITHDRAWAL_ID} — no withdrawGrant hook`;
 
 const SELECTION_PORT_SKIP_IDS = [
       'selection ports · global lineNames options',
@@ -748,6 +752,94 @@ async function failing(breaks: string[]): Promise<string[]> {
   return (await runServerConformance(harness(new Set(breaks)))).filter(r => r.failure !== null).map(r => r.id);
 }
 
+describe('named server faults (#2972)', () => {
+  it.each([
+    { label: 'default', timeoutMs: undefined, advanceMs: 20_000 },
+    { label: 'override', timeoutMs: 25, advanceMs: 25 },
+  ])('reports an unsettled menuQuery at the $label check deadline and completes the run', async ({ timeoutMs, advanceMs }) => {
+    const h = harness();
+    const menuQuery = h.adapter.menuQuery;
+    h.adapter.menuQuery = req => req.endpoint === UNKNOWN_ENDPOINT ? new Promise(() => {}) : menuQuery(req);
+    const configured: ServerConformanceHarness = {
+      ...h, implemented: ['menuQuery', 'getEntity'], checkTimeoutMs: timeoutMs,
+    };
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      let results: ConformanceResult[] | undefined;
+      const run = runServerConformance(configured).then(completed => { results = completed; });
+      await vi.advanceTimersByTimeAsync(advanceMs);
+      expect(results?.filter(r => r.status === 'failed')).toEqual([
+        { id: 'unknown endpoint → error', status: 'failed', failure: `did not finish within its check deadline of ${advanceMs} ms` },
+      ]);
+      expect(results?.find(r => r.id === 'port · getEntity of a destination in an ungranted room → forbidden')?.status).toBe('passed');
+      await run;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('uses the upload size check’s own deadline ahead of the harness override', async () => {
+    const id = 'port · uploadFile refuses a file over the size limit as invalid, and stores nothing';
+    const h = harness();
+    const uploadFile = h.adapter.uploadFile!;
+    h.adapter.uploadFile = input => input.file.size > UPLOAD_FILE_MAX_BYTES
+      ? new Promise(() => {}) : uploadFile(input);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      let completed = false;
+      const run = runServerConformance({ ...h, implemented: ['uploadFile'], checkTimeoutMs: 25 })
+        .finally(() => { completed = true; });
+      await vi.advanceTimersByTimeAsync(25);
+      expect(completed).toBe(false);
+      await vi.advanceTimersByTimeAsync(60_000 - 25);
+      expect(completed).toBe(true);
+      expect((await run).find(r => r.id === id)).toEqual({
+        id,
+        status: 'failed',
+        failure: 'did not finish within its check deadline of 60000 ms',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    { label: 'fails', breaks: new Set(['ignores-grant-withdrawal']), status: 'failed', failure: 'after grant withdrawal: expected forbidden, got ok' },
+    { label: 'passes', breaks: new Set<string>(), status: 'passed', failure: null },
+  ])('$label the grant withdrawal check with the corresponding fixture adapter', async ({ breaks, status, failure }) => {
+    const h = harness();
+    const getEntity = h.adapter.getEntity;
+    let withdrawn: PortSamples['entity']['ref'] | undefined;
+    h.adapter.getEntity = async ref => {
+      const response = await getEntity(ref);
+      const grantWithdrawn = withdrawn
+        && ref.type === withdrawn.type && ref.id === withdrawn.id && ref.scopeId === withdrawn.scopeId;
+      if (grantWithdrawn && response.outcome === 'ok' && !breaks.has('ignores-grant-withdrawal')) {
+        return { ...response, outcome: 'forbidden', data: null, assessments: [], trust: null };
+      }
+      return response;
+    };
+    const configured: ServerConformanceHarness = {
+      ...h,
+      withdrawGrant: async ref => {
+        withdrawn = ref;
+        return () => { withdrawn = undefined; };
+      },
+    };
+    const results = await runServerConformance(configured);
+    expect(results.find(r => r.id === GRANT_WITHDRAWAL_ID)).toEqual({ id: GRANT_WITHDRAWAL_ID, status, failure });
+    expect(planServerConformance(configured).find(c => c.id === GRANT_WITHDRAWAL_ID)?.uses).toEqual(['getEntity']);
+    expect(results.filter(r => r.status === 'failed').map(r => r.id)).toEqual(failure === null ? [] : [GRANT_WITHDRAWAL_ID]);
+    expect(withdrawn).toBeUndefined();
+  });
+
+  it('plans a visible grant withdrawal skip without the hook', async () => {
+    const h = harness();
+    expect(planServerConformance(h).find(c => c.id === GRANT_WITHDRAWAL_SKIP_ID)?.mode).toBe('skipped');
+    expect((await runServerConformance(h)).find(r => r.id === GRANT_WITHDRAWAL_SKIP_ID)?.status).toBe('skipped');
+  });
+});
+
 describe('server conformance kit (#145)', () => {
   it('derives the checks from the declaration', () => {
     expect(planServerConformance(harness()).map(c => c.id)).toEqual([
@@ -897,6 +989,7 @@ describe('server conformance kit (#145)', () => {
       'actions: no sample',
       'condition: no sample',
       ...SELECTION_PORT_SKIP_IDS,
+      GRANT_WITHDRAWAL_SKIP_ID,
     ]);
   });
 
@@ -1263,6 +1356,7 @@ describe('server conformance kit (#145)', () => {
       'actions: no sample',
       'condition: no sample',
       ...SELECTION_PORT_SKIP_IDS,
+      GRANT_WITHDRAWAL_SKIP_ID,
     ]);
   });
 
@@ -1339,7 +1433,7 @@ describe('declared maxRows oversize check (#175)', () => {
     const cases = [{ spec: exportSpec, params: { tail: 'p95' } }];
     const h = { ...oversizeHarness('too_large'), cases };
     expect(planServerConformance(h).filter(c => c.mode === 'skipped').map(c => c.id))
-      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, 'savedViews: no sample', 'actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
+      .toEqual([`${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, 'savedViews: no sample', 'actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS, GRANT_WITHDRAWAL_SKIP_ID]);
     const skipped = (await runServerConformance(h)).find(r => r.id === `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`);
     // #175 follow-up P2-A: a check that did not run is reported as skipped, never as a pass.
     expect(skipped).toEqual({ id: `${exportSpec.id} · declares maxRows but has no oversizeParams sample — oversize check not run`, status: 'skipped', failure: null });
@@ -1361,7 +1455,7 @@ describe('declared maxRows oversize check (#175)', () => {
   });
 
   it('plans no skipped check when the case provides oversizeParams', () => {
-    expect(planServerConformance(oversizeHarness('too_large')).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual(['savedViews: no sample', 'actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
+    expect(planServerConformance(oversizeHarness('too_large')).filter(c => c.mode === 'skipped').map(c => c.id)).toEqual(['savedViews: no sample', 'actions: no sample', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS, GRANT_WITHDRAWAL_SKIP_ID]);
   });
 
   it('passes on a server that answers too_large with no data', async () => {
@@ -1438,7 +1532,7 @@ describe('menuAction conformance (#501)', () => {
     const h = actionHarness();
     const noVersion = { ...h, actions: [{ spec: actionSpec, input: { text: 'hello' } }] };
     expect(planServerConformance(noVersion).filter(c => c.mode === 'skipped').map(c => c.id))
-      .toEqual(['savedViews: no sample', 'fixture.save · declares version concurrency but has no currentVersion sample — action checks not run', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS]);
+      .toEqual(['savedViews: no sample', 'fixture.save · declares version concurrency but has no currentVersion sample — action checks not run', 'condition: no sample', ...SELECTION_PORT_SKIP_IDS, GRANT_WITHDRAWAL_SKIP_ID]);
   });
 
   it('passes the reference adapter', async () => {

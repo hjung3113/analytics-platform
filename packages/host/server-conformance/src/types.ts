@@ -104,6 +104,14 @@ export type ServerConformanceHarness = {
   ports: PortSamples;
   /** Declared writes to derive the menuAction checks from. Absent or empty plans one visible skipped check (`actions: no sample`). */
   actions?: readonly ActionCase[];
+  /** Default deadline in milliseconds for each check. Defaults to 20,000 ms. A check's own `timeoutMs` takes precedence. */
+  checkTimeoutMs?: number;
+  /**
+   * Withdraw the granted actor's access to the sampled destination in the current session and return a cleanup that
+   * restores the grant. The kit calls this as the granted actor between two identical getEntity requests, after all
+   * other checks. Without the hook, the withdrawal check is visibly skipped.
+   */
+  withdrawGrant?: (ref: EntityRef) => Promise<() => void | Promise<void>>;
   /**
    * Run `fn` as the granted actor: every case permission plus `ports.entity.permission`,
    * `ports.annotation.permission` and every action permission, holding grants at `context.scopeId` and `ports.otherGrantedScopeId`.
@@ -148,7 +156,7 @@ export type ConformanceCheck = {
    * actor after the granted batch; 'sequential' checks run one at a time after the console batch and before
    * the permission checks — their `run` switches actors itself (never inside a concurrent batch: the mock's
    * role is global, so a mid-batch switch would race the other checks); 'permission' checks run one at a
-   * time without a permission; 'skipped' checks never run (#175: a maxRows declaration with no oversize
+   * time to check a missing permission or grant; 'skipped' checks never run (#175: a maxRows declaration with no oversize
    * sample) — they surface in the plan and as `it.skip` in the vitest suite so the gap stays visible.
    */
   mode: 'granted' | 'console' | 'sequential' | 'permission' | 'skipped';
