@@ -43,6 +43,7 @@
   /* --- Semantic text tokens --- */
   --text-primary: var(--color-porcelain);
   --text-secondary: var(--color-light-steel);
+  --text-link: var(--accent-primary);
   --text-muted: 91 102 120;          /* #5b6678 — small secondary metadata; 5.03:1 on the #eceff3 canvas */
   --text-disabled: var(--color-fog-grey);
   --text-danger: var(--color-warning-red);

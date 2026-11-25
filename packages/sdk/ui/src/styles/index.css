@@ -10,7 +10,6 @@
 
 @theme inline {
   --color-surface-sunken: rgb(var(--surface-sunken));
-  --color-text-link: rgb(var(--text-link));
   --color-border-control: rgb(var(--border-control));
   --color-accent-primary-hover: rgb(var(--accent-primary-hover));
   --color-accent-primary-soft: rgb(var(--accent-primary-soft));

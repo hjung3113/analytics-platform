@@ -4,8 +4,6 @@
 :root {
   --border-control: var(--color-storm-cloud);
   --surface-sunken: var(--color-deep-slate);          /* #f8fafc */
-  --text-link: var(--accent-primary);
-
 
   /* #2724 (v3 palette): categorical order 1 blue · 2 teal · 3 orange · 4 magenta · 5 green (#2945). Grey is 기타/이전 기간.
    * The historical name cat-amber keeps its slot as the third (orange) colour; chart-purple was removed in sdk-v0.48.0 (#2796).

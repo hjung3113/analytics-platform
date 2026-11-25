@@ -36,6 +36,17 @@ async function compileConsumerCss(candidates: string[]): Promise<string> {
 const COMPILE_TIMEOUT = 30_000;
 
 it(
+  'documented imports emit the rich-content descendant link color',
+  async () => {
+    const css = await compileConsumerCss(['[&_a]:text-text-link']);
+
+    expect(css).toContain('--text-link: var(--accent-primary);');
+    expect(css).toContain(String.raw`.\[\&_a\]\:text-text-link a { color: rgb(var(--text-link)); }`);
+  },
+  COMPILE_TIMEOUT,
+);
+
+it(
   'documented imports ship the parity rules package components rely on',
   async () => {
     const css = await compileConsumerCss([

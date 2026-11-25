@@ -64,6 +64,91 @@ it('shows a surface fade only where more columns can be scrolled into view', () 
   expect(grid.querySelector('[data-matrix-fade="right"]')).toBeNull();
 });
 
+it.each([
+  { viewportWidth: 388, expectedWidth: 388 },
+  { viewportWidth: 380, expectedWidth: 384 },
+])('contains compact text with a $viewportWidth px viewport', ({ viewportWidth, expectedWidth }) => {
+  const label = 'LongUnbrokenLabel';
+  const value = 'LongUnbrokenValue';
+  const identityWidth = 320;
+  const compactMinimum = 64;
+  const padding = 8;
+  const textWidth = 72;
+  mount({
+    columns: [columns[0], { id: 'x', label, width: 'compact' }],
+    nodes: [leaf('a', { x: value })],
+  });
+  const grid = screen.getByRole('treegrid');
+  const header = screen.getByRole('columnheader', { name: label });
+  const body = screen.getByRole('gridcell', { name: value });
+  const rowWidth = Math.max(viewportWidth, identityWidth + compactMinimum);
+  const cells = [header, body];
+  // jsdom has no layout. Model the overflow of the text only if its flex
+  // child is allowed to keep its intrinsic width or paint outside its box.
+  Object.defineProperties(grid, {
+    clientWidth: { value: viewportWidth },
+    scrollWidth: { get: () => cells.every(element => element.firstElementChild
+      && element.classList.contains('[&>*]:truncate') && element.classList.contains('overflow-hidden'))
+      ? rowWidth : Math.max(rowWidth, identityWidth + padding + textWidth) },
+  });
+  expect(grid.scrollWidth).toBe(expectedWidth);
+  fireEvent.scroll(grid, { target: { scrollLeft: 0 } });
+  expect(Boolean(grid.querySelector('[data-matrix-fade="right"]'))).toBe(expectedWidth > viewportWidth);
+
+  for (const [index, text] of [label, value].entries()) {
+    const content = within(cells[index]).getByText(text);
+    Object.defineProperties(content, {
+      clientWidth: { configurable: true, value: rowWidth - identityWidth - 2 * padding - 1 },
+      scrollWidth: { value: textWidth },
+    });
+    fireEvent.mouseEnter(content);
+    expect(cells[index]).toHaveAttribute('title', text);
+    fireEvent.mouseLeave(content);
+    Object.defineProperty(content, 'clientWidth', { value: textWidth });
+    fireEvent.mouseEnter(content);
+    expect(cells[index]).not.toHaveAttribute('title');
+    expect(cells[index]).toHaveAccessibleName(text);
+  }
+});
+
+it('layers both fades between the center cells and pins when the center strip is narrower than a fade', () => {
+  mount();
+  const grid = screen.getByRole('treegrid');
+  const viewportWidth = 428; // 320px left pin + 12px center strip + 96px right pin.
+  Object.defineProperties(grid, { clientWidth: { value: viewportWidth }, scrollWidth: { value: 608 } });
+  fireEvent.scroll(grid, { target: { scrollLeft: 90 } });
+
+  const stackingLevel = (element: Element) => Number([...element.classList].find(name => /^z-\d+$/.test(name))?.slice(2) ?? 0);
+  const [head, row] = within(grid).getAllByRole('row');
+  for (const [element, role] of [[head, 'columnheader'], [row, 'gridcell']] as const) {
+    const [leftPin, center, , rightPin] = within(element).getAllByRole(role);
+    for (const side of ['left', 'right']) {
+      const fade = element.querySelector(`[data-matrix-fade="${side}"]`)!;
+      expect(fade).toHaveClass('before:w-5');
+      expect(stackingLevel(fade)).toBeGreaterThan(stackingLevel(center));
+      expect(stackingLevel(fade)).toBeLessThan(stackingLevel(leftPin));
+      expect(stackingLevel(fade)).toBeLessThan(stackingLevel(rightPin));
+    }
+  }
+});
+
+it('preserves flex alignment and clips custom content in a compact cell', () => {
+  const value = 'LongUnbrokenValue';
+  mount({
+    columns: [columns[0], { id: 'x', label: 'X', width: 'compact' }],
+    renderCell: (node, column) => column.id === 'name' ? node.label : <span className="ml-auto">{value}</span>,
+  });
+  const body = cell('a', 'x');
+  const content = within(body).getByText(value);
+  expect(content.parentElement).toBe(body);
+  expect(body).toHaveClass('flex', 'overflow-hidden', '[&>*]:min-w-0', '[&>*]:truncate');
+  expect(content).toHaveClass('ml-auto');
+  Object.defineProperties(content, { clientWidth: { value: 51 }, scrollWidth: { value: 72 } });
+  fireEvent.mouseEnter(content);
+  expect(body).toHaveAttribute('title', value);
+  expect(body).toHaveAccessibleName(value);
+});
+
 describe('TreeMatrix controlled window', () => {
   it.each(['End', 'PageDown'])('requests preceding viewport rows for remote %s near the result end', key => {
     const onWindowChange = vi.fn(); const onSelectCell = vi.fn();
