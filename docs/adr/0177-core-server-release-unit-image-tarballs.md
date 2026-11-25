@@ -1,6 +1,6 @@
 # 코어 서버 릴리스 단위는 태그마다 이미지 tar 셋과 SHA256SUMS를 공개 Release에 싣는다
 
-상태: **Decided (2026-11-25)** — 형태와 공개 경로. 자산을 실제로 올리는 workflow와 네트워크 없는 기동 검사는 후속 구현이다.
+상태: **Decided (2026-11-25)** — 코어 서버 릴리스 단위의 형태와 공개 경로.
 - 결정자: 사용자(소유자) — 2026-11-25, [#2891](https://github.com/hjung3113/analytics-platform/issues/2891) 질문에 «ㅇㅋ 추천대로»(A안). 공개 경로는 같은 날 «공개 릴리즈 해도될듯 실제 쓰거나하기 시작하면 비공개로 돌릴거야 깃러브 프로결재하던지 해서 그외 ci이런것도 문제없게할게 때가되면»으로 공개 GitHub Release에 확정(#2891 코멘트).
 - Scope: [#1701](https://github.com/hjung3113/analytics-platform/issues/1701), [#2865](https://github.com/hjung3113/analytics-platform/issues/2865). [ADR-0143](0143-release-units-and-compatibility-train.md)이 미룬 단위 3을 정한다.
 
@@ -8,7 +8,7 @@
 
 [ADR-0143](0143-release-units-and-compatibility-train.md)은 릴리스 단위를 셋으로 정하고 «3. 코어 서버 이미지 + 마이그레이션 묶음»을 미뤘다. 다시 여는 조건은 [#151](https://github.com/hjung3113/analytics-platform/issues/151)의 사내 답이었고, 그 답(2026-11-12)은 «리눅스 Docker + 사내 npm 미러»다.
 
-지금 상태:
+결정 당시 상태:
 - main push CI(`ci.yml` «Backend images»)가 runtime·migrate 이미지를 빌드하지만 자산으로 내지 않는다.
 - 웹 이미지는 `ops/platform-api/scripts/release/build-web-image.sh`가 만든다.
 - `ops/platform-api/scripts/release/upgrade.sh`는 이미 호스트에 있는(`docker load`한) `platform-release-{backend,migrate,web}:<tag>` 셋을 받아 백업 → 마이그레이션 → 기동을 한다.
@@ -16,9 +16,11 @@
 
 ## 결정
 
-- **단위 3의 형태:** 릴리스 태그마다 다음을 같은 Release에 싣는다.
-  - `platform-release-backend`, `platform-release-migrate`, `platform-release-web` 세 이미지의 `docker save` tar(linux/amd64)
-  - 그 tar들의 `SHA256SUMS`
+- **단위 3의 형태:** `ops/platform-api/scripts/release/pack-images.sh`가 만드는 다음 자산을 릴리스 태그마다 같은 Release에 싣는다.
+  - `platform-release-backend`, `platform-release-migrate`, `platform-release-web` 세 이미지의 `docker save` 압축 tar(linux/amd64)
+  - 각 이미지의 lockfile 기반 CycloneDX SBOM
+  - 이미지 압축 tar와 SBOM 여섯 파일을 검증하는 `SHA256SUMS`
+- **반입 절차:** [백업·복구·업그레이드](../../ops/platform-api/docs/release/backup-restore-upgrade.md)를 따른다.
 - **마이그레이션은 migrate 이미지 안에 있다.** 별도 SQL 묶음은 내지 않는다. `upgrade.sh`가 이미 migrate 이미지의 journal로 현재 DB와 대조하고 적용한다.
 - **같은 열차:** SDK·Host tarball과 같은 버전이다([ADR-0143](0143-release-units-and-compatibility-train.md) «같은 열차 N, 롤백용 N-1»). 이미지 셋은 앱 태그 `v<X.Y.Z>`의 Release에 싣는다(SDK tarball은 `sdk-v<X.Y.Z>`).
 - **공개 경로:** 공개 GitHub Release. 이미지 안의 코드는 공개 저장소의 소스와 같고, 사내 값(주소·비밀)은 이미지가 아니라 운영자의 env 파일에 있다.
@@ -40,6 +42,5 @@
 
 ## 결과
 
-- [ADR-0143](0143-release-units-and-compatibility-train.md) «Deferred»의 단위 3 줄이 이 ADR을 가리킨다.
-- 구현은 후속 이슈다: [#2913](https://github.com/hjung3113/analytics-platform/issues/2913) 이미지 셋과 `SHA256SUMS`를 만드는 `pack-images.sh`(태그 단계에서 팀장이 올린다), [#2914](https://github.com/hjung3113/analytics-platform/issues/2914) main push·수동 실행의 네트워크 없는 기동 검사.
-- 기동 검사는 `upgrade.sh`가 설치된 stack을 전제로 하므로 첫 설치 순서로 `/health/ready` 200까지 본다(#2914 결정). 위 «검사» 줄의 `upgrade.sh`는 운영자의 반입 경로다.
+- 이미지 패키징(#2913), 오프라인 기동 검사(#2914), 이미지별 SBOM(#2963), 웹 산출물 검사(#2960), 마이그레이션 검사(#2961)와 이미지 왕복 시험(#2962)이 구현됐다. 태그의 자산 게시는 수동이다.
+- 오프라인 기동 검사는 첫 설치 순서로 `/health/ready` 200을 확인한다(#2914). 운영자는 기존 설치를 업그레이드할 때 `upgrade.sh`를 쓴다.

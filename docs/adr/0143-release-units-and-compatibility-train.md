@@ -24,9 +24,11 @@
 - **(B) 모두 한 묶음.** 서버 이미지와 마이그레이션이 준비되지 않아 v0.36.0을 막는다.
 - **(C) 호환 매트릭스와 협상.** 지원 조합이 늘고 시험 비용이 곱해진다. 소유자가 «N, N-1만»으로 정했다.
 
+**구현됨** — 코어 서버 이미지 묶음의 형식과 검사는 [ADR-0177](0177-core-server-release-unit-image-tarballs.md)을 따른다. 시작 키트의 `sbom.cdx.json`은 [#2893](https://github.com/hjung3113/analytics-platform/issues/2893)에서 추가했다. 이전 키트의 설치 검사 호환은 [반입 묶음 안내](../integration/approved-release-bundle.md#설치-검사)를 따른다.
+
 ## Deferred (구현 안 함)
 
-- 코어 서버 이미지 + 마이그레이션 묶음의 릴리스 자산(2026-11-25 [ADR-0177](0177-core-server-release-unit-image-tarballs.md)이 형태를 정함: 태그마다 이미지 tar 셋 + `SHA256SUMS`, 공개 Release; 자산 workflow·오프라인 기동 검사는 미구현), SBOM(2026-11-24 [#2893](https://github.com/hjung3113/analytics-platform/issues/2893)에서 구현: 시작 키트의 `sbom.cdx.json`), provenance, 서명, 오프라인 의존 묶음, 사내 미러 규칙. 이유: 사내 패키지 레지스트리·대상 OS·아키텍처는 [#151](https://github.com/hjung3113/analytics-platform/issues/151)의 사내 답이 입력이다. 다시 여는 조건: #151 답 도착 또는 코어 서버 묶음 노드 착수([#1701](https://github.com/hjung3113/analytics-platform/issues/1701)).
+- 서드파티 store 동봉, 사내 미러 규칙, 반입 묶음 provenance·서명. 이유는 사내 미러의 보유 범위와 반입 요건이 아직 확정되지 않았기 때문이다. 미러 누락이 보고되거나 사내 반입 절차가 서명을 요구하면 다시 검토한다([#1701](https://github.com/hjung3113/analytics-platform/issues/1701)). 이미지 provenance·서명의 보류 조건은 [ADR-0177](0177-core-server-release-unit-image-tarballs.md)을 따른다.
 - 사내 조립이 `platform/*` 기능 패키지를 그대로 쓰는지와 그 릴리스 단위. 이유: v0.36.0 범위 밖. 다시 여는 조건: 저장소 밖 조립 시험 뒤 첫 사내 조립이 기능 메뉴를 요구할 때.
 - 릴리스 workflow 자동화(태그·Release 올리기). 이유: 지금은 사람이 한다. 다시 여는 조건: `ci.yml`을 고치는 열린 PR이 정리된 뒤 [#1701](https://github.com/hjung3113/analytics-platform/issues/1701).
 

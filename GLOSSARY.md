@@ -516,6 +516,12 @@ _Avoid_: 서버 포트, API(단독) — 포트는 네트워크 포트와, API는
 **응답 봉투** (envelope):
 조회 응답이 데이터와 함께 싣는 공통 겉 — 결과 상태(`outcome`: 정상·빈 결과·오류·권한 없음·너무 큼·시간 초과), 판정(`assessments`), Data Trust([06 §18–19](docs/contract/components.md#18-data-trust-contract)).
 
+**반입 묶음**:
+사내 조립에 쓰는 승인된 SDK 버전의 시작 키트와 설치 재료. 구성은 [승인 릴리스 반입 묶음](docs/integration/approved-release-bundle.md), 코어 서버 이미지 릴리스 단위는 [ADR-0177](docs/adr/0177-core-server-release-unit-image-tarballs.md)이 정의한다.
+
+**적합성 묶음**:
+같은 공개 플랫폼 계약을 합성 어댑터와 실어댑터에 적용하는 [검사 묶음](docs/integration/real-server-checklist.md#4-적합성-묶음으로-확인하기). 사내 기대값과 상태 보고는 SDK 릴리스 태그에 묶는다([환류 절차](docs/integration/upstream-feedback-procedure.md)).
+
 ### 업무 시스템과 협업
 
 VOC·Task·설문·알림의 정의와 관계는 이 용어집의 기능 도메인 절이 원본이다.
@@ -605,6 +611,12 @@ _Avoid_: Selection — 설비 선택(`selectedEquipmentIds`)이다. 전역 기�
 **분석 선택 칩** (칩 구역 `AnalysisSelectionChipZone`):
 접힌 조회 조건 줄(과 보드 칸)에 현재 분석 선택의 차원과 값을 보여 주는 칩. 선택을 편집하거나 지울 수 있고, ⋯에서 다음 분석 동작을 연다([Components §13](docs/contract/components.md#13-shared-component-layers), [Chart §16](docs/contract/chart.md#분석-선택-전달-decided-adr-0175-2732)).
 
+**도착 칩**:
+다음 메뉴로 전달된 분석 선택을 목적지에서 보여 주는 칩. 표시할 출처는 [메뉴 간 링크 계약](docs/contract/cross-menu-links.md)이 정한다.
+
+**실제 이동 기록**:
+연속된 주 화면 방문에서 Kernel이 확인한 출발 화면의 기록으로, 복귀 표시의 근거다. 전달된 선택의 출처가 확인되면 도착 칩에도 쓴다([메뉴 간 링크 계약](docs/contract/cross-menu-links.md)).
+
 **다음 분석** (`nextAnalysis`):
 현재 분석 선택에서 이어 갈 동작을 고르는 줄. 차트가 출력을 연결하면 그 패널 아래 줄과 분석 선택 칩의 ⋯에서 조건에 맞는 나누기·새 패널·다른 분석·조건으로를 제공한다([Chart §16](docs/contract/chart.md#분석-선택-전달-decided-adr-0175-2732)).
 _Avoid_: 동작 막대 — #2734 초기 명세의 설명이다.
@@ -619,6 +631,9 @@ _Avoid_: 사용자 메뉴(Registry 메뉴로 읽힌다).
 
 **패널 인스턴스**:
 사용자 분석 메뉴 정의 안의 패널 하나. `source`는 `declared`(코드 패널, 빌린 패널 포함) 또는 `chart`(설정으로 만든 패널)이고, URL 선택 키는 `<인스턴스>.<출력 키>`다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md)).
+
+**패널 좁히기**:
+한 패널이 메뉴 Context 안에서 적용하는 추가 범위 제한. 같은 메뉴의 다른 패널은 각자의 범위를 유지한다([Kernel §21.1](docs/contract/kernel.md#211-저장-단위-decided)).
 
 **따라가기** (`mode: 'follow'`):
 패널 인스턴스의 입력이 연결된 출력(`<인스턴스>.<출력 키>`)의 현재 분석 선택을 그대로 읽는 방식. 앞 패널에서 선택을 바꾸면 이 패널도 바뀐다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md)).
