@@ -25,3 +25,5 @@ export const Compact: Story = { args: { compact: true } };
 export const TextLink: Story = { args: { icon: ExternalLink, label: 'EQ-0207 정비 이력 열기', text: '정비 이력', textLink: 'primary', link: <a href="#maintenance" /> } };
 /** `menu`: 같은 컨트롤이 동작 목록 Popover를 연다. */
 export const WithMenu: Story = { args: { text: '더보기', label: 'EQ-0207 동작', menu: <ul className="p-1 text-sm"><li className="px-2 py-1">상세 열기</li><li className="px-2 py-1">비교에 추가</li></ul> } };
+
+export const MenuInitiallyOpen: Story = { args: { ...WithMenu.args, defaultOpen: true } };

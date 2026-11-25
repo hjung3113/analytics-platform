@@ -101,13 +101,13 @@ AlertDialogDescription.displayName = AlertDialogPrimitive.Description.displayNam
 
 export const AlertDialogAction = React.forwardRef<
   HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement>
->(({ className, ...props }, ref) => (
+  React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'default' | 'destructive' }
+>(({ className, variant, ...props }, ref) => (
   // Radix's alert-dialog Action/Cancel are DialogPrimitive.Close (#1324): the click closes the
   // dialog, a consumer onClick still runs first, and preventDefault keeps the dialog open.
   <AlertDialogPrimitive.Close
     ref={ref}
-    className={cn(buttonVariants(), className)}
+    className={cn(buttonVariants({ variant }), className)}
     {...props}
   />
 ));

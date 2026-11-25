@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import type { MatrixEmphasisRule } from '@ap/contracts';
-import { MatrixLevelOrder } from '../MatrixLevelOrder';
+import { MatrixLevelOrder, type MatrixLevelOrderProps } from '../MatrixLevelOrder';
 import { MatrixEmphasisBar } from '../MatrixEmphasisBar';
 import { MatrixToneLegend } from '../MatrixToneLegend';
 
@@ -11,6 +11,32 @@ beforeEach(() => { vi.stubGlobal('ResizeObserver', class { observe() {} unobserv
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const levels = [{ id: 'a', label: 'Alpha' }, { id: 'b', label: 'Beta' }, { id: 'c', label: 'Gamma' }];
 describe('MatrixLevelOrder', () => {
+  function levelOrder(props: Partial<MatrixLevelOrderProps>) {
+    return <I18nProvider><MatrixLevelOrder levels={levels} value={['a']} defaultValue={['a']} onChange={vi.fn()} {...props} /></I18nProvider>;
+  }
+
+  it('opens on first render with defaultOpen', () => {
+    render(levelOrder({ defaultOpen: true }));
+    expect(screen.getByRole('dialog', { name: '단계 순서' })).toBeVisible();
+  });
+
+  it('follows controlled open changes', () => {
+    const { rerender } = render(levelOrder({ open: true }));
+    expect(screen.getByRole('dialog', { name: '단계 순서' })).toBeVisible();
+    rerender(levelOrder({ open: false }));
+    expect(screen.queryByRole('dialog', { name: '단계 순서' })).not.toBeInTheDocument();
+  });
+
+  it('notifies onOpenChange when the trigger opens and closes the popover', () => {
+    const onOpenChange = vi.fn();
+    render(levelOrder({ onOpenChange }));
+    const trigger = screen.getByRole('button', { name: '단계 순서' });
+    fireEvent.click(trigger);
+    expect(onOpenChange).toHaveBeenNthCalledWith(1, true);
+    fireEvent.click(trigger);
+    expect(onOpenChange).toHaveBeenNthCalledWith(2, false);
+  });
+
   it('reorders, removes, re-adds, keeps at least one level and restores the consumer default', async () => {
     const onChange = vi.fn();
     function Harness() {

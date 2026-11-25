@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { PanelRight } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { RowAction } from '../RowAction';
+import { RowAction, type RowActionProps } from '../RowAction';
 
 // Fake timers that follow the real clock keep `findBy*` working; the "stays closed" checks step the tooltip delay through virtual time.
 beforeEach(() => {
@@ -123,6 +123,42 @@ describe('RowAction (row action, compact ↔ full, ADR-0037)', () => {
 });
 
 describe('RowAction optional body menu (#1930)', () => {
+  function rowAction(props: Partial<RowActionProps>) {
+    return <RowAction compact={false} icon={PanelRight} label="Object links" text="Other screens"
+      menu={<a href="/destination" onClick={event => event.preventDefault()}>Destination</a>} {...props} />;
+  }
+
+  it('opens on first render with defaultOpen', () => {
+    render(rowAction({ defaultOpen: true }));
+    expect(screen.getByRole('group', { name: 'Object links' })).toBeVisible();
+  });
+
+  it('follows controlled open changes', () => {
+    const { rerender } = render(rowAction({ open: true }));
+    expect(screen.getByRole('group', { name: 'Object links' })).toBeVisible();
+    rerender(rowAction({ open: false }));
+    expect(screen.queryByRole('group', { name: 'Object links' })).not.toBeInTheDocument();
+  });
+
+  it('notifies onOpenChange when the trigger opens and closes the popover', () => {
+    const onOpenChange = vi.fn();
+    render(rowAction({ onOpenChange }));
+    const trigger = screen.getByRole('button', { name: 'Object links' });
+    fireEvent.click(trigger);
+    expect(onOpenChange).toHaveBeenNthCalledWith(1, true);
+    fireEvent.click(trigger);
+    expect(onOpenChange).toHaveBeenNthCalledWith(2, false);
+  });
+
+  it('notifies onOpenChange when a menu link handles navigation and its click bubbles', () => {
+    const onOpenChange = vi.fn();
+    render(rowAction({ onOpenChange }));
+    fireEvent.click(screen.getByRole('button', { name: 'Object links' }));
+    fireEvent.click(screen.getByRole('link', { name: 'Destination' }));
+    expect(screen.queryByRole('group', { name: 'Object links' })).not.toBeInTheDocument();
+    expect(onOpenChange).toHaveBeenLastCalledWith(false);
+  });
+
   it('keeps the focused trigger node and open menu across compact/full changes', async () => {
     const menu = <button type="button">Destination</button>;
     const view = render(<RowAction compact icon={PanelRight} label="Object links" text="Other screens" menu={menu} />);

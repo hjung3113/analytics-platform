@@ -74,6 +74,19 @@ describe('opt-in decision rules', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
+  it('styles the irreversible confirmation action as destructive', () => {
+    render(
+      <DecisionImpactConfirmDialog
+        kind="irreversible"
+        impactText="The recipient will lose access to this workspace."
+        onConfirm={vi.fn()}
+        trigger={<button type="button">Revoke access</button>}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke access' }));
+    expect(screen.getByRole('button', { name: '확인' })).toHaveClass('bg-accent-danger', 'hover:bg-accent-danger/90');
+  });
+
   it('waits for confirmation and restores focus to the trigger after cancel', async () => {
     const user = userEvent.setup();
     const onConfirm = vi.fn();

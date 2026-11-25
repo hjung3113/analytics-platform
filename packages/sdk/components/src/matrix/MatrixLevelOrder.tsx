@@ -10,10 +10,13 @@ export type MatrixLevelOrderProps = {
   defaultValue: string[];
   onChange: (value: string[]) => void;
   label?: string;
+  open?: boolean;
+  defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 /** Controlled subset/order; the consumer persists a page key and the server regroups. Same list parts as the table's Columns. */
-export function MatrixLevelOrder({ levels, value, defaultValue, onChange, label }: MatrixLevelOrderProps) {
+export function MatrixLevelOrder({ levels, value, defaultValue, onChange, label, open, defaultOpen, onOpenChange }: MatrixLevelOrderProps) {
   const m = useMessages(MATRIX_MESSAGES);
   const prefix = useId();
   const ids = new Set(levels.map(level => level.id));
@@ -25,7 +28,7 @@ export function MatrixLevelOrder({ levels, value, defaultValue, onChange, label 
     [order[index], order[next]] = [order[next], order[index]];
     onChange(order);
   };
-  return <Popover>
+  return <Popover open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
     <PopoverTrigger asChild><Button variant="secondary" size="toolbar"><ListTree className="size-3.5" aria-hidden />{label ?? m('levels')}</Button></PopoverTrigger>
     <PopoverContent align="end" aria-label={label ?? m('levels')} className="max-h-[var(--radix-popover-content-available-height)] w-72 overflow-y-auto break-keep">
       <p className="t-card-title mb-2">{label ?? m('levels')}</p>

@@ -10,7 +10,6 @@ import {
   AlertDialogCancel,
 } from '../components/shadcn/alert-dialog.js';
 import { buttonVariants } from '../components/Button.js';
-import { cn } from '../utils/cn.js';
 
 export interface DirtyConfirmationProps {
   open: boolean;
@@ -60,7 +59,7 @@ export function DirtyConfirmation({
             {cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
-            className={cn(buttonVariants({ variant: 'destructive' }))}
+            variant="destructive"
             onClick={() => { markButtonHandled(); onConfirm(); }}
           >
             {confirmLabel}

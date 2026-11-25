@@ -1,5 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type * as React from 'react';
+import { buttonVariants } from '../../Button.js';
+import { cn } from '../../../utils/cn.js';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +50,21 @@ describe('AlertDialogContent toast interactions (#1030)', () => {
       }
     },
   );
+});
+
+describe('AlertDialogAction variants', () => {
+  it.each([undefined, 'default', 'destructive'] as const)('uses the button classes for variant %s', (variant) => {
+    render(
+      <AlertDialog defaultOpen>
+        <AlertDialogContent>
+          <AlertDialogTitle>Confirm change</AlertDialogTitle>
+          <AlertDialogDescription>The change takes effect immediately.</AlertDialogDescription>
+          <AlertDialogAction {...(variant === undefined ? {} : { variant })}>Confirm</AlertDialogAction>
+        </AlertDialogContent>
+      </AlertDialog>,
+    );
+    expect(screen.getByRole('button', { name: 'Confirm' }).className).toBe(cn(buttonVariants({ variant })));
+  });
 });
 
 describe('AlertDialogCancel and AlertDialogAction close the dialog (#1324)', () => {
