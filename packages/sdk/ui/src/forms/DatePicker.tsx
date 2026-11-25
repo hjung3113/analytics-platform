@@ -223,14 +223,13 @@ export function DatePicker({
             className="h-full min-w-0 flex-1 bg-transparent text-text-primary outline-hidden placeholder:text-text-muted"
             {...inputProps}
           />
-          {draft !== '' ? (
+          {!disabled && draft !== '' ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
                   type="button"
                   aria-label={messages.clear}
                   className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-card hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
-                  disabled={disabled}
                   onClick={() => {
                     setDraft('');
                     onChange(emptyValue);

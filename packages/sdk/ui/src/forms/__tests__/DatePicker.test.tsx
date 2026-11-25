@@ -122,6 +122,12 @@ describe('DatePicker', () => {
     expect(screen.getByRole('textbox', { name: '날짜' })).toHaveValue('');
   });
 
+  it('hides the clear button for a disabled picker with a date', () => {
+    render(<DatePicker aria-label="날짜" value="2026-06-12" onChange={vi.fn()} disabled />);
+
+    expect(screen.queryByRole('button', { name: '날짜 지우기' })).not.toBeInTheDocument();
+  });
+
   it('disables calendar dates outside min and max and keeps typed out-of-range dates invalid', () => {
     const onChange = vi.fn();
     render(

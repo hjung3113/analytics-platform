@@ -119,6 +119,17 @@ export function DetailPanelHeader({
   const showActions = (showExpand && hasFullscreenToggle) || onClose !== undefined;
   const hasKind = kicker !== undefined || dataKind !== undefined;
   const wrapsTitle = titleLines === 2;
+  // Keep numeric tokens like 11-04 together while allowing wraps between words.
+  // Only plain text gets the ellipsis wrapper; consumer nodes (such as a Fragment of blocks) stay direct flex children.
+  const metadataContent = typeof metadata === 'string'
+    ? metadata !== '' && (
+      <div className="min-w-0 overflow-hidden text-ellipsis">
+        {metadata.split(/(\s+)/u).map((word, index) => (
+          /\d[-/]\d/u.test(word) ? <span key={index} className="whitespace-nowrap">{word}</span> : word
+        ))}
+      </div>
+    )
+    : metadata;
   const kickerBadge = kicker !== undefined && <StatusBadgeFrame
     appearance="compact"
     textClassName={accent.textClass}
@@ -156,16 +167,16 @@ export function DetailPanelHeader({
         data-testid="detail-panel-header-content"
         className={cn('flex flex-1 items-center gap-3 pr-3 min-w-0', isMilestone || !hasKind ? 'pl-5' : 'pl-4', wrapsTitle && 'py-1')}
       >
-        <div className={wrapsTitle ? 'flex min-w-0 flex-col items-start gap-0.5 break-keep' : 'flex min-w-0 items-baseline gap-2 break-keep'}>
-          <div className={cn('flex min-w-0', wrapsTitle ? 'items-center' : 'items-baseline', 'gap-2')}>
+        <div className={cn('flex min-w-0 flex-1 break-keep wrap-normal', wrapsTitle ? 'flex-col items-start gap-0.5' : 'items-baseline gap-2')}>
+          <div className={cn('flex min-w-0 max-w-full', wrapsTitle ? 'items-center' : 'items-baseline', 'gap-2')}>
             {id !== undefined && (title == null
               ? <h2 id={headingId} className="t-mono truncate font-mono text-xs text-text-muted leading-none">{id}</h2>
               : <span className="t-mono max-w-1/2 shrink-0 truncate font-mono text-xs text-text-muted leading-none">{id}</span>)}
-            {title != null && <h2 id={headingId} className={cn('t-section-title min-w-0', wrapsTitle ? 'line-clamp-2 wrap-anywhere' : 'truncate')}>{title}</h2>}
+            {title != null && <h2 id={headingId} className={cn('t-section-title min-w-0 break-keep', wrapsTitle ? 'line-clamp-2 wrap-anywhere' : 'truncate')}>{title}</h2>}
           </div>
           {wrapsTitle
-            ? (kicker !== undefined || Boolean(metadata)) && <div className="flex min-w-0 max-w-full items-center gap-2">{kickerBadge}{metadata}</div>
-            : <>{kickerBadge}{metadata}</>}
+            ? (kicker !== undefined || (metadataContent != null && metadataContent !== false)) && <div className="flex min-w-0 max-w-full items-center gap-2">{kickerBadge}{metadataContent}</div>
+            : <>{kickerBadge}{metadataContent}</>}
         </div>
 
         {/* Extras slot */}

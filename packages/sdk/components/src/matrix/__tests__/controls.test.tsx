@@ -34,6 +34,24 @@ describe('MatrixLevelOrder', () => {
   });
 });
 describe('MatrixEmphasisBar', () => {
+  it('uses the toggle surface when only matching columns are shown', () => {
+    render(
+      <I18nProvider>
+        <MatrixEmphasisBar
+          emphasis={[{ row: 'a', match: { kind: 'values', values: ['x'] } }]}
+          onEmphasisChange={vi.fn()}
+          onlyMatchingColumns
+          onOnlyMatchingColumnsChange={vi.fn()}
+          rowLabel={(id) => id}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: '이 열만 보기', pressed: true })).toHaveClass(
+      'aria-pressed:bg-surface-row-selected',
+    );
+  });
+
   it('removes one rule, clears all and controls the narrowing toggle with consumer labels', () => {
     const rules: MatrixEmphasisRule[] = [{ row: 'a', match: { kind: 'values', values: ['x'] } }, { row: 'b', match: { kind: 'range', min: 0 } }];
     const onChange = vi.fn(); const toggle = vi.fn();

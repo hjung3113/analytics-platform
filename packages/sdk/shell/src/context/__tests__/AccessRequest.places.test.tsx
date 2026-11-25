@@ -117,7 +117,7 @@ describe('place (b): Scope selector request items', () => {
     mount(grantTable(), fakeSlot);
     openMenu();
     expect(await screen.findByRole('menuitem', { name: 'SITE-C · 공정 4개 권한 없음' })).toBeTruthy();
-    expect(screen.queryByText(/요청 대기 중/)).toBeNull();
+    expect(screen.queryByText(/검토 중/)).toBeNull();
   });
 
   it('while the read runs the site row keeps its place, busy and inert (#1933)', async () => {
@@ -168,16 +168,16 @@ describe('place (b): Scope selector request items', () => {
     expect(retrySpy).toHaveBeenCalledTimes(1);
   });
 
-  it('a site with a pending request reads «요청 대기 중» and leads to the request status, the same after a remount', async () => {
+  it('a site with a pending request reads «검토 중» and leads to the request status, the same after a remount', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=SITE-A');
     pendingTargets = [{ kind: 'site', site: 'SITE-C' }];
     for (let mount_ = 0; mount_ < 2; mount_++) {
       const view = mount(grantTable(), fakeSlot);
       openMenu();
-      expect(await screen.findByRole('menuitem', { name: 'SITE-C · 요청 대기 중' })).toBeTruthy();
+      expect(await screen.findByRole('menuitem', { name: 'SITE-C · 검토 중' })).toBeTruthy();
       expect(screen.getByRole('menuitem', { name: 'SITE-B · 공정 3개 권한 없음' })).toBeTruthy();
       if (mount_ === 1) {
-        fireEvent.click(screen.getByRole('menuitem', { name: 'SITE-C · 요청 대기 중' }));
+        fireEvent.click(screen.getByRole('menuitem', { name: 'SITE-C · 검토 중' }));
         await waitFor(() => expect(path).toBe('/permission-requests?id=req-1'));
         expect(dialogs).toHaveLength(0);
       }
@@ -246,7 +246,7 @@ describe('place (d): room field request entry', () => {
     pendingAnswer = 'unknown';
     mount('&roomNames=RB4', grantTable(), fakeSlot);
     expect(await screen.findByRole('button', { name: '공정 권한 요청' })).toBeTruthy();
-    expect(screen.queryByText('요청 대기 중')).toBeNull();
+    expect(screen.queryByText('검토 중')).toBeNull();
   });
 
   it('place (d) while the read runs the request button stays, busy and inert; after a failed read it says so and offers 다시 시도 (#1933)', async () => {
@@ -267,11 +267,11 @@ describe('place (d): room field request entry', () => {
     expect(screen.getByRole('dialog', { name: 'fake request dialog' })).toBeTruthy();
   });
 
-  it('a pending request for the room reads «요청 대기 중» with the status link, the same after a remount', async () => {
+  it('a pending request for the room reads «검토 중» with the status link, the same after a remount', async () => {
     pendingTargets = [{ kind: 'site_room', site: 'SITE-B', room: 'RB4' }];
     for (let mount_ = 0; mount_ < 2; mount_++) {
       const view = mount('&roomNames=RB4', grantTable(), fakeSlot);
-      expect(await screen.findByText('요청 대기 중')).toBeTruthy();
+      expect(await screen.findByText('검토 중')).toBeTruthy();
       expect(screen.getByRole('link', { name: '요청 상태' }).getAttribute('href')).toBe('/permission-requests?id=req-1');
       expect(screen.queryByRole('button', { name: '공정 권한 요청' })).toBeNull();
       view.unmount();

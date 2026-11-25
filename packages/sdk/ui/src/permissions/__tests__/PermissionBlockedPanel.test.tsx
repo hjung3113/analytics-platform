@@ -301,5 +301,5 @@ it('keeps the card callback and exit in the same row and ignores the exit in the
   expect(within(row).getAllByRole('button')).toEqual([screen.getByRole('button', { name: 'View my access requests' }), home]);
   expect(screen.getByText('Required access')).toBeInTheDocument();
   expect(screen.getByRole('status')).toHaveTextContent('Your access request is under review.');
-  expect(screen.queryByText('In review')).not.toBeInTheDocument();
+  expect(screen.queryByText('Under review')).not.toBeInTheDocument();
 });

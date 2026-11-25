@@ -236,7 +236,7 @@ describe('place (e): access request for the denied target in a query reply', () 
     const banner = await screen.findByRole('group', { name: '위젯 상태 요약' });
     expect(view.container.querySelectorAll('[data-outcome-banner]')).toHaveLength(1);
     expect(banner).toHaveTextContent('SITE-B / RB4');
-    expect(screen.queryByText('요청 대기 중')).toBeNull();
+    expect(screen.queryByText('검토 중')).toBeNull();
     expect(within(banner).queryByRole('status')).toBeNull();
     for (const name of ['Widget A', 'Widget B']) {
       expect(screen.getByRole('group', { name })).toHaveTextContent('불러오지 못함');
@@ -358,7 +358,7 @@ describe('place (e): access request for the denied target in a query reply', () 
     pendingAnswer = 'unknown';
     renderPage(requestable(partial), fakeSlot);
     expect(await screen.findByRole('button', { name: '권한 요청' })).toBeTruthy();
-    expect(screen.queryByText('요청 대기 중')).toBeNull();
+    expect(screen.queryByText('검토 중')).toBeNull();
   });
 
   it('reads the pending state from the server data, the same after a remount', async () => {
@@ -366,7 +366,7 @@ describe('place (e): access request for the denied target in a query reply', () 
     pendingTargets = [{ kind: 'site', site: 'SITE-B' }];
     for (let mount = 0; mount < 2; mount++) {
       const view = renderPage(requestable(partial), fakeSlot);
-      expect(await screen.findByText('요청 대기 중')).toBeTruthy();
+      expect(await screen.findByText('검토 중')).toBeTruthy();
       expect(screen.getByRole('link', { name: '요청 상태' })).toBeTruthy();
       view.unmount();
     }
@@ -461,7 +461,7 @@ describe('request state unknown (#1933): checking and error', () => {
     expect(button.closest('[data-access-request]')?.getAttribute('data-access-request')).toBe('checking');
     fireEvent.click(button);
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(screen.queryByText('요청 대기 중')).toBeNull();
+    expect(screen.queryByText('검토 중')).toBeNull();
   });
 
   it.each([

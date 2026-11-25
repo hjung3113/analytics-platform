@@ -126,6 +126,22 @@ describe('DetailPanelHeader — milestone kind badge', () => {
 });
 
 describe('DetailPanelHeader — title lines', () => {
+  it.each([1, 2] as const)('preserves word boundaries in title and metadata with %i title lines', (titleLines) => {
+    render(
+      <DetailPanelHeader
+        title="장비 정기 보전 이력"
+        titleLines={titleLines}
+        metadata={<span>최근 보전 11/04</span>}
+      />,
+    );
+
+    const heading = screen.getByRole('heading', { name: '장비 정기 보전 이력' });
+    const metadata = screen.getByText('최근 보전 11/04');
+    expect(heading).toHaveClass('break-keep');
+    expect(heading).toHaveClass(titleLines === 2 ? 'wrap-anywhere' : 'truncate');
+    expect(metadata.closest('.break-keep')).toHaveClass('wrap-normal');
+  });
+
   it.each([{}, { titleLines: 1 }] as const)('keeps the single-line title layout with %j', options => {
     render(<DetailPanelHeader title="Record title" {...options} />);
     const heading = screen.getByRole('heading', { name: 'Record title' });
@@ -140,6 +156,56 @@ describe('DetailPanelHeader — title lines', () => {
     expect(heading.closest('header')).not.toHaveClass('h-toolbar');
     expect(heading).toHaveClass('line-clamp-2', 'wrap-anywhere');
     expect(heading).not.toHaveClass('truncate');
+  });
+
+  it.each([1, 2] as const)('keeps the story date whole and reserves action space at 440px with %i title lines', titleLines => {
+    render(
+      <div style={{ width: 440 }}>
+        <DetailPanelHeader
+          label="설비"
+          id="EQ-0207"
+          title="증착 2라인 챔버 B"
+          titleLines={titleLines}
+          metadata="최근 보전 11-04"
+          onClose={() => {}}
+        />
+      </div>,
+    );
+
+    const date = screen.getByText('11-04');
+    const title = screen.getByRole('heading', { name: '증착 2라인 챔버 B' });
+    expect(date).toHaveClass('whitespace-nowrap');
+    expect(date.parentElement).toHaveTextContent('최근 보전 11-04');
+    expect(date.parentElement).toHaveClass('min-w-0');
+    expect(title.parentElement?.parentElement).toHaveClass('flex-1', 'min-w-0');
+    expect(screen.getByRole('button', { name: '패널 닫기' }).parentElement).toHaveClass('ml-auto', 'shrink-0');
+  });
+
+  it.each([1, 2] as const)('ellipsizes a 60-character metadata ID at 440px with %i title lines', titleLines => {
+    const metadata = 'ABC123'.repeat(10);
+    render(
+      <div style={{ width: 440 }}>
+        <DetailPanelHeader title="Record title" titleLines={titleLines} metadata={metadata} onClose={() => {}} />
+      </div>,
+    );
+
+    expect(screen.getByText(metadata)).toHaveClass('min-w-0', 'overflow-hidden', 'text-ellipsis');
+    expect(screen.getByRole('button', { name: '패널 닫기' }).parentElement).toHaveClass('ml-auto', 'shrink-0');
+  });
+
+  it('wraps and clamps a single long title token within the space before the actions', () => {
+    const title = 'ABC123'.repeat(20);
+    render(
+      <div style={{ width: 440 }}>
+        <DetailPanelHeader id="EQ-0207" title={title} titleLines={2} onClose={() => {}} />
+      </div>,
+    );
+
+    const heading = screen.getByRole('heading', { name: title });
+    expect(heading).toHaveClass('min-w-0', 'line-clamp-2', 'break-keep', 'wrap-anywhere');
+    expect(heading.parentElement).toHaveClass('min-w-0', 'max-w-full');
+    expect(heading.parentElement?.parentElement).toHaveClass('flex-1', 'min-w-0');
+    expect(screen.getByRole('button', { name: '패널 닫기' }).parentElement).toHaveClass('ml-auto', 'shrink-0');
   });
 
   it('keeps metadata beside a single-line title', () => {
@@ -158,6 +224,27 @@ describe('DetailPanelHeader — title lines', () => {
     expect(metaRow?.parentElement).toBe(titleBlock);
     expect(metaRow).toContainElement(screen.getByText('Kind'));
     expect(metaRow).not.toContainElement(heading);
+  });
+
+  it.each([1, 2] as const)('keeps each block of Fragment metadata a direct flex child with %i title lines', titleLines => {
+    render(
+      <DetailPanelHeader
+        title="Record title"
+        titleLines={titleLines}
+        label="Kind"
+        metadata={<><div>가동</div><div>서울</div></>}
+      />,
+    );
+    const first = screen.getByText('가동');
+    const row = first.parentElement;
+    expect(screen.getByText('서울').parentElement).toBe(row);
+    expect(row).toHaveClass('flex');
+    expect(row).toContainElement(screen.getByText('Kind'));
+  });
+
+  it('shows numeric 0 metadata under a two-line title', () => {
+    render(<DetailPanelHeader title="A long record title" titleLines={2} metadata={0} />);
+    expect(screen.getByText('0')).toBeInTheDocument();
   });
 
   it('adds no empty line under a two-line title without metadata', () => {

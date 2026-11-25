@@ -60,3 +60,17 @@ it.each([
   render(<I18nProvider><CardActions /></I18nProvider>);
   expect(screen.getByText(`${home}|${pending}`)).toBeInTheDocument();
 });
+
+it.each([
+  ['ko', '검토 중'],
+  ['en', 'Under review'],
+] as const)('labels access requests under review in %s', (lang, pending) => {
+  localStorage.setItem('platform:lang', lang);
+  function PendingLabels() {
+    const { t } = useI18n();
+    return <>{t('accessRequestPending')}|{t('accessRequestSitePending', { site: 'SITE-C' })}</>;
+  }
+
+  render(<I18nProvider><PendingLabels /></I18nProvider>);
+  expect(screen.getByText(`${pending}|SITE-C · ${pending}`)).toBeInTheDocument();
+});

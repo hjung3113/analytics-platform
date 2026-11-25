@@ -156,7 +156,7 @@ export const SURVEY_RESULT_KIND_LABELS: Record<SurveyResultKind, string> = {
 } as const;
 
 export const permissionRequestStatusText = {
-  pending: { ko: '검토 중', en: 'In review' },
+  pending: { ko: '검토 중', en: 'Under review' },
   needs_more_info: { ko: '추가 정보 필요', en: 'More information needed' },
   approved: { ko: '승인됨', en: 'Approved' },
   rejected: { ko: '거절됨', en: 'Rejected' },
