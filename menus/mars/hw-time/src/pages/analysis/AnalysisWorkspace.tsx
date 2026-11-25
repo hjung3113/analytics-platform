@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-react';
-import { isAnswered, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
-import { ANALYSIS_SELECTION_MAX_VALUES, formatText, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type MenuQueryState, type Text } from '@ap/kernel';
+import { EQUIPMENT_SELECTION_DIMENSION, isAnswered, type AnalysisSelection, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
+import { ANALYSIS_SELECTION_MAX_VALUES, formatText, HeldAnalysisSelections, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView, StateMessage,
   getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
@@ -227,10 +227,22 @@ type PanelConfiguration =
   | { kind: 'custom'; added: readonly AddedPanel[] };
 const defaultPanels: PanelConfiguration = { kind: 'default' };
 
+/**
+ * The selection source a held input names (#2862): the equipment bars the screen draws itself (the step's current bars or the added
+ * «모듈 동작» panel). Saved only while something holds it, so `from` names an existing output; never drawn as an added panel.
+ */
+const HELD_SOURCE_ID = 'held-source';
+const heldSource: PanelInstance = {
+  id: HELD_SOURCE_ID, source: { kind: 'declared', panel: panelDeclarations.moduleMotions.id }, inputs: [],
+  outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }],
+};
+const holds = (instance: PanelInstance) => instance.inputs.some(input => input.mode === 'hold');
+
 /** The save boundary for additions and their inputs/outputs. Layout and URL pins are owned elsewhere. */
 function buildSavedPanels(config: PanelConfiguration, step: Step): MenuViewPanels | null {
   if (config.kind !== 'custom') return null;
-  return { version: 1, instances: config.added.filter(panel => step !== 4 || panel.slot !== 'trend').map(panel => panel.instance) };
+  const instances = config.added.filter(panel => step !== 4 || panel.slot !== 'trend').map(panel => panel.instance);
+  return { version: 1, instances: instances.some(holds) ? [...instances, heldSource] : instances };
 }
 
 function restoredPanel(instance: PanelInstance, index: number): AddedPanel {
@@ -254,18 +266,25 @@ function useWorkspacePanels(owner: string, population: string, step: Step) {
       switch (outcome) {
         case null: next = defaultPanels; break;
         case 'unreadable': next = { kind: 'unreadable' }; break;
-        default: next = { kind: 'custom', added: outcome.instances.map(restoredPanel) };
+        default: next = { kind: 'custom', added: outcome.instances.filter(instance => instance.id !== HELD_SOURCE_ID).map(restoredPanel) };
       }
       setState(current => ({ ...current, config: next, opening: true }));
     },
   });
-  const add = (id: string) => setState(current => {
+  /** `held`: the selections this panel keeps as they are now (#2862 «붙잡기»); absent = it follows the URL. */
+  const add = (id: string, held?: Readonly<Record<string, AnalysisSelection>>) => setState(current => {
     if (step === 4 && id === 'trend') return current;
     const added = current.config.kind === 'custom' ? current.config.added : [];
-    if (added.some(panel => panel.slot === id)) return current;
-    const instance: PanelInstance = { id, source: { kind: 'declared', panel: id }, inputs: [], outputs: [] };
-    return { ...current, config: { kind: 'custom', added: [...added, { slot: id, instance }] } };
+    const inputs: PanelInstance['inputs'] = Object.entries(held ?? {}).map(([key, value]) => ({ key, from: `${HELD_SOURCE_ID}.${key}`, mode: 'hold', value }));
+    const existing = added.find(panel => panel.slot === id);
+    if (existing && !held) return current;
+    const instance: PanelInstance = { id, source: { kind: 'declared', panel: id }, inputs, outputs: [] };
+    const next = existing ? added.map(panel => panel === existing ? { ...panel, instance: { ...panel.instance, inputs } } : panel) : [...added, { slot: id, instance }];
+    return { ...current, config: { kind: 'custom', added: next } };
   });
+  /** «따라가기로 바꾸기»: the panel drops its held values and reads the URL again. */
+  const follow = (instanceId: string) => setState(current => current.config.kind !== 'custom' ? current : { ...current, config: { kind: 'custom',
+    added: current.config.added.map(panel => panel.instance.id === instanceId ? { ...panel, instance: { ...panel.instance, inputs: panel.instance.inputs.filter(input => input.mode !== 'hold') } } : panel) } });
   const remove = (instanceId: string) => setState(current => {
     if (current.config.kind !== 'custom') return current;
     const added = current.config.added.filter(panel => panel.instance.id !== instanceId).map(panel => {
@@ -274,7 +293,7 @@ function useWorkspacePanels(owner: string, population: string, step: Step) {
     });
     return { ...current, config: { kind: 'custom', added } };
   });
-  return { config, add, remove };
+  return { config, add, remove, follow };
 }
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
@@ -341,6 +360,19 @@ function SelectionSourceBars({ source, ...props }: Omit<BarsProps, 'highlightedV
   return <Bars {...props} highlightedValues={source ? highlightedValues : undefined} analysisSelectionOutput={source ? output : undefined} />;
 }
 
+/** A table that holds an equipment selection (#2862): it reads its filter inside `HeldAnalysisSelections`, never the URL's. */
+function HeldTablePanel() {
+  const workspace = useMessages(HW_TIME_WORKSPACE_MESSAGES);
+  const { applied, rejectedHeld } = useAnalysisSelectionInputs(panelDeclarations.table.id);
+  const selection = applied.find(input => input.key === MOTION_EQUIPMENT_KEY && input.use === 'filter' && input.held)?.selection;
+  const equipment = selection?.shape === 'set' ? selection.values : undefined;
+  const level = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, equipment !== undefined);
+  return <>
+    {rejectedHeld.includes(MOTION_EQUIPMENT_KEY) && <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={workspace('heldRejected')} />}
+    <RawTablePanel params={{}} linked analysis={equipment ? { equipment, level } : undefined} />
+  </>;
+}
+
 function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'analysisSelectionOutput' | 'highlightedValues'> & {
   step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void; applied: ReturnType<typeof useAnalysisSelectionInputs>['applied'];
   savedPanels: ReturnType<typeof useWorkspacePanels>;
@@ -366,6 +398,11 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     return item && !extras.some(extra => extra.id === id) ? [{ id, item, instance: undefined }] : [];
   });
   const extraPanels = [...extras, ...automatic];
+  // «붙잡기» (#2862): the held table and its values; the source chart stays while anything holds it.
+  const heldTable = extras.find(({ instance, item }) => item?.id === 'table' && instance && holds(instance));
+  const heldInputs = useMemo(() => Object.fromEntries((heldTable?.instance?.inputs ?? []).flatMap(input =>
+    input.mode === 'hold' ? [[input.key, { dimension: EQUIPMENT_SELECTION_DIMENSION, selection: input.value }]] : [])), [heldTable?.instance]);
+  const anyHeld = extras.some(({ instance }) => instance && holds(instance));
   const extraIds = extraPanels.map(({ id }) => id);
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
   const { pageParam, pageParams, setPage } = usePlatform();
@@ -395,10 +432,13 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     source: { availabilityCurrent: selectionOutput.availabilityCurrent, query: sourceQuery },
   });
   const equipment = tableFilter.kind === 'filtered' && tableFilter.selection.shape === 'set' ? tableFilter.selection.values : undefined;
-  const filterTable = equipment !== undefined && extraPanels.some(({ item }) => item?.id === 'table' && !item.disabledReason);
+  const filterTable = equipment !== undefined && !heldTable && extraPanels.some(({ item }) => item?.id === 'table' && !item.disabledReason);
   const tableLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, filterTable);
   const analysis = filterTable ? { equipment, level: tableLevel } : undefined;
   const badge = getAnalysisSelectionFilterBadge(tableFilter, analysis?.level, data => data.rows.length);
+  const heldCount = Object.values(heldInputs)[0]?.selection.shape === 'set' ? (Object.values(heldInputs)[0]!.selection as { values: readonly string[] }).values.length : 0;
+  const heldText = HW_TIME_WORKSPACE_MESSAGES.heldPanel;
+  const heldBadge = { tone: 'neutral' as const, description: { ko: formatText(heldText, 'ko', { count: heldCount }), en: formatText(heldText, 'en', { count: heldCount }) } };
   const matrixData = (input: { moduleType?: string | null }) => {
     const required = input.moduleType ? [input.moduleType] : Object.keys(queries);
     return { required, matrices: required.flatMap(id => queries[id]?.response?.data ? [queries[id]!.response!.data!] : []) };
@@ -448,7 +488,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
             const display = projectDisplayInputs(panelDeclarations.moduleMotions, panelContext);
             return <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions source />;
           }
-          case 'table': return tableFilter.kind === 'waiting' ? <LoadingBlock /> : <RawTablePanel params={{}} linked analysis={analysis} />;
+          case 'table': return heldTable ? <HeldAnalysisSelections held={heldInputs}><HeldTablePanel /></HeldAnalysisSelections>
+            : tableFilter.kind === 'waiting' ? <LoadingBlock /> : <RawTablePanel params={{}} linked analysis={analysis} />;
           case 'donut': {
             const data = matrixData(projectQueryInputs(panelDeclarations.donut, panelContext));
             return matricesView(queries, data.required, <VerdictDonut matrices={data.matrices} filter={filter} verdict={verdict} />);
@@ -462,13 +503,14 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         }
       };
       return { id, icon: ChartNoAxesCombined, title: item!.title, ...(step === 4 && id === 'trend' ? { placement: 'below' as const } : {}), preferredHeight: 360, minWidth: 200,
-        badge: panel === 'table' ? badge : undefined,
+        badge: panel === 'table' ? heldTable ? heldBadge : badge : undefined,
+        keep: panel === panelDeclarations.moduleMotions.id && anyHeld ? { reason: HW_TIME_WORKSPACE_MESSAGES.heldSource } : undefined,
         pin: id === panel ? { pinned: pins.isPinned(id), onToggle: () => { savedPanels.add(id); pins.toggle(id); } } : undefined,
         render: () => <RecipePanel id={panel} open={explained === id} context={panelContext} onClose={() => setExplained(null)}>{renderPanel(panel)}</RecipePanel> };
     }),
   ];
-  const addPanel = (id: string, pin: boolean, options?: { restoreHidden: boolean }) => {
-    savedPanels.add(id);
+  const addPanel = (id: string, pin: boolean, options?: { restoreHidden: boolean }, held?: Readonly<Record<string, AnalysisSelection>>) => {
+    savedPanels.add(id, held);
     if (pin) pins.pin(id);
     setReveal(current => ({ panelId: id, seq: (current?.seq ?? 0) + 1, ...options }));
   };
@@ -476,13 +518,16 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
     {savedPanels.config.kind === 'unreadable' && <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={workspace('unreadablePanels')} />}
     <PanelWorkspace panels={panels} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
-      panelMenuItems={id => Object.hasOwn(panelDeclarations, id) ? [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }] : []}
+      panelMenuItems={id => [
+        ...(Object.hasOwn(panelDeclarations, id) ? [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }] : []),
+        ...(heldTable && id === heldTable.id ? [{ id: 'follow', label: HW_TIME_WORKSPACE_MESSAGES.followInstead, onSelect: () => savedPanels.follow(heldTable.instance!.id) }] : []),
+      ]}
       revealRequest={reveal}
       toolbarActions={<PanelAddMenu items={catalog} shown={panels.map(panel => panel.id)} onAdd={addPanel} />}
-      analysisPanelAddition={{ items: catalog, onAdd: draft => {
-        // The receiver reads the existing URL selection so subsequent picks also apply.
+      analysisPanelAddition={{ items: catalog, hold: true, onAdd: draft => {
+        // Follow reads the URL selection so later picks also apply; hold keeps the draft's inputs (#2862).
         const panelId = draft.source.split('/')[1]!;
-        addPanel(panelId, pins.isPinned(panelId), { restoreHidden: true });
+        addPanel(panelId, pins.isPinned(panelId), { restoreHidden: true }, draft.mode === 'hold' ? draft.inputs : undefined);
       } }}
       persistKey={`hw-time-s${step}-v1`} label={HW_TIME_WORKSPACE_MESSAGES.workspace} />
   </div>;

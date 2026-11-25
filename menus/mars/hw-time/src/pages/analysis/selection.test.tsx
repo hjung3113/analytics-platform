@@ -311,8 +311,9 @@ it('adds the eligible raw table and follows the equipment set from the workspace
   expect(tableReads()).toEqual([]);
   fireEvent.keyDown(add, { key: 'Enter' });
   const menu = within(await screen.findByRole('menu'));
-  expect(menu.getAllByRole('menuitem')).toHaveLength(1);
-  fireEvent.click(menu.getByRole('menuitem'));
+  // Follow and hold for the one eligible panel (#2862).
+  expect(menu.getAllByRole('menuitem').map(item => item.getAttribute('aria-label'))).toEqual(['원본 표', '원본 표 · 붙잡기']);
+  fireEvent.click(menu.getByRole('menuitem', { name: '원본 표' }));
   await waitFor(() => expect(tableReads()[0]?.params).toMatchObject({ motionEquipment: ['MEM-PHOTO-0105'] }));
   expect(row.queryByRole('button', { name: '새 패널' })).toBeNull();
   fireEvent.click(within(screen.getByRole('group', { name: '분석 선택' })).getByRole('button', { name: '설비 MEM-PHOTO-0105' }));
@@ -320,6 +321,29 @@ it('adds the eligible raw table and follows the equipment set from the workspace
   fireEvent.click(editor.getByRole('checkbox', { name: 'MEM-PHOTO-0103' }));
   fireEvent.click(editor.getByRole('checkbox', { name: 'MEM-PHOTO-0105' }));
   fireEvent.click(editor.getByRole('button', { name: '적용' }));
+  await waitFor(() => expect(tableReads().at(-1)?.params).toMatchObject({ motionEquipment: ['MEM-PHOTO-0103'] }));
+});
+
+it('holds the raw table to the equipment of that moment and follows again on request (#2862)', async () => {
+  await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105', answer,
+    { realWorkspace: true, realChart: 'hw-current', showSelectionChips: true });
+  fireEvent.keyDown(within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' }), { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name: '원본 표 · 붙잡기' }));
+  await waitFor(() => expect(tableReads()[0]?.params).toMatchObject({ motionEquipment: ['MEM-PHOTO-0105'] }));
+  const tableTab = () => document.querySelector<HTMLElement>('[role="tab"][data-tab-panel-id="table"]')!;
+  expect(tableTab().getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
+  // The URL selection changes; the held table keeps its equipment and is not refetched with the new one.
+  fireEvent.click(within(screen.getByRole('group', { name: '분석 선택' })).getByRole('button', { name: '설비 MEM-PHOTO-0105' }));
+  const editor = within(screen.getByRole('dialog', { name: '설비 MEM-PHOTO-0105' }));
+  fireEvent.click(editor.getByRole('checkbox', { name: 'MEM-PHOTO-0103' }));
+  fireEvent.click(editor.getByRole('checkbox', { name: 'MEM-PHOTO-0105' }));
+  fireEvent.click(editor.getByRole('button', { name: '적용' }));
+  await waitFor(() => expect(new URL(window.location.href).searchParams.getAll('motionEquipment')).toEqual(['MEM-PHOTO-0103']));
+  expect(tableReads().every(read => (read.params as { motionEquipment?: string[] }).motionEquipment?.[0] === 'MEM-PHOTO-0105')).toBe(true);
+  // «따라가기로 바꾸기» from the table's ⋯ menu reads the URL selection again.
+  fireEvent.click(tableTab());
+  fireEvent.keyDown(screen.getByRole('button', { name: '원본 표 동작' }), { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name: '따라가기로 바꾸기' }));
   await waitFor(() => expect(tableReads().at(-1)?.params).toMatchObject({ motionEquipment: ['MEM-PHOTO-0103'] }));
 });
 

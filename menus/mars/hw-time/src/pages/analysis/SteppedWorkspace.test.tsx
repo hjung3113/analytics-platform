@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { EQUIPMENT_SELECTION_DIMENSION } from '@ap/contracts';
 import type { MenuView, PanelInstance } from '@ap/contracts';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { answer, renderOverview, requests, settle } from './test-support';
@@ -61,6 +62,21 @@ describe('HW Time saved view panels', () => {
     cleanup();
     await mount(store);
     await waitFor(() => expect(config().ids).toEqual(['tree', 'current', 'pareto', 'donut']));
+  });
+
+  it('restores a held table without drawing its selection source, and saves the same instances again (#2862)', async () => {
+    const table: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+      inputs: [{ key: 'motionEquipment', from: 'held-source.motionEquipment', mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] } }] };
+    const source: PanelInstance = { id: 'held-source', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+      outputs: [{ key: 'motionEquipment', dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
+    const store = createFakeSavedViewStore([saved({ panels: { version: 1, instances: [table, source] } })]);
+    await mount(store, '&moduleType=PM&drillMotion=Pump&drillModule=PM1');
+    await open('saved');
+    await waitFor(() => expect(config().ids).toContain('table'));
+    expect(config().ids).not.toContain('saved-panel-1');
+    expect(config().ids).not.toContain('moduleMotions');
+    const result = await act(() => views.saveAs({ name: 'Held', kind: 'menu-view' }));
+    expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: [table, source] } } } });
   });
 
   it('renders a reason in the missing slot and renders the other panels', async () => {
