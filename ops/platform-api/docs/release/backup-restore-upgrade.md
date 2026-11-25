@@ -153,6 +153,9 @@ The **Server release unit** workflow checks these four files on main pushes and 
 with Docker 28+, a current Compose plugin, and OpenSSL. The check verifies the checksums and caches Postgres, MinIO, and
 the mock IdP before it removes and reloads the three release tags. It starts a fresh production stack on an internal network with
 builds and pulls disabled. The check requires `GET /health/ready` to return 200 and then removes its project and volumes.
+Before that start, the workflow runs `node scripts/release/web-image-output-check.mjs platform-release-web:<tag>`: the web
+image's static files must hold no source map and no origin outside the allowed lists (the start kit's list plus the
+web image's own, each origin with its reason in the script).
 
 **From a checkout (build on the host).** Step 1 is the web image: build it from the same commit as the backend and migrate images with
 `bash scripts/release/build-web-image.sh` (it writes only `platform-release-web:local`), then tag it with the release tag:
