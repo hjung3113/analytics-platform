@@ -187,7 +187,7 @@ it('opens held sets of a view saved in another Scope as following, and lists the
   await act(async () => { const outcome = await views.select('saved'); excluded = outcome.ok ? outcome.excludedByScope : undefined; });
   expect(opened).toHaveBeenCalledExactlyOnceWith(followed);
   expect(excluded).toEqual(['room']);
-  expect(views.scopeExcluded).toEqual({ savedScopeId: 'OTHER', keys: ['room'] });
+  expect(views.scopeExcluded).toEqual({ savedScopeId: 'OTHER', keys: ['room'], panelKeys: ['room'] });
   expect(views.crossScopeSave?.keys).toEqual(['room']);
   // What the screen opened is the saved view as it applies here: not modified.
   expect(views.state.modified).toBe(false);

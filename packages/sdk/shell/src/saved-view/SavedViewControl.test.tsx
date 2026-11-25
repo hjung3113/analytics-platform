@@ -900,4 +900,24 @@ describe('a view saved in another Scope (#2175)', () => {
     expect(dialog.textContent).toContain('공정, Line, PRC 그룹, 설비 그룹 조건');
     expect(dialog.textContent).not.toMatch(/lineNames|prcGroups|membershipBasis/);
   });
+
+  it('names held panel sets by their input keys next to the Site-bound values, and says how the panels are saved (#2862 R2862C C4·C5)', async () => {
+    const user = userEvent.setup();
+    const held = (key: string) => ({ key, from: `src.${key}`, mode: 'hold', value: { shape: 'set', values: ['A'] } });
+    const panels = { version: 1, instances: [
+      { id: 'src', source: { kind: 'declared', panel: 'src' }, inputs: [], outputs: ['room', 'constructor'].map(key => ({ key, dimension: key, shape: 'set' })) },
+      { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [], inputs: [held('room'), held('constructor')] },
+    ] };
+    const view = viewOf({ id: 'p1', name: '붙잡은 뷰', kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, page: [], chartOptions: {}, layout: null, panels, savedScopeId: 'MEM', context: { from: '2026-09-25T09:00:00', to: '2026-09-26T09:00:00', roomNames: ['PHOTO'] } } as never);
+    mount(createFakeViewStore([view]), `/?scopeId=FDRY&${period}`);
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await pick(user, '붙잡은 뷰');
+    expect((await screen.findByText(/다른 Scope라 제외:/)).textContent).toContain('다른 Scope라 제외: 공정, room, constructor');
+    act(() => platform.setGlobal({ roomNames: ['ETCH'] }));
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    await user.click(await screen.findByRole('menuitem', { name: '현재 뷰에 저장' }));
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog.textContent).toContain('공정, room, constructor 값이 지워지고');
+    expect(dialog.textContent).toContain('이전 Scope에서 붙잡은 패널 값(room, constructor)은 지워지고, 지금 패널의 입력 방식이 저장됩니다.');
+  });
 });

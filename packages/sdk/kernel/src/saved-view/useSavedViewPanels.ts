@@ -56,8 +56,10 @@ export function useSavedViewPanels(options: {
  */
 export function useHoldsPanels(): () => boolean {
   const app = useContext(AppContext);
+  const lent = useContext(LentPanelPlatformContext) !== null;
   const host = useHostPlatformOptional();
-  const registry = app?.internal.savedViewSlots;
+  // Only the main screen registers panels: a board pane or a lent source copying its own link never reads the main screen's (R2862C C3).
+  const registry = !lent && host?.paneId === null ? app?.internal.savedViewSlots : undefined;
   const key = JSON.stringify([host?.route?.menu?.id, host?.global.scopeId]);
   return useCallback(() => {
     const value = registry?.screen(key).capture<SavedViewPanelsOutcome>(PANELS_SLOT)[PANELS_SLOT];

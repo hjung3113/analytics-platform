@@ -188,7 +188,8 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const confirmDraft = () => new Promise<boolean>(resolve => { setDraftAsk(() => resolve); });
   const [scopeAsk, setScopeAsk] = useState<((ok: boolean) => void) | null>(null);
   const confirmScope = () => new Promise<boolean>(resolve => { setScopeAsk(() => resolve); });
-  const keyText = (keys: readonly string[]) => keys.map(key => key in CONTEXT_LABELS ? tx(CONTEXT_LABELS[key as keyof typeof CONTEXT_LABELS]) : key).join(', ');
+  // Context keys read as condition names; panel input keys (#2862) and any other key stay as declared.
+  const keyText = (keys: readonly string[], panelKeys: readonly string[] = []) => keys.map(key => !panelKeys.includes(key) && Object.hasOwn(CONTEXT_LABELS, key) ? tx(CONTEXT_LABELS[key as keyof typeof CONTEXT_LABELS]) : key).join(', ');
   const saveCurrent = async (): Promise<boolean> => {
     if (unapplied && !(await confirmDraft())) return false;
     // Saving across Scopes drops the Site-bound values saved elsewhere: ask first, and point at 새 뷰로 저장 (#2175).
@@ -279,16 +280,23 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const panels = selected ? panelCount(selected.view) : 0;
   const scoped = views.scopeExcluded;
   // The unsupported list and the other-Scope list stay apart: one is the menu's limit, the other a rule of the Scope (#2175).
-  const scopeNote = scoped ? m('savedViewScopeExcluded', { keys: keyText(scoped.keys) }) : '';
+  const scopeNote = scoped ? m('savedViewScopeExcluded', { keys: keyText(scoped.keys, scoped.panelKeys) }) : '';
   // The saved Scope is named only when the viewer's own Scope list has it; a shared viewer gets no raw id of a Scope they hold no grant for (#2175).
   const scopeName = (id: string) => host.session.scopes.find(option => option.id === id)?.label ?? null;
   const savedIn = scoped ? scopeName(scoped.savedScopeId) : null;
-  const scopeFull = scoped ? (savedIn === null ? m('savedViewScopeExcludedOther', { keys: keyText(scoped.keys) }) : m('savedViewScopeExcludedFull', { scope: savedIn, keys: keyText(scoped.keys) })) : '';
+  const scopeFull = scoped ? (savedIn === null ? m('savedViewScopeExcludedOther', { keys: keyText(scoped.keys, scoped.panelKeys) }) : m('savedViewScopeExcludedFull', { scope: savedIn, keys: keyText(scoped.keys, scoped.panelKeys) })) : '';
   const note = (excluded.length > 0 || panels > 0 || scoped)
     ? [panels > 0 ? m('savedViewPanelCount', { count: panels }) : '', excluded.length > 0 ? m('savedViewExcludedKeys', { keys: excluded.join(', ') }) : '', scopeNote].filter(Boolean).join(' · ')
     : '';
   const noteTitle = [note, scopeFull].filter(Boolean).join('\n');
   const noteText = note && <span role="status" className="break-words text-xs text-text-secondary" title={noteTitle}>{note}</span>;
+  const cross = views.crossScopeSave;
+  const crossKeys = cross ? keyText(cross.keys, cross.panelKeys) : '';
+  const crossScopeMessage = !cross ? '' : [
+    scopeName(cross.savedScopeId) === null ? m('savedViewCrossScopeMessageOther', { keys: crossKeys }) : m('savedViewCrossScopeMessage', { scope: scopeName(cross.savedScopeId) ?? '', keys: crossKeys }),
+    // Held panel sets are not replaced by this Scope's values: the panels are saved as their inputs now are (#2862 R2862C C5).
+    cross.panelKeys?.length ? m('savedViewCrossScopePanels', { keys: cross.panelKeys.join(', ') }) : '',
+  ].filter(Boolean).join(' ');
   const picker = external ? { open: external.active === 'view', onOpenChange: (open: boolean) => { if (!open) external.close(); }, anchorRef: external.anchorRef, note: noteText } : undefined;
 
   return <span ref={wrapper} className="inline-flex flex-wrap items-center gap-1">
@@ -328,7 +336,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     <DirtyConfirmation
       open={scopeAsk !== null} onCancel={() => { scopeAsk?.(false); setScopeAsk(null); }} onConfirm={() => { scopeAsk?.(true); setScopeAsk(null); }}
       title={m('savedViewCrossScopeTitle')}
-      message={views.crossScopeSave ? (scopeName(views.crossScopeSave.savedScopeId) === null ? m('savedViewCrossScopeMessageOther', { keys: keyText(views.crossScopeSave.keys) }) : m('savedViewCrossScopeMessage', { scope: scopeName(views.crossScopeSave.savedScopeId) ?? '', keys: keyText(views.crossScopeSave.keys) })) : ''}
+      message={crossScopeMessage}
       confirmLabel={m('savedViewCrossScopeConfirm')} cancelLabel={t('cancel')}
     />
     <DirtyConfirmation

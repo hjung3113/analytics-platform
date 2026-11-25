@@ -23,7 +23,7 @@ export function siteBoundDropped(view: Pick<Exclude<SavedView, { kind: 'custom-g
 export type RestoreSource = 'selected' | 'default';
 export type RestoreFailure = 'wrong-menu' | 'stale-schema';
 export type RestoreResult =
-  | { ok: true; applied: true; next: Applied; href: string; unsupported: Unsupported[]; /** Context keys (as the user reads them) a view saved in another Scope did not apply here. */ excludedByScope: string[] }
+  | { ok: true; applied: true; next: Applied; href: string; unsupported: Unsupported[]; /** Context keys (as the user reads them) and held-set panel input keys (#2862) a view saved in another Scope did not apply here, each once. */ excludedByScope: string[] }
   /** The default view yields to an explicit address (06 §6.4, §21.3): nothing is written and no key is filled in. */
   | { ok: true; applied: false; reason: 'explicit-address' }
   | { ok: false; reason: RestoreFailure };
@@ -52,16 +52,20 @@ export const contextKeysOf = (fields: readonly (keyof SavedViewContext)[]): stri
 export function excludedByScope(view: SavedView, support: SavedViewSupport, scopeId: string | null): string[] {
   if (view.kind === 'custom-group') return [];
   const fields = supportedFields(support);
-  return [...contextKeysOf(siteBoundDropped(view, scopeId).filter(field => fields.has(field))), ...heldSetsDropped(view, scopeId)];
+  return [...new Set([...contextKeysOf(siteBoundDropped(view, scopeId).filter(field => fields.has(field))), ...heldSetsDropped(view, scopeId, support)])];
 }
 
 /** The saved panels as they apply in `scopeId`: in another Scope a held set follows instead (#2862), by the same Scope test as the Site-bound fields. */
 export function panelsInScope(view: { panels?: MenuViewPanels | null; savedScopeId?: string }, scopeId: string | null): { panels: MenuViewPanels | null; keys: string[] } {
   return view.panels && savedInOtherScope(view, scopeId) ? followHeldSets(view.panels) : { panels: view.panels ?? null, keys: [] };
 }
-/** Input keys of held sets in the view's panels that do not apply in `scopeId` (#2862); listed with the Site-bound fields. */
-export function heldSetsDropped(view: SavedView, scopeId: string | null): string[] {
-  return view.kind === 'menu-view' && !view.panelsUnreadable ? panelsInScope(view, scopeId).keys : [];
+/**
+ * Input keys of held sets in the view's panels that do not apply in `scopeId` (#2862); listed with the Site-bound fields. With `support`, only panels this
+ * menu schema opens count (a view of another schema hands no panels to the screen, R2862C C8).
+ */
+export function heldSetsDropped(view: SavedView, scopeId: string | null, support?: Pick<SavedViewSupport, 'menuSchemaVersion'>): string[] {
+  if (view.kind !== 'menu-view' || view.panelsUnreadable || (support && view.menuSchemaVersion !== support.menuSchemaVersion)) return [];
+  return panelsInScope(view, scopeId).keys;
 }
 
 /** What a view stores that this menu cannot restore (06 §6.4): derived from the saved copy, so it is the same right after a pick and after a reload. */

@@ -1,10 +1,10 @@
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { lazy, Suspense, useLayoutEffect, useState } from 'react';
+import { lazy, Suspense, useLayoutEffect, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { buildQuery, emptyGlobal, groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, useSavedViewSupport, usePlatform, type MenuPlatform } from '../../index';
-import { PaneScreenProvider, useHostPlatform, useSavedViews, type SavedViews } from '../../host';
+import { buildQuery, emptyGlobal, groupId, spaceId, type MenuViewPanels, type SavedViewSupport } from '@ap/contracts';
+import { I18nProvider, PlatformProvider, createRegistry, useSavedViewPanels, useSavedViewSupport, usePlatform, type MenuPlatform, type SavedViewPanelsOutcome } from '../../index';
+import { PaneScreenProvider, useHoldsPanels, useHostPlatform, useSavedViews, type SavedViews } from '../../host';
 import { ScreenSavedViews, type InitialSavedView } from '../useSavedViews';
 import { createFakeSavedViewStore as createFakeStore, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities, ToastProbe, type FakeSavedViewStore as FakeStore } from '../../testing';
 /** A promise the test resolves by hand, to finish a store call out of order. */
@@ -1400,4 +1400,81 @@ it('keeps completed-then-reset, invalid, and history-restored legacy entries exa
   act(() => host.resetContext());
   await act(async () => {});
   expect(host.global).toMatchObject({ from: null, to: null, lineNames: null });
+});
+
+// #2862 (R2862C): held panel sets follow the Scope rule on a Scope switch, an overwrite with no panel slot, and only on the main screen.
+const heldPanels: MenuViewPanels = { version: 1, instances: [
+  { id: 'src', source: { kind: 'declared', panel: 'src' }, inputs: [], outputs: [{ key: 'room', dimension: 'room', shape: 'set' }] },
+  { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [], inputs: [{ key: 'room', from: 'src.room', mode: 'hold', value: { shape: 'set', values: ['R1'] } }] },
+] };
+const followingPanels: MenuViewPanels = { ...heldPanels, instances: [heldPanels.instances[0]!, { ...heldPanels.instances[1]!, inputs: [{ key: 'room', from: 'src.room', mode: 'follow' }] }] };
+const menuView = (over: Parameters<typeof viewOf>[0]) => viewOf({ kind: 'menu-view', menuId: 'home', menuSchemaVersion: 1, context: period, page: [], chartOptions: {}, layout: null, savedScopeId: 'MEM', panels: heldPanels, ...over });
+const HELD_VIEW = menuView({ id: 'h1', name: '붙잡은 뷰' });
+let screenPanels: MenuViewPanels | null = null;
+let holdsNow: (() => boolean) | undefined;
+let paneHolds: (() => boolean) | undefined;
+function PanelScreen() {
+  useSavedViewSupport(support); views = useSavedViews(); host = useHostPlatform();
+  const [value, update] = useState<MenuViewPanels | null>(null);
+  screenPanels = value;
+  holdsNow = useHoldsPanels();
+  useSavedViewPanels({ value, onOpen: (outcome: SavedViewPanelsOutcome) => { if (outcome !== 'unreadable') update(outcome); } });
+  return null;
+}
+function PaneHolds() { paneHolds = useHoldsPanels(); return null; }
+function mountPanels(store: FakeStore, url: string, Content: () => ReactNode = PanelScreen) {
+  window.history.replaceState(null, '', url);
+  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })} savedViews={store}><Content /></PlatformProvider></I18nProvider>);
+}
+
+it('a Scope switch with a view selected hands the new Scope the view panels with held sets following (#2862 R2862C C1)', async () => {
+  const store = createFakeStore([HELD_VIEW]);
+  mountPanels(store, inScope('MEM'));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('h1'); });
+  expect(screenPanels).toEqual(heldPanels);
+  act(() => host.setGlobal({ scopeId: 'FDRY' }));
+  await waitFor(() => expect(views.scopeExcluded).toEqual({ savedScopeId: 'MEM', keys: ['room'], panelKeys: ['room'] }));
+  await waitFor(() => expect(screenPanels).toEqual(followingPanels));
+  expect(views.state.modified).toBe(false);
+  await act(async () => { await views.saveToSelected(); });
+  expect(store.rows.get('h1')).toMatchObject({ savedScopeId: 'FDRY', panels: followingPanels });
+});
+
+it('an overwrite with no panel slot saves held sets of another Scope as following, and keeps panels otherwise (#2862 R2862C C2)', async () => {
+  const store = createFakeStore([HELD_VIEW, menuView({ id: 'h2', name: '같은 Scope' })]);
+  mount(store, inScope('FDRY'));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('h1'); });
+  expect(views.crossScopeSave).toEqual({ savedScopeId: 'MEM', keys: ['room'], panelKeys: ['room'] });
+  await act(async () => { await views.saveToSelected(); });
+  expect(store.rows.get('h1')).toMatchObject({ savedScopeId: 'FDRY', panels: followingPanels });
+  // Like the server, the fake store keeps the stored panels when a patch carries none.
+  act(() => host.setGlobal({ scopeId: 'MEM' }));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('h2'); });
+  await act(async () => { await views.saveToSelected(); });
+  expect(store.rows.get('h2')).toMatchObject({ savedScopeId: 'MEM', panels: heldPanels });
+});
+
+it('reports held panels only for the main screen, not a board pane of the same menu and Scope (#2862 R2862C C3)', async () => {
+  function Both() {
+    return <><PanelScreen /><PaneScreenProvider paneId="background" screen={{ menuId: 'home', params: {}, query: buildQuery({ ...emptyGlobal, scopeId: 'MEM', ...period }, []) }} onChange={() => {}} onLeave={() => {}}><PaneHolds /></PaneScreenProvider></>;
+  }
+  mountPanels(createFakeStore([HELD_VIEW]), inScope('MEM'), Both);
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('h1'); });
+  expect(holdsNow?.()).toBe(true);
+  expect(paneHolds?.()).toBe(false);
+});
+
+it('a kept selection of another menu schema hands no panels, so it lists no held keys and compares no panels (#2862 R2862C C8)', async () => {
+  const stale = menuView({ id: 'h3', name: '옛 스키마', menuSchemaVersion: 0 });
+  window.sessionStorage.setItem(KEY, 'h3');
+  mountPanels(createFakeStore([stale]), inScope('FDRY'));
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await waitFor(() => expect(views.selected?.view.id).toBe('h3'));
+  expect(screenPanels).toBeNull();
+  expect(views.scopeExcluded).toBeNull();
+  expect(views.state.modified).toBe(false);
 });
