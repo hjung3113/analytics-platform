@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { PanelInstance } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type PanelInstance } from '@ap/contracts';
 import { usePlatform } from '@ap/kernel';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { MOTION_EQUIPMENT_KEY, hwTime, type HwTimeTableData } from '../../endpoints';
@@ -59,6 +59,70 @@ async function openTableSettings(tab?: HTMLElement) {
   fireEvent.click(await screen.findByRole('menuitem', { name: '패널 설정' }));
   return screen.findByRole('dialog', { name: '원본 표' });
 }
+
+async function mountPanelView(instances: PanelInstance[]) {
+  const store = createFakeSavedViewStore([testSavedView({
+    id: 'saved', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM',
+    context, page, chartOptions: {}, layout: null, panels: { version: 1, instances },
+  })]);
+  const open = async (id: string) => {
+    await renderOverview('', answer, { savedViews: store, children: <Controls />, realWorkspace: true, showDetail: true });
+    await waitFor(() => expect(views.status).toBe('ready'));
+    await act(async () => { expect(await views.select(id)).toMatchObject({ ok: true }); });
+  };
+  await open('saved');
+  return open;
+}
+
+it('keeps a drawn chart with a reserved ID when linking, reopening and ignoring', async () => {
+  const chart: PanelInstance = { id: 'held-source-2', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [] };
+  const open = await mountPanelView([chart]);
+  expect(await screen.findByTestId('hw-module-motions')).toBeTruthy();
+  fireEvent.click(within(await openTableSettings()).getByRole('radio', { name: '강조만' }));
+  const linked = await act(() => views.saveAs({ name: 'Linked', kind: 'menu-view' }));
+  if (!linked.ok || linked.value.view.kind !== 'menu-view') throw new Error('Failed to save linked view');
+
+  cleanup();
+  await open(linked.value.view.id);
+  expect(await screen.findByTestId('hw-module-motions')).toBeTruthy();
+  const drawer = await openTableSettings();
+  expect(within(drawer).getByRole('radio', { name: '강조만', checked: true })).toBeTruthy();
+  fireEvent.click(within(drawer).getByRole('radio', { name: '무시' }));
+  const ignored = await act(() => views.saveAs({ name: 'Ignored', kind: 'menu-view' }));
+  expect(ignored).toMatchObject({ ok: true, value: { view: { panels: { instances: [
+    chart, { id: 'table', source: { kind: 'declared', panel: 'table' }, inputs: [], outputs: [] },
+  ] } } } });
+
+  const publisher = linked.value.view.panels?.instances.find(panel => panel.id !== chart.id && panel.outputs.length > 0);
+  expect(publisher).toMatchObject({ id: expect.stringMatching(/^held-source(?:-|$)/), source: chart.source, inputs: [], outputs: [
+    { key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' },
+  ] });
+  expect(linked.value.view.panels?.instances).toContainEqual(chart);
+  expect(linked.value.view.panels?.instances.find(panel => panel.id === 'table')?.inputs).toEqual([
+    { key: MOTION_EQUIPMENT_KEY, from: `${publisher?.id}.${MOTION_EQUIPMENT_KEY}`, mode: 'follow', use: 'highlight' },
+  ]);
+});
+
+it.each([['무시', 'ignore'], ['따라가기', 'follow']] as const)('applies %s at the saved panel limit', async (label, action) => {
+  const from = `held-source.${MOTION_EQUIPMENT_KEY}`;
+  const hidden: PanelInstance = { id: 'held-source', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+    outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
+  const table: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+    inputs: [{ key: MOTION_EQUIPMENT_KEY, from, mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] } }] };
+  const others: PanelInstance[] = Array.from({ length: PANEL_INSTANCES_MAX - 2 }, (_, index) => ({
+    id: `other-${index}`, source: { kind: 'declared', panel: 'retired' }, inputs: [], outputs: [],
+  }));
+  await mountPanelView([...others, table, hidden]);
+  const drawer = await openTableSettings();
+  fireEvent.click(within(drawer).getByRole('radio', { name: label }));
+  expect(within(drawer).queryByRole('alert')).toBeNull();
+  const follow = action === 'follow';
+  const saved = await act(() => views.saveAs({ name: 'Edited at limit', kind: 'menu-view' }));
+  expect(saved).toMatchObject({ ok: true, value: { view: { panels: { instances: [
+    ...others, { ...table, inputs: follow ? [{ key: MOTION_EQUIPMENT_KEY, from, mode: 'follow' }] : [] },
+    ...(follow ? [hidden] : []),
+  ] } } } });
+});
 
 it.each(['edit connections', 'add a panel'] as const)('keeps colliding wire IDs after save and reopen when users %s', async action => {
   const collisions: PanelInstance[] = (action === 'edit connections' ? ['current', 'table'] : ['pareto']).map(id => ({

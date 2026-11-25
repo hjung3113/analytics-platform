@@ -13,6 +13,8 @@ export type PanelSettingsDrawerProps = {
   title: Text;
   panel: PanelInstance;
   value: MenuViewPanels;
+  /** Builds the graph to validate and emit when the caller's save slot projects the edited panel. */
+  projectCandidate?: (panel: PanelInstance) => MenuViewPanels;
   declaredInputs?: readonly DeclaredInput[];
   /** Eligible publisher for a new input, as `<instance id>.<output key>`. Saved inputs keep their own reference. */
   sourceReference?: (inputKey: string) => string | undefined;
@@ -47,7 +49,7 @@ function Segments<T extends string>({ label, options, value, disabled, text, onC
 }
 
 /** Edits one instance in a v1 panel configuration. The caller supplies the live selection and owns the saved-view slot. */
-export function PanelSettingsDrawer({ title, panel, value, declaredInputs = [], sourceReference, sourceTitle, outputLabel, selectionOf, trigger, onChange, onClose }: PanelSettingsDrawerProps) {
+export function PanelSettingsDrawer({ title, panel, value, projectCandidate, declaredInputs = [], sourceReference, sourceTitle, outputLabel, selectionOf, trigger, onChange, onClose }: PanelSettingsDrawerProps) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { tx } = useI18n();
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +65,9 @@ export function PanelSettingsDrawer({ title, panel, value, declaredInputs = [], 
     const index = inputs.findIndex(input => input.key === key);
     if (index < 0 && next) inputs.push(next);
     if (index >= 0) inputs.splice(index, 1, ...(next ? [next] : []));
-    const candidate = { ...value, instances: value.instances.map(instance => instance.id === panel.id ? { ...instance, inputs } : instance) };
+    const updated = { ...panel, inputs };
+    const candidate = projectCandidate?.(updated)
+      ?? { ...value, instances: value.instances.map(instance => instance.id === panel.id ? { ...instance, inputs } : instance) };
     const problem = invalidMenuViewPanels(candidate);
     setError(problem);
     if (!problem) onChange(candidate);

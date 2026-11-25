@@ -43,6 +43,8 @@ export function heldTableInput({ key, from, value, use }: Extract<PanelInstanceI
 }
 
 /** The save boundary for additions and their inputs/outputs. Layout and URL pins are owned elsewhere. */
+export function buildSavedPanels(config: CustomPanels, step: Step): MenuViewPanels;
+export function buildSavedPanels(config: PanelConfiguration, step: Step): MenuViewPanels | null;
 export function buildSavedPanels(config: PanelConfiguration, step: Step): MenuViewPanels | null {
   if (config.kind !== 'custom') return null;
   const instances = config.added.filter(({ slot, instance }) =>
@@ -51,8 +53,9 @@ export function buildSavedPanels(config: PanelConfiguration, step: Step): MenuVi
 }
 
 /** The source a new hold names: a kept one with the equipment output, or a new one under a free id. */
-export function heldSourceFor(config: CustomPanels): { sources: readonly PanelInstance[]; id: string; added: boolean } {
-  const kept = config.sources.find(source => source.outputs.some(output => output.key === heldOutput.key && output.dimension === heldOutput.dimension && output.shape === heldOutput.shape));
+export function heldSourceFor(config: CustomPanels, { reservedOnly = false } = {}): { sources: readonly PanelInstance[]; id: string; added: boolean } {
+  const kept = config.sources.find(source => (!reservedOnly || isHeldSource(source))
+    && source.outputs.some(output => output.key === heldOutput.key && output.dimension === heldOutput.dimension && output.shape === heldOutput.shape));
   if (kept) return { sources: config.sources, id: kept.id, added: false };
   const taken = new Set([...config.added.map(panel => panel.instance.id), ...config.sources.map(source => source.id)]);
   let id = HELD_SOURCE_ID;

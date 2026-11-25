@@ -181,6 +181,29 @@ describe('HW Time saved view panels', () => {
 
   const stepFourPage: MenuView['page'] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['pins', 'table']];
 
+  it('keeps the drawn panel slots when an interleaved held source moves to the end on save', async () => {
+    const source = equipmentSource();
+    const table = heldTable('table~1');
+    const extraDonut = { ...donut, id: 'donut~1' };
+    const store = createFakeSavedViewStore([saved({
+      page: stepFourPage, panels: { version: 1, instances: [source, table, extraDonut] },
+    })]);
+    const panelSlots = () => [screen.getAllByRole('tab').find(tab => tab.getAttribute('aria-description')?.includes('붙잡음'))?.textContent,
+      screen.getByTestId('hw-verdict-donut').closest('section[aria-label^="panel "]')?.getAttribute('aria-label')];
+    await mount(store);
+    await open('saved');
+    const before = panelSlots();
+    const copy = await act(() => views.saveAs({ name: 'Interleaved source', kind: 'menu-view' }));
+    if (!copy.ok) throw new Error('Failed to save view');
+    expect(copy.value.view).toMatchObject({ panels: { instances: [table, extraDonut, source] } });
+
+    cleanup();
+    await mount(store);
+    await open(copy.value.view.id);
+    expect(panelSlots()).toEqual(before);
+    expect(before).toEqual(['saved-panel-0', 'panel saved-panel-1']);
+  });
+
   it.each([['trend~1', 'trend'], ['current~1', 'moduleMotions'], ['table~1', 'table']])(
     'opens %s in its own slot and preserves its record on save',
     async (id, panel) => {

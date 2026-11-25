@@ -299,6 +299,8 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 새 연결의 발신 출력은 소비자가 `sourceReference`로 지정한다(`<인스턴스 id>.<출력 키>`). 저장된 연결은 기존 `from`을 유지한다.
 
+저장 슬롯이 후보 그래프를 따로 구성하면 소비자가 `projectCandidate`를 지정한다. 서랍은 편집한 패널을 이 함수에 넘기고 반환된 그래프를 검사한다. 검사를 통과한 그래프는 `onChange`로 전달한다. 기본 동작은 `value`에서 편집한 패널의 입력을 교체한다.
+
 ### FormField — 라벨·입력·도움말·오류 (Decided, #1890, [ADR-0161](../adr/0161-form-field-hint-always-visible-render-function.md))
 
 - `@ap/ui`의 `FormField({ label, required?, showRequiredMark?, requiredMark?, requiredText?, tip?, hint?, error?, errorRole?, id?, describedBy?, className?, children })`. `children`은 렌더 함수이고 `control`(`id`·`aria-describedby`·`aria-invalid`·`aria-required`)을 라벨 가능한 입력 **하나**에 펼친다(`<Input {...control} />`). `id` 기본값은 `useId()`이고 `describedBy`는 도움말·오류 id 뒤에 붙는다. 한 필드에 입력이 여럿이면 `FormField`를 나눈다.
