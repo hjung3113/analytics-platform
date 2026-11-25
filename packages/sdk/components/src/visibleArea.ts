@@ -94,6 +94,29 @@ export function revealInScrollContainer(element: HTMLElement, workspaceRoot: HTM
   else if (rectBottom > bottom) container.scrollTop += Math.min(rectBottom - bottom, rectTop - top);
 }
 
+/** Reveals a focused element vertically, starting with its nearest scroll container. Reads layout. */
+export function revealFocused(element: HTMLElement, options?: { bottomInset?: (container: HTMLElement) => number }): void {
+  const page = element.closest<HTMLElement>('[data-platform-page]');
+  const pageContainer = page ? scrollContainerOf(page) : null;
+  const chrome = stickyChromeOf(page).some(row => row.contains(element)) ? 0 : stickyChromeHeight(page);
+  for (let container = scrollContainerOf(element); ; container = scrollContainerOf(container)) {
+    const scroller = container ?? document.scrollingElement ?? document.documentElement;
+    const scrollportTop = container ? container.getBoundingClientRect().top + container.clientTop : 0;
+    const top = scrollportTop + (container === pageContainer ? chrome : 0);
+    const bottom = scrollportTop + (container?.clientHeight ?? window.innerHeight)
+      - (scroller instanceof HTMLElement ? options?.bottomInset?.(scroller) ?? 0 : 0);
+    // Read again at each ancestor because the inner scroll may have moved the field.
+    const rect = element.getBoundingClientRect();
+    if (top < bottom) {
+      const above = rect.top - top;
+      const below = rect.bottom - bottom;
+      if (above < 0 && below < 0) scroller.scrollTop += Math.max(above, below);
+      else if (below > 0 && above > 0) scroller.scrollTop += Math.min(above, below);
+    }
+    if (!container) break;
+  }
+}
+
 /** Scrolls the workspace's scroll container so `element` sits directly under the sticky page chrome (a new row's header, the workspace top on maximize). Reads layout. */
 export function alignUnderChrome(element: HTMLElement, workspaceRoot: HTMLElement): void {
   const container = scrollContainerOf(workspaceRoot);
