@@ -82,8 +82,6 @@ test.describe('HW Time analysis selection', () => {
     const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
     await expect.poll(clipboard).toContain('motionEquipment=MEM-PHOTO-0105');
     const sharedUrl = await clipboard();
-    // Fold the bar again so the table keeps the height it had above (the drill path bar takes a row since #2739).
-    await bar.getByRole('button', { name: '조회 조건 접기', exact: true }).click();
 
     await page.goBack();
     await expect.poll(() => query(page).has('motionEquipment')).toBe(false);
