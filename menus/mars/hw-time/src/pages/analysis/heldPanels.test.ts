@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type AnalysisSelection, type PanelInstance } from '@ap/contracts';
-import { buildSavedPanels, heldOf, heldSourceFor, holdOverflows, keepHeld, type PanelConfiguration } from './heldPanels';
+import { buildSavedPanels, heldOf, heldSourceFor, holdOverflows, isHeldSource, keepHeld, type AddIntent, type PanelConfiguration } from './heldPanels';
 
 // #2862 R C2·C3·C6: the pure rules behind held raw tables.
 const equipment = { key: 'motionEquipment', dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' } as const;
@@ -35,10 +35,25 @@ describe('buildSavedPanels', () => {
 
 describe('holdOverflows', () => {
   const full = (count: number) => Array.from({ length: count }, (_, index) => declared(`panel-${index}`));
+  const holding: AddIntent = { mode: 'hold', held: { motionEquipment: { shape: 'set', values: ['MEM-PHOTO-0105'] } } };
   it('tells before a hold would pass the saved panel limit, counting a new source', () => {
-    expect(holdOverflows(custom(full(PANEL_INSTANCES_MAX - 2)), 4, 'table')).toBe(false);
-    expect(holdOverflows(custom(full(PANEL_INSTANCES_MAX - 1)), 4, 'table')).toBe(true);
-    expect(holdOverflows({ kind: 'default' }, 4, 'table')).toBe(false);
+    expect(holdOverflows(custom(full(PANEL_INSTANCES_MAX - 2)), 4, 'table', holding)).toBe(false);
+    expect(holdOverflows(custom(full(PANEL_INSTANCES_MAX - 1)), 4, 'table', holding)).toBe(true);
+    expect(holdOverflows({ kind: 'default' }, 4, 'table', holding)).toBe(false);
+  });
+  it('measures what would be saved: a replaced hold drops its range source, so 24 still fits (R2 C11)', () => {
+    const range = source('held-source', [{ ...equipment, shape: 'range' }]);
+    const table = declared('table', [hold('held-source.motionEquipment', { shape: 'range', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' })]);
+    expect(buildSavedPanels(custom([table, ...full(PANEL_INSTANCES_MAX - 2)], [range]), 4)?.instances).toHaveLength(PANEL_INSTANCES_MAX);
+    expect(holdOverflows(custom([table, ...full(PANEL_INSTANCES_MAX - 2)], [range]), 4, 'table', holding)).toBe(false);
+  });
+});
+
+describe('isHeldSource', () => {
+  it('needs the reserved id, the «모듈 동작» declaration, no inputs and the equipment output (R2 C2)', () => {
+    expect(isHeldSource(source('held-source-2'))).toBe(true);
+    expect(isHeldSource(source('held-source-2', []))).toBe(false);
+    expect(isHeldSource(source('motion-chart'))).toBe(false);
   });
 });
 
@@ -49,6 +64,13 @@ describe('keepHeld', () => {
     const config: PanelConfiguration = { kind: 'custom', added: [{ slot: 'table', instance: table, heldFrom: 'moduleMotions' }, { slot: 'donut', instance: declared('donut') }], sources: [kept] };
     expect(keepHeld(config)).toEqual({ kind: 'custom', added: [{ slot: 'table', instance: table }], sources: [kept] });
     expect(keepHeld(custom([declared('donut')]))).toEqual({ kind: 'default' });
+  });
+  it('keeps a drawn chart a held table names as a hidden source, so the saved graph stays valid (R2 C3)', () => {
+    const chart = source('motion-chart');
+    const table = declared('table', [hold('motion-chart.motionEquipment')]);
+    const next = keepHeld(custom([chart, table, declared('donut')]));
+    expect(next).toEqual({ kind: 'custom', added: [{ slot: 'table', instance: table }], sources: [chart] });
+    expect(buildSavedPanels(next, 3)).toEqual({ version: 1, instances: [table, chart] });
   });
 });
 
@@ -65,6 +87,10 @@ describe('heldOf', () => {
     ['another key', [kept], hold('held-source.motionEquipment', undefined, 'other')],
   ])('marks %s unread', (_name, instances, input) => {
     expect(heldOf(declared('table', [input]), instances)).toMatchObject({ unread: true, count: 0 });
+  });
+  it('marks a valid range source and range hold unread: this table reads an equipment set (R2 C6)', () => {
+    const range = source('held-source', [{ ...equipment, shape: 'range' }]);
+    expect(heldOf(declared('table', [hold('held-source.motionEquipment', { shape: 'range', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' })]), [range])).toMatchObject({ unread: true, count: 0 });
   });
   it('keeps the saved dimension so the SDK compares it with the channel', () => {
     expect(heldOf(declared('table', [hold('held-source.motionEquipment')]), [source('held-source', [{ ...equipment, dimension: 'module' }])]).held.motionEquipment?.dimension).toBe('module');

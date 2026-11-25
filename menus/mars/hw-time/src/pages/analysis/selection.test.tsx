@@ -2,8 +2,8 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as kernel from '@ap/kernel';
-import { memoryStorage } from '@ap/kernel/testing';
-import type { MenuQuery } from '@ap/contracts';
+import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
+import { EQUIPMENT_SELECTION_DIMENSION, type MenuQuery, type PanelInstance } from '@ap/contracts';
 import { answer, chartRenders, fixtureMatrix, renderOverview, requests, settle } from './test-support';
 
 await vi.hoisted(async () => { (await import('@ap/components/testing/engines')).mockEchartsCanvas(); });
@@ -374,6 +374,28 @@ it('keeps a held table when the drill moves up a step (#2862 R C3)', async () =>
   expect(url().get('drillModule')).toBeNull();
   await waitFor(() => expect(tableTab().getAttribute('aria-description')).toContain('붙잡음 · 설비 1대'));
   expect(tableReads().slice(before).every(read => (read.params as { motionEquipment?: string[] }).motionEquipment?.join() === 'MEM-PHOTO-0105')).toBe(true);
+});
+
+it('keeps a restored held table and the drawn chart it names across a drill up, and saves a valid graph (#2862 R2 C3)', async () => {
+  const chart: PanelInstance = { id: 'moduleMotions', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [{ key: 'motionEquipment', dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
+  const held: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+    inputs: [{ key: 'motionEquipment', from: 'moduleMotions.motionEquipment', mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] } }] };
+  const store = createFakeSavedViewStore([testSavedView({ id: 'saved', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM',
+    context: { from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00' }, page: [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['motionEquipment', 'MEM-PHOTO-0103']],
+    chartOptions: {}, layout: null, panels: { version: 1, instances: [chart, held] } })]);
+  let views!: SavedViews;
+  function Probe() { views = useSavedViews(); return null; }
+  await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0103', answer,
+    { realWorkspace: true, realChart: 'hw-current', showSelectionChips: true, savedViews: store, children: <Probe /> });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('saved'); });
+  await followsTo('MEM-PHOTO-0105');
+  fireEvent.click(screen.getByRole('button', { name: 'Pump 단계로 이동' }));
+  await settle();
+  expect(url().get('drillModule')).toBeNull();
+  await waitFor(() => expect(tableTab().getAttribute('aria-description')).toContain('붙잡음 · 설비 1대'));
+  const result = await act(() => views.saveAs({ name: 'Up', kind: 'menu-view' }));
+  expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: [held, chart] } } } });
 });
 
 it('reopens a hidden held table as following when «원본 표» is picked (#2862 R C5)', async () => {

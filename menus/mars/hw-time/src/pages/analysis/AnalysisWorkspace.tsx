@@ -21,7 +21,7 @@ import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
 import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
-import { buildSavedPanels, defaultPanels, heldOf, heldOutput, heldSourceFor, holdOverflows, holds, isHeldSource, keepHeld, declaredInstance, noPanels, type AddedPanel, type AddIntent, type PanelConfiguration } from './heldPanels';
+import { buildSavedPanels, defaultPanels, heldOf, holdOverflows, holds, isHeldSource, keepHeld, withAdded, type AddedPanel, type AddIntent, type PanelConfiguration } from './heldPanels';
 import { CATALOG_IDS, chartRows, panelCatalog, projectBarData, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
@@ -229,15 +229,22 @@ function restoredPanel(instance: PanelInstance, index: number): AddedPanel {
   return { slot, instance };
 }
 
+/**
+ * The configuration for this render. Another user or Scope clears local additions. Opening a view can change the step and query Context in the
+ * same navigation, so an open carries across that change. A drill in the same query keeps only held tables; any other change clears.
+ */
+function nextConfig(state: { owner: string; query: string; config: PanelConfiguration; opening: boolean }, owner: string, query: string, samePopulation: boolean): PanelConfiguration {
+  if (state.owner !== owner) return defaultPanels;
+  if (samePopulation || state.opening) return state.config;
+  if (state.query === query) return keepHeld(state.config);
+  return defaultPanels;
+}
+
 function useWorkspacePanels(owner: string, query: string, step: Step) {
   const population = JSON.stringify([step, query]);
   const [state, setState] = useState(() => ({ owner, query, population, config: defaultPanels, opening: false }));
   const samePopulation = state.population === population;
-  // Opening can update the step and query Context in the same navigation. Carry that open across the population change; a drill in the
-  // same query keeps only held tables, and any other change clears local additions.
-  const config = state.owner !== owner ? defaultPanels
-    : samePopulation || state.opening ? state.config
-    : state.query === query ? keepHeld(state.config) : defaultPanels;
+  const config = nextConfig(state, owner, query, samePopulation);
   if (state.owner !== owner || !samePopulation || state.opening) setState({ owner, query, population, config, opening: false });
   useSavedViewPanels({
     value: buildSavedPanels(config, step),
@@ -252,20 +259,8 @@ function useWorkspacePanels(owner: string, query: string, step: Step) {
     },
   });
   const add = (id: string, intent?: AddIntent) => setState(current => {
-    if (step === 4 && id === 'trend') return current;
-    const custom = current.config.kind === 'custom' ? current.config : noPanels;
-    const existing = custom.added.find(panel => panel.slot === id);
-    const put = (panel: AddedPanel, sources = custom.sources) => ({ ...current, config: { kind: 'custom' as const, sources,
-      added: existing ? custom.added.map(item => item === existing ? panel : item) : [...custom.added, panel] } });
-    if (intent?.mode === 'hold') {
-      const source = heldSourceFor(custom);
-      const inputs = Object.entries(intent.held).flatMap(([key, value]): PanelInstance['inputs'] => key === heldOutput.key ? [{ key, from: `${source.id}.${key}`, mode: 'hold', value }] : []);
-      return put({ slot: id, instance: { ...(existing?.instance ?? declaredInstance(id)), inputs }, heldFrom: intent.from }, source.sources);
-    }
-    if (!existing) return put({ slot: id, instance: declaredInstance(id) });
-    if (!intent || !holds(existing.instance)) return current;
-    // An explicit «선택을 따라감» on a panel that holds: it reads the URL again.
-    return put({ slot: existing.slot, instance: { ...existing.instance, inputs: existing.instance.inputs.filter(input => input.mode !== 'hold') } });
+    const next = withAdded(current.config, id, step, intent);
+    return next ? { ...current, config: next } : current;
   });
   /** «따라가기로 바꾸기»: the panel drops its held values and reads the URL again. */
   const follow = (slot: string) => add(slot, { mode: 'follow' });
@@ -277,7 +272,7 @@ function useWorkspacePanels(owner: string, query: string, step: Step) {
     });
     return { ...current, config: { ...current.config, added } };
   });
-  return { config, add, remove, follow, holdOverflows: (id: string) => holdOverflows(config, step, id) };
+  return { config, add, remove, follow, holdOverflows: (id: string, intent: AddIntent) => holdOverflows(config, step, id, intent) };
 }
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
@@ -424,6 +419,10 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const tableLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, filterTable);
   const analysis = filterTable ? { equipment, level: tableLevel } : undefined;
   const badge = getAnalysisSelectionFilterBadge(tableFilter, analysis?.level, data => data.rows.length);
+  const tableBadge = (panel: CatalogId, heldTable: PanelInstance | undefined) => {
+    if (panel !== 'table') return undefined;
+    return heldTable ? heldBadge(heldTable) : badge;
+  };
   const heldBadge = (instance: PanelInstance) => {
     const { unread, count } = heldOf(instance, savedInstances);
     const text = unread ? HW_TIME_WORKSPACE_MESSAGES.heldRejected : HW_TIME_WORKSPACE_MESSAGES.heldPanel;
@@ -452,6 +451,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           render: () => <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={reason} /> };
       }
       const panel = item!.id as CatalogId;
+      // One table mode per slot: held tables read their own values (R C4), the rest follow the URL.
+      const heldTable = panel === 'table' && instance && holds(instance) ? instance : undefined;
       const renderPanel = (panel: CatalogId) => {
         switch (panel) {
           case 'distribution': return <DistributionPanel input={panelContext} filter={filter} />;
@@ -479,7 +480,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
             return <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions source />;
           }
           case 'table':
-            if (instance && holds(instance)) return <HeldTablePanel instance={instance} instances={savedInstances} />;
+            if (heldTable) return <HeldTablePanel instance={heldTable} instances={savedInstances} />;
             return tableFilter.kind === 'waiting' ? <LoadingBlock /> : <RawTablePanel params={{}} linked analysis={analysis} />;
           case 'donut': {
             const data = matrixData(projectQueryInputs(panelDeclarations.donut, panelContext));
@@ -494,20 +495,22 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         }
       };
       return { id, icon: ChartNoAxesCombined, title: item!.title, ...(step === 4 && id === 'trend' ? { placement: 'below' as const } : {}), preferredHeight: 360, minWidth: 200,
-        badge: panel !== 'table' ? undefined : instance && holds(instance) ? heldBadge(instance) : badge,
+        badge: tableBadge(panel, heldTable),
         keep: keptSources.has(id) ? { reason: HW_TIME_WORKSPACE_MESSAGES.heldSource } : undefined,
         pin: id === panel ? { pinned: pins.isPinned(id), onToggle: () => { savedPanels.add(id); pins.toggle(id); } } : undefined,
         render: () => <RecipePanel id={panel} open={explained === id} context={panelContext} onClose={() => setExplained(null)}>{renderPanel(panel)}</RecipePanel> };
     }),
   ];
   const addPanel = (id: string, pin: boolean, options?: { restoreHidden: boolean }, intent?: AddIntent) => {
-    if (intent?.mode === 'hold' && savedPanels.holdOverflows(id)) { toast(formatText(HW_TIME_WORKSPACE_MESSAGES.heldFull, lang, { max: PANEL_INSTANCES_MAX }), 'warning'); return; }
+    if (intent?.mode === 'hold' && savedPanels.holdOverflows(id, intent)) { toast(formatText(HW_TIME_WORKSPACE_MESSAGES.heldFull, lang, { max: PANEL_INSTANCES_MAX }), 'warning'); return; }
     savedPanels.add(id, intent);
     if (pin) pins.pin(id);
     setReveal(current => ({ panelId: id, seq: (current?.seq ?? 0) + 1, ...options }));
   };
   // The drawn panel whose bars a «새 패널» hold took its value from.
-  const selectionHost = currentHostsSelection ? 'current' : extraPanels.find(({ item }) => item?.id === sourcePanelId && !item.disabledReason)?.id;
+  // With two «모듈 동작» charts (only from a saved view) the draft does not say which one, so neither is kept (R2 C7).
+  const motionSlots = extraPanels.filter(({ item }) => item?.id === sourcePanelId && !item.disabledReason);
+  const selectionHost = currentHostsSelection ? 'current' : motionSlots.length === 1 ? motionSlots[0]!.id : undefined;
   return <div className="flex min-h-0 flex-1 flex-col gap-2">
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
     {savedPanels.config.kind === 'unreadable' && <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={workspace('unreadablePanels')} />}

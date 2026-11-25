@@ -24,7 +24,9 @@ export type AddIntent = { mode: 'follow' } | { mode: 'hold'; held: Readonly<Reco
 export const HELD_SOURCE_ID = 'held-source';
 export const heldOutput = { key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' } as const;
 export const isHeldSource = (instance: PanelInstance) => (instance.id === HELD_SOURCE_ID || instance.id.startsWith(`${HELD_SOURCE_ID}-`))
-  && instance.source.kind === 'declared' && instance.source.panel === panelDeclarations.moduleMotions.id && instance.inputs.length === 0;
+  && instance.source.kind === 'declared' && instance.source.panel === panelDeclarations.moduleMotions.id && instance.inputs.length === 0
+  // A «모듈 동작» chart saved under such an id but with no equipment output is drawn as a chart (R2 C2).
+  && instance.outputs.some(output => output.key === heldOutput.key);
 export const holds = (instance: PanelInstance) => instance.inputs.some(input => input.mode === 'hold');
 export const names = (instances: readonly PanelInstance[], id: string) => instances.some(instance => instance.inputs.some(input => input.from.startsWith(`${id}.`)));
 export const declaredInstance = (id: string): PanelInstance => ({ id, source: { kind: 'declared', panel: id }, inputs: [], outputs: [] });
@@ -47,20 +49,42 @@ export function heldSourceFor(config: CustomPanels): { sources: readonly PanelIn
   return { sources: [...config.sources, source], id, added: true };
 }
 
-/** Whether holding `id` would take the saved panels past the v1 limit; told before adding (#2862 R C2). */
-export function holdOverflows(config: PanelConfiguration, step: Step, id: string): boolean {
+/**
+ * The configuration after adding `id` (null: nothing changes). From the toolbar or a pin (no intent) an open panel keeps its inputs; «새 패널» states
+ * follow (an open held panel reads the URL again, R C5) or hold (its inputs become the held values, naming a source output, R C2).
+ */
+export function withAdded(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent): PanelConfiguration | null {
+  if (step === 4 && id === 'trend') return null;
   const custom = config.kind === 'custom' ? config : noPanels;
-  const saved = buildSavedPanels(custom, step)?.instances.length ?? 0;
-  const source = heldSourceFor(custom);
-  const sourceSaved = !source.added && names(custom.added.map(panel => panel.instance), source.id);
-  return saved + (custom.added.some(panel => panel.slot === id) ? 0 : 1) + (sourceSaved ? 0 : 1) > PANEL_INSTANCES_MAX;
+  const existing = custom.added.find(panel => panel.slot === id);
+  const put = (panel: AddedPanel, sources = custom.sources): CustomPanels => ({ kind: 'custom', sources,
+    added: existing ? custom.added.map(item => item === existing ? panel : item) : [...custom.added, panel] });
+  if (intent?.mode === 'hold') {
+    const source = heldSourceFor(custom);
+    const inputs = Object.entries(intent.held).flatMap(([key, value]): PanelInstance['inputs'] => key === heldOutput.key ? [{ key, from: `${source.id}.${key}`, mode: 'hold', value }] : []);
+    return put({ slot: id, instance: { ...(existing?.instance ?? declaredInstance(id)), inputs }, heldFrom: intent.from }, source.sources);
+  }
+  if (!existing) return put({ slot: id, instance: declaredInstance(id) });
+  if (!intent || !holds(existing.instance)) return null;
+  return put({ slot: existing.slot, instance: { ...existing.instance, inputs: existing.instance.inputs.filter(input => input.mode !== 'hold') } });
 }
 
-/** Changing the drill step keeps the held tables (their values stand without the source chart, #2862 R C3) and resets the rest. */
+/** Whether a hold would take the saved panels past the v1 limit: measured on what would be saved, so a replaced hold's dropped source is not counted (R2 C11). */
+export function holdOverflows(config: PanelConfiguration, step: Step, id: string, intent: AddIntent): boolean {
+  return (buildSavedPanels(withAdded(config, id, step, intent) ?? config, step)?.instances.length ?? 0) > PANEL_INSTANCES_MAX;
+}
+
+/**
+ * Changing the drill step keeps the held tables (their values stand without the source chart, #2862 R C3) and resets the rest. A drawn panel a
+ * held input names stays as a hidden source, so the saved graph keeps a valid `from` (R2 C3).
+ */
 export function keepHeld(config: PanelConfiguration): PanelConfiguration {
   if (config.kind !== 'custom') return defaultPanels;
-  const added = config.added.flatMap(panel => holds(panel.instance) ? [{ slot: panel.slot, instance: panel.instance }] : []);
-  return added.length ? { ...config, added } : defaultPanels;
+  const kept = config.added.filter(panel => holds(panel.instance));
+  if (!kept.length) return defaultPanels;
+  const keptInstances = kept.map(panel => panel.instance);
+  const named = config.added.filter(panel => !holds(panel.instance) && names(keptInstances, panel.instance.id)).map(panel => panel.instance);
+  return { kind: 'custom', added: kept.map(({ slot, instance }) => ({ slot, instance })), sources: [...config.sources, ...named] };
 }
 
 /**
@@ -80,4 +104,3 @@ export function heldOf(instance: PanelInstance, instances: readonly PanelInstanc
   const selection = held[heldOutput.key]?.selection;
   return { held, unread, count: !unread && selection?.shape === 'set' ? selection.values.length : 0 };
 }
-

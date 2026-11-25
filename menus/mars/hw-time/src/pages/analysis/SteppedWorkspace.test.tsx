@@ -106,11 +106,30 @@ describe('HW Time saved view panels', () => {
     await open('saved');
     expect(await screen.findByText('붙잡은 설비 선택을 적용할 수 없어 표를 거르지 않았습니다.')).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'table' }).getAttribute('aria-description')).toBe('붙잡은 설비 선택을 적용할 수 없어 표를 거르지 않았습니다.');
-    await settle();
-    // Neither the held value nor the URL selection filters it.
+    // Neither the held value nor the URL selection filters it: both endpoints read it unfiltered (R2 C6).
+    await waitFor(() => {
+      for (const endpoint of ['hwTime.levelRows', 'hwTime.tableRows']) expect(tableReads().some(read => read.endpoint === endpoint)).toBe(true);
+    });
     expect(tableReads().every(read => (read.params as { motionEquipment?: string[] }).motionEquipment === undefined)).toBe(true);
     const result = await act(() => views.saveAs({ name: 'Other', kind: 'menu-view' }));
     expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances } } } });
+  });
+
+  const motionChart = (id: string): PanelInstance => ({ id, source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+    outputs: [{ key: 'motionEquipment', dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] });
+
+  it.each([
+    ['keeps the one «모듈 동작» chart the hold came from', ['moduleMotions'], ['moduleMotions']],
+    ['keeps neither «모듈 동작» chart when two are drawn, since the hold does not say which', ['moduleMotions', 'motion-b'], []],
+  ])('%s (#2862 R2 C7)', async (_name, charts, kept) => {
+    const step4: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['motionEquipment', 'MEM-PHOTO-0105']];
+    await mount(createFakeSavedViewStore([saved({ page: step4, panels: { version: 1, instances: charts.map(motionChart) } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105');
+    await open('saved');
+    await waitFor(() => expect(config().ids).toContain('moduleMotions'));
+    fireEvent.click(screen.getByRole('button', { name: 'hold table' }));
+    await settle();
+    expect(config().ids).toContain('table');
+    expect(config().keep).toEqual(kept);
   });
 
   it('renders a reason in the missing slot and renders the other panels', async () => {
