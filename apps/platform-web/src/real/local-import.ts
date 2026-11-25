@@ -1,4 +1,4 @@
-import { readMenuViewPanels, type SavedViewDraft, type SavedViewStore } from '@ap/contracts';
+import { isWellFormedText, readMenuViewPanels, type SavedViewDraft, type SavedViewStore } from '@ap/contracts';
 import { COMMAND_MAX_BYTES, IMPORT_ROWS_MAX, isSavedViewDraft, jsonBytes, withinDepth, type ImportLocal, type SavedViewImportCommand, type SavedViewImportOutcome } from '@ap/http-adapter';
 
 /**
@@ -59,9 +59,8 @@ function project(content: Record<string, unknown>): unknown {
   return { ...common, menuId: content['menuId'], menuSchemaVersion: content['menuSchemaVersion'], page: content['page'], chartOptions: content['chartOptions'], layout: content['layout'], panels: readablePanels(content['panels']), ...(content['tables'] === undefined ? {} : { tables: content['tables'] }) };
 }
 
-/** The server refuses NUL and unpaired surrogates in `legacyKey`; a row carrying one stays in the browser and never joins a request, so it cannot invalidate its neighbours. */
-const LONE_SURROGATE = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
-const isWellFormedKey = (value: string): boolean => !value.includes('\u0000') && !LONE_SURROGATE.test(value);
+/** A row the server would refuse (a malformed `legacyKey` or draft) stays in the browser and never joins a request, so it cannot invalidate its neighbours (#2991). */
+const importable = (legacyKey: string, draft: unknown): boolean => legacyKey.length <= 200 && isWellFormedText(legacyKey) && isSavedViewDraft(draft);
 
 function readBucket(storage: StoragePort, name: string, actorId: string): { menuId: string | null; rows: ManifestRow[] } | null {
   let parsedKey: unknown;
@@ -80,7 +79,7 @@ function readBucket(storage: StoragePort, name: string, actorId: string): { menu
     if (pending !== undefined && !(rowMatches(pending, actorId, menuId) && pending['id'] === row['id'])) continue;
     const draft = project(pending !== undefined ? (pending as Record<string, unknown>) : row);
     const legacyKey = row['id'] as string;
-    if (legacyKey.length > 200 || !isWellFormedKey(legacyKey) || !isSavedViewDraft(draft)) continue;
+    if (!importable(legacyKey, draft)) continue;
     rows.push({ legacyKey, draft: draft as SavedViewDraft });
   }
   return { menuId, rows };
@@ -176,6 +175,11 @@ export async function runLocalImport(deps: LocalImportDeps): Promise<ImportRepor
       if (existing) {
         const rows = existing.rows.map((row) => (existing.receipts[row.legacyKey] === undefined && row.draft.kind === 'menu-view' ? { ...row, draft: { ...row.draft, panels: readablePanels(row.draft.panels) } as SavedViewDraft } : row));
         manifest = { ...existing, rows };
+        // A manifest written by an older build can hold a row the guard now refuses: judge it alone, never the whole batch.
+        const refused = rows.filter((row) => manifest.receipts[row.legacyKey] === undefined && !importable(row.legacyKey, row.draft));
+        for (const row of refused) manifest.receipts[row.legacyKey] = { status: 'rejected', reason: 'invalid' };
+        // Written before any request, so the rejection holds whatever the batches answer.
+        if (refused.length > 0 && !saveManifest(storage, manifest)) return report('unavailable');
       }
       else {
         const source = readLegacyRows(storage, actorId);

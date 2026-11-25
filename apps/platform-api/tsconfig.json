@@ -17,6 +17,7 @@
     "src/modules/platform-saved-views/__tests__/transition-drift.test.ts",
     "src/modules/platform-saved-views/__tests__/panels.test.ts",
     "src/modules/platform-saved-views/__tests__/routes.test.ts",
+    "src/modules/platform-saved-views/__tests__/text-drift.test.ts",
     "src/modules/log-knowledge/__tests__/catalog-menu-drift.test.ts",
     "src/modules/eqv/__tests__/studio-menu-drift.test.ts",
     "src/modules/eqv/__tests__/onboarding-menu-drift.test.ts",

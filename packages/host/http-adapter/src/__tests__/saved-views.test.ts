@@ -370,3 +370,39 @@ describe('KER-26 saved-view name equivalence', () => {
     expect(isSavedViewCommand(command)).toBe(false);
   });
 });
+
+describe('one text rule for every saved-view string, panels and tables included (#2991)', () => {
+  const panels = (panel: string) => ({ version: 1, instances: [{ id: 'a', source: { kind: 'declared', panel }, inputs: [], outputs: [] }] });
+  const cases: [string, Record<string, unknown>, boolean][] = [
+    ['a supplementary character in the name', { name: 'v 😀' }, true],
+    ['a NUL in a declared panel reference', { panels: panels('trend\u0000') }, false],
+    ['an unpaired surrogate in a table key', { tables: { ['table\ud800']: {} } }, false],
+    ['a NUL in a table group member', { tables: { draftList: { groups: { basis: '[]', items: [{ id: 'u:g', label: 'G', members: ['a\u0000'] }] } } } }, false],
+    ['an unpaired surrogate in a layout array', { layout: ['\udc00'] }, false],
+  ];
+  it.each(cases)('%s: the SDK, the save, update and import guards agree', (_label, change, accepted) => {
+    const draft = { ...menuDraft, ...change };
+    expect(validateSavedView(draft).ok).toBe(accepted);
+    expect(isSavedViewCommand({ version: 1, op: 'save', draft })).toBe(accepted);
+    expect(isSavedViewCommand({ version: 1, op: 'update', id: 'v1', expectedVersion: 1, patch: change })).toBe(accepted);
+    expect(isSavedViewCommand({ version: 1, op: 'importLocal', importToken: 't', rows: [{ legacyKey: 'k', draft }], defaults: [] })).toBe(accepted);
+  });
+  it('reads arrays by index like JSON: a hidden index is judged, an extra named property is not', () => {
+    const hidden = ['ok'];
+    Object.defineProperty(hidden, 0, { value: 'a\u0000b', enumerable: false });
+    const extra = Object.assign(['ok'], { note: 'a\u0000b' });
+    for (const [layout, accepted] of [[hidden, false], [extra, true]] as const) {
+      const draft = { ...menuDraft, layout };
+      expect(validateSavedView(draft).ok).toBe(accepted);
+      expect(isSavedViewCommand({ version: 1, op: 'save', draft })).toBe(accepted);
+    }
+  });
+});
+
+describe('validateSavedView stays a one-argument callback (#2991)', () => {
+  it('judges every draft strictly when passed to map, which supplies an index', () => {
+    const results = [menuDraft, { ...menuDraft, name: 'a\u0000' }].map(validateSavedView);
+    expect(results.map(r => r.ok)).toEqual([true, false]);
+    expect(validateSavedView({ ...menuDraft, name: 'a\u0000' }, { allowMalformedText: true }).ok).toBe(true);
+  });
+});
