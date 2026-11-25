@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { alignUnderChrome, restoreScrollOffset, revealInScrollContainer, scrollContainerOf, stickyChromeHeight, visibleAreaHeight } from './visibleArea';
+import { alignUnderChrome, restoreScrollOffset, revealFocused, revealInScrollContainer, scrollContainerOf, stickyChromeHeight, visibleAreaHeight } from './visibleArea';
 
 afterEach(() => { document.body.innerHTML = ''; vi.restoreAllMocks(); });
 
@@ -59,6 +59,93 @@ describe('stickyChromeHeight', () => {
     size(document.querySelector('[data-query-bar]')!, { height: 48 });
     expect(stickyChromeHeight(document.querySelector('[data-platform-page]'))).toBe(98);
     expect(stickyChromeHeight(null)).toBe(0);
+  });
+});
+
+describe('revealFocused', () => {
+  function mount({ innerTop = 100, fieldTop = 180, groupBottom }: { innerTop?: number; fieldTop?: number; groupBottom?: number } = {}) {
+    document.body.innerHTML = '<main style="overflow-y:auto"><div data-platform-page><header data-page-sticky-header></header><div id="inner" style="overflow-y:auto"><div id="group"><button id="field"></button></div></div></div></main>';
+    const outer = document.querySelector('main')!;
+    const inner = document.getElementById('inner')!;
+    const group = document.getElementById('group')!;
+    const field = document.getElementById('field')!;
+    const header = document.querySelector('header')!;
+    const rect = (element: Element, top: () => number, bottom: () => number) => {
+      vi.spyOn(element, 'getBoundingClientRect').mockImplementation(() => ({ top: top(), bottom: bottom(), height: bottom() - top() }) as DOMRect);
+    };
+    const innerHeight = 100;
+    const outerHeight = 220;
+    size(outer, { clientHeight: outerHeight });
+    size(inner, { clientHeight: innerHeight });
+    rect(outer, () => 0, () => outerHeight);
+    rect(inner, () => innerTop - outer.scrollTop, () => innerTop + innerHeight - outer.scrollTop);
+    const fieldOffset = () => outer.scrollTop + inner.scrollTop;
+    rect(field, () => fieldTop - fieldOffset(), () => fieldTop + 32 - fieldOffset());
+    rect(group, () => fieldTop - fieldOffset(), () => (groupBottom ?? fieldTop + 32) - fieldOffset());
+    size(header, { height: 0 });
+    return { outer, inner, group, field, header };
+  }
+
+  it('scrolls only the inner container when that brings the field into view', () => {
+    const { outer, inner, field } = mount();
+    revealFocused(field);
+    expect(inner.scrollTop).toBe(12);
+    expect(field.getBoundingClientRect().bottom).toBe(200);
+    expect(outer.scrollTop).toBe(0);
+  });
+
+  it('keeps both offsets when the field fits and only the wrapped group overflows (C3)', () => {
+    const { outer, inner, group, field } = mount({ innerTop: 140, fieldTop: 180, groupBottom: 252 });
+    expect(group.getBoundingClientRect().bottom).toBeGreaterThan(outer.clientHeight);
+    revealFocused(field);
+    expect([inner.scrollTop, outer.scrollTop]).toEqual([0, 0]);
+  });
+
+  it('aligns the field above the inner sticky footer (C1)', () => {
+    const { outer, inner, field } = mount();
+    const footerHeight = 40;
+    revealFocused(field, { bottomInset: container => container === inner ? footerHeight : 0 });
+    expect(field.getBoundingClientRect().bottom).toBe(160);
+    expect(inner.scrollTop).toBe(52);
+    expect(outer.scrollTop).toBe(0);
+  });
+
+  it('reveals the field below the page sticky header', () => {
+    const { outer, inner, field, header } = mount({ innerTop: 60, fieldTop: 100 });
+    size(header, { height: 75 });
+    outer.scrollTop = 40;
+    revealFocused(field);
+    expect(outer.scrollTop).toBe(25);
+    expect(field.getBoundingClientRect().top).toBe(75);
+    expect(inner.scrollTop).toBe(0);
+  });
+
+  it('scrolls the outer container when the inner adjustment still leaves the field clipped', () => {
+    const { outer, inner, field } = mount({ innerTop: 180, fieldTop: 270 });
+    revealFocused(field);
+    expect(inner.scrollTop).toBe(22);
+    expect(outer.scrollTop).toBe(60);
+    expect(field.getBoundingClientRect().bottom).toBe(220);
+  });
+
+  it('uses the viewport band when the document scrolls', () => {
+    document.body.innerHTML = '<div data-platform-page><header data-page-sticky-header></header><button id="field"></button></div>';
+    size(document.querySelector('header')!, { height: 40 });
+    const field = document.getElementById('field')!;
+    const root = document.scrollingElement ?? document.documentElement;
+    const initialScroll = root.scrollTop;
+    vi.spyOn(field, 'getBoundingClientRect').mockImplementation(() => {
+      const top = 120 - root.scrollTop;
+      return { top, bottom: top + 32 } as DOMRect;
+    });
+    try {
+      root.scrollTop = 100;
+      revealFocused(field);
+      expect(root.scrollTop).toBe(80);
+      expect(field.getBoundingClientRect().top).toBe(40);
+    } finally {
+      root.scrollTop = initialScroll;
+    }
   });
 });
 

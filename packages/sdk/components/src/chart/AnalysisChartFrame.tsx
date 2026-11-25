@@ -18,6 +18,7 @@ import { useThemeRevision, type ThemeColorToken } from '@ap/ui/theme';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisSectionContext, resolveAnalysisChartSize, analysisChartHeight, FILL_CARD_CLASS, FILL_CHART_MIN_HEIGHT, FILL_PLOT_BASE_CLASS, FILL_PLOT_CLASS, type ChartSize } from '../archetypes/AnalysisSectionContext';
 import { useElementSize } from '../state/useElementSize';
+import { revealFocused, scrollContainerOf } from '../visibleArea';
 import { EChart, strokeToken, token } from './EChart';
 import { downloadChartCsv } from './analysisChartCsv';
 import { ChartImageCopyButton, ChartImagePrintButton, type ChartExportActionsPolicy } from './ChartImageCopyButton';
@@ -416,6 +417,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const brushToggle = useRef<HTMLButtonElement | null>(null);
   const zoomInButton = useRef<HTMLButtonElement | null>(null);
   const rangeStart = useRef<HTMLButtonElement | null>(null);
+  const stickyNextAnalysisRow = useRef<HTMLDivElement | null>(null);
   // Set when the keyboard turns brush mode on in a fill card: the range form appears then and takes focus (ADR-0067 decision 21).
   const focusRangeForm = useRef(false);
   const applyRangeButton = useRef<HTMLButtonElement | null>(null);
@@ -1028,6 +1030,13 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
     rangeStart.current?.focus({ preventScroll: true });
+    if (!rangeStart.current) return;
+    // Keep the focused field above the sticky action row.
+    const row = stickyNextAnalysisRow.current;
+    const rowScroller = row ? scrollContainerOf(row) ?? document.scrollingElement ?? document.documentElement : null;
+    revealFocused(rangeStart.current, {
+      bottomInset: container => row && container === rowScroller ? row.getBoundingClientRect().height : 0,
+    });
   }, [brushMode, showSummary]);
   function commitRange(next: Selection) {
     const snapped = snapOutward(toMs(next.from), toMs(next.to), timeBounds);
@@ -1246,7 +1255,8 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   } : null;
   const formatRowsRange = xType === 'time' ? fmt : labelOf;
   const renderNextAnalysisRow = (items: ReactNode) => {
-    const row = <div className={cn('mt-auto shrink-0 border-t border-border-subtle bg-surface-card px-2 py-1', panel && nextAnalysisTarget === undefined && 'sticky bottom-0')}>
+    const sticky = panel && nextAnalysisTarget === undefined;
+    const row = <div ref={sticky ? stickyNextAnalysisRow : undefined} className={cn('mt-auto shrink-0 border-t border-border-subtle bg-surface-card px-2 py-1', sticky && 'sticky bottom-0')}>
       <div role="group" aria-label={m('chartNextAnalysis')} className="flex flex-wrap items-center gap-2 text-xs">
         <span className="font-semibold">{m('chartNextAnalysis')}</span>
         {items}

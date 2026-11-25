@@ -4,6 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
+import * as visibleArea from '../../visibleArea';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import type { EChartProps } from '../EChart';
 
@@ -108,4 +109,17 @@ it('shows a titled zoom-only header with the legend below the title and working 
   fireEvent.click(buttons[1]);
   fireEvent.click(buttons[3]);
   expect(zoom()).toMatchObject({ start: 0, end: 100 });
+});
+it('reveals the focused start field after keyboard activation of 구간 선택 on a fill chart (#3006)', async () => {
+  const reveal = vi.spyOn(visibleArea, 'revealFocused');
+  try {
+    await mount({ summary: 'quiet', size: 'fill' });
+    // A keyboard activation (`detail: 0`) opens the form and moves focus to its first field.
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }), { detail: 0 });
+    const start = within(summary()).getByRole('combobox', { name: '구간 시작' });
+    expect(start).toHaveFocus();
+    expect(reveal).toHaveBeenCalledExactlyOnceWith(start, { bottomInset: expect.any(Function) });
+  } finally {
+    reveal.mockRestore();
+  }
 });
