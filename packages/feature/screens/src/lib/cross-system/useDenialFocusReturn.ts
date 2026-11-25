@@ -1,7 +1,11 @@
 import { type RefObject, useEffect, useLayoutEffect, useRef } from 'react';
 
+export function getListDenialFocusTarget(card: HTMLDivElement | null) {
+  return card?.querySelector<HTMLElement>('a[href], button:not([disabled])') ?? card;
+}
+
 export function focusListDenialCard(card: HTMLDivElement | null, options?: FocusOptions) {
-  (card?.querySelector<HTMLElement>('a[href], button:not([disabled])') ?? card)?.focus(options);
+  getListDenialFocusTarget(card)?.focus(options);
 }
 
 /** Return focus when a denial removes its focused list control (#2677). */

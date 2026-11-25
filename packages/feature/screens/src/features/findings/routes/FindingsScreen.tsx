@@ -6,6 +6,7 @@
 import { ListLoadMore } from '../../../components/ListLoadMore';
 import { ListStateMessage } from '../../../components/ListStateMessage';
 import { ScopedListDenialCard } from '../../../components/ScopedListDenialCard';
+import { getListDenialFocusTarget } from '../../../lib/cross-system/useDenialFocusReturn';
 import { useFindingDetail } from '../hooks/useFindingDetail';
 import { useFindingsPages, useFindingsTotal } from '../hooks/useFindingsList';
 import {
@@ -71,7 +72,12 @@ export type FindingsScreenProps = {
    */
   renderDetail: (
     findingId: string | null,
-    options: { listDenied: boolean; returnTo: string | null; isInList?: boolean | undefined },
+    options: {
+      listDenied: boolean;
+      returnTo: string | null;
+      isInList?: boolean | undefined;
+      listFocusRef: React.RefObject<HTMLElement | null>;
+    },
   ) => React.ReactNode;
   /** A host drawer that portals itself must mount inside the feature providers. */
   renderDetailInPlace?: boolean;
@@ -250,12 +256,18 @@ function FindingsListShell({
   const listFailed = listQuery.isError && (!listQuery.isFetchNextPageError || isListForbidden(listQuery.error));
   const unfilteredError = checkUnfiltered && unfilteredQuery.isError ? unfilteredQuery.error : null;
   const stateError = listFailed ? listQuery.error : unfilteredError;
-  const { denied: isReadDenied, cardProps, isInList } = useListDenial({
+  const { denied: isReadDenied, cardProps, deniedRef, isInList } = useListDenial({
     error: stateError,
     scopedPermission,
     managedSystemId,
     drawer: { selectedId },
   });
+  // Keep the drawer's ref stable across list queries and resolve the live card after the shell uncovers it.
+  const [listFocusRef] = React.useState<React.RefObject<HTMLElement | null>>(() => ({
+    get current() {
+      return getListDenialFocusTarget(deniedRef.current);
+    },
+  }));
   const scopeVerified = !isReadDenied && (scopedPermission.state === 'allowed' || scopedPermission.state === 'unchecked');
   const stateIsPending = !isReadDenied && (
     listQuery.isPending || (checkUnfiltered && unfilteredQuery.isPending) || scopedPermission.state === 'checking'
@@ -349,6 +361,7 @@ function FindingsListShell({
     listDenied: isReadDenied,
     returnTo: !hostCarriesReturn ? safeReturnTo : null,
     isInList,
+    listFocusRef,
   });
 
   const list = (
