@@ -32,7 +32,6 @@ const NO_ISSUES: readonly PageConditionIssue[] = [];
 const NO_PAIRS: readonly Pair[] = [];
 const NUMBER = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
 const WALL_CLOCK_MINUTES = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
-const checkedDeclarations = new WeakSet<PageConditions>();
 
 function arrayValue(value: PageConditionValue | undefined): readonly string[] {
   return Array.isArray(value) ? value : [];
@@ -52,15 +51,13 @@ function compactValues(values: PageConditionValues): PageConditionValues | null 
 /** A declaration-ordered, controlled editor. The parent owns URL/draft/apply and the single scroll layer. */
 export function PageConditionCategories(props: PageConditionCategoriesProps) {
   const { declaration } = props;
-  const runs = useMemo(() => categoryRuns(declaration), [declaration]);
+  const declarationKey = JSON.stringify(declaration);
   const warnedSplits = useRef<Set<string> | null>(null);
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') {
-      if (checkedDeclarations.has(declaration)) return;
-      checkedDeclarations.add(declaration);
       const seenSections = new Set<string>();
       const splits: [sectionId: string, categoryId: string][] = [];
-      for (const { section, key } of runs) {
+      for (const { section, key } of categoryRuns(declaration)) {
         if (!section) continue;
         if (seenSections.has(section.id)) splits.push([section.id, key]);
         seenSections.add(section.id);
@@ -73,9 +70,10 @@ export function PageConditionCategories(props: PageConditionCategoriesProps) {
       const locations = splits.map(([sectionId, categoryId]) => `section "${sectionId}" at category "${categoryId}"`);
       console.warn(`PageConditionCategories: noncontiguous ${locations.join(', ')}. Categories render in declaration order.`);
     }
-  }, [declaration, runs]);
+  }, [declaration, declarationKey]);
   // Remounting on declared inputs removes stale options before paint and aborts every previous request.
-  return <CategorySequence key={JSON.stringify([props.inputsKey, declaration])} {...props} runs={runs} />;
+  // Runs are derived inside the keyed child, so a declaration mutated in place under a new key never keeps the old order.
+  return <CategorySequence key={JSON.stringify([props.inputsKey, declarationKey])} {...props} />;
 }
 function categoryRuns(declaration: PageConditions) {
   const runs: { key: string; section?: NonNullable<PageConditions['sections']>[number]; categories: PageConditionCategory[] }[] = [];
@@ -88,8 +86,9 @@ function categoryRuns(declaration: PageConditions) {
   }
   return runs;
 }
-function CategorySequence({ runs, ...props }: PageConditionCategoriesProps & { runs: ReturnType<typeof categoryRuns> }) {
+function CategorySequence(props: PageConditionCategoriesProps) {
   const { lang } = useI18n();
+  const runs = useMemo(() => categoryRuns(props.declaration), [props.declaration]);
   return <div className="min-w-0 space-y-4 break-keep">
     {runs.map(run => {
       const content = run.categories.map(category => <ConditionCategory key={category.id} {...props} category={category} />);

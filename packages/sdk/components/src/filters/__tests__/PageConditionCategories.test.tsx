@@ -228,6 +228,16 @@ describe('PageConditionCategories', () => {
       vi.unstubAllEnvs();
     }
   });
+  it('renders the new order when one declaration object is mutated in place under a new inputsKey', () => {
+    const declaration: PageConditions = { categories: [categories[0], categories[2], categories[1]] };
+    const element = (inputsKey: string) => <I18nProvider><PageConditionCategories declaration={declaration} values={{}} inputsKey={inputsKey} onChange={vi.fn()} /></I18nProvider>;
+    const view = render(element('first'));
+    const order = () => [...view.container.querySelectorAll('[data-page-condition]')].map(node => node.getAttribute('data-page-condition'));
+    expect(order()).toEqual(['single', 'query', 'many']);
+    declaration.categories = [categories[4], categories[0], categories[1]];
+    view.rerender(element('second'));
+    expect(order()).toEqual(['period', 'single', 'many']);
+  });
   it('warns once for equivalent split declarations during a mount', () => {
     vi.stubEnv('NODE_ENV', 'development');
     const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
