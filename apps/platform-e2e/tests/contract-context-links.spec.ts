@@ -1,13 +1,13 @@
 import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './origin-guard';
-import { PERIOD, PRODUCTIVITY, railSection, headerMore, periodPreset, queryBarCollapsedKey } from './contract-helpers';
+import { PERIOD, PRODUCTIVITY, railSection, headerMore, liveContextEditor, periodPreset, queryBarCollapsedKey } from './contract-helpers';
 import { expectAppliedChip, expectQueryCompleted, queryEditor, pickTargetRoom, expandQueryBar, contextBar, evidence, expandPageHead, expectScopeValid, firstRowByColumn, lotColumn, mainHeading, query, queryResultSurface, rowMapsByColumn, setScenario, showSlowExecutions, signInAs, switchScope, tableStatusLine } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
  * Menu screens are only the consumers the contract is observed through — assertions target kernel/shell behavior.
  */
-// Wait for the period anchor before deciding whether a control is inline or portaled.
+// Open the editor for the current Context presentation before locating a field.
 async function contextEditor(page: Page, name: string) {
   const bar = contextBar(page);
   await expect(bar).toBeVisible();
@@ -17,14 +17,9 @@ async function contextEditor(page: Page, name: string) {
       if (await page.getByRole('dialog', { name: '조회 조건', exact: true }).isVisible()) await page.keyboard.press('Escape');
     } };
   }
-  await expect(bar.getByRole('button', { name: /^기간:/ })).toBeVisible();
-  const inline = bar.getByRole('button', { name });
-  if (await inline.isVisible()) return { locator: inline, close: async () => {} };
-  const overflow = page.getByRole('dialog', { name: '추가 Context 조건' });
-  await bar.getByRole('button', { name: /^조건 \d+개 더/ }).click();
-  await expect(overflow).toBeVisible();
-  return { locator: overflow.getByRole('button', { name }), close: async () => {
-    if (await overflow.isVisible()) await page.keyboard.press('Escape');
+  const editor = await liveContextEditor(page, bar);
+  return { locator: editor.getByRole('button', { name }), close: async () => {
+    if (await editor.isVisible()) await page.keyboard.press('Escape');
   } };
 }
 
@@ -35,15 +30,39 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     await expect(mainHeading(page)).toHaveText('생산성 개요');
     await expectScopeValid(page, 'MEM · 메모리');
     const bar = contextBar(page);
-    await expect(bar.getByRole('button', { name: '기간: 09-25 → 09-27 (2일)' })).toBeVisible();
-    await expect(bar.getByRole('button', { name: /대상 조건 · .*공정: PHOTO/ })).toBeVisible();
+    await expect(bar.getByRole('button', { name: '기간 09-25 → 09-27 (2일)' })).toBeVisible();
+    await expect(bar.getByRole('button', { name: '공정 PHOTO' })).toBeVisible();
+    const grain = bar.getByRole('button', { name: '집계 단위 일별' });
+    await expect(grain).toBeVisible();
+    await expect(page.getByRole('radiogroup', { name: '집계 단위' })).toHaveCount(0);
+    await grain.press('Enter');
     await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
+    await page.keyboard.press('Escape');
+    await expect(grain).toBeFocused();
     expect(query(page).toString()).toBe(new URL(url, 'http://x').searchParams.toString());
     await evidence(page, testInfo, 'restored');
 
     await page.reload();
-    await expect(page.getByRole('radiogroup', { name: '집계 단위' }).getByRole('radio', { name: '일' })).toBeChecked();
-    await expect(contextBar(page).getByRole('button', { name: /대상 조건 · .*공정: PHOTO/ })).toBeVisible();
+    await expect(grain).toBeVisible();
+    await expect(contextBar(page).getByRole('button', { name: '공정 PHOTO' })).toBeVisible();
+    await grain.press('Enter');
+    const editor = page.getByRole('dialog', { name: '페이지 조건', exact: true });
+    const granularity = editor.getByRole('radiogroup', { name: '집계 단위' });
+    await expect(granularity.getByRole('radio', { name: '일', exact: true })).toBeChecked();
+    const pushes = await page.evaluateHandle(() => {
+      const entries: string[] = [];
+      const push = history.pushState.bind(history);
+      history.pushState = (...args) => {
+        push(...args);
+        entries.push(location.href);
+      };
+      return entries;
+    });
+    await granularity.getByRole('radio', { name: '주', exact: true }).click();
+    await expect.poll(() => query(page).get('granularity')).toBe('week');
+    await expect(bar.getByRole('button', { name: '집계 단위 주별' })).toBeVisible();
+    expect(await pushes.evaluate(entries => entries.map(href => new URL(href).searchParams.get('granularity')))).toEqual(['week']);
+    await pushes.dispose();
   });
 
   test('기간이 빠진 시간 적용 메뉴는 서버 기준시각으로 기본 기간을 절대값으로 URL에 기록한다', async ({ page }, testInfo) => {
@@ -54,6 +73,7 @@ test.describe('딥링크 복원 (06 §6.4)', () => {
     const preset = await periodPreset(page, '어제');
     await expect(preset.locator).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('dialog', { name: '기간', exact: true }).getByRole('button', { name: '취소', exact: true }).click();
+    await page.keyboard.press('Escape');
     await evidence(page, testInfo, 'default-period');
     await page.reload();
     expect(query(page).get('from')).toBe('2026-09-25T00:00:00');
@@ -143,7 +163,7 @@ test.describe('메뉴 간 Context 보존과 미적용 표시 (06 §6, §22)', ()
     // page-owned state of the origin is never copied implicitly (§22).
     expect(q.has('granularity')).toBe(false);
     // time is 'reference' on equipment master: carried and labelled, not applied.
-    await expect(contextBar(page).getByRole('button', { name: /^기간:/ })).toContainText('참조만');
+    await expect(contextBar(page).getByRole('button', { name: /^기간 / })).toContainText('참조만');
     await evidence(page, testInfo, 'equipment-after-link');
   });
 
@@ -1108,9 +1128,9 @@ test.describe('조건 묶음 (06 §6.4·§11, ADR-0083)', () => {
     await page.getByRole('navigation', { name: '주 메뉴' }).getByRole('link', { name: '생산성 개요' }).click();
     await expect(mainHeading(page)).toHaveText('생산성 개요');
     expect(condition(page)).toEqual({ maker: ['TEL'], stgroup: ['STG-PHOTO-A'] });
-    const bar = await openBar(page);
-    await expect(queryEditor(page, bar)).toContainText('TEL');
-    await expect(switcher(queryEditor(page, bar))).toHaveCount(0);
+    const editor = await liveContextEditor(page);
+    await expect(editor.getByRole('button', { name: /^대상 .*설비사: TEL(?: ·|$)/ })).toBeVisible();
+    await expect(switcher(editor)).toHaveCount(0);
   });
   test('보드 칸의 조회 조건에도 전환기가 있고 그 칸만 바뀐다', async ({ page }) => {
     await signInAs(page, 'engineer');

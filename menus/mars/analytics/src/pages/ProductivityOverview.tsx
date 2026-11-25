@@ -256,6 +256,7 @@ export default function ProductivityOverview(_: PageProps) {
       <RotateCw className="size-3.5" aria-hidden />{m('productivityOverviewRefresh')}
     </Button>}
     dataTrustSummary={<DataTrustIndicator query={trustQuery} />}
+    queryBarExtension={{ appliedPageSummary: [{ key: 'granularity', label: m('productivityOverviewGranularity'), value: granLabel }] }}
     contextExtension={<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <div className="inline-flex items-center gap-1">
         <span id="granularity-label" className="text-xs font-medium text-text-secondary">{m('productivityOverviewGranularity')}</span>

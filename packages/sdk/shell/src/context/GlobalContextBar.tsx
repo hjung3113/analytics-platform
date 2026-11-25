@@ -2,19 +2,24 @@ import { TargetPicker, TARGET_KEYS } from './TargetPicker';
 import { QueryHistoryControl } from './QueryHistoryControl';
 import { SavedViewControl } from '../saved-view/SavedViewControl';
 import { QueryBar } from './QueryBar';
-import { CalendarDays, ChevronDown, RotateCcw, X } from 'lucide-react';
-import { useEffect, useId, type ReactNode } from 'react';
+import { CalendarDays, ChevronDown, Ellipsis, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { ContextBarLayout, useContextEditorState, useContextEditorFocusRecovery } from './ContextBarLayout';
 import { CONTEXT_LABELS, labelledCondition, useEquipmentAxes, useI18n, useMessages, useConditionPreset } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { type Capability, type ContextKey, formatPeriod, periodDates, periodFromDates, type GlobalContext } from '@ap/contracts';
+import { CUSTOM_GROUP_AXIS, type Capability, type ContextKey, formatPeriod, periodDates, periodFromDates, type GlobalContext } from '@ap/contracts';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { ShareControl } from './ShareControl';
 import { PeriodFields, type PeriodDates } from './PeriodFields';
 import { useSessionKey } from '../frame/sessionKey';
+import { WorkspaceQueryBarRow, querySummaryItems, presetOutsideAxes, summaryPreset, useRegisterContextEditorFocus, type QuerySummaryItem } from '@ap/components';
+import { CONDITION_CHIP } from './contextChip';
+import { ConditionPresetSelector } from './ConditionPresetSelector';
+import { useCustomGroupOptions } from './customGroupOptions';
 import { SHELL_MESSAGES } from '../messages';
 
 const CONTEXT_KEYS: ContextKey[] = ['time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection', 'lot', 'ppid', 'recipe', 'metric'];
+const EMPTY_GROUP_IDS: readonly string[] = [];
 
 export function contextHasValue(global: GlobalContext): Record<ContextKey, boolean> {
   return {
@@ -37,26 +42,34 @@ export function GlobalContextBar({ label, whenEmpty = null }: {
 } = {}) {
   const { route, screenMode } = useHostPlatform();
   const hideViewSlot = screenMode === 'pane' && route?.menu.query?.mode === 'apply' && route.menu.query.autoApplyDefault === true;
-  return route?.menu.query?.mode === 'apply' ? <QueryBar label={label} historySlot={<QueryHistoryControl />} viewSlot={hideViewSlot ? null : <SavedViewControl />} /> : <LiveContextBar label={label} whenEmpty={whenEmpty} />;
+  return route?.menu.query?.mode === 'apply' ? <QueryBar label={label} historySlot={<QueryHistoryControl />} viewSlot={hideViewSlot ? null : <SavedViewControl />} /> : <WorkspaceQueryBarRow render={(_active, _pinText, live) =>
+    <LiveContextBar label={label} whenEmpty={whenEmpty} line={screenMode === 'main' ? live : undefined} />} />;
 }
 
-function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; region: string }; whenEmpty: ReactNode }) {
-  const { route, global, setGlobal, resetContext } = useHostPlatform();
+function LiveContextBar({ label, whenEmpty, line }: {
+  label?: { visible: string; region: string }; whenEmpty: ReactNode; line?: { pinnedTarget: HTMLDivElement | null };
+}) {
+  const { route, global, setGlobal, resetContext, revision } = useHostPlatform();
   const { t, lang } = useI18n();
   const m = useMessages(SHELL_MESSAGES);
   const axes = useEquipmentAxes();
   const basisText = global.membershipBasis === 'asOf' ? ` · ${t('membershipAsOf')}` : '';
   const preset = useConditionPreset();
+  const sessionKey = useSessionKey();
+  const selectedGroupIds = global.condition?.[CUSTOM_GROUP_AXIS] ?? EMPTY_GROUP_IDS;
+  const resolveGroups = Boolean(line && route?.menu.context.condition === 'apply');
+  const groups = useCustomGroupOptions({ scopeId: global.scopeId, selectedGroupIds, canEditCondition: resolveGroups });
   if (!route) return whenEmpty;
   const cap = route.menu.context;
   const has = contextHasValue(global);
   if (!contextBarVisible(cap)) return whenEmpty;
   const shown = CONTEXT_KEYS.filter(k => cap[k] !== 'unsupported' || has[k]);
-  const editable = (k: ContextKey) => cap[k] !== 'unsupported';
+  const periodEditable = cap.time !== 'unsupported';
+  const targetEditable = TARGET_KEYS.some(key => cap[key] === 'apply');
 
   const controls = (target: ReactNode) => [
-    ...(shown.includes('time') ? [{ key: 'time' as const, applied: has.time, node: (editable('time') ? <PeriodControl cap={cap.time} /> : <CarriedChip k="time" cap={cap.time} value={global.from ? formatPeriod(global.from, global.to, lang) : ''} onRemove={() => setGlobal({ from: null, to: null })} />), compactNode: editable('time') ? <PeriodControl cap={cap.time} compact /> : <CarriedChip k="time" cap={cap.time} value={global.from ? formatPeriod(global.from, global.to, lang) : ''} onRemove={() => setGlobal({ from: null, to: null })} /> }] : []),
-    ...(TARGET_KEYS.some(key => cap[key] === 'apply') ? [{ key: 'target' as const, applied: TARGET_KEYS.some(key => cap[key] === 'apply' && has[key]), node: target }] : []),
+    ...(shown.includes('time') ? [{ key: 'time' as const, applied: has.time, node: (periodEditable ? <PeriodControl cap={cap.time} /> : <CarriedChip k="time" cap={cap.time} value={global.from ? formatPeriod(global.from, global.to, lang) : ''} onRemove={() => setGlobal({ from: null, to: null })} />), compactNode: periodEditable ? <PeriodControl cap={cap.time} compact /> : <CarriedChip k="time" cap={cap.time} value={global.from ? formatPeriod(global.from, global.to, lang) : ''} onRemove={() => setGlobal({ from: null, to: null })} /> }] : []),
+    ...(targetEditable ? [{ key: 'target' as const, applied: TARGET_KEYS.some(key => cap[key] === 'apply' && has[key]), node: target }] : []),
     ...(has.roomNames && cap.roomNames !== 'apply' ? [{ key: 'roomNames' as const, applied: true, node: <CarriedChip k="roomNames" cap={cap.roomNames} value={setText(global.roomNames, t)} onRemove={() => setGlobal({ roomNames: null })} /> }] : []),
     ...(has.line && cap.line !== 'apply' ? [{ key: 'line' as const, applied: true, node: <CarriedChip k="line" cap={cap.line} value={setText(global.lineNames, t)} onRemove={() => setGlobal({ lineNames: null })} /> }] : []),
     ...(has.prcGroup && cap.prcGroup !== 'apply' ? [{ key: 'prcGroup' as const, applied: true, node: <CarriedChip k="prcGroup" cap={cap.prcGroup} value={setText(global.prcGroups, t) + basisText} onRemove={() => setGlobal({ prcGroups: null })} /> }] : []),
@@ -67,15 +80,102 @@ function LiveContextBar({ label, whenEmpty }: { label?: { visible: string; regio
     ...(has.recipe ? [{ key: 'recipe' as const, applied: has.recipe, node: <CarriedChip k="recipe" cap={cap.recipe} value={setText(global.recipeIds, t)} onRemove={() => setGlobal({ recipeIds: null })} /> }] : []),
     ...(has.metric ? [{ key: 'metric' as const, applied: has.metric, node: <CarriedChip k="metric" cap={cap.metric} value={`${global.metricId}${global.metricVersion ? ` @ ${global.metricVersion}` : ` (${m('metricNoVersion')})`}`} onRemove={() => setGlobal({ metricId: null, metricVersion: null })} /> }] : []),
   ];
-  const layout = (target: ReactNode, targetOpen = false, openTargetEditor?: () => void) => <ContextBarLayout activeControl={targetOpen ? 'target' : undefined} openTargetEditor={openTargetEditor} hasPeriodEditor={editable('time')} regionName={label?.region} controls={controls(target)} revision={JSON.stringify([global, cap, lang, shown, label])} actions={compact => <span className="flex items-center gap-1">
+  const appliedPreset = summaryPreset(preset, 'applied');
+  const presetName = appliedPreset?.presets.find(item => item.id === appliedPreset.id)?.label[lang];
+  const outside = new Set(appliedPreset ? presetOutsideAxes(global, appliedPreset).map(axis => `condition:${axis}`) : []);
+  const chips = line ? querySummaryItems(global, { lang, axes, context: cap }).map(item => {
+    let value = item.value;
+    if (item.key === `condition:${CUSTOM_GROUP_AXIS}` && selectedGroupIds.length) {
+      value = selectedGroupIds.map(id => {
+        const option = groups.optionsById.get(id);
+        return option?.target ? option.label : id;
+      }).join(', ');
+    }
+    if (presetName && outside.has(item.key)) return { ...item, value: `${value} · ${m('queryNotAppliedInPreset', { name: presetName })}` };
+    if (item.capability === 'unsupported') return { ...item, value: `${value} · ${t('notUsed')}` };
+    if (item.capability === 'reference') return { ...item, value: `${value} · ${t('referenceOnly')}` };
+    return { ...item, value };
+  }) : [];
+  if (line && appliedPreset && presetName) chips.push({ key: appliedPreset.key, contextKey: 'condition', label: m('queryConditionSet'), value: presetName });
+  const reset = (compact: boolean) => <Button type="button" variant="ghost" size="toolbar" aria-label={t('resetContext')} title={t('resetContext')} onClick={resetContext}>
+    <RotateCcw className="size-3.5" aria-hidden />{!compact && t('reset')}
+  </Button>;
+  const picker = { global, cap, onChange: setGlobal, presetAxes: preset?.presets.find(item => item.id === preset.activeId)?.axes };
+  if (line) {
+    const items = controls(targetEditable ? <TargetPicker {...picker} groups={resolveGroups ? groups : undefined} /> : null);
+    const periodRecovery = periodEditable ? 'time' : undefined;
+    return <LiveContextLine key={JSON.stringify([sessionKey, revision, global.scopeId, route.menu.id, route.params])}
+      chips={chips} controls={preset ? [...items, { key: 'preset', node: <ConditionPresetSelector preset={preset} global={global} /> }] : items}
+      pinnedTarget={line.pinnedTarget} reset={reset(false)}
+      recoveryKey={targetEditable ? 'target' : periodRecovery} />;
+  }
+  const layout = (target: ReactNode, targetOpen = false, openTargetEditor?: () => void) => {
+    const items = controls(target);
+    return <ContextBarLayout activeControl={targetOpen ? 'target' : undefined} openTargetEditor={openTargetEditor} hasPeriodEditor={periodEditable} regionName={label?.region} controls={items} revision={JSON.stringify([global, cap, lang, shown, label])} actions={compact => <span className="flex items-center gap-1">
         <ShareControl compact={compact} align="end" />
-        <Button type="button" variant="ghost" size="toolbar" aria-label={t('resetContext')} title={t('resetContext')} onClick={resetContext}>
-          <RotateCcw className="size-3.5" aria-hidden />{!compact && t('reset')}
-        </Button>
-  </span>} />;
-  return TARGET_KEYS.some(key => cap[key] === 'apply')
-    ? <TargetPicker global={global} cap={cap} onChange={setGlobal} presetAxes={preset?.presets.find(item => item.id === preset.activeId)?.axes}>{layout}</TargetPicker>
+        {reset(compact)}
+    </span>} />;
+  };
+  return targetEditable
+    ? <TargetPicker {...picker}>{layout}</TargetPicker>
     : layout(null);
+}
+
+function LiveContextLine({ chips, controls, pinnedTarget, reset, recoveryKey }: {
+  chips: readonly QuerySummaryItem[];
+  controls: readonly { key: string; node: ReactNode }[];
+  pinnedTarget: HTMLDivElement | null;
+  reset: ReactNode;
+  recoveryKey?: 'target' | 'time';
+}) {
+  const { t } = useI18n();
+  const m = useMessages(SHELL_MESSAGES);
+  const handle = useRef<HTMLButtonElement>(null);
+  const editorControls = useRef<HTMLDivElement>(null);
+  const [openRequest, setOpenRequest] = useState(false);
+  useEffect(() => {
+    if (!openRequest) return;
+    setOpenRequest(false);
+    if (recoveryKey) editorControls.current?.querySelector<HTMLButtonElement>(`[data-context-key="${recoveryKey}"] button[aria-haspopup]`)?.click();
+  }, [openRequest, recoveryKey]);
+  const label = t('globalContext');
+  const actionsLabel = m('queryActionsLabel');
+  return <section role="region" aria-label={label} data-live-context-line data-canvas-band className="min-w-0 bg-surface-band">
+    {recoveryKey && <LiveRecoveryRegistration open={() => {
+      if (handle.current?.getAttribute('aria-expanded') === 'false') handle.current.click();
+      setOpenRequest(true);
+    }} />}
+    <WorkspaceQueryBarRow line={{
+      query: chips, chip: CONDITION_CHIP, pinnedTarget,
+      liveEditor: {
+        label, handle: { expand: m('queryExpandConditions'), collapse: m('queryCollapseConditions') }, handleRef: handle, icon: <SlidersHorizontal className="size-4" aria-hidden />,
+        content: <div ref={editorControls} className="flex min-w-0 flex-wrap items-center gap-2">
+          {controls.map(control => <div key={control.key} data-context-key={control.key}>{control.node}</div>)}
+        </div>,
+      },
+      actions: <Popover>
+        <PopoverTrigger asChild>
+          <Button type="button" variant="ghost" size="toolbar" className="shrink-0" title={actionsLabel} aria-label={actionsLabel}>
+            <Ellipsis className="size-4" aria-hidden />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" aria-label={actionsLabel} className="w-max"
+          onFocusOutside={event => {
+            if (event.target instanceof Element && event.target.closest('[data-radix-popper-content-wrapper], [role="dialog"]')) event.preventDefault();
+          }}>
+          <div className="flex items-center gap-2">
+            <ShareControl compact={false} align="end" />
+            {reset}
+          </div>
+        </PopoverContent>
+      </Popover>,
+    }} />
+  </section>;
+}
+
+function LiveRecoveryRegistration({ open }: { open: () => void }) {
+  useRegisterContextEditorFocus(open);
+  return null;
 }
 
 function setText(ids: string[] | null, t: (k: 'all' | 'explicitEmpty') => string): string {

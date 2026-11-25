@@ -1,8 +1,8 @@
-# 분석 작업 영역의 조건과 도구를 40px 한 줄에 둔다
+# 본 화면의 조회 조건과 페이지 조건을 40px 한 줄에 둔다
 
 - 상태: Decided (2026-11-26, 되돌릴 수 있음). 이슈 #2728.
 - 결정자: 소유자, #3022 시안 A 승인.
-- 계약 원천: [layout §12.2 Analysis Workspace](../contract/layout.md#122-analysis-workspace). 관련: [ADR-0029](0029-page-filter-bar-collapse-summary.md), [ADR-0083](0083-condition-presets.md).
+- 계약 원천: [layout §12.2 Analysis Workspace](../contract/layout.md#122-analysis-workspace). [Kernel §11](../contract/kernel.md#11-global-context-bar). 관련: [ADR-0029](0029-page-filter-bar-collapse-summary.md), [ADR-0083](0083-condition-presets.md).
 
 ## 결정
 
@@ -11,3 +11,9 @@
 조회 조건과 페이지 조건은 같은 칩 모양에 서로 다른 표면을 쓴다. 조건 묶음까지 요약하며, 폭을 넘는 항목은 `+n` 목록에서 전체 이름과 값을 읽을 수 있다. 조건을 숨기거나 줄을 더해서 패널의 위치를 바꾸지 않는다. 안내 수에는 조회 완료 시각을 포함하지 않는다.
 
 편집기는 본문 위 팝오버에서 열고 고정했을 때만 본문의 아래 공간을 차지한다. 사용자가 조건을 확인하고 고치는 동안에도 첫 패널 위치가 유지되며, 편집을 계속할 때는 고정으로 본문과 동시에 볼 수 있다. 고정 상태에 URL 키나 저장 선호를 만들지 않는다.
+
+## Live Context 화면
+
+바로 적용되는 본 화면도 40px 조건 줄을 공유한다. 전역 Context 칩이나 편집 버튼은 기존 기간·대상·전달 조건 입력을 연다. 페이지가 `appliedPageSummary`를 선언하면 해당 `contextExtension`은 페이지 조건 팝오버로 옮긴다. 생산성 개요의 집계 단위가 이 경로를 쓴다. 각 입력의 확정 시점, URL 및 조회 동작은 기존 계약을 따른다.
+
+오른쪽 `⋯`에서 공유와 초기화를 연다. 보드 칸의 머리는 #3052에서 다룬다.

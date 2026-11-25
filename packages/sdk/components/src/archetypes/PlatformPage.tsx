@@ -119,7 +119,7 @@ export type PlatformPageProps = {
   description?: ReactNode;
   primaryAction?: ReactNode;
   secondaryActions?: ReactNode;
-  /** Page-owned controls. The context line opens them in the page editor on an apply-mode Analysis Workspace. */
+  /** Page-owned controls. The context line opens them in the page editor on an apply workspace or a live page with an applied page summary. */
   contextExtension?: ReactNode;
   /**
    * Explanatory notes, one array element per note (`null`/`false` elements are dropped).
@@ -182,6 +182,7 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   // The query bar inside this page reports what it shows; a board pane's bar lives in another tree and arrives through the shared store.
   const [barStatus, setBarStatus] = useState<QueryBarStatus | null>(null);
   const [parameterTarget, setParameterTarget] = useState<HTMLDivElement | null>(null);
+  const [livePinTarget, setLivePinTarget] = useState<HTMLDivElement | null>(null);
   const [toolbarTarget, setToolbarTarget] = useState<HTMLDivElement | null>(null);
   const [workspaceCount, setWorkspaceCount] = useState(0);
   const registerToolbar = useCallback(() => {
@@ -335,7 +336,9 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
   // Draft-only extension metadata still belongs to the legacy page-condition disclosure.
   const draftOnlySummary = appliedSummary === undefined && legacySummary !== undefined;
   const workspaceActive = workspaceCandidate && workspaceCount > 0 && !draftOnlySummary;
-  const workspaceQueryRowReady = workspaceActive && toolbarTarget !== null;
+  const liveCandidate = !inPane && menu.query?.mode !== 'apply' && Boolean(slots.contextBar);
+  const livePageEditor = liveCandidate && !gate && appliedSummary !== undefined;
+  const contextLineReady = (workspaceActive || livePageEditor) && toolbarTarget !== null;
   const legacyQueryRowReady = !workspaceActive && parameterTarget !== null;
   const failedKey = queryResult?.failed && errorGuidance(queryResult.message).blocked ? 'sharedOutcomeBlocked' : 'stateError';
   const completion = queryResult?.completedAt != null
@@ -361,13 +364,20 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
       : <OutcomeBanners compact />}
     {layout === 'fill' ? <div data-platform-page-fill className={fixedFill ? 'flex min-h-[520px] flex-1 flex-col' : 'flex flex-1 flex-col'}>{children}</div> : children}
   </OutcomeScope>;
-  return <WorkspaceQueryBarContext.Provider value={workspaceCandidate ? {
+  const queryRow = {
     status: workspaceStatus, parameterTarget, setParameterTarget, toolbarTarget, setToolbarTarget, legacyFolded: shownBarStatus?.folded === true,
     line: { active: workspaceActive, extension: contextExtension, notes,
       noticeStatus: completion ? <p className="mb-2 t-caption text-text-secondary">{completion}</p> : workspaceStatus,
       summary: [...pageSummary.values()], pending: pending ? t('pageFilterPendingChanges') : '',
       issues: issueCount > 0 ? t('pageIssuesCount', { count: issueCount }) : '', publishSummary, registerToolbar },
-  } : null}><PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><PageBoundContext.Provider value={layout === 'fill' ? registerBound : null}><ReturnRowShown.Provider value={showReturn}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
+  };
+  // Scope the live line bridge to the host slot. Workspace toolbars, declared triggers and KPI tiles still belong to the page.
+  const liveBar = liveCandidate ? <WorkspaceQueryBarContext.Provider value={{
+    ...queryRow, status: null, live: { pinnedTarget: livePinTarget },
+    line: { ...queryRow.line, active: true, extension: livePageEditor ? contextExtension : undefined,
+      notes: livePageEditor ? notes : [], summary: livePageEditor ? queryRow.line.summary : [] },
+  }}>{slots.contextBar}</WorkspaceQueryBarContext.Provider> : slots.contextBar;
+  return <WorkspaceQueryBarContext.Provider value={workspaceCandidate ? queryRow : null}><PageDensityProvider value={density}><QueryBarExtensionContext.Provider value={queryBarExtension}><QueryBarStatusContext.Provider value={localBarStatus}><PageFlowContext.Provider value={layout === 'fill' ? registerFlow : null}><PageBoundContext.Provider value={layout === 'fill' ? registerBound : null}><ReturnRowShown.Provider value={showReturn}><div ref={root} data-platform-page data-page-layout={layout === 'fill' ? 'fill' : undefined} className={fixedFill ? 'flex h-full min-h-0 flex-col' : 'flex min-h-full flex-col'}>
     {!inPane && <div ref={stickyHeader} data-page-sticky-header data-canvas-band className="sticky top-0 z-20 shrink-0 border-b border-border-chrome bg-surface-band">
       <header ref={pageHeader} onFocus={event => {
         const header = event.currentTarget;
@@ -420,17 +430,18 @@ function PlatformPageFrame({ title, description, primaryAction, secondaryActions
           {!gate && primaryAction}
         </div>
       </header>
-      {menu.query?.mode !== 'apply' && <div className="contents" inert={covered || undefined}>{slots.contextBar}</div>}
+      {menu.query?.mode !== 'apply' && <div className="contents" inert={covered || undefined}>{liveBar}</div>}
     </div>}
     <div data-platform-page-body className="contents" inert={covered || undefined}>
     {showReturn && <ReturnRow navigation={navigation} />}
+    {liveCandidate && toolbarTarget && <div ref={setLivePinTarget} className="empty:hidden" />}
     {!inPane && menu.query?.mode === 'apply' && slots.contextBar}
-    {!workspaceQueryRowReady && !legacyQueryRowReady && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={m('pageAppliedQueryConditions')} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
+    {!contextLineReady && !legacyQueryRowReady && !gate && menu.query?.mode === 'apply' && queryResult && (appliedValuesShown || completionShown) && <section role="region" aria-label={m('pageAppliedQueryConditions')} className="flex flex-wrap gap-2 border-b border-border-subtle px-4 py-2 text-xs text-text-secondary">
       {appliedValuesShown && <span className="min-w-0 [overflow-wrap:anywhere]">{formatQuerySummary(global, { lang, axes: equipmentAxes, context: menu.context, pageSummary: queryBarExtension?.appliedPageSummary, preset: summaryPreset(conditionPreset, 'applied') })}</span>}
       {completionShown && <span>{completion}</span>}
     </section>}
     {!gate && conditionTrigger && <PageConditionTriggerSlot>{conditionTrigger}</PageConditionTriggerSlot>}
-    {!workspaceQueryRowReady && headVisible && (layout === 'fill'
+    {!contextLineReady && headVisible && (layout === 'fill'
       ? <PageContextHead key={menu.id} menuId={menu.id} notes={notes} extension={contextExtension}
           summary={headSummary}
           pendingChanges={pending} issueCount={issueCount} />
