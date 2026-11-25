@@ -1,5 +1,5 @@
 import { parseQuery, type AnalysisSelection, type AnalysisSelectionShape, type AnalysisSelectionUse, type Text } from '@ap/contracts';
-import { use, useCallback, useEffect, useInsertionEffect, useMemo, useSyncExternalStore } from 'react';
+import { createContext, createElement, use, useCallback, useEffect, useInsertionEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { LentPanelOutputsContext, PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
 import { usePlatform, usePlatformOptional } from '../platform/hooks';
 import type { MenuPlatform } from '../platform/types';
@@ -164,6 +164,8 @@ export type AppliedAnalysisSelection = {
   readonly key: string;
   readonly use: AnalysisSelectionUse;
   readonly selection: AnalysisSelection;
+  /** The panel instance holds this value (`HeldAnalysisSelections`, #2862); absent when it follows the URL. */
+  readonly held?: true;
 } & ({
   /** First declared writer for this key, so the source is deterministic on shared links and Back. */
   readonly source: { readonly panelId: string; readonly title: Text; readonly dimension: string };
@@ -173,6 +175,19 @@ export type AppliedAnalysisSelection = {
   readonly source?: never;
   readonly dimension: string;
 });
+
+/** Selections one panel instance holds (#2862), by page key; null outside a held instance. */
+const HeldSelectionContext = createContext<ReadonlyMap<string, AnalysisSelection> | null>(null);
+
+/**
+ * Wraps one panel instance that holds selections (#2862): inside, `useAnalysisSelectionInputs` reads `held` for those keys instead of
+ * the URL, marks them `held`, and does not wait for the source's availability (the value is fixed). Other keys still follow the URL.
+ * The menu owns `held` (its saved `panels` and screen memory); nothing here writes the URL.
+ */
+export function HeldAnalysisSelections({ held, children }: { held: Readonly<Record<string, AnalysisSelection>>; children: ReactNode }) {
+  const map = useMemo(() => new Map(Object.entries(held)), [held]);
+  return createElement(HeldSelectionContext.Provider, { value: map }, children);
+}
 
 /** Reports applied inputs without running queries. Panels reading a filter use its value from applied. */
 export function useAnalysisSelectionInputs(panelId: string): {
@@ -187,6 +202,7 @@ export function useAnalysisSelectionInputs(panelId: string): {
   const availability = useReportedAvailability(useWriteScreen(route), drillAddress(route?.menu, pageParam));
   const menu = route?.menu;
   const channels = useChannels(menu, registry);
+  const heldSelections = use(HeldSelectionContext);
   if (menu && !menu.panels?.some(panel => panel.id === panelId)) throw new RangeError(`Unknown panel "${panelId}" in menu "${menu.id}"`);
   const applied: AppliedAnalysisSelection[] = [];
   const rejected: string[] = [];
@@ -194,6 +210,13 @@ export function useAnalysisSelectionInputs(panelId: string): {
   for (const [key, { readers, writers, dimension, shape }] of channels) {
     const inputs = readers.filter(reader => reader.panelId === panelId);
     if (!inputs.length) continue;
+    const writerDetails = writers[0] ? { source: { panelId: writers[0].panelId, title: writers[0].title, dimension } } : { dimension };
+    const heldSelection = heldSelections?.get(key);
+    if (heldSelection) {
+      if (heldSelection.shape !== shape) rejected.push(key);
+      else for (const { use } of inputs) applied.push({ key, use, selection: heldSelection, held: true, ...writerDetails });
+      continue;
+    }
     const values = pageParams(key);
     if (!values.length) continue;
     const selection = parseAnalysisSelection(shape, values);
@@ -205,8 +228,6 @@ export function useAnalysisSelectionInputs(panelId: string): {
       unavailable.push(key);
       continue;
     }
-    const [writer] = writers;
-    const writerDetails = writer ? { source: { panelId: writer.panelId, title: writer.title, dimension } } : { dimension };
     for (const { use } of inputs) applied.push({ key, use, selection, ...writerDetails });
   }
   const result = { applied, filtered: applied.some(input => input.use === 'filter'), rejected, unavailable };
@@ -217,7 +238,7 @@ export function useAnalysisSelectionInputs(panelId: string): {
     && sameItems(a.result.unavailable, b.result.unavailable)
     && a.result.applied.every((input, i) => {
       const other = b.result.applied[i];
-      return input.key === other.key && input.use === other.use && sameSelection(input.selection, other.selection);
+      return input.key === other.key && input.use === other.use && input.held === other.held && sameSelection(input.selection, other.selection);
     }),
   ).result;
 }

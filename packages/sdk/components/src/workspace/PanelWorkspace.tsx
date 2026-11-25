@@ -85,6 +85,11 @@ export type PanelWorkspacePanel = {
    * the next drill step); the SDK only draws the state and calls `onToggle`.
    */
   pin?: { pinned: boolean; onToggle: () => void };
+  /**
+   * The panel must stay (#2862: another panel holds this panel's selection). «숨기기» stays in the `⋯` menu, disabled, and says `reason`;
+   * collapsing and floating, which keep the panel, still work. The menu sets it and removes it when nothing depends on the panel.
+   */
+  keep?: { reason: Text };
 };
 
 export type PanelWorkspacePreset = { id: string; label: Text; layout: PanelWorkspaceLayout };
@@ -692,6 +697,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       onSplit={position => { if (!menu.maximized && menu.split) { closeFocus.current = () => { focusTab(id); }; const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) }), id); } }}
       onMove={target => { closeFocus.current = () => { focusTab(id); }; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}
       onMoveBelow={rows && canMoveBelow(state.layout, id) ? () => { closeFocus.current = () => { focusTab(id); }; moveBelow(id); } : undefined}
+      hideBlocked={panel?.keep ? tx(panel.keep.reason) : undefined}
       onHide={id === primaryId ? undefined : () => {
         setMaximized(null);
         const next = hidePanel(state, id, primaryId);

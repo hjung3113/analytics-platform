@@ -553,20 +553,20 @@ const fittedChipRegistry = createRegistry({
   })),
 });
 
-function chipPage(frame: 'live' | 'unmounted' | 'suspended', onAdd = vi.fn()) {
+function chipPage(frame: 'live' | 'unmounted' | 'suspended', onAdd = vi.fn(), hold = false) {
   return <I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry} slots={chipSlots}>
-    <PlatformPage><ChartChipWorkspace frame={frame} onAdd={onAdd} /></PlatformPage>
+    <PlatformPage><ChartChipWorkspace frame={frame} onAdd={onAdd} hold={hold} /></PlatformPage>
   </PlatformProvider></I18nProvider>;
 }
 
-function ChartChipWorkspace({ frame, onAdd }: { frame: 'live' | 'unmounted' | 'suspended'; onAdd: ReturnType<typeof vi.fn> }) {
+function ChartChipWorkspace({ frame, onAdd, hold = false }: { frame: 'live' | 'unmounted' | 'suspended'; onAdd: ReturnType<typeof vi.fn>; hold?: boolean }) {
   const { route } = usePlatform();
   const id = useId();
   if (route?.menu.id !== 'home') return null;
   return <PanelWorkspace label={chipLabel('Workspace')} persistKey={`chip-${id.toLowerCase().replace(/[^a-z0-9_-]/g, '-')}`} initialMode="stack"
       presets={[{ id: 'chip', label: chipLabel('Preset'), layout: { type: 'group', panels: ['bars', 'neighbor'], active: 'bars' } }]}
       initialPreset="chip"
-      analysisPanelAddition={{ items: [{ id: 'receiver', title: chipLabel('수신 패널') }], onAdd }}
+      analysisPanelAddition={{ items: [{ id: 'receiver', title: chipLabel('수신 패널') }], onAdd, hold }}
       panels={[{ id: 'bars', title: chipLabel('Bars'), primary: true, render: () => frame === 'unmounted' ? null :
         <AnalysisChartFrame chartId="chip" title="Chip chart" series={[A]} unit="s" xType="category"
           analysisSelectionOutput={frame === 'live' ? setOutput : null} nextAnalysis /> },
@@ -634,6 +634,25 @@ describe('Next analysis chip actions', () => {
         expect(window.location.pathname).toBe('/mars/equipment-detail/a');
       }
     }
+  });
+
+  it.each([
+    ['수신 패널 · 붙잡기', 'hold'],
+    ['수신 패널', undefined],
+  ] as const)('offers follow and hold when the workspace holds, and adds %s (#2862)', async (name, mode) => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    const onAdd = vi.fn();
+    render(chipPage('live', onAdd, true));
+    const user = userEvent.setup();
+    await user.click(chipMore());
+    const item = screen.getByRole('menuitem', { name: '새 패널' });
+    item.focus();
+    await user.keyboard('{ArrowRight}');
+    const choice = await screen.findByRole('menuitem', { name });
+    expect(choice).toHaveAccessibleDescription(mode ? '지금 선택으로 고정' : '선택을 따라감');
+    await user.click(choice);
+    expect(onAdd).toHaveBeenCalledExactlyOnceWith({ source: 'home/receiver', inputs: { equipment: { shape: 'set', values: ['a'] } }, ...(mode && { mode }) });
+    expect(chipMore()).toHaveFocus();
   });
 
   const addFromRow = async () => {

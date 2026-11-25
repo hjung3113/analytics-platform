@@ -11,7 +11,7 @@ const ICON = 'size-7';
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
  * group's active panel. Collapse and float are absent for primary panels. Floating headers offer pin, close and keyboard geometry.
  */
-export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, pin, edgeActions, menuItems }: {
+export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, hideBlocked, pin, edgeActions, menuItems }: {
   menuItems?: readonly { id: string; label: string; onSelect: () => void }[];
   title: string;
   /** A panel's title, naming each move target by its active panel. */
@@ -26,6 +26,8 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   /** Stack mode only, and absent when the panel already is alone in the last row. */
   onMoveBelow?: () => void;
   onHide?: () => void;
+  /** Why «숨기기» is unavailable now (`PanelWorkspacePanel.keep`): the item stays, disabled, and names the reason. */
+  hideBlocked?: string;
   edgeActions?: {
     left?: () => void; top?: () => void; float?: () => void;
     overlay?: { pin: () => void; close: () => void; position?: (place: 'top-left' | 'center') => void; size?: (size: 'small' | 'large') => void };
@@ -93,7 +95,11 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
             {menu.moves.map(move => <DropdownMenuItem key={move.target} onSelect={() => { onMove(move.target); }}>{m('workspaceMoveToGroup', { title: titleOf(move.target) })}</DropdownMenuItem>)}
             {onHide && <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onHide}>{m('workspaceHide')}</DropdownMenuItem>
+              {hideBlocked
+                ? <DropdownMenuItem aria-disabled aria-description={hideBlocked} onSelect={event => { event.preventDefault(); }}>
+                  <span className="flex min-w-0 flex-col"><span>{m('workspaceHide')}</span><span className="text-xs text-text-muted">{hideBlocked}</span></span>
+                </DropdownMenuItem>
+                : <DropdownMenuItem onSelect={onHide}>{m('workspaceHide')}</DropdownMenuItem>}
             </>}
           </>}
         </>}

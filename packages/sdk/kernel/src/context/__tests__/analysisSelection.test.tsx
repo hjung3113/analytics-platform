@@ -2,8 +2,8 @@ import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@t
 import { emptyGlobal, groupId, NO_FEATURES, spaceId, type AnalysisSelection, type PanelDeclaration } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { useLayoutEffect, useState, type ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { analysisSelectionParam, parseAnalysisSelection, useAnalysisSelectionChips, useAnalysisSelectionInputs, useAnalysisSelectionOutput, usePlatform } from '../../index';
+import { afterEach, beforeEach, expect, it, vi, describe } from 'vitest';
+import { analysisSelectionParam, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionChips, useAnalysisSelectionInputs, useAnalysisSelectionOutput, usePlatform } from '../../index';
 import { I18nProvider } from '../../i18n';
 import { LentPanelPlatformContext } from '../../platform/contexts';
 import { useAnalysisSelectionHoverTarget } from '../analysisSelection';
@@ -820,4 +820,31 @@ it.each(['metaKey', 'ctrlKey'] as const)('ignores %s undo in the board and uses 
     act(() => result.current.request!.confirm());
     await waitFor(() => expect(search().get(setKey)).toBe('A'));
   } finally { go.mockRestore(); }
+});
+
+describe('HeldAnalysisSelections (#2862)', () => {
+  const held = { [setKey]: { shape: 'set', values: ['H'] } } as const satisfies Record<string, AnalysisSelection>;
+  function Held({ children }: { children: ReactNode }) {
+    return <Wrapper><HeldAnalysisSelections held={held}>{children}</HeldAnalysisSelections></Wrapper>;
+  }
+  it('reads the held value for its key, marks it held and lets other keys follow the URL', () => {
+    const result = mount(() => useAnalysisSelectionInputs('receiver'), `&${setKey}=B&${rangeKey}=14:00/16:00`, Held);
+    expect(result.current.applied.map(input => [input.key, input.selection, input.held])).toEqual([
+      [setKey, { shape: 'set', values: ['H'] }, true],
+      [rangeKey, range, undefined],
+    ]);
+    expect(result.current.filtered).toBe(true);
+  });
+  it('applies the held value with nothing in the URL, and the URL value outside the wrapper', () => {
+    expect(mount(() => useAnalysisSelectionInputs('receiver'), '', Held).current.applied.map(input => input.key)).toEqual([setKey]);
+    expect(mount(() => useAnalysisSelectionInputs('receiver'), `&${setKey}=B`).current.applied[0]?.selection).toEqual({ shape: 'set', values: ['B'] });
+  });
+  it('rejects a held value of another shape instead of applying it', () => {
+    function Wrong({ children }: { children: ReactNode }) {
+      return <Wrapper><HeldAnalysisSelections held={{ [setKey]: range }}>{children}</HeldAnalysisSelections></Wrapper>;
+    }
+    const result = mount(() => useAnalysisSelectionInputs('receiver'), '', Wrong);
+    expect(result.current.applied).toEqual([]);
+    expect(result.current.rejected).toEqual([setKey]);
+  });
 });
