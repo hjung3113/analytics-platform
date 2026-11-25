@@ -464,9 +464,26 @@ export const contractSchemas = [
   testEntryOverride(CONTRACT_SCHEMAS_TEST_RESTRICTION, ['contracts/vocab.json', 'contracts/build'], ['**/*.test.ts']),
 ];
 
+// #2955: SDK packages promise peer `react ^19.0.0`; `useEffectEvent` exists only from React 19.2, so a 19.0/19.1 consumer gets undefined.
+const NO_EFFECT_EVENT_MESSAGE = 'useEffectEvent needs React 19.2; the SDK supports React 19.0+ (#2955). Keep the latest callback in a ref updated by useInsertionEffect (shell: useLatestRef in src/latestRef.ts).';
+const REACT_FLOOR = {
+  files: ['**/*.{ts,tsx}'],
+  rules: {
+    'no-restricted-syntax': ['error',
+      { selector: "ImportSpecifier[imported.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+      { selector: "MemberExpression[property.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+      { selector: "MemberExpression[computed=true][property.value='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+      { selector: "ExportSpecifier[local.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+      { selector: "ObjectPattern > Property[key.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+      { selector: "ObjectPattern > Property[key.value='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+    ],
+  },
+};
+
 /** @type {import('eslint').Linter.Config[]} */
 export const ui = [
   REACT_HOOKS,
+  REACT_FLOOR,
   BUILD_OUTPUT,
   layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false, allowRadix: true } }),
   designSystem({ componentSource: true }),
@@ -481,6 +498,7 @@ const LANG_COPY = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: 
 /** @type {import('eslint').Linter.Config[]} */
 export const kernel = [
   REACT_HOOKS,
+  REACT_FLOOR,
   BUILD_OUTPUT,
   layerConfig({ restriction: { allow: ['contracts'], denyReact: false, mockAllowed: false } }),
   LANG_COPY,
@@ -494,6 +512,7 @@ const SHELL_RESTRICTION = { allow: ['contracts', 'kernel', 'ui', 'components'], 
 /** @type {import('eslint').Linter.Config[]} */
 export const components = [
   REACT_HOOKS,
+  REACT_FLOOR,
   BUILD_OUTPUT,
   layerConfig({ restriction: COMPONENTS_RESTRICTION }),
   testEntryOverride(COMPONENTS_RESTRICTION),
@@ -507,6 +526,7 @@ export const components = [
 /** @type {import('eslint').Linter.Config[]} */
 export const shell = [
   REACT_HOOKS,
+  REACT_FLOOR,
   BUILD_OUTPUT,
   layerConfig({
     restriction: SHELL_RESTRICTION,

@@ -1,5 +1,6 @@
 import { useRegisterContextEditorFocus } from '@ap/components';
-import { createContext, useContext, useEffectEvent, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction, type ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction, type ReactNode } from 'react';
+import { useLatestRef } from '../latestRef';
 import type { ContextKey } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
@@ -149,7 +150,7 @@ export function ContextBarLayout({ controls, revision, actions, regionName, acti
   };
   const placement = controls.map(control => `${control.key}:${hidden.some(c => c.key === control.key) ? 'overflow' : 'inline'}`).join(',');
   // The effect fires when the placement string changes; what it reads (controls, hidden, drafts) is the latest render's.
-  const syncPlacements = useEffectEvent(() => {
+  const syncPlacements = useLatestRef(() => {
     const next = new Map<ControlKey, string>(controls.map(control => [control.key, hidden.some(c => c.key === control.key) ? 'overflow' : 'inline']));
     const active = Object.entries(drafts).filter(([field, value]) => field.endsWith(':open') && value === true).map(([field]) => field.split(':')[0] as ControlKey);
     const moved = [focusedKey.current, ...active].some(key => key && placements.current.has(key) && placements.current.get(key) !== next.get(key));
@@ -157,14 +158,14 @@ export function ContextBarLayout({ controls, revision, actions, regionName, acti
     if (!hidden.length) setOverflowOpen(false);
     return moved;
   });
-  const refocusBar = useEffectEvent(focusBar);
+  const refocusBar = useLatestRef(focusBar);
   useLayoutEffect(() => {
-    const moved = syncPlacements();
+    const moved = syncPlacements.current();
     // Run after Radix's mount/close autofocus; disconnected triggers cannot return focus themselves.
     let cancelled = false;
-    if (moved) queueMicrotask(() => { if (!cancelled) refocusBar(); });
+    if (moved) queueMicrotask(() => { if (!cancelled) refocusBar.current(); });
     return () => { cancelled = true; };
-  }, [placement]);
+  }, [placement, syncPlacements, refocusBar]);
   const activeHidden = hidden.some(control => drafts[`${control.key}:open`] === true || control.key === activeControl);
   const item = (control: Control, compactPeriod = false) => <EditorState.Provider key={control.key} value={{ key: control.key, drafts, update: setDrafts, recovering: recoveringFocus }}>
     <div data-context-key={control.key} onFocusCapture={() => { focusedKey.current = control.key; }} className={compactPeriod ? 'min-w-0 flex-1' : 'shrink-0'}>

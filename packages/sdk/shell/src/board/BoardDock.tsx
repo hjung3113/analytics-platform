@@ -1,5 +1,6 @@
 import { Plus, X } from 'lucide-react';
-import { useCallback, useEffect, useEffectEvent, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useLatestRef } from '../latestRef';
 import { DockLayout, dockLayoutMenu, movePanel, type DockPanel } from '@ap/components/dock';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatform, type PaneScreen } from '@ap/kernel/host';
@@ -119,7 +120,7 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
   // After a maximize ends the toggle of the pane that is now the group's current one takes focus (the same button whichever way the user restored:
   // toggle, Esc, menu), else the pane, else the page heading. Below `DockLayout`'s own effect, which focuses the restored tab first and would overwrite this.
   const wasMaximized = useRef<string | null>(null);
-  const settleMaximize = useEffectEvent(() => {
+  const settleMaximize = useLatestRef(() => {
     const was = wasMaximized.current;
     wasMaximized.current = maximizedPaneId;
     if (was === null || maximizedPaneId !== null) return;
@@ -132,15 +133,15 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
       if (usable(pane)) pane.focus({ preventScroll: true }); else heading.current?.focus({ preventScroll: true });
     });
   });
-  useEffect(() => { settleMaximize(); }, [maximizedPaneId]);
+  useEffect(() => { settleMaximize.current(); }, [maximizedPaneId, settleMaximize]);
 
   // `칸 추가` made a pane: its tab takes focus (the button may have just disabled itself at the fourth). The request is answered once.
-  const answerNewPane = useEffectEvent(() => {
+  const answerNewPane = useLatestRef(() => {
     if (!newPane) return;
     focusTabSoon(newPane.id);
     onNewPaneHandled();
   });
-  useEffect(() => { answerNewPane(); }, [newPane]);
+  useEffect(() => { answerNewPane.current(); }, [newPane, answerNewPane]);
 
   const maximizedHere = (paneId: string) => maximizedPaneId !== null && !!groupHolding(tree, maximizedPaneId)?.panes.includes(paneId);
   const command = (build: (dock: ReturnType<typeof toDockTree>) => ReturnType<typeof toDockTree>) => update(b => {
