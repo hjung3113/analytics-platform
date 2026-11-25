@@ -64,9 +64,18 @@ function createScreenSlots() {
       applied = { token: {}, viewId, fields: values, consumed: new Set() };
       for (const [field, keys] of fields) for (const key of keys.keys()) applyKey(field, key);
     },
-    /** Re-entry keeps a selection the address still matches: deliver its values once unless this view's values are already pending. */
+    /**
+     * Re-entry and the personal default: deliver a view's values once. For the view already applied, only fields it did not carry yet are
+     * added, so a re-entry restore and a default apply of the same view, in either order, reach each slot once. A pick uses `apply`.
+     */
     restore(viewId: string, values: Record<string, Record<string, unknown> | undefined>) {
-      if (applied?.viewId !== viewId) this.apply(viewId, values);
+      if (applied?.viewId !== viewId) { this.apply(viewId, values); return; }
+      const current = applied;
+      for (const [field, value] of Object.entries(values)) {
+        if (Object.hasOwn(current.fields, field)) continue;
+        current.fields[field] = value;
+        for (const key of fields.get(field)?.keys() ?? []) applyKey(field, key);
+      }
     },
     select(viewId: string | null) { if (applied?.viewId !== viewId) applied = null; },
   };

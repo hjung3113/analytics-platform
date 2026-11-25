@@ -8,17 +8,18 @@ import { useSavedViews, type SavedViews } from '../../host';
 import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSpace } from '../../testing';
 
 const support: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: [], pageKeys: [] };
-const registry = createRegistry({
+const makeRegistry = (autoApplyDefault: boolean) => createRegistry({
   spaces: [testSpace()],
   groups: [{ id: groupId('g'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }],
   menus: [{
     id: 'home', group: groupId('g'), primary: true, path: '/', icon: House,
     label: { ko: 'H', en: 'H' }, description: { ko: '', en: '' }, permission: 'platform:view',
     requiresScope: false, context: { ...noContext, time: 'apply' }, savedViews: 'screen',
-    query: { mode: 'apply' }, pageType: 'analysis', pageKeys: [],
+    query: { mode: 'apply', ...(autoApplyDefault ? { autoApplyDefault } : {}) }, pageType: 'analysis', pageKeys: [],
     features: { export: false, savedView: true, annotate: false, compare: false, board: false },
   }],
 });
+const registry = makeRegistry(false);
 const panels: MenuViewPanels = {
   version: 1,
   instances: [
@@ -48,15 +49,15 @@ function PanelSlot() {
   return null;
 }
 
-async function mount({ saved = row(), registrations = 1, store = createFakeSavedViewStore([saved]) } = {}) {
+async function mount({ saved = row(), registrations = 1, store = createFakeSavedViewStore([saved]), declared = support, menus = registry } = {}) {
   function Probe() {
     const [mounted, show] = useState(true);
     setMounted = show;
-    useSavedViewSupport(support);
+    useSavedViewSupport(declared);
     views = useSavedViews();
     return <>{mounted && Array.from({ length: registrations }, (_, index) => <PanelSlot key={index} />)}</>;
   }
-  render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter()} savedViews={store}><Probe /></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider registry={menus} adapter={testAdapter()} savedViews={store}><Probe /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(views.status).toBe('ready'));
   return store;
 }
@@ -100,6 +101,32 @@ it('restores the selected view panels after a reload and overwrite keeps them', 
   expect(views.state.modified).toBe(false);
   await act(async () => { await views.saveToSelected(); });
   expect(await store.get('saved')).toMatchObject({ view: { panels } });
+});
+
+it('does not restore panels of a kept selection the menu schema no longer opens', async () => {
+  const store = await mount();
+  await act(async () => { await views.select('saved'); });
+  cleanup();
+  opened.mockClear();
+  await mount({ store, declared: { ...support, menuSchemaVersion: 2 } });
+  await act(async () => {});
+  expect(opened).not.toHaveBeenCalled();
+});
+
+it('delivers a reloaded personal default view once while its default lookup is still pending', async () => {
+  const menus = makeRegistry(true);
+  const store = createFakeSavedViewStore([row()], { 'u1:home': 'saved' });
+  await mount({ store, menus });
+  await waitFor(() => expect(opened).toHaveBeenCalledOnce());
+  cleanup();
+  opened.mockClear();
+  let release!: () => void;
+  store.getHold.set('saved', new Promise<void>(resolve => { release = resolve; }));
+  await mount({ store, menus });
+  await act(async () => { release(); await Promise.resolve(); });
+  await waitFor(() => expect(views.selected?.view.id).toBe('saved'));
+  await act(async () => {});
+  expect(opened).toHaveBeenCalledExactlyOnceWith(panels);
 });
 
 it('reports unreadable panels and keeps the current panels available to save', async () => {

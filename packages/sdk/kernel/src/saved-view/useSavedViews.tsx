@@ -404,9 +404,8 @@ function useSavedViewController(
     const sameAddress = (current.appliedUrl === current.url && result.href === current.url) || result.href === current.pathname + buildQuery(current.global, current.page, current.extras);
     const applySlots = () => {
       const view = found.view;
-      slots?.apply(id, view.kind === 'menu-view'
-        ? { tables: view.tables, [PANELS_SLOT]: savedPanelsSlot(view) }
-        : {});
+      const values = view.kind === 'menu-view' ? { tables: view.tables, [PANELS_SLOT]: savedPanelsSlot(view) } : {};
+      if (source === 'default') slots?.restore(id, values); else slots?.apply(id, values);
     };
     if (sameAddress) applySlots();
     if (!sameAddress && ownsDecision && source === 'default') {
@@ -480,7 +479,7 @@ function useSavedViewController(
     if (selectedId !== null && (selected === null || mismatch)) clearSelection();
     else if (selected !== null) {
       // A reload keeps the selection through the address; the screen's panels come only from the view, so hand them over once.
-      if (selected.view.kind === 'menu-view') slots?.restore(selected.view.id, { [PANELS_SLOT]: savedPanelsSlot(selected.view) });
+      if (selected.view.kind === 'menu-view' && selected.view.menuSchemaVersion === support.menuSchemaVersion) slots?.restore(selected.view.id, { [PANELS_SLOT]: savedPanelsSlot(selected.view) });
       return;
     }
     if (mode === 'legacy' && loaded.defaultId !== null) void apply(loaded.defaultId, 'default');
