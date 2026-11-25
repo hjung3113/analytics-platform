@@ -23,6 +23,7 @@
 - **같은 열차:** SDK·Host tarball과 같은 버전이다([ADR-0143](0143-release-units-and-compatibility-train.md) «같은 열차 N, 롤백용 N-1»). 이미지 셋은 앱 태그 `v<X.Y.Z>`의 Release에 싣는다(SDK tarball은 `sdk-v<X.Y.Z>`).
 - **공개 경로:** 공개 GitHub Release. 이미지 안의 코드는 공개 저장소의 소스와 같고, 사내 값(주소·비밀)은 이미지가 아니라 운영자의 env 파일에 있다.
 - **검사:** main push(또는 수동 실행) CI가 tar를 네트워크 없이 `docker load`하고 기동해 `/health/ready` 200을 확인한다. PR CI에는 넣지 않는다(루트 AGENTS.md §Verification).
+- **한 릴리스의 마이그레이션은 더하기만 한다.** 테이블·열을 지우거나 이름·형을 바꾸거나 `NOT NULL`을 거는 단계는 다음 릴리스로 미룬다. 이유: 롤백(N-1)은 DB를 N 스키마에 둔 채 N-1 백엔드를 돌린다. 결정자: 팀장 — 2026-11-25(사내 운영 규칙이라 소유자 질문 아님). main push 검사는 [#2961](https://github.com/hjung3113/analytics-platform/issues/2961).
 
 ## Considered Options
 
