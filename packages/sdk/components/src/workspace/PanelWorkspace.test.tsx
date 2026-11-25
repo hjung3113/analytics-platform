@@ -197,6 +197,21 @@ describe('PanelWorkspace: remount 0, query 0', () => {
     expect(mounts).toEqual({ trend: 1, selector: 2, detail: 1, kpi: 1 });
     expect(menuQuery.mock.calls.length).toBe(queries);
   });
+
+  it('lets the normal hide action remove a consumer-owned panel and returns focus to the primary', async () => {
+    function RemovableWorkspace() {
+      const [panels, setPanels] = useState(PANELS);
+      return <PanelWorkspace {...BASE} panels={panels.map(panel => panel.id === 'selector'
+        ? { ...panel, onRemove: () => setPanels(current => current.filter(item => item.id !== panel.id)) }
+        : panel)} />;
+    }
+    render(shell(<RemovableWorkspace />));
+    await ready();
+    await chooseFromMenu('선택기 동작', '숨기기');
+    expect(screen.queryByRole('tab', { name: '선택기' })).toBeNull();
+    expect(screen.getByRole('button', { name: '숨긴 패널 0' })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole('tab', { name: '추세' })).toHaveFocus());
+  });
 });
 
 describe('PanelWorkspace: toolbar', () => {

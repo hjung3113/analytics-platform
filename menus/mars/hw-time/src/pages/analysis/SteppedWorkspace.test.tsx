@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { memoryStorage } from '@ap/kernel/testing';
+import type { MenuView, PanelInstance } from '@ap/contracts';
+import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { answer, renderOverview, requests, settle } from './test-support';
 
 const chart = (id = 'hw-current') => JSON.parse(screen.getByTestId(id).textContent!);
@@ -19,6 +20,96 @@ beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage());
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+
+describe('HW Time saved view panels', () => {
+  const makeInstance = (panel: string): PanelInstance => ({ id: panel, source: { kind: 'declared', panel }, inputs: [], outputs: [] });
+  const missing = makeInstance('retired');
+  const donut = makeInstance('donut');
+  const pareto = makeInstance('pareto');
+  const storedPanels = { version: 1, instances: [missing, donut] } as const;
+  const saved = (over: Partial<MenuView> = {}) => testSavedView({
+    id: 'saved', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM',
+    context: { from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00' }, page: [], chartOptions: {},
+    layout: null, panels: { version: storedPanels.version, instances: [...storedPanels.instances] }, ...over,
+  });
+  let views: SavedViews;
+  function Probe() { views = useSavedViews(); return null; }
+  async function mount(store: ReturnType<typeof createFakeSavedViewStore>, search = '') {
+    await renderOverview(search, answer, { savedViews: store, children: <Probe /> });
+    await waitFor(() => expect(views.status).toBe('ready'));
+  }
+  async function open(id: string) {
+    await act(async () => { expect(await views.select(id)).toMatchObject({ ok: true }); });
+  }
+
+  it('saves two added panels and restores their order after reopening and reloading', async () => {
+    const store = createFakeSavedViewStore([]);
+    await mount(store);
+    fireEvent.keyDown(addButton(), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '추가하면 고정' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: '상한 초과 파레토' }));
+    await settle();
+    await add('판정 비율 도넛');
+    const result = await act(() => views.saveAs({ name: 'Panels', kind: 'menu-view' }));
+    expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: [pareto, donut] } } } });
+    if (!result.ok) throw new Error('Failed to save view');
+    cleanup();
+    await mount(store, '&moduleType=PM');
+    await open(result.value.view.id);
+    await waitFor(() => expect(config().ids).toEqual(['tree', 'current', 'pareto', 'donut']));
+    expect(screen.getByRole('tab', { name: 'current' }).getAttribute('aria-selected')).toBe('true');
+    cleanup();
+    await mount(store);
+    await waitFor(() => expect(config().ids).toEqual(['tree', 'current', 'pareto', 'donut']));
+  });
+
+  it('renders a reason in the missing slot and renders the other panels', async () => {
+    await mount(createFakeSavedViewStore([saved()]));
+    await open('saved');
+    expect(await screen.findByText('이 패널은 더 이상 없습니다: retired')).toBeTruthy();
+    expect(await screen.findByTestId('hw-current')).toBeTruthy();
+    expect(await screen.findByTestId('hw-verdict-donut')).toBeTruthy();
+  });
+
+  it.each([true, undefined] as const)('resets to the declared panels on a null open (unreadable: %s) and saves that configuration', async panelsUnreadable => {
+    const store = createFakeSavedViewStore([saved({ panels: null, panelsUnreadable })]);
+    await mount(store);
+    await add('판정 비율 도넛');
+    await open('saved');
+    const reason = screen.queryByText('저장된 패널 구성을 읽을 수 없어 기본 패널로 열었습니다.');
+    expect(reason !== null).toBe(panelsUnreadable === true);
+    expect(config().ids).toEqual(['tree', 'current']);
+    const result = await act(() => views.saveAs({ name: 'Current', kind: 'menu-view' }));
+    expect(result).toMatchObject({ ok: true, value: { view: { panels: null } } });
+  });
+
+  it('opens a view that pins a missing panel with the reason slot, drops only that pin, and survives a drill', async () => {
+    await mount(createFakeSavedViewStore([saved({ page: [['pins', 'retired'], ['pins', 'donut']] })]));
+    await open('saved');
+    expect(await screen.findByText('이 패널은 더 이상 없습니다: retired')).toBeTruthy();
+    expect(await screen.findByTestId('hw-verdict-donut')).toBeTruthy();
+    const result = await act(() => views.saveAs({ name: 'Opened', kind: 'menu-view' }));
+    if (!result.ok) throw new Error('Failed to save view');
+    expect(result.value.view).toMatchObject({ panels: storedPanels });
+    expect((result.value.view as MenuView).page).toContainEqual(['pins', 'donut']);
+    expect((result.value.view as MenuView).page).not.toContainEqual(['pins', 'retired']);
+    fireEvent.click(screen.getByRole('button', { name: 'remove saved-panel-0' }));
+    await settle();
+    expect(screen.queryByText('이 패널은 더 이상 없습니다: retired')).toBeNull();
+    expect(config().pins.donut).toBe(true);
+    fireEvent.click(node('PM'));
+    await settle();
+    expect(await screen.findByTestId('hw-current')).toBeTruthy();
+    expect(config().pins.donut).toBe(true);
+  });
+
+  it('keeps the missing instance when saving after open', async () => {
+    await mount(createFakeSavedViewStore([saved()]));
+    await open('saved');
+    const result = await act(() => views.saveAs({ name: 'Copy', kind: 'menu-view' }));
+    expect(result).toMatchObject({ ok: true, value: { view: { panels: storedPanels } } });
+  });
+});
 
 describe('HW Time approved stepped workspace', () => {
   it.each(['&drillModule=PM2', '&trend=PM2/Pump'])('adds and pins a distribution tab with target %s', async target => {

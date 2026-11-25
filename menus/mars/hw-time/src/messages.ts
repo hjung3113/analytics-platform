@@ -128,6 +128,9 @@ export const HW_TIME_WORKSPACE_MESSAGES = {
   pickModule: { ko: 'Module을 고르세요', en: 'Select a Module' },
   pickMotion: { ko: 'Motion을 고르세요', en: 'Select a Motion' },
   activeRow: { ko: '선택한 막대 행', en: 'Selected bar row' },
+  unreadablePanels: { ko: '저장된 패널 구성을 읽을 수 없어 기본 패널로 열었습니다.', en: 'The saved panel configuration could not be read, so the default panels were opened.' },
+  missingPanel: { ko: '이 패널은 더 이상 없습니다: {id}', en: 'This panel is no longer available: {id}' },
+  unsupportedPanel: { ko: '이 저장된 패널을 열 수 없습니다: {id}', en: 'This saved panel cannot be opened: {id}' },
   /** The minimized 표시 조건 chip: the current conditions in one line. */
   filterSummary: { ko: '{type} · Module {modules}/{moduleTotal} · Motion {motions}/{motionTotal}', en: '{type} · Module {modules}/{moduleTotal} · Motion {motions}/{motionTotal}' },
 } satisfies Record<string, Text>;
