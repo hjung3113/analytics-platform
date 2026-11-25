@@ -78,6 +78,7 @@ export function ListTabs({
       hiddenTabs: tabs.filter((tab) => !visible.includes(tab)),
     };
   }, [tabs, maxVisible, selectedTab]);
+  const hasHiddenTabs = hiddenTabs.length > 0;
   const tabKey = tabs.map((tab) => tab.value).join('|');
   const overflowState = useHorizontalOverflow(tabViewportRef, { contentKey: tabKey });
   const hasOverflow = overflowState.canScrollLeft || overflowState.canScrollRight;
@@ -169,7 +170,11 @@ export function ListTabs({
           )}
           <div
             ref={tabViewportRef}
-            className="flex min-w-0 flex-1 items-center overflow-x-auto whitespace-nowrap scrollbar-none [&::-webkit-scrollbar]:hidden"
+            className={cn(
+              'flex min-w-0 items-center overflow-x-auto whitespace-nowrap scrollbar-none [&::-webkit-scrollbar]:hidden',
+              hasHiddenTabs ? 'flex-initial' : 'flex-1',
+              hasHiddenTabs && align === 'end' && 'ml-auto',
+            )}
             data-list-toolbar-tabs
             data-fade-left={overflowState.canScrollLeft ? 'true' : 'false'}
             data-fade-right={overflowState.canScrollRight ? 'true' : 'false'}
@@ -225,7 +230,7 @@ export function ListTabs({
               </TabsList>
             </Tabs>
           </div>
-          {hiddenTabs.length > 0 && (
+          {hasHiddenTabs && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

@@ -126,6 +126,22 @@ describe('DetailPanelHeader — milestone kind badge', () => {
 });
 
 describe('DetailPanelHeader — title lines', () => {
+  it.each([1, 2] as const)('preserves word boundaries in title and metadata with %i title lines', (titleLines) => {
+    render(
+      <DetailPanelHeader
+        title="장비 정기 보전 이력"
+        titleLines={titleLines}
+        metadata={<span>최근 보전 11/04</span>}
+      />,
+    );
+
+    const heading = screen.getByRole('heading', { name: '장비 정기 보전 이력' });
+    const metadata = screen.getByText('최근 보전 11/04');
+    expect(heading).toHaveClass('break-keep');
+    expect(heading).not.toHaveClass('wrap-anywhere');
+    expect(metadata.closest('.break-keep')).toHaveClass('wrap-normal');
+  });
+
   it.each([{}, { titleLines: 1 }] as const)('keeps the single-line title layout with %j', options => {
     render(<DetailPanelHeader title="Record title" {...options} />);
     const heading = screen.getByRole('heading', { name: 'Record title' });
@@ -138,7 +154,7 @@ describe('DetailPanelHeader — title lines', () => {
     const heading = screen.getByRole('heading', { name: 'A long record title' });
     expect(heading.closest('header')).toHaveClass('min-h-toolbar');
     expect(heading.closest('header')).not.toHaveClass('h-toolbar');
-    expect(heading).toHaveClass('line-clamp-2', 'wrap-anywhere');
+    expect(heading).toHaveClass('line-clamp-2');
     expect(heading).not.toHaveClass('truncate');
   });
 

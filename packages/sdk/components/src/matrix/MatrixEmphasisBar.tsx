@@ -25,6 +25,6 @@ export function MatrixEmphasisBar({ emphasis, onEmphasisChange, onlyMatchingColu
       <Button type="button" variant="ghost" size="icon-xs" aria-label={m('remove', { name: rowLabel(rule.row) })} onClick={() => onEmphasisChange(emphasis.filter((_, at) => at !== index))}><X className="size-3" aria-hidden /></Button>
     </span>)}
     <Button type="button" variant="ghost" size="toolbar" onClick={() => onEmphasisChange([])}>{m('clearAll')}</Button>
-    <Button type="button" variant="secondary" size="toolbar" aria-pressed={onlyMatchingColumns} onClick={() => onOnlyMatchingColumnsChange(!onlyMatchingColumns)}>{onlyMatchingLabel ?? m('onlyMatching')}</Button>
+    <Button type="button" variant="toggle" size="toolbar" aria-pressed={onlyMatchingColumns} onClick={() => onOnlyMatchingColumnsChange(!onlyMatchingColumns)}>{onlyMatchingLabel ?? m('onlyMatching')}</Button>
   </div>;
 }

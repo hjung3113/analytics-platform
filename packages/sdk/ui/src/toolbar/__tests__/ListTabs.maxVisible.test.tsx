@@ -35,6 +35,17 @@ describe('ListTabs maxVisible', () => {
     expect(screen.getByRole('button', { name: /^더보기/ })).toHaveTextContent('3');
   });
 
+  it('places 더보기 directly after the last visible tab without a growing gap', () => {
+    render(<ListTabs tabs={tabs} activeTab="a" maxVisible={3} />);
+    const lastTab = screen.getByRole('tab', { name: '다' });
+    const more = screen.getByRole('button', { name: /^더보기/ });
+    const viewport = lastTab.closest('[data-list-toolbar-tabs]');
+
+    expect(lastTab.nextElementSibling).toBeNull();
+    expect(viewport?.nextElementSibling).toBe(more);
+    expect(viewport).toHaveClass('flex-initial');
+  });
+
   it('lists the hidden tabs with icon, tip, badge and disabled state in the menu', () => {
     render(<ListTabs tabs={tabs} activeTab="a" maxVisible={3} />);
     openMenu();

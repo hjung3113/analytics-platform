@@ -156,12 +156,12 @@ export function DetailPanelHeader({
         data-testid="detail-panel-header-content"
         className={cn('flex flex-1 items-center gap-3 pr-3 min-w-0', isMilestone || !hasKind ? 'pl-5' : 'pl-4', wrapsTitle && 'py-1')}
       >
-        <div className={wrapsTitle ? 'flex min-w-0 flex-col items-start gap-0.5 break-keep' : 'flex min-w-0 items-baseline gap-2 break-keep'}>
+        <div className={cn('flex min-w-0 break-keep wrap-normal', wrapsTitle ? 'flex-col items-start gap-0.5' : 'items-baseline gap-2')}>
           <div className={cn('flex min-w-0', wrapsTitle ? 'items-center' : 'items-baseline', 'gap-2')}>
             {id !== undefined && (title == null
               ? <h2 id={headingId} className="t-mono truncate font-mono text-xs text-text-muted leading-none">{id}</h2>
               : <span className="t-mono max-w-1/2 shrink-0 truncate font-mono text-xs text-text-muted leading-none">{id}</span>)}
-            {title != null && <h2 id={headingId} className={cn('t-section-title min-w-0', wrapsTitle ? 'line-clamp-2 wrap-anywhere' : 'truncate')}>{title}</h2>}
+            {title != null && <h2 id={headingId} className={cn('t-section-title min-w-0 break-keep', wrapsTitle ? 'line-clamp-2' : 'truncate')}>{title}</h2>}
           </div>
           {wrapsTitle
             ? (kicker !== undefined || Boolean(metadata)) && <div className="flex min-w-0 max-w-full items-center gap-2">{kickerBadge}{metadata}</div>
