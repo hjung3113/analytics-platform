@@ -2,8 +2,8 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as kernel from '@ap/kernel';
-import { memoryStorage } from '@ap/kernel/testing';
-import type { MenuQuery } from '@ap/contracts';
+import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
+import { EQUIPMENT_SELECTION_DIMENSION, type MenuQuery, type PanelInstance } from '@ap/contracts';
 import { answer, chartRenders, fixtureMatrix, renderOverview, requests, settle } from './test-support';
 
 await vi.hoisted(async () => { (await import('@ap/components/testing/engines')).mockEchartsCanvas(); });
@@ -311,8 +311,9 @@ it('adds the eligible raw table and follows the equipment set from the workspace
   expect(tableReads()).toEqual([]);
   fireEvent.keyDown(add, { key: 'Enter' });
   const menu = within(await screen.findByRole('menu'));
-  expect(menu.getAllByRole('menuitem')).toHaveLength(1);
-  fireEvent.click(menu.getByRole('menuitem'));
+  // Follow and hold for the one eligible panel (#2862).
+  expect(menu.getAllByRole('menuitem').map(item => item.getAttribute('aria-label'))).toEqual(['원본 표', '원본 표 · 붙잡기']);
+  fireEvent.click(menu.getByRole('menuitem', { name: '원본 표' }));
   await waitFor(() => expect(tableReads()[0]?.params).toMatchObject({ motionEquipment: ['MEM-PHOTO-0105'] }));
   expect(row.queryByRole('button', { name: '새 패널' })).toBeNull();
   fireEvent.click(within(screen.getByRole('group', { name: '분석 선택' })).getByRole('button', { name: '설비 MEM-PHOTO-0105' }));
@@ -321,6 +322,111 @@ it('adds the eligible raw table and follows the equipment set from the workspace
   fireEvent.click(editor.getByRole('checkbox', { name: 'MEM-PHOTO-0105' }));
   fireEvent.click(editor.getByRole('button', { name: '적용' }));
   await waitFor(() => expect(tableReads().at(-1)?.params).toMatchObject({ motionEquipment: ['MEM-PHOTO-0103'] }));
+});
+
+const heldLink = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105';
+const tableTab = () => document.querySelector<HTMLElement>('[role="tab"][data-tab-panel-id="table"]')!;
+const newPanel = async (name: string) => {
+  fireEvent.keyDown(within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' }), { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name }));
+  await settle();
+};
+const pickEquipment = async (from: string, to: string) => {
+  fireEvent.click(within(screen.getByRole('group', { name: '분석 선택' })).getByRole('button', { name: `설비 ${from}` }));
+  const editor = within(screen.getByRole('dialog', { name: `설비 ${from}` }));
+  fireEvent.click(editor.getByRole('checkbox', { name: to }));
+  fireEvent.click(editor.getByRole('checkbox', { name: from }));
+  fireEvent.click(editor.getByRole('button', { name: '적용' }));
+  await waitFor(() => expect(filter()).toEqual([to]));
+  await settle();
+};
+const panelMenu = async (panel: string, item: string) => {
+  fireEvent.keyDown(screen.getByRole('button', { name: `${panel} 동작` }), { key: 'Enter' });
+  return screen.findByRole('menuitem', { name: item });
+};
+const readsOf = (endpoint: string) => tableReads().filter(read => read.endpoint === endpoint);
+const followsTo = (value: string) => waitFor(() => {
+  for (const endpoint of ['hwTime.levelRows', 'hwTime.tableRows']) expect(readsOf(endpoint).at(-1)?.params).toMatchObject({ motionEquipment: [value] });
+});
+
+it('holds the raw table to the equipment of that moment and follows again on request (#2862)', async () => {
+  await renderOverview(heldLink, answer, { realWorkspace: true, realChart: 'hw-current', showSelectionChips: true });
+  await newPanel('원본 표 · 붙잡기');
+  await followsTo('MEM-PHOTO-0105');
+  expect(tableTab().getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
+  // The URL selection changes; the held table is not read again at all (R C9).
+  const before = tableReads().length;
+  await pickEquipment('MEM-PHOTO-0105', 'MEM-PHOTO-0103');
+  expect(tableReads()).toHaveLength(before);
+  // «따라가기로 바꾸기» from the table's ⋯ menu reads the URL selection again.
+  fireEvent.click(tableTab());
+  fireEvent.click(await panelMenu('원본 표', '따라가기로 바꾸기'));
+  await followsTo('MEM-PHOTO-0103');
+});
+
+it('keeps a held table when the drill moves up a step (#2862 R C3)', async () => {
+  await renderOverview(heldLink, answer, { realWorkspace: true, realChart: 'hw-current', showSelectionChips: true });
+  await newPanel('원본 표 · 붙잡기');
+  await followsTo('MEM-PHOTO-0105');
+  const before = tableReads().length;
+  fireEvent.click(screen.getByRole('button', { name: 'Pump 단계로 이동' }));
+  await settle();
+  expect(url().get('drillModule')).toBeNull();
+  await waitFor(() => expect(tableTab().getAttribute('aria-description')).toContain('붙잡음 · 설비 1대'));
+  expect(tableReads().slice(before).every(read => (read.params as { motionEquipment?: string[] }).motionEquipment?.join() === 'MEM-PHOTO-0105')).toBe(true);
+});
+
+it('keeps a restored held table and the drawn chart it names across a drill up, and saves a valid graph (#2862 R2 C3)', async () => {
+  const chart: PanelInstance = { id: 'moduleMotions', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [{ key: 'motionEquipment', dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
+  const held: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+    inputs: [{ key: 'motionEquipment', from: 'moduleMotions.motionEquipment', mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] } }] };
+  const store = createFakeSavedViewStore([testSavedView({ id: 'saved', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM',
+    context: { from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00' }, page: [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['motionEquipment', 'MEM-PHOTO-0103']],
+    chartOptions: {}, layout: null, panels: { version: 1, instances: [chart, held] } })]);
+  let views!: SavedViews;
+  function Probe() { views = useSavedViews(); return null; }
+  await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0103', answer,
+    { realWorkspace: true, realChart: 'hw-current', showSelectionChips: true, savedViews: store, children: <Probe /> });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { await views.select('saved'); });
+  await followsTo('MEM-PHOTO-0105');
+  fireEvent.click(screen.getByRole('button', { name: 'Pump 단계로 이동' }));
+  await settle();
+  expect(url().get('drillModule')).toBeNull();
+  await waitFor(() => expect(tableTab().getAttribute('aria-description')).toContain('붙잡음 · 설비 1대'));
+  const result = await act(() => views.saveAs({ name: 'Up', kind: 'menu-view' }));
+  expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: [held, chart] } } } });
+});
+
+it('reopens a hidden held table as following when «원본 표» is picked (#2862 R C5)', async () => {
+  await renderOverview(heldLink, answer, { realWorkspace: true, realChart: 'hw-current', showSelectionChips: true });
+  await newPanel('원본 표 · 붙잡기');
+  await followsTo('MEM-PHOTO-0105');
+  await pickEquipment('MEM-PHOTO-0105', 'MEM-PHOTO-0103');
+  fireEvent.click(tableTab());
+  fireEvent.click(await panelMenu('원본 표', '숨기기'));
+  await settle();
+  await newPanel('원본 표');
+  await followsTo('MEM-PHOTO-0103');
+  expect(tableTab().getAttribute('aria-description') ?? '').not.toContain('붙잡음');
+});
+
+it.each([
+  ['keeps the «모듈 동작» chart the value came from', `${heldLink}&pins=moduleMotions`, 'hw-module-motions', false, ['moduleMotions']],
+  ['does not keep a «모듈 동작» chart added after holding from the current bars', heldLink, 'hw-current', true, []],
+])('%s (#2862 R C7)', async (_name, link, real, addLater, kept) => {
+  await renderOverview(link, answer, { realChart: real, showSelectionChips: true });
+  // The mocked workspace hands over the hold draft the «새 패널» menu would.
+  fireEvent.click(screen.getByRole('button', { name: 'hold table' }));
+  await settle();
+  if (addLater) {
+    fireEvent.keyDown(within(screen.getByTestId('workspace-actions')).getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Motion별/ }));
+    await settle();
+  }
+  const config = JSON.parse(screen.getByTestId('workspace').getAttribute('data-config')!);
+  expect(config.ids).toEqual(expect.arrayContaining(['moduleMotions', 'table']));
+  expect(config.keep).toEqual(kept);
 });
 
 it('opens the raw table body on the first add from a maximized chart', async () => {

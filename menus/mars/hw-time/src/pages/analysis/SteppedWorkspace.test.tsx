@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { EQUIPMENT_SELECTION_DIMENSION } from '@ap/contracts';
 import type { MenuView, PanelInstance } from '@ap/contracts';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { answer, renderOverview, requests, settle } from './test-support';
@@ -61,6 +62,74 @@ describe('HW Time saved view panels', () => {
     cleanup();
     await mount(store);
     await waitFor(() => expect(config().ids).toEqual(['tree', 'current', 'pareto', 'donut']));
+  });
+
+  it('restores a held table without drawing its selection source, and saves the same instances again (#2862)', async () => {
+    const table: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+      inputs: [{ key: 'motionEquipment', from: 'held-source.motionEquipment', mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] } }] };
+    const source: PanelInstance = { id: 'held-source', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+      outputs: [{ key: 'motionEquipment', dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
+    const store = createFakeSavedViewStore([saved({ panels: { version: 1, instances: [table, source] } })]);
+    await mount(store, '&moduleType=PM&drillMotion=Pump&drillModule=PM1');
+    await open('saved');
+    await waitFor(() => expect(config().ids).toContain('table'));
+    expect(config().ids).not.toContain('saved-panel-1');
+    expect(config().ids).not.toContain('moduleMotions');
+    const result = await act(() => views.saveAs({ name: 'Held', kind: 'menu-view' }));
+    expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: [table, source] } } } });
+  });
+
+  const heldTable = (id: string, from = 'held-source.motionEquipment'): PanelInstance => ({ id, source: { kind: 'declared', panel: 'table' }, outputs: [],
+    inputs: [{ key: 'motionEquipment', from, mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] } }] });
+  const equipmentSource = (dimension = EQUIPMENT_SELECTION_DIMENSION): PanelInstance => ({ id: 'held-source', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+    outputs: [{ key: 'motionEquipment', dimension, shape: 'set' }] });
+  const tableReads = () => requests.filter(request => ['hwTime.levelRows', 'hwTime.tableRows'].includes(request.endpoint));
+
+  it('reads each restored raw table on its own: one follows the URL, one keeps its equipment (#2862 R C4)', async () => {
+    const instances = [makeInstance('table'), heldTable('kept'), equipmentSource()];
+    await mount(createFakeSavedViewStore([saved({ panels: { version: 1, instances } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0103');
+    await open('saved');
+    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1'])));
+    expect(screen.getByRole('tab', { name: 'saved-panel-1' }).getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
+    expect(screen.getByRole('tab', { name: 'table' }).getAttribute('aria-description') ?? '').not.toContain('붙잡음');
+    await waitFor(() => {
+      const equipment = new Set(tableReads().map(read => (read.params as { motionEquipment?: string[] }).motionEquipment?.join()));
+      expect(equipment).toEqual(new Set(['MEM-PHOTO-0103', 'MEM-PHOTO-0105']));
+    });
+    const result = await act(() => views.saveAs({ name: 'Two', kind: 'menu-view' }));
+    expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances } } } });
+  });
+
+  it('does not apply a held value whose saved source is another dimension, and saves it back unchanged (#2862 R C6)', async () => {
+    const instances = [heldTable('table'), equipmentSource('module')];
+    await mount(createFakeSavedViewStore([saved({ panels: { version: 1, instances } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0103');
+    await open('saved');
+    expect(await screen.findByText('붙잡은 설비 선택을 적용할 수 없어 표를 거르지 않았습니다.')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'table' }).getAttribute('aria-description')).toBe('붙잡은 설비 선택을 적용할 수 없어 표를 거르지 않았습니다.');
+    // Neither the held value nor the URL selection filters it: both endpoints read it unfiltered (R2 C6).
+    await waitFor(() => {
+      for (const endpoint of ['hwTime.levelRows', 'hwTime.tableRows']) expect(tableReads().some(read => read.endpoint === endpoint)).toBe(true);
+    });
+    expect(tableReads().every(read => (read.params as { motionEquipment?: string[] }).motionEquipment === undefined)).toBe(true);
+    const result = await act(() => views.saveAs({ name: 'Other', kind: 'menu-view' }));
+    expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances } } } });
+  });
+
+  const motionChart = (id: string): PanelInstance => ({ id, source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+    outputs: [{ key: 'motionEquipment', dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] });
+
+  it.each([
+    ['keeps the one «모듈 동작» chart the hold came from', ['moduleMotions'], ['moduleMotions']],
+    ['keeps neither «모듈 동작» chart when two are drawn, since the hold does not say which', ['moduleMotions', 'motion-b'], []],
+  ])('%s (#2862 R2 C7)', async (_name, charts, kept) => {
+    const step4: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['motionEquipment', 'MEM-PHOTO-0105']];
+    await mount(createFakeSavedViewStore([saved({ page: step4, panels: { version: 1, instances: charts.map(motionChart) } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105');
+    await open('saved');
+    await waitFor(() => expect(config().ids).toContain('moduleMotions'));
+    fireEvent.click(screen.getByRole('button', { name: 'hold table' }));
+    await settle();
+    expect(config().ids).toContain('table');
+    expect(config().keep).toEqual(kept);
   });
 
   it('renders a reason in the missing slot and renders the other panels', async () => {
