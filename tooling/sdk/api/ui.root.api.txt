@@ -3,7 +3,7 @@ ActiveFilterBarProps | interface | interface ActiveFilterBarProps { className?: 
 Alert | const | const Alert: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLDivElement> & VariantProps<(props?: ({ variant?: "default" | "destructive" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string> & React.RefAttributes<HTMLDivElement>>
 AlertDescription | const | const AlertDescription: React.ForwardRefExoticComponent<React.HTMLAttributes<HTMLParagraphElement> & React.RefAttributes<HTMLParagraphElement>>
 AlertDialog | const | const AlertDialog: React.FC<AlertDialogPrimitive.DialogProps>
-AlertDialogAction | const | const AlertDialogAction: React.ForwardRefExoticComponent<React.ButtonHTMLAttributes<HTMLButtonElement> & React.RefAttributes<HTMLButtonElement>>
+AlertDialogAction | const | const AlertDialogAction: React.ForwardRefExoticComponent<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "default" | "destructive"; } & React.RefAttributes<HTMLButtonElement>>
 AlertDialogCancel | const | const AlertDialogCancel: React.ForwardRefExoticComponent<React.ButtonHTMLAttributes<HTMLButtonElement> & React.RefAttributes<HTMLButtonElement>>
 AlertDialogContent | const | const AlertDialogContent: React.ForwardRefExoticComponent<Omit<AlertDialogPrimitive.DialogContentProps & React.RefAttributes<HTMLDivElement>, "ref"> & { above?: boolean; } & React.RefAttributes<HTMLDivElement>>
 AlertDialogDescription | const | const AlertDialogDescription: React.ForwardRefExoticComponent<Omit<AlertDialogPrimitive.DialogDescriptionProps & React.RefAttributes<HTMLParagraphElement>, "ref"> & React.RefAttributes<HTMLParagraphElement>>
@@ -270,6 +270,7 @@ buttonVariants | const | const buttonVariants: (props?: ({ size?: "icon-sm" | "i
 cn | function | function cn(...inputs: ClassValue[]): string
 copyText | function | function copyText(text: string): Promise<boolean>
 createDecisionUndoToastAction | function | function createDecisionUndoToastAction({ kind, onUndo, label }: @ap/ui#CreateDecisionUndoToastActionOptions): @ap/ui#DecisionUndoToastAction
+isDevelopment | function | function isDevelopment(): boolean
 isMacPlatform | function | function isMacPlatform(): boolean
 isProductionEnv | function | function isProductionEnv(meta: { env?: { PROD?: boolean; }; }, g: { process?: { env?: { NODE_ENV?: string; }; }; }): boolean
 isToastTarget | function | function isToastTarget(target: EventTarget | null): boolean
@@ -285,6 +286,7 @@ useDetailPanelContent | function | function useDetailPanelContent(node: ReactNod
 useDetailPanelEscape | function | function useDetailPanelEscape(onClose: () => void): (event: React.KeyboardEvent<HTMLElement>) => void
 useDetailPanelSlot | function | function useDetailPanelSlot(options?: { localExpansion?: boolean; onSuperseded?: () => void; }): HTMLElement | null
 useDetailPanelSlotHost | function | function useDetailPanelSlotHost(): { activation: number; expanded: boolean; open: boolean; ref: (host: HTMLElement | null) => void; setSurfaceVisible: (visible: boolean) => void; toggle: () => void; }
+useHorizontalOverflow | function | function useHorizontalOverflow<TViewport extends HTMLElement, TObserved extends HTMLElement = HTMLElement>(viewportRef: React.RefObject<TViewport | null>, { contentKey, observeRef, onResize }: UseHorizontalOverflowOptions<TObserved>): HorizontalOverflowState
 useImeEnterGuard | function | function useImeEnterGuard(): @ap/ui#ImeEnterGuard
 useIsTruncated | function | function useIsTruncated<T extends HTMLElement>(ref: RefObject<T | null>): boolean
 useListMotion | function | function useListMotion(): RefCallback<HTMLElement>
@@ -303,6 +305,7 @@ DialogContentProps | interface | interface DialogContentProps extends React.Comp
 DialogFooterProps | interface | interface DialogFooterProps extends React.HTMLAttributes<HTMLDivElement> { spacing?: 'compact' | 'default'; }
 EditorActionMessages | type | type EditorActionMessages = { detailsSummary?: string; label?: (defaultLabel: string) => string; }
 GroupedSelectionCommonProps | type | type GroupedSelectionCommonProps = { 'aria-label': string; announceSelection?: boolean; density?: 'comfortable' | 'compact'; groups: readonly @ap/ui#GroupedSelectionGroup[]; hideDisabled?: boolean; messages?: Partial<@ap/ui#GroupedSelectionMessages & @ap/ui#GroupedSelectionOptionMessages>; searchPlaceholder?: string; }
+HorizontalOverflowState | interface | interface HorizontalOverflowState { canScrollLeft: boolean; canScrollRight: boolean; }
 LegacyVariant | type | type LegacyVariant = 'primary' | 'subtle'
 MentionOptions | interface | interface MentionOptions { label: (actorId: string) => null | string | undefined; }
 MultiComboboxBaseProps | interface | interface MultiComboboxBaseProps { 'aria-describedby'?: string; 'aria-invalid'?: React.AriaAttributes['aria-invalid']; className?: string; clearAction?: { label: string; onClear: () => void; }; clearAllLabel: string; density?: 'compact' | 'default'; disabled?: boolean; emptyText: string; error?: string; getLabel?: (value: string) => string; hasMore?: boolean; id?: string; listboxLabel: string; loading?: boolean; loadingText: string; maxVisibleChips?: number; moreLabel: string; onLoadMore?: () => void; onRetry?: () => void; onSearchChange?: (search: string) => void; onValuesChange: (values: string[]) => void; options: readonly @ap/ui#MultiComboboxOption[]; placeholder?: string; removeLabel: (label: string) => string; retryLabel: string; search?: string; searchPlaceholder?: string; selectedSummaryLabel: (count: number) => string; values: readonly string[]; }
@@ -330,5 +333,6 @@ ToggleGroupProps | type | type ToggleGroupProps = React.ComponentPropsWithoutRef
 TooltipContentProps | interface | interface TooltipContentProps extends React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> { portal?: boolean; size?: 'default' | 'sm'; }
 UISurface | type | type UISurface = (typeof UI_SURFACES)[number]
 UI_SURFACES | const | const UI_SURFACES: readonly [ "voc-description", "reporter-reply", "public-update", "internal-comment" ]
+UseHorizontalOverflowOptions | interface | interface UseHorizontalOverflowOptions<TObserved extends HTMLElement = HTMLElement> { contentKey: string; observeRef?: React.RefObject<TObserved | null>; onResize?: () => void; }
 sheetVariants | const | const sheetVariants: (props?: ({ side?: "bottom" | "left" | "right" | "top" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
 toggleGroupItemVariants | const | const toggleGroupItemVariants: (props?: ({ size?: "default" | "lg" | "sm" | null | undefined; variant?: "default" | "outline" | null | undefined; } & import("class-variance-authority/types").ClassProp) | undefined) => string
