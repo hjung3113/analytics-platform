@@ -850,10 +850,10 @@ describe('HeldAnalysisSelections (#2862)', () => {
     expect(result.current.rejectedHeld).toEqual([setKey]);
     expect(result.current.rejected).toEqual([]);
   });
-  it('rejects a held wall-clock range that runs backwards', () => {
-    const backwards = { [rangeKey]: { dimension: 'time', selection: { shape: 'range', from: '2026-09-02T00:00:00', to: '2026-09-01T00:00:00' } } } as const;
-    const result = mount(() => useAnalysisSelectionInputs('receiver'), '', wrap(backwards));
-    expect(result.current.rejectedHeld).toEqual([rangeKey]);
-    expect(result.current.applied).toEqual([]);
+  it('applies a held range of date-like category keys in any order: range order belongs to the dimension (R2 C1, C6)', () => {
+    const categories = { [rangeKey]: { dimension: 'time', selection: { shape: 'range', from: '2026-09-02T00:00:00', to: '2026-09-01T00:00:00' } } } as const;
+    const result = mount(() => useAnalysisSelectionInputs('receiver'), '', wrap(categories));
+    expect(result.current.rejectedHeld).toEqual([]);
+    expect(result.current.applied.map(input => input.key)).toEqual([rangeKey]);
   });
 });

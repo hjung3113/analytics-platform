@@ -98,7 +98,7 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
               <DropdownMenuSeparator />
               {hideBlocked
                 // Named by the action and described by the visible reason, as a disabled «다음 분석» item (#2862 R C4).
-                ? <DropdownMenuItem aria-label={m('workspaceHide')} aria-disabled aria-describedby={hideReasonId} onSelect={event => { event.preventDefault(); }}>
+                ? <DropdownMenuItem aria-label={m('workspaceHide')} aria-disabled aria-describedby={hideBlocked.reason ? hideReasonId : undefined} onSelect={event => { event.preventDefault(); }}>
                   <span className="flex min-w-0 flex-col"><span>{m('workspaceHide')}</span>{hideBlocked.reason && <span id={hideReasonId} className="text-xs text-text-muted">{hideBlocked.reason}</span>}</span>
                 </DropdownMenuItem>
                 : <DropdownMenuItem onSelect={onHide}>{m('workspaceHide')}</DropdownMenuItem>}

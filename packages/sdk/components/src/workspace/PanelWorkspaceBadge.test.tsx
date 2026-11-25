@@ -177,6 +177,7 @@ describe('panel keep (#2862)', () => {
     const item = await screen.findByRole('menuitem', { name: '숨기기' });
     expect(item).toHaveAttribute('aria-disabled', 'true');
     if (reason.ko) expect(item).toHaveAccessibleDescription(reason.ko);
+    else expect(item).not.toHaveAttribute('aria-describedby');
     item.focus();
     await userEvent.keyboard('{Enter}');
     await userEvent.click(item);
