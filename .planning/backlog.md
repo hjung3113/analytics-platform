@@ -51,6 +51,8 @@
 - **구현 안 함 — 시도 전체 분석에서 검증 항목 등록 (#1815 B2 조건 9):** `analysis` 진단 항목에서 결함 등록은 제공하지 않는다. 이유: #1808 연결 대상이 진단 항목을 지원하지 않는다. 다시 열 조건: #1808이 진단 항목 link-target을 지원할 때.
 - **구현 안 함 — 운영 compose 전체 스택 기동 검증 (#1881):** 합성 묶음·스냅샷·키를 넣은 운영 compose의 backend 실기동은 돌리지 않았다. `docker compose config`(마운트·변수), preflight 시험, `loadMenuDeclarationSetup` 기동 시험, `--dist` 이미지 빌드·edge 서빙만 확인했다. 이유: 전체 스택과 backend 이미지 빌드가 필요하고 묶음 형식이 라우팅·커넥터·스냅샷까지 커졌다. 다시 여는 조건: 사내 첫 스택 기동(#1836) 때 실패하거나, 운영 compose를 바꾸는 다음 변경. [운영]
 
+- **구현 안 함 — 사내 설치의 상류 대상 주소 허용 목록 (#2981 리뷰, [ADR-0150 Deferred](../docs/adr/0150-no-external-ai-or-embedding-calls-in-the-in-house-profile.md#deferred-구현-안-함)):** `PLATFORM_IN_HOUSE=true`여도 메뉴 묶음의 `http` 대상은 어느 HTTPS origin이든 가리킬 수 있다. 이유와 다시 여는 조건은 ADR-0150 Deferred가 소유한다(요약: 사내 보안이 송신 주소 강제를 요구하거나, 사내 검토 밖 묶음이 들어올 때).
+
 ## 작은 후속 (확인된 것)
 
 - **미구현 — RCC 수동 Step 매칭·NonProcess View·L3/L4 (#2496, 닫힘):** v0.45 RCC 시간 비교는 같은 구성 유형만 비교하고 다른 구성은 «비교 보류»로 둔다. 이유: 매칭 승인·감사·권한과 NonProcess·하위 계층은 실데이터 구조 확인 뒤 정한다. 다시 여는 조건: [#2694](https://github.com/hjung3113/analytics-platform/issues/2694)로 실데이터가 연결되고 소유자가 다음 RCC 범위를 정할 때.

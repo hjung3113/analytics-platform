@@ -23,6 +23,11 @@ describe('in-house install refuses external AI providers (ADR-0150)', () => {
     expect(loadConfig().PLATFORM_IN_HOUSE).toBe(false);
   });
 
+  it('treats an empty flag as not in-house', () => {
+    withEmbedding('voyage', '');
+    expect(loadConfig().PLATFORM_IN_HOUSE).toBe(false);
+  });
+
   it('refuses to start in-house with an external embedding provider, naming the setting and the rule', () => {
     withEmbedding('voyage', 'true');
     expect(() => loadConfig()).toThrow(/EMBEDDING_PROVIDER=voyage.*PLATFORM_IN_HOUSE=true.*ADR-0150/s);
