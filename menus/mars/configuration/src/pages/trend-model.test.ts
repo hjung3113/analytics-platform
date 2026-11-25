@@ -45,11 +45,13 @@ it('resolves received HW Time days with or without a year against the applied pe
 it('highlights only the change points on the received days, never the period-end carry point (#2763)', () => {
   const period = { from: '2026-11-10T00:00:00', to: '2026-11-16T00:00:00' };
   const series = [
-    { id: 'A', name: 'A', points: [['2026-11-10T03:00:00', 1], ['2026-11-12T09:00:00', 2], ['2026-11-16T00:00:00', 2]] },
-    { id: 'B', name: 'B', points: [['2026-11-13T23:59:00', 5], ['2026-11-14T00:00:00', 6], ['2026-11-16T00:00:00', 6]] },
+    { id: 'A', name: 'A', points: [['2026-11-10T00:00:00', 1], ['2026-11-12T09:00:00', 2], ['2026-11-16T00:00:00', 2]] },
+    { id: 'B', name: 'B', points: [['2026-11-10T00:00:00', 4], ['2026-11-13T23:59:00', 5], ['2026-11-14T00:00:00', 6], ['2026-11-16T00:00:00', 6]] },
   ] as never;
   expect(pointsOnDays(series, { from: '11-12', to: '11-13' }, period)).toEqual(['2026-11-12T09:00:00', '2026-11-13T23:59:00']);
   expect(pointsOnDays(series, { from: '2026-11-15', to: '2026-11-16' }, period)).toEqual([]);
   expect(pointsOnDays(series, null, period)).toEqual([]);
+  // The period-start value of each line is a snapshot, not a change (R C9).
+  expect(pointsOnDays(series, { from: '11-10', to: '11-11' }, period)).toEqual([]);
   expect(pointsOnDays(series, { from: '11-14', to: '11-12' }, period)).toEqual([]);
 });

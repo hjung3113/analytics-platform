@@ -13,7 +13,7 @@ function DailyTrend({ daily, requested, equipmentLabels, bound }: { daily: HwTim
   const { lang } = useI18n();
   const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const panel = useMessages(HW_TIME_NEW_PANEL_MESSAGES);
-  const trend = useMemo(() => shapeRunTrend(daily, DEFAULT_RUN_TREND_SETTINGS, [], lang, { sharedBounds: true, equipmentLabels }), [daily, equipmentLabels, lang]);
+  const trend = useMemo(() => shapeRunTrend(daily, DEFAULT_RUN_TREND_SETTINGS, [], lang, { sharedBounds: true, equipmentLabels, fullDates: bound }), [daily, equipmentLabels, lang, bound]);
   const returned = trend.series.length;
   return <>
     {returned < requested && <p className="t-caption shrink-0 px-4 text-text-secondary">{panel('lentEquipmentCoverage', { requested, returned })}</p>}

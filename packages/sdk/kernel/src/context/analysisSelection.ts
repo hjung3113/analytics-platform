@@ -119,7 +119,8 @@ function useSelectionOutput(sourcePlatform: MenuPlatform | null, sourceOutput: {
   // A lent panel's bound output writes the receiver's key as the lent writer, through a setPage limited to that key (#2763).
   const lent = use(LentPanelOutputsContext);
   const mapped = sourceOutput && lent?.keys.get(sourceOutput.key);
-  const platform: MenuPlatform | null = lent && mapped !== undefined ? lent.receiver : sourcePlatform;
+  const platform: Pick<MenuPlatform, 'route' | 'pageParam' | 'pageParams' | 'registry' | 'setPage'> | null = lent && mapped !== undefined ? lent.receiver : sourcePlatform;
+  const alive = lent && mapped !== undefined ? lent.alive : undefined;
   const output = lent && mapped !== undefined ? { panelId: lent.writerId, key: mapped } : sourceOutput;
   const { route, pageParam, pageParams, setPage, registry } = (output && platform) || {};
   const { panelId, key } = output ?? {};
@@ -145,7 +146,7 @@ function useSelectionOutput(sourcePlatform: MenuPlatform | null, sourceOutput: {
   const highlighted = useSelectionHighlight(highlightScreen, address, hoveredKey => hoveredKey === key && selection !== null);
   if (output && route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
   return { selection, availabilityCurrent, highlighted, select(next) {
-    if (key === undefined || !rendered || !setPage) return false;
+    if (key === undefined || !rendered || !setPage || alive?.() === false) return false;
     const current = screen?.pageParamsNow(key);
     if (!current || !channel || (next && next.shape !== channel.shape)) return false;
     const proposal = writeProposal(channel.shape, next);
@@ -279,7 +280,8 @@ function readSelectionOrigin({ returnOrigin, registry, global }: Pick<MenuPlatfo
   const { menu } = route;
   const parsed = parseQuery(q === -1 ? '' : href.slice(q), menu.pageKeys, { repeated: menu.repeatedPageKeys });
   if (parsed.global.scopeId !== global.scopeId) return null;
-  return { href, page: parsed.page, menuLabel: recorded ? menuLabel : undefined, channels: menuAnalysisSelections(menu) };
+  // The origin's lent writers count as its outputs, as they did when the link was planned (#2763 R C5).
+  return { href, page: parsed.page, menuLabel: recorded ? menuLabel : undefined, channels: menuAnalysisSelections(menu, registry.lentPanels(menu.id)) };
 }
 
 /** Models URL-backed analysis selections. After the guard and before writing, onClearCommit receives the key (null for clear-all) and the address transition. */

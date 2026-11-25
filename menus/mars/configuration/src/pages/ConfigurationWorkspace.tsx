@@ -152,6 +152,8 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
 
   if (showHwTime) panels.push({
     id: HW_TIME_PANEL_ID, title: MESSAGES.hwTimeTrend, placement: TREND_ROW, preferredHeight: TREND_HEIGHT, render: lentPanel,
+    // The lent trend writes `hwDays` as `hw-time/trend`, so a chip hover or focus outlines this panel and its tab (#2763 R C7).
+    analysisSelectionSourceId: HW_TIME_TREND,
   });
 
   return <PanelWorkspace panels={panels} presets={PRESETS} initialPreset="comparison" initialMode="stack" compactBelow={0}

@@ -88,11 +88,11 @@ export function resolveDay(value: string, period: { from: string; to: string }):
   return null;
 }
 
-/** The change points (not the period-end carry point) on the received days, for the chart's highlight (#2763). */
+/** The change points on the received days, for the chart's highlight (#2763): not each line's period-start value or period-end carry point. */
 export function pointsOnDays(series: readonly ChartSeries[], days: { from: string; to: string } | null, period: { from: string; to: string }): string[] {
   const from = days && resolveDay(days.from, period);
   const to = days && resolveDay(days.to, period);
   if (!from || !to || from > to) return [];
-  const xs = series.flatMap(line => line.points.map(([x]) => String(x))).filter(x => x !== period.to && x.slice(0, 10) >= from && x.slice(0, 10) <= to);
+  const xs = series.flatMap(line => line.points.slice(1).map(([x]) => String(x))).filter(x => x !== period.to && x.slice(0, 10) >= from && x.slice(0, 10) <= to);
   return [...new Set(xs)].sort();
 }

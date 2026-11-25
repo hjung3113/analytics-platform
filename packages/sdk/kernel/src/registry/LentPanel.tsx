@@ -166,7 +166,8 @@ function LentPanelSource({ resolved, actions }: {
   // Revoke before layout effects can use a previous callback. StrictMode's layout-effect replay does not end this binding.
   useInsertionEffect(() => () => controller.abort(), [controller]);
   const platform = useMemo(() => lentPanelPlatform(receiverPlatform, queryInputs), [receiverPlatform, queryInputs]);
-  const outputs = useMemo(() => lentPanelOutputs(receiverPlatform, lending.source, lending.outputs), [receiverPlatform, lending]);
+  // Writes end with the binding lifetime, as its queries do (#2763 R C2).
+  const outputs = useMemo(() => lentPanelOutputs(receiverPlatform, lending.source, lending.outputs, controller.signal), [receiverPlatform, lending, controller]);
   const outputKeys = useMemo(() => outputs ? [...outputs.keys.keys()] : undefined, [outputs]);
   const query = useMemo(() => ({
     source, context: structuredClone(queryInputs.context), instanceId: `${instanceId}:${generation}`, signal: controller.signal,

@@ -62,8 +62,17 @@ export const ScreenContext = createContext<ScreenState | null>(null);
 // screen changes, even below a nested provider of the same context, so a shared object would wake all panes (C3).
 export const PaneScreenContext = createContext<ScreenState | null>(null);
 export const LentPanelPlatformContext = createContext<HostPlatform | null>(null);
-/** Inside a lent panel: the receiving platform and the source output keys it may write, each to one receiver key (#2763). */
-export type LentPanelOutputs = { receiver: HostPlatform; writerId: string; keys: ReadonlyMap<string, string> };
+/**
+ * Inside a lent panel: the source output keys it may write, each to one receiver key (#2763). `receiver` is assembled from the
+ * receiving screen's reads and a `setPage` limited to those keys; no navigation, Context, draft or other write is reachable.
+ * `alive` turns false when the binding ends, so a callback kept from an earlier render cannot write.
+ */
+export type LentPanelOutputs = {
+  receiver: Pick<HostPlatform, 'route' | 'pageParam' | 'pageParams' | 'registry' | 'setPage'>;
+  writerId: string;
+  keys: ReadonlyMap<string, string>;
+  alive: () => boolean;
+};
 export const LentPanelOutputsContext = createContext<LentPanelOutputs | null>(null);
 
 // Shell state that changes often lives in contexts of its own, one per concern, so a toast, an overlay or a visit wakes only its readers

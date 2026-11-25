@@ -1,5 +1,6 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { useState } from 'react';
 import { contextCapabilities, defineEndpoint, groupId, menuPermission, type PanelBinding } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
 import { useAnalysisSelectionChips, useAnalysisSelectionOutput } from '../../context/analysisSelection';
@@ -7,7 +8,7 @@ import { PlatformProvider, usePlatform } from '../../platform/platform';
 import { lentPanelOutputs } from '../../platform/lent-panel-platform';
 import { testAdapter, testMenu, testSession, testSpace } from '../../testing';
 import { LentPanel, registerLentPanel, type LentPanelProps } from '../LentPanel';
-import { lentOutputProblem } from '../analysis-selections';
+import { lentOutputProblem, menuAnalysisSelections } from '../analysis-selections';
 import { createRegistry } from '../registry';
 
 // #2763 (ADR-0176): a lent panel's analysis selection output may write a selection key the receiving menu owns, and nothing else.
@@ -40,9 +41,14 @@ function registryWith(binding: PanelBinding) {
     }],
   });
   const home = testMenu({ path: '/overview' });
+  // Another menu that receives a date range, to see the lent-written key carry across menus (R C5).
+  const target = testMenu({
+    id: 'target', path: '/target', primary: false, permission: receiving, pageKeys: ['span'], contextResetKeys: ['span'],
+    analysisSelectionInbound: [{ key: 'span', dimension: 'date', shape: 'range', label: { ko: '날짜', en: 'Date' } }],
+  });
   return createRegistry({
     spaces: [testSpace()], groups: [{ id: groupId('overview'), label: home.label, icon: home.icon, space: testSpace().id }],
-    menus: [home, receiver, owner], permissions: [receiving, owning, reading],
+    menus: [home, receiver, owner, target], permissions: [receiving, owning, reading],
   });
 }
 const url = '/mars/receiver?v=1&scopeId=MEM&from=2026-09-20T00:00:00&to=2026-09-27T00:00:00';
@@ -86,6 +92,49 @@ describe('lent panel outputs (#2763)', () => {
     expect(window.location.search).not.toContain('picked=');
   });
 
+  it('refuses a select callback kept after the lent panel is closed (R C2)', async () => {
+    let kept: ((next: null | { shape: 'range'; from: string; to: string }) => boolean) | undefined;
+    function Keeper() {
+      const output = useAnalysisSelectionOutput('days', 'picked');
+      kept = output.select;
+      return null;
+    }
+    registerLentPanel(source, Keeper);
+    function Toggle() {
+      const [open, setOpen] = useState(true);
+      const { pageParam } = usePlatform();
+      return <>
+        <p>{`days:${pageParam('days') ?? ''}`}</p>
+        <button type="button" onClick={() => setOpen(false)}>close</button>
+        {open && <LentPanel source={source} />}
+      </>;
+    }
+    const session = testSession([receiving, owning, reading]);
+    window.history.replaceState(null, '', url);
+    render(<I18nProvider><PlatformProvider registry={registryWith(bound)} adapter={testAdapter({ session: () => session })}><Toggle /></PlatformProvider></I18nProvider>);
+    await screen.findByText('close');
+    expect(kept).toBeDefined();
+    act(() => screen.getByRole('button', { name: 'close' }).click());
+    let result: boolean | undefined;
+    act(() => { result = kept!({ shape: 'range', from: '2026-09-21', to: '2026-09-23' }); });
+    expect(result).toBe(false);
+    expect(screen.getByText('days:')).toBeTruthy();
+    registerLentPanel(source, SourceDays);
+  });
+
+  it('carries a lent-written key to another menu like the menu\'s own output (R C5)', async () => {
+    let href: string | null = null;
+    function Linker() {
+      const platform = usePlatform();
+      href = platform.resolveSelectionLink('target').href;
+      return null;
+    }
+    const session = testSession([receiving, owning, reading]);
+    window.history.replaceState(null, '', `${url}&days=2026-09-21/2026-09-23`);
+    render(<I18nProvider><PlatformProvider registry={registryWith(bound)} adapter={testAdapter({ session: () => session })}><Linker /></PlatformProvider></I18nProvider>);
+    expect(decodeURIComponent(href ?? '')).toContain('span=2026-09-21/2026-09-23');
+  });
+
   it('keeps an unbound lent output a no-op, as before', async () => {
     const { outputs: _, ...unbound } = bound;
     mount(unbound);
@@ -98,12 +147,17 @@ describe('lent panel outputs (#2763)', () => {
   it('gives the lent writer a setPage that refuses any key the binding does not map', () => {
     const calls: unknown[] = [];
     const receiver = { setPage: (patch: unknown) => calls.push(patch) } as unknown as Parameters<typeof lentPanelOutputs>[0];
-    const outputs = lentPanelOutputs(receiver, source, { picked: { key: 'days' } })!;
+    const lifetime = new AbortController();
+    const outputs = lentPanelOutputs(receiver, source, { picked: { key: 'days' } }, lifetime.signal)!;
     outputs.receiver.setPage({ days: '2026-09-21/2026-09-23' });
     expect(() => outputs.receiver.setPage({ other: 'x' })).toThrow(/only the receiving keys/);
     expect(() => outputs.receiver.setPage({ days: null, other: 'x' })).toThrow(/only the receiving keys/);
+    expect(Object.keys(outputs.receiver).sort()).toEqual(['pageParam', 'pageParams', 'registry', 'route', 'setPage']);
+    lifetime.abort();
+    outputs.receiver.setPage({ days: '2026-09-22/2026-09-23' });
+    expect(outputs.alive()).toBe(false);
     expect(calls).toEqual([{ days: '2026-09-21/2026-09-23' }]);
-    expect(lentPanelOutputs(receiver, source, undefined)).toBeNull();
+    expect(lentPanelOutputs(receiver, source, undefined, lifetime.signal)).toBeNull();
   });
 
   it.each([
@@ -127,5 +181,21 @@ describe('lentOutputProblem (#2763)', () => {
     ['shape', new Map([['days', { dimension: 'date', shape: 'set' }]])],
   ])('refuses a different %s', (_name, receiver) => {
     expect(lentOutputProblem(receiver, declaration, 'picked', { kind: 'page', key: 'days' })).toMatch(/does not match "days"/);
+  });
+});
+
+describe('menuAnalysisSelections with lent panels (#2763)', () => {
+  const menu = { panels: [], analysisSelectionInbound: [{ key: 'days', dimension: 'date', shape: 'range' }] } as const;
+  const source = {
+    title: { ko: '원본', en: 'Source' },
+    outputs: [{ key: 'picked', action: 'select', selection: { dimension: 'date', shape: 'range' } }],
+    queryInputs: { page: [{ key: 'within', selection: 'filter' }] }, displayInputs: {},
+  } as const;
+  it('lists a lent writer after the menu, and a lent page-bound filter input as a reader (R C6)', () => {
+    const lent = [{ binding: { source: 'src/days', outputs: { picked: { kind: 'page', key: 'days' } }, page: { within: { kind: 'page', key: 'days' } } }, source }] as const;
+    const channel = menuAnalysisSelections(menu, lent).get('days');
+    expect(channel?.writers.map(writer => [writer.panelId, writer.title.ko])).toEqual([['src/days', '원본']]);
+    expect(channel?.readers).toEqual([{ panelId: 'src/days', use: 'filter' }]);
+    expect(menuAnalysisSelections(menu).get('days')?.writers).toEqual([]);
   });
 });

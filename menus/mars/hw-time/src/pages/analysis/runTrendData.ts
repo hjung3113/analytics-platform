@@ -8,13 +8,15 @@ import { runBound, runColor, runColorKey, runValue, type RunBound, type RunValue
 export const DEFAULT_RUN_TREND_SETTINGS = { axis: 'equipment-module', color: 'equipment', value: 'motion' } as const;
 
 /** Daily averages are already server-judged. No client aggregation or value/bound comparison; drawn through the Frame's `bounds` and `pointStatus` (#2333). */
-export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: RunValueSettings, motions: readonly string[], lang: 'ko' | 'en', { sharedBounds = false, equipmentLabels }: {
+export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: RunValueSettings, motions: readonly string[], lang: 'ko' | 'en', { sharedBounds = false, equipmentLabels, fullDates = false }: {
   sharedBounds?: boolean; equipmentLabels?: ReadonlyMap<string, string>;
+  /** Always `YYYY-MM-DD` categories: a range another menu receives must name its year (#2763 R C8). */
+  fullDates?: boolean;
 } = {}) {
   const dates = [...new Set(daily.map(point => point.at.slice(0, 10)))].sort();
   // Frame categories are also display labels. Keep the year only when MM-DD would merge distinct dates.
   const shortDates = dates.map(date => date.slice(5));
-  const uniqueLabels = new Set(shortDates).size === dates.length;
+  const uniqueLabels = !fullDates && new Set(shortDates).size === dates.length;
   const dayKey = (at: string) => uniqueLabels ? at.slice(5, 10) : at.slice(0, 10);
   const categories = dates.map(dayKey);
   const equipment = [...new Set(daily.map(point => point.equipmentId))];

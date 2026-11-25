@@ -9,8 +9,8 @@ type Channel = NonNullable<SelectionOutput> & {
 
 /** A lent panel whose outputs write receiver keys (`outputs`: source output key → receiver page key). */
 export type LentSelectionWriter = {
-  readonly binding: Pick<PanelBinding, 'source' | 'outputs'>;
-  readonly source: Pick<PanelDeclaration, 'title' | 'outputs'>;
+  readonly binding: Pick<PanelBinding, 'source' | 'outputs' | 'page'>;
+  readonly source: Pick<PanelDeclaration, 'title' | 'outputs' | 'queryInputs' | 'displayInputs'>;
 };
 
 /**
@@ -54,6 +54,11 @@ export function menuAnalysisSelections(menu: Pick<MenuMeta, 'panels' | 'analysis
     }
   }
   for (const { binding, source } of lent) {
+    // A lent panel that reads a receiver selection key (a page binding) is its reader, so a filter cycle through it is seen (R C6).
+    for (const { key, selection: use } of [...source.queryInputs.page ?? [], ...source.displayInputs.page ?? []]) {
+      const input = binding.page?.[key];
+      if (use !== undefined && input?.kind === 'page') channels.get(input.key)?.readers.push({ panelId: binding.source, use });
+    }
     for (const [outputKey, target] of Object.entries(binding.outputs ?? {})) {
       const selection = source.outputs.find(output => output.key === outputKey)?.selection;
       // The lent writer is named by its source, so the chip names the borrowed chart (#2763).

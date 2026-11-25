@@ -65,3 +65,8 @@ it('keeps distinct years when MM-DD would merge two daily categories', () => {
   const one = [data.daily[0]!, { ...data.daily[0]!, at: '2027-09-19T00:00:00' }];
   expect(shapeRunTrend(one, { color: 'equipment', value: 'motion' }, ['Pump'], 'en').categories).toEqual(['2026-09-19', '2027-09-19']);
 });
+it('names the year on every day with fullDates, for a range another menu receives (#2763)', () => {
+  const shaped = shapeRunTrend(data.daily, { color: 'equipment', value: 'motion' }, ['Pump'], 'ko', { fullDates: true });
+  expect(shaped.categories).toEqual(['2026-09-19', '2026-09-20']);
+  expect(shaped.series[0]).toMatchObject({ points: [['2026-09-19', 8], ['2026-09-20', 1]] });
+});

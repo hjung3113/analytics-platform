@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createAnalysisSelectionAvailability } from '../context/analysisSelectionAvailability';
 import { analysisSelectionParam, parseAnalysisSelection } from '../context/analysisSelectionCodec';
 import { NAVIGATION_URL_MAX_LENGTH } from '../context/shareLink';
-import { menuAnalysisSelections } from '../registry/analysis-selections';
+import { menuAnalysisSelections, type LentSelectionWriter } from '../registry/analysis-selections';
 import { classifyMetricInit, sameMetricInit } from '../registry/metric-init';
 import { sameItems, useStable } from '../stable';
 import { isBoardPath, pathFor, RegistryError, type MenuEntry } from '../registry/registry';
@@ -65,11 +65,12 @@ function consecutiveDrillTrail(menu: MenuEntry, search: string, lang: Lang): Ret
 type RegisteredLink = Extract<LinkResolution, { kind: 'link' }>;
 type OpeningOutput = { key: string; objectId: string };
 
-function planSelectionCarry(source: MenuEntry | undefined, target: MenuEntry, page: Pair[], explicit: LinkOptions['page'], sameScope: boolean, openingOutput?: OpeningOutput) {
+function planSelectionCarry(source: MenuEntry | undefined, target: MenuEntry, page: Pair[], explicit: LinkOptions['page'], sameScope: boolean, lent: readonly LentSelectionWriter[], openingOutput?: OpeningOutput) {
   const inbound = target.analysisSelectionInbound ?? [];
   const candidates = new Map<string, Pair[][]>();
   const droppedSelections: DroppedSelection[] = [];
-  for (const [key, channel] of menuAnalysisSelections(source ?? noSelectionChannels)) {
+  // A key written only by a lent panel carries like the menu's own outputs (#2763 R C5).
+  for (const [key, channel] of menuAnalysisSelections(source ?? noSelectionChannels, lent)) {
     if (channel.writers.length === 0) continue;
     const { dimension, shape } = channel;
     const selection = parseAnalysisSelection(shape, page.filter(([name]) => name === key).map(([, value]) => value));
@@ -310,7 +311,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (options.returnTo && !sameCarryingSet && target.pageKeys.includes(RETURN_TO_KEY) && !pagePairs.some(([k]) => k === RETURN_TO_KEY) && options.page?.[RETURN_TO_KEY] === undefined) pagePairs.push([RETURN_TO_KEY, stripDetailExpansion(visibleUrl)]);
     const path = pathFor(target, options.params);
     const basePairs: Pair[] = pagePairs.map(([key, value]) => [key, key === RETURN_TO_KEY ? stripDetailExpansion(value) : value]);
-    const plan = carry === 'analysis' ? planSelectionCarry(route?.menu, target, page, options.page, g.scopeId === global.scopeId, openingOutput) : undefined;
+    const plan = carry === 'analysis' ? planSelectionCarry(route?.menu, target, page, options.page, g.scopeId === global.scopeId, route ? registry.lentPanels(route.menu.id) : [], openingOutput) : undefined;
     let finalPairs = basePairs.concat(plan?.selections.flatMap(selection => selection.pairs) ?? []);
     let href = path + buildQuery(g, finalPairs);
     if (plan) {
