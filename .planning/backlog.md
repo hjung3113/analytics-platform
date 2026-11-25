@@ -355,7 +355,7 @@
 
 - **구현 안 함 — 공개 API 변경 기록의 자동 강제(#520):** 스냅샷에서 줄이 지워지거나 바뀌면 변경 기록 줄이 같은 PR에 있어야 한다는 규칙을 CI가 강제하지 않는다(리뷰가 본다). 이유: base 비교와 문서 파싱이 필요하고 외부 소비자가 아직 적다. 다시 볼 조건: 저장소 밖 소비자가 둘 이상 tarball을 받을 때.
 - **구현 안 함 — SDK 배포 도구 정리 후속(#519·#520 품질 리뷰 Q6–Q8):** `@ap/contracts`의 `check:pack` 검사를 release tarball 게이트에 합친다. 네 `tsconfig.build.json`의 형제 `paths`와 의존 쌍을 생성한다. `validateArchive`·`releaseManifest` 실패 경로 테스트를 추가하고 `pnpm test`에서 `sdk:api --self-test`를 실행한다. 이유: 현재 잘못된 release 출력은 없다. 다시 볼 조건: 형제 의존 또는 subpath import를 추가하거나 첫 gate false-positive가 발생할 때.
-- **구현 안 함 — `isProductionEnv(import.meta, globalThis)`의 운영 판정(#519 리뷰 C2 관련):** Vite 운영 빌드는 맨 `import.meta`를 바꾸지 않아 `PlatformDataTable`·`tableExport`의 개발용 진단이 운영에서도 켜질 수 있다(경고만, 동작 영향 없음). 이유: 이 이슈 범위 밖이고 경고뿐이다. 다시 볼 조건: 운영 콘솔 경고가 보고되거나 이 helper를 다른 곳에서 새로 쓸 때.
+- **해결됨 (#2951) — `isProductionEnv(import.meta, globalThis)`의 운영 판정(#519 리뷰 C2 관련):** Vite 운영 빌드에서 개발 진단이 켜지고, `tableExport`는 경고만이 아니라 빈 칸 대신 예외를 던졌다. #2951이 SDK 전체를 정적 치환되는 `isDevelopment()`로 옮겼다. 남은 일은 공개 export `isProductionEnv` 삭제(아래 «#2194 SDK compatibility removals» 표, 다음 SDK minor)뿐이다.
 - **구현 안 함 — 테마 계약의 제품 쪽 소비(#512):** EV 매핑 검사를 `theme-tokens.json` 이름 목록 대조로 넓히는 일(EV 저장소, EV 전용 의미 로봇·자재·재생 활성·충돌 강조는 EV 소유)과 FeedbackOps 토큰 fixture 검사를 manifest 대조로 바꾸는 일. 이유: 다른 저장소의 일이고 탑재 전(#332)이다. 다시 볼 조건: EV 탑재(#332) 또는 FeedbackOps가 `@ap/ui/theme`을 받을 때.
 - **구현 안 함 — 테마 토큰 `$deprecated` 생성(#512):** 이유: 폐기할 토큰이 아직 없다. 다시 볼 조건: 첫 토큰 폐기.
 - **구현 안 함 — 테마 계약 정리 후속(#512 품질 리뷰 Q5·Q6):** lint 하위 경로 허용을 7개 제한 상수에 반복한다(공유 helper 하나로 정리). `token()`은 `readColorToken`의 공개 별칭이고 `strokeAliases` 표를 손으로 복사한다. 이유: 동작 영향이 없다. 다시 볼 조건: 다음 `@ap/ui` 공개 하위 경로를 추가하거나 차트 팔레트가 바뀔 때.
@@ -711,6 +711,7 @@
 | 미구현 | `@ap/components` 루트의 `EChart`·`chartTheme`·`token`·`EChartProps` 호환 export 삭제 | SHE-26 소유자 결정: `/host` 이전을 위해 한 릴리스 유지 | 다음 SDK minor 릴리스 |
 | 미구현 | `DetailPanelHeader.kind`·`KIND_LABELS`·기존 kind accent 맵 삭제 | SHE-45 소유자 결정: 소비자 label·accent 선언으로 이전할 한 릴리스 유지 | 다음 SDK minor 릴리스 |
 | 미구현 | `DetailPanelHeaderActions.entityKind`·`entityId` prop 삭제 | SHE-45 소유자 결정: 사용하지 않는 prop의 소스 호환을 한 릴리스 유지 | 다음 SDK minor 릴리스 |
+| 미구현 | `@ap/ui` `isProductionEnv` export 삭제 (#2951) | SDK 안에서는 `isDevelopment()`로 모두 옮겼지만 공개 export라 소비자 소스 호환을 한 릴리스 유지 | 다음 SDK minor 릴리스 |
 | 미구현 | `AnalysisChartFrame.stacked` 삭제와 메뉴 사용처(hw-time 3곳, analytics 2곳, rcc 2곳)의 `stackMode="stack"` 이전 (#2887 F2) | 팀장 결정: 이번에는 사용 중단 표시만 하고 동작은 그대로 둔다. `stackMode`는 집계 선언이 없거나 더할 수 없는 측정을 쌓지 않으므로, 메뉴마다 측정이 더할 수 있는지 확인하고 `reaggregation`을 선언해야 한다 | 다음 SDK minor 릴리스, 또는 메뉴가 쌓기 차트를 손볼 때 |
 
 ## 성능 감사 2026-11-23 보류 (#2816)

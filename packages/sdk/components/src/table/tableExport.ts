@@ -7,7 +7,7 @@ import { COMPONENTS_MESSAGES } from '../messages';
  * Export shows what the screen shows: a column whose cell turns a code into a label or formats a time
  * gives the same text via `exportValue`; numeric columns keep `number`.
  */
-import { isProductionEnv } from '@ap/ui';
+import { isDevelopment } from '@ap/ui';
 import type { PlatformColumn } from './PlatformDataTable';
 import { groupedOrder, groupedPins } from './columnOrder';
 import { columnGroupLabel, type ColumnGroups } from './columnGroups';
@@ -63,7 +63,7 @@ export function exportCell<T>(column: PlatformColumn<T>, row: T): string | numbe
   if (typeof raw === 'boolean') return raw ? 'TRUE' : 'FALSE';
   if (typeof raw === 'string') return raw;
   // Object, array, Date: the column needs `exportValue`. Loud in dev so the missing mapping is caught before shipping; empty in production.
-  if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) {
+  if (isDevelopment()) {
     throw new Error(`Table export: column "${column.id}" produced a ${typeof raw} value — give it exportValue (06 §15: export shows what the screen shows).`);
   }
   return '';

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatNumber, type ApiResponse, type Trust } from '@ap/contracts';
 import { useI18n, useMessages, usePlatform, type Lang } from '@ap/kernel';
-import { isProductionEnv } from '@ap/ui';
+import { isDevelopment } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { displayFileName, downloadBlob, fileStamp, safeFileName } from './download';
 import { EXPORT_REFUSAL, exportRefusal, provisionalSuffix } from './tableMessages';
@@ -103,7 +103,7 @@ export function useWorkbookExport(): WorkbookExport {
         return 'too-large';
       }
       // A sheet-name or sheet-count error is the menu's declaration bug: loud in dev, the generic failure toast for the user.
-      if (!isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) console.error(error);
+      if (isDevelopment()) console.error(error);
       toast(EXPORT_REFUSAL.error[l], 'warning');
       return 'failed';
     } finally {

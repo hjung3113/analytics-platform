@@ -40,8 +40,8 @@ describe('drillValueLabel development warning (#2714)', () => {
   });
 
   it.each([
+    // Only NODE_ENV: a production build replaces it statically; `import.meta.env.PROD` passed as a value is not (#2951).
     ['NODE_ENV', 'production'],
-    ['PROD', true],
   ] as const)('stays silent in production (%s)', (name, value) => {
     vi.stubEnv(name, value as never);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});

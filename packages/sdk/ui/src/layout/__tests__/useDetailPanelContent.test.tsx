@@ -113,7 +113,7 @@ it('a shell passing a fresh element every render settles without looping', () =>
 });
 
 it('suppresses the overlap warning in production', () => {
-  vi.stubEnv('PROD', true);
+  vi.stubEnv('NODE_ENV', 'production'); // the value a production build replaces statically (#2951)
   const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
   render(<Fixture><Content name="first" node={<p>first</p>} /><Content name="second" node={<p>second</p>} /></Fixture>);
   expect(warning).not.toHaveBeenCalled();
