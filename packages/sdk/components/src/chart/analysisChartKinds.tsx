@@ -144,7 +144,7 @@ export function boxPlotData(spec: BoxPlotSpec, lang: Lang, unit: string): KindPr
       unit,
     }),
     legend: groups.map((g, i) => ({ label: g.label, color: g.stats ? fills[i % 4] : 'chart-no-data', stroke: g.stats ? strokeToken(fills[i % 4]) : 'chart-no-data-pattern', unknown: !g.stats, symbol: 'rect' })),
-    seriesKeys: [rows.map(r => r.key), outliers.map(o => rows[o.group].key), medianGroups.map(i => rows[i].key)],
+    seriesKeys: [rows.map((r, i) => groups[i].stats ? r.key : undefined), outliers.map(o => rows[o.group].key), medianGroups.map(i => rows[i].key)],
     option: active => {
       const theme = chartTheme();
       const chosen = new Set(active);

@@ -3,7 +3,7 @@ import { chartToolVariant, type ChartChromeOptions } from './chartChrome';
 import type { ChartBounds, ChartBoundLabels } from './chartBounds';
 import { BrushIcon, ChevronDown, ChevronUp, RotateCcw, Play, ExternalLink } from 'lucide-react';
 import type { ChartTrust } from '../state/trustFormat';
-import { percent, unknownLabel, brushOptions, isBrushableKind, isSingleSelectKind, warnMissingChartUnit } from './analysisChartShared';
+import { percent, unknownLabel, brushOptions, followedChartKey, isBrushableKind, isSingleSelectKind, warnMissingChartUnit } from './analysisChartShared';
 import { useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { Button, Checkbox, cn, type Tone } from '@ap/ui';
@@ -80,6 +80,7 @@ export type ScatterPoint = {
 };
 export type ScatterSpec = {
   kind: 'scatter'; points: ScatterPoint[]; xUnit: string; xLabel: string; yLabel: string;
+  selectedId?: string | null;
   /** Opt-in calmer dense scatter; table, CSV and summary remain unchanged. */
   density?: 'default' | 'quiet';
   groups?: { id: string; label: string; color?: ThemeColorToken }[];
@@ -103,12 +104,14 @@ export type BoxStats = {
 };
 export type BoxPlotSpec = {
   kind: 'boxPlot'; groups: { id: string; label: string; stats: BoxStats | null }[];
+  selectedId?: string | null;
   /** Changes the description and validates endpoints; never infers observations or quartiles. */
   whisker: 'minMax' | 'tukey'; referenceLines?: { value: number; label: string }[];
   onGroupClick?: (id: string) => void;
 };
 export type ParetoSpec = {
   kind: 'pareto'; items: { id: string; label: string; value: number }[];
+  selectedId?: string | null;
   /** Finite fraction in (0,1], default 0.8. */
   cumulativeTarget?: number;
   /** Total displayed cap including Other; floors and clamps to at least 2, default 10. */
@@ -132,6 +135,7 @@ export type TopNBarSpec = {
 export type HistogramBin = { start: number; end: number; count: number };
 export type HistogramSpec = {
   kind: 'histogram'; xUnit: string; xLabel: string;
+  selectedBin?: { start: number; end: number } | null;
   referenceLines?: { id: string; value: number; label: string; tone?: ChartStatus['tone'] }[];
   /** Consumer judgement only; never inferred from reference lines. */
   binStatus?: (bin: HistogramBin) => ChartStatus | undefined;
@@ -186,23 +190,21 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const [table, setTable] = useState(false);
   const [panelToolsOpen, setPanelToolsOpen] = useState(false);
   const chart = useRef<ECharts | null>(null);
-  // A top-N bar or donut may follow the page's current item (`selectedId`). `selected === null` means "follow it": the followed item is the
-  // selection whenever its bar is drawn, so rows that arrive or grow later still show it. A click, Reset or brush makes the selection
-  // local until the followed value or the Context changes. Without `selectedId` the selection is local only, as before.
-  const followed = (p.spec.kind === 'topNBar' || p.spec.kind === 'donut') ? p.spec.selectedId : undefined;
-  const followedKey = followed == null ? null : JSON.stringify([p.spec.kind === 'donut' ? 'slice' : 'topNBar', followed]);
-  const unfollowed: string[] | null = followed === undefined ? [] : null;
+  const spec = p.spec;
+  // `selected === null` follows the page's current item whenever it is drawn. A click, Reset or Brush makes the selection
+  // local until the followed key or Context changes.
+  const followedKey = followedChartKey(spec);
+  const selectionEnabled = spec.kind !== 'histogram' || followedKey !== undefined;
+  const unfollowed: string[] | null = followedKey === undefined ? [] : null;
   const [selected, setSelected] = useState<string[] | null>(unfollowed);
   const [selectionFromTable, setSelectionFromTable] = useState(false);
-  const [previousFollowed, setPreviousFollowed] = useState(followed);
-  if (previousFollowed !== followed) { setPreviousFollowed(followed); setSelected(unfollowed); }
+  const [previousFollowed, setPreviousFollowed] = useState(followedKey);
   const brushedKeys = useRef<string[]>([]);
   const [brushMode, setBrushMode] = useState(false);
   const [instanceReady, setInstanceReady] = useState(0);
   // Colours are resolved while building the option: a root `data-theme` change rebuilds it (#2723).
   const themeRevision = useThemeRevision();
   const [plotSize, setPlotSize] = useState({ width: 0, height: 0 });
-  const spec = p.spec;
   const controlledCell = spec.kind === 'heatmap' ? spec.selectedCell : undefined;
   const controlledCellSupplied = controlledCell !== undefined;
   const canPreferTableSelection = spec.kind === 'heatmap' && controlledCellSupplied && !!spec.cellActivation;
@@ -232,16 +234,22 @@ export function AnalysisChart(p: AnalysisChartProps) {
   const contextKey = JSON.stringify([platform?.user?.id, platform?.revision, global]);
   const [previousContext, setPreviousContext] = useState(contextKey);
   const following = selected === null;
-  const active = useMemo(() => previousContext !== contextKey ? []
-    : selected === null ? (followedKey !== null && keySet.has(followedKey) ? [followedKey] : [])
-    : selected.filter(key => keySet.has(key)), [previousContext, contextKey, selected, followedKey, keySet]);
+  const active = useMemo(() => {
+    if (previousContext !== contextKey) return [];
+    if (selected !== null) return selected.filter(key => keySet.has(key));
+    if (followedKey == null) return [];
+    const drawn = extended ? extended.seriesKeys.some(keys => keys.includes(followedKey)) : keySet.has(followedKey);
+    return drawn ? [followedKey] : [];
+  }, [previousContext, contextKey, selected, followedKey, keySet, extended]);
   const activeSet = useMemo(() => new Set(active), [active]);
   if (previousContext !== contextKey) {
     setPreviousContext(contextKey);
     setSelected(unfollowed);
     setSelectionFromTable(false);
   }
+  else if (previousFollowed !== followedKey) setSelected(unfollowed);
   else if (selected !== null && active.length !== selected.length) setSelected(active);
+  if (previousFollowed !== followedKey) setPreviousFollowed(followedKey);
   useEffect(() => { brushedKeys.current = []; if (brushable) clearBrush(chart.current); }, [contextKey, brushable]);
   useEffect(() => { brushedKeys.current = []; setBrushMode(false); }, [spec.kind]);
   const reset = () => {
@@ -369,7 +377,8 @@ export function AnalysisChart(p: AnalysisChartProps) {
     selectionSummary = m('chartSelectionOverflow', { count: active.length, labels, more: active.length - 3 });
   }
   // Still following an item whose bar is not drawn: name it as outside the drawn top N (only a valid input item; a rejected one is no rank).
-  const outsideLabel = following && followed != null && !active.length ? extended?.labels?.get(followed) : undefined;
+  const outsideLabel = following && spec.kind === 'topNBar' && spec.selectedId != null && !active.length
+    ? extended?.labels?.get(spec.selectedId) : undefined;
   if (outsideLabel !== undefined) selectionSummary = m('chartSelectionOutsideTopN', { label: outsideLabel, count: rows.length });
   if (spec.kind === 'heatmap' && summaryRows.length > 3) {
     const range = (labels: string[], axis: 'x' | 'y') => {
@@ -495,8 +504,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       compact={compact || compactChrome} hideTitle={compactChrome} />}
     brush={brushable && <Button type="button" size={toolbarButtonSize} variant={chartToolVariant(compactChrome, brushMode)}
       aria-label={m('chartBrush')} title={m('chartBrush')} aria-pressed={brushMode} onClick={() => setBrushMode(!brushMode)}><BrushIcon className="size-3.5" aria-hidden />{!compactChrome && m('chartBrush')}</Button>}
-    // A histogram has no selection, brush or zoom, so Reset would have nothing to clear (#2736).
-    reset={spec.kind !== 'histogram' && <Button type="button" size={toolbarButtonSize} variant={chartToolVariant(compactChrome)}
+    reset={selectionEnabled && <Button type="button" size={toolbarButtonSize} variant={chartToolVariant(compactChrome)}
       aria-label={m('chartReset')} title={m('chartReset')} onClick={reset}><RotateCcw className="size-3.5" aria-hidden />{!compactChrome && m('chartReset')}</Button>}
     table={{ shown: table, toggle: () => setTable(current => !current) }}
     exportCsv={exportGate.allowed ? exportCsv : undefined}
@@ -534,7 +542,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
         } : undefined} className={cn('relative', size === 'fill' && (chrome === 'standard' ? 'min-h-0 grow basis-0 overflow-hidden' : FILL_PLOT_CLASS), rowFloor && 'overflow-y-auto', fittedDonut && 'min-h-28')}>
         <EChart key={spec.kind} onReady={instance => { chart.current = instance; setInstanceReady(generation => generation + 1); }} onResize={() => measureGrid(chart.current)} option={option} height={canvasHeight} ariaLabel={typeof p.title === 'string' ? p.title : p.chartId} onEvents={{
           click: params => {
-            if (spec.kind === 'histogram' || params.componentType !== 'series' || (spec.kind === 'heatmap' && params.seriesIndex > 0)) return;
+            if (!selectionEnabled || params.componentType !== 'series' || (spec.kind === 'heatmap' && params.seriesIndex > 0)) return;
             activateCell('click', params);
             const key = plotKey(params.seriesIndex, params.dataIndex);
             if (!key) return;
@@ -570,15 +578,15 @@ export function AnalysisChart(p: AnalysisChartProps) {
       </div>}
       </ChartLegendLayout>
       {topN && expanded && <ChartGestureHint point={rows.length > 0} additive={!singleSelect} drill={canDrill} />}
-      {spec.kind !== 'histogram' && <section tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !selectedActionRow?.drill ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs text-text-secondary' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
+      {selectionEnabled && <section tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !selectedActionRow?.drill ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs text-text-secondary' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
         {selectionSummary}
         {hasStatuses && summaryRows.filter(row => row.status).map(row => <p key={row.key}>{row.label}: {statusText(row.status)}</p>)}
         {spec.kind === 'heatmap' && spec.cellActivation && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartActivatePoint') : undefined} title={compactChrome ? m('chartActivatePoint') : undefined} disabled={brushMode || !selectedCell} onClick={() => { if (!brushMode && selectedCell) spec.cellActivation?.onActivate(selectedCell.x, selectedCell.y); }}>{compactChrome ? <Play className="size-3.5" aria-hidden /> : m('chartActivatePoint')}</Button>}
         {(selectedActionRow?.drill || showDisabledHeatmapDetails) && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartDetails') : undefined} title={compactChrome ? m('chartDetails') : undefined} disabled={!selectedActionRow?.drill} onClick={selectedActionRow?.drill}>{compactChrome ? <ExternalLink className="size-3.5" aria-hidden /> : m('chartDetails')}</Button>}
       </section>}
       {table && <div className="overflow-auto px-4 py-2"><table tabIndex={spec.kind === 'histogram' ? 0 : undefined} className="w-full text-xs"><caption>{p.title} · {p.unit}</caption>
-        <thead className="bg-surface-sunken"><tr>{(spec.kind === 'histogram' ? headers : [...headers, m('chartSelect')]).map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>
-        <tbody>{rows.map((row, i) => <tr key={row.key}>{tableValues[i].map((value, j) => <td key={j}>{value}</td>)}{spec.kind !== 'histogram' && <td>
+        <thead className="bg-surface-sunken"><tr>{(selectionEnabled ? [...headers, m('chartSelect')] : headers).map(h => <th key={h} scope="col" className="text-text-secondary">{h}</th>)}</tr></thead>
+        <tbody>{rows.map((row, i) => <tr key={row.key}>{tableValues[i].map((value, j) => <td key={j}>{value}</td>)}{selectionEnabled && <td>
           <Checkbox aria-label={m('chartSelectItem', { label: row.label })} checked={activeSet.has(row.key)} onCheckedChange={() => toggle(row.key, 'table')} />
           {row.drill && <Button size="toolbar" variant="ghost" onClick={row.drill}>{m('chartDetails')}</Button>}
         </td>}</tr>)}</tbody>
