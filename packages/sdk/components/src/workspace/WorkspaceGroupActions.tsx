@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { useId, type RefObject } from 'react';
 import { Maximize2, Minimize2, MoreHorizontal, Pin, X } from 'lucide-react';
 import { useMessages } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
@@ -11,7 +11,7 @@ const ICON = 'size-7';
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
  * group's active panel. Collapse and float are absent for primary panels. Floating headers offer pin, close and keyboard geometry.
  */
-export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, pin, edgeActions, menuItems }: {
+export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, hideBlocked, pin, edgeActions, menuItems }: {
   menuItems?: readonly { id: string; label: string; onSelect: () => void }[];
   title: string;
   /** A panel's title, naming each move target by its active panel. */
@@ -26,6 +26,8 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   /** Stack mode only, and absent when the panel already is alone in the last row. */
   onMoveBelow?: () => void;
   onHide?: () => void;
+  /** «숨기기» is unavailable while present (`PanelWorkspacePanel.keep`): the item stays, disabled, and shows the reason. */
+  hideBlocked?: { reason: string };
   edgeActions?: {
     left?: () => void; top?: () => void; float?: () => void;
     overlay?: { pin: () => void; close: () => void; position?: (place: 'top-left' | 'center') => void; size?: (size: 'small' | 'large') => void };
@@ -38,6 +40,7 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   const toggle = maximized ? m('workspaceRestore') : m('workspaceMaximize', { title });
   const actions = m('workspaceActions', { title });
   const pinLabel = m('panelPin', { title });
+  const hideReasonId = useId();
   return <div data-workspace-group-actions className="flex shrink-0 items-center gap-1 pr-1">
     {pin && !maximized && <Button type="button" variant={pin.pinned ? 'secondary' : 'ghost'} size="icon-sm" className={ICON} data-workspace-pin aria-label={pinLabel} title={pin.pinned ? m('panelPinned', { title }) : pinLabel} aria-pressed={pin.pinned} onClick={pin.onToggle}>
       <Pin className={pin.pinned ? 'size-3.5 fill-current' : 'size-3.5'} aria-hidden />
@@ -93,7 +96,12 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
             {menu.moves.map(move => <DropdownMenuItem key={move.target} onSelect={() => { onMove(move.target); }}>{m('workspaceMoveToGroup', { title: titleOf(move.target) })}</DropdownMenuItem>)}
             {onHide && <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onHide}>{m('workspaceHide')}</DropdownMenuItem>
+              {hideBlocked
+                // Named by the action and described by the visible reason, as a disabled «다음 분석» item (#2862 R C4).
+                ? <DropdownMenuItem aria-label={m('workspaceHide')} aria-disabled aria-describedby={hideBlocked.reason ? hideReasonId : undefined} onSelect={event => { event.preventDefault(); }}>
+                  <span className="flex min-w-0 flex-col"><span>{m('workspaceHide')}</span>{hideBlocked.reason && <span id={hideReasonId} className="text-xs text-text-muted">{hideBlocked.reason}</span>}</span>
+                </DropdownMenuItem>
+                : <DropdownMenuItem onSelect={onHide}>{m('workspaceHide')}</DropdownMenuItem>}
             </>}
           </>}
         </>}

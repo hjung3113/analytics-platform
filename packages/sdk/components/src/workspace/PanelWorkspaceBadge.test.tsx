@@ -164,3 +164,25 @@ describe('PanelWorkspace panel badge: hidden panels', () => {
     expect([show.label, show.description, show.warning]).toEqual(['상세 다시 보기', '일부 데이터 없음', true]);
   });
 });
+
+describe('panel keep (#2862)', () => {
+  it.each([
+    ['a reason', { ko: '이 차트에서 붙잡은 패널이 있습니다', en: 'A panel holds this chart’s selection' }],
+    ['a blank reason', { ko: '', en: '' }],
+  ])('keeps «숨기기» in the menu but disabled with %s, and the panel stays (R C4)', async (_case, reason) => {
+    render(ui({ panels: PANELS.map(panel => panel.id === 'selector' ? { ...panel, keep: { reason } } : panel) }));
+    await ready();
+    await userEvent.click(tab('selector'));
+    await userEvent.click(screen.getAllByRole('button', { name: '선택기 동작' })[0]!);
+    const item = await screen.findByRole('menuitem', { name: '숨기기' });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+    if (reason.ko) expect(item).toHaveAccessibleDescription(reason.ko);
+    else expect(item).not.toHaveAttribute('aria-describedby');
+    item.focus();
+    await userEvent.keyboard('{Enter}');
+    await userEvent.click(item);
+    await settle();
+    expect(tab('selector')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /숨긴 패널 1/ })).toBeNull();
+  });
+});

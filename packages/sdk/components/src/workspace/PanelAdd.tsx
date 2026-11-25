@@ -9,11 +9,15 @@ import type { AnalysisSelection } from '@ap/contracts';
 export type AnalysisPanelDraft = {
   source: `${string}/${string}`;
   inputs: Readonly<Record<string, AnalysisSelection>>;
+  /** `follow` (absent) keeps reading the selection in the URL; `hold` fixes the panel to `inputs` as they are now (#2862). */
+  mode?: 'follow' | 'hold';
 };
 
 export type AnalysisPanelAddition = {
   items: readonly PanelAddItem[];
   onAdd: (draft: AnalysisPanelDraft) => void;
+  /** Offers «붙잡기» beside each panel of «새 패널». The menu keeps the held inputs and wraps that panel in `HeldAnalysisSelections` (#2862). */
+  hold?: boolean;
 };
 
 export const AnalysisPanelAddContext = createContext<AnalysisPanelAddition | null>(null);

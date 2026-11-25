@@ -15,7 +15,8 @@ type Props = {
   selection: AnalysisSelection | null;
   pointDrill?: NextAnalysisPointDrill;
 };
-type Choice = { id: string; label: string; reason?: string; note?: string; onSelect?: () => void };
+/** `panelId`: the panel an `addsPanel` choice adds, when its `id` names a variant (a held copy, #2862). */
+type Choice = { id: string; label: string; reason?: string; note?: string; panelId?: string; onSelect?: () => void };
 type GroupAction = { label: string } & (
   | { reason: string; choices?: never }
   /** `addsPanel`: each choice adds the panel named by its `id` to the workspace around the row. */
@@ -67,9 +68,16 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
         .some(input => input.key === key && input.selection !== undefined)) return [];
       const reason = panel.permissions.every(permission => platform.can(permission))
         ? item.disabledReason && tx(item.disabledReason) : t('menuDenied');
-      return [{ id: panel.id, label: tx(item.title), reason: reason || undefined, onSelect: () => {
-        workspace.onAdd({ source: `${menu.id}/${panel.id}`, inputs: { [key]: selection } });
-      } }];
+      const source = `${menu.id}/${panel.id}` as const;
+      const follow = { id: panel.id, label: tx(item.title), reason: reason || undefined, onSelect: () => {
+        workspace.onAdd({ source, inputs: { [key]: selection } });
+      } };
+      if (!workspace.hold) return [follow];
+      // Follow keeps reading the URL; hold fixes the new panel to this selection (#2862).
+      return [{ ...follow, note: m('chartNextPanelFollowNote') }, {
+        id: `${panel.id}:hold`, panelId: panel.id, label: m('chartNextPanelHold', { panel: tx(item.title) }), reason: reason || undefined,
+        note: m('chartNextPanelHoldNote'), onSelect: () => workspace.onAdd({ source, inputs: { [key]: selection }, mode: 'hold' }),
+      }];
     });
     if (choices.length) actions.push({ label: m('chartNextPanel'), choices, addsPanel: true });
   }
@@ -138,7 +146,7 @@ function ActionMenu({ action, focusKey }: { action: GroupAction; focusKey?: stri
   const choices = action.addsPanel
     // The addition can rebuild this row before the menu closes, so the focus hand-off starts on select, not on close.
     ? action.choices.map(choice => ({ ...choice, onSelect: () => {
-      if (trigger.current) keepFocusAfterPanelAdd(trigger.current, choice.id);
+      if (trigger.current) keepFocusAfterPanelAdd(trigger.current, choice.panelId ?? choice.id);
       choice.onSelect?.();
     } }))
     : action.choices;
