@@ -42,10 +42,19 @@ export function heldTableInput({ key, from, value, use }: Extract<PanelInstanceI
   return { key, from, mode: 'hold', value, ...(use === 'highlight' ? { use } : {}) };
 }
 
-/** The save boundary for additions and their inputs/outputs. Layout and URL pins are owned elsewhere. */
-export function buildSavedPanels(config: CustomPanels, step: Step): MenuViewPanels;
-export function buildSavedPanels(config: PanelConfiguration, step: Step): MenuViewPanels | null;
-export function buildSavedPanels(config: PanelConfiguration, step: Step): MenuViewPanels | null {
+export function followPanel({ slot, instance }: AddedPanel): AddedPanel {
+  const inputs = instance.inputs.map((input): PanelInstanceInput => {
+    if (input.mode === 'follow') return input;
+    const { key, from, use } = input;
+    return { key, from, mode: 'follow', ...(use ? { use } : {}) };
+  });
+  return { slot, instance: { ...instance, inputs } };
+}
+
+/** Project the saved panels for one step. Omit the step to validate a configuration carried across drills. */
+export function buildSavedPanels(config: CustomPanels, step?: Step): MenuViewPanels;
+export function buildSavedPanels(config: PanelConfiguration, step?: Step): MenuViewPanels | null;
+export function buildSavedPanels(config: PanelConfiguration, step?: Step): MenuViewPanels | null {
   if (config.kind !== 'custom') return null;
   const instances = config.added.filter(({ slot, instance }) =>
     step !== 4 || slot !== 'trend' || instance.inputs.length > 0 || instance.outputs.length > 0).map(panel => panel.instance);
@@ -64,41 +73,75 @@ export function heldSourceFor(config: CustomPanels, { reservedOnly = false } = {
   return { sources: [...config.sources, source], id, added: true };
 }
 
+/** Instances of one declared panel this menu may open side by side: the following one and the held one, to compare before and after (#2862 ②). */
+export const SAME_PANEL_MAX = 2;
+const ofPanel = (config: CustomPanels, id: string) => config.added.filter(({ instance }) => instance.source.kind === 'declared' && instance.source.panel === id);
+function freeId(config: CustomPanels, base: string): string {
+  const taken = new Set([...config.added.flatMap(panel => [panel.slot, panel.instance.id]), ...config.sources.map(source => source.id)]);
+  let id = base;
+  for (let n = 2; taken.has(id); n += 1) id = `${base}-${n}`;
+  return id;
+}
+
 /**
- * The configuration after adding `id` (null: nothing changes). From the toolbar or a pin (no intent) an open panel keeps its inputs; «새 패널» states
- * follow (an open held panel reads the URL again, R C5) or hold (its inputs become the held values, naming a source output, R C2).
+ * The configuration after adding declared panel `id`, and the slot it opened or changed (`config` null: nothing changes, reveal `slot`).
+ * From the toolbar or a pin (no intent) an open panel keeps its inputs. «새 패널» states the mode (#2862):
+ * - hold: an open held instance takes the new values; with only a following one open, a second instance holds them beside it (②);
+ * - follow: an open following instance is revealed; with only a held one open, a second instance follows beside it (②).
+ * With no room for a second instance, the panel's own slot changes mode (R C5).
  */
-export function withAdded(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent): CustomPanels | null {
-  if (step === 4 && id === 'trend') return null;
+export function withAdded(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent): { config: CustomPanels | null; slot: string } {
+  if (step === 4 && id === 'trend') return { config: null, slot: id };
   const custom = config.kind === 'custom' ? config : noPanels;
-  const existing = custom.added.find(panel => panel.slot === id);
-  const put = (panel: AddedPanel, sources = custom.sources): CustomPanels => ({ ...custom, sources,
-    added: existing ? custom.added.map(item => item === existing ? panel : item) : [...custom.added, panel] });
-  const create = () => newPanelInstance(id, id, [...custom.added.map(panel => panel.instance), ...custom.sources]);
+  const all = id === 'table' ? ofPanel(custom, id) : custom.added.filter(panel => panel.slot === id);
+  // Only the first two open; a saved third waits for removal and is never the one changed (R2 C13).
+  const same = all.slice(0, SAME_PANEL_MAX);
+  const put = (panel: AddedPanel, replaced?: AddedPanel, sources = custom.sources) => ({ slot: panel.slot, config: { ...custom, sources,
+    added: replaced ? custom.added.map(item => item === replaced ? panel : item) : [...custom.added, panel] } });
+  const create = (slot: string) => newPanelInstance(slot, id, [...custom.added.map(panel => panel.instance), ...custom.sources]);
+  const room = id === 'table' && all.length < SAME_PANEL_MAX;
   if (intent?.mode === 'hold') {
     const source = heldSourceFor(custom);
     const inputs = Object.entries(intent.held).flatMap(([key, value]) => key === heldOutput.key
       ? [heldTableInput({ key, from: `${source.id}.${key}`, mode: 'hold', value })] : []);
-    return put({ slot: id, instance: { ...(existing?.instance ?? create()), inputs }, heldFrom: intent.from }, source.sources);
+    // With two following instances the later one holds, so the first keeps the address's row and page (R C5).
+    const target = same.find(panel => holds(panel.instance)) ?? (room ? undefined : same.at(-1));
+    if (target) return put({ ...target, instance: { ...target.instance, inputs }, heldFrom: intent.from }, target, source.sources);
+    // A free id even for the first instance: a restored panel of another declaration may already use the declared one (R C9).
+    const slot = freeId(custom, same.length ? `${id}-held` : id);
+    return put({ slot, instance: { ...create(slot), inputs }, heldFrom: intent.from }, undefined, source.sources);
   }
-  if (!existing) return put({ slot: id, instance: create() });
-  if (!intent || !holds(existing.instance)) return null;
-  const inputs = existing.instance.inputs.map((input): PanelInstanceInput => {
-    if (input.mode === 'follow') return input;
-    const { key, from, use } = input;
-    return { key, from, mode: 'follow', ...(use ? { use } : {}) };
-  });
-  return put({ slot: existing.slot, instance: { ...existing.instance, inputs } });
+  const following = same.find(panel => !holds(panel.instance));
+  if (following) return { config: null, slot: following.slot };
+  if (!same.length || (intent && room)) {
+    const slot = id === 'table' ? freeId(custom, id) : id;
+    return put({ slot, instance: create(slot) });
+  }
+  if (!intent) return { config: null, slot: same[0]!.slot };
+  // With both table slots held, the later one follows its existing connection.
+  const held = same.at(-1)!;
+  return put(followPanel(held), held);
 }
 
 export function exceedsPanelLimit(panels: MenuViewPanels): boolean {
   return panels.instances.length > PANEL_INSTANCES_MAX;
 }
 
-/** Count what the view would save, including required sources and excluding any source the addition makes unused. */
 export function panelAdditionOverflows(config: PanelConfiguration, step: Step, id: string, intent?: AddIntent): boolean {
-  const next = withAdded(config, id, step, intent);
-  return next !== null && exceedsPanelLimit(buildSavedPanels(next, step));
+  return planAdd(config, id, step, intent).overflows;
+}
+
+/**
+ * One add as the screen will apply it: `materialize` first gives a panel shown only by a pin its own instance (so a second can sit beside it).
+ * Count what would be saved, including required sources. A configuration carried across drills must fit at every step (#2999 C1).
+ */
+export function planAdd(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent, materialize = false): { config: CustomPanels | null; slot: string; overflows: boolean } {
+  // The panel a pin shows is the following one, also beside a held table (R2 C11).
+  const base = materialize ? withAdded(config, id, step, { mode: 'follow' }).config : null;
+  const added = withAdded(base ?? config, id, step, intent);
+  const next = added.config ?? base;
+  const overflows = next !== null && exceedsPanelLimit(buildSavedPanels(next, next.connectionsEdited ? undefined : step));
+  return { config: next, slot: added.slot, overflows };
 }
 
 /**
@@ -107,7 +150,9 @@ export function panelAdditionOverflows(config: PanelConfiguration, step: Step, i
  */
 export function keepHeld(config: PanelConfiguration): PanelConfiguration {
   if (config.kind !== 'custom') return defaultPanels;
-  const kept = config.added.filter(panel => holds(panel.instance));
+  // A held table past the two that open stays behind with the rest (R2 C13).
+  const kept = config.added.filter(panel => holds(panel.instance) && (panel.instance.source.kind !== 'declared'
+    || ofPanel(config, panel.instance.source.panel).indexOf(panel) < SAME_PANEL_MAX));
   if (!kept.length) return defaultPanels;
   const keptInstances = kept.map(panel => panel.instance);
   const named = config.added.filter(panel => !holds(panel.instance) && names(keptInstances, panel.instance.id)).map(panel => panel.instance);
