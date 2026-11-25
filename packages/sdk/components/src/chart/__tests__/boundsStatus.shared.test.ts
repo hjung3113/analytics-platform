@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { chartTheme } from '../EChart';
+import { chartSegmentedBoundsTheme } from '../EChart';
 import { projectChartBounds } from '../chartBounds';
 import { legendColor, scatterData } from '../analysisChartKinds';
 import { buildChartOption } from '../buildChartOption';
@@ -18,12 +18,12 @@ describe('shared bounds and status projection (#2362)', () => {
       expect(error).toHaveBeenCalledWith(expect.stringContaining('reversed'));
     } finally { error.mockRestore(); }
   });
-  it('uses the Frame reference colour for scatter bounds and legend keys', () => {
+  it('uses the segmented-bound colour for scatter bounds and legend keys', () => {
     const p = scatterData({ kind: 'scatter', xUnit: '', xLabel: 'Cell', yLabel: 'Value',
       points: [{ id: 'a', x: null, y: 3, category: 'a' }],
       xCategories: { order: ['a'], bounds: new Map([['a', { lower: 1, upper: 8 }]]) },
     }, 'en', 's');
-    const color = chartTheme().referenceLine.lineStyle.color;
+    const color = chartSegmentedBoundsTheme().lineStyle.color;
     expect(p.option([])).toMatchObject({ series: [expect.objectContaining({
       markArea: expect.objectContaining({ itemStyle: expect.objectContaining({ color }) }),
       markLine: expect.objectContaining({ data: expect.arrayContaining([

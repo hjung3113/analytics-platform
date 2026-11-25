@@ -18,7 +18,7 @@ export function HistogramSample({ height }: { height: number }) {
   const spec = useMemo<HistogramSpec>(() => ({
     kind: 'histogram', values: histogramSampleValues, xLabel: m('xLabel'), xUnit: m('seconds'),
     binning: { width: 0.25, domain: [2.75, 8] },
-    referenceLines: [{ id: 'htm-upper', value: UPPER_BOUND, label: m('upper'), tone: 'danger' }],
+    referenceMarks: [{ type: 'line', axis: 'x', kind: 'spec', id: 'htm-upper', value: UPPER_BOUND, label: m('upper'), tone: 'danger' }],
     binStatus: bin => bin.count > 0 && bin.start >= UPPER_BOUND ? { tone: 'danger', label: m('exceeded'), reason: m('reason') } : undefined,
   }), [m]);
   return <AnalysisChart chartId="chart-catalog-histogram" title={m('title')} description={<><span>{m('sample')}</span> · <span>{m('caption')}</span></>}

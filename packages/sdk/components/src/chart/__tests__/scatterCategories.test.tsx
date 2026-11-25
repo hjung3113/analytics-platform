@@ -15,6 +15,7 @@ type Datum = { value: number[]; label?: { formatter: string }; itemStyle: { bord
 type Series = { id?: string; type: string; data: Datum[]; markLine?: { data: { coord: number[]; lineStyle?: { type: number[] } }[][] }; markArea?: { data: { coord: number[] }[][] }; renderItem?: (p: unknown, api: unknown) => unknown };
 type Option = { series: Series[]; xAxis: { min: number; max: number; name: string; interval: number; axisLabel: { formatter: (v: number) => string } }; yAxis: { min: (e: { min: number; max: number }) => number; max: (e: { min: number; max: number }) => number }; tooltip: { renderMode: string; formatter: (p: { seriesIndex: number; dataIndex: number }) => string }; brush: unknown };
 const option = (spec: ScatterSpec) => scatterData(spec, 'en', 's').option([]) as Option;
+const boundLines = (chart: Option) => chart.series.flatMap(series => series.markLine?.data.filter(Array.isArray) ?? []);
 const coordinates = (spec: ScatterSpec) => {
   const projection = scatterData(spec, 'en', 's'); const chart = projection.option([]) as Option;
   return Object.fromEntries(projection.seriesKeys.flatMap((keys, s) => keys.flatMap((key, d) => key ? [[key, chart.series[s].data[d].value[0]]] : [])));
@@ -75,7 +76,7 @@ describe('scatter categories (#2332)', () => {
   it('merges equal neighbour bounds, distinguishes dash patterns and only bands paired bounds', () => {
     const spec = category({ bounds: new Map([['a', { lower: -10, upper: 40 }], ['b', { lower: -10, upper: 40 }], ['c', { upper: 50 }]]) });
     const p = scatterData(spec, 'en', 's'); const o = p.option([]) as Option;
-    const lines = o.series[0].markLine!.data.filter(Array.isArray);
+    const lines = boundLines(o);
     expect(lines).toHaveLength(3);
     expect(lines.map(line => line.map(end => end.coord))).toEqual([[[-0.5, 40], [1.5, 40]], [[1.5, 50], [2.5, 50]], [[-0.5, -10], [1.5, -10]]]);
     expect(lines[0][0].lineStyle!.type).not.toEqual(lines[2][0].lineStyle!.type);
@@ -105,7 +106,7 @@ describe('scatter categories (#2332)', () => {
   it('keeps undeclared group cells empty and separates nonconsecutive equal bounds', () => {
     const p = scatterData(category({ groups: { header: 'Rack', byCategory: new Map([['a', { group: 'R1', label: 'A' }]]) }, bounds: new Map([['a', { upper: 9 }], ['c', { upper: 9 }]]) }), 'en', 's');
     expect(p.tableValues[1].slice(3, 5)).toEqual(['', 'b']);
-    const lines = (p.option([]) as Option).series[0].markLine!.data.filter(Array.isArray);
+    const lines = boundLines(p.option([]) as Option);
     expect(lines.map(line => line.map(end => end.coord))).toEqual([[[-0.5, 9], [0.5, 9]], [[1.5, 9], [2.5, 9]]]);
   });
   it('maps retained duplicate ids to their accepted category and status after dropping an invalid category', () => {

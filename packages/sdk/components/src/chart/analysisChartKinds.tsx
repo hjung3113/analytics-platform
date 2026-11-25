@@ -15,6 +15,7 @@ import { QUIET_SCATTER } from './scatterDensity';
 import type { ChartStatus } from './chartStatus';
 import { ChartStatusLegend } from './ChartStatusLegend';
 import { ChartLegendLabel } from './analysisChartFrameParts';
+import { isFiniteReferenceMark, referenceBandData, referenceLineOption, referenceMarkOptions, referenceValues, scatterReferenceMarks, type ChartReferenceMark } from './referenceMarks';
 
 export const legendColor = (color: KindProjection['legend'][number]['color']) => typeof color === 'string' ? token(color) : color.resolved;
 
@@ -59,8 +60,9 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
   const rows: ChartRow[] = points.map(p => ({ key: rowKey('scatter', p.id), label: p.label ?? p.id, value: p.y, drill: spec.onPointClick ? () => spec.onPointClick?.(p.id) : undefined }));
   const tableValues = points.map(p => [p.id, p.label ?? p.id, groups.find(g => g.key === groupKey(p.group))!.label, text(p.x, spec.xUnit), text(p.y, unit)]);
   const plotted = groups.map(g => points.filter(p => groupKey(p.group) === g.key && p.x !== null && p.y !== null));
+  const marks = scatterReferenceMarks(spec);
   const bounds = (axis: 'x' | 'y', extent: { min: number; max: number }) => {
-    const references = (spec.referenceLines ?? []).filter(r => r.axis === axis && Number.isFinite(r.value)).map(r => r.value);
+    const references = referenceValues(marks, axis);
     const min = Math.min(extent.min, ...references); const max = Math.max(extent.max, ...references);
     const padding = (max - min || Math.abs(min) || 1) * 0.05;
     return { min: min - padding, max: max + padding };
@@ -86,6 +88,7 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
     option: active => {
       const theme = chartTheme();
       const chosen = new Set(active);
+      const bands = referenceBandData(theme, marks);
       return {
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { seriesIndex: number; dataIndex: number }) => { const point = plotted[p.seriesIndex]?.[p.dataIndex]; return point ? `${point.label ?? point.id} · ${groups[p.seriesIndex].label}: ${spec.xLabel} ${text(point.x, spec.xUnit)} · ${spec.yLabel} ${text(point.y, unit)}` : ''; } },
         grid: { top: 32, bottom: 56, left: 48, right: 40, containLabel: true },
@@ -94,7 +97,8 @@ export function scatterData(spec: ScatterSpec, lang: Lang, unit: string): KindPr
         ...brushOptions(),
         series: plotted.map((group, i) => ({ type: 'scatter', symbol: legend[i].symbol, emphasis: { focus: 'none' },
           ...(spec.density === 'quiet' ? { symbolSize: QUIET_SCATTER.normalSize } : {}),
-          markLine: i === 0 ? { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, ...(r.axis === 'x' ? { xAxis: r.value, label: { position: 'end', rotate: 0, offset: [0, 8], verticalAlign: 'top' } } : { yAxis: r.value }) })) } : undefined,
+          markLine: i === 0 ? referenceLineOption(theme, marks, { scatterX: true }) : undefined,
+          ...(i === 0 && bands.length ? { markArea: { silent: true, data: bands } } : {}),
           data: group.map((p, j) => ({ value: [p.x, p.y], itemStyle: { ...(spec.density === 'quiet' ? { opacity: QUIET_SCATTER.normalOpacity } : {}), color: legendColor(legend[i].color), borderColor: token('chart-selection-outline'), borderWidth: selectionRing(chosen.has(seriesKeys[i]![j]!)) } })),
         })),
       };
@@ -134,6 +138,8 @@ export function boxPlotData(spec: BoxPlotSpec, lang: Lang, unit: string): KindPr
   const outliers = groups.flatMap((g, i) => (g.stats?.outliers ?? []).map(value => ({ group: i, value })));
   const medianGroups = groups.flatMap((g, i) => g.stats ? [i] : []);
   const unknownGroups = groups.flatMap((g, i) => g.stats ? [] : [i]);
+  const marks = (spec.referenceMarks ?? spec.referenceLines?.map<ChartReferenceMark>(line => ({ ...line, type: 'line', axis: 'y' })))?.filter(isFiniteReferenceMark);
+  const yReferences = referenceValues(marks, 'y', { bandExtent: 'required' });
   return {
     rows, total: 0, empty: !groups.some(g => g.stats),
     headers, tableValues,
@@ -149,14 +155,21 @@ export function boxPlotData(spec: BoxPlotSpec, lang: Lang, unit: string): KindPr
     option: active => {
       const theme = chartTheme();
       const chosen = new Set(active);
+      const bands = referenceBandData(theme, marks);
       return {
         grid: { top: 24, bottom: 24, left: 24, right: 24, containLabel: true },
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { seriesIndex: number; dataIndex: number }) => { const index = p.seriesIndex === 1 ? outliers[p.dataIndex]?.group : p.seriesIndex === 2 ? medianGroups[p.dataIndex] : p.dataIndex; return index === undefined ? '' : tableValues[index].map((value, i) => `${headers[i]}: ${value}`).join(' · '); } },
         xAxis: { type: 'category', data: groups.map(g => g.label), axisLine: theme.axisLine, axisLabel: theme.axisLabel },
-        yAxis: [{ type: 'value', name: unit, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine }, { type: 'value', show: false, min: 0, max: 1 }],
+        yAxis: [{ type: 'value', name: unit, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine,
+          ...(yReferences.length ? {
+            min: (extent: { min: number }) => Math.min(0, extent.min, ...yReferences),
+            max: (extent: { max: number }) => Math.max(0, extent.max, ...yReferences),
+          } : {}),
+        }, { type: 'value', show: false, min: 0, max: 1 }],
         series: [
           { type: 'boxplot', boxWidth: [24, 24], itemStyle: { borderColor: token(strokeToken(fills[0])) },
-            markLine: { ...theme.referenceLine, data: spec.referenceLines?.filter(r => Number.isFinite(r.value)).map(r => ({ name: r.label, yAxis: r.value })) },
+            markLine: referenceLineOption(theme, marks),
+            ...(bands.length ? { markArea: { silent: true, data: bands } } : {}),
             data: groups.map((g, i) => ({ value: g.stats ? [g.stats.min, g.stats.q1, g.stats.median, g.stats.q3, g.stats.max] : ['-', '-', '-', '-', '-'], itemStyle: { color: token(fills[i % 4]), borderColor: token(strokeToken(fills[i % 4])), borderWidth: chosen.has(rows[i].key) ? 3 : 1.5 } })), // A box is drawn by its outline, so selection thickens it instead of a ring that would hide its colour (#2736).
           },
           { type: 'scatter', symbolSize: 5, data: outliers.map(o => ({ value: [o.group, o.value], itemStyle: { color: token(strokeToken(fills[o.group % 4])) } })) },
@@ -221,7 +234,8 @@ export function paretoData(spec: ParetoSpec, lang: Lang, unit: string): KindProj
         yAxis: [{ type: 'value', min: 0, name: unit, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine }, { type: 'value', min: 0, max: 100, name: '%', position: 'right', axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, formatter: '{value}%' }, splitLine: { show: false } }],
         series: [
           { type: 'bar', data: rows.map(row => ({ value: row.value, itemStyle: { color: token(row.color!), borderColor: token('chart-selection-outline'), borderWidth: selectionRing(chosen.has(row.key)) } })) },
-          { type: 'line', yAxisIndex: 1, data: cumulative, showSymbol: lineSymbolShown(cumulative.length), lineStyle: { color: token('chart-series-2-stroke') }, itemStyle: { color: token('chart-series-2-stroke') }, markLine: { ...theme.referenceLine, data: [{ name: pct(target * 100), yAxis: target * 100 }] } },
+          { type: 'line', yAxisIndex: 1, data: cumulative, showSymbol: lineSymbolShown(cumulative.length), lineStyle: { color: token('chart-series-2-stroke') }, itemStyle: { color: token('chart-series-2-stroke') },
+            ...referenceMarkOptions(theme, [{ type: 'line', axis: 'y', value: target * 100, label: pct(target * 100), kind: 'target' }, ...(spec.referenceMarks ?? [])]) },
         ],
       };
     },

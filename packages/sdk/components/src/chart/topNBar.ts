@@ -8,6 +8,7 @@ import type { KindProjection } from './analysisChartKinds';
 import { chartTheme, token } from './EChart';
 import { barRadius, selectionRing } from './chartMarks';
 import { insideLabelStyle, segmentLabelStyle } from './chartValueLabels';
+import { referenceMarkOptions, referenceValues } from './referenceMarks';
 
 /** Caller aggregates; this projection alone owns ordering, limiting, table and export. */
 export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string): KindProjection {
@@ -38,6 +39,7 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
     legendSeen.add(entry.colorToken); return true;
   }).map(entry => ({ label: unit ? `${entry.label} (${unit})` : entry.label, color: entry.colorToken, symbol: 'rect' }));
   const tableValues = rows.map(row => [row.groupLabel ?? row.label, `${row.value} ${unit}`.trim()]);
+  const xReferences = referenceValues(spec.referenceMarks, 'x', { bandExtent: 'required' });
   return {
     rows, total: rows.reduce((n, row) => n + row.value, 0), empty: !rows.length,
     summary: formatText(COMPONENTS_MESSAGES.chartTopNSummary, resolved, { count: rows.length, unit }),
@@ -54,9 +56,11 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
       return {
         grid: { top: 12, bottom: 12, left: 16, right: 24, containLabel: true },
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { dataIndex: number }) => tableValues[p.dataIndex]?.join(' · ') ?? '' },
-        xAxis: { type: 'value', min: 0, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
+        xAxis: { type: 'value', min: Math.min(0, ...xReferences),
+          ...(xReferences.length ? { max: (extent: { max: number }) => Math.max(extent.max, ...xReferences) } : {}),
+          axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
         yAxis: { type: 'category', inverse: true, data: rows.map(row => row.label), axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, width: 112, overflow: 'truncate', interval: 0 } },
-        series: [{ type: 'bar', itemStyle: { borderRadius: barRadius(true) },
+        series: [{ type: 'bar', itemStyle: { borderRadius: barRadius(true) }, ...referenceMarkOptions(theme, spec.referenceMarks),
           label: { show: true, position: 'insideRight', formatter: (p: { dataIndex: number }) => tableValues[p.dataIndex]?.[1] ?? '' },
           data: rows.map(row => ({ value: row.value, label: insideLabel(row.color), itemStyle: { color: token(row.color), borderColor: token('chart-selection-outline'), borderWidth: selectionRing(active.includes(row.key)) } })) }],
       };
