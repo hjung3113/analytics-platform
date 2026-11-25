@@ -8,12 +8,13 @@ import { SVGRenderer } from 'echarts/renderers';
 import { renderToString } from 'react-dom/server';
 import { I18nProvider } from '@ap/kernel';
 import { describe, expect, it, vi } from 'vitest';
-import { AnalysisChart } from '../AnalysisChart';
+import { AnalysisChart, type ScatterSpec } from '../AnalysisChart';
 import { EChart, type EChartProps } from '../EChart';
 import { buildChartOption, resolveChartPalette } from '../buildChartOption';
 import { baselineInput } from '../__fixtures__/baselineInput';
 import { scatterData } from '../analysisChartKinds';
-import type { ChartStatus } from '../chartStatus';
+import { heatmapStatusOutlines, type ChartStatus } from '../chartStatus';
+import { scatterExtras } from '../scatterCategories';
 
 // Capture the real heatmap option without mounting a browser/canvas; the interaction below uses real ECharts.
 vi.mock('../EChart', async importOriginal => ({
@@ -41,10 +42,10 @@ function checkInteraction(option: EChartsCoreOption, overlays: string[], { blurr
   try {
     chart.setOption({ ...option, animation: false, stateAnimation: { duration: 0 } });
     const runtime = chart as unknown as Runtime;
-    const series = chart.getOption().series as { id: string }[];
-    const samples = overlays.map(id => {
-      const index = series.findIndex(s => s.id === id);
-      expect(index, id).toBeGreaterThanOrEqual(0);
+    const series = chart.getOption().series as unknown[];
+    const samples = overlays.map((id, offset) => {
+      const index = offset + 1;
+      expect(series[index], id).toBeDefined();
       const group = runtime.getViewOfSeriesModel(runtime.getModel().getSeriesByIndex(index)).group;
       const elements: Element[] = [];
       group.traverse(element => {
@@ -53,7 +54,7 @@ function checkInteraction(option: EChartsCoreOption, overlays: string[], { blurr
         if (label) elements.push(label);
       });
       expect(elements.length, id).toBeGreaterThan(0);
-      if (id.startsWith('__line-status-')) expect(elements.some(element => element.type === 'text'), 'status glyph label').toBe(true);
+      if (id === 'line status') expect(elements.some(element => element.type === 'text'), 'status glyph label').toBe(true);
       return { id, elements, normal: elements.map(styleOf) };
     });
     const act = (type: 'highlight' | 'downplay') => {
@@ -76,17 +77,64 @@ function checkInteraction(option: EChartsCoreOption, overlays: string[], { blurr
 const categories = ['A', 'B'];
 const status = (tone: ChartStatus['tone']): ChartStatus => ({ tone, label: 'Status' });
 
+it.each([
+  ['__scatterStatusBacking-0', 1],
+  ['__scatterStatusOutline-0', 2],
+  ['__scatterGroups', 3],
+  ['__statusBacking', 1],
+  ['__statusOutline', 2],
+] as const)('renders the host and the helper when the engine host ID is %s', (id, helperIndex) => {
+  const spec: ScatterSpec = {
+    kind: 'scatter', xLabel: 'X', xUnit: 'x', yLabel: 'Y',
+    groups: [{ id, label: 'Group', color: 'chart-status-critical' }],
+    points: [{ id, group: id, category: 'A', x: 0, y: 3, status: status('danger') }],
+    xCategories: { order: categories, groups: { header: 'Run', byCategory: new Map([['A', { group: 'Run A' }]]) } },
+  };
+  // Inject the ID on the host before the production decorator appends its helper series.
+  const scatter = scatterExtras(spec, 'en', 's', plain => {
+    const base = scatterData(plain, 'en', 's');
+    return {
+      ...base,
+      option: active => {
+        const option = base.option(active);
+        const [host, ...others] = option.series as object[];
+        return { ...option, series: [{ ...host, id }, ...others] };
+      },
+    };
+  });
+  const heatmapHost = { id, type: 'scatter', data: [[0, 0, 3]], symbol: 'rect', symbolSize: [80, 40] };
+  const option = id.startsWith('__scatter') ? scatter.option([]) : {
+    xAxis: { type: 'category', data: categories },
+    yAxis: { type: 'category', data: ['Row'] },
+    series: [
+      heatmapHost,
+      ...heatmapStatusOutlines([{ value: [0, 0, 3], fill: '#b91c1c', status: status('danger'), opacity: 1 }], heatmapHost.symbolSize, new Set([heatmapHost.id])),
+    ],
+  };
+  const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 800, height: 400 });
+  try {
+    chart.setOption({ ...option, animation: false });
+    const series = chart.getOption().series as { id?: string }[];
+    expect(series[0].id).toBe(id);
+    expect(series[helperIndex].id).toBe(`${id}~1`);
+    const svg = chart.renderToSVGString();
+    expect(svg).toContain('ecmeta_series_index="0"');
+    if (id === '__scatterGroups') expect(svg).toContain('>Run A</text>');
+    else expect(svg).toContain(`ecmeta_series_index="${helperIndex}"`);
+  } finally { chart.dispose(); }
+});
+
 // Series blur is opt-in since #2342 (`emphasisFocus: 'series'`); the line and bar cases opt in so the blur path stays covered.
 describe('semantic overlay opacity through ECharts focus/blur (#2333 FIX1)', () => {
   it.each(['danger', 'warning', 'neutral'] as const)('preserves the %s line halo, ring, glyph and bound strokes/band', tone => {
     const displayed = [{ id: 'line', name: 'Line', color: 'chart-blue' as const, points: [['A', 3], ['B', 5]] as [string, number][] }];
     const input = baselineInput({ displayed, categories, horizontal: false, stacked: false, activeCategory: null, extremes: undefined, pointStatus: () => status(tone), bounds: new Map([['A', { lower: 1, upper: 6 }]]), palette: resolveChartPalette(displayed), emphasisFocus: 'series' });
-    checkInteraction(buildChartOption(input), ['__line-halo-line', '__line-status-line', '__bounds-upper', '__bounds-lower', '__bounds-band'], { blurred: true });
+    checkInteraction(buildChartOption(input), ['line halo', 'line status', 'upper bound', 'lower bound', 'bound band'], { blurred: true });
   });
   it.each([false, true])('preserves both bar backing strokes, horizontal=%s', horizontal => {
     const displayed = [{ id: 'bar', name: 'Bar', kind: 'bar' as const, color: 'chart-status-critical' as const, points: [['A', 3], ['B', 5]] as [string, number][] }];
     const input = baselineInput({ displayed, categories, horizontal, stacked: false, activeCategory: null, extremes: undefined, pointStatus: () => status('danger'), palette: resolveChartPalette(displayed), emphasisFocus: 'series' });
-    checkInteraction(buildChartOption(input), ['__statusBarBacking'], { blurred: true });
+    checkInteraction(buildChartOption(input), ['bar status backing'], { blurred: true });
   });
   it.each([false, true])('does not blur scatter status layers when the host is highlighted, categorical=%s', categorical => {
     const projection = scatterData({ kind: 'scatter', xLabel: 'X', xUnit: 'x', yLabel: 'Y', groups: [{ id: 'g', label: 'Group', color: 'chart-status-critical' }], points: [
@@ -95,7 +143,7 @@ describe('semantic overlay opacity through ECharts focus/blur (#2333 FIX1)', () 
     ], ...(categorical ? { xCategories: { order: categories } } : {}) }, 'en', 's');
     const option = projection.option([]);
     expect((option.series as { emphasis: { focus: string } }[])[0].emphasis.focus).toBe('none');
-    checkInteraction(option, ['__scatterStatusBacking-0', '__scatterStatusOutline-0'], { blurred: false });
+    checkInteraction(option, ['scatter status backing', 'scatter status outline'], { blurred: false });
   });
   it('does not blur heatmap status layers when the host is highlighted', () => {
     renderToString(<I18nProvider><AnalysisChart chartId="heat" title="Heatmap" unit="s" spec={{ kind: 'heatmap', xLabels: categories, yLabels: ['Row'], scale: { type: 'threshold', breaks: [1, 2], labels: ['Low', 'Mid', 'High'] }, cells: [
@@ -104,6 +152,6 @@ describe('semantic overlay opacity through ECharts focus/blur (#2333 FIX1)', () 
     ] }} /></I18nProvider>);
     const option = vi.mocked(EChart).mock.calls.at(-1)![0].option;
     expect((option.series as { emphasis: { focus: string } }[])[0].emphasis.focus).toBe('none');
-    checkInteraction(option, ['__statusBacking', '__statusOutline'], { blurred: false });
+    checkInteraction(option, ['heatmap status backing', 'heatmap status outline'], { blurred: false });
   });
 });

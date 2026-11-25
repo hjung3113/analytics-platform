@@ -27,7 +27,7 @@ describe('partial-total tooltip is text, never markup (#1879)', () => {
     host = document.body.appendChild(document.createElement('div'));
     const chart = echarts.init(host, undefined, { renderer: 'svg', width: 400, height: 200 });
     chart.setOption({ ...partial(), animation: false });
-    const index = (chart.getOption().series as { id: string }[]).findIndex(s => s.id === '__total');
+    const index = (chart.getOption().series as { type: string }[]).findIndex(s => s.type === 'scatter');
     chart.dispatchAction({ type: 'showTip', seriesIndex: index, dataIndex: 1 });
     chart.getZr().flush();
     expect(document.body.querySelector('img, b')).toBeNull();

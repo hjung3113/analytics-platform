@@ -47,14 +47,14 @@ it.each([{ categorical: false, matching: false }, { categorical: false, matching
   type Datum = { value: number[]; itemStyle: { color?: string; borderColor?: string; borderWidth?: number } };
   type Series = { id?: string; symbol: string; silent?: boolean; z?: number; data: Datum[]; itemStyle?: { opacity: number }; tooltip?: { show: boolean } };
   const option = projection.option([]) as { series: Series[] };
-  const outlines = option.series.filter(series => series.id?.startsWith('__scatterStatus'));
+  const outlines = option.series.filter(series => series.silent && (series.z === 3 || series.z === 4));
   expect(outlines.length).toBeGreaterThan(0);
   const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 800, height: 400 });
   try {
     chart.setOption({ ...option, animation: false });
     const paths = chart.renderToSVGString().match(/<path[^>]*ecmeta_ssr_type="chart"[^>]*>/g)!;
     for (const [index, series] of option.series.entries()) {
-      if (!series.id?.startsWith('__scatterStatus')) continue;
+      if (!(series.silent && (series.z === 3 || series.z === 4))) continue;
       expect(projection.seriesKeys[index]).toEqual([]);
       expect(series).toMatchObject({ silent: true, itemStyle: { opacity: 1 }, tooltip: { show: false } });
       const drawn = paths.filter(path => path.includes(`ecmeta_series_index="${index}"`));
@@ -92,9 +92,9 @@ it('renders thin quiet rings without a backing and reveals only the selected sta
   const chart = echarts.init(null, null, { renderer: 'svg', ssr: true, width: 800, height: 400 });
   try {
     const option = projection.option([]);
-    const series = option.series as { id?: string }[];
-    expect(series.some(item => item.id?.startsWith('__scatterStatusBacking'))).toBe(false);
-    const outlineIndex = series.findIndex(item => item.id?.startsWith('__scatterStatusOutline'));
+    const series = option.series as { silent?: boolean; z?: number }[];
+    expect(series.some(item => item.silent && item.z === 3)).toBe(false);
+    const outlineIndex = series.findIndex(item => item.silent && item.z === 4);
     chart.setOption({ ...option, animation: false });
     const svg = chart.renderToSVGString();
     expect(svg).not.toContain('>■</text>');

@@ -1,6 +1,7 @@
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ChartPoint, ChartSeries } from './AnalysisChartFrame';
 import { chartTheme, token } from './EChart';
+import { helperSeriesId } from './helperSeriesId';
 
 /** Consumer-given judgement. The chart never derives a status from a value or a scale. */
 export type ChartStatus = {
@@ -73,15 +74,15 @@ export function statusRing(size: number) {
  * as pixel rectangles of a custom series: a scatter symbol is a unit path scaled to its size, which stretches its stroke
  * unevenly on a non-square cell (thick sides, thin top and bottom) and lets it spill past the cell.
  */
-export function heatmapStatusOutlines(cells: readonly { value: (number | null)[]; status: ChartStatus; fill: string; opacity?: number }[], symbolSize: number[]) {
+export function heatmapStatusOutlines(cells: readonly { value: (number | null)[]; status: ChartStatus; fill: string; opacity?: number }[], symbolSize: number[], takenSeriesIds: Set<string>) {
   if (!cells.length) return [];
   const [width = 0, height = 0] = symbolSize;
   // A 0px side (unmeasured plot or a very dense grid) draws no cell, so its ring is kept in the option but not drawn.
   const drawn = width > 0 && height > 0;
   const { border, backing: backingWidth } = statusRing(drawn ? Math.min(width, height) : Infinity);
   const data = cells.map(c => ({ ...c, effective: statusFill(c.fill, c.opacity ?? 0.8) }));
-  const ring = (id: string, z: number, items: readonly { value: (number | null)[]; stroke: string }[], lineWidth: number, inset: number) => ({
-    id, type: 'custom', z, silent: true, animation: false, clip: true, tooltip: { show: false }, emphasis: { disabled: true },
+  const ring = (baseId: string, z: number, items: readonly { value: (number | null)[]; stroke: string }[], lineWidth: number, inset: number) => ({
+    id: helperSeriesId(baseId, takenSeriesIds), type: 'custom', z, silent: true, animation: false, clip: true, tooltip: { show: false }, emphasis: { disabled: true },
     data: items.map((c, index) => [c.value[0], c.value[1], index]),
     renderItem: (_params: unknown, api: { value: (dimension: number) => unknown; coord: (point: unknown[]) => number[] }) => {
       const [cx = 0, cy = 0] = api.coord([api.value(0), api.value(1)]);

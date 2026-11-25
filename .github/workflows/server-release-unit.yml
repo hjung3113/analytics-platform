@@ -41,6 +41,7 @@ jobs:
           tag="ci-${GITHUB_SHA:0:7}"
           unit="$RUNNER_TEMP/server-release-unit"
           bash ops/platform-api/scripts/release/pack-images.sh --tag "$tag" --out "$unit"
+          node ops/platform-api/scripts/release/web-image-output-check.mjs "platform-release-web:$tag"
           bash ops/platform-api/scripts/release/offline-start-check.sh --unit "$unit" --tag "$tag"
 
   migrations-additive:

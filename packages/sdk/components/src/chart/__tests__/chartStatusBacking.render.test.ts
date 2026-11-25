@@ -27,10 +27,9 @@ it('preserves the legacy time stacked-bar option and status rendering from origi
     { id: 'b', name: 'B', color: 'chart-blue', kind: 'bar', points: [[times[1], 3], [times[2], 8]] },
   ];
   const option = buildChartOption(baselineInput({ xType: 'time', horizontal: false, stacked: true, displayed, activeCategory: null, extremes: undefined, pointStatus: () => ({ tone: 'warning', label: 'Status' }) }));
-  const rings = (option.series as CustomSeriesOption[]).filter(s => String(s.id).startsWith('__statusBarBacking'));
+  const rings = (option.series as CustomSeriesOption[]).filter(s => s.type === 'custom' && s.z === 3);
   const rendered = rings.map(({ data, renderItem }) => (data as number[][]).map(row =>
     (renderItem as (params: unknown, api: unknown) => unknown)({}, { value: (d: number) => row[d], coord: ([x, y]: number[]) => [x / 3_600_000, y * 20], barLayout: () => undefined, size: () => [20, 20] })));
-  // Hash the option and callback output, since JSON serialization omits renderItem itself.
   expect(createHash('sha256').update(JSON.stringify({ option, rendered })).digest('hex')).toBe('2cccda153d237c5cbab5a763ecada5e1dcdc16f58319cb79fe7bd3a909666d1a');
 });
 
@@ -64,14 +63,14 @@ describe('effective status borders drawn by ECharts (#2326 C1)', () => {
     ];
     const input = baselineInput({ ...extra, categories, displayed, activeCategory: null, extremes: undefined, palette: resolveChartPalette(displayed), pointStatus: p => ({ tone: p.seriesId === 'a' ? 'warning' : 'danger', label: 'Status' }) });
     const option = buildChartOption(input) as { series: CustomSeriesOption[] };
-    const captured = new Map<string, { shape: Rect; lineWidth: number }[][]>();
-    for (const s of option.series) if (String(s.id).startsWith('__statusBarBacking')) {
+    const captured = new Map<number, { shape: Rect; lineWidth: number }[][]>();
+    for (const [slot, s] of option.series.filter(s => s.type === 'custom' && s.z === 3).entries()) {
       const original = s.renderItem as Exclude<CustomSeriesOption['renderItem'], undefined | string>;
       s.renderItem = (params, api) => {
         const result = original(params, api) as { children: { shape: Rect; style: { fill: string; lineWidth: number } }[] };
-        const rects = captured.get(String(s.id)) ?? [];
+        const rects = captured.get(slot) ?? [];
         rects[Number(api.value(3))] = result.children.map(c => ({ shape: c.shape, lineWidth: c.style.lineWidth }));
-        captured.set(String(s.id), rects);
+        captured.set(slot, rects);
         expect(result.children.every(c => c.style.fill === 'none')).toBe(true);
         return result as ReturnType<typeof original>;
       };
@@ -85,7 +84,7 @@ describe('effective status borders drawn by ECharts (#2326 C1)', () => {
       const model = (chart as unknown as { getModel: () => NativeModel }).getModel();
       for (const [slot, id] of ['a', 'b'].entries()) {
         const native = model.getSeriesByIndex(option.series.findIndex(s => s.id === id)).getData();
-        const rects = captured.get(slot === 0 ? '__statusBarBacking' : `__statusBarBacking-${slot}`)!;
+        const rects = captured.get(slot)!;
         for (let n = 0; n < native.count(); n++) {
           const raw = native.getItemLayout(n);
           if (![raw.x, raw.y, raw.width, raw.height].every(Number.isFinite)) continue;
@@ -119,7 +118,7 @@ describe('effective status borders drawn by ECharts (#2326 C1)', () => {
     try {
       chart.setOption({ animation: false, xAxis: { type: 'category', data: ['A', 'B', 'C'] }, yAxis: { type: 'category', data: ['Row'] }, series: [
         { type: 'scatter', symbol: 'rect', symbolSize: [80, 40], data: cells.map(c => ({ value: c.value, itemStyle: { color: c.fill } })) },
-        ...heatmapStatusOutlines(cells, [80, 40]),
+        ...heatmapStatusOutlines(cells, [80, 40], new Set()),
       ] });
       const svg = chart.renderToSVGString();
       const paths = svg.match(/<path[^>]*ecmeta_ssr_type="chart"[^>]*>/g)!;
@@ -141,16 +140,16 @@ describe('effective status borders drawn by ECharts (#2326 C1)', () => {
 it('draws every bar status ring in the inset layer, including a status that needs no backing (#2351 review C1)', () => {
   const displayed: ChartSeries[] = [{ id: 'a', name: 'A', color: 'chart-blue', kind: 'bar', points: [['R1', 8]] }];
   const input = baselineInput({ horizontal: false, stacked: false, categories: ['R1'], displayed, activeCategory: null, extremes: undefined, palette: resolveChartPalette(displayed), pointStatus: () => ({ tone: 'neutral', label: 'Unknown' }) });
-  const option = buildChartOption(input) as { series: { id: string; data: ({ itemStyle: { borderWidth: number } } | number)[] }[] };
+  const option = buildChartOption(input) as { series: { id?: string; type?: string; z?: number; data: ({ itemStyle: { borderWidth: number } } | number)[] }[] };
   expect((option.series.find(s => s.id === 'a')!.data[0] as { itemStyle: { borderWidth: number } }).itemStyle.borderWidth).toBe(0);
-  expect(option.series.some(s => s.id === '__statusBarBacking')).toBe(true);
+  expect(option.series.some(s => s.type === 'custom' && s.z === 3)).toBe(true);
 });
 
 describe('status rings stay inside thin cells (#2351)', () => {
   type Drawn = { shape: Rect; style: { lineWidth: number } };
-  const drawn = (width: number, height: number) => (heatmapStatusOutlines([{ value: [0, 0, 25], status: { tone: 'danger', label: 'D' }, fill: token('chart-status-critical') }], [width, height]) as unknown as
-    { id: string; data: unknown[][]; renderItem: (params: unknown, api: unknown) => Drawn }[])
-    .map(s => ({ id: s.id, ...s.renderItem({}, { value: (d: number) => s.data[0][d], coord: () => [100, 50] }) }));
+  const drawn = (width: number, height: number) => (heatmapStatusOutlines([{ value: [0, 0, 25], status: { tone: 'danger', label: 'D' }, fill: token('chart-status-critical') }], [width, height], new Set()) as unknown as
+    { z: number; data: unknown[][]; renderItem: (params: unknown, api: unknown) => Drawn }[])
+    .map(s => ({ z: s.z, ...s.renderItem({}, { value: (d: number) => s.data[0][d], coord: () => [100, 50] }) }));
   it.each([[80, 40], [24, 15], [30, 8], [6, 6]])('a %ix%i cell keeps both rings inside the cell and at most a quarter of its short side', (width, height) => {
     const ring = statusRing(Math.min(width, height));
     expect(ring.border + ring.backing).toBeLessThanOrEqual(Math.min(width, height) / 4 + 1e-9);
@@ -163,13 +162,13 @@ describe('status rings stay inside thin cells (#2351)', () => {
       expect(shape.x + shape.width + lineWidth / 2).toBeLessThanOrEqual(cell.x + width + 1e-9);
       expect(shape.y + shape.height + lineWidth / 2).toBeLessThanOrEqual(cell.y + height + 1e-9);
     }
-    const outline = rings.find(r => r.id === '__statusOutline')!;
+    const outline = rings.find(r => r.z === 4)!;
     expect(outline.shape.x - outline.style.lineWidth / 2).toBeCloseTo(cell.x); // the border meets the cell edge
-    const backing = rings.find(r => r.id === '__statusBacking');
+    const backing = rings.find(r => r.z === 3);
     if (backing) expect(backing.shape.x - backing.style.lineWidth / 2).toBeCloseTo(cell.x + outline.style.lineWidth); // the backing meets the border's inner edge
   });
   it.each([[0, 15], [24, 0], [0, 0]])('a %ix%i cell (dense grid or unmeasured plot) draws no ring, and the layers clip to the plot (#2351 review C2)', (width, height) => {
-    const series = heatmapStatusOutlines([{ value: [0, 0, 25], status: { tone: 'danger', label: 'D' }, fill: token('chart-status-critical') }], [width, height]) as unknown as { clip: boolean }[];
+    const series = heatmapStatusOutlines([{ value: [0, 0, 25], status: { tone: 'danger', label: 'D' }, fill: token('chart-status-critical') }], [width, height], new Set()) as unknown as { clip: boolean }[];
     expect(series.every(s => s.clip)).toBe(true);
     expect(drawn(width, height).every(r => (r as { ignore?: boolean }).ignore)).toBe(true);
     expect(drawn(24, 15).some(r => (r as { ignore?: boolean }).ignore)).toBe(false);
@@ -187,14 +186,14 @@ it('draws a separate unfilled dashed line mark outside and above its status halo
   const input = baselineInput({ horizontal: false, stacked: false, categories: ['R1', 'R2'], displayed,
     activeCategory: null, extremes: undefined, highlightedValues: ['R1'],
     palette: { ...resolveChartPalette(displayed), selection }, pointStatus: () => ({ tone: 'warning', label: 'Status' }) });
-  const option = buildChartOption(input) as { series: { id: string }[] };
+  const option = buildChartOption(input) as { series: { type: string; z?: number }[] };
   const chart = echarts.init(null, CHART_ECHARTS_THEME, { renderer: 'svg', ssr: true, width: 800, height: 260 });
   try {
     chart.setOption({ ...option, animation: false });
     const svg = chart.renderToSVGString();
     const paths = svg.match(/<path[^>]*>/g)!;
-    const halo = paths.findIndex(path => path.includes(`ecmeta_series_index="${option.series.findIndex(s => s.id === '__line-halo-a')}"`));
-    const status = paths.findIndex(path => path.includes(`ecmeta_series_index="${option.series.findIndex(s => s.id === '__line-status-a')}"`));
+    const halo = paths.findIndex(path => path.includes(`ecmeta_series_index="${option.series.findIndex(s => s.type === 'scatter' && s.z === 4)}"`));
+    const status = paths.findIndex(path => path.includes(`ecmeta_series_index="${option.series.findIndex(s => s.type === 'scatter' && s.z === 5)}"`));
     const dashed = paths.filter(path => path.includes(`stroke="${selection}"`) && path.includes('stroke-dasharray='));
     expect(dashed).toHaveLength(1);
     expect(dashed[0]).toContain('fill="none"');
@@ -217,7 +216,7 @@ it('keeps dashed outlines inside both thin adjacent category stacked pieces', ()
     activeCategory: null, extremes: undefined, highlightedValues: [firstX], palette: resolveChartPalette(displayed),
     pointStatus: ({ seriesId }) => ({ tone: seriesId === 'a' ? 'danger' : 'warning', label: 'Status' }) })) as { series: CustomSeriesOption[] };
   const dashed: { shape: Rect; style: { lineWidth: number } }[] = [];
-  for (const ring of option.series.filter(s => String(s.id).startsWith('__statusBarBacking')) as CustomSeriesOption[]) {
+  for (const ring of option.series.filter(s => s.type === 'custom' && s.z === 3) as CustomSeriesOption[]) {
     const original = ring.renderItem as Exclude<CustomSeriesOption['renderItem'], undefined | string>;
     ring.renderItem = (params, api) => {
       const result = original(params, api) as { children: { shape: Rect; style: { lineWidth: number; lineDash?: number[] } }[] };

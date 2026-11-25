@@ -11,10 +11,10 @@ describe('sparse line status symbols (#2333)', () => {
     const i = baselineInput({ displayed, horizontal: false, xType: 'category', categories: ['A', 'B', 'C'], pointStatus: p => p.x === 'A' ? status : undefined });
     const o = buildChartOption(i) as any;
     expect(o.series[0].showSymbol).toBe(false); expect(o.series[0].data).toEqual([3, null, 5]);
-    const marker = o.series.find((s: any) => s.id === '__line-status-line');
+    const marker = o.series.find((s: any) => s.type === 'scatter' && s.z === 5);
     expect(marker.data).toHaveLength(1);
     expect(marker.data[0]).toMatchObject({ value: ['A', 3], itemStyle: { borderWidth: 2 }, label: { formatter: '{status|◆}' } });
-    expect(o.series.find((s: any) => s.id === '__line-halo-line').itemStyle.color).toBe(readColorToken('surface-card'));
+    expect(o.series.find((s: any) => s.type === 'scatter' && s.z === 4).itemStyle.color).toBe(readColorToken('surface-card'));
     expect(o.tooltip.formatter([{ seriesId: 'line', dataIndex: 0 }])).toContain('◆ High · Limit');
   });
   it('excludes null/nonfinite points and hidden series from the projection', () => {
@@ -27,7 +27,7 @@ describe('sparse line status symbols (#2333)', () => {
   it('keeps the bar path identical', () => {
     const i = baselineInput({ pointStatus: () => status });
     const o = buildChartOption(i) as any;
-    expect(o.series.some((s: any) => s.id.startsWith('__line-'))).toBe(false);
+    expect(o.series.some((s: any) => s.type === 'scatter')).toBe(false);
     expect(o.series[0].data[0].itemStyle.color).toBe('aFill');
     expect(o.series[0].data[0].label.formatter).toContain('◆');
   });
@@ -40,7 +40,7 @@ const luminance = (rgb: string) => {
 it.each(['danger', 'warning', 'neutral'] as const)('%s line ring has at least 3:1 contrast on its surface halo', tone => {
   const i = baselineInput({ displayed, horizontal: false, categories: ['A', 'B', 'C'], pointStatus: () => ({ tone, label: 'Status' }) });
   const o = buildChartOption(i) as any;
-  const ring = luminance(o.series.find((s: any) => s.id === '__line-status-line').data[0].itemStyle.borderColor);
+  const ring = luminance(o.series.find((s: any) => s.type === 'scatter' && s.z === 5).data[0].itemStyle.borderColor);
   const surface = luminance(readColorToken('surface-card'));
   expect((Math.max(ring, surface) + 0.05) / (Math.min(ring, surface) + 0.05)).toBeGreaterThanOrEqual(3);
 });
@@ -48,7 +48,7 @@ it('places time status overlays on the right series axis with the original wall-
   const x = '2026-11-16T09:00:00';
   const i = baselineInput({ horizontal: false, xType: 'time', displayed: [{ ...displayed[0], axis: 'right', points: [[x, 3]] }], rightAxis: { unit: '%', valueFormat: v => `p${v}` }, pointStatus: () => status });
   const o = buildChartOption(i) as any;
-  const marker = o.series.find((s: any) => s.id === '__line-status-line');
+  const marker = o.series.find((s: any) => s.type === 'scatter' && s.z === 5);
   expect(marker.yAxisIndex).toBe(1);
   expect(marker.data[0].value[0]).toBeTypeOf('number');
   expect(o.tooltip.formatter([{ seriesId: 'line', dataIndex: 0 }])).toContain('p3 %');

@@ -17,6 +17,7 @@ import { escapeHtml } from './chartText';
 import { barStatusBackingSeries } from './chartStatusBacking';
 import { rowGroupLayout, rowGroupSeries, rowLabel, type ChartRowGroups } from './chartRowGroups';
 import { emptyCategoryLabels, emptyCategorySeries } from './chartEmptyCategories';
+import { helperSeriesId } from './helperSeriesId';
 import type { Selection } from './useChartRange';
 import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
 import { axisBreakGraphic, barRadius, CHART_MARKS, lineSymbolShown, rangeBandFill, selectionRing } from './chartMarks';
@@ -156,6 +157,8 @@ export type ChartOptionInput = {
   statuses?: ReadonlyMap<string, ChartStatus>;
   emphasisFocus?: 'series' | 'none';
   displayed: readonly ChartSeries[];
+  /** Consumer series IDs that helper IDs must avoid even while hidden, so a legend toggle keeps each helper's ID (#2718). */
+  reservedSeriesIds?: readonly string[];
   previousIds: ReadonlySet<string>;
   xType: 'time' | 'category';
   horizontal: boolean;
@@ -211,7 +214,6 @@ export type ChartOptionInput = {
 const YIELDED = { fontSize: 0, width: 0, height: 0 };
 
 const HOUR_MS = 3_600_000;
-const CATEGORY_MARK_SERIES = '__categoryValueMark';
 const CATEGORY_MARK_SIZE = 8;
 const DAY_MS = 24 * HOUR_MS;
 const SHORTEST_MONTH_MS = 28 * DAY_MS;
@@ -343,6 +345,7 @@ function timeAxisTicks(series: readonly ChartSeries[], zoom: readonly [number, n
 
 export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const { horizontal, xType, categories, palette, lang } = i;
+  const takenSeriesIds = new Set([...i.displayed.map(series => series.id), ...(i.reservedSeriesIds ?? [])]);
   const theme = palette.theme;
   const groups = horizontal && xType === 'category' ? i.rowGroups : undefined;
   const groupLayout = groups ? rowGroupLayout(groups, categories) : undefined;
@@ -409,7 +412,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   function totalSeries(totals: ReadonlyMap<string, RowTotal>) {
     const missingText = (t: RowTotal) => formatText(COMPONENTS_MESSAGES.chartMissingTotal, lang, { items: t.missing.join(', ') });
     return {
-      id: '__total', type: 'scatter', silent: false, animation: false, z: 4,
+      id: helperSeriesId('__total', takenSeriesIds), type: 'scatter', silent: false, animation: false, z: 4,
       // ECharts draws no label for a symbol of `none`, so the anchor is a 1px transparent dot.
       symbol: 'circle', symbolSize: 1, itemStyle: { color: 'transparent', opacity: 1 },
       // The tooltip renderer is picked once from the global tooltip model (a series-level `renderMode` is ignored) and HTML mode sets a formatter's string as innerHTML.
@@ -432,12 +435,17 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       }),
     };
   }
-  type TooltipPoint = { seriesId?: string; name?: string; dataIndex?: number; value?: unknown };
+  const categoryMarkSeries = categoryMarks?.byCategory.size ? {
+    id: helperSeriesId('__categoryValueMark', takenSeriesIds), type: 'scatter', name: categoryMarks.label, silent: true, animation: false, z: 5,
+    symbol: 'diamond', symbolSize: CATEGORY_MARK_SIZE, itemStyle: { color: palette.totalText, borderColor: palette.labelSurface, borderWidth: 1, opacity: 1 },
+    data: [...categoryMarks.byCategory].map(([category, value]) => [value, category]),
+  } : undefined;
+  type TooltipPoint = { seriesId?: string; seriesIndex?: number; name?: string; dataIndex?: number; value?: unknown };
   function rowTooltip(params: TooltipPoint[] | TooltipPoint) {
     const items = Array.isArray(params) ? params : [params];
     let category: string | undefined;
     const rows = items.flatMap(p => {
-      if (p.seriesId === CATEGORY_MARK_SERIES && Array.isArray(p.value) && typeof p.value[1] === 'string') {
+      if (p.seriesIndex === categoryMarkSeriesIndex && Array.isArray(p.value) && typeof p.value[1] === 'string') {
         category ??= p.value[1];
         return [];
       }
@@ -468,7 +476,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const valueAxis = { type: 'value', ...(fitY ? { scale: true } : { min: valueMin }), ...shareAxis, name: i.unit, nameTextStyle: { align: 'right' }, splitLine: theme.splitLine,
     ...(bounds?.extent ? { min: (extent: { min: number }) => Math.min(fitY ? extent.min : 0, extent.min, bounds.extent!.min), max: (extent: { max: number }) => Math.max(extent.max, bounds.extent!.max) } : {}),
   };
-  return {
+  const option = {
     // Row-pitch mode: no containLabel, so the category band is exactly height - top - bottom = rows × pitch and row i starts at top + i × pitch (the reveal maths relies on it).
     grid: groupLayout ? { left: groupLayout.gutter, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false } : horizontal && i.rowPitch !== undefined ? { left: rowGutter, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, containLabel: false }
       : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
@@ -524,7 +532,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           }
           // Row focus keeps its series-coloured border; a min/max segment's thicker outline replaces it, so the active one adds a glow instead and both cues show.
           if (status) {
-            // The status ring is drawn inside the piece by the __statusBarBacking layer (#2351). The active label stays bold; Min/Max retains its glow and chip.
+            // The status ring is drawn inside the piece by the status backing layer (#2351). The active label stays bold; Min/Max retains its glow and chip.
             const marker = statusMarker(status);
             const extremeChip = mark ? extremeLabel(mark, lanes !== null, palette, lang) : undefined;
             return { value: y, itemStyle: { color: palette.series[n].fill, borderWidth: 0, ...(mark ? { shadowBlur: 6, shadowColor: palette.minMax[mark] } : {}) }, emphasis: { itemStyle: { borderWidth: 0 } },
@@ -564,30 +572,28 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
         };
         // Transparent, silent, no emphasis and out of the axis tooltip (`tooltip.show === false`, ECharts 6): it only pushes the next piece to its lane start.
         const spacer = lanes && n > 0 ? [{
-          id: `__spacer-${n}`, type: 'bar', stack: 'total', silent: true, tooltip: { show: false }, emphasis: { disabled: true },
+          id: helperSeriesId(`__spacer-${n}`, takenSeriesIds), type: 'bar', stack: 'total', silent: true, tooltip: { show: false }, emphasis: { disabled: true },
           itemStyle: { color: 'transparent', opacity: 1 }, data: lanes.spacers[n - 1],
         }] : [];
         return [...spacer, real];
       }),
-      ...barStatusBackingSeries(i, statuses, lanes, highlightedValues, highlightedBarBorders),
-      ...lineStatusSeries(i, statuses, highlightedValues),
-      ...(bounds ? boundSeries(bounds, palette) : []),
+      ...barStatusBackingSeries(i, statuses, lanes, highlightedValues, highlightedBarBorders, takenSeriesIds),
+      ...lineStatusSeries(i, statuses, highlightedValues, takenSeriesIds),
+      ...(bounds ? boundSeries(bounds, palette, takenSeriesIds) : []),
       ...(totalTexts ? [totalSeries(totalTexts)] : []),
-      ...(categoryMarks?.byCategory.size ? [{
-        id: CATEGORY_MARK_SERIES, type: 'scatter', name: categoryMarks.label, silent: true, animation: false, z: 5,
-        symbol: 'diamond', symbolSize: CATEGORY_MARK_SIZE, itemStyle: { color: palette.totalText, borderColor: palette.labelSurface, borderWidth: 1, opacity: 1 },
-        data: [...categoryMarks.byCategory].map(([category, value]) => [value, category]),
-      }] : []),
+      ...(categoryMarkSeries ? [categoryMarkSeries] : []),
       ...(emptyLabels?.size ? [emptyCategorySeries(categories, emptyLabels, theme.axisLabel.color)] : []),
-      ...(groupLayout ? [rowGroupSeries(groupLayout, theme.axisLabel.color, theme.separator)] : []),
+      ...(groupLayout ? [rowGroupSeries(groupLayout, theme.axisLabel.color, theme.separator, takenSeriesIds)] : []),
       {
-        id: '__overlay', type: 'line', data: [], silent: true, symbol: 'none',
+        id: helperSeriesId('__overlay', takenSeriesIds), type: 'line', data: [], silent: true, symbol: 'none',
         markArea: { silent: true, data: areas },
         markLine: lanes ? laneMarkLine(lanes, theme, i.chartWidth - (groupLayout?.gutter ?? (i.rowPitch !== undefined ? rowGutter : 52)) - gridRight)
           : i.markLines?.length ? { ...theme.referenceLine, data: i.markLines.map(m => ({ name: m.label, [horizontal ? 'xAxis' : 'yAxis']: m.y })) } : undefined,
       },
     ],
   };
+  const categoryMarkSeriesIndex = categoryMarkSeries ? option.series.indexOf(categoryMarkSeries) : -1;
+  return option;
 }
 
 /** The right value axis: its own scale from 0, no grid lines (the left axis owns them), its unit above the labels. */
