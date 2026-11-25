@@ -10,8 +10,8 @@ import { MilestoneTasksSection } from './MilestoneTasksSection';
 import { MilestoneTitlePresenter } from './MilestoneTitlePresenter';
 import { SECTIONS } from './constants';
 import { useMilestoneChildTasks } from './useMilestoneChildTasks';
-import { useMilestoneStatusEdit } from './useMilestoneStatusEdit';
-import { useMilestoneTitleEdit } from './useMilestoneTitleEdit';
+import type { UseMilestoneStatusEditResult } from './useMilestoneStatusEdit';
+import type { UseMilestoneTitleEditResult } from './useMilestoneTitleEdit';
 
 interface MilestoneDetailContentProps {
   milestone: MilestoneDetailDto;
@@ -19,8 +19,8 @@ interface MilestoneDetailContentProps {
   actorNamesById: ReadonlyMap<string, string>;
   managedSystemNamesById: ReadonlyMap<string, string>;
   analyticsAreaNamesById: ReadonlyMap<string, string>;
-  /** B2e fixup — reports whether a header close would discard a title draft. */
-  onTitleDirtyChange: (dirty: boolean) => void;
+  titleEdit: UseMilestoneTitleEditResult;
+  statusEdit: UseMilestoneStatusEditResult;
 }
 
 export function MilestoneDetailContent({
@@ -29,19 +29,12 @@ export function MilestoneDetailContent({
   actorNamesById,
   managedSystemNamesById,
   analyticsAreaNamesById,
-  onTitleDirtyChange,
+  titleEdit,
+  statusEdit,
 }: MilestoneDetailContentProps) {
   const sourceFinding = milestone.source_finding;
   // This one safe projection feeds both the navigation count and the section rows/error barrier.
   const { childTasks, error: childTasksError } = useMilestoneChildTasks(milestone.id);
-
-  const titleEdit = useMilestoneTitleEdit(milestone, onTitleDirtyChange);
-  const statusEdit = useMilestoneStatusEdit({
-    milestone,
-    titleEditVersion: titleEdit.titleEditVersion,
-    setTitleEditVersion: titleEdit.setTitleEditVersion,
-    discardTitleEdit: titleEdit.discardTitleEdit,
-  });
 
   const areaName =
     milestone.analytics_area_id !== null

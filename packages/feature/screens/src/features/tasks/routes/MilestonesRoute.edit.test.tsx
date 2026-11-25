@@ -27,6 +27,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Shared across renders so tests can assert where selection sends the actor.
 const navigateMock = vi.hoisted(() => vi.fn());
+const titleMock = vi.hoisted(() => vi.fn());
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigateMock,
 }));
@@ -37,6 +38,7 @@ beforeAll(async () => {
   const { tanstackHost } = await import('../../../test/host-adapters/lib/host/tanstack-host');
   registerDefaultHost({
     ...tanstackHost,
+    useTitle: titleMock,
     Link: ({ to, children }) => <a href={to}>{children}</a>,
     useNavigate: () => (to, options) => {
       const location = new URL(to, 'http://platform.local');
@@ -1043,7 +1045,7 @@ describe('MilestonesRoute title/status serialization (R3)', () => {
         updated_at: OWN_V2,
         title: 'SSO Stabilization v2',
       });
-    renderWithClient(<MilestonesRoute selectedParam={IDS.sso} />);
+    const { queryClient } = renderWithClient(<MilestonesRoute selectedParam={IDS.sso} />);
     await screen.findByRole('heading', { name: 'SSO Stabilization' });
 
     fireEvent.click(screen.getByRole('button', { name: '제목 편집' }));
@@ -1062,12 +1064,27 @@ describe('MilestonesRoute title/status serialization (R3)', () => {
     fireEvent.submit(save.closest('form') as HTMLFormElement);
     expect(vi.mocked(updateMilestone)).toHaveBeenCalledTimes(1);
 
+    vi.mocked(listMilestones).mockRejectedValueOnce(
+      new ApiError(403, { code: 'permission.denied', message: 'list denied' }),
+    );
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: ['milestones', 'list'] });
+    });
+    await screen.findByText('이 Milestone을 볼 권한이 없습니다.');
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: ['milestones', 'list'] });
+    });
+    const recoveredSave = await screen.findByRole('button', { name: '저장' });
+    expect(recoveredSave).toBeDisabled();
+    fireEvent.submit(recoveredSave.closest('form') as HTMLFormElement);
+    expect(vi.mocked(updateMilestone)).toHaveBeenCalledTimes(1);
+
     // The status request settles; Save re-enables and the same-version
     // coordination still applies — the title goes out with the new token.
     resolveStatus({ ...SSO_ROW, status: 'released', updated_at: OWN_V2 });
     await waitFor(() => expect(statusSelect()).toHaveValue('released'));
-    expect(save).toBeEnabled();
-    fireEvent.click(save);
+    expect(recoveredSave).toBeEnabled();
+    fireEvent.click(recoveredSave);
 
     await waitFor(() => expect(vi.mocked(updateMilestone)).toHaveBeenCalledTimes(2));
     const titleCall = vi.mocked(updateMilestone).mock.calls[1];
@@ -1160,6 +1177,46 @@ describe('MilestonesRoute title-dirty guard (R3)', () => {
       target: { value: 'SSO draft' },
     });
   }
+
+  it('allows editing another Milestone while the discarded title save is pending', async () => {
+    mockTwoRecords();
+    vi.mocked(updateMilestone).mockImplementationOnce(() => new Promise(() => {}));
+    await openDirtyTitleEditor();
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(updateMilestone).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByText(ROW_B.title));
+    fireEvent.click(await screen.findByRole('button', { name: '이동' }));
+    await screen.findByRole('heading', { name: ROW_B.title });
+    expect(screen.getByRole('button', { name: '제목 편집' })).toBeEnabled();
+    expect(screen.getByRole('combobox', { name: '상태' })).toBeEnabled();
+  });
+
+  it('keeps a new draft after returning to a Milestone whose previous status write conflicts', async () => {
+    mockTwoRecords();
+    let rejectStatus!: (error: Error) => void;
+    vi.mocked(updateMilestone).mockImplementationOnce(() => new Promise((_, reject) => {
+      rejectStatus = reject;
+    }));
+    await openDirtyTitleEditor();
+    await chooseOption('상태', '릴리스됨');
+    await waitFor(() => expect(updateMilestone).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByText(ROW_B.title));
+    fireEvent.click(await screen.findByRole('button', { name: '이동' }));
+    await screen.findByRole('heading', { name: ROW_B.title });
+    fireEvent.click(screen.getByText(SSO_ROW.title));
+    await screen.findByRole('heading', { name: SSO_ROW.title });
+    fireEvent.click(screen.getByRole('button', { name: '제목 편집' }));
+    fireEvent.change(screen.getByRole('textbox', { name: '제목' }), { target: { value: 'New draft' } });
+
+    vi.mocked(getMilestone).mockClear();
+    await act(async () => rejectStatus(new ApiError(409, {
+      code: 'conflict.stale_write', message: 'status version changed',
+    })));
+    await waitFor(() => expect(getMilestone).toHaveBeenCalledWith(IDS.sso, expect.anything()));
+    expect(screen.getByRole('textbox', { name: '제목' })).toHaveValue('New draft');
+  });
 
   it('confirms before another record replaces the draft; decline preserves, cancel clears the guard', async () => {
     mockTwoRecords();
@@ -1480,6 +1537,59 @@ describe('MilestonesRoute tab switch draft preservation (R6)', () => {
     }
   }
 
+  it.each([403, 500] as const)('keeps the selected title draft when list %i arrives before empty counts', async (status) => {
+    let resolveCounts!: (value: { items: MilestoneDto[] }) => void;
+    vi.mocked(listMilestones)
+      .mockResolvedValueOnce({ items: MILESTONES })
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveCounts = resolve; }))
+      .mockRejectedValueOnce(new ApiError(status, {
+        code: status === 403 ? 'permission.denied' : 'internal.unexpected', message: 'list failed',
+      }));
+    vi.mocked(getMilestone).mockResolvedValue(detailFor(SSO_ROW, SSO_ROW.title));
+    const { queryClient } = renderWithClient(
+      <MilestonesRoute selectedParam={IDS.sso} managedSystem={IDS.msPowerBi} />,
+    );
+    const permissionKey = ['permission-check', 'finding.manage', IDS.msPowerBi];
+    queryClient.setQueryData(permissionKey, {
+      state: 'blocked_non_requestable', decision: { allow: false },
+    });
+    await openDirtyDraft(false);
+    await userEvent.click(await screen.findByRole('tab', { name: /^계획 중/ }));
+    await screen.findByText(status === 403
+      ? 'Milestone 목록을 볼 권한이 없습니다.'
+      : 'Milestone 목록을 불러오지 못했습니다');
+    await act(async () => resolveCounts({ items: [] }));
+    await waitFor(() => expect(queryClient.getQueryCache().find({ queryKey: permissionKey })?.isActive()).toBe(true));
+    await screen.findByText('Milestone 목록을 볼 권한이 없습니다.');
+    expect(screen.queryByTestId('milestone-detail-scroll')).not.toBeInTheDocument();
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    const detailDenied = new ApiError(403, { code: 'permission.denied', message: 'detail denied' });
+    vi.mocked(getMilestone).mockRejectedValueOnce(detailDenied);
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: ['milestone', IDS.sso] });
+    });
+    expect(queryClient.getQueryState(['milestone', IDS.sso])?.error).toBe(detailDenied);
+    await screen.findByText('이 Milestone을 볼 권한이 없습니다.');
+    expect(navigateMock).not.toHaveBeenCalled();
+
+    const refreshed = { ...SSO_ROW, updated_at: '2026-07-22T08:30:00.000Z' };
+    vi.mocked(getMilestone).mockResolvedValue(detailFor(refreshed, refreshed.title));
+    vi.mocked(listMilestones).mockResolvedValue({ items: [refreshed] });
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['milestones'] });
+    });
+    await act(async () => {
+      await queryClient.refetchQueries({ queryKey: ['milestone', IDS.sso] });
+    });
+    expect(await screen.findByRole('textbox', { name: '제목' })).toHaveValue('SSO draft');
+    vi.mocked(updateMilestone).mockResolvedValue({ ...refreshed, title: 'SSO draft' });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(updateMilestone).toHaveBeenCalledWith(
+      IDS.sso, { title: 'SSO draft' }, expect.objectContaining({ ifMatch: UPDATED_AT }),
+    ));
+  });
+
   it.each([
     { label: 'create form', viaCreate: true },
     { label: 'title editor', viaCreate: false },
@@ -1510,6 +1620,20 @@ describe('MilestonesRoute tab switch draft preservation (R6)', () => {
       expectDraftIntact(viaCreate);
     },
   );
+
+  it('closes a clean selected Milestone and clears its URL key on a list 403', async () => {
+    mockDeferredTab('denied');
+    vi.mocked(getMilestone).mockResolvedValue(detailFor(SSO_ROW, SSO_ROW.title));
+    renderWithClient(<MilestonesRoute selectedParam={IDS.sso} />);
+    const heading = await screen.findByRole('heading', { name: SSO_ROW.title });
+    await userEvent.click(await screen.findByRole('tab', { name: /^계획 중/ }));
+    await screen.findByText('Milestones 불러오는 중…');
+    rejectTab(new ApiError(403, { code: 'permission.denied', message: 'finding.manage required' }));
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith({
+      to: '/tasks', search: { view: 'milestones' },
+    }));
+    expect(heading).not.toBeInTheDocument();
+  });
 
   it.each([
     { label: 'create form', viaCreate: true },
@@ -1542,6 +1666,17 @@ describe('MilestonesRoute tab switch draft preservation (R6)', () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /SSO Stabilization/ })).not.toBeInTheDocument();
-    expectDraftIntact(viaCreate);
+    if (viaCreate) {
+      expectDraftIntact(true);
+    } else {
+      expect(screen.queryByRole('heading', { name: SSO_ROW.title })).not.toBeInTheDocument();
+      expect(screen.queryByTestId('milestone-detail-scroll')).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '저장' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '링크 복사' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: '더 보기' })).not.toBeInTheDocument();
+      expect(screen.getByText('이 Milestone을 볼 권한이 없습니다.')).toBeInTheDocument();
+      expect(titleMock).toHaveBeenLastCalledWith(null);
+      expect(navigateMock).not.toHaveBeenCalled();
+    }
   });
 });

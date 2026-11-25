@@ -268,6 +268,23 @@ function mount(view: 'requests' | 'backlog' | 'board') {
   return { client, router };
 }
 
+it.each(['backlog', 'board'] as const)('closes the selected Task when the %s list is denied', async (view) => {
+  const { client, router } = mount(view);
+  const heading = await screen.findByRole('heading', { name: task.title });
+  const fetch = vi.spyOn(api, 'listTasks').mockRejectedValue(
+    new ApiError(403, { code: 'permission.denied', message: 'finding.manage required' }),
+  );
+  try {
+    await act(async () => client.invalidateQueries({ queryKey: ['tasks'] }));
+    await waitFor(() => expect(router.state.location.search.param).toBeUndefined());
+    expect(heading).not.toBeInTheDocument();
+  } finally {
+    cleanup();
+    client.clear();
+    fetch.mockRestore();
+  }
+});
+
 it.each([
   ['/flow/task-list?focus=<task-id>', 'backlog'],
   ['/flow/tasks?focus=<task-id>', 'board'],

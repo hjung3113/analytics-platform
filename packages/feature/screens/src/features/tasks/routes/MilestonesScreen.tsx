@@ -6,6 +6,7 @@ import { PERMISSION_BLOCKED_REASONS } from '../../../lib/copy/permission-reasons
 import { analyticsAreasCatalogQuery } from '../../../lib/cross-system/analyticsAreasCatalog';
 import { useListDenial, useScopedEmptyListPermission } from '../../../lib/cross-system/useListDenial';
 import { managedSystemsCatalogQuery } from '../../../lib/cross-system/useManagedSystemNames';
+import { permissionCheckQueryKey } from '../../../lib/cross-system/usePermissionCheckBridge';
 import { useWorkspaceActors } from '../../../lib/cross-system/useWorkspaceActors';
 import { useHostNavigate, useHostPrimaryActionTarget, useHostSearch } from '../../../lib/host/host-seam';
 import { HostPrimaryAction } from '../../../lib/host/HostPrimaryAction';
@@ -78,6 +79,14 @@ const STATUS_TABS: Array<{ value: MilestoneTab; label: string }> = [
   { value: 'released', label: GLOSSARY.milestoneStatusReleased },
 ];
 
+function milestoneListKey(managedSystem: string | undefined, tab: MilestoneTab) {
+  return ['milestones', 'list', managedSystem ?? null, tab] as const;
+}
+
+function milestoneCountKey(managedSystem: string | undefined) {
+  return ['milestones', 'counts', managedSystem ?? null] as const;
+}
+
 export function MilestonesScreen({ capability = 'finding.manage', renderDetail }: MilestonesScreenProps) {
   const navigate = useHostNavigate();
   const primaryActionTarget = useHostPrimaryActionTarget();
@@ -137,7 +146,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
   }, [selectedParam, creating, createDirty, detailTitleDirty]);
 
   const listQuery = useQuery({
-    queryKey: ['milestones', 'list', managedSystem ?? null, activeTab] as const,
+    queryKey: milestoneListKey(managedSystem, activeTab),
     queryFn: ({ signal }) =>
       listMilestones({
         signal,
@@ -150,7 +159,7 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
   // Tab badges and the summary strip read a real unfiltered list response so
   // counts never depend on the active status tab (LinksRoute count pattern).
   const countQuery = useQuery({
-    queryKey: ['milestones', 'counts', managedSystem ?? null] as const,
+    queryKey: milestoneCountKey(managedSystem),
     queryFn: ({ signal }) =>
       listMilestones({
         signal,
@@ -180,23 +189,23 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
 
   const items = React.useMemo(() => listQuery.data?.items ?? [], [listQuery.data?.items]);
   const listReadSucceeded = listQuery.isSuccess && !listQuery.isPlaceholderData;
+  const primarySettled = listReadSucceeded || listQuery.isError;
   const primaryEmpty = listReadSucceeded && items.length === 0;
   const countReadSucceeded = countQuery.isSuccess && !countQuery.isPlaceholderData;
   const countEmpty = countReadSucceeded && (countQuery.data?.items.length ?? 0) === 0;
   const scopedPermission = useScopedEmptyListPermission({
     capability,
     managedSystemId: managedSystem,
-    empty: listReadSucceeded && (primaryEmpty || countEmpty),
+    empty: primarySettled && (primaryEmpty || countEmpty),
   });
   const scopeCheckFailed = primaryEmpty && scopedPermission.state === 'error';
-  const scopedBlocked = scopedPermission.state === 'blocked';
   const { denied, cardProps } = useListDenial({
     error: listQuery.error,
     forbidden: 'permission',
     scopedPermission,
     managedSystemId: managedSystem,
     identity: activeTab,
-    ...(scopedBlocked && !creating ? { drawer: { selectedId, close: closeMilestone } } : {}),
+    ...(!creating && !detailTitleDirty ? { drawer: { selectedId, close: closeMilestone } } : {}),
   });
   // The unfiltered counts can settle independently of the visible list.
   // Show values only after both reads and any scoped-empty permission check are usable.
@@ -359,10 +368,9 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
       <ListShell
         list={
           <>
-            {/* Mount hosted HostPrimaryAction in one stable position outside
-                the denied/readable branches so settling a 403 does not unmount
-                the head button or drop its focus. */}
-            {primaryActionTarget !== null ? createAction : null}
+            {/* Keep the hosted action mounted through loading so the denial
+                focus handler can move focus when the button disappears. */}
+            {!denied && primaryActionTarget !== null ? createAction : null}
             {!denied && <>
             {/* CP-pixel finding 1 (.review/pixel-514-findings.md): with detail
                 open the list column is 708px. Keep the action side shrinkable
@@ -522,12 +530,23 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
           defaultManagedSystemId={
             managedSystem !== undefined && managedSystem !== 'all' ? managedSystem : null
           }
-          onCreated={(createdId) => {
+          onCreated={(createdId, createdSystemId) => {
             setCreating(false);
-            // The list refetches so the new row appears; selection rides the
-            // existing `param` key with the Managed System scope preserved.
-            // No discard confirm: success consumes the form, it is not lost.
             void queryClient.invalidateQueries({ queryKey: ['milestones'] });
+            const moveScope = managedSystem !== undefined && managedSystem !== 'all' &&
+              managedSystem.toLowerCase() !== createdSystemId.toLowerCase();
+            if (moveScope) {
+              const queryKeys = [
+                milestoneListKey(createdSystemId, activeTab),
+                milestoneCountKey(createdSystemId),
+                permissionCheckQueryKey({ capability, managedSystemId: createdSystemId }),
+              ];
+              for (const queryKey of queryKeys) queryClient.removeQueries({ queryKey, exact: true });
+              // Let the new URL select the record after the scope changes.
+              setSelectedId(null);
+              navigate(searchHref('/tasks', { view: 'milestones', param: createdId, managedSystem: createdSystemId }));
+              return;
+            }
             applySelection(createdId);
           }}
           onDirtyChange={setCreateDirty}
@@ -540,10 +559,12 @@ export function MilestonesScreen({ capability = 'finding.manage', renderDetail }
             setSelectedId(selectedParam ?? null);
           }}
         />
-      ) : selectedId && !scopedBlocked ? (
+      ) : selectedId ? (
         <DetailSlot
+          key={selectedId}
           renderDetail={renderDetail}
           milestoneId={selectedId}
+          listDenied={denied}
           onClose={closeMilestone}
           actorNamesById={actorNamesById}
           managedSystemNamesById={managedSystemNamesById}

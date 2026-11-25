@@ -55,6 +55,12 @@ type ScopeEntry =
   | { context: string; state: 'checking'; previousErrorCount: number }
   | { context: string; state: 'confirmed' };
 
+export const CLUSTER_LIST_CAPABILITY = 'finding.read';
+
+export function clusterListScopeKey(actorContext: string | undefined) {
+  return [...permissionScopeKey, CLUSTER_LIST_CAPABILITY, actorContext] as const;
+}
+
 function useClusterEmptyListPermission({
   systemId,
   actorContext,
@@ -64,11 +70,10 @@ function useClusterEmptyListPermission({
   actorContext: string | undefined;
   empty: boolean;
 }): ScopedEmptyListPermission & { retry?: () => void } {
-  const capability = 'finding.read';
   const enabled = empty && systemId !== undefined;
   const scopeQuery = useQuery({
-    queryKey: [...permissionScopeKey, capability, actorContext],
-    queryFn: ({ signal }) => fetchCapabilityScopeViaClient(capability, { signal }),
+    queryKey: clusterListScopeKey(actorContext),
+    queryFn: ({ signal }) => fetchCapabilityScopeViaClient(CLUSTER_LIST_CAPABILITY, { signal }),
     enabled,
     staleTime: 30_000,
     retry: false,
@@ -99,7 +104,7 @@ function useClusterEmptyListPermission({
 
   const excluded = scopeExcludesSystem(scope, systemId);
   const requestPermission = useScopedEmptyListPermission({
-    capability,
+    capability: CLUSTER_LIST_CAPABILITY,
     managedSystemId: systemId,
     empty: enabled && confirmed && excluded,
   });
@@ -161,6 +166,7 @@ export function VocClusterListShell({
   onSelect,
   toolbarActions,
   primaryAction,
+  resetTabFor,
   onCloseDetail,
   defaultToFirst = false,
   managedSystemId,
@@ -176,6 +182,7 @@ export function VocClusterListShell({
    * denied/readable branches, so a settling denial keeps its node and focus (#2677).
    */
   primaryAction?: React.ReactNode;
+  resetTabFor?: string | undefined;
   /** `reconcile: true` = the shell dropped a selection that fell out of the visible list (not a user close). */
   onCloseDetail: (opts?: { reconcile?: boolean }) => void;
   defaultToFirst?: boolean;
@@ -215,7 +222,14 @@ export function VocClusterListShell({
   const suggestionsAvailable =
     suggestionsQuery.isSuccess && suggestionsQuery.data?.available === true;
   const sessionContext = `${managedSystemId ?? 'all'}:${actorContext}`;
-  const [activeTab, setActiveTab] = useState<ClusterTab>('all');
+  const [tab, setTab] = useState<{ active: ClusterTab; resetFor: string | undefined }>({
+    active: 'all', resetFor: resetTabFor,
+  });
+  const activeTab = tab.resetFor === resetTabFor ? tab.active : 'all';
+  if (tab.resetFor !== resetTabFor) setTab({ active: 'all', resetFor: resetTabFor });
+  const setActiveTab = React.useCallback((active: ClusterTab) => {
+    setTab({ active, resetFor: resetTabFor });
+  }, [resetTabFor]);
   const [selectionPaused, setSelectionPaused] = useState(false);
   const [suggestionSlots, setSuggestionSlots] = useState<{
     panel: React.ReactNode;
@@ -240,7 +254,7 @@ export function VocClusterListShell({
     onSuggestionModeChange?.(suggestionMode, {
       preserveSelection: (suggestionTabActive && !suggestionMode) || selectionPaused,
     });
-  }, [automaticExit, selectionPaused, suggestionMode, suggestionTabActive, onSuggestionModeChange]);
+  }, [automaticExit, selectionPaused, suggestionMode, suggestionTabActive, onSuggestionModeChange, setActiveTab]);
   const receiveSuggestionSlots = React.useCallback(
     (slots: { panel: React.ReactNode; count: number | undefined }) => {
       setSuggestionSlots({ ...slots, context: sessionContext });

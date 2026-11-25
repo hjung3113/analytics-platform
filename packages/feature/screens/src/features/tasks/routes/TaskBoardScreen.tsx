@@ -506,13 +506,15 @@ export function TaskBoardScreen({ capability = 'finding.manage', renderDetail }:
     empty: primaryEmpty || summaryEmpty || milestoneChoicesEmpty,
   });
   const scopedBlocked = scopedPermission.state === 'blocked';
+  const listPermissionError = queryStates.map((query) => query.error).find(isPermissionDenied);
   const { denied, cardProps } = useListDenial({
-    error: queryStates.map((query) => query.error).find(isPermissionDenied),
+    error: listPermissionError,
     forbidden: 'permission',
     scopedPermission,
     managedSystemId: managedSystem,
     identity: JSON.stringify(focusScope),
-    ...(scopedBlocked ? { drawer: { selectedId, close: closePanel } } : {}),
+    ...(scopedBlocked || listPermissionError
+      ? { drawer: { selectedId, close: closePanel } } : {}),
   });
   const secondaryVerified =
     scopedPermission.state === 'unchecked' || scopedPermission.state === 'allowed';

@@ -6,9 +6,11 @@ import type { MilestoneDetailDto, MilestoneDto } from '@ap/feature-shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as React from 'react';
 
+type TitleDraft = { id: string; session: symbol; text: string; originalTitle: string; version: string; error: string | null };
+
 export function useMilestoneTitleEdit(
-  milestone: MilestoneDetailDto,
-  onTitleDirtyChange: (dirty: boolean) => void,
+  milestoneId: string,
+  milestone: MilestoneDetailDto | undefined,
 ) {
   const queryClient = useQueryClient();
   // B2e — title-only edit. Managed System is a create-only field (A3/A8) and
@@ -18,64 +20,63 @@ export function useMilestoneTitleEdit(
   // refetch that delivers a newer version must not rebase the unsaved draft
   // onto it, or Save would silently overwrite the concurrent change instead
   // of losing the race as a 409 conflict.stale_write.
-  const [editingTitle, setEditingTitle] = React.useState(false);
-  const [titleDraft, setTitleDraft] = React.useState('');
-  const [titleEditVersion, setTitleEditVersion] = React.useState<string | null>(null);
-  const [titleError, setTitleError] = React.useState<string | null>(null);
-  const titleDirty = editingTitle && titleDraft !== milestone.title;
+  const [storedDraft, setDraft] = React.useState<TitleDraft | null>(null);
+  const draft = storedDraft?.id === milestoneId ? storedDraft : null;
+  if (storedDraft !== draft) setDraft(null);
+  const titleDirty = draft !== null && draft.text !== (milestone?.title ?? draft.originalTitle);
 
-  React.useEffect(() => {
-    onTitleDirtyChange(titleDirty);
-    return () => onTitleDirtyChange(false);
-  }, [titleDirty, onTitleDirtyChange]);
+  function updateDraft(
+    session: symbol | undefined,
+    update: (current: TitleDraft) => TitleDraft | null,
+  ): void {
+    setDraft((current) => current !== null && current.session === session ? update(current) : current);
+  }
 
-  const discardTitleEdit = React.useCallback(() => {
-    setEditingTitle(false);
-    setTitleDraft('');
-    setTitleEditVersion(null);
-    setTitleError(null);
-  }, []);
+  function discardTitleEdit(): void {
+    updateDraft(draft?.session, () => null);
+  }
 
-  const titleMutation = useMutation<MilestoneDto, Error, { ifMatch: string }>({
-    mutationFn: async ({ ifMatch }) =>
+  function setTitleError(error: string | null): void {
+    updateDraft(draft?.session, (current) => ({ ...current, error }));
+  }
+
+  function reconcileTitleDraft(session: symbol | undefined, versionChange?: { from: string; to: string }): void {
+    updateDraft(session, (current) => {
+      if (versionChange === undefined) return null;
+      return current.version === versionChange.from ? { ...current, version: versionChange.to } : current;
+    });
+  }
+
+  const titleMutation = useMutation<MilestoneDto, Error, { id: string; title: string; ifMatch: string; session: symbol }>({
+    mutationFn: async ({ id, title, ifMatch }) =>
       updateMilestone(
-        milestone.id,
-        { title: titleDraft.trim() },
+        id,
+        { title },
         { ifMatch, idempotencyKey: mintIdempotencyKey() },
       ),
-    onSuccess: async () => {
-      setEditingTitle(false);
-      setTitleEditVersion(null);
-      setTitleError(null);
-      await queryClient.invalidateQueries({ queryKey: ['milestone', milestone.id] });
+    onSuccess: async (_, { id, session }) => {
+      reconcileTitleDraft(session);
+      await queryClient.invalidateQueries({ queryKey: ['milestone', id] });
       await queryClient.invalidateQueries({ queryKey: ['milestones'] });
     },
-    onError: async (err) => {
+    onError: async (err, { id, session }) => {
       if (err instanceof ApiError && err.status === 409 && err.code === 'conflict.stale_write') {
         // Stale If-Match: the server row wins. Drop the typed title, refetch,
         // and show the stored title — never layer the draft over it.
-        discardTitleEdit();
-        await queryClient.refetchQueries({ queryKey: ['milestone', milestone.id], exact: true });
+        reconcileTitleDraft(session);
+        await queryClient.refetchQueries({ queryKey: ['milestone', id], exact: true });
       } else {
-        setTitleError(mapUnknownError(err).message);
+        updateDraft(session, (current) => ({ ...current, error: mapUnknownError(err).message }));
       }
     },
   });
 
   function startTitleEdit(statusMutationPending: boolean): void {
-    if (titleMutation.isPending || statusMutationPending) return;
-    setTitleDraft(milestone.title);
-    // Astra finding 2 — the concurrency token is bound at edit start; a
-    // refetch while editing never moves it (see the titleEditVersion comment).
-    setTitleEditVersion(milestone.updated_at);
-    setTitleError(null);
-    setEditingTitle(true);
-  }
-
-  function cancelTitleEdit(): void {
-    setEditingTitle(false);
-    setTitleEditVersion(null);
-    setTitleError(null);
+    if (milestone === undefined || titleMutation.isPending || statusMutationPending) return;
+    setDraft({
+      id: milestoneId, session: Symbol(), text: milestone.title, originalTitle: milestone.title,
+      version: milestone.updated_at, error: null,
+    });
   }
 
   function submitTitleEdit(
@@ -87,30 +88,27 @@ export function useMilestoneTitleEdit(
     // sent while a status change is in flight would be 409-cleared the
     // moment the status write commits. The disabled Save button and this
     // guard (Enter submits the form too) both refuse the race.
-    if (titleMutation.isPending || statusMutationPending) return;
-    if (titleDraft.trim() === '') {
+    if (milestone === undefined || draft === null || titleMutation.isPending || statusMutationPending) return;
+    const title = draft.text.trim();
+    if (title === '') {
       setTitleError('제목을 입력해 주세요.');
       return;
     }
-    // Unreachable in practice — the editor only opens via startTitleEdit,
-    // which pins the version — but the stale-write contract must never
-    // silently fall back to the latest refetched token.
-    if (titleEditVersion === null) return;
-    titleMutation.mutate({ ifMatch: titleEditVersion });
+    titleMutation.mutate({ id: milestoneId, title, ifMatch: draft.version, session: draft.session });
   }
 
   return {
-    editingTitle,
-    titleDraft,
-    setTitleDraft,
-    titleEditVersion,
-    setTitleEditVersion,
-    titleError,
+    editingTitle: draft !== null,
+    titleDraft: draft?.text ?? '',
+    setTitleDraft: (text: string) => updateDraft(draft?.session, (current) => ({ ...current, text })),
+    titleDraftSession: draft?.session,
+    reconcileTitleDraft,
+    titleError: draft?.error ?? null,
     setTitleError,
     titleDirty,
     titleMutation,
     startTitleEdit,
-    cancelTitleEdit,
+    cancelTitleEdit: discardTitleEdit,
     discardTitleEdit,
     submitTitleEdit,
   };

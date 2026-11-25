@@ -7,11 +7,15 @@ import { listVocClustersResponseSchema } from '@ap/feature-shared';
 import type { ListVocClustersResponse } from '@ap/feature-shared';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 
+export function vocClusterListKey(managedSystemId?: string) {
+  return ['voc-clusters', { managedSystemId }] as const;
+}
+
 export function useVocClusterList(
   managedSystemId?: string,
 ): UseQueryResult<ListVocClustersResponse> {
   return useQuery({
-    queryKey: ['voc-clusters', { managedSystemId }] as const,
+    queryKey: vocClusterListKey(managedSystemId),
     queryFn: async ({ signal }) => {
       const path = managedSystemId
         ? '/voc-clusters?' + new URLSearchParams({ managed_system_id: managedSystemId })

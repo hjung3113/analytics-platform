@@ -1,6 +1,6 @@
 import { usePlatform } from '@ap/kernel';
-import { FeatureScreenPage, clustersRoute, useClustersHere, useClustersSearch } from '@ap/feature-bridge';
-import { ClusterListScreen, isVocClustersSearchValueValid } from '@ap/feature-screens/operator-screens/voc-clusters';
+import { FeatureScreenPage, clustersRoute, isUuid, useClustersHere, useClustersSearch } from '@ap/feature-bridge';
+import { ClusterListScreen, isVocClustersSearchValueValid, movesVocClusterScope } from '@ap/feature-screens/operator-screens/voc-clusters';
 import { ClusterDetailDrawer } from './ClusterDetailDrawer';
 
 /** screen's `ListShell` would hand a returned node to the shell slot, which renders outside the feature providers; the page draws the detail itself, inside `FeatureBridge`. */
@@ -13,8 +13,13 @@ const noDetail = () => undefined;
 export default function FeatureClusters() {
   const { pageParam, setPage } = usePlatform();
   const focus = pageParam('focus');
+  const managedSystem = pageParam('managedSystem');
   return <FeatureScreenPage route={clustersRoute} isValid={isVocClustersSearchValueValid} useSearch={useClustersSearch} useHere={useClustersHere}
     detail={focus !== null && <ClusterDetailDrawer key={focus} clusterId={focus} onClose={() => setPage({ focus: null })} />}>
-    <ClusterListScreen renderDetail={noDetail} onCreated={id => setPage({ focus: id })} />
+    <ClusterListScreen renderDetail={noDetail} onCreated={(id, createdSystemId) => {
+      if (!isUuid(id)) return;
+      const moveScope = movesVocClusterScope(managedSystem, createdSystemId);
+      setPage(moveScope ? { focus: id, managedSystem: createdSystemId } : { focus: id });
+    }} />
   </FeatureScreenPage>;
 }
