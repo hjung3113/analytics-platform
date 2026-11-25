@@ -487,6 +487,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
         }
         if (!presetIds.has(holder.default)) fail(`Menu "${m.id}" conditionPreset default "${holder.default}" is not a declared preset id`);
         if (!m.pageKeys.includes(holder.key)) fail(`Menu "${m.id}" conditionPreset key "${holder.key}" is not a declared pageKeys entry`);
+        if (m.drill?.levels.some(level => level.basisKey === holder.key)) fail(`Menu "${m.id}" conditionPreset key "${holder.key}" is a drill basisKey`);
         if (m.context.condition !== 'apply' && m.context.condition !== 'reference') fail(`Menu "${m.id}" conditionPresets need a condition capability of apply or reference`);
       }
     }
@@ -511,7 +512,6 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
           if (bases?.length) fail(`${prefix} requires a basisKey for its bases`);
           continue;
         }
-        if (!bases?.length) fail(`${prefix} declares basisKey "${basisKey}" without bases`);
         if (basisKey === RETURN_TO_KEY) fail(`${prefix} basisKey "${basisKey}" cannot be returnTo`);
         if (seen.has(basisKey)) fail(`${prefix} basisKey "${basisKey}" conflicts with a drill level key`);
         if (basisKeys.has(basisKey)) fail(`${prefix} basisKey "${basisKey}" is duplicated`);

@@ -212,9 +212,9 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
 
   const bases = [{ id: 'alt', label: 'Alternative' }];
   const withBasis = { ...level('room'), bases, basisKey: 'basis' };
+  const pageConditions: PlatformMenuEntry['pageConditions'] = { categories: [{ id: 'basis', label: level('basis').label, kind: { type: 'search', key: 'basis' } }] };
   it.each([
     ['missing basisKey', { ...withBasis, basisKey: undefined }, {}, /requires.*basisKey/],
-    ['basisKey without bases', { ...withBasis, bases: [] }, {}, /basisKey.*without bases/],
     ['duplicate id', { ...withBasis, bases: [...bases, ...bases] }, {}, /basis id.*duplicated/],
     ['unregistered key', { ...withBasis, basisKey: 'unknown' }, {}, /basisKey "unknown".*pageKeys/],
     ['non-reset key', withBasis, { contextResetKeys: ['room'] }, /basisKey "basis".*contextResetKeys/],
@@ -223,10 +223,18 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
     ['repeated key', withBasis, { repeatedPageKeys: ['basis'] }, /repeatedPageKeys key "basis".*drill basisKey/],
     ['duplicate basisKey', withBasis, { drill: { levels: [withBasis, { ...withBasis, ...level('later') }] } }, /basisKey "basis".*duplicated/],
     ['analysis selection key', withBasis, { analysisSelectionInbound: [{ key: 'basis', dimension: 'equipment', shape: 'range' as const, label: level('choice').label }] }, /selection key "basis".*drill basisKey/],
+    ['page condition key', withBasis, { pageType: 'analysis', query: { mode: 'live' }, pageConditions }, /key "basis".*drill basisKey/],
+    ['condition preset key', withBasis, { context: { ...none, condition: 'apply' }, conditionPresets: ['a', 'b'].map(id => ({ id, label: level(id).label, axes: ['maker'] })), conditionPreset: { key: 'basis', default: 'a' } }, /conditionPreset key "basis".*drill basisKey/],
   ] as const)('rejects a drill declaration with %s', (_name, step, overrides, error) => {
     const keys = ['room', 'basis', 'later', 'returnTo'];
     const entry = menu('a', '/a', { primary: true, pageKeys: keys, contextResetKeys: keys, drill: { levels: [step] }, ...overrides });
     expect(() => createRegistry({ spaces: homeA, groups, menus: [entry] })).toThrow(error);
+  });
+
+  it('keeps a basisKey registered after the last alternative is removed', () => {
+    const entry = menu('a', '/a', { primary: true, pageKeys: ['room', 'basis'], contextResetKeys: ['room', 'basis'], drill: { levels: [{ ...withBasis, bases: [] }] } });
+    const registry = createRegistry({ spaces: homeA, groups, menus: [entry] });
+    expect(registry.menus[0]).toMatchObject({ pageKeys: ['room', 'basis'], drill: { levels: [{ basisKey: 'basis', bases: [] }] } });
   });
 
   it('rejects a drill with no levels', () => {

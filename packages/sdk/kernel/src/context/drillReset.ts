@@ -1,4 +1,4 @@
-import type { DrillLevel } from '@ap/contracts';
+import type { DrillLevel, GlobalContext, ModuleScopedId, Pair, Permission } from '@ap/contracts';
 import type { MenuEntry } from '../registry/registry';
 
 /** A current page value; page pairs and drill level states both fit. */
@@ -39,6 +39,24 @@ export function drillGap<L extends LevelKeys>(levels: readonly L[], current: rea
     else if (empty) return { level, value };
   }
   return null;
+}
+
+type DrillProblem = { kind: 'format' } | { kind: 'basis'; index: number };
+
+/** An unavailable basis in the valid prefix takes precedence over a later format error. */
+export function firstDrillProblem(drill: MenuEntry['drill'], page: readonly Pair[], global: GlobalContext, can: (permission: Permission | ModuleScopedId) => boolean): DrillProblem | null {
+  if (!drill) return null;
+  const gap = drillGap(drill.levels, page);
+  for (const [index, level] of drill.levels.entries()) {
+    if (level === gap?.level) break;
+    const { key, basisKey, bases } = level;
+    if (basisKey === undefined) continue;
+    const id = page.find(([name]) => name === basisKey)?.[1];
+    if (id !== undefined && (!bases?.some(basis => basis.id === id) || drill.isBasisAvailable?.(key, id, global, can) === false)) {
+      return { kind: 'basis', index };
+    }
+  }
+  return gap === null ? null : { kind: 'format' };
 }
 
 /**

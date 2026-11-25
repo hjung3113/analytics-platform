@@ -5,8 +5,10 @@ import { useDrill, type DrillState } from '../drill';
 import { I18nProvider } from '../../i18n';
 import { PlatformProvider, useHostPlatform, type ReturnOrigin } from '../../platform/platform';
 import { createRegistry, type MenuEntry, type PlatformMenuEntry } from '../../registry/registry';
-import { memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '../../testing';
-import { groupId, spaceId } from '@ap/contracts';
+import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '../../testing';
+import { defineEndpoint, groupId, spaceId, type MenuQuery, type SavedViewSupport } from '@ap/contracts';
+import { canonicalHistoryQuery } from '../../query/query-history';
+import { useMenuQuery } from '../../query/query';
 import { buildShareLink } from '../shareLink';
 import { captureApplied } from '../../saved-view/capture';
 import { restoreSavedView } from '../../saved-view/restore';
@@ -89,7 +91,7 @@ beforeEach(() => {
   target = '';
   vi.stubGlobal('localStorage', memoryStorage());
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('useDrill (06 §6.4, ADR-0025)', () => {
   it('exposes localized value labels alongside raw page values', () => {
@@ -201,24 +203,45 @@ describe('useDrill (06 §6.4, ADR-0025)', () => {
 describe('alternative drill bases', () => {
   const path = '/mars/bases';
   const keys = ['drillRoom', 'roomBasis', 'drillStgroup', 'groupBasis'];
-  const support = { menuId: 'bases', menuSchemaVersion: 1, contextKeys: [], pageKeys: keys };
+  const support: SavedViewSupport = { menuId: 'bases', menuSchemaVersion: 1, contextKeys: [], pageKeys: keys };
+  const endpoint = defineEndpoint<{ room: string | null; basis?: string }, null>({ id: 'fixture.bases', menuId: 'bases', permission: 'platform:view', requiresScope: false, context: {}, paramKeys: { room: true, basis: true }, kinds: [], mergeTimeDomain: false });
   const from = `${path}?v=1&drillRoom=PHOTO&roomBasis=alt&drillStgroup=A&groupBasis=alt&row=r1`;
-  function mountBases(href: string) {
+  function mountBases(href: string, { queryProbe, savedViews, removedBases }: { queryProbe?: boolean; savedViews?: ReturnType<typeof createFakeSavedViewStore>; removedBases?: boolean } = {}) {
     const bases = [{ id: 'alt', label: 'Alternative' }, { id: 'other', label: 'Other' }, { id: 'denied', label: 'Denied' }];
     const menu = entry({
       id: 'bases', path: '/bases', pageKeys: [...keys, 'row'], contextResetKeys: keys,
+      ...(savedViews ? { context: { ...noContext, time: 'apply' }, features: { ...features, savedView: true }, savedViewSupport: { ...support, contextKeys: ['time'] }, query: { mode: 'apply', autoApplyDefault: true } } : {}),
       drill: { levels: [
-        { ...level('drillRoom', '공정', 'Process'), basisKey: 'roomBasis', bases },
+        { ...level('drillRoom', '공정', 'Process'), basisKey: 'roomBasis', bases: removedBases ? [] : bases },
         { ...level('drillStgroup', 'StGroup', 'StGroup'), basisKey: 'groupBasis', bases },
       ], resetKeys: ['row'], isBasisAvailable: (_key, id) => id !== 'denied' },
     });
     const withBases = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [...registry.menus, menu] });
     window.history.replaceState(null, '', href);
-    render(<I18nProvider><PlatformProvider adapter={adapter} registry={withBases}><Probe /></PlatformProvider></I18nProvider>);
+    const originalReplace = window.history.replaceState.bind(window.history);
+    const dispatchUrls: string[] = [];
+    const send = vi.fn(async (_request: MenuQuery) => {
+      dispatchUrls.push(url());
+      return { outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'test' };
+    });
+    const callsAtReplace: number[] = [];
+    const replace = vi.spyOn(window.history, 'replaceState').mockImplementation((...args) => {
+      callsAtReplace.push(send.mock.calls.length);
+      originalReplace(...args);
+    });
+    function QueryProbe() {
+      const step = useDrill().trail[0];
+      useMenuQuery(endpoint, { room: step?.value ?? null, basis: step?.basis });
+      return null;
+    }
+    render(<I18nProvider><PlatformProvider adapter={queryProbe ? testAdapter({ session: () => session, menuQuery: send }) : adapter} registry={withBases} savedViews={savedViews}><Probe />{queryProbe && <QueryProbe />}</PlatformProvider></I18nProvider>);
+    return { replace, send, dispatchUrls, callsAtReplace };
   }
 
-  it('pushes a basis-only change once and clears later value and basis keys and drill resets', () => {
-    mountBases(from);
+  it('pushes a basis-only change once and clears later value and basis keys and drill resets', async () => {
+    const { send } = mountBases(from, { queryProbe: true });
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send.mock.calls[0]?.[0]).toMatchObject({ params: { room: 'PHOTO', basis: 'alt' } });
     const push = vi.spyOn(window.history, 'pushState');
     act(() => { drill!.enter('drillRoom', 'PHOTO', { basis: 'other' }); });
     const pushes = push.mock.calls.length;
@@ -226,6 +249,8 @@ describe('alternative drill bases', () => {
     expect(url()).toBe(`${path}?v=1&drillRoom=PHOTO&roomBasis=other`);
     expect(pushes).toBe(1);
     expect(drill!.trail[0]?.basis).toBe('other');
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(send.mock.calls[1]?.[0]).toMatchObject({ params: { room: 'PHOTO', basis: 'other' } });
 
     act(() => { host!.setPage({ row: 'r2' }); });
     act(() => { drill!.enter('drillRoom', 'PHOTO', { basis: 'alt' }); });
@@ -238,6 +263,12 @@ describe('alternative drill bases', () => {
     expect(drill!.trail[0]?.basis).toBe('alt');
     act(() => { drill!.enter('drillRoom', 'ETCH', { basis: undefined }); });
     expect(url()).toBe(`${path}?v=1&drillRoom=ETCH`);
+  });
+
+  it('preserves the basis when a JavaScript caller supplies an empty options bag', () => {
+    mountBases(from);
+    act(() => { Reflect.apply(drill!.enter, undefined, ['drillRoom', 'ETCH', {}]); });
+    expect(drill!.trail[0]?.basis).toBe('alt');
   });
 
   it('drops later basis keys when going up', () => {
@@ -260,15 +291,43 @@ describe('alternative drill bases', () => {
     expect(url()).toBe(href);
   });
 
-  it.each(['unknown', 'denied'])('replaces a rejected basis (%s) with its parent and reports only the level key', id => {
+  it.each(['unknown', 'denied', ''])('replaces a rejected basis (%j) with its parent and reports only the level key', async id => {
     const start = window.history.length;
-    mountBases(from.replace('groupBasis=alt', `groupBasis=${id}`));
+    const { replace, send, dispatchUrls, callsAtReplace } = mountBases(from.replace('groupBasis=alt', `groupBasis=${id}`), { queryProbe: true });
     expect(drill!.depth).toBe(1);
     expect(drill!.rejectedBasis).toEqual({ levelKey: 'drillStgroup' });
     expect(url()).toBe(`${path}?v=1&drillRoom=PHOTO&roomBasis=alt`);
     expect(window.history.length).toBe(start);
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(callsAtReplace).toEqual([0]);
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(dispatchUrls).toEqual([`${path}?v=1&drillRoom=PHOTO&roomBasis=alt`]);
     act(() => { drill!.enter('drillStgroup', 'B'); });
     expect(drill!.rejectedBasis).toBeNull();
+  });
+
+  it('recovers the first rejected basis before reporting a later orphan basis', () => {
+    mountBases(`${path}?v=1&drillRoom=PHOTO&roomBasis=denied&groupBasis=alt`);
+    expect(url()).toBe(`${path}?v=1`);
+    expect(drill!.depth).toBe(0);
+    expect(drill!.rejectedBasis).toEqual({ levelKey: 'drillRoom' });
+    expect(drill!.invalid).toBeNull();
+  });
+
+  it('recovers an old link after removal of the last alternative', () => {
+    mountBases(from, { removedBases: true });
+    expect(url()).toBe(`${path}?v=1`);
+    expect(drill!.rejectedBasis).toEqual({ levelKey: 'drillRoom' });
+  });
+
+  it('keeps first-step basis recovery when an auto Apply menu has a personal default', async () => {
+    const view = testSavedView({ id: 'personal', kind: 'menu-view', menuId: 'bases', menuSchemaVersion: 1, context: { from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' }, page: [['drillRoom', 'ETCH']] });
+    const savedViews = createFakeSavedViewStore([view], { 'u1:bases': view.id });
+    const { replace } = mountBases(`${path}?v=1&drillRoom=PHOTO&roomBasis=denied`, { savedViews });
+    await act(async () => {});
+    expect(url()).toBe(`${path}?v=1`);
+    expect(drill!.rejectedBasis).toEqual({ levelKey: 'drillRoom' });
+    expect(replace).toHaveBeenCalledTimes(1);
   });
 
   it('round-trips a basis key through a share link and a saved view', () => {
@@ -284,24 +343,37 @@ describe('alternative drill bases', () => {
       .toMatchObject({ href: `${path}?v=1&drillRoom=A%2B&roomBasis=alt` });
   });
 
-  it('preserves the no-bases URL, share link and serialized saved page through drill transitions', () => {
+  it('preserves the no-bases URL, share link and serialized saved page through drill transitions', async () => {
     const path = '/mars/rows';
     mount(`${path}?v=1&scopeId=MEM&drillRoom=A%2BB`);
-    const golden = (query: string, page: string) => {
+    const start = window.history.length;
+    const golden = (query: string, page: string, pushes: number) => {
       expect(url()).toBe(path + query);
       expect(buildShareLink({ ...host!, kind: 'conditions', absoluteUrl: href => href })).toEqual({ ok: true, href: path + query });
       expect(JSON.stringify(captureApplied(host!, { pageKeys: ['drillRoom', 'drillStgroup'], contextKeys: [] }).page)).toBe(page);
+      expect(canonicalHistoryQuery(host!, drillKeys)).toBe(query);
+      expect(window.history.length).toBe(start + pushes);
     };
     act(() => { drill!.enter('drillStgroup', 'x y'); });
-    golden('?v=1&scopeId=MEM&drillRoom=A%2BB&drillStgroup=x+y', '[["drillRoom","A+B"],["drillStgroup","x y"]]');
+    golden('?v=1&scopeId=MEM&drillRoom=A%2BB&drillStgroup=x+y', '[["drillRoom","A+B"],["drillStgroup","x y"]]', 1);
     act(() => { host!.setPage({ drillStgroup: 'direct' }); });
-    golden('?v=1&scopeId=MEM&drillRoom=A%2BB&drillStgroup=direct', '[["drillRoom","A+B"],["drillStgroup","direct"]]');
+    golden('?v=1&scopeId=MEM&drillRoom=A%2BB&drillStgroup=direct', '[["drillRoom","A+B"],["drillStgroup","direct"]]', 2);
     act(() => { drill!.enter('drillStgroup', 'Z'); });
-    golden('?v=1&scopeId=MEM&drillRoom=A%2BB&drillStgroup=Z', '[["drillRoom","A+B"],["drillStgroup","Z"]]');
+    golden('?v=1&scopeId=MEM&drillRoom=A%2BB&drillStgroup=Z', '[["drillRoom","A+B"],["drillStgroup","Z"]]', 3);
     act(() => { drill!.goTo(1); });
-    golden('?v=1&scopeId=MEM&drillRoom=A%2BB', '[["drillRoom","A+B"]]');
+    golden('?v=1&scopeId=MEM&drillRoom=A%2BB', '[["drillRoom","A+B"]]', 4);
     act(() => { screen.getByRole('button', { name: 'scope' }).click(); });
-    golden('?v=1&scopeId=FDRY', '[]');
+    golden('?v=1&scopeId=FDRY', '[]', 5);
+    await act(async () => {
+      window.history.back();
+      await waitFor(() => expect(url()).toBe(path + '?v=1&scopeId=MEM&drillRoom=A%2BB'));
+    });
+    golden('?v=1&scopeId=MEM&drillRoom=A%2BB', '[["drillRoom","A+B"]]', 5);
+    await act(async () => {
+      window.history.forward();
+      await waitFor(() => expect(url()).toBe(path + '?v=1&scopeId=FDRY'));
+    });
+    golden('?v=1&scopeId=FDRY', '[]', 5);
   });
 });
 

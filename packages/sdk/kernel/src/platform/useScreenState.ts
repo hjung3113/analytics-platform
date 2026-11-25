@@ -12,7 +12,7 @@ import { readReturnHidden, rememberReturnHidden, type ReturnHiddenOwner } from '
 import { DETAIL_EXPAND_KEY, stripDetailExpansion, withDetailExpansion } from '../links/detail-expansion';
 import { sameParams } from './preferences';
 import { dropResetKeys } from '../context/paneContext';
-import { drillGap, drillLevelChanged, drillLevelKeys, dropDrillResetKeys } from '../context/drillReset';
+import { drillLevelChanged, drillLevelKeys, dropDrillResetKeys, firstDrillProblem } from '../context/drillReset';
 import { drillValueLabel } from '../context/drillValueLabel';
 import { appliedQueryPolicy, defaultQueryPeriod, queryMissingRequired, useScreenDraft } from '../query/draft-state';
 import { SITE_BOUND_FIELDS } from '../context/siteBound';
@@ -182,15 +182,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const rawPage = useMemo(() => parsed?.page ?? [], [parsed]);
   const extras = useMemo(() => parsed?.extras ?? [], [parsed]);
   const drill = routeMenu?.drill;
-  const badDrillFormat = drillGap(drill?.levels ?? [], rawPage) !== null;
-  const rejectedLevel = useMemo(() => {
-    if (badDrillFormat || !drill?.levels.some(level => level.basisKey !== undefined)) return -1;
-    const values = new Map(rawPage);
-    return drill.levels.findIndex(({ key, basisKey, bases }) => {
-      const id = basisKey === undefined ? undefined : values.get(basisKey);
-      return id !== undefined && (!bases?.some(basis => basis.id === id) || drill.isBasisAvailable?.(key, id, global, can) === false);
-    });
-  }, [badDrillFormat, drill, rawPage, global, can]);
+  const drillProblem = useMemo(() => firstDrillProblem(drill, rawPage, global, can), [drill, rawPage, global, can]);
+  const badDrillFormat = drillProblem?.kind === 'format';
+  const rejectedLevel = drillProblem?.kind === 'basis' ? drillProblem.index : -1;
   const rejectedLevelKey = drill?.levels[rejectedLevel]?.key;
   // Expose the parent path immediately, before the history entry is replaced.
   const page = useMemo(() => {
@@ -461,7 +455,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const autoApplyRoute = query?.mode === 'apply' && query.autoApplyDefault === true ? route : null;
   let candidate: 'bare' | 'legacy' | null = null;
   if (autoApplyRoute !== null && routeContractError === null && global.from === null && global.to === null) {
-    if (!hasExplicitContext({ global, page }, { includeReturnTo: true })) candidate = 'bare';
+    // Recovery keeps the original entry explicit even when its corrected address has no page keys.
+    if (!settledNotice && !hasExplicitContext({ global, page: rawPage }, { includeReturnTo: true })) candidate = 'bare';
     else if (autoApplyRoute.menu.query?.mode === 'apply' && autoApplyRoute.menu.query.applyPeriodOnLegacyEntry === true) candidate = 'legacy';
   }
   const [traversal, setTraversal] = useState(0);
@@ -486,7 +481,7 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const savedViewEntry = useMemo(() => ({ arrival, revision, scopeView, savedViewStore }), [arrival, revision, scopeView, savedViewStore]);
   const [settledSavedView, setSettledSavedView] = useState<typeof savedViewEntry | null>(null);
   const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url: hidden && hidden.length > 0 && parsed ? pathname + buildQuery(global, page, extras) : appliedUrl,
-    global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, invalid: routeContractError !== null || rejectedLevel >= 0,
+    global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, can, invalid: routeContractError !== null || rejectedLevel >= 0, badDrillFormat,
     commit: commitState, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
   const materializeDefault = useCallback((href: string) => commitState(href, 'replace', { materialize: true }), [commitState]);
   const materializer = useRef(materializeDefault);

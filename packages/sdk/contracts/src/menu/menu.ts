@@ -98,7 +98,10 @@ export type DrillLevel = {
   /** Display text for the raw page value in the current language. */
   valueLabel?: (value: string, lang: keyof Text) => string;
   bases?: readonly DrillBasis[];
-  /** Single page key for the selected alternative. Required when `bases` is non-empty. */
+  /**
+   * Single page key for the selected alternative. Required when `bases` is non-empty.
+   * Keep it registered after removing the last alternative so old links and views recover one level up.
+   */
   basisKey?: string;
 };
 
@@ -232,7 +235,7 @@ export type MenuMeta = {
    * One or more levels, no upper bound (ADR-0063). `returnTo` is not a level key. Values stay page-owned and are not promoted to global Context.
    * `resetKeys` (field name Candidate): other `pageKeys` entries bound to the drill path (e.g. a picked row). A `setPage` write that changes
    * a level value or its basis drops them in the SAME navigation (one history entry), so enter, breadcrumb and `goTo` all clear them.
-   * A reset key the same patch sets explicitly keeps that value. Writes that leave every level value unchanged drop nothing.
+   * A reset key the same patch sets explicitly keeps that value. Writes that leave all level values and bases unchanged drop nothing.
    * History traversal (popstate, `navigate`, Back/Forward) never clears them — restored entries are exact (§6.4). Each entry must be a
    * declared `pageKeys` entry, not a level key, basis key or `returnTo`; it need not be a `contextResetKeys` entry.
    */

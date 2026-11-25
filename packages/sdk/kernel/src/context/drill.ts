@@ -26,7 +26,7 @@ export type DrillState = {
    * Only the next step (`index === depth`) or an already filled step is allowed. Omit options to keep
    * the step's basis, or pass `{ basis: undefined }` to choose the default.
    */
-  enter: (key: string, value: string, options?: { basis?: string | undefined }) => void;
+  enter: (key: string, value: string, options?: { basis: string | undefined }) => void;
   /** Keep the first `n` steps and clear the rest (push, `drill.resetKeys` cleared too when a step changes). `n === 0` is the summary. */
   goTo: (n: number) => void;
 };
@@ -82,7 +82,7 @@ export function useDrill(): DrillState {
     if (options?.basis !== undefined && !list[index].bases?.some(basis => basis.id === options.basis)) {
       throw new Error(`drill enter "${key}" needs a declared basis`);
     }
-    if (basisKey !== undefined && (options !== undefined || value === '')) patch[basisKey] = value === '' ? null : options?.basis ?? null;
+    if (basisKey !== undefined && (value === '' || (options && 'basis' in options))) patch[basisKey] = value === '' ? null : options?.basis ?? null;
     for (const laterKey of list.slice(index + 1).flatMap(drillLevelKeys)) patch[laterKey] = null;
     setPage(patch, drillLevelChanged(route?.menu, page, patch) ? { focus: 'drill' } : undefined);
   }, [declared, depth, page, route, setPage]);

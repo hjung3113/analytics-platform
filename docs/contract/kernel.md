@@ -93,7 +93,7 @@ Domain logic이 Kernel로 역류하지 않도록 한다.
 
 페이지 키(`pageKeys`·`contextResetKeys`), 상세 경로(`parent`·`navHidden`), Scope 필요 여부(`requiresScope`), 지표 초기화(`initializesMetric`), 그룹 대표(`primary`, 그룹당 정확히 하나)도 메뉴가 선언한다. `createRegistry`가 시작 시 중복·충돌·공간 규칙을 검증한다([패키지 경계](../integration/platform-packages.md) §5). 필드명은 Candidate다.
 
-드릴 단계의 대안 나누기 기준은 `DrillLevel.bases`에 `{ id, label }` 목록으로 선언한다([ADR-0178](../adr/0178-drill-alternative-basis.md)). `label`은 문자열 또는 언어를 받아 문자열을 돌려주는 함수다. Registry는 목록이 비어 있지 않은 단계에만 `basisKey`를 요구하고 단계 안에서 비어 있거나 중복된 id를 거부한다. 기준 키는 보이는 단일 `pageKeys` 및 `contextResetKeys` 항목이며 단계 값 키도 보여야 한다. 기준 키는 단계 값 키·다른 기준 키·`returnTo`·반복 키·분석 선택 키·`drill.resetKeys`와 겹칠 수 없다.
+드릴 단계의 대안 나누기 기준은 `DrillLevel.bases`에 `{ id, label }` 목록으로 선언한다([ADR-0178](../adr/0178-drill-alternative-basis.md)). `label`은 문자열 또는 언어를 받아 문자열을 돌려주는 함수다. Registry는 목록이 비어 있지 않으면 `basisKey`를 요구하며, 단계 안에서 비어 있거나 중복된 id를 거부한다. 마지막 대안을 제거한 뒤에도 기준 키를 등록해 두면 옛 링크와 저장된 뷰에서 한 단계 위로 복구할 수 있다. 기준 키는 보이는 단일 `pageKeys` 및 `contextResetKeys` 항목이며 단계 값 키도 보여야 한다. 기준 키는 단계 값 키·다른 기준 키·`returnTo`·반복 키·분석 선택 키·페이지 조건 키·Condition 프리셋 키·`drill.resetKeys`와 겹칠 수 없다.
 
 **기능 메뉴의 조회 권한(#2641):** 선택 필드 `MenuMeta.requiredCapability`의 `id`에 앱의 조회 권한을 선언한다. Registry는 선언을 메뉴에 담아 전달하고, 메뉴 진입은 `permission`·`additionalPermissions`로 판정한다. 서버가 각 요청의 접근을 판정한다. 기능 다리는 메뉴에 `managedSystem` 페이지 키가 있으면 이 권한으로 목록 범위의 «범위 밖»을 표시한다. `requiredCapability.scopePicker: 'page'`는 메뉴 본문이 범위 선택기를 그릴 때 선언한다. `requiredCapability.requestOnMenuDenial: { label, roleRequired }`는 `features:access`로 막힌 메뉴에서 같은 권한의 요청 가능 여부를 확인하고, 두 언어로 권한 이름과 역할 요건을 표시한다. 필드를 생략하면 기존 메뉴 동작을 유지한다.
 
@@ -451,7 +451,7 @@ Kernel은 앱 메뉴 루트를 알지 못하고, 선언하지 않으면 거부�
 
 **드릴의 대안 나누기 기준 (Decided, [ADR-0178](../adr/0178-drill-alternative-basis.md)).** 기본 기준은 `basisKey`가 없는 주소다. 대안을 고르면 단계 값과 그 기준 id를 한 번에 push한다. 기준만 달라져도 다른 드릴 상태이며 뒤 단계의 값·기준과 `drill.resetKeys`를 같은 쓰기에서 지운다. `useDrill().enter(key, value)`는 형제 값 교체 시 기준을 보존하고, `{ basis: undefined }`를 넘기면 기본 기준을 적용한다. `goTo`는 내려놓는 단계의 값과 기준을 함께 지우고, 전역 Context 변경도 등록한 두 키를 지운다. 단계 값 없이 기준 키만 있으면 앞 단계가 비어 있는 URL과 같은 형식 오류다.
 
-형식이 맞는 주소에서 명시한 기준이 선언에 없거나 `drill.isBasisAvailable(levelKey, basisId, context, can)`이 거부하면 첫 거부 단계와 그 뒤의 값·기준 및 `drill.resetKeys`를 지워 history를 replace한다. 거부된 단계의 조회는 닫고 `useDrill().rejectedBasis`는 단계 키만 전한다. 서버는 모든 요청에서 별도로 권한과 Scope를 확인한다.
+선언 순서대로 첫 오류를 판정한다. 단계 형식이 맞아도 명시한 기준이 선언에 없거나 `drill.isBasisAvailable(levelKey, basisId, context, can)`이 거부하면 해당 단계와 그 뒤의 값·기준 및 `drill.resetKeys`를 지워 history를 replace한다. 거부된 단계의 조회는 닫고 `useDrill().rejectedBasis`는 단계 키만 전한다. 복구한 주소가 비어도 개인 기본 뷰는 최초 주소로 적용 여부를 판단한다. 최근 실행 복원과 최종 적용도 같은 기준을 검증하고, 사용 가능한 상태로 적용된 조건만 최근 실행에 기록한다. 서버는 모든 요청에서 별도로 권한과 Scope를 확인한다.
 
 단계에 의존하는 조회는 단계 값과 기준을 입력에 함께 넣어 기준만 바뀐 조회도 구분한다. 분석 선택의 드릴 주소에도 둘을 함께 넣는다.
 

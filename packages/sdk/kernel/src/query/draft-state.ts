@@ -7,9 +7,11 @@ import { classifyMetricInit } from '../registry/metric-init';
 import { menuAnalysisSelections } from '../registry/analysis-selections';
 import { CONTEXT_LABELS, CUSTOM_GROUP_LABELS, type MenuEntry } from '../registry/registry';
 import { dropResetKeys } from '../context/paneContext';
+import { firstDrillProblem } from '../context/drillReset';
 import { parseAnalysisSelection } from '../context/analysisSelectionCodec';
 import type { QueryDraft, QueryMissing } from './query-draft';
 import type { ScopeState } from '../platform/platform';
+import type { HostPlatform } from '../platform/types';
 import { shallowEqual, useStable } from '../stable';
 
 export type DraftValues = QueryDraft['draft'];
@@ -32,7 +34,7 @@ export type DraftInputs = {
   history?: QueryHistoryStore; revision: number; currentRevision: () => number; allowed: boolean;
   store?: DraftStore; menu: MenuEntry | null; identity: string; session: Session; url: string;
   global: GlobalContext; page: Pair[]; extras: Pair[]; defaultRangeTo: string | null; scope: ScopeState;
-  adapter: PlatformAdapter; axes: readonly EquipmentAxisDescriptor[]; invalid: boolean;
+  adapter: PlatformAdapter; axes: readonly EquipmentAxisDescriptor[]; can: HostPlatform['can']; invalid: boolean; badDrillFormat: boolean;
   commit: (next: string, how: 'push') => boolean;
   setGlobal: QueryDraft['setDraftGlobal']; setPage: QueryDraft['setDraftPage'];
 };
@@ -83,6 +85,10 @@ export function appliedQueryPolicy(menu: MenuEntry | null, global: GlobalContext
   // Malformed declared conditions are refused in every query mode (kernel §6.4: reject, never repair); the other checks are Apply-only.
   const applyBlocked = menu?.query?.mode === 'apply' && (invalid || missingRequiredContext(['time'], global).length > 0 || missing.length > 0);
   return { idle: applyBlocked || invalidConditions, missing };
+}
+
+function scopeValid(input: DraftInputs, global: GlobalContext) {
+  return !input.menu?.requiresScope || (input.scope.status === 'valid' && input.scope.scopeId === global.scopeId && input.scope.validatedFor === input.session);
 }
 
 /** Round-trip through the codec, checking the fields the serializer deliberately omits for incomplete pairs. */
@@ -141,9 +147,11 @@ export function useScreenDraft(rawInput: DraftInputs) {
   const mode = input.menu?.query?.mode ?? 'live';
   useLayoutEffect(() => {
     if (mode !== 'apply') return;
-    const pending = store.get()?.pending;
-    store.put(reconcile(store.get(), input));
-    if (pending?.target === input.url && pending.record) {
+    const previous = store.get();
+    const pending = previous?.session === input.session && previous.identity === input.identity ? previous.pending : null;
+    store.put(reconcile(previous, input));
+    if (pending?.target === input.url && pending.record && input.allowed && !input.badDrillFormat
+      && scopeValid(input, input.global) && !appliedQueryPolicy(input.menu, input.global, input.page, input.invalid).idle) {
       const event = pending.record;
       void Promise.resolve().then(() => event.port.record(event.key, event.entry)).then(() => historyChanged(event.port, event.key)).catch(() => {
         const view = store.history.get();
@@ -169,11 +177,11 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
     const next = normalize(input, values, retained);
     return { ...next, page: dropResetKeys(input.menu, next.page, current().pageBasis ?? input.global, next.global) };
   };
-  const scopeValid = (g: GlobalContext) => !input.menu?.requiresScope || (input.scope.status === 'valid' && input.scope.scopeId === g.scopeId && input.scope.validatedFor === input.session);
+  const validDrill = ({ global, page }: Values) => firstDrillProblem(input.menu?.drill, page, global, input.can) === null;
   let final = state.draft; let valid = !input.invalid;
   try { final = candidate(state.draft); } catch { valid = false; }
   const missing = queryMissing(input.menu, final.global, final.page);
-  const canApply = valid && missing.length === 0 && missingRequiredContext(['time'], final.global).length === 0 && scopeValid(final.global) && state.pending === null;
+  const canApply = valid && missing.length === 0 && missingRequiredContext(['time'], final.global).length === 0 && scopeValid(input, final.global) && validDrill(final) && state.pending === null;
   const edit = (values: Values) => {
     const previous = current();
     const next = candidate(values, previous.draft);
@@ -198,7 +206,7 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
       if (!active.current || previous.pending || input.invalid) return;
       let next: Values;
       try { next = candidate(previous.draft); } catch { return; }
-      if (queryMissing(input.menu, next.global, next.page).length || missingRequiredContext(['time'], next.global).length || !scopeValid(next.global)) return;
+      if (queryMissing(input.menu, next.global, next.page).length || missingRequiredContext(['time'], next.global).length || !scopeValid(input, next.global) || !validDrill(next)) return;
       if (sameGlobal(input.global, next.global) && samePage(input.page, next.page)) return;
       // Providers echo visible pairs before hidden pairs; acknowledge that order without changing repeated values.
       const hiddenKeys = input.menu?.hiddenPageKeys ?? [];
