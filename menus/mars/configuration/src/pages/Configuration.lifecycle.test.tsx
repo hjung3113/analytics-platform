@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { act, useState, type ReactElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Settings } from 'lucide-react';
 import { contextCapabilities, defineEndpoint, groupId, menuPermission, spaceId, type AnalysisSelection, type ApiResponse, type GlobalContext } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChips, useAnalysisSelectionOutput, useMenuQuery, useQueryDraft, type LentPanelProps } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { createFakeSavedViewStore, registerLentPanel, settleQueries, testAdapter, testMenu, testSavedView, testSession, testSpace, useSavedViews, useToastsForTest, type SavedViews } from '@ap/kernel/testing';
+import { createFakeSavedViewStore, registerLentPanel, settleQueries, testAdapter, testMenu, testSavedView, testSession, testSpace, testViewCapabilities, useSavedViews, useToastsForTest, type SavedViews } from '@ap/kernel/testing';
 import type { PageFilterField } from '@ap/components';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, DEFAULT_EQUIPMENT, DEFAULT_LEVELS, EXPORT_LIMIT, SAVED_VIEW_SUPPORT, TREE_WINDOW, filterDeclarations, configurationLendingEndpoint, type ConfigHistory, type ConfigurationLending, type HistoryParams, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
@@ -932,6 +932,9 @@ it('opens a saved view without a graph using its original HW Time page keys', as
   await act(async () => { expect(await views().select(legacy.id)).toMatchObject({ ok: true }); });
   await vi.waitFor(() => expectSlotRequest(liveSlot, livePeriod, 'LK2'));
   expect(hwTimeSlot(copySlot)).toBeNull();
+  await act(async () => {
+    expect(await views().saveToSelected()).toMatchObject({ ok: true, value: { view: { panels: null } } });
+  });
 });
 
 it('keeps the comparison target when closing the original returns focus to another matrix item', async () => {
@@ -954,29 +957,48 @@ it('keeps the comparison target when closing the original returns focus to anoth
   expectSlotRequest(copySlot, heldPeriod, 'LK2');
 });
 
-it('shows an unreadable comparison for a missing matrix output, blocks its query and lets it follow again', async () => {
+it('blocks an unreadable comparison query and reopens both slots after following again and saving', async () => {
   const broken = testSavedView({
     id: 'missing-output', kind: 'menu-view', menuId: 'configuration', menuSchemaVersion: SAVED_VIEW_SUPPORT.menuSchemaVersion,
     context: livePeriod, page: [['trendItem', 'cfg-000000'], ['equipment', 'EQ01,EQ03']], chartOptions: {}, layout: null,
-    panels: { version: 1, instances: [
-      { id: 'matrix', source: { kind: 'declared', panel: 'matrix' }, inputs: [], outputs: [] },
-      { id: liveSlot, source: { kind: 'declared', panel: 'hw-time/trend' }, inputs: [], outputs: [] },
-      { id: copySlot, source: { kind: 'declared', panel: 'hw-time/trend' }, outputs: [],
-        inputs: [{ key: 'time', from: 'matrix.time', mode: 'hold', value: { shape: 'range', ...heldPeriod } }] },
-    ] },
+    panels: null,
   });
-  const { views, menuQuery } = await mountHwTimeComparison({ savedViews: createFakeSavedViewStore([broken]) });
+  assert(broken.kind === 'menu-view');
+  const savedViews = createFakeSavedViewStore([broken]);
+  // The server adds this flag when reading an invalid graph and drops it once the graph is replaced.
+  vi.spyOn(savedViews, 'get').mockResolvedValueOnce({ view: { ...broken, panelsUnreadable: true }, capabilities: testViewCapabilities });
+  const { views, menuQuery } = await mountHwTimeComparison({ savedViews });
+  const trendRequests = () => menuQuery.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id);
   menuQuery.mockClear();
   await act(async () => { expect(await views().select(broken.id)).toMatchObject({ ok: true }); });
   await vi.waitFor(() => {
     expectSlotRequest(liveSlot, livePeriod);
     expect(hwTimeSlot(copySlot)?.textContent).toContain('붙잡은 기간을 열 수 없습니다.');
   });
-  expect(menuQuery.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id)).toHaveLength(1);
+  expect(trendRequests()).toHaveLength(1);
   await clickWorkspaceButton('따라가기로 바꾸기');
   await vi.waitFor(() => expectSlotRequest(copySlot, livePeriod));
   expectSlotRequest(liveSlot, livePeriod);
-  expect(menuQuery.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id)).toHaveLength(2);
+  expect(trendRequests()).toHaveLength(2);
+  await act(async () => {
+    const saved = await views().saveToSelected();
+    expect(saved).toMatchObject({ ok: true, value: { view: { id: broken.id, panels: { version: 1 } } } });
+    if (saved.ok && saved.value.view.kind === 'menu-view') {
+      expect(saved.value.view.panels?.instances.map(instance => instance.id)).toEqual(['matrix', liveSlot, copySlot]);
+    }
+  });
+
+  await clickWorkspaceButton('HW Time 추세 닫기');
+  await clickWorkspaceButton('HW Time 비교 닫기');
+  expect(hwTimeSlot(liveSlot)).toBeNull();
+  expect(hwTimeSlot(copySlot)).toBeNull();
+  menuQuery.mockClear();
+  await act(async () => { expect(await views().select(broken.id)).toMatchObject({ ok: true }); });
+  await vi.waitFor(() => {
+    expectSlotRequest(liveSlot, livePeriod);
+    expectSlotRequest(copySlot, livePeriod);
+  });
+  expect(trendRequests()).toHaveLength(2);
 });
 
 it('keeps the original date pick and Configuration highlight when the held comparison responds and closes', async () => {

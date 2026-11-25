@@ -93,12 +93,11 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
   const m = useMessages(MESSAGES);
   const matrixRoot = useRef<HTMLDivElement>(null);
   const returnHwTrendFocus = useRef(false);
-  const hwPanels = useHwTimePanels(JSON.stringify([session.user.id, revision, global.scopeId]));
-  const { original, comparison } = hwPanels;
   const hwKey = pageParam(HW_TREND_ITEM_KEY);
   // Both slots follow the URL target. A saved graph or a close while comparing controls which slots use it.
   const target = hwKey === HW_TREND_CLOSED ? null : hwKey ?? itemId;
-  const originalOpen = original === 'open' || (original === 'page' && target !== null);
+  const hwPanels = useHwTimePanels(JSON.stringify([session.user.id, revision, global.scopeId]), { pageHasOriginal: target !== null });
+  const { originalOpen, comparison } = hwPanels;
   const hwItem = originalOpen ? target : null;
   const mappingItem = comparison ? target : hwItem;
   const canMap = mappingItem !== null && registry.has('hw-time');

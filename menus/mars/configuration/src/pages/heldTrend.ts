@@ -19,11 +19,11 @@ const source = { kind: 'declared', panel: HW_TIME_TREND } as const;
 const matrixId = configurationPanels.matrix.id;
 const timeSource = `${matrixId}.${TIME.key}`;
 
-function savedPanels({ original, comparison }: HwTimePanels): MenuViewPanels | null {
+function savedPanels({ original, comparison }: HwTimePanels, { originalOpen }: { originalOpen: boolean }): MenuViewPanels | null {
   if (comparison?.mode === 'unreadable' || (comparison === null && original === 'page')) return null;
   const matrix: PanelInstance = { id: matrixId, source: { kind: 'declared', panel: matrixId }, inputs: [], outputs: [] };
   const instances = [matrix];
-  if (original === 'open') instances.push({ id: HW_TIME_PANEL_ID, source, inputs: [], outputs: [] });
+  if (originalOpen) instances.push({ id: HW_TIME_PANEL_ID, source, inputs: [], outputs: [] });
   if (!comparison) return { version: 1, instances };
   const copy: PanelInstance = { id: HW_TIME_COMPARISON_ID, source, inputs: [], outputs: [] };
   if (comparison.mode === 'hold') {
@@ -57,11 +57,12 @@ function restorePanels(outcome: SavedViewPanelsOutcome): HwTimePanels {
   return { original: original ? 'open' : 'closed', comparison: restoreComparison(outcome.instances) };
 }
 
-export function useHwTimePanels(owner: string) {
+export function useHwTimePanels(owner: string, { pageHasOriginal }: { pageHasOriginal: boolean }) {
   const [state, setState] = useState({ owner, panels: pagePanels });
   const panels = state.owner === owner ? state.panels : pagePanels;
   if (state.owner !== owner) setState({ owner, panels: pagePanels });
-  const value = useMemo(() => savedPanels(panels), [panels]);
+  const originalOpen = panels.original === 'open' || (panels.original === 'page' && pageHasOriginal);
+  const value = useMemo(() => savedPanels(panels, { originalOpen }), [panels, originalOpen]);
   function update(edit: (current: HwTimePanels) => HwTimePanels) {
     setState(current => {
       if (current.owner !== owner) return current;
@@ -71,7 +72,8 @@ export function useHwTimePanels(owner: string) {
   }
   useSavedViewPanels({ value, onOpen: outcome => update(() => restorePanels(outcome)) });
   return {
-    ...panels,
+    originalOpen,
+    comparison: panels.comparison,
     openOriginal: () => update(current => current.comparison ? { ...current, original: 'open' } : pagePanels),
     closeOriginal: () => update(current => current.comparison ? { ...current, original: 'closed' } : pagePanels),
     hold: (selection: HeldAnalysisSelection['selection']) => update(() => ({
