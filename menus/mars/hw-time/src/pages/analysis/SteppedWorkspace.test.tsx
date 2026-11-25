@@ -79,6 +79,40 @@ describe('HW Time saved view panels', () => {
     expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: [table, source] } } } });
   });
 
+  const heldTable = (id: string, from = 'held-source.motionEquipment'): PanelInstance => ({ id, source: { kind: 'declared', panel: 'table' }, outputs: [],
+    inputs: [{ key: 'motionEquipment', from, mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] } }] });
+  const equipmentSource = (dimension = EQUIPMENT_SELECTION_DIMENSION): PanelInstance => ({ id: 'held-source', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+    outputs: [{ key: 'motionEquipment', dimension, shape: 'set' }] });
+  const tableReads = () => requests.filter(request => ['hwTime.levelRows', 'hwTime.tableRows'].includes(request.endpoint));
+
+  it('reads each restored raw table on its own: one follows the URL, one keeps its equipment (#2862 R C4)', async () => {
+    const instances = [makeInstance('table'), heldTable('kept'), equipmentSource()];
+    await mount(createFakeSavedViewStore([saved({ panels: { version: 1, instances } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0103');
+    await open('saved');
+    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1'])));
+    expect(screen.getByRole('tab', { name: 'saved-panel-1' }).getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
+    expect(screen.getByRole('tab', { name: 'table' }).getAttribute('aria-description') ?? '').not.toContain('붙잡음');
+    await waitFor(() => {
+      const equipment = new Set(tableReads().map(read => (read.params as { motionEquipment?: string[] }).motionEquipment?.join()));
+      expect(equipment).toEqual(new Set(['MEM-PHOTO-0103', 'MEM-PHOTO-0105']));
+    });
+    const result = await act(() => views.saveAs({ name: 'Two', kind: 'menu-view' }));
+    expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances } } } });
+  });
+
+  it('does not apply a held value whose saved source is another dimension, and saves it back unchanged (#2862 R C6)', async () => {
+    const instances = [heldTable('table'), equipmentSource('module')];
+    await mount(createFakeSavedViewStore([saved({ panels: { version: 1, instances } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0103');
+    await open('saved');
+    expect(await screen.findByText('붙잡은 설비 선택을 적용할 수 없어 표를 거르지 않았습니다.')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'table' }).getAttribute('aria-description')).toBe('붙잡은 설비 선택을 적용할 수 없어 표를 거르지 않았습니다.');
+    await settle();
+    // Neither the held value nor the URL selection filters it.
+    expect(tableReads().every(read => (read.params as { motionEquipment?: string[] }).motionEquipment === undefined)).toBe(true);
+    const result = await act(() => views.saveAs({ name: 'Other', kind: 'menu-view' }));
+    expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances } } } });
+  });
+
   it('renders a reason in the missing slot and renders the other panels', async () => {
     await mount(createFakeSavedViewStore([saved()]));
     await open('saved');

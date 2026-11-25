@@ -131,6 +131,20 @@ describe('saved panel instances (#2760)', () => {
     expect(readMenuViewPanels(raw)).toEqual({ status: 'ok', panels: raw });
   });
 
+  // #2862 (HW Time): a held raw table names an output-only source instance the menu saves under a reserved id; the server reads it back as is.
+  it('round-trips a held raw table and its output-only source the way HW Time saves them', () => {
+    const hwTime = { version: 1, instances: [
+      { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+        inputs: [{ key: 'motionEquipment', from: 'held-source.motionEquipment', mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] } }] },
+      { id: 'held-source', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [{ key: 'motionEquipment', dimension: 'equipmentId', shape: 'set' }] },
+    ] };
+    const draft = { ...menuDraft, panels: JSON.parse(JSON.stringify(hwTime)) };
+    expect(validateSavedView(draft)).toMatchObject({ ok: true, value: { panels: hwTime } });
+    expect(savedViewDraftSchema.parse(draft)).toMatchObject({ panels: hwTime });
+    expect(savedViewPatchSchema.parse({ panels: hwTime }).panels).toEqual(hwTime);
+    expect(update(hwTime).success).toBe(true);
+  });
+
   it('refuses own "__proto__" and "constructor" keys in a closed chart config, like the SDK (#2745)', () => {
     for (const extra of ['"constructor": "kind"', '"__proto__": {"enabled": true}']) {
       const config = JSON.parse(`{"version": 1, "kind": "line", "x": {"field": "t", "type": "time"}, "measures": [{"field": "m"}], ${extra}}`);
