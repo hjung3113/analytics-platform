@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useContext, useLayoutEffect, useMemo, useState } from 'react';
 import { ChevronDown, X } from 'lucide-react';
 import { Button, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger, cn } from '@ap/ui';
 import { useI18n, useMessages, usePlatform, type Text } from '@ap/kernel';
@@ -6,6 +6,7 @@ import { SegmentedRadio } from '../RadioGroup';
 import type { PageKeyRule } from '../table/tableUrlWarning';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { focusPageFallback } from '../state/pageFocus';
+import { DockChartToolbarWidth } from '../dock/DockChartHead';
 
 /** One value of a `choice` option. `chip` is the header chip text when this value is set (default: `label`). */
 export type PanelOptionChoice = { value: string; label: Text; chip?: Text };
@@ -108,7 +109,9 @@ export function PanelOptions({ options, values, onChange, collapsed, collapseBel
   const m = useMessages(COMPONENTS_MESSAGES);
   const { lang } = useI18n();
   const shown = options.filter(option => !option.hidden);
-  const { anchor, width } = useScopeWidth(collapsed === undefined);
+  const stripWidth = useContext(DockChartToolbarWidth);
+  const { anchor, width: inlineWidth } = useScopeWidth(collapsed === undefined && stripWidth === undefined);
+  const width = stripWidth === undefined ? inlineWidth : stripWidth;
   if (shown.length === 0) return null;
   const folded = collapsed ?? (width !== null && width < collapseBelow);
   const valueOf = (option: PanelOption) => values[option.id] ?? defaultOf(option);

@@ -11,10 +11,10 @@
 | Prop | 기본값 | 동작 |
 | --- | --- | --- |
 | `legendPlacement?: 'top' \| 'bottom' \| 'side'` | `bottom` | 플롯 위/아래 가로 줄(좁으면 줄바꿈, 최대 80px) 또는 오른쪽 세로 목록 |
-| `toolsReveal?: 'always' \| 'hover'` | `always` | 상시 표시 또는 차트 hover/focus-within 때 표시. 키보드·AT 접근을 유지하며 더보기가 열려 있는 동안에도 표시. Frame에서 `headingInToolbar`를 켜거나 `toolbarStart`를 주면 합쳐진 도구 줄은 상시 표시 |
+| `toolsReveal?: 'always' \| 'hover'` | `always` | 상시 표시 또는 차트 hover/focus-within 때 표시. 키보드·AT 접근을 유지하며 더보기가 열려 있는 동안에도 표시. 카드 안에 도구 줄을 두는 Frame에서 `headingInToolbar`를 켜거나 `toolbarStart`를 주면 도구 줄은 상시 표시 |
 | `legendCaption?: ReactNode` | 없음 | 위/아래 범례 줄 끝, 오른쪽 범례 목록 아래에 캡션 표시 |
 
-Frame에서 `headingInToolbar`는 제목을 도구 줄에, `toolbarStart`는 패널 설정 같은 컨트롤을 도구 앞에 놓는다. `extraActions`는 `full`에서도 더보기에 놓인다. 빠른 구간은 선택 요약에서 쓴다. 지점 선택·추가는 더보기에서 할 수 있다. `full`에서 드릴·지점 동작·상태·세로 경계를 제공하면 지점 선택기는 도구 줄 아래에 있다. `pointClickHint`는 소스 호환용이며 SDK가 가능한 조작을 안내한다.
+카드 안 도구 줄에서 `headingInToolbar`는 제목을 도구 줄에, `toolbarStart`는 패널 설정 같은 컨트롤을 도구 앞에 놓는다. 도킹 머리의 설정과 도구 표시 방식은 [차트 계약 §16](../../../../docs/contract/chart.md#16-analysis-chart-contract)을 따른다. `extraActions`는 `full`에서도 더보기에 놓인다. 지점 선택·추가는 더보기에서 할 수 있다. `full`에서 드릴·지점 동작·상태·세로 경계를 제공하면 지점 선택기는 도구 줄 아래에 있다. `pointClickHint`는 소스 호환용이며 SDK가 가능한 조작을 안내한다.
 
 ## Chart Frame
 

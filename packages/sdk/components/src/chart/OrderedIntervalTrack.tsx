@@ -1,3 +1,4 @@
+import { useDockChartHead } from '../dock/DockChartHead';
 import {
   useCallback,
   useContext,
@@ -81,6 +82,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   const [hover, setHover] = useState<{ item: OrderedTrackItem; x: number; y: number } | null>(null);
   const helpId = useId();
   const summaryId = useId();
+  useDockChartHead(summaryId, { acceptsHead: false });
   const tooltip = useRef<HTMLDivElement>(null);
   const kind = props.state?.kind ?? 'ready';
   const restricted =

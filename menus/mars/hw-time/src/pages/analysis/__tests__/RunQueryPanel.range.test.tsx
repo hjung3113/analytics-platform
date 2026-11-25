@@ -51,10 +51,11 @@ it('publishes a range from the analysis trend panel to the menu URL and chip zon
   </PlatformProvider></I18nProvider>);
   const chart = within(await screen.findByRole('region', { name: '추세' }));
   fireEvent.click(await chart.findByRole('button', { name: '구간 선택' }));
-  fireEvent.click(chart.getByRole('button', { name: '선택' }));
+  const editor = screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
+  fireEvent.click(within(editor).getByRole('button', { name: '선택' }));
   expect(new URLSearchParams(window.location.search).get('trendRange')).toBe('09-23/09-25');
   expect(screen.getByRole('button', { name: '날짜 09-23 – 09-25' })).toBeTruthy();
-  expect(chart.queryByRole('group', { name: '시작과 끝으로 구간 선택' })).toBeNull();
+  expect(screen.queryByRole('dialog', { name: '시작과 끝으로 구간 선택' })).toBeNull();
 });
 
 it('places the trend selection row after both charts at the panel bottom', async () => {

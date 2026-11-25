@@ -75,7 +75,7 @@ describe('category keyboard selection (#2024)', () => {
     fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     fireEvent.click(screen.getByRole('combobox', { name: '구간 시작' }));
     fireEvent.click(await screen.findByRole('option', { name: 'b' }));
-    fireEvent.click(within(summary()).getByRole('button', { name: '선택' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '선택' }));
     expect(summary().textContent).toContain('선택 구간: b – c');
     expect(within(summary()).getByRole('button', { name: 'act b-c' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '주석' }).hasAttribute('disabled')).toBe(false);
@@ -160,6 +160,7 @@ describe('review fix round (#2020 FIX1)', () => {
     view.rerender(tree({ series: [{ ...A, points: [['c', 3], ['b', 2], ['a', 1]] }], xType: 'category' }));
     expect(summary().textContent).toContain('선택 구간: c – b');
     expect(summary().textContent).toContain('A: n=2');
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     fireEvent.click(screen.getByRole('combobox', { name: '구간 끝' }));
     expect((await screen.findAllByRole('option')).map(o => o.textContent)).toContain('b');
     expect((await screen.findAllByRole('option')).map(o => o.textContent)).toContain('c');
@@ -198,9 +199,9 @@ describe('review fix round (#2020 FIX1)', () => {
 
 describe('category keyboard walk (#2024, FIX1 C4)', () => {
   it.each([
-    ['fill vertical', { size: 'fill' as const }, true],
-    ['horizontal', { orientation: 'horizontal' as const }, false],
-  ])('sets both endpoints and confirms with the keyboard only: %s', async (_name, extra, focusMoves) => {
+    ['fill vertical', { size: 'fill' as const }],
+    ['horizontal', { orientation: 'horizontal' as const }],
+  ])('sets both endpoints and confirms with the keyboard only: %s', async (_name, extra) => {
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
     const user = userEvent.setup();
     render(tree({ series: [A], xType: 'category', ...extra, selectionActions: s => <button type="button">act {s.from}-{s.to}</button> }));
@@ -211,9 +212,6 @@ describe('category keyboard walk (#2024, FIX1 C4)', () => {
     expect(document.activeElement).toBe(brushButton);
     await user.keyboard('{Enter}');
     const start = screen.getByRole('combobox', { name: '구간 시작' });
-    // Only a fill card moves focus to the start select (the form may sit below the fold); other sizes keep focus on Brush and the form is the next stops.
-    if (focusMoves) expect(document.activeElement).toBe(start);
-    else for (let i = 0; i < 20 && document.activeElement !== start; i++) await user.tab();
     expect(document.activeElement).toBe(start);
     await user.keyboard('{Enter}');
     await user.click(await screen.findByRole('option', { name: 'b' }));
@@ -221,7 +219,7 @@ describe('category keyboard walk (#2024, FIX1 C4)', () => {
     expect(document.activeElement).toBe(screen.getByRole('combobox', { name: '구간 끝' }));
     await user.keyboard('{Enter}');
     await user.click(await screen.findByRole('option', { name: 'c' }));
-    const choose = within(summary()).getByRole('button', { name: '선택' });
+    const choose = within(screen.getByRole('dialog')).getByRole('button', { name: '선택' });
     for (let i = 0; i < 5 && document.activeElement !== choose; i++) await user.tab();
     expect(document.activeElement).toBe(choose);
     await user.keyboard('{Enter}');

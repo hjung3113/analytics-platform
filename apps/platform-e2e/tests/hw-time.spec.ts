@@ -7,6 +7,10 @@ const SCREEN = '/mars/hw-time?v=1&scopeId=MEM';
 const TWO_DAYS = '&from=2026-09-24T00:00:00&to=2026-09-26T00:00:00';
 const workspace = (page: Page) => page.getByRole('region', { name: 'HW Time 분석 영역', exact: true });
 const panel = (page: Page, id: string) => workspace(page).locator(`[data-dock-panel="${id}"]`);
+const chartMore = (page: Page, id: string) => {
+  const head = workspace(page).locator(`[data-dock-group-actions][data-dock-active="${id}"]`);
+  return head.or(panel(page, id)).getByRole('button', { name: '더보기', exact: true });
+};
 const node = (page: Page, id: string) => panel(page, 'tree').locator(`[role="treeitem"][data-id="${id}"]`).first();
 async function drill(page: Page, id: string) {
   await node(page, id).getByText(id.split('/').at(-1)!, { exact: true }).click();
@@ -16,7 +20,7 @@ async function add(page: Page, title: string) {
   await page.getByRole('menuitem', { name: title, exact: true }).click();
 }
 async function activatePoint(page: Page, row: string) {
-  await panel(page, 'current').getByRole('button', { name: '더보기', exact: true }).click();
+  await chartMore(page, 'current').click();
   const tools = page.getByRole('dialog', { name: '더보기', exact: true });
   const picker = tools.getByRole('combobox', { name: '차트 지점 선택' });
   const option = picker.locator('option').filter({ hasText: row }).first();
@@ -53,7 +57,7 @@ test.describe('HW Time analysis selection', () => {
     await expect(tableTab).not.toHaveAttribute('aria-description', /필터됨/);
 
     const chartTab = workspace(page).getByRole('tab', { name: 'PM1 · Motion별', exact: true });
-    const more = panel(page, 'moduleMotions').getByRole('button', { name: '더보기', exact: true });
+    const more = chartMore(page, 'moduleMotions');
     await chartTab.click();
     await more.press('Enter');
     const tools = page.getByRole('dialog', { name: '더보기', exact: true });
@@ -117,7 +121,7 @@ test.describe('분석 선택 메뉴 간 링크 (#2735)', () => {
     const trend = panel(page, 'trend').getByRole('region', { name: '추세', exact: true });
     await expect(trend.getByRole('img', { name: /^추세:/ })).toBeVisible();
     await trend.getByRole('button', { name: '구간 선택', exact: true }).press('Enter');
-    const rangeForm = trend.getByRole('group', { name: '시작과 끝으로 구간 선택' });
+    const rangeForm = page.getByRole('dialog', { name: '시작과 끝으로 구간 선택', exact: true });
     await rangeForm.getByRole('combobox', { name: '구간 끝' }).click();
     await page.getByRole('option', { name: '09-24', exact: true }).click();
     await rangeForm.getByRole('button', { name: '선택', exact: true }).click();
@@ -128,7 +132,7 @@ test.describe('분석 선택 메뉴 간 링크 (#2735)', () => {
     const matrixTab = workspace(page).getByRole('tab', { name: 'PM1 · Motion별', exact: true });
     await matrixTab.click();
     const matrix = panel(page, 'moduleMotions');
-    await matrix.getByRole('button', { name: '더보기', exact: true }).press('Enter');
+    await chartMore(page, 'moduleMotions').press('Enter');
     const tools = page.getByRole('dialog', { name: '더보기', exact: true });
     const picker = tools.getByRole('combobox', { name: '차트 지점 선택' });
     // The equipment ids depend on the mock assembly (EQ-… locally, MEM-… in CI), so take the first point and read its id.

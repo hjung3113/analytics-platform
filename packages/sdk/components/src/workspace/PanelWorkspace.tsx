@@ -752,7 +752,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
           }}
           onActivate={id => { update(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current), 'raw'); }}
           maximizedPanelId={maximizedId} onMaximizedChange={requestMaximized}
-          renderGroupActions={groupActions}
+          renderGroupActions={groupActions} mergeChartHead
           separatorLabel={info => info.after.length === 0 ? m('workspaceSeparatorRowBottom', { before: titleOf(info.before[0]!) }) : m(info.dir === 'row' ? 'workspaceSeparatorColumns' : 'workspaceSeparatorRows', { before: titleOf(info.before[0]!), after: titleOf(info.after[0]!) })}
           narrow={compactSpec ? false : narrow} />
       </div>

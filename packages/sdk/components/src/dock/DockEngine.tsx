@@ -15,6 +15,7 @@ import { groupOf } from './commands';
 import { DockSeparators, type DockRect } from './DockSeparators';
 import type { DockLayoutProps, DockPanel, DockRows, DockFloating } from './dockTypes';
 import { fromEngineLayout, keepStoredSizes, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
+import { DockChartHeadProvider, DockChartLayoutActionsSlot, DockChartMaximizeTarget, DockChartPaneEngaged, DockChartPaneId, useDockChartSlot } from './DockChartHead';
 import { PanelBoundary } from './PanelBoundary';
 import { WorkspacePanelVisibleContext } from '../workspace/panelContext';
 import { PageBoundContext, PageFlowContext } from '../pageFlow';
@@ -35,6 +36,8 @@ export type DockEngineProps = Pick<DockLayoutProps, 'panels' | 'layout' | 'onLay
   onActivate: (panelId: string) => void;
   containerRef: RefObject<HTMLElement | null>;
   instanceId: string;
+  /** The header host supplies the layout actions for the combined chart head. */
+  mergeChartHead: boolean;
   /** Row mode (see `DockRows`); absent = the layout fills its container. */
   rows?: DockRows;
   floating?: DockFloating;
@@ -50,6 +53,7 @@ type Context = {
   renderTab: DockEngineProps['renderTab'];
   renderGroupActions: DockEngineProps['renderGroupActions'];
   renderGroupTabsEnd: DockEngineProps['renderGroupTabsEnd'];
+  mergeChartHead: boolean;
   tabA11y: DockEngineProps['tabA11y'];
   /** Counts the reconciles: the engine rebuilds tab elements in one, so what is set on them from outside is set again. */
   reconciles: number;
@@ -73,6 +77,15 @@ function PanelHost({ api }: IDockviewPanelProps) {
   const parentVisible = useContext(WorkspacePanelVisibleContext);
   const visible = engine.visible.has(id);
   const panel = engine.panels.get(id);
+  // The retained body is outside its header strip and can contain controls beside the chart.
+  const trackEngagement = engine.mergeChartHead && parentVisible && visible;
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
+  useLayoutEffect(() => {
+    if (!engine.mergeChartHead || trackEngagement) return;
+    setHovered(false);
+    setFocused(false);
+  }, [engine.mergeChartHead, trackEngagement]);
   const sourceHighlighted = useAnalysisSelectionSourceHighlighted(panel?.analysisSelectionSourceId ?? id);
   const content = useRef<HTMLDivElement>(null);
   const fitPeek = engine.floating?.peekId === id;
@@ -97,7 +110,17 @@ function PanelHost({ api }: IDockviewPanelProps) {
     return () => { observer.disconnect(); };
   }, [api, fitPeek, peekHeightFloor, engine.reconciles]);
   return <div id={`${engine.instanceId}-panel-${id}`} data-dock-panel={id} data-dock-visible={visible} data-analysis-source-highlighted={visible && sourceHighlighted ? '' : undefined} inert={!visible} tabIndex={-1} className="h-full min-h-0 min-w-0 scrollbar-panel overflow-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring"
+    onPointerOver={trackEngagement ? event => {
+      if (event.target instanceof Node && event.currentTarget.contains(event.target)) setHovered(true);
+    } : undefined}
+    onPointerOut={trackEngagement ? event => {
+      if (event.currentTarget.contains(event.target as Node) && !(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) setHovered(false);
+    } : undefined}
+    onBlur={trackEngagement ? event => {
+      if (event.currentTarget.contains(event.target) && !event.currentTarget.contains(event.relatedTarget)) setFocused(false);
+    } : undefined}
     onFocus={event => {
+      if (trackEngagement && event.currentTarget.contains(event.target)) setFocused(true);
       // Focus moving into the panel from outside it is the user choosing the panel. Not: focus the dock itself moved, or an event of a nested
       // layout (its panel belongs to that layout's `onActivate`).
       if (isProgrammaticFocus()) return;
@@ -106,7 +129,7 @@ function PanelHost({ api }: IDockviewPanelProps) {
       if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) engine.onActivate(id);
     }}>
     {/* A panel is a page-flow boundary: a workspace stacked inside it scrolls inside the panel and never changes the page around the dock. */}
-    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><WorkspacePanelVisibleContext.Provider value={parentVisible && visible}><div ref={content} data-dock-panel-content className="h-full min-w-0 w-full"><PanelBoundary render={panel?.render} /></div></WorkspacePanelVisibleContext.Provider></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
+    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><WorkspacePanelVisibleContext.Provider value={parentVisible && visible}><div ref={content} data-dock-panel-content className="h-full min-w-0 w-full"><DockChartPaneId.Provider value={engine.mergeChartHead ? id : null}><DockChartPaneEngaged.Provider value={trackEngagement && (hovered || focused)}><PanelBoundary render={panel?.render} /></DockChartPaneEngaged.Provider></DockChartPaneId.Provider></div></WorkspacePanelVisibleContext.Provider></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
   </div>;
 }
 
@@ -141,10 +164,22 @@ const HEADER_HEIGHT = 42;
 function GroupActions({ activePanel, panels }: IDockviewHeaderActionsProps) {
   const engine = useEngine();
   const slot = useRef<HTMLDivElement>(null);
-  const [stripWidth, setStripWidth] = useState(0);
+  const [stripWidth, setStripWidth] = useState<number>();
   const anchor = activePanel?.id ?? panels[0]?.id;
-  const group = engine.renderGroupActions && anchor ? groupOf(engine.display, anchor) ?? (engine.floating?.panels.some(panel => panel.panelId === anchor) ? { type: 'group' as const, panels: panels.map(panel => panel.id), active: anchor } : undefined) : undefined;
-  const drawn = group !== undefined;
+  const { display, floating, renderGroupActions } = engine;
+  const group = useMemo(() => renderGroupActions && anchor ? groupOf(display, anchor) ?? (floating?.panels.some(panel => panel.panelId === anchor) ? { type: 'group' as const, panels: panels.map(panel => panel.id), active: anchor } : undefined) : undefined,
+    [anchor, display, floating, renderGroupActions, panels]);
+  const chart = useDockChartSlot(engine.mergeChartHead && panels.length === 1 && anchor && engine.visible.has(anchor) ? anchor : undefined, 'toolbar');
+  const drawn = group !== undefined || chart.singleChart;
+  const { publishStripWidth } = chart;
+  const chartStripWidth = chart.singleChart ? stripWidth : undefined;
+  useLayoutEffect(() => {
+    if (chartStripWidth === undefined) return;
+    publishStripWidth(chartStripWidth);
+    return () => { publishStripWidth(undefined); };
+  }, [publishStripWidth, chartStripWidth]);
+  // Registering the workspace actions changes the chart context; keep the host's action props stable across that update.
+  const actions = useMemo(() => group && renderGroupActions?.(group, { stripWidth: stripWidth ?? 0 }), [group, renderGroupActions, stripWidth]);
   // The header strip is the slot's container; its width is what the host fits the tabs and its own content into.
   useLayoutEffect(() => {
     const strip = slot.current?.closest<HTMLElement>('.dv-tabs-and-actions-container');
@@ -158,8 +193,15 @@ function GroupActions({ activePanel, panels }: IDockviewHeaderActionsProps) {
     observer?.observe(strip);
     return () => { observer?.disconnect(); root?.removeEventListener(RESIZE_END, measure); };
   }, [drawn]);
-  if (!engine.renderGroupActions || !group) return null;
-  return <div ref={slot} data-dock-group-actions data-dock-active={group.active} className="flex h-full min-w-0 items-center">{engine.renderGroupActions(group, { stripWidth })}</div>;
+  if (!drawn) return null;
+  return <div ref={slot} data-dock-group-actions data-dock-active={group?.active ?? anchor} data-dock-chart-head={chart.singleChart ? '' : undefined} className="flex h-full min-w-0 items-center">
+    {chart.singleChart && <div ref={chart.ref} className="min-w-0 flex-1" />}
+    <DockChartMaximizeTarget.Provider value={chart.singleChart ? chart.maximize : undefined}>
+      <DockChartLayoutActionsSlot.Provider value={chart.singleChart ? chart.registerLayoutActions : undefined}>
+        {actions}
+      </DockChartLayoutActionsSlot.Provider>
+    </DockChartMaximizeTarget.Provider>
+  </div>;
 }
 
 /** The host's slot right after the group's last tab (dockview's left header actions, which sit after the tab list). */
@@ -167,8 +209,12 @@ function GroupTabsEnd({ activePanel, panels }: IDockviewHeaderActionsProps) {
   const engine = useEngine();
   const anchor = activePanel?.id ?? panels[0]?.id;
   const group = engine.renderGroupTabsEnd && anchor ? groupOf(engine.display, anchor) : undefined;
-  if (!engine.renderGroupTabsEnd || !group) return null;
-  return <div data-dock-group-tabs-end data-dock-active={group.active} className="flex h-full min-w-0 items-center">{engine.renderGroupTabsEnd(group)}</div>;
+  const chart = useDockChartSlot(engine.mergeChartHead && panels.length === 1 && anchor && engine.visible.has(anchor) ? anchor : undefined, 'description');
+  if (!group && !chart.singleChart) return null;
+  return <div data-dock-group-tabs-end data-dock-active={group?.active ?? anchor} className="flex h-full min-w-0 items-center">
+    {chart.singleChart && <div ref={chart.ref} className="flex items-center empty:hidden" />}
+    {group && engine.renderGroupTabsEnd?.(group)}
+  </div>;
 }
 
 const COMPONENTS = { panel: PanelHost };
@@ -205,7 +251,7 @@ function readEngine(api: DockviewApi, stored: DockNode): { tree: DockNode; measu
 }
 
 export default function DockEngine({
-  panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, separatorLabel, canDropAt,
+  panels, layout, display, interactive, maximizedPanelId, visible, minPanelSize, onLayoutChange, onActivate, renderTab, renderGroupActions, renderGroupTabsEnd, mergeChartHead, tabA11y, separatorLabel, canDropAt,
   containerRef, instanceId, rows, floating,
 }: DockEngineProps) {
   const [api, setApi] = useState<DockviewApi | null>(null);
@@ -685,8 +731,8 @@ export default function DockEngine({
     const collect = (node: DockNode) => { if (node.type === 'group') active.add(node.active); else node.children.forEach(collect); };
     collect(canonicalDisplay);
     floating?.panels.forEach(panel => { active.add(panel.panelId); });
-    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, reconciles, moves, onActivate, floating };
-  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, renderGroupTabsEnd, tabA11y, reconciles, moves, onActivate, floating]);
+    return { instanceId, panels: panelMap, visible, active, focused: new Set(focusGroup), display: canonicalDisplay, renderTab, renderGroupActions, renderGroupTabsEnd, mergeChartHead, tabA11y, reconciles, moves, onActivate, floating };
+  }, [instanceId, panelMap, visible, focusedPanel, canonicalDisplay, renderTab, renderGroupActions, renderGroupTabsEnd, mergeChartHead, tabA11y, reconciles, moves, onActivate, floating]);
 
   // Separator keys change the layout without the engine having moved: the parent's answer is applied to the engine (or reverted if it ignores it).
   const separate = (next: DockNode) => {
@@ -696,7 +742,7 @@ export default function DockEngine({
     setEpoch(value => value + 1);
   };
 
-  return <EngineContext.Provider value={context}>
+  return <EngineContext.Provider value={context}><DockChartHeadProvider>
     <div ref={rowsWrapper} data-dock-rows={rows ? '' : undefined} className={rows ? 'h-(--dock-rows-box) w-full' : 'h-full w-full'} style={rowsTotal === undefined ? undefined : { '--dock-rows-height': `${rowsTotal}px`, '--dock-rows-box': `${rowsBox}px` } as CSSProperties}>
       <DockviewReact components={COMPONENTS} tabComponents={TAB_COMPONENTS} defaultTabComponent={DockTab} rightHeaderActionsComponent={GroupActions} leftHeaderActionsComponent={GroupTabsEnd}
         onReady={onReady} onWillDrop={onWillDrop} theme={dockTheme(prefersReducedMotion())} dndEdges={dockDndEdges} dropOverlayModel={dockDropOverlayModel} defaultRenderer="always" singleTabMode="fullwidth"
@@ -705,6 +751,6 @@ export default function DockEngine({
     {stripShown && <div ref={strip} data-dock-drop-below
       className={`sticky bottom-0 z-20 -mt-[72px] flex h-[72px] items-center justify-center rounded-lg border-2 border-dashed text-sm ${dropOver ? 'border-accent-primary bg-surface-row-hover text-text-primary' : 'border-border-strong bg-surface-card text-text-muted'}`}>{rows?.dropBelowLabel}</div>}
     {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} panelMinimums={panelMinimums} instanceId={instanceId} label={separatorLabel} onChange={separate} rows={rows} containerRef={containerRef} />}
-  </EngineContext.Provider>;
+  </DockChartHeadProvider></EngineContext.Provider>;
 }
 

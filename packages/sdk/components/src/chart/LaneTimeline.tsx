@@ -1,3 +1,4 @@
+import { useDockChartHead } from '../dock/DockChartHead';
 import type { ChartTrust } from '../state/trustFormat';
 import { useCallback, useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
 import { BrushIcon, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
@@ -90,6 +91,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const focused = (focusId ? model.byId.get(focusId) : undefined) ?? model.flat[0];
   const [hover, setHover] = useState<string | null>(null);
   const summaryId = useId(); const helpId = useId();
+  useDockChartHead(summaryId, { acceptsHead: false });
   const brush = useRangeBrush(props.rangeBrush);
   const [table, setTable] = useState(false);
   // The table page belongs to one `lanes` input: new lanes start again at the first page and drop the old reference (#2792 C6).

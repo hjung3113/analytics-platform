@@ -16,9 +16,11 @@ const frame = <AnalysisChartFrame chartId="panel" title="Chart" description="Cha
 const mount = (element = frame, mode: boolean | 'pane' = true) => render(<I18nProvider><InWorkspacePanelProvider value={mode}>{element}</InWorkspacePanelProvider></I18nProvider>);
 
 describe('Panel chart chrome', () => {
-  it('describes the ⓘ button with the chart description, without opening the tooltip (#2364)', () => {
+  it('describes the ⓘ button with the chart description and gestures, without opening the tooltip (#2364)', () => {
     mount();
-    expect(screen.getByRole('button', { name: '차트 설명' })).toHaveAccessibleDescription('Chart explanation');
+    expect(screen.getByRole('button', { name: '차트 설명' })).toHaveAccessibleDescription(
+      'Chart explanation 클릭으로 선택 · ⌘/Shift+클릭으로 추가 · 구간 선택을 켠 뒤 끌기',
+    );
   });
   it('keeps the Frame primary actions in one icon row and secondary actions in More with visible legends', () => {
     mount();
@@ -32,7 +34,7 @@ describe('Panel chart chrome', () => {
     expect(screen.getByRole('button', { name: '차트 설명' })).toBeVisible();
     expect(within(toolbar).getByRole('button', { name: '내보내기' })).toBeVisible();
     expect(screen.getByRole('group', { name: '범례' })).toBeVisible();
-    expect(screen.getByRole('region', { name: '선택 요약' })).toBeVisible();
+    expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
     fireEvent.click(within(toolbar).getByRole('button', { name: '더보기' }));
     const more = screen.getByRole('dialog');
     expect(within(more).queryByRole('button', { name: '내보내기' })).toBeNull();
@@ -101,7 +103,7 @@ describe('Panel chart chrome', () => {
     expect(screen.getByRole('table')).toBeVisible();
   });
 
-  it('keeps comparison and annotation on the toolbar, quick ranges in the summary, and images in Export', () => {
+  it('keeps comparison and annotation on the toolbar, quick ranges in Brush, and images in Export', () => {
     const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: 'G', en: 'G' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, label: { ko: 'Home', en: 'Home' }, description: { ko: '', en: '' }, path: '/', icon: House, permission: 'platform:view', requiresScope: false, context: noContext, pageType: 'analysis', query: { mode: 'live' as const }, features: { export: true, compare: true, annotate: true, savedView: false }, pageKeys: [] }] });
     const session = testSession(['platform:view', 'analytics:view']);
     const adapter = testAdapter({ session: () => session });
@@ -129,9 +131,10 @@ describe('Panel chart chrome', () => {
     expect(within(more).queryByRole('group', { name: '범례' })).toBeNull();
     expect(within(more).queryByRole('button', { name: '1시간' })).toBeNull();
     fireEvent.keyDown(more, { key: 'Escape' });
-    const summary = screen.getByRole('region', { name: '선택 요약' });
-    fireEvent.click(within(summary).getByRole('button', { name: '1시간' }));
-    expect(summary).toHaveTextContent('01:00');
+    fireEvent.click(within(toolbar).getByRole('button', { name: '구간 선택' }));
+    const editor = screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
+    fireEvent.click(within(editor).getByRole('button', { name: '1시간' }));
+    expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('01:00');
     expect(annotate).toBeEnabled();
   });
 

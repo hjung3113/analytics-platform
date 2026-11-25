@@ -252,7 +252,12 @@ describe('chart catalog route and lifetime', () => {
   });
   it.each(['line', 'bar'] as const)('%s preserves zoom, legend, table, selection and unaffected focus across layout', async kind => {
     mount(kind); await screen.findByRole('img');
-    click('비교'); click('확대'); click('선택'); click('표로 보기');
+    const brush = screen.getByRole('button', { name: '구간 선택' });
+    click('비교'); click('확대');
+    fireEvent.click(brush, { detail: 0 });
+    const editor = () => screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
+    fireEvent.click(within(editor()).getByRole('button', { name: '선택' }));
+    click('표로 보기');
     const dataTable = screen.getByRole('table', { name: /차트/ });
     const previousLegend = screen.getByRole('checkbox', { name: /이전 동일 기간/ }) as HTMLInputElement;
     fireEvent.click(previousLegend);
@@ -260,9 +265,12 @@ describe('chart catalog route and lifetime', () => {
     const init = canvas.init.mock.calls.length; expect(init).toBeGreaterThan(0);
     const fetches = query.mock.calls.length;
     click('동작·지원 열기');
-    const rangeStart = screen.getByRole('combobox', { name: '구간 시작' }); rangeStart.focus();
+    fireEvent.click(brush, { detail: 0 });
+    const rangeStart = within(editor()).getByRole('combobox', { name: '구간 시작' });
+    expect(document.activeElement).toBe(rangeStart);
     fireEvent.keyDown(screen.getByRole('separator'), { key: 'End' });
     expect(document.activeElement).toBe(rangeStart);
+    fireEvent.keyDown(editor(), { key: 'Escape' });
     click('동작·지원 접기'); click('집중'); click('집중');
     expect(screen.getByRole('table', { name: /차트/ })).toBe(dataTable);
     expect(previousLegend.checked).toBe(false);

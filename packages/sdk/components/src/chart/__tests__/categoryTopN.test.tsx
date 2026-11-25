@@ -131,7 +131,7 @@ it('does not send a synthetic Frame category to point selection or activation', 
   });
   expect(onActiveCategoryChange).not.toHaveBeenCalled();
   expect(onActivate).not.toHaveBeenCalled();
-  expect(screen.getByRole('region', { name: '선택 요약' })).not.toHaveTextContent('기타');
+  expect(screen.queryByRole('region', { name: '선택 요약' })).not.toBeInTheDocument();
   openTable();
   expect(screen.getByRole('cell', { name: '기타 (7개 범주 묶음)' })).toBeVisible();
   act(() => plot.onEvents?.dblclick?.({ ...event, dataIndex: 0 }, {} as never));

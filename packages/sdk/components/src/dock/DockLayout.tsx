@@ -58,6 +58,7 @@ function openGroupMenu(root: HTMLElement, tab: HTMLElement, rowMode: boolean, tr
   trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
   if (trigger.getAttribute('aria-expanded') !== 'true') trigger.click();
   // Radix opens a keyboard-opened menu on its first item; this is the safety net for a menu that did not.
+  // A popover focuses its first ordinary control instead.
   const focusFirst = (attempt: number) => {
     const menu = menuOf(trigger);
     if (!menu) { if (attempt < 10) setTimeout(() => { focusFirst(attempt + 1); }, 30); return; }
@@ -65,7 +66,7 @@ function openGroupMenu(root: HTMLElement, tab: HTMLElement, rowMode: boolean, tr
     const onItem = document.activeElement instanceof HTMLElement && menu.contains(document.activeElement) && document.activeElement.matches('[role^="menuitem"]');
     if (first && !onItem) first.focus({ preventScroll: true });
   };
-  setTimeout(() => { focusFirst(0); }, 0);
+  if (trigger.getAttribute('aria-haspopup') !== 'dialog') setTimeout(() => { focusFirst(0); }, 0);
   returnToTab(trigger, tab, root, rowMode);
 }
 
@@ -132,7 +133,7 @@ export function DockLayout(props: DockLayoutProps) {
 }
 
 /** Internal workspace capabilities: rows, reveal, floating and a narrow projection measured once outside the edge strips. */
-export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; reveal?: { panelId: string; seq: number } | null; floating?: import('./dockTypes').DockFloating; narrow?: boolean }) {
+export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; reveal?: { panelId: string; seq: number } | null; floating?: import('./dockTypes').DockFloating; narrow?: boolean; mergeChartHead?: boolean }) {
   const { rows, reveal, panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, renderGroupTabsEnd, separatorLabel, stackBelow, label, currentPanelId, tabA11y, canDropAt } = props;
   const { t } = useI18n();
   const instanceId = useId();
@@ -351,7 +352,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
       <Suspense fallback={<div role="status" aria-busy className="h-full w-full"><Skeleton className="h-full w-full" /></div>}>
         <DockEngine panels={panels} layout={layout} display={display} interactive={!narrow} maximizedPanelId={maximized} visible={visible} minPanelSize={minPanelSize}
           onLayoutChange={onLayoutChange} onActivate={activate} renderTab={renderTab} renderGroupActions={renderGroupActions} renderGroupTabsEnd={renderGroupTabsEnd} tabA11y={tabA11y} separatorLabel={separatorLabel} canDropAt={canDropAt}
-          containerRef={container} instanceId={instanceId} rows={narrow ? undefined : rows} floating={floating} />
+          containerRef={container} instanceId={instanceId} mergeChartHead={props.mergeChartHead ?? false} rows={narrow ? undefined : rows} floating={floating} />
       </Suspense>
     </ChunkLoadBoundary>
   </div>;

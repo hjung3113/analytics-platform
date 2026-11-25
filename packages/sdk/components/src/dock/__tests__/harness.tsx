@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { act, render } from '@testing-library/react';
 import { I18nProvider } from '@ap/kernel';
-import { DockLayout } from '../DockLayout';
+import { DockLayout, DockLayoutBase } from '../DockLayout';
 import type { DockLayoutProps, DockPanel } from '../dockTypes';
 import type { DockNode } from '../schema';
 
@@ -69,6 +69,7 @@ export function mountDock(options: {
   ids?: string[];
   inner?: (id: string) => ReactNode;
   props?: Partial<DockLayoutProps>;
+  mergeChartHead?: boolean;
   maximized?: string | null;
   /** True (default): the parent stores what the layout reports. False: a parent that ignores every change. */
   controlled?: boolean;
@@ -78,6 +79,7 @@ export function mountDock(options: {
   const controls = {} as Controls;
   const build = (suffix: string): DockPanel[] => ids.map(id => ({ id, title: `패널 ${id}${suffix}`, render: () => <Counter id={id}>{options.inner?.(id)}</Counter> }));
   const panels = build('');
+  const Layout = options.mergeChartHead ? DockLayoutBase : DockLayout;
   function Harness() {
     const [suffix, setSuffix] = useState('');
     const current = useMemo(() => (suffix === '' ? panels : build(suffix)), [suffix]);
@@ -89,7 +91,7 @@ export function mountDock(options: {
       controls.setTitleSuffix = next => { act(() => { setSuffix(next); }); };
       controls.current = () => ({ layout, maximized });
     });
-    return <DockLayout panels={current} layout={layout} maximizedPanelId={maximized}
+    return <Layout mergeChartHead={options.mergeChartHead ?? false} panels={current} layout={layout} maximizedPanelId={maximized}
       onLayoutChange={next => { calls.layout.push(next); if (options.controlled !== false) setLayout(next); }}
       onActivate={id => { calls.activate.push(id); }}
       onMaximizedChange={id => { calls.maximized.push(id); setMaximized(id); }}

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode, Ref } from 'react';
 import { Download, MoreHorizontal, Table2 } from 'lucide-react';
 import { useI18n, useMessages } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { DockChartCloseMore, type DockChartLayoutActions } from '../dock/DockChartHead';
 import { chartToolVariant } from './chartChrome';
 
 type Props = {
@@ -22,32 +23,60 @@ type Props = {
   onSecondaryOpenChange?: (open: boolean) => void;
   reserveCorner?: boolean;
   compact?: boolean;
+  dockMaximize?: ReactNode;
+  dockLayoutActions?: DockChartLayoutActions | undefined;
+  dockToolsRevealed?: boolean;
   toolsReveal?: 'always' | 'hover';
 };
 
 export function ChartInteractionToolbar(p: Props) {
   const m = useMessages(COMPONENTS_MESSAGES);
-  return <header data-tools-reveal={p.toolsReveal} className={cn(
+  const handedOffFocus = useRef(false);
+  const docked = p.dockMaximize !== undefined;
+  const exportMenu = p.exportCsv && <ChartExportMenu compact={p.compact} exportCsv={p.exportCsv} tools={p.exportTools} />;
+  return <header data-dock-chart-options={docked && p.start != null ? '' : undefined} data-tools-reveal={p.toolsReveal} className={cn(
     'flex shrink-0 items-center gap-1 break-keep',
     p.compact ? 'min-w-0 px-2 pt-1' : 'flex-wrap px-4 pt-3',
+    docked && 'gap-3 py-0 ps-2 pe-1',
     p.reserveCorner && 'pr-12',
     p.toolsReveal === 'hover' && !p.secondaryOpen && 'opacity-0 group-hover/chart:opacity-100 group-focus-within/chart:opacity-100',
   )}>
     {p.heading}
-    {p.start != null && <div data-chart-toolbar-start className={cn('flex items-center gap-1', p.compact ? 'min-w-0 flex-1' : 'flex-auto')}>{p.start}</div>}
-    <div role="toolbar" aria-label={m('chartActions')} data-reveal-x={p.compact ? '' : undefined} className={cn(
+    {p.start != null && <div data-chart-toolbar-start className={cn('flex items-center gap-1', p.compact ? 'min-w-0 flex-1' : 'flex-auto', docked && 'flex-none')}>{p.start}</div>}
+    <div role="toolbar" aria-label={m('chartActions')} data-reveal-x={p.compact && !docked ? '' : undefined} className={cn(
       'ml-auto flex min-w-0 items-center gap-1 whitespace-nowrap',
-      p.compact ? 'overflow-x-auto' : 'flex-wrap justify-end',
+      p.compact && !docked && 'overflow-x-auto',
+      !p.compact && 'flex-wrap justify-end',
+      docked && 'justify-end px-1',
     )}>
-      <div className={cn('flex items-center gap-1', p.compact ? 'shrink-0' : 'min-w-0 flex-wrap')}>
-        {p.zoom}{p.brush}{p.reset}{p.compare}{p.annotate}
+      <div data-reveal-x={docked ? '' : undefined} data-dock-chart-tools={docked ? '' : undefined} data-revealed={docked && p.dockToolsRevealed ? '' : undefined} className={cn('flex items-center gap-1',
+        p.compact && !docked && 'shrink-0', !p.compact && 'min-w-0 flex-wrap',
+        docked && 'pointer-events-none min-w-0 overflow-x-auto p-1 opacity-0 focus-within:opacity-100 [&>*]:shrink-0')}>
+        {p.zoom}{p.brush}{p.reset}{p.compare}{p.annotate}{docked && exportMenu}
       </div>
-      {(p.table || p.exportCsv || p.secondary) && <div data-chart-toolbar-tail className="ml-auto flex shrink-0 items-center gap-1">
-        {p.table && <ChartTableToggle compact={p.compact} shown={p.table.shown} toggle={p.table.toggle} buttonRef={p.table.buttonRef} />}
-        {p.exportCsv && <ChartExportMenu compact={p.compact} exportCsv={p.exportCsv} tools={p.exportTools} />}
-        {p.secondary && <Popover open={p.secondaryOpen} onOpenChange={p.onSecondaryOpenChange}>
-          <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(!!p.compact)} size={p.compact ? 'icon-xs' : 'icon-sm'} aria-label={m('chartMore')} title={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
-          <PopoverContent align="end" aria-label={m('chartMore')} className="max-h-96 w-80 overflow-auto break-keep"><div className="flex flex-col items-start gap-2">{p.secondary}</div></PopoverContent>
+      {(p.table || p.exportCsv || p.secondary) && <div data-chart-toolbar-tail className={cn(!docked && 'ml-auto', 'flex shrink-0 items-center gap-1')}>
+        {p.table && <ChartTableToggle compact={p.compact && !docked} shown={p.table.shown} toggle={p.table.toggle} buttonRef={p.table.buttonRef} />}
+        {!docked && exportMenu}
+        {p.dockMaximize}
+        {p.secondary && <Popover open={p.secondaryOpen} onOpenChange={open => {
+          if (open) handedOffFocus.current = false;
+          p.onSecondaryOpenChange?.(open);
+        }}>
+          <PopoverTrigger asChild><Button type="button" variant={chartToolVariant(!!p.compact)} size={p.compact ? 'icon-xs' : 'icon-sm'} data-dock-group-menu={p.dockLayoutActions ? '' : undefined} aria-label={m('chartMore')} title={m('chartMore')}><MoreHorizontal className="size-3.5" aria-hidden /></Button></PopoverTrigger>
+          <PopoverContent align="end" aria-label={m('chartMore')} className="max-h-96 w-80 overflow-auto break-keep"
+            onCloseAutoFocus={event => {
+              if (handedOffFocus.current) event.preventDefault();
+            }}>
+            <div className="flex flex-col items-start gap-2">
+              {p.secondary}
+              {p.dockLayoutActions && <DockChartCloseMore.Provider value={() => {
+                const focus = p.dockLayoutActions?.takeCloseFocus();
+                handedOffFocus.current = !!focus;
+                p.onSecondaryOpenChange?.(false);
+                focus?.();
+              }}>{p.dockLayoutActions.content}</DockChartCloseMore.Provider>}
+            </div>
+          </PopoverContent>
         </Popover>}
       </div>}
     </div>
@@ -75,18 +104,25 @@ export function ChartExportMenu({ exportCsv, tools, compact = false }: { exportC
   </Popover>;
 }
 
-export function ChartGestureHint({ point, additive = true, drill, range = false, brushing = false }: {
+type GestureOptions = {
   point: boolean;
   additive?: boolean;
   drill: boolean;
   range?: boolean;
   brushing?: boolean;
-}) {
+};
+
+export function useChartGestureHint({ point, additive = true, drill, range = false, brushing = false }: GestureOptions) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const gestures: string[] = [];
   if (point && !brushing) gestures.push(m('chartHintSelect'));
   if (point && additive && !brushing) gestures.push(m('chartHintAdd'));
   if (drill && !brushing) gestures.push(m('chartHintDrill'));
   if (range) gestures.push(m(brushing ? 'chartBrushHint' : 'chartHintEnableDrag'));
-  return gestures.length > 0 && <p className="shrink-0 px-2 py-0.5 text-xs text-text-secondary break-keep">{gestures.join(' · ')}</p>;
+  return gestures.join(' · ');
+}
+
+export function ChartGestureHint(options: GestureOptions) {
+  const hint = useChartGestureHint(options);
+  return !!hint && <p className="shrink-0 px-2 py-0.5 text-xs text-text-secondary break-keep">{hint}</p>;
 }

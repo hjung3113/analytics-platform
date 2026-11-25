@@ -185,7 +185,7 @@ it.each(['full', 'standard'] as const)('selects and adds points with the keyboar
   expect(screen.queryByText(/A · Series · 1 s/, { selector: 'p' })).toBeNull();
 });
 
-it('keeps the first preset focused after Enter and reaches Apply by Tab', async () => {
+it('keeps the first preset focused after Enter and reaches Apply by Tab after closing Brush', async () => {
   const user = userEvent.setup();
   const session = testSession(['platform:view', 'analytics:view']);
   const adapter = testAdapter({ session: () => session });
@@ -194,14 +194,28 @@ it('keeps the first preset focused after Enter and reaches Apply by Tab', async 
     <AnalysisChartFrame chartId="window" title="Window" unit="ea" series={timeSeries} />
   </PlatformProvider></I18nProvider>);
   await screen.findByRole('img');
-  const preset = screen.getByRole('button', { name: '1시간' });
+  const brush = screen.getByRole('button', { name: '구간 선택' });
+  brush.focus();
+  await user.keyboard('{Enter}');
+  const editor = screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
+  const preset = within(editor).getByRole('button', { name: '1시간' });
   preset.focus();
   await user.keyboard('{Enter}');
   expect(preset).toHaveFocus();
-  for (const name of ['4시간', '전체', '주석 남기기', '분석 구간으로 적용']) {
+  for (const name of ['4시간', '전체']) {
     await user.tab();
-    expect(screen.getByRole('button', { name })).toHaveFocus();
+    expect(within(editor).getByRole('button', { name })).toHaveFocus();
   }
+  await user.keyboard('{Escape}');
+  expect(editor).not.toBeInTheDocument();
+  expect(brush).toHaveFocus();
+  const annotation = screen.getByRole('button', { name: '주석 남기기' });
+  for (let step = 0; step < 30 && document.activeElement !== annotation; step++) {
+    await user.tab();
+  }
+  expect(annotation).toHaveFocus();
+  await user.tab();
+  expect(screen.getByRole('button', { name: '분석 구간으로 적용' })).toHaveFocus();
 });
 
 it.each(['scatter', 'heatmap'] as const)('keeps %s click selection during Brush', async kind => {
@@ -251,7 +265,10 @@ it('hides accepted notes and discards the draft and delete confirmation when Ann
   await screen.findByRole('img');
   const deleteNote = await screen.findByRole('button', { name: '삭제: Accepted note' });
   expect(JSON.stringify(plot.option)).toContain('Accepted note');
-  fireEvent.click(screen.getByRole('button', { name: '1시간' }));
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+  const editor = screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
+  fireEvent.click(within(editor).getByRole('button', { name: '1시간' }));
+  fireEvent.keyDown(editor, { key: 'Escape' });
   fireEvent.click(screen.getByRole('button', { name: '주석 남기기' }));
   fireEvent.change(screen.getByRole('textbox', { name: '주석 내용' }), { target: { value: 'Draft' } });
   fireEvent.click(deleteNote);
@@ -331,19 +348,24 @@ it('uses the selected series formatter and unit for the horizontal min/max summa
   expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('Series: 최소 A 1.00 · 최대 C 3.00 s');
 });
 
-it('keeps quick ranges at rest and after selection beside the summary while More is open', async () => {
+it('opens quick ranges from Brush at rest and keeps them beside the selected summary while More is open', async () => {
   render(<I18nProvider><AnalysisChartFrame chartId="window" title="Window" period={period} unit="ea" series={timeSeries} chrome="standard" summary="quiet" size="fill" /></I18nProvider>);
   await screen.findByRole('img');
-  const summary = screen.getByRole('region', { name: '선택 요약' });
-  const quick = within(summary).getByRole('group', { name: '빠른 구간 선택' });
+  expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
+  expect(screen.queryByRole('group', { name: '빠른 구간 선택' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+  const editor = screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
+  const quick = within(editor).getByRole('group', { name: '빠른 구간 선택' });
   expect(within(quick).getAllByRole('button').map(button => button.textContent)).toEqual(['1시간', '4시간', '전체']);
-  expect(summary.classList.contains('sr-only')).toBe(false);
   fireEvent.click(within(quick).getByRole('button', { name: '1시간' }));
+  const summary = screen.getByRole('region', { name: '선택 요약' });
+  expect(summary.classList.contains('sr-only')).toBe(false);
   expect(within(summary).getByText(/선택 구간:/)).toBeTruthy();
-  expect(within(summary).getByRole('button', { name: '4시간' })).toBeTruthy();
+  fireEvent.keyDown(editor, { key: 'Escape' });
   fireEvent.click(screen.getByRole('button', { name: '더보기' }));
   const more = await screen.findByRole('dialog', { name: '더보기' });
   expect(within(more).queryByRole('group', { name: '빠른 구간 선택' })).toBeNull();
+  expect(within(summary).getByRole('button', { name: '4시간' })).toBeVisible();
 });
 
 it.each([true, false])('applies the annotation feature gate (%s) before the write permission gate', async annotate => {
@@ -360,7 +382,10 @@ it.each([true, false])('applies the annotation feature gate (%s) before the writ
     <AnalysisChartFrame chartId="window" title="Window" unit="ea" series={timeSeries} />
   </PlatformProvider></I18nProvider>);
   await screen.findByRole('img');
-  fireEvent.click(screen.getByRole('button', { name: '1시간' }));
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+  const editor = screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
+  fireEvent.click(within(editor).getByRole('button', { name: '1시간' }));
+  fireEvent.keyDown(editor, { key: 'Escape' });
   const toolbar = screen.getByRole('toolbar', { name: '차트 동작' });
   const leaveNote = screen.queryByRole('button', { name: '주석 남기기' });
   const annotateButton = within(toolbar).queryByRole('button', { name: '주석' });
@@ -383,10 +408,19 @@ it.each([
   { drill: true, brushing: false, hint: '클릭으로 선택 · ⌘/Shift+클릭으로 추가 · 더블클릭/Enter로 안쪽 단계 · 구간 선택을 켠 뒤 끌기' },
   { drill: true, brushing: true, hint: '끌어서 구간 선택' },
 ])('shows only the available gestures ($drill, $brushing)', async ({ drill, brushing, hint }) => {
-  render(<I18nProvider><AnalysisChartFrame chartId="window" title="Window" unit="ea" series={timeSeries} onPointClick={drill ? vi.fn() : undefined} /></I18nProvider>);
-  await screen.findByRole('img');
-  if (brushing) fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
-  expect(screen.getByText(hint)).toBeTruthy();
+  render(<I18nProvider><AnalysisChartFrame chartId="window" title="Window" unit="ea" series={timeSeries} period={period} onPointClick={drill ? vi.fn() : undefined} /></I18nProvider>);
+  const plot = (await screen.findByRole('img')).parentElement!;
+  if (brushing) {
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+    expect(within(screen.getByRole('dialog')).getByText(hint)).toBeVisible();
+  }
+  expect(plot).toHaveAccessibleDescription(hint);
+  const tip = screen.getByRole('button', { name: '차트 설명' });
+  expect(tip).toHaveAccessibleDescription(hint);
+  const chart = within(screen.getByRole('region', { name: 'Window' }));
+  const hintText = chart.getByText(hint);
+  expect(hintText.closest('header')).toContainElement(tip);
+  expect(hintText.parentElement).toHaveClass('sr-only');
 });
 
 // Vite inlines MODE for jsdom transforms. Run these tests under its test, development and production modes.
