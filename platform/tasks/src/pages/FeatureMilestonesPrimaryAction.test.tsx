@@ -87,6 +87,8 @@ it.each(['without', 'with'] as const)('keeps a cross-System creation selected %s
       default_reviewer_actor_id: null, default_reviewer_team_id: null,
       archived_by_actor_id: null, created_at: date, updated_at: date,
     })), total: 2 });
+    // The owner picker reads the workspace actors; a wrong shape fails the query, and its one retry (1 s later) outlasts settleFetch (#3003).
+    if (path === '/actors') return json({ actors: [] });
     if (path === '/milestones' && init?.method === 'POST') return json(created);
     if (path === '/milestones') return json({ items: system === arrival && cache === 'without' ? [created] : [] });
     if (path === `/milestones/${created.id}`) return json({ ...created, source_finding: null });
