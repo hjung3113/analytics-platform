@@ -20,8 +20,8 @@ import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } f
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { WorkspaceEdges } from './WorkspaceEdges';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
-import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withRows, workspacePreference, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
-import { canMoveBelow, clampRow, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows } from './workspaceRows';
+import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withAdjustedRowHeights, withRows, workspacePreference, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { canMoveBelow, clampRow, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows, validPreferred } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
 import { alignUnderChrome, restoreScrollOffset, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
 
@@ -57,7 +57,7 @@ export type PanelWorkspacePanel = {
   /**
    * px of the panel body (below the 40px strip) at which its content does not overflow. A stacked row whose panels declare it starts that tall (the
    * tallest panel of a row; rows stacked inside a row add up), within the row's minimum and the visible height. Undeclared rows keep the default.
-   * A stored height is never changed by it.
+   * A stored stack row below its preferred height is raised once for a new or increased declaration (#2786), within the row's limits.
    */
   preferredHeight?: number;
   /**
@@ -221,7 +221,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const presets: readonly PanelWorkspacePreset[] = given.length > 0 ? given : [{ id: initialPreset, label: COMPONENTS_MESSAGES.workspaceLayout, layout: { type: 'group', panels: panels.map(panel => panel.id) } }];
   const panelMinimums = new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }]));
   const rowMinimum = rowMinimumOf(panelMinimums);
-  const declaredHeights = new Map(panels.flatMap(panel => (panel.preferredHeight === undefined ? [] : [[panel.id, panel.preferredHeight] as const])));
+  const declaredHeights = new Map(panels.flatMap(panel => (validPreferred(panel.preferredHeight) ? [[panel.id, panel.preferredHeight] as const] : [])));
   const rowPreferred = declaredHeights.size > 0 ? rowPreferredOf(declaredHeights, panelMinimums, dockTheme(true).gap) : undefined;
   const below = panels.filter(panel => panel.placement === 'below' && panel.id !== primaryId).map(panel => panel.id);
   const declaredRows = new Map<string, string[]>();
@@ -244,23 +244,25 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     return { saved, state: saved ?? initialWorkspaceState(spec) };
   });
   const [storedState, setStored] = useState(initial.state);
+  const root = useRef<HTMLDivElement>(null);
+  const visible = useVisibleAreaHeight(root, true);
+  const maxRow = visible ?? DEFAULT_VISIBLE;
   const panelIdentity = JSON.stringify([primaryId, [...spec.panelIds].sort(), sharedRows]);
   const [seenPanels, setSeenPanels] = useState({ identity: panelIdentity, below, ids: spec.panelIds });
   const panelsChanged = seenPanels.identity !== panelIdentity;
   // A changed panel set renders its repaired state at once and commits it before paint. Not a render-phase setState: an observer
   // update queued right after one is computed eagerly against the state before it and would put the old panel set back (#2518).
-  const stored = useMemo(() => (panelsChanged ? updateWorkspacePanels(storedState, spec, seenPanels.below) : storedState),
+  const stored = useMemo(() => (panelsChanged ? updateWorkspacePanels(storedState, spec, seenPanels.below, maxRow) : storedState),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `spec` is a new object each render; `panelIdentity` is its identity here.
-    [panelsChanged, storedState, seenPanels, panelIdentity]);
+    [panelsChanged, storedState, seenPanels, panelIdentity, maxRow]);
   useLayoutEffect(() => {
     if (!panelsChanged) return;
     setSeenPanels({ identity: panelIdentity, below, ids: spec.panelIds });
-    setStored(previous => (previous === storedState ? stored : updateWorkspacePanels(previous, spec, seenPanels.below)));
+    setStored(previous => (previous === storedState ? stored : updateWorkspacePanels(previous, spec, seenPanels.below, maxRow)));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `spec` is rebuilt each render; the effect acts only while `panelsChanged`, whose inputs are listed.
-  }, [panelsChanged, panelIdentity, below, seenPanels, storedState, stored]);
+  }, [panelsChanged, panelIdentity, below, seenPanels, storedState, stored, maxRow]);
 
   // Width of the workspace: under `compactBelow` with a compact preset the arrangement is the preset's, in memory.
-  const root = useRef<HTMLDivElement>(null);
   // Only the side of `compactBelow` is state: a resize that stays on one side re-renders nothing (#823).
   const [narrow, setNarrow] = useState(false);
   const [edgesNarrow, setEdgesNarrow] = useState(false);
@@ -279,7 +281,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const compactSpec = compactPreset === undefined ? undefined : presets.find(preset => preset.id === compactPreset);
   const compact = compactSpec !== undefined && narrow;
   const [compactState, setCompactState] = useState<WorkspaceState | null>(null);
-  if (panelsChanged && compactState !== null) setCompactState(previous => previous ? normalizeWorkspaceState(previous, spec) : null);
+  if (panelsChanged && compactState !== null) setCompactState(previous => previous ? normalizeWorkspaceState(previous, spec, { maxRow }) : null);
   if (!compact && compactState !== null) setCompactState(null);
   const derived: WorkspaceState = compact ? { ...stored, preset: compactSpec.id, layout: presetTree(compactSpec.layout, panelOrder(stored.layout)) } : stored;
   const state = compact ? (compactState ?? derived) : stored;
@@ -298,8 +300,6 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const rowDeclarations = JSON.stringify(panels.map(panel => [panel.id, panel.minHeight, panel.preferredHeight]));
   const fitSlot = useRef<HTMLDivElement>(null);
   const lastFit = useRef<number | null>(null);
-  const visible = useVisibleAreaHeight(root, true);
-  const maxRow = visible ?? DEFAULT_VISIBLE;
   // The height fit mode gives the layout, the same input whichever mode shows: measured while fit shows, kept while stack does.
   useLayoutEffect(() => {
     const element = fitSlot.current;
@@ -440,7 +440,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       if (previous.mode !== 'stack' || previous.rows === undefined || previous.rows.length !== topLevelRows(previous.layout).length) return previous;
       const minimums = topLevelRows(previous.layout).map(live.current.rowMinimum);
       const clamped = previous.rows.map((px, index) => clampRow(px, minimums[index]!, live.current.maxRow));
-      return clamped.every((px, index) => px === previous.rows![index]) ? previous : withRows(previous, 'stack', clamped);
+      return withAdjustedRowHeights(previous, clamped, live.current.sharedRows);
     });
   }, [automaticRows, stackActive, storedRows, visible]);
 
