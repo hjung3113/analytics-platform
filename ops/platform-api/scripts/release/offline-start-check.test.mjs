@@ -41,12 +41,16 @@ function withUnit(fn) {
     mkdirSync(bin);
     writeFileSync(join(bin, 'docker'), fakeDocker, { mode: 0o755 });
     const log = join(unit, 'docker.log');
-    const sums = names.map((name) => {
-      const file = `platform-release-${name}-${tag}.tar.gz`;
-      const bytes = gzipSync(`fixture image: ${name}`);
+    const row = (file, bytes) => {
       writeFileSync(join(unit, file), bytes);
       return `${createHash('sha256').update(bytes).digest('hex')}  ${file}\n`;
-    });
+    };
+    const sums = [
+      ...names.map((name) =>
+        row(`platform-release-${name}-${tag}.tar.gz`, gzipSync(`fixture image: ${name}`)),
+      ),
+      ...names.map((name) => row(`platform-release-${name}-${tag}.cdx.json`, `{"name":"${name}"}`)),
+    ];
     const manifest = join(unit, 'SHA256SUMS');
     writeFileSync(manifest, sums.join(''));
     const args = ['--unit', unit, '--tag', tag];
@@ -92,6 +96,16 @@ test('refuses a truncated archive before calling Docker', (t) => {
     assert.match(result.stderr, /SHA256SUMS check failed/);
     assert.deepEqual(calls(), []);
     t.diagnostic(`exit ${result.status}\n${result.stdout}${result.stderr}`);
+  });
+});
+
+test('refuses a manifest without the SBOM of one image', () => {
+  withUnit(({ manifest, sums, run, calls }) => {
+    writeFileSync(manifest, sums.filter((line) => !line.includes('web-ci-test.cdx.json')).join(''));
+    const result = run();
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, /three archives and three SBOMs/);
+    assert.deepEqual(calls(), []);
   });
 });
 

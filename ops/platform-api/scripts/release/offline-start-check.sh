@@ -29,12 +29,16 @@ prefix=platform-release
 names=(backend migrate web)
 archives=()
 for name in "${names[@]}"; do archives+=("$prefix-$name-$tag.tar.gz"); done
-# sha256sum alone succeeds on a manifest with a missing row. Require exactly the three files we will load.
-awk -v backend="${archives[0]}" -v migrate="${archives[1]}" -v web="${archives[2]}" '
+sboms=()
+for name in "${names[@]}"; do sboms+=("$prefix-$name-$tag.cdx.json"); done
+# sha256sum alone succeeds on a manifest with a missing row. Require exactly the three archives we will load and their
+# three SBOMs (pack-images.sh, #2963).
+awk -v files="${archives[*]} ${sboms[*]}" '
+  BEGIN { n = split(files, want, " ") }
   { if (NF != 2 || $1 !~ /^[0-9a-fA-F]+$/ || length($1) != 64 || $0 != $1 "  " $2) exit 1
     seen[$2]++ }
-  END { if (NR != 3 || seen[backend] != 1 || seen[migrate] != 1 || seen[web] != 1) exit 1 }
-' "$unit/SHA256SUMS" || die 'SHA256SUMS must list exactly the three archives for the requested tag'
+  END { if (NR != n) exit 1; for (i = 1; i <= n; i++) if (seen[want[i]] != 1) exit 1 }
+' "$unit/SHA256SUMS" || die 'SHA256SUMS must list exactly the three archives and three SBOMs for the requested tag'
 if command -v sha256sum >/dev/null 2>&1; then sum=(sha256sum); else sum=(shasum -a 256); fi
 (cd -- "$unit" && "${sum[@]}" -c SHA256SUMS) || die "SHA256SUMS check failed in $unit"
 

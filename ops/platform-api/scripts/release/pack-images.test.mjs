@@ -32,8 +32,12 @@ function withFixture(fn) {
     const bin = join(root, 'bin');
     mkdirSync(bin);
     writeFileSync(join(bin, 'docker'), fakeDocker, { mode: 0o755 });
-    // A web build must never run here: pnpm fails at once.
-    writeFileSync(join(bin, 'pnpm'), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    // pnpm answers `sbom` with its arguments as JSON; anything else (a web build) fails at once.
+    writeFileSync(
+      join(bin, 'pnpm'),
+      '#!/bin/sh\n[ "$1" = sbom ] || exit 1\nprintf \'{"args":"%s"}\\n\' "$*"\n',
+      { mode: 0o755 },
+    );
     const log = join(root, 'docker.log');
     const run = (args, arch = 'linux/amd64') =>
       spawnSync('bash', [script, ...args], {
@@ -58,7 +62,10 @@ test('saves the three release images of one tag with a SHA256SUMS that checks', 
     const result = run(['--tag', 'v0.49.0', '--out', out, '--no-build']);
     assert.equal(result.status, 0, result.stderr);
     const files = ['backend', 'migrate', 'web'].map((n) => `platform-release-${n}-v0.49.0.tar.gz`);
-    assert.deepEqual(readdirSync(out).sort(), ['SHA256SUMS', ...files].sort());
+    const sboms = ['backend', 'migrate', 'web'].map(
+      (n) => `platform-release-${n}-v0.49.0.cdx.json`,
+    );
+    assert.deepEqual(readdirSync(out).sort(), ['SHA256SUMS', ...files, ...sboms].sort());
     for (const [i, n] of ['backend', 'migrate', 'web'].entries()) {
       assert.equal(
         gunzipSync(readFileSync(join(out, files[i]))).toString(),
@@ -66,7 +73,12 @@ test('saves the three release images of one tag with a SHA256SUMS that checks', 
       );
     }
     const sums = readFileSync(join(out, 'SHA256SUMS'), 'utf8').trim().split('\n');
-    assert.deepEqual(sums.map((l) => l.split(/\s+\*?/)[1]).sort(), files.sort());
+    assert.deepEqual(sums.map((l) => l.split(/\s+\*?/)[1]).sort(), [...files, ...sboms].sort());
+    const sbomArgs = (n) =>
+      JSON.parse(readFileSync(join(out, `platform-release-${n}-v0.49.0.cdx.json`), 'utf8')).args;
+    assert.match(sbomArgs('backend'), /--lockfile-only --prod --filter @ap\/platform-api$/);
+    assert.match(sbomArgs('migrate'), /--lockfile-only --filter @ap\/platform-api\.\.\.$/);
+    assert.match(sbomArgs('web'), /--lockfile-only --prod --filter @ap\/platform-web\.\.\.$/);
     assert.doesNotMatch(calls(), /^build /m, '--no-build never builds');
     assert.equal(
       calls().match(/^save --platform linux\/amd64 /gm)?.length,
