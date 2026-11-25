@@ -1,4 +1,4 @@
-import { forbiddenChartConfigKey, invalidMenuViewPanels, type MenuViewPanels } from './menu-view-panels.js';
+import { invalidMenuViewPanels, type MenuViewPanels } from './menu-view-panels.js';
 import { CUSTOM_GROUP_FIXED_MAX } from './custom-group.js';
 import { forbiddenKey, isForbiddenSavedViewKey, nonSerializable } from './saved-view-json.js';
 import type { GlobalContext, Pair } from './url.js';
@@ -237,7 +237,7 @@ export function validateSavedView(input: unknown): Result<SavedViewDraft> {
     const bad = nonSerializable(v, k, [input], { requireDenseArrays: k === 'panels' });
     if (bad) return invalid(bad);
     if (isForbiddenSavedViewKey(k)) return invalid(`${k} must not be saved`);
-    const key = k === 'chartOptions' || k === 'layout' ? forbiddenKey(v, k) : k === 'panels' ? forbiddenChartConfigKey(v) : null;
+    const key = k === 'chartOptions' || k === 'layout' ? forbiddenKey(v, k) : null;
     if (key) return invalid(`${key} must not be saved`);
   }
   return { ok: true, value: input as SavedViewDraft };

@@ -1,8 +1,8 @@
 import { isRecord } from '../guards.js';
 import type { AnalysisSelection, AnalysisSelectionShape } from '../menu/panels.js';
+import { invalidChartConfig, type ChartConfig } from './chart-config.js';
 import { CUSTOM_GROUP_FIXED_MAX } from './custom-group.js';
-import { forbiddenKey, nonSerializable } from './saved-view-json.js';
-import type { JsonValue } from './saved-view.js';
+import { nonSerializable } from './saved-view-json.js';
 
 /** One input of a panel instance: which instance output it reads and how (ADR-0176). */
 export type PanelInstanceInput =
@@ -15,8 +15,8 @@ export type PanelInstanceOutput = { key: string; dimension: string; shape: Analy
 export type PanelInstanceSource =
   /** A code panel of this menu (`panel` = its declaration id) or a lent panel (`panel` = `<menuId>/<panelId>`, PanelBinding.source). */
   | { kind: 'declared'; panel: string }
-  /** A panel made from settings. `config` is the stored ChartConfig; its shape belongs to #2745 and is opaque JSON here. */
-  | { kind: 'chart'; config: { [key: string]: JsonValue } };
+  /** A panel made from settings: the stored ChartConfig v1 (#2745), closed, so it never carries data or visual values. */
+  | { kind: 'chart'; config: ChartConfig };
 export type PanelInstance = { id: string; source: PanelInstanceSource; inputs: PanelInstanceInput[]; outputs: PanelInstanceOutput[] };
 /** `MenuView.panels` v1. The docking arrangement stays in `MenuView.layout` and refers to instance ids. */
 export type MenuViewPanels = { version: 1; instances: PanelInstance[] };
@@ -59,7 +59,8 @@ function invalidInstance(value: unknown, path: string): string | null {
   if (hasFields(source, ['kind', 'panel']) && source.kind === 'declared') {
     if (!token(source.panel)) return `${path}.source.panel ${tokenRule}`;
   } else if (hasFields(source, ['kind', 'config']) && source.kind === 'chart') {
-    if (!isRecord(source.config)) return `${path}.source.config must be a JSON object`;
+    const bad = invalidChartConfig(source.config, `${path}.source.config`);
+    if (bad) return bad;
   } else return `${path}.source must declare a panel or chart config`;
 
   if (!Array.isArray(inputs) || inputs.length > PANEL_INSTANCE_INPUTS_MAX) return `${path}.inputs must be an array of at most ${PANEL_INSTANCE_INPUTS_MAX} inputs`;
@@ -145,21 +146,10 @@ export function invalidMenuViewPanels(raw: unknown): string | null {
   return invalidPanelConnections(raw.instances as PanelInstance[]);
 }
 
-/** Chart instances follow the same key rule as saved chart options. Call after validating the panel shape. */
-export function forbiddenChartConfigKey(panels: unknown): string | null {
-  if (panels === null) return null;
-  for (const [i, instance] of (panels as MenuViewPanels).instances.entries()) {
-    if (instance.source.kind !== 'chart') continue;
-    const bad = forbiddenKey(instance.source.config, `panels.instances[${i}].source.config`);
-    if (bad) return bad;
-  }
-  return null;
-}
-
 export function readMenuViewPanels(raw: unknown): { status: 'default' } | { status: 'ok'; panels: MenuViewPanels } | { status: 'legacy'; reason: 'unreadable' } {
   if (raw === null || raw === undefined) return { status: 'default' };
   try {
-    if (invalidMenuViewPanels(raw) === null && nonSerializable(raw, 'panels', [], { requireDenseArrays: true }) === null && forbiddenChartConfigKey(raw) === null) {
+    if (invalidMenuViewPanels(raw) === null && nonSerializable(raw, 'panels', [], { requireDenseArrays: true }) === null) {
       return { status: 'ok', panels: raw as MenuViewPanels };
     }
   } catch {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateSavedView } from '@ap/contracts';
 import { savedViewCommandSchema, savedViewResponseSchemas } from '@ap/contract-schemas/source';
-import { storedPanelCases, unicodePanelCases } from '@ap/contracts/testing/saved-view-panels';
+import { lineChartConfig, rejectedChartConfigCases, storedPanelCases, unicodePanelCases } from '@ap/contracts/testing/saved-view-panels';
 import { TransportError } from '../calls/calls.js';
 import { isSavedViewCommand, responseGuards, withinDepth } from '../saved-views/guards.js';
 import { bootstrapBody, json, server, type Handler } from './test-support.js';
@@ -225,7 +225,7 @@ describe('guards equal the wire schemas', () => {
     ['applied page key with transient-looking name', { ...base, draft: { ...menuDraft, page: [['zoomLevel', '1']] } }],
     ['scopeId in context', { ...base, draft: { ...menuDraft, context: { scopeId: 'S' } } }],
     ['panels saved before the panel-instance format (#2760)', { ...base, draft: { ...menuDraft, panels: { hoverX: 1 } } }],
-    ['forbidden key in a chart panel config (#2760)', { ...base, draft: { ...menuDraft, panels: { version: 1, instances: [{ id: 'a', source: { kind: 'chart', config: { a: { hoverRow: 1 } } }, inputs: [], outputs: [] }] } } }],
+    ['unknown key in a chart panel config (#2745)', { ...base, draft: { ...menuDraft, panels: { version: 1, instances: [{ id: 'a', source: { kind: 'chart', config: { ...lineChartConfig, a: { hoverRow: 1 } } }, inputs: [], outputs: [] }] } } }],
     ['panel input naming a missing output (#2760)', { ...base, draft: { ...menuDraft, panels: { version: 1, instances: [{ id: 'a', source: { kind: 'declared', panel: 'p' }, inputs: [{ key: 'k', mode: 'follow', from: 'b.x' }], outputs: [] }] } } }],
     ['update with an old panels value (#2760)', { version: 1, op: 'update', id: 'a', patch: { panels: [1] }, expectedVersion: 1 }],
     ['bad visibility enum', { version: 1, op: 'setVisibility', id: 'a', visibility: { kind: 'everyone' }, expectedVersion: 1 }],
@@ -265,6 +265,12 @@ describe('guards equal the wire schemas', () => {
   ])('rejects the response-only panels flag in a %s', (_name, body) => {
     expect(isSavedViewCommand(body)).toBe(false);
     expect(savedViewCommandSchema.safeParse(body).success).toBe(false);
+  });
+
+  it.each(rejectedChartConfigCases)('refuses to send a $label, like the wire schema (#2745)', ({ panels }) => {
+    const body = { ...base, draft: { ...menuDraft, panels } };
+    expect(savedViewCommandSchema.safeParse(body).success).toBe(false);
+    expect(isSavedViewCommand(body)).toBe(false);
   });
 
   it.each(unicodePanelCases)('refuses to send $label', ({ panels }) => {

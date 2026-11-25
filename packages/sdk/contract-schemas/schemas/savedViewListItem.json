@@ -777,7 +777,137 @@
                                         "const": "chart"
                                       },
                                       "config": {
-                                        "type": "object"
+                                        "type": "object",
+                                        "properties": {
+                                          "version": {
+                                            "type": "number",
+                                            "const": 1
+                                          },
+                                          "kind": {
+                                            "type": "string",
+                                            "enum": [
+                                              "line",
+                                              "bar"
+                                            ]
+                                          },
+                                          "x": {
+                                            "type": "object",
+                                            "properties": {
+                                              "field": {
+                                                "type": "string",
+                                                "maxLength": 200,
+                                                "pattern": "\\S"
+                                              },
+                                              "type": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "time",
+                                                  "category"
+                                                ]
+                                              }
+                                            },
+                                            "required": [
+                                              "field",
+                                              "type"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          "measures": {
+                                            "minItems": 1,
+                                            "maxItems": 8,
+                                            "type": "array",
+                                            "items": {
+                                              "type": "object",
+                                              "properties": {
+                                                "field": {
+                                                  "type": "string",
+                                                  "maxLength": 200,
+                                                  "pattern": "\\S"
+                                                },
+                                                "color": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "chart-series-1",
+                                                    "chart-series-2",
+                                                    "chart-series-3",
+                                                    "chart-series-4"
+                                                  ]
+                                                },
+                                                "axis": {
+                                                  "type": "string",
+                                                  "enum": [
+                                                    "left",
+                                                    "right"
+                                                  ]
+                                                }
+                                              },
+                                              "required": [
+                                                "field"
+                                              ],
+                                              "additionalProperties": false
+                                            }
+                                          },
+                                          "split": {
+                                            "type": "object",
+                                            "properties": {
+                                              "field": {
+                                                "type": "string",
+                                                "maxLength": 200,
+                                                "pattern": "\\S"
+                                              }
+                                            },
+                                            "required": [
+                                              "field"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          "orientation": {
+                                            "type": "string",
+                                            "enum": [
+                                              "vertical",
+                                              "horizontal"
+                                            ]
+                                          },
+                                          "stack": {
+                                            "type": "string",
+                                            "enum": [
+                                              "none",
+                                              "stack",
+                                              "percent"
+                                            ]
+                                          },
+                                          "areaFill": {
+                                            "type": "boolean"
+                                          },
+                                          "valueFormat": {
+                                            "type": "object",
+                                            "properties": {
+                                              "kind": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "number",
+                                                  "percent"
+                                                ]
+                                              },
+                                              "decimals": {
+                                                "type": "integer",
+                                                "minimum": 0,
+                                                "maximum": 6
+                                              }
+                                            },
+                                            "required": [
+                                              "kind"
+                                            ],
+                                            "additionalProperties": false
+                                          }
+                                        },
+                                        "required": [
+                                          "version",
+                                          "kind",
+                                          "x",
+                                          "measures"
+                                        ],
+                                        "additionalProperties": false
                                       }
                                     },
                                     "required": [
