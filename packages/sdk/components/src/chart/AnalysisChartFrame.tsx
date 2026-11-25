@@ -415,6 +415,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const brushToggle = useRef<HTMLButtonElement | null>(null);
   const zoomInButton = useRef<HTMLButtonElement | null>(null);
   const rangeStart = useRef<HTMLButtonElement | null>(null);
+  const rangeGroup = useRef<HTMLDivElement | null>(null);
   // Set when the keyboard turns brush mode on in a fill card: the range form appears then and takes focus (ADR-0067 decision 21).
   const focusRangeForm = useRef(false);
   const applyRangeButton = useRef<HTMLButtonElement | null>(null);
@@ -1027,6 +1028,9 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     if (!focusRangeForm.current || !brushMode) return;
     focusRangeForm.current = false;
     rangeStart.current?.focus({ preventScroll: true });
+    // The form can open below a scrolled panel body (a standard panel's fill chart, #3006): reveal it only as far as needed so the
+    // focused field is never hidden (WCAG 2.4.11), without the page jump an unrestricted focus scroll causes.
+    rangeGroup.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }, [brushMode, showSummary]);
   function commitRange(next: Selection) {
     const snapped = snapOutward(toMs(next.from), toMs(next.to), timeBounds);
@@ -1368,7 +1372,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       compactChrome && note === null && !preview && 'max-h-16',
       'break-keep',
     )}>
-      {showRangeForm && draft && <div role="group" aria-label={m('chartRangeByStartEnd')} className="mb-2 flex flex-wrap items-center gap-2">
+      {showRangeForm && draft && <div ref={rangeGroup} role="group" aria-label={m('chartRangeByStartEnd')} className="mb-2 flex flex-wrap items-center gap-2">
         <span className="text-text-secondary">{m('chartStart')}</span>
         <Select value={draft.from} onValueChange={chooseStart}>
           <SelectTrigger ref={rangeStart} aria-label={m('chartRangeStart')} className="h-8 w-44 border-border-control">

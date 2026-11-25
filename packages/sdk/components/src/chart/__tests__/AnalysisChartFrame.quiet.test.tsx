@@ -109,3 +109,18 @@ it('shows a titled zoom-only header with the legend below the title and working 
   fireEvent.click(buttons[3]);
   expect(zoom()).toMatchObject({ start: 0, end: 100 });
 });
+it('reveals the start/end form when a keyboard 구간 선택 moves focus into it on a fill chart (#3006)', async () => {
+  const reveal = vi.fn();
+  const original = HTMLElement.prototype.scrollIntoView;
+  HTMLElement.prototype.scrollIntoView = function (this: HTMLElement, options?: boolean | ScrollIntoViewOptions) { reveal(this, options); };
+  try {
+    await mount({ summary: 'quiet', size: 'fill' });
+    // A keyboard activation (`detail: 0`) opens the form and moves focus to its first field.
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }), { detail: 0 });
+    const group = screen.getByRole('group', { name: '시작과 끝으로 구간 선택' });
+    expect(within(group).getByRole('combobox', { name: '구간 시작' })).toHaveFocus();
+    expect(reveal).toHaveBeenCalledWith(group, { block: 'nearest', inline: 'nearest' });
+  } finally {
+    HTMLElement.prototype.scrollIntoView = original;
+  }
+});
