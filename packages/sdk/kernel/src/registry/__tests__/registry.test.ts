@@ -1316,6 +1316,7 @@ describe('chart fields registration (#2761)', () => {
     [{ ...fields, breakdowns: [...fields.breakdowns, { id: 'runTime', label, dimension: 'x' }] }, /duplicate field "runTime"/],
     [{ ...fields, time: { field: 'equipment', label } }, /duplicate field "equipment"/],
     [{ ...fields, breakdowns: [{ id: 'a/b', label, dimension: 'x' }] }, /breakdown id/],
+    [{ ...fields, breakdowns: [{ id: 'p\u0000', label, dimension: 'x' }] }, /breakdown id.*control characters/],
     [{ ...fields, breakdowns: [{ id: 'b', label, dimension: 'equipment-id' }] }, /dimension must match/],
     [{ ...fields, breakdowns: [{ id: 'b', label, dimension: 'd'.repeat(201) }] }, /at most 200/],
     [{ ...fields, measures: [{ ...fields.measures[0], unit: '' }] }, /unit/],

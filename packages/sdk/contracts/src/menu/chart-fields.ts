@@ -129,7 +129,8 @@ export function createChartPanel(fields: MenuChartFields, draft: ChartPanelDraft
   const judged = judge(fields, draft, granted);
   if ('problem' in judged) return { status: 'problem', problem: judged.problem };
   const instance: PanelInstance = { id, ...build(fields, draft, judged), inputs: [] };
-  const invalid = invalidMenuViewPanels({ version: 1, instances: [instance] });
+  // The saved-view store also refuses NUL and lone surrogates (platform-api `isPgSafeString`); an id is never meant to hold either.
+  const invalid = invalidMenuViewPanels({ version: 1, instances: [instance] }) ?? (/[\u0000-\u001f\u007f\uD800-\uDFFF]/.test(id) ? 'id must not contain control characters or surrogates' : null);
   if (invalid) throw new Error(`createChartPanel: ${invalid}`);
   return { status: 'ok', instance };
 }
@@ -162,7 +163,8 @@ export function readChartPanel(fields: MenuChartFields | undefined, instance: Pi
     ...(config.stack === 'stack' ? { stack: 'stack' as const } : {}),
   };
   const judged = judge(declared, draft, granted);
-  if ('problem' in judged) return { status: 'problem', problem: judged.problem };
+  // `incomplete` means «keep choosing» in the picker; on a saved chart a missing measure or breakdown is a mapping this menu never makes.
+  if ('problem' in judged) return { status: 'problem', problem: judged.problem.code === 'incomplete' ? reason('changed') : judged.problem };
   if (canonical(build(declared, draft, judged)) !== canonical({ source: instance.source, outputs: instance.outputs })) return { status: 'problem', problem: reason('changed') };
   return { status: 'ok', kind: config.kind, measure: judged.measure, breakdown: judged.breakdown, title: chartPanelTitle(judged.measure, judged.breakdown) };
 }

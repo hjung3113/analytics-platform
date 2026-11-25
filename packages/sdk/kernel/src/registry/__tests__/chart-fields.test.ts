@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { chartFieldMeta, chartPanelProblem, createChartPanel, menuPermission, nextChartPanelId, readChartPanel, readMenuViewPanels, type ChartPanelDraft, type MenuChartFields, type PanelInstance } from '@ap/contracts';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import { chartFieldMeta, chartPanelProblem, createChartPanel, menuPermission, nextChartPanelId, readChartPanel, readMenuViewPanels, type ChartPanelDraft, type ChartPermissionCheck, type MenuChartFields, type PanelInstance } from '@ap/contracts';
 
 const chartFieldsFixture: MenuChartFields = {
   time: { field: 'at', label: { ko: '시각', en: 'Time' } },
@@ -52,7 +52,7 @@ describe('chart panels from declared measures and breakdowns (#2761)', () => {
     expect(readChartPanel(fields, bar, all)).toMatchObject({ status: 'ok', kind: 'bar', title: { ko: '평균 사이클 · 설비', en: 'Mean cycle · Equipment' } });
     expect(readChartPanel(fields, line, all)).toMatchObject({ status: 'ok', kind: 'line', title: { en: 'Run time · Equipment' } });
     expect(createChartPanel(fields, { kind: 'bar', measure: 'cycle', breakdown: 'module' }, 'chart-1', all)).toMatchObject({ status: 'problem', problem: { code: 'breakdown-not-offered' } });
-    for (const id of ['chart.1', ' ', 'c'.repeat(201)]) expect(() => createChartPanel(fields, { kind: 'bar', measure: 'runTime', breakdown: 'module' }, id, all)).toThrow(/createChartPanel/);
+    for (const id of ['chart.1', ' ', 'c'.repeat(201), 'chart\u0000']) expect(() => createChartPanel(fields, { kind: 'bar', measure: 'runTime', breakdown: 'module' }, id, all)).toThrow(/createChartPanel/);
   });
 
   it('opens a saved chart only when it is exactly what the menu makes now; otherwise that panel gets the reason', () => {
@@ -79,6 +79,19 @@ describe('chart panels from declared measures and breakdowns (#2761)', () => {
       { ...bar, source: { kind: 'declared' as const, panel: 'summary' } },
     ];
     for (const instance of changed) expect(code(instance)).toBe('changed');
+    const withoutSplit = { ...config(line) };
+    delete withoutSplit.split;
+    expect(code({ ...line, source: { kind: 'chart', config: withoutSplit } })).toBe('changed');
+    // Key order does not matter, at any depth.
+    const reordered = JSON.parse('{"outputs":[{"shape":"set","dimension":"equipmentId","key":"selection"}],"source":{"config":{"measures":[{"field":"runTime"}],"x":{"type":"category","field":"equipment"},"kind":"bar","version":1},"kind":"chart"}}') as PanelInstance;
+    expect(code(reordered)).toBe('ok');
+  });
+
+  it('requires the permission check and offers no percent stack, by type', () => {
+    expectTypeOf<Parameters<typeof chartPanelProblem>>().toEqualTypeOf<[MenuChartFields, ChartPanelDraft, ChartPermissionCheck]>();
+    expectTypeOf<Parameters<typeof createChartPanel>>().toEqualTypeOf<[MenuChartFields, ChartPanelDraft, string, ChartPermissionCheck]>();
+    expectTypeOf<Parameters<typeof readChartPanel>>().toEqualTypeOf<[MenuChartFields | undefined, Pick<PanelInstance, 'source' | 'outputs'>, ChartPermissionCheck]>();
+    expectTypeOf<ChartPanelDraft['stack']>().toEqualTypeOf<'none' | 'stack' | undefined>();
   });
 
   it('gives the drawing field meta in the chosen language', () => {

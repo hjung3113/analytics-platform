@@ -4,7 +4,8 @@ import { isIdShape, isObjectKindShape, isPermissionShape } from './shapes';
 
 const REAGGREGATIONS = ['sum', 'ratioOfSums', 'recomputeFromDistribution', 'none'];
 const textPresent = (text: Text | undefined) => typeof text?.ko === 'string' && text.ko.trim() !== '' && typeof text.en === 'string' && text.en.trim() !== '';
-const isField = (value: unknown): value is string => isIdShape(value) && value.length <= CHART_CONFIG_FIELD_MAX;
+/** Control characters and surrogates are refused too: the saved-view store cannot hold NUL or a lone surrogate (platform-api `isPgSafeString`). */
+const isField = (value: unknown): value is string => isIdShape(value) && value.length <= CHART_CONFIG_FIELD_MAX && !/[\u0000-\u001f\u007f\uD800-\uDFFF]/.test(value);
 
 /**
  * Registration check of `MenuMeta.chartFields` (#2761). Measure ids, breakdown ids and the time field share one namespace: each is a
@@ -18,7 +19,7 @@ export function registerChartFields(menu: Pick<MenuEntry, 'id' | 'chartFields'>,
   if (fields.measures.length === 0 || fields.breakdowns.length === 0) error('needs at least one measure and one breakdown');
   const seen = new Set<string>();
   const claim = (id: unknown, what: string) => {
-    if (!isField(id)) error(`${what} id must be nonempty, at most ${CHART_CONFIG_FIELD_MAX} characters and contain no URL separators`);
+    if (!isField(id)) error(`${what} id must be nonempty, at most ${CHART_CONFIG_FIELD_MAX} characters and contain no URL separators, control characters or surrogates`);
     if (seen.has(id as string)) error(`duplicate field "${id as string}"`);
     seen.add(id as string);
   };
