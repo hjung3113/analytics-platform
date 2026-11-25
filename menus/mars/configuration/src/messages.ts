@@ -2,6 +2,12 @@ import type { Text } from '@ap/contracts';
 
 export const MESSAGES = {
   hwTimeTrend: { ko: 'HW Time', en: 'HW Time' },
+  hwTimeComparison: { ko: 'HW Time 비교', en: 'HW Time comparison' },
+  hwTimeHeldPeriod: { ko: '붙잡음 · {from} ~ {to}', en: 'Held · {from} to {to}' },
+  hwTimeHeldUnreadable: { ko: '붙잡은 기간을 열 수 없습니다.', en: 'The held period could not be opened.' },
+  hwTimeFollowAgain: { ko: '따라가기로 바꾸기', en: 'Switch to follow' },
+  hwTimeComparisonNeedsMotion: { ko: 'HW Time과 연결된 항목을 선택하세요.', en: 'Select an item linked to HW Time.' },
+  closeHwTimeComparison: { ko: 'HW Time 비교 닫기', en: 'Close HW Time comparison' },
   hwDays: { ko: 'HW Time 날짜', en: 'HW Time days' },
   closeHwTime: { ko: 'HW Time 추세 닫기', en: 'Close HW Time trend' },
   openHwTime: { ko: 'HW Time에서 열기', en: 'Open in HW Time' },

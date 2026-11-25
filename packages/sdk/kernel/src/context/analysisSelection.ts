@@ -182,6 +182,11 @@ export type HeldAnalysisSelection = { readonly dimension: string; readonly selec
 /** Selections one panel instance holds (#2862), by page key; null outside a held instance. */
 const HeldSelectionContext = createContext<ReadonlyMap<string, HeldAnalysisSelection> | null>(null);
 
+/** Reads an explicitly mapped held input at an instance boundary. */
+export function useHeldAnalysisSelection(key: string | undefined): HeldAnalysisSelection | undefined {
+  return key === undefined ? undefined : use(HeldSelectionContext)?.get(key);
+}
+
 /**
  * Wraps one panel instance that holds selections (#2862): inside, `useAnalysisSelectionInputs` reads `held` for those keys instead of
  * the URL, marks them `held`, and does not wait for the source's availability (the value is fixed). Other keys still follow the URL.

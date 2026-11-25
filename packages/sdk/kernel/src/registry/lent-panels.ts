@@ -15,9 +15,9 @@ export type LentPanelBindingValues = {
 };
 
 export type LentPanelReason = {
-  kind: 'permission' | 'missing-input' | 'unsupported-context' | 'not-registered';
+  kind: 'permission' | 'missing-input' | 'unsupported-context' | 'not-registered' | 'rejected-held';
   text: Text;
-  /** Technical input name for missing-input diagnostics. Display text instead. */
+  /** Technical input name for input diagnostics. Display text instead. */
   key?: string;
 };
 export type LentPanelVerdict = { allowed: true; reason: null } | { allowed: false; reason: LentPanelReason };

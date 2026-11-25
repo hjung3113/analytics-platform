@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
-import { act, type ReactElement, type ReactNode } from 'react';
+import { act, useState, type ReactElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, assert, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Settings } from 'lucide-react';
-import { contextCapabilities, defineEndpoint, groupId, menuPermission, spaceId, type ApiResponse } from '@ap/contracts';
-import { createRegistry, I18nProvider, PlatformProvider, useMenuQuery, useQueryDraft, type LentPanelProps } from '@ap/kernel';
+import { contextCapabilities, defineEndpoint, groupId, menuPermission, spaceId, type AnalysisSelection, type ApiResponse, type GlobalContext } from '@ap/contracts';
+import { createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChips, useAnalysisSelectionOutput, useMenuQuery, useQueryDraft, type LentPanelProps } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { registerLentPanel, settleQueries, testAdapter, testMenu, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
+import { createFakeSavedViewStore, registerLentPanel, settleQueries, testAdapter, testMenu, testSavedView, testSession, testSpace, testViewCapabilities, useSavedViews, useToastsForTest, type SavedViews } from '@ap/kernel/testing';
 import type { PageFilterField } from '@ap/components';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { configurationDetailEndpoint, configurationExportEndpoint, configurationTreeEndpoint, DEFAULT_EQUIPMENT, DEFAULT_LEVELS, EXPORT_LIMIT, SAVED_VIEW_SUPPORT, TREE_WINDOW, filterDeclarations, configurationLendingEndpoint, type ConfigHistory, type ConfigurationLending, type HistoryParams, type TreePage, type TreeParams, type TreeRow } from '../endpoints';
@@ -14,7 +14,7 @@ import { manifests } from '../index';
 import Configuration from './Configuration';
 import { OpenHwTimeLink } from './ConfigurationWorkspace';
 
-await vi.hoisted(async () => (await import('@ap/components/testing/engines')).mockEchartsCanvas());
+const canvas = await vi.hoisted(async () => (await import('@ap/components/testing/engines')).mockEchartsCanvas());
 const controls = vi.hoisted(() => ({ fields: [] as readonly PageFilterField[] }));
 vi.mock('@ap/components', async original => ({ ...await original<object>(),
   PageFilterBar: ({ fields, actions }: { fields: readonly PageFilterField[]; actions: ReactNode }) => { controls.fields = fields; return <div>{actions}</div>; },
@@ -714,6 +714,349 @@ it('binds a selected Configuration item to its scoped equipment and opens both t
   expect(destination.searchParams.get('to')).toBe('2026-11-18T00:00:00');
   expect(destination.searchParams.get('drillModule')).toBe('LK1');
   expect(destination.searchParams.get('drillMotion')).toBe('Pump');
+});
+
+it('keeps two borrowed HW Time periods, saves and restores the hold, and lets the copy follow again', async () => {
+  registerLentPanel('hw-time/trend', SourceTrend);
+  const savedViews = createFakeSavedViewStore();
+  let views!: SavedViews;
+  function ViewsProbe() { views = useSavedViews(); return null; }
+  const original = { from: '2026-11-16T00:00:00', to: '2026-11-18T00:00:00' };
+  const later = { from: '2026-11-19T00:00:00', to: '2026-11-21T00:00:00' };
+  const url = new URL(window.location.href);
+  url.searchParams.set('trendItem', 'cfg-000000');
+  url.searchParams.set('equipment', 'EQ01,EQ03');
+  window.history.replaceState(null, '', url);
+  const session = testSession(['analytics:view']);
+  const menuQuery = withLending(async ({ endpoint, params, context }: { endpoint: string; params: unknown; context: Partial<GlobalContext> }) => {
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
+    if (endpoint === sourceRuns.id) return { ...ok(context.from), assessments: [] };
+    return { ...ok(null), outcome: 'empty' as const };
+  });
+  const adapter = testAdapter({ session: () => session, menuQuery });
+  await act(async () => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} savedViews={savedViews}>
+    <Configuration /><ViewsProbe />
+  </PlatformProvider></I18nProvider>));
+
+  const periods = () => [...host.querySelectorAll('[data-test-source-result]')].map(node => node.textContent).sort();
+  const followAgain = () => [...host.querySelectorAll('button')].find(node => node.textContent === '따라가기로 바꾸기');
+  await settleQueries();
+  await vi.waitFor(() => expect(periods()).toEqual([original.from]));
+  const before = window.location.href;
+  const add = [...host.querySelectorAll('button')].find(node => node.textContent === '새 패널');
+  expect(add).toBeDefined();
+  await act(async () => add!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })));
+  const hold = await vi.waitFor(() => {
+    const item = document.querySelector<HTMLElement>('[role="menuitem"][aria-label="HW Time · 붙잡기"]');
+    expect(item).not.toBeNull();
+    return item!;
+  });
+  await act(async () => hold.click());
+  await settleQueries();
+  await vi.waitFor(() => expect(periods()).toEqual([original.from, original.from]));
+  expect(window.location.href).toBe(before);
+  expect(host.textContent).toContain('붙잡음');
+
+  await act(async () => {
+    url.searchParams.set('from', later.from);
+    url.searchParams.set('to', later.to);
+    window.history.pushState(null, '', url);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await settleQueries();
+  await vi.waitFor(() => expect(periods()).toEqual([original.from, later.from]));
+  expect(window.location.search).not.toContain('2026-11-16');
+  let viewId = '';
+  await act(async () => {
+    const saved = await views.saveAs({ name: 'Before and after 2997', kind: 'menu-view' });
+    expect(saved).toMatchObject({ ok: true, value: { view: { panels: { version: 1 } } } });
+    if (saved.ok && saved.value.view.kind === 'menu-view') {
+      const instances = saved.value.view.panels?.instances;
+      const slot = (id: string) => instances?.find(instance => instance.id === id);
+      expect(slot('hw-time-trend')).toMatchObject({ source: { kind: 'declared', panel: 'hw-time/trend' }, inputs: [], outputs: [] });
+      expect(slot('hw-time-trend-comparison')).toMatchObject({
+        source: { kind: 'declared', panel: 'hw-time/trend' }, outputs: [],
+        inputs: [{ key: 'time', from: 'matrix.time', mode: 'hold', value: { shape: 'range', ...original } }],
+      });
+      expect(slot('matrix')?.outputs).toEqual([{ key: 'time', dimension: 'wall-clock', shape: 'range' }]);
+      viewId = saved.value.view.id;
+    }
+  });
+
+  await act(async () => followAgain()!.click());
+  await settleQueries();
+  await vi.waitFor(() => expect(periods()).toEqual([later.from, later.from]));
+  expect(followAgain()).toBeUndefined();
+  expect(window.location.search).not.toContain('2026-11-16');
+
+  await act(async () => { expect(await views.select(viewId)).toMatchObject({ ok: true }); });
+  await settleQueries();
+  await vi.waitFor(() => expect(periods()).toEqual([original.from, later.from]));
+  expect(followAgain()).toBeDefined();
+
+  await clickWorkspaceButton('HW Time 추세 닫기');
+  await clickWorkspaceButton('HW Time 비교 닫기');
+  expect(periods()).toEqual([]);
+  menuQuery.mockClear();
+  await act(async () => { expect(await views.revertToSaved()).toMatchObject({ ok: true }); });
+  await vi.waitFor(() => {
+    expect(hwTimeSlot('hw-time-trend')?.querySelector('[data-test-source-result]')?.textContent).toBe(later.from);
+    expect(hwTimeSlot('hw-time-trend-comparison')?.querySelector('[data-test-source-result]')?.textContent).toBe(original.from);
+  });
+  for (const period of [later, original]) {
+    expect(menuQuery).toHaveBeenCalledWith(expect.objectContaining({
+      endpoint: sourceRuns.id, params: expect.objectContaining({ module: 'LK1', motion: 'Pump' }), context: expect.objectContaining(period),
+    }), expect.any(AbortSignal));
+  }
+});
+
+const heldPeriod = { from: '2026-11-16T00:00:00', to: '2026-11-18T00:00:00' };
+const livePeriod = { from: '2026-11-19T00:00:00', to: '2026-11-21T00:00:00' };
+const liveSlot = 'hw-time-trend';
+const copySlot = 'hw-time-trend-comparison';
+const hwTimeSlot = (id: string) => host.querySelector<HTMLElement>(`[data-dock-panel="${id}"]`);
+const workspaceButton = (label: string, root: ParentNode = host) =>
+  Array.from(root.querySelectorAll('button')).find(button => (button.getAttribute('aria-label') ?? button.textContent) === label);
+async function clickWorkspaceButton(label: string, root?: ParentNode) {
+  const button = workspaceButton(label, root);
+  expect(button, label).toBeDefined();
+  await act(async () => button!.click());
+}
+async function addHeldTrend() {
+  const add = workspaceButton('새 패널');
+  expect(add).toBeDefined();
+  await act(async () => add!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })));
+  await act(async () => document.querySelector<HTMLElement>('[role="menuitem"][aria-label="HW Time · 붙잡기"]')!.click());
+}
+async function moveToLivePeriod() {
+  await act(async () => {
+    const url = new URL(window.location.href);
+    for (const [key, value] of Object.entries(livePeriod)) url.searchParams.set(key, value);
+    window.history.pushState(null, '', url);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+}
+async function selectLinkedItem(id: string) {
+  const cell = await vi.waitFor(() => {
+    const target = host.querySelector<HTMLElement>(`[data-matrix-row="${id}"] [data-matrix-column="EQ03"]`);
+    expect(target).not.toBeNull();
+    return target!;
+  });
+  await act(async () => { cell.focus(); cell.click(); });
+}
+async function mountHwTimeComparison({ source = SourceTrend, savedViews = createFakeSavedViewStore(), includeHistory, respondToTrend, children }: {
+  source?: typeof SourceTrend; savedViews?: ReturnType<typeof createFakeSavedViewStore>;
+  includeHistory?: boolean; respondToTrend?: (period: { from: string; to: string }) => Promise<void>; children?: ReactNode;
+} = {}) {
+  registerLentPanel('hw-time/trend', source);
+  window.history.replaceState(null, '', `${window.location.href}&trendItem=cfg-000000&equipment=EQ01,EQ03`);
+  const session = testSession(['analytics:view']);
+  const menuQuery = withLending(async ({ endpoint, params, context }: { endpoint: string; params: unknown; context: Partial<GlobalContext> }) => {
+    if (endpoint === 'configuration.tree') return ok(windowPage(params as TreeParams));
+    const period = { from: context.from!, to: context.to! };
+    if (endpoint === sourceRuns.id) {
+      await respondToTrend?.(period);
+      return { ...ok(JSON.stringify({ ...period, module: (params as { module: string }).module, motion: (params as { motion: string }).motion })), assessments: [] };
+    }
+    if (endpoint === 'configuration.history' && includeHistory) {
+      const { equipment } = params as HistoryParams;
+      return ok({ item: 'Pressure', valueType: 'number', series: equipment.map(eq => ({
+        equipment: eq, points: [
+          { at: `${period.from}Z`, value: 120 },
+          { at: `${period.from.slice(0, 10)}T01:00:00Z`, value: 125 },
+        ],
+      })) });
+    }
+    return { ...ok(null), outcome: 'empty' as const };
+  });
+  let views!: SavedViews;
+  function ViewsProbe() { views = useSavedViews(); return null; }
+  const adapter = testAdapter({ session: () => session, menuQuery });
+  await act(async () => root.render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} savedViews={savedViews}>
+    <Configuration /><ViewsProbe />{children}
+  </PlatformProvider></I18nProvider>));
+  await vi.waitFor(() => expectSlotRequest(liveSlot, heldPeriod));
+  return { menuQuery, views: () => views };
+}
+function expectSlotRequest(slot: string, period: { from: string; to: string }, module = 'LK1') {
+  expect(hwTimeSlot(slot)?.querySelector('[data-test-source-result]')?.textContent).toBe(JSON.stringify({ ...period, module, motion: 'Pump' }));
+}
+
+it.each(['with the Configuration trend open', 'after closing the Configuration trend'])('keeps the comparison on the linked motion when closing the original %s', async entry => {
+  const { views } = await mountHwTimeComparison();
+  await addHeldTrend();
+  await moveToLivePeriod();
+  await selectLinkedItem('cfg-000001');
+  await vi.waitFor(() => {
+    expectSlotRequest(liveSlot, livePeriod, 'LK2');
+    expectSlotRequest(copySlot, heldPeriod, 'LK2');
+  });
+  if (entry === 'after closing the Configuration trend') await clickWorkspaceButton('추세 닫기');
+  await clickWorkspaceButton('HW Time 추세 닫기');
+  await vi.waitFor(() => {
+    expect(hwTimeSlot(liveSlot)).toBeNull();
+    expectSlotRequest(copySlot, heldPeriod, 'LK2');
+  });
+  expect(new URLSearchParams(window.location.search).get('hwTrendItem')).toBe('cfg-000001');
+  await selectLinkedItem('cfg-000002');
+  await vi.waitFor(() => expect(hwTimeSlot(copySlot)?.textContent).toContain('HW Time과 연결된 항목을 선택하세요.'));
+  await selectLinkedItem('cfg-000000');
+  await vi.waitFor(() => expectSlotRequest(copySlot, heldPeriod));
+  expect(hwTimeSlot(liveSlot)).toBeNull();
+  let viewId = '';
+  await act(async () => {
+    const saved = await views().saveAs({ name: 'Comparison only', kind: 'menu-view' });
+    expect(saved).toMatchObject({ ok: true, value: { view: { panels: { version: 1 } } } });
+    if (saved.ok && saved.value.view.kind === 'menu-view') {
+      expect(saved.value.view.panels?.instances.map(instance => instance.id)).toEqual(['matrix', copySlot]);
+      viewId = saved.value.view.id;
+    }
+  });
+  await clickWorkspaceButton('HW Time 비교 닫기');
+  expect(hwTimeSlot(copySlot)).toBeNull();
+  await act(async () => { expect(await views().select(viewId)).toMatchObject({ ok: true }); });
+  await vi.waitFor(() => expectSlotRequest(copySlot, heldPeriod));
+  expect(hwTimeSlot(liveSlot)).toBeNull();
+});
+
+it('opens a saved view without a graph using its original HW Time page keys', async () => {
+  const legacy = testSavedView({
+    id: 'legacy-hw-time', kind: 'menu-view', menuId: 'configuration', menuSchemaVersion: SAVED_VIEW_SUPPORT.menuSchemaVersion,
+    context: livePeriod, page: [['trendItem', 'cfg-000000'], ['hwTrendItem', 'cfg-000001'], ['equipment', 'EQ01,EQ03']],
+    chartOptions: {}, layout: null, panels: null,
+  });
+  const { views } = await mountHwTimeComparison({ savedViews: createFakeSavedViewStore([legacy]) });
+  await addHeldTrend();
+  await clickWorkspaceButton('HW Time 추세 닫기');
+  expect(hwTimeSlot(liveSlot)).toBeNull();
+  await act(async () => { expect(await views().select(legacy.id)).toMatchObject({ ok: true }); });
+  await vi.waitFor(() => expectSlotRequest(liveSlot, livePeriod, 'LK2'));
+  expect(hwTimeSlot(copySlot)).toBeNull();
+  await act(async () => {
+    expect(await views().saveToSelected()).toMatchObject({ ok: true, value: { view: { panels: null } } });
+  });
+});
+
+it('keeps the comparison target when closing the original returns focus to another matrix item', async () => {
+  await mountHwTimeComparison();
+  await addHeldTrend();
+  await selectLinkedItem('cfg-000000');
+  await act(async () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('hwTrendItem', 'cfg-000001');
+    window.history.pushState(null, '', url);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await vi.waitFor(() => expectSlotRequest(copySlot, heldPeriod, 'LK2'));
+  const previousSelection = host.querySelector('[aria-selected="true"][role="gridcell"]');
+  expect(previousSelection?.closest('[data-matrix-row]')?.getAttribute('data-matrix-row')).toBe('cfg-000000');
+  await act(async () => workspaceButton('HW Time 추세 닫기')!.focus());
+  await clickWorkspaceButton('HW Time 추세 닫기');
+  expect(document.activeElement).toBe(previousSelection);
+  expect(new URLSearchParams(window.location.search).get('hwTrendItem')).toBe('cfg-000001');
+  expectSlotRequest(copySlot, heldPeriod, 'LK2');
+});
+
+it('blocks an unreadable comparison query and reopens both slots after following again and saving', async () => {
+  const broken = testSavedView({
+    id: 'missing-output', kind: 'menu-view', menuId: 'configuration', menuSchemaVersion: SAVED_VIEW_SUPPORT.menuSchemaVersion,
+    context: livePeriod, page: [['trendItem', 'cfg-000000'], ['equipment', 'EQ01,EQ03']], chartOptions: {}, layout: null,
+    panels: null,
+  });
+  assert(broken.kind === 'menu-view');
+  const savedViews = createFakeSavedViewStore([broken]);
+  // The server adds this flag when reading an invalid graph and drops it once the graph is replaced.
+  vi.spyOn(savedViews, 'get').mockResolvedValueOnce({ view: { ...broken, panelsUnreadable: true }, capabilities: testViewCapabilities });
+  const { views, menuQuery } = await mountHwTimeComparison({ savedViews });
+  const trendRequests = () => menuQuery.mock.calls.filter(([request]) => request.endpoint === sourceRuns.id);
+  menuQuery.mockClear();
+  await act(async () => { expect(await views().select(broken.id)).toMatchObject({ ok: true }); });
+  await vi.waitFor(() => {
+    expectSlotRequest(liveSlot, livePeriod);
+    expect(hwTimeSlot(copySlot)?.textContent).toContain('붙잡은 기간을 열 수 없습니다.');
+  });
+  expect(trendRequests()).toHaveLength(1);
+  await clickWorkspaceButton('따라가기로 바꾸기');
+  await vi.waitFor(() => expectSlotRequest(copySlot, livePeriod));
+  expectSlotRequest(liveSlot, livePeriod);
+  expect(trendRequests()).toHaveLength(2);
+  await act(async () => {
+    const saved = await views().saveToSelected();
+    expect(saved).toMatchObject({ ok: true, value: { view: { id: broken.id, panels: { version: 1 } } } });
+    if (saved.ok && saved.value.view.kind === 'menu-view') {
+      expect(saved.value.view.panels?.instances.map(instance => instance.id)).toEqual(['matrix', liveSlot, copySlot]);
+    }
+  });
+
+  await clickWorkspaceButton('HW Time 추세 닫기');
+  await clickWorkspaceButton('HW Time 비교 닫기');
+  expect(hwTimeSlot(liveSlot)).toBeNull();
+  expect(hwTimeSlot(copySlot)).toBeNull();
+  menuQuery.mockClear();
+  await act(async () => { expect(await views().select(broken.id)).toMatchObject({ ok: true }); });
+  await vi.waitFor(() => {
+    expectSlotRequest(liveSlot, livePeriod);
+    expectSlotRequest(copySlot, livePeriod);
+  });
+  expect(trendRequests()).toHaveLength(2);
+});
+
+it('keeps the original date pick and Configuration highlight when the held comparison responds and closes', async () => {
+  const selectionFor = (from: string): AnalysisSelection => ({ shape: 'range', from: from.slice(0, 10), to: from.slice(0, 10) });
+  function SourceWithDays({ inputs, outputs, actions }: LentPanelProps) {
+    const query = useMenuQuery(sourceRuns, {
+      equipment: inputs.context.selection, moduleType: inputs.page.moduleType, module: inputs.page.drillModule, motion: inputs.page.drillMotion,
+    });
+    const day = inputs.context.from?.slice(0, 10);
+    const bound = outputs?.includes('trendRange');
+    const { selection, select } = useAnalysisSelectionOutput('trend', 'trendRange', {
+      available: query.response?.data && day && bound ? { from: day, to: day } : undefined,
+    });
+    const [local, setLocal] = useState<AnalysisSelection | null>(null);
+    return <>{actions}<output data-test-source-result>{query.response?.data}</output>
+      <button onClick={() => {
+        const range = selectionFor(inputs.context.from!);
+        if (bound) select(range);
+        else setLocal(range);
+      }}>Pick test day</button>
+      <output data-test-picked-day>{JSON.stringify(selection ?? local)}</output>
+    </>;
+  }
+  function Chips() {
+    const { chips } = useAnalysisSelectionChips();
+    return <output data-test-selection-chips>{JSON.stringify(chips)}</output>;
+  }
+  let finishHeld!: () => void;
+  const heldResponse = new Promise<void>(resolve => { finishHeld = resolve; });
+  let deferHeld = false;
+  const optionStart = canvas.options.length;
+  await mountHwTimeComparison({ source: SourceWithDays, includeHistory: true,
+    respondToTrend: ({ from }) => deferHeld && from === heldPeriod.from ? heldResponse : Promise.resolve(), children: <Chips /> });
+  deferHeld = true;
+  await addHeldTrend();
+  await moveToLivePeriod();
+  await vi.waitFor(() => expectSlotRequest(liveSlot, livePeriod));
+  await clickWorkspaceButton('Pick test day', hwTimeSlot(liveSlot)!);
+  const expectLivePick = () => {
+    expect(hwTimeSlot(liveSlot)?.querySelector('[data-test-picked-day]')?.textContent).toBe(JSON.stringify(selectionFor(livePeriod.from)));
+    expect(JSON.parse(host.querySelector('[data-test-selection-chips]')!.textContent!)).toEqual([
+      expect.objectContaining({ key: 'hwDays', selection: selectionFor(livePeriod.from), available: true }),
+    ]);
+    const options = canvas.options.slice(optionStart) as { series?: { id: string; data: unknown }[] }[];
+    const latestSeries = options.filter(option => option.series?.some(series => series.id === 'EQ01')).at(-1)?.series;
+    expect(latestSeries?.find(series => series.id === '__line-highlight-EQ01')?.data).toEqual([[Date.parse('2026-11-19T01:00:00Z'), 125]]);
+  };
+  await vi.waitFor(expectLivePick);
+  expect(hwTimeSlot(copySlot)?.querySelector('[data-test-source-result]')?.textContent).toBe('');
+  await act(async () => finishHeld());
+  await vi.waitFor(() => expectSlotRequest(copySlot, heldPeriod));
+  expectLivePick();
+  await clickWorkspaceButton('Pick test day', hwTimeSlot(copySlot)!);
+  expect(hwTimeSlot(copySlot)?.querySelector('[data-test-picked-day]')?.textContent).toBe(JSON.stringify(selectionFor(heldPeriod.from)));
+  expectLivePick();
+  await clickWorkspaceButton('HW Time 비교 닫기');
+  expect(hwTimeSlot(copySlot)).toBeNull();
+  expectLivePick();
 });
 
 it.each([

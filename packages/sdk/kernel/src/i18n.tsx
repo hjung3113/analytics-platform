@@ -144,6 +144,7 @@ const dict = {
   queryMissing: { ko: '{label}{particle} 선택하세요', en: 'Select {label}' },
   lentPanelPermission: { ko: '{menu}의 {panel} 패널을 볼 권한이 없습니다.', en: 'You don’t have permission to view the {panel} panel of {menu}.' },
   lentPanelMissingInput: { ko: '패널에 필요한 입력을 확인하세요.', en: 'Check the panel’s required input.' },
+  lentPanelRejectedHeldTime: { ko: '붙잡은 기간을 적용할 수 없습니다.', en: 'The held period could not be applied.' },
   lentPanelMissingNamedInput: { ko: '패널에 필요한 입력을 확인하세요 ({label}).', en: 'Check the panel’s required input ({label}).' },
   lentPanelMissingSelection: { ko: '패널에 필요한 설비 선택이 없습니다.', en: 'No equipment is selected for this panel.' },
   lentPanelMissingScope: { ko: '패널의 Scope를 확인하세요.', en: 'Check the scope for this panel.' },

@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
-import { useState } from 'react';
+import { afterEach, describe, expect, it, onTestFinished } from 'vitest';
+import { useLayoutEffect, useState } from 'react';
 import { contextCapabilities, defineEndpoint, groupId, menuPermission, type PanelBinding } from '@ap/contracts';
 import { I18nProvider } from '../../i18n';
 import { useAnalysisSelectionChips, useAnalysisSelectionOutput } from '../../context/analysisSelection';
@@ -120,6 +120,60 @@ describe('lent panel outputs (#2763)', () => {
     expect(result).toBe(false);
     expect(screen.getByText('days:')).toBeTruthy();
     registerLentPanel(source, SourceDays);
+  });
+
+  it('withdraws page outputs and retires old select callbacks when toggled on the same panel', async () => {
+    type Select = ReturnType<typeof useAnalysisSelectionOutput>['select'];
+    let currentSelect!: Select;
+    const next = { shape: 'range', from: '2026-09-24', to: '2026-09-26' } as const;
+    function ReportingSource({ outputs }: LentPanelProps) {
+      const { select } = useAnalysisSelectionOutput('days', 'picked', { available: { from: next.from, to: next.to } });
+      useLayoutEffect(() => { currentSelect = select; }, [select]);
+      return <p>{`outputs:${outputs?.join(',') ?? 'none'}`}</p>;
+    }
+    function ToggleOutputs() {
+      const [disabled, setDisabled] = useState(false);
+      const { pageParam } = usePlatform();
+      const { chips } = useAnalysisSelectionChips();
+      return <>
+        <p>{`days:${pageParam('days') ?? ''}`}</p>
+        <p>{`available:${chips.find(chip => chip.key === 'days')?.available}`}</p>
+        <button type="button" onClick={() => setDisabled(previous => !previous)}>toggle outputs</button>
+        <LentPanel source={source} disablePageOutputs={disabled} />
+      </>;
+    }
+    function attempt(select: Select) {
+      let wrote: boolean | undefined;
+      act(() => { wrote = select(next); });
+      return wrote;
+    }
+    registerLentPanel(source, ReportingSource);
+    onTestFinished(() => registerLentPanel(source, SourceDays));
+    const session = testSession([receiving, owning, reading]);
+    const initial = '2026-09-21/2026-09-23';
+    window.history.replaceState(null, '', `${url}&days=${initial}`);
+    render(<I18nProvider><PlatformProvider registry={registryWith(bound)} adapter={testAdapter({ session: () => session })}><ToggleOutputs /></PlatformProvider></I18nProvider>);
+
+    const panel = await screen.findByText('outputs:picked');
+    await screen.findByText('available:false');
+    const beforeToggle = currentSelect;
+    const toggle = screen.getByRole('button', { name: 'toggle outputs' });
+    act(() => toggle.click());
+    expect(screen.getByText('outputs:none')).toBe(panel);
+    expect(screen.getByText('available:true')).toBeTruthy();
+    expect(attempt(beforeToggle)).toBe(false);
+    const whileDisabled = currentSelect;
+    expect(attempt(whileDisabled)).toBe(false);
+    expect(screen.getByText(`days:${initial}`)).toBeTruthy();
+
+    act(() => toggle.click());
+    expect(screen.getByText('outputs:picked')).toBe(panel);
+    expect(screen.getByText('available:false')).toBeTruthy();
+    expect(attempt(beforeToggle)).toBe(false);
+    expect(attempt(whileDisabled)).toBe(false);
+    expect(screen.getByText(`days:${initial}`)).toBeTruthy();
+    expect(attempt(currentSelect)).toBe(true);
+    expect(screen.getByText(`days:${next.from}/${next.to}`)).toBeTruthy();
   });
 
   it('carries a lent-written key to another menu like the menu\'s own output (R C5)', async () => {
