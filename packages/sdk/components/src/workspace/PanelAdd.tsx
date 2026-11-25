@@ -15,12 +15,21 @@ export type AnalysisPanelDraft = {
 
 export type AnalysisPanelAddition = {
   items: readonly PanelAddItem[];
+  /** Adds the panel. Its return value is ignored unless `returnsOpened` is set. */
   onAdd: (draft: AnalysisPanelDraft) => void;
+  /**
+   * Opt-in (#2862 ②): `onAdd` returns the workspace panel id it opened (a string) when that is not the item id, such as a second instance.
+   * When the «새 패널» row button is no longer there to keep focus (its chart is covered or the row lost its last choice), focus goes to
+   * that tab instead of the item id's. Without it, any value `onAdd` returns is ignored.
+   */
+  returnsOpened?: boolean;
   /** Offers «붙잡기» beside each panel of «새 패널». The menu keeps the held inputs and wraps that panel in `HeldAnalysisSelections` (#2862). */
   hold?: boolean;
 };
+/** What the workspace hands «새 패널»: the items still offered, each with `placed` computed by the workspace (SDK internal, #2862 ②). */
+export type AnalysisPanelDestinations = Omit<AnalysisPanelAddition, 'items'> & { items: readonly (PanelAddItem & { placed: boolean })[] };
 
-export const AnalysisPanelAddContext = createContext<AnalysisPanelAddition | null>(null);
+export const AnalysisPanelAddContext = createContext<AnalysisPanelDestinations | null>(null);
 
 /**
  * Panels a menu keeps across its drill steps (#2398, #2391), in one repeated page key (`pageKey`, kernel identifier rule, declared in the
@@ -65,7 +74,21 @@ export function usePinnedPanels(pageKey: string, known: readonly string[]): {
  * One panel the menu offers in «패널 추가». `disabledReason` disables the item and says why (for example «이 단계에서는 쓸 수 없음»). A disabled item
  * stays a focusable `aria-disabled` item, so arrow keys reach it and its reason is read; choosing it does nothing and keeps the menu open.
  */
-export type PanelAddItem = { id: string; title: Text; description?: Text; disabledReason?: Text };
+export type PanelAddItem = {
+  id: string; title: Text; description?: Text; disabledReason?: Text;
+  /**
+   * «새 패널» of `AnalysisPanelAddition` only (#2862 ②): a panel already placed is normally not offered; with `again` it still offers that one
+   * mode, and the menu adds a second instance beside it (a held one beside a following one, or the reverse). A placed item with `'hold'`
+   * needs the addition's `hold`: without it that item is not offered (`'follow'` still is). A panel collapsed or floating with none of
+   * its slots in view is not offered. The toolbar menu ignores it.
+   */
+  again?: 'follow' | 'hold';
+  /**
+   * «새 패널» only: the workspace panel ids that show this item when they are not just `id` (its instances, a restored slot). The item is
+   * placed when one of them is in view; when none is in view but one is collapsed or floating, it is not offered. Default `[id]`.
+   */
+  slots?: readonly string[];
+};
 
 export type PanelAddMenuProps = {
   items: readonly PanelAddItem[];

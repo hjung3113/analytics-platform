@@ -15,7 +15,7 @@ import { clampFloatingPanel, dockGroupsInReadingOrder, type DockFloatingPanel, t
 import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider, type WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { InWorkspacePanelProvider } from './panelContext';
 import { PanelBadge } from './PanelBadge';
-import { AnalysisPanelAddContext, type AnalysisPanelAddition } from './PanelAdd';
+import { AnalysisPanelAddContext, type AnalysisPanelAddition, type AnalysisPanelDestinations, type PanelAddItem } from './PanelAdd';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
@@ -729,9 +729,17 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     setPeek(clampFloatingPanel({ panelId: id, x: (state.collapsed?.[id] ?? 'top') === 'top' ? Math.max(0, tab.left - (dock?.left ?? 0)) : 0, y: PEEK_TOP, width: FLOAT_SMALL.width, height: Math.min(FLOAT_SMALL.height, Math.max(1, area.height - PEEK_TOP)) }, area));
   };
 
-  const destinations = analysisPanelAddition ? {
+  const destinations: AnalysisPanelDestinations | null = analysisPanelAddition ? {
     ...analysisPanelAddition,
-    items: analysisPanelAddition.items.filter(item => !shown.includes(item.id) && !state.collapsed?.[item.id] && !isFloating(item.id)),
+    // A panel in view on any of its slots stays only for its `again` mode (#2862 ②); one only collapsed or floating is not offered, as before.
+    // `placed` is always the workspace's own value, never a field the menu passed.
+    items: analysisPanelAddition.items.flatMap((item): (PanelAddItem & { placed: boolean })[] => {
+      const slots = item.slots ?? [item.id];
+      const inView = slots.some(slot => shown.includes(slot) && !state.collapsed?.[slot] && !isFloating(slot));
+      if (inView) return item.again ? [{ ...item, placed: true }] : [];
+      if (slots.some(slot => state.collapsed?.[slot] || isFloating(slot))) return [];
+      return [{ ...item, placed: false }];
+    }),
   } : null;
   usePublishAnalysisWorkspace(panels.map(panel => panel.analysisSelectionSourceId ?? panel.id), destinations);
   return <WorkspaceDepthProvider value={depth}>

@@ -1,7 +1,7 @@
 import { createContext, useContext, useLayoutEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { usePlatform } from '@ap/kernel';
 import type { DirectNextAnalysisAction, NextAnalysisPointDrill } from './NextAnalysisItems';
-import type { AnalysisPanelAddition } from '../workspace/PanelAdd';
+import type { AnalysisPanelDestinations } from '../workspace/PanelAdd';
 import { WorkspacePanelVisibleContext } from '../workspace/panelContext';
 
 function createPublications<T>() {
@@ -45,7 +45,7 @@ type PublishedAnalysis = {
 function createBridge() {
   return {
     actions: createPublications<PublishedAnalysis>(),
-    workspaces: createPublications<AnalysisPanelAddition | null>(),
+    workspaces: createPublications<AnalysisPanelDestinations | null>(),
   };
 }
 
@@ -72,7 +72,7 @@ export function usePublishNextAnalysis(output: Output | null | undefined, action
   }, [bridge, key, actions, pointDrill]);
 }
 
-export function usePublishAnalysisWorkspace(panelIds: readonly string[], addition: AnalysisPanelAddition | null) {
+export function usePublishAnalysisWorkspace(panelIds: readonly string[], addition: AnalysisPanelDestinations | null) {
   const bridge = useContext(BridgeContext);
   const visible = useContext(WorkspacePanelVisibleContext);
   useLayoutEffect(() => {
