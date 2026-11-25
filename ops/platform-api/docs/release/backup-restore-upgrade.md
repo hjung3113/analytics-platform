@@ -138,8 +138,10 @@ env problem → fix `.env.production`) and restore into a new `--project` name. 
 ## Upgrade
 
 **From the release assets (a host that reaches no registry, ADR-0177).** Each app release `v<X.Y.Z>` carries
-`platform-release-{backend,migrate,web}-v<X.Y.Z>.tar.gz` (linux/amd64) and `SHA256SUMS`, written by
-`scripts/release/pack-images.sh`. Copy the four files to the docker host, then:
+`platform-release-{backend,migrate,web}-v<X.Y.Z>.tar.gz` (linux/amd64), a CycloneDX SBOM per image
+(`platform-release-{backend,migrate,web}-v<X.Y.Z>.cdx.json`, the lockfile slice each image installs; the web one lists the
+production dependency tree, a superset of the bundled code) and `SHA256SUMS`, written by
+`scripts/release/pack-images.sh`. Copy the seven files to the docker host, then:
 
     sha256sum -c SHA256SUMS
     for f in platform-release-*-v<X.Y.Z>.tar.gz; do docker load -i "$f"; done
@@ -148,7 +150,7 @@ env problem → fix `.env.production`) and restore into a new `--project` name. 
 
 The checkout on the host must be the same tag (the compose files and scripts come from it). Skip the build steps below.
 
-The **Server release unit** workflow checks these four files on main pushes and manual runs. To rehearse locally, run
+The **Server release unit** workflow checks these seven files on main pushes and manual runs. To rehearse locally, run
 `bash scripts/release/offline-start-check.sh --unit <dir> --tag <tag>` from `ops/platform-api` on a disposable Docker host
 with Docker 28+, a current Compose plugin, and OpenSSL. The check verifies the checksums and caches Postgres, MinIO, and
 the mock IdP before it removes and reloads the three release tags. It starts a fresh production stack on an internal network with
