@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useSt
 
 type Target = 'toolbar' | 'description' | 'maximize';
 type Targets = Partial<Record<Target, HTMLElement>>;
-export type DockChartLayoutActions = { content: ReactNode; takeCloseFocus: () => (() => void) | null };
+export type DockChartCloseFocus = (trigger: HTMLButtonElement | null) => void;
+export type DockChartLayoutActions = { content: ReactNode; takeCloseFocus: () => DockChartCloseFocus | null };
 type Pane = { charts: ReadonlyMap<string, boolean>; targets: Targets; layoutActions?: DockChartLayoutActions | undefined; stripWidth?: number | undefined };
 const EMPTY_PANE: Pane = { charts: new Map(), targets: {} };
 

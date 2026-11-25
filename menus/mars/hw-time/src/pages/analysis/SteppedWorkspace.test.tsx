@@ -178,6 +178,31 @@ describe('HW Time saved view panels', () => {
     const result = await act(() => views.saveAs({ name: 'Copy', kind: 'menu-view' }));
     expect(result).toMatchObject({ ok: true, value: { view: { panels: storedPanels } } });
   });
+
+  const stepFourPage: MenuView['page'] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['pins', 'table']];
+
+  it.each([['trend~1', 'trend'], ['current~1', 'moduleMotions'], ['table~1', 'table']])(
+    'opens %s in its own slot and preserves its record on save',
+    async (id, panel) => {
+      const panels = { version: 1 as const, instances: [{ ...makeInstance(panel), id }] };
+      await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels })]));
+      await open('saved');
+      const result = await act(() => views.saveAs({ name: 'Copy', kind: 'menu-view' }));
+      expect(result).toMatchObject({ ok: true, value: { view: { panels } } });
+      expect(config().ids).toEqual(['tree', 'previous', 'current', 'saved-panel-0', 'table', 'trend']);
+    },
+  );
+
+  it.each([0, 1])('assigns the pinned table slot to exact table at saved index %s', async canonicalIndex => {
+    const exact = makeInstance('table');
+    const extra = { ...exact, id: 'table~1' };
+    const instances = canonicalIndex === 0 ? [exact, extra] : [extra, exact];
+    await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels: { version: 1, instances } })]));
+    await open('saved');
+    expect(config().pins.table).toBe(true);
+    const slots = canonicalIndex === 0 ? ['table', 'saved-panel-1'] : ['saved-panel-0', 'table'];
+    expect(config().ids).toEqual(['tree', 'previous', 'current', ...slots, 'trend']);
+  });
 });
 
 describe('HW Time approved stepped workspace', () => {

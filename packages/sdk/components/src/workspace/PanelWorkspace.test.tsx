@@ -8,10 +8,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { WorkspaceCommandsHost, useWorkspaceCommands, type WorkspaceCommand } from '../dock';
 import { groupsOnScreen, installResizeObserver } from '../dock/__tests__/harness';
 import { movePanel } from '../dock/commands';
 import { PageFlowContext } from '../pageFlow';
+import { PanelSettingsDrawer } from './PanelSettingsDrawer';
 import { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspaceProps } from './PanelWorkspace';
 
 vi.mock('../chart/EChartImpl', () => ({ default: () => <div role="img" aria-label="plot" /> }));
@@ -1925,4 +1927,38 @@ it.each(['위로 접기', '숨기기'])('hands focus off when a secondary chart 
     ? screen.getByRole('button', { name: '선택기' })
     : screen.getByRole('tab', { name: '추세' });
   await waitFor(() => { expect(target).toHaveFocus(); });
+});
+
+it('returns focus to the merged chart More trigger after closing panel settings with Escape', async () => {
+  const user = userEvent.setup();
+  const panel = { id: 'selector', source: { kind: 'declared', panel: 'selector' } as const, inputs: [], outputs: [] };
+  const title = { ko: '선택기', en: 'Selector' };
+  function WorkspaceWithSettings() {
+    const { ref } = useDetailPanelSlotHost();
+    const [opener, setOpener] = useState<HTMLButtonElement | null>(null);
+    return <>
+      <PanelWorkspace {...BASE} panels={PANELS.map(item => item.id === panel.id ? {
+        ...item, onOpenSettings: setOpener,
+        render: () => <AnalysisChartFrame chartId="secondary" title="Secondary chart" unit="s" series={[]} xType="category" />,
+      } : item)} />
+      <aside ref={ref} />
+      {opener && <PanelSettingsDrawer panel={panel} title={title} value={{ version: 1, instances: [panel] }}
+        trigger={opener} selectionOf={() => null} onChange={vi.fn()} onClose={() => { setOpener(null); }} />}
+    </>;
+  }
+
+  render(shell(<DetailPanelSlotProvider><WorkspaceWithSettings /></DetailPanelSlotProvider>));
+  await ready();
+  const tab = screen.getByRole('tab', { name: title.ko });
+  const strip = within(tab.closest('.dv-tabs-and-actions-container')!);
+  const trigger = await strip.findByRole('button', { name: '더보기' });
+  await user.click(trigger);
+  const popup = await screen.findByRole('dialog', { name: '더보기' });
+  await user.click(within(popup).getByRole('button', { name: '패널 설정' }));
+  const drawer = await screen.findByRole('dialog', { name: title.ko });
+  expect(popup).not.toBeInTheDocument();
+  await waitFor(() => { expect(drawer.contains(document.activeElement)).toBe(true); });
+  await user.keyboard('{Escape}');
+  expect(drawer).not.toBeInTheDocument();
+  await waitFor(() => { expect(trigger).toHaveFocus(); });
 });

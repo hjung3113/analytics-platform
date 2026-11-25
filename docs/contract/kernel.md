@@ -128,7 +128,7 @@ live에서 전환한 메뉴는 `query.applyPeriodOnLegacyEntry: true`를 `autoAp
 | 필드 | 선언 |
 | --- | --- |
 | `id`, `title` | 메뉴 안에서 유일한 id, 비어 있지 않은 ko/en 제목. 전체 표기는 `<menuId>/<panelId>` |
-| `queryInputs`, `displayInputs` | `{ context?: (ContextKey 또는 scopeId)[], page?: { key, required?, selection? }[] }`. `selection: 'filter'`는 거르기, `'highlight'`는 강조만(`displayInputs`만 허용). 분석 선택을 받으려면 해당 키에 `selection`을 선언하고, 무시하려면 키를 생략. 저장된 입력의 받는 방식은 §21.1을 따른다 |
+| `queryInputs`, `displayInputs` | `{ context?: (ContextKey 또는 scopeId)[], page?: { key, required?, selection? }[] }`. `selection: 'filter'`는 거르기, `'highlight'`는 강조만(`displayInputs`만 허용). 분석 선택을 받으려면 해당 키에 `selection`을 선언하고, 무시하려면 키를 생략. 저장된 입력의 받는 방식과 실행 적용 상태는 §21.1을 따른다 |
 | `outputs` | 패널 컨트롤이 바꾸는 `{ key, action, selection?: { dimension, shape, label?: Text, drillLevel?, objectKind? } }[]`. 메뉴 page key만 허용. `dimension`은 `^[a-z][a-zA-Z0-9]*$`, `shape`는 `set` 또는 `range`, `label`은 차원의 ko/en 표시 이름. `drillLevel`은 같은 메뉴의 선언된 드릴 키, `objectKind`는 `opensObject`의 종류 식별자 형식을 따른다 |
 | `grain` | 메뉴가 이름 붙인 데이터 단위. `^[a-z][a-zA-Z0-9]*$` 형태만 검사 |
 | `endpoints` | 메뉴의 엔드포인트 spec 목록. 패널 등록은 `id`, `menuId`, `permission`을 읽고, 빌려주기 등록은 `requiresScope`, `context`, `requiredContext`도 읽음 |
@@ -685,6 +685,8 @@ Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산�
 - **패널 좁히기**는 메뉴 Context를 좁히기만 한다(단계 자르기, 부분 선택, 메뉴 기간 안의 부분 구간). 메뉴 Context를 바꾸거나 넓히지 않는다. 좁힌 뒤 메뉴 조건이 바뀌어 범위 밖이 된 구성원은 교집합만 그리고 제외된 값과 사유를 보인다(0개면 빈 결과). 이 규칙은 패널 설정에만 적용되며 메뉴 전역 Selection을 자동 교집합으로 바꾸는 근거가 아니다(§6.4). `panels`는 패널 인스턴스 목록과 연결(따라가기·붙잡기)이며 `@ap/contract-schemas`의 `menuViewPanelsSchema`가 원천이다(상한 인스턴스 24개, 인스턴스당 입력·출력 각 16개). 저장은 v1 또는 `null`만 받는다. 형식이 맞지 않는 옛 값은 읽을 때 보존하고 `readMenuViewPanels`가 `legacy`로 분류하며 자동으로 다시 쓰지 않는다. 열 때 서버와 mock은 같은 규칙으로 판정해 옛 값이면 `panels: null`과 `panelsUnreadable: true`로 응답하고 저장된 값은 그대로 둔다. `panels`를 넣지 않은 수정(이름 바꾸기 등)은 옛 값을 보존하고, `panels`를 넣는 수정만 엄격히 검증한다. 브라우저 저장본 가져오기만 옛 값을 `null`로 넣는다(#2760, [ADR-0176](../adr/0176-user-analysis-menu-one-definition-two-homes.md)).
 
 - **저장된 연결의 받는 방식 (#2762):** v1의 `inputs[]`에는 따라가기(`mode: 'follow'`)와 붙잡기(`mode: 'hold'`) 모두에 선택 필드 `use`를 둘 수 있다. `filter`는 «거르기», `highlight`는 «강조만»이다. `use`를 생략하면 패널 선언의 입력 `selection`을 따른다(§5). «무시»는 입력 항목 자체를 빼서 저장한다. 저장 형식을 검증할 때는 패널 선언을 볼 수 없으므로 `use`가 없는 연결을 기본 받는 방식인 `filter`로 센다. 거르기 연결만으로 순환이 생기면 저장 전에 `panels connections must not contain a filter cycle` 사유를 돌려준다. 강조 연결을 거쳐야 닫히는 순환은 허용한다. 자기 패널의 출력은 입력에서 참조할 수 없다.
+
+- **구현 상태 (#2762 ②):** Part A에서 패널 설정으로 저장된 연결을 편집할 수 있다. 분석 선택 실행은 현재 패널 선언을 읽는다. Part B(저장된 `use`의 실행 반영)는 미구현이며 Part A가 병합되면 재개한다. 복원된 입력의 `use: 'highlight'`가 선언의 `selection: 'filter'`보다 우선하는 테스트를 통과하면 완료한다(§5).
 
 ### 21.2 소유·공유 (Decided)
 

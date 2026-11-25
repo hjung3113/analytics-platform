@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-react';
-import { EQUIPMENT_SELECTION_DIMENSION, isAnswered, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
-import { ANALYSIS_SELECTION_MAX_VALUES, formatText, HeldAnalysisSelections, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type HeldAnalysisSelection, type MenuQueryState, type Text } from '@ap/kernel';
+import { isAnswered, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance } from '@ap/contracts';
+import { ANALYSIS_SELECTION_MAX_VALUES, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type MenuQueryState, type Text } from '@ap/kernel';
 import {
-  AnalysisChart, AnalysisChartFrame, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelWorkspace, QueryView, StateMessage,
+  AnalysisChart, AnalysisChartFrame, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
   getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
 import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MAX_ROWS, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTime, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams, type HwTimeTableParams, type HwTimeTableRow } from '../../endpoints';
@@ -21,7 +21,7 @@ import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
 import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
-import { buildSavedPanels, defaultPanels, heldOf, holdOverflows, holds, isHeldSource, keepHeld, withAdded, type AddedPanel, type AddIntent, type PanelConfiguration } from './heldPanels';
+import { buildSavedPanels, defaultPanels, heldOf, heldOutput, heldTableInput, holdOverflows, holds, isHeldSource, keepHeld, names, newPanelInstance, withAdded, type AddedPanel, type AddIntent, type PanelConfiguration } from './heldPanels';
 import { CATALOG_IDS, chartRows, panelCatalog, projectBarData, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
@@ -192,7 +192,7 @@ function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, val
       [MOTION_EQUIPMENT_KEY]: selection.shape === 'set' ? selection.values : [],
       page: 0, pageSize: HW_TIME_MAX_ROWS.level, sorting: [],
     }),
-    columns: sourceColumns, getRowId: sourceRowId, maxRows: HW_TIME_MAX_ROWS.level,
+    columns: sourceColumns, getRowId: sourceRowId, maxRows: HW_TIME_MAX_ROWS.level, closeOnSuperseded: true,
   } : undefined;
   const body = <div className="flex h-full min-h-0 flex-col">
     <AnalysisChartFrame chartId={chartId} title={title[lang]} summary="quiet" toolbarStart={toolbarStart}
@@ -222,20 +222,30 @@ function Heatmap({ query, filter, typeId, motionId, verdict }: { query: MatrixQu
   }}</QueryView>;
 }
 
-function restoredPanel(instance: PanelInstance, index: number): AddedPanel {
-  const panel = instance.source.kind === 'declared' ? instance.source.panel : null;
-  // A saved identifier is a wire token, not necessarily a workspace identifier.
-  const slot = panel === instance.id && CATALOG_IDS.some(id => id === panel) ? panel : `saved-panel-${index}`;
-  return { slot, instance };
+function declaredPanelId(instance: PanelInstance): string | undefined {
+  return instance.source.kind === 'declared' ? instance.source.panel : undefined;
+}
+
+function canonicalPanelSlot(instance: PanelInstance): string | undefined {
+  const panel = declaredPanelId(instance);
+  if (instance.id === 'current' && panel === panelDeclarations.moduleMotions.id) return 'current';
+  if (instance.id === panel && CATALOG_IDS.some(id => id === panel)) return panel;
+}
+
+function restoredPanelSlot(instance: PanelInstance, index: number): string {
+  // The saved ID is opaque. Only an exact ID and declaration match can restore a canonical slot.
+  return canonicalPanelSlot(instance) ?? `saved-panel-${index}`;
 }
 
 /**
  * The configuration for this render. Another user or Scope clears local additions. Opening a view can change the step and query Context in the
- * same navigation, so an open carries across that change. A drill in the same query keeps only held tables; any other change clears.
+ * same navigation, so an open carries across that change. Connection edits stay within their owner.
+ * Ordinary additions reset on a query change, and a drill in the same query keeps held tables.
  */
 function nextConfig(state: { owner: string; query: string; config: PanelConfiguration; opening: boolean }, owner: string, query: string, samePopulation: boolean): PanelConfiguration {
   if (state.owner !== owner) return defaultPanels;
   if (samePopulation || state.opening) return state.config;
+  if (state.config.kind === 'custom' && state.config.connectionsEdited) return state.config;
   if (state.query === query) return keepHeld(state.config);
   return defaultPanels;
 }
@@ -253,7 +263,8 @@ function useWorkspacePanels(owner: string, query: string, step: Step) {
       switch (outcome) {
         case null: next = defaultPanels; break;
         case 'unreadable': next = { kind: 'unreadable' }; break;
-        default: next = { kind: 'custom', added: outcome.instances.filter(instance => !isHeldSource(instance)).map(restoredPanel), sources: outcome.instances.filter(isHeldSource) };
+        default: next = { kind: 'custom', added: outcome.instances.flatMap((instance, index) =>
+          isHeldSource(instance) ? [] : [{ slot: restoredPanelSlot(instance, index), instance }]), sources: outcome.instances.filter(isHeldSource) };
       }
       setState(current => ({ ...current, config: next, opening: true }));
     },
@@ -272,16 +283,24 @@ function useWorkspacePanels(owner: string, query: string, step: Step) {
     });
     return { ...current, config: { ...current.config, added } };
   });
-  return { config, add, remove, follow, holdOverflows: (id: string, intent: AddIntent) => holdOverflows(config, step, id, intent) };
+  const editConnections = (next: MenuViewPanels, draftPanels: ReadonlyMap<string, AddedPanel>) => setState(current => {
+    const sources = current.config.kind === 'custom' ? current.config.sources : [];
+    const added = next.instances.flatMap(instance => {
+      const entry = draftPanels.get(instance.id);
+      return entry ? [{ ...entry, instance }] : [];
+    });
+    return { ...current, config: { kind: 'custom', connectionsEdited: true, added, sources } };
+  });
+  return { config, add, remove, follow, editConnections, holdOverflows: (id: string, intent: AddIntent) => holdOverflows(config, step, id, intent) };
 }
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const m = useMessages(S);
-  const { pageParam, pageParams, setPage, session } = usePlatform();
+  const { pageParam, pageParams, setPage, session, revision } = usePlatform();
   const context = useQueryContext();
   const typeId = pageParam('moduleType'), motionId = pageParam('drillMotion'), moduleId = pageParam('drillModule');
   const step = stepOf(typeId, motionId, moduleId);
-  const owner = JSON.stringify([session.user.id, context.scopeId]);
+  const owner = JSON.stringify([session.user.id, revision, context.scopeId]);
   const population = JSON.stringify([step, owner, context]);
   const savedPanels = useWorkspacePanels(owner, JSON.stringify(context), step);
   const options = useMemo(() => workspaceOptions(step), [step]);
@@ -289,8 +308,10 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const pins = usePinnedPanels('pins', CATALOG_IDS);
   // A saved view can pin a panel the catalog no longer has. Its reason slot shows the panel, so the opened address drops that pin
   // (one replace) instead of warning; until then the rule accepts it. A plain address with an unknown pin still warns.
-  const missingPins = savedPanels.config.kind === 'custom' ? savedPanels.config.added.flatMap(({ instance: { source } }) =>
-    source.kind === 'declared' && !CATALOG_IDS.some(id => id === source.panel) ? [source.panel] : []) : [];
+  const missingPins = savedPanels.config.kind === 'custom' ? savedPanels.config.added.flatMap(({ instance }) => {
+    const panel = declaredPanelId(instance);
+    return panel !== undefined && !CATALOG_IDS.some(id => id === panel) ? [panel] : [];
+  }) : [];
   const pinRules = pins.rules.map(rule => ({ ...rule, valid: (raw: string) => rule.valid(raw) || missingPins.includes(raw) }));
   const rawPins = pageParams('pins');
   const stalePins = rawPins.filter(id => missingPins.includes(id));
@@ -356,6 +377,15 @@ function HeldTable({ unread }: { unread: boolean }) {
   </>;
 }
 
+const declarationOf = (id: string): PanelDeclaration | undefined => Object.hasOwn(panelDeclarations, id) ? panelDeclarations[id as CatalogId] : undefined;
+
+function settingsInstance(slot: string, declaration: PanelDeclaration | undefined, stored: PanelInstance | undefined, instances: readonly PanelInstance[]): PanelInstance {
+  const instance = stored ?? newPanelInstance(slot, declaration?.id ?? slot, instances);
+  const outputs = declaration?.outputs.flatMap(({ key, selection }) =>
+    selection && !instance.outputs.some(output => output.key === key) ? [{ key, dimension: selection.dimension, shape: selection.shape }] : []);
+  return outputs?.length ? { ...instance, outputs: [...instance.outputs, ...outputs] } : instance;
+}
+
 function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'analysisSelectionOutput' | 'highlightedValues'> & {
   step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void; applied: ReturnType<typeof useAnalysisSelectionInputs>['applied'];
   savedPanels: ReturnType<typeof useWorkspacePanels>;
@@ -364,6 +394,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const common = useMessages(HW_TIME_MESSAGES);
   const workspace = useMessages(HW_TIME_WORKSPACE_MESSAGES);
   const { lang } = useI18n();
+  const [settings, setSettings] = useState<{ id: string; trigger: HTMLButtonElement; query: string } | null>(null);
   const [explained, setExplained] = useState<string | null>(null);
   const [reveal, setReveal] = useState<{ panelId: string; seq: number; restoreHidden?: boolean } | null>(null);
   useEffect(() => {
@@ -372,8 +403,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const catalog = panelCatalog({ step, typeId, moduleId, trend });
   const available = catalog.filter(item => !item.disabledReason);
   const added = savedPanels.config.kind === 'custom' ? savedPanels.config.added : [];
-  const extras = added.filter(panel => step !== 4 || panel.slot !== 'trend').map(({ slot, instance, heldFrom }) => ({
-    id: slot, instance, heldFrom, item: catalog.find(item => instance.source.kind === 'declared' && item.id === instance.source.panel),
+  const extras = added.filter(panel => panel.slot !== 'current' && (step !== 4 || panel.slot !== 'trend')).map(({ slot, instance, heldFrom }) => ({
+    id: slot, instance, heldFrom, item: catalog.find(item => item.id === declaredPanelId(instance)),
   }));
   const autoIds = new Set([...pins.pinned, ...(trend || step === 4 ? ['trend'] : [])]);
   const automatic = [...autoIds].flatMap(id => {
@@ -384,6 +415,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   // «붙잡기» (#2862): each held table reads its own values (R C4); a chart a held value came from stays while it holds (R C7).
   const savedInstances = useMemo(() => savedPanels.config.kind === 'custom'
     ? [...savedPanels.config.added.map(panel => panel.instance), ...savedPanels.config.sources] : [], [savedPanels.config]);
+  const sources = savedPanels.config.kind === 'custom' ? savedPanels.config.sources : [];
   const heldSlots = extras.filter(({ instance, item }) => item?.id === 'table' && holds(instance));
   const keptSources = new Set(heldSlots.flatMap(({ heldFrom }) => heldFrom ? [heldFrom] : []));
   const extraIds = extraPanels.map(({ id }) => id);
@@ -402,6 +434,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const verdict = verdictCodec.decode(pageParam('verdict') ?? '');
   const date = pageParam('date');
   const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date, [MOTION_EQUIPMENT_KEY]: selectedEquipment };
+  const settingsQuery = JSON.stringify([panelContext, pageParams('module'), pageParams('motion'), pageParam('sort'), pageParam('page')]);
   const trendTarget = panelRunTarget('trend', projectQueryInputs(panelDeclarations.trend, panelContext));
   const onOpenTrend = (target: string, row: string) => {
     const patch: Record<string, string | null> = { trend: target, row };
@@ -444,7 +477,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       render: () => <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} source={currentHostsSelection} /> },
     ...extraPanels.map(({ id, instance, item }): PanelWorkspacePanel => {
       if (instance && (!item || item.disabledReason)) {
-        const panel = instance.source.kind === 'declared' ? instance.source.panel : instance.id;
+        const panel = declaredPanelId(instance) ?? instance.id;
         const reason = item?.disabledReason?.[lang] ?? workspace(instance.source.kind === 'declared' ? 'missingPanel' : 'unsupportedPanel', { id: panel });
         return { id, title: item?.title ?? { ko: panel, en: panel }, float: false, collapse: false,
           onRemove: () => savedPanels.remove(instance.id),
@@ -501,20 +534,92 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         render: () => <RecipePanel id={panel} open={explained === id} context={panelContext} onClose={() => setExplained(null)}>{renderPanel(panel)}</RecipePanel> };
     }),
   ];
+  const settingsPanel = panels.find(panel => panel.id === settings?.id);
+  if (settings && (!settingsPanel || settings.query !== settingsQuery)) setSettings(null);
+  const storedPanel = added.find(panel => panel.slot === settingsPanel?.id)?.instance;
+  const declarationId = (storedPanel && declaredPanelId(storedPanel))
+    ?? extraPanels.find(panel => panel.id === settingsPanel?.id)?.item?.id ?? (currentHostsSelection && settingsPanel?.id === 'current' ? sourcePanelId : '');
+  const declaration = declarationOf(declarationId);
+  const motionSlots = extraPanels.filter(({ item }) => item?.id === sourcePanelId && !item.disabledReason);
+  const publisher = motionSlots[0];
+  const sourceSlot = publisher?.id ?? (currentHostsSelection ? 'current' : null);
+  const selectionHost = currentHostsSelection ? 'current' : motionSlots.length === 1 ? sourceSlot ?? undefined : undefined;
+  const storedAt = (slot: string) => added.find(panel => panel.slot === slot)?.instance;
+  const instanceAt = (slot: string, declaration: PanelDeclaration | undefined) => settingsInstance(slot, declaration, storedAt(slot), savedInstances);
+  const selectionSource = sourceSlot ? instanceAt(sourceSlot, panelDeclarations.moduleMotions) : undefined;
+  const instance = settingsPanel && (settingsPanel.id === sourceSlot ? selectionSource : instanceAt(settingsPanel.id, declaration));
+  const renderedPanel = (instance: PanelInstance) => {
+    const slot = instance.id === selectionSource?.id ? sourceSlot : added.find(entry => entry.instance.id === instance.id)?.slot;
+    return panels.find(panel => panel.id === slot);
+  };
+  const outputDeclaration = (panel: PanelInstance, key: string) => {
+    const declarationId = declaredPanelId(panel);
+    return declarationId === undefined ? undefined : declarationOf(declarationId)?.outputs.find(output => output.key === key)?.selection;
+  };
+  const draftPanels = new Map(added.map(panel => [panel.instance.id, panel]));
+  if (selectionSource && sourceSlot) draftPanels.set(selectionSource.id, { ...draftPanels.get(selectionSource.id), slot: sourceSlot, instance: selectionSource });
+  if (instance && settingsPanel) draftPanels.set(instance.id, { ...draftPanels.get(instance.id), slot: settingsPanel.id, instance });
+  const draftInstances = [...draftPanels.values()].map(panel => panel.instance);
+  const draftSources = sources.filter(source => names(draftInstances, source.id));
+  const editSettings = (next: MenuViewPanels) => {
+    const updated = next.instances.find(panel => panel.id === instance?.id);
+    const entry = updated && draftPanels.get(updated.id);
+    if (!entry || declaration?.id !== panelDeclarations.table.id) {
+      savedPanels.editConnections(next, draftPanels);
+      return;
+    }
+    const before = instance?.inputs.find(input => input.key === MOTION_EQUIPMENT_KEY);
+    const after = updated.inputs.find(input => input.key === MOTION_EQUIPMENT_KEY);
+    if (before?.mode !== 'hold' && after?.mode === 'hold') {
+      const held = heldTableInput(after);
+      const writer = next.instances.find(panel => panel.outputs.some(output => `${panel.id}.${output.key}` === after.from));
+      const heldFrom = writer && (isHeldSource(writer) ? selectionHost : renderedPanel(writer)?.id);
+      const entries = new Map(draftPanels).set(updated.id, { ...entry, heldFrom });
+      savedPanels.editConnections({ ...next, instances: next.instances.map(panel => panel === updated
+        ? { ...panel, inputs: panel.inputs.map(input => input === after ? held : input) } : panel) }, entries);
+      return;
+    }
+    savedPanels.editConnections(next, draftPanels);
+  };
+
   const addPanel = (id: string, pin: boolean, options?: { restoreHidden: boolean }, intent?: AddIntent) => {
     if (intent?.mode === 'hold' && savedPanels.holdOverflows(id, intent)) { toast(formatText(HW_TIME_WORKSPACE_MESSAGES.heldFull, lang, { max: PANEL_INSTANCES_MAX }), 'warning'); return; }
     savedPanels.add(id, intent);
     if (pin) pins.pin(id);
     setReveal(current => ({ panelId: id, seq: (current?.seq ?? 0) + 1, ...options }));
   };
-  // The drawn panel whose bars a «새 패널» hold took its value from.
-  // With two «모듈 동작» charts (only from a saved view) the draft does not say which one, so neither is kept (R2 C7).
-  const motionSlots = extraPanels.filter(({ item }) => item?.id === sourcePanelId && !item.disabledReason);
-  const selectionHost = currentHostsSelection ? 'current' : motionSlots.length === 1 ? motionSlots[0]!.id : undefined;
   return <div className="flex min-h-0 flex-1 flex-col gap-2">
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
     {savedPanels.config.kind === 'unreadable' && <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={workspace('unreadablePanels')} />}
-    <PanelWorkspace panels={panels} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
+    {settings && settingsPanel && instance && <PanelSettingsDrawer key={settings.id} title={settingsPanel.title} panel={instance}
+      value={{ version: 1, instances: [...draftInstances, ...draftSources] }} trigger={settings.trigger} onClose={() => setSettings(null)}
+      declaredInputs={[...declaration?.queryInputs.page ?? [], ...declaration?.displayInputs.page ?? []]}
+      sourceReference={key => {
+        if (declaration?.id !== panelDeclarations.table.id || key !== MOTION_EQUIPMENT_KEY || !selectionSource) return;
+        const expected = outputDeclaration(selectionSource, key);
+        const output = selectionSource.outputs.find(output => output.key === key);
+        if (output && output.shape === expected?.shape && output.dimension === expected.dimension) return `${selectionSource.id}.${key}`;
+      }}
+      sourceTitle={panel => renderedPanel(panel)?.title} outputLabel={({ panel, output }) => outputDeclaration(panel, output.key)?.label}
+      selectionOf={({ panel, output }) => {
+        // The output-only source records the equipment channel for «새 패널» holds.
+        // Once following, it reads the same live channel as the active publisher.
+        if (isHeldSource(panel)) {
+          if (selectionSource && output.key === heldOutput.key && output.dimension === heldOutput.dimension && output.shape === heldOutput.shape) {
+            return parseAnalysisSelection(output.shape, pageParams(output.key));
+          }
+          return null;
+        }
+        const writer = renderedPanel(panel);
+        const selection = outputDeclaration(panel, output.key);
+        if (!writer || (writer.id === 'current' && !currentHostsSelection) || selection?.shape !== output.shape || selection.dimension !== output.dimension) return null;
+        return parseAnalysisSelection(output.shape, pageParams(output.key));
+      }}
+      onChange={editSettings} />}
+    <PanelWorkspace panels={panels.map(panel => ({ ...panel, onOpenSettings: trigger => {
+      if (pageParam('focus') !== null) setPage({ focus: null });
+      setSettings({ id: panel.id, trigger, query: settingsQuery });
+    } }))} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
       panelMenuItems={id => [
         ...(Object.hasOwn(panelDeclarations, id) ? [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }] : []),
         ...(heldSlots.some(slot => slot.id === id) ? [{ id: 'follow', label: HW_TIME_WORKSPACE_MESSAGES.followInstead, onSelect: () => savedPanels.follow(id) }] : []),

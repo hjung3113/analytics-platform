@@ -1,4 +1,4 @@
-import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
 import type { HeldAnalysisSelection } from '@ap/kernel';
 import { MOTION_EQUIPMENT_KEY } from '../../endpoints';
 import { panelDeclarations } from './panelDeclaration';
@@ -9,7 +9,7 @@ export type AddedPanel = { slot: string; instance: PanelInstance; heldFrom?: str
 export type PanelConfiguration =
   | { kind: 'default' | 'unreadable' }
   /** `sources`: the output-only instances held inputs name, kept as restored and never drawn (#2862). */
-  | { kind: 'custom'; added: readonly AddedPanel[]; sources: readonly PanelInstance[] };
+  | { kind: 'custom'; added: readonly AddedPanel[]; sources: readonly PanelInstance[]; connectionsEdited?: true };
 export const defaultPanels: PanelConfiguration = { kind: 'default' };
 export type CustomPanels = Extract<PanelConfiguration, { kind: 'custom' }>;
 export const noPanels: CustomPanels = { kind: 'custom', added: [], sources: [] };
@@ -29,12 +29,24 @@ export const isHeldSource = (instance: PanelInstance) => (instance.id === HELD_S
   && instance.outputs.some(output => output.key === heldOutput.key);
 export const holds = (instance: PanelInstance) => instance.inputs.some(input => input.mode === 'hold');
 export const names = (instances: readonly PanelInstance[], id: string) => instances.some(instance => instance.inputs.some(input => input.from.startsWith(`${id}.`)));
-export const declaredInstance = (id: string): PanelInstance => ({ id, source: { kind: 'declared', panel: id }, inputs: [], outputs: [] });
+
+export function newPanelInstance(slot: string, panel: string, instances: readonly PanelInstance[]): PanelInstance {
+  const occupied = new Set(instances.map(instance => instance.id));
+  let id = slot;
+  for (let n = 1; occupied.has(id); n += 1) id = `${slot}~${n}`;
+  return { id, source: { kind: 'declared', panel }, inputs: [], outputs: [] };
+}
+
+/** HW Time's table declares equipment as a filter by default. Keep explicit highlight and the saved publisher. */
+export function heldTableInput({ key, from, value, use }: Extract<PanelInstanceInput, { mode: 'hold' }>): PanelInstanceInput {
+  return { key, from, mode: 'hold', value, ...(use === 'highlight' ? { use } : {}) };
+}
 
 /** The save boundary for additions and their inputs/outputs. Layout and URL pins are owned elsewhere. */
 export function buildSavedPanels(config: PanelConfiguration, step: Step): MenuViewPanels | null {
   if (config.kind !== 'custom') return null;
-  const instances = config.added.filter(panel => step !== 4 || panel.slot !== 'trend').map(panel => panel.instance);
+  const instances = config.added.filter(({ slot, instance }) =>
+    step !== 4 || slot !== 'trend' || instance.inputs.length > 0 || instance.outputs.length > 0).map(panel => panel.instance);
   return { version: 1, instances: [...instances, ...config.sources.filter(source => names(instances, source.id))] };
 }
 
@@ -57,16 +69,23 @@ export function withAdded(config: PanelConfiguration, id: string, step: Step, in
   if (step === 4 && id === 'trend') return null;
   const custom = config.kind === 'custom' ? config : noPanels;
   const existing = custom.added.find(panel => panel.slot === id);
-  const put = (panel: AddedPanel, sources = custom.sources): CustomPanels => ({ kind: 'custom', sources,
+  const put = (panel: AddedPanel, sources = custom.sources): CustomPanels => ({ ...custom, sources,
     added: existing ? custom.added.map(item => item === existing ? panel : item) : [...custom.added, panel] });
+  const create = () => newPanelInstance(id, id, [...custom.added.map(panel => panel.instance), ...custom.sources]);
   if (intent?.mode === 'hold') {
     const source = heldSourceFor(custom);
-    const inputs = Object.entries(intent.held).flatMap(([key, value]): PanelInstance['inputs'] => key === heldOutput.key ? [{ key, from: `${source.id}.${key}`, mode: 'hold', value }] : []);
-    return put({ slot: id, instance: { ...(existing?.instance ?? declaredInstance(id)), inputs }, heldFrom: intent.from }, source.sources);
+    const inputs = Object.entries(intent.held).flatMap(([key, value]) => key === heldOutput.key
+      ? [heldTableInput({ key, from: `${source.id}.${key}`, mode: 'hold', value })] : []);
+    return put({ slot: id, instance: { ...(existing?.instance ?? create()), inputs }, heldFrom: intent.from }, source.sources);
   }
-  if (!existing) return put({ slot: id, instance: declaredInstance(id) });
+  if (!existing) return put({ slot: id, instance: create() });
   if (!intent || !holds(existing.instance)) return null;
-  return put({ slot: existing.slot, instance: { ...existing.instance, inputs: existing.instance.inputs.filter(input => input.mode !== 'hold') } });
+  const inputs = existing.instance.inputs.map((input): PanelInstanceInput => {
+    if (input.mode === 'follow') return input;
+    const { key, from, use } = input;
+    return { key, from, mode: 'follow', ...(use ? { use } : {}) };
+  });
+  return put({ slot: existing.slot, instance: { ...existing.instance, inputs } });
 }
 
 /** Whether a hold would take the saved panels past the v1 limit: measured on what would be saved, so a replaced hold's dropped source is not counted (R2 C11). */

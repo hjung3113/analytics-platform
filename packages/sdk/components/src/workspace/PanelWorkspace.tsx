@@ -5,6 +5,7 @@ import { useI18n, useMessages, usePlatformOptional, type Text } from '@ap/kernel
 import { cn, isDevelopment } from '@ap/ui';
 import type { LucideIcon } from 'lucide-react';
 import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands';
+import type { DockChartCloseFocus } from '../dock/DockChartHead';
 import { focusSoon, focusTabSoon } from '../dock/focusTab';
 import { DockLayoutBase } from '../dock/DockLayout';
 import type { DockPanel, DockRows } from '../dock/dockTypes';
@@ -41,6 +42,8 @@ export type PanelWorkspacePanel = {
   id: string;
   /** Declared analysis selection source hosted here when its id differs from this layout id. */
   analysisSelectionSourceId?: string;
+  /** Offer Panel settings and pass the menu trigger after the menu closes. */
+  onOpenSettings?: (trigger: HTMLButtonElement) => void;
   title: Text;
   /** Icon in the collapsed left rail; absent = first character of the translated title. */
   icon?: LucideIcon;
@@ -562,7 +565,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   }, [badges]);
   const reading = dockGroupsInReadingOrder(state.layout);
   const focusTab = (panelId: string) => { focusTabSoon(() => root.current, panelId); };
-  const closeFocus = useRef<(() => void) | null>(null);
+  const closeFocus = useRef<DockChartCloseFocus | null>(null);
   const layoutChange = (change: (current: WorkspaceState) => WorkspaceState, created?: string) => { update(change, 'keep', created); };
   const moveBelow = (id: string) => {
     layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: moveToNewRow(current.layout, id) } : current), id);
@@ -679,6 +682,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     };
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
     return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
+      onOpenSettings={panel?.onOpenSettings}
       menuItems={panelMenuItems?.(id).map(item => ({ ...item, label: tx(item.label) }))}
       edgeActions={id === primaryId || edgesNarrow ? undefined : {
         left: panel?.collapse !== false && edges.includes('left') ? () => { collapse('left', { fromMenu: true }); } : undefined,
