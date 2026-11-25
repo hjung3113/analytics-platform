@@ -475,6 +475,13 @@
                             "from": {
                               "type": "string"
                             },
+                            "use": {
+                              "type": "string",
+                              "enum": [
+                                "filter",
+                                "highlight"
+                              ]
+                            },
                             "mode": {
                               "type": "string",
                               "const": "follow"
@@ -497,6 +504,13 @@
                             },
                             "from": {
                               "type": "string"
+                            },
+                            "use": {
+                              "type": "string",
+                              "enum": [
+                                "filter",
+                                "highlight"
+                              ]
                             },
                             "mode": {
                               "type": "string",
