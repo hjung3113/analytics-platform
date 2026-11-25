@@ -291,7 +291,7 @@ exports[`builds the same donut option and summary from a fixed selection 1`] = `
             "itemStyle": {
               "borderColor": "rgb(20,40,160)",
               "borderWidth": 0,
-              "color": "rgb(46,107,217)",
+              "color": "rgb(87,130,43)",
             },
             "name": "Epsilon",
             "value": 14,
