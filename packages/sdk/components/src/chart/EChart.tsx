@@ -59,6 +59,8 @@ export const chartReferenceLineTheme = {
     lineStyle: { color, type: 'dashed' },
     label: { formatter: '{b}', fontSize: 10, color, position: 'insideEndTop' },
   } as const),
+  // A band label sits inside its band's start corner, clear of the line label at the plot's end.
+  bandLabel: (color: string, axis: 'x' | 'y') => ({ show: true, color, fontSize: 10, position: axis === 'y' ? 'insideTopLeft' as const : 'insideTop' as const }),
   scatterXLabel: { position: 'end' as const, rotate: 0, offset: [0, 8], verticalAlign: 'top' as const },
   // Point labels toward the plot's middle to keep the outermost labels inside.
   histogramXLabel: (position: 'insideEndTop', color: string, label: string, leftHalf: boolean) => ({

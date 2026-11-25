@@ -15,6 +15,7 @@ import { histogramData } from '../histogram';
 import { topNData } from '../topNBar';
 import { chartReferenceLineTheme, token } from '../EChart';
 import type { ChartReferenceMark } from '../referenceMarks';
+import { referenceBandData } from '../referenceMarks';
 import { baselineInput } from '../__fixtures__/baselineInput';
 import main from '../__fixtures__/buildChartOption.main.json';
 
@@ -128,6 +129,14 @@ it('renders an opt-in reference band with its label', () => {
     chart.setOption({ ...data.option([]), animation: false });
     expect(chart.renderToSVGString()).toContain('Operating range');
   } finally { chart.dispose(); }
+});
+
+it('places a band label inside its start corner, away from the line label at the plot end', () => {
+  const theme = { referenceBand: { color: '#64748b', opacity: 0.12 } } as Parameters<typeof referenceBandData>[0];
+  const [y] = referenceBandData(theme, [{ type: 'band', axis: 'y', from: 80, to: 90, label: 'Range' }]) as [{ label: unknown }, unknown][];
+  const [x] = referenceBandData(theme, [{ type: 'band', axis: 'x', from: 1, to: 2, label: 'Range' }]) as [{ label: unknown }, unknown][];
+  expect(y[0].label).toMatchObject({ position: 'insideTopLeft', fontSize: 10 });
+  expect(x[0].label).toMatchObject({ position: 'insideTop', fontSize: 10 });
 });
 
 it('draws the population P95 through the same Frame option as its legacy markLine', () => {

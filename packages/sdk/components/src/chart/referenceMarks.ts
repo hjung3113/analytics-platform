@@ -96,7 +96,7 @@ export function referenceBandData(theme: Theme, marks?: readonly ChartReferenceM
     if (mark.type !== 'band') return [];
     const axis = mark.axis === 'x' ? 'xAxis' : 'yAxis';
     return [[{ name: mark.label, [axis]: Math.min(mark.from, mark.to),
-      itemStyle: theme.referenceBand, label: { show: true, color: theme.referenceBand.color } },
+      itemStyle: theme.referenceBand, label: chartReferenceLineTheme.bandLabel(theme.referenceBand.color, mark.axis) },
     { [axis]: Math.max(mark.from, mark.to) }]];
   });
 }
