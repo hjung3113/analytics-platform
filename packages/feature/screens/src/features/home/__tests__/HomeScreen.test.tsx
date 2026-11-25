@@ -20,7 +20,7 @@ import {
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi, type Mock } from 'vitest';
 
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 vi.mock('sonner', () => ({ toast }));
@@ -74,9 +74,9 @@ function installFetch(
     summaryStatus?: number;
     permissionRequests?: unknown[];
   } = {},
-): ReturnType<typeof vi.fn> {
+): Mock<typeof fetch> {
   let unreadCountRequests = 0;
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = vi.fn<typeof fetch>(async (input) => {
     const url = String(input);
     if (url.startsWith('/me/answerable-surveys'))
       return new Response(

@@ -525,8 +525,12 @@ it.each(['approved', 'rejected'] as const)(
     const user = userEvent.setup();
     const result: TaskRequestDto = { ...request, status, decision_reason: '검토 완료' };
     let resolvePage!: (value: Awaited<ReturnType<typeof api.fetchTaskRequests>>) => void;
-    const originalFetch = api.fetchTaskRequests;
-    const fetch = vi.spyOn(api, 'fetchTaskRequests').mockImplementation((query) =>
+    // `api.fetchTaskRequests` is already the module mock's vi.fn, and spyOn returns that same fn (Vitest 4+): take its
+    // implementation before replacing it, or the fallback calls the replacement and recurses (#3030).
+    const fetch = vi.spyOn(api, 'fetchTaskRequests');
+    const originalFetch = fetch.getMockImplementation();
+    if (!originalFetch) throw new Error('the api module mock gives fetchTaskRequests an implementation');
+    fetch.mockImplementation((query) =>
       query?.status === 'pending_review' && mutation.mock.calls.length > 0
         ? new Promise((resolve) => {
             resolvePage = resolve;

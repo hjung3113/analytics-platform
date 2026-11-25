@@ -1,3 +1,5 @@
+// Node APIs in this test only; the package config keeps `types: []` so source stays Node-free (#3030).
+/// <reference types="node" />
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { permissionRequestAdminDetailSchema } from '../selected-detail.js';

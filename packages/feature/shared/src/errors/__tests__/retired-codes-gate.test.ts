@@ -1,3 +1,5 @@
+// Node APIs in this test only; the package config keeps `types: []` so source stays Node-free (#3030).
+/// <reference types="node" />
 // PLAN-22 C7b gate test — `attachment.unsupported_pending_storage_slice` is
 // retired from the catalog. This guard fails fast if the string string-literal
 // resurfaces anywhere in production source (apps/platform-api/src + packages/feature/{screens,shared}/src),

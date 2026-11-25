@@ -84,11 +84,13 @@ export function releaseManifest(name, source, version) {
   // Keeps tree-shaking for consumers: without it a bundler keeps every module a barrel re-exports (@ap/ui, #706).
   if (source.sideEffects !== undefined) manifest.sideEffects = source.sideEffects;
   if (Object.keys(external).length > 0) manifest.dependencies = external;
-  const optional = name === 'components' ? { vitest: source.devDependencies?.vitest } : undefined;
-  if (optional && !optional.vitest) fail('@ap/components must declare devDependencies.vitest for its optional testing peer');
-  const peerDependencies = { ...source.peerDependencies, ...siblings, ...optional };
+  // `@ap/components/testing` imports vitest: an optional peer whose range spans the Vitest majors a consumer kit may run (#3030).
+  if (name === 'components' && !(source.peerDependencies?.vitest && source.peerDependenciesMeta?.vitest?.optional === true)) {
+    fail('@ap/components must declare vitest as an optional peer (peerDependencies + peerDependenciesMeta) for its testing entry');
+  }
+  const peerDependencies = { ...source.peerDependencies, ...siblings };
   if (Object.keys(peerDependencies).length > 0) manifest.peerDependencies = peerDependencies;
-  if (optional) manifest.peerDependenciesMeta = Object.fromEntries(Object.keys(optional).map((peer) => [peer, { optional: true }]));
+  if (source.peerDependenciesMeta !== undefined) manifest.peerDependenciesMeta = source.peerDependenciesMeta;
   return manifest;
 }
 

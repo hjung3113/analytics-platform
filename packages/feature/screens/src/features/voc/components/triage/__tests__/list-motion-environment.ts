@@ -1,7 +1,9 @@
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
+
+export type ListMotionEnvironment = { animate: Mock; restore(): void };
 
 /** Scoped browser APIs: real MutationObserver and real auto-animate remain in use. */
-export function installListMotionEnvironment(reduced = false, tokens = true) {
+export function installListMotionEnvironment(reduced = false, tokens = true): ListMotionEnvironment {
   const root = document.documentElement;
   const previousStyle = root.getAttribute('style');
   if (tokens) {

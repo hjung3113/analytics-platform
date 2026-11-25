@@ -1,11 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 
-import { specCoverageEndpoint } from '../spec-coverage-endpoint.js';
+import { specCoverageEndpoint, type SpecCoverageSource } from '../spec-coverage-endpoint.js';
 
 const UUID = '33333333-3333-4333-8333-333333333333';
 const SW = '44444444-4444-4444-8444-444444444444';
 const actor = { actor_id: 'a', workspace_id: 'ws' };
-const run = (getCoverage: ReturnType<typeof vi.fn> | null, params: Record<string, unknown>) =>
+const run = (getCoverage: Mock<SpecCoverageSource['getCoverage']> | null, params: Record<string, unknown>) =>
   specCoverageEndpoint({ db: {} as never, checkService: {} as never, ...(getCoverage ? { ruleCoverage: { getCoverage } } : {}) }).handle({ actor, params } as never);
 
 describe('logKnowledge.specCoverage (#1496)', () => {

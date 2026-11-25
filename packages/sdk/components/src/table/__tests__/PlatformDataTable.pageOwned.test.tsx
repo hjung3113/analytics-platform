@@ -101,8 +101,10 @@ describe('page-owned comparison table options', () => {
 
   it('sizes PageDown by the rows below the rendered sticky block, not one nominal header row (#2549)', async () => {
     const readings = Array.from({ length: 12 }, (_, index) => ({ id: `r${index}`, value: index, limit: 100 + index }));
-    const rect = HTMLElement.prototype.getBoundingClientRect;
-    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    // The geometry stub already spied the method; spyOn returns that same spy (Vitest 4+), so wrap its current implementation.
+    const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
+    const rect = spy.getMockImplementation()!;
+    spy.mockImplementation(function (this: HTMLElement) {
       return this.hasAttribute('data-table-sticky-rows')
         ? { width: 1280, height: 96, x: 0, y: 0, top: 0, left: 0, right: 1280, bottom: 96, toJSON() {} }
         : rect.call(this);

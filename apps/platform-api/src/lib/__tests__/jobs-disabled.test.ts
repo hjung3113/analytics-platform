@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 const bossInstances: Array<{ options: Record<string, unknown>; start: ReturnType<typeof vi.fn> }> =
   [];
@@ -17,7 +17,7 @@ vi.mock('pg-boss', () => ({
 import type { JobLog } from '../job-log.js';
 import { initBoss, registerJobsUnlessDisabled } from '../jobs.js';
 
-const log = (): JobLog & { info: ReturnType<typeof vi.fn> } => ({
+const log = (): JobLog & { info: Mock<JobLog['info']> } => ({
   info: vi.fn(),
   warn: vi.fn(),
   error: vi.fn(),
