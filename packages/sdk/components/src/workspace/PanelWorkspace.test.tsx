@@ -222,7 +222,7 @@ describe('PanelWorkspace: remount 0, query 0', () => {
   });
 
   it('does not offer delete on a declared panel or on the primary panel', async () => {
-    mountWorkspace({ panels: PANELS.map(panel => panel.primary ? { ...panel, onRemove: vi.fn() } : panel) });
+    mountWorkspace({ panels: PANELS.map(panel => panel.primary || panel.id === 'selector' ? { ...panel, onRemove: vi.fn() } : panel) });
     await ready();
     await userEvent.click(screen.getByRole('button', { name: '추세 동작' }));
     await screen.findByRole('menuitem', { name: '추세 최대화' });
@@ -231,6 +231,9 @@ describe('PanelWorkspace: remount 0, query 0', () => {
     await userEvent.click(screen.getByRole('button', { name: '상세 동작' }));
     expect(await screen.findByRole('menuitem', { name: '숨기기' })).toBeInTheDocument();
     expect(screen.queryByRole('menuitem', { name: '삭제' })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: '선택기 동작' }));
+    expect(await screen.findByRole('menuitem', { name: '삭제' })).toBeInTheDocument();
   });
 });
 
@@ -1919,11 +1922,16 @@ it.each(['settings', 'runs'])('joins the shared trend row after %s without remou
   expect(screen.getByTestId(`probe-${first}`)).toBe(survivor);
 });
 
-it.each(['위로 접기', '숨기기'])('hands focus off when a secondary chart is removed with %s from merged More', async action => {
+async function openMergedChartActions(keep?: PanelWorkspaceProps['panels'][number]['keep']) {
   const user = userEvent.setup();
-  mountWorkspace({ panels: PANELS.map(panel => panel.id === 'selector' ? {
-    ...panel, render: () => <AnalysisChartFrame chartId="secondary" title="Secondary chart" unit="s" series={[]} xType="category" />,
-  } : panel) });
+  function WorkspaceWithChart() {
+    const [panels, setPanels] = useState(PANELS);
+    return <PanelWorkspace {...BASE} panels={panels.map(panel => panel.id === 'selector' ? {
+      ...panel, keep, onRemove: () => setPanels(current => current.filter(item => item.id !== panel.id)),
+      render: () => <AnalysisChartFrame chartId="secondary" title="Secondary chart" unit="s" series={[]} xType="category" />,
+    } : panel)} />;
+  }
+  render(shell(<WorkspaceWithChart />));
   await ready();
   const tab = screen.getByRole('tab', { name: '선택기' });
   const strip = within(tab.closest('.dv-tabs-and-actions-container')!);
@@ -1931,14 +1939,33 @@ it.each(['위로 접기', '숨기기'])('hands focus off when a secondary chart 
   act(() => { tab.focus(); });
   await user.keyboard('{Shift>}{F10}{/Shift}');
   const popup = await screen.findByRole('dialog', { name: '더보기' });
-  const command = within(popup).getByRole('button', { name: action });
+  const layoutActions = within(popup).getByRole('group', { name: '배치' });
+  return { tab, user, layoutActions };
+}
+
+it.each(['위로 접기', '숨기기', '삭제'])('hands focus off when a secondary chart is removed with %s from merged More', async action => {
+  const { tab, user, layoutActions } = await openMergedChartActions();
+  const command = within(layoutActions).getByRole('button', { name: action });
   act(() => { command.focus(); });
   await user.keyboard('{Enter}');
   await waitFor(() => { expect(tab).not.toBeInTheDocument(); });
+  if (action === '삭제') expect(screen.getByRole('button', { name: '숨긴 패널 0' })).toBeDisabled();
   const target = action === '위로 접기'
     ? screen.getByRole('button', { name: '선택기' })
     : screen.getByRole('tab', { name: '추세' });
   await waitFor(() => { expect(target).toHaveFocus(); });
+});
+
+it('describes and blocks keyboard deletion of a kept chart in the merged layout actions', async () => {
+  const reason = { ko: '다른 패널이 이 값을 붙잡고 있습니다', en: 'Another panel holds this value' };
+  const { tab, user, layoutActions } = await openMergedChartActions({ reason });
+  const command = within(layoutActions).getByRole('button', { name: '삭제' });
+  expect(command).toHaveAttribute('aria-disabled', 'true');
+  expect(command).toHaveAccessibleDescription(reason.ko);
+  act(() => { command.focus(); });
+  await user.keyboard('{Enter}');
+  expect(command).toHaveFocus();
+  expect(tab).toBeInTheDocument();
 });
 
 it('returns focus to the merged chart More trigger after closing panel settings with Escape', async () => {

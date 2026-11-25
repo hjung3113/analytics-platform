@@ -278,7 +278,7 @@ function useWorkspacePanels(owner: string, query: string, step: Step) {
   });
   const add = (id: string, intent?: AddIntent) => setState(current => {
     const next = withAdded(current.config, id, step, intent);
-    return next && !exceedsPanelLimit(next, step) ? { ...current, config: next } : current;
+    return next && !exceedsPanelLimit(buildSavedPanels(next, step)) ? { ...current, config: next } : current;
   });
   /** «따라가기로 바꾸기»: the panel drops its held values and reads the URL again. */
   const follow = (slot: string) => add(slot, { mode: 'follow' });
@@ -486,6 +486,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       analysisSelectionSourceId: currentHostsSelection ? sourcePanelId : undefined,
       render: () => <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} source={currentHostsSelection} /> },
     ...extraPanels.map(({ id, instance, item }): PanelWorkspacePanel => {
+      const keep = keptSources.has(id) ? { reason: HW_TIME_WORKSPACE_MESSAGES.heldSource } : undefined;
       const onRemove = instance && (() => {
         savedPanels.remove(instance.id);
         if (id === 'trend' && trend) {
@@ -499,7 +500,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         const panel = declaredPanelId(instance) ?? instance.id;
         const reason = item?.disabledReason?.[lang] ?? workspace(instance.source.kind === 'declared' ? 'missingPanel' : 'unsupportedPanel', { id: panel });
         return { id, title: item?.title ?? { ko: panel, en: panel }, float: false, collapse: false,
-          onRemove,
+          onRemove, keep,
           render: () => <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={reason} /> };
       }
       const panel = item!.id as CatalogId;
@@ -549,7 +550,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       return { id, icon: ChartNoAxesCombined, title: item!.title, ...(step === 4 && id === 'trend' ? { placement: 'below' as const } : {}), preferredHeight: 360, minWidth: 200,
         onRemove,
         badge: tableBadge(panel, heldTable),
-        keep: keptSources.has(id) ? { reason: HW_TIME_WORKSPACE_MESSAGES.heldSource } : undefined,
+        keep,
         pin: id === panel ? { pinned: pins.isPinned(id), onToggle: () => {
           if (!pins.isPinned(id) && !checkAddition(id)) return;
           savedPanels.add(id);
@@ -631,6 +632,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     {settings && settingsPanel && instance && <PanelSettingsDrawer key={settings.id} title={settingsPanel.title} panel={instance}
       value={{ version: 1, instances: [...drawerInstances.values()] }} trigger={settings.trigger} onClose={() => setSettings(null)}
       projectCandidate={updated => buildSavedPanels(settingsConfig(settingsPanel.id, updated), step)}
+      validateCandidate={candidate => exceedsPanelLimit(candidate) ? limitReason : undefined}
       declaredInputs={[...declaration?.queryInputs.page ?? [], ...declaration?.displayInputs.page ?? []]}
       sourceReference={key => {
         if (declaration?.id !== panelDeclarations.table.id || key !== MOTION_EQUIPMENT_KEY || !selectionSource) return;

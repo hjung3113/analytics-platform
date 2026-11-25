@@ -15,6 +15,8 @@ export type PanelSettingsDrawerProps = {
   value: MenuViewPanels;
   /** Builds the graph to validate and emit when the caller's save slot projects the edited panel. */
   projectCandidate?: (panel: PanelInstance) => MenuViewPanels;
+  /** Optionally rejects a projected configuration with a localized reason before SDK validation. */
+  validateCandidate?: (candidate: MenuViewPanels) => Text | undefined;
   declaredInputs?: readonly DeclaredInput[];
   /** Eligible publisher for a new input, as `<instance id>.<output key>`. Saved inputs keep their own reference. */
   sourceReference?: (inputKey: string) => string | undefined;
@@ -49,10 +51,10 @@ function Segments<T extends string>({ label, options, value, disabled, text, onC
 }
 
 /** Edits one instance in a v1 panel configuration. The caller supplies the live selection and owns the saved-view slot. */
-export function PanelSettingsDrawer({ title, panel, value, projectCandidate, declaredInputs = [], sourceReference, sourceTitle, outputLabel, selectionOf, trigger, onChange, onClose }: PanelSettingsDrawerProps) {
+export function PanelSettingsDrawer({ title, panel, value, projectCandidate, validateCandidate, declaredInputs = [], sourceReference, sourceTitle, outputLabel, selectionOf, trigger, onChange, onClose }: PanelSettingsDrawerProps) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { tx } = useI18n();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Text | null>(null);
   const returnFocusRef = useMemo(() => ({ current: trigger ?? null }), [trigger]);
   const inputKeys = new Set([...declaredInputs.filter(input => input.selection).map(input => input.key), ...panel.inputs.map(input => input.key)]);
   const sources = value.instances.filter(instance => instance.id !== panel.id).flatMap(instance => instance.outputs.map(output => ({ panel: instance, output })));
@@ -68,9 +70,15 @@ export function PanelSettingsDrawer({ title, panel, value, projectCandidate, dec
     const updated = { ...panel, inputs };
     const candidate = projectCandidate?.(updated)
       ?? { ...value, instances: value.instances.map(instance => instance.id === panel.id ? { ...instance, inputs } : instance) };
-    const problem = invalidMenuViewPanels(candidate);
-    setError(problem);
-    if (!problem) onChange(candidate);
+    let reason = validateCandidate?.(candidate);
+    if (!reason) {
+      const problem = invalidMenuViewPanels(candidate);
+      if (problem) {
+        reason = COMPONENTS_MESSAGES[problem === 'panels connections must not contain a filter cycle' ? 'panelFilterCycle' : 'panelConnectionInvalid'];
+      }
+    }
+    setError(reason ?? null);
+    if (!reason) onChange(candidate);
   };
   const content = <Inspector form="stack" label={COMPONENTS_MESSAGES.panelSettings} sections={[{
     id: 'connections', title: COMPONENTS_MESSAGES.panelConnections, icon: Link2,
@@ -108,7 +116,7 @@ export function PanelSettingsDrawer({ title, panel, value, projectCandidate, dec
       })}
       <p className="text-xs text-text-secondary">{m('panelPublishes')} · {panel.outputs.length
         ? panel.outputs.map(output => labelOf({ panel, output })).join(', ') : m('panelNoOutputs')}</p>
-      {error && <p role="alert" className="text-xs text-text-danger-label">{m(error === 'panels connections must not contain a filter cycle' ? 'panelFilterCycle' : 'panelConnectionInvalid')}</p>}
+      {error && <p role="alert" className="text-xs text-text-danger-label">{tx(error)}</p>}
     </div>,
   }]} />;
   return <DetailDrawer title={tx(title)} focusOnOpen closeOnSuperseded copyPage={null} returnFocusRef={returnFocusRef} onClose={onClose}
