@@ -23,6 +23,7 @@ import type { Selection } from './useChartRange';
 import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
 import { axisBreakGraphic, barRadius, CHART_MARKS, lineSymbolShown, rangeBandFill, selectionRing } from './chartMarks';
 import { insideLabelStyle, LABEL_FONT, labelFitsSegment, labelWidth, segmentLabelStyle, shortNumber, stackEnd, type LabelRect, type RowTotal, type ValueLabels } from './chartValueLabels';
+import { frameReferenceLines, isFiniteReferenceMark, referenceBandData, referenceLineOption, referenceMarkOptions, referenceValues, type ChartReferenceMark } from './referenceMarks';
 
 /** The plot's horizontal margin (grid left 52 + right 20). */
 export const PLOT_MARGIN = 72;
@@ -48,12 +49,19 @@ export function buildHistogramOption({ spec, bins, rows, countLabel, selectedKey
 }): EChartsCoreOption {
   const theme = chartTheme();
   const ids = new Set<string>();
-  const references = (spec.referenceLines ?? []).filter(line => {
-    if (!Number.isFinite(line.value) || ids.has(line.id)) { chartDiagnostic('histogram: non-finite or duplicate reference line dropped'); return false; }
-    ids.add(line.id); return true;
+  const declared = spec.referenceMarks ?? spec.referenceLines?.map<ChartReferenceMark>(line => ({ ...line, type: 'line', axis: 'x' })) ?? [];
+  const references = declared.filter(mark => {
+    const id = mark.type === 'line' ? mark.id : undefined;
+    if (!isFiniteReferenceMark(mark) || (id !== undefined && ids.has(id))) {
+      chartDiagnostic('histogram: non-finite or duplicate reference mark dropped');
+      return false;
+    }
+    if (id !== undefined) ids.add(id);
+    return true;
   });
   let min = bins[0]?.start ?? 0; let max = bins.at(-1)?.end ?? 1;
-  for (const line of references) { min = Math.min(min, line.value); max = Math.max(max, line.value); }
+  for (const value of referenceValues(references, 'x')) { min = Math.min(min, value); max = Math.max(max, value); }
+  const bands = referenceBandData(theme, references);
   const statusPeaks: number[] = [];
   for (const [i, bin] of bins.entries()) {
     const status = rows[i].status;
@@ -84,14 +92,8 @@ export function buildHistogramOption({ spec, bins, rows, countLabel, selectedKey
             style: { fill: api.visual('color'), ...(selected ? { stroke: token('chart-selection-outline'), lineWidth: selectionRing(selected) } : {}) } };
         },
         data: bins.map((bin, i) => ({ value: [bin.start, bin.end, bin.count], itemStyle: { color: rows[i].status ? statusColor(rows[i].status!) : token('chart-series-1') } })),
-        markLine: { ...theme.referenceLine, symbol: ['none', 'none'], data: references.map(line => {
-          const color = line.tone ? statusColor({ tone: line.tone, label: line.label }) : theme.referenceLine.lineStyle.color;
-          return { name: line.label, xAxis: line.value, lineStyle: { type: 'dashed', color },
-            // The text runs from the line toward the plot's middle, so a line near either axis end keeps its label inside the plot.
-            // ECharts anchors `insideEndTop` 5px left of a vertical line; a left-half label moves twice that to sit 5px right of it.
-            label: { show: true, formatter: () => line.label, position: 'insideEndTop', rotate: 0, color,
-              ...(line.value < min / 2 + max / 2 ? { align: 'left', offset: [10, 0] } : { align: 'right' }) } };
-        }) },
+        markLine: referenceLineOption(theme, references, { histogramMidpoint: min / 2 + max / 2 }),
+        ...(bands.length ? { markArea: { silent: true, data: bands } } : {}),
       },
       { type: 'scatter', silent: true, tooltip: { show: false }, symbolSize: 0, z: 3,
         data: statusPeaks.map(i => {
@@ -180,7 +182,8 @@ export type ChartOptionInput = {
   chartWidth: number;
   /** Horizontal value axis only: the measured width bucketed by the Frame, so the tick budget follows a resize without the whole option changing. Absent = `chartWidth`. */
   tickRoom?: number;
-  markLines: { y: number; label: string }[] | undefined;
+  markLines?: { y: number; label: string }[];
+  referenceMarks?: readonly ChartReferenceMark[];
   categoryValueMarks?: { label: string; byCategory: ReadonlyMap<string, number> };
   emptyCategoryLabel?: string;
   unit: string;
@@ -358,6 +361,8 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const remainderFill = other ? token(REMAINDER_COLOR) : undefined;
   const active = horizontal && i.activeCategory !== other?.key ? i.activeCategory ?? null : null;
   const lanes = horizontal && i.startAlign && i.stacked ? laneLayout(i.displayed, categories) : null;
+  const references = lanes || i.percent ? {} : referenceMarkOptions(theme,
+    i.referenceMarks ?? frameReferenceLines(i.markLines ?? [], horizontal ? 'x' : 'y'));
   const selectedPoints = new Set(i.selectedPointKeys);
   const highlightedValues = new Set(i.highlightedValues);
   const highlightedBarBorders = new Map<string, number>();
@@ -598,9 +603,9 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       ...(groupLayout ? [rowGroupSeries(groupLayout, theme.axisLabel.color, theme.separator, takenSeriesIds)] : []),
       {
         id: helperSeriesId('__overlay', takenSeriesIds), type: 'line', data: [], silent: true, symbol: 'none',
-        markArea: { silent: true, data: areas },
+        markArea: { silent: true, data: [...areas, ...(references.markArea?.data ?? [])] },
         markLine: lanes ? laneMarkLine(lanes, theme, i.chartWidth - (groupLayout?.gutter ?? (i.rowPitch !== undefined ? rowGutter : 52)) - gridRight)
-          : i.markLines?.length ? { ...theme.referenceLine, data: i.markLines.map(m => ({ name: m.label, [horizontal ? 'xAxis' : 'yAxis']: m.y })) } : undefined,
+          : references.markLine,
       },
     ],
   };

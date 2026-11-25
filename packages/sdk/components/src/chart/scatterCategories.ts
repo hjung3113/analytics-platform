@@ -7,6 +7,7 @@ import { legendColor, type KindProjection } from './analysisChartKinds';
 import { rowKey } from './analysisChartShared';
 import { escapeHtml } from './chartText';
 import { BOUND_DASH, BOUND_OPACITY, boundColor, boundLabelsOf, normalizeBound, type Bound } from './chartBounds';
+import { referenceValues, scatterReferenceMarks } from './referenceMarks';
 import { chartDiagnostic } from './analysisChartData';
 import { groupedRowText, rowGroup, rowGroupLayout, rowLabel, type ChartRowGroups } from './chartRowGroups';
 import { distinctStatuses, statusBacking, statusBorderColor, statusFill, statusGlyph, statusKey, statusMarker, statusText } from './chartStatus';
@@ -208,15 +209,18 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
           { coord: [span.end + HALF_CELL, span[part]!] },
         ]);
         series[0].markLine = { ...theme.referenceLine, ...series[0].markLine, data: [...(series[0].markLine?.data ?? []), ...lines(upper, 'upper', BOUND_DASH.upper), ...lines(lower, 'lower', BOUND_DASH.lower)] };
-        series[0].markArea = { silent: true, itemStyle: { color: boundColor(theme), opacity: BOUND_OPACITY }, label: { show: false }, data: bands.map(span => [
-          { coord: [span.start - HALF_CELL, span.lower!] }, { coord: [span.end + HALF_CELL, span.upper!] },
-        ]) };
+        series[0].markArea = { silent: true, itemStyle: { color: boundColor(theme), opacity: BOUND_OPACITY }, label: { show: false }, data: [
+          ...bands.map((span): [{ coord: number[] }, { coord: number[] }] => [
+            { coord: [span.start - HALF_CELL, span.lower!] }, { coord: [span.end + HALF_CELL, span.upper!] },
+          ]),
+          ...(series[0].markArea?.data ?? []),
+        ] };
       }
       const takenSeriesIds = new Set(series.flatMap(({ id }) => id === undefined ? [] : [String(id)]));
       const yAxis = original.yAxis as YAXisComponentOption;
       const boundValues = (cells?.bounds ?? []).flatMap(bound => [bound.lower, bound.upper].filter((value): value is number => value !== undefined));
       const yRange = (extent: { min: number; max: number }) => {
-        const references = (spec.referenceLines ?? []).filter(line => line.axis === 'y' && Number.isFinite(line.value)).map(line => line.value);
+        const references = referenceValues(scatterReferenceMarks(spec), 'y');
         const min = Math.min(extent.min, ...boundValues, ...references); const max = Math.max(extent.max, ...boundValues, ...references);
         const padding = (max - min || Math.abs(min) || 1) * RANGE_PADDING;
         return { min: min - padding, max: max + padding };

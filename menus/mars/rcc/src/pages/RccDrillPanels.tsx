@@ -75,7 +75,7 @@ export function RccDrillPanels({ units, unit, usage, step, targets, days, struct
         { id: 'l1-held', name: m('held'), color: 'chart-remainder', points: rows.filter(item => item.held).map(item => [item.id, item.total]) },
       ];
       return <AnalysisChartFrame {...commonBars} chartId={`rcc-${id}`} title={m('l1')} series={bars}
-        legendPlacement="top" markLines={numericBaseline === null ? undefined : [{ y: numericBaseline, label: '' }]}
+        legendPlacement="top" referenceMarks={numericBaseline === null ? undefined : [{ type: 'line', axis: 'x', value: numericBaseline, label: '' }]}
         toolbarStart={numericBaseline === null ? undefined : <span className="t-caption text-text-secondary">{baselineLabel} · {numberText(numericBaseline)} {unitText}</span>}
         pointActivation={previous ? undefined : { on: 'dblclick', onActivate: point => drillTo({ unit: unit.id, equipment: point.x }) }}
         isPointSelectable={point => previous || point.seriesId === 'l1-total'} />;

@@ -29,10 +29,11 @@ import { AnalysisChartPart, ChartHeading, ChartTrustFooter, ChartLegendLabel, Ch
 import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContext';
 import type { ChartRowGroups } from './chartRowGroups';
 import { HEATMAP_CATEGORY_TOKENS, UNKNOWN_HEATMAP_CATEGORY_TOKENS } from './heatmapCategories';
+import { referenceMarkOptions, type ChartReferenceOptions } from './referenceMarks';
 
 export type HeatmapCell = { x: string; y: string; value: number | null; status?: ChartStatus; category?: string };
 export type HeatmapCategory = { id: string; label: Text; tone: Tone };
-export type HeatmapSpec = {
+export type HeatmapSpec = ChartReferenceOptions & {
   kind: 'heatmap';
   /** Explicit axis order. Missing coordinates remain empty; null is an unknown cell. */
   xLabels: string[]; yLabels: string[]; cells: HeatmapCell[];
@@ -82,7 +83,7 @@ export type ScatterPoint = {
   /** Consumer-given judgement, never inferred by the SDK. */
   status?: ChartStatus;
 };
-export type ScatterSpec = {
+export type ScatterSpec = ChartReferenceOptions & {
   kind: 'scatter'; points: ScatterPoint[]; xUnit: string; xLabel: string; yLabel: string;
   selectedId?: string | null;
   /** Opt-in calmer dense scatter; table, CSV and summary remain unchanged. */
@@ -106,14 +107,14 @@ export type BoxStats = {
   /** Caller-owned whisker endpoints: extrema for minMax, outermost inliers within Tukey fences for tukey. */
   min: number; q1: number; median: number; q3: number; max: number; outliers?: number[]; n?: number;
 };
-export type BoxPlotSpec = {
+export type BoxPlotSpec = ChartReferenceOptions & {
   kind: 'boxPlot'; groups: { id: string; label: string; stats: BoxStats | null }[];
   selectedId?: string | null;
   /** Changes the description and validates endpoints; never infers observations or quartiles. */
   whisker: 'minMax' | 'tukey'; referenceLines?: { value: number; label: string }[];
   onGroupClick?: (id: string) => void;
 };
-export type ParetoSpec = {
+export type ParetoSpec = ChartReferenceOptions & {
   kind: 'pareto'; items: { id: string; label: string; value: number }[];
   categoryTopN?: CategoryTopN;
   /** Set to 'sum' to allow categoryTopN to group omitted values. */
@@ -125,7 +126,7 @@ export type ParetoSpec = {
   maxItems?: number; onItemClick?: (id: string) => void;
 };
 export type TopNBarItem = { id: string; label: string; value: number; colorToken: ThemeColorToken };
-export type TopNBarSpec = {
+export type TopNBarSpec = ChartReferenceOptions & {
   kind: 'topNBar'; items: TopNBarItem[];
   categoryTopN?: CategoryTopN;
   /** Set to 'sum' to allow categoryTopN to group omitted values. */
@@ -143,7 +144,7 @@ export type TopNBarSpec = {
   selectedId?: string | null;
 };
 export type HistogramBin = { start: number; end: number; count: number };
-export type HistogramSpec = {
+export type HistogramSpec = ChartReferenceOptions & {
   kind: 'histogram'; xUnit: string; xLabel: string;
   selectedBin?: { start: number; end: number } | null;
   referenceLines?: { id: string; value: number; label: string; tone?: ChartStatus['tone'] }[];
@@ -364,7 +365,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       xAxis: { type: 'category', data: spec.xLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: 'auto', hideOverlap: true }, splitLine: theme.splitLine },
       yAxis: { type: 'category', data: spec.yLabels, axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, interval: rowFloor ? 0 : 'auto', hideOverlap: !rowFloor }, splitLine: theme.splitLine },
       ...brushOptions(),
-      series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, data: cells.map(c => ({
+      series: [{ type: 'scatter', symbol: 'rect', symbolSize: heatmapSymbolSize(plotSize.width, plotSize.height, spec.xLabels.length, spec.yLabels.length), emphasis: { focus: 'none' }, ...referenceMarkOptions(theme, spec.referenceMarks), data: cells.map(c => ({
         value: [xIndex.get(c.x) ?? -1, yIndex.get(c.y) ?? -1, c.value],
         itemStyle: cellStyle(c),
         ...(categories || (c.status && !borderOnly) ? { label: { ...cellLabel(c), position: 'inside' } } : {}),

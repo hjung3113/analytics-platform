@@ -8,6 +8,7 @@ import type { KindProjection } from './analysisChartKinds';
 import { chartTheme, token } from './EChart';
 import { barRadius, selectionRing } from './chartMarks';
 import { insideLabelStyle, segmentLabelStyle } from './chartValueLabels';
+import { referenceMarkOptions } from './referenceMarks';
 
 /** Caller aggregates; this projection alone owns ordering, limiting, table and export. */
 export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string): KindProjection {
@@ -56,7 +57,7 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
         tooltip: { ...theme.tooltip, renderMode: 'richText', formatter: (p: { dataIndex: number }) => tableValues[p.dataIndex]?.join(' · ') ?? '' },
         xAxis: { type: 'value', min: 0, axisLine: theme.axisLine, axisLabel: theme.axisLabel, splitLine: theme.splitLine },
         yAxis: { type: 'category', inverse: true, data: rows.map(row => row.label), axisLine: theme.axisLine, axisLabel: { ...theme.axisLabel, width: 112, overflow: 'truncate', interval: 0 } },
-        series: [{ type: 'bar', itemStyle: { borderRadius: barRadius(true) },
+        series: [{ type: 'bar', itemStyle: { borderRadius: barRadius(true) }, ...referenceMarkOptions(theme, spec.referenceMarks),
           label: { show: true, position: 'insideRight', formatter: (p: { dataIndex: number }) => tableValues[p.dataIndex]?.[1] ?? '' },
           data: rows.map(row => ({ value: row.value, label: insideLabel(row.color), itemStyle: { color: token(row.color), borderColor: token('chart-selection-outline'), borderWidth: selectionRing(active.includes(row.key)) } })) }],
       };

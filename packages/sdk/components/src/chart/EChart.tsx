@@ -42,6 +42,22 @@ export function strokeToken(name: ThemeColorToken): ThemeColorToken {
   return strokeAliases[name] ?? name;
 }
 
+/** Reference-line defaults and the established chart-specific label placements. */
+export const chartReferenceLineTheme = {
+  base: (color: string) => ({
+    silent: true,
+    symbol: 'none',
+    lineStyle: { color, type: 'dashed' },
+    label: { formatter: '{b}', fontSize: 10, color, position: 'insideEndTop' },
+  } as const),
+  scatterXLabel: { position: 'end' as const, rotate: 0, offset: [0, 8], verticalAlign: 'top' as const },
+  // Point labels toward the plot's middle to keep the outermost labels inside.
+  histogramXLabel: (position: 'insideEndTop', color: string, label: string, leftHalf: boolean) => ({
+    show: true, formatter: () => label, position, rotate: 0, color,
+    ...(leftHalf ? { align: 'left' as const, offset: [10, 0] } : { align: 'right' as const }),
+  }),
+};
+
 /** Shared ECharts role styles, resolved from the current CSS token source. */
 export function chartTheme() {
   const referenceText = token(chartThemeTokens.referenceText);
@@ -56,12 +72,7 @@ export function chartTheme() {
       borderColor: token(chartThemeTokens.tooltipBorder),
       textStyle: { color: token(chartThemeTokens.tooltipText) },
     },
-    referenceLine: {
-      silent: true,
-      symbol: 'none',
-      lineStyle: { color: referenceText, type: 'dashed' },
-      label: { formatter: '{b}', fontSize: 10, color: referenceText, position: 'insideEndTop' },
-    },
+    referenceLine: chartReferenceLineTheme.base(referenceText),
   } as const;
 }
 

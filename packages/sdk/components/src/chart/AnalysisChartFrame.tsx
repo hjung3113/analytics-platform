@@ -37,6 +37,7 @@ import { CHART_HEIGHTS } from './chartMarks';
 
 import { ChartBoundsLegend } from './ChartBoundsLegend';
 import { boundText, projectChartBounds, type ChartBounds, type ChartBoundLabels } from './chartBounds';
+import { frameReferenceLines, isFiniteReferenceMark, type ChartReferenceOptions } from './referenceMarks';
 import { frameStatusCsvLabel } from './linePointStatus';
 import { ChartStatusLegend } from './ChartStatusLegend';
 import { pointStatuses, chartPointKey, distinctStatuses, statusText, type ChartStatus } from './chartStatus';
@@ -149,7 +150,7 @@ export type ChartSelectionAction = {
   onSelect: (selection: Selection) => void;
 };
 
-export type AnalysisChartFrameProps<P = never, T = never> = ChartChromeOptions & {
+export type AnalysisChartFrameProps<P = never, T = never> = ChartChromeOptions & ChartReferenceOptions & {
   /** Use standard plot sizing with a visible card title, optional legend caption below it, and only info and zoom tools. */
   zoomOnly?: boolean;
   /** Selection summary presentation in standard/minimal chrome. Quiet hides resting text visually; full ignores it. Default: standard. */
@@ -862,11 +863,14 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const partialNote = anyPartial && p.partialTotalNote !== false ? m('chartPartialTotalNote') : null;
   const missingText = (missing: readonly string[]) => m('chartMissingTotal', { items: missing.join(', ') });
   const unit = percent ? SHARE_UNIT : p.unit;
-  const rawMarkLines = percent ? undefined : p.markLines;
+  const rawReferences = useMemo(() => {
+    if (percent) return undefined;
+    return (p.referenceMarks ?? frameReferenceLines(p.markLines ?? [], horizontal ? 'x' : 'y')).filter(isFiniteReferenceMark);
+  }, [percent, p.referenceMarks, p.markLines, horizontal]);
   const yFit = !percent && p.yFit;
   // A reference line in another unit or metric version would sit on the wrong scale: it is not drawn and the Frame names it. No lines are drawn with startAlign, so no note either.
-  const mismatchedLines = useMemo(() => (startAlign ? [] : (rawMarkLines ?? []).filter(line => (line.unit !== undefined && line.unit !== p.unit) || (line.metricVersion !== undefined && line.metricVersion !== p.metricVersion))), [startAlign, rawMarkLines, p.unit, p.metricVersion]);
-  const markLines = useMemo(() => (mismatchedLines.length ? rawMarkLines?.filter(line => !mismatchedLines.includes(line)) : rawMarkLines), [rawMarkLines, mismatchedLines]);
+  const mismatchedLines = useMemo(() => (startAlign ? [] : (rawReferences ?? []).filter(mark => mark.type === 'line' && ((mark.unit !== undefined && mark.unit !== p.unit) || (mark.metricVersion !== undefined && mark.metricVersion !== p.metricVersion)))), [startAlign, rawReferences, p.unit, p.metricVersion]);
+  const referenceMarks = useMemo(() => (mismatchedLines.length ? rawReferences?.filter(mark => !mismatchedLines.includes(mark)) : rawReferences), [rawReferences, mismatchedLines]);
   // Note labels and start-aligned lanes need the measured width. Time-axis ticks take it in 64px steps, so a resize inside one step keeps
   // the option; any other chart keeps its option (and skips a full setOption) on resize (#822, #2579).
   const optionWidth = noteSpans.length > 0 || (horizontal && startAlign && !!stacked) ? chartWidth
@@ -880,10 +884,10 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     // A root `data-theme` change re-resolves them too (#2723).
     void instanceReady; void themeRevision;
     return buildChartOption({
-      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, highlightedValues: p.highlightedValues, displayed: plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, categoryOther, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit, axisBreak, ...(zoomOnly ? {} : { selectedPointKeys }),
+      bounds: boundsProp, boundLabels, rowGroups, statuses, emphasisFocus: p.emphasisFocus, highlightedValues: p.highlightedValues, displayed: plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, categoryOther, zoom, brushMode, selection, annotations: drawnAnnotations, noteSpans, noteLevels, timeExtent, chartWidth: optionWidth, tickRoom, referenceMarks, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, rowLabelWidth: p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxis: rightAxisOption, yFit, axisBreak, ...(zoomOnly ? {} : { selectedPointKeys }),
       palette: resolveChartPalette(plotSeries),
     });
-  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, p.highlightedValues, plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, categoryOther, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, markLines, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
+  }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, p.highlightedValues, plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, categoryOther, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, referenceMarks, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
   useEffect(() => {
     const instance = chart.current;
     if (!yFit || !instance || instance.isDisposed?.()) { setAxisBreak(undefined); return; }
