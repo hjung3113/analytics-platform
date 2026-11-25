@@ -81,6 +81,8 @@ export const PACK_17_TOKENS: TokenEntry[] = [
   { tokenName: '--text-info', raw: 'var(--color-cyan-spark)' },
   { tokenName: '--text-success-label', hex: '#10734a', rgb: '16 115 74' },
   { tokenName: '--text-info-label', hex: '#006f94', rgb: '0 111 148' },
+  // #2950 13 A: shared link text alias, same value as the accent it replaces.
+  { tokenName: '--text-link', raw: 'var(--accent-primary)' },
   { tokenName: '--text-warning-label', hex: '#8e5500', rgb: '142 85 0' },
   { tokenName: '--text-danger-label', hex: '#b2202b', rgb: '178 32 43' },
   { tokenName: '--text-on-accent', hex: '#ffffff', rgb: '255 255 255' },

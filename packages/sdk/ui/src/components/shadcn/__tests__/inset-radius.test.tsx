@@ -19,8 +19,8 @@ it('insets every filter toggle cell, including cells without selected-filter app
   for (const item of screen.getAllByRole('radio')) expect(item).toHaveClass(insetRadius);
 });
 
-it('preserves the default toggle appearance', () => {
+it('insets the default toggle segment and keeps the default group background (#2950 10 B)', () => {
   render(<ToggleGroup type="single"><ToggleGroupItem value="one">One</ToggleGroupItem></ToggleGroup>);
-  expect(screen.getByRole('radio')).not.toHaveClass(insetRadius);
+  expect(screen.getByRole('radio')).toHaveClass(insetRadius);
   expect(screen.getByRole('radiogroup')).not.toHaveClass('on-canvas-band:bg-transparent');
 });
