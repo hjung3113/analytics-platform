@@ -26,3 +26,5 @@
 - ProductivityOverview·EquipmentMaster의 이관은 별도 이슈로 한다.
 
 Amended by [ADR-0112](0112-catalog-joins-table-filter-model-analysis-bar-keeps-apply-once.md) (2026-11-05): the collapse is no longer opt-in — the non-collapsible row/apply-form mode is retired and the collapsed summary is the only shape (`mode="draft"` stays as a marker); the ManagementLayout column rail is gone (ADR-0105); an opt-in `appliedChips` row adds consumer-derived applied-condition chips that stay visible while collapsed.
+
+[ADR-0160](0160-folded-analysis-workspace-query-bar.md)의 분석 작업 영역 조건 줄에서는 적용값을 칩으로 파악하고, 폭을 넘는 항목은 `+n` 목록에서 읽는다. 첫 패널 위치를 유지하면서 모든 조건의 라벨과 값에 접근하도록 하는 예외다. 독립 PageFilterBar 요약은 항목 단위로 줄바꿈한다.

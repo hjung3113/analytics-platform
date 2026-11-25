@@ -29,9 +29,86 @@ export async function evidence(page: Page, testInfo: TestInfo, name: string) {
 
 export const mainHeading = (page: Page) => page.getByRole('main').getByRole('heading', { level: 1 });
 export const liveContextBar = (page: Page) => page.getByRole('region', { name: '전역 Context' });
-export const queryBar = (page: Page) => page.getByRole('region', { name: '조회 조건', exact: true });
-// The result moves into the folded workspace query bar; expanded/other pages keep the strip.
+export const queryBar = (page: Page) => page.getByRole('region', { name: '조회 조건', exact: true }).and(page.locator('[data-query-bar]'));
+export const queryEditor = (page: Page, scope: Locator = contextBar(page)) =>
+  page.getByRole('dialog', { name: '조회 조건', exact: true })
+    .or(page.locator('[data-context-editor-pinned]').and(page.getByRole('region', { name: '조회 조건', exact: true })))
+    .or(scope.and(page.locator(':not(:has([data-context-chip-lane]))')));
+
+export const pageConditions = (page: Page) =>
+  page.locator('[data-workspace-query-row]').getByRole('button', { name: /^페이지 조건(?: ·|$)/ });
+
+export const workspaceLayout = (page: Page) => page.getByRole('button', { name: '배치', exact: true });
+export const workspaceHeight = (page: Page) => page.getByRole('button', { name: '높이 방식', exact: true }).or(workspaceLayout(page));
+export async function chooseWorkspacePreset(page: Page, name: string) {
+  await workspaceLayout(page).click();
+  await page.getByRole('menuitemradio', { name, exact: true }).click();
+}
+
+export async function expectWorkspacePreset(page: Page, name: string) {
+  await workspaceLayout(page).click();
+  await expect(page.getByRole('menuitemradio', { name, exact: true })).toBeChecked();
+  await page.keyboard.press('Escape');
+}
+
+export async function resetWorkspaceLayout(page: Page) {
+  await workspaceLayout(page).click();
+  await page.getByRole('menuitem', { name: '기본 배치', exact: true }).click();
+}
+
+export async function pinQueryEditor(page: Page) {
+  await expandQueryBar(page);
+  const pin = queryEditor(page).getByRole('button', { name: '편집기 고정', exact: true });
+  const pinned = queryEditor(page).getByRole('button', { name: '편집기 고정 해제', exact: true });
+  if (!(await pinned.isVisible())) {
+    await pin.click();
+    await expect(pinned).toBeVisible();
+  }
+}
+
+export async function shareQueryConditions(page: Page) {
+  const overflow = queryBar(page).getByRole('button', { name: '조회 조건 동작', exact: true });
+  const inline = queryBar(page).getByRole('button', { name: '현재 조건 공유', exact: true });
+  await expect(overflow.or(inline)).toBeVisible();
+  if (await inline.isVisible()) await inline.click();
+  else {
+    await overflow.click();
+    await page.getByRole('menuitem', { name: '현재 조건 공유', exact: true }).click();
+  }
+}
+
+// The active context line or the legacy result strip.
 export const queryResultSurface = (page: Page) => page.locator('[data-workspace-query-row], [role="region"][aria-label="적용된 조회 조건"]');
+export async function expectQueryCompleted(page: Page) {
+  const surface = queryResultSurface(page);
+  const notices = surface.getByRole('button', { name: /^안내 \d+$/ });
+  const inline = surface.getByText(/^요약 조회 완료/);
+  await expect(notices.or(inline)).toBeVisible();
+  if (await inline.isVisible()) return;
+  await notices.click();
+  const dialog = page.getByRole('dialog', { name: /^안내 \d+$/ });
+  await expect(dialog.getByText(/^요약 조회 완료/)).toBeVisible();
+  await page.keyboard.press('Escape');
+}
+
+export async function expectAppliedChip(page: Page, name: string, { present = true } = {}) {
+  const line = queryResultSurface(page);
+  const chip = line.getByRole('button', { name, exact: true }).or(line.getByRole('group', { name, exact: true }));
+  await expect(line).toBeVisible();
+  if (present && await chip.isVisible()) return;
+  const more = line.getByRole('button', { name: /^\+\d+$/ });
+  if (await more.isVisible()) {
+    await more.click();
+    const overflow = page.getByRole('dialog', { name: '나머지 조건', exact: true });
+    const item = overflow.getByRole('group', { name, exact: true });
+    if (present) await expect(item).toBeVisible();
+    else await expect(item).toHaveCount(0);
+    await page.keyboard.press('Escape');
+  }
+  if (!present) await expect(chip).toHaveCount(0);
+  else if (!(await more.isVisible())) await expect(chip).toBeVisible();
+}
+
 export const contextBar = (page: Page) => liveContextBar(page).or(queryBar(page));
 
 /**
@@ -52,14 +129,20 @@ export async function expandQueryBar(page: Page, scope: Locator = contextBar(pag
   }).toPass();
 }
 
-/** Opens the inline page editor. Expand a folded workspace query bar first (#1941). */
+/** Opens the page editor through the context line or the legacy fill-page head. */
 export async function expandPageHead(page: Page) {
   const queryExpand = queryBar(page).getByRole('button', { name: '조회 조건 펼치기' });
   const row = page.locator('[data-workspace-query-row]');
   const expand = page.getByRole('button', { name: '페이지 머리 펼치기' });
   const collapse = page.getByRole('button', { name: '페이지 머리 접기' });
   // The folded row registers after the first render (#1941 C2); wait for one of the two layouts before choosing.
-  await expect(row.or(expand).or(collapse).first()).toBeVisible();
+  const handle = pageConditions(page);
+  await expect(handle.or(row).or(expand).or(collapse).first()).toBeVisible();
+  if (await handle.isVisible()) {
+    if (await handle.getAttribute('aria-expanded') === 'false') await handle.click();
+    await expect(handle).toHaveAttribute('aria-expanded', 'true');
+    return;
+  }
   if (await row.count()) await queryExpand.click();
   await expect(expand.or(collapse)).toBeVisible();
   if (await expand.isVisible()) await expand.click();
@@ -153,7 +236,7 @@ export async function fitWorkspace(page: Page) {
   const root = page.locator('[data-panel-workspace]').first();
   await expect(root).toBeVisible();
   if ((await root.getAttribute('data-workspace-mode')) === 'fit') return;
-  await page.getByRole('button', { name: '높이 방식', exact: true }).click();
+  await workspaceHeight(page).click();
   await page.getByRole('menuitemradio', { name: '화면 맞춤' }).click();
   await expect(root).toHaveAttribute('data-workspace-mode', 'fit');
   await page.evaluate(() => new Promise(done => { requestAnimationFrame(() => { requestAnimationFrame(done); }); }));
@@ -177,7 +260,8 @@ export function browserPreferenceKey(kind: string, rest = '', userId: Role = 'en
 
 /** Chooses the room in the modal; the query bar's outer Apply remains the caller's action. */
 export async function pickTargetRoom(page: Page, bar: Locator, room: string) {
-  await bar.getByRole('button', { name: /^대상 (전체|조건|고정|설비|확인 중)/ }).click();
+  await expandQueryBar(page, bar);
+  await queryEditor(page, bar).getByRole('button', { name: /^대상 (전체|조건|고정|설비|확인 중)/ }).click();
   const dialog = page.getByRole('dialog', { name: '대상', exact: true });
   const process = dialog.getByRole('button', { name: /^공정 / });
   if (await process.getAttribute('aria-expanded') !== 'true') await process.click();

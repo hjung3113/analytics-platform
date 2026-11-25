@@ -7,12 +7,13 @@ import { memoryStorage, noContext, testAdapter, testSpace } from '@ap/kernel/tes
 import { PlatformPage, type PlatformPageProps } from '../PlatformPage';
 import { useReportQueryBarStatus, type QueryBarStatus } from '../../filters/QueryBarStatus';
 import { WorkspaceQueryBarRow } from '../WorkspaceQueryBar';
+import { WorkspaceToolbar } from '../../workspace/WorkspaceToolbar';
 import { groupId, spaceId } from '@ap/contracts';
 
 function view(result: PlatformPageProps['queryResult'], apply = true, pane = false, fill = false) {
   const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'home', group: groupId('overview'), primary: true, path: '/', label: { ko: '홈', en: 'Home' }, description: { ko: '', en: '' }, icon: House, permission: 'platform:view', requiresScope: false, context: { ...noContext, time: 'apply', roomNames: 'apply' }, query: { mode: apply ? 'apply' : 'live' }, features: { export: false, annotate: false, compare: false, savedView: false }, pageType: 'analysis', pageKeys: [] }] });
   window.history.replaceState(null, '', '/?from=2026-01-01T01:00:00&to=2026-01-02T01:00:00&roomNames=PHOTO');
-  const page = <PlatformPage layout={fill ? 'fill' : 'flow'} queryResult={result}>body</PlatformPage>;
+  const page = <PlatformPage layout={fill ? 'fill' : 'flow'} queryResult={result}>body{fill && <WorkspaceToolbar label="작업 영역" commands={[]} onShown={() => {}} />}</PlatformPage>;
   return <I18nProvider><PlatformProvider registry={registry} adapter={testAdapter()}>{pane ? <PaneScreenProvider paneId="p1" screen={{ menuId: 'home', params: {}, query: '?from=2026-01-01T01:00:00&to=2026-01-02T01:00:00&roomNames=PHOTO' }} onChange={() => {}} onLeave={() => {}}>{page}</PaneScreenProvider> : page}</PlatformProvider></I18nProvider>;
 }
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -89,10 +90,11 @@ it.each([
   expect(screen.queryByRole('region', { name: '적용된 조회 조건' })).toBeNull();
   expect(screen.getByRole('region', { name: '조회 조건' })).toHaveTextContent('요약 조회 완료');
 });
-it('expanded fill workspace keeps applied values and completion in the strip (#1941)', () => {
+it('opening a workspace editor leaves completion in the context line (#2728)', () => {
   vi.stubGlobal('localStorage', memoryStorage());
   render(withBar({ folded: false, editing: false, reasonKeys: [] }, DONE));
-  expect(screen.getByRole('region', { name: '적용된 조회 조건' })).toHaveTextContent(/공정 PHOTO.*요약 조회 완료/);
+  expect(screen.queryByRole('region', { name: '적용된 조회 조건' })).toBeNull();
+  expect(screen.getByRole('region', { name: '조회 조건' })).toHaveTextContent('요약 조회 완료');
 });
 it('shows in-progress status in the folded workspace before completion (#1941)', () => {
   render(withBar({ folded: true, editing: false, reasonKeys: [] }, { status: 'loading', completedAt: null }));

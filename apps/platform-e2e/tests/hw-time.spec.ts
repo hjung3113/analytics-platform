@@ -1,6 +1,6 @@
 import { type Page } from '@playwright/test';
 import { expect, test } from './origin-guard';
-import { evidence, expectScopeValid, expandQueryBar, pickTargetRoom, query, queryBar, signInAs } from './support';
+import { queryEditor, shareQueryConditions, evidence, expectScopeValid, expandQueryBar, pickTargetRoom, query, queryBar, signInAs } from './support';
 
 const SCREEN = '/mars/hw-time?v=1&scopeId=MEM';
 // The daily trend needs at least two calendar days; the first-visit default is one day (#2586).
@@ -34,7 +34,9 @@ test.describe('HW Time analysis selection', () => {
   test('edits motionEquipment through the analysis selection chip', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions&motionEquipment=MEM-PHOTO-0105`);
-    const chip = page.getByRole('button', { name: '설비 MEM-PHOTO-0105', exact: true });
+    // The compact row replaces the initial query bar when the workspace registers.
+    const contextLine = page.locator('[data-workspace-query-row]').filter({ has: page.locator('[data-context-chip-lane]') });
+    const chip = contextLine.getByRole('button', { name: '설비 MEM-PHOTO-0105', exact: true });
     await chip.press('Enter');
     const dialog = page.getByRole('dialog', { name: '설비 MEM-PHOTO-0105', exact: true });
     await expect(dialog.getByRole('checkbox', { name: 'MEM-PHOTO-0105', exact: true })).toBeChecked();
@@ -78,9 +80,7 @@ test.describe('HW Time analysis selection', () => {
     await expect(tableTab).toHaveAttribute('aria-description', '필터됨 · 1 · 선택 적용');
     await evidence(page, testInfo, 'analysis-selection-filtered');
 
-    const bar = queryBar(page);
-    await expandQueryBar(page, bar);
-    await bar.getByRole('button', { name: '현재 조건 공유', exact: true }).click();
+    await shareQueryConditions(page);
     const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
     await expect.poll(clipboard).toContain('motionEquipment=MEM-PHOTO-0105');
     const sharedUrl = await clipboard();
@@ -202,7 +202,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     await expandQueryBar(page, bar);
     await pickTargetRoom(page, bar, 'PHOTO');
     expect(query(page).get('roomNames')).toBeNull();
-    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await queryEditor(page, bar).getByRole('button', { name: '적용', exact: true }).click();
     await expect.poll(() => query(page).get('roomNames')).toBe('PHOTO');
     expect(query(page).get('from')).toBe(period);
   });
@@ -212,13 +212,13 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     await expect(panel(page, 'current').getByRole('img')).toBeVisible();
     const bar = queryBar(page);
     await expandQueryBar(page, bar);
-    await bar.getByRole('button', { name: /^대상 (설비|확인 중)/ }).click();
+    await queryEditor(page, bar).getByRole('button', { name: /^대상 (설비|확인 중)/ }).click();
     const dialog = page.getByRole('dialog', { name: '대상', exact: true });
     await dialog.getByRole('button', { name: /^PRC 그룹 / }).click();
     await dialog.getByRole('button', { name: 'PRC-PHOTO-0만 선택', exact: true }).click();
     await dialog.getByRole('button', { name: /^조건 적용 ·/ }).click();
     expect(query(page).get('prcGroups')).toBeNull();
-    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await queryEditor(page, bar).getByRole('button', { name: '적용', exact: true }).click();
     await expect.poll(() => query(page).get('prcGroups')).toBe('PRC-PHOTO-0');
   });
 
@@ -365,7 +365,7 @@ test.describe('HW Time query history — drill steps from the SDK (#2770)', () =
     await expectScopeValid(page, 'MEM · 메모리');
     const bar = queryBar(page);
     await expandQueryBar(page, bar);
-    await bar.getByRole('button', { name: '최근 조건', exact: true }).click();
+    await queryEditor(page, bar).getByRole('button', { name: '최근 조건', exact: true }).click();
     const rows = page.getByRole('list', { name: '최근 조회 조건' });
     await expect(rows.getByRole('button', { name: /Module 타입 PM · Motion Pump/ })).toBeVisible();
     await expect(rows.getByRole('button', { name: /Module 타입 PM · Motion Chuck/ })).toBeVisible();

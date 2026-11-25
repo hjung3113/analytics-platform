@@ -1,8 +1,7 @@
-import { browserPreferenceKey } from './support';
 import { type Page } from '@playwright/test';
 import { expect, test } from './origin-guard';
-import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
-import { contextBar, evidence, expandPageHead, expandQueryBar, fitWorkspace, pickTargetRoom, query, queryBar, setScenario, signInAs, tableStatusLine } from './support';
+import { PERIOD } from './contract-helpers';
+import { browserPreferenceKey, expectAppliedChip, pageConditions, queryEditor, workspaceLayout, contextBar, evidence, expandPageHead, expandQueryBar, fitWorkspace, pickTargetRoom, query, queryBar, setScenario, signInAs, tableStatusLine } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -488,7 +487,7 @@ test.describe('분석 레이아웃 접기 (06 §12.6, ADR-0022)', () => {
     await expandQueryBar(page, bar);
     await pickTargetRoom(page, bar, 'PHOTO');
     expect(query(page).get('roomNames')).toBeNull();
-    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await queryEditor(page, bar).getByRole('button', { name: '적용', exact: true }).click();
     await expect.poll(() => query(page).get('roomNames')).toBe('PHOTO');
     await expect(ranking).toBeVisible();
   });
@@ -957,64 +956,63 @@ test.describe('표 필터 모델 (#1217)', () => {
 
 });
 
-// #680 keeps the expanded-bar head disclosure; #1941 moves its folded-bar controls into the query region.
+// ADR-0160 replaces the inline disclosure with a transient editor and a pin.
 test.describe('페이지 머리 접기 (#680)', () => {
   const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
-  const HEAD_KEY = browserPreferenceKey('page-head-collapsed', 'cycle-time');
-  /** Owner-approved B: first chart top at 1440×900 is at most 270px (prototype 262px). */
   const FIRST_CHART_TOP_MAX = 270;
-  const line = (page: Page) => page.locator('[data-page-head-line]');
-  const firstChartTop = async (page: Page) => (await page.getByRole('region', { name: '사이클타임 추세', exact: true }).getByRole('img', { name: /^사이클타임 추세/ }).boundingBox())!.y;
+  const line = (page: Page) => page.locator('[data-workspace-query-row]');
+  const chart = (page: Page) => page.getByRole('region', { name: '사이클타임 추세', exact: true }).getByRole('img', { name: /^사이클타임 추세/ });
+  const editor = (page: Page) => page.getByRole('dialog', { name: '페이지 조건', exact: true });
 
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.addInitScript(keys => {
-      if (sessionStorage.getItem('platform:e2e-head-reset')) return;
-      localStorage.removeItem(keys[0]);
-      localStorage.removeItem(keys[1]);
-      sessionStorage.setItem('platform:e2e-head-reset', '1');
-    }, [browserPreferenceKey('page-head-collapsed', 'cycle-time'), browserPreferenceKey('page-filter-collapsed', 'cycle-time')]);
-    await startWithQueryBarOpen(page, 'cycle-time'); // these specs measure the open bar
   });
 
-  test('fill 페이지는 접힌 채 시작하고, 조회 조건까지 접으면 작업 영역이 위쪽 한계 안에서 시작한다', async ({ page }, testInfo) => {
+  test('fill 페이지는 두 편집기가 닫힌 채 시작하고 작업 영역은 위쪽 한계 안에서 시작한다', async ({ page }, testInfo) => {
     await page.goto(CYCLE);
-    await expect(line(page)).toBeVisible();
-    await expect(page.getByRole('button', { name: '페이지 머리 펼치기' })).toHaveAttribute('aria-expanded', 'false');
+    const chip = pageConditions(page);
+    await expect(chip).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByTestId('page-filter-bar')).toBeHidden();
-    await page.getByRole('button', { name: '조회 조건 접기' }).click();
-    await expect(page.locator('[data-panel-workspace]')).toBeVisible();
-    const row = contextBar(page).locator('[data-workspace-query-row]');
-    await expect(row).toBeVisible();
-    await expect(row.getByRole('status')).toContainText('요약 조회 완료');
-    await expect(row.getByRole('radio', { name: '기본', exact: true })).toBeVisible();
-    await expect(row.getByText('화면 배치', { exact: true })).toBeVisible();
+    await expect(contextBar(page).getByRole('button', { name: '조회 조건 펼치기' })).toHaveAttribute('aria-expanded', 'false');
+    await expect(line(page)).toBeVisible();
+    await expect(workspaceLayout(page)).toBeVisible();
     await expect(page.getByRole('region', { name: '적용된 조회 조건' })).toHaveCount(0);
     await expect(page.locator('[data-page-head]')).toHaveCount(0);
     await expect(page.locator('[data-panel-workspace]').getByRole('toolbar', { name: '배치' })).toHaveCount(0);
-    await expect(page.getByRole('region', { name: '사이클타임 추세', exact: true }).getByRole('img', { name: /^사이클타임 추세/ })).toBeVisible();
-    await expect.poll(() => firstChartTop(page)).toBeLessThanOrEqual(FIRST_CHART_TOP_MAX);
-    const chip = row.getByRole('button', { name: /^페이지 조건/ });
+    await expect(chart(page)).toBeVisible();
+    await expect.poll(async () => (await chart(page).boundingBox())!.y).toBeLessThanOrEqual(FIRST_CHART_TOP_MAX);
     await chip.click();
-    const editor = page.getByRole('dialog', { name: '페이지 조건', exact: true });
-    await expect(editor.getByRole('button', { name: '주', exact: true })).toBeVisible();
-    await expect(editor.locator('[data-page-notes]')).toBeVisible();
+    await expect(editor(page).getByRole('button', { name: '주', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(chip).toBeFocused();
+    const notices = line(page).getByRole('button', { name: '안내 2', exact: true });
+    await notices.click();
+    const dialog = page.getByRole('dialog', { name: '안내 2', exact: true });
+    await expect(dialog.getByText(/^요약 조회 완료/)).toBeVisible();
+    await expect(dialog.locator('[data-page-notes]')).toBeVisible();
+    await page.keyboard.press('Escape');
     await evidence(page, testInfo, 'page-head-collapsed-1440x900');
   });
 
-  test('펼침·접힘은 새로고침 뒤에도 유지된다', async ({ page }) => {
+  test('페이지 조건 편집기는 키보드로 열고 닫을 수 있고 고정 상태는 새로고침에 남지 않는다', async ({ page }) => {
     await page.goto(CYCLE);
-    await page.getByRole('button', { name: '페이지 머리 펼치기' }).click();
-    await expect(page.getByRole('button', { name: '페이지 머리 접기' })).toBeFocused();
-    await expect(page.getByTestId('page-filter-bar')).toBeVisible();
+    const chip = pageConditions(page);
+    await chip.press('Enter');
+    await expect(editor(page).getByTestId('page-filter-bar')).toBeVisible();
+    await editor(page).getByRole('button', { name: '편집기 고정', exact: true }).click();
+    const pinned = page.getByRole('region', { name: '페이지 조건', exact: true });
+    await expect(pinned.getByRole('button', { name: '편집기 고정 해제', exact: true })).toBeFocused();
+    await expect(pinned.getByTestId('page-filter-bar')).toBeVisible();
     await page.reload();
-    await expect(page.getByTestId('page-filter-bar')).toBeVisible();
-    await page.getByRole('button', { name: '페이지 머리 접기' }).click();
-    await expect(page.getByRole('button', { name: '페이지 머리 펼치기' })).toBeFocused();
+    // ADR-0160 makes the pinned state transient.
+    await expect(chip).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByTestId('page-filter-bar')).toBeHidden();
+    await chip.press('Enter');
+    await expect(editor(page)).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(chip).toBeFocused();
     await page.reload();
-    await expect(page.getByRole('button', { name: '페이지 머리 펼치기' })).toBeVisible();
+    await expect(chip).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByTestId('page-filter-bar')).toBeHidden();
   });
 
@@ -1022,7 +1020,6 @@ test.describe('페이지 머리 접기 (#680)', () => {
     await page.goto(CYCLE);
     await expect(page.locator('[data-panel-workspace]')).toBeVisible();
     await fitWorkspace(page);
-    await page.getByRole('button', { name: '조회 조건 접기' }).click();
     await setScenario(page, '서버 오류 (error)');
     const strip = page.getByRole('main').locator('[data-outcome-banner]');
     await expect(strip).toHaveCount(1);
@@ -1036,21 +1033,23 @@ test.describe('페이지 머리 접기 (#680)', () => {
 
   test('접힌 줄에 적용된 버킷 칩이 보이고, 초안 페이지 조건은 미적용 표식으로 남는다', async ({ page }) => {
     await page.goto(`${CYCLE}&bucket=2026-09-25T09:00:00`);
-    await expect(line(page)).toContainText('버킷');
-    await expect(line(page)).not.toContainText('미적용 변경 있음');
-    await page.getByRole('button', { name: '페이지 머리 펼치기' }).click();
-    await page.getByRole('button', { name: '주', exact: true }).click();
-    await page.getByRole('button', { name: '페이지 머리 접기' }).click();
-    await expect(line(page)).toContainText('미적용 변경 있음');
-    await expect(line(page)).toContainText('버킷');
+    await expectAppliedChip(page, '버킷 2026-09-25 09:00 → 10:00');
+    const chip = pageConditions(page);
+    await expect(chip).not.toHaveAccessibleName(/미적용 변경 있음/);
+    await chip.click();
+    await editor(page).getByRole('button', { name: '주', exact: true }).click();
+    await chip.click();
+    await expect(chip).toHaveAccessibleName(/미적용 변경 있음/);
+    await expectAppliedChip(page, '버킷 2026-09-25 09:00 → 10:00');
   });
 
-  test('틀린 페이지 키(granularity)면 저장값과 무관하게 펼친 채 시작하고 페이지 조건 기본값이 보인다', async ({ page }) => {
-    await page.addInitScript(key => { if (!sessionStorage.getItem('platform:e2e-head-seeded')) { localStorage.setItem(key, 'true'); sessionStorage.setItem('platform:e2e-head-seeded', '1'); } }, HEAD_KEY);
+  test('틀린 페이지 키(granularity)면 조건 줄의 페이지 조건 손잡이가 확인 필요를 보이고 그 편집기에 페이지 조건 기본값이 있다', async ({ page }) => {
     await page.goto(`${CYCLE}&granularity=zzz`);
-    await expect(page.getByRole('button', { name: '페이지 머리 접기' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '페이지 조건 기본값' })).toBeVisible();
     await expect(page.getByRole('alert')).toBeVisible();
+    const handle = page.getByRole('button', { name: /페이지 조건.*확인 필요 1/ });
+    await expect(handle).toBeVisible();
+    await handle.click();
+    await expect(page.getByRole('dialog', { name: '페이지 조건' }).getByRole('button', { name: '페이지 조건 기본값' })).toBeVisible();
   });
 });
 

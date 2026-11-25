@@ -65,23 +65,23 @@ it.each(['첫 작업 영역', '둘째 작업 영역'])('keeps sibling toolbar na
   const names = ['첫 작업 영역', '둘째 작업 영역'];
   const tree = render(siblings(names));
   const bar = screen.getByRole('region', { name: '조회 조건' });
-  const first = within(bar).getByRole('group', { name: names[0] });
-  const second = within(bar).getByRole('group', { name: names[1] });
-  await user.click(within(first).getByRole('radio', { name: '집중' }));
-  expect(within(first).getByRole('radio', { name: '집중' })).toHaveAttribute('aria-checked', 'true');
-  expect(within(second).getByRole('radio', { name: '기본' })).toHaveAttribute('aria-checked', 'true');
-  await user.click(within(second).getByRole('radio', { name: '집중' }));
-  await user.click(within(first).getByRole('radio', { name: '기본' }));
-  expect(within(first).getByRole('radio', { name: '기본' })).toHaveAttribute('aria-checked', 'true');
-  expect(within(second).getByRole('radio', { name: '집중' })).toHaveAttribute('aria-checked', 'true');
+  const first = within(bar).getByRole('toolbar', { name: names[0] });
+  const second = within(bar).getByRole('toolbar', { name: names[1] });
+  const choose = async (toolbar: HTMLElement, preset: string) => {
+    await user.click(within(toolbar).getByRole('button', { name: '배치' }));
+    await user.click(screen.getByRole('menuitemradio', { name: preset }));
+    expect(within(toolbar).getByRole('button', { name: '배치' })).toHaveTextContent(preset);
+  };
+  await choose(first, '집중');
+  expect(within(second).getByRole('button', { name: '배치' })).toHaveTextContent('기본');
+  await choose(second, '집중');
+  await choose(first, '기본');
   const remaining = names.filter(name => name !== removed);
   tree.rerender(siblings(remaining));
-  expect(within(bar).queryByRole('group', { name: removed })).toBeNull();
-  const survivor = within(bar).getByRole('group', { name: remaining[0] });
-  await user.click(within(survivor).getByRole('radio', { name: '기본' }));
-  expect(within(survivor).getByRole('radio', { name: '기본' })).toHaveAttribute('aria-checked', 'true');
-  await user.click(within(survivor).getByRole('radio', { name: '집중' }));
-  expect(within(survivor).getByRole('radio', { name: '집중' })).toHaveAttribute('aria-checked', 'true');
+  expect(within(bar).queryByRole('toolbar', { name: removed })).toBeNull();
+  const survivor = within(bar).getByRole('toolbar', { name: remaining[0] });
+  await choose(survivor, '기본');
+  await choose(survivor, '집중');
 });
 
 it('the restored fallback reports a failed query as a failure, never as completed (#1941 C5)', () => {
