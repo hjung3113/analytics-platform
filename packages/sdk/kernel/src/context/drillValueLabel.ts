@@ -2,7 +2,9 @@ import type { DrillLevel, MenuMeta, Pair } from '@ap/contracts';
 import type { Lang } from '../i18n';
 
 // @ap/ui isDevelopment's check, inline because the kernel does not depend on @ap/ui (#2951). Bundlers replace
-// `process.env.NODE_ENV` statically, so production builds drop the warning.
+// `process.env.NODE_ENV` statically, so production builds drop the warning. The local declaration types it for every package
+// that compiles kernel sources without Node types (menus, shell); it emits nothing.
+declare const process: { env: { NODE_ENV?: string } };
 export function isProduction(): boolean {
   return process.env.NODE_ENV === 'production';
 }

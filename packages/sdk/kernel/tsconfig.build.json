@@ -14,6 +14,6 @@
     // Siblings resolve to their emitted declarations, not their src (build order: contracts, kernel, ui, components, shell).
     "paths": { "@ap/contracts": ["../contracts/dist/index.d.ts"] }
   },
-  "include": ["src", "build-env.d.ts"],
+  "include": ["src"],
   "exclude": ["**/*.test.*", "**/__tests__/**", "**/__fixtures__/**", "src/test-setup.ts", "src/vitest.setup.ts"]
 }
