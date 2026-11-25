@@ -190,6 +190,7 @@
 | [0175](0175-chart-selection-feeds-next-analysis.md) | 차트 선택은 다음 분석의 입력이 되고, 값 묶음·범위만 URL과 메뉴 간 링크에 싣는다 | Decided(2026-11-23, 소유자 결정) |
 | [0176](0176-user-analysis-menu-one-definition-two-homes.md) | 사용자 분석 메뉴는 정의 형식 하나를 두 곳에 담고, 숫자 등급을 화면이 말한다 | Decided(2026-11-23, 소유자 결정) |
 | [0177](0177-core-server-release-unit-image-tarballs.md) | 코어 서버 릴리스 단위는 태그마다 이미지 tar 셋과 SHA256SUMS를 공개 Release에 싣는다 | Decided(2026-11-25, 소유자 결정, #2891) |
+| [0178](0178-drill-alternative-basis.md) | 드릴 단계의 나누기 기준을 별도 page key로 저장 | Decided(2026-11-26, 소유자 결정, #2739) — 0025·0063 부분 대체 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

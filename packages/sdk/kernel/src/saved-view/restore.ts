@@ -75,12 +75,12 @@ export function comparableApplied(view: SavedView, applied: SavedState): SavedSt
  * Applies a view to the current address: supported keys are replaced by the view, unsupported ones are listed and left out, other page
  * keys and `extras` stay as they are. A `default` source applies only to a bare route. Pure: the caller writes `href` with one `replace` (default) or a push (picked).
  */
-export function restoreSavedView(input: { view: SavedView; support: SavedViewSupport; current: Applied; extras: Pair[]; pathname: string; anchor: string | null; source: RestoreSource; includeReturnTo?: boolean }): RestoreResult {
+export function restoreSavedView(input: { view: SavedView; support: SavedViewSupport; current: Applied; extras: Pair[]; pathname: string; anchor: string | null; source: RestoreSource; explicitEntry?: boolean }): RestoreResult {
   const { view, support, current } = input;
   if (view.kind === 'custom-group') return { ok: false, reason: 'wrong-menu' };
   if (view.kind === 'menu-view' && view.menuId !== support.menuId) return { ok: false, reason: 'wrong-menu' };
   if (view.kind === 'menu-view' && view.menuSchemaVersion !== support.menuSchemaVersion) return { ok: false, reason: 'stale-schema' };
-  if (input.source === 'default' && hasExplicitContext(current, { includeReturnTo: input.includeReturnTo })) return { ok: true, applied: false, reason: 'explicit-address' };
+  if (input.source === 'default' && (input.explicitEntry ?? hasExplicitContext(current))) return { ok: true, applied: false, reason: 'explicit-address' };
   const fields = supportedFields(support);
   const resolved = resolveContext(view.context, input.anchor);
   const dropped = new Set<string>(siteBoundDropped(view, current.global.scopeId));

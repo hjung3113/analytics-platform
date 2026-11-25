@@ -13,6 +13,7 @@ Context 계약, URL·딥링크, 권한, Scope, 조회·쓰기 수명주기, 저�
 - [0005](0005-scope-room-name-line-independent.md) — 권한·조회 Scope는 room_name 기준, Line은 독립 축
 - [0020](0020-usage-events-identity-fields-only.md) — 메뉴 활용률 이벤트는 식별 필드만, 조회조건 값은 넣지 않음
 - [0025](0025-drilldown-level-page-keys-path-bar-layout.md) — 드릴다운은 단계마다 page key, Context가 바뀌면 지우고, 경로 바 + 단계마다 본문 교체
+- [0178](0178-drill-alternative-basis.md) — 드릴 단계의 나누기 기준과 URL 복원
 - [0032](0032-arrival-focus-wins-over-restored-detail-panel.md) — URL 도착으로 함께 열린 상세 패널은 포커스를 가져가지 않고 화면 제목을 따른다
 - [0049](0049-analysis-context-belongs-to-a-pane.md) — 분석 Context는 칸에 속한다 — 본 화면은 칸이 하나, 분석 보드는 칸마다 하나. Kernel이 칸마다 하위 Provider를 주고 메뉴는 Kernel 훅으로만 읽는다
 - [0054](0054-write-port-declared-actions-idempotency-version.md) — 쓰기는 메뉴가 선언한 동작과 범용 요청 하나로 하고, Kernel이 멱등 키를 붙이며 동시성은 불투명 버전으로 확인한다
