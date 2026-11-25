@@ -4,7 +4,7 @@ import type { AnalysisSelection } from '@ap/contracts';
 import { useDrill, useI18n, useMessages, usePlatform, usePlatformOptional } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { AnalysisPanelAddContext, type AnalysisPanelAddition } from '../workspace/PanelAdd';
+import { AnalysisPanelAddContext, type AnalysisPanelDestinations } from '../workspace/PanelAdd';
 import { usePublishNextAnalysis } from './NextAnalysisBridge';
 import { keepFocusAfterPanelAdd } from '../dock/focusTab';
 
@@ -16,7 +16,7 @@ type Props = {
   pointDrill?: NextAnalysisPointDrill;
 };
 /** `panelId`: the panel an `addsPanel` choice adds, when its `id` names a variant (a held copy, #2862). */
-type Choice = { id: string; label: string; reason?: string; note?: string; panelId?: string; onSelect?: () => void };
+type Choice = { id: string; label: string; reason?: string; note?: string; panelId?: string; onSelect?: () => unknown };
 type GroupAction = { label: string } & (
   | { reason: string; choices?: never }
   /** `addsPanel`: each choice adds the panel named by its `id` to the workspace around the row. */
@@ -38,7 +38,7 @@ const selectionDropMessage = {
   length: 'chartNextSelectionLength',
 } as const;
 
-export function useNextAnalysisItems({ output, selection, pointDrill, workspace }: Props & { workspace: AnalysisPanelAddition | null }): GroupAction[] {
+export function useNextAnalysisItems({ output, selection, pointDrill, workspace }: Props & { workspace: AnalysisPanelDestinations | null }): GroupAction[] {
   const platform = usePlatform();
   const { depth, levels, enter, invalid } = useDrill();
   const { tx, t } = useI18n();
@@ -69,11 +69,9 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
       const reason = panel.permissions.every(permission => platform.can(permission))
         ? item.disabledReason && tx(item.disabledReason) : t('menuDenied');
       const source = `${menu.id}/${panel.id}` as const;
-      const follow = { id: panel.id, label: tx(item.title), reason: reason || undefined, onSelect: () => {
-        workspace.onAdd({ source, inputs: { [key]: selection } });
-      } };
+      const follow = { id: panel.id, label: tx(item.title), reason: reason || undefined, onSelect: () => workspace.onAdd({ source, inputs: { [key]: selection } }) };
       // A placed panel offers only its `again` mode, as a second instance (#2862 ②).
-      const placed = (item as { placed?: boolean }).placed ? item.again : undefined;
+      const placed = item.placed ? item.again : undefined;
       if (!workspace.hold) return placed === 'hold' ? [] : [follow];
       // Follow keeps reading the URL; hold fixes the new panel to this selection (#2862).
       const hold = {
@@ -151,8 +149,9 @@ function ActionMenu({ action, focusKey }: { action: GroupAction; focusKey?: stri
   const choices = action.addsPanel
     // The addition can rebuild this row before the menu closes, so the focus hand-off starts on select, not on close.
     ? action.choices.map(choice => ({ ...choice, onSelect: () => {
-      if (trigger.current) keepFocusAfterPanelAdd(trigger.current, choice.panelId ?? choice.id);
-      choice.onSelect?.();
+      // The menu may name the slot it opened (a second instance, #2862 ②); the row rebuilds only after this handler.
+      const opened = choice.onSelect?.();
+      if (trigger.current) keepFocusAfterPanelAdd(trigger.current, typeof opened === 'string' ? opened : choice.panelId ?? choice.id);
     } }))
     : action.choices;
   return <DropdownMenu modal={false}>

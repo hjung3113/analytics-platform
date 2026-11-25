@@ -14,7 +14,7 @@ import { clampFloatingPanel, dockGroupsInReadingOrder, type DockFloatingPanel, t
 import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider, type WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { InWorkspacePanelProvider } from './panelContext';
 import { PanelBadge } from './PanelBadge';
-import { AnalysisPanelAddContext, type AnalysisPanelAddition } from './PanelAdd';
+import { AnalysisPanelAddContext, type AnalysisPanelAddition, type AnalysisPanelDestinations } from './PanelAdd';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
@@ -725,12 +725,13 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     setPeek(clampFloatingPanel({ panelId: id, x: (state.collapsed?.[id] ?? 'top') === 'top' ? Math.max(0, tab.left - (dock?.left ?? 0)) : 0, y: PEEK_TOP, width: FLOAT_SMALL.width, height: Math.min(FLOAT_SMALL.height, Math.max(1, area.height - PEEK_TOP)) }, area));
   };
 
-  const destinations = analysisPanelAddition ? {
+  const destinations: AnalysisPanelDestinations | null = analysisPanelAddition ? {
     ...analysisPanelAddition,
-    // A placed panel stays only for its `again` mode (#2862 ②); the item carries `placed` so «새 패널» offers just that mode.
+    // A placed panel (shown, collapsed or floating, on any of its slots) stays only for its `again` mode (#2862 ②); the item carries `placed`
+    // so «새 패널» offers just that mode.
     items: analysisPanelAddition.items.flatMap(item => {
-      if (state.collapsed?.[item.id] || isFloating(item.id)) return [];
-      if (!shown.includes(item.id)) return [item];
+      const placed = (item.slots ?? [item.id]).some(slot => shown.includes(slot) || state.collapsed?.[slot] || isFloating(slot));
+      if (!placed) return [item];
       return item.again ? [{ ...item, placed: true }] : [];
     }),
   } : null;

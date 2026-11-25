@@ -49,53 +49,29 @@ export function heldSourceFor(config: CustomPanels): { sources: readonly PanelIn
   return { sources: [...config.sources, source], id, added: true };
 }
 
-/** Instances of one declared panel this menu may open side by side: the following one and the held one, to compare before and after (#2862 ②). */
-export const SAME_PANEL_MAX = 2;
-const ofPanel = (config: CustomPanels, id: string) => config.added.filter(({ instance }) => instance.source.kind === 'declared' && instance.source.panel === id);
-function freeId(config: CustomPanels, base: string): string {
-  const taken = new Set([...config.added.flatMap(panel => [panel.slot, panel.instance.id]), ...config.sources.map(source => source.id)]);
-  let id = base;
-  for (let n = 2; taken.has(id); n += 1) id = `${base}-${n}`;
-  return id;
-}
-
 /**
- * The configuration after adding declared panel `id`, and the slot it opened or changed (`config` null: nothing changes, reveal `slot`).
- * From the toolbar or a pin (no intent) an open panel keeps its inputs. «새 패널» states the mode (#2862):
- * - hold: an open held instance takes the new values; with only a following one open, a second instance holds them beside it (②);
- * - follow: an open following instance is revealed; with only a held one open, a second instance follows beside it (②).
- * With no room for a second instance, the panel's own slot changes mode (R C5).
+ * The configuration after adding `id` (null: nothing changes). From the toolbar or a pin (no intent) an open panel keeps its inputs; «새 패널» states
+ * follow (an open held panel reads the URL again, R C5) or hold (its inputs become the held values, naming a source output, R C2).
  */
-export function withAdded(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent): { config: PanelConfiguration | null; slot: string } {
-  if (step === 4 && id === 'trend') return { config: null, slot: id };
+export function withAdded(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent): PanelConfiguration | null {
+  if (step === 4 && id === 'trend') return null;
   const custom = config.kind === 'custom' ? config : noPanels;
-  const same = ofPanel(custom, id);
-  const put = (panel: AddedPanel, replaced?: AddedPanel, sources = custom.sources) => ({ slot: panel.slot, config: { kind: 'custom' as const, sources,
-    added: replaced ? custom.added.map(item => item === replaced ? panel : item) : [...custom.added, panel] } });
-  const room = same.length < SAME_PANEL_MAX;
+  const existing = custom.added.find(panel => panel.slot === id);
+  const put = (panel: AddedPanel, sources = custom.sources): CustomPanels => ({ kind: 'custom', sources,
+    added: existing ? custom.added.map(item => item === existing ? panel : item) : [...custom.added, panel] });
   if (intent?.mode === 'hold') {
     const source = heldSourceFor(custom);
     const inputs = Object.entries(intent.held).flatMap(([key, value]): PanelInstance['inputs'] => key === heldOutput.key ? [{ key, from: `${source.id}.${key}`, mode: 'hold', value }] : []);
-    const target = same.find(panel => holds(panel.instance)) ?? (room ? undefined : same[0]);
-    if (target) return put({ ...target, instance: { ...target.instance, inputs }, heldFrom: intent.from }, target, source.sources);
-    const slot = same.length ? freeId(custom, `${id}-held`) : id;
-    return put({ slot, instance: { ...declaredInstance(id), id: slot, inputs }, heldFrom: intent.from }, undefined, source.sources);
+    return put({ slot: id, instance: { ...(existing?.instance ?? declaredInstance(id)), inputs }, heldFrom: intent.from }, source.sources);
   }
-  const following = same.find(panel => !holds(panel.instance));
-  if (following) return { config: null, slot: following.slot };
-  if (!same.length || (intent && room)) {
-    const slot = same.length ? freeId(custom, id) : id;
-    return put({ slot, instance: { ...declaredInstance(id), id: slot } });
-  }
-  if (!intent) return { config: null, slot: same[0]!.slot };
-  // No room for a second instance: the held one reads the URL again.
-  const held = same[0]!;
-  return put({ slot: held.slot, instance: { ...held.instance, inputs: held.instance.inputs.filter(input => input.mode !== 'hold') } }, held);
+  if (!existing) return put({ slot: id, instance: declaredInstance(id) });
+  if (!intent || !holds(existing.instance)) return null;
+  return put({ slot: existing.slot, instance: { ...existing.instance, inputs: existing.instance.inputs.filter(input => input.mode !== 'hold') } });
 }
 
 /** Whether a hold would take the saved panels past the v1 limit: measured on what would be saved, so a replaced hold's dropped source is not counted (R2 C11). */
 export function holdOverflows(config: PanelConfiguration, step: Step, id: string, intent: AddIntent): boolean {
-  return (buildSavedPanels(withAdded(config, id, step, intent).config ?? config, step)?.instances.length ?? 0) > PANEL_INSTANCES_MAX;
+  return (buildSavedPanels(withAdded(config, id, step, intent) ?? config, step)?.instances.length ?? 0) > PANEL_INSTANCES_MAX;
 }
 
 /**

@@ -15,12 +15,18 @@ export type AnalysisPanelDraft = {
 
 export type AnalysisPanelAddition = {
   items: readonly PanelAddItem[];
-  onAdd: (draft: AnalysisPanelDraft) => void;
+  /**
+   * Adds the panel. It may return the workspace panel id it opened when that is not the item id (a second instance, #2862 ②): the «새 패널»
+   * trigger hands focus to that tab. Returning nothing keeps the item id.
+   */
+  onAdd: (draft: AnalysisPanelDraft) => void | string;
   /** Offers «붙잡기» beside each panel of «새 패널». The menu keeps the held inputs and wraps that panel in `HeldAnalysisSelections` (#2862). */
   hold?: boolean;
 };
+/** What the workspace hands «새 패널»: the items still offered, a placed one marked with `placed` (SDK internal, #2862 ②). */
+export type AnalysisPanelDestinations = Omit<AnalysisPanelAddition, 'items'> & { items: readonly (PanelAddItem & { placed?: boolean })[] };
 
-export const AnalysisPanelAddContext = createContext<AnalysisPanelAddition | null>(null);
+export const AnalysisPanelAddContext = createContext<AnalysisPanelDestinations | null>(null);
 
 /**
  * Panels a menu keeps across its drill steps (#2398, #2391), in one repeated page key (`pageKey`, kernel identifier rule, declared in the
@@ -69,9 +75,15 @@ export type PanelAddItem = {
   id: string; title: Text; description?: Text; disabledReason?: Text;
   /**
    * «새 패널» of `AnalysisPanelAddition` only (#2862 ②): a panel already placed is normally not offered; with `again` it still offers that one
-   * mode, and the menu adds a second instance beside it (a held one beside a following one, or the reverse). The toolbar menu ignores it.
+   * mode, and the menu adds a second instance beside it (a held one beside a following one, or the reverse). `'hold'` needs the addition's
+   * `hold`: without it the placed panel is not offered. The toolbar menu ignores it.
    */
   again?: 'follow' | 'hold';
+  /**
+   * «새 패널» only: the workspace panel ids that show this item when they are not just `id` (its instances, a restored slot). Whether the item
+   * is placed, collapsed or floating is judged on them. Default `[id]`.
+   */
+  slots?: readonly string[];
 };
 
 export type PanelAddMenuProps = {
