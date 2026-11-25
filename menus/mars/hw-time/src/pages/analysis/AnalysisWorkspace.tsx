@@ -279,7 +279,7 @@ function useWorkspacePanels(owner: string, population: string, step: Step) {
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const m = useMessages(S);
-  const { pageParam, setPage, session } = usePlatform();
+  const { pageParam, pageParams, setPage, session } = usePlatform();
   const context = useQueryContext();
   const typeId = pageParam('moduleType'), motionId = pageParam('drillMotion'), moduleId = pageParam('drillModule');
   const step = stepOf(typeId, motionId, moduleId);
@@ -289,10 +289,20 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const options = useMemo(() => workspaceOptions(step), [step]);
   const state = usePanelOptions(options);
   const pins = usePinnedPanels('pins', CATALOG_IDS);
-  // A saved view can pin a panel the catalog no longer has; its reason slot shows it, so that pin is not a broken address.
+  // A saved view can pin a panel the catalog no longer has. Its reason slot shows the panel, so the opened address drops that pin
+  // (one replace) instead of warning; until then the rule accepts it. A plain address with an unknown pin still warns.
   const missingPins = savedPanels.config.kind === 'custom' ? savedPanels.config.added.flatMap(({ instance: { source } }) =>
     source.kind === 'declared' && !CATALOG_IDS.some(id => id === source.panel) ? [source.panel] : []) : [];
   const pinRules = pins.rules.map(rule => ({ ...rule, valid: (raw: string) => rule.valid(raw) || missingPins.includes(raw) }));
+  const rawPins = pageParams('pins');
+  const stalePins = rawPins.filter(id => missingPins.includes(id));
+  const stalePinsKey = JSON.stringify([rawPins, stalePins]);
+  useEffect(() => {
+    if (stalePins.length === 0) return;
+    const rest = rawPins.filter(id => !stalePins.includes(id));
+    setPage({ pins: rest.length > 0 ? rest : null }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `stalePinsKey` is the value identity of `rawPins`/`stalePins`
+  }, [stalePinsKey, setPage]);
   const trend = pageParam('trend');
   const selectionInputs = useAnalysisSelectionInputs(panelDeclarations.table.id);
   const selectionRejected = selectionInputs.rejected.includes(MOTION_EQUIPMENT_KEY);
@@ -408,11 +418,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         const panel = instance.source.kind === 'declared' ? instance.source.panel : instance.id;
         const reason = item?.disabledReason?.[lang] ?? workspace(instance.source.kind === 'declared' ? 'missingPanel' : 'unsupportedPanel', { id: panel });
         return { id, title: item?.title ?? { ko: panel, en: panel }, float: false, collapse: false,
-          onRemove: () => {
-            savedPanels.remove(instance.id);
-            const pinned = pageParams('pins');
-            if (pinned.includes(panel)) setPage({ pins: pinned.length > 1 ? pinned.filter(id => id !== panel) : null });
-          },
+          onRemove: () => savedPanels.remove(instance.id),
           render: () => <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={reason} /> };
       }
       const panel = item!.id as CatalogId;
