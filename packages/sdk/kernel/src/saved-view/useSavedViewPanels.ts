@@ -1,4 +1,4 @@
-import { useContext, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useLayoutEffect, useMemo, useRef } from 'react';
 import type { MenuViewPanels } from '@ap/contracts';
 import { AppContext, LentPanelPlatformContext } from '../platform/contexts';
 import { useHostPlatformOptional } from '../platform/platform';
@@ -48,4 +48,19 @@ export function useSavedViewPanels(options: {
     const unsubscribe = supports.subscribe(sync);
     return () => { unsubscribe(); release?.(); };
   }, [menu, slots, supports]);
+}
+
+/**
+ * Whether the main screen's panels hold a selection now (#2862). Held values live only in the screen and its saved view (ADR-0176), never in
+ * the address, so a copied link does not carry them. Read at call time, not render time.
+ */
+export function useHoldsPanels(): () => boolean {
+  const app = useContext(AppContext);
+  const host = useHostPlatformOptional();
+  const registry = app?.internal.savedViewSlots;
+  const key = JSON.stringify([host?.route?.menu?.id, host?.global.scopeId]);
+  return useCallback(() => {
+    const value = registry?.screen(key).capture<SavedViewPanelsOutcome>(PANELS_SLOT)[PANELS_SLOT];
+    return typeof value === 'object' && value !== null && value.instances.some(instance => instance.inputs.some(input => input.mode === 'hold'));
+  }, [registry, key]);
 }

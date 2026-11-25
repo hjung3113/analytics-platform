@@ -6,12 +6,12 @@ import { AppContext, LentPanelPlatformContext, PaneScreenContext, ScreenContext 
 import type { LeaveRequest } from '../platform/navigationGuard';
 import { pathFor } from '../registry/registry';
 import { captureApplied, viewState, type ViewState } from './capture';
-import { comparableApplied, excludedByScope, contextKeysOf, overwritePatch, restoreSavedView, savedInOtherScope, savedStateOf, siteBoundDropped, unsupportedOf, type RestoreFailure, type Unsupported } from './restore';
+import { comparableApplied, excludedByScope, contextKeysOf, heldSetsDropped, overwritePatch, panelsInScope, restoreSavedView, savedInOtherScope, savedStateOf, siteBoundDropped, unsupportedOf, type RestoreFailure, type Unsupported } from './restore';
 import { PANELS_SLOT, type SavedViewPanelsOutcome } from './useSavedViewPanels';
 import { resolveSavedViewSupport } from './useSavedViewSupport';
 
 /** `held` awaits the leave decision; `cancelled` was superseded. Both are silent and preserve the current selection. */
-export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[]; /** Context keys a view saved in another Scope did not apply here (#2175). */ excludedByScope: readonly string[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' | 'held' | 'cancelled' };
+export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[]; /** Context keys, and held-set panel input keys (#2862), a view saved in another Scope did not apply here (#2175). */ excludedByScope: readonly string[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' | 'held' | 'cancelled' };
 export type SaveInput = { name: string; kind: 'condition-set' | 'menu-view'; chartOptions?: Record<string, JsonValue>; layout?: JsonValue; panels?: MenuViewPanels | null };
 export type SavedViews = {
   /** `disabled`: no store injected, the menu does not declare `features.savedView`, or no support is available. */
@@ -76,8 +76,9 @@ const MAX_DEFAULT_RETRIES = 3;
 const AUTO_APPLY_DEFAULT_WAIT_MS = 3000;
 const NO_ITEMS: readonly SavedViewListItem[] = [];
 type RestorableEntry = SavedViewEntry & { view: Exclude<SavedViewEntry['view'], { kind: 'custom-group' }> };
-function savedPanelsSlot(view: MenuView): Record<string, SavedViewPanelsOutcome> {
-  return { [PANELS_SLOT]: view.panelsUnreadable ? 'unreadable' : view.panels };
+/** The panels a view hands to the screen in `scopeId`: in another Scope its held sets follow instead (#2862). */
+function savedPanelsSlot(view: MenuView, scopeId: string | null): Record<string, SavedViewPanelsOutcome> {
+  return { [PANELS_SLOT]: view.panelsUnreadable ? 'unreadable' : panelsInScope(view, scopeId).panels };
 }
 const NO_UNSUPPORTED: readonly Unsupported[] = [];
 const NO_KEYS: readonly string[] = [];
@@ -235,8 +236,8 @@ function useSavedViewController(
   const selectedMenuView = selected?.view.kind === 'menu-view' ? selected.view : undefined;
   const slotModified = useMemo(() => {
     if (slotRevision < 0 || !slots || !selectedMenuView) return false;
-    return slots.differs('tables', selectedMenuView.tables) || slots.differs(PANELS_SLOT, savedPanelsSlot(selectedMenuView));
-  }, [slots, slotRevision, selectedMenuView]);
+    return slots.differs('tables', selectedMenuView.tables) || slots.differs(PANELS_SLOT, savedPanelsSlot(selectedMenuView, host.global.scopeId));
+  }, [slots, slotRevision, selectedMenuView, host.global.scopeId]);
   const state = useMemo(() => support === undefined ? OFF_STATE : viewState({ applied: selected ? comparableApplied(selected.view, captureApplied(applied, support)) : captureApplied(applied, support), saved: selected ? savedStateOf(selected.view, support, anchor, host.global.scopeId) : null, draftDirty: host.queryDraft.dirty, slotModified }), [support, applied, selected, anchor, host.global.scopeId, host.queryDraft.dirty, slotModified]);
   // Derived from the saved copy, so a selection recovered after a reload lists the same Context as right after the pick.
   const unsupported = useMemo(() => selected && support ? unsupportedOf(selected.view, support, anchor) : NO_UNSUPPORTED, [selected, support, anchor]);
@@ -248,8 +249,8 @@ function useSavedViewController(
   }, [selected, support, currentScope]);
   const crossScopeSave = useMemo(() => {
     if (!selected || selected.view.savedScopeId === undefined || !savedInOtherScope(selected.view, currentScope)) return null;
-    const stored = siteBoundDropped(selected.view, currentScope);
-    return stored.length === 0 ? null : { savedScopeId: selected.view.savedScopeId, keys: contextKeysOf(stored) as readonly string[] };
+    const keys = [...contextKeysOf(siteBoundDropped(selected.view, currentScope)), ...heldSetsDropped(selected.view, currentScope)];
+    return keys.length === 0 ? null : { savedScopeId: selected.view.savedScopeId, keys: keys as readonly string[] };
   }, [selected, currentScope]);
 
   // Latest values for async callbacks. `intent` numbers the user's latest restore/pick/save: a result that arrives after a newer one, a changed address or generation, or the screen's unmount is dropped.
@@ -407,7 +408,7 @@ function useSavedViewController(
     const sameAddress = (current.appliedUrl === current.url && result.href === current.url) || result.href === current.pathname + buildQuery(current.global, current.page, current.extras);
     const applySlots = () => {
       const view = found.view;
-      const values = view.kind === 'menu-view' ? { tables: view.tables, [PANELS_SLOT]: savedPanelsSlot(view) } : {};
+      const values = view.kind === 'menu-view' ? { tables: view.tables, [PANELS_SLOT]: savedPanelsSlot(view, current.global.scopeId) } : {};
       if (source === 'default') slots?.restore(id, values); else slots?.apply(id, values);
     };
     if (sameAddress) applySlots();
@@ -482,7 +483,7 @@ function useSavedViewController(
     if (selectedId !== null && (selected === null || mismatch)) clearSelection();
     else if (selected !== null) {
       // A reload keeps the selection through the address; the screen's panels come only from the view, so hand them over once.
-      if (selected.view.kind === 'menu-view' && selected.view.menuSchemaVersion === support.menuSchemaVersion) slots?.restore(selected.view.id, { [PANELS_SLOT]: savedPanelsSlot(selected.view) });
+      if (selected.view.kind === 'menu-view' && selected.view.menuSchemaVersion === support.menuSchemaVersion) slots?.restore(selected.view.id, { [PANELS_SLOT]: savedPanelsSlot(selected.view, host.global.scopeId) });
       return;
     }
     if (mode === 'legacy' && !explicitEntry && loaded.defaultId !== null) void apply(loaded.defaultId, 'default');

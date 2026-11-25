@@ -175,3 +175,20 @@ export function readMenuViewPanels(raw: unknown): { status: 'default' } | { stat
   }
   return { status: 'legacy', reason: 'unreadable' };
 }
+
+/**
+ * Panels of a view opened in another Scope than it was saved in (#2862, owner 2026-11-25): a held `set` (equipment and other members of that
+ * Scope) is not applied there and the input follows the current selection instead; a held range is an absolute wall-clock pair and stays.
+ * `keys` lists the changed input keys once each, for the «다른 Scope라 제외» notice. Panels with no held set come back as the same object.
+ */
+export function followHeldSets(panels: MenuViewPanels): { panels: MenuViewPanels; keys: string[] } {
+  const keys = new Set<string>();
+  const instances = panels.instances.map(instance => instance.inputs.some(input => input.mode === 'hold' && input.value.shape === 'set')
+    ? { ...instance, inputs: instance.inputs.map((input): PanelInstanceInput => {
+      if (input.mode !== 'hold' || input.value.shape !== 'set') return input;
+      keys.add(input.key);
+      return { key: input.key, from: input.from, mode: 'follow' };
+    }) }
+    : instance);
+  return keys.size === 0 ? { panels, keys: [] } : { panels: { ...panels, instances }, keys: [...keys] };
+}
