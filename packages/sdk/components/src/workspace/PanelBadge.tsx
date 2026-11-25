@@ -1,5 +1,6 @@
 import { TriangleAlert } from 'lucide-react';
 import { StatusBadge } from '@ap/ui';
+import type { ReactNode } from 'react';
 
 export const BADGE_COUNT_MAX = 99;
 
@@ -11,7 +12,8 @@ export const badgeCountText = (count: number) => (count > BADGE_COUNT_MAX ? `${B
  * accessibility tree so the tab's name stays the panel title; the spoken text is the tab's `aria-description`. Never marked
  * `data-dock-tab-shrinkable`, so a compact background tab keeps it.
  */
-export function PanelBadge({ count, tone = 'neutral', description }: { count?: number; tone?: 'neutral' | 'warning'; description: string }) {
+export function PanelBadge({ count, tone = 'neutral', description, children }: { count?: number; tone?: 'neutral' | 'warning'; description?: string; children?: ReactNode }) {
+  if (children != null) return <StatusBadge tone={tone} className="shrink-0 whitespace-nowrap">{children}</StatusBadge>;
   const warning = tone === 'warning';
   return <span data-panel-badge={tone} aria-hidden title={description} className="ml-1.5 inline-flex shrink-0 tabular">
     <StatusBadge tone={tone} dot={!warning && count === undefined}>

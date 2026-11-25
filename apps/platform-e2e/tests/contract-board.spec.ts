@@ -959,7 +959,8 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
     await page.mouse.down();
     // The middle joins the group's tabs: the engine draws its preview (this also proves the selector sees one).
-    await hoverAt(box.x + box.width / 2, box.y + box.height / 2);
+    // Off the exact center: the jitter must stay on one element (a KPI cell edge there fires only enter/leave, never the dragover the engine draws on).
+    await hoverAt(box.x + box.width * 0.42, box.y + box.height / 2);
     await expect(preview.first()).toBeVisible();
     // The edge would split into a fifth group: no preview.
     await hoverAt(box.x + box.width - 6, box.y + box.height / 2);

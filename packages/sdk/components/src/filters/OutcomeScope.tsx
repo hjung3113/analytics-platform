@@ -1,11 +1,12 @@
 import { createContext, useContext, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { readQueryRecovery, type ApiResponse } from '@ap/contracts';
-import { errorGuidance, useI18n, type QueryState } from '@ap/kernel';
+import { errorGuidance, useI18n, useMessages, type QueryState } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { useOutcomeRecovery } from '../state/OutcomeActions';
 import { outcomeIsBlocked, outcomePresentation, outcomeTone } from '../state/outcomePresentation';
+import { COMPONENTS_MESSAGES } from '../messages';
 
-type Widget = { id: string; response: ApiResponse<unknown> | null; retry: () => void; name?: string; status: QueryState<unknown>['status'] };
+type Widget = { id: string; response: ApiResponse<unknown> | null; retry: () => void; name?: string; status: QueryState<unknown>['status']; focus?: () => void };
 type Group = { key: string; bannerId: string; widgets: Widget[]; busy: boolean };
 type PendingMember = { response: Widget['response']; refreshing: boolean; done: boolean };
 const EMPTY: Group[] = [];
@@ -13,6 +14,7 @@ const EMPTY: Group[] = [];
 function memberNames(widgets: readonly Widget[]): string[] {
   return [...new Set(widgets.map(widget => widget.name?.trim()).filter((name): name is string => Boolean(name)))];
 }
+const includesPanels = (group: Group) => group.widgets.some(widget => widget.focus);
 
 function groupingKey(response: ApiResponse<unknown> | null): string | null {
   if (!response || !['error', 'timeout', 'empty', 'forbidden', 'too_large'].includes(response.outcome)) return null;
@@ -67,7 +69,7 @@ function createStore(scopeId: string) {
     },
     set: (widget: Widget) => {
       const old = widgets.get(widget.id);
-      if (old?.response === widget.response && old?.retry === widget.retry && old?.name === widget.name && old?.status === widget.status) return;
+      if (old?.response === widget.response && old?.retry === widget.retry && old?.name === widget.name && old?.status === widget.status && old?.focus === widget.focus) return;
       widgets.set(widget.id, widget);
       publish();
     },
@@ -92,11 +94,11 @@ export function OutcomeScope({ children }: { children: ReactNode }) {
   return <OutcomeContext.Provider value={store}>{children}</OutcomeContext.Provider>;
 }
 
-function useOutcomeSnapshot(response: Widget['response'], retry: () => void, name: string | undefined, status: Widget['status']) {
+function useOutcomeSnapshot(response: Widget['response'], retry: () => void, name: string | undefined, status: Widget['status'], focus?: () => void) {
   const store = useContext(OutcomeContext);
   const id = useId();
   const key = groupingKey(response);
-  useLayoutEffect(() => { store?.set({ id, response, retry, name, status }); }, [store, id, response, retry, name, status]);
+  useLayoutEffect(() => { store?.set({ id, response, retry, name, status, focus }); }, [store, id, response, retry, name, status, focus]);
   useLayoutEffect(() => () => { store?.remove(id); }, [store, id]);
   // A primitive snapshot avoids running successful children for unrelated registrations.
   const getSnapshot = () => store?.getNoticeSnapshot(id, key) ?? '0|';
@@ -107,8 +109,8 @@ export function useSharedOutcome(response: Widget['response'], retry: () => void
   return useOutcomeSnapshot(response, retry, name, status).startsWith('1|');
 }
 
-export function useSharedOutcomeNotice(response: Widget['response'], retry: () => void, name: string | undefined, status: Widget['status']) {
-  const raw = useOutcomeSnapshot(response, retry, name, status);
+export function useSharedOutcomeNotice(response: Widget['response'], retry: () => void, name: string | undefined, status: Widget['status'], focus?: () => void) {
+  const raw = useOutcomeSnapshot(response, retry, name, status, focus);
   if (!raw.startsWith('1|')) return { grouped: false as const, bannerId: undefined };
   return { grouped: true as const, bannerId: raw.slice('1|'.length) || undefined };
 }
@@ -122,6 +124,7 @@ export function useOutcomeBannerCount() {
 /** `compact` (page bodies): a one-line strip with the same group, tone, retry and live rules; the sentence truncates and `자세히` shows it in full. */
 function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRetry: () => void; compact?: boolean }) {
   const { t } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const banner = useRef<HTMLElement>(null);
   const unmounting = useRef(false);
   const detailsId = useId();
@@ -149,20 +152,30 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
   const tone = outcomeTone(response);
   const danger = tone === 'danger';
   const warning = tone === 'warning';
-  const recovery = useOutcomeRecovery(response, onRetry, { busy: group.busy, current: !outcomeIsBlocked(response), groupReplies: group.widgets.map(widget => widget.response!) });
+  const panels = includesPanels(group);
+  const count = group.widgets.length;
+  const region = panels ? m('outcomePanelRegion') : t('sharedOutcomeRegion');
+  const summary = panels ? m('outcomePanelSummary', { count }) : t('sharedOutcomeSummary', { count });
+  const recovery = useOutcomeRecovery(response, onRetry, { busy: group.busy, current: !outcomeIsBlocked(response), groupReplies: group.widgets.map(widget => widget.response!), retryLabel: panels ? m('outcomeRetryAll') : undefined });
   // A registered group always has a known failure or empty presentation.
   if (!notice) return null;
   const { title, body, label, Icon } = notice;
-  const summary = t('sharedOutcomeSummary', { count: group.widgets.length });
   const names = memberNames(group.widgets);
+  const panelNames = panels && <span className="flex min-w-0 items-center gap-1 overflow-x-auto">
+    {group.widgets.map(widget => widget.name && (widget.focus
+      ? <Button key={widget.id} type="button" variant="ghost" size="toolbar" onClick={widget.focus}>{widget.name}</Button>
+      : <span key={widget.id} className="shrink-0">{widget.name}</span>))}
+  </span>;
   if (compact) {
     const inlineText = recovery.evidence ?? ((outcome === 'error' && errorGuidance(response.message).code === null) || outcome === 'timeout' ? summary : body);
-    return <section id={group.bannerId} ref={banner} data-outcome-banner data-outcome-compact role="group" aria-label={t('sharedOutcomeRegion')}
-      className={cn('mb-3 flex flex-wrap items-center gap-2 rounded-md border px-3 py-1.5 text-xs text-text-secondary', danger ? 'border-text-danger-label bg-accent-danger-soft' : warning ? 'border-border-control bg-accent-warn-soft text-text-warning-label' : 'border-border-control bg-surface-sunken')}>
+    const border = danger ? 'border-text-danger/28 bg-accent-danger-soft' : warning ? 'border-border-control bg-accent-warn-soft text-text-warning-label' : 'border-border-strong bg-surface-card';
+    return <section id={group.bannerId} ref={banner} data-outcome-banner data-outcome-compact role="group" aria-label={region}
+      className={cn('mb-3 flex items-center gap-2 rounded-md border px-3 text-xs text-text-secondary', panels ? ['h-10 whitespace-nowrap', border] : ['flex-wrap py-1.5', danger ? 'border-text-danger-label bg-accent-danger-soft' : warning ? 'border-border-control bg-accent-warn-soft text-text-warning-label' : 'border-border-control bg-surface-sunken'])}>
       <Icon aria-hidden className={cn('size-4 shrink-0', danger ? 'text-text-danger-label' : warning ? 'text-text-warning-label' : 'text-text-secondary')} />
       <span className={cn('shrink-0 whitespace-nowrap font-semibold', danger ? 'text-text-danger-label' : warning ? 'text-text-warning-label' : 'text-text-secondary')}>{label} ·</span>
       <p className="min-w-0 flex-1 truncate break-keep" title={inlineText}>{inlineText}</p>
-      {names.length > 0 && <span className="sr-only">{names.join(' · ')}</span>}
+      {panelNames}
+      {!panels && names.length > 0 && <span className="sr-only">{names.join(' · ')}</span>}
       <Popover>
         <PopoverTrigger asChild><Button type="button" size="toolbar" variant="ghost" className="shrink-0">{t('outcomeDetails')}</Button></PopoverTrigger>
         <PopoverContent data-outcome-details={detailsId} aria-labelledby={titleId} align="end" padding="compact" className="max-w-sm"
@@ -179,13 +192,14 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
       {recovery.action}
     </section>;
   }
-  return <section id={group.bannerId} ref={banner} data-outcome-banner role="group" aria-label={t('sharedOutcomeRegion')}
+  return <section id={group.bannerId} ref={banner} data-outcome-banner role="group" aria-label={region}
     className={cn('mb-3 rounded-md border p-3 text-xs text-text-secondary', danger ? 'border-text-danger-label bg-accent-danger-soft' : warning ? 'border-border-control bg-accent-warn-soft text-text-warning-label' : 'border-border-control bg-surface-sunken')}>
     <div className={cn('mb-1.5 flex items-center gap-2 text-sm font-semibold', danger ? 'text-text-danger-label' : warning ? 'text-text-warning-label' : 'text-text-secondary')}><Icon aria-hidden className="size-4 shrink-0" />{title}</div>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0 flex-[1_1_18rem]">
         <p>{summary}</p>
-        {names.length > 0 && <p className="mt-0.5">{names.join(' · ')}</p>}
+        {panelNames}
+        {!panels && names.length > 0 && <p className="mt-0.5">{names.join(' · ')}</p>}
         <div className="mt-1 break-keep">{body}</div>
         {recovery.evidence && <p className="mt-1 break-words">{recovery.evidence}</p>}
       </div>
@@ -200,8 +214,10 @@ export function OutcomeBanners({ compact = false }: { compact?: boolean } = {}) 
   const store = useContext(OutcomeContext);
   const groups = useSyncExternalStore(store?.subscribe ?? subscribeNone, store?.getSnapshot ?? emptySnapshot, emptySnapshot);
   const { t } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
   const announcement = (danger: boolean) => groups.filter(group => outcomeIsDanger(group.widgets[0].response!) === danger).map(group => {
-    return <span key={group.key} className="block">{t('sharedOutcomeSummary', { count: group.widgets.length })}{group.busy ? ` ${t('refreshing')}` : ''}</span>;
+    const count = group.widgets.length;
+    return <span key={group.key} className="block">{includesPanels(group) ? m('outcomePanelSummary', { count }) : t('sharedOutcomeSummary', { count })}{group.busy ? ` ${t('refreshing')}` : ''}</span>;
   });
   // Empty from the first commit; visible banners/groups are never additional live channels.
   return <>

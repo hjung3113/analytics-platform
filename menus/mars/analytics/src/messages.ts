@@ -158,7 +158,7 @@ export const ANALYTICS_MESSAGES = {
   productivityOverviewHourly2: { ko: "시간", en: "hourly" },
   productivityOverviewDaily2: { ko: "일별", en: "daily" },
   productivityOverviewWeekly2: { ko: "주별", en: "weekly" },
-  productivityOverviewClearEmptySelection: { ko: "빈 선택 지우기", en: "Clear empty selection" },
+  productivityOverviewZeroEquipment: { ko: "설비 0대", en: "0 equipment" },
   productivityOverviewVersion: { ko: "지표 버전", en: "version" },
   productivityOverviewPhysicalOccupancy: { ko: "물리 점유율", en: "Physical occupancy" },
   productivityOverviewDenominator0NotConfirmedNot0: { ko: "분모 0 · 미확인 (0% 아님)", en: "denominator 0 · not confirmed (not 0%)" },

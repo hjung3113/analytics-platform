@@ -52,7 +52,7 @@ export function ChartHeading({ titleId, title, description, gestureHint, descrip
       {info && <InfoTip label={m('chartDescription')} descriptionId={descriptionId} onFocus={() => setInfoFocused(compact)} onBlur={() => setInfoFocused(false)}>{info}</InfoTip>}
     </div>
     {hideTitle && metricVersion && <span className="sr-only">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span>}
-    {!hideTitle && ((!compact && description) || metricVersion) && <p className="text-xs text-text-muted">{!compact && description}{metricVersion && <>{!compact ? ' · ' : null}<span className="tabular">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}</p>}
+    {((!compact && description) || (!hideTitle && metricVersion)) && <p className="text-xs text-text-muted">{!compact && description}{!hideTitle && metricVersion && <>{!compact ? ' · ' : null}<span className="tabular">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}</p>}
   </div>;
 }
 

@@ -6,7 +6,8 @@ import { parseDateTime, groupId, spaceId, type AnnotationInput, type ApiResponse
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import userEvent from '@testing-library/user-event';
 import { AnalysisSectionContext } from '../../archetypes/AnalysisSectionContext';
-import { InWorkspacePanelProvider } from '../../workspace/panelContext';
+import { TransientOverlayScope } from '@ap/ui';
+import { InWorkspacePanelProvider, QueryPanelContentContext } from '../../workspace/panelContext';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import { assignNoteLevels } from '../annotationLayout';
 import type { EChartProps } from '../EChart';
@@ -173,6 +174,56 @@ describe('AnalysisChartFrame follows the menu manifest features (06 §16, issue 
     expect(screen.getByRole('button', { name: '주석' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '내보내기' })).toBeTruthy();
   });
+});
+
+it('closes the range editor and disables result actions on a prior result while its table stays readable', async () => {
+  const f = fixture();
+  const registry = registryWith(on);
+  const data: ChartSeries[] = [{ id: 'room', name: 'Rooms', unit: 'h', color: 'chart-blue', points: [['PHOTO', 4], ['ETCH', 6]] }];
+  const ui = (state: 'current' | 'prior') => <I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}>
+    <QueryPanelContentContext.Provider value={state}>
+      <TransientOverlayScope active={state === 'current'}>
+        <AnalysisChartFrame chartId="room" title="Rooms" xType="category" series={data} unit="h" />
+      </TransientOverlayScope>
+    </QueryPanelContentContext.Provider>
+  </PlatformProvider></I18nProvider>;
+  const { rerender } = render(ui('current'));
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+  expect(await screen.findByRole('combobox', { name: '구간 시작' })).toBeInTheDocument();
+  rerender(ui('prior'));
+  // The editor is portalled outside the result; the inactive overlay scope of a prior result closes it.
+  await waitFor(() => expect(screen.queryByRole('combobox', { name: '구간 시작' })).not.toBeInTheDocument());
+  expect(screen.getByRole('button', { name: '구간 선택' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '내보내기' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+  expect(await screen.findByRole('table', { name: 'Rooms' })).toHaveTextContent('PHOTO');
+});
+
+it('blocks consumer chart actions on a prior result while leaving its table readable', async () => {
+  const f = fixture();
+  const registry = registryWith(on);
+  const drill = vi.fn();
+  const exportRows = vi.fn();
+  const data: ChartSeries[] = [{ id: 'room', name: 'Rooms', unit: 'h', color: 'chart-blue', points: [['PHOTO', 4], ['ETCH', 6]] }];
+  const ui = (state: 'current' | 'prior') => <I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}>
+    <QueryPanelContentContext.Provider value={state}>
+      <AnalysisChartFrame chartId="room" title="Rooms" xType="category" series={data} unit="h"
+        toolbarStart={<><button type="button" onClick={drill}>Drill rows</button><button type="button" onClick={exportRows}>Export rows</button></>} />
+    </QueryPanelContentContext.Provider>
+  </PlatformProvider></I18nProvider>;
+  const { rerender } = render(ui('current'));
+  expect(screen.getByRole('button', { name: 'Drill rows' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Export rows' })).toBeEnabled();
+  rerender(ui('prior'));
+  // The slot stays mounted so a keep-previous refresh does not redraw it; `inert` blocks it in the browser (jsdom does not enforce inert).
+  for (const name of ['Drill rows', 'Export rows']) expect(screen.getByText(name).closest('[inert]')).not.toBeNull();
+  rerender(ui('current'));
+  for (const name of ['Drill rows', 'Export rows']) expect(screen.getByRole('button', { name }).closest('[inert]')).toBeNull();
+  expect(drill).not.toHaveBeenCalled();
+  expect(exportRows).not.toHaveBeenCalled();
+  rerender(ui('prior'));
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+  expect(await screen.findByRole('table', { name: 'Rooms' })).toHaveTextContent('PHOTO');
 });
 
 describe('wheel over the plot (#700, 06 §16)', () => {

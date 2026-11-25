@@ -10,16 +10,16 @@ import { AccessRequestEntry, accessRequestBody, useScopeAccessRequest } from './
 import { RecoverButton } from './RecoverButton';
 import { resolveOutcomeRecovery } from './outcomeRecovery';
 
-export function OutcomeRetryButton({ onRetry, busy = false }: { onRetry: () => void; busy?: boolean }) {
+export function OutcomeRetryButton({ onRetry, busy = false, label, size = 'sm' }: { onRetry: () => void; busy?: boolean; label?: string; size?: 'sm' | 'toolbar' }) {
   const { t } = useI18n();
-  return <Button type="button" size="sm" variant="secondary" data-outcome-retry aria-busy={busy} aria-disabled={busy || undefined}
+  return <Button type="button" size={size} variant={size === 'toolbar' ? 'ghost' : 'secondary'} data-outcome-retry aria-busy={busy} aria-disabled={busy || undefined}
     onClick={() => { if (!busy) onRetry(); }}>
     {busy ? <Loader2 aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <RotateCw aria-hidden className="size-3.5" />}
-    {t('retry')}
+    {label ?? t('retry')}
   </Button>;
 }
 
-export function useOutcomeRecovery(response: ApiResponse<unknown>, onRetry: () => void, options: { busy?: boolean; current?: boolean; emptyAction?: ReactNode; groupReplies?: readonly ApiResponse<unknown>[] } = {}) {
+export function useOutcomeRecovery(response: ApiResponse<unknown>, onRetry: () => void, options: { busy?: boolean; current?: boolean; emptyAction?: ReactNode; groupReplies?: readonly ApiResponse<unknown>[]; retryLabel?: string; singleAction?: boolean; retrySize?: 'toolbar' } = {}) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { t } = useI18n();
   const host = useHostPlatformOptional();
@@ -58,7 +58,7 @@ export function useOutcomeRecovery(response: ApiResponse<unknown>, onRetry: () =
       evidence = m('outcomePeriodLimit', { hours: recovery.maxHours });
       break;
     case 'retry':
-      secondary = <OutcomeRetryButton onRetry={onRetry} busy={options.busy} />;
+      secondary = <OutcomeRetryButton onRetry={onRetry} busy={options.busy} label={options.retryLabel} size={options.retrySize} />;
       break;
     case 'request': {
       const { target } = recovery;
@@ -80,5 +80,5 @@ export function useOutcomeRecovery(response: ApiResponse<unknown>, onRetry: () =
       break;
   }
   const action = primary || secondary || conditions ? <>{primary}{secondary}{conditions}</> : null;
-  return { action, evidence };
+  return { action: options.singleAction ? primary ?? secondary ?? conditions : action, evidence };
 }
