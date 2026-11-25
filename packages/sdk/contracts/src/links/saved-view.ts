@@ -1,6 +1,6 @@
-import { invalidMenuViewPanels, type MenuViewPanels } from './menu-view-panels.js';
+import { forbiddenChartConfigKey, invalidMenuViewPanels, type MenuViewPanels } from './menu-view-panels.js';
 import { CUSTOM_GROUP_FIXED_MAX } from './custom-group.js';
-import { nonSerializable } from './saved-view-json.js';
+import { forbiddenKey, isForbiddenSavedViewKey, nonSerializable } from './saved-view-json.js';
 import type { GlobalContext, Pair } from './url.js';
 import { isTableViewStates, type TableViewState } from './table-view-state.js';
 
@@ -43,6 +43,8 @@ export type MenuView = SavedViewBase & {
   layout: JsonValue;
   /** Null uses the panels declared by this menu. */
   panels: MenuViewPanels | null;
+  /** The stored panel configuration could not be read and is represented by null. */
+  panelsUnreadable?: true;
   tables?: Record<string, TableViewState>;
 };
 
@@ -54,7 +56,7 @@ export type SavedView = (ConditionSetView | MenuView | CustomGroupView) & ViewSh
 
 /** What a caller proposes to save; the store assigns id, owner, version, time and starts private with approval `none`. */
 export type ConditionSetDraft = { schemaVersion: 1; kind: 'condition-set'; name: string; context: SavedViewContext; savedScopeId?: string };
-export type MenuViewDraft = Omit<MenuView, 'id' | 'ownerId' | 'version' | 'updatedAt'>;
+export type MenuViewDraft = Omit<MenuView, 'id' | 'ownerId' | 'version' | 'updatedAt' | 'panelsUnreadable'>;
 export type CustomGroupDraft = Omit<CustomGroupView, 'id' | 'ownerId' | 'version' | 'updatedAt'>;
 export type SavedViewDraft = ConditionSetDraft | MenuViewDraft | CustomGroupDraft;
 /** `menuSchemaVersion` is for menu views only: a migration that rewrote the content raises it in the same write. */
@@ -145,11 +147,7 @@ export function canTransition(approval: ViewApproval, action: ApprovalAction): b
   return APPROVAL_TRANSITIONS[action].from.includes(approval);
 }
 
-/** Transient UI state and raw data/engine dumps that must never be saved (21.1). Matched by key name at any depth in `chartOptions` and `layout`. */
-const TRANSIENT_KEY = /^(hover|zoom|modal|openModal|draft)/i;
-const RAW_KEYS: ReadonlySet<string> = new Set(['rows', 'rawData', 'engineState']);
-const DOCK_KEY = /^dock/i;
-export const isForbiddenSavedViewKey = (key: string): boolean => TRANSIENT_KEY.test(key) || RAW_KEYS.has(key) || DOCK_KEY.test(key);
+export { isForbiddenSavedViewKey } from './saved-view-json.js';
 
 const invalid = (detail: string): Result<never> => ({ ok: false, reason: 'invalid', detail });
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -191,30 +189,10 @@ function invalidPage(page: unknown): string | null {
   return null;
 }
 
-/** A chart-source instance stores its settings, never raw data or engine state: the same key rule as `chartOptions` (#2760). */
-function forbiddenChartConfigKey(panels: unknown): string | null {
-  if (panels === null) return null;
-  for (const [i, instance] of (panels as MenuViewPanels).instances.entries()) {
-    if (instance.source.kind !== 'chart') continue;
-    const bad = forbiddenKey(instance.source.config, `panels.instances[${i}].source.config`);
-    if (bad) return bad;
-  }
-  return null;
-}
-
-function forbiddenKey(value: unknown, path: string): string | null {
-  if (typeof value !== 'object' || value === null) return null;
-  for (const [k, v] of Object.entries(value)) {
-    if (!Array.isArray(value) && isForbiddenSavedViewKey(k)) return `${path}.${k}`;
-    const bad = forbiddenKey(v, `${path}.${k}`);
-    if (bad) return bad;
-  }
-  return null;
-}
-
 /** Pure check of a draft before it is saved, including the versioned menu panel configuration and its connections. */
 export function validateSavedView(input: unknown): Result<SavedViewDraft> {
   if (!isObject(input)) return invalid('view must be an object');
+  if ('panelsUnreadable' in input) return invalid('panelsUnreadable is read-only');
   if (input.schemaVersion !== 1) return invalid('unknown schemaVersion');
   if (typeof input.name !== 'string' || input.name.trim() === '') return invalid('name is empty');
   if ('savedScopeId' in input && (typeof input.savedScopeId !== 'string' || input.savedScopeId === '' || input.savedScopeId.length > SAVED_SCOPE_ID_MAX)) return invalid('savedScopeId must be a non-empty Scope id');

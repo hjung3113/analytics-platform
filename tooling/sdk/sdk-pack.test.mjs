@@ -24,6 +24,16 @@ test('a package with only siblings gets no dependencies field', () => {
   assert.deepEqual(manifest.peerDependencies, { '@ap/contracts': '1.2.3' });
 });
 
+test('workspace-only exports stay out of the release manifest', () => {
+  const exports = { '.': { types: './dist/index.d.ts', import: './dist/index.js' } };
+  const manifest = releaseManifest('contracts', {
+    name: '@ap/contracts',
+    exports: { '.': './src/index.ts', './testing/fixture': './test-support/fixture.ts' },
+    publishConfig: { exports },
+  }, '1.2.3');
+  assert.deepEqual(manifest.exports, exports);
+});
+
 test('the archive check rejects a sibling dependency and a loose sibling peer', () => {
   const paths = ['package/package.json', 'package/dist/index.js'];
   const exports = { '.': './dist/index.js' };

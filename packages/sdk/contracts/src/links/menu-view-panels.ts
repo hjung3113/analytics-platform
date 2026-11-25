@@ -1,7 +1,7 @@
 import { isRecord } from '../guards.js';
 import type { AnalysisSelection, AnalysisSelectionShape } from '../menu/panels.js';
 import { CUSTOM_GROUP_FIXED_MAX } from './custom-group.js';
-import { nonSerializable } from './saved-view-json.js';
+import { forbiddenKey, nonSerializable } from './saved-view-json.js';
 import type { JsonValue } from './saved-view.js';
 
 /** One input of a panel instance: which instance output it reads and how (ADR-0176). */
@@ -145,10 +145,21 @@ export function invalidMenuViewPanels(raw: unknown): string | null {
   return invalidPanelConnections(raw.instances as PanelInstance[]);
 }
 
+/** Chart instances follow the same key rule as saved chart options. Call after validating the panel shape. */
+export function forbiddenChartConfigKey(panels: unknown): string | null {
+  if (panels === null) return null;
+  for (const [i, instance] of (panels as MenuViewPanels).instances.entries()) {
+    if (instance.source.kind !== 'chart') continue;
+    const bad = forbiddenKey(instance.source.config, `panels.instances[${i}].source.config`);
+    if (bad) return bad;
+  }
+  return null;
+}
+
 export function readMenuViewPanels(raw: unknown): { status: 'default' } | { status: 'ok'; panels: MenuViewPanels } | { status: 'legacy'; reason: 'unreadable' } {
   if (raw === null || raw === undefined) return { status: 'default' };
   try {
-    if (invalidMenuViewPanels(raw) === null && nonSerializable(raw, 'panels', [], { requireDenseArrays: true }) === null) {
+    if (invalidMenuViewPanels(raw) === null && nonSerializable(raw, 'panels', [], { requireDenseArrays: true }) === null && forbiddenChartConfigKey(raw) === null) {
       return { status: 'ok', panels: raw as MenuViewPanels };
     }
   } catch {

@@ -14,6 +14,13 @@ export function releasePackages() {
   return [...SDK_PACKAGES.map((name) => ({ name, dir: `packages/sdk/${name}` })), ...RELEASE_UNIT2_PACKAGES];
 }
 
+/** Source exports included in the released package. */
+export function releaseSourceEntries(manifest) {
+  const entries = Object.entries(manifest.exports ?? {});
+  const published = manifest.publishConfig?.exports;
+  return published ? entries.filter(([subpath]) => Object.hasOwn(published, subpath)) : entries;
+}
+
 /** './src/theme/index.ts' → { types: './dist/theme/index.d.ts', import: './dist/theme/index.js' }; CSS/JSON → './dist/…'. */
 export function distTarget(target, label) {
   if (typeof target !== 'string' || !target.startsWith('./src/')) {

@@ -196,6 +196,19 @@ describe.skipIf(!runIntegration)('platform saved views (#1105a, ADR-0099)', () =
     expect((await audits(['saved_view_group_updated'])).some(row => row.subject_id === audience.value.group.id && row.detail.removed_ids.includes(bob.id))).toBe(true);
   });
 
+  it('preserves unreadable panels on a rename, then replaces them with an explicit null', async () => {
+    const view = await save(alice, menuDraft('Legacy'));
+    const stored = { anything: 1 };
+    await q("update platform.saved_views set content = jsonb_set(content, '{panels}', $2) where id = $1", [view.id, JSON.stringify(stored)]);
+    expect(await call(alice, 'get', { id: view.id })).toMatchObject({ view: { panels: null, panelsUnreadable: true } });
+    const renamed = await call(alice, 'update', { id: view.id, expectedVersion: view.version, patch: { name: 'Renamed' } });
+    expect(renamed).toMatchObject({ ok: true, value: { view: { name: 'Renamed', panels: null, panelsUnreadable: true } } });
+    expect((await q('select content from platform.saved_views where id = $1', [view.id])).rows[0]?.content.panels).toEqual(stored);
+    const replaced = await call(alice, 'update', { id: view.id, expectedVersion: renamed.value.view.version, patch: { panels: null } });
+    expect(replaced).toMatchObject({ ok: true, value: { view: { panels: null } } });
+    expect(replaced.value.view).not.toHaveProperty('panelsUnreadable');
+  });
+
   it('saved-view lock timeout returns 503 without creating a group or audit', async () => {
     const runtime = createDb(APP_URL, {
       budgets: {

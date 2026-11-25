@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { SavedView, SavedViewDraft, SavedViewEntry, SavedViewListItem, SavedViewStore } from '@ap/contracts';
+import { storedPanelCases } from '@ap/contracts/testing/saved-view-panels';
 import { createLocalSavedViewStore, savedViewDefaultStorageKey, savedViewGroupsStorageKey, savedViewsStorageKey } from '../saved-view-store';
 // The kernel `testing` entry is not a dependency of this package, so the storage helper is defined here with the same semantics.
 const memoryStorage = (): Storage => {
@@ -33,6 +34,30 @@ const draft = (name = '새 뷰'): SavedViewDraft => ({ schemaVersion: 1, kind: '
 const visible = (items: readonly SavedViewListItem[]): SavedViewEntry[] => items.filter((i): i is SavedViewEntry => !i.denied);
 const byName = (items: readonly SavedViewListItem[], name: string) => visible(items).find(i => i.view.name === name)!;
 const ok = <T,>(r: { ok: true; value: T } | { ok: false; reason: string }): T => { if (!r.ok) throw new Error(r.reason); return r.value; };
+
+it.each(storedPanelCases)('projects $label panels and preserves the stored value on rename', async ({ stored, read, rename }) => {
+  const s = store();
+  const { view } = ok(await s.save(draft()));
+  const bucket = savedViewsStorageKey(ENG, MENU);
+  const raw = JSON.stringify({ schemaVersion: 1, views: [{ ...view, panels: stored }] });
+  storage.setItem(bucket, raw);
+  expect(await s.get(view.id)).toMatchObject({ view: { ...view, ...read } });
+  expect(byName(await s.list(key(ENG)), view.name).view).toStrictEqual({ ...view, ...read });
+  expect(storage.getItem(bucket)).toBe(raw);
+  const renamed = ok(await s.update(view.id, { name: rename }, { expectedVersion: 1 }));
+  expect(renamed.view).toStrictEqual({ ...view, ...read, name: rename, version: 2 });
+  expect(JSON.parse(storage.getItem(bucket) ?? '{}')).toEqual({
+    schemaVersion: 1, views: [{ ...view, name: rename, version: 2, panels: stored }],
+  });
+});
+
+it('rejects the response-only panels flag in both drafts and patches', async () => {
+  const s = store();
+  const marker = { panelsUnreadable: true };
+  expect(await s.save({ ...draft(), ...marker })).toMatchObject({ ok: false, reason: 'invalid' });
+  const { view } = ok(await s.save(draft()));
+  expect(await s.update(view.id, { name: 'Renamed', ...marker }, { expectedVersion: 1 })).toMatchObject({ ok: false, reason: 'invalid' });
+});
 
 it('round-trips tables, refuses invalid nested fields and condition-set patches, and summarizes proposals (#2492)', async () => {
   const s = store(); const tables = { draftList: { groups: { basis: '[]', items: [{ id: 'u:a', label: 'Group', members: ['a'] }] } } };
@@ -513,7 +538,7 @@ it('a view saved before the panel-instance format stays readable and is kept whe
   const saved = ok(await s.save(draft('옛 패널')));
   const old = { ...saved.view, panels: { narrow: { selection: ['E1'] } } };
   storage.setItem(savedViewsStorageKey(ENG, MENU), JSON.stringify({ schemaVersion: 1, views: [old] }));
-  expect(await s.get(old.id)).toMatchObject({ view: { id: old.id, panels: { narrow: { selection: ['E1'] } } } });
+  expect(await s.get(old.id)).toMatchObject({ view: { id: old.id, panels: null, panelsUnreadable: true } });
   ok(await s.save(draft('새 뷰')));
   expect(visible(await s.list(key(ENG))).map(i => i.view.name)).toEqual(expect.arrayContaining(['옛 패널', '새 뷰']));
   expect(await s.save({ ...draft(), panels: { narrow: {} } } as unknown as SavedViewDraft)).toMatchObject({ ok: false, reason: 'invalid' });

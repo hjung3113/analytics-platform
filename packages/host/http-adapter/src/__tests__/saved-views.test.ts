@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateSavedView } from '@ap/contracts';
 import { savedViewCommandSchema, savedViewResponseSchemas } from '@ap/contract-schemas/source';
+import { storedPanelCases } from '@ap/contracts/testing/saved-view-panels';
 import { TransportError } from '../calls/calls.js';
 import { isSavedViewCommand, responseGuards, withinDepth } from '../saved-views/guards.js';
 import { bootstrapBody, json, server, type Handler } from './test-support.js';
@@ -199,6 +200,19 @@ describe('HTTP saved-view store (#1105)', () => {
 });
 
 describe('guards equal the wire schemas', () => {
+  it.each(storedPanelCases)('projects $label consistently on get and update', ({ stored, read, rename }) => {
+    const get = { ...entry, view: { ...view, ...read } };
+    const updated = ok({ ...get, view: { ...get.view, name: rename, version: 2 } });
+    expect(savedViewResponseSchemas.get.safeParse(get).success).toBe(true);
+    expect(responseGuards.get(get)).toBe(true);
+    expect(savedViewResponseSchemas.update.safeParse(updated).success).toBe(true);
+    expect(responseGuards.update(updated)).toBe(true);
+    const raw = { ...entry, view: { ...view, panels: stored } };
+    const readable = !('panelsUnreadable' in read);
+    expect(savedViewResponseSchemas.get.safeParse(raw).success).toBe(readable);
+    expect(responseGuards.get(raw)).toBe(readable);
+  });
+
   const base = { version: 1, op: 'save', draft: menuDraft };
   const variants: [string, unknown][] = [
     ['valid', base],
@@ -212,6 +226,9 @@ describe('guards equal the wire schemas', () => {
     ['forbidden key in a chart panel config (#2760)', { ...base, draft: { ...menuDraft, panels: { version: 1, instances: [{ id: 'a', source: { kind: 'chart', config: { a: { hoverRow: 1 } } }, inputs: [], outputs: [] }] } } }],
     ['panel input naming a missing output (#2760)', { ...base, draft: { ...menuDraft, panels: { version: 1, instances: [{ id: 'a', source: { kind: 'declared', panel: 'p' }, inputs: [{ key: 'k', mode: 'follow', from: 'b.x' }], outputs: [] }] } } }],
     ['update with an old panels value (#2760)', { version: 1, op: 'update', id: 'a', patch: { panels: [1] }, expectedVersion: 1 }],
+    ['response flag in draft', { ...base, draft: { ...menuDraft, panelsUnreadable: true } }],
+    ['response flag in patch', { version: 1, op: 'update', id: 'a', patch: { panelsUnreadable: true }, expectedVersion: 1 }],
+    ['response flag in import draft', { version: 1, op: 'importLocal', importToken: 't', rows: [{ legacyKey: 'k', draft: { ...menuDraft, panelsUnreadable: true } }], defaults: [] }],
     ['bad visibility enum', { version: 1, op: 'setVisibility', id: 'a', visibility: { kind: 'everyone' }, expectedVersion: 1 }],
     ['extra visibility key', { version: 1, op: 'setVisibility', id: 'a', visibility: { kind: 'private', userIds: [] }, expectedVersion: 1 }],
     ['bad decision', { version: 1, op: 'decide', id: 'a', decision: 'maybe', expectedVersion: 1 }],
@@ -248,6 +265,8 @@ describe('guards equal the wire schemas', () => {
 
   const replies: [keyof typeof responseGuards, string, unknown][] = [
     ['list', 'valid', [entry]],
+    ['list', 'unreadable panels flag', [{ ...entry, view: { ...view, panelsUnreadable: true } }]],
+    ['list', 'false panels flag', [{ ...entry, view: { ...view, panelsUnreadable: false } }]],
     ['list', 'entry extra key', [{ ...entry, extra: 1 }]],
     ['list', 'capabilities missing', [{ view, capabilities: { canView: true } }]],
     ['list', 'bad visibility', [{ ...entry, view: { ...view, visibility: { kind: 'x' } } }]],
