@@ -228,6 +228,25 @@ describe('PageConditionCategories', () => {
       vi.unstubAllEnvs();
     }
   });
+  it('warns once for equivalent split declarations during a mount', () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const declaration: PageConditions = {
+        categories: [categories[0], categories[2], categories[1]],
+        sections: [{ id: 'choiceSection', label: text('선택 범주'), categories: ['single', 'many'] }],
+      };
+      const onChange = vi.fn();
+      const element = () => <I18nProvider><PageConditionCategories declaration={{ ...declaration }} values={{}} inputsKey="first" onChange={onChange} /></I18nProvider>;
+      const view = render(element());
+      view.rerender(element());
+      view.rerender(element());
+      view.rerender(element());
+      expect(warning).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
 describe('page condition options', () => {
   const dynamic = { ...categories[1], kind: { type: 'multi', key: 'many', options: { endpoint: 'options' } } } satisfies PageConditionCategory;

@@ -2,7 +2,7 @@ import { useEffect, useId, useInsertionEffect, useMemo, useRef, useState, type R
 import { ChevronDown, Inbox, ServerCrash } from 'lucide-react';
 import { pageConditionKeys, wallClockEpochMs, type PageConditionCategory, type PageConditionOption, type PageConditions, type Pair, type HierarchySource } from '@ap/contracts';
 import { decodePageConditions, encodePageConditions, PAGE_CONDITION_EMPTY, PageConditionError, useI18n, useMessages, type PageConditionIssue, type PageConditionValue, type PageConditionValues } from '@ap/kernel';
-import { Button, Checkbox, GROUPED_SELECTION_MESSAGES, GroupedSelectionList, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, isProductionEnv, useImeEnterGuard } from '@ap/ui';
+import { Button, Checkbox, GROUPED_SELECTION_MESSAGES, GroupedSelectionList, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useImeEnterGuard } from '@ap/ui';
 import { LoadingBlock, OutcomeView, StateMessage } from '../StateView';
 import { PAGE_CONDITION_ISSUE_MESSAGES, PAGE_CONDITION_MESSAGES } from './pageConditionMessages';
 import { checkPageConditionOptions, type PageConditionOptions, type PageConditionOptionsLoader } from './pageConditionOptions';
@@ -51,8 +51,31 @@ function compactValues(values: PageConditionValues): PageConditionValues | null 
 
 /** A declaration-ordered, controlled editor. The parent owns URL/draft/apply and the single scroll layer. */
 export function PageConditionCategories(props: PageConditionCategoriesProps) {
+  const { declaration } = props;
+  const runs = useMemo(() => categoryRuns(declaration), [declaration]);
+  const warnedSplits = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      if (checkedDeclarations.has(declaration)) return;
+      checkedDeclarations.add(declaration);
+      const seenSections = new Set<string>();
+      const splits: [sectionId: string, categoryId: string][] = [];
+      for (const { section, key } of runs) {
+        if (!section) continue;
+        if (seenSections.has(section.id)) splits.push([section.id, key]);
+        seenSections.add(section.id);
+      }
+      if (splits.length === 0) return;
+      const signature = JSON.stringify(splits);
+      const signatures = warnedSplits.current ??= new Set<string>();
+      if (signatures.has(signature)) return;
+      signatures.add(signature);
+      const locations = splits.map(([sectionId, categoryId]) => `section "${sectionId}" at category "${categoryId}"`);
+      console.warn(`PageConditionCategories: noncontiguous ${locations.join(', ')}. Categories render in declaration order.`);
+    }
+  }, [declaration, runs]);
   // Remounting on declared inputs removes stale options before paint and aborts every previous request.
-  return <CategorySequence key={JSON.stringify([props.inputsKey, props.declaration])} {...props} />;
+  return <CategorySequence key={JSON.stringify([props.inputsKey, declaration])} {...props} runs={runs} />;
 }
 function categoryRuns(declaration: PageConditions) {
   const runs: { key: string; section?: NonNullable<PageConditions['sections']>[number]; categories: PageConditionCategory[] }[] = [];
@@ -65,23 +88,8 @@ function categoryRuns(declaration: PageConditions) {
   }
   return runs;
 }
-function CategorySequence(props: PageConditionCategoriesProps) {
+function CategorySequence({ runs, ...props }: PageConditionCategoriesProps & { runs: ReturnType<typeof categoryRuns> }) {
   const { lang } = useI18n();
-  const { declaration } = props;
-  const runs = useMemo(() => categoryRuns(declaration), [declaration]);
-  useEffect(() => {
-    if (isProductionEnv(import.meta as { env?: { PROD?: boolean } }, globalThis as { process?: { env?: { NODE_ENV?: string } } })) return;
-    if (checkedDeclarations.has(declaration)) return;
-    checkedDeclarations.add(declaration);
-    const seenSections = new Set<string>();
-    const splits: string[] = [];
-    for (const { section, key } of runs) {
-      if (!section) continue;
-      if (seenSections.has(section.id)) splits.push(`section "${section.id}" at category "${key}"`);
-      seenSections.add(section.id);
-    }
-    if (splits.length) console.warn(`PageConditionCategories: noncontiguous ${splits.join(', ')}. Categories render in declaration order.`);
-  }, [declaration, runs]);
   return <div className="min-w-0 space-y-4 break-keep">
     {runs.map(run => {
       const content = run.categories.map(category => <ConditionCategory key={category.id} {...props} category={category} />);
