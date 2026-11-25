@@ -159,6 +159,8 @@ it('distinguishes explicit empty selection/rooms, removes the last Condition key
   act(() => draft.setDraftGlobal({ roomNames: [], prcGroups: ['P1'] }));
   expect(draft.canApply).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: /^대상 PRC 그룹/ }));
+  // The basis is disabled until the equipment facts load; the counted Apply label is that signal (#2990).
+  await within(await screen.findByRole('dialog', { name: '대상' })).findByRole('button', { name: /^조건 적용 · / });
   expect(screen.getByRole('radio', { name: /그 시점 소속/ })).toBeEnabled();
 });
 it('shows metadata transport failures without dropping selections or blocking valid draft application', async () => {
@@ -218,10 +220,14 @@ it('ignores unused history-incapable axes, then disables asOf when one becomes u
   await waitFor(() => expect(platform.scope.status).toBe('valid'));
   act(() => draft.setDraftGlobal({ roomNames: [], prcGroups: ['P'] }));
   fireEvent.click(screen.getByRole('button', { name: /^대상 PRC 그룹/ }));
+  // The basis is disabled until the equipment facts load; the counted Apply label is that signal (#2990).
+  await within(await screen.findByRole('dialog', { name: '대상' })).findByRole('button', { name: /^조건 적용 · / });
   expect(screen.getByRole('radio', { name: /그 시점 소속/ })).toBeEnabled();
   fireEvent.click(within(screen.getByRole('dialog', { name: '대상' })).getByRole('button', { name: '취소' }));
   act(() => draft.setDraftGlobal({ condition: { vendor: ['V'] } }));
   fireEvent.click(screen.getByRole('button', { name: /^대상 (설비|확인 중)/ }));
+  // Disabled for the used history-incapable axis, not merely because the facts are still loading.
+  await within(await screen.findByRole('dialog', { name: '대상' })).findByRole('button', { name: /^조건 적용 · / });
   expect(screen.getByRole('radio', { name: /그 시점 소속/ })).toBeDisabled();
   expect(screen.getByText(/설비 조건이나 PRC 그룹을 선택하고 소속 이력을 확인하세요/)).toBeTruthy();
 });
