@@ -614,6 +614,9 @@ _Avoid_: Selection — 설비 선택(`selectedEquipmentIds`)이다. 전역 기�
 **도착 칩**:
 다음 메뉴로 전달된 분석 선택을 목적지에서 보여 주는 칩. 표시할 출처는 [메뉴 간 링크 계약](docs/contract/cross-menu-links.md)이 정한다.
 
+**복귀 줄**:
+메뉴 본문 맨 위에서 출발 화면으로 돌아가는 링크를 보여 주는 줄([메뉴 간 링크 계약](docs/contract/cross-menu-links.md)).
+
 **실제 이동 기록**:
 연속된 주 화면 방문에서 Kernel이 확인한 출발 화면의 기록으로, 복귀 표시의 근거다. 전달된 선택의 출처가 확인되면 도착 칩에도 쓴다([메뉴 간 링크 계약](docs/contract/cross-menu-links.md)).
 
