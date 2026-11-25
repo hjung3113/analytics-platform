@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { releaseManifest, validateArchive, validateImports } from './sdk-pack.mjs';
+import { releaseSourceEntries } from './sdk-exports.mjs';
 
 const source = {
   name: '@ap/components',
@@ -32,6 +33,14 @@ test('workspace-only exports stay out of the release manifest', () => {
     publishConfig: { exports },
   }, '1.2.3');
   assert.deepEqual(manifest.exports, exports);
+});
+
+test('the workspace-only test entry stays out without publishConfig and fails when published', () => {
+  const testEntry = { './testing/saved-view-panels': './test-support/saved-view-panels.ts' };
+  const bare = { name: '@ap/contracts', exports: { '.': './src/index.ts', ...testEntry } };
+  assert.deepEqual(releaseSourceEntries(bare).map(([subpath]) => subpath), ['.']);
+  const published = { ...bare, publishConfig: { exports: { '.': './dist/index.js', './testing/saved-view-panels': './dist/x.js' } } };
+  assert.throws(() => releaseSourceEntries(published), /workspace-only export.*must not be in publishConfig\.exports/);
 });
 
 test('a non-test workspace export missing from publishConfig.exports fails', () => {
