@@ -178,3 +178,30 @@
   background-color: var(--color-accent-primary-soft);
   color: var(--color-accent-primary);
 }
+
+/* The single-chart strip shares the group's hover and focus scope with the plot. Opacity
+   preserves the tools' tab stops and the space ahead of the permanent actions. */
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-head]) {
+  --dv-tabs-and-actions-container-height: calc(var(--spacing) * 9);
+  flex-wrap: nowrap;
+  height: var(--dv-tabs-and-actions-container-height);
+}
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-head]) .dv-right-actions-container {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 0;
+}
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-options]) .dv-right-actions-container {
+  flex-grow: 1;
+}
+.ap-dock .dv-tabs-and-actions-container.dv-single-tab:has([data-dock-chart-options]) .dv-void-container {
+  flex-grow: 0;
+}
+.ap-dock .dv-groupview:is(:hover, :focus-within) > .dv-tabs-and-actions-container [data-dock-chart-tools],
+.ap-dock [data-dock-chart-tools]:is([data-revealed], :has([aria-expanded="true"])) {
+  opacity: 1;
+  pointer-events: auto;
+}
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-options]) [data-dock-chart-head] {
+  flex: 1 1 auto;
+}

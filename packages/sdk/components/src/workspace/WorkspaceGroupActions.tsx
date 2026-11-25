@@ -1,7 +1,9 @@
-import { useId, type RefObject } from 'react';
+import { useContext, useId, useLayoutEffect, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, MoreHorizontal, Pin, X } from 'lucide-react';
 import { useMessages } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
+import { DockChartCloseMore, DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartLayoutActions } from '../dock/DockChartHead';
 import type { DockLayoutMenu } from '../dock/layoutMenu';
 import { COMPONENTS_MESSAGES } from '../messages';
 
@@ -41,6 +43,63 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   const actions = m('workspaceActions', { title });
   const pinLabel = m('panelPin', { title });
   const hideReasonId = useId();
+  const maximizeTarget = useContext(DockChartMaximizeTarget);
+  const maximizeButton = !edgeActions?.overlay && <Button type="button" variant="ghost" size={maximizeTarget ? 'icon-xs' : 'icon-sm'} className={maximizeTarget ? undefined : ICON} data-workspace-maximize aria-label={toggle} title={toggle} onClick={() => { onMaximize(!maximized); }}>
+    {maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
+  </Button>;
+  const layoutActionsSlot = useContext(DockChartLayoutActionsSlot);
+  const separator = layoutActionsSlot ? <div aria-hidden className="my-1 border-t border-border-subtle" /> : <DropdownMenuSeparator />;
+  const items = <>
+    {edgeActions && <>
+      {edgeActions.left && <LayoutItem onSelect={edgeActions.left}>{m('workspaceCollapseLeft')}</LayoutItem>}
+      {edgeActions.top && <LayoutItem onSelect={edgeActions.top}>{m('workspaceCollapseTop')}</LayoutItem>}
+      {edgeActions.float && <LayoutItem onSelect={edgeActions.float}>{m('workspaceFloat')}</LayoutItem>}
+      {edgeActions.overlay?.position && <>
+        {separator}
+        <LayoutItem onSelect={() => { edgeActions.overlay?.position?.('top-left'); }}>{m('workspaceFloatTopLeft')}</LayoutItem>
+        <LayoutItem onSelect={() => { edgeActions.overlay?.position?.('center'); }}>{m('workspaceFloatCenter')}</LayoutItem>
+      </>}
+      {edgeActions.overlay?.size && <>
+        {separator}
+        <LayoutItem onSelect={() => { edgeActions.overlay?.size?.('small'); }}>{m('workspaceFloatSmall')}</LayoutItem>
+        <LayoutItem onSelect={() => { edgeActions.overlay?.size?.('large'); }}>{m('workspaceFloatLarge')}</LayoutItem>
+      </>}
+    </>}
+    {!edgeActions?.overlay && <>
+      {menu.maximized
+        ? <LayoutItem onSelect={() => { onMaximize(false, true); }}>{m('workspaceRestore')}</LayoutItem>
+        : <>
+          <LayoutItem onSelect={() => { onMaximize(true); }}>{m('workspaceMaximize', { title })}</LayoutItem>
+          {menu.split !== null && <>
+            {separator}
+            <LayoutItem onSelect={() => { onSplit('right'); }}>{m('workspaceSplitRight')}</LayoutItem>
+            <LayoutItem onSelect={() => { onSplit('bottom'); }}>{m('workspaceSplitDown')}</LayoutItem>
+          </>}
+          {onMoveBelow && <>
+            {menu.split === null && separator}
+            <LayoutItem onSelect={onMoveBelow}>{m('workspaceMoveBelow')}</LayoutItem>
+          </>}
+          {menu.moves.length > 0 && separator}
+          {menu.moves.map(move => <LayoutItem key={move.target} onSelect={() => { onMove(move.target); }}>{m('workspaceMoveToGroup', { title: titleOf(move.target) })}</LayoutItem>)}
+          {onHide && <>
+            {separator}
+            {hideBlocked
+              // Named by the action and described by the visible reason, as a disabled «다음 분석» item (#2862 R C4).
+              ? <LayoutItem aria-label={m('workspaceHide')} aria-disabled aria-describedby={hideBlocked.reason ? hideReasonId : undefined}>
+                <span className="flex min-w-0 flex-col"><span>{m('workspaceHide')}</span>{hideBlocked.reason && <span id={hideReasonId} className="text-xs text-text-muted">{hideBlocked.reason}</span>}</span>
+              </LayoutItem>
+              : <LayoutItem onSelect={onHide}>{m('workspaceHide')}</LayoutItem>}
+          </>}
+        </>}
+    </>}
+    {!!menuItems?.length && separator}
+    {menuItems?.map(item => <LayoutItem key={item.id} onSelect={item.onSelect}>{item.label}</LayoutItem>)}
+  </>;
+  const takeCloseFocus = () => {
+    const next = closeFocus.current;
+    closeFocus.current = null;
+    return next;
+  };
   return <div data-workspace-group-actions className="flex shrink-0 items-center gap-1 pr-1">
     {pin && !maximized && <Button type="button" variant={pin.pinned ? 'secondary' : 'ghost'} size="icon-sm" className={ICON} data-workspace-pin aria-label={pinLabel} title={pin.pinned ? m('panelPinned', { title }) : pinLabel} aria-pressed={pin.pinned} onClick={pin.onToggle}>
       <Pin className={pin.pinned ? 'size-3.5 fill-current' : 'size-3.5'} aria-hidden />
@@ -49,65 +108,52 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
       <Button type="button" variant="ghost" size="toolbar" onClick={edgeActions.overlay.pin}>{m('workspacePinOpen')}</Button>
       <Button type="button" variant="ghost" size="icon-sm" className={ICON} aria-label={m('workspaceCollapse')} title={m('workspaceCollapse')} onClick={edgeActions.overlay.close}><X className="size-3.5" aria-hidden /></Button>
     </>}
-    {!edgeActions?.overlay && <Button type="button" variant="ghost" size="icon-sm" className={ICON} data-workspace-maximize aria-label={toggle} title={toggle} onClick={() => { onMaximize(!maximized); }}>
-      {maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
-    </Button>}
-    <DropdownMenu>
+    {maximizeTarget ? createPortal(maximizeButton, maximizeTarget) : maximizeButton}
+    {layoutActionsSlot && <MergedLayoutActions register={layoutActionsSlot} takeCloseFocus={takeCloseFocus}>
+      <div role="group" aria-label={m('workspaceLayout')} className="w-full border-t border-border-subtle pt-2">{items}</div>
+    </MergedLayoutActions>}
+    {!layoutActionsSlot && <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="ghost" size="icon-sm" className={ICON} data-dock-group-menu aria-label={actions} title={actions}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" onCloseAutoFocus={event => {
-        const next = closeFocus.current;
-        closeFocus.current = null;
+        const next = takeCloseFocus();
         if (next === null) return;
         event.preventDefault();
         next();
       }}>
-        {edgeActions && <>
-          {edgeActions.left && <DropdownMenuItem onSelect={edgeActions.left}>{m('workspaceCollapseLeft')}</DropdownMenuItem>}
-          {edgeActions.top && <DropdownMenuItem onSelect={edgeActions.top}>{m('workspaceCollapseTop')}</DropdownMenuItem>}
-          {edgeActions.float && <DropdownMenuItem onSelect={edgeActions.float}>{m('workspaceFloat')}</DropdownMenuItem>}
-          {edgeActions.overlay?.position && <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => { edgeActions.overlay?.position?.('top-left'); }}>{m('workspaceFloatTopLeft')}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => { edgeActions.overlay?.position?.('center'); }}>{m('workspaceFloatCenter')}</DropdownMenuItem>
-          </>}
-          {edgeActions.overlay?.size && <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => { edgeActions.overlay?.size?.('small'); }}>{m('workspaceFloatSmall')}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => { edgeActions.overlay?.size?.('large'); }}>{m('workspaceFloatLarge')}</DropdownMenuItem>
-          </>}
-        </>}
-        {!edgeActions?.overlay && <>
-        {menu.maximized
-          ? <DropdownMenuItem onSelect={() => { onMaximize(false, true); }}>{m('workspaceRestore')}</DropdownMenuItem>
-          : <>
-            <DropdownMenuItem onSelect={() => { onMaximize(true); }}>{m('workspaceMaximize', { title })}</DropdownMenuItem>
-            {menu.split !== null && <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => { onSplit('right'); }}>{m('workspaceSplitRight')}</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => { onSplit('bottom'); }}>{m('workspaceSplitDown')}</DropdownMenuItem>
-            </>}
-            {onMoveBelow && <>
-              {menu.split === null && <DropdownMenuSeparator />}
-              <DropdownMenuItem onSelect={onMoveBelow}>{m('workspaceMoveBelow')}</DropdownMenuItem>
-            </>}
-            {menu.moves.length > 0 && <DropdownMenuSeparator />}
-            {menu.moves.map(move => <DropdownMenuItem key={move.target} onSelect={() => { onMove(move.target); }}>{m('workspaceMoveToGroup', { title: titleOf(move.target) })}</DropdownMenuItem>)}
-            {onHide && <>
-              <DropdownMenuSeparator />
-              {hideBlocked
-                // Named by the action and described by the visible reason, as a disabled «다음 분석» item (#2862 R C4).
-                ? <DropdownMenuItem aria-label={m('workspaceHide')} aria-disabled aria-describedby={hideBlocked.reason ? hideReasonId : undefined} onSelect={event => { event.preventDefault(); }}>
-                  <span className="flex min-w-0 flex-col"><span>{m('workspaceHide')}</span>{hideBlocked.reason && <span id={hideReasonId} className="text-xs text-text-muted">{hideBlocked.reason}</span>}</span>
-                </DropdownMenuItem>
-                : <DropdownMenuItem onSelect={onHide}>{m('workspaceHide')}</DropdownMenuItem>}
-            </>}
-          </>}
-        </>}
-        {!!menuItems?.length && <DropdownMenuSeparator />}
-        {menuItems?.map(item => <DropdownMenuItem key={item.id} onSelect={item.onSelect}>{item.label}</DropdownMenuItem>)}
+        {items}
       </DropdownMenuContent>
-    </DropdownMenu>
+    </DropdownMenu>}
   </div>;
+}
+
+function MergedLayoutActions({ register, takeCloseFocus, children }: {
+  register: (actions: DockChartLayoutActions | undefined) => void;
+  takeCloseFocus: DockChartLayoutActions['takeCloseFocus'];
+  children: ReactNode;
+}) {
+  useLayoutEffect(() => () => { register(undefined); }, [register]);
+  useLayoutEffect(() => { register({ content: children, takeCloseFocus }); }, [register, children, takeCloseFocus]);
+  return null;
+}
+
+function LayoutItem({ onSelect, children, 'aria-label': label, 'aria-disabled': disabled, 'aria-describedby': describedBy }: {
+  onSelect?: () => void;
+  children: ReactNode;
+  'aria-label'?: string;
+  'aria-disabled'?: boolean;
+  'aria-describedby'?: string | undefined;
+}) {
+  const closeMore = useContext(DockChartCloseMore);
+  if (!closeMore) return <DropdownMenuItem aria-label={label} aria-disabled={disabled} aria-describedby={describedBy} onSelect={event => {
+    if (disabled) event.preventDefault();
+    else onSelect?.();
+  }}>{children}</DropdownMenuItem>;
+  return <Button type="button" variant="ghost" size="toolbar" className="h-auto min-h-8 w-full justify-start whitespace-normal text-start"
+    aria-label={label} aria-disabled={disabled} aria-describedby={describedBy} onClick={() => {
+      if (disabled) return;
+      onSelect?.();
+      closeMore();
+    }}>{children}</Button>;
 }

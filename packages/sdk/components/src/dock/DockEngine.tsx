@@ -15,6 +15,7 @@ import { groupOf } from './commands';
 import { DockSeparators, type DockRect } from './DockSeparators';
 import type { DockLayoutProps, DockPanel, DockRows, DockFloating } from './dockTypes';
 import { fromEngineLayout, keepStoredSizes, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
+import { DockChartHeadProvider, DockChartLayoutActionsSlot, DockChartMaximizeTarget, DockChartPaneId, useDockChartSlot } from './DockChartHead';
 import { PanelBoundary } from './PanelBoundary';
 import { WorkspacePanelVisibleContext } from '../workspace/panelContext';
 import { PageBoundContext, PageFlowContext } from '../pageFlow';
@@ -106,7 +107,7 @@ function PanelHost({ api }: IDockviewPanelProps) {
       if (!(event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget))) engine.onActivate(id);
     }}>
     {/* A panel is a page-flow boundary: a workspace stacked inside it scrolls inside the panel and never changes the page around the dock. */}
-    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><WorkspacePanelVisibleContext.Provider value={parentVisible && visible}><div ref={content} data-dock-panel-content className="h-full min-w-0 w-full"><PanelBoundary render={panel?.render} /></div></WorkspacePanelVisibleContext.Provider></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
+    <PageFlowContext.Provider value={null}><PageBoundContext.Provider value={null}><TransientOverlayScope active={visible}><WorkspacePanelVisibleContext.Provider value={parentVisible && visible}><div ref={content} data-dock-panel-content className="h-full min-w-0 w-full"><DockChartPaneId.Provider value={id}><PanelBoundary render={panel?.render} /></DockChartPaneId.Provider></div></WorkspacePanelVisibleContext.Provider></TransientOverlayScope></PageBoundContext.Provider></PageFlowContext.Provider>
   </div>;
 }
 
@@ -143,8 +144,13 @@ function GroupActions({ activePanel, panels }: IDockviewHeaderActionsProps) {
   const slot = useRef<HTMLDivElement>(null);
   const [stripWidth, setStripWidth] = useState(0);
   const anchor = activePanel?.id ?? panels[0]?.id;
-  const group = engine.renderGroupActions && anchor ? groupOf(engine.display, anchor) ?? (engine.floating?.panels.some(panel => panel.panelId === anchor) ? { type: 'group' as const, panels: panels.map(panel => panel.id), active: anchor } : undefined) : undefined;
-  const drawn = group !== undefined;
+  const { display, floating, renderGroupActions } = engine;
+  const group = useMemo(() => renderGroupActions && anchor ? groupOf(display, anchor) ?? (floating?.panels.some(panel => panel.panelId === anchor) ? { type: 'group' as const, panels: panels.map(panel => panel.id), active: anchor } : undefined) : undefined,
+    [anchor, display, floating, renderGroupActions, panels]);
+  const chart = useDockChartSlot(panels.length === 1 && anchor && engine.visible.has(anchor) ? anchor : undefined, 'toolbar');
+  const drawn = group !== undefined || chart.singleChart;
+  // Registering the workspace actions changes the chart context; keep the host's action props stable across that update.
+  const actions = useMemo(() => group && renderGroupActions?.(group, { stripWidth }), [group, renderGroupActions, stripWidth]);
   // The header strip is the slot's container; its width is what the host fits the tabs and its own content into.
   useLayoutEffect(() => {
     const strip = slot.current?.closest<HTMLElement>('.dv-tabs-and-actions-container');
@@ -158,8 +164,15 @@ function GroupActions({ activePanel, panels }: IDockviewHeaderActionsProps) {
     observer?.observe(strip);
     return () => { observer?.disconnect(); root?.removeEventListener(RESIZE_END, measure); };
   }, [drawn]);
-  if (!engine.renderGroupActions || !group) return null;
-  return <div ref={slot} data-dock-group-actions data-dock-active={group.active} className="flex h-full min-w-0 items-center">{engine.renderGroupActions(group, { stripWidth })}</div>;
+  if (!drawn) return null;
+  return <div ref={slot} data-dock-group-actions data-dock-active={group?.active ?? anchor} data-dock-chart-head={chart.singleChart ? '' : undefined} className="flex h-full min-w-0 items-center">
+    {chart.singleChart && <div ref={chart.ref} className="min-w-0 flex-1" />}
+    <DockChartMaximizeTarget.Provider value={chart.singleChart ? chart.maximize : undefined}>
+      <DockChartLayoutActionsSlot.Provider value={chart.singleChart ? chart.registerLayoutActions : undefined}>
+        {actions}
+      </DockChartLayoutActionsSlot.Provider>
+    </DockChartMaximizeTarget.Provider>
+  </div>;
 }
 
 /** The host's slot right after the group's last tab (dockview's left header actions, which sit after the tab list). */
@@ -167,8 +180,12 @@ function GroupTabsEnd({ activePanel, panels }: IDockviewHeaderActionsProps) {
   const engine = useEngine();
   const anchor = activePanel?.id ?? panels[0]?.id;
   const group = engine.renderGroupTabsEnd && anchor ? groupOf(engine.display, anchor) : undefined;
-  if (!engine.renderGroupTabsEnd || !group) return null;
-  return <div data-dock-group-tabs-end data-dock-active={group.active} className="flex h-full min-w-0 items-center">{engine.renderGroupTabsEnd(group)}</div>;
+  const chart = useDockChartSlot(panels.length === 1 && anchor && engine.visible.has(anchor) ? anchor : undefined, 'description');
+  if (!group && !chart.singleChart) return null;
+  return <div data-dock-group-tabs-end data-dock-active={group?.active ?? anchor} className="flex h-full min-w-0 items-center">
+    {chart.singleChart && <div ref={chart.ref} className="flex items-center empty:hidden" />}
+    {group && engine.renderGroupTabsEnd?.(group)}
+  </div>;
 }
 
 const COMPONENTS = { panel: PanelHost };
@@ -696,7 +713,7 @@ export default function DockEngine({
     setEpoch(value => value + 1);
   };
 
-  return <EngineContext.Provider value={context}>
+  return <EngineContext.Provider value={context}><DockChartHeadProvider>
     <div ref={rowsWrapper} data-dock-rows={rows ? '' : undefined} className={rows ? 'h-(--dock-rows-box) w-full' : 'h-full w-full'} style={rowsTotal === undefined ? undefined : { '--dock-rows-height': `${rowsTotal}px`, '--dock-rows-box': `${rowsBox}px` } as CSSProperties}>
       <DockviewReact components={COMPONENTS} tabComponents={TAB_COMPONENTS} defaultTabComponent={DockTab} rightHeaderActionsComponent={GroupActions} leftHeaderActionsComponent={GroupTabsEnd}
         onReady={onReady} onWillDrop={onWillDrop} theme={dockTheme(prefersReducedMotion())} dndEdges={dockDndEdges} dropOverlayModel={dockDropOverlayModel} defaultRenderer="always" singleTabMode="fullwidth"
@@ -705,6 +722,6 @@ export default function DockEngine({
     {stripShown && <div ref={strip} data-dock-drop-below
       className={`sticky bottom-0 z-20 -mt-[72px] flex h-[72px] items-center justify-center rounded-lg border-2 border-dashed text-sm ${dropOver ? 'border-accent-primary bg-surface-row-hover text-text-primary' : 'border-border-strong bg-surface-card text-text-muted'}`}>{rows?.dropBelowLabel}</div>}
     {interactive && !maximizedPanelId && <DockSeparators layout={layout} rects={rects} minPanelSize={minPanelSize} panelMinimums={panelMinimums} instanceId={instanceId} label={separatorLabel} onChange={separate} rows={rows} containerRef={containerRef} />}
-  </EngineContext.Provider>;
+  </DockChartHeadProvider></EngineContext.Provider>;
 }
 

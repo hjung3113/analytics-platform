@@ -1,3 +1,4 @@
+import { useDockChartHead } from '../dock/DockChartHead';
 import { ChartGestureHint, ChartInteractionToolbar } from './ChartInteractionToolbar';
 import { chartToolVariant, type ChartChromeOptions } from './chartChrome';
 import type { ChartBounds, ChartBoundLabels } from './chartBounds';
@@ -532,7 +533,9 @@ export function AnalysisChart(p: AnalysisChartProps) {
       </div>}
       <p className="border-t border-border-subtle pt-2 text-text-secondary">{summary}</p>
     </>} />;
-  if (spec.kind === 'topNBar' && spec.hideWhenEmpty && empty) return null;
+  const rendered = !(spec.kind === 'topNBar' && spec.hideWhenEmpty && empty);
+  useDockChartHead(titleId, { mounted: rendered, acceptsHead: false });
+  if (!rendered) return null;
   const toolbarButtonSize = compactChrome ? 'icon-xs' : 'toolbar';
   const categoryToolbar = !topN && <ChartInteractionToolbar compact={compactChrome} reserveCorner={section !== null}
     toolsReveal={chrome === 'standard' ? p.toolsReveal : undefined} secondaryOpen={panelToolsOpen} onSecondaryOpenChange={setPanelToolsOpen}

@@ -58,6 +58,7 @@ function openGroupMenu(root: HTMLElement, tab: HTMLElement, rowMode: boolean, tr
   trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
   if (trigger.getAttribute('aria-expanded') !== 'true') trigger.click();
   // Radix opens a keyboard-opened menu on its first item; this is the safety net for a menu that did not.
+  // A popover focuses its first ordinary control instead.
   const focusFirst = (attempt: number) => {
     const menu = menuOf(trigger);
     if (!menu) { if (attempt < 10) setTimeout(() => { focusFirst(attempt + 1); }, 30); return; }
@@ -65,7 +66,7 @@ function openGroupMenu(root: HTMLElement, tab: HTMLElement, rowMode: boolean, tr
     const onItem = document.activeElement instanceof HTMLElement && menu.contains(document.activeElement) && document.activeElement.matches('[role^="menuitem"]');
     if (first && !onItem) first.focus({ preventScroll: true });
   };
-  setTimeout(() => { focusFirst(0); }, 0);
+  if (trigger.getAttribute('aria-haspopup') !== 'dialog') setTimeout(() => { focusFirst(0); }, 0);
   returnToTab(trigger, tab, root, rowMode);
 }
 
