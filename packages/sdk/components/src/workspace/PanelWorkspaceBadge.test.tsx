@@ -166,15 +166,19 @@ describe('PanelWorkspace panel badge: hidden panels', () => {
 });
 
 describe('panel keep (#2862)', () => {
-  it('keeps «숨기기» in the menu but disabled with the reason, and the panel stays', async () => {
-    const reason = { ko: '이 차트에서 붙잡은 패널이 있습니다', en: 'A panel holds this chart’s selection' };
+  it.each([
+    ['a reason', { ko: '이 차트에서 붙잡은 패널이 있습니다', en: 'A panel holds this chart’s selection' }],
+    ['a blank reason', { ko: '', en: '' }],
+  ])('keeps «숨기기» in the menu but disabled with %s, and the panel stays (R C4)', async (_case, reason) => {
     render(ui({ panels: PANELS.map(panel => panel.id === 'selector' ? { ...panel, keep: { reason } } : panel) }));
     await ready();
     await userEvent.click(tab('selector'));
     await userEvent.click(screen.getAllByRole('button', { name: '선택기 동작' })[0]!);
-    const item = await screen.findByRole('menuitem', { name: /숨기기/ });
+    const item = await screen.findByRole('menuitem', { name: '숨기기' });
     expect(item).toHaveAttribute('aria-disabled', 'true');
-    expect(item).toHaveTextContent(reason.ko);
+    if (reason.ko) expect(item).toHaveAccessibleDescription(reason.ko);
+    item.focus();
+    await userEvent.keyboard('{Enter}');
     await userEvent.click(item);
     await settle();
     expect(tab('selector')).toBeTruthy();

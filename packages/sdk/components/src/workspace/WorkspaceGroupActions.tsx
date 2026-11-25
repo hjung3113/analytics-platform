@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import { useId, type RefObject } from 'react';
 import { Maximize2, Minimize2, MoreHorizontal, Pin, X } from 'lucide-react';
 import { useMessages } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
@@ -26,8 +26,8 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   /** Stack mode only, and absent when the panel already is alone in the last row. */
   onMoveBelow?: () => void;
   onHide?: () => void;
-  /** Why «숨기기» is unavailable now (`PanelWorkspacePanel.keep`): the item stays, disabled, and names the reason. */
-  hideBlocked?: string;
+  /** «숨기기» is unavailable while present (`PanelWorkspacePanel.keep`): the item stays, disabled, and shows the reason. */
+  hideBlocked?: { reason: string };
   edgeActions?: {
     left?: () => void; top?: () => void; float?: () => void;
     overlay?: { pin: () => void; close: () => void; position?: (place: 'top-left' | 'center') => void; size?: (size: 'small' | 'large') => void };
@@ -40,6 +40,7 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   const toggle = maximized ? m('workspaceRestore') : m('workspaceMaximize', { title });
   const actions = m('workspaceActions', { title });
   const pinLabel = m('panelPin', { title });
+  const hideReasonId = useId();
   return <div data-workspace-group-actions className="flex shrink-0 items-center gap-1 pr-1">
     {pin && !maximized && <Button type="button" variant={pin.pinned ? 'secondary' : 'ghost'} size="icon-sm" className={ICON} data-workspace-pin aria-label={pinLabel} title={pin.pinned ? m('panelPinned', { title }) : pinLabel} aria-pressed={pin.pinned} onClick={pin.onToggle}>
       <Pin className={pin.pinned ? 'size-3.5 fill-current' : 'size-3.5'} aria-hidden />
@@ -96,8 +97,9 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
             {onHide && <>
               <DropdownMenuSeparator />
               {hideBlocked
-                ? <DropdownMenuItem aria-disabled aria-description={hideBlocked} onSelect={event => { event.preventDefault(); }}>
-                  <span className="flex min-w-0 flex-col"><span>{m('workspaceHide')}</span><span className="text-xs text-text-muted">{hideBlocked}</span></span>
+                // Named by the action and described by the visible reason, as a disabled «다음 분석» item (#2862 R C4).
+                ? <DropdownMenuItem aria-label={m('workspaceHide')} aria-disabled aria-describedby={hideReasonId} onSelect={event => { event.preventDefault(); }}>
+                  <span className="flex min-w-0 flex-col"><span>{m('workspaceHide')}</span>{hideBlocked.reason && <span id={hideReasonId} className="text-xs text-text-muted">{hideBlocked.reason}</span>}</span>
                 </DropdownMenuItem>
                 : <DropdownMenuItem onSelect={onHide}>{m('workspaceHide')}</DropdownMenuItem>}
             </>}

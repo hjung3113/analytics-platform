@@ -35,6 +35,18 @@ const nonBlank = (value: unknown): value is string => typeof value === 'string' 
 const token = (value: unknown) => nonBlank(value) && value.length <= PANEL_INSTANCE_TOKEN_MAX;
 const tokenRule = `must be a non-blank string of at most ${PANEL_INSTANCE_TOKEN_MAX} characters`;
 
+/**
+ * Why a held selection value cannot be applied, or null (#2862): the saved-view rule (a set of 1–5,000 distinct non-blank strings, or a
+ * range of non-blank ends) plus a range of two wall-clock times running forward. Other range orders belong to the dimension.
+ */
+export function heldSelectionProblem(value: unknown): string | null {
+  const problem = invalidHeldSelection(value, 'value');
+  if (problem || !isRecord(value) || value.shape !== 'range') return problem;
+  const wallClock = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+  const { from, to } = value as { from: string; to: string };
+  return wallClock.test(from) && wallClock.test(to) && from >= to ? 'value must run forward (from before to)' : null;
+}
+
 function invalidHeldSelection(value: unknown, path: string): string | null {
   if (hasFields(value, ['shape', 'from', 'to']) && value.shape === 'range') {
     if (!nonBlank(value.from)) return `${path}.from must be non-blank`;

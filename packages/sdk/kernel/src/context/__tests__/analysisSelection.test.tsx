@@ -3,7 +3,7 @@ import { emptyGlobal, groupId, NO_FEATURES, spaceId, type AnalysisSelection, typ
 import { House } from 'lucide-react';
 import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi, describe } from 'vitest';
-import { analysisSelectionParam, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionChips, useAnalysisSelectionInputs, useAnalysisSelectionOutput, usePlatform } from '../../index';
+import { analysisSelectionParam, HeldAnalysisSelections, type HeldAnalysisSelection, parseAnalysisSelection, useAnalysisSelectionChips, useAnalysisSelectionInputs, useAnalysisSelectionOutput, usePlatform } from '../../index';
 import { I18nProvider } from '../../i18n';
 import { LentPanelPlatformContext } from '../../platform/contexts';
 import { useAnalysisSelectionHoverTarget } from '../analysisSelection';
@@ -275,15 +275,15 @@ it('reads filter and highlight inputs and keeps the result across unrelated writ
     range: useAnalysisSelectionOutput('source', rangeKey), platform: usePlatform(),
   }), '&equipmentSet=B&equipmentSet=A&timeRange=14%3A00%2F16%3A00');
   const { receiver } = result.current;
-  expect(receiver).toEqual({ filtered: true, rejected: [], unavailable: [], applied: [
+  expect(receiver).toEqual({ filtered: true, rejected: [], rejectedHeld: [], unavailable: [], applied: [
     { key: setKey, use: 'filter', selection: set, source: { panelId: 'source', title, dimension: 'equipment' } },
     { key: rangeKey, use: 'highlight', selection: range, source: { panelId: 'source', title, dimension: 'time' } },
   ] });
-  expect(result.current.plain).toEqual({ applied: [], filtered: false, rejected: [], unavailable: [] });
+  expect(result.current.plain).toEqual({ applied: [], filtered: false, rejected: [], rejectedHeld: [], unavailable: [] });
   act(() => result.current.platform.setPage({ sort: 'name', [setKey]: ['B', 'A', 'B'] }));
   expect(result.current.receiver).toBe(receiver);
   act(() => result.current.platform.setPage({ [setKey]: null }));
-  expect(result.current.receiver).toEqual({ filtered: false, applied: [receiver.applied[1]], rejected: [], unavailable: [] });
+  expect(result.current.receiver).toEqual({ filtered: false, applied: [receiver.applied[1]], rejected: [], rejectedHeld: [], unavailable: [] });
   act(() => result.current.platform.setPage({ [rangeKey]: 'malformed' }));
   expect(result.current.range.selection).toBeNull();
   expect(result.current.receiver.applied).toEqual([]);
@@ -302,7 +302,7 @@ it('ignores bound values and disables selection writes in a lent panel', () => {
   }), '&equipmentSet=B', ({ children }) => <Wrapper><Lent>{children}</Lent></Wrapper>);
   expect(result.current.output.selection).toBeNull();
   expect(result.current.output.select(set)).toBe(false);
-  expect(result.current.inputs).toEqual({ applied: [], filtered: false, rejected: [], unavailable: [] });
+  expect(result.current.inputs).toEqual({ applied: [], filtered: false, rejected: [], rejectedHeld: [], unavailable: [] });
   expect(search().getAll(setKey)).toEqual(['B']);
 });
 
@@ -823,12 +823,12 @@ it.each(['metaKey', 'ctrlKey'] as const)('ignores %s undo in the board and uses 
 });
 
 describe('HeldAnalysisSelections (#2862)', () => {
-  const held = { [setKey]: { shape: 'set', values: ['H'] } } as const satisfies Record<string, AnalysisSelection>;
-  function Held({ children }: { children: ReactNode }) {
-    return <Wrapper><HeldAnalysisSelections held={held}>{children}</HeldAnalysisSelections></Wrapper>;
-  }
+  const held = { [setKey]: { dimension: 'equipment', selection: { shape: 'set', values: ['H'] } } } as const satisfies Record<string, HeldAnalysisSelection>;
+  const wrap = (value: Record<string, HeldAnalysisSelection>) => function Held({ children }: { children: ReactNode }) {
+    return <Wrapper><HeldAnalysisSelections held={value}>{children}</HeldAnalysisSelections></Wrapper>;
+  };
   it('reads the held value for its key, marks it held and lets other keys follow the URL', () => {
-    const result = mount(() => useAnalysisSelectionInputs('receiver'), `&${setKey}=B&${rangeKey}=14:00/16:00`, Held);
+    const result = mount(() => useAnalysisSelectionInputs('receiver'), `&${setKey}=B&${rangeKey}=14:00/16:00`, wrap(held));
     expect(result.current.applied.map(input => [input.key, input.selection, input.held])).toEqual([
       [setKey, { shape: 'set', values: ['H'] }, true],
       [rangeKey, range, undefined],
@@ -836,15 +836,24 @@ describe('HeldAnalysisSelections (#2862)', () => {
     expect(result.current.filtered).toBe(true);
   });
   it('applies the held value with nothing in the URL, and the URL value outside the wrapper', () => {
-    expect(mount(() => useAnalysisSelectionInputs('receiver'), '', Held).current.applied.map(input => input.key)).toEqual([setKey]);
+    expect(mount(() => useAnalysisSelectionInputs('receiver'), '', wrap(held)).current.applied.map(input => input.key)).toEqual([setKey]);
     expect(mount(() => useAnalysisSelectionInputs('receiver'), `&${setKey}=B`).current.applied[0]?.selection).toEqual({ shape: 'set', values: ['B'] });
   });
-  it('rejects a held value of another shape instead of applying it', () => {
-    function Wrong({ children }: { children: ReactNode }) {
-      return <Wrapper><HeldAnalysisSelections held={{ [setKey]: range }}>{children}</HeldAnalysisSelections></Wrapper>;
-    }
-    const result = mount(() => useAnalysisSelectionInputs('receiver'), '', Wrong);
+  it.each([
+    ['another shape', { dimension: 'equipment', selection: range }],
+    ['another dimension now', { dimension: 'module', selection: { shape: 'set', values: ['H'] } }],
+    ['an empty set', { dimension: 'equipment', selection: { shape: 'set', values: [] } }],
+    ['repeated values', { dimension: 'equipment', selection: { shape: 'set', values: ['H', 'H'] } }],
+  ] as const)('rejects a held value with %s as held, without falling back to a valid URL value (R C1–C3)', (_name, value) => {
+    const result = mount(() => useAnalysisSelectionInputs('receiver'), `&${setKey}=B`, wrap({ [setKey]: value as HeldAnalysisSelection }));
     expect(result.current.applied).toEqual([]);
-    expect(result.current.rejected).toEqual([setKey]);
+    expect(result.current.rejectedHeld).toEqual([setKey]);
+    expect(result.current.rejected).toEqual([]);
+  });
+  it('rejects a held wall-clock range that runs backwards', () => {
+    const backwards = { [rangeKey]: { dimension: 'time', selection: { shape: 'range', from: '2026-09-02T00:00:00', to: '2026-09-01T00:00:00' } } } as const;
+    const result = mount(() => useAnalysisSelectionInputs('receiver'), '', wrap(backwards));
+    expect(result.current.rejectedHeld).toEqual([rangeKey]);
+    expect(result.current.applied).toEqual([]);
   });
 });

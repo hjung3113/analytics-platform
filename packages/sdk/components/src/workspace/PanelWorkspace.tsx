@@ -697,7 +697,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       onSplit={position => { if (!menu.maximized && menu.split) { closeFocus.current = () => { focusTab(id); }; const target = menu.split; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position }) }), id); } }}
       onMove={target => { closeFocus.current = () => { focusTab(id); }; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}
       onMoveBelow={rows && canMoveBelow(state.layout, id) ? () => { closeFocus.current = () => { focusTab(id); }; moveBelow(id); } : undefined}
-      hideBlocked={panel?.keep ? tx(panel.keep.reason) : undefined}
+      hideBlocked={panel?.keep ? { reason: tx(panel.keep.reason) } : undefined}
       onHide={id === primaryId ? undefined : () => {
         setMaximized(null);
         const next = hidePanel(state, id, primaryId);
