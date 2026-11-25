@@ -119,18 +119,17 @@ export function revealFocused(element: HTMLElement, options?: { bottomInset?: (c
 }
 
 function revealHorizontally(element: HTMLElement): void {
-  const { body, documentElement } = element.ownerDocument;
-  for (let container = element.parentElement; container && container !== body && container !== documentElement; container = container.parentElement) {
-    const { clientWidth, scrollWidth } = container;
-    if (scrollWidth <= clientWidth || !/(auto|scroll|overlay)/.test(getComputedStyle(container).overflowX)) continue;
-    const left = container.getBoundingClientRect().left + container.clientLeft;
-    const right = left + clientWidth;
-    const rect = element.getBoundingClientRect();
-    const before = rect.left - left;
-    const after = rect.right - right;
-    if (before < 0 && after < 0) container.scrollLeft += Math.max(before, after);
-    else if (before > 0 && after > 0) container.scrollLeft += Math.min(before, after);
-  }
+  // Only a strip that opts in (`data-reveal-x`, the compact chart toolbar) scrolls sideways: a page or panel scroller whose
+  // `overflow-x` merely computes to auto next to `overflow-y: auto` (#platform-main) must never move horizontally.
+  const container = element.closest<HTMLElement>('[data-reveal-x]');
+  if (!container || container.scrollWidth <= container.clientWidth) return;
+  const left = container.getBoundingClientRect().left + container.clientLeft;
+  const right = left + container.clientWidth;
+  const rect = element.getBoundingClientRect();
+  const before = rect.left - left;
+  const after = rect.right - right;
+  if (before < 0 && after < 0) container.scrollLeft += Math.max(before, after);
+  else if (before > 0 && after > 0) container.scrollLeft += Math.min(before, after);
 }
 
 /** Scrolls the workspace's scroll container so `element` sits directly under the sticky page chrome (a new row's header, the workspace top on maximize). Reads layout. */

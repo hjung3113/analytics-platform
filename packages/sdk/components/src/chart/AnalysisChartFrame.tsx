@@ -418,7 +418,8 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const zoomInButton = useRef<HTMLButtonElement | null>(null);
   const rangeStart = useRef<HTMLButtonElement | null>(null);
   const stickyNextAnalysisRow = useRef<HTMLDivElement | null>(null);
-  const pendingFocusReveal = useRef<HTMLElement | null>(null);
+  // One queued reveal: its target and the Context it waits to settle on (set at the first mismatching commit).
+  const pendingFocusReveal = useRef<{ element: HTMLElement; waitsFor?: string } | null>(null);
   const [, setFocusRevealVersion] = useState(0);
   // Set when the keyboard turns brush mode on in a fill card: the range form appears then and takes focus (ADR-0067 decision 21).
   const focusRangeForm = useRef(false);
@@ -1042,16 +1043,23 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const focusAndQueueReveal = (element: HTMLElement | null) => {
     if (!element) return;
     element.focus({ preventScroll: true });
-    pendingFocusReveal.current = element;
+    pendingFocusReveal.current = { element };
     // Schedule a commit even when applying the existing Context is a no-op.
     setFocusRevealVersion(version => version + 1);
   };
   useLayoutEffect(() => {
-    const element = pendingFocusReveal.current;
-    // A new Context clears the old chart state in an effect, with its own commit.
-    if (!element || fittedContext.current !== contextKey) return;
+    const pending = pendingFocusReveal.current;
+    if (!pending) return;
+    // Drop a request whose target left or lost focus: it must never scroll later for an old action.
+    if (!pending.element.isConnected || pending.element.ownerDocument.activeElement !== pending.element) { pendingFocusReveal.current = null; return; }
+    // A new Context clears the old chart state in an effect, with its own commit. Wait for that one reset only; a further Context change drops it.
+    if (fittedContext.current !== contextKey) {
+      if (pending.waitsFor !== undefined && pending.waitsFor !== contextKey) pendingFocusReveal.current = null;
+      else pending.waitsFor = contextKey;
+      return;
+    }
     pendingFocusReveal.current = null;
-    revealWithStickyRow(element);
+    revealWithStickyRow(pending.element);
   });
   useEffect(() => {
     if (!focusRangeForm.current || !brushMode) return;

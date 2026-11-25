@@ -35,7 +35,7 @@ export function ChartInteractionToolbar(p: Props) {
   )}>
     {p.heading}
     {p.start != null && <div data-chart-toolbar-start className={cn('flex items-center gap-1', p.compact ? 'min-w-0 flex-1' : 'flex-auto')}>{p.start}</div>}
-    <div role="toolbar" aria-label={m('chartActions')} className={cn(
+    <div role="toolbar" aria-label={m('chartActions')} data-reveal-x={p.compact ? '' : undefined} className={cn(
       'ml-auto flex min-w-0 items-center gap-1 whitespace-nowrap',
       p.compact ? 'overflow-x-auto' : 'flex-wrap justify-end',
     )}>
