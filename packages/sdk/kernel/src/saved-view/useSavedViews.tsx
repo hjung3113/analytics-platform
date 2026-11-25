@@ -478,10 +478,14 @@ function useSavedViewController(
     if (!arriving) { if (selectedId !== null && selected === null) clearSelection(); return; }
     const mismatch = selected !== null && differs(selected.view, support);
     if (selectedId !== null && (selected === null || mismatch)) clearSelection();
-    else if (selected !== null) return;
+    else if (selected !== null) {
+      // A reload keeps the selection through the address; the screen's panels come only from the view, so hand them over once.
+      if (selected.view.kind === 'menu-view') slots?.restore(selected.view.id, { [PANELS_SLOT]: savedPanelsSlot(selected.view) });
+      return;
+    }
     if (mode === 'legacy' && loaded.defaultId !== null) void apply(loaded.defaultId, 'default');
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `differs` is rebuilt every render from `applied`/`anchor`, both listed
-  }, [enabled, support, blocked, loaded, entryGen, rearmed, selected, selectedId, applied, anchor, apply, clearSelection, mode]);
+  }, [enabled, support, blocked, loaded, entryGen, rearmed, selected, selectedId, applied, anchor, apply, clearSelection, mode, slots]);
   // Back/Forward is an address arrival too: the arrived address wins over the selected view.
   // Fed by the Kernel's accepted-traversal signal, not the raw popstate: a Back the unsaved-edit guard cancelled (ADR-0115) is no arrival.
   const traversed = useRef(false);

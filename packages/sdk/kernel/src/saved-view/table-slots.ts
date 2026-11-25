@@ -64,6 +64,10 @@ function createScreenSlots() {
       applied = { token: {}, viewId, fields: values, consumed: new Set() };
       for (const [field, keys] of fields) for (const key of keys.keys()) applyKey(field, key);
     },
+    /** Re-entry keeps a selection the address still matches: deliver its values once unless this view's values are already pending. */
+    restore(viewId: string, values: Record<string, Record<string, unknown> | undefined>) {
+      if (applied?.viewId !== viewId) this.apply(viewId, values);
+    },
     select(viewId: string | null) { if (applied?.viewId !== viewId) applied = null; },
   };
 }

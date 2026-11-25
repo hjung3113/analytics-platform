@@ -48,7 +48,7 @@ function PanelSlot() {
   return null;
 }
 
-async function mount({ saved = row(), registrations = 1 } = {}) {
+async function mount({ saved = row(), registrations = 1, store = createFakeSavedViewStore([saved]) } = {}) {
   function Probe() {
     const [mounted, show] = useState(true);
     setMounted = show;
@@ -56,7 +56,6 @@ async function mount({ saved = row(), registrations = 1 } = {}) {
     views = useSavedViews();
     return <>{mounted && Array.from({ length: registrations }, (_, index) => <PanelSlot key={index} />)}</>;
   }
-  const store = createFakeSavedViewStore([saved]);
   render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter()} savedViews={store}><Probe /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(views.status).toBe('ready'));
   return store;
@@ -88,6 +87,19 @@ it.each([panels, null])('delivers the opened menu view panels to its screen (%j)
   expect(opened).not.toHaveBeenCalled();
   act(() => setMounted(true));
   expect(opened).toHaveBeenCalledExactlyOnceWith(savedPanels);
+});
+
+it('restores the selected view panels after a reload and overwrite keeps them', async () => {
+  const store = await mount();
+  await act(async () => { await views.select('saved'); });
+  cleanup();
+  opened.mockClear();
+  await mount({ store });
+  await waitFor(() => expect(views.selected?.view.id).toBe('saved'));
+  expect(opened).toHaveBeenCalledExactlyOnceWith(panels);
+  expect(views.state.modified).toBe(false);
+  await act(async () => { await views.saveToSelected(); });
+  expect(await store.get('saved')).toMatchObject({ view: { panels } });
 });
 
 it('reports unreadable panels and keeps the current panels available to save', async () => {
