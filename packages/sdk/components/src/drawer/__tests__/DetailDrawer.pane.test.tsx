@@ -227,3 +227,108 @@ it('closing detail skips an inert or collapsed opener and focuses a visible pane
   close.focus(); fireEvent.click(close);
   expect(document.querySelector('[data-pane-id="visible"]')).toHaveFocus();
 });
+
+/** Two tables in one board pane, each with its own detail key in the pane's saved query (#3002). */
+function TwoTablePane({ firstClosed, secondClosed }: { firstClosed: () => void; secondClosed: () => void }) {
+  const [saved, setSaved] = useState<PaneScreen>({ menuId: 'home', params: {}, query: `${savedContext}&focus=one` });
+  const query = new URLSearchParams(saved.query);
+  const set = (key: string, value: string | null) => setSaved(s => {
+    const next = new URLSearchParams(s.query);
+    if (value === null) next.delete(key); else next.set(key, value);
+    return { ...s, query: `?${next.toString()}` };
+  });
+  return <div data-pane-id="p1" tabIndex={-1}>
+    <button onClick={() => set('row', 'two')}>view second table row</button>
+    <output aria-label="saved p1">{saved.query}</output>
+    <PaneScreenProvider paneId="p1" screen={saved} onChange={setSaved} onLeave={() => {}}>
+      {query.get('focus') && <DetailDrawer title="first table detail" onClose={() => { firstClosed(); set('focus', null); }}
+        tabs={[{ id: 'a', label: 'Attributes', content: <p>first</p> }]} />}
+      {query.get('row') && <DetailDrawer title="second table detail" onClose={() => { secondClosed(); set('row', null); }}
+        tabs={[{ id: 'a', label: 'Attributes', content: <p>second</p> }]} />}
+    </PaneScreenProvider>
+  </div>;
+}
+
+it.each([false, true])('a second detail in the same pane takes the slot without closing the first; the first returns when it closes (#3002, StrictMode=%s)', strict => {
+  const firstClosed = vi.fn();
+  const secondClosed = vi.fn();
+  const ui = tree(<TwoTablePane firstClosed={firstClosed} secondClosed={secondClosed} />);
+  render(strict ? <StrictMode>{ui}</StrictMode> : ui);
+  expect(screen.getByRole('dialog')).toHaveAccessibleName('first table detail');
+  fireEvent.click(screen.getByRole('button', { name: 'view second table row' }));
+  expect(screen.getByRole('dialog')).toHaveAccessibleName('second table detail');
+  expect(firstClosed).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('saved p1')).toHaveTextContent('focus=one');
+  fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
+  expect(secondClosed).toHaveBeenCalledTimes(1);
+  expect(firstClosed).not.toHaveBeenCalled();
+  expect(screen.getByRole('dialog')).toHaveAccessibleName('first table detail');
+  expect(screen.getByLabelText('saved p1').textContent).toMatch(/focus=one/);
+  expect(screen.getByLabelText('saved p1').textContent).not.toMatch(/row=/);
+});
+
+/** Pane 1 holds two tables' details; pane 2 can open its own (#3026 review C1, C2). */
+function HandoffBoard({ closed }: { closed: (name: string) => void }) {
+  const [one, setOne] = useState<PaneScreen>({ menuId: 'home', params: {}, query: savedContext });
+  const [two, setTwo] = useState<PaneScreen>({ menuId: 'home', params: {}, query: savedContext });
+  const set = (setter: typeof setOne, key: string, value: string | null) => setter(s => {
+    const next = new URLSearchParams(s.query);
+    if (value === null) next.delete(key); else next.set(key, value);
+    return { ...s, query: `?${next.toString()}` };
+  });
+  const q1 = new URLSearchParams(one.query);
+  const detail = (name: string, close: () => void) => <DetailDrawer title={name} onClose={() => { closed(name); close(); }} tabs={[{ id: 'a', label: 'Attributes', content: <p>{name} body</p> }]} />;
+  return <>
+    <div data-pane-id="p1" tabIndex={-1}>
+      <button onClick={() => set(setOne, 'focus', 'one')}>open A</button>
+      <button onClick={() => set(setOne, 'row', 'two')}>open B</button>
+      <output aria-label="saved p1">{one.query}</output>
+      <PaneScreenProvider paneId="p1" screen={one} onChange={setOne} onLeave={() => {}}>
+        {q1.get('focus') && detail('A', () => set(setOne, 'focus', null))}
+        {q1.get('row') && detail('B', () => set(setOne, 'row', null))}
+      </PaneScreenProvider>
+    </div>
+    <div data-pane-id="p2" tabIndex={-1}>
+      <button onClick={() => set(setTwo, 'focus', 'three')}>open C</button>
+      <PaneScreenProvider paneId="p2" screen={two} onChange={setTwo} onLeave={() => {}}>
+        {new URLSearchParams(two.query).get('focus') && detail('C', () => set(setTwo, 'focus', null))}
+      </PaneScreenProvider>
+    </div>
+  </>;
+}
+
+it.each([false, true])('another pane taking the slot ends the whole same-pane handoff chain once (#3026 C1, StrictMode=%s)', strict => {
+  const closed = vi.fn();
+  const ui = tree(<HandoffBoard closed={closed} />);
+  render(strict ? <StrictMode>{ui}</StrictMode> : ui);
+  fireEvent.click(screen.getByRole('button', { name: 'open A' }));
+  fireEvent.click(screen.getByRole('button', { name: 'open B' }));
+  expect(closed).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'open C' }));
+  expect(screen.getByRole('dialog')).toHaveAccessibleName('C');
+  expect(closed.mock.calls.map(([name]) => name).sort()).toEqual(['A', 'B']);
+  expect(screen.getByLabelText('saved p1').textContent).not.toMatch(/focus=|row=/);
+  fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+});
+
+it('a detail resumed after a same-pane handoff returns focus to its own trigger (#3026 C2)', () => {
+  render(tree(<HandoffBoard closed={() => {}} />));
+  const openA = screen.getByRole('button', { name: 'open A' });
+  const openB = screen.getByRole('button', { name: 'open B' });
+  openA.focus();
+  fireEvent.click(openA);
+  expect(screen.getByRole('button', { name: '상세 닫기' })).toHaveFocus();
+  const aFocus = vi.spyOn(openA, 'focus');
+  openB.focus();
+  fireEvent.click(openB);
+  expect(aFocus).not.toHaveBeenCalled();
+  expect(screen.getByRole('dialog')).toHaveAccessibleName('B');
+  fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
+  // A comes back in front and takes focus like any reopened detail; its trigger is still button A.
+  expect(screen.getByRole('dialog')).toHaveAccessibleName('A');
+  expect(screen.getByRole('button', { name: '상세 닫기' })).toHaveFocus();
+  fireEvent.click(screen.getByRole('button', { name: '상세 닫기' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(openA).toHaveFocus();
+});
