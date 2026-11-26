@@ -1,9 +1,9 @@
-import { heldSelectionProblem, parseQuery, type AnalysisSelection, type AnalysisSelectionShape, type AnalysisSelectionUse, type Text } from '@ap/contracts';
-import { createContext, createElement, use, useCallback, useEffect, useInsertionEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { heldSelectionProblem, parseQuery, type AnalysisSelection, type AnalysisSelectionShape, type AnalysisSelectionUse, type PanelInstance, type PanelInstanceInput, type Text } from '@ap/contracts';
+import { createContext, createElement, use, useCallback, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { LentPanelOutputsContext, PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
 import { usePlatform, usePlatformOptional } from '../platform/hooks';
 import type { MenuPlatform } from '../platform/types';
-import { menuAnalysisSelections, type LentSelectionWriter } from '../registry/analysis-selections';
+import { analysisSelectionDependencies, indexInstanceOutputs, menuAnalysisSelections, selectionUses, type LentSelectionWriter } from '../registry/analysis-selections';
 import type { MenuEntry } from '../registry/registry';
 import { sameItems, useStable } from '../stable';
 import { analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
@@ -28,21 +28,60 @@ function sameSelection(a: AnalysisSelection | null, b: AnalysisSelection | null)
 
 const noRoute = { panels: [] };
 const noLent: readonly LentSelectionWriter[] = [];
+const AnalysisSelectionInstancesContext = createContext<{
+  store: NonNullable<ReturnType<typeof useWriteScreen>>['analysisSelectionAvailability'] | undefined;
+  graph: ReturnType<typeof analysisSelectionDependencies>;
+} | undefined>(undefined);
+
+/** Supplies the workspace's configured instances to its panels and publishes their graph to the screen header. */
+export function AnalysisSelectionInstances({ instances, publishers, children }: {
+  instances: readonly PanelInstance[] | undefined;
+  /** The instance that currently publishes each overridden URL key. Use null when there is no live publisher. */
+  publishers?: ReadonlyMap<string, string | null>;
+  children: ReactNode;
+}) {
+  const { route, registry } = usePlatform();
+  const menu = route?.menu;
+  const channels = useChannels(menu, registry);
+  const store = useWriteScreen(route)?.analysisSelectionAvailability;
+  const value = useMemo(() => {
+    if (!instances || !store) return;
+    const workspace = { instances, publishers, outputs: indexInstanceOutputs(instances) };
+    return { store, graph: analysisSelectionDependencies(channels, workspace) };
+  }, [store, instances, publishers, channels]);
+  useLayoutEffect(() => {
+    if (store && value) return store.publishGraph(value.graph);
+  }, [store, value]);
+  return createElement(AnalysisSelectionInstancesContext.Provider, { value }, children);
+}
+
 /** The menu's channels, with lent panels that bind outputs as writers after its own (#2763). */
 const useChannels = (menu: MenuEntry | undefined, registry: MenuPlatform['registry'] | undefined) => {
   const lent = menu && registry ? registry.lentPanels(menu.id) : noLent;
   return useMemo(() => menuAnalysisSelections(menu ?? noRoute, lent), [menu, lent]);
 };
+
 const useWriteScreen = (route: MenuPlatform['route']) => route ? use(PaneScreenContext) ?? use(ScreenContext) : null;
+
+const readNoGraph = () => undefined;
+
+function useSelectionDependencies(channels: ReturnType<typeof menuAnalysisSelections>, screen: ReturnType<typeof useWriteScreen>, menu: MenuEntry | undefined) {
+  const configured = use(AnalysisSelectionInstancesContext);
+  const store = screen?.route?.menu === menu ? screen?.analysisSelectionAvailability : undefined;
+  const local = configured?.store === store ? configured?.graph : undefined;
+  const sharedStore = local ? undefined : store;
+  const shared = useSyncExternalStore(sharedStore?.subscribe ?? subscribeToEmptyAvailability, sharedStore?.graph ?? readNoGraph, readNoGraph);
+  return useMemo(() => local ?? shared ?? analysisSelectionDependencies(channels), [channels, local, shared]);
+}
 
 function drillAddress(menu: MenuEntry | undefined, pageParam: MenuPlatform['pageParam']) {
   return JSON.stringify(menu?.drill?.levels.flatMap(drillLevelKeys).map(pageParam) ?? []);
 }
 
-function useReportedAvailability(screen: ReturnType<typeof useWriteScreen>, address: string) {
+function useReportedAvailability(screen: ReturnType<typeof useWriteScreen>, address: string, graph: ReturnType<typeof analysisSelectionDependencies>) {
   const store = screen?.analysisSelectionAvailability;
   const snapshot = useSyncExternalStore(store?.subscribe ?? subscribeToEmptyAvailability, store?.read ?? readEmptyAvailability, readEmptyAvailability);
-  return (key: string) => readAvailability(snapshot, key, address);
+  return (key: string) => readAvailability(snapshot, key, address, graph.publisher(key));
 }
 
 /** Starts a transient chip interaction. Release it on leave, blur or unmount. */
@@ -76,25 +115,11 @@ export function useAnalysisSelectionSourceHighlighted(panelId: string) {
   });
 }
 
-function hasFilterCycle(channels: ReturnType<typeof menuAnalysisSelections>, key: string): boolean {
-  const pending = [key];
-  const visited = new Set(pending);
-  for (const outputKey of pending) {
-    const writer = channels.get(outputKey)?.writers[0];
-    for (const [inputKey, { readers }] of channels) {
-      if (!readers.some(reader => reader.panelId === writer?.panelId && reader.use === 'filter')) continue;
-      if (inputKey === key) return true;
-      if (visited.has(inputKey)) continue;
-      visited.add(inputKey);
-      pending.push(inputKey);
-    }
-  }
-  return false;
-}
-
 export type AnalysisSelectionOutputOptions = {
   /** Values present in the source's current data. Omit while availability is unknown. */
   available?: AnalysisSelectionAvailability | undefined;
+  /** Required for availability reporting when this channel has a configured publisher. */
+  instanceId?: string;
   /** Set false in callers that only write selections or report availability. */
   subscribeHighlight?: boolean;
 };
@@ -127,20 +152,22 @@ function useSelectionOutput(sourcePlatform: MenuPlatform | null, sourceOutput: {
   const { panelId, key } = output ?? {};
   const screen = useWriteScreen(route ?? null);
   const channels = useChannels(route?.menu, registry);
+  const dependencies = useSelectionDependencies(channels, screen, route?.menu);
   const channel = key === undefined ? undefined : channels.get(key);
   const store = screen?.analysisSelectionAvailability;
   const address = pageParam ? drillAddress(route?.menu, pageParam) : '';
   const report = useStable(options?.available, sameAvailability);
-  const isSource = channel?.writers[0]?.panelId === panelId;
-  const canReport = useMemo(() => key !== undefined && isSource && !hasFilterCycle(channels, key), [channels, isSource, key]);
+  const isSource = channel?.writers[0]?.panelId === panelId && key !== undefined && dependencies.ownsChannel(key, options?.instanceId);
+  const publisher = key === undefined ? undefined : dependencies.publisher(key);
+  const canReport = key !== undefined && isSource && !dependencies.hasCycle(key);
   const availabilityCurrent = useSyncExternalStore(
     canReport && store ? store.subscribe : subscribeToEmptyAvailability,
-    () => key !== undefined && canReport && store !== undefined && sameAvailability(readAvailability(store.read(), key, address), report),
+    () => key !== undefined && canReport && store !== undefined && sameAvailability(readAvailability(store.read(), key, address, publisher), report),
     () => false,
   );
   useEffect(() => {
-    if (key !== undefined && store && canReport && report !== undefined) return store.report(key, { drillAddress: address, available: report });
-  }, [store, canReport, key, report, address]);
+    if (key !== undefined && store && canReport && publisher !== null && report !== undefined) return store.report(key, { drillAddress: address, publisher, available: report });
+  }, [store, canReport, key, publisher, report, address]);
   const rendered = key === undefined ? undefined : pageParams?.(key);
   const selection = channel && rendered ? parseAnalysisSelection(channel.shape, rendered) : null;
   const highlightScreen = isSource && options?.subscribeHighlight !== false ? screen : null;
@@ -168,7 +195,7 @@ export type AppliedAnalysisSelection = {
   /** The panel instance holds this value (`HeldAnalysisSelections`, #2862); absent when it follows the URL. */
   readonly held?: true;
 } & ({
-  /** First declared writer for this key, so the source is deterministic on shared links and Back. */
+  /** The saved output’s writer, or the first declared writer for a declaration-only input. */
   readonly source: { readonly panelId: string; readonly title: Text; readonly dimension: string };
   readonly dimension?: never;
 } | {
@@ -199,8 +226,7 @@ export function HeldAnalysisSelections({ held, children }: { held: Readonly<Reco
   return createElement(HeldSelectionContext.Provider, { value: map }, children);
 }
 
-/** Reports applied inputs without running queries. Panels reading a filter use its value from applied. */
-export function useAnalysisSelectionInputs(panelId: string): {
+type AnalysisSelectionInputs = {
   applied: readonly AppliedAnalysisSelection[];
   filtered: boolean;
   /** Declared input keys whose URL values were discarded. */
@@ -209,41 +235,91 @@ export function useAnalysisSelectionInputs(panelId: string): {
   rejectedHeld: readonly string[];
   /** Declared input keys whose valid values are absent from the source data. */
   unavailable: readonly string[];
-} {
-  const { route, pageParam, pageParams, session, revision, global, registry } = usePlatform();
-  const availability = useReportedAvailability(useWriteScreen(route), drillAddress(route?.menu, pageParam));
+};
+
+type AnalysisSelectionRead = AnalysisSelectionInputs & {
+  /** Filter keys with valid URL selections, before checking the source's availability. */
+  requestedFilters: readonly string[];
+  /** Follow keys whose saved output cannot publish to the live URL channel. */
+  unavailableSources: readonly string[];
+};
+
+/**
+ * Reads saved connections from one workspace subscription; omit the input list to use the declaration.
+ * The saved hold supplies connection metadata. Its value must be provided by HeldAnalysisSelections.
+ */
+export function useAnalysisSelectionReader(panelId: string): (inputs?: readonly PanelInstanceInput[]) => AnalysisSelectionRead {
+  const { route, pageParam, pageParams, registry } = usePlatform();
   const menu = route?.menu;
   const channels = useChannels(menu, registry);
   const heldSelections = use(HeldSelectionContext);
+  const screen = useWriteScreen(route);
+  const graph = useSelectionDependencies(channels, screen, menu);
+  const availability = useReportedAvailability(screen, drillAddress(menu, pageParam), graph);
   if (menu && !menu.panels?.some(panel => panel.id === panelId)) throw new RangeError(`Unknown panel "${panelId}" in menu "${menu.id}"`);
+  return inputs => readInputs(panelId, channels, pageParams, availability, heldSelections, graph, inputs);
+}
+
+function readInputs(panelId: string, channels: ReturnType<typeof menuAnalysisSelections>, pageParams: MenuPlatform['pageParams'],
+  availability: ReturnType<typeof useReportedAvailability>, heldSelections: ReadonlyMap<string, HeldAnalysisSelection> | null,
+  graph: ReturnType<typeof analysisSelectionDependencies>,
+  instanceInputs?: readonly PanelInstanceInput[],
+): AnalysisSelectionRead {
   const applied: AppliedAnalysisSelection[] = [];
+  const requestedFilters: string[] = [];
   const rejected: string[] = [];
   const rejectedHeld: string[] = [];
   const unavailable: string[] = [];
-  for (const [key, { readers, writers, dimension, shape }] of channels) {
-    const inputs = readers.filter(reader => reader.panelId === panelId);
-    if (!inputs.length) continue;
-    const writerDetails = writers[0] ? { source: { panelId: writers[0].panelId, title: writers[0].title, dimension } } : { dimension };
-    const held = heldSelections?.get(key);
-    if (held) {
-      if (held.dimension !== dimension || held.selection?.shape !== shape || heldSelectionProblem(held.selection)) rejectedHeld.push(key);
-      else for (const { use } of inputs) applied.push({ key, use, selection: held.selection, held: true, ...writerDetails });
+  const unavailableSources: string[] = [];
+  for (const [key, channel] of channels) {
+    const instanceInput = instanceInputs?.find(input => input.key === key);
+    if (instanceInputs && !instanceInput) continue;
+    const uses = selectionUses(channel, panelId, instanceInput);
+    if (!uses.length) continue;
+
+    const { dimension, shape, writers } = channel;
+    const source = instanceInput && graph.sourceFor(instanceInput);
+    const held = !instanceInput || instanceInput.mode === 'hold' ? heldSelections?.get(key) : undefined;
+    const writer = instanceInput ? source?.writer : writers[0];
+    const writerDetails = writer ? { source: { panelId: writer.panelId, title: writer.title, dimension } } : { dimension };
+    if (instanceInput?.mode === 'hold' || held) {
+      if (!held || (instanceInput && !source) || held.dimension !== dimension || held.selection?.shape !== shape
+        || heldSelectionProblem(held.selection)) rejectedHeld.push(key);
+      else for (const use of uses) applied.push({ key, use, selection: held.selection, held: true, ...writerDetails });
       continue;
     }
-    const values = pageParams(key);
+
+    if (instanceInput && (!source?.writer
+      || channels.get(source.key)?.writers[0]?.panelId !== source.writer.panelId
+      || (graph.configured && graph.publisher(source.key) !== source.node))) {
+      unavailableSources.push(key);
+      unavailable.push(key);
+      continue;
+    }
+    const sourceKey = source?.key ?? key;
+    const values = pageParams(sourceKey);
     if (!values.length) continue;
     const selection = parseAnalysisSelection(shape, values);
     if (!selection) {
       rejected.push(key);
       continue;
     }
-    if (!isAnalysisSelectionAvailable(selection, availability(key))) {
+    if (uses.includes('filter')) requestedFilters.push(key);
+    if (!isAnalysisSelectionAvailable(selection, availability(sourceKey))) {
       unavailable.push(key);
       continue;
     }
-    for (const { use } of inputs) applied.push({ key, use, selection, ...writerDetails });
+    for (const use of uses) applied.push({ key, use, selection, ...writerDetails });
   }
-  const result = { applied, filtered: applied.some(input => input.use === 'filter'), rejected, rejectedHeld, unavailable };
+  return { applied, filtered: applied.some(input => input.use === 'filter'), requestedFilters, rejected, rejectedHeld, unavailable, unavailableSources };
+}
+
+/** Reports applied inputs without running queries. Panels reading a filter use its value from applied. */
+export function useAnalysisSelectionInputs(panelId: string, inputs?: readonly PanelInstanceInput[]): AnalysisSelectionInputs {
+  const { route, session, revision, global } = usePlatform();
+  const menu = route?.menu;
+  const { applied, filtered, rejected, rejectedHeld, unavailable } = useAnalysisSelectionReader(panelId)(inputs);
+  const result = { applied, filtered, rejected, rejectedHeld, unavailable };
   return useStable({ menu, panelId, session, revision, scopeId: global.scopeId, result }, (a, b) =>
     a.menu === b.menu && a.panelId === b.panelId && a.session === b.session && a.revision === b.revision && a.scopeId === b.scopeId
     && a.result.applied.length === b.result.applied.length
@@ -252,7 +328,10 @@ export function useAnalysisSelectionInputs(panelId: string): {
     && sameItems(a.result.unavailable, b.result.unavailable)
     && a.result.applied.every((input, i) => {
       const other = b.result.applied[i];
-      return input.key === other.key && input.use === other.use && input.held === other.held && sameSelection(input.selection, other.selection);
+      return input.key === other.key && input.use === other.use && input.held === other.held
+        && (!inputs || (input.dimension === other.dimension && input.source?.panelId === other.source?.panelId
+          && input.source?.title === other.source?.title && input.source?.dimension === other.source?.dimension))
+        && sameSelection(input.selection, other.selection);
     }),
   ).result;
 }
@@ -330,15 +409,15 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   const { route, pathname, pageParam, pageParams, session, revision, global } = platform;
   const screen = useWriteScreen(route);
   const address = drillAddress(route?.menu, pageParam);
-  const availability = useReportedAvailability(screen, address);
   const menu = route?.menu;
   const paneId = screen?.paneId;
   const scopeId = global.scopeId;
   const channels = useChannels(menu, platform.registry);
+  const dependencies = useSelectionDependencies(channels, screen, route?.menu);
+  const availability = useReportedAvailability(screen, address, dependencies);
   const origin = menu?.analysisSelectionInbound?.length ? readSelectionOrigin(platform) : null;
   const active: Omit<AnalysisSelectionChip, 'after'>[] = [];
   const reports = new Map<string, AnalysisSelectionAvailability>();
-  const filtersByPanel = new Map<string, string[]>();
   for (const [key, { shape, dimension, label, writers, readers, inbound }] of channels) {
     const [writer] = writers;
     const values = pageParams(key);
@@ -357,12 +436,13 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
       ...(writer && { source: { panelId: writer.panelId, title: writer.title } }),
       ...(matchesOrigin && { arrival: { href: origin.href, ...(menuLabel && { origin: { menuLabel } }) } }),
     });
-    for (const reader of readers) {
-      if (reader.use === 'filter') filtersByPanel.set(reader.panelId, [...filtersByPanel.get(reader.panelId) ?? [], key]);
-    }
   }
-  // A chip follows the first other active key its source filters by; a writer that also filters by its own key is not its own parent (#2763 R2 C12).
-  const result = orderChips(active.map(chip => ({ ...chip, after: chip.source ? filtersByPanel.get(chip.source.panelId)?.find(key => key !== chip.key) ?? null : null })));
+  // Keep channel order for active parents, as in the declaration-only chip model (#2763 R2 C12).
+  const result = orderChips(active.map(chip => {
+    const parents = dependencies.parents(chip.key);
+    const parent = active.find(candidate => candidate.key !== chip.key && parents.some(({ key }) => key === candidate.key));
+    return { ...chip, after: parent?.key ?? null };
+  }));
   // Page values can change within this edit owner until the drill source changes.
   const owner = useMemo(() => ({
     menu, pathname, paneId, session, revision, scopeId, address,
@@ -373,10 +453,10 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   const reportedAvailability = useStable(reports, (a, b) =>
     a.size === b.size && [...a].every(([key, value]) => sameAvailability(value, b.get(key))),
   );
-  const { chips } = useStable({ owner, chips: result }, (a, b) =>
-    a.owner === b.owner
+  const { chips } = useStable({ owner, configured: dependencies.configured, chips: result }, (a, b) =>
+    a.owner === b.owner && a.configured === b.configured
     && a.chips.length === b.chips.length && a.chips.every((chip, i) =>
-      chip.key === b.chips[i].key && chip.available === b.chips[i].available && chip.applied === b.chips[i].applied && chip.arrival?.href === b.chips[i].arrival?.href
+      chip.key === b.chips[i].key && (!dependencies.configured || chip.after === b.chips[i].after) && chip.available === b.chips[i].available && chip.applied === b.chips[i].applied && chip.arrival?.href === b.chips[i].arrival?.href
       && chip.arrival?.origin?.menuLabel === b.chips[i].arrival?.origin?.menuLabel
       && sameSelection(chip.selection, b.chips[i].selection)),
   );

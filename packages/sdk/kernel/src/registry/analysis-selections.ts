@@ -1,4 +1,4 @@
-import type { AnalysisSelectionUse, MenuMeta, PanelBinding, PanelDeclaration, Text } from '@ap/contracts';
+import type { AnalysisSelectionUse, MenuMeta, PanelBinding, PanelDeclaration, PanelInstance, PanelInstanceInput, PanelInstanceOutput, Text } from '@ap/contracts';
 
 type SelectionOutput = PanelDeclaration['outputs'][number]['selection'];
 type Channel = NonNullable<SelectionOutput> & {
@@ -49,8 +49,8 @@ export function menuAnalysisSelections(menu: Pick<MenuMeta, 'panels' | 'analysis
   }
   for (const { id: panelId, title, outputs, queryInputs, displayInputs } of menu.panels ?? []) {
     for (const { key, selection } of outputs) channels.get(key)?.writers.push({ panelId, title, selection });
-    for (const { key, selection: use } of [...queryInputs.page ?? [], ...displayInputs.page ?? []]) {
-      if (use !== undefined) channels.get(key)?.readers.push({ panelId, use });
+    for (const { key, selection } of [...queryInputs.page ?? [], ...displayInputs.page ?? []]) {
+      if (selection !== undefined) channels.get(key)?.readers.push({ panelId, use: selection });
     }
   }
   for (const { binding, source } of lent) {
@@ -67,4 +67,119 @@ export function menuAnalysisSelections(menu: Pick<MenuMeta, 'panels' | 'analysis
     }
   }
   return channels;
+}
+
+type Channels = ReturnType<typeof menuAnalysisSelections>;
+type FilterDependency = { node: string; key: string };
+
+export function indexInstanceOutputs(instances: readonly PanelInstance[]) {
+  return new Map<string, { instance: PanelInstance; output: PanelInstanceOutput }>(instances.flatMap(instance => instance.outputs.map(output =>
+    [`${instance.id}.${output.key}`, { instance, output }] as const)));
+}
+
+type AnalysisSelectionWorkspace = {
+  instances: readonly PanelInstance[];
+  outputs: ReturnType<typeof indexInstanceOutputs>;
+  publishers?: ReadonlyMap<string, string | null>;
+};
+
+export function selectionUses(channel: Channel, panelId: string, input?: PanelInstanceInput): readonly AnalysisSelectionUse[] {
+  const declared = channel.readers.filter(reader => reader.panelId === panelId).map(reader => reader.use);
+  if (!input) return declared;
+  return declared.length && input.use ? [input.use] : [...new Set(declared)];
+}
+
+/** Resolve the saved reference and check both the stored output and the live declaration against the receiving channel. */
+function instanceSelectionSource(channels: Channels, target: Channel, from: string, workspace?: AnalysisSelectionWorkspace) {
+  const compatible = (selection: SelectionOutput) => selection?.dimension === target.dimension && selection.shape === target.shape;
+  if (workspace) {
+    const source = workspace.outputs.get(from);
+    if (!source || !compatible(source.output)) return;
+    const { instance, output } = source;
+    const declaration = instance.source.kind === 'declared' ? instance.source.panel : undefined;
+    const writer = channels.get(output.key)?.writers.find(candidate => candidate.panelId === declaration && compatible(candidate.selection));
+    return { key: output.key, node: instance.id, writer };
+  }
+  // Callers with declaration-addressed inputs can use the live declaration without an instance list.
+  for (const [key, channel] of channels) {
+    const writer = channel.writers.find(candidate => from === `${candidate.panelId}.${key}` && compatible(candidate.selection));
+    if (writer) return { key, node: undefined, writer };
+  }
+}
+
+/** URL channels keep their first declared writer. In a saved graph, traverse that writer's instance connections. */
+export function analysisSelectionDependencies(channels: Channels, workspace?: AnalysisSelectionWorkspace) {
+  const roots = new Map<string, string>();
+  const upstream = new Map<string, FilterDependency[]>();
+  const inputSources = new Map<PanelInstanceInput, ReturnType<typeof instanceSelectionSource>>();
+  const resolveSource = (input: PanelInstanceInput) => {
+    const channel = channels.get(input.key);
+    return channel && instanceSelectionSource(channels, channel, input.from, workspace);
+  };
+  const declaredParents = new Map<string, FilterDependency[]>();
+  for (const [key, { readers }] of channels) {
+    for (const [outputKey, output] of channels) {
+      if (!readers.some(reader => reader.panelId === output.writers[0]?.panelId && reader.use === 'filter')) continue;
+      declaredParents.set(outputKey, [...declaredParents.get(outputKey) ?? [], { node: key, key }]);
+    }
+  }
+  if (workspace) {
+    const { instances, outputs, publishers } = workspace;
+    for (const { instance, output } of outputs.values()) {
+      const { key } = output;
+      const channel = channels.get(key);
+      const writer = channel?.writers[0];
+      if (!writer || output.shape !== channel.shape || output.dimension !== channel.dimension
+        || instance.source.kind !== 'declared' || instance.source.panel !== writer.panelId) continue;
+      if (publishers?.has(key) ? publishers.get(key) === instance.id : !roots.has(key)) roots.set(key, instance.id);
+    }
+    for (const instance of instances) {
+      if (instance.source.kind !== 'declared') continue;
+      for (const input of instance.inputs) {
+        const source = resolveSource(input);
+        inputSources.set(input, source);
+        const channel = channels.get(input.key);
+        if (source?.node !== undefined && channel && selectionUses(channel, instance.source.panel, input).includes('filter')) {
+          upstream.set(instance.id, [...upstream.get(instance.id) ?? [], { node: source.node, key: source.key }]);
+        }
+      }
+    }
+  }
+  const publisher = (key: string) => workspace && (roots.get(key) ?? (workspace.publishers?.has(key) ? null : undefined));
+  const parents = (key: string) => {
+    const owner = publisher(key);
+    if (owner === undefined) return declaredParents.get(key) ?? [];
+    if (owner === null) return [];
+    // Another instance may share the key but its edge cannot order the URL publisher’s chip.
+    return (upstream.get(owner) ?? []).filter(parent => roots.get(parent.key) === parent.node);
+  };
+  return {
+    configured: workspace !== undefined,
+    parents,
+    publisher,
+    sourceFor(input: PanelInstanceInput) {
+      return inputSources.has(input) ? inputSources.get(input) : resolveSource(input);
+    },
+    ownsChannel(key: string, instanceId: string | undefined) {
+      const owner = publisher(key);
+      return owner !== null && owner === instanceId;
+    },
+    hasCycle(key: string) {
+      const owner = publisher(key);
+      if (owner === null) return false;
+      const root = owner ?? key;
+      const edges = owner === undefined ? declaredParents : upstream;
+      const pending = [root];
+      const visited = new Set(pending);
+      for (const node of pending) {
+        for (const parent of edges.get(node) ?? []) {
+          if (parent.node === root) return true;
+          if (visited.has(parent.node)) continue;
+          visited.add(parent.node);
+          pending.push(parent.node);
+        }
+      }
+      return false;
+    },
+  };
 }
