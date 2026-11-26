@@ -6,7 +6,7 @@ import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type MenuQuery, typ
 import { usePlatform } from '@ap/kernel';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { MOTION_EQUIPMENT_KEY, hwTime, type HwTimeTableData } from '../../endpoints';
-import { answer, renderOverview } from './test-support';
+import { answer, openPanelPicker, renderOverview } from './test-support';
 
 await vi.hoisted(async () => { (await import('@ap/components/testing/engines')).mockEchartsCanvas(); });
 
@@ -101,13 +101,12 @@ it('reserves room for a carried trend when adding a panel after drilling down (#
   expect(within(settings).getByRole('radio', { name: '강조만', checked: true })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'PM1 단계로 이동' }));
   await waitFor(() => expect(new URLSearchParams(window.location.search).get('drillModule')).toBe('PM1'));
-  fireEvent.keyDown(screen.getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
-  const blocked = await screen.findByRole('menuitem', { name: /상한 초과 파레토/ });
+  const picker = within(await openPanelPicker());
+  const blocked = picker.getByRole('button', { name: '상한 초과 파레토', description: /저장 한도 24개\. 패널 ⋯에서 삭제하세요\./ });
   expect(blocked.getAttribute('aria-disabled')).toBe('true');
-  expect(blocked.textContent).toContain('저장 한도 24개. 패널 ⋯에서 삭제하세요.');
   expect(screen.queryByRole('tab', { name: '상한 초과 파레토' })).toBeNull();
-  fireEvent.keyDown(blocked, { key: 'Escape' });
-  await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+  fireEvent.keyDown(picker.getByRole('searchbox', { name: '패널 검색' }), { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '패널 추가' })).toBeNull());
 
   fireEvent.click(screen.getByRole('button', { name: 'Pump 단계로 이동' }));
   await waitFor(() => expect(new URLSearchParams(window.location.search).has('drillModule')).toBe(false));
@@ -331,8 +330,8 @@ it.each(['edit connections', 'add a panel'] as const)('keeps colliding wire IDs 
     expect(screen.queryByTestId('hw-module-motions')).toBeNull();
     expect(screen.getAllByRole('tab', { name: '원본 표' })).toHaveLength(1);
   } else {
-    fireEvent.keyDown(screen.getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
-    fireEvent.click(await screen.findByRole('menuitem', { name: '상한 초과 파레토' }));
+    const picker = within(await openPanelPicker());
+    fireEvent.click(picker.getByRole('button', { name: '상한 초과 파레토' }));
   }
   const saved = await act(() => views.saveAs({ name: 'With collisions', kind: 'menu-view' }));
   if (!saved.ok || saved.value.view.kind !== 'menu-view' || !saved.value.view.panels) throw new Error('Failed to save view with panels');
@@ -466,11 +465,11 @@ it('saves the active default publisher and can hold a selection from the chart a
   });
   await waitFor(() => expect(views.status).toBe('ready'));
   for (const name of ['원본 표', 'PM1 · Motion별']) {
-    fireEvent.keyDown(screen.getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
-    const item = await screen.findByRole('menuitem', { name });
+    const picker = within(await openPanelPicker());
+    const item = picker.getByRole('button', { name });
     expect(item.getAttribute('aria-disabled')).toBeNull();
     fireEvent.click(item);
-    await waitFor(() => expect(screen.queryByRole('menuitem', { name })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '패널 추가' })).toBeNull());
   }
   fireEvent.click(await screen.findByRole('tab', { name: /Motion별/ }));
   const chart = within((await screen.findByTestId('hw-module-motions')).closest('section')!);
@@ -501,8 +500,8 @@ it('saves and reopens an untouched step-3 table following the URL equipment sele
     savedViews: store, children: <Controls />, realWorkspace: true, showDetail: true,
   });
   await waitFor(() => expect(views.status).toBe('ready'));
-  fireEvent.keyDown(screen.getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
-  fireEvent.click(await screen.findByRole('menuitem', { name: '원본 표' }));
+  const picker = within(await openPanelPicker());
+  fireEvent.click(picker.getByRole('button', { name: '원본 표' }));
   await waitFor(() => expect(reads.at(-1)?.params).toMatchObject({ motionEquipment: [equipment] }));
 
   const settings = within(await openTableSettings());

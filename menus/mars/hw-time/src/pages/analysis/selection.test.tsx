@@ -5,7 +5,7 @@ import * as kernel from '@ap/kernel';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { EQUIPMENT_SELECTION_DIMENSION, type MenuQuery, type PanelInstance } from '@ap/contracts';
 import { MOTION_EQUIPMENT_KEY } from '../../endpoints';
-import { answer, chartRenders, fixtureMatrix, renderOverview, requests, settle } from './test-support';
+import { answer, chartRenders, fixtureMatrix, openPanelPicker, renderOverview, requests, settle } from './test-support';
 
 await vi.hoisted(async () => { (await import('@ap/components/testing/engines')).mockEchartsCanvas(); });
 
@@ -275,9 +275,8 @@ it('keeps the current chart mounted when the dedicated moduleMotions panel is ad
   const current = screen.getByTestId('hw-current');
   expect(screen.queryByTestId('hw-module-motions')).toBeNull();
 
-  const addPanel = within(screen.getByTestId('workspace-actions')).getByRole('button', { name: /패널 추가/ });
-  fireEvent.keyDown(addPanel, { key: 'Enter' });
-  fireEvent.click(await screen.findByRole('menuitem', { name: 'PM1 · Motion별' }));
+  const picker = within(await openPanelPicker());
+  fireEvent.click(picker.getByRole('button', { name: 'PM1 · Motion별' }));
 
   expect(await screen.findByTestId('hw-module-motions')).toBeTruthy();
   expect(screen.getByTestId('hw-current')).toBe(current);
@@ -625,8 +624,8 @@ it.each([
   fireEvent.click(screen.getByRole('button', { name: 'hold table' }));
   await settle();
   if (addLater) {
-    fireEvent.keyDown(within(screen.getByTestId('workspace-actions')).getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
-    fireEvent.click(await screen.findByRole('menuitem', { name: /Motion별/ }));
+    const picker = within(await openPanelPicker());
+    fireEvent.click(picker.getByRole('button', { name: /Motion별/ }));
     await settle();
   }
   const config = JSON.parse(screen.getByTestId('workspace').getAttribute('data-config')!);
