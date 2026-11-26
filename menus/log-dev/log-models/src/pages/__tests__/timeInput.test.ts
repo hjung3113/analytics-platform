@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { timeInputIn } from './timeInput';
+import { timeInputIn } from '../timeInput';
 
 describe('lifecycle instant input adapter (#2587)', () => {
   it.each([
