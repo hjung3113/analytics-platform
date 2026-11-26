@@ -17,7 +17,8 @@ async function drill(page: Page, id: string) {
 }
 async function add(page: Page, title: string) {
   await page.getByRole('button', { name: '패널 추가', exact: true }).click();
-  await page.getByRole('menuitem', { name: title, exact: true }).click();
+  // With categories (#2744) «패널 추가» is a popover dialog of named row buttons, not a dropdown menu.
+  await page.getByRole('dialog', { name: '패널 추가' }).getByRole('button', { name: title, exact: true }).click();
 }
 async function selectPoint(page: Page, row: string) {
   await chartMore(page, 'current').click();
@@ -27,6 +28,41 @@ async function selectPoint(page: Page, row: string) {
   await picker.selectOption({ value: (await option.getAttribute('value'))! });
   return tools;
 }
+
+test.describe('HW Time workspace layout (#701, #690k)', () => {
+  test('HW Time 단계 패널: 맞춤으로 시작하고 첫 줄 패널 안이 넘치지 않는다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(SCREEN);
+    const root = page.locator('[data-panel-workspace]');
+    await expect(root).toHaveAttribute('data-workspace-mode', 'fit');
+    await expect(root.locator('canvas')).not.toHaveCount(0);
+    for (const id of ['tree', 'current']) {
+      const panel = root.locator(`[data-dock-panel="${id}"]`);
+      await expect(panel).toBeVisible();
+      await expect.poll(() => panel.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('1440×900 HW Time 원시 표의 행 영역이 패널 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto(`${SCREEN}&pins=table`);
+    await workspace(page).getByRole('tab', { name: '원본 표', exact: true }).click();
+    const tablePanel = page.locator('[data-dock-panel="table"]');
+    const rows = tablePanel.getByLabel('스크롤 가능한 행 영역');
+    await expect(rows).toBeVisible();
+    await expect(rows.getByRole('row').nth(2)).toBeVisible();
+    const slot = tablePanel;
+    // The cap follows layout (observers), so poll until it has grown past the unmeasured fallback.
+    await expect.poll(async () => {
+      const rowsBox = (await rows.boundingBox())!;
+      const slotBox = (await slot.boundingBox())!;
+      return slotBox.y + slotBox.height - (rowsBox.y + rowsBox.height);
+    }).toBeLessThanOrEqual(120);
+    // Filling must not overshoot its panel (the stacked page itself scrolls by design).
+    await expect.poll(() => tablePanel.evaluate(panel => panel.scrollHeight - panel.clientHeight)).toBeLessThanOrEqual(1);
+    await evidence(page, testInfo, 'hw-time-table-fill');
+  });
+});
 
 test.describe('HW Time narrow workspace query line', () => {
   test('keeps query controls separate and clear-all keyboard reachable with panel settings open', async ({ page }, testInfo) => {
@@ -80,6 +116,49 @@ test.describe('HW Time narrow workspace query line', () => {
     await expect(clear).toBeVisible();
     await clear.press('Enter');
     await expect.poll(() => query(page).getAll('motionEquipment')).toEqual([]);
+  });
+});
+
+test.describe('HW Time narrow docked chart header', () => {
+  test('keeps the tab title and controls apart with the panel settings drawer open', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInAs(page, 'engineer');
+    await page.goto(`${SCREEN}&roomNames=PHOTO&from=2026-09-24T09:00:00&to=2026-09-26T09:00:00&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=table&motionEquipment=MEM-PHOTO-0103&motionEquipment=MEM-PHOTO-0105`);
+    await workspace(page).getByRole('tab', { name: '원본 표', exact: true }).click();
+    await workspace(page).getByRole('button', { name: '원본 표 동작', exact: true }).click();
+    await page.getByRole('menuitem', { name: '패널 설정', exact: true }).click();
+    const drawer = page.getByRole('dialog', { name: '원본 표', exact: true });
+    await expect(drawer).toBeVisible();
+    await drawer.hover();
+
+    const strip = workspace(page).locator('.dv-tabs-and-actions-container').filter({
+      has: page.locator('[data-dock-chart-head][data-dock-active="previous"]'),
+    });
+    await expect(strip.getByRole('tab')).toBeVisible();
+    await expect(strip.getByRole('button', { name: '표로 보기', exact: true })).toBeVisible();
+    await expect(strip.getByRole('button', { name: /최대화$/ })).toBeVisible();
+    await expect(strip.getByRole('button', { name: '더보기', exact: true })).toBeVisible();
+
+    await expect.poll(() => strip.evaluate(header => {
+      const title = header.querySelector('[data-dock-tab="previous"]')!.getBoundingClientRect();
+      const bounds = header.getBoundingClientRect();
+      const tolerance = 0.5;
+      const problems: string[] = [];
+      for (const control of header.querySelectorAll('button')) {
+        if (control.closest('[inert]') || !control.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+        const box = control.getBoundingClientRect();
+        const name = control.getAttribute('aria-label') ?? control.textContent;
+        const intersects = title.left < box.right - tolerance && box.left < title.right - tolerance
+          && title.top < box.bottom - tolerance && box.top < title.bottom - tolerance;
+        if (intersects) problems.push(`${name} overlaps the tab title`);
+        if (box.left < bounds.left - tolerance || box.right > bounds.right + tolerance
+          || box.top < bounds.top - tolerance || box.bottom > bounds.bottom + tolerance) {
+          problems.push(`${name} lies outside the header strip`);
+        }
+      }
+      return problems;
+    })).toEqual([]);
+    await evidence(page, testInfo, 'narrow-docked-chart-header');
   });
 });
 
@@ -371,8 +450,10 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     await expect(check).toHaveAttribute('aria-checked', 'false');
     await page.goto(SCREEN);
     await page.getByRole('button', { name: '패널 추가', exact: true }).click();
-    await expect(page.getByRole('menuitem', { name: /설비 × Module 히트맵/ })).toHaveAttribute('aria-disabled', 'true');
-    await expect(page.getByRole('menu')).toContainText('Module 타입을 고르면 볼 수 있음');
+    const heatmap = page.getByRole('dialog', { name: '패널 추가' }).getByRole('button', { name: /설비 × Module 히트맵/ });
+    await expect(heatmap).toHaveAttribute('aria-disabled', 'true');
+    // The categorized picker shows a short status in the row; the full reason is the row's accessible description (layout §12.8).
+    await expect(heatmap).toHaveAccessibleDescription(/Module 타입을 고르면 볼 수 있음/);
   });
 
   test('malformed drill is rejected before any data read', async ({ page }) => {

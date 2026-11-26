@@ -207,3 +207,45 @@ it('refits the mounted chart options when the owning strip crosses 480px in both
     rect.mockRestore();
   }
 });
+
+it('keeps the table toggle accessible and focused as its docked slot switches between icon and text', async () => {
+  let stripWidth = 194;
+  const measure = HTMLElement.prototype.getBoundingClientRect;
+  const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    return this.matches('.dv-tabs-and-actions-container') ? { ...measure.call(this), width: stripWidth } : measure.call(this);
+  });
+  onTestFinished(() => rect.mockRestore());
+  mount();
+  const tab = await screen.findByRole('tab', { name: '패널 a' });
+  const strip = tab.closest<HTMLElement>('.dv-tabs-and-actions-container')!;
+  const toggle = await within(strip).findByRole('button', { name: '표로 보기' });
+  const tableSlot = (target: Element) => target.matches('[data-dock-chart-table-slot]');
+  const textProbe = (target: Element) => target.matches('[data-dock-chart-table-probe]');
+
+  observer.touch(textProbe, 86);
+  observer.touch(tableSlot, 28);
+  expect(toggle).toHaveTextContent(/^$/);
+  expect(toggle).toHaveAccessibleName('표로 보기');
+  expect(toggle).toHaveAttribute('title', '표로 보기');
+  expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  act(() => { toggle.focus(); });
+  fireEvent.click(toggle);
+  expect(toggle).toHaveAttribute('aria-pressed', 'true');
+
+  stripWidth = 500;
+  observer.touch(target => target === strip, stripWidth);
+  observer.touch(tableSlot, 86);
+  expect(toggle).toHaveTextContent('표로 보기');
+  expect(toggle).toHaveFocus();
+  expect(toggle).toHaveAttribute('aria-pressed', 'true');
+});
+
+it('ellipsizes a plain tab title and keeps docked start controls focus-visible inside their scrollport', async () => {
+  mount();
+  const tab = await screen.findByRole('tab', { name: '패널 a' });
+  // A bare text node in the flex tab label clips without an ellipsis; its own truncating span draws one.
+  expect(within(tab).getByText('패널 a')).toHaveClass('min-w-0', 'truncate');
+  const strip = tab.closest<HTMLElement>('.dv-tabs-and-actions-container')!;
+  // The start slot scrolls horizontally, which also clips vertically, so its buttons draw the ring inside.
+  expect(strip.querySelector('[data-chart-toolbar-start]')).toHaveClass('[&_button:focus-visible]:ring-inset');
+});

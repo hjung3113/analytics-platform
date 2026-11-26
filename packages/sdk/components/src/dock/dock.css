@@ -191,6 +191,9 @@
 .ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-head]) {
   flex-wrap: nowrap;
   height: var(--dv-tabs-and-actions-container-height);
+  /* Keep the action end in view even if the panel is narrower than its header controls. */
+  justify-content: flex-end;
+  overflow: clip;
 }
 /* A declared query keeps the same body height when its chart tools mount or leave. */
 .ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-head]):not(:has([data-workspace-query-head])) {
@@ -199,7 +202,8 @@
 .ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-head]) .dv-right-actions-container {
   flex: 0 1 auto;
   width: auto;
-  min-width: 0;
+  /* The toolbar can shrink its tools and text, but its permanent icon tail sets the floor. */
+  min-width: min-content;
 }
 .ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-options]) .dv-right-actions-container {
   flex-grow: 1;

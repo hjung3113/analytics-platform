@@ -1,4 +1,4 @@
-// CI `PR guard` job (#2643): the three caps, each passed only by a recorded answer. Rules: .agents/conductor/PROFILE.md §Size and path, «Mechanical caps».
+// CI `PR guard` job (#2643): the mechanical caps. Rules: .agents/conductor/PROFILE.md §Size and path, «Mechanical caps».
 //
 //   size    more than MAX_LINES changed lines (additions + deletions) or MAX_FILES files, tests included, generated files (the
 //           contract-schemas JSON Schema artifacts, whose drift the package test catches), snapshots, lockfiles (EXCLUDED) and release
@@ -10,6 +10,7 @@
 //   scope   every issue the PR closes (`Closes|Fixes|Resolves #n` in the body, or `type(#n)` in the title) must be listed in `## 범위` of the
 //           newest `.planning/releases/v<semver>.md` on the base branch → fails unless the PR carries `owner-ok:scope`. A PR whose head adds
 //           numbers to that section needs the same label. No release file or no `## 범위` section → fails (the owner picks the scope first).
+//   budget  raising either number in .github/ci-budget.json requires the ci-budget-ok label; deletion or invalid values always fail.
 // Fail-closed: an API error fails the job (rerun it); a guard that skips on error would be the lead's exception by another name.
 // Node builtins only (sparse checkout, no install). Needs GITHUB_TOKEN with pull-requests: read and actions: read.
 //
@@ -27,6 +28,23 @@ export const EXCLUDED = /((^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$
 const ROUND_LINE = /^[ \t]*Round cap:[ \t]*(\S.*)$/m;
 const SIZE_LINE = /^[ \t]*Size:[ \t]*(\S.*)$/m;
 const RELEASE_FILE = /^v(\d+)\.(\d+)\.(\d+)\.md$/;
+const BUDGET_FILE = '.github/ci-budget.json';
+const BUDGET_LABEL = 'ci-budget-ok';
+const INITIAL_BUDGET = { maxParallelPrJobs: 9, maxJobMinutes: 10 };
+
+export function budgetVerdict(base, head, labels) {
+  const valid = (budget) => budget && Object.keys(INITIAL_BUDGET).every((key) => Object.hasOwn(budget, key))
+    && typeof budget.reason === 'string' && /^[^\r\n]+$/.test(budget.reason.trim())
+    && Object.entries(budget).every(([key, value]) => key === 'reason' || (Number.isSafeInteger(value) && value > 0));
+  if (!valid(head) || (base !== null && !valid(base))) return { ok: false, detail: 'missing or invalid CI budget' };
+  const previous = base ?? INITIAL_BUDGET;
+  const raised = Object.keys(head).filter((key) => key !== 'reason')
+    .filter((key) => !Object.hasOwn(previous, key) || head[key] > previous[key])
+    .map((key) => Object.hasOwn(previous, key) ? `${key} ${previous[key]} → ${head[key]}` : `${key} added at ${head[key]}`);
+  if (raised.length === 0) return { ok: true, detail: 'no budget increase' };
+  const approved = labels.includes(BUDGET_LABEL);
+  return { ok: approved, detail: `${raised.join(', ')} · ${approved ? 'approved by' : 'requires'} \`${BUDGET_LABEL}\`` };
+}
 
 // The release-docs PR bumps either line in every consumer package (lead.md §Slice close step 1).
 const RELEASE_LINE = /^[-+]\s*("version":\s*"[^"]*"|"ap":\s*\{\s*"sdk":\s*"[^"]*"\s*\}),?\s*$/;
@@ -109,18 +127,33 @@ function labelsNote(size) {
   return size.answer ? `, Size: ${size.answer}` : `, waived by \`${SIZE_LABEL}\``;
 }
 
-export function summarize({ size, rounds, scope, labelEvents, releaseFile }) {
+export function summarize({ size, rounds, scope, budget, labelEvents, releaseFile }) {
   const mark = (ok) => (ok ? 'ok' : 'FAIL');
   const rows = [
     `| size | ${mark(size.ok)} | ${size.lines} lines, ${size.files} files (cap ${MAX_LINES}/${MAX_FILES}; ${size.excluded} generated/snapshot/lockfile/release-mechanical excluded)${size.waived ? (labelsNote(size)) : ''} |`,
     `| rounds | ${mark(rounds.ok)} | ${rounds.pushes} pushes (cap ${MAX_PUSHES} without an answer)${rounds.answer ? `, Round cap: ${rounds.answer}` : rounds.over ? ', no `Round cap:` line in the PR body' : ''} |`,
     `| scope | ${mark(scope.ok)} | closes ${scope.closes.length ? scope.closes.map((n) => `#${n}`).join(' ') : 'nothing'}; ${scope.noSection ? `no \`## 범위\` in ${releaseFile ?? 'any release file'} on the base branch` : `missing from ${releaseFile}: ${scope.missing.map((n) => `#${n}`).join(' ') || 'none'}`}${scope.grew.length ? `; head adds ${scope.grew.map((n) => `#${n}`).join(' ')} to \`## 범위\`` : ''}${scope.waived ? `; waived by \`${SCOPE_LABEL}\`` : ''} |`,
   ];
+  if (budget) rows.push(`| CI budget | ${mark(budget.ok)} | ${budget.detail} |`);
   const events = labelEvents.length ? labelEvents.map((e) => `- \`${e.label}\` applied by ${e.actor} at ${e.at}`).join('\n') : '- none';
   return `## PR guard\n\n| check | verdict | detail |\n| --- | --- | --- |\n${rows.join('\n')}\n\nOwner labels:\n${events}\n`;
 }
 
 function selfTest() {
+  const currentBudget = { maxParallelPrJobs: 9, maxJobMinutes: 10, reason: 'Fixture budget.' };
+  assert.equal(budgetVerdict(currentBudget, currentBudget, []).ok, true);
+  assert.equal(budgetVerdict(null, currentBudget, []).ok, true);
+  assert.equal(budgetVerdict(currentBudget, { ...currentBudget, maxParallelPrJobs: 8 }, []).ok, true);
+  assert.equal(budgetVerdict(currentBudget, { ...currentBudget, maxParallelPrJobs: 10 }, []).ok, false);
+  assert.equal(budgetVerdict(currentBudget, { ...currentBudget, maxJobMinutes: 11 }, ['ci-budget-ok']).ok, true);
+  assert.equal(budgetVerdict(currentBudget, null, ['ci-budget-ok']).ok, false);
+  const extended = { ...currentBudget, maxRunnerMinutes: 90 };
+  assert.equal(budgetVerdict(currentBudget, extended, []).ok, false);
+  assert.equal(budgetVerdict(currentBudget, extended, ['ci-budget-ok']).ok, true);
+  assert.equal(budgetVerdict(null, extended, []).ok, false);
+  assert.equal(budgetVerdict(extended, { ...extended, maxRunnerMinutes: 80 }, []).ok, true);
+  assert.equal(budgetVerdict({ ...extended, maxRunnerMinutes: '90' }, extended, ['ci-budget-ok']).ok, false);
+  assert.equal(budgetVerdict(currentBudget, { ...extended, maxRunnerMinutes: 0 }, ['ci-budget-ok']).ok, false);
   const f = (filename, additions, deletions, previous_filename) => ({ filename, additions, deletions, previous_filename });
   // size
   assert.deepEqual(sizeVerdict([f('a.ts', 10, 5), f('pnpm-lock.yaml', 900, 0), f('x/__snapshots__/a.snap', 50, 0), f('tooling/sdk/api/ui.md', 70, 0), f('packages/sdk/CHANGELOG.md', 20, 0), f('packages/sdk/contract-schemas/schemas/chartConfig.json', 130, 0)], []), { lines: 15, files: 1, excluded: 5, over: false, answer: null, waived: false, ok: true });
@@ -213,6 +246,12 @@ async function main() {
   const pr = await api(`/repos/${repo}/pulls/${n}`);
   const labels = pr.labels.map((l) => l.name);
   const files = await paged(`/repos/${repo}/pulls/${n}/files`);
+  let budget;
+  if (files.some((file) => file.filename === BUDGET_FILE || file.previous_filename === BUDGET_FILE)) {
+    const readBudget = async (ref) => JSON.parse(await api(`/repos/${repo}/contents/${BUDGET_FILE}?ref=${ref}`, { raw: true }));
+    const [baseBudget, headBudget] = await Promise.all([readBudget(pr.base.sha), readBudget(pr.head.sha)]);
+    budget = budgetVerdict(baseBudget, headBudget, labels);
+  }
   const runs = (await paged(`/repos/${repo}/actions/workflows/ci.yml/runs?event=pull_request&branch=${encodeURIComponent(pr.head.ref)}`))
     .filter((r) => r.head_repository?.full_name === pr.head.repo?.full_name && r.created_at >= pr.created_at);
   const baseRef = encodeURIComponent(scopeBaseRef(pr));
@@ -221,17 +260,17 @@ async function main() {
   const baseText = releaseFile ? await api(`/repos/${repo}/contents/.planning/releases/${releaseFile}?ref=${baseRef}`, { raw: true }) : null;
   const headText = releaseFile ? await api(`/repos/${repo}/contents/.planning/releases/${releaseFile}?ref=${pr.head.sha}`, { raw: true }) : null;
   const labelEvents = (await paged(`/repos/${repo}/issues/${n}/events`))
-    .filter((e) => e.event === 'labeled' && e.label?.name?.startsWith('owner-ok:'))
+    .filter((e) => e.event === 'labeled' && (e.label?.name?.startsWith('owner-ok:') || e.label?.name === BUDGET_LABEL))
     .map((e) => ({ label: e.label.name, actor: e.actor?.login ?? '?', at: e.created_at }));
 
   const size = sizeVerdict(files, labels, pr.body);
   const rounds = roundsVerdict(runs.length, pr.body);
   const scope = scopeVerdict({ closes: closingIssues(pr.title, pr.body), baseScope: scopeIssues(baseText), headScope: scopeIssues(headText), labels });
-  const text = summarize({ size, rounds, scope, labelEvents, releaseFile });
+  const text = summarize({ size, rounds, scope, budget, labelEvents, releaseFile });
   console.log(text);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text);
-  if (!(size.ok && rounds.ok && scope.ok)) {
-    console.error(`pr-guard: FAIL (size=${size.ok} rounds=${rounds.ok} scope=${scope.ok}). Rules: .agents/conductor/PROFILE.md §Size and path, Mechanical caps.`);
+  if (!(size.ok && rounds.ok && scope.ok && (budget?.ok ?? true))) {
+    console.error(`pr-guard: FAIL (size=${size.ok} rounds=${rounds.ok} scope=${scope.ok} budget=${budget?.ok ?? 'unchanged'}). Rules: .agents/conductor/PROFILE.md §Size and path, Mechanical caps.`);
     process.exit(1);
   }
 }

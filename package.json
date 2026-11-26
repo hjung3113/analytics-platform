@@ -28,6 +28,7 @@
     "sdk:test": "node --test tooling/sdk/*.test.mjs"
   },
   "devDependencies": {
-    "turbo": "^2.11.11"
+    "turbo": "^2.11.11",
+    "yaml": "2.9.1"
   }
 }

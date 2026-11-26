@@ -1871,7 +1871,6 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
 // tolerances from browser measurements (`ROUNDING` is a placeholder for the engine's pixel rounding, not a measurement).
 test.describe('쌓기 기본값과 상호작용 (#701)', () => {
   const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
-  const HW_TIME = '/mars/hw-time?v=1&scopeId=MEM';
   const STORE = /^platform:workspace:v1:.+:cycle-time:drilldown$/;
   const TITLES = { summary: '사이클타임 요약', trend: '사이클타임 추세', distribution: '사이클타임 분포', slow: '느린 실행' } as const;
   const ROUNDING = 2;
@@ -2108,18 +2107,6 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await page.mouse.up();
   });
 
-  test('HW Time 단계 패널: 맞춤으로 시작하고 첫 줄 패널 안이 넘치지 않는다', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(HW_TIME);
-    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
-    await expect(root(page).locator('canvas')).not.toHaveCount(0);
-    for (const id of ['tree', 'current']) {
-      const panel = root(page).locator(`[data-dock-panel="${id}"]`);
-      await expect(panel).toBeVisible();
-      await expect.poll(() => panel.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
-    }
-  });
-
   test('사이클타임: 처음 열면 차트·요약 패널 안이 넘치지 않는다(패널 선호 높이)', async ({ page }) => {
     await open(page);
     for (const id of ['trend', 'summary', 'distribution']) {
@@ -2134,28 +2121,6 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     const tableBox = (await slow.locator('section').first().boundingBox())!;
     const panelBox = (await slow.boundingBox())!;
     expect(tableBox.y + tableBox.height).toBeLessThanOrEqual(panelBox.y + panelBox.height + ROUNDING);
-  });
-});
-
-test.describe('fill 페이지의 표 높이 (06 §12.8, #690k)', () => {
-  test('1440×900 HW Time 원시 표의 행 영역이 패널 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
-    await signInAs(page, 'admin');
-    await page.goto('/mars/hw-time?v=1&scopeId=MEM&pins=table');
-    await page.getByRole('region', { name: 'HW Time 분석 영역', exact: true }).getByRole('tab', { name: '원본 표', exact: true }).click();
-    const tablePanel = page.locator('[data-dock-panel="table"]');
-    const rows = tablePanel.getByLabel('스크롤 가능한 행 영역');
-    await expect(rows).toBeVisible();
-    await expect(rows.getByRole('row').nth(2)).toBeVisible();
-    const slot = tablePanel;
-    // The cap follows layout (observers), so poll until it has grown past the unmeasured fallback.
-    await expect.poll(async () => {
-      const rowsBox = (await rows.boundingBox())!;
-      const slotBox = (await slot.boundingBox())!;
-      return slotBox.y + slotBox.height - (rowsBox.y + rowsBox.height);
-    }).toBeLessThanOrEqual(120);
-    // Filling must not overshoot its panel (the stacked page itself scrolls by design).
-    await expect.poll(() => tablePanel.evaluate(panel => panel.scrollHeight - panel.clientHeight)).toBeLessThanOrEqual(1);
-    await evidence(page, testInfo, 'hw-time-table-fill');
   });
 });
 
