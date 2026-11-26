@@ -69,10 +69,6 @@ export interface VocTriageScreenProps {
   onAreaChange?: (next: string | undefined) => void;
   queueTotalUnavailableState?: keyof typeof VOC_TRIAGE_QUEUE_TOTAL_LABELS;
   tabCounts?: Partial<Record<TriageTab, number>>;
-  outOfScopeSummary?: {
-    count: number;
-    severity_distribution: Record<string, number>;
-  };
   processedCount?: number;
   onProcessed?: (delta: 1 | -1) => void;
   me?: MeResponse | null;
@@ -105,7 +101,6 @@ export function VocTriageScreen({
   areaFilter,
   onAreaChange,
   tabCounts,
-  outOfScopeSummary,
   processedCount = 0,
   onProcessed,
   me,
@@ -413,7 +408,6 @@ export function VocTriageScreen({
             {...(queueError === true ? { queueError } : {})}
             {...(onRetryQueue !== undefined ? { onRetryQueue } : {})}
             {...(queueTotal !== undefined ? { queueTotal } : {})}
-            {...(outOfScopeSummary !== undefined ? { outOfScopeSummary } : {})}
           >{queueFooter}</TriageQueue>
         </div>
 

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import userEvent from '@testing-library/user-event';
 // TriageQueue.test.tsx — RED tests for the triage queue container.
-// Covers: renders rows, empty state, OutOfScopeSummary.
+// Covers: renders rows, empty state.
 // TDD RED: these tests are written before the implementation file exists.
 
 import type { VocListItem } from '@ap/feature-shared';
@@ -55,19 +55,6 @@ describe('TriageQueue', () => {
     render(<TriageQueue vocs={VOCS} selectedId={null} onSelect={vi.fn()} />);
     expect(screen.getByText('First VOC')).toBeInTheDocument();
     expect(screen.getByText('Second VOC')).toBeInTheDocument();
-  });
-
-  it('renders OutOfScopeSummaryBanner when outOfScopeSummary is provided', () => {
-    render(
-      <TriageQueue
-        vocs={VOCS}
-        selectedId={null}
-        onSelect={vi.fn()}
-        outOfScopeSummary={{ count: 2, severity_distribution: { high: 1, critical: 1 } }}
-      />,
-    );
-    // OutOfScopeSummaryBanner is rendered above rows
-    expect(screen.getByText(/2건/)).toBeInTheDocument();
   });
 
   it.each([
