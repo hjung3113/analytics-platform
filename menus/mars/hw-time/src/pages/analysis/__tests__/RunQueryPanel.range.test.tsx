@@ -121,15 +121,18 @@ it('sorts by breached days and breaks ties by maximum daily value', async () => 
   expect(tileIds(grid)).toEqual([equipment[2], equipment[1], equipment[0]]);
 });
 
-it('opens the same-data table from the one-day split grid', async () => {
+it('shows the same-data table in place of the one-day split grid (#3165)', async () => {
   const panel = await mountSplit([run(equipment[0]!, 0, 8, 'over')]);
   expect(panel.getByRole('grid')).toBeTruthy();
   fireEvent.click(panel.getByRole('button', { name: '표로 보기' }));
-  const table = within(screen.getByRole('dialog', { name: 'PM1 · Pump 일 평균' })).getByRole('table');
+  expect(panel.queryByRole('grid')).toBeNull();
+  const table = panel.getByRole('table');
+  expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent)).toEqual(['설비', '날짜', '평균 (초)', 'HTM 하한 (초)', 'HTM 상한 (초)', '상태']);
   const row = await within(table).findByRole('row', { name: /MEM-PHOTO-0103/ });
   expect(within(row).getAllByRole('cell').map(cell => cell.textContent)).toEqual([
     equipment[0], '2026-09-23', '8.00', '2.00', '4.00', 'HTM 상한 초과',
   ]);
+  // The closing point that ends the band is not a day of data.
   expect(within(table).getAllByRole('row')).toHaveLength(2);
 });
 
@@ -147,14 +150,14 @@ it('names the Module roll-up in the split grid and its table when the value is M
   fireEvent.click(await screen.findByRole('option', { name: 'Module 시간' }));
   expect(await panel.findByRole('region', { name: 'PM1 · Module 일 평균' })).toBeTruthy();
   expect(panel.queryByRole('region', { name: 'PM1 · Pump 일 평균' })).toBeNull();
-  fireEvent.click(panel.getByRole('button', { name: '표로 보기' }));
-  const dialog = await screen.findByRole('dialog', { name: 'PM1 · Module 일 평균' });
-  expect(dialog.getAttribute('aria-describedby') && document.getElementById(dialog.getAttribute('aria-describedby')!)?.textContent)
-    .toBe('Module 시간은 선택한 Motion의 합이며, 상태는 전체 Motion의 서버 판정입니다.');
-  const row = await within(dialog).findByRole('row', { name: /2026-09-23/ });
+  const toggle = panel.getByRole('button', { name: '표로 보기' });
+  fireEvent.click(toggle);
+  const table = panel.getByRole('table');
+  expect(within(table).getByText('Module 시간은 선택한 Motion의 합이며, 상태는 전체 Motion의 서버 판정입니다.')).toBeTruthy();
+  const row = within(table).getAllByRole('row', { name: /2026-09-23/ })[0]!;
   expect(within(row).getAllByRole('cell').map(cell => cell.textContent)).toEqual([equipment[0], '2026-09-23', '7.50', 'HTM 상한 초과']);
-  fireEvent.keyDown(dialog, { key: 'Escape' });
-  await vi.waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe('표로 보기'));
+  fireEvent.click(toggle);
+  expect(panel.getByRole('grid')).toBeTruthy();
 });
 
 it.each(['initial split', 'return to split'] as const)('edits a restored year-crossing date chip in %s', async mode => {

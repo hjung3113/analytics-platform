@@ -420,3 +420,44 @@ it('shows the density choice only when requested and keeps the choice out of the
   expect(tile(0)).toHaveClass('h-18');
   expect(window.location.href).toBe(before);
 });
+
+it('offers no table toggle unless the consumer opts in (#3165)', () => {
+  render(view({ series: series.slice(0, 2) }));
+  expect(screen.queryByRole('button', { name: '표로 보기' })).toBeNull();
+});
+
+it('switches the tiles to a paged point table with bounds, status and consumer columns (#3165)', async () => {
+  const day = (n: number) => `2026-09-${String(20 + n).padStart(2, '0')}T00:00:00`;
+  const warn = { label: '상한 초과', tone: 'danger' as const };
+  const rows: SmallMultiplesSeries[] = [
+    { id: 'b', label: 'Asset B', points: Array.from({ length: 11 }, (_, n) => ({ x: day(n), y: n, status: n === 3 ? warn : undefined })),
+      bounds: new Map([[day(0), { lower: 1, upper: 9 }]]) },
+    { id: 'a', label: 'Asset A', points: [...Array.from({ length: 11 }, (_, n) => ({ x: day(n), y: n === 2 ? null : n * 2 })), { x: day(11), y: null }] },
+  ];
+  const user = userEvent.setup();
+  render(view({ series: rows, table: {
+    caption: 'Module roll-up',
+    includeRow: row => row.x !== day(11),
+    columns: defaults => [...defaults, { id: 'note', label: 'Note', cell: row => `${row.seriesId}:${row.y ?? 'none'}` }],
+  } }));
+  const toggle = screen.getByRole('button', { name: '표로 보기' });
+  expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await user.click(toggle);
+  expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.queryByRole('grid')).toBeNull();
+  const table = screen.getByRole('table');
+  expect(within(table).getByText('Module roll-up')).toBeInTheDocument();
+  expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent))
+    .toEqual(['이름', '시각', '값 (ms)', '하한 (ms)', '상한 (ms)', '상태', 'Note']);
+  const cells = (index: number) => within(within(table).getAllByRole('row')[index + 1]).getAllByRole('cell').map(cell => cell.textContent);
+  expect(cells(0)).toEqual(['Asset B', '2026-09-20', '0', '1', '9', '', 'b:0']);
+  expect(cells(3)).toEqual(['Asset B', '2026-09-23', '3', '1', '9', '■ 상한 초과', 'b:3']);
+  expect(screen.getByText('Trend · 1/2')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '다음 쪽' }));
+  // 22 rows: the closing point of Asset A is left out; its gap stays as a row.
+  expect(screen.getByText('Trend · 2/2')).toBeInTheDocument();
+  expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(3);
+  expect(cells(0)).toEqual(['Asset A', '2026-09-29', '18', '—', '—', '', 'a:18']);
+  await user.click(toggle);
+  expect(screen.getByRole('grid')).toBeInTheDocument();
+});
