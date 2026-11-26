@@ -469,7 +469,7 @@ test.describe('공유 위젯 응답 (06 §19, #55)', () => {
     await expect(main.locator('[data-outcome-banner], [data-access-request-banner]')).toHaveCount(1);
     for (const name of ['지표 요약', 'Job 처리량 추세', '점유 구성', '확인할 항목']) {
       const state = main.getByRole('region', { name, exact: true });
-      await expect(state.getByText('불러오지 못함')).toBeVisible();
+      await expect(state.getByText('위 안내 참고(권한 없음)', { exact: true })).toBeVisible();
       await expect(state.getByRole('heading', { name, exact: true })).toHaveCount(1);
     }
     await expect(main.getByRole('button', { name: '다시 시도' })).toHaveCount(0);

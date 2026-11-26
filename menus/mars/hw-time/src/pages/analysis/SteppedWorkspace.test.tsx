@@ -185,7 +185,7 @@ describe('HW Time saved view panels', () => {
     fireEvent.click(screen.getByRole('button', { name: 'hold table' }));
     await settle();
     expect([config().titles.table, config().titles['saved-panel-1']]).toEqual(['원본 표', '원본 표 · 붙잡음']);
-    expect(config().ids.filter((id: string) => id === 'table' || id.startsWith('saved-panel') || id.startsWith('table-'))).toHaveLength(2);
+    expect(config().ids.filter((id: string) => id === 'table' || id.startsWith('saved-panel-') || id.startsWith('table-'))).toHaveLength(2);
   });
 
   const step4Page: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['motionEquipment', 'MEM-PHOTO-0105']];
@@ -198,11 +198,11 @@ describe('HW Time saved view panels', () => {
     await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1', 'saved-panel-2'])));
     expect([config().titles.table, config().titles['saved-panel-1']]).toEqual(['원본 표', '원본 표 2']);
     expect(config().placement['saved-panel-2']).toBeUndefined();
-    const third = screen.getByRole('region', { name: 'panel saved-panel-2' });
-    expect(within(third).getByText('같은 패널은 2개까지 함께 엽니다. 이 패널은 저장된 뷰에만 있습니다.')).toBeTruthy();
+    const third = () => screen.getByRole('region', { name: 'panel saved-panel-2' });
+    expect(within(third()).getByText('같은 패널은 2개까지 함께 엽니다. 이 패널은 저장된 뷰에만 있습니다.')).toBeTruthy();
     const saveAs = async () => act(() => views.saveAs({ name: `Tables ${Math.random()}`, kind: 'menu-view' }));
     expect(await saveAs()).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: tables } } } });
-    fireEvent.click(within(third).getByRole('button', { name: 'remove saved-panel-2' }));
+    fireEvent.click(within(third()).getByRole('button', { name: 'remove saved-panel-2' }));
     await settle();
     expect(config().ids).not.toContain('saved-panel-2');
     expect(await saveAs()).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: tables.slice(0, 2) } } } });
@@ -297,6 +297,66 @@ describe('HW Time saved view panels', () => {
   });
 
   const stepFourPage: MenuView['page'] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['pins', 'table']];
+
+  it.each([
+    ['판정 비율 도넛', { ...donut, id: 'extra' }, '도넛 차트', 'saved-panel-0'],
+    ['상한 초과 파레토', pareto, '파레토 차트', 'pareto'],
+    ['PM1 · Pump · 설비별', { ...makeInstance('moduleMotions'), id: 'current' }, '가로 막대', 'current'],
+  ] as const)('opens the declared recipe inside the %s slot', async (title, instance, shape, slotId) => {
+    const primary = slotId === 'current';
+    const store = createFakeSavedViewStore([saved({
+      page: primary ? stepFourPage : [],
+      panels: { version: 1, instances: [instance] },
+    })]);
+    await renderOverview('', answer, { savedViews: store, children: <Probe />, realWorkspace: true });
+    await waitFor(() => expect(views.status).toBe('ready'));
+    await open('saved');
+    const tab = await screen.findByRole('tab', { name: title });
+    expect(tab.dataset.tabPanelId).toBe(slotId);
+    fireEvent.keyDown(tab, { key: 'F10', shiftKey: true });
+    const recipe = await screen.findByRole('menuitem', { name: '이 패널 만든 방법' });
+    if (primary) expect(screen.queryByRole('menuitem', { name: '숨기기' })).toBeNull();
+    fireEvent.click(recipe);
+    const slot = document.querySelector<HTMLElement>(`[data-dock-panel="${slotId}"]`);
+    expect(slot).toBeTruthy();
+    const body = await within(slot!).findByRole('region', { name: '패널 설명 본문' });
+    expect(within(body).getByText(shape)).toBeTruthy();
+    if (primary) {
+      expect(within(body).getByText('AnalysisChartFrame')).toBeTruthy();
+      for (const label of ['숨기기', '고정']) {
+        expect(within(body).getByText(label).closest('li')?.textContent).toContain('미사용');
+      }
+    }
+  });
+
+  it.each([
+    ['trend~1', 'trend', 'saved-panel-0'],
+    ['current~1', 'moduleMotions', 'saved-panel-0'],
+    ['table~1', 'table', 'saved-panel-0'],
+  ])(
+    'opens %s in its own slot and preserves its record on save',
+    async (id, panel, slot) => {
+      const panels = { version: 1 as const, instances: [{ ...makeInstance(panel), id }] };
+      await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels })]));
+      await open('saved');
+      const result = await act(() => views.saveAs({ name: 'Copy', kind: 'menu-view' }));
+      expect(result).toMatchObject({ ok: true, value: { view: { panels } } });
+      const tableSlot = panel === 'table' ? [] : ['table'];
+      expect(config().ids).toEqual(['tree', 'previous', 'current', slot, ...tableSlot, 'trend']);
+    },
+  );
+
+  it.each([0, 1])('assigns the pinned table slot to exact table at saved index %s', async canonicalIndex => {
+    const exact = makeInstance('table');
+    const extra = { ...exact, id: 'table~1' };
+    const instances = canonicalIndex === 0 ? [exact, extra] : [extra, exact];
+    await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels: { version: 1, instances } })]));
+    await open('saved');
+    expect(config().pins.table).toBe(true);
+    const alias = `saved-panel-${1 - canonicalIndex}`;
+    const slots = canonicalIndex === 0 ? ['table', alias] : [alias, 'table'];
+    expect(config().ids).toEqual(['tree', 'previous', 'current', ...slots, 'trend']);
+  });
 
   it('keeps the drawn panel slots when an interleaved held source moves to the end on save', async () => {
     const source = equipmentSource();
