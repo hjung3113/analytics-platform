@@ -11,7 +11,6 @@ import { applyRunPanelFilters, changeRunPanelFilters, runPanelFilterFields, vali
 import { runValue, shapeRunScatter, type RunScatterSettings } from './runScatterData';
 import { DEFAULT_RUN_TREND_SETTINGS, shapeRunTrend } from './runTrendData';
 import { RunTrendChart } from './RunTrendChart';
-import { RunTrendTable } from './RunTrendTable';
 
 // The scatter starts in one colour (24 equipment colours and a 24-entry legend were the noise); the trend keeps one line per equipment.
 const DEFAULT_SETTINGS = { scatter: { axis: 'equipment-module', color: 'single', value: 'motion' }, trend: DEFAULT_RUN_TREND_SETTINGS } satisfies Record<'scatter' | 'trend', RunScatterSettings>;
@@ -157,9 +156,7 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, d
           {analysisSelectionOutput && !selectionDisabled && <TrendRangeCandidates output={analysisSelectionOutput} categories={projected.trend.categories} />}
           <SmallMultiplesGrid series={multiples.series} sortOptions={multiples.sortOptions} title={subtitle} unit={HW_TIME_UNIT[lang]}
           boundLabels={projected.trend.boundLabels} showAxisControl showDensityControl analysisSelectionOutput={equipmentSelectionOutput}
-          selectionDisabled={selectionDisabled} actions={<>{viewToggle}{settingsPopover}
-            {multiples.tableRows.length > 0 && <RunTrendTable title={subtitle} note={moduleTrend ? m('moduleStatusNote') : undefined} rows={multiples.tableRows} />}
-          </>} /></div>}
+          selectionDisabled={selectionDisabled} table={multiples.table} actions={<>{viewToggle}{settingsPopover}</>} /></div>}
         {joinTrendHeader && <div className="flex min-h-min flex-1 flex-col"><RunTrendChart chartId="hw-overview-runs-trend" trend={projected.trend} description={contextNote} activeCategory={activeDay || null} toolbarStart={panelHeader}
           analysisSelectionOutput={analysisSelectionOutput} nextAnalysisTarget={nextAnalysisTarget} /></div>}
         {/* Prototype A (#2740): the split view is the grid alone; the daily verdict counts belong to the overlay. */}

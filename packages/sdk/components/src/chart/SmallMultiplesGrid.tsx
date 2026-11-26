@@ -9,9 +9,11 @@ import { COMPONENTS_MESSAGES } from '../messages';
 import { LocalPanelOptions } from '../workspace/PanelOptions';
 import { QueryPanelContentContext } from '../workspace/panelContext';
 import { ChartBoundsLegend } from './ChartBoundsLegend';
+import { ChartTableToggle } from './ChartInteractionToolbar';
 import { chartDiagnostic } from './analysisChartData';
 import type { ChartBoundLabels } from './chartBounds';
-import { statusGlyph, statusText } from './chartStatus';
+import { IntervalTable } from './canvasChartTable';
+import { statusGlyph, statusText, type ChartStatus } from './chartStatus';
 import { projectSmallMultiples, SmallMultiplePlot, smallMultipleStatusPaint, type SmallMultiplesSeries } from './smallMultiplesPlot';
 import { releaseFocusLater } from '../state/releaseFocusLater';
 
@@ -21,6 +23,35 @@ export type SmallMultiplesSortOption = {
   label: Text;
   /** Compare the original series inputs. Equal series keep their input order. */
   compare: (a: SmallMultiplesSeries, b: SmallMultiplesSeries) => number;
+};
+
+/** One point of one series in the `표로 보기` table (#3165). `lower`/`upper` are the series bounds in force at `x`. */
+export type SmallMultiplesTableRow = {
+  seriesId: string;
+  series: string;
+  x: string;
+  y: number | null;
+  status?: ChartStatus;
+  lower?: number;
+  upper?: number;
+};
+
+/** Default IDs: `series`, `x`, `value`, `lower`/`upper` (when any series has bounds) and `status` (when any point has one). */
+export type SmallMultiplesTableColumn = {
+  id: string;
+  label: string;
+  numeric?: boolean;
+  nowrap?: boolean;
+  cell: (row: SmallMultiplesTableRow) => ReactNode;
+};
+
+export type SmallMultiplesTableOptions = {
+  /** Shown with the table, e.g. why a column is absent. */
+  caption?: ReactNode;
+  /** Keep only data rows, e.g. drop a closing point that only ends a band. */
+  includeRow?: (row: SmallMultiplesTableRow) => boolean;
+  /** Rewrite, drop or add columns; receives the default columns in order. */
+  columns?: (defaults: readonly SmallMultiplesTableColumn[]) => readonly SmallMultiplesTableColumn[];
 };
 
 type Density = 'regular' | 'compact';
@@ -46,11 +77,17 @@ export type SmallMultiplesGridProps = {
   analysisSelectionOutput?: { panelId: string; key: string; instanceId?: string } | null;
   /** Show previous data without publishing selections from it. */
   selectionDisabled?: boolean;
-  /** Consumer entry point to the corresponding data table, or other panel actions. */
+  /** Menu panel actions at the end of the toolbar. The data table is `table`. */
   actions?: ReactNode;
+  /**
+   * Opt-in `표로 보기` toggle (#3165): the body switches from tiles to a paged table, one row per point, series in the grid's sort order.
+   * Off by default.
+   */
+  table?: boolean | SmallMultiplesTableOptions;
 };
 
 const DEFAULT_COLUMNS = 6;
+const DEFAULT_TABLE: SmallMultiplesTableOptions = {};
 const ORIGINAL_ORDER = 'original';
 const SORT_ID = 'sort';
 const INDEPENDENT = 'independent';
@@ -100,7 +137,7 @@ function RangeTooltip({ range, gridScroll, children }: { range: string; gridScro
 
 export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLUMNS, density, showDensityControl, onDensityChange, boundLabels,
   sortOptions, sortId, defaultSortId = ORIGINAL_ORDER, onSortChange, showAxisControl,
-  analysisSelectionOutput, selectionDisabled, actions }: SmallMultiplesGridProps) {
+  analysisSelectionOutput, selectionDisabled, actions, table }: SmallMultiplesGridProps) {
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const [localSortId, setLocalSortId] = useState(defaultSortId);
@@ -175,6 +212,33 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
   const precision = from.endsWith(':00') && to.endsWith(':00') ? 'minute' : 'second';
   const formatY = (value: number) => formatNumber(value, lang);
   const formatRange = ({ min, max }: typeof y) => `${formatY(min)}–${formatY(max)} ${unit}`.trim();
+  const tableOptions = table === true ? DEFAULT_TABLE : table || undefined;
+  const [tableShown, setTableShown] = useState(false);
+  const [tablePage, setTablePage] = useState(0);
+  const showTable = !!tableOptions && tableShown && tiles.length > 0;
+  const tableView = useMemo(() => {
+    if (!showTable) return undefined;
+    const rows = tiles.flatMap(tile => tile.points.map((point): SmallMultiplesTableRow => {
+      const { lower, upper } = tile.bounds?.at(point.at) ?? {};
+      return { seriesId: tile.id, series: tile.label, x: point.at, y: point.value, status: point.status, lower, upper };
+    })).filter(row => tableOptions.includeRow?.(row) ?? true);
+    // Day buckets read as dates; anything finer keeps the grid's own wall-clock precision.
+    const days = rows.every(row => row.x.endsWith('T00:00:00'));
+    const number = (value: number | null | undefined) => value == null ? '—' : formatNumber(value, lang);
+    const withUnit = (label: string) => unit ? `${label} (${unit})` : label;
+    const defaults: SmallMultiplesTableColumn[] = [
+      { id: 'series', label: m('chartHeaderName'), cell: row => row.series },
+      { id: 'x', label: m('chartAxisTime'), nowrap: true, cell: row => days ? row.x.slice(0, 10) : formatWallClock(row.x, precision) },
+      { id: 'value', label: withUnit(m('chartHeaderValue')), numeric: true, cell: row => number(row.y) },
+    ];
+    if (legend.parts.length > 0) defaults.push(
+      { id: 'lower', label: withUnit(legend.labels.lower), numeric: true, cell: row => number(row.lower) },
+      { id: 'upper', label: withUnit(legend.labels.upper), numeric: true, cell: row => number(row.upper) },
+    );
+    if (rows.some(row => row.status)) defaults.push({ id: 'status', label: m('chartHeaderStatus'), cell: row => statusText(row.status) });
+    const columns = tableOptions.columns?.(defaults) ?? defaults;
+    return { rows, columns };
+  }, [showTable, tiles, tableOptions, lang, unit, legend, precision, m]);
   const options: DisplayOption[] = [];
   if (sorts.size > 0) options.push({
     id: SORT_ID, kind: 'choice', label: COMPONENTS_MESSAGES.smallMultiplesSort, default: ORIGINAL_ORDER,
@@ -234,13 +298,19 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
       <h3 className="text-sm">{title}</h3>
       {tiles.length > 0 && <span className="text-caption tabular text-text-secondary">{m('smallMultiplesCount', { count: formatY(tiles.length) })}</span>}
       <ChartBoundsLegend bounds={legend} singleLine />
-      {(options.length > 0 || actions) && <div className={cn('ml-auto flex items-center gap-2', options.length > 0 && 'flex-wrap')}>
+      {(options.length > 0 || actions || (tableOptions && tiles.length > 0)) && <div className={cn('ml-auto flex items-center gap-2', options.length > 0 && 'flex-wrap')}>
         {options.length > 0 && <LocalPanelOptions options={options} values={{ [SORT_ID]: sort?.id ?? ORIGINAL_ORDER,
           [AXIS_OPTION.id]: independent ? INDEPENDENT : AXIS_OPTION.default, [DENSITY_OPTION.id]: activeDensity }} onChange={changeOption} />}
+        {tableOptions && tiles.length > 0 && <ChartTableToggle shown={tableShown} toggle={() => { setTableShown(shown => !shown); setTablePage(0); }} />}
         {actions}
       </div>}
     </div>
-    {tiles.length === 0 ? <p className="p-3 text-sm text-text-secondary">{m('panelTrustEmpty')}</p> :
+    {tiles.length === 0 ? <p className="p-3 text-sm text-text-secondary">{m('panelTrustEmpty')}</p> : tableView ?
+      <div className="scrollbar-panel min-h-0 overflow-y-auto overscroll-contain">
+        <IntervalTable title={title} caption={tableOptions?.caption} columns={tableView.columns.map(({ label, numeric, nowrap }) => ({ label, numeric, nowrap }))}
+          count={tableView.rows.length} page={tablePage} onPage={setTablePage}
+          rows={(start, end) => tableView.rows.slice(start, end).map(row => ({ key: `${row.seriesId}\u0000${row.x}`, cells: tableView.columns.map(column => column.cell(row)) }))} />
+      </div> :
       <TooltipProvider delayDuration={200}><div ref={attachScroll} className="scrollbar-panel min-h-0 overflow-y-auto overscroll-contain">
         <div role="grid" aria-label={title} className="space-y-2 p-3" style={rowStyle}>
           {Array.from({ length: rowCount }, (_, row) => <div key={row} role="row" className="grid grid-cols-(--small-multiples-columns) gap-2">

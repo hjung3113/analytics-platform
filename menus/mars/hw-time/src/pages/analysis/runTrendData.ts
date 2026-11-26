@@ -1,20 +1,13 @@
 import { formatText } from '@ap/kernel';
 import { bucketStart, periodFromDates } from '@ap/contracts';
 import { HW_TIME_NEW_PANEL_MESSAGES, HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
-import type { ChartPoint, ChartSeries, SmallMultiplesSortOption } from '@ap/components';
+import type { ChartPoint, ChartSeries, SmallMultiplesSortOption, SmallMultiplesTableColumn, SmallMultiplesTableOptions } from '@ap/components';
 import { HW_TIME_UNIT, type HtmJudgement, type HwTimeRunObservation } from '../../endpoints';
-import { htmEmphasisStatus, htmStatusView } from '../../shared/htm';
+import { formatSeconds, missingText } from '../../shared/format';
+import { htmEmphasisStatus, htmStatusText, htmStatusView } from '../../shared/htm';
 import { runBound, runColor, runColorKey, runValue, type RunBound, type RunValueSettings } from './runScatterData';
 
 export const DEFAULT_RUN_TREND_SETTINGS = { axis: 'equipment-module', color: 'equipment', value: 'motion' } as const;
-
-export type RunTrendTableRow = {
-  equipment: string;
-  date: string;
-  value: number | null;
-  bound: RunBound;
-  judgement: HtmJudgement | undefined;
-};
 
 /** Daily averages are already server-judged. No client aggregation or value/bound comparison; drawn through the Frame's `bounds` and `pointStatus` (#2333). */
 export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: RunValueSettings, motions: readonly string[], lang: 'ko' | 'en', { sharedBounds = false, equipmentLabels, fullDates = false }: {
@@ -71,7 +64,7 @@ export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: 
 
   function smallMultiples() {
     const ranks = new Map<string, { breaches: number; maximum: number }>();
-    const tableRows: RunTrendTableRow[] = [];
+    const judgements = new Map<string, HtmJudgement | undefined>();
     const lastDay = dates.at(-1);
     const end = lastDay && periodFromDates({ start: lastDay, end: lastDay })?.to;
     const tiles = series.map(({ id, name, points }) => {
@@ -87,7 +80,7 @@ export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: 
         // A gap or a day without criteria clears the previous day's step bounds.
         if (settings.value === 'motion') bounds.set(x, bound);
         const value = Number.isFinite(y) ? y : null;
-        tableRows.push({ equipment: name, date, value, bound, judgement });
+        judgements.set(`${id}\u0000${x}`, judgement);
         if (value !== null) {
           maximum = Math.max(maximum, value);
           if (status) breaches += 1;
@@ -107,7 +100,33 @@ export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: 
         return right.breaches - left.breaches || (left.maximum === right.maximum ? 0 : right.maximum - left.maximum);
       },
     }];
-    return { series: tiles, sortOptions, tableRows };
+    const text = (message: Parameters<typeof formatText>[0]) => formatText(message, lang);
+    const seconds = (value: number | null | undefined) => value == null ? missingText(lang) : formatSeconds(value, lang);
+    // The grid's own table (#3165) with this menu's wording: every day carries the server's judgement text, not only the emphasized ones.
+    const table: SmallMultiplesTableOptions = {
+      // A Module roll-up sums Motions and has no HTM limits of its own, so the grid shows no limit columns for it.
+      caption: settings.value === 'module' ? text(HW_TIME_OVERVIEW_MESSAGES.moduleStatusNote) : undefined,
+      includeRow: row => row.x !== end,
+      columns: defaults => {
+        const unit = HW_TIME_UNIT[lang];
+        const limit = (id: 'lower' | 'upper'): SmallMultiplesTableColumn =>
+          ({ id, label: `${text(HW_TIME_OVERVIEW_MESSAGES[id])} (${unit})`, numeric: true, cell: row => seconds(row[id]) });
+        return [...defaults.flatMap((column): SmallMultiplesTableColumn[] => {
+          switch (column.id) {
+            case 'series': return [{ ...column, label: text(HW_TIME_OVERVIEW_MESSAGES.equipment) }];
+            case 'x': return [{ ...column, label: text(HW_TIME_NEW_PANEL_MESSAGES.date) }];
+            case 'value': return [{ ...column, label: `${text(HW_TIME_OVERVIEW_MESSAGES.average)} (${unit})`, cell: row => seconds(row.y) }];
+            // Motion time always lists its HTM limits, «미측정» on a day without them, even when no day has any (the grid would drop them).
+            case 'lower': case 'upper': case 'status': return [];
+            default: return [column];
+          }
+        }), ...settings.value === 'module' ? [] : [limit('lower'), limit('upper')], { id: 'judgement', label: text(HW_TIME_OVERVIEW_MESSAGES.status), cell: row => {
+          const judgement = judgements.get(`${row.seriesId}\u0000${row.x}`);
+          return judgement ? htmStatusText(judgement, lang) : missingText(lang);
+        } }];
+      },
+    };
+    return { series: tiles, sortOptions, table };
   }
 
   return { series, categories, verdictSeries, pointStatus: pointStatusOf, pointStatusOf, pointColorKeyOf, bounds, boundLabels, smallMultiples,

@@ -217,7 +217,6 @@ export const HW_TIME_NEW_PANEL_MESSAGES = {
   trendView: { ko: '추세 보기', en: 'Trend view' },
   trendOverlay: { ko: '겹쳐 보기', en: 'Overlay' },
   trendSplit: { ko: '나눠 보기', en: 'Small multiples' },
-  trendShowTable: { ko: '표로 보기', en: 'Show as table' },
   trendByBreaches: { ko: 'HTM 이탈 많은 순', en: 'Most days outside HTM limits' },
   lentEquipmentCoverage: { ko: '비교 설비 {requested}대 중 {returned}대에 일 평균 데이터가 있습니다.', en: 'Daily means are available for {returned} of {requested} compared equipment.' },
   syntheticHistory: { ko: '합성 HTM 기준 변경 이력', en: 'Synthetic HTM bound history' },
