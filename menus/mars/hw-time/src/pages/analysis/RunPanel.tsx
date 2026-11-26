@@ -2,7 +2,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnalysisChart, AnalysisChartFrame, FilterLine, SegmentedRadio, SmallMultiplesGrid, type AnalysisChartFrameProps, type ScatterSpec, type SmallMultiplesGridProps } from '@ap/components';
 import type { ColumnFilter } from '@ap/contracts';
-import { useI18n, useMessages } from '@ap/kernel';
+import { useAnalysisSelectionOutput, useI18n, useMessages } from '@ap/kernel';
 import { Button, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge } from '@ap/ui';
 import { HW_TIME_UNIT, type HtmJudgement, type HwTimeRunObservation, type HwTimeRuns } from '../../endpoints';
 import { HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
@@ -11,12 +11,23 @@ import { applyRunPanelFilters, changeRunPanelFilters, runPanelFilterFields, vali
 import { runValue, shapeRunScatter, type RunScatterSettings } from './runScatterData';
 import { DEFAULT_RUN_TREND_SETTINGS, shapeRunTrend } from './runTrendData';
 import { RunTrendChart } from './RunTrendChart';
+import { RunTrendTable } from './RunTrendTable';
 
 // The scatter starts in one colour (24 equipment colours and a 24-entry legend were the noise); the trend keeps one line per equipment.
 const DEFAULT_SETTINGS = { scatter: { axis: 'equipment-module', color: 'single', value: 'motion' }, trend: DEFAULT_RUN_TREND_SETTINGS } satisfies Record<'scatter' | 'trend', RunScatterSettings>;
 /** Short lower plot; Frame owns chart geometry and chrome. */
 const VERDICT_HEIGHT = 160;
 type TrendView = 'overlay' | 'split';
+
+function TrendRangeCandidates({ output, categories }: {
+  output: NonNullable<AnalysisChartFrameProps['analysisSelectionOutput']>; categories: readonly string[];
+}) {
+  const available = useMemo(() => categories.length ? {
+    from: categories[0]!, to: categories[categories.length - 1]!, candidates: categories.map(value => ({ value, label: value })),
+  } : undefined, [categories]);
+  useAnalysisSelectionOutput(output.panelId, output.key, { available, instanceId: output.instanceId, subscribeHighlight: false });
+  return null;
+}
 
 function Setting<T extends string>({ label, value, options, onChange }: { label: string; value: T; options: readonly { id: T; label: string }[]; onChange: (next: T) => void }) {
   return <label className="flex items-center gap-2 text-sm"><span className="whitespace-nowrap">{label}</span>
@@ -139,9 +150,13 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, d
         <div className="flex min-h-0 flex-1 flex-col"><AnalysisChart legendPlacement="bottom" toolsReveal="always" legendCaption={contextNote} description={contextNote} chartId="hw-overview-runs-scatter" title={m('distribution')} spec={scatter} unit={HW_TIME_UNIT[lang]} size="fill" /></div>
       </div>}
       {kind === 'trend' && (hasTrendDates || multiples) && <div className="flex min-h-0 flex-1 flex-col overflow-auto">
-        {multiples && <div className="flex min-h-48 flex-1 flex-col"><SmallMultiplesGrid {...multiples} title={subtitle} unit={HW_TIME_UNIT[lang]}
+        {multiples && <div className="flex min-h-48 flex-1 flex-col">
+          {analysisSelectionOutput && !selectionDisabled && <TrendRangeCandidates output={analysisSelectionOutput} categories={projected.trend.categories} />}
+          <SmallMultiplesGrid series={multiples.series} sortOptions={multiples.sortOptions} title={subtitle} unit={HW_TIME_UNIT[lang]}
           boundLabels={projected.trend.boundLabels} showAxisControl showDensityControl analysisSelectionOutput={equipmentSelectionOutput}
-          selectionDisabled={selectionDisabled} actions={<>{viewToggle}{settingsPopover}</>} /></div>}
+          selectionDisabled={selectionDisabled} actions={<>{viewToggle}{settingsPopover}
+            {multiples.tableRows.length > 0 && <RunTrendTable title={subtitle} rows={multiples.tableRows} />}
+          </>} /></div>}
         {joinTrendHeader && <div className="flex min-h-min flex-1 flex-col"><RunTrendChart chartId="hw-overview-runs-trend" trend={projected.trend} description={contextNote} activeCategory={activeDay || null} toolbarStart={panelHeader}
           analysisSelectionOutput={analysisSelectionOutput} nextAnalysisTarget={nextAnalysisTarget} /></div>}
         {/* Prototype A (#2740): the split view is the grid alone; the daily verdict counts belong to the overlay. */}

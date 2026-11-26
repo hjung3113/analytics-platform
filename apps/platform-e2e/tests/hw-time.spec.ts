@@ -341,7 +341,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     await trendTools.getByRole('button', { name: '지점 동작' }).click();
     await page.getByRole('menuitem', { name: 'HTM 추세 열기', exact: true }).click();
     if (await trendTools.isVisible()) await page.keyboard.press('Escape');
-    await expect(trendGrid(page)).toBeVisible();
+    await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
     expect(query(page).get('drillModule')).toBeNull();
     await add(page, '분포');
     await expect(panel(page, 'scatter').getByRole('img', { name: '분포', exact: true })).toBeVisible();
