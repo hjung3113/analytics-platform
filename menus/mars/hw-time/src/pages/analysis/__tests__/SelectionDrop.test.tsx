@@ -8,7 +8,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MOTION_EQUIPMENT_KEY } from '../../../endpoints';
 import { TREND_RANGE_OUTPUT } from '../../../panels';
 import { answer, renderOverview, requests } from '../test-support';
-import { instanceSlot } from '../heldPanels';
+import { HELD_SOURCE_ID, heldOutput, instanceSlot } from '../heldPanels';
 
 const equipment = 'MEM-PHOTO-0105';
 const following = 'MEM-PHOTO-0103';
@@ -102,40 +102,46 @@ function expectDisabled(item: HTMLElement, reason: string) {
   expect(document.getElementById(item.getAttribute('aria-describedby')!)?.textContent).toBe(reason);
 }
 
-it('holds the pointed-at second following table in place, restores it from a saved view and lets it follow again', async () => {
-  const chart: PanelInstance = { id: 'motion-chart', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
-    outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
-  // Saved tables with no connections render in Ignore mode.
-  const inputs: PanelInstance['inputs'] = [{ key: MOTION_EQUIPMENT_KEY, from: `${chart.id}.${MOTION_EQUIPMENT_KEY}`, mode: 'follow' }];
-  const first: PanelInstance = { ...table(), inputs };
-  const second: PanelInstance = { ...table('table-2'), inputs };
-  await mount([first, second, chart]);
+// Saved tables with no connections render in Ignore mode, so each one follows the Module chart's equipment output.
+const motionChart: PanelInstance = { id: 'motion-chart', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+  outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
+const followChart: PanelInstance['inputs'] = [{ key: MOTION_EQUIPMENT_KEY, from: `${motionChart.id}.${MOTION_EQUIPMENT_KEY}`, mode: 'follow' }];
+const firstTable: PanelInstance = { ...table(), inputs: followChart };
+const secondTable: PanelInstance = { ...table('table-2'), inputs: followChart };
+const heldSecond: PanelInstance = { ...secondTable, inputs: [{ key: MOTION_EQUIPMENT_KEY, from: `${HELD_SOURCE_ID}.${MOTION_EQUIPMENT_KEY}`, mode: 'hold', value: { shape: 'set', values: [equipment] } }] };
+const heldSource: PanelInstance = { id: HELD_SOURCE_ID, source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [heldOutput] };
+
+// Split in two (main-fix): one test opened four saved views and passed the 15 s limit under CI load once each open remounts the dock (#3103).
+it('holds the pointed-at second following table in place and saves it held', async () => {
+  await mount([firstTable, secondTable, motionChart]);
   await dragTo('원본 표 2');
-  expect(target(instanceSlot(second))?.getAttribute('data-selection-drop-state')).toBe('hovered');
+  expect(target(instanceSlot(secondTable))?.getAttribute('data-selection-drop-state')).toBe('hovered');
   pointer(window, 'pointerup', 150);
   expect(await screen.findByRole('tab', { name: '원본 표 · 붙잡음' })).toBeTruthy();
   expect(screen.getByRole('tab', { name: '원본 표' })).toBeTruthy();
   const held = await save('Held by drop');
-  const expected = { ...second, inputs: [{ key: MOTION_EQUIPMENT_KEY, from: 'held-source.motionEquipment', mode: 'hold', value: { shape: 'set', values: [equipment] } }] };
-  expect(held.panels?.instances).toEqual([first, expected, chart, expect.objectContaining({ id: 'held-source' })]);
-  const source = document.querySelector(`[data-tab-panel-id="${instanceSlot(chart)}"]`) as HTMLElement;
+  expect(held.panels?.instances).toEqual([firstTable, heldSecond, motionChart, heldSource]);
+  const source = document.querySelector(`[data-tab-panel-id="${instanceSlot(motionChart)}"]`) as HTMLElement;
   fireEvent.keyDown(source, { key: 'F10', shiftKey: true });
   expectDisabled(await screen.findByRole('menuitem', { name: '숨기기' }), '이 차트에서 붙잡은 패널이 있습니다');
   fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
   await open('saved');
   expect(await screen.findByRole('tab', { name: '원본 표 2' })).toBeTruthy();
-  await open(held.id);
+});
+
+it('restores the held table from a saved view, keeps it across a selection change and lets it follow again', async () => {
+  await mount([firstTable, heldSecond, motionChart, heldSource]);
   expect(await screen.findByRole('tab', { name: '원본 표 · 붙잡음' })).toBeTruthy();
   requests.length = 0;
   fireEvent.click(screen.getByRole('button', { name: 'Change equipment' }));
   await waitFor(() => expect(requests.some(request => request.endpoint === 'hwTime.levelRows'
     && (request.params as { motionEquipment?: string[] }).motionEquipment?.includes(following))).toBe(true));
   const afterSelection = await save('Held after changing the selection');
-  expect(afterSelection.panels?.instances).toEqual(held.panels?.instances);
+  expect(afterSelection.panels?.instances).toEqual([firstTable, heldSecond, motionChart, heldSource]);
   fireEvent.click(await item('원본 표 · 붙잡음', '따라가기로 바꾸기'));
   expect(await screen.findByRole('tab', { name: '원본 표 2' })).toBeTruthy();
-  expect((await save('Following again')).panels?.instances.find(instance => instance.id === second.id)?.inputs).toEqual([
-    { key: MOTION_EQUIPMENT_KEY, from: 'held-source.motionEquipment', mode: 'follow' },
+  expect((await save('Following again')).panels?.instances.find(instance => instance.id === secondTable.id)?.inputs).toEqual([
+    { key: MOTION_EQUIPMENT_KEY, from: `${HELD_SOURCE_ID}.${MOTION_EQUIPMENT_KEY}`, mode: 'follow' },
   ]);
 });
 

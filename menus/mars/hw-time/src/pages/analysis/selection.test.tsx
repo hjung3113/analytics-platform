@@ -3,8 +3,9 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-libra
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import * as kernel from '@ap/kernel';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
-import { EQUIPMENT_SELECTION_DIMENSION, type MenuQuery, type PanelInstance } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, type MenuQuery, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
 import { MOTION_EQUIPMENT_KEY } from '../../endpoints';
+import { HELD_SOURCE_ID, heldOutput } from './heldPanels';
 import { answer, chartRenders, fixtureMatrix, openPanelPicker, renderOverview, requests, settle } from './test-support';
 
 await vi.hoisted(async () => { (await import('@ap/components/testing/engines')).mockEchartsCanvas(); });
@@ -364,24 +365,39 @@ it('holds the raw table to the equipment of that moment and follows again on req
   await followsTo('MEM-PHOTO-0103');
 });
 
-it('stores the same held table input through panel settings and New Panel, and reopens both', async () => {
-  const store = createFakeSavedViewStore([]);
-  let views!: SavedViews;
-  let setPage!: ReturnType<typeof kernel.usePlatform>['setPage'];
+// What the New Panel and panel settings paths save, written as constants so the reopen halves start from them.
+const heldPage: [string, string][] = [['drillModule', 'PM1'], ['drillMotion', 'Pump'], ['moduleType', 'PM']];
+const heldValue = { shape: 'set', values: ['MEM-PHOTO-0105'] } as const;
+const heldTableFrom = (source: PanelInstance): PanelInstance => ({ id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+  inputs: [{ key: heldOutput.key, from: `${source.id}.${heldOutput.key}`, mode: 'hold', value: heldValue }] });
+const heldSource: PanelInstance = { id: HELD_SOURCE_ID, source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [heldOutput] };
+const currentPublisher: PanelInstance = { ...heldSource, id: 'current' };
+const heldFromNewPanel: MenuViewPanels = { version: 1, instances: [heldTableFrom(heldSource), heldSource] };
+const heldFromSettings: MenuViewPanels = { version: 1, instances: [heldTableFrom(currentPublisher), currentPublisher] };
+
+async function renderHeldViews(seed: Parameters<typeof createFakeSavedViewStore>[0] = []) {
+  const handles = {} as { views: SavedViews; setPage: ReturnType<typeof kernel.usePlatform>['setPage'] };
   function Probe() {
-    views = useSavedViews();
-    ({ setPage } = kernel.usePlatform());
+    handles.views = useSavedViews();
+    handles.setPage = kernel.usePlatform().setPage;
     return null;
   }
   await renderOverview(heldLink, answer, {
-    realWorkspace: true, realChart: 'hw-current', showDetail: true, savedViews: store, children: <Probe />,
+    realWorkspace: true, realChart: 'hw-current', showDetail: true, savedViews: createFakeSavedViewStore(seed), children: <Probe />,
   });
-  await waitFor(() => expect(views.status).toBe('ready'));
+  await waitFor(() => expect(handles.views.status).toBe('ready'));
   const save = async (name: string) => {
-    const result = await act(() => views.saveAs({ name, kind: 'menu-view' }));
+    const result = await act(() => handles.views.saveAs({ name, kind: 'menu-view' }));
     if (!result.ok || result.value.view.kind !== 'menu-view' || !result.value.view.panels) throw new Error('Failed to save held table');
     return result.value.view;
   };
+  // The Probe reassigns the handles on each render; callers read them through the returned object.
+  return Object.assign(handles, { save });
+}
+
+// Split (main-fix, #3128): each saved-view open remounts the dock; one test opening many views passed the 15 s CI limit.
+it('stores the same held table input through panel settings and New Panel', async () => {
+  const { save } = await renderHeldViews();
   const settings = async () => {
     fireEvent.click(tableTab());
     fireEvent.click(await panelMenu('원본 표', '패널 설정'));
@@ -415,17 +431,26 @@ it('stores the same held table input through panel settings and New Panel, and r
     key: MOTION_EQUIPMENT_KEY, mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] },
     source: { key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' },
   });
-  for (const view of [added, edited]) {
-    await act(async () => { expect(await views.select(view.id)).toMatchObject({ ok: true }); });
-    await followsTo('MEM-PHOTO-0105');
-    expect(tableTab().getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
-    expect((await save(`Reopened ${view.id}`)).panels).toEqual(view.panels);
-    const before = tableReads().length;
-    act(() => setPage({ [MOTION_EQUIPMENT_KEY]: ['MEM-PHOTO-0103'] }));
-    await settle();
-    expect(filter()).toEqual(['MEM-PHOTO-0103']);
-    expect(tableReads()).toHaveLength(before);
-  }
+  expect(added).toMatchObject({ page: heldPage });
+  expect(added.panels).toEqual(heldFromNewPanel);
+  expect(edited).toMatchObject({ page: heldPage });
+  expect(edited.panels).toEqual(heldFromSettings);
+});
+
+it.each([['New Panel', heldFromNewPanel], ['panel settings', heldFromSettings]])('reopens the held table input stored through %s', async (_path, panels) => {
+  const app = await renderHeldViews([testSavedView({
+    id: 'held', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM',
+    context: { from: '2026-09-19T09:00:00', to: '2026-09-26T09:00:00' }, page: heldPage, chartOptions: {}, layout: null, panels,
+  })]);
+  await act(async () => { expect(await app.views.select('held')).toMatchObject({ ok: true }); });
+  await followsTo('MEM-PHOTO-0105');
+  expect(tableTab().getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
+  expect((await app.save('Reopened held')).panels).toEqual(panels);
+  const before = tableReads().length;
+  act(() => app.setPage({ [MOTION_EQUIPMENT_KEY]: ['MEM-PHOTO-0103'] }));
+  await settle();
+  expect(filter()).toEqual(['MEM-PHOTO-0103']);
+  expect(tableReads()).toHaveLength(before);
 });
 
 it('keeps a held table when the drill moves up a step (#2862 R C3)', async () => {
