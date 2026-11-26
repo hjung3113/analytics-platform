@@ -205,7 +205,7 @@ export function ListTabs({
                       {...(tab.tip !== undefined ? { title: tab.tip } : {})}
                       className={cn(
                         'group inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md px-2.5 py-0 text-sm font-medium text-text-muted transition-colors',
-                        'hover:bg-surface-card hover:text-text-primary',
+                        'hover:bg-surface-row-hover hover:text-text-primary',
                         'data-[state=active]:bg-surface-card-elevated data-[state=active]:text-text-primary data-[state=active]:shadow-none',
                         tab.urgent === true &&
                           'text-text-danger-label hover:text-text-danger-label data-[state=active]:text-text-danger-label [&>svg]:text-text-danger',
@@ -236,7 +236,7 @@ export function ListTabs({
                 <button
                   type="button"
                   data-list-toolbar-more
-                  className="ml-0.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-surface-card hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  className="ml-0.5 inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-surface-row-hover hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                 >
                   {messages?.more ?? '더보기'}
                   <span className="text-tiny tabular-nums">{hiddenTabs.length}</span>
