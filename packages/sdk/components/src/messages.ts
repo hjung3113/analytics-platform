@@ -5,6 +5,8 @@ import { CUSTOM_GROUP_LABELS } from '@ap/kernel';
 export const COMPONENTS_MESSAGES = {
   panelTrustChecking: { ko: '확인 중', en: 'Checking' },
   panelTrustEmpty: { ko: '결과 없음', en: 'No results' },
+  smallMultiplesScale: { ko: '공유 축 정보', en: 'Shared scale details' },
+  smallMultiplesCount: { ko: '시리즈 {count}개', en: 'Series: {count}' },
   panelTrustUnavailable: { ko: '확인 불가', en: 'Unavailable' },
   panelElapsed: { ko: '조회 중 · {seconds}초', en: 'Loading · {seconds}s' },
   panelSlow: { ko: '오래 걸립니다', en: 'Taking longer' },

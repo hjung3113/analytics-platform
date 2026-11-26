@@ -158,6 +158,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - AnalysisChartFrame. `analysisSelectionOutput?: { panelId; key } | null`로 범위와 값 묶음을 메뉴 URL에 연결하며, `null`은 출력을 중단한다. `nextAnalysis?: boolean`으로 «다음 분석» 행을 켜고, 여러 차트가 있는 패널에서는 `nextAnalysisTarget?: HTMLElement | null`로 패널 하단에 배치할 수 있다. [출력 선언과 키보드 동작은 §16](chart.md#분석-선택-전달-decided-adr-0175-2732)을 따른다. 출처 강조 `highlightedValues?: readonly string[]`의 그리기 규칙도 [§16](chart.md#분석-선택-전달-decided-adr-0175-2732)이 소유한다.
 - OrderedIntervalTrack (순서 축 구간·점의 범용 트랙, 선언·상태·성능 경계는 아래, 상호작용은 [§16](chart.md#orderedintervaltrack-순서-트랙-decided-adr-0121))
 - AnalysisChart (heatmap·donut·scatter·boxPlot·pareto·topNBar·histogram의 데이터·표·CSV 프레임, 종류별 로컬 선택, [§16](chart.md#16-analysis-chart-contract), [ADR-0058](../adr/0058-analysis-chart-spec-union.md))
+- SmallMultiplesGrid (공유 축으로 시계열을 비교하는 스크롤 격자, [§16](chart.md#작은-다중-차트-smallmultiplesgrid-2740))
 - LegendTree (계층 범례의 보이기·단일 현재 항목 또는 드릴 현재 단계(`onDrill`·`currentId`·`drillOnly`·`canDrill`, 보이기와 분리)·키보드 행 이동, [§16](chart.md#16-analysis-chart-contract), [ADR-0057](../adr/0057-legend-tree-arrow-key-row-navigation.md))
 - PlatformDataTable
 - DetailDrawer

@@ -24,7 +24,8 @@ const usableMarker = (marker: string | undefined) => marker !== undefined && [..
 /** The symbol drawn and written for a status: the menu's `marker` when usable, otherwise the tone glyph. */
 export const statusGlyph = (status: ChartStatus) => usableMarker(status.marker) ? status.marker! : STATUS_GLYPHS[status.tone];
 const STATUS_TOKENS = { danger: 'chart-status-critical', warning: 'chart-status-warn', neutral: 'chart-no-data-pattern' } as const satisfies Record<ChartStatus['tone'], ThemeColorToken>;
-export const statusColor = (status: ChartStatus) => token(STATUS_TOKENS[status.tone]);
+export const statusColorToken = (status: ChartStatus) => STATUS_TOKENS[status.tone];
+export const statusColor = (status: ChartStatus) => token(statusColorToken(status));
 const contrast = (a: string, b: string) => {
   const luminance = (rgb: string) => {
     const channels = rgb.match(/[\d.]+/g)?.slice(0, 3).map(Number);

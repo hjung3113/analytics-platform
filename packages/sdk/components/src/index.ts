@@ -13,6 +13,8 @@ export type { CategoryTopN } from './chart/categoryTopN';
 export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type HeatmapCategory, type DonutSpec, type DonutSlice, type ScatterPoint, type ScatterSpec, type BoxStats, type BoxPlotSpec, type ParetoSpec, type TopNBarSpec, type TopNBarItem, type HistogramSpec, type HistogramBin } from './chart/AnalysisChart';
 export { resolveChartConfig, type ChartConfigProblem, type ChartConfigRow, type ChartFieldMeta, type ResolveChartConfigResult, type ResolvedChartFrame } from './chart/resolveChartConfig';
 export { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries, type ChartPoint, type ChartPointAction, type ChartSelectionAction } from './chart/AnalysisChartFrame';
+export { SmallMultiplesGrid, type SmallMultiplesGridProps } from './chart/SmallMultiplesGrid';
+export type { SmallMultiplesSeries } from './chart/smallMultiplesPlot';
 export type { ChartReferenceMark, ChartReferenceLine, ChartReferenceBand } from './chart/referenceMarks';
 export type { NextAnalysisRows, NextAnalysisSourceRows } from './chart/NextAnalysisRowsDrawer';
 export { heatmapMinCanvasHeight, rowPitchChartHeight } from './chart/analysisChartGeometry';

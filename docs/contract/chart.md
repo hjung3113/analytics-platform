@@ -257,6 +257,14 @@ boxPlot은 원자료 대신 호출자가 계산한 통계를 받으며 min/max�
 네 선택 prop에서 `null`·그려지지 않은 값은 선택 없음이며, 생략하면 기존 동작을 유지한다.
 `AnalysisChart`가 선택 prop을 따르는 동안 빈 상태를 표시하면 아무 항목도 선택하지 않으며 선택 요약도 숨긴다.
 
+### 작은 다중 차트 `SmallMultiplesGrid` (#2740)
+
+같은 단위의 시계열을 한 칸에 한 시리즈씩 나란히 비교한다. `title`, `unit`, `series: { id, label, points, bounds?, selectionValue? }[]`를 받는다. ID는 고유하며 칸은 입력 순서대로 놓는다. 지점의 `x`는 wall-clock(§6.3), `y`는 수치 또는 값 없음(`null`)이다. 유효한 시각 순으로 그리며 값 없음·비유한 수치에서 선을 끊는다. 시리즈별 `ChartBounds`는 위의 x별 계단 경계 규칙을 따르며 `boundLabels`로 범례 라벨을 바꿀 수 있다. 지점의 `status?: ChartStatus`는 공통 기호로 그린다. 칸 테두리와 아이콘은 지점 중 가장 높은 심각도(danger → warning → neutral)를 쓰고 보조 설명은 같은 판정 문구를 읽는다.
+
+기본 6열(`columns`는 양의 정수), `density='regular'`(120px), 선택 `compact`(72px)다. 공유 x축과 y축을 쓰며, y축은 모든 시리즈의 값과 표시 경계를 포함한다. 정보 팁에서 기간과 공통 y 범위를 한 번 표시한다. 높이가 정해진 패널에서 머리 아래 영역만 스크롤한다. 100개를 넘어도 입력 시리즈를 모두 그리며 칸 수 상한이 없다. 메뉴는 같은 데이터 표에 접근하는 동작을 `actions`에 놓거나 화면에서 직접 제공한다([§26](platform-ui-contract.md#26-accessibility-baseline)).
+
+`analysisSelectionOutput: { panelId, key, instanceId? }`는 아래 [분석 선택 전달](#분석-선택-전달-decided-adr-0175-2732)의 `set` 출력을 연결한다. 차원은 패널의 출력 선언, 값은 시리즈의 `selectionValue`다. 클릭과 Enter·Space는 해당 값 하나를 기록하고 URL에서 복원한 선택을 칸에 표시한다. `selectionDisabled`를 켜면 이전 결과를 표시하면서 발행을 막는다. Tab으로 칸 묶음에 한 번 들어가고, 화살표로 칸 이동, Home/End로 처음·마지막 칸, PageUp/PageDown으로 화면 높이에 맞춰 이동한다. 포커스 이동은 선택을 기록하지 않는다.
+
 ### 범주 차트의 Top N과 기타 (#2742)
 
 - `categoryTopN: CategoryTopN`은 `AnalysisChartFrame`의 세로·가로 범주 막대와 `AnalysisChart`의 `topNBar`·`donut`·`pareto` spec에서 사용한다. 생략하면 종류별 기본 동작을 유지한다. 지정하면 `topN`·`maxSlices`·`maxItems`보다 우선한다. `count`는 기타를 제외한 표시 범주 수이며 양의 안전 정수여야 한다. 유효하지 않으면 개발 진단 후 기존 동작을 사용한다.
