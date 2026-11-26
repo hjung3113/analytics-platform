@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { FeatureTimestamp } from '../../components/FeatureTimestamp';
 import { X } from 'lucide-react';
 import { Button, Checkbox, FieldList, FieldRow, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger, ToggleGroup, ToggleGroupItem } from '@ap/ui';
 import { RESULT_ORDER, STATE_LABEL, type Attempt, type OpinionEvidence, type OpinionScale, type Page, type Project, type ReadState, type RequestRow, type RoundDetail, type RuleResult, type ScreenProps, type TableParts, type ValidationIssueRow } from './contracts';
@@ -7,7 +8,7 @@ import { OpinionCell, OpinionHistory, UnlinkedOpinions } from './Opinions';
 import { useGateController, GatePanel } from './GatePanel';
 import { LifecycleForm } from './forms';
 import { Attempts, QueueWindow, RequestRegister } from './RequestsScreen';
-import { Choice, Disclosure, GateBadge, Pager, ReadView, Section, StateBadge, time } from './presentation';
+import { Choice, Disclosure, GateBadge, Pager, ReadView, Section, StateBadge } from './presentation';
 import { usePageValue } from './usePageValue';
 import { useRoundExecution } from './RoundExecution';
 import { RuleEvidence } from './EvidenceRows';
@@ -137,14 +138,14 @@ function RoundWorkbench(props: ScreenProps & { round: RoundDetail; project: Proj
           { id: 'title', header: '검증 항목 · 상세', size: 300, sortable: false, cell: d => <Button variant="link" size="toolbar" className="h-auto max-w-full justify-start whitespace-normal text-left" onClick={event => defectHandlers.current(d.id, event.currentTarget)}>{d.title}</Button> },
           { id: 'comments', header: '항목 댓글', size: 90, sortable: false, cell: d => `${d.commentCount}건` },
           { id: 'occurrences', header: '연결 규칙·근거', size: 120, sortable: false, cell: d => d.occurrenceCount ? `${d.occurrenceCount}건 · Round ${d.roundCount}개` : '연결 없음' },
-          { id: 'activity', header: '최근 활동 (KST)', size: 140, sortable: false, cell: d => time(d.lastActivityAt) },
+          { id: 'activity', header: '최근 활동', size: 140, sortable: false, cell: d => <FeatureTimestamp at={d.lastActivityAt} notation="list" /> },
         ], []);
   const resultsVisible = view === 'verify';
   const canShowGate = props.canGate === true;
   const overlay = registering || closing || issueComposing;
   return <div className={view === 'source' ? 'flex min-h-0 min-w-0 flex-1 flex-col gap-2 break-keep' : fill ? 'flex min-w-0 flex-1 flex-col gap-2 break-keep' : 'grid min-w-0 gap-2 break-keep'} data-testid="result-first-workbench">
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-      <FieldList layout="inline"><FieldRow label={pageCopy.software}>{project.softwareLabel ?? pageCopy.unassigned}</FieldRow><FieldRow label={pageCopy.attempt}><span aria-label="선택 시도 서버 판정" className="inline-flex flex-wrap items-center gap-1">{attempt ? <><span>시도 #{attempt.attemptNo}<span className="font-mono text-xs" title={requestId}> · 요청 {requestId.slice(0, 8)}</span></span><StateBadge value={attempt.verdict ?? 'none'} /></> : pageCopy.noCompletedAttempt}</span></FieldRow><FieldRow label={pageCopy.latestExecution}><ReadView query={latest}>{() => latest.data?.rows.length ? <ReadView query={latestDetail}>{() => <span aria-label="최신 실행 상태" className="text-xs text-text-secondary">{latestAttempt ? `시도 #${latestAttempt.attemptNo} · ` : ''}{STATE_LABEL[latest.data?.rows[0]?.state ?? ''] ?? pageCopy.unknownState} · {time(latestAttempt?.endedAt ?? latest.data?.rows[0]?.createdAt)} KST{attempt?.outcome === 'succeeded' && latestAttempt?.id !== attempt.id ? ` · ${pageCopy.completedResult(attempt.attemptNo)}` : ''}</span>}</ReadView> : pageCopy.noRequests}</ReadView></FieldRow></FieldList>
+      <FieldList layout="inline"><FieldRow label={pageCopy.software}>{project.softwareLabel ?? pageCopy.unassigned}</FieldRow><FieldRow label={pageCopy.attempt}><span aria-label="선택 시도 서버 판정" className="inline-flex flex-wrap items-center gap-1">{attempt ? <><span>시도 #{attempt.attemptNo}<span className="font-mono text-xs" title={requestId}> · 요청 {requestId.slice(0, 8)}</span></span><StateBadge value={attempt.verdict ?? 'none'} /></> : pageCopy.noCompletedAttempt}</span></FieldRow><FieldRow label={pageCopy.latestExecution}><ReadView query={latest}>{() => latest.data?.rows.length ? <ReadView query={latestDetail}>{() => <span aria-label="최신 실행 상태" className="text-xs text-text-secondary">{latestAttempt ? `시도 #${latestAttempt.attemptNo} · ` : ''}{STATE_LABEL[latest.data?.rows[0]?.state ?? ''] ?? pageCopy.unknownState} · <FeatureTimestamp at={latestAttempt?.endedAt ?? latest.data?.rows[0]?.createdAt} notation="summary" />{attempt?.outcome === 'succeeded' && latestAttempt?.id !== attempt.id ? ` · ${pageCopy.completedResult(attempt.attemptNo)}` : ''}</span>}</ReadView> : pageCopy.noRequests}</ReadView></FieldRow></FieldList>
       <span aria-label="Gate 상태" className="inline-flex items-center gap-1 text-xs">{pageCopy.gate}<GateBadge decision={r.gateDecisions.at(-1)?.decision} /></span>
       {attempt && attempt.requiredUnchecked > 0 ? <StatusBadge tone="warning">{pageCopy.requiredUnchecked(attempt.requiredUnchecked)}</StatusBadge> : null}
       <Button size="toolbar" variant="ghost" aria-label={`검증 항목으로 이동 · ${ISSUE_TOTAL_UNAVAILABLE}`} onClick={() => { setView('verify'); setDefectJump(value => value + 1); }}>{ISSUE_TOTAL_UNAVAILABLE}</Button>
@@ -170,8 +171,8 @@ function RoundWorkbench(props: ScreenProps & { round: RoundDetail; project: Proj
         <Section title="검증 요청·시도"><QueueWindow api={api} /><ReadView query={requests}>{data => data.rows.length === 0 ? <p className="text-xs text-text-secondary">검증 요청 없음</p> : ui.table({ title: 'Round 검증 요청', fill: true, rows: data.rows, activeRowId: selected, preferenceKey: 'log-lifecycle-round-requests', pagination: <Pager page={page} total={data.total} onChange={setPage} />, columns: [
           { id: 'request', header: '요청', sortable: false, cell: q => <Button variant="link" size="toolbar" onClick={() => setSelected(q.id)}>{q.id.slice(0, 8)}</Button> },
           { id: 'state', header: '상태', sortable: false, cell: q => <StateBadge value={q.state} /> },
-          { id: 'lease', header: 'lease 만료 (KST)', sortable: false, cell: q => time(q.leaseExpiresAt) },
-          { id: 'heartbeat', header: '마지막 하트비트 (KST)', sortable: false, cell: q => time(q.lastHeartbeatAt) },
+          { id: 'lease', header: 'lease 만료', sortable: false, cell: q => <FeatureTimestamp at={q.leaseExpiresAt} notation="list" /> },
+          { id: 'heartbeat', header: '마지막 하트비트', sortable: false, cell: q => q.lastHeartbeatAt ? <FeatureTimestamp at={q.lastHeartbeatAt} notation="list" /> : '없음' },
         ] })}</ReadView>{requestId ? <ReadView query={request}>{detail => detail.roundId === r.id ? <Attempts attempts={detail.attempts} selected={attempt?.id} onSelect={setAttemptId} ui={ui} RuleSetLink={props.RuleSetLink} /> : <p role="alert">이 Round에 속한 요청이 아닙니다.</p>}</ReadView> : null}</Section>
         <div className="flex flex-wrap items-center gap-3"><label htmlFor="rules-required" className="flex items-center gap-2 text-xs"><Checkbox id="rules-required" checked={required === 'true'} onCheckedChange={value => setRequired(String(value === true))} />필수 규칙만</label><Choice label="결과 정렬" value={sort} onChange={setSort} options={[[ 'ruleId', '규칙 ID순' ], ['result', '결과순'], ['required', '필수 여부순']]} /></div>
       </div></TabsContent>

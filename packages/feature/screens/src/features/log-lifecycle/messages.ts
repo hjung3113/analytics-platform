@@ -17,7 +17,7 @@ export const pageCopy = {
   completedResult: (number: number) => `완료된 시도 #${number}의 결과를 보여 줍니다.`,
   register: '요청 등록', outside: '시간대 밖', queueInfo: '실행 시간대 안내',
   window: (from: number, to: number) => `실행 시간대 평일 ${String(from).padStart(2, '0')}–${String(to).padStart(2, '0')}`,
-  queueDetail: (zone: string, server: string, limit: number) => `시간대 ${zone} · 서버 시각 ${server} KST · 사용자당 즉시 대기 요청 동시 ${limit}건까지`,
+  queueDetail: (zone: string, server: string, limit: number) => `시간대 ${zone} · 서버 시각 ${server} · 사용자당 즉시 대기 요청 동시 ${limit}건까지`,
   weekend: (allDay: boolean) => `주말 ${allDay ? '종일' : '동일 시간대'}`,
   filters: (count: number) => `추가 필터 (${count}) ▾`,
 } as const;

@@ -1,5 +1,4 @@
 import {
-  formatCompactDateTime,
   formatDate,
   formatDateOnly,
   formatDateTime,
@@ -7,6 +6,7 @@ import {
   formatShortDate,
   formatShortDateTime,
   formatTime,
+  formatZonedDateTime,
 } from './datetime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -100,9 +100,10 @@ describe('formatDateOnly', () => {
 });
 
 
-describe('formatCompactDateTime', () => {
-  it('keeps a dense 24-hour KST display even when the browser zone is UTC', () => {
-    expect(formatCompactDateTime('2026-11-06T16:30:00.000Z')).toMatch(/11.*07.*01:30/);
-    expect(formatCompactDateTime('invalid')).toBe('—');
+describe('formatZonedDateTime', () => {
+  it('shows the instant in the named zone and the unavailable marker for an unknown zone', () => {
+    expect(formatZonedDateTime('2026-11-06T16:30:00.000Z', 'Europe/Berlin')).toMatch(/2026.*11.*06.*17:30/);
+    expect(formatZonedDateTime('2026-11-06T16:30:00.000Z', 'Not/AZone')).toBe('—');
+    expect(formatZonedDateTime('invalid', 'Europe/Berlin')).toBe('—');
   });
 });

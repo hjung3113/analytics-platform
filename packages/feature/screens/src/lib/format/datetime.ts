@@ -87,13 +87,12 @@ export function formatDateOnly(dateOnly: string): string {
   return formatCalendarDate(date);
 }
 
-/** Compact KST instant for dense lifecycle tables; calendar dates still use formatDateOnly. */
-export function formatCompactDateTime(iso: string): string {
-  return formatTimestamp(iso, {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  });
+/** An instant in a named zone (e.g. a run window's) for a host without the Kernel notation; an unknown zone is `—`. */
+export function formatZonedDateTime(iso: string, timeZone: string): string {
+  try {
+    return formatTimestamp(iso, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone });
+  } catch {
+    // Intl throws RangeError for an unknown zone; show the unavailable marker rather than another zone's clock.
+    return '—';
+  }
 }

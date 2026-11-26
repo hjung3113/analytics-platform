@@ -76,8 +76,9 @@ export type HostSeam = HostPermissionLinks & {
   useFollowHostHref?: () => (href: string) => boolean;
   canLink(to: string): boolean;
   lang?: 'ko' | 'en';
+  /** Kernel instant notation (kernel.md §6.3). `list` takes a zone for a value shown beside a wall-clock setting in that zone (#2587). */
   time?: {
-    list(at: string): string;
+    list(at: string, options?: { timeZone?: string }): string;
     summary(at: string): string;
     feed(at: string): { text: string; title?: string };
   };

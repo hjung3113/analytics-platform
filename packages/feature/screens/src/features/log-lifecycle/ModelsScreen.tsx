@@ -1,9 +1,10 @@
 import { useLifecycleNavigate } from './host';
+import { FeatureTimestamp } from '../../components/FeatureTimestamp';
 import { usePageValue } from './usePageValue';
 import { useState } from 'react';
 import { Button, Input, useImeEnterGuard } from '@ap/ui';
 import { STAGES, STAGE_LABEL, STATE_LABEL, type Model, type Page, type ScreenProps } from './contracts';
-import { Choice, Disclosure, GateBadge, Pager, ReadView, StageBadge, StateBadge, time } from './presentation';
+import { Choice, Disclosure, GateBadge, Pager, ReadView, StageBadge, StateBadge } from './presentation';
 import { CatalogChoice } from './CatalogChoice';
 import { LifecycleForm } from './forms';
 import { pageCopy } from './messages';
@@ -39,7 +40,7 @@ export function ModelsScreen(props: ScreenProps) {
       { id: 'validation', size: 110, header: '검증 상태', sortable: false, cell: m => <StateBadge value={m.validation} /> },
       { id: 'gate', size: 90, header: 'Gate', sortable: false, cell: m => <GateBadge decision={m.gateDecision} /> },
       { id: 'pending', size: 80, header: '대기 요청', sortable: false, cell: m => m.pendingRequests },
-      { id: 'updatedAt', size: 130, header: '갱신 (KST)', sortable: false, cell: m => time(m.updatedAt) },
+      { id: 'updatedAt', size: 130, header: '갱신', sortable: false, cell: m => <FeatureTimestamp at={m.updatedAt} notation="list" /> },
     ], rowAction: m => (!m.project || ['completed', 'cancelled'].includes(m.project.stage)) && canProject && m.active !== false ? <Button variant="secondary" size="toolbar" onClick={() => setCreating(m)}>개발 건 만들기</Button> : null })}</ReadView>
     {creating ? <LifecycleForm key={creating.id} {...props} name="projectCreate" title="개발 건 만들기" model={creating} initial={{ modelId: creating.id, kind: creating.project ? 'redevelopment' : 'new', ownerActorId: actorId }} onClose={() => setCreating(null)} onSuccess={r => { if (typeof r.data?.projectId === 'string') navigate('project', r.data.projectId); }} /> : null}
   </div> });

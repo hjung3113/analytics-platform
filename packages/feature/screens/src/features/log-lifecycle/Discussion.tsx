@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { FeatureTimestamp } from '../../components/FeatureTimestamp';
 import { Button, Checkbox, Input, Label, Textarea, useImeEnterGuard } from '@ap/ui';
 import { VALIDATION_ISSUE_LIMITS as ISSUE_LIMITS } from '@ap/feature-shared';
 import { type Action, type CursorPage, type DiscussionComment, type IssueHistoryEvent, type IssueOccurrence, type LifecycleApi, type Params, type RoundDetail, type RuleResult, type ScreenProps, type ValidationIssueDetail, type ValidationIssueRow, type WriteResult } from './contracts';
-import { ReadView, Section, time, writeFailure, WriteError } from './presentation';
+import { ReadView, Section, writeFailure, WriteError } from './presentation';
 
 /**
  * Human validation records (#1808 N3). Issues, their threads and the Round discussion are separate targets with
@@ -164,7 +165,7 @@ export function IssueTablePage({ api, roundId, cursor, onRefresh, children }: Pi
   return <ReadView query={query}>{children}</ReadView>;
 }
 function CommentItem({ comment, actorId }: { comment: DiscussionComment; actorId: string }) {
-  return <article className="grid gap-1 border-b border-border-subtle pb-2 text-sm"><p className="text-xs text-text-secondary">{actorLabel(comment.authorActorId, actorId)} · {time(comment.createdAt)} KST{comment.correctsCommentId ? ' · 이전 댓글 정정' : ''}</p><p className="whitespace-pre-wrap break-words">{comment.body}</p></article>;
+  return <article className="grid gap-1 border-b border-border-subtle pb-2 text-sm"><p className="text-xs text-text-secondary">{actorLabel(comment.authorActorId, actorId)} · <FeatureTimestamp at={comment.createdAt} notation="feed" />{comment.correctsCommentId ? ' · 이전 댓글 정정' : ''}</p><p className="whitespace-pre-wrap break-words">{comment.body}</p></article>;
 }
 
 /** Round-wide conversation: its own target and list, never issue comments and never their counts. */
@@ -187,14 +188,14 @@ const FIELD_LABEL: Record<string, string> = { title: '제목', body: '설명', e
 /** The issue drawer body: description, reference-only occurrences, its own thread and correction history. */
 export function IssueDetailBody({ api, round, issue, actorId, canContribute, controller, onOpenSource }: { api: LifecycleApi; round: RoundDetail; issue: ValidationIssueDetail; actorId: string; canContribute: boolean; controller: DiscussionController; onOpenSource?: ((order: number, line: number) => void) | undefined }) {
   return <div className="grid min-w-0 gap-4 break-keep">
-    <p className="text-xs text-text-secondary">등록 {actorLabel(issue.reporterActorId, actorId)} · {time(issue.createdAt)} KST{issue.firstRoundId === round.id ? ' · 이 Round에서 등록' : ' · 다른 Round에서 등록'}</p>
+    <p className="text-xs text-text-secondary">등록 {actorLabel(issue.reporterActorId, actorId)} · <FeatureTimestamp at={issue.createdAt} notation="feed" />{issue.firstRoundId === round.id ? ' · 이 Round에서 등록' : ' · 다른 Round에서 등록'}</p>
     <dl className="grid gap-2 text-sm"><dt className="font-semibold">설명</dt><dd className="whitespace-pre-wrap break-words">{issue.body}</dd>{(['expected', 'actual', 'repro'] as const).map(key => issue[key] ? <div key={key} className="contents"><dt className="font-semibold">{FIELD_LABEL[key]}</dt><dd className="whitespace-pre-wrap break-words">{issue[key]}</dd></div> : null)}</dl>
     <Section title="발생·연결 근거"><p className="text-xs text-text-secondary">근거는 위치 참조만 보여 줍니다. 로그 발췌는 규칙 상세의 발췌 보기 권한으로만 엽니다.</p>
-      <CursorFeed<IssueOccurrence, ValidationIssueDetail> api={api} name="validationIssueDetail" params={{ issueId: issue.id }} label="발생·연결 근거" empty="연결된 규칙 결과·근거 없음" select={data => data.occurrences} render={o => <div className="grid gap-1 text-xs"><p>{o.roundId === round.id ? `Round ${round.seq}` : '다른 Round'} · {o.ruleResultId ? '규칙 결과 연결' : '규칙 없음'} · {actorLabel(o.linkerActorId, actorId)} · {time(o.createdAt)} KST</p><EvidenceLocations occurrence={o} round={round} onOpenSource={onOpenSource} /></div>} />
+      <CursorFeed<IssueOccurrence, ValidationIssueDetail> api={api} name="validationIssueDetail" params={{ issueId: issue.id }} label="발생·연결 근거" empty="연결된 규칙 결과·근거 없음" select={data => data.occurrences} render={o => <div className="grid gap-1 text-xs"><p>{o.roundId === round.id ? `Round ${round.seq}` : '다른 Round'} · {o.ruleResultId ? '규칙 결과 연결' : '규칙 없음'} · {actorLabel(o.linkerActorId, actorId)} · <FeatureTimestamp at={o.createdAt} notation="feed" /></p><EvidenceLocations occurrence={o} round={round} onOpenSource={onOpenSource} /></div>} />
     </Section>
     <Section title="항목 토론"><CursorFeed<DiscussionComment> api={api} name="validationIssueThread" params={{ issueId: issue.id }} label="항목 댓글" empty="항목 댓글 없음" render={c => <CommentItem comment={c} actorId={actorId} />} />
       {canContribute ? <CommentComposer controller={controller} slotKey={`issue:${issue.id}`} action="validationIssueComment" input={{ issueId: issue.id }} label="항목 댓글" /> : null}</Section>
-    <Section title="정정 이력"><CursorFeed<IssueHistoryEvent> api={api} name="validationIssueHistory" params={{ issueId: issue.id }} label="정정 이력" empty="정정 이력 없음" render={e => <div className="grid gap-1 text-xs"><p className="text-text-secondary">{FIELD_LABEL[e.field] ?? e.field} 정정 · {actorLabel(e.actorId, actorId)} · {time(e.createdAt)} KST</p><p className="whitespace-pre-wrap break-words text-sm">{e.body}</p></div>} /></Section>
+    <Section title="정정 이력"><CursorFeed<IssueHistoryEvent> api={api} name="validationIssueHistory" params={{ issueId: issue.id }} label="정정 이력" empty="정정 이력 없음" render={e => <div className="grid gap-1 text-xs"><p className="text-text-secondary">{FIELD_LABEL[e.field] ?? e.field} 정정 · {actorLabel(e.actorId, actorId)} · <FeatureTimestamp at={e.createdAt} notation="feed" /></p><p className="whitespace-pre-wrap break-words text-sm">{e.body}</p></div>} /></Section>
   </div>;
 }
 export function IssueDrawer({ api, ui, round, issueId, actorId, canContribute, controller, returnFocusRef, onClose, onOpenSource }: Pick<ScreenProps, 'api' | 'ui'> & { round: RoundDetail; issueId: string; actorId: string; canContribute: boolean; controller: DiscussionController; returnFocusRef: RefObject<HTMLElement | null>; onClose(): void; onOpenSource?: ((order: number, line: number) => void) | undefined }) {
