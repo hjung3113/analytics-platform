@@ -58,7 +58,10 @@ function ComparisonRows({ comparison, children }: { comparison: StatCardComparis
   if (hasObservations && Number.isFinite(change)) {
     const magnitude = Math.abs(change);
     const band = Number.isFinite(noChangeBand) && noChangeBand > 0 ? noChangeBand : 0;
-    const tolerance = Number.EPSILON * Math.max(Math.abs(current), Math.abs(previous), band);
+    // Whole numbers subtract exactly, so they compare strictly; only fractional inputs get a rounding tolerance
+    // (0.8 − 0.7 is 0.10000000000000009, still inside a band of 0.1).
+    const exact = Number.isSafeInteger(current) && Number.isSafeInteger(previous);
+    const tolerance = exact ? 0 : Number.EPSILON * Math.max(Math.abs(current), Math.abs(previous), band);
     flat = magnitude === 0 || (band > 0 && magnitude - band <= tolerance);
     if (!flat) {
       direction = change > 0 ? 'up' : 'down';
@@ -89,7 +92,7 @@ function ComparisonRows({ comparison, children }: { comparison: StatCardComparis
         {tone !== 'neutral' && <span className="sr-only"> {m(tone === 'improved' ? 'statComparisonImproved' : 'statComparisonWorsened')}</span>}
       </span>
     </span>
-    {(kind !== 'value' || flat || !hasObservations) && <span className="col-start-1 row-start-3 truncate text-xs text-text-secondary">{m('statComparisonPrior', { value: prior })}</span>}
+    {(kind !== 'value' || !direction) && <span className="col-start-1 row-start-3 truncate text-xs text-text-secondary">{m('statComparisonPrior', { value: prior })}</span>}
   </>;
 }
 
@@ -183,7 +186,7 @@ export function StatCard({ icon: Icon, label, value, unit, delta, comparison, tr
         : <span className={compactValueRow}>{numbers}{deltaLabel}</span>}
       {caption != null && <span title={captionTitle ?? plainCaption} className={cn('t-caption col-start-1 min-w-0 truncate text-text-muted [&_*]:inline! [&_*]:whitespace-nowrap! [&_br]:hidden!', comparison ? 'row-start-4' : 'row-start-3')}>{caption}</span>}
       {trend && <StatCardTrend series={trend} />}
-      {footnote && <span className="t-caption col-span-full truncate text-text-muted" title={typeof footnote === 'string' ? footnote : undefined}>{footnote}</span>}
+      {footnote && <span className="t-caption col-span-full row-start-5 truncate text-text-muted" title={typeof footnote === 'string' ? footnote : undefined}>{footnote}</span>}
     </span> :
     <span className="min-w-0 flex-1">
       <span className="block text-sm font-medium text-text-secondary">{label}</span>

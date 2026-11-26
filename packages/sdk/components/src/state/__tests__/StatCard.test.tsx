@@ -210,3 +210,22 @@ it('keeps trend coordinates finite when the range overflows', () => {
   const { container } = render(<StatCard label="사이클타임" value="12" trend={[-Number.MAX_VALUE, 0, Number.MAX_VALUE]} />);
   expect(container.querySelector('path')).toHaveAttribute('d', 'M4,24 L40,14 L76,4');
 });
+
+it('compares whole-number changes strictly against the band (#2743 R2 C4)', () => {
+  render(<I18nProvider><StatCard label="건수" value="9000000000000002" comparison={{ ...comparison, current: 9_000_000_000_000_002, previous: 9_000_000_000_000_000, noChangeBand: 1 }} /></I18nProvider>);
+  expect(screen.queryByText('변화 없음')).toBeNull();
+  expect(screen.getByText('2초')).toBeVisible();
+});
+
+it('keeps the prior line when a value comparison cannot show its prior label (#2743 R2 C11)', () => {
+  render(<I18nProvider><StatCard label="사이클타임" value="—" comparison={{ ...comparison, kind: 'value', current: Infinity, previous: 8 }} /></I18nProvider>);
+  expect(screen.getByText('전기 대비 · 이전 8초')).toBeVisible();
+});
+
+it('keeps the footnote below the caption with or without a trend (#2743 R2 C10)', () => {
+  const card = (trend: readonly (number | null)[]) => <I18nProvider><StatCard label="사이클타임" value="12" caption="기준" footnote="각주" trend={trend} comparison={{ ...comparison, kind: 'value' }} /></I18nProvider>;
+  const { rerender } = render(card([null, null]));
+  expect(screen.getByText('각주')).toHaveClass('row-start-5');
+  rerender(card([8, 12]));
+  expect(screen.getByText('각주')).toHaveClass('row-start-5');
+});
