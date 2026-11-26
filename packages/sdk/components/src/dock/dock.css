@@ -189,12 +189,15 @@
 /* The single-chart strip shares the group's hover and focus scope with the plot. Opacity
    preserves the tools' tab stops and the space ahead of the permanent actions. */
 .ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-head]) {
-  --dv-tabs-and-actions-container-height: calc(var(--spacing) * 9);
   flex-wrap: nowrap;
   height: var(--dv-tabs-and-actions-container-height);
   /* Keep the action end in view even if the panel is narrower than its header controls. */
   justify-content: flex-end;
   overflow: clip;
+}
+/* A declared query keeps the same body height when its chart tools mount or leave. */
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-head]):not(:has([data-workspace-query-head])) {
+  --dv-tabs-and-actions-container-height: calc(var(--spacing) * 9);
 }
 .ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-head]) .dv-right-actions-container {
   flex: 0 1 auto;
