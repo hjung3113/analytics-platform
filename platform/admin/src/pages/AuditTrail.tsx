@@ -70,11 +70,11 @@ export default function AuditTrail() {
   const targetType = selectedType?.op === 'equals' ? selectedType.value : undefined;
   const columns = useMemo<PlatformColumn<AuditEvent>[]>(() => [
     { ...filterColumnProps('at'), size: 125, cell: row => <time dateTime={row.at} className="tabular">{formatListTime(row.at, { timeZone })}</time> },
-    { ...filterColumnProps('actor'), size: 120,
+    { ...filterColumnProps('actor'), size: 120, isCellEmpty: row => !row.actorLabel?.trim(),
       filterChoices: rows => displayChoices(rows, row => ({ value: row.actor, label: row.actorLabel, context: SOURCE_LABEL[row.source][lang] })),
       cell: row => row.actorLabel?.trim() || m('auditTrailUnknownActor') },
     { ...filterColumnProps('action'), size: 120, cell: row => auditActionLabel(row)[lang] },
-    { ...filterColumnProps('source'), size: 120, cell: row => <StatusBadge tone={row.source === 'system' ? 'neutral' : 'info'}>{SOURCE_LABEL[row.source][lang]}</StatusBadge> },
+    { ...filterColumnProps('source'), size: 120, cellKind: 'badge', cell: row => <StatusBadge tone={row.source === 'system' ? 'neutral' : 'info'}>{SOURCE_LABEL[row.source][lang]}</StatusBadge> },
     { ...filterColumnProps('targetType'), value: row => row.target.type, size: 148,
       filterChoices: () => ({ options: Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label: label[lang] })), fallbackLabel: m('auditTrailUnknownType') }),
       cell: row => auditTypeLabel(row.target.type)[lang] },
@@ -86,7 +86,8 @@ export default function AuditTrail() {
     { id: 'changes', header: m('auditTrailChangedFields'), sortable: false, size: 126,
       cell: row => row.changes ? m('auditTrailChangeCount', { count: String(Object.keys(row.changes).length) }) : '—' },
     { id: 'original', header: m('auditTrailOriginal'), sortable: false, size: 125, cell: row => <AuditOriginal event={row} /> },
-    { id: 'reason', header: m('auditTrailReason'), sortable: false, size: 200, cell: row => row.reason ? <span className="block truncate" title={row.reason}>{row.reason}</span> : '—' },
+    { id: 'reason', header: m('auditTrailReason'), sortable: false, size: 200, cellKind: 'longText',
+      isCellEmpty: row => !row.reason, cell: () => '—' },
   ], [m, lang, timeZone, filterColumnProps, targetType]);
   return <PlatformPage description={m('auditTrailMasterChangeLogAcrossAllSitesRow')}>
     <ManagementLayout

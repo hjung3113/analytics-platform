@@ -69,6 +69,8 @@ export default function EquipmentMaster() {
   // A global-Context change clears `page` in the kernel (manifest contextResetKeys); pages write no reset effect.
   const columns = useMemo<PlatformColumn<Equipment>[]>(() => fields.map(f => ({
     size: ['validFrom', 'validTo', 'updatedAt'].includes(f.key) ? 188 : f.key === 'equipmentId' ? 184 : 128,
+    ...(f.key === 'status' && { cellKind: 'badge' }),
+    isCellEmpty: row => row[f.key] == null,
     cell: row => f.key === 'status' ? <EquipmentStatus equipment={row} /> : <span className={f.key === 'equipmentId' ? 't-mono' : f.key.includes('At') || f.key.startsWith('valid') ? 'tabular' : ''}>{row[f.key] == null ? '—' : equipmentDateText(f.key, String(row[f.key]))}</span>,
     // The status cell shows a label badge; the export shows the same text (06 §15).
     exportValue: f.key === 'status' ? (row: Equipment) => statusText[row.status][lang]

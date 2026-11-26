@@ -80,7 +80,7 @@ describe('column groups (#2418)', () => {
     expect(headerIds()).toEqual(['line', 'score', 'qty', '_action']);
     const placeholder = screen.getAllByRole('columnheader', { name: '' }).at(-1)!;
     expect(placeholder).toHaveStyle({ position: 'sticky', right: '0px' });
-    expect(placeholder).toHaveClass('border-l-border-control');
+    expect(placeholder).toHaveClass('border-l-border-strong');
   });
   it('keeps the selection utility in an unnamed upper placeholder and its control at the leaf row', async () => {
     render(<Harness bulkActions={() => null} />);
@@ -206,7 +206,7 @@ describe('column groups (#2418)', () => {
     const strong = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].filter(el => el.classList.contains('border-l-border-control') && el.getAttribute('data-column') !== '_action').map(el => el.getAttribute('data-column'));
     expect(strong('[role=cell]')).toEqual(['score']);
     expect(strong('[role=columnheader]')).toEqual(['A', 'score']);
-    expect(document.querySelector('[role=cell][data-column=_action]')).toHaveClass('border-l-border-control');
+    expect(document.querySelector('[role=cell][data-column=_action]')).toHaveClass('border-l-border-strong');
     expect(document.querySelector('.border-l-border-subtle')).toBeNull();
     view.rerender(<Harness columns={columns.map(({ columnGroup: _, ...c }) => c)} columnGroups={undefined} />);
     await waitFor(() => expect(headerRows()).toHaveLength(1));

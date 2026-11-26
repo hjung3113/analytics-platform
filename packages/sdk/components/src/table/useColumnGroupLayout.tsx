@@ -6,7 +6,7 @@ import { useColumnGroupPan } from './useColumnGroupPan';
 
 /** A pinned cell or a panned group clip fades what scrolls beneath its inner edge (a pseudo-element, no pointer events). */
 export const FADE_BASE = 'before:pointer-events-none before:absolute before:inset-y-0 before:w-5 before:from-transparent before:content-[""]';
-/** A column-group edge is the same line as the action pin edge: `border-strong` is too close to the row lines to separate groups. */
+/** Column-group edges use `border-control` to stay distinct from row lines. */
 const GROUP_EDGE = 'border-l border-l-border-control';
 
 /** The declared column groups as the table reads them before its engine exists: paths, declared group widths and membership. */
@@ -45,7 +45,7 @@ export function useColumnGroupLayout<T>({ table, model, sizing, fitWidth, column
   const displayedColumns = [...table.getLeftVisibleLeafColumns(), ...table.getCenterVisibleLeafColumns(), ...table.getRightVisibleLeafColumns()];
   const displayedPath = (c: Column<T>) => paths.get(c.id);
   const baseTotal = displayedWidth(displayedColumns, displayedPath, c => c.getSize(), groupWidth);
-  // Column-group boundaries (#2418): where a top-level group starts or ends, a `border-control` line (the action pin edge) runs from the header to the
+  // Column-group boundaries (#2418): where a top-level group starts or ends, a `border-control` line runs from the header to the
   // last row, so groups read apart in the body too. Only tables that declare groups; a width group carries its edge on the clip
   // box, which does not pan. The optional column divider is the quieter `border-subtle` line between all other columns.
   const groupEdgeIds = new Set(hasColumnGroups ? displayedColumns.filter((c, i) => i > 0 && paths.get(c.id)?.[0] !== paths.get(displayedColumns[i - 1].id)?.[0]).map(c => c.id) : []);

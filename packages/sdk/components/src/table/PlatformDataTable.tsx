@@ -13,6 +13,7 @@ import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKe
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef, toGroupedColumnDefs } from './columnDef';
+import { badgeText, columnKind, columnMinWidth, TruncatedTableText, uniformBadgeColumns } from './columnPresentation';
 import { columnGroupBasis, columnGroupErrors, columnGroupGrowthShares, columnGroupLabel, displayedUnits, displayedWidth, effectiveColumnGroups, validGroupName, type StoredColumnGroups } from './columnGroups';
 import { createColumnGroup, materializeColumnGroups, renameColumnGroup, setColumnGroupMembers, setColumnGroupWidth, ungroupColumns } from './columnGroupEdits';
 import { ColumnGroupChooseView, ColumnGroupRename, ColumnGroupResizer, ColumnGroupRowMenu, useColumnGroupEditor, useColumnGroupResize } from './ColumnGroupEditor';
@@ -39,7 +40,7 @@ import { useTableSelection, type TableExportRequest, type TableSelection } from 
 import { SelectAllBar } from './selectAllBar';
 import { buildGroupedItems, GroupHeaderCells, groupHeaderLayout, groupKeyOf } from './rowGroups';
 import { collapsedControls, GroupMenu, GroupSubmenu, MoreMenu, TableSizeMenu, TableSizeSubmenu, ToolbarDescription, ToolbarTitle } from './tableToolbar';
-import { BASE_ROW_HEIGHT, TABLE_SIZE_STEPS, useTableSize } from './tableSize';
+import { BASE_ROW_HEIGHT, TABLE_SIZE_STEPS, useTableSize, type TableSize } from './tableSize';
 import { useRegisterPageBound } from '../pageFlow';
 import { MATRIX_TONE_CLASS, type MatrixCellTone } from '../matrix/tones';
 import { useTableCellNavigation } from './useTableCellNavigation';
@@ -83,9 +84,17 @@ export type PlatformColumn<T> = {
   columnGroup?: readonly string[];
   /** Sort/default display value; default `(row as Record<string, unknown>)[id]`. */
   value?: (row: T) => unknown;
-  /** Display; default String(value) ('' for null/undefined). */
+  /**
+   * Display; default String(value) ('' for null/undefined). For `longText`, the SDK renders a non-empty string accessor
+   * with truncation in place of this renderer unless `isCellEmpty` marks the cell empty. A known uniform, non-empty badge uses a string
+   * `exportValue`, the matching enum option label, or the stringified accessor value, in that order.
+   */
   cell?: (row: T) => ReactNode;
   size?: number;
+  /** Display defaults. Inferred from a number or instant filter when omitted. */
+  cellKind?: 'number' | 'instant' | 'instant-seconds' | 'badge' | 'longText' | 'text';
+  /** Mute a consumer-rendered empty value while retaining its display label. */
+  isCellEmpty?: (row: T) => boolean;
   /** Numeric: right aligned + tabular. */
   align?: 'right';
   /** Default true. Only for columns whose id is a server sort field; display-only columns set `false`. */
@@ -151,6 +160,12 @@ const SELECT_COLUMN_SIZE = 40;
 const CELL_INLINE_PADDING = 32;
 /** The width the engine renders for a declared size: `defaultColumn` min/max apply to every column, `_select` included (40 → 60). */
 const renderedWidth = (size: number) => Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, size));
+
+function defaultColumnWidth<T>(column: PlatformColumn<T>, tableSize: TableSize) {
+  const widthScale = TABLE_SIZE_STEPS[tableSize].widthScale;
+  return renderedWidth(Math.max(columnMinWidth(column, tableSize) ?? MIN_COLUMN_WIDTH,
+    Math.round((column.size ?? DEFAULT_COLUMN_WIDTH) * widthScale)));
+}
 /** Keyboard focus ring only (ADR-0023): the feature-ui item focus tint is not distinguishable on the popover surface, so the menu keeps an inset ring — never clipped by the content's `overflow-hidden`, and it stays on top of the shared focus background. */
 const exportItemClass = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 export type TableUrlState = {
@@ -444,6 +459,10 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   });
   const { onPageReadyChange } = p;
   const pageReady = !loading && success && !outOfRange;
+  const completeResult = pageReady && shownPage === 0 && !p.externalPagination && data.total === data.rows.length;
+  const uniformBadges = useMemo(() => pageReady
+    ? uniformBadgeColumns(p.columns, data.rows, effectiveFilters, { complete: completeResult })
+    : undefined, [pageReady, p.columns, data.rows, effectiveFilters, completeResult]);
   useLayoutEffect(() => {
     if (!onPageReadyChange) return;
     onPageReadyChange(pageReady);
@@ -496,7 +515,10 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
   // it scrolls with the rest so pinned regions never overlap. Never user-pinnable, never stored (`_action` stays out of preferences).
   // One width model for the fit estimates: the stored or declared size, clamped to what the table renders.
-  const columnWidth = (column: PlatformColumn<T>) => renderedWidth((inWidthGroup(column.id) ? undefined : preferences.sizing[column.id]) ?? Math.round((column.size ?? DEFAULT_COLUMN_WIDTH) * widthScale));
+  const columnWidth = (column: PlatformColumn<T>) => {
+    const saved = inWidthGroup(column.id) ? undefined : preferences.sizing[column.id];
+    return saved === undefined ? defaultColumnWidth(column, tableSize) : renderedWidth(saved);
+  };
   const visibleDataColumns = orderedIds.flatMap(id => {
     const column = declarations.get(id);
     return column && visibility[id] !== false ? [column] : [];
@@ -538,7 +560,9 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   // The data and selection definitions do not depend on the action width: a band crossing must keep their cell functions (and the DOM they render).
   // Converted leaves depend on the declaration and the size scale only, never on the order (a reorder must not remount cells).
   // Group edits change paths/labels only; leaf renderers continue to depend on the source declaration, preserving cell state.
-  const leafDefs = useMemo(() => new Map(source.columns.map(c => [c.id, toColumnDef(widthScale === 1 ? c : { ...c, size: Math.round((c.size ?? DEFAULT_COLUMN_WIDTH) * widthScale) })])), [source.columns, widthScale]);
+  const leafDefs = useMemo(() => new Map(source.columns.map(column =>
+    [column.id, toColumnDef({ ...column, size: defaultColumnWidth(column, tableSize) })],
+  )), [source.columns, tableSize]);
   // Ungrouped tables keep declaration order here and leave ordering to the engine's `columnOrder`; grouped tables nest in the shown order.
   const treeOrder = p.columns.some(c => (c.columnGroup?.length ?? 0) > 0) ? orderedIds : null;
   const baseColumns = useMemo<ColumnDef<T>[]>(() => [
@@ -723,9 +747,10 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   const headStyle = (column: Column<T>): CSSProperties => sized ? { ...cellStyle(column), fontSize: 'var(--ap-table-head-font)' } : cellStyle(column);
   const groupHeadStyle = (h: Header<T, unknown>, side: 'left' | 'right' | false): CSSProperties => sized ? { ...groupSpanStyle(h, side), fontSize: 'var(--ap-table-head-font)' } : groupSpanStyle(h, side);
   /** The right-pinned action column keeps a visible edge while content scrolls beneath it (a border token; DESIGN.md allows no shadow). */
-  const pinEdge = 'border-l border-l-border-control';
+  const pinEdge = 'border-l border-l-border-strong';
+  // Absolute offsets are measured from the padding box. Clear the action cell's 1px border.
   const fadeClass = (side: 'left' | 'right' | false | null, body: boolean, active = false) => !side || !(side === 'right' ? fade.right : fade.left) ? undefined
-    : cn(FADE_BASE, 'overflow-visible', side === 'right' ? 'before:right-full before:bg-linear-to-r' : 'before:left-full before:bg-linear-to-l',
+    : cn(FADE_BASE, 'overflow-visible', side === 'right' ? 'before:right-[calc(100%+1px)] before:bg-linear-to-r' : 'before:left-full before:bg-linear-to-l',
       body ? cn(active ? 'before:to-surface-row-selected' : 'before:to-surface-card', 'group-hover:before:to-surface-row-hover group-aria-selected:before:to-surface-row-selected') : 'before:to-surface-sunken');
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
   function editGroups(edit: (snapshot: StoredColumnGroups) => StoredColumnGroups, mode: 'now' | 'later', { gather = false }: { gather?: boolean } = {}) {
@@ -1056,6 +1081,14 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
         const selectableCell = grid && !!declaration && declaration.selectableCell !== false;
         const selected = selectableCell && selectedColumn === column.id;
         const tone = declaration?.cellTone?.(row.original);
+        const kind = declaration && columnKind(declaration);
+        const isEmpty = declaration?.isCellEmpty?.(row.original) === true;
+        const value = cell.getValue();
+        let content = flexRender(column.columnDef.cell, cell.getContext());
+        // Render the action directly to preserve DOM identity across compact/full widths (#296).
+        if (column.id === '_action') content = p.rowAction?.(row.original, { compact: actionCompact });
+        else if (kind === 'longText' && !isEmpty && typeof value === 'string' && value) content = <TruncatedTableText text={value} />;
+        else if (declaration && !isEmpty && uniformBadges?.has(column.id)) content = badgeText(declaration, row.original, value);
         const firstData = cells.indexOf(cell) === firstDataCell;
         // The hard stop confines the accent background to the first cell's padding, including in pinned columns.
         const highlightEdge = showHighlightEdge && firstData && !selected && 'bg-linear-to-r from-accent-primary from-(length:--spacing) to-transparent to-(length:--spacing)';
@@ -1070,9 +1103,10 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
         return <div role={grid ? 'gridcell' : 'cell'} key={cell.id} data-column={column.id} style={cellStyle(column)} aria-label={label} aria-describedby={matchId}
           aria-selected={selectableCell ? selected : undefined} {...interaction}
           className={cn(cellBase, 'border-b border-border-row', cellText, background, active && firstData && 'font-medium', muted && declaration && cn('text-text-muted group-hover:text-text-secondary group-aria-selected:text-text-secondary', active && 'text-text-secondary'), column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), lineClass(column.id), column.getIsPinned() === 'right' && pinEdge, fadeClass(inWidthGroup(column.id) ? false : column.getIsPinned(), true, active), align(column),
+            (kind === 'instant' || kind === 'instant-seconds') && 'whitespace-nowrap tabular', kind === 'badge' && '[&>*]:min-w-0 [&>*]:whitespace-normal',
+            isEmpty && 'text-text-muted not-italic',
             selectableCell && 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring')}>
-          {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
-          {column.id === '_action' ? p.rowAction?.(row.original, { compact: actionCompact }) : flexRender(column.columnDef.cell, cell.getContext())}
+          {content}
           {match && <span id={matchId} className="sr-only"> {m('tableHighlightedRow')}</span>}
         </div>;
       }, { body: true, active })}

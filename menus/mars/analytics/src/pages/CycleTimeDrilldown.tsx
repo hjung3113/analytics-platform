@@ -132,7 +132,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
     { id: 'recipe', header: 'Recipe', cell: row => <span className="t-mono">{row.recipe}</span> },
     { id: 'lotId', header: 'Lot', cell: row => <span className="t-mono">{row.lotId}</span> },
     {
-      id: 'startedAt', header: m('cycleTimeDrilldownStart'), cell: row => <span className="t-mono tabular">{formatWallClock(row.startedAt)}</span>,
+      id: 'startedAt', header: m('cycleTimeDrilldownStart'), cellKind: 'instant-seconds', cell: row => <span className="t-mono tabular">{formatWallClock(row.startedAt)}</span>,
       // The cell shows the wall-clock start space-separated (§6.3); the export shows the same text.
       exportValue: row => formatWallClock(row.startedAt),
     },
@@ -148,7 +148,7 @@ export default function CycleTimeDrilldown(_: PageProps) {
       },
     },
     {
-      id: 'quality', header: m('cycleTimeDrilldownQuality'),
+      id: 'quality', header: m('cycleTimeDrilldownQuality'), cellKind: 'badge',
       cell: row => qualityBadge(row.quality, lang === 'ko'),
       // The cell shows a label badge; the export shows the same text. Numbers (cycleMin, delta) stay numbers.
       exportValue: row => qualityLabel(row.quality, lang === 'ko'),
