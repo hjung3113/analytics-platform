@@ -1,10 +1,10 @@
 import { Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useLatestRef } from '../latestRef';
-import { DockLayout, dockLayoutMenu, movePanel, type DockPanel } from '@ap/components/dock';
+import { DockLayout, DockMenuItem, DockMenuSeparator, dockLayoutMenu, dockStripElement, movePanel, type DockPanel } from '@ap/components/dock';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatform, type PaneScreen } from '@ap/kernel/host';
-import { Button, DropdownMenuItem, DropdownMenuSeparator, useSurfacePaused } from '@ap/ui';
+import { Button, useSurfacePaused } from '@ap/ui';
 import { effectiveTree, fromDockTree, groupHolding, groupsOf, splitExceedsCap, toDockTree } from './boardDockTree';
 import { MAX_GROUPS } from './boardTypes';
 import { indexOfPane, selectedIndex, setTree, type Board, type Sheet } from './boardModel';
@@ -51,7 +51,8 @@ function HeadSlot({ paneId, stripWidth, tabs, setHead }: { paneId: string; strip
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   useLayoutEffect(() => { if (slot) setHead(paneId, { slot, stripWidth, tabs }); }, [slot, paneId, stripWidth, tabs, setHead]);
   useLayoutEffect(() => { if (!slot) return; return () => { setHead(paneId, null, slot); }; }, [slot, paneId, setHead]);
-  return <div ref={setSlot} data-pane-head-slot={paneId} className="flex h-full min-w-0 items-center" />;
+  // Beside a merged chart head (#3052) the pane head comes first and keeps its width: its chips claim room before the Frame's tools.
+  return <div ref={setSlot} data-pane-head-slot={paneId} className="flex h-full min-w-0 items-center [[data-dock-chart-head]>&]:order-first [[data-dock-chart-head]>&]:shrink-0" />;
 }
 
 /**
@@ -76,7 +77,11 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
   useEffect(() => { latestSelected.current = sheet.selectedPaneId; });
   const usable = (element: HTMLElement | null | undefined): element is HTMLElement => !!element && element.isConnected && !element.closest('[inert], [hidden]');
   const tabOfPane = (paneId: string) => Array.from(wrap.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []).find(tab => tab.dataset.tabPanelId === paneId);
-  const toggleOfPane = (paneId: string) => Array.from(wrap.current?.querySelectorAll<HTMLElement>('[data-pane-head-slot]') ?? []).find(slot => slot.dataset.paneHeadSlot === paneId)?.querySelector<HTMLElement>('[data-pane-maximize]');
+  // A merged chart head (#3052) draws the toggle in the Frame's tail, elsewhere in the same strip.
+  const toggleOfPane = (paneId: string) => {
+    const slot = Array.from(wrap.current?.querySelectorAll<HTMLElement>('[data-pane-head-slot]') ?? []).find(item => item.dataset.paneHeadSlot === paneId);
+    return slot && (slot.querySelector<HTMLElement>('[data-pane-maximize]') ?? dockStripElement(slot)?.querySelector<HTMLElement>('[data-pane-maximize]'));
+  };
   /** Focus goes to an element once the engine has laid the new tree out: the one it had may have been rebuilt or moved to another group. */
   const paused = useSurfacePaused();
   // Covering the board drops the focus hand-offs still waiting: they would otherwise land on whatever is in front.
@@ -161,20 +166,20 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
     // Move targets are numbered by the lowest pane number of the group (a dock tree does not carry it), so the board hands the helper that order.
     const menu = dockLayoutMenu(toDockTree(tree), paneId, { maximized: maximizedHere(paneId), orderOf: group => Math.min(...group.panels.map(numberOf)) });
     if (menu.maximized) {
-      return <DropdownMenuItem onSelect={() => { afterMenuClose.current = () => { focusSoon(() => toggleOfPane(paneId)); }; onMaximizedChange(null); }}>{text.restoreSize}</DropdownMenuItem>;
+      return <DockMenuItem onSelect={() => { afterMenuClose.current = () => { focusSoon(() => toggleOfPane(paneId)); }; onMaximizedChange(null); }}>{text.restoreSize}</DockMenuItem>;
     }
     const move = (build: Parameters<typeof command>[0]) => { afterMenuClose.current = () => { focusTabSoon(paneId); }; command(build); };
     return <>
-      <DropdownMenuItem onSelect={() => onMaximizedChange(paneId)}>{text.maximizePane(n)}</DropdownMenuItem>
+      <DockMenuItem onSelect={() => onMaximizedChange(paneId)}>{text.maximizePane(n)}</DockMenuItem>
       {menu.split !== null && <>
-        <DropdownMenuSeparator />
+        <DockMenuSeparator />
         {/* A split makes a new display group; at `MAX_GROUPS` it is offered off, with the reason (the sheet's tab total is another limit). */}
-        <DropdownMenuItem disabled={groupsFull} aria-describedby={groupsFull ? groupLimitId : undefined} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'right' })); }}>{text.splitRight}</DropdownMenuItem>
-        <DropdownMenuItem disabled={groupsFull} aria-describedby={groupsFull ? groupLimitId : undefined} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'bottom' })); }}>{text.splitDown}</DropdownMenuItem>
+        <DockMenuItem disabled={groupsFull} aria-describedby={groupsFull ? groupLimitId : undefined} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'right' })); }}>{text.splitRight}</DockMenuItem>
+        <DockMenuItem disabled={groupsFull} aria-describedby={groupsFull ? groupLimitId : undefined} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: menu.split!, position: 'bottom' })); }}>{text.splitDown}</DockMenuItem>
         {groupsFull && <div id={groupLimitId} role="note" className="px-2 py-1 text-tiny text-text-muted">{text.groupLimit}</div>}
       </>}
-      {menu.moves.length > 0 && <DropdownMenuSeparator />}
-      {menu.moves.map(other => <DropdownMenuItem key={other.group.panels[0]} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: other.target, position: 'center' })); }}>{text.moveToGroup(other.order)}</DropdownMenuItem>)}
+      {menu.moves.length > 0 && <DockMenuSeparator />}
+      {menu.moves.map(other => <DockMenuItem key={other.group.panels[0]} onSelect={() => { move(dock => movePanel(dock, paneId, { panelId: other.target, position: 'center' })); }}>{text.moveToGroup(other.order)}</DockMenuItem>)}
     </>;
   };
 
@@ -242,6 +247,6 @@ export function BoardDock({ sheet, update, paneProps, onSelect, onClear, onClose
       separatorLabel={info => (info.dir === 'row' ? text.columnSizeBetween : text.rowSize)(numberOf(info.before[0]!), numberOf(info.after[0]!))}
       currentPanelId={sheet.selectedPaneId} tabA11y={tabA11y}
       canDropAt={({ panelId, position }) => !splitExceedsCap(tree, panelId, position)}
-      minPanelSize={MIN_PANEL_SIZE} stackBelow={STACK_BELOW} />
+      minPanelSize={MIN_PANEL_SIZE} stackBelow={STACK_BELOW} mergeChartHead />
   </div>;
 }

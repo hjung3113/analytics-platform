@@ -173,7 +173,9 @@ function GroupActions({ activePanel, panels }: IDockviewHeaderActionsProps) {
   const chart = useDockChartSlot(engine.mergeChartHead && panels.length === 1 && anchor && engine.visible.has(anchor) ? anchor : undefined, 'toolbar');
   const drawn = group !== undefined || chart.singleChart;
   const { publishStripWidth } = chart;
-  const chartStripWidth = chart.singleChart ? stripWidth : undefined;
+  const [hostWidth, setHostWidth] = useState(0);
+  // The Frame's tools get what the host's own head content (the board's chips, a pin) leaves of the strip (#3052).
+  const chartStripWidth = chart.singleChart && stripWidth !== undefined ? Math.max(0, stripWidth - hostWidth) : undefined;
   useLayoutEffect(() => {
     if (chartStripWidth === undefined) return;
     publishStripWidth(chartStripWidth);
@@ -194,9 +196,19 @@ function GroupActions({ activePanel, panels }: IDockviewHeaderActionsProps) {
     observer?.observe(strip);
     return () => { observer?.disconnect(); root?.removeEventListener(RESIZE_END, measure); };
   }, [drawn]);
+  useLayoutEffect(() => {
+    const own = slot.current;
+    if (!own || !chart.singleChart) { setHostWidth(0); return; }
+    const host = Array.from(own.children).filter(child => !child.hasAttribute('data-dock-chart-toolbar-slot'));
+    const measure = () => { setHostWidth(Math.round(host.reduce((sum, child) => sum + child.getBoundingClientRect().width, 0))); };
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure);
+    host.forEach(child => observer?.observe(child));
+    return () => { observer?.disconnect(); };
+  }, [chart.singleChart, actions]);
   if (!drawn) return null;
   return <div ref={slot} data-dock-group-actions data-dock-active={group?.active ?? anchor} data-dock-chart-head={chart.singleChart ? '' : undefined} className="flex h-full min-w-0 items-center">
-    {chart.singleChart && <div ref={chart.ref} className="min-w-0 flex-1" />}
+    {chart.singleChart && <div ref={chart.ref} data-dock-chart-toolbar-slot className="min-w-0 flex-1" />}
     <DockChartMaximizeTarget.Provider value={chart.singleChart ? chart.maximize : undefined}>
       <DockChartLayoutActionsSlot.Provider value={chart.singleChart ? chart.registerLayoutActions : undefined}>
         {actions}

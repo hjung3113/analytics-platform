@@ -105,3 +105,23 @@ export function useDockChartSlot(panel: string | undefined, slot: 'toolbar' | 'd
   }, [panel, setStripWidth]);
   return { ref, publishStripWidth, singleChart: singleFrameId(pane) !== undefined, maximize: pane?.targets.maximize, registerLayoutActions };
 }
+
+/**
+ * A host's header-right content drawn outside the dock's slot (a portal from the panel, as the board pane head is): whether this panel's single
+ * Chart Frame has joined the group head, the Frame's maximize slot, and where the host registers its menu content for the Frame's one `⋯`.
+ * Read inside the panel (`DockLayout` `mergeChartHead`). Only primitives and stable nodes are read, so registering menu content does not re-render
+ * the caller.
+ */
+export function useDockChartMerge() {
+  const panel = useContext(DockChartPaneId);
+  const dock = useContext(DockChartContext);
+  const subscribe = dock?.subscribe ?? noSubscribe;
+  const read = () => (panel ? dock?.read(panel) : undefined);
+  const merged = useSyncExternalStore(subscribe, () => { const pane = read(); return singleFrameId(pane) !== undefined && !!pane?.targets.toolbar; }, () => false);
+  const maximize = useSyncExternalStore(subscribe, () => read()?.targets.maximize, () => undefined);
+  const setLayoutActions = dock?.setLayoutActions;
+  const registerLayoutActions = useCallback((actions: DockChartLayoutActions | undefined) => {
+    if (panel) setLayoutActions?.(panel, actions);
+  }, [panel, setLayoutActions]);
+  return { merged, maximize: merged ? maximize : undefined, registerLayoutActions };
+}

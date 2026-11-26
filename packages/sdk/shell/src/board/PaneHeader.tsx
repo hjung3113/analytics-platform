@@ -1,9 +1,10 @@
 import { ChevronDown, ChevronUp, Maximize2, Minimize2, CornerUpLeft, MoreHorizontal } from 'lucide-react';
-import { Fragment, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { Fragment, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { RETURN_CONTEXT_LABELS, useI18n } from '@ap/kernel';
-import { dockTabElements, isActiveDockTab, dockStripElement, radioGroupsOf, useWorkspaceCommands } from '@ap/components/dock';
+import { DockMenuItem, DockMenuSeparator, dockTabElements, isActiveDockTab, dockStripElement, radioGroupsOf, useDockChartMerge, useDockMenuInline, useWorkspaceCommands, type DockChartLayoutActions, type WorkspaceCommand } from '@ap/components/dock';
 import {
-  Button, buttonVariants, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  Button, buttonVariants, cn, DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
   Popover, PopoverAnchor, PopoverContent,
 } from '@ap/ui';
 import { PANE_CHIP } from '../context/contextChip';
@@ -132,7 +133,7 @@ export function markCompactTabs(strip: HTMLElement | null, count: number) {
  * head is the active pane's slot in its group's strip, so the room is the strip minus what the tabs need, narrowed in the order of docs/16 §4:
  * tab names to their minimum (CSS), background tabs to their badge, from the back (`compactCount`), chips into `+N`, last the slot on a row of its own (`wrap`).
  */
-function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, signature: string, sameCount: number, nameMin: number, nameMinSqueezed: number, strip: DockStrip | null) {
+function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, signature: string, sameCount: number, nameMin: number, nameMinSqueezed: number, strip: DockStrip | null, merged: boolean) {
   const [layout, setLayout] = useState({ visible: count, overflow: false, compactCount: 0, wrap: false });
   const inDock = strip !== null;
   const stripWidth = strip?.width ?? 0;
@@ -144,7 +145,10 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
       const width = inDock ? stripWidth : element.getBoundingClientRect().width;
       if (width <= 0 || (count === 0 && !inDock)) { setLayout({ visible: count, overflow: false, compactCount: 0, wrap: false }); return; }
       const widthOf = (selector: string) => Array.from(element.querySelectorAll<HTMLElement>(selector)).map(item => item.getBoundingClientRect().width);
-      const fixed = widthOf('[data-head-fixed]').reduce((sum, w) => sum + w, 0);
+      const stripElement = inDock ? dockStripElement(element) : null;
+      // A merged chart head (#3052): the chips claim their room first, so the Frame's permanent tail and what sits after the tabs are reserved;
+      // the Frame's hover tools take only what is left. The table toggle counts at its icon width, the least it narrows to.
+      const fixed = widthOf('[data-head-fixed]').reduce((sum, w) => sum + w, 0) + (merged && stripElement ? chartHeadReserve(stripElement) : 0);
       const [more = 0] = widthOf('[data-chip-measure="more"]');
       const [same = 0] = widthOf('[data-chip-measure="same"]');
       const input = { padding: inDock ? DOCK_PADDING : HEAD_PADDING, fixed, chips: widthOf('[data-chip-measure="chip"]'), more, same, sameCount, nameMin, nameMinSqueezed };
@@ -153,7 +157,6 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
         setLayout({ visible: fit.visible, overflow: fit.overflow, compactCount: 0, wrap: false });
         return;
       }
-      const stripElement = dockStripElement(element);
       const floors = tabFloors(stripElement);
       // The strip lists as many tabs as the group has; a count that disagrees (first paint) falls back to the spec's constants.
       const known: TabFloor[] = floors.length === tabs ? floors
@@ -162,7 +165,8 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
       const compactCount = compactTabCount(known, width, fitsAt);
       let wrap = false;
       let fit = fitChips({ ...input, width: tabRoom(known, width, compactCount) });
-      if (fit.tight) { wrap = true; fit = fitChips({ ...input, width }); }
+      // A merged head stays one line: the strip clips at its start and keeps the actions in view.
+      if (fit.tight && !merged) { wrap = true; fit = fitChips({ ...input, width }); }
       markCompactTabs(stripElement, compactCount);
       setLayout(previous => (previous.visible === fit.visible && previous.overflow === fit.overflow && previous.compactCount === compactCount && previous.wrap === wrap ? previous : { visible: fit.visible, overflow: fit.overflow, compactCount, wrap }));
     };
@@ -170,10 +174,23 @@ function useVisibleChips(head: RefObject<HTMLDivElement | null>, count: number, 
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     // The head alone is not enough: a fixed group or a measuring chip can change size (`이전 화면` appears, the language changes) with the head's width unchanged.
-    for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]'), ...(inDock ? dockTabElements(dockStripElement(element)) : [])]) observer.observe(target);
+    const strip = inDock ? dockStripElement(element) : null;
+    const chartHead = merged && strip ? Array.from(strip.querySelectorAll('[data-chart-toolbar-tail], [data-dock-group-tabs-end]')) : [];
+    for (const target of [element, ...element.querySelectorAll('[data-head-fixed], [data-chip-measure]'), ...(inDock ? dockTabElements(strip) : []), ...chartHead]) observer.observe(target);
     return () => observer.disconnect();
-  }, [head, count, signature, sameCount, nameMin, nameMinSqueezed, inDock, stripWidth, tabs]);
+  }, [head, count, signature, sameCount, nameMin, nameMinSqueezed, inDock, stripWidth, tabs, merged]);
   return { visible: Math.min(layout.visible, count), overflow: count > 0 && layout.overflow, compactCount: layout.compactCount, wrap: layout.wrap };
+}
+
+/** The table toggle narrows to its icon (`icon-xs`, 28px) when the strip is short. */
+const TABLE_TOGGLE_MIN = 28;
+
+/** What a merged chart head keeps beside the chips: the slot after the tabs and the Frame's tail (table toggle at its least, back, maximize, `⋯`). */
+function chartHeadReserve(strip: HTMLElement): number {
+  const width = (item: Element | null) => item?.getBoundingClientRect().width ?? 0;
+  const tail = strip.querySelector('[data-chart-toolbar-tail]');
+  const table = tail?.querySelector('[data-dock-chart-table-slot]') ?? null;
+  return width(strip.querySelector('[data-dock-group-tabs-end]')) + width(tail) - width(table) + (table ? TABLE_TOGGLE_MIN : 0);
 }
 
 export type PaneHeaderProps = {
@@ -262,7 +279,10 @@ export function PaneHeader(props: PaneHeaderProps) {
   const signature = chips.map(c => `${c.key}:${c.value}`).join('|');
   const sameCount = signal ? (signal.compared ? signal.same.length : signal.rows.length) : 0;
   // The dock fits the summary button whether or not there are differing chips; the grid only has one to fit next to chips.
-  const { visible: visibleCount, overflow, compactCount, wrap } = useVisibleChips(head, chips.length, signature, dock ? (active ? sameCount : 0) : signal?.compared ? signal.same.length : 0, dock ? 0 : MENU_NAME_MIN_WIDTH, dock ? 0 : MENU_NAME_MIN_WIDTH_SQUEEZED, dock ? props.strip ?? null : null);
+  // One Chart Frame in this pane joined the group head (#3052): back and maximize sit in its tail, and this menu's items join its one `⋯`.
+  const chartHead = useDockChartMerge();
+  const merged = dock && chartHead.merged;
+  const { visible: visibleCount, overflow, compactCount, wrap } = useVisibleChips(head, chips.length, signature, dock ? (active ? sameCount : 0) : signal?.compared ? signal.same.length : 0, dock ? 0 : MENU_NAME_MIN_WIDTH, dock ? 0 : MENU_NAME_MIN_WIDTH_SQUEEZED, dock ? props.strip ?? null : null, merged);
   const shown = chips.slice(0, visibleCount);
   const hiddenDifferences = chips.length - shown.length;
   const hidden = overflow ? hiddenDifferences + (signal?.compared ? signal.same.length : 0) : 0;
@@ -277,8 +297,54 @@ export function PaneHeader(props: PaneHeaderProps) {
   // A menu workspace in this pane draws no toolbar and offers its commands here (ADR-0067 decision 3).
   const workspaceCommands = useWorkspaceCommands();
   // Independent radio groups (the presets, the workspace's height mode), each with its own checked item.
-  const radioGroups = radioGroupsOf(workspaceCommands);
-  const otherCommands = workspaceCommands.filter(command => command.kind !== 'radio');
+  const menuContent = useRef<HTMLDivElement>(null);
+  const focusHandoff = useRef(false);
+  const takeCloseFocus = useRef(() => {
+    if (ownerHidden.current) { afterMenuClose.current = null; return () => {}; }
+    const next = afterMenuClose.current;
+    afterMenuClose.current = null;
+    return next && (() => { next(); });
+  }).current;
+  const claimFocus = useRef(() => { const held = focusHandoff.current; focusHandoff.current = false; return held; }).current;
+  // The merged `⋯` sits in the strip, outside the pane: pressing anything there selects the pane, as this head's own trigger does.
+  const selectRef = useRef(onSelect);
+  useLayoutEffect(() => { selectRef.current = onSelect; });
+  useEffect(() => {
+    const strip = merged && head.current ? dockStripElement(head.current) : null;
+    if (!strip) return;
+    const select = () => { selectRef.current(); };
+    strip.addEventListener('pointerdown', select, true);
+    return () => { strip.removeEventListener('pointerdown', select, true); };
+  }, [merged]);
+  const icon = merged ? { size: 'icon-xs' as const } : { size: 'icon-sm' as const, className: dock ? DOCK_ICON : undefined };
+  const backButton = active && hasPrevious && <Button type="button" variant="ghost" {...icon} aria-label={text.previousScreen} title={text.previousScreen}
+    onClick={() => { onSelect(); props.onBack(); }}><CornerUpLeft className="size-3.5" aria-hidden /></Button>;
+  const dockMaximize = dock && <Button type="button" variant="ghost" {...icon} data-pane-maximize aria-label={props.maximized ? text.restoreSize : text.maximizePane(number)} title={props.maximized ? text.restoreSize : text.maximizePane(number)} onClick={props.onMaximize}>
+    {props.maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
+  </Button>;
+  const menuItems = <>
+        {!active && props.onClosePane && <DockMenuItem onSelect={() => { afterMenuClose.current = () => {}; props.onClosePane?.(); }}>{text.closePane(number)}</DockMenuItem>}
+        {active && <>
+        <DockMenuItem disabled={applyAllOff !== null} aria-describedby={applyAllOff !== null ? `${id}-apply-off` : undefined} onSelect={() => props.onApplyAll()}>
+          <span className="grid">{text.applyToAll}{applyAllOff !== null && <span id={`${id}-apply-off`} className="text-tiny text-text-muted">{applyAllOff}</span>}</span>
+        </DockMenuItem>
+        <DockMenuItem onSelect={() => props.onOpenFull()}>{text.openFull}</DockMenuItem>
+        <DockMenuItem onSelect={() => { afterMenuClose.current = () => {}; props.onReplace(); }}>{text.replacePane}</DockMenuItem>
+        <DockMenuItem disabled={duplicateOff !== null} aria-describedby={duplicateOff !== null ? `${id}-dup-off` : undefined} onSelect={() => props.onDuplicate()}>
+          <span className="grid">{text.duplicatePane}{duplicateOff !== null && <span id={`${id}-dup-off`} className="text-tiny text-text-muted">{duplicateOff}</span>}</span>
+        </DockMenuItem>
+        <DockMenuSeparator />
+        <DockMenuItem onSelect={() => props.onClear()}>{text.clear}</DockMenuItem>
+        </>}
+        {workspaceCommands.length > 0 && <>
+          {hasContentMenu && <DockMenuSeparator />}
+          <WorkspaceCommandItems commands={workspaceCommands} label={text.screenLayout} id={id} />
+        </>}
+        {dock && props.dockMenu && <>
+          {(hasContentMenu || workspaceCommands.length > 0) && <DockMenuSeparator />}
+          {props.dockMenu(afterMenuClose)}
+        </>}
+  </>;
   return <div ref={head} data-pane-head {...dockProps}
     className={cn('relative flex items-center gap-2', dock ? 'h-full min-w-0 pr-1' : cn('h-10 shrink-0 border-b border-border-subtle px-2', selected ? 'bg-surface-row-selected' : 'bg-surface-card'))}>
     <Popover open={popover} onOpenChange={setPopover}>
@@ -308,8 +374,7 @@ export function PaneHeader(props: PaneHeaderProps) {
         {signal.compared ? text.contextSame(sameCount) : text.contextCount(sameCount)}
       </Button>}
       <div data-head-fixed="actions" className="flex shrink-0 items-center gap-1">
-        {active && hasPrevious && <Button type="button" variant="ghost" size="icon-sm" className={dock ? DOCK_ICON : undefined} aria-label={text.previousScreen} title={text.previousScreen}
-          onClick={() => { onSelect(); props.onBack(); }}><CornerUpLeft className="size-3.5" aria-hidden /></Button>}
+        {chartHead.maximize ? createPortal(<>{backButton}{dockMaximize}</>, chartHead.maximize) : backButton}
         {props.sizing && <>
           <Button type="button" variant="ghost" size="icon-sm" aria-expanded={!props.collapsed} aria-label={props.collapsed ? text.expandPane(number) : text.collapsePane(number)}
             disabled={props.collapseOff != null} aria-describedby={props.collapseOff ? `${id}-collapse-off` : undefined} onClick={props.onCollapse}>
@@ -320,14 +385,14 @@ export function PaneHeader(props: PaneHeaderProps) {
             {props.maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
           </Button>}
         </>}
-        {dock && <Button type="button" variant="ghost" size="icon-sm" className={DOCK_ICON} data-pane-maximize aria-label={props.maximized ? text.restoreSize : text.maximizePane(number)} title={props.maximized ? text.restoreSize : text.maximizePane(number)} onClick={props.onMaximize}>
-          {props.maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
-        </Button>}
-        {(hasContentMenu || dock) && <DropdownMenu open={menuOpen} onOpenChange={open => { if (open) cancelMenuFocus.current = false; setMenuOpen(open); }}>
+        {!chartHead.maximize && dockMaximize}
+        {merged && (hasContentMenu || dock) && <MergedMenu register={chartHead.registerLayoutActions} takeCloseFocus={takeCloseFocus} claimFocus={claimFocus}>{menuItems}</MergedMenu>}
+        {!merged && (hasContentMenu || dock) && <DropdownMenu open={menuOpen} onOpenChange={open => { if (open) cancelMenuFocus.current = false; setMenuOpen(open); }}>
+          <FocusOnUnmount trigger={menuTrigger} menu={menuContent} held={focusHandoff} />
           <DropdownMenuTrigger asChild>
             <Button ref={menuTrigger} type="button" variant="ghost" size="icon-sm" className={dock ? DOCK_ICON : undefined} data-dock-group-menu={dock ? '' : undefined} aria-label={text.paneActions(number)} title={text.paneActions(number)} onPointerDown={onSelect}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end"
+          <DropdownMenuContent ref={menuContent} align="end"
             onCloseAutoFocus={event => {
               if (ownerHidden.current || cancelMenuFocus.current) { event.preventDefault(); cancelMenuFocus.current = false; afterMenuClose.current = null; return; }
               const next = afterMenuClose.current;
@@ -336,41 +401,7 @@ export function PaneHeader(props: PaneHeaderProps) {
               event.preventDefault();
               next();
             }}>
-            {!active && props.onClosePane && <DropdownMenuItem onSelect={() => { afterMenuClose.current = () => {}; props.onClosePane?.(); }}>{text.closePane(number)}</DropdownMenuItem>}
-            {active && <>
-            <DropdownMenuItem disabled={applyAllOff !== null} aria-describedby={applyAllOff !== null ? `${id}-apply-off` : undefined} onSelect={() => props.onApplyAll()}>
-              <span className="grid">{text.applyToAll}{applyAllOff !== null && <span id={`${id}-apply-off`} className="text-tiny text-text-muted">{applyAllOff}</span>}</span>
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => props.onOpenFull()}>{text.openFull}</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => { afterMenuClose.current = () => {}; props.onReplace(); }}>{text.replacePane}</DropdownMenuItem>
-            <DropdownMenuItem disabled={duplicateOff !== null} aria-describedby={duplicateOff !== null ? `${id}-dup-off` : undefined} onSelect={() => props.onDuplicate()}>
-              <span className="grid">{text.duplicatePane}{duplicateOff !== null && <span id={`${id}-dup-off`} className="text-tiny text-text-muted">{duplicateOff}</span>}</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => props.onClear()}>{text.clear}</DropdownMenuItem>
-            </>}
-            {workspaceCommands.length > 0 && <>
-              {hasContentMenu && <DropdownMenuSeparator />}
-              <DropdownMenuLabel>{text.screenLayout}</DropdownMenuLabel>
-              {radioGroups.map((commands, at) => {
-                // A group the workspace names (its `groupLabel`) gets a visible label of its own; the first, unnamed one sits under `화면 배치`.
-                const named = commands[0]!.groupLabel;
-                // Every command off at a narrow width: the reason (§12.8) is drawn once under the group.
-                const offReason = commands.every(command => command.disabled) ? commands.find(command => command.description)?.description : undefined;
-                return <Fragment key={commands[0]!.group ?? 'preset'}>
-                {at > 0 && <DropdownMenuSeparator />}
-                {named && <DropdownMenuLabel id={`${id}-group-${at}`}>{named}</DropdownMenuLabel>}
-                <DropdownMenuRadioGroup aria-labelledby={named ? `${id}-group-${at}` : undefined} aria-describedby={offReason ? `${id}-group-${at}-reason` : undefined} value={commands.find(command => command.checked)?.id ?? ''} onValueChange={id => { commands.find(command => command.id === id)?.run(); }}>
-                  {commands.map(command => <DropdownMenuRadioItem key={command.id} value={command.id} disabled={command.disabled}>{command.label}</DropdownMenuRadioItem>)}
-                </DropdownMenuRadioGroup>
-                {offReason && <p id={`${id}-group-${at}-reason`} className="px-2 py-1.5 text-xs text-text-secondary">{offReason}</p>}
-              </Fragment>; })}
-              {otherCommands.map(command => <DropdownMenuItem key={command.id} disabled={command.disabled} onSelect={() => command.run()}>{command.description ? <span className="grid">{command.label}<span className="text-tiny text-text-muted">{command.description}</span></span> : command.label}</DropdownMenuItem>)}
-            </>}
-            {dock && props.dockMenu && <>
-              {(hasContentMenu || workspaceCommands.length > 0) && <DropdownMenuSeparator />}
-              {props.dockMenu(afterMenuClose)}
-            </>}
+            {menuItems}
           </DropdownMenuContent>
         </DropdownMenu>}
       </div>
@@ -393,4 +424,62 @@ export function PaneHeader(props: PaneHeaderProps) {
       </PopoverContent>
     </Popover>
   </div>;
+}
+
+/** The workspace commands of this pane (ADR-0067 decision 3): radio groups in the dropdown, pressed-state buttons in a merged chart `⋯`. */
+function WorkspaceCommandItems({ commands, label, id }: { commands: readonly WorkspaceCommand[]; label: string; id: string }) {
+  const inline = useDockMenuInline();
+  // Independent radio groups (the presets, the workspace's height mode), each with its own checked item.
+  const radioGroups = radioGroupsOf(commands);
+  const otherCommands = commands.filter(command => command.kind !== 'radio');
+  const groupLabel = (text: string, labelId?: string) => (inline
+    ? <p id={labelId} className="px-2 pt-1 text-xs text-text-muted">{text}</p>
+    : <DropdownMenuLabel id={labelId}>{text}</DropdownMenuLabel>);
+  return <>
+    {groupLabel(label)}
+    {radioGroups.map((group, at) => {
+      // A group the workspace names (its `groupLabel`) gets a visible label of its own; the first, unnamed one sits under `화면 배치`.
+      const named = group[0]!.groupLabel;
+      // Every command off at a narrow width: the reason (§12.8) is drawn once under the group.
+      const offReason = group.every(command => command.disabled) ? group.find(command => command.description)?.description : undefined;
+      const labelledBy = named ? `${id}-group-${at}` : undefined;
+      const describedBy = offReason ? `${id}-group-${at}-reason` : undefined;
+      return <Fragment key={group[0]!.group ?? 'preset'}>
+        {at > 0 && <DockMenuSeparator />}
+        {named && groupLabel(named, labelledBy)}
+        {inline
+          ? <div role="group" aria-labelledby={labelledBy} aria-describedby={describedBy} className="w-full">
+            {group.map(command => <DockMenuItem key={command.id} disabled={command.disabled} pressed={command.checked} onSelect={() => command.run()}>{command.label}</DockMenuItem>)}
+          </div>
+          : <DropdownMenuRadioGroup aria-labelledby={labelledBy} aria-describedby={describedBy} value={group.find(command => command.checked)?.id ?? ''} onValueChange={value => { group.find(command => command.id === value)?.run(); }}>
+            {group.map(command => <DropdownMenuRadioItem key={command.id} value={command.id} disabled={command.disabled}>{command.label}</DropdownMenuRadioItem>)}
+          </DropdownMenuRadioGroup>}
+        {offReason && <p id={describedBy} className="px-2 py-1.5 text-xs text-text-secondary">{offReason}</p>}
+      </Fragment>;
+    })}
+    {otherCommands.map(command => <DockMenuItem key={command.id} disabled={command.disabled} onSelect={() => command.run()}>{command.description ? <span className="grid">{command.label}<span className="text-tiny text-text-muted">{command.description}</span></span> : command.label}</DockMenuItem>)}
+  </>;
+}
+
+/** Registers the pane menu as the merged chart `⋯`'s layout content, and withdraws it when the head stops merging or unmounts. */
+function MergedMenu({ register, takeCloseFocus, claimFocus, children }: {
+  register: (actions: DockChartLayoutActions | undefined) => void;
+  takeCloseFocus: DockChartLayoutActions['takeCloseFocus'];
+  claimFocus: NonNullable<DockChartLayoutActions['claimFocus']>;
+  children: ReactNode;
+}) {
+  useLayoutEffect(() => () => { register(undefined); }, [register]);
+  useLayoutEffect(() => {
+    register({ content: <div role="group" className="w-full border-t border-border-subtle pt-2">{children}</div>, takeCloseFocus, claimFocus });
+  }, [register, children, takeCloseFocus, claimFocus]);
+  return null;
+}
+
+/** Records whether the pane's own `⋯` or its open menu held focus as they unmount, so the merged `⋯` that replaces them takes it (#3095). */
+function FocusOnUnmount({ trigger, menu, held }: { trigger: RefObject<HTMLElement | null>; menu: RefObject<HTMLElement | null>; held: RefObject<boolean> }) {
+  useLayoutEffect(() => () => {
+    const active = document.activeElement;
+    held.current = !!active && (!!trigger.current?.contains(active) || !!menu.current?.contains(active));
+  }, [trigger, menu, held]);
+  return null;
 }

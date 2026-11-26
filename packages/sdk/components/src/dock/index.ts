@@ -5,3 +5,5 @@ export { activatePanel, addPanel, groupOf, movePanel, panelOrder, removePanel, r
 export { dockLayoutMenu, type DockGroupInfo, type DockLayoutMenu } from './layoutMenu';
 export { WorkspaceCommandsHost, radioGroupsOf, useWorkspaceCommands, type WorkspaceCommand } from './WorkspaceCommandsHost';
 export { dockTabElements, isActiveDockTab, dockStripElement } from './tabElements';
+export { useDockChartMerge, type DockChartLayoutActions, type DockChartCloseFocus } from './DockChartHead';
+export { DockMenuItem, DockMenuSeparator, useDockMenuInline } from './DockMenuItem';

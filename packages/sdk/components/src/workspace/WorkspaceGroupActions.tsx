@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, MoreHorizontal, Pin, X } from 'lucide-react';
 import type { Text } from '@ap/contracts';
 import { useAnalysisSelectionChips, useI18n, useMessages } from '@ap/kernel';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
-import { DockChartCloseMore, DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartCloseFocus, type DockChartLayoutActions } from '../dock/DockChartHead';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@ap/ui';
+import { DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartCloseFocus, type DockChartLayoutActions } from '../dock/DockChartHead';
 import type { DockLayoutMenu } from '../dock/layoutMenu';
+import { DockMenuItem, DockMenuSeparator } from '../dock/DockMenuItem';
 import { analysisSelectionChipLabel } from '../filters/analysisSelectionChipLabel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PanelWorkspaceSelectionDrop } from './PanelWorkspace';
@@ -60,60 +61,60 @@ export function WorkspaceGroupActions({ panelId, title, titleOf, menu, closeFocu
     {maximized ? <Minimize2 className="size-3.5" aria-hidden /> : <Maximize2 className="size-3.5" aria-hidden />}
   </Button>;
   const layoutActionsSlot = useContext(DockChartLayoutActionsSlot);
-  const separator = layoutActionsSlot ? <div aria-hidden className="my-1 border-t border-border-subtle" /> : <DropdownMenuSeparator />;
+  const separator = <DockMenuSeparator />;
   const signal = useWorkspaceQuerySlot(panelId, 'signal');
   const items = <>
     <WorkspaceQueryMenuItems panelId={panelId} closeFocus={closeFocus} />
     {edgeActions && <>
-      {edgeActions.left && <LayoutItem onSelect={edgeActions.left}>{m('workspaceCollapseLeft')}</LayoutItem>}
-      {edgeActions.top && <LayoutItem onSelect={edgeActions.top}>{m('workspaceCollapseTop')}</LayoutItem>}
-      {edgeActions.float && <LayoutItem onSelect={edgeActions.float}>{m('workspaceFloat')}</LayoutItem>}
+      {edgeActions.left && <DockMenuItem onSelect={edgeActions.left}>{m('workspaceCollapseLeft')}</DockMenuItem>}
+      {edgeActions.top && <DockMenuItem onSelect={edgeActions.top}>{m('workspaceCollapseTop')}</DockMenuItem>}
+      {edgeActions.float && <DockMenuItem onSelect={edgeActions.float}>{m('workspaceFloat')}</DockMenuItem>}
       {edgeActions.overlay?.position && <>
         {separator}
-        <LayoutItem onSelect={() => { edgeActions.overlay?.position?.('top-left'); }}>{m('workspaceFloatTopLeft')}</LayoutItem>
-        <LayoutItem onSelect={() => { edgeActions.overlay?.position?.('center'); }}>{m('workspaceFloatCenter')}</LayoutItem>
+        <DockMenuItem onSelect={() => { edgeActions.overlay?.position?.('top-left'); }}>{m('workspaceFloatTopLeft')}</DockMenuItem>
+        <DockMenuItem onSelect={() => { edgeActions.overlay?.position?.('center'); }}>{m('workspaceFloatCenter')}</DockMenuItem>
       </>}
       {edgeActions.overlay?.size && <>
         {separator}
-        <LayoutItem onSelect={() => { edgeActions.overlay?.size?.('small'); }}>{m('workspaceFloatSmall')}</LayoutItem>
-        <LayoutItem onSelect={() => { edgeActions.overlay?.size?.('large'); }}>{m('workspaceFloatLarge')}</LayoutItem>
+        <DockMenuItem onSelect={() => { edgeActions.overlay?.size?.('small'); }}>{m('workspaceFloatSmall')}</DockMenuItem>
+        <DockMenuItem onSelect={() => { edgeActions.overlay?.size?.('large'); }}>{m('workspaceFloatLarge')}</DockMenuItem>
       </>}
     </>}
     {!edgeActions?.overlay && <>
       {menu.maximized
-        ? <LayoutItem onSelect={() => { onMaximize(false, true); }}>{m('workspaceRestore')}</LayoutItem>
+        ? <DockMenuItem onSelect={() => { onMaximize(false, true); }}>{m('workspaceRestore')}</DockMenuItem>
         : <>
-          <LayoutItem onSelect={() => { onMaximize(true); }}>{m('workspaceMaximize', { title })}</LayoutItem>
+          <DockMenuItem onSelect={() => { onMaximize(true); }}>{m('workspaceMaximize', { title })}</DockMenuItem>
           {menu.split !== null && <>
             {separator}
-            <LayoutItem onSelect={() => { onSplit('right'); }}>{m('workspaceSplitRight')}</LayoutItem>
-            <LayoutItem onSelect={() => { onSplit('bottom'); }}>{m('workspaceSplitDown')}</LayoutItem>
+            <DockMenuItem onSelect={() => { onSplit('right'); }}>{m('workspaceSplitRight')}</DockMenuItem>
+            <DockMenuItem onSelect={() => { onSplit('bottom'); }}>{m('workspaceSplitDown')}</DockMenuItem>
           </>}
           {onMoveBelow && <>
             {menu.split === null && separator}
-            <LayoutItem onSelect={onMoveBelow}>{m('workspaceMoveBelow')}</LayoutItem>
+            <DockMenuItem onSelect={onMoveBelow}>{m('workspaceMoveBelow')}</DockMenuItem>
           </>}
           {menu.moves.length > 0 && separator}
-          {menu.moves.map(move => <LayoutItem key={move.target} onSelect={() => { onMove(move.target); }}>{m('workspaceMoveToGroup', { title: titleOf(move.target) })}</LayoutItem>)}
+          {menu.moves.map(move => <DockMenuItem key={move.target} onSelect={() => { onMove(move.target); }}>{m('workspaceMoveToGroup', { title: titleOf(move.target) })}</DockMenuItem>)}
           {onHide && <>
             {separator}
             {hideBlocked
               // Named by the action and described by the visible reason, as a disabled «다음 분석» item (#2862 R C4).
-              ? <LayoutItem aria-label={m('workspaceHide')} aria-disabled aria-describedby={hideDescription}>
+              ? <DockMenuItem aria-label={m('workspaceHide')} aria-disabled aria-describedby={hideDescription}>
                 <span className="flex min-w-0 flex-col break-keep"><span>{m('workspaceHide')}</span>{hideBlocked.reason && <span id={hideReasonId} className="text-xs text-text-muted">{hideBlocked.reason}</span>}</span>
-              </LayoutItem>
-              : <LayoutItem onSelect={onHide}>{m('workspaceHide')}</LayoutItem>}
-            {onRemove && <LayoutItem aria-disabled={hideBlocked ? true : undefined} aria-describedby={hideDescription} onSelect={onRemove}>{m('workspaceDelete')}</LayoutItem>}
+              </DockMenuItem>
+              : <DockMenuItem onSelect={onHide}>{m('workspaceHide')}</DockMenuItem>}
+            {onRemove && <DockMenuItem aria-disabled={hideBlocked ? true : undefined} aria-describedby={hideDescription} onSelect={onRemove}>{m('workspaceDelete')}</DockMenuItem>}
           </>}
         </>}
     </>}
     {(onOpenSettings || selectionDrop || !!menuItems?.length || recipeItem) && separator}
-    {onOpenSettings && <LayoutItem onSelect={() => {
+    {onOpenSettings && <DockMenuItem onSelect={() => {
       closeFocus.current = opener => { if (opener) onOpenSettings(opener); };
-    }}>{m('panelSettings')}</LayoutItem>}
+    }}>{m('panelSettings')}</DockMenuItem>}
     {selectionDrop && <SelectionHoldItems drop={selectionDrop} />}
-    {menuItems?.map(item => <LayoutItem key={item.id} onSelect={item.onSelect}>{item.label}</LayoutItem>)}
-    {recipeItem && <LayoutItem onSelect={recipeItem.onSelect}>{recipeItem.label}</LayoutItem>}
+    {menuItems?.map(item => <DockMenuItem key={item.id} onSelect={item.onSelect}>{item.label}</DockMenuItem>)}
+    {recipeItem && <DockMenuItem onSelect={recipeItem.onSelect}>{recipeItem.label}</DockMenuItem>}
   </>;
   const takeCloseFocus = () => {
     const next = closeFocus.current;
@@ -185,12 +186,12 @@ function SelectionHoldItems({ drop }: { drop: PanelWorkspaceSelectionDrop }) {
 function SelectionHoldItem({ label, reason, onSelect }: { label: string; reason?: Text; onSelect?: () => void }) {
   const { tx } = useI18n();
   const reasonId = useId();
-  return <LayoutItem aria-label={label} aria-disabled={reason ? true : undefined} aria-describedby={reason ? reasonId : undefined} onSelect={onSelect}>
+  return <DockMenuItem aria-label={label} aria-disabled={reason ? true : undefined} aria-describedby={reason ? reasonId : undefined} onSelect={onSelect}>
     <span className="flex min-w-0 flex-col break-keep wrap-anywhere">
       <span>{label}</span>
       {reason && <span id={reasonId} className="text-xs text-text-muted">{tx(reason)}</span>}
     </span>
-  </LayoutItem>;
+  </DockMenuItem>;
 }
 
 // Only this menu child subscribes, so query recovery cannot republish the chart's layout actions.
@@ -198,9 +199,9 @@ function WorkspaceQueryMenuItems({ panelId, closeFocus }: { panelId: string | un
   const overflow = useWorkspaceQueryHead(panelId, 'overflow');
   const extras = useWorkspaceQuerySlot(panelId, 'extras');
   return <>
-    {overflow?.((label, run) => <LayoutItem key={label} onSelect={() => {
+    {overflow?.((label, run) => <DockMenuItem key={label} onSelect={() => {
       closeFocus.current = opener => { opener?.focus(); run(); };
-    }}>{label}</LayoutItem>)}
+    }}>{label}</DockMenuItem>)}
     <div ref={extras} className="contents" />
   </>;
 }
@@ -223,24 +224,4 @@ function FocusOnUnmount({ trigger, menu, held }: { trigger: RefObject<HTMLElemen
     held.current = !!active && (!!trigger.current?.contains(active) || !!menu.current?.contains(active));
   }, [trigger, menu, held]);
   return null;
-}
-
-function LayoutItem({ onSelect, children, 'aria-label': label, 'aria-disabled': disabled, 'aria-describedby': describedBy }: {
-  onSelect?: () => void;
-  children: ReactNode;
-  'aria-label'?: string;
-  'aria-disabled'?: boolean;
-  'aria-describedby'?: string | undefined;
-}) {
-  const closeMore = useContext(DockChartCloseMore);
-  if (!closeMore) return <DropdownMenuItem aria-label={label} aria-disabled={disabled} aria-describedby={describedBy} onSelect={event => {
-    if (disabled) event.preventDefault();
-    else onSelect?.();
-  }}>{children}</DropdownMenuItem>;
-  return <Button type="button" variant="ghost" size="toolbar" className="h-auto min-h-8 w-full justify-start whitespace-normal text-start"
-    aria-label={label} aria-disabled={disabled} aria-describedby={describedBy} onClick={() => {
-      if (disabled) return;
-      onSelect?.();
-      closeMore();
-    }}>{children}</Button>;
 }
