@@ -1113,6 +1113,28 @@ describe('a view saved in another Scope (#2175)', () => {
     expect(dialog).toContain('이전 Scope에서 붙잡은 패널 값(room, constructor)은 지워지고, 지금 패널의 입력 방식이 저장됩니다.');
   });
 
+  it('names a held panel set by the label its menu declares, and the key only when none is declared (#3139)', async () => {
+    const user = userEvent.setup();
+    const panel = { title: { ko: '패널', en: 'Panel' }, displayInputs: {}, grain: 'daily', endpoints: [] };
+    const panels = [
+      { ...panel, id: 'src', queryInputs: {}, outputs: [
+        { key: 'room', action: 'select', selection: { dimension: 'equipmentId', shape: 'set' as const, label: { ko: '설비', en: 'Equipment' } } },
+        { key: 'constructor', action: 'select', selection: { dimension: 'maker', shape: 'set' as const } },
+      ] },
+      { ...panel, id: 'table', outputs: [], queryInputs: { page: [{ key: 'room', selection: 'filter' as const }, { key: 'constructor', selection: 'filter' as const }] } },
+    ];
+    const labelled = createRegistry({ spaces: registry.spaces, groups: registry.groups,
+      menus: [menu('home', '/', { panels, pageKeys: ['room', 'constructor'], repeatedPageKeys: ['room', 'constructor'], contextResetKeys: ['room', 'constructor'] })] });
+    window.history.replaceState(null, '', `/?scopeId=FDRY&${period}`);
+    render(<I18nProvider><PlatformProvider registry={labelled} adapter={testAdapter({ session: () => session })} savedViews={createFakeViewStore([heldView(['room', 'constructor'], { roomNames: ['PHOTO'] })])}><Probe /><GlobalContextBar /></PlatformProvider></I18nProvider>);
+    await user.click(await screen.findByRole('button', { name: /^저장된 뷰:/ }));
+    await pick(user, '붙잡은 뷰');
+    expect((await screen.findByText(/다른 Scope라 제외:/)).textContent).toContain('다른 Scope라 제외: 공정, 설비, constructor');
+    const dialog = await overwrite(user);
+    expect(dialog).toContain('이전 Scope에서 붙잡은 패널 값(설비, constructor)은 지워지고');
+    expect(dialog).not.toContain('room');
+  });
+
   it('lists a panel key that shares a Context key name once (#2862 R2862C-2 C4)', async () => {
     const user = userEvent.setup();
     mount(createFakeViewStore([heldView(['roomNames'], { roomNames: ['PHOTO'] })]), `/?scopeId=FDRY&${period}`);
