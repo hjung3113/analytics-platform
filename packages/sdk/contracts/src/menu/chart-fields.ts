@@ -1,5 +1,5 @@
 import type { Text } from '../i18n.js';
-import type { ChartConfig } from '../links/chart-config.js';
+import type { ChartConfig, ChartConfigColor } from '../links/chart-config.js';
 import { invalidMenuViewPanels, type PanelInstance } from '../links/menu-view-panels.js';
 import { canClientSum, type Reaggregation } from '../values/measure.js';
 import type { Permission } from './menu.js';
@@ -35,10 +35,26 @@ export type MenuChartFields = {
 export const CHART_PANEL_KINDS = ['line', 'bar'] as const;
 export type ChartPanelKind = (typeof CHART_PANEL_KINDS)[number];
 /**
- * A picker or settings drawer state: one measure per chart in step 1 (owner 2026-11-25). `stack` stacks a line chart's breakdown series.
- * A percent stack is not offered: it needs measures that declare they are never negative, which the declaration cannot say yet.
+ * A picker or settings drawer state: one measure per chart in step 1 (owner 2026-11-25). The shape keys carry the ChartConfig key of the
+ * same name (#2762 ④). Each applies to one kind only, and `createChartPanel` writes only the keys of the draft's kind, so a draft that
+ * switches kind and back keeps the other kind's keys:
+ * - line: `stack` stacks the breakdown series, `areaFill` fills under the lines;
+ * - bar: `orientation`, and `color`, the series token of its one measure;
+ * - both: `decimals`, the digits after the point (a number format); without it the chart picks them.
+ * Not offered: a percent stack needs measures that declare they are never negative, and a percent value format needs measures that
+ * declare their values are 0–1 ratios. The declaration can say neither yet, so a 0–100 measure would read as 2500 %.
  */
-export type ChartPanelDraft = { kind: ChartPanelKind; measure?: string; breakdown?: string; stack?: 'none' | 'stack' };
+export type ChartPanelDraft = {
+  kind: ChartPanelKind;
+  measure?: string;
+  breakdown?: string;
+  stack?: 'none' | 'stack';
+  areaFill?: boolean;
+  orientation?: 'vertical' | 'horizontal';
+  color?: ChartConfigColor;
+  decimals?: number;
+};
+
 /** Whether the actor holds a permission. Required, so a caller that cannot tell never lets a protected measure through. */
 export type ChartPermissionCheck = (permission: Permission) => boolean;
 
@@ -127,13 +143,27 @@ export function chartPanelTitle(measure: ChartMeasureDeclaration, breakdown: Cha
 /** The selection output key of a chart panel made from settings: `<instance id>.selection` in the URL. */
 export const CHART_PANEL_OUTPUT_KEY = 'selection';
 
+/** A one-measure chart's measure without `color` takes the first series token. */
+const DEFAULT_COLOR: ChartConfigColor = 'chart-series-1';
+
 /** The one source and outputs this menu makes from a judged draft: creation builds it, reopening compares the saved panel with it. */
 function build(fields: MenuChartFields, draft: ChartPanelDraft, judged: Exclude<Judged, { problem: ChartPanelProblem }>): Pick<PanelInstance, 'source' | 'outputs'> {
   const { measure, breakdown } = judged;
-  const stack = draft.stack === 'stack' ? { stack: 'stack' as const } : {};
+  // Only keys that differ from the default are written, so a chart whose shape was never touched stays byte-identical to step 1.
+  const valueFormat = draft.decimals === undefined ? {} : { valueFormat: { kind: 'number' as const, decimals: draft.decimals } };
   const config: ChartConfig = draft.kind === 'line' && fields.time
-    ? { version: 1, kind: 'line', x: { field: fields.time.field, type: 'time' }, measures: [{ field: measure.id }], split: { field: breakdown.id }, ...stack }
-    : { version: 1, kind: 'bar', x: { field: breakdown.id, type: 'category' }, measures: [{ field: measure.id }] };
+    ? {
+      version: 1, kind: 'line', x: { field: fields.time.field, type: 'time' }, measures: [{ field: measure.id }], split: { field: breakdown.id },
+      ...(draft.stack === 'stack' ? { stack: 'stack' as const } : {}),
+      ...(draft.areaFill ? { areaFill: true } : {}),
+      ...valueFormat,
+    }
+    : {
+      version: 1, kind: 'bar', x: { field: breakdown.id, type: 'category' },
+      measures: [{ field: measure.id, ...(draft.color && draft.color !== DEFAULT_COLOR ? { color: draft.color } : {}) }],
+      ...(draft.orientation === 'horizontal' ? { orientation: 'horizontal' as const } : {}),
+      ...valueFormat,
+    };
   const outputs = draft.kind === 'bar' ? [{ key: CHART_PANEL_OUTPUT_KEY, dimension: breakdown.dimension, shape: 'set' as const }] : [];
   return { source: { kind: 'chart', config }, outputs };
 }
@@ -174,19 +204,46 @@ export function sameChartConfig(left: ChartConfig | undefined, right: ChartConfi
   return left === right || canonical(left) === canonical(right);
 }
 
-/** Extracts editable slots even when the stored fields are no longer declared. */
+/**
+ * Extracts editable slots and shape keys even when the stored fields are no longer declared. Keys at their default are left out, and so are
+ * values a draft cannot hold (a percent stack or value format, a right axis): `readChartPanel` then reports the panel as `changed`.
+ */
 export function readChartPanelDraft(config: ChartConfig): ChartPanelDraft {
+  const color = config.measures[0]?.color;
+  const decimals = config.valueFormat?.kind === 'number' ? config.valueFormat.decimals : undefined;
   return {
     kind: config.kind,
     measure: config.measures[0]?.field,
     breakdown: config.kind === 'line' ? config.split?.field : config.x.field,
     ...(config.stack === 'stack' ? { stack: 'stack' } : {}),
+    ...(config.areaFill ? { areaFill: true } : {}),
+    ...(config.orientation === 'horizontal' ? { orientation: 'horizontal' } : {}),
+    ...(color && color !== DEFAULT_COLOR ? { color } : {}),
+    ...(decimals === undefined ? {} : { decimals }),
+  };
+}
+
+/**
+ * A saved config with keys spelled at their default value removed (`stack: none`, `areaFill: false`, `orientation: vertical`, the first
+ * series token on a one-measure chart), so it compares equal to what `build` writes for the same draft.
+ */
+function withoutDefaults(config: ChartConfig): ChartConfig {
+  const { stack, areaFill, orientation, ...rest } = config;
+  const [only, ...others] = config.measures;
+  const measures = only && others.length === 0 && only.color === DEFAULT_COLOR ? [(({ color: _color, ...measure }) => measure)(only)] : config.measures;
+  return {
+    ...rest,
+    measures,
+    ...(stack === undefined || stack === 'none' ? {} : { stack }),
+    ...(areaFill ? { areaFill } : {}),
+    ...(orientation === undefined || orientation === 'vertical' ? {} : { orientation }),
   };
 }
 
 /**
  * Reads a saved chart panel back against the menu's current declaration when a saved view opens. The panel opens only when its source and
- * outputs are exactly what this menu makes from the same measure, breakdown, kind and stack now; otherwise only that panel shows the
+ * outputs are exactly what this menu makes from the same measure, breakdown, kind and shape keys now (keys spelled at their default count
+ * as absent); otherwise only that panel shows the
  * reason (a dropped field, a lost permission, or `changed`), and the saved instance with its selection output stays as it was.
  */
 export function readChartPanel(fields: MenuChartFields | undefined, instance: Pick<PanelInstance, 'source' | 'outputs'>, granted: ChartPermissionCheck): ReadChartPanel {
@@ -197,7 +254,8 @@ export function readChartPanel(fields: MenuChartFields | undefined, instance: Pi
   const judged = judge(declared, draft, granted);
   // `incomplete` means «keep choosing» in the picker; on a saved chart a missing measure or breakdown is a mapping this menu never makes.
   if ('problem' in judged) return { status: 'problem', problem: judged.problem.code === 'incomplete' ? reason('changed') : judged.problem };
-  if (canonical(build(declared, draft, judged)) !== canonical({ source: instance.source, outputs: instance.outputs })) return { status: 'problem', problem: reason('changed') };
+  const saved = { source: { ...instance.source, config: withoutDefaults(config) }, outputs: instance.outputs };
+  if (canonical(build(declared, draft, judged)) !== canonical(saved)) return { status: 'problem', problem: reason('changed') };
   return { status: 'ok', kind: config.kind, measure: judged.measure, breakdown: judged.breakdown, title: chartPanelTitle(judged.measure, judged.breakdown) };
 }
 
