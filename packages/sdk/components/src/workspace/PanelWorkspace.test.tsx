@@ -1,3 +1,4 @@
+import { AnalysisChartFrame } from '../chart/AnalysisChartFrame';
 import { PageDensityProvider } from '../pageDensity';
 import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -7,11 +8,15 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { WorkspaceCommandsHost, useWorkspaceCommands, type WorkspaceCommand } from '../dock';
 import { groupsOnScreen, installResizeObserver } from '../dock/__tests__/harness';
 import { movePanel } from '../dock/commands';
 import { PageFlowContext } from '../pageFlow';
+import { PanelSettingsDrawer } from './PanelSettingsDrawer';
 import { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspaceProps } from './PanelWorkspace';
+
+vi.mock('../chart/EChartImpl', () => ({ default: () => <div role="img" aria-label="plot" /> }));
 
 // The props the workspace hands the layout, to play the engine's drop report (a real drop needs engine geometry jsdom has not).
 const dockProps = vi.hoisted(() => ({ current: null as null | { layout: unknown; onLayoutChange: (layout: unknown) => void; rows?: { onPanelDrop?: (panelId: string | null) => void } } }));
@@ -75,11 +80,14 @@ function shell(children: ReactNode) {
 const mountWorkspace = (props: Partial<PanelWorkspaceProps> = {}) => render(shell(<PanelWorkspace {...BASE} {...props} />));
 
 it.each(['ko', 'en'] as const)('appends translated %s menu declarations on a primary panel after platform actions, selects by keyboard and returns focus', async lang => {
+  // The cold DockEngine import runs on the real clock. This menu test has no timer-driven assertions.
+  vi.useRealTimers();
   const selected = vi.fn();
   storage.setItem('platform:lang', lang);
   mountWorkspace({ panels: PANELS.map(panel => ({ ...panel, primary: panel.id === 'selector' })), panelMenuItems: () => [{ id: 'recipe', label: { ko: '만든 방법', en: 'Recipe' }, onSelect: selected }] });
   await ready();
-  const trigger = document.querySelector<HTMLButtonElement>('[data-dock-group-menu]')!;
+  const label = lang === 'ko' ? '선택기 동작' : 'Selector actions';
+  const trigger = screen.getByRole('button', { name: label });
   await userEvent.click(trigger);
   const item = await screen.findByRole('menuitem', { name: lang === 'ko' ? '만든 방법' : 'Recipe' });
   expect(screen.queryByRole('menuitem', { name: lang === 'ko' ? 'Recipe' : '만든 방법' })).toBeNull();
@@ -198,7 +206,7 @@ describe('PanelWorkspace: remount 0, query 0', () => {
     expect(menuQuery.mock.calls.length).toBe(queries);
   });
 
-  it('lets the normal hide action remove a consumer-owned panel and returns focus to the primary', async () => {
+  it('deletes a consumer-owned panel and returns focus to the primary', async () => {
     function RemovableWorkspace() {
       const [panels, setPanels] = useState(PANELS);
       return <PanelWorkspace {...BASE} panels={panels.map(panel => panel.id === 'selector'
@@ -207,10 +215,25 @@ describe('PanelWorkspace: remount 0, query 0', () => {
     }
     render(shell(<RemovableWorkspace />));
     await ready();
-    await chooseFromMenu('선택기 동작', '숨기기');
+    await chooseFromMenu('선택기 동작', '삭제');
     expect(screen.queryByRole('tab', { name: '선택기' })).toBeNull();
     expect(screen.getByRole('button', { name: '숨긴 패널 0' })).toBeDisabled();
     await waitFor(() => expect(screen.getByRole('tab', { name: '추세' })).toHaveFocus());
+  });
+
+  it('does not offer delete on a declared panel or on the primary panel', async () => {
+    mountWorkspace({ panels: PANELS.map(panel => panel.primary || panel.id === 'selector' ? { ...panel, onRemove: vi.fn() } : panel) });
+    await ready();
+    await userEvent.click(screen.getByRole('button', { name: '추세 동작' }));
+    await screen.findByRole('menuitem', { name: '추세 최대화' });
+    expect(screen.queryByRole('menuitem', { name: '삭제' })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: '상세 동작' }));
+    expect(await screen.findByRole('menuitem', { name: '숨기기' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: '삭제' })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: '선택기 동작' }));
+    expect(await screen.findByRole('menuitem', { name: '삭제' })).toBeInTheDocument();
   });
 });
 
@@ -444,6 +467,97 @@ describe('PanelWorkspace: compact', () => {
 });
 
 describe('PanelWorkspace: local preference', () => {
+  it('keeps split widths independent for matching panel IDs in two layout scopes (#3001)', async () => {
+    const view = mountWorkspace({ persistenceScope: 'A' });
+    await ready();
+    const first = () => screen.getByRole('separator', { name: '선택기 · 지표 사이 너비' });
+    const original = first().getAttribute('aria-valuenow');
+    fireEvent.keyDown(first(), { key: 'ArrowRight' });
+    const resized = first().getAttribute('aria-valuenow');
+    expect(resized).not.toBe(original);
+    window.dispatchEvent(new Event('pagehide'));
+    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="B" />));
+    await waitFor(() => expect(first()).toHaveAttribute('aria-valuenow', original));
+    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="A" />));
+    await waitFor(() => expect(first()).toHaveAttribute('aria-valuenow', resized));
+  });
+
+  it('switches the layout scope without remounting a panel, writing the left scope first and applying each scope its own layout (#3128)', async () => {
+    const view = mountWorkspace({ persistenceScope: 'A' });
+    await ready();
+    expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
+    const first = () => screen.getByRole('separator', { name: '선택기 · 지표 사이 너비' });
+    const original = first().getAttribute('aria-valuenow');
+    fireEvent.keyDown(first(), { key: 'ArrowRight' });
+    const resized = first().getAttribute('aria-valuenow');
+    expect(resized).not.toBe(original);
+    // No pagehide: the change is still waiting for its delayed write when the scope moves on.
+    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="B" />));
+    await waitFor(() => expect(first()).toHaveAttribute('aria-valuenow', original));
+    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="A" />));
+    await waitFor(() => expect(first()).toHaveAttribute('aria-valuenow', resized));
+    expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
+  });
+
+  it('opens a saved scope with another panel set in one render: its saved hidden panel stays hidden, kept panels stay mounted, nothing is written (#3128)', async () => {
+    const scopeKey = `${KEY()}:scopes`;
+    const savedB = JSON.stringify({ v: 1, preset: 'focus', hidden: ['detail'], layout: group(['trend', 'selector']) });
+    storage.setItem(scopeKey, JSON.stringify([['B', savedB]]));
+    setItem.mockClear();
+    const view = mountWorkspace({ persistenceScope: 'A' });
+    await ready();
+    view.rerender(shell(<PanelWorkspace {...BASE} panels={PANELS.filter(panel => panel.id !== 'kpi')} persistenceScope="B" />));
+    await waitFor(() => { expect(groups()).toEqual([['selector', 'trend']]); });
+    expect(screen.getByRole('radio', { name: '집중' })).toBeChecked();
+    expect(mounts).toMatchObject({ trend: 1, selector: 1 });
+    await sleep(400);
+    window.dispatchEvent(new Event('pagehide'));
+    expect(written()).toEqual([]);
+  });
+
+  it('retains eight most recently written layout scopes and starts an evicted scope from the unscoped preference (#3001)', async () => {
+    storage.setItem(KEY(), JSON.stringify({ v: 1, preset: 'focus', hidden: [], layout: group(['trend', 'selector', 'detail', 'kpi']) }));
+    const view = mountWorkspace({ persistenceScope: '0' });
+    await ready();
+    const at = (scope: number) => view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope={String(scope)} />));
+    for (let scope = 0; scope < 8; scope += 1) {
+      at(scope);
+      await choose('쌓기');
+      window.dispatchEvent(new Event('pagehide'));
+    }
+    at(0);
+    expect(screen.getByRole('radio', { name: '쌓기' })).toBeChecked();
+    await choose('균형');
+    window.dispatchEvent(new Event('pagehide'));
+    at(8);
+    await choose('쌓기');
+    window.dispatchEvent(new Event('pagehide'));
+    at(1);
+    expect(screen.getByRole('radio', { name: '집중' })).toBeChecked();
+    at(0);
+    expect(screen.getByRole('radio', { name: '균형' })).toBeChecked();
+    at(2);
+    expect(screen.getByRole('radio', { name: '쌓기' })).toBeChecked();
+  });
+
+  it('keeps the height declaration of a hidden panel and prunes a departed one on a scoped write (#3001)', async () => {
+    const scopeKey = `${KEY()}:scopes`;
+    const saved = JSON.stringify({
+      v: 1, preset: 'balanced', hidden: ['detail'], layout: group(['trend', 'selector', 'kpi']),
+      preferredSeen: { departed: 500, detail: 420 },
+    });
+    storage.setItem(scopeKey, JSON.stringify([['A', saved]]));
+    mountWorkspace({
+      persistenceScope: 'A',
+      panels: PANELS.map(panel => panel.id === 'detail' ? { ...panel, preferredHeight: 420 } : panel),
+    });
+    await ready();
+    await choose('집중');
+    window.dispatchEvent(new Event('pagehide'));
+    const [[, state]] = JSON.parse(storage.getItem(scopeKey)!);
+    expect(JSON.parse(state).preferredSeen).toEqual({ detail: 420 });
+  });
+
   it('writes under platform:workspace:v1:<user>:<menu>:<persistKey> once, 300 ms after the last of several changes', async () => {
     mountWorkspace();
     await ready();
@@ -691,6 +805,21 @@ describe('PanelWorkspace: height mode (#686)', () => {
       expect(rowHeights()).toEqual([600, 360, 360]);
       await sleep(400);
       expect(written().length).toBe(writes);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('clamps the saved rows of each scope once on arrival, not only of the first (#3128)', async () => {
+    vi.stubGlobal('innerHeight', 600);
+    try {
+      storage.setItem(`${KEY()}:scopes`, JSON.stringify([['A', stackStored([300, 360, 360])], ['B', stackStored([800, 360, 360])]]));
+      const view = mountWorkspace({ ...ROWS_PROPS, persistenceScope: 'A' });
+      await ready();
+      await waitFor(() => { expect(rowHeights()).toEqual([300, 360, 360]); });
+      view.rerender(shell(<PanelWorkspace {...BASE} {...ROWS_PROPS} persistenceScope="B" />));
+      await waitFor(() => { expect(rowHeights()).toEqual([600, 360, 360]); });
+      expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
     } finally {
       vi.unstubAllGlobals();
     }
@@ -1897,4 +2026,84 @@ it.each(['settings', 'runs'])('joins the shared trend row after %s without remou
     children: [{ panels: [top] }, { sizes: [31, 69], children: [{ panels: [bottom] }, { panels: ['runs'] }] }],
   }));
   expect(screen.getByTestId(`probe-${first}`)).toBe(survivor);
+});
+
+async function openMergedChartActions(keep?: PanelWorkspaceProps['panels'][number]['keep']) {
+  const user = userEvent.setup();
+  function WorkspaceWithChart() {
+    const [panels, setPanels] = useState(PANELS);
+    return <PanelWorkspace {...BASE} panels={panels.map(panel => panel.id === 'selector' ? {
+      ...panel, keep, onRemove: () => setPanels(current => current.filter(item => item.id !== panel.id)),
+      render: () => <AnalysisChartFrame chartId="secondary" title="Secondary chart" unit="s" series={[]} xType="category" />,
+    } : panel)} />;
+  }
+  render(shell(<WorkspaceWithChart />));
+  await ready();
+  const tab = screen.getByRole('tab', { name: '선택기' });
+  const strip = within(tab.closest('.dv-tabs-and-actions-container')!);
+  await strip.findByRole('button', { name: '더보기' });
+  act(() => { tab.focus(); });
+  await user.keyboard('{Shift>}{F10}{/Shift}');
+  const popup = await screen.findByRole('dialog', { name: '더보기' });
+  const layoutActions = within(popup).getByRole('group', { name: '배치' });
+  return { tab, user, layoutActions };
+}
+
+it.each(['위로 접기', '숨기기', '삭제'])('hands focus off when a secondary chart is removed with %s from merged More', async action => {
+  const { tab, user, layoutActions } = await openMergedChartActions();
+  const command = within(layoutActions).getByRole('button', { name: action });
+  act(() => { command.focus(); });
+  await user.keyboard('{Enter}');
+  await waitFor(() => { expect(tab).not.toBeInTheDocument(); });
+  if (action === '삭제') expect(screen.getByRole('button', { name: '숨긴 패널 0' })).toBeDisabled();
+  const target = action === '위로 접기'
+    ? screen.getByRole('button', { name: '선택기' })
+    : screen.getByRole('tab', { name: '추세' });
+  await waitFor(() => { expect(target).toHaveFocus(); });
+});
+
+it('describes and blocks keyboard deletion of a kept chart in the merged layout actions', async () => {
+  const reason = { ko: '다른 패널이 이 값을 붙잡고 있습니다', en: 'Another panel holds this value' };
+  const { tab, user, layoutActions } = await openMergedChartActions({ reason });
+  const command = within(layoutActions).getByRole('button', { name: '삭제' });
+  expect(command).toHaveAttribute('aria-disabled', 'true');
+  expect(command).toHaveAccessibleDescription(reason.ko);
+  act(() => { command.focus(); });
+  await user.keyboard('{Enter}');
+  expect(command).toHaveFocus();
+  expect(tab).toBeInTheDocument();
+});
+
+it('returns focus to the merged chart More trigger after closing panel settings with Escape', async () => {
+  const user = userEvent.setup();
+  const panel = { id: 'selector', source: { kind: 'declared', panel: 'selector' } as const, inputs: [], outputs: [] };
+  const title = { ko: '선택기', en: 'Selector' };
+  function WorkspaceWithSettings() {
+    const { ref } = useDetailPanelSlotHost();
+    const [opener, setOpener] = useState<HTMLButtonElement | null>(null);
+    return <>
+      <PanelWorkspace {...BASE} panels={PANELS.map(item => item.id === panel.id ? {
+        ...item, onOpenSettings: setOpener,
+        render: () => <AnalysisChartFrame chartId="secondary" title="Secondary chart" unit="s" series={[]} xType="category" />,
+      } : item)} />
+      <aside ref={ref} />
+      {opener && <PanelSettingsDrawer panel={panel} title={title} value={{ version: 1, instances: [panel] }}
+        trigger={opener} selectionOf={() => null} onChange={vi.fn()} onClose={() => { setOpener(null); }} />}
+    </>;
+  }
+
+  render(shell(<DetailPanelSlotProvider><WorkspaceWithSettings /></DetailPanelSlotProvider>));
+  await ready();
+  const tab = screen.getByRole('tab', { name: title.ko });
+  const strip = within(tab.closest('.dv-tabs-and-actions-container')!);
+  const trigger = await strip.findByRole('button', { name: '더보기' });
+  await user.click(trigger);
+  const popup = await screen.findByRole('dialog', { name: '더보기' });
+  await user.click(within(popup).getByRole('button', { name: '패널 설정' }));
+  const drawer = await screen.findByRole('dialog', { name: title.ko });
+  expect(popup).not.toBeInTheDocument();
+  await waitFor(() => { expect(drawer.contains(document.activeElement)).toBe(true); });
+  await user.keyboard('{Escape}');
+  expect(drawer).not.toBeInTheDocument();
+  await waitFor(() => { expect(trigger).toHaveFocus(); });
 });

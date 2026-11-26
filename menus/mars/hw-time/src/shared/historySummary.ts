@@ -1,16 +1,24 @@
-import type { Pair } from '@ap/contracts';
+import type { MenuMeta, Pair, Text } from '@ap/contracts';
 import { formatText } from '@ap/kernel';
 import { verdictCodec } from '../endpoints';
 import { HW_TIME_MESSAGES, HW_TIME_NEW_PANEL_MESSAGES } from '../messages';
 import { TREND_RANGE_OUTPUT } from '../panels';
-import { HW_TIME_FILTER_KEYS, HW_TIME_FILTER_NONE } from './useHwTimeFilter';
+import { equipmentDaysAvailable, HW_TIME_FILTER_KEYS, HW_TIME_FILTER_NONE } from './useHwTimeFilter';
+
+export const MOTION_BASIS_KEY = 'motionBasis';
+export const DAY_BASIS_ID = 'day';
 
 /** Drill steps of the HW Time screen (06 §6.4): Module type → Motion → Module. */
 export const HW_TIME_DRILL = { levels: [
   { key: 'moduleType', label: { ko: 'Module 타입', en: 'Module type' } },
-  { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' } },
+  { key: 'drillMotion', label: { ko: 'Motion', en: 'Motion' }, basisKey: MOTION_BASIS_KEY,
+    bases: [{ id: DAY_BASIS_ID, label: (lang: keyof Text) => HW_TIME_NEW_PANEL_MESSAGES.dayBasis[lang] }] },
   { key: 'drillModule', label: { ko: 'Module', en: 'Module' } },
-], resetKeys: ['focus', 'trend', TREND_RANGE_OUTPUT.key] };
+], isBasisAvailable: (_key, id, _context, _can, page) => {
+  if (id !== DAY_BASIS_ID) return true;
+  const value = (key: string) => page.find(([name]) => name === key)?.[1];
+  return equipmentDaysAvailable({ moduleType: value('moduleType'), drillMotion: value('drillMotion') }, page);
+}, resetKeys: ['focus', 'trend', TREND_RANGE_OUTPUT.key] } satisfies NonNullable<MenuMeta['drill']>;
 
 type SummaryItem = { key: string; label: string; value: string };
 

@@ -107,6 +107,13 @@ describe('migrateV1', () => {
     for (const sheet of migrated.sheets) expect(new Set(sheet.panes.map(p => p.id)).size).toBe(sheet.panes.length);
   });
 
+  it('gives the same pane ids every time the same V1 board is read, so tab-local pane state survives a reload before the first edit (#2996)', () => {
+    const v1 = legacyBoard([legacySheet('a', { layout: '2x2', panes: [shot('m1'), null, shot('m2'), null] })]);
+    const ids = (board: ReturnType<typeof migrateV1>) => board!.sheets.map(sheet => sheet.panes.map(pane => pane.id));
+    expect(ids(migrateV1(JSON.parse(JSON.stringify(v1))))).toEqual(ids(migrateV1(JSON.parse(JSON.stringify(v1)))));
+    expect(ids(migrateV1(v1))).toEqual([['pv1_0', 'pv1_1', 'pv1_2', 'pv1_3']]);
+  });
+
   it('does not change its input', () => {
     const board = legacyBoard([legacySheet('a', { layout: '2x2', panes: [null, null, null, null], arrangement: { '2x2': custom('2x2', [0, 3]) } })]);
     const copy = JSON.parse(JSON.stringify(board));

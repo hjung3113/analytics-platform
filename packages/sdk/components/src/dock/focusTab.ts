@@ -57,7 +57,7 @@ let activeWatch: (() => void) | null = null;
  * trigger's panel, which drops focus to the document; focus then moves to the added panel's tab (also when the trigger never returns). Watches for about 600 ms and stops at
  * the first focus or pointer input elsewhere, so it never takes back focus the user moved.
  */
-export function keepFocusAfterPanelAdd(trigger: HTMLElement, panelId: string): void {
+export function keepFocusAfterPanelAdd(trigger: HTMLElement, panelId: string, onUnavailable?: () => void): void {
   const root = trigger.closest<HTMLElement>('[data-panel-workspace]');
   const layout = trigger.closest('[data-dock-layout]');
   const source = trigger.closest<HTMLElement>('[data-dock-panel]')?.dataset.dockPanel;
@@ -93,8 +93,12 @@ export function keepFocusAfterPanelAdd(trigger: HTMLElement, panelId: string): v
     if (target instanceof Element && (isTrigger(target) || target.closest('[role="menu"]'))) return;
     stop();
   }
+  const unavailable = () => {
+    stop();
+    if (lost()) onUnavailable?.();
+  };
   const attempt = () => {
-    if (!root?.isConnected) { stop(); return; }
+    if (!root?.isConnected) { unavailable(); return; }
     if (lost()) {
       const again = current();
       if (shown(again)) programmaticFocus(() => { again.focus({ preventScroll: true }); });
@@ -104,7 +108,7 @@ export function keepFocusAfterPanelAdd(trigger: HTMLElement, panelId: string): v
       }
     }
     if (++tries < 20) timer = setTimeout(attempt, 30);
-    else stop();
+    else unavailable();
   };
   // A newer addition owns the focus hand-off: an earlier watch on the same trigger would otherwise reach its own tab first.
   activeWatch?.();

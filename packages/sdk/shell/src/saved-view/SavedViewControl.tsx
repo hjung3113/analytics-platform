@@ -3,7 +3,7 @@ import { PEOPLE_LOOKUP_MAX, type ApprovalRequestInfo, type GroupMember, type Sav
 import { CONTEXT_LABELS, diagnoseSavedView, useEquipmentAxes, useI18n, useMessages, type SavedViewDiagnosis } from '@ap/kernel';
 import { captureApplied, useHostPlatform, useSavedViews, type SavedViews, type SelectOutcome } from '@ap/kernel/host';
 import { DirtyConfirmation } from '@ap/ui';
-import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSelector, type ShareGroupsState, type ShareTargetDraft, type ViewFilter, type ViewSelectorState } from '@ap/components';
+import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSelector, type SaveViewDialogProps, type ShareGroupsState, type ShareTargetDraft, type ViewFilter, type ViewSelectorState } from '@ap/components';
 import { SHELL_MESSAGES } from '../messages';
 import { QueryBarTools } from '../context/queryBarTools';
 
@@ -83,9 +83,19 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const saveAsDone = useRef<{ resolve: (ok: boolean) => void; ok: boolean } | null>(null);
   const searchPeople = useCallback((q: string, signal: AbortSignal): Promise<readonly GroupMember[]> => store.searchPeople(q, signal), [store]);
 
+  const reasons = views.saveBlocked.map(reason => {
+    const text = typeof reason === 'string' ? reason : tx(reason);
+    return text.trim() ? text : m('savedViewBlocked');
+  });
+  const [firstReason] = reasons;
+  const saveBlock = firstReason === undefined ? undefined : {
+    summary: reasons.length === 1 ? firstReason : m('savedViewBlockedMore', { reason: firstReason, count: reasons.length - 1 }),
+    reasons: reasons.join('\n'),
+  };
+  const blockedMessage = saveBlock?.reasons ?? m('savedViewBlocked');
   const fail = (reason: Extract<Result<never>, { ok: false }>['reason']) => failureText({ ok: false, reason }, tx);
-  const report = (result: Result<unknown>, done: string): boolean => {
-    if (result.ok) toast(done, 'info'); else toast(fail(result.reason), 'warning');
+  const report = (result: Result<unknown> & { code?: 'blocked' }, done: string): boolean => {
+    if (result.ok) toast(done, 'info'); else toast(result.code === 'blocked' ? blockedMessage : fail(result.reason), 'warning');
     return result.ok;
   };
   const pickFailed = (outcome: SelectOutcome) => {
@@ -188,14 +198,19 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const confirmDraft = () => new Promise<boolean>(resolve => { setDraftAsk(() => resolve); });
   const [scopeAsk, setScopeAsk] = useState<((ok: boolean) => void) | null>(null);
   const confirmScope = () => new Promise<boolean>(resolve => { setScopeAsk(() => resolve); });
-  const keyText = (keys: readonly string[]) => keys.map(key => key in CONTEXT_LABELS ? tx(CONTEXT_LABELS[key as keyof typeof CONTEXT_LABELS]) : key).join(', ');
+  // Context keys read as condition names; panel input keys (#2862) and any other key stay as declared.
+  const keyText = (keys: readonly string[], panelKeys: readonly string[] = []) => keys.map(key => !panelKeys.includes(key) && Object.hasOwn(CONTEXT_LABELS, key) ? tx(CONTEXT_LABELS[key as keyof typeof CONTEXT_LABELS]) : key).join(', ');
   const saveCurrent = async (): Promise<boolean> => {
+    if (saveBlock) return false;
     if (unapplied && !(await confirmDraft())) return false;
     // Saving across Scopes drops the Site-bound values saved elsewhere: ask first, and point at 새 뷰로 저장 (#2175).
     if (views.crossScopeSave && !(await confirmScope())) return false;
     return report(await views.saveToSelected(), m('savedViewUpdated'));
   };
-  const openSave = (mode: 'new' | 'update') => new Promise<boolean>(resolve => { saveAsDone.current = { resolve, ok: false }; setSaveMode(mode); setSaveOpen(true); });
+  const openSave = (mode: 'new' | 'update') => {
+    if (saveBlock) return Promise.resolve(false);
+    return new Promise<boolean>(resolve => { saveAsDone.current = { resolve, ok: false }; setSaveMode(mode); setSaveOpen(true); });
+  };
   const closeSave = (open: boolean) => {
     setSaveOpen(open);
     if (open) return;
@@ -204,11 +219,13 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     // Sharing finishes in the picker, so a pending switch waits for the user to pick again.
     done?.resolve(done.ok && !pending.current);
   };
-  const submit = async (input: { mode: 'new' | 'update'; unit: 'condition-set' | 'menu-view'; name: string; visibility: string }): Promise<Result<unknown>> => {
-    let result: Result<unknown>;
+  const submit: SaveViewDialogProps['onSubmit'] = async input => {
+    if (saveBlock) return { ok: false, reason: 'invalid', detail: blockedMessage };
+    let result: Awaited<ReturnType<SavedViews['saveAs']>>;
     if (input.mode === 'update') { if (views.crossScopeSave && !(await confirmScope())) return { ok: false, reason: 'unavailable' }; result = await views.saveToSelected(); }
     else if (input.visibility === 'share') { pending.current = { unit: input.unit, name: input.name }; setHandoff(true); return { ok: true, value: null }; }
     else result = await views.saveAs({ name: input.name, kind: input.unit });
+    if (!result.ok && 'code' in result) return { ...result, detail: blockedMessage };
     if (result.ok) { toast(input.mode === 'update' ? m('savedViewUpdated') : m('savedViewSavedAs', { name: input.name }), 'info'); if (saveAsDone.current) saveAsDone.current.ok = true; }
     return result;
   };
@@ -217,9 +234,9 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   // the unit and the chosen targets, and a view this step already created is shared again on retry instead of being saved twice.
   const confirmShare = async (draft: ShareTargetDraft): Promise<boolean> => {
     const made = pending.current;
-    if (!made) return false;
+    if (!made || saveBlock) return false;
     setShareError(null);
-    const refused = (reason: Extract<Result<never>, { ok: false }>['reason'], saved: boolean) => {
+    const refused = (reason: Parameters<typeof fail>[0], saved: boolean) => {
       const text = saved
         ? m('savedViewSavedShareFailed', { name: made.name, reason: fail(reason) })
         : m('savedViewSaveFailed', { name: made.name, reason: fail(reason) });
@@ -230,12 +247,13 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       if (!created.current) {
         const saved = await views.saveAs({ name: made.name, kind: made.unit });
         if (!alive.current) return false;
-        if (!saved.ok) return refused(saved.reason, false);
+        if (!saved.ok) return 'code' in saved ? false : refused(saved.reason, false);
         created.current = { id: saved.value.view.id, version: saved.value.view.version };
       }
       const { id, version } = created.current;
       const at = { expectedVersion: version };
       const visibility: ViewVisibility = draft.mode === 'people' ? { kind: 'people', userIds: draft.people.map(p => p.userId) } : { kind: 'groups', groupIds: [...draft.groupIds] };
+      if (draft.mode !== 'private' && views.readSaveBlocks().length > 0) return false;
       const shared = draft.mode === 'private' ? null : draft.mode === 'official' ? await views.requestOfficial(id, at) : await views.setVisibility(id, visibility, at);
       if (!alive.current) return false;
       if (shared !== null && !shared.ok) {
@@ -279,16 +297,27 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const panels = selected ? panelCount(selected.view) : 0;
   const scoped = views.scopeExcluded;
   // The unsupported list and the other-Scope list stay apart: one is the menu's limit, the other a rule of the Scope (#2175).
-  const scopeNote = scoped ? m('savedViewScopeExcluded', { keys: keyText(scoped.keys) }) : '';
+  const scopeNote = scoped ? m('savedViewScopeExcluded', { keys: keyText(scoped.keys, scoped.panelKeys) }) : '';
   // The saved Scope is named only when the viewer's own Scope list has it; a shared viewer gets no raw id of a Scope they hold no grant for (#2175).
   const scopeName = (id: string) => host.session.scopes.find(option => option.id === id)?.label ?? null;
   const savedIn = scoped ? scopeName(scoped.savedScopeId) : null;
-  const scopeFull = scoped ? (savedIn === null ? m('savedViewScopeExcludedOther', { keys: keyText(scoped.keys) }) : m('savedViewScopeExcludedFull', { scope: savedIn, keys: keyText(scoped.keys) })) : '';
+  const scopeFull = scoped ? (savedIn === null ? m('savedViewScopeExcludedOther', { keys: keyText(scoped.keys, scoped.panelKeys) }) : m('savedViewScopeExcludedFull', { scope: savedIn, keys: keyText(scoped.keys, scoped.panelKeys) })) : '';
   const note = (excluded.length > 0 || panels > 0 || scoped)
     ? [panels > 0 ? m('savedViewPanelCount', { count: panels }) : '', excluded.length > 0 ? m('savedViewExcludedKeys', { keys: excluded.join(', ') }) : '', scopeNote].filter(Boolean).join(' · ')
     : '';
   const noteTitle = [note, scopeFull].filter(Boolean).join('\n');
   const noteText = note && <span role="status" className="break-words text-xs text-text-secondary" title={noteTitle}>{note}</span>;
+  const cross = views.crossScopeSave;
+  // Context keys take this Scope's values; held panel sets do not, they are saved as the panels' inputs now are (#2862 R2862C-2 C5).
+  const crossPanels = cross?.panelKeys ?? [];
+  const crossContext = cross ? cross.keys.filter(key => !crossPanels.includes(key)) : [];
+  const crossScope = cross ? scopeName(cross.savedScopeId) : null;
+  const crossScopeMessage = !cross ? '' : crossContext.length === 0
+    ? (crossScope === null ? m('savedViewCrossScopePanelsOnlyOther', { keys: crossPanels.join(', ') }) : m('savedViewCrossScopePanelsOnly', { scope: crossScope, keys: crossPanels.join(', ') }))
+    : [
+      crossScope === null ? m('savedViewCrossScopeMessageOther', { keys: keyText(crossContext) }) : m('savedViewCrossScopeMessage', { scope: crossScope, keys: keyText(crossContext) }),
+      crossPanels.length ? m('savedViewCrossScopePanels', { keys: crossPanels.join(', ') }) : '',
+    ].filter(Boolean).join(' ');
   const picker = external ? { open: external.active === 'view', onOpenChange: (open: boolean) => { if (!open) external.close(); }, anchorRef: external.anchorRef, note: noteText } : undefined;
 
   return <span ref={wrapper} className="inline-flex flex-wrap items-center gap-1">
@@ -300,6 +329,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       groups={groups.entries.map(entry => ({ id: entry.group.id, name: entry.group.name }))} query={query} onQuery={setQuery} filter={filter} onFilter={setFilter} userId={userId} ownerLabel={ownerName} staleIds={staleIds} panelCount={panelCount}
       onSelect={id => { void views.select(id).then(pickFailed); }}
       onSave={saveCurrent} onSaveAs={() => openSave('new')} saveTriggerRef={saveTrigger}
+      saveBlock={saveBlock}
       onRevert={() => { void views.revertToSaved().then(pickFailed); }}
       onMakeDefault={id => { void views.setDefault(id).then(result => report(result, id === null ? m('savedViewDefaultCleared') : m('savedViewDefaultSet'))); }}
       onDelete={id => { void views.remove(id).then(result => report(result, m('savedViewDeleted'))); }}
@@ -311,6 +341,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       context={captureApplied({ global: host.global, page: [] }, support).context} hasDraft={unapplied} returnFocusRef={external?.anchorRef ?? saveTrigger}
       visibilityOptions={[{ value: 'private', label: m('savedViewVisibilityPrivate') }, { value: 'share', label: m('savedViewVisibilityShare') }]}
       onSubmit={submit}
+      saveBlock={saveBlock}
     />
     <ShareTargetPicker
       lang={lang}
@@ -318,6 +349,7 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       groups={{ ...groups, retry: () => setGroupTick(n => n + 1) }} currentUserId={userId} searchPeople={searchPeople}
       onCreateGroup={views.createGroup}
       onUpdateGroup={views.updateGroup} onConfirm={confirmShare} confirmError={shareError}
+      saveBlock={saveBlock}
     />
     <ViewManagement
       open={manageOpen} onOpenChange={next => { setManageOpen(next); if (!next) setReturnFocus(n => n + 1); }} entries={items} diagnoses={diagnoses} requests={requests} currentUserId={userId} personName={id => people.get(id) ?? id} groupName={id => groupNames.get(id) ?? id}
@@ -328,14 +360,16 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     <DirtyConfirmation
       open={scopeAsk !== null} onCancel={() => { scopeAsk?.(false); setScopeAsk(null); }} onConfirm={() => { scopeAsk?.(true); setScopeAsk(null); }}
       title={m('savedViewCrossScopeTitle')}
-      message={views.crossScopeSave ? (scopeName(views.crossScopeSave.savedScopeId) === null ? m('savedViewCrossScopeMessageOther', { keys: keyText(views.crossScopeSave.keys) }) : m('savedViewCrossScopeMessage', { scope: scopeName(views.crossScopeSave.savedScopeId) ?? '', keys: keyText(views.crossScopeSave.keys) })) : ''}
+      message={crossScopeMessage}
       confirmLabel={m('savedViewCrossScopeConfirm')} cancelLabel={t('cancel')}
+      confirmBlock={saveBlock}
     />
     <DirtyConfirmation
       open={draftAsk !== null} onCancel={() => { draftAsk?.(false); setDraftAsk(null); }} onConfirm={() => { draftAsk?.(true); setDraftAsk(null); }}
       title={m('savedViewDraftTitle')}
       message={m('savedViewDraftMessage')}
       confirmLabel={m('savedViewDraftConfirm')} cancelLabel={t('cancel')}
+      confirmBlock={saveBlock}
     />
   </span>;
 }

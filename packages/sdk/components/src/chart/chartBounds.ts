@@ -1,7 +1,7 @@
 import { formatText, type Lang } from '@ap/kernel';
 import type { CustomSeriesOption } from 'echarts/charts';
 import type { ChartSeries } from './AnalysisChartFrame';
-import type { ChartPalette } from './buildChartOption';
+import { CHART_BAND_OPACITY, chartSegmentedBoundsTheme } from './EChart';
 import { toMs } from './analysisChartShared';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { chartDiagnostic } from './analysisChartData';
@@ -12,7 +12,6 @@ export type ChartBoundLabels = { upper?: string; lower?: string; band?: string }
 export type Bound = ChartBounds extends ReadonlyMap<string, infer V> ? V : never;
 type BoundPart = 'upper' | 'lower' | 'band';
 export const BOUND_DASH = { upper: [8, 4], lower: [2, 4] };
-export const BOUND_OPACITY = 0.12;
 export type BoundSegment = Bound & { from: string; to: string; start: number; end: number };
 export type BoundProjection = {
   segments: BoundSegment[];
@@ -39,7 +38,6 @@ export function normalizeBound(bound: Bound): Bound {
   return finite;
 }
 
-export const boundColor = (theme: ChartPalette['theme']) => theme.referenceLine.lineStyle.color;
 export const boundLabelsOf = (labels: ChartBoundLabels | undefined, lang: Lang): Required<ChartBoundLabels> => ({
   upper: labels?.upper ?? formatText(COMPONENTS_MESSAGES.chartUpperBound, lang),
   lower: labels?.lower ?? formatText(COMPONENTS_MESSAGES.chartLowerBound, lang),
@@ -105,8 +103,8 @@ export function projectChartBounds(i: BoundInput): BoundProjection | undefined {
 }
 
 /** No data dimensions: these overlays must neither extend x nor get discarded by Zoom when a step crosses its window. */
-export function boundSeries(p: BoundProjection, palette: ChartPalette, takenSeriesIds: Set<string>): CustomSeriesOption[] {
-  const color = boundColor(palette.theme);
+export function boundSeries(p: BoundProjection, takenSeriesIds: Set<string>): CustomSeriesOption[] {
+  const { lineStyle: { color } } = chartSegmentedBoundsTheme();
   return p.parts.map(part => {
     const spans = p.segments.filter(s => hasBoundPart(s, part));
     return {
@@ -117,7 +115,7 @@ export function boundSeries(p: BoundProjection, palette: ChartPalette, takenSeri
         const lower = part === 'band' ? s.lower! : s[part]!;
         const upper = part === 'band' ? s.upper! : lower;
         const a = api.coord([s.start, lower]); const b = api.coord([s.end, upper]);
-        if (part === 'band') return { type: 'rect', shape: { x: a[0], y: Math.min(a[1], b[1]), width: b[0] - a[0], height: Math.abs(b[1] - a[1]) }, style: { fill: color, opacity: BOUND_OPACITY }, blur: { style: { opacity: BOUND_OPACITY } } };
+        if (part === 'band') return { type: 'rect', shape: { x: a[0], y: Math.min(a[1], b[1]), width: b[0] - a[0], height: Math.abs(b[1] - a[1]) }, style: { fill: color, opacity: CHART_BAND_OPACITY }, blur: { style: { opacity: CHART_BAND_OPACITY } } };
         return { type: 'line', shape: { x1: a[0], y1: a[1], x2: b[0], y2: b[1] }, style: { stroke: color, lineWidth: 1, lineDash: BOUND_DASH[part] }, blur: { style: { opacity: 1 } } };
       },
     };

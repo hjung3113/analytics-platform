@@ -6,7 +6,7 @@ import type { ContextKey, MenuMeta } from '../menu/menu.js';
 import type { GlobalContext } from '../links/url.js';
 
 /**
- * Host → module contract, version 1 (ADR-0053, docs/integration/platform-hosting-design.md §2.5).
+ * Host → module contract, version 1 (ADR-0053, docs/integration/history/platform-hosting-design.md §2.5).
  * A module declares a ModuleManifest and renders screens that receive a ModuleHost; the kernel registers the first
  * and implements the second. React-bound values (nodes, elements) are `unknown` here. Field names are Candidates.
  */

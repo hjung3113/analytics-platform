@@ -830,6 +830,75 @@ describe('Scope validation failure (#167)', () => {
     expect(f.requests).toHaveLength(1);
   });
 
+  it('waits for a new answer after same-Scope validation narrows room grants', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let completeValidation!: (value: Awaited<ReturnType<PlatformAdapter['validateScope']>>) => void;
+    const validation = new Promise<Awaited<ReturnType<PlatformAdapter['validateScope']>>>(resolve => { completeValidation = resolve; });
+    const validateScope = vi.fn<PlatformAdapter['validateScope']>().mockResolvedValueOnce({ status: 'valid', grantedRooms: ['R1', 'R2'] })
+      .mockReturnValueOnce(validation);
+    const f = fixture({ validateScope, answer: (_request, count) => response(count === 1 ? 'ok' : 'error', [...endpoint.kinds]) });
+    let current!: QueryState<QueryData>;
+    function Probe() {
+      const { retryScope, scope } = useHostPlatform();
+      const query = useMenuQuery({ ...endpoint, requiresScope: true }, params);
+      useLayoutEffect(() => { current = query; });
+      return <button type="button" onClick={retryScope}>{scope.status}</button>;
+    }
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={f.adapter} registry={registry}><Probe /></PlatformProvider></I18nProvider>);
+    await waitFor(() => expect(current.response?.outcome).toBe('ok'));
+    act(() => screen.getByRole('button', { name: 'valid' }).click());
+    expect(screen.getByRole('button', { name: 'validating' })).toBeVisible();
+    expect(current.response).toBeNull();
+    await act(async () => completeValidation({ status: 'valid', grantedRooms: ['R1'] }));
+    await waitFor(() => expect(current.response?.outcome).toBe('error'));
+    expect(current.previousResult).toBeUndefined();
+    expect(f.requests).toHaveLength(2);
+  });
+
+  it('does not restore cached values when the Scope gate remounts after room grants narrow', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    let completeValidation!: (value: ScopeCheck) => void;
+    const validation = new Promise<ScopeCheck>(resolve => { completeValidation = resolve; });
+    let completeQuery!: (value: ApiResponse<QueryData>) => void;
+    const pending = new Promise<ApiResponse<QueryData>>(resolve => { completeQuery = resolve; });
+    const validateScope = vi.fn<PlatformAdapter['validateScope']>()
+      .mockResolvedValueOnce({ status: 'valid', grantedRooms: ['R1', 'R2'] })
+      .mockReturnValueOnce(validation);
+    const f = fixture({ validateScope });
+    const menuQuery = vi.fn<PlatformAdapter['menuQuery']>().mockImplementationOnce(f.adapter.menuQuery).mockReturnValue(pending);
+    const adapter = { ...f.adapter, menuQuery };
+    const spec = { ...endpoint, requiresScope: true };
+    let current!: QueryState<QueryData>;
+    function Body({ name }: { name: string }) {
+      const query = useMenuQuery(spec, params);
+      useLayoutEffect(() => { if (name === 'first') current = query; });
+      return <p>{name}: {query.response?.data?.call ?? query.status}</p>;
+    }
+    function ScopeGate() {
+      const { retryScope, scope } = useHostPlatform();
+      return <>
+        <button type="button" onClick={retryScope}>{scope.status}</button>
+        {scope.status === 'valid' && <><Body name="first" /><Body name="second" /></>}
+      </>;
+    }
+    render(<I18nProvider><PlatformProvider equipmentAxes={equipmentAxes} adapter={adapter} registry={registry}><ScopeGate /></PlatformProvider></I18nProvider>);
+    expect(await screen.findByText('first: 1')).toBeVisible();
+    expect(screen.getByText('second: 1')).toBeVisible();
+    expect(menuQuery).toHaveBeenCalledOnce();
+    act(() => screen.getByRole('button', { name: 'valid' }).click());
+    expect(screen.getByRole('button', { name: 'validating' })).toBeVisible();
+    expect(screen.queryByText('first: 1')).toBeNull();
+    await act(async () => completeValidation({ status: 'valid', grantedRooms: ['R1'] }));
+    await waitFor(() => expect(menuQuery).toHaveBeenCalledTimes(2));
+    expect(current.response?.data?.call).toBeUndefined();
+    expect(screen.getByText('first: loading')).toBeVisible();
+    expect(screen.getByText('second: loading')).toBeVisible();
+    await act(async () => completeQuery(response('error', [...endpoint.kinds])));
+    await waitFor(() => expect(current.response?.outcome).toBe('error'));
+    expect(current.previousResult).toBeUndefined();
+    expect(menuQuery).toHaveBeenCalledTimes(2);
+  });
+
   it('treats an adapter-internal AbortError (Kernel signal not aborted) as error', async () => {
     window.history.replaceState(null, '', '/?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
     const f = fixture({ validateScope: async () => { throw Object.assign(new Error('timeout'), { name: 'AbortError' }); } });

@@ -1,3 +1,4 @@
+import { useDockChartHead } from '../dock/DockChartHead';
 import type { ChartTrust } from '../state/trustFormat';
 import { useCallback, useContext, useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type Ref, type ReactNode } from 'react';
 import { BrushIcon, RotateCcw, ZoomIn, ZoomOut } from 'lucide-react';
@@ -90,6 +91,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const focused = (focusId ? model.byId.get(focusId) : undefined) ?? model.flat[0];
   const [hover, setHover] = useState<string | null>(null);
   const summaryId = useId(); const helpId = useId();
+  useDockChartHead(summaryId, { acceptsHead: false });
   const brush = useRangeBrush(props.rangeBrush);
   const [table, setTable] = useState(false);
   // The table page belongs to one `lanes` input: new lanes start again at the first page and drop the old reference (#2792 C6).
@@ -102,7 +104,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
   const brushRange = brushOn ? brush.range : null;
   const zoomControl = (label: string, Icon: typeof ZoomIn, onClick: () => void) => props.quiet
     ? <ChartZoomButton label={label} icon={Icon} onClick={onClick} />
-    : <Button size="toolbar" variant={chartToolVariant(false)} onClick={onClick}><Icon className="size-3.5" aria-hidden />{label}</Button>;
+    : <Button size="toolbar" variant={chartToolVariant(false)} onClick={onClick}><Icon className="size-3.5" aria-hidden /><span className="t-chart-tool">{label}</span></Button>;
   useImperativeHandle(props.ref, () => ({
     resetZoom: () => engine.current?.resetZoom(),
     reveal: index => engine.current?.reveal(index),
@@ -184,7 +186,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
         <InfoTip label={m('laneHowToInteract')}>{m(brushOn ? 'laneInteractionHelpBrush' : 'laneInteractionHelp')}</InfoTip>
         {zoomControl(m('laneZoomIn'), ZoomIn, () => engine.current?.zoom(0.8))}
         {zoomControl(m('laneZoomOut'), ZoomOut, () => engine.current?.zoom(1.25))}
-        {brushOn && <Button type="button" size="toolbar" variant="toggle" aria-pressed={brush.mode} onClick={() => brush.setMode(!brush.mode)}><BrushIcon className="size-3.5" aria-hidden />{m('chartBrush')}</Button>}
+        {brushOn && <Button type="button" size="toolbar" variant="toggle" aria-pressed={brush.mode} onClick={() => brush.setMode(!brush.mode)}><BrushIcon className="size-3.5" aria-hidden /><span className="t-chart-tool">{m('chartBrush')}</span></Button>}
         {zoomControl(m('laneZoomReset'), RotateCcw, () => { engine.current?.resetZoom(); if (brushOn) brush.clear(); })}
         <ChartTableToggle compact={props.quiet} shown={table} toggle={() => setTable(current => !current)} />
         {exportGate.allowed && <ChartExportMenu compact={props.quiet} exportCsv={exportCsv} tools={<>
@@ -210,7 +212,7 @@ export function LaneTimeline(props: LaneTimelineProps) {
     )}
     {!model.flat.length && <p className="px-4 py-3 text-text-secondary">{m('chartNoData')}</p>}
     <section aria-label={m('chartSelectionSummaryRegion')} className={props.quiet && !brushRange ? 'sr-only' : 'bg-surface-sunken px-4 py-2 text-text-secondary'}>{brushRange
-      ? <><span className={props.quiet ? 'sr-only' : undefined}>{t('selectedRange')}: {tickText(brushRange[0])}–{tickText(brushRange[1])}</span>{' '}<Button type="button" size="toolbar" variant={props.quiet ? 'ghost' : chartToolVariant(false)} onClick={() => engine.current?.showRange(brushRange)}>{!props.quiet && <ZoomIn className="size-3.5" aria-hidden />}{m('intervalZoomToSelection')}</Button></>
+      ? <><span className={props.quiet ? 'sr-only' : undefined}>{t('selectedRange')}: {tickText(brushRange[0])}–{tickText(brushRange[1])}</span>{' '}<Button type="button" size="toolbar" variant={props.quiet ? 'ghost' : chartToolVariant(false)} onClick={() => engine.current?.showRange(brushRange)}>{!props.quiet && <ZoomIn className="size-3.5" aria-hidden />}<span className="t-chart-tool">{m('intervalZoomToSelection')}</span></Button></>
       : selectedItem ? summary(selectedItem) : m('chartNoSelection')}</section>
     {table && <IntervalTable title={m('laneIntervalList')} columns={tableColumns} count={model.flat.length} rows={tableRows} page={tablePage} onPage={page => setTablePageOf({ lanes: props.lanes, page })} />}
     {overlayLines.length > 0 && <ul aria-label={m('laneMarkedTimes')} className="sr-only">{overlayLines.map((line, i) => <li key={i}>{line}</li>)}</ul>}

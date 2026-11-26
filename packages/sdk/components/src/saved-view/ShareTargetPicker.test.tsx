@@ -29,6 +29,15 @@ function Harness({ value = base, groups = ready([group('t1', '포토팀', 'org-t
   </>;
 }
 
+it('keeps the unblocked submit button disabled for incomplete sharing targets without block attributes', () => {
+  render(<Harness />);
+  const save = screen.getByRole('button', { name: '공유 대상 저장' });
+  expect(save).toBeDisabled();
+  expect(save).not.toHaveAttribute('aria-disabled');
+  expect(save).not.toHaveAttribute('aria-describedby');
+  expect(save).not.toHaveClass('aria-disabled:opacity-50');
+});
+
 it('lists org teams and custom groups in two blocks, marking org-team members as not editable', () => {
   render(<Harness />);
   const org = screen.getByRole('region', { name: '조직 팀' });

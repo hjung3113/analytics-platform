@@ -1,0 +1,13 @@
+{
+  "ignorePatterns": ["docs/design/history/**", "tooling/sdk/fixtures/**", ".agents/**", "site/**"],
+  "ignoreUnresolvedImports": ["#platform-assembly", "@ap/app-host/styles.css"],
+  "publicPackages": ["@ap/contract-schemas", "@ap/contracts", "@ap/kernel", "@ap/shell", "@ap/ui", "@ap/components"],
+  "entry": [
+    "apps/platform-api/src/seed/index.ts",
+    "apps/platform-api/src/cli/*.ts",
+    "apps/platform-api/scripts/*.{mjs,ts}",
+    "ops/platform-api/scripts/**/*.{mjs,ts}",
+    "ops/platform-api/conductor/**/*.{mjs,ts}",
+    "tooling/**/*.mjs"
+  ]
+}

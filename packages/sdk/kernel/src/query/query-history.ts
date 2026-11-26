@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useSyncExternalStore } from 'react';
 import { buildQuery, compareHistoryText, compareQueryHistory, emptyGlobal, parseQuery, RETURN_TO_KEY, withoutReturnTo, type GlobalContext, type Pair, type QueryHistoryEntry, type QueryHistoryKey, type QueryHistoryStore, type Session } from '@ap/contracts';
 import { useHostPlatform } from '../platform/platform';
+import { firstDrillProblem, hasDrillBasis } from '../context/drillReset';
 import type { DraftStore, DraftInputs, DraftValues } from './draft-state';
 
 export type QueryHistoryRow = { id: string; lastAppliedAt: number; count: number } & (
@@ -59,6 +60,8 @@ function candidate(input: DraftInputs, entry: QueryHistoryEntry, normalize: (val
     // History is a complete applied condition, never an incomplete or silently materialized candidate.
     if (parsed.global.from === null || parsed.global.to === null) return null;
     const normalized = normalize(parsed);
+    const drill = input.menu?.drill;
+    if (hasDrillBasis(drill) && firstDrillProblem(drill, normalized.page, normalized.global, input.can)) return null;
     if (canonicalHistoryQuery(normalized, input.menu?.pageKeys ?? [], input.menu?.repeatedPageKeys) !== canonicalHistoryQuery(parsed, input.menu?.pageKeys ?? [], input.menu?.repeatedPageKeys)) return null;
     return normalized;
   } catch { return null; }

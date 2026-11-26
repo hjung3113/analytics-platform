@@ -454,6 +454,31 @@ describe('DockLayout group menu from the keyboard (D19)', () => {
     await waitFor(() => { expect(document.activeElement).toBe(item); });
   });
 
+  it('leaves no focus-return timer or observer behind when the layout unmounts right after the menu closes (#3074)', async () => {
+    mountDock({ layout: row([50, 50], group(['a', 'b']), group(['c'])), props: { renderGroupActions: actions } });
+    await ready();
+    screen.getByRole('tab', { name: '패널 a' }).focus();
+    await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+    const item = await screen.findByRole('menuitem', { name: '그룹 항목' });
+    await waitFor(() => { expect(document.activeElement).toBe(item); });
+    const disconnect = vi.spyOn(MutationObserver.prototype, 'disconnect');
+    fireEvent.keyDown(item, { key: 'Escape' });
+    // The close queues the tab's focus return once the observer sees it (a microtask); unmount before that timer runs, as a torn-down test would.
+    await Promise.resolve();
+    cleanup();
+    const descriptor = Object.getOwnPropertyDescriptor(Document.prototype, 'activeElement')!;
+    const reads = vi.fn();
+    Object.defineProperty(document, 'activeElement', { configurable: true, get() { reads(); return descriptor.get!.call(this); } });
+    try {
+      await new Promise(resolve => { setTimeout(resolve, 400); });
+      expect(reads).not.toHaveBeenCalled();
+    } finally {
+      delete (document as { activeElement?: unknown }).activeElement;
+    }
+    expect(disconnect).toHaveBeenCalled();
+    disconnect.mockRestore();
+  });
+
   it('a right-click on a tab opens the same menu', async () => {
     mountDock({ layout: row([50, 50], group(['a', 'b']), group(['c'])), props: { renderGroupActions: actions } });
     await ready();

@@ -2,13 +2,15 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { groupId, NO_FEATURES, spaceId } from '@ap/contracts';
 import { House } from 'lucide-react';
-import { useRef, useState, type ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChips, useAnalysisSelectionOutput, usePlatform, useUnsavedGuard, type AnalysisSelectionChip } from '@ap/kernel';
 import { PaneScreenProvider, useLeaveRequest, type PaneScreen } from '@ap/kernel/host';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AnalysisSelectionChipZone } from '../AnalysisSelectionChipZone';
 import { DockLayout } from '../../dock/DockLayout';
+import { NextAnalysisBridge } from '../../chart/NextAnalysisBridge';
+import { PanelWorkspace } from '../../workspace/PanelWorkspace';
 
 vi.mock('@ap/kernel', async importOriginal => ({
   ...await importOriginal<typeof import('@ap/kernel')>(),
@@ -84,6 +86,156 @@ it('shows every chip in order with connectors when the row fits', () => {
   expect(zone().getByRole('button', { name: '모두 지우기' })).toBeVisible();
 });
 
+it('moves a single workspace selection and clear-all into the keyboard list when its lane narrows', async () => {
+  const user = userEvent.setup();
+  vi.mocked(useAnalysisSelectionChips).mockReturnValue({ chips: [equipment], clear, clearAll });
+  render(<I18nProvider><AnalysisSelectionChipZone workspace /></I18nProvider>);
+  const measure = (laneWidth: number) => {
+    act(() => {
+      for (const target of observers.keys()) {
+        if (target.matches('[data-analysis-chip-probe]')) resize(target, 240);
+        if (target.matches('[data-analysis-chip-summary-probe]')) resize(target, 170);
+        if (target.matches('[data-analysis-chip-lane]')) resize(target, laneWidth);
+      }
+    });
+  };
+  measure(240);
+  const inlineClear = zone().getByRole('button', { name: '모두 지우기' });
+  inlineClear.focus();
+  measure(90);
+  const more = zone().getByRole('button', { name: '+1 ›' });
+  expect(more).toHaveFocus();
+  expect(zone().queryByRole('button', { name: '모두 지우기' })).toBeNull();
+  await user.keyboard('{Enter}');
+  const list = within(await screen.findByRole('dialog', { name: '분석 선택' }));
+  expect(list.getByText('설비 E1 외 1')).toBeVisible();
+  await user.click(list.getByRole('button', { name: '모두 지우기' }));
+  expect(clearAll).toHaveBeenCalledOnce();
+  measure(240);
+  expect(zone().getByRole('button', { name: '모두 지우기' })).toBeVisible();
+  measure(200);
+  const actions = zone().getByRole('button', { name: '설비 E1 외 1 동작' });
+  actions.focus();
+  await user.keyboard('{Enter}');
+  await user.click(await screen.findByRole('menuitem', { name: '모두 지우기' }));
+  expect(clearAll).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  ['editor', '설비 E1 외 1', 'checkbox', 'E1'],
+  ['action menu', '설비 E1 외 1 동작', 'menuitem', '지우기'],
+] as const)('hands off focus from a portaled chip %s when its lane narrows', async (_surface, trigger, role, name) => {
+  const user = userEvent.setup();
+  vi.mocked(useAnalysisSelectionChips).mockReturnValue({
+    chips: [equipment], clear, clearAll, editor: { replace: vi.fn(), availability: new Map() },
+  });
+  const { container } = render(<I18nProvider><AnalysisSelectionChipZone workspace /></I18nProvider>);
+  const lane = container.querySelector('[data-analysis-chip-lane]')!;
+  act(() => {
+    resize(container.querySelector('[data-analysis-chip-probe]')!, 240);
+    resize(container.querySelector('[data-analysis-chip-summary-probe]')!, 170);
+    resize(lane, 240);
+  });
+  zone().getByRole('button', { name: trigger }).focus();
+  await user.keyboard('{Enter}');
+  const focused = await screen.findByRole(role, { name });
+  expect(focused).toHaveFocus();
+  expect(screen.getByRole('group', { name: '분석 선택' })).not.toContainElement(focused);
+  act(() => resize(lane, 90));
+  expect(zone().getByRole('button', { name: '+1 ›' })).toHaveFocus();
+});
+
+it('hands off focus from a nested portal the chip action menu owns (submenu, select list)', async () => {
+  const user = userEvent.setup();
+  vi.mocked(useAnalysisSelectionChips).mockReturnValue({ chips: [equipment], clear, clearAll });
+  const { container } = render(<I18nProvider><AnalysisSelectionChipZone workspace /></I18nProvider>);
+  const lane = container.querySelector('[data-analysis-chip-lane]')!;
+  act(() => {
+    resize(container.querySelector('[data-analysis-chip-probe]')!, 240);
+    resize(container.querySelector('[data-analysis-chip-summary-probe]')!, 170);
+    resize(lane, 240);
+  });
+  zone().getByRole('button', { name: '설비 E1 외 1 동작' }).focus();
+  await user.keyboard('{Enter}');
+  const item = await screen.findByRole('menuitem', { name: '지우기' });
+  // A Radix submenu trigger or select trigger points at content mounted in its own portal.
+  const nested = document.createElement('div');
+  nested.id = 'nested-chip-surface';
+  const choice = document.createElement('button');
+  choice.textContent = 'Nested choice';
+  nested.append(choice);
+  document.body.append(nested);
+  item.setAttribute('aria-controls', nested.id);
+  // The nested content unmounts in the same commit as the menu that owns it.
+  const removeChild = document.body.removeChild.bind(document.body);
+  const spy = vi.spyOn(document.body, 'removeChild').mockImplementation(<T extends Node>(child: T) => {
+    if (child.contains(item) && nested.isConnected) nested.remove();
+    return removeChild(child);
+  });
+  // Radix nests a submenu's layer under its parent menu, so focusing it does not dismiss the parent.
+  const keepParentOpen = (event: FocusEvent) => { if (event.target === choice) event.stopImmediatePropagation(); };
+  window.addEventListener('focusin', keepParentOpen, true);
+  choice.focus();
+  window.removeEventListener('focusin', keepParentOpen, true);
+  expect(choice).toHaveFocus();
+  expect(item).toBeInTheDocument();
+  act(() => resize(lane, 90));
+  spy.mockRestore();
+  expect(nested.isConnected).toBe(false);
+  expect(zone().getByRole('button', { name: '+1 ›' })).toHaveFocus();
+});
+
+it.each(['body', 'another control'] as const)('leaves focus on %s outside the workspace chip zone during resize', target => {
+  vi.mocked(useAnalysisSelectionChips).mockReturnValue({ chips: [equipment], clear, clearAll });
+  const { container } = render(<I18nProvider><button>Outside</button><AnalysisSelectionChipZone workspace /></I18nProvider>);
+  const lane = container.querySelector('[data-analysis-chip-lane]')!;
+  act(() => {
+    resize(container.querySelector('[data-analysis-chip-probe]')!, 240);
+    resize(lane, 240);
+  });
+  const inside = zone().getByRole('button', { name: '모두 지우기' });
+  const outside = screen.getByRole('button', { name: 'Outside' });
+  inside.focus();
+  if (target === 'body') inside.blur();
+  else outside.focus();
+  const expected = target === 'body' ? document.body : outside;
+  expect(expected).toHaveFocus();
+  act(() => resize(lane, 90));
+  expect(zone().getByRole('button', { name: '+1 ›' })).toBeVisible();
+  expect(expected).toHaveFocus();
+});
+
+it('measures workspace chips with presentational footprints', () => {
+  vi.mocked(useAnalysisSelectionChips).mockReturnValue({ chips: [equipment], clear, clearAll });
+  const { container } = render(<I18nProvider><AnalysisSelectionChipZone workspace /></I18nProvider>);
+  for (const selector of ['[data-analysis-chip-probe]', '[data-analysis-chip-summary-probe]']) {
+    const probe = container.querySelector(selector)!;
+    expect(probe).toHaveTextContent('설비 E1 외 1');
+    expect(probe.querySelector('button, a')).toBeNull();
+  }
+});
+
+it('renders a legacy group inline on the first commit after shrinking to one chip', () => {
+  const model = { clear, clearAll };
+  const commit = vi.fn(() => zone().queryByRole('button', { name: /^\+\d+ ›$/ })?.textContent);
+  function ObserveCommit({ count }: { count: number }) {
+    useLayoutEffect(() => { if (count === 1) commit(); }, [count]);
+    return <Harness />;
+  }
+  vi.mocked(useAnalysisSelectionChips).mockReturnValue({ ...model, chips: [equipment, module] });
+  const { container, rerender } = render(<ObserveCommit count={2} />);
+  act(() => {
+    resize(screen.getByTestId('row'), 300);
+    resize(screen.getByText('조회 요약'), 100);
+    resize(container.querySelector('[data-analysis-chip-probe]')!, 400);
+  });
+  expect(zone().getByRole('button', { name: '+1 ›' })).toBeVisible();
+  vi.mocked(useAnalysisSelectionChips).mockReturnValue({ ...model, chips: [equipment] });
+  rerender(<ObserveCommit count={1} />);
+  expect(commit).toHaveReturnedWith(undefined);
+  expect(zone().getByRole('button', { name: '모두 지우기' })).toBeVisible();
+});
+
 it('folds on a longer summary, opens the full list by keyboard, and unfolds on resize', async () => {
   const user = userEvent.setup();
   vi.mocked(useAnalysisSelectionChips).mockReturnValue({ chips: [equipment, module, time], clear, clearAll });
@@ -127,7 +279,7 @@ it('names the source mark with the chip label when the panel title has a placeho
   expect(zone().getByRole('img', { name: '설비' })).not.toHaveAttribute('title');
 });
 
-async function mountSelections(extra: string, selections = [equipment, module], children?: ReactNode, wrap = (content: ReactNode) => content) {
+async function mountSelections(extra: string, selections = [equipment, module], children?: ReactNode, wrap = (content: ReactNode) => content, readerKeys: readonly string[] = []) {
   const actual = await vi.importActual<typeof import('@ap/kernel')>('@ap/kernel');
   vi.mocked(useAnalysisSelectionChips).mockImplementation(actual.useAnalysisSelectionChips);
   const title = equipment.source.title;
@@ -139,7 +291,9 @@ async function mountSelections(extra: string, selections = [equipment, module], 
       query: { mode: 'live' },
       pageKeys: keys, repeatedPageKeys: keys, contextResetKeys: keys,
       panels: [{ id: 'source', title, grain: 'daily', endpoints: [], queryInputs: {}, displayInputs: {},
-        outputs: selections.map(({ key, dimension }) => ({ key, action: 'pick', selection: { shape: 'set', dimension } })) }],
+        outputs: selections.map(({ key, dimension }) => ({ key, action: 'pick', selection: { shape: 'set', dimension } })) },
+        ...(readerKeys.length ? [{ id: 'receiver', title, grain: 'daily' as const, endpoints: [], outputs: [], displayInputs: {},
+          queryInputs: { page: readerKeys.map(key => ({ key, selection: 'filter' as const })) } }] : [])],
     }] });
   const session = testSession(['platform:view']);
   const adapter = testAdapter({ session: () => session });
@@ -148,6 +302,56 @@ async function mountSelections(extra: string, selections = [equipment, module], 
   const { container } = render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}>{wrap(<Harness onDisclosureFocus={disclosureFocus} />)}{children}</PlatformProvider></I18nProvider>);
   return { container, disclosureFocus };
 }
+
+describe('categorized chip picker open across a lane width change (#3092)', () => {
+  const panelTitle = { ko: '패널', en: 'Panel' };
+  const picker = () => screen.queryByRole('dialog', { name: '새 패널' });
+  const list = () => screen.queryByRole('dialog', { name: '분석 선택' });
+  async function openPicker({ folded, action }: { folded: boolean; action: string }) {
+    const { container } = await mountSelections('&mod=M1', [equipment, module], undefined, () =>
+      <NextAnalysisBridge>
+        <PanelWorkspace label={panelTitle} persistKey="chip-picker-resize" initialMode="stack"
+          presets={[{ id: 'only', label: panelTitle, layout: { type: 'group', panels: ['source'] } }]} initialPreset="only"
+          panels={[{ id: 'source', title: panelTitle, primary: true, render: () => null }]}
+          analysisPanelAddition={{ items: [{ id: 'receiver', title: panelTitle, category: { id: 'detail', title: panelTitle } }], onAdd: vi.fn() }} />
+        <AnalysisSelectionChipZone workspace />
+      </NextAnalysisBridge>, ['equip', 'mod']);
+    const lane = container.querySelector('[data-analysis-chip-lane]')!;
+    act(() => {
+      resize(container.querySelector('[data-analysis-chip-probe]')!, 240);
+      resize(container.querySelector('[data-analysis-chip-summary-probe]')!, 170);
+      resize(lane, folded ? 90 : 240);
+    });
+    const user = userEvent.setup();
+    if (folded) await user.click(zone().getByRole('button', { name: '+2 ›' }));
+    (folded ? within(list()!) : zone()).getByRole('button', { name: action }).focus();
+    await user.keyboard('{Enter}');
+    screen.getByRole('menuitem', { name: '새 패널' }).focus();
+    await user.keyboard('{Enter}');
+    expect(within(picker()!).getByRole('searchbox')).toHaveFocus();
+    return { lane };
+  }
+  // Both Radix close-autofocus callbacks (the list's and the picker's) run on a timer after the unmount.
+  const settle = () => act(() => new Promise(resolve => { setTimeout(resolve, 0); }));
+
+  it.each(['equipment E1 동작', 'module M1 동작'])('returns focus to the same %s button when the folded list unfolds', async action => {
+    const { lane } = await openPicker({ folded: true, action });
+    act(() => resize(lane, 240));
+    await settle();
+    expect(picker()).toBeNull();
+    expect(list()).toBeNull();
+    expect(zone().getByRole('button', { name: action })).toHaveFocus();
+  });
+
+  it('moves focus to +n without reopening the list when the inline lane folds', async () => {
+    const { lane } = await openPicker({ folded: false, action: 'module M1 동작' });
+    act(() => resize(lane, 90));
+    await settle();
+    expect(picker()).toBeNull();
+    expect(list()).toBeNull();
+    expect(zone().getByRole('button', { name: '+2 ›' })).toHaveFocus();
+  });
+});
 
 it('keeps the writerless arrival first, preserves its clear action and links to the previous screen', async () => {
   const href = '/?v=1&equip=E2';

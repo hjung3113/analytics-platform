@@ -210,6 +210,33 @@ describe('createRegistry validation (platform-packages.md §5)', () => {
 
   const level = (key: string) => ({ key, label: { ko: key, en: key } });
 
+  const bases = [{ id: 'alt', label: 'Alternative' }];
+  const withBasis = { ...level('room'), bases, basisKey: 'basis' };
+  const pageConditions: PlatformMenuEntry['pageConditions'] = { categories: [{ id: 'basis', label: level('basis').label, kind: { type: 'search', key: 'basis' } }] };
+  it.each([
+    ['missing basisKey', { ...withBasis, basisKey: undefined }, {}, /requires.*basisKey/],
+    ['duplicate id', { ...withBasis, bases: [...bases, ...bases] }, {}, /basis id.*duplicated/],
+    ['unregistered key', { ...withBasis, basisKey: 'unknown' }, {}, /basisKey "unknown".*pageKeys/],
+    ['non-reset key', withBasis, { contextResetKeys: ['room'] }, /basisKey "basis".*contextResetKeys/],
+    ['level key', { ...withBasis, basisKey: 'room' }, {}, /basisKey "room".*drill level/],
+    ['returnTo', { ...withBasis, basisKey: 'returnTo' }, {}, /basisKey "returnTo".*returnTo/],
+    ['repeated key', withBasis, { repeatedPageKeys: ['basis'] }, /repeatedPageKeys key "basis".*drill basisKey/],
+    ['duplicate basisKey', withBasis, { drill: { levels: [withBasis, { ...withBasis, ...level('later') }] } }, /basisKey "basis".*duplicated/],
+    ['analysis selection key', withBasis, { analysisSelectionInbound: [{ key: 'basis', dimension: 'equipment', shape: 'range' as const, label: level('choice').label }] }, /selection key "basis".*drill basisKey/],
+    ['page condition key', withBasis, { pageType: 'analysis', query: { mode: 'live' }, pageConditions }, /key "basis".*drill basisKey/],
+    ['condition preset key', withBasis, { context: { ...none, condition: 'apply' }, conditionPresets: ['a', 'b'].map(id => ({ id, label: level(id).label, axes: ['maker'] })), conditionPreset: { key: 'basis', default: 'a' } }, /conditionPreset key "basis".*drill basisKey/],
+  ] as const)('rejects a drill declaration with %s', (_name, step, overrides, error) => {
+    const keys = ['room', 'basis', 'later', 'returnTo'];
+    const entry = menu('a', '/a', { primary: true, pageKeys: keys, contextResetKeys: keys, drill: { levels: [step] }, ...overrides });
+    expect(() => createRegistry({ spaces: homeA, groups, menus: [entry] })).toThrow(error);
+  });
+
+  it('keeps a basisKey registered after the last alternative is removed', () => {
+    const entry = menu('a', '/a', { primary: true, pageKeys: ['room', 'basis'], contextResetKeys: ['room', 'basis'], drill: { levels: [{ ...withBasis, bases: [] }] } });
+    const registry = createRegistry({ spaces: homeA, groups, menus: [entry] });
+    expect(registry.menus[0]).toMatchObject({ pageKeys: ['room', 'basis'], drill: { levels: [{ basisKey: 'basis', bases: [] }] } });
+  });
+
   it('rejects a drill with no levels', () => {
     expect(() => createRegistry({ spaces: homeA, groups, menus: [menu('a', '/a', { primary: true, drill: { levels: [] } })] })).toThrow(/Menu "a" drill needs at least 1 level, found 0/);
   });
@@ -1296,5 +1323,36 @@ describe('lent panel registration (#2490)', () => {
     });
     expect(assemble).toThrow(RegistryError);
     expect(assemble).toThrow(/source\.unscoped.*scopeId/);
+  });
+});
+
+describe('chart fields registration (#2761)', () => {
+  const label = { ko: '라벨', en: 'Label' };
+  const fields = {
+    time: { field: 'at', label },
+    breakdowns: [{ id: 'equipment', label, dimension: 'equipmentId' }],
+    measures: [{ id: 'runTime', label, unit: 'h', reaggregation: 'sum' }],
+  };
+  const build = (chartFields: unknown) => createRegistry({ spaces, groups, menus: [{ ...catalog, chartFields } as MenuEntry] });
+  it('registers a valid declaration and leaves a menu without one as it is', () => {
+    expect(() => build(fields)).not.toThrow();
+    expect(() => build(undefined)).not.toThrow();
+  });
+  it.each([
+    [{ ...fields, measures: [] }, /at least one measure/],
+    [{ ...fields, breakdowns: [...fields.breakdowns, { id: 'runTime', label, dimension: 'x' }] }, /duplicate field "runTime"/],
+    [{ ...fields, time: { field: 'equipment', label } }, /duplicate field "equipment"/],
+    [{ ...fields, breakdowns: [{ id: 'a/b', label, dimension: 'x' }] }, /breakdown id/],
+    [{ ...fields, breakdowns: [{ id: 'p\u0000', label, dimension: 'x' }] }, /breakdown id.*control characters/],
+    [{ ...fields, breakdowns: [{ id: 'b', label, dimension: 'equipment-id' }] }, /dimension must match/],
+    [{ ...fields, breakdowns: [{ id: 'b', label, dimension: 'd'.repeat(201) }] }, /at most 200/],
+    [{ ...fields, measures: [{ ...fields.measures[0], unit: '' }] }, /unit/],
+    [{ ...fields, measures: [{ ...fields.measures[0], reaggregation: 'avg' }] }, /reaggregation/],
+    [{ ...fields, measures: [{ ...fields.measures[0], label: { ko: '', en: 'x' } }] }, /label/],
+    [{ ...fields, measures: [{ ...fields.measures[0], permission: 'yield' }] }, /permission/],
+    [{ ...fields, measures: [{ ...fields.measures[0], breakdowns: ['line'] }] }, /unknown breakdown "line"/],
+  ])('rejects a malformed declaration %#', (chartFields, message) => {
+    expect(() => build(chartFields)).toThrow(/Menu "catalog" chartFields/);
+    expect(() => build(chartFields)).toThrow(message);
   });
 });

@@ -2,6 +2,7 @@ import { useContext, useId, useLayoutEffect, useRef, type ReactNode } from 'reac
 import { ChevronDown, ChevronUp, Search, X } from 'lucide-react';
 import { useI18n, useMessages } from '@ap/kernel';
 import { useHostPlatformOptional } from '@ap/kernel/host';
+import { WorkspacePageFilterSummaryContext } from '../archetypes/WorkspaceQueryBar';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { PageFilterExpandedContext } from './pageFilterPresentation';
 import { useCollapsePreference } from './useCollapsePreference';
@@ -152,7 +153,7 @@ function AppliedConditionChip({ chip, clearLabel, onClear }: { chip: PageFilterA
   </span>;
 }
 
-function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, actions, summaryItems, collapsedActions, hasPendingChanges, appliedChips, storageKey }: PageFilterBarShared & {
+function CollapsiblePageFilterBar({ mode, defaultCollapsed = false, label, fields, actions, summaryItems, collapsedActions, hasPendingChanges, appliedChips, storageKey }: PageFilterBarShared & {
   summaryItems: readonly PageFilterSummaryItem[];
   collapsedActions?: ReactNode;
   hasPendingChanges?: boolean;
@@ -170,6 +171,11 @@ function CollapsiblePageFilterBar({ defaultCollapsed = false, label, fields, act
   const summaryId = `${id}-summary`;
   const summaryText = `${summaryItems.map(item => `${item.label} ${item.value}`).join(' · ')}${hasPendingChanges ? ` · ${t('pageFilterPendingChanges')}` : ''}`;
   const expandedByParent = useContext(PageFilterExpandedContext);
+  const publish = useContext(WorkspacePageFilterSummaryContext);
+  const appliedSummary = mode === 'draft' ? appliedChips : summaryItems;
+  useLayoutEffect(() => {
+    if (appliedSummary) return publish?.(appliedSummary);
+  }, [appliedSummary, publish]);
   const { collapsed: preferredCollapsed, toggle, expandRef, collapseRef, liveText } = useCollapsePreference(storageKey, summaryText, { defaultCollapsed });
   const collapsed = !expandedByParent && preferredCollapsed;
   const barRef = useRef<HTMLFieldSetElement>(null);

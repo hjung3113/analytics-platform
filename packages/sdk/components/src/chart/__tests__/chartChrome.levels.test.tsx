@@ -35,7 +35,15 @@ describe('Chart chrome levels (#2372)', () => {
       if (expected === 'full') {
         expect(screen.getByText('Explanation')).toBeVisible();
       } else {
-        if (expected === 'standard') expect(screen.getByRole('region', { name: '선택 요약' })).toBeVisible();
+        if (expected === 'standard') {
+          if (kind === 'frame') {
+            expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
+            fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+            const editor = screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
+            fireEvent.click(within(editor).getByRole('button', { name: '선택' }));
+          }
+          expect(screen.getByRole('region', { name: '선택 요약' })).toBeVisible();
+        }
       }
       // Export stays on the toolbar at every chrome level for every kind (#2736).
       expect(within(screen.getByRole('toolbar')).getByRole('button', { name: '내보내기' })).toBeVisible();
@@ -118,10 +126,23 @@ describe('Chart chrome levels (#2372)', () => {
     expect(name).toHaveAttribute('title', nullLabel);
     expect(name).toHaveClass('truncate', 'min-w-0');
   });
-  it.each(['frame', 'heatmap', 'donut'])('%s wraps the top/bottom legend row and compact summary instead of scrolling sideways', kind => {
+  it.each(['frame', 'heatmap', 'donut'])('%s wraps the top/bottom legend and uses the summary layout for its chart kind', kind => {
     for (const legendPlacement of ['top', 'bottom'] as const) {
       mount(kind, true, undefined, { legendPlacement, legendCaption: 'Context caption' });
-      for (const row of [screen.getByLabelText('범례'), screen.getByRole('region', { name: '선택 요약' })]) {
+      const legend = screen.getByLabelText('범례');
+      const wrappingRows = [legend];
+      if (kind === 'frame') {
+        expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+        const editor = screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
+        fireEvent.click(within(editor).getByRole('button', { name: '선택' }));
+        const rangeLabel = screen.getByText(/선택 구간:/);
+        expect(rangeLabel.closest('[data-reveal-x]')).not.toHaveClass('overflow-x-auto');
+        expect(rangeLabel.parentElement).toHaveClass('flex-wrap');
+      } else {
+        wrappingRows.push(screen.getByRole('region', { name: '선택 요약' }));
+      }
+      for (const row of wrappingRows) {
         expect(row).toHaveClass('flex-wrap', 'overflow-y-auto');
         expect(row).not.toHaveClass('overflow-x-auto');
       }

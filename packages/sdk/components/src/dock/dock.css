@@ -6,7 +6,7 @@
   --dv-group-view-background-color: var(--color-surface-card);
   --dv-tabs-and-actions-container-background-color: var(--color-surface-card);
   --dv-tabs-and-actions-container-height: 40px;
-  --dv-tabs-and-actions-container-font-size: 12px;
+  --dv-tabs-and-actions-container-font-size: var(--text-body);
   --dv-activegroup-visiblepanel-tab-background-color: transparent;
   --dv-activegroup-hiddenpanel-tab-background-color: transparent;
   --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
@@ -126,7 +126,7 @@
    it had when the drag began, so what overflows is clipped and nothing inside is laid out again until the drag ends. */
 [data-dock-frozen] { overflow: hidden; }
 
-/* Native center merge and edge split previews. Only the engine overlay shapes receive these rules. */
+/* Center merge and edge split previews share the dock overlay shapes. */
 .ap-dock .dv-drop-target-selection.dv-drop-target-center,
 .ap-dock .dv-drop-target-anchor.dv-drop-target-center {
   border: 2px solid var(--color-accent-primary);
@@ -153,6 +153,13 @@
 .ap-dock .dv-drop-target-selection.dv-drop-target-top,
 .ap-dock .dv-drop-target-anchor.dv-drop-target-top { border-bottom: 3px solid var(--color-accent-primary); }
 
+/* The row stays mounted to retain pointer capture during a panel-add drag. */
+[data-radix-popper-content-wrapper]:has(> [data-panel-add-dragging]) { opacity: 0; pointer-events: none; }
+/* A Radix dismissable layer inside a modal can set pointer-events: auto inline. */
+[data-panel-add-dragging] { pointer-events: none !important; }
+/* The isolated dock clips the preview and keeps it above floating panels and below page chrome. */
+[data-panel-add-overlay] { z-index: calc(var(--dv-overlay-z-index, 999) + 1); }
+
 /* The ring sits on the content wrapper, not the panel: the panel is a scroll
    container whose composited contents paint over its own outline or inset shadow. */
 [data-dock-panel][data-analysis-source-highlighted] > [data-dock-panel-content] {
@@ -177,4 +184,38 @@
 [data-dock-tab][data-analysis-source-highlighted] {
   background-color: var(--color-accent-primary-soft);
   color: var(--color-accent-primary);
+}
+
+/* The single-chart strip shares the group's hover and focus scope with the plot. Opacity
+   preserves the tools' tab stops and the space ahead of the permanent actions. */
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-head]) {
+  flex-wrap: nowrap;
+  height: var(--dv-tabs-and-actions-container-height);
+  /* Keep the action end in view even if the panel is narrower than its header controls. */
+  justify-content: flex-end;
+  overflow: clip;
+}
+/* A declared query keeps the same body height when its chart tools mount or leave. */
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-head]):not(:has([data-workspace-query-head])) {
+  --dv-tabs-and-actions-container-height: calc(var(--spacing) * 9);
+}
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-head]) .dv-right-actions-container {
+  flex: 0 1 auto;
+  width: auto;
+  /* The toolbar can shrink its tools and text, but its permanent icon tail sets the floor. */
+  min-width: min-content;
+}
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-options]) .dv-right-actions-container {
+  flex-grow: 1;
+}
+.ap-dock .dv-tabs-and-actions-container.dv-single-tab:has([data-dock-chart-options]) .dv-void-container {
+  flex-grow: 0;
+}
+.ap-dock .dv-groupview:is(:hover, :focus-within) > .dv-tabs-and-actions-container [data-dock-chart-tools],
+.ap-dock [data-dock-chart-tools]:is([data-revealed], :has([aria-expanded="true"])) {
+  opacity: 1;
+  pointer-events: auto;
+}
+.ap-dock .dv-tabs-and-actions-container:has([data-dock-chart-options]) [data-dock-chart-head] {
+  flex: 1 1 auto;
 }

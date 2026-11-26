@@ -1,0 +1,5 @@
+{
+  "maxParallelPrJobs": 10,
+  "maxJobMinutes": 10,
+  "reason": "Keep PR feedback within ten minutes inside the account limit of 20 concurrent jobs (measured peak 20, held 104 min on 2026-11-26): six workspace jobs plus two E2E and two integration shards, so two PRs fit at once. A PR that needs both suites ran 39 min at nine with one integration shard at a time (#3100)."
+}

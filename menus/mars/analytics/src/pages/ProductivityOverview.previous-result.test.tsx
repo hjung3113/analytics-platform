@@ -85,13 +85,18 @@ describe('ProductivityOverview describes the kept result by the params it was lo
     expect(within(breakdown).getByRole('button', { name: 'PHOTO 들어가기' })).toBeTruthy();
   });
 
-  it('room → stgroup: the kept room rows keep the 공정 title and their drill buttons (the keys are rooms)', async () => {
+  it('room → stgroup: the kept room rows stay readable, disable drill and leave the axis live', async () => {
     await mount();
     const breakdown = screen.getByRole('region', { name: '점유 구성' });
     fireEvent.click(within(breakdown).getByRole('radio', { name: 'StGroup' }));
     await waitFor(() => expect(new URLSearchParams(window.location.search).get('axis')).toBe('stgroup'));
     expect(within(breakdown).getByRole('figure').getAttribute('aria-label')).toContain('공정별 점유 구성');
-    expect(within(breakdown).getByRole('button', { name: 'PHOTO 들어가기' })).toBeTruthy();
+    expect(within(breakdown).getByRole('cell', { name: 'PHOTO' })).toBeTruthy();
+    expect(within(breakdown).getByRole('button', { name: 'PHOTO 들어가기' }).hasAttribute('disabled')).toBe(true);
+    const room = within(breakdown).getByRole('radio', { name: '공정' });
+    expect(room.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(room);
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get('axis')).toBeNull());
   });
 
   it('hour → day: the trend description still says the grain of the kept series until the new one arrives', async () => {

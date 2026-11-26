@@ -72,6 +72,22 @@ afterEach(() => {
   setRole(previousRole);
 });
 
+it('applies an endpoint fixed-equipment cap after checking access and leaves an uncapped endpoint alone', async () => {
+  const context = { time: 'apply', selection: 'apply' } as const;
+  const spec = makeSpec('analytics.detail', { context, permission: menuPermission('analytics:view') });
+  const endpoint = { ...mockEndpoint(spec), maxFixedEquipment: 1 };
+  const uncapped = mockEndpoint(makeSpec('analytics.uncapped', { context }));
+  const endpoints = new Map([[spec.id, endpoint], [uncapped.spec.id, uncapped]]);
+  const selection = ['MEM-PHOTO-0103', 'MEM-PHOTO-0105'];
+  const cappedRequest = request(spec.id, { scopeId: 'MEM', ...PERIOD, selection });
+  const options = { role: 'engineer', latency: 0 } as const;
+  const refused = await serveEndpoint(endpoints, cappedRequest, undefined, options);
+  expect(refused).toMatchObject({ outcome: 'too_large', data: null, message: 'fixed_equipment_limit: 2/1' });
+  expect(await serveEndpoint(endpoints, cappedRequest, undefined, { ...options, role: 'viewer' })).toMatchObject({ outcome: 'forbidden' });
+  const unrestricted = await serveEndpoint(endpoints, { ...cappedRequest, endpoint: uncapped.spec.id }, undefined, options);
+  expect(unrestricted).toMatchObject({ outcome: 'ok', data: { ids: selection } });
+});
+
 describe('serveEndpoint request validation', () => {
   const endpoint = mockEndpoint(makeSpec());
   const endpoints = new Map<string, AnyMockEndpoint>([[endpoint.spec.id, endpoint]]);

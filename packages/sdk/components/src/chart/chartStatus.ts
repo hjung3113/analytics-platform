@@ -1,6 +1,7 @@
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ChartPoint, ChartSeries } from './AnalysisChartFrame';
 import { chartTheme, token } from './EChart';
+import { chartMarkFontSize } from './chartMarks';
 import { helperSeriesId } from './helperSeriesId';
 
 /** Consumer-given judgement. The chart never derives a status from a value or a scale. */
@@ -24,7 +25,8 @@ const usableMarker = (marker: string | undefined) => marker !== undefined && [..
 /** The symbol drawn and written for a status: the menu's `marker` when usable, otherwise the tone glyph. */
 export const statusGlyph = (status: ChartStatus) => usableMarker(status.marker) ? status.marker! : STATUS_GLYPHS[status.tone];
 const STATUS_TOKENS = { danger: 'chart-status-critical', warning: 'chart-status-warn', neutral: 'chart-no-data-pattern' } as const satisfies Record<ChartStatus['tone'], ThemeColorToken>;
-export const statusColor = (status: ChartStatus) => token(STATUS_TOKENS[status.tone]);
+export const statusColorToken = (status: ChartStatus) => STATUS_TOKENS[status.tone];
+export const statusColor = (status: ChartStatus) => token(statusColorToken(status));
 const contrast = (a: string, b: string) => {
   const luminance = (rgb: string) => {
     const channels = rgb.match(/[\d.]+/g)?.slice(0, 3).map(Number);
@@ -119,8 +121,9 @@ export function pointStatuses(series: readonly ChartSeries[], pointStatus?: (poi
 }
 /** A surface-backed marker stays legible even when threshold/value fill and status colour are identical. */
 export function statusMarker(status: ChartStatus) {
+  const fontSize = chartMarkFontSize();
   return {
-    show: true, formatter: `{status|${statusGlyph(status)}}`, fontSize: 10,
-    rich: { status: { color: statusColor(status), backgroundColor: token('surface-card'), borderColor: statusColor(status), borderWidth: 1, borderRadius: 2, padding: [0, 2], fontSize: 10 } },
+    show: true, formatter: `{status|${statusGlyph(status)}}`, fontSize,
+    rich: { status: { color: statusColor(status), backgroundColor: token('surface-card'), borderColor: statusColor(status), borderWidth: 1, borderRadius: 2, padding: [0, 2], fontSize } },
   };
 }

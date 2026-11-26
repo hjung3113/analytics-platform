@@ -1,8 +1,6 @@
 // CI `changes` job (#1019): the baseline of a push to main. Prints the head SHA of the latest completed push run of ci.yml on main whose conclusion is `success`
-// (the current run and manual runs excluded), so select-e2e.mjs diffs against code a green run already covered: a spec that failed on a red main commit is not
-// "last green", its changes stay in the next diff until a green run covers them. A separate script (not a part of classify-changes.mjs): it is the only one that
-// talks to the network, and classify-changes.mjs stays a pure git + Node-builtins decision.
-// Fail-safe: any error (token scope, API down, no green run, no candidate reachable in the checkout and an ancestor of SHA) prints nothing → select-e2e.mjs runs everything.
+// (the current run and manual runs excluded), for attributing a failed batch across all commits since a green run.
+// Fail-safe: any error (token scope, API down, no usable ancestor) leaves the baseline empty; the failure summary reports that the batch range is unavailable.
 // Always exits 0. Needs `actions: read` on GITHUB_TOKEN and a full-history checkout.
 //
 //   node .github/scripts/last-green-main-sha.mjs    reads GITHUB_TOKEN, GITHUB_REPOSITORY, RUN_ID, SHA, WORKFLOW (default ci.yml); prints the SHA, writes `sha=<sha>` to $GITHUB_OUTPUT
@@ -60,7 +58,7 @@ async function main() {
     return res.json();
   };
   const sha = await findBaseline({ repo: env.GITHUB_REPOSITORY, runId: env.RUN_ID, sha: env.SHA, workflow: env.WORKFLOW || 'ci.yml', fetchJson, cwd: process.cwd() });
-  if (!sha) process.stderr.write('last-green-main-sha: no usable green main run → baseline empty (E2E runs everything)\n');
+  if (!sha) process.stderr.write('last-green-main-sha: no usable green main run → batch baseline unavailable\n');
   process.stdout.write(`baseline: ${sha || '<none>'}\n`);
   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, `sha=${sha}\n`);
 }

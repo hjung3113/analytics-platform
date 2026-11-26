@@ -83,6 +83,68 @@ describe('saved panel instances (#2760)', () => {
     expect(update(panels).success).toBe(true);
   });
 
+  it('round-trips receiving modes on follow and hold inputs', () => {
+    const raw = {
+      ...panels,
+      instances: [
+        declared,
+        { ...chart, inputs: [{ ...chart.inputs[0]!, use: 'filter' }] },
+        { ...held, inputs: [{ ...held.inputs[0]!, use: 'highlight' }, held.inputs[1]!] },
+      ],
+    };
+    const draft = { ...menuDraft, panels: raw };
+    expect(savedViewDraftSchema.parse(draft)).toEqual(draft);
+    expect(update(raw)).toMatchObject({ success: true, data: { patch: { panels: raw } } });
+    expect(validateSavedView(draft)).toEqual({ ok: true, value: draft });
+    expect(readMenuViewPanels(raw)).toEqual({ status: 'ok', panels: raw });
+  });
+
+  it('rejects an unknown receiving mode at the input field', () => {
+    const input = { ...chart.inputs[0]!, use: 'ignore' };
+    const raw = withB({ inputs: [input] });
+    invalidPanels(raw);
+    expect(savedViewPatchSchema.safeParse({ panels: raw }).error?.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: ['panels', 'instances', 1, 'inputs', 0, 'use'] }),
+    ]));
+  });
+
+  const withCycle = (use: 'filter' | 'highlight') => ({
+    ...panels,
+    instances: [
+      { ...declared, inputs: [{ key: 'time', from: 'B.time', mode: 'hold', value: { shape: 'range', from: 'start', to: 'end' }, use: 'filter' }] },
+      { ...chart, inputs: [{ ...chart.inputs[0]!, use }] },
+      held,
+    ],
+  });
+
+  it('rejects a filter-only cycle with a specific reason', () => {
+    const raw = withCycle('filter');
+    const message = 'panels connections must not contain a filter cycle';
+    invalidPanels(raw, message);
+    expect(update(raw).error?.message).toContain(message);
+  });
+
+  it('allows a cycle containing a highlight edge', () => {
+    const raw = withCycle('highlight');
+    expect(update(raw)).toMatchObject({ success: true, data: { patch: { panels: raw } } });
+    expect(validateSavedView({ ...menuDraft, panels: raw }).ok).toBe(true);
+    expect(readMenuViewPanels(raw)).toEqual({ status: 'ok', panels: raw });
+  });
+
+  // #2862 (HW Time): a held raw table names an output-only source instance the menu saves under a reserved id; the server reads it back as is.
+  it('round-trips a held raw table and its output-only source the way HW Time saves them', () => {
+    const hwTime = { version: 1, instances: [
+      { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+        inputs: [{ key: 'motionEquipment', from: 'held-source.motionEquipment', mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] } }] },
+      { id: 'held-source', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [{ key: 'motionEquipment', dimension: 'equipmentId', shape: 'set' }] },
+    ] };
+    const draft = { ...menuDraft, panels: JSON.parse(JSON.stringify(hwTime)) };
+    expect(validateSavedView(draft)).toMatchObject({ ok: true, value: { panels: hwTime } });
+    expect(savedViewDraftSchema.parse(draft)).toMatchObject({ panels: hwTime });
+    expect(savedViewPatchSchema.parse({ panels: hwTime }).panels).toEqual(hwTime);
+    expect(update(hwTime).success).toBe(true);
+  });
+
   it('refuses own "__proto__" and "constructor" keys in a closed chart config, like the SDK (#2745)', () => {
     for (const extra of ['"constructor": "kind"', '"__proto__": {"enabled": true}']) {
       const config = JSON.parse(`{"version": 1, "kind": "line", "x": {"field": "t", "type": "time"}, "measures": [{"field": "m"}], ${extra}}`);
@@ -108,7 +170,7 @@ describe('saved panel instances (#2760)', () => {
     ['panels input from must name an existing instance output', withEdge('A.missing')],
     ['panels input from must name an existing instance output', withEdge('A')],
     ['panels input from must not name its own instance', withEdge('B.time')],
-    ['panels connections must not contain a cycle', {
+    ['panels connections must not contain a filter cycle', {
       ...panels, instances: [{ ...declared, inputs: [{ key: 'time', from: 'B.time', mode: 'hold', value: { shape: 'range', from: 'start', to: 'end' } }] }, chart, held],
     }],
     ['panels held selection shape must match the referenced output', {

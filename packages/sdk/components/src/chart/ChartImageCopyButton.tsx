@@ -37,7 +37,7 @@ export function ChartImageCopyButton({ capture, fileName, standalone, onOutcome 
   const say = onOutcome ?? localSay;
   if (!allowed) return null;
   return <><Button variant="ghost" size="toolbar" onClick={() => { void copyChartImage(capture, fileName).then(outcome => say(imageCopyText(outcome, lang), outcome === 'failed' ? 'warning' : undefined)); }}>
-    <ImageIcon className="size-3.5" aria-hidden />{m('chartCopyImage')}
+    <ImageIcon className="size-3.5" aria-hidden /><span className="t-chart-tool">{m('chartCopyImage')}</span>
   </Button>{!onOutcome && <ImageActionStatus text={status} />}</>;
 }
 
@@ -49,6 +49,6 @@ export function ChartImagePrintButton({ capture, title, standalone, onOutcome }:
   const say = onOutcome ?? localSay;
   if (!allowed) return null;
   return <><Button variant="ghost" size="toolbar" onClick={() => { void printChartImage(capture, title()).then(printed => { if (!printed) say(imagePrintFailedText(lang), 'warning'); }); }}>
-    <Printer className="size-3.5" aria-hidden />{m('chartPrint')}
+    <Printer className="size-3.5" aria-hidden /><span className="t-chart-tool">{m('chartPrint')}</span>
   </Button>{!onOutcome && <ImageActionStatus text={status} />}</>;
 }

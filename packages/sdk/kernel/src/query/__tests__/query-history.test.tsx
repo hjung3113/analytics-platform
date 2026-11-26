@@ -1,7 +1,7 @@
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { defineEndpoint, buildQuery, emptyGlobal, type QueryHistoryEntry, type QueryHistoryStore, groupId, spaceId } from '@ap/contracts';
+import { defineEndpoint, buildQuery, emptyGlobal, type Pair, type QueryHistoryEntry, type QueryHistoryStore, groupId, spaceId } from '@ap/contracts';
 import { useLayoutEffect, useState } from 'react';
 import { useMenuQuery } from '../query';
 import { PaneQueryDraftProvider, PaneScreenProvider, type PaneScreen, PlatformProvider, useHostPlatform } from '../../platform/platform';
@@ -17,16 +17,73 @@ const endpoint = defineEndpoint<{}, null>({ id: 'fixture.history', menuId: 'home
 let history: ReturnType<typeof useQueryHistory>;
 let screen: ReturnType<typeof useHostPlatform>;
 function Probe() { history = useQueryHistory(); screen = useHostPlatform(); useMenuQuery(endpoint, {}); return <p>{history.entries.map(e => e.status === 'ready' ? e.candidate.page.map(p => p[1]).join() : e.status).join()}</p>; }
-function mount(entries: QueryHistoryEntry[], url = '/') {
+function mount(entries: QueryHistoryEntry[], url = '/', chosen = registry) {
   window.history.replaceState(null, '', url);
   const session = testSession(['platform:view']);
   const store: QueryHistoryStore = { list: vi.fn(async () => entries), record: vi.fn(async () => {}), remove: vi.fn(async () => {}), clear: vi.fn(async () => {}) };
   const send = vi.fn(async () => ({ outcome: 'empty' as const, data: null, assessments: [], trust: null, correlationId: 'test' }));
   const adapter = testAdapter({ session: () => session, menuQuery: send });
-  const view = render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter} queryHistory={store}><Probe /></PlatformProvider></I18nProvider>);
+  const view = render(<I18nProvider><PlatformProvider registry={chosen} adapter={adapter} queryHistory={store}><Probe /></PlatformProvider></I18nProvider>);
   return { store, adapter, view, send };
 }
 afterEach(cleanup);
+
+const basisPage: Pair[] = [['page', 'PHOTO'], ['basis', 'alt']];
+function basisRegistry(isBasisAvailable: () => boolean) {
+  return createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{
+    ...menu, pageKeys: [...menu.pageKeys, 'basis'], contextResetKeys: [...menu.contextResetKeys, 'basis'],
+    drill: { levels: [{ key: 'page', label: menu.label, basisKey: 'basis', bases: [{ id: 'alt', label: 'Alternative' }] }], isBasisAvailable },
+  }] });
+}
+
+it('rejects a recent query whose basis is no longer available and never records it', async () => {
+  const { store, send, view } = mount([entry(buildQuery(global, basisPage))], '/', basisRegistry(() => false));
+  await waitFor(() => expect(['ready', 'unavailable']).toContain(history.entries[0]?.status));
+  const row = history.entries[0];
+  let restored = false;
+  await act(async () => {
+    restored = await history.restore(row);
+    if (restored) screen.queryDraft.apply();
+  });
+  expect(store.record).not.toHaveBeenCalled();
+  expect(send).not.toHaveBeenCalled();
+  expect(row).toMatchObject({ status: 'unavailable', reason: 'invalid' });
+  expect(restored).toBe(false);
+  expect(view.container.textContent).not.toContain('alt');
+});
+
+it('validates a restored draft basis again on Apply', async () => {
+  let available = true;
+  const { store, send } = mount([entry(buildQuery(global, basisPage))], '/', basisRegistry(() => available));
+  await waitFor(() => expect(screen.queryDraft.draft.page).toContainEqual(['basis', 'alt']));
+  available = false;
+  await act(async () => { screen.queryDraft.apply(); });
+  expect(store.record).not.toHaveBeenCalled();
+  expect(send).not.toHaveBeenCalled();
+  expect(window.location.search).toBe('');
+});
+
+it('does not record a pane Apply whose basis is rejected when the address is acknowledged', async () => {
+  let available = true;
+  const chosen = basisRegistry(() => available);
+  const store = { list: vi.fn(async () => []), record: vi.fn(async () => {}), remove: vi.fn(async () => {}), clear: vi.fn(async () => {}) };
+  const changed = vi.fn<(value: PaneScreen, how: 'push' | 'replace') => void>();
+  let echo!: (value: PaneScreen) => void;
+  function Pane() {
+    const [value, setValue] = useState<PaneScreen>({ menuId: 'home', params: {}, query: buildQuery(global) });
+    useLayoutEffect(() => { echo = setValue; }, []);
+    return <PaneQueryDraftProvider screens={{ one: value }}><PaneScreenProvider paneId="one" screen={value} onChange={changed} onLeave={() => {}}><Probe /></PaneScreenProvider></PaneQueryDraftProvider>;
+  }
+  window.history.replaceState(null, '', '/');
+  const session = testSession(['platform:view']);
+  render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} queryHistory={store}><Pane /></PlatformProvider></I18nProvider>);
+  act(() => { screen.queryDraft.setDraftPage({ page: 'PHOTO', basis: 'alt' }); screen.queryDraft.apply(); });
+  expect(changed.mock.calls[0]?.[1]).toBe('push');
+  available = false;
+  await act(async () => { echo(changed.mock.calls[0][0]); });
+  expect(store.record).not.toHaveBeenCalled();
+  expect(changed.mock.calls[1]?.[1]).toBe('replace');
+});
 it('restores newest bare-route history only to draft and records once after explicit Apply acknowledgement', async () => {
   const { store, send } = mount([entry()]);
   await waitFor(() => expect(screen.queryDraft.draft.page).toEqual([['filter', 'old']]));
@@ -39,6 +96,35 @@ it('restores newest bare-route history only to draft and records once after expl
   await waitFor(() => expect(store.record).toHaveBeenCalledTimes(1));
   expect(send).toHaveBeenCalledTimes(1);
   expect(store.record).toHaveBeenCalledWith({ userId: screen.user.id, menuId: 'home', scopeId: null }, expect.objectContaining({ count: 1, query: buildQuery(global, [['filter', 'old']]) }));
+});
+
+it.each(['recent restore', 'direct edit'])('pushes and records a no-bases drill gap after %s while blocking analysis', async source => {
+  const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{
+    ...menu, contextResetKeys: ['filter', 'page'], drill: { levels: [{ key: 'filter', label: menu.label }, { key: 'page', label: menu.label }] },
+  }] });
+  const query = '?v=1&from=2026-09-01T00%3A00%3A00&to=2026-09-02T00%3A00%3A00&page=PHOTO';
+  const fromHistory = source === 'recent restore';
+  const { store, send } = mount(fromHistory ? [entry(query)] : [], '/' + buildQuery(global), chosen);
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+
+  if (fromHistory) {
+    act(() => history.open());
+    await waitFor(() => expect(['ready', 'unavailable']).toContain(history.entries[0]?.status));
+    expect(history.entries[0]?.status).toBe('ready');
+    await act(async () => { expect(await history.restore(history.entries[0])).toBe(true); });
+  } else {
+    act(() => screen.queryDraft.setDraftPage({ page: 'PHOTO' }));
+  }
+  expect(screen.queryDraft.draft.page).toEqual([['page', 'PHOTO']]);
+  expect(screen.queryDraft.canApply).toBe(true);
+  const start = window.history.length;
+  await act(async () => { screen.queryDraft.apply(); });
+  expect(window.location.search).toBe(query);
+  expect(window.history.length).toBe(start + 1);
+  expect(screen.queryPolicy.drillGap).toBe(true);
+  expect(send).toHaveBeenCalledTimes(1);
+  expect(store.record).toHaveBeenCalledTimes(1);
+  expect(store.record).toHaveBeenCalledWith({ userId: screen.user.id, menuId: 'home', scopeId: null }, expect.objectContaining({ count: 1, query }));
 });
 it.each([
   ['bad period', '?v=1&from=bad&to=worse'],
@@ -298,6 +384,62 @@ it('preserves restored reset-key provenance after an older pane Apply acknowledg
 });
 
 const scopedRegistry = () => createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, requiresScope: true }] });
+it.each(['success', 'rejection', 'replacement', 'session change'])('settles a pane Apply echoed during Scope validation after %s', async scenario => {
+  const scoped = { ...global, scopeId: 'MEM' };
+  const start = { menuId: 'home', params: {}, query: buildQuery(scoped) };
+  const store: QueryHistoryStore = { list: async () => [], record: vi.fn(async () => {}), remove: async () => {}, clear: async () => {} };
+  const changed = vi.fn<(value: PaneScreen, how: 'push' | 'replace') => void>();
+  let echo!: (value: PaneScreen) => void;
+  function Pane() {
+    const [value, setValue] = useState<PaneScreen>(start);
+    useLayoutEffect(() => { echo = setValue; }, []);
+    return <PaneQueryDraftProvider screens={{ one: value }}><PaneScreenProvider paneId="one" screen={value} onChange={changed} onLeave={() => {}}><Probe /></PaneScreenProvider></PaneQueryDraftProvider>;
+  }
+  let session = testSession(['platform:view']);
+  const listeners = new Set<() => void>();
+  const valid = { status: 'valid' as const, grantedRooms: [] };
+  const held = deferred<Awaited<ReturnType<ReturnType<typeof testAdapter>['validateScope']>>>();
+  let hold = false;
+  const adapter = testAdapter({
+    session: () => session,
+    subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
+    validateScope: () => hold ? held.promise : Promise.resolve(valid),
+  });
+  window.history.replaceState(null, '', '/');
+  render(<I18nProvider><PlatformProvider registry={scopedRegistry()} adapter={adapter} queryHistory={store}><Pane /></PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(screen.scope.status).toBe('valid'));
+  act(() => { screen.queryDraft.setDraftPage({ filter: 'new' }); screen.queryDraft.apply(); });
+  const [target, how] = changed.mock.calls[0];
+  expect(how).toBe('push');
+  hold = true;
+  act(() => screen.retryScope());
+  expect(screen.scope.status).toBe('validating');
+  await act(async () => { echo(target); });
+  expect(screen.page).toEqual([['filter', 'new']]);
+  expect(store.record).not.toHaveBeenCalled();
+
+  if (scenario === 'replacement') {
+    act(() => { echo(start); });
+    act(() => { echo(target); });
+  }
+  if (scenario === 'session change') {
+    act(() => { session = testSession(['platform:view']); listeners.forEach(listener => listener()); });
+  }
+  hold = false;
+  await act(async () => { held.resolve(scenario === 'rejection' ? { status: 'forbidden', grantedRooms: [] } : valid); });
+  if (scenario === 'rejection') {
+    expect(screen.scope.status).toBe('forbidden');
+    await act(async () => { screen.retryScope(); });
+  }
+  expect(screen.scope.status).toBe('valid');
+  if (scenario === 'success') {
+    expect(store.record).toHaveBeenCalledTimes(1);
+    expect(store.record).toHaveBeenCalledWith({ userId: session.user.id, menuId: 'home', scopeId: 'MEM' }, expect.objectContaining({ count: 1, query: target.query }));
+  } else {
+    expect(store.record).not.toHaveBeenCalled();
+  }
+});
+
 it('masks ready rows while the same Scope re-validates without a render loop, then shows them again (#824 F1)', async () => {
   const session = testSession(['platform:view']);
   let hold: ReturnType<typeof deferred<{ status: 'valid'; grantedRooms: string[] }>> | null = null;

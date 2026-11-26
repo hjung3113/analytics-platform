@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode, type Ref, type RefObject } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type ReactNode, type Ref, type RefObject } from 'react';
 import { Check, ChevronDown, MoreHorizontal, Star } from 'lucide-react';
 import type { SavedView, SavedViewListItem } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
@@ -9,6 +9,12 @@ import {
 } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { approvalText, kindText, panelBadgeText, summarizeContext, visibilityShort, visibilityText } from './text';
+import { SaveBlockNotice, type SaveBlock } from './SaveBlockNotice';
+
+/** A blocked save stays focusable (`aria-disabled`, not `disabled`), so the label takes the menu's `data-disabled` look (`opacity-50`) itself. */
+function BlockedLabel({ blocked, children }: { blocked: boolean; children: ReactNode }) {
+  return blocked ? <span className="opacity-50">{children}</span> : children;
+}
 
 /** `clean` matches the saved view; `modified` differs from it; `unsaved` has no saved view; `unapplied` has a query draft not yet applied. */
 export type ViewSelectorState = 'clean' | 'modified' | 'unsaved' | 'unapplied';
@@ -46,6 +52,8 @@ export type ViewSelectorProps = {
   onSave?: () => void | boolean | Promise<void | boolean>;
   /** Save the current conditions as a new view (a personal copy when the view cannot be edited). Resolve `false` when it was cancelled or failed, so a pending switch does not happen. */
   onSaveAs?: () => void | boolean | Promise<void | boolean>;
+  /** Keep save actions focusable while refusing activation and describing the reason. */
+  saveBlock?: SaveBlock;
   /** Ref to the `저장` menu button, e.g. as the focus return target of the save surface. */
   saveTriggerRef?: Ref<HTMLButtonElement>;
   /** Control and anchor the selector when it opens from an existing toolbar action. */
@@ -72,6 +80,9 @@ const matches = (item: SavedViewListItem, query: string, filter: ViewFilter, use
 export function ViewSelector(props: ViewSelectorProps) {
   const { views, currentId, defaultId, state, selectionDisabled, loading, error, query, filter, userId, groups = [] } = props;
   const [internalOpen, setInternalOpen] = useState(false);
+  const saveBlockId = useId();
+  const pendingBlockId = useId();
+  const saveBlock = props.saveBlock;
   const open = props.picker?.open ?? internalOpen;
   const setOpen = props.picker?.onOpenChange ?? setInternalOpen;
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -80,6 +91,7 @@ export function ViewSelector(props: ViewSelectorProps) {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const localTrigger = useRef<HTMLButtonElement>(null);
   const trigger = props.picker?.anchorRef ?? localTrigger;
+  const interactedOutside = useRef(false);
   const search = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const back = useRef<HTMLButtonElement>(null);
@@ -125,6 +137,7 @@ export function ViewSelector(props: ViewSelectorProps) {
     else { props.onSelect(id); trigger.current?.focus(); }
   };
   const settlePending = async (save: boolean) => {
+    if (save && saveBlock) return;
     const id = pendingId;
     setPendingId(null);
     if (id === null) return;
@@ -166,8 +179,15 @@ export function ViewSelector(props: ViewSelectorProps) {
         <DropdownMenuTrigger asChild><Button ref={props.saveTriggerRef} type="button" size="toolbar" variant="ghost">{m('svSave')}</Button></DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           {current && !canEdit && current.capabilities.reason && <DropdownMenuLabel><span className="block max-w-64 whitespace-normal break-words">{current.capabilities.reason}</span></DropdownMenuLabel>}
-          {current && canEdit && <DropdownMenuItem disabled={state === 'clean'} onSelect={() => { void props.onSave?.(); }}>{m('svSaveCurrent')}</DropdownMenuItem>}
-          {showNew && <DropdownMenuItem onSelect={() => props.onSaveAs?.()}>{newLabel}</DropdownMenuItem>}
+          {saveBlock && ((current && canEdit) || showNew) && <SaveBlockNotice id={saveBlockId} block={saveBlock} className="max-w-64 whitespace-normal" />}
+          {current && canEdit && <DropdownMenuItem
+            disabled={!saveBlock && state === 'clean'} aria-disabled={saveBlock ? true : state === 'clean' || undefined} aria-describedby={saveBlock ? saveBlockId : undefined}
+            onSelect={event => { if (saveBlock) event.preventDefault(); else void props.onSave?.(); }}
+          ><BlockedLabel blocked={!!saveBlock}>{m('svSaveCurrent')}</BlockedLabel></DropdownMenuItem>}
+          {showNew && <DropdownMenuItem
+            aria-disabled={saveBlock ? true : undefined} aria-describedby={saveBlock ? saveBlockId : undefined}
+            onSelect={event => { if (saveBlock) event.preventDefault(); else void props.onSaveAs?.(); }}
+          ><BlockedLabel blocked={!!saveBlock}>{newLabel}</BlockedLabel></DropdownMenuItem>}
           {current && state === 'modified' && <DropdownMenuItem disabled={selectionDisabled} onSelect={() => props.onRevert?.()}>{m('svRevert')}</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -183,7 +203,22 @@ export function ViewSelector(props: ViewSelectorProps) {
             <ChevronDown className="h-3.5 w-3.5" aria-hidden />
           </Button>
         </PopoverTrigger>}
-        <PopoverContent onInteractOutside={event => { if (deleteId !== null) event.preventDefault(); }} align="start" className="w-96 max-w-[calc(100vw-2rem)]" onKeyDown={moveRow} onFocusCapture={trackFocus} onOpenAutoFocus={event => { event.preventDefault(); search.current?.focus(); }} onCloseAutoFocus={event => { event.preventDefault(); trigger.current?.focus(); }}>
+        <PopoverContent align="start" className="w-96 max-w-[calc(100vw-2rem)]" onKeyDown={moveRow} onFocusCapture={trackFocus}
+          onOpenAutoFocus={event => {
+            interactedOutside.current = false;
+            event.preventDefault();
+            search.current?.focus();
+          }}
+          onInteractOutside={event => {
+            if (deleteId !== null) event.preventDefault();
+            else interactedOutside.current = true;
+          }}
+          onCloseAutoFocus={event => {
+            event.preventDefault();
+            const active = document.activeElement;
+            if (interactedOutside.current && active?.isConnected && active !== document.body) return;
+            trigger.current?.focus();
+          }}>
           {detail ? (
             <section aria-label={m('svDetails')} className="space-y-2 text-xs">
               <Button ref={back} type="button" variant="ghost" size="toolbar" onClick={() => { const id = detail.view.id; setDetailId(null); focusAfter.current = { kind: 'more', id }; }}>{m('svBackToList')}</Button>
@@ -270,10 +305,14 @@ export function ViewSelector(props: ViewSelectorProps) {
             <DialogTitle>{m('svDiscardTitle')}</DialogTitle>
             <DialogDescription>{m('svDiscardBody')}</DialogDescription>
           </DialogHeader>
+          {pendingSave && saveBlock && <SaveBlockNotice id={pendingBlockId} block={saveBlock} />}
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => { setPendingId(null); trigger.current?.focus(); }}>{t('cancel')}</Button>
             <Button type="button" variant="secondary" disabled={selectionDisabled} onClick={() => { void settlePending(false); }}>{m('svDiscardDrop')}</Button>
-            {pendingSave && <Button type="button" disabled={selectionDisabled} onClick={() => { void settlePending(true); }}>{m(pendingSave === 'current' ? 'svDiscardSave' : pendingSave === 'copy' ? 'svDiscardSaveCopy' : 'svDiscardSaveNew')}</Button>}
+            {pendingSave && <Button
+              type="button" disabled={!saveBlock && selectionDisabled} aria-disabled={saveBlock ? true : undefined} aria-describedby={saveBlock ? pendingBlockId : undefined}
+              className={saveBlock ? 'aria-disabled:opacity-50' : undefined} onClick={() => { void settlePending(true); }}
+            >{m(pendingSave === 'current' ? 'svDiscardSave' : pendingSave === 'copy' ? 'svDiscardSaveCopy' : 'svDiscardSaveNew')}</Button>}
           </DialogFooter>
         </DialogContent>
       </Dialog>

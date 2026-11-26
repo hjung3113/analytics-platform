@@ -1,8 +1,11 @@
 import { PlatformPage } from '../../archetypes/PlatformPage';
 import { PanelWorkspace } from '../../workspace/PanelWorkspace';
-import { AnalysisPanelAddContext } from '../../workspace/PanelAdd';
+import { AnalysisPanelAddContext, type AnalysisPanelAddition, type PanelAddItem } from '../../workspace/PanelAdd';
+import { InWorkspacePanelProvider } from '../../workspace/panelContext';
+import { PanelSettingsDrawer } from '../../workspace/PanelSettingsDrawer';
 import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
 import { stubCompactTableGeometry } from '../../testing';
+import * as visibleArea from '../../visibleArea';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
@@ -14,6 +17,7 @@ import { EQUIPMENT_SELECTION_DIMENSION, defineEndpoint, groupId, parseDateTime, 
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import { Button, DetailPanelSlotProvider, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, SurfacePauseScope, useDetailPanelSlotHost } from '@ap/ui';
 import type { EChartProps } from '../EChart';
+import * as nextAnalysisBridge from '../NextAnalysisBridge';
 
 let plot: EChartProps;
 vi.mock('../EChartImpl', () => ({ default: (props: EChartProps) => { plot = props; return <div role="img" aria-label={props.ariaLabel} />; } }));
@@ -56,8 +60,8 @@ it('creates a URL range with the chart form, edits it through the chip, and clea
   await screen.findByRole('img');
   const search = () => new URLSearchParams(window.location.search);
   fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
-  expect(within(summary()).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
-  fireEvent.click(within(summary()).getByRole('button', { name: '선택' }));
+  expect(within(screen.getByRole('dialog')).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '선택' }));
   expect(search().get('range')).toBe('c/a');
   expect(within(summary()).queryByRole('combobox', { name: '구간 시작' })).toBeNull();
   const chip = screen.getByRole('button', { name: 'date c – a' });
@@ -76,7 +80,34 @@ it('creates a URL range with the chart form, edits it through the chip, and clea
   expect(summary().textContent).toContain('선택 구간: Group: B · Bravo –');
   fireEvent.click(within(summary()).getByRole('button', { name: '지우기' }));
   expect(search().has('range')).toBe(false);
-  expect(within(summary()).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
+  expect(within(summary()).queryByText(/선택 구간:/)).toBeNull();
+  await user.keyboard('{Enter}');
+  expect(within(screen.getByRole('dialog')).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
+});
+
+it('clears an omitted keyboard draft endpoint when the Top N ranking changes', async () => {
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  const second: ChartSeries = { ...B, points: [['a', 6], ['c', 7]] };
+  const frame = (visibleSeriesIds: string[]) => <I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry}>
+    <AnalysisChartFrame chartId="sel" title="Sel" series={[A, second]} visibleSeriesIds={visibleSeriesIds}
+      unit="s" xType="category" orientation="horizontal" reaggregation="sum" categoryTopN={{ count: 2 }} analysisSelectionOutput={output} />
+  </PlatformProvider></I18nProvider>;
+  const view = render(frame(['a']));
+  await screen.findByRole('img');
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+  const editor = () => within(screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' }));
+  const start = () => editor().getByRole('combobox', { name: '구간 시작' });
+  expect(editor().getByRole('combobox', { name: '구간 끝' })).toHaveTextContent('b');
+  fireEvent.click(start());
+  const category = await screen.findByRole('option', { name: 'b' });
+  expect(screen.queryByRole('option', { name: '기타' })).not.toBeInTheDocument();
+  fireEvent.click(category);
+  expect(start()).toHaveTextContent('b');
+
+  view.rerender(frame(['b']));
+  expect(start()).toHaveTextContent('c');
+  fireEvent.click(editor().getByRole('button', { name: '선택' }));
+  expect(new URLSearchParams(window.location.search).get(output.key)).toBe('c/a');
 });
 
 it('restores a shared wall-clock range and writes a quick range using the same bounds', () => {
@@ -365,7 +396,7 @@ it('hides the local range and closes confirmation while the output is suspended'
   expect(screen.queryByRole('button', { name: '분석 구간으로 적용' })).toBeNull();
   expect(screen.queryByRole('group', { name: '다음 분석' })).toBeNull();
   expect(screen.queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
-  expect(within(summary()).queryByText(/선택 구간:/)).toBeNull();
+  expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
   rerender(frame(output));
   expect(screen.queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
   fireEvent.click(apply());
@@ -517,6 +548,187 @@ const chipControls = () => within(screen.getByRole('group', { name: '분석 선�
 const chipMore = () => chipControls().getByRole('button', { name: /a 동작$/ });
 const chipItems = () => within(screen.getByRole('menu')).getAllByRole('menuitem');
 
+describe('Next Analysis focus reveal (#3010)', () => {
+  const confirmation = () => within(screen.getByRole('group', { name: '구간 적용 확인' }));
+
+  async function mountTimeRange() {
+    const from = '2026-09-01T00:00:00';
+    const mid = '2026-09-01T01:00:00';
+    const to = '2026-09-01T02:00:00';
+    window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=${from}&to=${to}&range=${mid}/${to}`);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry} slots={chipSlots}>
+      <PlatformPage><AnalysisChartFrame chartId="sel" title="Sel" unit="s" nextAnalysis analysisSelectionOutput={output}
+        series={[{ ...A, points: [[from, 1], [mid, 2], [to, 3]] }]} /></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img', { name: 'Sel: A' });
+    return userEvent.setup();
+  }
+
+  it('reveals the focused confirm button when opened from a selection chip', async () => {
+    const user = await mountTimeRange();
+    const chip = chipControls().getByRole('button', { name: /date .* 동작$/ });
+    await user.click(chip);
+    const reveal = vi.spyOn(visibleArea, 'revealFocused');
+    try {
+      await user.click(screen.getByRole('menuitem', { name: '조건으로' }));
+      const apply = confirmation().getByRole('button', { name: '적용' });
+      expect(apply).toHaveFocus();
+      expect(reveal).toHaveBeenCalledExactlyOnceWith(apply, { bottomInset: expect.any(Function) });
+      await user.keyboard('{Escape}');
+      expect(chip).toHaveFocus();
+      expect(reveal).toHaveBeenCalledTimes(1);
+    } finally {
+      reveal.mockRestore();
+    }
+  });
+
+  it.each([
+    ['취소', '조건으로'],
+    ['적용', '구간 선택'],
+  ])('reveals the focused button after period confirmation closes via %s', async (action, destination) => {
+    const user = await mountTimeRange();
+    const opener = within(nextRow()).getByRole('button', { name: '조건으로' });
+    const target = destination === '조건으로' ? opener : screen.getByRole('button', { name: destination });
+    if (action === '적용') {
+      await user.click(chipControls().getByRole('button', { name: /date .* 동작$/ }));
+      await user.click(screen.getByRole('menuitem', { name: '조건으로' }));
+    } else await user.click(opener);
+    const reveal = vi.spyOn(visibleArea, 'revealFocused');
+    try {
+      await user.click(confirmation().getByRole('button', { name: action }));
+      expect(target).toHaveFocus();
+      expect(reveal).toHaveBeenCalledExactlyOnceWith(target, { bottomInset: expect.any(Function) });
+    } finally {
+      reveal.mockRestore();
+    }
+  });
+
+  it.each(['지우기', '조건으로'])('reveals the focused plot after keyboard activation of %s in a separate row', async action => {
+    function ChartWithSeparateRow() {
+      const [target, setTarget] = useState<HTMLDivElement | null>(null);
+      return <>
+        <AnalysisChartFrame chartId="set" title="Set" series={[A]} unit="s" xType="category" orientation="horizontal"
+          analysisSelectionOutput={setOutput} nextAnalysis nextAnalysisTarget={target} />
+        <div ref={setTarget} />
+      </>;
+    }
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={setRegistry}>
+      <ChartWithSeparateRow />
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img');
+    const target = screen.getByRole('group', { name: '차트 지점' });
+    pointClick('a');
+    within(nextRow()).getByRole('button', { name: action }).focus();
+    const reveal = vi.spyOn(visibleArea, 'revealFocused');
+    try {
+      await userEvent.setup().keyboard('{Enter}');
+      expect(target).toHaveFocus();
+      expect(reveal).toHaveBeenCalledExactlyOnceWith(target, { bottomInset: expect.any(Function) });
+    } finally {
+      reveal.mockRestore();
+    }
+  });
+});
+
+describe('Chart focus reveal after the action commits (#3010 fix round)', () => {
+  function stubPageScroll() {
+    const scroller = screen.getByRole('main');
+    Object.defineProperty(scroller, 'clientHeight', { value: 500 });
+    vi.spyOn(scroller.querySelector('[data-page-sticky-header]')!, 'getBoundingClientRect')
+      .mockReturnValue({ height: 50 } as DOMRect);
+    return scroller;
+  }
+
+  async function mountTimeChart({ selected = true }: { selected?: boolean } = {}) {
+    const from = '2026-09-01T00:00:00';
+    const mid = '2026-09-01T01:00:00';
+    const to = '2026-09-01T02:00:00';
+    const search = new URLSearchParams({ v: '1', scopeId: 'MEM', from, to });
+    if (selected) search.set('range', `${mid}/${to}`);
+    window.history.replaceState(null, '', `/?${search}`);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={rangeRegistry}>
+      <main style={{ overflowY: 'auto' }}><PlatformPage>
+        <InWorkspacePanelProvider value>
+          <div data-testid="dock-body" style={{ overflowY: 'auto' }}>
+            <AnalysisChartFrame chartId="sel" title="Sel" unit="s" nextAnalysis analysisSelectionOutput={output}
+              series={[{ ...A, points: [[from, 1], [mid, 2], [to, 3]] }]} />
+          </div>
+        </InWorkspacePanelProvider>
+      </PlatformPage></main>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img', { name: 'Sel: A' });
+    Object.defineProperty(screen.getByTestId('dock-body'), 'clientHeight', { value: 560 });
+    return stubPageScroll();
+  }
+
+  it('reveals the sticky-row opener using the geometry after Cancel collapses the confirmation', async () => {
+    const scroller = await mountTimeChart();
+    const opener = within(nextRow()).getByRole('button', { name: '조건으로' });
+    const confirmation = () => screen.queryByRole('group', { name: '구간 적용 확인' });
+    fireEvent.click(opener);
+    scroller.scrollTop = 0;
+    const rect = vi.spyOn(opener, 'getBoundingClientRect').mockImplementation(() => {
+      const top = (confirmation() ? 466 : 524) - scroller.scrollTop;
+      return { top, bottom: top + 32 } as DOMRect;
+    });
+    try {
+      fireEvent.click(within(confirmation()!).getByRole('button', { name: '취소' }));
+      expect(confirmation()).toBeNull();
+      expect(opener).toHaveFocus();
+      expect(scroller.scrollTop).toBe(56);
+    } finally {
+      rect.mockRestore();
+    }
+  });
+
+  it('reveals the focused plot only after point Clear removes the sticky action row', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={setRegistry}>
+      <InWorkspacePanelProvider value>
+        <AnalysisChartFrame chartId="set" title="Set" series={[A]} unit="s" xType="category" orientation="horizontal"
+          analysisSelectionOutput={setOutput} nextAnalysis />
+      </InWorkspacePanelProvider>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('img');
+    const target = screen.getByRole('group', { name: '차트 지점' });
+    pointClick('a');
+    const row = nextRow();
+    const connectedAtReveal: boolean[] = [];
+    const reveal = vi.spyOn(visibleArea, 'revealFocused').mockImplementation(() => { connectedAtReveal.push(row.isConnected); });
+    try {
+      fireEvent.click(within(row).getByRole('button', { name: '지우기' }));
+      expect(target).toHaveFocus();
+      expect(row.isConnected).toBe(false);
+      expect(connectedAtReveal).toEqual([false]);
+    } finally {
+      reveal.mockRestore();
+    }
+  });
+
+  it.each([
+    { action: '지우기', selected: true },
+    { action: '선택', selected: false },
+  ])('reveals Brush below the sticky page header after $action', async ({ action, selected }) => {
+    const scroller = await mountTimeChart({ selected });
+    const toggle = screen.getByRole('button', { name: '구간 선택' });
+    if (!selected) fireEvent.click(toggle);
+    const controls = selected ? nextRow() : screen.getByRole('group', { name: '시작과 끝으로 구간 선택' });
+    scroller.scrollTop = 100;
+    const rect = vi.spyOn(toggle, 'getBoundingClientRect').mockImplementation(() => {
+      const top = 120 - scroller.scrollTop;
+      return { top, bottom: top + 28 } as DOMRect;
+    });
+    try {
+      fireEvent.click(within(controls).getByRole('button', { name: action }));
+      expect(toggle).toHaveFocus();
+      expect(scroller.scrollTop).toBe(70);
+    } finally {
+      rect.mockRestore();
+    }
+  });
+});
+
 function FittedChips() {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const [summary, setSummary] = useState<HTMLSpanElement | null>(null);
@@ -577,22 +789,28 @@ function ChartChipWorkspace({ frame, onAdd, hold = false }: { frame: 'live' | 'u
  * Adds the receiver panel for real: it joins the source panel's group as the active tab, as in HW Time. `below` opens it as a new row
  * instead and keeps a second candidate, so the source panel and its row «새 패널» stay in place.
  */
-function AddingWorkspace({ below = false, hold = false }: { below?: boolean; hold?: boolean }) {
+function AddingWorkspace({ below = false, hold = false, again, slot, returnsOpened = slot !== undefined, stray = false, category, extraCandidate = below }: {
+  below?: boolean; hold?: boolean; again?: 'follow' | 'hold'; slot?: string; returnsOpened?: boolean; stray?: boolean;
+  category?: PanelAddItem['category']; extraCandidate?: boolean;
+}) {
   const { route } = usePlatform();
   const [added, setAdded] = useState(false);
   const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
   if (route?.menu.id !== 'home') return null;
+  // `slot`: the added panel opens under its own id (a second instance), named in the item's `slots` and returned by `onAdd` (#2862 ②).
+  const opened = slot ?? 'receiver';
   return <PanelWorkspace label={chipLabel('Workspace')} persistKey="adding" initialMode="stack"
     presets={[{ id: 'chip', label: chipLabel('Preset'), layout: { type: 'group', panels: ['bars'], active: 'bars' } }]} initialPreset="chip"
     revealRequest={reveal}
-    analysisPanelAddition={{ items: [{ id: 'receiver', title: chipLabel('수신 패널') },
-      ...(below ? [{ id: 'receiver-two', title: chipLabel('둘째 수신 패널') }] : [])], onAdd: () => {
+    analysisPanelAddition={{ items: [{ id: 'receiver', title: chipLabel('수신 패널'), again, category, ...(slot ? { slots: [slot] } : {}), ...(stray ? { placed: true } : {}) } as PanelAddItem,
+      ...(extraCandidate ? [{ id: 'receiver-two', title: chipLabel('둘째 수신 패널') }] : [])], onAdd: () => {
       setAdded(true);
-      setReveal(current => ({ panelId: 'receiver', seq: (current?.seq ?? 0) + 1 }));
-    }, hold }}
+      setReveal(current => ({ panelId: opened, seq: (current?.seq ?? 0) + 1 }));
+      return slot;
+    }, hold, returnsOpened }}
     panels={[{ id: 'bars', title: chipLabel('Bars'), primary: true, render: () =>
       <AnalysisChartFrame chartId="adding" title="Adding chart" series={[A]} unit="s" xType="category" analysisSelectionOutput={setOutput} nextAnalysis /> },
-      ...(added ? [{ id: 'receiver', title: chipLabel('수신 패널'), placement: below ? 'below' as const : undefined, render: () => <p>수신 패널 본문</p> }] : [])]} />;
+      ...(added ? [{ id: opened, title: chipLabel('수신 패널'), placement: below ? 'below' as const : undefined, render: () => <p>수신 패널 본문</p> }] : [])]} />;
 }
 
 describe('Next analysis chip actions', () => {
@@ -662,8 +880,8 @@ describe('Next analysis chip actions', () => {
     await user.click(await screen.findByRole('menuitem', { name: item }));
   };
 
-  const addingPage = (below: boolean, hold = false) => <I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry} slots={chipSlots}>
-    <PlatformPage><AddingWorkspace below={below} hold={hold} /></PlatformPage>
+  const addingPage = (below: boolean, hold = false, again?: 'follow' | 'hold', slot?: string, extra: { returnsOpened?: boolean; stray?: boolean } = {}) => <I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry} slots={chipSlots}>
+    <PlatformPage><AddingWorkspace below={below} hold={hold} again={again} slot={slot} {...extra} /></PlatformPage>
   </PlatformProvider></I18nProvider>;
   const tabOf = (id: string) => screen.getAllByRole('tab').find(tab => tab.dataset.tabPanelId === id);
 
@@ -684,6 +902,78 @@ describe('Next analysis chip actions', () => {
     await waitFor(() => expect(tabOf('receiver')).toHaveFocus());
     expect(tabOf('receiver')).toHaveAttribute('aria-selected', 'true');
     expect(document.querySelector('[data-dock-panel="bars"]')).toHaveAttribute('inert');
+  });
+
+  const offeredAfterAdd = async () => {
+    const user = userEvent.setup();
+    within(nextRow()).getByRole('button', { name: '새 패널' }).focus();
+    await user.keyboard('{Enter}');
+    await screen.findByRole('menuitem', { name: '둘째 수신 패널' });
+    return screen.getAllByRole('menuitem').map(item => item.textContent ?? '').filter(text => text.startsWith('수신 패널'))
+      .map(text => text.replace(/(선택을 따라감|지금 선택으로 고정)$/, ''));
+  };
+  it.each([
+    ['no `again` (as before)', true, undefined, []],
+    ['`again: hold`', true, 'hold', ['수신 패널 · 붙잡기']],
+    ['`again: follow`', true, 'follow', ['수신 패널']],
+    ['`again: hold` without the addition `hold`', false, 'hold', []],
+    ['`again: follow` without the addition `hold`', false, 'follow', ['수신 패널']],
+  ] as const)('a placed panel with %s offers only that mode in «새 패널» (#2862 ②)', async (_name, hold, again, offered) => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(addingPage(true, hold, again));
+    await addFromRow();
+    await waitFor(() => expect(tabOf('receiver')).toBeDefined());
+    expect(await offeredAfterAdd()).toEqual(offered);
+  });
+
+  it('judges a panel placed by its `slots`, not only its id (#2862 ② R C3)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(addingPage(true, true, undefined, 'receiver-copy'));
+    await addFromRow();
+    await waitFor(() => expect(tabOf('receiver-copy')).toBeDefined());
+    expect(await offeredAfterAdd()).toEqual([]);
+  });
+
+  it('hands focus to the slot `onAdd` names when the new tab covers the trigger (#2862 ② R C4)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(addingPage(false, false, undefined, 'receiver-copy'));
+    await addFromRow();
+    await waitFor(() => expect(tabOf('receiver-copy')).toHaveFocus());
+  });
+
+  it('ignores a value `onAdd` returns unless the addition opts in with `returnsOpened` (#2862 ② R2 C10)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(addingPage(false, false, undefined, 'receiver-copy', { returnsOpened: false }));
+    await addFromRow();
+    await waitFor(() => expect(tabOf('receiver-copy')).toBeDefined());
+    await act(async () => {});
+    expect(tabOf('receiver-copy')).not.toHaveFocus();
+    // Existing callback shapes still type-check: async and value-returning ones.
+    const additions: AnalysisPanelAddition[] = [{ items: [], onAdd: async () => {} }, { items: [], onAdd: draft => [draft].length }];
+    expect(additions).toHaveLength(2);
+  });
+
+  it('does not offer a placed panel again once its only slot is collapsed (#2862 ② R2 C3)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(addingPage(true, true, 'follow', 'receiver-copy'));
+    await addFromRow();
+    await waitFor(() => expect(tabOf('receiver-copy')).toBeDefined());
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '수신 패널 동작' }));
+    await user.click(await screen.findByRole('menuitem', { name: '위로 접기' }));
+    expect(await offeredAfterAdd()).toEqual([]);
+  });
+
+  it('offers both modes for a panel not placed, whatever stray `placed` the menu passed (#2862 ② R2 C8)', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(addingPage(true, true, 'hold', undefined, { stray: true }));
+    const user = userEvent.setup();
+    within(await screen.findByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' }).focus();
+    await user.keyboard('{Enter}');
+    await screen.findByRole('menuitem', { name: '둘째 수신 패널' });
+    const names = screen.getAllByRole('menuitem').map(item => item.textContent ?? '').filter(text => text.startsWith('수신 패널'))
+      .map(text => text.replace(/(선택을 따라감|지금 선택으로 고정)$/, ''));
+    expect(names).toEqual(['수신 패널', '수신 패널 · 붙잡기']);
   });
 
   it('moves focus to the added panel tab after «붙잡기» too, by the panel id of the held choice (#2862 R C5)', async () => {
@@ -867,6 +1157,249 @@ describe('Next analysis chip actions', () => {
   });
 });
 
+describe('Categorized panel picker from a selection (#2744)', () => {
+  const category = { id: 'detail', title: chipLabel('상세') };
+  const disabledReason = '이 선택으로는 현재 단계를 분석할 수 없습니다.';
+  const foldedRegistry = createRegistry({
+    spaces: fittedChipRegistry.spaces, groups: fittedChipRegistry.groups,
+    menus: fittedChipRegistry.menus.map(menu => ({ ...menu,
+      panels: [...menu.panels!, ...chipRegistry.menus[0]!.panels!.filter(panel => panel.id.startsWith('receiver'))],
+    })),
+  });
+  const mountPicker = async (entry: 'chart' | 'chip' | 'folded chip', categorized = true, hold = false) => {
+    const folded = entry === 'folded chip';
+    const fold = folded ? stubChipMeasurements() : undefined;
+    const range = folded ? '&from=2026-09-01T00:00:00&to=2026-09-01T02:00:00&range=2026-09-01T01:00:00/2026-09-01T02:00:00' : '';
+    window.history.replaceState(null, '', `/?v=1&scopeId=MEM&equipment=a${range}`);
+    const onAdd = vi.fn();
+    const items: PanelAddItem[] = [
+      { id: 'receiver', title: chipLabel('수신 패널'), kind: 'table' },
+      { id: 'receiver-two', title: chipLabel('둘째 수신 패널'), disabledReason: chipLabel(disabledReason) },
+      // Categories opt in at the catalog level even if the categorized entry doesn't accept this input.
+      { id: 'bars', title: chipLabel('입력을 받지 않는 패널'), again: 'follow', ...(categorized && { category }) },
+    ];
+    const { container } = render(<I18nProvider><PlatformProvider adapter={adapter} registry={folded ? foldedRegistry : chipRegistry}
+      slots={folded ? { contextBar: <FittedChips /> } : chipSlots}>
+      <PlatformPage><PanelWorkspace label={chipLabel('Workspace')} persistKey="selection-picker" initialMode="stack"
+        presets={[{ id: 'only', label: chipLabel('Preset'), layout: { type: 'group', panels: ['bars'] } }]} initialPreset="only"
+        analysisPanelAddition={{ items, onAdd, hold }}
+        panels={[{ id: 'bars', title: chipLabel('Bars'), primary: true, render: () =>
+          <AnalysisChartFrame chartId="picker" title="Picker chart" series={[A]} unit="s" xType="category" analysisSelectionOutput={setOutput} nextAnalysis /> }]} />
+      </PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await screen.findByRole('group', { name: '다음 분석' });
+    const user = userEvent.setup();
+    if (fold) {
+      fold(container);
+      await user.click(chipControls().getByRole('button', { name: '+1 ›' }));
+    }
+    const opener = entry === 'chart' ? within(nextRow()).getByRole('button', { name: '새 패널' })
+      : folded ? within(screen.getByRole('dialog', { name: '분석 선택' })).getByRole('button', { name: /a 동작$/ }) : chipMore();
+    await user.click(opener);
+    if (entry !== 'chart') {
+      const item = screen.getByRole('menuitem', { name: '새 패널' });
+      item.focus();
+      await user.keyboard(categorized ? '{Enter}' : '{ArrowRight}');
+    }
+    return { user, opener, onAdd };
+  };
+  const picker = () => within(screen.getByRole('dialog', { name: '새 패널' }));
+  const entries = ['chart', 'chip'] as const;
+  const addingPickerPage = (panelCategory?: PanelAddItem['category']) =>
+    <I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry} slots={chipSlots}>
+      <PlatformPage><AddingWorkspace below extraCandidate={false} category={panelCategory} slot="receiver-copy" /></PlatformPage>
+    </PlatformProvider></I18nProvider>;
+
+  beforeEach(() => vi.stubGlobal('ResizeObserver', class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('focuses the returned tab when the categorized picker adds its last candidate in a new row', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(addingPickerPage(category));
+    const user = userEvent.setup();
+    await user.click(within(await screen.findByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' }));
+    await user.click(picker().getByRole('button', { name: '수신 패널' }));
+    const added = await screen.findByRole('tab', { name: '수신 패널' });
+    expect(added).toHaveAttribute('data-tab-panel-id', 'receiver-copy');
+    expect(screen.getByRole('img', { name: /Adding chart/ })).toBeVisible();
+    expect(within(nextRow()).queryByRole('button', { name: '새 패널' })).toBeNull();
+    await waitFor(() => expect(added).toHaveFocus());
+  });
+
+  it.each(entries)('keeps the flat add menu for an uncategorized catalog from %s', async entry => {
+    const { user, onAdd } = await mountPicker(entry, false);
+    expect(screen.queryByRole('dialog', { name: '새 패널' })).toBeNull();
+    await user.click(await screen.findByRole('menuitem', { name: '수신 패널' }));
+    expect(onAdd).toHaveBeenCalledExactlyOnceWith({ source: 'home/receiver', inputs: { equipment: { shape: 'set', values: ['a'] } } });
+  });
+
+  it.each(entries)('labels the input and lists only compatible panels from %s', async entry => {
+    const { user, onAdd } = await mountPicker(entry);
+    expect(picker().getByText('입력: equipmentId a')).toBeVisible();
+    const column = picker().getByRole('toolbar', { name: /^기타/ });
+    expect(within(column).getAllByRole('button').map(button => button.getAttribute('aria-label'))).toEqual(['수신 패널', '둘째 수신 패널']);
+    expect(picker().queryByText('종류로 만들기')).toBeNull();
+    expect(picker().queryByRole('checkbox', { name: '추가하면 고정' })).toBeNull();
+    expect(picker().getByRole('searchbox')).toHaveFocus();
+    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    const unavailable = within(column).getByRole('button', { name: '둘째 수신 패널' });
+    expect(unavailable).toHaveFocus();
+    expect(unavailable).toHaveTextContent('사용할 수 없음');
+    expect(unavailable).toHaveAccessibleDescription(expect.stringContaining(disabledReason));
+    expect(within(picker().getByRole('complementary')).getByText(disabledReason)).toBeVisible();
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it.each(entries)('adds from %s with the exact selection draft', async entry => {
+    const { user, onAdd, opener } = await mountPicker(entry, true, true);
+    const column = within(picker().getByRole('toolbar', { name: /^기타/ }));
+    await user.click(column.getByRole('button', { name: '수신 패널 · 붙잡기' }));
+    expect(onAdd).toHaveBeenCalledExactlyOnceWith({ source: 'home/receiver', inputs: { equipment: { shape: 'set', values: ['a'] } }, mode: 'hold' });
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  it.each([...entries, 'folded chip'] as const)('returns focus to the %s opener on Escape', async entry => {
+    const { user, opener } = await mountPicker(entry);
+    expect(picker().getByRole('searchbox')).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: '새 패널' })).toBeNull();
+    await waitFor(() => expect(opener).toHaveFocus());
+  });
+
+  const rangeStart = '2026-09-01T01:00:00';
+  const rangeEnd = '2026-09-01T02:00:00';
+  const pickerSession = testSession(['platform:view', 'analytics:view'], {
+    scopes: ['MEM', 'FDRY'].map(id => ({ id, label: id, grantedRooms: 1, totalRooms: 1 })),
+  });
+  const scopeAdapter = testAdapter({ session: () => pickerSession });
+  const labeledRegistry = createRegistry({
+    spaces: foldedRegistry.spaces, groups: foldedRegistry.groups,
+    menus: foldedRegistry.menus.map(menu => {
+      const panels = menu.panels!;
+      const writer = panels.find(panel => panel.id === setOutput.panelId)!;
+      const firstWriter = { ...writer, id: 'labeled-bars', outputs: writer.outputs.map(item => ({
+        ...item, selection: { ...item.selection!, label: chipLabel('설비') },
+      })) };
+      return { ...menu, panels: [firstWriter, ...panels.map(panel => panel.id === 'receiver' ? {
+        ...panel, displayInputs: { page: [...panel.displayInputs.page!, { key: output.key, selection: 'highlight' as const }] },
+      } : panel)] };
+    }),
+  });
+
+  async function mountRoundOne({ folded, selected }: { folded?: boolean; selected: AnalysisSelection }) {
+    const isRange = selected.shape === 'range';
+    const activeOutput = isRange ? output : setOutput;
+    const params = new URLSearchParams({ v: '1', scopeId: 'MEM', from: '2026-09-01T00:00:00', to: rangeEnd });
+    if (isRange) params.set(output.key, `${selected.from}/${selected.to}`);
+    else selected.values.forEach(value => params.append(setOutput.key, value));
+    if (folded) params.set(output.key, `${rangeStart}/${rangeEnd}`);
+    window.history.replaceState(null, '', `/?${params}`);
+    const measure = folded ? stubChipMeasurements() : undefined;
+    const onAdd = vi.fn();
+    let changeScope!: () => void;
+    function ScopeControl() {
+      const { setGlobal } = usePlatform();
+      changeScope = () => setGlobal({ scopeId: 'FDRY' });
+      return <button type="button">Outside control</button>;
+    }
+    const tree = (receiverTitle: string) => <I18nProvider><PlatformProvider adapter={scopeAdapter} registry={labeledRegistry}
+      slots={folded ? { contextBar: <FittedChips /> } : chipSlots}>
+      <ScopeControl />
+      <PlatformPage><PanelWorkspace label={chipLabel('Workspace')} persistKey="selection-picker-round-one" initialMode="stack"
+        presets={[{ id: 'only', label: chipLabel('Preset'), layout: { type: 'group', panels: [activeOutput.panelId] } }]} initialPreset="only"
+        analysisPanelAddition={{ items: [{ id: 'receiver', title: chipLabel(receiverTitle), category }], onAdd }}
+        panels={[{ id: activeOutput.panelId, title: chipLabel('Chart panel'), primary: true, render: () =>
+          <AnalysisChartFrame chartId="picker-round-one" title="Picker chart" unit="s" analysisSelectionOutput={activeOutput} nextAnalysis
+            xType={isRange ? 'time' : 'category'} series={isRange ? [{ ...A, points: [[rangeStart, 1], [rangeEnd, 2]] }] : [A]} /> },
+          { id: 'labeled-bars', title: chipLabel('Labeled writer'), render: () => null }]} />
+      </PlatformPage>
+    </PlatformProvider></I18nProvider>;
+    const { container, rerender } = render(tree('수신 패널'));
+    await screen.findByRole('group', { name: '다음 분석' });
+    const user = userEvent.setup();
+    if (measure) {
+      measure(container);
+      await user.click(chipControls().getByRole('button', { name: '+1 ›' }));
+    }
+    const chipOpener = () => (folded ? within(screen.getByRole('dialog', { name: '분석 선택' })) : chipControls())
+      .getByRole('button', { name: isRange ? /date .* 동작$/ : /설비 .* 동작$/ });
+    const openChipPicker = async () => {
+      await user.click(chipOpener());
+      await user.click(screen.getByRole('menuitem', { name: '새 패널' }));
+    };
+    return { user, onAdd, changeScope, chipOpener, openChipPicker, fallback: container.querySelector('[data-platform-page-content]')!,
+      renameReceiver: (title: string) => rerender(tree(title)) };
+  }
+
+  it.each([...entries, 'folded chip'] as const)('moves focus to the page when Scope removes the %s picker and opener', async entry => {
+    const { user, changeScope, chipOpener, openChipPicker, fallback } = await mountRoundOne({
+      folded: entry === 'folded chip', selected: { shape: 'set', values: ['a'] },
+    });
+    const opener = entry === 'chart' ? within(nextRow()).getByRole('button', { name: '새 패널' }) : chipOpener();
+    if (entry === 'chart') await user.click(opener);
+    else await openChipPicker();
+    expect(picker().getByRole('searchbox')).toHaveFocus();
+    act(changeScope);
+    expect(search().get('scopeId')).toBe('FDRY');
+    expect(opener).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '새 패널' })).toBeNull();
+    await waitFor(() => expect(fallback).toHaveFocus());
+  });
+
+  it('keeps focus already claimed by a surviving control when Scope removes the chip picker', async () => {
+    const { changeScope, openChipPicker } = await mountRoundOne({ selected: { shape: 'set', values: ['a'] } });
+    await openChipPicker();
+    const outside = screen.getByRole('button', { name: 'Outside control' });
+    act(() => {
+      outside.focus();
+      changeScope();
+    });
+    await act(() => new Promise(resolve => { setTimeout(resolve, 0); }));
+    expect(screen.queryByRole('dialog', { name: '새 패널' })).toBeNull();
+    expect(outside).toHaveFocus();
+  });
+
+  it('builds chip actions on demand and keeps the subscription mounted during the picker handoff', async () => {
+    const subscribe = vi.spyOn(nextAnalysisBridge, 'usePublishedNextAnalysis');
+    try {
+      const { user, chipOpener, renameReceiver } = await mountRoundOne({ selected: { shape: 'set', values: ['a'] } });
+      expect(subscribe).not.toHaveBeenCalled();
+      await user.click(chipOpener());
+      expect(subscribe).toHaveBeenCalledWith({ ...setOutput, panelId: 'labeled-bars' });
+      await user.click(screen.getByRole('menuitem', { name: '새 패널' }));
+      expect(picker().getByRole('button', { name: '수신 패널' })).toBeVisible();
+      renameReceiver('바뀐 수신 패널');
+      expect(picker().getByRole('button', { name: '바뀐 수신 패널' })).toBeVisible();
+      await user.keyboard('{Escape}');
+      subscribe.mockClear();
+      renameReceiver('닫힌 뒤 바뀐 수신 패널');
+      expect(subscribe).not.toHaveBeenCalled();
+    } finally {
+      subscribe.mockRestore();
+    }
+  });
+
+  it.each([
+    { key: setOutput.key, selected: { shape: 'set', values: ['a', 'b'] }, label: '설비 a 외 1' },
+    { key: output.key, selected: { shape: 'range', from: rangeStart, to: rangeEnd }, label: `date ${rangeStart} – ${rangeEnd}` },
+  ] satisfies { key: string; selected: AnalysisSelection; label: string }[])('shares the exact $key label and draft across chart and chip', async ({ key, selected, label }) => {
+    const { user, onAdd, openChipPicker } = await mountRoundOne({ selected });
+    await user.click(within(nextRow()).getByRole('button', { name: '새 패널' }));
+    expect(picker().getByText(`입력: ${label}`)).toBeVisible();
+    await user.click(picker().getByRole('button', { name: '수신 패널' }));
+    const draft = { source: 'home/receiver', inputs: { [key]: selected } };
+    expect(onAdd).toHaveBeenCalledExactlyOnceWith(draft);
+    await openChipPicker();
+    expect(picker().getByText(`입력: ${label}`)).toBeVisible();
+    await user.click(picker().getByRole('button', { name: '수신 패널' }));
+    expect(onAdd.mock.calls).toEqual([[draft], [draft]]);
+  });
+});
+
 type SourceRow = { id: string };
 type SourcePage = { rows: SourceRow[]; total?: number; truncated?: boolean };
 type ReadSourceRows = (request: MenuQuery, signal?: AbortSignal) => Promise<ApiResponse<SourcePage>>;
@@ -887,13 +1420,14 @@ function SourceRowsSlot() {
   return <aside ref={ref} />;
 }
 function sourceRowsChart({ outcome = 'ok', data = { rows: [{ id: 'source-1' }] }, declared = true, url = 'equipment=a',
-  axis = 'category', mounted = true, validateScope, readRows, maxRows, wrapChart, fittedChips = false }: {
+  axis = 'category', mounted = true, validateScope, readRows, maxRows, wrapChart, fittedChips = false, closeOnSuperseded }: {
   outcome?: ApiResponse<SourcePage>['outcome']; data?: SourcePage | null; declared?: boolean;
   url?: string; axis?: 'category' | 'time'; mounted?: boolean; validateScope?: PlatformAdapter['validateScope'];
   readRows?: ReadSourceRows;
   maxRows?: number;
   wrapChart?: (chart: ReactNode) => ReactNode;
   fittedChips?: boolean;
+  closeOnSuperseded?: boolean;
 } = {}) {
   const menuQuery = vi.fn(readRows ?? (async () => ({ ...await none(), data, outcome })));
   const sourceAdapter = testAdapter({ session: () => session, menuQuery, ...(validateScope && { validateScope }) });
@@ -902,14 +1436,15 @@ function sourceRowsChart({ outcome = 'ok', data = { rows: [{ id: 'source-1' }] }
   const series = axis === 'time' ? { ...A, points: dates.map((date, index): [string, number] => [date, index + 1]) } : A;
   window.history.replaceState(null, '', `/?v=1&scopeId=MEM&${url}`);
   const chartRegistry = fittedChips ? fittedChipRegistry : range ? rangeRegistry : chipRegistry;
-  const declaration = maxRows === undefined ? sourceDeclaration : { ...sourceDeclaration, maxRows };
+  const rowDeclaration = maxRows === undefined ? sourceDeclaration : { ...sourceDeclaration, maxRows };
+  const declaration = closeOnSuperseded === undefined ? rowDeclaration : { ...rowDeclaration, closeOnSuperseded };
   const chart = mounted && <AnalysisChartFrame chartId="source" title="Source" unit="s" series={[series]} xType={axis} nextAnalysis
     analysisSelectionOutput={range ? output : setOutput} selectionActions={() => <Button>Extra</Button>}
     nextAnalysisRows={declared ? declaration : undefined} />;
   const { container } = render(<I18nProvider><PlatformProvider adapter={sourceAdapter} registry={chartRegistry}
     slots={fittedChips ? { contextBar: <FittedChips /> } : chipSlots}>
     <DetailPanelSlotProvider><PlatformPage>
-      <AnalysisPanelAddContext.Provider value={{ items: [{ id: 'receiver', title: chipLabel('수신 패널') }], onAdd: vi.fn() }}>
+      <AnalysisPanelAddContext.Provider value={{ items: [{ id: 'receiver', title: chipLabel('수신 패널'), placed: false }], onAdd: vi.fn() }}>
         {wrapChart ? wrapChart(chart) : chart}
       </AnalysisPanelAddContext.Provider>
     </PlatformPage><SourceRowsSlot /></DetailPanelSlotProvider>
@@ -923,6 +1458,34 @@ describe('Next analysis source rows', () => {
   let restoreGeometry: () => void;
   beforeEach(() => { restoreGeometry = stubCompactTableGeometry(800); });
   afterEach(() => { restoreGeometry(); });
+
+  it.each([
+    { incoming: 'settings', closeOnSuperseded: true, restoresRows: false },
+    { incoming: 'rows', closeOnSuperseded: true, restoresRows: false },
+    { incoming: 'settings', closeOnSuperseded: undefined, restoresRows: true },
+  ])('shares the detail slot when $incoming opens (closeOnSuperseded=$closeOnSuperseded)', async ({ incoming, closeOnSuperseded, restoresRows }) => {
+    function Workspace({ chart }: { chart: ReactNode }) {
+      const [settings, setSettings] = useState(false);
+      const panel = { id: 'target', source: { kind: 'declared', panel: 'target' } as const, inputs: [], outputs: [] };
+      return <>{chart}<button onClick={() => setSettings(true)}>Open settings</button>
+        {settings && <PanelSettingsDrawer title={{ ko: '대상', en: 'Target' }} panel={panel} value={{ version: 1, instances: [panel] }}
+          selectionOf={() => null} onChange={vi.fn()} onClose={() => setSettings(false)} />}
+      </>;
+    }
+    sourceRowsChart({ closeOnSuperseded, wrapChart: chart => <Workspace chart={chart} /> });
+    const opens = {
+      settings: async () => {
+        await userEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+        return screen.findByRole('dialog', { name: '대상' });
+      },
+      rows: async () => { await userEvent.click(sourceRowButton()); return sourceDrawer(); },
+    };
+    await opens[incoming === 'settings' ? 'rows' : 'settings']();
+    const active = await opens[incoming === 'settings' ? 'settings' : 'rows']();
+    fireEvent.keyDown(active, { key: 'Escape' });
+    if (restoresRows) expect(await sourceDrawer()).toBeVisible();
+    else expect(screen.queryByRole('dialog')).toBeNull();
+  });
 
   it.each([
     ['equipment=a', ['나누기', '새 패널', '다른 분석', '원본 행', '조건으로', '지우기']],

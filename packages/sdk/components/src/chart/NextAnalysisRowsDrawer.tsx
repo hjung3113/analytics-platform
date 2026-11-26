@@ -17,6 +17,8 @@ export type NextAnalysisRows<P, T> = {
   title?: Text;
   /** Optional display cap. Defaults to the endpoint's declared row limit. */
   maxRows?: number;
+  /** Close the source rows when another drawer takes the shared detail slot. */
+  closeOnSuperseded?: boolean;
 };
 
 export function NextAnalysisRowsDrawer<P, T>({ chartId, declaration, selection, formatRange, returnFocus, returnFocusRef, onClose }: {
@@ -32,7 +34,7 @@ export function NextAnalysisRowsDrawer<P, T>({ chartId, declaration, selection, 
   const m = useMessages(COMPONENTS_MESSAGES);
   const title = declaration.title ? tx(declaration.title) : m('chartSourceRows');
   const subtitle = selection.shape === 'set' ? selection.values.join(', ') : `${formatRange(selection.from)} → ${formatRange(selection.to)}`;
-  return <DetailDrawer title={title} subtitle={subtitle} focusOnOpen copyPage={null}
+  return <DetailDrawer title={title} subtitle={subtitle} focusOnOpen copyPage={null} closeOnSuperseded={declaration.closeOnSuperseded}
     returnFocus={returnFocus} returnFocusRef={returnFocusRef} onClose={onClose}
     tabs={[{ id: 'rows', label: title, regions: {
       body: <SourceRowsTable declaration={declaration} selection={selection} title={title} chartId={chartId} />,

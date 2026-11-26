@@ -1,18 +1,20 @@
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createContext, use, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { buildQuery, validateSavedView, type JsonValue, type MenuView, type MenuViewPanels, type Pair, type Result, type SavedViewDraft, type SavedViewEntry, type SavedViewListItem, type SavedViewStore, type SavedViewSupport, type TableViewState } from '@ap/contracts';
-import { useI18n } from '../i18n';
+import { useI18n, type Text } from '../i18n';
 import { useHostPlatform } from '../platform/hooks';
-import { AppContext, LentPanelPlatformContext } from '../platform/contexts';
+import { AppContext, LentPanelPlatformContext, PaneScreenContext, ScreenContext } from '../platform/contexts';
 import type { LeaveRequest } from '../platform/navigationGuard';
 import { pathFor } from '../registry/registry';
 import { captureApplied, viewState, type ViewState } from './capture';
-import { comparableApplied, excludedByScope, contextKeysOf, overwritePatch, restoreSavedView, savedInOtherScope, savedStateOf, siteBoundDropped, unsupportedOf, type RestoreFailure, type Unsupported } from './restore';
-import { PANELS_SLOT, type SavedViewPanelsOutcome } from './useSavedViewPanels';
+import { comparableApplied, excludedByScope, contextKeysOf, heldSetsDropped, overwritePatch, panelsInScope, restoreSavedView, savedInOtherScope, savedStateOf, siteBoundDropped, unsupportedOf, type RestoreFailure, type Unsupported } from './restore';
+import { PANELS_SLOT, useMainScreenPanelSlots, type SavedViewPanelsOutcome } from './useSavedViewPanels';
 import { resolveSavedViewSupport } from './useSavedViewSupport';
+import { collectSaveBlocks } from './table-slots';
 
 /** `held` awaits the leave decision; `cancelled` was superseded. Both are silent and preserve the current selection. */
-export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[]; /** Context keys a view saved in another Scope did not apply here (#2175). */ excludedByScope: readonly string[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' | 'held' | 'cancelled' };
+export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[]; /** Context keys, and held-set panel input keys (#2862), a view saved in another Scope did not apply here (#2175); each key once. */ excludedByScope: readonly string[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' | 'held' | 'cancelled' };
 export type SaveInput = { name: string; kind: 'condition-set' | 'menu-view'; chartOptions?: Record<string, JsonValue>; layout?: JsonValue; panels?: MenuViewPanels | null };
+type SaveResult = Result<SavedViewEntry> | typeof SAVE_BLOCKED;
 export type SavedViews = {
   /** `disabled`: no store injected, the menu does not declare `features.savedView`, or no support is available. */
   status: 'disabled' | 'loading' | 'ready' | 'unavailable';
@@ -26,21 +28,27 @@ export type SavedViews = {
   /** Context the last restore left out (06 §6.4); cleared with the selection. */
   unsupported: readonly Unsupported[];
   /**
-   * The Context keys (as the user reads them) the selected view does not apply because it was saved in another Scope (#2175), and that Scope's id. Derived from the selected view
-   * and the CURRENT Scope, so a Scope switch, a reload and a fresh pick agree. Separate from `unsupported` (what this menu cannot restore): two reasons, two lists.
+   * What the selected view does not apply because it was saved in another Scope (#2175), and that Scope's id. `keys`: the Context keys (as the user reads them) and the input
+   * keys of held panel sets (#2862), each once; `panelKeys`: which of them are panel input keys, so the shell names them as declared. Derived from the selected view and the
+   * CURRENT Scope, so a Scope switch, a reload and a fresh pick agree. Separate from `unsupported` (what this menu cannot restore): two reasons, two lists.
    */
-  scopeExcluded: { savedScopeId: string; keys: readonly string[] } | null;
+  scopeExcluded: { savedScopeId: string; keys: readonly string[]; panelKeys?: readonly string[] } | null;
   /**
-   * Set when `saveToSelected` would replace Site-bound values saved in another Scope with this Scope's (#2175): the shell asks before saving. `keys` are the stored Site-bound
-   * Context keys that would be removed. Null for a same-Scope save, an old view (no recorded Scope) and a view with no Site-bound values.
+   * Set when `saveToSelected` would replace Site-bound values or held panel sets saved in another Scope (#2175, #2862): the shell asks before saving. `keys` are the stored
+   * Context keys and panel input keys that would be removed, each once; `panelKeys` the panel ones (saved as the screen's panel inputs now are). Null for a same-Scope save,
+   * an old view (no recorded Scope) and a view with nothing Scope-bound.
    */
-  crossScopeSave: { savedScopeId: string; keys: readonly string[] } | null;
+  crossScopeSave: { savedScopeId: string; keys: readonly string[]; panelKeys?: readonly string[] } | null;
+  /** Reasons from the current screen's slots that prevent saving the applied conditions. */
+  saveBlocked: readonly (string | Text)[];
+  /** Reads the current slot reasons synchronously before a save or its sharing continuation. */
+  readSaveBlocks: () => SavedViews['saveBlocked'];
   select: (id: string) => Promise<SelectOutcome>;
   clearSelection: () => void;
   /** 새 뷰로 저장: stores the APPLIED conditions (never the draft) as a new view and selects it. */
-  saveAs: (input: SaveInput) => Promise<Result<SavedViewEntry>>;
+  saveAs: (input: SaveInput) => Promise<SaveResult>;
   /** 현재 뷰에 저장: overwrites the selected view with the applied conditions at its version, keeping what this menu does not support and an unchanged relative period (`overwritePatch`); a conflict keeps the selection and the applied conditions and rereads the view list, so the next call goes at the store's current version. */
-  saveToSelected: () => Promise<Result<SavedViewEntry>>;
+  saveToSelected: () => Promise<SaveResult>;
   /** 저장본으로 되돌리기: re-applies the selected view's saved copy. */
   revertToSaved: () => Promise<SelectOutcome>;
   remove: (id: string) => Promise<Result<null>>;
@@ -76,16 +84,21 @@ const MAX_DEFAULT_RETRIES = 3;
 const AUTO_APPLY_DEFAULT_WAIT_MS = 3000;
 const NO_ITEMS: readonly SavedViewListItem[] = [];
 type RestorableEntry = SavedViewEntry & { view: Exclude<SavedViewEntry['view'], { kind: 'custom-group' }> };
-function savedPanelsSlot(view: MenuView): Record<string, SavedViewPanelsOutcome> {
-  return { [PANELS_SLOT]: view.panelsUnreadable ? 'unreadable' : view.panels };
+/** The panels a view hands to the screen in `scopeId`: in another Scope its held sets follow instead (#2862). */
+function savedPanelsSlot(view: MenuView, scopeId: string | null): Record<string, SavedViewPanelsOutcome> {
+  return { [PANELS_SLOT]: view.panelsUnreadable ? 'unreadable' : panelsInScope(view, scopeId).panels };
 }
 const NO_UNSUPPORTED: readonly Unsupported[] = [];
 const NO_KEYS: readonly string[] = [];
 const OFF: Result<never> = { ok: false, reason: 'unavailable' };
+const SAVE_BLOCKED = { ok: false, reason: 'invalid', code: 'blocked' } as const;
+const NO_SAVE_BLOCKS: SavedViews['saveBlocked'] = [];
 const OFF_STATE: ViewState = { modified: false, unsaved: false, unapplied: false };
-const selectionKey = (userId: string, menuId: string) => `platform:saved-view:selected:${userId}:${menuId}`;
+const selectionKey = (userId: string, menuId: string, paneId: string | null) => paneId === null
+  ? `platform:saved-view:selected:${userId}:${menuId}`
+  : `platform:saved-view:pane-selected:${JSON.stringify([userId, menuId, paneId])}`;
 
-// The selected view id lives per tab (sessionStorage), never in the address (06 §21.3, `savedViewToken` stays reserved).
+// The main screen and each pane keep separate selections in the tab's sessionStorage (06 §21.3, `savedViewToken` stays reserved).
 const memory = new Map<string, string>();
 function readSelected(key: string): string | null {
   try { return window.sessionStorage.getItem(key); } catch { return memory.get(key) ?? null; }
@@ -174,6 +187,9 @@ function useSavedViewController(
 ): SavedViews {
   const { t } = useI18n();
   const app = useContext(AppContext);
+  const pane = useContext(PaneScreenContext);
+  const screen = pane ?? (mode === 'inactive' ? null : use(ScreenContext));
+  const explicitEntry = screen?.explicitSavedViewEntry;
   const registry = mode === 'inactive' ? undefined : app?.internal.savedViewSupports;
   const guard = app?.internal.guard;
   const store = host.savedViewStore;
@@ -183,6 +199,8 @@ function useSavedViewController(
   const userId = host.user.id;
   const slots = useMemo(() => app?.internal.savedViewSlots.screen(JSON.stringify([menuId, host.global.scopeId])), [app?.internal.savedViewSlots, menuId, host.global.scopeId]);
   const slotRevision = useSyncExternalStore(slots?.subscribe ?? NOOP_SUBSCRIBE, slots?.snapshot ?? ZERO_SNAPSHOT);
+  const panelSlots = useMainScreenPanelSlots(host);
+  const panelRevision = useSyncExternalStore(panelSlots?.subscribe ?? NOOP_SUBSCRIBE, panelSlots?.snapshot ?? ZERO_SNAPSHOT);
   const support = useSyncExternalStore(registry?.subscribe ?? NOOP_SUBSCRIBE, () => (mode === 'inactive' ? undefined : resolveSavedViewSupport(menu, registry)));
   const enabled = mode !== 'inactive' && store !== undefined && menu?.features.savedView === true && support !== undefined;
   // An address the contract rejects (06 §6.4) is neither rewritten by a default nor replaced by a pick: the error and the original address stay.
@@ -190,20 +208,32 @@ function useSavedViewController(
   const identity = `${userId}\0${menuId}`;
   // One generation per store, session, permission revision, Scope state, menu and menu declaration: everything read or started in an older one is hidden or dropped (kernel guidance, 06 §21.2).
   const { session, revision, paneId } = host;
+  const readSaveBlocks = useCallback(() =>
+    enabled && paneId === null ? collectSaveBlocks(panelSlots, slots) : NO_SAVE_BLOCKS,
+  [enabled, paneId, panelSlots, slots]);
+  const saveBlocked = readSaveBlocks();
   const scopeKey = `${host.scope.scopeId}\0${host.scope.status}`;
   const entryPath = mode === 'owner' && route ? pathFor(route.menu, route.params) : null;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the inputs are triggers only: a new generation object whenever any of them changes
   const gen = useMemo(() => ({}), [store, session, revision, scopeKey, identity, enabled, support, paneId, entryPath]);
-  useEffect(() => () => slots?.select(null), [slots, gen]);
+  useEffect(() => () => {
+    slots?.select(null);
+    panelSlots?.select(null);
+  }, [slots, panelSlots, gen]);
   // The entry of a screen is not a security read: a revalidation (new `gen`) keeps a selection that is still allowed, only a real arrival re-judges it against the address.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the inputs are triggers only
   const entryGen = useMemo(() => ({}), [identity, enabled, paneId, entryPath]);
 
-  const key = mode === 'inactive' ? null : selectionKey(userId, menuId);
+  const key = mode === 'inactive' ? null : selectionKey(userId, menuId, paneId);
   const [selection, setSelection] = useState(() => ({ key, id: key === null ? null : readSelected(key) }));
   if (selection.key !== key) setSelection({ key, id: key === null ? null : readSelected(key) });
   const selectedId = selection.key === key ? selection.id : null;
-  const setSelected = useCallback((id: string | null) => { slots?.select(id); if (key !== null) writeSelected(key, id); setSelection({ key, id }); }, [key, slots]);
+  const setSelected = useCallback((id: string | null) => {
+    slots?.select(id);
+    panelSlots?.select(id);
+    if (key !== null) writeSelected(key, id);
+    setSelection({ key, id });
+  }, [key, slots, panelSlots]);
 
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick(n => n + 1), []);
@@ -231,9 +261,12 @@ function useSavedViewController(
   const applied = useMemo(() => ({ global: host.global, page: host.page }), [host.global, host.page]);
   const selectedMenuView = selected?.view.kind === 'menu-view' ? selected.view : undefined;
   const slotModified = useMemo(() => {
-    if (slotRevision < 0 || !slots || !selectedMenuView) return false;
-    return slots.differs('tables', selectedMenuView.tables) || slots.differs(PANELS_SLOT, savedPanelsSlot(selectedMenuView));
-  }, [slots, slotRevision, selectedMenuView]);
+    if (slotRevision < 0 || panelRevision < 0 || !selectedMenuView) return false;
+    // Panels of another menu schema are never handed to the screen, so they are not compared either (R2862C C8).
+    return slots?.differs('tables', selectedMenuView.tables) === true
+      || (panelSlots !== undefined && selectedMenuView.menuSchemaVersion === support?.menuSchemaVersion
+        && panelSlots.differs(PANELS_SLOT, savedPanelsSlot(selectedMenuView, host.global.scopeId)));
+  }, [slots, slotRevision, panelSlots, panelRevision, selectedMenuView, host.global.scopeId, support]);
   const state = useMemo(() => support === undefined ? OFF_STATE : viewState({ applied: selected ? comparableApplied(selected.view, captureApplied(applied, support)) : captureApplied(applied, support), saved: selected ? savedStateOf(selected.view, support, anchor, host.global.scopeId) : null, draftDirty: host.queryDraft.dirty, slotModified }), [support, applied, selected, anchor, host.global.scopeId, host.queryDraft.dirty, slotModified]);
   // Derived from the saved copy, so a selection recovered after a reload lists the same Context as right after the pick.
   const unsupported = useMemo(() => selected && support ? unsupportedOf(selected.view, support, anchor) : NO_UNSUPPORTED, [selected, support, anchor]);
@@ -241,16 +274,18 @@ function useSavedViewController(
   const scopeExcluded = useMemo(() => {
     if (!selected || !support || selected.view.savedScopeId === undefined) return null;
     const keys = excludedByScope(selected.view, support, currentScope);
-    return keys.length === 0 ? null : { savedScopeId: selected.view.savedScopeId, keys };
+    const panelKeys = heldSetsDropped(selected.view, currentScope, support);
+    return keys.length === 0 ? null : { savedScopeId: selected.view.savedScopeId, keys, ...(panelKeys.length ? { panelKeys } : {}) };
   }, [selected, support, currentScope]);
   const crossScopeSave = useMemo(() => {
     if (!selected || selected.view.savedScopeId === undefined || !savedInOtherScope(selected.view, currentScope)) return null;
-    const stored = siteBoundDropped(selected.view, currentScope);
-    return stored.length === 0 ? null : { savedScopeId: selected.view.savedScopeId, keys: contextKeysOf(stored) as readonly string[] };
+    const panelKeys = heldSetsDropped(selected.view, currentScope);
+    const keys = [...new Set([...contextKeysOf(siteBoundDropped(selected.view, currentScope)), ...panelKeys])];
+    return keys.length === 0 ? null : { savedScopeId: selected.view.savedScopeId, keys: keys as readonly string[], ...(panelKeys.length ? { panelKeys } : {}) };
   }, [selected, currentScope]);
 
   // Latest values for async callbacks. `intent` numbers the user's latest restore/pick/save: a result that arrives after a newer one, a changed address or generation, or the screen's unmount is dropped.
-  const live = useRef({ gen, host, initial, t, selectedId, selectedVersion: selected?.view.version ?? null });
+  const live = useRef({ gen, host, initial, explicitEntry, t, selectedId, selectedVersion: selected?.view.version ?? null });
   const initialWork = useRef<InitialWork | null>(null);
   const expiredInitial = useRef<InitialSavedView | null>(null);
   const deadlineTimer = useRef<{ initial: InitialSavedView; id: ReturnType<typeof setTimeout> } | null>(null);
@@ -319,7 +354,7 @@ function useSavedViewController(
     };
   }, [initial, enabled]);
   useLayoutEffect(() => {
-    live.current = { gen, host, initial, t, selectedId, selectedVersion: selected?.view.version ?? null };
+    live.current = { gen, host, initial, explicitEntry, t, selectedId, selectedVersion: selected?.view.version ?? null };
     const work = initialWork.current;
     if (work && (work.initial !== initial || (work.gen !== gen && work.phase !== 'accepted' && work.phase !== 'settled'))) initialWork.current = null;
   });
@@ -341,7 +376,11 @@ function useSavedViewController(
   const alive = useRef(true);
   useLayoutEffect(() => { alive.current = true; return () => { alive.current = false; initialWork.current = null; clearDeadlineTimer(); }; }, [clearDeadlineTimer]);
   const stale = (at: object) => !alive.current || live.current.gen !== at;
-  const clearSelection = useCallback(() => { intent.current += 1; setSelected(null); }, [setSelected]);
+  const clearSelection = useCallback(() => {
+    intent.current += 1;
+    panelSlots?.changeViewId(PANELS_SLOT, PANELS_SLOT, null);
+    setSelected(null);
+  }, [panelSlots, setSelected]);
   const differs = (view: SavedViewEntry['view'], support: SavedViewSupport) => viewState({ applied: comparableApplied(view, captureApplied(applied, support)), saved: savedStateOf(view, support, anchor, host.global.scopeId), draftDirty: [] }).modified;
 
   // The guard's replay runs before the address commits. Select only once that exact applied state has arrived.
@@ -395,7 +434,7 @@ function useSavedViewController(
     // A relative period needs the server anchor; without one it is not restorable (absolute views still are).
     if (found.view.context.relativePeriod && anchor === null) return fail('unavailable');
     const current = live.current.host;
-    const result = restoreSavedView({ view: found.view, support, current: { global: current.global, page: current.page }, extras: current.extras, pathname: current.pathname, anchor, source, includeReturnTo: current.route?.menu.query?.mode === 'apply' ? current.route.menu.query.autoApplyDefault : undefined });
+    const result = restoreSavedView({ view: found.view, support, current: { global: current.global, page: current.page }, extras: current.extras, pathname: current.pathname, anchor, source, explicitEntry: live.current.explicitEntry });
     if (!result.ok) return fail(result.reason);
     if (!result.applied) { unchanged(); return { ok: true, unsupported: NO_UNSUPPORTED, excludedByScope: NO_KEYS }; }
     // One write: a default replaces the bare entry so Back leaves the app; a picked view is a normal push.
@@ -404,8 +443,12 @@ function useSavedViewController(
     const sameAddress = (current.appliedUrl === current.url && result.href === current.url) || result.href === current.pathname + buildQuery(current.global, current.page, current.extras);
     const applySlots = () => {
       const view = found.view;
-      const values = view.kind === 'menu-view' ? { tables: view.tables, [PANELS_SLOT]: savedPanelsSlot(view) } : {};
-      if (source === 'default') slots?.restore(id, values); else slots?.apply(id, values);
+      const tables = view.kind === 'menu-view' ? { tables: view.tables } : {};
+      if (source === 'default') slots?.restore(id, tables); else slots?.apply(id, tables);
+      if (!panelSlots) return;
+      const panels = view.kind === 'menu-view' ? { [PANELS_SLOT]: savedPanelsSlot(view, current.global.scopeId) } : {};
+      if (view.kind === 'condition-set') panelSlots.changeViewId(PANELS_SLOT, PANELS_SLOT, null);
+      if (source === 'default') panelSlots.restore(id, panels); else panelSlots.apply(id, panels);
     };
     if (sameAddress) applySlots();
     if (!sameAddress && ownsDecision && source === 'default') {
@@ -439,7 +482,7 @@ function useSavedViewController(
     setSelected(id);
     if (sameAddress) unchanged();
     return { ok: true, unsupported: result.unsupported, excludedByScope: result.excludedByScope };
-  }, [enabled, support, blocked, gen, entryGen, store, anchor, clearSelection, setSelected, guard, mode, currentRevision, revision, slots, acceptDecision, settleDecision]);
+  }, [enabled, support, blocked, gen, entryGen, store, anchor, clearSelection, setSelected, guard, mode, currentRevision, revision, slots, panelSlots, acceptDecision, settleDecision]);
   useEffect(() => {
     if (!initial) return;
     const alreadyDeciding = () => initialWork.current?.initial === initial && initialWork.current.gen === gen;
@@ -469,22 +512,36 @@ function useSavedViewController(
   }, [initial, gen, enabled, waitingForContent, loadingNow, loaded, tick, registry, menu, apply, rearmed, readLists, readDefault, settleDecision]);
 
   // Entering a screen: a selection that no longer matches the address is dropped (the address wins), then the personal default fills a bare route once.
+  const panelScope = useRef(host.global.scopeId);
   useEffect(() => {
     if (!enabled || !support || blocked || loaded?.status !== 'ready') return;
     const arriving = entered.current !== entryGen;
     entered.current = entryGen;
+    const scopeChanged = panelScope.current !== host.global.scopeId;
+    panelScope.current = host.global.scopeId;
+    const restorePanels = (view: RestorableEntry['view']) => {
+      if (view.kind !== 'menu-view' || view.menuSchemaVersion !== support.menuSchemaVersion) return;
+      // Re-entry still tracks the restored view id in the table slots, without supplying table values.
+      slots?.restore(view.id, {});
+      panelSlots?.restore(view.id, { [PANELS_SLOT]: savedPanelsSlot(view, host.global.scopeId) });
+    };
     // Revalidated in the same screen: a selection the store no longer allows is dropped, an edited one stays.
-    if (!arriving) { if (selectedId !== null && selected === null) clearSelection(); return; }
+    if (!arriving) {
+      if (selectedId !== null && selected === null) clearSelection();
+      // A Scope switch with the view still selected: the new Scope's screen gets the view's panels as they apply there, never the previous Scope's held sets (#2862 R2862C C1).
+      else if (scopeChanged && selected !== null) restorePanels(selected.view);
+      return;
+    }
     const mismatch = selected !== null && differs(selected.view, support);
     if (selectedId !== null && (selected === null || mismatch)) clearSelection();
     else if (selected !== null) {
       // A reload keeps the selection through the address; the screen's panels come only from the view, so hand them over once.
-      if (selected.view.kind === 'menu-view' && selected.view.menuSchemaVersion === support.menuSchemaVersion) slots?.restore(selected.view.id, { [PANELS_SLOT]: savedPanelsSlot(selected.view) });
+      restorePanels(selected.view);
       return;
     }
-    if (mode === 'legacy' && loaded.defaultId !== null) void apply(loaded.defaultId, 'default');
+    if (mode === 'legacy' && !explicitEntry && loaded.defaultId !== null) void apply(loaded.defaultId, 'default');
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `differs` is rebuilt every render from `applied`/`anchor`, both listed
-  }, [enabled, support, blocked, loaded, entryGen, rearmed, selected, selectedId, applied, anchor, apply, clearSelection, mode, slots]);
+  }, [enabled, support, blocked, loaded, entryGen, rearmed, selected, selectedId, applied, anchor, apply, clearSelection, mode, explicitEntry, slots, panelSlots, host.global.scopeId]);
   // Back/Forward is an address arrival too: the arrived address wins over the selected view.
   // Fed by the Kernel's accepted-traversal signal, not the raw popstate: a Back the unsaved-edit guard cancelled (ADR-0115) is no arrival.
   const traversed = useRef(false);
@@ -497,19 +554,21 @@ function useSavedViewController(
   }, [host.appliedUrl, selected, support, applied, anchor, clearSelection]);
 
   const select = useCallback((id: string) => apply(id, 'selected'), [apply]);
-  const saveAs = useCallback(async (input: SaveInput): Promise<Result<SavedViewEntry>> => {
+  const saveAs = useCallback(async (input: SaveInput): Promise<SaveResult> => {
     if (!enabled || !support) return OFF;
+    if (readSaveBlocks().length > 0) return SAVE_BLOCKED;
     const captured = captureApplied(applied, support);
     const tables = { ...(selected?.view.kind === 'menu-view' ? selected.view.tables : undefined), ...slots?.capture<TableViewState>('tables') };
     // The Scope the content is saved in (#2175); with no current Scope nothing is recorded and the view reads as an old one.
     const scopeStamp = applied.global.scopeId !== null ? { savedScopeId: applied.global.scopeId } : {};
-    const panels = slots?.capture<MenuViewPanels | null>(PANELS_SLOT)[PANELS_SLOT];
+    const panelCapture = panelSlots?.captureSlot<MenuViewPanels | null>(PANELS_SLOT, PANELS_SLOT);
+    const panels = panelCapture?.value;
     const draft = input.kind === 'condition-set'
       ? { schemaVersion: 1, kind: 'condition-set', name: input.name, context: captured.context, ...scopeStamp }
       : { schemaVersion: 1, kind: 'menu-view', name: input.name, menuId: support.menuId, menuSchemaVersion: support.menuSchemaVersion, context: captured.context, ...scopeStamp, page: captured.page, chartOptions: input.chartOptions ?? {}, layout: input.layout ?? null, panels: panels === undefined ? input.panels ?? null : panels, tables };
     const checked = validateSavedView(draft);
     if (!checked.ok) return checked;
-    // Latest action wins: a save that finishes after another pick or save, or on another address, does not take the selection back.
+    // A save can take the selection only while its action, address and panel lifetime are current.
     const at = gen;
     if (stale(at)) return OFF;
     const mine = ++intent.current;
@@ -517,30 +576,46 @@ function useSavedViewController(
     let result: Result<SavedViewEntry>;
     try { result = await store.save(checked.value as SavedViewDraft); } catch { return OFF; }
     if (result.ok && !stale(at)) {
-      if (intent.current === mine && live.current.host.appliedUrl === startUrl) { setFresh({ gen: at, entry: result.value }); setSelected(result.value.view.id); }
+      if (intent.current === mine && live.current.host.appliedUrl === startUrl && (panelCapture?.isCurrent() ?? true)) {
+        const { view } = result.value;
+        panelSlots?.changeViewId(PANELS_SLOT, PANELS_SLOT, view.kind === 'menu-view' ? view.id : null);
+        setFresh({ gen: at, entry: result.value });
+        setSelected(view.id);
+      }
       refresh();
     }
     return result;
-  }, [enabled, support, applied, store, gen, setSelected, refresh, slots, selected]);
-  const saveToSelected = useCallback(async (): Promise<Result<SavedViewEntry>> => {
+  }, [enabled, support, applied, store, gen, setSelected, refresh, slots, panelSlots, selected, readSaveBlocks]);
+  const saveToSelected = useCallback(async (): Promise<SaveResult> => {
     if (!enabled || !support || !selected) return OFF;
     const at = gen;
     if (stale(at)) return OFF;
+    if (readSaveBlocks().length > 0) return SAVE_BLOCKED;
     ++intent.current;
     const mine = intent.current;
+    const startUrl = live.current.host.appliedUrl;
     const patch = overwritePatch(selected.view, captureApplied(applied, support), support, anchor, applied.global.scopeId, slots?.capture<TableViewState>('tables'));
-    const panels = slots?.capture<MenuViewPanels | null>(PANELS_SLOT)[PANELS_SLOT];
-    const panelsPatch = selected.view.kind === 'menu-view' && panels !== undefined ? { panels } : {};
+    const panelCapture = panelSlots?.captureSlot<MenuViewPanels | null>(PANELS_SLOT, PANELS_SLOT);
+    const panels = panelCapture?.value;
+    // With no screen panels to capture the stored panels stay, except held sets saved in another Scope: they are saved as following here (#2862 R2862C C2).
+    const inScope = selected.view.kind === 'menu-view' && !selected.view.panelsUnreadable ? panelsInScope(selected.view, applied.global.scopeId) : null;
+    const panelsPatch = selected.view.kind !== 'menu-view' ? {} : panels !== undefined ? { panels } : inScope?.keys.length ? { panels: inScope.panels } : {};
     let result: Result<SavedViewEntry>;
     try { result = await store.update(selected.view.id, { ...patch, ...panelsPatch }, { expectedVersion: selected.view.version }); } catch { return OFF; }
     if (result.ok && !stale(at)) {
-      if (intent.current === mine && live.current.selectedId === result.value.view.id) setFresh({ gen: at, entry: result.value });
+      if (intent.current === mine && live.current.selectedId === result.value.view.id) {
+        const { view } = result.value;
+        if (live.current.host.appliedUrl === startUrl && (panelCapture?.isCurrent() ?? true)) {
+          panelSlots?.changeViewId(PANELS_SLOT, PANELS_SLOT, view.kind === 'menu-view' ? view.id : null);
+        }
+        setFresh({ gen: at, entry: result.value });
+      }
       refresh();
     }
     // A write refused for its version rereads the list (06 §21.2): the selection and the applied conditions stay, and the next save goes at the version the store now holds.
     if (!result.ok && result.reason === 'conflict' && !stale(at)) refresh();
     return result;
-  }, [enabled, support, selected, applied, anchor, store, gen, refresh, slots]);
+  }, [enabled, support, selected, applied, anchor, store, gen, refresh, slots, panelSlots, readSaveBlocks]);
   const revertToSaved = useCallback(async (): Promise<SelectOutcome> => selected ? apply(selected.view.id, 'selected') : { ok: false, reason: 'unavailable' }, [selected, apply]);
   const remove = useCallback(async (id: string): Promise<Result<null>> => {
     const at = gen;
@@ -583,9 +658,9 @@ function useSavedViewController(
   const updateGroup = useCallback<SavedViewStore['updateGroup']>((id, patch) => write(s => s.updateGroup(id, patch)), [write]);
 
   return useMemo((): SavedViews => ({
-    status, support: support ?? null, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave,
+    status, support: support ?? null, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave, saveBlocked, readSaveBlocks,
     select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, decide, revoke, createGroup, updateGroup, refresh,
-  }), [status, support, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave, select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, decide, revoke, createGroup, updateGroup, refresh]);
+  }), [status, support, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave, saveBlocked, readSaveBlocks, select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, decide, revoke, createGroup, updateGroup, refresh]);
 }
 const NOOP_SUBSCRIBE = () => () => {};
 const ZERO_SNAPSHOT = () => 0;

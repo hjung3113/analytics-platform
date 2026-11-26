@@ -37,10 +37,19 @@ describe('DockLayout panel content failure', () => {
 
   it('retries only that panel', async () => {
     mountDock({ layout: row([50, 50], group(['a']), group(['b'])), ids: ['a', 'b'], inner });
-    const alert = await panelAlert();
+    await panelAlert();
     broken = false;
-    fireEvent.click(within(alert).getByRole('button'));
-    expect(await screen.findByTestId('content-a')).toBeInTheDocument();
+    // Click the retry only once a user could reach it (#3129): under load the alert can be in the DOM while its subtree is still outside the
+    // accessibility tree (a Mac run found the button present but `getByRole` saw no roles), so wait for the accessible button and click it in
+    // the same task as the query.
+    const retry = await waitFor(() => {
+      const alert = document.querySelector<HTMLElement>('[data-dock-panel="a"] [role="alert"]');
+      if (!alert) throw new Error('no panel alert');
+      return within(alert).getByRole('button', { name: '다시 시도' });
+    }, { timeout: 30000 });
+    fireEvent.click(retry);
+    await waitFor(() => expect(screen.getByTestId('content-a')).toBeInTheDocument(), { timeout: 30000 });
     expect(document.querySelector('[data-dock-panel="a"] [role="alert"]')).toBeNull();
+    expect(screen.getByTestId('content-b')).toBeInTheDocument();
   }, 60000);
 });

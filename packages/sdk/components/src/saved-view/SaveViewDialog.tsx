@@ -1,10 +1,11 @@
-import { useRef, useState, type RefObject } from 'react';
+import { useId, useRef, useState, type RefObject } from 'react';
 import type { Result, SavedViewContext, SavedViewKind } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, RadioGroup, RadioGroupItem } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { failureText, panelBadgeText, summarizeContext } from './text';
 import { VisibilityOptionsPicker } from './VisibilityOptionsPicker';
+import { SaveBlockNotice, type SaveBlock } from './SaveBlockNotice';
 
 /** What this dialog saves: views only. Custom groups (`custom-group`) are saved from the target dialog (ADR-0164). */
 type ViewUnit = Exclude<SavedViewKind, 'custom-group'>;
@@ -28,6 +29,7 @@ export type SaveViewDialogProps = {
   visibilityOptions?: readonly { value: string; label: string }[];
   /** Where focus goes when the dialog closes (e.g. the save menu button). Without it, the element focused when the dialog opened is used if it is still on the page. */
   returnFocusRef?: RefObject<HTMLElement | null>;
+  saveBlock?: SaveBlock;
   onSubmit: (input: SaveViewSubmit) => Promise<Result<unknown>>;
 };
 
@@ -41,7 +43,7 @@ export function SaveViewDialog(props: SaveViewDialogProps) {
   );
 }
 
-function DialogBody({ units, updatable, initialMode, initialName = '', context, hasDraft, panels, visibilityOptions = [], onSubmit, onOpenChange, returnFocusRef, lang, opener }: SaveViewDialogProps & { lang: 'ko' | 'en'; opener: RefObject<HTMLElement | null> }) {
+function DialogBody({ units, updatable, initialMode, initialName = '', context, hasDraft, panels, visibilityOptions = [], onSubmit, onOpenChange, returnFocusRef, saveBlock, lang, opener }: SaveViewDialogProps & { lang: 'ko' | 'en'; opener: RefObject<HTMLElement | null> }) {
   const { t, tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const [mode, setMode] = useState<'new' | 'update'>(updatable && initialMode !== 'new' ? 'update' : 'new');
@@ -51,6 +53,7 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
+  const saveBlockId = useId();
   const updating = mode === 'update';
   const nameMissing = !updating && name.trim() === '';
   const summary = summarizeContext(context, lang);
@@ -58,6 +61,7 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
   const withPanels = savedUnit === 'menu-view';
 
   const submit = async () => {
+    if (saveBlock || busy) return;
     setTouched(true);
     if (nameMissing) return;
     setBusy(true); setFailure(null);
@@ -119,9 +123,10 @@ function DialogBody({ units, updatable, initialMode, initialName = '', context, 
           </ul>
         </section>
         {failure && <p role="alert" className="text-xs text-text-danger-label">{failure}</p>}
+        {saveBlock && <SaveBlockNotice id={saveBlockId} block={saveBlock} />}
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>{t('cancel')}</Button>
-          <Button type="submit" disabled={busy}>{busy ? m('svSaving') : m('svSubmit')}</Button>
+          <Button type="submit" disabled={busy && !saveBlock} aria-disabled={saveBlock ? true : undefined} aria-describedby={saveBlock ? saveBlockId : undefined} className={saveBlock ? 'aria-disabled:opacity-50' : undefined}>{busy ? m('svSaving') : m('svSubmit')}</Button>
         </DialogFooter>
       </form>
     </DialogContent>

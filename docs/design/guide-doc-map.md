@@ -27,7 +27,7 @@
 
 ### R3. 호스트 모듈 개발자 — 보류
 
-보류(소유자, 2026-11-10). 지금 있는 글은 [ADR-0053](../adr/0053-host-module-contract-v1.md)과 [플랫폼 탑재 설계](../integration/platform-hosting-design.md)이다.
+보류(소유자, 2026-11-10). 지금 있는 글은 [ADR-0053](../adr/0053-host-module-contract-v1.md)과 [플랫폼 탑재 설계](../integration/history/platform-hosting-design.md)이다.
 
 ### R4. 이 저장소에서 일하는 코딩 에이전트
 

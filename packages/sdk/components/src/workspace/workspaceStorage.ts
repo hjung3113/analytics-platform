@@ -13,6 +13,31 @@ export type PanelWorkspaceStorage = { getItem(key: string): string | null; setIt
 /** `persistKey` is a static identifier (`WORKSPACE_ID`); user and menu ids come from the session and the registry. */
 export const workspaceStorageKey = (userId: string, menuId: string, persistKey: string) => `platform:workspace:v1:${userId}:${menuId}:${persistKey}`;
 
+const RECENT_SCOPE_LIMIT = 8;
+
+function readScopes(key: string): [string, string][] {
+  return readLocalStorage(key, stored => {
+    const entries: unknown = stored === null ? [] : JSON.parse(stored);
+    return Array.isArray(entries) ? entries.filter((entry): entry is [string, string] =>
+      Array.isArray(entry) && entry.length === 2 && typeof entry[0] === 'string' && typeof entry[1] === 'string') : [];
+  }, []);
+}
+
+/** A browser-local preference per scope, with the earlier unscoped preference as the starting point. */
+export function scopedWorkspaceStorage(scope: string): PanelWorkspaceStorage {
+  return {
+    getItem(key) {
+      const saved = readScopes(`${key}:scopes`).find(([id]) => id === scope);
+      return saved?.[1] ?? localStorage.getItem(key);
+    },
+    setItem(key, value) {
+      const scopedKey = `${key}:scopes`;
+      const recent = readScopes(scopedKey).filter(([id]) => id !== scope);
+      writeLocalStorage(scopedKey, JSON.stringify([[scope, value], ...recent].slice(0, RECENT_SCOPE_LIMIT)));
+    },
+  };
+}
+
 /** The stored state repaired against `spec`, or null when there is none or storage cannot be read. Without `storage`, `localStorage`. */
 export function readWorkspaceState(key: string, spec: WorkspaceSpec, storage?: PanelWorkspaceStorage): WorkspaceState | null {
   const decode = (stored: string | null) => stored === null ? null : normalizeWorkspaceState(JSON.parse(stored) as unknown, spec, { fromStorage: true });

@@ -11,7 +11,8 @@ import {
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Toaster, toast } from 'sonner';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { useJsdomRangeGeometry } from '../../../../test/realEditor';
 
 const rows: VocListItem[] = [1, 2, 3, 4].map((n) => ({
   id: `00000000-0000-4000-8000-00000000000${n}`,
@@ -250,39 +251,46 @@ it('settled undo restores the server row without changing selection, history or 
   expect(screen.queryByText(/1건 처리됨/)).toBeNull();
 });
 
-it('keeps next-row selection and focus through Escape and undo from the received-row editor', async () => {
-  toast.dismiss();
-  render(<Toaster />);
-  const receivedRows = rows.map((row, index) =>
-    index === 1 ? { ...row, reporter_facing_status: 'received' as const } : row,
-  );
-  const { router } = mount({ items: receivedRows, compensationAware: true });
-  await screen.findByRole('heading', { name: second.title });
+describe('received-row editor', () => {
+  // This case mounts the real Public Update editor, whose delayed focus scrolls the selection into view (#3043).
+  useJsdomRangeGeometry();
 
-  await confirm();
-  await screen.findByTestId('triage-public-update-dialog');
-  await waitFor(() => expect(router.state.location.search.selected).toBe(third.id));
-  fireEvent.keyDown(document.body, { key: 'Escape' });
-  await waitFor(() => expect(screen.queryByTestId('triage-public-update-dialog')).toBeNull());
-  await waitFor(() => expect(screen.getByRole('button', { name: /VOC-3/ })).toHaveFocus());
-  expect(router.state.location.search.selected).toBe(third.id);
+  it('keeps next-row selection and focus through Escape and undo from the received-row editor', async () => {
+    toast.dismiss();
+    render(<Toaster />);
+    const receivedRows = rows.map((row, index) =>
+      index === 1 ? { ...row, reporter_facing_status: 'received' as const } : row,
+    );
+    const { router } = mount({ items: receivedRows, compensationAware: true });
+    await screen.findByRole('heading', { name: second.title });
 
-  // Restore the same row after the Escape case so the editor can be opened again.
-  fireEvent.click(await screen.findByRole('button', { name: '실행 취소' }));
-  await waitFor(() => expect(screen.queryByText(/1건 처리됨/)).toBeNull());
-  const restored = await screen.findByRole('button', { name: /VOC-2/ });
-  fireEvent.click(restored);
-  await screen.findByRole('heading', { name: second.title });
+    await confirm();
+    const dialog = await screen.findByTestId('triage-public-update-dialog');
+    await waitFor(() => expect(router.state.location.search.selected).toBe(third.id));
+    // Wait for the lazy editor: once mounted it must not mark the untouched form dirty, or Escape asks to discard (#3043).
+    await within(dialog).findByRole('textbox', {}, { timeout: 5000 });
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByTestId('triage-public-update-dialog')).toBeNull());
+    await waitFor(() => expect(screen.getByRole('button', { name: /VOC-3/ })).toHaveFocus());
+    expect(router.state.location.search.selected).toBe(third.id);
 
-  await confirm();
-  await screen.findByTestId('triage-public-update-dialog');
-  await waitFor(() => expect(router.state.location.search.selected).toBe(third.id));
-  fireEvent.click(await screen.findByRole('button', { name: '실행 취소' }));
+    // Restore the same row after the Escape case so the editor can be opened again.
+    fireEvent.click(await screen.findByRole('button', { name: '실행 취소' }));
+    await waitFor(() => expect(screen.queryByText(/1건 처리됨/)).toBeNull());
+    const restored = await screen.findByRole('button', { name: /VOC-2/ });
+    fireEvent.click(restored);
+    await screen.findByRole('heading', { name: second.title });
 
-  await waitFor(() => expect(screen.queryByTestId('triage-public-update-dialog')).toBeNull());
-  await screen.findByRole('button', { name: /VOC-2/ });
-  await waitFor(() => expect(screen.getByRole('button', { name: /VOC-3/ })).toHaveFocus());
-  expect(router.state.location.search.selected).toBe(third.id);
+    await confirm();
+    await screen.findByTestId('triage-public-update-dialog');
+    await waitFor(() => expect(router.state.location.search.selected).toBe(third.id));
+    fireEvent.click(await screen.findByRole('button', { name: '실행 취소' }));
+
+    await waitFor(() => expect(screen.queryByTestId('triage-public-update-dialog')).toBeNull());
+    await screen.findByRole('button', { name: /VOC-2/ });
+    await waitFor(() => expect(screen.getByRole('button', { name: /VOC-3/ })).toHaveFocus());
+    expect(router.state.location.search.selected).toBe(third.id);
+  });
 });
 
 it('undo leaves a different user-selected row and its focus alone', async () => {

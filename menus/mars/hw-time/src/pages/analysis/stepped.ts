@@ -1,6 +1,6 @@
 import { orderRows, type ChartSeries, type PanelAddItem, type PanelOption, type PanelOptionValues, type PanelWorkspacePreset, type RowOrderSort } from '@ap/components';
 import { HW_TIME_MODULE_TYPES, HW_TIME_MOTION_COLORS, type HwTimeMatrix, type HwTimeMatrixCell } from '../../endpoints';
-import { HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKSPACE_MESSAGES } from '../../messages';
+import { HW_TIME_CATALOG_MESSAGES as C, HW_TIME_OVERVIEW_MESSAGES, HW_TIME_STEPPED_MESSAGES as S, HW_TIME_WORKSPACE_MESSAGES } from '../../messages';
 import { disabledReason, panelDeclarations, workspacePanelContext } from './panelDeclaration';
 
 export type Step = 1 | 2 | 3 | 4;
@@ -49,10 +49,30 @@ export function workspaceOptions(step: Step): PanelOption[] {
     { id: 'align', kind: 'toggle', pageKey: 'align', label: S.align, on: S.on, off: S.off },
   ];
 }
+type CatalogCategory = 'comparison' | 'trend' | 'distribution' | 'records' | 'composition';
+/** How «패널 추가» groups and describes each item (#2744; the agreed table on #2761). `current`/`previous` are not add items. */
+const CATALOG_PRESENTATION: Record<CatalogId, { category: CatalogCategory; kind: NonNullable<PanelAddItem['kind']>; description: keyof typeof C }> = {
+  heatmap: { category: 'comparison', kind: 'heatmap', description: 'heatmapDescription' },
+  moduleMotions: { category: 'comparison', kind: 'bar', description: 'moduleMotionsDescription' },
+  trend: { category: 'trend', kind: 'line', description: 'trendDescription' },
+  // Change over days is the point of the day heatmap, so it sits with the trends.
+  equipmentDays: { category: 'trend', kind: 'heatmap', description: 'equipmentDaysDescription' },
+  scatter: { category: 'distribution', kind: 'scatter', description: 'scatterDescription' },
+  distribution: { category: 'distribution', kind: 'histogram', description: 'distributionDescription' },
+  motionTable: { category: 'records', kind: 'table', description: 'motionTableDescription' },
+  table: { category: 'records', kind: 'table', description: 'tableDescription' },
+  boundHistory: { category: 'records', kind: 'history', description: 'boundHistoryDescription' },
+  donut: { category: 'composition', kind: 'donut', description: 'donutDescription' },
+  pareto: { category: 'composition', kind: 'pareto', description: 'paretoDescription' },
+};
+
 export function panelCatalog({ step, typeId, moduleId, trend }: { step: Step; typeId: string | null; moduleId: string | null; trend: string | null }): PanelAddItem[] {
   const context = workspacePanelContext({ step, typeId, moduleId, trend });
   return Object.values(panelDeclarations).map(panel => ({
     id: panel.id,
+    category: { id: CATALOG_PRESENTATION[panel.id].category, title: C[CATALOG_PRESENTATION[panel.id].category] },
+    kind: CATALOG_PRESENTATION[panel.id].kind,
+    description: C[CATALOG_PRESENTATION[panel.id].description],
     title: panel.id === 'moduleMotions'
       ? { ko: panel.title.ko.replace('{module}', moduleId ?? 'Module'), en: panel.title.en.replace('{module}', moduleId ?? 'Module') }
       : panel.title,

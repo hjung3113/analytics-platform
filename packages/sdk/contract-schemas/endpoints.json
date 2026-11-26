@@ -19,7 +19,9 @@
   {
     "id": "analytics.cycle.dist",
     "menuId": "cycle-time",
-    "paramKeys": [],
+    "paramKeys": [
+      "tableEquipment"
+    ],
     "permission": "analytics:view",
     "requiresScope": true,
     "context": {

@@ -1,13 +1,19 @@
 // Test-only public entry `@ap/kernel/testing` (ADR-0040, #381): adapter, session and space fixtures.
 // Import only from test files (*.test.ts(x), test-support.ts, test-setup.ts); the boundary lint rejects production imports.
 // Deliberately not exported from src/index.ts.
-import { act, createElement, lazy, type ReactElement } from 'react';
+import { act, createElement, lazy, useContext, type ReactElement } from 'react';
 import { House } from 'lucide-react';
 import type { PlatformMenuEntry } from './registry/registry';
 import { useToastList, type Toast } from './platform/platform';
+import { AppContext } from './platform/contexts';
 import { contextCapabilities, type ActionResponse, type ApiResponse, type Capability, type ContextKey, type JsonValue, type ModuleScopedId, type PreferencesSnapshot, type Permission, type PlatformAdapter, type ScopeOption, type Session, type SessionUser, type SpaceDef, groupId, spaceId } from '@ap/contracts';
 
 export { registerLentPanel } from './registry/LentPanel';
+
+/** Access the active screen's table slots to register a test fixture with a live getter. */
+export function useTestSavedViewTableSlots(menuId: string, scopeId: string | null) {
+  return useContext(AppContext)?.internal.savedViewSlots.screen(JSON.stringify([menuId, scopeId]));
+}
 
 /** Every Context key 'unsupported': the no-op Global Context capability record (06 §6). */
 /** A registered screen that draws nothing: a menu entry with `component: testScreen` is not «planned» (no screen), so visits and resume record it (#1944). */
@@ -145,4 +151,5 @@ export async function settleQueries(): Promise<void> {
 }
 
 export { createFakeSavedViewStore, testSavedView, testViewCapabilities, type FakeSavedViewStore } from './saved-view/fake-store';
+export { useLeaveRequest } from './platform/hooks';
 export { useSavedViews, type SavedViews } from './saved-view/useSavedViews';

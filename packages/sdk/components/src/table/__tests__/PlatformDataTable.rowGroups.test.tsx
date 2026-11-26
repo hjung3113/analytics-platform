@@ -84,14 +84,14 @@ const choose = async (id: string) => {
 const headerRows = (c: HTMLElement) => [...c.querySelectorAll('[data-group-row]')] as HTMLElement[];
 
 describe('PlatformDataTable row groups (#556d)', () => {
-  it.each([['small', 'text-(length:--ap-table-font)'], ['large', 'text-(length:--ap-table-font)'], ['normal', 'text-sm']] as const)('1217d: the sticky group label follows the table size (%s)', async (size, expected) => {
+  it.each(['small', 'large', 'normal'] as const)('the sticky group label uses the body role at %s density', async size => {
     storage.setItem(tableSizeLocalKey('user-a'), size);
     const view = render(<Harness loadPage={makeLoad()} />);
     await screen.findByText(/1\/1/);
     await choose('line');
     await waitFor(() => expect(headerRows(view.container)).toHaveLength(3));
     const lead = view.container.querySelector('[data-group-lead-content]') as HTMLElement;
-    expect(lead).toHaveClass(expected);
+    expect(lead).toHaveClass('t-body');
     if (size === 'normal') expect(lead.className).not.toContain('ap-table');
   });
 

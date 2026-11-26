@@ -8,7 +8,7 @@ import { defineEndpoint, type PlatformAdapter, type Session, groupId, spaceId } 
 import { I18nProvider, PlatformProvider, createRegistry, useMenuQuery } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { PlatformPage } from '@ap/components';
+import { AnalysisChartFrame, PlatformPage } from '@ap/components';
 import { RouteOutlet } from '../../routing/RouteOutlet';
 import { addPane, freshBoard, parseBoardV2, setPane, setTree, type Board, type LayoutNode } from '../boardModel';
 import { groupsOf, toDockTree } from '../boardDockTree';
@@ -69,6 +69,9 @@ function Plain() {
   const { paneId } = useHostPlatform();
   return <PlatformPage><p data-testid="pane">{paneId ?? 'main'}</p></PlatformPage>;
 }
+function DirectChart() {
+  return <AnalysisChartFrame chartId="board-chart" title="Board chart" unit="s" xType="category" series={[]} />;
+}
 const entry = (id: string, path: string, over: Record<string, unknown> = {}) => ({
   id, group: groupId('equipment'), label: { ko: id, en: id }, description: { ko: '', en: '' }, path, icon: House, permission: 'platform:view' as const,
   requiresScope: false, context: apply, pageType: 'analysis' as const, query: { mode: 'live' as const }, features, pageKeys: ['tab'], ...over,
@@ -79,6 +82,7 @@ const registry = createRegistry({
   menus: [
     { ...entry('home', '/', { component: Plain, features: { ...features, board: false } }), primary: true },
     entry('alpha', '/alpha', { component: Rows, label: { ko: '알파', en: 'Alpha' }, permission: 'console:access' }),
+    entry('chart', '/chart', { component: DirectChart }),
     entry('beta', '/beta', { component: Plain, label: { ko: '베타', en: 'Beta' } }),
   ],
 });
@@ -150,6 +154,21 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); listeners.clear(); window.history.replaceState(null, '', '/'); });
 
 describe('dock renderer: tabs, selection and the Context bar', () => {
+  it('keeps a direct Frame inline with one board More in the pane header', async () => {
+    const chart = { menuId: 'chart', params: {}, query: w1 };
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [chart, beta(w2)] })]));
+    mount();
+    await ready();
+    const tab = screen.getByRole('tab', { name: '칸 1 · chart' });
+    const header = tab.closest<HTMLElement>('.dv-tabs-and-actions-container')!;
+    expect(header.querySelectorAll('[data-dock-group-menu]')).toHaveLength(1);
+    expect(within(header).getByRole('button', { name: '칸 1 동작' })).toBeInTheDocument();
+    expect(within(header).getByRole('button', { name: '칸 1 최대화' })).toBeInTheDocument();
+    expect(within(header).queryByRole('toolbar', { name: '차트 동작' })).toBeNull();
+    const frame = within(await screen.findByRole('region', { name: 'Board chart' }));
+    expect(frame.getByRole('toolbar')).toContainElement(frame.getByRole('button', { name: '확대' }));
+  });
+
   it('keeps the non-opt-in Scope and Context controls available through engine loading and retry', async () => {
     seed(boardOf([sheet('a', { layout: '1x2', panes: [alpha(w1), beta(w2)] })]));
     let releaseFirst = () => {};

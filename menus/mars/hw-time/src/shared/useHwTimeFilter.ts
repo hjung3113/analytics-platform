@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
+import type { Pair } from '@ap/contracts';
 import { invalidValueSentence, useI18n, usePlatform } from '@ap/kernel';
-import { HW_TIME_MODULE_TYPES, type HwTimeModuleType } from '../endpoints';
+import { HW_TIME_MODULE_TYPES, type HwTimeModuleType, type HwTimePanelParams } from '../endpoints';
 import { HW_TIME_MESSAGES } from '../messages';
 
 /**
@@ -53,6 +54,16 @@ function parseSelection(raw: readonly string[]): Parsed {
   if (raw.length === 1 && raw[0] === HW_TIME_FILTER_NONE) return { all: false, selected: [], malformed: null };
   const malformed = raw.find(value => value === '' || value.startsWith('~')) ?? (new Set(raw).size !== raw.length ? raw.find((v, i) => raw.indexOf(v) !== i)! : null);
   return { all: false, selected: raw, malformed: malformed ?? null };
+}
+
+/** The endpoint can read all Modules of a type or the one explicitly drilled Module. */
+export function equipmentDaysAvailable({ moduleType, drillModule, drillMotion }: HwTimePanelParams, page: readonly Pair[]): boolean {
+  const modules = parseSelection(page.filter(([key]) => key === HW_TIME_FILTER_KEYS.module).map(([, value]) => value));
+  const motions = parseSelection(page.filter(([key]) => key === HW_TIME_FILTER_KEYS.motion).map(([, value]) => value));
+  const types = moduleType ? HW_TIME_MODULE_TYPES.filter(type => type.id === moduleType) : HW_TIME_MODULE_TYPES;
+  return modules.malformed === null && motions.malformed === null && types.length > 0 && types.every(type =>
+    type.modules.filter(id => !drillModule || id === drillModule).every(id => modules.all || modules.selected.includes(id)) &&
+    type.motions.filter(id => !drillMotion || id === drillMotion).every(id => motions.all || motions.selected.includes(motionKey(type.id, id))));
 }
 
 /** Writes a selection back: every catalog value and nothing else = absent key; nothing = `~none`; otherwise catalog order, then kept unusable values. */

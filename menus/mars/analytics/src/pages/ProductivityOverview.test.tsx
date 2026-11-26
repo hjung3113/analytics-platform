@@ -134,11 +134,12 @@ describe('ProductivityOverview cycle-time delta label (#398)', () => {
   }
 
   it.each([
-    { lang: 'ko', current: 40, previous: 40.6, expected: 'P50 -0.6분 (-1.5%)' },
-    { lang: 'ko', current: 41.2, previous: 40.6, expected: 'P50 +0.6분 (+1.5%)' },
-    { lang: 'en', current: 40, previous: 40.6, expected: 'P50 -0.6min (-1.5%)' },
-    { lang: 'en', current: 41.2, previous: 40.6, expected: 'P50 +0.6min (+1.5%)' },
-  ])('labels the cycle-time delta as P50 ($lang, $expected)', async ({ lang, current, previous, expected }) => {
+    // Variant A (#2743): an arrow and the absolute change in the pill; the prior value is the line below.
+    { lang: 'ko', current: 40, previous: 40.6, expected: 'P50 0.6분', arrow: '▼' },
+    { lang: 'ko', current: 41.2, previous: 40.6, expected: 'P50 0.6분', arrow: '▲' },
+    { lang: 'en', current: 40, previous: 40.6, expected: 'P50 0.6min', arrow: '▼' },
+    { lang: 'en', current: 41.2, previous: 40.6, expected: 'P50 0.6min', arrow: '▲' },
+  ])('labels the cycle-time delta as P50 ($lang, $arrow $expected)', async ({ lang, current, previous, expected, arrow }) => {
     // Node's file-less localStorage shadows jsdom's; give this test its own in-memory store.
     const storage = memoryStorage();
     vi.stubGlobal('localStorage', storage);
@@ -146,7 +147,31 @@ describe('ProductivityOverview cycle-time delta label (#398)', () => {
       storage.setItem('platform:lang', lang);
       renderWithKpis(kpis(current, previous));
       await screen.findByRole('radiogroup', { name: lang === 'ko' ? '집계 단위' : 'Granularity' });
-      expect(await screen.findByText(expected)).toBeTruthy();
+      const amount = await screen.findByText(expected);
+      expect(amount.parentElement?.textContent).toContain(`${arrow} ${expected}`);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  // Variant A (#2743): which way is good is the menu's declaration; the card reads it out as improved / worsened / no change.
+  it.each([
+    { card: '물리 점유율', change: (s: KpiSet): KpiSet => ({ ...s, occupancy: { num: 103, den: 200, pct: 51.5 } }), tone: '변화 없음' },
+    { card: '물리 점유율', change: (s: KpiSet): KpiSet => ({ ...s, occupancy: { num: 106, den: 200, pct: 53 } }), tone: '좋아짐' },
+    { card: 'Process 체류', change: (s: KpiSet): KpiSet => ({ ...s, dwell: { hours: 12, jobs: 5, perJobH: 2.4 } }), tone: '나빠짐' },
+    { card: '사이클타임', change: (s: KpiSet): KpiSet => ({ ...s, cycle: { ...s.cycle, p50: 38 } }), tone: '좋아짐' },
+    { card: 'Job 처리량', change: (s: KpiSet): KpiSet => ({ ...s, throughput: { jobs: 150, started: 160 } }), tone: null },
+  ])('declares the good direction of $card ($tone)', async ({ card, change, tone }) => {
+    const storage = memoryStorage();
+    vi.stubGlobal('localStorage', storage);
+    try {
+      storage.setItem('platform:lang', 'ko');
+      const previous = kpiSet(40);
+      renderWithKpis({ ...kpis(40, 40), data: { current: change(previous), previous } });
+      const button = await screen.findByRole('button', { name: new RegExp(card) });
+      const text = button.textContent ?? '';
+      if (tone) expect(text).toContain(tone);
+      else for (const word of ['변화 없음', '좋아짐', '나빠짐']) expect(text).not.toContain(word);
     } finally {
       vi.unstubAllGlobals();
     }

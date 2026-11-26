@@ -37,6 +37,23 @@ export function focusPageFallback(source: HTMLElement | null) {
   pageFallbackTarget(source)?.focus({ preventScroll: true });
 }
 
+/** Capture the focus return path before a transient action can remove its trigger. */
+export function capturePageFocusReturn(opener: HTMLElement, source: HTMLElement = opener) {
+  const doc = opener.ownerDocument;
+  const fallback = pageFallbackTarget(source) ?? pageFallbackTarget(source.closest<HTMLElement>('[data-platform-page]'))
+    ?? doc.getElementById('platform-main');
+  const focus = (target: HTMLElement | null) => {
+    if (!target?.isConnected || target.closest('[hidden], [inert]')) return false;
+    target.focus({ preventScroll: true });
+    return doc.activeElement === target;
+  };
+  return (replacement?: () => boolean) => {
+    if (doc.activeElement !== doc.body) return;
+    if (focus(opener) || replacement?.()) return;
+    focus(fallback);
+  };
+}
+
 // ReturnLink calls this after its synchronous Kernel navigation, before the destination commits.
 export function requestReturnFocus(navigation: PageNavigation, href: string) {
   navigation.requestReturn(href);

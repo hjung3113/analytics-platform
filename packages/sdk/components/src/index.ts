@@ -9,8 +9,13 @@ export type { MatrixNode, MatrixColumn, MatrixWindowQuery, MatrixWindow, MatrixE
 export type { ChartBounds, ChartBoundLabels } from './chart/chartBounds';
 export type { ChartStatus, ChartRowGroups } from './chart';
 export { orderRows, type OrderableRow, type RowOrderOptions, type RowOrderResult, type RowOrderSort } from './chart/rowOrder';
+export type { CategoryTopN } from './chart/categoryTopN';
 export { AnalysisChart, type AnalysisChartProps, type ChartSpec, type HeatmapSpec, type HeatmapCell, type HeatmapCategory, type DonutSpec, type DonutSlice, type ScatterPoint, type ScatterSpec, type BoxStats, type BoxPlotSpec, type ParetoSpec, type TopNBarSpec, type TopNBarItem, type HistogramSpec, type HistogramBin } from './chart/AnalysisChart';
+export { resolveChartConfig, type ChartConfigProblem, type ChartConfigRow, type ChartFieldMeta, type ResolveChartConfigResult, type ResolvedChartFrame } from './chart/resolveChartConfig';
 export { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries, type ChartPoint, type ChartPointAction, type ChartSelectionAction } from './chart/AnalysisChartFrame';
+export { SmallMultiplesGrid, type SmallMultiplesGridProps, type SmallMultiplesSortOption } from './chart/SmallMultiplesGrid';
+export type { SmallMultiplesSeries } from './chart/smallMultiplesPlot';
+export type { ChartReferenceMark, ChartReferenceLine, ChartReferenceBand } from './chart/referenceMarks';
 export type { NextAnalysisRows, NextAnalysisSourceRows } from './chart/NextAnalysisRowsDrawer';
 export { heatmapMinCanvasHeight, rowPitchChartHeight } from './chart/analysisChartGeometry';
 export { AuditTimeline, type AuditTimelineProps, type AuditFieldDisplay } from './drawer/AuditTimeline';
@@ -18,6 +23,7 @@ export { copyText, useCopyLink } from './state/copyText';
 export * from './state/DataTrustIndicator';
 export type { ChartTrust } from './state/trustFormat';
 export * from './drawer/DetailDrawer';
+export { PanelSettingsDrawer, type PanelSettingsDrawerProps, type PanelSettingsMapping } from './workspace/PanelSettingsDrawer';
 // Explicit: strokeToken·baseTextStyle stay package-internal (chart plumbing and tests only).
 /** @deprecated use '@ap/components/host'; removed next SDK minor */
 export { chartTheme } from './chart/EChart';
@@ -58,11 +64,12 @@ export { RowAction, type RowActionProps } from './drawer/RowAction';
 export * from './state/StatCard';
 // Explicit: OutcomeContent stays package-internal (QueryView and PlatformDataTable draw through it; no new public contract).
 export { LoadingBlock, OutcomeView, QueryView, StateMessage } from './StateView';
+export type { QueryPanelOptions } from './state/QueryPanel';
 
 export { ManagementLayout, type ManagementLayoutProps } from './archetypes/ManagementLayout';
 
 export { badgeCountText } from './workspace/PanelBadge';
-export { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePersistence, type PanelWorkspacePreset, type PanelWorkspaceProps, type PanelWorkspaceStorage } from './workspace/PanelWorkspace';
+export { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePersistence, type PanelWorkspacePreset, type PanelWorkspaceProps, type PanelWorkspaceSelectionDrop, type PanelWorkspaceStorage } from './workspace/PanelWorkspace';
 export { PANEL_RECIPE_ITEM, panelRecipe, type PanelRecipe, type PanelRecipeCode, type PanelRecipeFeature, type PanelRecipeFeatureState, type PanelRecipeHost, type PanelRecipeInput, type PanelRecipeKey } from './panel-recipe/panelRecipe';
 export { PanelRecipeBack, PanelRecipeFrame } from './panel-recipe/PanelRecipeBack';
 export { changedPanelOptions, PANEL_OPTIONS_COLLAPSE_BELOW, PanelOptionChips, PanelOptions, usePanelOptions, type PanelOption, type PanelOptionChipsProps, type PanelOptionChoice, type PanelOptionsProps, type PanelOptionValues } from './workspace/PanelOptions';

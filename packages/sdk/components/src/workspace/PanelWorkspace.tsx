@@ -1,10 +1,12 @@
 import { usePublishAnalysisWorkspace } from '../chart/NextAnalysisBridge';
+import { ToolbarAnalysisPanelAdd } from '../chart/NextAnalysisItems';
 import { useCompactPageDensity } from '../pageDensity';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useI18n, useMessages, usePlatformOptional, type Text } from '@ap/kernel';
-import { cn, isDevelopment } from '@ap/ui';
+import { useI18n, useMessages, usePlatformOptional, type AnalysisSelectionChip, type Text } from '@ap/kernel';
+import { cn } from '@ap/ui';
 import type { LucideIcon } from 'lucide-react';
 import { activatePanel, groupOf, movePanel, panelOrder } from '../dock/commands';
+import type { DockChartCloseFocus } from '../dock/DockChartHead';
 import { focusSoon, focusTabSoon } from '../dock/focusTab';
 import { DockLayoutBase } from '../dock/DockLayout';
 import type { DockPanel, DockRows } from '../dock/dockTypes';
@@ -14,13 +16,17 @@ import { clampFloatingPanel, dockGroupsInReadingOrder, type DockFloatingPanel, t
 import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider, type WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { InWorkspacePanelProvider } from './panelContext';
 import { PanelBadge } from './PanelBadge';
-import { AnalysisPanelAddContext, type AnalysisPanelAddition } from './PanelAdd';
+import { AnalysisPanelAddContext, hasCategorizedPanels, type AnalysisPanelAddition, type AnalysisPanelDestinations, type PanelAddItem } from './PanelAdd';
+import { PanelAddDragContext, usePanelAddDrag, type PanelAddPlacement } from './PanelAddDrag';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { PANEL_RECIPE_ITEM } from '../panel-recipe/panelRecipe';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
+import { WorkspaceSelectionDrag } from './WorkspaceSelectionDrag';
+import { WorkspaceQueryHeads } from './WorkspaceQueryHeads';
 import { WorkspaceEdges } from './WorkspaceEdges';
-import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
-import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withAdjustedRowHeights, withRows, workspacePreference, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { readWorkspaceState, sameWorkspaceState, scopedWorkspaceStorage, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
+import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withAdjustedRowHeights, withRows, workspacePreference, WORKSPACE_ID, WORKSPACE_PANEL_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
 import { canMoveBelow, clampRow, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows, validPreferred } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
 import { alignUnderChrome, restoreScrollOffset, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
@@ -36,11 +42,26 @@ export type { PanelWorkspaceStorage } from './workspaceStorage';
  */
 export type PanelWorkspacePersistence = { key: string; storage?: PanelWorkspaceStorage };
 
+export type PanelWorkspaceSelectionDrop = {
+  /** Return a visible rejection reason or undefined to accept this selection. Called by the drag preview and the panel menu. */
+  reason?: (chip: AnalysisSelectionChip) => Text | undefined;
+  /** Apply a selection from a chip drop or the panel's explicit hold action. */
+  onDrop: (chip: AnalysisSelectionChip) => void;
+};
+
 export type PanelWorkspacePanel = {
-  /** Static identifier (`^[a-z][a-z0-9._-]{0,63}$`): it is stored in the local preference. */
+  /**
+   * Stable slot identifier (`^[a-z][a-z0-9._-]{0,1023}$`). The 1,024-character cap bounds the local layout record and fits every v1 instance ID losslessly (200 UTF-16 code units escape to at most 1,015 characters), and the static alphabet keeps data values out of storage keys.
+   */
   id: string;
+  /** Declaration used for the recipe when its id differs from this workspace slot id. */
+  declarationId?: string;
   /** Declared analysis selection source hosted here when its id differs from this layout id. */
   analysisSelectionSourceId?: string;
+  /** Opt in to holding analysis selections in this panel (#2917). */
+  analysisSelectionDrop?: PanelWorkspaceSelectionDrop;
+  /** Offer Panel settings and pass the menu trigger after the menu closes. */
+  onOpenSettings?: (trigger: HTMLButtonElement) => void;
   title: Text;
   /** Icon in the collapsed left rail; absent = first character of the translated title. */
   icon?: LucideIcon;
@@ -49,7 +70,7 @@ export type PanelWorkspacePanel = {
   /** Floating inside the workspace is on by default. The primary panel can never float. */
   float?: false;
   render: () => ReactNode;
-  /** Replace the normal Hide action with removal from the consumer's panels. The consumer must remove this entry. */
+  /** Opt-in for user-added panels only. Delete calls the consumer to remove the panel from its configuration. Primary panels ignore it. */
   onRemove?: () => void;
   /** Exactly one panel is primary (the first when none is): it can never be hidden and keeps the space other panels free. */
   primary?: boolean;
@@ -86,7 +107,7 @@ export type PanelWorkspacePanel = {
    */
   pin?: { pinned: boolean; onToggle: () => void };
   /**
-   * The panel must stay (#2862: another panel holds this panel's selection). «숨기기» stays in the `⋯` menu, disabled, and says `reason`;
+   * The panel must stay (#2862: another panel holds this panel's selection). «숨기기» and «삭제» stay disabled with `reason`;
    * collapsing and floating, which keep the panel, still work. The menu sets it and removes it when nothing depends on the panel.
    */
   keep?: { reason: Text };
@@ -97,6 +118,8 @@ export type PanelWorkspacePreset = { id: string; label: Text; layout: PanelWorks
 export type PanelWorkspaceProps = {
   /** Menu-declared actions for the active panel, after all platform items and a separator. Absent/empty leaves the menu unchanged; primary panels are not filtered. */
   panelMenuItems?: (panelId: string) => readonly { id: string; label: Text; onSelect: () => void }[];
+  /** Return the recipe opener for this declaration and slot, or omit it if no recipe is available. */
+  panelRecipe?: (declarationId: string, slotId: string) => (() => void) | undefined;
   panels: readonly PanelWorkspacePanel[];
   presets: readonly PanelWorkspacePreset[];
   initialPreset: string;
@@ -133,11 +156,19 @@ export type PanelWorkspaceProps = {
    */
   persistence?: PanelWorkspacePersistence;
   /**
+   * Optional layout identity inside the platform's user, menu and persistKey. A change reads that scope's saved layout into the open
+   * workspace; panels stay mounted (#3128). The last eight scopes
+   * written per key are retained. An unused scope starts with the unscoped preference, if one exists.
+   */
+  persistenceScope?: string;
+  /**
    * Opt-in (#2416): the menu's own workspace actions, e.g. `PanelAddMenu`. Drawn at the end of the workspace toolbar, right-aligned before the
    * height-mode `⋯`; inside a command host (the board), where the toolbar is not drawn, they get a right-aligned row above the panels.
    * Absent = output unchanged.
    */
   toolbarActions?: ReactNode;
+  /** Lets declared `PanelAddMenu` rows in `toolbarActions` split above or below a group. `onAdd` declares that panel in the same update. */
+  panelAddDrag?: boolean;
   /** Catalog and add handler for panels that follow the chart's URL selection. */
   analysisPanelAddition?: AnalysisPanelAddition;
   /** Enabled collapsed edges. Default left and top; an empty array disables the edge strips. Below 692px strips and floating are off. */
@@ -164,11 +195,11 @@ function useDevChecks(props: PanelWorkspaceProps) {
   const { panels, presets, initialPreset, compactPreset, stackPreset, persistKey } = props;
   const signature = JSON.stringify([panels.map(panel => [panel.id, panel.primary === true]), presets.map(preset => preset.id), initialPreset, compactPreset, stackPreset, persistKey]);
   useEffect(() => {
-    if (!isDevelopment()) return;
+    if (process.env.NODE_ENV === 'production') return;
     const problems: string[] = [];
     if (panels.filter(panel => panel.primary).length !== 1) problems.push('exactly one panel must be primary (the first is used)');
     if (!WORKSPACE_ID.test(persistKey)) problems.push(`persistKey "${persistKey}" must match ${String(WORKSPACE_ID)}`);
-    for (const panel of panels) if (!WORKSPACE_ID.test(panel.id)) problems.push(`panel id "${panel.id}" must match ${String(WORKSPACE_ID)}`);
+    for (const panel of panels) if (!WORKSPACE_PANEL_ID.test(panel.id)) problems.push(`panel id "${panel.id}" must match ${String(WORKSPACE_PANEL_ID)}`);
     if (new Set(panels.map(panel => panel.id)).size !== panels.length) problems.push('panel ids must be unique');
     if (!presets.some(preset => preset.id === initialPreset)) problems.push(`initialPreset "${initialPreset}" is not a preset`);
     if (compactPreset !== undefined && !presets.some(preset => preset.id === compactPreset)) problems.push(`compactPreset "${compactPreset}" is not a preset`);
@@ -191,7 +222,7 @@ function useDevChecks(props: PanelWorkspaceProps) {
  * - **Compact.** Under `compactBelow` the `compactPreset` arrangement shows, in memory only: what the user does there is not stored and
  *   the stored layout returns on widening. Without `compactPreset` the panels stack into one tab group.
  * - **Local preference.** `platform:workspace:v1:<user>:<menu>:<persistKey>` in `localStorage` (written 300 ms after a change, flushed on
- *   unmount and `pagehide`); read once on mount, never by a query. Without a user or a routed menu it stays in memory. Two panes showing
+ *   unmount and `pagehide`); read once on mount and again when `persistenceScope` changes, never by a query. Without a user or a routed menu it stays in memory. Two panes showing
  *   the same menu and `persistKey` share it; the last writer wins. Maximize is never stored.
  * - **Standalone.** Without a `PlatformProvider` (an app outside the platform, under `I18nProvider`) the layout stays in memory unless
  *   `persistence` names a key and optionally a storage; inside a `PlatformProvider` `persistence` is ignored.
@@ -203,7 +234,13 @@ function useDevChecks(props: PanelWorkspaceProps) {
  */
 export function PanelWorkspace(props: PanelWorkspaceProps) {
   const platform = usePlatformOptional();
+  const session = platform?.session;
+  const revision = platform?.revision;
+  const scopeId = platform?.scope.scopeId;
+  const dragScope = useMemo(() => ({ session, revision, scopeId }), [session, revision, scopeId]);
   useDevChecks(props);
+  const persistenceScope = platform ? props.persistenceScope : undefined;
+  const scopedStorage = useMemo(() => persistenceScope === undefined ? undefined : scopedWorkspaceStorage(persistenceScope), [persistenceScope]);
   if (props.panels.length === 0) return null;
   let storageKey: string | null;
   let storage: PanelWorkspaceStorage | undefined;
@@ -211,15 +248,19 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
     const userId = platform.session.user.id;
     const menuId = platform.route?.menu.id;
     storageKey = userId && menuId ? workspaceStorageKey(userId, menuId, props.persistKey) : null;
+    storage = scopedStorage;
   } else {
     storageKey = props.persistence?.key || null;
     storage = props.persistence?.storage;
   }
   // A persistKey (or menu, or user, or standalone key) change is a different workspace: its body remounts and restores that key's state on its own.
-  return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} storage={storage} />;
+  // A layout scope change (a saved view) keeps the body and its panels mounted; the body reads that scope's layout in place (#3128).
+  const canHoldSelection = platform !== null && props.panels.some(panel => panel.analysisSelectionDrop);
+  const bodyKey = storageKey ?? `memory:${props.persistKey}`;
+  return <WorkspaceBody key={bodyKey} {...props} persistenceScope={persistenceScope} storageKey={storageKey} storage={storage} dragScope={dragScope} canHoldSelection={canHoldSelection} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, edges = DEFAULT_EDGES, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, panelAddDrag, panelRecipe, edges = DEFAULT_EDGES, persistenceScope, storageKey, storage, dragScope, canHoldSelection }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined; dragScope: object; canHoldSelection: boolean }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -246,17 +287,27 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const summaryOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); const summary = panel?.collapse && panel.collapse.summary !== undefined ? panel.collapse.summary : panel?.minimize?.summary; return summary ? tx(summary) : ''; };
   const badgeOf = (id: string) => { const badge = panels.find(candidate => candidate.id === id)?.badge; return badge ? { count: badge.count, tone: badge.tone ?? 'neutral', description: tx(badge.description) } : undefined; };
 
-  const [initial] = useState(() => {
+  // The layout read for the current scope. A new scope (a saved view) swaps it in during render, panels and dock stay mounted (#3128).
+  const readScope = () => {
     const saved = storageKey ? readWorkspaceState(storageKey, spec, storage) : null;
-    return { saved, state: saved ?? initialWorkspaceState(spec) };
-  });
+    return { scope: persistenceScope, saved, state: saved ?? initialWorkspaceState(spec) };
+  };
+  const [initial, setInitial] = useState(readScope);
   const [storedState, setStored] = useState(initial.state);
   const root = useRef<HTMLDivElement>(null);
   const visible = useVisibleAreaHeight(root, true);
   const maxRow = visible ?? DEFAULT_VISIBLE;
   const panelIdentity = JSON.stringify([primaryId, [...spec.panelIds].sort(), sharedRows]);
   const [seenPanels, setSeenPanels] = useState({ identity: panelIdentity, below, ids: spec.panelIds });
-  const panelsChanged = seenPanels.identity !== panelIdentity;
+  const scopeChanged = initial.scope !== persistenceScope;
+  if (scopeChanged) {
+    // The new scope's layout is read against the panels as they are now, so it is not a panel change too.
+    const next = readScope();
+    setInitial(next);
+    setStored(next.state);
+    setSeenPanels({ identity: panelIdentity, below, ids: spec.panelIds });
+  }
+  const panelsChanged = !scopeChanged && seenPanels.identity !== panelIdentity;
   // A changed panel set renders its repaired state at once and commits it before paint. Not a render-phase setState: an observer
   // update queued right after one is computed eagerly against the state before it and would put the old panel set back (#2518).
   const stored = useMemo(() => (panelsChanged ? updateWorkspacePanels(storedState, spec, seenPanels.below, maxRow) : storedState),
@@ -288,12 +339,15 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const compactSpec = compactPreset === undefined ? undefined : presets.find(preset => preset.id === compactPreset);
   const compact = compactSpec !== undefined && narrow;
   const [compactState, setCompactState] = useState<WorkspaceState | null>(null);
+  // A scope change drops the overlay in the same render that swaps the layout, as a remount did (#3128).
+  if (scopeChanged && compactState !== null) setCompactState(null);
   if (panelsChanged && compactState !== null) setCompactState(previous => previous ? normalizeWorkspaceState(previous, spec, { maxRow }) : null);
   if (!compact && compactState !== null) setCompactState(null);
   const derived: WorkspaceState = compact ? { ...stored, preset: compactSpec.id, layout: presetTree(compactSpec.layout, panelOrder(stored.layout)) } : stored;
   const state = compact ? (compactState ?? derived) : stored;
 
   const [maximized, setMaximized] = useState<string | null>(null);
+  if (scopeChanged && maximized !== null) setMaximized(null);
   /** px above the rows (toolbar and its gap) read when a stacked maximize starts; the maximized box is the visible height less this. */
   const [maximizeChrome, setMaximizeChrome] = useState<number | null>(null);
   const shown = panelOrder(state.layout);
@@ -365,7 +419,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     if (revealSeq === undefined || revealId === undefined || revealSeq === handledSeq.current) return;
     handledSeq.current = revealSeq;
     if (!knownIds.split('|').includes(revealId)) {
-      if (isDevelopment()) console.error(`[PanelWorkspace] revealRequest names "${revealId}", which is not a panel`);
+      if (process.env.NODE_ENV !== 'production') console.error(`[PanelWorkspace] revealRequest names "${revealId}", which is not a panel`);
       return;
     }
     const { primaryId, presets, below, sharedRows } = live.current;
@@ -438,10 +492,11 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   }, [automaticRows, count, rowDeclarations, rowEnv, stackActive, visible]);
 
   // Restored rows obey the visible-height cap once, when a scrollport measurement first exists. Not again: a later window resize never rewrites the preference.
-  const restoreClamped = useRef(false);
+  // Keyed on the read it clamped: each scope's saved rows are clamped once on arrival, as when a scope change remounted the body (#3128).
+  const restoreClamped = useRef<object | null>(null);
   useLayoutEffect(() => {
-    if (restoreClamped.current || !stackActive || narrowNow.current || storedRows === undefined || visible === null) return;
-    restoreClamped.current = true;
+    if (restoreClamped.current === initial || !stackActive || narrowNow.current || storedRows === undefined || visible === null) return;
+    restoreClamped.current = initial;
     if (automaticRows) return;
     setStored(previous => {
       if (previous.mode !== 'stack' || previous.rows === undefined || previous.rows.length !== topLevelRows(previous.layout).length) return previous;
@@ -449,7 +504,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       const clamped = previous.rows.map((px, index) => clampRow(px, minimums[index]!, live.current.maxRow));
       return withAdjustedRowHeights(previous, clamped, live.current.sharedRows);
     });
-  }, [automaticRows, stackActive, storedRows, visible]);
+  }, [automaticRows, stackActive, storedRows, visible, initial]);
 
   const isFloating = (id: string) => panels.find(panel => panel.id === id)?.float !== false && state.floating?.some(panel => panel.panelId === id);
   const edgeOf = (id: string) => {
@@ -494,33 +549,47 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   useEffect(() => { storageRef.current = storage; });
   const pending = useRef<WorkspaceState | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const flush = useCallback(() => {
+  /** Writes the pending preference now, to the current storage unless a scope change names the storage it was made for. */
+  const flushTo = useCallback((target: PanelWorkspaceStorage | undefined) => {
     clearTimeout(timer.current);
     timer.current = undefined;
     const next = pending.current;
     pending.current = null;
-    if (next && storageKey) { writeWorkspaceState(storageKey, next, storageRef.current, { sharedRows: live.current.sharedRows.length > 0 }); persisted.current = next; }
+    if (next && storageKey) { writeWorkspaceState(storageKey, next, target, { sharedRows: live.current.sharedRows.length > 0 }); persisted.current = next; }
   }, [storageKey]);
+  const flush = useCallback(() => { flushTo(storageRef.current); }, [flushTo]);
   useEffect(() => {
     if (!storageKey) return;
     clearTimeout(timer.current);
     // Back to what is already stored (a change undone within the delay): nothing to write.
-    const preference = workspacePreference(stored);
+    const declaredIds = persistenceScope === undefined ? undefined : new Set(seenPanels.ids);
+    const preference = workspacePreference(stored, declaredIds);
     const baseline = persisted.current ?? (automaticRows ? null : initial.state);
-    if (baseline && sameWorkspaceState(preference, baseline)) { pending.current = null; return; }
+    if (baseline && sameWorkspaceState(preference, workspacePreference(baseline, declaredIds))) { pending.current = null; return; }
     pending.current = preference;
     timer.current = setTimeout(flush, WORKSPACE_WRITE_DELAY_MS);
-  }, [automaticRows, initial.state, stored, storageKey, flush]);
+  }, [automaticRows, initial.state, stored, storageKey, flush, seenPanels.ids, persistenceScope]);
   useEffect(() => {
     window.addEventListener('pagehide', flush);
     return () => { window.removeEventListener('pagehide', flush); flush(); };
   }, [flush]);
 
   const [peek, setPeek] = useState<DockFloatingPanel | null>(null);
+  if (scopeChanged && peek !== null) setPeek(null);
   const peekTrigger = useRef<HTMLElement | null>(null);
   const activePeek = !edgesNarrow && peek && state.hidden.includes(peek.panelId) && !state.floating?.some(panel => panel.panelId === peek.panelId) ? peek : null;
   const dismissPeek = useCallback(() => { setPeek(null); focusSoon(() => peekTrigger.current?.isConnected ? peekTrigger.current : null); }, []);
   useEffect(() => { if (edgesNarrow) setPeek(null); }, [edgesNarrow]);
+  // After a scope change (#3128): write what the left scope still owed to that scope's storage, then take the new scope's saved layout as
+  // the write baseline. Before paint, before the write timer re-arms. (Maximize, peek and the overlay reset in the swapping render.)
+  const scopeRead = useRef({ initial, storage });
+  useLayoutEffect(() => {
+    if (scopeRead.current.initial === initial) return;
+    const left = scopeRead.current.storage;
+    scopeRead.current = { initial, storage };
+    flushTo(left);
+    persisted.current = initial.saved;
+  }, [initial, storage, flushTo]);
   useEffect(() => {
     if (!activePeek) return;
     const outside = (event: PointerEvent) => {
@@ -562,7 +631,27 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   }, [badges]);
   const reading = dockGroupsInReadingOrder(state.layout);
   const focusTab = (panelId: string) => { focusTabSoon(() => root.current, panelId); };
-  const closeFocus = useRef<(() => void) | null>(null);
+  const closeFocus = useRef<DockChartCloseFocus | null>(null);
+  const moveAdded = useCallback((id: string, target: PanelAddPlacement) => {
+    update(current => {
+      const source = groupOf(current.layout, id);
+      if (!source || !groupOf(current.layout, target.panelId)) return current;
+      // The keyboard move starts from the active tab. Match its neighbour selection on detach.
+      const layout = source.active === id ? current.layout : activatePanel(current.layout, id);
+      return { ...current, layout: movePanel(layout, id, target) };
+    }, 'keep', id);
+  }, [update]);
+  const [placement, setPlacement] = useState<{ id: string; target: PanelAddPlacement; scope: object } | null>(null);
+  let addBlocked: string | undefined;
+  if (narrow) addBlocked = m('panelAddDropNarrow');
+  else if (maximizedId) addBlocked = m('panelAddDropMaximized');
+  const addDrag = usePanelAddDrag(fitSlot, { layout: state.layout, scope: dragScope, blocked: addBlocked,
+    place: (id, target) => { setPlacement({ id, target, scope: dragScope }); } });
+  useLayoutEffect(() => {
+    if (!placement) return;
+    setPlacement(null);
+    if (panelAddDrag && !addBlocked && placement.scope === dragScope) moveAdded(placement.id, placement.target);
+  }, [placement, panelAddDrag, addBlocked, dragScope, moveAdded]);
   const layoutChange = (change: (current: WorkspaceState) => WorkspaceState, created?: string) => { update(change, 'keep', created); };
   const moveBelow = (id: string) => {
     layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: moveToNewRow(current.layout, id) } : current), id);
@@ -678,8 +767,25 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       closeFocus.current = () => { focusTab(id); };
     };
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
-    return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
-      menuItems={panelMenuItems?.(id).map(item => ({ ...item, label: tx(item.label) }))}
+    const relativeMoves = panelAddDrag && !addBlocked && !floating ? reading.flatMap(other => {
+      const target = other.active === id ? other.panels.find(candidate => candidate !== id) : other.active;
+      if (!target) return [];
+      return (['top', 'bottom'] as const).map(position => ({
+        id: `sdk:move:${target}:${position}`, label: m(position === 'top' ? 'panelMoveAboveGroup' : 'panelMoveBelowGroup', { title: titleOf(target) }),
+        onSelect: () => { closeFocus.current = () => { focusTab(id); }; moveAdded(id, { panelId: target, position }); },
+      }));
+    }) : [];
+    const prepareToLeave = () => {
+      setMaximized(null);
+      const next = hidePanel(state, id, primaryId);
+      closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
+    };
+    const openRecipe = panelRecipe?.(panel?.declarationId ?? id, id);
+    return <WorkspaceGroupActions key={id} panelId={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
+      onOpenSettings={panel?.onOpenSettings}
+      selectionDrop={canHoldSelection ? panel?.analysisSelectionDrop : undefined}
+      menuItems={[...relativeMoves, ...(panelMenuItems?.(id).map(item => ({ ...item, label: tx(item.label) })) ?? [])]}
+      recipeItem={openRecipe && { label: tx(PANEL_RECIPE_ITEM), onSelect: openRecipe }}
       edgeActions={id === primaryId || edgesNarrow ? undefined : {
         left: panel?.collapse !== false && edges.includes('left') ? () => { collapse('left', { fromMenu: true }); } : undefined,
         top: panel?.collapse !== false && edges.includes('top') ? () => { collapse('top', { fromMenu: true }); } : undefined,
@@ -698,11 +804,12 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       onMove={target => { closeFocus.current = () => { focusTab(id); }; layoutChange(current => ({ ...current, layout: movePanel(current.layout, id, { panelId: target, position: 'center' }) })); }}
       onMoveBelow={rows && canMoveBelow(state.layout, id) ? () => { closeFocus.current = () => { focusTab(id); }; moveBelow(id); } : undefined}
       hideBlocked={panel?.keep ? { reason: tx(panel.keep.reason) } : undefined}
+      onRemove={id !== primaryId && panel?.onRemove ? () => {
+        prepareToLeave();
+        panel.onRemove?.();
+      } : undefined}
       onHide={id === primaryId ? undefined : () => {
-        setMaximized(null);
-        const next = hidePanel(state, id, primaryId);
-        closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
-        if (panel?.onRemove) { panel.onRemove(); return; }
+        prepareToLeave();
         layoutChange(current => {
           const next = hidePanel(current, id, primaryId);
           // Explicit hide chooses the hidden list instead of the remembered edge destination.
@@ -725,22 +832,35 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     setPeek(clampFloatingPanel({ panelId: id, x: (state.collapsed?.[id] ?? 'top') === 'top' ? Math.max(0, tab.left - (dock?.left ?? 0)) : 0, y: PEEK_TOP, width: FLOAT_SMALL.width, height: Math.min(FLOAT_SMALL.height, Math.max(1, area.height - PEEK_TOP)) }, area));
   };
 
-  const destinations = analysisPanelAddition ? {
+  const destinations: AnalysisPanelDestinations | null = analysisPanelAddition ? {
     ...analysisPanelAddition,
-    items: analysisPanelAddition.items.filter(item => !shown.includes(item.id) && !state.collapsed?.[item.id] && !isFloating(item.id)),
+    categorized: hasCategorizedPanels(analysisPanelAddition.items),
+    // A panel in view on any of its slots stays only for its `again` mode (#2862 ②); one only collapsed or floating is not offered, as before.
+    // `placed` is always the workspace's own value, never a field the menu passed.
+    items: analysisPanelAddition.items.flatMap((item): (PanelAddItem & { placed: boolean })[] => {
+      const slots = item.slots ?? [item.id];
+      const inView = slots.some(slot => shown.includes(slot) && !state.collapsed?.[slot] && !isFloating(slot));
+      if (inView) return item.again ? [{ ...item, placed: true }] : [];
+      if (slots.some(slot => state.collapsed?.[slot] || isFloating(slot))) return [];
+      return [{ ...item, placed: false }];
+    }),
   } : null;
   usePublishAnalysisWorkspace(panels.map(panel => panel.analysisSelectionSourceId ?? panel.id), destinations);
+  const toolbar = destinations?.toolbarDraft && destinations.items.length
+    ? <><ToolbarAnalysisPanelAdd workspace={destinations} />{toolbarActions}</>
+    : toolbarActions;
+  const actions = panelAddDrag && toolbar !== undefined ? <PanelAddDragContext.Provider value={addDrag.start}>{toolbar}</PanelAddDragContext.Provider> : toolbar;
   return <WorkspaceDepthProvider value={depth}>
     <AnalysisPanelAddContext.Provider value={destinations}>
     <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} data-workspace-density={densePage ? 'compact' : undefined} className={cn(rows ? 'flex w-full min-w-0 flex-col' : 'flex h-full min-h-0 w-full min-w-0 flex-col', densePage ? 'gap-1.5' : 'gap-2')}
       onKeyDown={event => { if (event.key !== 'Escape' || event.defaultPrevented) return; if (activePeek) dismissPeek(); else if (maximizedId) requestMaximized(null); else return; event.preventDefault(); event.stopPropagation(); }}>
-      {!hosted && <WorkspaceToolbar label={tx(label)} commands={commands} onShown={focusTab} actions={toolbarActions} />}
-      {hosted && toolbarActions !== undefined && <div data-workspace-actions className="flex items-center justify-end gap-2">{toolbarActions}</div>}
+      {!hosted && <WorkspaceToolbar label={tx(label)} commands={commands} onShown={focusTab} actions={actions} />}
+      {hosted && actions !== undefined && <div data-workspace-actions className="flex items-center justify-end gap-2">{actions}</div>}
       <WorkspaceEdges edge="top" items={edgeItems('top')} label={m('workspaceTopEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
       <div className={cn('flex min-w-0', !rows && 'min-h-0 flex-1')}>
       <WorkspaceEdges edge="left" items={edgeItems('left')} label={m('workspaceLeftEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
-      <div ref={fitSlot} data-workspace-dock className="min-h-0 min-w-0 flex-1">
-        <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
+      <div ref={fitSlot} data-workspace-dock className={cn('min-h-0 min-w-0 flex-1', canHoldSelection && 'relative [&>[data-dock-layout]]:isolate', addDrag.overlays && 'isolate')}>
+        <WorkspaceQueryHeads><DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
           floating={edgesNarrow ? undefined : { panels: floatingPanels, peekId: activePeek?.panelId, peekHeightFloor, onDismissPeek: dismissPeek, onChange: (next, tree) => { update(current => {
             const returned = (current.floating ?? []).filter(item => !next.some(panel => panel.panelId === item.panelId)).map(item => item.panelId);
             return { ...current, floating: next, hidden: [...new Set([...current.hidden.filter(id => !returned.includes(id)), ...next.map(panel => panel.panelId)])], layout: tree };
@@ -752,9 +872,11 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
           }}
           onActivate={id => { update(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: activatePanel(current.layout, id) } : current), 'raw'); }}
           maximizedPanelId={maximizedId} onMaximizedChange={requestMaximized}
-          renderGroupActions={groupActions}
+          renderGroupActions={groupActions} mergeChartHead
           separatorLabel={info => info.after.length === 0 ? m('workspaceSeparatorRowBottom', { before: titleOf(info.before[0]!) }) : m(info.dir === 'row' ? 'workspaceSeparatorColumns' : 'workspaceSeparatorRows', { before: titleOf(info.before[0]!), after: titleOf(info.after[0]!) })}
-          narrow={compactSpec ? false : narrow} />
+          narrow={compactSpec ? false : narrow} /></WorkspaceQueryHeads>
+        {canHoldSelection && <WorkspaceSelectionDrag root={fitSlot} panels={panels} />}
+        {panelAddDrag && <>{addDrag.overlays}<p role="status" data-panel-add-status className={addDrag.status ? 'pointer-events-none fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-md border border-border-subtle bg-surface-canvas px-2 py-1 text-sm text-text-primary' : 'sr-only'}>{addDrag.status}</p></>}
       </div>
       </div>
     </div>

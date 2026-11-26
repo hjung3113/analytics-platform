@@ -260,7 +260,12 @@
   --text-micro: 9px;
   --text-xs: 12px;
   --text-sm: 13px;
-  --text-body: 14px;
+  --text-body: 13px;
+  --text-page-title: 18px;
+  --text-section-title: 15px;
+  --text-stat: 28px;
+  --text-mono: 12.5px;
+  --text-chart-mark: 12px;
   --text-md: 15px;
   --text-lg: 17px;
   --text-xl: 20px;

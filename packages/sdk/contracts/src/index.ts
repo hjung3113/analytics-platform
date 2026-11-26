@@ -35,7 +35,7 @@ export type { CustomGroupDraft, CustomGroupTarget, CustomGroupView } from './lin
 export type { ApprovalAction, ApprovalRequestInfo, ChangeLine, ConditionSetDraft, ConditionSetView, DeniedSavedView, ExpectedVersion, GroupCapabilities, GroupMember, JsonValue, MenuView, MenuViewDraft, MigrateResult, Result, SavedView, SavedViewBase, SavedViewContext, SavedViewDraft, SavedViewEntry, SavedViewKey, SavedViewKind, SavedViewListItem, SavedViewPatch, SavedViewStore, SavedViewSupport, ViewApproval, ViewCapabilities, ViewGroup, ViewGroupEntry, ViewSharing, ViewVisibility } from './links/saved-view.js';
 export { CHART_CONFIG_COLORS, CHART_CONFIG_DECIMALS_MAX, CHART_CONFIG_FIELD_MAX, CHART_CONFIG_MEASURES_MAX, invalidChartConfig } from './links/chart-config.js';
 export type { ChartConfig, ChartConfigColor, ChartConfigMeasure, ChartValueFormat } from './links/chart-config.js';
-export { heldSelectionProblem, PANEL_INSTANCES_MAX, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCE_TOKEN_MAX, readMenuViewPanels } from './links/menu-view-panels.js';
+export { followHeldSets, heldSelectionProblem, PANEL_INSTANCES_MAX, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCE_TOKEN_MAX, invalidMenuViewPanels, readMenuViewPanels } from './links/menu-view-panels.js';
 export type { MenuViewPanels, PanelInstance, PanelInstanceInput, PanelInstanceOutput, PanelInstanceSource } from './links/menu-view-panels.js';
 
 export { HierarchyFailure, isHierarchyFailure, type HierarchyNode, type HierarchyPage, type HierarchySource } from './menu/hierarchy.js';
@@ -49,5 +49,7 @@ export type { EndpointId, PageConditionCategory, PageConditions, PageConditionOp
 
 export type { AnalysisSelection, AnalysisSelectionShape, AnalysisSelectionUse, PanelBinding, PanelContextKey, PanelDeclaration, PanelInputBinding, PanelInputs, PanelOutputBinding } from './menu/panels';
 export { EQUIPMENT_SELECTION_DIMENSION } from './menu/panels';
+export { CHART_PANEL_DECIMALS, CHART_PANEL_KINDS, CHART_PANEL_OUTPUT_KEY, assignMappingSlot, chartFieldMeta, chartPanelProblem, chartPanelTitle, createChartPanel, mappingSlotProblem, nextChartPanelId, readChartPanel, readChartPanelDraft, sameChartConfig } from './menu/chart-fields.js';
+export type { ChartBreakdownDeclaration, ChartMeasureDeclaration, ChartPanelDecimals, ChartPanelDraft, ChartPermissionCheck, ChartPanelKind, ChartPanelProblem, ChartPanelProblemCode, MappingChip, MappingSlot, MenuChartFields, ReadChartPanel } from './menu/chart-fields.js';
 export { MIN_GROUP_WIDTH, MAX_GROUP_LABEL_LENGTH, MAX_VIEW_TABLES, MAX_TABLE_KEY_LENGTH, MAX_GROUP_BASIS_LENGTH, MAX_COLUMN_GROUPS, MAX_GROUP_ID_LENGTH, MAX_GROUP_MEMBERS, isStoredColumnGroupItem, isStoredColumnGroups, isTableViewStates } from './links/table-view-state.js';
 export type { StoredColumnGroupItem, StoredColumnGroups, TableViewState } from './links/table-view-state.js';

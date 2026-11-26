@@ -1,26 +1,26 @@
 # analytics-platform 통합안 — 실제 Repository 기준
 
-> 상태: v0.33.0부터 `@eqv/*` 패키지는 이 저장소의 workspace다(`packages/eqv/*`, `workspace:*`; [ADR-0132](../../../adr/0132-eqv-merges-into-platform.md)). v0.34.0부터 뷰어와 Studio는 메뉴 패키지 `menus/tools/topview`·`menus/tools/topview-studio`이고 개발 도구 `apps/eqv-studio`는 지웠다(#1659). 아래 «2026-10-14 조회 때 확인한 계약»은 그날의 기록이고, Release tarball 소비 설명은 흡수 전 이력이다.
+> 상태: v0.33.0부터 `@eqv/*` 패키지는 이 저장소의 workspace다(`packages/eqv/*`, `workspace:*`; [ADR-0132](../../../adr/0132-eqv-merges-into-platform.md)). v0.34.0부터 뷰어와 Studio는 메뉴 패키지 `menus/tools/topview`·`menus/tools/topview-studio`이고 개발 도구 apps/eqv-studio는 지웠다(#1659). 아래 «2026-10-14 조회 때 확인한 계약»은 그날의 기록이고, Release tarball 소비 설명은 흡수 전 이력이다.
 
-**검토 대상:** https://github.com/hjung3113/analytics-platform (main, 2026-10-14 조회). 이 저장소의 `packages/platform-adapter`가 호스트 계약 1을 구현했고, 마운트는 analytics-platform의 별도 PR(AP #333/#334)이다.
+**검토 대상:** https://github.com/hjung3113/analytics-platform (main, 2026-10-14 조회). 이 저장소의 packages/platform-adapter가 호스트 계약 1을 구현했고, 마운트는 analytics-platform의 별도 PR(AP #333/#334)이다.
 
 ## 2026-10-14 조회 때 확인한 계약
 
 1. `README.md`: 플랫폼 FE는 `pnpm` workspace, `apps/platform-web`, `packages`, `menus` 구조. 서버는 현재 mock. Parser Postgres를 소비하는 분석 플랫폼.
 2. `AGENTS.md`, `docs/integration/platform-packages.md`: `packages/contracts → kernel/ui → components → shell → apps` 의존; 메뉴끼리 import 금지. 플랫폼 핵심 계층에 equipment-specific logic 금지.
 3. 도메인 조회는 `defineEndpoint`로 선언한 엔드포인트를 `host.query`로 부른다. 임의 `fetchEquipmentReplay()` 같은 호스트 계약 메서드 추가 금지.
-4. `menus/analytics/equipment/src/index.ts`: `equipment-detail`은 `/equipment/:equipmentId` 라우트를 이미 제공, navHidden; `equipment:view` 권한 사용.
-5. `menus/analytics/analytics/src/endpoints.ts`: 분석 Context는 시간 apply, occurrence 상세 키는 equipmentId+anchor. `docs/14_drilldown_platform.md`: context link 및 returnTo 패턴.
+4. menus/analytics/equipment/src/index.ts: `equipment-detail`은 `/equipment/:equipmentId` 라우트를 이미 제공, navHidden; `equipment:view` 권한 사용.
+5. menus/analytics/analytics/src/endpoints.ts: 분석 Context는 시간 apply, occurrence 상세 키는 equipmentId+anchor. docs/14_drilldown_platform.md: context link 및 returnTo 패턴.
 6. `DESIGN.md`: FeedbackOps 시각 primitive와 플랫폼 extension tokens의 소유권 명확. 별도 로봇용 색상 체계로 교체 금지.
-7. `docs/01_architecture_and_data_contract.md`: Parser 원본은 view/mart를 거쳐 API가 소비; late correction/rebuild 및 time-domain 규칙 존재. 조회는 범위/반환량 제한.
+7. docs/01_architecture_and_data_contract.md: Parser 원본은 view/mart를 거쳐 API가 소비; late correction/rebuild 및 time-domain 규칙 존재. 조회는 범위/반환량 제한.
 
 ## 통합 형태
 
-[EV ADR-0012](../../../adr/history/eqv/0012-platform-first-sdk-host.md)(EV ADR-0001 일부 대체): `core`/`renderer`/`editor`/`replay`는 이 저장소의 독립 패키지가 정본이고 플랫폼을 모른다. 기본 호스트는 플랫폼 셸이고, 호스트 → 앱 계약은 플랫폼 SDK(게시된 `@ap/*`, [EV ADR-0013](../../../adr/history/eqv/0013-platform-sdk-release-tarballs.md))가 소유한다. `packages/platform-adapter`가 그 계약을 구현해 화면을 조립하고, 플랫폼 `menus/analytics/equipment`는 연결만 한다. 모델·reducer·renderer 코드를 플랫폼 안에 다시 만들지 않는다.
+[EV ADR-0012](../../../adr/history/eqv/0012-platform-first-sdk-host.md)(EV ADR-0001 일부 대체): `core`/`renderer`/`editor`/`replay`는 이 저장소의 독립 패키지가 정본이고 플랫폼을 모른다. 기본 호스트는 플랫폼 셸이고, 호스트 → 앱 계약은 플랫폼 SDK(게시된 `@ap/*`, [EV ADR-0013](../../../adr/history/eqv/0013-platform-sdk-release-tarballs.md))가 소유한다. packages/platform-adapter가 그 계약을 구현해 화면을 조립하고, 플랫폼 menus/analytics/equipment는 연결만 한다. 모델·reducer·renderer 코드를 플랫폼 안에 다시 만들지 않는다.
 
 - 테마: `--eqv-*` → 플랫폼 토큰 매핑은 `@eqv/ui/theme.css`가 소유하고 어댑터 `styles.css`가 import한다. 호스트 입력(설비·진입 키·시간)은 `host-props.ts`가 읽는다.
 - 현재(#1659): 뷰어는 호스트 모듈이 아니라 일반 메뉴 패키지 `@ap/menu-topview`(`menus/tools/topview`)다. `manifests`(`eqv:topview`·`eqv:focus`, 그룹 `topview`)를 앱이 등록하고 화면은 lazy `import()`로 불러오며, Kernel 훅(`usePlatform`·`useMenuFetch`·`useMenuQuery`)으로 읽는다. 상세 슬롯·`host.status`는 없고 구성요소 상세는 인라인 패널이다.
-- 타 분석 메뉴는 `linkTo`로 **같은 화면으로 이동**하고 렌더러 코드를 import하지 않는다. 현재 `menu-*` 상호 import 금지와 `packages/components` 범용성 원칙을 그대로 지킨다.
+- 타 분석 메뉴는 `linkTo`로 **같은 화면으로 이동**하고 렌더러 코드를 import하지 않는다. 현재 `menu-*` 상호 import 금지와 `packages/sdk/components` 범용성 원칙을 그대로 지킨다.
 - 패키지는 workspace로 소비한다(`workspace:*`, ADR-0132). 흡수 전에는 양방향 모두 Release tarball이었다(이력: [EV ADR-0013](../../../adr/history/eqv/0013-platform-sdk-release-tarballs.md)·[EV ADR-0014](../../../adr/history/eqv/0014-eqv-release-tarballs.md)의 `eqv-vX.Y.Z` 여섯 파일, 정확 버전 peer, `peerDependencyRules`).
 - CSS 진입은 `@import "tailwindcss"` → `@ap/ui/styles.css` → `@eqv/platform-adapter/styles.css` 순서다.
 - 원천 parser Result → Occurrence 변환은 플랫폼 **서버** read view(`eqv.topview-events`)의 책임이다([EV ADR-0002](../../../adr/history/eqv/0002-occurrence-input-contract.md)). 클라이언트와 이 저장소에는 원천 parser 코드·어휘를 두지 않는다.

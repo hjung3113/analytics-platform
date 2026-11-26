@@ -5,6 +5,7 @@ import { bindQueryRecovery } from './recovery-evidence';
 import { narrowedGlobal } from './condition-preset';
 import { LentPanelQueryContext } from './lent-panel-context';
 import { useHostPlatform, useQueryEngine } from '../platform/platform';
+import { useScopeValidationId } from '../platform/hooks';
 import { clientCorrelationId, compareAuditEvents, CUSTOM_GROUP_AXIS, projectContext, type ApiResponse, type AssessmentKind, type AuditEvent, type CustomGroupTarget, type EndpointSpec, type EntityAuditPage, type EntityRef, type MenuQueryContext, type SavedViewListItem, serializeGlobal, isAnswered } from '@ap/contracts';
 import { customGroupItemId, customGroupReadState, expandCustomGroups } from '../saved-view/expand-custom-groups';
 import { readEquipmentFacts } from '../scope/equipment-facts-cache';
@@ -25,6 +26,11 @@ export type QueryState<T> = {
   completedAt: number | null;
   response: ApiResponse<T> | null;
   refetch: () => void;
+  /** Pause this observer. The engine aborts transport when the last observer pauses. */
+  cancel?: () => void;
+  cancelled?: true;
+  /** Last successful read available on error, within this session and query identity. */
+  previousResult?: { response: ApiResponse<T>; completedAt: number; params?: unknown };
   /**
    * `useMenuQuery` with `keepPrevious` on only (ADR-0114): the `params` the displayed result was loaded with; undefined while no
    * result is shown, and always undefined when the option is off or for any other hook.
@@ -50,7 +56,7 @@ export type QueryState<T> = {
 export function usePlatformQuery<T>(run: (signal: AbortSignal) => Promise<ApiResponse<T>>, pageInputs: unknown = null, enabled = true, identity: 'context' | 'session' = 'context', refreshEpoch = 0): QueryState<T> {
   const { global } = useHostPlatform();
   const instance = useId();
-  return useQueryLifecycle(['platform', instance, identity === 'session' ? null : serializeGlobal(global), pageInputs], run, enabled, refreshEpoch, null);
+  return useQueryLifecycle(['platform', instance, identity === 'session' ? null : serializeGlobal(global), pageInputs], async signal => ({ response: await run(signal) }), enabled, refreshEpoch, null);
 }
 
 /** A rejected read is transient only when the producer supplies an explicit platform error name. */
@@ -63,7 +69,16 @@ function errorEnvelope(error: unknown): ApiResponse<never> {
     ...(isTransientReadError(error) ? { recovery: { retryable: true } } : {}) };
 }
 
-type Accepted = { key: string; scope: string; data: unknown; at: number; params: unknown };
+type ReadResult<T> = { response: ApiResponse<T>; notSent?: true };
+type QueryAnswer<T> = ReadResult<T> & { request: number };
+type Accepted<T> = { key: string; scope: string; answer: QueryAnswer<T>; at: number; params: unknown };
+
+function discardsPrevious(answer: ReadResult<unknown>): boolean {
+  return answer.response.outcome === 'forbidden' || answer.notSent === true;
+}
+
+// Order reads by their start, including in-flight reads and reads within the same millisecond.
+let lastRequest = 0;
 
 /** Opt-in of {@link useMenuQuery} (ADR-0114). */
 export type MenuQueryOptions = {
@@ -108,24 +123,35 @@ function useRefreshEpoch(refreshEpoch: number, refetch: () => void): void {
  * lets an enabled hook keep its last accepted `ok`/`empty` result as `refreshing` while a key that differs only in page inputs
  * loads; the kept result keeps its own `completedAt`, and any reply of the new key (also an error) replaces it.
  */
-function useQueryLifecycle<T>(parts: readonly [string, ...unknown[]], run: (signal: AbortSignal) => Promise<ApiResponse<T>>, enabled: boolean, refreshEpoch: number, idle: readonly QueryMissing[] | null, keepScope?: readonly unknown[], paramsInfo?: { value: unknown }): QueryState<T> {
+function useQueryLifecycle<T>(parts: readonly [string, ...unknown[]], run: (signal: AbortSignal) => Promise<ReadResult<T>>, enabled: boolean, refreshEpoch: number, idle: readonly QueryMissing[] | null, keepScope?: readonly unknown[], options?: { params: unknown; requestReady: boolean }): QueryState<T> {
   const { client, gen } = useQueryEngine();
   const isIdle = idle !== null;
   const [kind, ...rest] = parts;
   const queryKey = [kind, gen, ...rest, isIdle];
   const hash = hashKey(queryKey);
   const scopeHash = hashKey([kind, gen, ...(keepScope ?? []), isIdle]);
-  const active = enabled && !isIdle;
-  const query = useQuery<ApiResponse<T>>({
+  const ready = enabled && !isIdle;
+  const [cancelledKey, setCancelledKey] = useState<string | null>(null);
+  const cancelled = ready && cancelledKey === hash;
+  if (cancelledKey !== null && !cancelled) setCancelledKey(null);
+  const active = ready && !cancelled;
+  const [gate, setGate] = useState({ ready, discardThrough: 0 });
+  const reopened = ready && !gate.ready;
+  const discardThrough = reopened ? lastRequest : gate.discardThrough;
+  if (gate.ready !== ready) setGate({ ready, discardThrough });
+
+  const query = useQuery<QueryAnswer<T>>({
     queryKey,
     queryFn: async ({ signal }) => {
+      const request = ++lastRequest;
       try {
-        return await run(signal);
+        const result = await run(signal);
+        return { ...result, request };
       } catch (error) {
         // Only the Kernel's own abort means superseded (#183); any other rejection — even an adapter-internal AbortError
         // timeout — is the normal error path, like validateScope since #167.
         if (signal.aborted) throw error;
-        return errorEnvelope(error);
+        return { response: errorEnvelope(error), request };
       }
     },
     enabled: active,
@@ -133,28 +159,53 @@ function useQueryLifecycle<T>(parts: readonly [string, ...unknown[]], run: (sign
   const openKey = [kind, gen, ...rest, false];
   useDropOnIdle(client, openKey, hashKey(openKey), isIdle);
 
-  const [accepted, setAccepted] = useState<Accepted | null>(null);
-  const live: Accepted | null = active && query.data !== undefined ? { key: hash, scope: scopeHash, data: query.data, at: query.dataUpdatedAt, params: paramsInfo?.value } : null;
-  if (live && (accepted?.key !== hash || accepted.scope !== live.scope || accepted.data !== live.data || accepted.at !== live.at)) setAccepted(live);
-  else if (isIdle && accepted !== null) setAccepted(null);
-  const same = !isIdle && accepted?.key === hash ? accepted : null;
-  const kept = !live && !same && keepScope && active && accepted && accepted.scope === scopeHash && ['ok', 'empty'].includes((accepted.data as ApiResponse<unknown>).outcome) ? accepted : null;
+  const [accepted, setAccepted] = useState<Accepted<T> | null>(null);
+  const answer = query.data;
+  const fresh = answer !== undefined && answer.request > discardThrough;
+  const revoked = ready && fresh && discardsPrevious(answer);
+  const live = fresh && (active || revoked)
+    ? { key: hash, scope: scopeHash, answer, at: query.dataUpdatedAt, params: options?.params } : null;
+  if (live && (accepted?.key !== hash || accepted.scope !== live.scope || accepted.answer !== live.answer || accepted.at !== live.at)) setAccepted(live);
+  else if (!live && accepted && (isIdle || reopened || options?.requestReady === false)) setAccepted(null);
+  const same = !isIdle && !reopened && options?.requestReady !== false && accepted?.key === hash ? accepted : null;
+  const kept = !live && !same && !reopened && keepScope && active && accepted && accepted.scope === scopeHash && isAnswered(accepted.answer.response.outcome) ? accepted : null;
   const shown = live ?? same ?? kept;
 
-  const guard = useRef({ active });
-  useLayoutEffect(() => { guard.current = { active }; });
+  const [lastSuccess, setLastSuccess] = useState<Accepted<T> | null>(null);
+  const prior = ready && !reopened && lastSuccess && (keepScope ? lastSuccess.scope === scopeHash : lastSuccess.key === hash) ? lastSuccess : null;
+  if (live?.answer.response.outcome === 'ok') {
+    if (prior?.at !== live.at || prior.key !== live.key || prior.answer !== live.answer) setLastSuccess(live);
+  } else if (lastSuccess && (!prior || revoked)) setLastSuccess(null);
+
+  const guard = useRef({ ready });
+  useLayoutEffect(() => { guard.current = { ready }; });
   const { refetch: engineRefetch } = query;
+  // Re-enabling may join a peer's in-flight read. If it predates this gate, read again once it settles.
+  const needsFreshAnswer = active && answer !== undefined && !fresh && query.fetchStatus === 'idle';
+  useEffect(() => {
+    if (needsFreshAnswer) void engineRefetch({ cancelRefetch: false });
+  }, [needsFreshAnswer, engineRefetch]);
   // TanStack's `refetch()` ignores `enabled`; a closed gate (06 §19) stays closed. `cancelRefetch: false` lets observers of one key share the request.
-  const refetch = useCallback(() => { if (guard.current.active) void engineRefetch({ cancelRefetch: false }); }, [engineRefetch]);
+  const refetch = useCallback(() => {
+    if (!guard.current.ready) return;
+    setCancelledKey(null);
+    void engineRefetch({ cancelRefetch: false });
+  }, [engineRefetch]);
+  const pause = useCallback(() => setCancelledKey(hash), [hash]);
   useRefreshEpoch(refreshEpoch, refetch);
 
-  const extra = (result: Accepted | null) => !paramsInfo || !keepScope ? {} : {
+  const extra = (result: Accepted<T> | null) => !options || !keepScope ? {} : {
     resultParams: result?.params,
-    showingPrevious: result !== null && hashKey([result.params]) !== hashKey([paramsInfo.value]),
+    showingPrevious: result !== null && hashKey([result.params]) !== hashKey([options.params]),
   };
   if (idle !== null) return { status: 'idle', response: null, missing: idle, completedAt: null, refetch, ...extra(null) };
-  if (!shown) return { status: 'loading', response: null, missing: [], completedAt: null, refetch, ...extra(null) };
-  return { status: active && (query.isFetching || kept) ? 'refreshing' : 'done', response: shown.data as ApiResponse<T>, missing: [], completedAt: shown.at, refetch, ...extra(shown) };
+  const response = shown?.answer.response ?? null;
+  const status = cancelled ? 'done' : !shown ? 'loading' : active && (query.isFetching || kept) ? 'refreshing' : 'done';
+  const cancel = active && query.fetchStatus !== 'idle' ? pause : undefined;
+  const previousResult = prior && !revoked && (response?.outcome === 'error' || response?.outcome === 'timeout')
+    ? { response: prior.answer.response, completedAt: prior.at, params: prior.params } : undefined;
+  const showCancelled = cancelled && !(shown && discardsPrevious(shown.answer));
+  return { status, response, missing: [], completedAt: shown?.at ?? null, refetch, cancel, cancelled: showCancelled || undefined, previousResult, ...extra(shown) };
 }
 
 /**
@@ -164,7 +215,7 @@ function useQueryLifecycle<T>(parts: readonly [string, ...unknown[]], run: (sign
  */
 export function useEntityQuery<T>(ref: EntityRef, pageInputs: unknown = null, enabled = true): QueryState<T> {
   const { adapter } = useHostPlatform();
-  return useQueryLifecycle<T>(['entity', ref, pageInputs], signal => adapter.getEntity(ref, signal) as Promise<ApiResponse<T>>, enabled, 0, null);
+  return useQueryLifecycle<T>(['entity', ref, pageInputs], async signal => ({ response: await adapter.getEntity(ref, signal) as ApiResponse<T> }), enabled, 0, null);
 }
 
 /** Older changes of one destination, appended after the first page (ADR-0085). `status` 'end' also covers a first page that was the whole list. */
@@ -184,7 +235,7 @@ export type AuditMoreLast = CursorMoreLast;
 export function useEntityAudit(ref: EntityRef, enabled = true): { query: QueryState<EntityAuditPage>; timeline: { events: readonly AuditEvent[]; more: AuditMore } } {
   const { adapter } = useHostPlatform();
   const { client, gen } = useQueryEngine();
-  const query = useQueryLifecycle<EntityAuditPage>(['audit', ref], signal => adapter.entityAudit({ type: ref.type, id: ref.id, scopeId: ref.scopeId }, signal), enabled, 0, null);
+  const query = useQueryLifecycle<EntityAuditPage>(['audit', ref], async signal => ({ response: await adapter.entityAudit({ type: ref.type, id: ref.id, scopeId: ref.scopeId }, signal) }), enabled, 0, null);
   // The read generation of the first page: bumped whenever a first-page read starts (the cache event of the key's fetch
   // action, which no batching can swallow), so the appended pages belong to one read even when the adapter answers a
   // refetch with the very same response object.
@@ -337,12 +388,17 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
       host => hashKey([projectMenuContext(spec, host, options)]) === projectedKey, signal);
   };
   // Without a chosen custom group the adapter is called in the same tick as before; only expansion adds awaits.
-  const send = (params: P, callerSignal?: AbortSignal): Promise<ApiResponse<T>> => {
+  const read = (params: P, callerSignal?: AbortSignal): Promise<ReadResult<T>> => {
     const signal = lent && callerSignal ? AbortSignal.any([lent.signal, callerSignal]) : lent?.signal ?? callerSignal;
     if (lent && (aborted(signal) || !lent.current())) return Promise.reject(new DOMException('aborted', 'AbortError'));
-    if (!projected.condition?.[CUSTOM_GROUP_AXIS]?.length) return transport(projected, params, signal);
-    return expandedMenuContext<T>(inputs, projected, signal).then(outgoing => 'outcome' in outgoing ? outgoing : transport(outgoing, params, signal));
+    const sendContext = (context: MenuQueryContext) => transport(context, params, signal).then(response => ({ response }));
+    if (!projected.condition?.[CUSTOM_GROUP_AXIS]?.length) return sendContext(projected);
+    return expandedMenuContext<T>(inputs, projected, signal).then(outgoing => {
+      if ('outcome' in outgoing) return { response: outgoing, notSent: true };
+      return sendContext(outgoing);
+    });
   };
+  const send = (params: P, signal?: AbortSignal) => read(params, signal).then(({ response }) => response);
   const notReady = (): ApiResponse<T> => ({ outcome: 'error', data: null, assessments: [], trust: null, correlationId: clientCorrelationId(), message: `not_ready: ${spec.id} waits for a validated Scope and period` });
   // A detached sidebar fetch follows the screen's Apply/drill gate only for that screen's own endpoints.
   // Screen panels keep their gate even when their endpoint belongs to another menu.
@@ -354,16 +410,19 @@ export function menuRequest<P, T>(spec: EndpointSpec<P, T>, inputs: MenuRequestI
   });
   const screenReady = !ownScreen || (queryPolicy.ready && (optionSource || (!queryPolicy.idle && !queryPolicy.drillGap)));
   const missing = ownScreen && queryPolicy.idle ? queryPolicy.missing : null;
-  return { projected, ready: endpointAllowed && scopeReady && !groupReadPending && periodReady && screenReady, missing, send, notReady };
+  return { projected, ready: endpointAllowed && scopeReady && !groupReadPending && periodReady && screenReady, missing, read, send, notReady };
 }
 
 /** `useMenuQuery` result: `QueryState` with `resultParams` typed as the endpoint's `P` (the params the shown result was loaded with). */
-export type MenuQueryState<P, T> = QueryState<T> & { resultParams?: P };
+export type MenuQueryState<P, T> = QueryState<T> & {
+  resultParams?: P;
+  previousResult?: NonNullable<QueryState<T>['previousResult']> & { params?: P };
+};
 
 /**
- * Queries one declared menu endpoint through the platform adapter. Results use session identity
- * `[revision, user.id, spec.id, projectContext(spec, global), params]`: Context keys the endpoint does not apply
- * do not invalidate the result, while applied keys and session changes hide it immediately.
+ * Queries one declared menu endpoint through the platform adapter. Result identity includes the session generation,
+ * endpoint, projected Context and params. Scope-guarded reads also include the screen's accepted validation.
+ * Context keys the endpoint does not apply do not invalidate the result, while applied keys and session changes hide it immediately.
  *
  * A `requiresScope` endpoint waits until the selected Scope is server-validated for the current session and matches the Context.
  * `MenuMeta.requiresScope` means Scope must be selected and validated before a page queries data, so the Kernel
@@ -385,13 +444,15 @@ export function useMenuQuery<P, T>(spec: EndpointSpec<P, T>, params: NoInfer<P>,
   const options = typeof third === 'object' ? third : fourth;
   const enabled = (typeof third === 'boolean' ? third : true) && (options?.enabled ?? true);
   const platform = useHostPlatform();
+  const scopeValidationId = useScopeValidationId();
   const queryEngine = useQueryEngine();
   const lent = useContext(LentPanelQueryContext);
-  const { projected, ready, missing, send } = menuRequest(spec, { ...platform, queryEngine }, { lent });
+  const { projected, ready, missing, read } = menuRequest(spec, { ...platform, queryEngine }, { lent });
   // `resultParams` is the `params` object handed to the lifecycle below, so it is a `P`; the engine layer types it `unknown`.
-  const identity = lent ? [spec.id, projected, lent.instanceId] : [spec.id, projected];
-  const parts = lent ? ['menu', spec.id, projected, params, lent.instanceId] as const : ['menu', spec.id, projected, params] as const;
-  return useQueryLifecycle<T>(parts, signal => send(params, signal), enabled && ready, 0, missing, options?.keepPrevious ? identity : undefined, { value: params }) as MenuQueryState<P, T>;
+  const identity = [spec.id, projected, lent?.instanceId ?? null,
+    spec.requiresScope || projected.condition?.[CUSTOM_GROUP_AXIS]?.length ? scopeValidationId : null] as const;
+  const parts = ['menu', ...identity, params] as const;
+  return useQueryLifecycle<T>(parts, signal => read(params, signal), enabled && ready, 0, missing, options?.keepPrevious ? identity : undefined, { params, requestReady: ready }) as MenuQueryState<P, T>;
 }
 
 export type MenuFetch<P, T> = {

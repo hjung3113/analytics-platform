@@ -84,6 +84,50 @@ describe('ViewSelector', () => {
     expect(screen.getByRole('menuitem', { name: '저장본으로 되돌리기' })).toBeVisible();
   });
 
+  it('keeps the unblocked save menu labels as text and the clean-state action disabled', async () => {
+    render(<Harness />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    const current = screen.getByRole('menuitem', { name: '현재 뷰에 저장' });
+    const copy = screen.getByRole('menuitem', { name: '새 뷰로 저장' });
+    for (const action of [current, copy]) {
+      expect(action.children).toHaveLength(0);
+      expect(action).not.toHaveAttribute('aria-describedby');
+    }
+    expect(current).toHaveAttribute('aria-disabled', 'true');
+    expect(current).toHaveAttribute('data-disabled');
+    expect(copy).not.toHaveAttribute('aria-disabled');
+    expect(copy).not.toHaveAttribute('data-disabled');
+  });
+
+  it('wraps a long block reason inside the menu width and dims the blocked saves (#3105)', async () => {
+    const reason = '매핑 초안에 같은 원천 열이 두 번 쓰였습니다. 매핑을 고치거나 서랍을 닫아 되돌린 뒤 저장하세요.';
+    render(<Harness state="modified" saveBlock={{ summary: `${reason} 외 1건`, reasons: `${reason}\n두 번째 사유` }} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    const notice = screen.getByText(`${reason} 외 1건`);
+    expect(notice).toHaveClass('max-w-64', 'whitespace-normal', 'break-words');
+    for (const name of ['현재 뷰에 저장', '새 뷰로 저장']) {
+      const action = screen.getByRole('menuitem', { name });
+      expect(action).toHaveAttribute('aria-disabled', 'true');
+      expect(action).not.toHaveAttribute('data-disabled');
+      expect(within(action).getByText(name)).toHaveClass('opacity-50');
+    }
+    expect(screen.getByRole('menuitem', { name: '저장본으로 되돌리기' }).children).toHaveLength(0);
+  });
+
+  it('keeps the unblocked save-and-switch button enabled without block attributes', async () => {
+    const user = userEvent.setup();
+    render(<Harness state="modified" onSave={vi.fn()} />);
+    await open(user);
+    await user.click(screen.getByRole('button', row('Beta shared')));
+    const save = screen.getByRole('button', { name: '저장하고 이동' });
+    expect(save).toBeEnabled();
+    expect(save).not.toHaveAttribute('aria-disabled');
+    expect(save).not.toHaveAttribute('aria-describedby');
+    expect(save).not.toHaveClass('aria-disabled:opacity-50');
+  });
+
   it('keeps revert unavailable until selection is enabled again', async () => {
     const user = userEvent.setup();
     const onRevert = vi.fn();

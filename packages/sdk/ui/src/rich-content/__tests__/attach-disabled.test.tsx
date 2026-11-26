@@ -11,7 +11,8 @@ describe('toolbar attachment disabled transitions', () => {
     let resolve!: (value: RichEditorAttachmentResult) => void;
     const onAttach = vi.fn(() => new Promise<RichEditorAttachmentResult>(done => { resolve = done; }));
     let api: RichEditorToolbarApi;
-    const element = (disabled: boolean) => <RichEditorImpl surface="voc-description" disabled={disabled} onAttach={onAttach} toolbar={(_editor, current) => { api = current; return null; }} />;
+    const onChange = vi.fn();
+    const element = (disabled: boolean) => <RichEditorImpl surface="voc-description" disabled={disabled} onAttach={onAttach} onChange={onChange} toolbar={(_editor, current) => { api = current; return null; }} />;
     const { rerender } = render(element(false));
     await screen.findByRole('textbox');
     let upload!: Promise<RichEditorAttachmentResult>;
@@ -22,6 +23,8 @@ describe('toolbar attachment disabled transitions', () => {
     expect(document.querySelector('[data-attachment-id]')).toBeNull();
     rerender(element(false));
     await waitFor(() => expect(document.querySelector('[data-attachment-id]')).toHaveAttribute('data-attachment-id', result.attachment_id));
+    // The flushed upload is a content change: it reaches onChange even though toggling editable alone does not (#3043).
+    expect(onChange).toHaveBeenCalledTimes(1);
     rerender(element(true));
     rerender(element(false));
     expect(document.querySelectorAll('[data-attachment-id]')).toHaveLength(1);

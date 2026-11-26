@@ -1,21 +1,56 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { isAnswered } from '@ap/contracts';
-import { LentPanel, PlatformLink, useI18n, useLentPanel, useMenuQuery, useMessages, usePlatform, useQueryContext, type LinkResolution } from '@ap/kernel';
-import { PANEL_RECIPE_ITEM, PanelRecipeBack, PanelRecipeFrame, PanelWorkspace, focusPageFallback, panelRecipe, type PanelWorkspacePanel, type PanelWorkspacePreset } from '@ap/components';
+import { formatWallClock, isAnswered, type Text } from '@ap/contracts';
+import { formatText, HeldAnalysisSelections, LentPanel, PlatformLink, useI18n, useLentPanel, useMenuQuery, useMessages, usePlatform, useQueryContext, type HeldAnalysisSelection, type LinkResolution } from '@ap/kernel';
+import { LoadingBlock, PANEL_RECIPE_ITEM, PanelRecipeBack, PanelRecipeFrame, PanelWorkspace, StateMessage, focusPageFallback, panelRecipe, type AnalysisPanelDraft, type PanelWorkspacePanel, type PanelWorkspacePreset } from '@ap/components';
 import { manifests } from '../index';
-import { configurationLendingEndpoint, HW_TREND_CLOSED, HW_TREND_ITEM_KEY, TREND_ITEM_KEY, type CompareParams, type LinkedMotion } from '../endpoints';
-import { X } from 'lucide-react';
-import { Button } from '@ap/ui';
+import { configurationLendingEndpoint, historyPeriod, HW_TREND_CLOSED, HW_TREND_ITEM_KEY, TREND_ITEM_KEY, type CompareParams, type LinkedMotion } from '../endpoints';
+import { TriangleAlert, X } from 'lucide-react';
+import { Button, StatusBadge } from '@ap/ui';
 import { HW_TIME_TREND, hwTimeTrendBinding } from '../lentTrendMapping';
 import { MESSAGES } from '../messages';
 import { configurationPanels } from '../panels';
+import { COMPARISON_OPTIONS, HW_TIME_COMPARISON_ID, HW_TIME_PANEL_ID, useHwTimePanels } from './heldTrend';
 import { TrendPanel } from './TrendPanel';
 
 const { matrix, trend } = configurationPanels;
 const PRESETS: PanelWorkspacePreset[] = [{ id: 'comparison', label: MESSAGES.title, layout: { type: 'group', panels: [matrix.id], active: matrix.id } }];
 const TREND_HEIGHT = 420;
 const TREND_ROW = { row: 'trends' };
-const HW_TIME_PANEL_ID = 'hw-time-trend';
+const COMPARISON_ROW = { row: 'hw-time-comparison' };
+
+function HwTimeComparison({ values, time, badge, waiting, reason, follow, close }: {
+  values: ReturnType<typeof hwTimeTrendBinding>['values'];
+  time?: HeldAnalysisSelection;
+  badge?: Text;
+  waiting: boolean;
+  reason: string | null;
+  follow?: () => void;
+  close: () => void;
+}) {
+  const { tx } = useI18n();
+  const m = useMessages(MESSAGES);
+  return <div className="flex h-full min-h-0 min-w-0 flex-col break-keep">
+    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-b border-border-subtle px-4 py-2">
+      {badge && <StatusBadge tone="neutral" className="mr-auto min-w-0 whitespace-normal break-keep">{tx(badge)}</StatusBadge>}
+      {follow && <Button variant="secondary" size="sm" onClick={follow}>{m('hwTimeFollowAgain')}</Button>}
+      <Button variant="ghost" size="icon-sm" aria-label={m('closeHwTimeComparison')} onClick={close}><X className="size-4" aria-hidden /></Button>
+    </div>
+    <div className="min-h-0 flex-1">
+      {waiting && <LoadingBlock />}
+      {!waiting && reason && <StateMessage compact tone="warning" icon={<TriangleAlert aria-hidden />} title={reason} />}
+      {!waiting && !reason && <HeldAnalysisSelections held={time ? { [COMPARISON_OPTIONS.holdTime.key]: time } : {}}>
+        <ComparisonLentPanel values={values} />
+      </HeldAnalysisSelections>}
+    </div>
+  </div>;
+}
+
+function ComparisonLentPanel({ values }: { values: ReturnType<typeof hwTimeTrendBinding>['values'] }) {
+  const { tx } = useI18n();
+  const verdict = useLentPanel(HW_TIME_TREND, values, COMPARISON_OPTIONS);
+  if (!verdict.allowed) return <StateMessage compact tone="warning" icon={<TriangleAlert aria-hidden />} title={tx(verdict.reason.text)} />;
+  return <LentPanel source={HW_TIME_TREND} values={values} {...COMPARISON_OPTIONS} />;
+}
 
 export function OpenHwTimeLink({ link }: { link: LinkResolution }) {
   const m = useMessages(MESSAGES);
@@ -52,35 +87,39 @@ function RecipeBack({ id, close, fallback }: { id: string; close: () => void; fa
 export function ConfigurationWorkspace({ itemId, params, children }: {
   itemId: string | null; params: CompareParams; children: (actions: TrendActions) => ReactNode;
 }) {
-  const { registry, pageParam, resolveLink, setPage } = usePlatform();
+  const { registry, pageParam, resolveLink, setPage, session, revision, global } = usePlatform();
   const context = useQueryContext();
   const { tx } = useI18n();
   const m = useMessages(MESSAGES);
   const matrixRoot = useRef<HTMLDivElement>(null);
   const returnHwTrendFocus = useRef(false);
   const hwKey = pageParam(HW_TREND_ITEM_KEY);
-  // The URL owns the follow target, including while its mapping request is pending.
-  const hwItem = hwKey === HW_TREND_CLOSED ? null : hwKey ?? itemId;
-  const lending = useMenuQuery(configurationLendingEndpoint, { itemId: hwItem ?? '', equipment: params.eq }, {
-    enabled: hwItem !== null && registry.has('hw-time'), keepPrevious: true,
+  // Both slots follow the URL target. A saved graph or a close while comparing controls which slots use it.
+  const target = hwKey === HW_TREND_CLOSED ? null : hwKey ?? itemId;
+  const hwPanels = useHwTimePanels(JSON.stringify([session.user.id, revision, global.scopeId]), { pageHasOriginal: target !== null });
+  const { originalOpen, comparison } = hwPanels;
+  const hwItem = originalOpen ? target : null;
+  const mappingItem = comparison ? target : hwItem;
+  const canMap = mappingItem !== null && registry.has('hw-time');
+  const lending = useMenuQuery(configurationLendingEndpoint, { itemId: mappingItem ?? '', equipment: params.eq }, {
+    enabled: canMap, keepPrevious: true,
   });
   const mapping = lending.showingPrevious ? null : lending.response;
   const { values, unmappedLabels, incomplete } = hwTimeTrendBinding(mapping?.outcome === 'ok' ? mapping.data : null, params.eq, context.selection);
   const verdict = useLentPanel(HW_TIME_TREND, values);
   const mappingFailed = mapping !== null && !isAnswered(mapping.outcome);
-  let reason: string | null = null;
+  let mappingReason: string | null = null;
+  if (mappingFailed) mappingReason = mapping.outcome === 'forbidden' ? m('hwTimeMappingDenied') : m('hwTimeMappingFailed');
+  else if (incomplete && verdict.reason?.kind !== 'not-registered') {
+    mappingReason = unmappedLabels.length ? m('hwTimeUnmappedColumns', { columns: unmappedLabels.join(', ') }) : m('hwTimeUnmapped');
+  }
+  let reason = mappingReason;
   if ((values || mappingFailed) && verdict.reason?.kind === 'permission') {
     reason = tx(verdict.reason.text);
-  } else if (mappingFailed) {
-    reason = mapping.outcome === 'forbidden' ? m('hwTimeMappingDenied') : m('hwTimeMappingFailed');
-  } else if (values && verdict.reason?.kind !== 'not-registered') {
-    if (!incomplete) {
-      if (verdict.reason) reason = tx(verdict.reason.text);
-    } else {
-      reason = unmappedLabels.length ? m('hwTimeUnmappedColumns', { columns: unmappedLabels.join(', ') }) : m('hwTimeUnmapped');
-    }
+  } else if (!mappingReason && values && verdict.reason && verdict.reason.kind !== 'not-registered') {
+    reason = tx(verdict.reason.text);
   }
-  const showHwTime = verdict.allowed && Boolean(values?.equipmentIds?.length);
+  const showHwTime = hwItem !== null && verdict.allowed && Boolean(values?.equipmentIds?.length);
   const [explained, setExplained] = useState<string | null>(null);
   const [reveal, setReveal] = useState<{ panelId: string; seq: number; itemId: string; restoreHidden?: boolean; restoreLinked?: boolean } | null>(null);
 
@@ -97,7 +136,6 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
   }, [linkedReveal?.seq, reveal]);
   useEffect(() => {
     if (hwItem !== null || !returnHwTrendFocus.current) return;
-    returnHwTrendFocus.current = false;
     const root = matrixRoot.current;
     const selected = root?.querySelector<HTMLElement>('[role="gridcell"][aria-selected="true"]');
     if (selected && !selected.closest('[hidden], [inert], [aria-hidden="true"]')
@@ -106,23 +144,33 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
     } else {
       focusPageFallback(root);
     }
+    returnHwTrendFocus.current = false;
   }, [hwItem]);
 
   function openTrend(id: string, linkedMotion?: LinkedMotion | null) {
+    hwPanels.openOriginal();
     setPage({ [TREND_ITEM_KEY]: id, [HW_TREND_ITEM_KEY]: null });
     setReveal(current => ({ panelId: trend.id, itemId: id, seq: (current?.seq ?? 0) + 1, restoreHidden: true, restoreLinked: Boolean(linkedMotion) }));
   }
   function closeTrend() {
     setExplained(null);
-    setPage({ [TREND_ITEM_KEY]: null, [HW_TREND_ITEM_KEY]: values && verdict.allowed ? hwItem : null });
+    const keepTarget = comparison !== null || (values && verdict.allowed);
+    setPage({ [TREND_ITEM_KEY]: null, [HW_TREND_ITEM_KEY]: keepTarget ? mappingItem : null });
   }
   function followSelection(id: string, linkedMotion?: LinkedMotion | null) {
-    if (hwItem === null || hwItem === id || verdict.reason?.kind === 'not-registered') return;
-    setPage({ [HW_TREND_ITEM_KEY]: linkedMotion ? id : itemId && HW_TREND_CLOSED }, { replace: true });
+    // The matrix reports a selection on focus. Returning focus after close must keep the comparison's target.
+    if (returnHwTrendFocus.current || (!originalOpen && !comparison) || mappingItem === id || verdict.reason?.kind === 'not-registered') return;
+    const unlinked = itemId || comparison ? HW_TREND_CLOSED : null;
+    setPage({ [HW_TREND_ITEM_KEY]: linkedMotion ? id : unlinked }, { replace: true });
   }
   function closeHwTrend() {
     returnHwTrendFocus.current = true;
-    setPage({ [HW_TREND_ITEM_KEY]: itemId && HW_TREND_CLOSED });
+    hwPanels.closeOriginal();
+    setPage({ [HW_TREND_ITEM_KEY]: comparison ? target : itemId && HW_TREND_CLOSED });
+  }
+  function closeComparison() {
+    if (!originalOpen) setPage({ [HW_TREND_ITEM_KEY]: itemId && HW_TREND_CLOSED });
+    hwPanels.closeComparison();
   }
   function lentPanel() {
     if (!verdict.allowed || !values?.equipmentIds?.length) return null;
@@ -156,7 +204,49 @@ export function ConfigurationWorkspace({ itemId, params, children }: {
     analysisSelectionSourceId: HW_TIME_TREND,
   });
 
+  if (comparison) {
+    const time = comparison.mode === 'hold' ? comparison.time : undefined;
+    const range = time?.selection;
+    let badge: Text | undefined;
+    if (range?.shape === 'range' && historyPeriod(range)) {
+      const period = { from: formatWallClock(range.from), to: formatWallClock(range.to) };
+      badge = { ko: formatText(MESSAGES.hwTimeHeldPeriod, 'ko', period), en: formatText(MESSAGES.hwTimeHeldPeriod, 'en', period) };
+    }
+    const waiting = comparison.mode !== 'unreadable' && canMap && (lending.status === 'loading' || lending.showingPrevious === true);
+    let comparisonReason = mappingReason;
+    if (comparison.mode === 'unreadable') comparisonReason = m('hwTimeHeldUnreadable');
+    else if (mappingItem === null || (mapping && !values)) comparisonReason ??= m('hwTimeComparisonNeedsMotion');
+    panels.push({
+      id: HW_TIME_COMPARISON_ID, title: MESSAGES.hwTimeComparison, placement: COMPARISON_ROW, preferredHeight: TREND_HEIGHT,
+      badge: badge && { description: badge },
+      onRemove: closeComparison,
+      render: () => <HwTimeComparison values={values} time={time} badge={badge} waiting={waiting} reason={comparisonReason}
+        follow={comparison.mode === 'follow' ? undefined : hwPanels.follow} close={closeComparison} />,
+    });
+  }
+
+  const period = historyPeriod(context);
+  const addPeriod = showHwTime && period && (comparison === null || comparison.mode === 'follow') ? period : null;
+  function addHwTime(draft: AnalysisPanelDraft) {
+    if (draft.source !== HW_TIME_TREND || !hwItem) return;
+    let panelId = HW_TIME_PANEL_ID;
+    if (draft.mode === 'hold') {
+      const range = draft.inputs[COMPARISON_OPTIONS.holdTime.key];
+      if (range?.shape !== 'range') return;
+      hwPanels.hold(range);
+      panelId = HW_TIME_COMPARISON_ID;
+    }
+    setReveal(current => ({ panelId, itemId: hwItem, seq: (current?.seq ?? 0) + 1, restoreHidden: true }));
+    return panelId;
+  }
   return <PanelWorkspace panels={panels} presets={PRESETS} initialPreset="comparison" initialMode="stack" compactBelow={0}
     persistKey="configuration-analysis" label={MESSAGES.conditions} revealRequest={linkedReveal ?? reveal}
-    panelMenuItems={id => id === HW_TIME_PANEL_ID ? [] : [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }]} />;
+    analysisPanelAddition={addPeriod ? {
+      items: [{ id: HW_TIME_PANEL_ID, title: MESSAGES.hwTimeTrend, again: 'hold', slots: [HW_TIME_PANEL_ID, HW_TIME_COMPARISON_ID] }],
+      hold: true,
+      returnsOpened: true,
+      toolbarDraft: () => ({ source: HW_TIME_TREND, inputs: { [COMPARISON_OPTIONS.holdTime.key]: { shape: 'range', from: addPeriod.from, to: addPeriod.to } } }),
+      onAdd: addHwTime,
+    } : undefined}
+    panelMenuItems={id => id === HW_TIME_PANEL_ID || id === HW_TIME_COMPARISON_ID ? [] : [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }]} />;
 }

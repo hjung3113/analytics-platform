@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildQuery, defineEndpoint, type PlatformAdapter, groupId, spaceId } from '@ap/contracts';
 import { PlatformPage, QueryBarExtensionContext, QueryView, useFocusContextEditor, type QueryBarExtension } from '@ap/components';
 import { House } from 'lucide-react';
-import { createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQuery, useSavedViewSupport, useAnalysisSelectionOutput } from '@ap/kernel';
+import { AnalysisSelectionInstances, createRegistry, I18nProvider, PlatformProvider, useQueryDraft, useMenuQuery, useSavedViewSupport, useAnalysisSelectionOutput } from '@ap/kernel';
 import { useHostPlatform, PaneQueryDraftProvider, PaneScreenProvider } from '@ap/kernel/host';
 import { createFakeSavedViewStore, memoryStorage, noContext, testAdapter, testSavedView, testSession, testSpace } from '@ap/kernel/testing';
 import { GlobalContextBar, contextBarVisible } from '../GlobalContextBar';
@@ -958,4 +958,29 @@ it.each([
   const params = new URLSearchParams(window.location.search);
   expect(params.get('from')).toBe('2026-01-01T00:00:00');
   expect(params.get('to')).toBe('2026-01-04T00:00:00');
+});
+
+it('orders the real QueryBar chips using the restored connections from the PlatformPage body', async () => {
+  const keys = ['childSet', 'parentSet'];
+  const chipRegistry = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{
+    ...registry.menus[0], pageKeys: keys, repeatedPageKeys: keys, contextResetKeys: keys,
+    panels: keys.map(key => ({ id: key, title: { ko: key, en: key }, grain: 'daily', endpoints: [], queryInputs: {},
+      displayInputs: key === 'childSet' ? { page: [{ key: 'parentSet', selection: 'highlight' as const }] } : {},
+      outputs: [{ key, action: 'pick' as const, selection: { shape: 'set' as const, dimension: key } }],
+    })),
+  }] });
+  const instances = keys.map(key => ({
+    id: key, source: { kind: 'declared' as const, panel: key },
+    inputs: key === 'childSet' ? [{ key: 'parentSet', from: 'parentSet.parentSet', mode: 'follow' as const, use: 'filter' as const }] : [],
+    outputs: [{ key, shape: 'set' as const, dimension: key }],
+  }));
+  const session = testSession(['platform:view']);
+  window.history.replaceState(null, '', `/?scopeId=MEM${APPLIED}&childSet=C&parentSet=P`);
+  render(<I18nProvider><PlatformProvider registry={chipRegistry} adapter={testAdapter({ session: () => session })} slots={{ contextBar: <GlobalContextBar /> }}>
+    <PlatformPage layout="fill"><AnalysisSelectionInstances instances={instances}><p>Workspace body</p></AnalysisSelectionInstances></PlatformPage>
+  </PlatformProvider></I18nProvider>);
+  const zone = await screen.findByRole('group', { name: '분석 선택' });
+  expect(zone).not.toContainElement(screen.getByText('Workspace body'));
+  expect([...zone.querySelectorAll('[data-analysis-chip-edit]')].map(chip => chip.getAttribute('data-analysis-chip-edit')))
+    .toEqual(['parentSet', 'childSet']);
 });

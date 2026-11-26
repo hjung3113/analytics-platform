@@ -1,3 +1,5 @@
+import { cn } from '@ap/ui';
+
 /**
  * The Context bar chip look (platform extension, DESIGN.md "Shell visual rules"). Context editors and the overflow
  * trigger that stands in for hidden ones share it, so the overflow reads as one more chip (UIUX-56-01, #240) and its
@@ -6,5 +8,8 @@
 export const CONTEXT_CHIP = 'inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 whitespace-nowrap text-xs hover:border-border-control';
 /** The applied/reference tone; unsupported chips use a dashed border instead. */
 export const CONTEXT_CHIP_TONE = 'border-border-control bg-surface-card on-canvas-band:bg-transparent text-text-primary';
+/** Page-owned applied conditions share the Context chip shape with a filled surface. */
+export const CONTEXT_CHIP_FILLED = 'border-transparent bg-surface-sunken text-text-primary';
+export const CONDITION_CHIP = { query: cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE), page: cn(CONTEXT_CHIP, CONTEXT_CHIP_FILLED) };
 /** The pane-header version (docs/16 §4, ADR-0051): a 24px chip for a Context key that differs from another pane, accent tone so the difference is the loudest thing in the head. */
 export const PANE_CHIP = 'inline-flex h-6 shrink-0 items-center gap-1 rounded-xs border border-accent-primary bg-surface-card px-1.5 whitespace-nowrap text-tiny text-accent-primary';

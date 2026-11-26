@@ -68,19 +68,6 @@ colors:
   chart-grid: "#eef1f5"
   icon-blue-soft: "#e3efff"
   icon-teal-soft: "#dcf8ef"
-typography:
-  t-page-title: { fontSize: 24px, lineHeight: 32px, fontWeight: 600, letterSpacing: -0.3px }
-  t-section-title: { fontSize: 18px, lineHeight: 28px, fontWeight: 600 }
-  t-card-title: { fontSize: 14px, lineHeight: 20px, fontWeight: 600 }
-  t-stat: { fontSize: 32px, lineHeight: 1.1, fontWeight: 600, letterSpacing: -0.5px, fontVariantNumeric: "tabular-nums lining-nums" }
-  t-stat-2: { fontSize: 22px, lineHeight: 1.2, fontWeight: 600, letterSpacing: -0.3px, fontVariantNumeric: "tabular-nums lining-nums" }
-  t-delta: { fontSize: 12px, lineHeight: 1.4, fontWeight: 600, fontVariantNumeric: "tabular-nums lining-nums" }
-  t-caption: { fontSize: 12px, lineHeight: 16px }
-  t-table-header: { fontSize: 12px, lineHeight: 1.3, fontWeight: 600, letterSpacing: 0.3px }
-  t-badge: { fontSize: 11px, lineHeight: 1.3, fontWeight: 600, letterSpacing: 0.2px }
-  t-nav-group: { fontSize: 11px, lineHeight: 1.3, fontWeight: 600, letterSpacing: 0.5px, textTransform: uppercase }
-  t-mono: { fontFamily: "var(--font-mono)", fontSize: 12px, lineHeight: 1.4 }
-  tabular: { fontVariantNumeric: "tabular-nums lining-nums" }
 rounded:
   xs: "var(--radius-sm)"
 layout:
@@ -161,26 +148,24 @@ components:
 
 ### Typography roles
 
-공유 font family·본문·font loading은 [기능 화면 타이포 원본](packages/feature/screens/docs/tokens.md#tokens--typography)과 [ADR-0058 §2](docs/adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md#2-theme-inline-because-theme-namespaces-overlap-token-names)을 따른다. 라틴/한글은 공유 `--font-sans`(Inter + Pretendard), 기술 문자열은 공유 `--font-mono`를 상속한다. 플랫폼은 별도 body scale을 만들지 않는다. 한국어 UI 문구는 단어 단위 줄바꿈(`break-keep`)을 쓴다 (근거 #1167).
+[tokens.css](packages/sdk/ui/src/styles/tokens.css)가 크기를, [index.css](packages/sdk/ui/src/styles/index.css)가 역할을 정의한다. 라틴·한글은 `--font-sans`(Inter + Pretendard)를, 기술 문자열은 `--font-mono`를 쓴다. 한국어 UI 문구는 단어 단위로 줄을 바꾼다(`break-keep`, #1167).
 
-아래 역할 값은 플랫폼 literal이며 [index.css](packages/sdk/ui/src/styles/index.css)의 클래스와 일치한다. line-height는 px 표기 또는 unitless 배수다. 지정하지 않은 font family·weight·tracking은 공유/상위 값을 상속한다.
-
-| 역할 클래스 | 크기 / line-height / weight | 추가 속성 | 사용 |
+| 역할 | 크기 / 굵기 | 글자색 | 사용 |
 | --- | --- | --- | --- |
-| `t-page-title` | 24px / 32px / 600 | tracking -0.3px | 본문 수준의 큰 제목; 한 줄 셸 머리의 강제 기본값 아님 |
-| `t-section-title` | 18px / 28px / 600 | — | 셸 페이지 제목, 분석·목록 section 제목 |
-| `t-card-title` | 14px / 20px / 600 | — | compact panel 제목 |
-| `t-stat` | 32px / 1.1 / 600 | tracking -0.5px, tabular lining numbers | primary KPI |
-| `t-stat-2` | 22px / 1.2 / 600 | tracking -0.3px, tabular lining numbers | secondary KPI·donut 값 |
-| `t-delta` | 12px / 1.4 / 600 | tabular lining numbers | 기준이 있는 delta |
-| `t-caption` | 12px / 16px / 상속 | — | 보조 설명·단위·출처; opacity 없이 허용 pairing 사용 |
-| `t-table-header` | 12px / 1.3 / 600 | tracking 0.3px, 선언한 대소문자 | 기술 열 머리 역할 |
-| `t-badge` | 11px / 1.3 / 600 | tracking 0.2px | 짧은 상태 label |
-| `t-nav-group` | 11px / 1.3 / 600 | tracking 0.5px, uppercase | 비인터랙티브 그룹 section label |
-| `t-mono` | 12px / 1.4 / 상속 | 공유 `--font-mono` | ID·기술 값·correlation ID |
-| `tabular` | 크기·weight 상속 | tabular-nums lining-nums | 수치 열·분모·비교 값 |
+| `t-page-title` | 18px / 700 | primary | 화면 제목 |
+| `t-section-title` | 15px / 600 | primary | 분석·목록 섹션 제목 |
+| `t-card-title` | 13px / 600 | primary | 카드·차트·패널·도킹 탭 제목 |
+| `t-body` | 13px / 400 | primary | 본문·표 셀 |
+| `t-table-header` | 12px / 600 | secondary | 표 열 머리 |
+| `t-caption`, 차트 축 | 12px / 400 | secondary | 보조 설명·단위·출처, 축 이름·눈금 |
+| `t-stat`, `t-stat-2` | 28px / 700 | primary, 보조 값은 secondary | KPI 값은 라벨 아래 시작 정렬, tabular-nums(표의 숫자 열만 오른쪽 정렬) |
+| `t-chart-tool` | 12px / 500 | secondary | 차트 도구 버튼 |
+| `t-mono` | 12.5px / 500 | primary | ID·기술 값·correlation ID |
+| 차트 마크 라벨 | 12px 이상 | 마크 대비에 맞는 토큰 | 막대 값·기준선·주석 |
+| `t-delta` | 12px / 600 | 의미 label | 비교 기준이 있는 증감 값 |
+| `t-badge`, `t-nav-group` | 11px / 600 | 역할에 맞는 토큰 | 상태 라벨·탐색 그룹 제목 |
 
-크기 전용 `text-caption`도 `--text-caption`의 12px을 쓰며 line-height는 상속한다. 사이드바 그룹 제목은 `t-nav-group`, 「예정」·개수 표시는 `t-badge`를 쓴다. 그룹 제목의 여백만 각 자리에서 정한다.
+수치 열은 오른쪽으로 정렬하고 `tabular`를 적용한다. 글자 크기에 10px을 쓰지 않는다.
 
 표 헤더와 PlatformDataTable의 정렬 버튼은 `t-table-header`를 사용하며 선언한 대소문자를 그대로 표시한다(Decided, #2541). 그룹 제목은 탐색 영역의 section label로 기존 대문자 표기를 쓴다.
 
@@ -247,11 +232,11 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 
 ### 표면 위계·선택 표시 — Decided (#2456)
 
-- 기본 `ToggleGroup`의 켠 항목은 `surface-row-selected` 바탕, `border-selected` 테두리, `text-primary` 및 `font-semibold`를 쓴다 (#2950).
+- 기본 `ToggleGroup`의 켠 항목은 `surface-row-selected` 바탕, `border-selected` 테두리, `text-primary` 및 `font-semibold`를 쓴다 (#2950). `appearance="swatch"`는 그 짝이 아니다. 켠 색 원은 링 하나이고 테두리를 같이 쓰지 않는다 (#2762).
 - `FloatingWindow`의 `window`와 `fill`은 `h-10` 제목줄, `text-sm` 제목과 호출자가 건넨 동작을 공유한다 (#2950).
 - 제목 서식을 지원하지 않는 `RichEditor`의 기본 도구줄은 `surface-band` 바탕과 아래 `border-chrome` 선의 한 줄이다 (#2950).
 
-페이지 제목은 `t-section-title`로 표시해 50px 헤더 안에서 위계를 구분한다. 최상위 카드와 분석 패널은 `elevation-panel`(`shadow-sm`)로 캔버스와 분리하며, 카드·상세 표면(`surface-card`·`surface-detail`)이나 도킹 패널 안에서는 그림자를 겹치지 않는다. 목록 선택은 selected surface와 2px `border-selected` 막대(`RowSelectionBar`)를 함께 써서 색과 형태로 현재 행을 표시한다. 캔버스 띠는 카드 밖에서 캔버스 표면 위에 놓인 가로 컨트롤 줄(조회·Context 막대, 도구줄)이다. 띠 소유자가 자기 요소에 `data-canvas-band`를 단다(셸의 Context·조회 막대, 페이지·보드 머리, 목록 도구줄, 리치 에디터 도구줄, 화면이 직접 그린 도구줄: 설문 빌더·결과 머리, 모델 프로필 섹션 이동). 카드 안 캔버스색 우물, sticky 아래 줄, 페이지 셸처럼 띠가 아닌 캔버스색 영역은 표식이 없어 그 안 컨트롤이 제 면을 유지한다. 캔버스 띠 위의 컨트롤은 `on-canvas-band:` variant로 띠의 표면색을 따른다. 도킹 패널 사이 간격은 캔버스 표면색을 쓴다.
+페이지 제목은 화면 제목 역할로 표시해 50px 헤더 안에서 위계를 구분한다. 최상위 카드와 분석 패널은 `elevation-panel`(`shadow-sm`)로 캔버스와 분리하며, 카드·상세 표면(`surface-card`·`surface-detail`)이나 도킹 패널 안에서는 그림자를 겹치지 않는다. 목록 선택은 selected surface와 2px `border-selected` 막대(`RowSelectionBar`)를 함께 써서 색과 형태로 현재 행을 표시한다. 캔버스 띠는 카드 밖에서 캔버스 표면 위에 놓인 가로 컨트롤 줄(조회·Context 막대, 도구줄)이다. 띠 소유자가 자기 요소에 `data-canvas-band`를 단다(셸의 Context·조회 막대, 페이지·보드 머리, 목록 도구줄, 리치 에디터 도구줄, 화면이 직접 그린 도구줄: 설문 빌더·결과 머리, 모델 프로필 섹션 이동). 카드 안 캔버스색 우물, sticky 아래 줄, 페이지 셸처럼 띠가 아닌 캔버스색 영역은 표식이 없어 그 안 컨트롤이 제 면을 유지한다. 캔버스 띠 위의 컨트롤은 `on-canvas-band:` variant로 띠의 표면색을 따른다. 도킹 패널 사이 간격은 캔버스 표면색을 쓴다.
 
 ### 표면·선·그림자 v3 — Decided (#2722)
 
@@ -287,6 +272,9 @@ Opt-in page density and embedded chart/table chrome follow [06 §12](docs/contra
 
 기본 범주 색 순서는 `chart-series-1` → `chart-series-2` → `chart-series-3` → `chart-series-4` → `chart-series-5`다. 다섯 번째 자동색은 도넛에 적용한다. 기존 `chart-blue` / `chart-teal` / `chart-green`도 계속 유효하다(`chart-purple`은 sdk-v0.48.0에서 제거, `chart-series-3`을 쓴다). series fill 정체성은 `chart-*`, 범주 구분은 `cat-*`, 상태 판정은 별도 label vocabulary로 표현한다. `chart-status-*`는 실제 판정일 때만 쓴다. 얇은 line/outline mark는 `chart-*-stroke` 별칭을 쓰고 legend도 같은 stroke 색을 사용한다. 이전 기간의 `cat-amber` 선·외곽선 마크는 `cat-amber-stroke` 별칭을 쓴다. stroke 별칭은 EChart의 JS 매핑(`EChart.tsx` `strokeAliases`)으로만 쓰며 Tailwind 유틸리티가 아니다. 기준선은 `text-secondary` 점선과 label을 쓰고 null은 빗금으로 구분한다. 막대와 영역, series symbol, 선택/annotation fill은 기존 fill token을 유지한다. P50 solid / P95 dashed처럼 색 이외의 구별을 유지한다. 선택/brush/drill-down이 전역 Context를 바꾸는지는 명시적으로 구분하고 단순 chart click으로 조용히 조건을 바꾸지 않는다.
 
+Top N으로 묶은 기타는 차트 맨 끝에 `chart-remainder`로 표시하고, 툴팁과 표에 묶인 범주 수를 표시한다.
+직교 축의 기준선과 기준 띠는 공통 `referenceMarks`로 선언한다. 기준 띠는 `text-secondary`를 옅게 채우고 라벨을 붙인다. 점선은 비교와 기준에 쓴다.
+
 reference quality recipe는 coverage→blue, traceability→teal, consistency→green, missing/untraced→이름 있는 remainder, inconsistent→cat-amber다. 분자·분모를 detail/table에서 제공하며 donut/gauge의 기본 허용 범위는 [06 §24](docs/contract/platform-ui-contract.md#decorative-visualization)를 따른다. defect bar는 zero baseline·정수 ticks·날짜·단위를 갖고 max는 데이터로 산정한다. queue/progress는 완료율과 성공률을 분리하고 분모 없는 회색 remainder를 만들어내지 않는다. pipeline/queue/lifecycle의 도메인 의미는 Consumer 후보이며 반복 확인 전 범용 플랫폼 컴포넌트로 승격하지 않는다.
 
 ## Tables
@@ -295,7 +283,7 @@ reference quality recipe는 coverage→blue, traceability→teal, consistency→
 
 - 열 묶음 편집은 «컬럼» 팝오버 안의 별도 선택 화면에서 한다. 선택 체크박스는 «열 이름 선택», 숨은 열은 «숨김»으로 구별하고 이동·핀·보이기 컨트롤은 함께 놓지 않는다. 일반 목록의 묶음 행은 기존 컨트롤 옆 `icon-xs` 메뉴 하나로 편집하며, footer는 «묶음 만들기» 다음 «기본값으로»다([ADR-0167](docs/adr/0167-editable-column-groups.md)).
 
-- 열 묶음 헤더는 sunken 헤더 띠 안에서 문구만 표시한다. 열 헤더와 같은 글자 역할이며 묶음 span 아래에 `border-subtle` 선을 둔다. 맨 위 묶음이 시작하고 끝나는 자리에는 헤더부터 본문 끝까지(행 그룹 행 포함) 1px `border-control` 경계선을 둔다 — 오른쪽 고정 동작 열 경계와 같은 선이고, `border-strong`은 행 구분선(`border-subtle`)과 거의 같아 묶음이 갈려 보이지 않는다. 묶음을 선언한 표에만 있다. 이름은 자기 span 안에서 왼쪽을 따라오고 말줄임·`title`을 제공한다. 새 토큰은 없다([ADR-0166](docs/adr/0166-table-column-groups.md)).
+- 열 묶음 헤더는 sunken 헤더 띠 안에서 문구만 표시한다. 열 헤더와 같은 글자 역할이며 묶음 span 아래에 `border-subtle` 선을 둔다. 맨 위 묶음이 시작하고 끝나는 자리에는 헤더부터 본문 끝까지(행 그룹 행 포함) 1px `border-control` 경계선을 둔다. 오른쪽 고정 동작 열의 경계선은 `border-strong`을 쓴다. 묶음 경계는 묶음을 선언한 표에만 있다. 이름은 자기 span 안에서 왼쪽을 따라오고 말줄임·`title`을 제공한다. 새 토큰은 없다([ADR-0166](docs/adr/0166-table-column-groups.md)).
 - 열 구분선은 선택 옵션 `columnDividers`다: 열 헤더 줄과 본문의 열 사이에 1px `border-subtle`(기본은 행 구분선만). 묶음 경계 자리는 묶음 경계선이 이긴다.
 - 폭을 선언한 열 묶음의 묶음 넘김 경계는 기존 pinned-column fade와 같은 gradient pseudo-element를 안쪽 가장자리에 쓴다(그림자 없음). 헤더·본문·행 그룹 행의 배경과 hover·선택·활성 배경을 따른다. 숨은 내용이 있을 때만 `grab`, 끄는 동안 `grabbing` 커서와 기존 visible focus ring을 쓴다.
 
@@ -309,12 +297,12 @@ cellPadding: 4px 16px
 
 줄바꿈·font fallback·visible focus·최소 24px desktop target에 따라 행은 커질 수 있다. 행 영역 높이는 내용만큼이고 페이지에 남은 높이(최소 240px)까지만 커진다. 동작 열은 오른쪽에 고정하고 `toolbar`(32px) 버튼을 쓰며, 선택 열은 선택을 쓰는 기능이 있는 표에만 둔다([ADR-0037](docs/adr/0037-table-filter-consistency.md)). screenshot의 compact 밀도는 기본값을 낮추는 근거가 아니다. 표 셀은 이미 coarse pointer에서 44px target(`pointer-coarse:min-h-11`)을 쓰며, 나머지 화면의 44px target은 MVP 이후 정책이다.
 
-표가 컨테이너보다 좁으면 남는 폭을 사용자가 폭을 바꾸지 않은 일반 열에 기본 폭 비율로 나눠 컨테이너를 채운다(선택·동작 열, 왼쪽 고정 열, 사용자가 조절한 열은 그대로). 컨테이너보다 넓으면 가로로 스크롤한다. 오른쪽 고정 동작 열은 `border-control` 색 왼쪽 선으로 가장자리를 보이고(그림자 없음), 헤더 글자는 줄바꿈하지 않고 한 줄에서 말줄임(…)하며 전체 이름은 `title`로 준다(정렬·크기 조절 표시는 그대로 보인다). 셀·헤더 좌우 여백은 16px다. 본문 셀은 기존대로 어디서나 줄바꿈한다(#1166).
+표가 컨테이너보다 좁으면 남는 폭을 사용자가 폭을 바꾸지 않은 일반 열에 기본 폭 비율로 나눠 컨테이너를 채운다(선택·동작 열, 왼쪽 고정 열, 사용자가 조절한 열은 그대로). 컨테이너보다 넓으면 가로로 스크롤한다. 오른쪽 고정 동작 열 왼쪽에는 `border-strong` 1px 선을 둔다. 고정 열의 불투명 표면을 유지하고 그림자와 배경 틴트를 쓰지 않는다. 가로 스크롤의 끝에 닿기 전에는 선 바깥으로 20px 페이드를 표시한다. 열 묶음 경계는 `border-control`로 구분한다. 헤더 글자는 줄바꿈하지 않고 한 줄에서 말줄임(…)하며 전체 이름은 `title`로 준다(정렬·크기 조절 표시는 그대로 보인다). 셀·헤더 좌우 여백은 16px다. 본문 셀은 기존대로 어디서나 줄바꿈한다(#1166).
 
 - 헤더 sunken + secondary, 데이터 primary, 수치 우측 정렬+tabular, ID mono. 상태와 범주 label을 구별한다. 열 제목 case는 Typography roles를 따른다.
 - row divider는 border-subtle; checkbox·검색·filter 경계는 border-control. hover에서 focus와 selected checkbox/표식이 사라지지 않는다.
 - 열 너비는 머리 오른쪽 끝을 끌어서만 바꾼다 — 늘 보이는 1px `border-subtle` 구분선, hover·끄는 동안 `accent-primary`, 더블클릭은 기본 너비. "컬럼" 팝오버는 보이기 체크박스와 줄 끝 핀 토글, 고정 묶음을 위에, 맨 아래 "기본값으로"([ADR-0024](docs/adr/0024-table-column-controls-drag-width-pin-in-list.md)).
-- 표 toolbar는 한 줄이고 컨트롤은 모두 32px다(`Button size="toolbar"`, `@ap/ui` `Input inputSize="toolbar"` — 32px, `surface-sunken`, 13px). 왼쪽은 제목(설명은 ⓘ 툴팁)과 검색, 화면 키, 필터 줄이고 오른쪽은 결과 건수·신뢰와 그룹·표 크기·컬럼·복사·내보내기이며 ▾는 메뉴 버튼에만 둔다. 이 한 줄이 폭에 안 맞을 때만 필터·결과 줄을 아래 줄로 내린다(작업공간 패널 표는 늘 두 줄, 06 §15). 폭이 부족하면 `복사 → 그룹 → 표 크기 → 컬럼 → 내보내기` 순으로 `⋯` 메뉴에 들어간다(06 §15, 노드 1217c·1217d). 표 크기(작게·보통·크게)는 본문 글자와 행 높이를 함께 바꾸는, 맥락 기본값에 대한 상대 단계이고 보통은 지금 모습 그대로다(작게 12px·28px, 크게 15px·40px, 머리글 11/12/14px). 체크박스는 어느 크기에서나 14×14다. 그 밖의 toolbar는 제목/설명과 검색·filter·동작을 분리해 정렬하고 폭이 부족하면 wrap한다. 가로 overflow는 표 영역에 가두고 toolbar 접근을 유지한다.
+- 표 toolbar는 한 줄이고 컨트롤은 모두 32px다(`Button size="toolbar"`, `@ap/ui` `Input inputSize="toolbar"` — 32px, `surface-sunken`, 13px). 왼쪽은 제목(설명은 ⓘ 툴팁)과 검색, 화면 키, 필터 줄이고 오른쪽은 결과 건수·신뢰와 그룹·표 크기·컬럼·복사·내보내기이며 ▾는 메뉴 버튼에만 둔다. 이 한 줄이 폭에 안 맞을 때만 필터·결과 줄을 아래 줄로 내린다(작업공간 패널 표는 늘 두 줄, 06 §15). 폭이 부족하면 `복사 → 그룹 → 표 크기 → 컬럼 → 내보내기` 순으로 `⋯` 메뉴에 들어간다(06 §15, 노드 1217c·1217d). 표 크기(작게·보통·크게)는 행 높이와 기본 열 너비를 조절한다. 글자는 위의 공통 역할을 쓴다. 체크박스는 어느 크기에서나 14×14다. 그 밖의 toolbar는 제목/설명과 검색·filter·동작을 분리해 정렬하고 폭이 부족하면 wrap한다. 가로 overflow는 표 영역에 가두고 toolbar 접근을 유지한다.
 - selection은 대상·선택 수·clear를 보여 준다. 현재 page 선택과 전체 결과 선택을 혼동하지 않는다. Context/Scope 변경 시 selection을 해제한다. nested 버튼이 있는 행을 통째 clickable wrapper로 만들지 않는다.
 - sort는 `aria-sort`, bulk action은 권한·대상이 명확해야 한다. copy/export 동작·고정 toolbar는 [ADR-0008](docs/adr/0008-table-owned-export-fixed-toolbar.md)의 현재 계약을 따른다. 이 문서가 새로운 backend 작업을 추가하지 않는다.
 - copy Tooltip과 표 column menu도 공유 floating 표면(그림자 포함)을 쓴다([ADR-0023](docs/adr/0023-feedbackops-primitive-shapes-and-sizes.md)). 표에 따로 둔 border-only 처리는 없다.
@@ -403,7 +391,7 @@ Empty/error는 원인 설명·허용된 다음 행동·추적 번호를 읽을 �
 | Source | 보존한 원칙·증거 | 현재 권한 / 대체된 부분 |
 | --- | --- | --- |
 | 공유 tokens.md / tokens.css / UI system / ADR-0058 | 제품 UI 기반·공유 typography·primitive·소비 계약 | **공유 디자인 원본**; 이전 플랫폼 공유 값/독자 font/primitive 설명을 대체 |
-| ADR-0010 / ADR-0011, 승인 prototype `prototype/52-fops-design` (`.agents/reports/design/shots/52-fops/`, 원격 브랜치 `prototype/52-fops-design`의 커밋에만 있다) | 직접 소비, 프로토타입 C안의 밝은 AppFrame | **Decided**; 이전 어두운 navigation·상단 구성·shell 측정값을 대체 |
+| ADR-0010 / ADR-0011, 승인 prototype `prototype/52-fops-design` (.agents/reports/design/shots/52-fops/, 원격 브랜치 `prototype/52-fops-design`의 커밋에만 있다) | 직접 소비, 프로토타입 C안의 밝은 AppFrame | **Decided**; 이전 어두운 navigation·상단 구성·shell 측정값을 대체 |
 | 06 / 07 | 플랫폼 행동·상태·접근성 및 셸 구조 | **계약 원본**; reference navigation·시간·권한보다 우선 |
 | #193 UIUX-193-03/04/05, #194 P3-D1·수용된 shell 수정 | label/control pairing·sunken 제한·stroke 대비·현재 위치·collapsed 규칙 | 이 문서의 pairing 및 chart 결정 배경; 렌더/동작 통과를 새로 주장하지 않음 |
 | `.agents/references/design-md/`의 linear.app | 단일 강조·중립 hierarchy | 원칙만 보존; brand 값·독자 공유 token·marketing layout은 공유로 대체/미채택 |

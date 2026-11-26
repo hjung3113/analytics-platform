@@ -1,25 +1,52 @@
 import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './origin-guard';
 import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
-import { pickTargetRoom, contextBar, evidence, expandPageHead, expandQueryBar, mainHeading, query, queryBar, queryResultSurface, showSlowExecutions, signInAs } from './support';
+import { expectAppliedChip, queryEditor, shareQueryConditions, pickTargetRoom, contextBar, evidence, expandQueryBar, mainHeading, query, queryBar, showSlowExecutions, signInAs } from './support';
 
 /**
  * Platform contract checks for Saved Views (docs/06 §21). Cycle Time and HW Time observe the same store and query bar.
  */
 const CYCLE = `/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
-const PHOTO_CHIP = /대상 (?:설비|확인 중).* · PHOTO/;
+const PHOTO_CHIP = '공정 PHOTO';
 const trigger = (page: Page) => page.getByRole('button', { name: /^저장된 뷰:/ });
 const modifiedBadge = (page: Page) => trigger(page).getByText('수정됨');
 const toast = (page: Page, text: RegExp | string) => page.getByText(text).first();
-const applied = queryResultSurface;
 async function openCycle(page: Page, url = CYCLE) {
   await page.goto(url);
   await expect(mainHeading(page)).toHaveText('사이클타임 상세');
+  await expandQueryBar(page);
   await expect(trigger(page)).toBeVisible();
+}
+
+/**
+ * Folds the query bar and waits until it stays folded. A bar with no applied query opens itself after mount (see
+ * `expandQueryBar`), so a single visibility check can run before the editor opens and leave it over the workspace (#3057).
+ */
+async function closeQueryEditor(page: Page) {
+  const bar = queryBar(page);
+  const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
+  const collapse = bar.getByRole('button', { name: '조회 조건 접기' });
+  await expect(expand.or(collapse).first()).toBeVisible();
+  await expect(async () => {
+    if (await collapse.isVisible()) await collapse.click({ timeout: 2_000 });
+    await expect(expand).toBeVisible({ timeout: 2_000 });
+    await expect(page.getByRole('dialog', { name: '조회 조건', exact: true })).toHaveCount(0, { timeout: 2_000 });
+  }).toPass();
+}
+
+/**
+ * Folds a query bar that the test opened through the stored preference (`startWithQueryBarOpen`): the bar is open on
+ * arrival, so wait for its fold button instead of guessing whether the editor has opened yet (#3057).
+ */
+async function foldOpenQueryEditor(page: Page) {
+  await queryBar(page).getByRole('button', { name: '조회 조건 접기' }).click();
+  await expect(queryBar(page).getByRole('button', { name: '조회 조건 펼치기' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '조회 조건', exact: true })).toHaveCount(0);
 }
 
 /** The selector popover's view list; opening it again while open would close it. */
 async function openList(page: Page): Promise<Locator> {
+  await expandQueryBar(page);
   await trigger(page).click();
   const list = page.getByRole('list', { name: '뷰 목록' });
   await expect(list).toBeVisible();
@@ -40,7 +67,8 @@ async function pickView(page: Page, name: string) {
 
 /** Opens `새 뷰로 저장` and fills the name; the caller chooses the audience and submits. */
 async function startSave(page: Page, name: string, unit: RegExp = /^메뉴 뷰/) {
-  await page.getByRole('button', { name: '저장', exact: true }).click();
+  await expandQueryBar(page);
+  await queryEditor(page).getByRole('button', { name: '저장', exact: true }).click();
   await page.getByRole('menuitem', { name: /새 뷰로 저장|내 복사본으로 저장/ }).click();
   const dialog = page.getByRole('dialog', { name: '뷰 저장' });
   await expect(dialog).toBeVisible();
@@ -52,6 +80,7 @@ async function savePrivate(page: Page, name: string) {
   const dialog = await startSave(page, name);
   await dialog.getByRole('button', { name: '저장', exact: true }).click();
   await expect(toast(page, `"${name}" 뷰를 저장했습니다.`)).toBeVisible();
+  await expandQueryBar(page);
   await expect(trigger(page)).toHaveAccessibleName(`저장된 뷰: ${name}`);
 }
 /** Saves through the audience picker: `groups` checks the named groups, `official` asks for approval. */
@@ -84,6 +113,7 @@ test.describe('HW Time saved views and shared conditions', () => {
     await page.goto(`/mars/hw-time?v=1&scopeId=MEM&roomNames=PHOTO&pins=table&${TWO_DAYS}`);
     const workspace = page.getByRole('region', { name: 'HW Time 분석 영역', exact: true });
     const tableTab = workspace.getByRole('tab', { name: '원본 표', exact: true });
+    await foldOpenQueryEditor(page);
     await tableTab.click();
     const table = page.locator('[data-dock-panel="table"]');
     const tablePin = workspace.getByRole('button', { name: '원본 표 고정', exact: true });
@@ -110,6 +140,7 @@ test.describe('HW Time saved views and shared conditions', () => {
     await expect.poll(() => query(page).get('from')).toBe('2026-09-25T00:00:00');
     expect(query(page).get('roomNames')).toBe('ETCH');
 
+    await foldOpenQueryEditor(page);
     await tableTab.click();
     await columns.click();
     await page.getByRole('button', { name: '기본값으로', exact: true }).click();
@@ -121,15 +152,17 @@ test.describe('HW Time saved views and shared conditions', () => {
     expect(query(page).get('roomNames')).toBe('ETCH');
     await pickView(page, 'E2E HW Time PHOTO');
     await page.getByRole('dialog', { name: '변경한 내용을 어떻게 할까요?' }).getByRole('button', { name: '버리고 이동' }).click();
+    await expandQueryBar(page);
     await expect(trigger(page)).toHaveAccessibleName('저장된 뷰: E2E HW Time PHOTO');
     await expect.poll(() => query(page).get('roomNames')).toBe('PHOTO');
     await expect.poll(() => query(page).get('from')).toBe('2026-09-24T09:00:00');
     expect(query(page).get('to')).toBe('2026-09-26T09:00:00');
+    await closeQueryEditor(page);
     await tableTab.click();
     await expect(tablePin).toHaveAttribute('aria-pressed', 'true');
     await expect(groupHeader).toBeVisible();
 
-    await queryBar(page).getByRole('button', { name: '현재 조건 공유', exact: true }).click();
+    await shareQueryConditions(page);
     const link = new URL(await page.getByRole('textbox', { name: '복사할 링크' }).inputValue());
     expect(link.searchParams.get('roomNames')).toBe('PHOTO');
     expect(link.searchParams.get('from')).toBe('2026-09-24T09:00:00');
@@ -139,6 +172,7 @@ test.describe('HW Time saved views and shared conditions', () => {
     await expect(tableTab).toBeVisible();
     expect(query(page).get('roomNames')).toBe('PHOTO');
     expect(query(page).get('from')).toBe('2026-09-24T09:00:00');
+    await foldOpenQueryEditor(page);
     await tableTab.click();
     await expect(tablePin).toHaveAttribute('aria-pressed', 'true');
     await expect(table.getByRole('row').filter({ has: page.getByRole('cell') }).first()).toBeVisible();
@@ -146,14 +180,11 @@ test.describe('HW Time saved views and shared conditions', () => {
 });
 
 test.describe('06 §21 저장된 뷰', () => {
-  // These checks operate the open editor (condition chips, apply); an applied address starts collapsed without a stored choice (#1892).
-  test.beforeEach(async ({ page }) => {
-    await startWithQueryBarOpen(page, 'cycle-time');
-  });
   test('메뉴 뷰가 원본 표의 열 묶음을 복원하고 묶음 편집을 수정됨으로 표시한다', async ({ page }, testInfo) => {
     // Cycle time is a saved-view menu whose slow-executions table opts into editable column groups.
     await signInAs(page, 'engineer');
     await openCycle(page);
+    await closeQueryEditor(page);
     await showSlowExecutions(page);
     const table = page.locator('[data-dock-panel="slow"]');
     await table.getByRole('button', { name: '컬럼', exact: true }).click();
@@ -167,16 +198,19 @@ test.describe('06 §21 저장된 뷰', () => {
     await page.keyboard.press('Escape');
     await savePrivate(page, 'E2E 표 묶음');
     await expect(modifiedBadge(page)).toHaveCount(0);
+    await closeQueryEditor(page);
     await table.getByRole('button', { name: '컬럼', exact: true }).click();
     await page.getByRole('button', { name: '기본값으로', exact: true }).click();
     await page.keyboard.press('Escape');
+    await expandQueryBar(page);
     await expect(modifiedBadge(page)).toBeVisible();
-    await showSlowExecutions(page);
     await evidence(page, testInfo, 'saved-table-groups-reset');
-    await page.getByRole('button', { name: '저장', exact: true }).click();
+    await queryEditor(page).getByRole('button', { name: '저장', exact: true }).click();
     await page.getByRole('menuitem', { name: '저장본으로 되돌리기', exact: true }).click();
+    await closeQueryEditor(page);
     await showSlowExecutions(page);
     await expect(table.getByRole('columnheader', { name: /E2E 비교 묶음/ }).first()).toBeVisible();
+    await expandQueryBar(page);
     await expect(modifiedBadge(page)).toHaveCount(0);
     await evidence(page, testInfo, 'saved-table-groups');
   });
@@ -187,13 +221,14 @@ test.describe('06 §21 저장된 뷰', () => {
     await expect(modifiedBadge(page)).toHaveCount(0);
 
     await pickView(page, '내 야간 점검');
+    await expandQueryBar(page);
     await expect(trigger(page)).toHaveAccessibleName('저장된 뷰: 내 야간 점검');
-    await expect(contextBar(page).getByRole('button', { name: PHOTO_CHIP })).toHaveCount(0);
+    await expectAppliedChip(page, PHOTO_CHIP, { present: false });
 
     // The seed view holds no room, which leaves the required 공정 empty: choosing one and applying is the edit that makes the view modified.
     const bar = contextBar(page);
     await pickTargetRoom(page, bar, 'PHOTO');
-    await bar.getByRole('button', { name: '적용', exact: true }).click();
+    await queryEditor(page, bar).getByRole('button', { name: '적용', exact: true }).click();
     const picker = await openFoldedViewPicker(page);
     await expect(picker.getByText('수정됨', { exact: true })).toBeVisible();
     await evidence(page, testInfo, 'modified');
@@ -202,8 +237,8 @@ test.describe('06 §21 저장된 뷰', () => {
     await page.getByRole('dialog', { name: '변경한 내용을 어떻게 할까요?' }).getByRole('button', { name: '버리고 이동' }).click();
     await expandQueryBar(page, bar);
     await expect(trigger(page)).toHaveAccessibleName('저장된 뷰: E2E 일 단위 PHOTO');
-    await expect(contextBar(page).getByRole('button', { name: PHOTO_CHIP })).toBeVisible();
-    await expect(applied(page)).toContainText('집계 일');
+    await expectAppliedChip(page, PHOTO_CHIP);
+    await expectAppliedChip(page, '집계 일');
     await expect(modifiedBadge(page)).toHaveCount(0);
   });
 
@@ -249,6 +284,7 @@ test.describe('06 §21 저장된 뷰', () => {
     const link = page.url();
 
     await page.reload();
+    await expandQueryBar(page);
     await expect(trigger(page)).toHaveAccessibleName('저장된 뷰: E2E 링크 왕복');
     expect(query(page).toString()).toBe(new URL(link).searchParams.toString());
     // The selected view id stays out of the address (06 §21.3).
@@ -257,9 +293,10 @@ test.describe('06 §21 저장된 뷰', () => {
     const copy = await context.newPage();
     await copy.goto(link);
     await expect(mainHeading(copy)).toHaveText('사이클타임 상세');
-    await expect(contextBar(copy).getByRole('button', { name: PHOTO_CHIP })).toBeVisible();
-    await expect(applied(copy)).toContainText('집계 일');
+    await expectAppliedChip(copy, PHOTO_CHIP);
+    await expectAppliedChip(copy, '집계 일');
     // A new tab has no selected view: the same conditions open without claiming a view.
+    await expandQueryBar(copy);
     await expect(trigger(copy)).not.toHaveAccessibleName('저장된 뷰: E2E 링크 왕복');
     await evidence(copy, testInfo, 'copied-link');
     await copy.close();
@@ -278,8 +315,8 @@ test.describe('06 §21 저장된 뷰', () => {
     await page.goto('about:blank');
     await page.goto('/analytics/cycle-time?v=1&scopeId=MEM');
     // The chip exists only when the default view was applied (the menu default alone shows 집계 일), so waiting on it first exposes a default that never applied.
-    await expect(contextBar(page).getByRole('button', { name: PHOTO_CHIP })).toBeVisible();
-    await expect(applied(page)).toContainText('집계 일');
+    await expectAppliedChip(page, PHOTO_CHIP);
+    await expectAppliedChip(page, '집계 일');
     await page.goBack();
     await expect(page).toHaveURL('about:blank');
 
@@ -289,8 +326,9 @@ test.describe('06 §21 저장된 뷰', () => {
     const afterLoad = await openList(page);
     await expect(rowOf(afterLoad, 'E2E 기본 뷰')).toContainText('내 기본');
     await page.keyboard.press('Escape');
+    await expandQueryBar(page);
     await expect(trigger(page)).not.toHaveAccessibleName('저장된 뷰: E2E 기본 뷰');
-    await expect(applied(page)).toContainText('집계 주');
+    await expectAppliedChip(page, '집계 주');
     expect(query(page).toString()).toBe(new URL(explicit, page.url()).searchParams.toString());
   });
 
@@ -308,7 +346,8 @@ test.describe('06 §21 저장된 뷰', () => {
     await expect(page.getByRole('dialog', { name: '변경한 내용을 어떻게 할까요?' })).toHaveCount(0);
     await expect(toast(page, /메뉴 화면 버전이 달라 적용하지 못했습니다/)).toBeVisible();
     expect(query(page).toString()).toBe(before);
-    await expect(contextBar(page).getByRole('button', { name: PHOTO_CHIP })).toBeVisible();
+    await expectAppliedChip(page, PHOTO_CHIP);
+    await expandQueryBar(page);
     await expect(trigger(page)).not.toHaveAccessibleName('저장된 뷰: LOT 추이 (이전 형식)');
 
     await openList(page);

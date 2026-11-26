@@ -12,7 +12,7 @@
 | --- | --- |
 | Host 조립 파일 | `@ap/app-host`의 조립 함수를 부르는 진입 파일([Host 조립 계약](../design/host-entry-contract.md) §3) |
 | 자기 `menus.ts` | 이 키트가 싣는 메뉴와 업무 시스템(`Space`)·그룹·권한 선언. 싣지 않을 공개 견본 메뉴는 import하지 않는다 |
-| 견본 메뉴 1 | 복사해서 시작하는 메뉴 패키지 하나(`menus/sample/`: 메뉴 선언, 엔드포인트 선언, mock 핸들러, 화면) |
+| 견본 메뉴 1 | 복사해서 시작하는 메뉴 패키지 하나(menus/sample/: 메뉴 선언, 엔드포인트 선언, mock 핸들러, 화면) |
 | mock 조립 | 서버 없이 도는 어댑터 조립(`@ap/mock-server`) |
 | 스크립트 | `install`, `dev`, `build`, `build:real`, `check` |
 | 실서버 빌드 산출물 | `build:real`이 `dist/`에 웹과 함께 메뉴 선언 스냅샷 `menu-declarations.snapshot.json`을 쓴다. `menus.ts`의 선언과 각 메뉴 `endpoints.ts`에서 만들고 손으로 고치지 않는다. 코어 서버가 선언 묶음을 이 파일과 대조한다(`MENU_DECLARATIONS_SNAPSHOT_FILE`, [ADR-0156](../adr/0156-core-server-checks-the-bundle-against-a-built-menu-snapshot.md)) |
@@ -26,7 +26,7 @@
 0. 내려받은 자산은 풀기 전에 릴리스의 바깥 `SHA256SUMS`로 확인한다: `gh release download <태그> --pattern 'ap-start-kit-*.tgz' --pattern SHA256SUMS` 뒤 `sha256sum -c --ignore-missing SHA256SUMS`. 키트 안의 `SHA256SUMS`는 같은 압축 파일에서 나오므로 바뀐 키트도 통과시킨다. 신뢰 뿌리는 바깥 목록이다.
 1. 키트를 빈 폴더에 풀고 설치 검사(`node sdk-bundle-check.mjs verify`) 뒤에 `pnpm install --frozen-lockfile`을 돌린다. 사내 npm 미러를 쓰는 환경은 [반입 묶음](../integration/approved-release-bundle.md#설치-검사)의 미러 대조를 먼저 돌린다.
 2. `dev`로 첫 화면이 뜨는 것을 확인한다.
-3. 견본 메뉴 패키지 `menus/sample/`을 복사해 세 상수를 바꾸고 `menus.ts`와 `mock/assembly.ts`에 등록한다(키트 README «둘째 메뉴»). 둘째 메뉴가 등록된 채 `build`와 렌더가 통과하면 시작이 끝난 것이다. 공개 CI가 이 순서를 스크립트로 따라 한다.
+3. 견본 메뉴 패키지 menus/sample/을 복사해 세 상수를 바꾸고 `menus.ts`와 `mock/assembly.ts`에 등록한다(키트 README «둘째 메뉴»). 둘째 메뉴가 등록된 채 `build`와 렌더가 통과하면 시작이 끝난 것이다. 공개 CI가 이 순서를 스크립트로 따라 한다.
 4. 변경마다 `check`를 돌린다.
 
 ## 버전 교체와 되돌리기
@@ -51,7 +51,7 @@
    - 올릴 때(새 폴더가 새 버전): `cd app-next && node sdk-bundle-check.mjs adopt --from ../app`
    - 되돌릴 때(지금 폴더가 새 버전): `node app/sdk-bundle-check.mjs adopt --from app --bundle app-next`
 
-   `adopt`는 지금 폴더의 조립 몫을 새 폴더에 복사하고, 새 폴더의 견본 `menus.ts`·`mock/assembly.ts`와 지금 폴더에 없는 메뉴 폴더를 지운다. 다만 지금 폴더가 가진 메뉴 폴더 안에서 새 키트만 싣는 파일은 남긴다. 새 키트가 견본 메뉴에 더한 파일(0.35.0-rc.2의 `menus/sample/conformance.ts`)은 통합 담당자가 쓴 적이 없으므로, 그 폴더를 옮긴다고 지우지 않는다. 직접 쓴 같은 경로의 파일이 있으면 그 파일이 이긴다. 옛 키트에도 실렸지만 지금 폴더에서 지운 조립 파일은 새 키트에서도 지운다.
+   `adopt`는 지금 폴더의 조립 몫을 새 폴더에 복사하고, 새 폴더의 견본 `menus.ts`·`mock/assembly.ts`와 지금 폴더에 없는 메뉴 폴더를 지운다. 다만 지금 폴더가 가진 메뉴 폴더 안에서 새 키트만 싣는 파일은 남긴다. 새 키트가 견본 메뉴에 더한 파일(0.35.0-rc.2의 menus/sample/conformance.ts)은 통합 담당자가 쓴 적이 없으므로, 그 폴더를 옮긴다고 지우지 않는다. 직접 쓴 같은 경로의 파일이 있으면 그 파일이 이긴다. 옛 키트에도 실렸지만 지금 폴더에서 지운 조립 파일은 새 키트에서도 지운다.
 
    아래 중 하나라도 있으면 두 폴더 모두 아무것도 바꾸지 않고 이유를 모두 적은 뒤 exit 1로 멈춘다. 모든 판정은 첫 변경 전에 끝난다.
    - 지금 폴더에서 키트 몫 파일을 고치거나 지웠다(새 키트가 덮어써서 그 변경을 잃는다).

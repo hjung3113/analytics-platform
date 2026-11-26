@@ -144,6 +144,7 @@ const dict = {
   queryMissing: { ko: '{label}{particle} 선택하세요', en: 'Select {label}' },
   lentPanelPermission: { ko: '{menu}의 {panel} 패널을 볼 권한이 없습니다.', en: 'You don’t have permission to view the {panel} panel of {menu}.' },
   lentPanelMissingInput: { ko: '패널에 필요한 입력을 확인하세요.', en: 'Check the panel’s required input.' },
+  lentPanelRejectedHeldTime: { ko: '붙잡은 기간을 적용할 수 없습니다.', en: 'The held period could not be applied.' },
   lentPanelMissingNamedInput: { ko: '패널에 필요한 입력을 확인하세요 ({label}).', en: 'Check the panel’s required input ({label}).' },
   lentPanelMissingSelection: { ko: '패널에 필요한 설비 선택이 없습니다.', en: 'No equipment is selected for this panel.' },
   lentPanelMissingScope: { ko: '패널의 Scope를 확인하세요.', en: 'Check the scope for this panel.' },
@@ -382,14 +383,26 @@ function guidanceByCode(code: string) {
  */
 export type ErrorGuidance = { code: string | null; cause: Key; action: Key; label: Key; blocked: boolean };
 
-/** Classify a server `message` by the prefix before the first colon. Unmapped text uses the general error copy. */
+/** Classify a server `message` by its leading code, before a colon or a middle-dot segment. */
 export function errorGuidance(message: string | undefined): ErrorGuidance {
-  const code = message?.split(':', 1)[0]?.trim() ?? '';
+  const code = message?.split(' · ', 1)[0]?.split(':', 1)[0]?.trim() ?? '';
   const guide = guidanceByCode(code);
   if (guide) {
     return { code, cause: guide.cause, action: guide.action, label: guide.label, blocked: guide.blocked };
   }
   return { code: null, cause: 'stateErrorCause', action: 'stateErrorAction', label: 'sharedOutcomeError', blocked: false };
+}
+
+/** Read the fixed-equipment overage from a standalone code or a time-domain refusal. */
+export function parseFixedEquipmentLimit(message: string | undefined): { kind: 'selected' | 'remaining'; count: number; limit: number } | undefined {
+  const match = /^(?:(\w+) · )?fixed_equipment_limit: ([1-9]\d*)\/([1-9]\d*)$/.exec(message ?? '');
+  if (!match) return undefined;
+  const [, refusalCode, rawCount, rawLimit] = match;
+  if (refusalCode && guidanceByCode(refusalCode)?.label !== 'sharedOutcomeCannotAggregate') return undefined;
+  const count = Number(rawCount);
+  const limit = Number(rawLimit);
+  if (!Number.isSafeInteger(count) || !Number.isSafeInteger(limit) || count <= limit) return undefined;
+  return { kind: refusalCode ? 'remaining' : 'selected', count, limit };
 }
 
 export function userFacingEntries(): readonly { key: string; ko: string; en: string }[] {

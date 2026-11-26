@@ -33,7 +33,7 @@ pnpm install
 - `--label-ko`와 `--label-en`은 필수입니다.
 - `--page-type`은 `overview`·`analysis`·`management`·`catalog`·`workflow` 중 하나입니다.
 - 먼저 `--dry-run`을 붙이면 파일을 쓰지 않고 무엇이 바뀔지만 보여 줍니다.
-- 생성기는 `menus/mars/tryout/` 패키지를 만들고, `menus.ts`·`dev/mock-assembly.tsx`·`style.css`·앱 `package.json`에 배선 줄을 더합니다. 어느 줄이 들어갔는지 출력에 그대로 나옵니다.
+- 생성기는 menus/mars/tryout/ 패키지를 만들고, `menus.ts`·`dev/mock-assembly.tsx`·`style.css`·앱 `package.json`에 배선 줄을 더합니다. 어느 줄이 들어갔는지 출력에 그대로 나옵니다.
 
 ## 3. 만들어진 것 읽기
 

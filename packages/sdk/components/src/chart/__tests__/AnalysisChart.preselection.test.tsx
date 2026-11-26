@@ -225,3 +225,27 @@ it('moves focus to the table toggle when a followed histogram empties under a fo
   expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
   expect(document.activeElement).toBe(screen.getByRole('button', { name: '표로 보기' }));
 });
+
+it.each([
+  ['refocused within the same task keeps it', true],
+  ['a real departure clears it', false],
+] as const)('a blur of the selection summary that is %s (#3072)', async (_label, refocus) => {
+  const spec = (data: typeof bins): ChartSpec => ({
+    kind: 'histogram', xUnit: 's', xLabel: 'Duration', bins: data, selectedBin: { start: 0, end: 1 },
+  });
+  const view = mount(spec(bins));
+  await screen.findByRole('img');
+  const region = summary();
+  const target = region.querySelector<HTMLElement>('button:not(:disabled), [tabindex]') ?? region;
+  if (target === region) region.tabIndex = -1;
+  act(() => { target.focus(); });
+  // A programmatic restore right after the blur, before the deferred release runs.
+  act(() => { target.blur(); if (refocus) target.focus(); });
+  await act(async () => { await Promise.resolve(); });
+  if (!refocus) expect(document.activeElement).toBe(document.body);
+
+  view.update(spec([]));
+  const toggle = screen.getByRole('button', { name: '표로 보기' });
+  if (refocus) expect(document.activeElement).toBe(toggle);
+  else expect(document.activeElement).toBe(document.body);
+});

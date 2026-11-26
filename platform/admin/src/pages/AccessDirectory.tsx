@@ -50,17 +50,18 @@ export default function AccessDirectory() {
     { id: 'name', header: m('accessDirectoryName') },
     { ...filterColumnProps('role'), cell: row => mono(row.role) },
     { id: 'title', header: m('accessDirectoryTitle'), sortable: false, value: row => row.title[lang] },
-    { id: 'permissionCount', header: m('accessDirectoryPermissions'), value: row => row.permissions.length },
+    { id: 'permissionCount', header: m('accessDirectoryPermissions'), cellKind: 'number', value: row => row.permissions.length },
     {
       id: 'grantCount',
       header: m('accessDirectoryRoomGrants'),
+      cellKind: 'number',
       value: row => grantTotals(row).granted,
       cell: row => {
         const totals = grantTotals(row);
         return <span className="tabular">{totals.granted}/{totals.total}</span>;
       },
     },
-    { id: 'menus', header: m('accessDirectoryMenus'), sortable: false, value: row => menusForPermissions(registry, row.permissions).length },
+    { id: 'menus', header: m('accessDirectoryMenus'), cellKind: 'number', sortable: false, value: row => menusForPermissions(registry, row.permissions).length },
   ], [m, lang, registry, filterColumnProps]);
   // The drawer reads the loaded page's rows (the last loadPage result) — no second adapter call for a row.
   // Null until the current page request answered ok or empty: before that, and after forbidden/error/timeout, the page cannot

@@ -2,12 +2,14 @@ import { StrictMode, useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, type QueryState } from '@ap/kernel';
+import { memoryStorage } from '@ap/kernel/testing';
 import type { ApiResponse, Assessment } from '@ap/contracts';
 import { OutcomeBanners, OutcomeScope, useSharedOutcome } from '../OutcomeScope';
 import { OutcomeView, QueryView, StateMessage } from '../../StateView';
 import { DetailDrawer } from '../../drawer/DetailDrawer';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 import { useI18n } from '@ap/kernel';
+import { QueryBarStatusContext } from '../QueryBarStatus';
 
 const response = (outcome: ApiResponse<unknown>['outcome'] = 'error', message = 'Same response', assessments: Assessment[] = []): ApiResponse<unknown> =>
   ({ outcome, message, assessments, data: null, trust: null, correlationId: 'corr-widget',
@@ -21,9 +23,65 @@ function textWithoutDetail(node: HTMLElement) {
   clone.querySelectorAll('[role="note"]').forEach(note => note.remove());
   return clone.textContent ?? '';
 }
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+it.each([
+  ['too_large', 'fixed_equipment_limit: 25/24', 'status', 'Query too large',
+    'You selected 25 pieces of equipment. The limit is 24. Select 24 or fewer and query again.'],
+  ['error', 'time_domain_unverified · fixed_equipment_limit: 36/24', 'alert', 'Unable to load data',
+    'Excluding the affected equipment would leave 36, above the fixed selection limit of 24. Narrow the equipment in the conditions.'],
+] as const)('shows standalone fixed-equipment guidance in English for %s (#3064)', (outcome, message, role, title, reason) => {
+  const storage = memoryStorage();
+  storage.setItem('platform:lang', 'en');
+  vi.stubGlobal('localStorage', storage);
+  const openConditions = vi.fn();
+  render(<I18nProvider><QueryBarStatusContext.Provider value={{ status: null, report: vi.fn(), editorFocus: openConditions }}>
+    <Widget q={query(response(outcome, message))} />
+  </QueryBarStatusContext.Provider></I18nProvider>);
+  const card = within(screen.getByRole(role));
+  expect(card.getByText(title)).toBeVisible();
+  expect(card.getByText(reason)).toBeVisible();
+  fireEvent.click(card.getByRole('button', { name: 'Open conditions' }));
+  expect(openConditions).toHaveBeenCalledOnce();
+});
 
 describe('compact error banner wording (#2509)', () => {
+  it.each([
+    ['too_large', 'fixed_equipment_limit: 36/24', '조회 과대', '조회 범위가 너무 큽니다',
+      '고정 설비는 최대 24대입니다. 현재 36대를 선택했습니다. 설비를 24대 이하로 줄여 다시 조회하세요.'],
+    ['error', 'time_domain_unverified · fixed_equipment_limit: 36/24', '집계 불가', '데이터를 불러오지 못했습니다',
+      '영향 설비를 빼면 36대가 남아 고정 한도 24대를 넘습니다. 조건에서 설비를 줄이세요.'],
+  ] as const)('shows the fixed-equipment reason and conditions action for %s (#3064)', (outcome, message, label, title, reason) => {
+    const q = query(response(outcome, message));
+    const openConditions = vi.fn();
+    render(<I18nProvider><QueryBarStatusContext.Provider value={{ status: null, report: vi.fn(), editorFocus: openConditions }}>
+      <OutcomeScope><OutcomeBanners compact />
+        <Widget q={q} /><Widget q={q} name="Widget B" /><Widget q={q} name="Widget C" />
+      </OutcomeScope>
+    </QueryBarStatusContext.Provider></I18nProvider>);
+    const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
+    expect(banner).toHaveTextContent(label);
+    expect(within(banner).getByText(reason)).toBeVisible();
+    expect(banner).not.toHaveTextContent(/서버 오류|corr-widget/);
+    expect(within(banner).queryByRole('button', { name: /빼고 다시 조회/ })).toBeNull();
+    fireEvent.click(within(banner).getByRole('button', { name: '조건 열기' }));
+    expect(openConditions).toHaveBeenCalledOnce();
+    fireEvent.click(within(banner).getByRole('button', { name: '자세히' }));
+    expect(screen.getByRole('dialog', { name: title })).toHaveTextContent(reason);
+  });
+
+  it.each([
+    ['too_large', 'fixed_equipment_limit: 36/0', '한 번에 가져오기에는 범위가 큽니다. 조회 조건을 좁혀 다시 시도하세요.'],
+    ['error', 'time_domain_unverified · fixed_equipment_limit: 36/36', '시간 기준이 확인되지 않아 함께 집계할 수 없습니다. 설비를 좁히거나 기간을 줄이세요.'],
+  ] as const)('uses the default guidance for %s when limit counts are invalid', (outcome, message, guidance) => {
+    const q = query(response(outcome, message));
+    render(<I18nProvider><OutcomeScope><OutcomeBanners compact />
+      <Widget q={q} /><Widget q={q} name="Widget B" />
+    </OutcomeScope></I18nProvider>);
+    const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
+    expect(within(banner).getByText(guidance)).toBeVisible();
+  });
+
   it('names the refusal label in each widget reference when several groups share the page', () => {
     render(<I18nProvider><OutcomeScope><OutcomeBanners compact />
       <Widget q={query(response('error', 'time_domain_unverified: X-1'))} name="Refused A" />
@@ -552,7 +610,7 @@ describe('say a shared cause once (#1994)', () => {
     for (const name of ['Job 처리량 추세', '점유 구성']) {
       const state = screen.getByRole('group', { name });
       expect(state).toHaveTextContent(name);
-      expect(state).toHaveTextContent('불러오지 못함');
+      expect(state).toHaveTextContent('위 안내 참고(권한 없음)');
       expect(within(state).queryByRole('status')).toBeNull();
     }
     expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
@@ -665,7 +723,7 @@ describe('multi-group banner linkage (#1994 C1)', () => {
     expect(gammaBanner).toHaveTextContent('Delta');
     expect(gammaBanner).not.toHaveTextContent('Alpha');
     for (const name of ['Alpha', 'Beta', 'Gamma', 'Delta']) {
-      expect(screen.getByRole('group', { name })).toHaveTextContent('불러오지 못함(권한 없음)');
+      expect(screen.getByRole('group', { name })).toHaveTextContent('위 안내 참고(권한 없음)');
     }
   });
 
@@ -739,7 +797,7 @@ describe('reply-specific recovery (#2535)', () => {
     </OutcomeScope></I18nProvider>);
     const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
     expect(screen.getByRole('group', { name: 'Widget A' })).toHaveAttribute('aria-describedby', banner.id);
-    expect(screen.getByRole('group', { name: 'Widget B' })).toHaveTextContent('불러오지 못함');
+    expect(screen.getByRole('group', { name: 'Widget B' })).toHaveTextContent('위 안내 참고(조회 과대)');
     expect(screen.getByRole('group', { name: 'Widget C' })).not.toHaveAttribute('aria-describedby');
   });
 

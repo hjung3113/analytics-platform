@@ -1,15 +1,24 @@
-// CI `PR guard` job (#2643): the three caps, each passed only by a recorded answer. Rules: .agents/conductor/PROFILE.md §Size and path, «Mechanical caps».
+// CI `PR guard` job (#2643): the mechanical caps. Rules: .agents/conductor/PROFILE.md §Size and path, «Mechanical caps».
 //
 //   size    more than MAX_LINES changed lines (additions + deletions) or MAX_FILES files, tests included, generated files (the
 //           contract-schemas JSON Schema artifacts, whose drift the package test catches), snapshots, lockfiles (EXCLUDED) and release
-//           mechanical changes (isReleaseMechanical: package.json changing only its version or ap.sdk line, deleted SDK change fragments)
+//           mechanical changes (isReleaseMechanical: package.json changing only its version or ap.sdk line, deleted SDK or menu change fragments)
 //           excluded → fails unless the PR body has a `Size: <who> — <reason>` line (the lead's judgment that the change is simple
 //           or low regression risk) or the PR carries the owner's `owner-ok:size` label.
 //   rounds  the PR's branch has had more than MAX_PUSHES pull_request runs of ci.yml (open + two fix rounds; superseded and cancelled runs
 //           count, a force-push does not erase them) → fails unless the PR body has a `Round cap: <who> — <revert | split | 질문 #n>` line.
+//           A commit whose title fixes review round 2 or later (`리뷰 2회차`, `review round 2`) is an unreviewed third round at any push
+//           count → fails unless that line is the lead's or the owner's (`Round cap: lead — …` / `Round cap: owner — …`).
 //   scope   every issue the PR closes (`Closes|Fixes|Resolves #n` in the body, or `type(#n)` in the title) must be listed in `## 범위` of the
 //           newest `.planning/releases/v<semver>.md` on the base branch → fails unless the PR carries `owner-ok:scope`. A PR whose head adds
 //           numbers to that section needs the same label. No release file or no `## 범위` section → fails (the owner picks the scope first).
+//   budget  raising either number in .github/ci-budget.json requires the ci-budget-ok label; deletion or invalid values always fail.
+//   menu    editing a menus/<system>/<group> or platform/<feature> "version" line or CHANGELOG.md fails unless that PR also deletes one
+//           changes/<issue>.md of the same menu (the release fold). An added, removed or unedited moved menu and an ap.sdk-only
+//           package.json change pass. The FAIL line names the menu and points at menus/AGENTS.md.
+//   docs    the PR body has a `고친 문서: <documents>` or `고친 문서: 없음 — <reason>` line (#2284). It applies only to PRs created after
+//           DOCS_LINE_FROM_PR merged, so PRs open before the rule existed keep passing. The row always shows whether the rule is on; if
+//           DOCS_LINE_FROM_PR is closed unmerged the rule could never start, so every PR fails until the constant names the PR that merged.
 // Fail-closed: an API error fails the job (rerun it); a guard that skips on error would be the lead's exception by another name.
 // Node builtins only (sparse checkout, no install). Needs GITHUB_TOKEN with pull-requests: read and actions: read.
 //
@@ -25,19 +34,75 @@ export const SIZE_LABEL = 'owner-ok:size';
 export const SCOPE_LABEL = 'owner-ok:scope';
 export const EXCLUDED = /((^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$|\/__snapshots__\/|\.snap$|^tooling\/sdk\/api\/|^packages\/sdk\/CHANGELOG\.md$|^packages\/sdk\/contract-schemas\/schemas\/[^/]+\.json$)/;
 const ROUND_LINE = /^[ \t]*Round cap:[ \t]*(\S.*)$/m;
+// Fix commits name the review round they answer; round 2 is the last reviewed one (PROFILE §Review rounds).
+const LATE_FIX = /리뷰\s*(\d+)\s*회차|\breview round (\d+)\b/i;
+const DECIDER = /^(?:lead|owner)\s*—/;
 const SIZE_LINE = /^[ \t]*Size:[ \t]*(\S.*)$/m;
+// The PR that introduced the docs line; its merge time is when the rule starts.
+export const DOCS_LINE_FROM_PR = 3135;
+const DOCS_LINE = /^[ \t]*고친 문서:[ \t]*(\S.*)$/m;
+const DOCS_NONE = /^없음\s*—\s*\S/;
 const RELEASE_FILE = /^v(\d+)\.(\d+)\.(\d+)\.md$/;
+const BUDGET_FILE = '.github/ci-budget.json';
+const BUDGET_LABEL = 'ci-budget-ok';
+const INITIAL_BUDGET = { maxParallelPrJobs: 9, maxJobMinutes: 10 };
+
+export function budgetVerdict(base, head, labels) {
+  const valid = (budget) => budget && Object.keys(INITIAL_BUDGET).every((key) => Object.hasOwn(budget, key))
+    && typeof budget.reason === 'string' && /^[^\r\n]+$/.test(budget.reason.trim())
+    && Object.entries(budget).every(([key, value]) => key === 'reason' || (Number.isSafeInteger(value) && value > 0));
+  if (!valid(head) || (base !== null && !valid(base))) return { ok: false, detail: 'missing or invalid CI budget' };
+  const previous = base ?? INITIAL_BUDGET;
+  const raised = Object.keys(head).filter((key) => key !== 'reason')
+    .filter((key) => !Object.hasOwn(previous, key) || head[key] > previous[key])
+    .map((key) => Object.hasOwn(previous, key) ? `${key} ${previous[key]} → ${head[key]}` : `${key} added at ${head[key]}`);
+  if (raised.length === 0) return { ok: true, detail: 'no budget increase' };
+  const approved = labels.includes(BUDGET_LABEL);
+  return { ok: approved, detail: `${raised.join(', ')} · ${approved ? 'approved by' : 'requires'} \`${BUDGET_LABEL}\`` };
+}
 
 // The release-docs PR bumps either line in every consumer package (lead.md §Slice close step 1).
 const RELEASE_LINE = /^[-+]\s*("version":\s*"[^"]*"|"ap":\s*\{\s*"sdk":\s*"[^"]*"\s*\}),?\s*$/;
-const FRAGMENT = /^packages\/sdk\/changes\/[^/]+\.md$/;
+const SDK_FRAGMENT = /^packages\/sdk\/changes\/[^/]+\.md$/;
+// Menu packages: menus/<system>/<group> and platform/<feature> (tooling/changes/menus.mjs).
+const MENU_ROOT = String.raw`(menus\/[^/]+\/[^/]+|platform\/[^/]+)`;
+const MENU_FRAGMENT = new RegExp(`^${MENU_ROOT}\\/changes\\/[^/]+\\.md$`);
+const MENU_RELEASE_FILE = new RegExp(`^${MENU_ROOT}\\/(package\\.json|CHANGELOG\\.md)$`);
+const VERSION_DIFF = /^[-+]\s*"version":\s*"/;
 
-/** Release mechanical change (#2654): a `package.json` whose only change is its `version` or `ap.sdk` range line, or a deleted SDK change fragment. */
+/** Release mechanical change (#2654): a `package.json` whose only change is its `version` or `ap.sdk` range line, or a deleted SDK or menu change fragment. */
 export function isReleaseMechanical(f) {
-  if (f.status === 'removed' && FRAGMENT.test(f.filename)) return true;
+  if (f.status === 'removed' && (SDK_FRAGMENT.test(f.filename) || MENU_FRAGMENT.test(f.filename))) return true;
   if (!/(^|\/)package\.json$/.test(f.filename) || f.additions !== 1 || f.deletions !== 1 || typeof f.patch !== 'string') return false;
   const changed = f.patch.split('\n').filter((l) => /^[-+]/.test(l));
   return changed.length === 2 && changed.every((l) => RELEASE_LINE.test(l)) && changed[0].replace(/^-\s*"(\w+)".*/, '$1') === changed[1].replace(/^\+\s*"(\w+)".*/, '$1');
+}
+
+function versionLineTouched(file) {
+  // GitHub omits the patch on a large diff. A version change we cannot see still fails.
+  if (typeof file.patch !== 'string') return true;
+  return file.patch.split('\n').some((line) => VERSION_DIFF.test(line));
+}
+
+/** A menu PR must not edit `version` or CHANGELOG.md unless it deletes one fragment of that same menu. A rename or move
+ *  without content changes (no added or deleted lines) is not an edit. */
+export function menuChangelogVerdict(files) {
+  const folded = new Set();
+  for (const file of files) {
+    const match = file.status === 'removed' && MENU_FRAGMENT.exec(file.filename);
+    if (match) folded.add(match[1]);
+  }
+  const menus = new Set();
+  for (const file of files) {
+    if (file.status === 'added' || file.status === 'removed') continue;
+    const match = MENU_RELEASE_FILE.exec(file.filename);
+    if (!match || folded.has(match[1])) continue;
+    if (file.status === 'renamed' && (file.additions ?? 0) + (file.deletions ?? 0) === 0) continue;
+    if (match[2] === 'package.json' && !versionLineTouched(file)) continue;
+    menus.add(match[1]);
+  }
+  const list = [...menus].sort();
+  return { ok: list.length === 0, menus: list };
 }
 
 /** Changed lines and files after exclusions; `over` is true when either cap is exceeded. An over-cap PR passes with the owner label or a `Size:` body line. */
@@ -50,11 +115,17 @@ export function sizeVerdict(files, labels, body = '') {
   return { lines, files: counted.length, excluded: files.length - counted.length, over, answer, waived, ok: !over || waived };
 }
 
-/** Pushes = pull_request runs of ci.yml on the head branch; past MAX_PUSHES the body must carry a Round cap line. */
-export function roundsVerdict(pushes, body) {
+/** Pushes = pull_request runs of ci.yml on the head branch; past MAX_PUSHES the body must carry a Round cap line.
+ *  A commit fixing review round 2 or later needs that line from the lead or the owner whatever the push count. */
+export function roundsVerdict(pushes, body, commitTitles = []) {
   const answer = (body ?? '').match(ROUND_LINE)?.[1]?.trim() ?? null;
   const over = pushes > MAX_PUSHES;
-  return { pushes, over, answer, ok: !over || answer !== null };
+  const lateFixes = commitTitles.filter((title) => {
+    const m = LATE_FIX.exec(title);
+    return m !== null && Number(m[1] ?? m[2]) >= 2;
+  });
+  const decided = answer !== null && DECIDER.test(answer);
+  return { pushes, over, answer, lateFixes, ok: (!over || answer !== null) && (lateFixes.length === 0 || decided) };
 }
 
 /** Issue numbers a PR closes: closing keywords in the body (comma/and lists too) and the conventional `type(#n …)` title scope. */
@@ -109,18 +180,60 @@ function labelsNote(size) {
   return size.answer ? `, Size: ${size.answer}` : `, waived by \`${SIZE_LABEL}\``;
 }
 
-export function summarize({ size, rounds, scope, labelEvents, releaseFile }) {
+/** `since` is DOCS_LINE_FROM_PR's merge time, or null while it is unmerged; `startClosed` is true when that PR is closed. */
+export function docsVerdict({ body, createdAt, since, startClosed = false }) {
+  if (!since) return startClosed ? { ok: false, applies: false, state: 'dead' } : { ok: true, applies: false, state: 'pending' };
+  if (createdAt < since) return { ok: true, applies: false, state: 'before' };
+  // The template's placeholder is an HTML comment; a line left at the placeholder is no answer.
+  const answer = (body ?? '').replace(/<!--[\s\S]*?-->/g, '').match(DOCS_LINE)?.[1]?.trim() ?? null;
+  const ok = answer !== null && (!answer.startsWith('없음') || DOCS_NONE.test(answer));
+  return { ok, applies: true, answer };
+}
+
+export function summarize({ size, rounds, scope, budget, labelEvents, releaseFile, menuChangelog, docs }) {
   const mark = (ok) => (ok ? 'ok' : 'FAIL');
   const rows = [
     `| size | ${mark(size.ok)} | ${size.lines} lines, ${size.files} files (cap ${MAX_LINES}/${MAX_FILES}; ${size.excluded} generated/snapshot/lockfile/release-mechanical excluded)${size.waived ? (labelsNote(size)) : ''} |`,
-    `| rounds | ${mark(rounds.ok)} | ${rounds.pushes} pushes (cap ${MAX_PUSHES} without an answer)${rounds.answer ? `, Round cap: ${rounds.answer}` : rounds.over ? ', no `Round cap:` line in the PR body' : ''} |`,
+    `| rounds | ${mark(rounds.ok)} | ${rounds.pushes} pushes (cap ${MAX_PUSHES} without an answer)${rounds.answer ? `, Round cap: ${rounds.answer}` : rounds.over ? ', no `Round cap:` line in the PR body' : ''}${rounds.lateFixes?.length ? `; fix after review round 2${DECIDER.test(rounds.answer ?? '') ? '' : ' needs \`Round cap: lead — …\`'}: ${rounds.lateFixes.map((t) => `«${t.replaceAll('|', '\\|')}»`).join(', ')}` : ''} |`,
     `| scope | ${mark(scope.ok)} | closes ${scope.closes.length ? scope.closes.map((n) => `#${n}`).join(' ') : 'nothing'}; ${scope.noSection ? `no \`## 범위\` in ${releaseFile ?? 'any release file'} on the base branch` : `missing from ${releaseFile}: ${scope.missing.map((n) => `#${n}`).join(' ') || 'none'}`}${scope.grew.length ? `; head adds ${scope.grew.map((n) => `#${n}`).join(' ')} to \`## 범위\`` : ''}${scope.waived ? `; waived by \`${SCOPE_LABEL}\`` : ''} |`,
   ];
+  if (docs) {
+    const off = {
+      pending: `off until #${DOCS_LINE_FROM_PR} merges`,
+      dead: `#${DOCS_LINE_FROM_PR} closed unmerged, so the rule can never start: set DOCS_LINE_FROM_PR to the PR that merged it`,
+      before: `off: this PR was opened before #${DOCS_LINE_FROM_PR} merged`,
+    }[docs.state];
+    const detail = off ?? (docs.answer === null
+      ? 'no `고친 문서:` line at the line start of the PR body'
+      : `고친 문서: ${docs.answer.replaceAll('|', '\\|')}${docs.ok ? '' : ' (없음 needs `— <reason>`)'}`);
+    rows.push(`| docs | ${mark(docs.ok)} | ${detail} |`);
+  }
+  if (budget) rows.push(`| CI budget | ${mark(budget.ok)} | ${budget.detail} |`);
+  if (menuChangelog) {
+    const detail = menuChangelog.ok
+      ? 'version and CHANGELOG change only when that menu deletes a fragment'
+      : `${menuChangelog.menus.join(', ')} changes version or CHANGELOG without a deleted fragment (menus/AGENTS.md)`;
+    rows.push(`| menu changelog | ${mark(menuChangelog.ok)} | ${detail} |`);
+  }
   const events = labelEvents.length ? labelEvents.map((e) => `- \`${e.label}\` applied by ${e.actor} at ${e.at}`).join('\n') : '- none';
   return `## PR guard\n\n| check | verdict | detail |\n| --- | --- | --- |\n${rows.join('\n')}\n\nOwner labels:\n${events}\n`;
 }
 
 function selfTest() {
+  const currentBudget = { maxParallelPrJobs: 9, maxJobMinutes: 10, reason: 'Fixture budget.' };
+  assert.equal(budgetVerdict(currentBudget, currentBudget, []).ok, true);
+  assert.equal(budgetVerdict(null, currentBudget, []).ok, true);
+  assert.equal(budgetVerdict(currentBudget, { ...currentBudget, maxParallelPrJobs: 8 }, []).ok, true);
+  assert.equal(budgetVerdict(currentBudget, { ...currentBudget, maxParallelPrJobs: 10 }, []).ok, false);
+  assert.equal(budgetVerdict(currentBudget, { ...currentBudget, maxJobMinutes: 11 }, ['ci-budget-ok']).ok, true);
+  assert.equal(budgetVerdict(currentBudget, null, ['ci-budget-ok']).ok, false);
+  const extended = { ...currentBudget, maxRunnerMinutes: 90 };
+  assert.equal(budgetVerdict(currentBudget, extended, []).ok, false);
+  assert.equal(budgetVerdict(currentBudget, extended, ['ci-budget-ok']).ok, true);
+  assert.equal(budgetVerdict(null, extended, []).ok, false);
+  assert.equal(budgetVerdict(extended, { ...extended, maxRunnerMinutes: 80 }, []).ok, true);
+  assert.equal(budgetVerdict({ ...extended, maxRunnerMinutes: '90' }, extended, ['ci-budget-ok']).ok, false);
+  assert.equal(budgetVerdict(currentBudget, { ...extended, maxRunnerMinutes: 0 }, ['ci-budget-ok']).ok, false);
   const f = (filename, additions, deletions, previous_filename) => ({ filename, additions, deletions, previous_filename });
   // size
   assert.deepEqual(sizeVerdict([f('a.ts', 10, 5), f('pnpm-lock.yaml', 900, 0), f('x/__snapshots__/a.snap', 50, 0), f('tooling/sdk/api/ui.md', 70, 0), f('packages/sdk/CHANGELOG.md', 20, 0), f('packages/sdk/contract-schemas/schemas/chartConfig.json', 130, 0)], []), { lines: 15, files: 1, excluded: 5, over: false, answer: null, waived: false, ok: true });
@@ -150,9 +263,20 @@ function selfTest() {
   // rounds
   assert.equal(roundsVerdict(3, '').ok, true);
   assert.equal(roundsVerdict(4, 'body without a line').ok, false);
-  assert.deepEqual(roundsVerdict(4, 'x\nRound cap: lead — split, PR-2 follows\ny'), { pushes: 4, over: true, answer: 'lead — split, PR-2 follows', ok: true });
+  assert.deepEqual(roundsVerdict(4, 'x\nRound cap: lead — split, PR-2 follows\ny'), { pushes: 4, over: true, answer: 'lead — split, PR-2 follows', lateFixes: [], ok: true });
   assert.equal(roundsVerdict(5, 'Round cap:   ').ok, false, 'an empty answer is no answer');
   assert.equal(roundsVerdict(9, '  Round cap: owner — 질문 #3 answered: revert').ok, true);
+  // A fix after the final review round is an unreviewed third round: it needs the lead's (or owner's) Round cap line at any push count (#3102).
+  const late = ['feat(#1): x', 'fix(#1): 리뷰 1회차 — a', 'fix(#1): 리뷰 2회차 — b'];
+  assert.equal(roundsVerdict(2, '', late).ok, false, 'a round-2 fix commit without a Round cap line fails');
+  assert.deepEqual(roundsVerdict(2, '', late).lateFixes, ['fix(#1): 리뷰 2회차 — b']);
+  assert.equal(roundsVerdict(2, 'Round cap: lead — split: #9', late).ok, true);
+  assert.equal(roundsVerdict(2, 'Round cap: owner — 질문 #3 answered: keep', late).ok, true);
+  assert.equal(roundsVerdict(2, 'Round cap: lane — fixed it', late).ok, false, 'only the lead or the owner answers a late fix');
+  assert.equal(roundsVerdict(2, '', ['fix(#1): 리뷰 3회차 — c']).ok, false);
+  assert.equal(roundsVerdict(2, '', ['fix(#1): 리뷰2회차 c']).ok, false, 'spacing varies');
+  assert.equal(roundsVerdict(2, '', ['fix(#1): review round 2 — c']).ok, false);
+  assert.equal(roundsVerdict(2, '', ['fix(#1): 리뷰 1회차 — a', 'docs: 리뷰 12회 기록 정리']).ok, true, 'round 1 fixes and other numbers pass');
   // closing refs
   assert.deepEqual(closingIssues('fix(#2632): x', 'Closes #2632'), [2632]);
   assert.deepEqual(closingIssues('feat(ui): x', 'Closes #2619 #2621\n\nFixes #7, #8 and #9'), [7, 8, 9, 2619, 2621]);
@@ -183,7 +307,51 @@ function selfTest() {
   assert.match(text, /\| size \| FAIL \| 401 lines/);
   assert.match(summarize({ size: sizeVerdict([f('a.ts', 401, 0)], [], 'Size: lead — simple'), rounds: roundsVerdict(1, ''), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md' }), /\| size \| ok \| 401 lines.*Size: lead — simple \|/);
   assert.match(text, /\| rounds \| FAIL \| 4 pushes/);
+  assert.match(summarize({ size: sizeVerdict([], []), rounds: roundsVerdict(2, '', ['fix(#1): 리뷰 2회차 — a|b']), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md' }),
+    /\| rounds \| FAIL \| 2 pushes .*; fix after review round 2 needs `Round cap: lead — …`: «fix\(#1\): 리뷰 2회차 — a\\\|b» \|/);
+  assert.match(summarize({ size: sizeVerdict([], []), rounds: roundsVerdict(2, 'Round cap: lead — split: #9', ['fix(#1): 리뷰 2회차 — a']), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md' }),
+    /\| rounds \| ok \| .*Round cap: lead — split: #9; fix after review round 2: «fix\(#1\): 리뷰 2회차 — a» \|/);
   assert.match(text, /\| scope \| FAIL \| closes #1; missing from v0\.44\.0\.md: #1/);
+  const menuFragment = (n) => ({ filename: `menus/mars/hw-time/changes/${n}.md`, additions: 0, deletions: 3, status: 'removed' });
+  const versionPatch = '@@ -3 +3 @@\n-  "version": "0.11.34",\n+  "version": "0.11.35",\n';
+  const row = (filename, status, patch, additions = 1, deletions = 1) => ({ filename, status, patch, additions, deletions });
+  const menuOk = (files) => menuChangelogVerdict(files).ok;
+  assert.equal(sizeVerdict([menuFragment(3113)], []).files, 0, 'a deleted menu change fragment is release-mechanical');
+  assert.equal(sizeVerdict([{ ...menuFragment(1), filename: 'menus/mars/changes/1.md' }], []).files, 1, 'only fragments inside a menu package');
+  assert.equal(sizeVerdict([{ ...menuFragment(1), status: 'added', additions: 3, deletions: 0 }], []).files, 1, 'an added menu fragment counts');
+  assert.deepEqual(menuChangelogVerdict([row('menus/mars/hw-time/package.json', 'modified', versionPatch)]).menus, ['menus/mars/hw-time']);
+  assert.equal(menuOk([row('menus/mars/hw-time/CHANGELOG.md', 'modified', '@@\n-a\n+b\n')]), false);
+  assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'modified', versionPatch), row('menus/mars/hw-time/CHANGELOG.md', 'modified', '@@\n-a\n+b\n'), menuFragment(3113)]), true, 'a deleted fragment marks the release fold');
+  assert.equal(menuOk([row('menus/mars/hw-time/CHANGELOG.md', 'modified', '@@\n-a\n+b\n'), { filename: 'menus/bravo/metrics/changes/1.md', status: 'removed', additions: 0, deletions: 2 }]), false, 'another menu fragment does not cover this one');
+  assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'added', versionPatch, 20, 0), row('menus/mars/hw-time/CHANGELOG.md', 'added', '@@\n+## 0.1.0\n', 10, 0)]), true, 'an added menu');
+  assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'removed', versionPatch, 0, 20), row('menus/mars/hw-time/CHANGELOG.md', 'removed', '@@\n-## 0.1.0\n', 0, 10)]), true, 'a removed menu');
+  assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'modified', '@@ -5 +5 @@\n-  "ap": { "sdk": ">=0.49.0 <0.50.0" },\n+  "ap": { "sdk": ">=0.50.0 <0.51.0" },\n')]), true, 'an ap.sdk-only package.json change');
+  assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'modified', '@@ -20 +20 @@\n-    "react": "19.0.0"\n+    "react": "19.1.0"\n')]), true, 'a dependency change is not a version bump');
+  assert.equal(menuOk([{ filename: 'menus/mars/hw-time/package.json', status: 'modified', additions: 1, deletions: 1 }]), false, 'no patch fails closed');
+  const moved = (filename) => ({ filename, previous_filename: filename.replace('mars', 'bravo'), status: 'renamed', additions: 0, deletions: 0 });
+  assert.equal(menuOk([moved('menus/mars/hw-time/package.json'), moved('menus/mars/hw-time/CHANGELOG.md')]), true, 'moving a menu without edits');
+  assert.equal(menuOk([{ ...moved('menus/mars/hw-time/package.json'), additions: 1, deletions: 1, patch: versionPatch }]), false, 'a move that bumps the version');
+  assert.deepEqual(menuChangelogVerdict([row('platform/home/CHANGELOG.md', 'modified', '@@\n-a\n+b\n')]).menus, ['platform/home']);
+  assert.equal(menuOk([row('platform/home/CHANGELOG.md', 'modified', '@@\n-a\n+b\n'), { filename: 'platform/home/changes/2.md', status: 'removed', additions: 0, deletions: 2 }]), true);
+  assert.equal(sizeVerdict([{ filename: 'platform/home/changes/2.md', status: 'removed', additions: 0, deletions: 2 }], []).files, 0);
+  assert.match(summarize({ size: sizeVerdict([], []), rounds: roundsVerdict(1, ''), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md', menuChangelog: menuChangelogVerdict([row('menus/mars/hw-time/CHANGELOG.md', 'modified', '@@\n-a\n+b\n')]) }), /\| menu changelog \| FAIL \| menus\/mars\/hw-time .*menus\/AGENTS\.md/);
+  const guardBase = { size: sizeVerdict([], []), rounds: roundsVerdict(1, ''), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md' };
+  const docsAt = (body, createdAt = '2026-12-02T00:00:00Z', since = '2026-12-01T00:00:00Z') => docsVerdict({ body, createdAt, since });
+  assert.equal(docsAt('no line', '2026-12-02T00:00:00Z', null).ok, true, 'rule off until DOCS_LINE_FROM_PR merges');
+  assert.equal(docsAt('no line', '2026-11-30T00:00:00Z').ok, true, 'a PR opened before the rule passes');
+  assert.equal(docsAt('no line').ok, false);
+  assert.equal(docsAt('고친 문서: docs/contract/layout.md').ok, true);
+  assert.equal(docsAt('x\n  고친 문서: 없음 — 테스트만 바꿈\n').ok, true);
+  assert.equal(docsAt('고친 문서: 없음').ok, false, '없음 needs a reason');
+  assert.equal(docsAt('고친 문서: <!-- 고친 소유 문서들 -->\n').ok, false, 'the template placeholder is no answer');
+  assert.equal(docsAt('- 고친 문서: docs/a.md').ok, false, 'the line starts the line, not a bullet');
+  assert.match(summarize({ ...guardBase, docs: docsAt('고친 문서: 없음') }), /\| docs \| FAIL \| 고친 문서: 없음 \(없음 needs/);
+  assert.match(summarize({ ...guardBase, docs: docsAt('', '2026-11-30T00:00:00Z') }), /\| docs \| ok \| off: this PR was opened before #3135 merged \|/);
+  assert.match(summarize({ ...guardBase, docs: docsAt('', undefined, null) }), /\| docs \| ok \| off until #3135 merges \|/, 'the off state is visible');
+  const dead = docsVerdict({ body: '고친 문서: docs/a.md', createdAt: '2026-12-02T00:00:00Z', since: null, startClosed: true });
+  assert.equal(dead.ok, false, 'a start PR closed unmerged fails every PR');
+  assert.match(summarize({ ...guardBase, docs: dead }), /\| docs \| FAIL \| #3135 closed unmerged/);
+  assert.match(summarize({ ...guardBase, docs: docsAt('- 고친 문서: docs/a.md') }), /no `고친 문서:` line at the line start/);
   console.log('pr-guard self-test passed');
 }
 
@@ -213,6 +381,12 @@ async function main() {
   const pr = await api(`/repos/${repo}/pulls/${n}`);
   const labels = pr.labels.map((l) => l.name);
   const files = await paged(`/repos/${repo}/pulls/${n}/files`);
+  let budget;
+  if (files.some((file) => file.filename === BUDGET_FILE || file.previous_filename === BUDGET_FILE)) {
+    const readBudget = async (ref) => JSON.parse(await api(`/repos/${repo}/contents/${BUDGET_FILE}?ref=${ref}`, { raw: true }));
+    const [baseBudget, headBudget] = await Promise.all([readBudget(pr.base.sha), readBudget(pr.head.sha)]);
+    budget = budgetVerdict(baseBudget, headBudget, labels);
+  }
   const runs = (await paged(`/repos/${repo}/actions/workflows/ci.yml/runs?event=pull_request&branch=${encodeURIComponent(pr.head.ref)}`))
     .filter((r) => r.head_repository?.full_name === pr.head.repo?.full_name && r.created_at >= pr.created_at);
   const baseRef = encodeURIComponent(scopeBaseRef(pr));
@@ -221,17 +395,22 @@ async function main() {
   const baseText = releaseFile ? await api(`/repos/${repo}/contents/.planning/releases/${releaseFile}?ref=${baseRef}`, { raw: true }) : null;
   const headText = releaseFile ? await api(`/repos/${repo}/contents/.planning/releases/${releaseFile}?ref=${pr.head.sha}`, { raw: true }) : null;
   const labelEvents = (await paged(`/repos/${repo}/issues/${n}/events`))
-    .filter((e) => e.event === 'labeled' && e.label?.name?.startsWith('owner-ok:'))
+    .filter((e) => e.event === 'labeled' && (e.label?.name?.startsWith('owner-ok:') || e.label?.name === BUDGET_LABEL))
     .map((e) => ({ label: e.label.name, actor: e.actor?.login ?? '?', at: e.created_at }));
 
+  const commits = await paged(`/repos/${repo}/pulls/${n}/commits`);
+  const docsFrom = await api(`/repos/${repo}/pulls/${DOCS_LINE_FROM_PR}`);
+  const docs = docsVerdict({ body: pr.body, createdAt: pr.created_at, since: docsFrom.merged_at, startClosed: docsFrom.state === 'closed' });
   const size = sizeVerdict(files, labels, pr.body);
-  const rounds = roundsVerdict(runs.length, pr.body);
+  const rounds = roundsVerdict(runs.length, pr.body, commits.map((c) => c.commit.message.split('\n')[0]));
   const scope = scopeVerdict({ closes: closingIssues(pr.title, pr.body), baseScope: scopeIssues(baseText), headScope: scopeIssues(headText), labels });
-  const text = summarize({ size, rounds, scope, labelEvents, releaseFile });
+  const menuChangelog = menuChangelogVerdict(files);
+  const text = summarize({ size, rounds, scope, budget, labelEvents, releaseFile, menuChangelog, docs });
   console.log(text);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text);
-  if (!(size.ok && rounds.ok && scope.ok)) {
-    console.error(`pr-guard: FAIL (size=${size.ok} rounds=${rounds.ok} scope=${scope.ok}). Rules: .agents/conductor/PROFILE.md §Size and path, Mechanical caps.`);
+  if (!(size.ok && rounds.ok && scope.ok && (budget?.ok ?? true) && menuChangelog.ok && docs.ok)) {
+    const menuFail = menuChangelog.ok ? '' : ` ${menuChangelog.menus.join(', ')} (menus/AGENTS.md).`;
+    console.error(`pr-guard: FAIL (size=${size.ok} rounds=${rounds.ok} scope=${scope.ok} budget=${budget?.ok ?? 'unchanged'} menu=${menuChangelog.ok} docs=${docs.ok}).${menuFail} Rules: .agents/conductor/PROFILE.md §Size and path, Mechanical caps.`);
     process.exit(1);
   }
 }

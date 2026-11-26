@@ -16,6 +16,8 @@ export type MockEndpoint<P, T> = {
   isEmpty?: (data: T) => boolean;
   /** Overrides period-based Data Trust for non-empty, well-formed mart responses. */
   provisional?: (input: { data: T; params: P; context: GlobalContext }) => boolean;
+  /** Caps submitted fixed equipment and any fixed selection proposed by time-domain recovery. */
+  maxFixedEquipment?: number;
   /** Trust source shown in Data Trust; defaults like serve(). */
   source?: string;
   /**
@@ -154,6 +156,7 @@ export async function serveEndpoint(
       requiresScope: endpoint.spec.requiresScope,
       maxHours: endpoint.spec.limits?.maxHours,
       maxRows: endpoint.spec.limits?.maxRows,
+      maxFixedEquipment: endpoint.maxFixedEquipment,
       mergeTimeDomain: endpoint.spec.mergeTimeDomain,
       global,
       role: opts?.role,

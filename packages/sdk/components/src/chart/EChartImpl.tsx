@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import * as echarts from 'echarts/core';
 import { BarChart, BoxplotChart, CustomChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
 import { BrushComponent, DataZoomComponent, GraphicComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
@@ -6,9 +6,12 @@ import { LabelLayout } from 'echarts/features';
 import { CanvasRenderer } from 'echarts/renderers';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { cn, prefersReducedMotion } from '@ap/ui';
+import { useThemeRevision } from '@ap/ui/theme';
+import { DeclaredQueryPanelContext } from '../workspace/panelContext';
+import { sameDrawing } from './chartDrawing';
 import { baseTextStyle, type EChartProps } from './EChart';
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
-import { CHART_ECHARTS_THEME, CHART_HEIGHTS } from './chartMarks';
+import { CHART_ECHARTS_GEOMETRY, CHART_HEIGHTS, chartAxisTextStyle, chartMarkFontSize } from './chartMarks';
 
 echarts.use([LineChart, BarChart, BoxplotChart, CustomChart, PieChart, ScatterChart, GraphicComponent, GridComponent, TooltipComponent, DataZoomComponent, BrushComponent, ToolboxComponent, MarkAreaComponent, MarkLineComponent, LabelLayout, CanvasRenderer]);
 
@@ -24,6 +27,86 @@ function animationOff<T extends AnimationOption>(option: T): T {
       : animationOff(option.series as AnimationOption);
   }
   return next;
+}
+
+/** A plain record from any realm (an iframe's object literal too); class instances and opaque payloads stay out of the walk. */
+function isOptionObject(value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === null || Object.getPrototypeOf(proto) === null;
+}
+
+type AxisKey = 'xAxis' | 'yAxis';
+const AXIS_KEYS: readonly AxisKey[] = ['xAxis', 'yAxis'];
+const axisList = (axis: unknown): unknown[] => (axis === undefined ? [] : Array.isArray(axis) ? axis : [axis]);
+
+/** Mirrors variant A's option walk, leaving point payloads and explicit axis typography in the consumer's hands. */
+function applyChartTypography(option: EChartsCoreOption, element: Element): EChartsCoreOption {
+  const markSize = chartMarkFontSize(element);
+  const axisText = chartAxisTextStyle(element);
+  function floorLabels(value: unknown, insideMark: boolean): unknown {
+    if (Array.isArray(value)) return value.map(entry => floorLabels(entry, insideMark));
+    if (!isOptionObject(value)) return value;
+    const next = { ...value };
+    for (const [key, entry] of Object.entries(value)) {
+      if ((key === 'data' && !insideMark) || key === 'axisLabel' || key === 'nameTextStyle') continue;
+      const mark = insideMark || key === 'markLine' || key === 'markArea' || key === 'markPoint';
+      next[key] = floorLabels(entry, mark);
+    }
+    const size = value.fontSize;
+    if (typeof size === 'number' && size > 0 && size < markSize) next.fontSize = markSize;
+    return next;
+  }
+  const next = floorLabels(option, false) as EChartsCoreOption;
+  const styleAxis = (axis: unknown) => (isOptionObject(axis) ? { ...axis, ...axisTypography(axis, axisText) } : axis);
+  // Responsive and timeline overrides merge over this base, so their explicit styles still win. The base is copied
+  // before its axes are written: a class-backed or frozen consumer base passes the walk by reference.
+  const base: Record<string, unknown> = next.baseOption === undefined ? next : (next.baseOption = { ...(next.baseOption as object) });
+  for (const key of AXIS_KEYS) {
+    const axis = base[key];
+    if (axis !== undefined) base[key] = Array.isArray(axis) ? axis.map(styleAxis) : styleAxis(axis);
+  }
+  // An axis a media branch adds has no base entry to inherit from, so it takes the defaults itself. Branch patches
+  // to existing axes stay sparse, so they keep inheriting the base's explicit styles.
+  if (Array.isArray(next.media)) {
+    next.media = next.media.map(entry => {
+      if (!isOptionObject(entry) || !isOptionObject(entry.option)) return entry;
+      const branch: Record<string, unknown> = { ...entry.option };
+      for (const key of AXIS_KEYS) {
+        if (branch[key] === undefined) continue;
+        const known = axisList(base[key]);
+        const ids = new Set(known.map(axis => (isOptionObject(axis) ? axis.id : undefined)).filter(id => id !== undefined));
+        const styleAdded = (axis: unknown, index: number) => {
+          if (!isOptionObject(axis)) return axis;
+          const added = axis.id !== undefined ? !ids.has(axis.id) : index >= known.length;
+          return added ? styleAxis(axis) : axis;
+        };
+        branch[key] = Array.isArray(branch[key]) ? (branch[key] as unknown[]).map(styleAdded) : styleAdded(branch[key], 0);
+      }
+      return { ...entry, option: branch };
+    });
+  }
+  return next;
+}
+
+/** The axis text defaults with the consumer's explicit values over them. */
+function axisTypography(axis: Record<string, unknown>, axisText: Record<string, unknown>) {
+  return {
+    axisLabel: { ...axisText, ...(isOptionObject(axis.axisLabel) ? axis.axisLabel : {}) },
+    nameTextStyle: { ...axisText, ...(isOptionObject(axis.nameTextStyle) ? axis.nameTextStyle : {}) },
+  };
+}
+
+/** A theme-only redraw sends just the base axes' typography, merged by index. Replaying the whole option would reapply
+ * declared zoom ranges (root, baseOption or an active media branch) over the range the user settled on. */
+function themeTypographyPatch(resolved: EChartsCoreOption): EChartsCoreOption {
+  const base = (isOptionObject(resolved.baseOption) ? resolved.baseOption : resolved) as Record<string, unknown>;
+  const patch: Record<string, unknown> = {};
+  for (const key of AXIS_KEYS) {
+    if (base[key] === undefined) continue;
+    patch[key] = axisList(base[key]).map(axis => (isOptionObject(axis) ? { ...(axis.id !== undefined && { id: axis.id }), axisLabel: axis.axisLabel, nameTextStyle: axis.nameTextStyle } : {}));
+  }
+  return patch;
 }
 
 /** Component main types registered above: `replaceMerge` accepts only registered components (a root key such as `textStyle`, or an
@@ -66,11 +149,16 @@ export function setOptionMode(previous: EChartsCoreOption | null, next: EChartsC
 export default function EChartImpl({ option, height = CHART_HEIGHTS.regular, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<ECharts | null>(null);
-  const applied = useRef<EChartsCoreOption | null>(null);
+  const applied = useRef<{ source: EChartsCoreOption; resolved: EChartsCoreOption; lang: string } | null>(null);
+  const themeRevision = useThemeRevision();
   /** Set by the mount effect: releases everything a chart that failed its first draw still holds (observer, engine, zrender handler). */
   const releaseFailed = useRef<(() => void) | null>(null);
   const events = useRef(onEvents);
   events.current = onEvents;
+  const declared = useContext(DeclaredQueryPanelContext);
+  const inDeclaredPanel = declared !== null;
+  // Formatter closures carry the language, which `sameDrawing` cannot see: a language change always redraws.
+  const lang = declared?.lang ?? '';
   const resized = useRef(onResize);
   resized.current = onResize;
   // The engine cannot start where there is no canvas 2d context (jsdom): detected by the attempt, not by sniffing the environment (#1862).
@@ -80,7 +168,7 @@ export default function EChartImpl({ option, height = CHART_HEIGHTS.regular, onE
     if (!el.current) return;
     let instance: ECharts;
     try {
-      instance = echarts.init(el.current, CHART_ECHARTS_THEME, { renderer: 'canvas' });
+      instance = echarts.init(el.current, CHART_ECHARTS_GEOMETRY, { renderer: 'canvas' });
     } catch (cause) {
       reportChartUnavailable(cause);
       setUnavailable(true);
@@ -112,8 +200,8 @@ export default function EChartImpl({ option, height = CHART_HEIGHTS.regular, onE
 
   useEffect(() => {
     const instance = chart.current;
-    if (!instance) return;
-    const merged: EChartsCoreOption = { textStyle: baseTextStyle, animationDuration: 120, useUTC: true, ...option };
+    if (!instance || !el.current) return;
+    const merged = applyChartTypography({ textStyle: baseTextStyle, animationDuration: 120, useUTC: true, ...option }, el.current);
     // Canvas never sees the CSS reduced-motion rules (06 §26), so the OS preference is enforced here, re-read on
     // every setOption and applied after the consumer merge: a series-level `animation` beats the global flag
     // (echarts 6.1 Series.js), so both are forced off in every shape echarts accepts — the top level, baseOption
@@ -126,7 +214,19 @@ export default function EChartImpl({ option, height = CHART_HEIGHTS.regular, onE
       if (forced.media !== undefined) forced.media = forced.media.map(entry => (entry.option ? { ...entry, option: animationOff(entry.option) } : entry));
       next = forced;
     }
-    const mode = setOptionMode(applied.current, next);
+    const previous = applied.current;
+    if (previous !== null && previous.source === option) {
+      // Theme-only redraw: the consumer option is unchanged, so only the token-backed axis typography can differ.
+      instance.setOption(themeTypographyPatch(next), { notMerge: false, silent: true });
+      applied.current = { source: option, resolved: next, lang };
+      return;
+    }
+    // Equal drawing inside a declared panel: do not replay the option over the zoom the user settled on.
+    if (inDeclaredPanel && previous !== null && previous.lang === lang && sameDrawing(previous.resolved, next)) {
+      applied.current = { source: option, resolved: next, lang };
+      return;
+    }
+    const mode = setOptionMode(previous?.resolved ?? null, next);
     // replaceMerge still merges a component whose id matches (every series has one), so a key the next option leaves out would
     // survive (a value label turned off kept drawing). Empty the series first; axes, brush and toolbox carry no id and are rebuilt.
     if ('replaceMerge' in mode) instance.setOption({ series: [] }, { replaceMerge: ['series'], silent: true, lazyUpdate: true });
@@ -144,8 +244,8 @@ export default function EChartImpl({ option, height = CHART_HEIGHTS.regular, onE
         return;
       }
     } else instance.setOption(next, mode);
-    applied.current = next;
-  }, [option]);
+    applied.current = { source: option, resolved: next, lang };
+  }, [option, themeRevision, inDeclaredPanel, lang]);
 
   // Handlers are read through `events` at call time; only a changed set of event names rebinds.
   const eventNames = onEvents ? Object.keys(onEvents).join(',') : '';

@@ -15,3 +15,22 @@ describe('HW Time catalog compatibility (#2433)', () => {
       step === 4 ? undefined : S.needsStep4, undefined, undefined, undefined, undefined, undefined]);
   });
 });
+
+describe('HW Time «패널 추가» categories, kinds and descriptions (#2744)', () => {
+  const rows = panelCatalog({ step: 4, typeId: 'PM', moduleId: 'PM2', trend: null });
+  const byId = Object.fromEntries(rows.map(row => [row.id, row]));
+  it.each([
+    ['heatmap', 'comparison', 'heatmap'], ['moduleMotions', 'comparison', 'bar'], ['trend', 'trend', 'line'], ['equipmentDays', 'trend', 'heatmap'],
+    ['scatter', 'distribution', 'scatter'], ['distribution', 'distribution', 'histogram'], ['motionTable', 'records', 'table'], ['table', 'records', 'table'],
+    ['boundHistory', 'records', 'history'], ['donut', 'composition', 'donut'], ['pareto', 'composition', 'pareto'],
+  ] as const)('%s is in %s as %s with a description', (id, category, kind) => {
+    expect(byId[id]).toMatchObject({ category: { id: category }, kind });
+    expect(byId[id]!.description?.ko).toMatch(/\S/);
+    expect(byId[id]!.description?.en).toMatch(/\S/);
+  });
+  it('uses the agreed titles and wording', () => {
+    expect(byId.heatmap!.category!.title).toEqual({ ko: '비교', en: 'Comparison' });
+    expect(byId.boundHistory!.category!.title).toEqual({ ko: '표·이력', en: 'Tables and history' });
+    expect(byId.pareto!.description).toEqual({ ko: '상한 초과가 많은 항목부터 건수와 누적 비율을 표시합니다.', en: 'Ranks upper-limit exceedances and shows cumulative share.' });
+  });
+});

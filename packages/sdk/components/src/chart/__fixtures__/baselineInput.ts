@@ -14,7 +14,7 @@ export const baselineInput = (extra: BaselineOverrides = {}): ChartOptionInput =
   displayed, previousIds: new Set(), xType: 'category', horizontal: true, categories: ROWS, zoom: [0, 100], brushMode: false, selection: null, annotations: [], noteSpans: [], noteLevels: [], timeExtent: 0,
   chartWidth: 600, markLines: [{ y: 300, label: '목표' }], unit: 's', lang: 'ko', stacked: true, valueFormat: v => `${v}`, rowPitch: 26, activeCategory: 'R2', extremes: seriesExtremes(displayed),
   palette: {
-    theme: { axisLine: { lineStyle: { color: 'axisLine' } }, separator: 'separator', splitLine: { lineStyle: { color: 'splitLine' } }, axisLabel: { color: 'axisLabel' }, tooltip: { backgroundColor: 'b', borderColor: 'c', textStyle: { color: 't' } }, referenceLine: { silent: true, symbol: 'none', lineStyle: { color: 'ref', type: 'dashed' }, label: { formatter: '{b}', fontSize: 10, color: 'ref', position: 'insideEndTop' } } },
+    theme: { axisLine: { lineStyle: { color: 'axisLine' } }, separator: 'separator', splitLine: { lineStyle: { color: 'splitLine' } }, axisLabel: { color: 'axisLabel' }, tooltip: { backgroundColor: 'b', borderColor: 'c', textStyle: { color: 't' } }, referenceLine: { silent: true, symbol: 'none', lineStyle: { color: 'ref', type: 'dashed' }, label: { formatter: '{b}', fontSize: 12, color: 'ref', position: 'insideEndTop' } } },
     selection: 'sel', annotation: 'ann', annotationLabel: 'annL', brushFill: 'bf', brushBorder: 'bb', minMax: { min: 'min', max: 'max' }, labelSurface: 'surface',
     series: [{ stroke: 'aStroke', fill: 'aFill' }, { stroke: 'bStroke', fill: 'bFill' }],
     // fields of this branch, absent from main's palette and unused while valueLabels is unset

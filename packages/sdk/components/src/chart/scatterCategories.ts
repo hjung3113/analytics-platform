@@ -5,12 +5,14 @@ import type { XAXisComponentOption, YAXisComponentOption } from 'echarts';
 import type { ScatterPoint, ScatterSpec } from './AnalysisChart';
 import { legendColor, type KindProjection } from './analysisChartKinds';
 import { rowKey } from './analysisChartShared';
+import { chartMarkFontSize } from './chartMarks';
 import { escapeHtml } from './chartText';
-import { BOUND_DASH, BOUND_OPACITY, boundColor, boundLabelsOf, normalizeBound, type Bound } from './chartBounds';
+import { BOUND_DASH, boundLabelsOf, normalizeBound, type Bound } from './chartBounds';
+import { referenceValues, scatterReferenceMarks } from './referenceMarks';
 import { chartDiagnostic } from './analysisChartData';
 import { groupedRowText, rowGroup, rowGroupLayout, rowLabel, type ChartRowGroups } from './chartRowGroups';
 import { distinctStatuses, statusBacking, statusBorderColor, statusFill, statusGlyph, statusKey, statusMarker, statusText } from './chartStatus';
-import { chartTheme, token } from './EChart';
+import { CHART_BAND_OPACITY, chartSegmentedBoundsTheme, chartTheme, token } from './EChart';
 import { QUIET_SCATTER } from './scatterDensity';
 import { helperSeriesId } from './helperSeriesId';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -24,7 +26,6 @@ const UINT32_MAX = 0xffffffff;
 const RANGE_PADDING = 0.05;
 const SCATTER_FILL_OPACITY = 0.8;
 const GROUP_LABEL_OFFSET = 34;
-const GROUP_FONT_SIZE = 11;
 type Span = { start: number; end: number; lower?: number; upper?: number };
 
 /** FNV-1a over UTF-16 code units: stable across calls, ordering, locale and runtime. */
@@ -66,6 +67,7 @@ function spans(bounds: Bound[], part: 'upper' | 'lower' | 'band'): Span[] {
 }
 function categoryGroups(groups: ChartRowGroups, order: readonly string[], takenSeriesIds: Set<string>): CustomSeriesOption {
   const { runs } = rowGroupLayout(groups, order);
+  const fontSize = chartMarkFontSize();
   const theme = chartTheme();
   return {
     id: helperSeriesId('__scatterGroups', takenSeriesIds), type: 'custom', silent: true, animation: false, clip: false, tooltip: { show: false },
@@ -77,9 +79,9 @@ function categoryGroups(groups: ChartRowGroups, order: readonly string[], takenS
       const right = api.coord([run.end + HALF_CELL, 0])[0];
       const bottom = grid.y + grid.height;
       // A group narrower than its own label drops the label instead of overprinting its neighbours; the divider stays.
-      const fits = right - left >= run.group.length * GROUP_FONT_SIZE * 0.62 + 4;
+      const fits = right - left >= run.group.length * fontSize * 0.62 + 4;
       return { type: 'group', children: [
-        ...(fits ? [{ type: 'text' as const, style: { x: (left + right) / 2, y: bottom + GROUP_LABEL_OFFSET, text: run.group, fill: theme.axisLabel.color, fontSize: GROUP_FONT_SIZE, align: 'center' as const, verticalAlign: 'middle' as const } }] : []),
+        ...(fits ? [{ type: 'text' as const, style: { x: (left + right) / 2, y: bottom + GROUP_LABEL_OFFSET, text: run.group, fill: theme.axisLabel.color, fontSize, align: 'center' as const, verticalAlign: 'middle' as const } }] : []),
         ...(run.start > 0 ? [{ type: 'line' as const, shape: { x1: left, x2: left, y1: grid.y, y2: bottom + GROUP_LABEL_OFFSET }, style: { stroke: theme.splitLine.lineStyle.color, lineWidth: 1 } }] : []),
       ] };
     },
@@ -114,15 +116,18 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
   const statuses = distinctStatuses(points.map(point => point.status));
   const m = (key: keyof typeof COMPONENTS_MESSAGES) => formatText(COMPONENTS_MESSAGES[key], lang);
   const labels = boundLabelsOf(categories?.boundLabels, lang);
-  const color = boundColor(chartTheme());
+  const color = chartSegmentedBoundsTheme().lineStyle.color;
   const formatBound = (value: number) => formatNumber(value, lang, { maximumFractionDigits: 1 });
   const upper = spans(cells?.bounds ?? [], 'upper');
   const lower = spans(cells?.bounds ?? [], 'lower');
   const bands = spans(cells?.bounds ?? [], 'band');
+  const referenceMarks = scatterReferenceMarks(spec);
+  const separateBoundLines = base.seriesKeys.length > 0 && (upper.length > 0 || lower.length > 0)
+    && (referenceMarks?.some(mark => mark.type === 'line') ?? false);
   const legend: KindProjection['legend'] = [...base.legend,
     ...(upper.length ? [{ label: labels.upper, color: { resolved: color }, symbol: 'line', dash: BOUND_DASH.upper.join(' ') }] : []),
     ...(lower.length ? [{ label: labels.lower, color: { resolved: color }, symbol: 'line', dash: BOUND_DASH.lower.join(' ') }] : []),
-    ...(bands.length ? [{ label: labels.band, color: { resolved: color }, symbol: 'rect', opacity: BOUND_OPACITY }] : []),
+    ...(bands.length ? [{ label: labels.band, color: { resolved: color }, symbol: 'rect', opacity: CHART_BAND_OPACITY }] : []),
     ...statuses.map(status => ({ label: status.label, color: 'chart-no-data-pattern' as const, symbol: 'status', status })),
   ];
   const headers = [...base.headers];
@@ -182,7 +187,7 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
     ...base, rows, headers, csvHeaders, tableValues, csvValues, legend,
     // Per-point detail lives in rows (keyboard table, point selector, selection summary); the visible summary stays an aggregate.
     summary: [summary, ...statuses.map(status => `${statusGlyph(status)} ${status.label}: ${points.filter(point => point.status && statusKey(point.status) === statusKey(status)).length}`)].join(' · '),
-    seriesKeys: [...base.seriesKeys, ...statusOutlines.map(() => []), ...(groups ? [[]] : [])],
+    seriesKeys: [...base.seriesKeys, ...statusOutlines.map(() => []), ...(groups ? [[]] : []), ...(separateBoundLines ? [[]] : [])],
     option: active => {
       const original = base.option(active);
       const chosen = new Set(active);
@@ -202,21 +207,29 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
             ...(key !== undefined && chosen.has(key) ? { shadowBlur: 6, shadowColor: token('chart-selection-outline') } : {}) }, label: { ...statusMarker(point.status), position: 'top' as const } };
         }),
       }));
+      let boundMarker: ScatterSeriesOption['markLine'];
       if (categories?.bounds && series.length) {
+        const boundTheme = chartSegmentedBoundsTheme();
         const lines = (segments: Span[], part: 'upper' | 'lower', dash: number[]): NonNullable<NonNullable<ScatterSeriesOption['markLine']>['data']> => segments.map(span => [
-          { name: labels[part], coord: [span.start - HALF_CELL, span[part]!], lineStyle: { ...theme.referenceLine.lineStyle, color: boundColor(theme), type: dash }, label: { show: false } },
+          { name: labels[part], coord: [span.start - HALF_CELL, span[part]!], lineStyle: { ...boundTheme.lineStyle, type: dash }, label: { show: false } },
           { coord: [span.end + HALF_CELL, span[part]!] },
         ]);
-        series[0].markLine = { ...theme.referenceLine, ...series[0].markLine, data: [...(series[0].markLine?.data ?? []), ...lines(upper, 'upper', BOUND_DASH.upper), ...lines(lower, 'lower', BOUND_DASH.lower)] };
-        series[0].markArea = { silent: true, itemStyle: { color: boundColor(theme), opacity: BOUND_OPACITY }, label: { show: false }, data: bands.map(span => [
-          { coord: [span.start - HALF_CELL, span.lower!] }, { coord: [span.end + HALF_CELL, span.upper!] },
-        ]) };
+        const marker = { ...boundTheme, data: [...lines(upper, 'upper', BOUND_DASH.upper), ...lines(lower, 'lower', BOUND_DASH.lower)] };
+        // A markLine shares its parent style with every item. Use a separate carrier for the bounds.
+        if (separateBoundLines) boundMarker = marker;
+        else if (!series[0].markLine?.data?.length) series[0].markLine = marker;
+        series[0].markArea = { silent: true, itemStyle: { color: boundTheme.lineStyle.color, opacity: CHART_BAND_OPACITY }, label: { show: false }, data: [
+          ...bands.map((span): [{ coord: number[] }, { coord: number[] }] => [
+            { coord: [span.start - HALF_CELL, span.lower!] }, { coord: [span.end + HALF_CELL, span.upper!] },
+          ]),
+          ...(series[0].markArea?.data ?? []),
+        ] };
       }
       const takenSeriesIds = new Set(series.flatMap(({ id }) => id === undefined ? [] : [String(id)]));
       const yAxis = original.yAxis as YAXisComponentOption;
       const boundValues = (cells?.bounds ?? []).flatMap(bound => [bound.lower, bound.upper].filter((value): value is number => value !== undefined));
       const yRange = (extent: { min: number; max: number }) => {
-        const references = (spec.referenceLines ?? []).filter(line => line.axis === 'y' && Number.isFinite(line.value)).map(line => line.value);
+        const references = referenceValues(referenceMarks, 'y');
         const min = Math.min(extent.min, ...boundValues, ...references); const max = Math.max(extent.max, ...boundValues, ...references);
         const padding = (max - min || Math.abs(min) || 1) * RANGE_PADDING;
         return { min: min - padding, max: max + padding };
@@ -241,6 +254,8 @@ export function scatterExtras(spec: ScatterSpec, lang: Lang, unit: string, proje
           ...series,
           ...statusOutlines.map(outline => ({ ...outline, id: helperSeriesId(outline.id, takenSeriesIds) })),
           ...(groups && cells ? [categoryGroups(groups, cells.order, takenSeriesIds)] : []),
+          ...(boundMarker ? [{ id: helperSeriesId('__scatterBounds', takenSeriesIds), type: 'scatter', silent: true,
+            tooltip: { show: false }, data: [], markLine: boundMarker } satisfies ScatterSeriesOption] : []),
         ],
       };
     },

@@ -1,6 +1,23 @@
-import { isProduction } from '../context/drillValueLabel';
-type Slot = { value: unknown; apply: (value: never) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
+import type { Text } from '../i18n';
+
+// Inline NODE_ENV comparison so production builds drop the warning (#3028); typed locally as in context/drillValueLabel.ts.
+declare const process: { env: { NODE_ENV?: string } };
+type SaveBlock = string | Text;
+const NO_SAVE_BLOCKS: readonly SaveBlock[] = [];
+type Slot = { value: unknown; lifetime?: object; blocked?: SaveBlock | undefined; apply: (value: never, viewId: string) => void; onViewIdChange?: (viewId: string | null) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
 export type ViewSlots = ReturnType<typeof createScreenSlots>;
+export const saveBlockKey = (reason: SaveBlock): string =>
+  JSON.stringify(typeof reason === 'string' ? [reason, reason] : [reason.ko, reason.en]);
+
+export function collectSaveBlocks(...screens: (ViewSlots | undefined)[]): readonly SaveBlock[] {
+  const reasons = new Map<string, SaveBlock>();
+  for (const screen of screens) for (const reason of screen?.saveBlocks() ?? []) {
+    const key = saveBlockKey(reason);
+    if (!reasons.has(key)) reasons.set(key, reason);
+  }
+  return reasons.size === 0 ? NO_SAVE_BLOCKS : [...reasons.values()];
+}
+
 function sameValue(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   if (!left || !right || typeof left !== 'object' || typeof right !== 'object' || Array.isArray(left) !== Array.isArray(right)) return false;
@@ -24,19 +41,20 @@ function createScreenSlots() {
     const accepted = entries.filter(entry => !entry.accepts || entry.accepts(values[key] as never));
     if (!accepted.length) return;
     applied.consumed.add(tokenKey);
-    for (const entry of accepted) entry.apply(values[key] as never);
+    const { viewId } = applied;
+    for (const entry of accepted) entry.apply(values[key] as never, viewId);
   };
   return {
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     snapshot: () => revision,
     changed: emit,
     retry(field: string, key: string) { applyKey(field, key); emit(); },
-    register<T>(field: string, key: string, slot: { value: T; apply: (value: T) => void; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
+    register<T>(field: string, key: string, slot: { value: T; lifetime?: object; blocked?: SaveBlock | undefined; apply: (value: T, viewId: string) => void; onViewIdChange?: Slot['onViewIdChange']; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
       let keys = fields.get(field);
       if (!keys) { keys = new Map(); fields.set(field, keys); }
       const entry = slot as Slot;
       const previous = keys.get(key) ?? [];
-      if (!isProduction() && slot.single && previous.length > 0) {
+      if (process.env.NODE_ENV !== 'production' && slot.single && previous.length > 0) {
         console.warn(`Saved view slot "${field}" accepts one registration per screen.`);
       }
       keys.set(key, [...previous, entry]);
@@ -47,11 +65,23 @@ function createScreenSlots() {
         emit();
       };
     },
+    *saveBlocks(): Iterable<SaveBlock> {
+      for (const keys of fields.values()) for (const entries of keys.values()) for (const entry of entries) {
+        const reason = entry.blocked;
+        if (reason !== undefined) yield reason;
+      }
+    },
     capture<T>(field: string): Record<string, T> {
       return Object.fromEntries([...(fields.get(field) ?? [])].flatMap(([key, entries]) => {
         const entry = entries.at(-1);
         return entry ? [[key, entry.value as T]] : [];
       }));
+    },
+    captureSlot<T>(field: string, key: string) {
+      const current = () => fields.get(field)?.get(key)?.at(-1);
+      const entry = current();
+      const lifetime = entry?.lifetime;
+      return { value: entry?.value as T | undefined, isCurrent: () => current() === entry && entry?.lifetime === lifetime };
     },
     differs(field: string, saved: Record<string, unknown> | undefined): boolean {
       if (!saved) return false;
@@ -76,6 +106,9 @@ function createScreenSlots() {
         current.fields[field] = value;
         for (const key of fields.get(field)?.keys() ?? []) applyKey(field, key);
       }
+    },
+    changeViewId(field: string, key: string, viewId: string | null) {
+      for (const entry of fields.get(field)?.get(key) ?? []) entry.onViewIdChange?.(viewId);
     },
     select(viewId: string | null) { if (applied?.viewId !== viewId) applied = null; },
   };

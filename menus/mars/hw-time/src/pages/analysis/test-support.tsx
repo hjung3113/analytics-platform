@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { AnalysisSelectionChipZone } from '@ap/components';
@@ -15,6 +15,11 @@ const RealWorkspace = createContext(false);
 const RealChart = createContext<string | undefined>(undefined);
 export const chartRenders = vi.fn<(chartId: string) => void>();
 
+export async function openPanelPicker(trigger = screen.getByRole('button', { name: '패널 추가' })) {
+  fireEvent.click(trigger);
+  return screen.findByRole('dialog', { name: '패널 추가' });
+}
+
 // Canvas is unavailable in jsdom. Keep queries, filter, URL, table and status UI real; expose the public chart callbacks and declarations.
 vi.mock('@ap/components', async importOriginal => {
   const actual = await importOriginal<typeof import('@ap/components')>();
@@ -24,9 +29,10 @@ vi.mock('@ap/components', async importOriginal => {
       const seq = p.revealRequest?.seq, panelId = p.revealRequest?.panelId;
       useEffect(() => { if (panelId) setActive(panelId); }, [seq, panelId]);
       if (useContext(RealWorkspace)) return <actual.PanelWorkspace {...p} />;
-      return <div data-testid="workspace" data-config={JSON.stringify({ revealRequest: p.revealRequest, ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], persistKey: p.persistKey, placement: Object.fromEntries(p.panels.map(panel => [panel.id, panel.placement])), pins: Object.fromEntries(p.panels.map(panel => [panel.id, panel.pin?.pinned])) })}>
+      return <div data-testid="workspace" data-config={JSON.stringify({ revealRequest: p.revealRequest, ids: p.panels.map(panel => panel.id), primary: p.panels.find(panel => panel.primary)?.id, preset: p.presets[0], persistKey: p.persistKey, placement: Object.fromEntries(p.panels.map(panel => [panel.id, panel.placement])), pins: Object.fromEntries(p.panels.map(panel => [panel.id, panel.pin?.pinned])), keep: p.panels.flatMap(panel => panel.keep ? [panel.id] : []), titles: Object.fromEntries(p.panels.map(panel => [panel.id, panel.title.ko])) })}>
       <div role="tablist" aria-label="workspace test tabs">{p.panels.map(panel => <button key={panel.id} role="tab" aria-description={panel.badge?.description.ko} data-count={panel.badge?.count} aria-selected={active === panel.id} onClick={() => setActive(panel.id)}>{panel.id}</button>)}</div>
       <div data-testid="workspace-actions">{p.toolbarActions}</div>
+      {p.analysisPanelAddition && <button onClick={() => p.analysisPanelAddition!.onAdd({ source: 'hw-time/table', mode: 'hold', inputs: { motionEquipment: { shape: 'set', values: ['MEM-PHOTO-0105'] } } })}>hold table</button>}
       {p.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`}>{panel.pin && <button onClick={panel.pin.onToggle}>{`pin ${panel.id}`}</button>}{panel.onRemove && <button onClick={panel.onRemove}>{`remove ${panel.id}`}</button>}{panel.render()}</section>)}
     </div>;
     },
@@ -112,14 +118,16 @@ function DetailSlot() {
   const { ref } = useDetailPanelSlotHost();
   return <aside ref={ref} />;
 }
-export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true, showSelectionChips = false, realWorkspace = false, realChart, showDetail = false, savedViews, children }: { waitForData?: boolean; showSelectionChips?: boolean; realWorkspace?: boolean; realChart?: string; showDetail?: boolean; savedViews?: ComponentProps<typeof PlatformProvider>['savedViews']; children?: ReactNode } = {}) {
+export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true, showSelectionChips = false, realWorkspace = false, realChart, showDetail = false, savedViews, slots, children }: { waitForData?: boolean; showSelectionChips?: boolean; realWorkspace?: boolean; realChart?: string; showDetail?: boolean; savedViews?: ComponentProps<typeof PlatformProvider>['savedViews']; slots?: ComponentProps<typeof PlatformProvider>['slots']; children?: ReactNode } = {}) {
   const { default: HwTimePage } = await import('../../HwTimePage');
   const adapter = testAdapter({ session: () => session, menuQuery: async request => { requests.push(request); return respond(request); } });
   window.history.replaceState(null, '', `/mars/hw-time?view=overview&v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
   const page = showDetail ? <DetailPanelSlotProvider><HwTimePage params={{}} /><DetailSlot /></DetailPanelSlotProvider> : <HwTimePage params={{}} />;
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} savedViews={savedViews}>{children}{showSelectionChips && <AnalysisSelectionChipZone />}<RealChart.Provider value={realChart}>{realWorkspace ? <RealWorkspace.Provider value>{page}</RealWorkspace.Provider> : page}</RealChart.Provider></PlatformProvider></I18nProvider>);
+  const app = (store: typeof savedViews) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry} savedViews={store} slots={slots}>{children}{showSelectionChips && <AnalysisSelectionChipZone />}<RealChart.Provider value={realChart}>{realWorkspace ? <RealWorkspace.Provider value>{page}</RealWorkspace.Provider> : page}</RealChart.Provider></PlatformProvider></I18nProvider>;
+  const { rerender } = render(app(savedViews));
   if (waitForData) await screen.findByTestId('hw-current', {}, { timeout: 5000 });
   await settle();
+  return { replaceStore: (store: typeof savedViews) => rerender(app(store)) };
 }
 
 let restoreGeometry: (() => void) | undefined;

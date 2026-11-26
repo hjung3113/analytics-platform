@@ -635,6 +635,28 @@ _Avoid_: 사용자 메뉴(Registry 메뉴로 읽힌다).
 **패널 인스턴스**:
 사용자 분석 메뉴 정의 안의 패널 하나. `source`는 `declared`(코드 패널, 빌린 패널 포함) 또는 `chart`(설정으로 만든 패널)이고, URL 선택 키는 `<인스턴스>.<출력 키>`다([ADR-0176](docs/adr/0176-user-analysis-menu-one-definition-two-homes.md)).
 
+**기준** (차트 기준, en `Breakdown`, 코드 `ChartBreakdownDeclaration`):
+설정으로 만드는 차트를 갈라 보는 범주 차원(예: 설비, 모듈). 막대는 기준 값마다 막대 하나, 선은 기준 값마다 선 하나를 그린다. 메뉴가 `chartFields`에 지표와 함께 선언하고, 사용자는 차트 하나에 지표 하나와 기준 하나를 고른다(소유자 2026-11-25 «ㅇㅋ 추천대로», #2761).
+_Avoid_: 나누기 — «다음 분석»에서 한 단계 아래로 드릴하는 동작이다. 분할(`split`) — 저장되는 `ChartConfig`의 필드 이름일 뿐 화면 말이 아니다.
+
+**모양** (패널 설정 구역, en `Shape`):
+차트 패널 설정의 구역. 초안 종류에 맞는 행만 보이며, 고르면 바로 저장되고 출력은 바꾸지 않는다.
+
+**쌓기** (모양 행, en `Stack`):
+선 차트가 기준별 선을 겹쳐 쌓는 선택. 더할 수 없는 지표는 쌓을 수 없다.
+
+**영역 채우기** (모양 행, en `Area fill`):
+선 아래를 채울지의 선택. 자동은 차트가 정하고, 끔은 채우지 않으며, 켬은 모든 선을 채운다.
+
+**막대 방향** (모양 행, en `Bar direction`):
+막대를 세로 또는 가로로 그리는 선택.
+
+**색 계열** (모양 행, en `Color series`):
+막대 지표 하나의 색을 계열 토큰에서 고르는 선택.
+
+**소수 자리** (모양 행, en `Decimal places`):
+숫자 서식의 소수 자리. 자동은 차트가 정한다.
+
 **패널 좁히기**:
 한 패널이 메뉴 Context 안에서 적용하는 추가 범위 제한. 같은 메뉴의 다른 패널은 각자의 범위를 유지한다([Kernel §21.1](docs/contract/kernel.md#211-저장-단위-decided)).
 
@@ -772,8 +794,11 @@ _Avoid_: 행 — 표 행·보드 격자의 행과 섞인다.
 메뉴가 manifest에 선언하고 URL에 쓰는 그 화면 고유의 상태 키(예: 표 페이지 번호, 드릴 단계 값, `returnTo`). 전역 Context 키가 아니다. 그중 `contextResetKeys`에 함께 선언한 키는 사용자가 전역 Context를 바꾸면 지워진다([06 §6.4](docs/contract/platform-ui-contract.md)).
 
 **드릴** (드릴 단계, `drill.levels`):
-한 화면 안에서 단계별로 좁혀 들어가는 조회(예: room_name → StGroup → 설비). 메뉴가 manifest에 단계 순서(page key와 표시 이름)를 선언하고 단계 수에 상한이 없다. 단계마다 page key 하나를 URL에 쓰고, 올라가거나 값을 바꾸면 뒤 단계 키를 지운다. `DrillLayout` 화면에서는 경로 바로 보이고 단계마다 본문을 바꾸며, 연결 패널 화면(HW Time, [ADR-0078](docs/adr/0078-hw-time-layout-recipes.md))에서는 같은 단계 키를 패널들이 읽는다([ADR-0025](docs/adr/0025-drilldown-level-page-keys-path-bar-layout.md), [ADR-0063](docs/adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)).
+한 화면 안에서 단계별로 좁혀 들어가는 조회(예: room_name → StGroup → 설비). 메뉴가 manifest에 단계 순서(page key와 표시 이름)를 선언하고 단계 수에 상한이 없다. 단계 값은 각각 page key에 쓰고, 대안 나누기 기준을 고른 단계에는 기준 키도 쓴다. 올라가거나 값을 바꾸면 뒤 단계 키를 지운다. `DrillLayout` 화면에서는 경로 바로 보이고 단계마다 본문을 바꾸며, 연결 패널 화면(HW Time, [ADR-0078](docs/adr/0078-hw-time-layout-recipes.md))에서는 같은 단계 키를 패널들이 읽는다([ADR-0025](docs/adr/0025-drilldown-level-page-keys-path-bar-layout.md), [ADR-0063](docs/adr/0063-consumer-owned-chart-pieces-and-unbounded-drill.md)).
 _Avoid_: 드릴다운 메뉴 — 별도 메뉴가 아니라 한 메뉴 안의 단계다.
+
+**나누기 기준** (drill basis):
+드릴 단계에서 결과를 나눌 축. 메뉴가 대안을 선언하며 선택한 대안 id는 그 단계의 별도 page key에 남는다. 기준 키가 없는 단계는 기본 기준을 쓴다([ADR-0178](docs/adr/0178-drill-alternative-basis.md)).
 
 **초안 / 적용** (Draft / Apply, `query.mode: 'apply'`):
 여러 조회 조건을 모아 한 번에 실행하는 메뉴의 조회 방식. 편집 중인 조건은 칸의 초안에만 있고, `적용`을 눌러야 URL(적용 주소)에 쓰이고 조회가 실행된다. 선언이 없는 메뉴는 바꾸는 즉시 적용되는 live 모드다. 필수 조건이 비면 조회하지 않는 idle 상태다([ADR-0061](docs/adr/0061-query-draft-applied-address-and-required-gate.md)).

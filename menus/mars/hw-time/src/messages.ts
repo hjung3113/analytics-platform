@@ -130,6 +130,18 @@ export const HW_TIME_WORKSPACE_MESSAGES = {
   activeRow: { ko: '선택한 막대 행', en: 'Selected bar row' },
   unreadablePanels: { ko: '저장된 패널 구성을 읽을 수 없어 기본 패널로 열었습니다.', en: 'The saved panel configuration could not be read, so the default panels were opened.' },
   missingPanel: { ko: '이 패널은 더 이상 없습니다: {id}', en: 'This panel is no longer available: {id}' },
+  heldPanel: { ko: '붙잡음 · 설비 {count}대 — 원래 차트의 선택이 바뀌거나 차트가 빠져도 그대로', en: 'Held · {count} equipment — stays when the original chart changes or leaves' },
+  followInstead: { ko: '따라가기로 바꾸기', en: 'Follow the selection instead' },
+  heldSource: { ko: '이 차트에서 붙잡은 패널이 있습니다', en: 'A panel holds this chart’s selection' },
+  heldRejected: { ko: '붙잡은 설비 선택을 적용할 수 없습니다.', en: 'The held equipment selection could not be applied.' },
+  followUnavailable: { ko: '연결한 차트의 선택을 읽을 수 없습니다.', en: 'The connected chart selection is unavailable.' },
+  heldEquipmentOnly: { ko: '설비 선택만 붙잡을 수 있습니다.', en: 'Only equipment selections can be held.' },
+  heldInputsFull: { ko: '패널 입력은 최대 {max}개까지 저장할 수 있습니다.', en: 'You can save up to {max} inputs per panel.' },
+  heldConfigurationInvalid: { ko: '이 선택을 붙잡으면 패널 구성을 저장할 수 없습니다.', en: 'Holding this selection would make the panel configuration invalid.' },
+  panelsFull: { ko: '저장 한도 {max}개. 패널 ⋯에서 삭제하세요.', en: 'Limit: {max} saved panels. Choose Delete from a panel’s ⋯ menu.' },
+  heldTitle: { ko: '{panel} · 붙잡음', en: '{panel} · held' },
+  samePanelMax: { ko: '같은 패널은 {max}개까지 함께 엽니다. 이 패널은 저장된 뷰에만 있습니다.', en: 'Up to {max} of the same panel open together. This one stays in the saved view only.' },
+  secondTitle: { ko: '{panel} 2', en: '{panel} 2' },
   unsupportedPanel: { ko: '이 저장된 패널을 열 수 없습니다: {id}', en: 'This saved panel cannot be opened: {id}' },
   /** The minimized 표시 조건 chip: the current conditions in one line. */
   filterSummary: { ko: '{type} · Module {modules}/{moduleTotal} · Motion {motions}/{motionTotal}', en: '{type} · Module {modules}/{moduleTotal} · Motion {motions}/{motionTotal}' },
@@ -184,6 +196,8 @@ export const HW_TIME_NEW_PANEL_MESSAGES = {
   all: { ko: '전체', en: 'All' },
   donut: { ko: '판정 비율 도넛', en: 'Verdict share' },
   pareto: { ko: '상한 초과 파레토', en: 'Upper-limit exceedance Pareto' },
+  dayBasis: { ko: '일별', en: 'By day' },
+  equipmentDaysUnavailable: { ko: '현재 선택 범위로는 설비 × 날짜 히트맵을 조회할 수 없습니다.', en: 'The equipment × day heatmap is unavailable for the current selection.' },
   equipmentDays: { ko: '설비 × 날짜 히트맵', en: 'Equipment × day heatmap' },
   boundHistory: { ko: 'HTM 기준 변경 이력', en: 'HTM bound history' },
   verdict: { ko: '판정', en: 'Verdict' },
@@ -197,7 +211,42 @@ export const HW_TIME_NEW_PANEL_MESSAGES = {
   population: { ko: '현재 기간의 설비·Module·Motion 평균 판정 건수', en: 'Equipment–Module–Motion mean judgements in the current range' },
   paretoNote: { ko: 'Motion·Module별 상한 초과 평균 판정 건수와 누적 비율', en: 'Over-limit mean judgements by Motion/Module (equipment–Module–Motion means judged over) and cumulative share' },
   dailyRuns: { ko: '{module} · {motion} 일 평균', en: '{module} · {motion} daily means' },
+  dailyModuleRuns: { ko: '{module} · Module 일 평균', en: '{module} · Module daily means' },
+  trendView: { ko: '추세 보기', en: 'Trend view' },
+  trendOverlay: { ko: '겹쳐 보기', en: 'Overlay' },
+  trendSplit: { ko: '나눠 보기', en: 'Small multiples' },
+  trendShowTable: { ko: '표로 보기', en: 'Show as table' },
+  trendByBreaches: { ko: 'HTM 이탈 많은 순', en: 'Most days outside HTM limits' },
   lentEquipmentCoverage: { ko: '비교 설비 {requested}대 중 {returned}대에 일 평균 데이터가 있습니다.', en: 'Daily means are available for {returned} of {requested} compared equipment.' },
   syntheticHistory: { ko: '합성 HTM 기준 변경 이력', en: 'Synthetic HTM bound history' },
 } as const;
 
+
+/** «패널 추가» category titles and item descriptions (#2744; agreed table on #2761). */
+export const HW_TIME_CATALOG_MESSAGES = {
+  comparison: { ko: '비교', en: 'Comparison' },
+  trend: { ko: '추세', en: 'Trend' },
+  distribution: { ko: '분포', en: 'Distribution' },
+  records: { ko: '표·이력', en: 'Tables and history' },
+  composition: { ko: '구성', en: 'Composition' },
+  heatmapDescription: { ko: '설비와 Module별 동작시간을 색으로 비교합니다.', en: 'Compares operation time by equipment and Module using colour.' },
+  moduleMotionsDescription: { ko: '현재 Module의 Motion별 동작시간을 비교합니다.', en: 'Compares operation time by Motion for this Module.' },
+  trendDescription: { ko: '설비별 일 평균 동작시간의 변화를 표시합니다.', en: 'Shows changes in mean daily operation time by equipment.' },
+  equipmentDaysDescription: { ko: '설비와 날짜별 동작시간을 색으로 비교합니다.', en: 'Compares operation time by equipment and day using colour.' },
+  scatterDescription: { ko: '개별 동작의 소요 시간을 점으로 표시합니다.', en: 'Plots the duration of individual runs.' },
+  distributionDescription: { ko: '동작시간 구간별 회차 수를 표시합니다.', en: 'Shows the number of runs in each duration interval.' },
+  motionTableDescription: { ko: 'Motion별 HTM 판정 결과를 표로 확인합니다.', en: 'Lists HTM judgements by Motion.' },
+  tableDescription: { ko: '동작시간 원본 행을 표로 확인합니다.', en: 'Shows the source operation-time rows.' },
+  boundHistoryDescription: { ko: 'HTM 기준이 바뀐 시점과 내용을 확인합니다.', en: 'Shows when HTM thresholds changed and what changed.' },
+  donutDescription: { ko: '판정 유형이 전체에서 차지하는 비율을 표시합니다.', en: 'Shows the share of each judgement.' },
+  paretoDescription: { ko: '상한 초과가 많은 항목부터 건수와 누적 비율을 표시합니다.', en: 'Ranks upper-limit exceedances and shows cumulative share.' },
+} as const;
+
+/** Charts made from settings (#2761): the declared measure, breakdown and time labels, and why a chart panel is not drawn. */
+export const HW_TIME_CHART_MESSAGES = {
+  moduleSeconds: { ko: 'Module 평균 동작시간', en: 'Module mean operation time' },
+  motionSeconds: { ko: 'Motion 평균 동작시간', en: 'Motion mean operation time' },
+  needsModule: { ko: 'Module 단계에서 그릴 수 있습니다.', en: 'Available at the Module step.' },
+  filtered: { ko: '현재 Module·Motion 선택으로는 이 차트를 조회할 수 없습니다.', en: 'This chart is unavailable for the current Module and Motion selection.' },
+  cannotDraw: { ko: '받은 데이터로 이 차트를 그릴 수 없습니다: {field}', en: 'This chart cannot be drawn from the data received: {field}' },
+} as const;

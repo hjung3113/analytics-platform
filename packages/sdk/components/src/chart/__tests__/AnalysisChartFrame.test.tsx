@@ -6,7 +6,8 @@ import { parseDateTime, groupId, spaceId, type AnnotationInput, type ApiResponse
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform } from '@ap/kernel';
 import userEvent from '@testing-library/user-event';
 import { AnalysisSectionContext } from '../../archetypes/AnalysisSectionContext';
-import { InWorkspacePanelProvider } from '../../workspace/panelContext';
+import { TransientOverlayScope } from '@ap/ui';
+import { InWorkspacePanelProvider, QueryPanelContentContext } from '../../workspace/panelContext';
 import { AnalysisChartFrame, type AnalysisChartFrameProps, type ChartSeries } from '../AnalysisChartFrame';
 import { assignNoteLevels } from '../annotationLayout';
 import type { EChartProps } from '../EChart';
@@ -145,11 +146,12 @@ describe('AnalysisChartFrame follows the menu manifest features (06 §16, issue 
     expect(f.list).not.toHaveBeenCalled();
   });
 
-  it('the sunken selection summary keeps secondary text before any brush (DESIGN.md pairing)', async () => {
+  it('the sunken selection summary keeps secondary range statistics (DESIGN.md pairing)', async () => {
     mount(fixture().adapter, off);
-    const summary = await screen.findByRole('region', { name: '선택 요약' });
+    fireEvent.click(await screen.findByText('fake-brush'));
+    const summary = screen.getByRole('region', { name: '선택 요약' });
     expect(summary.className).toContain('bg-surface-sunken');
-    const hint = within(summary).getByText(/선택 구간 없음/);
+    const hint = within(summary).getByText(/n=/);
     expect(hint.className).toContain('text-text-secondary');
     expect(hint.className).not.toContain('text-text-muted');
   });
@@ -172,6 +174,56 @@ describe('AnalysisChartFrame follows the menu manifest features (06 §16, issue 
     expect(screen.getByRole('button', { name: '주석' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '내보내기' })).toBeTruthy();
   });
+});
+
+it('closes the range editor and disables result actions on a prior result while its table stays readable', async () => {
+  const f = fixture();
+  const registry = registryWith(on);
+  const data: ChartSeries[] = [{ id: 'room', name: 'Rooms', unit: 'h', color: 'chart-blue', points: [['PHOTO', 4], ['ETCH', 6]] }];
+  const ui = (state: 'current' | 'prior') => <I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}>
+    <QueryPanelContentContext.Provider value={state}>
+      <TransientOverlayScope active={state === 'current'}>
+        <AnalysisChartFrame chartId="room" title="Rooms" xType="category" series={data} unit="h" />
+      </TransientOverlayScope>
+    </QueryPanelContentContext.Provider>
+  </PlatformProvider></I18nProvider>;
+  const { rerender } = render(ui('current'));
+  fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
+  expect(await screen.findByRole('combobox', { name: '구간 시작' })).toBeInTheDocument();
+  rerender(ui('prior'));
+  // The editor is portalled outside the result; the inactive overlay scope of a prior result closes it.
+  await waitFor(() => expect(screen.queryByRole('combobox', { name: '구간 시작' })).not.toBeInTheDocument());
+  expect(screen.getByRole('button', { name: '구간 선택' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '내보내기' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+  expect(await screen.findByRole('table', { name: 'Rooms' })).toHaveTextContent('PHOTO');
+});
+
+it('blocks consumer chart actions on a prior result while leaving its table readable', async () => {
+  const f = fixture();
+  const registry = registryWith(on);
+  const drill = vi.fn();
+  const exportRows = vi.fn();
+  const data: ChartSeries[] = [{ id: 'room', name: 'Rooms', unit: 'h', color: 'chart-blue', points: [['PHOTO', 4], ['ETCH', 6]] }];
+  const ui = (state: 'current' | 'prior') => <I18nProvider><PlatformProvider adapter={f.adapter} registry={registry}>
+    <QueryPanelContentContext.Provider value={state}>
+      <AnalysisChartFrame chartId="room" title="Rooms" xType="category" series={data} unit="h"
+        toolbarStart={<><button type="button" onClick={drill}>Drill rows</button><button type="button" onClick={exportRows}>Export rows</button></>} />
+    </QueryPanelContentContext.Provider>
+  </PlatformProvider></I18nProvider>;
+  const { rerender } = render(ui('current'));
+  expect(screen.getByRole('button', { name: 'Drill rows' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'Export rows' })).toBeEnabled();
+  rerender(ui('prior'));
+  // The slot stays mounted so a keep-previous refresh does not redraw it; `inert` blocks it in the browser (jsdom does not enforce inert).
+  for (const name of ['Drill rows', 'Export rows']) expect(screen.getByText(name).closest('[inert]')).not.toBeNull();
+  rerender(ui('current'));
+  for (const name of ['Drill rows', 'Export rows']) expect(screen.getByRole('button', { name }).closest('[inert]')).toBeNull();
+  expect(drill).not.toHaveBeenCalled();
+  expect(exportRows).not.toHaveBeenCalled();
+  rerender(ui('prior'));
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+  expect(await screen.findByRole('table', { name: 'Rooms' })).toHaveTextContent('PHOTO');
 });
 
 describe('wheel over the plot (#700, 06 §16)', () => {
@@ -379,7 +431,7 @@ describe('range apply confirmation stays an inline named group (#297)', () => {
     // Apply rewrites the global period, so the selection (and with it this row) disappears; the toolbar's
     // brush toggle is the stable anchor then.
     fireEvent.click(within(await openConfirm()).getByRole('button', { name: '적용' }));
-    expect(within(summary).queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
+    expect(screen.queryByRole('group', { name: '구간 적용 확인' })).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole('button', { name: '구간 선택' }));
   });
 });
@@ -398,7 +450,7 @@ describe('toolbar speaks the UI language (#302, #297)', () => {
     // The last sentence follows the same vocabulary as the toolbar (초기화), never the English term.
     expect(await screen.findByText(/초기화 후에도 유지됩니다/)).toBeTruthy();
     expect(screen.queryByText(/Reset/)).toBeNull();
-    expect(within(screen.getByRole('region', { name: '선택 요약' })).getByText('선택 구간 없음')).toBeTruthy();
+    expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
   });
 });
 
@@ -680,6 +732,7 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
   it('a quick range fills the selection summary and does not change the URL', async () => {
     mount(fixture().adapter, off, period, { series: [currentDay], compareSeries: [] });
     const before = window.location.search;
+    fireEvent.click(await screen.findByRole('button', { name: '구간 선택' }));
     fireEvent.click(await screen.findByRole('button', { name: '1시간' }));
     expect(summary().textContent).toContain('선택 구간: 2026-10-16 22:00 – 2026-10-16 23:00');
     expect(summary().textContent).toContain('n=1');
@@ -690,6 +743,7 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
   it('says there are no values to summarize when the selection covers only empty bars', async () => {
     const withEmptyLast: ChartSeries = { id: 's1', name: 'S1', color: 'chart-blue', points: currentDay.points.map(([x], i, all) => [x, i === all.length - 1 ? null : 1]) };
     mount(fixture().adapter, off, period, { series: [withEmptyLast], compareSeries: [] });
+    fireEvent.click(await screen.findByRole('button', { name: '구간 선택' }));
     fireEvent.click(await screen.findByRole('button', { name: '1시간' }));
     expect(summary().textContent).toContain('선택 구간에 요약할 값이 없습니다. 시작·끝을 바꾸거나 더 넓은 구간을 선택하세요.');
     // 기존 n=0 표기는 그대로 둔다.
@@ -698,6 +752,7 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
 
   it('does not show the empty-range note while the selection has values', async () => {
     mount(fixture().adapter, off, period, { series: [currentDay], compareSeries: [] });
+    fireEvent.click(await screen.findByRole('button', { name: '구간 선택' }));
     fireEvent.click(await screen.findByRole('button', { name: '1시간' }));
     expect(summary().textContent).toContain('n=1');
     expect(summary().textContent).not.toContain('선택 구간에 요약할 값이 없습니다');
@@ -705,27 +760,31 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
 
   it('start and end plus 선택 produce the same summary as the matching quick range', async () => {
     mount(fixture().adapter, off, period, { series: [currentDay], compareSeries: [] });
+    fireEvent.click(await screen.findByRole('button', { name: '구간 선택' }));
     fireEvent.click(await screen.findByRole('button', { name: '4시간' }));
     const viaPreset = summary().textContent;
     expect(viaPreset).toContain('선택 구간: 2026-10-16 19:00 – 2026-10-16 23:00');
     expect(viaPreset).toContain('n=4');
     fireEvent.click(within(summary()).getByRole('button', { name: '지우기' }));
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     await pick('구간 시작', '2026-10-16 19:00');
     await pick('구간 끝', '2026-10-16 23:00');
-    fireEvent.click(within(summary()).getByRole('button', { name: '선택' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '선택' }));
     expect(summary().textContent).toContain('선택 구간: 2026-10-16 19:00 – 2026-10-16 23:00');
     expect(summary().textContent).toContain('n=4');
   });
 
   it('전체 and the last bar both end at the query end so the last bar stays in the summary', async () => {
     mount(fixture().adapter, off, period, { series: [currentDay], compareSeries: [] });
+    fireEvent.click(await screen.findByRole('button', { name: '구간 선택' }));
     fireEvent.click(await screen.findByRole('button', { name: '전체' }));
     expect(summary().textContent).toContain('선택 구간: 2026-10-16 16:00 – 2026-10-16 23:00');
     expect(summary().textContent).toContain('n=7');
     fireEvent.click(within(summary()).getByRole('button', { name: '지우기' }));
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     await pick('구간 시작', '2026-10-16 22:00');
     await pick('구간 끝', '2026-10-16 23:00');
-    fireEvent.click(within(summary()).getByRole('button', { name: '선택' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '선택' }));
     expect(summary().textContent).toContain('선택 구간: 2026-10-16 22:00 – 2026-10-16 23:00');
     expect(summary().textContent).toContain('n=1');
   });
@@ -733,6 +792,7 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
   it('a single bar can be selected, and a quick range longer than the data is not offered', async () => {
     const one: ChartSeries = { id: 's1', name: 'S1', color: 'chart-blue', points: [['2026-10-16T16:00:00', 5]] };
     mount(fixture().adapter, off, '/?v=1&scopeId=MEM&from=2026-10-16T16:00:00&to=2026-10-16T17:00:00', { series: [one], compareSeries: [] });
+    fireEvent.click(await screen.findByRole('button', { name: '구간 선택' }));
     expect(await screen.findByRole('button', { name: '1시간' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: '4시간' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: '전체' }));
@@ -743,6 +803,7 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
   it('includes a query start that is earlier than the first bar', async () => {
     const bars: ChartSeries = { id: 's1', name: 'S1', color: 'chart-blue', points: [['2026-10-16T16:00:00', 1], ['2026-10-16T17:00:00', 1]] };
     mount(fixture().adapter, off, '/?v=1&scopeId=MEM&from=2026-10-16T15:30:00&to=2026-10-16T18:00:00', { series: [bars], compareSeries: [] });
+    fireEvent.click(await screen.findByRole('button', { name: '구간 선택' }));
     await screen.findByRole('button', { name: '전체' });
     expect(screen.queryByRole('button', { name: '4시간' })).toBeNull();
     fireEvent.click(screen.getByRole('combobox', { name: '구간 시작' }));
@@ -785,6 +846,7 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
     brushRangeOverride = [atMs('2026-10-15T20:30:00'), atMs('2026-10-16T18:30:00')];
     mount(fixture().adapter, on, period, { series: [currentDay], compareSeries: [previousDay] });
     fireEvent.click(await screen.findByRole('button', { name: '비교' }));
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     fireEvent.click(screen.getByRole('combobox', { name: '구간 시작' }));
     expect(screen.queryByRole('option', { name: /2026-10-15/ })).toBeNull();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
@@ -933,7 +995,7 @@ describe('author-only annotation delete (#399, ADR-0041)', () => {
     await screen.findByText(/첫 메모/);
     const areas = (plottedSeries.find(s => s.markArea)?.markArea?.data ?? []) as unknown as [{ label?: { offset?: [number, number]; width?: number; overflow?: string } }, unknown][];
     const labels = areas.map(([start]) => start.label);
-    expect(labels.map(l => l?.offset?.[1])).toEqual([0, 12, 24]);
+    expect(labels.map(l => l?.offset?.[1])).toEqual([0, 14, 28]);
     for (const l of labels) { expect(l?.overflow).toBe('truncate'); expect(l?.width).toBeGreaterThan(0); }
   });
 
@@ -1116,7 +1178,8 @@ it.each([
 ] as const)('resolves frame context %j and overrides %j', async (context, props, height, compact) => {
   render(sizedFrame({ description: 'Details', ...props }, { title: 'Section', collapse() {}, ...context }));
   await screen.findByRole('img'); expect(plotProps?.height).toBe(height);
-  expect(screen.queryByRole('button', { name: '차트 설명' }) !== null).toBe(compact);
+  const info = screen.getByRole('button', { name: '차트 설명' });
+  expect(info).toHaveAccessibleDescription(compact ? /Details.*클릭으로 선택/ : /^클릭으로 선택/);
 });
 it('reveals compact string descriptions on keyboard focus and retains version and action names', async () => {
   window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
@@ -1155,13 +1218,12 @@ it.each([undefined, 'Details', <em key="rich">Details</em>])('keeps frame versio
   view.rerender(sizedFrame({ size: 'compact', description, metricVersion: 'v1', height: 321 }));
   expect(plotProps?.height).toBe(321);
   expect(screen.getByText(/지표 버전/)).toBeVisible();
-  const info = screen.queryByRole('button', { name: '차트 설명' });
-  expect(info !== null).toBe(Boolean(description));
-  if (info) {
-    info.focus();
-    const tooltip = await screen.findByRole('tooltip'); expect(tooltip).toHaveTextContent('Details');
-    if (typeof description !== 'string') expect(tooltip.querySelector('em')).toBeTruthy();
-  }
+  const info = screen.getByRole('button', { name: '차트 설명' });
+  info.focus();
+  const tooltip = await screen.findByRole('tooltip');
+  expect(tooltip).toHaveTextContent('클릭으로 선택');
+  if (description) expect(tooltip).toHaveTextContent('Details');
+  if (description && typeof description !== 'string') expect(tooltip.querySelector('em')).toBeTruthy();
 });
 it('keeps a focused frame action and consumer actions mounted across size changes', async () => {
   window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
@@ -1206,19 +1268,21 @@ describe('fill card: the start/end range form is on demand (ADR-0067 decision 21
   beforeAll(() => { HTMLElement.prototype.scrollIntoView = () => {}; });
   afterAll(() => { HTMLElement.prototype.scrollIntoView = originalScrollIntoView; });
 
-  it('a fill chart shows quick ranges at rest and opens range fields on demand', async () => {
+  it('opens the quick ranges and start/end fields on demand for fill and fixed charts', async () => {
     mount(fixture().adapter, off, period, { series: [hourly], compareSeries: [], size: 'fill' });
     const toggle = await screen.findByRole('button', { name: '구간 선택' });
-    expect(screen.getByRole('region', { name: '선택 요약' })).toHaveTextContent('빠른 구간 선택');
+    expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: '구간 시작' })).toBeNull();
     fireEvent.click(toggle);
     expect(await screen.findByRole('combobox', { name: '구간 시작' })).toBeTruthy();
     fireEvent.click(toggle);
     expect(screen.queryByRole('combobox', { name: '구간 시작' })).toBeNull();
+    fireEvent.click(toggle);
     fireEvent.click(screen.getByRole('button', { name: '1시간' }));
     expect(screen.getByRole('region', { name: '선택 요약' }).textContent).toContain('선택 구간:');
     cleanup();
     mount(fixture().adapter, off, period, { series: [hourly], compareSeries: [] });
+    fireEvent.click(await screen.findByRole('button', { name: '구간 선택' }));
     expect(await screen.findByRole('combobox', { name: '구간 시작' })).toBeTruthy();
   });
 
@@ -1229,7 +1293,8 @@ describe('fill card: the start/end range form is on demand (ADR-0067 decision 21
     await screen.findByRole('combobox', { name: '구간 시작' });
     expect(document.activeElement).not.toBe(screen.getByRole('combobox', { name: '구간 시작' }));
     fireEvent.click(toggle, { detail: 1 });
-    fireEvent.click(toggle, { detail: 0 });
+    toggle.focus();
+    await userEvent.setup().keyboard('{Enter}');
     const start = await screen.findByRole('combobox', { name: '구간 시작' });
     await waitFor(() => { expect(document.activeElement).toBe(start); });
   });

@@ -1,5 +1,6 @@
 import { registerPanels, type RegisteredPanel } from './panels';
 import { registerLentPanels, type RegisteredLentPanel } from './lent-panels';
+import { registerChartFields } from './chart-fields';
 import { registerPageConditions } from './page-conditions';
 import { singleValuePageKeyRoles } from './page-key-roles';
 import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
@@ -486,6 +487,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
         }
         if (!presetIds.has(holder.default)) fail(`Menu "${m.id}" conditionPreset default "${holder.default}" is not a declared preset id`);
         if (!m.pageKeys.includes(holder.key)) fail(`Menu "${m.id}" conditionPreset key "${holder.key}" is not a declared pageKeys entry`);
+        if (m.drill?.levels.some(level => level.basisKey === holder.key)) fail(`Menu "${m.id}" conditionPreset key "${holder.key}" is a drill basisKey`);
         if (m.context.condition !== 'apply' && m.context.condition !== 'reference') fail(`Menu "${m.id}" conditionPresets need a condition capability of apply or reference`);
       }
     }
@@ -503,12 +505,34 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
         if (!(m.contextResetKeys ?? []).includes(level.key)) fail(`Menu "${m.id}" drill level key "${level.key}" is not a declared contextResetKeys entry`);
         if (level.key === RETURN_TO_KEY) fail(`Menu "${m.id}" drill level key "${RETURN_TO_KEY}" cannot be a drill level`);
       }
+      const basisKeys = new Set<string>();
+      for (const { key, basisKey, bases } of levels) {
+        const prefix = `Menu "${m.id}" drill level "${key}"`;
+        if (basisKey === undefined) {
+          if (bases?.length) fail(`${prefix} requires a basisKey for its bases`);
+          continue;
+        }
+        if (basisKey === RETURN_TO_KEY) fail(`${prefix} basisKey "${basisKey}" cannot be returnTo`);
+        if (seen.has(basisKey)) fail(`${prefix} basisKey "${basisKey}" conflicts with a drill level key`);
+        if (basisKeys.has(basisKey)) fail(`${prefix} basisKey "${basisKey}" is duplicated`);
+        if (!m.pageKeys.includes(basisKey)) fail(`${prefix} basisKey "${basisKey}" is not a declared pageKeys entry`);
+        if (!m.contextResetKeys?.includes(basisKey)) fail(`${prefix} basisKey "${basisKey}" is not a declared contextResetKeys entry`);
+        if (m.hiddenPageKeys?.some(hidden => hidden === key || hidden === basisKey)) fail(`${prefix} and its basisKey "${basisKey}" must be visible page keys`);
+        basisKeys.add(basisKey);
+        const ids = new Set<string>();
+        for (const { id } of bases ?? []) {
+          if (id.trim() === '') fail(`${prefix} basis id must not be blank`);
+          if (ids.has(id)) fail(`${prefix} basis id "${id}" is duplicated`);
+          ids.add(id);
+        }
+      }
       const seenReset = new Set<string>();
       for (const key of m.drill.resetKeys ?? []) {
         if (seenReset.has(key)) fail(`Menu "${m.id}" drill resetKey "${key}" is duplicated`);
         seenReset.add(key);
         if (!m.pageKeys.includes(key)) fail(`Menu "${m.id}" drill resetKey "${key}" is not a declared pageKeys entry`);
         if (seen.has(key)) fail(`Menu "${m.id}" drill resetKey "${key}" is a drill level key`);
+        if (basisKeys.has(key)) fail(`Menu "${m.id}" drill resetKey "${key}" is a drill basisKey`);
         if (key === RETURN_TO_KEY) fail(`Menu "${m.id}" drill resetKey "${RETURN_TO_KEY}" cannot be reset by a drill step`);
       }
     }
@@ -594,6 +618,7 @@ export function createRegistry({ spaces, groups, menus: menusIn, permissions: de
     const carryKeys = menu.carrySet === undefined ? [] : carrySetByIdMap.get(menu.carrySet)?.pageKeys ?? [];
     return registerPanels(menu, carryKeys, fail);
   });
+  for (const menu of menus) registerChartFields(menu, fail);
   const lentPanels = registerLentPanels(menus, registeredPanels, (menuId, target) => {
     if (!missingLinkTargets.some(entry => entry.menuId === menuId && entry.target === target)) {
       missingLinkTargets.push({ menuId, target, level: 'optional' });

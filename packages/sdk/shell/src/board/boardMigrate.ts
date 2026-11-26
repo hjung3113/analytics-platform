@@ -2,7 +2,7 @@ import { isRecord } from '@ap/contracts';
 import type { PaneScreen } from '@ap/kernel/host';
 import { withGrid, withGridMemory } from './boardGrid';
 import {
-  BOARD_LAYOUTS, MAX_SHEETS, defaultArrangement, isDefaultArrangement, makeId, paneCount, parseArrangementEntry, parsePane,
+  BOARD_LAYOUTS, MAX_SHEETS, defaultArrangement, isDefaultArrangement, paneCount, parseArrangementEntry, parsePane,
   type Arrangement, type Board, type BoardLayout, type PaneSlot, type Sheet,
 } from './boardTypes';
 
@@ -61,12 +61,9 @@ export function parseBoardV1(raw: unknown): BoardV1 | null {
 }
 
 function migrateSheet(sheet: SheetV1): Sheet {
-  const taken = new Set<string>();
-  const panes: PaneSlot[] = sheet.panes.map((screen, i) => {
-    const id = makeId('p', taken);
-    taken.add(id);
-    return { id, screen, previous: sheet.previous?.[i] ?? null };
-  });
+  // Stable per row: V1 is migrated on every read until the first edit writes V2, and a pane's tab-local state (its saved-view
+  // selection, #2996) is keyed by the slot id, so the same V1 board must yield the same ids. `_` never occurs in `makeId` output (hex or base-36).
+  const panes: PaneSlot[] = sheet.panes.map((screen, i) => ({ id: `pv1_${i}`, screen, previous: sheet.previous?.[i] ?? null }));
   const ids = panes.map(p => p.id);
   const base: Sheet = { id: sheet.id, name: sheet.name, panes, selectedPaneId: ids[sheet.selected], tree: { type: 'group', panes: ids, active: ids[0] } };
   // The other layouts' arrangements first, then the current one through `withGrid` (which also writes the tree).
@@ -74,7 +71,7 @@ function migrateSheet(sheet: SheetV1): Sheet {
   return withGrid(seeded, sheet.layout, sheet.arrangement?.[sheet.layout] ?? defaultArrangement(sheet.layout));
 }
 
-/** A stored V1 value as a V2 board: panes row-major with fresh ids, the current layout as the tree, every layout's arrangement in `gridMemory`. Null if it is not a valid V1 board. */
+/** A stored V1 value as a V2 board: panes row-major with stable ids (`pv1_<row>`), the current layout as the tree, every layout's arrangement in `gridMemory`. Null if it is not a valid V1 board. */
 export function migrateV1(raw: unknown): Board | null {
   const board = parseBoardV1(raw);
   return board && { v: 2, activeSheetId: board.activeSheetId, sheets: board.sheets.map(migrateSheet) };

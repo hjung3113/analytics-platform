@@ -53,6 +53,23 @@ it('keeps page edits in draft until the single apply, preserving applied request
   expect(send).toHaveBeenCalledTimes(settled);
 });
 
+it('retains both equipment values on Apply after clearing a drill chip with pending edits', async () => {
+  const storage = memoryStorage();
+  storage.setItem('platform:page-head-collapsed:cycle-time', 'false');
+  vi.stubGlobal('localStorage', storage);
+  const session = testSession(['analytics:view', 'platform:view']);
+  window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&bucket=2026-09-25T10:00:00&tableEquipment=E-1&tableEquipment=E-2');
+  render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} registry={registry} adapter={testAdapter({ session: () => session })} slots={{ contextBar: <Apply /> }}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+  fireEvent.click(await screen.findByRole('button', { name: '일' }));
+  fireEvent.click(screen.getByRole('button', { name: '버킷 필터 해제' }));
+  const params = () => new URLSearchParams(window.location.search);
+  expect(params().has('bucket')).toBe(false);
+  expect(params().getAll('tableEquipment')).toEqual(['E-1', 'E-2']);
+  fireEvent.click(screen.getByRole('button', { name: 'Apply query' }));
+  await waitFor(() => expect(params().get('granularity')).toBe('day'));
+  expect(params().getAll('tableEquipment')).toEqual(['E-1', 'E-2']);
+});
+
 it.each(['', '&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00'])('shows the shared query idle state and required reasons before applying %s', async period => {
   vi.stubGlobal('localStorage', memoryStorage());
   const session = testSession(['analytics:view', 'platform:view']);
@@ -82,7 +99,7 @@ it.each([
   ['error', '데이터를 불러오지 못했습니다'], ['timeout', '데이터를 불러오지 못했습니다'], ['too_large', '데이터를 불러오지 못했습니다'], ['forbidden', '데이터를 불러오지 못했습니다'],
   // A 0-row answer is a completed query, not a failure.
   ['empty', '요약 조회 완료'],
-] as const)('reports terminal summary outcome %s with its completion time in the folded workspace bar (#1941)', async (outcome, expected) => {
+] as const)('reports terminal summary outcome %s and time first in workspace notices (#1941, #2728)', async (outcome, expected) => {
   vi.stubGlobal('localStorage', memoryStorage());
   const session = testSession(['analytics:view', 'platform:view']);
   window.history.replaceState(null, '', '/analytics/cycle-time?scopeId=MEM&roomNames=PHOTO&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
@@ -92,9 +109,10 @@ it.each([
   }
   const failure = { outcome, data: null, assessments: outcome === 'empty' ? (['collection', 'processing_delay', 'coverage'] as const).map(kind => ({ kind, state: 'clear' as const })) : [], trust: null, correlationId: 'failure' };
   render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} registry={registry} adapter={testAdapter({ session: () => session, menuQuery: async () => failure })} slots={{ contextBar: <FoldedBar /> }}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+  fireEvent.click(await screen.findByRole('button', { name: '안내 2' }));
+  const notices = await screen.findByRole('dialog', { name: '안내 2' });
   await waitFor(() => {
-    const row = screen.getByRole('region', { name: '조회 조건' }).querySelector('[role="status"]');
-    expect(row?.textContent).toContain(expected);
-    expect(row?.textContent).toMatch(/\d{1,2}:/);
+    expect(notices.firstElementChild?.textContent).toContain(expected);
+    expect(notices.firstElementChild?.textContent).toMatch(/\d{1,2}:/);
   });
 });

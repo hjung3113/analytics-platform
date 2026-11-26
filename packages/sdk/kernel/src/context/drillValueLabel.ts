@@ -1,18 +1,16 @@
 import type { DrillLevel, MenuMeta, Pair } from '@ap/contracts';
 import type { Lang } from '../i18n';
 
-// @ap/ui isDevelopment's check, inline because the kernel does not depend on @ap/ui (#2951). Bundlers replace
-// `process.env.NODE_ENV` statically, so production builds drop the warning. The local declaration types it for every package
-// that compiles kernel sources without Node types (menus, shell); it emits nothing.
+// Written inline at the use site, not behind a helper: bundlers replace `process.env.NODE_ENV` statically, but Vite 8
+// (rolldown) does not fold a helper call across modules, so only an inline comparison drops the warning from production
+// (#2951, #3028). The local declaration types it for every package that compiles kernel sources without Node types (menus,
+// shell); it emits nothing.
 declare const process: { env: { NODE_ENV?: string } };
-export function isProduction(): boolean {
-  return process.env.NODE_ENV === 'production';
-}
 
 const warned = new Set<string>();
 
 function warnFallback(level: DrillLevel, value: string, reason: 'returned an empty string' | 'threw'): void {
-  if (isProduction()) return;
+  if (process.env.NODE_ENV === 'production') return;
   const key = `${level.key}\u0000${value}`;
   if (warned.has(key)) return;
   warned.add(key);

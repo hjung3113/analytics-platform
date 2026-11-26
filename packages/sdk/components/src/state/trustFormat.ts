@@ -7,6 +7,11 @@ type Lang = 'ko' | 'en';
 /** The text pieces a chart frame's Trust footer shows (`source`, `updated`, `coverage`). */
 export type TrustFooterText = { source: string; updated: string; coverage: string };
 
+/** The formatted triples a panel footer and a chart footer show for one Trust. */
+export function sameTrustFooter(a: TrustFooterText, b: TrustFooterText): boolean {
+  return a.source === b.source && a.updated === b.updated && a.coverage === b.coverage;
+}
+
 const DASH = '—';
 
 /** The one wording for an unknown coverage (06 §18): header indicator and chart footer say the same thing. */

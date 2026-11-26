@@ -2,8 +2,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { groupId, spaceId } from '@ap/contracts';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { groupId, spaceId, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
+import { PlatformPage } from '@ap/components';
+import { createRegistry, I18nProvider, PlatformProvider, useSavedViewPanels, useSavedViewSupport } from '@ap/kernel';
+import * as kernelHost from '@ap/kernel/host';
 import { useHostPlatform } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace, useToastsForTest } from '@ap/kernel/testing';
 import { GlobalContextBar } from '../GlobalContextBar';
@@ -272,4 +274,59 @@ it('copies applied conditions directly from the folded overflow without a second
   expect(writeText).toHaveBeenCalledTimes(1);
   expect(new URL(String(writeText.mock.calls[0]?.[0])).searchParams.get('roomNames')).toBe('PHOTO');
   await waitFor(() => expect(overflow).toHaveFocus());
+});
+
+// #2862: held panel values never reach the address, so the conditions link says how to pass them on.
+describe('ShareControl with held panels (#2862)', () => {
+  const viewRegistry = createRegistry({
+    spaces: [testSpace({ homeMenuId: 'live' })],
+    groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }],
+    menus: [
+      menu('live', { context: { ...noContext, time: 'apply' }, query: { mode: 'live' } }),
+      { ...menu('query', { context: { ...noContext, time: 'apply' }, query: { mode: 'apply', required: { context: ['time'] } } }), savedViews: 'screen' as const, features: { export: false, savedView: true, annotate: false, compare: false } },
+    ],
+  });
+  const source: PanelInstance = { id: 'trend', source: { kind: 'declared', panel: 'trend' }, inputs: [], outputs: [{ key: 'room', dimension: 'room', shape: 'set' }] };
+  const panelsWith = (mode: 'hold' | 'follow'): MenuViewPanels => ({ version: 1, instances: [source, {
+    id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+    inputs: [mode === 'hold' ? { key: 'room', from: 'trend.room', mode, value: { shape: 'set', values: ['PHOTO'] } } : { key: 'room', from: 'trend.room', mode }],
+  }] });
+  function Screen({ panels }: { panels: MenuViewPanels }) {
+    useSavedViewSupport({ menuId: 'query', menuSchemaVersion: 1, contextKeys: [], pageKeys: [] });
+    useSavedViewPanels({ value: panels, onOpen: () => {} });
+    return null;
+  }
+  it.each([
+    ['hold', `${SUCCESS_CONDITIONS} 붙잡은 패널은 저장해야 전달됩니다.`],
+    ['follow', SUCCESS_CONDITIONS],
+  ] as const)('a %s panel copies with the matching notice', async (mode, notice) => {
+    const writeText = clipboard(async () => {});
+    window.history.replaceState(null, '', '/mars/query?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00');
+    render(<I18nProvider><PlatformProvider registry={viewRegistry} adapter={adapter}><Probe /><Screen panels={panelsWith(mode)} /><GlobalContextBar /></PlatformProvider></I18nProvider>);
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    fireEvent.click(main());
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(toasts()).toBe(`info:${notice}`));
+  });
+
+  it('shares the live line from context actions with the held-panel notice and an applied-only URL', async () => {
+    const writeText = clipboard(async () => {});
+    // The Registry permits held-panel registration only on Apply menus. Supply the host signal at the share-control seam.
+    vi.spyOn(kernelHost, 'useHoldsPanels').mockReturnValue(() => true);
+    const path = '/mars/live?v=1&scopeId=MEM&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00';
+    window.history.replaceState(null, '', path);
+    render(<I18nProvider><PlatformProvider registry={viewRegistry} adapter={adapter} slots={{ contextBar: <GlobalContextBar /> }}>
+      <Probe />
+      <PlatformPage><p>Live menu</p></PlatformPage>
+    </PlatformProvider></I18nProvider>);
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    fireEvent.click(screen.getByRole('button', { name: '조회 조건 동작' }));
+    fireEvent.click(within(await screen.findByRole('dialog', { name: '조회 조건 동작' })).getByRole('button', { name: '현재 조건 공유' }));
+    const expected = new URL(path, location.origin);
+    await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+    const copied = new URL(writeText.mock.calls[0]![0]);
+    expect(copied.pathname).toBe(expected.pathname);
+    expect(Object.fromEntries(copied.searchParams)).toEqual(Object.fromEntries(expected.searchParams));
+    await waitFor(() => expect(toasts()).toBe(`info:${SUCCESS_CONDITIONS} 붙잡은 패널은 저장해야 전달됩니다.`));
+  });
 });

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { PanelAddMenu, PanelWorkspace } from '@ap/components';
+import { useState } from 'react';
+import { PanelAddMenu, PanelWorkspace, type PanelWorkspaceProps } from '@ap/components';
 import { guidedPage } from '../guidance';
 import { ADD_ITEMS } from './panels';
 import { PANELS, PRESETS, workspacePage } from './workspace';
@@ -25,3 +26,15 @@ export const Balanced: Story = {};
 export const Focus: Story = { args: { initialPreset: 'focus', persistKey: 'storybook.focus' } };
 /** `toolbarActions`: 메뉴의 작업 영역 동작(여기서는 `PanelAddMenu`)을 도구줄 끝에 둔다. */
 export const WithAddMenu: Story = { args: { persistKey: 'storybook.add', toolbarActions: <PanelAddMenu items={ADD_ITEMS} shown={['alarms']} onAdd={() => undefined} /> } };
+/** `panelAddDrag`: «패널 추가» 목록 줄을 작업 영역으로 끌면 놓을 자리를 미리 보이고, 놓으면 누를 때와 같은 `onAdd`로 더한 뒤 그 자리로 옮긴다. */
+const trendCategory = { id: 'trend', title: { ko: '추세', en: 'Trends' } };
+const breakdownCategory = { id: 'breakdown', title: { ko: '분해', en: 'Breakdowns' } };
+/** The same items in the categorized picker (#2744), so the capture shows the faded preview pane while dragging. */
+const DRAG_ITEMS = ADD_ITEMS.map(item => ({ ...item, ...(item.id === 'trend' || item.id === 'downtime'
+  ? { category: trendCategory, kind: 'line' as const } : { category: breakdownCategory, kind: 'bar' as const }) }));
+function AddDragWorkspace(args: PanelWorkspaceProps) {
+  const [panels, setPanels] = useState(() => PANELS().filter(panel => panel.id !== 'cycle'));
+  const add = (id: string) => { const item = DRAG_ITEMS.find(entry => entry.id === id); if (item) setPanels(list => [...list, { id, title: item.title, render: () => <p className="p-3 text-sm">{item.title.ko}</p> }]); };
+  return <PanelWorkspace {...args} panels={panels} panelAddDrag toolbarActions={<PanelAddMenu items={DRAG_ITEMS} shown={panels.map(panel => panel.id)} onAdd={add} />} />;
+}
+export const WithAddDrag: Story = { args: { persistKey: 'storybook.add-drag' }, render: args => <AddDragWorkspace {...args} /> };

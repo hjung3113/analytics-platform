@@ -48,29 +48,30 @@
   html, body, #root { height: 100%; }
   body {
     background-color: rgb(var(--surface-canvas));
-    color: rgb(var(--text-primary));
     font-family: var(--font-sans);
-    font-size: var(--text-body);
     line-height: var(--leading-normal);
     -webkit-font-smoothing: antialiased;
   }
+  body, .t-body { font-size: var(--text-body); font-weight: 400; color: rgb(var(--text-primary)); }
   :focus-visible { outline: 2px solid rgb(var(--focus-ring)); outline-offset: 2px; }
 }
 
 @layer utilities {
   .tabular { font-variant-numeric: tabular-nums lining-nums; }
   .shell-scroll { @apply scrollbar-panel; }
-  .t-page-title { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.3px; }
-  .t-section-title { font-size: 18px; line-height: 28px; font-weight: 600; }
-  .t-card-title { font-size: 14px; line-height: 20px; font-weight: 600; }
-  .t-stat { font-size: 32px; line-height: 1.1; font-weight: 600; letter-spacing: -0.5px; font-variant-numeric: tabular-nums lining-nums; }
-  .t-stat-2 { font-size: 22px; line-height: 1.2; font-weight: 600; letter-spacing: -0.3px; font-variant-numeric: tabular-nums lining-nums; }
-  .t-delta { font-size: 12px; line-height: 1.4; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
-  .t-caption { font-size: 12px; line-height: 16px; }
-  .t-table-header { font-size: 12px; line-height: 1.3; font-weight: 600; letter-spacing: 0.3px; }
-  .t-badge { font-size: 11px; line-height: 1.3; font-weight: 600; letter-spacing: 0.2px; }
-  .t-nav-group { font-size: 11px; line-height: 1.3; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
-  .t-mono { font-family: var(--font-mono); font-size: 12px; line-height: 1.4; }
+  .t-section-title:where(:not(h1)) { font-size: var(--text-section-title); line-height: 22px; font-weight: 600; color: rgb(var(--text-primary)); }
+  /* Existing page headers use h1 with the older section-title class. */
+  .t-page-title, h1:where(.t-section-title) { font-size: var(--text-page-title); line-height: 24px; font-weight: 700; letter-spacing: -0.3px; color: rgb(var(--text-primary)); }
+  .t-card-title { font-size: var(--text-body); line-height: 20px; font-weight: 600; color: rgb(var(--text-primary)); }
+  :where(.t-stat, .t-stat-2) { font-size: var(--text-stat); line-height: 32px; font-weight: 700; letter-spacing: -0.5px; font-variant-numeric: tabular-nums lining-nums; color: rgb(var(--text-primary)); }
+  .t-delta { font-size: var(--text-caption); line-height: 1.4; font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
+  :where(.t-caption) { font-size: var(--text-caption); line-height: 16px; font-weight: 400; color: rgb(var(--text-secondary)); }
+  .t-table-header { font-size: var(--text-caption); line-height: 1.3; font-weight: 600; letter-spacing: 0.3px; color: rgb(var(--text-secondary)); }
+  .t-chart-tool { font-size: var(--text-caption); line-height: 16px; font-weight: 500; color: rgb(var(--text-secondary)); }
+  .t-badge { font-size: var(--text-tiny); line-height: 1.3; font-weight: 600; letter-spacing: 0.2px; }
+  .t-nav-group { font-size: var(--text-tiny); line-height: 1.3; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+  :where(.t-mono) { font-family: var(--font-mono); font-size: var(--text-mono); line-height: 1.4; font-weight: 500; color: rgb(var(--text-primary)); }
+  :where(:is(td, [role="cell"], [role="gridcell"]) .t-mono) { color: inherit; }
 }
 
 @source "../";

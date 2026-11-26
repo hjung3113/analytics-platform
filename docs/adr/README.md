@@ -172,7 +172,7 @@
 | [0157](0157-bundle-declares-menu-capabilities.md) | 선언 묶음이 자기 capability 행과 메타를 선언한다(ADR-0146 결정 3 개정) | Decided(2026-11-13, 소유자 «니추천대로», 고문 리뷰 반영, 되돌릴 수 있음) |
 | [0158](0158-unregistered-link-destinations-and-declared-link-targets.md) | 등록되지 않은 링크 목적지는 «없음», 메뉴는 링크 목적지를 선언한다(`linkTargets`) | Decided(2026-11-13, advisor·소유자 위임, 되돌릴 수 있음) |
 | [0159](0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md) | 시도별 진단(`AttemptDiagnostic`)은 별도 worker 쓰기 경로·유한 상한·Source ACL 읽기, summary 투영은 자유 텍스트 없는 키 다섯 개, 첨부는 Source 참조로 미룸 | Decided(2026-11-13, 소유자 «플랫폼이 정의», B1 As-built #2196, 되돌릴 수 있음) |
-| [0160](0160-folded-analysis-workspace-query-bar.md) | 접힌 분석 작업 영역의 조회 결과·페이지 조건·화면 배치를 조회 막대의 고정 둘째 줄에 둔다 | Decided(2026-11-14, 소유자 B 승인, 되돌릴 수 있음) |
+| [0160](0160-folded-analysis-workspace-query-bar.md) | 분석 작업 영역의 조건과 도구를 40px 한 줄에 둔다 | Decided(2026-11-26, 소유자 A 승인, 되돌릴 수 있음) |
 | [0161](0161-form-field-hint-always-visible-render-function.md) | 폼 필드는 도움말을 항상 보이고 오류를 그 아래에 더하는 렌더 함수 조각 `FormField`로 둔다 | Decided(2026-11-14, 소유자가 Opus(high) 리뷰에 위임, 되돌릴 수 있음) |
 | [0162](0162-inbound-links-destination-declares-object-kinds.md) | 들어오는 연결은 목적지 객체 종류 선언과 출발 목록 opt-in으로 표시한다 | Decided(2026-11-14, 소유자 위임 Opus 리뷰, 되돌릴 수 있음) |
 | [0163](0163-permission-groups-replace-role-levels-as-templates.md) | 역할 단계는 늘리지 않고, 이름 있는 권한 묶음(권한 그룹)을 템플릿으로 둔다 | Decided(2026-11-16) |
@@ -190,6 +190,7 @@
 | [0175](0175-chart-selection-feeds-next-analysis.md) | 차트 선택은 다음 분석의 입력이 되고, 값 묶음·범위만 URL과 메뉴 간 링크에 싣는다 | Decided(2026-11-23, 소유자 결정) |
 | [0176](0176-user-analysis-menu-one-definition-two-homes.md) | 사용자 분석 메뉴는 정의 형식 하나를 두 곳에 담고, 숫자 등급을 화면이 말한다 | Decided(2026-11-23, 소유자 결정) |
 | [0177](0177-core-server-release-unit-image-tarballs.md) | 코어 서버 릴리스 단위는 태그마다 이미지 tar 셋과 SHA256SUMS를 공개 Release에 싣는다 | Decided(2026-11-25, 소유자 결정, #2891) |
+| [0178](0178-drill-alternative-basis.md) | 드릴 단계의 나누기 기준을 별도 page key로 저장 | Decided(2026-11-26, 소유자 결정, #2739) — 0025·0063 부분 대체 |
 
 새 ADR을 쓰면 이 표에 한 줄을 더한다.
 

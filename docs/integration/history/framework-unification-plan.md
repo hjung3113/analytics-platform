@@ -297,7 +297,7 @@ ADR-0043의 목표를 배포 구조로 옮긴 후보다. 이 후보에 대한 �
 | Q7 | FO 셸·AuthProvider를 SDK 후보로 비교하는 시점 | #396 전략과 현행 .planning을 따른다 | ADR-0066의 플랫폼 합류 결정과 SDK 공통 조각 승격은 별개다 |
 | Q8 | 브라우저 세션 공유(플랫폼 ↔ FO 로그인 한 번) | **#150 질문지에 이미 있음 — 사내 SSO 답을 기다림.** 플랫폼 쪽은 쿠키 도메인·IdP 클라이언트 공유 둘 다 가능하도록 전송 초안 §6을 유지 | 셋 중 누구도 결정하지 않은 유일한 교차 항목(§3 "인증·세션") |
 
-호스트 인터페이스 조사 근거는 [플랫폼 탑재 설계](../platform-hosting-design.md)를 본다. FeedbackOps 플랫폼 합류 결정은 [ADR-0066](../../adr/0066-feedbackops-merges-into-platform.md)이 소유하고, 남은 #396 전략과 사내 입력은 [.planning/README.md](../../../.planning/README.md) 및 해당 이슈를 따른다.
+호스트 인터페이스 조사 근거는 [플랫폼 탑재 설계](platform-hosting-design.md)를 본다. FeedbackOps 플랫폼 합류 결정은 [ADR-0066](../../adr/0066-feedbackops-merges-into-platform.md)이 소유하고, 남은 #396 전략과 사내 입력은 [.planning/README.md](../../../.planning/README.md) 및 해당 이슈를 따른다.
 
 ## 9. 출처
 

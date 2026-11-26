@@ -31,16 +31,15 @@
 import { execFileSync } from 'node:child_process';
 import { lstatSync, readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import { isVendored, LOCAL_SCRATCH, scanLines } from './lib/markdown.mjs';
 
 const DEFAULT_EXCLUDES = [
   'docs/adr/history/feedbackops/', // frozen FO decisions retain original relative links
   'docs/design/history/feedbackops-prototype/', // frozen standalone prototype
   'docs/user-guide/history/feedbackops/', // frozen 2026-10-04 captures
   'docs/integration/history/feedbackops-local-development.md', // frozen former README
-  '.agents/skills/', // vendored external skills
-  '.agents/references/', // vendored external references
-  '.review/', // local scratch
-];
+  LOCAL_SCRATCH,
+]; // plus vendored skill and reference folders (lib/markdown.mjs isVendored)
 
 // ---------------------------------------------------------------- args
 function parseArgs(argv) {
@@ -91,27 +90,6 @@ export function slugify(heading) {
 }
 
 // ---------------------------------------------------------------- markdown scanning
-/** Yields {line, text, inFence} for each line. */
-function* scanLines(content) {
-  const lines = content.split(/\r?\n/);
-  let fence = null; // {ch, len}
-  for (let i = 0; i < lines.length; i++) {
-    const text = lines[i];
-    const m = /^ {0,3}(`{3,}|~{3,})/.exec(text);
-    if (fence) {
-      if (m && m[1][0] === fence.ch && m[1].length >= fence.len && /^ {0,3}[`~]+\s*$/.test(text)) fence = null;
-      yield { line: i + 1, text, inFence: true };
-      continue;
-    }
-    if (m) {
-      fence = { ch: m[1][0], len: m[1].length };
-      yield { line: i + 1, text, inFence: true };
-      continue;
-    }
-    yield { line: i + 1, text, inFence: false };
-  }
-}
-
 function blankCodeSpans(text) {
   return text.replace(/(`+)(?!`)(.+?)(?<!`)\1(?!`)/g, (s) => ' '.repeat(s.length));
 }
@@ -196,7 +174,7 @@ function main() {
   }
 
   const excludes = [...(opts.defaultExcludes ? DEFAULT_EXCLUDES : []), ...opts.excludes];
-  const isExcluded = (p) => p.split('/').includes('node_modules') || excludes.some((e) => p === e.replace(/\/$/, '') || p.startsWith(e.endsWith('/') ? e : `${e}/`));
+  const isExcluded = (p) => p.split('/').includes('node_modules') || (opts.defaultExcludes && isVendored(p, root)) || excludes.some((e) => p === e.replace(/\/$/, '') || p.startsWith(e.endsWith('/') ? e : `${e}/`));
 
   // tracked files + directories (+ submodule gitlinks)
   const staged = git(root, ['ls-files', '-s', '-z']).split('\0').filter(Boolean);

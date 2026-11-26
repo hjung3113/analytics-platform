@@ -1,3 +1,4 @@
+import { useDockChartHead } from '../dock/DockChartHead';
 import {
   useCallback,
   useContext,
@@ -81,6 +82,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
   const [hover, setHover] = useState<{ item: OrderedTrackItem; x: number; y: number } | null>(null);
   const helpId = useId();
   const summaryId = useId();
+  useDockChartHead(summaryId, { acceptsHead: false });
   const tooltip = useRef<HTMLDivElement>(null);
   const kind = props.state?.kind ?? 'ready';
   const restricted =
@@ -382,10 +384,10 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
             </Tooltip>
           </TooltipProvider>
           <Button type="button" size="toolbar" variant={chartToolVariant(false)} disabled={restricted} onClick={() => zoom(0.8)}>
-            <ZoomIn className="size-3.5" aria-hidden />{m('laneZoomIn')}
+            <ZoomIn className="size-3.5" aria-hidden /><span className="t-chart-tool">{m('laneZoomIn')}</span>
           </Button>
           <Button type="button" size="toolbar" variant={chartToolVariant(false)} disabled={restricted} onClick={() => zoom(1.25)}>
-            <ZoomOut className="size-3.5" aria-hidden />{m('laneZoomOut')}
+            <ZoomOut className="size-3.5" aria-hidden /><span className="t-chart-tool">{m('laneZoomOut')}</span>
           </Button>
           <Button
             type="button"
@@ -395,7 +397,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
             aria-pressed={brush.mode}
             onClick={() => brush.setMode(!brush.mode)}
           >
-            <BrushIcon className="size-3.5" aria-hidden />{m('chartBrush')}
+            <BrushIcon className="size-3.5" aria-hidden /><span className="t-chart-tool">{m('chartBrush')}</span>
           </Button>
           <Button
             type="button"
@@ -407,7 +409,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
               brush.clear();
             }}
           >
-            <RotateCcw className="size-3.5" aria-hidden />{m('laneZoomReset')}
+            <RotateCcw className="size-3.5" aria-hidden /><span className="t-chart-tool">{m('laneZoomReset')}</span>
           </Button>
           {props.formatTime && (
             <Button
@@ -418,7 +420,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
               aria-pressed={timeLabels}
               onClick={() => setTimeLabels(!timeLabels)}
             >
-              {m('intervalTimeLabels')}
+              <span className="t-chart-tool">{m('intervalTimeLabels')}</span>
             </Button>
           )}
           <ChartTableToggle shown={textView} disabled={restricted} toggle={() => setTextView(!textView)} />
@@ -567,7 +569,7 @@ function OrderedIntervalTrackSource(props: OrderedIntervalTrackProps) {
                 {t('selectedRange')}: {displayOrder(brushRange[0])}–
                 {displayOrder(brushRange[1])}{' '}
                 <Button type="button" size="toolbar" variant={chartToolVariant(false)} onClick={() => moveView([brushRange[0], brushRange[1]])}>
-                  <ZoomIn className="size-3.5" aria-hidden />{m('intervalZoomToSelection')}
+                  <ZoomIn className="size-3.5" aria-hidden /><span className="t-chart-tool">{m('intervalZoomToSelection')}</span>
                 </Button>
               </>
             ) : selected ? (

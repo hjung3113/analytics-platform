@@ -76,7 +76,7 @@ export function StepEvidence({ cohort, days, structure, step, equipment, baselin
             id: run.id, label: `${run.lot} · ${run.wafer}`, category: run.equipment, x: null, y: run.seconds,
             group: equipment ? (run.equipment === equipment ? 'focus' : 'peers') : undefined,
           })),
-          referenceLines: [{ axis: 'y', value: baselineValue, label: baselineLabel }],
+          referenceMarks: [{ type: 'line', axis: 'y', value: baselineValue, label: baselineLabel }],
         }} />
       <AnalysisChartFrame chartId="rcc-step-trend" title={m('trend')} description={m('dailyMetric')} series={trend}
         height={EVIDENCE_PLOT_HEIGHT} unit={unit} xType="category" canApplyRange={false} valueFormat={numberText} yFit />

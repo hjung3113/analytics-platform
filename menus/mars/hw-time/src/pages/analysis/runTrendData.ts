@@ -1,11 +1,20 @@
 import { formatText } from '@ap/kernel';
-import { HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
-import type { ChartPoint, ChartSeries } from '@ap/components';
-import { HW_TIME_UNIT, type HwTimeRunObservation } from '../../endpoints';
-import { htmStatusView } from '../../shared/htm';
+import { bucketStart, periodFromDates } from '@ap/contracts';
+import { HW_TIME_NEW_PANEL_MESSAGES, HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
+import type { ChartPoint, ChartSeries, SmallMultiplesSortOption } from '@ap/components';
+import { HW_TIME_UNIT, type HtmJudgement, type HwTimeRunObservation } from '../../endpoints';
+import { htmEmphasisStatus, htmStatusView } from '../../shared/htm';
 import { runBound, runColor, runColorKey, runValue, type RunBound, type RunValueSettings } from './runScatterData';
 
 export const DEFAULT_RUN_TREND_SETTINGS = { axis: 'equipment-module', color: 'equipment', value: 'motion' } as const;
+
+export type RunTrendTableRow = {
+  equipment: string;
+  date: string;
+  value: number | null;
+  bound: RunBound;
+  judgement: HtmJudgement | undefined;
+};
 
 /** Daily averages are already server-judged. No client aggregation or value/bound comparison; drawn through the Frame's `bounds` and `pointStatus` (#2333). */
 export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: RunValueSettings, motions: readonly string[], lang: 'ko' | 'en', { sharedBounds = false, equipmentLabels, fullDates = false }: {
@@ -59,6 +68,48 @@ export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: 
     points: categories.map(day => [day, new Set(rows.filter(row => dayKey(row.point.at) === day && row.judgement.status === status).map(row => row.point.equipmentId)).size]),
   }));
   const boundLabels = { lower: formatText(HW_TIME_OVERVIEW_MESSAGES.lower, lang), upper: formatText(HW_TIME_OVERVIEW_MESSAGES.upper, lang), band: formatText(HW_TIME_OVERVIEW_MESSAGES.htm, lang) };
-  return { series, categories, verdictSeries, pointStatus: pointStatusOf, pointStatusOf, pointColorKeyOf, bounds, boundLabels,
+
+  function smallMultiples() {
+    const ranks = new Map<string, { breaches: number; maximum: number }>();
+    const tableRows: RunTrendTableRow[] = [];
+    const lastDay = dates.at(-1);
+    const end = lastDay && periodFromDates({ start: lastDay, end: lastDay })?.to;
+    const tiles = series.map(({ id, name, points }) => {
+      const bounds = new Map<string, RunBound>();
+      let breaches = 0;
+      let maximum = -Infinity;
+      const dailyPoints = points.map(([day, y], index) => {
+        const date = dates[index]!;
+        const x = bucketStart(date, 'day');
+        const judgement = pointBySeries.get(`${id}/${day}`)?.judgement;
+        const status = htmEmphasisStatus(htmStatusView(judgement, lang));
+        const bound = settings.value === 'motion' && judgement ? runBound(judgement) : {};
+        // A gap or a day without criteria clears the previous day's step bounds.
+        if (settings.value === 'motion') bounds.set(x, bound);
+        const value = Number.isFinite(y) ? y : null;
+        tableRows.push({ equipment: name, date, value, bound, judgement });
+        if (value !== null) {
+          maximum = Math.max(maximum, value);
+          if (status) breaches += 1;
+        }
+        return { x, y: value, status };
+      });
+      // End the band at the exclusive end of the last day, even when it is the only day.
+      if (end) dailyPoints.push({ x: end, y: null, status: undefined });
+      ranks.set(id, { breaches, maximum });
+      return { id, label: name, selectionValue: id, points: dailyPoints, bounds };
+    });
+    const sortOptions: SmallMultiplesSortOption[] = [{
+      id: 'htm-breaches', label: HW_TIME_NEW_PANEL_MESSAGES.trendByBreaches,
+      compare(a, b) {
+        const left = ranks.get(a.id)!;
+        const right = ranks.get(b.id)!;
+        return right.breaches - left.breaches || (left.maximum === right.maximum ? 0 : right.maximum - left.maximum);
+      },
+    }];
+    return { series: tiles, sortOptions, tableRows };
+  }
+
+  return { series, categories, verdictSeries, pointStatus: pointStatusOf, pointStatusOf, pointColorKeyOf, bounds, boundLabels, smallMultiples,
     bandPolicy: sharedBounds ? 'matching-equipment-bounds' as const : 'single-equipment-only' as const };
 }

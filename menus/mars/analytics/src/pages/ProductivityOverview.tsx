@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 import { formatSummaryTime, useMessages } from '@ap/kernel';
 import { ANALYTICS_MESSAGES } from '../messages';
 import { ObjectLinks, RowAction } from '@ap/components';
@@ -13,9 +12,9 @@ import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
  * Synthetic values come from the declared endpoints (../endpoints), computed by the
  * mock server half. Definitions are Candidates per wireframe 11 §6.
  */
-import { AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, ChevronRight, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ArrowUpRight, ChevronRight, RotateCw } from 'lucide-react';
 import { type PageProps, PlatformLink, useDrill, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
-import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, DrillLayout, PageKeyWarning, Panel, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
+import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, DrillLayout, PageKeyWarning, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, InfoTip, StatusBadge, Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import {
@@ -26,6 +25,10 @@ import { pctHint, ProductivityDrillBody } from './productivity-drill';
 
 const GRANS: readonly Granularity[] = ['hour', 'day', 'week'];
 const KPI_KEYS = ['occupancy', 'dwell', 'cycleTime', 'throughput'] as const;
+/** The trend bucket field of each KPI, for its card's mini trend and the main chart; every bucket carries all four (#2743). */
+const KPI_TREND_FIELD = { occupancy: 'occupancyPct', dwell: 'dwellPerJobH', cycleTime: 'p50', throughput: 'jobs' } as const;
+/** Occupancy moves within ±2pp between ordinary periods (the reference period moved 1.54pp), so the card calls that no change (#2743 variant A). */
+const OCCUPANCY_NO_CHANGE_PP = 2;
 const AXES = ['room', 'stgroup'] as const;
 const SORT_KEYS = ['key', 'occ', 'obs', 'pct', 'jobs'] as const;
 /** Page-input changes on the same period and Scope keep the old result as refreshing (#1365, ADR-0114). */
@@ -45,11 +48,6 @@ function resolveBreakdownSort(raw: string | null): { ok: true; key: typeof SORT_
 
 export default function ProductivityOverview(_: PageProps) {
   const m = useMessages(ANALYTICS_MESSAGES);
-  // A widget that cannot draw its own card (loading, error, empty) sits in the same named Panel frame as the attention
-  // list, so no state leaves a bare line or a lone card on the page; a drawn chart keeps its own card (#2604).
-  const unframed = (q: { response: { outcome: string } | null }) => q.response?.outcome === 'ok';
-  const framed = (title: string | undefined, q: { response: { outcome: string } | null }, node: ReactNode) =>
-    unframed(q) ? node : <Panel title={title}>{node}</Panel>;
   const { global, pageParam, setPage, setGlobal, linkTo } = usePlatform();
   const { lang } = useI18n();
 
@@ -85,36 +83,31 @@ export default function ProductivityOverview(_: PageProps) {
   const gran: Granularity = granKnown ? (rawGran as Granularity) : ((hours ?? 24) <= 48 ? 'hour' : 'day');
   const granLabel = gran === 'hour' ? (m('productivityOverviewHourly')) : gran === 'day' ? (m('productivityOverviewDaily')) : (m('productivityOverviewWeekly'));
 
-  const kpiQ = useMenuQuery(kpisEndpoint, {}, summary);
+  const kpiQ = useMenuQuery(kpisEndpoint, {}, { enabled: summary });
   // keepPrevious ON (#1365, ADR-0114): a KPI card or grain change reads the same period/Scope again, so the old chart stays (refreshing) until the new series arrives.
-  const trendQ = useMenuQuery(trendEndpoint, { kpi: selectedKpi, granularity: gran }, summary, KEEP_PREVIOUS);
+  const trendQ = useMenuQuery(trendEndpoint, { kpi: selectedKpi, granularity: gran }, { enabled: summary, ...KEEP_PREVIOUS });
+  // The KPI cards' mini trends reuse the trend response the chart already loads: no extra read (#2743).
+  const cardTrend = trendQ.response?.outcome === 'ok' ? trendQ.response.data?.current ?? null : null;
   // keepPrevious ON: the group-axis tab only regroups the same period; the tab itself already shows the new axis while the old rows refresh.
-  const breakdownQ = useMenuQuery(breakdownEndpoint, { axis }, canQuery && (drill.depth === 0 || axis === 'room'), KEEP_PREVIOUS);
-  const attentionQ = useMenuQuery(attentionEndpoint, {}, summary);
+  const breakdownQ = useMenuQuery(breakdownEndpoint, { axis }, { enabled: canQuery && (drill.depth === 0 || axis === 'room'), ...KEEP_PREVIOUS });
+  const attentionQ = useMenuQuery(attentionEndpoint, {}, { enabled: summary });
   const roomsQ = useMenuQuery(breakdownEndpoint, { axis: 'room' }, canQuery && drill.depth > 0 && axis !== 'room');
   const stgroupQ = useMenuQuery(drillEndpoint, { level: 'stgroup', room: room ?? '', stgroup: '' }, canQuery && room !== null);
   const equipmentQ = useMenuQuery(drillEndpoint, { level: 'equipment', room: room ?? '', stgroup: stgroup ?? '' }, canQuery && room !== null && stgroup !== null);
 
   // While a kept result is shown (#1365), everything that describes or acts on the DATA follows the params it was loaded with, not the current selection.
-  const trendShown = trendQ.resultParams ?? { kpi: selectedKpi, granularity: gran };
+  const trendShown = trendQ.previousResult?.params ?? trendQ.resultParams ?? { kpi: selectedKpi, granularity: gran };
   const shownKpi = trendShown.kpi;
   const shownGranLabel = trendShown.granularity === 'hour' ? (m('productivityOverviewHourly2')) : trendShown.granularity === 'day' ? (m('productivityOverviewDaily2')) : (m('productivityOverviewWeekly2'));
-  const shownAxis = breakdownQ.resultParams?.axis ?? axis;
+  const shownAxis = breakdownQ.previousResult?.params?.axis ?? breakdownQ.resultParams?.axis ?? axis;
 
   const n1 = (v: number) => formatNumber(v, lang, { decimals: 1 });
   const n2 = (v: number) => formatNumber(v, lang, { decimals: 2 });
   const ni = (v: number) => formatNumber(Math.round(v), lang);
 
-  function deltaOf(cur: number | null, prev: number | null | undefined, goodWhenUp: boolean, format: (v: number) => string): Delta | undefined {
-    if (cur === null || prev === null || prev === undefined || prev === 0) return undefined;
-    const diff = cur - prev;
-    const pct = `${diff > 0 ? '+' : ''}${((diff / prev) * 100).toFixed(1)}%`;
-    return { value: `${diff > 0 ? '+' : ''}${format(diff)} (${pct})`, direction: diff >= 0 ? 'up' : 'down', good: goodWhenUp ? diff >= 0 : diff <= 0 };
-  }
-
   /** Explicit-empty-selection escape hatch: outcome `empty` is valid, but the user can restore the unconstrained query in one action. */
-  const clearEmptySelection = global.selection !== null && global.selection.length === 0
-    ? <Button size="sm" variant="secondary" onClick={() => setGlobal({ selection: null })}>{m('productivityOverviewClearEmptySelection')}</Button>
+  const selection = global.selection?.length === 0
+    ? { label: m('productivityOverviewZeroEquipment'), clear: () => setGlobal({ selection: null }) }
     : undefined;
 
   // --- KPI cards (the selected trend is a registered page URL key) ---
@@ -124,48 +117,45 @@ export default function ProductivityOverview(_: PageProps) {
 
   function kpiCard(kpi: KpiKey, data: { current: KpiSet; previous: KpiSet | null }) {
     const c = data.current; const p = data.previous;
-    const active = selectedKpi === kpi;
-    const ver = (v: string) => `${m('productivityOverviewVersion')} ${formatMetricVersion(v)}`;
+    // Variant A (#2743): the delta pill and the 80×28 mini trend; the basis line stays one line, so the version is the short «v3» form.
+    const shared = {
+      onClick: () => selectKpi(kpi), active: selectedKpi === kpi,
+      trend: cardTrend?.map(bucket => bucket.known ? bucket[KPI_TREND_FIELD[kpi]] : null) ?? [],
+    };
     if (kpi === 'occupancy') {
       const o = c.occupancy; const po = p?.occupancy ?? null;
-      return <StatCard key={kpi} icon={Percent} chip="blue" label={m('productivityOverviewPhysicalOccupancy')}
-        onClick={() => selectKpi(kpi)} active={active}
-        value={o ? n1(o.pct) : '—'} unit="%"
-        delta={o && po ? deltaOf(o.pct, po.pct, true, v => `${v.toFixed(1)}pp`) : undefined}
-        caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${ver(METRIC_VERSIONS.occupancy)}` : (m('productivityOverviewDenominator0NotConfirmedNot0'))}
-        footnote={o && <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-pill bg-surface-sunken" role="img"
-          aria-label={m('productivityOverviewOccupiedHOfHObservable', { value: String(n1(o.num)), value2: String(n1(o.den)), value3: String(n1(o.pct)) })}>
-          {/* eslint-disable-next-line shadcn/no-inline-styles -- bar width is the occupancy percentage computed at runtime */}
-          <span className="block h-full rounded-pill bg-chart-blue" style={{ width: `${Math.min(100, Math.max(0, o.pct))}%` }} />
-        </span>} />;
+      return <StatCard key={kpi} {...shared} label={m('productivityOverviewPhysicalOccupancy')} value={o ? n1(o.pct) : '—'} unit="%"
+        comparison={{ kind: 'absolute', current: o?.pct ?? null, previous: po?.pct ?? null, good: 'up', noChangeBand: OCCUPANCY_NO_CHANGE_PP,
+          formatValue: v => `${n1(v)}%`, formatChange: v => `${n1(v)}pp` }}
+        caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${formatMetricVersion(METRIC_VERSIONS.occupancy)}` : m('productivityOverviewDenominator0NotConfirmedNot0')} />;
     }
     if (kpi === 'dwell') {
       const d = c.dwell; const pd = p?.dwell ?? null;
-      return <StatCard key={kpi} icon={Hourglass} chip="teal" label={m('productivityOverviewNonProcessDwell')}
-        onClick={() => selectKpi(kpi)} active={active}
-        value={d ? n2(d.perJobH) : '—'} unit={m('productivityOverviewHJob')}
-        delta={d && pd ? deltaOf(d.perJobH, pd.perJobH, false, v => `${v.toFixed(3)}h`) : undefined}
-        caption={d ? `${n1(d.hours)}h ÷ ${ni(d.jobs)} Job · ${ver(METRIC_VERSIONS.dwell)}` : (m('productivityOverviewNoCompletedJobNotConfirmed'))} />;
+      const n3 = (v: number) => formatNumber(v, lang, { decimals: 3 });
+      const unit = m('productivityOverviewHJob2');
+      return <StatCard key={kpi} {...shared} label={m('productivityOverviewNonProcessDwell')} value={d ? n3(d.perJobH) : '—'} unit={unit}
+        comparison={{ kind: 'absolute', current: d?.perJobH ?? null, previous: pd?.perJobH ?? null, good: 'down',
+          formatValue: v => `${n3(v)} ${unit}`, formatChange: v => `${n3(v)}h` }}
+        caption={d ? `${n1(d.hours)}h ÷ ${ni(d.jobs)} Job · ${formatMetricVersion(METRIC_VERSIONS.dwell)}` : m('productivityOverviewNoCompletedJobNotConfirmed')} />;
     }
     if (kpi === 'cycleTime') {
       const cy = c.cycle; const pc = p?.cycle ?? null;
-      // The delta compares P50 only while the card shows P50 / P95, so the finished text says so (#398).
-      const delta = deltaOf(cy.p50, pc?.p50 ?? null, false, v => `${v.toFixed(1)}${m('productivityOverviewMin')}`);
-      return <StatCard key={kpi} icon={Timer} chip="teal" label={m('productivityOverviewCycleTimeP50P95')}
-        onClick={() => selectKpi(kpi)} active={active}
-        value={<span className="flex items-baseline gap-2">
-          <span>{cy.p50 !== null ? n1(cy.p50) : '—'}</span>
-          <span className="t-stat-2 text-text-secondary">{cy.p95 !== null ? n1(cy.p95) : '—'}</span>
-        </span>} unit={m('productivityOverviewMinP50P95')}
-        delta={delta ? { ...delta, value: `P50 ${delta.value}` } : undefined}
-        caption={`${m('productivityOverviewPooledJobsN', { value: String(ni(cy.jobs)) })} · ${ver(METRIC_VERSIONS.cycleTime)} (${CYCLE_VERSION_TEXT[METRIC_VERSIONS.cycleTime as keyof typeof CYCLE_VERSION_TEXT][lang]})`} />;
+      const min = m('productivityOverviewMin');
+      const version = METRIC_VERSIONS.cycleTime as keyof typeof CYCLE_VERSION_TEXT;
+      const caption = `${m('productivityOverviewPooledJobsN', { value: String(ni(cy.jobs)) })} · ${formatMetricVersion(version)}`;
+      return <StatCard key={kpi} {...shared} label={m('productivityOverviewCycleTimeP50P95')} unit={min}
+        value={cy.p50 !== null ? n1(cy.p50) : '—'} secondary={cy.p95 !== null ? n1(cy.p95) : '—'}
+        // The comparison is P50 only while the card shows P50 / P95, so its text says so (#398).
+        comparison={{ kind: 'absolute', current: cy.p50, previous: pc?.p50 ?? null, good: 'down',
+          formatValue: v => `P50 ${n1(v)}${min}`, formatChange: v => `P50 ${n1(v)}${min}` }}
+        // The version's meaning no longer fits the one-line basis; it stays in the tooltip (#2743).
+        caption={caption} captionTitle={`${caption} (${CYCLE_VERSION_TEXT[version][lang]})`} />;
     }
     const t = c.throughput; const pt = p?.throughput ?? null;
-    return <StatCard key={kpi} icon={BarChart3} chip="blue" label={m('productivityOverviewJobThroughput')}
-      onClick={() => selectKpi(kpi)} active={active}
-      value={ni(t.jobs)} unit={m('productivityOverviewJobsCompleted')}
-      delta={deltaOf(t.jobs, pt?.jobs ?? null, true, v => ni(v))}
-      caption={`${m('productivityOverviewCompleted')} ${ni(t.jobs)} / ${m('productivityOverviewStarted')} ${ni(t.started)} · ${ver(METRIC_VERSIONS.throughput)}`} />;
+    // Throughput declares no good direction (variant A as confirmed): more completed jobs is not good or bad without the load behind it.
+    return <StatCard key={kpi} {...shared} label={m('productivityOverviewJobThroughput')} value={ni(t.jobs)} unit="Job"
+      comparison={{ kind: 'absolute', current: t.jobs, previous: pt?.jobs ?? null, formatValue: v => `${ni(v)} Job`, formatChange: v => `${ni(v)} Job` }}
+      caption={`${m('productivityOverviewCompleted')} ${ni(t.jobs)} / ${m('productivityOverviewStarted')} ${ni(t.started)} · ${formatMetricVersion(METRIC_VERSIONS.throughput)}`} />;
   }
 
   // --- Main trend: AnalysisChartFrame for the selected KPI; Compare overlays the previous equal period (bucket-index aligned). ---
@@ -188,8 +178,8 @@ export default function ProductivityOverview(_: PageProps) {
     },
   };
   const meta = trendMeta[shownKpi];
-  const trendValue = (b: TrendBucket, i: number): number | null =>
-    shownKpi === 'occupancy' ? b.occupancyPct : shownKpi === 'dwell' ? b.dwellPerJobH : shownKpi === 'throughput' ? b.jobs : i === 0 ? b.p50 : b.p95;
+  // Cycle time draws P95 as its second series; every other series reads the card's own field.
+  const trendValue = (b: TrendBucket, i: number): number | null => shownKpi === 'cycleTime' && i === 1 ? b.p95 : b[KPI_TREND_FIELD[shownKpi]];
   const fmtTrend = (v: number) => formatNumber(v, lang, { decimals: meta.decimals });
 
   function trendSeriesFor(data: TrendData): { series: ChartSeries[]; compareSeries: ChartSeries[]; total: number | null; knownBucketCount: number; bucketCount: number } {
@@ -242,9 +232,16 @@ export default function ProductivityOverview(_: PageProps) {
       hint: pctHint((lang === 'ko'), row.occupancyPct, n1),
     })) } : {}),
   };
-  const trustResponse = drill.depth === 0
-    ? kpiQ.response
-    : drill.depth >= 2 && equipmentQ.response?.outcome === 'ok' ? equipmentQ.response : stgroupQ.response;
+  const trustQuery = drill.depth === 0 ? kpiQ : drill.depth >= 2 && equipmentQ.response?.outcome === 'ok' ? equipmentQ : stgroupQ;
+  const kpiTitleNote = <InfoTip label={m('guidanceLabel')}>
+    {m('productivityOverviewSelectACardToShowItsTrend')}
+    {' '}{CYCLE_VERSION_NOTE[lang]}
+  </InfoTip>;
+  const unknownTrendTotal = shownKpi === 'throughput' && trendQ.response?.outcome === 'empty' && trendQ.response.data !== null
+    && trendQ.response.data.equipmentCount > 0 && trendQ.response.data.current.length > 0
+    && trendQ.response.data.current.every(bucket => !bucket.known);
+  const kpiColumns = [m('productivityOverviewPhysicalOccupancy'), m('productivityOverviewNonProcessDwell'),
+    m('productivityOverviewCycleTimeP50P95'), m('productivityOverviewJobThroughput')];
 
   return <PlatformPage
     description={m('productivityOverviewPhysicalOccupancyNonProcessDwellCycleTime')}
@@ -254,9 +251,8 @@ export default function ProductivityOverview(_: PageProps) {
     secondaryActions={<Button size="sm" variant="secondary" onClick={() => { kpiQ.refetch(); trendQ.refetch(); breakdownQ.refetch(); attentionQ.refetch(); roomsQ.refetch(); stgroupQ.refetch(); equipmentQ.refetch(); }}>
       <RotateCw className="size-3.5" aria-hidden />{m('productivityOverviewRefresh')}
     </Button>}
-    dataTrustSummary={trustResponse?.trust
-      ? <DataTrustIndicator trust={trustResponse.trust} assessments={trustResponse.assessments} />
-      : null}
+    dataTrustSummary={<DataTrustIndicator query={trustQuery} />}
+    queryBarExtension={{ appliedPageSummary: [{ key: 'granularity', label: m('productivityOverviewGranularity'), value: granLabel }] }}
     contextExtension={<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <div className="inline-flex items-center gap-1">
         <span id="granularity-label" className="text-xs font-medium text-text-secondary">{m('productivityOverviewGranularity')}</span>
@@ -276,40 +272,29 @@ export default function ProductivityOverview(_: PageProps) {
     {pageInvalid ? <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} />
       : <DrillLayout siblings={drillSiblings} notFound={notFound}>{drill.depth === 0 ? <div className="@container space-y-4">
       {/* Primary KPI / Summary */}
-      <section aria-labelledby="kpi-heading">
-        <div className="mb-2 flex items-center gap-1">
-          <h2 id="kpi-heading" className="t-section-title">{m('productivityOverviewMetricSummary')}</h2>
-          <InfoTip label={m('guidanceLabel')}>
-            {m('productivityOverviewSelectACardToShowItsTrend')}
-            {' '}{CYCLE_VERSION_NOTE[lang]}
-          </InfoTip>
-        </div>
-        {/* The section heading already names the KPI row, so its frame carries no title. */}
-        {framed(undefined, kpiQ, <QueryView widgetName={m('productivityOverviewMetricSummary2')} hideWidgetName query={kpiQ} skeletonRows={4} emptyAction={clearEmptySelection}>
-          {data => <div className="grid grid-cols-1 gap-3 @md:grid-cols-2 @4xl:grid-cols-4">
-            {(['occupancy', 'dwell', 'cycleTime', 'throughput'] as const).map(k => kpiCard(k, data))}
-          </div>}
-        </QueryView>)}
-      </section>
+      <QueryView query={kpiQ} panel={{ kind: 'kpi', height: 152, title: m('productivityOverviewMetricSummary'), columns: kpiColumns, titleNote: kpiTitleNote, selection }}>
+        {data => KPI_KEYS.map(k => kpiCard(k, data))}
+      </QueryView>
 
       {/* Main Trend */}
       <section aria-label={m('productivityOverviewMainTrend')}>
-        {/* The unconfirmed-total note belongs to the trend widget, so it sits inside the same frame as its state. */}
-        {framed(meta.title, trendQ, <>{shownKpi === 'throughput' && trendQ.response?.outcome === 'empty' && trendQ.response.data !== null
-          && trendQ.response.data.equipmentCount > 0 && trendQ.response.data.current.length > 0
-          && trendQ.response.data.current.every(bucket => !bucket.known)
-          && <p role="status" className="t-caption text-text-secondary">{m('productivityOverviewUnconfirmedTrendTotal')}</p>}
-        <QueryView widgetName={meta.title} hideWidgetName={!unframed(trendQ)} query={trendQ} skeletonRows={5} emptyAction={clearEmptySelection}>
+        <QueryView query={trendQ} panel={{
+          kind: 'chart', height: 486, title: meta.title, selection,
+          emptyNote: unknownTrendTotal && <p role="status">{m('productivityOverviewUnconfirmedTrendTotal')}</p>,
+          footerTrust: (data, response) => {
+            const trust = response.trust;
+            if (shownKpi !== 'throughput' || !trust) return trust;
+            const count = data.current.filter(bucket => bucket.known).length;
+            const coverage = trust.coverage === null ? m('productivityTableUnknown') : `${(trust.coverage * 100).toFixed(1)}%`;
+            return {
+              source: trust.source,
+              updated: trustInstant(trust.updatedAt),
+              coverage: `${coverage} · ${m('productivityOverviewObservedBucketCoverage', { observed: String(count), total: String(data.current.length) })}`,
+            };
+          },
+        }}>
           {data => {
             const { series, compareSeries, total, knownBucketCount, bucketCount } = trendSeriesFor(data);
-            const t = trendQ.response?.trust;
-            let sourceCoverage = '';
-            if (t) sourceCoverage = t.coverage === null ? m('productivityTableUnknown') : `${(t.coverage * 100).toFixed(1)}%`;
-            const trendTrust = shownKpi === 'throughput' && t ? {
-              source: t.source,
-              updated: trustInstant(t.updatedAt),
-              coverage: `${sourceCoverage} · ${m('productivityOverviewObservedBucketCoverage', { observed: String(knownBucketCount), total: String(bucketCount) })}`,
-            } : t;
             let totalDescription = '';
             if (total !== null && knownBucketCount > 0 && knownBucketCount < bucketCount) {
               totalDescription = ` · ${m('productivityOverviewObservedBucketTotal', { observed: String(knownBucketCount), total: String(bucketCount), value: ni(total) })}`;
@@ -326,18 +311,23 @@ export default function ProductivityOverview(_: PageProps) {
               imageCopy imagePrint unit={meta.unit}
               valueFormat={fmtTrend}
               height={280}
-              trust={trendTrust}
             />;
           }}
-        </QueryView></>)}
+        </QueryView>
       </section>
 
       <div className="grid grid-cols-1 gap-4 @xl:grid-cols-2">
         {/* Breakdown: occupancy composition per room_name / StGroup */}
-        <section aria-label={m('productivityOverviewOccupancyComposition')}>
-          {framed(m('productivityOverviewOccupancyComposition2'), breakdownQ, <QueryView widgetName={m('productivityOverviewOccupancyComposition2')} hideWidgetName={!unframed(breakdownQ)} query={breakdownQ} skeletonRows={4} emptyAction={clearEmptySelection}>
-            {rows => {
-              const t = breakdownQ.response?.trust;
+        <QueryView query={breakdownQ} panel={{
+          kind: 'chart-table', height: 564, title: m('productivityOverviewOccupancyComposition'), selection,
+          controls: <SegmentedRadio
+            label={m('productivityOverviewGroupBy')}
+            value={axis}
+            onChange={a => setPage({ axis: a === 'room' ? null : a })}
+            options={[{ value: 'room', label: m('productivityOverviewProcess') }, { value: 'stgroup', label: 'StGroup' }]}
+          />,
+        }}>
+            {(rows, _response, { stale }) => {
               const pct = (r: typeof rows[number]) => (r.observableHours > 0 ? (r.occupiedHours / r.observableHours) * 100 : null);
               const valueOf = (r: typeof rows[number]): number | string =>
                 sort.key === 'key' ? r.key : sort.key === 'occ' ? r.occupiedHours : sort.key === 'obs' ? r.observableHours : sort.key === 'pct' ? (pct(r) ?? -1) : r.jobs;
@@ -360,19 +350,12 @@ export default function ProductivityOverview(_: PageProps) {
                   metricVersion={METRIC_VERSIONS.occupancy}
                   xType="category" stacked unit="h" height={240} canApplyRange={false}
                   valueFormat={v => n1(v)}
-                  toolbarStart={<SegmentedRadio
-                    label={m('productivityOverviewGroupBy')}
-                    value={axis}
-                    onChange={a => setPage({ axis: a === 'room' ? null : a })}
-                    options={[{ value: 'room', label: m('productivityOverviewProcess') }, { value: 'stgroup', label: 'StGroup' }]}
-                  />}
                   series={[
                     { id: 'occupied', name: m('productivityOverviewOccupiedHours'), color: 'chart-blue', kind: 'bar', unit: 'h', points: rows.map(r => [r.key, r.occupiedHours] as [string, number | null]) },
                     { id: 'remainder', name: m('productivityOverviewNotOccupiedObservable'), color: 'chart-remainder', kind: 'bar', unit: 'h', points: rows.map(r => [r.key, r.observableHours - r.occupiedHours] as [string, number | null]) },
                   ]}
-                  trust={t}
                 />
-                <div className="mt-2 overflow-auto rounded-lg border border-border-subtle bg-surface-card elevation-panel">
+                <div className="mt-2 overflow-auto border-t border-border-subtle">
                   <Table density="compact">
                     <TableCaption srOnly>{m('productivityTableCaption')}</TableCaption>
                     <TableHeader><TableRow>
@@ -396,7 +379,7 @@ export default function ProductivityOverview(_: PageProps) {
                         <TableCell align="end">{pct(r) === null ? m('productivityTableUnknown') : `${n1(pct(r)!)}%`}</TableCell>
                         <TableCell align="end">{ni(r.jobs)}</TableCell>
                         {shownAxis === 'room' && <TableCell align="end">
-                          <button type="button" aria-label={m('productivityTableEnterRow', { key: r.key })} onClick={() => drill.enter('drillRoom', r.key)}
+                          <button type="button" aria-label={m('productivityTableEnterRow', { key: r.key })} disabled={stale} onClick={() => drill.enter('drillRoom', r.key)}
                             className="inline-flex size-6 items-center justify-center rounded-sm text-text-secondary hover:bg-surface-sunken hover:text-text-primary">
                             <ChevronRight className="size-3.5" aria-hidden />
                           </button>
@@ -407,15 +390,12 @@ export default function ProductivityOverview(_: PageProps) {
                 </div>
               </>;
             }}
-          </QueryView>)}
-        </section>
+        </QueryView>
 
         {/* Attention List: ranking only, no threshold verdicts (wireframe 11 §1) */}
-        <section aria-label={m('productivityOverviewAttentionList')}>
-          <Panel title={m('productivityOverviewAttention')}
-            subtitle={m('productivityOverviewTopEquipmentByNonProcessDwellAnd')}>
-            <QueryView widgetName={m('productivityOverviewAttention2')} hideWidgetName query={attentionQ} skeletonRows={4} emptyAction={clearEmptySelection}>
-              {(rows: AttentionRow[]) => <>
+        <QueryView query={attentionQ} panel={{ kind: 'table', height: 564, title: m('productivityOverviewAttention'),
+          subtitle: m('productivityOverviewTopEquipmentByNonProcessDwellAnd'), selection }}>
+              {(rows: AttentionRow[], _response, { stale }) => <>
                 <ul className="divide-y divide-border-subtle">
                   {rows.map(r => <li key={`${r.kind}-${r.equipmentId}`} className="flex items-center gap-x-3 py-2">
                     <div className="min-w-0 flex-1">
@@ -432,21 +412,19 @@ export default function ProductivityOverview(_: PageProps) {
                       </div>
                     </div>
                     {/* Row actions stay on the equipment's line as one-line buttons (#2651). */}
-                    <span className="flex shrink-0 items-center gap-1">
+                    {!stale && <span className="flex shrink-0 items-center gap-1">
                       <RowAction compact={false} icon={ArrowUpRight} label={m('productivityOverviewCycleTimeName')} text={m('productivityOverviewCycleTime')}
                         link={<PlatformLink href={linkTo('cycle-time', { global: { selection: [r.equipmentId] } })}
                           title={m('productivityOverviewChangesTheEquipmentSelectionToThisEquipment')} />} />
                       <ObjectLinks kind="equipment" id={r.equipmentId} returnTo />
-                    </span>
+                    </span>}
                   </li>)}
                 </ul>
                 <p className="t-caption mt-2 text-text-muted">
                   {m('productivityOverviewTheCycleTimeLinkChangesTheEquipment')}
                 </p>
               </>}
-            </QueryView>
-          </Panel>
-        </section>
+        </QueryView>
       </div>
     </div> : <ProductivityDrillBody
       ko={(lang === 'ko')} room={room ?? ''} stgroup={stgroup} equipment={equipment}

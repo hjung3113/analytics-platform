@@ -25,7 +25,11 @@ export default defineConfig({
   // A leftover `.only` would make the required E2E check pass on one test; CI refuses it, local runs still allow it.
   forbidOnly: !!process.env.CI,
   outputDir: './test-results/kit',
-  reporter: [['list'], ['html', { outputFolder: './playwright-report/kit', open: 'never' }]],
+  reporter: [
+    ['list'],
+    ['./contract-reporter.ts', { outputDir: './contract-report/kit' }],
+    ['html', { outputFolder: './playwright-report/kit', open: 'never' }],
+  ],
   use: {
     baseURL,
     viewport: { width: 1440, height: 900 },

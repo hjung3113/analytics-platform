@@ -1,5 +1,5 @@
 import { Info } from 'lucide-react';
-import { useI18n, useMessages } from '@ap/kernel';
+import { useI18n, useMessages, type QueryState } from '@ap/kernel';
 import { type Assessment, formatMetricVersion, type Trust } from '@ap/contracts';
 import { cn, Dot, Popover, PopoverContent, PopoverTrigger, StatusBadge, type Tone } from '@ap/ui';
 import { trustCoverageText, trustInstantText } from './trustFormat';
@@ -32,8 +32,8 @@ const REASON_KEY: Record<NonNullable<Assessment['reason']>, keyof typeof COMPONE
  * Data Trust vocabulary (§18): one compressed line, details in a popover.
  * `clear` is a narrow, source-backed claim; `unknown` is always shown, never folded into healthy.
  */
-export function DataTrustIndicator({ trust, assessments, className, compact = false, hideProvisional = false, wrap = false, summary = false, probe, showWithoutTrust = false }: {
-  trust: Trust | null; assessments: Assessment[]; className?: string;
+export function DataTrustIndicator({ trust: providedTrust, assessments: providedAssessments, className, compact = false, hideProvisional = false, wrap = false, summary = false, probe, showWithoutTrust = false, query }: {
+  className?: string;
   /** Header yield (#303): keep the summary name on title/aria and show the dot. */
   compact?: boolean;
   /** Header yield (#303): drop the provisional and mixed-version badges once the summary is already compact. */
@@ -46,10 +46,24 @@ export function DataTrustIndicator({ trust, assessments, className, compact = fa
   probe?: (node: HTMLElement | null) => void;
   /** When `trust` is null and `assessments` is non-empty, show the assessment items alone. The line and popover claim no update time, coverage or final/provisional status and say the response carried no Trust. Off by default: a null `trust` renders nothing. */
   showWithoutTrust?: boolean;
-}) {
+} & (
+  | { trust: Trust | null; assessments: Assessment[]; query?: never }
+  | { query: Pick<QueryState<unknown>, 'status' | 'response' | 'cancelled'>; trust?: never; assessments?: never }
+)) {
   const { t, lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  if (!trust && !(showWithoutTrust && assessments.length)) return null;
+  const trust = query ? query.response?.trust ?? null : providedTrust;
+  const assessments = query ? query.response?.assessments ?? [] : providedAssessments;
+  if (query) {
+    const outcome = query.response?.outcome;
+    // «확인 중» only while nothing is drawn: a refresh keeps the result on screen, so the indicator keeps describing that result (06 §19 keepPrevious).
+    const loading = query.status === 'loading';
+    const state = loading ? 'panelTrustChecking' : outcome === 'empty' && !query.cancelled ? 'panelTrustEmpty' : 'panelTrustUnavailable';
+    if (loading || outcome !== 'ok' || !trust || query.cancelled) return <span className={cn('inline-flex items-center gap-1 whitespace-nowrap text-xs text-text-secondary', className)}>
+      <Dot tone="neutral" /><span className="sr-only">{t('dataTrust')} · </span>{m(state)}
+    </span>;
+  }
+  if (!assessments || (!trust && !(showWithoutTrust && assessments.length))) return null;
   const confirmed = assessments.filter(a => a.state === 'confirmed');
   const unknown = assessments.filter(a => a.state === 'unknown');
   const mixed = (trust?.sourceLogicVersions?.length ?? 0) >= 2;

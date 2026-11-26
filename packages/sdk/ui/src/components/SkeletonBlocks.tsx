@@ -3,11 +3,12 @@ import { Skeleton } from './shadcn/skeleton.js';
 export type SkeletonBlock =
   | { kind: 'line'; width: SkeletonWidth }
   | { kind: 'title'; size: 'small' | 'large'; width: SkeletonWidth }
-  | { kind: 'body'; size: 'compact' | 'regular' | 'large'; width: 'full' }
+  | { kind: 'body'; size: 'compact' | 'regular' | 'large' | 'fill'; width: 'full' }
   | { kind: 'badge'; width: 'standard' };
 
 export interface SkeletonBlocksProps {
   blocks: readonly SkeletonBlock[];
+  appearance?: 'default' | 'panel';
 }
 
 type SkeletonWidth =
@@ -39,6 +40,7 @@ function blockClass(block: SkeletonBlock): string {
     return `${block.size === 'small' ? 'h-6' : 'h-7'} ${WIDTH_CLASS[block.width]}`;
   }
   if (block.kind === 'body') {
+    if (block.size === 'fill') return 'size-full';
     const height = block.size === 'compact' ? 'h-20' : block.size === 'regular' ? 'h-24' : 'h-32';
     return `${height} ${WIDTH_CLASS[block.width]}`;
   }
@@ -46,11 +48,11 @@ function blockClass(block: SkeletonBlock): string {
 }
 
 /** Shared line, title, body, and badge placeholders for detail-panel loading states. */
-export function SkeletonBlocks({ blocks }: SkeletonBlocksProps) {
+export function SkeletonBlocks({ blocks, appearance = 'default' }: SkeletonBlocksProps) {
   return (
     <>
       {blocks.map((block, index) => (
-        <Skeleton className={blockClass(block)} key={`${block.kind}-${index}`} />
+        <Skeleton appearance={appearance} className={blockClass(block)} key={`${block.kind}-${index}`} />
       ))}
     </>
   );

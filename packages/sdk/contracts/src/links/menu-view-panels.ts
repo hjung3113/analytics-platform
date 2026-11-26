@@ -5,12 +5,16 @@ import { CUSTOM_GROUP_FIXED_MAX } from './custom-group.js';
 import { nonSerializable } from './saved-view-json.js';
 
 /** One input of a panel instance: which instance output it reads and how (ADR-0176). */
-export type PanelInstanceInput =
+export type PanelInstanceInput = {
+  /** Receiving mode. Omit to use the declaration's input selection, or omit the input itself to ignore it. */
+  use?: 'filter' | 'highlight';
+} & (
   /** 따라가기: reads the current selection of `from` (`<instance id>.<output key>`). */
   | { key: string; from: string; mode: 'follow' }
   /** 붙잡기: keeps the selection `from` had when it was held. The value is stored as is: a range is the absolute wall-clock
    *  `from`/`to` pair of the selection, never a relative period (#2760, owner 2026-11-25). */
-  | { key: string; from: string; mode: 'hold'; value: AnalysisSelection };
+  | { key: string; from: string; mode: 'hold'; value: AnalysisSelection }
+);
 export type PanelInstanceOutput = { key: string; dimension: string; shape: AnalysisSelectionShape };
 export type PanelInstanceSource =
   /** A code panel of this menu (`panel` = its declaration id) or a lent panel (`panel` = `<menuId>/<panelId>`, PanelBinding.source). */
@@ -75,10 +79,15 @@ function invalidInstance(value: unknown, path: string): string | null {
   if (!Array.isArray(outputs) || outputs.length > PANEL_INSTANCE_INPUTS_MAX) return `${path}.outputs must be an array of at most ${PANEL_INSTANCE_INPUTS_MAX} outputs`;
   for (const [i, input] of inputs.entries()) {
     const inputPath = `${path}.inputs[${i}]`;
-    if (hasFields(input, ['key', 'from', 'mode', 'value']) && input.mode === 'hold') {
+    const fields = ['key', 'from', 'mode'];
+    if (isRecord(input) && Object.hasOwn(input, 'use')) {
+      if (input.use !== 'filter' && input.use !== 'highlight') return `${inputPath}.use must be filter or highlight`;
+      fields.push('use');
+    }
+    if (hasFields(input, [...fields, 'value']) && input.mode === 'hold') {
       const bad = invalidHeldSelection(input.value, `${inputPath}.value`);
       if (bad) return bad;
-    } else if (!hasFields(input, ['key', 'from', 'mode']) || input.mode !== 'follow') {
+    } else if (!hasFields(input, fields) || input.mode !== 'follow') {
       return `${inputPath} must be a follow or hold input`;
     }
     if (!token(input.key)) return `${inputPath}.key ${tokenRule}`;
@@ -122,7 +131,8 @@ function invalidPanelConnections(instances: PanelInstance[]): string | null {
       if (input.mode === 'hold' && input.value.shape !== output.shape) {
         return 'panels held selection shape must match the referenced output';
       }
-      upstream.push(output.id);
+      // Stored validation cannot see declarations. Count omitted use as filter, the default receiving mode.
+      if (!Object.hasOwn(input, 'use') || input.use === 'filter') upstream.push(output.id);
     }
     dependencies.set(id, upstream);
   }
@@ -138,7 +148,7 @@ function invalidPanelConnections(instances: PanelInstance[]): string | null {
     visited.add(id);
     return false;
   }
-  return instances.some(({ id }) => hasCycle(id)) ? 'panels connections must not contain a cycle' : null;
+  return instances.some(({ id }) => hasCycle(id)) ? 'panels connections must not contain a filter cycle' : null;
 }
 
 export function invalidMenuViewPanels(raw: unknown): string | null {
@@ -164,4 +174,22 @@ export function readMenuViewPanels(raw: unknown): { status: 'default' } | { stat
     // A value whose properties cannot be inspected is unreadable too.
   }
   return { status: 'legacy', reason: 'unreadable' };
+}
+
+/**
+ * Panels of a view opened in another Scope than it was saved in (#2862, owner 2026-11-25): a held `set` (equipment and other members of that
+ * Scope) is not applied there and the input follows the current selection instead; a held range is an absolute wall-clock pair and stays.
+ * `keys` lists the changed input keys once each, for the «다른 Scope라 제외» notice. Panels with no held set come back as the same object.
+ */
+export function followHeldSets(panels: MenuViewPanels): { panels: MenuViewPanels; keys: string[] } {
+  const keys = new Set<string>();
+  const instances = panels.instances.map(instance => instance.inputs.some(input => input.mode === 'hold' && input.value.shape === 'set')
+    ? { ...instance, inputs: instance.inputs.map((input): PanelInstanceInput => {
+      if (input.mode !== 'hold' || input.value.shape !== 'set') return input;
+      keys.add(input.key);
+      const { key, from, use } = input;
+      return { key, from, mode: 'follow', ...(use ? { use } : {}) };
+    }) }
+    : instance);
+  return keys.size === 0 ? { panels, keys: [] } : { panels: { ...panels, instances }, keys: [...keys] };
 }

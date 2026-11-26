@@ -1,8 +1,10 @@
-// Per-issue SDK release notes; Node built-ins only, no build or Git required.
+// Per-issue SDK release notes; Node built-ins only, no build or Git required. The fragment file rules are shared with menus
+// (tooling/changes/fragments.mjs); this file owns only the SDK row format and its CHANGELOG table.
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { deleteFragmentFiles, fragmentFiles } from '../changes/fragments.mjs';
 
 const sdkRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../packages/sdk');
 const pending = /^다음 릴리스 \((#\d+(?:, #\d+)*)\)$/;
@@ -17,18 +19,12 @@ function cells(line, file) {
 }
 
 export function checkFragments(root = sdkRoot) {
-  const directory = join(root, 'changes');
-  if (!existsSync(directory)) return [];
   const rows = [];
-  for (const file of readdirSync(directory).sort()) {
-    if (file === 'README.md') continue;
-    if (!/^[1-9]\d*\.md$/.test(file)) throw new Error(`${file}: expected <issue>.md`);
-    const content = readFileSync(join(directory, file), 'utf8').trim();
-    if (!content) throw new Error(`${file}: fragment is empty`);
+  for (const { file, issue, content } of fragmentFiles(join(root, 'changes'), { readme: true })) {
     for (const line of content.split(/\r?\n/).filter(line => line.trim())) {
       const parts = cells(line, file);
-      if (parts[0] !== `다음 릴리스 (#${file.slice(0, -3)})`) throw new Error(`${file}: row issue must match filename`);
-      rows.push({ line: line.trim(), issue: Number(file.slice(0, -3)), file });
+      if (parts[0] !== `다음 릴리스 (#${issue})`) throw new Error(`${file}: row issue must match filename`);
+      rows.push({ line: line.trim(), issue, file });
     }
   }
   return rows;
@@ -60,7 +56,7 @@ export function releaseChangelog(root, version, dryRun = false) {
   const after = [...lines.slice(0, table + 2), ...released, ...retained, ...lines.slice(end)].join('\n');
   if (!dryRun) {
     if (after !== before) writeFileSync(path, after);
-    for (const file of new Set(fragments.map(row => row.file))) unlinkSync(join(root, 'changes', file));
+    deleteFragmentFiles(join(root, 'changes'), fragments.map(row => row.file));
   }
   return after;
 }

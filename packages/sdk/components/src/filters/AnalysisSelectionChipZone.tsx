@@ -1,13 +1,15 @@
-import { Fragment, useCallback, useId, useLayoutEffect, useRef, useState, type RefCallback, type RefObject } from 'react';
+import { Fragment, useCallback, useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefCallback, type RefObject } from 'react';
 import { Ellipsis, X } from 'lucide-react';
 import { PlatformLink, useAnalysisSelectionChips, useI18n, useMessages, usePlatformOptional, type AnalysisSelectionChip } from '@ap/kernel';
 import { useAnalysisSelectionHoverTarget, useHostPlatformOptional } from '@ap/kernel/host';
-import { Button, Checkbox, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from '@ap/ui';
+import { Button, Checkbox, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from '@ap/ui';
 import { useReturnNavigation } from '../archetypes/DrillLayout';
-import { usePublishedNextAnalysis } from '../chart/NextAnalysisBridge';
-import { NextAnalysisMenuItem, useNextAnalysisItems, type DirectNextAnalysisAction } from '../chart/NextAnalysisItems';
+import { usePublishedNextAnalysis, usePublishedSelectionDrag } from '../chart/NextAnalysisBridge';
+import { NextAnalysisMenuItem, SelectionPanelPicker, useNextAnalysisItems, type NextAnalysisAction } from '../chart/NextAnalysisItems';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { capturePageFocusReturn } from '../state/pageFocus';
 import { useElementSize, useObservedElementSize } from '../state/useElementSize';
+import { analysisSelectionChipLabel } from './analysisSelectionChipLabel';
 
 export type AnalysisSelectionChipZoneFit = { container: HTMLElement | null; summary: HTMLElement | null };
 type ClearChip = (key: string) => void;
@@ -18,6 +20,10 @@ type ClearButtonRef = RefCallback<HTMLButtonElement>;
 type ChipInteraction = 'pointer' | 'focus';
 type ClearFocus = { kind: 'clear'; key: string | null; index: number; from: string; to: string } | { kind: 'list'; index: number };
 type EditFocus = { kind: 'commit'; key: string } | { kind: 'focused'; key: string; button: HTMLButtonElement };
+type Presentation = 'inline' | 'menu' | 'summary' | 'list';
+const chipFocusAttributes = ['data-analysis-chip-edit', 'data-analysis-chip-action', 'data-analysis-chip-clear', 'data-analysis-chip-arrival'] as const;
+type ChipFocusTarget = { attribute: (typeof chipFocusAttributes)[number]; key: string };
+type WorkspaceFocus = { from: HTMLElement; target: ChipFocusTarget | null; expectedPresentation: Presentation };
 type EditFocusHandlers = {
   trackButton: (button: HTMLButtonElement) => () => void;
   onCommit: (key: string, options: { fromList: boolean }) => void;
@@ -81,43 +87,114 @@ function SelectionFields({ chip, editor, close }: { chip: AnalysisSelectionChip;
 }
 
 const chipButtonClass = cn('inline-flex size-6.5 shrink-0 items-center justify-center rounded-full hover:bg-surface-row-hover', focusClass);
+const chipLabelClass = 'inline-flex min-w-0 items-center gap-1 pl-2 pr-1';
 
-function ChipActionItems({ chip, panelId, onSelect }: { chip: AnalysisSelectionChip; panelId: string; onSelect: (action: DirectNextAnalysisAction) => void }) {
-  const output = { panelId, key: chip.key };
-  const { publication, workspace } = usePublishedNextAnalysis(output);
-  const items = useNextAnalysisItems({ output, selection: chip.selection, workspace: workspace ?? null, pointDrill: publication?.pointDrill });
-  return <>{[...items, ...(publication?.actions ?? [])].map(action => <NextAnalysisMenuItem
-    key={'onSelect' in action ? action.id : action.label} action={action} onSelect={onSelect} />)}</>;
+function chipClass({ wrap, muted }: { wrap?: boolean; muted: boolean }) {
+  return cn('inline-flex min-w-0 items-center rounded-full text-xs font-medium',
+    wrap ? 'min-h-6.5' : 'h-6.5',
+    muted ? 'bg-accent-neutral-soft text-text-secondary' : 'bg-accent-primary-soft text-accent-primary');
 }
 
-function ChipActions({ chip, text, clear, returnFocus }: {
-  chip: AnalysisSelectionChip; text: string; clear: ClearChip; returnFocus?: () => boolean;
-}) {
-  const platform = usePlatformOptional();
+type ChipActionsProps = {
+  chip: AnalysisSelectionChip; text: string; clear: ClearChip; clearAll?: () => void;
+  returnFocus?: () => boolean; focusSource?: () => HTMLElement | null;
+};
+
+type ChipActionMode = 'closed' | 'dropdown' | 'picker';
+type ChipActionContentProps = Pick<ChipActionsProps, 'chip' | 'clear' | 'clearAll' | 'returnFocus'> & {
+  mode: ChipActionMode;
+  pickerId: string;
+  onSelect: (claimsFocus: boolean) => void;
+  openPicker: () => void;
+  closePicker: () => void;
+  onMenuCloseFocus: (event: Event) => void;
+  onPickerCloseFocus: (event: Event) => void;
+};
+
+function PublishedChipActions({ panelId, ...props }: ChipActionContentProps & { panelId: string }) {
+  const output = { panelId, key: props.chip.key };
+  const { publication, workspace } = usePublishedNextAnalysis(output);
+  const items = useNextAnalysisItems({ output, selection: props.chip.selection, workspace: workspace ?? null,
+    pointDrill: publication?.pointDrill });
+  return <ChipActionContent {...props} actions={[...items, ...(publication?.actions ?? [])]} />;
+}
+
+function ChipActionContent({ chip, clear, clearAll, returnFocus, mode, pickerId, actions = [], onSelect, openPicker, closePicker, onMenuCloseFocus, onPickerCloseFocus }:
+  ChipActionContentProps & { actions?: readonly NextAnalysisAction[] }) {
   const { t } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const picker = actions.find(action => 'inputLabel' in action);
+  const pickerMissing = mode === 'picker' && !picker;
+  useLayoutEffect(() => {
+    if (pickerMissing) closePicker();
+  }, [pickerMissing, closePicker]);
+  return <>
+    <DropdownMenuContent align="end" onCloseAutoFocus={onMenuCloseFocus}>
+      {actions.map(action => <NextAnalysisMenuItem key={'onSelect' in action ? action.id : action.label} action={action} onSelect={selected => {
+        onSelect(selected.claimsFocus === true);
+        selected.onSelect(returnFocus);
+      }} onOpenPicker={openPicker} />)}
+      <DropdownMenuItem onSelect={() => clear(chip.key)}>{t('clear')}</DropdownMenuItem>
+      {clearAll && <DropdownMenuItem onSelect={clearAll}>{m('analysisSelectionClearAll')}</DropdownMenuItem>}
+    </DropdownMenuContent>
+    {picker && <SelectionPanelPicker action={picker} close={closePicker} onCloseAutoFocus={onPickerCloseFocus} id={pickerId} />}
+  </>;
+}
+
+function ChipActions({ chip, text, clear, clearAll, returnFocus, focusSource }: ChipActionsProps) {
+  const platform = usePlatformOptional();
   const m = useMessages(COMPONENTS_MESSAGES);
   const actionClaimsFocus = useRef(false);
   const openingPath = useRef<string | undefined>(undefined);
+  const restorePickerFocus = useRef<ReturnType<typeof capturePageFocusReturn> | undefined>(undefined);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const pickerId = useId();
+  const [mode, setMode] = useState<ChipActionMode>('closed');
+  const closePicker = useCallback(() => setMode('closed'), []);
   const path = () => platform?.location.read()?.split('?')[0];
-  return <DropdownMenu modal={false} onOpenChange={open => {
-    if (!open) return;
-    actionClaimsFocus.current = false;
-    openingPath.current = path();
-  }}>
-    <DropdownMenuTrigger asChild>
-      <button data-analysis-chip-action={chip.key} type="button" className={chipButtonClass} aria-label={m('analysisSelectionActions', { chip: text })}><Ellipsis className="size-3.5" aria-hidden /></button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" onCloseAutoFocus={event => {
+  const content: ChipActionContentProps = {
+    chip, clear, clearAll, returnFocus, mode, pickerId, closePicker,
+    onSelect: claimsFocus => { actionClaimsFocus.current = claimsFocus; },
+    openPicker: () => {
+      actionClaimsFocus.current = true;
+      const button = trigger.current;
+      if (button) restorePickerFocus.current = capturePageFocusReturn(button, focusSource?.() ?? button);
+      setMode('picker');
+    },
+    onMenuCloseFocus: event => {
       // The action or the destination owns focus after this menu dismisses.
       if (actionClaimsFocus.current || openingPath.current !== path()) event.preventDefault();
+    },
+    onPickerCloseFocus: event => {
+      event.preventDefault();
+      if (openingPath.current === path()) restorePickerFocus.current?.(returnFocus);
+      restorePickerFocus.current = undefined;
+    },
+  };
+  const panelId = chip.source?.panelId;
+  // The picker opens from an anchor, not a Radix trigger, so name the portal it owns here. A width change then finds the
+  // focused search through `aria-controls` like the dropdown's and hands focus to this key's button before either
+  // popover's close callback runs. Only in picker mode: an `undefined` would override the dropdown trigger's own link.
+  const pickerOwnership = mode === 'picker' ? { 'aria-controls': pickerId, 'aria-expanded': true } : undefined;
+  return <Popover open={mode === 'picker'} onOpenChange={closePicker}>
+    <DropdownMenu modal={false} open={mode === 'dropdown'} onOpenChange={open => {
+      if (open) {
+        actionClaimsFocus.current = false;
+        openingPath.current = path();
+        setMode('dropdown');
+      } else {
+        // Selecting the picker closes Radix's dropdown after the handoff has started.
+        setMode(current => current === 'dropdown' ? 'closed' : current);
+      }
     }}>
-      {platform && chip.source && <ChipActionItems chip={chip} panelId={chip.source.panelId} onSelect={action => {
-        actionClaimsFocus.current = action.claimsFocus === true;
-        action.onSelect(returnFocus);
-      }} />}
-      <DropdownMenuItem onSelect={() => clear(chip.key)}>{t('clear')}</DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>;
+      <PopoverAnchor asChild>
+        <DropdownMenuTrigger asChild>
+          <button ref={trigger} data-analysis-chip-action={chip.key} type="button" className={chipButtonClass} aria-label={m('analysisSelectionActions', { chip: text })} {...pickerOwnership}><Ellipsis className="size-3.5" aria-hidden /></button>
+        </DropdownMenuTrigger>
+      </PopoverAnchor>
+      {mode !== 'closed' && (platform && panelId ? <PublishedChipActions {...content} panelId={panelId} /> : <ChipActionContent {...content} />)}
+    </DropdownMenu>
+  </Popover>;
 }
 
 function ArrivalLink({ href, chipKey, linkRef, menu }: { href: string; chipKey: string; linkRef?: RefCallback<HTMLAnchorElement>; menu?: string }) {
@@ -128,14 +205,48 @@ function ArrivalLink({ href, chipKey, linkRef, menu }: { href: string; chipKey: 
     href={href} aria-label={label} onNavigate={onNavigate}>←</PlatformLink>;
 }
 
-function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, arrivalLinkRef, editFocus, returnActionFocus }: {
-  chip: AnalysisSelectionChip; clear: ClearChip; editor?: ChipEditor; wrap?: boolean; measuring?: boolean;
-  clearButtonRef?: ClearButtonRef; arrivalLinkRef?: RefCallback<HTMLAnchorElement>; editFocus?: EditFocusHandlers; returnActionFocus?: ReturnActionFocus;
-}) {
+function useChipLabel(chip: AnalysisSelectionChip, { wrap, labelId }: { wrap?: boolean; labelId?: string } = {}) {
   const { lang, tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const beginHover = useAnalysisSelectionHoverTarget(measuring ? undefined : chip.key);
+  const { dimension, source, text } = analysisSelectionChipLabel(chip, lang);
+  const origin = chip.arrival?.origin;
+  const menu = origin && tx(origin.menuLabel);
+  const arrivalPrefix = menu === undefined ? m('analysisSelectionArrivalPrefix') : m('analysisSelectionArrivalNamedPrefix', { menu });
+  const notApplied = chip.applied === false;
+  const muted = notApplied || !chip.available;
+  const statusId = labelId === undefined ? undefined : `${labelId}-status`;
+  const status = notApplied ? m('analysisSelectionNotApplied') : m('analysisSelectionUnavailable');
+  const description = <>
+    {chip.source && <span role="img" aria-label={source ?? dimension} title={source} className="size-3.5 shrink-0 rounded-sm border border-current" />}
+    <span id={labelId} className="inline-flex min-w-0 gap-1">
+      {chip.arrival && <span className="shrink-0 whitespace-nowrap">{arrivalPrefix}</span>}
+      <span className={wrap ? '[overflow-wrap:anywhere]' : 'max-w-40 truncate'} title={text}>{text}</span>
+    </span>
+    {muted && <span id={notApplied ? undefined : statusId} className="shrink-0">{status}</span>}
+    {notApplied && statusId && <span id={statusId} className="sr-only">{m('analysisSelectionNotAppliedDescription')}</span>}
+  </>;
+  return { dimension, text, menu, notApplied, muted, statusId, description };
+}
+
+function ChipFootprint({ chip }: { chip: AnalysisSelectionChip }) {
+  const { muted, description } = useChipLabel(chip);
+  return <span className={chipClass({ muted })}>
+    {chip.arrival && <span className={chipButtonClass}>←</span>}
+    <span className={chipLabelClass}>{description}</span>
+    <span className={chipButtonClass} />
+    <span className={chipButtonClass} />
+  </span>;
+}
+
+function Chip({ chip, clear, clearAll, editor, wrap, clearButtonRef, arrivalLinkRef, editFocus, returnActionFocus, actionFocusSource }: {
+  chip: AnalysisSelectionChip; clear: ClearChip; clearAll?: () => void; editor?: ChipEditor; wrap?: boolean;
+  clearButtonRef?: ClearButtonRef; arrivalLinkRef?: RefCallback<HTMLAnchorElement>; editFocus?: EditFocusHandlers; returnActionFocus?: ReturnActionFocus; actionFocusSource?: () => HTMLElement | null;
+}) {
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const beginHover = useAnalysisSelectionHoverTarget(chip.key);
+  const startDrag = usePublishedSelectionDrag(chip.source?.panelId);
   const labelId = useId();
+  const { dimension, text, menu, notApplied, muted, statusId, description } = useChipLabel(chip, { wrap, labelId });
   const editTrigger = useRef<HTMLButtonElement>(null);
   const committed = useRef(false);
   const trackButton = editFocus?.trackButton;
@@ -171,47 +282,18 @@ function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, arrivalLin
     releases.current.get(interaction)?.();
     releases.current.delete(interaction);
   };
-  const dimension = chip.label?.[lang] ?? chip.dimension;
-  const title = chip.source?.title[lang];
-  const source = title && !/\{[^{}]+\}/.test(title) ? title : undefined;
-  const selection = chip.selection;
-  let value = '';
-  if (selection.shape === 'range') value = `${selection.from} – ${selection.to}`;
-  else {
-    const [first, ...others] = selection.values;
-    value = others.length > 0 ? m('analysisSelectionMoreValues', { first, count: others.length }) : first ?? '';
-  }
-  const text = `${dimension} ${value}`;
-  const origin = chip.arrival?.origin;
-  const menu = origin && tx(origin.menuLabel);
-  const arrivalPrefix = menu === undefined ? m('analysisSelectionArrivalPrefix') : m('analysisSelectionArrivalNamedPrefix', { menu });
-  const notApplied = chip.applied === false;
-  const muted = notApplied || !chip.available;
-  const statusId = `${labelId}-status`;
-  const status = notApplied ? m('analysisSelectionNotApplied') : m('analysisSelectionUnavailable');
-  const description = <>
-    {chip.source && <span role="img" aria-label={source ?? dimension} title={source} className="size-3.5 shrink-0 rounded-sm border border-current" />}
-    <span id={labelId} className="inline-flex min-w-0 gap-1">
-      {chip.arrival && <span className="shrink-0 whitespace-nowrap">{arrivalPrefix}</span>}
-      <span className={wrap ? '[overflow-wrap:anywhere]' : 'max-w-40 truncate'} title={text}>{text}</span>
-    </span>
-    {muted && <span id={notApplied ? undefined : statusId} className="shrink-0">{status}</span>}
-    {notApplied && <span id={statusId} className="sr-only">{m('analysisSelectionNotAppliedDescription')}</span>}
-  </>;
-  return <span className={cn('inline-flex min-w-0 items-center rounded-full text-xs font-medium',
-    wrap ? 'min-h-6.5' : 'h-6.5',
-    muted ? 'bg-accent-neutral-soft text-text-secondary' : 'bg-accent-primary-soft text-accent-primary')}
+  return <span className={chipClass({ wrap, muted })}
     onPointerEnter={event => { if (event.pointerType !== 'touch') enter('pointer'); }}
     onPointerLeave={() => leave('pointer')} onFocus={() => enter('focus')} onBlur={() => leave('focus')}>
-    {chip.arrival && (measuring ? <span className={chipButtonClass}>←</span> :
-      <ArrivalLink href={chip.arrival.href} chipKey={chip.key} linkRef={arrivalLinkRef} menu={menu} />)}
-    {editor && !measuring ? <Popover open={open} onOpenChange={next => {
+    {chip.arrival && <ArrivalLink href={chip.arrival.href} chipKey={chip.key} linkRef={arrivalLinkRef} menu={menu} />}
+    {editor ? <Popover open={open} onOpenChange={next => {
       if (next) committed.current = false;
       setOpened(next ? { edit, selectionKey } : null);
     }}>
       <PopoverTrigger asChild>
         <button ref={editTriggerRef} type="button" data-analysis-chip-edit={chip.key} aria-labelledby={labelId} aria-describedby={muted ? statusId : undefined}
-          className={cn('inline-flex min-h-6.5 min-w-0 items-center gap-1 rounded-full pl-2 pr-1 text-start hover:bg-surface-row-hover', focusClass)}>
+          onPointerDown={startDrag && (event => startDrag(event.nativeEvent, chip, event.currentTarget))}
+          className={cn(chipLabelClass, 'min-h-6.5 rounded-full text-start hover:bg-surface-row-hover', focusClass, startDrag && 'touch-none cursor-grab select-none')}>
           {description}
         </button>
       </PopoverTrigger>
@@ -226,12 +308,12 @@ function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, arrivalLin
           setOpened(null);
         }} />
       </PopoverContent>
-    </Popover> : <span className="inline-flex min-w-0 items-center gap-1 pl-2 pr-1">{description}</span>}
-    <button ref={clearButtonRef} type="button" disabled={measuring} className={chipButtonClass}
+    </Popover> : <span className={chipLabelClass}>{description}</span>}
+    <button ref={clearButtonRef} type="button" className={chipButtonClass}
       data-analysis-chip-clear={chip.key} aria-label={m('analysisSelectionClear', { dimension })} aria-describedby={notApplied ? statusId : undefined} onClick={() => clear(chip.key)}>
       <X className="size-3.5" aria-hidden />
     </button>
-    {measuring ? <span className={chipButtonClass} /> : <ChipActions chip={chip} text={text} clear={clear} returnFocus={returnActionFocus && (() => returnActionFocus(chip.key, { fromList: wrap === true }))} />}
+    <ChipActions chip={chip} text={text} clear={clear} clearAll={clearAll} focusSource={actionFocusSource} returnFocus={returnActionFocus && (() => returnActionFocus(chip.key, { fromList: wrap === true }))} />
   </span>;
 }
 
@@ -239,34 +321,76 @@ function Separator() {
   return <span aria-hidden className="text-text-muted">|</span>;
 }
 
-function InlineChips({ chips, clear, clearAll, editor, measuring, clearButtonRef, arrivalLinkRef, editFocus, returnActionFocus }: {
+function InlineChips({ chips, clear, clearAll, clearAllInMenu, editor, measuring, clearButtonRef, arrivalLinkRef, editFocus, returnActionFocus, actionFocusSource }: {
   chips: readonly AnalysisSelectionChip[]; clear: ClearChip; clearAll: () => void; editor?: ChipEditor; measuring?: boolean; clearButtonRef?: ClearButtonRef;
-  arrivalLinkRef?: RefCallback<HTMLAnchorElement>; editFocus?: EditFocusHandlers; returnActionFocus?: ReturnActionFocus;
+  clearAllInMenu?: boolean;
+  arrivalLinkRef?: RefCallback<HTMLAnchorElement>; editFocus?: EditFocusHandlers; returnActionFocus?: ReturnActionFocus; actionFocusSource?: () => HTMLElement | null;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   return <>
     <Separator />
     {chips.map((chip, index) => <Fragment key={chip.key}>
       {index > 0 && <span aria-hidden className="text-text-muted">›</span>}
-      <Chip chip={chip} clear={clear} editor={editor} measuring={measuring} clearButtonRef={clearButtonRef} arrivalLinkRef={arrivalLinkRef} editFocus={editFocus} returnActionFocus={returnActionFocus} />
+      {measuring ? <ChipFootprint chip={chip} /> : <Chip chip={chip} clear={clear} clearAll={clearAllInMenu ? clearAll : undefined} editor={editor} clearButtonRef={clearButtonRef} arrivalLinkRef={arrivalLinkRef} editFocus={editFocus} returnActionFocus={returnActionFocus} actionFocusSource={actionFocusSource} />}
     </Fragment>)}
-    <button type="button" disabled={measuring} className={linkClass} onClick={clearAll}>{m('analysisSelectionClearAll')}</button>
+    {measuring && <span className={linkClass}>{m('analysisSelectionClearAll')}</span>}
+    {!measuring && !clearAllInMenu && <button type="button" className={linkClass} onClick={clearAll}>{m('analysisSelectionClearAll')}</button>}
   </>;
 }
 
 function focusActionTrigger(surface: HTMLElement | null, key: string): boolean {
   const button = Array.from(surface?.querySelectorAll<HTMLButtonElement>('[data-analysis-chip-action]') ?? [])
     .find(candidate => candidate.dataset.analysisChipAction === key);
-  button?.focus({ preventScroll: true });
-  return button !== undefined;
+  if (!button) return false;
+  button.focus({ preventScroll: true });
+  return button.ownerDocument.activeElement === button;
 }
 
-/** Shows the active screen's analysis selections. The optional fit elements supply the row's budget and the summary's intrinsic width. */
-export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
-  fit?: AnalysisSelectionChipZoneFit; fallbackFocus?: RefObject<HTMLElement | null>;
+/**
+ * Whether `active` sits in `control` or in a portaled surface it owns. Follows the
+ * `aria-controls` chain, so a submenu or a select list opened from the chip's editor
+ * or action menu still counts as the chip's.
+ */
+function ownsFocus(control: HTMLElement, active: HTMLElement): boolean {
+  const visited = new Set<Element>();
+  const pending: Element[] = [control];
+  for (let node = pending.pop(); node !== undefined; node = pending.pop()) {
+    if (visited.has(node)) continue;
+    visited.add(node);
+    if (node.contains(active)) return true;
+    const owners = [node, ...node.querySelectorAll('[aria-controls]')];
+    for (const owner of owners) {
+      for (const id of owner.getAttribute('aria-controls')?.split(/\s+/) ?? []) {
+        const content = id ? control.ownerDocument.getElementById(id) : null;
+        if (content !== null && !visited.has(content)) pending.push(content);
+      }
+    }
+  }
+  return false;
+}
+
+function findChipFocusTarget(active: HTMLElement, surface: HTMLElement | null): ChipFocusTarget | null {
+  for (const attribute of chipFocusAttributes) {
+    for (const control of surface?.querySelectorAll<HTMLElement>(`[${attribute}]`) ?? []) {
+      const key = control.getAttribute(attribute);
+      if (key !== null && ownsFocus(control, active)) return { attribute, key };
+    }
+  }
+  return null;
+}
+
+function listTriggerText(count: number) {
+  return `+${count} ›`;
+}
+
+/** Shows the active screen's analysis selections. In a workspace the flex row allocates the selection lane. */
+export function AnalysisSelectionChipZone({ fit, workspace = false, fallbackFocus }: {
+  fit?: AnalysisSelectionChipZoneFit; workspace?: boolean; fallbackFocus?: RefObject<HTMLElement | null>;
 }) {
   const { chips: modelChips, clear, clearAll, editor } = useAnalysisSelectionChips(onClearCommit);
   const chips = [...modelChips].sort((a, b) => Number(Boolean(b.arrival)) - Number(Boolean(a.arrival)));
+  const committedChips = useRef(modelChips);
+  useLayoutEffect(() => { committedChips.current = modelChips; }, [modelChips]);
   const platform = useHostPlatformOptional();
   const url = platform?.url;
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -277,6 +401,7 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   const clearFocus = useRef<ClearFocus | null>(null);
   const editFocus = useRef<EditFocus | null>(null);
   const focusedChip = useRef<HTMLButtonElement | null>(null);
+  const workspaceFocus = useRef<WorkspaceFocus | null>(null);
   const detachedArrivalKey = useRef<string | undefined>(undefined);
   const [listOpen, setListOpen] = useState(false);
   const trackEditButton = useCallback((button: HTMLButtonElement) => {
@@ -310,12 +435,27 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   }, []);
   const firstArrival = chips[0]?.arrival ? chips[0] : undefined;
   const foldedChip = firstArrival ?? chips[chips.length - 1];
-  const canFold = chips.length > 1 && fit !== undefined;
-  const row = useObservedElementSize(fit?.container ?? null, { enabled: canFold });
-  const summary = useObservedElementSize(fit?.summary ?? null, { enabled: canFold });
-  const probe = useElementSize(canFold);
-  const folded = canFold && row !== null && summary !== null && probe.width !== null && summary.width + probe.width > row.width;
-  const previousFolded = useRef(folded);
+  const canFoldLegacy = !workspace && chips.length > 1 && fit !== undefined;
+  const row = useObservedElementSize(fit?.container ?? null, { enabled: canFoldLegacy });
+  const summary = useObservedElementSize(fit?.summary ?? null, { enabled: canFoldLegacy });
+  const lane = useElementSize(workspace);
+  const probe = useElementSize(workspace || canFoldLegacy);
+  const foldedProbe = useElementSize(workspace);
+  const legacyFolded = canFoldLegacy && row !== null && summary !== null && probe.width !== null && summary.width + probe.width > row.width;
+  const workspaceFolded = workspace && (lane.width === null || probe.width === null || probe.width > lane.width);
+  let nextWorkspacePresentation: Presentation = 'inline';
+  if (workspaceFolded) {
+    const summaryFits = foldedProbe.width !== null && lane.width !== null && foldedProbe.width <= lane.width;
+    if (summaryFits) nextWorkspacePresentation = chips.length === 1 ? 'menu' : 'summary';
+    else nextWorkspacePresentation = 'list';
+  }
+  const [workspacePresentation, setWorkspacePresentation] = useState(nextWorkspacePresentation);
+  const legacyPresentation = legacyFolded ? 'summary' : 'inline';
+  const presentation = workspace ? workspacePresentation : legacyPresentation;
+  const showListOnly = presentation === 'list';
+  const clearAllInMenu = presentation === 'menu';
+  const folded = presentation === 'summary' || showListOnly;
+  const previousPresentation = useRef(presentation);
   if (listOpen && !folded) setListOpen(false);
   const focusChip = (surface: HTMLElement | null, index: number) => {
     const buttons = surface?.querySelectorAll<HTMLButtonElement>('[data-analysis-chip-clear]');
@@ -325,6 +465,7 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   };
   useLayoutEffect(() => {
     const stopTracking = (event: FocusEvent) => {
+      workspaceFocus.current = null;
       if (event.target !== focusedChip.current) focusedChip.current = null;
       const request = editFocus.current;
       if (request?.kind === 'focused' && event.target !== request.button) editFocus.current = null;
@@ -339,16 +480,18 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   useLayoutEffect(() => () => {
     clearFocus.current = null;
     focusedChip.current = null;
+    workspaceFocus.current = null;
     pendingActionFocus.current = null;
     detachedArrivalKey.current = undefined;
   }, [platform?.adapter, platform?.session, platform?.revision, platform?.paneId, platform?.route?.menu, platform?.pathname, platform?.global.scopeId]);
   useLayoutEffect(() => () => { editFocus.current = null; }, [editor?.replace]);
+  const actionFocusSource = () => zone.current;
   const returnActionFocus: ReturnActionFocus = (key, { fromList }) => {
     if (!fromList || !trigger.current) {
       if (focusActionTrigger(zone.current, key)) return true;
     }
     if (list.current) return focusActionTrigger(list.current, key);
-    if (!trigger.current) return false;
+    if (!trigger.current || !committedChips.current.some(chip => chip.key === key)) return false;
     pendingActionFocus.current = key;
     setListOpen(true);
     return true;
@@ -380,8 +523,24 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
   useLayoutEffect(() => {
     const arrivalKey = detachedArrivalKey.current;
     detachedArrivalKey.current = undefined;
-    const branchChanged = previousFolded.current !== folded;
-    previousFolded.current = folded;
+    const branchChanged = previousPresentation.current !== presentation;
+    previousPresentation.current = presentation;
+    const handoff = workspaceFocus.current;
+    if (handoff?.expectedPresentation === presentation) {
+      workspaceFocus.current = null;
+      if (!handoff.from.isConnected && document.activeElement === document.body) {
+        const { target } = handoff;
+        const replacement = target && [
+          ...zone.current?.querySelectorAll<HTMLElement>(`[${target.attribute}]`) ?? [],
+          ...list.current?.querySelectorAll<HTMLElement>(`[${target.attribute}]`) ?? [],
+        ]
+          .find(control => control.getAttribute(target.attribute) === target.key);
+        if (replacement) replacement.focus({ preventScroll: true });
+        else if (trigger.current) trigger.current.focus({ preventScroll: true });
+        else if (target) fallbackFocus?.current?.focus({ preventScroll: true });
+        else if (!clearAllInMenu || !foldedChip || !focusActionTrigger(zone.current, foldedChip.key)) focusChip(zone.current, 0);
+      }
+    }
     if (branchChanged && arrivalKey !== undefined && document.activeElement === document.body) {
       const replacement = Array.from(zone.current?.querySelectorAll<HTMLAnchorElement>('[data-analysis-chip-arrival]') ?? [])
         .find(link => link.dataset.analysisChipArrival === arrivalKey);
@@ -411,26 +570,46 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
     clearFocus.current = openList ? { kind: 'list', index } : null;
     focusChip(openList ?? zone.current, index);
   });
+  useLayoutEffect(() => {
+    if (workspacePresentation === nextWorkspacePresentation) return;
+    workspaceFocus.current = null;
+    // Keep the old presentation mounted until we can read its current focus, including its owned portals.
+    const active = document.activeElement;
+    if (workspace && active instanceof HTMLElement && active !== document.body) {
+      const target = findChipFocusTarget(active, zone.current) ?? findChipFocusTarget(active, list.current);
+      if (target || zone.current?.contains(active) || list.current?.contains(active)) {
+        workspaceFocus.current = { from: active, target, expectedPresentation: nextWorkspacePresentation };
+      }
+    }
+    setWorkspacePresentation(nextWorkspacePresentation);
+  }, [nextWorkspacePresentation, workspace, workspacePresentation]);
   function onClearCommit(key: string | null, { from, to }: { from: string; to: string }) {
     const index = key === null ? 0 : chips.findIndex(chip => chip.key === key);
     clearFocus.current = { kind: 'clear', key, index, from, to };
   }
   if (!foldedChip) return null;
   const label = m('analysisSelectionGroup');
-  const visibleChip = <Chip key={foldedChip.key} chip={foldedChip} clear={clear} editor={editor} clearButtonRef={clearButtonRef} arrivalLinkRef={arrivalLinkRef} editFocus={editFocusHandlers} returnActionFocus={returnActionFocus} />;
-  return <>
-    {canFold && <div aria-hidden inert className="invisible absolute inset-x-0 top-0 h-0 overflow-hidden">
+  const visibleChip = <Chip key={foldedChip.key} chip={foldedChip} clear={clear} editor={editor} clearButtonRef={clearButtonRef} arrivalLinkRef={arrivalLinkRef} editFocus={editFocusHandlers} returnActionFocus={returnActionFocus} actionFocusSource={actionFocusSource} />;
+  const content = <>
+    {(workspace || canFoldLegacy) && <div aria-hidden inert className="invisible absolute inset-x-0 top-0 h-0 overflow-hidden">
       <div ref={probe.ref} data-analysis-chip-probe className="w-max">
         <div className={zoneClass}><InlineChips chips={chips} clear={clear} clearAll={clearAll} measuring /></div>
       </div>
+      {workspace && <div ref={foldedProbe.ref} data-analysis-chip-summary-probe className="w-max">
+        <div className={zoneClass}>
+          <Separator />
+          <ChipFootprint chip={foldedChip} />
+          {chips.length > 1 && <span className={linkClass}>{listTriggerText(chips.length - 1)}</span>}
+        </div>
+      </div>}
     </div>}
-    <div ref={zone} role="group" aria-label={label} className={zoneClass}>
+    <div ref={zone} role="group" aria-label={label} className={cn(showListOnly ? 'inline-flex items-center' : zoneClass, workspace && 'absolute inset-x-0')}>
       {folded ? <>
-        <Separator />
-        {firstArrival && visibleChip}
+        {!showListOnly && <Separator />}
+        {!showListOnly && firstArrival && visibleChip}
         <Popover open={listOpen} onOpenChange={setListOpen}>
           <PopoverTrigger asChild>
-            <button ref={listTriggerRef} type="button" className={linkClass}>+{chips.length - 1} ›</button>
+            <button ref={listTriggerRef} type="button" className={linkClass}>{listTriggerText(showListOnly ? chips.length : chips.length - 1)}</button>
           </PopoverTrigger>
           <PopoverContent ref={list} aria-label={label} align="end" className="max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto" onOpenAutoFocus={event => {
             const key = pendingActionFocus.current;
@@ -447,14 +626,23 @@ export function AnalysisSelectionChipZone({ fit, fallbackFocus }: {
             <ul className="grid gap-1">
               {chips.map(chip => <li key={chip.key} className="flex min-w-0 items-center gap-1">
                 {chip.after !== null && <span aria-hidden className="text-text-muted">›</span>}
-                <Chip chip={chip} clear={clear} editor={editor} wrap clearButtonRef={clearButtonRef} arrivalLinkRef={arrivalLinkRef} editFocus={editFocusHandlers} returnActionFocus={returnActionFocus} />
+                <Chip chip={chip} clear={clear} editor={editor} wrap clearButtonRef={clearButtonRef} arrivalLinkRef={arrivalLinkRef} editFocus={editFocusHandlers} returnActionFocus={returnActionFocus} actionFocusSource={actionFocusSource} />
               </li>)}
             </ul>
             <button type="button" className={linkClass} onClick={clearAll}>{m('analysisSelectionClearAll')}</button>
           </PopoverContent>
         </Popover>
-        {!firstArrival && visibleChip}
-      </> : <InlineChips chips={chips} clear={clear} clearAll={clearAll} editor={editor} clearButtonRef={clearButtonRef} arrivalLinkRef={arrivalLinkRef} editFocus={editFocusHandlers} returnActionFocus={returnActionFocus} />}
+        {!showListOnly && !firstArrival && visibleChip}
+      </> : <InlineChips chips={chips} clear={clear} clearAll={clearAll} clearAllInMenu={clearAllInMenu} editor={editor} clearButtonRef={clearButtonRef} arrivalLinkRef={arrivalLinkRef} editFocus={editFocusHandlers} returnActionFocus={returnActionFocus} actionFocusSource={actionFocusSource} />}
     </div>
   </>;
+  if (!workspace) return content;
+  // Flex shrinks this lane after the condition chips reach +n. Keep its preferred
+  // width independent of the visible presentation so folding cannot change the budget.
+  // No share cap: once the conditions sit at +n, the selection takes all remaining width (§12.2).
+  return <div ref={lane.ref} data-analysis-chip-lane className="relative flex w-(--analysis-selection-width) min-w-min items-center"
+    style={probe.width === null ? undefined : { '--analysis-selection-width': `${probe.width}px` } as CSSProperties}>
+    <span aria-hidden className={cn(linkClass, 'invisible')}>{listTriggerText(chips.length)}</span>
+    {content}
+  </div>;
 }

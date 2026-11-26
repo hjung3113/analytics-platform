@@ -317,7 +317,7 @@ it('uses the empty category label in table and CSV based on displayed series onl
   expect(cells()).toEqual(['EQ2 · PM1', emptyCategoryLabel, emptyCategoryLabel]);
   expect(exportRow()).toEqual(['EQ2 · PM1', emptyCategoryLabel, emptyCategoryLabel]);
   expect(within(screen.getByRole('group', { name: '범례' })).queryByText(emptyCategoryLabel)).toBeNull();
-  expect(screen.getByRole('region', { name: '선택 요약' })).not.toHaveTextContent(emptyCategoryLabel);
+  expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
 
   view.update({ visibleSeriesIds: ['a'] });
   expect(cells()).toEqual(['EQ2 · PM1', emptyCategoryLabel]);

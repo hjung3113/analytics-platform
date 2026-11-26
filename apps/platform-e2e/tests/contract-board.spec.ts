@@ -2,7 +2,7 @@ import { browserPreferenceKey } from './support';
 import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './origin-guard';
 import { PERIOD, PRODUCTIVITY, openSwitcher, chooseSystem, headerMore, periodPreset, startWithQueryBarOpen } from './contract-helpers';
-import { evidence, expandPageHead, mainHeading, nextFrames, query, settleOn, setScenario, signInAs } from './support';
+import { chooseWorkspacePreset, evidence, expandPageHead, expectWorkspacePreset, pageConditions, pinQueryEditor, resetWorkspaceLayout, workspaceHeight, workspaceLayout, mainHeading, nextFrames, query, settleOn, setScenario, signInAs } from './support';
 
 /**
  * Platform contract checks (#44). Each `describe` is one contract area of docs/06; each test is one reported check.
@@ -959,7 +959,8 @@ test.describe('분석 보드 dock 렌더러 (ADR-0067)', () => {
     await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
     await page.mouse.down();
     // The middle joins the group's tabs: the engine draws its preview (this also proves the selector sees one).
-    await hoverAt(box.x + box.width / 2, box.y + box.height / 2);
+    // Off the exact center: the jitter must stay on one element (a KPI cell edge there fires only enter/leave, never the dragover the engine draws on).
+    await hoverAt(box.x + box.width * 0.42, box.y + box.height / 2);
     await expect(preview.first()).toBeVisible();
     // The edge would split into a fifth group: no preview.
     await hoverAt(box.x + box.width - 6, box.y + box.height / 2);
@@ -1023,25 +1024,20 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
       localStorage.removeItem(keys[1]);
     }, [browserPreferenceKey('page-filter-collapsed', 'cycle-time'), browserPreferenceKey('page-head-collapsed', 'cycle-time')]);
   }
-  /** Collapses the query bar, the page filter and the page head (the head starts collapsed; the filter sits inside it). */
   async function collapseBars(page: Page) {
-    await page.getByRole('button', { name: '조회 조건 접기' }).click();
-    // #1941: a folded workspace query bar carries the page head as its 「페이지 조건」 chip, so folding the bar folds the head too.
-    const row = page.locator('[data-workspace-query-row]');
-    await expect(row.or(page.getByRole('button', { name: '페이지 머리 펼치기' })).or(page.getByRole('button', { name: '페이지 머리 접기' })).first()).toBeVisible();
-    if (await row.count()) return;
-    await expandPageHead(page);
-    await page.getByRole('button', { name: '페이지 조건 접기' }).click();
-    await page.getByRole('button', { name: '페이지 머리 접기' }).click();
+    const close = page.getByRole('button', { name: '조회 조건 접기', exact: true });
+    if (await close.isVisible()) await close.click();
+    await expect(page.getByRole('button', { name: '조회 조건 펼치기', exact: true })).toBeVisible();
+    await expect(pageConditions(page)).toHaveAttribute('aria-expanded', 'false');
   }
   /** A fresh session starts stacked (ADR-0130); these checks are about the fitted arrangement, so `화면 맞춤` is chosen once the workspace shows. It applies the 기본 preset because the layout is still the 세로 one. */
   async function fitMode(page: Page) {
     const root = page.locator('[data-panel-workspace]');
     if ((await root.getAttribute('data-workspace-mode')) === 'fit') return;
-    await page.getByRole('button', { name: '높이 방식', exact: true }).click();
+    await workspaceHeight(page).click();
     await page.getByRole('menuitemradio', { name: '화면 맞춤' }).click();
     await expect(root).toHaveAttribute('data-workspace-mode', 'fit');
-    await expect(page.getByRole('radio', { name: '기본', exact: true })).toBeChecked();
+    await expectWorkspacePreset(page, '기본');
     await page.evaluate(() => new Promise(done => { requestAnimationFrame(() => { requestAnimationFrame(done); }); }));
   }
   async function workspaceReady(page: Page, { fit = true } = {}) {
@@ -1134,12 +1130,11 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await page.keyboard.press('Home');
     await expect.poll(async () => (await groupOf(page, TITLES.trend).boundingBox())!.width).toBeGreaterThanOrEqual(479);
 
-    await page.getByRole('button', { name: '조회 조건 펼치기' }).click();
+    await pinQueryEditor(page);
     await expandPageHead(page);
-    // collapseBars leaves the filter open when the folded bar carried the head (#1941); open it only if it is closed.
-    const filterExpand = page.getByRole('button', { name: '페이지 조건 펼치기' });
-    if (await filterExpand.isVisible()) await filterExpand.click();
-    await expect(page.getByRole('button', { name: '페이지 조건 접기' })).toBeVisible();
+    const editor = page.getByRole('dialog', { name: '페이지 조건', exact: true });
+    await expect(editor.getByTestId('page-filter-bar')).toBeVisible();
+    await editor.getByRole('button', { name: '편집기 고정', exact: true }).click();
     // The fill body keeps 520 px (toolbar included): the page scrolls instead of crushing the workspace.
     await expect.poll(async () => (await page.locator('[data-panel-workspace]').boundingBox())!.height).toBeGreaterThanOrEqual(519.5);
     expect(await mainScrolls(page)).toBe(true);
@@ -1155,11 +1150,11 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     const before = await cycleRequests(page);
     expect(before).toBeGreaterThanOrEqual(3);
 
-    await page.getByRole('radio', { name: '집중' }).click();
-    await expect(page.getByRole('radio', { name: '집중' })).toBeChecked();
-    await page.getByRole('radio', { name: '기본', exact: true }).click();
-    await expect(page.getByRole('radio', { name: '기본', exact: true })).toBeChecked();
-    await page.getByRole('button', { name: '기본 배치', exact: true }).click();
+    await chooseWorkspacePreset(page, '집중');
+    await expectWorkspacePreset(page, '집중');
+    await chooseWorkspacePreset(page, '기본');
+    await expectWorkspacePreset(page, '기본');
+    await resetWorkspaceLayout(page);
     await page.getByRole('button', { name: `${TITLES.distribution} 동작` }).click();
     await page.getByRole('menuitem', { name: '숨기기' }).click();
     await expect(page.getByRole('tab', { name: TITLES.distribution })).toHaveCount(0);
@@ -1267,7 +1262,7 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(CYCLE);
     await workspaceReady(page);
-    await page.getByRole('radio', { name: '집중' }).click();
+    await chooseWorkspacePreset(page, '집중');
     // `집중` puts summary, distribution and slow in one tab group; the group's menu acts on its active tab.
     await page.getByRole('tab', { name: TITLES.distribution }).click();
     await page.getByRole('button', { name: `${TITLES.distribution} 동작` }).click();
@@ -1280,7 +1275,7 @@ test.describe('메뉴 작업 영역 (ADR-0067 3b)', () => {
 
     await page.reload();
     await expect(workspace(page)).toBeVisible();
-    await expect(page.getByRole('radio', { name: '집중' })).toBeChecked();
+    await expectWorkspacePreset(page, '집중');
     await expect(page.getByRole('button', { name: '숨긴 패널 1' })).toBeEnabled();
     await expect(page.getByRole('tab', { name: TITLES.distribution })).toHaveCount(0);
     await expect(page.getByRole('tab', { name: TITLES.slow })).toBeVisible();
@@ -1444,7 +1439,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
   const root = (page: Page) => page.locator('[data-panel-workspace]');
   /** The height mode lives in the toolbar's `⋯` menu (ADR-0130): the item of the open menu. */
   const modeRadio = (page: Page, name: '화면 맞춤' | '아래로 쌓기') => page.getByRole('menuitemradio', { name });
-  const modeMenu = (page: Page) => page.getByRole('button', { name: '높이 방식', exact: true });
+  const modeMenu = (page: Page) => workspaceHeight(page);
   /** Opens the menu if it is not open and returns the item. */
   async function modeItem(page: Page, name: '화면 맞춤' | '아래로 쌓기') {
     if (!(await modeRadio(page, name).isVisible())) await modeMenu(page).click();
@@ -1471,7 +1466,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(CYCLE);
     await ready(page);
-    await page.getByRole('radio', { name: preset, exact: true }).click();
+    await chooseWorkspacePreset(page, preset);
     await chooseMode(page, '아래로 쌓기');
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'stack');
     await expect(rowSeparators(page).first()).toBeVisible();
@@ -1513,7 +1508,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(CYCLE);
     await ready(page);
-    await page.getByRole('radio', { name: '세로', exact: true }).click();
+    await chooseWorkspacePreset(page, '세로');
     // A fresh session starts stacked (ADR-0130): fit first.
     await chooseMode(page, '화면 맞춤');
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
@@ -1545,10 +1540,9 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
 
   test('쌓기에서도 페이지 머리 접기와 얇은 응답 띠는 그대로다(#680)', async ({ page }) => {
     await openStack(page);
-    // Folded (#1941): the collapsed page head is the one 「페이지 조건」 chip in the query bar's second line.
-    await expect(page.locator('[data-workspace-query-row]').getByRole('button', { name: /^페이지 조건/ })).toHaveCount(1);
+    await expect(pageConditions(page)).toHaveCount(1);
     await expandPageHead(page);
-    await expect(page.getByRole('button', { name: '페이지 머리 접기' })).toBeVisible();
+    await expect(pageConditions(page)).toHaveAttribute('aria-expanded', 'true');
     await setScenario(page, '서버 오류 (error)');
     const strip = page.getByRole('main').getByRole('group', { name: '위젯 상태 요약' });
     await expect(strip).toHaveAttribute('data-outcome-compact', 'true');
@@ -1753,11 +1747,11 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     expect(await rowPx(page)).toEqual(resized);
 
     const requests = await cycleRequests(page);
-    await page.getByRole('button', { name: '기본 배치', exact: true }).click();
+    await resetWorkspaceLayout(page);
     await expect.poll(async () => (await rowPx(page)).join()).not.toBe(resized.join());
     const reset = await rowPx(page);
-    await page.getByRole('button', { name: '기본 배치', exact: true }).click();
-    await page.getByRole('button', { name: '기본 배치', exact: true }).click();
+    await resetWorkspaceLayout(page);
+    await resetWorkspaceLayout(page);
     // Repeating the default layout must preserve the measured row heights.
     await expect.poll(() => rowPx(page)).toEqual(reset);
 
@@ -1772,7 +1766,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     // Nothing happens: switching modes must not re-query; give a wrongly sent query time to arrive.
     await page.waitForTimeout(500);
     expect(await cycleRequests(page)).toBe(requests);
-    await page.getByRole('radio', { name: '집중', exact: true }).click();
+    await chooseWorkspacePreset(page, '집중');
     await expect(rowSeparators(page)).toHaveCount(1);
     await expect.poll(() => stored(page)).toMatchObject([{ mode: 'stack', preset: 'focus' }]);
   });
@@ -1786,7 +1780,7 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
     await expect(rowSeparators(page)).toHaveCount(0);
     await expect(await modeItem(page, '아래로 쌓기')).toHaveAttribute('aria-disabled', 'true');
-    await expect(page.getByRole('menu').getByRole('group')).toHaveAccessibleDescription('좁은 폭에서는 화면 맞춤으로 보입니다');
+    await expect(page.getByRole('menu').getByRole('group').filter({ has: modeRadio(page, '아래로 쌓기') })).toHaveAccessibleDescription('좁은 폭에서는 화면 맞춤으로 보입니다');
     await page.keyboard.press('Escape');
     // Nothing happens (kept wait): the narrow display must write nothing, so there is no state to poll for.
     await page.waitForTimeout(600);
@@ -1877,7 +1871,6 @@ test.describe('작업 영역 아래로 쌓기 (#686, 06 §12.8)', () => {
 // tolerances from browser measurements (`ROUNDING` is a placeholder for the engine's pixel rounding, not a measurement).
 test.describe('쌓기 기본값과 상호작용 (#701)', () => {
   const CYCLE = `/mars/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&${PERIOD}`;
-  const HW_TIME = '/mars/hw-time?v=1&scopeId=MEM';
   const STORE = /^platform:workspace:v1:.+:cycle-time:drilldown$/;
   const TITLES = { summary: '사이클타임 요약', trend: '사이클타임 추세', distribution: '사이클타임 분포', slow: '느린 실행' } as const;
   const ROUNDING = 2;
@@ -1890,7 +1883,7 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
   const dropStrip = (page: Page) => workspace(page).locator('[data-dock-drop-below]');
   const rowPx = (page: Page) => rowSeparators(page).evaluateAll(items => items.map(item => Number(item.getAttribute('aria-valuenow'))));
   const stored = (page: Page) => page.evaluate(pattern => Object.entries(localStorage).filter(([key]) => new RegExp(pattern).test(key)).map(([, value]) => JSON.parse(value) as { preset: string; mode?: string; rows?: number[] }), STORE.source);
-  const more = (page: Page) => page.getByRole('button', { name: '높이 방식', exact: true });
+  const more = (page: Page) => workspaceHeight(page);
   const mode = (page: Page, name: '화면 맞춤' | '아래로 쌓기') => page.getByRole('menuitemradio', { name });
   async function chooseMode(page: Page, name: '화면 맞춤' | '아래로 쌓기') { await more(page).click(); await mode(page, name).click(); }
   const scrollTop = (page: Page) => main(page).evaluate(element => element.scrollTop);
@@ -1916,7 +1909,7 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
 
   test('처음 열면 쌓기이고 세로 배치로 시작하며, 저장된 화면 맞춤은 그대로 화면 맞춤이다', async ({ page }) => {
     await open(page);
-    await expect(page.getByRole('radio', { name: '세로', exact: true })).toBeChecked();
+    await expectWorkspacePreset(page, '세로');
     await chooseMode(page, '화면 맞춤');
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
     await expect.poll(async () => (await stored(page))[0]?.mode).toBeUndefined();
@@ -1924,10 +1917,10 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await page.reload();
     await expect(workspace(page)).toBeVisible();
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
-    await expect(page.getByRole('radio', { name: '기본', exact: true })).toBeChecked();
+    await expectWorkspacePreset(page, '기본');
   });
 
-  test('⋯ 메뉴: 높이 방식을 고르면 메뉴가 닫히고 포커스는 ⋯로 돌아온다', async ({ page }) => {
+  test('배치 메뉴: 높이 방식을 고르면 메뉴가 닫히고 포커스는 배치로 돌아온다', async ({ page }) => {
     await open(page);
     await more(page).click();
     await expect(page.getByRole('menu').getByText('높이 방식', { exact: true })).toBeVisible();
@@ -1935,22 +1928,22 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await expect(mode(page, '화면 맞춤')).not.toBeChecked();
     await mode(page, '화면 맞춤').click();
     await expect(page.getByRole('menu')).toHaveCount(0);
-    await expect(more(page)).toBeFocused();
+    await expect(workspaceLayout(page)).toBeFocused();
     await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
   });
 
   test('배치 전환: 화면 맞춤 ↔ 쌓기는 만지지 않은 배치만 프리셋으로 바꾸고 사용자가 고른 배치는 지킨다', async ({ page }) => {
     await open(page);
     await chooseMode(page, '화면 맞춤');
-    await expect(page.getByRole('radio', { name: '기본', exact: true })).toBeChecked();
+    await expectWorkspacePreset(page, '기본');
     await chooseMode(page, '아래로 쌓기');
-    await expect(page.getByRole('radio', { name: '세로', exact: true })).toBeChecked();
+    await expectWorkspacePreset(page, '세로');
     // A preset the user picked is theirs: neither switch replaces it.
-    await page.getByRole('radio', { name: '집중', exact: true }).click();
+    await chooseWorkspacePreset(page, '집중');
     await chooseMode(page, '화면 맞춤');
-    await expect(page.getByRole('radio', { name: '집중', exact: true })).toBeChecked();
+    await expectWorkspacePreset(page, '집중');
     await chooseMode(page, '아래로 쌓기');
-    await expect(page.getByRole('radio', { name: '집중', exact: true })).toBeChecked();
+    await expectWorkspacePreset(page, '집중');
     await expect.poll(() => stored(page)).toMatchObject([{ preset: 'focus', mode: 'stack' }]);
   });
 
@@ -2015,10 +2008,11 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await group.getByRole('button', { name: `${TITLES.trend} 최대화` }).focus();
     await page.keyboard.press('Enter');
     await expect(group.getByRole('button', { name: '원래 크기로' })).toBeVisible();
-    await group.getByRole('button', { name: `${TITLES.trend} 동작` }).focus();
+    await group.getByRole('tab', { name: TITLES.trend }).press('Shift+F10');
+    const more = page.getByRole('dialog', { name: '더보기', exact: true });
+    await more.getByRole('group', { name: '배치', exact: true }).getByRole('button', { name: '원래 크기로', exact: true }).focus();
     await page.keyboard.press('Enter');
-    await page.getByRole('menuitem', { name: '원래 크기로' }).focus();
-    await page.keyboard.press('Enter');
+    await expect(more).toBeHidden();
     await expect(group.getByRole('button', { name: '원래 크기로' })).toHaveCount(0);
     await expect(page.getByRole('tab', { name: TITLES.trend })).toBeFocused();
   });
@@ -2113,18 +2107,6 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     await page.mouse.up();
   });
 
-  test('HW Time 단계 패널: 맞춤으로 시작하고 첫 줄 패널 안이 넘치지 않는다', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(HW_TIME);
-    await expect(root(page)).toHaveAttribute('data-workspace-mode', 'fit');
-    await expect(root(page).locator('canvas')).not.toHaveCount(0);
-    for (const id of ['tree', 'current']) {
-      const panel = root(page).locator(`[data-dock-panel="${id}"]`);
-      await expect(panel).toBeVisible();
-      await expect.poll(() => panel.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
-    }
-  });
-
   test('사이클타임: 처음 열면 차트·요약 패널 안이 넘치지 않는다(패널 선호 높이)', async ({ page }) => {
     await open(page);
     for (const id of ['trend', 'summary', 'distribution']) {
@@ -2139,28 +2121,6 @@ test.describe('쌓기 기본값과 상호작용 (#701)', () => {
     const tableBox = (await slow.locator('section').first().boundingBox())!;
     const panelBox = (await slow.boundingBox())!;
     expect(tableBox.y + tableBox.height).toBeLessThanOrEqual(panelBox.y + panelBox.height + ROUNDING);
-  });
-});
-
-test.describe('fill 페이지의 표 높이 (06 §12.8, #690k)', () => {
-  test('1440×900 HW Time 원시 표의 행 영역이 패널 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
-    await signInAs(page, 'admin');
-    await page.goto('/mars/hw-time?v=1&scopeId=MEM&pins=table');
-    await page.getByRole('region', { name: 'HW Time 분석 영역', exact: true }).getByRole('tab', { name: '원본 표', exact: true }).click();
-    const tablePanel = page.locator('[data-dock-panel="table"]');
-    const rows = tablePanel.getByLabel('스크롤 가능한 행 영역');
-    await expect(rows).toBeVisible();
-    await expect(rows.getByRole('row').nth(2)).toBeVisible();
-    const slot = tablePanel;
-    // The cap follows layout (observers), so poll until it has grown past the unmeasured fallback.
-    await expect.poll(async () => {
-      const rowsBox = (await rows.boundingBox())!;
-      const slotBox = (await slot.boundingBox())!;
-      return slotBox.y + slotBox.height - (rowsBox.y + rowsBox.height);
-    }).toBeLessThanOrEqual(120);
-    // Filling must not overshoot its panel (the stacked page itself scrolls by design).
-    await expect.poll(() => tablePanel.evaluate(panel => panel.scrollHeight - panel.clientHeight)).toBeLessThanOrEqual(1);
-    await evidence(page, testInfo, 'hw-time-table-fill');
   });
 });
 

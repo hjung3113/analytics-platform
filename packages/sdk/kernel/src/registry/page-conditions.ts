@@ -48,6 +48,7 @@ export function registerPageConditions<T extends Omit<MenuMeta, 'group' | 'permi
       if (keys.has(key)) fail(`key "${key}" must belong to exactly one category`);
       keys.add(key);
       if (menu.drill?.levels.some(level => level.key === key)) fail(`key "${key}" is a drill-level key`);
+      if (menu.drill?.levels.some(level => level.basisKey === key)) fail(`key "${key}" is a drill basisKey`);
       if (input.carried.includes(key)) fail(`key "${key}" is a carry set key`);
       if (isRepeatedPageCondition(category)) {
         if (!menu.repeatedPageKeys?.includes(key)) fail(`key "${key}" must be in repeatedPageKeys`);
