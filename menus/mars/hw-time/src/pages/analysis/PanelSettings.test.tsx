@@ -148,8 +148,8 @@ it('keeps both table connections after following the second via «새 패널» a
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
   const actions = within(await screen.findByRole('group', { name: '다음 분석' }));
-  fireEvent.keyDown(actions.getByRole('button', { name: '새 패널' }), { key: 'Enter' });
-  fireEvent.click(await screen.findByRole('menuitem', { name: '원본 표' }));
+  fireEvent.click(actions.getByRole('button', { name: '새 패널' }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: '새 패널' })).getByRole('button', { name: '원본 표' }));
   expect(screen.getAllByRole('tab', { name: '원본 표 · 붙잡음' })).toHaveLength(1);
   const following = within(await openTableSettings());
   expect(following.getByRole('radio', { name: '거르기', checked: true })).toBeTruthy();
