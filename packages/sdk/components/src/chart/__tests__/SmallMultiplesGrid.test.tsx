@@ -429,15 +429,16 @@ it('offers no table toggle unless the consumer opts in (#3165)', () => {
 it('switches the tiles to a paged point table with bounds, status and consumer columns (#3165)', async () => {
   const day = (n: number) => `2026-09-${String(20 + n).padStart(2, '0')}T00:00:00`;
   const warn = { label: '상한 초과', tone: 'danger' as const };
+  const closing = '2026-10-01T00:00:00';
   const rows: SmallMultiplesSeries[] = [
     { id: 'b', label: 'Asset B', points: Array.from({ length: 11 }, (_, n) => ({ x: day(n), y: n, status: n === 3 ? warn : undefined })),
       bounds: new Map([[day(0), { lower: 1, upper: 9 }]]) },
-    { id: 'a', label: 'Asset A', points: [...Array.from({ length: 11 }, (_, n) => ({ x: day(n), y: n === 2 ? null : n * 2 })), { x: day(11), y: null }] },
+    { id: 'a', label: 'Asset A', points: [...Array.from({ length: 11 }, (_, n) => ({ x: day(n), y: n === 2 ? null : n * 2 })), { x: closing, y: null }] },
   ];
   const user = userEvent.setup();
   render(view({ series: rows, table: {
     caption: 'Module roll-up',
-    includeRow: row => row.x !== day(11),
+    includeRow: row => row.x !== closing,
     columns: defaults => [...defaults, { id: 'note', label: 'Note', cell: row => `${row.seriesId}:${row.y ?? 'none'}` }],
   } }));
   const toggle = screen.getByRole('button', { name: '표로 보기' });

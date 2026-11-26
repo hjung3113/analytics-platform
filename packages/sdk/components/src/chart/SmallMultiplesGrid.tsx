@@ -77,7 +77,7 @@ export type SmallMultiplesGridProps = {
   analysisSelectionOutput?: { panelId: string; key: string; instanceId?: string } | null;
   /** Show previous data without publishing selections from it. */
   selectionDisabled?: boolean;
-  /** Consumer entry point to the corresponding data table, or other panel actions. */
+  /** Menu panel actions at the end of the toolbar. The data table is `table`. */
   actions?: ReactNode;
   /**
    * Opt-in `표로 보기` toggle (#3165): the body switches from tiles to a paged table, one row per point, series in the grid's sort order.
@@ -298,7 +298,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
       <h3 className="text-sm">{title}</h3>
       {tiles.length > 0 && <span className="text-caption tabular text-text-secondary">{m('smallMultiplesCount', { count: formatY(tiles.length) })}</span>}
       <ChartBoundsLegend bounds={legend} singleLine />
-      {(options.length > 0 || actions || tableOptions) && <div className={cn('ml-auto flex items-center gap-2', options.length > 0 && 'flex-wrap')}>
+      {(options.length > 0 || actions || (tableOptions && tiles.length > 0)) && <div className={cn('ml-auto flex items-center gap-2', options.length > 0 && 'flex-wrap')}>
         {options.length > 0 && <LocalPanelOptions options={options} values={{ [SORT_ID]: sort?.id ?? ORIGINAL_ORDER,
           [AXIS_OPTION.id]: independent ? INDEPENDENT : AXIS_OPTION.default, [DENSITY_OPTION.id]: activeDensity }} onChange={changeOption} />}
         {tableOptions && tiles.length > 0 && <ChartTableToggle shown={tableShown} toggle={() => { setTableShown(shown => !shown); setTablePage(0); }} />}
