@@ -70,7 +70,7 @@ export default function AuditTrail() {
   const targetType = selectedType?.op === 'equals' ? selectedType.value : undefined;
   const columns = useMemo<PlatformColumn<AuditEvent>[]>(() => [
     { ...filterColumnProps('at'), size: 125, cell: row => <time dateTime={row.at} className="tabular">{formatListTime(row.at, { timeZone })}</time> },
-    { ...filterColumnProps('actor'), size: 120, isCellEmpty: row => !row.actorLabel?.trim(),
+    { ...filterColumnProps('actor'), size: 112, isCellEmpty: row => !row.actorLabel?.trim(),
       filterChoices: rows => displayChoices(rows, row => ({ value: row.actor, label: row.actorLabel, context: SOURCE_LABEL[row.source][lang] })),
       cell: row => row.actorLabel?.trim() || m('auditTrailUnknownActor') },
     { ...filterColumnProps('action'), size: 120, cell: row => auditActionLabel(row)[lang] },
