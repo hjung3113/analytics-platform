@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { panelOutputRef, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
-import { useSavedViewPanels, type HeldAnalysisSelection, type LentPanelOptions, type SavedViewPanelsOutcome } from '@ap/kernel';
+import { holdInput, resolveHeldInputs, useSavedViewPanels, type HeldAnalysisSelection, type LentPanelOptions, type SavedViewPanelsOutcome } from '@ap/kernel';
 import { HW_TIME_TREND } from '../lentTrendMapping';
 import { configurationPanels } from '../panels';
 
@@ -30,7 +30,7 @@ function savedPanels({ original, comparison }: HwTimePanels, { originalOpen }: {
     const { dimension, selection } = comparison.time;
     // The matrix's applied period is the v1 graph's upstream output. It has no page key.
     matrix.outputs.push({ key: TIME.key, dimension, shape: selection.shape });
-    copy.inputs.push({ key: TIME.key, from: timeSource, mode: 'hold', value: selection });
+    copy.inputs.push(holdInput(matrixId, TIME.key, selection));
   }
   instances.push(copy);
   return { version: 1, instances };
@@ -44,9 +44,9 @@ function restoreComparison(instances: MenuViewPanels['instances']): Comparison |
   const [input] = copy.inputs;
   if (copy.inputs.length !== 1 || input?.mode !== 'hold' || input.key !== TIME.key || input.from !== timeSource) return unreadable;
   const matrix = instances.find(instance => instance.id === matrixId);
-  const output = matrix?.outputs.find(output => output.key === TIME.key);
-  if (matrix?.source.kind !== 'declared' || matrix.source.panel !== matrixId || !output) return unreadable;
-  return { mode: 'hold', time: { dimension: output.dimension, selection: input.value } };
+  const time = resolveHeldInputs(copy, instances).held[TIME.key];
+  if (matrix?.source.kind !== 'declared' || matrix.source.panel !== matrixId || !time) return unreadable;
+  return { mode: 'hold', time };
 }
 
 function restorePanels(outcome: SavedViewPanelsOutcome): HwTimePanels {

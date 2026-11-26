@@ -353,9 +353,9 @@ it.each(['edit connections', 'add a panel'] as const)('keeps colliding wire IDs 
   if (action === 'edit connections') {
     expect(screen.getAllByTestId('hw-current')).toHaveLength(1);
     expect(savedPanels).toMatchObject({ instances: expect.arrayContaining([
-      expect.objectContaining({ id: 'current~1', source: { kind: 'declared', panel: 'moduleMotions' } }),
+      expect.objectContaining({ id: 'current-2', source: { kind: 'declared', panel: 'moduleMotions' } }),
       expect.objectContaining({ id: 'table-2', source: { kind: 'declared', panel: 'table' },
-        inputs: [{ key: MOTION_EQUIPMENT_KEY, from: `current~1.${MOTION_EQUIPMENT_KEY}`, mode: 'follow', use: 'highlight' }] }),
+        inputs: [{ key: MOTION_EQUIPMENT_KEY, from: `current-2.${MOTION_EQUIPMENT_KEY}`, mode: 'follow', use: 'highlight' }] }),
     ]) });
     expect(await screen.findByTestId('hw-module-motions')).toBeTruthy();
     const tabs = screen.getAllByRole('tab', { name: /^원본 표/ });
@@ -366,9 +366,9 @@ it.each(['edit connections', 'add a panel'] as const)('keeps colliding wire IDs 
     expect(within(await openTableSettings({ tab })).getByRole('radio', { name: '강조만', checked: true })).toBeTruthy();
   } else {
     expect(savedPanels).toMatchObject({ instances: expect.arrayContaining([
-      expect.objectContaining({ id: 'pareto~1', source: { kind: 'declared', panel: 'pareto' } }),
+      expect.objectContaining({ id: 'pareto-2', source: { kind: 'declared', panel: 'pareto' } }),
     ]) });
-    const copySlot = 'saved-instance-pareto_007e1';
+    const copySlot = 'saved-instance-pareto-2';
     const tabs = screen.getAllByRole('tab', { name: '상한 초과 파레토' });
     expect(tabs.map(tab => tab.getAttribute('data-tab-panel-id'))).toEqual(expect.arrayContaining([copySlot, 'pareto']));
     expect(tabs).toHaveLength(2);

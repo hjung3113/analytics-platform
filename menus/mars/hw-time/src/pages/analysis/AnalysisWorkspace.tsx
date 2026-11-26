@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-react';
 import { isAnswered, panelOutputRef, readChartPanel, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
-import { ANALYSIS_SELECTION_MAX_VALUES, AnalysisSelectionInstances, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useAnalysisSelectionReader, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type AnalysisSelectionChip, type MenuQueryState, type Text } from '@ap/kernel';
+import { ANALYSIS_SELECTION_MAX_VALUES, holdsSelection, namesInstance, AnalysisSelectionInstances, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useAnalysisSelectionReader, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type AnalysisSelectionChip, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
   getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
@@ -21,7 +21,7 @@ import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
 import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
-import { buildSavedPanels, defaultPanels, defaultTableInput, exceedsPanelLimit, fillsTablePin, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isEquipmentOutput, isHeldSource, keepHeld, names, newPanelInstance, newFollowingTable, instanceSlot, keepPinned, noPanels, planAdd, planTableHold, preserveFollowingTable, SAME_PANEL_MAX, withFollowingTable, withFollowingTableAt, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
+import { buildSavedPanels, defaultPanels, defaultTableInput, exceedsPanelLimit, fillsTablePin, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, isEquipmentOutput, isHeldSource, keepHeld, newPanelInstance, newFollowingTable, instanceSlot, keepPinned, noPanels, planAdd, planTableHold, preserveFollowingTable, SAME_PANEL_MAX, withFollowingTable, withFollowingTableAt, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
 import { CATALOG_IDS, chartRows, panelCatalog, projectBarData, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
@@ -507,7 +507,7 @@ function HeldTablePanel({ instance, instances, ...table }: {
 const declarationOf = (id: string): PanelDeclaration | undefined => Object.hasOwn(panelDeclarations, id) ? panelDeclarations[id as CatalogId] : undefined;
 
 function settingsInstance(slot: string, declaration: PanelDeclaration | undefined, stored: PanelInstance | undefined, instances: readonly PanelInstance[]): PanelInstance {
-  const instance = stored ?? newPanelInstance(slot, declaration?.id ?? slot, instances);
+  const instance = stored ?? newPanelInstance(slot, declaration?.id ?? slot, instances.map(instance => instance.id));
   const outputs = declaration?.outputs.flatMap(({ key, selection }) =>
     selection && !instance.outputs.some(output => output.key === key) ? [{ key, dimension: selection.dimension, shape: selection.shape }] : []);
   return outputs?.length ? { ...instance, outputs: [...instance.outputs, ...outputs] } : instance;
@@ -520,7 +520,7 @@ function settingsInstance(slot: string, declaration: PanelDeclaration | undefine
 function rawTables(slots: readonly { id: string; instance?: PanelInstance; item?: { id: string; disabledReason?: Text } }[]) {
   const all = slots.filter(({ item }) => item?.id === 'table' && !item.disabledReason);
   const open = all.slice(0, SAME_PANEL_MAX);
-  const held = open.map(({ instance }) => instance !== undefined && holds(instance));
+  const held = open.map(({ instance }) => instance !== undefined && holdsSelection(instance));
   const pair = open.length === SAME_PANEL_MAX ? open.map(({ id }) => id) : [];
   const sameMode = pair.length > 0 && held[0] === held[1];
   const otherMode: AddIntent['mode'] = held[0] ? 'follow' : 'hold';
@@ -586,7 +586,7 @@ function selectionPublisher(config: PanelConfiguration, catalog: ReturnType<type
   const instances = saved.map(instance => source?.id === instance.id ? source : instance);
   // A drawn chart still publishes its declared channel when its saved output metadata is stale.
   const live = source && staleOutput
-    ? { ...newPanelInstance(source.id, sourcePanelId, instances), outputs: [heldOutput] } : source;
+    ? { ...newPanelInstance(source.id, sourcePanelId, instances.map(instance => instance.id)), outputs: [heldOutput] } : source;
   if (live && !instances.some(instance => instance.id === live.id)) instances.push(live);
   // A converted #2862 hold names the old output-only equipment channel. Resolve that reference for live reads only.
   const aliases = new Set(sources.filter(isHeldSource).flatMap(instance =>
@@ -636,7 +636,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     const first = tables.open.find(({ id }) => id !== reveal?.panelId)?.id;
     if (first !== undefined) setReveal(current => ({ panelId: first, seq: (current?.seq ?? 0) + 1, ...pending }));
   }, [reveal, tables.open]);
-  const heldSlots = extras.filter(({ id, instance, item }) => item?.id === 'table' && holds(instance) && !tables.overflow.has(id));
+  const heldSlots = extras.filter(({ id, instance, item }) => item?.id === 'table' && holdsSelection(instance) && !tables.overflow.has(id));
   const keptSources = new Set(heldSlots.flatMap(({ heldFrom }) => heldFrom ? [heldFrom] : []));
   const extraIds = extraPanels.map(({ id }) => id).filter(id => !tables.pair.includes(id));
   const currentId = [typeId, motionId, moduleId].filter(Boolean).join('/') || null;
@@ -666,7 +666,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   };
   const readTableSelection = useAnalysisSelectionReader(panelDeclarations.table.id);
   const followingTables = tables.open.map(({ id, instance }) => {
-    if (instance && holds(instance)) return { id };
+    if (instance && holdsSelection(instance)) return { id };
     const implicit = added.some(entry => entry.slot === id && entry.implicitFollow);
     const inputs = !implicit && instance ? publisher.byId.get(instance.id)?.inputs : undefined;
     // Without a chart, an output-only reference reads the declaration's URL channel.
@@ -756,7 +756,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       }
       const panel = item!.id as CatalogId;
       // One table mode per slot: held tables read their own values (R C4), the rest follow the URL.
-      const heldTable = panel === 'table' && instance && holds(instance) ? instance : undefined;
+      const heldTable = panel === 'table' && instance && holdsSelection(instance) ? instance : undefined;
       const secondTable = tables.local(id);
       const tableIndex = followingTables.findIndex(table => table.id === id);
       const renderPanel = (panel: CatalogId) => {
@@ -859,7 +859,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const settingsConfig = (slot: string, updated: PanelInstance): CustomPanels => {
     const entries = new Map(added.map(panel => [panel.instance.id, panel]));
     const editedInstances = [updated, ...added.filter(panel => panel.instance.id !== updated.id).map(panel => panel.instance)];
-    if (!reserved && chartSource && sourceSlot && names(editedInstances, chartSource.id)) {
+    if (!reserved && chartSource && sourceSlot && namesInstance(editedInstances, chartSource.id)) {
       entries.set(chartSource.id, { ...entries.get(chartSource.id), slot: sourceSlot, instance: chartSource });
     }
     const previous = entries.get(updated.id);
