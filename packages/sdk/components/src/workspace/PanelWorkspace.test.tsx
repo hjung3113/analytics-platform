@@ -499,6 +499,22 @@ describe('PanelWorkspace: local preference', () => {
     expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
   });
 
+  it('opens a saved scope with another panel set in one render: its saved hidden panel stays hidden, kept panels stay mounted, nothing is written (#3128)', async () => {
+    const scopeKey = `${KEY()}:scopes`;
+    const savedB = JSON.stringify({ v: 1, preset: 'focus', hidden: ['detail'], layout: group(['trend', 'selector']) });
+    storage.setItem(scopeKey, JSON.stringify([['B', savedB]]));
+    setItem.mockClear();
+    const view = mountWorkspace({ persistenceScope: 'A' });
+    await ready();
+    view.rerender(shell(<PanelWorkspace {...BASE} panels={PANELS.filter(panel => panel.id !== 'kpi')} persistenceScope="B" />));
+    await waitFor(() => { expect(groups()).toEqual([['selector', 'trend']]); });
+    expect(screen.getByRole('radio', { name: '집중' })).toBeChecked();
+    expect(mounts).toMatchObject({ trend: 1, selector: 1 });
+    await sleep(400);
+    window.dispatchEvent(new Event('pagehide'));
+    expect(written()).toEqual([]);
+  });
+
   it('retains eight most recently written layout scopes and starts an evicted scope from the unscoped preference (#3001)', async () => {
     storage.setItem(KEY(), JSON.stringify({ v: 1, preset: 'focus', hidden: [], layout: group(['trend', 'selector', 'detail', 'kpi']) }));
     const view = mountWorkspace({ persistenceScope: '0' });
@@ -789,6 +805,21 @@ describe('PanelWorkspace: height mode (#686)', () => {
       expect(rowHeights()).toEqual([600, 360, 360]);
       await sleep(400);
       expect(written().length).toBe(writes);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('clamps the saved rows of each scope once on arrival, not only of the first (#3128)', async () => {
+    vi.stubGlobal('innerHeight', 600);
+    try {
+      storage.setItem(`${KEY()}:scopes`, JSON.stringify([['A', stackStored([300, 360, 360])], ['B', stackStored([800, 360, 360])]]));
+      const view = mountWorkspace({ ...ROWS_PROPS, persistenceScope: 'A' });
+      await ready();
+      await waitFor(() => { expect(rowHeights()).toEqual([300, 360, 360]); });
+      view.rerender(shell(<PanelWorkspace {...BASE} {...ROWS_PROPS} persistenceScope="B" />));
+      await waitFor(() => { expect(rowHeights()).toEqual([600, 360, 360]); });
+      expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
     } finally {
       vi.unstubAllGlobals();
     }
