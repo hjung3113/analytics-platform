@@ -8,6 +8,7 @@ import type { EChartProps } from '../EChart';
 import { QueryView } from '../../StateView';
 import { DockChartHeadProvider, DockChartPaneId, useDockChartSlot } from '../../dock/DockChartHead';
 import { InWorkspacePanelProvider, QueryPanelContentContext } from '../../workspace/panelContext';
+import { chartTrustText } from '../../state/trustFormat';
 
 vi.mock('../EChartImpl', () => ({ default: Plot }));
 const plot = { sets: 0, events: undefined as EChartProps['onEvents'] };
@@ -41,6 +42,12 @@ function Workspace({ value, visible, onPointClick, footerTrust }: { value: Query
     </QueryView>
   </Dock></InWorkspacePanelProvider></DockChartHeadProvider></I18nProvider>;
 }
+/** The panel footer keeps updated and coverage of the drawn result once the chart folds its line into it (#3094 R2 N1). */
+const COVERAGE = () => chartTrustText(trust, 'ko')!.coverage;
+function expectPanelFooterTriple() {
+  const line = screen.getByText(SOURCE).parentElement;
+  expect(line).toHaveTextContent(COVERAGE());
+}
 const rangeNames = ['확대', '축소', '왼쪽으로 이동', '오른쪽으로 이동', '초기화'] as const;
 function expectRangeLocked(root: HTMLElement, names: readonly string[] = rangeNames) {
   for (const name of names) {
@@ -72,6 +79,7 @@ it('declares one source line, keeps zoom across an equal refresh, and locks the 
   expect(plot.sets).toBe(drawn);
   expect(screen.getAllByText(SOURCE)).toHaveLength(1);
   expect(screen.queryByText(/원천:/)).toBeNull();
+  expectPanelFooterTriple();
   expect(within(toolbar).getByRole('button', { name: '확대' })).toBeEnabled();
   fireEvent.click(within(toolbar).getByRole('button', { name: '확대' }));
   expect(within(toolbar).getByRole('button', { name: '축소' })).toBeEnabled();
@@ -82,6 +90,7 @@ it('declares one source line, keeps zoom across an equal refresh, and locks the 
   expectRangeLocked(toolbar);
   expect(screen.getAllByText(SOURCE)).toHaveLength(1);
   expect(screen.queryByText(/원천:/)).toBeNull();
+  expectPanelFooterTriple();
   rerender(<Workspace value={done} />);
   expect(within(toolbar).getByRole('button', { name: '확대' })).toBeEnabled();
   expect(within(toolbar).getByRole('button', { name: '축소' })).toBeEnabled();
@@ -100,6 +109,14 @@ it('keeps one source line on the previous result after an error', async () => {
   await screen.findByRole('img', { name: 'plot' });
   expect(screen.getAllByText(SOURCE)).toHaveLength(1);
   expect(screen.queryByText(/원천:/)).toBeNull();
+  expectPanelFooterTriple();
+});
+
+it('prints the mapped footer Trust during a refresh and keeps the chart line that differs from it', async () => {
+  render(<Workspace value={query('refreshing', ok())} footerTrust />);
+  await screen.findByRole('img', { name: 'plot' });
+  expect(screen.getAllByText('panel-source')).toHaveLength(1);
+  expect(screen.getAllByText(SOURCE)).toHaveLength(1);
 });
 
 it('applies a new point callback during an equal refresh without redrawing', async () => {

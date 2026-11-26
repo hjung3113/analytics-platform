@@ -222,13 +222,15 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
   const emptyExplanation = causes.length ? emptyOutcomeText(causes, t).body : undefined;
   const trust = !loading && !query.cancelled && response?.outcome === 'ok'
     ? chartTrustText(panel.footerTrust ? panel.footerTrust(response.data as T, response) : response.trust, lang) : undefined;
-  const source = trust?.source ?? result?.trust?.source ?? response?.trust?.source ?? '—';
   // The drawn result's Trust (current, refreshing or previous): a chart drawing that same result folds its source line into this footer.
   const shownTrust = result ? chartTrustText(panel.footerTrust ? panel.footerTrust(result.data as T, result) : result.trust, lang) ?? null : null;
+  // A declared workspace panel prints the drawn result's Trust (its chart folds into this line); the page flow keeps the settled one.
+  const footerTrust = workspace ? shownTrust : trust;
+  const source = footerTrust?.source ?? result?.trust?.source ?? response?.trust?.source ?? '—';
   const dataTrust = <DataTrustIndicator summary query={query} />;
   const footer = <footer className={cn('flex h-8 items-center border-t border-border-subtle px-4 text-tiny text-text-muted', workspace && 'shrink-0 justify-between gap-2')}>
     <span className="truncate">{t('source')} <span className="t-mono">{source}</span>
-      {trust && <> · {t('updated')} {trust.updated} · {t('coverage')} {trust.coverage}</>}</span>
+      {footerTrust && <> · {t('updated')} {footerTrust.updated} · {t('coverage')} {footerTrust.coverage}</>}</span>
     {workspace && dataTrust}
   </footer>;
   const trustUpdated = prior && trustInstantText(prior.response.trust?.updatedAt, lang);
