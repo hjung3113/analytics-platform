@@ -61,7 +61,20 @@ it.each(['click', 'Enter'] as const)('preserves URL selection and withdraws cand
   expect(tile(1)).toHaveAttribute('aria-pressed', 'true');
 });
 
-it.each(['regular', 'compact'] as const)('gives an all-null tile the same %s plot slot as a populated tile', async density => {
+it.each(['regular', 'compact'] as const)('fills the %s shared-axis tiles below their headers', async density => {
+  const empty = { ...series[1], points: [] };
+  render(view({ series: [series[0], empty], density }));
+  await screen.findByRole('button', { name: 'Asset 0' });
+
+  for (const button of [tile(0), tile(1)]) {
+    // jsdom does not lay out flex boxes. The plot must consume the remaining space after the header.
+    const plot = button.querySelector(':scope > svg');
+    expect(plot).toHaveClass('flex-1');
+    expect(button.lastElementChild).toBe(plot);
+  }
+});
+
+it.each(['regular', 'compact'] as const)('keeps the %s shared-axis empty notice clear of bounds in an aligned plot', async density => {
   const bounds = new Map([[from, { lower: 0, upper: 2 }]]);
   const empty = { ...series[0], bounds, points: series[0].points.map(point => ({ ...point, y: null })) };
   render(view({ series: [empty, { ...series[1], bounds }], density }));
@@ -70,14 +83,12 @@ it.each(['regular', 'compact'] as const)('gives an all-null tile the same %s plo
   expect(plots[0].querySelector('[data-small-multiple-band]')?.getAttribute('d')).toBe(
     plots[1].querySelector('[data-small-multiple-band]')?.getAttribute('d'),
   );
-  expect(plots[0].parentElement?.className).toBe(plots[1].parentElement?.className);
-  const caption = within(tile(0)).getByText('결과 없음');
-  const spacer = plots[1].nextElementSibling;
-  expect(plots[0].nextElementSibling).toBe(caption);
-  expect(caption).not.toHaveClass('absolute');
-  expect(caption).toHaveClass('h-lh', 'shrink-0');
-  expect(spacer?.className).toBe(caption.className);
-  expect(spacer).toBeEmptyDOMElement();
+  expect(plots[0].classList.value).toBe(plots[1].classList.value);
+  const header = plots[0].previousElementSibling;
+  expect(header).toContainElement(within(tile(0)).getByText('결과 없음'));
+  expect(header).toHaveClass('shrink-0');
+  expect(header?.className).toBe(plots[1].previousElementSibling?.className);
+  expect(tile(0)).toHaveAccessibleDescription('결과 없음');
 });
 
 it('recovers grid-owned focus by tile ID and clears the tab stop of a removed tile', async () => {
@@ -308,6 +319,17 @@ it('reserves at least 24 px for the plot in compact density', async () => {
   const button = await screen.findByRole('button', { name: 'Asset 0' });
   // jsdom does not lay out flex boxes. Check the 24 px minimum-height utility.
   expect(button.querySelector('svg')).toHaveClass('min-h-6');
+});
+
+it('keeps a range row and a 24 px minimum plot in compact independent-axis tiles', async () => {
+  render(withToolbar({ series: series.slice(0, 1), density: 'compact', showAxisControl: true }));
+  await userEvent.click(screen.getByRole('radio', { name: '칸마다 축' }));
+
+  const plot = tile(0).querySelector(':scope > svg');
+  const range = within(tile(0)).getByText('0–1 ms');
+  expect(plot).toHaveClass('min-h-6');
+  expect(plot?.nextElementSibling).toBe(range);
+  expect(range).toHaveClass('h-lh', 'shrink-0');
 });
 
 it('shows the density choice only when requested and keeps the choice out of the URL', async () => {
