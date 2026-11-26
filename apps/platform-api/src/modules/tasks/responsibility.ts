@@ -6,7 +6,7 @@ import { lockWorkspaceActor } from '../auth/index.js';
 import { findResponsibilityTeam } from '../core/responsibility-read-projections.js';
 import { checkFindingManage } from '../findings/authorization.js';
 import { lockManagedSystem, recordResponsibilityDefaultFailure } from '../managed-systems/index.js';
-import type { CheckService } from '../permissions/index.js';
+import type { CheckService } from '../permissions/check-service.js';
 
 type Category = ResponsibilityDefaultFailure['category'];
 type Rule = ResponsibilityDefaultFailure['rule'];

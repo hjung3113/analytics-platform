@@ -11,7 +11,7 @@ import { sqlUuidArray } from '../../db/sql-arrays.js';
 import type { Tx } from '../../db/tx.js';
 import { HttpError } from '../../lib/errors.js';
 import type { CheckService } from '../permissions/check-service.js';
-import { isRequestableDenial } from '../permissions/index.js';
+import { isRequestableDenial } from '../permissions/check-service.js';
 import {
   type Scope,
   type ScopeActorContext,

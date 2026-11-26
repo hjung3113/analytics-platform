@@ -52,7 +52,7 @@ import { linkTaskToFinding } from '../findings/commands.js';
 import { lockManagedSystem } from '../managed-systems/index.js';
 import { lockMilestone } from '../milestones/index.js';
 import type { NotificationNotifier } from '../notifications/index.js';
-import type { CheckService } from '../permissions/index.js';
+import type { CheckService } from '../permissions/check-service.js';
 import {
   type TaskRequestRow,
   lockTaskRequestForUpdate,

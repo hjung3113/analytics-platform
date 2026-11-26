@@ -21,7 +21,7 @@ import type { IdempotencyService } from '../core/idempotency/idempotency-service
 import { checkFindingManage, findingRoleRequired, hasElevatedFindingRole } from '../findings/authorization.js';
 import { findSourceFindingForMilestone } from '../findings/index.js';
 import { lockManagedSystem } from '../managed-systems/index.js';
-import { type CheckService, memoizeCapabilityChecks } from '../permissions/index.js';
+import { type CheckService, memoizeCapabilityChecks } from '../permissions/check-service.js';
 import { type MilestoneTaskCounts, countTasksByMilestone } from '../tasks/index.js';
 import {
   type MilestoneRow,
