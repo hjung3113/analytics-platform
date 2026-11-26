@@ -62,7 +62,7 @@ export function panelRecipe(panel: RegisteredPanel | undefined, context: Readonl
   const own = panel as RegisteredPanel & Pick<HwTimePanelDeclaration, 'kind' | 'csvExport'>;
   return sdkPanelRecipe({
     panel, menu: manifests[0]!, context,
-    host: { add: true, pin: true, hide: !options.primary, layout: true, maximize: true, range: ['line', 'bar-horizontal', 'heatmap', 'scatter'].includes(own.kind ?? ''), csv: own.csvExport === true },
+    host: { add: true, pin: !options.primary, hide: !options.primary, layout: true, maximize: true, range: ['line', 'bar-horizontal', 'heatmap', 'scatter'].includes(own.kind ?? ''), csv: own.csvExport === true },
     labels: { keys: PAGE_LABELS, grains: GRAIN_LABELS, actions: ACTION_LABELS },
     ...(SHAPE_LABELS[own.kind ?? ''] ? { shape: SHAPE_LABELS[own.kind ?? '']! } : {}),
     code: { declaration: declarationLines(panel.id), files: (SOURCE_OF[panel.id] ?? []).map(key => ({ name: sources[key][0], lines: codeLines(sources[key][1]) })) },
