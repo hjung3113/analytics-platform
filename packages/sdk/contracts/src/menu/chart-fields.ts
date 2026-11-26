@@ -249,8 +249,8 @@ function withoutDefaults(config: ChartConfig): ChartConfig {
 /**
  * Reads a saved chart panel back against the menu's current declaration when a saved view opens. The panel opens only when its source and
  * outputs are exactly what this menu makes from the same measure, breakdown, kind and shape keys now (keys spelled at their default count
- * as absent); otherwise only that panel shows the
- * reason (a dropped field, a lost permission, or `changed`), and the saved instance with its selection output stays as it was.
+ * as absent); otherwise only that panel shows the reason (a dropped field, a lost permission, or `changed`), and the saved instance with
+ * its selection output stays as it was.
  */
 export function readChartPanel(fields: MenuChartFields | undefined, instance: Pick<PanelInstance, 'source' | 'outputs'>, granted: ChartPermissionCheck): ReadChartPanel {
   if (instance.source.kind !== 'chart') return { status: 'problem', problem: reason('changed') };
