@@ -35,7 +35,7 @@ export type { CustomGroupDraft, CustomGroupTarget, CustomGroupView } from './lin
 export type { ApprovalAction, ApprovalRequestInfo, ChangeLine, ConditionSetDraft, ConditionSetView, DeniedSavedView, ExpectedVersion, GroupCapabilities, GroupMember, JsonValue, MenuView, MenuViewDraft, MigrateResult, Result, SavedView, SavedViewBase, SavedViewContext, SavedViewDraft, SavedViewEntry, SavedViewKey, SavedViewKind, SavedViewListItem, SavedViewPatch, SavedViewStore, SavedViewSupport, ViewApproval, ViewCapabilities, ViewGroup, ViewGroupEntry, ViewSharing, ViewVisibility } from './links/saved-view.js';
 export { CHART_CONFIG_COLORS, CHART_CONFIG_DECIMALS_MAX, CHART_CONFIG_FIELD_MAX, CHART_CONFIG_MEASURES_MAX, invalidChartConfig } from './links/chart-config.js';
 export type { ChartConfig, ChartConfigColor, ChartConfigMeasure, ChartValueFormat } from './links/chart-config.js';
-export { followHeldSets, heldSelectionProblem, PANEL_INSTANCES_MAX, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCE_TOKEN_MAX, invalidMenuViewPanels, readMenuViewPanels } from './links/menu-view-panels.js';
+export { followHeldSets, heldSelectionProblem, PANEL_INSTANCES_MAX, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCE_TOKEN_MAX, invalidMenuViewPanels, panelOutputRef, readMenuViewPanels } from './links/menu-view-panels.js';
 export type { MenuViewPanels, PanelInstance, PanelInstanceInput, PanelInstanceOutput, PanelInstanceSource } from './links/menu-view-panels.js';
 
 export { HierarchyFailure, isHierarchyFailure, type HierarchyNode, type HierarchyPage, type HierarchySource } from './menu/hierarchy.js';

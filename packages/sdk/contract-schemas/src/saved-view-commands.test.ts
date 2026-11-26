@@ -1,4 +1,4 @@
-import { CUSTOM_GROUP_FIXED_MAX, PANEL_INSTANCES_MAX, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCE_TOKEN_MAX, isForbiddenSavedViewKey, readMenuViewPanels, validateSavedView } from '@ap/contracts';
+import { CUSTOM_GROUP_FIXED_MAX, PANEL_INSTANCES_MAX, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCE_TOKEN_MAX, isForbiddenSavedViewKey, panelOutputRef, readMenuViewPanels, validateSavedView } from '@ap/contracts';
 import type { ApprovalRequestInfo, GroupMember, Result, SavedViewEntry, SavedViewListItem, SavedViewStore, ViewGroupEntry } from '@ap/contracts';
 import { describe, expect, it } from 'vitest';
 import type { z } from 'zod/v4';
@@ -71,6 +71,13 @@ describe('saved panel instances (#2760)', () => {
     }
   };
 
+  it('reads references built with panelOutputRef in both validators; the wire schema keeps its own copy of the format (ADR-0096)', () => {
+    const raw = withEdge(panelOutputRef('A', 'time.range'));
+    expect(raw.instances[1]!.inputs[0]!.from).toBe('A.time.range');
+    expect(validateSavedView({ ...menuDraft, panels: raw }).ok).toBe(true);
+    expect(savedViewDraftSchema.safeParse({ ...menuDraft, panels: raw }).success).toBe(true);
+    expect(savedViewDraftSchema.safeParse({ ...menuDraft, panels: withEdge(panelOutputRef('A', 'missing')) }).success).toBe(false);
+  });
   it('pins matching validation limits', () => {
     expect([WIRE_PANEL_INSTANCES_MAX, WIRE_PANEL_INSTANCE_INPUTS_MAX, WIRE_PANEL_INSTANCE_TOKEN_MAX, WIRE_CUSTOM_GROUP_FIXED_MAX])
       .toEqual([PANEL_INSTANCES_MAX, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCE_TOKEN_MAX, CUSTOM_GROUP_FIXED_MAX]);

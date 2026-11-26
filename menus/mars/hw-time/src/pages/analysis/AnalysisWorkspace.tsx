@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-react';
-import { isAnswered, readChartPanel, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
+import { isAnswered, panelOutputRef, readChartPanel, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
 import { ANALYSIS_SELECTION_MAX_VALUES, AnalysisSelectionInstances, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useAnalysisSelectionReader, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type AnalysisSelectionChip, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
@@ -590,7 +590,7 @@ function selectionPublisher(config: PanelConfiguration, catalog: ReturnType<type
   if (live && !instances.some(instance => instance.id === live.id)) instances.push(live);
   // A converted #2862 hold names the old output-only equipment channel. Resolve that reference for live reads only.
   const aliases = new Set(sources.filter(isHeldSource).flatMap(instance =>
-    instance.outputs.filter(isEquipmentOutput).map(output => `${instance.id}.${output.key}`)));
+    instance.outputs.filter(isEquipmentOutput).map(output => panelOutputRef(instance.id, output.key))));
   const runtime = live && aliases.size ? instances.map(instance => ({
     ...instance, inputs: instance.inputs.map(input => input.mode === 'follow' && aliases.has(input.from)
       ? { ...input, from: defaultTableInput(live).from } : input),
@@ -869,7 +869,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     if (declaration?.id === panelDeclarations.table.id && after?.mode !== 'hold') entry = { slot, instance: updated };
     if (declaration?.id === panelDeclarations.table.id && before?.mode !== 'hold' && after?.mode === 'hold') {
       const held = heldTableInput(after);
-      const writer = [...drawerInstances.values()].find(panel => panel.outputs.some(output => `${panel.id}.${output.key}` === after.from));
+      const writer = [...drawerInstances.values()].find(panel => panel.outputs.some(output => panelOutputRef(panel.id, output.key) === after.from));
       const heldFrom = writer && (renderedPanel(writer)?.id ?? (isReservedPublisher(writer) ? selectionHost : undefined));
       entry = { slot, heldFrom, instance: { ...updated, inputs: updated.inputs.map(input => input === after ? held : input) } };
     }
@@ -950,7 +950,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         if (declaration?.id !== panelDeclarations.table.id || key !== MOTION_EQUIPMENT_KEY || !selectionSource) return;
         const expected = outputDeclaration(selectionSource, key);
         const output = selectionSource.outputs.find(output => output.key === key);
-        if (output && output.shape === expected?.shape && output.dimension === expected.dimension) return `${selectionSource.id}.${key}`;
+        if (output && output.shape === expected?.shape && output.dimension === expected.dimension) return panelOutputRef(selectionSource.id, key);
       }}
       sourceTitle={panel => renderedPanel(panel)?.title} outputLabel={({ panel, output }) => outputDeclaration(panel, output.key)?.label}
       selectionOf={({ panel, output }) => {

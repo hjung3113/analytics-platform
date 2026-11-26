@@ -1,4 +1,4 @@
-import { GLOBAL_KEYS, RETURN_TO_KEY, type AnalysisSelectionUse, type MenuMeta, type PanelBinding, type PanelDeclaration, type PanelInstance, type PanelInstanceInput, type PanelInstanceOutput, type Text } from '@ap/contracts';
+import { GLOBAL_KEYS, RETURN_TO_KEY, type AnalysisSelectionUse, type MenuMeta, panelOutputRef, type PanelBinding, type PanelDeclaration, type PanelInstance, type PanelInstanceInput, type PanelInstanceOutput, type Text } from '@ap/contracts';
 import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
 import { isIdShape, isObjectKindShape } from './shapes';
 
@@ -76,7 +76,7 @@ type FilterDependency = { node: string; key: string };
 
 export function indexInstanceOutputs(instances: readonly PanelInstance[]) {
   return new Map<string, { instance: PanelInstance; output: PanelInstanceOutput }>(instances.flatMap(instance => instance.outputs.map(output =>
-    [`${instance.id}.${output.key}`, { instance, output }] as const)));
+    [panelOutputRef(instance.id, output.key), { instance, output }] as const)));
 }
 
 export function indexChartSelectionChannels(menu: Pick<MenuMeta, 'pageKeys'>, declared: Channels, outputs: ReturnType<typeof indexInstanceOutputs>) {
@@ -130,7 +130,7 @@ function instanceSelectionSource(channels: Channels, target: Channel, from: stri
   }
   // Callers with declaration-addressed inputs can use the live declaration without an instance list.
   for (const [key, channel] of channels) {
-    const writer = channel.writers.find(candidate => from === `${candidate.panelId}.${key}` && compatible(candidate.selection));
+    const writer = channel.writers.find(candidate => from === panelOutputRef(candidate.panelId, key) && compatible(candidate.selection));
     if (writer) return { key, node: undefined, writer };
   }
 }

@@ -1,4 +1,4 @@
-import { EQUIPMENT_SELECTION_DIMENSION, heldSelectionProblem, invalidMenuViewPanels, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelInstance, type PanelInstanceInput, type PanelInstanceOutput } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, heldSelectionProblem, invalidMenuViewPanels, PANEL_INSTANCE_INPUTS_MAX, panelOutputRef, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelInstance, type PanelInstanceInput, type PanelInstanceOutput } from '@ap/contracts';
 import type { AnalysisSelectionChip, HeldAnalysisSelection } from '@ap/kernel';
 import { MOTION_EQUIPMENT_KEY } from '../../endpoints';
 import { panelDeclarations } from './panelDeclaration';
@@ -63,7 +63,7 @@ export function heldTableInput({ key, from, value, use }: Extract<PanelInstanceI
 
 function equipmentHold(sourceId: string, value: AnalysisSelection, use?: PanelInstanceInput['use']): PanelInstanceInput {
   const { key } = heldOutput;
-  return heldTableInput({ key, from: `${sourceId}.${key}`, mode: 'hold', value, use });
+  return heldTableInput({ key, from: panelOutputRef(sourceId, key), mode: 'hold', value, use });
 }
 
 export function followPanel({ slot, instance }: AddedPanel): AddedPanel {
@@ -96,7 +96,7 @@ export function buildSavedPanels(config: PanelConfiguration, step?: Step, publis
 }
 
 export function defaultTableInput(source: PanelInstance): PanelInstanceInput {
-  return { key: heldOutput.key, from: `${source.id}.${heldOutput.key}`, mode: 'follow' };
+  return { key: heldOutput.key, from: panelOutputRef(source.id, heldOutput.key), mode: 'follow' };
 }
 
 /** The source a new hold names: a kept one with the equipment output, or a new one under a free id. */
@@ -276,7 +276,7 @@ export function heldOf(instance: PanelInstance, instances: readonly PanelInstanc
   let unread = false;
   for (const input of instance.inputs) {
     if (input.mode !== 'hold') continue;
-    const output = instances.flatMap(source => source.outputs.map(output => ({ ref: `${source.id}.${output.key}`, output }))).find(({ ref }) => ref === input.from)?.output;
+    const output = instances.flatMap(source => source.outputs.map(output => ({ ref: panelOutputRef(source.id, output.key), output }))).find(({ ref }) => ref === input.from)?.output;
     if (input.key !== heldOutput.key || !output) { unread = true; continue; }
     held[input.key] = { dimension: output.dimension, selection: input.value };
     if (output.dimension !== heldOutput.dimension || input.value.shape !== 'set') unread = true;

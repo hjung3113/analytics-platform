@@ -1,4 +1,4 @@
-import { heldSelectionProblem, parseQuery, type AnalysisSelection, type AnalysisSelectionShape, type AnalysisSelectionUse, type PanelInstance, type PanelInstanceInput, type Text } from '@ap/contracts';
+import { heldSelectionProblem, panelOutputRef, parseQuery, type AnalysisSelection, type AnalysisSelectionShape, type AnalysisSelectionUse, type PanelInstance, type PanelInstanceInput, type Text } from '@ap/contracts';
 import { createContext, createElement, use, useCallback, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
 import { LentPanelOutputsContext, LentPanelPlatformContext, PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
 import { usePlatform, usePlatformOptional } from '../platform/hooks';
@@ -98,7 +98,7 @@ const useWriteScreen = (route: MenuPlatform['route']) => route ? use(PaneScreenC
 const readNoGraph = () => undefined;
 
 function chartInstanceOutput(graph: ReturnType<typeof analysisSelectionDependencies>, key: string, instanceId: string) {
-  const namespaced = `${instanceId}.${key}`;
+  const namespaced = panelOutputRef(instanceId, key);
   if (graph.chartChannels?.has(namespaced)) return namespaced;
   if (graph.chartChannels?.get(key)?.writers[0].panelId === instanceId) return key;
 }
