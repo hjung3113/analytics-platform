@@ -73,6 +73,7 @@ const PARAMS: Record<string, Record<string, unknown>> = {
   'analytics.productivity.drill': { level: 'stgroup', room: 'PHOTO', stgroup: '' },
   'analytics.execution.occurrence': { equipmentId: OCCURRENCE_EQUIPMENT, entityType: 'job', anchor: OCCURRENCE_ANCHOR, metricVersion: '3' },
   'analytics.cycle.trend': { granularity: 'hour' },
+  'analytics.cycle.dist': { tableEquipment: [OCCURRENCE_EQUIPMENT] },
   'analytics.cycle.slow': { ...slowFilter, ...page },
   'analytics.cycle.export': { ...slowFilter, ids: null, sorting: [] },
   'equipment.master.page': { q: '', ...page },

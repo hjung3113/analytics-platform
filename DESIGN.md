@@ -283,7 +283,7 @@ reference quality recipe는 coverage→blue, traceability→teal, consistency→
 
 - 열 묶음 편집은 «컬럼» 팝오버 안의 별도 선택 화면에서 한다. 선택 체크박스는 «열 이름 선택», 숨은 열은 «숨김»으로 구별하고 이동·핀·보이기 컨트롤은 함께 놓지 않는다. 일반 목록의 묶음 행은 기존 컨트롤 옆 `icon-xs` 메뉴 하나로 편집하며, footer는 «묶음 만들기» 다음 «기본값으로»다([ADR-0167](docs/adr/0167-editable-column-groups.md)).
 
-- 열 묶음 헤더는 sunken 헤더 띠 안에서 문구만 표시한다. 열 헤더와 같은 글자 역할이며 묶음 span 아래에 `border-subtle` 선을 둔다. 맨 위 묶음이 시작하고 끝나는 자리에는 헤더부터 본문 끝까지(행 그룹 행 포함) 1px `border-control` 경계선을 둔다 — 오른쪽 고정 동작 열 경계와 같은 선이고, `border-strong`은 행 구분선(`border-subtle`)과 거의 같아 묶음이 갈려 보이지 않는다. 묶음을 선언한 표에만 있다. 이름은 자기 span 안에서 왼쪽을 따라오고 말줄임·`title`을 제공한다. 새 토큰은 없다([ADR-0166](docs/adr/0166-table-column-groups.md)).
+- 열 묶음 헤더는 sunken 헤더 띠 안에서 문구만 표시한다. 열 헤더와 같은 글자 역할이며 묶음 span 아래에 `border-subtle` 선을 둔다. 맨 위 묶음이 시작하고 끝나는 자리에는 헤더부터 본문 끝까지(행 그룹 행 포함) 1px `border-control` 경계선을 둔다. 오른쪽 고정 동작 열의 경계선은 `border-strong`을 쓴다. 묶음 경계는 묶음을 선언한 표에만 있다. 이름은 자기 span 안에서 왼쪽을 따라오고 말줄임·`title`을 제공한다. 새 토큰은 없다([ADR-0166](docs/adr/0166-table-column-groups.md)).
 - 열 구분선은 선택 옵션 `columnDividers`다: 열 헤더 줄과 본문의 열 사이에 1px `border-subtle`(기본은 행 구분선만). 묶음 경계 자리는 묶음 경계선이 이긴다.
 - 폭을 선언한 열 묶음의 묶음 넘김 경계는 기존 pinned-column fade와 같은 gradient pseudo-element를 안쪽 가장자리에 쓴다(그림자 없음). 헤더·본문·행 그룹 행의 배경과 hover·선택·활성 배경을 따른다. 숨은 내용이 있을 때만 `grab`, 끄는 동안 `grabbing` 커서와 기존 visible focus ring을 쓴다.
 
@@ -297,7 +297,7 @@ cellPadding: 4px 16px
 
 줄바꿈·font fallback·visible focus·최소 24px desktop target에 따라 행은 커질 수 있다. 행 영역 높이는 내용만큼이고 페이지에 남은 높이(최소 240px)까지만 커진다. 동작 열은 오른쪽에 고정하고 `toolbar`(32px) 버튼을 쓰며, 선택 열은 선택을 쓰는 기능이 있는 표에만 둔다([ADR-0037](docs/adr/0037-table-filter-consistency.md)). screenshot의 compact 밀도는 기본값을 낮추는 근거가 아니다. 표 셀은 이미 coarse pointer에서 44px target(`pointer-coarse:min-h-11`)을 쓰며, 나머지 화면의 44px target은 MVP 이후 정책이다.
 
-표가 컨테이너보다 좁으면 남는 폭을 사용자가 폭을 바꾸지 않은 일반 열에 기본 폭 비율로 나눠 컨테이너를 채운다(선택·동작 열, 왼쪽 고정 열, 사용자가 조절한 열은 그대로). 컨테이너보다 넓으면 가로로 스크롤한다. 오른쪽 고정 동작 열은 `border-control` 색 왼쪽 선으로 가장자리를 보이고(그림자 없음), 헤더 글자는 줄바꿈하지 않고 한 줄에서 말줄임(…)하며 전체 이름은 `title`로 준다(정렬·크기 조절 표시는 그대로 보인다). 셀·헤더 좌우 여백은 16px다. 본문 셀은 기존대로 어디서나 줄바꿈한다(#1166).
+표가 컨테이너보다 좁으면 남는 폭을 사용자가 폭을 바꾸지 않은 일반 열에 기본 폭 비율로 나눠 컨테이너를 채운다(선택·동작 열, 왼쪽 고정 열, 사용자가 조절한 열은 그대로). 컨테이너보다 넓으면 가로로 스크롤한다. 오른쪽 고정 동작 열 왼쪽에는 `border-strong` 1px 선을 둔다. 고정 열의 불투명 표면을 유지하고 그림자와 배경 틴트를 쓰지 않는다. 가로 스크롤의 끝에 닿기 전에는 선 바깥으로 20px 페이드를 표시한다. 열 묶음 경계는 `border-control`로 구분한다. 헤더 글자는 줄바꿈하지 않고 한 줄에서 말줄임(…)하며 전체 이름은 `title`로 준다(정렬·크기 조절 표시는 그대로 보인다). 셀·헤더 좌우 여백은 16px다. 본문 셀은 기존대로 어디서나 줄바꿈한다(#1166).
 
 - 헤더 sunken + secondary, 데이터 primary, 수치 우측 정렬+tabular, ID mono. 상태와 범주 label을 구별한다. 열 제목 case는 Typography roles를 따른다.
 - row divider는 border-subtle; checkbox·검색·filter 경계는 border-control. hover에서 focus와 selected checkbox/표식이 사라지지 않는다.

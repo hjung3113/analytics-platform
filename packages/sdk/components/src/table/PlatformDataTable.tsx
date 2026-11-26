@@ -13,6 +13,7 @@ import type { ApiResponse, Capability, ColumnFilter, ColumnFilterSpec, ContextKe
 import { Button, Checkbox, cn, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, shortcutLabel, Skeleton, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
 import { toColumnDef, toGroupedColumnDefs } from './columnDef';
+import { badgeText, columnKind, columnMinWidth, TruncatedTableText, uniformBadgeColumns } from './columnPresentation';
 import { columnGroupBasis, columnGroupErrors, columnGroupGrowthShares, columnGroupLabel, displayedUnits, displayedWidth, effectiveColumnGroups, validGroupName, type StoredColumnGroups } from './columnGroups';
 import { createColumnGroup, materializeColumnGroups, renameColumnGroup, setColumnGroupMembers, setColumnGroupWidth, ungroupColumns } from './columnGroupEdits';
 import { ColumnGroupChooseView, ColumnGroupRename, ColumnGroupResizer, ColumnGroupRowMenu, useColumnGroupEditor, useColumnGroupResize } from './ColumnGroupEditor';
@@ -38,10 +39,11 @@ import { useTableSelection, type TableExportRequest, type TableSelection } from 
 import { SelectAllBar } from './selectAllBar';
 import { buildGroupedItems, GroupHeaderCells, groupHeaderLayout, groupKeyOf } from './rowGroups';
 import { collapsedControls, GroupMenu, GroupSubmenu, MoreMenu, TableSizeMenu, TableSizeSubmenu, ToolbarDescription, ToolbarTitle } from './tableToolbar';
-import { BASE_ROW_HEIGHT, TABLE_SIZE_STEPS, useTableSize } from './tableSize';
+import { BASE_ROW_HEIGHT, TABLE_SIZE_STEPS, useTableSize, type TableSize } from './tableSize';
 import { useRegisterPageBound } from '../pageFlow';
 import { MATRIX_TONE_CLASS, type MatrixCellTone } from '../matrix/tones';
 import { useTableCellNavigation } from './useTableCellNavigation';
+import { AnalysisSelectionCell, isSelectionValue, TableAnalysisOutputs, type AnalysisCellHandlers } from './TableAnalysisSelection';
 
 export type { GroupedPageResult, PageGroup, PageQuery, PageResult } from '@ap/contracts';
 export { sortAndPage } from '@ap/contracts';
@@ -82,9 +84,19 @@ export type PlatformColumn<T> = {
   columnGroup?: readonly string[];
   /** Sort/default display value; default `(row as Record<string, unknown>)[id]`. */
   value?: (row: T) => unknown;
-  /** Display; default String(value) ('' for null/undefined). */
+  /**
+   * Display; default String(value) ('' for null/undefined). For `longText`, the SDK renders a non-empty string accessor
+   * with truncation in place of this renderer unless `isCellEmpty` marks the cell empty. A known uniform, non-empty badge uses a string
+   * `exportValue`, the matching enum option label, or the stringified accessor value, in that order.
+   */
   cell?: (row: T) => ReactNode;
   size?: number;
+  /** Display defaults. Inferred from a number or instant filter when omitted. */
+  cellKind?: 'number' | 'instant' | 'instant-seconds' | 'badge' | 'longText' | 'text';
+  /** Mute a consumer-rendered empty value while retaining its display label. */
+  isCellEmpty?: (row: T) => boolean;
+  /** A declared set output; the cell's value accessor returns the string in that output's dimension. */
+  analysisSelectionOutput?: { panelId: string; key: string };
   /** Numeric: right aligned + tabular. */
   align?: 'right';
   /** Default true. Only for columns whose id is a server sort field; display-only columns set `false`. */
@@ -150,6 +162,12 @@ const SELECT_COLUMN_SIZE = 40;
 const CELL_INLINE_PADDING = 32;
 /** The width the engine renders for a declared size: `defaultColumn` min/max apply to every column, `_select` included (40 → 60). */
 const renderedWidth = (size: number) => Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, size));
+
+function defaultColumnWidth<T>(column: PlatformColumn<T>, tableSize: TableSize) {
+  const widthScale = TABLE_SIZE_STEPS[tableSize].widthScale;
+  return renderedWidth(Math.max(columnMinWidth(column, tableSize) ?? MIN_COLUMN_WIDTH,
+    Math.round((column.size ?? DEFAULT_COLUMN_WIDTH) * widthScale)));
+}
 /** Keyboard focus ring only (ADR-0023): the feature-ui item focus tint is not distinguishable on the popover surface, so the menu keeps an inset ring — never clipped by the content's `overflow-hidden`, and it stays on top of the shared focus background. */
 const exportItemClass = 'focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring';
 export type TableUrlState = {
@@ -307,6 +325,7 @@ type CellTabStops = {
   visibleColumns: ReadonlySet<string>;
   fallbackRow: string | undefined;
   fallbackColumn: string | undefined;
+  focus?: TableCell | null;
 };
 
 function SelectableDataRow({ rowId, tabStops, render }: {
@@ -316,9 +335,11 @@ function SelectableDataRow({ rowId, tabStops, render }: {
 }) {
   const selection = useContext(CellSelection);
   const selectedColumn = selection?.row === rowId ? selection.column : undefined;
-  const selectionCanReceiveTab = selection && tabStops.mountedRows.has(selection.row) && tabStops.visibleColumns.has(selection.column);
+  const valid = (cell: TableCell | null | undefined): cell is TableCell =>
+    !!cell && tabStops.mountedRows.has(cell.row) && tabStops.visibleColumns.has(cell.column);
+  const focus = valid(tabStops.focus) ? tabStops.focus : selection;
   const fallbackColumn = rowId === tabStops.fallbackRow ? tabStops.fallbackColumn : undefined;
-  const tabColumn = selectionCanReceiveTab ? selectedColumn : fallbackColumn;
+  const tabColumn = valid(focus) ? (focus.row === rowId ? focus.column : undefined) : fallbackColumn;
   return useMemo(() => render(selectedColumn, tabColumn), [render, selectedColumn, tabColumn]);
 }
 
@@ -436,13 +457,20 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   const [groupChoice, setGroupChoice] = useState('');
   const groupBy = groupColumns.some(c => c.id === groupChoice) ? groupChoice : null;
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  const [selectionFocus, setSelectionFocus] = useState<TableCell | null>(null);
+  const outputColumns = useMemo(() => p.columns.filter(column => column.analysisSelectionOutput), [p.columns]);
+  const hasOutputs = outputColumns.length > 0;
   const { setPage, retry, effectivePage, shown, shownPage, loading, data, pageCount, success, outOfRange } = usePagedRows<T>({
     loadPage: p.loadPage, filterKey: p.filterKey ?? '', urlState: p.urlState, pageSize, activeSorting, viewport, columnFilters: effectiveFilters, groupBy, dataVersion, cacheKey: p.cacheKey,
     // Selection never survives a Context change; an in-flight export/copy belongs to the old result set.
-    onContextChange: () => { selectionState.clear(); abortTransfers(); setCollapsed(new Set()); },
+    onContextChange: () => { selectionState.clear(); abortTransfers(); setCollapsed(new Set()); setSelectionFocus(null); },
   });
   const { onPageReadyChange } = p;
   const pageReady = !loading && success && !outOfRange;
+  const completeResult = pageReady && shownPage === 0 && !p.externalPagination && data.total === data.rows.length;
+  const uniformBadges = useMemo(() => pageReady
+    ? uniformBadgeColumns(p.columns, data.rows, effectiveFilters, { complete: completeResult })
+    : undefined, [pageReady, p.columns, data.rows, effectiveFilters, completeResult]);
   useLayoutEffect(() => {
     if (!onPageReadyChange) return;
     onPageReadyChange(pageReady);
@@ -495,7 +523,10 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   // ADR-0037: the action column is pinned right whenever the scrollport keeps room beside the user's left pins; narrower
   // it scrolls with the rest so pinned regions never overlap. Never user-pinnable, never stored (`_action` stays out of preferences).
   // One width model for the fit estimates: the stored or declared size, clamped to what the table renders.
-  const columnWidth = (column: PlatformColumn<T>) => renderedWidth((inWidthGroup(column.id) ? undefined : preferences.sizing[column.id]) ?? Math.round((column.size ?? DEFAULT_COLUMN_WIDTH) * widthScale));
+  const columnWidth = (column: PlatformColumn<T>) => {
+    const saved = inWidthGroup(column.id) ? undefined : preferences.sizing[column.id];
+    return saved === undefined ? defaultColumnWidth(column, tableSize) : renderedWidth(saved);
+  };
   const visibleDataColumns = orderedIds.flatMap(id => {
     const column = declarations.get(id);
     return column && visibility[id] !== false ? [column] : [];
@@ -537,7 +568,9 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   // The data and selection definitions do not depend on the action width: a band crossing must keep their cell functions (and the DOM they render).
   // Converted leaves depend on the declaration and the size scale only, never on the order (a reorder must not remount cells).
   // Group edits change paths/labels only; leaf renderers continue to depend on the source declaration, preserving cell state.
-  const leafDefs = useMemo(() => new Map(source.columns.map(c => [c.id, toColumnDef(widthScale === 1 ? c : { ...c, size: Math.round((c.size ?? DEFAULT_COLUMN_WIDTH) * widthScale) })])), [source.columns, widthScale]);
+  const leafDefs = useMemo(() => new Map(source.columns.map(column =>
+    [column.id, toColumnDef({ ...column, size: defaultColumnWidth(column, tableSize) })],
+  )), [source.columns, tableSize]);
   // Ungrouped tables keep declaration order here and leave ordering to the engine's `columnOrder`; grouped tables nest in the shown order.
   const treeOrder = p.columns.some(c => (c.columnGroup?.length ?? 0) > 0) ? orderedIds : null;
   const baseColumns = useMemo<ColumnDef<T>[]>(() => [
@@ -622,19 +655,27 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   const rowsHandle = useRef<VirtualRowsHandle>(null);
   const [mountedKeys, setMountedKeys] = useState<readonly string[]>([]);
   // Selected rows of this page that a collapsed group hides: the page selection still covers them, and the count says so.
-  const grid = !!p.onSelectCell;
+  const grid = !!p.onSelectCell || hasOutputs;
   const cellRowIds = grid ? [...(pinnedRow ? [pinnedRow.id] : []), ...items.flatMap(item => item.kind === 'row' ? [item.row.id] : [])] : [];
   const cellColumnIds = grid ? [...table.getLeftVisibleLeafColumns(), ...table.getCenterVisibleLeafColumns(), ...table.getRightVisibleLeafColumns()]
-    .filter(column => declarations.has(column.id) && declarations.get(column.id)?.selectableCell !== false).map(column => column.id) : [];
+    .filter(column => {
+      const declaration = declarations.get(column.id);
+      return declaration?.analysisSelectionOutput || (!!p.onSelectCell && declaration && declaration.selectableCell !== false);
+    }).map(column => column.id) : [];
   const tabStopsFor = (mounted: readonly string[]): CellTabStops | undefined => {
     if (!grid) return undefined;
     const mountedRows = new Set([...(pinnedRow ? [pinnedRow.id] : []), ...mounted]);
-    return { mountedRows, visibleColumns: new Set(cellColumnIds), fallbackRow: cellRowIds.find(id => mountedRows.has(id)), fallbackColumn: cellColumnIds[0] };
+    return { mountedRows, visibleColumns: new Set(cellColumnIds), fallbackRow: cellRowIds.find(id => mountedRows.has(id)), fallbackColumn: cellColumnIds[0], focus: selectionFocus };
   };
   // The pinned row renders outside `VirtualRows`, so it reads the range the rows last reported; body rows get theirs in the same render.
   const pinnedTabStops = pinnedRow ? tabStopsFor(mountedKeys) : undefined;
   const cellNavigation = useTableCellNavigation({
-    viewport, rows: cellRowIds, columns: cellColumnIds, onSelect: p.onSelectCell, onActivate: p.onActivateCell,
+    viewport, rows: cellRowIds, columns: cellColumnIds,
+    onFocusChange: hasOutputs ? setSelectionFocus : undefined,
+    onSelect: hasOutputs ? coordinate => {
+      if (!declarations.get(coordinate.column)?.analysisSelectionOutput) p.onSelectCell?.(coordinate);
+    } : p.onSelectCell,
+    onActivate: p.onActivateCell,
     pinnedWidths: () => ({ left: displayedSize(table.getLeftVisibleLeafColumns()), right: displayedSize(table.getRightVisibleLeafColumns()) }),
     scrollRow: id => { const index = items.findIndex(item => item.kind === 'row' && item.row.id === id); if (index >= 0) rowsHandle.current?.scrollToIndex(index); },
     // Rows that scroll under the sticky block (header bands and a pinned row); its rendered height, one row before it mounts.
@@ -719,9 +760,10 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     sized && 'py-0.5',
     tableSize === 'small' && '[&_button:not([role=checkbox])]:h-6 [&_a.h-8]:h-6');
   /** The right-pinned action column keeps a visible edge while content scrolls beneath it (a border token; DESIGN.md allows no shadow). */
-  const pinEdge = 'border-l border-l-border-control';
+  const pinEdge = 'border-l border-l-border-strong';
+  // Absolute offsets are measured from the padding box. Clear the action cell's 1px border.
   const fadeClass = (side: 'left' | 'right' | false | null, body: boolean, active = false) => !side || !(side === 'right' ? fade.right : fade.left) ? undefined
-    : cn(FADE_BASE, 'overflow-visible', side === 'right' ? 'before:right-full before:bg-linear-to-r' : 'before:left-full before:bg-linear-to-l',
+    : cn(FADE_BASE, 'overflow-visible', side === 'right' ? 'before:right-[calc(100%+1px)] before:bg-linear-to-r' : 'before:left-full before:bg-linear-to-l',
       body ? cn(active ? 'before:to-surface-row-selected' : 'before:to-surface-card', 'group-hover:before:to-surface-row-hover group-aria-selected:before:to-surface-row-selected') : 'before:to-surface-sunken');
   const nameOf = (c: Column<T>) => (c.columnDef.meta as ColumnMeta | undefined)?.label ?? (typeof c.columnDef.header === 'string' ? c.columnDef.header : c.id);
   function editGroups(edit: (snapshot: StoredColumnGroups) => StoredColumnGroups, mode: 'now' | 'later', { gather = false }: { gather?: boolean } = {}) {
@@ -1039,7 +1081,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
     const rowIndex = item ? item.index + Number(!!pinnedRow) : 0;
     return <div role="row" key={row.id} ref={item ? measure : undefined} data-index={item?.index}
       aria-rowindex={(groupedItems ? 0 : shownPage * pageSize) + rowIndex + headerRowCount + 1}
-      data-table-focus-row={cellNavigation.rowIndices.get(row.id)} aria-selected={grid ? undefined : row.getIsSelected()} aria-current={active ? 'true' : undefined} data-row-id={row.id} data-muted={muted ? 'true' : undefined}
+      data-table-focus-row={cellNavigation.rowIndices.get(row.id)} aria-selected={selectable || !p.onSelectCell ? row.getIsSelected() : undefined} aria-current={active ? 'true' : undefined} data-row-id={row.id} data-muted={muted ? 'true' : undefined}
       // eslint-disable-next-line shadcn/no-inline-styles -- row offset is the virtual item position computed at runtime
       className={item ? 'group absolute left-0 top-0 flex w-full' : 'group flex w-full'} style={item ? { transform: `translateY(${item.start}px)` } : undefined}>
       {/* The row marker follows the pinned columns at the scrollport's left edge. */}
@@ -1049,28 +1091,42 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
       {renderCells(cells, cell => cell.column, cell => {
         const column = cell.column;
         const declaration = declarations.get(column.id);
-        const selectableCell = grid && !!declaration && declaration.selectableCell !== false;
-        const selected = selectableCell && selectedColumn === column.id;
+        const output = declaration?.analysisSelectionOutput;
+        const selectableCell = !!output || (!!p.onSelectCell && !!declaration && declaration.selectableCell !== false);
         const tone = declaration?.cellTone?.(row.original);
+        const kind = declaration && columnKind(declaration);
+        const isEmpty = declaration?.isCellEmpty?.(row.original) === true;
+        const value = cell.getValue();
+        let content = flexRender(column.columnDef.cell, cell.getContext());
+        // Render the action directly to preserve DOM identity across compact/full widths (#296).
+        if (column.id === '_action') content = p.rowAction?.(row.original, { compact: actionCompact });
+        else if (kind === 'longText' && !isEmpty && typeof value === 'string' && value) content = <TruncatedTableText text={value} />;
+        else if (declaration && !isEmpty && uniformBadges?.has(column.id)) content = badgeText(declaration, row.original, value);
         const firstData = cells.indexOf(cell) === firstDataCell;
-        // The hard stop confines the accent background to the first cell's padding, including in pinned columns.
-        const highlightEdge = showHighlightEdge && firstData && !selected && 'bg-linear-to-r from-accent-primary from-(length:--spacing) to-transparent to-(length:--spacing)';
-        const background = cn('bg-surface-card', !tone && 'group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected',
-          highlightEdge,
-          active && 'bg-surface-row-selected', tone && MATRIX_TONE_CLASS[tone], selected && 'bg-surface-row-selected ring-2 ring-inset ring-border-selected');
-        const label = declaration?.cellLabel?.(row.original);
-        const match = highlighted && cells.indexOf(cell) === Math.max(0, firstDataCell);
-        const matchId = match && label ? `${columnPrefsId}-match-${rowIndex}` : undefined;
         const interaction = selectableCell ? cellNavigation.props(column.id, tabColumn === column.id) : undefined;
-        // eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime
-        return <div role={grid ? 'gridcell' : 'cell'} key={cell.id} data-column={column.id} style={cellStyle(column)} aria-label={label} aria-describedby={matchId}
-          aria-selected={selectableCell ? selected : undefined} {...interaction}
-          className={cn(cellBase, 't-body border-b border-border-row', background, active && firstData && 'font-medium', muted && declaration && cn('text-text-muted group-hover:text-text-secondary group-aria-selected:text-text-secondary', active && 'text-text-secondary'), column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), lineClass(column.id), column.getIsPinned() === 'right' && pinEdge, fadeClass(inWidthGroup(column.id) ? false : column.getIsPinned(), true, active), align(column),
-            selectableCell && 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring')}>
-          {/* The _action column cell is not used — rowAction renders directly to preserve DOM identity (#296). */}
-          {column.id === '_action' ? p.rowAction?.(row.original, { compact: actionCompact }) : flexRender(column.columnDef.cell, cell.getContext())}
-          {match && <span id={matchId} className="sr-only"> {m('tableHighlightedRow')}</span>}
-        </div>;
+        const renderCell = (outputSelected?: boolean, handlers?: AnalysisCellHandlers) => {
+          const selected = outputSelected ?? (selectableCell && selectedColumn === column.id);
+          // The hard stop confines the accent background to the first cell's padding, including in pinned columns.
+          const highlightEdge = showHighlightEdge && firstData && !selected && 'bg-linear-to-r from-accent-primary from-(length:--spacing) to-transparent to-(length:--spacing)';
+          const background = cn('bg-surface-card', !tone && !outputSelected && 'group-hover:bg-surface-row-hover group-aria-selected:bg-surface-row-selected',
+            highlightEdge,
+            active && 'bg-surface-row-selected', tone && MATRIX_TONE_CLASS[tone], selected && 'bg-surface-row-selected ring-2 ring-inset ring-border-selected');
+          const label = declaration?.cellLabel?.(row.original);
+          const match = highlighted && cells.indexOf(cell) === Math.max(0, firstDataCell);
+          const matchId = match && label ? `${columnPrefsId}-match-${rowIndex}` : undefined;
+          // eslint-disable-next-line shadcn/no-inline-styles -- cell width and pin offset come from column sizing at runtime
+          return <div role={grid ? 'gridcell' : 'cell'} key={cell.id} data-column={column.id} style={cellStyle(column)} aria-label={label} aria-describedby={matchId}
+            aria-selected={selectableCell ? selected : undefined} {...interaction} {...handlers}
+            className={cn(cellBase, 't-body border-b border-border-row', background, active && firstData && 'font-medium', muted && declaration && cn('text-text-muted group-hover:text-text-secondary group-aria-selected:text-text-secondary', active && 'text-text-secondary'), column.id === '_action' && (actionCompact ? 'py-0 px-0' : 'py-0'), lineClass(column.id), column.getIsPinned() === 'right' && pinEdge, fadeClass(inWidthGroup(column.id) ? false : column.getIsPinned(), true, active), align(column),
+              (kind === 'instant' || kind === 'instant-seconds') && 'whitespace-nowrap tabular', kind === 'badge' && '[&>*]:min-w-0 [&>*]:whitespace-normal',
+              isEmpty && 'text-text-muted not-italic', handlers && pageReady && 'cursor-pointer',
+              selectableCell && 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring')}>
+            {content}
+            {match && <span id={matchId} className="sr-only"> {m('tableHighlightedRow')}</span>}
+          </div>;
+        };
+        return output && isSelectionValue(value) ? <AnalysisSelectionCell key={cell.id} output={output} value={value} enabled={pageReady}
+          navigate={interaction?.onKeyDown} render={renderCell} /> : renderCell();
       }, { body: true, active })}
     </div>;
   }
@@ -1084,7 +1140,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   const showOutcome = shown && shown.outcome !== 'ok';
   const outcomeContent = showOutcome ? <div ref={outcome} onFocus={event => { focusedRetry.current = event.target.hasAttribute('data-outcome-retry'); }} onBlur={() => { focusedRetry.current = false; }} className={cn('p-3', !grid && 'border-t border-border-subtle')}><OutcomeContent response={shown} onRetry={retry} emptyAction={p.emptyAction ?? (effectiveFilters.length > 0 ? <Button type="button" size="sm" variant="secondary" onClick={() => { columnFilters.clear(); droppedNote.reset(); }}>{t('clearConditions')}</Button> : undefined)} grouped={groupedOutcome} bannerId={outcomeBannerId} busy={loading} compact={groupedOutcome || undefined} widgetName={p.ariaLabel} hideWidgetName>{() => null}</OutcomeContent></div> : null;
 
-  return <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle && !p.pageOwnedToolbar ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none', p.fill && 'min-h-0 max-h-full shrink')}>
+  const tableSection = <section ref={section} tabIndex={-1} aria-label={p.ariaLabel} aria-describedby={p.subtitle && !p.pageOwnedToolbar ? descriptionId : undefined} onKeyDown={onShortcut} style={sizeVars} data-table-size={tableSize} className={cn('flex flex-col rounded-lg border border-border-subtle bg-surface-card', embedded && 'rounded-none border-0 shadow-none', p.fill && 'min-h-0 max-h-full shrink')}>
     {p.editableColumnGroups && <SavedTableState preferenceKey={props.preferenceKey} columns={source.columns} declared={props.columnGroups} groups={preferences.groups} apply={applyColumnGroups} ready={groupsReady} />}
     {/* R2 (#1234, #2310): lead, page controls and filters (left), results + controls (right) in one band; workspace panels retain two bands. */}
     {!p.pageOwnedToolbar && <div ref={toolbar.ref} data-table-toolbar className={cn('flex items-center justify-between gap-2', p.fill && 'shrink-0', embedded ? 'min-h-10 px-2 py-1.5' : densePage ? 'min-h-14 px-3 py-3' : 'min-h-14 p-4', analysisSection && 'pr-12', mergeToolbar && 'flex-wrap')}>
@@ -1132,7 +1188,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
       <div ref={viewportRef} data-table-auto-fit={p.height === undefined && !p.fill ? '' : undefined} tabIndex={0} aria-label={SCROLLPORT_LABEL[lang]} className={cn('scrollbar-panel overflow-auto border-t border-border-subtle [overflow-anchor:none]', p.fill && 'min-h-0', chainWheel ? 'overscroll-auto' : 'overscroll-contain')} onScroll={updateFade} {...(grid ? cellNavigation.focusHandlers : {})} style={{ maxHeight: p.height ?? (p.fill ? undefined : fit.cap ?? ROW_AREA_FALLBACK) }}>
         {showOutcome ? outcomeContent :
         // eslint-disable-next-line shadcn/no-inline-styles -- table width is the total column size computed at runtime
-        <div ref={pan.ref} role={grid ? 'grid' : 'table'} aria-label={p.ariaLabel} aria-rowcount={groupedItems || p.externalPagination ? -1 : data.total + headerRowCount} aria-busy={loading} className={cn('min-w-full', pan.groups.size > 0 && 'group/pan-table')} style={{ width: tableWidth }}>
+        <div ref={pan.ref} role={grid ? 'grid' : 'table'} aria-label={p.ariaLabel} aria-multiselectable={(grid && (hasOutputs || selectable)) || undefined} aria-rowcount={groupedItems || p.externalPagination ? -1 : data.total + headerRowCount} aria-busy={loading} className={cn('min-w-full', pan.groups.size > 0 && 'group/pan-table')} style={{ width: tableWidth }}>
           <div role="rowgroup" data-table-sticky-rows={grid ? true : undefined} className="sticky top-0 z-[5]">
             {headerRows.map((headers, depth) => <div role="row" key={depth} aria-rowindex={hasColumnGroups ? depth + 1 : undefined} className="flex">{renderCells(headers, item => item.header.column, ({ header: h, side }) => {
               const isGroup = h.column.columns.length > 0 && !h.isPlaceholder;
@@ -1225,6 +1281,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
         }}>{m('tableNextPage')}</Button></>}
     </div>}
   </section>;
+  return hasOutputs ? <TableAnalysisOutputs columns={outputColumns}>{tableSection}</TableAnalysisOutputs> : tableSection;
 }
 
 // Controlled selection reaches the rows through context. A selection-only update skips the table layout.

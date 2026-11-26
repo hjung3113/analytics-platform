@@ -53,6 +53,23 @@ it('keeps page edits in draft until the single apply, preserving applied request
   expect(send).toHaveBeenCalledTimes(settled);
 });
 
+it('retains both equipment values on Apply after clearing a drill chip with pending edits', async () => {
+  const storage = memoryStorage();
+  storage.setItem('platform:page-head-collapsed:cycle-time', 'false');
+  vi.stubGlobal('localStorage', storage);
+  const session = testSession(['analytics:view', 'platform:view']);
+  window.history.replaceState(null, '', '/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00&bucket=2026-09-25T10:00:00&tableEquipment=E-1&tableEquipment=E-2');
+  render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} registry={registry} adapter={testAdapter({ session: () => session })} slots={{ contextBar: <Apply /> }}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
+  fireEvent.click(await screen.findByRole('button', { name: '일' }));
+  fireEvent.click(screen.getByRole('button', { name: '버킷 필터 해제' }));
+  const params = () => new URLSearchParams(window.location.search);
+  expect(params().has('bucket')).toBe(false);
+  expect(params().getAll('tableEquipment')).toEqual(['E-1', 'E-2']);
+  fireEvent.click(screen.getByRole('button', { name: 'Apply query' }));
+  await waitFor(() => expect(params().get('granularity')).toBe('day'));
+  expect(params().getAll('tableEquipment')).toEqual(['E-1', 'E-2']);
+});
+
 it.each(['', '&from=2026-09-25T09:00:00&to=2026-09-26T09:00:00'])('shows the shared query idle state and required reasons before applying %s', async period => {
   vi.stubGlobal('localStorage', memoryStorage());
   const session = testSession(['analytics:view', 'platform:view']);

@@ -6,7 +6,7 @@ import { lazy } from 'react';
 import { Activity, Route, Timer } from 'lucide-react';
 import { NO_FEATURES, contextCapabilities, groupId } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
-import { cycleTimePanels } from './panels';
+import { CYCLE_EQUIPMENT_OUTPUT, cycleTimePanels } from './panels';
 import { PERMISSION } from './permission';
 
 const GROUP = groupId('analytics');
@@ -45,7 +45,8 @@ export const manifests: MenuEntry[] = [
     description: { ko: '사이클타임 분포에서 느린 실행을 찾아 실행 상세로 드릴다운합니다.', en: 'Find slow executions in the cycle-time distribution and drill into them.' },
     path: '/analytics/cycle-time', icon: Timer, permission: PERMISSION, requiresScope: true, pageType: 'analysis',
     context: contextCapabilities({ time: 'apply', roomNames: 'apply', line: 'apply', prcGroup: 'apply', condition: 'apply', selection: 'apply', lot: 'apply', ppid: 'apply', recipe: 'apply', metric: 'apply' }),
-    features: { export: true, savedView: true, annotate: true, compare: true, board: true }, pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin', 'conditionSet'], contextResetKeys: ['page', 'bucket', 'bin'], initializesMetric: true,
+    features: { export: true, savedView: true, annotate: true, compare: true, board: true }, pageKeys: ['granularity', 'percentile', 'sort', 'page', 'bucket', 'bin', 'conditionSet', CYCLE_EQUIPMENT_OUTPUT.key],
+    contextResetKeys: ['page', 'bucket', 'bin', CYCLE_EQUIPMENT_OUTPUT.key], repeatedPageKeys: [CYCLE_EQUIPMENT_OUTPUT.key], initializesMetric: true,
     conditionPresets: [
       { id: 'equipment', label: { ko: '설비 기준', en: 'By equipment' }, axes: ['maker', 'model'] },
       { id: 'organization', label: { ko: '조직 기준', en: 'By organization' }, axes: ['stgroup', 'team'] },

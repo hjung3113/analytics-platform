@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clientCorrelationId, filterRows, groupPage, sortAndPage, validateFilters, type ApiResponse, type GroupedPageResult, type TableQuery } from '@ap/contracts';
+import { columnKind } from './columnPresentation';
 import type { PlatformColumn, TableLoadPage } from './PlatformDataTable';
 import type { TableFilterField } from './filterFields';
 
@@ -15,7 +16,7 @@ type RowsInput<T> = {
 };
 
 function withoutFilterAndGroup<T>(column: PlatformColumn<T>): PlatformColumn<T> {
-  const copy = { ...column };
+  const copy = { ...column, cellKind: columnKind(column) };
   delete copy.filter; delete copy.filterPinned; delete copy.filterLabel; delete copy.filterEntry; delete copy.groupable;
   return copy;
 }
