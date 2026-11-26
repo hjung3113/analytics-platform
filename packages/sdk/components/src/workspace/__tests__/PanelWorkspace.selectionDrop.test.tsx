@@ -101,8 +101,31 @@ function target(container: HTMLElement) {
   return container.querySelector('[data-selection-drop-panel="table"]');
 }
 
-async function flushDragFrame() {
-  await act(() => new Promise<void>(resolve => { window.requestAnimationFrame(() => resolve()); }));
+/**
+ * Frames run only when the test says so. Observer callbacks can request a refresh frame at any point after the drag starts,
+ * and with the jsdom timer a frame may still be pending when the next step runs: the drag then folds the next request into it.
+ * Install before the drag starts; `settle` runs every pending frame, including the ones the frames themselves request.
+ */
+function manualFrames() {
+  const queue = new Map<number, FrameRequestCallback>();
+  let next = 0;
+  const request = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => { next += 1; queue.set(next, callback); return next; });
+  vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(handle => { queue.delete(handle); });
+  return {
+    request,
+    pending: () => queue.size,
+    async settle() {
+      for (let round = 0; round < 10; round++) {
+        // Observer callbacks arrive as microtasks inside act; then run what they requested.
+        await act(async () => {});
+        if (queue.size === 0) return;
+        const due = [...queue.values()];
+        queue.clear();
+        await act(async () => { for (const callback of due) callback(performance.now()); });
+      }
+      throw new Error('drag frames kept requesting new frames');
+    },
+  };
 }
 
 it('shows whole-panel targets after movement, hovers the table body and drops the dragged chip', async () => {
@@ -145,15 +168,16 @@ it.each(['scroll', 'resize', 'layout change'])('updates the preview and drop und
 it('announces a changed drop target when the pointer is released before the preview refreshes', async () => {
   const chartDrop = vi.fn();
   const { chip, chart, container } = await mount({ chartDrop });
+  const frames = manualFrames();
   pointer(chip, 'pointerdown', 5);
   pointer(window, 'pointermove', 250);
   expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
 
-  await flushDragFrame();
-  const heldFrame = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(-1);
+  await frames.settle();
   hit.mockReturnValue(chart);
   fireEvent.scroll(container);
-  expect(heldFrame).toHaveBeenCalled();
+  // The scroll asks for a preview frame that has not run yet when the pointer is released.
+  expect(frames.pending()).toBe(1);
   expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
   pointer(window, 'pointerup', 250);
 
@@ -167,14 +191,16 @@ it('announces a changed drop target when the pointer is released before the prev
 
 it('does not schedule a drag refresh when an unrelated node is added outside the dock', async () => {
   const { chip, container } = await mount();
+  const frames = manualFrames();
   pointer(chip, 'pointerdown', 5);
   pointer(window, 'pointermove', 250);
-  await flushDragFrame();
-  const requestFrame = vi.spyOn(window, 'requestAnimationFrame');
+  await frames.settle();
+  frames.request.mockClear();
 
   await act(async () => { container.append(document.createElement('div')); });
 
-  expect(requestFrame).not.toHaveBeenCalled();
+  // Nothing is pending after settle, so a request here would show up instead of folding into an earlier frame.
+  expect(frames.request).not.toHaveBeenCalled();
   expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
   pointer(window, 'pointerup', 250);
   expect(onDrop).toHaveBeenCalledOnce();
