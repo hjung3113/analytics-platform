@@ -14,6 +14,7 @@ function createScreenSlots() {
   const fields = new Map<string, Map<string, Slot[]>>();
   const listeners = new Set<() => void>();
   let revision = 0;
+  let menuViewId: string | null = null;
   let applied: { token: object; viewId: string; fields: Record<string, Record<string, unknown> | undefined>; consumed: Set<string> } | null = null;
   const emit = () => { revision += 1; listeners.forEach(listener => listener()); };
   const applyKey = (field: string, key: string) => {
@@ -31,6 +32,12 @@ function createScreenSlots() {
   return {
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     snapshot: () => revision,
+    selectedMenuViewId: () => menuViewId,
+    selectMenuView(id: string | null) {
+      if (menuViewId === id) return;
+      menuViewId = id;
+      listeners.forEach(listener => listener());
+    },
     changed: emit,
     retry(field: string, key: string) { applyKey(field, key); emit(); },
     register<T>(field: string, key: string, slot: { value: T; apply: (value: T, viewId: string) => void; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {

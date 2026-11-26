@@ -131,8 +131,14 @@ export type RowEnv = { minimum: RowMinimum; maximum: number; baseline: number; o
 export const hasAutomaticRows = (state: WorkspaceState): boolean => state[AUTO_FILL] !== undefined;
 
 /** Auto-fill provenance is local to this mount, and its measured heights are omitted from the saved state. */
-export function workspacePreference(state: WorkspaceState): WorkspaceState {
-  return hasAutomaticRows(state) ? withRows(state, 'stack') : state;
+export function workspacePreference(state: WorkspaceState, currentPanels?: readonly string[]): WorkspaceState {
+  const preference = hasAutomaticRows(state) ? withRows(state, 'stack') : state;
+  if (!currentPanels || !preference.preferredSeen) return preference;
+  const { preferredSeen, ...rest } = preference;
+  const known = new Set(currentPanels);
+  const retained = Object.entries(preferredSeen).filter(([id]) => known.has(id));
+  if (retained.length === Object.keys(preferredSeen).length) return preference;
+  return retained.length ? { ...rest, preferredSeen: Object.fromEntries(retained) } : rest;
 }
 
 /**

@@ -200,11 +200,11 @@ describe('HW Time saved view panels', () => {
     await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-instance-table-2', 'saved-instance-table-3'])));
     expect([config().titles.table, config().titles['saved-instance-table-2']]).toEqual(['원본 표', '원본 표 2']);
     expect(config().placement['saved-instance-table-3']).toBeUndefined();
-    const third = screen.getByRole('region', { name: 'panel saved-instance-table-3' });
-    expect(within(third).getByText('같은 패널은 2개까지 함께 엽니다. 이 패널은 저장된 뷰에만 있습니다.')).toBeTruthy();
+    const third = () => screen.getByRole('region', { name: 'panel saved-instance-table-3' });
+    expect(within(third()).getByText('같은 패널은 2개까지 함께 엽니다. 이 패널은 저장된 뷰에만 있습니다.')).toBeTruthy();
     const saveAs = async () => act(() => views.saveAs({ name: `Tables ${Math.random()}`, kind: 'menu-view' }));
     expect(await saveAs()).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: tables } } } });
-    fireEvent.click(within(third).getByRole('button', { name: 'remove saved-instance-table-3' }));
+    fireEvent.click(within(third()).getByRole('button', { name: 'remove saved-instance-table-3' }));
     await settle();
     expect(config().ids).not.toContain('saved-instance-table-3');
     expect(await saveAs()).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: tables.slice(0, 2) } } } });
@@ -345,17 +345,63 @@ describe('HW Time saved view panels', () => {
     expect(screen.queryByRole('tab', { name: '판정 비율 도넛' })).toBeNull();
   });
 
-  it.each([
-    ['판정 비율 도넛', { ...donut, id: 'extra' }],
-    ['상한 초과 파레토', pareto],
-  ] as const)('opens the recipe for %s', async (title, instance) => {
-    const store = createFakeSavedViewStore([saved({ panels: { version: 1, instances: [instance] } })]);
+  it.each(['Save As', 'clear selection'] as const)('isolates alias layout edits after %s without reopening', async action => {
+    const store = createFakeSavedViewStore([saved({ panels: { version: 1, instances: [{ ...donut, id: 'extra' }] } })]);
     await renderOverview('', answer, { savedViews: store, children: <Probe />, realWorkspace: true });
     await waitFor(() => expect(views.status).toBe('ready'));
     await open('saved');
-    fireEvent.keyDown(await screen.findByRole('tab', { name: title }), { key: 'F10', shiftKey: true });
-    fireEvent.click(await screen.findByRole('menuitem', { name: '이 패널 만든 방법' }));
-    expect(await screen.findByRole('region', { name: '패널 설명 본문' })).toBeTruthy();
+
+    let copyId: string | undefined;
+    if (action === 'Save As') {
+      const copy = await act(() => views.saveAs({ name: 'Copy', kind: 'menu-view' }));
+      if (!copy.ok) throw new Error('Failed to save view');
+      copyId = copy.value.view.id;
+      expect(views.selected?.view.id).toBe(copyId);
+    } else {
+      act(() => views.clearSelection());
+      expect(views.selected).toBeNull();
+    }
+    fireEvent.keyDown(await screen.findByRole('tab', { name: '판정 비율 도넛' }), { key: 'F10', shiftKey: true });
+    fireEvent.click(await screen.findByRole('menuitem', { name: '숨기기' }));
+    await waitFor(() => expect(screen.queryByRole('tab', { name: '판정 비율 도넛' })).toBeNull());
+
+    await open('saved');
+    expect(await screen.findByRole('tab', { name: '판정 비율 도넛' })).toBeTruthy();
+    if (copyId !== undefined) {
+      await open(copyId);
+      expect(await screen.findByRole('button', { name: /숨긴 패널 1/ })).toBeTruthy();
+      expect(screen.queryByRole('tab', { name: '판정 비율 도넛' })).toBeNull();
+    }
+  });
+
+  it.each([
+    ['판정 비율 도넛', { ...donut, id: 'extra' }, '도넛 차트'],
+    ['상한 초과 파레토', pareto, '파레토 차트'],
+    ['PM1 · Pump · 설비별', { ...makeInstance('moduleMotions'), id: 'current' }, '가로 막대'],
+  ] as const)('opens the declared recipe inside the %s slot', async (title, instance, shape) => {
+    const primary = instance.id === 'current';
+    const store = createFakeSavedViewStore([saved({
+      page: primary ? stepFourPage : [],
+      panels: { version: 1, instances: [instance] },
+    })]);
+    await renderOverview('', answer, { savedViews: store, children: <Probe />, realWorkspace: true });
+    await waitFor(() => expect(views.status).toBe('ready'));
+    await open('saved');
+    const tab = await screen.findByRole('tab', { name: title });
+    fireEvent.keyDown(tab, { key: 'F10', shiftKey: true });
+    const recipe = await screen.findByRole('menuitem', { name: '이 패널 만든 방법' });
+    if (primary) expect(screen.queryByRole('menuitem', { name: '숨기기' })).toBeNull();
+    fireEvent.click(recipe);
+    const slot = document.querySelector<HTMLElement>(`[data-dock-panel="${tab.dataset.tabPanelId}"]`);
+    expect(slot).toBeTruthy();
+    const body = await within(slot!).findByRole('region', { name: '패널 설명 본문' });
+    expect(within(body).getByText(shape)).toBeTruthy();
+    if (primary) {
+      expect(within(body).getByText('AnalysisChartFrame')).toBeTruthy();
+      for (const label of ['숨기기', '고정']) {
+        expect(within(body).getByText(label).closest('li')?.textContent).toContain('미사용');
+      }
+    }
   });
 
   it.each([

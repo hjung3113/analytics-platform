@@ -271,9 +271,9 @@ function useWorkspacePanels(owner: string, query: string, step: Step, publisherF
   };
   const overflows = (plan: ReturnType<typeof planAdd>) => plan.overflows
     || (plan.config !== null && exceedsPanelLimit(project(plan.config, { acrossSteps: plan.config.connectionsEdited })));
-  useSavedViewPanels({
+  const selectedViewId = useSavedViewPanels({
     value: config.kind === 'custom' ? project(config) : null,
-    onOpen: (outcome, viewId) => {
+    onOpen: outcome => {
       let next: PanelConfiguration;
       switch (outcome) {
         case null: next = defaultPanels; break;
@@ -285,8 +285,7 @@ function useWorkspacePanels(owner: string, query: string, step: Step, publisherF
             if (isHeldSource(instance)) sources.push(instance);
             else added.push({ slot: restoredPanelSlot(instance), instance });
           }
-          const hasAliases = added.some(({ instance }) => canonicalPanelSlot(instance) === undefined);
-          next = { kind: 'custom', added, sources, ...(hasAliases && viewId !== undefined ? { viewId } : {}) };
+          next = { kind: 'custom', added, sources };
         }
       }
       setState(current => ({ ...current, config: next, opening: true }));
@@ -313,7 +312,7 @@ function useWorkspacePanels(owner: string, query: string, step: Step, publisherF
     return { ...current, config: { ...current.config, added, sources: current.config.sources.map(disconnect) } };
   });
   const editConnections = (config: CustomPanels) => setState(current => ({ ...current, config: { ...config, connectionsEdited: true } }));
-  return { config, add, remove, follow, editConnections, project, additionOverflows: (id: string) => overflows(planAdd(config, id, step)) };
+  return { config, selectedViewId, add, remove, follow, editConnections, project, additionOverflows: (id: string) => overflows(planAdd(config, id, step)) };
 }
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
@@ -354,7 +353,8 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `stalePinsKey` is the value identity of `rawPins`/`stalePins`
   }, [stalePinsKey, setPage]);
   const config = savedPanels.config;
-  const persistenceScope = config.kind === 'custom' && config.viewId !== undefined ? JSON.stringify([context.scopeId, config.viewId]) : undefined;
+  const hasAliases = config.kind === 'custom' && config.added.some(({ instance }) => canonicalPanelSlot(instance) === undefined);
+  const persistenceScope = hasAliases ? JSON.stringify([context.scopeId, savedPanels.selectedViewId]) : undefined;
   const selectionInputs = useAnalysisSelectionInputs(panelDeclarations.table.id);
   const selectionRejected = selectionInputs.rejected.includes(MOTION_EQUIPMENT_KEY);
   const keys = useHwTimeDrillRules([...state.rules, ...pinRules,
@@ -659,16 +659,22 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     if (equipmentDaysAvailable(input, page)) return <EquipmentDaysPanel input={input} verdict={verdict} date={date} />;
     return <p role="status" className="text-sm text-text-secondary">{filter.empty ? common('filterNoneSelected') : N.equipmentDaysUnavailable[lang]}</p>;
   };
-  const withRecipe = (slot: string, panel: string, front: ReactNode) =>
-    <RecipePanel id={panel} open={explained === slot} context={panelContext} onClose={() => setExplained(null)}>{front}</RecipePanel>;
+  const withRecipe = (slot: string, panel: string, front: ReactNode, primary = false) =>
+    <RecipePanel id={panel} open={explained === slot} context={panelContext} primary={primary} onClose={() => setExplained(null)}>{front}</RecipePanel>;
+  const restoredPrimary = added.find(panel => panel.slot === 'current')?.instance;
+  const currentDeclaration = step === 4 && restoredPrimary ? declaredPanelId(restoredPrimary) : undefined;
   const panels: PanelWorkspacePanel[] = [
     { id: 'tree', icon: ListTree, title: S.tree, minWidth: 200, preferredHeight: 640, render: () => <Hierarchy filter={filter} currentId={currentId} onDrill={onDrill} /> },
     ...(step > 1 ? [{ id: 'previous', icon: History, title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={(step - 1) as Step} previous /> }] : []),
     { id: 'current', title: dayPanel?.title ?? barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640,
+      declarationId: currentDeclaration,
       analysisSelectionSourceId: currentHostsSelection ? sourcePanelId : undefined,
-      render: () => dayPanel
-        ? renderEquipmentDays()
-        : <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} instanceId={currentHostsSelection ? sourceId : undefined} /> },
+      render: () => {
+        const front = dayPanel
+          ? renderEquipmentDays()
+          : <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} instanceId={currentHostsSelection ? sourceId : undefined} />;
+        return currentDeclaration ? withRecipe('current', currentDeclaration, front, true) : front;
+      } },
     ...extraPanels.map(({ id, instance, item }): PanelWorkspacePanel => {
       const keep = keptSources.has(id) ? { reason: HW_TIME_WORKSPACE_MESSAGES.heldSource } : undefined;
       const onRemove = instance && (() => {
@@ -809,9 +815,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       entry = { slot, heldFrom, instance: { ...updated, inputs: updated.inputs.map(input => input === after ? held : input) } };
     }
     entries.set(updated.id, entry);
-    const current = savedPanels.config;
-    return { ...(current.kind === 'custom' && current.viewId !== undefined ? { viewId: current.viewId } : {}),
-      kind: 'custom', added: [...entries.values()], sources: draftSources };
+    return { kind: 'custom', added: [...entries.values()], sources: draftSources };
   };
   const editSettings = (next: MenuViewPanels) => {
     const updated = next.instances.find(panel => panel.id === instance?.id);

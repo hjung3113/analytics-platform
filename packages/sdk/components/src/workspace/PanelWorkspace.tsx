@@ -22,7 +22,7 @@ import { PANEL_RECIPE_ITEM } from '../panel-recipe/panelRecipe';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { WorkspaceEdges } from './WorkspaceEdges';
-import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
+import { readWorkspaceState, scopedWorkspaceStorageKey, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
 import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withAdjustedRowHeights, withRows, workspacePreference, WORKSPACE_ID, WORKSPACE_PANEL_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
 import { canMoveBelow, clampRow, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows, validPreferred } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
@@ -113,7 +113,7 @@ export type PanelWorkspaceProps = {
   compactPreset?: string;
   /** Static identifier of this workspace within its menu (`^[a-z][a-z0-9._-]{0,63}$`): part of the local preference key. */
   persistKey: string;
-  /** Optional namespace for this menu workspace's local preference. New namespaces start from the unscoped preference. */
+  /** Optional namespace for this menu workspace's local preference. New namespaces start from the unscoped preference. Keeps up to eight recently written scopes. */
   persistenceScope?: string;
   /** Accessible name of the region. */
   label: Text;
@@ -217,25 +217,24 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
   useDevChecks(props);
   if (props.panels.length === 0) return null;
   let storageKey: string | null;
-  let defaultStorageKey: string | undefined;
+  let scope: string | undefined;
   let storage: PanelWorkspaceStorage | undefined;
   if (platform) {
     const userId = platform.session.user.id;
     const menuId = platform.route?.menu.id;
     storageKey = userId && menuId ? workspaceStorageKey(userId, menuId, props.persistKey) : null;
-    if (storageKey && props.persistenceScope !== undefined) {
-      defaultStorageKey = storageKey;
-      storageKey = `${storageKey}:scope:${props.persistenceScope}`;
-    }
+    scope = props.persistenceScope;
   } else {
     storageKey = props.persistence?.key || null;
     storage = props.persistence?.storage;
   }
   // A different preference key remounts the body to restore that workspace's layout.
-  return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} defaultStorageKey={defaultStorageKey} storage={storage} />;
+  const instanceKey = storageKey === null ? `memory:${props.persistKey}`
+    : scope === undefined ? storageKey : scopedWorkspaceStorageKey(storageKey, scope);
+  return <WorkspaceBody key={instanceKey} {...props} storageKey={storageKey} scope={scope} storage={storage} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, panelRecipe, edges = DEFAULT_EDGES, storageKey, defaultStorageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; defaultStorageKey?: string; storage: PanelWorkspaceStorage | undefined }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, panelRecipe, edges = DEFAULT_EDGES, storageKey, scope, storage }: PanelWorkspaceProps & { storageKey: string | null; scope?: string; storage: PanelWorkspaceStorage | undefined }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -263,8 +262,8 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const badgeOf = (id: string) => { const badge = panels.find(candidate => candidate.id === id)?.badge; return badge ? { count: badge.count, tone: badge.tone ?? 'neutral', description: tx(badge.description) } : undefined; };
 
   const [initial] = useState(() => {
-    const saved = storageKey ? readWorkspaceState(storageKey, spec, storage) : null;
-    const baseline = saved ?? (defaultStorageKey ? readWorkspaceState(defaultStorageKey, spec, storage) : null);
+    const saved = storageKey ? readWorkspaceState(storageKey, spec, storage, scope) : null;
+    const baseline = saved ?? (storageKey && scope !== undefined ? readWorkspaceState(storageKey, spec, storage) : null);
     return { saved, state: baseline ?? initialWorkspaceState(spec) };
   });
   const [storedState, setStored] = useState(initial.state);
@@ -516,18 +515,21 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     timer.current = undefined;
     const next = pending.current;
     pending.current = null;
-    if (next && storageKey) { writeWorkspaceState(storageKey, next, storageRef.current, { sharedRows: live.current.sharedRows.length > 0 }); persisted.current = next; }
-  }, [storageKey]);
+    if (next && storageKey) {
+      writeWorkspaceState(storageKey, next, storageRef.current, { sharedRows: live.current.sharedRows.length > 0, scope });
+      persisted.current = next;
+    }
+  }, [storageKey, scope]);
   useEffect(() => {
     if (!storageKey) return;
     clearTimeout(timer.current);
     // Back to what is already stored (a change undone within the delay): nothing to write.
-    const preference = workspacePreference(stored);
+    const preference = workspacePreference(stored, scope === undefined ? undefined : seenPanels.ids);
     const baseline = persisted.current ?? (automaticRows ? null : initial.state);
     if (baseline && sameWorkspaceState(preference, baseline)) { pending.current = null; return; }
     pending.current = preference;
     timer.current = setTimeout(flush, WORKSPACE_WRITE_DELAY_MS);
-  }, [automaticRows, initial.state, stored, storageKey, flush]);
+  }, [automaticRows, initial.state, stored, storageKey, scope, seenPanels.ids, flush]);
   useEffect(() => {
     window.addEventListener('pagehide', flush);
     return () => { window.removeEventListener('pagehide', flush); flush(); };

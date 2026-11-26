@@ -1,4 +1,4 @@
-import { useCallback, useContext, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { followHeldSets, type MenuViewPanels } from '@ap/contracts';
 import { AppContext, LentPanelPlatformContext } from '../platform/contexts';
 import { useHostPlatformOptional } from '../platform/hooks';
@@ -27,11 +27,13 @@ export function useMainScreenPanelSlots(host: HostPlatform | null) {
  * On open, null selects the menu's declared panels. 'unreadable' reports that the saved panels could not be opened.
  * The opened view id lets the screen scope local workspace preferences to that view. A local Scope
  * change can release held sets before a saved view is applied, in which case there is no view id.
+ * The return value is the accepted menu-view selection, independent of onOpen. It is null when no
+ * menu view is selected, including when a condition set is selected.
  */
 export function useSavedViewPanels(options: {
   value: MenuViewPanels | null;
   onOpen(outcome: SavedViewPanelsOutcome, viewId?: string): void;
-}): void {
+}): string | null {
   const app = useContext(AppContext);
   const host = useHostPlatformOptional();
   const menu = host?.route?.menu;
@@ -39,6 +41,7 @@ export function useSavedViewPanels(options: {
   const mainScreenSlots = useMainScreenPanelSlots(host);
   const slots = menu?.features.savedView === true ? mainScreenSlots : undefined;
   const supports = app?.internal.savedViewSupports;
+  const selectedViewId = useSyncExternalStore(slots?.subscribe ?? noSelectionSubscription, slots?.selectedMenuViewId ?? noSelectedView);
   const committed = useRef(options);
   useLayoutEffect(() => { committed.current = options; });
   // Held sets belong to the Scope they were held in (#2862): on a Scope switch the screen's panels follow at once, before any view list or
@@ -72,7 +75,11 @@ export function useSavedViewPanels(options: {
     const unsubscribe = supports.subscribe(sync);
     return () => { unsubscribe(); release?.(); };
   }, [menu, slots, supports]);
+  return selectedViewId;
 }
+
+const noSelectionSubscription = () => () => {};
+const noSelectedView = () => null;
 
 /**
  * Whether the main screen's panels hold a selection now (#2862). Held values live only in the screen and its saved view (ADR-0176), never in
