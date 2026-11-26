@@ -411,4 +411,77 @@ describe('mapping field drag', () => {
     expect(screen.getByRole('status')).toHaveTextContent('놓는 위치가 바뀌었습니다. 다시 끌어 놓으세요.');
     expect(changed).not.toHaveBeenCalled();
   });
+
+  it.each(['lostpointercapture', 'blur'])('guards the cancelled release click after %s', async reason => {
+    const { baseElement, changed, user } = setup();
+    const chip = screen.getByRole('button', { name: 'Motion' });
+    drag(chip, well(baseElement, 'breakdown'));
+    if (reason === 'blur') fireEvent.blur(window);
+    else pointer(chip, reason);
+    pointer(chip, 'pointerup', 12);
+    fireEvent.click(chip, { detail: 1 });
+    expect(changed).not.toHaveBeenCalled();
+
+    await user.click(chip);
+    screen.getByRole('button', { name: '장비' }).focus();
+    await user.keyboard('{Enter}');
+    expect(changed).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['소스 교체', '가동률', 0], ['동일 소스 다시 읽기', '가동 시간', 1],
+  ] as const)('checks the saved configuration during a drag after %s', (action, field, changes) => {
+    const { baseElement, changed } = setupSaveOwner();
+    fireEvent.click(screen.getByRole('button', { name: '가동 시간 지우기' }));
+    const chip = screen.getByRole('button', { name: '가동 시간' });
+    const target = well(baseElement, 'measure');
+    drag(chip, target);
+    fireEvent.click(screen.getByRole('button', { name: action }));
+    expect(well(baseElement, 'measure')).toBe(target);
+    const previewRetained = target.classList.contains('border-accent-primary');
+    pointer(chip, 'pointerup', 12);
+    fireEvent.click(chip, { detail: 1 });
+    expect(changed).toHaveBeenCalledTimes(changes);
+    expect(within(target).getByRole('button', { name: `${field} 지우기` })).toBeTruthy();
+    expect(previewRetained).toBe(changes === 1);
+  });
+
+  it('clears the stale drop status when the saved configuration changes', () => {
+    const { baseElement } = setupSaveOwner();
+    const chip = screen.getByRole('button', { name: '가동률' });
+    drag(chip, well(baseElement, 'breakdown'));
+    hit = well(baseElement, 'measure');
+    pointer(chip, 'pointerup', 12);
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('다시 끌어 놓으세요.');
+    fireEvent.click(screen.getByRole('button', { name: '소스 교체' }));
+    expect(status).toBeEmptyDOMElement();
+  });
+
+  it.each(['shelf', 'well'])('announces a refused drop from the %s and keeps focus in the drawer', source => {
+    const { baseElement, changed } = setup();
+    const measure = well(baseElement, 'measure');
+    const chip = source === 'shelf' ? screen.getByRole('button', { name: '가동 시간' }) : within(measure).getByText('가동 시간');
+    const status = screen.getByRole('status');
+    const focused = source === 'shelf' ? chip : measure;
+    focused.focus();
+    drag(chip, well(baseElement, 'breakdown'));
+    if (source === 'well') focused.blur();
+    expect(status).toBeEmptyDOMElement();
+    pointer(chip, 'pointerup', 12);
+    expect(status).toHaveTextContent('기준 칸에는 기준만 놓을 수 있습니다');
+    expect(focused).toHaveFocus();
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('dims a refusing well and displays its description below the assigned chip', () => {
+    const { baseElement } = setup();
+    const target = well(baseElement, 'breakdown');
+    const reason = '기준 칸에는 기준만 놓을 수 있습니다';
+    drag(screen.getByRole('button', { name: '가동 시간' }), target);
+    expect(target).toHaveAccessibleDescription(reason);
+    expect(within(target).getByText('장비')).toBeVisible();
+    expect(target.nextElementSibling).toHaveTextContent(reason);
+    expect(target).toHaveClass('bg-surface-canvas');
+  });
 });

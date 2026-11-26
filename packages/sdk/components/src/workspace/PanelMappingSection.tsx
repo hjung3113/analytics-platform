@@ -2,10 +2,10 @@ import { useId } from 'react';
 import { X } from 'lucide-react';
 import {
   assignMappingSlot, chartPanelProblem, CHART_PANEL_KINDS, mappingSlotProblem,
-  type ChartPanelDraft, type ChartPanelProblem, type MappingChip, type MappingSlot, type Text,
+  type ChartConfig, type ChartPanelDraft, type ChartPanelProblem, type MappingChip, type MappingSlot, type Text,
 } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
-import { Badge, FieldLabel, ToggleGroup, ToggleGroupItem, cn } from '@ap/ui';
+import { FieldLabel, ToggleGroup, ToggleGroupItem, cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PanelSettingsMapping } from './PanelSettingsDrawer';
 import { useMappingDrag } from './useMappingDrag';
@@ -31,18 +31,20 @@ function MappingWell({ slot, label, fieldId, field, problem, drop, onClear }: {
   const m = useMessages(COMPONENTS_MESSAGES);
   const describedBy = [problem && `${id}-problem`, drop?.reason && `${id}-drop`].filter(Boolean).join(' ') || undefined;
   return <div className={rowClass}>
-    <span id={`${id}-label`} className="text-text-secondary">{label}</span>
+    <span id={`${id}-label`} className="self-start pt-3 text-text-secondary">{label}</span>
     <div className="col-span-2 min-w-0">
       <div role="group" tabIndex={-1} aria-labelledby={`${id}-label`} aria-invalid={problem ? true : undefined}
         aria-describedby={describedBy} data-mapping-slot={slot}
-        className={cn('relative flex min-h-10 items-center rounded-md border bg-surface-sunken px-2 py-1 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring',
+        className={cn('flex min-h-10 items-center rounded-md border bg-surface-sunken px-2 py-1 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring',
           field === undefined ? 'border-dashed border-border-control' : 'border-border-subtle',
+          drop?.reason && 'bg-surface-canvas',
           drop && !drop.reason && 'border-solid border-accent-primary ring-1 ring-accent-primary ring-inset',
           drop?.hovered && !drop.reason && 'bg-accent-primary-soft/35')}>
         {field === undefined
           ? <span className="text-text-secondary">{m('panelMappingEmpty')}</span>
           : <span className={cn('inline-flex min-w-0 items-center rounded-full border pl-2',
-            problem ? 'border-border-subtle text-text-muted' : 'border-border-selected bg-surface-row-selected text-text-primary')}>
+            problem ? 'border-border-subtle text-text-muted' : 'border-border-selected bg-surface-row-selected text-text-primary',
+            drop?.reason && 'border-border-subtle bg-surface-canvas text-text-secondary')}>
             <span key={fieldId} data-mapping-chip={fieldId} data-mapping-chip-kind={slot}
               className={cn('min-w-0 break-words', chipDragClass)}>{field}</span>
             <button type="button" aria-label={m('panelMappingClear', { label: field })}
@@ -52,11 +54,12 @@ function MappingWell({ slot, label, fieldId, field, problem, drop, onClear }: {
                 onClear();
               }}><X aria-hidden className="size-3.5" /></button>
           </span>}
-        {drop?.reason && <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-md bg-surface-canvas/75 px-1">
-          <Badge id={`${id}-drop`} variant="secondary" className="max-w-full whitespace-normal break-keep text-center">{drop.reason}</Badge>
-        </div>}
       </div>
       {problem && <p id={`${id}-problem`} role="alert" className="mt-1 text-xs text-text-danger-label">{problem}</p>}
+      {/* Reserve space for the refusal so showing it doesn't move the next well. */}
+      <div className="min-h-9 pt-1 leading-4 text-text-secondary">
+        {drop?.reason && <p id={`${id}-drop`}>{drop.reason}</p>}
+      </div>
     </div>
   </div>;
 }
@@ -93,18 +96,20 @@ function MappingShelfGroup({ slot, label, fields, granted, draft, onAssign }: Pa
   </div>;
 }
 
-export function PanelMappingSection({ fields, granted, draft, problem, candidateError, onChange }: PanelSettingsMapping & {
-  draft: ChartPanelDraft; problem: ChartPanelProblem | null; candidateError: Text | undefined; onChange: (draft: ChartPanelDraft) => void;
+export function PanelMappingSection({ fields, granted, config, draft, problem, candidateError, onChange }: PanelSettingsMapping & {
+  config: ChartConfig; draft: ChartPanelDraft; problem: ChartPanelProblem | null; candidateError: Text | undefined; onChange: (draft: ChartPanelDraft) => void;
 }) {
   const id = useId();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const assign = (slot: MappingSlot, chip: MappingChip) => {
-    if (draft[slot] !== chip.id && !mappingSlotProblem(fields, draft, slot, chip, granted)) {
-      onChange(assignMappingSlot(draft, slot, chip));
-    }
+    const refusal = mappingSlotProblem(fields, draft, slot, chip, granted);
+    if (!refusal && draft[slot] !== chip.id) onChange(assignMappingSlot(draft, slot, chip));
+    return refusal;
   };
-  const drag = useMappingDrag(assign);
+  const drag = useMappingDrag(config, assign);
+  const retry = drag.status?.kind === 'retry';
+  const statusText = drag.status?.kind === 'refused' ? tx(drag.status.reason) : undefined;
   const dropPreview = (slot: MappingSlot): DropPreview | undefined => {
     if (!drag.preview) return;
     const reason = mappingSlotProblem(fields, draft, slot, drag.preview.chip, granted);
@@ -154,9 +159,9 @@ export function PanelMappingSection({ fields, granted, draft, problem, candidate
     </div>
     {generalError && <p role="alert" className={isIncomplete ? 'sr-only' : 'text-xs text-text-danger-label'}>{tx(generalError)}</p>}
     <div className="pointer-events-none sticky bottom-2 z-10 h-0">
-      <p role="status" className={drag.retry
+      <p role="status" className={retry
         ? 'absolute inset-x-2 bottom-0 mx-auto w-fit rounded-md border border-border-subtle bg-surface-canvas px-2 py-1 text-center t-caption text-text-secondary break-keep'
-        : 'sr-only'}>{drag.retry && m('panelMappingDropTargetChanged')}</p>
+        : 'sr-only'}>{retry ? m('panelMappingDropTargetChanged') : statusText}</p>
     </div>
   </div>;
 }

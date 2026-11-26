@@ -153,9 +153,9 @@ export function PanelSettingsDrawer({ title, panel, value, mapping, projectCandi
     if (index >= 0) inputs.splice(index, 1, ...(next ? [next] : []));
     save({ ...panel, inputs }, 'connections', pendingDraft);
   };
-  const mappingSection = mapping && draft ? {
+  const mappingSection = mapping && config && draft ? {
     id: 'mapping', title: COMPONENTS_MESSAGES.panelMapping, icon: SlidersHorizontal,
-    render: () => <PanelMappingSection key={editKey} {...mapping} draft={draft} problem={mappingProblem}
+    render: () => <PanelMappingSection key={editKey} {...mapping} config={config} draft={draft} problem={mappingProblem}
       candidateError={rejection?.section === 'mapping' && !rejection.problem ? rejection.reason : undefined}
       onChange={next => save(panel, 'mapping', next)} />,
   } : undefined;
