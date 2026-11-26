@@ -489,6 +489,53 @@ it('saves the active default publisher and can hold a selection from the chart a
   expect(within(settings).getByText('MEM-PHOTO-0103')).toBeTruthy();
 });
 
+it('restores a saved raw table with empty inputs in Ignore mode after a chart selection', async () => {
+  const equipment = ['MEM-PHOTO-0103', 'MEM-PHOTO-0105'];
+  const publisher: PanelInstance = { id: 'current', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+    outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
+  const table: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, inputs: [], outputs: [] };
+  const store = createFakeSavedViewStore([testSavedView({
+    id: 'saved', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM',
+    context, page, chartOptions: {}, layout: null, panels: { version: 1, instances: [publisher, table] },
+  })]);
+  const reads: MenuQuery[] = [];
+  await renderOverview('', request => {
+    const response = answer(request);
+    if (request.endpoint !== hwTime.levelRows.id && request.endpoint !== hwTime.tableRows.id) return response;
+    reads.push(request);
+    const equipmentIds = (request.params as { motionEquipment?: string[] }).motionEquipment ?? equipment;
+    const rows = equipmentIds.map(equipmentId => ({ id: equipmentId, equipmentId, values: {}, total: 1 }));
+    return request.endpoint === hwTime.levelRows.id
+      ? { ...response, data: { ...response.data as object, rows } }
+      : { ...response, data: { rows, total: rows.length } };
+  }, { savedViews: store, children: <Controls />, realWorkspace: true, realChart: 'hw-current', showDetail: true });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { expect(await views.select('saved')).toMatchObject({ ok: true }); });
+
+  fireEvent.click(await screen.findByRole('button', { name: '더보기' }));
+  const pointTools = await screen.findByRole('dialog', { name: '더보기' });
+  fireEvent.click(within(pointTools).getByRole('button', { name: '선택에 지점 추가' }));
+  fireEvent.keyDown(pointTools, { key: 'Escape' });
+  expect(new URLSearchParams(window.location.search).getAll(MOTION_EQUIPMENT_KEY)).toEqual([equipment[0]]);
+
+  const tab = await screen.findByRole('tab', { name: '원본 표' });
+  fireEvent.keyDown(tab, { key: 'F10', shiftKey: true });
+  fireEvent.keyDown(await screen.findByRole('menu'), { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+  const rows = within(await screen.findByRole('table', { name: 'HW Time 동작시간 표' }));
+  const sort = within(rows.getByRole('columnheader', { name: /EquipmentID/ })).getByRole('button');
+  await waitFor(() => expect((sort as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(sort);
+  await waitFor(() => expect(reads).toContainEqual(expect.objectContaining({
+    endpoint: hwTime.tableRows.id, params: expect.objectContaining({ sorting: [{ id: 'equipmentId', desc: false }] }),
+  })));
+  expect(reads.some(request => request.endpoint === hwTime.levelRows.id)).toBe(true);
+  for (const request of reads) expect(request.params).not.toHaveProperty(MOTION_EQUIPMENT_KEY);
+  for (const id of equipment) expect(await rows.findByRole('row', { name: new RegExp(id) })).toBeTruthy();
+  expect(rows.queryByText('분석 선택에 포함')).toBeNull();
+  expect(within(await openTableSettings()).getByRole('radio', { name: '무시', checked: true })).toBeTruthy();
+});
+
 it('keeps two held table filters separate through level reads, paging, export, and reopening with the live selection cleared', async () => {
   const equipment = ['MEM-PHOTO-0103', 'MEM-PHOTO-0105'];
   const source: PanelInstance = { id: 'current', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
