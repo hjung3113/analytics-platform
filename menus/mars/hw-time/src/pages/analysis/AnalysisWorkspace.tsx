@@ -697,7 +697,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           }
           case 'trend': {
             const display = projectDisplayInputs(panelDeclarations.trend, panelContext);
-            return trendTarget ? <RunQueryPanel kind={panel} target={trendTarget} filter={filter} date={display.date} /> : null;
+            return trendTarget ? <RunQueryPanel kind={panel} target={trendTarget} filter={filter} date={display.date}
+              equipmentSelectionInstanceId={step === 4 ? id : undefined} /> : null;
           }
           case 'scatter': {
             const input = projectQueryInputs(panelDeclarations.scatter, panelContext);

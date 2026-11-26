@@ -1,8 +1,8 @@
 import { formatText } from '@ap/kernel';
-import { HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
-import type { ChartPoint, ChartSeries } from '@ap/components';
+import { HW_TIME_NEW_PANEL_MESSAGES, HW_TIME_OVERVIEW_MESSAGES } from '../../messages';
+import type { ChartPoint, ChartSeries, SmallMultiplesSortOption } from '@ap/components';
 import { HW_TIME_UNIT, type HwTimeRunObservation } from '../../endpoints';
-import { htmStatusView } from '../../shared/htm';
+import { htmEmphasisStatus, htmStatusView } from '../../shared/htm';
 import { runBound, runColor, runColorKey, runValue, type RunBound, type RunValueSettings } from './runScatterData';
 
 export const DEFAULT_RUN_TREND_SETTINGS = { axis: 'equipment-module', color: 'equipment', value: 'motion' } as const;
@@ -59,6 +59,39 @@ export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: 
     points: categories.map(day => [day, new Set(rows.filter(row => dayKey(row.point.at) === day && row.judgement.status === status).map(row => row.point.equipmentId)).size]),
   }));
   const boundLabels = { lower: formatText(HW_TIME_OVERVIEW_MESSAGES.lower, lang), upper: formatText(HW_TIME_OVERVIEW_MESSAGES.upper, lang), band: formatText(HW_TIME_OVERVIEW_MESSAGES.htm, lang) };
-  return { series, categories, verdictSeries, pointStatus: pointStatusOf, pointStatusOf, pointColorKeyOf, bounds, boundLabels,
+
+  function smallMultiples() {
+    const ranks = new Map<string, { breaches: number; maximum: number }>();
+    const tiles = series.map(({ id, name, points }) => {
+      const bounds = new Map<string, RunBound>();
+      let breaches = 0;
+      let maximum = -Infinity;
+      const dailyPoints = points.map(([day, y], index) => {
+        const x = `${dates[index]}T00:00:00`;
+        const judgement = pointBySeries.get(`${id}/${day}`)?.judgement;
+        const status = htmEmphasisStatus(htmStatusView(judgement, lang));
+        // A gap or a day without criteria clears the previous day's step bounds.
+        if (settings.value === 'motion') bounds.set(x, judgement ? runBound(judgement) : {});
+        if (y !== null && Number.isFinite(y)) {
+          maximum = Math.max(maximum, y);
+          if (status) breaches += 1;
+        }
+        return { x, y, status };
+      });
+      ranks.set(id, { breaches, maximum });
+      return { id, label: name, selectionValue: id, points: dailyPoints, bounds };
+    });
+    const sortOptions: SmallMultiplesSortOption[] = [{
+      id: 'htm-breaches', label: HW_TIME_NEW_PANEL_MESSAGES.trendByBreaches,
+      compare(a, b) {
+        const left = ranks.get(a.id)!;
+        const right = ranks.get(b.id)!;
+        return right.breaches - left.breaches || (left.maximum === right.maximum ? 0 : right.maximum - left.maximum);
+      },
+    }];
+    return { series: tiles, sortOptions };
+  }
+
+  return { series, categories, verdictSeries, pointStatus: pointStatusOf, pointStatusOf, pointColorKeyOf, bounds, boundLabels, smallMultiples,
     bandPolicy: sharedBounds ? 'matching-equipment-bounds' as const : 'single-equipment-only' as const };
 }
