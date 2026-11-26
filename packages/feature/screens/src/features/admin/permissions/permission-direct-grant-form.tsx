@@ -542,6 +542,32 @@ function DirectGrantFields({
     !expirationInvalid &&
     !optionsUnconfirmed &&
     !pending;
+  const blocked = DIRECT_GRANT_COPY.blocked;
+  const submitBlockedReason = !sessionReady
+    ? DIRECT_GRANT_COPY.sessionLoading
+    : optionsUnconfirmed
+      ? DIRECT_GRANT_COPY.optionLoading
+      : selectedCandidate === undefined || selectedCandidates.length !== selectedCandidateKeys.length || !scopeReady
+        ? blocked.select
+        : overLimit
+          ? DIRECT_GRANT_COPY.batchLimit(PERMISSION_BATCH_MAX_ITEMS)
+          : preflightBlocked
+            ? blocked.preflight
+            : selfGrantForbidden
+              ? DIRECT_GRANT_COPY.selfForbidden
+              : selfPolicyUnconfirmed
+                ? DIRECT_GRANT_COPY.selfPolicyUnavailable
+                : !reasonReady
+                  ? blocked.reason
+                  : !expirationReady || expirationInvalid
+                    ? blocked.expiration
+                    : !selfEnvelopeReady
+                      ? blocked.selfEnvelope
+                      : governanceRequired && !governanceConfirmed
+                        ? blocked.governance
+                        : pending
+                          ? blocked.pending
+                          : undefined;
   const submitError = batchMutation.error ?? mutation.error;
   const submitErrorDestination = conflictDestination(submitError);
   const mappedError = submitError ? mapUnknownError(submitError).message : null;
@@ -923,6 +949,7 @@ function DirectGrantFields({
           onClick={submit}
           loading={pending}
           disabled={!canSubmit}
+          disabledReason={submitBlockedReason}
           data-testid="direct-grant-submit"
         >
           {DIRECT_GRANT_COPY.submit}

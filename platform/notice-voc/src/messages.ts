@@ -23,6 +23,7 @@ export const NOTICE_VOC_MESSAGES = {
   noticeDialogsCheckTheInput: { ko: '입력을 확인하세요', en: 'Check the input' },
   noticeDialogsTheServerRejectedTheInputFixThe: { ko: '서버가 입력을 받아들이지 않았습니다. 표시된 항목을 고쳐 다시 저장하세요.', en: 'The server rejected the input. Fix the marked fields and save again.' },
   noticeDialogsRequired: { ko: '필수 항목입니다.', en: 'Required.' },
+  noticeDialogsRequiredMark: { ko: '· 필수', en: '· Required' },
   noticeDialogsTooLong: { ko: '허용 길이를 넘었습니다.', en: 'Too long.' },
   noticeDialogsNotAValidValue: { ko: '올바른 값이 아닙니다.', en: 'Not a valid value.' },
   noticeDialogsNoticeSaved: { ko: '공지를 저장했습니다.', en: 'Notice saved.' },
