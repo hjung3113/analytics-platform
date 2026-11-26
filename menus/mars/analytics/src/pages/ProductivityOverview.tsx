@@ -25,7 +25,7 @@ import { pctHint, ProductivityDrillBody } from './productivity-drill';
 
 const GRANS: readonly Granularity[] = ['hour', 'day', 'week'];
 const KPI_KEYS = ['occupancy', 'dwell', 'cycleTime', 'throughput'] as const;
-/** The field of a trend bucket that draws each KPI card's mini trend; every bucket carries all four (#2743). */
+/** The trend bucket field of each KPI, for its card's mini trend and the main chart; every bucket carries all four (#2743). */
 const KPI_TREND_FIELD = { occupancy: 'occupancyPct', dwell: 'dwellPerJobH', cycleTime: 'p50', throughput: 'jobs' } as const;
 /** Occupancy moves within ±2pp between ordinary periods (the reference period moved 1.54pp), so the card calls that no change (#2743 variant A). */
 const OCCUPANCY_NO_CHANGE_PP = 2;
@@ -144,10 +144,7 @@ export default function ProductivityOverview(_: PageProps) {
       const version = METRIC_VERSIONS.cycleTime as keyof typeof CYCLE_VERSION_TEXT;
       const caption = `${m('productivityOverviewPooledJobsN', { value: String(ni(cy.jobs)) })} · ${formatMetricVersion(version)}`;
       return <StatCard key={kpi} {...shared} label={m('productivityOverviewCycleTimeP50P95')} unit={min}
-        value={<span className="flex items-baseline gap-2">
-          <span>{cy.p50 !== null ? n1(cy.p50) : '—'}</span>
-          <span className="t-stat-2 text-text-secondary">{cy.p95 !== null ? n1(cy.p95) : '—'}</span>
-        </span>}
+        value={cy.p50 !== null ? n1(cy.p50) : '—'} secondary={cy.p95 !== null ? n1(cy.p95) : '—'}
         // The comparison is P50 only while the card shows P50 / P95, so its text says so (#398).
         comparison={{ kind: 'absolute', current: cy.p50, previous: pc?.p50 ?? null, good: 'down',
           formatValue: v => `P50 ${n1(v)}${min}`, formatChange: v => `P50 ${n1(v)}${min}` }}
@@ -181,8 +178,8 @@ export default function ProductivityOverview(_: PageProps) {
     },
   };
   const meta = trendMeta[shownKpi];
-  const trendValue = (b: TrendBucket, i: number): number | null =>
-    shownKpi === 'occupancy' ? b.occupancyPct : shownKpi === 'dwell' ? b.dwellPerJobH : shownKpi === 'throughput' ? b.jobs : i === 0 ? b.p50 : b.p95;
+  // Cycle time draws P95 as its second series; every other series reads the card's own field.
+  const trendValue = (b: TrendBucket, i: number): number | null => shownKpi === 'cycleTime' && i === 1 ? b.p95 : b[KPI_TREND_FIELD[shownKpi]];
   const fmtTrend = (v: number) => formatNumber(v, lang, { decimals: meta.decimals });
 
   function trendSeriesFor(data: TrendData): { series: ChartSeries[]; compareSeries: ChartSeries[]; total: number | null; knownBucketCount: number; bucketCount: number } {

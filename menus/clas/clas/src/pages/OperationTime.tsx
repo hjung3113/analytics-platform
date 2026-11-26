@@ -84,7 +84,7 @@ function OperationTimeBody({ data, updatedAt, resultPeriod, previousEquipment }:
     kpi={{ id: 'summary', title: tx({ ko: '동작시간 요약', en: 'Operation time summary' }), node: <div className="grid grid-cols-1 gap-3 @min-[720px]/analysis:grid-cols-3">
       <StatCard label={tx({ ko: '집계 설비', en: 'Equipment ranked' })} value={number(data.ranking.length)} caption={tx({ ko: '동작시간 상위 30대까지', en: 'Up to the top 30' })} />
       <StatCard label={tx({ ko: '총 동작시간', en: 'Total operation time' })} value={number(total)} unit={minutes} caption={tx({ ko: '집계 설비 합계', en: 'Sum over ranked equipment' })} />
-      <StatCard label={tx({ ko: '설비당 평균', en: 'Average per equipment' })} value={number(data.ranking.length ? Math.round(total / data.ranking.length) : 0)} unit={minutes} caption={<span className="break-keep">{leaderCaption}</span>} />
+      <StatCard label={tx({ ko: '설비당 평균', en: 'Average per equipment' })} value={number(data.ranking.length ? Math.round(total / data.ranking.length) : 0)} unit={minutes} caption={leaderCaption} />
     </div> }}
     charts={[
       { id: 'ranking', title: tx({ ko: '설비별 동작시간', en: 'Operation time by equipment' }), node: <AnalysisChart chartId="clas-operation-ranking"

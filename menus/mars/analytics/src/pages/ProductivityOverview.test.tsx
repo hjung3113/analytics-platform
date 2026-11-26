@@ -154,6 +154,29 @@ describe('ProductivityOverview cycle-time delta label (#398)', () => {
     }
   });
 
+  // Variant A (#2743): which way is good is the menu's declaration; the card reads it out as improved / worsened / no change.
+  it.each([
+    { card: '물리 점유율', change: (s: KpiSet): KpiSet => ({ ...s, occupancy: { num: 103, den: 200, pct: 51.5 } }), tone: '변화 없음' },
+    { card: '물리 점유율', change: (s: KpiSet): KpiSet => ({ ...s, occupancy: { num: 106, den: 200, pct: 53 } }), tone: '좋아짐' },
+    { card: 'Process 체류', change: (s: KpiSet): KpiSet => ({ ...s, dwell: { hours: 12, jobs: 5, perJobH: 2.4 } }), tone: '나빠짐' },
+    { card: '사이클타임', change: (s: KpiSet): KpiSet => ({ ...s, cycle: { ...s.cycle, p50: 38 } }), tone: '좋아짐' },
+    { card: 'Job 처리량', change: (s: KpiSet): KpiSet => ({ ...s, throughput: { jobs: 150, started: 160 } }), tone: null },
+  ])('declares the good direction of $card ($tone)', async ({ card, change, tone }) => {
+    const storage = memoryStorage();
+    vi.stubGlobal('localStorage', storage);
+    try {
+      storage.setItem('platform:lang', 'ko');
+      const previous = kpiSet(40);
+      renderWithKpis({ ...kpis(40, 40), data: { current: change(previous), previous } });
+      const button = await screen.findByRole('button', { name: new RegExp(card) });
+      const text = button.textContent ?? '';
+      if (tone) expect(text).toContain(tone);
+      else for (const word of ['변화 없음', '좋아짐', '나빠짐']) expect(text).not.toContain(word);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('renders the cycle-time caption with the definition for its selected version', async () => {
     const storage = memoryStorage();
     vi.stubGlobal('localStorage', storage);
