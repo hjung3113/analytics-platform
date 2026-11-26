@@ -128,7 +128,7 @@ live에서 전환한 메뉴는 `query.applyPeriodOnLegacyEntry: true`를 `autoAp
 | 필드 | 선언 |
 | --- | --- |
 | `id`, `title` | 메뉴 안에서 유일한 id, 비어 있지 않은 ko/en 제목. 전체 표기는 `<menuId>/<panelId>` |
-| `queryInputs`, `displayInputs` | `{ context?: (ContextKey 또는 scopeId)[], page?: { key, required?, selection? }[] }`. `selection: 'filter'`는 거르기, `'highlight'`는 강조만(`displayInputs`만 허용). 분석 선택을 받으려면 해당 키에 `selection`을 선언하고, 무시하려면 키를 생략. 저장된 입력의 받는 방식과 실행 적용 상태는 §21.1을 따른다 |
+| `queryInputs`, `displayInputs` | `{ context?: (ContextKey 또는 scopeId)[], page?: { key, required?, selection? }[] }`. `selection: 'filter'`는 거르기, `'highlight'`는 강조만(`displayInputs`만 허용). 분석 선택을 받으려면 해당 키에 `selection`을 선언하고, 무시하려면 키를 생략. 복원한 입력의 `use`가 선언값보다 우선하고, 생략하면 선언한 받는 방식 모두를 적용한다. 복원한 인스턴스에 입력 항목이 없으면 그 키는 무시한다(§21.1) |
 | `outputs` | 패널 컨트롤이 바꾸는 `{ key, action, selection?: { dimension, shape, label?: Text, drillLevel?, objectKind? } }[]`. 메뉴 page key만 허용. `dimension`은 `^[a-z][a-zA-Z0-9]*$`, `shape`는 `set` 또는 `range`, `label`은 차원의 ko/en 표시 이름. `drillLevel`은 같은 메뉴의 선언된 드릴 키, `objectKind`는 `opensObject`의 종류 식별자 형식을 따른다 |
 | `grain` | 메뉴가 이름 붙인 데이터 단위. `^[a-z][a-zA-Z0-9]*$` 형태만 검사 |
 | `endpoints` | 메뉴의 엔드포인트 spec 목록. 패널 등록은 `id`, `menuId`, `permission`을 읽고, 빌려주기 등록은 `requiresScope`, `context`, `requiredContext`도 읽음 |
@@ -139,7 +139,7 @@ live에서 전환한 메뉴는 `query.applyPeriodOnLegacyEntry: true`를 `autoAp
 
 `registry.panels(menuId)`는 선언 순서대로 `menuId`, 중복을 제거한 `permissions`(메뉴의 모든 권한 AND 엔드포인트 권한), `disabledReason(context)`를 더한 등록을 돌려준다. `registry.panelsReading(key)`는 조회·표시 입력을, `registry.panelsWriting(key)`는 출력을 역방향으로 찾는다. 가용성 재정의가 없으면 누락된 필수 page 입력의 드릴 레벨·`query.required.page` 라벨을 이유로 쓰며 라벨이 없으면 키 이름을 쓴다. Scope와 전역 Context 준비 판정은 기존 Kernel 게이트가 소유한다.
 
-분석 선택 입력은 같은 메뉴의 다른 패널이 선언한 분석 선택 출력이나 메뉴의 `analysisSelectionInbound` 선언을 참조한다. 같은 분석 선택 키의 출력은 차원, 형태, `drillLevel`, `objectKind`가 같아야 한다. 두 선택 필드는 각각 모든 출력에서 생략할 수 있다. 라벨을 선언한 출력끼리는 라벨도 같아야 한다. Registry가 불일치를 등록에서 거부한다. 입력의 `source`는 선언 순서상 첫 출력 패널이며 공유 링크와 뒤로가기에서도 같다. 출력이 없는 수신 전용 키에는 출발 패널이 없다. `set`만 `repeatedPageKeys`에 넣고 두 형태 모두 `contextResetKeys`에 넣는다. 드릴 단계, `pageConditions`, `conditionPreset`, `navViews` 프리셋, `subjectPageKeys`, `opensObject`의 `pageKey`, `returnTo`, `hiddenPageKeys`, 소속 carry set과 키를 공유할 수 없다.
+분석 선택 입력은 같은 메뉴의 다른 패널이 선언한 분석 선택 출력이나 메뉴의 `analysisSelectionInbound` 선언을 참조한다. 같은 분석 선택 키의 출력은 차원, 형태, `drillLevel`, `objectKind`가 같아야 한다. 두 선택 필드는 각각 모든 출력에서 생략할 수 있다. 라벨을 선언한 출력끼리는 라벨도 같아야 한다. Registry가 불일치를 등록에서 거부한다. 선언만 쓰는 입력의 `source`는 선언 순서상 첫 출력 패널이며 공유 링크와 뒤로가기에서도 같다. 복원한 따라가기 입력은 `from`이 가리키는 인스턴스의 출력 키를 읽는다. 출력이 없는 수신 전용 키에는 출발 패널이 없다. `set`만 `repeatedPageKeys`에 넣고 두 형태 모두 `contextResetKeys`에 넣는다. 드릴 단계, `pageConditions`, `conditionPreset`, `navViews` 프리셋, `subjectPageKeys`, `opensObject`의 `pageKey`, `returnTo`, `hiddenPageKeys`, 소속 carry set과 키를 공유할 수 없다.
 
 `MenuMeta.analysisSelectionInbound`는 `resolveSelectionLink`와 `objectSelectionLinks`가 채울 수 있는 `{ key, dimension, shape, label? }[]`다(§22). 메뉴가 선언한 page key를 차원마다 하나씩 사용하고, 같은 키의 출력과 차원·형태·라벨이 일치해야 한다. 모듈 메뉴는 선언할 수 없다.
 
@@ -693,7 +693,7 @@ Saved View는 단순 Filter 저장 기능이 아니라 플랫폼 공통 자산�
 - **저장된 연결의 받는 방식 (#2762):** v1의 `inputs[]`에는 따라가기(`mode: 'follow'`)와 붙잡기(`mode: 'hold'`) 모두에 선택 필드 `use`를 둘 수 있다. `filter`는 «거르기», `highlight`는 «강조만»이다. `use`를 생략하면 패널 선언의 입력 `selection`을 따른다(§5). «무시»는 입력 항목 자체를 빼서 저장한다. 저장 형식을 검증할 때는 패널 선언을 볼 수 없으므로 `use`가 없는 연결을 기본 받는 방식인 `filter`로 센다. 거르기 연결만으로 순환이 생기면 저장 전에 `panels connections must not contain a filter cycle` 사유를 돌려준다. 강조 연결을 거쳐야 닫히는 순환은 허용한다. 자기 패널의 출력은 입력에서 참조할 수 없다.
 - **빌린 패널의 붙잡은 기간 (#2997):** 인스턴스의 `source`는 `{ kind: 'declared', panel: '<menuId>/<panelId>' }`다. 붙잡은 기간은 v1 `inputs[]`의 `mode: 'hold'`, `value: { shape: 'range', from, to }`로 저장한다. `from` 참조는 기간을 가져온 인스턴스의 저장된 출력이고, 출력의 차원으로 붙잡은 값을 복원한다. 같은 원본을 빌린 인스턴스마다 ID와 입력을 따로 둔다. 붙잡은 범위는 화면 메모리와 저장된 뷰에만 둔다. 받는 메뉴의 적용 기간, URL 및 다른 인스턴스의 입력에는 영향을 주지 않는다.
 
-- **구현 상태 (#2762 ②):** Part A에서 패널 설정으로 저장된 연결을 편집할 수 있다. 분석 선택 실행은 현재 패널 선언을 읽는다. Part B(저장된 `use`의 실행 반영)는 미구현이며 Part A가 병합되면 재개한다. 복원된 입력의 `use: 'highlight'`가 선언의 `selection: 'filter'`보다 우선하는 테스트를 통과하면 완료한다(§5).
+- **구현 상태 (#2762 ②):** Part A에서 패널 설정으로 저장된 연결을 편집하고, Part B에서 복원한 연결의 받는 방식을 실행에 적용한다. `AnalysisSelectionInstances`에 인스턴스를 등록하면 Kernel은 `from`으로 인스턴스 간 관계를 잇고, 거르기 간선만 순환 검사와 조회 조건 줄의 칩 순서에 쓴다. URL 채널의 가용성은 현재 발행 인스턴스(`publishers`로 지정할 수 있음)의 `instanceId`가 붙은 보고만 받는다. 다른 인스턴스나 호환되지 않는 출력을 따라가는 입력은 읽을 수 없는 연결로 돌려준다. 붙잡은 값은 기존 `HeldAnalysisSelections`로 넘기며 URL과 발행 인스턴스의 가용성에 의존하지 않는다.
 
 ### 21.2 소유·공유 (Decided)
 

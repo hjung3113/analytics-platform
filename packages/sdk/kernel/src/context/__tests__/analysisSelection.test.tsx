@@ -1,9 +1,9 @@
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
-import { emptyGlobal, groupId, NO_FEATURES, spaceId, type AnalysisSelection, type PanelDeclaration } from '@ap/contracts';
+import { emptyGlobal, groupId, NO_FEATURES, spaceId, type AnalysisSelection, type PanelDeclaration, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi, describe } from 'vitest';
-import { analysisSelectionParam, HeldAnalysisSelections, type HeldAnalysisSelection, parseAnalysisSelection, useAnalysisSelectionChips, useAnalysisSelectionInputs, useAnalysisSelectionOutput, usePlatform } from '../../index';
+import { AnalysisSelectionInstances, analysisSelectionParam, HeldAnalysisSelections, type HeldAnalysisSelection, parseAnalysisSelection, useAnalysisSelectionChips, useAnalysisSelectionInputs, useAnalysisSelectionOutput, usePlatform } from '../../index';
 import { I18nProvider } from '../../i18n';
 import { LentPanelPlatformContext } from '../../platform/contexts';
 import { useAnalysisSelectionHoverTarget } from '../analysisSelection';
@@ -822,11 +822,57 @@ it.each(['metaKey', 'ctrlKey'] as const)('ignores %s undo in the board and uses 
   } finally { go.mockRestore(); }
 });
 
+it.each([
+  ['stored highlight over declared filter', setKey, 'highlight', 'highlight'],
+  ['stored filter over declared highlight', rangeKey, 'filter', 'filter'],
+  ['omitted use on a declared filter', setKey, undefined, 'filter'],
+  ['omitted use on a declared highlight', rangeKey, undefined, 'highlight'],
+  ['omitted input', setKey, 'ignore', undefined],
+] as const)('reads %s from a restored instance', (_label, key, use, expected) => {
+  const inputs: PanelInstanceInput[] = use === 'ignore' ? [] : [{
+    key, from: `source.${key}`, mode: 'follow', ...(use && { use }),
+  }];
+  const result = mount(() => useAnalysisSelectionInputs('receiver', inputs), `&${key}=${key === setKey ? 'B' : '14:00/16:00'}`);
+  expect(result.current.applied.map(input => input.use)).toEqual(expected ? [expected] : []);
+  expect(result.current.filtered).toBe(expected === 'filter');
+});
+
+it.each([['highlight', true], ['filter', false]] as const)('uses a restored %s connection when guarding availability reports against filter cycles', (use, expected) => {
+  const cyclePanels: PanelDeclaration[] = [
+    { ...panel, id: 'a', queryInputs: { page: [{ key: 'kb', selection: 'filter' }] },
+      outputs: [{ key: 'ka', action: 'pick', selection: { shape: 'set', dimension: 'a' } }] },
+    { ...panel, id: 'b', displayInputs: { page: [{ key: 'ka', selection: 'highlight' }] },
+      outputs: [{ key: 'kb', action: 'pick', selection: { shape: 'set', dimension: 'b' } }] },
+  ];
+  const cycleRegistry = createRegistry({
+    spaces: registry.spaces, groups: registry.groups,
+    menus: [home, { ...home, id: 'analysis', path: '/analysis', primary: false, panels: cyclePanels,
+      pageKeys: ['ka', 'kb'], repeatedPageKeys: ['ka', 'kb'], contextResetKeys: ['ka', 'kb'] }],
+  });
+  const instances: PanelInstance[] = [
+    { id: 'a', source: { kind: 'declared', panel: 'a' }, inputs: [{ key: 'kb', from: 'b.kb', mode: 'follow' }],
+      outputs: [{ key: 'ka', shape: 'set', dimension: 'a' }] },
+    { id: 'b', source: { kind: 'declared', panel: 'b' }, inputs: [{ key: 'ka', from: 'a.ka', mode: 'follow', use }],
+      outputs: [{ key: 'kb', shape: 'set', dimension: 'b' }] },
+  ];
+  const result = mount(() => useAnalysisSelectionOutput('a', 'ka', { available: ['a'], instanceId: 'a' }), '&ka=a', ({ children }) =>
+    <I18nProvider><PlatformProvider adapter={adapter} registry={cycleRegistry}><AnalysisSelectionInstances instances={instances}>{children}</AnalysisSelectionInstances></PlatformProvider></I18nProvider>);
+  expect(result.current.availabilityCurrent).toBe(expected);
+});
+
+
 describe('HeldAnalysisSelections (#2862)', () => {
   const held = { [setKey]: { dimension: 'equipment', selection: { shape: 'set', values: ['H'] } } } as const satisfies Record<string, HeldAnalysisSelection>;
   const wrap = (value: Record<string, HeldAnalysisSelection>) => function Held({ children }: { children: ReactNode }) {
     return <Wrapper><HeldAnalysisSelections held={value}>{children}</HeldAnalysisSelections></Wrapper>;
   };
+  it('uses the held context value and the stored receiving mode for a restored hold', () => {
+    const input: PanelInstanceInput = { key: setKey, from: `source.${setKey}`, mode: 'hold', use: 'highlight',
+      value: { shape: 'set', values: ['serialized'] } };
+    const result = mount(() => useAnalysisSelectionInputs('receiver', [input]), `&${setKey}=B`, wrap(held));
+    expect(result.current.applied).toMatchObject([{ key: setKey, use: 'highlight', held: true, selection: held[setKey].selection }]);
+    expect(result.current.filtered).toBe(false);
+  });
   it('reads the held value for its key, marks it held and lets other keys follow the URL', () => {
     const result = mount(() => useAnalysisSelectionInputs('receiver'), `&${setKey}=B&${rangeKey}=14:00/16:00`, wrap(held));
     expect(result.current.applied.map(input => [input.key, input.selection, input.held])).toEqual([
@@ -856,4 +902,177 @@ describe('HeldAnalysisSelections (#2862)', () => {
     expect(result.current.rejectedHeld).toEqual([]);
     expect(result.current.applied.map(input => input.key)).toEqual([rangeKey]);
   });
+});
+
+it('reads both declared uses of a key when no instance inputs are supplied', () => {
+  const both = createRegistry({
+    spaces: registry.spaces, groups: registry.groups,
+    menus: [home, { ...home, id: 'analysis', path: '/analysis', primary: false,
+      panels: [panels[0]!, { ...panel, id: 'both', outputs: [], queryInputs: {}, displayInputs: { page: [
+        { key: setKey, selection: 'highlight' }, { key: setKey, selection: 'filter' },
+      ] } }], pageKeys: [setKey, rangeKey], repeatedPageKeys: [setKey], contextResetKeys: [setKey, rangeKey] }],
+  });
+  const result = mount(() => useAnalysisSelectionInputs('both'), `&${setKey}=B`, ({ children }) =>
+    <I18nProvider><PlatformProvider adapter={adapter} registry={both}>{children}</PlatformProvider></I18nProvider>);
+  expect(result.current.applied.map(input => input.use)).toEqual(['highlight', 'filter']);
+  expect(result.current.filtered).toBe(true);
+});
+
+it.each([
+  ['upstream', ['a1', 'a2', 'b'], [['ka', null], ['kb', 'ka']]],
+  ['downstream', ['a2', 'a1', 'b'], [['kb', null], ['ka', 'kb']]],
+] as const)('reports availability and orders chips with the %s duplicate instance first', (_first, order, expected) => {
+  const chain = createRegistry({
+    spaces: registry.spaces, groups: registry.groups,
+    menus: [home, { ...home, id: 'analysis', path: '/analysis', primary: false,
+      pageKeys: ['ka', 'kb'], repeatedPageKeys: ['ka', 'kb'], contextResetKeys: ['ka', 'kb'],
+      panels: [
+        { ...panel, id: 'a', queryInputs: { page: [{ key: 'kb', selection: 'filter' }] },
+          outputs: [{ key: 'ka', action: 'pick', selection: { shape: 'set', dimension: 'a' } }] },
+        { ...panel, id: 'b', queryInputs: { page: [{ key: 'ka', selection: 'filter' }] },
+          outputs: [{ key: 'kb', action: 'pick', selection: { shape: 'set', dimension: 'b' } }] },
+      ] }],
+  });
+  const nodes: PanelInstance[] = [
+    { id: 'a1', source: { kind: 'declared', panel: 'a' }, inputs: [], outputs: [{ key: 'ka', dimension: 'a', shape: 'set' }] },
+    { id: 'a2', source: { kind: 'declared', panel: 'a' }, inputs: [{ key: 'kb', from: 'b.kb', mode: 'follow' }],
+      outputs: [{ key: 'ka', dimension: 'a', shape: 'set' }] },
+    { id: 'b', source: { kind: 'declared', panel: 'b' }, inputs: [{ key: 'ka', from: 'a1.ka', mode: 'follow' }],
+      outputs: [{ key: 'kb', dimension: 'b', shape: 'set' }] },
+  ];
+  const instances = order.map(id => nodes.find(node => node.id === id)!);
+  const result = mount(() => ({
+    a: useAnalysisSelectionOutput('a', 'ka', { available: ['A'], instanceId: order[0] }),
+    b: useAnalysisSelectionOutput('b', 'kb', { available: ['B'], instanceId: 'b' }),
+    chips: useAnalysisSelectionChips().chips,
+  }), '&ka=A&kb=B', ({ children }) =>
+    <I18nProvider><PlatformProvider adapter={adapter} registry={chain}><AnalysisSelectionInstances instances={instances}>{children}</AnalysisSelectionInstances></PlatformProvider></I18nProvider>);
+  expect(result.current.a.availabilityCurrent).toBe(true);
+  expect(result.current.b.availabilityCurrent).toBe(true);
+  expect(result.current.chips.map(({ key, after }) => [key, after])).toEqual(expected);
+});
+
+it.each(['equipment', 'other'])('validates a stored hold against source dimension %s with an empty URL', dimension => {
+  const input: PanelInstanceInput = { key: setKey, from: `saved-source.${setKey}`, mode: 'hold', value: { shape: 'set', values: ['H'] } };
+  const instances: PanelInstance[] = [
+    { id: 'saved-source', source: { kind: 'declared', panel: 'source' }, inputs: [], outputs: [{ key: setKey, dimension, shape: 'set' }] },
+    { id: 'saved-receiver', source: { kind: 'declared', panel: 'receiver' }, inputs: [input], outputs: [] },
+  ];
+  const result = mount(() => useAnalysisSelectionInputs('receiver', [input]), '', ({ children }) =>
+    <Wrapper><AnalysisSelectionInstances instances={instances}><HeldAnalysisSelections held={{ [setKey]: { dimension, selection: input.value } }}>{children}</HeldAnalysisSelections></AnalysisSelectionInstances></Wrapper>);
+  if (dimension === 'equipment') {
+    expect(result.current.applied).toMatchObject([{ key: setKey, held: true, selection: input.value }]);
+  } else {
+    expect(result.current.rejectedHeld).toEqual([setKey]);
+    expect(result.current.applied).toEqual([]);
+  }
+});
+
+const wiredKeys = ['ka', 'kb', 'kc'];
+const wiredRegistry = createRegistry({
+  spaces: registry.spaces, groups: registry.groups,
+  menus: [home, { ...home, id: 'analysis', path: '/analysis', primary: false,
+    pageKeys: wiredKeys, repeatedPageKeys: wiredKeys, contextResetKeys: wiredKeys,
+    panels: wiredKeys.map((key, index) => ({
+      ...panel, id: key, title: { ko: key, en: key },
+      displayInputs: index === 0 ? { page: [
+        { key: 'kb', selection: 'highlight' as const }, { key: 'kb', selection: 'filter' as const },
+        { key: 'kc', selection: 'filter' as const },
+      ] } : {},
+      outputs: [{ key, action: 'pick' as const, selection: { shape: 'set' as const, dimension: 'equipment' } }],
+    })) }],
+});
+const wiredSource = (id: string, key: string): PanelInstance => ({
+  id, source: { kind: 'declared', panel: key }, inputs: [], outputs: [{ key, shape: 'set', dimension: 'equipment' }],
+});
+const wiredWrapper = (instances?: PanelInstance[]) => function Wired({ children }: { children: ReactNode }) {
+  return <I18nProvider><PlatformProvider adapter={adapter} registry={wiredRegistry}>
+    <AnalysisSelectionInstances instances={instances}>{children}</AnalysisSelectionInstances>
+  </PlatformProvider></I18nProvider>;
+};
+const followOtherKey: PanelInstanceInput = { key: 'kb', from: 'c.kc', mode: 'follow' };
+
+it('follows the saved output key and checks that output’s availability', () => {
+  const receiver = { ...wiredSource('a', 'ka'), inputs: [followOtherKey] };
+  const instances = [receiver, wiredSource('b', 'kb'), wiredSource('c', 'kc')];
+  const result = mount(() => {
+    const [available, setAvailable] = useState(['C']);
+    useAnalysisSelectionOutput('kc', 'kc', { available, instanceId: 'c' });
+    return { input: useAnalysisSelectionInputs('ka', receiver.inputs), setAvailable, chips: useAnalysisSelectionChips().chips };
+  }, '&ka=A&kb=B&kc=C', wiredWrapper(instances));
+
+  expect(result.current.input.applied).toMatchObject([
+    { key: 'kb', use: 'highlight', selection: { values: ['C'] }, source: { panelId: 'kc' } },
+    { key: 'kb', use: 'filter', selection: { values: ['C'] }, source: { panelId: 'kc' } },
+  ]);
+  expect(result.current.chips.find(chip => chip.key === 'ka')?.after).toBe('kc');
+  act(() => result.current.setAvailable(['D']));
+  expect(result.current.input.applied).toEqual([]);
+  expect(result.current.input.unavailable).toEqual(['kb']);
+});
+
+it('uses only the live publisher’s report and rejects a follow wire to the other instance', () => {
+  const instances = [wiredSource('copy', 'kc'), wiredSource('c', 'kc')];
+  function Reporters() {
+    const owner = useAnalysisSelectionOutput('kc', 'kc', { instanceId: 'c', available: ['C'] });
+    const copy = useAnalysisSelectionOutput('kc', 'kc', { instanceId: 'copy', available: ['D'] });
+    const live = useAnalysisSelectionInputs('ka', [followOtherKey]);
+    const inactive = useAnalysisSelectionInputs('ka', [{ ...followOtherKey, from: 'copy.kc' }]);
+    return <output data-testid="reports">{JSON.stringify([owner.availabilityCurrent, copy.availabilityCurrent,
+      live.applied.length, live.unavailable, inactive.applied.length, inactive.unavailable])}</output>;
+  }
+  function Workspace() {
+    const [publisher, setPublisher] = useState('c');
+    return <>
+      <button type="button" onClick={() => setPublisher('copy')}>Switch publisher</button>
+      <AnalysisSelectionInstances instances={instances} publishers={new Map([['kc', publisher]])}>
+        <Reporters />
+      </AnalysisSelectionInstances>
+    </>;
+  }
+  window.history.replaceState(null, '', '/mars/analysis?v=1&kb=B&kc=C');
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={wiredRegistry}><Workspace /></PlatformProvider></I18nProvider>);
+
+  expect(screen.getByTestId('reports').textContent).toBe(JSON.stringify([true, false, 2, [], 0, ['kb']]));
+  fireEvent.click(screen.getByRole('button', { name: 'Switch publisher' }));
+  expect(screen.getByTestId('reports').textContent).toBe(JSON.stringify([false, true, 0, ['kb'], 0, ['kb']]));
+
+});
+
+it('updates the applied source when rewiring an equal held value', () => {
+  const instances = [wiredSource('b', 'kb'), wiredSource('c', 'kc')];
+  const held = { kb: { dimension: 'equipment', selection: { shape: 'set', values: ['H'] } } } as const;
+  const Wired = wiredWrapper(instances);
+  const result = mount(() => {
+    const [from, setSource] = useState('b.kb');
+    return { setSource, input: useAnalysisSelectionInputs('ka', [
+      { key: 'kb', from, mode: 'hold', use: 'filter', value: held.kb.selection },
+    ]) };
+  }, '', ({ children }) => <Wired><HeldAnalysisSelections held={held}>{children}</HeldAnalysisSelections></Wired>);
+  expect(result.current.input.applied[0]?.source?.panelId).toBe('kb');
+  act(() => result.current.setSource('c.kc'));
+  expect(result.current.input.applied[0]?.source?.panelId).toBe('kc');
+});
+
+it.each(['rejected', 'rejectedHeld', 'unavailable'] as const)('reports a dual-use channel once in %s', kind => {
+  const key = 'kb';
+  const held: Record<string, HeldAnalysisSelection> = kind === 'rejectedHeld' ? { [key]: { dimension: 'stale', selection: a } } : {};
+  const Wired = wiredWrapper();
+  const query = kind === 'rejected' ? Array.from({ length: 51 }, (_, index) => `&kb=${index}`).join('') : '&kb=B';
+  const result = mount(() => {
+    useAnalysisSelectionOutput(key, key, { available: ['OTHER'] });
+    return useAnalysisSelectionInputs('ka');
+  }, query,
+    ({ children }) => <Wired><HeldAnalysisSelections held={held}>{children}</HeldAnalysisSelections></Wired>);
+
+  expect(result.current[kind]).toEqual([key]);
+  expect(result.current.applied).toEqual([]);
+});
+
+it.each([
+  ['&ka=A&kb=B&kc=C', [['kb', null], ['ka', 'kb'], ['kc', null]]],
+  ['&ka=A&kc=C', [['kc', null], ['ka', 'kc']]],
+] as const)('keeps declaration-only chip ordering for %s', (query, expected) => {
+  const result = mount(useAnalysisSelectionChips, query, wiredWrapper());
+  expect(result.current.chips.map(({ key, after }) => [key, after])).toEqual(expected);
 });
