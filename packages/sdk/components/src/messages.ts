@@ -780,6 +780,7 @@ export const COMPONENTS_MESSAGES = {
   panelOptionsResetOne: { ko: '{label} 기본으로: {value} 해제', en: 'Reset {label}: clear {value}' },
   panelAdd: { ko: '패널 추가', en: 'Add panel' },
   panelAddDeclared: { ko: '이 메뉴의 패널', en: 'Panels in this menu' },
+  panelAddInput: { ko: '입력: {selection}', en: 'Input: {selection}' },
   panelAddPins: { ko: '추가하면 고정', en: 'Pin when added' },
   panelAddShown: { ko: '이미 있음', en: 'Already shown' },
   panelAddUnavailable: { ko: '사용할 수 없음', en: 'Unavailable' },
