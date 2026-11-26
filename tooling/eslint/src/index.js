@@ -479,12 +479,20 @@ const REACT_FLOOR_SYNTAX = [
 // #3028: Vite 8 (rolldown) does not inline `isDevelopment()` across modules, so code it guards stays in a production bundle.
 // SDK source compares `process.env.NODE_ENV !== 'production'` inline; the helper stays public for consumers. Tests may call it.
 const IS_DEVELOPMENT_MESSAGE = "Vite 8 does not fold isDevelopment() across modules, so the guarded code ships in production (#3028). Write `process.env.NODE_ENV !== 'production'` inline.";
+// Any import (aliased too), member read or destructuring; the re-export in ui's index (an ExportSpecifier) stays legal.
+const IS_DEVELOPMENT_SYNTAX = [
+  "ImportSpecifier[imported.name='isDevelopment']",
+  "MemberExpression[property.name='isDevelopment']",
+  "MemberExpression[computed=true][property.value='isDevelopment']",
+  "ObjectPattern > Property[key.name='isDevelopment']",
+  "ObjectPattern > Property[key.value='isDevelopment']",
+].map(selector => ({ selector, message: IS_DEVELOPMENT_MESSAGE }));
 // SDK source syntax bans: the React floor and the #3028 helper. One rule entry per file set, since a later config replaces `no-restricted-syntax` whole.
 const SDK_SYNTAX = [
   {
     files: ['**/*.{ts,tsx}'],
     ignores: TEST_ENTRY_FILES,
-    rules: { 'no-restricted-syntax': ['error', ...REACT_FLOOR_SYNTAX, { selector: "CallExpression[callee.name='isDevelopment']", message: IS_DEVELOPMENT_MESSAGE }] },
+    rules: { 'no-restricted-syntax': ['error', ...REACT_FLOOR_SYNTAX, ...IS_DEVELOPMENT_SYNTAX] },
   },
   { files: TEST_ENTRY_FILES, rules: { 'no-restricted-syntax': ['error', ...REACT_FLOOR_SYNTAX] } },
 ];

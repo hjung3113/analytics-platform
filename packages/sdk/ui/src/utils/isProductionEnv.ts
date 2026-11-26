@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-syntax -- the deprecated wrapper keeps its documented answer; removal is tracked in .planning/backlog.md (#2951).
 import { isDevelopment } from './isDevelopment';
 
 // Kept for consumers that already call it; SDK source compares `process.env.NODE_ENV` inline (#3028).
@@ -8,7 +9,6 @@ import { isDevelopment } from './isDevelopment';
 export function isProductionEnv(meta: { env?: { PROD?: boolean } }, g: { process?: { env?: { NODE_ENV?: string } } }): boolean {
   if (meta.env?.PROD === true || g.process?.env?.NODE_ENV === 'production') return true;
   try {
-    // eslint-disable-next-line no-restricted-syntax -- the deprecated wrapper keeps its documented answer; removal is tracked in .planning/backlog.md (#2951).
     return !isDevelopment();
   } catch (error) {
     // A browser bundle built without NODE_ENV replacement has no global `process` (ReferenceError, or TypeError where it is

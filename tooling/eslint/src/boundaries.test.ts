@@ -184,6 +184,10 @@ const rows: Row[] = [
   { file: 'packages/sdk/components/src/x.tsx', code: `import { isDevelopment } from '@ap/ui'; if (isDevelopment()) console.warn('x');`, rule: 'no-restricted-syntax', token: 'inline' },
   { file: 'packages/sdk/shell/src/x.ts', code: `import { isDevelopment } from '@ap/ui'; export const dev = isDevelopment();`, rule: 'no-restricted-syntax', token: '#3028' },
   { file: 'packages/sdk/ui/src/utils/x.ts', code: `import { isDevelopment } from './isDevelopment'; export const dev = isDevelopment();`, rule: 'no-restricted-syntax', token: '#3028' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import { isDevelopment as dev } from '@ap/ui'; export const on = dev();`, rule: 'no-restricted-syntax', token: '#3028' },
+  { file: 'packages/sdk/components/src/x.ts', code: `import * as ui from '@ap/ui'; export const on = ui.isDevelopment();`, rule: 'no-restricted-syntax', token: '#3028' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import * as ui from '@ap/ui'; const { isDevelopment: dev } = ui; export const on = dev();`, rule: 'no-restricted-syntax', token: '#3028' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `export { isDevelopment } from './utils/isDevelopment';`, rule: '' },
   { file: 'packages/sdk/ui/src/utils/x.test.ts', code: `import { isDevelopment } from './isDevelopment'; export const dev = isDevelopment();`, rule: '' },
   { file: 'menus/bravo/metrics/src/x.tsx', code: `import { isDevelopment } from '@ap/ui'; export const dev = isDevelopment();`, rule: '' },
   // #2215: a text field's Enter handler goes through useImeEnterGuard().isComposingEnter (ui, components, shell, menu, app).
