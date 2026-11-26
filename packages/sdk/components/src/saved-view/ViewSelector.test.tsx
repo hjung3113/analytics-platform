@@ -507,3 +507,18 @@ it('confirms deletion with the view name and audience, and cancels without delet
   await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '삭제' }));
   expect(onDelete).toHaveBeenCalledExactlyOnceWith('a');
 });
+
+describe('ViewSelector picker heading (#3144)', () => {
+  it('shows the modified badge in the picker heading without invalid DOM nesting', () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    function Picker() {
+      const anchor = useRef<HTMLButtonElement>(null);
+      return <><button ref={anchor}>anchor</button><Harness state="modified" picker={{ open: true, onOpenChange: vi.fn(), anchorRef: anchor }} /></>;
+    }
+    render(<Picker />);
+    expect(screen.getAllByText('수정됨').length).toBeGreaterThan(0);
+    // A Badge is a <div>; inside a <p> React reports "<div> cannot be a descendant of <p>".
+    expect(error.mock.calls.filter(call => /cannot be a descendant of|cannot contain a nested/.test(String(call[0])))).toEqual([]);
+    error.mockRestore();
+  });
+});
