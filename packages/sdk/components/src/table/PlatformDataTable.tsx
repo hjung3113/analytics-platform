@@ -18,7 +18,6 @@ import { columnGroupBasis, columnGroupErrors, columnGroupGrowthShares, columnGro
 import { createColumnGroup, materializeColumnGroups, renameColumnGroup, setColumnGroupMembers, setColumnGroupWidth, ungroupColumns } from './columnGroupEdits';
 import { ColumnGroupChooseView, ColumnGroupRename, ColumnGroupResizer, ColumnGroupRowMenu, useColumnGroupEditor, useColumnGroupResize } from './ColumnGroupEditor';
 import { columnGroupModel, FADE_BASE, useColumnGroupLayout } from './useColumnGroupLayout';
-import { isDevelopment } from '@ap/ui';
 import { DataTrustIndicator } from '../state/DataTrustIndicator';
 import { useElementSize } from '../state/useElementSize';
 import { OutcomeContent } from '../StateView';
@@ -517,7 +516,7 @@ function DataTable<T>(props: PlatformDataTableProps<T>) {
   const columnGroups = columnGroupModel(p.columns, p.columnGroups, widthScale);
   const { paths, hasColumnGroups, groupWidth, inWidthGroup } = columnGroups;
   useEffect(() => {
-    if (!isDevelopment()) return;
+    if (process.env.NODE_ENV === 'production') return;
     for (const error of columnGroupErrors(props.columns, props.columnGroups)) console.error(`[PlatformDataTable] ${error}`);
   }, [props.columns, props.columnGroups]);
   const columnPrefsId = useId();

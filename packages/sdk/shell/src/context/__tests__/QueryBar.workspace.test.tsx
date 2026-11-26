@@ -190,19 +190,28 @@ it.each([
 
 it.each([
   ['Overview', { pageType: 'overview' as const }],
-  ['live', { apply: false }],
   ['Scope gate', { scopeGate: true }],
 ])('%s keeps the existing page presentation', async (_name, options) => {
   mount(options);
   await waitFor(() => expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument());
   expect(document.querySelector('[data-workspace-query-row]')).toBeNull();
   expect(screen.queryByRole('button', { name: /페이지 조건/ })).toBeNull();
-  if (_name === 'Overview' || _name === 'live') {
+  if (_name === 'Overview') {
     expect(document.querySelector('[data-page-head]')).not.toBeNull();
     expect(document.querySelector('[data-panel-workspace] [data-workspace-toolbar]')).not.toBeNull();
     await userEvent.click(await screen.findByRole('tab', { name: '요약' }));
     expect(screen.getByText('지표').closest('div')).toHaveClass('border');
   }
+});
+
+it('moves live page conditions into the Context line and leaves the workspace toolbar local', async () => {
+  mount({ apply: false });
+  const bar = await screen.findByRole('region', { name: '전역 Context' });
+  expect(within(bar).getByRole('button', { name: '집계 시간' })).toBeVisible();
+  expect(document.querySelector('[data-page-head]')).toBeNull();
+  expect(document.querySelector('[data-panel-workspace] [data-workspace-toolbar]')).not.toBeNull();
+  await userEvent.click(await screen.findByRole('tab', { name: '요약' }));
+  expect(screen.getByText('지표').closest('div')).toHaveClass('border');
 });
 
 it('keeps pending and issue indicators in the editor handle name', async () => {

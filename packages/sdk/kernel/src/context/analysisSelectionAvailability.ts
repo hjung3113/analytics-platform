@@ -1,5 +1,6 @@
 import type { AnalysisSelection } from '@ap/contracts';
 import { sameItems } from '../stable';
+import type { analysisSelectionDependencies } from '../registry/analysis-selections';
 
 export type AnalysisSelectionCompare = (a: string, b: string) => number;
 export type AnalysisSelectionAvailability = readonly string[] | {
@@ -51,19 +52,21 @@ export function isAnalysisSelectionAvailable(selection: AnalysisSelection, avail
   return selection.shape !== 'set' || selection.values.some(value => available.includes(value));
 }
 
-type AvailabilityReport = { drillAddress: string; available: AnalysisSelectionAvailability };
+type AvailabilityReport = { drillAddress: string; publisher: string | undefined; available: AnalysisSelectionAvailability };
 const emptyAvailability: ReadonlyMap<string, AvailabilityReport> = new Map();
 export const readEmptyAvailability = () => emptyAvailability;
 export const subscribeToEmptyAvailability = () => () => {};
 
-export function readAvailability(snapshot: typeof emptyAvailability, key: string, drillAddress: string) {
+export function readAvailability(snapshot: typeof emptyAvailability, key: string, drillAddress: string, publisher: string | null | undefined) {
   const report = snapshot.get(key);
-  return report?.drillAddress === drillAddress ? report.available : undefined;
+  return report?.drillAddress === drillAddress && report.publisher === publisher ? report.available : undefined;
 }
 
 export function createAnalysisSelectionAvailability() {
   let snapshot = emptyAvailability;
+  let graph: ReturnType<typeof analysisSelectionDependencies> | undefined;
   const listeners = new Set<() => void>();
+  const notify = () => { for (const listener of listeners) listener(); };
   const registrations = new Map<string, Map<symbol, AvailabilityReport>>();
   function update(key: string, value: AvailabilityReport | undefined) {
     if (snapshot.get(key) === value) return;
@@ -71,11 +74,21 @@ export function createAnalysisSelectionAvailability() {
     if (value === undefined) next.delete(key);
     else next.set(key, value);
     snapshot = next;
-    for (const listener of listeners) listener();
+    notify();
   }
   return {
     hover: createSelectionHover(),
     read: () => snapshot,
+    graph: () => graph,
+    publishGraph(next: NonNullable<typeof graph>) {
+      graph = next;
+      notify();
+      return () => {
+        if (graph !== next) return;
+        graph = undefined;
+        notify();
+      };
+    },
     subscribe(listener: () => void) {
       listeners.add(listener);
       return () => { listeners.delete(listener); };

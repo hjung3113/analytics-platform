@@ -1,6 +1,6 @@
 import { type Page } from '@playwright/test';
 import { expect, test } from './origin-guard';
-import { PERIOD } from './contract-helpers';
+import { liveContextActions, PERIOD } from './contract-helpers';
 import { browserPreferenceKey, expectAppliedChip, pageConditions, queryEditor, workspaceLayout, contextBar, evidence, expandPageHead, expandQueryBar, fitWorkspace, pickTargetRoom, query, queryBar, setScenario, signInAs, tableStatusLine } from './support';
 
 /**
@@ -952,7 +952,7 @@ test.describe('표 필터 모델 (#1217)', () => {
     await expect.poll(() => total(page)).toBe(filtered);
     expect(query(page).has('filter')).toBe(false);
 
-    await contextBar(page).getByRole('button', { name: '현재 조건 공유', exact: true }).click();
+    await (await liveContextActions(page)).getByRole('button', { name: '현재 조건 공유', exact: true }).click();
     const link = new URL(await page.getByRole('textbox', { name: '복사할 링크' }).inputValue());
     expect(link.searchParams.getAll('filter').sort()).toEqual(['line:in:L2', 'status:in:active']);
     expect(link.searchParams.has('status')).toBe(false);

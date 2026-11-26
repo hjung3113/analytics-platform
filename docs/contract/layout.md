@@ -22,8 +22,8 @@ Scope는 개념적으로 Global Context에 포함되지만 선택기는 **주 �
 
 ### Context 바 우선순위 넘침 (Decided, 2026-10-04 — #56, [ADR-0015](../adr/0015-context-bar-priority-overflow.md))
 
-- Context 바는 모든 폭에서 **한 줄 48px**을 유지한다. 뷰포트가 아닌 바 자체 폭을 측정해 상세 슬롯·사이드바 변화에도 반응하며, 측정용 레이어는 inert·접근성 제외·중복 데이터 조회 없음으로 유지한다. 재측정 조건 등 구현 세부는 [ADR-0015](../adr/0015-context-bar-priority-overflow.md)를 따른다.
-- 기간은 항상 보인다. Context 바는 "전역 Context" 라벨을 region의 접근 이름으로 쓴다(2026-10-26 사용자 결정, #914). 날짜 입력과 단축 범위는 모든 폭에서 기간 팝오버에 둔다(#2586). 기간 버튼은 축약할 수 있으나 전체 범위를 접근 이름과 title로 제공한다.
+- 독립 Context 바와 보드 칸의 Context 바는 모든 폭에서 **한 줄 48px**을 유지한다. 본 화면의 live 조건 줄은 [§12.2](#122-analysis-workspace)를 따른다. 뷰포트가 아닌 바 자체 폭을 측정해 상세 슬롯·사이드바 변화에도 반응하며, 측정용 레이어는 inert·접근성 제외·중복 데이터 조회 없음으로 유지한다. 재측정 조건 등 구현 세부는 [ADR-0015](../adr/0015-context-bar-priority-overflow.md)를 따른다.
+- 독립 Context 바와 보드 칸의 Context 바에서는 기간이 항상 보인다. Context 바는 "전역 Context" 라벨을 region의 접근 이름으로 쓴다(2026-10-26 사용자 결정, #914). 날짜 입력과 단축 범위는 모든 폭에서 기간 팝오버에 둔다(#2586). 기간 버튼은 축약할 수 있으나 전체 범위를 접근 이름과 title로 제공한다.
 - 기간 표기는 `@ap/contracts`의 `formatPeriod(from, to, lang)` 하나다(`MM-DD → MM-DD (7일)`, 영문은 `7d`, 끝은 배타적 날짜, 열린 끝은 `—`이고 길이 생략). Context 바 기간 버튼의 글자·접근 이름·title과 `querySummaryItems`의 기간 항목이 이 표기를 쓴다. 편집기의 포함 종료일은 Kernel §6.3을 따른다.
 - 기간 다음에 [대상 단추](kernel.md#64-url-계약-decided-필드명enum-문자열은-candidate)를 둔다([ADR-0164](../adr/0164-target-picker-dialog-and-custom-groups.md)). 적용 가능한 공정·Line·PRC 그룹·Condition·Selection은 이 단추 하나로 편집한다. 이어서 참조만·미지원 전달값을 `roomNames → line → prcGroup → condition → selection → lot → ppid → recipe → metric` 순서로 남기며 뒤쪽부터 하나의 넘침 팝오버로 옮긴다. 예외인 참조만·미지원 capability만 배지로 표시하고 적용 상태 배지는 생략한다. 넘침에서도 같은 대상 대화창을 열며 편집 중 위치가 바뀌어도 초안을 유지한다.
 - 넘침 버튼은 `조건 N개 더` / `N more`다. 숨은 키 중 기본값이 아닌 값이 M개 있으면 ` · M개 적용 중` / ` · M applied`를 붙이고 M=0이면 생략한다. 명시적 빈 선택은 기본값과 다르므로 센다.
@@ -38,15 +38,15 @@ Sidebar collapsed      0px   (사이드바 없음, 레일만; #2727)
 Detail slot         440px   (--detail-panel-width; 미제공 시 440px, 360–520px clamp; 비어 있으면 0)
 Top header           없음
 Page header          50px   (--toolbar-height)
-Global context bar   48px
+Standalone/pane Context bar  48px
 Content padding      기능 PageShell 기준 (좌우 32px / 위 28px / 아래 36px); PlatformPage 페이지는 기본 밀도 compact 16/12/16px(§12, #1217)
 Section gap          24px
 Component gap        12~16px
 ```
 
-치수 값의 단일 원본은 `packages/sdk/ui/src/styles/tokens.css`의 레이아웃 토큰이다. 셸은 이 토큰과 같은 값을 쓴다(페이지 머리 50px·Context 바 48px는 코드 리터럴). DESIGN은 [셸 시각 보완](../../DESIGN.md#shell-visual-rules)만 소유하며 이 Baseline을 재정의하지 않는다.
+치수 값의 단일 원본은 `packages/sdk/ui/src/styles/tokens.css`의 레이아웃 토큰이다. 셸은 이 토큰과 같은 값을 쓴다(페이지 머리 50px·독립 및 보드 칸 Context 바 48px는 코드 리터럴). DESIGN은 [셸 시각 보완](../../DESIGN.md#shell-visual-rules)만 소유하며 이 Baseline을 재정의하지 않는다.
 
-50px 페이지 머리와 live 모드 Context Bar는 스크롤되는 main 안에서 하나의 sticky 래퍼로 유지한다. Apply 모드는 페이지 머리만 이 래퍼에 두며 조회 영역이 sticky이면 머리 바로 아래에 둔다. Sticky offset에는 머리와 조회 영역의 높이를 더한다. 분석 작업 영역의 40px 조건 줄과 고정 편집기 배치는 [§12.2](#122-analysis-workspace)를 따른다. 본문은 기능 `PageShell`의 여백을 사용하며 분석 페이지에 폭 제한은 추가하지 않는다. 페이지 머리는 한 줄을 유지하고, 머리 자신 폭이 줄면 설명·Data Trust 요약·잠정 배지·제목 말줄임 순으로 양보하며 주 동작은 남긴다. 보조 동작은 ⋯ 팝오버의 이름 있는 동작 그룹에 둔다. 모든 양보 뒤에도 들어가지 않을 때(예: 1024px + 펼친 사이드바 + 상세 패널)만 머리가 가로로 스크롤된다. 주 동작은 Tab 포커스나 스크롤로 닿으며, 포커스한 컨트롤은 머리의 보이는 범위로 스크롤된다. 시각 스크롤바는 감추지 않는다. 정상 폭(1280px 이상 + 상세 패널)에서는 스크롤이 생기지 않는다(시각 순서는 [DESIGN 셸 시각 보완](../../DESIGN.md#shell-visual-rules), [ADR-0035](../adr/0035-page-header-yield-order.md)).
+50px 페이지 머리와 live 모드 Context Bar는 스크롤되는 main 안에서 하나의 sticky 래퍼로 유지한다. Apply 모드는 페이지 머리만 이 래퍼에 두며 조회 영역이 sticky이면 머리 바로 아래에 둔다. Sticky offset에는 머리와 조회 영역의 높이를 더한다. 분석 작업 영역과 live 화면의 40px 조건 줄 및 고정 편집기 배치는 [§12.2](#122-analysis-workspace)를 따른다. 본문은 기능 `PageShell`의 여백을 사용하며 분석 페이지에 폭 제한은 추가하지 않는다. 페이지 머리는 한 줄을 유지하고, 머리 자신 폭이 줄면 설명·Data Trust 요약·잠정 배지·제목 말줄임 순으로 양보하며 주 동작은 남긴다. 보조 동작은 ⋯ 팝오버의 이름 있는 동작 그룹에 둔다. 모든 양보 뒤에도 들어가지 않을 때(예: 1024px + 펼친 사이드바 + 상세 패널)만 머리가 가로로 스크롤된다. 주 동작은 Tab 포커스나 스크롤로 닿으며, 포커스한 컨트롤은 머리의 보이는 범위로 스크롤된다. 시각 스크롤바는 감추지 않는다. 정상 폭(1280px 이상 + 상세 패널)에서는 스크롤이 생기지 않는다(시각 순서는 [DESIGN 셸 시각 보완](../../DESIGN.md#shell-visual-rules), [ADR-0035](../adr/0035-page-header-yield-order.md)).
 
 분석 페이지에는 임의의 좁은 `max-width`를 적용하지 않는다.
 
@@ -226,6 +226,8 @@ Data Trust
 - 오른쪽은 배치 메뉴, 메뉴가 제공하는 `+ 패널 추가`, `숨김 n`, 안내 `ⓘ n`, 조회 조건 동작 `⋯` 순서다. 숨긴 패널과 안내는 각각 0건이면 그리지 않는다. 조회 완료 시각은 안내 목록의 맨 앞에 두고 안내 건수에서 뺀다. 안내가 없으면 오른쪽 도구 앞에 완료 시각을 보조 글자로 표시한다. ⋯에는 조건 공유, 초기화, 초안 되돌리기와 사용 가능한 최근 조건 및 뷰를 둔다.
 - 조회 편집기와 페이지 조건 편집기는 L3 팝오버에서 열고 고정한 편집기만 본문을 민다. 페이지 조건은 기존 입력을 바로 열며 편집기를 다시 접어 여는 단계가 없다. 동작에는 툴팁과 접근 이름을 붙이고 열림 상태를 알린다. 키보드로 열고, Esc로 닫으면 연 버튼으로 돌아간다.
 - `pageConditions` 선언의 범주별 트리거와 §8 레이어는 별도 계약을 따른다(Candidate, #2339). 적용 조건을 편집하는 동안에도 작업 영역 패널의 StatCard는 패널 경계를 사용하고 선택 링·hover를 유지한다. Overview와 보드 칸의 독립 StatCard는 자체 경계를 사용한다.
+
+**Live 화면의 조건 줄 (Decided, #2728).** 본 화면에서 Context를 쓰는 live 메뉴는 같은 40px 줄을 제목 아래에 둔다. 전역 Context는 테두리 칩, `queryBarExtension.appliedPageSummary`로 제공하는 페이지 조건은 채운 칩으로 보인다. 그 요약에 대응하는 `contextExtension`은 페이지 조건 편집기에 둔다. 긴 값의 말줄임, 실측 `+n`, 키보드 포커스 복귀 및 고정 편집기는 위 규칙을 공유한다. `+n` 안의 live 칩에서도 해당 편집기를 열 수 있다. 넘침 버튼은 `조건 N개 더 보기` / `N more conditions`로 읽힌다. Condition 프리셋을 선언한 메뉴에서는 전역 Context 편집기에서 프리셋을 전환한다. 오른쪽 `⋯`에는 기존 공유와 초기화를 둔다. 작업 영역 도구는 해당 작업 영역에 둔다. 보드 칸과 Context 미지원 화면은 기존 배치를 유지한다.
 
 본 화면과 보드 칸의 접힌 조회 막대는 조회 요약 오른쪽, 조회 동작 앞에 분석 선택 칩을 둔다(#2733). 한 줄에 들어가면 칩을 순서대로 모두 보이고, 공간이 부족하면 `+n ›`와 마지막 칩을 보인다. 도착 칩이 있으면 칩 영역 앞에 모으고, 공간이 부족하면 첫 도착 칩과 `+n ›`을 보인다(#2735). `+n`을 누르면 전체 분석 선택 칩을 볼 수 있다. 분석 선택이 없으면 칩 영역과 구분선을 그리지 않는다.
 

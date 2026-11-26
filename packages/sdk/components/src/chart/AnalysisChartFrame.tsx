@@ -210,7 +210,7 @@ export type AnalysisChartFrameProps<P = never, T = never> = ChartChromeOptions &
   /** Optional panel footer for the row. Null waits for the footer to mount. */
   nextAnalysisTarget?: HTMLElement | null;
   /** A declared URL-backed range or set output. Null suspends output on a retained result. */
-  analysisSelectionOutput?: { panelId: string; key: string } | null;
+  analysisSelectionOutput?: { panelId: string; key: string; instanceId?: string } | null;
   /** Drill callback when pointActivation is absent, invoked on double-click or Enter. */
   onPointClick?: (x: string, seriesId: string) => void;
   /** @deprecated The SDK renders guidance from the available inputs. */
@@ -680,7 +680,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     const bounds = timeBounds.length ? timeBounds : p.series.flatMap(s => s.points.map(([x]) => x)).sort();
     return bounds.length ? { from: bounds[0], to: bounds[bounds.length - 1], compare: compareRangeTimes } : undefined;
   }, [rangeOutput, xType, realCategories, rowGroups, timeBounds, p.series]);
-  const selectionOutput = useOptionalAnalysisSelectionOutput(output ?? undefined, { available, subscribeHighlight: false });
+  const selectionOutput = useOptionalAnalysisSelectionOutput(output ?? undefined, { available, subscribeHighlight: false, instanceId: output?.instanceId });
   const urlSet = selectionOutput.selection?.shape === 'set' ? selectionOutput.selection : null;
   const urlRange = selectionOutput.selection?.shape === 'range' ? selectionOutput.selection : null;
   const urlFrom = urlRange?.from; const urlTo = urlRange?.to;

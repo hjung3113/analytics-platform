@@ -32,22 +32,25 @@ export const WorkspaceQueryBarContext = createContext<{
   toolbarTarget: HTMLDivElement | null;
   setToolbarTarget: (target: HTMLDivElement | null) => void;
   legacyFolded?: boolean;
+  live?: { pinnedTarget: HTMLDivElement | null };
   line?: ContextLinePage;
 } | null>(null);
 
 const MESSAGES = {
   page: COMPONENTS_MESSAGES.workspacePageConditions,
   more: { ko: '나머지 조건', en: 'Remaining conditions' },
+  moreCount: { ko: '조건 {count}개 더 보기', en: '{count} more conditions' },
+  moreOne: { ko: '조건 1개 더 보기', en: '1 more condition' },
   pin: { ko: '편집기 고정', en: 'Pin editor' },
   unpin: { ko: '편집기 고정 해제', en: 'Unpin editor' },
 };
 
-type LineProps = {
+type QueryEditor =
+  | { queryOpen: boolean; queryEditorId: string; onQueryChip: (event: MouseEvent<HTMLButtonElement>) => void; queryHandle: ReactNode; liveEditor?: undefined }
+  | { liveEditor: { label: string; handle: { expand: string; collapse: string }; content: ReactNode; icon: ReactNode; handleRef: React.RefObject<HTMLButtonElement | null> } };
+
+type LineProps = QueryEditor & {
   query: readonly PageFilterSummaryItem[];
-  queryOpen: boolean;
-  queryEditorId: string;
-  onQueryChip: (event: MouseEvent<HTMLButtonElement>) => void;
-  queryHandle: ReactNode;
   selection?: ReactNode;
   pinnedTarget?: HTMLDivElement | null;
   actions: ReactNode;
@@ -107,15 +110,15 @@ function useChipFit(count: number, keys: string, beforeFit: (expectedFit: number
   return { lane, probe, measuredFit: fit };
 }
 
-/** Shell bridge: use the compact line only when the page's workspace toolbar has registered. */
+/** Shell bridge for the live page line and the registered apply workspace line. */
 export function WorkspaceQueryBarRow({ render, line }: {
-  render?: (active: boolean, pinText: { pin: string; unpin: string }) => ReactNode;
+  render?: (active: boolean, pinText: { pin: string; unpin: string }, live?: { pinnedTarget: HTMLDivElement | null }) => ReactNode;
   line?: LineProps;
 } = {}) {
   const workspace = useContext(WorkspaceQueryBarContext);
   const m = useMessages(MESSAGES);
   const compact = useCompactPageDensity();
-  if (render) return render(workspace?.line?.active === true, { pin: m('pin'), unpin: m('unpin') });
+  if (render) return render(workspace?.line?.active === true, { pin: m('pin'), unpin: m('unpin') }, workspace?.live);
   if (!workspace) return null;
   if (!workspace.line?.active) {
     if (line || workspace.legacyFolded === false) return null;
@@ -130,27 +133,25 @@ export function WorkspaceQueryBarRow({ render, line }: {
     setParameterTarget={workspace.setParameterTarget} setToolbarTarget={workspace.setToolbarTarget} />;
 }
 
-function ContextLine({ query, page, queryOpen, queryEditorId, onQueryChip, queryHandle, actions, chip, selection, pinnedTarget, status, setParameterTarget, setToolbarTarget }: LineProps & {
+function ContextLine(props: LineProps & {
   page: ContextLinePage;
   status: ReactNode;
   setParameterTarget: (node: HTMLDivElement | null) => void;
   setToolbarTarget: (node: HTMLDivElement | null) => void;
 }) {
+  const { query, page, actions, chip, selection, pinnedTarget, liveEditor, status, setParameterTarget, setToolbarTarget } = props;
   const m = useMessages(MESSAGES);
   const { t } = useI18n();
   const compact = useCompactPageDensity();
-  const editorId = useId();
-  const [editor, setEditor] = useState<'closed' | 'popover' | 'pinned'>('closed');
-  const [host] = useState(() => typeof document === 'undefined' ? null : document.createElement('div'));
-  const opener = useRef<HTMLElement | null>(null);
-  const pageTrigger = useRef<HTMLButtonElement>(null);
+  const pageEditor = useLineEditor();
+  const live = useLineEditor();
+  const { trigger: pageTrigger } = pageEditor;
+  const queryExpanded = props.liveEditor ? live.shown : props.queryOpen;
+  const queryId = props.liveEditor ? live.id : props.queryEditorId;
   const moreTrigger = useRef<HTMLButtonElement>(null);
   const moreContent = useRef<HTMLDivElement>(null);
   const visibleChips = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef<{ from: HTMLElement; kind: 'chip' | 'overflow'; index: number; expectedFit: number } | null>(null);
-  const pin = useRef<HTMLButtonElement>(null);
-  const outside = useRef(false);
-  const shown = editor !== 'closed';
   const hasPageEditor = Boolean(page.extension);
   const hasNotes = page.notes.length > 0;
   const noticeLabel = t('pageNotesCount', { count: page.notes.length });
@@ -184,37 +185,24 @@ function ContextLine({ query, page, queryOpen, queryEditorId, onQueryChip, query
   const chipClass = (item: Chip) => cn(chip[item.tone], 'max-w-48 min-w-0 shrink-0', FOCUS);
   const pageLabel = m('page');
   const pageState = [page.pending, page.issues].filter(Boolean).join(' · ');
-  const focusOpener = () => {
-    const target = opener.current?.isConnected ? opener.current : pageTrigger.current ?? moreTrigger.current;
-    target?.focus({ preventScroll: true });
-  };
-  const openPage = (event: MouseEvent<HTMLButtonElement>) => {
-    if (shown) {
-      setEditor('closed');
-      return;
-    }
-    opener.current = event.currentTarget;
-    outside.current = false;
-    setEditor('popover');
-  };
-  const adopt = (node: HTMLDivElement | null) => { if (host && node && host.parentElement !== node) node.appendChild(host); };
-  const editorBody = <>
-    <div className="mb-2 flex justify-end">
-      <Button ref={pin} type="button" variant="ghost" size="toolbar" title={m(editor === 'pinned' ? 'unpin' : 'pin')}
-        onClick={() => setEditor(editor === 'pinned' ? 'popover' : 'pinned')}>
-        {editor === 'pinned' ? <PinOff className="size-4" aria-hidden /> : <Pin className="size-4" aria-hidden />}
-        {m(editor === 'pinned' ? 'unpin' : 'pin')}
-      </Button>
-    </div>
-    <div ref={adopt} />
-  </>;
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const overflowHandedOffFocus = useRef(false);
   useLayoutEffect(() => {
-    if (editor === 'pinned') pin.current?.focus({ preventScroll: true });
-  }, [editor, pinnedTarget]);
-
+    if (remaining > 0) return;
+    setOverflowOpen(false);
+    overflowHandedOffFocus.current = false;
+  }, [remaining]);
+  const openFromOverflow = (editor: ReturnType<typeof useLineEditor>) => {
+    overflowHandedOffFocus.current = editor.toggle(moreTrigger.current);
+    setOverflowOpen(false);
+  };
+  const pageName = pageState ? `${pageLabel} · ${pageState}` : pageLabel;
   return <>
     <div data-workspace-query-row className={cn('flex h-10 min-w-0 items-center gap-2 overflow-x-auto border-b border-border-chrome', compact ? 'px-4' : 'px-3')}>
-      {queryHandle}
+      {liveEditor ? <LineEditor editor={live} label={liveEditor.label} handle={live.shown ? liveEditor.handle.collapse : liveEditor.handle.expand}
+        className={chip.query} content={liveEditor.content} pinnedTarget={pinnedTarget} fallback={moreTrigger} handleRef={liveEditor.handleRef}>
+        {liveEditor.icon}
+      </LineEditor> : props.queryHandle}
       <div ref={lane} data-context-chip-lane className="relative flex min-w-min flex-1 items-center overflow-hidden">
         {/* Keep enough inline space to show +n even when every chip folds. */}
         {overflowDigits > 0 && <span aria-hidden className={cn(overflowClass, 'invisible')}>+{'0'.repeat(overflowDigits)}</span>}
@@ -233,50 +221,47 @@ function ContextLine({ query, page, queryOpen, queryEditorId, onQueryChip, query
             if (!queryChip && !hasPageEditor) return <span key={key} role="group" aria-label={label} title={label} className={chipClass(item)}><ChipText item={item} /></span>;
             return <button key={key} data-context-chip type="button" className={chipClass(item)} title={label}
               aria-label={!queryChip && pageState ? `${label} · ${pageState}` : label}
-              aria-haspopup="dialog" aria-expanded={queryChip ? queryOpen : shown}
-              aria-controls={queryChip ? queryEditorId : editorId}
-              onClick={queryChip ? onQueryChip : openPage}><ChipText item={item} /></button>;
+              aria-haspopup="dialog" aria-expanded={queryChip ? queryExpanded : pageEditor.shown}
+              aria-controls={queryChip ? queryId : pageEditor.id}
+              onClick={event => {
+                if (!queryChip) pageEditor.toggle(event.currentTarget);
+                else if (props.liveEditor) live.toggle(event.currentTarget);
+                else props.onQueryChip(event);
+              }}><ChipText item={item} /></button>;
           })}
-          {remaining > 0 && <Popover>
-            <PopoverTrigger asChild><button ref={moreTrigger} type="button" className={overflowClass} title={m('more')}>+{remaining}</button></PopoverTrigger>
+          {remaining > 0 && <Popover open={liveEditor ? overflowOpen : undefined} onOpenChange={liveEditor ? setOverflowOpen : undefined}>
+            <PopoverTrigger asChild><button ref={moreTrigger} type="button" className={overflowClass} title={m('more')}
+              aria-label={liveEditor ? m(remaining === 1 ? 'moreOne' : 'moreCount', { count: remaining }) : undefined}>+{remaining}</button></PopoverTrigger>
             <PopoverContent ref={moreContent} align="start" aria-label={m('more')} onCloseAutoFocus={event => {
-              if (!moreTrigger.current?.isConnected) event.preventDefault();
+              if (!moreTrigger.current?.isConnected || overflowHandedOffFocus.current) event.preventDefault();
+              overflowHandedOffFocus.current = false;
             }} className="max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto">
               <ul className="grid gap-1">
-                {chips.slice(fit).map(item => <li key={chipKey(item)}>
-                  <span role="group" aria-label={`${item.label} ${item.value}`} className={cn(chip[item.tone], 'h-auto min-h-8 whitespace-normal [overflow-wrap:anywhere] py-1')}>
-                    <span className="text-text-secondary">{item.label}</span><span className="min-w-0 font-medium text-text-primary">{item.value}</span>
-                  </span>
-                </li>)}
+                {chips.slice(fit).map(item => {
+                  const editor = item.tone === 'query' ? live : pageEditor;
+                  const label = `${item.label} ${item.value}`;
+                  const className = cn(chip[item.tone], 'h-auto min-h-8 whitespace-normal [overflow-wrap:anywhere] py-1');
+                  const text = <><span className="text-text-secondary">{item.label}</span><span className="min-w-0 font-medium text-text-primary">{item.value}</span></>;
+                  return <li key={chipKey(item)}>
+                    {liveEditor && (item.tone === 'query' || hasPageEditor)
+                      ? <button type="button" title={label} aria-label={label} aria-haspopup="dialog" aria-expanded={editor.shown} aria-controls={editor.id}
+                          className={className} onClick={() => openFromOverflow(editor)}>{text}</button>
+                      : <span role="group" aria-label={label} className={className}>{text}</span>}
+                  </li>;
+                })}
               </ul>
             </PopoverContent>
           </Popover>}
         </div>
       </div>
-      {hasPageEditor && <Popover open={editor === 'popover'} onOpenChange={open => { if (!open) setEditor('closed'); }}>
-        <PopoverAnchor asChild><span className="flex shrink-0">
-          <button ref={pageTrigger} type="button" className={cn(chip.page, FOCUS)} title={pageLabel}
-            aria-label={pageState ? `${pageLabel} · ${pageState}` : pageLabel} aria-haspopup="dialog" aria-expanded={shown} aria-controls={editorId}
-            onClick={openPage}>{pageLabel}{pageState && <span className="max-w-32 truncate text-text-secondary">{pageState}</span>}</button>
-        </span></PopoverAnchor>
-        <PopoverContent align="start" id={editorId} aria-label={pageLabel} className="w-auto max-w-3xl max-h-[var(--radix-popover-content-available-height)] overflow-auto"
-          // Child controls can move focus into a body portal while the editor is still in use.
-          onFocusOutside={event => {
-            if (event.target instanceof Element && event.target.closest('[data-radix-popper-content-wrapper], [role="dialog"], [role="alertdialog"]')) event.preventDefault();
-          }}
-          onInteractOutside={event => {
-            if (event.defaultPrevented) return;
-            const target = event.target;
-            if (target instanceof Node && opener.current?.contains(target)) event.preventDefault();
-            else outside.current = true;
-          }}
-          onCloseAutoFocus={event => {
-            event.preventDefault();
-            if (editor === 'closed' && !outside.current) focusOpener();
-          }}>
-          {editor === 'popover' && editorBody}
-        </PopoverContent>
-      </Popover>}
+      {hasPageEditor && <LineEditor editor={pageEditor} label={pageLabel} handle={pageName} className={chip.page}
+        pinnedTarget={pinnedTarget} fallback={moreTrigger} content={
+          <WorkspacePageFilterSummaryContext.Provider value={page.publishSummary}>
+            <PageFilterExpandedContext.Provider value>{page.extension}</PageFilterExpandedContext.Provider>
+          </WorkspacePageFilterSummaryContext.Provider>
+        }>
+        {pageLabel}{pageState && <span className="max-w-32 truncate text-text-secondary">{pageState}</span>}
+      </LineEditor>}
       <div ref={setParameterTarget} className="shrink-0 empty:hidden [&_[data-page-condition-triggers]]:flex-nowrap [&_[data-page-condition-triggers]]:py-0" />
       {selection}
       {!hasNotes && status}
@@ -294,17 +279,103 @@ function ContextLine({ query, page, queryOpen, queryEditorId, onQueryChip, query
       </Popover>}
       {actions}
     </div>
-    {editor === 'pinned' && pinnedTarget && createPortal(<section role="region" id={editorId} aria-label={pageLabel} data-context-editor-pinned
+  </>;
+}
+
+function useLineEditor() {
+  const id = useId();
+  const [state, setState] = useState<'closed' | 'popover' | 'pinned'>('closed');
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const outside = useRef(false);
+  const shown = state !== 'closed';
+  const toggle = (button: HTMLButtonElement | null) => {
+    if (shown) {
+      setState('closed');
+      return false;
+    }
+    opener.current = button;
+    outside.current = false;
+    setState('popover');
+    return true;
+  };
+  return { id, state, setState, opener, trigger, outside, shown, toggle };
+}
+
+function LineEditor({ editor, label, handle, className, content, children, pinnedTarget, fallback, handleRef }: {
+  editor: ReturnType<typeof useLineEditor>;
+  label: string;
+  handle: string;
+  className: string;
+  content: ReactNode;
+  children: ReactNode;
+  pinnedTarget?: HTMLDivElement | null;
+  fallback: React.RefObject<HTMLButtonElement | null>;
+  handleRef?: React.RefObject<HTMLButtonElement | null>;
+}) {
+  const { id, state, setState, opener, trigger, outside, shown, toggle } = editor;
+  const m = useMessages(MESSAGES);
+  const compact = useCompactPageDensity();
+  const pin = useRef<HTMLButtonElement>(null);
+  const [host] = useState(() => typeof document === 'undefined' ? null : document.createElement('div'));
+  const focusOpener = () => {
+    const target = opener.current?.isConnected ? opener.current : trigger.current ?? fallback.current;
+    target?.focus({ preventScroll: true });
+  };
+  const adopt = (node: HTMLDivElement | null) => { if (host && node && host.parentElement !== node) node.appendChild(host); };
+  const body = <>
+    <div className="mb-2 flex justify-end">
+      <Button ref={pin} type="button" variant="ghost" size="toolbar" title={m(state === 'pinned' ? 'unpin' : 'pin')}
+        onClick={() => setState(state === 'pinned' ? 'popover' : 'pinned')}>
+        {state === 'pinned' ? <PinOff className="size-4" aria-hidden /> : <Pin className="size-4" aria-hidden />}
+        {m(state === 'pinned' ? 'unpin' : 'pin')}
+      </Button>
+    </div>
+    <div ref={adopt} />
+  </>;
+  useLayoutEffect(() => {
+    if (state === 'pinned') pin.current?.focus({ preventScroll: true });
+  }, [state, pinnedTarget]);
+  return <>
+    <Popover open={state === 'popover'} onOpenChange={open => { if (!open) setState('closed'); }}>
+      <PopoverAnchor asChild><span className="flex shrink-0">
+        <button ref={node => {
+          trigger.current = node;
+          if (handleRef) handleRef.current = node;
+        }} type="button" className={cn(className, FOCUS)} title={handle}
+          aria-label={handle} aria-haspopup="dialog" aria-expanded={shown} aria-controls={id}
+          onClick={event => toggle(event.currentTarget)}>{children}</button>
+      </span></PopoverAnchor>
+      <PopoverContent align="start" id={id} aria-label={label} className="w-auto max-w-3xl max-h-[var(--radix-popover-content-available-height)] overflow-auto"
+        onFocusOutside={event => {
+          if (event.target instanceof Element && event.target.closest('[data-radix-popper-content-wrapper], [role="dialog"], [role="alertdialog"]')) event.preventDefault();
+        }}
+        onInteractOutside={event => {
+          if (event.defaultPrevented) return;
+          const target = event.target;
+          // Retained controls render in a sibling React portal, so Radix sees their nested dialogs as outside.
+          const dialog = target instanceof Element ? target.closest('[role="dialog"][id]') : null;
+          const ownedDialog = dialog && host && Array.from(host.querySelectorAll('[aria-haspopup="dialog"][aria-expanded="true"]'))
+            .some(control => control.getAttribute('aria-controls') === dialog.id);
+          if (ownedDialog || (target instanceof Node && (opener.current?.contains(target) || trigger.current?.contains(target)))) event.preventDefault();
+          else outside.current = true;
+        }}
+        onCloseAutoFocus={event => {
+          event.preventDefault();
+          if (state === 'closed' && !outside.current) focusOpener();
+        }}>
+        {state === 'popover' && body}
+      </PopoverContent>
+    </Popover>
+    {state === 'pinned' && pinnedTarget && createPortal(<section role="region" id={id} aria-label={label} data-context-editor-pinned
       className={cn('border-b border-border-chrome bg-surface-band py-2', compact ? 'px-4' : 'px-3')} onKeyDown={event => {
         if (event.key !== 'Escape' || event.defaultPrevented || !event.currentTarget.contains(event.target as Node)) return;
         event.preventDefault();
         event.stopPropagation();
-        setEditor('closed');
+        setState('closed');
         focusOpener();
-      }}>{editorBody}</section>, pinnedTarget)}
-    {editor === 'closed' && <div hidden ref={adopt} />}
-    {host && createPortal(<WorkspacePageFilterSummaryContext.Provider value={page.publishSummary}>
-      <PageFilterExpandedContext.Provider value><TransientOverlayScope active={shown}>{page.extension}</TransientOverlayScope></PageFilterExpandedContext.Provider>
-    </WorkspacePageFilterSummaryContext.Provider>, host)}
+      }}>{body}</section>, pinnedTarget)}
+    {state === 'closed' && <div hidden ref={adopt} />}
+    {host && createPortal(<TransientOverlayScope active={shown}>{content}</TransientOverlayScope>, host)}
   </>;
 }

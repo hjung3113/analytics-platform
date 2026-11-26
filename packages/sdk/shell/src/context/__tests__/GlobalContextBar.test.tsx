@@ -52,6 +52,8 @@ beforeEach(() => {
     reads++;
     const name = this.dataset.measure;
     const width = this.getAttribute('role') === 'region' ? barWidth
+      : this.hasAttribute('data-context-chip-lane') ? barWidth
+      : this.parentElement?.hasAttribute('data-context-chip-measure') ? 100
       : this.hasAttribute('data-measure-key') ? (keyWidths[this.dataset.measureKey!] ?? (this.dataset.measureKey === 'time' ? 450 : 100))
       : name === 'period' ? 220 : name === 'actions' ? 160 : name === 'icons' ? 64
       : this.hasAttribute('data-measure-overflow') ? (this.textContent?.includes('적용 중') || this.textContent?.includes('applied') ? 190 : 110) : 0;
@@ -97,8 +99,7 @@ describe('Live query recovery (#2535)', () => {
   it('opens the live target editor when the reply has no recovery values', async () => {
     mountRecovery();
     fireEvent.click(await screen.findByRole('button', { name: '조건 열기' }));
-    const dialog = await screen.findByRole('dialog');
-    expect(dialog).not.toHaveAccessibleName('기간');
+    const dialog = await screen.findByRole('dialog', { name: '대상' });
     expect(dialog).toContainElement(document.activeElement as HTMLElement);
   });
 
@@ -106,16 +107,23 @@ describe('Live query recovery (#2535)', () => {
     mountRecovery(undefined, { ...caps, time: 'unsupported', roomNames: 'unsupported', condition: 'unsupported', selection: 'reference', metric: 'apply' });
     await screen.findByRole('alert');
     expect(bar()).toBeInTheDocument();
-    expect(within(bar()).getByRole('group', { name: /^기간:/ })).toBeInTheDocument();
+    expect(within(bar()).getByRole('button', { name: /^기간 .*미사용/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '조건 열기' })).toBeNull();
   });
 
-  it('opens the target editor in one action when its trigger is in overflow', async () => {
+  it('opens the target editor in one action when the applied period chip is in overflow', async () => {
     barWidth = 120;
     mountRecovery();
-    expect(inlineKeys()).not.toContain('target');
+    expect(within(bar()).getByRole('button', { name: /^조건 \d+개 더 보기$/ })).toBeVisible();
+    expect(within(bar()).queryByRole('button', { name: /^기간 / })).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: '조건 열기' }));
     expect(await screen.findByRole('dialog', { name: '대상' })).toBeInTheDocument();
+  });
+
+  it('opens period recovery when time is the only editable Context', async () => {
+    mountRecovery(undefined, { ...caps, time: 'apply', roomNames: 'unsupported', condition: 'unsupported', selection: 'unsupported' });
+    fireEvent.click(await screen.findByRole('button', { name: '조건 열기' }));
+    expect(await screen.findByRole('dialog', { name: '기간' })).toBeVisible();
   });
 
   it.each([
