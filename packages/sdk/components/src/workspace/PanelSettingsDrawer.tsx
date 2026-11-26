@@ -37,7 +37,13 @@ export type PanelSettingsDrawerProps = {
   outputLabel?: (source: Source) => Text | undefined;
   selectionOf: (source: Source) => AnalysisSelection | null;
   trigger?: HTMLButtonElement;
-  onChange: (value: MenuViewPanels) => void;
+  /**
+   * The accepted configuration, and the drawer section the edit came from (#3124): `mapping` and `shape` change only the chart's
+   * source; `connections` changes what the panel receives, and also applies a mapping or shape draft still pending (rejected) at that
+   * moment, so it does not mean the source is unchanged. Consumers that keep different rules per kind of edit read `section`
+   * instead of comparing the configurations.
+   */
+  onChange: (value: MenuViewPanels, change: { section: PanelSettingsSection }) => void;
   onClose: () => void;
 };
 
@@ -45,12 +51,13 @@ const receivingModes = ['filter', 'highlight', 'ignore'] as const;
 const followModes = ['follow', 'hold'] as const;
 const receivingLabels = { filter: 'panelFilter', highlight: 'panelHighlight', ignore: 'panelIgnore' } as const;
 const reference = ({ panel, output }: Source) => panelOutputRef(panel.id, output.key);
-type EditSection = 'mapping' | 'shape' | 'connections';
+/** The drawer section an edit came from. */
+export type PanelSettingsSection = 'mapping' | 'shape' | 'connections';
 type RejectedEdit = {
   key: string;
   config: ChartConfig | undefined;
   draft?: ChartPanelDraft;
-  section: EditSection;
+  section: PanelSettingsSection;
   reason: Text;
   problem?: ChartPanelProblem;
 };
@@ -122,7 +129,7 @@ export function PanelSettingsDrawer({ title, panel, value, mapping, projectCandi
     const label = outputLabel?.(source) ?? mapping?.fields.breakdowns.find(field => field.dimension === source.output.dimension)?.label;
     return label ? tx(label) : source.output.dimension;
   };
-  const save = (updated: PanelInstance, section: EditSection, nextDraft?: ChartPanelDraft) => {
+  const save = (updated: PanelInstance, section: PanelSettingsSection, nextDraft?: ChartPanelDraft) => {
     const reject = (reason: Text, problem?: ChartPanelProblem) => setEdit({ key: editKey, config, draft: nextDraft, section, reason, problem });
     if (nextDraft && mapping) {
       const built = createChartPanel(mapping.fields, nextDraft, panel.id, mapping.granted);
@@ -152,7 +159,7 @@ export function PanelSettingsDrawer({ title, panel, value, mapping, projectCandi
     if (reason) reject(reason);
     else {
       setEdit(null);
-      onChange(candidate);
+      onChange(candidate, { section });
     }
   };
   const update = (key: string, next?: PanelInstanceInput) => {

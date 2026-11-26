@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createChartPanel, type ChartConfig, type ChartPanelDraft, type MenuChartFields, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
 import { I18nProvider } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { PanelSettingsDrawer, type PanelSettingsDrawerProps } from '../../index';
+import { PanelSettingsDrawer, type PanelSettingsDrawerProps, type PanelSettingsSection } from '../../index';
 
 const fields: MenuChartFields = {
   time: { field: 'day', label: { ko: '날짜', en: 'Date' } },
@@ -47,12 +47,12 @@ function Host() {
 }
 
 function setup(initial = chart(lineDraft), props: Pick<PanelSettingsDrawerProps, 'mapping' | 'validateCandidate'> = { mapping }, extra: PanelInstance[] = []) {
-  const changed = vi.fn<(value: MenuViewPanels) => void>();
+  const changed = vi.fn<(value: MenuViewPanels, change: { section: PanelSettingsSection }) => void>();
   function Stage() {
     const [value, setValue] = useState<MenuViewPanels>({ version: 1, instances: [initial, publisher, ...extra] });
     return <I18nProvider><DetailPanelSlotProvider><Host />
       <PanelSettingsDrawer title={{ ko: '차트', en: 'Chart' }} panel={value.instances[0]!} value={value} {...props}
-        selectionOf={() => null} onClose={() => {}} onChange={next => { changed(next); setValue(next); }} />
+        selectionOf={() => null} onClose={() => {}} onChange={(next, change) => { changed(next, change); setValue(next); }} />
     </DetailPanelSlotProvider></I18nProvider>;
   }
   return { changed, user: userEvent.setup(), ...render(<Stage />) };
@@ -227,6 +227,7 @@ describe('shape section', () => {
     expect(second).toHaveFocus();
     expect(second).toHaveAttribute('aria-checked', 'true');
     expect(savedConfig(changed)).toMatchObject({ measures: [{ field: 'hours', color: 'chart-series-2' }] });
+    expect(changed.mock.lastCall?.[1]).toEqual({ section: 'shape' });
   });
 
   it('shows a candidate the menu rejects inside the shape section and does not save it', async () => {

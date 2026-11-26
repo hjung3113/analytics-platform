@@ -3,7 +3,7 @@ import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-re
 import { isAnswered, panelOutputRef, readChartPanel, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
 import { ANALYSIS_SELECTION_MAX_VALUES, holdsSelection, namesInstance, AnalysisSelectionInstances, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useAnalysisSelectionReader, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type AnalysisSelectionChip, type MenuQueryState, type Text } from '@ap/kernel';
 import {
-  AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
+  AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PanelAddMenu, PanelOptions, PanelSettingsDrawer, type PanelSettingsSection, PanelWorkspace, QueryView, StateMessage,
   getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
 import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MAX_ROWS, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTime, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams, type HwTimeTableParams, type HwTimeTableRow } from '../../endpoints';
@@ -877,14 +877,13 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     entries.set(updated.id, entry);
     return { ...savedPanels.config, kind: 'custom', added: [...entries.values()], sources: draftSources };
   };
-  const editSettings = (next: MenuViewPanels) => {
+  const editSettings = (next: MenuViewPanels, { section }: { section: PanelSettingsSection }) => {
     const updated = next.instances.find(panel => panel.id === instance?.id);
     if (!updated || !settingsPanel) return;
     const config = settingsConfig(settingsPanel.id, updated);
     const retained = new Set(next.instances.map(panel => panel.id));
-    // «매핑» replaces only a chart's source; every other drawer edit changes connections.
-    const mappingOnly = updated.source.kind === 'chart' && JSON.stringify(updated.inputs) === JSON.stringify(instance?.inputs);
-    savedPanels.editConnections({ ...config, sources: config.sources.filter(source => retained.has(source.id)) }, { connections: !mappingOnly });
+    // «매핑»·«모양» replace only a chart's source; only a «연결» edit changes connections (the drawer names the section, #3124).
+    savedPanels.editConnections({ ...config, sources: config.sources.filter(source => retained.has(source.id)) }, { connections: section === 'connections' });
   };
 
   /** Adds and reveals; returns the slot it opened (for the «새 패널» focus hand-off) or nothing when the saved panels would be too many. */

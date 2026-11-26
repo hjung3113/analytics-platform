@@ -306,7 +306,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 새 연결의 발신 출력은 소비자가 `sourceReference`로 지정한다(`<인스턴스 id>.<출력 키>`, `@ap/contracts` `panelOutputRef`로 만든다). 저장된 연결은 기존 `from`을 유지한다.
 
-저장 슬롯이 후보 그래프를 따로 구성하면 소비자가 `projectCandidate`를 지정한다. 서랍은 편집한 패널을 이 함수에 넘기고 반환된 그래프를 검사한다. 검사를 통과한 그래프는 `onChange`로 전달한다. 기본 동작은 `value`에서 편집한 패널의 입력을 교체한다.
+저장 슬롯이 후보 그래프를 따로 구성하면 소비자가 `projectCandidate`를 지정한다. 서랍은 편집한 패널을 이 함수에 넘기고 반환된 그래프를 검사한다. 검사를 통과한 그래프는 `onChange`로 전달한다. 기본 동작은 `value`에서 편집한 패널의 입력을 교체한다. `onChange`의 둘째 인수 `{ section }`은 편집한 구역(`'mapping' | 'shape' | 'connections'`, 타입 `PanelSettingsSection`)을 알린다(#3124). 매핑·모양은 차트 원천만 바꾸고 연결은 패널이 받는 입력을 바꾼다. 매핑 초안이 거절된 채 남아 있으면 «연결» 저장이 그 초안도 함께 반영하므로, `connections`는 «원천이 그대로»를 뜻하지 않는다. 구역마다 저장 규칙이 다른 소비자는 그래프를 비교해 추정하지 않고 이 값을 읽는다.
 
 소비자는 `validateCandidate?: (candidate: MenuViewPanels) => Text | undefined`로 저장 후보에 적용할 검사를 추가할 수 있다(#3004). 서랍은 투영을 마친 그래프를 넘긴다. `Text`를 받으면 그 사유를 알리고 편집을 반영하지 않는다. 함수를 생략하거나 `undefined`를 받으면 SDK가 그래프를 검사하고 거르기 연결의 순환 등 기존 오류를 표시한다.
 

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createChartPanel, menuPermission, type ChartPanelDraft, type MenuChartFields, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
 import { I18nProvider } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { PanelSettingsDrawer, type PanelSettingsDrawerProps } from '../../index';
+import { PanelSettingsDrawer, type PanelSettingsDrawerProps, type PanelSettingsSection } from '../../index';
 
 const fields: MenuChartFields = {
   time: { field: 'day', label: { ko: '날짜', en: 'Date' } },
@@ -40,12 +40,12 @@ function Host() {
 }
 
 function setup(initial = chart(), props: Pick<PanelSettingsDrawerProps, 'mapping' | 'projectCandidate' | 'validateCandidate'> = { mapping }) {
-  const changed = vi.fn<(value: MenuViewPanels) => void>();
+  const changed = vi.fn<(value: MenuViewPanels, change: { section: PanelSettingsSection }) => void>();
   function Stage() {
     const [value, setValue] = useState<MenuViewPanels>({ version: 1, instances: [initial, publisher] });
     return <I18nProvider><DetailPanelSlotProvider><Host />
       <PanelSettingsDrawer title={{ ko: '차트', en: 'Chart' }} panel={value.instances[0]!} value={value} {...props}
-        selectionOf={() => null} onClose={() => {}} onChange={next => { changed(next); setValue(next); }} />
+        selectionOf={() => null} onClose={() => {}} onChange={(next, change) => { changed(next, change); setValue(next); }} />
     </DetailPanelSlotProvider></I18nProvider>;
   }
   return { changed, user: userEvent.setup(), ...render(<Stage />) };
@@ -58,7 +58,7 @@ function well(container: HTMLElement, slot: string) {
 }
 
 function setupSaveOwner(initial = chart(), props: Partial<PanelSettingsDrawerProps> = {}, reader?: PanelInstance) {
-  const changed = vi.fn<(value: MenuViewPanels) => void>();
+  const changed = vi.fn<(value: MenuViewPanels, change: { section: PanelSettingsSection }) => void>();
   const save = vi.fn<(value: MenuViewPanels) => void>();
   function Stage() {
     const [value, setValue] = useState<MenuViewPanels>({ version: 1, instances: [initial, publisher, ...(reader ? [reader] : [])] });
@@ -74,7 +74,7 @@ function setupSaveOwner(initial = chart(), props: Partial<PanelSettingsDrawerPro
       <button type="button" onClick={() => setValue(current => ({ ...current, instances: [chart({ kind: 'line', measure: 'rate', breakdown: 'equipment' }), ...current.instances.slice(1)] }))}>소스 교체</button>
       {reader && <button type="button" onClick={() => setValue(current => ({ ...current, instances: current.instances.map(panel => panel.id === reader.id ? { ...panel, inputs: [] } : panel) }))}>받는 연결 해제</button>}
       {open && <PanelSettingsDrawer title={{ ko: '차트', en: 'Chart' }} panel={value.instances[0]!} value={value} mapping={mapping}
-        selectionOf={() => null} onClose={() => setOpen(false)} onChange={next => { changed(next); setValue(next); }}
+        selectionOf={() => null} onClose={() => setOpen(false)} onChange={(next, change) => { changed(next, change); setValue(next); }}
         onValidationChange={reason => setValidation({ reason })} {...props} />}
     </DetailPanelSlotProvider></I18nProvider>;
   }
@@ -105,7 +105,7 @@ it.each(['click', 'Enter', 'Space'] as const)('places a field with %s and emits 
   expect(changed).toHaveBeenCalledExactlyOnceWith({ version: 1, instances: [{
     id: 'chart-1', inputs: [input], outputs: [{ key: 'selection', dimension: 'motion', shape: 'set' }],
     source: { kind: 'chart', config: { version: 1, kind: 'bar', x: { field: 'motion', type: 'category' }, measures: [{ field: 'hours' }] } },
-  }, publisher] });
+  }, publisher] }, { section: 'mapping' });
   expect(within(well(baseElement, 'breakdown')).getByRole('button', { name: 'Motion 지우기' })).toBeTruthy();
   expect(motion.getAttribute('aria-pressed')).toBe('true');
   expect(screen.getByRole('button', { name: '장비' }).getAttribute('aria-pressed')).toBe('false');
@@ -133,6 +133,8 @@ it('clears the well and the shelf highlight until another measure is placed', as
   expect(changed).not.toHaveBeenCalled();
   await user.click(screen.getByRole('button', { name: '가동률' }));
   expect(changed.mock.lastCall?.[0].instances[0]?.source).toMatchObject({ config: { measures: [{ field: 'rate' }] } });
+  // #3124: the consumer learns the edit came from «매핑» without comparing configurations.
+  expect(changed.mock.lastCall?.[1]).toEqual({ section: 'mapping' });
 });
 
 it('keeps and dims the breakdown when switching a stacked line to bar, and blocks saving', async () => {
@@ -560,4 +562,20 @@ describe('mapping field drag', () => {
     expect(measure).not.toHaveAccessibleDescription('더할 수 없는 지표라 쌓을 수 없습니다');
     expect(layout()).toEqual(before);
   });
+});
+
+// #3124 R1 C2: a «연결» edit accepted while a rejected mapping draft is pending saves that draft too; the section is still `connections`.
+it('reports connections for a connection edit that also applies a pending mapping draft', async () => {
+  const rateNeedsNoFilter = (candidate: MenuViewPanels) => {
+    const panel = candidate.instances[0];
+    const rate = panel?.source.kind === 'chart' && panel.source.config.measures.some(measure => measure.field === 'rate');
+    return rate && panel.inputs.length > 0 ? { ko: '가동률은 거르기 없이', en: 'Rate without a filter' } : undefined;
+  };
+  const { changed, user } = setup(chart(), { mapping, validateCandidate: rateNeedsNoFilter });
+  await user.click(screen.getByRole('button', { name: '가동률' }));
+  expect(changed).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('radio', { name: '무시' }));
+  expect(changed.mock.lastCall?.[0].instances[0]?.source).toMatchObject({ config: { measures: [{ field: 'rate' }] } });
+  expect(changed.mock.lastCall?.[0].instances[0]?.inputs).toEqual([]);
+  expect(changed.mock.lastCall?.[1]).toEqual({ section: 'connections' });
 });
