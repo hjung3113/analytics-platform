@@ -1,6 +1,6 @@
 import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './origin-guard';
-import { PERIOD } from './contract-helpers';
+import { PERIOD, startWithQueryBarOpen } from './contract-helpers';
 import { expectAppliedChip, queryEditor, shareQueryConditions, pickTargetRoom, contextBar, evidence, expandQueryBar, mainHeading, query, queryBar, showSlowExecutions, signInAs } from './support';
 
 /**
@@ -32,6 +32,16 @@ async function closeQueryEditor(page: Page) {
     await expect(expand).toBeVisible({ timeout: 2_000 });
     await expect(page.getByRole('dialog', { name: '조회 조건', exact: true })).toHaveCount(0, { timeout: 2_000 });
   }).toPass();
+}
+
+/**
+ * Folds a query bar that the test opened through the stored preference (`startWithQueryBarOpen`): the bar is open on
+ * arrival, so wait for its fold button instead of guessing whether the editor has opened yet (#3057).
+ */
+async function foldOpenQueryEditor(page: Page) {
+  await queryBar(page).getByRole('button', { name: '조회 조건 접기' }).click();
+  await expect(queryBar(page).getByRole('button', { name: '조회 조건 펼치기' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '조회 조건', exact: true })).toHaveCount(0);
 }
 
 /** The selector popover's view list; opening it again while open would close it. */
@@ -96,13 +106,14 @@ test.describe('HW Time saved views and shared conditions', () => {
   test('restores source-table column groups and shares the applied conditions', async ({ page }) => {
     const TWO_DAYS = 'from=2026-09-24T09:00:00&to=2026-09-26T09:00:00';
     await signInAs(page, 'engineer');
+    await startWithQueryBarOpen(page, 'hw-time');
     await page.addInitScript(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('denied')) } });
     });
     await page.goto(`/mars/hw-time?v=1&scopeId=MEM&roomNames=PHOTO&pins=table&${TWO_DAYS}`);
     const workspace = page.getByRole('region', { name: 'HW Time 분석 영역', exact: true });
     const tableTab = workspace.getByRole('tab', { name: '원본 표', exact: true });
-    await closeQueryEditor(page);
+    await foldOpenQueryEditor(page);
     await tableTab.click();
     const table = page.locator('[data-dock-panel="table"]');
     const tablePin = workspace.getByRole('button', { name: '원본 표 고정', exact: true });
@@ -129,7 +140,7 @@ test.describe('HW Time saved views and shared conditions', () => {
     await expect.poll(() => query(page).get('from')).toBe('2026-09-25T00:00:00');
     expect(query(page).get('roomNames')).toBe('ETCH');
 
-    await closeQueryEditor(page);
+    await foldOpenQueryEditor(page);
     await tableTab.click();
     await columns.click();
     await page.getByRole('button', { name: '기본값으로', exact: true }).click();
@@ -161,7 +172,7 @@ test.describe('HW Time saved views and shared conditions', () => {
     await expect(tableTab).toBeVisible();
     expect(query(page).get('roomNames')).toBe('PHOTO');
     expect(query(page).get('from')).toBe('2026-09-24T09:00:00');
-    await closeQueryEditor(page);
+    await foldOpenQueryEditor(page);
     await tableTab.click();
     await expect(tablePin).toHaveAttribute('aria-pressed', 'true');
     await expect(table.getByRole('row').filter({ has: page.getByRole('cell') }).first()).toBeVisible();
