@@ -24,7 +24,7 @@
     "@eqv/core": "workspace:*",
     "@eqv/renderer": "workspace:*",
     "@eqv/ui": "workspace:*",
-    "lucide-react": "^1.72.0"
+    "lucide-react": "^1.78.0"
   },
   "devDependencies": {
     "@ap/eslint-config": "workspace:*",
@@ -37,7 +37,7 @@
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "eslint": "^10.14.0",
+    "eslint": "^10.15.0",
     "jsdom": "^26.1.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
