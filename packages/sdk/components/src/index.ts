@@ -23,7 +23,7 @@ export { copyText, useCopyLink } from './state/copyText';
 export * from './state/DataTrustIndicator';
 export type { ChartTrust } from './state/trustFormat';
 export * from './drawer/DetailDrawer';
-export { PanelSettingsDrawer, type PanelSettingsDrawerProps, type PanelSettingsMapping } from './workspace/PanelSettingsDrawer';
+export { PanelSettingsDrawer, type PanelSettingsDrawerProps, type PanelSettingsMapping, type PanelSettingsSection } from './workspace/PanelSettingsDrawer';
 // Explicit: strokeToken·baseTextStyle stay package-internal (chart plumbing and tests only).
 /** @deprecated use '@ap/components/host'; removed next SDK minor */
 export { chartTheme } from './chart/EChart';

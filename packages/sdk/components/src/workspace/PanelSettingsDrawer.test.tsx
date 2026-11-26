@@ -103,4 +103,5 @@ it.each([undefined, { ...link, from: 'other.selection' } as const])('uses the de
     selectionOf={() => active} onChange={onChange} onClose={vi.fn()} /></DetailPanelSlotProvider></I18nProvider>);
   await userEvent.click(radio('강조만'));
   expect(onChange.mock.lastCall?.[0].instances[0].inputs).toEqual([{ ...link, from: input?.from ?? link.from, use: 'highlight' }]);
+  expect(onChange.mock.lastCall?.[1]).toEqual({ section: 'connections' });
 });
