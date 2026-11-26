@@ -4,9 +4,9 @@ import { House } from 'lucide-react';
 import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, diagnoseSavedView, useSavedViewSupport, useUnsavedGuard } from '@ap/kernel';
+import { I18nProvider, PlatformProvider, createRegistry, diagnoseSavedView, useSavedViewPanels, useSavedViewSupport, useUnsavedGuard } from '@ap/kernel';
 import { PaneQueryDraftProvider, PaneScreenProvider, useHostPlatform, useLeaveRequest } from '@ap/kernel/host';
-import { ToastProbe, createFakeSavedViewStore as createFakeViewStore, memoryStorage, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities as ALL, type FakeSavedViewStore as FakeViewStore } from '@ap/kernel/testing';
+import { ToastProbe, createFakeSavedViewStore as createFakeViewStore, memoryStorage, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities as ALL, useTestSavedViewTableSlots, type FakeSavedViewStore as FakeViewStore } from '@ap/kernel/testing';
 import { GlobalContextBar } from '../context/GlobalContextBar';
 
 // Passes through to the real diagnosis; one test swaps in a stale view whose migration throws when applied.
@@ -44,6 +44,194 @@ const selector = () => screen.getByRole('button', { name: /^저장된 뷰:/, hid
 const toasts = () => Array.from(screen.getByRole('list', { name: 'toasts', hidden: true }).querySelectorAll('li'), li => li.textContent);
 beforeEach(() => { support = baseSupport; vi.stubGlobal('localStorage', memoryStorage()); localStorage.setItem('platform:query-bar-collapsed:v1:u1:home', 'false'); /* these tests drive the open editor; the arrival default is pinned in QueryBar.test.tsx (#1892) */ vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }); window.sessionStorage.clear(); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+
+describe('saved view save blocks', () => {
+  const reason = { ko: '패널 연결을 확인하세요.', en: 'Check the panel mapping.' };
+  const otherReason = '패널 이름을 입력하세요.';
+  function Draft({ initial = true }: { initial?: boolean }) {
+    const [blocked, setBlocked] = useState(initial);
+    useSavedViewPanels({ value: null, onOpen: () => {}, saveBlocked: blocked ? reason : undefined });
+    return <button type="button" onClick={() => setBlocked(value => !value)}>초안 상태 전환</button>;
+  }
+  function TableDraft({ readReason }: { readReason: () => string | undefined }) {
+    const { global } = useHostPlatform();
+    const slots = useTestSavedViewTableSlots('home', global.scopeId);
+    useLayoutEffect(() => slots?.register('tables', 'test-table', {
+      value: {}, apply: () => {}, get blocked() { return readReason(); },
+    }), [slots, readReason]);
+    return null;
+  }
+  async function openSelected(body: ReactNode, rows = [L1]) {
+    const user = userEvent.setup();
+    const store = createFakeViewStore(rows);
+    mount(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`, <>{body}<GlobalContextBar /></>);
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    await user.click(selector());
+    await pick(user, L1.name);
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 포토 뷰'));
+    return { user, store };
+  }
+
+  it('keeps both blocked menu items focusable and restores both when the reason clears', async () => {
+    const { user, store } = await openSelected(<Draft />);
+    act(() => platform.setGlobal({ roomNames: ['ETCH'] }));
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    const current = await screen.findByRole('menuitem', { name: '현재 뷰에 저장' });
+    const copy = screen.getByRole('menuitem', { name: '새 뷰로 저장' });
+    for (const action of [current, copy]) {
+      expect(action).toHaveAttribute('aria-disabled', 'true');
+      expect(action).toHaveAccessibleDescription(reason.ko);
+      await user.click(action);
+      expect(action).toHaveFocus();
+      await user.keyboard('{Enter} ');
+    }
+    expect(screen.getByText(reason.ko)).toBeVisible();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(store.calls).toEqual([]);
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: '초안 상태 전환' }));
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    expect(await screen.findByRole('menuitem', { name: '새 뷰로 저장' })).not.toHaveAttribute('aria-disabled', 'true');
+    const enabled = screen.getByRole('menuitem', { name: '현재 뷰에 저장' });
+    expect(enabled).not.toHaveAttribute('aria-disabled', 'true');
+    await user.click(enabled);
+    expect(store.calls).toEqual(['update']);
+  });
+
+  it('shows the first reason and count, and describes the save action with every reason', async () => {
+    const warn = vi.spyOn(console, 'warn');
+    const { user } = await openSelected(<><Draft /><TableDraft readReason={() => otherReason} /></>);
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    const action = await screen.findByRole('menuitem', { name: '새 뷰로 저장' });
+    expect(screen.getByText(`${reason.ko} 외 1건`)).toBeVisible();
+    expect(action).toHaveAccessibleDescription(`${reason.ko}\n${otherReason}`);
+    expect(screen.getByText(`${reason.ko} 외 1건`).closest('[title]')).toHaveAttribute('title', `${reason.ko}\n${otherReason}`);
+    expect(warn).not.toHaveBeenCalledWith('Saved view slot "panels" accepts one registration per screen.');
+  });
+
+  it.each([
+    ['ko', '', '저장', '새 뷰로 저장', '화면의 저장 차단 사유를 확인하세요.'],
+    ['en', { ko: '패널 연결을 확인하세요.', en: '  ' }, 'Save', 'Save as new view', 'Check why saving is blocked on this screen.'],
+  ] as const)('announces a fallback for a blank reason in %s', async (lang, blank, saveLabel, newLabel, fallback) => {
+    localStorage.setItem('platform:lang', lang);
+    function BlankDraft() {
+      useSavedViewPanels({ value: null, onOpen: () => {}, saveBlocked: blank });
+      return null;
+    }
+    const user = userEvent.setup();
+    const store = createFakeViewStore([]);
+    mount(store, `/?scopeId=MEM&${period}&roomNames=PHOTO`, <><BlankDraft /><GlobalContextBar /></>);
+    await waitFor(() => expect(platform.scope.status).toBe('valid'));
+    await user.click(await screen.findByRole('button', { name: saveLabel }));
+    const action = await screen.findByRole('menuitem', { name: newLabel });
+    expect(action).toHaveAttribute('aria-disabled', 'true');
+    expect(action).toHaveAccessibleDescription(fallback);
+    expect(screen.getByText(fallback)).toBeVisible();
+    await user.click(action);
+    expect(store.calls).toEqual([]);
+  });
+
+  it('blocks save-and-switch while leaving the decision open', async () => {
+    const other = viewOf({ ...L1, id: 'l2', name: '둘째 뷰' } as never);
+    const { user, store } = await openSelected(<Draft />, [L1, other]);
+    act(() => platform.setGlobal({ roomNames: ['ETCH'] }));
+    await user.click(selector());
+    await user.click(await screen.findByRole('button', row(other.name)));
+    const save = await screen.findByRole('button', { name: '저장하고 이동' });
+    expect(save).toHaveAttribute('aria-disabled', 'true');
+    expect(save).toHaveAccessibleDescription(reason.ko);
+    await user.click(save);
+    await user.keyboard('{Enter}');
+    expect(save).toBeVisible();
+    expect(store.calls).toEqual([]);
+  });
+
+  it('blocks submitting an already-open save dialog until the reason clears', async () => {
+    const { user, store } = await openSelected(<Draft initial={false} />);
+    const toggle = screen.getByRole('button', { name: '초안 상태 전환' });
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    await user.click(await screen.findByRole('menuitem', { name: '새 뷰로 저장' }));
+    const dialog = await screen.findByRole('dialog');
+    const name = within(dialog).getByLabelText('뷰 이름');
+    const save = within(dialog).getByRole('button', { name: '저장' });
+    await user.type(name, '복사본');
+    fireEvent.click(toggle);
+    expect(save).toHaveAttribute('aria-disabled', 'true');
+    expect(save).toHaveAccessibleDescription(reason.ko);
+    await user.click(save);
+    await user.type(name, '{Enter}');
+    expect(store.calls).toEqual([]);
+    fireEvent.click(toggle);
+    await user.click(save);
+    expect(store.calls).toEqual(['save']);
+  });
+
+  it('keeps the draft confirmation open while blocked and completes the same switch after clearing', async () => {
+    const other = viewOf({ ...L1, id: 'l2', name: '둘째 뷰' } as never);
+    const { user, store } = await openSelected(<Draft initial={false} />, [L1, other]);
+    const toggle = screen.getByRole('button', { name: '초안 상태 전환' });
+    act(() => platform.queryDraft.setDraftGlobal({ roomNames: ['ETCH'] }));
+    await user.click(selector());
+    await user.click(await screen.findByRole('button', row(other.name)));
+    await user.click(await screen.findByRole('button', { name: '저장하고 이동' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '적용하지 않은 변경이 있습니다' });
+    const save = within(dialog).getByRole('button', { name: '적용된 조건만 저장하고 이동' });
+    fireEvent.click(toggle);
+    expect(save).toHaveAttribute('aria-disabled', 'true');
+    expect(save).toHaveAccessibleDescription(reason.ko);
+    await user.click(save);
+    expect(save).toHaveFocus();
+    expect(dialog).toBeVisible();
+    await user.keyboard('{Enter}');
+    expect(dialog).toBeVisible();
+    expect(store.calls).toEqual([]);
+    fireEvent.click(toggle);
+    expect(dialog).toContainElement(save);
+    expect(save).not.toHaveAttribute('aria-disabled');
+    const unblockedClass = save.className;
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(selector()).toHaveAccessibleName('저장된 뷰: 둘째 뷰'));
+    expect(store.calls).toEqual(['update']);
+    expect(unblockedClass.split(' ')).not.toContain('aria-disabled:opacity-50');
+  });
+
+  it.each(['setVisibility', 'requestOfficial'] as const)('reads the slot again before %s after creating the view', async write => {
+    let currentReason: string | undefined;
+    const { user, store } = await openSelected(<TableDraft readReason={() => currentReason} />);
+    store.groups = GROUPS;
+    const create = store.save;
+    store.save = async input => {
+      const result = await create(input);
+      if (result.ok) currentReason = otherReason;
+      return result;
+    };
+    const picker = await startShare(user);
+    if (write === 'requestOfficial') await user.click(within(picker).getByRole('radio', { name: '공식 신청' }));
+    const save = within(picker).getByRole('button', { name: '공유 대상 저장' });
+    await user.click(save);
+    expect(store.calls).toEqual(['save']);
+    expect(picker).toBeVisible();
+  });
+
+  it('pauses sharing if a reason appears during the initial write and resumes without creating a second view', async () => {
+    const { user, store } = await openSelected(<Draft initial={false} />);
+    const toggle = screen.getByRole('button', { name: '초안 상태 전환' });
+    store.groups = GROUPS;
+    let release!: () => void;
+    store.saveHold = new Promise<void>(resolve => { release = resolve; });
+    const picker = await startShare(user);
+    const save = within(picker).getByRole('button', { name: '공유 대상 저장' });
+    await user.click(save);
+    expect(store.calls).toEqual(['save']);
+    fireEvent.click(toggle);
+    await act(async () => release());
+    expect(store.calls).toEqual(['save']);
+    expect(save).toHaveAccessibleDescription(reason.ko);
+    fireEvent.click(toggle);
+    await user.click(save);
+    expect(store.calls).toEqual(['save', 'setVisibility']);
+  });
+});
 
 describe('SavedViewControl in the query tool row', () => {
   it('disables picking during the first-entry decision and applies a pick after the deadline', async () => {
