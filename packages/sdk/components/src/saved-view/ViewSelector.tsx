@@ -227,7 +227,7 @@ export function ViewSelector(props: ViewSelectorProps) {
           ) : (
             <div className="space-y-2">
               {props.picker && <>
-                <p className="flex flex-wrap items-center gap-1 break-words text-xs font-medium">{triggerLabel}{badge && <Badge variant="outline">{badge}</Badge>}</p>
+                <div className="flex flex-wrap items-center gap-1 break-words text-xs font-medium">{triggerLabel}{badge && <Badge variant="outline">{badge}</Badge>}</div>
                 {props.picker.note}
               </>}
               <Input ref={search} type="search" value={query} aria-label={m('svSearch')} placeholder={m('svSearch')} onChange={event => props.onQuery(event.target.value)} />
