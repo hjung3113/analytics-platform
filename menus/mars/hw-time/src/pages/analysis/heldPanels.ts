@@ -7,8 +7,10 @@ import { CATALOG_IDS, type Step } from './stepped';
 /**
  * `heldFrom` keeps the drawn source visible while the table holds (#2862 R C7).
  * `implicitFollow` follows the current publisher while an added table is a draft; saved inputs are explicit.
+ * `pinned`: a chart made from settings with «추가하면 고정» stays through drill and query changes (#2761). Mounted state only: a saved view
+ * stores the v1 instance, so a reopened chart is not pinned.
  */
-export type AddedPanel = { slot: string; instance: PanelInstance; heldFrom?: string; implicitFollow?: true };
+export type AddedPanel = { slot: string; instance: PanelInstance; heldFrom?: string; implicitFollow?: true; pinned?: true };
 export type PanelConfiguration = { viewId?: string; followingTable?: PanelInstance; pinSlots?: ReadonlyMap<string, string> } & (
   | { kind: 'default' | 'unreadable' }
   /** `sources`: the output-only instances held inputs name, kept as restored and never drawn (#2862). */
@@ -250,12 +252,19 @@ export function planAdd(config: PanelConfiguration, id: string, step: Step, inte
 export function keepHeld(config: PanelConfiguration): PanelConfiguration {
   if (config.kind !== 'custom') return defaultPanels;
   // A held table past the two that open stays behind with the rest (R2 C13).
-  const kept = config.added.filter(panel => holds(panel.instance) && (panel.instance.source.kind !== 'declared'
+  const held = config.added.filter(panel => holds(panel.instance) && (panel.instance.source.kind !== 'declared'
     || ofPanel(config, panel.instance.source.panel).indexOf(panel) < SAME_PANEL_MAX));
+  const kept = [...held, ...config.added.filter(panel => panel.pinned && !held.includes(panel))];
   if (!kept.length) return defaultPanels;
   const keptInstances = kept.map(panel => panel.instance);
-  const named = config.added.filter(panel => !holds(panel.instance) && names(keptInstances, panel.instance.id)).map(panel => panel.instance);
-  return { kind: 'custom', added: kept.map(({ slot, instance }) => ({ slot, instance })), sources: [...config.sources, ...named] };
+  const named = config.added.filter(panel => !holds(panel.instance) && !kept.includes(panel) && names(keptInstances, panel.instance.id)).map(panel => panel.instance);
+  return { kind: 'custom', added: kept.map(({ slot, instance, pinned }) => ({ slot, instance, ...(pinned && { pinned }) })), sources: [...config.sources, ...named] };
+}
+
+/** A query change resets the panels except pinned charts made from settings (#2761); they read the new query themselves. */
+export function keepPinned(config: PanelConfiguration): PanelConfiguration {
+  const pinned = config.kind === 'custom' ? config.added.filter(panel => panel.pinned) : [];
+  return pinned.length ? { kind: 'custom', added: pinned.map(({ slot, instance }) => ({ slot, instance, pinned: true })), sources: [] } : defaultPanels;
 }
 
 /**

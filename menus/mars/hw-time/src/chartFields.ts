@@ -1,4 +1,5 @@
 import { EQUIPMENT_SELECTION_DIMENSION, type MenuChartFields } from '@ap/contracts';
+import { HW_TIME_UNIT } from './endpoints';
 import { HW_TIME_CHART_MESSAGES as C, HW_TIME_NEW_PANEL_MESSAGES as N, HW_TIME_OVERVIEW_MESSAGES as O } from './messages';
 
 /** Row fields of the chart query (`pages/analysis/ChartPanel.tsx`): ids are also the saved `ChartConfig` fields. */
@@ -15,8 +16,8 @@ export const HW_TIME_CHART_FIELD = { module: 'moduleSeconds', motion: 'motionSec
  */
 export const HW_TIME_CHART_FIELDS: MenuChartFields = {
   measures: [
-    { id: HW_TIME_CHART_FIELD.module, label: C.moduleSeconds, unit: 's', reaggregation: 'none' },
-    { id: HW_TIME_CHART_FIELD.motion, label: C.motionSeconds, unit: 's', reaggregation: 'none' },
+    { id: HW_TIME_CHART_FIELD.module, label: C.moduleSeconds, unit: HW_TIME_UNIT.en, reaggregation: 'none' },
+    { id: HW_TIME_CHART_FIELD.motion, label: C.motionSeconds, unit: HW_TIME_UNIT.en, reaggregation: 'none' },
   ],
   breakdowns: [{ id: HW_TIME_CHART_FIELD.equipment, label: O.equipment, dimension: EQUIPMENT_SELECTION_DIMENSION }],
   time: { field: HW_TIME_CHART_FIELD.day, label: N.date },
