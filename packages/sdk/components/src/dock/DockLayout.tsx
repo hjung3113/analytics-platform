@@ -39,6 +39,31 @@ const startsAt = (items: readonly HTMLElement[], target: HTMLElement) => {
   return at >= 0 && items.slice(0, at).every(item => item.contains(target));
 };
 
+/**
+ * Timers and observers that a keyboard menu gesture leaves running after the key press (opening, the first-item safety net, the focus return).
+ * The layout cancels whatever is left when it unmounts, so none of them reaches `document` after the layout is gone (#3074).
+ */
+type PendingWork = {
+  later: (run: () => void, ms: number) => void;
+  observe: (observer: MutationObserver) => void;
+  cancel: () => void;
+};
+
+function pendingWork(): PendingWork {
+  const timers = new Set<ReturnType<typeof setTimeout>>();
+  const observers = new Set<MutationObserver>();
+  return {
+    later(run, ms) { const id = setTimeout(() => { timers.delete(id); run(); }, ms); timers.add(id); },
+    observe(observer) { observers.add(observer); },
+    cancel() {
+      for (const id of timers) clearTimeout(id);
+      timers.clear();
+      for (const observer of observers) observer.disconnect();
+      observers.clear();
+    },
+  };
+}
+
 /** The open menu of a trigger: Radix names it in `aria-controls` while it is open. */
 const menuOf = (trigger: HTMLElement) => { const id = trigger.getAttribute('aria-controls'); return id ? document.getElementById(id) : null; };
 
@@ -47,13 +72,13 @@ const menuOf = (trigger: HTMLElement) => { const id = trigger.getAttribute('aria
  * answers by opening with its first item focused (otherwise a `click`). The trigger may belong to a tab that was only just made active, so it
  * is looked for until the host has drawn it.
  */
-function openGroupMenu(root: HTMLElement, tab: HTMLElement, rowMode: boolean, tries = 0): void {
+function openGroupMenu(root: HTMLElement, tab: HTMLElement, rowMode: boolean, pending: PendingWork, tries = 0): void {
   const panelId = tab.dataset.tabPanelId;
   const slots = Array.from(root.querySelectorAll<HTMLElement>('[data-dock-group-actions]')).filter(item => item.closest('[data-dock-layout]') === root);
   // The tab's own slot once the host shows it; after a while the group's slot whatever it shows (a host that did not follow the activation).
   const slot = slots.find(item => item.dataset.dockActive === panelId) ?? (tries >= 10 ? tab.closest('.dv-groupview')?.querySelector<HTMLElement>('[data-dock-group-actions]') : undefined);
   const trigger = slot?.querySelector<HTMLElement>('[data-dock-group-menu]');
-  if (!trigger) { if (tries < 10 && root.isConnected) setTimeout(() => { openGroupMenu(root, tab, rowMode, tries + 1); }, 30); return; }
+  if (!trigger) { if (tries < 10 && root.isConnected) pending.later(() => { openGroupMenu(root, tab, rowMode, pending, tries + 1); }, 30); return; }
   programmaticFocus(() => { focusRevealing(trigger, root, rowMode); });
   trigger.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
   if (trigger.getAttribute('aria-expanded') !== 'true') trigger.click();
@@ -61,38 +86,40 @@ function openGroupMenu(root: HTMLElement, tab: HTMLElement, rowMode: boolean, tr
   // A popover focuses its first ordinary control instead.
   const focusFirst = (attempt: number) => {
     const menu = menuOf(trigger);
-    if (!menu) { if (attempt < 10) setTimeout(() => { focusFirst(attempt + 1); }, 30); return; }
+    if (!menu) { if (attempt < 10) pending.later(() => { focusFirst(attempt + 1); }, 30); return; }
     const first = menu.querySelector<HTMLElement>('[role^="menuitem"]:not([aria-disabled="true"]):not([data-disabled])');
     const onItem = document.activeElement instanceof HTMLElement && menu.contains(document.activeElement) && document.activeElement.matches('[role^="menuitem"]');
     if (first && !onItem) first.focus({ preventScroll: true });
   };
-  if (trigger.getAttribute('aria-haspopup') !== 'dialog') setTimeout(() => { focusFirst(0); }, 0);
-  returnToTab(trigger, tab, root, rowMode);
+  if (trigger.getAttribute('aria-haspopup') !== 'dialog') pending.later(() => { focusFirst(0); }, 0);
+  returnToTab(trigger, tab, root, rowMode, pending);
 }
 
 /**
  * The menu was opened from a tab, so closing it without choosing returns focus to that tab and not to the trigger Radix would use. A choice
  * that moved focus elsewhere (the host's follow-up) keeps it: only a focus that comes to rest on the trigger is moved.
  */
-function returnToTab(trigger: HTMLElement, tab: HTMLElement, root: HTMLElement, rowMode: boolean): void {
+function returnToTab(trigger: HTMLElement, tab: HTMLElement, root: HTMLElement, rowMode: boolean, pending: PendingWork): void {
   let opened = false;
   const observer = new MutationObserver(() => {
     if (trigger.getAttribute('aria-expanded') === 'true') { opened = true; return; }
     if (!opened) return;
     observer.disconnect();
     const settle = (attempt: number) => {
+      if (!root.isConnected) return;
       const focus = document.activeElement;
       if (focus === trigger) {
         const target = tab.isConnected ? tab : Array.from(root.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]')).find(item => item.dataset.tabPanelId === tab.dataset.tabPanelId && tabOf(item, root));
         if (target) programmaticFocus(() => { focusRevealing(target, root, rowMode); });
-      } else if ((focus === document.body || focus === null || focus.closest('[role="menu"]')) && attempt < 10 && root.isConnected) {
-        setTimeout(() => { settle(attempt + 1); }, 30);
+      } else if ((focus === document.body || focus === null || focus.closest('[role="menu"]')) && attempt < 10) {
+        pending.later(() => { settle(attempt + 1); }, 30);
       }
     };
-    setTimeout(() => { settle(0); }, 0);
+    pending.later(() => { settle(0); }, 0);
   });
   observer.observe(trigger, { attributes: true, attributeFilter: ['aria-expanded'] });
-  setTimeout(() => { if (!opened) observer.disconnect(); }, 1000);
+  pending.observe(observer);
+  pending.later(() => { if (!opened) observer.disconnect(); }, 1000);
 }
 
 /**
@@ -185,6 +212,9 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
     const tab = Array.from(container.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []).find(item => item.dataset.tabPanelId === panelId && tabOf(item, container.current));
     if (tab) programmaticFocus(() => { focusRevealing(tab, container.current, rowMode); });
   }, [rowMode]);
+  // Keyboard menu gestures leave timers and an observer running; cancel what is left when the layout goes (#3074).
+  const [menuWork] = useState(pendingWork);
+  useEffect(() => () => { menuWork.cancel(); }, [menuWork]);
   // After a maximize ends the restored panel's tab takes focus (when focus is not elsewhere on the page); the board composes its own contract on top.
   const wasMaximized = useRef<string | null>(null);
   useEffect(() => {
@@ -290,7 +320,7 @@ export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; revea
     const id = tab.dataset.tabPanelId;
     if (!root || !id) return false;
     if (tab.getAttribute('aria-selected') !== 'true') activate(id);
-    openGroupMenu(root, tab, rowMode);
+    openGroupMenu(root, tab, rowMode, menuWork);
     return true;
   };
   const onKeyDownCapture = (event: KeyboardEvent<HTMLDivElement>) => {
