@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useState } from 'react';
 import type { ActionResult } from '@ap/contracts';
 import { useI18n, useMenuAction, usePlatform, useSessionDraft, useUnsavedGuard } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
-import { Button, Callout, Input, RadioGroup, RadioGroupItem, Textarea } from '@ap/ui';
+import { Button, Callout, Input, RadioGroup, RadioGroupItem, Textarea, useValidatedSubmit } from '@ap/ui';
 import { ITEM_LIMITS, ITEM_TYPE_CODES, ITEM_TYPE_LABEL, itemCreate, itemDerive, itemRevise, type ItemDetail, type ItemTypeCode, type ItemWriteResult } from '../../endpoints';
 import { EvidenceEditor, Field, OwnerPicker, useCloseGuard, useDirtyReport } from './ItemFormParts';
 import { useSpecWords } from '../spec/SpecControls';
@@ -85,7 +85,7 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
   const ownerModelId = target.mode === 'revise' ? target.detail.item.owner.modelId : form.modelId;
   // Capture the detail snapshot when reload is requested so a restored v1 draft still waits for refetch before adopting v2+.
   const [reloadBaseDetail, setReloadBaseDetail] = useState<ItemDetail | null>(null);
-  const [errors, setErrors] = useState<FormErrors>({});
+  const [serverErrors, setServerErrors] = useState<FormErrors>({});
   const [banner, setBanner] = useState<Banner | null>(null);
   useLayoutEffect(() => {
     if (reloadBaseDetail !== null && target.mode === 'revise' && target.detail !== reloadBaseDetail && target.detail.item.version !== baseVersion) {
@@ -105,7 +105,7 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
     else guard.force();
   };
   function settle<T>(res: ActionResult<T>, onOk: (data: T | null) => void) {
-    if (res.outcome === 'ok') { discard(); setBanner(null); setErrors({}); guard.release(() => onOk(res.data)); return; }
+    if (res.outcome === 'ok') { discard(); setBanner(null); setServerErrors({}); guard.release(() => onOk(res.data)); return; }
     if (res.outcome === 'conflict') { setBanner({ kind: 'conflict' }); return; }
     const subjectErrors = res.outcome === 'invalid' ? res.fieldErrors.filter(e => e.path[0] === 'subjects') : [];
     const mapped = res.outcome === 'invalid' ? mapItemErrors(res.fieldErrors.filter(e => e.path[0] !== 'subjects' && e.path[0] !== 'relations'), CONTENT_FIELDS, form.evidence.length) : {};
@@ -114,16 +114,28 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
       const key = e.path[1] !== undefined ? `relations.${e.path[1]}` : 'relations';
       mapped[key] = w('Event 관계 기록의 종류와 Event 키를 확인하세요.', 'Check the relation kind and Event keys.');
     }
-    setErrors(mapped);
+    setServerErrors(mapped);
     if (res.outcome === 'invalid' && Object.keys(mapped).length > 0) { setBanner(null); return; }
     setBanner({ kind: 'failed', text: failureText(res.outcome), ...(res.retry ? { retry: () => { const retry = res.retry; if (retry) void retry().then(next => settle(next as ActionResult<T>, onOk)).catch(() => undefined); } } : {}) });
   }
-  const save = () => {
+  const subjectPayloadOf = () => (target.mode === 'revise' ? subjectsPayload(ownerModelId, target.detail.subjects, picks) : null);
+  const localErrors = (): FormErrors => {
     const found = { ...validateForm(form, mode), ...(mode !== 'derive' ? validateRelations(relations) : {}) };
-    const subjectPayload = target.mode === 'revise' ? subjectsPayload(ownerModelId, target.detail.subjects, picks) : null;
+    const subjectPayload = subjectPayloadOf();
     if (subjectPayload?.send && subjectPayload.blocked.length) found['subjects'] = w('대상 목록을 바꾸려면 사라진 대상을 먼저 빼 주세요.', 'Remove missing targets before changing the subject list.');
-    setErrors(found);
-    if (Object.keys(found).length > 0) { setBanner(null); return; }
+    return found;
+  };
+  // #2574: the SDK validator focuses the first invalid control. Its errors are keyed by control (title, evidence rows…),
+  // not by draft property, so the check reads the current draft; server errors stay apart and clear on each submit.
+  const local = useValidatedSubmit<Record<string, unknown>>({
+    validate: () => { const found = localErrors(); if (Object.keys(found).length > 0) setBanner(null); return found; },
+    onValid: () => send(),
+  });
+  const errors: FormErrors = { ...serverErrors };
+  for (const [key, message] of Object.entries(local.errors)) if (message) errors[key] = message;
+  const submitLocal = local.handleSubmit(draft);
+  const send = () => {
+    const subjectPayload = subjectPayloadOf();
     if (target.mode === 'create') {
       void create.run({ ...createInput(form), subjects: toSubjectInputs(ownerModelId, picks), relations: relationInputs(relations) }).then(res => settle(res, data => { toast('기술 Item을 등록했습니다', 'info'); goToItem(data); })).catch(() => undefined);
     } else if (target.mode === 'revise') {
@@ -137,7 +149,7 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
   };
 
   const latest = target.mode === 'revise' ? target.detail.item.latestRevisionNo : 0;
-  return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { event.preventDefault(); if (!busy && banner?.kind !== 'conflict') save(); }}>
+  return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { if (busy || banner?.kind === 'conflict') { event.preventDefault(); return; } setServerErrors({}); submitLocal(event); }}>
     {restored && <Callout tone="blue" title={t('sessionDraftRestoredTitle')}>{t('sessionDraftRestored')}</Callout>}
     {banner?.kind === 'conflict' && <Callout tone="amber" title="다른 사람이 먼저 고쳤습니다"
       action={<Button type="button" size="sm" variant="secondary" onClick={() => { if (target.mode === 'revise') setReloadBaseDetail(target.detail); onReload(); }}>최신 불러오기</Button>}>

@@ -167,6 +167,34 @@ describe('production model spec screen', () => {
     expect(summary.textContent).toContain('초안을 만든 뒤 비교합니다.');
     expect(summary.textContent, 'no parse-failure reason before a draft exists').not.toContain('파싱하지 못해');
   });
+  // #2574: a blank source no longer disables 초안 작성; submitting shows the field errors and focuses the first one.
+  it('shows the source field errors on 초안 작성 and focuses the first one without writing', async () => {
+    mount('&drawer=draft');
+    const create = await screen.findByRole('button', { name: '초안 작성' });
+    expect((create as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(create);
+    const label = screen.getByLabelText('원본 문서*'), version = screen.getByLabelText('문서 버전*');
+    await waitFor(() => expect(document.activeElement).toBe(label));
+    for (const [control, message] of [[label, '원본 문서를 입력해 주세요.'], [version, '문서 버전을 입력해 주세요.']] as const) {
+      expect(control.getAttribute('aria-invalid')).toBe('true');
+      expect(control.getAttribute('aria-describedby')).toContain(screen.getByText(message).id);
+    }
+    expect(writes).toHaveLength(0);
+    fireEvent.change(label, { target: { value: 'Spec' } });
+    expect(label.getAttribute('aria-invalid')).not.toBe('true');
+    fireEvent.click(create);
+    await waitFor(() => expect(document.activeElement).toBe(version));
+    expect(writes).toHaveLength(0);
+  });
+  it('creates the draft with the same payload once the source is filled', async () => {
+    mount('&drawer=draft');
+    const create = await screen.findByRole('button', { name: '초안 작성' });
+    fireEvent.change(screen.getByLabelText('원본 문서*'), { target: { value: 'Spec' } });
+    fireEvent.change(screen.getByLabelText('문서 버전*'), { target: { value: '2' } });
+    fireEvent.click(create);
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]).toMatchObject({ action: 'logKnowledge.specDraftCreate', input: { modelId, sourceDocRef: { docLabel: 'Spec', docVersion: '2' } } });
+  });
   it('keeps the loaded publication Revision visible when TSV parsing is unavailable', async () => {
     mount('&drawer=draft&revision=' + rev);
     const summary = await screen.findByRole('region', { name: '발행 전 변경 요약' });

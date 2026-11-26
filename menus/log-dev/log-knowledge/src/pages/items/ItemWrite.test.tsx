@@ -290,6 +290,16 @@ describe('새 기술 Item (create)', () => {
     expect(writes).toHaveLength(0);
   });
 
+  // #2574: a local invalid submit moves focus to the first invalid control.
+  it('focuses the first invalid control (the owner picker) after a local invalid submit', async () => {
+    mountList(`${published}&focus=new`);
+    await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
+    submit('등록');
+    const owner = within(drawer()).getByRole('combobox', { name: /소유 대상/ });
+    await waitFor(() => expect(document.activeElement).toBe(owner));
+    expect(owner.getAttribute('aria-invalid')).toBe('true');
+    expect(writes).toHaveLength(0);
+  });
   it('puts a nested server error on its own evidence row and an unmapped path in a visible form error', async () => {
     mountList(`${published}&focus=new&owner=${MODEL_A}`);
     await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
@@ -354,6 +364,15 @@ describe('Item 상세 수정 (revise)', () => {
     expect(await screen.findByRole('heading', { level: 1, name: '챔버 압력 로그 지연 (3차)' }, slow)).toBeTruthy();
     const list = within(screen.getByRole('region', { name: '리비전' }));
     expect(list.getAllByRole('button').map(b => b.textContent)).toEqual([expect.stringContaining('r3'), expect.stringContaining('r2'), expect.stringContaining('r1')]);
+  });
+
+  it('focuses 변경 사유 when it is the only missing field of a revise', async () => {
+    mountDetail(ITEM(1), '&drawer=revise');
+    await screen.findByRole('heading', { name: '기술 Item 수정' }, slow);
+    submit('새 리비전 저장');
+    await waitFor(() => expect(document.activeElement).toBe(field(/^변경 사유/)));
+    expect(field(/^변경 사유/).getAttribute('aria-invalid')).toBe('true');
+    expect(writes).toHaveLength(0);
   });
 
   it('from an older rev it says it edits the latest, prefills the latest, and clears rev afterwards', async () => {

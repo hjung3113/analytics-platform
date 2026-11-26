@@ -24,7 +24,7 @@ function safariEnter(field: Element) {
 describe('form-level IME Enter guard', () => {
   it('LifecycleForm cancels the composition Enter and keeps a plain Enter', () => {
     render(<LifecycleHost navigate={vi.fn()}><LifecycleForm {...props()} name="roundOpen" title="Round 열기" initial={{ projectId: 'p', sourceOwner: '' }} onClose={vi.fn()} /></LifecycleHost>);
-    const field = screen.getByLabelText('원본 소유자 (필수)');
+    const field = screen.getByRole('textbox', { name: '원본 소유자' });
     fireEvent.change(field, { target: { value: '설비팀' } });
     expect(safariEnter(field)).toBe(true);
     expect(fireEvent.keyDown(field, { key: 'Enter' })).toBe(true);
