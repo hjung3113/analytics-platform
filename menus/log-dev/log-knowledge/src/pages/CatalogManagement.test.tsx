@@ -165,6 +165,8 @@ describe('catalog drawer writes', () => {
     answer = () => ({ outcome: 'conflict', version: '4' });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     expect(await screen.findByText('다른 사람이 먼저 고쳤습니다')).toBeTruthy();
+    // The conflict announces like the other failures (#2574).
+    expect(screen.getByRole('alert').textContent).toBe('저장하지 않은 입력은 새로 불러오면 사라집니다.');
     expect(writes.at(-1)?.action).toBe('logKnowledge.modelUpdate');
     expect(writes.at(-1)?.expectedVersion).toBe('3');
     answer = () => ({ outcome: 'error', message: 'boom' });
@@ -173,7 +175,27 @@ describe('catalog drawer writes', () => {
     fireEvent.change(await screen.findByLabelText(/^이름/), { target: { value: 'Alpha 100 v3' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     expect(await screen.findByText('저장하지 못했습니다', { selector: '*' })).toBeTruthy();
+    // A failure that is not about a field is announced by the banner line.
+    expect(screen.getByRole('alert').textContent).toBe('저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
     expect((screen.getByLabelText(/^이름/) as HTMLInputElement).value).toBe('Alpha 100 v3');
+  });
+
+  it('announces a second identical rejection again with a new alert', async () => {
+    mount(`&tab=vendor${activeOnly()}&focus=new`);
+    fireEvent.change(await screen.findByLabelText(/^코드/, {}, slow), { target: { value: 'alpha' } });
+    fireEvent.change(screen.getByLabelText(/^이름/), { target: { value: 'Again' } });
+    answer = () => ({ outcome: 'invalid', fieldErrors: [{ path: ['code'], code: 'duplicate' }] });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    const first = await screen.findByRole('alert', {}, slow);
+    expect(first.textContent).toBe('표시된 칸을 확인해 주세요.');
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(writes.filter(w => w.action === 'logKnowledge.vendorCreate')).toHaveLength(2));
+    await waitFor(() => {
+      const alerts = screen.getAllByRole('alert');
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0]).not.toBe(first);
+      expect(alerts[0]?.textContent).toBe('표시된 칸을 확인해 주세요.');
+    });
   });
 
   it('puts a field error under its field and keeps what was typed', async () => {

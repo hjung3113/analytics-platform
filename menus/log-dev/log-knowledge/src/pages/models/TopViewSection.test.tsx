@@ -204,6 +204,23 @@ describe('manager controls', () => {
     expect(alerts[0]?.textContent).toBe('표시된 칸을 확인해 주세요.');
   });
 
+  it('announces a second identical server rejection again with a new alert', async () => {
+    actionResult = { outcome: 'invalid', data: null, version: null, fieldErrors: [{ path: ['revision'], code: 'revision_not_found' }], replayed: false };
+    mount();
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: '연결' }));
+    const first = await within(dialog).findByRole('alert', {}, slow);
+    expect(first.textContent).toBe('표시된 칸을 확인해 주세요.');
+    fireEvent.click(within(dialog).getByRole('button', { name: '연결' }));
+    await waitFor(() => expect(writes).toHaveLength(2));
+    await waitFor(() => {
+      const alerts = within(dialog).getAllByRole('alert');
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0]).not.toBe(first);
+      expect(alerts[0]?.textContent).toBe('표시된 칸을 확인해 주세요.');
+    });
+  });
+
   it('ties a server 적용 시작 SW error to its picker and announces the form line once', async () => {
     actionResult = { outcome: 'invalid', data: null, version: null, fieldErrors: [{ path: ['fromSoftwareId'], code: 'software_not_of_model' }], replayed: false };
     mount();

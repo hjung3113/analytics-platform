@@ -11,7 +11,7 @@ import { ItemRelations } from './ItemRelations';
 import { relationInputs, relationRowsOf, validateRelations } from './itemRelationModel';
 import { picksOf, subjectsPayload, toSubjectInputs, subjectErrorText, type SubjectPick } from './subjectModel';
 import { itemNoLabel, ownerText } from './itemModel';
-import { SERVER_FIELDS_SUMMARY } from '../formCopy';
+import { withFieldsSummary } from '../fieldRejection';
 import {
   createInput, deriveForm, deriveInput, deriveNotice, emptyForm, itemErrorText, mapItemErrors, ownerLine, reviseForm, reviseInput, validateForm,
   type FormErrors, type WriteForm, type WriteMode,
@@ -148,8 +148,7 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
       mapped[key] = w('Event 관계 기록의 종류와 Event 키를 확인하세요.', 'Check the relation kind and Event keys.');
     }
     // Like the spec drawers' problem line: one form-level alert when the server marks fields (`subjects` announces itself).
-    if (Object.keys(mapped).some(key => key !== 'form' && key !== 'subjects')) mapped['form'] ??= SERVER_FIELDS_SUMMARY;
-    setServerErrors(mapped);
+    setServerErrors(withFieldsSummary(mapped, ['subjects']));
     if (res.outcome === 'invalid' && Object.keys(mapped).length > 0) { setBanner(null); return; }
     setBanner({ kind: 'failed', text: failureText(res.outcome), ...(res.retry ? { retry: () => { const retry = res.retry; if (retry) void retry().then(next => settle(next as ActionResult<T>, onOk)).catch(() => undefined); } } : {}) });
   }
