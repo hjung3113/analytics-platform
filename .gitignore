@@ -1,6 +1,9 @@
 node_modules/
 dist/
 .turbo/
+# Python bytecode (agent skill scripts, tooling)
+__pycache__/
+*.pyc
 # Playwright outputs (apps/platform-e2e)
 test-results/
 playwright-report/
