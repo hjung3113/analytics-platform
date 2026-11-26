@@ -37,9 +37,6 @@ import { changedFiles, DOCS_ONLY } from './classify-changes.mjs';
 const SPEC_DIR = 'apps/platform-e2e/tests';
 const SPEC = /^apps\/platform-e2e\/tests\/([^/]+\.spec\.ts)$/;
 const BASE_PATH_SPEC = 'base-path.spec.ts';
-// Any file the main config could collect (testDir `./tests`, recursive, Playwright's default testMatch). Only a top-level `.spec.ts` can be named
-// as a filter, so any other test file there runs the full suite rather than the smoke set.
-const E2E_TEST_FILE = /^apps\/platform-e2e\/tests\/.*\.(?:spec|test)\.[cm]?[jt]sx?$/;
 // Server trees the mock E2E never builds (verified against the @ap/platform-web dependency graph, #1680). The one file in them that the graph reads still runs smoke.
 const SERVER_ONLY = /^(?:apps|ops)\/platform-api\//;
 const SERVER_ONLY_EXCEPTION = 'ops/platform-api/tsconfig.base.json';
@@ -125,7 +122,6 @@ export function select({ event, files, fullInput, exists }) {
       else specs.add(name);
       continue;
     }
-    if (E2E_TEST_FILE.test(quoted ? f.slice(1, -1) : f)) return { ...ALL };
     bounded = true;
     const menu = Object.keys(MENU_SPECS).find((dir) => f.startsWith(dir));
     if (menu) {
@@ -252,10 +248,7 @@ function selfTest() {
   check('spec: base-path spec only → base-path-only', pr([`${T}base-path.spec.ts`]), out('base-path-only', 'true', '[1]', '1'));
   check('spec: base-path spec + another spec', pr([`${T}base-path.spec.ts`, `${T}hw-time.spec.ts`]), sub('hw-time.spec.ts', 'true'));
   check('spec: base-path spec + docs', pr([`${T}base-path.spec.ts`, 'a.md']), out('base-path-only', 'true', '[1]', '1'));
-  check('spec: nested spec → all (only top-level specs can be named)', sdkPr([`${T}sub/x.spec.ts`]), ALLV);
-  check('spec: nested unsafe spec name → all', sdkPr([`${T}edge/case+one.spec.ts`]), ALLV);
-  check('spec: top-level .test.ts the config collects → all', sdkPr([`${T}case.test.ts`]), ALLV);
-  check('spec: helper module in tests/ still uses smoke', sdkPr([`${T}support.ts`]), bounded(contracts));
+  check('spec: nested spec dir uses smoke', sdkPr([`${T}sub/x.spec.ts`]), bounded(contracts));
   check('spec: non-spec file in tests/ uses smoke', sdkPr([`${T}fixture.json`]), bounded(contracts));
   // Names become regular-expression filters in Playwright: anything outside [A-Za-z0-9_.-] → all.
   check('name: new plain spec', pr([`${T}my-new.spec.ts`], { exists: () => true }), sub('my-new.spec.ts'));

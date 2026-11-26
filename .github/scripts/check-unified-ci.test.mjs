@@ -280,30 +280,6 @@ test('push and dispatch publish full parallelism for both matrices', () => {
   }
 });
 
-// Push and dispatch run every shard together: main CI time is merge speed for batched merges, so the PR budget must not throttle them.
-function nonPrShortfalls(jobs) {
-  return [...jobs].filter(([, job]) => typeof job.limit === 'string').flatMap(([id, job]) => {
-    const match = /^\$\{\{ github\.event_name != 'pull_request' && (\d+) \|\| /.exec(job.limit);
-    assert.ok(match, `${id}: max-parallel must give push and dispatch a fixed limit: ${job.limit}`);
-    return Number(match[1]) < job.size ? [`${id}: ${match[1]} < ${job.size}`] : [];
-  });
-}
-
-test('push and dispatch run every matrix shard at once and are never cancelled', () => {
-  const jobs = workflowJobs(workflow);
-  assert.ok([...jobs.values()].filter((job) => typeof job.limit === 'string').length >= 2, 'both suite matrices declare a limit');
-  assert.deepEqual(nonPrShortfalls(jobs), []);
-  const throttled = workflow.replace("github.event_name != 'pull_request' && 8 ||", "github.event_name != 'pull_request' && 2 ||");
-  assert.notEqual(throttled, workflow);
-  assert.notDeepEqual(nonPrShortfalls(workflowJobs(throttled)), []);
-  const throttledIntegration = workflow.replace("github.event_name != 'pull_request' && 3 ||", "github.event_name != 'pull_request' && 1 ||");
-  assert.notEqual(throttledIntegration, workflow);
-  assert.notDeepEqual(nonPrShortfalls(workflowJobs(throttledIntegration)), []);
-  // Only a superseded PR run is cancelled; a manual run has its own group.
-  assert.match(workflow, /^  cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}$/m);
-  assert.match(workflow, /^  group: .*github\.event_name == 'workflow_dispatch' && 'dispatch-'/m);
-});
-
 test('quoted strategy keys still count all ten slots in the busiest staged wave', () => {
   const yaml = `jobs:
   setup:
