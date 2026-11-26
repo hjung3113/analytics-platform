@@ -1,6 +1,6 @@
 # Equipment visualization (EV) — design and contract documents
 
-Moved from the EV repository when EV merged into the platform ([ADR-0132](../../../adr/0132-eqv-merges-into-platform.md), #1607). The documents keep the wording of EV; `#N` and `ADR-` references were rewritten to `EV#N` and `EV ADR-NNNN`. Paths written inside them (`packages/core`, `packages/platform-adapter`, `apps/studio`, `assets/`) are EV-repository paths; the table below gives where the code is now. Other path words inside the documents are history.
+Moved from the EV repository when EV merged into the platform ([ADR-0132](../../../adr/0132-eqv-merges-into-platform.md), #1607). The documents keep the wording of EV; `#N` and `ADR-` references were rewritten to `EV#N` and `EV ADR-NNNN`. Paths written inside them (packages/core, packages/platform-adapter, apps/studio, `assets/`) are EV-repository paths; the table below gives where the code is now. Other path words inside the documents are history.
 
 ## Which document owns which contract
 
@@ -24,11 +24,11 @@ Decisions are in [`docs/adr/history/eqv/`](../../../adr/history/eqv/README.md) (
 
 | EV repository path | Here |
 | --- | --- |
-| `packages/core`, `renderer`, `editor`, `replay`, `ui`, `views` | `packages/eqv/<name>` (`@eqv/<name>`) |
-| `packages/platform-adapter` | `menus/tools/topview` (`@ap/menu-topview`, an ordinary menu package, #1659) |
+| packages/core, `renderer`, `editor`, `replay`, `ui`, `views` | `packages/eqv/<name>` (`@eqv/<name>`) |
+| packages/platform-adapter | `menus/tools/topview` (`@ap/menu-topview`, an ordinary menu package, #1659) |
 | `assets/` | `packages/eqv/assets` (provenance: `NOTICE.md`) |
 | test fixtures | `packages/eqv/fixtures` |
-| `apps/studio` | `menus/tools/topview-studio` (the `apps/eqv-studio` dev tool of #1613 was deleted in #1659) |
+| apps/studio | `menus/tools/topview-studio` (the apps/eqv-studio dev tool of #1613 was deleted in #1659) |
 | `.agents`-style skill `reference-to-semantic-topview` | `.agents/skills/reference-to-semantic-topview` |
 | repository rules (`AGENTS.md`) | [`packages/eqv/AGENTS.md`](../../../../packages/eqv/AGENTS.md) |
 

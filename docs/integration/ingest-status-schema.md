@@ -4,19 +4,19 @@
 
 이 문서는 적재 워커 기록의 **모양과, 그것을 06 §19 평가로 줄이는 규칙**만 다룬다. 원천·최소 기록 항목·노출 수준은 [01 가공 상태 보고](../architecture/architecture-and-data-contract.md#processing-status-report)가, 응답 모양(`outcome`/`assessments[]`, 가짜 `clear` 금지)과 표시 상태는 [06 §19](../contract/components.md#19-loading--empty--error-taxonomy)가 원본이다.
 
-관찰 기준: `context_recognized_parser` `main` `d84fab1`(2026-09-28). 파서 쪽 사실은 그 저장소 `docs/11`·`docs/16`·`docs/22`와 `src/`에서 확인했다.
+관찰 기준: `context_recognized_parser` `main` `d84fab1`(2026-09-28). 파서 쪽 사실은 그 저장소 docs/11·docs/16·docs/22와 `src/`에서 확인했다.
 
 ## 1. 파서가 지금 남기는 것과 빈 곳
 
 | 사실 (파서 `d84fab1`) | 상태 기록에 주는 의미 |
 | --- | --- |
-| 소스 파일 1개 = 트랜잭션 1개. `source_file`·결과·`data_quality_issue`·`carryover_snapshot`·`processing_segment`를 한 번에 커밋한다(`docs/11` §12). 레코드 0건 파일도 정상 Segment를 만든다(`docs/11` §8). | **파일 커밋 성공은 이미 원자적으로 남는다.** `processing_segment` 행이 그 증거다. 단, 커밋 성공은 수집 완결성이나 데이터 품질의 증거가 아니다. |
-| 커밋 전 실패는 파일 트랜잭션 전체를 롤백한다(`docs/11` §12, `docs/16` §5). `processing_run`은 그 전에 따로 커밋될 수 있다(`docs/11` §12). | **파일 단위 실패·결과 기록은 남지 않는다**(Run provenance만 남을 수 있다). 실패 기록은 워커가 트랜잭션 밖에서 따로 써야 한다. |
-| 파일 수신·순서·누락 감지·중복 전달 방지는 Scheduler 책임이다(`docs/16` §1). raw 파일 → `ParsedRecord` 변환도 이 저장소 범위 밖이다(`docs/16` §2, `docs/22` §1.1). 저장소에 host 프로젝트가 없다(`docs/17` §6.4). | 수집·변환 단계 상태와 "파일 미수신"은 **파서를 호출하는 쪽(적재 워커)** 만 알 수 있다. |
-| 같은 설비의 파일은 순서대로 처리하고, 두 번째 파일부터는 직전 Output Snapshot이 필요하다(`docs/22` §1). | 한 파일이 실패하면 뒤 파일은 **선행 파일 때문에 대기**한다. |
+| 소스 파일 1개 = 트랜잭션 1개. `source_file`·결과·`data_quality_issue`·`carryover_snapshot`·`processing_segment`를 한 번에 커밋한다(docs/11 §12). 레코드 0건 파일도 정상 Segment를 만든다(docs/11 §8). | **파일 커밋 성공은 이미 원자적으로 남는다.** `processing_segment` 행이 그 증거다. 단, 커밋 성공은 수집 완결성이나 데이터 품질의 증거가 아니다. |
+| 커밋 전 실패는 파일 트랜잭션 전체를 롤백한다(docs/11 §12, docs/16 §5). `processing_run`은 그 전에 따로 커밋될 수 있다(docs/11 §12). | **파일 단위 실패·결과 기록은 남지 않는다**(Run provenance만 남을 수 있다). 실패 기록은 워커가 트랜잭션 밖에서 따로 써야 한다. |
+| 파일 수신·순서·누락 감지·중복 전달 방지는 Scheduler 책임이다(docs/16 §1). raw 파일 → `ParsedRecord` 변환도 이 저장소 범위 밖이다(docs/16 §2, docs/22 §1.1). 저장소에 host 프로젝트가 없다(docs/17 §6.4). | 수집·변환 단계 상태와 "파일 미수신"은 **파서를 호출하는 쪽(적재 워커)** 만 알 수 있다. |
+| 같은 설비의 파일은 순서대로 처리하고, 두 번째 파일부터는 직전 Output Snapshot이 필요하다(docs/22 §1). | 한 파일이 실패하면 뒤 파일은 **선행 파일 때문에 대기**한다. |
 | 실패는 대부분 타입이 있는 예외로 난다: `SnapshotRestoreException`(`Reason`: `SchemaVersionMismatch`·`EquipmentMismatch`·`InvalidState`·`DuplicateActive`), `DuplicateSourceFileException`, `MismatchedEquipmentStreamException`, `PersistenceValidationException`(하위 `UnsupportedCompletedEntityException`). 예외: 요청 envelope 검증(`SegmentPersistenceWriter.ValidateEnvelope`)은 `ArgumentException` 계열을 던지며, 파일 서술 문제(빈 파일명, 음수 크기)와 호출 버그(빈 Run/Segment/Snapshot id)가 섞여 있다. | 원인 분류는 메시지 문자열이 아니라 예외 타입에서 뽑는다(§4). `ArgumentException`은 원천 문제로 분류하지 않는다(§4.2). |
 | `data_quality_issue`는 레코드 단위 품질 문제이고 정상 커밋의 일부다(`DataQualityCode` 15종). | 품질 이슈는 가공 실패가 아니다. 원인 분류에 넣지 않는다. |
-| 업무 시각은 시간대 없는 설비 wall-clock(`timestamp`), 운영 시각은 `timestamptz`다. PK는 `(equipment_id, date, …)`로 시작하고 global UNIQUE를 요구하지 않는다(`docs/11` §5). `processing_segment.created_at`은 앱이 INSERT 전에 채운다(커밋 시각이 아니다). | 이 스키마도 같은 키 규칙을 따른다. `created_at`은 증거 시각이지 관측 시각이 아니다(§3.3). |
+| 업무 시각은 시간대 없는 설비 wall-clock(`timestamp`), 운영 시각은 `timestamptz`다. PK는 `(equipment_id, date, …)`로 시작하고 global UNIQUE를 요구하지 않는다(docs/11 §5). `processing_segment.created_at`은 앱이 INSERT 전에 채운다(커밋 시각이 아니다). | 이 스키마도 같은 키 규칙을 따른다. `created_at`은 증거 시각이지 관측 시각이 아니다(§3.3). |
 
 "적재 워커"는 이 문서에서 **스케줄러 + 수집기 + 변환기 + 파서 호출을 묶은 실행 주체**를 뜻하고, 상태 테이블은 이 묶음이 소유하고 쓴다. 실무로는 job 진행상황 DB를 쓰는 스케줄러가 중심이다. 읽기 전용 파일 게이트웨이는 여기에 들지 않는다(§7 Q1).
 
@@ -157,13 +157,13 @@ parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 �
 
 | 단위·단계 | `cause_code` | 근거 (파서 `d84fab1`) | `result` | 사용자 분류 |
 | --- | --- | --- | --- | --- |
-| slot · collect | `file_waiting` | Scheduler 대기 정책(`docs/16` §1), `wait_until` 전 | pending | `waiting` |
-| slot · collect | `file_not_received` | `wait_until`이 지남(`docs/16` §1) | failed | `not_received` |
+| slot · collect | `file_waiting` | Scheduler 대기 정책(docs/16 §1), `wait_until` 전 | pending | `waiting` |
+| slot · collect | `file_not_received` | `wait_until`이 지남(docs/16 §1) | failed | `not_received` |
 | delivery · collect | `duplicate_delivery` | `DuplicateSourceFileException` — 이미 커밋된 파일이 다시 옴 | failed | 트레이스 전용(§3.1) |
 | source_file · convert | `raw_format_error` | raw → `ParsedRecord` 변환 실패(파서 범위 밖) | failed | `source_format` |
 | source_file · convert | `descriptor_invalid` | **워커가 파서 호출 전에 직접** 검증한 `SourceFileDescriptor` 오류(빈 파일명, 음수 크기 등) | failed | `source_format` |
 | source_file · convert | `equipment_stream_mismatch` | `MismatchedEquipmentStreamException` | failed | `source_format` |
-| source_file · parse | `blocked_by_predecessor` | 같은 설비의 앞 파일이 아직 커밋되지 않음(`docs/22` §1) | pending | `waiting` |
+| source_file · parse | `blocked_by_predecessor` | 같은 설비의 앞 파일이 아직 커밋되지 않음(docs/22 §1) | pending | `waiting` |
 | source_file · parse | `snapshot_schema_mismatch` | `SnapshotRestoreException.Reason = SchemaVersionMismatch` | failed | `processing_error` |
 | source_file · parse | `snapshot_invalid` | `Reason = EquipmentMismatch` · `InvalidState` · `DuplicateActive` | failed | `processing_error` |
 | source_file · parse | `chain_invalid` | `PersistenceValidationException`(Segment/Snapshot 체인 위반) | failed | `processing_error` |
@@ -184,10 +184,10 @@ parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 �
 
 | 대상 | 보존 | 이유 |
 | --- | --- | --- |
-| `expected_slot`, `stage_event` | 90일 | 파서 Snapshot 예상 보존 약 3개월(`docs/11` §9)과 맞춘다. |
+| `expected_slot`, `stage_event` | 90일 | 파서 Snapshot 예상 보존 약 3개월(docs/11 §9)과 맞춘다. |
 | `stage_detail` | 30일 | 원시 오류·로그는 크고 민감하다. 오래된 실패는 원인 코드만으로 충분하다. |
 
-- 삭제는 운영 날짜 `date` 기준 파티션 단위다. 운영 날짜와 슬롯 구간은 날짜 경계에서 어긋날 수 있으므로(`docs/11` §4), 소비 뷰의 `retained_from`은 **남은 파티션 중 가장 이른 날짜에서 보수적으로 유도**한다(§3.2).
+- 삭제는 운영 날짜 `date` 기준 파티션 단위다. 운영 날짜와 슬롯 구간은 날짜 경계에서 어긋날 수 있으므로(docs/11 §4), 소비 뷰의 `retained_from`은 **남은 파티션 중 가장 이른 날짜에서 보수적으로 유도**한다(§3.2).
 
 ## 6. `context_recognized_parser` 변경 범위 (제안)
 
@@ -198,9 +198,9 @@ parser.processing_segment    파서가 이미 쓴다. 파일 커밋 성공의 �
 | P1 | 실패 예외 → `cause_code` 매핑을 파서가 공개 API로 제공(예: `IngestFailureClassifier.Classify(Exception)`) 또는 코드 상수를 공개 | 예외 계층이 바뀌어도 워커의 분류가 조용히 `unclassified`로 떨어지지 않는다. 파서 테스트로 매핑을 고정한다. |
 | P2 | `ValidateEnvelope` 실패를 전용 예외(또는 이유 enum)로 구분: 파일 서술 오류 vs 호출 계약 위반 | 지금은 `ArgumentException`·`ArgumentOutOfRangeException` 하나로 섞여 워커가 `caller_contract_error`로만 분류할 수 있다. |
 | P3 | `SegmentWriteResult`에 처리 레코드 수와 `data_quality_issue` 건수 추가 | 트레이스에서 파일별 규모·품질 이슈를 추가 조회 없이 보인다. |
-| P4 | `docs/16`에 "상태 보고 경계" 절 추가: 파서는 상태 테이블을 쓰지 않고 예외·결과만 돌려준다 | 상태 기록 책임이 파서로 새어 들어가지 않게 경계를 고정한다(`docs/16` §4와 같은 취지). |
+| P4 | docs/16에 "상태 보고 경계" 절 추가: 파서는 상태 테이블을 쓰지 않고 예외·결과만 돌려준다 | 상태 기록 책임이 파서로 새어 들어가지 않게 경계를 고정한다(docs/16 §4와 같은 취지). |
 
-- 워커 코드와 `ingest_status` DDL이 파서 저장소에 들어간다면(§7 Q1) 마이그레이션 번호·방식은 파서 `docs/19`를 따른다.
+- 워커 코드와 `ingest_status` DDL이 파서 저장소에 들어간다면(§7 Q1) 마이그레이션 번호·방식은 파서 docs/19를 따른다.
 - 일정은 파서 담당이 정한다. 플랫폼 화면(#51)은 이 계약으로 설계한다.
 
 ## 7. 확정된 사실

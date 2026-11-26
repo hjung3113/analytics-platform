@@ -29,7 +29,7 @@ Onboarding은 Studio의 MVP 핵심 흐름이다. 장비 모델 수가 많아 사
 
 ### ObservedInventory 계약 (#9b)
 
-`packages/core/src/inventory/schema.ts`의 strict `observedInventorySchema`와
+packages/core/src/inventory/schema.ts의 strict `observedInventorySchema`와
 `@eqv/core/observed-inventory.schema.json`이 DTO 형식을 정의한다. Inventory 계산은 `buildInventory`가 구현한다(#11a).
 
 ```ts
@@ -72,7 +72,7 @@ type InventoryAlias = {
 LL 1/1 ✓, LP 1/1 ✓, PM 3 (1–6) ✓, ROBOT 2/2 ✓, 이송 7/7 ✓, 설명 안 되는 alias 2
 ```
 
-`fixtures/templates/`의 세 후보는 #11b의 synthetic Template(테스트 입력)이며 OEM 형상이나 기구학 검증을 주장하지 않는다. Studio의 Template 제안은 `assets/templates/`의 변환 아키타입 여섯 개(EV#7)와 합성 rotary 템플릿 하나(EV#224)를 읽고, 데이터 루트가 저장소 밖이면 데이터 루트 `templates/`를 합친다(합집합, id가 겹치면 번들이 이긴다; [EV ADR-0015](../../../adr/history/eqv/0015-template-promotion.md), `apps/studio/server/files.ts`).
+`fixtures/templates/`의 세 후보는 #11b의 synthetic Template(테스트 입력)이며 OEM 형상이나 기구학 검증을 주장하지 않는다. Studio의 Template 제안은 `assets/templates/`의 변환 아키타입 여섯 개(EV#7)와 합성 rotary 템플릿 하나(EV#224)를 읽고, 데이터 루트가 저장소 밖이면 데이터 루트 `templates/`를 합친다(합집합, id가 겹치면 번들이 이긴다; [EV ADR-0015](../../../adr/history/eqv/0015-template-promotion.md), apps/studio/server/files.ts).
 
 ### Generic Layout
 

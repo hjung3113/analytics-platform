@@ -391,7 +391,7 @@ Empty/error는 원인 설명·허용된 다음 행동·추적 번호를 읽을 �
 | Source | 보존한 원칙·증거 | 현재 권한 / 대체된 부분 |
 | --- | --- | --- |
 | 공유 tokens.md / tokens.css / UI system / ADR-0058 | 제품 UI 기반·공유 typography·primitive·소비 계약 | **공유 디자인 원본**; 이전 플랫폼 공유 값/독자 font/primitive 설명을 대체 |
-| ADR-0010 / ADR-0011, 승인 prototype `prototype/52-fops-design` (`.agents/reports/design/shots/52-fops/`, 원격 브랜치 `prototype/52-fops-design`의 커밋에만 있다) | 직접 소비, 프로토타입 C안의 밝은 AppFrame | **Decided**; 이전 어두운 navigation·상단 구성·shell 측정값을 대체 |
+| ADR-0010 / ADR-0011, 승인 prototype `prototype/52-fops-design` (.agents/reports/design/shots/52-fops/, 원격 브랜치 `prototype/52-fops-design`의 커밋에만 있다) | 직접 소비, 프로토타입 C안의 밝은 AppFrame | **Decided**; 이전 어두운 navigation·상단 구성·shell 측정값을 대체 |
 | 06 / 07 | 플랫폼 행동·상태·접근성 및 셸 구조 | **계약 원본**; reference navigation·시간·권한보다 우선 |
 | #193 UIUX-193-03/04/05, #194 P3-D1·수용된 shell 수정 | label/control pairing·sunken 제한·stroke 대비·현재 위치·collapsed 규칙 | 이 문서의 pairing 및 chart 결정 배경; 렌더/동작 통과를 새로 주장하지 않음 |
 | `.agents/references/design-md/`의 linear.app | 단일 강조·중립 hierarchy | 원칙만 보존; brand 값·독자 공유 token·marketing layout은 공유로 대체/미채택 |

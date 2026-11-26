@@ -38,7 +38,7 @@ Paths are relative to `packages/feature/screens/src/`.
 ## Analytics Area report (FO ADR-0069)
 
 - Coverage's PageShell is extended with URL-backed `view=areas`; the default overview omits `view`.
-- Keep Managed System/Area/paging state and source destinations per `docs/routes-and-layout.md` (under `packages/feature/screens/docs/`).
+- Keep Managed System/Area/paging state and source destinations per `packages/feature/screens/docs/routes-and-layout.md`.
 - Render unavailable, zero, zero-denominator, loading/error/denial separately; no stale prior-scope counts.
 - Operational positive counts link to exact typed source filters; repairs remain on owning source routes.
 - The secondary Area-tab link is on the existing Integration Coverage card; no new Admin/rail surface.

@@ -235,7 +235,7 @@ Replay는 synthetic animation engine이 아니라 Occurrence 집합으로부터 
 |---|---|
 | 6종 layout JSON | v0.4 스키마로 변환해 commit |
 | primitive SVG 25개 | 하드코딩 색을 `--eqv-*` 토큰으로 치환해 commit |
-| 한국어 RESEARCH 표 | `docs/RESEARCH.md`에 병합 (roleCardinality 근거) |
+| 한국어 RESEARCH 표 | [RESEARCH.md](RESEARCH.md)에 병합 (roleCardinality 근거) |
 | template SVG/PNG, Python 생성기·validator, v0.3 fixture | 가져오지 않음 (SVG는 JSON에서 파생, QA 항목은 TS core validator로 이식, fixture는 Occurrence로 새로 작성) |
 
 변환 규칙:
