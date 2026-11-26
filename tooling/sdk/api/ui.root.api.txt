@@ -73,8 +73,8 @@ DialogOverlay | const | const DialogOverlay: React.ForwardRefExoticComponent<Omi
 DialogPortal | const | const DialogPortal: React.FC<DialogPrimitive.DialogPortalProps>
 DialogTitle | const | const DialogTitle: React.ForwardRefExoticComponent<Omit<DialogPrimitive.DialogTitleProps & React.RefAttributes<HTMLHeadingElement>, "ref"> & React.RefAttributes<HTMLHeadingElement>>
 DialogTrigger | const | const DialogTrigger: React.ForwardRefExoticComponent<DialogPrimitive.DialogTriggerProps & React.RefAttributes<HTMLButtonElement>>
-DirtyConfirmation | function | function DirtyConfirmation({ open, onConfirm, onCancel, title, message, confirmLabel, cancelLabel, }: @ap/ui#DirtyConfirmationProps): React.JSX.Element
-DirtyConfirmationProps | interface | interface DirtyConfirmationProps { cancelLabel?: string; confirmLabel?: string; message?: string; onCancel: () => void; onConfirm: () => void; open: boolean; title?: string; }
+DirtyConfirmation | function | function DirtyConfirmation({ open, onConfirm, onCancel, title, message, confirmLabel, cancelLabel, confirmBlock, }: @ap/ui#DirtyConfirmationProps): React.JSX.Element
+DirtyConfirmationProps | interface | interface DirtyConfirmationProps { cancelLabel?: string; confirmBlock?: { reasons: string; summary: string; }; confirmLabel?: string; message?: string; onCancel: () => void; onConfirm: () => void; open: boolean; title?: string; }
 Dot | function | function Dot({ tone, className }: { className?: string; tone: @ap/ui#Tone; }): import("react").JSX.Element
 DropdownMenu | const | const DropdownMenu: React.FC<DropdownMenuPrimitive.DropdownMenuProps>
 DropdownMenuCheckboxItem | const | const DropdownMenuCheckboxItem: React.ForwardRefExoticComponent<Omit<DropdownMenuPrimitive.DropdownMenuCheckboxItemProps & React.RefAttributes<HTMLDivElement>, "ref"> & React.RefAttributes<HTMLDivElement>>
@@ -212,12 +212,12 @@ SheetTitle | const | const SheetTitle: React.ForwardRefExoticComponent<Omit<Shee
 SheetTrigger | const | const SheetTrigger: React.ForwardRefExoticComponent<SheetPrimitive.DialogTriggerProps & React.RefAttributes<HTMLButtonElement>>
 ShellHeader | function | function ShellHeader({ title, subtitle, actions, variant, className }: @ap/ui#ShellHeaderProps): React.JSX.Element | null
 ShellHeaderProps | interface | interface ShellHeaderProps { actions?: React.ReactNode; className?: string; subtitle?: React.ReactNode; title?: React.ReactNode; variant?: 'default' | 'drawer' | 'toolbar'; }
-Skeleton | function | function Skeleton({ className, shape, ...props }: SkeletonProps): React.JSX.Element
-SkeletonBlock | type | type SkeletonBlock = { kind: 'badge'; width: 'standard'; } | { kind: 'body'; size: 'compact' | 'large' | 'regular'; width: 'full'; } | { kind: 'line'; width: SkeletonWidth; } | { kind: 'title'; size: 'large' | 'small'; width: SkeletonWidth; }
-SkeletonBlocks | function | function SkeletonBlocks({ blocks }: @ap/ui#SkeletonBlocksProps): import("react").JSX.Element
-SkeletonBlocksProps | interface | interface SkeletonBlocksProps { blocks: readonly @ap/ui#SkeletonBlock[]; }
-SkeletonRows | function | function SkeletonRows({ count, size }: @ap/ui#SkeletonRowsProps): import("react").JSX.Element
-SkeletonRowsProps | interface | interface SkeletonRowsProps { count: number; size: 'compact' | 'regular'; }
+Skeleton | function | function Skeleton({ className, shape, appearance, ...props }: SkeletonProps): React.JSX.Element
+SkeletonBlock | type | type SkeletonBlock = { kind: 'badge'; width: 'standard'; } | { kind: 'body'; size: 'compact' | 'fill' | 'large' | 'regular'; width: 'full'; } | { kind: 'line'; width: SkeletonWidth; } | { kind: 'title'; size: 'large' | 'small'; width: SkeletonWidth; }
+SkeletonBlocks | function | function SkeletonBlocks({ blocks, appearance }: @ap/ui#SkeletonBlocksProps): import("react").JSX.Element
+SkeletonBlocksProps | interface | interface SkeletonBlocksProps { appearance?: 'default' | 'panel'; blocks: readonly @ap/ui#SkeletonBlock[]; }
+SkeletonRows | function | function SkeletonRows({ count, size, appearance }: @ap/ui#SkeletonRowsProps): import("react").JSX.Element
+SkeletonRowsProps | interface | interface SkeletonRowsProps { appearance?: 'default' | 'panel'; count: number; size: 'compact' | 'regular'; }
 SortOption | interface | interface SortOption { label: string; value: string; }
 StatusBadge | function | function StatusBadge({ tone, children, dot, variant, className }: { children: ReactNode; className?: string; dot?: boolean; tone: @ap/ui#Tone; variant?: 'outline' | 'soft'; }): import("react").JSX.Element
 StatusBadgeAppearance | type | type StatusBadgeAppearance = 'compact' | 'compact-identity' | 'compact-outline' | 'link' | 'reporter' | 'severity' | 'task'
@@ -284,7 +284,7 @@ shortcutLabel | function | function shortcutLabel(key: string): string
 toast | const | const toast: ((message: titleT, data?: ExternalToast) => number | string) & { custom: (jsx: (id: number | string) => React.ReactElement, data?: ExternalToast) => number | string; dismiss: (id?: number | string) => number | string; error: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; info: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; loading: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; message: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; promise: <ToastData>(promise: PromiseT<ToastData>, data?: PromiseData<ToastData>) => (number & { unwrap: () => Promise<ToastData>; }) | (string & { unwrap: () => Promise<ToastData>; }) | { unwrap: () => Promise<ToastData>; }; success: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; warning: (message: React.ReactNode | titleT, data?: ExternalToast) => number | string; } & { getHistory: () => (ToastT | ToastToDismiss)[]; getToasts: () => (ToastT | ToastToDismiss)[]; }
 useDetailPanelContent | function | function useDetailPanelContent(node: ReactNode | undefined): void
 useDetailPanelEscape | function | function useDetailPanelEscape(onClose: () => void): (event: React.KeyboardEvent<HTMLElement>) => void
-useDetailPanelSlot | function | function useDetailPanelSlot(options?: { localExpansion?: boolean; onSuperseded?: () => void; }): HTMLElement | null
+useDetailPanelSlot | function | function useDetailPanelSlot(options?: { localExpansion?: boolean; onSuperseded?: (takeover: { sameScope: boolean; }) => void; scope?: string; }): HTMLElement | null
 useDetailPanelSlotHost | function | function useDetailPanelSlotHost(): { activation: number; expanded: boolean; open: boolean; ref: (host: HTMLElement | null) => void; setSurfaceVisible: (visible: boolean) => void; toggle: () => void; }
 useHorizontalOverflow | function | function useHorizontalOverflow<TViewport extends HTMLElement, TObserved extends HTMLElement = HTMLElement>(viewportRef: React.RefObject<TViewport | null>, { contentKey, observeRef, onResize }: UseHorizontalOverflowOptions<TObserved>): HorizontalOverflowState
 useImeEnterGuard | function | function useImeEnterGuard(): @ap/ui#ImeEnterGuard
@@ -319,14 +319,14 @@ SelectAppearance | type | type SelectAppearance = 'canvas' | 'default' | 'field'
 SelectTriggerProps | interface | interface SelectTriggerProps extends React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> { appearance?: SelectAppearance; density?: 'compact' | 'default'; }
 ShadcnVariant | type | type ShadcnVariant = NonNullable<VariantProps<typeof @ap/ui#buttonVariants>['variant']>
 SheetContentProps | interface | interface SheetContentProps extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>, VariantProps<typeof sheetVariants> { closeLabel?: string; }
-SkeletonProps | interface | interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> { shape?: 'default' | 'rounded'; }
+SkeletonProps | interface | interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> { appearance?: 'default' | 'panel'; shape?: 'default' | 'rounded'; }
 SkeletonWidth | type | type SkeletonWidth = 'five-sixths' | 'full' | 'half' | 'third' | 'three-quarters' | 'two-thirds' | 'w12' | 'w16' | 'w24'
 TableCaptionProps | interface | interface TableCaptionProps extends React.HTMLAttributes<HTMLTableCaptionElement> { srOnly?: boolean; }
 TableCellProps | interface | interface TableCellProps extends Omit<React.TdHTMLAttributes<HTMLTableCellElement>, 'align'> { align?: 'end' | 'start'; }
 TableHeadProps | interface | interface TableHeadProps extends Omit<React.ThHTMLAttributes<HTMLTableCellElement>, 'align'> { align?: 'end' | 'start'; sort?: { direction: 'ascending' | 'descending' | 'none'; onSort: () => void; }; }
 TableProps | interface | interface TableProps extends React.TableHTMLAttributes<HTMLTableElement> { density?: 'compact' | 'default'; }
 TableRowProps | interface | interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement> { current?: boolean; }
-ToggleGroupAppearance | type | type ToggleGroupAppearance = 'default' | 'filter'
+ToggleGroupAppearance | type | type ToggleGroupAppearance = 'default' | 'filter' | 'swatch'
 ToggleGroupItemAppearance | type | type ToggleGroupItemAppearance = 'default' | 'selected-filter'
 ToggleGroupItemProps | interface | interface ToggleGroupItemProps extends React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Item> { appearance?: ToggleGroupItemAppearance; }
 ToggleGroupProps | type | type ToggleGroupProps = React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> & VariantProps<typeof toggleGroupItemVariants> & { appearance?: ToggleGroupAppearance; arrowSelects?: boolean; }

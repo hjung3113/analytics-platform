@@ -36,11 +36,11 @@
 | [0022](0022-management-filter-rail-analysis-two-column.md) | 관리 화면은 접을 수 있는 왼쪽 필터 레일, 분석 화면은 KPI 띠 + 차트 2열 | Decided(2026-10-05) |
 | [0023](0023-feedbackops-primitive-shapes-and-sizes.md) | 플랫폼은 FeedbackOps 부품의 모양과 크기를 덮어쓰지 않는다(C안) | Decided(2026-10-07), 개정 2026-10-15(#340) — 원본 소유는 0043이 플랫폼으로 바꿈(2026-10-19, 코드는 #441에서 `@ap/ui`로 이전, 본문은 당시 기록 그대로) |
 | [0024](0024-table-column-controls-drag-width-pin-in-list.md) | 표 열 너비는 머리 끝 끌기로만, 컬럼 목록은 보이기 체크박스와 줄 끝 핀(C안) | Decided(2026-10-08) |
-| [0025](0025-drilldown-level-page-keys-path-bar-layout.md) | 드릴다운은 단계마다 page key, Context가 바뀌면 지우고, 경로 바 + 단계마다 본문 교체 | Decided(2026-10-08) — 깊이 제한은 0063 대체 |
+| [0025](0025-drilldown-level-page-keys-path-bar-layout.md) | 드릴다운은 단계마다 page key, Context가 바뀌면 지우고, 경로 바 + 단계마다 본문 교체 | Decided(2026-10-08) — 깊이 제한은 0063 대체 — 0178 부분 대체 |
 | [0026](0026-multi-workspace-app-boundaries-and-feedbackops-scoping.md) | 공간은 업무 시스템 단위, FeedbackOps는 시스템별 협업 진입 + 권한자용 전체 허브 | Decided(2026-10-08) — 진입 형태는 0027(이후 0066이 대체), 메뉴 귀속은 0028, 매핑은 0045가 정함 |
 | [0027](0027-feedbackops-stays-standalone-entry-links.md) | FeedbackOps 화면은 옮기지 않고, 업무 공간에는 그 시스템으로 좁힌 진입 링크만 둔다 | Superseded(2026-10-21) — 0066. 진입 링크는 합류 단계 4까지 유지 |
 | [0028](0028-workspace-shell-launcher-pinned-feedbackops-global-utilities.md) | 멀티 워크스페이스 셸: 카드 런처 홈, 사이드바 바닥 고정 FeedbackOps 진입, 홈·공지·내 VOC는 공간 밖 전역 유틸리티 | Decided(2026-10-09) — 구현 #250. 레일·로고 부분은 0042가 대체(2026-10-18, 구현 #423). 홈·전역 화면 사이드바·홈 순서·블록의 VOC 등록은 0070 부분 대체(2026-10-22) — FeedbackOps 항목·내 VOC 배치는 0100이 개정 |
-| [0029](0029-page-filter-bar-collapse-summary.md) | 페이지 필터 접기는 값 요약 버튼으로 하고 조건을 생략하지 않음(A+C 혼합) | Decided(2026-10-10) |
+| [0029](0029-page-filter-bar-collapse-summary.md) | 페이지 필터 접기는 값 요약 버튼으로 하고 조건을 생략하지 않음(A+C 혼합) | Decided(2026-10-10) — 0160 부분 대체 |
 | [0030](0030-location-adapter-base-path.md) | 하위 경로 배포는 위치 어댑터를 주입하고 앱 내부 URL 계약을 유지한다 | Decided(2026-10-13) |
 | [0031](0031-menu-folders-by-space.md) | 메뉴 폴더는 시스템(공간) 아래 그룹으로 나누고 전역 그룹은 `_global`에 둔다 | Decided(2026-10-14) — 폴더 소유권 규칙은 0097이 부분 대체 |
 | [0032](0032-arrival-focus-wins-over-restored-detail-panel.md) | URL 도착으로 함께 열린 상세 패널은 포커스를 가져가지 않고 화면 제목을 따른다 | Decided(2026-10-15) |
@@ -74,7 +74,7 @@
 | [0060](0060-analysis-board-pane-sizing-collapse-maximize.md) | 분석 보드는 화면 안 그리드·열별 크기 조절·칸 접기·최대화를 사용하고 시트·레이아웃별로 저장한다 | Decided(2026-10-21, 사용자) — #536, dock 렌더러는 0067 대체 |
 | [0061](0061-query-draft-applied-address-and-required-gate.md) | 조회 초안은 칸에 두고 Apply 한 번으로 적용 주소를 확정한다 | Decided(2026-10-21, 코디네이터·사용자가 되돌릴 수 있음) — #553 SDK |
 | [0062](0062-chart-catalog-focus-layout.md) | 차트 카탈로그는 D 집중형 + E 오른쪽 지원 레일 resize | Decided(2026-10-21, 소유자 위임에 따른 코디네이터) — #530, 공통 Panel 이관은 #575 |
-| [0063](0063-consumer-owned-chart-pieces-and-unbounded-drill.md) | 메뉴가 조립하는 차트 활성화·범주 줄·표시 제어, 드릴 깊이 상한 제거 | Decided(2026-10-21, 사용자) — #541·#580 S4, 0025의 깊이 제한 대체 |
+| [0063](0063-consumer-owned-chart-pieces-and-unbounded-drill.md) | 메뉴가 조립하는 차트 활성화·범주 줄·표시 제어, 드릴 깊이 상한 제거 | Decided(2026-10-21, 사용자) — #541·#580 S4, 0025의 깊이 제한 대체 — 0178 부분 대체 |
 | [0064](0064-topn-bar-and-lane-timeline.md) | TopN은 ChartSpec, Lane 시간선은 독립 Canvas 2D 부품 | Decided(2026-10-21, 코디네이터 위임) — #576 |
 | [0065](0065-log-dev-and-improvement-spaces-work-queue-first.md) | 표준 로그 개발·개선 실행 공간은 내 작업 우선(C) 메뉴 구성, 메뉴는 예정으로 등록 | Decided(2026-10-21, 사용자) — #252. 개정(2026-11-04, #1323): 개선 실행 공간 접음 |
 | [0066](0066-feedbackops-merges-into-platform.md) | FeedbackOps를 플랫폼에 합친다 — 모두가 쓰는 기능은 플랫폼 전역, 관리자·개발자 화면은 업무 시스템 하나, 서버는 FeedbackOps 백엔드에서 출발, 독립 앱 은퇴 | Decided(2026-10-21, 사용자) — 0027·0038 대체, 설계 [합류 설계](../integration/history/feedbackops-merge-design.md), 지도 #598 |
@@ -172,7 +172,7 @@
 | [0157](0157-bundle-declares-menu-capabilities.md) | 선언 묶음이 자기 capability 행과 메타를 선언한다(ADR-0146 결정 3 개정) | Decided(2026-11-13, 소유자 «니추천대로», 고문 리뷰 반영, 되돌릴 수 있음) |
 | [0158](0158-unregistered-link-destinations-and-declared-link-targets.md) | 등록되지 않은 링크 목적지는 «없음», 메뉴는 링크 목적지를 선언한다(`linkTargets`) | Decided(2026-11-13, advisor·소유자 위임, 되돌릴 수 있음) |
 | [0159](0159-attempt-diagnostic-separate-worker-write-and-source-acl-read.md) | 시도별 진단(`AttemptDiagnostic`)은 별도 worker 쓰기 경로·유한 상한·Source ACL 읽기, summary 투영은 자유 텍스트 없는 키 다섯 개, 첨부는 Source 참조로 미룸 | Decided(2026-11-13, 소유자 «플랫폼이 정의», B1 As-built #2196, 되돌릴 수 있음) |
-| [0160](0160-folded-analysis-workspace-query-bar.md) | 분석 작업 영역의 조건과 도구를 40px 한 줄에 둔다 | Decided(2026-11-26, 소유자 A 승인, 되돌릴 수 있음) |
+| [0160](0160-folded-analysis-workspace-query-bar.md) | 분석 작업 영역의 조건과 도구를 40px 한 줄에 둔다 | Decided(2026-11-26, 소유자 A 승인, 되돌릴 수 있음) — 0029 부분 대체 |
 | [0161](0161-form-field-hint-always-visible-render-function.md) | 폼 필드는 도움말을 항상 보이고 오류를 그 아래에 더하는 렌더 함수 조각 `FormField`로 둔다 | Decided(2026-11-14, 소유자가 Opus(high) 리뷰에 위임, 되돌릴 수 있음) |
 | [0162](0162-inbound-links-destination-declares-object-kinds.md) | 들어오는 연결은 목적지 객체 종류 선언과 출발 목록 opt-in으로 표시한다 | Decided(2026-11-14, 소유자 위임 Opus 리뷰, 되돌릴 수 있음) |
 | [0163](0163-permission-groups-replace-role-levels-as-templates.md) | 역할 단계는 늘리지 않고, 이름 있는 권한 묶음(권한 그룹)을 템플릿으로 둔다 | Decided(2026-11-16) |

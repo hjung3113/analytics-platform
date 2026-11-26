@@ -1,9 +1,9 @@
 # 백로그 — 이슈로 올리지 않은 것
 
+- **미구현 — 패널 설정 서랍 «데이터» 구역 (#2762 ⑤):** 설계(시안 A)는 데이터·매핑·모양·연결 네 구역이지만 «데이터» 구역이 무엇을 고치는지 정의가 없다. 정의 없이 칸을 만들면 매핑·연결과 겹치거나 저장 형식을 추측하게 되므로 만들지 않음. 다시 열 조건: 팀장이 정의 추천을 소유자에게 가져갈 때.
 - **미구현 — DockLayout 패널 오류 알림이 부하에서 잠깐 접근성 트리 밖에 있는 이유 (#3129):** Mac 패키지 전체 실행 3회 중 1회, 재시도 버튼이 DOM에는 있는데 `getByRole`이 역할을 못 찾음. 시험은 버튼이 접근 가능해질 때까지 기다리게 고침(#3129 PR). 숨긴 조상(aria-hidden·inert·display:none·visibility)은 확인 못 함 — 이 호스트(desktop)에서는 부하를 걸어도 재현 안 됨. 다시 열 조건: 실제 앱에서 패널 오류 직후 «다시 시도»가 키보드·스크린리더로 닿지 않는 일이 보이거나, 같은 증상의 다른 시험이 생길 때. 진단 방법: 알림 조상 사슬의 위 네 가지를 찍는 한 줄(브랜치 test/3129-dock-panel-error의 커밋 기록).
 - **미구현 — HW Time «종류로 만들기» 차트를 원본 표가 «패널 설정 → 연결»에서 받기 (#2761·#2762 사용처):** 만든 막대는 `<인스턴스 id>.selection`을 내지만, 서랍 연결 칸은 선언된 «모듈 동작» 출력만 원천으로 보이고 차트 출력에는 «붙잡기»가 꺼진다. 여러 차트 중 원천을 고르는 칸이 SDK 서랍에 없어 메뉴 쪽만으로 만들지 않음. 다시 열 조건: 서랍 연결 구역이 원천 선택(런타임 인스턴스 출력 포함)을 받을 때.
 - **미구현 — 저장된 뷰를 다시 열 때 만든 차트의 «추가하면 고정» 유지 (#2761 사용처):** 고정은 화면 상태(`AddedPanel.pinned`)라 같은 화면 안 단계·조회 변경에서는 남지만, 저장된 뷰 v1에 둘 칸이 없어 다시 열면 고정이 풀린다. 저장 형식 변경이 필요해 하지 않음. 다시 열 조건: 저장된 뷰 패널 형식에 패널별 고정을 둘 때.
-- **미구현 — HW Time «HTM 추세» 작은 다중 차트 연결 ([#2740](https://github.com/hjung3113/analytics-platform/issues/2740)):** ①a는 공유 축 격자·플롯·분석 선택을 제공한다. ①b는 메뉴 선언형 정렬, «칸마다 축», 표시 크기 선택을 SDK에 추가했다. 재개 조건: ①b 검증 후 ②를 배정해 HW Time «HTM 추세»를 소유자가 고른 A안으로 연결한다.
 - **미구현 — «종류로 만들기»에서 끌어 패널 추가 (#2917 ②):** 행을 끄는 C2 범위는 메뉴가 선언한 패널 목록이다. 차트 조합은 «더하기» 후 패널 동작 메뉴에서 옮긴다. 다시 열 조건은 완성한 차트 조합을 바로 배치해야 하는 소비자가 생겨 끌기 시작점과 검증 방식을 정할 때다.
 
 - **미구현 — #2595 실서버 미리보기 캡처: 권한 거부 띠의 «권한 요청»이 거부 대상으로 미리 채워짐 (#2595):** 코어 디스패처는 확인된 거부 Scope를 `recovery.deniedScope`로 싣고, 엔진과 HTTP 경로 통합 시험이 응답 본문을 확인한다. 실서버 화면 캡처는 이 PR에서 하지 않았다. 로컬 실서버에는 `requiresScope` 조회가 조립 메뉴(`MENU_DECLARATIONS_FILE`)와 부여 출처가 있을 때만 생기고, 실서버 확인은 PR마다가 아니라 슬라이스·출시 전 점검에서 한다(AGENTS.md 검증, PROFILE §Pre-go-live). 외부 부여 서비스(`MENU_SCOPE_GRANT_SERVICE_URL`)만으로는 Scope 카탈로그가 없어 요청 가능한 Scope가 비고 «권한 요청» 버튼이 숨으므로 캡처 경로가 아니다(`apps/platform-api/src/menu-declarations.ts`: 카탈로그와 부여 서비스는 함께 설정할 수 없음). 다시 열 조건: 다음 출시 전 실서버 점검에서 조립 번들의 `scopeCatalog`에 room 두 개짜리 Site를 두고, 플랫폼 부여 표로 행위자에게 한 room만 부여한 뒤, 다른 room을 `roomNames`로 보낸 `requiresScope` 조회를 열어 미리 채워진 요청 창을 캡처한다.
@@ -30,7 +30,7 @@
 - **Not implemented — #2037 Fable follow-ups:** MEN-13: move `tooling/sdk/previous-bundle.json` to the latest published stable release and test it against the published-version entries in `packages/sdk/CHANGELOG.md`; requires the release asset and authenticated SHA256SUMS checksum, unavailable to the network-free worker. Lane decision 2026-11-15: a release-lead step at the next slice close (#2191); reopen then, and add the pin-rotation step to `.agents/conductor/PROFILE.md` Slice close. MEN-15: include the three released adapters in API snapshots; the worker task forbids baseline edits and `--update`, so enable coverage with a coordinated baseline refresh at the next slice close (lane decision 2026-11-15, #2191). MEN-20: owner 2026-11-15 chose a one-time tab sessionStorage return state; implemented separately in #2195 (kept out of #1869, which is a large P1). MEN-22: the owner-delegated Opus high review adopted the static `Table` piece; implemented in #2192, remaining six migrations tracked in #2202. MEN-18: the new clipboard/XLSX checks target the existing dev-server suite; the lead must choose a production-build browser gate on main push/release before adding CI cost (#1931).
 - **Not implemented — #2056 owner decisions:** MEN-29: investigation archive/rename UI remains unimplemented; choosing that user-visible management scope belongs to the owner. Lane decision 2026-11-15: not implemented — menu screens are samples and this adds no platform contract; the declarations stay because the server conformance test uses them (#2191). Reopen when an in-house menu needs these actions as a contract sample. MEN-38: generator canonical default paths and route-policy alignment remain unimplemented in this PR. Lane decision 2026-11-15: it applies only to newly generated menus (existing URLs unchanged), so it is a defect fix done in #2191; validate canonical paths and aliases together before any writes.
 
-- **미구현 — StatCard `purple`·`amber` 타입 제거 (#1945):** 한 릴리스의 호환 기간에는 각각 `teal`·`blue`로 표시한다. 이유: 기존 SDK 메뉴의 타입 호환을 유지하며 두 색으로 이전한다. 다시 열 조건: 다음 SDK minor 릴리스. 그때 공개 `chip` 타입에서 두 값을 제거한다.
+- **미구현 — StatCard `purple`·`amber` 타입 제거 (#1945):** 호환 기간에는 각각 `teal`·`blue`로 표시한다. 이유: 기존 SDK 메뉴의 타입 호환을 유지하며 두 색으로 이전한다. 다시 열 조건: SDK 1.0 계약 동결(go-live, #1931) 때 제거. 그때 공개 `chip` 타입에서 두 값을 뺀다.
 
 - **미구현 — 대상 시스템 선택 단계 분리 (#1842):** 이유: 지금은 시스템 3개·22행이라 검색으로 충분하다. 다시 열 조건: 한 대상자의 후보 행이 40개를 넘거나 Managed System이 5개를 넘을 때. 그때는 시스템을 먼저 고르고 목록은 권한당 한 행으로 줄인다.
 
@@ -363,7 +363,7 @@
 
 - **구현 안 함 — 공개 API 변경 기록의 자동 강제(#520):** 스냅샷에서 줄이 지워지거나 바뀌면 변경 기록 줄이 같은 PR에 있어야 한다는 규칙을 CI가 강제하지 않는다(리뷰가 본다). 이유: base 비교와 문서 파싱이 필요하고 외부 소비자가 아직 적다. 다시 볼 조건: 저장소 밖 소비자가 둘 이상 tarball을 받을 때.
 - **구현 안 함 — SDK 배포 도구 정리 후속(#519·#520 품질 리뷰 Q6–Q8):** `@ap/contracts`의 `check:pack` 검사를 release tarball 게이트에 합친다. 네 `tsconfig.build.json`의 형제 `paths`와 의존 쌍을 생성한다. `validateArchive`·`releaseManifest` 실패 경로 테스트를 추가하고 `pnpm test`에서 `sdk:api --self-test`를 실행한다. 이유: 현재 잘못된 release 출력은 없다. 다시 볼 조건: 형제 의존 또는 subpath import를 추가하거나 첫 gate false-positive가 발생할 때.
-- **해결됨 (#2951) — `isProductionEnv(import.meta, globalThis)`의 운영 판정(#519 리뷰 C2 관련):** Vite 운영 빌드에서 개발 진단이 켜지고, `tableExport`는 경고만이 아니라 빈 칸 대신 예외를 던졌다. #2951이 SDK 검사를 `isDevelopment()`로 옮겼고, Vite 8이 그 호출을 모듈을 건너 접지 않아 #3028이 SDK 소스를 `process.env.NODE_ENV !== 'production'` 직접 비교로 바꿨다(SDK 소스의 `isDevelopment()` 호출은 ESLint가 막는다). 남은 일은 공개 export `isProductionEnv` 삭제(아래 «#2194 SDK compatibility removals» 표, 다음 SDK minor)뿐이다.
+- **해결됨 (#2951) — `isProductionEnv(import.meta, globalThis)`의 운영 판정(#519 리뷰 C2 관련):** Vite 운영 빌드에서 개발 진단이 켜지고, `tableExport`는 경고만이 아니라 빈 칸 대신 예외를 던졌다. #2951이 SDK 검사를 `isDevelopment()`로 옮겼고, Vite 8이 그 호출을 모듈을 건너 접지 않아 #3028이 SDK 소스를 `process.env.NODE_ENV !== 'production'` 직접 비교로 바꿨다(SDK 소스의 `isDevelopment()` 호출은 ESLint가 막는다). 남은 일은 공개 export `isProductionEnv` 삭제(아래 «#2194 SDK compatibility removals» 표, SDK 1.0 계약 동결 때)뿐이다.
 - **구현 안 함 — 테마 계약의 제품 쪽 소비(#512):** EV 매핑 검사를 `theme-tokens.json` 이름 목록 대조로 넓히는 일(EV 저장소, EV 전용 의미 로봇·자재·재생 활성·충돌 강조는 EV 소유)과 FeedbackOps 토큰 fixture 검사를 manifest 대조로 바꾸는 일. 이유: 다른 저장소의 일이고 탑재 전(#332)이다. 다시 볼 조건: EV 탑재(#332) 또는 FeedbackOps가 `@ap/ui/theme`을 받을 때.
 - **구현 안 함 — 테마 토큰 `$deprecated` 생성(#512):** 이유: 폐기할 토큰이 아직 없다. 다시 볼 조건: 첫 토큰 폐기.
 - **구현 안 함 — 테마 계약 정리 후속(#512 품질 리뷰 Q5·Q6):** lint 하위 경로 허용을 7개 제한 상수에 반복한다(공유 helper 하나로 정리). `token()`은 `readColorToken`의 공개 별칭이고 `strokeAliases` 표를 손으로 복사한다. 이유: 동작 영향이 없다. 다시 볼 조건: 다음 `@ap/ui` 공개 하위 경로를 추가하거나 차트 팔레트가 바뀔 때.
@@ -716,11 +716,11 @@
 
 | 상태 | 대상 | 미구현 이유 | 다시 열 조건 |
 | --- | --- | --- | --- |
-| 미구현 | `@ap/components` 루트의 `EChart`·`chartTheme`·`token`·`EChartProps` 호환 export 삭제 | SHE-26 소유자 결정: `/host` 이전을 위해 한 릴리스 유지 | 다음 SDK minor 릴리스 |
-| 미구현 | `DetailPanelHeader.kind`·`KIND_LABELS`·기존 kind accent 맵 삭제 | SHE-45 소유자 결정: 소비자 label·accent 선언으로 이전할 한 릴리스 유지 | 다음 SDK minor 릴리스 |
-| 미구현 | `DetailPanelHeaderActions.entityKind`·`entityId` prop 삭제 | SHE-45 소유자 결정: 사용하지 않는 prop의 소스 호환을 한 릴리스 유지 | 다음 SDK minor 릴리스 |
-| 미구현 | `@ap/ui` `isProductionEnv` export 삭제 (#2951) | SDK 소스는 `process.env.NODE_ENV` 직접 비교로 모두 옮겼지만(#3028) 공개 export라 소비자 소스 호환을 한 릴리스 유지 | 다음 SDK minor 릴리스 |
-| 미구현 | `AnalysisChartFrame.stacked` 삭제와 메뉴 사용처(hw-time 3곳, analytics 2곳, rcc 2곳)의 `stackMode="stack"` 이전 (#2887 F2) | 팀장 결정: 이번에는 사용 중단 표시만 하고 동작은 그대로 둔다. `stackMode`는 집계 선언이 없거나 더할 수 없는 측정을 쌓지 않으므로, 메뉴마다 측정이 더할 수 있는지 확인하고 `reaggregation`을 선언해야 한다 | 다음 SDK minor 릴리스, 또는 메뉴가 쌓기 차트를 손볼 때 |
+| 미구현 | `@ap/components` 루트의 `EChart`·`chartTheme`·`token`·`EChartProps` 호환 export 삭제 | SHE-26 소유자 결정: `/host` 이전을 위해 한 릴리스 유지 | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
+| 미구현 | `DetailPanelHeader.kind`·`KIND_LABELS`·기존 kind accent 맵 삭제 | SHE-45 소유자 결정: 소비자 label·accent 선언으로 이전할 한 릴리스 유지 | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
+| 미구현 | `DetailPanelHeaderActions.entityKind`·`entityId` prop 삭제 | SHE-45 소유자 결정: 사용하지 않는 prop의 소스 호환을 한 릴리스 유지 | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
+| 미구현 | `@ap/ui` `isProductionEnv` export 삭제 (#2951) | SDK 소스는 `process.env.NODE_ENV` 직접 비교로 모두 옮겼지만(#3028) 공개 export라 소비자 소스 호환을 한 릴리스 유지 | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
+| 미구현 | `AnalysisChartFrame.stacked` 삭제와 메뉴 사용처(hw-time 3곳, analytics 2곳, rcc 2곳)의 `stackMode="stack"` 이전 (#2887 F2) | 팀장 결정: 이번에는 사용 중단 표시만 하고 동작은 그대로 둔다. `stackMode`는 집계 선언이 없거나 더할 수 없는 측정을 쌓지 않으므로, 메뉴마다 측정이 더할 수 있는지 확인하고 `reaggregation`을 선언해야 한다 | SDK 1.0 계약 동결(go-live, #1931) 때 제거, 또는 메뉴가 쌓기 차트를 손볼 때 |
 
 ## 성능 감사 2026-11-23 보류 (#2816)
 
