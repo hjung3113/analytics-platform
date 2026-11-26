@@ -121,6 +121,42 @@ it('sorts by breached days and breaks ties by maximum daily value', async () => 
   expect(tileIds(grid)).toEqual([equipment[2], equipment[1], equipment[0]]);
 });
 
+it('opens the same-data table from the one-day split grid', async () => {
+  const panel = await mountSplit([run(equipment[0]!, 0, 8, 'over')]);
+  expect(panel.getByRole('grid')).toBeTruthy();
+  fireEvent.click(panel.getByRole('button', { name: '표로 보기' }));
+  const table = within(screen.getByRole('dialog', { name: 'PM1 · Pump 일 평균' })).getByRole('table');
+  const row = await within(table).findByRole('row', { name: /MEM-PHOTO-0103/ });
+  expect(within(row).getAllByRole('cell').map(cell => cell.textContent)).toEqual([
+    equipment[0], '2026-09-23', '8.00', '2.00', '4.00', 'HTM 상한 초과',
+  ]);
+  expect(within(table).getAllByRole('row')).toHaveLength(2);
+});
+
+it('names the Module roll-up in the split grid and its table when the value is Module time (#3096)', async () => {
+  Object.assign(Element.prototype, { hasPointerCapture: () => false, releasePointerCapture: () => {} });
+  const pump: HtmJudgement = { value: 3, lower: 2, upper: 4, status: 'normal' };
+  const vent: HtmJudgement = { value: 4.5, lower: 1, upper: 5, status: 'normal' };
+  const module: HtmJudgement = { value: 7.5, lower: null, upper: null, status: 'over' };
+  const daily = data.daily.slice(0, 2).map(row => ({ ...row, judgement: pump, motions: { Pump: pump, Vent: vent }, module }));
+  const panel = await mountSplit(daily, `${trendUrl}&motion=PM/Pump&motion=PM/Vent`);
+  expect(panel.getByRole('region', { name: 'PM1 · Pump 일 평균' })).toBeTruthy();
+  fireEvent.click(panel.getByRole('button', { name: '패널 표시 설정' }));
+  const settings = screen.getByRole('dialog', { name: '패널 표시 설정' });
+  fireEvent.keyDown(within(settings).getByRole('combobox', { name: '값' }), { key: 'ArrowDown' });
+  fireEvent.click(await screen.findByRole('option', { name: 'Module 시간' }));
+  expect(await panel.findByRole('region', { name: 'PM1 · Module 일 평균' })).toBeTruthy();
+  expect(panel.queryByRole('region', { name: 'PM1 · Pump 일 평균' })).toBeNull();
+  fireEvent.click(panel.getByRole('button', { name: '표로 보기' }));
+  const dialog = await screen.findByRole('dialog', { name: 'PM1 · Module 일 평균' });
+  expect(dialog.getAttribute('aria-describedby') && document.getElementById(dialog.getAttribute('aria-describedby')!)?.textContent)
+    .toBe('Module 시간은 선택한 Motion의 합이며, 상태는 전체 Motion의 서버 판정입니다.');
+  const row = await within(dialog).findByRole('row', { name: /2026-09-23/ });
+  expect(within(row).getAllByRole('cell').map(cell => cell.textContent)).toEqual([equipment[0], '2026-09-23', '7.50', 'HTM 상한 초과']);
+  fireEvent.keyDown(dialog, { key: 'Escape' });
+  await vi.waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe('표로 보기'));
+});
+
 it.each(['initial split', 'return to split'] as const)('edits a restored year-crossing date chip in %s', async mode => {
   const dates = ['2026-12-31', '2027-01-01', '2027-01-02'];
   const url = trendUrl.replace(/from=[^&]+&to=[^&]+/, 'from=2026-12-31T00:00:00&to=2027-01-03T00:00:00');
