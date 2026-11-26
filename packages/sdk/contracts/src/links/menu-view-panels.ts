@@ -25,6 +25,11 @@ export type PanelInstance = { id: string; source: PanelInstanceSource; inputs: P
 /** `MenuView.panels` v1. The docking arrangement stays in `MenuView.layout` and refers to instance ids. */
 export type MenuViewPanels = { version: 1; instances: PanelInstance[] };
 
+/** The `from` reference of an instance output, `<instance id>.<output key>` (ADR-0176). Instance ids never contain ".", so the first "." splits it. Build every reference with this, never by hand. */
+export function panelOutputRef(instanceId: string, key: string): string {
+  return `${instanceId}.${key}`;
+}
+
 export const PANEL_INSTANCES_MAX = 24;
 export const PANEL_INSTANCE_INPUTS_MAX = 16;
 export const PANEL_INSTANCE_TOKEN_MAX = 200;
@@ -112,7 +117,7 @@ function invalidPanelConnections(instances: PanelInstance[]): string | null {
     if (ids.has(instance.id)) return 'panels instance ids must be unique';
     ids.add(instance.id);
     for (const output of instance.outputs) {
-      const ref = `${instance.id}.${output.key}`;
+      const ref = panelOutputRef(instance.id, output.key);
       if (outputs.has(ref)) return 'panels output keys must be unique per instance';
       outputs.set(ref, { id: instance.id, shape: output.shape });
     }

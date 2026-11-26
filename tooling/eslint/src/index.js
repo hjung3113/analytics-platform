@@ -468,24 +468,39 @@ export const contractSchemas = [
 
 // #2955: SDK packages promise peer `react ^19.0.0`; `useEffectEvent` exists only from React 19.2, so a 19.0/19.1 consumer gets undefined.
 const NO_EFFECT_EVENT_MESSAGE = 'useEffectEvent needs React 19.2; the SDK supports React 19.0+ (#2955). Keep the latest callback in a ref updated by useInsertionEffect (shell: useLatestRef in src/latestRef.ts).';
-const REACT_FLOOR = {
-  files: ['**/*.{ts,tsx}'],
-  rules: {
-    'no-restricted-syntax': ['error',
-      { selector: "ImportSpecifier[imported.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
-      { selector: "MemberExpression[property.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
-      { selector: "MemberExpression[computed=true][property.value='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
-      { selector: "ExportSpecifier[local.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
-      { selector: "ObjectPattern > Property[key.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
-      { selector: "ObjectPattern > Property[key.value='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
-    ],
+const REACT_FLOOR_SYNTAX = [
+  { selector: "ImportSpecifier[imported.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+  { selector: "MemberExpression[property.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+  { selector: "MemberExpression[computed=true][property.value='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+  { selector: "ExportSpecifier[local.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+  { selector: "ObjectPattern > Property[key.name='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+  { selector: "ObjectPattern > Property[key.value='useEffectEvent']", message: NO_EFFECT_EVENT_MESSAGE },
+];
+// #3028: Vite 8 (rolldown) does not inline `isDevelopment()` across modules, so code it guards stays in a production bundle.
+// SDK source compares `process.env.NODE_ENV !== 'production'` inline; the helper stays public for consumers. Tests may call it.
+const IS_DEVELOPMENT_MESSAGE = "Vite 8 does not fold isDevelopment() across modules, so the guarded code ships in production (#3028). Write `process.env.NODE_ENV !== 'production'` inline.";
+// Any import (aliased too), member read or destructuring; the re-export in ui's index (an ExportSpecifier) stays legal.
+const IS_DEVELOPMENT_SYNTAX = [
+  "ImportSpecifier[imported.name='isDevelopment']",
+  "MemberExpression[property.name='isDevelopment']",
+  "MemberExpression[computed=true][property.value='isDevelopment']",
+  "ObjectPattern > Property[key.name='isDevelopment']",
+  "ObjectPattern > Property[key.value='isDevelopment']",
+].map(selector => ({ selector, message: IS_DEVELOPMENT_MESSAGE }));
+// SDK source syntax bans: the React floor and the #3028 helper. One rule entry per file set, since a later config replaces `no-restricted-syntax` whole.
+const SDK_SYNTAX = [
+  {
+    files: ['**/*.{ts,tsx}'],
+    ignores: TEST_ENTRY_FILES,
+    rules: { 'no-restricted-syntax': ['error', ...REACT_FLOOR_SYNTAX, ...IS_DEVELOPMENT_SYNTAX] },
   },
-};
+  { files: TEST_ENTRY_FILES, rules: { 'no-restricted-syntax': ['error', ...REACT_FLOOR_SYNTAX] } },
+];
 
 /** @type {import('eslint').Linter.Config[]} */
 export const ui = [
   REACT_HOOKS,
-  REACT_FLOOR,
+  ...SDK_SYNTAX,
   BUILD_OUTPUT,
   layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false, allowRadix: true } }),
   designSystem({ componentSource: true }),
@@ -500,7 +515,7 @@ const LANG_COPY = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: 
 /** @type {import('eslint').Linter.Config[]} */
 export const kernel = [
   REACT_HOOKS,
-  REACT_FLOOR,
+  ...SDK_SYNTAX,
   BUILD_OUTPUT,
   layerConfig({ restriction: { allow: ['contracts'], denyReact: false, mockAllowed: false } }),
   LANG_COPY,
@@ -514,7 +529,7 @@ const SHELL_RESTRICTION = { allow: ['contracts', 'kernel', 'ui', 'components'], 
 /** @type {import('eslint').Linter.Config[]} */
 export const components = [
   REACT_HOOKS,
-  REACT_FLOOR,
+  ...SDK_SYNTAX,
   BUILD_OUTPUT,
   layerConfig({ restriction: COMPONENTS_RESTRICTION }),
   testEntryOverride(COMPONENTS_RESTRICTION),
@@ -528,7 +543,7 @@ export const components = [
 /** @type {import('eslint').Linter.Config[]} */
 export const shell = [
   REACT_HOOKS,
-  REACT_FLOOR,
+  ...SDK_SYNTAX,
   BUILD_OUTPUT,
   layerConfig({
     restriction: SHELL_RESTRICTION,

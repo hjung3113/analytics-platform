@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link2, Palette, SlidersHorizontal } from 'lucide-react';
 import {
-  createChartPanel, invalidMenuViewPanels, readChartPanel, readChartPanelDraft, sameChartConfig,
+  createChartPanel, invalidMenuViewPanels, panelOutputRef, readChartPanel, readChartPanelDraft, sameChartConfig,
   type AnalysisSelection, type ChartConfig, type ChartPanelDraft, type ChartPanelProblem, type ChartPermissionCheck, type MenuChartFields,
   type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput, type PanelInstanceOutput, type Text,
 } from '@ap/contracts';
@@ -44,7 +44,7 @@ export type PanelSettingsDrawerProps = {
 const receivingModes = ['filter', 'highlight', 'ignore'] as const;
 const followModes = ['follow', 'hold'] as const;
 const receivingLabels = { filter: 'panelFilter', highlight: 'panelHighlight', ignore: 'panelIgnore' } as const;
-const reference = ({ panel, output }: Source) => `${panel.id}.${output.key}`;
+const reference = ({ panel, output }: Source) => panelOutputRef(panel.id, output.key);
 type EditSection = 'mapping' | 'shape' | 'connections';
 type RejectedEdit = {
   key: string;

@@ -189,6 +189,7 @@ function invalidPanelConnections(instances: z.infer<typeof panelInstanceSchema>[
     if (ids.has(instance.id)) return 'panels instance ids must be unique';
     ids.add(instance.id);
     for (const output of instance.outputs) {
+      // Same format as @ap/contracts `panelOutputRef`; production code here imports no platform package (ADR-0096).
       const ref = `${instance.id}.${output.key}`;
       if (outputs.has(ref)) return 'panels output keys must be unique per instance';
       outputs.set(ref, { id: instance.id, shape: output.shape });

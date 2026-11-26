@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { MenuViewPanels, PanelInstance } from '@ap/contracts';
+import { panelOutputRef, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
 import { useSavedViewPanels, type HeldAnalysisSelection, type LentPanelOptions, type SavedViewPanelsOutcome } from '@ap/kernel';
 import { HW_TIME_TREND } from '../lentTrendMapping';
 import { configurationPanels } from '../panels';
@@ -17,7 +17,7 @@ const following: Comparison = { mode: 'follow' };
 const unreadable: Comparison = { mode: 'unreadable' };
 const source = { kind: 'declared', panel: HW_TIME_TREND } as const;
 const matrixId = configurationPanels.matrix.id;
-const timeSource = `${matrixId}.${TIME.key}`;
+const timeSource = panelOutputRef(matrixId, TIME.key);
 
 function savedPanels({ original, comparison }: HwTimePanels, { originalOpen }: { originalOpen: boolean }): MenuViewPanels | null {
   if (comparison?.mode === 'unreadable' || (comparison === null && original === 'page')) return null;

@@ -1,6 +1,7 @@
+// eslint-disable-next-line no-restricted-syntax -- the deprecated wrapper keeps its documented answer; removal is tracked in .planning/backlog.md (#2951).
 import { isDevelopment } from './isDevelopment';
 
-// Kept for consumers that already call it; the SDK itself uses `isDevelopment` (#2951).
+// Kept for consumers that already call it; SDK source compares `process.env.NODE_ENV` inline (#3028).
 /**
  * @deprecated Use `!isDevelopment()` (#2951). In a Vite production bundle `meta.env` and `g.process` are absent, so this
  * read alone missed production; it now also reads the statically replaced `process.env.NODE_ENV`. Removed next SDK minor.
