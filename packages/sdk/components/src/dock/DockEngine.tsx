@@ -16,10 +16,10 @@ import { DockSeparators, type DockRect } from './DockSeparators';
 import type { DockLayoutProps, DockPanel, DockRows, DockFloating } from './dockTypes';
 import { fromEngineLayout, keepStoredSizes, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
 import { DockChartHeadProvider, DockChartLayoutActionsSlot, DockChartMaximizeTarget, DockChartPaneEngaged, DockChartPaneId, useDockChartSlot } from './DockChartHead';
-import { menuAfterRebuild } from './focusTab';
 import { PanelBoundary } from './PanelBoundary';
 import { WorkspacePanelVisibleContext } from '../workspace/panelContext';
 import { PageBoundContext, PageFlowContext } from '../pageFlow';
+import { menuAfterRebuild } from './focusTab';
 import { isProgrammaticFocus, programmaticFocus } from './programmaticFocus';
 import { canonicalDockTree, type DockNode } from './schema';
 import './dock.css';
@@ -291,7 +291,9 @@ export default function DockEngine({
   const canonicalDisplay = useMemo(() => canonicalDockTree(display), [display]);
   const key = useMemo(() => JSON.stringify(canonicalDisplay), [canonicalDisplay]);
   const panelMinimums = useMemo(() => new Map(panels.map(panel => [panel.id, { minWidth: panel.minWidth, minHeight: panel.minHeight }])), [panels]);
-  const floatingKey = JSON.stringify(floating?.panels);
+  // No floating capability and none floating are the same engine tree: a workspace turns floating off below its narrow width, and a drawer
+  // opening beside it crosses that width. Keyed apart, every open and close rebuilt all groups and dropped focus in their headers (#3140, #3166).
+  const floatingKey = JSON.stringify(floating?.panels ?? []);
   const meta = useMemo(() => JSON.stringify([panels.map(panel => [panel.id, panel.title, panel.minWidth, panel.minHeight]), minPanelSize, floatingKey]), [panels, minPanelSize, floatingKey]);
   // The effects below run on what changed (key, meta, epoch), not on every new object identity; they read the rest from here.
   const rowsTotal = rows ? rows.heights.reduce((sum, height) => sum + height, 0) : undefined;
