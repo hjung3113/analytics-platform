@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import type { ReactNode, Ref } from 'react';
 import { Download, MoreHorizontal, Table2 } from 'lucide-react';
 import { useI18n, useMessages } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { DockChartCloseMore, type DockChartLayoutActions } from '../dock/DockChartHead';
+import { DockChartCloseMore, DockChartToolbarWidth, type DockChartLayoutActions } from '../dock/DockChartHead';
+import { useElementSize } from '../state/useElementSize';
 import { chartToolVariant } from './chartChrome';
 
 type Props = {
@@ -39,17 +40,18 @@ export function ChartInteractionToolbar(p: Props) {
   return <header data-dock-chart-options={docked && p.start != null ? '' : undefined} data-tools-reveal={p.toolsReveal} className={cn(
     'flex shrink-0 items-center gap-1 break-keep',
     p.compact ? 'min-w-0 px-2 pt-1' : 'flex-wrap px-4 pt-3',
-    docked && 'gap-3 py-0 ps-2 pe-1',
+    docked && 'grid min-w-0 grid-cols-[minmax(min-content,1fr)] gap-3 py-0 ps-2 pe-1',
+    docked && p.start != null && 'grid-cols-[minmax(0,max-content)_minmax(min-content,1fr)]',
     p.reserveCorner && 'pr-12',
     p.toolsReveal === 'hover' && !p.secondaryOpen && 'opacity-0 group-hover/chart:opacity-100 group-focus-within/chart:opacity-100',
   )}>
     {p.heading}
-    {p.start != null && <div data-chart-toolbar-start className={cn('flex items-center gap-1', p.compact ? 'min-w-0 flex-1' : 'flex-auto', docked && 'flex-none')}>{p.start}</div>}
+    {p.start != null && <div data-chart-toolbar-start data-reveal-x={docked ? '' : undefined} className={cn('flex items-center gap-1', p.compact ? 'min-w-0 flex-1' : 'flex-auto', docked && 'overflow-x-auto [&>*]:shrink-0 [&_button:focus-visible]:ring-inset [&_button:focus-visible]:ring-offset-0')}>{p.start}</div>}
     <div role="toolbar" aria-label={m('chartActions')} data-reveal-x={p.compact && !docked ? '' : undefined} className={cn(
       'ml-auto flex min-w-0 items-center gap-1 whitespace-nowrap',
       p.compact && !docked && 'overflow-x-auto',
       !p.compact && 'flex-wrap justify-end',
-      docked && 'justify-end px-1',
+      docked && 'ml-0 grid grid-cols-[minmax(0,1fr)_minmax(min-content,max-content)] px-1',
     )}>
       <div data-reveal-x={docked ? '' : undefined} data-dock-chart-tools={docked ? '' : undefined} data-revealed={docked && p.dockToolsRevealed ? '' : undefined} className={cn('flex items-center gap-1',
         p.compact && !docked && 'shrink-0', !p.compact && 'min-w-0 flex-wrap',
@@ -57,7 +59,9 @@ export function ChartInteractionToolbar(p: Props) {
         {p.zoom}{p.brush}{p.reset}{p.compare}{p.annotate}{docked && exportMenu}
       </div>
       {(p.table || p.exportCsv || p.secondary) && <div data-chart-toolbar-tail className={cn(!docked && 'ml-auto', 'flex shrink-0 items-center gap-1')}>
-        {p.table && <ChartTableToggle compact={p.compact && !docked} shown={p.table.shown} toggle={p.table.toggle} buttonRef={p.table.buttonRef} />}
+        {p.table && (docked
+          ? <DockedChartTableToggle {...p.table} />
+          : <ChartTableToggle {...p.table} compact={p.compact} />)}
         {!docked && exportMenu}
         {p.dockMaximize}
         {p.secondary && <Popover open={p.secondaryOpen} onOpenChange={open => {
@@ -83,6 +87,26 @@ export function ChartInteractionToolbar(p: Props) {
       </div>}
     </div>
   </header>;
+}
+
+function DockedChartTableToggle(table: NonNullable<Props['table']>) {
+  const stripWidth = useContext(DockChartToolbarWidth);
+  const slot = useElementSize();
+  const probe = useElementSize();
+  const available = slot.width === null ? null : Math.min(slot.width, stripWidth ?? slot.width);
+  const compact = available === null || probe.width === null || available < probe.width;
+  // The inert text face supplies the preferred width even when the live button is compact.
+  // The track's lower bound matches Button's icon-xs width, so the rest of the tail can stay fixed.
+  return <div ref={slot.ref} data-dock-chart-table-slot className="relative grid grid-cols-[minmax(calc(var(--spacing)*7),max-content)] overflow-clip">
+    <div aria-hidden inert className="invisible min-w-0 overflow-clip">
+      <div ref={probe.ref} data-dock-chart-table-probe className="w-max">
+        <ChartTableToggle shown={table.shown} toggle={table.toggle} disabled />
+      </div>
+    </div>
+    <div className="absolute inset-y-0 end-0 flex items-center [&>button:focus-visible]:ring-inset [&>button:focus-visible]:ring-offset-0">
+      <ChartTableToggle {...table} compact={compact} />
+    </div>
+  </div>;
 }
 
 /** `표로 보기`: the chart tool row's table toggle, shared by the Frame, category and canvas charts (#2792). */

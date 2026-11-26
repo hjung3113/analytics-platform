@@ -151,7 +151,7 @@ function DockTab({ api }: IDockviewPanelHeaderProps) {
     set('aria-keyshortcuts', keyShortcuts);
   }, [description, keyShortcuts, engine.reconciles, engine.moves]);
   return <span ref={mark} data-dock-tab={id} data-analysis-source-highlighted={sourceHighlighted && !engine.visible.has(id) ? '' : undefined} className="t-card-title flex min-w-0 items-center truncate">
-    {engine.renderTab?.(id, { active: engine.active.has(id), groupFocused: engine.focused.has(id) }) ?? engine.panels.get(id)?.title ?? id}
+    {engine.renderTab?.(id, { active: engine.active.has(id), groupFocused: engine.focused.has(id) }) ?? <span className="min-w-0 truncate">{engine.panels.get(id)?.title ?? id}</span>}
   </span>;
 }
 

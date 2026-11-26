@@ -119,6 +119,49 @@ test.describe('HW Time narrow workspace query line', () => {
   });
 });
 
+test.describe('HW Time narrow docked chart header', () => {
+  test('keeps the tab title and controls apart with the panel settings drawer open', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInAs(page, 'engineer');
+    await page.goto(`${SCREEN}&roomNames=PHOTO&from=2026-09-24T09:00:00&to=2026-09-26T09:00:00&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=table&motionEquipment=MEM-PHOTO-0103&motionEquipment=MEM-PHOTO-0105`);
+    await workspace(page).getByRole('tab', { name: '원본 표', exact: true }).click();
+    await workspace(page).getByRole('button', { name: '원본 표 동작', exact: true }).click();
+    await page.getByRole('menuitem', { name: '패널 설정', exact: true }).click();
+    const drawer = page.getByRole('dialog', { name: '원본 표', exact: true });
+    await expect(drawer).toBeVisible();
+    await drawer.hover();
+
+    const strip = workspace(page).locator('.dv-tabs-and-actions-container').filter({
+      has: page.locator('[data-dock-chart-head][data-dock-active="previous"]'),
+    });
+    await expect(strip.getByRole('tab')).toBeVisible();
+    await expect(strip.getByRole('button', { name: '표로 보기', exact: true })).toBeVisible();
+    await expect(strip.getByRole('button', { name: /최대화$/ })).toBeVisible();
+    await expect(strip.getByRole('button', { name: '더보기', exact: true })).toBeVisible();
+
+    await expect.poll(() => strip.evaluate(header => {
+      const title = header.querySelector('[data-dock-tab="previous"]')!.getBoundingClientRect();
+      const bounds = header.getBoundingClientRect();
+      const tolerance = 0.5;
+      const problems: string[] = [];
+      for (const control of header.querySelectorAll('button')) {
+        if (control.closest('[inert]') || !control.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+        const box = control.getBoundingClientRect();
+        const name = control.getAttribute('aria-label') ?? control.textContent;
+        const intersects = title.left < box.right - tolerance && box.left < title.right - tolerance
+          && title.top < box.bottom - tolerance && box.top < title.bottom - tolerance;
+        if (intersects) problems.push(`${name} overlaps the tab title`);
+        if (box.left < bounds.left - tolerance || box.right > bounds.right + tolerance
+          || box.top < bounds.top - tolerance || box.bottom > bounds.bottom + tolerance) {
+          problems.push(`${name} lies outside the header strip`);
+        }
+      }
+      return problems;
+    })).toEqual([]);
+    await evidence(page, testInfo, 'narrow-docked-chart-header');
+  });
+});
+
 test.describe('HW Time analysis selection', () => {
   test('edits motionEquipment through the analysis selection chip', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
