@@ -1,5 +1,6 @@
 # 백로그 — 이슈로 올리지 않은 것
 
+- **미구현 — 패널 설정 서랍 «데이터» 구역 (#2762 ⑤):** 설계(시안 A)는 데이터·매핑·모양·연결 네 구역이지만 «데이터» 구역이 무엇을 고치는지 정의가 없다. 정의 없이 칸을 만들면 매핑·연결과 겹치거나 저장 형식을 추측하게 되므로 만들지 않음. 다시 열 조건: 팀장이 정의 추천을 소유자에게 가져갈 때.
 - **미구현 — DockLayout 패널 오류 알림이 부하에서 잠깐 접근성 트리 밖에 있는 이유 (#3129):** Mac 패키지 전체 실행 3회 중 1회, 재시도 버튼이 DOM에는 있는데 `getByRole`이 역할을 못 찾음. 시험은 버튼이 접근 가능해질 때까지 기다리게 고침(#3129 PR). 숨긴 조상(aria-hidden·inert·display:none·visibility)은 확인 못 함 — 이 호스트(desktop)에서는 부하를 걸어도 재현 안 됨. 다시 열 조건: 실제 앱에서 패널 오류 직후 «다시 시도»가 키보드·스크린리더로 닿지 않는 일이 보이거나, 같은 증상의 다른 시험이 생길 때. 진단 방법: 알림 조상 사슬의 위 네 가지를 찍는 한 줄(브랜치 test/3129-dock-panel-error의 커밋 기록).
 - **미구현 — HW Time «종류로 만들기» 차트를 원본 표가 «패널 설정 → 연결»에서 받기 (#2761·#2762 사용처):** 만든 막대는 `<인스턴스 id>.selection`을 내지만, 서랍 연결 칸은 선언된 «모듈 동작» 출력만 원천으로 보이고 차트 출력에는 «붙잡기»가 꺼진다. 여러 차트 중 원천을 고르는 칸이 SDK 서랍에 없어 메뉴 쪽만으로 만들지 않음. 다시 열 조건: 서랍 연결 구역이 원천 선택(런타임 인스턴스 출력 포함)을 받을 때.
 - **미구현 — 저장된 뷰를 다시 열 때 만든 차트의 «추가하면 고정» 유지 (#2761 사용처):** 고정은 화면 상태(`AddedPanel.pinned`)라 같은 화면 안 단계·조회 변경에서는 남지만, 저장된 뷰 v1에 둘 칸이 없어 다시 열면 고정이 풀린다. 저장 형식 변경이 필요해 하지 않음. 다시 열 조건: 저장된 뷰 패널 형식에 패널별 고정을 둘 때.
@@ -29,7 +30,7 @@
 - **Not implemented — #2037 Fable follow-ups:** MEN-13: move `tooling/sdk/previous-bundle.json` to the latest published stable release and test it against the published-version entries in `packages/sdk/CHANGELOG.md`; requires the release asset and authenticated SHA256SUMS checksum, unavailable to the network-free worker. Lane decision 2026-11-15: a release-lead step at the next slice close (#2191); reopen then, and add the pin-rotation step to `.agents/conductor/PROFILE.md` Slice close. MEN-15: include the three released adapters in API snapshots; the worker task forbids baseline edits and `--update`, so enable coverage with a coordinated baseline refresh at the next slice close (lane decision 2026-11-15, #2191). MEN-20: owner 2026-11-15 chose a one-time tab sessionStorage return state; implemented separately in #2195 (kept out of #1869, which is a large P1). MEN-22: the owner-delegated Opus high review adopted the static `Table` piece; implemented in #2192, remaining six migrations tracked in #2202. MEN-18: the new clipboard/XLSX checks target the existing dev-server suite; the lead must choose a production-build browser gate on main push/release before adding CI cost (#1931).
 - **Not implemented — #2056 owner decisions:** MEN-29: investigation archive/rename UI remains unimplemented; choosing that user-visible management scope belongs to the owner. Lane decision 2026-11-15: not implemented — menu screens are samples and this adds no platform contract; the declarations stay because the server conformance test uses them (#2191). Reopen when an in-house menu needs these actions as a contract sample. MEN-38: generator canonical default paths and route-policy alignment remain unimplemented in this PR. Lane decision 2026-11-15: it applies only to newly generated menus (existing URLs unchanged), so it is a defect fix done in #2191; validate canonical paths and aliases together before any writes.
 
-- **미구현 — StatCard `purple`·`amber` 타입 제거 (#1945):** 한 릴리스의 호환 기간에는 각각 `teal`·`blue`로 표시한다. 이유: 기존 SDK 메뉴의 타입 호환을 유지하며 두 색으로 이전한다. 다시 열 조건: 다음 SDK minor 릴리스. 그때 공개 `chip` 타입에서 두 값을 제거한다.
+- **미구현 — StatCard `purple`·`amber` 타입 제거 (#1945):** 호환 기간에는 각각 `teal`·`blue`로 표시한다. 이유: 기존 SDK 메뉴의 타입 호환을 유지하며 두 색으로 이전한다. 다시 열 조건: SDK 1.0 계약 동결(go-live, #1931) 때 제거. 그때 공개 `chip` 타입에서 두 값을 뺀다.
 
 - **미구현 — 대상 시스템 선택 단계 분리 (#1842):** 이유: 지금은 시스템 3개·22행이라 검색으로 충분하다. 다시 열 조건: 한 대상자의 후보 행이 40개를 넘거나 Managed System이 5개를 넘을 때. 그때는 시스템을 먼저 고르고 목록은 권한당 한 행으로 줄인다.
 
@@ -715,11 +716,11 @@
 
 | 상태 | 대상 | 미구현 이유 | 다시 열 조건 |
 | --- | --- | --- | --- |
-| 미구현 | `@ap/components` 루트의 `EChart`·`chartTheme`·`token`·`EChartProps` 호환 export 삭제 | SHE-26 소유자 결정: `/host` 이전을 위해 한 릴리스 유지 | 다음 SDK minor 릴리스 |
-| 미구현 | `DetailPanelHeader.kind`·`KIND_LABELS`·기존 kind accent 맵 삭제 | SHE-45 소유자 결정: 소비자 label·accent 선언으로 이전할 한 릴리스 유지 | 다음 SDK minor 릴리스 |
-| 미구현 | `DetailPanelHeaderActions.entityKind`·`entityId` prop 삭제 | SHE-45 소유자 결정: 사용하지 않는 prop의 소스 호환을 한 릴리스 유지 | 다음 SDK minor 릴리스 |
-| 미구현 | `@ap/ui` `isProductionEnv` export 삭제 (#2951) | SDK 소스는 `process.env.NODE_ENV` 직접 비교로 모두 옮겼지만(#3028) 공개 export라 소비자 소스 호환을 한 릴리스 유지 | 다음 SDK minor 릴리스 |
-| 미구현 | `AnalysisChartFrame.stacked` 삭제와 메뉴 사용처(hw-time 3곳, analytics 2곳, rcc 2곳)의 `stackMode="stack"` 이전 (#2887 F2) | 팀장 결정: 이번에는 사용 중단 표시만 하고 동작은 그대로 둔다. `stackMode`는 집계 선언이 없거나 더할 수 없는 측정을 쌓지 않으므로, 메뉴마다 측정이 더할 수 있는지 확인하고 `reaggregation`을 선언해야 한다 | 다음 SDK minor 릴리스, 또는 메뉴가 쌓기 차트를 손볼 때 |
+| 미구현 | `@ap/components` 루트의 `EChart`·`chartTheme`·`token`·`EChartProps` 호환 export 삭제 | SHE-26 소유자 결정: `/host` 이전을 위해 한 릴리스 유지 | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
+| 미구현 | `DetailPanelHeader.kind`·`KIND_LABELS`·기존 kind accent 맵 삭제 | SHE-45 소유자 결정: 소비자 label·accent 선언으로 이전할 한 릴리스 유지 | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
+| 미구현 | `DetailPanelHeaderActions.entityKind`·`entityId` prop 삭제 | SHE-45 소유자 결정: 사용하지 않는 prop의 소스 호환을 한 릴리스 유지 | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
+| 미구현 | `@ap/ui` `isProductionEnv` export 삭제 (#2951) | SDK 소스는 `process.env.NODE_ENV` 직접 비교로 모두 옮겼지만(#3028) 공개 export라 소비자 소스 호환을 한 릴리스 유지 | SDK 1.0 계약 동결(go-live, #1931) 때 제거 |
+| 미구현 | `AnalysisChartFrame.stacked` 삭제와 메뉴 사용처(hw-time 3곳, analytics 2곳, rcc 2곳)의 `stackMode="stack"` 이전 (#2887 F2) | 팀장 결정: 이번에는 사용 중단 표시만 하고 동작은 그대로 둔다. `stackMode`는 집계 선언이 없거나 더할 수 없는 측정을 쌓지 않으므로, 메뉴마다 측정이 더할 수 있는지 확인하고 `reaggregation`을 선언해야 한다 | SDK 1.0 계약 동결(go-live, #1931) 때 제거, 또는 메뉴가 쌓기 차트를 손볼 때 |
 
 ## 성능 감사 2026-11-23 보류 (#2816)
 
