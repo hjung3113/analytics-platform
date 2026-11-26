@@ -50,7 +50,8 @@ export function projectSmallMultiples(series: readonly SmallMultiplesSeries[], b
     if (Number.isFinite(tileY.min)) {
       include(y, tileY.min);
       include(y, tileY.max);
-      independentY = { min: Math.floor(tileY.min) || 0, max: Math.ceil(tileY.max) || 0 };
+      // Adding positive zero normalizes signed zero so the range caption never shows −0.
+      independentY = { min: Math.floor(tileY.min) + 0, max: Math.ceil(tileY.max) + 0 };
     }
     bounds?.parts.forEach(part => parts.add(part));
     return { ...s, points, bounds, worst, hasValues, independentY };
@@ -88,7 +89,7 @@ export const SmallMultiplePlot = memo(function SmallMultiplePlot({ tile, x, y }:
     if (upper !== undefined) paths.upper += `M${left} ${py(upper)}H${right}`;
     if (lower !== undefined && upper !== undefined) paths.band += `M${left} ${py(upper)}H${right}V${py(lower)}H${left}Z`;
   }
-  return <svg aria-hidden="true" className="block min-h-0 w-full flex-1 overflow-visible text-text-secondary">
+  return <svg aria-hidden="true" className="block min-h-6 w-full flex-1 overflow-visible text-text-secondary">
     <svg width="100%" height="100%" viewBox={`0 0 ${VIEW} ${VIEW}`} preserveAspectRatio="none">
       <path d={GUIDE_PATH} className="stroke-chart-grid" fill="none" vectorEffect="non-scaling-stroke" />
       {paths.band && <path data-small-multiple-band d={paths.band} fill="currentColor" fillOpacity={CHART_BAND_OPACITY} />}

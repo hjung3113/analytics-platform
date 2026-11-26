@@ -262,11 +262,13 @@ it('uses finite per-tile values and bounds for independent scales and labels onl
   const user = userEvent.setup();
   const data = [
     { ...series[0], points: [{ x: from, y: 1002 }, { x: to, y: 1006 }], bounds: new Map([[from, { lower: 1000.4, upper: 1007.6 }]]) },
-    { ...series[1], points: [{ x: from, y: 2004 }, { x: from, y: Infinity }, { x: to, y: 2012 }],
+    { ...series[1], points: [{ x: from, y: 2004 }, { x: '2026-09-25T12:00:00', y: Infinity }, { x: to, y: 2012 }],
       bounds: new Map([[from, { lower: 2000.4, upper: 2015.6 }]]) },
+    { ...series[2], points: [{ x: from, y: 5 }, { x: to, y: 5 }] },
   ];
   render(withToolbar({ series: data, showAxisControl: true }));
-  const line = (index: number) => tile(index).querySelector('[data-small-multiple-line]')?.getAttribute('d')?.match(/^M[^h]+/)?.[0];
+  const path = (index: number) => tile(index).querySelector('[data-small-multiple-line]')?.getAttribute('d');
+  const line = (index: number) => path(index)?.match(/^M[^h]+/)?.[0];
   const firstRange = '1,000–1,008 ms';
   const secondRange = '2,000–2,016 ms';
   expect(screen.getByRole('radio', { name: '축 공유', checked: true })).toBeInTheDocument();
@@ -276,10 +278,36 @@ it('uses finite per-tile values and bounds for independent scales and labels onl
   await user.click(screen.getByRole('radio', { name: '칸마다 축' }));
   expect(line(0)).toBe('M5 70');
   expect(line(1)).toBe(line(0));
+  expect(path(1)).toMatch(/^M5 70h0\.01\s+M95 30h0\.01$/);
+  expect(path(2)).toBe('M5 50h0.01 L95 50');
   expect(within(tile(0)).getByText(firstRange)).toBeInTheDocument();
   expect(within(tile(1)).getByText(secondRange)).toBeInTheDocument();
+  expect(within(tile(2)).getByText('5–5 ms')).toBeInTheDocument();
   expect(tile(0)).toHaveAccessibleDescription(firstRange);
   expect(screen.getByRole('button', { name: '칸마다 축 정보' })).toHaveAccessibleDescription(/칸마다 다른 눈금/);
+});
+
+it.each(['hover', 'keyboard'] as const)('reveals the full independent range on %s', async gesture => {
+  const user = userEvent.setup();
+  const status = { tone: 'warning', label: 'High' } as const;
+  const data = [{ ...series[0], points: [{ x: from, y: 1000 }, { x: to, y: 1008, status }] }];
+  render(withToolbar({ series: data, showAxisControl: true }));
+  await user.click(screen.getByRole('radio', { name: '칸마다 축' }));
+  if (gesture === 'hover') await user.hover(tile(0));
+  else {
+    await user.tab();
+    expect(tile(0)).toHaveFocus();
+  }
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('1,000–1,008 ms');
+  expect(tile(0)).toHaveAccessibleDescription(/High.*1,000–1,008 ms/);
+  expect(selection()).toEqual([]);
+});
+
+it('reserves at least 24 px for the plot in compact density', async () => {
+  render(view({ series: series.slice(0, 1), density: 'compact' }));
+  const button = await screen.findByRole('button', { name: 'Asset 0' });
+  // jsdom does not lay out flex boxes. Check the 24 px minimum-height utility.
+  expect(button.querySelector('svg')).toHaveClass('min-h-6');
 });
 
 it('shows the density choice only when requested and keeps the choice out of the URL', async () => {

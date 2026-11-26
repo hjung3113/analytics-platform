@@ -93,7 +93,7 @@ function useScopeWidth(enabled: boolean) {
 }
 
 export type PanelOptionsProps = {
-  options: readonly (PanelOptionDefinition & { pageKey?: string })[];
+  options: readonly PanelOption[];
   values: PanelOptionValues;
   onChange: (id: string, value: string | boolean) => void;
   /** Force the folded (`true`) or inline (`false`) form. Without it the form follows the surrounding panel's width against `collapseBelow`. */
@@ -103,12 +103,19 @@ export type PanelOptionsProps = {
   className?: string;
 };
 
+type LocalPanelOptionsProps = Omit<PanelOptionsProps, 'options'> & { options: readonly PanelOptionDefinition[] };
+
 /**
  * Declared panel options drawn inline in a panel toolbar (for example a chart frame's `extraActions`), folding into «보기 ▾» when the panel is
  * narrow (#2396, layout §12.8). Controlled: supply local values or pair it with `usePanelOptions` for page-key storage.
  * Hidden options are not drawn.
  */
-export function PanelOptions({ options, values, onChange, collapsed, collapseBelow = PANEL_OPTIONS_COLLAPSE_BELOW, className }: PanelOptionsProps) {
+export function PanelOptions(props: PanelOptionsProps): import('react').JSX.Element | null {
+  return <LocalPanelOptions {...props} />;
+}
+
+/** Internal renderer for SDK controls with local state and no page keys. */
+export function LocalPanelOptions({ options, values, onChange, collapsed, collapseBelow = PANEL_OPTIONS_COLLAPSE_BELOW, className }: LocalPanelOptionsProps) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { lang } = useI18n();
   const shown = options.filter(option => !option.hidden);

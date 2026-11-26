@@ -1,12 +1,12 @@
-import { useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useContext, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { formatDateTime, formatNumber, formatWallClock, type Text } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { useOptionalAnalysisSelectionOutput } from '@ap/kernel/host';
-import { cn, InfoTip, RowSelectionBar } from '@ap/ui';
+import { cn, InfoTip, RowSelectionBar, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { gridKeyTarget } from '../grid/gridKeyTarget';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { PanelOptions, type PanelOptionsProps } from '../workspace/PanelOptions';
+import { LocalPanelOptions } from '../workspace/PanelOptions';
 import { QueryPanelContentContext } from '../workspace/panelContext';
 import { ChartBoundsLegend } from './ChartBoundsLegend';
 import { chartDiagnostic } from './analysisChartData';
@@ -23,7 +23,7 @@ export type SmallMultiplesSortOption = {
 };
 
 type Density = 'regular' | 'compact';
-type DisplayOption = PanelOptionsProps['options'][number];
+type DisplayOption = ComponentProps<typeof LocalPanelOptions>['options'][number];
 
 export type SmallMultiplesGridProps = {
   title: string;
@@ -88,6 +88,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
   const [independent, setIndependent] = useState(false);
   const [localDensity, setLocalDensity] = useState<Density>(DENSITY_OPTION.default);
   const activeDensity = density ?? localDensity;
+  const compact = activeDensity === 'compact';
   const sorts = useMemo(() => {
     const byId = new Map<string, SmallMultiplesSortOption>();
     for (const option of sortOptions ?? []) {
@@ -200,13 +201,13 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
       {tiles.length > 0 && <span className="text-caption tabular text-text-secondary">{m('smallMultiplesCount', { count: formatY(tiles.length) })}</span>}
       <ChartBoundsLegend bounds={legend} singleLine />
       {(options.length > 0 || actions) && <div className={cn('ml-auto flex items-center gap-2', options.length > 0 && 'flex-wrap')}>
-        {options.length > 0 && <PanelOptions options={options} values={{ [SORT_ID]: sort?.id ?? ORIGINAL_ORDER,
+        {options.length > 0 && <LocalPanelOptions options={options} values={{ [SORT_ID]: sort?.id ?? ORIGINAL_ORDER,
           [AXIS_OPTION.id]: independent ? INDEPENDENT : AXIS_OPTION.default, [DENSITY_OPTION.id]: activeDensity }} onChange={changeOption} />}
         {actions}
       </div>}
     </div>
     {tiles.length === 0 ? <p className="p-3 text-sm text-text-secondary">{m('panelTrustEmpty')}</p> :
-      <div ref={scrollRef} className="scrollbar-panel min-h-0 overflow-y-auto overscroll-contain">
+      <TooltipProvider delayDuration={200}><div ref={scrollRef} className="scrollbar-panel min-h-0 overflow-y-auto overscroll-contain">
         <div role="grid" aria-label={title} className="space-y-2 p-3" style={rowStyle}>
           {Array.from({ length: rowCount }, (_, row) => <div key={row} role="row" className="grid grid-cols-(--small-multiples-columns) gap-2">
             {tiles.slice(row * count, (row + 1) * count).map((tile, column) => {
@@ -221,8 +222,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
               const caption = [empty, range].filter(Boolean).join(' · ');
               const description = [statusText(status), caption].filter(Boolean).join(' · ');
               const index = row * count + column;
-              return <div key={tile.id} role="gridcell" className="min-w-0">
-                <button type="button" data-tile-index={index} tabIndex={tile.id === tabbableId ? 0 : -1} aria-label={tile.label}
+              const button = <button type="button" data-tile-index={index} tabIndex={tile.id === tabbableId ? 0 : -1} aria-label={tile.label}
                   aria-pressed={analysisSelectionOutput && value !== undefined ? pressed : undefined} aria-disabled={!enabled || undefined}
                   aria-description={description || undefined}
                   onFocus={event => { focusedButton.current = event.currentTarget; setFocusedId(tile.id); }}
@@ -239,28 +239,35 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
                   onKeyDown={event => move(event, index)}
                   onClick={enabled ? () => select({ shape: 'set', values: [value] }) : undefined}
                   style={paint ? { '--small-multiple-status': paint } as CSSProperties : undefined}
-                  className={cn('relative flex w-full min-w-0 flex-col gap-1 overflow-hidden rounded-md border px-2 py-1.5 text-left',
+                  className={cn('relative flex w-full min-w-0 flex-col overflow-hidden rounded-md border px-2 text-left',
+                    compact ? 'gap-0.5 py-1' : 'gap-1 py-1.5',
                     'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
                     tileHeight[activeDensity], enabled && 'cursor-pointer hover:bg-surface-row-hover',
                     pressed && 'bg-surface-row-selected hover:bg-surface-row-selected',
                     paint && 'border-(--small-multiple-status)',
                     !paint && (pressed ? 'border-border-selected' : 'border-transparent'))}>
                   {pressed && <RowSelectionBar />}
-                  <span className="flex min-w-0 items-center gap-1.5 text-xs">
+                  <span className={cn('flex min-w-0 shrink-0 items-center gap-1.5', compact ? 'text-tiny leading-3' : 'text-xs')}>
                     <span className="min-w-0 truncate">{tile.label}</span>
                     {status && <span aria-hidden className={cn('ml-auto shrink-0', iconTone[status.tone])}>
-                      {status.tone === 'neutral' ? statusGlyph(status) : <TriangleAlert className="size-3.5" />}
+                      {status.tone === 'neutral' ? statusGlyph(status) : <TriangleAlert className={compact ? 'size-3' : 'size-3.5'} />}
                     </span>}
                   </span>
                   {(tile.hasValues || tile.bounds?.parts.length) ? <SmallMultiplePlot tile={tile} x={x} y={tileY ?? y} /> : null}
-                  <span className="mt-auto h-lh shrink-0 truncate t-caption text-text-secondary">
+                  <span className={cn('mt-auto h-lh shrink-0 truncate text-text-secondary', compact ? 'text-tiny leading-3' : 't-caption')}>
                     {caption}
                   </span>
-                </button>
+                </button>;
+              return <div key={tile.id} role="gridcell" className="min-w-0">
+                {range ? <Tooltip>
+                  {/* The button already describes the range and any status, even before the tooltip opens. */}
+                  <TooltipTrigger asChild aria-describedby={undefined}>{button}</TooltipTrigger>
+                  <TooltipContent portal size="sm" className="max-w-xs wrap-anywhere">{range}</TooltipContent>
+                </Tooltip> : button}
               </div>;
             })}
           </div>)}
         </div>
-      </div>}
+      </div></TooltipProvider>}
   </section>;
 }

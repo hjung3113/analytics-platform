@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry, type MenuEntry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
-import { PanelOptionChips, PanelOptions, changedPanelOptions, usePageKeyRules, usePanelOptions, type PanelOption } from '../../index';
+import { PanelOptionChips, PanelOptions, changedPanelOptions, usePageKeyRules, usePanelOptions, type PanelOption, type PanelOptionsProps } from '../../index';
+import { LocalPanelOptions } from '../PanelOptions';
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -54,6 +55,18 @@ const values = () => JSON.parse(screen.getByTestId('values').textContent!);
 const chips = () => screen.queryByRole('list', { name: '기본과 다른 보기 설정' });
 
 describe('PanelOptions + usePanelOptions (#2396)', () => {
+  it('keeps the exported props compatible with page-key state', () => {
+    expectTypeOf<PanelOptionsProps['options']>().toEqualTypeOf<Parameters<typeof usePanelOptions>[0]>();
+  });
+
+  it('draws keyless options from local state', () => {
+    const { pageKey: _pageKey, ...option } = ALIGN;
+    const onChange = vi.fn();
+    render(<I18nProvider><LocalPanelOptions options={[option]} values={{ align: true }} onChange={onChange} collapsed={false} /></I18nProvider>);
+    fireEvent.click(screen.getByRole('button', { name: '시작 맞춤: 켬', pressed: true }));
+    expect(onChange).toHaveBeenCalledWith('align', false);
+  });
+
   it('reads absent keys as the defaults and draws no chips', () => {
     mount();
     expect(values()).toEqual({ sort: 'original', group: 'equipment', align: false });
