@@ -179,7 +179,7 @@ Actor candidates come from schema-parsed `GET /vocs/:id/owner-candidates`, requi
 
 ### 3.8 Command palette (⌘K)
 
-Shipped in #611 as `CommandPalette` (now the SDK shell's `packages/sdk/shell/src/routing/CommandPalette.tsx`), hosted by `AppFrame`. See §5.2.
+Shipped in #611 as `CommandPalette` in the former FO shell, hosted by `AppFrame` (both removed). The platform palette `packages/sdk/shell/src/routing/CommandPalette.tsx` does menu navigation only; entity commands are Deferred. See §5.2.
 
 ### 3.9 Form primitives (already in `packages/feature/screens/src/ui` per inventory)
 
@@ -334,7 +334,7 @@ Prototype hardcodes the matrix in `data.js · REPORTER_STATUS_TRANSITIONS`. Prod
 
 The shortcut is Ctrl+K on Windows/Linux and ⌘K on macOS.
 
-> Shipped in #611 (now `packages/sdk/shell/src/routing/CommandPalette.tsx`, not `features/voc/command-catalog.ts`): the navigate commands (`이동`) are derived generically from `RAIL_ITEMS` + `NAV_TREE` (no per-domain catalog), `VOC 생성` (`/vocs?action=create`) is the only create verb, and display-id open (`열기`) resolves on demand via `GET /nav/resolve`, whose `route_intent: { route, search }` uses `selected` for VOC and Finding and the `/tasks` `param` for Task Request and Task (`view=requests` or `view=board`). Managed System scope switching and recent-record rows are out of scope for the first version, and the palette does not synthesize commands the backend does not resolve. See `packages/feature/screens/docs/routes-and-layout.md` → Global command palette (#611).
+> Shipped in #611 in the former FO shell's command palette (removed; it was not `features/voc/command-catalog.ts`): the navigate commands (`이동`) are derived generically from `RAIL_ITEMS` + `NAV_TREE` (no per-domain catalog), `VOC 생성` (`/vocs?action=create`) is the only create verb, and display-id open (`열기`) resolves on demand via `GET /nav/resolve`, whose `route_intent: { route, search }` uses `selected` for VOC and Finding and the `/tasks` `param` for Task Request and Task (`view=requests` or `view=board`). Managed System scope switching and recent-record rows are out of scope for the first version, and the palette does not synthesize commands the backend does not resolve. See `packages/feature/screens/docs/routes-and-layout.md` → Global command palette (#611). The platform palette `packages/sdk/shell/src/routing/CommandPalette.tsx` does menu navigation only; entity commands are Deferred.
 
 ### 5.3 Optimistic mutation + undo (Triage Console)
 

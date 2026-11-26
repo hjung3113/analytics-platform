@@ -20,7 +20,7 @@
 
 - 테마: `--eqv-*` → 플랫폼 토큰 매핑은 `@eqv/ui/theme.css`가 소유하고 어댑터 `styles.css`가 import한다. 호스트 입력(설비·진입 키·시간)은 `host-props.ts`가 읽는다.
 - 현재(#1659): 뷰어는 호스트 모듈이 아니라 일반 메뉴 패키지 `@ap/menu-topview`(`menus/tools/topview`)다. `manifests`(`eqv:topview`·`eqv:focus`, 그룹 `topview`)를 앱이 등록하고 화면은 lazy `import()`로 불러오며, Kernel 훅(`usePlatform`·`useMenuFetch`·`useMenuQuery`)으로 읽는다. 상세 슬롯·`host.status`는 없고 구성요소 상세는 인라인 패널이다.
-- 타 분석 메뉴는 `linkTo`로 **같은 화면으로 이동**하고 렌더러 코드를 import하지 않는다. 현재 `menu-*` 상호 import 금지와 packages/components 범용성 원칙을 그대로 지킨다.
+- 타 분석 메뉴는 `linkTo`로 **같은 화면으로 이동**하고 렌더러 코드를 import하지 않는다. 현재 `menu-*` 상호 import 금지와 `packages/sdk/components` 범용성 원칙을 그대로 지킨다.
 - 패키지는 workspace로 소비한다(`workspace:*`, ADR-0132). 흡수 전에는 양방향 모두 Release tarball이었다(이력: [EV ADR-0013](../../../adr/history/eqv/0013-platform-sdk-release-tarballs.md)·[EV ADR-0014](../../../adr/history/eqv/0014-eqv-release-tarballs.md)의 `eqv-vX.Y.Z` 여섯 파일, 정확 버전 peer, `peerDependencyRules`).
 - CSS 진입은 `@import "tailwindcss"` → `@ap/ui/styles.css` → `@eqv/platform-adapter/styles.css` 순서다.
 - 원천 parser Result → Occurrence 변환은 플랫폼 **서버** read view(`eqv.topview-events`)의 책임이다([EV ADR-0002](../../../adr/history/eqv/0002-occurrence-input-contract.md)). 클라이언트와 이 저장소에는 원천 parser 코드·어휘를 두지 않는다.
