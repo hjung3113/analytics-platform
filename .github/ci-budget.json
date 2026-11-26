@@ -1,5 +1,5 @@
 {
-  "maxParallelPrJobs": 9,
+  "maxParallelPrJobs": 12,
   "maxJobMinutes": 10,
-  "reason": "Keep PR feedback within ten minutes and leave runner capacity for four active lanes."
+  "reason": "Keep PR feedback within ten minutes: six workspace jobs plus three E2E and three integration shards in one wave (a PR that needs both suites ran 39 min at nine, #3100). Observed account concurrency reached 37 jobs."
 }

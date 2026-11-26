@@ -25,7 +25,7 @@
 // Fail-safe: an exception prints e2e=all e2e_base_path=true e2e_shards=[1,2,3,4,5,6,7,8] e2e_total=8 and exits 0 (stderr says why). If the job itself fails the outputs are
 // empty and ci.yml treats empty as "run everything".
 //
-//   node .github/scripts/select-e2e.mjs      reads EVENT, BASE, HEAD (pull_request), SERVER (classifier output), FULL_INPUT; writes $GITHUB_OUTPUT once
+//   node .github/scripts/select-e2e.mjs      reads EVENT, BASE, HEAD (pull_request), FULL_INPUT; writes $GITHUB_OUTPUT once
 //   node .github/scripts/select-e2e.mjs --self-test
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -86,11 +86,10 @@ const matrix = (total) => ({
 const ALL = Object.freeze({ e2e: 'all', e2e_base_path: 'true', ...matrix(FULL_SHARDS) });
 const NONE = Object.freeze({ e2e: 'none', e2e_base_path: 'false', ...matrix(1) });
 
-// The PR workspace runs up to six jobs alongside these matrices. Reuse all three remaining
-// slots for one suite, or give two slots to E2E and one to integration when both need to run.
-export function prMatrixLimits({ server, e2e }) {
-  const shared = server !== 'false' && e2e !== 'none';
-  return { e2e_parallel: shared ? 2 : BOUNDED_SHARDS, integration_parallel: shared ? 1 : INTEGRATION_SHARDS };
+// The PR workspace runs up to six jobs alongside these matrices. With a budget of twelve both suites run in one wave:
+// three E2E and three integration shards. A full-suite PR (fail-safe) still runs its eight E2E shards three at a time.
+export function prMatrixLimits() {
+  return { e2e_parallel: BOUNDED_SHARDS, integration_parallel: INTEGRATION_SHARDS };
 }
 
 // Exceptional PR inputs still select all shards, with the PR parallelism cap applied.
@@ -174,7 +173,7 @@ function main() {
   if (files) process.stdout.write(`changed files:\n${files.join('\n')}\n`);
   const isPr = process.env.EVENT === 'pull_request';
   const limits = isPr
-    ? prMatrixLimits({ server: process.env.SERVER, e2e: result.e2e })
+    ? prMatrixLimits()
     : { e2e_parallel: FULL_SHARDS, integration_parallel: INTEGRATION_SHARDS };
   const text = Object.entries({ ...result, ...limits, e2e_kit: String(!isPr) }).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
   process.stdout.write(text);

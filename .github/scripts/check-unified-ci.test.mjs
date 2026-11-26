@@ -260,12 +260,17 @@ test('PR job graph stays within the CI runner slot budget', () => {
   const scenarios = [
     ...['true', ''].flatMap((code) => ['true', 'false', ''].flatMap((server) =>
       ['all', 'none', 'base-path-only', 'contract-shell.spec.ts', ''].map((e2e) => ({
-        code, server, e2e, ...prMatrixLimits({ server, e2e }),
+        code, server, e2e, ...prMatrixLimits(),
       })))),
     { code: 'false', server: 'false', e2e: 'none' },
     { code: '', server: '', e2e: '' }, // The entire changes job failed and only YAML fallbacks are available.
   ];
   for (const outputs of scenarios) assertPrBudget(jobs, budget.maxParallelPrJobs, outputs);
+  // A PR that needs both suites runs every bounded E2E and integration shard in one wave (it ran 39 min in waves at nine, #3100).
+  const both = { code: 'true', server: 'true', e2e: 'contract-shell.spec.ts', e2e_shards: '[1,2,3]', ...prMatrixLimits() };
+  assert.equal(Number(both.e2e_parallel), 3);
+  assert.equal(Number(both.integration_parallel), 3);
+  assert.equal(prSlots(jobs, both), budget.maxParallelPrJobs);
   assert.equal(prSlots(workflowJobs('jobs:\n  setup:\n    runs-on: ubuntu-latest\n  a:\n    needs: setup\n  b:\n    needs: setup\n'), {}), 2);
 });
 
@@ -273,7 +278,7 @@ test('push and dispatch publish full parallelism for both matrices', () => {
   const script = fileURLToPath(new URL('./select-e2e.mjs', import.meta.url));
   for (const event of ['push', 'workflow_dispatch']) {
     const output = execFileSync(process.execPath, [script], {
-      env: { EVENT: event, SERVER: 'true', FULL_INPUT: 'false' }, encoding: 'utf8',
+      env: { EVENT: event, FULL_INPUT: 'false' }, encoding: 'utf8',
     });
     assert.match(output, /^e2e_parallel=8$/m, event);
     assert.match(output, /^integration_parallel=3$/m, event);
