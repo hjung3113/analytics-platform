@@ -17,7 +17,9 @@ import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider
 import { InWorkspacePanelProvider } from './panelContext';
 import { PanelBadge } from './PanelBadge';
 import { AnalysisPanelAddContext, hasCategorizedPanels, type AnalysisPanelAddition, type AnalysisPanelDestinations, type PanelAddItem } from './PanelAdd';
+import { PanelAddDragContext, usePanelAddDrag, type PanelAddPlacement } from './PanelAddDrag';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { PANEL_RECIPE_ITEM } from '../panel-recipe/panelRecipe';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { WorkspaceEdges } from './WorkspaceEdges';
@@ -41,6 +43,8 @@ export type PanelWorkspacePersistence = { key: string; storage?: PanelWorkspaceS
 export type PanelWorkspacePanel = {
   /** Static identifier (`^[a-z][a-z0-9._-]{0,63}$`): it is stored in the local preference. */
   id: string;
+  /** Declaration used for the recipe when its id differs from this workspace slot id. */
+  declarationId?: string;
   /** Declared analysis selection source hosted here when its id differs from this layout id. */
   analysisSelectionSourceId?: string;
   /** Offer Panel settings and pass the menu trigger after the menu closes. */
@@ -101,6 +105,8 @@ export type PanelWorkspacePreset = { id: string; label: Text; layout: PanelWorks
 export type PanelWorkspaceProps = {
   /** Menu-declared actions for the active panel, after all platform items and a separator. Absent/empty leaves the menu unchanged; primary panels are not filtered. */
   panelMenuItems?: (panelId: string) => readonly { id: string; label: Text; onSelect: () => void }[];
+  /** Return the recipe opener for this declaration and slot, or omit it if no recipe is available. */
+  panelRecipe?: (declarationId: string, slotId: string) => (() => void) | undefined;
   panels: readonly PanelWorkspacePanel[];
   presets: readonly PanelWorkspacePreset[];
   initialPreset: string;
@@ -142,6 +148,8 @@ export type PanelWorkspaceProps = {
    * Absent = output unchanged.
    */
   toolbarActions?: ReactNode;
+  /** Lets declared `PanelAddMenu` rows in `toolbarActions` split above or below a group. `onAdd` declares that panel in the same update. */
+  panelAddDrag?: boolean;
   /** Catalog and add handler for panels that follow the chart's URL selection. */
   analysisPanelAddition?: AnalysisPanelAddition;
   /** Enabled collapsed edges. Default left and top; an empty array disables the edge strips. Below 692px strips and floating are off. */
@@ -207,6 +215,10 @@ function useDevChecks(props: PanelWorkspaceProps) {
  */
 export function PanelWorkspace(props: PanelWorkspaceProps) {
   const platform = usePlatformOptional();
+  const session = platform?.session;
+  const revision = platform?.revision;
+  const scopeId = platform?.scope.scopeId;
+  const dragScope = useMemo(() => ({ session, revision, scopeId }), [session, revision, scopeId]);
   useDevChecks(props);
   if (props.panels.length === 0) return null;
   let storageKey: string | null;
@@ -220,10 +232,10 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
     storage = props.persistence?.storage;
   }
   // A persistKey (or menu, or user, or standalone key) change is a different workspace: its body remounts and restores that key's state on its own.
-  return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} storage={storage} />;
+  return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} storage={storage} dragScope={dragScope} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, edges = DEFAULT_EDGES, storageKey, storage }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, panelAddDrag, panelRecipe, edges = DEFAULT_EDGES, storageKey, storage, dragScope }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined; dragScope: object }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -567,6 +579,26 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const reading = dockGroupsInReadingOrder(state.layout);
   const focusTab = (panelId: string) => { focusTabSoon(() => root.current, panelId); };
   const closeFocus = useRef<DockChartCloseFocus | null>(null);
+  const moveAdded = useCallback((id: string, target: PanelAddPlacement) => {
+    update(current => {
+      const source = groupOf(current.layout, id);
+      if (!source || !groupOf(current.layout, target.panelId)) return current;
+      // The keyboard move starts from the active tab. Match its neighbour selection on detach.
+      const layout = source.active === id ? current.layout : activatePanel(current.layout, id);
+      return { ...current, layout: movePanel(layout, id, target) };
+    }, 'keep', id);
+  }, [update]);
+  const [placement, setPlacement] = useState<{ id: string; target: PanelAddPlacement; scope: object } | null>(null);
+  let addBlocked: string | undefined;
+  if (narrow) addBlocked = m('panelAddDropNarrow');
+  else if (maximizedId) addBlocked = m('panelAddDropMaximized');
+  const addDrag = usePanelAddDrag(fitSlot, { layout: state.layout, scope: dragScope, blocked: addBlocked,
+    place: (id, target) => { setPlacement({ id, target, scope: dragScope }); } });
+  useLayoutEffect(() => {
+    if (!placement) return;
+    setPlacement(null);
+    if (panelAddDrag && !addBlocked && placement.scope === dragScope) moveAdded(placement.id, placement.target);
+  }, [placement, panelAddDrag, addBlocked, dragScope, moveAdded]);
   const layoutChange = (change: (current: WorkspaceState) => WorkspaceState, created?: string) => { update(change, 'keep', created); };
   const moveBelow = (id: string) => {
     layoutChange(current => (panelOrder(current.layout).includes(id) ? { ...current, layout: moveToNewRow(current.layout, id) } : current), id);
@@ -682,14 +714,24 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       closeFocus.current = () => { focusTab(id); };
     };
     const menu = dockLayoutMenu(state.layout, id, { maximized: maximizedId !== null && group.panels.includes(maximizedId), orderOf: other => reading.indexOf(other as (typeof reading)[number]) });
+    const relativeMoves = panelAddDrag && !addBlocked && !floating ? reading.flatMap(other => {
+      const target = other.active === id ? other.panels.find(candidate => candidate !== id) : other.active;
+      if (!target) return [];
+      return (['top', 'bottom'] as const).map(position => ({
+        id: `sdk:move:${target}:${position}`, label: m(position === 'top' ? 'panelMoveAboveGroup' : 'panelMoveBelowGroup', { title: titleOf(target) }),
+        onSelect: () => { closeFocus.current = () => { focusTab(id); }; moveAdded(id, { panelId: target, position }); },
+      }));
+    }) : [];
     const prepareToLeave = () => {
       setMaximized(null);
       const next = hidePanel(state, id, primaryId);
       closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
     };
+    const openRecipe = panelRecipe?.(panel?.declarationId ?? id, id);
     return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
       onOpenSettings={panel?.onOpenSettings}
-      menuItems={panelMenuItems?.(id).map(item => ({ ...item, label: tx(item.label) }))}
+      menuItems={[...relativeMoves, ...(panelMenuItems?.(id).map(item => ({ ...item, label: tx(item.label) })) ?? [])]}
+      recipeItem={openRecipe && { label: tx(PANEL_RECIPE_ITEM), onSelect: openRecipe }}
       edgeActions={id === primaryId || edgesNarrow ? undefined : {
         left: panel?.collapse !== false && edges.includes('left') ? () => { collapse('left', { fromMenu: true }); } : undefined,
         top: panel?.collapse !== false && edges.includes('top') ? () => { collapse('top', { fromMenu: true }); } : undefined,
@@ -750,9 +792,11 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     }),
   } : null;
   usePublishAnalysisWorkspace(panels.map(panel => panel.analysisSelectionSourceId ?? panel.id), destinations);
-  const actions = destinations?.toolbarDraft && destinations.items.length
+  const toolbar = destinations?.toolbarDraft && destinations.items.length
     ? <><ToolbarAnalysisPanelAdd workspace={destinations} />{toolbarActions}</>
     : toolbarActions;
+  // Stacked rows scroll the page under a drag; the preview and hit test would disagree (#3077 C6), so drag starts only in fit mode (#3081).
+  const actions = panelAddDrag && !stackActive && toolbar !== undefined ? <PanelAddDragContext.Provider value={addDrag.start}>{toolbar}</PanelAddDragContext.Provider> : toolbar;
   return <WorkspaceDepthProvider value={depth}>
     <AnalysisPanelAddContext.Provider value={destinations}>
     <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} data-workspace-density={densePage ? 'compact' : undefined} className={cn(rows ? 'flex w-full min-w-0 flex-col' : 'flex h-full min-h-0 w-full min-w-0 flex-col', densePage ? 'gap-1.5' : 'gap-2')}
@@ -762,7 +806,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       <WorkspaceEdges edge="top" items={edgeItems('top')} label={m('workspaceTopEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
       <div className={cn('flex min-w-0', !rows && 'min-h-0 flex-1')}>
       <WorkspaceEdges edge="left" items={edgeItems('left')} label={m('workspaceLeftEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
-      <div ref={fitSlot} data-workspace-dock className="min-h-0 min-w-0 flex-1">
+      <div ref={fitSlot} data-workspace-dock className={cn('min-h-0 min-w-0 flex-1', addDrag.overlays && 'isolate')}>
         <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
           floating={edgesNarrow ? undefined : { panels: floatingPanels, peekId: activePeek?.panelId, peekHeightFloor, onDismissPeek: dismissPeek, onChange: (next, tree) => { update(current => {
             const returned = (current.floating ?? []).filter(item => !next.some(panel => panel.panelId === item.panelId)).map(item => item.panelId);
@@ -778,6 +822,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
           renderGroupActions={groupActions} mergeChartHead
           separatorLabel={info => info.after.length === 0 ? m('workspaceSeparatorRowBottom', { before: titleOf(info.before[0]!) }) : m(info.dir === 'row' ? 'workspaceSeparatorColumns' : 'workspaceSeparatorRows', { before: titleOf(info.before[0]!), after: titleOf(info.after[0]!) })}
           narrow={compactSpec ? false : narrow} />
+        {panelAddDrag && <>{addDrag.overlays}<p role="status" data-panel-add-status className={addDrag.status ? 'pointer-events-none fixed bottom-4 left-1/2 z-40 -translate-x-1/2 rounded-md border border-border-subtle bg-surface-canvas px-2 py-1 text-sm text-text-primary' : 'sr-only'}>{addDrag.status}</p></>}
       </div>
       </div>
     </div>
