@@ -63,10 +63,18 @@ export function SearchInput({
   const ime = useImeEnterGuard();
   // The clear button unmounts once the value is empty, so it hands focus to the box (#3142); the caller's ref still gets the element.
   const input = useRef<HTMLInputElement | null>(null);
-  const setInput = useCallback((element: HTMLInputElement | null) => {
+  // Returns a cleanup (React 19), so a caller's function ref keeps its own cleanup instead of being called with null.
+  const setInput = useCallback((element: HTMLInputElement) => {
     input.current = element;
-    if (typeof inputRef === 'function') inputRef(element);
-    else if (inputRef) inputRef.current = element;
+    const cleanup = typeof inputRef === 'function' ? inputRef(element) : undefined;
+    if (inputRef && typeof inputRef !== 'function') inputRef.current = element;
+    return () => {
+      input.current = null;
+      if (typeof inputRef === 'function') {
+        if (typeof cleanup === 'function') cleanup();
+        else inputRef(null);
+      } else if (inputRef) inputRef.current = null;
+    };
   }, [inputRef]);
   if (onValueChange === undefined) {
     return (
