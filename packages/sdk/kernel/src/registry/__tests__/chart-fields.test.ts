@@ -167,7 +167,7 @@ describe('chart panel shape keys (#2762 ④)', () => {
   it('writes only keys away from their default, so an untouched chart stays exactly the step-1 config', () => {
     const plainLine = made({ kind: 'line', measure: 'runTime', breakdown: 'equipment' });
     const plainBar = made({ kind: 'bar', measure: 'runTime', breakdown: 'equipment' });
-    expect(made({ kind: 'line', measure: 'runTime', breakdown: 'equipment', stack: 'none', areaFill: false })).toStrictEqual(plainLine);
+    expect(made({ kind: 'line', measure: 'runTime', breakdown: 'equipment', stack: 'none' })).toStrictEqual(plainLine);
     expect(made({ kind: 'bar', measure: 'runTime', breakdown: 'equipment', orientation: 'vertical', color: 'chart-series-1' })).toStrictEqual(plainBar);
   });
 
@@ -194,7 +194,22 @@ describe('chart panel shape keys (#2762 ④)', () => {
     expect(read(bar)).toBe('ok');
   });
 
-  it('writes only the keys of the draft kind, so a draft can switch kind and back', () => {
+  it('keeps area fill three-way: absent lets the chart fill a lone series, false fills none', () => {
+    const off = made({ kind: 'line', measure: 'runTime', breakdown: 'equipment', areaFill: false });
+    expect(config(off)).toMatchObject({ areaFill: false });
+    expect(contracts.readChartPanelDraft(config(off))).toMatchObject({ areaFill: false });
+    expect(read(off)).toBe('ok');
+    expect(contracts.readChartPanelDraft(config(made({ kind: 'line', measure: 'runTime', breakdown: 'equipment' })))).not.toHaveProperty('areaFill');
+  });
+
+  it('offers exactly the decimals a saved chart config accepts, by type', () => {
+    expect(contracts.CHART_PANEL_DECIMALS).toStrictEqual(Array.from({ length: contracts.CHART_CONFIG_DECIMALS_MAX + 1 }, (_, i) => i));
+    expectTypeOf<ChartPanelDraft['decimals']>().toEqualTypeOf<0 | 1 | 2 | 3 | 4 | 5 | 6 | undefined>();
+    expect(contracts.readChartPanelDraft({ version: 1, kind: 'bar', x: { field: 'equipment', type: 'category' }, measures: [{ field: 'runTime' }], valueFormat: { kind: 'number', decimals: 9 } }))
+      .not.toHaveProperty('decimals');
+  });
+
+  it('writes only the keys of the draft kind; a draft read back holds only its own kind', () => {
     const shape = { stack: 'none', areaFill: true, orientation: 'horizontal', color: 'chart-series-2', decimals: 2 } as const;
     const bar = config(made({ kind: 'bar', measure: 'runTime', breakdown: 'equipment', ...shape }));
     expect(bar).not.toHaveProperty('areaFill');
@@ -209,7 +224,7 @@ describe('chart panel shape keys (#2762 ④)', () => {
     const line = made({ kind: 'line', measure: 'runTime', breakdown: 'equipment' });
     const bar = made({ kind: 'bar', measure: 'runTime', breakdown: 'equipment' });
     const withConfig = (instance: PanelInstance, patch: Partial<ChartConfig>) => ({ ...instance, source: { kind: 'chart' as const, config: { ...config(instance), ...patch } } });
-    expect(read(withConfig(line, { stack: 'none', areaFill: false }))).toBe('ok');
+    expect(read(withConfig(line, { stack: 'none' }))).toBe('ok');
     expect(read(withConfig(bar, { orientation: 'vertical', measures: [{ field: 'runTime', color: 'chart-series-1' }] }))).toBe('ok');
     for (const instance of [
       withConfig(line, { valueFormat: { kind: 'percent' } }),

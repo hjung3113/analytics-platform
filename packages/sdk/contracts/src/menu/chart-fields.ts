@@ -36,9 +36,10 @@ export const CHART_PANEL_KINDS = ['line', 'bar'] as const;
 export type ChartPanelKind = (typeof CHART_PANEL_KINDS)[number];
 /**
  * A picker or settings drawer state: one measure per chart in step 1 (owner 2026-11-25). The shape keys carry the ChartConfig key of the
- * same name (#2762 ④). Each applies to one kind only, and `createChartPanel` writes only the keys of the draft's kind, so a draft that
- * switches kind and back keeps the other kind's keys:
- * - line: `stack` stacks the breakdown series, `areaFill` fills under the lines;
+ * same name (#2762 ④). Each applies to one kind only, and `createChartPanel` writes only the keys of the draft's kind: a draft a caller
+ * holds keeps the other kind's keys, but a draft read back from a saved config (`readChartPanelDraft`) has only its own kind's keys.
+ * - line: `stack` stacks the breakdown series; `areaFill` true fills under every line, false fills none, and without it the chart
+ *   decides (it fills a lone solid series);
  * - bar: `orientation`, and `color`, the series token of its one measure;
  * - both: `decimals`, the digits after the point (a number format); without it the chart picks them.
  * Not offered: a percent stack needs measures that declare they are never negative, and a percent value format needs measures that
@@ -52,8 +53,12 @@ export type ChartPanelDraft = {
   areaFill?: boolean;
   orientation?: 'vertical' | 'horizontal';
   color?: ChartConfigColor;
-  decimals?: number;
+  decimals?: ChartPanelDecimals;
 };
+/** The digits after the point a draft may ask for: the integers `invalidChartConfig` accepts (0 to `CHART_CONFIG_DECIMALS_MAX`). */
+export const CHART_PANEL_DECIMALS = [0, 1, 2, 3, 4, 5, 6] as const;
+export type ChartPanelDecimals = (typeof CHART_PANEL_DECIMALS)[number];
+const isChartPanelDecimals = (value: number | undefined): value is ChartPanelDecimals => CHART_PANEL_DECIMALS.some(d => d === value);
 
 /** Whether the actor holds a permission. Required, so a caller that cannot tell never lets a protected measure through. */
 export type ChartPermissionCheck = (permission: Permission) => boolean;
@@ -155,7 +160,7 @@ function build(fields: MenuChartFields, draft: ChartPanelDraft, judged: Exclude<
     ? {
       version: 1, kind: 'line', x: { field: fields.time.field, type: 'time' }, measures: [{ field: measure.id }], split: { field: breakdown.id },
       ...(draft.stack === 'stack' ? { stack: 'stack' as const } : {}),
-      ...(draft.areaFill ? { areaFill: true } : {}),
+      ...(draft.areaFill === undefined ? {} : { areaFill: draft.areaFill }),
       ...valueFormat,
     }
     : {
@@ -211,31 +216,32 @@ export function sameChartConfig(left: ChartConfig | undefined, right: ChartConfi
 export function readChartPanelDraft(config: ChartConfig): ChartPanelDraft {
   const color = config.measures[0]?.color;
   const decimals = config.valueFormat?.kind === 'number' ? config.valueFormat.decimals : undefined;
+  // Saved configs passed `invalidChartConfig`, so decimals are in range; a value outside it is left out and reads as `changed`.
   return {
     kind: config.kind,
     measure: config.measures[0]?.field,
     breakdown: config.kind === 'line' ? config.split?.field : config.x.field,
     ...(config.stack === 'stack' ? { stack: 'stack' } : {}),
-    ...(config.areaFill ? { areaFill: true } : {}),
+    ...(config.areaFill === undefined ? {} : { areaFill: config.areaFill }),
     ...(config.orientation === 'horizontal' ? { orientation: 'horizontal' } : {}),
     ...(color && color !== DEFAULT_COLOR ? { color } : {}),
-    ...(decimals === undefined ? {} : { decimals }),
+    ...(isChartPanelDecimals(decimals) ? { decimals } : {}),
   };
 }
 
 /**
- * A saved config with keys spelled at their default value removed (`stack: none`, `areaFill: false`, `orientation: vertical`, the first
- * series token on a one-measure chart), so it compares equal to what `build` writes for the same draft.
+ * A saved config with keys spelled at their default value removed (`stack: none`, `orientation: vertical`, the first series token on a
+ * one-measure chart), so it compares equal to what `build` writes for the same draft. `areaFill: false` is not a default: without the key
+ * the chart fills a lone solid series.
  */
 function withoutDefaults(config: ChartConfig): ChartConfig {
-  const { stack, areaFill, orientation, ...rest } = config;
+  const { stack, orientation, ...rest } = config;
   const [only, ...others] = config.measures;
   const measures = only && others.length === 0 && only.color === DEFAULT_COLOR ? [(({ color: _color, ...measure }) => measure)(only)] : config.measures;
   return {
     ...rest,
     measures,
     ...(stack === undefined || stack === 'none' ? {} : { stack }),
-    ...(areaFill ? { areaFill } : {}),
     ...(orientation === undefined || orientation === 'vertical' ? {} : { orientation }),
   };
 }
