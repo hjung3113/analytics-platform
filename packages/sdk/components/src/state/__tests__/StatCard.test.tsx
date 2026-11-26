@@ -229,3 +229,8 @@ it('keeps the footnote below the caption with or without a trend (#2743 R2 C10)'
   rerender(card([8, 12]));
   expect(screen.getByText('각주')).toHaveClass('row-start-5');
 });
+
+it('leaves a trend-only footnote to auto placement (no empty comparison row above it)', () => {
+  render(<I18nProvider><StatCard label="처리량" value="108" caption="기준" footnote="각주" trend={[120, 108]} /></I18nProvider>);
+  expect(screen.getByText('각주')).not.toHaveClass('row-start-5');
+});

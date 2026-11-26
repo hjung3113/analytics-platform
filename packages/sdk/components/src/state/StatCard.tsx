@@ -186,7 +186,7 @@ export function StatCard({ icon: Icon, label, value, unit, delta, comparison, tr
         : <span className={compactValueRow}>{numbers}{deltaLabel}</span>}
       {caption != null && <span title={captionTitle ?? plainCaption} className={cn('t-caption col-start-1 min-w-0 truncate text-text-muted [&_*]:inline! [&_*]:whitespace-nowrap! [&_br]:hidden!', comparison ? 'row-start-4' : 'row-start-3')}>{caption}</span>}
       {trend && <StatCardTrend series={trend} />}
-      {footnote && <span className="t-caption col-span-full row-start-5 truncate text-text-muted" title={typeof footnote === 'string' ? footnote : undefined}>{footnote}</span>}
+      {footnote && <span className={cn('t-caption col-span-full truncate text-text-muted', comparison && 'row-start-5')} title={typeof footnote === 'string' ? footnote : undefined}>{footnote}</span>}
     </span> :
     <span className="min-w-0 flex-1">
       <span className="block text-sm font-medium text-text-secondary">{label}</span>
