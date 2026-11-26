@@ -32,7 +32,7 @@ const ToggleGroupContext = React.createContext<ToggleGroupContext>({
   variant: 'default',
 });
 
-type ToggleGroupAppearance = 'default' | 'filter';
+type ToggleGroupAppearance = 'default' | 'filter' | 'swatch';
 type ToggleGroupProps = React.ComponentPropsWithoutRef<typeof ToggleGroupPrimitive.Root> &
   VariantProps<typeof toggleGroupItemVariants> & {
     appearance?: ToggleGroupAppearance;
@@ -69,7 +69,12 @@ function rovingTarget(items: readonly HTMLElement[], current: HTMLElement, step:
 
 const TOGGLE_GROUP_APPEARANCE_CLASSES: Record<Exclude<ToggleGroupAppearance, 'default'>, string> = {
   filter: 'rounded-md border border-border-subtle bg-surface-card on-canvas-band:bg-transparent p-0.5',
+  // A row of color circles. No track: the selected item carries one ring and no border (#2762).
+  swatch: 'justify-start gap-2',
 };
+
+/** Circle item: one selection ring, never a border plus a ring. The padding leaves a transparent gap so the ring reads on any color and any surface. The consumer paints the color on a child. */
+const SWATCH_ITEM_CLASS = 'inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-transparent p-0.5 hover:bg-transparent data-[state=on]:bg-transparent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=on]:ring-2 data-[state=on]:ring-focus-ring disabled:pointer-events-none disabled:opacity-50';
 
 type ToggleGroupItemAppearance = 'default' | 'selected-filter';
 interface ToggleGroupItemProps
@@ -141,19 +146,20 @@ export const ToggleGroupItem = React.forwardRef<
 >(({ className, children, variant, size, appearance = 'default', ...props }, ref) => {
   const context = React.useContext(ToggleGroupContext);
   const resolvedVariant = context.variant || variant;
-  const defaultSegment = context.appearance !== 'filter' && appearance === 'default' && (resolvedVariant ?? 'default') === 'default';
+  const swatch = context.appearance === 'swatch';
+  const defaultSegment = !swatch && context.appearance !== 'filter' && appearance === 'default' && (resolvedVariant ?? 'default') === 'default';
   return (
     <ToggleGroupPrimitive.Item
       ref={ref}
       className={cn(
-        toggleGroupItemVariants({
+        swatch ? SWATCH_ITEM_CLASS : toggleGroupItemVariants({
           variant: resolvedVariant,
           size: context.size || size,
         }),
-        context.appearance === 'filter' && 'rounded-inset-md',
+        !swatch && context.appearance === 'filter' && 'rounded-inset-md',
         defaultSegment && 'rounded-inset-md border border-transparent',
         defaultSegment && TOGGLE_GROUP_ITEM_APPEARANCE_CLASSES['selected-filter'],
-        appearance !== 'default' && TOGGLE_GROUP_ITEM_APPEARANCE_CLASSES[appearance],
+        !swatch && appearance !== 'default' && TOGGLE_GROUP_ITEM_APPEARANCE_CLASSES[appearance],
         className,
       )}
       {...props}

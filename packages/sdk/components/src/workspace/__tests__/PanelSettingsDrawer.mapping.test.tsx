@@ -91,7 +91,7 @@ it.each([['chart', chart(), {}], ['declared', declared, { mapping }]] as const)(
   legacy.unmount();
   setup();
   const sections = screen.getAllByRole('button', { expanded: true }).map(button => button.textContent);
-  expect(sections).toEqual(['매핑', '연결']);
+  expect(sections).toEqual(['매핑', '모양', '연결']);
 });
 
 it.each(['click', 'Enter', 'Space'] as const)('places a field with %s and emits the rebuilt instance with its input', async gesture => {

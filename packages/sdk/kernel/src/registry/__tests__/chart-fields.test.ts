@@ -218,6 +218,11 @@ describe('chart panel shape keys (#2762 ④)', () => {
     expect(line).not.toHaveProperty('orientation');
     expect(line.measures).toStrictEqual([{ field: 'runTime' }]);
     expect(line).toMatchObject({ areaFill: true, valueFormat: { kind: 'number', decimals: 2 } });
+    expect(contracts.readChartPanelDraft(bar)).toMatchObject({ kind: 'bar', orientation: 'horizontal', color: 'chart-series-2', decimals: 2 });
+    expect(contracts.readChartPanelDraft(bar)).not.toHaveProperty('areaFill');
+    expect(contracts.readChartPanelDraft(line)).toMatchObject({ kind: 'line', areaFill: true, decimals: 2 });
+    expect(contracts.readChartPanelDraft(line)).not.toHaveProperty('orientation');
+    expect(contracts.readChartPanelDraft(line)).not.toHaveProperty('color');
   });
 
   it('opens a saved panel that spells defaults out, and refuses shapes a draft cannot hold', () => {

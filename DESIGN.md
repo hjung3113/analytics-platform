@@ -232,7 +232,7 @@ label 행은 #210(공유 원본 값), 나머지 행은 #193/#194 UI/UX 리뷰의
 
 ### 표면 위계·선택 표시 — Decided (#2456)
 
-- 기본 `ToggleGroup`의 켠 항목은 `surface-row-selected` 바탕, `border-selected` 테두리, `text-primary` 및 `font-semibold`를 쓴다 (#2950).
+- 기본 `ToggleGroup`의 켠 항목은 `surface-row-selected` 바탕, `border-selected` 테두리, `text-primary` 및 `font-semibold`를 쓴다 (#2950). `appearance="swatch"`는 그 짝이 아니다. 켠 색 원은 링 하나이고 테두리를 같이 쓰지 않는다 (#2762).
 - `FloatingWindow`의 `window`와 `fill`은 `h-10` 제목줄, `text-sm` 제목과 호출자가 건넨 동작을 공유한다 (#2950).
 - 제목 서식을 지원하지 않는 `RichEditor`의 기본 도구줄은 `surface-band` 바탕과 아래 `border-chrome` 선의 한 줄이다 (#2950).
 

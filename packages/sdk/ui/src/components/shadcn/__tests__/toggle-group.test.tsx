@@ -42,6 +42,18 @@ it.each([
   }
 });
 
+it('draws a swatch with one selection ring and no border', () => {
+  render(<ToggleGroup type="single" appearance="swatch" defaultValue="a" aria-label="색">
+    <ToggleGroupItem value="a" aria-label="색 1"><span className="bg-chart-series-1" /></ToggleGroupItem>
+  </ToggleGroup>);
+  const item = radio('색 1');
+  expect(item.className).toContain('data-[state=on]:ring-2');
+  expect(item.className).not.toMatch(/data-\[state=on\]:border/);
+  expect(item.className.split(' ').some(token => token === 'border' || token.startsWith('border-'))).toBe(false);
+  expect(item).not.toHaveClass('data-[state=on]:bg-surface-row-selected');
+  expect(screen.getByRole('radiogroup')).toHaveClass('justify-start', 'gap-2');
+});
+
 describe('ToggleGroup type="single" (#2552)', () => {
   it('moves the selection with the focus on arrow keys, both ways, like a radio group', async () => {
     const user = userEvent.setup();

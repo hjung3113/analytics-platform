@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { PanelSettingsDrawer, type PanelSettingsMapping } from '@ap/components';
-import { createChartPanel, readChartPanelDraft, type MenuViewPanels } from '@ap/contracts';
+import { createChartPanel, readChartPanelDraft, type ChartPanelDraft, type MenuViewPanels } from '@ap/contracts';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 
 const mapping: PanelSettingsMapping = {
@@ -23,15 +23,15 @@ const mapping: PanelSettingsMapping = {
 };
 const title = { ko: '설비별 Module 타입 평균', en: 'Average by equipment and module type' };
 
-function initialValue(): MenuViewPanels {
-  const result = createChartPanel(mapping.fields, { kind: 'line', measure: 'utilization', breakdown: 'equipment' }, 'chart-1', mapping.granted);
+function initialValue(draft: ChartPanelDraft): MenuViewPanels {
+  const result = createChartPanel(mapping.fields, draft, 'chart-1', mapping.granted);
   if (result.status === 'problem') throw new Error(result.problem.code);
   return { version: 1, instances: [result.instance] };
 }
 
-function MappingDrawer() {
+function SettingsDrawer({ draft }: { draft: ChartPanelDraft }) {
   const slot = useDetailPanelSlotHost();
-  const [value, setValue] = useState(initialValue);
+  const [value, setValue] = useState(() => initialValue(draft));
   const [open, setOpen] = useState(true);
   return <div className="flex min-h-dvh justify-end bg-surface-canvas">
     {!open && <button type="button" className="self-start p-3" onClick={() => setOpen(true)}>패널 설정</button>}
@@ -54,7 +54,12 @@ const meta = {
 } satisfies Meta<typeof PanelSettingsDrawer>;
 export default meta;
 
-/** 선 차트, 가동률, 장비에서 시작한다. 기준 칩을 바꾸거나 지운 뒤 막대로 전환할 수 있다. */
+/** 선 차트, 가동률, 장비에서 시작한다. 기준 칩을 바꾸거나 지운 뒤 막대로 전환할 수 있다. «모양»은 쌓기·영역 채우기·소수 자리다. */
 export const Mapping: StoryObj = {
-  render: () => <DetailPanelSlotProvider><MappingDrawer /></DetailPanelSlotProvider>,
+  render: () => <DetailPanelSlotProvider><SettingsDrawer draft={{ kind: 'line', measure: 'utilization', breakdown: 'equipment' }} /></DetailPanelSlotProvider>,
+};
+
+/** 막대 차트. 막대 방향·색 계열·소수 자리를 고를 수 있다. */
+export const ShapeBar: StoryObj = {
+  render: () => <DetailPanelSlotProvider><SettingsDrawer draft={{ kind: 'bar', measure: 'htm', breakdown: 'equipment' }} /></DetailPanelSlotProvider>,
 };
