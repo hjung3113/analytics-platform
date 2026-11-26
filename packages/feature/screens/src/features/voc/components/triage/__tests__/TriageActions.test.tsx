@@ -7,6 +7,11 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { TriageActions } from '../TriageActions';
 
+// #3147: white surfaces (`surface-card`, `-card-elevated`, `-detail`, `-popover`) are one white (tokens.css); a hover painted
+// with one of them on a white surface changes nothing, so hover uses the shared row hover (DESIGN.md «hover는 공유 row-hover»).
+const WHITE_HOVER = /^hover:bg-surface-(card|card-elevated|detail|popover)$/;
+const hoverOf = (element: Element) => Array.from(element.classList).filter((name) => name.startsWith('hover:bg-'));
+
 describe('TriageActions', () => {
   it('renders all three action buttons', () => {
     render(
@@ -76,5 +81,14 @@ describe('TriageActions', () => {
     );
     expect(screen.getByRole('button', { name: /finding 만들기/i })).not.toBeDisabled();
     expect(screen.getByRole('button', { name: /보류/i })).not.toBeDisabled();
+  });
+
+  it('shows hover on the white panel footer with the shared row hover (#3147)', () => {
+    render(
+      <TriageActions canConfirm submitting={false} onConfirm={vi.fn()} onFinding={vi.fn()} onSkip={vi.fn()} />,
+    );
+    const skip = screen.getByRole('button', { name: /보류/i });
+    expect(hoverOf(skip).filter((name) => WHITE_HOVER.test(name))).toEqual([]);
+    expect(hoverOf(skip)).toContain('hover:bg-surface-row-hover');
   });
 });

@@ -30,3 +30,10 @@ it('path values are validated', () => {
   render(<AttachmentChip attachment={{ ...ATTACHMENT, id: 'invalid-id' }} />);
   expect(screen.getByTestId('attachment-chip').getAttribute('href')).toBeNull();
 });
+
+// #3147: the chip is `surface-card` white and its hover was `surface-card-elevated`, the same white (tokens.css).
+it('shows hover with the shared row hover, not another white token', () => {
+  render(<AttachmentChip attachment={ATTACHMENT} />);
+  const hover = Array.from(screen.getByTestId('attachment-chip').classList).filter((name) => name.startsWith('hover:bg-'));
+  expect(hover).toEqual(['hover:bg-surface-row-hover']);
+});

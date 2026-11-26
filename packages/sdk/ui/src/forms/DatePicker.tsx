@@ -229,7 +229,7 @@ export function DatePicker({
                 <button
                   type="button"
                   aria-label={messages.clear}
-                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-card hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-row-hover hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                   onClick={() => {
                     setDraft('');
                     onChange(emptyValue);
@@ -260,7 +260,7 @@ export function DatePicker({
                     ref={triggerRef}
                     type="button"
                     aria-label={messages.open}
-                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-card hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-text-muted hover:bg-surface-row-hover hover:text-text-primary focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                     disabled={disabled}
                   >
                     <CalendarDays aria-hidden="true" className="h-4 w-4" />
@@ -300,7 +300,7 @@ export function DatePicker({
                       <button
                         type="button"
                         aria-label={messages.previous}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary hover:bg-surface-card focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary hover:bg-surface-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                         onClick={() => focusDate(addMonths(visibleMonth, -1))}
                       >
                         <ChevronLeft aria-hidden="true" className="h-4 w-4" />
@@ -316,7 +316,7 @@ export function DatePicker({
                       <button
                         type="button"
                         aria-label={messages.next}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary hover:bg-surface-card focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-secondary hover:bg-surface-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring"
                         onClick={() => focusDate(addMonths(visibleMonth, 1))}
                       >
                         <ChevronRight aria-hidden="true" className="h-4 w-4" />
@@ -373,7 +373,7 @@ export function DatePicker({
                                   tabIndex={dateValue === activeDate ? 0 : -1}
                                   disabled={isDisabled}
                                   aria-pressed={dateValue === value}
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-sm text-text-primary hover:bg-surface-card focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring aria-[current=date]:font-semibold aria-pressed:bg-surface-row-selected aria-pressed:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-sm text-text-primary hover:bg-surface-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring aria-[current=date]:font-semibold aria-pressed:bg-surface-row-selected aria-pressed:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
                                   onClick={() => selectDate(date)}
                                   onKeyDown={(event) => handleDayKeyDown(event, date)}
                                 >

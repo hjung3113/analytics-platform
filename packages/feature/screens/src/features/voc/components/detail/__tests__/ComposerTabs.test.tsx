@@ -9,6 +9,11 @@ import { describe, it, expect, vi } from 'vitest';
 import { ComposerTabs } from '../ComposerTabs';
 import type { ComposerVisibility } from '../../../hooks/useComposerVisibility';
 
+// #3147: white surfaces (`surface-card`, `-card-elevated`, `-detail`, `-popover`) are one white (tokens.css); a hover painted
+// with one of them on a white surface changes nothing, so hover uses the shared row hover (DESIGN.md «hover는 공유 row-hover»).
+const WHITE_HOVER = /^hover:bg-surface-(card|card-elevated|detail|popover)$/;
+const hoverOf = (element: Element) => Array.from(element.classList).filter((name) => name.startsWith('hover:bg-'));
+
 describe('<ComposerTabs>', () => {
   it('renders only visible tabs when showPublic=false', () => {
     const visibility: ComposerVisibility = {
@@ -64,5 +69,21 @@ describe('<ComposerTabs>', () => {
     );
     fireEvent.click(screen.getByRole('tab', { name: /내부 코멘트/i }));
     expect(onChange).toHaveBeenCalledWith('internal');
+  });
+
+  it('shows hover on its white tab row with the shared row hover (#3147)', () => {
+    render(
+      <ComposerTabs
+        visibility={{ showPublic: true, showReply: true, showInternal: true }}
+        activeTab="reply"
+        onTabChange={vi.fn()}
+      />,
+    );
+    const inactive = screen.getAllByRole('tab').filter((tab) => tab.getAttribute('aria-selected') === 'false');
+    expect(inactive.length).toBeGreaterThan(0);
+    for (const tab of inactive) {
+      expect(hoverOf(tab).filter((name) => WHITE_HOVER.test(name))).toEqual([]);
+      expect(hoverOf(tab)).toContain('hover:bg-surface-row-hover');
+    }
   });
 });
