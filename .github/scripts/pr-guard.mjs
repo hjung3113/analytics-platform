@@ -7,6 +7,8 @@
 //           or low regression risk) or the PR carries the owner's `owner-ok:size` label.
 //   rounds  the PR's branch has had more than MAX_PUSHES pull_request runs of ci.yml (open + two fix rounds; superseded and cancelled runs
 //           count, a force-push does not erase them) → fails unless the PR body has a `Round cap: <who> — <revert | split | 질문 #n>` line.
+//           A commit whose title fixes review round 2 or later (`리뷰 2회차`, `review round 2`) is an unreviewed third round at any push
+//           count → fails unless that line is the lead's or the owner's (`Round cap: lead — …` / `Round cap: owner — …`).
 //   scope   every issue the PR closes (`Closes|Fixes|Resolves #n` in the body, or `type(#n)` in the title) must be listed in `## 범위` of the
 //           newest `.planning/releases/v<semver>.md` on the base branch → fails unless the PR carries `owner-ok:scope`. A PR whose head adds
 //           numbers to that section needs the same label. No release file or no `## 범위` section → fails (the owner picks the scope first).
@@ -26,6 +28,9 @@ export const SIZE_LABEL = 'owner-ok:size';
 export const SCOPE_LABEL = 'owner-ok:scope';
 export const EXCLUDED = /((^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock)$|\/__snapshots__\/|\.snap$|^tooling\/sdk\/api\/|^packages\/sdk\/CHANGELOG\.md$|^packages\/sdk\/contract-schemas\/schemas\/[^/]+\.json$)/;
 const ROUND_LINE = /^[ \t]*Round cap:[ \t]*(\S.*)$/m;
+// Fix commits name the review round they answer; round 2 is the last reviewed one (PROFILE §Review rounds).
+const LATE_FIX = /리뷰\s*(\d+)\s*회차|\breview round (\d+)\b/i;
+const DECIDER = /^(?:lead|owner)\s*—/;
 const SIZE_LINE = /^[ \t]*Size:[ \t]*(\S.*)$/m;
 const RELEASE_FILE = /^v(\d+)\.(\d+)\.(\d+)\.md$/;
 const BUDGET_FILE = '.github/ci-budget.json';
@@ -68,11 +73,17 @@ export function sizeVerdict(files, labels, body = '') {
   return { lines, files: counted.length, excluded: files.length - counted.length, over, answer, waived, ok: !over || waived };
 }
 
-/** Pushes = pull_request runs of ci.yml on the head branch; past MAX_PUSHES the body must carry a Round cap line. */
-export function roundsVerdict(pushes, body) {
+/** Pushes = pull_request runs of ci.yml on the head branch; past MAX_PUSHES the body must carry a Round cap line.
+ *  A commit fixing review round 2 or later needs that line from the lead or the owner whatever the push count. */
+export function roundsVerdict(pushes, body, commitTitles = []) {
   const answer = (body ?? '').match(ROUND_LINE)?.[1]?.trim() ?? null;
   const over = pushes > MAX_PUSHES;
-  return { pushes, over, answer, ok: !over || answer !== null };
+  const lateFixes = commitTitles.filter((title) => {
+    const m = LATE_FIX.exec(title);
+    return m !== null && Number(m[1] ?? m[2]) >= 2;
+  });
+  const decided = answer !== null && DECIDER.test(answer);
+  return { pushes, over, answer, lateFixes, ok: (!over || answer !== null) && (lateFixes.length === 0 || decided) };
 }
 
 /** Issue numbers a PR closes: closing keywords in the body (comma/and lists too) and the conventional `type(#n …)` title scope. */
@@ -131,7 +142,7 @@ export function summarize({ size, rounds, scope, budget, labelEvents, releaseFil
   const mark = (ok) => (ok ? 'ok' : 'FAIL');
   const rows = [
     `| size | ${mark(size.ok)} | ${size.lines} lines, ${size.files} files (cap ${MAX_LINES}/${MAX_FILES}; ${size.excluded} generated/snapshot/lockfile/release-mechanical excluded)${size.waived ? (labelsNote(size)) : ''} |`,
-    `| rounds | ${mark(rounds.ok)} | ${rounds.pushes} pushes (cap ${MAX_PUSHES} without an answer)${rounds.answer ? `, Round cap: ${rounds.answer}` : rounds.over ? ', no `Round cap:` line in the PR body' : ''} |`,
+    `| rounds | ${mark(rounds.ok)} | ${rounds.pushes} pushes (cap ${MAX_PUSHES} without an answer)${rounds.answer ? `, Round cap: ${rounds.answer}` : rounds.over ? ', no `Round cap:` line in the PR body' : ''}${rounds.lateFixes?.length ? `; fix after review round 2${DECIDER.test(rounds.answer ?? '') ? '' : ' needs \`Round cap: lead — …\`'}: ${rounds.lateFixes.map((t) => `«${t.replaceAll('|', '\\|')}»`).join(', ')}` : ''} |`,
     `| scope | ${mark(scope.ok)} | closes ${scope.closes.length ? scope.closes.map((n) => `#${n}`).join(' ') : 'nothing'}; ${scope.noSection ? `no \`## 범위\` in ${releaseFile ?? 'any release file'} on the base branch` : `missing from ${releaseFile}: ${scope.missing.map((n) => `#${n}`).join(' ') || 'none'}`}${scope.grew.length ? `; head adds ${scope.grew.map((n) => `#${n}`).join(' ')} to \`## 범위\`` : ''}${scope.waived ? `; waived by \`${SCOPE_LABEL}\`` : ''} |`,
   ];
   if (budget) rows.push(`| CI budget | ${mark(budget.ok)} | ${budget.detail} |`);
@@ -183,9 +194,20 @@ function selfTest() {
   // rounds
   assert.equal(roundsVerdict(3, '').ok, true);
   assert.equal(roundsVerdict(4, 'body without a line').ok, false);
-  assert.deepEqual(roundsVerdict(4, 'x\nRound cap: lead — split, PR-2 follows\ny'), { pushes: 4, over: true, answer: 'lead — split, PR-2 follows', ok: true });
+  assert.deepEqual(roundsVerdict(4, 'x\nRound cap: lead — split, PR-2 follows\ny'), { pushes: 4, over: true, answer: 'lead — split, PR-2 follows', lateFixes: [], ok: true });
   assert.equal(roundsVerdict(5, 'Round cap:   ').ok, false, 'an empty answer is no answer');
   assert.equal(roundsVerdict(9, '  Round cap: owner — 질문 #3 answered: revert').ok, true);
+  // A fix after the final review round is an unreviewed third round: it needs the lead's (or owner's) Round cap line at any push count (#3102).
+  const late = ['feat(#1): x', 'fix(#1): 리뷰 1회차 — a', 'fix(#1): 리뷰 2회차 — b'];
+  assert.equal(roundsVerdict(2, '', late).ok, false, 'a round-2 fix commit without a Round cap line fails');
+  assert.deepEqual(roundsVerdict(2, '', late).lateFixes, ['fix(#1): 리뷰 2회차 — b']);
+  assert.equal(roundsVerdict(2, 'Round cap: lead — split: #9', late).ok, true);
+  assert.equal(roundsVerdict(2, 'Round cap: owner — 질문 #3 answered: keep', late).ok, true);
+  assert.equal(roundsVerdict(2, 'Round cap: lane — fixed it', late).ok, false, 'only the lead or the owner answers a late fix');
+  assert.equal(roundsVerdict(2, '', ['fix(#1): 리뷰 3회차 — c']).ok, false);
+  assert.equal(roundsVerdict(2, '', ['fix(#1): 리뷰2회차 c']).ok, false, 'spacing varies');
+  assert.equal(roundsVerdict(2, '', ['fix(#1): review round 2 — c']).ok, false);
+  assert.equal(roundsVerdict(2, '', ['fix(#1): 리뷰 1회차 — a', 'docs: 리뷰 12회 기록 정리']).ok, true, 'round 1 fixes and other numbers pass');
   // closing refs
   assert.deepEqual(closingIssues('fix(#2632): x', 'Closes #2632'), [2632]);
   assert.deepEqual(closingIssues('feat(ui): x', 'Closes #2619 #2621\n\nFixes #7, #8 and #9'), [7, 8, 9, 2619, 2621]);
@@ -216,6 +238,10 @@ function selfTest() {
   assert.match(text, /\| size \| FAIL \| 401 lines/);
   assert.match(summarize({ size: sizeVerdict([f('a.ts', 401, 0)], [], 'Size: lead — simple'), rounds: roundsVerdict(1, ''), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md' }), /\| size \| ok \| 401 lines.*Size: lead — simple \|/);
   assert.match(text, /\| rounds \| FAIL \| 4 pushes/);
+  assert.match(summarize({ size: sizeVerdict([], []), rounds: roundsVerdict(2, '', ['fix(#1): 리뷰 2회차 — a|b']), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md' }),
+    /\| rounds \| FAIL \| 2 pushes .*; fix after review round 2 needs `Round cap: lead — …`: «fix\(#1\): 리뷰 2회차 — a\\\|b» \|/);
+  assert.match(summarize({ size: sizeVerdict([], []), rounds: roundsVerdict(2, 'Round cap: lead — split: #9', ['fix(#1): 리뷰 2회차 — a']), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md' }),
+    /\| rounds \| ok \| .*Round cap: lead — split: #9; fix after review round 2: «fix\(#1\): 리뷰 2회차 — a» \|/);
   assert.match(text, /\| scope \| FAIL \| closes #1; missing from v0\.44\.0\.md: #1/);
   console.log('pr-guard self-test passed');
 }
@@ -263,8 +289,9 @@ async function main() {
     .filter((e) => e.event === 'labeled' && (e.label?.name?.startsWith('owner-ok:') || e.label?.name === BUDGET_LABEL))
     .map((e) => ({ label: e.label.name, actor: e.actor?.login ?? '?', at: e.created_at }));
 
+  const commits = await paged(`/repos/${repo}/pulls/${n}/commits`);
   const size = sizeVerdict(files, labels, pr.body);
-  const rounds = roundsVerdict(runs.length, pr.body);
+  const rounds = roundsVerdict(runs.length, pr.body, commits.map((c) => c.commit.message.split('\n')[0]));
   const scope = scopeVerdict({ closes: closingIssues(pr.title, pr.body), baseScope: scopeIssues(baseText), headScope: scopeIssues(headText), labels });
   const text = summarize({ size, rounds, scope, budget, labelEvents, releaseFile });
   console.log(text);
