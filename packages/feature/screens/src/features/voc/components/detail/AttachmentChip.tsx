@@ -35,7 +35,7 @@ export function AttachmentChip({ attachment }: AttachmentChipProps): React.React
       // the browser save instead of replacing the page. Explicit download
       // attribute is a hint to the UA.
       download={attachment.name}
-      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border-subtle bg-surface-card text-xs text-text-secondary hover:bg-surface-card-elevated transition-colors max-w-[240px]"
+      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border-subtle bg-surface-card text-xs text-text-secondary hover:bg-surface-row-hover transition-colors max-w-[240px]"
     >
       <Paperclip className="h-3 w-3 shrink-0 text-text-muted" aria-hidden />
       <span className="truncate" title={attachment.name}>

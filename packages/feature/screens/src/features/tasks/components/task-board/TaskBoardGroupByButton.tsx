@@ -48,7 +48,7 @@ export function TaskBoardGroupByButton({
             <label
               key={option.value}
               htmlFor={`group-by-${option.value}`}
-              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-surface-card"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-surface-row-hover"
             >
               <RadioGroupItem id={`group-by-${option.value}`} value={option.value} />
               {option.label}

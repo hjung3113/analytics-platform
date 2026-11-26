@@ -14,7 +14,7 @@
  *   .panel-footer → border-t border-border-subtle px-5 py-4 flex flex-col gap-2 bg-surface-detail
  *   .btn-primary .btn-block → w-full bg-accent-primary text-text-on-accent
  *   .btn-secondary → bg-surface-card text-text-primary shadow-subtle
- *   .btn-subtle → text-text-secondary hover:bg-surface-card
+ *   .btn-subtle → text-text-secondary hover:bg-surface-row-hover
  *
  * Neon Lime rule (PLAN-21 §Acceptance criteria "Neon Lime usage rule"):
  *   bg-accent-primary is only used on the "Triage 확정" CTA. ✓
@@ -101,7 +101,7 @@ export function TriageActions({
               'w-full inline-flex items-center justify-center gap-1.5',
               'h-7 px-2.5 rounded-md text-sm font-medium',
               'text-text-secondary',
-              'hover:bg-surface-card hover:text-text-primary',
+              'hover:bg-surface-row-hover hover:text-text-primary',
               'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring',
               'disabled:opacity-40 disabled:pointer-events-none',
             )}

@@ -745,6 +745,17 @@ describe('설문 screens', () => {
     expect(screen.queryByText('첫 질문을 추가하세요')).not.toBeInTheDocument();
   });
 
+  // #3147: the first-question cards are `surface-detail` white and their hover was `surface-card`, the same white (tokens.css).
+  it('shows hover on the white first-question cards with the shared row hover', () => {
+    renderWithQuery(
+      <SurveyBuilder survey={{ ...survey, questions: [] }} canManage onBack={vi.fn()} />,
+    );
+    for (const card of screen.getAllByTestId(/^survey-question-kind-/)) {
+      const hover = Array.from(card.classList).filter((name) => name.startsWith('hover:bg-'));
+      expect(hover).toEqual(['hover:bg-surface-row-hover']);
+    }
+  });
+
   it.each(surveyQuestionKindSchema.options)(
     'shows the canonical kind label on the first-question card for %s',
     (kind) => {

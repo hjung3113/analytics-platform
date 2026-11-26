@@ -96,7 +96,7 @@ export function ComposerTabs({
               'whitespace-nowrap transition-colors',
               isActive
                 ? `text-text-primary bg-surface-canvas ${tab.activeBorderClass}`
-                : 'text-text-muted hover:bg-surface-card hover:text-text-primary',
+                : 'text-text-muted hover:bg-surface-row-hover hover:text-text-primary',
             ]
               .join(' ')
               .trim()}
