@@ -1,12 +1,14 @@
-import { useId, useRef, useState, type ReactNode } from 'react';
-import { Button, DropdownMenuItem } from '@ap/ui';
+import { useId, useRef, useState, type PointerEventHandler, type ReactNode } from 'react';
+import { Button, DropdownMenuItem, cn } from '@ap/ui';
 
 const TYPEAHEAD_MS = 500;
 export const PANEL_ROW_SELECTOR = 'button[data-panel-row]';
 
-type Row = { id: string; label: string; reason?: string; status?: string; note?: string; description?: string; kindLabel?: string; icon?: ReactNode; onSelect?: () => void };
+export type PanelListRowDrag = { id: string; onPointerDown: PointerEventHandler<HTMLElement> };
+type Row = { id: string; label: string; reason?: string; status?: string; note?: string; description?: string; kindLabel?: string; icon?: ReactNode;
+  onSelect?: () => void; drag?: PanelListRowDrag };
 
-function PanelListRow({ id: rowId, label, reason, status, note, onSelect, presentation = 'menu', tabIndex, onFocus, onHover, icon, description: detail, kindLabel }: Row & {
+function PanelListRow({ id: rowId, label, reason, status, note, onSelect, drag, presentation = 'menu', tabIndex, onFocus, onHover, icon, description: detail, kindLabel }: Row & {
   presentation?: 'menu' | 'named-menu' | 'popover'; tabIndex?: number; onFocus?: () => void; onHover?: (id: string | undefined) => void;
 }) {
   const id = useId();
@@ -16,7 +18,9 @@ function PanelListRow({ id: rowId, label, reason, status, note, onSelect, presen
   const extra = [status === undefined || status === description ? '' : description, kindLabel, detail].filter(Boolean).join(' · ');
   const named = presentation !== 'menu';
   const attrs = { 'aria-label': named ? label : undefined, 'aria-disabled': reason !== undefined || undefined,
-    'aria-describedby': named && (visible || extra) ? id : undefined, 'data-panel-row': rowId };
+    'aria-describedby': named && (visible || extra) ? id : undefined, 'data-panel-row': rowId,
+    'data-panel-add-source': drag?.id, onPointerDown: drag?.onPointerDown };
+  const dragClass = drag ? 'cursor-grab touch-none select-none' : undefined;
   const content = <span className="flex min-w-0 flex-col break-keep">
     <span className={reason !== undefined && presentation !== 'named-menu' ? 'text-text-muted' : undefined}>{label}</span>
     {(visible || extra) && <span id={id} className="text-xs text-text-muted">{visible}
@@ -24,14 +28,14 @@ function PanelListRow({ id: rowId, label, reason, status, note, onSelect, presen
     </span>}
   </span>;
   if (presentation === 'popover') return <Button type="button" variant="ghost" size="toolbar" tabIndex={tabIndex} onFocus={onFocus} {...attrs}
-    className="h-auto min-h-7 w-full justify-start text-start whitespace-normal"
+    className={cn('h-auto min-h-7 w-full justify-start text-start whitespace-normal', dragClass)}
     onPointerEnter={onHover && (event => { onHover(event.currentTarget.dataset.panelRow); })}
     onPointerMove={onHover && (event => { onHover(event.currentTarget.dataset.panelRow); })}
     onPointerLeave={onHover && (() => { onHover(undefined); })}
     onClick={() => { if (reason === undefined) onSelect?.(); }}>
     {icon ? <span className="flex min-w-0 items-start gap-1.5"><span className="mt-0.5 shrink-0">{icon}</span>{content}</span> : content}
   </Button>;
-  return <DropdownMenuItem {...attrs} onSelect={event => {
+  return <DropdownMenuItem {...attrs} className={dragClass} onSelect={event => {
     if (reason !== undefined) event.preventDefault();
     else onSelect?.();
   }}>{content}</DropdownMenuItem>;
