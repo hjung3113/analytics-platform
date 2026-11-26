@@ -11,6 +11,7 @@ export { RETURN_CONTEXT_LABELS, PlatformLink, PlatformProvider, usePlatform, use
 export type { UnsavedGuardOptions } from './platform/navigationGuard';
 export { useSavedViewSupport, diagnoseSavedView } from './saved-view';
 export { useSavedViewPanels, type SavedViewPanelsOutcome } from './saved-view/useSavedViewPanels';
+export { followInput, followInstead, freePanelId, holdInput, holdsSelection, namesInstance, resolveHeldInputs } from './saved-view/panel-graph';
 export { customGroupItemId, customGroupMembers, customGroupReadState, expandCustomGroups } from './saved-view/expand-custom-groups';
 export type { ExpandCustomGroupsInput, ExpandCustomGroupsResult } from './saved-view/expand-custom-groups';
 export type { DiagnoseCode, DiagnoseContext, DiagnoseReason, Migration, SavedViewDiagnosis } from './saved-view';

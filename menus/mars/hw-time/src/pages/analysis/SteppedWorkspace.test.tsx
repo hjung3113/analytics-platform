@@ -279,14 +279,14 @@ describe('HW Time saved view panels', () => {
     fireEvent.click(picker.getByRole('button', { name: paretoTitle }));
     await settle();
     const slots = () => screen.getAllByRole('tab', { name: paretoTitle }).map(tab => tab.dataset.tabPanelId);
-    expect(slots()).toEqual(['saved-instance-pareto_007e1']);
+    expect(slots()).toEqual(['saved-instance-pareto-2']);
     expect(appliedPins).toContain('pareto');
     const tab = screen.getByRole('tab', { name: paretoTitle });
     tab.focus();
     fireEvent.keyDown(tab, { key: 'Enter' });
     fireEvent.click(await screen.findByRole('button', { name: `${paretoTitle} 고정`, pressed: true }));
     await settle();
-    expect(slots()).toEqual(['saved-instance-pareto_007e1']);
+    expect(slots()).toEqual(['saved-instance-pareto-2']);
     expect(appliedPins).not.toContain('pareto');
     expect(screen.getByRole('button', { name: `${paretoTitle} 고정`, pressed: false })).toBeTruthy();
   });

@@ -22,6 +22,10 @@ describe('heldSourceFor', () => {
     expect(next.id).toBe('held-source-3');
     expect(next.sources).toEqual([range, source('held-source-3')]);
   });
+  it('avoids a mounted slot name too, like every other new id (#3164)', () => {
+    const chart = declared('saved-x');
+    expect(heldSourceFor({ kind: 'custom', added: [{ slot: 'held-source', instance: chart }], sources: [] }).id).toBe('held-source-2');
+  });
 });
 
 describe('buildSavedPanels', () => {
