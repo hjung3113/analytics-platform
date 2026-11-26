@@ -156,7 +156,8 @@ export type PanelWorkspaceProps = {
    */
   persistence?: PanelWorkspacePersistence;
   /**
-   * Optional layout identity inside the platform's user, menu and persistKey. A change remounts the body. The last eight scopes
+   * Optional layout identity inside the platform's user, menu and persistKey. A change reads that scope's saved layout into the open
+   * workspace; panels stay mounted (#3128). The last eight scopes
    * written per key are retained. An unused scope starts with the unscoped preference, if one exists.
    */
   persistenceScope?: string;
@@ -221,7 +222,7 @@ function useDevChecks(props: PanelWorkspaceProps) {
  * - **Compact.** Under `compactBelow` the `compactPreset` arrangement shows, in memory only: what the user does there is not stored and
  *   the stored layout returns on widening. Without `compactPreset` the panels stack into one tab group.
  * - **Local preference.** `platform:workspace:v1:<user>:<menu>:<persistKey>` in `localStorage` (written 300 ms after a change, flushed on
- *   unmount and `pagehide`); read once on mount, never by a query. Without a user or a routed menu it stays in memory. Two panes showing
+ *   unmount and `pagehide`); read once on mount and again when `persistenceScope` changes, never by a query. Without a user or a routed menu it stays in memory. Two panes showing
  *   the same menu and `persistKey` share it; the last writer wins. Maximize is never stored.
  * - **Standalone.** Without a `PlatformProvider` (an app outside the platform, under `I18nProvider`) the layout stays in memory unless
  *   `persistence` names a key and optionally a storage; inside a `PlatformProvider` `persistence` is ignored.
@@ -253,8 +254,9 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
     storage = props.persistence?.storage;
   }
   // A persistKey (or menu, or user, or standalone key) change is a different workspace: its body remounts and restores that key's state on its own.
+  // A layout scope change (a saved view) keeps the body and its panels mounted; the body reads that scope's layout in place (#3128).
   const canHoldSelection = platform !== null && props.panels.some(panel => panel.analysisSelectionDrop);
-  const bodyKey = JSON.stringify([storageKey ?? `memory:${props.persistKey}`, persistenceScope]);
+  const bodyKey = storageKey ?? `memory:${props.persistKey}`;
   return <WorkspaceBody key={bodyKey} {...props} persistenceScope={persistenceScope} storageKey={storageKey} storage={storage} dragScope={dragScope} canHoldSelection={canHoldSelection} />;
 }
 
@@ -285,17 +287,27 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const summaryOf = (id: string) => { const panel = panels.find(candidate => candidate.id === id); const summary = panel?.collapse && panel.collapse.summary !== undefined ? panel.collapse.summary : panel?.minimize?.summary; return summary ? tx(summary) : ''; };
   const badgeOf = (id: string) => { const badge = panels.find(candidate => candidate.id === id)?.badge; return badge ? { count: badge.count, tone: badge.tone ?? 'neutral', description: tx(badge.description) } : undefined; };
 
-  const [initial] = useState(() => {
+  // The layout read for the current scope. A new scope (a saved view) swaps it in during render, panels and dock stay mounted (#3128).
+  const readScope = () => {
     const saved = storageKey ? readWorkspaceState(storageKey, spec, storage) : null;
-    return { saved, state: saved ?? initialWorkspaceState(spec) };
-  });
+    return { scope: persistenceScope, saved, state: saved ?? initialWorkspaceState(spec) };
+  };
+  const [initial, setInitial] = useState(readScope);
   const [storedState, setStored] = useState(initial.state);
   const root = useRef<HTMLDivElement>(null);
   const visible = useVisibleAreaHeight(root, true);
   const maxRow = visible ?? DEFAULT_VISIBLE;
   const panelIdentity = JSON.stringify([primaryId, [...spec.panelIds].sort(), sharedRows]);
   const [seenPanels, setSeenPanels] = useState({ identity: panelIdentity, below, ids: spec.panelIds });
-  const panelsChanged = seenPanels.identity !== panelIdentity;
+  const scopeChanged = initial.scope !== persistenceScope;
+  if (scopeChanged) {
+    // The new scope's layout is read against the panels as they are now, so it is not a panel change too.
+    const next = readScope();
+    setInitial(next);
+    setStored(next.state);
+    setSeenPanels({ identity: panelIdentity, below, ids: spec.panelIds });
+  }
+  const panelsChanged = !scopeChanged && seenPanels.identity !== panelIdentity;
   // A changed panel set renders its repaired state at once and commits it before paint. Not a render-phase setState: an observer
   // update queued right after one is computed eagerly against the state before it and would put the old panel set back (#2518).
   const stored = useMemo(() => (panelsChanged ? updateWorkspacePanels(storedState, spec, seenPanels.below, maxRow) : storedState),
@@ -327,12 +339,15 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const compactSpec = compactPreset === undefined ? undefined : presets.find(preset => preset.id === compactPreset);
   const compact = compactSpec !== undefined && narrow;
   const [compactState, setCompactState] = useState<WorkspaceState | null>(null);
+  // A scope change drops the overlay in the same render that swaps the layout, as a remount did (#3128).
+  if (scopeChanged && compactState !== null) setCompactState(null);
   if (panelsChanged && compactState !== null) setCompactState(previous => previous ? normalizeWorkspaceState(previous, spec, { maxRow }) : null);
   if (!compact && compactState !== null) setCompactState(null);
   const derived: WorkspaceState = compact ? { ...stored, preset: compactSpec.id, layout: presetTree(compactSpec.layout, panelOrder(stored.layout)) } : stored;
   const state = compact ? (compactState ?? derived) : stored;
 
   const [maximized, setMaximized] = useState<string | null>(null);
+  if (scopeChanged && maximized !== null) setMaximized(null);
   /** px above the rows (toolbar and its gap) read when a stacked maximize starts; the maximized box is the visible height less this. */
   const [maximizeChrome, setMaximizeChrome] = useState<number | null>(null);
   const shown = panelOrder(state.layout);
@@ -477,10 +492,11 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   }, [automaticRows, count, rowDeclarations, rowEnv, stackActive, visible]);
 
   // Restored rows obey the visible-height cap once, when a scrollport measurement first exists. Not again: a later window resize never rewrites the preference.
-  const restoreClamped = useRef(false);
+  // Keyed on the read it clamped: each scope's saved rows are clamped once on arrival, as when a scope change remounted the body (#3128).
+  const restoreClamped = useRef<object | null>(null);
   useLayoutEffect(() => {
-    if (restoreClamped.current || !stackActive || narrowNow.current || storedRows === undefined || visible === null) return;
-    restoreClamped.current = true;
+    if (restoreClamped.current === initial || !stackActive || narrowNow.current || storedRows === undefined || visible === null) return;
+    restoreClamped.current = initial;
     if (automaticRows) return;
     setStored(previous => {
       if (previous.mode !== 'stack' || previous.rows === undefined || previous.rows.length !== topLevelRows(previous.layout).length) return previous;
@@ -488,7 +504,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       const clamped = previous.rows.map((px, index) => clampRow(px, minimums[index]!, live.current.maxRow));
       return withAdjustedRowHeights(previous, clamped, live.current.sharedRows);
     });
-  }, [automaticRows, stackActive, storedRows, visible]);
+  }, [automaticRows, stackActive, storedRows, visible, initial]);
 
   const isFloating = (id: string) => panels.find(panel => panel.id === id)?.float !== false && state.floating?.some(panel => panel.panelId === id);
   const edgeOf = (id: string) => {
@@ -533,13 +549,15 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   useEffect(() => { storageRef.current = storage; });
   const pending = useRef<WorkspaceState | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const flush = useCallback(() => {
+  /** Writes the pending preference now, to the current storage unless a scope change names the storage it was made for. */
+  const flushTo = useCallback((target: PanelWorkspaceStorage | undefined) => {
     clearTimeout(timer.current);
     timer.current = undefined;
     const next = pending.current;
     pending.current = null;
-    if (next && storageKey) { writeWorkspaceState(storageKey, next, storageRef.current, { sharedRows: live.current.sharedRows.length > 0 }); persisted.current = next; }
+    if (next && storageKey) { writeWorkspaceState(storageKey, next, target, { sharedRows: live.current.sharedRows.length > 0 }); persisted.current = next; }
   }, [storageKey]);
+  const flush = useCallback(() => { flushTo(storageRef.current); }, [flushTo]);
   useEffect(() => {
     if (!storageKey) return;
     clearTimeout(timer.current);
@@ -557,10 +575,21 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   }, [flush]);
 
   const [peek, setPeek] = useState<DockFloatingPanel | null>(null);
+  if (scopeChanged && peek !== null) setPeek(null);
   const peekTrigger = useRef<HTMLElement | null>(null);
   const activePeek = !edgesNarrow && peek && state.hidden.includes(peek.panelId) && !state.floating?.some(panel => panel.panelId === peek.panelId) ? peek : null;
   const dismissPeek = useCallback(() => { setPeek(null); focusSoon(() => peekTrigger.current?.isConnected ? peekTrigger.current : null); }, []);
   useEffect(() => { if (edgesNarrow) setPeek(null); }, [edgesNarrow]);
+  // After a scope change (#3128): write what the left scope still owed to that scope's storage, then take the new scope's saved layout as
+  // the write baseline. Before paint, before the write timer re-arms. (Maximize, peek and the overlay reset in the swapping render.)
+  const scopeRead = useRef({ initial, storage });
+  useLayoutEffect(() => {
+    if (scopeRead.current.initial === initial) return;
+    const left = scopeRead.current.storage;
+    scopeRead.current = { initial, storage };
+    flushTo(left);
+    persisted.current = initial.saved;
+  }, [initial, storage, flushTo]);
   useEffect(() => {
     if (!activePeek) return;
     const outside = (event: PointerEvent) => {
