@@ -489,6 +489,43 @@ it('saves the active default publisher and can hold a selection from the chart a
   expect(within(settings).getByText('MEM-PHOTO-0103')).toBeTruthy();
 });
 
+it('saves and reopens an untouched step-3 table following the URL equipment selection', async () => {
+  const equipment = 'MEM-PHOTO-0105';
+  const store = createFakeSavedViewStore([]);
+  const reads: MenuQuery[] = [];
+  const read = (request: MenuQuery) => {
+    if (request.endpoint === hwTime.tableRows.id) reads.push(request);
+    return answer(request);
+  };
+  await renderOverview(`&moduleType=PM&drillMotion=Pump&motionEquipment=${equipment}`, read, {
+    savedViews: store, children: <Controls />, realWorkspace: true, showDetail: true,
+  });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  fireEvent.keyDown(screen.getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name: '원본 표' }));
+  await waitFor(() => expect(reads.at(-1)?.params).toMatchObject({ motionEquipment: [equipment] }));
+
+  const settings = within(await openTableSettings());
+  expect.soft(settings.queryByRole('radio', { name: '거르기', checked: true })).toBeTruthy();
+  fireEvent.keyDown(settings.getByRole('radio', { name: '무시' }), { key: 'Escape' });
+  const saved = await act(() => views.saveAs({ name: 'Motion follow', kind: 'menu-view' }));
+  expect.soft(saved).toMatchObject({ ok: true, value: { view: { panels: { instances: expect.arrayContaining([
+    expect.objectContaining({ id: 'table', inputs: [{ key: MOTION_EQUIPMENT_KEY, from: `held-source.${MOTION_EQUIPMENT_KEY}`, mode: 'follow' }] }),
+    expect.objectContaining({ id: 'held-source', outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] }),
+  ]) } } } });
+  if (!saved.ok) throw new Error('Unable to save the step-3 view');
+
+  cleanup();
+  reads.length = 0;
+  await renderOverview(`&motionEquipment=${equipment}`, read, {
+    savedViews: store, children: <Controls />, realWorkspace: true, showDetail: true,
+  });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { expect(await views.select(saved.value.view.id)).toMatchObject({ ok: true }); });
+  fireEvent.click(await screen.findByRole('tab', { name: '원본 표' }));
+  await waitFor(() => expect(reads.at(-1)?.params).toMatchObject({ motionEquipment: [equipment] }));
+});
+
 it('restores a saved raw table with empty inputs in Ignore mode after a chart selection', async () => {
   const equipment = ['MEM-PHOTO-0103', 'MEM-PHOTO-0105'];
   const publisher: PanelInstance = { id: 'current', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
@@ -630,22 +667,38 @@ it('blocks the table population and export until a rejected held filter is remov
   expect(screen.queryByText('붙잡은 설비 선택을 적용할 수 없습니다.')).toBeNull();
 });
 
-it('shows an unavailable follow connection when the saved source is no longer the live chart', async () => {
+it.each([
+  { problem: 'the saved source is no longer the live chart', key: MOTION_EQUIPMENT_KEY, sourceIds: ['current', 'replacement'] },
+  { problem: 'the saved receiving key has been retired', key: 'oldMotionEquipment', sourceIds: ['current'] },
+])('blocks table reads until Ignore when $problem', async ({ key, sourceIds }) => {
   const output = { key: MOTION_EQUIPMENT_KEY, shape: 'set', dimension: EQUIPMENT_SELECTION_DIMENSION } as const;
-  const sources: PanelInstance[] = ['current', 'replacement'].map(id => ({
+  const sources: PanelInstance[] = sourceIds.map(id => ({
     id, source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [output],
   }));
   const table: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
-    inputs: [{ key: MOTION_EQUIPMENT_KEY, mode: 'follow', from: `current.${MOTION_EQUIPMENT_KEY}` }],
+    inputs: [{ key, mode: 'follow', use: 'filter', from: `current.${MOTION_EQUIPMENT_KEY}` }],
   };
   const store = createFakeSavedViewStore([testSavedView({
     id: 'disconnected', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM', context,
     page: [...page, [MOTION_EQUIPMENT_KEY, 'MEM-PHOTO-0103']], chartOptions: {}, layout: null,
     panels: { version: 1, instances: [...sources, table] },
   })]);
-  await renderOverview('', answer, { savedViews: store, children: <Controls />, realWorkspace: true, showDetail: true });
+  const reads: MenuQuery[] = [];
+  await renderOverview('', request => {
+    if (request.endpoint === hwTime.levelRows.id || request.endpoint === hwTime.tableRows.id || request.endpoint === hwTime.exportRows.id) reads.push(request);
+    return answer(request);
+  }, { savedViews: store, children: <Controls />, realWorkspace: true, showDetail: true });
   await waitFor(() => expect(views.status).toBe('ready'));
   await act(async () => { expect(await views.select('disconnected')).toMatchObject({ ok: true }); });
+  fireEvent.click(await screen.findByRole('tab', { name: '원본 표' }));
+  expect.soft(reads).toEqual([]);
   expect(await screen.findByText('연결한 차트의 선택을 읽을 수 없습니다.')).toBeTruthy();
   expect(screen.queryByRole('table', { name: 'HW Time 동작시간 표' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^내보내기/ })).toBeNull();
+
+  const settings = within(await openTableSettings());
+  const connection = settings.getByRole('radio', { name: '거르기', checked: true }).closest('[role="group"]')! as HTMLElement;
+  fireEvent.click(within(connection).getByRole('radio', { name: '무시' }));
+  await waitFor(() => expect(reads.some(request => request.endpoint === hwTime.tableRows.id)).toBe(true));
+  expect(screen.queryByText('연결한 차트의 선택을 읽을 수 없습니다.')).toBeNull();
 });

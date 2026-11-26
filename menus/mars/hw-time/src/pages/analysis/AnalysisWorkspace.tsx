@@ -257,9 +257,13 @@ function useWorkspacePanels(owner: string, query: string, step: Step, publisherF
   const config = nextConfig(state, owner, query, samePopulation);
   if (state.owner !== owner || !samePopulation || state.opening) setState({ owner, query, population, config, opening: false });
   const project = (candidate: CustomPanels, { acrossSteps = false } = {}) => {
-    // Carried edits must fit at the module step too, where an implicit table first needs a saved publisher.
-    const { source, reserved } = publisherFor(candidate, acrossSteps ? 4 : step);
-    return buildSavedPanels(candidate, acrossSteps ? undefined : step, reserved ?? source);
+    const { source, reserved } = publisherFor(candidate);
+    const current = buildSavedPanels(candidate, acrossSteps ? undefined : step, reserved ?? source);
+    if (!acrossSteps || step === 4) return current;
+    // The module step can need a separate saved chart in place of a shared output-only reference.
+    const module = publisherFor(candidate, 4);
+    const modulePanels = buildSavedPanels(candidate, undefined, module.reserved ?? module.source);
+    return exceedsPanelLimit(modulePanels) ? modulePanels : current;
   };
   const overflows = (plan: ReturnType<typeof planAdd>) => plan.overflows
     || (plan.config !== null && exceedsPanelLimit(project(plan.config, { acrossSteps: plan.config.connectionsEdited })));
@@ -390,22 +394,24 @@ function SelectionSourceBars({ instanceId, ...props }: Omit<BarsProps, 'highligh
 type TableSelectionSource = Parameters<typeof resolveAnalysisSelectionFilter>[0]['source'];
 
 function tableSelection(read: ReturnType<ReturnType<typeof useAnalysisSelectionReader>>, source: TableSelectionSource, {
-  unread = false, input,
-}: { unread?: boolean; input?: PanelInstanceInput } = {}) {
+  unread = false, inputs = [], urlUse,
+}: { unread?: boolean; inputs?: readonly PanelInstanceInput[]; urlUse?: PanelInstanceInput['use'] } = {}) {
   const { applied, rejectedHeld, requestedFilters, unavailableSources } = read;
+  const input = inputs.find(input => input.key === MOTION_EQUIPMENT_KEY);
   const failedHold = unread || rejectedHeld.includes(MOTION_EQUIPMENT_KEY);
-  const failedSource = unavailableSources.includes(MOTION_EQUIPMENT_KEY);
+  const failedSource = unavailableSources.includes(MOTION_EQUIPMENT_KEY)
+    || inputs.some(input => input.mode === 'follow' && input.key !== MOTION_EQUIPMENT_KEY);
   const holdProblem = failedHold ? 'heldRejected' : undefined;
   const problem = failedSource ? 'followUnavailable' : holdProblem;
   const blocked = failedSource || (failedHold && input?.use !== 'highlight');
   const received = applied.filter(input => input.key === MOTION_EQUIPMENT_KEY);
-  const appliedFilter = received.find(input => input.use === 'filter');
+  const appliedFilter = received.find(input => (urlUse ?? input.use) === 'filter');
   const filter = resolveAnalysisSelectionFilter({
-    requested: requestedFilters.includes(MOTION_EQUIPMENT_KEY),
+    requested: urlUse !== 'highlight' && requestedFilters.includes(MOTION_EQUIPMENT_KEY),
     applied: appliedFilter?.selection,
     source,
   });
-  const highlighted = received.find(input => input.use === 'highlight')?.selection;
+  const highlighted = received.find(input => (urlUse ?? input.use) === 'highlight')?.selection;
   return { problem, blocked, filter, highlightedRowIds: highlighted?.shape === 'set' ? highlighted.values : undefined } as const;
 }
 
@@ -429,8 +435,7 @@ function HeldWorkspaceTable({ inputs, unread, source, local }: {
   local: boolean;
 }) {
   const read = useAnalysisSelectionReader(panelDeclarations.table.id)(inputs);
-  const input = inputs.find(input => input.key === MOTION_EQUIPMENT_KEY);
-  return <WorkspaceTable selection={tableSelection(read, source, { unread, input })} local={local} />;
+  return <WorkspaceTable selection={tableSelection(read, source, { unread, inputs })} local={local} />;
 }
 
 function HeldTablePanel({ instance, instances, ...table }: {
@@ -523,8 +528,8 @@ function selectionPublisher(config: PanelConfiguration, catalog: ReturnType<type
   const stored = added.find(entry => entry.slot === slot)?.instance;
   const source = slot ? settingsInstance(slot, panelDeclarations.moduleMotions, stored, saved) : undefined;
   const staleOutput = source && !source.outputs.some(isEquipmentOutput);
-  // Save a separate reference when enriching the chart would hide it or rewrite a stale saved output.
-  const reserved = source && (isHeldSource(source) || staleOutput) ? heldSourceFor({ kind: 'custom', added, sources }, { reservedOnly: true }) : undefined;
+  // Use an output-only reference without a chart, or when saving the chart would hide it or rewrite a stale output.
+  const reserved = !source || isHeldSource(source) || staleOutput ? heldSourceFor({ kind: 'custom', added, sources }, { reservedOnly: true }) : undefined;
   const reservedSource = reserved?.sources.find(instance => instance.id === reserved.id);
   const instances = saved.map(instance => source?.id === instance.id ? source : instance);
   // A drawn chart still publishes its declared channel when its saved output metadata is stale.
@@ -539,7 +544,7 @@ function selectionPublisher(config: PanelConfiguration, catalog: ReturnType<type
       ? { ...input, from: defaultTableInput(live).from } : input),
   })) : instances;
   const byId = new Map(runtime.map(instance => [instance.id, instance]));
-  return { work, slot, source, live, reserved: reservedSource, sources: reserved?.sources ?? sources, instances: runtime, byId,
+  return { work, slot, source, live, reserved: reservedSource, sources: reserved?.sources ?? sources, instances: runtime, byId, aliases,
     owners: new Map([[MOTION_EQUIPMENT_KEY, live?.id ?? null]]),
     selectionHost: motionSlots.length <= 1 ? slot : undefined,
   };
@@ -611,7 +616,11 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     if (instance && holds(instance)) return { id };
     const implicit = added.some(entry => entry.slot === id && entry.implicitFollow);
     const inputs = !implicit && instance ? publisher.byId.get(instance.id)?.inputs : undefined;
-    return { id, selection: tableSelection(readTableSelection(inputs), tableSource) };
+    // Without a chart, an output-only reference reads the declaration's URL channel.
+    const urlInput = live ? undefined : inputs?.find(input => input.mode === 'follow'
+      && input.key === MOTION_EQUIPMENT_KEY && publisher.aliases.has(input.from));
+    const read = readTableSelection(urlInput ? undefined : inputs);
+    return { id, selection: tableSelection(read, tableSource, { inputs, urlUse: urlInput?.use }) };
   });
   const first = followingTables[0]?.selection;
   const second = followingTables[1]?.selection;

@@ -187,7 +187,8 @@ export function followHeldSets(panels: MenuViewPanels): { panels: MenuViewPanels
     ? { ...instance, inputs: instance.inputs.map((input): PanelInstanceInput => {
       if (input.mode !== 'hold' || input.value.shape !== 'set') return input;
       keys.add(input.key);
-      return { key: input.key, from: input.from, mode: 'follow' };
+      const { key, from, use } = input;
+      return { key, from, mode: 'follow', ...(use ? { use } : {}) };
     }) }
     : instance);
   return keys.size === 0 ? { panels, keys: [] } : { panels: { ...panels, instances }, keys: [...keys] };

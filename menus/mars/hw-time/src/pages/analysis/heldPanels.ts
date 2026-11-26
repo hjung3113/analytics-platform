@@ -20,9 +20,8 @@ export const noPanels: CustomPanels = { kind: 'custom', added: [], sources: [] }
 export type AddIntent = { mode: 'follow' } | { mode: 'hold'; held: Readonly<Record<string, AnalysisSelection>>; from?: string };
 
 /**
- * The selection source a held input names (#2862): the equipment bars the screen draws itself (the step's current bars or the added
- * «모듈 동작» panel). This menu saves it as an output-only instance with a reserved id, only while something holds it, so `from` names an
- * existing output. A restored one is recognised by the id, the «모듈 동작» declaration and no inputs, and is kept as it was saved (R C2).
+ * The output-only equipment channel for a hold (#2862) or for a default follow without a drawn chart.
+ * It is saved while an input names it. A restored source is recognised by the reserved id, the «모듈 동작» declaration and no inputs.
  */
 export const HELD_SOURCE_ID = 'held-source';
 export const heldOutput = { key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' } as const;
