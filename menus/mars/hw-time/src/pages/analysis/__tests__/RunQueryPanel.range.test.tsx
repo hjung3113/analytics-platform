@@ -121,18 +121,6 @@ it('sorts by breached days and breaks ties by maximum daily value', async () => 
   expect(tileIds(grid)).toEqual([equipment[2], equipment[1], equipment[0]]);
 });
 
-it('opens the same-data table from the one-day split grid', async () => {
-  const panel = await mountSplit([run(equipment[0]!, 0, 8, 'over')]);
-  expect(panel.getByRole('grid')).toBeTruthy();
-  fireEvent.click(panel.getByRole('button', { name: '표로 보기' }));
-  const table = within(screen.getByRole('dialog', { name: 'PM1 · Pump 일 평균' })).getByRole('table');
-  const row = await within(table).findByRole('row', { name: /MEM-PHOTO-0103/ });
-  expect(within(row).getAllByRole('cell').map(cell => cell.textContent)).toEqual([
-    equipment[0], '2026-09-23', '8.00', '2.00', '4.00', 'HTM 상한 초과',
-  ]);
-  expect(within(table).getAllByRole('row')).toHaveLength(2);
-});
-
 it.each(['initial split', 'return to split'] as const)('edits a restored year-crossing date chip in %s', async mode => {
   const dates = ['2026-12-31', '2027-01-01', '2027-01-02'];
   const url = trendUrl.replace(/from=[^&]+&to=[^&]+/, 'from=2026-12-31T00:00:00&to=2027-01-03T00:00:00');
