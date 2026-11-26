@@ -3,7 +3,7 @@ import { ChartLegendLabel } from './analysisChartFrameParts';
 import { BOUND_DASH, type BoundProjection } from './chartBounds';
 import { CHART_BAND_OPACITY, chartSegmentedBoundsTheme } from './EChart';
 
-export function ChartBoundsLegend({ bounds, singleLine = false }: { bounds: BoundProjection | undefined; singleLine?: boolean }) {
+export function ChartBoundsLegend({ bounds, singleLine = false }: { bounds: Pick<BoundProjection, 'parts' | 'labels'> | undefined; singleLine?: boolean }) {
   if (!bounds) return null;
   const { lineStyle: { color } } = chartSegmentedBoundsTheme();
   return bounds.parts.map(part => <span key={part} className={cn('inline-flex items-center gap-1 text-xs text-text-secondary', singleLine && 'min-w-0 max-w-full')} data-chart-bound-legend={part}>
