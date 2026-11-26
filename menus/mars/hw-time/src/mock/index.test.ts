@@ -350,7 +350,7 @@ describe('HW Time time-domain recovery (#3064)', () => {
   it('explains why exclusion is unavailable when it would leave 36 fixed equipment', async () => {
     const response = await query(hwTimeOverview.matrix.id, { moduleType: 'LK' }, { from, roomNames: null });
     expect(response).toMatchObject({ outcome: 'error', message: 'time_domain_unverified · fixed_equipment_limit: 36/24' });
-    expect(response.recovery).toBeUndefined();
+    expect(response.recovery).toEqual({ maxHours: 24 });
   });
 
   it('offers exclusion when it leaves exactly 24 equipment and the fixed selection can be queried', async () => {

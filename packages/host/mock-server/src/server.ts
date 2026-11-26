@@ -322,13 +322,17 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
         const remaining = equipmentIds.filter(id => !affectedSet.has(id));
         const canExclude = affected.length > 0 && remaining.length > 0
           && evaluateTimeDomainMerge(remaining, from, to, TIME_DOMAIN_ASSERTIONS).ok;
-        if (canExclude && maxFixedEquipment !== undefined && remaining.length > maxFixedEquipment) {
-          // Fall back to the conditions editor with the count, without proposing a fixed selection the endpoint refuses.
-          return { ...base, outcome: 'error', message: `${verdict.code} · ${fixedEquipmentLimitMessage(remaining.length, maxFixedEquipment)}` };
-        }
         const recoverableHours = 24;
         const shorterFrom = shift(to, -recoverableHours);
         const canShorten = shorterFrom > from && evaluateTimeDomainMerge(equipmentIds, shorterFrom, to, TIME_DOMAIN_ASSERTIONS).ok;
+        if (canExclude && maxFixedEquipment !== undefined && remaining.length > maxFixedEquipment) {
+          // Withhold only the exclusion the endpoint would refuse; an independent period shortcut stays (#3064).
+          // Without equipment ids in the recovery, the kernel keeps this message and its count.
+          return {
+            ...base, outcome: 'error', message: `${verdict.code} · ${fixedEquipmentLimitMessage(remaining.length, maxFixedEquipment)}`,
+            ...(canShorten ? { recovery: { maxHours: recoverableHours } } : {}),
+          };
+        }
         const recovery = readQueryRecovery({
           ...(canExclude ? { affectedEquipmentIds: affected, authorizedEquipmentIds: equipmentIds } : {}),
           ...(canShorten ? { maxHours: recoverableHours } : {}),
