@@ -92,9 +92,9 @@ async function mount({ enabled = true, reason, splitBar = false, chartDrop }: {
   return { chip, chart, container, groups, showChip: (show: boolean) => rerender(view(show)) };
 }
 
-function pointer(target: Window | Element, type: string, x: number) {
+function pointer(target: Window | Element, type: string, x: number, contact: { pointerId?: number; pointerType?: string; isPrimary?: boolean } = {}) {
   const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: x, clientY: 140 });
-  fireEvent(target, Object.assign(event, { pointerId: 1 }));
+  fireEvent(target, Object.assign(event, { pointerId: 1, ...contact }));
 }
 
 function target(container: HTMLElement) {
@@ -295,6 +295,21 @@ it.each(['window blur', 'lost pointer capture'])('starts the next drag after %s 
   expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
   pointer(window, 'pointerup', 250);
   expect(onDrop).toHaveBeenCalledOnce();
+});
+
+it('retires a held touch drag when the next touch starts, so its late release no longer eats a tap', async () => {
+  const { chip } = await mount();
+  const first = { pointerId: 7, pointerType: 'touch', isPrimary: true };
+  const second = { pointerId: 8, pointerType: 'touch', isPrimary: true };
+  pointer(chip, 'pointerdown', 5, first);
+  pointer(window, 'pointermove', 250, first);
+  fireEvent(window, new FocusEvent('blur'));
+  // A new primary touch means the first contact ended; a stray release of it must not arm click suppression.
+  pointer(chip, 'pointerdown', 5, second);
+  pointer(window, 'pointerup', 5, second);
+  pointer(window, 'pointerup', 250, first);
+  fireEvent.click(chip, { detail: 1 });
+  expect(await screen.findByRole('dialog', { name: 'equipment E1' })).toBeInTheDocument();
 });
 
 it('keeps dragging when a control inside the window blurs', async () => {

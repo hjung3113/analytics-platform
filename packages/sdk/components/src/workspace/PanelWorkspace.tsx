@@ -820,8 +820,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const toolbar = destinations?.toolbarDraft && destinations.items.length
     ? <><ToolbarAnalysisPanelAdd workspace={destinations} />{toolbarActions}</>
     : toolbarActions;
-  // Stacked rows scroll the page under a drag; the preview and hit test would disagree (#3077 C6), so drag starts only in fit mode (#3081).
-  const actions = panelAddDrag && !stackActive && toolbar !== undefined ? <PanelAddDragContext.Provider value={addDrag.start}>{toolbar}</PanelAddDragContext.Provider> : toolbar;
+  const actions = panelAddDrag && toolbar !== undefined ? <PanelAddDragContext.Provider value={addDrag.start}>{toolbar}</PanelAddDragContext.Provider> : toolbar;
   return <WorkspaceDepthProvider value={depth}>
     <AnalysisPanelAddContext.Provider value={destinations}>
     <div ref={root} data-panel-workspace data-workspace-mode={rows ? 'stack' : 'fit'} data-workspace-compact={compact ? '' : undefined} data-workspace-density={densePage ? 'compact' : undefined} className={cn(rows ? 'flex w-full min-w-0 flex-col' : 'flex h-full min-h-0 w-full min-w-0 flex-col', densePage ? 'gap-1.5' : 'gap-2')}
