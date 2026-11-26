@@ -158,6 +158,18 @@ function deniedScopeOfRequest(target: UpstreamDeniedScope | undefined, context: 
   return Array.isArray(context.roomNames) && context.roomNames.includes(target.room);
 }
 
+function fixedEquipmentRefusal(message: string | undefined, reason: string): string | undefined {
+  const prefix = `${reason} · fixed_equipment_limit: `;
+  if (!message?.startsWith(prefix)) return undefined;
+  // Match the wire validation in kernel i18n's parseFixedEquipmentLimit. The API runtime cannot import kernel (boundary rule 11).
+  const counts = /^([1-9]\d*)\/([1-9]\d*)$/.exec(message.slice(prefix.length));
+  if (!counts) return undefined;
+  const count = Number(counts[1]);
+  const limit = Number(counts[2]);
+  if (!Number.isSafeInteger(count) || !Number.isSafeInteger(limit) || count <= limit) return undefined;
+  return `${prefix}${count}/${limit}`;
+}
+
 export function createMenuForwarder({
   baseUrl,
   timeoutMs,
@@ -218,10 +230,12 @@ export function createMenuForwarder({
         ? { ...rest, deniedScope: upstreamDeniedScope } : rest;
       const { affectedEquipmentIds, authorizedEquipmentIds, retryable, ...otherRecovery } = upstreamRecovery;
       const carriesEquipment = affectedEquipmentIds !== undefined || authorizedEquipmentIds !== undefined;
-      const reason = envelope.message?.split(':', 1)[0]?.trim();
+      const reason = envelope.message?.split(' · ', 1)[0]?.split(':', 1)[0]?.trim();
       const aggregationReason = reason === 'time_domain_unverified' || reason === 'time_domain_mismatch' ? reason : undefined;
       const sanitizeDiagnostics = carriesEquipment || aggregationReason !== undefined;
-      const message = sanitizeDiagnostics ? aggregationReason : envelope.message;
+      const fixedEquipmentMessage = aggregationReason && !carriesEquipment && envelope.outcome === 'error'
+        ? fixedEquipmentRefusal(envelope.message, aggregationReason) : undefined;
+      const message = sanitizeDiagnostics ? fixedEquipmentMessage ?? aggregationReason : envelope.message;
       let recovery = Object.keys(upstreamRecovery).length > 0 ? upstreamRecovery : undefined;
       if (sanitizeDiagnostics) {
         const equipment = carriesEquipment ? await proveEquipmentRecovery(affectedEquipmentIds, authorizedEquipmentIds,

@@ -83,9 +83,10 @@ function usePanelSeconds(visible: boolean, cancel?: () => void) {
 function PanelError({ response, grouped, priorLabel, inlineRecovery, onRetry }: {
   response: ApiResponse<unknown>; grouped: boolean; priorLabel?: string; inlineRecovery: boolean; onRetry: () => void;
 }) {
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const { t } = i18n;
   const m = useMessages(COMPONENTS_MESSAGES);
-  const state = outcomePresentation(response, t);
+  const state = outcomePresentation(response, i18n);
   const detailsId = useId();
   const [details, setDetails] = useState(false);
   const [open, setOpen] = useState(false);
