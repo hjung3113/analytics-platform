@@ -2,7 +2,8 @@
 
 - 상태: Decided (2026-11-26, 되돌릴 수 있음). 이슈 #2728.
 - 결정자: 소유자, #3022 시안 A 승인.
-- 계약 원천: [layout §12.2 Analysis Workspace](../contract/layout.md#122-analysis-workspace). [Kernel §11](../contract/kernel.md#11-global-context-bar). 관련: [ADR-0029](0029-page-filter-bar-collapse-summary.md), [ADR-0083](0083-condition-presets.md).
+- 계약 원천: [layout §12.2 Analysis Workspace](../contract/layout.md#122-analysis-workspace). [Kernel §11](../contract/kernel.md#11-global-context-bar). 관련: [ADR-0083](0083-condition-presets.md).
+- 부분 대체: [ADR-0029](0029-page-filter-bar-collapse-summary.md)의 «`+n` 금지» — 본 화면 조건 줄에서는 폭을 넘는 조건을 `+n` 목록에서 읽는다.
 
 ## 결정
 

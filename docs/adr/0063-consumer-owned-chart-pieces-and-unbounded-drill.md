@@ -1,6 +1,6 @@
 # 메뉴가 조립하는 차트 조각과 상한 없는 드릴 단계
 
-상태: **Decided (2026-10-21)**.
+상태: **Decided (2026-10-21)**. 단계 선언의 대안 기준은 [ADR-0178](0178-drill-alternative-basis.md)이 부분 대체한다.
 - 결정자: 사용자 — #541, “왜 강제하고 있어”. 코디네이터의 확정 작업 범위: SDK 조각만 제공하고 메뉴별 의미는 메뉴가 선언한다.
 - 대체: [ADR-0025](0025-drilldown-level-page-keys-path-bar-layout.md)의 깊이 4 제한. 단계별 page key·Context 초기화·경로 바·본문 교체 계약은 유지한다.
 
