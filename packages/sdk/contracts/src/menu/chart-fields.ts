@@ -99,6 +99,26 @@ export function chartPanelProblem(fields: MenuChartFields, draft: ChartPanelDraf
   return 'problem' in judged ? judged.problem : null;
 }
 
+export type MappingSlot = 'measure' | 'breakdown';
+export type MappingChip = { kind: MappingSlot; id: string };
+
+const SLOT_KIND_REASONS: Record<MappingSlot, Text> = {
+  measure: { ko: '지표 칸에는 지표만 놓을 수 있습니다', en: 'Only measures can go in the measure slot' },
+  breakdown: { ko: '기준 칸에는 기준만 놓을 수 있습니다', en: 'Only breakdowns can go in the breakdown slot' },
+};
+
+/** Replaces one slot without moving the previous chip into the other slot. */
+export function assignMappingSlot(draft: ChartPanelDraft, slot: MappingSlot, chip: MappingChip): ChartPanelDraft {
+  return slot === chip.kind ? { ...draft, [slot]: chip.id } : draft;
+}
+
+/** Why a chip cannot be placed here. The other slot may still be empty. */
+export function mappingSlotProblem(fields: MenuChartFields, draft: ChartPanelDraft, slot: MappingSlot, chip: MappingChip, granted: ChartPermissionCheck): Text | undefined {
+  if (slot !== chip.kind) return SLOT_KIND_REASONS[slot];
+  const problem = chartPanelProblem(fields, assignMappingSlot(draft, slot, chip), granted);
+  return problem?.code === 'incomplete' ? undefined : problem?.reason;
+}
+
 /** Default chart title «지표 · 기준» (owner 2026-11-25). */
 export function chartPanelTitle(measure: ChartMeasureDeclaration, breakdown: ChartBreakdownDeclaration): Text {
   return { ko: `${measure.label.ko} · ${breakdown.label.ko}`, en: `${measure.label.en} · ${breakdown.label.en}` };

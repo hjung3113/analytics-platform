@@ -303,6 +303,12 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 소비자는 `validateCandidate?: (candidate: MenuViewPanels) => Text | undefined`로 저장 후보에 적용할 검사를 추가할 수 있다(#3004). 서랍은 투영을 마친 그래프를 넘긴다. `Text`를 받으면 그 사유를 알리고 편집을 반영하지 않는다. 함수를 생략하거나 `undefined`를 받으면 SDK가 그래프를 검사하고 거르기 연결의 순환 등 기존 오류를 표시한다.
 
+`mapping?: PanelSettingsMapping`에 메뉴의 `fields: MenuChartFields`와 권한 검사 `granted: ChartPermissionCheck`를 넘기면 차트 패널의 «연결» 위에 펼쳐진 «매핑»을 연다. 매핑은 선·막대 종류, 지표(Y축)와 기준 칸, 읽기 전용 X축, 메뉴가 선언한 필드 칩으로 이루어진다. 선은 시간 필드를 X축에 두고 기준을 색으로 나눈다. 막대는 기준을 X축에 둔다. 시간 필드가 없는 메뉴의 선 선택은 비활성 사유를 표시한다. 칸에 있는 필드는 필드 목록에서도 선택으로 표시한다. 칩은 클릭·Enter·Space로 놓고 칸의 ×로 지운다. 놓을 수 없는 칩은 포커스를 받을 수 있으며 `aria-disabled`와 목록 아래 사유를 제공한다.
+
+`@ap/contracts`의 `mappingSlotProblem(fields, draft, slot, chip, granted)`은 칩 종류와 칸이 일치하는지 먼저 확인하고, 바꾼 초안에 `chartPanelProblem`을 적용한다. 반대쪽 칸이 비어 있다는 이유(`incomplete`)만으로 칩 배치를 막지 않는다. `assignMappingSlot(draft, slot, chip)`은 같은 종류의 칩으로 해당 칸 하나를 교체한다. 칸은 `data-mapping-slot="measure|breakdown"`, 목록 칩은 `data-mapping-chip="<field id>"`와 `data-mapping-chip-kind="measure|breakdown"`로 식별한다. 읽기 전용 X축에는 칸 표식이 없다.
+
+서랍은 `readChartPanel`로 저장된 차트를 읽고, 초안 편집 시 `createChartPanel`로 같은 ID의 소스·출력을 다시 만들며 입력을 유지한다. 종류를 바꾼 뒤 기준을 쓸 수 없으면 칸의 값을 보존하고 흐리게 표시하며 같은 검사 사유를 보여 준다. 미완성·무효 초안은 서랍에 머물고, 유효한 편집만 연결 편집과 같은 `projectCandidate`·`validateCandidate`·`invalidMenuViewPanels` 경로를 거쳐 `onChange`로 전달한다. `mapping`을 생략하거나 선언형 패널을 열면 «연결»만 표시한다.
+
 ### FormField — 라벨·입력·도움말·오류 (Decided, #1890, [ADR-0161](../adr/0161-form-field-hint-always-visible-render-function.md))
 
 - `@ap/ui`의 `FormField({ label, required?, showRequiredMark?, requiredMark?, requiredText?, tip?, hint?, error?, errorRole?, id?, describedBy?, className?, children })`. `children`은 렌더 함수이고 `control`(`id`·`aria-describedby`·`aria-invalid`·`aria-required`)을 라벨 가능한 입력 **하나**에 펼친다(`<Input {...control} />`). `id` 기본값은 `useId()`이고 `describedBy`는 도움말·오류 id 뒤에 붙는다. 한 필드에 입력이 여럿이면 `FormField`를 나눈다.
