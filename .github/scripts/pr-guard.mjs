@@ -2,7 +2,7 @@
 //
 //   size    more than MAX_LINES changed lines (additions + deletions) or MAX_FILES files, tests included, generated files (the
 //           contract-schemas JSON Schema artifacts, whose drift the package test catches), snapshots, lockfiles (EXCLUDED) and release
-//           mechanical changes (isReleaseMechanical: package.json changing only its version or ap.sdk line, deleted SDK change fragments)
+//           mechanical changes (isReleaseMechanical: package.json changing only its version or ap.sdk line, deleted SDK or menu change fragments)
 //           excluded → fails unless the PR body has a `Size: <who> — <reason>` line (the lead's judgment that the change is simple
 //           or low regression risk) or the PR carries the owner's `owner-ok:size` label.
 //   rounds  the PR's branch has had more than MAX_PUSHES pull_request runs of ci.yml (open + two fix rounds; superseded and cancelled runs
@@ -13,6 +13,9 @@
 //           newest `.planning/releases/v<semver>.md` on the base branch → fails unless the PR carries `owner-ok:scope`. A PR whose head adds
 //           numbers to that section needs the same label. No release file or no `## 범위` section → fails (the owner picks the scope first).
 //   budget  raising either number in .github/ci-budget.json requires the ci-budget-ok label; deletion or invalid values always fail.
+//   menu    editing a menus/<system>/<group> or platform/<feature> "version" line or CHANGELOG.md fails unless that PR also deletes one
+//           changes/<issue>.md of the same menu (the release fold). An added, removed or unedited moved menu and an ap.sdk-only
+//           package.json change pass. The FAIL line names the menu and points at menus/AGENTS.md.
 // Fail-closed: an API error fails the job (rerun it); a guard that skips on error would be the lead's exception by another name.
 // Node builtins only (sparse checkout, no install). Needs GITHUB_TOKEN with pull-requests: read and actions: read.
 //
@@ -53,14 +56,46 @@ export function budgetVerdict(base, head, labels) {
 
 // The release-docs PR bumps either line in every consumer package (lead.md §Slice close step 1).
 const RELEASE_LINE = /^[-+]\s*("version":\s*"[^"]*"|"ap":\s*\{\s*"sdk":\s*"[^"]*"\s*\}),?\s*$/;
-const FRAGMENT = /^packages\/sdk\/changes\/[^/]+\.md$/;
+const SDK_FRAGMENT = /^packages\/sdk\/changes\/[^/]+\.md$/;
+// Menu packages: menus/<system>/<group> and platform/<feature> (tooling/changes/menus.mjs).
+const MENU_ROOT = String.raw`(menus\/[^/]+\/[^/]+|platform\/[^/]+)`;
+const MENU_FRAGMENT = new RegExp(`^${MENU_ROOT}\\/changes\\/[^/]+\\.md$`);
+const MENU_RELEASE_FILE = new RegExp(`^${MENU_ROOT}\\/(package\\.json|CHANGELOG\\.md)$`);
+const VERSION_DIFF = /^[-+]\s*"version":\s*"/;
 
-/** Release mechanical change (#2654): a `package.json` whose only change is its `version` or `ap.sdk` range line, or a deleted SDK change fragment. */
+/** Release mechanical change (#2654): a `package.json` whose only change is its `version` or `ap.sdk` range line, or a deleted SDK or menu change fragment. */
 export function isReleaseMechanical(f) {
-  if (f.status === 'removed' && FRAGMENT.test(f.filename)) return true;
+  if (f.status === 'removed' && (SDK_FRAGMENT.test(f.filename) || MENU_FRAGMENT.test(f.filename))) return true;
   if (!/(^|\/)package\.json$/.test(f.filename) || f.additions !== 1 || f.deletions !== 1 || typeof f.patch !== 'string') return false;
   const changed = f.patch.split('\n').filter((l) => /^[-+]/.test(l));
   return changed.length === 2 && changed.every((l) => RELEASE_LINE.test(l)) && changed[0].replace(/^-\s*"(\w+)".*/, '$1') === changed[1].replace(/^\+\s*"(\w+)".*/, '$1');
+}
+
+function versionLineTouched(file) {
+  // GitHub omits the patch on a large diff. A version change we cannot see still fails.
+  if (typeof file.patch !== 'string') return true;
+  return file.patch.split('\n').some((line) => VERSION_DIFF.test(line));
+}
+
+/** A menu PR must not edit `version` or CHANGELOG.md unless it deletes one fragment of that same menu. A rename or move
+ *  without content changes (no added or deleted lines) is not an edit. */
+export function menuChangelogVerdict(files) {
+  const folded = new Set();
+  for (const file of files) {
+    const match = file.status === 'removed' && MENU_FRAGMENT.exec(file.filename);
+    if (match) folded.add(match[1]);
+  }
+  const menus = new Set();
+  for (const file of files) {
+    if (file.status === 'added' || file.status === 'removed') continue;
+    const match = MENU_RELEASE_FILE.exec(file.filename);
+    if (!match || folded.has(match[1])) continue;
+    if (file.status === 'renamed' && (file.additions ?? 0) + (file.deletions ?? 0) === 0) continue;
+    if (match[2] === 'package.json' && !versionLineTouched(file)) continue;
+    menus.add(match[1]);
+  }
+  const list = [...menus].sort();
+  return { ok: list.length === 0, menus: list };
 }
 
 /** Changed lines and files after exclusions; `over` is true when either cap is exceeded. An over-cap PR passes with the owner label or a `Size:` body line. */
@@ -138,7 +173,7 @@ function labelsNote(size) {
   return size.answer ? `, Size: ${size.answer}` : `, waived by \`${SIZE_LABEL}\``;
 }
 
-export function summarize({ size, rounds, scope, budget, labelEvents, releaseFile }) {
+export function summarize({ size, rounds, scope, budget, labelEvents, releaseFile, menuChangelog }) {
   const mark = (ok) => (ok ? 'ok' : 'FAIL');
   const rows = [
     `| size | ${mark(size.ok)} | ${size.lines} lines, ${size.files} files (cap ${MAX_LINES}/${MAX_FILES}; ${size.excluded} generated/snapshot/lockfile/release-mechanical excluded)${size.waived ? (labelsNote(size)) : ''} |`,
@@ -146,6 +181,12 @@ export function summarize({ size, rounds, scope, budget, labelEvents, releaseFil
     `| scope | ${mark(scope.ok)} | closes ${scope.closes.length ? scope.closes.map((n) => `#${n}`).join(' ') : 'nothing'}; ${scope.noSection ? `no \`## 범위\` in ${releaseFile ?? 'any release file'} on the base branch` : `missing from ${releaseFile}: ${scope.missing.map((n) => `#${n}`).join(' ') || 'none'}`}${scope.grew.length ? `; head adds ${scope.grew.map((n) => `#${n}`).join(' ')} to \`## 범위\`` : ''}${scope.waived ? `; waived by \`${SCOPE_LABEL}\`` : ''} |`,
   ];
   if (budget) rows.push(`| CI budget | ${mark(budget.ok)} | ${budget.detail} |`);
+  if (menuChangelog) {
+    const detail = menuChangelog.ok
+      ? 'version and CHANGELOG change only when that menu deletes a fragment'
+      : `${menuChangelog.menus.join(', ')} changes version or CHANGELOG without a deleted fragment (menus/AGENTS.md)`;
+    rows.push(`| menu changelog | ${mark(menuChangelog.ok)} | ${detail} |`);
+  }
   const events = labelEvents.length ? labelEvents.map((e) => `- \`${e.label}\` applied by ${e.actor} at ${e.at}`).join('\n') : '- none';
   return `## PR guard\n\n| check | verdict | detail |\n| --- | --- | --- |\n${rows.join('\n')}\n\nOwner labels:\n${events}\n`;
 }
@@ -243,6 +284,29 @@ function selfTest() {
   assert.match(summarize({ size: sizeVerdict([], []), rounds: roundsVerdict(2, 'Round cap: lead — split: #9', ['fix(#1): 리뷰 2회차 — a']), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md' }),
     /\| rounds \| ok \| .*Round cap: lead — split: #9; fix after review round 2: «fix\(#1\): 리뷰 2회차 — a» \|/);
   assert.match(text, /\| scope \| FAIL \| closes #1; missing from v0\.44\.0\.md: #1/);
+  const menuFragment = (n) => ({ filename: `menus/mars/hw-time/changes/${n}.md`, additions: 0, deletions: 3, status: 'removed' });
+  const versionPatch = '@@ -3 +3 @@\n-  "version": "0.11.34",\n+  "version": "0.11.35",\n';
+  const row = (filename, status, patch, additions = 1, deletions = 1) => ({ filename, status, patch, additions, deletions });
+  const menuOk = (files) => menuChangelogVerdict(files).ok;
+  assert.equal(sizeVerdict([menuFragment(3113)], []).files, 0, 'a deleted menu change fragment is release-mechanical');
+  assert.equal(sizeVerdict([{ ...menuFragment(1), filename: 'menus/mars/changes/1.md' }], []).files, 1, 'only fragments inside a menu package');
+  assert.equal(sizeVerdict([{ ...menuFragment(1), status: 'added', additions: 3, deletions: 0 }], []).files, 1, 'an added menu fragment counts');
+  assert.deepEqual(menuChangelogVerdict([row('menus/mars/hw-time/package.json', 'modified', versionPatch)]).menus, ['menus/mars/hw-time']);
+  assert.equal(menuOk([row('menus/mars/hw-time/CHANGELOG.md', 'modified', '@@\n-a\n+b\n')]), false);
+  assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'modified', versionPatch), row('menus/mars/hw-time/CHANGELOG.md', 'modified', '@@\n-a\n+b\n'), menuFragment(3113)]), true, 'a deleted fragment marks the release fold');
+  assert.equal(menuOk([row('menus/mars/hw-time/CHANGELOG.md', 'modified', '@@\n-a\n+b\n'), { filename: 'menus/bravo/metrics/changes/1.md', status: 'removed', additions: 0, deletions: 2 }]), false, 'another menu fragment does not cover this one');
+  assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'added', versionPatch, 20, 0), row('menus/mars/hw-time/CHANGELOG.md', 'added', '@@\n+## 0.1.0\n', 10, 0)]), true, 'an added menu');
+  assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'removed', versionPatch, 0, 20), row('menus/mars/hw-time/CHANGELOG.md', 'removed', '@@\n-## 0.1.0\n', 0, 10)]), true, 'a removed menu');
+  assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'modified', '@@ -5 +5 @@\n-  "ap": { "sdk": ">=0.49.0 <0.50.0" },\n+  "ap": { "sdk": ">=0.50.0 <0.51.0" },\n')]), true, 'an ap.sdk-only package.json change');
+  assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'modified', '@@ -20 +20 @@\n-    "react": "19.0.0"\n+    "react": "19.1.0"\n')]), true, 'a dependency change is not a version bump');
+  assert.equal(menuOk([{ filename: 'menus/mars/hw-time/package.json', status: 'modified', additions: 1, deletions: 1 }]), false, 'no patch fails closed');
+  const moved = (filename) => ({ filename, previous_filename: filename.replace('mars', 'bravo'), status: 'renamed', additions: 0, deletions: 0 });
+  assert.equal(menuOk([moved('menus/mars/hw-time/package.json'), moved('menus/mars/hw-time/CHANGELOG.md')]), true, 'moving a menu without edits');
+  assert.equal(menuOk([{ ...moved('menus/mars/hw-time/package.json'), additions: 1, deletions: 1, patch: versionPatch }]), false, 'a move that bumps the version');
+  assert.deepEqual(menuChangelogVerdict([row('platform/home/CHANGELOG.md', 'modified', '@@\n-a\n+b\n')]).menus, ['platform/home']);
+  assert.equal(menuOk([row('platform/home/CHANGELOG.md', 'modified', '@@\n-a\n+b\n'), { filename: 'platform/home/changes/2.md', status: 'removed', additions: 0, deletions: 2 }]), true);
+  assert.equal(sizeVerdict([{ filename: 'platform/home/changes/2.md', status: 'removed', additions: 0, deletions: 2 }], []).files, 0);
+  assert.match(summarize({ size: sizeVerdict([], []), rounds: roundsVerdict(1, ''), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md', menuChangelog: menuChangelogVerdict([row('menus/mars/hw-time/CHANGELOG.md', 'modified', '@@\n-a\n+b\n')]) }), /\| menu changelog \| FAIL \| menus\/mars\/hw-time .*menus\/AGENTS\.md/);
   console.log('pr-guard self-test passed');
 }
 
@@ -293,11 +357,13 @@ async function main() {
   const size = sizeVerdict(files, labels, pr.body);
   const rounds = roundsVerdict(runs.length, pr.body, commits.map((c) => c.commit.message.split('\n')[0]));
   const scope = scopeVerdict({ closes: closingIssues(pr.title, pr.body), baseScope: scopeIssues(baseText), headScope: scopeIssues(headText), labels });
-  const text = summarize({ size, rounds, scope, budget, labelEvents, releaseFile });
+  const menuChangelog = menuChangelogVerdict(files);
+  const text = summarize({ size, rounds, scope, budget, labelEvents, releaseFile, menuChangelog });
   console.log(text);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text);
-  if (!(size.ok && rounds.ok && scope.ok && (budget?.ok ?? true))) {
-    console.error(`pr-guard: FAIL (size=${size.ok} rounds=${rounds.ok} scope=${scope.ok} budget=${budget?.ok ?? 'unchanged'}). Rules: .agents/conductor/PROFILE.md §Size and path, Mechanical caps.`);
+  if (!(size.ok && rounds.ok && scope.ok && (budget?.ok ?? true) && menuChangelog.ok)) {
+    const menuFail = menuChangelog.ok ? '' : ` ${menuChangelog.menus.join(', ')} (menus/AGENTS.md).`;
+    console.error(`pr-guard: FAIL (size=${size.ok} rounds=${rounds.ok} scope=${scope.ok} budget=${budget?.ok ?? 'unchanged'} menu=${menuChangelog.ok}).${menuFail} Rules: .agents/conductor/PROFILE.md §Size and path, Mechanical caps.`);
     process.exit(1);
   }
 }

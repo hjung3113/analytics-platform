@@ -370,6 +370,8 @@ test('SDK drift reports on PR/main; strict comparison only on full manual releas
   assert.match(step, /pnpm sdk:api --self-test/);
   assert.match(step, /pnpm sdk:test/);
   assert.match(workflow, /node tooling\/sdk\/sdk-changelog.mjs --check/);
+  assert.match(workflow, /node tooling\/changes\/menus.mjs --check/);
+  assert.match(workflow, /node --test tooling\/changes\/menus.test.mjs/);
   assert.doesNotMatch(step, /pnpm build|--update/);
 });
 
