@@ -120,15 +120,14 @@ type BarsProps = {
   highlightedValues?: readonly string[];
 };
 const noHighlightedEquipment: readonly string[] = [];
-/** Workspace tabs stay visible when the Frame's own title is hidden by panel chrome. */
-/** The localized drill title of a slot; `dayBasis` names the step-3 «일별» heatmap instead of the Motion bars (#3046). */
+/** The localized drill title of a slot; `dayBasis` names the step-3 «일별» heatmap (its catalogue name) instead of the Motion bars (#3046). */
 function barsTitle({ depth, typeId, motionId, moduleId, previous = false, allMotions = false, dayBasis = false }: Pick<BarsProps, 'depth' | 'typeId' | 'motionId' | 'moduleId' | 'previous' | 'allMotions'> & { dayBasis?: boolean }) {
   let message: Text = S.overview;
   if (depth === 2) message = S.typeBars;
   if (depth === 3) message = dayBasis ? S.motionDays : S.motionBars;
   if (depth === 4) message = allMotions ? S.moduleMotions : S.moduleBars;
-  const params = { type: typeId ?? '', motion: motionId ?? '', module: moduleId ?? '' };
-  const title = { ko: formatText(message, 'ko', params), en: formatText(message, 'en', params) };
+  const params = (lang: 'ko' | 'en') => ({ type: typeId ?? '', motion: motionId ?? '', module: moduleId ?? '', panel: N.equipmentDays[lang] });
+  const title = { ko: formatText(message, 'ko', params('ko')), en: formatText(message, 'en', params('en')) };
   return previous ? { ko: `${title.ko} · ${S.previous.ko}`, en: `${title.en} · ${S.previous.en}` } : title;
 }
 function Bars({ depth, queries, typeId, motionId, moduleId, filter, options, values, onChange, onOpenTrend, previous = false, allMotions = false, analysisSelectionOutput, highlightedValues }: BarsProps) {
