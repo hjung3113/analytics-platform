@@ -142,6 +142,23 @@ describe('AuditTimeline older pages (ADR-0085)', () => {
     outside.remove();
   });
 
+  it.each([
+    ['refocused within the same task still counts as on the button', true],
+    ['left for nowhere no longer counts', false],
+  ] as const)('a blur of the button that is %s when the load ends the list (#3072)', async (_label, refocus) => {
+    const view = mount(FIRST, more());
+    const button = screen.getByRole('button', { name: BUTTON });
+    button.focus();
+    // relatedTarget is null for both: a programmatic blur, then (or not) the same button focused again before the deferred release.
+    act(() => { button.blur(); if (refocus) button.focus(); });
+    await act(async () => { await Promise.resolve(); });
+    // The end removes the button, so only the flag kept by its focus events decides whether the end caption takes focus.
+    again(view, FIRST, more({ status: 'end', last: { seq: 1, added: 0, firstId: null } }));
+    const caption = screen.getByText('더 이전 변경 이력이 없습니다.', { selector: 'p.t-caption' });
+    if (refocus) expect(caption).toHaveFocus();
+    else expect(caption).not.toHaveFocus();
+  });
+
   it('announces how many changes were added through one polite status region', () => {
     const view = mount(FIRST, more());
     again(view, [...FIRST, ...MORE], more({ last: { seq: 1, added: 2, firstId: 'e3' } }));

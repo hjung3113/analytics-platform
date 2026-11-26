@@ -48,6 +48,7 @@ export type { ChartStatus } from './chartStatus';
 export type { ChartRowGroups } from './chartRowGroups';
 
 import { AnalysisChartPart, chartDescriptionContent, ChartHeading, ChartTrustFooter, ChartZoomButton, ChartLegendLabel, ChartLegendLayout, summaryPresentation } from './analysisChartFrameParts';
+import { releaseFocusLater } from '../state/releaseFocusLater';
 
 export type ChartSeries = {
   id: string;
@@ -1665,7 +1666,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
               if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
               // Removing the focused button also fires focusout (relatedTarget null, activeElement body) while the row is still attached; judge after the commit: a row that is gone keeps ownership.
               const group = e.currentTarget;
-              queueMicrotask(() => { if (group.isConnected && !group.contains(document.activeElement)) editor.focusOnConfirm.current = false; });
+              releaseFocusLater(group, () => { editor.focusOnConfirm.current = false; });
             }}>
               <span>{m('chartAnnotationDeletePrompt')}</span>
               <Button size="toolbar" variant="destructive" autoFocus aria-disabled={editor.deleting} onClick={() => void editor.deleteNote(a.id)}>{m('chartAnnotationDeleteConfirm')}</Button>
