@@ -482,6 +482,23 @@ describe('PanelWorkspace: local preference', () => {
     await waitFor(() => expect(first()).toHaveAttribute('aria-valuenow', resized));
   });
 
+  it('switches the layout scope without remounting a panel, writing the left scope first and applying each scope its own layout (#3128)', async () => {
+    const view = mountWorkspace({ persistenceScope: 'A' });
+    await ready();
+    expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
+    const first = () => screen.getByRole('separator', { name: '선택기 · 지표 사이 너비' });
+    const original = first().getAttribute('aria-valuenow');
+    fireEvent.keyDown(first(), { key: 'ArrowRight' });
+    const resized = first().getAttribute('aria-valuenow');
+    expect(resized).not.toBe(original);
+    // No pagehide: the change is still waiting for its delayed write when the scope moves on.
+    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="B" />));
+    await waitFor(() => expect(first()).toHaveAttribute('aria-valuenow', original));
+    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="A" />));
+    await waitFor(() => expect(first()).toHaveAttribute('aria-valuenow', resized));
+    expect(mounts).toEqual({ trend: 1, selector: 1, detail: 1, kpi: 1 });
+  });
+
   it('retains eight most recently written layout scopes and starts an evicted scope from the unscoped preference (#3001)', async () => {
     storage.setItem(KEY(), JSON.stringify({ v: 1, preset: 'focus', hidden: [], layout: group(['trend', 'selector', 'detail', 'kpi']) }));
     const view = mountWorkspace({ persistenceScope: '0' });
