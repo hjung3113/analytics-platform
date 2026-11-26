@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { buildQuery, emptyGlobal, groupId, spaceId, type Result, type SavedView, type SavedViewEntry, type SavedViewSupport } from '@ap/contracts';
+import { buildQuery, emptyGlobal, groupId, spaceId, type SavedView, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, useSavedViewSupport } from '../../index';
 import { useSavedViews, type SavedViews } from '../../host';
 import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSession, testSpace, type FakeSavedViewStore } from '../../testing';
@@ -52,7 +52,7 @@ describe('a saved view of a menu missing from the registry (#1702)', () => {
     expect(store.calls).toEqual([]);
     expect(views.menuViews.map(item => (item.denied ? item.id : item.view.id))).toEqual(['home-view']);
 
-    let saved: Result<SavedViewEntry> | undefined;
+    let saved: Awaited<ReturnType<SavedViews['saveAs']>> | undefined;
     await act(async () => { saved = await views.saveAs({ name: '새 뷰', kind: 'menu-view' }); });
     expect(saved?.ok).toBe(true);
     await waitFor(() => expect(views.menuViews).toHaveLength(2));

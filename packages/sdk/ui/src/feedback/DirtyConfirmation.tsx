@@ -19,6 +19,8 @@ export interface DirtyConfirmationProps {
   message?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Keep the confirm action focusable while refusing activation. */
+  confirmBlock?: { summary: string; reasons: string };
 }
 
 const DEFAULT_TITLE = '변경사항이 저장되지 않았습니다';
@@ -34,7 +36,9 @@ export function DirtyConfirmation({
   message = DEFAULT_MESSAGE,
   confirmLabel = DEFAULT_CONFIRM,
   cancelLabel = DEFAULT_CANCEL,
+  confirmBlock,
 }: DirtyConfirmationProps) {
+  const blockId = React.useId();
   // Buttons close the dialog through Radix since #1324; onOpenChange must not re-run the
   // callback the button already ran, so only other closes (Escape) fall through to onCancel.
   const buttonHandled = React.useRef(false);
@@ -51,6 +55,10 @@ export function DirtyConfirmation({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{message}</AlertDialogDescription>
         </AlertDialogHeader>
+        {confirmBlock && <p className="break-words text-xs text-text-secondary" title={confirmBlock.reasons}>
+          <span aria-hidden="true">{confirmBlock.summary}</span>
+          <span className="sr-only" id={blockId}>{confirmBlock.reasons}</span>
+        </p>}
         <AlertDialogFooter>
           <AlertDialogCancel
             className={buttonVariants({ variant: 'secondary' })}
@@ -60,7 +68,13 @@ export function DirtyConfirmation({
           </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
-            onClick={() => { markButtonHandled(); onConfirm(); }}
+            aria-disabled={confirmBlock ? true : undefined}
+            aria-describedby={confirmBlock ? blockId : undefined}
+            className="aria-disabled:opacity-50"
+            onClick={event => {
+              if (confirmBlock) { event.preventDefault(); return; }
+              markButtonHandled(); onConfirm();
+            }}
           >
             {confirmLabel}
           </AlertDialogAction>

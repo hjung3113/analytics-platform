@@ -1,7 +1,23 @@
+import type { Text } from '../i18n';
+
 // Inline NODE_ENV comparison so production builds drop the warning (#3028); typed locally as in context/drillValueLabel.ts.
 declare const process: { env: { NODE_ENV?: string } };
-type Slot = { value: unknown; apply: (value: never) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
+type SaveBlock = string | Text;
+const NO_SAVE_BLOCKS: readonly SaveBlock[] = [];
+type Slot = { value: unknown; blocked?: SaveBlock | undefined; apply: (value: never) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
 export type ViewSlots = ReturnType<typeof createScreenSlots>;
+export const saveBlockKey = (reason: SaveBlock): string =>
+  JSON.stringify(typeof reason === 'object' ? [reason.ko, reason.en] : reason);
+
+export function collectSaveBlocks(...screens: (ViewSlots | undefined)[]): readonly SaveBlock[] {
+  const reasons = new Map<string, SaveBlock>();
+  for (const screen of screens) for (const reason of screen?.saveBlocks() ?? []) {
+    const key = saveBlockKey(reason);
+    if (!reasons.has(key)) reasons.set(key, reason);
+  }
+  return reasons.size === 0 ? NO_SAVE_BLOCKS : [...reasons.values()];
+}
+
 function sameValue(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   if (!left || !right || typeof left !== 'object' || typeof right !== 'object' || Array.isArray(left) !== Array.isArray(right)) return false;
@@ -32,7 +48,7 @@ function createScreenSlots() {
     snapshot: () => revision,
     changed: emit,
     retry(field: string, key: string) { applyKey(field, key); emit(); },
-    register<T>(field: string, key: string, slot: { value: T; apply: (value: T) => void; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
+    register<T>(field: string, key: string, slot: { value: T; blocked?: SaveBlock | undefined; apply: (value: T) => void; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
       let keys = fields.get(field);
       if (!keys) { keys = new Map(); fields.set(field, keys); }
       const entry = slot as Slot;
@@ -47,6 +63,12 @@ function createScreenSlots() {
         if (rest.length) keys.set(key, rest); else keys.delete(key);
         emit();
       };
+    },
+    *saveBlocks(): Iterable<SaveBlock> {
+      for (const keys of fields.values()) for (const entries of keys.values()) for (const entry of entries) {
+        const reason = entry.blocked;
+        if (reason !== undefined) yield reason;
+      }
     },
     capture<T>(field: string): Record<string, T> {
       return Object.fromEntries([...(fields.get(field) ?? [])].flatMap(([key, entries]) => {

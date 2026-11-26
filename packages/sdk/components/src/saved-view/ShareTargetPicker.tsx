@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { word, memberCountText, shareSummaryText, groupCreatedText } from './text';
 import type { GroupMember, Result, ViewGroupEntry } from '@ap/contracts';
@@ -6,6 +6,7 @@ import { Badge, Button, Checkbox, Dialog, DialogContent, DialogDescription, Dial
 import { SegmentedRadio } from '../RadioGroup';
 import { GroupEditor } from './GroupEditor';
 import { personLabel, toggleMember, usePeopleSearch, type PeopleSearch } from './people';
+import { SaveBlockNotice, type SaveBlock } from './SaveBlockNotice';
 
 export type ShareMode = 'private' | 'people' | 'groups' | 'official';
 /** The unsaved choice. `official` asks for approval and leaves who can see the view unchanged. */
@@ -29,6 +30,7 @@ export type ShareTargetPickerProps = {
   onConfirm: (draft: ShareTargetDraft) => void | boolean | Promise<boolean | void>;
   /** Why the last confirm did not go through; shown in the picker, which stays open with the draft. */
   confirmError?: string | null;
+  saveBlock?: SaveBlock;
 };
 
 export function ShareTargetPicker(props: ShareTargetPickerProps) {
@@ -37,8 +39,9 @@ export function ShareTargetPicker(props: ShareTargetPickerProps) {
 
 type EditorState = { kind: 'create'; members: readonly GroupMember[] } | { kind: 'edit'; id: string } | null;
 
-function PickerBody({ lang = 'ko', onOpenChange, value, groups, currentUserId, searchPeople, onCreateGroup, onUpdateGroup, onConfirm, confirmError }: ShareTargetPickerProps) {
+function PickerBody({ lang = 'ko', onOpenChange, value, groups, currentUserId, searchPeople, onCreateGroup, onUpdateGroup, onConfirm, confirmError, saveBlock }: ShareTargetPickerProps) {
   const [busy, setBusy] = useState(false);
+  const saveBlockId = useId();
   const [draft, setDraft] = useState<ShareTargetDraft>(value);
   const [groupQuery, setGroupQuery] = useState('');
   const [peopleQuery, setPeopleQuery] = useState('');
@@ -57,6 +60,7 @@ function PickerBody({ lang = 'ko', onOpenChange, value, groups, currentUserId, s
   const people = usePeopleSearch(searchPeople, peopleQuery);
   // A caller that answers with a promise decides when the picker closes: `false` (or a throw) keeps it open with the draft and the choice.
   const confirm = async () => {
+    if (saveBlock || busy) return;
     const result = onConfirm(draft);
     if (!(result instanceof Promise)) { if (result !== false) onOpenChange(false); return; }
     setBusy(true);
@@ -176,10 +180,11 @@ function PickerBody({ lang = 'ko', onOpenChange, value, groups, currentUserId, s
     {notice && <p role="status" className="text-xs text-text-secondary">{notice}</p>}
 
     {confirmError && <p role="alert" className="text-xs text-text-danger-label">{confirmError}</p>}
+    {saveBlock && <SaveBlockNotice id={saveBlockId} block={saveBlock} />}
 
     <DialogFooter>
       <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{word('cancel', lang)}</Button>
-      <Button type="button" disabled={incomplete || busy} onClick={() => { void confirm(); }}>{word('saveTargets', lang)}</Button>
+      <Button type="button" disabled={!saveBlock && (incomplete || busy)} aria-disabled={saveBlock ? true : undefined} aria-describedby={saveBlock ? saveBlockId : undefined} className="aria-disabled:opacity-50" onClick={() => { void confirm(); }}>{word('saveTargets', lang)}</Button>
     </DialogFooter>
 
     <GroupEditor

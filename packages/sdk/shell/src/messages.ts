@@ -94,6 +94,8 @@ export const SHELL_MESSAGES = {
   savedViewUnavailable: { ko: '뷰를 불러오지 못했습니다.', en: 'The view could not be loaded.' },
   savedViewDenied: { ko: '이 뷰를 볼 권한이 없습니다.', en: 'You cannot view this.' },
   savedViewUpdated: { ko: '현재 뷰에 저장했습니다.', en: 'Saved to this view.' },
+  savedViewBlocked: { ko: '화면의 저장 차단 사유를 확인하세요.', en: 'Check why saving is blocked on this screen.' },
+  savedViewBlockedMore: { ko: '{reason} 외 {count}건', en: '{reason} (+{count} more)' },
   savedViewSavedAs: { ko: '"{name}" 뷰를 저장했습니다.', en: 'Saved "{name}".' },
   savedViewSavedShareFailed: { ko: '"{name}" 뷰는 저장했지만 공유 대상은 바꾸지 못했습니다. {reason}', en: 'Saved "{name}" but could not share it. {reason}' },
   savedViewSaveFailed: { ko: '"{name}" 뷰를 저장하지 못했습니다. {reason}', en: 'Could not save "{name}". {reason}' },

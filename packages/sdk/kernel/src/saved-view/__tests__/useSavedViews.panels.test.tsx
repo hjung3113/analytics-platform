@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useContext, useLayoutEffect, useState, type ReactNode } from 'react';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -6,7 +6,7 @@ import { followHeldSets, groupId, spaceId, type MenuView, type MenuViewPanels, t
 import { I18nProvider, PlatformProvider, createRegistry, useSavedViewPanels, useSavedViewSupport } from '../../index';
 import { PaneScreenProvider, useHostPlatform, useSavedViews, type SavedViews } from '../../host';
 import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSpace } from '../../testing';
-import { LentPanelPlatformContext } from '../../platform/contexts';
+import { AppContext, LentPanelPlatformContext } from '../../platform/contexts';
 
 const support: SavedViewSupport = { menuId: 'home', menuSchemaVersion: 1, contextKeys: [], pageKeys: [] };
 const makeRegistry = (autoApplyDefault: boolean) => createRegistry({
@@ -72,6 +72,54 @@ async function mount({ saved = row(), registrations = 1, store = createFakeSaved
 
 beforeEach(() => { window.sessionStorage.clear(); opened.mockClear(); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
+
+const mappingReason = { ko: '패널 연결을 확인하세요.', en: 'Check the panel mapping.' };
+
+it('refuses both saves while a panel reports a reason, then saves when it clears', async () => {
+  let setBlock!: (blocked: boolean) => void;
+  function Draft() {
+    const [blocked, setBlocked] = useState(false);
+    setBlock = setBlocked;
+    useSavedViewPanels({ value: panels, onOpen: () => {}, saveBlocked: blocked ? mappingReason : undefined });
+    return null;
+  }
+  const store = await mount({ registrations: 0, children: <Draft /> });
+  await act(async () => { await views.select('saved'); });
+  const { saveAs, saveToSelected } = views;
+  act(() => setBlock(true));
+  expect(views.saveBlocked).toEqual([mappingReason]);
+  const input = { name: 'copy', kind: 'menu-view' } as const;
+  await act(async () => {
+    expect(await saveAs(input)).toEqual({ ok: false, reason: 'blocked' });
+    expect(await saveToSelected()).toEqual({ ok: false, reason: 'blocked' });
+  });
+  expect(store.calls).toEqual([]);
+  act(() => setBlock(false));
+  expect(views.saveBlocked).toEqual([]);
+  await act(async () => {
+    expect(await views.saveToSelected()).toMatchObject({ ok: true });
+    expect(await views.saveAs(input)).toMatchObject({ ok: true });
+  });
+  expect(store.calls).toEqual(['update', 'save']);
+});
+
+it('collects distinct reasons across slot kinds', async () => {
+  const other = 'Check the table configuration.';
+  function Drafts() {
+    const registry = useContext(AppContext)?.internal.savedViewSlots;
+    useSavedViewPanels({ value: panels, onOpen: () => {}, saveBlocked: mappingReason });
+    useLayoutEffect(() => {
+      const slots = registry?.screen(JSON.stringify(['home', null]));
+      const release = slots?.register('tables', 'first', { value: null, apply: () => {}, blocked: { ...mappingReason } });
+      const releaseOther = slots?.register('tables', 'second', { value: null, apply: () => {}, blocked: other });
+      return () => { release?.(); releaseOther?.(); };
+    }, [registry]);
+    return null;
+  }
+  await mount({ registrations: 0, children: <Drafts /> });
+  expect(views.saveBlocked).toHaveLength(2);
+  expect(views.saveBlocked).toEqual(expect.arrayContaining([mappingReason, other]));
+});
 
 it('captures registered panels when saving a new menu view', async () => {
   await mount();
