@@ -4,32 +4,47 @@ import { useMessages } from '@ap/kernel';
 import { groupOf } from '../dock/commands';
 import { dockTheme } from '../dock/dockPresentation';
 import type { DockNode } from '../dock/schema';
+import { dockStripElement } from '../dock/tabElements';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { usePointerDrag } from './usePointerDrag';
 
-const START_DISTANCE = 5;
+const DOCK = '[data-dock-layout]';
+const GROUP = '.dv-groupview';
+const ACTIONS = '[data-dock-group-actions][data-dock-active]';
 type Side = 'top' | 'bottom';
 export type PanelAddPlacement = { panelId: string; position: Side };
-type Start = (event: ReactPointerEvent<HTMLElement>, id: string, add: () => unknown) => void;
+type Start = (event: ReactPointerEvent<HTMLElement>, id: string, add: (id: string) => string | undefined) => void;
 export const PanelAddDragContext = createContext<Start | null>(null);
 type Zone = { group: Element; panelId: string; rect: DOMRect; reason?: string };
 type Pick = { zone: Zone; position: Side };
-type Preview = { doc: Document; zones: Zone[]; pick?: Pick };
+type Preview = { dock: HTMLElement; origin: DOMRect; zones: Zone[]; pick?: Pick };
 
-function zonesOf(slot: HTMLElement, layout: DockNode, blocked: string | undefined, floating: string): Zone[] {
-  const dock = slot.querySelector('[data-dock-layout]');
-  return Array.from(dock?.querySelectorAll<HTMLElement>('[data-dock-group-actions]') ?? []).flatMap(action => {
-    const group = action.closest('.dv-groupview');
+function zonesOf(dock: HTMLElement, layout: DockNode, blocked: string | undefined, floating: string): Zone[] {
+  return Array.from(dock.querySelectorAll<HTMLElement>(ACTIONS)).flatMap(action => {
+    const group = action.closest(GROUP);
     const panelId = action.dataset.dockActive;
-    if (!group || !panelId || group.closest('[data-dock-layout]') !== dock || group.closest('.dv-hidden')) return [];
+    if (!group || !panelId || group.closest(DOCK) !== dock || group.closest('.dv-hidden')) return [];
     const rect = group.getBoundingClientRect();
     if (!rect.width || !rect.height) return [];
     const reason = groupOf(layout, panelId) ? blocked : floating;
     return [{ group, panelId, rect, reason }];
-  }).sort((a, b) => Number(!a.reason) - Number(!b.reason));
+  });
 }
 
-function pickAt(zones: Zone[], { clientX: x, clientY: y }: PointerEvent): Pick | undefined {
-  const zone = zones.find(({ rect }) => x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom);
+function panelAt(dock: HTMLElement, x: number, y: number) {
+  let hit = dock.ownerDocument.elementFromPoint?.(x, y);
+  if (!hit || !dock.contains(hit)) return;
+  // An inner workspace occupies its containing panel's body.
+  for (let owner = hit.closest(DOCK); owner && owner !== dock; owner = owner.parentElement?.closest(DOCK) ?? null) hit = owner;
+  const body = hit.closest<HTMLElement>('[data-dock-panel][data-dock-visible="true"]');
+  if (body?.closest(DOCK) === dock) return body.dataset.dockPanel;
+  const header = dockStripElement(hit);
+  return header?.closest(DOCK) === dock ? header.querySelector<HTMLElement>(ACTIONS)?.dataset.dockActive : undefined;
+}
+
+function pickAt(dock: HTMLElement, zones: Zone[], { clientX: x, clientY: y }: PointerEvent): Pick | undefined {
+  const panelId = panelAt(dock, x, y);
+  const zone = zones.find(zone => zone.panelId === panelId && x >= zone.rect.left && x < zone.rect.right && y >= zone.rect.top && y < zone.rect.bottom);
   return zone && { zone, position: y < zone.rect.top + zone.rect.height / 2 ? 'top' : 'bottom' };
 }
 
@@ -47,111 +62,66 @@ export function usePanelAddDrag(slotRef: RefObject<HTMLDivElement | null>, optio
   const m = useMessages(COMPONENTS_MESSAGES);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [status, setStatus] = useState('');
-  const active = useRef<{ cancel: () => void; dispose: () => void } | null>(null);
+  const gesture = usePointerDrag();
+  const { cancel } = gesture;
   const live = useRef({ ...options, preview });
   useLayoutEffect(() => {
-    if (live.current.scope !== options.scope) { active.current?.cancel(); setStatus(''); }
+    if (live.current.scope !== options.scope) { cancel(); setStatus(''); }
     live.current = { ...options, preview };
-  }, [options, preview]);
-  useLayoutEffect(() => () => active.current?.dispose(), []);
+  }, [options, preview, cancel]);
 
   const start: Start = (event, id, add) => {
     const source = event.currentTarget;
     const content = source.closest('[data-panel-add-content]');
-    const slot = slotRef.current;
-    const doc = source.ownerDocument;
-    const win = doc.defaultView;
-    if (event.button !== 0 || event.isPrimary === false || active.current || !slot || !content || !win) return;
-    const { pointerId, clientX, clientY } = event;
+    const dock = slotRef.current?.querySelector<HTMLElement>(DOCK);
+    if (!dock || !content) return;
     const { scope } = live.current;
     const floating = m('panelAddDropFloating');
-    const listener = new AbortController();
-    const capture = { capture: true, signal: listener.signal };
-    let phase: 'pending' | 'dragging' | 'cancelled' = 'pending';
-    let zones: Zone[] = [];
     let layout: DockNode;
-    const eligible = () => source.isConnected && source.dataset.panelAddSource === id && slot.isConnected;
-    const clear = () => { content.removeAttribute('data-panel-add-dragging'); setPreview(null); };
-    const dispose = () => {
-      listener.abort(); active.current = null;
-      content.removeAttribute('data-panel-add-dragging');
-      if (source.hasPointerCapture?.(pointerId)) source.releasePointerCapture(pointerId);
-    };
-    const cancel = () => {
-      if (phase === 'pending') dispose();
-      if (phase === 'dragging') { phase = 'cancelled'; clear(); }
-    };
-    setStatus('');
-    active.current = { cancel, dispose };
-    win.addEventListener('pointerdown', () => { if (phase === 'cancelled') dispose(); }, capture);
-    win.addEventListener('pointermove', move => {
-      if (move.pointerId !== pointerId || phase === 'cancelled') return;
-      if (!eligible()) { cancel(); return; }
-      if (phase === 'pending') {
-        if (Math.hypot(move.clientX - clientX, move.clientY - clientY) < START_DISTANCE) return;
-        phase = 'dragging';
-        try { source.setPointerCapture?.(pointerId); } catch (error) {
-          // Window listeners still receive events if the pointer ended just before capture.
-          if (!(error instanceof DOMException) || error.name !== 'NotFoundError') throw error;
-        }
+    let frozen: Preview;
+    const started = gesture.start(event, {
+      isSourceAvailable: () => dock.isConnected && content.isConnected && content.contains(source)
+        && content.getAttribute('data-state') === 'open' && source.dataset.panelAddSource === id,
+      sourceAttributes: ['data-panel-add-source', 'data-state'],
+      onStart: () => {
         content.setAttribute('data-panel-add-dragging', '');
         layout = live.current.layout;
-        zones = zonesOf(slot, layout, live.current.blocked, floating);
-      }
-      const pick = pickAt(zones, move);
-      setPreview(previous => previous?.zones === zones && samePick(previous.pick, pick) ? previous : { doc, zones, pick });
-      move.preventDefault();
-    }, capture);
-    win.addEventListener('pointerup', up => {
-      if (up.pointerId !== pointerId) return;
-      dispose();
-      if (phase === 'pending') return;
-      up.preventDefault();
-      const clickListener = new AbortController();
-      win.addEventListener('click', click => {
-        if (click.detail === 0 || ('pointerId' in click && click.pointerId !== pointerId)) return;
-        click.preventDefault(); click.stopImmediatePropagation();
-      }, { capture: true, signal: clickListener.signal });
-      win.setTimeout(() => clickListener.abort(), 0);
-      if (phase === 'cancelled') return;
-      clear();
-      const current = live.current;
-      if (!eligible() || scope !== current.scope) return;
-      const pick = current.preview?.pick;
-      if (layout !== current.layout || !samePick(pick, pickAt(zonesOf(slot, current.layout, current.blocked, floating), up))) {
-        setStatus(m('workspaceDropTargetChanged')); return;
-      }
-      if (!pick) return;
-      if (pick.zone.reason) { setStatus(pick.zone.reason); return; }
-      const opened = add();
-      const panelId = typeof opened === 'string' ? opened : id;
-      if (!groupOf(layout, panelId)) current.place(panelId, { panelId: pick.zone.panelId, position: pick.position });
-    }, capture);
-    win.addEventListener('pointercancel', cancelled => {
-      if (cancelled.pointerId !== pointerId) return;
-      if (phase === 'dragging') clear();
-      dispose();
-    }, capture);
-    win.addEventListener('lostpointercapture', lost => { if (lost.pointerId === pointerId && (lost.target === source || !eligible())) cancel(); }, capture);
-    win.addEventListener('blur', blur => { if (blur.target === blur.currentTarget) cancel(); }, capture);
-    win.addEventListener('keydown', key => {
-      if (key.key !== 'Escape' || phase !== 'dragging') return;
-      key.preventDefault(); key.stopImmediatePropagation(); cancel();
-    }, capture);
+        frozen = { dock, origin: dock.getBoundingClientRect(), zones: zonesOf(dock, layout, live.current.blocked, floating) };
+      },
+      onMove: move => {
+        const pick = pickAt(dock, frozen.zones, move);
+        setPreview(previous => previous?.zones === frozen.zones && samePick(previous.pick, pick) ? previous : { ...frozen, pick });
+      },
+      onDrop: up => {
+        const current = live.current;
+        if (scope !== current.scope) return;
+        const pick = current.preview?.pick;
+        if (layout !== current.layout || !samePick(pick, pickAt(dock, zonesOf(dock, current.layout, current.blocked, floating), up))) {
+          setStatus(m('workspaceDropTargetChanged')); return;
+        }
+        if (!pick) return;
+        if (pick.zone.reason) { setStatus(pick.zone.reason); return; }
+        const panelId = add(id);
+        if (panelId !== undefined && !groupOf(layout, panelId)) current.place(panelId, { panelId: pick.zone.panelId, position: pick.position });
+      },
+      onEnd: () => { content.removeAttribute('data-panel-add-dragging'); setPreview(null); },
+    });
+    if (started) setStatus('');
   };
 
-  const overlays = preview && createPortal(<div className={dockTheme(true).className} aria-hidden>
+  const overlays = preview && createPortal(<div className={`${dockTheme(true).className} pointer-events-none absolute inset-0 overflow-hidden`} data-panel-add-overlay aria-hidden>
     {preview.zones.filter(zone => zone.reason || zone === preview.pick?.zone).map(zone => {
       const { rect, reason } = zone;
       const position = reason ? undefined : preview.pick?.position;
       const height = position ? rect.height / 2 : rect.height;
-      return <div key={zone.panelId} data-panel-add-preview={position} data-panel-add-refused={reason ? '' : undefined} className="pointer-events-none fixed top-(--panel-add-top) left-(--panel-add-left) z-40 h-(--panel-add-height) w-(--panel-add-width)"
-        style={{ '--panel-add-top': `${position === 'bottom' ? rect.top + height : rect.top}px`, '--panel-add-left': `${rect.left}px`,
+      const top = rect.top - preview.origin.top + (position === 'bottom' ? height : 0);
+      return <div key={zone.panelId} data-panel-add-preview={position} data-panel-add-refused={reason ? '' : undefined} className="absolute top-(--panel-add-top) left-(--panel-add-left) h-(--panel-add-height) w-(--panel-add-width)"
+        style={{ '--panel-add-top': `${top}px`, '--panel-add-left': `${rect.left - preview.origin.left}px`,
           '--panel-add-height': `${height}px`, '--panel-add-width': `${rect.width}px` } as CSSProperties}>
         {reason ? <div className="grid size-full place-items-center bg-surface-canvas/75 p-2 text-center"><span className="rounded-md bg-surface-canvas px-2 py-1 text-sm text-text-primary">{reason}</span></div>
           : <div key={position} className="size-full opacity-75" ref={node => { node?.classList.add('dv-drop-target-selection', `dv-drop-target-${position}`); }} />}
       </div>;
     })}
-  </div>, preview.doc.body);
+  </div>, preview.dock);
   return { start, overlays, status };
 }

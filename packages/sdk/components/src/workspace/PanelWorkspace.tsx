@@ -575,8 +575,13 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
   const focusTab = (panelId: string) => { focusTabSoon(() => root.current, panelId); };
   const closeFocus = useRef<DockChartCloseFocus | null>(null);
   const moveAdded = useCallback((id: string, target: PanelAddPlacement) => {
-    update(current => groupOf(current.layout, id) && groupOf(current.layout, target.panelId)
-      ? { ...current, layout: movePanel(current.layout, id, target) } : current, 'keep', id);
+    update(current => {
+      const source = groupOf(current.layout, id);
+      if (!source || !groupOf(current.layout, target.panelId)) return current;
+      // The keyboard move starts from the active tab. Match its neighbour selection on detach.
+      const layout = source.active === id ? current.layout : activatePanel(current.layout, id);
+      return { ...current, layout: movePanel(layout, id, target) };
+    }, 'keep', id);
   }, [update]);
   const [placement, setPlacement] = useState<{ id: string; target: PanelAddPlacement; scope: object } | null>(null);
   let addBlocked: string | undefined;
@@ -792,7 +797,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       <WorkspaceEdges edge="top" items={edgeItems('top')} label={m('workspaceTopEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
       <div className={cn('flex min-w-0', !rows && 'min-h-0 flex-1')}>
       <WorkspaceEdges edge="left" items={edgeItems('left')} label={m('workspaceLeftEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
-      <div ref={fitSlot} data-workspace-dock className="min-h-0 min-w-0 flex-1">
+      <div ref={fitSlot} data-workspace-dock className={cn('min-h-0 min-w-0 flex-1', addDrag.overlays && 'isolate')}>
         <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
           floating={edgesNarrow ? undefined : { panels: floatingPanels, peekId: activePeek?.panelId, peekHeightFloor, onDismissPeek: dismissPeek, onChange: (next, tree) => { update(current => {
             const returned = (current.floating ?? []).filter(item => !next.some(panel => panel.panelId === item.panelId)).map(item => item.panelId);

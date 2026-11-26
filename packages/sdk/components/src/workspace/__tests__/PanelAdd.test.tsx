@@ -106,6 +106,22 @@ describe('PanelAddMenu (#2398)', () => {
     return onAdd;
   };
 
+  it('remounts a repopulated catalog closed and keeps the pin choice', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    const picker = (items: PanelAddItem[]) => <I18nProvider><PanelAddMenu items={items} onAdd={onAdd} /></I18nProvider>;
+    const { rerender } = render(picker(ITEMS));
+    await user.click(screen.getByRole('button', { name: '패널 추가' }));
+    await user.click(screen.getByRole('menuitemcheckbox', { name: '추가하면 고정' }));
+    rerender(picker([]));
+    expect(screen.queryByRole('button', { name: '패널 추가' })).not.toBeInTheDocument();
+    rerender(picker(ITEMS));
+    const trigger = screen.getByRole('button', { name: '패널 추가' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await user.click(trigger);
+    expect(screen.getByRole('menuitemcheckbox', { name: '추가하면 고정' })).not.toBeChecked();
+  });
+
   it('lists the offered panels; one already shown and one with a reason are disabled and say why', async () => {
     const user = userEvent.setup();
     open();

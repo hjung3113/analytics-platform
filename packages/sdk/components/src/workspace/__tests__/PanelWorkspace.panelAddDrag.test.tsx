@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
@@ -20,22 +20,34 @@ const items = [...panels, { id: 'disabled', title: label('비활성'), disabledR
 const presets: PanelWorkspaceProps['presets'] = [{ id: 'default', label: label('기본'), layout: { type: 'branch', dir: 'row', sizes: [50, 50],
   children: [{ type: 'group', panels: ['trend'] }, { type: 'group', panels: ['detail'] }] } }];
 
-async function mount(options: { enabled: boolean; chartPicker?: boolean; stack?: boolean; maximize?: boolean }) {
+const defaultPanels = [
+  ...panels.slice(0, 2),
+  { id: 'summary', title: label('요약'), render: () => null },
+  { ...panels[2]!, placement: undefined },
+];
+const defaultPresets: PanelWorkspaceProps['presets'] = [{ ...presets[0]!, layout: { type: 'branch', dir: 'row', sizes: [50, 50],
+  children: [{ type: 'group', panels: ['trend', 'summary'], active: 'trend' }, { type: 'group', panels: ['detail'] }] } }];
+
+async function mount(options: { enabled: boolean; chartPicker?: boolean; stack?: boolean; maximize?: boolean; defaultPlacement?: boolean }) {
   const onAdd = vi.fn();
   const storage = { getItem: () => null, setItem: vi.fn() };
   const rowId = options.chartPicker ? 'distribution' : 'dist';
   const catalog = items.map(item => item.id === 'dist' ? { ...item, id: rowId } : item);
-  function Demo() {
+  const declared = options.defaultPlacement ? defaultPanels : panels;
+  function Demo({ add = onAdd }: { add?: typeof onAdd }) {
     const [added, setAdded] = useState(false);
-    return <PanelWorkspace panels={added ? panels : panels.slice(0, 2)} label={label('작업 영역')} presets={presets}
+    return <PanelWorkspace panels={added ? declared : declared.slice(0, -1)} label={label('작업 영역')} presets={options.defaultPlacement ? defaultPresets : presets}
       initialPreset="default" initialMode={options.stack ? 'stack' : 'fit'} persistKey="main" persistence={{ key: 'drag', storage }}
       panelAddDrag={options.enabled} toolbarActions={<PanelAddMenu items={catalog} shown={added ? ['trend', 'detail', rowId] : ['trend', 'detail']}
         chartFields={options.chartPicker ? { measures: [], breakdowns: [] } : undefined}
-        pinByDefault={false} onAdd={(...args) => { onAdd(...args); setAdded(true); return options.chartPicker ? 'dist' : undefined; }} />} />;
+        pinByDefault={false} onAdd={(...args) => { add(...args); setAdded(true); return options.chartPicker ? 'dist' : undefined; }} />} />;
   }
   const view = render(<I18nProvider><Demo /></I18nProvider>);
   const detail = (await screen.findByRole('tab', { name: '상세' })).closest('.dv-groupview')!;
   const bounds = vi.spyOn(detail, 'getBoundingClientRect').mockReturnValue(new DOMRect(300, 100, 300, 300));
+  // Model the browser's hit at the mocked group bounds. Individual cases can put another element above it.
+  const hit = vi.fn<NonNullable<Document['elementFromPoint']>>(() => detail.querySelector('.dv-tabs-and-actions-container'));
+  Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: hit });
   const user = userEvent.setup();
   if (options.maximize) await user.click(screen.getByRole('button', { name: '상세 최대화' }));
   const trigger = screen.getByRole('button', { name: '패널 추가' });
@@ -46,19 +58,107 @@ async function mount(options: { enabled: boolean; chartPicker?: boolean; stack?:
     view.unmount();
     return JSON.parse(storage.setItem.mock.lastCall?.[1] as string) as { layout: unknown };
   };
-  return { onAdd, row, user, bounds, saved };
+  return { onAdd, row, user, bounds, saved, hit, unmount: view.unmount,
+    replaceAdd: (add: typeof onAdd) => { view.rerender(<I18nProvider><Demo add={add} /></I18nProvider>); } };
 }
 
-function pointer(type: string, target: EventTarget, clientX = 420, clientY = 150) {
+afterEach(() => { Reflect.deleteProperty(document, 'elementFromPoint'); });
+
+function pointer(type: string, target: EventTarget, clientX = 420, clientY = 150, pointerId = 1) {
   const event = new Event(type, { bubbles: true, cancelable: true });
-  Object.assign(event, { clientX, clientY, pointerId: 1, button: 0 });
+  Object.assign(event, { clientX, clientY, pointerId, button: 0 });
   act(() => { target.dispatchEvent(event); });
 }
 const start = (row: HTMLElement, y?: number) => {
   pointer('pointerdown', row, 700, 45);
   pointer('pointermove', window, 420, y);
 };
-const preview = () => document.querySelector('[data-panel-add-preview]');
+const preview = () => document.querySelector<HTMLElement>('[data-panel-add-preview]');
+
+it('saves the same active source tab when the added panel joins a group as a background tab', async () => {
+  const drag = await mount({ enabled: true, defaultPlacement: true });
+  start(drag.row);
+  pointer('pointerup', window);
+  await screen.findByRole('tab', { name: '분포' });
+  const dragged = drag.saved();
+
+  const keyboard = await mount({ enabled: true, defaultPlacement: true });
+  keyboard.row.focus();
+  await keyboard.user.keyboard('{Enter}');
+  (await screen.findByRole('tab', { name: '분포' })).focus();
+  await keyboard.user.keyboard('{Shift>}{F10}{/Shift}');
+  (await screen.findByRole('menuitem', { name: '상세 묶음 위로 옮기기' })).focus();
+  await keyboard.user.keyboard('{Enter}');
+  const moved = keyboard.saved();
+  expect(moved.layout).toMatchObject({ children: [{ panels: ['trend', 'summary'], active: 'summary' }, { dir: 'column' }] });
+  expect(dragged).toEqual(moved);
+});
+
+it('uses the same current handler and pin choice for a drop as for a click', async () => {
+  const latestAdd = vi.fn();
+  const drag = await mount({ enabled: true });
+  pointer('pointerdown', drag.row, 700, 45);
+  fireEvent.click(screen.getByRole('menuitemcheckbox', { name: '추가하면 고정' }));
+  pointer('pointermove', window);
+  drag.replaceAdd(latestAdd);
+  pointer('pointerup', window);
+  expect(drag.onAdd).not.toHaveBeenCalled();
+  expect(latestAdd.mock.calls).toEqual([['dist', true]]);
+  drag.unmount();
+
+  const click = await mount({ enabled: true });
+  await click.user.click(screen.getByRole('menuitemcheckbox', { name: '추가하면 고정' }));
+  await click.user.click(click.row);
+  expect(latestAdd.mock.calls).toEqual(click.onAdd.mock.calls);
+});
+
+it.each(['picker closes', 'workspace unmounts'])('clears a stationary preview when the %s', async ending => {
+  const { row, onAdd, unmount } = await mount({ enabled: true, chartPicker: true });
+  start(row);
+  expect(preview()).not.toBeNull();
+  if (ending === 'picker closes') act(() => { screen.getByRole('tab', { name: '상세' }).focus(); });
+  else unmount();
+  await waitFor(() => { expect(preview()).toBeNull(); });
+  pointer('pointerup', window);
+  expect(onAdd).not.toHaveBeenCalled();
+});
+
+it('guards keyboard selection in the faded picker during drag', async () => {
+  const { row, onAdd } = await mount({ enabled: true });
+  start(row);
+  row.focus();
+  fireEvent.keyDown(row, { key: 'Enter' });
+  expect(onAdd).not.toHaveBeenCalled();
+});
+
+it('suppresses the cancelled click across a different pointerdown', async () => {
+  const { row, onAdd } = await mount({ enabled: true });
+  start(row);
+  fireEvent.keyDown(window, { key: 'Escape' });
+  pointer('pointerdown', row, 700, 45, 2);
+  pointer('pointerup', row);
+  fireEvent.click(row, { detail: 1 });
+  pointer('pointerup', window, 700, 45, 2);
+  expect(onAdd).not.toHaveBeenCalled();
+});
+
+it.each([{ surface: 'overlapping control', stack: false }, { surface: 'clipped stack row', stack: true }])(
+  'refuses a drop onto a $surface at the same coordinates', async ({ stack }) => {
+    const { row, hit, onAdd } = await mount({ enabled: true, stack });
+    const dock = screen.getByRole('region', { name: '작업 영역' });
+    if (stack) hit.mockReturnValue(dock.querySelector('[data-dock-panel="detail"][data-dock-visible="true"]'));
+    const rendered = hit(420, 150);
+    hit.mockReturnValue(stack ? null : screen.getByRole('button', { name: '패널 추가' }));
+    start(row);
+    expect(preview()).toBeNull();
+    hit.mockReturnValue(rendered);
+    pointer('pointermove', window);
+    expect(dock).toContainElement(preview());
+    hit.mockReturnValue(stack ? null : screen.getByRole('button', { name: '패널 추가' }));
+    pointer('pointerup', window);
+    expect(onAdd).not.toHaveBeenCalled();
+  },
+);
 
 it.each([{ position: 'top', direction: '위로', y: 150, chartPicker: false, stack: false },
   { position: 'bottom', direction: '아래로', y: 350, chartPicker: true, stack: true }])('previews $position and saves the same placement and pin choice as keyboard add and move', async ({ position, direction, y, chartPicker, stack }) => {

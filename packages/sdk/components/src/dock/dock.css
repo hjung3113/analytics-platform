@@ -155,6 +155,10 @@
 
 /* The row stays mounted to retain pointer capture during a panel-add drag. */
 [data-radix-popper-content-wrapper]:has(> [data-panel-add-dragging]) { opacity: 0; pointer-events: none; }
+/* A Radix dismissable layer inside a modal can set pointer-events: auto inline. */
+[data-panel-add-dragging] { pointer-events: none !important; }
+/* The isolated dock clips the preview and keeps it above floating panels and below page chrome. */
+[data-panel-add-overlay] { z-index: calc(var(--dv-overlay-z-index, 999) + 1); }
 
 /* The ring sits on the content wrapper, not the panel: the panel is a scroll
    container whose composited contents paint over its own outline or inset shadow. */

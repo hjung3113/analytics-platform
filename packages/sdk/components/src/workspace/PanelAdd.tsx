@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type PointerEvent } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import { Plus } from 'lucide-react';
 import { Button, Checkbox, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { useI18n, useMessages, usePlatform, usePlatformOptional, type Text } from '@ap/kernel';
@@ -120,29 +120,58 @@ export function PanelAddMenu({ items, shown = [], onAdd, chartFields, existingId
   const m = useMessages(COMPONENTS_MESSAGES);
   const { lang } = useI18n();
   const [pinOnAdd, setPinOnAdd] = useState(pinByDefault);
-  const drag = useContext(PanelAddDragContext);
-  const surface = chartFields ? 'picker' : 'menu';
-  const [popup, setPopup] = useState({ surface, open: false });
-  const setOpen = (open: boolean) => { setPopup({ surface, open }); };
-  if (popup.surface !== surface) setOpen(false);
-  const { open } = popup;
   const rows = items.map(item => {
     const reason = shown.includes(item.id) ? m('panelAddShown') : item.disabledReason?.[lang];
-    const onSelect = () => onAdd(item.id, pinOnAdd);
     return { id: item.id, label: item.title[lang], reason, note: reason === undefined ? item.description?.[lang] : undefined,
-      onSelect, drag: drag && reason === undefined ? { id: item.id, onPointerDown: (event: PointerEvent<HTMLElement>) => {
-        drag(event, item.id, () => { const opened = onSelect(); setOpen(false); return opened; });
-      } } : undefined };
+      onSelect: () => onAdd(item.id, pinOnAdd) };
   });
   const trigger = <Button type="button" variant="ghost" size="toolbar" className={className} data-panel-add><Plus className="size-3.5" aria-hidden />{m('panelAdd')}</Button>;
-  if (chartFields) return <PanelChartPopover rows={rows} trigger={trigger} chartFields={chartFields} open={open} setOpen={setOpen} draggableRows={!!drag}
+  if (chartFields) return <PanelChartPopover rows={rows} trigger={trigger} chartFields={chartFields}
     pinOnAdd={pinOnAdd} setPinOnAdd={setPinOnAdd} existingIds={[...existingIds, ...shown, ...items.map(item => item.id)]}
     onAdd={instance => onAdd(instance.id, pinOnAdd, instance)} />;
-  if (items.length === 0) return null;
+  return items.length > 0 ? <PanelAddDropdown rows={rows} trigger={trigger} pinOnAdd={pinOnAdd} setPinOnAdd={setPinOnAdd} /> : null;
+}
+
+type PickerProps = {
+  trigger: React.ReactElement; rows: React.ComponentProps<typeof PanelList>['rows'];
+  pinOnAdd: boolean; setPinOnAdd: (pin: boolean) => void;
+};
+
+function guardDragSelection(event: SyntheticEvent<HTMLElement>) {
+  if (!event.currentTarget.hasAttribute('data-panel-add-dragging')) return;
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function usePanelAddSurface(rows: PickerProps['rows']) {
+  const [open, setOpen] = useState(false);
+  const drag = useContext(PanelAddDragContext);
+  const currentRows = useRef(rows);
+  useLayoutEffect(() => { currentRows.current = rows; }, [rows]);
+  const addRow = (id: string) => {
+    const row = currentRows.current.find(item => item.id === id);
+    if (!row?.onSelect || row.reason !== undefined) return;
+    const opened: unknown = row.onSelect();
+    setOpen(false);
+    return typeof opened === 'string' ? opened : id;
+  };
+  if (!drag) return { open, setOpen, rows, contentProps: undefined };
+  return { open, setOpen, rows: rows.map(row => ({ ...row,
+    drag: row.reason === undefined ? { id: row.id, onPointerDown: (event: React.PointerEvent<HTMLElement>) => { drag(event, row.id, addRow); } } : undefined,
+  })), contentProps: {
+    'data-panel-add-content': '',
+    onClickCapture: guardDragSelection,
+    onKeyDownCapture: (event: React.KeyboardEvent<HTMLElement>) => { if (event.key !== 'Tab') guardDragSelection(event); },
+  } };
+}
+
+function PanelAddDropdown({ trigger, rows, pinOnAdd, setPinOnAdd }: PickerProps) {
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const { open, setOpen, rows: offered, contentProps } = usePanelAddSurface(rows);
   return <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
     <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-    <DropdownMenuContent align="end" data-panel-add-content={drag ? '' : undefined}>
-      <PanelListRows rows={rows} />
+    <DropdownMenuContent align="end" {...contentProps}>
+      <PanelListRows rows={offered} />
       <DropdownMenuSeparator />
       <DropdownMenuCheckboxItem checked={pinOnAdd} onSelect={event => { event.preventDefault(); }} onCheckedChange={checked => { setPinOnAdd(checked === true); }}>
         {m('panelAddPins')}
@@ -151,21 +180,20 @@ export function PanelAddMenu({ items, shown = [], onAdd, chartFields, existingId
   </DropdownMenu>;
 }
 
-function PanelChartPopover({ trigger, chartFields, rows, pinOnAdd, setPinOnAdd, existingIds, onAdd, open, setOpen, draggableRows }: {
-  trigger: React.ReactElement; chartFields: MenuChartFields; rows: React.ComponentProps<typeof PanelList>['rows'];
-  pinOnAdd: boolean; setPinOnAdd: (pin: boolean) => void; existingIds: readonly string[]; onAdd: (instance: PanelInstance) => void;
-  open: boolean; setOpen: (open: boolean) => void; draggableRows: boolean;
+function PanelChartPopover({ trigger, chartFields, rows, pinOnAdd, setPinOnAdd, existingIds, onAdd }: PickerProps & {
+  chartFields: MenuChartFields; existingIds: readonly string[]; onAdd: (instance: PanelInstance) => void;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const platform = usePlatformOptional();
   const generation = JSON.stringify([platform?.route?.menu.id, platform?.user.id, platform?.revision, platform?.scope.scopeId]);
+  const { open, setOpen, rows: offered, contentProps } = usePanelAddSurface(rows);
   return <Popover open={open} onOpenChange={setOpen}>
     {/* ArrowDown opens it as it opens the plain dropdown this replaces. */}
     <PopoverTrigger asChild onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); } }}>{trigger}</PopoverTrigger>
-    <PopoverContent align="end" aria-label={m('panelAdd')} data-panel-add-content={draggableRows ? '' : undefined}
+    <PopoverContent align="end" aria-label={m('panelAdd')} {...contentProps}
       className="max-h-[var(--radix-popover-content-available-height)] w-xl max-w-[var(--radix-popover-content-available-width)] overflow-y-auto">
       <div className="text-sm">
-        <PanelList label={m('panelAddDeclared')} rows={rows.map(row => ({ ...row, onSelect: () => { row.onSelect?.(); setOpen(false); } }))} />
+        <PanelList label={m('panelAddDeclared')} rows={offered.map(row => ({ ...row, onSelect: () => { row.onSelect?.(); setOpen(false); } }))} />
         <label className="my-2 flex min-h-6 w-fit items-center gap-2">
           <Checkbox checked={pinOnAdd} onCheckedChange={checked => { setPinOnAdd(checked === true); }} />{m('panelAddPins')}
         </label>
