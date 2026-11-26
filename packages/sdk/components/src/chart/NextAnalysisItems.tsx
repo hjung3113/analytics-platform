@@ -165,8 +165,8 @@ function ChoiceRows({ choices }: { choices: readonly Choice[] }) {
   return <PanelListRows rows={choices.map(choice => choice.reason ? choice : { ...choice, reason: undefined })} presentation="named-menu" />;
 }
 
-export function SelectionPanelPicker({ action, close, onCloseAutoFocus }: {
-  action: SelectionPanelAction; close: () => void; onCloseAutoFocus?: (event: Event) => void;
+export function SelectionPanelPicker({ action, close, onCloseAutoFocus, id }: {
+  action: SelectionPanelAction; close: () => void; onCloseAutoFocus?: (event: Event) => void; id?: string;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const rows = action.choices.map(({ previewDescription, ...choice }) => ({
@@ -174,7 +174,7 @@ export function SelectionPanelPicker({ action, close, onCloseAutoFocus }: {
     onSelect: () => { choice.onSelect?.(); },
   }));
   return <PanelPickerContent rows={rows} categorized label={action.label} inputLabel={action.inputLabel}
-    close={close} onCloseAutoFocus={onCloseAutoFocus} />;
+    close={close} onCloseAutoFocus={onCloseAutoFocus} id={id} />;
 }
 
 function addPanelFromChoice(choice: Choice, getTrigger: () => HTMLButtonElement | null, onUnavailable?: () => void): boolean {

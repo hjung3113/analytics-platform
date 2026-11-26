@@ -103,6 +103,7 @@ type ChipActionsProps = {
 type ChipActionMode = 'closed' | 'dropdown' | 'picker';
 type ChipActionContentProps = Pick<ChipActionsProps, 'chip' | 'clear' | 'clearAll' | 'returnFocus'> & {
   mode: ChipActionMode;
+  pickerId: string;
   onSelect: (claimsFocus: boolean) => void;
   openPicker: () => void;
   closePicker: () => void;
@@ -118,7 +119,7 @@ function PublishedChipActions({ panelId, ...props }: ChipActionContentProps & { 
   return <ChipActionContent {...props} actions={[...items, ...(publication?.actions ?? [])]} />;
 }
 
-function ChipActionContent({ chip, clear, clearAll, returnFocus, mode, actions = [], onSelect, openPicker, closePicker, onMenuCloseFocus, onPickerCloseFocus }:
+function ChipActionContent({ chip, clear, clearAll, returnFocus, mode, pickerId, actions = [], onSelect, openPicker, closePicker, onMenuCloseFocus, onPickerCloseFocus }:
   ChipActionContentProps & { actions?: readonly NextAnalysisAction[] }) {
   const { t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -136,7 +137,7 @@ function ChipActionContent({ chip, clear, clearAll, returnFocus, mode, actions =
       <DropdownMenuItem onSelect={() => clear(chip.key)}>{t('clear')}</DropdownMenuItem>
       {clearAll && <DropdownMenuItem onSelect={clearAll}>{m('analysisSelectionClearAll')}</DropdownMenuItem>}
     </DropdownMenuContent>
-    {picker && <SelectionPanelPicker action={picker} close={closePicker} onCloseAutoFocus={onPickerCloseFocus} />}
+    {picker && <SelectionPanelPicker action={picker} close={closePicker} onCloseAutoFocus={onPickerCloseFocus} id={pickerId} />}
   </>;
 }
 
@@ -147,11 +148,12 @@ function ChipActions({ chip, text, clear, clearAll, returnFocus, focusSource }: 
   const openingPath = useRef<string | undefined>(undefined);
   const restorePickerFocus = useRef<ReturnType<typeof capturePageFocusReturn> | undefined>(undefined);
   const trigger = useRef<HTMLButtonElement>(null);
+  const pickerId = useId();
   const [mode, setMode] = useState<ChipActionMode>('closed');
   const closePicker = useCallback(() => setMode('closed'), []);
   const path = () => platform?.location.read()?.split('?')[0];
   const content: ChipActionContentProps = {
-    chip, clear, clearAll, returnFocus, mode, closePicker,
+    chip, clear, clearAll, returnFocus, mode, pickerId, closePicker,
     onSelect: claimsFocus => { actionClaimsFocus.current = claimsFocus; },
     openPicker: () => {
       actionClaimsFocus.current = true;
@@ -170,6 +172,10 @@ function ChipActions({ chip, text, clear, clearAll, returnFocus, focusSource }: 
     },
   };
   const panelId = chip.source?.panelId;
+  // The picker opens from an anchor, not a Radix trigger, so name the portal it owns here. A width change then finds the
+  // focused search through `aria-controls` like the dropdown's and hands focus to this key's button before either
+  // popover's close callback runs. Only in picker mode: an `undefined` would override the dropdown trigger's own link.
+  const pickerOwnership = mode === 'picker' ? { 'aria-controls': pickerId, 'aria-expanded': true } : undefined;
   return <Popover open={mode === 'picker'} onOpenChange={closePicker}>
     <DropdownMenu modal={false} open={mode === 'dropdown'} onOpenChange={open => {
       if (open) {
@@ -183,7 +189,7 @@ function ChipActions({ chip, text, clear, clearAll, returnFocus, focusSource }: 
     }}>
       <PopoverAnchor asChild>
         <DropdownMenuTrigger asChild>
-          <button ref={trigger} data-analysis-chip-action={chip.key} type="button" className={chipButtonClass} aria-label={m('analysisSelectionActions', { chip: text })}><Ellipsis className="size-3.5" aria-hidden /></button>
+          <button ref={trigger} data-analysis-chip-action={chip.key} type="button" className={chipButtonClass} aria-label={m('analysisSelectionActions', { chip: text })} {...pickerOwnership}><Ellipsis className="size-3.5" aria-hidden /></button>
         </DropdownMenuTrigger>
       </PopoverAnchor>
       {mode !== 'closed' && (platform && panelId ? <PublishedChipActions {...content} panelId={panelId} /> : <ChipActionContent {...content} />)}

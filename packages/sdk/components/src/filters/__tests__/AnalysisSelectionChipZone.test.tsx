@@ -3,12 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { groupId, NO_FEATURES, spaceId } from '@ap/contracts';
 import { House } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChips, useAnalysisSelectionOutput, usePlatform, useUnsavedGuard, type AnalysisSelectionChip } from '@ap/kernel';
 import { PaneScreenProvider, useLeaveRequest, type PaneScreen } from '@ap/kernel/host';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AnalysisSelectionChipZone } from '../AnalysisSelectionChipZone';
 import { DockLayout } from '../../dock/DockLayout';
+import { NextAnalysisBridge } from '../../chart/NextAnalysisBridge';
+import { PanelWorkspace } from '../../workspace/PanelWorkspace';
 
 vi.mock('@ap/kernel', async importOriginal => ({
   ...await importOriginal<typeof import('@ap/kernel')>(),
@@ -277,7 +279,7 @@ it('names the source mark with the chip label when the panel title has a placeho
   expect(zone().getByRole('img', { name: '설비' })).not.toHaveAttribute('title');
 });
 
-async function mountSelections(extra: string, selections = [equipment, module], children?: ReactNode, wrap = (content: ReactNode) => content) {
+async function mountSelections(extra: string, selections = [equipment, module], children?: ReactNode, wrap = (content: ReactNode) => content, readerKeys: readonly string[] = []) {
   const actual = await vi.importActual<typeof import('@ap/kernel')>('@ap/kernel');
   vi.mocked(useAnalysisSelectionChips).mockImplementation(actual.useAnalysisSelectionChips);
   const title = equipment.source.title;
@@ -289,7 +291,9 @@ async function mountSelections(extra: string, selections = [equipment, module], 
       query: { mode: 'live' },
       pageKeys: keys, repeatedPageKeys: keys, contextResetKeys: keys,
       panels: [{ id: 'source', title, grain: 'daily', endpoints: [], queryInputs: {}, displayInputs: {},
-        outputs: selections.map(({ key, dimension }) => ({ key, action: 'pick', selection: { shape: 'set', dimension } })) }],
+        outputs: selections.map(({ key, dimension }) => ({ key, action: 'pick', selection: { shape: 'set', dimension } })) },
+        ...(readerKeys.length ? [{ id: 'receiver', title, grain: 'daily' as const, endpoints: [], outputs: [], displayInputs: {},
+          queryInputs: { page: readerKeys.map(key => ({ key, selection: 'filter' as const })) } }] : [])],
     }] });
   const session = testSession(['platform:view']);
   const adapter = testAdapter({ session: () => session });
@@ -298,6 +302,56 @@ async function mountSelections(extra: string, selections = [equipment, module], 
   const { container } = render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter}>{wrap(<Harness onDisclosureFocus={disclosureFocus} />)}{children}</PlatformProvider></I18nProvider>);
   return { container, disclosureFocus };
 }
+
+describe('categorized chip picker open across a lane width change (#3092)', () => {
+  const panelTitle = { ko: '패널', en: 'Panel' };
+  const picker = () => screen.queryByRole('dialog', { name: '새 패널' });
+  const list = () => screen.queryByRole('dialog', { name: '분석 선택' });
+  async function openPicker({ folded, action }: { folded: boolean; action: string }) {
+    const { container } = await mountSelections('&mod=M1', [equipment, module], undefined, () =>
+      <NextAnalysisBridge>
+        <PanelWorkspace label={panelTitle} persistKey="chip-picker-resize" initialMode="stack"
+          presets={[{ id: 'only', label: panelTitle, layout: { type: 'group', panels: ['source'] } }]} initialPreset="only"
+          panels={[{ id: 'source', title: panelTitle, primary: true, render: () => null }]}
+          analysisPanelAddition={{ items: [{ id: 'receiver', title: panelTitle, category: { id: 'detail', title: panelTitle } }], onAdd: vi.fn() }} />
+        <AnalysisSelectionChipZone workspace />
+      </NextAnalysisBridge>, ['equip', 'mod']);
+    const lane = container.querySelector('[data-analysis-chip-lane]')!;
+    act(() => {
+      resize(container.querySelector('[data-analysis-chip-probe]')!, 240);
+      resize(container.querySelector('[data-analysis-chip-summary-probe]')!, 170);
+      resize(lane, folded ? 90 : 240);
+    });
+    const user = userEvent.setup();
+    if (folded) await user.click(zone().getByRole('button', { name: '+2 ›' }));
+    (folded ? within(list()!) : zone()).getByRole('button', { name: action }).focus();
+    await user.keyboard('{Enter}');
+    screen.getByRole('menuitem', { name: '새 패널' }).focus();
+    await user.keyboard('{Enter}');
+    expect(within(picker()!).getByRole('searchbox')).toHaveFocus();
+    return { lane };
+  }
+  // Both Radix close-autofocus callbacks (the list's and the picker's) run on a timer after the unmount.
+  const settle = () => act(() => new Promise(resolve => { setTimeout(resolve, 0); }));
+
+  it.each(['equipment E1 동작', 'module M1 동작'])('returns focus to the same %s button when the folded list unfolds', async action => {
+    const { lane } = await openPicker({ folded: true, action });
+    act(() => resize(lane, 240));
+    await settle();
+    expect(picker()).toBeNull();
+    expect(list()).toBeNull();
+    expect(zone().getByRole('button', { name: action })).toHaveFocus();
+  });
+
+  it('moves focus to +n without reopening the list when the inline lane folds', async () => {
+    const { lane } = await openPicker({ folded: false, action: 'module M1 동작' });
+    act(() => resize(lane, 90));
+    await settle();
+    expect(picker()).toBeNull();
+    expect(list()).toBeNull();
+    expect(zone().getByRole('button', { name: '+2 ›' })).toHaveFocus();
+  });
+});
 
 it('keeps the writerless arrival first, preserves its clear action and links to the previous screen', async () => {
   const href = '/?v=1&equip=E2';
