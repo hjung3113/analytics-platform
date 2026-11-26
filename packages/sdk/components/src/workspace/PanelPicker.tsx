@@ -1,13 +1,13 @@
-import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type ComponentProps, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { useI18n, useMessages } from '@ap/kernel';
 import { Checkbox, PopoverContent, SearchInput, cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PanelAddItem } from './PanelAdd';
 import { PanelKindIcon, PanelKindPreview } from './PanelKindPreview';
-import { PANEL_ROW_SELECTOR, PanelList } from './PanelListRows';
+import { PANEL_ROW_SELECTOR, PanelList, type PanelListRowDrag } from './PanelListRows';
 
 export type PanelPickerRow = Pick<PanelAddItem, 'id' | 'category' | 'kind'> & {
-  label: string; description?: string; reason?: string; status?: string; note?: string; onSelect: () => void;
+  label: string; description?: string; reason?: string; status?: string; note?: string; onSelect: () => void; drag?: PanelListRowDrag;
 };
 
 const OTHER_COLUMN = 'other';
@@ -121,9 +121,10 @@ function CategorizedPanels({ rows }: { rows: readonly PanelPickerRow[] }) {
   </div>;
 }
 
-export function PanelPickerContent({ generation, rows, categorized, label, pin, setPin, close, children }: {
+export function PanelPickerContent({ generation, rows, categorized, label, pin, setPin, close, contentProps, children }: {
   generation: string; rows: readonly PanelPickerRow[]; categorized: boolean; label: string;
   pin: boolean; setPin: (pin: boolean) => void; close: () => void; children?: ReactNode;
+  contentProps?: Pick<ComponentProps<typeof PopoverContent>, 'onClickCapture' | 'onKeyDownCapture'> & { 'data-panel-add-content': string };
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const content = useRef<HTMLDivElement>(null);
@@ -138,7 +139,7 @@ export function PanelPickerContent({ generation, rows, categorized, label, pin, 
     node.querySelector<HTMLElement>(categorized ? 'input[type="search"]' : PANEL_ROW_SELECTOR)?.focus();
   }, [generation, categorized]);
   const actions = rows.map(row => ({ ...row, onSelect: () => { row.onSelect(); close(); } }));
-  return <PopoverContent align="end" aria-label={label}
+  return <PopoverContent align="end" aria-label={label} {...contentProps}
     className={cn('max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto', categorized ? 'w-[60rem]' : 'w-xl')}>
     <div ref={content} className="text-sm">
       {categorized ? <GenerationSection generation={generation} held={held}><CategorizedPanels rows={actions} /></GenerationSection>

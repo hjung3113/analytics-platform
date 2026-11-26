@@ -126,7 +126,7 @@
    it had when the drag began, so what overflows is clipped and nothing inside is laid out again until the drag ends. */
 [data-dock-frozen] { overflow: hidden; }
 
-/* Native center merge and edge split previews. Only the engine overlay shapes receive these rules. */
+/* Center merge and edge split previews share the dock overlay shapes. */
 .ap-dock .dv-drop-target-selection.dv-drop-target-center,
 .ap-dock .dv-drop-target-anchor.dv-drop-target-center {
   border: 2px solid var(--color-accent-primary);
@@ -152,6 +152,13 @@
 .ap-dock .dv-drop-target-anchor.dv-drop-target-bottom { border-top: 3px solid var(--color-accent-primary); }
 .ap-dock .dv-drop-target-selection.dv-drop-target-top,
 .ap-dock .dv-drop-target-anchor.dv-drop-target-top { border-bottom: 3px solid var(--color-accent-primary); }
+
+/* The row stays mounted to retain pointer capture during a panel-add drag. */
+[data-radix-popper-content-wrapper]:has(> [data-panel-add-dragging]) { opacity: 0; pointer-events: none; }
+/* A Radix dismissable layer inside a modal can set pointer-events: auto inline. */
+[data-panel-add-dragging] { pointer-events: none !important; }
+/* The isolated dock clips the preview and keeps it above floating panels and below page chrome. */
+[data-panel-add-overlay] { z-index: calc(var(--dv-overlay-z-index, 999) + 1); }
 
 /* The ring sits on the content wrapper, not the panel: the panel is a scroll
    container whose composited contents paint over its own outline or inset shadow. */

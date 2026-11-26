@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import { Plus } from 'lucide-react';
 import { Button, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverTrigger } from '@ap/ui';
 import { useI18n, useMessages, usePlatform, usePlatformOptional, type Text } from '@ap/kernel';
@@ -6,6 +6,7 @@ import { COMPONENTS_MESSAGES } from '../messages';
 import type { PageKeyRule } from '../table/tableUrlWarning';
 import type { AnalysisSelection, MenuChartFields, PanelInstance } from '@ap/contracts';
 import { ChartPanelPicker } from './ChartPanelPicker';
+import { PanelAddDragContext } from './PanelAddDrag';
 import { PanelListRows } from './PanelListRows';
 import { PanelPickerContent, type PanelPickerRow } from './PanelPicker';
 
@@ -106,7 +107,7 @@ export type PanelAddMenuProps = {
   items: readonly PanelAddItem[];
   /** Ids already in the workspace: drawn checked and disabled («이미 있음»). */
   shown?: readonly string[];
-  /** Adds to the workspace and pins when requested. Only a chart created here supplies the third argument. */
+  /** Adds and pins when requested. With `panelAddDrag`, return the added workspace id if it differs. Only chart creation supplies `instance`. */
   onAdd: (id: string, pin: boolean, instance?: PanelInstance) => void;
   /** Pass the menu's `MenuMeta.chartFields` to offer charts made from settings. Permissions come from the active Platform session. */
   chartFields?: MenuChartFields;
@@ -137,11 +138,49 @@ export function PanelAddMenu({ items, shown = [], onAdd, chartFields, existingId
   if (categorized || chartFields) return <PanelAddPopover rows={rows} trigger={trigger} chartFields={chartFields} categorized={categorized}
     pinOnAdd={pinOnAdd} setPinOnAdd={setPinOnAdd} existingIds={[...existingIds, ...shown, ...items.map(item => item.id)]}
     onAdd={instance => onAdd(instance.id, pinOnAdd, instance)} />;
-  if (items.length === 0) return null;
-  return <DropdownMenu modal={false}>
+  return items.length > 0 ? <PanelAddDropdown rows={rows} trigger={trigger} pinOnAdd={pinOnAdd} setPinOnAdd={setPinOnAdd} /> : null;
+}
+
+type PickerProps = {
+  trigger: React.ReactElement; rows: readonly PanelPickerRow[];
+  pinOnAdd: boolean; setPinOnAdd: (pin: boolean) => void;
+};
+
+function guardDragSelection(event: SyntheticEvent<HTMLElement>) {
+  if (!event.currentTarget.hasAttribute('data-panel-add-dragging')) return;
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function usePanelAddSurface(rows: PickerProps['rows']) {
+  const [open, setOpen] = useState(false);
+  const drag = useContext(PanelAddDragContext);
+  const currentRows = useRef(rows);
+  useLayoutEffect(() => { currentRows.current = rows; }, [rows]);
+  const addRow = (id: string) => {
+    const row = currentRows.current.find(item => item.id === id);
+    if (!row?.onSelect || row.reason !== undefined) return;
+    const opened: unknown = row.onSelect();
+    setOpen(false);
+    return typeof opened === 'string' ? opened : id;
+  };
+  if (!drag) return { open, setOpen, rows, contentProps: undefined };
+  return { open, setOpen, rows: rows.map(row => ({ ...row,
+    drag: row.reason === undefined ? { id: row.id, onPointerDown: (event: React.PointerEvent<HTMLElement>) => { drag(event, row.id, addRow); } } : undefined,
+  })), contentProps: {
+    'data-panel-add-content': '',
+    onClickCapture: guardDragSelection,
+    onKeyDownCapture: (event: React.KeyboardEvent<HTMLElement>) => { if (event.key !== 'Tab') guardDragSelection(event); },
+  } };
+}
+
+function PanelAddDropdown({ trigger, rows, pinOnAdd, setPinOnAdd }: PickerProps) {
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const { open, setOpen, rows: offered, contentProps } = usePanelAddSurface(rows);
+  return <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
     <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-    <DropdownMenuContent align="end">
-      <PanelListRows rows={rows} />
+    <DropdownMenuContent align="end" {...contentProps}>
+      <PanelListRows rows={offered} />
       <DropdownMenuSeparator />
       <DropdownMenuCheckboxItem checked={pinOnAdd} onSelect={event => { event.preventDefault(); }} onCheckedChange={checked => { setPinOnAdd(checked === true); }}>
         {m('panelAddPins')}
@@ -150,19 +189,18 @@ export function PanelAddMenu({ items, shown = [], onAdd, chartFields, existingId
   </DropdownMenu>;
 }
 
-function PanelAddPopover({ trigger, chartFields, rows, categorized, pinOnAdd, setPinOnAdd, existingIds, onAdd }: {
-  trigger: React.ReactElement; chartFields?: MenuChartFields; rows: readonly PanelPickerRow[]; categorized: boolean;
-  pinOnAdd: boolean; setPinOnAdd: (pin: boolean) => void; existingIds: readonly string[]; onAdd: (instance: PanelInstance) => void;
+function PanelAddPopover({ trigger, chartFields, rows, categorized, pinOnAdd, setPinOnAdd, existingIds, onAdd }: PickerProps & {
+  chartFields?: MenuChartFields; categorized: boolean; existingIds: readonly string[]; onAdd: (instance: PanelInstance) => void;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const platform = usePlatformOptional();
   const generation = JSON.stringify([platform?.route?.menu.id, platform?.user.id, platform?.revision, platform?.scope.scopeId]);
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, rows: offered, contentProps } = usePanelAddSurface(rows);
   return <Popover open={open} onOpenChange={setOpen}>
     {/* ArrowDown opens it as it opens the plain dropdown this replaces. */}
     <PopoverTrigger asChild onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); } }}>{trigger}</PopoverTrigger>
-    <PanelPickerContent generation={generation} rows={rows} categorized={categorized} label={m('panelAdd')}
-      pin={pinOnAdd} setPin={setPinOnAdd} close={() => setOpen(false)}>
+    <PanelPickerContent generation={generation} rows={offered} categorized={categorized} label={m('panelAdd')}
+      pin={pinOnAdd} setPin={setPinOnAdd} close={() => setOpen(false)} contentProps={contentProps}>
       {chartFields && <ChartPanelPicker fields={chartFields} granted={permission => platform?.can(permission) === true} existingIds={existingIds}
         onAdd={instance => { onAdd(instance); setOpen(false); }} />}
     </PanelPickerContent>
