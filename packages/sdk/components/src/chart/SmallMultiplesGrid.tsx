@@ -247,12 +247,12 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
                     paint && 'border-(--small-multiple-status)',
                     !paint && (pressed ? 'border-border-selected' : 'border-transparent'))}>
                   {pressed && <RowSelectionBar />}
-                  <span className={cn('flex min-w-0 shrink-0 items-center gap-1.5', compact ? 'text-tiny leading-3' : 'text-xs')}>
+                  <span className={cn('flex min-w-0 shrink-0 items-center gap-1.5', !independent && 'h-lh', compact ? 'text-tiny leading-3' : 'text-xs')}>
                     <span className="min-w-0 truncate">{tile.label}</span>
                     {status && <span aria-hidden className={cn('ml-auto shrink-0', iconTone[status.tone])}>
                       {status.tone === 'neutral' ? statusGlyph(status) : <TriangleAlert className={compact ? 'size-3' : 'size-3.5'} />}
                     </span>}
-                    {!independent && empty && <span className="ml-auto max-w-full shrink-0 truncate text-text-secondary">{empty}</span>}
+                    {!independent && empty && <span className="ml-auto max-w-1/2 shrink-0 truncate text-text-secondary">{empty}</span>}
                   </span>
                   <SmallMultiplePlot tile={tile} x={x} y={tileY ?? y} reserveEmptySlot={!independent} />
                   {independent && <span className={cn('mt-auto h-lh shrink-0 truncate text-text-secondary', compact ? 'text-tiny leading-3' : 't-caption')}>

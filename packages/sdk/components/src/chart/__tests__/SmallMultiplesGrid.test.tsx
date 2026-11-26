@@ -74,21 +74,35 @@ it.each(['regular', 'compact'] as const)('fills the %s shared-axis tiles below t
   }
 });
 
-it.each(['regular', 'compact'] as const)('keeps the %s shared-axis empty notice clear of bounds in an aligned plot', async density => {
+it.each(['regular', 'compact'] as const)('keeps the %s shared-axis empty notice clear of bounds in an aligned plot with blank labels', async density => {
   const bounds = new Map([[from, { lower: 0, upper: 2 }]]);
-  const empty = { ...series[0], bounds, points: series[0].points.map(point => ({ ...point, y: null })) };
-  render(view({ series: [empty, { ...series[1], bounds }], density }));
-  await screen.findByRole('button', { name: 'Asset 0' });
-  const plots = [tile(0), tile(1)].map(button => button.querySelector('svg')!);
+  const empty = { ...series[0], label: '', bounds, points: series[0].points.map(point => ({ ...point, y: null })) };
+  render(view({ series: [empty, { ...series[1], label: '', bounds }], density }));
+  const grid = await screen.findByRole('grid', { name: 'Trend' });
+  const [emptyTile, populatedTile] = within(grid).getAllByRole('button');
+  const plots = [emptyTile, populatedTile].map(button => button.querySelector('svg')!);
   expect(plots[0].querySelector('[data-small-multiple-band]')?.getAttribute('d')).toBe(
     plots[1].querySelector('[data-small-multiple-band]')?.getAttribute('d'),
   );
   expect(plots[0].classList.value).toBe(plots[1].classList.value);
   const header = plots[0].previousElementSibling;
-  expect(header).toContainElement(within(tile(0)).getByText('결과 없음'));
-  expect(header).toHaveClass('shrink-0');
+  expect(header).toContainElement(within(emptyTile).getByText('결과 없음'));
+  // jsdom cannot measure the header. Require one reserved line even on the populated tile with no header text.
+  expect(header).toHaveClass('h-lh', 'shrink-0');
   expect(header?.className).toBe(plots[1].previousElementSibling?.className);
-  expect(tile(0)).toHaveAccessibleDescription('결과 없음');
+  expect(emptyTile).toHaveAccessibleDescription('결과 없음');
+});
+
+it.each(['regular', 'compact'] as const)('bounds the %s shared-axis empty notice so the series label has room', async density => {
+  const label = 'Asset with a long series label';
+  render(view({ series: [{ ...series[0], label, points: [] }], density }));
+  const button = await screen.findByRole('button', { name: label });
+  const notice = within(button).getByText('결과 없음');
+
+  expect(notice).toHaveClass('max-w-1/2', 'shrink-0', 'truncate');
+  expect(within(button).getByText(label)).toHaveClass('min-w-0', 'truncate');
+  expect(button).toHaveAccessibleName(label);
+  expect(button).toHaveAccessibleDescription('결과 없음');
 });
 
 it('recovers grid-owned focus by tile ID and clears the tab stop of a removed tile', async () => {
