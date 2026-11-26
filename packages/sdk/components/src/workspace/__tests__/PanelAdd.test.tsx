@@ -349,6 +349,31 @@ describe('PanelAddMenu categorized picker (#2744)', () => {
     await user.keyboard('{ArrowDown}{Enter}');
     expect(onAdd).toHaveBeenCalledExactlyOnceWith('scatter', false);
   });
+
+  it('sizes category columns to content and keeps long rows single-line with truncation, title, and full accessible name (#3091)', async () => {
+    const longName = '설비 × Module별 동작시간 상세 비교 히트맵';
+    const longDisabledName = 'HTM 기준 변경 이력 전체 비교 목록';
+    await open([
+      { id: 'long', category: compare, kind: 'heatmap', title: text(longName, 'Equipment × Module detailed heatmap') },
+      { id: 'long-disabled', category: trend, kind: 'history', title: text(longDisabledName, 'HTM bound history'), disabledReason: text('선택 필요', 'Select first') },
+    ]);
+    const grid = screen.getByRole('group', { name: '이 메뉴의 패널' });
+    expect(grid.className).toMatch(/auto-cols-\[minmax\([^,]+,max-content\)\]/);
+
+    const longButton = row(longName);
+    expect(longButton).toHaveAccessibleName(longName);
+    expect(longButton).toHaveAttribute('title', longName);
+    expect(longButton).toHaveClass('h-8', 'whitespace-nowrap');
+    expect(longButton).not.toHaveClass('h-auto', 'whitespace-normal');
+    expect(within(longButton).getByText(longName)).toHaveClass('truncate');
+
+    const disabledButton = row(longDisabledName);
+    expect(disabledButton).toHaveAccessibleName(longDisabledName);
+    expect(disabledButton).toHaveAttribute('title', longDisabledName);
+    expect(disabledButton).not.toHaveClass('whitespace-normal');
+    expect(within(disabledButton).getByText(longDisabledName)).toHaveClass('truncate');
+    expect(within(disabledButton).getByText('사용할 수 없음')).toHaveClass('truncate');
+  });
 });
 
 describe('PanelAddMenu chart picker (#2761)', () => {
