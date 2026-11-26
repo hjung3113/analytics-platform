@@ -128,6 +128,17 @@ function manualFrames() {
   };
 }
 
+it('announces the refusal of a panel that does not accept analysis selections', async () => {
+  const { chip, container } = await mount();
+  pointer(chip, 'pointerdown', 5);
+  pointer(window, 'pointermove', 150);
+  expect(container.querySelector('[data-selection-drop-panel="chart"]')).toHaveAttribute('data-selection-drop-state', 'rejected');
+  pointer(window, 'pointerup', 150);
+  expect(onDrop).not.toHaveBeenCalled();
+  expect(chip).toHaveFocus();
+  expect(screen.getAllByRole('status').map(status => status.textContent)).toContain('분석 선택을 받을 수 없는 패널');
+});
+
 it('shows whole-panel targets after movement, hovers the table body and drops the dragged chip', async () => {
   const { chip, container } = await mount();
   pointer(chip, 'pointerdown', 5);
@@ -233,7 +244,7 @@ it.each(['lostpointercapture', 'chip unmount'])('cleans up on %s and allows the 
   expect(onDrop).toHaveBeenCalledOnce();
 });
 
-it.each(['Escape', 'window blur', 'pointercancel'])('cancels on %s and restores focus to the chip', async reason => {
+it.each(['Escape', 'window blur', 'lost pointer capture', 'pointercancel'])('cancels on %s and restores focus to the chip', async reason => {
   const { chip, chart, container } = await mount();
   pointer(chip, 'pointerdown', 5);
   pointer(window, 'pointermove', 250);
@@ -241,15 +252,49 @@ it.each(['Escape', 'window blur', 'pointercancel'])('cancels on %s and restores 
   expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
   if (reason === 'Escape') fireEvent.keyDown(chart, { key: 'Escape' });
   else if (reason === 'window blur') fireEvent(chip.ownerDocument.defaultView!, new FocusEvent('blur'));
+  else if (reason === 'lost pointer capture') pointer(chip, 'lostpointercapture', 250);
   else pointer(window, 'pointercancel', 250);
   expect(target(container)).toBeNull();
   expect(chip).toHaveFocus();
   pointer(window, 'pointerup', 250);
-  if (reason === 'Escape') {
+  // The release of a cancelled drag still dispatches a click on the chip: it must not open the chip editor (#2917).
+  // pointercancel ends the pointer without a release, so no click follows it.
+  if (reason !== 'pointercancel') {
     fireEvent.click(chip, { detail: 1 });
     expect(screen.queryByRole('dialog', { name: 'equipment E1' })).toBeNull();
   }
   expect(onDrop).not.toHaveBeenCalled();
+});
+
+it.each([['Escape', 'window blur'], ['window blur', 'lost pointer capture'], ['lost pointer capture', 'window blur']])('keeps the release click suppressed after %s then %s', async (...interrupts) => {
+  const { chip, chart } = await mount();
+  pointer(chip, 'pointerdown', 5);
+  pointer(window, 'pointermove', 250);
+  chart.focus();
+  for (const interrupt of interrupts) {
+    if (interrupt === 'Escape') fireEvent.keyDown(chart, { key: 'Escape' });
+    else if (interrupt === 'window blur') fireEvent(window, new FocusEvent('blur'));
+    else pointer(chip, 'lostpointercapture', 250);
+  }
+  pointer(window, 'pointerup', 250);
+  fireEvent.click(chip, { detail: 1 });
+  expect(screen.queryByRole('dialog', { name: 'equipment E1' })).toBeNull();
+  expect(onDrop).not.toHaveBeenCalled();
+});
+
+it.each(['window blur', 'lost pointer capture'])('starts the next drag after %s when the release never arrived', async reason => {
+  const { chip, container } = await mount();
+  pointer(chip, 'pointerdown', 5);
+  pointer(window, 'pointermove', 250);
+  if (reason === 'window blur') fireEvent(chip.ownerDocument.defaultView!, new FocusEvent('blur'));
+  else pointer(chip, 'lostpointercapture', 250);
+  expect(target(container)).toBeNull();
+  // The pointer was released outside the window: the next press starts a new drag.
+  pointer(chip, 'pointerdown', 5);
+  pointer(window, 'pointermove', 250);
+  expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
+  pointer(window, 'pointerup', 250);
+  expect(onDrop).toHaveBeenCalledOnce();
 });
 
 it('keeps dragging when a control inside the window blurs', async () => {
@@ -271,6 +316,8 @@ it('shows the same rejection during drag and in the menu, and neither applies it
   expect(container.querySelector('[data-selection-drop-panel="chart"]')).toHaveTextContent('분석 선택을 받을 수 없는 패널');
   pointer(window, 'pointerup', 250);
   expect(chip).toHaveFocus();
+  // The overlay is gone after the release, so the refusal is announced in the drop status (#2917).
+  expect(screen.getAllByRole('status').map(status => status.textContent)).toContain(rejected.ko);
   fireEvent.keyDown(screen.getByRole('button', { name: 'Table 동작' }), { key: 'Enter' });
   const action = await screen.findByRole('menuitem', { name: `${hold} · equipment E1`, description: rejected.ko });
   expect(action).toHaveAttribute('aria-disabled', 'true');

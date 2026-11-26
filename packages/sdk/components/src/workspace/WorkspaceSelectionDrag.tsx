@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from 'react';
-import { useI18n, type AnalysisSelectionChip } from '@ap/kernel';
+import { useI18n, type AnalysisSelectionChip, type Text } from '@ap/kernel';
 import { Badge, cn } from '@ap/ui';
 import { usePublishSelectionDrag } from '../chart/NextAnalysisBridge';
 import { COMPONENTS_MESSAGES } from '../messages';
@@ -14,6 +14,8 @@ const VISIBLE_PANEL = `${PANEL}[data-dock-visible="true"]`;
 type PointerPosition = Pick<PointerEvent, 'clientX' | 'clientY'>;
 type Zone = { id: string; left: number; top: number; width: number; height: number };
 type Preview = { chip: AnalysisSelectionChip; zones: Zone[]; target: string | undefined };
+/** The outcome of a pointer release the user is told about: the target moved, or the panel refused the chip. */
+type DropNotice = { kind: 'changed' } | { kind: 'refused'; reason: Text };
 
 function dockGroups(dock: HTMLElement) {
   return [...dock.querySelectorAll<HTMLElement>(GROUP)].filter(group => group.closest(DOCK) === dock);
@@ -43,6 +45,11 @@ function panelAt(dock: HTMLElement, { clientX, clientY }: PointerPosition) {
   return body?.dataset.dockPanel ?? actions?.dataset.dockActive;
 }
 
+/** Why a panel does not take this chip: its own reason, or «not accepted» when it declares no drop. Overlay and release share it. */
+function dropRefusal(drop: PanelWorkspacePanel['analysisSelectionDrop'], chip: AnalysisSelectionChip): Text | undefined {
+  return drop ? drop.reason?.(chip) : COMPONENTS_MESSAGES.workspaceSelectionNotAccepted;
+}
+
 function suppressReleaseClick(win: Window, pointerId: number) {
   const listener = new AbortController();
   win.addEventListener('click', event => {
@@ -67,7 +74,7 @@ export function WorkspaceSelectionDrag({ root, panels }: {
 }) {
   const { tx } = useI18n();
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [dropTargetChanged, setDropTargetChanged] = useState(false);
+  const [notice, setNotice] = useState<DropNotice | null>(null);
   const cleanup = useRef<(() => void) | null>(null);
   const renderedTarget = useRef<Preview['target']>(undefined);
   useLayoutEffect(() => { renderedTarget.current = preview?.target; }, [preview]);
@@ -77,13 +84,13 @@ export function WorkspaceSelectionDrag({ root, panels }: {
   useLayoutEffect(() => { currentDrops.current = drops; }, [drops]);
   const reset = useCallback(() => {
     cleanup.current?.();
-    setDropTargetChanged(false);
+    setNotice(null);
   }, []);
   const start = useCallback((event: PointerEvent, chip: AnalysisSelectionChip, trigger: HTMLButtonElement) => {
     const dock = root.current?.querySelector<HTMLElement>(`:scope > ${DOCK}`);
     const win = trigger.ownerDocument.defaultView;
     if (event.button !== 0 || event.isPrimary === false || cleanup.current || !dock || !win || !trigger.isConnected) return;
-    setDropTargetChanged(false);
+    setNotice(null);
     const { pointerId } = event;
     const listener = new AbortController();
     const options = { capture: true, signal: listener.signal };
@@ -95,7 +102,7 @@ export function WorkspaceSelectionDrag({ root, panels }: {
     let observedGroups = new Set<HTMLElement>();
     const connected = () => trigger.isConnected && dock.isConnected;
     const restoreFocus = () => { if (trigger.isConnected) trigger.focus({ preventScroll: true }); };
-    const finish = (end: 'release' | 'cancel' | 'escape' | 'reset') => {
+    const finish = (end: 'release' | 'cancel' | 'hold' | 'reset') => {
       mutations.disconnect();
       resize?.disconnect();
       if (frame !== undefined) win.cancelAnimationFrame(frame);
@@ -103,8 +110,9 @@ export function WorkspaceSelectionDrag({ root, panels }: {
       win.removeEventListener('scroll', scheduleRefresh, true);
       win.removeEventListener('resize', scheduleRefresh);
       if (phase !== 'pending') setPreview(null);
-      if (end === 'escape') {
-        // The pointer is still down. Keep the release listener and capture to consume its click.
+      if (end === 'hold') {
+        // The pointer is still down (Escape, window blur, lost capture). Keep the release listener to consume its click;
+        // the next press ends this gesture if the release never reaches the window.
         phase = 'cancelled';
         restoreFocus();
         return;
@@ -161,6 +169,9 @@ export function WorkspaceSelectionDrag({ root, panels }: {
       }
     }
     cleanup.current = () => finish('reset');
+    win.addEventListener('pointerdown', down => {
+      if (phase === 'cancelled' && down.isPrimary !== false) finish('release');
+    }, options);
     win.addEventListener('pointermove', move => {
       if (move.pointerId !== pointerId || phase === 'cancelled') return;
       if (!connected()) { finish('cancel'); return; }
@@ -195,25 +206,30 @@ export function WorkspaceSelectionDrag({ root, panels }: {
       const targetChanged = panelAt(dock, up) !== id;
       if (!id || targetChanged) {
         restoreFocus();
-        if (targetChanged) setDropTargetChanged(true);
+        if (targetChanged) setNotice({ kind: 'changed' });
         return;
       }
       const drop = currentDrops.current.get(id);
-      if (drop && !drop.reason?.(chip)) drop.onDrop(chip);
-      else restoreFocus();
+      const refusal = dropRefusal(drop, chip);
+      if (drop && !refusal) { drop.onDrop(chip); return; }
+      restoreFocus();
+      // The overlay that showed the reason is gone after the release: announce it (the menu path shows it as the item description).
+      if (refusal) setNotice({ kind: 'refused', reason: refusal });
     }, options);
-    const cancelPointer = (cancelled: PointerEvent) => { if (cancelled.pointerId === pointerId) finish('cancel'); };
-    win.addEventListener('pointercancel', cancelPointer, options);
+    // A cancel while the pointer may still be down keeps consuming its release click, so the chip editor does not open.
+    // A second interrupt of a held gesture (Escape then blur, blur then lost capture) leaves it held.
+    const interrupt = () => { if (phase !== 'cancelled') finish(phase === 'dragging' && connected() ? 'hold' : 'cancel'); };
+    win.addEventListener('pointercancel', cancelled => { if (cancelled.pointerId === pointerId) finish('cancel'); }, options);
     win.addEventListener('lostpointercapture', lost => {
       // Touch can transfer implicit capture from a child of the trigger when the drag starts.
-      if (lost.target === trigger || !connected()) cancelPointer(lost);
+      if (lost.pointerId === pointerId && (lost.target === trigger || !connected())) interrupt();
     }, options);
-    win.addEventListener('blur', event => { if (event.target === event.currentTarget) finish('cancel'); }, options);
+    win.addEventListener('blur', event => { if (event.target === event.currentTarget) interrupt(); }, options);
     win.addEventListener('keydown', key => {
       if (key.key !== 'Escape' || phase !== 'dragging') return;
       key.preventDefault();
       key.stopImmediatePropagation();
-      finish('escape');
+      finish('hold');
     }, options);
   }, [root]);
   usePublishSelectionDrag(panelIds, start, reset);
@@ -221,7 +237,7 @@ export function WorkspaceSelectionDrag({ root, panels }: {
   const overlay = preview && <div aria-hidden className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
     {preview.zones.map(({ id, left, top, width, height }) => {
       const drop = drops.get(id);
-      const reason = drop ? drop.reason?.(preview.chip) : COMPONENTS_MESSAGES.workspaceSelectionNotAccepted;
+      const reason = dropRefusal(drop, preview.chip);
       const hovered = !reason && id === preview.target;
       const availableState = hovered ? 'hovered' : 'available';
       return <div key={id} data-selection-drop-panel={id} data-selection-drop-state={reason ? 'rejected' : availableState} style={{
@@ -238,9 +254,9 @@ export function WorkspaceSelectionDrag({ root, panels }: {
   return <>
     {overlay}
     <div className="pointer-events-none sticky bottom-2 z-10 h-0">
-      <p role="status" className={dropTargetChanged
+      <p role="status" className={notice?.kind === 'changed'
         ? 'absolute inset-x-2 bottom-0 mx-auto w-fit rounded-md border border-border-subtle bg-surface-canvas px-2 py-1 text-center t-caption text-text-secondary break-keep'
-        : 'sr-only'}>{dropTargetChanged && tx(COMPONENTS_MESSAGES.workspaceDropTargetChanged)}</p>
+        : 'sr-only'}>{notice && tx(notice.kind === 'changed' ? COMPONENTS_MESSAGES.workspaceDropTargetChanged : notice.reason)}</p>
     </div>
   </>;
 }
