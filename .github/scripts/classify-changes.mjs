@@ -50,7 +50,7 @@ export function sdkChanged({ event, files }) {
 }
 
 const SERVER_PACKAGES = ['apps/platform-api', 'ops/platform-api'];
-// A workspace manifest is judged by the dependency graph below (read at head), like any other file in its package; only the root one is setup.
+// A workspace manifest is judged by the dependency graph below (read from the checked-out PR merge ref), like any other file in its package; only the root one is setup.
 const SERVER_SETUP = /^(?:\.github\/|patches\/|tooling\/(?:sdk|tsconfig)\/|(?:\.nvmrc|\.npmrc|\.pnpmfile\.[cm]?js|package\.json|pnpm-(?:lock|workspace)\.yaml|turbo\.json|\.dockerignore)$)|(?:^|\/)migrations\//;
 const REPO_PATH = /^[\w./@+-]+$/;
 
@@ -286,10 +286,10 @@ function selfTest() {
     'menus/log-dev/log-analysis/src/endpoints.ts', 'packages/feature/screens/src/a.ts',
     'docs/architecture/platform-api/api/platform-port.md', 'pnpm-lock.yaml',
     '.github/workflows/ci.yml', 'unknown/a.ts',
+    // Manifests: the root, both server roots, a shared server dependency, and a deleted or moved package (unknown tree).
+    'package.json', 'apps/platform-api/package.json', 'ops/platform-api/package.json', 'packages/sdk/contracts/package.json',
+    'packages/removed-pkg/package.json',
   ]) check(`server: pr ${f} → true`, server('pull_request', [f]), T);
-  for (const f of ['package.json', 'apps/platform-api/package.json', 'packages/sdk/contracts/package.json']) {
-    check(`server: pr ${f} → true`, server('pull_request', [f]), T);
-  }
   for (const f of ['packages/sdk/ui/src/a.tsx', 'menus/mars/hw-time/src/a.tsx', 'menus/mars/hw-time/package.json', 'menus/mars/hw-time/CHANGELOG.md', 'docs/INDEX.md']) {
     check(`server: pr ${f} → false`, server('pull_request', [f]), F);
   }
