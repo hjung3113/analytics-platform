@@ -13,6 +13,7 @@ import { chartDiagnostic } from './analysisChartData';
 import type { ChartBoundLabels } from './chartBounds';
 import { statusGlyph, statusText } from './chartStatus';
 import { projectSmallMultiples, SmallMultiplePlot, smallMultipleStatusPaint, type SmallMultiplesSeries } from './smallMultiplesPlot';
+import { releaseFocusLater } from '../state/releaseFocusLater';
 
 export type SmallMultiplesSortOption = {
   /** Unique within the grid. `original` is reserved for input order. */
@@ -263,11 +264,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
                     const button = event.currentTarget;
                     if (event.relatedTarget) focusedButton.current = null;
                     // A removed button can blur during the commit, before focus recovery runs.
-                    else queueMicrotask(() => {
-                      if (button.isConnected && focusedButton.current === button && button.ownerDocument.activeElement !== button) {
-                        focusedButton.current = null;
-                      }
-                    });
+                    else releaseFocusLater(button, () => { if (focusedButton.current === button) focusedButton.current = null; });
                   }}
                   onKeyDown={event => move(event, index)}
                   onClick={enabled ? () => select({ shape: 'set', values: [value] }) : undefined}
