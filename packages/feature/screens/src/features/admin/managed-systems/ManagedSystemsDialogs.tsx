@@ -25,6 +25,7 @@ import { useEffect, useState } from 'react';
 
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { MANAGED_SYSTEM_COPY } from '../../../lib/copy/managed-systems';
+import { ADMIN_REGISTRY_COPY } from '../../../lib/copy/admin-registry';
 import { hasFieldCode, slugFormatError } from '../lib/fieldErrors';
 import type { ManagedSystemDto } from '../../../lib/api/registry-reads';
 import type {
@@ -236,8 +237,8 @@ function RegisterDialog({
   });
   const register = useValidatedSubmit<{ slug: string; name: string; externalKey: string }>({
     validate: (values) => ({
-      ...(values.slug.trim() ? {} : { slug: '슬러그를 입력해 주세요.' }),
-      ...(values.name.trim() ? {} : { name: '이름을 입력해 주세요.' }),
+      ...(values.slug.trim() ? {} : { slug: ADMIN_REGISTRY_COPY.slugRequired }),
+      ...(values.name.trim() ? {} : { name: ADMIN_REGISTRY_COPY.nameRequired }),
     }),
     onValid: () => {
       const body: RegisterManagedSystemBody = { slug, name };

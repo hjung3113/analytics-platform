@@ -19,6 +19,7 @@ import { useState } from 'react';
 import type { AnalyticsAreaDto } from '../../../lib/api/registry-reads';
 import type { UpdateAnalyticsAreaBody } from '../../../lib/api/registry-writes';
 import { ArchiveConfirmButton } from '../lib/ArchiveConfirmButton';
+import { ADMIN_REGISTRY_COPY } from '../../../lib/copy/admin-registry';
 import { slugFormatError } from '../lib/fieldErrors';
 import {
   useArchiveAnalyticsAreaMutation,
@@ -83,8 +84,8 @@ function RegisterForm({
   const create = useValidatedSubmit<{ managedSystem: string | null; slug: string; name: string }>({
     validate: (values) => ({
       ...(values.managedSystem ? {} : { managedSystem: '시스템을 선택해 주세요.' }),
-      ...(values.slug.trim() ? {} : { slug: '슬러그를 입력해 주세요.' }),
-      ...(values.name.trim() ? {} : { name: '이름을 입력해 주세요.' }),
+      ...(values.slug.trim() ? {} : { slug: ADMIN_REGISTRY_COPY.slugRequired }),
+      ...(values.name.trim() ? {} : { name: ADMIN_REGISTRY_COPY.nameRequired }),
     }),
     onValid: ({ managedSystem, slug: nextSlug, name: nextName }) => {
       if (managedSystem) mutation.mutate({ managed_system_id: managedSystem, slug: nextSlug, name: nextName });
@@ -108,16 +109,15 @@ function RegisterForm({
           create.handleSubmit({ managedSystem: msId, slug, name })(e);
         }}
       >
-        {/* fieldset, not a div with role="group" — biome's useSemanticElements
-            rejects the ARIA-only form and the native element carries the same
-            grouping for assistive tech. */}
         {/* A fieldset (biome's useSemanticElements rejects a div with role="group"). The first-invalid focus lands on it (tabIndex
-            -1) and it hands focus to the first system option, so the user can choose at once; the options stay the tab stops. */}
+            -1) and it hands focus to the chosen system option (else the first), so the user can choose at once; the options stay the tab stops. */}
         <fieldset
           className="grid gap-1.5"
           tabIndex={-1}
           onFocus={(event) => {
-            if (event.target === event.currentTarget) event.currentTarget.querySelector<HTMLElement>('[role="radio"]')?.focus();
+            if (event.target !== event.currentTarget) return;
+            const options = event.currentTarget;
+            (options.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? options.querySelector<HTMLElement>('[role="radio"]'))?.focus();
           }}
           aria-labelledby="aa-create-managed-system-label"
           aria-describedby={create.errors.managedSystem ? 'aa-create-managed-system-error' : undefined}

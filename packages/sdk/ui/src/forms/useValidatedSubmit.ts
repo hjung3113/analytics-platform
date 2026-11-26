@@ -16,10 +16,15 @@ export interface UseValidatedSubmitResult<TValues> {
   /** Clear only the error for a field whose value changed. */
   clearError: (field: Extract<keyof TValues, string>) => void;
   /**
-   * Opt-in (#3173): show the field errors the server returned for the last valid submit. They join `errors`, the first invalid
+   * Opt-in (#3173): show the field errors the server returned for the last valid submit. They replace `errors` (empty after a valid submit), the first invalid
    * control takes focus as after a local check, and `clearError`, `clearErrors` or the next submit clear them. Pass `{}` to clear.
    */
   setServerErrors: (errors: ValidationErrors<TValues>) => void;
+}
+
+/** True when any field carries a non-empty message. */
+function hasErrors<TValues>(errors: ValidationErrors<TValues>): boolean {
+  return Object.values(errors).some((message) => message !== undefined && message !== null && message !== '');
 }
 
 /** Validate only after submit, then focus the first invalid control after its `aria-invalid` props render. */
@@ -73,11 +78,8 @@ export function useValidatedSubmit<TValues>({
         event.preventDefault();
         formRef.current = event.currentTarget;
         const nextErrors = validate(values);
-        const hasErrors = Object.values(nextErrors).some(
-          (message) => message !== undefined && message !== null && message !== '',
-        );
         setErrors(nextErrors);
-        if (hasErrors) {
+        if (hasErrors(nextErrors)) {
           shouldFocusInvalidRef.current = true;
           return;
         }
@@ -88,8 +90,7 @@ export function useValidatedSubmit<TValues>({
   );
 
   const setServerErrors = React.useCallback((next: ValidationErrors<TValues>) => {
-    const hasErrors = Object.values(next).some((message) => message !== undefined && message !== null && message !== '');
-    shouldFocusInvalidRef.current = hasErrors;
+    shouldFocusInvalidRef.current = hasErrors(next);
     setErrors(next);
   }, []);
 
