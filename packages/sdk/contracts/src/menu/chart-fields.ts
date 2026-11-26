@@ -99,6 +99,26 @@ export function chartPanelProblem(fields: MenuChartFields, draft: ChartPanelDraf
   return 'problem' in judged ? judged.problem : null;
 }
 
+export type MappingSlot = 'measure' | 'breakdown';
+export type MappingChip = { kind: MappingSlot; id: string };
+
+const SLOT_KIND_REASONS: Record<MappingSlot, Text> = {
+  measure: { ko: '지표 칸에는 지표만 놓을 수 있습니다', en: 'Only measures can go in the measure slot' },
+  breakdown: { ko: '기준 칸에는 기준만 놓을 수 있습니다', en: 'Only breakdowns can go in the breakdown slot' },
+};
+
+/** Replaces one slot without moving the previous chip into the other slot. */
+export function assignMappingSlot(draft: ChartPanelDraft, slot: MappingSlot, chip: MappingChip): ChartPanelDraft {
+  return slot === chip.kind ? { ...draft, [slot]: chip.id } : draft;
+}
+
+/** Why a chip cannot be placed here. The other slot may still be empty. */
+export function mappingSlotProblem(fields: MenuChartFields, draft: ChartPanelDraft, slot: MappingSlot, chip: MappingChip, granted: ChartPermissionCheck): Text | undefined {
+  if (slot !== chip.kind) return SLOT_KIND_REASONS[slot];
+  const problem = chartPanelProblem(fields, assignMappingSlot(draft, slot, chip), granted);
+  return problem?.code === 'incomplete' ? undefined : problem?.reason;
+}
+
 /** Default chart title «지표 · 기준» (owner 2026-11-25). */
 export function chartPanelTitle(measure: ChartMeasureDeclaration, breakdown: ChartBreakdownDeclaration): Text {
   return { ko: `${measure.label.ko} · ${breakdown.label.ko}`, en: `${measure.label.en} · ${breakdown.label.en}` };
@@ -149,6 +169,21 @@ export type ReadChartPanel =
 /** JSON text with object keys sorted, so two plain JSON values compare by content whatever their key order. */
 const canonical = (value: unknown) => JSON.stringify(value, (_key, v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b))) : v));
 
+/** Compares stored chart configurations by content, independent of JSON object key order. */
+export function sameChartConfig(left: ChartConfig | undefined, right: ChartConfig | undefined): boolean {
+  return left === right || canonical(left) === canonical(right);
+}
+
+/** Extracts editable slots even when the stored fields are no longer declared. */
+export function readChartPanelDraft(config: ChartConfig): ChartPanelDraft {
+  return {
+    kind: config.kind,
+    measure: config.measures[0]?.field,
+    breakdown: config.kind === 'line' ? config.split?.field : config.x.field,
+    ...(config.stack === 'stack' ? { stack: 'stack' } : {}),
+  };
+}
+
 /**
  * Reads a saved chart panel back against the menu's current declaration when a saved view opens. The panel opens only when its source and
  * outputs are exactly what this menu makes from the same measure, breakdown, kind and stack now; otherwise only that panel shows the
@@ -158,10 +193,7 @@ export function readChartPanel(fields: MenuChartFields | undefined, instance: Pi
   if (instance.source.kind !== 'chart') return { status: 'problem', problem: reason('changed') };
   const { config } = instance.source;
   const declared = fields ?? { measures: [], breakdowns: [] };
-  const draft: ChartPanelDraft = {
-    kind: config.kind, measure: config.measures[0]?.field, breakdown: config.kind === 'line' ? config.split?.field : config.x.field,
-    ...(config.stack === 'stack' ? { stack: 'stack' as const } : {}),
-  };
+  const draft = readChartPanelDraft(config);
   const judged = judge(declared, draft, granted);
   // `incomplete` means «keep choosing» in the picker; on a saved chart a missing measure or breakdown is a mapping this menu never makes.
   if ('problem' in judged) return { status: 'problem', problem: judged.problem.code === 'incomplete' ? reason('changed') : judged.problem };

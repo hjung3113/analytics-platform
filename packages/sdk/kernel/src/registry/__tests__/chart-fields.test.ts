@@ -1,5 +1,6 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { chartFieldMeta, chartPanelProblem, createChartPanel, menuPermission, nextChartPanelId, readChartPanel, readMenuViewPanels, type ChartPanelDraft, type ChartPermissionCheck, type MenuChartFields, type PanelInstance } from '@ap/contracts';
+import * as contracts from '@ap/contracts';
 
 const chartFieldsFixture: MenuChartFields = {
   time: { field: 'at', label: { ko: '시각', en: 'Time' } },
@@ -21,7 +22,58 @@ const made = (draft: ChartPanelDraft, id = 'chart-1'): PanelInstance => {
   return result.instance;
 };
 
+describe('chart mapping slots (#2762)', () => {
+  it.each([
+    ['measure', { kind: 'breakdown', id: 'unknown' }, { ko: '지표 칸에는 지표만 놓을 수 있습니다', en: 'Only measures can go in the measure slot' }],
+    ['breakdown', { kind: 'measure', id: 'unknown' }, { ko: '기준 칸에는 기준만 놓을 수 있습니다', en: 'Only breakdowns can go in the breakdown slot' }],
+  ] as const)('checks the %s slot kind before chart validation', (slot, chip, reason) => {
+    expect(contracts.mappingSlotProblem(fields, { kind: 'bar' }, slot, chip, all)).toEqual(reason);
+  });
+
+  it('uses the chart permission reason', () => {
+    expect(contracts.mappingSlotProblem(fields, { kind: 'bar' }, 'measure', { kind: 'measure', id: 'yield' }, () => false)?.ko)
+      .toBe('이 지표를 볼 권한이 없습니다');
+  });
+
+  it('uses the reason for a breakdown the measure does not offer', () => {
+    expect(contracts.mappingSlotProblem(fields, { kind: 'bar', measure: 'cycle' }, 'breakdown', { kind: 'breakdown', id: 'module' }, all)?.ko)
+      .toBe('이 지표는 이 기준으로 볼 수 없습니다');
+  });
+
+  it('uses the line chart time requirement even for one slot', () => {
+    expect(contracts.mappingSlotProblem({ ...fields, time: undefined }, { kind: 'line' }, 'measure', { kind: 'measure', id: 'runTime' }, all)?.ko)
+      .toBe('선 차트는 시간 축이 있는 메뉴에서만 만들 수 있습니다');
+  });
+
+  it.each([undefined, 'equipment'])('allows placing a measure with breakdown %s', breakdown => {
+    expect(contracts.mappingSlotProblem(fields, { kind: 'bar', breakdown }, 'measure', { kind: 'measure', id: 'runTime' }, all))
+      .toBeUndefined();
+  });
+
+  it.each([undefined, 'runTime'])('fills or replaces the measure %s while preserving the other settings', measure => {
+    const draft = { kind: 'line', measure, breakdown: 'equipment', stack: 'stack' } as const;
+    expect(contracts.assignMappingSlot(draft, 'measure', { kind: 'measure', id: 'cycle' }))
+      .toEqual({ kind: 'line', measure: 'cycle', breakdown: 'equipment', stack: 'stack' });
+    expect(draft.measure).toBe(measure);
+  });
+
+  it('keeps the draft intact when the chip belongs to the other slot', () => {
+    const draft = { kind: 'bar', measure: 'cycle', breakdown: 'equipment' } as const;
+    expect(contracts.assignMappingSlot(draft, 'measure', { kind: 'breakdown', id: 'module' })).toEqual(draft);
+  });
+});
+
 describe('chart panels from declared measures and breakdowns (#2761)', () => {
+  it('reads stored line and bar slots for repair even when their declarations are gone', () => {
+    expect(contracts.readChartPanelDraft({
+      version: 1, kind: 'line', x: { field: 'oldTime', type: 'time' }, measures: [{ field: 'oldMeasure' }],
+      split: { field: 'oldBreakdown' }, stack: 'stack',
+    })).toStrictEqual({ kind: 'line', measure: 'oldMeasure', breakdown: 'oldBreakdown', stack: 'stack' });
+    expect(contracts.readChartPanelDraft({
+      version: 1, kind: 'bar', x: { field: 'oldBreakdown', type: 'category' }, measures: [{ field: 'oldMeasure' }], stack: 'percent',
+    })).toStrictEqual({ kind: 'bar', measure: 'oldMeasure', breakdown: 'oldBreakdown' });
+  });
+
   it('judges each choice with the reason the picker and the settings drawer show', () => {
     const problem = (draft: ChartPanelDraft, granted = all) => chartPanelProblem(fields, draft, granted)?.code ?? null;
     expect(problem({ kind: 'bar', measure: 'runTime', breakdown: 'module' })).toBeNull();
