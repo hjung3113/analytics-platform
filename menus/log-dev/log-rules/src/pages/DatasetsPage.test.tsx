@@ -74,6 +74,13 @@ describe('MEN-8 dataset menu assertions', () => {
     expect(await screen.findByText('조건에 맞는 테스트 데이터셋이 없습니다.')).toBeTruthy();
     expect(screen.getByText('검색어나 상태 필터를 변경해 주세요.')).toBeTruthy();
   });
+  it('shows dataset update times in the Kernel list notation (#2587)', async () => {
+    mount();
+    await screen.findByText('40건 · 1/2 페이지');
+    const times = [...screen.getByRole('table', { name: '테스트 데이터셋 목록' }).querySelectorAll('time')].map(t => t.textContent);
+    expect(times.length).toBeGreaterThan(0);
+    for (const text of times) expect(text).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  });
   it('detail tabs expose overview, revision history, baseline evidence, runs and comparison guidance', async () => {
     mount({ datasetId: DS });
     await screen.findByRole('region', { name: '데이터셋 개요' });
