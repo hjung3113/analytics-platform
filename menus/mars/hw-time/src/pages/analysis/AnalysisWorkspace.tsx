@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-react';
-import { isAnswered, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance } from '@ap/contracts';
+import { heldSelectionProblem, isAnswered, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelDeclaration, type PanelInstance } from '@ap/contracts';
 import { ANALYSIS_SELECTION_MAX_VALUES, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
@@ -21,7 +21,7 @@ import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
 import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
-import { buildSavedPanels, defaultPanels, exceedsPanelLimit, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isHeldSource, keepHeld, names, newPanelInstance, panelAdditionOverflows, planAdd, SAME_PANEL_MAX, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
+import { buildSavedPanels, defaultPanels, exceedsPanelLimit, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isHeldSource, keepHeld, names, newPanelInstance, panelAdditionOverflows, planAdd, planTableHold, SAME_PANEL_MAX, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
 import { CATALOG_IDS, chartRows, panelCatalog, projectBarData, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
@@ -297,7 +297,14 @@ function useWorkspacePanels(owner: string, query: string, step: Step) {
     return { ...current, config: { ...current.config, added, sources: current.config.sources.map(disconnect) } };
   });
   const editConnections = (config: CustomPanels) => setState(current => ({ ...current, config: { ...config, connectionsEdited: true } }));
-  return { config, add, remove, follow, editConnections, additionOverflows: (id: string) => panelAdditionOverflows(config, step, id) };
+  const holdTable = (slot: string, selection: AnalysisSelection, from?: string) => setState(current => {
+    if (current.owner !== owner || current.population !== population) return current;
+    const plan = planTableHold(current.config, step, slot, selection, from);
+    return plan.overflows ? current : { ...current, config: plan.config };
+  });
+  return { config, add, remove, follow, editConnections, holdTable,
+    holdOverflows: (slot: string, selection: AnalysisSelection) => planTableHold(config, step, slot, selection).overflows,
+    additionOverflows: (id: string) => panelAdditionOverflows(config, step, id) };
 }
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
@@ -716,6 +723,29 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   // «새 패널» for the raw table is judged on its real slots (#2862 ②, R C3).
   const additionItems = catalog.map(item => item.id !== 'table' || !tables.open.length ? item
     : { ...item, slots: tables.open.map(({ id }) => id), ...(tables.again ? { again: tables.again } : {}) });
+  const workspacePanels = panels.map((panel): PanelWorkspacePanel => {
+    if (tables.overflow.has(panel.id)) return panel;
+    const isOpenTable = tables.open.some(({ id }) => id === panel.id);
+    return { ...panel,
+      analysisSelectionDrop: isOpenTable ? {
+        reason: ({ key, dimension, selection }) => {
+          if (key !== heldOutput.key || dimension !== heldOutput.dimension || selection.shape !== heldOutput.shape || heldSelectionProblem(selection)) {
+            return HW_TIME_WORKSPACE_MESSAGES.heldEquipmentOnly;
+          }
+          return savedPanels.holdOverflows(panel.id, selection) ? limitReason : undefined;
+        },
+        onDrop: ({ selection }) => {
+          savedPanels.holdTable(panel.id, selection, selectionHost);
+          // The raw-table pin asks for a following table. Clear it here so holding the only table does not open a replacement.
+          if (tables.open.length === 1 && pins.isPinned('table')) pins.unpin('table');
+        },
+      } : undefined,
+      onOpenSettings: trigger => {
+        if (pageParam('focus') !== null) setPage({ focus: null });
+        setSettings({ id: panel.id, trigger, query: settingsQuery });
+      },
+    };
+  });
   return <div className="flex min-h-0 flex-1 flex-col gap-2">
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
     {savedPanels.config.kind === 'unreadable' && <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={workspace('unreadablePanels')} />}
@@ -746,10 +776,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         return parseAnalysisSelection(output.shape, pageParams(output.key));
       }}
       onChange={editSettings} />}
-    <PanelWorkspace panels={panels.map(panel => tables.overflow.has(panel.id) ? panel : { ...panel, onOpenSettings: trigger => {
-      if (pageParam('focus') !== null) setPage({ focus: null });
-      setSettings({ id: panel.id, trigger, query: settingsQuery });
-    } })} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
+    <PanelWorkspace panels={workspacePanels} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
       panelMenuItems={id => [
         ...(Object.hasOwn(panelDeclarations, id) ? [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }] : []),
         ...(heldSlots.some(slot => slot.id === id) ? [{ id: 'follow', label: HW_TIME_WORKSPACE_MESSAGES.followInstead, onSelect: () => savedPanels.follow(id) }] : []),

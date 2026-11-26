@@ -42,6 +42,11 @@ export function heldTableInput({ key, from, value, use }: Extract<PanelInstanceI
   return { key, from, mode: 'hold', value, ...(use === 'highlight' ? { use } : {}) };
 }
 
+function equipmentHold(sourceId: string, value: AnalysisSelection): PanelInstanceInput {
+  const { key } = heldOutput;
+  return heldTableInput({ key, from: `${sourceId}.${key}`, mode: 'hold', value });
+}
+
 export function followPanel({ slot, instance }: AddedPanel): AddedPanel {
   const inputs = instance.inputs.map((input): PanelInstanceInput => {
     if (input.mode === 'follow') return input;
@@ -102,8 +107,8 @@ export function withAdded(config: PanelConfiguration, id: string, step: Step, in
   const room = id === 'table' && all.length < SAME_PANEL_MAX;
   if (intent?.mode === 'hold') {
     const source = heldSourceFor(custom);
-    const inputs = Object.entries(intent.held).flatMap(([key, value]) => key === heldOutput.key
-      ? [heldTableInput({ key, from: `${source.id}.${key}`, mode: 'hold', value })] : []);
+    const value = intent.held[heldOutput.key];
+    const inputs = value ? [equipmentHold(source.id, value)] : [];
     // With two following instances the later one holds, so the first keeps the address's row and page (R C5).
     const target = same.find(panel => holds(panel.instance)) ?? (room ? undefined : same.at(-1));
     if (target) return put({ ...target, instance: { ...target.instance, inputs }, heldFrom: intent.from }, target, source.sources);
@@ -127,6 +132,21 @@ export function exceedsPanelLimit(panels: MenuViewPanels): boolean {
   return panels.instances.length > PANEL_INSTANCES_MAX;
 }
 
+const configurationOverflows = (config: CustomPanels, step: Step) => exceedsPanelLimit(buildSavedPanels(config, config.connectionsEdited ? undefined : step));
+
+/** Hold the targeted table in its current slot, materializing it if only a pin drew it. */
+export function planTableHold(config: PanelConfiguration, step: Step, slot: string, value: AnalysisSelection, heldFrom?: string) {
+  const custom = config.kind === 'custom' ? config : noPanels;
+  const target = custom.added.find(panel => panel.slot === slot);
+  const instance = target?.instance ?? newPanelInstance(slot, panelDeclarations.table.id, [...custom.added.map(panel => panel.instance), ...custom.sources]);
+  const source = heldSourceFor(custom);
+  const inputs = [...instance.inputs.filter(input => input.key !== heldOutput.key), equipmentHold(source.id, value)];
+  const held: AddedPanel = { slot, heldFrom, instance: { ...instance, inputs } };
+  const added = target ? custom.added.map(panel => panel === target ? held : panel) : [...custom.added, held];
+  const next: CustomPanels = { ...custom, added, sources: source.sources };
+  return { config: next, overflows: configurationOverflows(next, step) };
+}
+
 export function panelAdditionOverflows(config: PanelConfiguration, step: Step, id: string, intent?: AddIntent): boolean {
   return planAdd(config, id, step, intent).overflows;
 }
@@ -140,7 +160,7 @@ export function planAdd(config: PanelConfiguration, id: string, step: Step, inte
   const base = materialize ? withAdded(config, id, step, { mode: 'follow' }).config : null;
   const added = withAdded(base ?? config, id, step, intent);
   const next = added.config ?? base;
-  const overflows = next !== null && exceedsPanelLimit(buildSavedPanels(next, next.connectionsEdited ? undefined : step));
+  const overflows = next !== null && configurationOverflows(next, step);
   return { config: next, slot: added.slot, overflows };
 }
 

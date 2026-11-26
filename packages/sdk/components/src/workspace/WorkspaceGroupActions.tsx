@@ -1,11 +1,12 @@
 import { useContext, useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, MoreHorizontal, Pin, X } from 'lucide-react';
-import { useMessages } from '@ap/kernel';
+import { useAnalysisSelectionChips, useI18n, useMessages } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
 import { DockChartCloseMore, DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartCloseFocus, type DockChartLayoutActions } from '../dock/DockChartHead';
 import type { DockLayoutMenu } from '../dock/layoutMenu';
 import { COMPONENTS_MESSAGES } from '../messages';
+import type { PanelWorkspaceSelectionDrop } from './PanelWorkspace';
 
 const ICON = 'size-7';
 
@@ -13,8 +14,9 @@ const ICON = 'size-7';
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
  * group's active panel. Collapse and float are absent for primary panels. Floating headers offer pin, close and keyboard geometry.
  */
-export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onRemove, hideBlocked, pin, edgeActions, menuItems, onOpenSettings }: {
+export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onRemove, hideBlocked, pin, edgeActions, menuItems, onOpenSettings, selectionDrop }: {
   onOpenSettings?: (trigger: HTMLButtonElement) => void;
+  selectionDrop?: PanelWorkspaceSelectionDrop;
   menuItems?: readonly { id: string; label: string; onSelect: () => void }[];
   title: string;
   /** A panel's title, naming each move target by its active panel. */
@@ -97,10 +99,11 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
           </>}
         </>}
     </>}
-    {(onOpenSettings || !!menuItems?.length) && separator}
+    {(onOpenSettings || selectionDrop || !!menuItems?.length) && separator}
     {onOpenSettings && <LayoutItem onSelect={() => {
       closeFocus.current = opener => { if (opener) onOpenSettings(opener); };
     }}>{m('panelSettings')}</LayoutItem>}
+    {selectionDrop && <SelectionHoldItems drop={selectionDrop} />}
     {menuItems?.map(item => <LayoutItem key={item.id} onSelect={item.onSelect}>{item.label}</LayoutItem>)}
   </>;
   const takeCloseFocus = () => {
@@ -134,6 +137,34 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
       </DropdownMenuContent>
     </DropdownMenu>}
   </div>;
+}
+
+function SelectionHoldItems({ drop }: { drop: PanelWorkspaceSelectionDrop }) {
+  const { chips } = useAnalysisSelectionChips();
+  const { tx } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const reasonId = useId();
+  const label = m('workspaceHoldSelection');
+  const candidates = chips.map(chip => ({ chip, reason: drop.reason?.(chip) }));
+  const accepted = candidates.filter(candidate => !candidate.reason);
+  if (!accepted.length) {
+    const reason = candidates.at(-1)?.reason ?? COMPONENTS_MESSAGES.workspaceNoSelectionToHold;
+    return <LayoutItem aria-label={label} aria-disabled aria-describedby={reasonId}>
+      <span className="flex min-w-0 flex-col break-keep"><span>{label}</span><span id={reasonId} className="text-xs text-text-muted">{tx(reason)}</span></span>
+    </LayoutItem>;
+  }
+  if (accepted.length === 1) return <LayoutItem onSelect={() => drop.onDrop(accepted[0]!.chip)}>{label}</LayoutItem>;
+  return accepted.map(({ chip }) => {
+    const { selection } = chip;
+    const first = selection.shape === 'set' ? selection.values[0] ?? '' : '';
+    let value = first;
+    if (selection.shape === 'range') value = `${selection.from} – ${selection.to}`;
+    else if (selection.values.length > 1) value = m('analysisSelectionMoreValues', { first, count: selection.values.length - 1 });
+    const dimension = chip.label ? tx(chip.label) : chip.dimension;
+    return <LayoutItem key={chip.key} onSelect={() => drop.onDrop(chip)}>
+      <span className="break-keep wrap-anywhere">{m('workspaceHoldNamedSelection', { chip: `${dimension} ${value}` })}</span>
+    </LayoutItem>;
+  });
 }
 
 function MergedLayoutActions({ register, takeCloseFocus, children }: {

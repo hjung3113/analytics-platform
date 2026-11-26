@@ -4,7 +4,7 @@ import { PlatformLink, useAnalysisSelectionChips, useI18n, useMessages, usePlatf
 import { useAnalysisSelectionHoverTarget, useHostPlatformOptional } from '@ap/kernel/host';
 import { Button, Checkbox, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from '@ap/ui';
 import { useReturnNavigation } from '../archetypes/DrillLayout';
-import { usePublishedNextAnalysis } from '../chart/NextAnalysisBridge';
+import { usePublishedNextAnalysis, usePublishedSelectionDrag } from '../chart/NextAnalysisBridge';
 import { NextAnalysisMenuItem, useNextAnalysisItems, type DirectNextAnalysisAction } from '../chart/NextAnalysisItems';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useElementSize, useObservedElementSize } from '../state/useElementSize';
@@ -135,6 +135,7 @@ function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, arrivalLin
   const { lang, tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const beginHover = useAnalysisSelectionHoverTarget(measuring ? undefined : chip.key);
+  const startDrag = usePublishedSelectionDrag(chip.source?.panelId);
   const labelId = useId();
   const editTrigger = useRef<HTMLButtonElement>(null);
   const committed = useRef(false);
@@ -211,7 +212,8 @@ function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, arrivalLin
     }}>
       <PopoverTrigger asChild>
         <button ref={editTriggerRef} type="button" data-analysis-chip-edit={chip.key} aria-labelledby={labelId} aria-describedby={muted ? statusId : undefined}
-          className={cn('inline-flex min-h-6.5 min-w-0 items-center gap-1 rounded-full pl-2 pr-1 text-start hover:bg-surface-row-hover', focusClass)}>
+          onPointerDown={startDrag && (event => startDrag(event.nativeEvent, chip, event.currentTarget))}
+          className={cn('inline-flex min-h-6.5 min-w-0 items-center gap-1 rounded-full pl-2 pr-1 text-start hover:bg-surface-row-hover', focusClass, startDrag && 'touch-none cursor-grab select-none')}>
           {description}
         </button>
       </PopoverTrigger>

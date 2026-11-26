@@ -113,12 +113,12 @@ function DetailSlot() {
   const { ref } = useDetailPanelSlotHost();
   return <aside ref={ref} />;
 }
-export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true, showSelectionChips = false, realWorkspace = false, realChart, showDetail = false, savedViews, children }: { waitForData?: boolean; showSelectionChips?: boolean; realWorkspace?: boolean; realChart?: string; showDetail?: boolean; savedViews?: ComponentProps<typeof PlatformProvider>['savedViews']; children?: ReactNode } = {}) {
+export async function renderOverview(search = '', respond: (request: MenuQuery) => ApiResponse<unknown> | Promise<ApiResponse<unknown>> = answer, { waitForData = true, showSelectionChips = false, realWorkspace = false, realChart, showDetail = false, savedViews, slots, children }: { waitForData?: boolean; showSelectionChips?: boolean; realWorkspace?: boolean; realChart?: string; showDetail?: boolean; savedViews?: ComponentProps<typeof PlatformProvider>['savedViews']; slots?: ComponentProps<typeof PlatformProvider>['slots']; children?: ReactNode } = {}) {
   const { default: HwTimePage } = await import('../../HwTimePage');
   const adapter = testAdapter({ session: () => session, menuQuery: async request => { requests.push(request); return respond(request); } });
   window.history.replaceState(null, '', `/mars/hw-time?view=overview&v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
   const page = showDetail ? <DetailPanelSlotProvider><HwTimePage params={{}} /><DetailSlot /></DetailPanelSlotProvider> : <HwTimePage params={{}} />;
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} savedViews={savedViews}>{children}{showSelectionChips && <AnalysisSelectionChipZone />}<RealChart.Provider value={realChart}>{realWorkspace ? <RealWorkspace.Provider value>{page}</RealWorkspace.Provider> : page}</RealChart.Provider></PlatformProvider></I18nProvider>);
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} savedViews={savedViews} slots={slots}>{children}{showSelectionChips && <AnalysisSelectionChipZone />}<RealChart.Provider value={realChart}>{realWorkspace ? <RealWorkspace.Provider value>{page}</RealWorkspace.Provider> : page}</RealChart.Provider></PlatformProvider></I18nProvider>);
   if (waitForData) await screen.findByTestId('hw-current', {}, { timeout: 5000 });
   await settle();
 }
