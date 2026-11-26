@@ -1,14 +1,18 @@
-import { useContext, useId, useRef, type ReactNode, type Ref } from 'react';
+import { useContext, useId, useRef, useState, type ReactNode, type Ref } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { AnalysisSelection } from '@ap/contracts';
 import { useDrill, useI18n, useMessages, usePlatform, usePlatformOptional } from '@ap/kernel';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@ap/ui';
+import { useAnalysisSelectionChannelName } from '@ap/kernel/host';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, Popover, PopoverTrigger } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { AnalysisPanelAddContext, type AnalysisPanelDestinations, type AnalysisPanelDraft, type PanelAddItem } from '../workspace/PanelAdd';
+import { analysisSelectionLabel } from '../filters/analysisSelectionLabel';
+import { AnalysisPanelAddContext, hasCategorizedPanels, type AnalysisPanelDestinations, type AnalysisPanelDraft, type PanelAddItem } from '../workspace/PanelAdd';
 import { PanelListRows } from '../workspace/PanelListRows';
+import { PanelPickerContent, type PanelPickerRow } from '../workspace/PanelPicker';
 import { drillBasisChoices, useDrillBasisChoice } from './ChartDrillBasisMenu';
 import { usePublishNextAnalysis } from './NextAnalysisBridge';
 import { keepFocusAfterPanelAdd } from '../dock/focusTab';
+import { capturePageFocusReturn } from '../state/pageFocus';
 
 export type NextAnalysisPointDrill = { level: string; value: string | null };
 
@@ -18,11 +22,16 @@ type Props = {
   pointDrill?: NextAnalysisPointDrill;
 };
 /** `panelId`: the panel an `addsPanel` choice adds, when its `id` names a variant (a held copy, #2862). */
-type Choice = { id: string; label: string; reason?: string; note?: string; panelId?: string; onSelect?: () => unknown };
+type Choice = Pick<PanelPickerRow, 'category' | 'kind'> & {
+  id: string; label: string; reason?: string; note?: string; panelId?: string; onSelect?: () => unknown;
+  previewDescription?: string;
+};
+type SelectionPanelAction = { label: string; reason?: never; choices: Choice[]; addsPanel: true; inputLabel: string; direction?: never };
 type GroupAction = { label: string } & (
   | { reason: string; choices?: never }
   /** `addsPanel`: each choice adds the panel named by its `id` to the workspace around the row. */
   | { reason?: never; choices: Choice[]; direction?: 'right'; addsPanel?: boolean }
+  | SelectionPanelAction
 );
 
 export type DirectNextAnalysisAction = {
@@ -48,11 +57,13 @@ function usePanelChoices() {
       const opened: unknown = workspace.onAdd(input);
       return workspace.returnsOpened && typeof opened === 'string' ? opened : undefined;
     };
-    const follow = { id: item.id, label: tx(item.title), reason, onSelect: () => add(draft) };
+    const title = tx(item.title);
+    const preview = { category: item.category, kind: item.kind, previewDescription: item.description && tx(item.description) };
+    const follow = { ...preview, id: item.id, label: title, reason, onSelect: () => add(draft) };
     const placed = item.placed ? item.again : undefined;
     if (!workspace.hold) return placed === 'hold' ? [] : [follow];
     const hold = {
-      id: `${item.id}:hold`, panelId: item.id, label: m('chartNextPanelHold', { panel: tx(item.title) }), reason,
+      ...preview, id: `${item.id}:hold`, panelId: item.id, label: m('chartNextPanelHold', { panel: title }), reason,
       note: m('chartNextPanelHoldNote'), onSelect: () => add({ ...draft, mode: 'hold' }),
     };
     if (placed === 'hold') return [hold];
@@ -61,8 +72,11 @@ function usePanelChoices() {
   };
 }
 
-export function useNextAnalysisItems({ output, selection, pointDrill, workspace }: Props & { workspace: AnalysisPanelDestinations | null }): GroupAction[] {
+export function useNextAnalysisItems({ output, selection, pointDrill, workspace }: Props & {
+  workspace: AnalysisPanelDestinations | null;
+}): GroupAction[] {
   const platform = usePlatform();
+  const channelName = useAnalysisSelectionChannelName(platform, workspace && selection ? output?.key : undefined);
   const { depth, levels, enter, invalid, trail } = useDrill();
   const basisMemory = useDrillBasisChoice(platform, trail);
   const { tx, t, lang } = useI18n();
@@ -104,7 +118,14 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
       const source = `${menu.id}/${panel.id}` as const;
       return panelChoices(workspace, item, { source, inputs: { [key]: selection } }, reason || undefined);
     });
-    if (choices.length) actions.push({ label: m('chartNextPanel'), choices, addsPanel: true });
+    if (choices.length) {
+      const action = { label: m('chartNextPanel'), choices, addsPanel: true } as const;
+      const categorized = workspace.categorized ?? hasCategorizedPanels(workspace.items);
+      if (categorized) {
+        const dimension = channelName ?? channel.dimension;
+        actions.push({ ...action, inputLabel: analysisSelectionLabel(selection, typeof dimension === 'string' ? dimension : tx(dimension), lang) });
+      } else actions.push(action);
+    }
   }
 
   if (output && channel?.objectKind) {
@@ -144,10 +165,43 @@ function ChoiceRows({ choices }: { choices: readonly Choice[] }) {
   return <PanelListRows rows={choices.map(choice => choice.reason ? choice : { ...choice, reason: undefined })} presentation="named-menu" />;
 }
 
+export function SelectionPanelPicker({ action, close, onCloseAutoFocus }: {
+  action: SelectionPanelAction; close: () => void; onCloseAutoFocus?: (event: Event) => void;
+}) {
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const rows = action.choices.map(({ previewDescription, ...choice }) => ({
+    ...choice, description: previewDescription, status: choice.reason === undefined ? undefined : m('panelAddUnavailable'),
+    onSelect: () => { choice.onSelect?.(); },
+  }));
+  return <PanelPickerContent rows={rows} categorized label={action.label} inputLabel={action.inputLabel}
+    close={close} onCloseAutoFocus={onCloseAutoFocus} />;
+}
+
+function addPanelFromChoice(choice: Choice, getTrigger: () => HTMLButtonElement | null, onUnavailable?: () => void): boolean {
+  // The menu may name the slot it opened (a second instance, #2862 ②); the row rebuilds only after this handler.
+  const opened = choice.onSelect?.();
+  const trigger = getTrigger();
+  if (!trigger) return false;
+  keepFocusAfterPanelAdd(trigger, typeof opened === 'string' ? opened : choice.panelId ?? choice.id, onUnavailable);
+  return true;
+}
+
 /** `focusKey`: the chart and its output, stable when the row is rebuilt, so a panel addition can find its trigger again. */
 function ActionMenu({ action, focusKey }: { action: GroupAction; focusKey?: string }) {
+  const platform = usePlatformOptional();
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null);
+  const restorePickerFocus = useRef<(() => void) | undefined>(undefined);
+  const [open, setOpen] = useState(false);
+  const setPickerOpen = (next: boolean) => {
+    if (next && trigger.current) {
+      const path = () => platform?.location.read()?.split('?')[0];
+      const openingPath = path();
+      const restore = capturePageFocusReturn(trigger.current);
+      restorePickerFocus.current = () => { if (path() === openingPath) restore(); };
+    }
+    setOpen(next);
+  };
   if (action.reason !== undefined) return <>
     <Button type="button" size="toolbar" variant="ghost" aria-disabled="true" aria-describedby={id}
       className="aria-disabled:opacity-50">{action.label}</Button>
@@ -156,16 +210,22 @@ function ActionMenu({ action, focusKey }: { action: GroupAction; focusKey?: stri
   const Icon = action.direction === 'right' ? ChevronRight : ChevronDown;
   const choices = action.addsPanel
     // The addition can rebuild this row before the menu closes, so the focus hand-off starts on select, not on close.
-    ? action.choices.map(choice => ({ ...choice, onSelect: () => {
-      // The menu may name the slot it opened (a second instance, #2862 ②); the row rebuilds only after this handler.
-      const opened = choice.onSelect?.();
-      if (trigger.current) keepFocusAfterPanelAdd(trigger.current, typeof opened === 'string' ? opened : choice.panelId ?? choice.id);
-    } }))
+    ? action.choices.map(choice => ({ ...choice, onSelect: () => addPanelFromChoice(choice, () => trigger.current) }))
     : action.choices;
+  const button = <Button ref={trigger} data-focus-key={action.addsPanel ? focusKey : undefined} type="button" size="toolbar" variant="ghost">{action.label}<Icon className="size-3.5" aria-hidden /></Button>;
+  if ('inputLabel' in action) return <Popover open={open} onOpenChange={setPickerOpen}>
+    <PopoverTrigger asChild onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setPickerOpen(true); } }}>{button}</PopoverTrigger>
+    <SelectionPanelPicker action={{ ...action, choices: action.choices.map(choice => ({ ...choice, onSelect: () => {
+      // As in the flat menu, the tab watcher owns focus after an add; the page return is its fallback when no tab can take it.
+      if (addPanelFromChoice(choice, () => trigger.current, restorePickerFocus.current)) restorePickerFocus.current = undefined;
+    } })) }} close={() => setPickerOpen(false)} onCloseAutoFocus={event => {
+      event.preventDefault();
+      restorePickerFocus.current?.();
+      restorePickerFocus.current = undefined;
+    }} />
+  </Popover>;
   return <DropdownMenu modal={false}>
-    <DropdownMenuTrigger asChild>
-      <Button ref={trigger} data-focus-key={action.addsPanel ? focusKey : undefined} type="button" size="toolbar" variant="ghost">{action.label}<Icon className="size-3.5" aria-hidden /></Button>
-    </DropdownMenuTrigger>
+    <DropdownMenuTrigger asChild>{button}</DropdownMenuTrigger>
     <DropdownMenuContent align="start"><ChoiceRows choices={choices} /></DropdownMenuContent>
   </DropdownMenu>;
 }
@@ -196,11 +256,12 @@ export function NextAnalysisActionButton({ action, buttonRef, announceReason, qu
   </>;
 }
 
-export function NextAnalysisMenuItem({ action, onSelect }: {
-  action: NextAnalysisAction; onSelect: (action: DirectNextAnalysisAction) => void;
+export function NextAnalysisMenuItem({ action, onSelect, onOpenPicker }: {
+  action: NextAnalysisAction; onSelect: (action: DirectNextAnalysisAction) => void; onOpenPicker: () => void;
 }) {
   if ('onSelect' in action) return <ChoiceRows choices={[{ ...action, onSelect: () => onSelect(action) }]} />;
   if (action.reason !== undefined) return <ChoiceRows choices={[{ id: action.label, label: action.label, reason: action.reason }]} />;
+  if ('inputLabel' in action) return <DropdownMenuItem aria-haspopup="dialog" onSelect={onOpenPicker}>{action.label}</DropdownMenuItem>;
   return <DropdownMenuSub>
     <DropdownMenuSubTrigger>{action.label}</DropdownMenuSubTrigger>
     <DropdownMenuPortal><DropdownMenuSubContent><ChoiceRows choices={action.choices} /></DropdownMenuSubContent></DropdownMenuPortal>
