@@ -111,9 +111,10 @@ export function useRawTableColumns(level: TableLevel, motion: string | null, che
 const FOCUS_RULE = [{ key: 'focus', label: { ko: '열린 행', en: 'Open row' }, valid: isHwTimeTrendId }];
 const NO_FOCUS_RULE: typeof FOCUS_RULE = [];
 
-export default function RawTablePanel({ linked = false, analysis, local = false }: PageProps & {
+export default function RawTablePanel({ linked = false, equipment, highlightedRowIds, local = false }: PageProps & {
   linked?: boolean;
-  analysis?: { equipment: readonly string[]; level: ReturnType<typeof useHwTimeLevel> };
+  equipment?: readonly string[];
+  highlightedRowIds?: readonly string[];
   /** A second raw table on the screen (#2862 ②): its open row and paging stay in this panel, so the address's `focus`/`page`/`sort` belong to the first. */
   local?: boolean;
 }) {
@@ -126,7 +127,7 @@ export default function RawTablePanel({ linked = false, analysis, local = false 
   const level = levelOf(module, motion);
   const checkedSeries = level === 0 ? filter?.modules : filter?.motions;
   const activeSeries = checkedSeries ?? seriesIds(level, motion);
-  const queryDrill = { ...drillParams(module, motion), ...(filter ? { moduleType: filter.moduleType.id } : {}), ...(analysis ? { [MOTION_EQUIPMENT_KEY]: analysis.equipment } : {}) };
+  const queryDrill = { ...drillParams(module, motion), ...(filter ? { moduleType: filter.moduleType.id } : {}), ...(equipment ? { [MOTION_EQUIPMENT_KEY]: equipment } : {}) };
   const [localFocus, setLocalFocus] = useState<string | null>(null);
   const focus = local ? localFocus : pageParam('focus');
   const setFocus = (id: string | null) => { if (local) setLocalFocus(id); else setPage({ focus: id }); };
@@ -151,11 +152,10 @@ export default function RawTablePanel({ linked = false, analysis, local = false 
   const exports = useMenuFetch(hwTime.exportRows);
 
   // The level response gives the empty/partial states and the drawer's row at every level; the table pages through its own fetch.
-  const localLevel = useHwTimeLevel(drillParams(module, motion), !analysis && !focusKeys.invalid);
-  const levelQ = analysis?.level ?? localLevel;
+  const levelQ = useHwTimeLevel(queryDrill, !focusKeys.invalid);
   // The row counts below describe the kept level result (#1365): they name the Module/Motion it was loaded with.
   const kept = shownDrill(levelQ, drillParams(module, motion));
-  const response: HwTimeLevelData | null = levelQ.response && isAnswered(levelQ.response.outcome) && !(analysis && levelQ.showingPrevious) ? levelQ.response.data : null;
+  const response: HwTimeLevelData | null = levelQ.response && isAnswered(levelQ.response.outcome) && !(linked && levelQ.showingPrevious) ? levelQ.response.data : null;
   const listed = response ? levelRowsOf(response) : NO_ROWS;
   const dataRows = listed.filter(row => !row.auxiliary);
   const partial = dataRows.filter(row => Object.values(row.values).some(value => value === null)).length;
@@ -199,7 +199,7 @@ export default function RawTablePanel({ linked = false, analysis, local = false 
         title={m('tablePageHwTimeTable')} ariaLabel={m('tablePageHwTimeOperationTimeTable')}
         subtitle={level === 2 ? undefined : (m('tablePageUseTheArrowBesideAValueTo'))}
         columns={columns} getRowId={row => row.id} filterKey={JSON.stringify(queryDrill)} preferenceKey={`hw-time-table:columns:v1:L${level + 1}`}
-        activeRowId={focus} pageSize={25} urlState={urlState}
+        activeRowId={focus} highlightedRowIds={highlightedRowIds} pageSize={25} urlState={urlState}
         loadPage={(query, signal) => pages.fetch({ ...queryDrill, ...query }, signal)}
         rowAction={(row, { compact }) => row.auxiliary ? null
           : <RowAction compact={compact} icon={PanelRight} label={m('tablePageView', { value: String(rowIdLabel(row.id)) })} text={m('tablePageView2')} onClick={() => setFocus(row.id)} />}
