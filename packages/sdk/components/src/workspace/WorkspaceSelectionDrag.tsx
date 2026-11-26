@@ -4,12 +4,9 @@ import { Badge, cn } from '@ap/ui';
 import { usePublishSelectionDrag } from '../chart/NextAnalysisBridge';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PanelWorkspacePanel } from './PanelWorkspace';
-import { dockGroups, dockPointerHit, usePointerDrag } from './usePointerDrag';
+import { DOCK, GROUP, GROUP_ACTIONS as ACTIONS, PANEL, dockGroups, dockPointerHit, watchDock } from './dockGeometry';
+import { usePointerDrag } from './usePointerDrag';
 
-const DOCK = '[data-dock-layout]';
-const GROUP = '.dv-groupview';
-const ACTIONS = '[data-dock-group-actions][data-dock-active]';
-const PANEL = '[data-dock-panel]';
 const VISIBLE_PANEL = `${PANEL}[data-dock-visible="true"]`;
 type Zone = { id: string; left: number; top: number; width: number; height: number };
 type Preview = { chip: AnalysisSelectionChip; zones: Zone[]; target: string | undefined; hit: string | undefined };
@@ -68,7 +65,7 @@ export function WorkspaceSelectionDrag({ root, panels }: {
       source: trigger,
       isSourceAvailable: () => trigger.isConnected && dock.isConnected,
       sourceAttributes: [],
-      geometryRoot: dock,
+      geometry: changed => watchDock(dock, changed),
       previewAt: point => {
         const zones = dockZones(dock, dockGroups(dock));
         const hit = panelAt(dock, point);

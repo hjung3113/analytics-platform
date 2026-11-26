@@ -203,7 +203,8 @@ it.each([{ surface: 'overlapping control', stack: false }, { surface: 'clipped s
 );
 
 it.each([{ position: 'top', direction: '위로', y: 150, chartPicker: false, stack: false },
-  { position: 'bottom', direction: '아래로', y: 350, chartPicker: true, stack: true }])('previews $position and saves the same placement and pin choice as keyboard add and move', async ({ position, direction, y, chartPicker, stack }) => {
+  { position: 'bottom', direction: '아래로', y: 350, chartPicker: true, stack: false },
+  { position: 'bottom', direction: '아래로', y: 350, chartPicker: false, stack: true }])('previews $position and saves the same placement and pin choice as keyboard add and move', async ({ position, direction, y, chartPicker, stack }) => {
   const drag = await mount({ enabled: true, chartPicker, stack });
   start(drag.row);
   if (position === 'bottom') pointer('pointermove', window, 420, y);
@@ -296,6 +297,24 @@ it('follows a stack-mode scroll before drop and places the half now under the po
       { type: 'group', panels: ['dist'], active: 'dist' },
     ],
   }] });
+});
+
+it('judges the release while the picker is still faded, so a drop under the hidden picker adds', async () => {
+  const { row, hit, onAdd } = await mount({ enabled: true });
+  const group = hit(420, 150);
+  // The faded picker lets the pointer through; once it is shown again it covers the same point.
+  hit.mockImplementation(() => document.querySelector('[data-panel-add-dragging]') ? group : row);
+  start(row);
+  expect(preview()).toHaveAttribute('data-panel-add-preview', 'top');
+  pointer('pointerup', window);
+  expect(onAdd.mock.calls).toEqual([['dist', false]]);
+  expect(screen.queryByText('놓는 위치가 바뀌었습니다. 다시 끌어 놓으세요.')).toBeNull();
+});
+
+it('adds on a plain click in stack mode', async () => {
+  const { row, onAdd, user } = await mount({ enabled: true, stack: true });
+  await user.click(row);
+  expect(onAdd.mock.calls).toEqual([['dist', false]]);
 });
 
 it('keeps a keyboard activation after the drag release is suppressed', async () => {

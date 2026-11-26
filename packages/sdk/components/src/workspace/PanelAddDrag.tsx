@@ -6,11 +6,9 @@ import { dockTheme } from '../dock/dockPresentation';
 import type { DockNode } from '../dock/schema';
 import { dockStripElement } from '../dock/tabElements';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { dockPointerHit, type DropStatus, usePointerDrag } from './usePointerDrag';
+import { DOCK, GROUP, GROUP_ACTIONS as ACTIONS, dockPointerHit, watchDock } from './dockGeometry';
+import { type DropStatus, usePointerDrag } from './usePointerDrag';
 
-const DOCK = '[data-dock-layout]';
-const GROUP = '.dv-groupview';
-const ACTIONS = '[data-dock-group-actions][data-dock-active]';
 type Side = 'top' | 'bottom';
 export type PanelAddPlacement = { panelId: string; position: Side };
 type Start = (event: ReactPointerEvent<HTMLElement>, id: string, add: (id: string) => string | undefined) => void;
@@ -100,7 +98,7 @@ export function usePanelAddDrag(slotRef: RefObject<HTMLDivElement | null>, optio
       isSourceAvailable: () => dock.isConnected && content.isConnected && content.contains(source)
         && content.getAttribute('data-state') === 'open' && source.dataset.panelAddSource === id,
       sourceAttributes: ['data-panel-add-source', 'data-state'],
-      geometryRoot: dock,
+      geometry: changed => watchDock(dock, changed),
       onStart: () => {
         content.setAttribute('data-panel-add-dragging', '');
         layout = live.current.layout;
@@ -111,6 +109,8 @@ export function usePanelAddDrag(slotRef: RefObject<HTMLDivElement | null>, optio
         return { dock, origin: dock.getBoundingClientRect(), zones, pick: pickAt(dock, zones, point) };
       },
       samePreview,
+      // A release before the first preview rendered is silent when it is over no group either.
+      sameDrop: (rendered, fresh) => rendered ? samePreview(rendered, fresh) : !fresh?.pick,
       onDrop: rendered => {
         const current = live.current;
         if (scope !== current.scope) return 'skip';

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { sameChartConfig, type ChartConfig, type MappingChip, type MappingSlot, type Text } from '@ap/contracts';
-import { usePointerDrag } from './usePointerDrag';
+import { usePointerDrag, watchBox } from './usePointerDrag';
 
 const SLOT = '[data-mapping-slot]';
 const CHIP = '[data-mapping-chip][data-mapping-chip-kind]';
@@ -39,16 +39,18 @@ export function useMappingDrag(config: ChartConfig, assign: Assign) {
       source,
       isSourceAvailable: hasSource,
       sourceAttributes: ['data-mapping-chip', 'data-mapping-chip-kind'],
-      geometryRoot: root,
+      geometry: changed => watchBox(root, changed),
       previewAt: point => {
         const target = doc.elementFromPoint?.(point.clientX, point.clientY)?.closest<HTMLElement>(SLOT);
         const well = target && root.contains(target) ? target : undefined;
         return { chip, target: well, slot: mappingSlot(well?.dataset.mappingSlot) };
       },
       samePreview,
+      // The release judges the well under the pointer, not whether the first preview had rendered.
+      sameDrop: (rendered, fresh) => rendered?.target === fresh?.target && rendered?.slot === fresh?.slot,
       onDrop: rendered => {
-        const reason = rendered.slot && latest.current.assign(rendered.slot, chip);
-        return reason || undefined;
+        if (!rendered.slot) return 'skip';
+        return latest.current.assign(rendered.slot, chip) || undefined;
       },
       onRelease: () => {
         if (!hasSource()) return;

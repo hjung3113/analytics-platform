@@ -1,14 +1,11 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 const START_DISTANCE = 5;
-const DOCK = '[data-dock-layout]';
-const GROUP = '.dv-groupview';
-const PANEL = '[data-dock-panel]';
 const LAYOUT_ATTRIBUTES = ['class', 'style'];
 
 export type DragPoint = { clientX: number; clientY: number };
 export type DropStatus<Reason> = { kind: 'retry' } | { kind: 'refused'; reason: Reason };
-type Press = DragPoint & { button: number; isPrimary: boolean; pointerId: number };
+type Press = DragPoint & { button: number; isPrimary: boolean; pointerId: number; pointerType?: string };
 type DropDecision<Reason> = Reason | undefined | 'changed' | 'skip';
 
 export type PointerDrag<Preview, Reason> = {
@@ -17,8 +14,8 @@ export type PointerDrag<Preview, Reason> = {
   isSourceAvailable: () => boolean;
   /** Attributes whose change, anywhere in the document, re-checks `isSourceAvailable`. */
   sourceAttributes: readonly string[];
-  /** Scroll, resize and layout under a stationary pointer re-run `previewAt`. */
-  geometryRoot?: HTMLElement | null;
+  /** Watches what can move under a stationary pointer (scroll, resize, layout); each change re-runs `previewAt`. */
+  geometry?: DragGeometry;
   onStart?: () => void;
   previewAt: (point: DragPoint) => Preview | null;
   /** Skip a preview render when the committed value already shows `next`. */
@@ -28,38 +25,11 @@ export type PointerDrag<Preview, Reason> = {
   /** `undefined` applies the drop. A reason is refused. `changed` retries. `skip` does neither. */
   onDrop: (rendered: Preview, point: DragPoint) => DropDecision<Reason>;
   onEnd?: () => void;
-  /** Escape, blur, lost capture, pointercancel or source removal while the pointer may still be down. */
+  /** Escape, blur, lost capture, pointercancel or source removal. Not called for the caller's own `cancel()`. */
   onCancel?: () => void;
   /** A release that had been dragging. `applied` is false for retry, refusal, skip and a missing source. */
   onRelease?: (applied: boolean) => void;
 };
-
-/** Hit inside `dock`, treating a nested dock as occupying its outer panel. */
-export function dockPointerHit(dock: HTMLElement, x: number, y: number): Element | undefined {
-  let hit = dock.ownerDocument.elementFromPoint?.(x, y) ?? null;
-  if (!hit || !dock.contains(hit)) return;
-  for (let owner = hit.closest(DOCK); owner && owner !== dock; owner = owner.parentElement?.closest(DOCK) ?? null) hit = owner;
-  return hit;
-}
-
-export function dockGroups(dock: HTMLElement): HTMLElement[] {
-  return [...dock.querySelectorAll<HTMLElement>(GROUP)].filter(group => group.closest(DOCK) === dock);
-}
-
-function mutationChangesGeometry(root: HTMLElement, { target, attributeName }: MutationRecord) {
-  if (!(target instanceof Element)) return false;
-  // Ancestor boxes: only their own class/style. A node added beside the root is not geometry.
-  if (target !== root && target.contains(root)) return attributeName !== null;
-  if (!root.contains(target)) return false;
-  if (!root.matches(DOCK)) return target === root && attributeName !== null;
-  if (target.closest(DOCK) !== root) return false;
-  // Dockview rewrites the scrollbar thumb on its own resize frame. That is not a group box,
-  // and a refresh queued for it absorbs the next scroll (#3081).
-  if (target.closest('.dv-scrollbar')) return false;
-  // Panel content can update independently of the dock geometry.
-  const body = target.closest(PANEL);
-  return !body || (target === body && attributeName !== null);
-}
 
 function capturePointer(source: HTMLElement, pointerId: number) {
   try {
@@ -77,46 +47,48 @@ function matchesReleaseClick(click: MouseEvent, source: HTMLElement, pointerId: 
   return click.target instanceof (view?.Node ?? Node) && source.contains(click.target);
 }
 
-type OwnerWindow = WindowProxy & typeof globalThis;
+export type GeometryWatch = { /** Runs before each refreshed preview. */ sync?: () => void; stop: () => void };
+/** Starts watching once the drag starts; `changed` schedules one coalesced preview refresh per frame. */
+export type DragGeometry = (changed: () => void) => GeometryWatch;
+type BoxWatchOptions = {
+  /** Which records inside `root` count as geometry. Default: only `root`'s own attributes. */
+  changed?: (record: MutationRecord) => boolean;
+  attributes?: readonly string[];
+};
 
-function watchGeometry(win: OwnerWindow, root: HTMLElement, schedule: () => void) {
-  let resize: ResizeObserver | undefined;
-  const groups = new Set<HTMLElement>();
+/**
+ * Watches `root`'s box: its own and its ancestors' size and class/style, window scroll and resize.
+ * Returns the ResizeObserver so a caller can observe more boxes.
+ */
+export function watchBox(root: HTMLElement, changed: () => void, options: BoxWatchOptions = {}): GeometryWatch & { resize?: ResizeObserver } {
+  const win = root.ownerDocument.defaultView as (WindowProxy & typeof globalThis) | null;
+  if (!win || !root.isConnected) return { stop() {} };
+  const inside = options.changed ?? (({ target, attributeName }: MutationRecord) => target === root && attributeName !== null);
   const mutations = new win.MutationObserver(records => {
-    if (records.some(record => mutationChangesGeometry(root, record))) schedule();
+    if (records.some(record => {
+      const { target, attributeName } = record;
+      if (!(target instanceof win.Element)) return false;
+      // Ancestor boxes: only their own class/style. A node added beside the root is not geometry.
+      if (target !== root && target.contains(root)) return attributeName !== null;
+      return root.contains(target) && inside(record);
+    })) changed();
   });
-  mutations.observe(root, {
-    childList: true, subtree: true, attributes: true,
-    attributeFilter: [...LAYOUT_ATTRIBUTES, 'data-dock-active', 'data-dock-visible'],
-  });
-  if (typeof win.ResizeObserver !== 'undefined') {
-    const observer = new win.ResizeObserver(schedule);
-    observer.observe(root);
-    resize = observer;
-  }
+  mutations.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: [...LAYOUT_ATTRIBUTES, ...options.attributes ?? []] });
+  const resize = typeof win.ResizeObserver === 'undefined' ? undefined : new win.ResizeObserver(changed);
+  resize?.observe(root);
   for (let ancestor = root.parentElement; ancestor; ancestor = ancestor.parentElement) {
     mutations.observe(ancestor, { childList: true, attributes: true, attributeFilter: [...LAYOUT_ATTRIBUTES] });
     resize?.observe(ancestor);
   }
-  const syncGroups = () => {
-    if (!resize || !root.matches(DOCK)) return;
-    const next = new Set(dockGroups(root));
-    for (const group of groups) if (!next.has(group)) resize.unobserve(group);
-    for (const group of next) if (!groups.has(group)) resize.observe(group);
-    groups.clear();
-    for (const group of next) groups.add(group);
-  };
-  syncGroups();
-  win.addEventListener('scroll', schedule, { capture: true, passive: true });
-  win.addEventListener('resize', schedule);
+  win.addEventListener('scroll', changed, { capture: true, passive: true });
+  win.addEventListener('resize', changed);
   return {
-    syncGroups,
+    resize,
     stop() {
       mutations.disconnect();
       resize?.disconnect();
-      groups.clear();
-      win.removeEventListener('scroll', schedule, true);
-      win.removeEventListener('resize', schedule);
+      win.removeEventListener('scroll', changed, true);
+      win.removeEventListener('resize', changed);
     },
   };
 }
@@ -126,14 +98,14 @@ export function usePointerDrag<Preview, Reason>() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [status, setStatus] = useState<DropStatus<Reason> | null>(null);
   const previewRef = useRef<Preview | null>(null);
-  const active = useRef<(() => void) | null>(null);
+  const active = useRef<((programmatic?: boolean) => void) | null>(null);
   const disposals = useRef(new Set<() => void>());
   useLayoutEffect(() => { previewRef.current = preview; }, [preview]);
   useLayoutEffect(() => {
     const gestures = disposals.current;
     return () => { for (const dispose of gestures) dispose(); };
   }, []);
-  const cancel = useCallback(() => { active.current?.(); }, []);
+  const cancel = useCallback(() => { active.current?.(true); }, []);
   const clearStatus = useCallback(() => { setStatus(null); }, []);
 
   const start = useCallback((event: Press, drag: PointerDrag<Preview, Reason>) => {
@@ -141,15 +113,18 @@ export function usePointerDrag<Preview, Reason>() {
     const doc = source.ownerDocument;
     const view = doc.defaultView;
     if (event.button !== 0 || event.isPrimary === false || active.current || !view || !doc.body) return false;
-    const win: OwnerWindow = view;
-    const { pointerId } = event;
+    const win = view;
+    const { pointerId, pointerType } = event;
+    // A primary touch or pen press means every earlier contact of that kind has ended. Mouse keeps one id.
+    const retiredBy = (down: PointerEvent) => down.pointerId === pointerId
+      || ((pointerType === 'touch' || pointerType === 'pen') && down.isPrimary && down.pointerType === pointerType);
     const origin = { x: event.clientX, y: event.clientY };
     const listener = new AbortController();
     const capture = { capture: true, signal: listener.signal };
     let phase: 'pending' | 'dragging' | 'cancelled' | 'released' = 'pending';
     let last: DragPoint = event;
     let frame: number | undefined;
-    let geometry: ReturnType<typeof watchGeometry> | undefined;
+    let geometry: GeometryWatch | undefined;
     let clickGuard: AbortController | undefined;
     let done = false;
     const show = (point: DragPoint) => {
@@ -174,7 +149,7 @@ export function usePointerDrag<Preview, Reason>() {
       if (source.hasPointerCapture?.(pointerId)) source.releasePointerCapture(pointerId);
     }
     // A cancel while the pointer may still be down keeps the release listener so its click cannot activate the source.
-    function holdCancel() {
+    function holdCancel(programmatic = false) {
       if (phase === 'pending') { dispose(); return; }
       if (phase !== 'dragging') return;
       phase = 'cancelled';
@@ -183,7 +158,7 @@ export function usePointerDrag<Preview, Reason>() {
       if (active.current === holdCancel) active.current = null;
       setPreview(null);
       drag.onEnd?.();
-      drag.onCancel?.();
+      if (!programmatic) drag.onCancel?.();
     }
     function schedule() {
       if (phase !== 'dragging' || frame !== undefined) return;
@@ -191,7 +166,7 @@ export function usePointerDrag<Preview, Reason>() {
         frame = undefined;
         if (phase !== 'dragging') return;
         if (!drag.isSourceAvailable()) { holdCancel(); return; }
-        geometry?.syncGroups();
+        geometry?.sync?.();
         show(last);
       });
     }
@@ -206,6 +181,17 @@ export function usePointerDrag<Preview, Reason>() {
     disposals.current.add(dispose);
     setStatus(null);
 
+    const drop = (rendered: Preview | null, up: DragPoint) => {
+      if (!drag.isSourceAvailable()) return false;
+      const fresh = drag.previewAt(up);
+      const same = drag.sameDrop ?? drag.samePreview;
+      if (!same(rendered, fresh)) { setStatus({ kind: 'retry' }); return false; }
+      if (rendered === null) return false;
+      const decision = drag.onDrop(rendered, up);
+      if (decision === 'changed') setStatus({ kind: 'retry' });
+      else if (decision !== undefined && decision !== 'skip') setStatus({ kind: 'refused', reason: decision });
+      return decision === undefined;
+    };
     const armClick = () => {
       clickGuard = new AbortController();
       win.addEventListener('click', (click: MouseEvent) => {
@@ -217,8 +203,8 @@ export function usePointerDrag<Preview, Reason>() {
       win.setTimeout(dispose, 0);
     };
     win.addEventListener('pointerdown', down => {
-      // The next press of this pointer ends a held gesture whose release never arrived. A different pointer may drag.
-      if (down.pointerId === pointerId && (phase === 'cancelled' || phase === 'released')) dispose();
+      // The next press of this pointer ends a held gesture whose release never arrived. Another mouse pointer may drag.
+      if ((phase === 'cancelled' || phase === 'released') && retiredBy(down)) dispose();
     }, capture);
     win.addEventListener('pointermove', move => {
       if (move.pointerId !== pointerId || phase === 'cancelled' || phase === 'released') return;
@@ -229,7 +215,7 @@ export function usePointerDrag<Preview, Reason>() {
         phase = 'dragging';
         capturePointer(source, pointerId);
         drag.onStart?.();
-        if (drag.geometryRoot?.isConnected) geometry = watchGeometry(win, drag.geometryRoot, schedule);
+        geometry = drag.geometry?.(schedule);
       }
       show(move);
       move.preventDefault();
@@ -249,17 +235,15 @@ export function usePointerDrag<Preview, Reason>() {
       up.preventDefault();
       armClick();
       if (!dropping) return;
-      setPreview(null);
-      drag.onEnd?.();
-      if (!drag.isSourceAvailable()) { drag.onRelease?.(false); return; }
-      const fresh = drag.previewAt(up);
-      const same = drag.sameDrop ?? drag.samePreview;
-      if (!same(rendered, fresh)) { setStatus({ kind: 'retry' }); drag.onRelease?.(false); return; }
-      if (rendered === null) { drag.onRelease?.(false); return; }
-      const decision = drag.onDrop(rendered, up);
-      if (decision === 'changed') setStatus({ kind: 'retry' });
-      else if (decision !== undefined && decision !== 'skip') setStatus({ kind: 'refused', reason: decision });
-      drag.onRelease?.(decision === undefined);
+      let applied = false;
+      // Judge the drop while the drag surface is still as previewed (`onEnd` may un-fade a surface above the target).
+      try {
+        applied = drop(rendered, up);
+      } finally {
+        setPreview(null);
+        drag.onEnd?.();
+      }
+      drag.onRelease?.(applied);
     }, capture);
     win.addEventListener('pointercancel', cancelled => {
       if (cancelled.pointerId !== pointerId) return;
