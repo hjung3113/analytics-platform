@@ -94,6 +94,54 @@ let restoreGeometry: () => void;
 beforeEach(() => { restoreGeometry = stubCompactTableGeometry(); });
 afterEach(() => { cleanup(); restoreGeometry(); calls.length = 0; vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
+describe('two raw tables on one screen (#2862 ② R C7)', () => {
+  it('keeps the open row of the local table to itself; the other owns the address', async () => {
+    window.history.replaceState(null, '', '/mars/hw-time?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00');
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><PlatformPage layout="fill">
+      <div data-testid="first"><TablePage params={{}} linked /></div>
+      <div data-testid="second"><TablePage params={{}} linked local /></div>
+    </PlatformPage><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+    const first = within(await screen.findByTestId("first", {}, { timeout: 8000 }));
+    const second = within(await screen.findByTestId("second"));
+    fireEvent.click(await second.findByRole('button', { name: 'MEM-PHOTO-0103 보기' }, { timeout: 8000 }));
+    expect(await screen.findByRole('list', { name: '구성 범례' })).toBeTruthy();
+    expect(searchParams().get('focus')).toBeNull();
+    expect(first.queryByText('이 단계에 없는 행입니다.')).toBeNull();
+    fireEvent.click(await first.findByRole('button', { name: 'MEM-PHOTO-0103 보기' }));
+    await waitFor(() => expect(searchParams().get('focus')).toBe('MEM-PHOTO-0103'));
+    expect(second.queryByText('이 단계에 없는 행입니다.')).toBeNull();
+  });
+
+  const renderTwo = async (search = '') => {
+    window.history.replaceState(null, '', `/mars/hw-time?v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
+    render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}><DetailPanelSlotProvider><PlatformPage layout="fill">
+      <div data-testid="first"><TablePage params={{}} linked /></div>
+      <div data-testid="second"><TablePage params={{}} linked local /></div>
+    </PlatformPage><DetailSlotHost /></DetailPanelSlotProvider></PlatformProvider></I18nProvider>);
+    return { first: within(await screen.findByTestId('first', {}, { timeout: 8000 })), second: within(await screen.findByTestId('second')) };
+  };
+
+  it('leaves a bad `focus` in the address to the first table: the local one still shows its rows (R2 C7)', async () => {
+    const { first, second } = await renderTwo('&focus=abc');
+    expect(await first.findByText(/열린 행.*abc/)).toBeTruthy();
+    expect(await second.findByRole('button', { name: 'MEM-PHOTO-0103 보기' }, { timeout: 8000 })).toBeTruthy();
+    expect(second.queryByText(/열린 행.*abc/)).toBeNull();
+  });
+
+  it('sorts the local table by one column at a time, as the address table does (R2 C12)', async () => {
+    const { second } = await renderTwo();
+    await second.findByRole('button', { name: 'MEM-PHOTO-0103 보기' }, { timeout: 8000 });
+    const header = (name: RegExp) => second.getAllByRole('columnheader').find(cell => name.test(cell.textContent ?? ''))!;
+    fireEvent.click(within(header(/^EquipmentID/)).getByRole('button'));
+    await waitFor(() => expect(header(/^EquipmentID/).getAttribute('aria-sort')).not.toBe('none'));
+    fireEvent.click(within(header(/^PM1/)).getByRole('button'), { shiftKey: true });
+    await waitFor(() => expect(header(/^PM1/).getAttribute('aria-sort')).not.toBe('none'));
+    const sorted = second.getAllByRole('columnheader').filter(cell => !['none', null].includes(cell.getAttribute('aria-sort')));
+    expect(sorted).toHaveLength(1);
+    expect(searchParams().has('sort')).toBe(false);
+  });
+});
+
 describe('HW Time table page', () => {
   it('opts the raw table into the separate column-group choose view', async () => {
     await renderPage();

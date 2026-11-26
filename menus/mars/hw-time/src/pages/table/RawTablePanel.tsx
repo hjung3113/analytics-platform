@@ -9,7 +9,7 @@ import { panelDeclarations } from '../analysis/panelDeclaration';
  * Export belongs to the table (`exportRows` + note + summary). The drawer reuses the shared stack and trend panels with that one row.
  */
 import { ChevronRight, Inbox, PanelRight } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useI18n, useMenuFetch, usePlatform, type PageProps } from '@ap/kernel';
 import {
   DetailDrawer, encodeTableSort, PageKeyWarning, PlatformDataTable, QueryView, RowAction, StateMessage, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableUrlState,
@@ -107,9 +107,14 @@ export function useRawTableColumns(level: TableLevel, motion: string | null, che
   }, [m, lang, level, motion, checkedSeries, activeSeries, enter]);
 }
 
-export default function RawTablePanel({ linked = false, analysis }: PageProps & {
+const FOCUS_RULE = [{ key: 'focus', label: { ko: '열린 행', en: 'Open row' }, valid: isHwTimeTrendId }];
+const NO_FOCUS_RULE: typeof FOCUS_RULE = [];
+
+export default function RawTablePanel({ linked = false, analysis, local = false }: PageProps & {
   linked?: boolean;
   analysis?: { equipment: readonly string[]; level: ReturnType<typeof useHwTimeLevel> };
+  /** A second raw table on the screen (#2862 ②): its open row and paging stay in this panel, so the address's `focus`/`page`/`sort` belong to the first. */
+  local?: boolean;
 }) {
   const m = useMessages(HW_TIME_MESSAGES);
   const { lang } = useI18n();
@@ -121,14 +126,22 @@ export default function RawTablePanel({ linked = false, analysis }: PageProps & 
   const checkedSeries = level === 0 ? filter?.modules : filter?.motions;
   const activeSeries = checkedSeries ?? seriesIds(level, motion);
   const queryDrill = { ...drillParams(module, motion), ...(filter ? { moduleType: filter.moduleType.id } : {}), ...(analysis ? { [MOTION_EQUIPMENT_KEY]: analysis.equipment } : {}) };
-  const focus = pageParam('focus');
-  const focusKeys = useHwTimeDrillRules([{ key: 'focus', label: { ko: '열린 행', en: 'Open row' }, valid: isHwTimeTrendId }]);
+  const [localFocus, setLocalFocus] = useState<string | null>(null);
+  const focus = local ? localFocus : pageParam('focus');
+  const setFocus = (id: string | null) => { if (local) setLocalFocus(id); else setPage({ focus: id }); };
+  // The address's `focus` belongs to the first table: a local one neither checks nor clears it (#2862 ② R C7).
+  const focusKeys = useHwTimeDrillRules(local ? NO_FOCUS_RULE : FOCUS_RULE);
   const tableState = useTableUrlState(SORT_FIELDS);
   // Chart-only sort values from old steps/compare links are ignored, not rejected as malformed table sorts.
   const legacyChartSort = linked && ['total-desc', 'total-asc'].includes(pageParam('sort') ?? '');
   const { sentences, parsedPage } = tableState;
-  const tableInvalid = legacyChartSort ? !parsedPage.ok : tableState.invalid;
-  const urlState: TableUrlState | undefined = legacyChartSort && parsedPage.ok ? {
+  // A local table keeps page and one-column sort in this panel, under the same single-sort contract as the address (R C12).
+  const [localState, setLocalState] = useState<Pick<TableUrlState, 'page' | 'sorting'> & { query: string }>({ page: null, sorting: [], query: '' });
+  // The page owns its resets (TableUrlState): a new query starts the local table on its first page again.
+  const queryKey = JSON.stringify(queryDrill);
+  if (local && localState.query !== queryKey) setLocalState(current => ({ ...current, page: current.query === '' ? current.page : null, query: queryKey }));
+  const tableInvalid = local ? false : legacyChartSort ? !parsedPage.ok : tableState.invalid;
+  const urlState: TableUrlState | undefined = local ? { page: localState.page, sorting: localState.sorting, onChange: ({ page, sorting }) => setLocalState(current => ({ ...current, page, sorting })) } : legacyChartSort && parsedPage.ok ? {
     page: parsedPage.page === 1 ? null : parsedPage.page, sorting: [],
     onChange: ({ page, sorting }, reason) => setPage({ sort: encodeTableSort(sorting), page: page === null ? null : String(page) }, { replace: reason === 'clamp' }),
   } : tableState.urlState;
@@ -175,7 +188,7 @@ export default function RawTablePanel({ linked = false, analysis }: PageProps & 
     series: (response.level === 2 ? response.detail?.series : response.series) ?? [],
     rows: [focusRow], totals: { values: focusRow.values, total: focusRow.total },
   } : null;
-  const closeDrawer = () => setPage({ focus: null });
+  const closeDrawer = () => setFocus(null);
 
   const table = tableInvalid ? <TableUrlWarning sentences={sentences} />
     : emptyDetail ? <StateMessage icon={<Inbox className="size-4" aria-hidden />} title={m('tablePageNoRecordsForModule', { module: String(kept.module), motion: String(kept.motion) })}
@@ -187,7 +200,7 @@ export default function RawTablePanel({ linked = false, analysis }: PageProps & 
         activeRowId={focus} pageSize={25} urlState={urlState}
         loadPage={(query, signal) => pages.fetch({ ...queryDrill, ...query }, signal)}
         rowAction={(row, { compact }) => row.auxiliary ? null
-          : <RowAction compact={compact} icon={PanelRight} label={m('tablePageView', { value: String(rowIdLabel(row.id)) })} text={m('tablePageView2')} onClick={() => setPage({ focus: row.id })} />}
+          : <RowAction compact={compact} icon={PanelRight} label={m('tablePageView', { value: String(rowIdLabel(row.id)) })} text={m('tablePageView2')} onClick={() => setFocus(row.id)} />}
         exportRows={panelDeclarations.table.csvExport ? async (request, signal) => {
           const response = await exports.fetch(exportParams(queryDrill, request), signal);
           return response.data && filter ? { ...response, data: response.data.map(row => filterRow(row, activeSeries)) } : response;

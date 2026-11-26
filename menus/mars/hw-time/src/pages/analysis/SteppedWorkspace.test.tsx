@@ -176,6 +176,59 @@ describe('HW Time saved view panels', () => {
     expect(config().keep).toEqual(kept);
   });
 
+  it('numbers the second raw table when both follow, and a hold changes the later one (#2862 ② R C5)', async () => {
+    const tables = [makeInstance('table'), { ...makeInstance('table'), id: 'table-2' }];
+    const step4: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['motionEquipment', 'MEM-PHOTO-0105']];
+    await mount(createFakeSavedViewStore([saved({ page: step4, panels: { version: 1, instances: tables } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105');
+    await open('saved');
+    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1'])));
+    expect([config().titles.table, config().titles['saved-panel-1']]).toEqual(['원본 표', '원본 표 2']);
+    fireEvent.click(screen.getByRole('button', { name: 'hold table' }));
+    await settle();
+    expect([config().titles.table, config().titles['saved-panel-1']]).toEqual(['원본 표', '원본 표 · 붙잡음']);
+    expect(config().ids.filter((id: string) => id === 'table' || id.startsWith('saved-panel') || id.startsWith('table-'))).toHaveLength(2);
+  });
+
+  const step4Page: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['motionEquipment', 'MEM-PHOTO-0105']];
+  const step4Search = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105';
+
+  it('opens the first two of three saved raw tables, and offers the third only for removal (#2862 ② R C13)', async () => {
+    const tables = ['table', 'table-2', 'table-3'].map(id => ({ ...makeInstance('table'), id }));
+    await mount(createFakeSavedViewStore([saved({ page: step4Page, panels: { version: 1, instances: tables } })]), step4Search);
+    await open('saved');
+    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1', 'saved-panel-2'])));
+    expect([config().titles.table, config().titles['saved-panel-1']]).toEqual(['원본 표', '원본 표 2']);
+    expect(config().placement['saved-panel-2']).toBeUndefined();
+    const third = screen.getByRole('region', { name: 'panel saved-panel-2' });
+    expect(within(third).getByText('같은 패널은 2개까지 함께 엽니다. 이 패널은 저장된 뷰에만 있습니다.')).toBeTruthy();
+    const saveAs = async () => act(() => views.saveAs({ name: `Tables ${Math.random()}`, kind: 'menu-view' }));
+    expect(await saveAs()).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: tables } } } });
+    fireEvent.click(within(third).getByRole('button', { name: 'remove saved-panel-2' }));
+    await settle();
+    expect(config().ids).not.toContain('saved-panel-2');
+    expect(await saveAs()).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: tables.slice(0, 2) } } } });
+  });
+
+  it('keeps the automatic trend at step 4 beside a saved trend under another slot (#2862 ② R C11)', async () => {
+    const trend = { ...makeInstance('trend'), id: 'trend-2' };
+    await mount(createFakeSavedViewStore([saved({ page: step4Page, panels: { version: 1, instances: [makeInstance('donut'), trend] } })]), step4Search);
+    await open('saved');
+    await waitFor(() => expect(config().ids).toContain('saved-panel-1'));
+    expect(config().ids).toContain('trend');
+    expect(config().placement.trend).toBe('below');
+  });
+
+  it('unpins the raw table even when the saved panels are full (#2862 ② R C2)', async () => {
+    const instances = Array.from({ length: 24 }, (_, index) => ({ ...makeInstance('donut'), id: `donut-${index}` }));
+    await mount(createFakeSavedViewStore([saved({ page: [...step4Page, ['pins', 'table']], panels: { version: 1, instances } })]), `${step4Search}&pins=table`);
+    await open('saved');
+    await waitFor(() => expect(config().pins.table).toBe(true));
+    fireEvent.click(screen.getByRole('button', { name: 'pin table' }));
+    await settle();
+    expect(config().ids).not.toContain('table');
+    expect(new URLSearchParams(window.location.search).getAll('pins')).not.toContain('table');
+  });
+
   it('renders a reason in the missing slot and renders the other panels', async () => {
     await mount(createFakeSavedViewStore([saved()]));
     await open('saved');
@@ -256,7 +309,8 @@ describe('HW Time saved view panels', () => {
       await open('saved');
       const result = await act(() => views.saveAs({ name: 'Copy', kind: 'menu-view' }));
       expect(result).toMatchObject({ ok: true, value: { view: { panels } } });
-      expect(config().ids).toEqual(['tree', 'previous', 'current', 'saved-panel-0', 'table', 'trend']);
+      const tableSlot = panel === 'table' ? [] : ['table'];
+      expect(config().ids).toEqual(['tree', 'previous', 'current', 'saved-panel-0', ...tableSlot, 'trend']);
     },
   );
 
@@ -269,6 +323,13 @@ describe('HW Time saved view panels', () => {
     expect(config().pins.table).toBe(true);
     const slots = canonicalIndex === 0 ? ['table', 'saved-panel-1'] : ['saved-panel-0', 'table'];
     expect(config().ids).toEqual(['tree', 'previous', 'current', ...slots, 'trend']);
+  });
+
+  it('assigns the pin to the restored raw table when the declared slot is absent', async () => {
+    const instances = [{ ...makeInstance('table'), id: 'table~1' }];
+    await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels: { version: 1, instances } })]));
+    await open('saved');
+    expect(config().pins['saved-panel-0']).toBe(true);
   });
 });
 
