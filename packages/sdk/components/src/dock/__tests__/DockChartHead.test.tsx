@@ -1,5 +1,5 @@
-import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { useEffect, useState } from 'react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useCallback, useEffect, useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { AnalysisChart } from '../../chart/AnalysisChart';
@@ -9,6 +9,8 @@ import { OrderedIntervalTrack } from '../../chart/OrderedIntervalTrack';
 import { PanelOptions } from '../../workspace/PanelOptions';
 import { WorkspaceGroupActions } from '../../workspace/WorkspaceGroupActions';
 import { group, installResizeObserver, mountDock } from './harness';
+import { DockLayoutBase } from '../DockLayout';
+import { I18nProvider } from '@ap/kernel';
 
 vi.mock('../../chart/EChartImpl', () => ({ default: () => <div role="img" aria-label="plot" /> }));
 
@@ -307,4 +309,44 @@ describe('when the first chart replaces the pane action trigger (#3095)', () => 
     await waitFor(() => expect(head.getByRole('button', { name: '더보기' })).toBeInTheDocument());
     expect(paneTool).toHaveFocus();
   });
+});
+
+// #3148: the pane's hover/focus state (it reveals the merged head's tools) lived next to the panel's render call, so every pointer
+// entering or leaving the pane re-ran the menu's render. A menu that builds its chart props inline then handed the Frame new arrays,
+// the option was rebuilt and ECharts replayed its draw animation on each hover.
+it('does not re-run the panel render when the pointer enters or leaves the pane', async () => {
+  const renders = vi.fn();
+  mountDock({
+    layout: group(['a']),
+    mergeChartHead: true,
+    inner: () => { renders(); return <AnalysisChartFrame chartId="first" title="Trend" unit="s" series={[{ id: 's', name: 'Series', color: 'chart-blue', points: [['A', 1]] }]} xType="category" />; },
+  });
+  const plot = (await screen.findByRole('img', { name: 'plot' })).parentElement!;
+  const reveal = screen.getByRole('tab', { name: '패널 a' }).closest('.dv-tabs-and-actions-container')!.querySelector('[data-dock-chart-tools]')!;
+  const before = renders.mock.calls.length;
+  fireEvent.pointerOver(plot);
+  expect(reveal).toHaveAttribute('data-revealed');
+  fireEvent.pointerOut(plot);
+  act(() => { plot.focus(); });
+  act(() => { plot.blur(); });
+  expect(renders).toHaveBeenCalledTimes(before);
+});
+
+// #3148: the memo keys on `render`. A consumer whose content follows a value outside the panel (not a context) still updates, both when it
+// builds `render` inline and when it memoizes it with that value as a dependency: the new value always arrives as a new `render`.
+it.each(['inline', 'useCallback'] as const)('still re-renders a panel whose %s render reads parent state', async pattern => {
+  let bump = () => {};
+  function Host() {
+    const [count, setCount] = useState(0);
+    bump = () => { setCount(value => value + 1); };
+    const memoized = useCallback(() => <p>count {count}</p>, [count]);
+    const panelRender = pattern === 'inline' ? () => <p>count {count}</p> : memoized;
+    return <DockLayoutBase mergeChartHead panels={[{ id: 'a', title: '패널 a', render: panelRender }]} layout={group(['a'])} maximizedPanelId={null}
+      onLayoutChange={() => {}} onActivate={() => {}} onMaximizedChange={() => {}} label="테스트 배치" minPanelSize={{ width: 20, height: 20 }}
+      separatorLabel={() => 'sep'} />;
+  }
+  render(<I18nProvider><Host /></I18nProvider>);
+  expect(await screen.findByText('count 0')).toBeTruthy();
+  act(() => { bump(); });
+  expect(await screen.findByText('count 1')).toBeTruthy();
 });

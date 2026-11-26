@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from 'react';
+import { Component, memo, type ReactNode } from 'react';
 import { RotateCw, ServerCrash } from 'lucide-react';
 import { useI18n } from '@ap/kernel';
 import { useHostPlatformOptional } from '@ap/kernel/host';
@@ -13,11 +13,14 @@ type State = { failed: boolean; correlationId?: string };
  * One panel's content failing to render stays in that panel (06 §2 principle 7): the other panels and the workspace keep running. The
  * failure goes through Kernel `reportShellError` (the report a shell region uses, so a healthy screen's pending arrival focus stays) and
  * the panel shows the Correlation ID and a retry. A server revision or session change clears it. Internal to the dock.
+ * Memoized on `render`: the pane's own state (hover and focus reveal the merged chart head) must not re-run the menu's render, or a menu
+ * that builds its chart props inline hands the chart new values and ECharts replays its draw on every hover (#3148). Context the
+ * content reads (pane engaged, visibility) still reaches it.
  */
-export function PanelBoundary({ render }: Props) {
+export const PanelBoundary = memo(function PanelBoundary({ render }: Props) {
   const host = useHostPlatformOptional();
   return <PanelBoundaryInner onError={host?.reportShellError} resetKey={host ? `${host.session.user.id}|${host.revision}` : ''}><PanelContent render={render} /></PanelBoundaryInner>;
-}
+});
 
 /** The panel's own render function runs inside the boundary, so a throw there is contained too. */
 function PanelContent({ render }: Props) { return render?.() ?? null; }
