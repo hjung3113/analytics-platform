@@ -1,7 +1,5 @@
 # packages/ — common rules for platform packages
 
-Home of the implementation of the five platform areas (root `AGENTS.md`). Menu screens do not live here (`menus/<space>/<group>` and `platform/<feature>` packages hold them).
-
 The source of boundaries and dependency direction is [package boundary](../docs/integration/platform-packages.md) §3. This file is a summary; on conflict follow that document.
 
 ## Rules for every package
@@ -17,7 +15,4 @@ The source of boundaries and dependency direction is [package boundary](../docs/
 ## Verification
 
 - For public API changes, follow [SDK change notes and release baselines](sdk/AGENTS.md).
-- Narrow with `pnpm --filter @ap/<package> test`, then run the root checks (root `AGENTS.md`).
 - When you touch the release shape (package `exports`, CSS `@source`, `tsconfig.build.json`, a new file kind), run `pnpm sdk:pack --out <temp folder>` then `pnpm sdk:consumer-check <same folder>`.
-
-Next: the `AGENTS.md` of the package you edit — SDK [contracts](sdk/contracts/AGENTS.md)·[contract-schemas](sdk/contract-schemas/AGENTS.md)·[ui](sdk/ui/AGENTS.md)·[kernel](sdk/kernel/AGENTS.md)·[components](sdk/components/AGENTS.md)·[shell](sdk/shell/AGENTS.md); Host [app-host](host/app-host/AGENTS.md)·[mock-server](host/mock-server/AGENTS.md)·[http-adapter](host/http-adapter/AGENTS.md)·[server-conformance](host/server-conformance/AGENTS.md); adapter [feature-bridge](feature/bridge/AGENTS.md); feature [feature-shared](feature/shared/AGENTS.md)·[feature-ui](feature/screens/src/ui/AGENTS.md).

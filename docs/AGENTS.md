@@ -7,7 +7,6 @@ The source of product and platform contracts. Check here what is decided before 
 - `contract/platform-ui-contract.md` (index, cross-area principles, governance, definition of done, and the «절 → 문서» table) and the per-area `contract/{kernel,components,chart,layout,cross-menu-links}.md`: global contracts and navigation IA. § numbers form one numbering system across the split documents; other documents consume them.
 - `adr/`: decisions chosen among real alternatives, with reasons. List and format: [adr/README.md](adr/README.md). Detailed rules live in the owning document; the ADR links to it.
 - `guides/`: reader-specific step-by-step guides (usage and commands only; rules stay in the owning document, which the guide links to).
-- For feature-domain implementation read `agents/feature-implementation.md`.
 - `adr/history/feedbackops/`, `design/history/feedbackops-prototype/`, `user-guide/history/feedbackops/` and the former local-development README are frozen references, not live design sources. Navigation and superseding decisions are indexed in `integration/feature-history.md`.
 
 ## ADR numbering

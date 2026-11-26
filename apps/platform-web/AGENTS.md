@@ -52,6 +52,6 @@ A new business system (space) needs these app edits beyond its menu packages (`m
 
 ## Verification
 
-Narrow with `pnpm --filter @ap/platform-web test`, then run the root checks (root `AGENTS.md`), and check screens on `pnpm dev` (http://127.0.0.1:5173) with the role switch and scenario simulator.
+Check screens on `pnpm dev` (http://127.0.0.1:5173) with the role switch and scenario simulator.
 
 - Production assembly and module graph: [ADR-0009](../../docs/adr/0009-production-assembly-injection.md), [checklist §1](../../docs/integration/real-server-checklist.md).

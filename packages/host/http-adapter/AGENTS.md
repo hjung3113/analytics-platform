@@ -11,4 +11,4 @@
 
 ## Verification
 
-Narrow with `pnpm --filter @ap/http-adapter lint|typecheck|test`, then the root checks. Tests inject `fetch`; they never use the real network.
+Tests inject `fetch`; they never use the real network.

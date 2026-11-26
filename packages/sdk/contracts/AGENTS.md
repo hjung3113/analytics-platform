@@ -25,4 +25,4 @@ Contract types and pure functions shared by the platform, server and menus. Keep
 
 ## Verification
 
-Run `lint` and `typecheck`; after `build`, run `check:pack` for the deployment bundle and the outside-repo consumer check. Root check scope follows the root `AGENTS.md`.
+Run `lint` and `typecheck`; after `build`, run `check:pack` for the deployment bundle and the outside-repo consumer check.
