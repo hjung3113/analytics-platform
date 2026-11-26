@@ -232,6 +232,11 @@ function canonicalPanelSlot(instance: PanelInstance): string | undefined {
   if (instance.id === panel && CATALOG_IDS.some(id => id === panel)) return panel;
 }
 
+function restoredPanelSlot(instance: PanelInstance, index: number): string {
+  // The saved ID is opaque. Only an exact ID and declaration match can restore a canonical slot.
+  return canonicalPanelSlot(instance) ?? `saved-panel-${index}`;
+}
+
 /**
  * The configuration for this render. Another user or Scope clears local additions. Opening a view can change the step and query Context in the
  * same navigation, so an open carries across that change. Connection edits stay within their owner.
@@ -272,10 +277,10 @@ function useWorkspacePanels(owner: string, query: string, step: Step, publisherF
         default: {
           const added: AddedPanel[] = [];
           const sources: PanelInstance[] = [];
-          outcome.instances.forEach((instance, index) => {
+          for (const instance of outcome.instances) {
             if (isHeldSource(instance)) sources.push(instance);
-            else added.push({ slot: canonicalPanelSlot(instance) ?? `saved-panel-${index}`, instance });
-          });
+            else added.push({ slot: restoredPanelSlot(instance, added.length), instance });
+          }
           next = { kind: 'custom', added, sources };
         }
       }

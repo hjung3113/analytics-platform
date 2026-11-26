@@ -358,6 +358,53 @@ describe('HW Time saved view panels', () => {
     expect(config().ids).toEqual(['tree', 'previous', 'current', ...slots, 'trend']);
   });
 
+  it('keeps the drawn panel slots when an interleaved held source moves to the end on save', async () => {
+    const source = equipmentSource();
+    const table = heldTable('table~1');
+    const extraDonut = { ...donut, id: 'donut~1' };
+    const store = createFakeSavedViewStore([saved({
+      page: stepFourPage, panels: { version: 1, instances: [source, table, extraDonut] },
+    })]);
+    const panelSlots = () => [screen.getAllByRole('tab').find(tab => tab.getAttribute('aria-description')?.includes('붙잡음'))?.textContent,
+      screen.getByTestId('hw-verdict-donut').closest('section[aria-label^="panel "]')?.getAttribute('aria-label')];
+    await mount(store);
+    await open('saved');
+    const before = panelSlots();
+    const copy = await act(() => views.saveAs({ name: 'Interleaved source', kind: 'menu-view' }));
+    if (!copy.ok) throw new Error('Failed to save view');
+    expect(copy.value.view).toMatchObject({ panels: { instances: [table, extraDonut, source] } });
+
+    cleanup();
+    await mount(store);
+    await open(copy.value.view.id);
+    expect(panelSlots()).toEqual(before);
+    expect(before).toEqual(['saved-panel-0', 'panel saved-panel-1']);
+  });
+
+  it.each([['trend~1', 'trend'], ['current~1', 'moduleMotions'], ['table~1', 'table']])(
+    'opens %s in its own slot and preserves its record on save',
+    async (id, panel) => {
+      const panels = { version: 1 as const, instances: [{ ...makeInstance(panel), id }] };
+      await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels })]));
+      await open('saved');
+      const result = await act(() => views.saveAs({ name: 'Copy', kind: 'menu-view' }));
+      expect(result).toMatchObject({ ok: true, value: { view: { panels } } });
+      const tableSlot = panel === 'table' ? [] : ['table'];
+      expect(config().ids).toEqual(['tree', 'previous', 'current', 'saved-panel-0', ...tableSlot, 'trend']);
+    },
+  );
+
+  it.each([0, 1])('assigns the pinned table slot to exact table at saved index %s', async canonicalIndex => {
+    const exact = makeInstance('table');
+    const extra = { ...exact, id: 'table~1' };
+    const instances = canonicalIndex === 0 ? [exact, extra] : [extra, exact];
+    await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels: { version: 1, instances } })]));
+    await open('saved');
+    expect(config().pins.table).toBe(true);
+    const slots = canonicalIndex === 0 ? ['table', 'saved-panel-1'] : ['saved-panel-0', 'table'];
+    expect(config().ids).toEqual(['tree', 'previous', 'current', ...slots, 'trend']);
+  });
+
   it('assigns the pin to the restored raw table when the declared slot is absent', async () => {
     const instances = [{ ...makeInstance('table'), id: 'table~1' }];
     await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels: { version: 1, instances } })]));
