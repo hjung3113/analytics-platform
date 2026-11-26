@@ -1,15 +1,15 @@
-// CI `changes` job (#1019): picks the E2E specs a change can affect, so a PR or a push to main runs only those. Node builtins only (no setup-node, no install).
+// CI `changes` job (#1019): picks the E2E specs for PR feedback; main pushes and manual runs always run the full suite. Node builtins only (no setup-node, no install).
 //
 //   e2e            'all'            every spec (the default for anything not provably limited)
 //                  'none'           nothing to run (docs-only change; the shard job is skipped, the required check passes from this value)
 //                  'base-path-only' only the base-path run (its spec or config changed); the main-config run is skipped
 //                  '<a.spec.ts> …'  space-separated spec file names under apps/platform-e2e/tests/ (all exist; never base-path.spec.ts)
 //   e2e_base_path  'true' | 'false'  whether the base-path run (`pnpm e2e:base-path`) runs
-//   e2e_shards     JSON matrix: [1,2,3,4,5,6,7,8] for 'all', [1] for anything else (the shard job is skipped for 'none')
-//   e2e_total      '8' for 'all', '1' otherwise
+//   e2e_shards     JSON matrix: 8 for 'all', 3 for bounded code selections, 1 for spec-only selections
+//   e2e_total      number of shards in the matrix
 //   e2e_kit        'true' for 'all', 'false' otherwise: conservatively covers kit, app-host, mock-server and SDK dependency changes
 //
-// Rules (safe side, a file is judged alone and the strictest verdict wins):
+// PR rules (a path without a rule sends the whole PR to 'all'):
 //   Markdown or .agents/ (the same set classify-changes.mjs treats as docs)  → needs nothing
 //   apps/platform-e2e/tests/<x>.spec.ts that still exists                      → that spec (base-path.spec.ts → base-path run)
 //   apps/platform-e2e/tests-real/** or playwright.real*.config.ts → needs no mock run
@@ -18,15 +18,13 @@
 //   apps/platform-api/** or ops/platform-api/** except ops/platform-api/tsconfig.base.json → needs nothing (the mock E2E web server is `@ap/platform-web` on the mock adapter and its workspace
 //     dependency graph reaches neither tree; the one exception is tsconfig.base.json, which packages/feature/shared and packages/feature/screens extend)
 //   a spec file name outside [A-Za-z0-9_.-] (it would become a regex filter)    → all
-//   everything else → all: packages/**, apps/**, menus/** and platform/** (the contract-*.spec.ts files read many menus, so there is no menu→spec table), tooling/**, patches/**,
-//   the rest of ops/**, root manifests, .github/**, the e2e helpers/configs (contract-helpers.ts, support.ts, playwright*.config.ts, contract-reporter.ts, package.json), style.css,
-//   and any path no rule knows.
-// Events: a pull request diffs BASE...HEAD; a push diffs BASELINE (the last main SHA whose CI run was green, last-green-main-sha.mjs) against SHA, so a spec that failed
-// stays in scope until a green run covers it; a manual run, FULL_INPUT=true, an empty diff, a missing baseline, an unknown event or any exception → all.
+//   SDK or app shell source, and audited menu paths → contract smoke specs + the base-path check + mapped menu specs + any directly changed specs
+//   everything else → all, including unknown menus, shared E2E helpers, build configuration, root manifests and patches.
+// Unknown/empty diffs, full=true and non-PR events always use the full matrix.
 // Fail-safe: an exception prints e2e=all e2e_base_path=true e2e_shards=[1,2,3,4,5,6,7,8] e2e_total=8 and exits 0 (stderr says why). If the job itself fails the outputs are
 // empty and ci.yml treats empty as "run everything".
 //
-//   node .github/scripts/select-e2e.mjs      reads EVENT, BASE, HEAD (pull_request), BASELINE, SHA (push), FULL_INPUT; writes $GITHUB_OUTPUT once
+//   node .github/scripts/select-e2e.mjs      reads EVENT, BASE, HEAD (pull_request), SERVER (classifier output), FULL_INPUT; writes $GITHUB_OUTPUT once
 //   node .github/scripts/select-e2e.mjs --self-test
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -45,8 +43,52 @@ const SERVER_ONLY = /^(?:apps|ops)\/platform-api\//;
 const SERVER_ONLY_EXCEPTION = 'ops/platform-api/tsconfig.base.json';
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]*\.spec\.ts$/;
 
-const ALL = Object.freeze({ e2e: 'all', e2e_base_path: 'true', e2e_shards: '[1,2,3,4,5,6,7,8]', e2e_total: '8' });
-const NONE = Object.freeze({ e2e: 'none', e2e_base_path: 'false', e2e_shards: '[1]', e2e_total: '1' });
+// Platform contract maintainers review this list when adding a contract area or when timing changes.
+const CONTRACT_SMOKE = [
+  'contract-chart.spec.ts',
+  'contract-column-groups.spec.ts',
+  'contract-components.spec.ts',
+  'contract-context-links.spec.ts',
+  'contract-navigation-guard.spec.ts',
+  'contract-no-reload.spec.ts',
+  'contract-shell.spec.ts',
+];
+const SHARED_SOURCE = /^(?:packages\/sdk\/[^/]+\/src|apps\/platform-web\/src)\//;
+// Additional PR specs that exercise these menus. Keep the mapping with the spec when moving routes or adding coverage.
+// A menu with no reviewed mapping takes the full fallback, including any newly registered menu.
+const MENU_SPECS = {
+  'menus/log-dev/log-analysis/': ['features-log-explorer.spec.ts'],
+  'menus/log-dev/log-knowledge/': ['features-log-knowledge-import.spec.ts', 'features-log-knowledge-search.spec.ts', 'features-log-knowledge-spec.spec.ts', 'hub-model-topview.spec.ts'],
+  'menus/log-dev/log-models/': ['log-datasets.spec.ts', 'log-lifecycle.spec.ts'],
+  'menus/mars/configuration/': ['configuration.spec.ts', 'hw-time.spec.ts'],
+  'menus/mars/hw-time/': ['configuration.spec.ts', 'contract-saved-view.spec.ts', 'hw-time.spec.ts'],
+  'menus/tools/topview-studio/': ['eqv-onboarding.spec.ts', 'eqv-studio.spec.ts', 'eqv.spec.ts', 'hub-model-topview.spec.ts'],
+  'menus/tools/topview/': ['eqv.spec.ts', 'hub-model-topview.spec.ts'],
+  'platform/access/': ['api-tokens.spec.ts', 'contract-features.spec.ts', 'features-admin.spec.ts', 'features-navigation.spec.ts'],
+  'platform/admin/': ['contract-features.spec.ts', 'features-admin.spec.ts', 'features-navigation.spec.ts'],
+  'platform/findings/': ['features-findings.spec.ts', 'features-integration.spec.ts'],
+  'platform/integration/': ['features-integration.spec.ts'],
+  'platform/surveys/': ['features-surveys.spec.ts'],
+  'platform/tasks/': ['features-navigation.spec.ts', 'features-tasks.spec.ts'],
+};
+
+const FULL_SHARDS = 8;
+const BOUNDED_SHARDS = 3;
+const matrix = (total) => ({
+  e2e_shards: JSON.stringify(Array.from({ length: total }, (_, i) => i + 1)),
+  e2e_total: String(total),
+});
+const ALL = Object.freeze({ e2e: 'all', e2e_base_path: 'true', ...matrix(FULL_SHARDS) });
+const NONE = Object.freeze({ e2e: 'none', e2e_base_path: 'false', ...matrix(1) });
+
+// The PR workspace runs up to six jobs alongside these matrices. Reuse all three remaining
+// slots for one suite, or give two slots to E2E and one to integration when both need to run.
+export function prMatrixLimits({ server, e2e }) {
+  const shared = server !== 'false' && e2e !== 'none';
+  return { e2e_parallel: shared ? 2 : BOUNDED_SHARDS, integration_parallel: shared ? 1 : 3 };
+}
+
+export const maxPrE2eShards = FULL_SHARDS;
 
 /**
  * Pure decision. `files` is the changed-file list, or null when it could not be computed. `exists(name)` tells whether a spec file is still in the checkout.
@@ -54,28 +96,42 @@ const NONE = Object.freeze({ e2e: 'none', e2e_base_path: 'false', e2e_shards: '[
  */
 export function select({ event, files, fullInput, exists }) {
   if (fullInput === true || fullInput === 'true') return { ...ALL };
-  if ((event !== 'pull_request' && event !== 'push') || files === null) return { ...ALL };
+  if (event !== 'pull_request' || files === null) return { ...ALL };
   const list = files.filter(Boolean);
   if (list.length === 0) return { ...ALL };
   const specs = new Set();
   let basePath = false;
+  let bounded = false;
   for (const f of list) {
     if (/^apps\/platform-e2e\/(?:tests-real\/|playwright\.real[^/]*\.config\.ts$)/.test(f)) continue;
-    if (/^apps\/platform-e2e\/(?:tests-kit\/|playwright\.kit\.config\.ts$)/.test(f)) {
-      if (event === 'push') return { ...ALL };
-      continue;
-    }
+    if (/^apps\/platform-e2e\/(?:tests-kit\/|playwright\.kit\.config\.ts$)/.test(f)) continue;
     if (DOCS_ONLY.test(f)) continue;
     if (SERVER_ONLY.test(f) && f !== SERVER_ONLY_EXCEPTION) continue;
+    if (SHARED_SOURCE.test(f)) {
+      bounded = true;
+      continue;
+    }
+    const menu = Object.keys(MENU_SPECS).find((dir) => f.startsWith(dir));
+    if (menu) {
+      if (MENU_SPECS[menu].some((name) => !exists(name))) return { ...ALL };
+      for (const name of MENU_SPECS[menu]) specs.add(name);
+      bounded = true;
+      continue;
+    }
     const m = SPEC.exec(f);
     if (!m || !SAFE_NAME.test(m[1])) return { ...ALL };
     if (!exists(m[1])) continue;
     if (m[1] === BASE_PATH_SPEC) basePath = true;
     else specs.add(m[1]);
   }
+  if (bounded) {
+    if (CONTRACT_SMOKE.some((name) => !exists(name))) return { ...ALL };
+    for (const name of CONTRACT_SMOKE) specs.add(name);
+    basePath = true;
+  }
   const names = [...specs].sort();
   const base = String(basePath);
-  if (names.length > 0) return { e2e: names.join(' '), e2e_base_path: base, e2e_shards: '[1]', e2e_total: '1' };
+  if (names.length > 0) return { e2e: names.join(' '), e2e_base_path: base, ...matrix(bounded ? BOUNDED_SHARDS : 1) };
   if (basePath) return { e2e: 'base-path-only', e2e_base_path: 'true', e2e_shards: '[1]', e2e_total: '1' };
   return { ...NONE };
 }
@@ -85,10 +141,9 @@ export function run(env, cwd) {
   const exists = (name) => existsSync(join(cwd, SPEC_DIR, name));
   let files = null;
   if (event === 'pull_request') files = changedFiles({ event, base: env.BASE, head: env.HEAD }, cwd);
-  else if (event === 'push') files = changedFiles({ event, before: env.BASELINE, sha: env.SHA }, cwd);
   const result = select({ event, files, fullInput: env.FULL_INPUT, exists });
   if (result.e2e === 'all' && env.FULL_INPUT !== 'true') {
-    const why = !['pull_request', 'push'].includes(event) ? `event "${event}"` : files === null ? `changed files unknown (baseline/base missing or git failed)` : files.length === 0 ? 'empty diff' : 'an affected path outside the spec files';
+    const why = event !== 'pull_request' ? `event "${event}"` : files === null ? 'changed files unknown (base missing or git failed)' : files.length === 0 ? 'empty diff' : 'an affected path outside the smoke or spec rules';
     process.stderr.write(`select-e2e: all because of ${why}\n`);
   }
   return { result, files };
@@ -104,7 +159,7 @@ function main() {
     result = { ...ALL };
   }
   if (files) process.stdout.write(`changed files:\n${files.join('\n')}\n`);
-  const text = Object.entries({ ...result, e2e_kit: String(result.e2e === 'all') }).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
+  const text = Object.entries({ ...result, ...prMatrixLimits({ server: process.env.SERVER, e2e: result.e2e }), e2e_kit: String(result.e2e === 'all') }).map(([k, v]) => `${k}=${v}`).join('\n') + '\n';
   process.stdout.write(text);
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, text);
 }
@@ -124,6 +179,29 @@ function selfTest() {
   const sub = (list, base = 'false') => out(list, base, '[1]', '1');
   const pr = (files, extra = {}) => select({ event: 'pull_request', files, exists, ...extra });
   const push = (files) => select({ event: 'push', files, exists });
+
+  const contracts = ['contract-chart.spec.ts', 'contract-column-groups.spec.ts', 'contract-components.spec.ts',
+    'contract-context-links.spec.ts', 'contract-navigation-guard.spec.ts', 'contract-no-reload.spec.ts', 'contract-shell.spec.ts'];
+  const hwTimeSpecs = ['configuration.spec.ts', 'contract-saved-view.spec.ts', 'hw-time.spec.ts'];
+  const inventory = [...contracts, ...present, ...hwTimeSpecs];
+  const sdkPr = (files) => pr(files, { exists: (name) => inventory.includes(name) });
+  const bounded = (names) => out([...names].sort().join(' '), 'true', '[1,2,3]', '3');
+  check('sdk: PR runs contracts and base path', sdkPr(['packages/sdk/ui/src/a.tsx']), bounded(contracts));
+  check('sdk: app shell + menu + existing spec rule are unioned', sdkPr([
+    'apps/platform-web/src/a.tsx', 'menus/mars/hw-time/src/a.ts', `${T}eqv.spec.ts`,
+  ]), bounded([...contracts, ...hwTimeSpecs, 'eqv.spec.ts']));
+  check('menu: audited menu-only PR uses bounded coverage', sdkPr(['menus/mars/hw-time/src/a.ts']),
+    bounded([...contracts, ...hwTimeSpecs]));
+  check('sdk: unknown menu falls back to all', sdkPr(['packages/sdk/ui/src/a.tsx', 'menus/mars/unknown/src/a.ts']), ALLV);
+  check('sdk: missing mapped spec falls back to all', sdkPr(['packages/sdk/ui/src/a.tsx', 'menus/log-dev/log-knowledge/src/a.ts']), ALLV);
+  check('sdk: old all-rule on another path still wins', sdkPr(['packages/sdk/ui/src/a.tsx', 'pnpm-lock.yaml']), ALLV);
+  check('sdk: push still runs all with an available spec inventory', select({
+    event: 'push', files: ['packages/sdk/ui/src/a.tsx'], exists,
+  }), ALLV);
+  const repo = resolve(fileURLToPath(import.meta.url), '../../..');
+  for (const name of new Set([...CONTRACT_SMOKE, ...Object.values(MENU_SPECS).flat()])) {
+    check(`selector inventory: ${name} exists and is safe`, SAFE_NAME.test(name) && existsSync(join(repo, SPEC_DIR, name)), true);
+  }
 
   // Docs only → none (same set as classify-changes: code=false).
   check('docs: md only', pr(['README.md', 'docs/a.md']), NONEV);
@@ -179,11 +257,11 @@ function selfTest() {
   check('server: tsconfig.base.json alone → all', pr(['ops/platform-api/tsconfig.base.json']), ALLV);
   check('server: tsconfig.base.json + server file → all', pr(['apps/platform-api/src/a.ts', 'ops/platform-api/tsconfig.base.json']), ALLV);
   check('server: nested tsconfig.base.json is not the exception → none', pr(['ops/platform-api/sub/tsconfig.base.json']), NONEV);
-  check('server: push uses the same rule', push(['apps/platform-api/src/a.ts']), NONEV);
+  check('server: push runs all', push(['apps/platform-api/src/a.ts']), ALLV);
   // Real-server files never feed mock E2E; kit files run only on push, not PR (#2048).
   for (const f of ['tests-real/console.admin.real.spec.ts', 'tests-real/support.ts', 'playwright.real.config.ts', 'playwright.real-down.config.ts']) {
     check(`real: PR ${f} → none`, pr([`apps/platform-e2e/${f}`]), NONEV);
-    check(`real: push ${f} → none`, push([`apps/platform-e2e/${f}`]), NONEV);
+    check(`real: push ${f} → all`, push([`apps/platform-e2e/${f}`]), ALLV);
   }
   for (const f of ['tests-kit/kit.spec.ts', 'tests-kit/workflow.test.mjs', 'tests-kit/README.md', 'playwright.kit.config.ts']) {
     check(`kit: PR ${f} → none`, pr([`apps/platform-e2e/${f}`]), NONEV);
@@ -201,9 +279,9 @@ function selfTest() {
   check('all: dispatch', select({ event: 'workflow_dispatch', files: [], exists, fullInput: 'false' }), ALLV);
   check('all: unknown event', select({ event: 'schedule', files: ['README.md'], exists }), ALLV);
   check('all: undefined event', select({ files: ['README.md'], exists }), ALLV);
-  // Push to main uses the same file rules on the baseline diff.
-  check('push: docs → none', push(['docs/a.md']), NONEV);
-  check('push: spec → spec', push([`${T}hw-time.spec.ts`]), sub('hw-time.spec.ts'));
+  // Main push always runs everything, regardless of what changed.
+  check('push: docs → all', push(['docs/a.md']), ALLV);
+  check('push: spec → all', push([`${T}hw-time.spec.ts`]), ALLV);
   check('push: code → all', push(['packages/sdk/kernel/src/a.ts']), ALLV);
   check('push: baseline unknown (null) → all', push(null), ALLV);
   check('push: empty diff → all', push([]), ALLV);
@@ -236,7 +314,7 @@ function selfTest() {
     check('git pr: unknown base → all', r({ EVENT: 'pull_request', BASE: 'deadbeef'.repeat(5), HEAD: code }), ALLV);
     check('git pr: missing BASE → all', r({ EVENT: 'pull_request', HEAD: code }), ALLV);
     check('git push: baseline..sha spans the red commit (docs + spec + code) → all', r({ EVENT: 'push', BASELINE: base, SHA: code }), ALLV);
-    check('git push: baseline..sha docs + spec → the spec', r({ EVENT: 'push', BASELINE: base, SHA: spec }), sub('hw-time.spec.ts'));
+    check('git push: docs + spec → all', r({ EVENT: 'push', BASELINE: base, SHA: spec }), ALLV);
     check('git push: empty baseline → all', r({ EVENT: 'push', BASELINE: '', SHA: code }), ALLV);
     check('git push: missing baseline → all', r({ EVENT: 'push', SHA: code }), ALLV);
     check('git push: unreachable baseline → all', r({ EVENT: 'push', BASELINE: 'abc123'.repeat(6), SHA: code }), ALLV);

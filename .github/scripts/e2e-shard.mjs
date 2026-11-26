@@ -4,7 +4,7 @@
 // (seconds a test, measured from a merged CI report), and the tests go heaviest first to the lightest shard. Every shard lists the same
 // tests and computes the same partition, so the shards together cover every test exactly once. Node builtins only.
 //
-//   node .github/scripts/e2e-shard.mjs <shard> <total>     one filter per line on stdout; exit 1 on any failure (the workflow then falls back to `--shard`)
+//   node .github/scripts/e2e-shard.mjs <shard> <total> [tests/<spec> ...]    one filter per line; exit 1 falls back to Playwright --shard
 //   node .github/scripts/e2e-shard.mjs --self-test
 
 import { execFileSync } from 'node:child_process';
@@ -69,12 +69,13 @@ function main() {
   if (process.argv[2] === '--self-test') return selfTest();
   const shard = Number(process.argv[2]);
   const total = Number(process.argv[3]);
+  const specs = process.argv.slice(4);
   if (!Number.isInteger(shard) || !Number.isInteger(total) || shard < 1 || shard > total) throw new Error('usage: e2e-shard.mjs <shard> <total>');
   const weights = JSON.parse(readFileSync('apps/platform-e2e/shard-weights.json', 'utf8'));
-  const raw = execFileSync('pnpm', ['--filter', '@ap/platform-e2e', 'exec', 'playwright', 'test', '--list', '--reporter=json'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: '' } });
+  const raw = execFileSync('pnpm', ['--filter', '@ap/platform-e2e', 'exec', 'playwright', 'test', '--list', '--reporter=json', ...specs], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: '' } });
   const report = JSON.parse(raw.slice(raw.indexOf('{')));
   const tests = testsOf(report);
-  if (tests.length === 0) throw new Error('playwright listed no tests');
+  if (tests.length < total) throw new Error('playwright listed fewer test groups than shards');
   const { shards } = partition(tests, total, weights);
   process.stdout.write(shards[shard - 1].map((key) => `tests/${key}`).join('\n') + '\n');
 }

@@ -31,9 +31,9 @@ concurrency:
 # 정확히 'false'일 때만 건너뛰고, `changes`가 실패하면(출력 없음) 전부 돈다.
 # workspace 검사(#1019)는 turbo 캐시로 바뀐 패키지와 그 의존자만 다시 돈다(`.turbo/cache`를 main push가 저장하고 PR은 복원만 한다). 전체·cold는 `full`일 때뿐이다(바뀐 패키지가 많은 보통 PR은 20분대까지 걸릴 수 있고, 서버 시험은 `Platform test`가 아니라 `integration`이 한 번만 돈다):
 # `workflow_dispatch`의 `full=true`(주 1회 수동, #2153), 또는 `changes`가 판단하지 못해 `full`이 'false'가 아닐 때(출력 없음 포함) → 캐시를 복원하지 않고 `TURBO_FORCE=true`.
-# `Platform workspace (pnpm monorepo)`는 병렬 Job(Platform static·Platform test 조각 3개, #1680)의 모음 Job이고, 하위 결과가 모두 정확히 success일 때만 통과한다.
-# E2E는 shard Job + 병합 Job(#666)이다. PR과 main push는 바뀐 것에 영향받는 spec만 돈다(`.github/scripts/select-e2e.mjs`, #1019): 판단하지 못하면 전부(shard 8개)이고 대부분의 코드 PR이 전부 돈다. `apps/platform-api/**`·`ops/platform-api/**`만 바뀐 PR은 mock E2E가 필요 없다(`ops/platform-api/tsconfig.base.json` 제외, #1680). 전체는 `workflow_dispatch`의
-# `full=true`(주 1회 수동)에서도 돈다. main push의 기준은 직전 커밋이 아니라 CI가 green이었던 마지막 main SHA다(`last-green-main-sha.mjs`) — 실패한 spec은 green이 될 때까지 범위에 남는다.
+# `Platform workspace (pnpm monorepo)`는 병렬 Job(Platform static·Platform test 조각 4개, #1680)의 모음 Job이고, 하위 결과가 모두 정확히 success일 때만 통과한다.
+# PR에서 SDK·앱 셸 소스와 확인된 메뉴 경로는 계약 smoke + 관련 spec을 실행한다. 알 수 없는 경로는 전부 실행한다.
+# main push와 수동 실행은 전체 E2E를 실행한다. main 실패 요약은 마지막 green main SHA 이후의 배치 PR과 실패한 검사를 보여 준다(#3082).
 # 기능 패키지는 서브모듈이 아니라 일반 디렉터리(apps/platform-api·packages/feature/*·docs/{product,design,user-guide}/features·docs/architecture/platform-api)라 checkout 옵션이 따로 없다(기능 게이트도 ci.yml이 소유).
 
 # PR 최소 모드(#1931, 소유자 지시: 운영 전까지 PR CI 벽시계 약 10분, 운영 시점은 소유자가 정한다): 아래 검사는 PR에서 돌지 않고 main push와
@@ -55,11 +55,15 @@ jobs:
       code: ${{ steps.classify.outputs.code }}
       full: ${{ steps.classify.outputs.full }}
       sdk: ${{ steps.classify.outputs.sdk }}
+      server: ${{ steps.classify.outputs.server }}
+      baseline: ${{ steps.baseline.outputs.sha }}
       e2e: ${{ steps.e2e.outputs.e2e }}
       e2e_base_path: ${{ steps.e2e.outputs.e2e_base_path }}
       e2e_shards: ${{ steps.e2e.outputs.e2e_shards }}
       e2e_total: ${{ steps.e2e.outputs.e2e_total }}
       e2e_kit: ${{ steps.e2e.outputs.e2e_kit }}
+      e2e_parallel: ${{ steps.e2e.outputs.e2e_parallel }}
+      integration_parallel: ${{ steps.e2e.outputs.integration_parallel }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -67,7 +71,7 @@ jobs:
       # The rules live in the script (with --self-test): code=false only for a PR whose every changed file is Markdown or under .agents/;
       # site=false only for a PR with a non-empty diff that touches nothing the intro-site captures depend on (#608; no job reads it while captures are out of CI, #2153);
       # sdk=false only for a PR that changes nothing the SDK tarball and outside-consumer check read (#2658);
-      # full=true for a manual full=true run, and for anything the script cannot decide (it then prints code=true site=true full=true sdk=true).
+      # server=false only for a PR outside the API integration inputs (#3082). An undecidable change runs all gates.
       - id: classify
         env:
           EVENT: ${{ github.event_name }}
@@ -77,7 +81,7 @@ jobs:
           SHA: ${{ github.sha }}
           FULL_INPUT: ${{ inputs.full }}
         run: node .github/scripts/classify-changes.mjs
-      # Push to main only: the last main SHA whose CI run was green (empty when none/unreachable/API error → the E2E selection falls back to all).
+      # Push to main only: the last green main SHA for attributing a failed batch.
       - id: baseline
         if: ${{ github.event_name == 'push' }}
         env:
@@ -91,8 +95,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
-          BASELINE: ${{ steps.baseline.outputs.sha }}
-          SHA: ${{ github.sha }}
+          SERVER: ${{ steps.classify.outputs.server }}
           FULL_INPUT: ${{ inputs.full }}
         run: node .github/scripts/select-e2e.mjs
 
@@ -159,6 +162,8 @@ jobs:
           node .github/scripts/select-e2e.mjs --self-test
           node .github/scripts/e2e-shard.mjs --self-test
           node .github/scripts/last-green-main-sha.mjs --self-test
+          node .github/scripts/ci-run-metrics.mjs --self-test
+          node .github/scripts/ci-failure-summary.mjs --self-test
           bash .github/scripts/e2e-verdict.sh --self-test
           bash .github/scripts/require-success.sh --self-test
           node --test apps/platform-e2e/tests-kit/*.test.mjs
@@ -287,10 +292,10 @@ jobs:
           key: turbo-${{ runner.os }}-node${{ hashFiles('.nvmrc') }}-typecheck-${{ github.sha }}
 
   # `pnpm test` beside Platform static. #166: turbo concurrency is capped at 2 in turbo.json (vitest workers × parallel packages oversubscribe a runner or a 16 GB Mac).
-  # #1680: three package groups on three runners, so the longest package (`@ap/feature-screens`, ~560 s of vitest in the
-  # v0.35.0 cold run) no longer queues behind the other 46 (~1,190 s together, turbo runs 2 at a time). Shard 3 is
-  # "everything else" written only as exclusions, so a new package is tested without editing this list; its
-  # exclusions must name exactly what shards 1 and 2 include (`.github/scripts/check-unified-ci.test.mjs` checks it).
+  # Shards 1 and 2 keep feature-screens and SDK + platform-web. #3082: in run 45762264462, the old remainder
+  # took 727 s; 42 package durations totalled 1,511.69 s. Shard 3 takes the mars, log-dev and tools menu
+  # directories (742.95 s of package work, ~371 s at concurrency 2); shard 4 excludes shards 1–3 and the API
+  # (768.74 s, ~384 s). New packages follow the same directory rules; the unified CI test checks the exclusions.
   # `needs.platform-test.result` is success only when every shard succeeds, so the required aggregate is unchanged.
   platform-test:
     name: Platform test (${{ matrix.label }})
@@ -306,7 +311,8 @@ jobs:
           # Alone on its runner, the package may use every vCPU (same total-workers rule as below).
           - { shard: 1, label: feature-screens, filter: "--filter=@ap/feature-screens", workers: '4' }
           - { shard: 2, label: sdk + platform-web, filter: "--filter=./packages/sdk/* --filter=@ap/platform-web", workers: '2' }
-          - { shard: 3, label: menus + others, filter: "--filter=!@ap/platform-api --filter=!@ap/feature-screens --filter=!./packages/sdk/* --filter=!@ap/platform-web", workers: '2' }
+          - { shard: 3, label: mars + log-dev + tools menus, filter: "--filter=./menus/mars/* --filter=./menus/log-dev/* --filter=./menus/tools/*", workers: '2' }
+          - { shard: 4, label: remaining packages, filter: "--filter=!@ap/platform-api --filter=!@ap/feature-screens --filter=!./packages/sdk/* --filter=!@ap/platform-web --filter=!./menus/mars/* --filter=!./menus/log-dev/* --filter=!./menus/tools/*", workers: '2' }
     env:
       DOCS_ONLY: ${{ needs.changes.outputs.code == 'false' }}
       TURBO_FORCE: ${{ needs.changes.outputs.full != 'false' }}
@@ -344,7 +350,7 @@ jobs:
         if: ${{ env.DOCS_ONLY != 'true' }}
         run: |
           echo "vCPUs=$(nproc) loadavg=$(cut -d' ' -f1-3 /proc/loadavg) VITEST_MAX_WORKERS=$VITEST_MAX_WORKERS"
-      # @ap/platform-api is in no shard: the `feature-integration` job runs its whole suite once, against a database, on every code PR. The root `test` script stays `turbo run test` (local verify=full uses it).
+      # @ap/platform-api is in no shard: the `feature-integration` job runs its whole suite once, against a database, on main and server-affecting PRs. The root `test` script stays `turbo run test` (local verify=full uses it).
       # `set -f` keeps the shell from expanding `./packages/sdk/*`; turbo reads it as a workspace path glob.
       - name: Test (shard ${{ matrix.shard }})
         if: ${{ env.DOCS_ONLY != 'true' }}
@@ -352,7 +358,25 @@ jobs:
           SHARD_FILTER: ${{ matrix.filter }}
         run: |
           set -f
-          pnpm exec turbo run test $SHARD_FILTER
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            set -o pipefail
+            pnpm exec turbo run test $SHARD_FILTER 2>&1 | tee "$RUNNER_TEMP/main-vitest.log"
+          else
+            pnpm exec turbo run test $SHARD_FILTER
+          fi
+      - name: Record main test failures
+        if: ${{ failure() && github.event_name == 'push' }}
+        run: |
+          if [ -f "$RUNNER_TEMP/main-vitest.log" ]; then
+            node .github/scripts/ci-failure-summary.mjs --vitest "$RUNNER_TEMP/main-vitest.log" "$RUNNER_TEMP/vitest-failures.json"
+          fi
+      - uses: actions/upload-artifact@v7
+        if: ${{ failure() && github.event_name == 'push' }}
+        with:
+          name: main-test-failures-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/vitest-failures.json
+          if-no-files-found: ignore
+          retention-days: 1
       # Entries older than 7 days are dropped before the save (a failure here must not skip the save). GitHub evicts the least recently used caches above the repository limit (10 GB).
       - name: Prune turbo cache
         if: ${{ !cancelled() && github.event_name == 'push' && env.DOCS_ONLY != 'true' }}
@@ -365,7 +389,7 @@ jobs:
 
   feature-integration:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' && needs.changes.outputs.server != 'false' }}
     name: Platform API · Backend integration (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -374,6 +398,7 @@ jobs:
     # The aggregate below reads `needs.feature-integration.result`, which fails when any shard fails.
     strategy:
       fail-fast: false
+      max-parallel: ${{ github.event_name != 'pull_request' && 3 || fromJSON(needs.changes.outputs.integration_parallel || '1') }}
       matrix:
         shard: [1, 2, 3]
     services:
@@ -402,9 +427,29 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
         working-directory: .
-      - run: bash ops/platform-api/scripts/ci/gate.sh integration --shard=${{ matrix.shard }}/3
+      - name: Backend integration tests
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            set -o pipefail
+            bash ops/platform-api/scripts/ci/gate.sh integration --shard=${{ matrix.shard }}/3 2>&1 | tee "$RUNNER_TEMP/main-vitest.log"
+          else
+            bash ops/platform-api/scripts/ci/gate.sh integration --shard=${{ matrix.shard }}/3
+          fi
         env:
           CI_PG_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+      - name: Record main test failures
+        if: ${{ failure() && github.event_name == 'push' }}
+        run: |
+          if [ -f "$RUNNER_TEMP/main-vitest.log" ]; then
+            node .github/scripts/ci-failure-summary.mjs --vitest "$RUNNER_TEMP/main-vitest.log" "$RUNNER_TEMP/vitest-failures.json"
+          fi
+      - uses: actions/upload-artifact@v7
+        if: ${{ failure() && github.event_name == 'push' }}
+        with:
+          name: main-integration-failures-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/vitest-failures.json
+          if-no-files-found: ignore
+          retention-days: 1
       # The service container log is printed only when the job ends; on failure, put its slow statements (log_min_duration_statement),
       # lock waits and deadlocks into the job summary where the failed test is read (#1227).
       - name: Postgres slow statements and lock waits
@@ -560,6 +605,9 @@ jobs:
   # skipped and the job succeeds. API calls only, seconds; a failed call fails the job (fail-closed), so rerun it.
   pr-guard:
     name: PR guard
+    # Reuses the static job's PR runner slot, including when static failed.
+    needs: platform-static
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -586,10 +634,13 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
-          sparse-checkout: .github/scripts
+          sparse-checkout: .github
       - name: All workspace gates succeeded
         env:
           STATIC: ${{ needs.platform-static.result }}
@@ -598,13 +649,23 @@ jobs:
           INTEGRATION: ${{ needs.feature-integration.result }}
           GUARD: ${{ needs.pr-guard.result }}
           CODE: ${{ needs.changes.outputs.code }}
+          SERVER: ${{ needs.changes.outputs.server }}
         run: |
           .github/scripts/require-success.sh "static=$STATIC" "typecheck=$TYPECHECK" "test=$TEST" "guard=$GUARD"
-          if [ "$CODE" != false ] || [ "$INTEGRATION" != skipped ]; then .github/scripts/require-success.sh "integration=$INTEGRATION"; fi
+          if [ "$INTEGRATION" = skipped ] && { [ "$CODE" = false ] || { [ "$GITHUB_EVENT_NAME" = pull_request ] && [ "$SERVER" = false ]; }; }; then
+            echo "integration=skipped"
+          else
+            .github/scripts/require-success.sh "integration=$INTEGRATION"
+          fi
+      - name: Report CI runner usage
+        if: ${{ !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'push') }}
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .github/scripts/ci-run-metrics.mjs
 
-  # #666: the contract suite (~600 s of tests on one worker) runs as Playwright shards in parallel. Each shard starts
-  # its own dev server and runs its contiguous slice serially (fullyParallel + workers: 1), so evidence stays in contract
-  # order. A whole run uses 8 shards (e2e_total, #1931: Playwright splits by test count, and the slow board tests clump in shard 1; 4 left it near 12 min, 6 near 10); a selected-spec run (#1019) is one shard with the spec list appended.
+  # #666: each Playwright shard starts a dev server and runs with one worker. The full suite uses eight shards.
+  # Selected specs use one shard for a spec-only change or three for contract smoke. #2182 balances by test time.
   # Empty outputs (`changes` failed) fall back to the whole run: 8 shards, no spec list, base-path run; kit runs only outside PRs (#1931).
   platform-contracts-e2e-shard:
     name: Platform contracts (E2E shard ${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total || '8' }})
@@ -624,6 +685,7 @@ jobs:
     strategy:
       # Every shard runs to the end so the merged report lists every failing contract, not only the first shard's.
       fail-fast: false
+      max-parallel: ${{ github.event_name != 'pull_request' && 8 || fromJSON(needs.changes.outputs.e2e_parallel || '2') }}
       matrix:
         shard: ${{ fromJSON(needs.changes.outputs.e2e_shards || '[1,2,3,4,5,6,7,8]') }}
     steps:
@@ -656,6 +718,7 @@ jobs:
           name: platform-start-kit-browser-report
           path: |
             apps/platform-e2e/playwright-report/kit/
+            apps/platform-e2e/contract-report/kit/results.json
             apps/platform-e2e/test-results/kit/
           retention-days: 14
       # pnpm forwards the flags to `playwright test` as they are (no `--`, which Playwright would read as file filters).
@@ -670,9 +733,9 @@ jobs:
           set --
           if [ "$E2E" != all ] && [ -n "$E2E" ]; then for s in $E2E; do set -- "$@" "tests/$s"; done; fi
           total='${{ needs.changes.outputs.e2e_total || '8' }}'
-          # #2182: the whole suite is split by recorded test time (e2e-shard.mjs: `tests/<spec>:<line>` filters, the same partition in every shard);
+          # #2182: multi-shard runs are split by recorded test time (the same partition in every shard);
           # a selection (total 1) or any failure of the script falls back to Playwright's equal-count `--shard`.
-          if [ "$total" != 1 ] && [ "$E2E" = all ] && files="$(node .github/scripts/e2e-shard.mjs ${{ matrix.shard }} "$total")" && [ -n "$files" ]; then
+          if [ "$total" != 1 ] && files="$(node .github/scripts/e2e-shard.mjs ${{ matrix.shard }} "$total" "$@")" && [ -n "$files" ]; then
             echo "E2E shard ${{ matrix.shard }}/$total: $(echo "$files" | wc -l) filters balanced by recorded time"
             pnpm e2e --reporter=list,blob $files
           else
@@ -699,7 +762,8 @@ jobs:
   # required status check keeps naming `Platform contracts (E2E)` however the shards change.
   platform-contracts-e2e:
     name: Platform contracts (E2E)
-    needs: [changes, platform-contracts-e2e-shard, sdk-upgrade-gate, sdk-upgrade-gate-selftest]
+    # Reuses the typecheck runner slot if E2E finishes first or is deliberately skipped on a PR.
+    needs: [changes, platform-typecheck, platform-contracts-e2e-shard, sdk-upgrade-gate, sdk-upgrade-gate-selftest]
     # Required check: always runs, never Skipped. A Markdown-only run or a run with no affected spec (e2e == 'none') only runs the verdict and passes;
     # otherwise it also runs when a shard failed. MERGE_REPORT is 'false' only when there are no blobs to merge (nothing selected, or the base-path run alone);
     # BASE_ONLY is the base-path run alone: no pnpm, only the base-path report is downloaded, summarised in one line and published. Empty outputs (`changes` failed) → the whole run.
@@ -789,3 +853,39 @@ jobs:
           E2E_BASE_PATH: ${{ needs.changes.outputs.e2e_base_path }}
           SHARD_RESULT: ${{ needs.platform-contracts-e2e-shard.result }}
         run: .github/scripts/e2e-verdict.sh
+
+  main-failure-summary:
+    name: Main batch failure summary
+    needs: [changes, platform-workspace, platform-contracts-e2e, backend-images]
+    if: ${{ failure() && github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          sparse-checkout: .github/scripts
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          pattern: main-*-failures-${{ github.run_attempt }}-*
+          path: ${{ runner.temp }}/main-failures
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: platform-contract-report
+          path: ${{ runner.temp }}/main-failures/contracts
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: platform-start-kit-browser-report
+          path: ${{ runner.temp }}/main-failures/kit
+      - name: List batch PRs and failing tests
+        env:
+          BASELINE: ${{ needs.changes.outputs.baseline }}
+          FAILED_GATES: >-
+            changes=${{ needs.changes.result }},
+            workspace=${{ needs.platform-workspace.result }},
+            E2E=${{ needs.platform-contracts-e2e.result }},
+            images=${{ needs.backend-images.result }}
+        run: node .github/scripts/ci-failure-summary.mjs "$RUNNER_TEMP/main-failures"
