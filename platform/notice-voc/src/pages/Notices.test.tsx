@@ -218,6 +218,11 @@ describe('save', () => {
     expect(within(dialog).getByText('올바른 값이 아닙니다.')).toBeTruthy();
     // #2574: the field the server rejected takes focus, as a local check's first invalid field does.
     await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByLabelText(/^종료 일시/)));
+    // Editing the rejected field clears its server error (#2574 R1 C2).
+    const until = within(dialog).getByLabelText(/^종료 일시/);
+    fireEvent.change(until, { target: { value: '2026-12-31T18:00' } });
+    expect(within(dialog).queryByText('올바른 값이 아닙니다.')).toBeNull();
+    expect(until.getAttribute('aria-invalid')).toBeNull();
   });
 
   it('shows a forbidden answer as a message and changes nothing', async () => {

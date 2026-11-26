@@ -89,7 +89,7 @@ describe('rejected slug format (#2574)', () => {
     const input = screen.getByTestId('create-slug');
     await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'true'));
     const message = document.getElementById(input.getAttribute('aria-describedby') ?? '');
-    expect(message).toHaveTextContent('슬러그는 영문 소문자·숫자를 하이픈(-)으로 이어 씁니다. 예: power-bi');
+    expect(message).toHaveTextContent('슬러그는 영문 소문자로 시작하고 영문 소문자·숫자·하이픈(-)만 씁니다. 예: power-bi');
     await waitFor(() => expect(input).toHaveFocus());
     expect(screen.queryByTestId('create-error')).not.toBeInTheDocument();
 

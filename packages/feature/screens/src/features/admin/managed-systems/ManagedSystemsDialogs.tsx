@@ -94,24 +94,21 @@ function defaultFieldErrors(error: unknown): DefaultErrors {
 }
 
 /** #1289 node i: the server refuses a registry-owned external key (`platform`, `space:*`) with this field code. */
-function externalKeyFieldError(error: unknown): string | null {
-  if (!(error instanceof ApiError) || !Array.isArray(error.detail?.fields)) return null;
-  const reserved = (error.detail.fields as { path?: unknown; code?: unknown }[]).some(
-    (field) =>
-      Array.isArray(field.path) &&
-      field.path[0] === 'external_key' &&
-      field.code === 'reserved_external_key',
+/** True when the server rejected `field` with `code` (a 422 `detail.fields` entry). */
+function hasFieldCode(error: unknown, field: string, code: string): boolean {
+  if (!(error instanceof ApiError) || !Array.isArray(error.detail?.fields)) return false;
+  return (error.detail.fields as { path?: unknown; code?: unknown }[]).some(
+    (entry) => Array.isArray(entry.path) && entry.path[0] === field && entry.code === code,
   );
-  return reserved ? MANAGED_SYSTEM_COPY.externalKeyReserved : null;
+}
+
+function externalKeyFieldError(error: unknown): string | null {
+  return hasFieldCode(error, 'external_key', 'reserved_external_key') ? MANAGED_SYSTEM_COPY.externalKeyReserved : null;
 }
 
 /** A rejected slug format belongs on the slug field, not in the dialog-level message (#2574). */
 function slugFieldError(error: unknown): string | null {
-  if (!(error instanceof ApiError) || !Array.isArray(error.detail?.fields)) return null;
-  const invalid = (error.detail.fields as { path?: unknown; code?: unknown }[]).some(
-    (field) => Array.isArray(field.path) && field.path[0] === 'slug' && field.code === 'invalid_slug_format',
-  );
-  return invalid ? MANAGED_SYSTEM_COPY.slugFormat : null;
+  return hasFieldCode(error, 'slug', 'invalid_slug_format') ? MANAGED_SYSTEM_COPY.slugFormat : null;
 }
 
 function OwnerSelect({
@@ -323,32 +320,20 @@ function RegisterDialog({
               />
             )}
           </FormField>
-          <div className="space-y-1">
-            <FieldLabel htmlFor="ms-create-external-key" tone="secondary">
-              외부 키 (선택)
-            </FieldLabel>
-            <Input
-              id="ms-create-external-key"
-              ref={keyRef}
-              value={externalKey}
-              onChange={(e) => {
-                setExternalKey(e.target.value);
-                setKeyError(null);
-              }}
-              aria-invalid={Boolean(keyError)}
-              aria-describedby={keyError ? 'ms-create-external-key-error' : undefined}
-              data-testid="create-external-key"
-            />
-            {keyError && (
-              <p
-                id="ms-create-external-key-error"
-                className="text-sm text-accent-danger"
-                data-testid="create-external-key-error"
-              >
-                {keyError}
-              </p>
+          <FormField id="ms-create-external-key" label="외부 키 (선택)" error={keyError ?? undefined}>
+            {(control) => (
+              <Input
+                {...control}
+                ref={keyRef}
+                value={externalKey}
+                onChange={(e) => {
+                  setExternalKey(e.target.value);
+                  setKeyError(null);
+                }}
+                data-testid="create-external-key"
+              />
             )}
-          </div>
+          </FormField>
           <OwnerSelect
             value={owner}
             onChange={setOwner}

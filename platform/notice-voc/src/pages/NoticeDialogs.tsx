@@ -89,7 +89,10 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
   const cancel = () => { if (!busy) leave({ kind: 'cancel' }); };
   const set = (patch: Partial<NoticeForm>) => {
     setForm(prev => ({ ...prev, ...patch })); setFailure(null);
-    for (const field of Object.keys(patch) as FormField[]) local.clearError(field);
+    const edited = Object.keys(patch) as FormField[];
+    for (const field of edited) local.clearError(field);
+    // A server rejection belongs to the value it judged: editing that field clears it, as a local error clears.
+    setServerErrors(prev => edited.some(field => field in prev) ? Object.fromEntries(Object.entries(prev).filter(([field]) => !edited.includes(field as FormField))) : prev);
   };
   const sites = [...scopes, ...(notice?.scopeId && !scopes.some(s => s.id === notice.scopeId) ? [{ id: notice.scopeId, label: notice.scopeId, grantedRooms: 0, totalRooms: 0 }] : [])];
 

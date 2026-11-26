@@ -526,48 +526,25 @@ function DirectGrantFields({
   const preflightBlocked = selectedCandidates.some(candidate => candidate.preflight.state !== 'available');
   const sessionReady = actorId !== null;
   const reasonReady = reason.trim().length > 0 && reason.trim().length <= 2000;
-  const canSubmit =
-    sessionReady &&
-    reasonReady &&
-    expirationReady &&
-    selectedCandidate !== undefined &&
-    selectedCandidates.length === selectedCandidateKeys.length &&
-    !overLimit &&
-    scopeReady &&
-    !preflightBlocked &&
-    !selfGrantForbidden &&
-    !selfPolicyUnconfirmed &&
-    selfEnvelopeReady &&
-    (!governanceRequired || governanceConfirmed) &&
-    !expirationInvalid &&
-    !optionsUnconfirmed &&
-    !pending;
   const blocked = DIRECT_GRANT_COPY.blocked;
-  const submitBlockedReason = !sessionReady
-    ? DIRECT_GRANT_COPY.sessionLoading
-    : optionsUnconfirmed
-      ? DIRECT_GRANT_COPY.optionLoading
-      : selectedCandidate === undefined || selectedCandidates.length !== selectedCandidateKeys.length || !scopeReady
-        ? blocked.select
-        : overLimit
-          ? DIRECT_GRANT_COPY.batchLimit(PERMISSION_BATCH_MAX_ITEMS)
-          : preflightBlocked
-            ? blocked.preflight
-            : selfGrantForbidden
-              ? DIRECT_GRANT_COPY.selfForbidden
-              : selfPolicyUnconfirmed
-                ? DIRECT_GRANT_COPY.selfPolicyUnavailable
-                : !reasonReady
-                  ? blocked.reason
-                  : !expirationReady || expirationInvalid
-                    ? blocked.expiration
-                    : !selfEnvelopeReady
-                      ? blocked.selfEnvelope
-                      : governanceRequired && !governanceConfirmed
-                        ? blocked.governance
-                        : pending
-                          ? blocked.pending
-                          : undefined;
+  // The one source of «권한 부여» being disabled: every blocking condition names itself, so a new condition cannot disable the
+  // button without a reason (#2574). Order follows the form, top to bottom.
+  const blockers: readonly [boolean, string][] = [
+    [!sessionReady, DIRECT_GRANT_COPY.sessionLoading],
+    [optionsUnconfirmed, DIRECT_GRANT_COPY.optionLoading],
+    [selectedCandidate === undefined || selectedCandidates.length !== selectedCandidateKeys.length || !scopeReady, blocked.select],
+    [overLimit, DIRECT_GRANT_COPY.batchLimit(PERMISSION_BATCH_MAX_ITEMS)],
+    [preflightBlocked, blocked.preflight],
+    [selfGrantForbidden, DIRECT_GRANT_COPY.selfForbidden],
+    [selfPolicyUnconfirmed, DIRECT_GRANT_COPY.selfPolicyUnavailable],
+    [!reasonReady, blocked.reason],
+    [!expirationReady || expirationInvalid, blocked.expiration],
+    [!selfEnvelopeReady, blocked.selfEnvelope],
+    [governanceRequired && !governanceConfirmed, blocked.governance],
+    [pending, blocked.pending],
+  ];
+  const submitBlockedReason = blockers.find(([blocking]) => blocking)?.[1];
+  const canSubmit = submitBlockedReason === undefined;
   const submitError = batchMutation.error ?? mutation.error;
   const submitErrorDestination = conflictDestination(submitError);
   const mappedError = submitError ? mapUnknownError(submitError).message : null;
