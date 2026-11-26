@@ -239,3 +239,13 @@ it('keeps the table toggle accessible and focused as its docked slot switches be
   expect(toggle).toHaveFocus();
   expect(toggle).toHaveAttribute('aria-pressed', 'true');
 });
+
+it('ellipsizes a plain tab title and keeps docked start controls focus-visible inside their scrollport', async () => {
+  mount();
+  const tab = await screen.findByRole('tab', { name: '패널 a' });
+  // A bare text node in the flex tab label clips without an ellipsis; its own truncating span draws one.
+  expect(within(tab).getByText('패널 a')).toHaveClass('min-w-0', 'truncate');
+  const strip = tab.closest<HTMLElement>('.dv-tabs-and-actions-container')!;
+  // The start slot scrolls horizontally, which also clips vertically, so its buttons draw the ring inside.
+  expect(strip.querySelector('[data-chart-toolbar-start]')).toHaveClass('[&_button:focus-visible]:ring-inset');
+});
