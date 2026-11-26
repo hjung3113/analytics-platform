@@ -364,6 +364,21 @@ describe('새 기술 Item (create)', () => {
     expect(within(drawer()).queryByText('관찰 사실과 기대·기준 중 하나는 써야 합니다')).toBeNull();
     expect(writes).toHaveLength(0);
   });
+  // #2574 fix round 1 (R-2574F C3): relation edits clear their local errors, and removing a row moves no error onto another row.
+  it('clears local relation errors when a relation row is removed instead of shifting them onto the next row', async () => {
+    mountList(`${published}&focus=new&owner=${MODEL_A}`);
+    await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
+    type(/^제목/, '관계 사례');
+    type(/^관찰 사실/, '사실');
+    fireEvent.click(within(drawer()).getByRole('button', { name: '관계 추가' }));
+    fireEvent.click(within(drawer()).getByRole('button', { name: '관계 추가' }));
+    submit('등록');
+    const message = 'Event A와 Event B를 MODULE/EVENT 키로 입력하세요.';
+    await waitFor(() => expect(within(drawer()).getAllByText(message)).toHaveLength(2));
+    fireEvent.click(within(drawer()).getByRole('button', { name: '관계 1 빼기' }));
+    expect(within(drawer()).queryAllByText(message)).toHaveLength(0);
+    expect(writes).toHaveLength(0);
+  });
   it('puts a nested server error on its own evidence row and an unmapped path in a visible form error', async () => {
     mountList(`${published}&focus=new&owner=${MODEL_A}`);
     await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
@@ -380,6 +395,8 @@ describe('새 기술 Item (create)', () => {
     expect(message.id).toContain('ev-1-sourceRef-error');
     expect(within(drawer()).getAllByLabelText(/^참조/)[1]!.getAttribute('aria-invalid')).toBe('true');
     expect(within(drawer()).getAllByLabelText(/^참조/)[0]!.getAttribute('aria-invalid')).not.toBe('true');
+    // #2574 fix round 1 (R-2574F C1): field errors carry no live role, so one form-level alert announces the server rejection.
+    expect(within(drawer()).getAllByRole('alert').map(el => el.textContent).filter(text => text?.includes('표시된 칸을 확인해 주세요.'))).toHaveLength(1);
     nextError = { outcome: 'invalid', fieldErrors: [{ path: ['owner'], code: 'required_one' }, { path: ['mystery'], code: 'required' }] };
     submit('등록');
     expect(await within(drawer()).findByText('mystery: 필수 항목입니다.', {}, slow)).toBeTruthy();

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
 import type { LifecycleApi, Presentation, ReadState } from '../contracts';
 import { RequestRegister } from '../RequestsScreen';
@@ -60,4 +61,29 @@ it('sends the same request payload as before once a Round is chosen', async () =
   expect(screen.getByRole('combobox', { name: 'Round' })).not.toHaveAttribute('aria-invalid');
   fireEvent.click(screen.getByRole('button', { name: '요청 등록' }));
   expect(run).toHaveBeenCalledWith({ roundId: 'round-a', priority: 1, immediate: false });
+});
+// #2574 fix round 1 (R-2574F C2): a read retry inside the form only re-reads; it never submits or registers the request.
+it('retries a failed read inside the form without registering the fixed Round request', () => {
+  const run = vi.fn().mockResolvedValue({ outcome: 'ok', data: {}, fieldErrors: [], version: null });
+  const retry = vi.fn();
+  const api: LifecycleApi = {
+    useRead: <T,>(name: string): ReadState<T> => (name === 'queueStatus' ? { status: 'error', retry } : { status: 'done', retry: vi.fn(), data: null }) as ReadState<T>,
+    useAction: () => ({ pending: false, run }),
+  };
+  const ui: Presentation = { page: p => p.children, drawer: parts => parts.body, table: () => null, timeline: () => null, trust: () => null };
+  render(<RequestRegister api={api} ui={ui} actorId="actor" canProject canRound setSelection={vi.fn()} fixedRound={{ id: 'round-a', seq: 1 }} onClose={vi.fn()} />);
+  fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+  expect(retry).toHaveBeenCalledTimes(1);
+  expect(run).not.toHaveBeenCalled();
+});
+// #2574 fix round 1 (R-2574F C4): Enter in the live model search keeps the user there; it does not submit the form.
+it('keeps Enter in the model search from submitting the request form', async () => {
+  const user = userEvent.setup();
+  const run = mount();
+  const search = screen.getByRole('textbox', { name: '모델 검색' });
+  await user.type(search, 'MODEL{Enter}');
+  expect(search).toHaveValue('MODEL');
+  expect(search).toHaveFocus();
+  expect(screen.queryByText('개발 건을 선택해 주세요.')).toBeNull();
+  expect(run).not.toHaveBeenCalled();
 });
