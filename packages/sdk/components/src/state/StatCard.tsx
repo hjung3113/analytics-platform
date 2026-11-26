@@ -15,7 +15,7 @@ export function StatCard({ icon: Icon, label, value, unit, delta, caption, chip 
   icon: LucideIcon; label: ReactNode; value: ReactNode; unit?: ReactNode; delta?: Delta; caption?: ReactNode;
   /** Icon chip colour: `blue` or `teal` (DESIGN.md). Deprecated: `purple` renders as `teal`, `amber` as `blue`; both are removed from the type in the next SDK minor (#1945). */
   chip?: 'blue' | 'teal' | /** @deprecated Use `teal`; removed next SDK minor. */ 'purple' | /** @deprecated Use `blue`; removed next SDK minor. */ 'amber'; onClick?: () => void; active?: boolean; footnote?: ReactNode;
-  /** Paired secondary number in the same tile (e.g. P95 beside P50), rendered at Secondary KPI scale. */
+  /** Paired secondary number in the same tile (e.g. P95 beside P50), shown in the secondary colour. */
   secondary?: ReactNode;
 }) {
   const chipClass = { blue: 'bg-icon-blue-soft text-accent-primary', teal: 'bg-icon-teal-soft text-cat-teal', purple: 'bg-icon-teal-soft text-cat-teal', amber: 'bg-icon-blue-soft text-accent-primary' }[chip];

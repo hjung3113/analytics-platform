@@ -21,14 +21,14 @@ import { emptyCategoryLabels, emptyCategorySeries } from './chartEmptyCategories
 import { helperSeriesId } from './helperSeriesId';
 import type { Selection } from './useChartRange';
 import { laneLayout, type LaneLayout, type SeriesExtremes } from './chartLanes';
-import { axisBreakGraphic, barRadius, CHART_MARKS, lineSymbolShown, rangeBandFill, selectionRing } from './chartMarks';
-import { insideLabelStyle, LABEL_FONT, labelFitsSegment, labelWidth, segmentLabelStyle, shortNumber, stackEnd, type LabelRect, type RowTotal, type ValueLabels } from './chartValueLabels';
+import { axisBreakGraphic, barRadius, chartAxisFontSize, chartMarkFontSize, CHART_MARKS, lineSymbolShown, rangeBandFill, selectionRing } from './chartMarks';
+import { insideLabelStyle, labelFitsSegment, labelWidth, segmentLabelStyle, shortNumber, stackEnd, type LabelRect, type RowTotal, type ValueLabels } from './chartValueLabels';
 import { frameReferenceLines, isFiniteReferenceMark, referenceBandData, referenceLineOption, referenceMarkOptions, referenceValues, type ChartReferenceMark } from './referenceMarks';
 
 /** The plot's horizontal margin (grid left 52 + right 20). */
 export const PLOT_MARGIN = 72;
-/** One note-label row at fontSize 10. */
-const NOTE_LABEL_ROW = 12;
+/** Vertical clearance between rows of annotation labels, in px. */
+const NOTE_LABEL_GAP = 2;
 /** Smallest pixel budget of a lane name: a zero-width lane would otherwise be truncated to nothing. */
 const MIN_LANE_LABEL_PX = 40;
 /** Right grid room reserved for a 최소/최대 label chip beyond the last segment (row-pitch mode keeps its own 20). */
@@ -355,6 +355,7 @@ function timeAxisTicks(series: readonly ChartSeries[], zoom: readonly [number, n
 
 export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
   const { horizontal, xType, categories, palette, lang } = i;
+  const markFontSize = chartMarkFontSize();
   const takenSeriesIds = new Set([...i.displayed.map(series => series.id), ...(i.reservedSeriesIds ?? [])]);
   const theme = palette.theme;
   const groups = horizontal && xType === 'category' ? i.rowGroups : undefined;
@@ -421,7 +422,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
     // Notes keep the default top label; the selection labels its bottom so a note saved over it never collides (#320).
     // An inside label gets ECharts' default outline in the band colour, which reads as the word drawn twice (#2790): plain text in the selection colour on the card surface, so it keeps 4.5:1 over the band and a line's area fill with any accent.
     ...(i.selection ? [[{ name: formatText(COMPONENTS_MESSAGES.chartSelection, lang), [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.from), itemStyle: { color: palette.selection, opacity: CHART_MARKS.rangeBandOpacity }, label: { position: 'insideBottom', color: palette.selection, textBorderWidth: 0, backgroundColor: palette.labelSurface, padding: [1, 4], borderRadius: 2 } }, { [horizontal ? 'yAxis' : 'xAxis']: xValue(i.selection.to) }]] : []),
-    ...i.annotations.map((a, n) => [{ name: a.text, [horizontal ? 'yAxis' : 'xAxis']: xType === 'time' ? i.noteSpans[n].from : categories[i.noteSpans[n].from], itemStyle: { color: palette.annotation, opacity: 0.14 }, label: { color: palette.annotationLabel, fontSize: 10, offset: [0, i.noteLevels[n] * NOTE_LABEL_ROW], width: noteWidths[n], overflow: 'truncate', ellipsis: '…' } }, { [horizontal ? 'yAxis' : 'xAxis']: xType === 'time' ? i.noteSpans[n].to : categories[i.noteSpans[n].to] }]),
+    ...i.annotations.map((a, n) => [{ name: a.text, [horizontal ? 'yAxis' : 'xAxis']: xType === 'time' ? i.noteSpans[n].from : categories[i.noteSpans[n].from], itemStyle: { color: palette.annotation, opacity: 0.14 }, label: { color: palette.annotationLabel, fontSize: markFontSize, offset: [0, i.noteLevels[n] * (markFontSize + NOTE_LABEL_GAP)], width: noteWidths[n], overflow: 'truncate', ellipsis: '…' } }, { [horizontal ? 'yAxis' : 'xAxis']: xType === 'time' ? i.noteSpans[n].to : categories[i.noteSpans[n].to] }]),
   ];
   // A segment label is hidden (ECharts' label layout has no hide switch: a zero font size draws nothing) when ECharts' own resolved boxes say it does not fit (width and height).
   // With `minMax` on there are no segment labels at all: a 최소/최대 chip and a number would compete for the same row, and the chip is the emphasis (D7).
@@ -436,7 +437,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       // The tooltip renderer is picked once from the global tooltip model (a series-level `renderMode` is ignored) and HTML mode sets a formatter's string as innerHTML.
       // The tip carries series names from server data, so the formatter escapes them (#1879).
       tooltip: { trigger: 'item', formatter: (p: { data?: { tip?: string } }) => escapeHtml(p.data?.tip ?? '') },
-      label: { show: true, position: 'right', fontSize: 11, fontWeight: 'bold', color: palette.totalText },
+      label: { show: true, position: 'right', fontSize: markFontSize, fontWeight: 'bold', color: palette.totalText },
       data: categories.flatMap(x => {
         const t = totals.get(x);
         if (!t) return [];
@@ -505,7 +506,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
       : { left: 52, right: gridRight, top: GRID_TOP, bottom: GRID_BOTTOM, ...(horizontal ? { containLabel: true } : {}) },
     ...(fitY && i.axisBreak ? { graphic: [axisBreakGraphic(i.axisBreak, { left: 52, top: GRID_TOP, bottom: GRID_BOTTOM }, { line: theme.axisLine.lineStyle.color, surface: palette.labelSurface })] } : {}),
     tooltip: {
-      trigger: 'axis', confine: true, textStyle: { fontSize: CHART_MARKS.fontSize },
+      trigger: 'axis', confine: true, textStyle: { fontSize: chartAxisFontSize() },
       ...(groups || statuses.size || bounds || categoryMarks || emptyLabels?.size || other ? { formatter: rowTooltip } : {}),
       valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${i.valueFormat(v)} ${i.unit}`),
     },
@@ -594,7 +595,7 @@ export function buildChartOption(i: ChartOptionInput): EChartsCoreOption {
           ...(right ? { yAxisIndex: 1 } : {}),
           ...(right || s.unit?.trim() ? { tooltip: { valueFormatter: (v: number | null) => (v === null || v === undefined ? unknownLabel(lang) : `${axis.valueFormat(v)} ${unit}`) } } : {}),
           ...(segments && kind === 'bar' ? {
-            label: { show: true, position: 'inside', fontSize: LABEL_FONT, ...insideLabel(n), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? formatSegment(p.value) : '') },
+            label: { show: true, position: 'inside', fontSize: markFontSize, ...insideLabel(n), formatter: (p: { value: unknown }) => (typeof p.value === 'number' ? formatSegment(p.value) : '') },
             labelLayout: (p: { dataIndex: number; labelRect: LabelRect; rect: LabelRect }) => statuses.has(chartPointKey({ seriesId: s.id, x: s.points[p.dataIndex]?.[0] })) ? {} : segmentLayout(p),
           } : {}),
           data: xType === 'time' ? s.points.map(([x, y]) => { const point = datum(x, y); return typeof point === 'object' && point !== null ? { ...point, value: [toMs(x), y] } : [toMs(x), y]; }) : s.points.map(([x, y]) => datum(x, y)),
@@ -641,7 +642,7 @@ function extremeName(mark: 'min' | 'max', lang: Lang) {
 function extremeLabel(mark: 'min' | 'max', lanes: boolean, palette: ChartPalette, lang: Lang) {
   const name = extremeName(mark, lang);
   return {
-    show: true, position: lanes && mark === 'max' ? 'insideRight' : 'right', formatter: name, fontSize: 10, fontWeight: 'bold', color: palette.minMax[mark],
+    show: true, position: lanes && mark === 'max' ? 'insideRight' : 'right', formatter: name, fontSize: chartMarkFontSize(), fontWeight: 'bold', color: palette.minMax[mark],
     backgroundColor: palette.labelSurface, borderColor: palette.minMax[mark], borderWidth: 1, borderRadius: 2, padding: [1, 3],
   };
 }
@@ -655,7 +656,7 @@ function laneMarkLine(lanes: LaneLayout, theme: ReturnType<typeof chartTheme>, p
     lineStyle: { color: theme.separator, type: 'dotted', width: 1 },
     data: lanes.lanes.map(lane => ({
       name: lane.name, xAxis: lane.start,
-      label: { show: true, formatter: lane.name, position: 'start', align: 'left', fontSize: 10, color: theme.axisLabel.color, width: Math.max(MIN_LANE_LABEL_PX, lane.width * pxPerUnit), overflow: 'truncate', ellipsis: '…' },
+      label: { show: true, formatter: lane.name, position: 'start', align: 'left', fontSize: chartMarkFontSize(), color: theme.axisLabel.color, width: Math.max(MIN_LANE_LABEL_PX, lane.width * pxPerUnit), overflow: 'truncate', ellipsis: '…' },
     })),
   };
 }

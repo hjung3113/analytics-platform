@@ -173,7 +173,7 @@ to the same palette color (`accent-success`, `accent-warn`, `accent-info`).
 | tiny | 11px | — | — | `--text-tiny` |
 | xs | 12px | — | — | `--text-xs` |
 | sm | 13px | — | — | `--text-sm` |
-| body | 14px | 1.4 | -0.13px | `--text-body` |
+| body | 13px | 1.4 | -0.13px | `--text-body` |
 | md | 15px | — | — | `--text-md` |
 | lg | 17px | — | — | `--text-lg` |
 | xl | 20px | — | — | `--text-xl` |
@@ -188,7 +188,7 @@ to `--font-sans` / `--font-mono` and the size utilities `text-xs` / `text-sm` /
 carries `--leading-normal` and `text-2xl` carries `--leading-tight` (the Type
 Scale pairs above); the other sizes set size only and inherit the body leading.
 The base layer (`packages/feature/screens/src/styles.css`) applies `--font-sans` and the
-body size + leading to `body`.
+13px body size and its leading to `body`.
 
 Since issue #743 (FO ADR-0058) the theme is Tailwind v4 CSS-first:
 `@ap/ui/styles/theme.css` (`@theme inline` aliasing the token variables,

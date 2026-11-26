@@ -995,7 +995,7 @@ describe('author-only annotation delete (#399, ADR-0041)', () => {
     await screen.findByText(/첫 메모/);
     const areas = (plottedSeries.find(s => s.markArea)?.markArea?.data ?? []) as unknown as [{ label?: { offset?: [number, number]; width?: number; overflow?: string } }, unknown][];
     const labels = areas.map(([start]) => start.label);
-    expect(labels.map(l => l?.offset?.[1])).toEqual([0, 12, 24]);
+    expect(labels.map(l => l?.offset?.[1])).toEqual([0, 14, 28]);
     for (const l of labels) { expect(l?.overflow).toBe('truncate'); expect(l?.width).toBeGreaterThan(0); }
   });
 

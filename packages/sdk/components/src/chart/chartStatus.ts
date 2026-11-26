@@ -1,6 +1,7 @@
 import type { ThemeColorToken } from '@ap/ui/theme';
 import type { ChartPoint, ChartSeries } from './AnalysisChartFrame';
 import { chartTheme, token } from './EChart';
+import { chartMarkFontSize } from './chartMarks';
 import { helperSeriesId } from './helperSeriesId';
 
 /** Consumer-given judgement. The chart never derives a status from a value or a scale. */
@@ -119,8 +120,9 @@ export function pointStatuses(series: readonly ChartSeries[], pointStatus?: (poi
 }
 /** A surface-backed marker stays legible even when threshold/value fill and status colour are identical. */
 export function statusMarker(status: ChartStatus) {
+  const fontSize = chartMarkFontSize();
   return {
-    show: true, formatter: `{status|${statusGlyph(status)}}`, fontSize: 10,
-    rich: { status: { color: statusColor(status), backgroundColor: token('surface-card'), borderColor: statusColor(status), borderWidth: 1, borderRadius: 2, padding: [0, 2], fontSize: 10 } },
+    show: true, formatter: `{status|${statusGlyph(status)}}`, fontSize,
+    rich: { status: { color: statusColor(status), backgroundColor: token('surface-card'), borderColor: statusColor(status), borderWidth: 1, borderRadius: 2, padding: [0, 2], fontSize } },
   };
 }

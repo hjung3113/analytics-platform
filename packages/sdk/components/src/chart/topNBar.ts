@@ -44,6 +44,7 @@ export function topNData(spec: TopNBarSpec, lang: Lang | boolean, unit: string):
     rows, total: rows.reduce((n, row) => n + row.value, 0), empty: !rows.length,
     summary: formatText(COMPONENTS_MESSAGES.chartTopNSummary, resolved, { count: rows.length, unit }),
     headers: [formatText(COMPONENTS_MESSAGES.chartHeaderName, resolved), formatText(COMPONENTS_MESSAGES.chartHeaderValue, resolved)],
+    numericColumns: [1],
     tableValues,
     csvHeaders: [formatText(COMPONENTS_MESSAGES.chartHeaderName, resolved), `${formatText(COMPONENTS_MESSAGES.chartHeaderValue, resolved)} (${unit})`], csvValues: rows.map(row => [row.groupLabel ?? row.label, row.value]),
     legend, seriesKeys: [rows.map(row => row.key)], labels,

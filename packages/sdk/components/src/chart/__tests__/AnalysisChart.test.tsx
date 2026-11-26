@@ -16,6 +16,23 @@ vi.mock('../EChartImpl', () => ({ default: (props: EChartProps) => { plot = prop
 const heat: ChartSpec = { kind: 'heatmap', xLabels: ['09', '10'], yLabels: ['A', 'B'], cells: [{ x: '09', y: 'A', value: 0 }, { x: '10', y: 'A', value: null }] };
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
+it.each([
+  { spec: { kind: 'donut', slices: [{ id: 'a', label: 'Alpha', value: 5 }] }, numericColumns: 2 },
+  { spec: { kind: 'topNBar', items: [{ id: 'a', label: 'Alpha', value: 5, colorToken: 'chart-blue' }] }, numericColumns: 1 },
+] satisfies { spec: ChartSpec; numericColumns: number }[])('aligns the numeric columns of the $spec.kind data table', ({ spec, numericColumns }) => {
+  mount(spec);
+  fireEvent.click(screen.getByRole('button', { name: '표로 보기' }));
+  const table = within(screen.getByRole('table'));
+  const [name, ...headers] = table.getAllByRole('columnheader').slice(0, -1);
+  const [label, ...cells] = table.getAllByRole('cell').slice(0, -1);
+  expect(name).not.toHaveClass('text-right');
+  expect(label).not.toHaveClass('tabular-nums');
+  expect(headers).toHaveLength(numericColumns);
+  expect(cells).toHaveLength(numericColumns);
+  for (const header of headers) expect(header).toHaveClass('text-right');
+  for (const cell of cells) expect(cell).toHaveClass('text-right', 'tabular-nums');
+});
+
 describe('AnalysisChart heatmap', () => {
   it('distinguishes zero, unknown and missing in plot, summary and same-data table', async () => {
     mount(heat);

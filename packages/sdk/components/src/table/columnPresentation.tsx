@@ -20,8 +20,7 @@ const MIN_WIDTH_UNITS = { instant: 4.25, 'instant-seconds': 5.5, badge: 4 };
 export function columnMinWidth<T>(column: PlatformColumn<T>, size: TableSize) {
   const kind = columnKind(column);
   if (kind === 'number' || kind === 'text' || kind === 'longText') return undefined;
-  const scale = size === 'small' ? 12 / 13 : TABLE_SIZE_STEPS[size].widthScale;
-  return Math.round(BASE_ROW_HEIGHT * MIN_WIDTH_UNITS[kind] * scale);
+  return Math.round(BASE_ROW_HEIGHT * MIN_WIDTH_UNITS[kind] * TABLE_SIZE_STEPS[size].widthScale);
 }
 
 export function uniformBadgeColumns<T>(columns: readonly PlatformColumn<T>[], rows: readonly T[], filters: readonly ColumnFilter[], { complete }: { complete: boolean }) {
