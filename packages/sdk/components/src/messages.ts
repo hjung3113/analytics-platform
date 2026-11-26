@@ -3,6 +3,13 @@ import { CUSTOM_GROUP_LABELS } from '@ap/kernel';
 
 /** Component SDK UI copy (docs/06 §23): domain values and identifiers stay untranslated. */
 export const COMPONENTS_MESSAGES = {
+  statComparisonPrior: { ko: '전기 대비 · 이전 {value}', en: 'vs. prior period · Prior {value}' },
+  statComparisonNoChange: { ko: '변화 없음', en: 'No change' },
+  statComparisonPriorLabel: { ko: '이전', en: 'Prior' },
+  statComparisonUp: { ko: '증가', en: 'up' },
+  statComparisonDown: { ko: '감소', en: 'down' },
+  statComparisonImproved: { ko: '좋아짐', en: 'Improved' },
+  statComparisonWorsened: { ko: '나빠짐', en: 'Worsened' },
   panelTrustChecking: { ko: '확인 중', en: 'Checking' },
   panelTrustEmpty: { ko: '결과 없음', en: 'No results' },
   smallMultiplesScale: { ko: '공유 축 정보', en: 'Shared scale details' },
