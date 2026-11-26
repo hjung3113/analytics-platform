@@ -1,11 +1,14 @@
-import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelInstance, type PanelInstanceInput, type PanelInstanceOutput } from '@ap/contracts';
 import type { HeldAnalysisSelection } from '@ap/kernel';
 import { MOTION_EQUIPMENT_KEY } from '../../endpoints';
 import { panelDeclarations } from './panelDeclaration';
 import type { Step } from './stepped';
 
-/** `heldFrom`: the drawn panel a held value came from, this session only; that panel cannot be hidden while it is held (#2862 R C7). */
-export type AddedPanel = { slot: string; instance: PanelInstance; heldFrom?: string };
+/**
+ * `heldFrom` keeps the drawn source visible while the table holds (#2862 R C7).
+ * `implicitFollow` follows the current publisher while an added table is a draft; saved inputs are explicit.
+ */
+export type AddedPanel = { slot: string; instance: PanelInstance; heldFrom?: string; implicitFollow?: true };
 export type PanelConfiguration =
   | { kind: 'default' | 'unreadable' }
   /** `sources`: the output-only instances held inputs name, kept as restored and never drawn (#2862). */
@@ -23,6 +26,8 @@ export type AddIntent = { mode: 'follow' } | { mode: 'hold'; held: Readonly<Reco
  */
 export const HELD_SOURCE_ID = 'held-source';
 export const heldOutput = { key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' } as const;
+export const isEquipmentOutput = (output: PanelInstanceOutput) =>
+  output.key === heldOutput.key && output.dimension === heldOutput.dimension && output.shape === heldOutput.shape;
 export const isHeldSource = (instance: PanelInstance) => (instance.id === HELD_SOURCE_ID || instance.id.startsWith(`${HELD_SOURCE_ID}-`))
   && instance.source.kind === 'declared' && instance.source.panel === panelDeclarations.moduleMotions.id && instance.inputs.length === 0
   // A «모듈 동작» chart saved under such an id but with no equipment output is drawn as a chart (R2 C2).
@@ -52,19 +57,30 @@ export function followPanel({ slot, instance }: AddedPanel): AddedPanel {
 }
 
 /** Project the saved panels for one step. Omit the step to validate a configuration carried across drills. */
-export function buildSavedPanels(config: CustomPanels, step?: Step): MenuViewPanels;
-export function buildSavedPanels(config: PanelConfiguration, step?: Step): MenuViewPanels | null;
-export function buildSavedPanels(config: PanelConfiguration, step?: Step): MenuViewPanels | null {
+export function buildSavedPanels(config: CustomPanels, step?: Step, publisher?: PanelInstance): MenuViewPanels;
+export function buildSavedPanels(config: PanelConfiguration, step?: Step, publisher?: PanelInstance): MenuViewPanels | null;
+export function buildSavedPanels(config: PanelConfiguration, step?: Step, publisher?: PanelInstance): MenuViewPanels | null {
   if (config.kind !== 'custom') return null;
-  const instances = config.added.filter(({ slot, instance }) =>
-    step !== 4 || slot !== 'trend' || instance.inputs.length > 0 || instance.outputs.length > 0).map(panel => panel.instance);
+  const instances = config.added.flatMap(({ slot, instance, implicitFollow }) => {
+    if (step === 4 && slot === 'trend' && !instance.inputs.length && !instance.outputs.length) return [];
+    return [implicitFollow && publisher ? { ...instance, inputs: [defaultTableInput(publisher)] } : instance];
+  });
+  if (publisher && names(instances, publisher.id) && !config.sources.some(source => source.id === publisher.id)) {
+    const existing = instances.findIndex(instance => instance.id === publisher.id);
+    if (existing < 0) instances.push(publisher);
+    else instances[existing] = publisher;
+  }
   return { version: 1, instances: [...instances, ...config.sources.filter(source => names(instances, source.id))] };
+}
+
+export function defaultTableInput(source: PanelInstance): PanelInstanceInput {
+  return { key: heldOutput.key, from: `${source.id}.${heldOutput.key}`, mode: 'follow' };
 }
 
 /** The source a new hold names: a kept one with the equipment output, or a new one under a free id. */
 export function heldSourceFor(config: CustomPanels, { reservedOnly = false } = {}): { sources: readonly PanelInstance[]; id: string; added: boolean } {
   const kept = config.sources.find(source => (!reservedOnly || isHeldSource(source))
-    && source.outputs.some(output => output.key === heldOutput.key && output.dimension === heldOutput.dimension && output.shape === heldOutput.shape));
+    && source.outputs.some(isEquipmentOutput));
   if (kept) return { sources: config.sources, id: kept.id, added: false };
   const taken = new Set([...config.added.map(panel => panel.instance.id), ...config.sources.map(source => source.id)]);
   let id = HELD_SOURCE_ID;
@@ -106,7 +122,7 @@ export function withAdded(config: PanelConfiguration, id: string, step: Step, in
       ? [heldTableInput({ key, from: `${source.id}.${key}`, mode: 'hold', value })] : []);
     // With two following instances the later one holds, so the first keeps the address's row and page (R C5).
     const target = same.find(panel => holds(panel.instance)) ?? (room ? undefined : same.at(-1));
-    if (target) return put({ ...target, instance: { ...target.instance, inputs }, heldFrom: intent.from }, target, source.sources);
+    if (target) return put({ slot: target.slot, instance: { ...target.instance, inputs }, heldFrom: intent.from }, target, source.sources);
     // A free id even for the first instance: a restored panel of another declaration may already use the declared one (R C9).
     const slot = freeId(custom, same.length ? `${id}-held` : id);
     return put({ slot, instance: { ...create(slot), inputs }, heldFrom: intent.from }, undefined, source.sources);
@@ -115,7 +131,7 @@ export function withAdded(config: PanelConfiguration, id: string, step: Step, in
   if (following) return { config: null, slot: following.slot };
   if (!same.length || (intent && room)) {
     const slot = id === 'table' ? freeId(custom, id) : id;
-    return put({ slot, instance: create(slot) });
+    return put({ slot, instance: create(slot), ...(id === 'table' && { implicitFollow: true }) });
   }
   if (!intent) return { config: null, slot: same[0]!.slot };
   // With both table slots held, the later one follows its existing connection.
