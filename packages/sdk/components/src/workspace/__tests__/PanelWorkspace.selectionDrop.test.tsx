@@ -101,6 +101,10 @@ function target(container: HTMLElement) {
   return container.querySelector('[data-selection-drop-panel="table"]');
 }
 
+async function flushDragFrame() {
+  await act(() => new Promise<void>(resolve => { window.requestAnimationFrame(() => resolve()); }));
+}
+
 it('shows whole-panel targets after movement, hovers the table body and drops the dragged chip', async () => {
   const { chip, container } = await mount();
   pointer(chip, 'pointerdown', 5);
@@ -136,6 +140,44 @@ it.each(['scroll', 'resize', 'layout change'])('updates the preview and drop und
   pointer(window, 'pointerup', 250);
   expect(chartDrop).toHaveBeenCalledOnce();
   expect(onDrop).not.toHaveBeenCalled();
+});
+
+it('announces a changed drop target when the pointer is released before the preview refreshes', async () => {
+  const chartDrop = vi.fn();
+  const { chip, chart, container } = await mount({ chartDrop });
+  pointer(chip, 'pointerdown', 5);
+  pointer(window, 'pointermove', 250);
+  expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
+
+  await flushDragFrame();
+  const heldFrame = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(-1);
+  hit.mockReturnValue(chart);
+  fireEvent.scroll(container);
+  expect(heldFrame).toHaveBeenCalled();
+  expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
+  pointer(window, 'pointerup', 250);
+
+  expect(chartDrop).not.toHaveBeenCalled();
+  expect(onDrop).not.toHaveBeenCalled();
+  expect(chip).toHaveFocus();
+  const status = screen.getByText('놓는 위치가 바뀌었습니다. 다시 끌어 놓으세요.');
+  expect(status).toBeVisible();
+  expect(status).toHaveAttribute('role', 'status');
+});
+
+it('does not schedule a drag refresh when an unrelated node is added outside the dock', async () => {
+  const { chip, container } = await mount();
+  pointer(chip, 'pointerdown', 5);
+  pointer(window, 'pointermove', 250);
+  await flushDragFrame();
+  const requestFrame = vi.spyOn(window, 'requestAnimationFrame');
+
+  await act(async () => { container.append(document.createElement('div')); });
+
+  expect(requestFrame).not.toHaveBeenCalled();
+  expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
+  pointer(window, 'pointerup', 250);
+  expect(onDrop).toHaveBeenCalledOnce();
 });
 
 it.each(['lostpointercapture', 'chip unmount'])('cleans up on %s and allows the next drag', async end => {

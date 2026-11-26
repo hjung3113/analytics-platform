@@ -67,6 +67,7 @@ export function WorkspaceSelectionDrag({ root, panels }: {
 }) {
   const { tx } = useI18n();
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [dropTargetChanged, setDropTargetChanged] = useState(false);
   const cleanup = useRef<(() => void) | null>(null);
   const renderedTarget = useRef<Preview['target']>(undefined);
   useLayoutEffect(() => { renderedTarget.current = preview?.target; }, [preview]);
@@ -74,11 +75,15 @@ export function WorkspaceSelectionDrag({ root, panels }: {
   const drops = useMemo(() => new Map(panels.map(panel => [panel.id, panel.analysisSelectionDrop])), [panels]);
   const currentDrops = useRef(drops);
   useLayoutEffect(() => { currentDrops.current = drops; }, [drops]);
-  const reset = useCallback(() => cleanup.current?.(), []);
+  const reset = useCallback(() => {
+    cleanup.current?.();
+    setDropTargetChanged(false);
+  }, []);
   const start = useCallback((event: PointerEvent, chip: AnalysisSelectionChip, trigger: HTMLButtonElement) => {
     const dock = root.current?.querySelector<HTMLElement>(`:scope > ${DOCK}`);
     const win = trigger.ownerDocument.defaultView;
     if (event.button !== 0 || event.isPrimary === false || cleanup.current || !dock || !win || !trigger.isConnected) return;
+    setDropTargetChanged(false);
     const { pointerId } = event;
     const listener = new AbortController();
     const options = { capture: true, signal: listener.signal };
@@ -140,14 +145,21 @@ export function WorkspaceSelectionDrag({ root, panels }: {
       if (!connected()) { finish('cancel'); return; }
       if (records.some(({ target, attributeName }) => {
         if (!(target instanceof win.Element)) return false;
-        if (target.contains(dock)) return true;
+        if (target !== dock && target.contains(dock)) return attributeName !== null;
         if (target.closest(DOCK) !== dock) return false;
         // Panel content can update independently of the dock geometry.
         const body = target.closest(PANEL);
         return !body || (target === body && attributeName !== null);
       })) scheduleRefresh();
     });
-    mutations.observe(trigger.ownerDocument, { childList: true, subtree: true });
+    // Observe the individual removal paths, including when the chip lives outside the workspace.
+    const removalParents = new Set<Node>();
+    for (const element of [trigger, dock]) {
+      for (let parent = element.parentNode; parent && !removalParents.has(parent); parent = parent.parentNode) {
+        removalParents.add(parent);
+        mutations.observe(parent, { childList: true });
+      }
+    }
     cleanup.current = () => finish('reset');
     win.addEventListener('pointermove', move => {
       if (move.pointerId !== pointerId || phase === 'cancelled') return;
@@ -158,10 +170,10 @@ export function WorkspaceSelectionDrag({ root, panels }: {
         phase = 'dragging';
         capturePointer(trigger, pointerId);
         if (typeof ResizeObserver !== 'undefined') resize = new ResizeObserver(scheduleRefresh);
-        mutations.observe(dock, { subtree: true, attributes: true, attributeFilter: [...layoutAttributes, 'data-dock-active', 'data-dock-visible'] });
+        mutations.observe(dock, { childList: true, subtree: true, attributes: true, attributeFilter: [...layoutAttributes, 'data-dock-active', 'data-dock-visible'] });
         resize?.observe(dock);
         for (let ancestor = dock.parentElement; ancestor; ancestor = ancestor.parentElement) {
-          mutations.observe(ancestor, { attributes: true, attributeFilter: layoutAttributes });
+          mutations.observe(ancestor, { childList: true, attributes: true, attributeFilter: layoutAttributes });
           resize?.observe(ancestor);
         }
         win.addEventListener('scroll', scheduleRefresh, { capture: true, passive: true });
@@ -179,7 +191,13 @@ export function WorkspaceSelectionDrag({ root, panels }: {
       suppressReleaseClick(win, pointerId);
       if (phase === 'cancelled') return;
       // A layout can shift again before its next preview frame. Apply only the target the user saw and is still over.
-      if (!id || !connected() || panelAt(dock, up) !== id) { restoreFocus(); return; }
+      if (!connected()) { restoreFocus(); return; }
+      const targetChanged = panelAt(dock, up) !== id;
+      if (!id || targetChanged) {
+        restoreFocus();
+        if (targetChanged) setDropTargetChanged(true);
+        return;
+      }
       const drop = currentDrops.current.get(id);
       if (drop && !drop.reason?.(chip)) drop.onDrop(chip);
       else restoreFocus();
@@ -200,8 +218,7 @@ export function WorkspaceSelectionDrag({ root, panels }: {
   }, [root]);
   usePublishSelectionDrag(panelIds, start, reset);
 
-  if (!preview) return null;
-  return <div aria-hidden className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
+  const overlay = preview && <div aria-hidden className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
     {preview.zones.map(({ id, left, top, width, height }) => {
       const drop = drops.get(id);
       const reason = drop ? drop.reason?.(preview.chip) : COMPONENTS_MESSAGES.workspaceSelectionNotAccepted;
@@ -218,4 +235,12 @@ export function WorkspaceSelectionDrag({ root, panels }: {
       </div>;
     })}
   </div>;
+  return <>
+    {overlay}
+    <div className="pointer-events-none sticky bottom-2 z-10 h-0">
+      <p role="status" className={dropTargetChanged
+        ? 'absolute inset-x-2 bottom-0 mx-auto w-fit rounded-md border border-border-subtle bg-surface-canvas px-2 py-1 text-center t-caption text-text-secondary break-keep'
+        : 'sr-only'}>{dropTargetChanged && tx(COMPONENTS_MESSAGES.workspaceDropTargetChanged)}</p>
+    </div>
+  </>;
 }

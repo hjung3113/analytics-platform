@@ -771,6 +771,7 @@ export const COMPONENTS_MESSAGES = {
   workspaceSelectionWithSource: { ko: '{chip} ({source})', en: '{chip} ({source})' },
   workspaceNoSelectionToHold: { ko: '분석 선택이 없습니다.', en: 'There is no analysis selection.' },
   workspaceSelectionNotAccepted: { ko: '분석 선택을 받을 수 없는 패널', en: 'This panel cannot receive analysis selections' },
+  workspaceDropTargetChanged: { ko: '놓는 위치가 바뀌었습니다. 다시 끌어 놓으세요.', en: 'Drop location changed. Drag and drop again.' },
   workspaceSplitRight: { ko: '오른쪽으로 나누기', en: 'Split to the right' },
   workspaceSplitDown: { ko: '아래로 나누기', en: 'Split below' },
   workspaceMoveToGroup: { ko: '{title} 묶음으로 옮기기', en: "Move into {title}'s group" },
