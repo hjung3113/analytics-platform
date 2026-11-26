@@ -14,7 +14,8 @@ import type { HostSearch } from '../../lib/host/search';
 import { ApiError } from '../../lib/api/types';
 import { mapUnknownError } from '../../lib/api/errorMapper';
 import { API_TOKEN_COPY as COPY } from '../../lib/copy/api-tokens';
-import { formatDate, formatDateTime } from '../../lib/format/datetime';
+import { FeatureTimestamp } from '../../components/FeatureTimestamp';
+import { formatDate } from '../../lib/format/datetime';
 import { HostPrimaryAction } from '../../lib/host/HostPrimaryAction';
 import type { ClosableDetailParts } from '../../lib/host/detail-parts';
 import { TokenIssueDrawer } from './TokenIssueDrawer';
@@ -90,7 +91,7 @@ export function ApiTokensScreen({ service = false, canManageService = false, ren
     } }] : []),
     { id: 'scopes', header: '권한', sortable: false, cell: row => scopeLabel(row.scopes) },
     { id: 'expiresAt', header: COPY.expiry, sortable: false, cell: row => row.expiresAt ? formatDate(row.expiresAt) : <StatusBadge tone="neutral">{COPY.never}</StatusBadge> },
-    { id: 'lastUsedAt', header: '마지막 사용 · 주소', sortable: false, cell: row => <div className="space-y-1"><p>{row.lastUsedAt ? `${formatDateTime(row.lastUsedAt)} KST` : COPY.noUse}</p>{row.lastUsedIp ? <p className="font-mono text-xs text-text-secondary">{row.lastUsedIp}</p> : <p className="text-xs text-text-secondary">{COPY.noAddress}</p>}</div> },
+    { id: 'lastUsedAt', header: '마지막 사용 · 주소', sortable: false, cell: row => <div className="space-y-1"><p>{row.lastUsedAt ? <FeatureTimestamp at={row.lastUsedAt} notation="list" /> : COPY.noUse}</p>{row.lastUsedIp ? <p className="font-mono text-xs text-text-secondary">{row.lastUsedIp}</p> : <p className="text-xs text-text-secondary">{COPY.noAddress}</p>}</div> },
     { id: 'status', header: '상태', sortable: false, cell: row => row.revokedAt ? <StatusBadge tone="neutral">{COPY.revoked}</StatusBadge>
       : row.expiresAt && new Date(row.expiresAt).getTime() <= Date.now() ? <StatusBadge tone="neutral">{COPY.expired}</StatusBadge>
       : <StatusBadge tone={row.unusedWarning ? 'warning' : 'success'}>{row.unusedWarning ? COPY.unused : service ? COPY.tokenValid : COPY.available}</StatusBadge> },
@@ -141,7 +142,7 @@ export function ApiTokensScreen({ service = false, canManageService = false, ren
     <AlertDialog open={revoke !== null} onOpenChange={open => { if (!open && !revoking) setRevoke(null); }}>
       <AlertDialogContent className="break-keep"><AlertDialogHeader><AlertDialogTitle>{COPY.revokeTitle}</AlertDialogTitle><AlertDialogDescription>{COPY.revokeHint}</AlertDialogDescription></AlertDialogHeader>
         <p className="text-sm font-medium">{revoke?.name}</p><p className="font-mono text-xs">ap_{revoke?.prefix}_…</p>
-        <p className="text-xs text-text-secondary">{revoke?.lastUsedAt ? `${formatDateTime(revoke.lastUsedAt)} KST` : COPY.noUse} · {revoke?.lastUsedIp ?? COPY.noAddress}</p>
+        <p className="text-xs text-text-secondary">{revoke?.lastUsedAt ? <FeatureTimestamp at={revoke.lastUsedAt} notation="list" /> : COPY.noUse} · {revoke?.lastUsedIp ?? COPY.noAddress}</p>
         {revokeError ? <p role="alert" className="text-sm text-text-danger-label">{revokeError}</p> : null}
         <AlertDialogFooter><AlertDialogCancel disabled={revoking}>{COPY.cancel}</AlertDialogCancel><Button variant="destructive" disabled={revoking} onClick={() => void confirmRevoke()}>{COPY.revoke}</Button></AlertDialogFooter>
       </AlertDialogContent>

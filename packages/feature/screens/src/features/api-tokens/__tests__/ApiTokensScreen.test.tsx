@@ -2,7 +2,7 @@ import { CAPABILITY_LABELS } from '../../../lib/copy/capabilities';
 import { TOKEN_SCOPE_CAPABILITIES, TOKEN_ONLY_SCOPES, isTokenOnlyCapability } from '@ap/feature-shared';
 import { useState, type ReactNode } from 'react';
 import { configureApiClient } from '../../../lib/api/client';
-import { HostSeamProvider } from '../../../lib/host/host-seam';
+import { HostSeamProvider, type HostSeam } from '../../../lib/host/host-seam';
 import type { ApiTokenItem } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -18,6 +18,8 @@ const row = (over: Partial<ApiTokenItem> = {}): ApiTokenItem => ({
   expiresAt: null, lastUsedAt: '2026-11-01T01:00:00Z', lastUsedIp: '10.0.0.1', revokedAt: null,
   createdAt: '2026-10-01T00:00:00Z', createdBy: ACTOR, actorId: ACTOR, unusedWarning: false, ...over,
 });
+/** The host's Kernel notation, tagged so a test sees which notation the screen asked for (#2587); unset = the feature fallback. */
+let seamTime: HostSeam['time'] | undefined;
 let rows: ApiTokenItem[];
 let nextCursor: string | null;
 let issueError: unknown;
@@ -35,7 +37,7 @@ function Drawer(parts: ApiTokenDrawerParts) {
 }
 function TestHost({ children }: { children: ReactNode }) {
   const [search, setSearch] = useState<Record<string, string>>({});
-  return <HostSeamProvider value={{ canLink: () => false, Link: ({ children }) => <span>{children}</span>, notifyError: notices, notifySuccess: notices, useSearch: () => search, useNavigate: () => to => setSearch(Object.fromEntries(new URL(to, 'http://x').searchParams)) }}>{children}</HostSeamProvider>;
+  return <HostSeamProvider value={{ ...(seamTime ? { time: seamTime } : {}), canLink: () => false, Link: ({ children }) => <span>{children}</span>, notifyError: notices, notifySuccess: notices, useSearch: () => search, useNavigate: () => to => setSearch(Object.fromEntries(new URL(to, 'http://x').searchParams)) }}>{children}</HostSeamProvider>;
 }
 function mount(service = false, canManageService = true) {
   client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -52,6 +54,7 @@ async function openIssue() {
 }
 beforeEach(() => {
   configureApiClient({ basePath: '/api/features' });
+  seamTime = undefined;
   rows = [row()]; nextCursor = null; issueError = undefined; issueErrorStatus = 422; revokeFailure = undefined; calls = []; notices.mockClear();
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input); const method = init?.method ?? 'GET';
@@ -196,6 +199,17 @@ describe('API token management', () => {
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '토큰 발급' }));
     expect(await screen.findByText(message)).toBeVisible();
     expect(screen.queryByDisplayValue(SECRET)).toBeNull();
+  });
+  // #2587: last use is a real instant — the host Kernel list notation in the viewer's zone, no fixed «KST» label.
+  it('shows last use in the host list notation in the table and the revoke prompt, without a KST label', async () => {
+    seamTime = { list: at => `list:${at}`, summary: at => `summary:${at}`, feed: at => ({ text: `feed:${at}` }) };
+    mount(); const table = await screen.findByRole('table'); const user = userEvent.setup();
+    expect(within(table).getByText('list:2026-11-01T01:00:00Z')).toBeVisible();
+    expect(within(table).queryByText(/KST/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: /분석 스크립트 폐기/ }));
+    const prompt = await screen.findByRole('alertdialog');
+    expect(within(prompt).getByText('list:2026-11-01T01:00:00Z')).toBeVisible();
+    expect(within(prompt).queryByText(/KST/)).toBeNull();
   });
   it('asks before revoke, then refreshes the list', async () => {
     mount(); await screen.findByRole('table'); const user = userEvent.setup();
