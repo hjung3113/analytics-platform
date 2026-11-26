@@ -342,6 +342,20 @@ describe('lifecycle interactions with the real Kernel host', () => {
     await waitFor(() => expect(document.body.textContent).toContain('페이지'));
     expect(t.queries.some(q => q.endpoint === 'logLifecycle.roundDetail')).toBe(false);
   });
+  it.each([
+    ['an old offset-less value as +09:00', '2026-11-07T09:30', '2026-11-07T09:30:00+09:00'],
+    ['a value with its offset', encodeURIComponent('2026-11-07T09:30+01:00'), '2026-11-07T09:30:00+01:00'],
+  ])('reads requestedFrom from %s (#2587)', async (_, value, from) => {
+    const t = mount(`&requestedFrom=${value}`, 1, 'requests');
+    await waitFor(() => expect(t.queries.some(q => q.endpoint === 'logLifecycle.requests')).toBe(true));
+    expect(t.queries.find(q => q.endpoint === 'logLifecycle.requests')?.params).toMatchObject({ from });
+    expect(t.history).not.toHaveBeenCalled();
+  });
+  it.each(['garbage', '2026-02-30T09:30', encodeURIComponent('2026-11-07T09:30+25:00')])('rejects requestedTo=%s before reading requests (#2587)', async value => {
+    const t = mount(`&requestedTo=${value}`, 1, 'requests');
+    await waitFor(() => expect(document.body.textContent).toContain('requestedTo'));
+    expect(t.queries.some(q => q.endpoint === 'logLifecycle.requests')).toBe(false);
+  });
   it('keeps the selected request marked while its compact attempt history and result action are open', async () => {
     mount(`&request=${ID}`, 1, 'requests');
     await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());

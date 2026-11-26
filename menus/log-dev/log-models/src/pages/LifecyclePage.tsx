@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRe
 import { EmbeddedPane, AuditTimeline, DataTrustIndicator, PageKeyWarning, usePageKeyRules, DetailDrawer, PlatformDataTable, PlatformPage, HeaderOverflowItem } from '@ap/components';
 import { PlatformLink, formatFeedTime, formatListTime, formatSummaryTime, useEndpointRefreshEpoch, useI18n, useMenuAction, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, type PageProps } from '@ap/kernel';
 import { defineEndpoint, type AuditEvent, type EndpointSpec, isAnswered } from '@ap/contracts';
-import { GATE_LABEL, STAGE_LABEL, LifecycleHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
+import { GATE_LABEL, STAGE_LABEL, LifecycleHost, isRequestPeriodValue, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
 import { roundSourceView } from '../round-source-slot';
 import { actions, endpoints, isUuid, isDiagnosticSelection, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE, ISSUE_CONTRIBUTE, ISSUE_LINK } from '../endpoints';
 import { isModelHierarchyNodeId } from '../hierarchy';
@@ -148,7 +148,8 @@ export default function LifecyclePage({ params = {} }: PageProps) {
     { key: 'result', label: { ko: '규칙 결과', en: 'Rule result' }, valid: v => ['all','problems','PASS','FAIL','ERROR','WARN','NOT_CHECKED','SKIPPED','NOT_APPLICABLE'].includes(v) },
     ...['required','active'].map(key => ({ key, label: { ko: key, en: key }, valid: (v: string) => ['true','false'].includes(v) })),
     { key: 'sort', label: { ko: '정렬', en: 'Sort' }, valid: v => ['code','vendorName','stage','updatedAt','ruleId','result','required'].includes(v) },
-    ...['requestedFrom','requestedTo'].map(key => ({ key, label: { ko: key, en: key }, valid: (v: string) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) && Number.isFinite(Date.parse(`${v}:00+09:00`)) })),
+    // Real instants with an offset; an old offset-less value is a KST wall clock and still accepted (#2587).
+    ...['requestedFrom','requestedTo'].map(key => ({ key, label: { ko: key, en: key }, valid: isRequestPeriodValue })),
   ]);
   const invalid = (projectId && !isUuid(projectId)) || (roundId && !isUuid(roundId)) || (selection && !isUuid(selection));
   return <LifecycleHost navigate={navigateScreen} time={time}><ReplacedScreen.Provider value={replaced}><div key={`${user.id}:${revision}`} className="contents">
