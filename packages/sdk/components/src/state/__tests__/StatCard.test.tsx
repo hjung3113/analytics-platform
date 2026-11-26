@@ -81,7 +81,7 @@ it.each([
   expect(screen.getByText('▲')).toHaveClass('col-start-1');
   if (status) expect(screen.getByText(status)).toHaveClass('sr-only');
   else expect(pill?.className).not.toMatch(/(?:success|danger)/);
-  expect(screen.getByText('전기 대비 · 이전 8초')).toBeVisible();
+  expect(screen.getByText('이전 8초 · 전기 대비')).toBeVisible();
 });
 
 it('includes the boundary in the neutral no-change band', () => {
@@ -113,7 +113,7 @@ it('shows the difference, not the prior value, for an absolute decrease (#2743)'
   expect(container.querySelector('.t-delta')).toHaveClass('text-text-secondary');
   expect(screen.getByText('▼')).toBeVisible();
   expect(screen.getByText('12건')).toBeVisible();
-  expect(screen.getByText('전기 대비 · 이전 120건')).toBeVisible();
+  expect(screen.getByText('이전 120건 · 전기 대비')).toBeVisible();
 });
 
 it.each([
@@ -136,7 +136,7 @@ it.each([
   expect(visibleText).toBe(inline);
   // A labelled prior value in the pill is not repeated on the comparison line, and carries no arrow.
   if (prior === null) expect(screen.queryByText(/전기 대비/)).toBeNull();
-  else expect(screen.getByText(`전기 대비 · 이전 ${prior}`)).toBeVisible();
+  else expect(screen.getByText(`이전 ${prior} · 전기 대비`)).toBeVisible();
   if (inline === '—') expect(pill).toHaveClass('text-text-secondary');
 });
 
@@ -219,7 +219,7 @@ it('compares whole-number changes strictly against the band (#2743 R2 C4)', () =
 
 it('keeps the prior line when a value comparison cannot show its prior label (#2743 R2 C11)', () => {
   render(<I18nProvider><StatCard label="사이클타임" value="—" comparison={{ ...comparison, kind: 'value', current: Infinity, previous: 8 }} /></I18nProvider>);
-  expect(screen.getByText('전기 대비 · 이전 8초')).toBeVisible();
+  expect(screen.getByText('이전 8초 · 전기 대비')).toBeVisible();
 });
 
 it('keeps the footnote below the caption with or without a trend (#2743 R2 C10)', () => {
@@ -233,4 +233,12 @@ it('keeps the footnote below the caption with or without a trend (#2743 R2 C10)'
 it('leaves a trend-only footnote to auto placement (no empty comparison row above it)', () => {
   render(<I18nProvider><StatCard label="처리량" value="108" caption="기준" footnote="각주" trend={[120, 108]} /></I18nProvider>);
   expect(screen.getByText('각주')).not.toHaveClass('row-start-5');
+});
+
+it('leads the prior line with the value and keeps the full line as its tooltip, so a truncated line still shows the base (#2743 ②)', () => {
+  render(<I18nProvider><StatCard label="체류" value="0.084" unit="시간/Job"
+    comparison={{ kind: 'absolute', current: 0.084, previous: 0.085, good: 'down', formatValue: v => `${v} 시간/Job`, formatChange: v => `${v}h` }} /></I18nProvider>);
+  const line = screen.getByText('이전 0.085 시간/Job · 전기 대비');
+  expect(line).toHaveAttribute('title', '이전 0.085 시간/Job · 전기 대비');
+  expect(line.className).toContain('truncate');
 });

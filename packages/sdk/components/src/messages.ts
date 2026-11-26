@@ -3,7 +3,8 @@ import { CUSTOM_GROUP_LABELS } from '@ap/kernel';
 
 /** Component SDK UI copy (docs/06 §23): domain values and identifiers stay untranslated. */
 export const COMPONENTS_MESSAGES = {
-  statComparisonPrior: { ko: '전기 대비 · 이전 {value}', en: 'vs. prior period · Prior {value}' },
+  // The value leads: the line truncates at its end, and the comparison base must stay visible (#2743 ②).
+  statComparisonPrior: { ko: '이전 {value} · 전기 대비', en: 'Prior {value} · vs. prior period' },
   statComparisonNoChange: { ko: '변화 없음', en: 'No change' },
   statComparisonPriorLabel: { ko: '이전', en: 'Prior' },
   statComparisonUp: { ko: '증가', en: 'up' },

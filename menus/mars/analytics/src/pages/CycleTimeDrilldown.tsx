@@ -3,15 +3,15 @@ import { ANALYTICS_MESSAGES } from '../messages';
 import { formatWallClock, isAnswered } from '@ap/contracts';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { AlertTriangle, ArrowRight, ChartColumn, Gauge, Hash, ListFilter, RotateCw, Timer } from 'lucide-react';
+import { ArrowRight, ChartColumn, Gauge, ListFilter, RotateCw } from 'lucide-react';
 import { formatNumber, periodHours, type GlobalContext, type Pair } from '@ap/contracts';
 import { type PageProps, PlatformLink, useAnalysisSelectionInputs, useI18n, useMenuFetch, useMenuQuery, useQueryDraft, usePlatform, useSavedViewSupport } from '@ap/kernel';
-import { PanelWorkspace, RowAction, AnalysisChartFrame, DataTrustIndicator, getAnalysisSelectionFilterBadge, PageFilterBar, type PageFilterAppliedChip, type Delta, type PlatformColumn, parsePageIndex, PageKeyWarning, PlatformDataTable, PlatformPage, QueryView, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
+import { PanelWorkspace, RowAction, AnalysisChartFrame, DataTrustIndicator, getAnalysisSelectionFilterBadge, PageFilterBar, type PageFilterAppliedChip, type PlatformColumn, parsePageIndex, PageKeyWarning, PlatformDataTable, PlatformPage, QueryView, StatCard, type StatCardComparison, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, StatusBadge } from '@ap/ui';
 import {
   CYCLE_VERSION_NOTE, PAGE_METRIC_ID, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint,
   cycleTrendEndpoint, cycleVersionOf, resolveMetric,
-  type Granularity, type ResolvedMetric, type SlowRow, type TailMode,
+  type CycleTrend, type Granularity, type ResolvedMetric, type SlowRow, type TailMode,
 } from '../endpoints';
 import { binText, bucketText } from '../bucket-format';
 import {
@@ -129,6 +129,8 @@ export default function CycleTimeDrilldown(_: PageProps) {
   const slowPages = useMenuFetch(cycleSlowPageEndpoint);
   const exports = useMenuFetch(cycleExportEndpoint);
   const shownGrain = trend.resultParams?.granularity ?? granularity;
+  const trendData = trend.response?.outcome === 'ok' ? trend.response.data : null;
+  const cardTrend = (percentile: keyof CycleTrend) => trendData?.current[percentile].map(([, value]) => value) ?? [];
   const listFilter = { tail: tailMode, granularity, bucket, bin };
 
   const columns = useMemo<PlatformColumn<SlowRow>[]>(() => [
@@ -260,10 +262,13 @@ export default function CycleTimeDrilldown(_: PageProps) {
           <div className="relative" data-testid="cycle-kpi">
             <QueryView widgetName={m('cycleTimeDrilldownCycleTimeSummary2')} query={kpi}>
               {data => <div className="grid grid-cols-2 gap-3">
-                <StatCard icon={Timer} chip="blue" label="P50" value={formatMin(data.p50, lang)} unit={m('cycleTimeDrilldownMin')} delta={cycleDelta(data.p50, data.prevP50)} />
-                <StatCard icon={Gauge} chip="teal" label="P95" value={formatMin(data.p95, lang)} unit={m('cycleTimeDrilldownMin2')} delta={cycleDelta(data.p95, data.prevP95)} />
-                <StatCard icon={Hash} chip="teal" label={m('cycleTimeDrilldownExecutions')} value={formatNumber(data.count, lang)} />
-                <StatCard icon={AlertTriangle} chip="teal" label={m('cycleTimeDrilldownSlowExecutionsP95Threshold')} value={formatNumber(data.slowCount, lang)} caption={m('cycleTimeDrilldownAtOrAboveTheDisplayedP95')} />
+                {/* Variant A (#2743): a declared comparison (lower is better) and the mini trend from the trend query this page already reads. */}
+                <StatCard label="P50" value={formatMin(data.p50, lang)} unit={m('cycleTimeDrilldownMin')} trend={cardTrend('p50')}
+                  comparison={cycleComparison(data.p50, data.prevP50, m('cycleTimeDrilldownMin'), lang)} />
+                <StatCard label="P95" value={formatMin(data.p95, lang)} unit={m('cycleTimeDrilldownMin2')} trend={cardTrend('p95')}
+                  comparison={cycleComparison(data.p95, data.prevP95, m('cycleTimeDrilldownMin2'), lang)} />
+                <StatCard label={m('cycleTimeDrilldownExecutions')} value={formatNumber(data.count, lang)} />
+                <StatCard label={m('cycleTimeDrilldownSlowExecutionsP95Threshold')} value={formatNumber(data.slowCount, lang)} caption={m('cycleTimeDrilldownAtOrAboveTheDisplayedP95')} />
               </div>}
             </QueryView>
           </div>
@@ -431,11 +436,10 @@ function formatDelta(value: number | null, lang: 'ko' | 'en'): string {
   return value > 0 ? `+${text}` : value < 0 ? `-${text}` : text;
 }
 
-function cycleDelta(current: number | null, previous: number | null): Delta | undefined {
-  if (current === null || previous === null || previous === 0 || current === previous) return undefined;
-  const pct = ((current - previous) / previous) * 100;
-  const direction = pct > 0 ? 'up' : 'down';
-  return { value: `${Math.abs(pct).toFixed(1)}%`, direction, good: direction === 'down' };
+/** The previous equal period's percentile, as a percent change where a shorter cycle is better. */
+function cycleComparison(current: number | null, previous: number | null, unit: string, lang: 'ko' | 'en'): StatCardComparison {
+  return { kind: 'percent', current, previous, good: 'down',
+    formatValue: value => `${formatMin(value, lang)}${unit}`, formatChange: value => `${formatMin(value, lang)}${unit}` };
 }
 
 function metricLabel(metric: ResolvedMetric, ko: boolean): string {
