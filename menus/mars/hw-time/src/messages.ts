@@ -241,3 +241,12 @@ export const HW_TIME_CATALOG_MESSAGES = {
   donutDescription: { ko: '판정 유형이 전체에서 차지하는 비율을 표시합니다.', en: 'Shows the share of each judgement.' },
   paretoDescription: { ko: '상한 초과가 많은 항목부터 건수와 누적 비율을 표시합니다.', en: 'Ranks upper-limit exceedances and shows cumulative share.' },
 } as const;
+
+/** Charts made from settings (#2761): the declared measure, breakdown and time labels, and why a chart panel is not drawn. */
+export const HW_TIME_CHART_MESSAGES = {
+  moduleSeconds: { ko: 'Module 평균 동작시간', en: 'Module mean operation time' },
+  motionSeconds: { ko: 'Motion 평균 동작시간', en: 'Motion mean operation time' },
+  needsModule: { ko: 'Module 단계에서 그릴 수 있습니다.', en: 'Available at the Module step.' },
+  filtered: { ko: '현재 Module·Motion 선택으로는 이 차트를 조회할 수 없습니다.', en: 'This chart is unavailable for the current Module and Motion selection.' },
+  cannotDraw: { ko: '받은 데이터로 이 차트를 그릴 수 없습니다: {field}', en: 'This chart cannot be drawn from the data received: {field}' },
+} as const;
