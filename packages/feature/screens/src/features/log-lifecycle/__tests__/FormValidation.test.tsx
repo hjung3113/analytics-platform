@@ -50,7 +50,7 @@ describe('LifecycleForm submit validation', () => {
     await user.type(screen.getByRole('textbox', { name: '샘플 1 SHA-256' }), 'xyz');
     await user.click(screen.getByRole('button', { name: 'Round 열기' }));
     const location = screen.getByRole('textbox', { name: '샘플 1 위치' });
-    expectFieldError(location, '샘플 1 위치를 입력해 주세요.');
+    expectFieldError(location, '샘플 위치를 입력해 주세요.');
     expectFieldError(screen.getByRole('textbox', { name: '샘플 1 SHA-256' }), 'SHA-256은 16진수 64자로 입력해 주세요.');
     expect(location).toHaveFocus();
     expect(run).not.toHaveBeenCalled();
@@ -59,6 +59,7 @@ describe('LifecycleForm submit validation', () => {
     const user = userEvent.setup();
     renderForm('projectSetStage', '베타로 이동', { id: ID, toStage: 'beta', reason: '' }, '7');
     await user.click(screen.getByRole('button', { name: '베타로 이동' }));
+    expect(screen.getByRole('textbox', { name: '사유' })).toHaveAttribute('aria-invalid', 'true');
     await user.type(screen.getByRole('textbox', { name: '사유' }), '검토 완료');
     expect(screen.getByRole('textbox', { name: '사유' })).not.toHaveAttribute('aria-invalid');
     expect(screen.queryByText('사유를 입력해 주세요.')).toBeNull();

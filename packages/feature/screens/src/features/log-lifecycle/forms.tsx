@@ -18,10 +18,10 @@ function validateLifecycle(name: string, fields: LifecycleFields, sampleIds: rea
   if (REASON_FORMS.includes(name) && blank('reason')) errors.reason = formCopy.reasonRequired;
   if (name === 'roundOpen') {
     if (blank('sourceOwner')) errors.sourceOwner = formCopy.sourceOwnerRequired;
-    sampleIds.forEach((rowId, i) => {
-      if (blank(sampleKey('fileRef', rowId))) errors[sampleKey('fileRef', rowId)] = formCopy.sampleLocationRequired(i + 1);
+    for (const rowId of sampleIds) {
+      if (blank(sampleKey('fileRef', rowId))) errors[sampleKey('fileRef', rowId)] = formCopy.sampleLocationRequired;
       if (!SHA256.test(fields[sampleKey('sha256', rowId)] ?? '')) errors[sampleKey('sha256', rowId)] = formCopy.sampleShaMalformed;
-    });
+    }
   }
   return errors;
 }
