@@ -153,6 +153,8 @@ export const HW_TIME_STEPPED_MESSAGES = {
   overview: { ko: '설비별 Module 타입 평균', en: 'Mean Module type time by equipment' },
   typeBars: { ko: '{type} · 설비–Module별 Motion', en: '{type} · Motions by equipment–Module' },
   motionBars: { ko: '{type} · {motion} · 설비–Module별', en: '{type} · {motion} · Equipment–Module' },
+  /** Step 3 under the «일별» basis: the current slot is the equipment × day heatmap of the drilled Motion (#3046). */
+  motionDays: { ko: '{type} · {motion} · {panel}', en: '{type} · {motion} · {panel}' },
   moduleBars: { ko: '{module} · {motion} · 설비별', en: '{module} · {motion} · By equipment' },
   previous: { ko: '앞 단계', en: 'Previous step' },
   scale: { ko: '{equipment}개 설비 × {modules} Module', en: '{equipment} equipment × {modules} Modules' },

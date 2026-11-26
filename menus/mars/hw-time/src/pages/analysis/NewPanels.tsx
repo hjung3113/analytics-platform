@@ -1,5 +1,5 @@
 import { AnalysisChart, AuditTimeline, focusPageFallback, QueryView } from '@ap/components';
-import { formatText, useI18n, useMenuQuery, useMessages, usePlatform } from '@ap/kernel';
+import { formatText, useI18n, useMenuQuery, useMessages, usePlatform, type Text } from '@ap/kernel';
 import { Button } from '@ap/ui';
 import { X } from 'lucide-react';
 import { HTM_STATUSES, HW_TIME_UNIT, hwTimeOverview, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimePanelParams } from '../../endpoints';
@@ -39,14 +39,15 @@ export function ParetoPanel({ matrices, filter }: { matrices: readonly HwTimeMat
       spec={{ kind: 'pareto', items, maxItems: Math.max(1, items.length) }} />
   </div>;
 }
-export function EquipmentDaysPanel({ input, verdict, date }: { input: HwTimePanelParams; verdict: HtmStatus | null; date: string | null }) {
+/** `title` names the drilled Module type and Motion when this heatmap is the current slot of a «일별» drill (#3046); an added panel keeps the generic title. */
+export function EquipmentDaysPanel({ input, verdict, date, title }: { input: HwTimePanelParams; verdict: HtmStatus | null; date: string | null; title?: Text }) {
   const m = useMessages(N);
   const { lang } = useI18n();
   const { setPage } = usePlatform();
   const query = useMenuQuery(hwTimeOverview.equipmentDays, input);
   return <div className="flex h-full min-h-0 flex-col">
     {date && <div className="shrink-0 px-2 py-1"><ClearChip label={m('date')} value={date.slice(5)} onClear={() => setPage({ date: null })} /></div>}
-    <QueryView fill query={query}>{data => <AnalysisChart chartId="hw-equipment-days" title={m('equipmentDays')} unit={HW_TIME_UNIT[lang]} size="fill"
+    <QueryView fill query={query}>{data => <AnalysisChart chartId="hw-equipment-days" title={title ? title[lang] : m('equipmentDays')} unit={HW_TIME_UNIT[lang]} size="fill"
     spec={{ kind: 'heatmap', minRowHeight: 24, statusDisplay: 'border', categories: VERDICT_CATEGORIES, xLabels: [...new Set(data.rows.map(row => row.date))].sort(), yLabels: [...new Set(data.rows.map(row => row.equipmentId))],
       cells: data.rows.map(row => ({ x: row.date, y: row.equipmentId, value: row.judgement.value, category: row.judgement.status, status: verdictEmphasis(row.judgement, verdict, lang) })),
       valueFormat: value => formatSeconds(value, lang), cellActivation: { on: 'click', onActivate: next => setPage({ date: next === date ? null : next }) } }} />}</QueryView></div>;
