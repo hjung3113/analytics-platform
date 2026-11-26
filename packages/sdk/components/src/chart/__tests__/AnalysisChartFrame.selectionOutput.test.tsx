@@ -789,7 +789,10 @@ function ChartChipWorkspace({ frame, onAdd, hold = false }: { frame: 'live' | 'u
  * Adds the receiver panel for real: it joins the source panel's group as the active tab, as in HW Time. `below` opens it as a new row
  * instead and keeps a second candidate, so the source panel and its row «새 패널» stay in place.
  */
-function AddingWorkspace({ below = false, hold = false, again, slot, returnsOpened = slot !== undefined, stray = false }: { below?: boolean; hold?: boolean; again?: 'follow' | 'hold'; slot?: string; returnsOpened?: boolean; stray?: boolean }) {
+function AddingWorkspace({ below = false, hold = false, again, slot, returnsOpened = slot !== undefined, stray = false, category, extraCandidate = below }: {
+  below?: boolean; hold?: boolean; again?: 'follow' | 'hold'; slot?: string; returnsOpened?: boolean; stray?: boolean;
+  category?: PanelAddItem['category']; extraCandidate?: boolean;
+}) {
   const { route } = usePlatform();
   const [added, setAdded] = useState(false);
   const [reveal, setReveal] = useState<{ panelId: string; seq: number } | null>(null);
@@ -799,8 +802,8 @@ function AddingWorkspace({ below = false, hold = false, again, slot, returnsOpen
   return <PanelWorkspace label={chipLabel('Workspace')} persistKey="adding" initialMode="stack"
     presets={[{ id: 'chip', label: chipLabel('Preset'), layout: { type: 'group', panels: ['bars'], active: 'bars' } }]} initialPreset="chip"
     revealRequest={reveal}
-    analysisPanelAddition={{ items: [{ id: 'receiver', title: chipLabel('수신 패널'), again, ...(slot ? { slots: [slot] } : {}), ...(stray ? { placed: true } : {}) } as PanelAddItem,
-      ...(below ? [{ id: 'receiver-two', title: chipLabel('둘째 수신 패널') }] : [])], onAdd: () => {
+    analysisPanelAddition={{ items: [{ id: 'receiver', title: chipLabel('수신 패널'), again, category, ...(slot ? { slots: [slot] } : {}), ...(stray ? { placed: true } : {}) } as PanelAddItem,
+      ...(extraCandidate ? [{ id: 'receiver-two', title: chipLabel('둘째 수신 패널') }] : [])], onAdd: () => {
       setAdded(true);
       setReveal(current => ({ panelId: opened, seq: (current?.seq ?? 0) + 1 }));
       return slot;
@@ -1202,6 +1205,10 @@ describe('Categorized panel picker from a selection (#2744)', () => {
   };
   const picker = () => within(screen.getByRole('dialog', { name: '새 패널' }));
   const entries = ['chart', 'chip'] as const;
+  const addingPickerPage = (panelCategory?: PanelAddItem['category']) =>
+    <I18nProvider><PlatformProvider adapter={adapter} registry={chipRegistry} slots={chipSlots}>
+      <PlatformPage><AddingWorkspace below extraCandidate={false} category={panelCategory} slot="receiver-copy" /></PlatformPage>
+    </PlatformProvider></I18nProvider>;
 
   beforeEach(() => vi.stubGlobal('ResizeObserver', class {
     observe() {}
@@ -1209,6 +1216,19 @@ describe('Categorized panel picker from a selection (#2744)', () => {
     disconnect() {}
   }));
   afterEach(() => vi.unstubAllGlobals());
+
+  it('focuses the returned tab when the categorized picker adds its last candidate in a new row', async () => {
+    window.history.replaceState(null, '', '/?v=1&scopeId=MEM&equipment=a');
+    render(addingPickerPage(category));
+    const user = userEvent.setup();
+    await user.click(within(await screen.findByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' }));
+    await user.click(picker().getByRole('button', { name: '수신 패널' }));
+    const added = await screen.findByRole('tab', { name: '수신 패널' });
+    expect(added).toHaveAttribute('data-tab-panel-id', 'receiver-copy');
+    expect(screen.getByRole('img', { name: /Adding chart/ })).toBeVisible();
+    expect(within(nextRow()).queryByRole('button', { name: '새 패널' })).toBeNull();
+    await waitFor(() => expect(added).toHaveFocus());
+  });
 
   it.each(entries)('keeps the flat add menu for an uncategorized catalog from %s', async entry => {
     const { user, onAdd } = await mountPicker(entry, false);

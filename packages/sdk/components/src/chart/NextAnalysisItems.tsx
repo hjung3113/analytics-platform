@@ -177,6 +177,15 @@ export function SelectionPanelPicker({ action, close, onCloseAutoFocus }: {
     close={close} onCloseAutoFocus={onCloseAutoFocus} />;
 }
 
+function addPanelFromChoice(choice: Choice, getTrigger: () => HTMLButtonElement | null, onUnavailable?: () => void): boolean {
+  // The menu may name the slot it opened (a second instance, #2862 ②); the row rebuilds only after this handler.
+  const opened = choice.onSelect?.();
+  const trigger = getTrigger();
+  if (!trigger) return false;
+  keepFocusAfterPanelAdd(trigger, typeof opened === 'string' ? opened : choice.panelId ?? choice.id, onUnavailable);
+  return true;
+}
+
 /** `focusKey`: the chart and its output, stable when the row is rebuilt, so a panel addition can find its trigger again. */
 function ActionMenu({ action, focusKey }: { action: GroupAction; focusKey?: string }) {
   const platform = usePlatformOptional();
@@ -201,16 +210,15 @@ function ActionMenu({ action, focusKey }: { action: GroupAction; focusKey?: stri
   const Icon = action.direction === 'right' ? ChevronRight : ChevronDown;
   const choices = action.addsPanel
     // The addition can rebuild this row before the menu closes, so the focus hand-off starts on select, not on close.
-    ? action.choices.map(choice => ({ ...choice, onSelect: () => {
-      // The menu may name the slot it opened (a second instance, #2862 ②); the row rebuilds only after this handler.
-      const opened = choice.onSelect?.();
-      if (trigger.current) keepFocusAfterPanelAdd(trigger.current, typeof opened === 'string' ? opened : choice.panelId ?? choice.id);
-    } }))
+    ? action.choices.map(choice => ({ ...choice, onSelect: () => addPanelFromChoice(choice, () => trigger.current) }))
     : action.choices;
   const button = <Button ref={trigger} data-focus-key={action.addsPanel ? focusKey : undefined} type="button" size="toolbar" variant="ghost">{action.label}<Icon className="size-3.5" aria-hidden /></Button>;
   if ('inputLabel' in action) return <Popover open={open} onOpenChange={setPickerOpen}>
     <PopoverTrigger asChild onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setPickerOpen(true); } }}>{button}</PopoverTrigger>
-    <SelectionPanelPicker action={{ ...action, choices }} close={() => setPickerOpen(false)} onCloseAutoFocus={event => {
+    <SelectionPanelPicker action={{ ...action, choices: action.choices.map(choice => ({ ...choice, onSelect: () => {
+      // As in the flat menu, the tab watcher owns focus after an add; the page return is its fallback when no tab can take it.
+      if (addPanelFromChoice(choice, () => trigger.current, restorePickerFocus.current)) restorePickerFocus.current = undefined;
+    } })) }} close={() => setPickerOpen(false)} onCloseAutoFocus={event => {
       event.preventDefault();
       restorePickerFocus.current?.();
       restorePickerFocus.current = undefined;
