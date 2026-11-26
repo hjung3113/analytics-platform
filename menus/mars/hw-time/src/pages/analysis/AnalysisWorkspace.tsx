@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-react';
-import { isAnswered, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
-import { ANALYSIS_SELECTION_MAX_VALUES, AnalysisSelectionInstances, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useAnalysisSelectionReader, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type MenuQueryState, type Text } from '@ap/kernel';
+import { isAnswered, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
+import { ANALYSIS_SELECTION_MAX_VALUES, AnalysisSelectionInstances, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useAnalysisSelectionReader, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type AnalysisSelectionChip, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
   getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
@@ -21,7 +21,7 @@ import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
 import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
-import { buildSavedPanels, defaultPanels, defaultTableInput, exceedsPanelLimit, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isEquipmentOutput, isHeldSource, keepHeld, names, newPanelInstance, planAdd, SAME_PANEL_MAX, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
+import { buildSavedPanels, defaultPanels, defaultTableInput, exceedsPanelLimit, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isEquipmentOutput, isHeldSource, keepHeld, names, newPanelInstance, planAdd, planTableHold, SAME_PANEL_MAX, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
 import { CATALOG_IDS, chartRows, panelCatalog, projectBarData, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
@@ -250,20 +250,33 @@ function nextConfig(state: { owner: string; query: string; config: PanelConfigur
   return defaultPanels;
 }
 
-function useWorkspacePanels(owner: string, query: string, step: Step, publisherFor: (config: PanelConfiguration, at?: Step) => ReturnType<typeof selectionPublisher>) {
+function useWorkspacePanels(owner: string, query: string, step: Step, {
+  publisherFor, unpin,
+}: { publisherFor: (config: PanelConfiguration, at?: Step) => ReturnType<typeof selectionPublisher>; unpin: (id: string) => void }) {
   const population = JSON.stringify([step, query]);
-  const [state, setState] = useState(() => ({ owner, query, population, config: defaultPanels, opening: false }));
+  const [state, setState] = useState(() => ({ owner, query, population, config: defaultPanels, opening: false, clearTablePin: false }));
   const samePopulation = state.population === population;
   const config = nextConfig(state, owner, query, samePopulation);
-  if (state.owner !== owner || !samePopulation || state.opening) setState({ owner, query, population, config, opening: false });
-  const project = (candidate: CustomPanels, { acrossSteps = false } = {}) => {
-    const { source, reserved } = publisherFor(candidate);
-    const current = buildSavedPanels(candidate, acrossSteps ? undefined : step, reserved ?? source);
-    if (!acrossSteps || step === 4) return current;
+  if (state.owner !== owner || !samePopulation || state.opening) setState({ owner, query, population, config, opening: false, clearTablePin: false });
+  useLayoutEffect(() => {
+    if (!state.clearTablePin) return;
+    // Clear the address pin only after the hold plan commits successfully.
+    unpin('table');
+    setState(current => ({ ...current, clearTablePin: false }));
+  }, [state.clearTablePin, unpin]);
+  const projectCandidates = (candidate: CustomPanels, { acrossSteps = false } = {}): [MenuViewPanels, ...MenuViewPanels[]] => {
+    const atStep = (at: Step) => {
+      const { source, reserved } = publisherFor(candidate, at);
+      return buildSavedPanels(candidate, acrossSteps ? undefined : at, reserved ?? source);
+    };
+    const current = atStep(step);
+    if (!acrossSteps || step === 4) return [current];
     // The module step can need a separate saved chart in place of a shared output-only reference.
-    const module = publisherFor(candidate, 4);
-    const modulePanels = buildSavedPanels(candidate, undefined, module.reserved ?? module.source);
-    return exceedsPanelLimit(modulePanels) ? modulePanels : current;
+    return [current, atStep(4)];
+  };
+  const project = (candidate: CustomPanels, options?: { acrossSteps?: boolean }) => {
+    const [current, module] = projectCandidates(candidate, options);
+    return module && exceedsPanelLimit(module) ? module : current;
   };
   const overflows = (plan: ReturnType<typeof planAdd>) => plan.overflows
     || (plan.config !== null && exceedsPanelLimit(project(plan.config, { acrossSteps: plan.config.connectionsEdited })));
@@ -308,7 +321,16 @@ function useWorkspacePanels(owner: string, query: string, step: Step, publisherF
     return { ...current, config: { ...current.config, added, sources: current.config.sources.map(disconnect) } };
   });
   const editConnections = (config: CustomPanels) => setState(current => ({ ...current, config: { ...config, connectionsEdited: true } }));
-  return { config, add, remove, follow, editConnections, project, additionOverflows: (id: string) => overflows(planAdd(config, id, step)) };
+  const planHold = (candidate: PanelConfiguration, slot: string, chip: AnalysisSelectionChip, from?: string) =>
+    planTableHold(candidate, slot, chip, next => projectCandidates(next, { acrossSteps: next.connectionsEdited }), from);
+  const holdTable = (slot: string, chip: AnalysisSelectionChip, options: { from?: string; clearPin: boolean }) => setState(current => {
+    if (current.owner !== owner || current.population !== population) return current;
+    const plan = planHold(current.config, slot, chip, options.from);
+    return plan.kind === 'refused' ? current : { ...current, config: plan.config, clearTablePin: current.clearTablePin || options.clearPin };
+  });
+  return { config, add, remove, follow, editConnections, project, holdTable,
+    planHold: (slot: string, chip: AnalysisSelectionChip, from?: string) => planHold(config, slot, chip, from),
+    additionOverflows: (id: string) => overflows(planAdd(config, id, step)) };
 }
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
@@ -330,7 +352,7 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     const available = at === step ? catalog : panelCatalog({ step: at, typeId, moduleId, trend });
     return selectionPublisher(config, available, at, trend, pinned, at === step ? dayPanel : null);
   }, [catalog, step, typeId, moduleId, trend, pinned, dayPanel]);
-  const savedPanels = useWorkspacePanels(owner, JSON.stringify(context), step, publisherFor);
+  const savedPanels = useWorkspacePanels(owner, JSON.stringify(context), step, { publisherFor, unpin: pins.unpin });
   const publisher = useMemo(() => publisherFor(savedPanels.config), [publisherFor, savedPanels.config]);
   // A saved view can pin a panel the catalog no longer has. Its reason slot shows the panel, so the opened address drops that pin
   // (one replace) instead of warning; until then the rule accepts it. A plain address with an unknown pin still warns.
@@ -839,6 +861,30 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   // «새 패널» for the raw table is judged on its real slots (#2862 ②, R C3).
   const additionItems = catalog.map(item => item.id !== 'table' || !tables.open.length ? item
     : { ...item, slots: tables.open.map(({ id }) => id), ...(tables.again ? { again: tables.again } : {}) });
+  const workspacePanels = panels.map((panel): PanelWorkspacePanel => {
+    if (tables.overflow.has(panel.id)) return panel;
+    const isOpenTable = tables.open.some(({ id }) => id === panel.id);
+    return { ...panel,
+      analysisSelectionDrop: isOpenTable ? {
+        reason: chip => {
+          const plan = savedPanels.planHold(panel.id, chip, selectionHost);
+          if (plan.kind === 'held') return;
+          if (plan.reason === 'panelsFull') return limitReason;
+          const message = HW_TIME_WORKSPACE_MESSAGES[plan.reason];
+          const params = { max: PANEL_INSTANCE_INPUTS_MAX };
+          return { ko: formatText(message, 'ko', params), en: formatText(message, 'en', params) };
+        },
+        onDrop: chip => {
+          // Clear the pin when holding the only table so it does not open a replacement following table.
+          savedPanels.holdTable(panel.id, chip, { from: selectionHost, clearPin: tables.open.length === 1 && pins.isPinned('table') });
+        },
+      } : undefined,
+      onOpenSettings: trigger => {
+        if (pageParam('focus') !== null) setPage({ focus: null });
+        setSettings({ id: panel.id, trigger, query: settingsQuery });
+      },
+    };
+  });
   return <div className="flex min-h-0 flex-1 flex-col gap-2">
     {filter.empty && <p role="status" className="text-sm text-text-secondary">{common('filterNoneSelected')}</p>}
     {savedPanels.config.kind === 'unreadable' && <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={workspace('unreadablePanels')} />}
@@ -869,10 +915,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         return parseAnalysisSelection(output.shape, pageParams(output.key));
       }}
       onChange={editSettings} />}
-    <PanelWorkspace panels={panels.map(panel => tables.overflow.has(panel.id) ? panel : { ...panel, onOpenSettings: trigger => {
-      if (pageParam('focus') !== null) setPage({ focus: null });
-      setSettings({ id: panel.id, trigger, query: settingsQuery });
-    } })} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
+    <PanelWorkspace panels={workspacePanels} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
       panelMenuItems={id => [
         ...(heldSlots.some(slot => slot.id === id) ? [{ id: 'follow', label: HW_TIME_WORKSPACE_MESSAGES.followInstead, onSelect: () => savedPanels.follow(id) }] : []),
       ]}

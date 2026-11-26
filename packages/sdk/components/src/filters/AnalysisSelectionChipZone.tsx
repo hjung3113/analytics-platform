@@ -4,12 +4,12 @@ import { PlatformLink, useAnalysisSelectionChips, useI18n, useMessages, usePlatf
 import { useAnalysisSelectionHoverTarget, useHostPlatformOptional } from '@ap/kernel/host';
 import { Button, Checkbox, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from '@ap/ui';
 import { useReturnNavigation } from '../archetypes/DrillLayout';
-import { usePublishedNextAnalysis } from '../chart/NextAnalysisBridge';
+import { usePublishedNextAnalysis, usePublishedSelectionDrag } from '../chart/NextAnalysisBridge';
 import { NextAnalysisMenuItem, SelectionPanelPicker, useNextAnalysisItems, type NextAnalysisAction } from '../chart/NextAnalysisItems';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { capturePageFocusReturn } from '../state/pageFocus';
 import { useElementSize, useObservedElementSize } from '../state/useElementSize';
-import { analysisSelectionLabel } from './analysisSelectionLabel';
+import { analysisSelectionChipLabel } from './analysisSelectionChipLabel';
 
 export type AnalysisSelectionChipZoneFit = { container: HTMLElement | null; summary: HTMLElement | null };
 type ClearChip = (key: string) => void;
@@ -202,10 +202,7 @@ function ArrivalLink({ href, chipKey, linkRef, menu }: { href: string; chipKey: 
 function useChipLabel(chip: AnalysisSelectionChip, { wrap, labelId }: { wrap?: boolean; labelId?: string } = {}) {
   const { lang, tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const dimension = chip.label?.[lang] ?? chip.dimension;
-  const title = chip.source?.title[lang];
-  const source = title && !/\{[^{}]+\}/.test(title) ? title : undefined;
-  const text = analysisSelectionLabel(chip.selection, dimension, lang);
+  const { dimension, source, text } = analysisSelectionChipLabel(chip, lang);
   const origin = chip.arrival?.origin;
   const menu = origin && tx(origin.menuLabel);
   const arrivalPrefix = menu === undefined ? m('analysisSelectionArrivalPrefix') : m('analysisSelectionArrivalNamedPrefix', { menu });
@@ -241,6 +238,7 @@ function Chip({ chip, clear, clearAll, editor, wrap, clearButtonRef, arrivalLink
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const beginHover = useAnalysisSelectionHoverTarget(chip.key);
+  const startDrag = usePublishedSelectionDrag(chip.source?.panelId);
   const labelId = useId();
   const { dimension, text, menu, notApplied, muted, statusId, description } = useChipLabel(chip, { wrap, labelId });
   const editTrigger = useRef<HTMLButtonElement>(null);
@@ -288,7 +286,8 @@ function Chip({ chip, clear, clearAll, editor, wrap, clearButtonRef, arrivalLink
     }}>
       <PopoverTrigger asChild>
         <button ref={editTriggerRef} type="button" data-analysis-chip-edit={chip.key} aria-labelledby={labelId} aria-describedby={muted ? statusId : undefined}
-          className={cn(chipLabelClass, 'min-h-6.5 rounded-full text-start hover:bg-surface-row-hover', focusClass)}>
+          onPointerDown={startDrag && (event => startDrag(event.nativeEvent, chip, event.currentTarget))}
+          className={cn(chipLabelClass, 'min-h-6.5 rounded-full text-start hover:bg-surface-row-hover', focusClass, startDrag && 'touch-none cursor-grab select-none')}>
           {description}
         </button>
       </PopoverTrigger>

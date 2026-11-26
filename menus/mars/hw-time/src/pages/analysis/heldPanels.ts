@@ -1,5 +1,5 @@
-import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelInstance, type PanelInstanceInput, type PanelInstanceOutput } from '@ap/contracts';
-import type { HeldAnalysisSelection } from '@ap/kernel';
+import { EQUIPMENT_SELECTION_DIMENSION, heldSelectionProblem, invalidMenuViewPanels, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelInstance, type PanelInstanceInput, type PanelInstanceOutput } from '@ap/contracts';
+import type { AnalysisSelectionChip, HeldAnalysisSelection } from '@ap/kernel';
 import { MOTION_EQUIPMENT_KEY } from '../../endpoints';
 import { panelDeclarations } from './panelDeclaration';
 import type { Step } from './stepped';
@@ -46,6 +46,11 @@ export function heldTableInput({ key, from, value, use }: Extract<PanelInstanceI
   return { key, from, mode: 'hold', value, ...(use === 'highlight' ? { use } : {}) };
 }
 
+function equipmentHold(sourceId: string, value: AnalysisSelection, use?: PanelInstanceInput['use']): PanelInstanceInput {
+  const { key } = heldOutput;
+  return heldTableInput({ key, from: `${sourceId}.${key}`, mode: 'hold', value, use });
+}
+
 export function followPanel({ slot, instance }: AddedPanel): AddedPanel {
   const inputs = instance.inputs.map((input): PanelInstanceInput => {
     if (input.mode === 'follow') return input;
@@ -60,11 +65,14 @@ export function buildSavedPanels(config: CustomPanels, step?: Step, publisher?: 
 export function buildSavedPanels(config: PanelConfiguration, step?: Step, publisher?: PanelInstance): MenuViewPanels | null;
 export function buildSavedPanels(config: PanelConfiguration, step?: Step, publisher?: PanelInstance): MenuViewPanels | null {
   if (config.kind !== 'custom') return null;
+  const followInput = publisher && defaultTableInput(publisher);
   const instances = config.added.flatMap(({ slot, instance, implicitFollow }) => {
     if (step === 4 && slot === 'trend' && !instance.inputs.length && !instance.outputs.length) return [];
-    return [implicitFollow && publisher ? { ...instance, inputs: [defaultTableInput(publisher)] } : instance];
+    return [implicitFollow && followInput ? { ...instance, inputs: [followInput] } : instance];
   });
-  if (publisher && names(instances, publisher.id) && !config.sources.some(source => source.id === publisher.id)) {
+  // Only a reference to the equipment output needs the projected publisher.
+  if (publisher && followInput && instances.some(({ inputs }) => inputs.some(input => input.from === followInput.from))
+    && !config.sources.some(source => source.id === publisher.id)) {
     const existing = instances.findIndex(instance => instance.id === publisher.id);
     if (existing < 0) instances.push(publisher);
     else instances[existing] = publisher;
@@ -117,8 +125,8 @@ export function withAdded(config: PanelConfiguration, id: string, step: Step, in
   const room = id === 'table' && all.length < SAME_PANEL_MAX;
   if (intent?.mode === 'hold') {
     const source = heldSourceFor(custom);
-    const inputs = Object.entries(intent.held).flatMap(([key, value]) => key === heldOutput.key
-      ? [heldTableInput({ key, from: `${source.id}.${key}`, mode: 'hold', value })] : []);
+    const value = intent.held[heldOutput.key];
+    const inputs = value ? [equipmentHold(source.id, value)] : [];
     // With two following instances the later one holds, so the first keeps the address's row and page (R C5).
     const target = same.find(panel => holds(panel.instance)) ?? (room ? undefined : same.at(-1));
     if (target) return put({ slot: target.slot, instance: { ...target.instance, inputs }, heldFrom: intent.from }, target, source.sources);
@@ -142,6 +150,33 @@ export function exceedsPanelLimit(panels: MenuViewPanels): boolean {
   return panels.instances.length > PANEL_INSTANCES_MAX;
 }
 
+const configurationToValidate = (config: CustomPanels, step: Step) => buildSavedPanels(config, config.connectionsEdited ? undefined : step);
+
+/** Hold the targeted table in its current slot, materializing it if only a pin drew it. */
+export function planTableHold(config: PanelConfiguration, slot: string, chip: AnalysisSelectionChip,
+  project: (candidate: CustomPanels) => readonly MenuViewPanels[], heldFrom?: string) {
+  const { key, dimension, selection } = chip;
+  if (key !== heldOutput.key || dimension !== heldOutput.dimension || selection.shape !== heldOutput.shape || heldSelectionProblem(selection)) {
+    return { kind: 'refused', reason: 'heldEquipmentOnly' } as const;
+  }
+  const custom = config.kind === 'custom' ? config : noPanels;
+  const target = custom.added.find(panel => panel.slot === slot);
+  const instance = target?.instance ?? newPanelInstance(slot, panelDeclarations.table.id, [...custom.added.map(panel => panel.instance), ...custom.sources]);
+  const source = heldSourceFor(custom);
+  const previous = instance.inputs.find(input => input.key === heldOutput.key);
+  const inputs = [...instance.inputs.filter(input => input.key !== heldOutput.key), equipmentHold(source.id, selection, previous?.use)];
+  const held: AddedPanel = { slot, heldFrom, instance: { ...instance, inputs } };
+  const added = target ? custom.added.map(panel => panel === target ? held : panel) : [...custom.added, held];
+  const next: CustomPanels = { ...custom, added, sources: source.sources };
+  const candidates = project(next);
+  if (candidates.some(exceedsPanelLimit)) return { kind: 'refused', reason: 'panelsFull' } as const;
+  if (candidates.some(candidate => invalidMenuViewPanels(candidate) !== null)) {
+    const reason = inputs.length > PANEL_INSTANCE_INPUTS_MAX ? 'heldInputsFull' : 'heldConfigurationInvalid';
+    return { kind: 'refused', reason } as const;
+  }
+  return { kind: 'held', config: next } as const;
+}
+
 export function panelAdditionOverflows(config: PanelConfiguration, step: Step, id: string, intent?: AddIntent): boolean {
   return planAdd(config, id, step, intent).overflows;
 }
@@ -155,7 +190,7 @@ export function planAdd(config: PanelConfiguration, id: string, step: Step, inte
   const base = materialize ? withAdded(config, id, step, { mode: 'follow' }).config : null;
   const added = withAdded(base ?? config, id, step, intent);
   const next = added.config ?? base;
-  const overflows = next !== null && exceedsPanelLimit(buildSavedPanels(next, next.connectionsEdited ? undefined : step));
+  const overflows = next !== null && exceedsPanelLimit(configurationToValidate(next, step));
   return { config: next, slot: added.slot, overflows };
 }
 

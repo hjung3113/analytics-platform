@@ -1,11 +1,14 @@
 import { useContext, useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, MoreHorizontal, Pin, X } from 'lucide-react';
-import { useMessages } from '@ap/kernel';
+import type { Text } from '@ap/contracts';
+import { useAnalysisSelectionChips, useI18n, useMessages } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
 import { DockChartCloseMore, DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartCloseFocus, type DockChartLayoutActions } from '../dock/DockChartHead';
 import type { DockLayoutMenu } from '../dock/layoutMenu';
+import { analysisSelectionChipLabel } from '../filters/analysisSelectionChipLabel';
 import { COMPONENTS_MESSAGES } from '../messages';
+import type { PanelWorkspaceSelectionDrop } from './PanelWorkspace';
 import { useWorkspaceQueryHead, useWorkspaceQuerySlot } from './WorkspaceQueryHeads';
 
 const ICON = 'size-7';
@@ -14,9 +17,10 @@ const ICON = 'size-7';
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
  * group's active panel. Collapse and float are absent for primary panels. Floating headers offer pin, close and keyboard geometry.
  */
-export function WorkspaceGroupActions({ panelId, title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onRemove, hideBlocked, pin, edgeActions, menuItems, recipeItem, onOpenSettings }: {
+export function WorkspaceGroupActions({ panelId, title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onRemove, hideBlocked, pin, edgeActions, menuItems, recipeItem, onOpenSettings, selectionDrop }: {
   panelId?: string;
   onOpenSettings?: (trigger: HTMLButtonElement) => void;
+  selectionDrop?: PanelWorkspaceSelectionDrop;
   menuItems?: readonly { id: string; label: string; onSelect: () => void }[];
   recipeItem?: { label: string; onSelect: () => void };
   title: string;
@@ -102,10 +106,11 @@ export function WorkspaceGroupActions({ panelId, title, titleOf, menu, closeFocu
           </>}
         </>}
     </>}
-    {(onOpenSettings || !!menuItems?.length || recipeItem) && separator}
+    {(onOpenSettings || selectionDrop || !!menuItems?.length || recipeItem) && separator}
     {onOpenSettings && <LayoutItem onSelect={() => {
       closeFocus.current = opener => { if (opener) onOpenSettings(opener); };
     }}>{m('panelSettings')}</LayoutItem>}
+    {selectionDrop && <SelectionHoldItems drop={selectionDrop} />}
     {menuItems?.map(item => <LayoutItem key={item.id} onSelect={item.onSelect}>{item.label}</LayoutItem>)}
     {recipeItem && <LayoutItem onSelect={recipeItem.onSelect}>{recipeItem.label}</LayoutItem>}
   </>;
@@ -141,6 +146,42 @@ export function WorkspaceGroupActions({ panelId, title, titleOf, menu, closeFocu
       </DropdownMenuContent>
     </DropdownMenu>}
   </div>;
+}
+
+function SelectionHoldItems({ drop }: { drop: PanelWorkspaceSelectionDrop }) {
+  const { chips } = useAnalysisSelectionChips();
+  const { lang, tx } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
+  if (!chips.length) {
+    return <SelectionHoldItem label={m('workspaceHoldSelection')} reason={COMPONENTS_MESSAGES.workspaceNoSelectionToHold} />;
+  }
+  const summaries = chips.map(chip => analysisSelectionChipLabel(chip, lang));
+  const names = chips.map((chip, index) => {
+    const { text, source } = summaries[index]!;
+    if (!summaries.some((other, i) => i !== index && other.text === text)) return text;
+    const arrival = chip.arrival?.origin?.menuLabel;
+    const origin = arrival && tx(arrival);
+    return m('workspaceSelectionWithSource', { chip: text, source: source ?? chip.source?.panelId ?? origin ?? chip.key });
+  });
+  return chips.map((chip, index) => {
+    const name = names[index]!;
+    const distinct = names.some((other, i) => i !== index && other === name)
+      ? m('workspaceSelectionWithSource', { chip: name, source: chip.key })
+      : name;
+    return <SelectionHoldItem key={chip.key} label={m('workspaceHoldNamedSelection', { chip: distinct })}
+      reason={drop.reason?.(chip)} onSelect={() => drop.onDrop(chip)} />;
+  });
+}
+
+function SelectionHoldItem({ label, reason, onSelect }: { label: string; reason?: Text; onSelect?: () => void }) {
+  const { tx } = useI18n();
+  const reasonId = useId();
+  return <LayoutItem aria-label={label} aria-disabled={reason ? true : undefined} aria-describedby={reason ? reasonId : undefined} onSelect={onSelect}>
+    <span className="flex min-w-0 flex-col break-keep wrap-anywhere">
+      <span>{label}</span>
+      {reason && <span id={reasonId} className="text-xs text-text-muted">{tx(reason)}</span>}
+    </span>
+  </LayoutItem>;
 }
 
 // Only this menu child subscribes, so query recovery cannot republish the chart's layout actions.

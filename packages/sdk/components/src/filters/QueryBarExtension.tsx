@@ -4,6 +4,7 @@ import type { GlobalContext, Pair } from '@ap/contracts';
 import type { PageFilterSummaryItem } from './PageFilterBar';
 import { QueryBarStatusProvider } from './QueryBarStatus';
 import { paneRouteKey } from './paneRouteKey';
+import { PaneSelectionDragProvider } from '../chart/NextAnalysisBridge';
 
 export type QueryBarExtension = {
   /** Pure arbitrary-candidate formatter; never captures current draft values. */
@@ -36,7 +37,9 @@ const PaneExtensions = createContext<ReturnType<typeof createExtensions> | null>
 export function QueryBarExtensionsProvider({ children }: { children: ReactNode }) {
   const { session } = useHostPlatform();
   const store = useMemo(createExtensions, [session]);
-  return <PaneExtensions.Provider value={store}><QueryBarStatusProvider>{children}</QueryBarStatusProvider></PaneExtensions.Provider>;
+  return <PaneExtensions.Provider value={store}><QueryBarStatusProvider><PaneSelectionDragProvider>
+    {children}
+  </PaneSelectionDragProvider></QueryBarStatusProvider></PaneExtensions.Provider>;
 }
 export function usePublishQueryBarExtension(value: QueryBarExtension | undefined): void {
   const store = useContext(PaneExtensions);
