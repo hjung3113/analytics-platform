@@ -31,6 +31,7 @@ import { useEmbeddedChrome, useInWorkspacePanel } from '../workspace/panelContex
 import type { ChartRowGroups } from './chartRowGroups';
 import { HEATMAP_CATEGORY_TOKENS, UNKNOWN_HEATMAP_CATEGORY_TOKENS } from './heatmapCategories';
 import { referenceMarkOptions, type ChartReferenceOptions } from './referenceMarks';
+import { releaseFocusLater } from '../state/releaseFocusLater';
 
 export type HeatmapCell = { x: string; y: string; value: number | null; status?: ChartStatus; category?: string };
 export type HeatmapCategory = { id: string; label: Text; tone: Tone };
@@ -619,7 +620,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
       </div>}
       </ChartLegendLayout>
       {topN && expanded && <ChartGestureHint point={rows.length > 0} additive={!singleSelect} drill={canDrill} />}
-      {selectionEnabled && !followingEmptyChart && <section onFocus={() => { summaryHadFocus.current = true; }} onBlur={(event) => { const summary = event.currentTarget; queueMicrotask(() => { if (summary.isConnected) summaryHadFocus.current = false; }); }} tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !selectedActionRow?.drill ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs text-text-secondary' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
+      {selectionEnabled && !followingEmptyChart && <section onFocus={() => { summaryHadFocus.current = true; }} onBlur={(event) => { releaseFocusLater(event.currentTarget, () => { summaryHadFocus.current = false; }); }} tabIndex={compactChrome && !(spec.kind === 'heatmap' && spec.cellActivation) && !selectedActionRow?.drill ? 0 : undefined} aria-label={m('chartSelectionSummaryRegion')} className={cn(compactChrome ? 'flex max-h-16 shrink-0 flex-wrap items-center gap-x-2 gap-y-0.5 overflow-y-auto px-2 py-0.5 text-xs text-text-secondary' : 'px-4 py-2 text-xs text-text-secondary', !compactChrome && (embedded ? 'border-t border-border-subtle' : 'bg-surface-sunken'))}>
         {selectionSummary}
         {hasStatuses && summaryRows.filter(row => row.status).map(row => <p key={row.key}>{row.label}: {statusText(row.status)}</p>)}
         {spec.kind === 'heatmap' && spec.cellActivation && <Button size={compactChrome ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={compactChrome ? m('chartActivatePoint') : undefined} title={compactChrome ? m('chartActivatePoint') : undefined} disabled={brushMode || !selectedCell} onClick={() => { if (!brushMode && selectedCell) spec.cellActivation?.onActivate(selectedCell.x, selectedCell.y); }}>{compactChrome ? <Play className="size-3.5" aria-hidden /> : m('chartActivatePoint')}</Button>}
