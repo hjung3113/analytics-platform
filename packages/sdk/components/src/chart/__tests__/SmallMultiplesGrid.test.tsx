@@ -61,23 +61,48 @@ it.each(['click', 'Enter'] as const)('preserves URL selection and withdraws cand
   expect(tile(1)).toHaveAttribute('aria-pressed', 'true');
 });
 
-it.each(['regular', 'compact'] as const)('gives an all-null tile the same %s plot slot as a populated tile', async density => {
-  const bounds = new Map([[from, { lower: 0, upper: 2 }]]);
-  const empty = { ...series[0], bounds, points: series[0].points.map(point => ({ ...point, y: null })) };
-  render(view({ series: [empty, { ...series[1], bounds }], density }));
+it.each(['regular', 'compact'] as const)('fills the %s shared-axis tiles below their headers', async density => {
+  const empty = { ...series[1], points: [] };
+  render(view({ series: [series[0], empty], density }));
   await screen.findByRole('button', { name: 'Asset 0' });
-  const plots = [tile(0), tile(1)].map(button => button.querySelector('svg')!);
+
+  for (const button of [tile(0), tile(1)]) {
+    // jsdom does not lay out flex boxes. The plot must consume the remaining space after the header.
+    const plot = button.querySelector(':scope > svg');
+    expect(plot).toHaveClass('flex-1');
+    expect(button.lastElementChild).toBe(plot);
+  }
+});
+
+it.each(['regular', 'compact'] as const)('keeps the %s shared-axis empty notice clear of bounds in an aligned plot with blank labels', async density => {
+  const bounds = new Map([[from, { lower: 0, upper: 2 }]]);
+  const empty = { ...series[0], label: '', bounds, points: series[0].points.map(point => ({ ...point, y: null })) };
+  render(view({ series: [empty, { ...series[1], label: '', bounds }], density }));
+  const grid = await screen.findByRole('grid', { name: 'Trend' });
+  const [emptyTile, populatedTile] = within(grid).getAllByRole('button');
+  const plots = [emptyTile, populatedTile].map(button => button.querySelector('svg')!);
   expect(plots[0].querySelector('[data-small-multiple-band]')?.getAttribute('d')).toBe(
     plots[1].querySelector('[data-small-multiple-band]')?.getAttribute('d'),
   );
-  expect(plots[0].parentElement?.className).toBe(plots[1].parentElement?.className);
-  const caption = within(tile(0)).getByText('결과 없음');
-  const spacer = plots[1].nextElementSibling;
-  expect(plots[0].nextElementSibling).toBe(caption);
-  expect(caption).not.toHaveClass('absolute');
-  expect(caption).toHaveClass('h-lh', 'shrink-0');
-  expect(spacer?.className).toBe(caption.className);
-  expect(spacer).toBeEmptyDOMElement();
+  expect(plots[0].classList.value).toBe(plots[1].classList.value);
+  const header = plots[0].previousElementSibling;
+  expect(header).toContainElement(within(emptyTile).getByText('결과 없음'));
+  // jsdom cannot measure the header. Require one reserved line even on the populated tile with no header text.
+  expect(header).toHaveClass('h-lh', 'shrink-0');
+  expect(header?.className).toBe(plots[1].previousElementSibling?.className);
+  expect(emptyTile).toHaveAccessibleDescription('결과 없음');
+});
+
+it.each(['regular', 'compact'] as const)('bounds the %s shared-axis empty notice so the series label has room', async density => {
+  const label = 'Asset with a long series label';
+  render(view({ series: [{ ...series[0], label, points: [] }], density }));
+  const button = await screen.findByRole('button', { name: label });
+  const notice = within(button).getByText('결과 없음');
+
+  expect(notice).toHaveClass('max-w-1/2', 'shrink-0', 'truncate');
+  expect(within(button).getByText(label)).toHaveClass('min-w-0', 'truncate');
+  expect(button).toHaveAccessibleName(label);
+  expect(button).toHaveAccessibleDescription('결과 없음');
 });
 
 it('recovers grid-owned focus by tile ID and clears the tab stop of a removed tile', async () => {
@@ -308,6 +333,17 @@ it('reserves at least 24 px for the plot in compact density', async () => {
   const button = await screen.findByRole('button', { name: 'Asset 0' });
   // jsdom does not lay out flex boxes. Check the 24 px minimum-height utility.
   expect(button.querySelector('svg')).toHaveClass('min-h-6');
+});
+
+it('keeps a range row and a 24 px minimum plot in compact independent-axis tiles', async () => {
+  render(withToolbar({ series: series.slice(0, 1), density: 'compact', showAxisControl: true }));
+  await userEvent.click(screen.getByRole('radio', { name: '칸마다 축' }));
+
+  const plot = tile(0).querySelector(':scope > svg');
+  const range = within(tile(0)).getByText('0–1 ms');
+  expect(plot).toHaveClass('min-h-6');
+  expect(plot?.nextElementSibling).toBe(range);
+  expect(range).toHaveClass('h-lh', 'shrink-0');
 });
 
 it('shows the density choice only when requested and keeps the choice out of the URL', async () => {

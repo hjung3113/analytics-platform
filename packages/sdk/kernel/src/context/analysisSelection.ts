@@ -61,6 +61,15 @@ const useChannels = (menu: MenuEntry | undefined, registry: MenuPlatform['regist
   return useMemo(() => menuAnalysisSelections(menu ?? noRoute, lent), [menu, lent]);
 };
 
+/** Channel display name for SDK actions, including keys shared by multiple writers. */
+export function useAnalysisSelectionChannelName(
+  platform: Pick<MenuPlatform, 'route' | 'registry'>, key: string | undefined,
+): Text | string | undefined {
+  const channels = useChannels(key === undefined ? undefined : platform.route?.menu, platform.registry);
+  const channel = key === undefined ? undefined : channels.get(key);
+  return channel?.label ?? channel?.dimension;
+}
+
 const useWriteScreen = (route: MenuPlatform['route']) => route ? use(PaneScreenContext) ?? use(ScreenContext) : null;
 
 const readNoGraph = () => undefined;

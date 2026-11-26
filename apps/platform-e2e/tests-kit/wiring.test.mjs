@@ -12,7 +12,8 @@ test('Start kit browser check runs once inside the Playwright shard job', () => 
   const step = job.split('- name: Start kit browser check\n')[1]?.split('\n      - ')[0];
   assert.ok(step, 'named browser step exists in the E2E job');
   assert.match(step, /matrix.shard == 1/);
-  assert.match(step, /needs.changes.outputs.e2e_kit != 'false'/);
+  // A failed classification discards its outputs, so the kit gate runs (#3082).
+  assert.match(step, /\(needs\.changes\.result == 'success' && needs\.changes\.outputs\.e2e_kit \|\| ''\) != 'false'/);
   assert.match(step, /pnpm sdk:pack --out/);
   assert.match(step, /AP_SDK_KIT_DIR_FILE=.*pnpm sdk:consumer-check/);
   assert.match(step, /export AP_SDK_KIT_DIR=/);
@@ -28,8 +29,11 @@ test('kit, app-host, mock-server and browser driver changes select the kit gate'
     'packages/host/app-host/src/start.tsx',
     'packages/host/mock-server/src/index.ts',
   ]) {
-    // The kit gate follows the conservative full-selection verdict, including every dependency above.
-    assert.equal(select({ event: 'pull_request', files: [file], exists: () => true }).e2e, 'all', file);
+    // The kit browser step is push-only: a push selects all, so the kit gate runs there. A PR still runs the contract smoke set (#3082).
+    assert.equal(select({ event: 'push', files: [file], exists: () => true }).e2e, 'all', file);
+    const pr = select({ event: 'pull_request', files: [file], exists: () => true });
+    assert.match(pr.e2e, /(?:^| )contract-shell\.spec\.ts(?: |$)/, file);
+    assert.equal(pr.e2e_base_path, 'true', file);
   }
   for (const file of ['apps/platform-e2e/tests-kit/kit.spec.ts', 'apps/platform-e2e/playwright.kit.config.ts']) {
     // Kit-only files need no mock run on a PR, where the kit gate never runs (#1931, #2048 CI--12); a push selects all, so the kit gate runs.

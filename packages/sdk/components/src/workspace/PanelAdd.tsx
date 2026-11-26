@@ -36,7 +36,11 @@ export type AnalysisPanelAddition = {
   toolbarDraft?: (item: PanelAddItem) => Omit<AnalysisPanelDraft, 'mode'> | undefined;
 };
 /** What the workspace hands «새 패널»: the items still offered, each with `placed` computed by the workspace (SDK internal, #2862 ②). */
-export type AnalysisPanelDestinations = Omit<AnalysisPanelAddition, 'items'> & { items: readonly (PanelAddItem & { placed: boolean })[] };
+export type AnalysisPanelDestinations = Omit<AnalysisPanelAddition, 'items'> & {
+  items: readonly (PanelAddItem & { placed: boolean })[];
+  /** The catalog opts in before placement or input matching can remove its categorized entries. */
+  categorized?: boolean;
+};
 
 export const AnalysisPanelAddContext = createContext<AnalysisPanelDestinations | null>(null);
 
@@ -103,6 +107,10 @@ export type PanelAddItem = {
   slots?: readonly string[];
 };
 
+export function hasCategorizedPanels(items: readonly PanelAddItem[]): boolean {
+  return items.some(item => item.category !== undefined);
+}
+
 export type PanelAddMenuProps = {
   items: readonly PanelAddItem[];
   /** Ids already in the workspace: drawn checked and disabled («이미 있음»). */
@@ -125,7 +133,7 @@ export function PanelAddMenu({ items, shown = [], onAdd, chartFields, existingId
   const m = useMessages(COMPONENTS_MESSAGES);
   const { lang } = useI18n();
   const [pinOnAdd, setPinOnAdd] = useState(pinByDefault);
-  const categorized = items.some(item => item.category !== undefined);
+  const categorized = hasCategorizedPanels(items);
   const rows = items.map(({ id, title, description, disabledReason, category, kind }) => {
     const isShown = shown.includes(id);
     const reason = isShown ? m('panelAddShown') : disabledReason?.[lang];
@@ -194,13 +202,12 @@ function PanelAddPopover({ trigger, chartFields, rows, categorized, pinOnAdd, se
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const platform = usePlatformOptional();
-  const generation = JSON.stringify([platform?.route?.menu.id, platform?.user.id, platform?.revision, platform?.scope.scopeId]);
   const { open, setOpen, rows: offered, contentProps } = usePanelAddSurface(rows);
   return <Popover open={open} onOpenChange={setOpen}>
     {/* ArrowDown opens it as it opens the plain dropdown this replaces. */}
     <PopoverTrigger asChild onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); } }}>{trigger}</PopoverTrigger>
-    <PanelPickerContent generation={generation} rows={offered} categorized={categorized} label={m('panelAdd')}
-      pin={pinOnAdd} setPin={setPinOnAdd} close={() => setOpen(false)} contentProps={contentProps}>
+    <PanelPickerContent rows={offered} categorized={categorized} label={m('panelAdd')}
+      pinning={{ checked: pinOnAdd, onChange: setPinOnAdd }} close={() => setOpen(false)} contentProps={contentProps}>
       {chartFields && <ChartPanelPicker fields={chartFields} granted={permission => platform?.can(permission) === true} existingIds={existingIds}
         onAdd={instance => { onAdd(instance); setOpen(false); }} />}
     </PanelPickerContent>

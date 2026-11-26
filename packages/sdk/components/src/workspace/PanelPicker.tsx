@@ -1,5 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState, type ComponentProps, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
-import { useI18n, useMessages } from '@ap/kernel';
+import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { Checkbox, PopoverContent, SearchInput, cn } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PanelAddItem } from './PanelAdd';
@@ -121,12 +121,15 @@ function CategorizedPanels({ rows }: { rows: readonly PanelPickerRow[] }) {
   </div>;
 }
 
-export function PanelPickerContent({ generation, rows, categorized, label, pin, setPin, close, contentProps, children }: {
-  generation: string; rows: readonly PanelPickerRow[]; categorized: boolean; label: string;
-  pin: boolean; setPin: (pin: boolean) => void; close: () => void; children?: ReactNode;
+export function PanelPickerContent({ rows, categorized, label, inputLabel, pinning, close, onCloseAutoFocus, contentProps, children }: {
+  rows: readonly PanelPickerRow[]; categorized: boolean; label: string; inputLabel?: string;
+  pinning?: { checked: boolean; onChange: (pin: boolean) => void };
+  close: () => void; onCloseAutoFocus?: (event: Event) => void; children?: ReactNode;
   contentProps?: Pick<ComponentProps<typeof PopoverContent>, 'onClickCapture' | 'onKeyDownCapture'> & { 'data-panel-add-content': string };
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
+  const platform = usePlatformOptional();
+  const generation = JSON.stringify([platform?.route?.menu.id, platform?.user.id, platform?.revision, platform?.scope.scopeId]);
   const content = useRef<HTMLDivElement>(null);
   const held = useRef(false);
   // A menu, user, revision or Scope change replaces the list and the chart builder while the popover stays open. If either
@@ -139,14 +142,17 @@ export function PanelPickerContent({ generation, rows, categorized, label, pin, 
     node.querySelector<HTMLElement>(categorized ? 'input[type="search"]' : PANEL_ROW_SELECTOR)?.focus();
   }, [generation, categorized]);
   const actions = rows.map(row => ({ ...row, onSelect: () => { row.onSelect(); close(); } }));
-  return <PopoverContent align="end" aria-label={label} {...contentProps}
+  return <PopoverContent align="end" aria-label={label} onCloseAutoFocus={onCloseAutoFocus} {...contentProps}
     className={cn('max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto', categorized ? 'w-[60rem]' : 'w-xl')}>
     <div ref={content} className="text-sm">
+      {inputLabel !== undefined && <p className="mb-3 w-fit max-w-full rounded-full bg-accent-primary-soft px-2 py-1 text-xs font-medium text-accent-primary wrap-anywhere">
+        {m('panelAddInput', { selection: inputLabel })}
+      </p>}
       {categorized ? <GenerationSection generation={generation} held={held}><CategorizedPanels rows={actions} /></GenerationSection>
         : <PanelList label={m('panelAddDeclared')} rows={actions} />}
-      <label className="my-2 flex min-h-6 w-fit items-center gap-2">
-        <Checkbox checked={pin} onCheckedChange={checked => setPin(checked === true)} />{m('panelAddPins')}
-      </label>
+      {pinning && <label className="my-2 flex min-h-6 w-fit items-center gap-2">
+        <Checkbox checked={pinning.checked} onCheckedChange={checked => pinning.onChange(checked === true)} />{m('panelAddPins')}
+      </label>}
       {children && <GenerationSection generation={generation} held={held}>{children}</GenerationSection>}
     </div>
   </PopoverContent>;

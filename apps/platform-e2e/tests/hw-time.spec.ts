@@ -7,6 +7,9 @@ const SCREEN = '/mars/hw-time?v=1&scopeId=MEM';
 const TWO_DAYS = '&from=2026-09-24T00:00:00&to=2026-09-26T00:00:00';
 const workspace = (page: Page) => page.getByRole('region', { name: 'HW Time 분석 영역', exact: true });
 const panel = (page: Page, id: string) => workspace(page).locator(`[data-dock-panel="${id}"]`);
+// #2740 ②: «HTM 추세» opens in «나눠 보기» (one shared-axis tile per equipment); the overlaid chart is «겹쳐 보기».
+const trendGrid = (page: Page) => panel(page, 'trend').getByRole('grid');
+const showOverlay = (page: Page) => panel(page, 'trend').getByRole('radio', { name: '겹쳐 보기', exact: true }).click();
 const chartMore = (page: Page, id: string) => {
   const head = workspace(page).locator(`[data-dock-group-actions][data-dock-active="${id}"]`);
   return head.or(panel(page, id)).getByRole('button', { name: '더보기', exact: true });
@@ -28,6 +31,41 @@ async function selectPoint(page: Page, row: string) {
   await picker.selectOption({ value: (await option.getAttribute('value'))! });
   return tools;
 }
+
+test.describe('HW Time workspace layout (#701, #690k)', () => {
+  test('HW Time 단계 패널: 맞춤으로 시작하고 첫 줄 패널 안이 넘치지 않는다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(SCREEN);
+    const root = page.locator('[data-panel-workspace]');
+    await expect(root).toHaveAttribute('data-workspace-mode', 'fit');
+    await expect(root.locator('canvas')).not.toHaveCount(0);
+    for (const id of ['tree', 'current']) {
+      const panel = root.locator(`[data-dock-panel="${id}"]`);
+      await expect(panel).toBeVisible();
+      await expect.poll(() => panel.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('1440×900 HW Time 원시 표의 행 영역이 패널 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto(`${SCREEN}&pins=table`);
+    await workspace(page).getByRole('tab', { name: '원본 표', exact: true }).click();
+    const tablePanel = page.locator('[data-dock-panel="table"]');
+    const rows = tablePanel.getByLabel('스크롤 가능한 행 영역');
+    await expect(rows).toBeVisible();
+    await expect(rows.getByRole('row').nth(2)).toBeVisible();
+    const slot = tablePanel;
+    // The cap follows layout (observers), so poll until it has grown past the unmeasured fallback.
+    await expect.poll(async () => {
+      const rowsBox = (await rows.boundingBox())!;
+      const slotBox = (await slot.boundingBox())!;
+      return slotBox.y + slotBox.height - (rowsBox.y + rowsBox.height);
+    }).toBeLessThanOrEqual(120);
+    // Filling must not overshoot its panel (the stacked page itself scrolls by design).
+    await expect.poll(() => tablePanel.evaluate(panel => panel.scrollHeight - panel.clientHeight)).toBeLessThanOrEqual(1);
+    await evidence(page, testInfo, 'hw-time-table-fill');
+  });
+});
 
 test.describe('HW Time narrow workspace query line', () => {
   test('keeps query controls separate and clear-all keyboard reachable with panel settings open', async ({ page }, testInfo) => {
@@ -81,6 +119,49 @@ test.describe('HW Time narrow workspace query line', () => {
     await expect(clear).toBeVisible();
     await clear.press('Enter');
     await expect.poll(() => query(page).getAll('motionEquipment')).toEqual([]);
+  });
+});
+
+test.describe('HW Time narrow docked chart header', () => {
+  test('keeps the tab title and controls apart with the panel settings drawer open', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await signInAs(page, 'engineer');
+    await page.goto(`${SCREEN}&roomNames=PHOTO&from=2026-09-24T09:00:00&to=2026-09-26T09:00:00&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=table&motionEquipment=MEM-PHOTO-0103&motionEquipment=MEM-PHOTO-0105`);
+    await workspace(page).getByRole('tab', { name: '원본 표', exact: true }).click();
+    await workspace(page).getByRole('button', { name: '원본 표 동작', exact: true }).click();
+    await page.getByRole('menuitem', { name: '패널 설정', exact: true }).click();
+    const drawer = page.getByRole('dialog', { name: '원본 표', exact: true });
+    await expect(drawer).toBeVisible();
+    await drawer.hover();
+
+    const strip = workspace(page).locator('.dv-tabs-and-actions-container').filter({
+      has: page.locator('[data-dock-chart-head][data-dock-active="previous"]'),
+    });
+    await expect(strip.getByRole('tab')).toBeVisible();
+    await expect(strip.getByRole('button', { name: '표로 보기', exact: true })).toBeVisible();
+    await expect(strip.getByRole('button', { name: /최대화$/ })).toBeVisible();
+    await expect(strip.getByRole('button', { name: '더보기', exact: true })).toBeVisible();
+
+    await expect.poll(() => strip.evaluate(header => {
+      const title = header.querySelector('[data-dock-tab="previous"]')!.getBoundingClientRect();
+      const bounds = header.getBoundingClientRect();
+      const tolerance = 0.5;
+      const problems: string[] = [];
+      for (const control of header.querySelectorAll('button')) {
+        if (control.closest('[inert]') || !control.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+        const box = control.getBoundingClientRect();
+        const name = control.getAttribute('aria-label') ?? control.textContent;
+        const intersects = title.left < box.right - tolerance && box.left < title.right - tolerance
+          && title.top < box.bottom - tolerance && box.top < title.bottom - tolerance;
+        if (intersects) problems.push(`${name} overlaps the tab title`);
+        if (box.left < bounds.left - tolerance || box.right > bounds.right + tolerance
+          || box.top < bounds.top - tolerance || box.bottom > bounds.bottom + tolerance) {
+          problems.push(`${name} lies outside the header strip`);
+        }
+      }
+      return problems;
+    })).toEqual([]);
+    await evidence(page, testInfo, 'narrow-docked-chart-header');
   });
 });
 
@@ -172,6 +253,7 @@ test.describe('분석 선택 메뉴 간 링크 (#2735)', () => {
   test('carries the trend range to CLAS, returns with it, and clears the received range', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions`);
+    await showOverlay(page);
     const trend = panel(page, 'trend').getByRole('region', { name: '추세', exact: true });
     await expect(trend.getByRole('img', { name: /^추세:/ })).toBeVisible();
     await trend.getByRole('button', { name: '구간 선택', exact: true }).press('Enter');
@@ -303,7 +385,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
       await expect(panel(page, 'current').getByRole('group', { name: '범례', exact: true })).toHaveCount(0);
       await drill(page, 'PM/Pump/PM2');
       await expect.poll(() => query(page).get('drillModule')).toBe('PM2');
-      await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+      await expect(trendGrid(page)).toBeVisible();
       await expect(panel(page, 'scatter')).toHaveCount(0);
       await expect(panel(page, 'current')).toContainText('PM2');
       await expect(panel(page, 'current')).toContainText('Pump');
@@ -311,7 +393,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
       await evidence(page, testInfo, `hw-stepped-${viewport.width}`);
       await page.reload();
       await expect(node(page, 'PM/Pump/PM2')).toHaveAttribute('aria-current', 'true');
-      await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+      await expect(trendGrid(page)).toBeVisible();
       await expect.poll(() => page.locator('main').evaluate(main => main.scrollWidth - main.clientWidth)).toBeLessThanOrEqual(1);
     });
   }
@@ -355,6 +437,8 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
 
   test('add list gives disabled reasons, and tree checks persist without new reads', async ({ page }) => {
     await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Chuck&drillModule=PM1`);
+    await expect(trendGrid(page)).toBeVisible();
+    await showOverlay(page);
     await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
     await expect(panel(page, 'trend').getByRole('img', { name: /^일별 HTM 판정 건수:/ })).toBeVisible();
     await expect(panel(page, 'trend')).not.toContainText('HTM 하한: · HTM 상한:');
@@ -398,10 +482,10 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     });
     await page.goto('/board?sheet=hw-legacy');
     await expect(panel(page, 'tree')).toBeVisible();
-    await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+    await expect(trendGrid(page)).toBeVisible();
     expect(new URL(page.url()).pathname).toBe('/board');
     await page.reload();
-    await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+    await expect(trendGrid(page)).toBeVisible();
     const saved = await page.evaluate(() => localStorage.getItem('platform:board:v2:engineer') ?? '');
     expect(saved).toContain('"menuId":"hw-time"');
     expect(saved).not.toContain('hw-time-steps');

@@ -1,5 +1,5 @@
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/test/reporter';
 
 /**
@@ -9,7 +9,7 @@ import type { FullResult, Reporter, TestCase, TestResult } from '@playwright/tes
  * Every attempt is kept: a failure followed by a passing retry is reported as flaky, never as a clean pass.
  */
 type Attempt = { retry: number; status: TestResult['status']; error: string | null; evidence: string[] };
-type Row = { area: string; check: string; outcome: ReturnType<TestCase['outcome']>; attempts: Attempt[] };
+type Row = { file: string; area: string; check: string; outcome: ReturnType<TestCase['outcome']>; attempts: Attempt[] };
 
 const MARK: Record<Row['outcome'], string> = {
   expected: '✅ 통과',
@@ -49,6 +49,7 @@ export default class ContractReporter implements Reporter {
 
   onEnd(result: FullResult) {
     const rows: Row[] = [...this.tests.values()].map(({ test, attempts }) => ({
+      file: basename(test.location.file),
       area: test.titlePath().slice(3, -1).join(' › '), check: test.title, outcome: test.outcome(), attempts,
     }));
     const count = (o: Row['outcome']) => rows.filter(r => r.outcome === o).length;

@@ -16,7 +16,7 @@ import { clampFloatingPanel, dockGroupsInReadingOrder, type DockFloatingPanel, t
 import { useRegisterWorkspaceCommands, useWorkspaceDepth, WorkspaceDepthProvider, type WorkspaceCommand } from '../dock/WorkspaceCommandsHost';
 import { InWorkspacePanelProvider } from './panelContext';
 import { PanelBadge } from './PanelBadge';
-import { AnalysisPanelAddContext, type AnalysisPanelAddition, type AnalysisPanelDestinations, type PanelAddItem } from './PanelAdd';
+import { AnalysisPanelAddContext, hasCategorizedPanels, type AnalysisPanelAddition, type AnalysisPanelDestinations, type PanelAddItem } from './PanelAdd';
 import { PanelAddDragContext, usePanelAddDrag, type PanelAddPlacement } from './PanelAddDrag';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { PANEL_RECIPE_ITEM } from '../panel-recipe/panelRecipe';
@@ -792,6 +792,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
 
   const destinations: AnalysisPanelDestinations | null = analysisPanelAddition ? {
     ...analysisPanelAddition,
+    categorized: hasCategorizedPanels(analysisPanelAddition.items),
     // A panel in view on any of its slots stays only for its `again` mode (#2862 ②); one only collapsed or floating is not offered, as before.
     // `placed` is always the workspace's own value, never a field the menu passed.
     items: analysisPanelAddition.items.flatMap((item): (PanelAddItem & { placed: boolean })[] => {

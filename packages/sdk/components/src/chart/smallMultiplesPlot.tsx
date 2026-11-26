@@ -71,7 +71,16 @@ function position({ min, max }: Extent, value: number) {
 }
 export const smallMultipleStatusPaint = (status: ChartStatus) => `rgb(var(--${statusColorToken(status)}))`;
 
-export const SmallMultiplePlot = memo(function SmallMultiplePlot({ tile, x, y }: { tile: ReturnType<typeof projectSmallMultiples>['tiles'][number]; x: Extent; y: Extent }) {
+const plotClassName = 'block min-h-6 w-full flex-1 overflow-visible text-text-secondary';
+export const SmallMultiplePlot = memo(function SmallMultiplePlot({ tile, x, y, reserveEmptySlot }: {
+  tile: ReturnType<typeof projectSmallMultiples>['tiles'][number];
+  x: Extent;
+  y: Extent;
+  reserveEmptySlot: boolean;
+}) {
+  if (!tile.hasValues && !tile.bounds?.parts.length) {
+    return reserveEmptySlot ? <svg aria-hidden="true" className={plotClassName} /> : null;
+  }
   const px = (value: number) => INSET_X + (VIEW - 2 * INSET_X) * position(x, value);
   const py = (value: number) => VIEW - INSET_Y - (VIEW - 2 * INSET_Y) * position(y, value);
   let penDown = false;
@@ -89,7 +98,7 @@ export const SmallMultiplePlot = memo(function SmallMultiplePlot({ tile, x, y }:
     if (upper !== undefined) paths.upper += `M${left} ${py(upper)}H${right}`;
     if (lower !== undefined && upper !== undefined) paths.band += `M${left} ${py(upper)}H${right}V${py(lower)}H${left}Z`;
   }
-  return <svg aria-hidden="true" className="block min-h-6 w-full flex-1 overflow-visible text-text-secondary">
+  return <svg aria-hidden="true" className={plotClassName}>
     <svg width="100%" height="100%" viewBox={`0 0 ${VIEW} ${VIEW}`} preserveAspectRatio="none">
       <path d={GUIDE_PATH} className="stroke-chart-grid" fill="none" vectorEffect="non-scaling-stroke" />
       {paths.band && <path data-small-multiple-band d={paths.band} fill="currentColor" fillOpacity={CHART_BAND_OPACITY} />}

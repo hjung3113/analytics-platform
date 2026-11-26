@@ -1,0 +1,5 @@
+{
+  "maxParallelPrJobs": 9,
+  "maxJobMinutes": 10,
+  "reason": "Keep PR feedback within ten minutes and leave runner capacity for four active lanes."
+}

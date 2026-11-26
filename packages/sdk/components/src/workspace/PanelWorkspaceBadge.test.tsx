@@ -106,7 +106,8 @@ describe('PanelWorkspace panel badge: tab', () => {
   it('keeps the tab markup of a workspace without a badge', async () => {
     render(ui());
     await ready();
-    expect(tab('selector').querySelector('[data-dock-tab]')!.innerHTML).toBe('선택기');
+    // The engine's plain title: its own truncating span (#3069), with nothing a badge would add.
+    expect(tab('selector').querySelector('[data-dock-tab]')!.innerHTML).toBe('<span class="min-w-0 truncate">선택기</span>');
     expect(tab('selector')).not.toHaveAttribute('aria-description');
     expect(document.querySelector('[data-panel-badge]')).toBeNull();
   });

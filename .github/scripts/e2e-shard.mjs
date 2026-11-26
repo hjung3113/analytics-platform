@@ -1,10 +1,10 @@
-// CI E2E shard job (#2182): prints the `tests/<spec>:<line>` filters one shard runs, balanced by recorded time instead of by test count.
+// CI E2E shard job (#2182): prints the Playwright file-and-line filters one shard runs, balanced by recorded time instead of by test count.
 // Playwright's `--shard` cuts the sorted test list into equal-count slices; the slow specs (contract-board 7 s a test against ~2 s elsewhere)
 // then pile up in two or three shards (3.2 to 7.6 min). Here every test gets its spec file's weight from apps/platform-e2e/shard-weights.json
 // (seconds a test, measured from a merged CI report), and the tests go heaviest first to the lightest shard. Every shard lists the same
 // tests and computes the same partition, so the shards together cover every test exactly once. Node builtins only.
 //
-//   node .github/scripts/e2e-shard.mjs <shard> <total>     one filter per line on stdout; exit 1 on any failure (the workflow then falls back to `--shard`)
+//   node .github/scripts/e2e-shard.mjs <shard> <total> [tests/<spec> ...]    one filter per line; exit 1 falls back to Playwright --shard
 //   node .github/scripts/e2e-shard.mjs --self-test
 
 import { execFileSync } from 'node:child_process';
@@ -29,6 +29,10 @@ export function testsOf(report) {
 
 /** Partition `tests` into `total` shards (index 0..total-1). Pure and deterministic: the same list always gives the same split. */
 export function partition(tests, total, weights) {
+  // Even one unsafe filename makes the whole inventory go through native sharding.
+  for (const { file } of tests) {
+    if (!/^(?:[\w.-]+\/)*[\w.-]+$/.test(file)) throw new Error(`cannot weight an unsafe Playwright path: ${file}`);
+  }
   const weightOf = (t) => (weights.files[t.file] ?? weights.default) * t.count;
   const order = [...tests].sort((a, b) => weightOf(b) - weightOf(a) || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   const load = Array.from({ length: total }, () => 0);
@@ -40,6 +44,13 @@ export function partition(tests, total, weights) {
     load[at] += weightOf(t);
   }
   return { shards, load };
+}
+
+function locationFilter(key) {
+  const [file, line] = key.split(':');
+  // Playwright accepts /pattern/flags:line syntax. An explicit regex with
+  // no flags matches the exact case and suffix, even for paths containing dots.
+  return `//tests/${file.replaceAll('.', '\\.')}$/:${line}`;
 }
 
 function selfTest() {
@@ -62,6 +73,15 @@ function selfTest() {
     if (total > 1) assert(Math.max(...load) - Math.min(...load) <= 7 * 3, `balanced at ${total} shards: ${load.join(' ')}`);
   }
   assert(partition([], 4, weights).shards.every((s) => s.length === 0), 'empty list');
+  const unsafe = testsOf({ suites: [{ specs: [spec('contract-(shell).spec.ts', 10), spec('fast.spec.ts', 20)] }] });
+  let rejected = false;
+  try { partition(unsafe, 2, weights); } catch (error) { rejected = error.message.includes('contract-(shell).spec.ts'); }
+  assert(rejected, 'unsafe inventory rejects weighted scheduling on every shard');
+  const literalFilter = locationFilter('dir/fast.spec.ts:20');
+  const pattern = new RegExp(literalFilter.slice(1, literalFilter.lastIndexOf('/')));
+  assert(literalFilter.endsWith('/:20') && pattern.test('/repo/tests/dir/fast.spec.ts'), 'weighted filter includes the file and line');
+  assert(!pattern.test('/repo/tests/dir/fast-spec.ts') && !pattern.test('/repo/tests/dir/FAST.spec.ts'),
+    'weighted filter matches dots and case literally');
   console.log('e2e-shard self-test ok');
 }
 
@@ -69,14 +89,15 @@ function main() {
   if (process.argv[2] === '--self-test') return selfTest();
   const shard = Number(process.argv[2]);
   const total = Number(process.argv[3]);
+  const specs = process.argv.slice(4);
   if (!Number.isInteger(shard) || !Number.isInteger(total) || shard < 1 || shard > total) throw new Error('usage: e2e-shard.mjs <shard> <total>');
   const weights = JSON.parse(readFileSync('apps/platform-e2e/shard-weights.json', 'utf8'));
-  const raw = execFileSync('pnpm', ['--filter', '@ap/platform-e2e', 'exec', 'playwright', 'test', '--list', '--reporter=json'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: '' } });
+  const raw = execFileSync('pnpm', ['--filter', '@ap/platform-e2e', 'exec', 'playwright', 'test', '--list', '--reporter=json', ...specs], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_NAME: '' } });
   const report = JSON.parse(raw.slice(raw.indexOf('{')));
   const tests = testsOf(report);
-  if (tests.length === 0) throw new Error('playwright listed no tests');
+  if (tests.length < total) throw new Error('playwright listed fewer test groups than shards');
   const { shards } = partition(tests, total, weights);
-  process.stdout.write(shards[shard - 1].map((key) => `tests/${key}`).join('\n') + '\n');
+  process.stdout.write(shards[shard - 1].map(locationFilter).join('\n') + '\n');
 }
 
 try { main(); } catch (err) { console.error(`e2e-shard: ${err.message}`); process.exit(1); }

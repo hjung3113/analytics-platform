@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { globSync, readFileSync } from 'node:fs';
 import { posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { dependencyEntries, workspaceTargetDirectory } from './classify-changes.mjs';
 import { FEATURE_PACKAGES } from '../../tooling/eslint/src/feature-packages.js';
 
 const repoRoot = fileURLToPath(new URL('../..', import.meta.url));
@@ -55,6 +56,8 @@ export function workspaceDependencyErrors(task, plan, packages, trackedFiles = g
   if (!['test', 'typecheck', 'lint'].includes(task)) return [];
   const errors = [];
   const byName = new Map(packages.map(pkg => [pkg.name, pkg]));
+  const dirsByName = new Map(packages.map(pkg => [pkg.name, pkg.directory]));
+  const byDir = new Map(packages.map(pkg => [pkg.directory, pkg]));
   const byId = new Map(plan.tasks.map(entry => [entry.taskId, entry]));
   for (const entry of plan.tasks.filter(entry => entry.taskId === `${entry.package}#${task}`)) {
     const pkg = byName.get(entry.package);
@@ -75,14 +78,14 @@ export function workspaceDependencyErrors(task, plan, packages, trackedFiles = g
       const needed = src.length > 0 ? src : files.filter(file => !file.endsWith('.md'));
       return needed.length > 0 && needed.every(file => hashed.has(file));
     };
-    const dependencies = { ...pkg.dependencies, ...pkg.devDependencies, ...pkg.peerDependencies, ...pkg.optionalDependencies };
-    for (const [name, version] of Object.entries(dependencies)) {
+    for (const [name, version] of dependencyEntries(pkg)) {
       if (!version.startsWith('workspace:')) continue;
-      const dependency = byName.get(name);
-      if (!dependency) { errors.push(`${entry.taskId}: unknown workspace dependency ${name}`); continue; }
-      if (entries.some(node => node.package === name)) continue;
+      const target = workspaceTargetDirectory(pkg.directory, name, version, dirsByName);
+      const dependency = byDir.get(target);
+      if (!dependency) { errors.push(`${entry.taskId}: unknown workspace dependency ${name} (${version})`); continue; }
+      if (entries.some(node => node.package === dependency.name)) continue;
       if (covered(dependency.directory)) continue;
-      errors.push(`${entry.taskId}: workspace dependency ${name} is absent from the task closure, and its source files are not all hashed`);
+      errors.push(`${entry.taskId}: workspace dependency ${dependency.name} is absent from the task closure, and its source files are not all hashed`);
     }
   }
   return errors;
