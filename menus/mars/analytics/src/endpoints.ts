@@ -291,8 +291,10 @@ export const cycleTrendEndpoint = defineEndpoint<{ granularity: Granularity }, C
   ...cycleBase, id: 'analytics.cycle.trend', paramKeys: { granularity: true }, limits: { maxHours: CYCLE_MAX_HOURS },
 });
 
-export const cycleDistEndpoint = defineEndpoint<Record<never, true>, CycleDistData>({
-  ...cycleBase, id: 'analytics.cycle.dist', paramKeys: {}, limits: { maxHours: CYCLE_MAX_HOURS },
+export const CYCLE_EQUIPMENT_SELECTION_KEY = 'tableEquipment';
+
+export const cycleDistEndpoint = defineEndpoint<{ [CYCLE_EQUIPMENT_SELECTION_KEY]?: readonly string[] }, CycleDistData>({
+  ...cycleBase, id: 'analytics.cycle.dist', paramKeys: { [CYCLE_EQUIPMENT_SELECTION_KEY]: true }, limits: { maxHours: CYCLE_MAX_HOURS },
 });
 
 /** One page of the slow-execution table (06 §15). */

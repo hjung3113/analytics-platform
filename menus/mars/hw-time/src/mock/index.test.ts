@@ -319,8 +319,11 @@ describe('HW Time population follows the applied Scope and Condition', () => {
     const granted = EQUIPMENT.filter(e => e.site === 'MEM' && ['PHOTO', 'ETCH', 'CVD'].includes(e.room)).map(e => e.equipmentId);
     expect((await query(hwTime.levelRows.id, {}, { selection: granted.slice(0, 24) })).outcome).toBe('ok');
     const over = await query(hwTime.levelRows.id, {}, { selection: granted.slice(0, 25) });
-    expect(over.outcome).toBe('error');
-    expect(JSON.stringify(over)).toContain('at most 24 fixed equipment');
+    expect(over).toMatchObject({
+      outcome: 'too_large',
+      message: 'fixed_equipment_limit: 25/24',
+      data: null,
+    });
   });
 
   it('keeps every fixed ID of a mixed selection as its own row (#2868)', async () => {
@@ -338,6 +341,28 @@ describe('HW Time population follows the applied Scope and Condition', () => {
       query<HwTimeRow[]>(hwTime.exportRows.id, exportParams, noMatch),
     ]);
     expect(responses.map(response => response.outcome)).toEqual(['empty', 'empty', 'empty', 'empty', 'empty']);
+  });
+});
+
+describe('HW Time time-domain recovery (#3064)', () => {
+  const from = '2026-09-05T09:00:00';
+
+  it('explains why exclusion is unavailable when it would leave 36 fixed equipment', async () => {
+    const response = await query(hwTimeOverview.matrix.id, { moduleType: 'LK' }, { from, roomNames: null });
+    expect(response).toMatchObject({ outcome: 'error', message: 'time_domain_unverified · fixed_equipment_limit: 36/24' });
+    expect(response.recovery).toEqual({ maxHours: 24 });
+  });
+
+  it('offers exclusion when it leaves exactly 24 equipment and the fixed selection can be queried', async () => {
+    const applied = { from, roomNames: ['PHOTO', 'CVD'] };
+    const params = { moduleType: 'LK' };
+    const response = await query(hwTimeOverview.matrix.id, params, applied);
+    expect(response).toMatchObject({ outcome: 'error', message: 'time_domain_unverified' });
+    const { affectedEquipmentIds, authorizedEquipmentIds } = response.recovery ?? {};
+    expect(affectedEquipmentIds).toEqual(['MEM-PHOTO-0103', 'MEM-PHOTO-0105']);
+    const selection = authorizedEquipmentIds?.filter(id => !affectedEquipmentIds?.includes(id));
+    expect(selection).toHaveLength(24);
+    expect((await query(hwTimeOverview.matrix.id, params, { ...applied, selection })).outcome).toBe('ok');
   });
 });
 

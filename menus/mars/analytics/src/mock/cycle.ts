@@ -8,7 +8,7 @@ import { cycleMinutes, defineMockEndpoint, EQUIPMENT, findJobByAnchor, jobPercen
 import { jobsFor } from './job-context';
 import { sourceLogicVersionsFor } from './productivity';
 import {
-  CYCLE_SERIES_VERSIONS, BINS, binIndex, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, cycleTrendEndpoint,
+  CYCLE_EQUIPMENT_SELECTION_KEY, CYCLE_SERIES_VERSIONS, BINS, binIndex, bucketEnd, cycleDistEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, cycleTrendEndpoint,
   cycleVersionOf, executionKey, isAnchor, resolveMetric,
   type CycleKpi, type CycleTrend, type CycleTrendData, type Execution, type Granularity, type OccurrenceResult, type Segment,
   type SlowFilter, type SlowRow, type TailMode,
@@ -211,12 +211,18 @@ export const cycleMock: readonly AnyMockEndpoint[] = [
     metricVersion,
   }),
   defineMockEndpoint(cycleDistEndpoint, {
-    handle: ({ equipment, context }) => {
-      const rows = versioned(equipment, context);
+    validate: request => {
+      const { params } = request;
+      const selection = params[CYCLE_EQUIPMENT_SELECTION_KEY];
+      if (selection === undefined || (Array.isArray(selection) && selection.length > 0 && selection.every(id => typeof id === 'string' && id.trim()))) return validate(request);
+      return 'tableEquipment must be a non-empty array of equipment IDs';
+    },
+    handle: ({ equipment, context, params }) => {
+      const selection = params[CYCLE_EQUIPMENT_SELECTION_KEY];
+      const rows = versioned(selection ? equipment.filter(row => selection.includes(row.equipmentId)) : equipment, context);
       return { count: rows.length, bins: histogram(rows) };
     },
     isEmpty: data => data.count === 0,
-    validate,
     metricVersion,
   }),
   defineMockEndpoint(cycleSlowPageEndpoint, {

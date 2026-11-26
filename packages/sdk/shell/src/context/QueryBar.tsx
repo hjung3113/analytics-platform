@@ -365,8 +365,6 @@ function QueryBarSession({ label, historySlot, viewSlot, workspace, pinText }: Q
     return <>
       <section role="region" aria-label={region} data-query-bar data-query-bar-collapsed data-canvas-band
         className="sticky top-12.5 z-20 min-w-0 bg-surface-band">
-        {/* Measure the selection's share of the row independently of the chips it currently fits. */}
-        <div ref={setFoldedLane} aria-hidden className="pointer-events-none absolute h-0 w-1/3" />
         <Popover open={expanded && !pinned} onOpenChange={open => { if (!open) toggle(false); }}>
           <WorkspaceQueryBarRow line={{
             query: chips, queryOpen: expanded, queryEditorId: editorId, chip: CONDITION_CHIP,
@@ -382,10 +380,7 @@ function QueryBarSession({ label, historySlot, viewSlot, workspace, pinText }: Q
             </PopoverTrigger>,
             actions: foldedActions,
             pinnedTarget: pagePinTarget,
-            selection: <div className="relative hidden min-w-0 max-w-1/3 has-[[role=group]]:flex">
-              <span ref={setSummaryProbe} aria-hidden className="absolute size-0" />
-              <AnalysisSelectionChipZone fit={{ container: foldedLane, summary: summaryProbe }} fallbackFocus={disclosure} />
-            </div>,
+            selection: <AnalysisSelectionChipZone workspace fallbackFocus={disclosure} />,
           }} />
           <PopoverContent id={editorId} align="start" aria-label={region}
             className="max-h-[var(--radix-popover-content-available-height)] w-[min(64rem,var(--radix-popover-content-available-width))] overflow-y-auto"

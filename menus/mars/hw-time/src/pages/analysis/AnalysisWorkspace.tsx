@@ -1,7 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-react';
-import { isAnswered, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelDeclaration, type PanelInstance } from '@ap/contracts';
-import { ANALYSIS_SELECTION_MAX_VALUES, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type AnalysisSelectionChip, type MenuQueryState, type Text } from '@ap/kernel';
+import { isAnswered, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
+import { ANALYSIS_SELECTION_MAX_VALUES, AnalysisSelectionInstances, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useAnalysisSelectionReader, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type AnalysisSelectionChip, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
   getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
@@ -21,7 +21,7 @@ import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
 import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
-import { buildSavedPanels, defaultPanels, exceedsPanelLimit, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isHeldSource, keepHeld, names, newPanelInstance, panelAdditionOverflows, planAdd, planTableHold, SAME_PANEL_MAX, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
+import { buildSavedPanels, defaultPanels, defaultTableInput, exceedsPanelLimit, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isEquipmentOutput, isHeldSource, keepHeld, names, newPanelInstance, planAdd, planTableHold, SAME_PANEL_MAX, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
 import { CATALOG_IDS, chartRows, panelCatalog, projectBarData, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
@@ -114,7 +114,7 @@ type BarsProps = {
   options: readonly PanelOption[]; values: PanelOptionValues; onChange: (id: string, value: string | boolean) => void;
   onOpenTrend: (target: string, row: string) => void;
   previous?: boolean; allMotions?: boolean;
-  analysisSelectionOutput?: { panelId: string; key: string } | null;
+  analysisSelectionOutput?: { panelId: string; key: string; instanceId?: string } | null;
   highlightedValues?: readonly string[];
 };
 const noHighlightedEquipment: readonly string[] = [];
@@ -250,7 +250,9 @@ function nextConfig(state: { owner: string; query: string; config: PanelConfigur
   return defaultPanels;
 }
 
-function useWorkspacePanels(owner: string, query: string, step: Step, unpin: (id: string) => void) {
+function useWorkspacePanels(owner: string, query: string, step: Step, {
+  publisherFor, unpin,
+}: { publisherFor: (config: PanelConfiguration, at?: Step) => ReturnType<typeof selectionPublisher>; unpin: (id: string) => void }) {
   const population = JSON.stringify([step, query]);
   const [state, setState] = useState(() => ({ owner, query, population, config: defaultPanels, opening: false, clearTablePin: false }));
   const samePopulation = state.population === population;
@@ -262,8 +264,24 @@ function useWorkspacePanels(owner: string, query: string, step: Step, unpin: (id
     unpin('table');
     setState(current => ({ ...current, clearTablePin: false }));
   }, [state.clearTablePin, unpin]);
+  const projectCandidates = (candidate: CustomPanels, { acrossSteps = false } = {}): [MenuViewPanels, ...MenuViewPanels[]] => {
+    const atStep = (at: Step) => {
+      const { source, reserved } = publisherFor(candidate, at);
+      return buildSavedPanels(candidate, acrossSteps ? undefined : at, reserved ?? source);
+    };
+    const current = atStep(step);
+    if (!acrossSteps || step === 4) return [current];
+    // The module step can need a separate saved chart in place of a shared output-only reference.
+    return [current, atStep(4)];
+  };
+  const project = (candidate: CustomPanels, options?: { acrossSteps?: boolean }) => {
+    const [current, module] = projectCandidates(candidate, options);
+    return module && exceedsPanelLimit(module) ? module : current;
+  };
+  const overflows = (plan: ReturnType<typeof planAdd>) => plan.overflows
+    || (plan.config !== null && exceedsPanelLimit(project(plan.config, { acrossSteps: plan.config.connectionsEdited })));
   useSavedViewPanels({
-    value: buildSavedPanels(config, step),
+    value: config.kind === 'custom' ? project(config) : null,
     onOpen: outcome => {
       let next: PanelConfiguration;
       switch (outcome) {
@@ -285,7 +303,7 @@ function useWorkspacePanels(owner: string, query: string, step: Step, unpin: (id
   /** Every add path: refused as a whole when the saved panels would pass the v1 limit (R C2); `slot` is what it opened or reveals. */
   const add = (id: string, intent?: AddIntent, materialize = false): { ok: boolean; slot: string } => {
     const plan = planAdd(config, id, step, intent, materialize);
-    if (plan.overflows) return { ok: false, slot: plan.slot };
+    if (overflows(plan)) return { ok: false, slot: plan.slot };
     if (plan.config) { const next = plan.config; setState(current => ({ ...current, config: next })); }
     return { ok: true, slot: plan.slot };
   };
@@ -303,14 +321,16 @@ function useWorkspacePanels(owner: string, query: string, step: Step, unpin: (id
     return { ...current, config: { ...current.config, added, sources: current.config.sources.map(disconnect) } };
   });
   const editConnections = (config: CustomPanels) => setState(current => ({ ...current, config: { ...config, connectionsEdited: true } }));
+  const planHold = (candidate: PanelConfiguration, slot: string, chip: AnalysisSelectionChip, from?: string) =>
+    planTableHold(candidate, slot, chip, next => projectCandidates(next, { acrossSteps: next.connectionsEdited }), from);
   const holdTable = (slot: string, chip: AnalysisSelectionChip, options: { from?: string; clearPin: boolean }) => setState(current => {
     if (current.owner !== owner || current.population !== population) return current;
-    const plan = planTableHold(current.config, step, slot, chip, options.from);
+    const plan = planHold(current.config, slot, chip, options.from);
     return plan.kind === 'refused' ? current : { ...current, config: plan.config, clearTablePin: current.clearTablePin || options.clearPin };
   });
-  return { config, add, remove, follow, editConnections, holdTable,
-    planHold: (slot: string, chip: AnalysisSelectionChip, from?: string) => planTableHold(config, step, slot, chip, from),
-    additionOverflows: (id: string) => panelAdditionOverflows(config, step, id) };
+  return { config, add, remove, follow, editConnections, project, holdTable,
+    planHold: (slot: string, chip: AnalysisSelectionChip, from?: string) => planHold(config, slot, chip, from),
+    additionOverflows: (id: string) => overflows(planAdd(config, id, step)) };
 }
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
@@ -319,12 +339,21 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const context = useQueryContext();
   const typeId = pageParam('moduleType'), motionId = pageParam('drillMotion'), moduleId = pageParam('drillModule');
   const step = stepOf(typeId, motionId, moduleId);
+  const dayPanel = step === 3 && pageParam(MOTION_BASIS_KEY) === DAY_BASIS_ID ? panelDeclarations.equipmentDays : null;
   const owner = JSON.stringify([session.user.id, revision, context.scopeId]);
   const population = JSON.stringify([step, owner, context]);
-  const pins = usePinnedPanels('pins', CATALOG_IDS);
-  const savedPanels = useWorkspacePanels(owner, JSON.stringify(context), step, pins.unpin);
   const options = useMemo(() => workspaceOptions(step), [step]);
   const state = usePanelOptions(options);
+  const pins = usePinnedPanels('pins', CATALOG_IDS);
+  const trend = pageParam('trend');
+  const catalog = useMemo(() => panelCatalog({ step, typeId, moduleId, trend }), [step, typeId, moduleId, trend]);
+  const { pinned } = pins;
+  const publisherFor = useCallback((config: PanelConfiguration, at = step) => {
+    const available = at === step ? catalog : panelCatalog({ step: at, typeId, moduleId, trend });
+    return selectionPublisher(config, available, at, trend, pinned, at === step ? dayPanel : null);
+  }, [catalog, step, typeId, moduleId, trend, pinned, dayPanel]);
+  const savedPanels = useWorkspacePanels(owner, JSON.stringify(context), step, { publisherFor, unpin: pins.unpin });
+  const publisher = useMemo(() => publisherFor(savedPanels.config), [publisherFor, savedPanels.config]);
   // A saved view can pin a panel the catalog no longer has. Its reason slot shows the panel, so the opened address drops that pin
   // (one replace) instead of warning; until then the rule accepts it. A plain address with an unknown pin still warns.
   const missingPins = savedPanels.config.kind === 'custom' ? savedPanels.config.added.flatMap(({ instance }) => {
@@ -341,7 +370,6 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     setPage({ pins: rest.length > 0 ? rest : null }, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `stalePinsKey` is the value identity of `rawPins`/`stalePins`
   }, [stalePinsKey, setPage]);
-  const trend = pageParam('trend');
   const selectionInputs = useAnalysisSelectionInputs(panelDeclarations.table.id);
   const selectionRejected = selectionInputs.rejected.includes(MOTION_EQUIPMENT_KEY);
   const keys = useHwTimeDrillRules([...state.rules, ...pinRules,
@@ -363,39 +391,83 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     return <PageKeyWarning sentences={sentences} onRecover={keys.recover} />;
   }
   const required = step <= 2 ? HW_TIME_MODULE_TYPES.map(type => type.id) : [typeId!];
-  return <DrillLayout fill><MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins, savedPanels }} applied={selectionInputs.applied} values={state.values} onChange={state.setValue}
-    onDrill={id => {
-      const [type, motion, module] = id.split('/');
-      const sameMotion = !!motion && type === typeId && motion === motionId;
-      setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null,
-        [MOTION_BASIS_KEY]: sameMotion ? pageParam(MOTION_BASIS_KEY) : null, row: null, trend: null, focus: null });
-    }} />}</MatrixSources></DrillLayout>;
+  return <AnalysisSelectionInstances instances={publisher.instances} publishers={publisher.owners}>
+    <DrillLayout fill>
+      <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins, savedPanels, catalog, publisher }} values={state.values} onChange={state.setValue}
+        onDrill={id => {
+          const [type, motion, module] = id.split('/');
+          const sameMotion = !!motion && type === typeId && motion === motionId;
+          setPage({ moduleType: type!, drillMotion: motion ?? null, drillModule: module ?? null,
+            [MOTION_BASIS_KEY]: sameMotion ? pageParam(MOTION_BASIS_KEY) : null, row: null, trend: null, focus: null });
+        }} />}</MatrixSources>
+    </DrillLayout>
+  </AnalysisSelectionInstances>;
 }
 /** Keep the hover subscription inside the chart assigned to the selection source. */
-function SelectionSourceBars({ source, ...props }: Omit<BarsProps, 'highlightedValues'> & { source: boolean }) {
+function SelectionSourceBars({ instanceId, ...props }: Omit<BarsProps, 'highlightedValues'> & { instanceId?: string }) {
   const panelId = panelDeclarations.moduleMotions.id;
-  const { highlighted, selection } = useAnalysisSelectionOutput(panelId, MOTION_EQUIPMENT_KEY, { subscribeHighlight: source });
+  const { highlighted, selection } = useAnalysisSelectionOutput(panelId, MOTION_EQUIPMENT_KEY, { instanceId, subscribeHighlight: instanceId !== undefined });
   const showingPrevious = props.typeId ? props.queries[props.typeId]?.showingPrevious : false;
-  const output = showingPrevious ? null : { panelId, key: MOTION_EQUIPMENT_KEY };
+  const output = showingPrevious ? null : { panelId, key: MOTION_EQUIPMENT_KEY, instanceId };
   const highlightedValues = highlighted && selection?.shape === 'set' ? selection.values : noHighlightedEquipment;
-  return <Bars {...props} highlightedValues={source ? highlightedValues : undefined} analysisSelectionOutput={source ? output : undefined} />;
+  return <Bars {...props} highlightedValues={instanceId ? highlightedValues : undefined} analysisSelectionOutput={instanceId ? output : undefined} />;
 }
 
-/** A table that holds an equipment selection (#2862): it reads its filter inside `HeldAnalysisSelections`, never the URL's. */
-function HeldTablePanel({ instance, instances, local }: { instance: PanelInstance; instances: readonly PanelInstance[]; local: boolean }) {
-  const { held, unread } = useMemo(() => heldOf(instance, instances), [instance, instances]);
-  return <HeldAnalysisSelections held={held}><HeldTable unread={unread} local={local} /></HeldAnalysisSelections>;
+type TableSelectionSource = Parameters<typeof resolveAnalysisSelectionFilter>[0]['source'];
+
+function tableSelection(read: ReturnType<ReturnType<typeof useAnalysisSelectionReader>>, source: TableSelectionSource, {
+  unread = false, inputs = [], urlUse,
+}: { unread?: boolean; inputs?: readonly PanelInstanceInput[]; urlUse?: PanelInstanceInput['use'] } = {}) {
+  const { applied, rejectedHeld, requestedFilters, unavailableSources } = read;
+  const input = inputs.find(input => input.key === MOTION_EQUIPMENT_KEY);
+  const failedHold = unread || rejectedHeld.includes(MOTION_EQUIPMENT_KEY);
+  const failedSource = unavailableSources.includes(MOTION_EQUIPMENT_KEY)
+    || inputs.some(input => input.mode === 'follow' && input.key !== MOTION_EQUIPMENT_KEY);
+  const holdProblem = failedHold ? 'heldRejected' : undefined;
+  const problem = failedSource ? 'followUnavailable' : holdProblem;
+  const blocked = failedSource || (failedHold && input?.use !== 'highlight');
+  const received = applied.filter(input => input.key === MOTION_EQUIPMENT_KEY);
+  const appliedFilter = received.find(input => (urlUse ?? input.use) === 'filter');
+  const filter = resolveAnalysisSelectionFilter({
+    requested: urlUse !== 'highlight' && requestedFilters.includes(MOTION_EQUIPMENT_KEY),
+    applied: appliedFilter?.selection,
+    source,
+  });
+  const highlighted = received.find(input => (urlUse ?? input.use) === 'highlight')?.selection;
+  return { problem, blocked, filter, highlightedRowIds: highlighted?.shape === 'set' ? highlighted.values : undefined } as const;
 }
-function HeldTable({ unread, local }: { unread: boolean; local: boolean }) {
+
+const filteredEquipment = ({ filter, blocked }: ReturnType<typeof tableSelection>) =>
+  !blocked && filter.kind === 'filtered' && filter.selection.shape === 'set' ? filter.selection.values : undefined;
+
+function WorkspaceTable({ selection, local }: { selection: ReturnType<typeof tableSelection>; local: boolean }) {
   const workspace = useMessages(HW_TIME_WORKSPACE_MESSAGES);
-  const { applied, rejectedHeld } = useAnalysisSelectionInputs(panelDeclarations.table.id);
-  const selection = unread ? undefined : applied.find(input => input.key === MOTION_EQUIPMENT_KEY && input.use === 'filter' && input.held)?.selection;
-  const equipment = selection?.shape === 'set' ? selection.values : undefined;
-  const level = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, equipment !== undefined);
+  const { problem, blocked, filter, highlightedRowIds } = selection;
   return <>
-    {(unread || rejectedHeld.includes(MOTION_EQUIPMENT_KEY)) && <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={workspace('heldRejected')} />}
-    <RawTablePanel params={{}} linked analysis={equipment ? { equipment, level } : undefined} local={local} />
+    {problem && <div role="alert"><StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={workspace(problem)} /></div>}
+    {!blocked && (filter.kind === 'waiting' ? <LoadingBlock /> :
+      <RawTablePanel params={{}} linked equipment={filteredEquipment(selection)} highlightedRowIds={highlightedRowIds} local={local} />)}
   </>;
+}
+
+function HeldWorkspaceTable({ inputs, unread, source, local }: {
+  inputs: readonly PanelInstanceInput[];
+  unread: boolean;
+  source: TableSelectionSource;
+  local: boolean;
+}) {
+  const read = useAnalysisSelectionReader(panelDeclarations.table.id)(inputs);
+  return <WorkspaceTable selection={tableSelection(read, source, { unread, inputs })} local={local} />;
+}
+
+function HeldTablePanel({ instance, instances, ...table }: {
+  instance: PanelInstance;
+  instances: readonly PanelInstance[];
+  source: TableSelectionSource;
+  local: boolean;
+}) {
+  const { held, unread } = useMemo(() => heldOf(instance, instances), [instance, instances]);
+  return <HeldAnalysisSelections held={held}><HeldWorkspaceTable {...table} inputs={instance.inputs} unread={unread} /></HeldAnalysisSelections>;
 }
 
 const declarationOf = (id: string): PanelDeclaration | undefined => Object.hasOwn(panelDeclarations, id) ? panelDeclarations[id as CatalogId] : undefined;
@@ -437,31 +509,16 @@ function rawTables(slots: readonly { id: string; instance?: PanelInstance; item?
   };
 }
 
-function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'analysisSelectionOutput' | 'highlightedValues'> & {
-  step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void; applied: ReturnType<typeof useAnalysisSelectionInputs>['applied'];
-  savedPanels: ReturnType<typeof useWorkspacePanels>;
-}) {
-  const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill, applied, savedPanels } = props;
-  const common = useMessages(HW_TIME_MESSAGES);
-  const workspace = useMessages(HW_TIME_WORKSPACE_MESSAGES);
-  const { lang } = useI18n();
-  const [settings, setSettings] = useState<{ id: string; trigger: HTMLButtonElement; query: string } | null>(null);
-  const [explained, setExplained] = useState<string | null>(null);
-  const [reveal, setReveal] = useState<{ panelId: string; seq: number; restoreHidden?: boolean } | null>(null);
-  // A reveal that follows the one just requested: the first table of a new pair, with the same options (R C1, R2 C1).
-  const followUp = useRef<{ restoreHidden?: boolean } | null>(null);
-  useEffect(() => {
-    if (trend && step !== 4) setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
-  }, [trend, step]);
-  const { page, pageParam, pageParams, setPage, toast } = usePlatform();
-  const dayPanel = step === 3 && pageParam(MOTION_BASIS_KEY) === DAY_BASIS_ID ? panelDeclarations.equipmentDays : null;
-  const catalog = panelCatalog({ step, typeId, moduleId, trend });
+type DayPanel = typeof panelDeclarations.equipmentDays | null;
+
+function workspaceExtraPanels(config: PanelConfiguration, catalog: ReturnType<typeof panelCatalog>, step: Step, trend: string | null,
+  pinned: readonly string[], dayPanel: DayPanel) {
   const available = catalog.filter(item => !item.disabledReason);
-  const added = savedPanels.config.kind === 'custom' ? savedPanels.config.added : [];
+  const added = config.kind === 'custom' ? config.added : [];
   const extras = added.filter(panel => panel.slot !== 'current' && (step !== 4 || panel.slot !== 'trend')).map(({ slot, instance, heldFrom }) => ({
     id: slot, instance, heldFrom, item: catalog.find(item => item.id === declaredPanelId(instance)),
   }));
-  const autoIds = new Set([...pins.pinned, ...(trend || step === 4 ? ['trend'] : [])]);
+  const autoIds = new Set([...pinned, ...(trend || step === 4 ? ['trend'] : [])]);
   // Automatic panels occupy rendered slots. A saved wire ID collision is handled when settings create an instance for that slot.
   const taken = new Set(extras.map(extra => extra.id));
   const automatic = [...autoIds].flatMap(id => {
@@ -477,6 +534,63 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   });
   // When the heatmap is the primary panel, keep its saved pin or slot for the default basis.
   const extraPanels = [...extras, ...automatic].filter(({ item }) => !dayPanel || item?.id !== dayPanel.id);
+  return { added, extras, automatic, extraPanels, dayPanel };
+}
+
+const sourcePanelId = panelDeclarations.moduleMotions.id;
+
+function selectionPublisher(config: PanelConfiguration, catalog: ReturnType<typeof panelCatalog>, step: Step, trend: string | null,
+  pinned: readonly string[], dayPanel: DayPanel) {
+  const work = workspaceExtraPanels(config, catalog, step, trend, pinned, dayPanel);
+  const { added, extraPanels } = work;
+  const sources = config.kind === 'custom' ? config.sources : [];
+  const saved = [...added.map(entry => entry.instance), ...sources];
+  const motionSlots = extraPanels.filter(({ item }) => item?.id === sourcePanelId && !item.disabledReason);
+  const slot = motionSlots[0]?.id ?? (step === 4 ? 'current' : undefined);
+  const stored = added.find(entry => entry.slot === slot)?.instance;
+  const source = slot ? settingsInstance(slot, panelDeclarations.moduleMotions, stored, saved) : undefined;
+  const staleOutput = source && !source.outputs.some(isEquipmentOutput);
+  // Use an output-only reference without a chart, or when saving the chart would hide it or rewrite a stale output.
+  const reserved = !source || isHeldSource(source) || staleOutput ? heldSourceFor({ kind: 'custom', added, sources }, { reservedOnly: true }) : undefined;
+  const reservedSource = reserved?.sources.find(instance => instance.id === reserved.id);
+  const instances = saved.map(instance => source?.id === instance.id ? source : instance);
+  // A drawn chart still publishes its declared channel when its saved output metadata is stale.
+  const live = source && staleOutput
+    ? { ...newPanelInstance(source.id, sourcePanelId, instances), outputs: [heldOutput] } : source;
+  if (live && !instances.some(instance => instance.id === live.id)) instances.push(live);
+  // A converted #2862 hold names the old output-only equipment channel. Resolve that reference for live reads only.
+  const aliases = new Set(sources.filter(isHeldSource).flatMap(instance =>
+    instance.outputs.filter(isEquipmentOutput).map(output => `${instance.id}.${output.key}`)));
+  const runtime = live && aliases.size ? instances.map(instance => ({
+    ...instance, inputs: instance.inputs.map(input => input.mode === 'follow' && aliases.has(input.from)
+      ? { ...input, from: defaultTableInput(live).from } : input),
+  })) : instances;
+  const byId = new Map(runtime.map(instance => [instance.id, instance]));
+  return { work, slot, source, live, reserved: reservedSource, sources: reserved?.sources ?? sources, instances: runtime, byId, aliases,
+    owners: new Map([[MOTION_EQUIPMENT_KEY, live?.id ?? null]]),
+    selectionHost: motionSlots.length <= 1 ? slot : undefined,
+  };
+}
+
+function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotions' | 'onOpenTrend' | 'analysisSelectionOutput' | 'highlightedValues'> & {
+  step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void;
+  catalog: ReturnType<typeof panelCatalog>; publisher: ReturnType<typeof selectionPublisher>;
+  savedPanels: ReturnType<typeof useWorkspacePanels>;
+}) {
+  const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill, savedPanels, catalog, publisher } = props;
+  const common = useMessages(HW_TIME_MESSAGES);
+  const workspace = useMessages(HW_TIME_WORKSPACE_MESSAGES);
+  const { lang } = useI18n();
+  const [settings, setSettings] = useState<{ id: string; trigger: HTMLButtonElement; query: string } | null>(null);
+  const [explained, setExplained] = useState<string | null>(null);
+  const [reveal, setReveal] = useState<{ panelId: string; seq: number; restoreHidden?: boolean } | null>(null);
+  // A reveal that follows the one just requested: the first table of a new pair, with the same options (R C1, R2 C1).
+  const followUp = useRef<{ restoreHidden?: boolean } | null>(null);
+  useEffect(() => {
+    if (trend && step !== 4) setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
+  }, [trend, step]);
+  const { page, pageParam, pageParams, setPage, toast } = usePlatform();
+  const { added, extras, automatic, extraPanels, dayPanel } = publisher.work;
   // «붙잡기» (#2862): each held table reads its own values (R C4); a chart a held value came from stays while it holds (R C7).
   const savedInstances = useMemo(() => savedPanels.config.kind === 'custom'
     ? [...savedPanels.config.added.map(panel => panel.instance), ...savedPanels.config.sources] : [], [savedPanels.config]);
@@ -502,9 +616,12 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     ? projectBarData(sourceResponse.data ?? undefined, filter.selectionFor(typeId), { depth: 4, moduleId, motionId, allMotions: true })
     : undefined;
   const sourceEquipment = source && (source.motions.length ? source.cells.map(cell => cell.equipmentId) : []);
-  const sourcePanelId = panelDeclarations.moduleMotions.id;
-  const selectionOutput = useAnalysisSelectionOutput(sourcePanelId, MOTION_EQUIPMENT_KEY, { available: sourceEquipment, subscribeHighlight: false });
-  const currentHostsSelection = step === 4 && !extraPanels.some(({ item }) => item?.id === sourcePanelId && !item.disabledReason);
+  const { slot: sourceSlot, source: chartSource, live, reserved, sources: draftSources, selectionHost } = publisher;
+  const sourceId = live?.id;
+  const currentHostsSelection = sourceSlot === 'current';
+  const selectionOutput = useAnalysisSelectionOutput(sourcePanelId, MOTION_EQUIPMENT_KEY,
+    { available: sourceEquipment, instanceId: sourceId, subscribeHighlight: false });
+  const tableSource = { availabilityCurrent: sourceId === undefined || selectionOutput.availabilityCurrent, query: sourceQuery };
   const verdict = verdictCodec.decode(pageParam('verdict') ?? '');
   const date = pageParam('date');
   const panelContext = { ...workspacePanelContext({ step, typeId, motionId, moduleId, trend }), verdict, date, [MOTION_EQUIPMENT_KEY]: selectedEquipment };
@@ -516,20 +633,25 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     setPage(patch);
     setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
   };
-  const tableFilter = resolveAnalysisSelectionFilter({
-    requested: projectQueryInputs(panelDeclarations.table, panelContext)[MOTION_EQUIPMENT_KEY] !== undefined,
-    applied: applied.find(input => input.key === MOTION_EQUIPMENT_KEY && input.use === 'filter')?.selection,
-    source: { availabilityCurrent: selectionOutput.availabilityCurrent, query: sourceQuery },
+  const readTableSelection = useAnalysisSelectionReader(panelDeclarations.table.id);
+  const followingTables = tables.open.map(({ id, instance }) => {
+    if (instance && holds(instance)) return { id };
+    const implicit = added.some(entry => entry.slot === id && entry.implicitFollow);
+    const inputs = !implicit && instance ? publisher.byId.get(instance.id)?.inputs : undefined;
+    // Without a chart, an output-only reference reads the declaration's URL channel.
+    const urlInput = live ? undefined : inputs?.find(input => input.mode === 'follow'
+      && input.key === MOTION_EQUIPMENT_KEY && publisher.aliases.has(input.from));
+    const read = readTableSelection(urlInput ? undefined : inputs);
+    return { id, selection: tableSelection(read, tableSource, { inputs, urlUse: urlInput?.use }) };
   });
-  const equipment = tableFilter.kind === 'filtered' && tableFilter.selection.shape === 'set' ? tableFilter.selection.values : undefined;
-  const filterTable = equipment !== undefined && tables.open.some(({ instance }) => !(instance && holds(instance)));
-  const tableLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: equipment }, filterTable);
-  const analysis = filterTable ? { equipment, level: tableLevel } : undefined;
-  const badge = getAnalysisSelectionFilterBadge(tableFilter, analysis?.level, data => data.rows.length);
-  const tableBadge = (panel: CatalogId, heldTable: PanelInstance | undefined) => {
-    if (panel !== 'table') return undefined;
-    return heldTable ? heldBadge(heldTable) : badge;
-  };
+  const first = followingTables[0]?.selection;
+  const second = followingTables[1]?.selection;
+  const firstEquipment = first && filteredEquipment(first);
+  const secondEquipment = second && filteredEquipment(second);
+  const firstLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: firstEquipment }, firstEquipment !== undefined);
+  const secondLevel = useHwTimeLevel({ [MOTION_EQUIPMENT_KEY]: secondEquipment }, secondEquipment !== undefined);
+  const badges = [first && getAnalysisSelectionFilterBadge(first.filter, firstLevel, data => data.rows.length),
+    second && getAnalysisSelectionFilterBadge(second.filter, secondLevel, data => data.rows.length)];
   const heldBadge = (instance: PanelInstance) => {
     const { unread, count } = heldOf(instance, savedInstances);
     const text = unread ? HW_TIME_WORKSPACE_MESSAGES.heldRejected : HW_TIME_WORKSPACE_MESSAGES.heldPanel;
@@ -558,7 +680,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       analysisSelectionSourceId: currentHostsSelection ? sourcePanelId : undefined,
       render: () => dayPanel
         ? renderEquipmentDays()
-        : <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} source={currentHostsSelection} /> },
+        : <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} instanceId={currentHostsSelection ? sourceId : undefined} /> },
     ...extraPanels.map(({ id, instance, item }): PanelWorkspacePanel => {
       const keep = keptSources.has(id) ? { reason: HW_TIME_WORKSPACE_MESSAGES.heldSource } : undefined;
       const onRemove = instance && (() => {
@@ -586,6 +708,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       // One table mode per slot: held tables read their own values (R C4), the rest follow the URL.
       const heldTable = panel === 'table' && instance && holds(instance) ? instance : undefined;
       const secondTable = tables.local(id);
+      const tableIndex = followingTables.findIndex(table => table.id === id);
       const renderPanel = (panel: CatalogId) => {
         switch (panel) {
           case 'distribution': return <DistributionPanel input={panelContext} filter={filter} />;
@@ -610,11 +733,13 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           case 'moduleMotions': {
             const input = projectQueryInputs(panelDeclarations.moduleMotions, panelContext);
             const display = projectDisplayInputs(panelDeclarations.moduleMotions, panelContext);
-            return <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions source />;
+            return <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} typeId={input.moduleType} moduleId={display.drillModule} depth={4} allMotions instanceId={sourceSlot === id ? sourceId : undefined} />;
           }
-          case 'table':
-            if (heldTable) return <HeldTablePanel instance={heldTable} instances={savedInstances} local={secondTable} />;
-            return tableFilter.kind === 'waiting' ? <LoadingBlock /> : <RawTablePanel params={{}} linked analysis={analysis} local={secondTable} />;
+          case 'table': {
+            if (heldTable) return <HeldTablePanel instance={heldTable} instances={savedInstances} local={secondTable} source={tableSource} />;
+            const selection = followingTables[tableIndex]?.selection;
+            return selection && <WorkspaceTable selection={selection} local={secondTable} />;
+          }
           case 'donut': {
             const data = matrixData(projectQueryInputs(panelDeclarations.donut, panelContext));
             return matricesView(queries, data.required, <VerdictDonut matrices={data.matrices} filter={filter} verdict={verdict} />);
@@ -633,9 +758,10 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       const title = tables.numbered(id) ? both(HW_TIME_WORKSPACE_MESSAGES.secondTitle, base) : base;
       const placement = tables.pair.includes(id) ? { placement: { row: 'table-pair' } }
         : step === 4 && panel === 'trend' ? { placement: 'below' as const } : {};
+      const badge = heldTable ? heldBadge(heldTable) : badges[tableIndex];
       return { id, icon: ChartNoAxesCombined, title, ...placement, preferredHeight: 360, minWidth: 200,
         onRemove,
-        badge: tableBadge(panel, heldTable),
+        badge,
         keep,
         pin: (panel === 'table' ? tables.pinSlot === id : id === panel) ? { pinned: pins.isPinned(panel), onToggle: () => {
           const unpinning = pins.isPinned(panel);
@@ -654,21 +780,14 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const declarationId = (storedPanel && declaredPanelId(storedPanel))
     ?? extraPanels.find(panel => panel.id === settingsPanel?.id)?.item?.id ?? (currentHostsSelection && settingsPanel?.id === 'current' ? sourcePanelId : '');
   const declaration = declarationOf(declarationId);
-  const motionSlots = extraPanels.filter(({ item }) => item?.id === sourcePanelId && !item.disabledReason);
-  const publisher = motionSlots[0];
-  const sourceSlot = publisher?.id ?? (currentHostsSelection ? 'current' : null);
-  // A «새 패널» hold cannot identify which drawn chart published when a saved view shows two motion charts.
-  const selectionHost = currentHostsSelection || motionSlots.length === 1 ? sourceSlot ?? undefined : undefined;
-  const storedAt = (slot: string) => added.find(panel => panel.slot === slot)?.instance;
-  const instanceAt = (slot: string, declaration: PanelDeclaration | undefined) => settingsInstance(slot, declaration, storedAt(slot), savedInstances);
-  const chartSource = settingsPanel && sourceSlot ? instanceAt(sourceSlot, panelDeclarations.moduleMotions) : undefined;
-  // Enriching a drawn chart under a reserved ID would hide it on reopen. Give its equipment output a separate record.
-  const reserved = chartSource && isHeldSource(chartSource) ? heldSourceFor({ kind: 'custom', added, sources }, { reservedOnly: true }) : undefined;
-  const draftSources = reserved?.sources ?? sources;
-  const selectionSource = reserved ? draftSources.find(source => source.id === reserved.id) : chartSource;
+  const instanceAt = (slot: string, declaration: PanelDeclaration | undefined) =>
+    settingsInstance(slot, declaration, added.find(panel => panel.slot === slot)?.instance, savedInstances);
+  const selectionSource = reserved ?? chartSource;
   const isReservedPublisher = (panel: PanelInstance) => draftSources.includes(panel) && isHeldSource(panel);
   const selected = settingsPanel && instanceAt(settingsPanel.id, declaration);
-  const instance = selected && isHeldSource(selected) ? storedPanel : selected;
+  const implicit = selected && added.find(panel => panel.instance.id === selected.id)?.implicitFollow;
+  const drawerPanel = selected && implicit && selectionSource ? { ...selected, inputs: [defaultTableInput(selectionSource)] } : selected;
+  const instance = selected && isHeldSource(selected) ? storedPanel : drawerPanel;
   const drawerInstances = new Map(settingsPanel ? savedInstances.map(panel => [panel.id, panel]) : []);
   if (selectionSource) drawerInstances.set(selectionSource.id, selectionSource);
   if (instance) drawerInstances.set(instance.id, instance);
@@ -689,7 +808,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     const previous = entries.get(updated.id);
     const before = instance?.inputs.find(input => input.key === MOTION_EQUIPMENT_KEY);
     const after = updated.inputs.find(input => input.key === MOTION_EQUIPMENT_KEY);
-    let entry: AddedPanel = { ...previous, slot, instance: updated };
+    let entry: AddedPanel = { slot, instance: updated, heldFrom: previous?.heldFrom };
     if (declaration?.id === panelDeclarations.table.id && after?.mode !== 'hold') entry = { slot, instance: updated };
     if (declaration?.id === panelDeclarations.table.id && before?.mode !== 'hold' && after?.mode === 'hold') {
       const held = heldTableInput(after);
@@ -758,7 +877,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     {savedPanels.config.kind === 'unreadable' && <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={workspace('unreadablePanels')} />}
     {settings && settingsPanel && instance && <PanelSettingsDrawer key={settings.id} title={settingsPanel.title} panel={instance}
       value={{ version: 1, instances: [...drawerInstances.values()] }} trigger={settings.trigger} onClose={() => setSettings(null)}
-      projectCandidate={updated => buildSavedPanels(settingsConfig(settingsPanel.id, updated))}
+      projectCandidate={updated => savedPanels.project(settingsConfig(settingsPanel.id, updated), { acrossSteps: true })}
       validateCandidate={candidate => exceedsPanelLimit(candidate) ? limitReason : undefined}
       declaredInputs={[...declaration?.queryInputs.page ?? [], ...declaration?.displayInputs.page ?? []]}
       sourceReference={key => {
@@ -772,14 +891,14 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         // The output-only source records the equipment channel for «새 패널» holds.
         // Once following, it reads the same live channel as the active publisher.
         if (isReservedPublisher(panel)) {
-          if (selectionSource && output.key === heldOutput.key && output.dimension === heldOutput.dimension && output.shape === heldOutput.shape) {
+          if (selectionSource && isEquipmentOutput(output)) {
             return parseAnalysisSelection(output.shape, pageParams(output.key));
           }
           return null;
         }
         const writer = renderedPanel(panel);
         const selection = outputDeclaration(panel, output.key);
-        if (!writer || (writer.id === 'current' && !currentHostsSelection) || selection?.shape !== output.shape || selection.dimension !== output.dimension) return null;
+        if (!writer || writer.id !== sourceSlot || selection?.shape !== output.shape || selection.dimension !== output.dimension) return null;
         return parseAnalysisSelection(output.shape, pageParams(output.key));
       }}
       onChange={editSettings} />}

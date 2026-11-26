@@ -512,7 +512,7 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
     } finally { restore(); }
   });
 
-  it('shows the recorded reason in its own column, with the full text in the title and a dash when empty', async () => {
+  it('shows the recorded reason in its own column and a muted dash when empty', async () => {
     const restore = withRowLayout();
     try {
       const reason = '삭제된 주석 문구가 아주 길어서 셀 폭을 넘는 경우에도 전문을 title로 읽을 수 있어야 한다';
@@ -525,8 +525,13 @@ describe('AuditTrail filter model (ADR-0105, #1217 e2)', () => {
       expect(index).toBeGreaterThan(-1);
       expect(headers.at(-1)?.textContent).toContain('동작');
       const cellOf = (id: string) => within(within(table).getByText(id).closest('[role="row"]') as HTMLElement).getAllByRole('cell')[index];
-      expect(within(cellOf('MEM-ETCH-0101')).getByText(reason).getAttribute('title')).toBe(reason);
-      expect(cellOf('MEM-ETCH-0102').textContent).toBe('—');
+      const reasonText = within(cellOf('MEM-ETCH-0101')).getByText(reason);
+      expect(reasonText.classList.contains('truncate')).toBe(true);
+      expect(reasonText.hasAttribute('title')).toBe(false);
+      const emptyCell = cellOf('MEM-ETCH-0102');
+      expect(emptyCell.textContent).toBe('—');
+      expect(emptyCell.classList.contains('text-text-muted')).toBe(true);
+      expect(emptyCell.classList.contains('not-italic')).toBe(true);
       fireEvent.click(screen.getByRole('button', { name: '컬럼' }));
       expect(await screen.findByRole('checkbox', { name: /사유/ })).toBeTruthy();
     } finally { restore(); }

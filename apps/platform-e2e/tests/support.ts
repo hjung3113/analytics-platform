@@ -158,17 +158,21 @@ export function query(page: Page): URLSearchParams {
   return new URL(page.url()).searchParams;
 }
 
+/** A platform table is `role="grid"` when its cells select (a selection output or `onSelectCell`) and `role="table"` otherwise: read either. */
+const DATA_CELL = '[role="cell"], [role="gridcell"]';
+const resultTable = (page: Page) => page.getByRole('main').locator('[role="table"], [role="grid"]').first();
+
 /** Lot values of the rendered result table (column header "Lot"), after the query settled. */
 export async function lotColumn(page: Page): Promise<string[]> {
-  const table = page.getByRole('main').getByRole('table').first();
+  const table = resultTable(page);
   await expect(table).toBeVisible({ timeout: 10_000 });
   const headers = await table.getByRole('columnheader').allInnerTexts();
   const index = headers.findIndex(h => h.trim().toLowerCase() === 'lot');
   expect(index, 'result table has a Lot column').toBeGreaterThanOrEqual(0);
-  const rows = table.getByRole('row').filter({ has: page.getByRole('cell') });
+  const rows = table.getByRole('row').filter({ has: page.locator(DATA_CELL) });
   await expect(rows.first()).toBeVisible();
   const values: string[] = [];
-  for (const row of await rows.all()) values.push((await row.getByRole('cell').nth(index).innerText()).trim());
+  for (const row of await rows.all()) values.push((await row.locator(DATA_CELL).nth(index).innerText()).trim());
   return values;
 }
 
@@ -179,12 +183,12 @@ export async function showSlowExecutions(page: Page) {
 
 /** Header → cell text map of the first data row in the main result table (06 §6.1 fixtures). */
 export async function firstRowByColumn(page: Page): Promise<Record<string, string>> {
-  const table = page.getByRole('main').getByRole('table').first();
+  const table = resultTable(page);
   await expect(table).toBeVisible({ timeout: 10_000 });
   const headers = (await table.getByRole('columnheader').allInnerTexts()).map(h => h.trim());
-  const row = table.getByRole('row').filter({ has: page.getByRole('cell') }).first();
+  const row = table.getByRole('row').filter({ has: page.locator(DATA_CELL) }).first();
   await expect(row).toBeVisible();
-  const cells = await row.getByRole('cell').allInnerTexts();
+  const cells = await row.locator(DATA_CELL).allInnerTexts();
   const out: Record<string, string> = {};
   headers.forEach((h, i) => { out[h] = (cells[i] ?? '').trim(); });
   return out;
@@ -192,14 +196,14 @@ export async function firstRowByColumn(page: Page): Promise<Record<string, strin
 
 /** Header → cell text maps of every displayed data row in the main result table, for row-level contracts. */
 export async function rowMapsByColumn(page: Page): Promise<Record<string, string>[]> {
-  const table = page.getByRole('main').getByRole('table').first();
+  const table = resultTable(page);
   await expect(table).toBeVisible({ timeout: 10_000 });
   const headers = (await table.getByRole('columnheader').allInnerTexts()).map(h => h.trim());
-  const rows = table.getByRole('row').filter({ has: page.getByRole('cell') });
+  const rows = table.getByRole('row').filter({ has: page.locator(DATA_CELL) });
   await expect(rows.first()).toBeVisible();
   const out: Record<string, string>[] = [];
   for (const row of await rows.all()) {
-    const cells = await row.getByRole('cell').allInnerTexts();
+    const cells = await row.locator(DATA_CELL).allInnerTexts();
     const map: Record<string, string> = {};
     headers.forEach((h, i) => { map[h] = (cells[i] ?? '').trim(); });
     out.push(map);
@@ -213,7 +217,7 @@ export const tableStatusLine = (page: Page) =>
 
 /** 방문(visit) count of one row in the 메뉴 활용률 table, read by row id after the summary settled. */
 export async function usageVisits(page: Page, rowId: string): Promise<number> {
-  const table = page.getByRole('main').getByRole('table').first();
+  const table = resultTable(page);
   await expect(table).toBeVisible({ timeout: 10_000 });
   const headers = (await table.getByRole('columnheader').allInnerTexts()).map(h => h.trim());
   const index = headers.indexOf('방문');

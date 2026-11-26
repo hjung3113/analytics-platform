@@ -1,4 +1,5 @@
 import type { SavedViewSupport } from '@ap/contracts';
+import { CYCLE_EQUIPMENT_SELECTION_KEY } from './endpoints';
 
 /**
  * What a Saved View may store from the cycle-time detail (docs/06 §21). The page registers it with `useSavedViewSupport`;
@@ -11,5 +12,5 @@ export const CYCLE_TIME_SAVED_VIEW: SavedViewSupport = {
   menuId: 'cycle-time',
   menuSchemaVersion: 2,
   contextKeys: ['time', 'roomNames', 'line', 'prcGroup', 'condition', 'selection'],
-  pageKeys: ['granularity', 'percentile', 'sort', 'bucket', 'bin', 'conditionSet'],
+  pageKeys: ['granularity', 'percentile', 'sort', 'bucket', 'bin', 'conditionSet', CYCLE_EQUIPMENT_SELECTION_KEY],
 };

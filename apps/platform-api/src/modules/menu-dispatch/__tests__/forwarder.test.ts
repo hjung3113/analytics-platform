@@ -240,6 +240,34 @@ describe('menu forwarder (1729f)', () => {
   });
 
   it.each([
+    { reason: 'time_domain_unverified', counts: '36/24', expectedSuffix: ' · fixed_equipment_limit: 36/24' },
+    { reason: 'time_domain_mismatch', counts: '25/24', expectedSuffix: ' · fixed_equipment_limit: 25/24' },
+    { reason: 'time_domain_unverified', counts: '36/24 EQ-private' },
+    { reason: 'time_domain_unverified', counts: '24/24' },
+    { reason: 'time_domain_unverified', counts: '36/0' },
+    { reason: 'time_domain_unverified', counts: '9007199254740992/24' },
+    { reason: 'time_domain_unverified', counts: '36/24', equipment: { affectedEquipmentIds: ['EQ-private'] } },
+    { reason: 'time_domain_unverified', counts: '36/24', equipment: { authorizedEquipmentIds: ['EQ-private'] } },
+  ])('scrubs aggregation diagnostics and only forwards valid counts ($reason, $counts, $equipment)', async ({ reason, counts, expectedSuffix, equipment }) => {
+    const upstream = fakeUpstream(() => ({ status: 200, body: {
+      ...ENVELOPE,
+      outcome: 'error',
+      message: `${reason} · fixed_equipment_limit: ${counts}`,
+      assessments: [ASSESSMENT],
+      recovery: { retryable: true, maxHours: 24, ...equipment },
+    } }));
+    const response = await send(await forwarderApp(upstream));
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      ...ENVELOPE,
+      outcome: 'error',
+      message: `${reason}${expectedSuffix ?? ''}`,
+      assessments: [{ ...ASSESSMENT, detail: undefined }],
+      recovery: { maxHours: 24 },
+    });
+  });
+
+  it.each([
     [24, { recovery: { maxHours: 24 } }],
     [12.5, { recovery: { maxHours: 12 } }],
     [0.5, {}],

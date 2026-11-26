@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { AnalysisSelectionChipZone } from '@ap/components';
-import { PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type PanelInstance } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type PanelInstance } from '@ap/contracts';
 import { usePlatform } from '@ap/kernel';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -102,9 +102,12 @@ function expectDisabled(item: HTMLElement, reason: string) {
 }
 
 it('holds the pointed-at second following table in place, restores it from a saved view and lets it follow again', async () => {
-  const first = table();
-  const second = table('table-2');
-  const chart: PanelInstance = { id: 'motion-chart', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [] };
+  const chart: PanelInstance = { id: 'motion-chart', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+    outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
+  // Saved tables with no connections render in Ignore mode.
+  const inputs: PanelInstance['inputs'] = [{ key: MOTION_EQUIPMENT_KEY, from: `${chart.id}.${MOTION_EQUIPMENT_KEY}`, mode: 'follow' }];
+  const first: PanelInstance = { ...table(), inputs };
+  const second: PanelInstance = { ...table('table-2'), inputs };
   await mount([first, second, chart]);
   await dragTo('원본 표 2');
   expect(target('saved-panel-1')?.getAttribute('data-selection-drop-state')).toBe('hovered');

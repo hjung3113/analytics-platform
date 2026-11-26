@@ -11,6 +11,10 @@ import { DockChartToolbarWidth } from '../dock/DockChartHead';
 /** One value of a `choice` option. `chip` is the header chip text when this value is set (default: `label`). */
 export type PanelOptionChoice = { value: string; label: Text; chip?: Text };
 
+type PanelOptionDefinition =
+  | { id: string; kind: 'choice'; label: Text; choices: readonly PanelOptionChoice[]; default: string; hidden?: boolean }
+  | { id: string; kind: 'toggle'; label: Text; on: Text; off: Text; chip?: Text; hidden?: boolean };
+
 /**
  * A per-panel display option the menu declares (#2396, #2391). The SDK draws it and keeps its state in the menu's own page key; the menu owns
  * what the option means. `pageKey` follows the kernel identifier rule (`/^[a-z][a-zA-Z0-9]*$/`, no dots) and must be one of the menu's
@@ -19,16 +23,14 @@ export type PanelOptionChoice = { value: string; label: Text; chip?: Text };
  * - `toggle`: off by default; on is stored as `1`. The control says its state in words (`on` / `off`).
  * `hidden: true` keeps the option out of the toolbar and the chips (for example at a drill step where it does not apply); its key is kept.
  */
-export type PanelOption =
-  | { id: string; kind: 'choice'; pageKey: string; label: Text; choices: readonly PanelOptionChoice[]; default: string; hidden?: boolean }
-  | { id: string; kind: 'toggle'; pageKey: string; label: Text; on: Text; off: Text; chip?: Text; hidden?: boolean };
+export type PanelOption = PanelOptionDefinition & { pageKey: string };
 
 /** Current value per option id: the choice value, or `true`/`false` for a toggle. */
 export type PanelOptionValues = Readonly<Record<string, string | boolean>>;
 
 const TOGGLE_ON = '1';
 
-const defaultOf = (option: PanelOption) => option.kind === 'choice' ? option.default : false;
+const defaultOf = (option: PanelOptionDefinition) => option.kind === 'choice' ? option.default : false;
 const isValidRaw = (option: PanelOption, raw: string) => option.kind === 'choice' ? option.choices.some(choice => choice.value === raw) : raw === TOGGLE_ON;
 const valueOfRaw = (option: PanelOption, raw: string | null): string | boolean => {
   if (raw === null || !isValidRaw(option, raw)) return defaultOf(option);
@@ -101,11 +103,19 @@ export type PanelOptionsProps = {
   className?: string;
 };
 
+type LocalPanelOptionsProps = Omit<PanelOptionsProps, 'options'> & { options: readonly PanelOptionDefinition[] };
+
 /**
  * Declared panel options drawn inline in a panel toolbar (for example a chart frame's `extraActions`), folding into «보기 ▾» when the panel is
- * narrow (#2396, layout §12.8). Controlled: pair it with `usePanelOptions`. Hidden options are not drawn.
+ * narrow (#2396, layout §12.8). Controlled: supply local values or pair it with `usePanelOptions` for page-key storage.
+ * Hidden options are not drawn.
  */
-export function PanelOptions({ options, values, onChange, collapsed, collapseBelow = PANEL_OPTIONS_COLLAPSE_BELOW, className }: PanelOptionsProps) {
+export function PanelOptions(props: PanelOptionsProps): import('react').JSX.Element | null {
+  return <LocalPanelOptions {...props} />;
+}
+
+/** Internal renderer for SDK controls with local state and no page keys. */
+export function LocalPanelOptions({ options, values, onChange, collapsed, collapseBelow = PANEL_OPTIONS_COLLAPSE_BELOW, className }: LocalPanelOptionsProps) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { lang } = useI18n();
   const shown = options.filter(option => !option.hidden);
@@ -114,7 +124,7 @@ export function PanelOptions({ options, values, onChange, collapsed, collapseBel
   const width = stripWidth === undefined ? inlineWidth : stripWidth;
   if (shown.length === 0) return null;
   const folded = collapsed ?? (width !== null && width < collapseBelow);
-  const valueOf = (option: PanelOption) => values[option.id] ?? defaultOf(option);
+  const valueOf = (option: PanelOptionDefinition) => values[option.id] ?? defaultOf(option);
   if (folded) {
     return <div ref={anchor} data-panel-options="folded" className={cn('flex items-center', className)}>
       <DropdownMenu modal={false}>
