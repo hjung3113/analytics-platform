@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as echarts from 'echarts/core';
 import { BarChart, BoxplotChart, CustomChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
 import { BrushComponent, DataZoomComponent, GraphicComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
@@ -7,6 +7,8 @@ import { CanvasRenderer } from 'echarts/renderers';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { cn, prefersReducedMotion } from '@ap/ui';
 import { useThemeRevision } from '@ap/ui/theme';
+import { DeclaredQueryPanelContext } from '../workspace/panelContext';
+import { sameDrawing } from './chartDrawing';
 import { baseTextStyle, type EChartProps } from './EChart';
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
 import { CHART_ECHARTS_GEOMETRY, CHART_HEIGHTS, chartAxisTextStyle, chartMarkFontSize } from './chartMarks';
@@ -153,6 +155,10 @@ export default function EChartImpl({ option, height = CHART_HEIGHTS.regular, onE
   const releaseFailed = useRef<(() => void) | null>(null);
   const events = useRef(onEvents);
   events.current = onEvents;
+  const inDeclaredPanel = useContext(DeclaredQueryPanelContext) !== null;
+  const declaredHold = useRef(false);
+  // Layout runs before the option effect, including the first commit, so the skip sees the panel on the first paint too.
+  useLayoutEffect(() => { declaredHold.current = inDeclaredPanel; }, [inDeclaredPanel]);
   const resized = useRef(onResize);
   resized.current = onResize;
   // The engine cannot start where there is no canvas 2d context (jsdom): detected by the attempt, not by sniffing the environment (#1862).
@@ -212,6 +218,11 @@ export default function EChartImpl({ option, height = CHART_HEIGHTS.regular, onE
     if (previous !== null && previous.source === option) {
       // Theme-only redraw: the consumer option is unchanged, so only the token-backed axis typography can differ.
       instance.setOption(themeTypographyPatch(next), { notMerge: false, silent: true });
+      applied.current = { source: option, resolved: next };
+      return;
+    }
+    // Equal drawing inside a declared panel: do not replay the option over the zoom the user settled on.
+    if (declaredHold.current && previous !== null && sameDrawing(previous.resolved, next)) {
       applied.current = { source: option, resolved: next };
       return;
     }

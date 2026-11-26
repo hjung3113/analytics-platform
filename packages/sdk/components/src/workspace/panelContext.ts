@@ -1,4 +1,5 @@
 import { createContext, createElement, useContext, type ReactElement, type ReactNode } from 'react';
+import type { TrustFooterText } from '../state/trustFormat';
 
 /** Effective visibility of the nearest dock panel, including any parent dock. */
 export const WorkspacePanelVisibleContext = createContext(true);
@@ -12,6 +13,18 @@ export const WorkspacePanelVisibleContext = createContext(true);
  */
 const InWorkspacePanelContext = createContext<boolean | 'pane'>(false);
 export const QueryPanelContentContext = createContext<'current' | 'prior' | null>(null);
+
+/** The workspace panel that declared `QueryView.panel`. Only charts inside that panel read it. Not a package export. */
+export type DeclaredQueryPanel = {
+  panelId: string;
+  /** The panel footer owns the source line. */
+  ownsFooter: boolean;
+  /** Trust text the panel footer is showing, or null while that line is not the full triple. */
+  trust: TrustFooterText | null;
+  /** Dimmed previous result. A same-condition refresh is not one. */
+  previousResult: boolean;
+};
+export const DeclaredQueryPanelContext = createContext<DeclaredQueryPanel | null>(null);
 export const useInQueryPanel = () => useContext(QueryPanelContentContext) !== null;
 export const InWorkspacePanelProvider = InWorkspacePanelContext.Provider;
 /** True inside a `PanelWorkspace` panel only (title and wheel behaviour). */

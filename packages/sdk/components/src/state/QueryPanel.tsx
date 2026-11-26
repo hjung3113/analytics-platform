@@ -10,7 +10,7 @@ import { DockChartPaneId } from '../dock/DockChartHead';
 import { useContextEditorOpener } from '../filters/QueryBarStatus';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { PanelBadge } from '../workspace/PanelBadge';
-import { QueryPanelContentContext, useInQueryPanel, useInWorkspacePanel, WorkspacePanelVisibleContext } from '../workspace/panelContext';
+import { DeclaredQueryPanelContext, QueryPanelContentContext, useInQueryPanel, useInWorkspacePanel, WorkspacePanelVisibleContext } from '../workspace/panelContext';
 import { usePublishWorkspaceQueryOverflow, useWorkspaceQueryHead, type QueryMenuItem } from '../workspace/WorkspaceQueryHeads';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { emptyCauses, emptyOutcomeText } from './emptyCause';
@@ -299,7 +299,8 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
     </QueryPanelContentContext.Provider>
   </>;
   const panelClass = 'min-w-0 break-keep focus-visible:outline-2 focus-visible:outline-focus-ring';
-  if (workspace) return <section ref={bindPanel} tabIndex={-1} aria-label={panel.title} aria-describedby={notice.bannerId}
+  if (workspace) return <DeclaredQueryPanelContext.Provider value={{ panelId: workspace, ownsFooter: true, trust: trust ?? null, previousResult: Boolean(priorContent) }}>
+    <section ref={bindPanel} tabIndex={-1} aria-label={panel.title} aria-describedby={notice.bannerId}
     className={cn(panelClass, 'flex h-full min-h-0 flex-col focus-visible:-outline-offset-2')}
     onFocus={event => { lastFocused.current = event.target; }}
     onBlur={event => { if (event.relatedTarget && event.relatedTarget !== event.target.ownerDocument.body) lastFocused.current = null; }}>
@@ -307,7 +308,8 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
     {workspaceId && compactError && <WorkspaceRecovery id={workspaceId} response={visibleError} onRetry={retryQuery} />}
     {panel.subtitle && <p className="truncate px-4 text-xs text-text-secondary">{panel.subtitle}</p>}
     {content}{footer}
-  </section>;
+    </section>
+  </DeclaredQueryPanelContext.Provider>;
   return <Panel ref={bindPanel} tabIndex={-1} aria-describedby={notice.bannerId} id={id} title={panel.title} subtitle={panel.subtitle}
     className={cn(panelClass, 'scroll-mt-40', compactError && '[&>header]:px-2 [&>header_h2]:min-w-0')} badge={signal} footer={footer}
     actions={<>{dataTrust}

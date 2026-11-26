@@ -1,19 +1,25 @@
+import type { ReactNode } from 'react';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as EChartsCore from 'echarts/core';
 import { init } from 'echarts/core';
 import EChartImpl from '../EChartImpl';
+import { DeclaredQueryPanelContext } from '../../workspace/panelContext';
 
 type EChartsModule = typeof EChartsCore;
 
 // The real EChartImpl runs, but the echarts instance is fake: init is mocked, setOption calls are recorded.
-const state = vi.hoisted(() => ({ setOption: vi.fn(), width: 640 }));
+const state = vi.hoisted(() => ({ setOption: vi.fn(), width: 640, handlers: new Map<string, (event: unknown) => void>() }));
 
 vi.mock('echarts/core', async importOriginal => {
   const actual = await importOriginal<EChartsModule>();
   return {
     ...actual,
-    init: vi.fn(() => ({ setOption: state.setOption, on: vi.fn(), off: vi.fn(), resize: vi.fn(), dispose: vi.fn(), dispatchAction: vi.fn(), getWidth: () => state.width })),
+    init: vi.fn(() => ({
+      setOption: state.setOption,
+      on: vi.fn((name: string, handler: (event: unknown) => void) => { state.handlers.set(name, handler); }),
+      off: vi.fn(), resize: vi.fn(), dispose: vi.fn(), dispatchAction: vi.fn(), getWidth: () => state.width,
+    })),
   };
 });
 
@@ -33,7 +39,7 @@ const option: EChartsCore.EChartsCoreOption = {
   ],
 };
 
-beforeEach(() => { state.setOption.mockClear(); });
+beforeEach(() => { state.setOption.mockClear(); state.handlers.clear(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('EChartImpl typography (#2726)', () => {
@@ -309,5 +315,37 @@ describe('re-render keeps the inside dataZoom and brush (#705, #808)', () => {
     rerender(<EChartImpl option={{ ...zoomed, dataZoom: [] }} ariaLabel="plot" height={120} />);
     expect(state.setOption.mock.calls[1][1]).toEqual({ notMerge: true });
     expect(state.setOption).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('declared panel skips an equal drawing (#3094)', () => {
+  const drawn = { series: [{ id: 'a', type: 'line' as const, data: [[1, 2]] }] };
+  const declared = (child: ReactNode) => <DeclaredQueryPanelContext.Provider value={{ panelId: 'trend', ownsFooter: true, trust: null, previousResult: false }}>{child}</DeclaredQueryPanelContext.Provider>;
+  it('skips setOption for equal inputs and still calls the latest click handler', () => {
+    stubReducedMotion(false);
+    const first = vi.fn();
+    const second = vi.fn();
+    const { rerender } = render(declared(<EChartImpl option={drawn} onEvents={{ click: first }} ariaLabel="plot" />));
+    const calls = state.setOption.mock.calls.length;
+    expect(calls).toBeGreaterThan(0);
+    rerender(declared(<EChartImpl option={{ series: [{ id: 'a', type: 'line', data: [[1, 2]] }] }} onEvents={{ click: second }} ariaLabel="plot" />));
+    expect(state.setOption).toHaveBeenCalledTimes(calls);
+    state.handlers.get('click')?.({});
+    expect(second).toHaveBeenCalledOnce();
+    expect(first).not.toHaveBeenCalled();
+  });
+  it('still setOption when the series data changes', () => {
+    stubReducedMotion(false);
+    const { rerender } = render(declared(<EChartImpl option={drawn} ariaLabel="plot" />));
+    const calls = state.setOption.mock.calls.length;
+    rerender(declared(<EChartImpl option={{ series: [{ id: 'a', type: 'line', data: [[1, 9]] }] }} ariaLabel="plot" />));
+    expect(state.setOption.mock.calls.length).toBeGreaterThan(calls);
+  });
+  it('still setOption for equal inputs outside a declared panel', () => {
+    stubReducedMotion(false);
+    const { rerender } = render(<EChartImpl option={drawn} ariaLabel="plot" />);
+    const calls = state.setOption.mock.calls.length;
+    rerender(<EChartImpl option={{ series: [{ id: 'a', type: 'line', data: [[1, 2]] }] }} ariaLabel="plot" />);
+    expect(state.setOption.mock.calls.length).toBeGreaterThan(calls);
   });
 });

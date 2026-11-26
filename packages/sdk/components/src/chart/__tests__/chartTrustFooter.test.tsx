@@ -9,9 +9,11 @@ import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { AnalysisChart } from '../AnalysisChart';
 import { AnalysisChartFrame } from '../AnalysisChartFrame';
+import { ChartTrustFooter } from '../analysisChartFrameParts';
 import { LaneTimeline } from '../LaneTimeline';
 import { OrderedIntervalTrack } from '../OrderedIntervalTrack';
-import type { ChartTrust } from '../../state/trustFormat';
+import { chartTrustText, type ChartTrust } from '../../state/trustFormat';
+import { DeclaredQueryPanelContext } from '../../workspace/panelContext';
 
 vi.mock('../EChartImpl', () => ({ default: (props: { ariaLabel?: string }) => <div role="img" aria-label={props.ariaLabel} /> }));
 
@@ -63,5 +65,31 @@ describe.each(FRAMES)('%s trust footer', (_name, frame) => {
   it('still shows a text triple as given', () => {
     mountIn(frame({ source: 'src', updated: 'as given', coverage: 'Complete' }));
     expect(footer()).toHaveTextContent('원천: src · 갱신: as given · 커버리지: Complete');
+  });
+  it('omits its source line when the declared panel shows the same Trust', () => {
+    const shown = chartTrustText(trust, 'ko')!;
+    mountIn(<DeclaredQueryPanelContext.Provider value={{ panelId: 'trend', ownsFooter: true, trust: shown, previousResult: false }}>{frame(trust)}</DeclaredQueryPanelContext.Provider>);
+    expect(footer()).toBeNull();
+  });
+  it('keeps its source line when the declared panel shows a different Trust', () => {
+    mountIn(<DeclaredQueryPanelContext.Provider value={{ panelId: 'trend', ownsFooter: true, trust: { source: 'other', updated: 'x', coverage: 'y' }, previousResult: false }}>{frame(trust)}</DeclaredQueryPanelContext.Provider>);
+    expect(footer()).toHaveTextContent('원천: mart.productivity_hourly');
+  });
+});
+
+describe('ChartTrustFooter declared panel (#3094)', () => {
+  const shown = chartTrustText(trust, 'ko')!;
+  it('keeps the metric version when the matching source line is omitted', () => {
+    mountIn(<DeclaredQueryPanelContext.Provider value={{ panelId: 'trend', ownsFooter: true, trust: shown, previousResult: false }}>
+      <ChartTrustFooter trust={trust} metricVersion="v3" />
+    </DeclaredQueryPanelContext.Provider>);
+    expect(footer()).toHaveTextContent('v3');
+    expect(footer()).not.toHaveTextContent('원천:');
+  });
+  it('keeps the chart source when the panel does not own the footer', () => {
+    mountIn(<DeclaredQueryPanelContext.Provider value={{ panelId: 'trend', ownsFooter: false, trust: shown, previousResult: false }}>
+      <ChartTrustFooter trust={trust} />
+    </DeclaredQueryPanelContext.Provider>);
+    expect(footer()).toHaveTextContent('원천: mart.productivity_hourly');
   });
 });

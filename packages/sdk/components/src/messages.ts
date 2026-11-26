@@ -278,6 +278,10 @@ export const COMPONENTS_MESSAGES = {
   },
   chartZoom: { ko: '확대', en: 'Zoom' },
   chartZoomTitle: { ko: '확대 (Shift+휠도 가능)', en: 'Zoom in (Shift+wheel)' },
+  chartPreviousRangeLocked: {
+    ko: '이전 결과를 보여주는 동안 확대·축소·이동·초기화를 쓸 수 없습니다',
+    en: 'Zoom, pan and reset are unavailable while the previous result is showing',
+  },
   chartZoomOut: { ko: '축소', en: 'Zoom out' },
   chartPanLeft: { ko: '왼쪽으로 이동', en: 'Pan left' },
   chartPanRight: { ko: '오른쪽으로 이동', en: 'Pan right' },
