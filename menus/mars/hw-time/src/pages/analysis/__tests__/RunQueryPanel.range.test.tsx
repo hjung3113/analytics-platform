@@ -93,6 +93,7 @@ it('defaults to one shared-axis tile per equipment with daily HTM status and bou
   expect(panel.getByRole('radio', { name: '보통', checked: true })).toBeTruthy();
   expect(within(grid).getByRole('button', { name: equipment[0] }).getAttribute('aria-description')).toContain('HTM 상한 초과');
   expect(grid.querySelector('[data-small-multiple-band]')).toBeTruthy();
+  expect(panel.queryByRole('region', { name: '일별 HTM 판정 건수' })).toBeNull();
 });
 
 it('switches to the existing range-select chart in the overlay', async () => {
@@ -101,6 +102,7 @@ it('switches to the existing range-select chart in the overlay', async () => {
   expect(panel.queryByRole('grid')).toBeNull();
   expect(within(panel.getByRole('region', { name: '추세' })).getByRole('button', { name: '구간 선택' })).toBeTruthy();
   expect(panel.getByRole('radio', { name: '겹쳐 보기', checked: true })).toBe(document.activeElement);
+  expect(panel.getByRole('region', { name: '일별 HTM 판정 건수' })).toBeTruthy();
 });
 
 it('publishes the existing equipment selection to the URL and chip zone on a tile click', async () => {

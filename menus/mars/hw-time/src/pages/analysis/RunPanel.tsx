@@ -144,7 +144,8 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, d
           selectionDisabled={selectionDisabled} actions={<>{viewToggle}{settingsPopover}</>} /></div>}
         {joinTrendHeader && <div className="flex min-h-min flex-1 flex-col"><RunTrendChart chartId="hw-overview-runs-trend" trend={projected.trend} description={contextNote} activeCategory={activeDay || null} toolbarStart={panelHeader}
           analysisSelectionOutput={analysisSelectionOutput} nextAnalysisTarget={nextAnalysisTarget} /></div>}
-        {hasTrendDates && <div className="flex h-48 shrink-0 flex-col"><AnalysisChartFrame summary="quiet" chartId="hw-overview-runs-trend-verdicts" title={m('trendVerdicts')}
+        {/* Prototype A (#2740): the split view is the grid alone; the daily verdict counts belong to the overlay. */}
+        {joinTrendHeader && <div className="flex h-48 shrink-0 flex-col"><AnalysisChartFrame summary="quiet" chartId="hw-overview-runs-trend-verdicts" title={m('trendVerdicts')}
           series={projected.trend.verdictSeries} xType="category" stacked unit={m('equipmentCount')} size="fill" fillMin={VERDICT_HEIGHT}
           legendPlacement="side" toolsReveal="hover" canApplyRange={false} emphasisFocus="none" /></div>}
       </div>}
