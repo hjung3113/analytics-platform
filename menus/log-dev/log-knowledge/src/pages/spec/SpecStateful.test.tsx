@@ -87,7 +87,7 @@ describe('stateful draft saves (fix C1)', () => {
     await waitFor(() => expect(store.saves).toHaveLength(1));
     await waitFor(() => expect(window.location.search).toContain(`revision=${store.current().id}`));
     await waitFor(() => expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.change(screen.getByLabelText('문서 버전*'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('문서 버전· 필수'), { target: { value: '3' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(store.saves).toHaveLength(2));
     // The stored (read-back) content is B, never A: no stale snapshot replaced it.
@@ -101,7 +101,7 @@ describe('stateful draft saves (fix C1)', () => {
     await waitFor(() => expect(textarea().value).toContain('Move'));
     for (const version of ['2', '3']) {
       const count = store.saves.length;
-      fireEvent.change(screen.getByLabelText('문서 버전*'), { target: { value: version } });
+      fireEvent.change(screen.getByLabelText('문서 버전· 필수'), { target: { value: version } });
       fireEvent.click(screen.getByRole('button', { name: '저장' }));
       await waitFor(() => expect(store.saves).toHaveLength(count + 1));
       await waitFor(() => expect(window.location.search).toContain(`revision=${store.current().id}`));
@@ -118,7 +118,7 @@ describe('stateful draft saves (fix C1)', () => {
     await waitFor(() => expect(store.saves).toHaveLength(1));
     await waitFor(() => expect(window.location.search).toContain(`revision=${store.current().id}`));
     await waitFor(() => expect((screen.getByRole('button', { name: '저장' }) as HTMLButtonElement).disabled).toBe(false));
-    fireEvent.change(screen.getByLabelText('문서 버전*'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('문서 버전· 필수'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(store.saves).toHaveLength(2));
     expect(store.current().events).toHaveLength(1);

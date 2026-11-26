@@ -11,7 +11,7 @@ import { isAnswered } from '@ap/contracts';
 
 export function Field({ id, label, error, hint, required, badge, children }: { id: string; label: string; error?: string | undefined; hint?: string; required?: boolean; badge?: string; children: React.ReactNode }) {
   return <div className="grid gap-1.5">
-    <FieldLabel htmlFor={id} required={required}>{label}{badge && <span className="ml-1.5 rounded-sm border border-border-default px-1 text-tiny font-normal text-text-muted">{badge}</span>}</FieldLabel>
+    <FieldLabel htmlFor={id} required={required} requiredMark="text">{label}{badge && <span className="ml-1.5 rounded-sm border border-border-default px-1 text-tiny font-normal text-text-muted">{badge}</span>}</FieldLabel>
     {children}
     {hint && !error && <p id={`${id}-hint`} className="text-xs text-text-muted">{hint}</p>}
     {error && <p id={`${id}-error`} role="alert" className="text-xs text-text-danger-label">{error}</p>}

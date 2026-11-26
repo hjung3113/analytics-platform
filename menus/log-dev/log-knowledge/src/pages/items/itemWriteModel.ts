@@ -51,17 +51,17 @@ const FIELD_LABEL: Record<string, string> = {
 /** Message of one server/client error code. */
 export function itemErrorText(code: string): string {
   switch (code) {
-    case 'required': return '필수 항목입니다';
-    case 'required_one': return '관찰 사실과 기대·기준 중 하나는 써야 합니다';
-    case 'too_long': return '입력 길이가 너무 깁니다';
-    case 'malformed': return '사용할 수 없는 문자가 들어 있습니다';
-    case 'bad_kind': return '출처 종류 확인 필요. 목록에서 다시 골라 주세요';
-    case 'not_found': return '찾을 수 없는 항목입니다';
-    case 'inactive': return '비활성 항목에는 연결할 수 없습니다';
-    case 'archived': return '보관된 Item은 바꿀 수 없습니다';
-    case 'unchanged': return '현재와 같은 상태입니다';
-    case 'invalid_state': return '이 판단 축에서 쓸 수 없는 상태입니다';
-    default: return `입력을 확인해 주세요 (${code})`;
+    case 'required': return '필수 항목입니다.';
+    case 'required_one': return '관찰 사실과 기대·기준 중 하나는 써야 합니다.';
+    case 'too_long': return '입력 길이가 너무 깁니다.';
+    case 'malformed': return '사용할 수 없는 문자가 들어 있습니다.';
+    case 'bad_kind': return '출처 종류 확인 필요. 목록에서 다시 골라 주세요.';
+    case 'not_found': return '찾을 수 없는 항목입니다.';
+    case 'inactive': return '비활성 항목에는 연결할 수 없습니다.';
+    case 'archived': return '보관된 Item은 바꿀 수 없습니다.';
+    case 'unchanged': return '현재와 같은 상태입니다.';
+    case 'invalid_state': return '이 판단 축에서 쓸 수 없는 상태입니다.';
+    default: return `입력을 확인해 주세요. (${code})`;
   }
 }
 
@@ -99,7 +99,7 @@ export function validateForm(form: WriteForm, mode: WriteMode): FormErrors {
   const out: FormErrors = {};
   const put = (key: string, message: string | null) => { if (message !== null) out[key] ??= message; };
   if (mode !== 'revise') {
-    put('owner', form.modelId === '' ? '소유 대상을 골라 주세요' : form.ownerKind === 'software' && form.softwareId === '' ? 'SW 버전을 골라 주세요' : null);
+    put('owner', form.modelId === '' ? '소유 대상을 골라 주세요.' : form.ownerKind === 'software' && form.softwareId === '' ? 'SW 버전을 골라 주세요.' : null);
   }
   put('title', form.title.trim() === '' ? itemErrorText('required') : textError(form.title, ITEM_LIMITS.title));
   for (const field of ['observation', 'expected', 'analysisOpinion', 'improvement'] as const) put(field, textError(form[field], ITEM_LIMITS.body));
