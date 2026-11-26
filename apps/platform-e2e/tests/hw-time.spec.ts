@@ -29,6 +29,41 @@ async function selectPoint(page: Page, row: string) {
   return tools;
 }
 
+test.describe('HW Time workspace layout (#701, #690k)', () => {
+  test('HW Time 단계 패널: 맞춤으로 시작하고 첫 줄 패널 안이 넘치지 않는다', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(SCREEN);
+    const root = page.locator('[data-panel-workspace]');
+    await expect(root).toHaveAttribute('data-workspace-mode', 'fit');
+    await expect(root.locator('canvas')).not.toHaveCount(0);
+    for (const id of ['tree', 'current']) {
+      const panel = root.locator(`[data-dock-panel="${id}"]`);
+      await expect(panel).toBeVisible();
+      await expect.poll(() => panel.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test('1440×900 HW Time 원시 표의 행 영역이 패널 아래 끝에서 120px 안까지 닿는다', async ({ page }, testInfo) => {
+    await signInAs(page, 'admin');
+    await page.goto(`${SCREEN}&pins=table`);
+    await workspace(page).getByRole('tab', { name: '원본 표', exact: true }).click();
+    const tablePanel = page.locator('[data-dock-panel="table"]');
+    const rows = tablePanel.getByLabel('스크롤 가능한 행 영역');
+    await expect(rows).toBeVisible();
+    await expect(rows.getByRole('row').nth(2)).toBeVisible();
+    const slot = tablePanel;
+    // The cap follows layout (observers), so poll until it has grown past the unmeasured fallback.
+    await expect.poll(async () => {
+      const rowsBox = (await rows.boundingBox())!;
+      const slotBox = (await slot.boundingBox())!;
+      return slotBox.y + slotBox.height - (rowsBox.y + rowsBox.height);
+    }).toBeLessThanOrEqual(120);
+    // Filling must not overshoot its panel (the stacked page itself scrolls by design).
+    await expect.poll(() => tablePanel.evaluate(panel => panel.scrollHeight - panel.clientHeight)).toBeLessThanOrEqual(1);
+    await evidence(page, testInfo, 'hw-time-table-fill');
+  });
+});
+
 test.describe('HW Time narrow workspace query line', () => {
   test('keeps query controls separate and clear-all keyboard reachable with panel settings open', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
