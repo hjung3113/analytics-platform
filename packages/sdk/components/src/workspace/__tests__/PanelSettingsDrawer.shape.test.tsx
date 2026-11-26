@@ -46,7 +46,7 @@ function Host() {
   return <aside ref={ref} />;
 }
 
-function setup(initial = chart(lineDraft), props: Pick<PanelSettingsDrawerProps, 'mapping'> = { mapping }, extra: PanelInstance[] = []) {
+function setup(initial = chart(lineDraft), props: Pick<PanelSettingsDrawerProps, 'mapping' | 'validateCandidate'> = { mapping }, extra: PanelInstance[] = []) {
   const changed = vi.fn<(value: MenuViewPanels) => void>();
   function Stage() {
     const [value, setValue] = useState<MenuViewPanels>({ version: 1, instances: [initial, publisher, ...extra] });
@@ -213,5 +213,30 @@ describe('shape section', () => {
     expect(savedConfig(changed)).toMatchObject({ areaFill: true });
     expect(savedConfig(changed)).not.toHaveProperty('valueFormat');
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('names each color circle for screen readers and pointer hover, and moves the color with the arrow keys', async () => {
+    const { changed, user } = setup(chart(barDraft));
+    const swatches = within(row('색 계열')).getAllByRole('radio');
+    expect(swatches.map(swatch => [swatch.getAttribute('aria-label'), swatch.getAttribute('title')])).toEqual([
+      ['색 1', '색 1'], ['색 2', '색 2'], ['색 3', '색 3'], ['색 4', '색 4'],
+    ]);
+    swatches[0]!.focus();
+    await user.keyboard('{ArrowRight}');
+    const second = within(row('색 계열')).getByRole('radio', { name: '색 2' });
+    expect(second).toHaveFocus();
+    expect(second).toHaveAttribute('aria-checked', 'true');
+    expect(savedConfig(changed)).toMatchObject({ measures: [{ field: 'hours', color: 'chart-series-2' }] });
+  });
+
+  it('shows a candidate the menu rejects inside the shape section and does not save it', async () => {
+    const validateCandidate = vi.fn(() => ({ ko: '편집한 구성을 저장할 수 없습니다', en: 'Cannot save the edited configuration' }));
+    const { changed, user } = setup(chart(lineDraft), { mapping, validateCandidate });
+    await user.click(within(row('영역 채우기')).getByRole('radio', { name: '켬' }));
+    expect(validateCandidate).toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toBe('편집한 구성을 저장할 수 없습니다');
+    expect(row('영역 채우기').parentElement?.parentElement).toContainElement(alert);
   });
 });

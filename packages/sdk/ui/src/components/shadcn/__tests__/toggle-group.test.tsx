@@ -48,6 +48,7 @@ it('draws a swatch with one selection ring and no border', () => {
   </ToggleGroup>);
   const item = radio('색 1');
   expect(item.className).toContain('data-[state=on]:ring-2');
+  expect(item.className).toContain('focus-visible:ring-offset-2');
   expect(item.className).not.toMatch(/data-\[state=on\]:border/);
   expect(item.className.split(' ').some(token => token === 'border' || token.startsWith('border-'))).toBe(false);
   expect(item).not.toHaveClass('data-[state=on]:bg-surface-row-selected');

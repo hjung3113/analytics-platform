@@ -73,8 +73,8 @@ const TOGGLE_GROUP_APPEARANCE_CLASSES: Record<Exclude<ToggleGroupAppearance, 'de
   swatch: 'justify-start gap-2',
 };
 
-/** Circle item: one selection ring, never a border plus a ring. The padding leaves a transparent gap so the ring reads on any color and any surface. The consumer paints the color on a child. */
-const SWATCH_ITEM_CLASS = 'inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-transparent p-0.5 hover:bg-transparent data-[state=on]:bg-transparent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring data-[state=on]:ring-2 data-[state=on]:ring-focus-ring disabled:pointer-events-none disabled:opacity-50';
+/** Circle item: one selection ring, never a border plus a ring. The padding leaves a transparent gap so the ring reads on any color and any surface; keyboard focus moves the ring out by an offset so focus and selection stay apart. The consumer paints the color on a child. */
+const SWATCH_ITEM_CLASS = 'inline-flex ring-offset-surface-canvas size-8 shrink-0 items-center justify-center rounded-full bg-transparent p-0.5 hover:bg-transparent data-[state=on]:bg-transparent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 data-[state=on]:ring-2 data-[state=on]:ring-focus-ring disabled:pointer-events-none disabled:opacity-50';
 
 type ToggleGroupItemAppearance = 'default' | 'selected-filter';
 interface ToggleGroupItemProps
@@ -156,7 +156,7 @@ export const ToggleGroupItem = React.forwardRef<
           variant: resolvedVariant,
           size: context.size || size,
         }),
-        !swatch && context.appearance === 'filter' && 'rounded-inset-md',
+        context.appearance === 'filter' && 'rounded-inset-md',
         defaultSegment && 'rounded-inset-md border border-transparent',
         defaultSegment && TOGGLE_GROUP_ITEM_APPEARANCE_CLASSES['selected-filter'],
         !swatch && appearance !== 'default' && TOGGLE_GROUP_ITEM_APPEARANCE_CLASSES[appearance],
