@@ -18,9 +18,20 @@ async function openCycle(page: Page, url = CYCLE) {
   await expect(trigger(page)).toBeVisible();
 }
 
+/**
+ * Folds the query bar and waits until it stays folded. A bar with no applied query opens itself after mount (see
+ * `expandQueryBar`), so a single visibility check can run before the editor opens and leave it over the workspace (#3057).
+ */
 async function closeQueryEditor(page: Page) {
-  const toggle = queryBar(page).getByRole('button', { name: '조회 조건 접기' });
-  if (await toggle.isVisible()) await toggle.click();
+  const bar = queryBar(page);
+  const expand = bar.getByRole('button', { name: '조회 조건 펼치기' });
+  const collapse = bar.getByRole('button', { name: '조회 조건 접기' });
+  await expect(expand.or(collapse).first()).toBeVisible();
+  await expect(async () => {
+    if (await collapse.isVisible()) await collapse.click({ timeout: 2_000 });
+    await expect(expand).toBeVisible({ timeout: 2_000 });
+    await expect(page.getByRole('dialog', { name: '조회 조건', exact: true })).toHaveCount(0, { timeout: 2_000 });
+  }).toPass();
 }
 
 /** The selector popover's view list; opening it again while open would close it. */
