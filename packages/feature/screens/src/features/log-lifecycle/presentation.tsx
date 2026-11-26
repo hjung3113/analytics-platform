@@ -1,4 +1,3 @@
-import { formatCompactDateTime } from '../../lib/format/datetime';
 import type { ReactNode } from 'react';
 import { AlertTriangle, Check, Clock3, Minus, UserRound, X } from 'lucide-react';
 import { Button, Callout, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
@@ -27,7 +26,6 @@ export function WriteError({ result, onRetry, retryDisabled = false }: { result:
   const message = result.outcome === 'conflict' ? '다른 변경이 먼저 저장되었습니다. 최신 내용을 확인한 뒤 다시 기록해 주세요.' : result.outcome === 'forbidden' ? '이 동작의 권한이 없습니다. 관리자에게 요청해 주세요.' : result.outcome === 'unknown' ? '처리 결과를 확인하지 못했습니다. 같은 요청으로 결과를 확인해 주세요.' : '저장하지 못했습니다. 입력값을 확인해 주세요.';
   return <div role="alert" className="space-y-2 text-sm text-text-danger-label"><p>{message}</p>{result.fieldErrors.map(f => <p key={f.path.join('.')}>{{ modelId: '모델', softwareId: 'SW', ownerActorId: '담당', targetDate: '목표일', reason: '사유', sourceOwner: '원본 소유자', priority: '우선순위', roundId: 'Round', sampleSet: '샘플 목록', exception: '예외', decision: '결정', title: '제목', body: '내용', expected: '기대', actual: '실제', repro: '재현 절차', issueId: '검증 항목', occurrenceId: '연결', refs: '근거 위치', firstRoundId: 'Round', attemptId: '시도', ruleResultId: '규칙 결과' }[f.path[0] ?? ''] ?? '입력값'}: {REASON_COPY[f.code] ?? ({ required: '필수 항목입니다.', malformed: '형식을 확인해 주세요.', not_found: '대상을 찾을 수 없습니다.', inactive: '비활성 대상입니다.', too_long: '입력값이 너무 깁니다.', illegal_transition: '현재 상태에서는 변경할 수 없습니다.', open_project_exists: '이미 열린 개발 건이 있습니다.', open_round_exists: '이미 열린 Round가 있습니다.', round_closed: '종료된 Round에는 요청을 등록할 수 없습니다.', 'queue.immediate_limit': '즉시 요청 한도에 도달했습니다.', secret_detected: '비밀 정보로 보이는 값은 저장할 수 없습니다.' }[f.code] ?? '현재 상태와 입력값을 확인해 주세요.')}</p>)}{result.retry && onRetry ? <Button type="button" variant="secondary" size="toolbar" disabled={retryDisabled} onClick={onRetry}>같은 요청 다시 확인</Button> : null}</div>;
 }
-export const time = (value: string | null | undefined) => value ? formatCompactDateTime(value) : '없음';
 export function Section({ title, children }: { title: string; children: ReactNode }) { return <section className="grid min-w-0 grid-cols-1 gap-3"><h2 className="text-sm font-semibold">{title}</h2>{children}</section>; }
 
 

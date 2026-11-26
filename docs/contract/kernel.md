@@ -360,6 +360,8 @@ carry set과 `contextResetKeys`는 이 키들을 그대로 가리킬 수 있다.
 - `formatSummaryTime`은 상세·요약에 쓸 `M월 D일 HH:mm`(영어 `Mon D HH:mm`)을 반환한다. 사용자의 시간대에서 현재와 해가 다르면 연도를 붙인다.
 - `formatFeedTime`은 알림과 활동 흐름에 쓸 `text`와 전체 로컬 시각 `title`을 반환한다. 상대 시각이나 `어제 HH:mm`, `M월 D일`을 표시하고 같은 요소에 `title`을 붙인다.
 
+실행 시간대 같은 벽시계 설정은 시점이 아니므로 자기 시간대로 보이고 그 시간대 이름을 함께 쓴다. 그 설정과 비교하라고 옆에 두는 시점은 `formatListTime(at, { timeZone })`으로 그 설정의 시간대에 표시한다(#2587).
+
 `@ap/contracts`의 `formatInstant`는 오프셋 없는 문자열을 거부하는 저수준 포매터다(#88). 설비 wall-clock, 차트 축, 정밀 입력, URL과 CSV 형식은 각 계약을 따른다.
 
 ### 6.4 URL 계약 (Decided; 필드명·enum 문자열은 Candidate)

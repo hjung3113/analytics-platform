@@ -1,8 +1,9 @@
 import { useEffect, useId, useState } from 'react';
+import { FeatureTimestamp, useFeatureTime } from '../../components/FeatureTimestamp';
 import { ChevronDown } from 'lucide-react';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, DecisionReasonField, FieldList, FieldRow, Input, Label, RadioGroup, RadioGroupItem, Textarea, requiredDecisionReasonError, useImeEnterGuard } from '@ap/ui';
 import { GATE_LABEL, REASON_COPY, STATE_LABEL, type Attempt, type CursorPage, type Page, type ValidationIssueRow, type RequestDetail, type RuleResult, type RoundDetail, type ScreenProps, type WriteResult } from './contracts';
-import { Disclosure, GateBadge, ReadView, time, writeFailure, WriteError } from './presentation';
+import { Disclosure, GateBadge, ReadView, writeFailure, WriteError } from './presentation';
 import { decisiveReference } from './RoundExecution';
 import { ISSUE_TOTAL_UNAVAILABLE } from './Discussion';
 import { pageCopy } from './messages';
@@ -112,7 +113,7 @@ function gateResultSummary(decisive: Attempt | undefined, failureCount: number |
 function digestPreview(value: string | undefined): string {
   return value ? `${value.slice(0, GATE_DIGEST_PREVIEW_LENGTH)}…` : GATE_VALUE_UNAVAILABLE;
 }
-function basisAttemptSummary(basis: GateBasisSummary | null, selectedAttempt?: Pick<Attempt, 'id' | 'attemptNo'>): string {
+function basisAttemptSummary(basis: GateBasisSummary | null, summaryTime: (at: string) => string, selectedAttempt?: Pick<Attempt, 'id' | 'attemptNo'>): string {
   if (!basis || basis.decisiveAttemptId === undefined) return GATE_VALUE_UNAVAILABLE;
   if (basis.decisiveAttemptId === null) return pageCopy.noCompletedAttempt;
   const attempt = basis.decisiveAttempt;
@@ -120,7 +121,7 @@ function basisAttemptSummary(basis: GateBasisSummary | null, selectedAttempt?: P
   const attemptNumber = attempt.attemptNo === undefined ? GATE_VALUE_UNAVAILABLE : `#${attempt.attemptNo}`;
   const selectedAttemptNote = selectedAttempt && selectedAttempt.id !== attempt.attemptId ? ` (선택한 시도 #${selectedAttempt.attemptNo}와 다름)` : '';
   const verdict = typeof attempt.verdict === 'string' ? STATE_LABEL[attempt.verdict] ?? GATE_VALUE_UNAVAILABLE : GATE_VALUE_UNAVAILABLE;
-  const endedAt = typeof attempt.endedAt === 'string' && Number.isFinite(Date.parse(attempt.endedAt)) ? time(attempt.endedAt) : GATE_VALUE_UNAVAILABLE;
+  const endedAt = typeof attempt.endedAt === 'string' && Number.isFinite(Date.parse(attempt.endedAt)) ? summaryTime(attempt.endedAt) : GATE_VALUE_UNAVAILABLE;
   return `완료 시도 ${attemptNumber}${selectedAttemptNote} · ${verdict} · ${endedAt}`;
 }
 function ruleRevisionSummary(attempt: GateBasisAttempt | null | undefined): string {
@@ -142,6 +143,7 @@ function StandaloneGatePanel(props: GateProps) {
 }
 function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controller }: GateProps & { controller: GateController }) {
   const ime = useImeEnterGuard();
+  const format = useFeatureTime();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reasonError, setReasonError] = useState<string | undefined>();
   const [rawBasisOpen, setRawBasisOpen] = useState(false);
@@ -193,7 +195,7 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
     <section aria-label="서버 결정 근거" className="grid gap-2 text-xs">
       <h3 className="font-semibold">서버 결정 근거</h3>
       <div className="grid min-w-0 gap-1">
-        <FieldList layout="inline" className="min-w-0"><FieldRow label="기준 시도">{basisAttemptSummary(basis, selectedAttempt)}</FieldRow></FieldList>
+        <FieldList layout="inline" className="min-w-0"><FieldRow label="기준 시도">{basisAttemptSummary(basis, format.summary, selectedAttempt)}</FieldRow></FieldList>
         <FieldList layout="inline" className="min-w-0"><FieldRow label="검증 결과">{resultSummary}</FieldRow><FieldRow label="필수 판정">{requiredSummary}</FieldRow></FieldList>
         <FieldList layout="inline" className="min-w-0"><FieldRow label="규칙">{ruleRevisionSummary(basisAttempt)}</FieldRow><FieldRow label="명세">{specPinSummary(basis)}</FieldRow><FieldRow label="샘플" mono>{digestPreview(basis?.sampleManifestDigest)}</FieldRow><FieldRow label="근거 링크">{basis?.evidenceLinkCount === undefined ? GATE_VALUE_UNAVAILABLE : `${basis.evidenceLinkCount}개`}</FieldRow><FieldRow label="시도 수">{basis ? `${basis.attempts.length}개` : GATE_VALUE_UNAVAILABLE}</FieldRow></FieldList>
       </div>
@@ -238,6 +240,6 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
       <span>기록하면 이력에 남고 지울 수 없습니다. 바꾸려면 새 결정을 기록합니다.</span>
     </AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel disabled={locked}>취소</AlertDialogCancel><Button disabled={locked || !selected?.allowed} onClick={() => { setConfirmOpen(false); void submit(); }}>기록</Button></AlertDialogFooter></AlertDialogContent></AlertDialog>
     <h3 className="text-sm font-semibold">Gate 결정 이력</h3>
-    {orderedGateDecisions.length === 0 ? <p className="text-xs text-text-muted">아직 결정 없음</p> : orderedGateDecisions.map(d => <div key={d.id} className="grid gap-2 border-t border-border-subtle pt-3 text-xs"><GateBadge decision={d.decision} /><p>{d.decidedBy.displayName || '이름 확인 불가'} · {time(d.at)} KST{d.selfApproved ? ' · 자기 승인' : ''}</p><p>{d.reason}</p>{d.exception ? <p>예외 범위: {d.exception.scope} · 위험 수용자 {d.exception.riskAcceptedBy}{d.exception.until ? ` · ${d.exception.until}까지` : ''}</p> : null}<Disclosure label="결정 시점 근거"><pre className="whitespace-pre-wrap break-all">{JSON.stringify(d.basis, null, 2)}</pre></Disclosure></div>)}
+    {orderedGateDecisions.length === 0 ? <p className="text-xs text-text-muted">아직 결정 없음</p> : orderedGateDecisions.map(d => <div key={d.id} className="grid gap-2 border-t border-border-subtle pt-3 text-xs"><GateBadge decision={d.decision} /><p>{d.decidedBy.displayName || '이름 확인 불가'} · <FeatureTimestamp at={d.at} notation="feed" />{d.selfApproved ? ' · 자기 승인' : ''}</p><p>{d.reason}</p>{d.exception ? <p>예외 범위: {d.exception.scope} · 위험 수용자 {d.exception.riskAcceptedBy}{d.exception.until ? ` · ${d.exception.until}까지` : ''}</p> : null}<Disclosure label="결정 시점 근거"><pre className="whitespace-pre-wrap break-all">{JSON.stringify(d.basis, null, 2)}</pre></Disclosure></div>)}
   </section>;
 }

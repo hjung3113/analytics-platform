@@ -112,7 +112,7 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
     Link,
     lang,
     time: {
-      list: at => formatListTime(at),
+      list: (at, options) => formatListTime(at, options),
       summary: at => formatSummaryTime(at, lang),
       feed: at => formatFeedTime(at, lang),
     },
