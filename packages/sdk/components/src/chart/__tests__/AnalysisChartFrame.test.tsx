@@ -766,6 +766,8 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
     expect(viaPreset).toContain('선택 구간: 2026-10-16 19:00 – 2026-10-16 23:00');
     expect(viaPreset).toContain('n=4');
     fireEvent.click(within(summary()).getByRole('button', { name: '지우기' }));
+    // Brush is still on: the first press turns it off, the second reopens the editor (#3141).
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     await pick('구간 시작', '2026-10-16 19:00');
     await pick('구간 끝', '2026-10-16 23:00');
@@ -781,6 +783,8 @@ describe('keyboard range, bar snap, and compare clip (06 §16, #307)', () => {
     expect(summary().textContent).toContain('선택 구간: 2026-10-16 16:00 – 2026-10-16 23:00');
     expect(summary().textContent).toContain('n=7');
     fireEvent.click(within(summary()).getByRole('button', { name: '지우기' }));
+    // Brush is still on: the first press turns it off, the second reopens the editor (#3141).
+    fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     fireEvent.click(screen.getByRole('button', { name: '구간 선택' }));
     await pick('구간 시작', '2026-10-16 22:00');
     await pick('구간 끝', '2026-10-16 23:00');

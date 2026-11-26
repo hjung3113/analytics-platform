@@ -2074,6 +2074,41 @@ it('describes and blocks keyboard deletion of a kept chart in the merged layout 
   expect(tab).toBeInTheDocument();
 });
 
+// #3140: opening the drawer narrows the workspace and the engine rebuilds its groups, so the ⋯ that opened it is a new element on close.
+it.each(['before', 'after'] as const)('returns focus to the rebuilt group ⋯ when the groups are rebuilt %s Escape closes panel settings', async order => {
+  const user = userEvent.setup();
+  const panel = { id: 'selector', source: { kind: 'declared', panel: 'selector' } as const, inputs: [], outputs: [] };
+  const title = { ko: '선택기', en: 'Selector' };
+  function WorkspaceWithSettings() {
+    const { ref } = useDetailPanelSlotHost();
+    const [opener, setOpener] = useState<HTMLButtonElement | null>(null);
+    return <>
+      <PanelWorkspace {...BASE} panels={PANELS.map(item => item.id === panel.id ? { ...item, onOpenSettings: setOpener } : item)} />
+      <aside ref={ref} />
+      {opener && <PanelSettingsDrawer panel={panel} title={title} value={{ version: 1, instances: [panel] }}
+        trigger={opener} selectionOf={() => null} onChange={vi.fn()} onClose={() => { setOpener(null); }} />}
+    </>;
+  }
+  render(shell(<DetailPanelSlotProvider><WorkspaceWithSettings /></DetailPanelSlotProvider>));
+  await ready();
+  const menuOf = () => {
+    const tab = screen.getByRole('tab', { name: title.ko });
+    return within(tab.closest('.dv-tabs-and-actions-container')!).getByRole('button', { name: `${title.ko} 동작` });
+  };
+  const trigger = menuOf();
+  await user.click(trigger);
+  await user.click(await screen.findByRole('menuitem', { name: '패널 설정' }));
+  const drawer = await screen.findByRole('dialog', { name: title.ko });
+  await waitFor(() => { expect(drawer.contains(document.activeElement)).toBe(true); });
+  observer.resize(600);
+  if (order === 'before') observer.resize(1200);
+  await user.keyboard('{Escape}');
+  if (order === 'after') observer.resize(1200);
+  expect(drawer).not.toBeInTheDocument();
+  await waitFor(() => { expect(menuOf()).toHaveFocus(); });
+  expect(menuOf()).not.toBe(trigger);
+});
+
 it('returns focus to the merged chart More trigger after closing panel settings with Escape', async () => {
   const user = userEvent.setup();
   const panel = { id: 'selector', source: { kind: 'declared', panel: 'selector' } as const, inputs: [], outputs: [] };

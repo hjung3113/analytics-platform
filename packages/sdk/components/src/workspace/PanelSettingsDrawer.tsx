@@ -7,11 +7,13 @@ import {
 } from '@ap/contracts';
 import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
 import { FieldLabel, ToggleGroup, ToggleGroupItem } from '@ap/ui';
+import { keepGroupMenuFocus } from '../dock/focusTab';
 import { DetailDrawer } from '../drawer/DetailDrawer';
 import { Inspector } from '../inspector/Inspector';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { PanelMappingSection } from './PanelMappingSection';
 import { PanelShapeSection } from './PanelShapeSection';
+import { focusPageFallback } from '../state/pageFocus';
 
 type DeclaredInput = NonNullable<PanelDeclaration['queryInputs']['page']>[number];
 type Source = { panel: PanelInstance; output: PanelInstanceOutput };
@@ -108,6 +110,12 @@ export function PanelSettingsDrawer({ title, panel, value, mapping, projectCandi
   const draft = pendingDraft ?? (config && readChartPanelDraft(config));
   const mappingProblem = pendingDraft ? rejection.problem ?? null : savedProblem;
   const returnFocusRef = useMemo(() => ({ current: trigger ?? null }), [trigger]);
+  // Read while the trigger is still in its group header: opening and closing the drawer can resize the workspace and rebuild that header (#3140).
+  const returnFocus = useMemo(() => {
+    const layout = trigger?.closest<HTMLElement>('[data-dock-layout]') ?? null;
+    const groupPanel = trigger?.closest<HTMLElement>('[data-dock-group-actions]')?.dataset.dockActive;
+    return trigger && layout && groupPanel !== undefined ? () => keepGroupMenuFocus(trigger, layout, groupPanel, () => { focusPageFallback(layout); }) : undefined;
+  }, [trigger]);
   const inputKeys = new Set([...declaredInputs.filter(input => input.selection).map(input => input.key), ...panel.inputs.map(input => input.key)]);
   const sources = value.instances.filter(instance => instance.id !== panel.id).flatMap(instance => instance.outputs.map(output => ({ panel: instance, output })));
   const labelOf = (source: Source) => {
@@ -207,6 +215,6 @@ export function PanelSettingsDrawer({ title, panel, value, mapping, projectCandi
       {rejection?.section === 'connections' && <p role="alert" className="text-xs text-text-danger-label">{tx(rejection.reason)}</p>}
     </div>,
   }]} />;
-  return <DetailDrawer title={tx(title)} focusOnOpen closeOnSuperseded copyPage={null} returnFocusRef={returnFocusRef} onClose={onClose}
+  return <DetailDrawer title={tx(title)} focusOnOpen closeOnSuperseded copyPage={null} returnFocusRef={returnFocusRef} returnFocus={returnFocus} onClose={onClose}
     tabs={[{ id: 'settings', label: m('panelSettings'), content }]} />;
 }

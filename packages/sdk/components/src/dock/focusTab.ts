@@ -1,5 +1,5 @@
 import { revealInScrollContainer } from '../visibleArea';
-import { programmaticFocus } from './programmaticFocus';
+import { isProgrammaticFocus, programmaticFocus } from './programmaticFocus';
 
 /** Focus without the browser's scroll; in row mode the workspace's scroll container then reveals the element below its sticky chrome (`revealInScrollContainer`). */
 export function focusRevealing(element: HTMLElement, layout: HTMLElement | null | undefined, rowMode: boolean): void {
@@ -116,4 +116,84 @@ export function keepFocusAfterPanelAdd(trigger: HTMLElement, panelId: string, on
   document.addEventListener('focusin', onFocus, true);
   document.addEventListener('pointerdown', stop, true);
   timer = setTimeout(attempt, 0);
+}
+
+/** The ⋯ (or merged chart «더보기») in the header of the group whose active panel is `panelId`, in `layout` only. */
+const groupMenu = (layout: Element, panelId: string): HTMLElement | undefined =>
+  Array.from(layout.querySelectorAll<HTMLElement>('[data-dock-group-actions]'))
+    .find(slot => slot.dataset.dockActive === panelId && slot.closest('[data-dock-layout]') === layout)
+    ?.querySelector<HTMLElement>('[data-dock-group-menu]') ?? undefined;
+
+/** How long a group menu claim covers the engine's later rebuilds: one was seen about 1 s after a drawer closed. */
+const CLAIM_MS = 2000;
+/** Per layout, the group whose menu a caller handed focus back to (`keepGroupMenuFocus`), until a time or the user's next move. */
+const menuClaims = new WeakMap<Element, { panelId: string; until: number }>();
+
+/**
+ * Returns focus to the group menu that opened a surface outside the layout (panel settings, #3140). Opening and closing that surface can
+ * resize the workspace, and the engine then rebuilds its groups, so the menu found now may be replaced a moment later: like
+ * `keepFocusAfterPanelAdd`, it watches for about 600 ms and puts focus back on the current menu of `panelId` whenever focus is lost. It also
+ * claims that menu for about 2 s, so a later rebuild that removes it hands focus to the new one (`menuAfterRebuild`). Both stop at the first
+ * focus or pointer input elsewhere (the engine's own focus moves excepted). `onUnavailable` runs when the watch ends with focus still lost.
+ * Returns false (and watches nothing) when `trigger` is not inside a dock layout.
+ */
+export function keepGroupMenuFocus(trigger: HTMLElement, layout: Element | null, panelId: string | undefined, onUnavailable: () => void): boolean {
+  if (!layout || panelId === undefined) return false;
+  const claim = { panelId, until: Date.now() + CLAIM_MS };
+  menuClaims.set(layout, claim);
+  const current = () => (trigger.isConnected && shown(trigger) ? trigger : groupMenu(layout, panelId));
+  const lost = () => {
+    const active = document.activeElement;
+    return active === null || active === document.body || !shown(active);
+  };
+  let tries = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => {
+    clearTimeout(timer);
+    document.removeEventListener('focusin', onFocus, true);
+    document.removeEventListener('pointerdown', onPointer, true);
+  };
+  const release = () => { stop(); if (menuClaims.get(layout) === claim) menuClaims.delete(layout); };
+  function onPointer() { release(); }
+  function onFocus(event: FocusEvent) {
+    const target = event.target;
+    if (isProgrammaticFocus()) return;
+    if (target instanceof HTMLElement && target.matches('[data-dock-group-menu]') && target.closest('[data-dock-group-actions]')?.getAttribute('data-dock-active') === panelId) return;
+    release();
+  }
+  const attempt = () => {
+    if (lost()) {
+      const menu = current();
+      if (shown(menu)) programmaticFocus(() => { menu.focus({ preventScroll: true }); });
+    }
+    if (++tries < 20 && layout.isConnected) { timer = setTimeout(attempt, 30); return; }
+    // The claim outlives the watch: a user move until it expires still releases it.
+    clearTimeout(timer);
+    if (lost()) { release(); onUnavailable(); return; }
+    const expire = setTimeout(release, Math.max(0, claim.until - Date.now()));
+    timer = expire;
+  };
+  document.addEventListener('focusin', onFocus, true);
+  document.addEventListener('pointerdown', onPointer, true);
+  attempt();
+  return true;
+}
+
+/**
+ * After the engine rebuilt its groups and moved focus from a removed group menu to `tab` (that group's tab, so focus is never lost), moves it
+ * on to the group's new menu once the host has drawn it, retrying for about 300 ms like `focusTabSoon` — only while a caller claims that
+ * menu (`keepGroupMenuFocus`). Unclaimed, focus stays on the tab: a host may treat focus inside a group's header as choosing that group (the
+ * board selects the pane whose head is there), so the engine never moves focus into a header on its own.
+ */
+export function menuAfterRebuild(layout: Element, panelId: string, tab: HTMLElement): void {
+  const claim = menuClaims.get(layout);
+  if (claim?.panelId !== panelId || Date.now() > claim.until) return;
+  let tries = 0;
+  const attempt = () => {
+    if (document.activeElement !== tab) return;
+    const menu = groupMenu(layout, panelId);
+    if (shown(menu)) { programmaticFocus(() => { menu.focus({ preventScroll: true }); }); return; }
+    if (++tries < 10 && layout.isConnected) setTimeout(attempt, 30);
+  };
+  setTimeout(attempt, 0);
 }

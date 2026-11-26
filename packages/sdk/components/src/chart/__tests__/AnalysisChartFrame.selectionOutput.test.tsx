@@ -81,6 +81,7 @@ it('creates a URL range with the chart form, edits it through the chip, and clea
   fireEvent.click(within(summary()).getByRole('button', { name: '지우기' }));
   expect(search().has('range')).toBe(false);
   expect(within(summary()).queryByText(/선택 구간:/)).toBeNull();
+  await user.keyboard('{Enter}'); // Brush off (#3141)
   await user.keyboard('{Enter}');
   expect(within(screen.getByRole('dialog')).getByRole('combobox', { name: '구간 시작' })).toBeTruthy();
 });
