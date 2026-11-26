@@ -309,11 +309,11 @@ it('adds the eligible raw table and follows the equipment set from the workspace
   const row = within(screen.getByRole('group', { name: '다음 분석' }));
   const add = row.getByRole('button', { name: '새 패널' });
   expect(tableReads()).toEqual([]);
-  fireEvent.keyDown(add, { key: 'Enter' });
-  const menu = within(await screen.findByRole('menu'));
-  // Follow and hold for the one eligible panel (#2862).
-  expect(menu.getAllByRole('menuitem').map(item => item.getAttribute('aria-label'))).toEqual(['원본 표', '원본 표 · 붙잡기']);
-  fireEvent.click(menu.getByRole('menuitem', { name: '원본 표' }));
+  fireEvent.click(add);
+  // A catalog with categories opens the categorized picker from a selection (#2744): one row per eligible panel, follow and hold (#2862).
+  const picker = within(await screen.findByRole('dialog', { name: '새 패널' }));
+  expect(picker.getAllByRole('button').map(item => item.getAttribute('aria-label'))).toEqual(['원본 표', '원본 표 · 붙잡기']);
+  fireEvent.click(picker.getByRole('button', { name: '원본 표' }));
   await waitFor(() => expect(tableReads()[0]?.params).toMatchObject({ motionEquipment: ['MEM-PHOTO-0105'] }));
   expect(row.queryByRole('button', { name: '새 패널' })).toBeNull();
   fireEvent.click(within(screen.getByRole('group', { name: '분석 선택' })).getByRole('button', { name: '설비 MEM-PHOTO-0105' }));
@@ -327,8 +327,8 @@ it('adds the eligible raw table and follows the equipment set from the workspace
 const heldLink = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105';
 const tableTab = () => document.querySelector<HTMLElement>('[role="tab"][data-tab-panel-id="table"]')!;
 const newPanel = async (name: string) => {
-  fireEvent.keyDown(within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' }), { key: 'Enter' });
-  fireEvent.click(await screen.findByRole('menuitem', { name }));
+  fireEvent.click(within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: '새 패널' })).getByRole('button', { name }));
   await settle();
 };
 const pickEquipment = async (from: string, to: string) => {
@@ -485,11 +485,12 @@ it('offers «원본 표 · 붙잡기» beside a placed following table in the re
   await renderOverview(`${heldLink}&pins=table`, answer, { realWorkspace: true, realChart: 'hw-current', showSelectionChips: true });
   await followsTo('MEM-PHOTO-0105');
   expect(tabOf('table')!.textContent).toMatch(/^원본 표\d*$/);
-  fireEvent.keyDown(within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' }), { key: 'Enter' });
+  fireEvent.click(within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' }));
   // The following table is placed: only its other mode is offered.
-  expect(await screen.findByRole('menuitem', { name: '원본 표 · 붙잡기' })).toBeTruthy();
-  expect(screen.queryByRole('menuitem', { name: '원본 표' })).toBeNull();
-  fireEvent.click(screen.getByRole('menuitem', { name: '원본 표 · 붙잡기' }));
+  const picker = within(await screen.findByRole('dialog', { name: '새 패널' }));
+  expect(picker.getByRole('button', { name: '원본 표 · 붙잡기' })).toBeTruthy();
+  expect(picker.queryByRole('button', { name: '원본 표' })).toBeNull();
+  fireEvent.click(picker.getByRole('button', { name: '원본 표 · 붙잡기' }));
   await settle();
   await waitFor(() => expect(tabOf('table-held')?.textContent).toMatch(/^원본 표 · 붙잡음/));
   expect(tabOf('table')!.textContent).toMatch(/^원본 표\d*$/);
@@ -639,8 +640,8 @@ it('opens the raw table body on the first add from a maximized chart', async () 
   fireEvent.click(screen.getByRole('button', { name: 'PM1 · Pump · 설비별 최대화' }));
   expect(screen.getByRole('button', { name: '원래 크기로' })).toBeTruthy();
   const add = within(screen.getByRole('group', { name: '다음 분석' })).getByRole('button', { name: '새 패널' });
-  fireEvent.keyDown(add, { key: 'Enter' });
-  fireEvent.click(await screen.findByRole('menuitem', { name: '원본 표' }));
+  fireEvent.click(add);
+  fireEvent.click(within(await screen.findByRole('dialog', { name: '새 패널' })).getByRole('button', { name: '원본 표' }));
   await waitFor(() => {
     expect(document.querySelector('[role="tab"][data-tab-panel-id="table"]')?.getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('region', { name: 'HW Time 동작시간 표' })
