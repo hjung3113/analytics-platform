@@ -7,18 +7,18 @@ const form = (patch: Partial<WriteForm> = {}): WriteForm => ({ ...emptyForm('m1'
 
 describe('mapItemErrors', () => {
   it('maps a nested evidence path to its row and field, not to the head', () => {
-    expect(mapItemErrors([{ path: ['evidence', '1', 'sourceRef'], code: 'required' }], KNOWN, 2)).toEqual({ 'evidence.1.sourceRef': '필수 항목입니다' });
+    expect(mapItemErrors([{ path: ['evidence', '1', 'sourceRef'], code: 'required' }], KNOWN, 2)).toEqual({ 'evidence.1.sourceRef': '필수 항목입니다.' });
   });
   it.each(['owner', 'ownerModelId', 'ownerSoftwareId'])('maps %s to the owner controls', path => {
-    expect(mapItemErrors([{ path: [path], code: 'not_found' }], KNOWN, 0)).toEqual({ owner: '찾을 수 없는 항목입니다' });
+    expect(mapItemErrors([{ path: [path], code: 'not_found' }], KNOWN, 0)).toEqual({ owner: '찾을 수 없는 항목입니다.' });
   });
   it('maps the evidence cap to the list and an out-of-range row or unknown path to a visible form error', () => {
-    expect(mapItemErrors([{ path: ['evidence'], code: 'too_long' }], KNOWN, 3)).toEqual({ evidenceList: '입력 길이가 너무 깁니다' });
+    expect(mapItemErrors([{ path: ['evidence'], code: 'too_long' }], KNOWN, 3)).toEqual({ evidenceList: '입력 길이가 너무 깁니다.' });
     expect(mapItemErrors([{ path: ['evidence', '7', 'note'], code: 'too_long' }], KNOWN, 2)['form']).toContain('근거');
-    expect(mapItemErrors([{ path: ['id'], code: 'archived' }], KNOWN, 0)).toEqual({ form: 'Item: 보관된 Item은 바꿀 수 없습니다' });
+    expect(mapItemErrors([{ path: ['id'], code: 'archived' }], KNOWN, 0)).toEqual({ form: 'Item: 보관된 Item은 바꿀 수 없습니다.' });
   });
   it('keeps the first message per control', () => {
-    expect(mapItemErrors([{ path: ['title'], code: 'required' }, { path: ['title'], code: 'too_long' }], KNOWN, 0)).toEqual({ title: '필수 항목입니다' });
+    expect(mapItemErrors([{ path: ['title'], code: 'required' }, { path: ['title'], code: 'too_long' }], KNOWN, 0)).toEqual({ title: '필수 항목입니다.' });
   });
 });
 

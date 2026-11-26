@@ -167,6 +167,34 @@ describe('production model spec screen', () => {
     expect(summary.textContent).toContain('초안을 만든 뒤 비교합니다.');
     expect(summary.textContent, 'no parse-failure reason before a draft exists').not.toContain('파싱하지 못해');
   });
+  // #2574: a blank source no longer disables 초안 작성; submitting shows the field errors and focuses the first one.
+  it('shows the source field errors on 초안 작성 and focuses the first one without writing', async () => {
+    mount('&drawer=draft');
+    const create = await screen.findByRole('button', { name: '초안 작성' });
+    expect((create as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(create);
+    const label = screen.getByLabelText('원본 문서· 필수'), version = screen.getByLabelText('문서 버전· 필수');
+    await waitFor(() => expect(document.activeElement).toBe(label));
+    for (const [control, message] of [[label, '원본 문서를 입력해 주세요.'], [version, '문서 버전을 입력해 주세요.']] as const) {
+      expect(control.getAttribute('aria-invalid')).toBe('true');
+      expect(control.getAttribute('aria-describedby')).toContain(screen.getByText(message).id);
+    }
+    expect(writes).toHaveLength(0);
+    fireEvent.change(label, { target: { value: 'Spec' } });
+    expect(label.getAttribute('aria-invalid')).not.toBe('true');
+    fireEvent.click(create);
+    await waitFor(() => expect(document.activeElement).toBe(version));
+    expect(writes).toHaveLength(0);
+  });
+  it('creates the draft with the same payload once the source is filled', async () => {
+    mount('&drawer=draft');
+    const create = await screen.findByRole('button', { name: '초안 작성' });
+    fireEvent.change(screen.getByLabelText('원본 문서· 필수'), { target: { value: 'Spec' } });
+    fireEvent.change(screen.getByLabelText('문서 버전· 필수'), { target: { value: '2' } });
+    fireEvent.click(create);
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(writes[0]).toMatchObject({ action: 'logKnowledge.specDraftCreate', input: { modelId, sourceDocRef: { docLabel: 'Spec', docVersion: '2' } } });
+  });
   it('keeps the loaded publication Revision visible when TSV parsing is unavailable', async () => {
     mount('&drawer=draft&revision=' + rev);
     const summary = await screen.findByRole('region', { name: '발행 전 변경 요약' });
@@ -262,7 +290,7 @@ describe('production model spec screen', () => {
     result = ok(publishedB); revisions = [{ id: rev, revisionNo: 4, state: 'published', version: 1 }];
     conflict = true; mount('&drawer=draft&revision=' + rev); await screen.findByLabelText('명세 TSV');
     // Only the source metadata changes: the TSV text stays untouched.
-    fireEvent.change(screen.getByLabelText('문서 버전*'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('문서 버전· 필수'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     fireEvent.click(await screen.findByRole('button', { name: '최신 발행본 확인' }));
     await screen.findByRole('group', { name: '현재 발행본 r4' });
@@ -313,7 +341,7 @@ describe('production model spec screen', () => {
     const coverageReads = () => queries.filter(q => q.endpoint === 'logKnowledge.specCoverage').length;
     const before = coverageReads();
     await screen.findByLabelText('명세 TSV');
-    fireEvent.change(screen.getByLabelText('문서 버전*'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('문서 버전· 필수'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(writes).toHaveLength(1));
     await waitFor(() => expect(coverageReads()).toBeGreaterThan(before));
@@ -327,7 +355,7 @@ describe('production model spec screen', () => {
       events: [{ id: 'e1', moduleId: 'm2', eventKey: 'MOVE', name: 'Move', fields: [], triggerRule: 'first\nsecond', detailDocRef: null }],
     });
     await screen.findByLabelText('명세 TSV');
-    fireEvent.change(screen.getByLabelText('문서 버전*'), { target: { value: '2' } });
+    fireEvent.change(screen.getByLabelText('문서 버전· 필수'), { target: { value: '2' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(writes).toHaveLength(1));
     const payload = writes[0]?.input as Record<string, unknown>;
@@ -421,10 +449,17 @@ describe('production model spec screen', () => {
   it('wires the TSV hint and required marks to their fields', async () => {
     mount('&drawer=draft&revision=' + rev);
     const input = await screen.findByLabelText('명세 TSV');
-    const label = screen.getByLabelText('원본 문서*');
-    const version = screen.getByLabelText('문서 버전*');
+    const label = screen.getByLabelText('원본 문서· 필수');
+    const version = screen.getByLabelText('문서 버전· 필수');
     expect(label.getAttribute('aria-required')).toBe('true');
     expect(version.getAttribute('aria-required')).toBe('true');
+    for (const field of [label, version]) {
+      const labelEl = (field as HTMLInputElement).labels?.[0];
+      expect(labelEl).toBeDefined();
+      const mark = within(labelEl as HTMLElement).getByText('· 필수', { exact: true });
+      expect(mark.getAttribute('aria-hidden')).toBe('true');
+      expect(within(labelEl as HTMLElement).queryByText('*')).toBeNull();
+    }
     const hintId = input.getAttribute('aria-describedby')?.split(' ')[0] ?? '';
     expect(document.getElementById(hintId)?.textContent).toContain('kind: module / event / relation ·');
   });

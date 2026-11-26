@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import type { ActionResult } from '@ap/contracts';
 import { useMenuAction, useMenuFetch, useMenuQuery, usePlatform } from '@ap/kernel';
 import { QueryView } from '@ap/components';
-import { Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input } from '@ap/ui';
+import { Button, Callout, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, useImeEnterGuard, useValidatedSubmit } from '@ap/ui';
 import type { ModelSpecData, SpecDraftData } from '../../endpoints';
 import { modelSpecEndpoint, modelSpecRevisionsEndpoint, specDraftCreate, specDraftEndpoint, specDraftSave, specPublish, specReject, SPEC_SAVE_LIMITS } from '../../endpoints';
 import { specRows, specText } from './specModel';
@@ -16,6 +16,7 @@ const DRAFT_ROUTE: FieldRoute = path => {
   if (head === 'reason') return { control: 'reason', path: [] };
   return null;
 };
+type SourceFields = { docLabel: string; docVersion: string };
 const KIND_LABEL = { module: { ko: 'Module', en: 'Module' }, event: { ko: 'Event', en: 'Event' }, relation: { ko: '관계', en: 'Relation' } } as const;
 const CHANGE_LABEL = { added: { ko: '추가', en: 'Added' }, changed: { ko: '변경', en: 'Changed' }, removed: { ko: '삭제', en: 'Removed' } } as const;
 function SummaryCounts({ summary }: { summary: SpecSummary }) {
@@ -108,6 +109,16 @@ export function DraftEditor({ modelId, modelLabel, revisionId, onClose, onDirtyC
     return true;
   }
   const doc = () => ({ docLabel: source.docLabel, docVersion: source.docVersion, ...(source.link ? { link: source.link } : {}) });
+  // #2574: 초안 작성 stays enabled; a blank source shows field errors on submit and focuses the first one.
+  const ime = useImeEnterGuard(), sourceFormId = `${id}-source`;
+  const sourceCheck = useValidatedSubmit<SourceFields>({
+    validate: ({ docLabel, docVersion }) => ({
+      ...(docLabel.trim() ? {} : { docLabel: w('원본 문서를 입력해 주세요.', 'Enter the source document.') }),
+      ...(docVersion.trim() ? {} : { docVersion: w('문서 버전을 입력해 주세요.', 'Enter the document version.') }),
+    }),
+    onValid: () => { void createNew().catch(() => undefined); },
+  });
+  const submitSource = sourceCheck.handleSubmit({ docLabel: source.docLabel, docVersion: source.docVersion });
   async function createNew() {
     const result = await create.run({ modelId, sourceDocRef: doc() });
     if (!failure(result) && result.outcome === 'ok' && result.data) { setVersion(String(result.data.version)); setLoaded(null); setPage({ revision: result.data.revisionId }, { replace: true }); }
@@ -181,9 +192,12 @@ export function DraftEditor({ modelId, modelLabel, revisionId, onClose, onDirtyC
         <Button variant="secondary" disabled={pending} onClick={() => { void choose('keep').catch(() => setRecovering(false)); }}>{w('내 입력 유지', 'Keep my input')}</Button>
       </div>
     </div>}
-    <SpecField id={`${id}-label`} label={w('원본 문서', 'Source document')} value={source.docLabel} onChange={docLabel => setSource({ ...source, docLabel })} disabled={!editable} error={fieldErrors['sourceDocRef.docLabel']} required />
-    <SpecField id={`${id}-version`} label={w('문서 버전', 'Document version')} value={source.docVersion} onChange={docVersion => setSource({ ...source, docVersion })} disabled={!editable} error={fieldErrors['sourceDocRef.docVersion']} required />
+    {/* Only a new draft submits this form (the footer's 초안 작성 names it); an open draft saves through 저장. */}
+    <form id={sourceFormId} noValidate className="grid min-w-0 gap-4" onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={event => { if (revisionId || pending) { event.preventDefault(); return; } submitSource(event); }}>
+    <SpecField id={`${id}-label`} label={w('원본 문서', 'Source document')} value={source.docLabel} onChange={docLabel => { setSource({ ...source, docLabel }); sourceCheck.clearError('docLabel'); }} disabled={!editable} error={sourceCheck.errors.docLabel ?? fieldErrors['sourceDocRef.docLabel']} required />
+    <SpecField id={`${id}-version`} label={w('문서 버전', 'Document version')} value={source.docVersion} onChange={docVersion => { setSource({ ...source, docVersion }); sourceCheck.clearError('docVersion'); }} disabled={!editable} error={sourceCheck.errors.docVersion ?? fieldErrors['sourceDocRef.docVersion']} required />
     <SpecField id={`${id}-link`} label={w('원본 링크 (선택)', 'Source link (optional)')} value={source.link} onChange={link => setSource({ ...source, link })} disabled={!editable} error={fieldErrors['sourceDocRef.link']} />
+    </form>
     {revisionId && <>
       <SpecField id={`${id}-text`} label={w('명세 TSV', 'Specification TSV')} value={text} onChange={value => { setText(value); setTextDirty(true); setFileFormat('paste'); }} multiline disabled={!editable} error={textError}
         hint={w('kind: module / event / relation · 전체 내용 저장 시 새 초안으로 교체 · 초안 내용만 저장', 'kind: module / event / relation · saving full content replaces the draft · only draft content is saved')} />
@@ -215,7 +229,7 @@ export function DraftEditor({ modelId, modelLabel, revisionId, onClose, onDirtyC
       <div className="sticky bottom-0 z-10 flex flex-wrap justify-end gap-2 border-t border-border-subtle bg-surface-card p-3 elevation-flat">
       <Button variant="secondary" disabled={pending} onClick={close}>{w('취소', 'Cancel')}</Button>
       {revisionId ? <><Button variant="secondary" disabled={!editable || !version} onClick={() => setRejectOpen(true)}>{w('반려', 'Reject')}</Button><Button aria-busy={save.pending || undefined} disabled={!editable || !version} onClick={() => { void saveDraft().catch(() => undefined); }}>{save.pending ? w('저장 중…', 'Saving…') : w('저장', 'Save')}</Button><Button disabled={!editable || !version || dirty} onClick={() => setConfirm(true)}>{w('발행', 'Publish')}</Button></>
-        : <Button disabled={pending || !source.docLabel.trim() || !source.docVersion.trim()} aria-busy={create.pending || undefined} onClick={() => { void createNew().catch(() => undefined); }}>{create.pending ? w('작성 중…', 'Creating…') : w('초안 작성', 'Create draft')}</Button>}
+        : <Button type="submit" form={sourceFormId} disabled={pending} aria-busy={create.pending || undefined}>{create.pending ? w('작성 중…', 'Creating…') : w('초안 작성', 'Create draft')}</Button>}
       </div>
     </section>
     <Dialog open={confirm} onOpenChange={setConfirm}><DialogContent closeLabel={w('닫기', 'Close')}><DialogHeader><DialogTitle>{w('명세 발행 확인', 'Publish specification?')}</DialogTitle><DialogDescription>{w('제출한 내용은 해시로 봉인되며 발행 뒤에는 고칠 수 없습니다.', 'Submitted content is sealed with a hash and cannot be edited after publication.')}</DialogDescription></DialogHeader>

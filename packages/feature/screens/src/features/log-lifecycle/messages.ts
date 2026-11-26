@@ -28,3 +28,11 @@ export const pageCopy = {
     zone: '시간대를 확인하지 못했습니다.',
   },
 } as const;
+
+/** Copy for the lifecycle forms' submit validation (#2574): one error per required or malformed field. */
+export const formCopy = {
+  ownerRequired: '담당 Actor ID를 입력해 주세요.', reasonRequired: '사유를 입력해 주세요.', sourceOwnerRequired: '원본 소유자를 입력해 주세요.',
+  sampleLocationRequired: '샘플 위치를 입력해 주세요.', sampleShaMalformed: 'SHA-256은 16진수 64자로 입력해 주세요.',
+  riskActorRequired: '위험 수용자 Actor ID를 입력해 주세요.', scopeRequired: '예외 범위를 입력해 주세요.',
+  decisionRequired: '결정을 선택해 주세요.', noDecisionAllowed: '서버가 허용한 결정이 없습니다.',
+} as const;

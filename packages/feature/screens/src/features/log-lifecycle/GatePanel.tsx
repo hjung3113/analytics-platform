@@ -1,12 +1,26 @@
-import { useEffect, useId, useState } from 'react';
+import { useId, useState } from 'react';
 import { FeatureTimestamp, useFeatureTime } from '../../components/FeatureTimestamp';
 import { ChevronDown } from 'lucide-react';
-import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, DecisionReasonField, FieldList, FieldRow, Input, Label, RadioGroup, RadioGroupItem, Textarea, requiredDecisionReasonError, useImeEnterGuard } from '@ap/ui';
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, DecisionReasonField, FieldList, FieldRow, FormField, Input, Label, RadioGroup, RadioGroupItem, Textarea, requiredDecisionReasonError, useImeEnterGuard, useValidatedSubmit, type ValidationErrors } from '@ap/ui';
 import { GATE_LABEL, REASON_COPY, STATE_LABEL, type Attempt, type CursorPage, type Page, type ValidationIssueRow, type RequestDetail, type RuleResult, type RoundDetail, type ScreenProps, type WriteResult } from './contracts';
 import { Disclosure, GateBadge, ReadView, writeFailure, WriteError } from './presentation';
 import { decisiveReference } from './RoundExecution';
 import { ISSUE_TOTAL_UNAVAILABLE } from './Discussion';
-import { pageCopy } from './messages';
+import { formCopy, pageCopy } from './messages';
+
+const GATE_DECISIONS = ['approved', 'rejected', 'exception'] as const;
+type GateFields = { reason: string; riskActor: string; scope: string };
+/** Submit-time errors of the Gate decision form (#2574): the reason always, the exception fields for an exception. */
+function validateGate(decision: GateDraft['decision'], values: GateFields): ValidationErrors<GateFields> {
+  const errors: ValidationErrors<GateFields> = {};
+  const reason = requiredDecisionReasonError(values.reason, pageCopy.decisionReasonRequired);
+  if (reason) errors.reason = reason;
+  if (decision === 'exception') {
+    if (!values.riskActor.trim()) errors.riskActor = formCopy.riskActorRequired;
+    if (!values.scope.trim()) errors.scope = formCopy.scopeRequired;
+  }
+  return errors;
+}
 
 export type GateDraft = { decision: 'approved' | 'rejected' | 'exception' | ''; reason: string; riskActor: string; scope: string; until: string; result: WriteResult | null };
 export function emptyGateDraft(actorId: string): GateDraft { return { decision: '', reason: '', riskActor: actorId, scope: '', until: '', result: null }; }
@@ -145,7 +159,6 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
   const ime = useImeEnterGuard();
   const format = useFeatureTime();
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [reasonError, setReasonError] = useState<string | undefined>();
   const [rawBasisOpen, setRawBasisOpen] = useState(false);
   const rawBasisId = useId();
   const available = round.gateAvailability;
@@ -166,18 +179,13 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
   const selected = decision ? available.decisions[decision] : undefined;
   const reasons = [...new Set([...available.reasons, ...(selected?.reasons ?? [])])];
   const locked = pending || result?.outcome === 'unknown' || result?.outcome === 'error';
-  const exceptionIncomplete = decision === 'exception' && (!riskActor.trim() || !scope.trim());
-  const requestConfirmation = () => {
-    const validationError = requiredDecisionReasonError(reason, pageCopy.decisionReasonRequired);
-    if (validationError) {
-      setReasonError(validationError);
-      return;
-    }
-    if (!locked && selected?.allowed && !exceptionIncomplete) setConfirmOpen(true);
-  };
-  useEffect(() => {
-    if (reasonError) document.getElementById(`gate-reason-${round.id}`)?.focus();
-  }, [reasonError, round.id]);
+  const { errors, handleSubmit, clearError } = useValidatedSubmit<GateFields>({
+    validate: values => validateGate(decision, values),
+    onValid: () => { if (!locked && selected?.allowed) setConfirmOpen(true); },
+  });
+  // Only the decision choice still disables the submit; it names why (a radio choice has no field error to focus).
+  let submitBlockedReason: string | undefined;
+  if (!selected?.allowed) submitBlockedReason = GATE_DECISIONS.some(d => available.decisions[d].allowed) ? formCopy.decisionRequired : formCopy.noDecisionAllowed;
   const counts = recordOf(decisive?.counts);
   const failureCount = sparseCountValue(counts, 'FAIL');
   const uncheckedCount = sparseCountValue(counts, 'NOT_CHECKED');
@@ -212,26 +220,26 @@ function GatePanelView({ api, ui, round, completedAt, selectedAttempt, controlle
       </Button>
       <div id={rawBasisId} hidden={!rawBasisOpen} className="min-w-0"><pre className="max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs">{rawBasisText}</pre></div>
     </section>
-    <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-3" onSubmit={e => { e.preventDefault(); requestConfirmation(); }}>
-      <fieldset disabled={locked}><legend className="mb-2 text-sm">결정</legend><RadioGroup aria-label="결정" value={selected?.allowed ? decision : ''} onValueChange={v => { update({ decision: v as typeof decision, result: null }); }} orientation="horizontal">
-        {(['approved', 'rejected', 'exception'] as const).map(d => <label key={d} className="flex items-center gap-2 text-sm"><RadioGroupItem value={d} disabled={!available.decisions[d].allowed} />{GATE_LABEL[d]}</label>)}
+    <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-3" onSubmit={handleSubmit({ reason, riskActor, scope })}>
+      <fieldset disabled={locked}><legend className="mb-2 text-sm">결정</legend><RadioGroup aria-label="결정" value={selected?.allowed ? decision : ''} onValueChange={v => { update({ decision: v as typeof decision, result: null }); clearError('riskActor'); clearError('scope'); }} orientation="horizontal">
+        {GATE_DECISIONS.map(d => <label key={d} className="flex items-center gap-2 text-sm"><RadioGroupItem value={d} disabled={!available.decisions[d].allowed} />{GATE_LABEL[d]}</label>)}
       </RadioGroup></fieldset>
       <DecisionReasonField
         kind="judgment"
         id={`gate-reason-${round.id}`}
         value={reason}
-        error={reasonError}
+        error={errors.reason}
         disabled={locked}
         maxLength={2000}
         messages={{ reasonLabel: pageCopy.decisionReasonOneLine, requiredMark: pageCopy.decisionRequiredMark }}
         onChange={value => {
           update({ reason: value });
-          if (value.trim()) setReasonError(undefined);
+          clearError('reason');
         }}
       />
-      {decision === 'exception' ? <><Label htmlFor="gate-risk">위험 수용자 Actor ID (필수)</Label><Input inputSize="toolbar" id="gate-risk" required value={riskActor} onChange={e => update({ riskActor: e.target.value })} disabled={locked} /><Label htmlFor="gate-scope">예외 범위 (필수)</Label><Textarea id="gate-scope" required value={scope} onChange={e => update({ scope: e.target.value })} disabled={locked} /><Label htmlFor="gate-until">예외 기한</Label><Input inputSize="toolbar" id="gate-until" type="date" value={until} onChange={e => update({ until: e.target.value })} disabled={locked} /></> : null}
+      {decision === 'exception' ? <><FormField id="gate-risk" label="위험 수용자 Actor ID" required requiredMark="text" error={errors.riskActor}>{control => <Input {...control} inputSize="toolbar" value={riskActor} onChange={e => { update({ riskActor: e.target.value }); clearError('riskActor'); }} disabled={locked} />}</FormField><FormField id="gate-scope" label="예외 범위" required requiredMark="text" error={errors.scope}>{control => <Textarea {...control} value={scope} onChange={e => { update({ scope: e.target.value }); clearError('scope'); }} disabled={locked} />}</FormField><Label htmlFor="gate-until">예외 기한</Label><Input inputSize="toolbar" id="gate-until" type="date" value={until} onChange={e => update({ until: e.target.value })} disabled={locked} /></> : null}
       <WriteError result={result} onRetry={() => { void retry(); }} />
-      <Button type="submit" variant="primary" size="toolbar" disabled={locked || !selected?.allowed || exceptionIncomplete}>{pending ? '기록 중…' : 'Gate 결정 기록'}</Button>
+      <Button type="submit" variant="primary" size="toolbar" className="w-full" disabled={locked || !selected?.allowed} disabledReason={locked ? undefined : submitBlockedReason}>{pending ? '기록 중…' : 'Gate 결정 기록'}</Button>
       {result?.outcome === 'ok' ? <p role="status" className="text-xs">Gate 결정을 기록했습니다.</p> : null}<p className="text-xs text-text-muted">검증 판정은 유지됩니다.</p>
     </form>
     <AlertDialog open={confirmOpen} onOpenChange={open => { if (!locked) setConfirmOpen(open); }}><AlertDialogContent onEscapeKeyDown={event => { if (locked) event.preventDefault(); }}><AlertDialogHeader className="space-y-2"><AlertDialogTitle>Gate 결정 기록</AlertDialogTitle><AlertDialogDescription className="grid break-keep">

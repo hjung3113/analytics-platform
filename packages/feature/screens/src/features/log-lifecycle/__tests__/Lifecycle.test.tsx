@@ -120,8 +120,8 @@ describe('log lifecycle screens', () => {
     const user = userEvent.setup(); render(<GatePanel {...props()} round={gate(['verdict_not_pass'])} />);
     await user.click(screen.getByRole('radio', { name: '예외' }));
     await user.type(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' }), '일정상 예외');
-    await user.type(screen.getByLabelText('예외 범위 (필수)'), '이 Round에 한함');
-    const riskActor = screen.getByLabelText('위험 수용자 Actor ID (필수)');
+    await user.type(screen.getByRole('textbox', { name: '예외 범위' }), '이 Round에 한함');
+    const riskActor = screen.getByRole('textbox', { name: '위험 수용자 Actor ID' });
     fireEvent.keyDown(riskActor, { key: 'Enter', isComposing: true });
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(run).not.toHaveBeenCalled();
@@ -286,7 +286,7 @@ describe('Round and request states', () => {
     render(<RequestsScreen {...props({ requests: { rows: [request], total: 1 }, requestDetail: request })} selection={ID} />);
     await user.click(screen.getByRole('button', { name: '요청 취소' }));
     expect(run).not.toHaveBeenCalled();
-    await user.type(screen.getByLabelText('사유 (필수)'), '입력 샘플 재확인');
+    await user.type(screen.getByRole('textbox', { name: '사유' }), '입력 샘플 재확인');
     await user.click(screen.getByRole('button', { name: '요청 취소' }));
     expect(run).toHaveBeenCalledWith({ id: ID, reason: '입력 샘플 재확인' }, { expectedVersion: '9' });
   });
@@ -359,8 +359,11 @@ describe('mutation and recovery boundaries', () => {
     const user = userEvent.setup(); render(<GatePanel {...props()} round={gate(['verdict_not_pass'])} />);
     await user.click(screen.getByRole('radio', { name: '예외' }));
     await user.type(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' }), '일정상 예외');
-    expect(screen.getByRole('button', { name: /결정 기록/ })).toBeDisabled();
-    await user.type(screen.getByLabelText('예외 범위 (필수)'), '이 Round에 한함');
+    // #2574: an incomplete exception no longer disables the submit; submitting shows the scope error instead.
+    await user.click(screen.getByRole('button', { name: /결정 기록/ }));
+    expect(screen.getByRole('textbox', { name: '예외 범위' })).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    await user.type(screen.getByRole('textbox', { name: '예외 범위' }), '이 Round에 한함');
     await user.click(screen.getByRole('button', { name: /결정 기록/ }));
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: '기록' }));
     expect(run).toHaveBeenCalledWith({ roundId: ID, targetStage: 'beta', decision: 'exception', reason: '일정상 예외', exception: { riskAcceptedBy: ID, scope: '이 Round에 한함' } }, { expectedVersion: '7' });
@@ -370,12 +373,12 @@ describe('mutation and recovery boundaries', () => {
     render(<ProjectScreen {...props({ projectDetail: project, rounds: { rows: [] } })} projectId={ID} />);
     await user.click(screen.getByRole('button', { name: 'Round 열기' }));
     const form = within(screen.getByRole('dialog'));
-    await user.type(form.getByLabelText('원본 소유자 (필수)'), 'fab-team');
-    await user.type(form.getByLabelText('샘플 1 위치 (필수)'), 's3://samples/first.log');
-    await user.type(form.getByLabelText('샘플 1 SHA-256 (필수)'), 'a'.repeat(64));
+    await user.type(form.getByRole('textbox', { name: '원본 소유자' }), 'fab-team');
+    await user.type(form.getByRole('textbox', { name: '샘플 1 위치' }), 's3://samples/first.log');
+    await user.type(form.getByRole('textbox', { name: '샘플 1 SHA-256' }), 'a'.repeat(64));
     await user.click(form.getByRole('button', { name: '샘플 추가' }));
-    await user.type(form.getByLabelText('샘플 2 위치 (필수)'), 's3://samples/second.log');
-    await user.type(form.getByLabelText('샘플 2 SHA-256 (필수)'), 'b'.repeat(64));
+    await user.type(form.getByRole('textbox', { name: '샘플 2 위치' }), 's3://samples/second.log');
+    await user.type(form.getByRole('textbox', { name: '샘플 2 SHA-256' }), 'b'.repeat(64));
     await user.click(form.getAllByRole('button', { name: '위로' })[1] as HTMLElement);
     await user.click(form.getByRole('button', { name: 'Round 열기' }));
     expect(run).toHaveBeenCalledWith({ projectId: ID, sampleSet: { sourceOwner: 'fab-team', files: [{ fileRef: 's3://samples/second.log', order: 1, sha256: 'b'.repeat(64) }, { fileRef: 's3://samples/first.log', order: 2, sha256: 'a'.repeat(64) }] } }, undefined);

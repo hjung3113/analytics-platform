@@ -283,13 +283,23 @@ describe('새 기술 Item (create)', () => {
     mountList(`${published}&focus=new`);
     await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
     submit('등록');
-    expect(await within(drawer()).findByText('소유 대상을 골라 주세요')).toBeTruthy();
-    expect(within(drawer()).getByText('필수 항목입니다')).toBeTruthy();
-    expect(within(drawer()).getByText('관찰 사실과 기대·기준 중 하나는 써야 합니다').id).toContain('observation-error');
+    expect(await within(drawer()).findByText('소유 대상을 골라 주세요.')).toBeTruthy();
+    expect(within(drawer()).getByText('필수 항목입니다.')).toBeTruthy();
+    expect(within(drawer()).getByText('관찰 사실과 기대·기준 중 하나는 써야 합니다.').id).toContain('observation-error');
     expect(field(/^관찰 사실/).getAttribute('aria-invalid')).toBe('true');
     expect(writes).toHaveLength(0);
   });
 
+  // #2574: a local invalid submit moves focus to the first invalid control.
+  it('focuses the first invalid control (the owner picker) after a local invalid submit', async () => {
+    mountList(`${published}&focus=new`);
+    await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
+    submit('등록');
+    const owner = within(drawer()).getByRole('combobox', { name: /소유 대상/ });
+    await waitFor(() => expect(document.activeElement).toBe(owner));
+    expect(owner.getAttribute('aria-invalid')).toBe('true');
+    expect(writes).toHaveLength(0);
+  });
   it('puts a nested server error on its own evidence row and an unmapped path in a visible form error', async () => {
     mountList(`${published}&focus=new&owner=${MODEL_A}`);
     await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
@@ -302,13 +312,13 @@ describe('새 기술 Item (create)', () => {
     fireEvent.change(owners[1]!, { target: { value: 'MARS' } }); fireEvent.change(refs[1]!, { target: { value: 'b.log' } });
     nextError = { outcome: 'invalid', fieldErrors: [{ path: ['evidence', '1', 'sourceRef'], code: 'malformed' }] };
     submit('등록');
-    const message = await within(drawer()).findByText('사용할 수 없는 문자가 들어 있습니다', {}, slow);
+    const message = await within(drawer()).findByText('사용할 수 없는 문자가 들어 있습니다.', {}, slow);
     expect(message.id).toContain('ev-1-sourceRef-error');
     expect(within(drawer()).getAllByLabelText(/^참조/)[1]!.getAttribute('aria-invalid')).toBe('true');
     expect(within(drawer()).getAllByLabelText(/^참조/)[0]!.getAttribute('aria-invalid')).not.toBe('true');
     nextError = { outcome: 'invalid', fieldErrors: [{ path: ['owner'], code: 'required_one' }, { path: ['mystery'], code: 'required' }] };
     submit('등록');
-    expect(await within(drawer()).findByText('mystery: 필수 항목입니다', {}, slow)).toBeTruthy();
+    expect(await within(drawer()).findByText('mystery: 필수 항목입니다.', {}, slow)).toBeTruthy();
     expect(within(drawer()).getByRole('combobox', { name: /소유 대상/ }).getAttribute('aria-invalid')).toBe('true');
   });
 });
@@ -342,7 +352,7 @@ describe('Item 상세 수정 (revise)', () => {
     expect(within(drawer()).getByText('모델 · Alpha 100')).toBeTruthy();
     expect(within(drawer()).queryByRole('radio', { name: 'SW 버전' })).toBeNull();
     submit('새 리비전 저장');
-    expect(await within(drawer()).findByText('필수 항목입니다')).toBeTruthy();
+    expect(await within(drawer()).findByText('필수 항목입니다.')).toBeTruthy();
     expect(writes).toHaveLength(0);
     type(/^제목/, '챔버 압력 로그 지연 (3차)');
     type(/^변경 사유/, '재현 조건 추가');
@@ -354,6 +364,15 @@ describe('Item 상세 수정 (revise)', () => {
     expect(await screen.findByRole('heading', { level: 1, name: '챔버 압력 로그 지연 (3차)' }, slow)).toBeTruthy();
     const list = within(screen.getByRole('region', { name: '리비전' }));
     expect(list.getAllByRole('button').map(b => b.textContent)).toEqual([expect.stringContaining('r3'), expect.stringContaining('r2'), expect.stringContaining('r1')]);
+  });
+
+  it('focuses 변경 사유 when it is the only missing field of a revise', async () => {
+    mountDetail(ITEM(1), '&drawer=revise');
+    await screen.findByRole('heading', { name: '기술 Item 수정' }, slow);
+    submit('새 리비전 저장');
+    await waitFor(() => expect(document.activeElement).toBe(field(/^변경 사유/)));
+    expect(field(/^변경 사유/).getAttribute('aria-invalid')).toBe('true');
+    expect(writes).toHaveLength(0);
   });
 
   it('from an older rev it says it edits the latest, prefills the latest, and clears rev afterwards', async () => {
@@ -404,7 +423,7 @@ describe('판단 변경 (assess)', () => {
     expect(document.activeElement).toBe(within(drawer()).getAllByRole('radio').find(r => !r.hasAttribute('disabled') && r.closest('[aria-label="새 상태"]'))!);
     fireEvent.click(within(drawer()).getByRole('radio', { name: /검증됨/ }));
     submit('판단 변경');
-    expect(await within(drawer()).findByText('필수 항목입니다')).toBeTruthy();
+    expect(await within(drawer()).findByText('필수 항목입니다.')).toBeTruthy();
     expect(document.activeElement).toBe(field(/^사유/));
     expect(within(drawer()).queryByRole('alert')).toBeNull();
     type(/^사유/, '두 번째 설비에서도 재현');
@@ -420,8 +439,8 @@ describe('판단 변경 (assess)', () => {
   });
 
   it.each([
-    ['newState', 'unchanged', '현재와 같은 상태입니다'],
-    ['newState', 'invalid_state', '이 판단 축에서 쓸 수 없는 상태입니다'],
+    ['newState', 'unchanged', '현재와 같은 상태입니다.'],
+    ['newState', 'invalid_state', '이 판단 축에서 쓸 수 없는 상태입니다.'],
   ])('shows a server %s/%s inline under the new state', async (path, code, text) => {
     mountDetail(ITEM(1), '&drawer=assess');
     await screen.findByRole('heading', { name: '판단 변경' }, slow);
@@ -440,7 +459,7 @@ describe('판단 변경 (assess)', () => {
     type(/^사유/, '사유');
     nextError = { outcome: 'invalid', fieldErrors: [{ path: ['id'], code: 'archived' }] };
     submit('판단 변경');
-    expect(await within(drawer()).findByText('Item: 보관된 Item은 바꿀 수 없습니다', {}, slow)).toBeTruthy();
+    expect(await within(drawer()).findByText('Item: 보관된 Item은 바꿀 수 없습니다.', {}, slow)).toBeTruthy();
   });
 });
 
@@ -801,7 +820,7 @@ describe('the create owner from the address', () => {
     type(/^제목/, '사례');
     type(/^관찰 사실/, '사실');
     submit('등록');
-    expect(await within(drawer()).findByText('소유 대상을 골라 주세요')).toBeTruthy();
+    expect(await within(drawer()).findByText('소유 대상을 골라 주세요.')).toBeTruthy();
     expect(writes).toHaveLength(0);
   });
 
