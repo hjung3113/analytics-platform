@@ -14,6 +14,15 @@ const view = (over: Partial<SaveViewDialogProps> = {}) => render(<I18nProvider><
 const fail = (reason: 'conflict' | 'forbidden' | 'unavailable' | 'invalid'): Result<unknown> => ({ ok: false, reason });
 
 describe('SaveViewDialog', () => {
+  it('keeps the unblocked submit button enabled without block attributes', () => {
+    view();
+    const save = screen.getByRole('button', { name: '저장' });
+    expect(save).toBeEnabled();
+    expect(save).not.toHaveAttribute('aria-disabled');
+    expect(save).not.toHaveAttribute('aria-describedby');
+    expect(save).not.toHaveClass('aria-disabled:opacity-50');
+  });
+
   it('shows the apply-then-save notice only when a draft exists', () => {
     view({ hasDraft: true });
     expect(screen.getByRole('note')).toHaveTextContent('적용 뒤 저장');

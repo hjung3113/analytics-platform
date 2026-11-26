@@ -1,14 +1,17 @@
 import { CircleAlert, Inbox, MoreHorizontal } from 'lucide-react';
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { formatInstant, type ApiResponse } from '@ap/contracts';
 import { useI18n, useMessages, type QueryState } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, SkeletonBlocks, SkeletonRows, TransientOverlayScope } from '@ap/ui';
 import { Panel } from '../archetypes/Panel';
 import { useSharedOutcomeNotice } from '../filters/OutcomeScope';
+import { DockChartPaneId } from '../dock/DockChartHead';
 import { useContextEditorOpener } from '../filters/QueryBarStatus';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { PanelBadge } from '../workspace/PanelBadge';
-import { QueryPanelContentContext } from '../workspace/panelContext';
+import { QueryPanelContentContext, useInQueryPanel, useInWorkspacePanel, WorkspacePanelVisibleContext } from '../workspace/panelContext';
+import { usePublishWorkspaceQueryOverflow, useWorkspaceQueryHead, type QueryMenuItem } from '../workspace/WorkspaceQueryHeads';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { emptyCauses, emptyOutcomeText } from './emptyCause';
 import { useOutcomeRecovery } from './OutcomeActions';
@@ -20,7 +23,7 @@ export type QueryPanelOptions<T> = {
   title: string;
   subtitle?: ReactNode;
   titleNote?: ReactNode;
-  /** Minimum plot height in pixels. Taller results grow the panel. */
+  /** Minimum plot height in pixels in page flow. The workspace assigns the body height. */
   height: number;
   /** Controls that change current query inputs, kept outside the result. */
   controls?: ReactNode;
@@ -137,6 +140,21 @@ function PanelMenuRecovery({ response, onRetry }: { response: ApiResponse<unknow
   return action;
 }
 
+type RecoveryCommandProps = { label: string; run: () => void };
+const RecoveryCommand = (_props: RecoveryCommandProps) => null;
+const describeRecovery: QueryMenuItem = (label, run) => <RecoveryCommand label={label} run={run} />;
+
+function WorkspaceRecovery({ id, response, onRetry }: { id: string; response: ApiResponse<unknown>; onRetry: () => void }) {
+  const { action } = useOutcomeRecovery(response, onRetry, { ...recoveryOptions, renderAction: describeRecovery });
+  // Resolve in the query tree. The menu owns ordinary items (including Radix keyboard navigation);
+  // richer recovery such as an access request keeps its query-local providers in a portal.
+  const command = isValidElement<RecoveryCommandProps>(action) && action.type === RecoveryCommand ? action.props : null;
+  const target = useWorkspaceQueryHead(id, 'extras');
+  const overflow = useMemo(() => command ? (item: QueryMenuItem) => item(command.label, command.run) : undefined, [command]);
+  usePublishWorkspaceQueryOverflow(id, overflow);
+  return target && !command && createPortal(action, target);
+}
+
 export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, refreshNotice }: {
   query: QueryState<T>; panel: QueryPanelOptions<T>;
   children: (data: T, response: ApiResponse<T>, result: { stale: boolean }) => ReactNode;
@@ -147,13 +165,29 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
   const { t, lang } = i18n;
   const m = useMessages(COMPONENTS_MESSAGES);
   const id = useId();
+  const dockId = useContext(DockChartPaneId);
+  const inWorkspace = useInWorkspacePanel();
+  const inQueryPanel = useInQueryPanel();
+  const workspace = inWorkspace && !inQueryPanel ? dockId : null;
+  const visible = useContext(WorkspacePanelVisibleContext);
+  const workspaceId = visible ? workspace ?? undefined : undefined;
+  const headTarget = useWorkspaceQueryHead(workspaceId, 'signal');
   const target = useRef<HTMLElement>(null);
+  const lastFocused = useRef<HTMLElement | null>(null);
   const { ref: measurePanel, width } = useElementSize();
   const bindPanel = useCallback((node: HTMLElement | null) => {
     target.current = node;
     measurePanel(node);
   }, [measurePanel]);
   const focus = useCallback(() => target.current?.focus(), []);
+  useLayoutEffect(() => {
+    const previous = lastFocused.current;
+    if (!workspace || !visible || !previous) return;
+    const active = previous.ownerDocument.activeElement;
+    if (previous.isConnected && !previous.closest('[inert], :disabled')) return;
+    lastFocused.current = null;
+    if (active === previous || active === previous.ownerDocument.body) focus();
+  });
   const [menuOpen, setMenuOpen] = useState(false);
   const handledMenuAction = useRef(false);
   const runMenuAction = (action: () => void) => {
@@ -170,31 +204,36 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
   const slow = loading && seconds >= SLOW_SECONDS;
   const narrow = useContextEditorOpener();
   const inlineDelay = showDelay && width !== null && width >= INLINE_ACTION_MIN_WIDTH;
-  const narrowHeader = width !== null && width > 0 && width < INLINE_ERROR_MIN_WIDTH;
+  const narrowHeader = workspace ? (width ?? 0) < INLINE_ERROR_MIN_WIDTH : width !== null && width > 0 && width < INLINE_ERROR_MIN_WIDTH;
   const notice = useSharedOutcomeNotice(query.cancelled || query.showingPrevious ? null : response, query.refetch, panel.title, query.status, focus);
   const error = response && outcomeTone(response) === 'danger' ? response : null;
   const refusalLabel = notice.grouped && response && classifyOutcome(response.outcome) === 'refusal'
     ? outcomePresentation(response, i18n)?.label : undefined;
   const prior = error && !query.cancelled ? query.previousResult : undefined;
   const stale = Boolean(prior) || query.showingPrevious === true;
-  // A keep-previous refresh keeps the drawn result mounted (06 §19 keepPrevious, #1365) and only makes it inert; the chart drops its result
-  // actions only for a result kept after an error, which stays readable (table view) while its inputs no longer match.
+  // A keep-previous refresh keeps the drawn result mounted (06 §19 keepPrevious, #1365). The body becomes inert;
+  // a docked chart must also suspend result actions portaled outside the body while its layout menu stays available.
   const refreshingPrevious = stale && !prior;
+  const priorContent = prior || (workspace && stale);
   const result = response?.outcome === 'ok' ? response : prior?.response;
+  const dimmed = stale || (workspace !== null && loading);
   const empty = response?.outcome === 'empty';
   const causes = empty ? emptyCauses(response) : [];
   const emptyExplanation = causes.length ? emptyOutcomeText(causes, t).body : undefined;
   const trust = !loading && !query.cancelled && response?.outcome === 'ok'
     ? chartTrustText(panel.footerTrust ? panel.footerTrust(response.data as T, response) : response.trust, lang) : undefined;
   const source = trust?.source ?? result?.trust?.source ?? response?.trust?.source ?? '—';
-  const footer = <footer className="flex h-8 items-center border-t border-border-subtle px-4 text-tiny text-text-muted">
+  const dataTrust = <DataTrustIndicator summary query={query} />;
+  const footer = <footer className={cn('flex h-8 items-center border-t border-border-subtle px-4 text-tiny text-text-muted', workspace && 'shrink-0 justify-between gap-2')}>
     <span className="truncate">{t('source')} <span className="t-mono">{source}</span>
       {trust && <> · {t('updated')} {trust.updated} · {t('coverage')} {trust.coverage}</>}</span>
+    {workspace && dataTrust}
   </footer>;
   const trustUpdated = prior && trustInstantText(prior.response.trust?.updatedAt, lang);
   const priorTime = prior && (trustUpdated && trustUpdated !== '—' ? trustUpdated : formatInstant(prior.completedAt, lang, undefined, 'monthDayMinute')).split(' ').at(-1);
   const priorLabel = priorTime && m('panelPrior', { time: priorTime });
-  const retryQuery = () => { focus(); query.refetch(); };
+  const { refetch, cancel } = query;
+  const retryQuery = useCallback(() => { focus(); refetch(); }, [focus, refetch]);
   const retry = <Button type="button" variant="ghost" size="toolbar" onClick={retryQuery}>{t('retry')}</Button>;
   const announceFailure = prior !== undefined && !loading && !notice.grouped;
   const delayLabel = stale ? t('refreshingPrevious') : t(result ? 'refreshing' : 'loading');
@@ -204,17 +243,20 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
   else if (selection) stateLabel = <span>{m('panelSelectionEmpty', { selection: selection.label })}</span>;
   else if (empty) stateLabel = m('panelEmpty');
   else if (refusalLabel) stateLabel = t('sharedOutcomeNoticeFor', { status: refusalLabel });
-  const narrowAction = slow && showDelay && narrow && <Button size="toolbar" variant="ghost" onClick={() => runMenuAction(() => narrow())}>{m('panelNarrow')}</Button>;
-  const cancelAction = slow && query.cancel && <Button size="toolbar" variant="ghost" onClick={() => runMenuAction(() => { focus(); query.cancel?.(); })}>{t('cancel')}</Button>;
+  const narrowQuery = slow && showDelay ? narrow : undefined;
+  const cancelRefresh = useCallback(() => { focus(); cancel?.(); }, [focus, cancel]);
+  const cancelQuery = slow && cancel ? cancelRefresh : undefined;
+  const narrowAction = narrowQuery && <Button size="toolbar" variant="ghost" onClick={() => runMenuAction(() => narrowQuery())}>{m('panelNarrow')}</Button>;
+  const cancelAction = cancelQuery && <Button size="toolbar" variant="ghost" onClick={() => runMenuAction(cancelQuery)}>{t('cancel')}</Button>;
   const delayActions = <>{narrowAction}{cancelAction}</>;
   const visibleError = !loading && !query.cancelled ? error : null;
   const visibleOutcome = !loading && !query.cancelled && refusalLabel ? response : visibleError;
   const compactError = narrowHeader && visibleError !== null && !priorLabel;
   const signal = <>
     {panel.titleNote}
-    {showDelay && !slow && <span role="status" className="sr-only">{delayLabel}</span>}
+    {(workspace || (showDelay && !slow)) && <span role="status" className="sr-only">{showDelay && (slow ? m('panelSlow') : delayLabel)}</span>}
     {showDelay && seconds >= ELAPSED_SECONDS && <PanelBadge tone="warning">
-      {slow ? <span role="status">{m('panelSlow')}</span> : <span aria-hidden>{m('panelElapsed', { seconds })}</span>}
+      {slow ? <span role={workspace ? undefined : 'status'} aria-hidden={workspace ? true : undefined}>{m('panelSlow')}</span> : <span aria-hidden>{m('panelElapsed', { seconds })}</span>}
     </PanelBadge>}
     {inlineDelay && delayActions}
     {query.cancelled && <PanelBadge>{m('panelCancelled')}{retry}</PanelBadge>}
@@ -224,27 +266,17 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
       {announceFailure && `${t('sharedOutcomeNoticeFailed')} · ${priorLabel ?? ''}`}
     </span>
   </>;
-  return <Panel ref={bindPanel} tabIndex={-1} aria-describedby={notice.bannerId} id={id} title={panel.title} subtitle={panel.subtitle}
-    className={cn('min-w-0 scroll-mt-40 break-keep focus-visible:outline-2 focus-visible:outline-focus-ring',
-      compactError && '[&>header]:px-2 [&>header_h2]:min-w-0')} badge={signal} footer={footer}
-    actions={<><DataTrustIndicator summary query={query} />
-      <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-        <PopoverTrigger asChild><Button type="button" size="icon-sm" variant="ghost" aria-label={m('panelMenu', { panel: panel.title })}><MoreHorizontal aria-hidden /></Button></PopoverTrigger>
-        <PopoverContent padding="compact" align="end" onCloseAutoFocus={event => {
-          if (!handledMenuAction.current) return;
-          handledMenuAction.current = false;
-          event.preventDefault();
-        }}>
-          {!inlineDelay && (narrowAction || cancelAction) && <div className="mb-2 flex flex-wrap gap-1">{delayActions}</div>}
-          {compactError && <PanelMenuRecovery response={visibleError} onRetry={() => runMenuAction(retryQuery)} />}
-          <div className="text-xs">{t('technicalInfo')}<p>{t('source')} {source}</p></div>
-        </PopoverContent>
-      </Popover></>}>
+  const delayOverflow = useMemo(() => !inlineDelay && (narrowQuery || cancelQuery) ? (item: QueryMenuItem) => <>
+    {narrowQuery && item(m('panelNarrow'), () => narrowQuery())}
+    {cancelQuery && item(t('cancel'), cancelQuery)}
+  </> : undefined, [inlineDelay, narrowQuery, cancelQuery, m, t]);
+  usePublishWorkspaceQueryOverflow(compactError ? undefined : workspaceId, delayOverflow);
+  const content = <>
     {panel.controls && <div className="mb-2 flex flex-wrap items-center gap-2">{panel.controls}</div>}
-    <QueryPanelContentContext.Provider value={prior ? 'prior' : 'current'}>
+    <QueryPanelContentContext.Provider value={priorContent ? 'prior' : 'current'}>
       {/* eslint-disable-next-line shadcn/no-inline-styles -- the menu declares the runtime plot minimum */}
-      <div className="relative flex flex-col" style={{ minHeight: panel.height }} aria-busy={loading}>
-        {result && <div inert={refreshingPrevious || undefined} className={cn(stale && 'opacity-40 grayscale', panel.kind === 'kpi' && KPI_GRID)}>
+      <div className={cn('relative flex flex-col', workspace && 'min-h-0 flex-1')} style={workspace ? undefined : { minHeight: panel.height }} aria-busy={loading}>
+        {result && <div inert={refreshingPrevious || undefined} className={cn(dimmed && 'opacity-40 grayscale', panel.kind === 'kpi' && KPI_GRID, workspace && panel.kind !== 'kpi' && 'flex min-h-0 flex-1 flex-col')}>
           <TransientOverlayScope active={!stale}>{children(result.data as T, result, { stale })}</TransientOverlayScope>
         </div>}
         {!result && loading && <div role="status" aria-label={t('loading')} aria-busy className="flex min-h-0 flex-1 flex-col"><PanelPlaceholder panel={panel} loading /></div>}
@@ -265,5 +297,32 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
         </>}
       </div>
     </QueryPanelContentContext.Provider>
+  </>;
+  const panelClass = 'min-w-0 break-keep focus-visible:outline-2 focus-visible:outline-focus-ring';
+  if (workspace) return <section ref={bindPanel} tabIndex={-1} aria-label={panel.title} aria-describedby={notice.bannerId}
+    className={cn(panelClass, 'flex h-full min-h-0 flex-col focus-visible:-outline-offset-2')}
+    onFocus={event => { lastFocused.current = event.target; }}
+    onBlur={event => { if (event.relatedTarget && event.relatedTarget !== event.target.ownerDocument.body) lastFocused.current = null; }}>
+    {headTarget && createPortal(<div data-workspace-query-head className="flex items-center gap-1">{signal}</div>, headTarget)}
+    {workspaceId && compactError && <WorkspaceRecovery id={workspaceId} response={visibleError} onRetry={retryQuery} />}
+    {panel.subtitle && <p className="truncate px-4 text-xs text-text-secondary">{panel.subtitle}</p>}
+    {content}{footer}
+  </section>;
+  return <Panel ref={bindPanel} tabIndex={-1} aria-describedby={notice.bannerId} id={id} title={panel.title} subtitle={panel.subtitle}
+    className={cn(panelClass, 'scroll-mt-40', compactError && '[&>header]:px-2 [&>header_h2]:min-w-0')} badge={signal} footer={footer}
+    actions={<>{dataTrust}
+      <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+        <PopoverTrigger asChild><Button type="button" size="icon-sm" variant="ghost" aria-label={m('panelMenu', { panel: panel.title })}><MoreHorizontal aria-hidden /></Button></PopoverTrigger>
+        <PopoverContent padding="compact" align="end" onCloseAutoFocus={event => {
+          if (!handledMenuAction.current) return;
+          handledMenuAction.current = false;
+          event.preventDefault();
+        }}>
+          {!inlineDelay && (narrowAction || cancelAction) && <div className="mb-2 flex flex-wrap gap-1">{delayActions}</div>}
+          {compactError && <PanelMenuRecovery response={visibleError} onRetry={() => runMenuAction(retryQuery)} />}
+          <div className="text-xs">{t('technicalInfo')}<p>{t('source')} {source}</p></div>
+        </PopoverContent>
+      </Popover></>}>
+    {content}
   </Panel>;
 }

@@ -326,6 +326,8 @@ Domain 메뉴는 가능하면 이 Archetype을 조합하고, 새로운 Page Type
 
 ### 12.8 PanelWorkspace (Decided, [ADR-0067](../adr/0067-dockview-layout-engine-board-v2.md) 결정 3–9·18–22)
 
+작업 영역에서 `QueryView.panel`을 쓰는 패널의 상태 표시와 복구는 [공통 컴포넌트 §19](components.md#19-loading--empty--error-taxonomy)를 따른다.
+
 `pageConditions` 선언 메뉴의 페이지 조건 편집기는 작업 영역 패널이 아니라 §8의 본문 overlay다(Candidate, #2339). 접힌 조회 바에서는 §12.2의 요약 자리를, 그 밖에는 페이지 머리의 요약 줄을 쓴다. 보드 칸의 레이어는 칸 본문을 벗어나지 않으며 칸마다 열림 상태가 독립적이다. 기존 페이지 머리 접기 선호와 레이어의 열림 상태는 별개이며 레이어는 저장하지 않는다.
 
 패널이 4개 이상인 밀집 분석 메뉴가 쓰는 선택 레이아웃이다. 메뉴가 패널·프리셋·기본 패널을 선언하고, 탭·끌기·나누기·최대화·숨긴 패널 목록·기본 배치·브라우저 로컬 선호는 플랫폼이 소유한다. 그 밖의 메뉴는 `AnalysisLayout`(§12.6)을 그대로 쓴다. `@ap/components` 루트의 `PanelWorkspace`이고(메뉴는 `@ap/components/dock`을 import할 수 없다), 두 번째 실제 소비자(HW Time 비교·개요, #690)가 쓰면서 공개 API는 Decided다(ADR-0067 결정 22). 휠: 탭 줄은 넘치지 않으면 세로 휠을 바깥으로 넘기고([16 §4.1](../design/analysis-board.md)), 그림은 수정키 없는 휠을 막지 않으며(§16), 패널 안 표 행 영역은 끝에서 휠을 넘긴다(§15)(#700).

@@ -1,8 +1,10 @@
 import { useCallback, useContext, useLayoutEffect, useMemo, useRef } from 'react';
 import { followHeldSets, type MenuViewPanels } from '@ap/contracts';
+import type { Text } from '../i18n';
 import { AppContext, LentPanelPlatformContext } from '../platform/contexts';
 import { useHostPlatformOptional } from '../platform/hooks';
 import type { HostPlatform } from '../platform/types';
+import { saveBlockKey } from './table-slots';
 import { resolveSavedViewSupport } from './useSavedViewSupport';
 
 export const PANELS_SLOT = 'panels';
@@ -29,6 +31,8 @@ export function useMainScreenPanelSlots(host: HostPlatform | null) {
 export function useSavedViewPanels(options: {
   value: MenuViewPanels | null;
   onOpen(outcome: SavedViewPanelsOutcome): void;
+  /** While set, saving the current conditions as a new view or over the selected view is blocked. */
+  saveBlocked?: string | Text | undefined;
 }): void {
   const app = useContext(AppContext);
   const host = useHostPlatformOptional();
@@ -51,7 +55,8 @@ export function useSavedViewPanels(options: {
     if (next.keys.length) committed.current.onOpen(next.panels);
   }, [scopeId, slots]);
   const valueKey = useMemo(() => JSON.stringify(options.value), [options.value]);
-  useLayoutEffect(() => { slots?.changed(); }, [slots, valueKey]);
+  const blockKey = options.saveBlocked === undefined ? undefined : saveBlockKey(options.saveBlocked);
+  useLayoutEffect(() => { slots?.changed(); }, [slots, valueKey, blockKey]);
 
   useLayoutEffect(() => {
     if (!menu || !slots || !supports) return;
@@ -61,6 +66,7 @@ export function useSavedViewPanels(options: {
       const supported = resolveSavedViewSupport(menu, supports) !== undefined;
       if (supported && !release) release = slots.register<SavedViewPanelsOutcome>(PANELS_SLOT, PANELS_SLOT, {
         get value() { return committed.current.value; },
+        get blocked() { return committed.current.saveBlocked; },
         apply: outcome => committed.current.onOpen(outcome),
         single: true,
       });
