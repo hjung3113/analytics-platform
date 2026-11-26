@@ -1,10 +1,12 @@
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Button, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, cn } from '@ap/ui';
-import { useI18n, useMessages, usePlatform, type Text } from '@ap/kernel';
+import { Button, Checkbox, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { useI18n, useMessages, usePlatform, usePlatformOptional, type Text } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PageKeyRule } from '../table/tableUrlWarning';
-import type { AnalysisSelection } from '@ap/contracts';
+import type { AnalysisSelection, MenuChartFields, PanelInstance } from '@ap/contracts';
+import { ChartPanelPicker } from './ChartPanelPicker';
+import { PanelList, PanelListRows } from './PanelListRows';
 
 export type AnalysisPanelDraft = {
   source: `${string}/${string}`;
@@ -99,45 +101,66 @@ export type PanelAddMenuProps = {
   items: readonly PanelAddItem[];
   /** Ids already in the workspace: drawn checked and disabled («이미 있음»). */
   shown?: readonly string[];
-  /** The menu adds the panel to its `panels` (with `placement: 'below'` to open it as a new row) and pins it when `pin` is true. */
-  onAdd: (id: string, pin: boolean) => void;
+  /** Adds to the workspace and pins when requested. Only a chart created here supplies the third argument. */
+  onAdd: (id: string, pin: boolean, instance?: PanelInstance) => void;
+  /** Pass the menu's `MenuMeta.chartFields` to offer charts made from settings. Permissions come from the active Platform session. */
+  chartFields?: MenuChartFields;
+  /** Existing instance ids outside `shown`, including hidden or collapsed panels. Reserved for new chart ids. */
+  existingIds?: readonly string[];
   /** Initial state of «추가하면 고정». Default true. The choice is kept while the menu stays mounted, not stored. */
   pinByDefault?: boolean;
   className?: string;
 };
 
 /**
- * «+ 패널 추가» (#2398, layout §12.8): a list of the panels the menu offers plus one «추가하면 고정» check. The SDK draws the list and reports the
- * pick; the menu decides what a panel is, where it may be added and adds it. No row context menu: adding is this list only (#2391 decision).
+ * «+ 패널 추가» (#2398, #2761): declared panels and, when opted in, a chart picker with the same pin choice.
  */
-export function PanelAddMenu({ items, shown = [], onAdd, pinByDefault = true, className }: PanelAddMenuProps) {
+export function PanelAddMenu({ items, shown = [], onAdd, chartFields, existingIds = [], pinByDefault = true, className }: PanelAddMenuProps) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { lang } = useI18n();
   const [pinOnAdd, setPinOnAdd] = useState(pinByDefault);
+  const rows = items.map(item => {
+    const reason = shown.includes(item.id) ? m('panelAddShown') : item.disabledReason?.[lang];
+    return { id: item.id, label: item.title[lang], reason, note: reason === undefined ? item.description?.[lang] : undefined,
+      onSelect: () => onAdd(item.id, pinOnAdd) };
+  });
+  const trigger = <Button type="button" variant="ghost" size="toolbar" className={className} data-panel-add><Plus className="size-3.5" aria-hidden />{m('panelAdd')}</Button>;
+  if (chartFields) return <PanelChartPopover rows={rows} trigger={trigger} chartFields={chartFields}
+    pinOnAdd={pinOnAdd} setPinOnAdd={setPinOnAdd} existingIds={[...existingIds, ...shown, ...items.map(item => item.id)]}
+    onAdd={instance => onAdd(instance.id, pinOnAdd, instance)} />;
   if (items.length === 0) return null;
   return <DropdownMenu modal={false}>
-    <DropdownMenuTrigger asChild>
-      <Button type="button" variant="ghost" size="toolbar" className={cn(className)} data-panel-add><Plus className="size-3.5" aria-hidden />{m('panelAdd')}</Button>
-    </DropdownMenuTrigger>
+    <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
     <DropdownMenuContent align="end">
-      {items.map(item => {
-        const already = shown.includes(item.id);
-        const reason = already ? m('panelAddShown') : item.disabledReason?.[lang];
-        const disabled = reason !== undefined;
-        return <DropdownMenuItem key={item.id} aria-disabled={disabled || undefined} onSelect={event => {
-          if (disabled) { event.preventDefault(); return; }
-          onAdd(item.id, pinOnAdd);
-        }}>
-          <span className="flex min-w-0 flex-col break-keep">
-            <span className={disabled ? 'text-text-muted' : undefined}>{item.title[lang]}</span>
-            {(reason ?? item.description?.[lang]) && <span className="text-xs text-text-muted">{reason ?? item.description?.[lang]}</span>}
-          </span>
-        </DropdownMenuItem>;
-      })}
+      <PanelListRows rows={rows} />
       <DropdownMenuSeparator />
       <DropdownMenuCheckboxItem checked={pinOnAdd} onSelect={event => { event.preventDefault(); }} onCheckedChange={checked => { setPinOnAdd(checked === true); }}>
         {m('panelAddPins')}
       </DropdownMenuCheckboxItem>
     </DropdownMenuContent>
   </DropdownMenu>;
+}
+
+function PanelChartPopover({ trigger, chartFields, rows, pinOnAdd, setPinOnAdd, existingIds, onAdd }: {
+  trigger: React.ReactElement; chartFields: MenuChartFields; rows: React.ComponentProps<typeof PanelList>['rows'];
+  pinOnAdd: boolean; setPinOnAdd: (pin: boolean) => void; existingIds: readonly string[]; onAdd: (instance: PanelInstance) => void;
+}) {
+  const m = useMessages(COMPONENTS_MESSAGES);
+  const platform = usePlatformOptional();
+  const generation = JSON.stringify([platform?.route?.menu.id, platform?.user.id, platform?.revision, platform?.scope.scopeId]);
+  const [open, setOpen] = useState(false);
+  return <Popover open={open} onOpenChange={setOpen}>
+    {/* ArrowDown opens it as it opens the plain dropdown this replaces. */}
+    <PopoverTrigger asChild onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); } }}>{trigger}</PopoverTrigger>
+    <PopoverContent align="end" aria-label={m('panelAdd')} className="max-h-[var(--radix-popover-content-available-height)] w-xl max-w-[var(--radix-popover-content-available-width)] overflow-y-auto">
+      <div className="text-sm">
+        <PanelList label={m('panelAddDeclared')} rows={rows.map(row => ({ ...row, onSelect: () => { row.onSelect?.(); setOpen(false); } }))} />
+        <label className="my-2 flex min-h-6 w-fit items-center gap-2">
+          <Checkbox checked={pinOnAdd} onCheckedChange={checked => { setPinOnAdd(checked === true); }} />{m('panelAddPins')}
+        </label>
+        <ChartPanelPicker key={generation} fields={chartFields} granted={permission => platform?.can(permission) === true} existingIds={existingIds}
+          onAdd={instance => { onAdd(instance); setOpen(false); }} />
+      </div>
+    </PopoverContent>
+  </Popover>;
 }

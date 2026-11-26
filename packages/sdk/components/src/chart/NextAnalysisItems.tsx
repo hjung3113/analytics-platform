@@ -2,9 +2,10 @@ import { useContext, useId, useRef, type ReactNode, type Ref } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { AnalysisSelection } from '@ap/contracts';
 import { useDrill, useI18n, useMessages, usePlatform, usePlatformOptional } from '@ap/kernel';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@ap/ui';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuPortal, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { AnalysisPanelAddContext, type AnalysisPanelDestinations, type AnalysisPanelDraft, type PanelAddItem } from '../workspace/PanelAdd';
+import { PanelListRows } from '../workspace/PanelListRows';
 import { drillBasisChoices, useDrillBasisChoice } from './ChartDrillBasisMenu';
 import { usePublishNextAnalysis } from './NextAnalysisBridge';
 import { keepFocusAfterPanelAdd } from '../dock/focusTab';
@@ -138,23 +139,9 @@ export function useNextAnalysisItems({ output, selection, pointDrill, workspace 
   return actions;
 }
 
-function MenuItem({ label, reason, note, onSelect }: Omit<Choice, 'id' | 'onSelect'> & { onSelect?: () => void }) {
-  const id = useId();
-  const description = [reason, note].filter(Boolean).join(' · ');
-  return <DropdownMenuItem aria-label={label} aria-disabled={reason ? true : undefined}
-    aria-describedby={description ? id : undefined} onSelect={event => {
-      if (reason) event.preventDefault();
-      else onSelect?.();
-    }}>
-    <span className="flex min-w-0 flex-col">
-      <span>{label}</span>
-      {description && <span id={id} className="text-xs text-text-muted">{description}</span>}
-    </span>
-  </DropdownMenuItem>;
-}
-
 function ChoiceRows({ choices }: { choices: readonly Choice[] }) {
-  return <>{choices.map(choice => <MenuItem key={choice.id} {...choice} />)}</>;
+  // An empty reason never disabled a «다음 분석» row; only a non-empty one does (the shared row disables on presence).
+  return <PanelListRows rows={choices.map(choice => choice.reason ? choice : { ...choice, reason: undefined })} presentation="named-menu" />;
 }
 
 /** `focusKey`: the chart and its output, stable when the row is rebuilt, so a panel addition can find its trigger again. */
@@ -212,8 +199,8 @@ export function NextAnalysisActionButton({ action, buttonRef, announceReason, qu
 export function NextAnalysisMenuItem({ action, onSelect }: {
   action: NextAnalysisAction; onSelect: (action: DirectNextAnalysisAction) => void;
 }) {
-  if ('onSelect' in action) return <MenuItem label={action.label} reason={action.reason} onSelect={() => onSelect(action)} />;
-  if (action.reason !== undefined) return <MenuItem label={action.label} reason={action.reason} />;
+  if ('onSelect' in action) return <ChoiceRows choices={[{ ...action, onSelect: () => onSelect(action) }]} />;
+  if (action.reason !== undefined) return <ChoiceRows choices={[{ id: action.label, label: action.label, reason: action.reason }]} />;
   return <DropdownMenuSub>
     <DropdownMenuSubTrigger>{action.label}</DropdownMenuSubTrigger>
     <DropdownMenuPortal><DropdownMenuSubContent><ChoiceRows choices={action.choices} /></DropdownMenuSubContent></DropdownMenuPortal>
