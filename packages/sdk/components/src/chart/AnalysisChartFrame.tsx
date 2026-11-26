@@ -2,7 +2,7 @@ import { DockChartPaneEngaged, DockChartToolbarWidth, useDockChartHead } from '.
 import { useChartGestureHint, ChartInteractionToolbar } from './ChartInteractionToolbar';
 import { chartToolVariant, type ChartChromeOptions } from './chartChrome';
 import type { ChartTrust } from '../state/trustFormat';
-import { QueryPanelContentContext, useEmbeddedChrome, useInWorkspacePanel, WorkspacePanelVisibleContext } from '../workspace/panelContext';
+import { DeclaredQueryPanelContext, QueryPanelContentContext, useEmbeddedChrome, useInWorkspacePanel, WorkspacePanelVisibleContext } from '../workspace/panelContext';
 import { NextAnalysisActionButton, NextAnalysisItems, type DirectNextAnalysisAction } from './NextAnalysisItems';
 import { NextAnalysisRowsDrawer, type NextAnalysisRows } from './NextAnalysisRowsDrawer';
 import { toMs, unknownLabel, warnMissingChartUnit } from './analysisChartShared';
@@ -27,6 +27,7 @@ import { echartImageBlob } from './chartImageCopy';
 import { safeFileName } from '../table/download';
 import { assignNoteLevels } from './annotationLayout';
 import { buildChartOption, linePattern, resolveChartPalette } from './buildChartOption';
+import { useHeldDrawing } from './chartDrawing';
 import { useAnnotationDeleteFocus, useAnnotationEditor, useNoAnnotationEditor, type AnnotationEditor } from './useAnnotationEditor';
 import { useChartRange, type ClipResult, type Selection } from './useChartRange';
 import { usePointMenu } from './usePointMenu';
@@ -404,6 +405,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const m = useMessages(COMPONENTS_MESSAGES);
   const compactEmbedded = useEmbeddedChrome();
   const queryPanel = useContext(QueryPanelContentContext);
+  const declaredPanel = useContext(DeclaredQueryPanelContext);
   const priorResult = queryPanel === 'prior';
   // The slot stays mounted (a keep-previous refresh must not redraw the frame) and turns inert on a prior result: its actions act on the result.
   const toolbarStart = p.toolbarStart != null ? <div inert={priorResult || undefined} className="contents">{p.toolbarStart}</div> : undefined;
@@ -413,6 +415,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const compactChrome = chrome !== 'full';
   const titleId = useId();
   const gestureDescriptionId = useId();
+  const rangeLockReasonId = useId();
   const { targets: dockHead, stripWidth, layoutActions: dockLayoutActions, setMaximize: setDockMaximize } = useDockChartHead(titleId);
   const docked = Boolean(dockHead?.toolbar);
   const compactTools = docked || compactChrome;
@@ -979,7 +982,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const tickRoom = horizontal && !startAlign ? Math.min(TICK_ROOM_CAP, Math.floor(chartWidth / TICK_ROOM_STEP) * TICK_ROOM_STEP) : undefined;
   // A fitted line axis that stops short of 0 carries a break mark (#2725). ECharts picks the nice range, so it is read from the drawn axis.
   const [axisBreak, setAxisBreak] = useState<'bottom' | 'top' | undefined>(undefined);
-  const option = useMemo<EChartsCoreOption>(() => {
+  const builtOption = useMemo<EChartsCoreOption>(() => {
     // A new chart instance replays the option: the lazy chunk and theme CSS may have settled since the tokens were last resolved.
     // A root `data-theme` change re-resolves them too (#2723).
     void instanceReady; void themeRevision;
@@ -988,6 +991,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       palette: resolveChartPalette(plotSeries),
     });
   }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, p.highlightedValues, plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, categoryOther, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, referenceMarks, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
+  const option = useHeldDrawing(builtOption, declaredPanel !== null, lang);
   useEffect(() => {
     const instance = chart.current;
     if (!yFit || !instance || instance.isDisposed?.()) { setAxisBreak(undefined); return; }
@@ -1494,6 +1498,9 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     {p.legendCaption != null && <div className="t-caption">{p.legendCaption}</div>}
   </div> : <ChartHeading titleId={titleId} title={p.title} description={p.description} gestureHint={gestureHint} descriptionId={gestureDescriptionId} metricVersion={p.metricVersion}
     compact={compact || compactChrome} hideTitle={(compactChrome || queryPanel !== null) && !p.headingInToolbar} />;
+  const lockDockRange = docked && declaredPanel !== null && priorResult;
+  const rangeLockReason = lockDockRange ? m('chartPreviousRangeLocked') : undefined;
+  const rangeLockNote = rangeLockReason ? <span id={rangeLockReasonId} className="sr-only">{rangeLockReason}</span> : null;
   const toolbar = <ChartInteractionToolbar compact={compactTools} reserveCorner={!docked && analysisSection !== null}
     dockToolsRevealed={dockPaneEngaged}
     dockLayoutActions={docked ? dockLayoutActions : undefined}
@@ -1504,15 +1511,15 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     zoom={zoomOnly ? <>
       <InfoTip label={m('laneHowToInteract')}>{(docked ? undefined : p.description) ?? (rowPitch === undefined ? m('chartZoomTitle') : localStateNote)}</InfoTip>
       {rowPitch === undefined && <>
-        <ChartZoomButton label={m('laneZoomIn')} icon={ZoomIn} onClick={rangeActions.zoomIn} />
-        <ChartZoomButton label={m('laneZoomOut')} icon={ZoomOut} onClick={rangeActions.zoomOut} />
+        <ChartZoomButton label={m('laneZoomIn')} icon={ZoomIn} onClick={rangeActions.zoomIn} disabled={lockDockRange} reason={rangeLockReason} reasonId={rangeLockReasonId} />
+        <ChartZoomButton label={m('laneZoomOut')} icon={ZoomOut} onClick={rangeActions.zoomOut} disabled={lockDockRange} reason={rangeLockReason} reasonId={rangeLockReasonId} />
       </>}
     </> : rowPitch === undefined && <>
-      <Button type="button" ref={zoomInButton} variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartZoom')} title={m('chartZoomTitle')} onClick={rangeActions.zoomIn}><ZoomIn className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartZoom')}</span>}</Button>
+      <Button type="button" ref={zoomInButton} variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartZoom')} title={rangeLockReason ?? m('chartZoomTitle')} aria-describedby={rangeLockReason ? rangeLockReasonId : undefined} disabled={lockDockRange} onClick={rangeActions.zoomIn}><ZoomIn className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartZoom')}</span>}</Button>
       {isZoomed && <>
-        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartZoomOut')} title={m('chartZoomOut')} onClick={() => { if (zoomsBackToFull) zoomInButton.current?.focus(); rangeActions.zoomOut(); }}><ZoomOut className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartZoomOut')}</span>}</Button>
-        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartPanLeft')} title={m('chartPanLeft')} onClick={() => rangeActions.pan(-1)} disabled={zoom[0] <= 0}><ArrowLeft className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartPanLeft')}</span>}</Button>
-        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartPanRight')} title={m('chartPanRight')} onClick={() => rangeActions.pan(1)} disabled={zoom[1] >= 100}><ArrowRight className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartPanRight')}</span>}</Button>
+        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartZoomOut')} title={rangeLockReason ?? m('chartZoomOut')} aria-describedby={rangeLockReason ? rangeLockReasonId : undefined} disabled={lockDockRange} onClick={() => { if (zoomsBackToFull) zoomInButton.current?.focus(); rangeActions.zoomOut(); }}><ZoomOut className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartZoomOut')}</span>}</Button>
+        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartPanLeft')} title={rangeLockReason ?? m('chartPanLeft')} aria-describedby={rangeLockReason ? rangeLockReasonId : undefined} disabled={lockDockRange || zoom[0] <= 0} onClick={() => rangeActions.pan(-1)}><ArrowLeft className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartPanLeft')}</span>}</Button>
+        <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartPanRight')} title={rangeLockReason ?? m('chartPanRight')} aria-describedby={rangeLockReason ? rangeLockReasonId : undefined} disabled={lockDockRange || zoom[1] >= 100} onClick={() => rangeActions.pan(1)}><ArrowRight className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartPanRight')}</span>}</Button>
       </>}
     </>}
     brush={!zoomOnly && !outputSuspended && <Popover open={canEditRange && rangeEditorOpen} onOpenChange={setRangeEditorOpen}>
@@ -1527,8 +1534,13 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
         {brushMode && <p className="mt-2 text-xs text-text-secondary">{m('chartBrushHint')}</p>}
       </PopoverContent>}
     </Popover>}
-    reset={zoomOnly ? <ChartZoomButton label={m('laneZoomReset')} icon={RotateCcw} onClick={resetLocal} />
-      : <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartReset')} title={m('chartReset')} disabled={priorResult} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartReset')}</span>}</Button>}
+    reset={zoomOnly ? <>
+      <ChartZoomButton label={m('laneZoomReset')} icon={RotateCcw} onClick={resetLocal} disabled={lockDockRange} reason={rangeLockReason} reasonId={rangeLockReasonId} />
+      {rangeLockNote}
+    </> : <>
+      <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartReset')} title={rangeLockReason ?? m('chartReset')} aria-describedby={rangeLockReason ? rangeLockReasonId : undefined} disabled={priorResult || lockDockRange} onClick={resetLocal}><RotateCcw className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartReset')}</span>}</Button>
+      {rangeLockNote}
+    </>}
     compare={canCompare && <Button type="button" variant={chartToolVariant(compactTools, compare)} size={toolbarButtonSize} aria-label={m('chartCompare')} title={m('chartCompare')} aria-pressed={compare} disabled={priorResult} onClick={toggleCompare}><GitCompare className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartCompare')}</span>}</Button>}
     annotate={showAnnotate && <Button type="button" ref={annotateButton} variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartAnnotate')} aria-describedby={annotateReason ? annotateReasonId : undefined} disabled={!selection || !!annotateReason}
       title={annotateReason ?? (selection ? m('chartAnnotate') : m('chartAnnotateBrushFirst'))} onClick={editor.openEditor}><MessageSquarePlus className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartAnnotate')}</span>}</Button>}

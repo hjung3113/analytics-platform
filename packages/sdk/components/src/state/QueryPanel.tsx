@@ -10,7 +10,7 @@ import { DockChartPaneId } from '../dock/DockChartHead';
 import { useContextEditorOpener } from '../filters/QueryBarStatus';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { PanelBadge } from '../workspace/PanelBadge';
-import { QueryPanelContentContext, useInQueryPanel, useInWorkspacePanel, WorkspacePanelVisibleContext } from '../workspace/panelContext';
+import { DeclaredQueryPanelContext, QueryPanelContentContext, useInQueryPanel, useInWorkspacePanel, WorkspacePanelVisibleContext } from '../workspace/panelContext';
 import { usePublishWorkspaceQueryOverflow, useWorkspaceQueryHead, type QueryMenuItem } from '../workspace/WorkspaceQueryHeads';
 import { DataTrustIndicator } from './DataTrustIndicator';
 import { emptyCauses, emptyOutcomeText } from './emptyCause';
@@ -222,11 +222,15 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
   const emptyExplanation = causes.length ? emptyOutcomeText(causes, t).body : undefined;
   const trust = !loading && !query.cancelled && response?.outcome === 'ok'
     ? chartTrustText(panel.footerTrust ? panel.footerTrust(response.data as T, response) : response.trust, lang) : undefined;
-  const source = trust?.source ?? result?.trust?.source ?? response?.trust?.source ?? '—';
+  // The drawn result's Trust (current, refreshing or previous): a chart drawing that same result folds its source line into this footer.
+  const shownTrust = result ? chartTrustText(panel.footerTrust ? panel.footerTrust(result.data as T, result) : result.trust, lang) ?? null : null;
+  // A declared workspace panel prints the drawn result's Trust (its chart folds into this line); the page flow keeps the settled one.
+  const footerTrust = workspace ? shownTrust : trust;
+  const source = footerTrust?.source ?? result?.trust?.source ?? response?.trust?.source ?? '—';
   const dataTrust = <DataTrustIndicator summary query={query} />;
   const footer = <footer className={cn('flex h-8 items-center border-t border-border-subtle px-4 text-tiny text-text-muted', workspace && 'shrink-0 justify-between gap-2')}>
     <span className="truncate">{t('source')} <span className="t-mono">{source}</span>
-      {trust && <> · {t('updated')} {trust.updated} · {t('coverage')} {trust.coverage}</>}</span>
+      {footerTrust && <> · {t('updated')} {footerTrust.updated} · {t('coverage')} {footerTrust.coverage}</>}</span>
     {workspace && dataTrust}
   </footer>;
   const trustUpdated = prior && trustInstantText(prior.response.trust?.updatedAt, lang);
@@ -299,7 +303,8 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
     </QueryPanelContentContext.Provider>
   </>;
   const panelClass = 'min-w-0 break-keep focus-visible:outline-2 focus-visible:outline-focus-ring';
-  if (workspace) return <section ref={bindPanel} tabIndex={-1} aria-label={panel.title} aria-describedby={notice.bannerId}
+  if (workspace) return <DeclaredQueryPanelContext.Provider value={{ trust: shownTrust, lang }}>
+    <section ref={bindPanel} tabIndex={-1} aria-label={panel.title} aria-describedby={notice.bannerId}
     className={cn(panelClass, 'flex h-full min-h-0 flex-col focus-visible:-outline-offset-2')}
     onFocus={event => { lastFocused.current = event.target; }}
     onBlur={event => { if (event.relatedTarget && event.relatedTarget !== event.target.ownerDocument.body) lastFocused.current = null; }}>
@@ -307,7 +312,8 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
     {workspaceId && compactError && <WorkspaceRecovery id={workspaceId} response={visibleError} onRetry={retryQuery} />}
     {panel.subtitle && <p className="truncate px-4 text-xs text-text-secondary">{panel.subtitle}</p>}
     {content}{footer}
-  </section>;
+    </section>
+  </DeclaredQueryPanelContext.Provider>;
   return <Panel ref={bindPanel} tabIndex={-1} aria-describedby={notice.bannerId} id={id} title={panel.title} subtitle={panel.subtitle}
     className={cn(panelClass, 'scroll-mt-40', compactError && '[&>header]:px-2 [&>header_h2]:min-w-0')} badge={signal} footer={footer}
     actions={<>{dataTrust}

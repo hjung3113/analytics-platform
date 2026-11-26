@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import * as echarts from 'echarts/core';
 import { BarChart, BoxplotChart, CustomChart, LineChart, PieChart, ScatterChart } from 'echarts/charts';
 import { BrushComponent, DataZoomComponent, GraphicComponent, GridComponent, MarkAreaComponent, MarkLineComponent, ToolboxComponent, TooltipComponent } from 'echarts/components';
@@ -7,6 +7,8 @@ import { CanvasRenderer } from 'echarts/renderers';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { cn, prefersReducedMotion } from '@ap/ui';
 import { useThemeRevision } from '@ap/ui/theme';
+import { DeclaredQueryPanelContext } from '../workspace/panelContext';
+import { sameDrawing } from './chartDrawing';
 import { baseTextStyle, type EChartProps } from './EChart';
 import { ChartUnavailable, reportChartUnavailable } from './ChartUnavailable';
 import { CHART_ECHARTS_GEOMETRY, CHART_HEIGHTS, chartAxisTextStyle, chartMarkFontSize } from './chartMarks';
@@ -147,12 +149,16 @@ export function setOptionMode(previous: EChartsCoreOption | null, next: EChartsC
 export default function EChartImpl({ option, height = CHART_HEIGHTS.regular, onEvents, onReady, onResize, ariaLabel, className }: EChartProps) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<ECharts | null>(null);
-  const applied = useRef<{ source: EChartsCoreOption; resolved: EChartsCoreOption } | null>(null);
+  const applied = useRef<{ source: EChartsCoreOption; resolved: EChartsCoreOption; lang: string } | null>(null);
   const themeRevision = useThemeRevision();
   /** Set by the mount effect: releases everything a chart that failed its first draw still holds (observer, engine, zrender handler). */
   const releaseFailed = useRef<(() => void) | null>(null);
   const events = useRef(onEvents);
   events.current = onEvents;
+  const declared = useContext(DeclaredQueryPanelContext);
+  const inDeclaredPanel = declared !== null;
+  // Formatter closures carry the language, which `sameDrawing` cannot see: a language change always redraws.
+  const lang = declared?.lang ?? '';
   const resized = useRef(onResize);
   resized.current = onResize;
   // The engine cannot start where there is no canvas 2d context (jsdom): detected by the attempt, not by sniffing the environment (#1862).
@@ -212,7 +218,12 @@ export default function EChartImpl({ option, height = CHART_HEIGHTS.regular, onE
     if (previous !== null && previous.source === option) {
       // Theme-only redraw: the consumer option is unchanged, so only the token-backed axis typography can differ.
       instance.setOption(themeTypographyPatch(next), { notMerge: false, silent: true });
-      applied.current = { source: option, resolved: next };
+      applied.current = { source: option, resolved: next, lang };
+      return;
+    }
+    // Equal drawing inside a declared panel: do not replay the option over the zoom the user settled on.
+    if (inDeclaredPanel && previous !== null && previous.lang === lang && sameDrawing(previous.resolved, next)) {
+      applied.current = { source: option, resolved: next, lang };
       return;
     }
     const mode = setOptionMode(previous?.resolved ?? null, next);
@@ -233,8 +244,8 @@ export default function EChartImpl({ option, height = CHART_HEIGHTS.regular, onE
         return;
       }
     } else instance.setOption(next, mode);
-    applied.current = { source: option, resolved: next };
-  }, [option, themeRevision]);
+    applied.current = { source: option, resolved: next, lang };
+  }, [option, themeRevision, inDeclaredPanel, lang]);
 
   // Handlers are read through `events` at call time; only a changed set of event names rebinds.
   const eventNames = onEvents ? Object.keys(onEvents).join(',') : '';
