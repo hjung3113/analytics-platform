@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DirtyConfirmation,
   FieldLabel,
+  FormField,
   Input,
   Select,
   SelectContent,
@@ -17,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
   useImeEnterGuard,
+  useValidatedSubmit,
 } from '@ap/ui';
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -92,15 +94,21 @@ function defaultFieldErrors(error: unknown): DefaultErrors {
 }
 
 /** #1289 node i: the server refuses a registry-owned external key (`platform`, `space:*`) with this field code. */
-function externalKeyFieldError(error: unknown): string | null {
-  if (!(error instanceof ApiError) || !Array.isArray(error.detail?.fields)) return null;
-  const reserved = (error.detail.fields as { path?: unknown; code?: unknown }[]).some(
-    (field) =>
-      Array.isArray(field.path) &&
-      field.path[0] === 'external_key' &&
-      field.code === 'reserved_external_key',
+/** True when the server rejected `field` with `code` (a 422 `detail.fields` entry). */
+function hasFieldCode(error: unknown, field: string, code: string): boolean {
+  if (!(error instanceof ApiError) || !Array.isArray(error.detail?.fields)) return false;
+  return (error.detail.fields as { path?: unknown; code?: unknown }[]).some(
+    (entry) => Array.isArray(entry.path) && entry.path[0] === field && entry.code === code,
   );
-  return reserved ? MANAGED_SYSTEM_COPY.externalKeyReserved : null;
+}
+
+function externalKeyFieldError(error: unknown): string | null {
+  return hasFieldCode(error, 'external_key', 'reserved_external_key') ? MANAGED_SYSTEM_COPY.externalKeyReserved : null;
+}
+
+/** A rejected slug format belongs on the slug field, not in the dialog-level message (#2574). */
+function slugFieldError(error: unknown): string | null {
+  return hasFieldCode(error, 'slug', 'invalid_slug_format') ? MANAGED_SYSTEM_COPY.slugFormat : null;
 }
 
 function OwnerSelect({
@@ -217,10 +225,9 @@ function RegisterDialog({
   const [reviewer, setReviewer] = useState<OwnerSelection>({ kind: 'none' });
   const [error, setError] = useState<string | null>(null);
   const [defaultErrors, setDefaultErrors] = useState<DefaultErrors>({});
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<'slug' | 'name', string>>>({});
+  const [serverSlugError, setServerSlugError] = useState<string | null>(null);
   const [keyError, setKeyError] = useState<string | null>(null);
   const slugRef = useRef<HTMLInputElement>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
   const keyRef = useRef<HTMLInputElement>(null);
 
   const mutation = useMutation({
@@ -236,12 +243,31 @@ function RegisterDialog({
     },
     onError: (err) => {
       setDefaultErrors(defaultFieldErrors(err));
+      const badSlug = slugFieldError(err);
       const reservedKey = externalKeyFieldError(err);
+      setServerSlugError(badSlug);
       setKeyError(reservedKey);
-      if (reservedKey) keyRef.current?.focus();
-      setError(reservedKey ? null : envelopeMessage(err));
+      if (badSlug) slugRef.current?.focus();
+      else if (reservedKey) keyRef.current?.focus();
+      setError(badSlug || reservedKey ? null : envelopeMessage(err));
     },
   });
+  const register = useValidatedSubmit<{ slug: string; name: string }>({
+    validate: (values) => ({
+      ...(values.slug.trim() ? {} : { slug: '슬러그를 입력해 주세요.' }),
+      ...(values.name.trim() ? {} : { name: '이름을 입력해 주세요.' }),
+    }),
+    onValid: () => {
+      const body: RegisterManagedSystemBody = { slug, name };
+      if (externalKey.length > 0) body.external_key = externalKey;
+      if (owner.kind === 'actor') body.default_owner_actor_id = owner.id;
+      if (owner.kind === 'team') body.default_owner_team_id = owner.id;
+      if (reviewer.kind === 'actor') body.default_reviewer_actor_id = reviewer.id;
+      if (reviewer.kind === 'team') body.default_reviewer_team_id = reviewer.id;
+      mutation.mutate(body);
+    },
+  });
+  const slugError = register.errors.slug ?? serverSlugError ?? undefined;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -259,94 +285,55 @@ function RegisterDialog({
           className="space-y-3"
           noValidate
           onSubmit={(e) => {
-            e.preventDefault();
             setError(null);
             setKeyError(null);
+            setServerSlugError(null);
             setDefaultErrors({});
-            const nextErrors: Partial<Record<'slug' | 'name', string>> = {};
-            if (!slug.trim()) nextErrors.slug = '슬러그를 입력해 주세요.';
-            if (!name.trim()) nextErrors.name = '이름을 입력해 주세요.';
-            if (Object.keys(nextErrors).length > 0) {
-              setFieldErrors(nextErrors);
-              (nextErrors.slug ? slugRef : nameRef).current?.focus();
-              return;
-            }
-            setFieldErrors({});
-            const body: RegisterManagedSystemBody = { slug, name };
-            if (externalKey.length > 0) body.external_key = externalKey;
-            if (owner.kind === 'actor') body.default_owner_actor_id = owner.id;
-            if (owner.kind === 'team') body.default_owner_team_id = owner.id;
-            if (reviewer.kind === 'actor') body.default_reviewer_actor_id = reviewer.id;
-            if (reviewer.kind === 'team') body.default_reviewer_team_id = reviewer.id;
-            mutation.mutate(body);
+            register.handleSubmit({ slug, name })(e);
           }}
         >
-          <div className="space-y-1">
-            <FieldLabel htmlFor="ms-create-slug" tone="secondary">
-              슬러그 <span className="text-accent-danger">· 필수</span>
-            </FieldLabel>
-            <Input
-              id="ms-create-slug"
-              ref={slugRef}
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              aria-describedby={fieldErrors.slug ? 'ms-create-slug-error' : undefined}
-              aria-invalid={Boolean(fieldErrors.slug)}
-              aria-required="true"
-              data-testid="create-slug"
-            />
-            {fieldErrors.slug && (
-              <p id="ms-create-slug-error" className="text-sm text-accent-danger">
-                {fieldErrors.slug}
-              </p>
+          <FormField id="ms-create-slug" label="슬러그" required requiredMark="text" error={slugError}>
+            {(control) => (
+              <Input
+                {...control}
+                ref={slugRef}
+                value={slug}
+                onChange={(e) => {
+                  setSlug(e.target.value);
+                  setServerSlugError(null);
+                  register.clearError('slug');
+                }}
+                data-testid="create-slug"
+              />
             )}
-          </div>
-          <div className="space-y-1">
-            <FieldLabel htmlFor="ms-create-name" tone="secondary">
-              이름 <span className="text-accent-danger">· 필수</span>
-            </FieldLabel>
-            <Input
-              id="ms-create-name"
-              ref={nameRef}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              aria-describedby={fieldErrors.name ? 'ms-create-name-error' : undefined}
-              aria-invalid={Boolean(fieldErrors.name)}
-              aria-required="true"
-              data-testid="create-name"
-            />
-            {fieldErrors.name && (
-              <p id="ms-create-name-error" className="text-sm text-accent-danger">
-                {fieldErrors.name}
-              </p>
+          </FormField>
+          <FormField id="ms-create-name" label="이름" required requiredMark="text" error={register.errors.name}>
+            {(control) => (
+              <Input
+                {...control}
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  register.clearError('name');
+                }}
+                data-testid="create-name"
+              />
             )}
-          </div>
-          <div className="space-y-1">
-            <FieldLabel htmlFor="ms-create-external-key" tone="secondary">
-              외부 키 (선택)
-            </FieldLabel>
-            <Input
-              id="ms-create-external-key"
-              ref={keyRef}
-              value={externalKey}
-              onChange={(e) => {
-                setExternalKey(e.target.value);
-                setKeyError(null);
-              }}
-              aria-invalid={Boolean(keyError)}
-              aria-describedby={keyError ? 'ms-create-external-key-error' : undefined}
-              data-testid="create-external-key"
-            />
-            {keyError && (
-              <p
-                id="ms-create-external-key-error"
-                className="text-sm text-accent-danger"
-                data-testid="create-external-key-error"
-              >
-                {keyError}
-              </p>
+          </FormField>
+          <FormField id="ms-create-external-key" label="외부 키 (선택)" error={keyError ?? undefined}>
+            {(control) => (
+              <Input
+                {...control}
+                ref={keyRef}
+                value={externalKey}
+                onChange={(e) => {
+                  setExternalKey(e.target.value);
+                  setKeyError(null);
+                }}
+                data-testid="create-external-key"
+              />
             )}
-          </div>
+          </FormField>
           <OwnerSelect
             value={owner}
             onChange={setOwner}

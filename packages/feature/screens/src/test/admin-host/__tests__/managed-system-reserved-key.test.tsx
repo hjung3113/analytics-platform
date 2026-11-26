@@ -88,16 +88,15 @@ describe('reserved external key field error (#1289 node i)', () => {
     fireEvent.change(screen.getByTestId('create-external-key'), { target: { value: 'platform' } });
     fireEvent.submit(screen.getByTestId('create-managed-system-form'));
 
-    const message = await screen.findByTestId('create-external-key-error');
-    expect(message).toHaveTextContent(RESERVED_MESSAGE);
     const input = screen.getByTestId('create-external-key');
-    expect(input).toHaveAttribute('aria-invalid', 'true');
-    expect(input.getAttribute('aria-describedby')).toBe(message.id);
+    await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'true'));
+    const message = document.getElementById(input.getAttribute('aria-describedby') ?? '');
+    expect(message).toHaveTextContent(RESERVED_MESSAGE);
     await waitFor(() => expect(input).toHaveFocus());
 
     fireEvent.change(input, { target: { value: 'tableau:site' } });
-    expect(screen.queryByTestId('create-external-key-error')).not.toBeInTheDocument();
-    expect(input).toHaveAttribute('aria-invalid', 'false');
+    expect(screen.queryByText(RESERVED_MESSAGE)).not.toBeInTheDocument();
+    expect(input).not.toHaveAttribute('aria-invalid');
   });
 
   test('edit dialog shows the message on the external-key input, not as a row error', async () => {

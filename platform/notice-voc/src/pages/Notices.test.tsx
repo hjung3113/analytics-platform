@@ -157,8 +157,8 @@ describe('write controls are gated by console:access', () => {
 async function fillCreate() {
   fireEvent.click(await screen.findByRole('button', { name: /공지 작성/ }));
   const dialog = await screen.findByRole('dialog');
-  fireEvent.change(within(dialog).getByLabelText('제목 (한국어)'), { target: { value: '새 공지' } });
-  fireEvent.change(within(dialog).getByLabelText('내용 (한국어)'), { target: { value: '새 내용' } });
+  fireEvent.change(within(dialog).getByLabelText(/^제목 \(한국어\)/), { target: { value: '새 공지' } });
+  fireEvent.change(within(dialog).getByLabelText(/^내용 \(한국어\)/), { target: { value: '새 내용' } });
   fireEvent.change(within(dialog).getByLabelText(/종료 일시/), { target: { value: '2026-12-31T09:30' } });
   return dialog;
 }
@@ -190,7 +190,7 @@ describe('save', () => {
     const m = mount(ADMIN, '/notices?focus=n-soon', { save: async () => action<Notice>({ outcome: 'conflict', version: 'v2' }) });
     fireEvent.click(await screen.findByRole('button', { name: '수정' }));
     const dialog = await screen.findByRole('dialog');
-    fireEvent.change(within(dialog).getByLabelText('제목 (한국어)'), { target: { value: '고친 제목' } });
+    fireEvent.change(within(dialog).getByLabelText(/^제목 \(한국어\)/), { target: { value: '고친 제목' } });
     submit(dialog);
     expect(await within(dialog).findByText('다른 곳에서 먼저 바뀌었습니다')).toBeTruthy();
     expect(m.saveNotice.mock.calls[0]![0]).toMatchObject({ id: 'n-soon', expectedVersion: 'v1' });
@@ -202,7 +202,7 @@ describe('save', () => {
     expect(ask.textContent).toContain('새로 불러오면 작성 중인 공지가 사라집니다');
     fireEvent.click(within(ask).getByRole('button', { name: '계속 작성' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
-    expect((within(dialog).getByLabelText('제목 (한국어)') as HTMLInputElement).value).toBe('고친 제목');
+    expect((within(dialog).getByLabelText(/^제목 \(한국어\)/) as HTMLInputElement).value).toBe('고친 제목');
     expect(m.listNotices).toHaveBeenCalledTimes(1);
     fireEvent.click(within(dialog).getByRole('button', { name: '최신 내용 불러오기' }));
     fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '버리고 불러오기' }));
@@ -216,6 +216,13 @@ describe('save', () => {
     submit(dialog);
     expect(await within(dialog).findByText('입력을 확인하세요')).toBeTruthy();
     expect(within(dialog).getByText('올바른 값이 아닙니다.')).toBeTruthy();
+    // #2574: the field the server rejected takes focus, as a local check's first invalid field does.
+    await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByLabelText(/^종료 일시/)));
+    // Editing the rejected field clears its server error (#2574 R1 C2).
+    const until = within(dialog).getByLabelText(/^종료 일시/);
+    fireEvent.change(until, { target: { value: '2026-12-31T18:00' } });
+    expect(within(dialog).queryByText('올바른 값이 아닙니다.')).toBeNull();
+    expect(until.getAttribute('aria-invalid')).toBeNull();
   });
 
   it('shows a forbidden answer as a message and changes nothing', async () => {
@@ -236,7 +243,7 @@ describe('save', () => {
     const [first, second] = m.saveNotice.mock.calls.map(c => c[0] as { idempotencyKey: string });
     expect(second).toEqual(first);
     // Change the input: a new operation gets a new key.
-    fireEvent.change(within(dialog).getByLabelText('제목 (한국어)'), { target: { value: '다른 제목' } });
+    fireEvent.change(within(dialog).getByLabelText(/^제목 \(한국어\)/), { target: { value: '다른 제목' } });
     submit(dialog);
     await waitFor(() => expect(m.saveNotice).toHaveBeenCalledTimes(3));
     const third = m.saveNotice.mock.calls[2]![0] as { idempotencyKey: string };
@@ -251,11 +258,22 @@ describe('save', () => {
     submit(dialog);
     expect(await within(dialog).findAllByText('필수 항목입니다.')).not.toHaveLength(0);
     expect(m.saveNotice).not.toHaveBeenCalled();
-    const title = within(dialog).getByLabelText('제목 (한국어)');
+    const title = within(dialog).getByLabelText(/^제목 \(한국어\)/);
     expect(title.getAttribute('aria-invalid')).toBe('true');
     expect(document.getElementById(title.getAttribute('aria-describedby')!)!.textContent).toBe('필수 항목입니다.');
     // A field without an error carries neither attribute.
     expect(within(dialog).getByLabelText('제목 (English)').getAttribute('aria-invalid')).toBeNull();
+  });
+
+  it('marks the required fields as text and focuses the first missing one after a submit (#2574)', async () => {
+    mount(ADMIN);
+    fireEvent.click(await screen.findByRole('button', { name: /공지 작성/ }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('제목 (한국어)').closest('label')?.textContent).toContain('· 필수');
+    expect(within(dialog).getByText('제목 (English)').closest('label')?.textContent).not.toContain('필수');
+    fireEvent.change(within(dialog).getByLabelText(/^제목 \(한국어\)/), { target: { value: '점검 안내' } });
+    submit(dialog);
+    await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByLabelText(/^내용 \(한국어\)/)));
   });
 });
 
@@ -394,7 +412,7 @@ describe('unsaved compose (#2533)', () => {
     expect(ask.textContent).toContain('작성 중인 공지가 사라집니다');
     fireEvent.click(within(ask).getByRole('button', { name: '계속 작성' }));
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
-    expect((within(screen.getByRole('dialog')).getByLabelText('제목 (한국어)') as HTMLInputElement).value).toBe('새 공지');
+    expect((within(screen.getByRole('dialog')).getByLabelText(/^제목 \(한국어\)/) as HTMLInputElement).value).toBe('새 공지');
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '취소' }));
     fireEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: '버리기' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
@@ -407,7 +425,7 @@ describe('unsaved compose (#2533)', () => {
     const ask = await screen.findByRole('alertdialog');
     fireEvent.keyDown(ask, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
-    expect((within(screen.getByRole('dialog')).getByLabelText('제목 (한국어)') as HTMLInputElement).value).toBe('새 공지');
+    expect((within(screen.getByRole('dialog')).getByLabelText(/^제목 \(한국어\)/) as HTMLInputElement).value).toBe('새 공지');
     fireEvent.pointerDown(document.body);
     expect(await screen.findByRole('alertdialog')).toBeTruthy();
     // The compose dialog stays mounted under the alert (Radix hides it from the accessibility tree meanwhile).
@@ -425,13 +443,13 @@ describe('unsaved compose (#2533)', () => {
     fireEvent.change(until, { target: { value: '2026-11-05T00:00' } });
     const unload = () => { const event = new Event('beforeunload', { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; };
     expect(unload()).toBe(false);
-    fireEvent.change(within(dialog).getByLabelText('제목 (한국어)'), { target: { value: '고친 제목' } });
+    fireEvent.change(within(dialog).getByLabelText(/^제목 \(한국어\)/), { target: { value: '고친 제목' } });
     submit(dialog);
     await waitFor(() => expect(within(dialog).getByRole('button', { name: '저장' })).toHaveProperty('disabled', true));
     expect(unload()).toBe(true);
     await act(async () => { finish(action<Notice>({ outcome: 'conflict', version: 'v2' })); });
     expect(await within(dialog).findByText('다른 곳에서 먼저 바뀌었습니다')).toBeTruthy();
-    expect((within(dialog).getByLabelText('제목 (한국어)') as HTMLInputElement).value).toBe('고친 제목');
+    expect((within(dialog).getByLabelText(/^제목 \(한국어\)/) as HTMLInputElement).value).toBe('고친 제목');
     expect(unload()).toBe(true);
   });
 

@@ -159,6 +159,16 @@ export const ADMIN_PERMISSIONS_COPY = {
     success: '권한을 부여했습니다.',
     error: '권한을 부여하지 못했습니다. 입력한 내용을 확인하고 다시 시도해 주세요.',
     sessionLoading: '세션 정보를 확인하는 중입니다.',
+    // Why «권한 부여» is disabled, named on the button (#2574). One reason at a time, in the order the form is filled.
+    blocked: {
+      select: '부여할 권한과 범위를 선택하세요.',
+      preflight: '진행 중인 권한 요청 검토나 차단 해제를 먼저 마쳐야 합니다.',
+      reason: '사유를 입력하세요.',
+      expiration: '만료일을 오늘 이후 날짜로 고치거나 비우세요.',
+      selfEnvelope: '정책 근거와 동료 검토자 부재 사유를 입력하세요.',
+      governance: '관리자 권한 부여 확인란을 선택하세요.',
+      pending: '권한을 부여하는 중입니다.',
+    },
   },
 } as const;
 

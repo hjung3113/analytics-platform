@@ -1,4 +1,5 @@
 export const MANAGED_SYSTEM_COPY = {
+  slugFormat: '슬러그는 영문 소문자로 시작하고 영문 소문자·숫자·하이픈(-)만 씁니다. 예: power-bi',
   externalKeyReserved:
     '플랫폼이 자동으로 관리하는 키(platform, space:…)는 직접 지정하거나 바꿀 수 없습니다.',
   ownerOptional: '기본 담당자 (선택)',

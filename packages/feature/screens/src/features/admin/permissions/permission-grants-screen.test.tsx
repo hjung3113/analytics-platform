@@ -616,6 +616,20 @@ describe('/admin/permissions/grants screen', () => {
     expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
     expect(within(dialog).getByTestId('direct-grant-submit')).toBeEnabled();
   });
+  test('names why «권한 부여» is disabled, one step at a time (#2574)', async () => {
+    installApi({});
+    renderScreen();
+    const dialog = await openDirectGrantDialog();
+    await chooseSelectOption('대상자', /^Actor One/);
+    const submit = await within(dialog).findByTestId('direct-grant-submit');
+    await waitFor(() => expect(submit).toHaveAccessibleDescription('부여할 권한과 범위를 선택하세요.'));
+    expect(submit).toBeDisabled();
+    fireEvent.click(await within(dialog).findByRole('checkbox', { name: /Finding 관리.*Payments/ }));
+    expect(submit).toHaveAccessibleDescription('사유를 입력하세요.');
+    fireEvent.change(within(dialog).getByLabelText('사유 · 필수'), { target: { value: 'Grant reason' } });
+    expect(submit).toBeEnabled();
+    expect(submit).not.toHaveAccessibleDescription();
+  });
   test('sends two selected candidates to the batch endpoint with one reason', async () => {
     const api = installApi({ grantOptionsByActor: { [RECIPIENT_ID]: grantOptionsFor(RECIPIENT_ID, {
       candidates: [DEFAULT_GRANT_CANDIDATE, { capability: 'voc.read', managed_system_id: MANAGED_SYSTEM_ID, governance_required: false, preflight: { state: 'available' } }],
@@ -1278,8 +1292,10 @@ describe('/admin/permissions/grants screen', () => {
       target: { value: '정책상 본인에게 부여할 수 없습니다.' },
     });
 
-    expect(within(dialog).getByText(/본인에게 직접 권한을 부여할 수 없습니다/)).toBeInTheDocument();
+    // The form notice and the disabled «권한 부여» both name it (#2574).
+    expect(within(dialog).getAllByText(/본인에게 직접 권한을 부여할 수 없습니다/)).toHaveLength(2);
     expect(within(dialog).getByTestId('direct-grant-submit')).toBeDisabled();
+    expect(within(dialog).getByTestId('direct-grant-submit')).toHaveAccessibleDescription(/본인에게 직접 권한을 부여할 수 없습니다/);
     expect(
       api.requests.some(
         (request) => request.method === 'POST' && request.path === '/permissions/grants',

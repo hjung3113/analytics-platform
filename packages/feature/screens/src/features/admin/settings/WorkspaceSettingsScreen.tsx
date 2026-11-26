@@ -27,7 +27,7 @@ import {
   SelectValue,
 } from '@ap/ui';
 import { AlertTriangle, Check, LockKeyhole } from 'lucide-react';
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useId, useState } from 'react';
 
 import {
   COVERAGE_METRIC_IDS,
@@ -269,6 +269,15 @@ export function WorkspaceSettingsForm({
   });
   const canSave =
     dirtyKeys.length > 0 && thresholdValid && coverageValid && !updateMutation.isPending;
+  // The save bar names what blocks it instead of a silently disabled button (#2574).
+  const saveBlockedReasonId = useId();
+  const saveBlockedReason = !thresholdValid
+    ? '익명성 임계값을 5에서 50 사이의 정수로 고치면 저장할 수 있습니다.'
+    : !coverageValid
+      ? '커버리지 기준을 고치면 저장할 수 있습니다. 주의 기준은 양호 기준보다 작아야 합니다.'
+      : updateMutation.isPending
+        ? '저장 중입니다.'
+        : undefined;
   // A parse-invalid band edit keeps the save bar up (저장 disabled) even though
   // the draft pair is unchanged; without it the bar would vanish mid-edit.
   const barKeys: EditableKey[] =
@@ -477,25 +486,39 @@ export function WorkspaceSettingsForm({
 
       {barKeys.length > 0 && (
         <div
-          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-md border border-border-strong bg-surface-popover px-4 py-3 shadow-lg"
+          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-1.5 rounded-md border border-border-strong bg-surface-popover px-4 py-3 shadow-lg"
           data-testid="workspace-settings-save-bar"
         >
-          <AlertTriangle className="h-4 w-4 text-text-warning" aria-hidden="true" />
-          <span className="text-sm text-text-primary">
-            {barKeys.length === 1
-              ? '저장되지 않은 변경 1건'
-              : `저장되지 않은 변경 ${barKeys.length}건`}
-          </span>
-          <span className="text-xs text-text-muted">
-            {barKeys.map((key) => settingLabel(key)).join(' · ')}
-          </span>
-          <Button variant="subtle" size="sm" onClick={discard}>
-            버리기
-          </Button>
-          <Button variant="primary" size="sm" disabled={!canSave} onClick={() => void save()}>
-            <Check className="h-4 w-4" />
-            변경사항 {GLOSSARY.save}
-          </Button>
+          {/* The reason sits on its own line above the bar row, so the row keeps one line (#2574). */}
+          {!canSave && saveBlockedReason && (
+            <p id={saveBlockedReasonId} className="text-xs text-text-muted">
+              {saveBlockedReason}
+            </p>
+          )}
+          <div className="flex items-center gap-3 whitespace-nowrap">
+            <AlertTriangle className="h-4 w-4 text-text-warning" aria-hidden="true" />
+            <span className="text-sm text-text-primary">
+              {barKeys.length === 1
+                ? '저장되지 않은 변경 1건'
+                : `저장되지 않은 변경 ${barKeys.length}건`}
+            </span>
+            <span className="text-xs text-text-muted">
+              {barKeys.map((key) => settingLabel(key)).join(' · ')}
+            </span>
+            <Button variant="subtle" size="sm" onClick={discard}>
+              버리기
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!canSave}
+              aria-describedby={!canSave && saveBlockedReason ? saveBlockedReasonId : undefined}
+              onClick={() => void save()}
+            >
+              <Check className="h-4 w-4" />
+              변경사항 {GLOSSARY.save}
+            </Button>
+          </div>
         </div>
       )}
       {updateMutation.isError && (
@@ -630,6 +653,7 @@ function EditableThresholdRow({
   onEdit: () => void;
   onDone: () => void;
 }) {
+  const hintId = useId();
   return (
     <SettingRow
       label="익명성 임계값"
@@ -642,6 +666,8 @@ function EditableThresholdRow({
           <>
             <Input
               aria-label="익명성 임계값"
+              aria-describedby={hintId}
+              {...(valid ? {} : { 'aria-invalid': true })}
               type="number"
               min={5}
               max={50}
@@ -649,6 +675,7 @@ function EditableThresholdRow({
               onChange={(event) => onChange(Number(event.target.value))}
             />
             <p
+              id={hintId}
               className={valid ? 'mt-1 text-xs text-text-muted' : 'mt-1 text-xs text-accent-danger'}
             >
               {valid ? '최소 5 (익명성 보호 기준)' : '5에서 50 사이의 정수를 입력하세요.'}

@@ -244,6 +244,25 @@ describe('/admin/settings route', () => {
     expect(screen.getByText('응답 12건', { exact: true })).toBeInTheDocument();
   });
 
+  test('links an out-of-range threshold to its message and names it on the disabled save (#2574)', async () => {
+    installFetch({});
+    renderRoute();
+
+    await screen.findByTestId('workspace-settings-screen');
+    fireEvent.click(thresholdEditButton());
+    const threshold = screen.getByLabelText('익명성 임계값');
+    fireEvent.change(threshold, { target: { value: '3' } });
+    expect(threshold).toHaveAttribute('aria-invalid', 'true');
+    expect(document.getElementById(threshold.getAttribute('aria-describedby') ?? '')).toHaveTextContent('5에서 50 사이의 정수를 입력하세요.');
+    const save = screen.getByRole('button', { name: '변경사항 저장' });
+    expect(save).toBeDisabled();
+    expect(save).toHaveAccessibleDescription('익명성 임계값을 5에서 50 사이의 정수로 고치면 저장할 수 있습니다.');
+
+    fireEvent.change(threshold, { target: { value: '12' } });
+    expect(threshold).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByRole('button', { name: '변경사항 저장' })).toBeEnabled();
+  });
+
   test('keeps the draft and save bar visible when patching fails', async () => {
     installFetch({ patchStatus: 500 });
     renderRoute();
