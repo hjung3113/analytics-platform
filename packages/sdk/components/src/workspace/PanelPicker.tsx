@@ -95,9 +95,9 @@ function CategorizedPanels({ rows }: { rows: readonly PanelPickerRow[] }) {
         list.current?.querySelector<HTMLButtonElement>(PANEL_ROW_SELECTOR)?.focus();
       }} />
     {columns.length === 0 ? <p role="status" className="text-text-muted">{m('panelAddNoMatch')}</p> : <div className="flex gap-3">
-      <div ref={list} role="group" aria-labelledby={id} className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-2 p-1">
+      <div ref={list} role="group" aria-labelledby={id} className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-x-4 gap-y-3 p-1">
         {columns.map(([key, { title, rows: columnRows }], index) => <section key={key} aria-labelledby={`${id}-${index}`}
-          className="min-w-0 border-s border-border-subtle ps-2 first:border-0 first:ps-0" onKeyDownCapture={navigate}
+          className="min-w-0" onKeyDownCapture={navigate}
           onFocus={event => {
             if (!(event.target instanceof HTMLButtonElement) || !event.target.matches(PANEL_ROW_SELECTOR)) return;
             setActive(key); setFocused(event.target.dataset.panelRow); setHovered(undefined);

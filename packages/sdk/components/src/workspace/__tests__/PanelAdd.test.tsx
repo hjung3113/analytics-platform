@@ -361,6 +361,8 @@ describe('PanelAddMenu categorized picker (#2744)', () => {
     // Columns wrap to the next line at a width that fits common names, so the kind word at the end of a name stays visible.
     expect(grid).toHaveClass('grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]');
     expect(grid).not.toHaveClass('grid-flow-col', 'overflow-x-auto');
+    // A wrapped column starts a line, so no column draws a start divider.
+    for (const column of grid.querySelectorAll('section')) expect(column).not.toHaveClass('border-s');
 
     const longButton = row(longName);
     expect(longButton).toHaveAccessibleName(longName);
