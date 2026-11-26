@@ -1014,6 +1014,29 @@ describe('HW Time approved stepped workspace', () => {
     ]);
     expect(within(screen.getByTestId('hw-overview-scatter')).getByRole('heading', { name: 'PM2 · Pump 회차' })).toBeTruthy();
   });
+  it('names the drilled Module type and Motion on the day heatmap header and chart (#3046)', async () => {
+    let setPage: ReturnType<typeof usePlatform>['setPage'] | undefined;
+    function Navigator() { setPage = usePlatform().setPage; return null; }
+    const dayTitle = (motion: string) => `PM · ${motion} · 설비 × 날짜 히트맵`;
+    const current = () => within(screen.getByRole('region', { name: 'panel current' }));
+    await renderOverview('&moduleType=PM&drillMotion=Pump&motionBasis=day', answer, { children: <Navigator />, waitForData: false });
+    await current().findByTestId('hw-equipment-days');
+    expect(config().titles.current).toBe(dayTitle('Pump'));
+    expect(current().getByRole('region', { name: dayTitle('Pump') })).toBeTruthy();
+    act(() => setPage!({ drillMotion: 'Vent' }));
+    await waitFor(() => expect(config().titles.current).toBe(dayTitle('Vent')));
+    expect(await current().findByRole('region', { name: dayTitle('Vent') })).toBeTruthy();
+    expect(new URLSearchParams(window.location.search).get('motionBasis')).toBe('day');
+  });
+  it('keeps the generic title on an equipment × day heatmap added from the panel catalogue (#3046)', async () => {
+    await renderOverview('&moduleType=PM&drillMotion=Pump');
+    await add('설비 × 날짜 히트맵');
+    const added = within(screen.getByRole('region', { name: 'panel equipmentDays' }));
+    await added.findByTestId('hw-equipment-days');
+    expect(config().titles.equipmentDays).toBe('설비 × 날짜 히트맵');
+    expect(added.getByRole('region', { name: '설비 × 날짜 히트맵' })).toBeTruthy();
+    expect(config().titles.current).toBe('PM · Pump · 설비–Module별');
+  });
 });
 
  it('adds pinned panels as current-group tabs without changing step-4 row shares', async () => {

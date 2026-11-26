@@ -121,10 +121,11 @@ type BarsProps = {
 };
 const noHighlightedEquipment: readonly string[] = [];
 /** Workspace tabs stay visible when the Frame's own title is hidden by panel chrome. */
-function barsTitle({ depth, typeId, motionId, moduleId, previous = false, allMotions = false }: Pick<BarsProps, 'depth' | 'typeId' | 'motionId' | 'moduleId' | 'previous' | 'allMotions'>) {
+/** The localized drill title of a slot; `dayBasis` names the step-3 «일별» heatmap instead of the Motion bars (#3046). */
+function barsTitle({ depth, typeId, motionId, moduleId, previous = false, allMotions = false, dayBasis = false }: Pick<BarsProps, 'depth' | 'typeId' | 'motionId' | 'moduleId' | 'previous' | 'allMotions'> & { dayBasis?: boolean }) {
   let message: Text = S.overview;
   if (depth === 2) message = S.typeBars;
-  if (depth === 3) message = S.motionBars;
+  if (depth === 3) message = dayBasis ? S.motionDays : S.motionBars;
   if (depth === 4) message = allMotions ? S.moduleMotions : S.moduleBars;
   const params = { type: typeId ?? '', motion: motionId ?? '', module: moduleId ?? '' };
   const title = { ko: formatText(message, 'ko', params), en: formatText(message, 'en', params) };
@@ -699,9 +700,10 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const limitParams = { max: PANEL_INSTANCES_MAX };
   const limitMessage = HW_TIME_WORKSPACE_MESSAGES.panelsFull;
   const limitReason = { ko: formatText(limitMessage, 'ko', limitParams), en: formatText(limitMessage, 'en', limitParams) };
-  const renderEquipmentDays = () => {
+  const currentTitle = barsTitle({ ...props, depth: step, dayBasis: dayPanel !== null });
+  const renderEquipmentDays = (title?: Text) => {
     const input = endpointInput('equipmentDays');
-    if (equipmentDaysAvailable(input, page)) return <EquipmentDaysPanel input={input} verdict={verdict} date={date} />;
+    if (equipmentDaysAvailable(input, page)) return <EquipmentDaysPanel input={input} verdict={verdict} date={date} title={title} />;
     return <p role="status" className="text-sm text-text-secondary">{filter.empty ? common('filterNoneSelected') : N.equipmentDaysUnavailable[lang]}</p>;
   };
   const withRecipe = (slot: string, panel: string, front: ReactNode, { primary = false, canPin = false } = {}) =>
@@ -711,12 +713,12 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const panels: PanelWorkspacePanel[] = [
     { id: 'tree', icon: ListTree, title: S.tree, minWidth: 200, preferredHeight: 640, render: () => <Hierarchy filter={filter} currentId={currentId} onDrill={onDrill} /> },
     ...(step > 1 ? [{ id: 'previous', icon: History, title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={(step - 1) as Step} previous /> }] : []),
-    { id: 'current', title: dayPanel?.title ?? barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640,
+    { id: 'current', title: currentTitle, primary: true, minWidth: 320, preferredHeight: 640,
       declarationId: currentDeclaration,
       analysisSelectionSourceId: currentHostsSelection ? sourcePanelId : undefined,
       render: () => {
         const front = dayPanel
-          ? renderEquipmentDays()
+          ? renderEquipmentDays(currentTitle)
           : <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} instanceId={currentHostsSelection ? sourceId : undefined} />;
         return currentDeclaration ? withRecipe('current', currentDeclaration, front, { primary: true }) : front;
       } },
