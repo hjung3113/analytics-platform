@@ -1,26 +1,27 @@
-import { useId, useRef, useState } from 'react';
-import { Button, DropdownMenuItem } from '@ap/ui';
+import { useId, useRef, useState, type PointerEventHandler } from 'react';
+import { Button, DropdownMenuItem, cn } from '@ap/ui';
 
 const TYPEAHEAD_MS = 500;
 
-type Row = { label: string; reason?: string; note?: string; onSelect?: () => void };
+type Row = { label: string; reason?: string; note?: string; onSelect?: () => void; drag?: { id: string; onPointerDown: PointerEventHandler<HTMLElement> } };
 
-function PanelListRow({ label, reason, note, onSelect, presentation = 'menu', tabIndex, onFocus }: Row & {
+function PanelListRow({ label, reason, note, onSelect, drag, presentation = 'menu', tabIndex, onFocus }: Row & {
   presentation?: 'menu' | 'named-menu' | 'popover'; tabIndex?: number; onFocus?: () => void;
 }) {
   const id = useId();
   const description = [reason, note].filter(Boolean).join(' · ');
   const named = presentation !== 'menu';
   const attrs = { 'aria-label': named ? label : undefined, 'aria-disabled': reason !== undefined || undefined,
-    'aria-describedby': named && description ? id : undefined };
+    'aria-describedby': named && description ? id : undefined, 'data-panel-add-source': drag?.id, onPointerDown: drag?.onPointerDown };
+  const dragClass = drag ? 'cursor-grab touch-none select-none' : undefined;
   const content = <span className="flex min-w-0 flex-col break-keep">
     <span className={reason !== undefined && presentation !== 'named-menu' ? 'text-text-muted' : undefined}>{label}</span>
     {description && <span id={id} className="text-xs text-text-muted">{description}</span>}
   </span>;
   if (presentation === 'popover') return <Button type="button" variant="ghost" size="toolbar" tabIndex={tabIndex} onFocus={onFocus} {...attrs}
-    className="h-auto min-h-7 w-full justify-start text-start whitespace-normal"
+    className={cn('h-auto min-h-7 w-full justify-start text-start whitespace-normal', dragClass)}
     onClick={() => { if (reason === undefined) onSelect?.(); }}>{content}</Button>;
-  return <DropdownMenuItem {...attrs} onSelect={event => {
+  return <DropdownMenuItem {...attrs} className={dragClass} onSelect={event => {
     if (reason !== undefined) event.preventDefault();
     else onSelect?.();
   }}>{content}</DropdownMenuItem>;
