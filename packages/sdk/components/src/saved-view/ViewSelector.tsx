@@ -11,6 +11,11 @@ import { COMPONENTS_MESSAGES } from '../messages';
 import { approvalText, kindText, panelBadgeText, summarizeContext, visibilityShort, visibilityText } from './text';
 import { SaveBlockNotice, type SaveBlock } from './SaveBlockNotice';
 
+/** A blocked save stays focusable (`aria-disabled`, not `disabled`), so the label takes the menu's `data-disabled` look (`opacity-50`) itself. */
+function BlockedLabel({ blocked, children }: { blocked: boolean; children: ReactNode }) {
+  return blocked ? <span className="opacity-50">{children}</span> : children;
+}
+
 /** `clean` matches the saved view; `modified` differs from it; `unsaved` has no saved view; `unapplied` has a query draft not yet applied. */
 export type ViewSelectorState = 'clean' | 'modified' | 'unsaved' | 'unapplied';
 export type ViewFilter = 'all' | 'mine' | 'official' | `group:${string}`;
@@ -174,15 +179,15 @@ export function ViewSelector(props: ViewSelectorProps) {
         <DropdownMenuTrigger asChild><Button ref={props.saveTriggerRef} type="button" size="toolbar" variant="ghost">{m('svSave')}</Button></DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           {current && !canEdit && current.capabilities.reason && <DropdownMenuLabel><span className="block max-w-64 whitespace-normal break-words">{current.capabilities.reason}</span></DropdownMenuLabel>}
-          {saveBlock && ((current && canEdit) || showNew) && <SaveBlockNotice id={saveBlockId} block={saveBlock} />}
+          {saveBlock && ((current && canEdit) || showNew) && <SaveBlockNotice id={saveBlockId} block={saveBlock} className="max-w-64 whitespace-normal" />}
           {current && canEdit && <DropdownMenuItem
             disabled={!saveBlock && state === 'clean'} aria-disabled={saveBlock ? true : state === 'clean' || undefined} aria-describedby={saveBlock ? saveBlockId : undefined}
             onSelect={event => { if (saveBlock) event.preventDefault(); else void props.onSave?.(); }}
-          >{saveBlock ? <span className="text-text-secondary">{m('svSaveCurrent')}</span> : m('svSaveCurrent')}</DropdownMenuItem>}
+          ><BlockedLabel blocked={!!saveBlock}>{m('svSaveCurrent')}</BlockedLabel></DropdownMenuItem>}
           {showNew && <DropdownMenuItem
             aria-disabled={saveBlock ? true : undefined} aria-describedby={saveBlock ? saveBlockId : undefined}
             onSelect={event => { if (saveBlock) event.preventDefault(); else void props.onSaveAs?.(); }}
-          >{saveBlock ? <span className="text-text-secondary">{newLabel}</span> : newLabel}</DropdownMenuItem>}
+          ><BlockedLabel blocked={!!saveBlock}>{newLabel}</BlockedLabel></DropdownMenuItem>}
           {current && state === 'modified' && <DropdownMenuItem disabled={selectionDisabled} onSelect={() => props.onRevert?.()}>{m('svRevert')}</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
