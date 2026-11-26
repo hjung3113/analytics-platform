@@ -51,7 +51,7 @@
 - **프로토타입 CI.** 아카이브된 프로토타입의 CI 작업은 유지한다.
 - **완료 기준.** 공개 API 변화 0(`sdk:api` 스냅샷·exports), 루트 lint·typecheck·test·build 0, `pnpm docs:links` 0, CI E2E 통과.
 
-D5 결과: 모든 메뉴는 내부 버전 0.1.0과 CHANGELOG로 시작하고 SDK 태그 범위 `>=0.17.0 <0.18.0`을 기록하며 발행하지 않는다. 동작·화면 변경 시 minor/patch와 CHANGELOG를 같은 PR에서 갱신한다.
+D5 결과: 모든 메뉴는 내부 버전 0.1.0과 CHANGELOG로 시작하고 SDK 태그 범위 `>=0.17.0 <0.18.0`을 기록하며 발행하지 않는다. 동작·화면 변경은 그 PR이 메뉴 패키지의 `changes/<이슈>.md` 조각(bump와 한 줄)만 더하고, 릴리스 문서 PR이 조각을 모아 minor/patch와 CHANGELOG를 한 번에 올린다(#3113, `menus/AGENTS.md`). 같은 메뉴를 고친 PR 둘이 같은 다음 버전을 잡아 충돌하지 않게 하려는 것이다.
 
 D4·D5는 위 폴더 이동 뒤 적용한다: 소유는 시스템·그룹 폴더의 `CODEOWNERS`, 버전은 메뉴 패키지별 내부 버전과 CHANGELOG(발행 없음)이며 각 메뉴 패키지는 기대는 SDK 버전 범위를 적는다.
 

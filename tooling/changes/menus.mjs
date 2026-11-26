@@ -1,41 +1,42 @@
-// Menu change fragments: `menus/<group>/<menu>/changes/<issue>.md` holds `bump: patch|minor` and `- ` lines. A menu PR adds only that file;
+// Menu change fragments: `<menu package>/changes/<issue>.md` holds `bump: patch|minor` and `- ` lines. A menu PR adds only that file;
 // the release-docs PR folds them (`pnpm menu:changelog --release --date YYYY-MM-DD`): one version bump per menu by the highest bump, one
 // CHANGELOG section, fragments deleted. Two PRs on one menu then never pick the same next version (#3113). Node built-ins only.
-import { existsSync, readFileSync, readdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { existsSync, lstatSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { deleteFragmentFiles, fragmentFiles } from './fragments.mjs';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const RELEASE_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-function menuChangeDirs(root) {
-  const base = join(root, 'menus');
-  if (!existsSync(base)) return [];
-  const found = [];
-  const walk = (dir) => {
-    for (const name of readdirSync(dir)) {
-      if (name === 'node_modules' || name === '.git') continue;
-      const path = join(dir, name);
-      if (!statSync(path).isDirectory()) continue;
-      if (name === 'changes') found.push(path);
-      else walk(path);
-    }
-  };
-  walk(base);
-  return found;
-}
+// Menu packages are `menus/<system>/<group>` and `platform/<feature>` (menus/AGENTS.md: the package rules apply under both roots).
+// Only `<package>/changes/` holds fragments. A `changes/` at a root or system level is a misplaced fragment folder; deeper folders
+// (`src/**/changes`) are code and are not read. Directory entries are not followed through symbolic links.
+const subdirs = (dir) => existsSync(dir)
+  ? readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory() && e.name !== 'node_modules').map((e) => e.name).sort()
+  : [];
 
 function menusWithChanges(root) {
-  const menus = [];
-  for (const changes of menuChangeDirs(root)) {
-    const rel = relative(join(root, 'menus'), changes);
-    const parts = rel.split(/[/\\]/);
-    const menuDir = dirname(changes);
-    if (parts.length !== 3 || parts[2] !== 'changes' || !existsSync(join(menuDir, 'package.json'))) {
-      throw new Error(`${join('menus', rel)}: changes/ is not a menu package (menus/<group>/<menu>/changes)`);
+  const misplaced = (rel) => new Error(`${rel}: changes/ is not a menu package (menus/<system>/<group>/changes or platform/<feature>/changes)`);
+  const packages = [];
+  for (const system of subdirs(join(root, 'menus'))) {
+    if (system === 'changes') throw misplaced('menus/changes');
+    for (const group of subdirs(join(root, 'menus', system))) {
+      if (group === 'changes') throw misplaced(`menus/${system}/changes`);
+      packages.push(`menus/${system}/${group}`);
     }
-    menus.push({ dir: menuDir, changes, rel: join('menus', parts[0], parts[1]) });
+  }
+  for (const feature of subdirs(join(root, 'platform'))) {
+    if (feature === 'changes') throw misplaced('platform/changes');
+    packages.push(`platform/${feature}`);
+  }
+  const menus = [];
+  for (const rel of packages) {
+    const dir = join(root, rel);
+    const changes = join(dir, 'changes');
+    if (!existsSync(changes)) continue;
+    if (!lstatSync(changes).isDirectory() || !existsSync(join(dir, 'package.json'))) throw misplaced(`${rel}/changes`);
+    menus.push({ dir, changes, rel });
   }
   return menus.sort((a, b) => a.rel.localeCompare(b.rel));
 }
@@ -139,13 +140,12 @@ export function formatMenuRelease(plans, date) {
 }
 
 export function mainMenus(args, root = repoRoot) {
-  const rest = args;
-  if (rest.length === 1 && rest[0] === '--check') {
+  if (args.length === 1 && args[0] === '--check') {
     console.log(`menu:changelog passed: ${checkMenuFragments(root).length} fragment(s)`);
     return;
   }
-  const dryRun = rest.at(-1) === '--dry-run';
-  const body = dryRun ? rest.slice(0, -1) : rest;
+  const dryRun = args.at(-1) === '--dry-run';
+  const body = dryRun ? args.slice(0, -1) : args;
   if (body[0] === '--release' && body[1] === '--date' && body[2] && body.length === 3) {
     const plans = releaseMenuChangelogs(root, body[2], { dryRun });
     if (dryRun) process.stdout.write(formatMenuRelease(plans, body[2]));

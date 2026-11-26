@@ -43,11 +43,17 @@ test('invalid menu fragments name the file', () => withRepo((root) => {
 }));
 
 test('a changes directory outside a menu package is an error', () => withRepo((root) => {
-  for (const rel of ['menus/changes', 'menus/mars/changes', 'menus/mars/hw-time/src/changes', 'menus/mars/hw-time/changes']) {
+  for (const rel of ['menus/changes', 'menus/mars/changes', 'menus/mars/hw-time/changes', 'platform/changes']) {
     mkdirSync(join(root, rel), { recursive: true });
     assert.throws(() => checkMenuFragments(root), /menu package/, rel);
     rmSync(join(root, rel), { recursive: true });
   }
+  // Code folders named `changes` inside a package are not fragment folders.
+  writeMenu(root);
+  mkdirSync(join(root, 'menus/mars/hw-time/src/changes'), { recursive: true });
+  writeFileSync(join(root, 'menus/mars/hw-time/src/changes/index.ts'), 'export {};\n');
+  assert.deepEqual(checkMenuFragments(root), []);
+  rmSync(join(root, 'menus/mars'), { recursive: true });
   mkdirSync(join(root, 'packages/sdk/changes'), { recursive: true });
   writeFileSync(join(root, 'packages/sdk/changes/1.md'), 'not a menu fragment');
   assert.deepEqual(checkMenuFragments(root), []);
@@ -75,6 +81,18 @@ test('release applies the highest bump once and prepends issue lines in order', 
   assert.match(readFileSync(join(other, 'package.json'), 'utf8'), /"version": "0\.3\.10"/);
   assert.equal(readdirSync(join(dir, 'changes')).length, 0);
   assert.equal(releaseMenuChangelogs(root, '2026-11-27').length, 0);
+}));
+
+test('platform/<feature> packages follow the same fold', () => withRepo((root) => {
+  const dir = join(root, 'platform', 'home');
+  mkdirSync(join(dir, 'changes'), { recursive: true });
+  writeFileSync(join(dir, 'package.json'), PKG.replaceAll('hw-time', 'home'));
+  writeFileSync(join(dir, 'CHANGELOG.md'), LOG);
+  writeFileSync(join(dir, 'changes/7.md'), fragment('patch', '홈'));
+  assert.deepEqual(checkMenuFragments(root).map((f) => f.menu), ['platform/home']);
+  releaseMenuChangelogs(root, '2026-11-27');
+  assert.match(readFileSync(join(dir, 'package.json'), 'utf8'), /"version": "0\.11\.35"/);
+  assert.ok(readFileSync(join(dir, 'CHANGELOG.md'), 'utf8').includes('## 0.11.35 — 2026-11-27\n\n- (#7) 홈\n'));
 }));
 
 test('two branches merge in either order, then one release bump carries both lines', () => {

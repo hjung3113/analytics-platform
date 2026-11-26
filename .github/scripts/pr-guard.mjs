@@ -13,8 +13,8 @@
 //           newest `.planning/releases/v<semver>.md` on the base branch → fails unless the PR carries `owner-ok:scope`. A PR whose head adds
 //           numbers to that section needs the same label. No release file or no `## 범위` section → fails (the owner picks the scope first).
 //   budget  raising either number in .github/ci-budget.json requires the ci-budget-ok label; deletion or invalid values always fail.
-//   menu    editing a menus/<group>/<menu> "version" line or CHANGELOG.md fails unless that PR also deletes one
-//           changes/<issue>.md of the same menu (the release fold). An added menu, a removed menu and an ap.sdk-only
+//   menu    editing a menus/<system>/<group> or platform/<feature> "version" line or CHANGELOG.md fails unless that PR also deletes one
+//           changes/<issue>.md of the same menu (the release fold). An added, removed or unedited moved menu and an ap.sdk-only
 //           package.json change pass. The FAIL line names the menu and points at menus/AGENTS.md.
 // Fail-closed: an API error fails the job (rerun it); a guard that skips on error would be the lead's exception by another name.
 // Node builtins only (sparse checkout, no install). Needs GITHUB_TOKEN with pull-requests: read and actions: read.
@@ -57,9 +57,10 @@ export function budgetVerdict(base, head, labels) {
 // The release-docs PR bumps either line in every consumer package (lead.md §Slice close step 1).
 const RELEASE_LINE = /^[-+]\s*("version":\s*"[^"]*"|"ap":\s*\{\s*"sdk":\s*"[^"]*"\s*\}),?\s*$/;
 const SDK_FRAGMENT = /^packages\/sdk\/changes\/[^/]+\.md$/;
-const MENU_FRAGMENT = /^menus\/([^/]+)\/([^/]+)\/changes\/[^/]+\.md$/;
-const MENU_PACKAGE = /^menus\/([^/]+)\/([^/]+)\/package\.json$/;
-const MENU_CHANGELOG = /^menus\/([^/]+)\/([^/]+)\/CHANGELOG\.md$/;
+// Menu packages: menus/<system>/<group> and platform/<feature> (tooling/changes/menus.mjs).
+const MENU_ROOT = String.raw`(menus\/[^/]+\/[^/]+|platform\/[^/]+)`;
+const MENU_FRAGMENT = new RegExp(`^${MENU_ROOT}\\/changes\\/[^/]+\\.md$`);
+const MENU_RELEASE_FILE = new RegExp(`^${MENU_ROOT}\\/(package\\.json|CHANGELOG\\.md)$`);
 const VERSION_DIFF = /^[-+]\s*"version":\s*"/;
 
 /** Release mechanical change (#2654): a `package.json` whose only change is its `version` or `ap.sdk` range line, or a deleted SDK or menu change fragment. */
@@ -76,24 +77,22 @@ function versionLineTouched(file) {
   return file.patch.split('\n').some((line) => VERSION_DIFF.test(line));
 }
 
-/** A menu PR must not edit `version` or CHANGELOG.md unless it deletes one fragment of that same menu. */
+/** A menu PR must not edit `version` or CHANGELOG.md unless it deletes one fragment of that same menu. A rename or move
+ *  without content changes (no added or deleted lines) is not an edit. */
 export function menuChangelogVerdict(files) {
   const folded = new Set();
   for (const file of files) {
-    if (file.status !== 'removed') continue;
-    const match = MENU_FRAGMENT.exec(file.filename);
-    if (match) folded.add(`${match[1]}/${match[2]}`);
+    const match = file.status === 'removed' && MENU_FRAGMENT.exec(file.filename);
+    if (match) folded.add(match[1]);
   }
   const menus = new Set();
   for (const file of files) {
     if (file.status === 'added' || file.status === 'removed') continue;
-    const pkg = MENU_PACKAGE.exec(file.filename);
-    const log = MENU_CHANGELOG.exec(file.filename);
-    if (!pkg && !log) continue;
-    const menu = `${(pkg ?? log)[1]}/${(pkg ?? log)[2]}`;
-    if (folded.has(menu)) continue;
-    if (pkg && !versionLineTouched(file)) continue;
-    menus.add(`menus/${menu}`);
+    const match = MENU_RELEASE_FILE.exec(file.filename);
+    if (!match || folded.has(match[1])) continue;
+    if (file.status === 'renamed' && (file.additions ?? 0) + (file.deletions ?? 0) === 0) continue;
+    if (match[2] === 'package.json' && !versionLineTouched(file)) continue;
+    menus.add(match[1]);
   }
   const list = [...menus].sort();
   return { ok: list.length === 0, menus: list };
@@ -301,6 +300,12 @@ function selfTest() {
   assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'modified', '@@ -5 +5 @@\n-  "ap": { "sdk": ">=0.49.0 <0.50.0" },\n+  "ap": { "sdk": ">=0.50.0 <0.51.0" },\n')]), true, 'an ap.sdk-only package.json change');
   assert.equal(menuOk([row('menus/mars/hw-time/package.json', 'modified', '@@ -20 +20 @@\n-    "react": "19.0.0"\n+    "react": "19.1.0"\n')]), true, 'a dependency change is not a version bump');
   assert.equal(menuOk([{ filename: 'menus/mars/hw-time/package.json', status: 'modified', additions: 1, deletions: 1 }]), false, 'no patch fails closed');
+  const moved = (filename) => ({ filename, previous_filename: filename.replace('mars', 'bravo'), status: 'renamed', additions: 0, deletions: 0 });
+  assert.equal(menuOk([moved('menus/mars/hw-time/package.json'), moved('menus/mars/hw-time/CHANGELOG.md')]), true, 'moving a menu without edits');
+  assert.equal(menuOk([{ ...moved('menus/mars/hw-time/package.json'), additions: 1, deletions: 1, patch: versionPatch }]), false, 'a move that bumps the version');
+  assert.deepEqual(menuChangelogVerdict([row('platform/home/CHANGELOG.md', 'modified', '@@\n-a\n+b\n')]).menus, ['platform/home']);
+  assert.equal(menuOk([row('platform/home/CHANGELOG.md', 'modified', '@@\n-a\n+b\n'), { filename: 'platform/home/changes/2.md', status: 'removed', additions: 0, deletions: 2 }]), true);
+  assert.equal(sizeVerdict([{ filename: 'platform/home/changes/2.md', status: 'removed', additions: 0, deletions: 2 }], []).files, 0);
   assert.match(summarize({ size: sizeVerdict([], []), rounds: roundsVerdict(1, ''), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md', menuChangelog: menuChangelogVerdict([row('menus/mars/hw-time/CHANGELOG.md', 'modified', '@@\n-a\n+b\n')]) }), /\| menu changelog \| FAIL \| menus\/mars\/hw-time .*menus\/AGENTS\.md/);
   console.log('pr-guard self-test passed');
 }
