@@ -411,6 +411,7 @@ describe('chart catalog route and lifetime', () => {
     const init = canvas.init.mock.calls.length; expect(init).toBeGreaterThan(0);
     const fetches = query.mock.calls.length;
     click('동작·지원 열기');
+    fireEvent.click(brush, { detail: 0 }); // Brush off; the selection stays (#3141)
     fireEvent.click(brush, { detail: 0 });
     const rangeStart = within(editor()).getByRole('combobox', { name: '구간 시작' });
     expect(document.activeElement).toBe(rangeStart);

@@ -1480,12 +1480,13 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     onClick={event => {
       event.preventDefault(); // This trigger coordinates the editor with the Brush toggle.
       const keyboard = event.detail === 0;
+      // Keyboard and pointer toggle alike (#3141): a press while on turns Brush off and closes the editor; the selection stays.
       if (canEditRange) {
-        const open = !brushMode || (keyboard && !rangeEditorOpen);
+        const open = !brushMode;
         focusRangeForm.current = keyboard && open;
         setRangeEditorOpen(open);
-        if (!brushMode || !open) rangeActions.toggleBrush();
-      } else rangeActions.toggleBrush();
+      }
+      rangeActions.toggleBrush();
     }}><BrushIcon className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartBrush')}</span>}</Button>;
   const gestureHint = useChartGestureHint({
     point: !zoomOnly && canSelectPoint,

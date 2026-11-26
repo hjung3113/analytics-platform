@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -61,6 +61,28 @@ it('opens start and end from the tab sequence without mounting a range row', asy
   expect(within(panel).getByRole('combobox', { name: '구간 시작' })).toHaveFocus();
   expect(within(panel).getByRole('combobox', { name: '구간 끝' })).toBeVisible();
   expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
+});
+
+it('turns brush off from the keyboard like a pointer press and keeps the selection (#3141)', async () => {
+  const user = userEvent.setup();
+  await mount({ summary: 'quiet' });
+  const chart = screen.getByRole('region', { name: 'Quiet' });
+  const brushButton = within(chart).getByRole('button', { name: '구간 선택' });
+  brushButton.focus();
+  await user.keyboard('{Enter}');
+  await screen.findByRole('dialog');
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(brushButton).toHaveFocus());
+  expect(brushButton).toHaveAttribute('aria-pressed', 'true');
+  brush([0, 1]);
+  brushButton.focus();
+  await user.keyboard('{Enter}');
+  expect(brushButton).toHaveAttribute('aria-pressed', 'false');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(within(summary()).getByText('선택 구간: A – B')).toBeVisible();
+  await user.keyboard('{Enter}');
+  expect(brushButton).toHaveAttribute('aria-pressed', 'true');
+  expect(within(await screen.findByRole('dialog')).getByRole('combobox', { name: '구간 시작' })).toHaveFocus();
 });
 
 it.each(['standard', 'minimal'] as const)('quiet %s keeps live active row and point details accessible at rest', async chrome => {

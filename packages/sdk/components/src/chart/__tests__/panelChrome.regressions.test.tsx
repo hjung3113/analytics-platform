@@ -54,6 +54,7 @@ describe('Panel chart regression fixes (#2372)', () => {
     expect(screen.queryByRole('region', { name: '선택 요약' })).toBeNull();
     await user.click(within(editor).getByRole('button', { name: '선택' }));
     brush.focus();
+    await user.keyboard('{Enter}'); // Brush off; the selection stays (#3141)
     await user.keyboard('{Enter}');
     const summary = screen.getByRole('region', { name: '선택 요약' });
     expect(screen.getByRole('combobox', { name: '구간 시작' })).toHaveFocus();
@@ -79,6 +80,7 @@ describe('Panel chart regression fixes (#2372)', () => {
     const brush = screen.getByRole('button', { name: '구간 선택' });
     fireEvent.click(brush);
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '선택' }));
+    fireEvent.click(brush, { detail: 0 }); // Brush off (#3141)
     fireEvent.click(brush, { detail: 0 });
     const editor = screen.getByRole('dialog', { name: '시작과 끝으로 구간 선택' });
     const layout = screen.getByTestId('chart-legend-layout');
