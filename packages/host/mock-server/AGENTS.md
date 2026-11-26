@@ -24,7 +24,3 @@
 - A mock action reads a stored file by id through its handler argument `readUpload(id)` (`UploadContent`: the `UploadedFile` fields plus `bytes`), like a server consumer reads an unlinked upload (ADR-0140 §6): null for an unknown id or a file another user uploaded, so the handler answers both alike. Handlers that take no upload id ignore it; a direct handler call in a test may omit it.
 - Async handlers are not serialized: the replay store is checked before the `await` and written after it, so the same idempotency key sent twice at once runs the handler twice, and two calls can interleave at the `await`. A handler re-reads any store it appends to after its `await` (a read taken before it may be stale). The Kernel's single-flight write keeps one screen from sending both; the engine does not add a per-key lock.
 - `MockEndpoint.provisional` is an optional hook for a menu to judge Trust by the target data's time. It replaces the period-length judgment only for normal, non-empty mart responses; unspecified, empty, error and malformed responses keep the existing judgment. An execution occurrence is judged by `startedAt >= DATA_THROUGH − 24h` (`anchor` is a RecordSequence, not a time, ADR-0094); the reference period does not apply.
-
-## Verification
-
-Narrow with `pnpm --filter @ap/mock-server test`, then the root checks.

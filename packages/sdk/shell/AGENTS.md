@@ -80,4 +80,4 @@ App Shell (06 §8–9, screen design [07](../../../docs/design/app-shell.md)). R
 
 ## Verification
 
-Narrow with `pnpm --filter @ap/shell test` (boundary unit tests), then run the root checks (root `AGENTS.md`). Also check by hand with `pnpm dev`: sidebar, rail, Context bar, and menu exposure after a role switch.
+Check by hand with `pnpm dev`: sidebar, rail, Context bar, and menu exposure after a role switch.

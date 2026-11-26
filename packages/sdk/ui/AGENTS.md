@@ -4,7 +4,7 @@ UI Primitive layer (06 §13) and the design-system CSS. It knows no platform con
 
 ## Rules
 
-- This package is the design-system source (platform/SDK owned, [ADR-0043](../../../docs/adr/0043-platform-sdk-is-the-app-contract-and-unified-framework.md), [ADR-0046](../../../docs/adr/0046-design-system-source-moves-to-platform-whole-package.md)); the transfer record is [repository layout](../../../docs/integration/repository-layout.md). Feature `@ap/feature-ui` is a separate copy that stays on the feature side. Change the shape of transferred pieces here first.
+- This package is the design-system source ([ADR-0046](../../../docs/adr/0046-design-system-source-moves-to-platform-whole-package.md)). Feature `@ap/feature-ui` is a separate copy; change the shape of a transferred piece here first.
 - Put no data fetching, permission decisions, routing or domain copy here. Such combinations belong in `@ap/components`.
 - Shared token, font, radius and body values originate in [tokens.css](src/styles/tokens.css) and [semantic.css](src/styles/semantic.css); the consumption contract follows [FO ADR-0058](../../../docs/adr/history/feedbackops/0058-tailwind-v4-css-first-theme.md) (platform decision: [ADR-0011](../../../docs/adr/0011-design-direction-feedbackops-shell.md)). The design source of the platform extension is [DESIGN.md](../../../DESIGN.md#platform-extension-layer); this package owns the implementation. No hex values outside token files.
 - Apps import Tailwind → `@ap/ui/styles.css`, in that order. The entry keeps the order tokens·semantic (`layer(base)`) → theme → compat → `platform-tokens.css` (`layer(base)`) → `themes.css` (`layer(base)`, accent themes by root `data-theme`, #2723) → `@source`; never change the cascade order. Accent themes are defined in `themes.css`; canvas parts that paint token colours put `useThemeRevision()` (`@ap/ui/theme`) in their redraw dependencies ([DESIGN](../../../DESIGN.md#표면선그림자-v3--decided-2722)). Apps import fonts without a layer.
@@ -13,27 +13,22 @@ UI Primitive layer (06 §13) and the design-system CSS. It knows no platform con
 - Motion (tokens, overlay enter/exit, reduced-motion) comes from `theme.css`, `compat.css` and the primitives (FO ADR-0063, 06 §26); never override it in the platform. `useListMotion` and the motion constants are public for feature screens; platform screens do not use them yet (06 §24).
 - In the platform, pass `closeLabel` when rendering `DialogContent`/`SheetContent`, and `listboxLabel`/`emptyText` for `Combobox`, from i18n.
 - The command palette uses `DialogContent scrim="palette"`; other `DialogContent` keep the default modal scrim.
-- To publish a shadcn component, export it from `src/index.ts` and update the list in `src/public-exports.test.ts` in the same change.
 - Transferred tests run under `vitest.config.ts` (`globals`, jest-dom setup `src/vitest.setup.ts`) on dependency versions that differ from the feature's (vitest 3, jsdom 26, lucide 1.x). Find the cause of a new failure before changing code.
 
 ## Structure
 
-  - Consumers without platform extensions (feature screens) import `@ap/ui/styles/{tokens,semantic,theme,compat}.css` individually (plus `themes.css` in `layer(base)` to use accent themes), plus `@ap/ui/styles/sources.css` for class scanning.
+- Consumers without platform extensions (feature screens) import `@ap/ui/styles/{tokens,semantic,theme,compat}.css` individually (plus `themes.css` in `layer(base)` to use accent themes), plus `@ap/ui/styles/sources.css` for class scanning.
 - `src/theme/` — `theme-tokens.json` and `tokens.generated.ts` are generated from the CSS source. Never edit them; change the color token, then run `pnpm --filter @ap/ui gen:theme`. Classify each new color token in `scripts/theme-tokens.config.mjs` as published or excluded, with the reason.
 - Public exports are explicit in `src/index.ts` and pinned by `src/public-exports.test.ts`.
-  - `@ap/feature-ui` aliases only those tab bases as `TabsList` / `TabsTrigger`; the SDK names `TabsList` / `TabsTrigger` add the platform selection marker. New platform consumers follow 06 §24.
-
-- `copyText.ts`: the one success rule for plain-text copy (06 §15). In a secure context success means `writeText` resolved and rejection fails without fallback; in an insecure context success only when `execCommand('copy')` returns true and a one-time `copy` listener actually filled the value. Used by `DetailPanelHeaderActions` and `useCopyLink` in `@ap/components`.
+- `copyText.ts` is the one success rule for plain-text copy (06 §15); every copy action goes through it.
 - Kernel cannot import `@ap/ui`, so it keeps its own internal storage helper copy.
-- The IME Enter guard is `useImeEnterGuard`: a form takes its `onKeyDown`, a text field that acts on Enter itself returns early on `isComposingEnter(event)`; both put `onCompositionStart`/`onCompositionEnd` on the field or form. `badges/StatusBadgeFrame.tsx` is here because `DetailPanelHeader` uses it.
-  - Platform pages keep using `PlatformPage` and do not adopt these shells.
-  - sonner's `Toaster` and `toast` stay public exports; the board uses the shell toast stack, so platform code does not use them, and `UndoToast` is likewise kept as public SDK.
+- The IME Enter guard is `useImeEnterGuard`: a form takes its `onKeyDown`, a text field that acts on Enter itself returns early on `isComposingEnter(event)`; both put `onCompositionStart`/`onCompositionEnd` on the field or form.
+- Platform code uses the shell toast stack, not sonner's `Toaster`/`toast` (they stay public for feature screens).
 - Parts tied to a feature domain belong to the feature (ADR-0050): `badges/` except `StatusBadgeFrame`, `entity/LinkedEntityTrail`, `components/{ChipPicker,ManagedSystemPicker,AnalyticsAreaPicker}`. The SDK has `data/ObjectRow`, `identity/{UserAvatar,UserChip}`, `indicators/{ProgressMeter,SeverityIndicator}`, `permissions/PermissionBlockedPanel`, `badges/StatusBadgeFrame` and `rich-content/`.
-- Sidebar grammar: public `navRowVariants` (CVA-backed active/collapsed/inset/feature), `NavCurrentMarker` (`data-current-marker`) and `navDrillAffordance` preserve existing row class output. `Button variant="navigation"` and `SearchInput size="toolbar"`/`aria-label`/`clearLabel` are opt-in; default rendering stays unchanged. Keep PUBLIC_EXPORTS and the shell characterization test green.
 
 ## Rich content
 
-- **Allowlist parity (security):** `rich-content/allowlist-local.ts` and `fixtures-local.ts` are copies of the sanitizer allowlist. The `allowlist-drift` and `fixtures-drift` tests pin the copies to inline fixtures. The [feature-source parity test](../../../apps/platform-web/src/__tests__/assembly/rich-content-allowlist-parity.test.ts) compares the allowlist's full rules and the fixture corpus without importing the feature package set (`tooling/eslint/src/feature-packages.js`). Changing the allowlist here requires the same change in the feature. Record: [backlog](../../../.planning/backlog.md).
+- **Allowlist parity (security):** `rich-content/allowlist-local.ts` and `fixtures-local.ts` are copies of the sanitizer allowlist. The `allowlist-drift` and `fixtures-drift` tests pin the copies to inline fixtures. The [feature-source parity test](../../../apps/platform-web/src/__tests__/assembly/rich-content-allowlist-parity.test.ts) compares the allowlist's full rules and the fixture corpus without importing the feature package set (`tooling/eslint/src/feature-packages.js`). Changing the allowlist here requires the same change in the feature.
 - **Extension boundary:** `RichEditor.tsx` is the lazy public wrapper. Editing plugins live in `RichEditorImpl.tsx` / `editor-extensions.ts`; `content-schema.ts` holds reader-safe schema/render definitions.
   - Drive all controls from the mirrored surface capabilities.
   - Inline images store only a UUID `id` and optional bounded `width`; resolve URLs through the optional editor/renderer prop.
@@ -56,13 +51,11 @@ UI Primitive layer (06 §13) and the design-system CSS. It knows no platform con
 - `DetailPanelSlotProvider` is the single expansion owner: optional `expanded`/`onExpandedChange` support host control; omission keeps local state.
 - Open replacements inherit expansion. Close, clear and surface pause end it; an initially empty controlled slot does not clear restored state.
 - `useDetailPanelSlot({ localExpansion: true })` selects in-memory presentation for an owning surface such as a board pane. Both registration forms receive the same fullscreen context.
-- `DetailPanelFullscreenToggle` uses the shared ghost/icon-sm Button and Tooltip, with optional translated `expandLabel`/`collapseLabel` (compatible Korean defaults).
-- `DetailPanelReadingColumn` centres at 48rem; optional `asChild` applies width without adding a wrapper or changing footer flex sizing. Keep the subtree mounted.
 - Shared `useDetailPanelEscape(onClose)`: a popup gets the first claim, then it collapses, then it calls the existing close path; the window listener must respect that claim. Escape focus return suppresses a newly opened tooltip so the next Escape can close.
 
 ## Verification
 
-Narrow with `pnpm --filter @ap/ui test`, then run the root checks (root `AGENTS.md`). Check token and style changes on screen with `pnpm dev`.
+Check token and style changes on screen with `pnpm dev`.
 
 - When feature UI part behavior changes, narrow with `pnpm --filter @ap/feature-ui exec vitest run`.
 - Keep the `@formkit/auto-animate@0.10.0` patch while `useListMotion` exists (`patches/@formkit__auto-animate@0.10.0.patch`, `patchedDependencies` in root `pnpm-workspace.yaml`). Without it two `useListMotion` tests fail (polling timer after destroy). After changing the patch, check the `pnpm install` result and workspace state.
