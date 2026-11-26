@@ -25,7 +25,7 @@ Workers launched with `codex … -s workspace-write` cannot use the network, wri
 - `orca worktree create --setup run|skip` does not install → `pnpm install --frozen-lockfile --config.optimistic-repeat-install=false`. Close the default shell tab.
 - With pnpm 11, a change only in `pnpm-workspace.yaml` (or `patchedDependencies`/`overrides`) makes `pnpm install` print `Already up to date` → rerun with `--config.optimistic-repeat-install=false`; if still stale, delete `node_modules/.pnpm-workspace-state-v1.json`.
 - Feature packages share the root workspace, lockfile and all four root tasks. The uncached ops lint leaf needs committed history and `FEATURE_LINT_BASE` (default `origin/main`) and fails without that base. Do not use `--only`: it clears dependency hashes, so the local cache cannot match CI.
-- `pnpm docs:links` fails in a worktree without `node_modules`; `node .github/scripts/check-doc-links.mjs` runs the same check. For a new file use `git add -N` to avoid the "untracked" error.
+- `pnpm docs:links` fails in a worktree without `node_modules`; run its three scripts directly: `node .github/scripts/check-doc-links.mjs`, `node .github/scripts/check-doc-code-paths.mjs`, `node .github/scripts/check-adr-topics.mjs`. Both checkers read only what git tracks: `git add -N` a new file (a linked document, or a code file a document names in backticks) or it is reported missing.
 - Before moving a package, check `patchedDependencies` and floating-version dependencies; keep resolution aligned with `pnpm-lock.yaml`.
 
 ## macOS Shell (zsh and BSD)

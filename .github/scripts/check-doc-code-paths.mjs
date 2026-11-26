@@ -9,34 +9,33 @@
 // Usage:  node check-doc-code-paths.mjs [--self-test] [--json]
 //
 // Scope: git-tracked *.md (symlinks skipped) except the frozen or dated records below (ADRs, any `history/`, reviews, research, planning,
-//   the intro site, fixtures) and the link checker's own exclusions.
+//   the intro site, fixtures), local scratch and vendored skill or reference folders (those with a SOURCE.md record).
 // A path is an inline code span outside fenced blocks that starts with a repo root (apps/ packages/ menus/ platform/ tooling/ ops/ docs/
 //   .agents/ .github/). A `:line`, `:line:col` or `#anchor` suffix is dropped. Spans with whitespace, glob or placeholder characters
 //   (* ? { } < > $ [ ]) or an ellipsis (... or …) are not paths and are skipped.
 // A path passes when git tracks it (a file, or a directory with tracked files) or when .gitignore ignores it (a generated output such as a
-//   report folder). There is no exception list: a line that names a path that must not exist is written without backticks.
+//   report folder; only the repo's .gitignore files count, not a user's global excludes). There is no exception list: a line that names a path that must not exist is written without backticks.
 //
 // Exit status: 0 = clean, 1 = at least one missing path, 2 = usage / git error.
 
 import { execFileSync } from 'node:child_process';
 import { lstatSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { isVendored, LOCAL_SCRATCH, scanLines } from './lib/markdown.mjs';
 
 export const ROOTS = ['apps/', 'packages/', 'menus/', 'platform/', 'tooling/', 'ops/', 'docs/', '.agents/', '.github/'];
 const EXCLUDED_PREFIXES = [
   'docs/adr/', // decisions are dated records; they cite the code of their day
   '.planning/', // planning snapshots
   'site/', // the intro site is its own product
-  '.agents/skills/', // vendored external skills
-  '.agents/references/', // vendored external references
-  '.review/', // local scratch
-];
+  LOCAL_SCRATCH,
+]; // plus vendored skill and reference folders (lib/markdown.mjs isVendored)
 const EXCLUDED_SEGMENTS = ['history', 'reviews', 'research'];
 // An ellipsis abbreviates a family of paths (`docs/adr/0095...`), so it is not one path either.
 const NOT_A_PATH = /[\s*?{}<>$[\]…]|\.\.\./;
 
-export function excluded(file) {
-  if (EXCLUDED_PREFIXES.some((prefix) => file.startsWith(prefix))) return true;
+export function excluded(file, vendored = () => false) {
+  if (EXCLUDED_PREFIXES.some((prefix) => file.startsWith(prefix)) || vendored(file)) return true;
   const segments = file.split('/').slice(0, -1);
   if (segments.some((segment) => EXCLUDED_SEGMENTS.includes(segment))) return true;
   return /(^|\/)(__)?fixtures?(__)?\//.test(file);
@@ -45,17 +44,10 @@ export function excluded(file) {
 /** Inline code spans of one Markdown text outside fenced blocks, with their line numbers. */
 export function codeSpans(text) {
   const spans = [];
-  let fence = null;
-  text.split('\n').forEach((line, index) => {
-    const opener = line.match(/^\s*(`{3,}|~{3,})/);
-    if (opener) {
-      if (fence === null) fence = opener[1][0];
-      else if (opener[1][0] === fence) fence = null;
-      return;
-    }
-    if (fence !== null) return;
-    for (const match of line.matchAll(/(`+)([^`]+?)\1(?!`)/g)) spans.push({ line: index + 1, code: match[2].trim() });
-  });
+  for (const { line, text: content, inFence } of scanLines(text)) {
+    if (inFence) continue;
+    for (const match of content.matchAll(/(`+)([^`]+?)\1(?!`)/g)) spans.push({ line, code: match[2].trim() });
+  }
   return spans;
 }
 
@@ -78,11 +70,11 @@ export function findMissing(documents, exists) {
   return missing;
 }
 
-function git(root, args, input) {
+export function git(root, args, input) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, input });
 }
 
-function repoExists(root) {
+export function repoExists(root) {
   const tracked = new Set();
   const directories = new Set();
   for (const file of git(root, ['ls-files', '-z']).split('\0').filter(Boolean)) {
@@ -95,7 +87,8 @@ function repoExists(root) {
       let result = false;
       // A directory pattern such as `dist/` matches only a path that ends in `/` when the folder is absent, so ask both ways.
       for (const candidate of [target, `${target}/`]) {
-        try { git(root, ['check-ignore', '-q', '--no-index', candidate]); result = true; break; } catch { result = false; }
+        // Only the repo's .gitignore files count: a user's global excludesFile would pass locally what CI fails.
+        try { git(root, ['-c', 'core.excludesFile=/dev/null', 'check-ignore', '-q', '--no-index', candidate]); result = true; break; } catch { result = false; }
       }
       ignored.set(target, result);
     }
@@ -109,9 +102,10 @@ function selfTest() {
   const text = [
     'See `packages/sdk/a.ts` and `packages/sdk/gone.ts:12`, `docs/x.md#part`, `apps/web/`.',
     'Not paths: `packages/*/src`, `apps/<app>/x`, `pnpm --filter apps/web`, `README.md`.',
-    '```',
+    '````md',
+    '```ts',
     '`packages/in-fence.ts`',
-    '```',
+    '````',
     'Generated: `apps/e2e/contract-report/index.html`.',
   ].join('\n');
   const present = new Set(['packages/sdk/a.ts', 'docs/x.md', 'apps/web', 'apps/e2e/contract-report/index.html']);
@@ -120,6 +114,14 @@ function selfTest() {
   assert(missing[0].path === 'packages/sdk/gone.ts' && missing[0].line === 1, 'line suffix dropped and the line reported');
   assert(excluded('docs/adr/0001-x.md') && excluded('docs/design/history/old.md') && excluded('docs/reviews/r.md'), 'dated records excluded');
   assert(excluded('packages/x/__fixtures__/a.md') && !excluded('docs/contract/kernel.md'), 'fixtures excluded, living docs kept');
+  const record = (folder) => folder === '.agents/skills/vendored';
+  assert(excluded('.agents/skills/vendored/SKILL.md', (f) => isVendored(f, '', record)) && !excluded('.agents/skills/ours/SKILL.md', (f) => isVendored(f, '', record)), 'only skill folders with a SOURCE.md record are vendored');
+  // The git-backed half on this checkout: tracked files and folders, an absent ignored output folder (a `dir/` pattern), a missing file.
+  const root = git(process.cwd(), ['rev-parse', '--show-toplevel']).trim();
+  const exists = repoExists(root);
+  assert(exists('docs') && exists('.github/scripts/check-doc-code-paths.mjs'), 'tracked folder and file pass');
+  assert(exists('apps/platform-e2e/contract-report'), 'an ignored generated folder passes even when absent');
+  assert(!exists('packages/sdk/ui/src/__missing__.ts'), 'a missing path fails');
   assert(pathOf('`x`') === null && pathOf('.github/scripts/x.mjs') === '.github/scripts/x.mjs', 'root prefixes only');
   console.log('check-doc-code-paths self-test passed');
 }
@@ -133,7 +135,7 @@ function main() {
   let root;
   try { root = git(process.cwd(), ['rev-parse', '--show-toplevel']).trim(); } catch { console.error('not inside a git repository'); process.exit(2); }
   const files = git(root, ['ls-files', '-z', '--', '*.md']).split('\0').filter(Boolean)
-    .filter((file) => !excluded(file))
+    .filter((file) => !excluded(file, (f) => isVendored(f, root)))
     .filter((file) => { try { return !lstatSync(path.join(root, file)).isSymbolicLink(); } catch { return false; } });
   const documents = files.map((file) => ({ file, text: readFileSync(path.join(root, file), 'utf8') }));
   const missing = findMissing(documents, repoExists(root));
