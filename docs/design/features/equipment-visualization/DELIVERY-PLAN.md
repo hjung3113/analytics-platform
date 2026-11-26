@@ -75,4 +75,4 @@ F0도 유의미한 Replay MVP. 데이터가 부족하다고 F2 동작을 AI로 �
 - **Viewer PR:** Equipment Detail 탭 / selection / layer toggles / mock.
 - **Replay PR:** 타임라인/근거 패널 + read endpoint. 이때야 사용자용 간단 애니메이션 도입.
 
-`docs/RESEARCH.md`, `docs/REPLAY-CONTRACT.md`, `docs/INTEGRATION.md`, `docs/adr/`를 이슈의 참조 문서로 사용.
+[RESEARCH.md](RESEARCH.md), [REPLAY-CONTRACT.md](REPLAY-CONTRACT.md), [INTEGRATION.md](INTEGRATION.md), `docs/adr/`를 이슈의 참조 문서로 사용.

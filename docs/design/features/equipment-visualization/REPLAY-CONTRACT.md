@@ -80,7 +80,7 @@ Core는 Start/End 점 이벤트를 짝짓지 않는다. Start/End만 주는 원�
 
 ### Scene State 계약 (#9b)
 
-`packages/core/src/scene/schema.ts`의 strict `sceneStateSchema`와
+packages/core/src/scene/schema.ts의 strict `sceneStateSchema`와
 `@eqv/core/scene-state.schema.json`이 아래 형식을 정의한다. `seekSceneState`는 시각 prefix, `stepSceneState`는 지정 seq 이하의 모든 record를 적용하고, `replayKey`는 재생 입력을 식별한다. `stepSceneState`의 `t`는 prefix에서 seq 순으로 마지막인 null 아닌 `at`이며, 없으면 `batch.from`이다.
 `fixtures/cluster-single/expected-scene-states.json`은 구현과 독립적인 정답이다.
 DQI는 타임라인 마커이며 Scene State에 들어가지 않고 상태를 바꾸지 않는다.

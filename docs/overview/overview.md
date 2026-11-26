@@ -2,7 +2,7 @@
 
 ## 목적/범위
 
-이 분석 플랫폼은 `context_recognized_parser`(별도 레포)가 적재한 결과 데이터(job/wafer/prc_l1/prc_step/fnc/xfr/lot 등)를 소비하는 **별도 레포/제품**이다. 파서 스키마 계약에만 의존하고 파서 내부 정규화/판정 로직에는 관여하지 않는다. 파서 레포의 `docs/23_secondary_processing_ideas.md`(파서 외부 소비 계층 설계, 구현 계약은 아님)를 이 플랫폼 설계의 authoritative 입력으로 삼는다.
+이 분석 플랫폼은 `context_recognized_parser`(별도 레포)가 적재한 결과 데이터(job/wafer/prc_l1/prc_step/fnc/xfr/lot 등)를 소비하는 **별도 레포/제품**이다. 파서 스키마 계약에만 의존하고 파서 내부 정규화/판정 로직에는 관여하지 않는다. 파서 레포의 docs/23_secondary_processing_ideas.md(파서 외부 소비 계층 설계, 구현 계약은 아님)를 이 플랫폼 설계의 authoritative 입력으로 삼는다.
 
 범위: 설비 등록/수정/사용중지 등 마스터 관리, 기준정보관리, 생산성 분석, 지표관리, 공지, VOC를 아우르는 **다중 메뉴 플랫폼**. 개별 화면보다 메뉴 간에 공유되는 플랫폼 공통 기능(필터 컨텍스트, 필터 포워딩, 위젯 프레임워크, 지표 정의 관리 등)의 설계가 핵심.
 

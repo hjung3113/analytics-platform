@@ -79,7 +79,7 @@ packages/feature/screens/src/ui/{badges,data,entity,feedback,forms,identity,indi
 `SeverityIndicator`, `PermissionBlockedPanel`, and `StatusBadgeFrame` are imported from `@ap/ui`.
 feature-owned badges, `LinkedEntityTrail`,
 and pickers remain local. Rich content (`RichEditor`, `RichContentRenderer`) is
-consumed from `@ap/ui` (platform [ADR-0052](../../../../docs/adr/0052-rich-content-stays-in-the-sdk.md)); `packages/feature/screens/src/ui/rich-content/`
+consumed from `@ap/ui` (platform [ADR-0052](../../../../docs/adr/0052-rich-content-stays-in-the-sdk.md)); packages/feature/screens/src/ui/rich-content/
 has no source of its own. `packages/sdk/ui/src/rich-content/allowlist-local.ts` is the UI copy of the canonical shared
 contract and remains drift-tested.
 
@@ -440,7 +440,7 @@ Rules:
 
 ## Package Baseline
 
-As-built dependency direction (`packages/feature/screens/package.json`, `packages/feature/screens/src/ui/package.json`):
+As-built dependency direction (`packages/feature/screens/package.json`; `src/ui` has no package of its own):
 
 ```text
 packages/feature/screens runtime dependencies:

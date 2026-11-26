@@ -7,7 +7,7 @@
 
 ## 결정
 
-- **SDK는 플랫폼에 올릴 앱이 지켜야 할 계약이다.** 앱이 선언할 것(화면 manifest·권한·경로·계약 버전·필수 기능), 호스트가 주는 것(세션·Context·내비게이션·알림 등 호스트 포트), 지킬 규칙(URL·수명주기·오류), 적합성 검사가 SDK의 중심이다. 계약 내용의 초안은 [ADR-0038](0038-host-module-contract-and-feedbackops-mounting.md)·[플랫폼 탑재 설계](../integration/platform-hosting-design.md) §2다(Proposed). FeedbackOps·equipment-visualization은 공동 소유자가 아니라 SDK를 소비하는 첫 제품이고, 다음은 사내 팀이 새로 만드는 앱이다. 어느 제품 화면을 플랫폼 셸에 올릴지는 따로 정한다: EV는 플랫폼 탑재가 기본(ADR-0039 방향)이고, FeedbackOps는 ADR-0038(Proposed)이 정할 때까지 [ADR-0027](0027-feedbackops-stays-standalone-entry-links.md)(독립 앱 + 진입 링크)이 유효하다.
+- **SDK는 플랫폼에 올릴 앱이 지켜야 할 계약이다.** 앱이 선언할 것(화면 manifest·권한·경로·계약 버전·필수 기능), 호스트가 주는 것(세션·Context·내비게이션·알림 등 호스트 포트), 지킬 규칙(URL·수명주기·오류), 적합성 검사가 SDK의 중심이다. 계약 내용의 초안은 [ADR-0038](0038-host-module-contract-and-feedbackops-mounting.md)·[플랫폼 탑재 설계](../integration/history/platform-hosting-design.md) §2다(Proposed). FeedbackOps·equipment-visualization은 공동 소유자가 아니라 SDK를 소비하는 첫 제품이고, 다음은 사내 팀이 새로 만드는 앱이다. 어느 제품 화면을 플랫폼 셸에 올릴지는 따로 정한다: EV는 플랫폼 탑재가 기본(ADR-0039 방향)이고, FeedbackOps는 ADR-0038(Proposed)이 정할 때까지 [ADR-0027](0027-feedbackops-stays-standalone-entry-links.md)(독립 앱 + 진입 링크)이 유효하다.
 - **SDK는 플랫폼이 소유하고, 하나의 프레임워크로 제공한다.** 세 제품이 지금 쓰는 프레임워크가 하는 일을 모두 덮어서, 앱이 자기 프레임워크 없이 SDK만으로 플랫폼에 올라올 수 있어야 한다. 다른 제품에 더 성숙한 조각이 있으면 플랫폼 프레임워크로 흡수한다. 레포끼리 원본을 나눠 갖지 않는다.
 - **디자인 시스템 결정도 플랫폼 소유다.** 토큰·primitive 모양·크기·상태 같은 디자인 시스템 결정의 원본은 플랫폼(SDK)이다. FeedbackOps 디자인 시스템은 플랫폼으로 발전시킨 출발점이고, 지금 값이 SDK의 초기값이 된다.
 - **의존 방향은 SDK ← 제품 하나뿐이다.** FeedbackOps·equipment-visualization·analytics-platform 앱과 사내 앱이 SDK의 플랫폼 프레임워크를 소비한다. SDK는 어떤 제품 저장소의 패키지도 import하지 않는다. 그래서 지금 있는 `@ap/ui → @fops/ui` 간선(패키지 경계 §3 규칙 8이 허용)은 목표 구조에서 없어지고, 토큰·primitive 코드는 SDK로 옮겨 FeedbackOps가 SDK에서 받아 쓴다.
@@ -25,7 +25,7 @@ SDK의 뜻:
 
 토큰·primitive의 소유와 배포(통합 계획 Q2):
 
-- **(a) FeedbackOps가 `@fops/ui`를 배포하고 `@ap/ui`가 peer로 의존**: 사용자가 2026-10-17에 골랐던 안([탑재 설계](../integration/platform-hosting-design.md) §0). SDK가 제품 패키지에 의존해 의존 방향 결정과 맞지 않는다.
+- **(a) FeedbackOps가 `@fops/ui`를 배포하고 `@ap/ui`가 peer로 의존**: 사용자가 2026-10-17에 골랐던 안([탑재 설계](../integration/history/platform-hosting-design.md) §0). SDK가 제품 패키지에 의존해 의존 방향 결정과 맞지 않는다.
 - **(b, 채택) 코드를 플랫폼 SDK로 옮기고 플랫폼이 배포**: 의존이 한 방향이 된다. 비용은 둘이다 — FeedbackOps의 픽셀 게이트가 지금 원본 쪽(FeedbackOps 저장소)에 있어 SDK로 같이 옮겨야 하고, FeedbackOps가 SDK에서 받아 쓰려면 SDK 배포가 먼저라 그 사이 두 벌이 생기지 않게 이전 순서를 짜야 한다.
 - **(c) 서브모듈 유지**: SDK 소비자마다 FeedbackOps 서브모듈이 생긴다.
 
@@ -33,5 +33,5 @@ SDK의 뜻:
 
 - **코드를 옮기기 전까지는 지금 규칙을 그대로 따른다.** 06 §13, [ADR-0010](0010-feedbackops-design-system-shared-on-tailwind-v4.md)·[ADR-0011](0011-design-direction-feedbackops-shell.md)·[ADR-0023](0023-feedbackops-primitive-shapes-and-sizes.md), [`packages/ui/AGENTS.md`](../../packages/sdk/ui/AGENTS.md)대로 `@ap/ui`는 `@fops/ui`를 재수출하고, primitive 변경은 FeedbackOps에 제안한다. 이 문서들의 "원본은 FeedbackOps" 서술은 소유 방향만 바뀌었다는 표시를 달고, 본문은 코드 이전 이슈에서 고친다. 이전 이슈는 SDK 첫 슬라이스에서 연다.
 - #396 본문의 제목·목표와 ADR-0043과 어긋나는 절(§2 상위집합 전제, §3 기능별 원본 선정, §5·§6 두 조립 진입점, §7 두 호스트 공통 구현, §8·§10 독립 실행 조건, §9 primitive 소유, §11 대안 판정, §12 Open)을 이 ADR에 맞춘다. §7 안전 조건과 §8 착수 증거는 플랫폼 실행에 대해서만 그대로 둔다.
-- [프레임워크 통합 계획](../integration/history/framework-unification-plan.md)과 [플랫폼 탑재 설계](../integration/platform-hosting-design.md)의 어긋나는 서술은 각 문서 머리말에서 이 ADR이 우선한다고 표시한다. 세 프레임워크가 하는 일을 SDK가 다 덮는지 확인하는 **포괄 목록**(통합 계획 §2·§3 지도에서 출발)이 다음 설계 산출물이다(Open, [보드](../../.planning/README.md)).
+- [프레임워크 통합 계획](../integration/history/framework-unification-plan.md)과 [플랫폼 탑재 설계](../integration/history/platform-hosting-design.md)의 어긋나는 서술은 각 문서 머리말에서 이 ADR이 우선한다고 표시한다. 세 프레임워크가 하는 일을 SDK가 다 덮는지 확인하는 **포괄 목록**(통합 계획 §2·§3 지도에서 출발)이 다음 설계 산출물이다(Open, [보드](../../.planning/README.md)).
 - 호스트 → 모듈 계약(ADR-0038·0039, 탑재 설계 §2)은 SDK의 중심으로 남는다. 다만 탑재 설계 §4의 "모듈 패키지는 `@ap/contracts`만 import"와 `@fops/ui` 배포·peer 행은 "앱이 SDK 프레임워크를 소비한다"와 맞지 않으므로 SDK 배포 단위를 설계할 때 다시 정한다(Open).

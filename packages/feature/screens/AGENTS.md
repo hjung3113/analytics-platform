@@ -40,7 +40,7 @@ Feature-folder guides under `src/features/` describe semantic screen intents. Ru
 
 ## Component intake
 
-- Build repeated UI patterns as feature-local components and compose them in screens, never directly in screens; before a new component check `packages/feature/screens/src/ui`, the feature's existing components and `docs/component-inventory.md`.
+- Build repeated UI patterns as feature-local components and compose them in screens, never directly in screens; before a new component check `packages/feature/screens/src/ui`, the feature's existing components and `packages/feature/screens/docs/component-inventory.md`.
 - Add new tokens or variants to docs before using them broadly.
 
 ## Verification

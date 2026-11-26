@@ -624,7 +624,7 @@ log-knowledge-hub/
 
 ### 9.4 Top View 연동 원칙 (확정 기능 경계)
 
-**허브 안에서 Viewer를 렌더링**하고, **편집은 EV Studio(`apps/eqv-studio`)**에서 수행한다. 허브는 Layout 편집 소유자가 아니다. `equipment-visualization`의 구조화된 Layout + Component Catalog + Topology + Mapping Version이 시각화 원본이며 SVG는 표현 결과다.
+**허브 안에서 Viewer를 렌더링**하고, **편집은 EV Studio(`menus/tools/topview-studio`)**에서 수행한다. 허브는 Layout 편집 소유자가 아니다. `equipment-visualization`의 구조화된 Layout + Component Catalog + Topology + Mapping Version이 시각화 원본이며 SVG는 표현 결과다.
 
 - 허브의 해당 **SW 버전**과 Top View의 Mapping/Layout Revision을 대응시킨다. SW가 다르면 다른 구성을 보여줄 수 있다.
 - 모듈·로봇 블레이드·HoldingSite 등의 semantic ID를 명세/Item과 연결해 `모듈 클릭 → 해당 SW의 Event 및 Item` 탐색을 지원한다.
@@ -964,7 +964,7 @@ VENDOR_DEMO,MODEL_X100,Demo Model X100,ETCH|CLEAN
 4. [`docs/design/app-shell.md`](https://github.com/hjung3113/analytics-platform/blob/main/docs/design/app-shell.md): 플랫폼 호스트의 52px 레일 / 240px 사이드바 / 50px 페이지 머리·상세 슬롯 배치.
 5. [`packages/feature/screens/docs/component-inventory.md`](https://github.com/hjung3113/analytics-platform/blob/main/packages/feature/screens/docs/component-inventory.md): 설계명과 **실제 구현/export의 차이**. 컴포넌트명만 보고 없는 API를 가정하면 안 된다.
 
-**우선순위:** 실제 소비 SDK 릴리스의 공개 export·토큰 > 플랫폼 Decided 계약 > 이 문서의 후보 화면 배치. 이 문서 자체를 근거로 `@ap/ui` 내부 경로를 직접 import하거나 미구현 컴포넌트가 존재한다고 주장하지 않는다. 독립 웹 화면의 도메인 고유 부분만 `packages/ui` 또는 `features`에 추가한다.
+**우선순위:** 실제 소비 SDK 릴리스의 공개 export·토큰 > 플랫폼 Decided 계약 > 이 문서의 후보 화면 배치. 이 문서 자체를 근거로 `@ap/ui` 내부 경로를 직접 import하거나 미구현 컴포넌트가 존재한다고 주장하지 않는다. 독립 웹 화면의 도메인 고유 부분만 `packages/sdk/ui` 또는 `features`에 추가한다.
 
 **화면 성격:** 운영·기술 지식 관리 도구. 정보의 찾기·비교·근거 확인·정확한 변경이 핵심이다. 화려한 마케팅 대시보드, 큰 일러스트, 무의미한 KPI 카드, 다중 그라데이션, 과격한 선택 애니메이션보다 **목록·작업·상세·근거의 명확성**을 우선한다.
 
