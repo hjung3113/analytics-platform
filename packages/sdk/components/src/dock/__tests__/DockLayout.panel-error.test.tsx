@@ -37,10 +37,16 @@ describe('DockLayout panel content failure', () => {
 
   it('retries only that panel', async () => {
     mountDock({ layout: row([50, 50], group(['a']), group(['b'])), ids: ['a', 'b'], inner });
-    const alert = await panelAlert();
+    await panelAlert();
     broken = false;
-    fireEvent.click(within(alert).getByRole('button'));
-    expect(await screen.findByTestId('content-a')).toBeInTheDocument();
+    // Query the alert again in the same task as the click (#3129): the engine's queued layout notifications can replace the panel's
+    // content between the wait resolving and this line, so an alert held across the await may already be detached and its click lost.
+    const alert = document.querySelector<HTMLElement>('[data-dock-panel="a"] [role="alert"]');
+    expect(alert?.isConnected).toBe(true);
+    fireEvent.click(within(alert!).getByRole('button'));
+    // The retried content renders in the click's act; the wait only absorbs scheduling under load, as the first render's wait does.
+    await waitFor(() => expect(screen.getByTestId('content-a')).toBeInTheDocument(), { timeout: 30000 });
     expect(document.querySelector('[data-dock-panel="a"] [role="alert"]')).toBeNull();
+    expect(screen.getByTestId('content-b')).toBeInTheDocument();
   }, 60000);
 });
