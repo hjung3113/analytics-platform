@@ -14,7 +14,7 @@ export function Field({ id, label, error, hint, required, badge, children }: { i
     <FieldLabel htmlFor={id} required={required} requiredMark="text">{label}{badge && <span className="ml-1.5 rounded-sm border border-border-default px-1 text-tiny font-normal text-text-muted">{badge}</span>}</FieldLabel>
     {children}
     {hint && !error && <p id={`${id}-hint`} className="text-xs text-text-muted">{hint}</p>}
-    {error && <p id={`${id}-error`} role="alert" className="text-xs text-text-danger-label">{error}</p>}
+    {error && <p id={`${id}-error`} className="text-xs text-text-danger-label">{error}</p>}
   </div>;
 }
 
@@ -91,14 +91,16 @@ export function EvidenceEditor({ uid, rows, onChange, errors }: { uid: string; r
       <Input id={id} value={rows[i]![field]} onChange={e => patch(i, { [field]: e.target.value })} aria-invalid={errors[key] !== undefined} aria-describedby={errors[key] ? `${id}-error` : undefined} />
     </Field>;
   };
-  return <div className="grid gap-2">
-    {errors['evidenceList'] && <p role="alert" className="text-xs text-text-danger-label">{errors['evidenceList']}</p>}
-    {rows.map((row, i) => <fieldset key={i} className="grid gap-2 rounded-md border border-border-subtle bg-surface-card p-3">
+  // Field, row and list errors are tied to their control or group (#2574 C2): no live role, focus on the first invalid input announces them.
+  const listErrorId = `${uid}-ev-list-error`, rowErrorId = (i: number) => `${uid}-ev-${i}-error`;
+  return <div role="group" aria-label="근거 포인터" aria-describedby={errors['evidenceList'] ? listErrorId : undefined} className="grid gap-2">
+    {errors['evidenceList'] && <p id={listErrorId} className="text-xs text-text-danger-label">{errors['evidenceList']}</p>}
+    {rows.map((row, i) => <fieldset key={i} aria-describedby={errors[`evidence.${i}`] ? rowErrorId(i) : undefined} className="grid gap-2 rounded-md border border-border-subtle bg-surface-card p-3">
       <legend className="flex items-center gap-2 px-1 text-xs font-semibold text-text-secondary">
         근거 {i + 1}
         <Button type="button" variant="ghost" size="icon-sm" aria-label={`근거 ${i + 1} 빼기`} onClick={() => onChange(rows.filter((_, at) => at !== i))}><X className="size-3.5" aria-hidden /></Button>
       </legend>
-      {errors[`evidence.${i}`] && <p role="alert" className="text-xs text-text-danger-label">{errors[`evidence.${i}`]}</p>}
+      {errors[`evidence.${i}`] && <p id={rowErrorId(i)} className="text-xs text-text-danger-label">{errors[`evidence.${i}`]}</p>}
       <Field id={`${uid}-ev-${i}-sourceKind`} label="출처 종류" error={errors[evidenceKey(i, 'sourceKind')]}>
         <Select value={row.sourceKind} onValueChange={next => patch(i, { sourceKind: next as EvidenceSourceKind })}>
           <SelectTrigger appearance="field" id={`${uid}-ev-${i}-sourceKind`} aria-invalid={errors[evidenceKey(i, 'sourceKind')] !== undefined} aria-describedby={errors[evidenceKey(i, 'sourceKind')] ? `${uid}-ev-${i}-sourceKind-error` : undefined}><SelectValue placeholder="종류를 골라 주세요" /></SelectTrigger>

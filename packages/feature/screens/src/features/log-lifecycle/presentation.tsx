@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { AlertTriangle, Check, Clock3, Minus, UserRound, X } from 'lucide-react';
-import { Button, Callout, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Button, Callout, FormField, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
 import { GATE_LABEL, REASON_COPY, STAGES, STAGE_LABEL, STATE_LABEL, type ReadState, type WriteResult } from './contracts';
 
 export function StateBadge({ value }: { value: string | null | undefined }) {
@@ -20,7 +20,9 @@ export function ReadView<T>({ query, empty, children }: { query: ReadState<T>; e
   return children(query.data);
 }
 export function Choice({ label, value, onChange, options, disabled = false }: { label: string; value: string; onChange(value: string): void; options: readonly (readonly [string, string])[]; disabled?: boolean }) { return <div className="grid min-w-0 gap-2"><span className="text-xs text-text-secondary">{label}</span><Select value={value} onValueChange={onChange} disabled={disabled}><SelectTrigger aria-label={label}><SelectValue /></SelectTrigger><SelectContent>{options.map(([id, text]) => <SelectItem key={id} value={id}>{text}</SelectItem>)}</SelectContent></Select></div>; }
-export function Pager({ page, total, size = 25, onChange }: { page: number; total: number; size?: number; onChange(page: number): void }) { return <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 text-xs"><span>{total}건 · {page + 1}페이지</span><Button variant="secondary" size="toolbar" disabled={page === 0} onClick={() => onChange(page - 1)}>이전</Button><Button variant="secondary" size="toolbar" disabled={(page + 1) * size >= total} onClick={() => onChange(page + 1)}>다음</Button></div>; }
+/** A required select validated on submit (#2574): `FormField` names it, marks it «· 필수» and ties its error to the trigger. */
+export function ChoiceField({ id, label, value, onChange, options, error, disabled = false }: { id: string; label: string; value: string; onChange(value: string): void; options: readonly (readonly [string, string])[]; error?: string | undefined; disabled?: boolean }) { return <FormField id={id} label={label} required requiredMark="text" error={error} className="min-w-0">{control => <Select value={value} onValueChange={onChange} disabled={disabled}><SelectTrigger {...control}><SelectValue /></SelectTrigger><SelectContent>{options.map(([optionId, text]) => <SelectItem key={optionId} value={optionId}>{text}</SelectItem>)}</SelectContent></Select>}</FormField>; }
+export function Pager({ page, total, size = 25, onChange }: { page: number; total: number; size?: number; onChange(page: number): void }) { return <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 text-xs"><span>{total}건 · {page + 1}페이지</span><Button type="button" variant="secondary" size="toolbar" disabled={page === 0} onClick={() => onChange(page - 1)}>이전</Button><Button type="button" variant="secondary" size="toolbar" disabled={(page + 1) * size >= total} onClick={() => onChange(page + 1)}>다음</Button></div>; }
 export function WriteError({ result, onRetry, retryDisabled = false }: { result: WriteResult | null; onRetry?: () => void; /** A request of the same action is in flight; the retry waits for it. */ retryDisabled?: boolean }) {
   if (!result || result.outcome === 'ok') return null;
   const message = result.outcome === 'conflict' ? '다른 변경이 먼저 저장되었습니다. 최신 내용을 확인한 뒤 다시 기록해 주세요.' : result.outcome === 'forbidden' ? '이 동작의 권한이 없습니다. 관리자에게 요청해 주세요.' : result.outcome === 'unknown' ? '처리 결과를 확인하지 못했습니다. 같은 요청으로 결과를 확인해 주세요.' : '저장하지 못했습니다. 입력값을 확인해 주세요.';

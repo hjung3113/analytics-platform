@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { FeatureTimestamp } from '../../components/FeatureTimestamp';
-import { Button, Checkbox, Input, Label, Textarea, useImeEnterGuard } from '@ap/ui';
+import { Button, Checkbox, FormField, Input, Textarea, useImeEnterGuard, useValidatedSubmit, type ValidationErrors } from '@ap/ui';
 import { VALIDATION_ISSUE_LIMITS as ISSUE_LIMITS } from '@ap/feature-shared';
 import { type Action, type CursorPage, type DiscussionComment, type IssueHistoryEvent, type IssueOccurrence, type LifecycleApi, type Params, type RoundDetail, type RuleResult, type ScreenProps, type ValidationIssueDetail, type ValidationIssueRow, type WriteResult } from './contracts';
 import { ReadView, Section, writeFailure, WriteError } from './presentation';
+import { formCopy } from './messages';
 
 /**
  * Human validation records (#1808 N3). Issues, their threads and the Round discussion are separate targets with
@@ -98,15 +99,21 @@ export type DiscussionController = ReturnType<typeof useDiscussionController>;
 export const ISSUE_TOTAL_UNAVAILABLE = '검증 항목 집계 불가';
 export function IssueCount() { return <span>{ISSUE_TOTAL_UNAVAILABLE}</span>; }
 
-/** Plain-text composer: limits are visible, oversize input is refused before submit (never truncated). */
-function TextField({ id, label, value, limit, multiline = true, required = false, disabled, onChange }: { id: string; label: string; value: string; limit: number; multiline?: boolean; required?: boolean; disabled: boolean; onChange(value: string): void }) {
+/**
+ * Plain-text composer: the count stays visible and marks oversize input at once; the form refuses blank or oversize input on
+ * submit (#2574), with the error tied to the control and focus on the first one. Input is never truncated.
+ */
+function TextField({ id, label, value, limit, multiline = true, required = false, disabled, error, onChange }: { id: string; label: string; value: string; limit: number; multiline?: boolean; required?: boolean; disabled: boolean; error?: string | undefined; onChange(value: string): void }) {
   const n = length(value);
   const over = n > limit;
-  return <div className="grid gap-2"><Label htmlFor={id}>{label}{required ? ' (필수)' : ''}</Label>
-    {multiline ? <Textarea id={id} value={value} disabled={disabled} aria-invalid={over} aria-describedby={`${id}-count`} onChange={e => onChange(e.target.value)} /> : <Input inputSize="toolbar" id={id} value={value} disabled={disabled} aria-invalid={over} aria-describedby={`${id}-count`} onChange={e => onChange(e.target.value)} />}
-    <p id={`${id}-count`} className={over ? 'text-xs text-text-danger-label' : 'text-xs text-text-secondary'}>{n} / {limit}자{over ? ' · 상한을 넘어 저장할 수 없습니다.' : ''}</p></div>;
+  const count = <span className={over ? 'text-text-danger-label' : 'text-text-secondary'}>{n} / {limit}자{over ? ' · 상한을 넘어 저장할 수 없습니다.' : ''}</span>;
+  return <FormField id={id} label={label} required={required} requiredMark="text" hint={count} error={error}>{control => {
+    const props = { ...control, 'aria-invalid': control['aria-invalid'] ?? (over || undefined), value, disabled, onChange: (e: { target: { value: string } }) => onChange(e.target.value) };
+    return multiline ? <Textarea {...props} /> : <Input inputSize="toolbar" {...props} />;
+  }}</FormField>;
 }
-const fits = (value: string | undefined, limit: number, required: boolean) => { const v = (value ?? '').trim(); return (!required || v.length > 0) && length(value ?? '') <= limit; };
+/** The submit-time error of one text field: blank when required, or over its limit. */
+const textError = (value: string | undefined, limit: number, required: string | null) => required !== null && !(value ?? '').trim() ? required : length(value ?? '') > limit ? formCopy.tooLong(limit) : undefined;
 /** A pending send or an answer awaiting the same-request retry locks the draft so a new key cannot duplicate it. */
 const lockedBy = (result: WriteResult | null, pending: boolean) => pending || !!result?.retry;
 function WriteFeedback({ controller, slotKey }: { controller: DiscussionController; slotKey: string }) {
@@ -123,11 +130,16 @@ export function CommentComposer({ controller, slotKey, action, input, label, dis
   const locked = lockedBy(result, pending) || disabled;
   const body = draft.body ?? '';
   const id = `comment-${slotKey.replace(/[^a-z0-9]/gi, '-')}`;
-  return <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-2" aria-label={label} onSubmit={e => { e.preventDefault(); if (!locked && fits(body, ISSUE_LIMITS.comment, true)) void controller.submit(slotKey, action, { ...input, body }); }}>
-    <TextField id={id} label={label} value={body} limit={ISSUE_LIMITS.comment} required disabled={locked} onChange={value => controller.edit(slotKey, 'body', value)} />
+  const { errors, handleSubmit, clearError } = useValidatedSubmit<{ body: string }>({
+    validate: values => { const error = textError(values.body, ISSUE_LIMITS.comment, formCopy.commentRequired); return error ? { body: error } : {}; },
+    onValid: values => { void controller.submit(slotKey, action, { ...input, body: values.body }); },
+  });
+  const submit = handleSubmit({ body });
+  return <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-2" aria-label={label} onSubmit={e => { if (locked) e.preventDefault(); else submit(e); }}>
+    <TextField id={id} label={label} value={body} limit={ISSUE_LIMITS.comment} required disabled={locked} error={errors.body} onChange={value => { controller.edit(slotKey, 'body', value); clearError('body'); }} />
     <WriteFeedback controller={controller} slotKey={slotKey} />
     {result?.outcome === 'ok' ? <p role="status" className="text-xs text-text-secondary">댓글을 남겼습니다.</p> : null}
-    <div className="flex justify-end"><Button type="submit" variant="primary" size="toolbar" disabled={locked || !fits(body, ISSUE_LIMITS.comment, true)}>{pending ? '저장 중…' : '댓글 남기기'}</Button></div>
+    <div className="flex justify-end"><Button type="submit" variant="primary" size="toolbar" disabled={locked}>{pending ? '저장 중…' : '댓글 남기기'}</Button></div>
   </form>;
 }
 
@@ -211,19 +223,28 @@ export function IssueRegister({ ui, round, controller, onClose, onSaved }: Pick<
   const { draft, result } = controller.slot(key);
   const pending = controller.pending('validationIssueRegister');
   const locked = lockedBy(result, pending);
-  const valid = fits(draft.title, ISSUE_LIMITS.title, true) && fits(draft.body, ISSUE_LIMITS.body, true) && (['expected', 'actual', 'repro'] as const).every(f => fits(draft[f], ISSUE_LIMITS.body, false));
   const saved = (next: WriteResult) => { const id = next.data?.id; if (typeof id === 'string') onSaved(id); };
-  const submit = () => {
-    if (locked || !valid) return;
-    const optional = Object.fromEntries((['expected', 'actual', 'repro'] as const).flatMap(f => draft[f]?.trim() ? [[f, draft[f]]] : []));
-    void controller.submit(key, 'validationIssueRegister', { projectId: round.projectId, firstRoundId: round.id, title: draft.title ?? '', body: draft.body ?? '', ...optional }, saved);
-  };
-  const field = (name: string, label: string, limit: number, required = false, multiline = true) => <TextField key={name} id={`issue-${name}`} label={label} value={draft[name] ?? ''} limit={limit} required={required} multiline={multiline} disabled={locked} onChange={value => controller.edit(key, name, value)} />;
-  const body = <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-4 break-keep" onSubmit={e => { e.preventDefault(); submit(); }}>
+  const { errors, handleSubmit, clearError } = useValidatedSubmit<Draft>({
+    validate: values => {
+      const errors: ValidationErrors<Draft> = {};
+      for (const [name, limit, required] of [['title', ISSUE_LIMITS.title, formCopy.issueTitleRequired], ['body', ISSUE_LIMITS.body, formCopy.issueBodyRequired], ['expected', ISSUE_LIMITS.body, null], ['actual', ISSUE_LIMITS.body, null], ['repro', ISSUE_LIMITS.body, null]] as const) {
+        const error = textError(values[name], limit, required);
+        if (error) errors[name] = error;
+      }
+      return errors;
+    },
+    onValid: values => {
+      const optional = Object.fromEntries((['expected', 'actual', 'repro'] as const).flatMap(f => values[f]?.trim() ? [[f, values[f]]] : []));
+      void controller.submit(key, 'validationIssueRegister', { projectId: round.projectId, firstRoundId: round.id, title: values.title ?? '', body: values.body ?? '', ...optional }, saved);
+    },
+  });
+  const submit = handleSubmit(draft);
+  const field = (name: string, label: string, limit: number, required = false, multiline = true) => <TextField key={name} id={`issue-${name}`} label={label} value={draft[name] ?? ''} limit={limit} required={required} multiline={multiline} disabled={locked} error={errors[name]} onChange={value => { controller.edit(key, name, value); clearError(name); }} />;
+  const body = <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-4 break-keep" onSubmit={e => { if (locked) e.preventDefault(); else submit(e); }}>
     <p className="text-xs text-text-secondary">규칙이 없어도 등록할 수 있습니다. 로그 원문은 붙여 넣지 말고, 등록 뒤 규칙 상세에서 근거 위치로 연결해 주세요. 등록은 규칙 결과·판정·Gate를 바꾸지 않습니다.</p>
     {field('title', '제목', ISSUE_LIMITS.title, true, false)}{field('body', '설명', ISSUE_LIMITS.body, true)}{field('expected', '기대', ISSUE_LIMITS.body)}{field('actual', '실제', ISSUE_LIMITS.body)}{field('repro', '재현 절차', ISSUE_LIMITS.body)}
     <WriteFeedback controller={controller} slotKey={key} />
-    <div className="flex justify-end gap-2"><Button type="button" variant="secondary" size="toolbar" onClick={onClose}>닫기</Button><Button type="submit" variant="primary" size="toolbar" disabled={locked || !valid}>{pending ? '저장 중…' : '검증 항목 등록'}</Button></div>
+    <div className="flex justify-end gap-2"><Button type="button" variant="secondary" size="toolbar" onClick={onClose}>닫기</Button><Button type="submit" variant="primary" size="toolbar" disabled={locked}>{pending ? '저장 중…' : '검증 항목 등록'}</Button></div>
   </form>;
   return ui.drawer({ title: '검증 항목 등록', subtitle: `Round ${round.seq}`, body, requestClose: onClose });
 }

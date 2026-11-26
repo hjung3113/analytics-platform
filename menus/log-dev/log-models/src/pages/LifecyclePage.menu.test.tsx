@@ -73,7 +73,7 @@ describe('MEN-8 lifecycle menu assertions', () => {
     await waitFor(() => expect(button('요청 등록')).toBeTruthy());
     click(button('요청 등록'));
     await waitFor(() => {
-      const label = [...document.querySelectorAll('label')].find(l => l.textContent === 'Round (필수)')!;
+      const label = [...document.querySelectorAll('label')].find(l => l.textContent === 'Round· 필수')!;
       const input = document.getElementById(label.htmlFor) as HTMLInputElement;
       expect(input.disabled).toBe(true); expect(input.value).toBe(ROUND);
     });

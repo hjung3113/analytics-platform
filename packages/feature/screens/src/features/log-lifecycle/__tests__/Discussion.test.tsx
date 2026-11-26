@@ -53,6 +53,14 @@ function setup(options: Options = {}) {
 }
 afterEach(cleanup);
 const tab = (name: string) => fireEvent.mouseDown(screen.getByRole('tab', { name }), { button: 0 });
+/** The control is invalid, described by the visible error (no live role: focus announces it) and marked required. */
+function expectFieldError(control: HTMLElement, message: string) {
+  const error = screen.getByText(message);
+  expect(control).toHaveAttribute('aria-invalid', 'true');
+  expect(control).toHaveAttribute('aria-describedby', expect.stringContaining(error.id));
+  expect(control).toHaveAttribute('aria-required', 'true');
+  expect(error).not.toHaveAttribute('role');
+}
 
 it.each([
   ['a complete page', () => page([issueRow, { ...issueRow, id: 'b' }])],
@@ -117,36 +125,59 @@ it('keeps Round discussion separate from issue threads and offers no compose act
 it('enforces the comment limit before submit and keeps the draft across tab visits', async () => {
   const t = setup({ canContribute: true });
   tab('Round 토론');
-  const box = screen.getByLabelText('Round 전체 댓글 (필수)');
+  const box = screen.getByRole('textbox', { name: 'Round 전체 댓글' });
   fireEvent.change(box, { target: { value: '가'.repeat(4001) } });
   expect(screen.getByText(/4001 \/ 4000자 · 상한을 넘어/)).toBeVisible();
-  expect(screen.getByRole('button', { name: '댓글 남기기' })).toBeDisabled();
+  // #2574 follow-up C1: an over-limit submit shows the field error and focuses the box instead of a disabled button.
+  fireEvent.click(screen.getByRole('button', { name: '댓글 남기기' }));
+  expectFieldError(box, '4000자 이하로 줄여 주세요.');
+  expect(box).toHaveFocus();
+  expect(t.runs).toEqual([]);
   fireEvent.change(box, { target: { value: '합성 초안' } });
+  expect(screen.queryByText('4000자 이하로 줄여 주세요.')).toBeNull();
   tab('원본'); tab('Round 토론');
-  expect(screen.getByLabelText('Round 전체 댓글 (필수)')).toHaveValue('합성 초안');
+  expect(screen.getByRole('textbox', { name: 'Round 전체 댓글' })).toHaveValue('합성 초안');
   await userEvent.setup().click(screen.getByRole('button', { name: '댓글 남기기' }));
   expect(t.runs).toEqual([{ name: 'roundDiscussionComment', input: { roundId: ROUND, body: '합성 초안' } }]);
   expect(await screen.findByText('댓글을 남겼습니다.')).toBeVisible();
-  expect(screen.getByLabelText('Round 전체 댓글 (필수)')).toHaveValue('');
+  expect(screen.getByRole('textbox', { name: 'Round 전체 댓글' })).toHaveValue('');
+});
+// #2574 follow-up C1: the required mark is «· 필수» (aria-hidden), and a blank comment is reported on submit.
+it('marks the comment required with «· 필수», reports a blank submit on the box and clears the error on typing', async () => {
+  const t = setup({ canContribute: true });
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: '합성 관찰 항목' }));
+  const box = screen.getByRole('textbox', { name: '항목 댓글' });
+  expect(document.querySelector(`label[for="${box.id}"]`)?.textContent).toBe('항목 댓글· 필수');
+  expect(box).toHaveAccessibleDescription('0 / 4000자');
+  const submit = screen.getByRole('button', { name: '댓글 남기기' });
+  expect(submit).toBeEnabled();
+  await user.click(submit);
+  expectFieldError(box, '댓글을 입력해 주세요.');
+  expect(box).toHaveFocus();
+  expect(t.runs).toEqual([]);
+  await user.type(box, '합성');
+  expect(box).not.toHaveAttribute('aria-invalid');
+  expect(screen.queryByText('댓글을 입력해 주세요.')).toBeNull();
 });
 it('keeps the draft on a rejected comment and surfaces the server field error', async () => {
   setup({ canContribute: true, answers: { validationIssueComment: () => Promise.resolve({ outcome: 'invalid', data: null, version: null, fieldErrors: [{ path: ['body'], code: 'secret_detected' }] }) } });
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: '합성 관찰 항목' }));
-  await user.type(screen.getByLabelText('항목 댓글 (필수)'), '토큰 같은 값');
+  await user.type(screen.getByRole('textbox', { name: '항목 댓글' }), '토큰 같은 값');
   await user.click(screen.getByRole('button', { name: '댓글 남기기' }));
   expect(await screen.findByText('내용: 비밀 정보로 보이는 값은 저장할 수 없습니다.')).toBeVisible();
-  expect(screen.getByLabelText('항목 댓글 (필수)')).toHaveValue('토큰 같은 값');
+  expect(screen.getByRole('textbox', { name: '항목 댓글' })).toHaveValue('토큰 같은 값');
 });
 it('locks the draft after an unknown answer and resends the same request on retry', async () => {
   const retry = vi.fn(() => Promise.resolve(ok({ id: 'c9', issueId: ISSUE })));
   const t = setup({ canContribute: true, answers: { validationIssueComment: () => Promise.resolve({ outcome: 'unknown', data: null, version: null, fieldErrors: [], retry }) } });
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: '합성 관찰 항목' }));
-  await user.type(screen.getByLabelText('항목 댓글 (필수)'), '재시도 초안');
+  await user.type(screen.getByRole('textbox', { name: '항목 댓글' }), '재시도 초안');
   await user.click(screen.getByRole('button', { name: '댓글 남기기' }));
   expect(await screen.findByText(/처리 결과를 확인하지 못했습니다/)).toBeVisible();
-  expect(screen.getByLabelText('항목 댓글 (필수)')).toBeDisabled();
+  expect(screen.getByRole('textbox', { name: '항목 댓글' })).toBeDisabled();
   expect(screen.getByRole('button', { name: '댓글 남기기' })).toBeDisabled();
   await user.click(screen.getByRole('button', { name: '같은 요청 다시 확인' }));
   expect(retry).toHaveBeenCalledTimes(1);
@@ -158,9 +189,17 @@ it('registers an issue without a rule and opens its thread', async () => {
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: '검증 항목 등록' }));
   const form = within(screen.getByRole('dialog', { name: '검증 항목 등록' }));
-  expect(form.getByRole('button', { name: '검증 항목 등록' })).toBeDisabled();
-  await user.type(form.getByLabelText('제목 (필수)'), '규칙 밖 관찰');
-  await user.type(form.getByLabelText('설명 (필수)'), '자유 설명');
+  // #2574 follow-up C1: a blank submit marks both required fields and focuses the first one instead of a disabled button.
+  await user.click(form.getByRole('button', { name: '검증 항목 등록' }));
+  const title = form.getByRole('textbox', { name: '제목' }), body = form.getByRole('textbox', { name: '설명' });
+  expectFieldError(title, '제목을 입력해 주세요.');
+  expectFieldError(body, '설명을 입력해 주세요.');
+  expect(title).toHaveFocus();
+  expect(t.runs).toEqual([]);
+  await user.type(title, '규칙 밖 관찰');
+  expect(title).not.toHaveAttribute('aria-invalid');
+  expect(body).toHaveAttribute('aria-invalid', 'true');
+  await user.type(body, '자유 설명');
   await user.click(form.getByRole('button', { name: '검증 항목 등록' }));
   expect(t.runs).toEqual([{ name: 'validationIssueRegister', input: { projectId: 'project', firstRoundId: ROUND, title: '규칙 밖 관찰', body: '자유 설명' } }]);
   expect(await screen.findByRole('dialog', { name: '합성 관찰 항목' })).toBeVisible();
@@ -247,7 +286,7 @@ it('drops later cursor pages when the first page is answered again after a comme
   await user.click(list().getByRole('button', { name: '더 보기' }));
   expect(list().getByText('둘째 댓글')).toBeVisible();
   expect(list().queryByRole('button', { name: '더 보기' })).toBeNull();
-  await user.type(screen.getByLabelText('항목 댓글 (필수)'), '셋째 댓글');
+  await user.type(screen.getByRole('textbox', { name: '항목 댓글' }), '셋째 댓글');
   await user.click(screen.getByRole('button', { name: '댓글 남기기' }));
   await user.click(await list().findByRole('button', { name: '더 보기' }));
   expect(list().getByText('셋째 댓글')).toBeVisible();

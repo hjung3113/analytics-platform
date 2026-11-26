@@ -35,4 +35,7 @@ export const formCopy = {
   sampleLocationRequired: '샘플 위치를 입력해 주세요.', sampleShaMalformed: 'SHA-256은 16진수 64자로 입력해 주세요.',
   riskActorRequired: '위험 수용자 Actor ID를 입력해 주세요.', scopeRequired: '예외 범위를 입력해 주세요.',
   decisionRequired: '결정을 선택해 주세요.', noDecisionAllowed: '서버가 허용한 결정이 없습니다.',
+  projectRequired: '개발 건을 선택해 주세요.', roundRequired: 'Round를 선택해 주세요.',
+  commentRequired: '댓글을 입력해 주세요.', issueTitleRequired: '제목을 입력해 주세요.', issueBodyRequired: '설명을 입력해 주세요.',
+  tooLong: (limit: number) => `${limit}자 이하로 줄여 주세요.`,
 } as const;
