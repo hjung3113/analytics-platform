@@ -327,7 +327,7 @@ describe('새 기술 Item (create)', () => {
     fireEvent.change(within(drawer()).getByLabelText(/^참조/), { target: { value: 'a.log' } });
     nextError = { outcome: 'invalid', fieldErrors: [{ path: ['evidence', '0', 'unknownField'], code: 'malformed' }, { path: ['evidence'], code: 'too_long' }] };
     submit('등록');
-    const list = await within(drawer()).findByText('입력 길이가 너무 깁니다', {}, slow);
+    const list = await within(drawer()).findByText('입력 길이가 너무 깁니다.', {}, slow);
     const group = within(drawer()).getByRole('group', { name: '근거 포인터' });
     expect(group.getAttribute('aria-describedby')).toContain(list.id);
     const row = within(drawer()).getByRole('group', { name: /^근거 1/ });
@@ -344,7 +344,7 @@ describe('새 기술 Item (create)', () => {
     fireEvent.click(within(drawer()).getByRole('button', { name: '근거 추가' }));
     submit('등록');
     await waitFor(() => expect(field(/^제목/).getAttribute('aria-invalid')).toBe('true'));
-    expect(within(drawer()).getAllByText('필수 항목입니다')).toHaveLength(3);
+    expect(within(drawer()).getAllByText('필수 항목입니다.')).toHaveLength(3);
     type(/^제목/, '제목');
     expect(field(/^제목/).getAttribute('aria-invalid')).not.toBe('true');
     expect(field(/^관찰 사실/).getAttribute('aria-invalid')).toBe('true');
