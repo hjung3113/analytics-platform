@@ -44,6 +44,7 @@ export const COMPONENTS_MESSAGES = {
   panelMappingXBreakdown: { ko: '기준과 같음', en: 'Same as the breakdown' },
   panelMappingEmpty: { ko: '여기에 놓기', en: 'Place here' },
   panelMappingClear: { ko: '{label} 지우기', en: 'Remove {label}' },
+  panelMappingDropTargetChanged: { ko: '놓는 위치가 바뀌었습니다. 다시 끌어 놓으세요.', en: 'Drop location changed. Drag and drop again.' },
   panelMappingInvalid: { ko: '이 매핑을 저장할 수 없습니다.', en: 'This mapping cannot be saved.' },
   panelMappingDisconnectReaders: { ko: '이 선택을 받는 패널의 연결을 먼저 해제하세요.', en: 'Disconnect the panels that receive this selection first.' },
   panelConnections: { ko: '연결', en: 'Connections' },

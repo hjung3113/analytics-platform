@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createChartPanel, menuPermission, type ChartPanelDraft, type MenuChartFields, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
 import { I18nProvider } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
@@ -273,4 +273,142 @@ it.each([
 ] as const)('shows the %s for a published selection', (_case, mapping, outputLabel, label) => {
   setupSaveOwner(chart({ kind: 'bar', measure: 'hours', breakdown: 'equipment' }), { mapping, outputLabel });
   expect(screen.getByText(`내보내는 선택 · ${label}`)).toBeTruthy();
+});
+
+describe('mapping field drag', () => {
+  let hit: Element | null;
+  beforeEach(() => {
+    hit = null;
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => hit });
+  });
+  afterEach(() => { Reflect.deleteProperty(document, 'elementFromPoint'); });
+
+  function pointer(target: HTMLElement | Window, type: string, clientX = 0) {
+    fireEvent(target, Object.assign(new MouseEvent(type, { bubbles: true, cancelable: true, clientX }), {
+      pointerId: 1, isPrimary: true,
+    }));
+  }
+
+  function drag(chip: HTMLElement, target: HTMLElement) {
+    pointer(chip, 'pointerdown');
+    hit = target;
+    pointer(chip, 'pointermove', 12);
+  }
+
+  it('outlines an accepting well and places a field in the empty slot', async () => {
+    const { baseElement, changed, user } = setup();
+    await user.click(screen.getByRole('button', { name: '가동 시간 지우기' }));
+    const chip = screen.getByRole('button', { name: '가동률' });
+    const measure = well(baseElement, 'measure');
+    drag(chip, measure);
+    expect(measure).toHaveClass('border-accent-primary');
+    pointer(chip, 'pointerup', 12);
+    expect(within(measure).getByRole('button', { name: '가동률 지우기' })).toBeTruthy();
+    expect(changed).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a press below the drag threshold on the shelf click path', () => {
+    const { baseElement, changed } = setup();
+    const chip = screen.getByRole('button', { name: 'Motion' });
+    const target = well(baseElement, 'breakdown');
+    pointer(chip, 'pointerdown');
+    hit = target;
+    pointer(chip, 'pointermove', 4);
+    expect(target).not.toHaveClass('border-accent-primary');
+    pointer(chip, 'pointerup', 4);
+    expect(changed).not.toHaveBeenCalled();
+    fireEvent.click(chip, { detail: 1 });
+    expect(within(target).getByRole('button', { name: 'Motion 지우기' })).toBeTruthy();
+  });
+
+  it.each([
+    ['shelf', 'Motion', '이 지표는 이 기준으로 볼 수 없습니다'],
+    ['well', '가동률', '기준 칸에는 기준만 놓을 수 있습니다'],
+  ] as const)('shows the refusal reason for a chip from the %s and keeps the draft', (source, label, reason) => {
+    const { baseElement, changed } = setup(chart({ kind: 'line', measure: 'rate', breakdown: 'equipment' }));
+    const chip = source === 'shelf' ? screen.getByRole('button', { name: label }) : within(well(baseElement, 'measure')).getByText(label);
+    const target = well(baseElement, 'breakdown');
+    drag(chip, target);
+    expect(target).toHaveAccessibleDescription(reason);
+    pointer(chip, 'pointerup', 12);
+    expect(target).not.toHaveAccessibleDescription(reason);
+    expect(within(target).getByRole('button', { name: '장비 지우기' })).toBeTruthy();
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it.each(['click', 'Enter'] as const)('replaces the filled slot with the same result as %s assignment', async gesture => {
+    const dragged = setup();
+    const chip = screen.getByRole('button', { name: 'Motion' });
+    const breakdown = well(dragged.baseElement, 'breakdown');
+    drag(chip, breakdown);
+    pointer(chip, 'pointerup', 12);
+    expect(within(breakdown).queryByRole('button', { name: '장비 지우기' })).toBeNull();
+    expect(within(breakdown).getByRole('button', { name: 'Motion 지우기' })).toBeTruthy();
+    expect(within(well(dragged.baseElement, 'measure')).getByRole('button', { name: '가동 시간 지우기' })).toBeTruthy();
+    dragged.unmount();
+    const alternate = setup();
+    const alternateChip = screen.getByRole('button', { name: 'Motion' });
+    if (gesture === 'click') await alternate.user.click(alternateChip);
+    else {
+      alternateChip.focus();
+      await alternate.user.keyboard('{Enter}');
+    }
+    expect(dragged.changed.mock.calls).toEqual(alternate.changed.mock.calls);
+  });
+
+  it('keeps the Save owner blocked when a dropped field fails candidate validation', () => {
+    const reason = { ko: '편집한 구성을 저장할 수 없습니다', en: 'Cannot save the edited configuration' };
+    const { baseElement, changed } = setupSaveOwner(chart(), { validateCandidate: () => reason });
+    const chip = screen.getByRole('button', { name: 'Motion' });
+    drag(chip, well(baseElement, 'breakdown'));
+    pointer(chip, 'pointerup', 12);
+    expect(screen.getByRole('alert')).toHaveTextContent(reason.ko);
+    expect(screen.getByRole('button', { name: '저장' })).toBeDisabled();
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it.each(['Escape', 'pointercancel', 'lostpointercapture', 'blur', 'chip removed'])('cancels on %s without assigning the held chip', async reason => {
+    const { baseElement, changed, user } = setup();
+    const source = well(baseElement, 'measure');
+    const target = well(baseElement, 'breakdown');
+    const chip = reason === 'chip removed' ? within(source).getByText('가동 시간') : screen.getByRole('button', { name: 'Motion' });
+    drag(chip, target);
+    if (reason === 'chip removed') expect(target).toHaveAccessibleDescription('기준 칸에는 기준만 놓을 수 있습니다');
+    else expect(target).toHaveClass('border-accent-primary');
+    switch (reason) {
+      case 'Escape':
+        chip.focus();
+        await user.keyboard('{Escape}');
+        break;
+      case 'chip removed':
+        within(source).getByRole('button', { name: '가동 시간 지우기' }).focus();
+        await user.keyboard('{Enter}');
+        break;
+      case 'blur':
+        fireEvent.blur(window);
+        break;
+      default:
+        pointer(chip, reason);
+    }
+    await waitFor(() => {
+      expect(target).not.toHaveClass('border-accent-primary');
+      expect(target).not.toHaveAccessibleDescription('기준 칸에는 기준만 놓을 수 있습니다');
+    });
+    pointer(chip.isConnected ? chip : window, 'pointerup', 12);
+    if (reason === 'Escape') fireEvent.click(chip, { detail: 1 });
+    expect(screen.getByRole('button', { name: '매핑' })).toBeTruthy();
+    expect(within(target).getByRole('button', { name: '장비 지우기' })).toBeTruthy();
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('asks for a retry if the well under the pointer changes before release', () => {
+    const { baseElement, changed } = setup();
+    const chip = screen.getByRole('button', { name: '가동률' });
+    drag(chip, well(baseElement, 'breakdown'));
+    hit = well(baseElement, 'measure');
+    pointer(chip, 'pointerup', 12);
+    fireEvent.click(chip, { detail: 1 });
+    expect(screen.getByRole('status')).toHaveTextContent('놓는 위치가 바뀌었습니다. 다시 끌어 놓으세요.');
+    expect(changed).not.toHaveBeenCalled();
+  });
 });

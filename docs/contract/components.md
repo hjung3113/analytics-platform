@@ -305,7 +305,9 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 `mapping?: PanelSettingsMapping`에 메뉴의 `fields: MenuChartFields`와 권한 검사 `granted: ChartPermissionCheck`를 넘기면 차트 패널의 «연결» 위에 펼쳐진 «매핑»을 연다. 매핑은 선·막대 종류, 지표(Y축)와 기준 칸, 읽기 전용 X축, 메뉴가 선언한 필드 칩으로 이루어진다. 선은 시간 필드를 X축에 두고 기준을 색으로 나눈다. 막대는 기준을 X축에 둔다. 시간 필드가 없는 메뉴의 선 선택은 비활성 사유를 표시한다. 칸에 있는 필드는 필드 목록에서도 선택으로 표시한다. 칩은 클릭·Enter·Space로 놓고 칸의 ×로 지운다. 놓을 수 없는 칩은 포커스를 받을 수 있으며 `aria-disabled`와 목록 아래 사유를 제공한다.
 
-`@ap/contracts`의 `mappingSlotProblem(fields, draft, slot, chip, granted)`은 칩 종류와 칸이 일치하는지 먼저 확인하고, 바꾼 초안에 `chartPanelProblem`을 적용한다. 반대쪽 칸이 비어 있다는 이유(`incomplete`)만으로 칩 배치를 막지 않는다. `assignMappingSlot(draft, slot, chip)`은 같은 종류의 칩으로 해당 칸 하나를 교체한다. 칸은 `data-mapping-slot="measure|breakdown"`, 목록 칩은 `data-mapping-chip="<field id>"`와 `data-mapping-chip-kind="measure|breakdown"`로 식별한다. 읽기 전용 X축에는 칸 표식이 없다.
+`@ap/contracts`의 `mappingSlotProblem(fields, draft, slot, chip, granted)`은 칩 종류와 칸이 일치하는지 먼저 확인하고, 바꾼 초안에 `chartPanelProblem`을 적용한다. 반대쪽 칸이 비어 있다는 이유(`incomplete`)만으로 칩 배치를 막지 않는다. `assignMappingSlot(draft, slot, chip)`은 같은 종류의 칩으로 해당 칸 하나를 교체한다. 칸은 `data-mapping-slot="measure|breakdown"`, 목록과 칸의 칩은 `data-mapping-chip="<field id>"`와 `data-mapping-chip-kind="measure|breakdown"`로 식별한다. 읽기 전용 X축에는 칸 표식이 없다.
+
+#2917 ③에서 목록과 칸의 칩을 포인터로 끌 수 있다. 끄는 동안 놓을 수 있는 칸은 테두리로 강조하고, 받을 수 없는 칸은 흐리게 하고 `mappingSlotProblem`의 사유를 표시한다. 놓기와 목록 칩의 클릭·Enter·Space는 같은 검사와 배치 규칙을 사용한다. Escape, 창 포커스 해제, 포인터 취소·캡처 해제, 칩 제거로 끌기를 취소한다. 놓는 순간 표시된 칸과 포인터 아래 칸이 다르면 초안을 유지하고 «놓는 위치가 바뀌었습니다. 다시 끌어 놓으세요.»를 표시한다.
 
 서랍은 `readChartPanel`로 저장된 차트를 검사하고, `readChartPanelDraft(config)`로 저장된 지표·기준을 초안에 옮긴다. 메뉴 선언에서 빠진 필드도 초안에 남겨 고칠 수 있게 한다. `sameChartConfig`는 JSON 객체의 키 순서와 관계없이 저장 설정의 내용을 비교한다. 같은 설정을 다시 읽어도 초안은 남고, 다른 설정으로 바뀌면 초안과 거부 사유를 함께 지운다.
 

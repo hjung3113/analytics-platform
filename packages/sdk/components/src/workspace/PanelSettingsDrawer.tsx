@@ -155,7 +155,7 @@ export function PanelSettingsDrawer({ title, panel, value, mapping, projectCandi
   };
   const mappingSection = mapping && draft ? {
     id: 'mapping', title: COMPONENTS_MESSAGES.panelMapping, icon: SlidersHorizontal,
-    render: () => <PanelMappingSection {...mapping} draft={draft} problem={mappingProblem}
+    render: () => <PanelMappingSection key={editKey} {...mapping} draft={draft} problem={mappingProblem}
       candidateError={rejection?.section === 'mapping' && !rejection.problem ? rejection.reason : undefined}
       onChange={next => save(panel, 'mapping', next)} />,
   } : undefined;
