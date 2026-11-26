@@ -13,7 +13,7 @@ import { DataTrustIndicator } from './DataTrustIndicator';
 import { emptyCauses, emptyOutcomeText } from './emptyCause';
 import { useOutcomeRecovery } from './OutcomeActions';
 import { useElementSize } from './useElementSize';
-import { outcomeDiagnostic, outcomePresentation, outcomeTone } from './outcomePresentation';
+import { classifyOutcome, outcomeDiagnostic, outcomePresentation, outcomeTone } from './outcomePresentation';
 import { chartTrustText, trustInstantText, type ChartTrust } from './trustFormat';
 
 export type QueryPanelOptions<T> = {
@@ -80,13 +80,15 @@ function usePanelSeconds(visible: boolean, cancel?: () => void) {
   return elapsed.seconds;
 }
 
-function PanelError({ response, grouped, priorLabel, inlineRecovery, onRetry }: {
-  response: ApiResponse<unknown>; grouped: boolean; priorLabel?: string; inlineRecovery: boolean; onRetry: () => void;
+function PanelOutcomeDetails({ response, grouped, priorLabel, refusalLabel, inlineRecovery, onRetry }: {
+  response: ApiResponse<unknown>; grouped: boolean; priorLabel?: string; refusalLabel?: string; inlineRecovery: boolean; onRetry: () => void;
 }) {
   const i18n = useI18n();
   const { t } = i18n;
   const m = useMessages(COMPONENTS_MESSAGES);
   const state = outcomePresentation(response, i18n);
+  const isRefusal = refusalLabel !== undefined;
+  const label = refusalLabel ?? t('sharedOutcomeNoticeFailed');
   const detailsId = useId();
   const [details, setDetails] = useState(false);
   const [open, setOpen] = useState(false);
@@ -101,11 +103,11 @@ function PanelError({ response, grouped, priorLabel, inlineRecovery, onRetry }: 
   return <PanelBadge tone="neutral">
     {priorLabel}
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild><Button type="button" size={priorLabel ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={t('sharedOutcomeNoticeFailed')}>
-        <CircleAlert aria-hidden className="size-4 text-text-danger" />
-        {!priorLabel && <span className={inlineRecovery ? undefined : 't-badge'}>{t('sharedOutcomeNoticeFailed')}</span>}
+      <PopoverTrigger asChild><Button type="button" size={priorLabel ? 'icon-xs' : 'toolbar'} variant="ghost" aria-label={label}>
+        {!isRefusal && <CircleAlert aria-hidden className="size-4 text-text-danger" />}
+        {!priorLabel && <span className={inlineRecovery ? undefined : 't-badge'}>{label}</span>}
       </Button></PopoverTrigger>
-      <PopoverContent aria-label={t('sharedOutcomeNoticeFailed')} padding="compact" align="start" className="max-w-sm break-words" onCloseAutoFocus={event => {
+      <PopoverContent aria-label={label} padding="compact" align="start" className="max-w-sm break-words" onCloseAutoFocus={event => {
         setDetails(false);
         if (retrying.current) {
           retrying.current = false;
@@ -114,13 +116,13 @@ function PanelError({ response, grouped, priorLabel, inlineRecovery, onRetry }: 
       }}>
         <div className="text-xs">
           {!grouped && <p>{state?.body}</p>}
-          {evidence && <p>{evidence}</p>}
+          {!isRefusal && evidence && <p>{evidence}</p>}
           {priorLabel && action}
           <Button variant="ghost" size="toolbar" aria-expanded={details} aria-controls={detailsId} onClick={() => setDetails(!details)}>
-            {m('panelErrorDetails')} <span className={cn(details && 'rotate-90')}>▸</span>
+            {isRefusal ? t('technicalInfo') : m('panelErrorDetails')} <span className={cn(details && 'rotate-90')}>▸</span>
           </Button>
           <div id={detailsId} hidden={!details} className="text-text-secondary">
-            <p>{t('technicalInfo')}</p>
+            {!isRefusal && <p>{t('technicalInfo')}</p>}
             <p role="note" aria-label={t('serverDetail')}>{t('correlationId')}: <span className="t-mono">{response.correlationId}</span> {outcomeDiagnostic(response)}</p>
           </div>
         </div>
@@ -141,7 +143,8 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
   emptyAction?: ReactNode; refreshNotice: 'visible' | 'hidden';
   fallback: (notice: { grouped: boolean; bannerId?: string }) => ReactNode;
 }) {
-  const { t, lang } = useI18n();
+  const i18n = useI18n();
+  const { t, lang } = i18n;
   const m = useMessages(COMPONENTS_MESSAGES);
   const id = useId();
   const target = useRef<HTMLElement>(null);
@@ -170,6 +173,8 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
   const narrowHeader = width !== null && width > 0 && width < INLINE_ERROR_MIN_WIDTH;
   const notice = useSharedOutcomeNotice(query.cancelled || query.showingPrevious ? null : response, query.refetch, panel.title, query.status, focus);
   const error = response && outcomeTone(response) === 'danger' ? response : null;
+  const refusalLabel = notice.grouped && response && classifyOutcome(response.outcome) === 'refusal'
+    ? outcomePresentation(response, i18n)?.label : undefined;
   const prior = error && !query.cancelled ? query.previousResult : undefined;
   const stale = Boolean(prior) || query.showingPrevious === true;
   // A keep-previous refresh keeps the drawn result mounted (06 §19 keepPrevious, #1365) and only makes it inert; the chart drops its result
@@ -198,10 +203,12 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
   if (query.cancelled) stateLabel = m('panelCancelled');
   else if (selection) stateLabel = <span>{m('panelSelectionEmpty', { selection: selection.label })}</span>;
   else if (empty) stateLabel = m('panelEmpty');
+  else if (refusalLabel) stateLabel = t('sharedOutcomeNoticeFor', { status: refusalLabel });
   const narrowAction = slow && showDelay && narrow && <Button size="toolbar" variant="ghost" onClick={() => runMenuAction(() => narrow())}>{m('panelNarrow')}</Button>;
   const cancelAction = slow && query.cancel && <Button size="toolbar" variant="ghost" onClick={() => runMenuAction(() => { focus(); query.cancel?.(); })}>{t('cancel')}</Button>;
   const delayActions = <>{narrowAction}{cancelAction}</>;
   const visibleError = !loading && !query.cancelled ? error : null;
+  const visibleOutcome = !loading && !query.cancelled && refusalLabel ? response : visibleError;
   const compactError = narrowHeader && visibleError !== null && !priorLabel;
   const signal = <>
     {panel.titleNote}
@@ -211,7 +218,8 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
     </PanelBadge>}
     {inlineDelay && delayActions}
     {query.cancelled && <PanelBadge>{m('panelCancelled')}{retry}</PanelBadge>}
-    {visibleError && <PanelError response={visibleError} grouped={notice.grouped} priorLabel={priorLabel} inlineRecovery={!compactError} onRetry={retryQuery} />}
+    {visibleOutcome && <PanelOutcomeDetails response={visibleOutcome} grouped={notice.grouped} priorLabel={priorLabel}
+      refusalLabel={refusalLabel} inlineRecovery={visibleError !== null && !compactError} onRetry={retryQuery} />}
     <span role={announceFailure ? 'status' : undefined} aria-live="polite" aria-atomic="true" aria-label={panel.title} className="sr-only">
       {announceFailure && `${t('sharedOutcomeNoticeFailed')} · ${priorLabel ?? ''}`}
     </span>
@@ -242,7 +250,7 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
         {!result && loading && <div role="status" aria-label={t('loading')} aria-busy className="flex min-h-0 flex-1 flex-col"><PanelPlaceholder panel={panel} loading /></div>}
         {!result && !loading && <>
           <PanelPlaceholder panel={panel} loading={false} />
-          {empty || error || query.cancelled
+          {empty || error || refusalLabel || query.cancelled
             ? <div role="group" aria-label={panel.title} className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-xs text-text-secondary">
               {empty && panel.emptyNote}
               <span className="inline-flex flex-wrap items-center justify-center gap-1">

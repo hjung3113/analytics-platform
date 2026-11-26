@@ -234,3 +234,39 @@ it('names panels in one shared banner, moves focus, and retries individually or 
   expect(first.refetch).toHaveBeenCalledOnce();
   expect(second.refetch).toHaveBeenCalledTimes(2);
 });
+
+it.each([
+  ['too_large', '조회 과대', 'Row limit exceeded'],
+  ['forbidden', '권한 없음', 'Missing capability'],
+] as const)('names a grouped %s in the panel header and keeps its technical information (#3068)', (outcome, label, message) => {
+  const refusal = query('done', { ...reply(outcome), message });
+  const failure = query('done', reply('error'));
+  render(<I18nProvider><OutcomeScope><OutcomeBanners compact />
+    <QueryView query={refusal} panel={panel}>{data => data}</QueryView>
+    <QueryView query={refusal} panel={{ ...panel, title: '표' }}>{data => data}</QueryView>
+    <QueryView query={failure} panel={{ ...panel, title: '오류 지표' }}>{data => data}</QueryView>
+    <QueryView query={failure} panel={{ ...panel, title: '오류 추세' }}>{data => data}</QueryView>
+  </OutcomeScope></I18nProvider>);
+  const failurePanel = within(screen.getByRole('region', { name: '오류 지표' }));
+  const failureButton = failurePanel.getByRole('button', { name: '불러오지 못함' });
+  expect(failureButton.querySelector('svg')).toHaveClass('text-text-danger');
+  expect(failurePanel.getByRole('group', { name: '오류 지표' })).toHaveTextContent('불러오지 못함');
+  expect(failurePanel.queryByRole('alert')).toBeNull();
+
+  const refusalPanel = within(screen.getByRole('region', { name: '추세' }));
+  const header = within(refusalPanel.getByRole('heading', { name: '추세' }).closest('header')!);
+  const status = header.getByRole('button', { name: label });
+  expect(status).toHaveTextContent(label);
+  expect(status.querySelector('svg')).toBeNull();
+  expect(refusalPanel.getByText(`위 안내 참고(${label})`)).toBeVisible();
+  expect(refusalPanel.queryByText('불러오지 못함')).toBeNull();
+  expect(refusalPanel.queryByRole('alert')).toBeNull();
+  expect(refusalPanel.queryByText(message)).toBeNull();
+  fireEvent.click(status);
+  const details = within(screen.getByRole('dialog', { name: label }));
+  expect(details.queryByRole('note')).toBeNull();
+  fireEvent.click(details.getByRole('button', { name: /기술 정보/ }));
+  const note = details.getByRole('note', { name: '서버 세부' });
+  expect(note).toHaveTextContent('추적 번호: trace-A');
+  expect(note).toHaveTextContent(message);
+});
