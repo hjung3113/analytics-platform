@@ -409,6 +409,7 @@ case "$*" in
 "image inspect"*) case "$*" in *"\${STUB_MISSING_IMAGE:-@@none@@}"*) exit 1 ;; esac; exit 0 ;;
 "tag "*) exit 0 ;;
 *" up -d") exit "\${STUB_UP_RC:-0}" ;;
+*"exec -T backend node -e "*"/health/ready"*) exit "\${STUB_READY_RC:-0}" ;;
 "inspect --format {{.State.ExitCode}}"*) echo 0; exit 0 ;;
 "inspect --format {{.Image}} cid-"*) echo "sha256:c\${4#cid-}"; exit 0 ;;
 "inspect --format"*) echo sha256:oldimage; exit 0 ;;
@@ -453,6 +454,11 @@ describe('upgrade.sh ordering (stub docker)', () => {
       envFile,
       'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
     );
+    // The readiness loop waits 2 s between 60 tries: a stub `sleep` keeps a failing check fast.
+    if (extraEnv.STUB_READY_RC) {
+      writeFileSync(join(bin, 'sleep'), '#!/usr/bin/env bash\nexit 0\n');
+      chmodSync(join(bin, 'sleep'), 0o755);
+    }
     const root = tmp();
     const r = run('bash', [UPGRADE, 'local', '--env-file', envFile, '--compose-file', COMPOSE], {
       PATH: `${bin}:${process.env.PATH}`,
@@ -460,8 +466,11 @@ describe('upgrade.sh ordering (stub docker)', () => {
       ...extraEnv,
     });
     const calls = existsSync(log) ? readFileSync(log, 'utf8').split('\n').filter(Boolean) : [];
-    return { ...r, calls, root, log: calls.join('\n') };
+    return { ...r, calls, root, envFile, log: calls.join('\n') };
   }
+  // The compose command the operator is told to run, with the values of this run (CI--16).
+  const dcCmd = (envFile, rest) =>
+    `docker compose -p platform-api --env-file ${envFile} -f ${COMPOSE} ${rest}`;
   const idx = (calls, re) => calls.findIndex((c) => re.test(c));
   // Any way to start the backend: `start backend`, or `up -d` that names backend (with or without --no-deps) or names nothing.
   const startsBackend = (c) =>
@@ -519,33 +528,60 @@ describe('upgrade.sh ordering (stub docker)', () => {
     assert.match(r.err, /restore\.sh/);
     assert.match(r.err, /--project <new-project>/);
   });
-  test('backup failure: migrate never runs and the backend stays stopped', () => {
-    const bin = tmp();
-    const log = join(tmp(), 'calls.log');
-    writeStub(bin, log);
-    // dump fails: replace the pg_dump answer
-    const text = readFileSync(join(bin, 'docker'), 'utf8').replace(
-      '*"exec -T postgres pg_dump "*)',
-      '*"exec -T postgres pg_dump "*) exit 3 ;;\n  *"unused-pattern"*)',
+  test('readiness failure after up -d: the last line says the stack is up and how to stop it', () => {
+    const r = go({ STUB_READY_RC: '1' });
+    assert.equal(r.code, 1, r.err);
+    assert.ok(
+      r.calls.some((c) => / up -d$/.test(c)),
+      r.log,
     );
-    writeFileSync(join(bin, 'docker'), text);
-    const envFile = join(tmp(), 'env');
-    writeFileSync(
-      envFile,
-      'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+    assert.match(r.err, /backend not ready/);
+    assert.match(r.err, /UPGRADE STOPPED \(exit 1\)\. The stack was started \(up -d\) on the new images/);
+    assert.ok(
+      r.err.includes(`before starting a restore: ${dcCmd(r.envFile, 'stop backend edge')}`),
+      r.err,
     );
-    const r = run('bash', [UPGRADE, 'local', '--env-file', envFile, '--compose-file', COMPOSE], {
-      PATH: `${bin}:${process.env.PATH}`,
-      BACKUP_ROOT: tmp(),
-    });
-    const calls = readFileSync(log, 'utf8').split('\n').filter(Boolean);
-    assert.notEqual(r.code, 0);
-    assert.equal(
-      calls.findIndex((c) => /run --rm --no-deps migrate/.test(c)),
-      -1,
-    );
-    assert.equal(calls.findIndex(startsBackend), -1);
+    assert.doesNotMatch(r.err, /not started again/);
   });
+  for (const target of ['local', 'v2']) {
+    test(`backup failure (${target}): migrate never runs, the backend stays stopped, the safe start is named`, () => {
+      const bin = tmp();
+      const log = join(tmp(), 'calls.log');
+      writeStub(bin, log);
+      // dump fails: replace the pg_dump answer
+      const text = readFileSync(join(bin, 'docker'), 'utf8').replace(
+        '*"exec -T postgres pg_dump "*)',
+        '*"exec -T postgres pg_dump "*) exit 3 ;;\n  *"unused-pattern"*)',
+      );
+      writeFileSync(join(bin, 'docker'), text);
+      const envFile = join(tmp(), 'env');
+      writeFileSync(
+        envFile,
+        'MINIO_IMAGE=site/minio:test\nPOSTGRES_PASSWORD=x\nNOTIFICATION_EMAIL_CHANNEL=mock\n',
+      );
+      const r = run('bash', [UPGRADE, target, '--env-file', envFile, '--compose-file', COMPOSE], {
+        PATH: `${bin}:${process.env.PATH}`,
+        BACKUP_ROOT: tmp(),
+      });
+      const calls = readFileSync(log, 'utf8').split('\n').filter(Boolean);
+      assert.notEqual(r.code, 0);
+      assert.equal(
+        calls.findIndex((c) => /run --rm --no-deps migrate/.test(c)),
+        -1,
+      );
+      assert.equal(calls.findIndex(startsBackend), -1);
+      assert.match(r.err, /backup failed; nothing was migrated/);
+      assert.ok(r.err.includes(dcCmd(envFile, 'start backend')), r.err);
+      if (target === 'local') {
+        assert.match(
+          r.err,
+          /`up -d` would first run the NEW migrate image .*docker tag platform-release-migrate:pre-\d{8}T\d{6}Z platform-release-migrate:local/,
+        );
+      } else {
+        assert.doesNotMatch(r.err, /would first run the NEW migrate image/);
+      }
+    });
+  }
   test('a divergent journal is refused before the backend is touched', () => {
     const bin = tmp();
     const log = join(tmp(), 'calls.log');
@@ -1408,6 +1444,7 @@ describe('b10b F2 interruption does not release a lock while work may still run 
       maint,
       log,
       state,
+      envFile,
       lock: join(maint, 'platform-api.lock'),
     };
   }
@@ -1426,6 +1463,13 @@ describe('b10b F2 interruption does not release a lock while work may still run 
     assert.equal(code, 143, r.state.stderr);
     assert.match(r.state.stderr, /interrupted: stopping the active backup/);
     assert.deepEqual(readdirSync(r.maint), [], 'released once the child was gone');
+    assert.ok(
+      r.state.stderr.includes(
+        `docker compose -p platform-api --env-file ${r.envFile} -f ${COMPOSE} start backend`,
+      ),
+      r.state.stderr,
+    );
+    assert.match(r.state.stderr, /`up -d` would first run the NEW migrate image/);
     assert.equal(
       calls(r).findIndex((c) => /run --rm --no-deps migrate/.test(c)),
       -1,

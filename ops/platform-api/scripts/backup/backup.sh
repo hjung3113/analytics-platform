@@ -88,7 +88,7 @@ restart_backend() {
       bk_log 'backend started again'
     else
       RESTART_FAILED=1
-      bk_log 'ERROR: could not start the backend again; it is STOPPED. Start it: docker compose -p '"$PROJECT"' --env-file <env> -f <compose> start backend'
+      bk_log 'ERROR: could not start the backend again; it is STOPPED. Start it: '"$(bk_dc_hint)"' start backend'
     fi
     BACKEND_STOPPED=0
   fi

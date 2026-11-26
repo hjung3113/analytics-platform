@@ -16,10 +16,12 @@
 #   1. data services up, supported identity (platform, v0.24.0 or later), current journal vs the target migrate image's
 #      journal (read-only compare of applied migration hashes with the hashes of the image's migrations; refuses on divergence)
 #   2. current images (backend, migrate, and the running edge's web image) tagged :pre-<UTC timestamp> (the rollback set)
-#   3. stop the backend (writers and jobs), backup.sh --keep-stopped (under this script's maintenance lock), verify-backup.sh; either failing = stop here
+#   3. stop the backend (writers and jobs), backup.sh --keep-stopped (under this script's maintenance lock), verify-backup.sh; either failing
+#      (or an interruption) = stop here, printing the safe restart (`start backend`; with `local`, `up -d` would run the new migrate image)
 #   4. only now the new images take the :local tags, then the migrate job runs (drizzle-kit migrate); a non-zero exit leaves
 #      the backend stopped and prints the restore command for the matching backup and the image rollback command
-#   5. docker compose up -d, then /health/ready must return 200
+#   5. docker compose up -d, then /health/ready must return 200; if it does not, the stack stays up on the new images over the
+#      migrated database and the script prints the `stop backend edge` command to run before any restore
 # A restored installation has docker-compose.restore-<project>.yml (restore.sh) pinning the three images by immutable id.
 # Then steps 4-5 run with a pin file naming the TARGET image ids (never the old pins); on success it replaces the restore
 # pin file atomically and the previous one is kept as docker-compose.restore-<project>.yml.pre-<UTC timestamp>; on failure
@@ -95,6 +97,8 @@ BACKUP_DONE=0
 ROLLBACK_PRINTED=0
 MIGRATE_STARTED=0
 MIGRATED=0
+QUIESCED=0
+STACK_STARTED=0
 RESTORE_CMD=''
 
 tmp="$(mktemp -d)"
@@ -149,6 +153,33 @@ settle_children() { # 0 = nothing started by this run can still be working
 pins_committed() { # the pin swap (mv .new -> pin file) is the commit point: it happened when .new-<ts> is gone after the .pre-<ts> copy was made
   [ "$HAS_PINS" -eq 1 ] && [ -n "$PINS_PRE" ] && [ -n "$PINS_NEW" ] && [ ! -e "$PINS_NEW" ]
 }
+dc_hint() { # the operator's compose command for this project (with the restore pin file when the installation has one)
+  if [ "$HAS_PINS" -eq 1 ]; then bk_dc_hint "$PINS_FILE"; else bk_dc_hint; fi
+}
+image_rollback_cmd() { # the docker tag commands that move :local back to the :pre-<ts> rollback set
+  local s=''
+  [ -z "$PRE_BACKEND" ] || s="docker tag $PRE_BACKEND $BACKEND_REPO:local"
+  [ -z "$PRE_MIGRATE" ] || s="${s:+$s; }docker tag $PRE_MIGRATE $MIGRATE_REPO:local"
+  [ -z "$PRE_WEB" ] || s="${s:+$s; }docker tag $PRE_WEB $WEB_REPO:local"
+  printf '%s' "$s"
+}
+print_stopped() { # the last lines of a failed run whose maintenance work has settled: what state the stack is in now
+  local rc="$1"
+  if [ "$STACK_STARTED" -eq 1 ]; then
+    bk_log "UPGRADE STOPPED (exit $rc). The stack was started (up -d) on the new images over the migrated database and stays up (restart: unless-stopped). Stop it before starting a restore: $(dc_hint) stop backend edge"
+    return 0
+  fi
+  bk_log "UPGRADE STOPPED (exit $rc). The backend was not started again by this script."
+  { [ "$QUIESCED" -eq 1 ] && [ "$BACKUP_DONE" -eq 0 ]; } || return 0
+  # Stopped in step 3: nothing was migrated. Only `start backend` restarts the existing container without a migration.
+  bk_log "Nothing was migrated. To serve again without upgrading, restart the existing container: $(dc_hint) start backend"
+  [ "$TARGET" = local ] || return 0
+  if [ -n "$PRE_MIGRATE" ]; then
+    bk_log "   Target local: the :local tags already hold the new images, so \`up -d\` would first run the NEW migrate image on a database without a verified backup. Use \`start backend\` only, or first move :local back: $(image_rollback_cmd)"
+  else
+    bk_log "   Target local: the :local tags already hold the new images, so \`up -d\` would first run the NEW migrate image on a database without a verified backup (no :pre-$TS migrate tag was taken). Use \`start backend\` only."
+  fi
+}
 print_rollback() { # the one place that tells how to go back after a failure past the backup step; printed once
   [ "$ROLLBACK_PRINTED" -eq 0 ] || return 0
   ROLLBACK_PRINTED=1
@@ -167,7 +198,7 @@ print_rollback() { # the one place that tells how to go back after a failure pas
       bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images); start the previous release with it: docker compose -p $PROJECT --env-file <env> -f <compose> -f $PINS_FILE up -d"
     fi
   fi
-  [ -z "$PRE_BACKEND" ] || bk_log "   image rollback: docker tag $PRE_BACKEND $BACKEND_REPO:local${PRE_MIGRATE:+; docker tag $PRE_MIGRATE $MIGRATE_REPO:local}${PRE_WEB:+; docker tag $PRE_WEB $WEB_REPO:local}"
+  [ -z "$PRE_BACKEND" ] || bk_log "   image rollback: $(image_rollback_cmd)"
 }
 on_exit() {
   local rc=$?
@@ -180,7 +211,7 @@ on_exit() {
     rm -rf -- "${tmp:?}"
     if [ "$BK_LOCK_HELD" -eq 1 ]; then
       bk_lock_release
-      [ "$rc" -eq 0 ] || bk_log "UPGRADE STOPPED (exit $rc). The backend was not started again by this script."
+      [ "$rc" -eq 0 ] || print_stopped "$rc"
     fi
   else
     rm -rf -- "${tmp:?}"
@@ -240,6 +271,7 @@ fi
 
 # 3. Quiesce, back up, verify. A failure here leaves the backend stopped.
 bk_log 'stopping backend (writers and jobs)'
+QUIESCED=1
 bk_dc stop backend >/dev/null
 run_child backup env BK_LOCK_TOKEN="$BK_LOCK_OWN_TOKEN" BACKUP_PROJECT="$PROJECT" BACKUP_ENV_FILE="$ENV_FILE" BACKUP_COMPOSE_FILE="$COMPOSE_FILE" \
   BACKUP_MIGRATE_IMAGE="${BACKUP_MIGRATE_IMAGE:-${PRE_MIGRATE:-$MIGRATE_REPO:local}}" \
@@ -279,6 +311,7 @@ MIGRATE_MAY_RUN=0
 
 # 5. Start and check readiness.
 bk_log 'starting the stack'
+STACK_STARTED=1
 bk_dc up -d >/dev/null
 ready=0
 i=0
