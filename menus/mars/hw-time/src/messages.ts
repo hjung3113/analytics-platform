@@ -216,3 +216,23 @@ export const HW_TIME_NEW_PANEL_MESSAGES = {
   syntheticHistory: { ko: '합성 HTM 기준 변경 이력', en: 'Synthetic HTM bound history' },
 } as const;
 
+
+/** «패널 추가» category titles and item descriptions (#2744; agreed table on #2761). */
+export const HW_TIME_CATALOG_MESSAGES = {
+  comparison: { ko: '비교', en: 'Comparison' },
+  trend: { ko: '추세', en: 'Trend' },
+  distribution: { ko: '분포', en: 'Distribution' },
+  records: { ko: '표·이력', en: 'Tables and history' },
+  composition: { ko: '구성', en: 'Composition' },
+  heatmapDescription: { ko: '설비와 Module별 동작시간을 색으로 비교합니다.', en: 'Compares operation time by equipment and Module using colour.' },
+  moduleMotionsDescription: { ko: '현재 Module의 Motion별 동작시간을 비교합니다.', en: 'Compares operation time by Motion for this Module.' },
+  trendDescription: { ko: '설비별 일 평균 동작시간의 변화를 표시합니다.', en: 'Shows changes in mean daily operation time by equipment.' },
+  equipmentDaysDescription: { ko: '설비와 날짜별 동작시간을 색으로 비교합니다.', en: 'Compares operation time by equipment and day using colour.' },
+  scatterDescription: { ko: '개별 동작의 소요 시간을 점으로 표시합니다.', en: 'Plots the duration of individual runs.' },
+  distributionDescription: { ko: '동작시간 구간별 회차 수를 표시합니다.', en: 'Shows the number of runs in each duration interval.' },
+  motionTableDescription: { ko: 'Motion별 HTM 판정 결과를 표로 확인합니다.', en: 'Lists HTM judgements by Motion.' },
+  tableDescription: { ko: '동작시간 원본 행을 표로 확인합니다.', en: 'Shows the source operation-time rows.' },
+  boundHistoryDescription: { ko: 'HTM 기준이 바뀐 시점과 내용을 확인합니다.', en: 'Shows when HTM thresholds changed and what changed.' },
+  donutDescription: { ko: '판정 유형이 전체에서 차지하는 비율을 표시합니다.', en: 'Shows the share of each judgement.' },
+  paretoDescription: { ko: '상한 초과가 많은 항목부터 건수와 누적 비율을 표시합니다.', en: 'Ranks upper-limit exceedances and shows cumulative share.' },
+} as const;

@@ -20,7 +20,8 @@ async function drill(page: Page, id: string) {
 }
 async function add(page: Page, title: string) {
   await page.getByRole('button', { name: '패널 추가', exact: true }).click();
-  await page.getByRole('menuitem', { name: title, exact: true }).click();
+  // With categories (#2744) «패널 추가» is a popover dialog of named row buttons, not a dropdown menu.
+  await page.getByRole('dialog', { name: '패널 추가' }).getByRole('button', { name: title, exact: true }).click();
 }
 async function selectPoint(page: Page, row: string) {
   await chartMore(page, 'current').click();
@@ -377,8 +378,10 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     await expect(check).toHaveAttribute('aria-checked', 'false');
     await page.goto(SCREEN);
     await page.getByRole('button', { name: '패널 추가', exact: true }).click();
-    await expect(page.getByRole('menuitem', { name: /설비 × Module 히트맵/ })).toHaveAttribute('aria-disabled', 'true');
-    await expect(page.getByRole('menu')).toContainText('Module 타입을 고르면 볼 수 있음');
+    const heatmap = page.getByRole('dialog', { name: '패널 추가' }).getByRole('button', { name: /설비 × Module 히트맵/ });
+    await expect(heatmap).toHaveAttribute('aria-disabled', 'true');
+    // The categorized picker shows a short status in the row; the full reason is the row's accessible description (layout §12.8).
+    await expect(heatmap).toHaveAccessibleDescription(/Module 타입을 고르면 볼 수 있음/);
   });
 
   test('malformed drill is rejected before any data read', async ({ page }) => {
