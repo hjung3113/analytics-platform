@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../components/shadcn/tooltip.js';
+import { TAB_MARK_BASE } from '../internal/tabMark.js';
 import { useHorizontalOverflow } from '../internal/useHorizontalOverflow.js';
 import { cn } from '../utils/cn.js';
 import { prefersReducedMotion } from '../utils/motion.js';
@@ -204,9 +205,11 @@ export function ListTabs({
                       {...(tab.testId !== undefined ? { 'data-testid': tab.testId } : {})}
                       {...(tab.tip !== undefined ? { title: tab.tip } : {})}
                       className={cn(
-                        'group inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md px-2.5 py-0 text-sm font-medium text-text-muted transition-colors',
+                        'group relative inline-flex h-7 shrink-0 items-center justify-center gap-1.5 rounded-md px-2.5 py-0 text-sm font-medium text-text-muted transition-colors',
                         'hover:bg-surface-row-hover hover:text-text-primary',
-                        'data-[state=active]:bg-surface-card-elevated data-[state=active]:text-text-primary data-[state=active]:shadow-none',
+                        // The toolbar is white, so a background cannot mark the selected tab; it carries the shared tab mark (#3154).
+                        TAB_MARK_BASE,
+                        'data-[state=active]:bg-transparent data-[state=active]:text-text-primary data-[state=active]:shadow-none data-[state=active]:after:block',
                         tab.urgent === true &&
                           'text-text-danger-label hover:text-text-danger-label data-[state=active]:text-text-danger-label [&>svg]:text-text-danger',
                       )}
