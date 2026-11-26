@@ -36,13 +36,18 @@ export function outcomePresentation(response: ApiResponse<unknown>, { t, lang }:
   switch (response.outcome) {
     case 'empty': return { ...emptyOutcomeText(emptyCauses(response), t), label: t('sharedOutcomeEmpty'), Icon: Inbox };
     case 'forbidden': return { title: t('stateForbidden'), body: t('stateForbiddenBody'), label: t('sharedOutcomeForbidden'), Icon: Ban };
-    case 'too_large': return { title: t('stateTooLarge'), body: fixedEquipmentGuidance(response, lang) ?? t('stateTooLargeBody'), label: t('sharedOutcomeTooLarge'), Icon: Maximize2 };
+    case 'too_large': {
+      const fixedEquipmentReason = fixedEquipmentGuidance(response, lang);
+      return { title: t('stateTooLarge'), body: fixedEquipmentReason ?? t('stateTooLargeBody'), fixedEquipmentReason, label: t('sharedOutcomeTooLarge'), Icon: Maximize2 };
+    }
     case 'timeout': return { title: t('stateTimeout'), body: t('stateTimeoutBody'), label: t('sharedOutcomeTimeout'), Icon: Clock };
     case 'error': {
       const guide = errorGuidance(response.message);
+      const fixedEquipmentReason = fixedEquipmentGuidance(response, lang);
       return {
         title: t(guide.blocked ? 'stateQueryBlocked' : 'stateError'),
-        body: fixedEquipmentGuidance(response, lang) ?? `${t(guide.cause)} ${t(guide.action)}`,
+        body: fixedEquipmentReason ?? `${t(guide.cause)} ${t(guide.action)}`,
+        fixedEquipmentReason,
         label: t(guide.label),
         Icon: guide.blocked ? SlidersHorizontal : ServerCrash,
       };

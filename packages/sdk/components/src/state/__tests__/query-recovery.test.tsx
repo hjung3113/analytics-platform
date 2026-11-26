@@ -1,10 +1,11 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { defineEndpoint, groupId, spaceId, type ApiResponse, type PageQuery, type PageResult } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, useMenuFetch, useMenuQuery } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { PlatformPage } from '../../archetypes/PlatformPage';
+import { useRegisterContextEditorFocus } from '../../filters/QueryBarStatus';
 import { QueryView } from '../../StateView';
 import { PlatformDataTable } from '../../table/PlatformDataTable';
 
@@ -38,6 +39,27 @@ function Query() {
   const query = useMenuQuery(endpoint, { page: 0, pageSize: 20, sorting: [] });
   return <QueryView query={query}>{() => null}</QueryView>;
 }
+
+it('shows the fixed-equipment reason and both actions in a compact banner with a verified period cap', async () => {
+  const adapter = setup(async () => ({
+    ...failed, message: 'time_domain_unverified · fixed_equipment_limit: 36/24', recovery: { maxHours: 24 },
+  }));
+  const openConditions = vi.fn();
+  function ConditionsEditor() {
+    useRegisterContextEditorFocus(openConditions);
+    return null;
+  }
+  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry}>
+    <PlatformPage><ConditionsEditor /><Query /><Query /></PlatformPage>
+  </PlatformProvider></I18nProvider>);
+  const banner = await screen.findByRole('group', { name: '위젯 상태 요약' });
+  expect(banner).toHaveAttribute('data-outcome-compact');
+  const actions = within(banner);
+  expect(actions.getByRole('button', { name: '기간 1일로 줄이기' })).toBeVisible();
+  expect(actions.getByRole('button', { name: '조건 열기' })).toBeVisible();
+  expect(actions.queryByRole('button', { name: /대 빼고 다시 조회/ })).toBeNull();
+  expect(actions.getByText('영향 설비를 빼면 36대가 남아 고정 한도 24대를 넘습니다. 조건에서 설비를 줄이세요.')).toBeVisible();
+});
 
 it.each([[['A', 'X']], [['A']]])('keeps out-of-grant equipment out of evidence and selection (%j)', async (affectedEquipmentIds) => {
   const adapter = setup(async () => ({ ...failed, message: 'time_domain_mismatch: A, X', recovery: { affectedEquipmentIds, authorizedEquipmentIds: ['A', 'B', 'X'], maxHours: 24 } }));

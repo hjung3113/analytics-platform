@@ -2,6 +2,7 @@ import { StrictMode, useState, type ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, type QueryState } from '@ap/kernel';
+import { memoryStorage } from '@ap/kernel/testing';
 import type { ApiResponse, Assessment } from '@ap/contracts';
 import { OutcomeBanners, OutcomeScope, useSharedOutcome } from '../OutcomeScope';
 import { OutcomeView, QueryView, StateMessage } from '../../StateView';
@@ -22,7 +23,27 @@ function textWithoutDetail(node: HTMLElement) {
   clone.querySelectorAll('[role="note"]').forEach(note => note.remove());
   return clone.textContent ?? '';
 }
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+it.each([
+  ['too_large', 'fixed_equipment_limit: 25/24', 'status', 'Query too large',
+    'You selected 25 pieces of equipment. The limit is 24. Select 24 or fewer and query again.'],
+  ['error', 'time_domain_unverified · fixed_equipment_limit: 36/24', 'alert', 'Unable to load data',
+    'Excluding the affected equipment would leave 36, above the fixed selection limit of 24. Narrow the equipment in the conditions.'],
+] as const)('shows standalone fixed-equipment guidance in English for %s (#3064)', (outcome, message, role, title, reason) => {
+  const storage = memoryStorage();
+  storage.setItem('platform:lang', 'en');
+  vi.stubGlobal('localStorage', storage);
+  const openConditions = vi.fn();
+  render(<I18nProvider><QueryBarStatusContext.Provider value={{ status: null, report: vi.fn(), editorFocus: openConditions }}>
+    <Widget q={query(response(outcome, message))} />
+  </QueryBarStatusContext.Provider></I18nProvider>);
+  const card = within(screen.getByRole(role));
+  expect(card.getByText(title)).toBeVisible();
+  expect(card.getByText(reason)).toBeVisible();
+  fireEvent.click(card.getByRole('button', { name: 'Open conditions' }));
+  expect(openConditions).toHaveBeenCalledOnce();
+});
 
 describe('compact error banner wording (#2509)', () => {
   it.each([

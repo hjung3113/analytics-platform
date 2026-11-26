@@ -168,7 +168,8 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
       : <span key={widget.id} className="shrink-0">{widget.name}</span>))}
   </span>;
   if (compact) {
-    const inlineText = recovery.evidence ?? ((outcome === 'error' && errorGuidance(response.message).code === null) || outcome === 'timeout' ? summary : body);
+    const inlineText = notice.fixedEquipmentReason ?? recovery.evidence
+      ?? ((outcome === 'error' && errorGuidance(response.message).code === null) || outcome === 'timeout' ? summary : body);
     const border = danger ? 'border-text-danger/28 bg-accent-danger-soft' : warning ? 'border-border-control bg-accent-warn-soft text-text-warning-label' : 'border-border-strong bg-surface-card';
     return <section id={group.bannerId} ref={banner} data-outcome-banner data-outcome-compact role="group" aria-label={region}
       className={cn('mb-3 flex items-center gap-2 rounded-md border px-3 text-xs text-text-secondary', panels ? ['h-10 whitespace-nowrap', border] : ['flex-wrap py-1.5', danger ? 'border-text-danger-label bg-accent-danger-soft' : warning ? 'border-border-control bg-accent-warn-soft text-text-warning-label' : 'border-border-control bg-surface-sunken'])}>
