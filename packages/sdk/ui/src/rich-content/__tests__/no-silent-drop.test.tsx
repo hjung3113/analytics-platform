@@ -69,6 +69,14 @@ describe('RichEditor over-limit content (no silent drop)', () => {
     await settle();
     expect(screen.queryByRole('alert')).toBeNull();
   }, 30_000);
+
+  it('shows the notice for a value that arrives over the limit, before any edit (#3043)', async () => {
+    const big: TipTapDoc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'a'.repeat(51 * 1024) }] }] };
+    const host = mountEchoHost('voc-description', big);
+    await host.editor();
+    expect(screen.getByRole('alert')).toHaveTextContent('내용이 너무 깁니다');
+    expect(host.emitted).toHaveLength(0);
+  }, 30_000);
 });
 
 describe('RichEditor controlled echo of attributes the sanitizer strips', () => {
