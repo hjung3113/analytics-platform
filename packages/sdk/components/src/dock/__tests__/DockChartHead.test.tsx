@@ -1,5 +1,5 @@
-import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { useEffect, useState } from 'react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useCallback, useEffect, useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { AnalysisChart } from '../../chart/AnalysisChart';
@@ -9,6 +9,8 @@ import { OrderedIntervalTrack } from '../../chart/OrderedIntervalTrack';
 import { PanelOptions } from '../../workspace/PanelOptions';
 import { WorkspaceGroupActions } from '../../workspace/WorkspaceGroupActions';
 import { group, installResizeObserver, mountDock } from './harness';
+import { DockLayoutBase } from '../DockLayout';
+import { I18nProvider } from '@ap/kernel';
 
 vi.mock('../../chart/EChartImpl', () => ({ default: () => <div role="img" aria-label="plot" /> }));
 
@@ -328,4 +330,23 @@ it('does not re-run the panel render when the pointer enters or leaves the pane'
   act(() => { plot.focus(); });
   act(() => { plot.blur(); });
   expect(renders).toHaveBeenCalledTimes(before);
+});
+
+// #3148: the memo keys on `render`. A consumer whose content follows a value outside the panel (not a context) still updates, both when it
+// builds `render` inline and when it memoizes it with that value as a dependency: the new value always arrives as a new `render`.
+it.each(['inline', 'useCallback'] as const)('still re-renders a panel whose %s render reads parent state', async pattern => {
+  let bump = () => {};
+  function Host() {
+    const [count, setCount] = useState(0);
+    bump = () => { setCount(value => value + 1); };
+    const memoized = useCallback(() => <p>count {count}</p>, [count]);
+    const panelRender = pattern === 'inline' ? () => <p>count {count}</p> : memoized;
+    return <DockLayoutBase mergeChartHead panels={[{ id: 'a', title: '패널 a', render: panelRender }]} layout={group(['a'])} maximizedPanelId={null}
+      onLayoutChange={() => {}} onActivate={() => {}} onMaximizedChange={() => {}} label="테스트 배치" minPanelSize={{ width: 20, height: 20 }}
+      separatorLabel={() => 'sep'} />;
+  }
+  render(<I18nProvider><Host /></I18nProvider>);
+  expect(await screen.findByText('count 0')).toBeTruthy();
+  act(() => { bump(); });
+  expect(await screen.findByText('count 1')).toBeTruthy();
 });
