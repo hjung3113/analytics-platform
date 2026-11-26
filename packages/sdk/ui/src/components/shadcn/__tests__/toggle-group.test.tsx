@@ -131,3 +131,16 @@ describe('ToggleGroup type="single" (#2552)', () => {
     expect(screen.getByRole('status')).toHaveTextContent('item');
   });
 });
+
+// #3149: the `filter` track is white (`surface-card`); a white item hover changes nothing there, so hover uses the shared
+// row hover (DESIGN.md «hover는 공유 row-hover»).
+it.each(['default', 'outline'] as const)('shows %s item hover with the shared row hover, never a white surface (#3149)', variant => {
+  render(
+    <ToggleGroup type="single" aria-label="보기" variant={variant} appearance="filter">
+      <ToggleGroupItem value="a">가</ToggleGroupItem>
+    </ToggleGroup>,
+  );
+  const hover = Array.from(radio('가').classList).filter(name => name.startsWith('hover:bg-'));
+  expect(hover.filter(name => /^hover:bg-surface-(card|card-elevated|detail|popover)$/.test(name))).toEqual([]);
+  expect(hover).toContain('hover:bg-surface-row-hover');
+});

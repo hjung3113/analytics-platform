@@ -74,7 +74,7 @@ export function RichEditorToolbar({ editor, surface, attach, onAttachError, stic
     const action = actionsForSurface(surface).find(action => action.label === label);
     if (action) row2.push(icon(node, label, Icon, () => action.run(editor), group, editor.isActive(node), false, `${label} (/${label})`));
   }
-  if (attach && !minimal) row2.push({ id: 'attach', group: 3, control: <AttachButton showTooltip className="rounded-md text-text-primary hover:bg-surface-card focus-visible:ring-focus-ring focus-visible:ring-offset-2 [&_svg]:size-4" data-testid="rich-toolbar-attach" disabled={disabled || pending} onPick={async file => {
+  if (attach && !minimal) row2.push({ id: 'attach', group: 3, control: <AttachButton showTooltip className="rounded-md text-text-primary hover:bg-surface-row-hover focus-visible:ring-focus-ring focus-visible:ring-offset-2 [&_svg]:size-4" data-testid="rich-toolbar-attach" disabled={disabled || pending} onPick={async file => {
     if (picking.current) return;
     picking.current = true; setPending(true); setAttachError(false);
     try { await attach(file); } catch (error) { setAttachError(true); onAttachError?.(error); }
