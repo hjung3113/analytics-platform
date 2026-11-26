@@ -123,9 +123,11 @@ export async function renderOverview(search = '', respond: (request: MenuQuery) 
   const adapter = testAdapter({ session: () => session, menuQuery: async request => { requests.push(request); return respond(request); } });
   window.history.replaceState(null, '', `/mars/hw-time?view=overview&v=1&scopeId=MEM&from=2026-09-19T09:00:00&to=2026-09-26T09:00:00${search}`);
   const page = showDetail ? <DetailPanelSlotProvider><HwTimePage params={{}} /><DetailSlot /></DetailPanelSlotProvider> : <HwTimePage params={{}} />;
-  render(<I18nProvider><PlatformProvider adapter={adapter} registry={registry} savedViews={savedViews} slots={slots}>{children}{showSelectionChips && <AnalysisSelectionChipZone />}<RealChart.Provider value={realChart}>{realWorkspace ? <RealWorkspace.Provider value>{page}</RealWorkspace.Provider> : page}</RealChart.Provider></PlatformProvider></I18nProvider>);
+  const app = (store: typeof savedViews) => <I18nProvider><PlatformProvider adapter={adapter} registry={registry} savedViews={store} slots={slots}>{children}{showSelectionChips && <AnalysisSelectionChipZone />}<RealChart.Provider value={realChart}>{realWorkspace ? <RealWorkspace.Provider value>{page}</RealWorkspace.Provider> : page}</RealChart.Provider></PlatformProvider></I18nProvider>;
+  const { rerender } = render(app(savedViews));
   if (waitForData) await screen.findByTestId('hw-current', {}, { timeout: 5000 });
   await settle();
+  return { replaceStore: (store: typeof savedViews) => rerender(app(store)) };
 }
 
 let restoreGeometry: (() => void) | undefined;

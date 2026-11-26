@@ -4,7 +4,7 @@ import type { Text } from '../i18n';
 declare const process: { env: { NODE_ENV?: string } };
 type SaveBlock = string | Text;
 const NO_SAVE_BLOCKS: readonly SaveBlock[] = [];
-type Slot = { value: unknown; blocked?: SaveBlock | undefined; apply: (value: never) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
+type Slot = { value: unknown; blocked?: SaveBlock | undefined; apply: (value: never, viewId: string) => void; onViewIdChange?: (viewId: string | null) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
 export type ViewSlots = ReturnType<typeof createScreenSlots>;
 export const saveBlockKey = (reason: SaveBlock): string =>
   JSON.stringify(typeof reason === 'string' ? [reason, reason] : [reason.ko, reason.en]);
@@ -41,14 +41,15 @@ function createScreenSlots() {
     const accepted = entries.filter(entry => !entry.accepts || entry.accepts(values[key] as never));
     if (!accepted.length) return;
     applied.consumed.add(tokenKey);
-    for (const entry of accepted) entry.apply(values[key] as never);
+    const { viewId } = applied;
+    for (const entry of accepted) entry.apply(values[key] as never, viewId);
   };
   return {
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     snapshot: () => revision,
     changed: emit,
     retry(field: string, key: string) { applyKey(field, key); emit(); },
-    register<T>(field: string, key: string, slot: { value: T; blocked?: SaveBlock | undefined; apply: (value: T) => void; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
+    register<T>(field: string, key: string, slot: { value: T; blocked?: SaveBlock | undefined; apply: (value: T, viewId: string) => void; onViewIdChange?: Slot['onViewIdChange']; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
       let keys = fields.get(field);
       if (!keys) { keys = new Map(); fields.set(field, keys); }
       const entry = slot as Slot;
@@ -99,6 +100,9 @@ function createScreenSlots() {
         current.fields[field] = value;
         for (const key of fields.get(field)?.keys() ?? []) applyKey(field, key);
       }
+    },
+    changeViewId(field: string, key: string, viewId: string | null) {
+      for (const entry of fields.get(field)?.get(key) ?? []) entry.onViewIdChange?.(viewId);
     },
     select(viewId: string | null) { if (applied?.viewId !== viewId) applied = null; },
   };

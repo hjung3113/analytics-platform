@@ -25,8 +25,8 @@ import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { WorkspaceSelectionDrag } from './WorkspaceSelectionDrag';
 import { WorkspaceQueryHeads } from './WorkspaceQueryHeads';
 import { WorkspaceEdges } from './WorkspaceEdges';
-import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
-import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withAdjustedRowHeights, withRows, workspacePreference, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
+import { readWorkspaceState, sameWorkspaceState, scopedWorkspaceStorage, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
+import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withAdjustedRowHeights, withRows, workspacePreference, WORKSPACE_ID, WORKSPACE_PANEL_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
 import { canMoveBelow, clampRow, moveToNewRow, NEW_ROW_HEIGHT, rowMinimumOf, rowPreferredOf, topLevelRows, validPreferred } from './workspaceRows';
 import { useRegisterPageFlow } from '../pageFlow';
 import { alignUnderChrome, restoreScrollOffset, scrollContainerOf, stickyChromeHeight, useVisibleAreaHeight } from '../visibleArea';
@@ -50,7 +50,7 @@ export type PanelWorkspaceSelectionDrop = {
 };
 
 export type PanelWorkspacePanel = {
-  /** Static identifier (`^[a-z][a-z0-9._-]{0,63}$`): it is stored in the local preference. */
+  /** Stable slot identifier (`^[a-z][a-z0-9._-]{0,1023}$`): it is stored in the local preference. */
   id: string;
   /** Declaration used for the recipe when its id differs from this workspace slot id. */
   declarationId?: string;
@@ -154,6 +154,11 @@ export type PanelWorkspaceProps = {
    */
   persistence?: PanelWorkspacePersistence;
   /**
+   * Optional layout identity inside the platform's user, menu and persistKey. A change remounts the body. The last eight scopes
+   * written per key are retained. An unused scope starts with the unscoped preference, if one exists.
+   */
+  persistenceScope?: string;
+  /**
    * Opt-in (#2416): the menu's own workspace actions, e.g. `PanelAddMenu`. Drawn at the end of the workspace toolbar, right-aligned before the
    * height-mode `⋯`; inside a command host (the board), where the toolbar is not drawn, they get a right-aligned row above the panels.
    * Absent = output unchanged.
@@ -191,7 +196,7 @@ function useDevChecks(props: PanelWorkspaceProps) {
     const problems: string[] = [];
     if (panels.filter(panel => panel.primary).length !== 1) problems.push('exactly one panel must be primary (the first is used)');
     if (!WORKSPACE_ID.test(persistKey)) problems.push(`persistKey "${persistKey}" must match ${String(WORKSPACE_ID)}`);
-    for (const panel of panels) if (!WORKSPACE_ID.test(panel.id)) problems.push(`panel id "${panel.id}" must match ${String(WORKSPACE_ID)}`);
+    for (const panel of panels) if (!WORKSPACE_PANEL_ID.test(panel.id)) problems.push(`panel id "${panel.id}" must match ${String(WORKSPACE_PANEL_ID)}`);
     if (new Set(panels.map(panel => panel.id)).size !== panels.length) problems.push('panel ids must be unique');
     if (!presets.some(preset => preset.id === initialPreset)) problems.push(`initialPreset "${initialPreset}" is not a preset`);
     if (compactPreset !== undefined && !presets.some(preset => preset.id === compactPreset)) problems.push(`compactPreset "${compactPreset}" is not a preset`);
@@ -231,6 +236,8 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
   const scopeId = platform?.scope.scopeId;
   const dragScope = useMemo(() => ({ session, revision, scopeId }), [session, revision, scopeId]);
   useDevChecks(props);
+  const persistenceScope = platform ? props.persistenceScope : undefined;
+  const scopedStorage = useMemo(() => persistenceScope === undefined ? undefined : scopedWorkspaceStorage(persistenceScope), [persistenceScope]);
   if (props.panels.length === 0) return null;
   let storageKey: string | null;
   let storage: PanelWorkspaceStorage | undefined;
@@ -238,16 +245,18 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
     const userId = platform.session.user.id;
     const menuId = platform.route?.menu.id;
     storageKey = userId && menuId ? workspaceStorageKey(userId, menuId, props.persistKey) : null;
+    storage = scopedStorage;
   } else {
     storageKey = props.persistence?.key || null;
     storage = props.persistence?.storage;
   }
   // A persistKey (or menu, or user, or standalone key) change is a different workspace: its body remounts and restores that key's state on its own.
   const canHoldSelection = platform !== null && props.panels.some(panel => panel.analysisSelectionDrop);
-  return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} storage={storage} dragScope={dragScope} canHoldSelection={canHoldSelection} />;
+  const bodyKey = JSON.stringify([storageKey ?? `memory:${props.persistKey}`, persistenceScope]);
+  return <WorkspaceBody key={bodyKey} {...props} persistenceScope={persistenceScope} storageKey={storageKey} storage={storage} dragScope={dragScope} canHoldSelection={canHoldSelection} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, panelAddDrag, panelRecipe, edges = DEFAULT_EDGES, storageKey, storage, dragScope, canHoldSelection }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined; dragScope: object; canHoldSelection: boolean }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, panelAddDrag, panelRecipe, edges = DEFAULT_EDGES, persistenceScope, storageKey, storage, dragScope, canHoldSelection }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined; dragScope: object; canHoldSelection: boolean }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -533,12 +542,13 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
     if (!storageKey) return;
     clearTimeout(timer.current);
     // Back to what is already stored (a change undone within the delay): nothing to write.
-    const preference = workspacePreference(stored);
+    const declaredIds = persistenceScope === undefined ? undefined : new Set(seenPanels.ids);
+    const preference = workspacePreference(stored, declaredIds);
     const baseline = persisted.current ?? (automaticRows ? null : initial.state);
-    if (baseline && sameWorkspaceState(preference, baseline)) { pending.current = null; return; }
+    if (baseline && sameWorkspaceState(preference, workspacePreference(baseline, declaredIds))) { pending.current = null; return; }
     pending.current = preference;
     timer.current = setTimeout(flush, WORKSPACE_WRITE_DELAY_MS);
-  }, [automaticRows, initial.state, stored, storageKey, flush]);
+  }, [automaticRows, initial.state, stored, storageKey, flush, seenPanels.ids, persistenceScope]);
   useEffect(() => {
     window.addEventListener('pagehide', flush);
     return () => { window.removeEventListener('pagehide', flush); flush(); };

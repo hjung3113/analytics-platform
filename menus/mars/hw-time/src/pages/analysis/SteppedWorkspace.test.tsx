@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
+import { useState } from 'react';
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, PANEL_INSTANCE_TOKEN_MAX } from '@ap/contracts';
+import { usePlatform, useUnsavedGuard } from '@ap/kernel';
 import type { MenuView, PanelInstance } from '@ap/contracts';
-import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
+import { createFakeSavedViewStore, memoryStorage, testSavedView, useLeaveRequest, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { answer, openPanelPicker, renderOverview, requests, settle } from './test-support';
 
 const chart = (id = 'hw-current') => JSON.parse(screen.getByTestId(id).textContent!);
@@ -17,9 +19,11 @@ async function add(title: string, { pin = true } = {}) {
   fireEvent.click(picker.getByRole('button', { name: title }));
   await settle();
 }
+let layoutStorage: Storage;
 beforeEach(() => {
   requests.length = 0;
-  vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage());
+  layoutStorage = memoryStorage();
+  vi.stubGlobal('localStorage', layoutStorage); vi.stubGlobal('sessionStorage', memoryStorage());
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
@@ -43,6 +47,205 @@ describe('HW Time saved view panels', () => {
   async function open(id: string) {
     await act(async () => { expect(await views.select(id)).toMatchObject({ ok: true }); });
   }
+
+  const donutTitle = '판정 비율 도넛';
+  const paretoTitle = '상한 초과 파레토';
+  const aliasView = (id: string, instance = donut, over: Partial<MenuView> = {}) =>
+    saved({ id, panels: { version: 1, instances: [{ ...instance, id: 'extra' }] }, ...over });
+  const visible = (name: string) => screen.queryByRole('tab', { name }) !== null;
+  async function real(store: ReturnType<typeof createFakeSavedViewStore>, children = <Probe />, search = '') {
+    const app = await renderOverview(search, answer, { savedViews: store, children, realWorkspace: true, realChart: search ? 'hw-current' : undefined, showSelectionChips: Boolean(search) });
+    await waitFor(() => expect(views.status).toBe('ready'));
+    return app;
+  }
+  async function command(title: string, action: string) {
+    fireEvent.keyDown(await screen.findByRole('tab', { name: title }), { key: 'F10', shiftKey: true });
+    fireEvent.click(await screen.findByRole('menuitem', { name: action }));
+    await settle();
+  }
+  async function copy(name: string) {
+    const result = await act(() => views.saveAs({ name, kind: 'menu-view' }));
+    if (!result.ok) throw new Error('Failed to save view');
+    return result.value.view.id;
+  }
+  function flushLayout() { fireEvent(window, new Event('pagehide')); }
+  function savedLayout(viewId: string) {
+    const entries: [string, string][] = JSON.parse(layoutStorage.getItem('platform:workspace:v1:u1:hw-time:hw-time-s1-v1:scopes') ?? '[]');
+    return entries.find(([scope]) => scope === JSON.stringify(['MEM', viewId]))?.[1];
+  }
+
+  it('isolates Save As layout edits and clearing the picker (#3080 C1)', async () => {
+    await real(createFakeSavedViewStore([aliasView('A')]));
+    await open('A');
+    const b = await copy('B');
+    await command(donutTitle, '숨기기');
+    flushLayout();
+    await open('A');
+    expect.soft(visible(donutTitle)).toBe(true);
+    await open(b);
+    expect.soft(visible(donutTitle)).toBe(false);
+    await open('A');
+    act(() => views.clearSelection());
+    expect(views.selected).toBeNull();
+    await command(donutTitle, '숨기기');
+    flushLayout();
+    await open('A');
+    expect(visible(donutTitle)).toBe(true);
+  });
+
+  it('hands focus to the primary tab when the last saved alias is deleted (#3080 C5)', async () => {
+    await real(createFakeSavedViewStore([aliasView('A')]));
+    await open('A');
+    await command(donutTitle, '삭제');
+    expect(visible(donutTitle)).toBe(false);
+    expect(document.activeElement?.getAttribute('data-tab-panel-id')).toBe('current');
+  });
+
+  it.each(['reopen C', 'save directly'])('keeps the second raw table slot when users %s (#3080 C6)', async flow => {
+    const search = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105';
+    await real(createFakeSavedViewStore([]), <Probe />, search);
+    async function newTable(name: string) {
+      fireEvent.keyDown(await screen.findByRole('button', { name: '새 패널' }), { key: 'Enter' });
+      fireEvent.click(await screen.findByRole('menuitem', { name }));
+      await settle();
+    }
+    await newTable('원본 표 · 붙잡기');
+    const chartTab = screen.getByRole('tab', { name: 'PM1 · Pump · 설비별' });
+    chartTab.focus();
+    fireEvent.keyDown(chartTab, { key: 'Enter' });
+    await newTable('원본 표');
+    const tableId = () => screen.getByRole('tab', { name: '원본 표' }).dataset.tabPanelId;
+    const slot = tableId();
+    const c = await copy('C');
+    if (flow === 'reopen C') await open(c);
+    expect.soft(tableId()).toBe(slot);
+    const d = await copy('D');
+    await command('원본 표', '숨기기');
+    flushLayout();
+    await open(c);
+    expect.soft(visible('원본 표')).toBe(true);
+    await open(d);
+    expect(visible('원본 표')).toBe(false);
+    expect(visible('원본 표 · 붙잡음')).toBe(true);
+  });
+
+  it('keeps B’s stored hide through a deferred open with a different alias set (#3080 C7)', async () => {
+    const store = createFakeSavedViewStore([saved({ id: 'A', panels: { version: 1, instances: [pareto] } }), aliasView('B')]);
+    await real(store);
+    await open('B');
+    await command(donutTitle, '숨기기');
+    flushLayout();
+    const before = savedLayout('B');
+    expect(before).toBeDefined();
+    const writes = vi.spyOn(layoutStorage, 'setItem');
+    await open('A');
+    flushLayout();
+    writes.mockClear();
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const get = store.get.bind(store);
+    store.get = async id => { await gate; return get(id); };
+    let pending!: ReturnType<SavedViews['select']>;
+    act(() => { pending = views.select('B'); });
+    expect(visible(paretoTitle)).toBe(true);
+    await act(async () => { release(); expect(await pending).toMatchObject({ ok: true }); });
+    flushLayout();
+    expect.soft(visible(donutTitle)).toBe(false);
+    expect(savedLayout('B')).toBe(before);
+    expect(writes).not.toHaveBeenCalled();
+  });
+
+  function PeriodControls() {
+    const [dirty, setDirty] = useState(false);
+    const { setGlobal } = usePlatform();
+    const request = useLeaveRequest();
+    useUnsavedGuard(dirty, { leaves: 'address' });
+    return <><Probe />
+      <button onClick={() => setGlobal({ from: '2026-09-20T09:00:00' })}>Apply another period</button>
+      <button onClick={() => setDirty(true)}>Hold navigation</button>
+      {request && <button onClick={() => { setDirty(false); request.confirm(); }}>Confirm navigation</button>}
+    </>;
+  }
+
+  it.each(['apply', 'guarded open'])('keeps A’s layout through %s and reopens its hidden alias (#3080 C7′)', async flow => {
+    const page: MenuView['page'] = [['pins', 'pareto']];
+    await real(createFakeSavedViewStore([aliasView('A', donut, { page }), saved({
+      id: 'B', context: { from: '2026-09-20T09:00:00', to: '2026-09-26T09:00:00' }, page, panels: null,
+    })]), <PeriodControls />);
+    await open('A');
+    await command(donutTitle, '숨기기');
+    flushLayout();
+    const before = savedLayout('A');
+    expect(before).toBeDefined();
+    if (flow === 'guarded open') {
+      fireEvent.click(screen.getByRole('button', { name: 'Hold navigation' }));
+      await act(async () => { expect(await views.select('B')).toMatchObject({ ok: false, reason: 'held' }); });
+      fireEvent.click(screen.getByRole('button', { name: 'Confirm navigation' }));
+      await waitFor(() => expect(views.selected?.view.id).toBe('B'));
+    } else {
+      fireEvent.click(screen.getByRole('button', { name: 'Apply another period' }));
+      await waitFor(() => expect(views.state.modified).toBe(true));
+      expect(views.selected?.view.id).toBe('A');
+    }
+    await settle();
+    expect(screen.getByRole('button', { name: '숨긴 패널 0' })).toHaveProperty('disabled', true);
+    await command(paretoTitle, '숨기기');
+    flushLayout();
+    expect(savedLayout('A')).toBe(before);
+    await open('A');
+    expect(visible(donutTitle)).toBe(false);
+    expect(visible(paretoTitle)).toBe(true);
+    expect(screen.getByRole('button', { name: '숨긴 패널 1' })).toHaveProperty('disabled', false);
+  });
+
+  it('binds a reset configuration to the overwritten view without replay (#3080)', async () => {
+    const page: MenuView['page'] = [['pins', 'pareto']];
+    await real(createFakeSavedViewStore([aliasView('A', donut, { page })]), <PeriodControls />);
+    await open('A');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply another period' }));
+    await waitFor(() => expect(visible(donutTitle)).toBe(false));
+    const result = await act(() => views.saveToSelected());
+    expect(result).toMatchObject({ ok: true, value: { view: { id: 'A', panels: null } } });
+    await command(paretoTitle, '숨기기');
+    flushLayout();
+    act(() => views.clearSelection());
+    expect(visible(paretoTitle)).toBe(true);
+    await open('A');
+    expect(visible(paretoTitle)).toBe(false);
+  });
+
+  it('retains the live panel edit and selection on an in-place store swap (#3080 C8)', async () => {
+    const store = () => createFakeSavedViewStore([aliasView('A')]);
+    const app = await real(store());
+    await open('A');
+    await command(donutTitle, '삭제');
+    act(() => app.replaceStore(store()));
+    await waitFor(() => expect(views.status).toBe('ready'));
+    expect(views.selected?.view.id).toBe('A');
+    expect(visible(donutTitle)).toBe(false);
+    expect(views.state.modified).toBe(true);
+  });
+
+  it('keeps hiding local to a view when the same instance id names different panels (#3080)', async () => {
+    await real(createFakeSavedViewStore([aliasView('A'), aliasView('B', pareto)]));
+    await open('A');
+    await command(donutTitle, '숨기기');
+    flushLayout();
+    await open('B');
+    expect.soft(visible(paretoTitle)).toBe(true);
+    await open('A');
+    expect(visible(donutTitle)).toBe(false);
+  });
+
+  it.each(['donut', 'held table'])('reports the actual pin capability for a restored %s alias (#3080)', async panel => {
+    const held = panel === 'held table';
+    const view = held ? saved({ page: stepFourPage, panels: { version: 1, instances: [makeInstance('table'), heldTable('held-copy'), equipmentSource()] } }) : aliasView('saved');
+    await real(createFakeSavedViewStore([view]));
+    await open('saved');
+    await command(held ? '원본 표 · 붙잡음' : donutTitle, '이 패널 만든 방법');
+    const body = await screen.findByRole('region', { name: '패널 설명 본문' });
+    expect(within(body).getByText('고정').closest('li')?.textContent).toContain('미사용');
+  });
 
   it('saves two added panels and restores their order after reopening and reloading', async () => {
     const store = createFakeSavedViewStore([]);
@@ -114,7 +317,7 @@ describe('HW Time saved view panels', () => {
     await mount(store, '&moduleType=PM&drillMotion=Pump&drillModule=PM1');
     await open('saved');
     await waitFor(() => expect(config().ids).toContain('table'));
-    expect(config().ids).not.toContain('saved-panel-1');
+    expect(config().ids).not.toContain('saved-instance-held-source');
     expect(config().ids).not.toContain('moduleMotions');
     const result = await act(() => views.saveAs({ name: 'Held', kind: 'menu-view' }));
     expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: [table, source] } } } });
@@ -132,8 +335,8 @@ describe('HW Time saved view panels', () => {
     const page: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1']];
     await mount(createFakeSavedViewStore([saved({ page, panels: { version: 1, instances } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0103');
     await open('saved');
-    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1'])));
-    expect(screen.getByRole('tab', { name: 'saved-panel-1' }).getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
+    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-instance-kept'])));
+    expect(screen.getByRole('tab', { name: 'saved-instance-kept' }).getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
     expect(screen.getByRole('tab', { name: 'table' }).getAttribute('aria-description') ?? '').not.toContain('붙잡음');
     await waitFor(() => {
       const equipment = new Set(tableReads().map(read => (read.params as { motionEquipment?: string[] }).motionEquipment?.join()));
@@ -177,12 +380,12 @@ describe('HW Time saved view panels', () => {
     const step4: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['motionEquipment', 'MEM-PHOTO-0105']];
     await mount(createFakeSavedViewStore([saved({ page: step4, panels: { version: 1, instances: tables } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105');
     await open('saved');
-    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1'])));
-    expect([config().titles.table, config().titles['saved-panel-1']]).toEqual(['원본 표', '원본 표 2']);
+    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-instance-table-2'])));
+    expect([config().titles.table, config().titles['saved-instance-table-2']]).toEqual(['원본 표', '원본 표 2']);
     fireEvent.click(screen.getByRole('button', { name: 'hold table' }));
     await settle();
-    expect([config().titles.table, config().titles['saved-panel-1']]).toEqual(['원본 표', '원본 표 · 붙잡음']);
-    expect(config().ids.filter((id: string) => id === 'table' || id.startsWith('saved-panel-') || id.startsWith('table-'))).toHaveLength(2);
+    expect([config().titles.table, config().titles['saved-instance-table-2']]).toEqual(['원본 표', '원본 표 · 붙잡음']);
+    expect(config().ids.filter((id: string) => id === 'table' || id.startsWith('saved-instance-') || id.startsWith('table-'))).toHaveLength(2);
   });
 
   const step4Page: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['motionEquipment', 'MEM-PHOTO-0105']];
@@ -192,16 +395,16 @@ describe('HW Time saved view panels', () => {
     const tables = ['table', 'table-2', 'table-3'].map(id => ({ ...makeInstance('table'), id }));
     await mount(createFakeSavedViewStore([saved({ page: step4Page, panels: { version: 1, instances: tables } })]), step4Search);
     await open('saved');
-    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1', 'saved-panel-2'])));
-    expect([config().titles.table, config().titles['saved-panel-1']]).toEqual(['원본 표', '원본 표 2']);
-    expect(config().placement['saved-panel-2']).toBeUndefined();
-    const third = () => screen.getByRole('region', { name: 'panel saved-panel-2' });
+    await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-instance-table-2', 'saved-instance-table-3'])));
+    expect([config().titles.table, config().titles['saved-instance-table-2']]).toEqual(['원본 표', '원본 표 2']);
+    expect(config().placement['saved-instance-table-3']).toBeUndefined();
+    const third = () => screen.getByRole('region', { name: 'panel saved-instance-table-3' });
     expect(within(third()).getByText('같은 패널은 2개까지 함께 엽니다. 이 패널은 저장된 뷰에만 있습니다.')).toBeTruthy();
     const saveAs = async () => act(() => views.saveAs({ name: `Tables ${Math.random()}`, kind: 'menu-view' }));
     expect(await saveAs()).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: tables } } } });
-    fireEvent.click(within(third()).getByRole('button', { name: 'remove saved-panel-2' }));
+    fireEvent.click(within(third()).getByRole('button', { name: 'remove saved-instance-table-3' }));
     await settle();
-    expect(config().ids).not.toContain('saved-panel-2');
+    expect(config().ids).not.toContain('saved-instance-table-3');
     expect(await saveAs()).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: tables.slice(0, 2) } } } });
   });
 
@@ -209,7 +412,7 @@ describe('HW Time saved view panels', () => {
     const trend = { ...makeInstance('trend'), id: 'trend-2' };
     await mount(createFakeSavedViewStore([saved({ page: step4Page, panels: { version: 1, instances: [makeInstance('donut'), trend] } })]), step4Search);
     await open('saved');
-    await waitFor(() => expect(config().ids).toContain('saved-panel-1'));
+    await waitFor(() => expect(config().ids).toContain('saved-instance-trend-2'));
     expect(config().ids).toContain('trend');
     expect(config().placement.trend).toBe('below');
   });
@@ -276,7 +479,7 @@ describe('HW Time saved view panels', () => {
     expect(result.value.view).toMatchObject({ panels: storedPanels });
     expect((result.value.view as MenuView).page).toContainEqual(['pins', 'donut']);
     expect((result.value.view as MenuView).page).not.toContainEqual(['pins', 'retired']);
-    fireEvent.click(screen.getByRole('button', { name: 'remove saved-panel-0' }));
+    fireEvent.click(screen.getByRole('button', { name: 'remove saved-instance-retired' }));
     await settle();
     expect(screen.queryByText('이 패널은 더 이상 없습니다: retired')).toBeNull();
     expect(config().pins.donut).toBe(true);
@@ -296,7 +499,7 @@ describe('HW Time saved view panels', () => {
   const stepFourPage: MenuView['page'] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1'], ['pins', 'table']];
 
   it.each([
-    ['판정 비율 도넛', { ...donut, id: 'extra' }, '도넛 차트', 'saved-panel-0'],
+    ['판정 비율 도넛', { ...donut, id: 'extra' }, '도넛 차트', 'saved-instance-extra'],
     ['상한 초과 파레토', pareto, '파레토 차트', 'pareto'],
     ['PM1 · Pump · 설비별', { ...makeInstance('moduleMotions'), id: 'current' }, '가로 막대', 'current'],
   ] as const)('opens the declared recipe inside the %s slot', async (title, instance, shape, slotId) => {
@@ -327,9 +530,10 @@ describe('HW Time saved view panels', () => {
   });
 
   it.each([
-    ['trend~1', 'trend', 'saved-panel-0'],
-    ['current~1', 'moduleMotions', 'saved-panel-0'],
-    ['table~1', 'table', 'saved-panel-0'],
+    ['trend~1', 'trend', 'saved-instance-trend_007e1'],
+    ['current~1', 'moduleMotions', 'saved-instance-current_007e1'],
+    ['table~1', 'table', 'saved-instance-table_007e1'],
+    ['A'.repeat(PANEL_INSTANCE_TOKEN_MAX), 'table', `saved-instance-${'_0041'.repeat(PANEL_INSTANCE_TOKEN_MAX)}`],
   ])(
     'opens %s in its own slot and preserves its record on save',
     async (id, panel, slot) => {
@@ -350,7 +554,7 @@ describe('HW Time saved view panels', () => {
     await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels: { version: 1, instances } })]));
     await open('saved');
     expect(config().pins.table).toBe(true);
-    const alias = `saved-panel-${1 - canonicalIndex}`;
+    const alias = 'saved-instance-table_007e1';
     const slots = canonicalIndex === 0 ? ['table', alias] : [alias, 'table'];
     expect(config().ids).toEqual(['tree', 'previous', 'current', ...slots, 'trend']);
   });
@@ -375,7 +579,7 @@ describe('HW Time saved view panels', () => {
     await mount(store);
     await open(copy.value.view.id);
     expect(panelSlots()).toEqual(before);
-    expect(before).toEqual(['saved-panel-0', 'panel saved-panel-1']);
+    expect(before).toEqual(['saved-instance-table_007e1', 'panel saved-instance-donut_007e1']);
   });
 
   it.each([['trend~1', 'trend'], ['current~1', 'moduleMotions'], ['table~1', 'table']])(
@@ -387,7 +591,7 @@ describe('HW Time saved view panels', () => {
       const result = await act(() => views.saveAs({ name: 'Copy', kind: 'menu-view' }));
       expect(result).toMatchObject({ ok: true, value: { view: { panels } } });
       const tableSlot = panel === 'table' ? [] : ['table'];
-      expect(config().ids).toEqual(['tree', 'previous', 'current', 'saved-panel-0', ...tableSlot, 'trend']);
+      expect(config().ids).toEqual(['tree', 'previous', 'current', `saved-instance-${panel === 'moduleMotions' ? 'current' : panel}_007e1`, ...tableSlot, 'trend']);
     },
   );
 
@@ -398,7 +602,7 @@ describe('HW Time saved view panels', () => {
     await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels: { version: 1, instances } })]));
     await open('saved');
     expect(config().pins.table).toBe(true);
-    const slots = canonicalIndex === 0 ? ['table', 'saved-panel-1'] : ['saved-panel-0', 'table'];
+    const slots = canonicalIndex === 0 ? ['table', 'saved-instance-table_007e1'] : ['saved-instance-table_007e1', 'table'];
     expect(config().ids).toEqual(['tree', 'previous', 'current', ...slots, 'trend']);
   });
 
@@ -406,7 +610,7 @@ describe('HW Time saved view panels', () => {
     const instances = [{ ...makeInstance('table'), id: 'table~1' }];
     await mount(createFakeSavedViewStore([saved({ page: stepFourPage, panels: { version: 1, instances } })]));
     await open('saved');
-    expect(config().pins['saved-panel-0']).toBe(true);
+    expect(config().pins['saved-instance-table_007e1']).toBe(true);
   });
 });
 

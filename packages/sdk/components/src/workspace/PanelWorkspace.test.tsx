@@ -467,6 +467,64 @@ describe('PanelWorkspace: compact', () => {
 });
 
 describe('PanelWorkspace: local preference', () => {
+  it('keeps split widths independent for matching panel IDs in two layout scopes (#3001)', async () => {
+    const view = mountWorkspace({ persistenceScope: 'A' });
+    await ready();
+    const first = () => screen.getByRole('separator', { name: '선택기 · 지표 사이 너비' });
+    const original = first().getAttribute('aria-valuenow');
+    fireEvent.keyDown(first(), { key: 'ArrowRight' });
+    const resized = first().getAttribute('aria-valuenow');
+    expect(resized).not.toBe(original);
+    window.dispatchEvent(new Event('pagehide'));
+    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="B" />));
+    await waitFor(() => expect(first()).toHaveAttribute('aria-valuenow', original));
+    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="A" />));
+    await waitFor(() => expect(first()).toHaveAttribute('aria-valuenow', resized));
+  });
+
+  it('retains eight most recently written layout scopes and starts an evicted scope from the unscoped preference (#3001)', async () => {
+    storage.setItem(KEY(), JSON.stringify({ v: 1, preset: 'focus', hidden: [], layout: group(['trend', 'selector', 'detail', 'kpi']) }));
+    const view = mountWorkspace({ persistenceScope: '0' });
+    await ready();
+    const at = (scope: number) => view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope={String(scope)} />));
+    for (let scope = 0; scope < 8; scope += 1) {
+      at(scope);
+      await choose('쌓기');
+      window.dispatchEvent(new Event('pagehide'));
+    }
+    at(0);
+    expect(screen.getByRole('radio', { name: '쌓기' })).toBeChecked();
+    await choose('균형');
+    window.dispatchEvent(new Event('pagehide'));
+    at(8);
+    await choose('쌓기');
+    window.dispatchEvent(new Event('pagehide'));
+    at(1);
+    expect(screen.getByRole('radio', { name: '집중' })).toBeChecked();
+    at(0);
+    expect(screen.getByRole('radio', { name: '균형' })).toBeChecked();
+    at(2);
+    expect(screen.getByRole('radio', { name: '쌓기' })).toBeChecked();
+  });
+
+  it('keeps the height declaration of a hidden panel and prunes a departed one on a scoped write (#3001)', async () => {
+    const scopeKey = `${KEY()}:scopes`;
+    const saved = JSON.stringify({
+      v: 1, preset: 'balanced', hidden: ['detail'], layout: group(['trend', 'selector', 'kpi']),
+      preferredSeen: { departed: 500, detail: 420 },
+    });
+    storage.setItem(scopeKey, JSON.stringify([['A', saved]]));
+    mountWorkspace({
+      persistenceScope: 'A',
+      panels: PANELS.map(panel => panel.id === 'detail' ? { ...panel, preferredHeight: 420 } : panel),
+    });
+    await ready();
+    await choose('집중');
+    window.dispatchEvent(new Event('pagehide'));
+    const [[, state]] = JSON.parse(storage.getItem(scopeKey)!);
+    expect(JSON.parse(state).preferredSeen).toEqual({ detail: 420 });
+  });
+
   it('writes under platform:workspace:v1:<user>:<menu>:<persistKey> once, 300 ms after the last of several changes', async () => {
     mountWorkspace();
     await ready();
