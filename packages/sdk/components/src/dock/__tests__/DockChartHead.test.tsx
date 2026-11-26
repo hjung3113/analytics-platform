@@ -308,3 +308,24 @@ describe('when the first chart replaces the pane action trigger (#3095)', () => 
     expect(paneTool).toHaveFocus();
   });
 });
+
+// #3148: the pane's hover/focus state (it reveals the merged head's tools) lived next to the panel's render call, so every pointer
+// entering or leaving the pane re-ran the menu's render. A menu that builds its chart props inline then handed the Frame new arrays,
+// the option was rebuilt and ECharts replayed its draw animation on each hover.
+it('does not re-run the panel render when the pointer enters or leaves the pane', async () => {
+  const renders = vi.fn();
+  mountDock({
+    layout: group(['a']),
+    mergeChartHead: true,
+    inner: () => { renders(); return <AnalysisChartFrame chartId="first" title="Trend" unit="s" series={[{ id: 's', name: 'Series', color: 'chart-blue', points: [['A', 1]] }]} xType="category" />; },
+  });
+  const plot = (await screen.findByRole('img', { name: 'plot' })).parentElement!;
+  const reveal = screen.getByRole('tab', { name: '패널 a' }).closest('.dv-tabs-and-actions-container')!.querySelector('[data-dock-chart-tools]')!;
+  const before = renders.mock.calls.length;
+  fireEvent.pointerOver(plot);
+  expect(reveal).toHaveAttribute('data-revealed');
+  fireEvent.pointerOut(plot);
+  act(() => { plot.focus(); });
+  act(() => { plot.blur(); });
+  expect(renders).toHaveBeenCalledTimes(before);
+});
