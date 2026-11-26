@@ -193,9 +193,9 @@ print_rollback() { # the one place that tells how to go back after a failure pas
       # mismatch the pin file exists to prevent.
       bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images). Do NOT start $PROJECT with it: its database is already migrated. Go back by restoring the backup above into a new project (restore.sh writes that project's own pin file)."
     elif [ "$MIGRATE_STARTED" -eq 1 ] && [ "$pending" != 0 ]; then
-      bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images). Start $PROJECT with it only if the migration journal shows none of the $pending pending migration(s) applied (docker compose -p $PROJECT --env-file <env> -f <compose> exec -T postgres psql -U postgres -d platform -c 'select id, hash, created_at from drizzle.__drizzle_migrations order by id desc limit 5'): docker compose -p $PROJECT --env-file <env> -f <compose> -f $PINS_FILE up -d; otherwise restore the backup above into a new project."
+      bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images). Start $PROJECT with it only if the migration journal shows none of the $pending pending migration(s) applied ($(dc_hint) exec -T postgres psql -U postgres -d platform -c 'select id, hash, created_at from drizzle.__drizzle_migrations order by id desc limit 5'): $(bk_dc_hint "$PINS_FILE") up -d; otherwise restore the backup above into a new project."
     else
-      bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images); start the previous release with it: docker compose -p $PROJECT --env-file <env> -f <compose> -f $PINS_FILE up -d"
+      bk_log "   restore pin file $PINS_FILE is unchanged (it still names the previous images); start the previous release with it: $(bk_dc_hint "$PINS_FILE") up -d"
     fi
   fi
   [ -z "$PRE_BACKEND" ] || bk_log "   image rollback: $(image_rollback_cmd)"
@@ -301,7 +301,7 @@ MIGRATE_MAY_RUN=1
 MIGRATE_STARTED=1
 if ! run_child migrate bk_dc run --rm --no-deps migrate >&2; then
   bk_log 'MIGRATION FAILED. The backend stays stopped.'
-  bk_log "1. Inspect what was applied: docker compose -p $PROJECT --env-file <env> -f <compose> exec -T postgres psql -U postgres -d platform -c 'select id, hash, created_at from drizzle.__drizzle_migrations order by id desc limit 5'"
+  bk_log "1. Inspect what was applied: $(dc_hint) exec -T postgres psql -U postgres -d platform -c 'select id, hash, created_at from drizzle.__drizzle_migrations order by id desc limit 5'"
   bk_log "2. Forward-fix (new image, rerun this script) or go back:"
   print_rollback
   exit 1
@@ -320,7 +320,7 @@ while [ "$i" -lt 60 ]; do
   i=$((i + 1)); sleep 2
 done
 if [ "$ready" -ne 1 ]; then
-  bk_log 'backend not ready (200 /health/ready) within 120 s after the upgrade. Read: docker compose ... logs backend'
+  bk_log "backend not ready (200 /health/ready) within 120 s after the upgrade. Read: $(dc_hint) logs backend"
   print_rollback
   exit 1
 fi
