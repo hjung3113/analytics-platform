@@ -169,6 +169,10 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - `PlatformPageBodyBoundary`는 호스트가 마운트된 `PlatformPage`의 본문을 감싸는 Context다. 본문을 받아 렌더할 노드를 돌려준다. 셸은 여기서 오류를 받아 머리와 조회 조건을 유지한다([Kernel §4](kernel.md#4-platform-kernel-responsibilities)). 제공하지 않으면 페이지가 본문을 직접 렌더한다.
 - StatCard / Panel (icon chip 팔레트와 deprecated 값의 이전 규칙: [DESIGN — KPI tiles](../../DESIGN.md#kpi-tiles-and-supporting-copy))
   `StatCard`는 `secondary`를 `value`와 `unit` 사이에 표시하므로 `secondary`에 같은 단위를 넣으면 화면에 두 번 나온다.
+  - `comparison`은 `delta`와 둘 중 하나를 쓴다. 플랫폼 셸 밖에서 `comparison`을 쓰는 카드는 `@ap/kernel`의 `I18nProvider`로 감싼다. `current`·`previous`에 숫자나 `null`을 넘긴다. `kind`는 값 옆 알약에 이전 값(`value`), 절대 변화량(`absolute`), 상대 변화율(`percent`) 중 무엇을 표시할지 정한다. 메뉴가 `formatValue`로 이전 값을, `formatChange`로 부호 없는 절대 변화량을 단위와 함께 표기한다. 상대 변화율은 현재 값과 이전 값의 차이를 이전 값의 절댓값으로 나눈 뒤 백분율로 표시한다. 이전 값이 0이거나 계산한 백분율을 유한한 수로 표현할 수 없으면 절대 변화량을 표시한다. 비교에 필요한 값이 `null`·`NaN`·`±Infinity`이거나 차이가 유한하지 않으면 알약에 «—»를 표시한다. 비교 줄의 문구는 «전기 대비 · 이전 {값}»이다. `value`에서 알약에 «이전 {값}»을 표시할 때는 화살표와 비교 줄을 생략한다.
+  - 좋은 방향은 `good: 'up' | 'down'`으로 선언한다. 생략하면 알약 색은 중립이다. 변화량의 절댓값이 `noChangeBand`(지표의 단위) 이하면 알약은 화살표와 숫자 없이 중립색 «변화 없음»만 표시한다. 양수 범위의 경계는 관측값과 범위 크기에 따른 부동소수점 오차를 허용한다. 범위를 생략하거나 음수·비유한 값을 넘기면 0으로 처리한다. 범위를 벗어난 변화는 `absolute`·`percent`에서 화살표로 표시하고, 모든 `kind`에서 접근성 텍스트로 «증가» 또는 «감소»를 알린다. 좋은 방향을 선언한 카드는 성공·위험 색과 «좋아짐» 또는 «나빠짐» 접근성 텍스트도 쓴다. 알약 폭이 부족하면 숫자만 말줄임한다.
+  - `trend`는 오른쪽에 80×28 추세선을 그리는 읽기 전용 숫자 배열이다. `null`에서 선이 끊기며 마지막 관측값을 점으로 표시한다. 관측값이 없으면 선을 그리지 않는다. 추세선은 보조 시각 요소(`aria-hidden`)이므로 메뉴는 추세선이 전달하는 정보를 텍스트로도 제공한다.
+  - `comparison`·`trend`를 사용하거나 `icon`을 생략하면 높이가 고정된 카드(104px, `footnote`가 있으면 120px)를 쓴다. `icon`을 생략하면 아이콘 칸을 그리지 않는다. 기준·분모 `caption`은 한 줄에 남기고 넘치는 부분은 말줄임한다. 서식은 한 줄 인라인만 허용한다. 텍스트는 전체 내용을 `title`에 표시하며, 서식 있는 `caption`은 메뉴가 `captionTitle`로 전체 문구를 제공한다. `onClick`을 넘기면 버튼이 되고, 선택 상태(`active`)는 `accent-primary` 색의 1.5px 안쪽 선으로 표시한다.
 - DrillPath / DrillLayout (드릴다운 경로 바, 대안 기준 표시, 복구 안내와 단계 본문, [§12.7](layout.md#127-드릴다운-레이아웃-decided-adr-0025))
 - Inspector (분석 화면 보조 섹션을 한 번 선언해 `stack`·`rail` 두 형태로 보인다, [ADR-0080](../adr/0080-inspector-forms.md))
 - HeaderOverflowItem (`@ap/components`, 페이지 머리 `⋯` 메뉴의 항목 한 줄. `allowed: false`면 숨기지 않고 비활성 + `reason`을 보인다. 셸 슬롯 `analysisActions`의 `Actions`가 이것으로 항목을 그린다, [layout.md](layout.md) 슬롯, §22, #1424)
@@ -306,7 +310,9 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 
 `mapping?: PanelSettingsMapping`에 메뉴의 `fields: MenuChartFields`와 권한 검사 `granted: ChartPermissionCheck`를 넘기면 차트 패널의 «연결» 위에 펼쳐진 «매핑»을 연다. 매핑은 선·막대 종류, 지표(Y축)와 기준 칸, 읽기 전용 X축, 메뉴가 선언한 필드 칩으로 이루어진다. 선은 시간 필드를 X축에 두고 기준을 색으로 나눈다. 막대는 기준을 X축에 둔다. 시간 필드가 없는 메뉴의 선 선택은 비활성 사유를 표시한다. 칸에 있는 필드는 필드 목록에서도 선택으로 표시한다. 칩은 클릭·Enter·Space로 놓고 칸의 ×로 지운다. 놓을 수 없는 칩은 포커스를 받을 수 있으며 `aria-disabled`와 목록 아래 사유를 제공한다.
 
-`@ap/contracts`의 `mappingSlotProblem(fields, draft, slot, chip, granted)`은 칩 종류와 칸이 일치하는지 먼저 확인하고, 바꾼 초안에 `chartPanelProblem`을 적용한다. 반대쪽 칸이 비어 있다는 이유(`incomplete`)만으로 칩 배치를 막지 않는다. `assignMappingSlot(draft, slot, chip)`은 같은 종류의 칩으로 해당 칸 하나를 교체한다. 칸은 `data-mapping-slot="measure|breakdown"`, 목록 칩은 `data-mapping-chip="<field id>"`와 `data-mapping-chip-kind="measure|breakdown"`로 식별한다. 읽기 전용 X축에는 칸 표식이 없다.
+`@ap/contracts`의 `mappingSlotProblem(fields, draft, slot, chip, granted)`은 칩 종류와 칸이 일치하는지 먼저 확인하고, 바꾼 초안에 `chartPanelProblem`을 적용한다. 반대쪽 칸이 비어 있다는 이유(`incomplete`)만으로 칩 배치를 막지 않는다. `assignMappingSlot(draft, slot, chip)`은 같은 종류의 칩으로 해당 칸 하나를 교체한다. 칸은 `data-mapping-slot="measure|breakdown"`, 목록과 칸의 칩은 `data-mapping-chip="<field id>"`와 `data-mapping-chip-kind="measure|breakdown"`로 식별한다. 읽기 전용 X축에는 칸 표식이 없다.
+
+#2917 ③에서 목록과 칸의 칩을 포인터로 끌 수 있다. 끄는 동안 놓을 수 있는 칸은 테두리로 강조하고, 받을 수 없는 칸은 흐리게 하고 칸 테두리 아래에 `mappingSlotProblem`의 사유를 표시한다. 사유가 여러 줄에 걸쳐도 칸의 위치가 바뀌지 않도록 현재 너비에서 필요한 공간을 미리 확보한다. 놓기를 거부하면 같은 사유를 보조 기술에 알린다. 놓기와 목록 칩의 클릭·Enter·Space는 같은 검사와 배치 규칙을 사용한다. Escape, 창 포커스 해제, 포인터 취소·캡처 해제, 칩 제거, 저장 설정 변경으로 끌기를 취소한다. 취소 직후 다른 포인터로 끌 수 있으며, 취소한 끌기에서 뒤늦게 발생한 클릭은 칩을 배치하지 않는다. 놓는 순간 표시된 칸과 포인터 아래 칸이 다르면 초안을 유지하고 «놓는 위치가 바뀌었습니다. 다시 끌어 놓으세요.»를 표시한다.
 
 서랍은 `readChartPanel`로 저장된 차트를 검사하고, `readChartPanelDraft(config)`로 저장된 지표·기준을 초안에 옮긴다. 메뉴 선언에서 빠진 필드도 초안에 남겨 고칠 수 있게 한다. `sameChartConfig`는 JSON 객체의 키 순서와 관계없이 저장 설정의 내용을 비교한다. 같은 설정을 다시 읽어도 초안은 남고, 다른 설정으로 바뀌면 초안과 거부 사유를 함께 지운다.
 

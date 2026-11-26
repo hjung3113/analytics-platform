@@ -130,8 +130,10 @@ describe('HW Time saved view panels', () => {
   const tableReads = () => requests.filter(request => ['hwTime.levelRows', 'hwTime.tableRows'].includes(request.endpoint));
 
   it('reads each restored raw table on its own: one follows the URL, one keeps its equipment (#2862 R C4)', async () => {
-    const instances = [makeInstance('table'), heldTable('kept'), equipmentSource()];
-    await mount(createFakeSavedViewStore([saved({ panels: { version: 1, instances } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0103');
+    const following: PanelInstance = { ...makeInstance('table'), inputs: [{ key: 'motionEquipment', from: 'held-source.motionEquipment', mode: 'follow' }] };
+    const instances = [following, heldTable('kept'), equipmentSource()];
+    const page: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'], ['drillModule', 'PM1']];
+    await mount(createFakeSavedViewStore([saved({ page, panels: { version: 1, instances } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0103');
     await open('saved');
     await waitFor(() => expect(config().ids).toEqual(expect.arrayContaining(['table', 'saved-panel-1'])));
     expect(screen.getByRole('tab', { name: 'saved-panel-1' }).getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
@@ -148,13 +150,10 @@ describe('HW Time saved view panels', () => {
     const instances = [heldTable('table'), equipmentSource('module')];
     await mount(createFakeSavedViewStore([saved({ panels: { version: 1, instances } })]), '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0103');
     await open('saved');
-    expect(await screen.findByText('붙잡은 설비 선택을 적용할 수 없어 표를 거르지 않았습니다.')).toBeTruthy();
-    expect(screen.getByRole('tab', { name: 'table' }).getAttribute('aria-description')).toBe('붙잡은 설비 선택을 적용할 수 없어 표를 거르지 않았습니다.');
-    // Neither the held value nor the URL selection filters it: both endpoints read it unfiltered (R2 C6).
-    await waitFor(() => {
-      for (const endpoint of ['hwTime.levelRows', 'hwTime.tableRows']) expect(tableReads().some(read => read.endpoint === endpoint)).toBe(true);
-    });
-    expect(tableReads().every(read => (read.params as { motionEquipment?: string[] }).motionEquipment === undefined)).toBe(true);
+    expect(await screen.findByText('붙잡은 설비 선택을 적용할 수 없습니다.')).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'table' }).getAttribute('aria-description')).toBe('붙잡은 설비 선택을 적용할 수 없습니다.');
+    expect(tableReads()).toEqual([]);
+    expect(screen.queryByRole('table', { name: 'HW Time 동작시간 표' })).toBeNull();
     const result = await act(() => views.saveAs({ name: 'Other', kind: 'menu-view' }));
     expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances } } } });
   });

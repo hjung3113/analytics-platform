@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { expect } from 'storybook/test';
 import { formatDateTime } from '@ap/contracts';
-import { SmallMultiplesGrid, type SmallMultiplesSeries } from '@ap/components';
+import { SmallMultiplesGrid, type SmallMultiplesSeries, type SmallMultiplesSortOption } from '@ap/components';
 import { platformDecorator } from '../platform';
 
 const output = { panelId: 'trends', key: 'asset' };
@@ -31,10 +32,28 @@ const meta = {
       outputs: [{ key: output.key, action: 'select', selection: { dimension: 'asset', shape: 'set' } }] }],
   } })],
   args: { title: title.ko, unit: 'ms', series, analysisSelectionOutput: output },
-  render: args => <div className="h-96"><SmallMultiplesGrid {...args} /></div>,
+  parameters: { layout: 'fullscreen' },
+  render: args => <div className="h-screen"><SmallMultiplesGrid {...args} /></div>,
 } satisfies Meta<typeof SmallMultiplesGrid>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const SharedAxis: Story = {};
-export const Compact: Story = { args: { density: 'compact' } };
+export const Compact: Story = {
+  args: { density: 'compact' },
+  play: async ({ canvasElement }) => {
+    const plots = canvasElement.querySelectorAll<SVGSVGElement>('button > svg:has([data-small-multiple-line])');
+    const height = plots[0]?.getBoundingClientRect().height;
+    await expect(height).toBeGreaterThanOrEqual(24);
+    await expect(plots[1]?.getBoundingClientRect().height).toBe(height);
+  },
+};
+
+const breachCounts = new Map(series.map(item => [item.id, item.points.filter(point => point.status).length]));
+const sortOptions: SmallMultiplesSortOption[] = [{
+  id: 'breaches',
+  label: { ko: '이탈 많은 순', en: 'Most breaches first' },
+  compare: (a, b) => (breachCounts.get(b.id) ?? 0) - (breachCounts.get(a.id) ?? 0),
+}];
+
+export const DisplayOptions: Story = { args: { sortOptions, showAxisControl: true, showDensityControl: true } };

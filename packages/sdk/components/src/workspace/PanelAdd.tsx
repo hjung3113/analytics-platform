@@ -1,13 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
 import { Plus } from 'lucide-react';
-import { Button, Checkbox, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Button, DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuTrigger, Popover, PopoverTrigger } from '@ap/ui';
 import { useI18n, useMessages, usePlatform, usePlatformOptional, type Text } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PageKeyRule } from '../table/tableUrlWarning';
 import type { AnalysisSelection, MenuChartFields, PanelInstance } from '@ap/contracts';
 import { ChartPanelPicker } from './ChartPanelPicker';
-import { PanelList, PanelListRows } from './PanelListRows';
 import { PanelAddDragContext } from './PanelAddDrag';
+import { PanelListRows } from './PanelListRows';
+import { PanelPickerContent, type PanelPickerRow } from './PanelPicker';
 
 export type AnalysisPanelDraft = {
   source: `${string}/${string}`;
@@ -84,6 +85,10 @@ export function usePinnedPanels(pageKey: string, known: readonly string[]): {
  */
 export type PanelAddItem = {
   id: string; title: Text; description?: Text; disabledReason?: Text;
+  /** Flat group in the picker, in first declaration order. */
+  category?: { id: string; title: Text };
+  /** Kind shown in the row icon and preview. */
+  kind?: 'heatmap' | 'line' | 'bar' | 'scatter' | 'histogram' | 'table' | 'donut' | 'pareto' | 'history';
   /**
    * «새 패널» of `AnalysisPanelAddition` only (#2862 ②): a panel already placed is normally not offered; with `again` it still offers that one
    * mode, and the menu adds a second instance beside it (a held one beside a following one, or the reverse). A placed item with `'hold'`
@@ -120,20 +125,24 @@ export function PanelAddMenu({ items, shown = [], onAdd, chartFields, existingId
   const m = useMessages(COMPONENTS_MESSAGES);
   const { lang } = useI18n();
   const [pinOnAdd, setPinOnAdd] = useState(pinByDefault);
-  const rows = items.map(item => {
-    const reason = shown.includes(item.id) ? m('panelAddShown') : item.disabledReason?.[lang];
-    return { id: item.id, label: item.title[lang], reason, note: reason === undefined ? item.description?.[lang] : undefined,
-      onSelect: () => onAdd(item.id, pinOnAdd) };
+  const categorized = items.some(item => item.category !== undefined);
+  const rows = items.map(({ id, title, description, disabledReason, category, kind }) => {
+    const isShown = shown.includes(id);
+    const reason = isShown ? m('panelAddShown') : disabledReason?.[lang];
+    // In narrow category columns the row shows a one-line status; the full reason goes to the preview and the row's description.
+    const status = categorized && reason !== undefined ? m(isShown ? 'panelAddShown' : 'panelAddUnavailable') : undefined;
+    return { id, label: title[lang], reason, status, category, kind, description: categorized ? description?.[lang] : undefined,
+      note: !categorized && reason === undefined ? description?.[lang] : undefined, onSelect: () => onAdd(id, pinOnAdd) };
   });
   const trigger = <Button type="button" variant="ghost" size="toolbar" className={className} data-panel-add><Plus className="size-3.5" aria-hidden />{m('panelAdd')}</Button>;
-  if (chartFields) return <PanelChartPopover rows={rows} trigger={trigger} chartFields={chartFields}
+  if (categorized || chartFields) return <PanelAddPopover rows={rows} trigger={trigger} chartFields={chartFields} categorized={categorized}
     pinOnAdd={pinOnAdd} setPinOnAdd={setPinOnAdd} existingIds={[...existingIds, ...shown, ...items.map(item => item.id)]}
     onAdd={instance => onAdd(instance.id, pinOnAdd, instance)} />;
   return items.length > 0 ? <PanelAddDropdown rows={rows} trigger={trigger} pinOnAdd={pinOnAdd} setPinOnAdd={setPinOnAdd} /> : null;
 }
 
 type PickerProps = {
-  trigger: React.ReactElement; rows: React.ComponentProps<typeof PanelList>['rows'];
+  trigger: React.ReactElement; rows: readonly PanelPickerRow[];
   pinOnAdd: boolean; setPinOnAdd: (pin: boolean) => void;
 };
 
@@ -180,8 +189,8 @@ function PanelAddDropdown({ trigger, rows, pinOnAdd, setPinOnAdd }: PickerProps)
   </DropdownMenu>;
 }
 
-function PanelChartPopover({ trigger, chartFields, rows, pinOnAdd, setPinOnAdd, existingIds, onAdd }: PickerProps & {
-  chartFields: MenuChartFields; existingIds: readonly string[]; onAdd: (instance: PanelInstance) => void;
+function PanelAddPopover({ trigger, chartFields, rows, categorized, pinOnAdd, setPinOnAdd, existingIds, onAdd }: PickerProps & {
+  chartFields?: MenuChartFields; categorized: boolean; existingIds: readonly string[]; onAdd: (instance: PanelInstance) => void;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const platform = usePlatformOptional();
@@ -190,16 +199,10 @@ function PanelChartPopover({ trigger, chartFields, rows, pinOnAdd, setPinOnAdd, 
   return <Popover open={open} onOpenChange={setOpen}>
     {/* ArrowDown opens it as it opens the plain dropdown this replaces. */}
     <PopoverTrigger asChild onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); } }}>{trigger}</PopoverTrigger>
-    <PopoverContent align="end" aria-label={m('panelAdd')} {...contentProps}
-      className="max-h-[var(--radix-popover-content-available-height)] w-xl max-w-[var(--radix-popover-content-available-width)] overflow-y-auto">
-      <div className="text-sm">
-        <PanelList label={m('panelAddDeclared')} rows={offered.map(row => ({ ...row, onSelect: () => { row.onSelect?.(); setOpen(false); } }))} />
-        <label className="my-2 flex min-h-6 w-fit items-center gap-2">
-          <Checkbox checked={pinOnAdd} onCheckedChange={checked => { setPinOnAdd(checked === true); }} />{m('panelAddPins')}
-        </label>
-        <ChartPanelPicker key={generation} fields={chartFields} granted={permission => platform?.can(permission) === true} existingIds={existingIds}
-          onAdd={instance => { onAdd(instance); setOpen(false); }} />
-      </div>
-    </PopoverContent>
+    <PanelPickerContent generation={generation} rows={offered} categorized={categorized} label={m('panelAdd')}
+      pin={pinOnAdd} setPin={setPinOnAdd} close={() => setOpen(false)} contentProps={contentProps}>
+      {chartFields && <ChartPanelPicker fields={chartFields} granted={permission => platform?.can(permission) === true} existingIds={existingIds}
+        onAdd={instance => { onAdd(instance); setOpen(false); }} />}
+    </PanelPickerContent>
   </Popover>;
 }

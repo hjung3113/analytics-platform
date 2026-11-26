@@ -316,12 +316,12 @@ const held: MenuViewPanels = {
   instances: [
     { id: 'trend', source: { kind: 'declared', panel: 'trend' }, inputs: [], outputs: [{ key: 'room', dimension: 'room', shape: 'set' }, { key: 'span', dimension: 'time', shape: 'range' }] },
     { id: 'distribution', source: { kind: 'declared', panel: 'distribution' }, inputs: [
-      { key: 'room', from: 'trend.room', mode: 'hold', value: { shape: 'set', values: ['R1'] } },
+      { key: 'room', from: 'trend.room', mode: 'hold', use: 'highlight', value: { shape: 'set', values: ['R1'] } },
       { key: 'span', from: 'trend.span', mode: 'hold', value: { shape: 'range', from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' } },
     ], outputs: [] },
   ],
 };
-const followed: MenuViewPanels = { ...held, instances: [held.instances[0]!, { ...held.instances[1]!, inputs: [{ key: 'room', from: 'trend.room', mode: 'follow' }, held.instances[1]!.inputs[1]!] }] };
+const followed: MenuViewPanels = { ...held, instances: [held.instances[0]!, { ...held.instances[1]!, inputs: [{ key: 'room', from: 'trend.room', mode: 'follow', use: 'highlight' }, held.instances[1]!.inputs[1]!] }] };
 
 it('opens held sets of a view saved in another Scope as following, and lists them with the Site-bound keys (#2862)', async () => {
   await mount({ saved: row({ panels: held, savedScopeId: 'OTHER' }) });
@@ -347,4 +347,14 @@ it('followHeldSets returns panels with no held set unchanged (#2862)', () => {
   expect(followHeldSets(panels)).toEqual({ panels, keys: [] });
   expect(followHeldSets(panels).panels).toBe(panels);
   expect(followHeldSets(held)).toEqual({ panels: followed, keys: ['room'] });
+});
+
+it('followHeldSets keeps a held set\'s receiving mode and leaves an omitted one omitted (#2762)', () => {
+  const inputs = (panels: MenuViewPanels) => followHeldSets(panels).panels.instances[1]!.inputs[0]!;
+  expect(inputs(held)).toEqual({ key: 'room', from: 'trend.room', mode: 'follow', use: 'highlight' });
+  const { use: _use, ...omitted } = held.instances[1]!.inputs[0]!;
+  const withoutUse: MenuViewPanels = { ...held, instances: [held.instances[0]!, { ...held.instances[1]!, inputs: [omitted, held.instances[1]!.inputs[1]!] }] };
+  const converted = inputs(withoutUse);
+  expect(converted).toEqual({ key: 'room', from: 'trend.room', mode: 'follow' });
+  expect('use' in converted).toBe(false);
 });

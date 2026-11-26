@@ -138,7 +138,7 @@ it('reports equipment present in the moduleMotions source data', async () => {
   const output = vi.spyOn(kernel, 'useAnalysisSelectionOutput');
   try {
     await renderOverview(workspace, withoutSelectedEquipmentInModule);
-    expect(output).toHaveBeenCalledWith('moduleMotions', 'motionEquipment', { available: ['MEM-PHOTO-0103'], subscribeHighlight: false });
+    expect(output).toHaveBeenCalledWith('moduleMotions', 'motionEquipment', { available: ['MEM-PHOTO-0103'], instanceId: 'moduleMotions', subscribeHighlight: false });
   } finally {
     output.mockRestore();
   }

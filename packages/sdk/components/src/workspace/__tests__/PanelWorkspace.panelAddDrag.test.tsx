@@ -75,6 +75,48 @@ const start = (row: HTMLElement, y?: number) => {
 };
 const preview = () => document.querySelector<HTMLElement>('[data-panel-add-preview]');
 
+it('drags a filtered category row while its hover preview stays inside the faded picker', async () => {
+  const user = userEvent.setup();
+  const onAdd = vi.fn();
+  const category = { id: 'charts', title: label('차트') };
+  const catalog = items.map(item => ({ ...item, category }));
+  function Demo() {
+    const [added, setAdded] = useState(false);
+    return <PanelWorkspace panels={added ? panels : panels.slice(0, -1)} label={label('작업 영역')}
+      presets={presets} initialPreset="default" initialMode="fit" persistKey="categorized" panelAddDrag
+      toolbarActions={<PanelAddMenu items={catalog} shown={added ? ['trend', 'detail', 'dist'] : ['trend', 'detail']}
+        onAdd={(id, pin) => { onAdd(id, pin); setAdded(true); }} />} />;
+  }
+  render(<I18nProvider><Demo /></I18nProvider>);
+  const detail = (await screen.findByRole('tab', { name: '상세' })).closest('.dv-groupview')!;
+  vi.spyOn(detail, 'getBoundingClientRect').mockReturnValue(new DOMRect(300, 100, 300, 300));
+  Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => detail.querySelector('.dv-tabs-and-actions-container') });
+  await user.click(screen.getByRole('button', { name: '패널 추가' }));
+  const dialog = screen.getByRole('dialog', { name: '패널 추가' });
+  const pane = screen.getByRole('complementary');
+  const disabled = screen.getByRole('button', { name: '비활성' });
+  await user.hover(disabled);
+  expect(pane).toHaveTextContent('이 단계에서는 쓸 수 없음');
+  start(disabled);
+  expect(preview()).toBeNull();
+  pointer('pointerup', window);
+
+  await user.type(screen.getByRole('searchbox'), '분포');
+  const row = screen.getByRole('button', { name: '분포' });
+  await user.hover(row);
+  expect(pane).toHaveTextContent('분포');
+  pointer('pointerdown', row, 700, 45);
+  pointer('pointermove', row);
+  expect(preview()).toHaveAttribute('data-panel-add-preview', 'top');
+  expect(dialog).toHaveAttribute('data-panel-add-dragging');
+  expect(dialog.parentElement).toHaveAttribute('data-radix-popper-content-wrapper');
+  expect(dialog).toContainElement(pane);
+  pointer('pointerup', window);
+  expect(onAdd).toHaveBeenCalledExactlyOnceWith('dist', true);
+  expect(await screen.findByRole('tab', { name: '분포' })).toBeInTheDocument();
+  expect(screen.queryByRole('dialog', { name: '패널 추가' })).not.toBeInTheDocument();
+});
+
 it('saves the same active source tab when the added panel joins a group as a background tab', async () => {
   const drag = await mount({ enabled: true, defaultPlacement: true });
   start(drag.row);

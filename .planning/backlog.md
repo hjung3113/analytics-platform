@@ -1,6 +1,6 @@
 # 백로그 — 이슈로 올리지 않은 것
 
-- **미구현 — 작은 다중 차트 정렬·독립 축 및 HW Time 연결 ([#2740](https://github.com/hjung3113/analytics-platform/issues/2740)):** ①a는 공유 축 격자·플롯·분석 선택을 제공한다. 변경량을 나누기 위해 메뉴 선언형 정렬 옵션과 «칸마다 축» 전환은 ①b에 둔다. 재개 조건: ①a 검증 뒤 ①b를 배정한다. HW Time «HTM 추세»는 ①b를 검증한 뒤 별도 ②에서 소유자가 고른 A안으로 연결한다.
+- **미구현 — HW Time «HTM 추세» 작은 다중 차트 연결 ([#2740](https://github.com/hjung3113/analytics-platform/issues/2740)):** ①a는 공유 축 격자·플롯·분석 선택을 제공한다. ①b는 메뉴 선언형 정렬, «칸마다 축», 표시 크기 선택을 SDK에 추가했다. 재개 조건: ①b 검증 후 ②를 배정해 HW Time «HTM 추세»를 소유자가 고른 A안으로 연결한다.
 - **미구현 — «종류로 만들기»에서 끌어 패널 추가 (#2917 ②):** 행을 끄는 C2 범위는 메뉴가 선언한 패널 목록이다. 차트 조합은 «더하기» 후 패널 동작 메뉴에서 옮긴다. 다시 열 조건은 완성한 차트 조합을 바로 배치해야 하는 소비자가 생겨 끌기 시작점과 검증 방식을 정할 때다.
 
 - **미구현 — #2595 실서버 미리보기 캡처: 권한 거부 띠의 «권한 요청»이 거부 대상으로 미리 채워짐 (#2595):** 코어 디스패처는 확인된 거부 Scope를 `recovery.deniedScope`로 싣고, 엔진과 HTTP 경로 통합 시험이 응답 본문을 확인한다. 실서버 화면 캡처는 이 PR에서 하지 않았다. 로컬 실서버에는 `requiresScope` 조회가 조립 메뉴(`MENU_DECLARATIONS_FILE`)와 부여 출처가 있을 때만 생기고, 실서버 확인은 PR마다가 아니라 슬라이스·출시 전 점검에서 한다(AGENTS.md 검증, PROFILE §Pre-go-live). 외부 부여 서비스(`MENU_SCOPE_GRANT_SERVICE_URL`)만으로는 Scope 카탈로그가 없어 요청 가능한 Scope가 비고 «권한 요청» 버튼이 숨으므로 캡처 경로가 아니다(`apps/platform-api/src/menu-declarations.ts`: 카탈로그와 부여 서비스는 함께 설정할 수 없음). 다시 열 조건: 다음 출시 전 실서버 점검에서 조립 번들의 `scopeCatalog`에 room 두 개짜리 Site를 두고, 플랫폼 부여 표로 행위자에게 한 room만 부여한 뒤, 다른 room을 `roomNames`로 보낸 `requiresScope` 조회를 열어 미리 채워진 요청 창을 캡처한다.

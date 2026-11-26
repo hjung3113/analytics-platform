@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type PanelInstance } from '@ap/contracts';
+import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type MenuQuery, type PanelInstance } from '@ap/contracts';
 import { usePlatform } from '@ap/kernel';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { MOTION_EQUIPMENT_KEY, hwTime, type HwTimeTableData } from '../../endpoints';
@@ -391,4 +391,314 @@ it.each([['sort', 'equipmentId:asc'], ['page', '2']])('closes on a table %s chan
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(views.state.modified).toBe(true);
   expect(within(await openTableSettings()).getByRole('radio', { name: '강조만', checked: true })).toBeTruthy();
+});
+
+it.each(['follow', 'hold'] as const)('highlights the %s selection without filtering after editing and reopening the saved view', async mode => {
+  const selected = 'MEM-PHOTO-0103';
+  const other = 'MEM-PHOTO-0105';
+  function SelectEquipment() {
+    const { setPage } = usePlatform();
+    return <button onClick={() => setPage({ [MOTION_EQUIPMENT_KEY]: [selected] })}>Pick equipment for highlight</button>;
+  }
+  function ClearEquipment() {
+    const { setPage } = usePlatform();
+    return <button onClick={() => setPage({ [MOTION_EQUIPMENT_KEY]: null })}>Clear equipment for highlight</button>;
+  }
+  const store = createFakeSavedViewStore([testSavedView({
+    id: 'saved', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM',
+    context, page, chartOptions: {}, layout: null, panels: null,
+  })]);
+  const mount = () => renderOverview('', request => {
+    if (request.endpoint !== hwTime.tableRows.id) return answer(request);
+    const equipment = (request.params as { motionEquipment?: string[] }).motionEquipment ?? [selected, other];
+    const data: HwTimeTableData = {
+      rows: equipment.map(equipmentId => ({ id: equipmentId, equipmentId, values: {}, total: 1 })), total: equipment.length,
+    };
+    return { ...answer(request), data };
+  }, { savedViews: store, children: <><Controls /><SelectEquipment /><ClearEquipment /></>, realWorkspace: true, showDetail: true });
+  const select = async (id: string) => {
+    await waitFor(() => expect(views.status).toBe('ready'));
+    await act(async () => { expect(await views.select(id)).toMatchObject({ ok: true }); });
+    if (id === 'saved' || mode === 'follow') {
+      fireEvent.click(screen.getByRole('button', { name: 'Pick equipment for highlight' }));
+      await waitFor(() => expect(new URLSearchParams(window.location.search).get(MOTION_EQUIPMENT_KEY)).toBe(selected));
+    }
+  };
+  const tablePanel = () => within(document.querySelector<HTMLElement>('[data-dock-panel="table"]')!);
+  const table = async () => within(await tablePanel().findByRole('table', { name: 'HW Time 동작시간 표' }));
+  const expectHighlighted = async () => {
+    await waitFor(() => {
+      const rows = within(tablePanel().getByRole('table', { name: 'HW Time 동작시간 표' }));
+      expect(within(rows.getByRole('row', { name: new RegExp(selected) })).getByText('분석 선택에 포함')).toBeTruthy();
+      expect(within(rows.getByRole('row', { name: new RegExp(other) })).queryByText('분석 선택에 포함')).toBeNull();
+    });
+  };
+  await mount();
+  await select('saved');
+  const settings = await openTableSettings();
+  const rows = await table();
+  expect(await rows.findByRole('row', { name: new RegExp(selected) })).toBeTruthy();
+  expect(rows.queryByRole('row', { name: new RegExp(other) })).toBeNull();
+  fireEvent.click(within(settings).getByRole('radio', { name: '강조만' }));
+  if (mode === 'hold') {
+    fireEvent.click(within(settings).getByRole('radio', { name: '붙잡기' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear equipment for highlight' }));
+  }
+  await expectHighlighted();
+  const saved = await act(() => views.saveAs({ name: 'Highlight equipment', kind: 'menu-view' }));
+  if (!saved.ok) throw new Error('Failed to save the highlight setting');
+  cleanup();
+  await mount();
+  await select(saved.value.view.id);
+  const reopened = await openTableSettings({ name: mode === 'hold' ? '원본 표 · 붙잡음' : '원본 표' });
+  await expectHighlighted();
+  fireEvent.click(within(reopened).getByRole('radio', { name: '무시' }));
+  await waitFor(() => {
+    expect(screen.queryByText('분석 선택에 포함')).toBeNull();
+    expect(tablePanel().getByRole('row', { name: new RegExp(other) })).toBeTruthy();
+  });
+});
+
+it('saves the active default publisher and can hold a selection from the chart added after the table', async () => {
+  const store = createFakeSavedViewStore([]);
+  await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM1', answer, {
+    savedViews: store, children: <Controls />, realWorkspace: true, realChart: 'hw-module-motions', showDetail: true,
+  });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  for (const name of ['원본 표', 'PM1 · Motion별']) {
+    fireEvent.keyDown(screen.getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
+    const item = await screen.findByRole('menuitem', { name });
+    expect(item.getAttribute('aria-disabled')).toBeNull();
+    fireEvent.click(item);
+    await waitFor(() => expect(screen.queryByRole('menuitem', { name })).toBeNull());
+  }
+  fireEvent.click(await screen.findByRole('tab', { name: /Motion별/ }));
+  const chart = within((await screen.findByTestId('hw-module-motions')).closest('section')!);
+  fireEvent.click(chart.getByRole('button', { name: '더보기' }));
+  const pointTools = await screen.findByRole('dialog', { name: '더보기' });
+  fireEvent.click(within(pointTools).getByRole('button', { name: '선택에 지점 추가' }));
+  fireEvent.keyDown(pointTools, { key: 'Escape' });
+  expect(new URLSearchParams(window.location.search).get(MOTION_EQUIPMENT_KEY)).toBe('MEM-PHOTO-0103');
+  const saved = await act(() => views.saveAs({ name: 'Follow', kind: 'menu-view' }));
+  const settings = await openTableSettings();
+  expect.soft(within(settings).queryByText(/받는 선택.*PM1 · Motion별/)).toBeTruthy();
+  expect.soft(saved).toMatchObject({ ok: true, value: { view: { panels: { instances: expect.arrayContaining([
+    expect.objectContaining({ id: 'table', inputs: [{ key: MOTION_EQUIPMENT_KEY, from: `moduleMotions.${MOTION_EQUIPMENT_KEY}`, mode: 'follow' }] }),
+  ]) } } } });
+  fireEvent.click(within(settings).getByRole('radio', { name: '붙잡기' }));
+  expect(within(settings).getByText('MEM-PHOTO-0103')).toBeTruthy();
+});
+
+it('saves and reopens an untouched step-3 table following the URL equipment selection', async () => {
+  const equipment = 'MEM-PHOTO-0105';
+  const store = createFakeSavedViewStore([]);
+  const reads: MenuQuery[] = [];
+  const read = (request: MenuQuery) => {
+    if (request.endpoint === hwTime.tableRows.id) reads.push(request);
+    return answer(request);
+  };
+  await renderOverview(`&moduleType=PM&drillMotion=Pump&motionEquipment=${equipment}`, read, {
+    savedViews: store, children: <Controls />, realWorkspace: true, showDetail: true,
+  });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  fireEvent.keyDown(screen.getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name: '원본 표' }));
+  await waitFor(() => expect(reads.at(-1)?.params).toMatchObject({ motionEquipment: [equipment] }));
+
+  const settings = within(await openTableSettings());
+  expect.soft(settings.queryByRole('radio', { name: '거르기', checked: true })).toBeTruthy();
+  fireEvent.keyDown(settings.getByRole('radio', { name: '무시' }), { key: 'Escape' });
+  const saved = await act(() => views.saveAs({ name: 'Motion follow', kind: 'menu-view' }));
+  expect.soft(saved).toMatchObject({ ok: true, value: { view: { panels: { instances: expect.arrayContaining([
+    expect.objectContaining({ id: 'table', inputs: [{ key: MOTION_EQUIPMENT_KEY, from: `held-source.${MOTION_EQUIPMENT_KEY}`, mode: 'follow' }] }),
+    expect.objectContaining({ id: 'held-source', outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] }),
+  ]) } } } });
+  if (!saved.ok) throw new Error('Unable to save the step-3 view');
+
+  cleanup();
+  reads.length = 0;
+  await renderOverview(`&motionEquipment=${equipment}`, read, {
+    savedViews: store, children: <Controls />, realWorkspace: true, showDetail: true,
+  });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { expect(await views.select(saved.value.view.id)).toMatchObject({ ok: true }); });
+  fireEvent.click(await screen.findByRole('tab', { name: '원본 표' }));
+  await waitFor(() => expect(reads.at(-1)?.params).toMatchObject({ motionEquipment: [equipment] }));
+});
+
+it('restores a saved raw table with empty inputs in Ignore mode after a chart selection', async () => {
+  const equipment = ['MEM-PHOTO-0103', 'MEM-PHOTO-0105'];
+  const publisher: PanelInstance = { id: 'current', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+    outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
+  const table: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, inputs: [], outputs: [] };
+  const store = createFakeSavedViewStore([testSavedView({
+    id: 'saved', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM',
+    context, page, chartOptions: {}, layout: null, panels: { version: 1, instances: [publisher, table] },
+  })]);
+  const reads: MenuQuery[] = [];
+  await renderOverview('', request => {
+    const response = answer(request);
+    if (request.endpoint !== hwTime.levelRows.id && request.endpoint !== hwTime.tableRows.id) return response;
+    reads.push(request);
+    const equipmentIds = (request.params as { motionEquipment?: string[] }).motionEquipment ?? equipment;
+    const rows = equipmentIds.map(equipmentId => ({ id: equipmentId, equipmentId, values: {}, total: 1 }));
+    return request.endpoint === hwTime.levelRows.id
+      ? { ...response, data: { ...response.data as object, rows } }
+      : { ...response, data: { rows, total: rows.length } };
+  }, { savedViews: store, children: <Controls />, realWorkspace: true, realChart: 'hw-current', showDetail: true });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { expect(await views.select('saved')).toMatchObject({ ok: true }); });
+
+  fireEvent.click(await screen.findByRole('button', { name: '더보기' }));
+  const pointTools = await screen.findByRole('dialog', { name: '더보기' });
+  fireEvent.click(within(pointTools).getByRole('button', { name: '선택에 지점 추가' }));
+  fireEvent.keyDown(pointTools, { key: 'Escape' });
+  expect(new URLSearchParams(window.location.search).getAll(MOTION_EQUIPMENT_KEY)).toEqual([equipment[0]]);
+
+  const tab = await screen.findByRole('tab', { name: '원본 표' });
+  fireEvent.keyDown(tab, { key: 'F10', shiftKey: true });
+  fireEvent.keyDown(await screen.findByRole('menu'), { key: 'Escape' });
+  await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+  const rows = within(await screen.findByRole('table', { name: 'HW Time 동작시간 표' }));
+  const sort = within(rows.getByRole('columnheader', { name: /EquipmentID/ })).getByRole('button');
+  await waitFor(() => expect((sort as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(sort);
+  await waitFor(() => expect(reads).toContainEqual(expect.objectContaining({
+    endpoint: hwTime.tableRows.id, params: expect.objectContaining({ sorting: [{ id: 'equipmentId', desc: false }] }),
+  })));
+  expect(reads.some(request => request.endpoint === hwTime.levelRows.id)).toBe(true);
+  for (const request of reads) expect(request.params).not.toHaveProperty(MOTION_EQUIPMENT_KEY);
+  for (const id of equipment) expect(await rows.findByRole('row', { name: new RegExp(id) })).toBeTruthy();
+  expect(rows.queryByText('분석 선택에 포함')).toBeNull();
+  expect(within(await openTableSettings()).getByRole('radio', { name: '무시', checked: true })).toBeTruthy();
+});
+
+it('keeps two held table filters separate through level reads, paging, export, and reopening with the live selection cleared', async () => {
+  const equipment = ['MEM-PHOTO-0103', 'MEM-PHOTO-0105'];
+  const source: PanelInstance = { id: 'current', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+    outputs: [{ key: MOTION_EQUIPMENT_KEY, shape: 'set', dimension: EQUIPMENT_SELECTION_DIMENSION }] };
+  const tables: PanelInstance[] = equipment.map((id, index) => ({
+    id: index === 0 ? 'table' : 'table-copy', source: { kind: 'declared', panel: 'table' }, outputs: [],
+    inputs: [{ key: MOTION_EQUIPMENT_KEY, mode: 'hold', from: `current.${MOTION_EQUIPMENT_KEY}`, value: { shape: 'set', values: [id] } }],
+  }));
+  const store = createFakeSavedViewStore([testSavedView({
+    id: 'held', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM', context,
+    page: [...page, [MOTION_EQUIPMENT_KEY, equipment[1]!]], chartOptions: {}, layout: null, panels: { version: 1, instances: [source, ...tables] },
+  })]);
+  const reads: MenuQuery[] = [];
+  function ClearLiveSelection() {
+    const { setPage } = usePlatform();
+    return <button onClick={() => setPage({ [MOTION_EQUIPMENT_KEY]: null })}>Clear live selection</button>;
+  }
+  const mount = async (id: string) => {
+    await renderOverview('', request => {
+      reads.push(request);
+      const params = request.params as { motionEquipment?: string[]; page?: number };
+      const rowIds = params.motionEquipment ?? equipment;
+      const rows = rowIds.map(equipmentId => ({ id: equipmentId, equipmentId, values: {}, total: 1 }));
+      const response = answer(request);
+      if (request.endpoint === hwTime.levelRows.id) return { ...response, data: { ...response.data as object, rows } };
+      if (request.endpoint === hwTime.tableRows.id) return { ...response, data: { rows, total: 26 } };
+      if (request.endpoint === hwTime.exportRows.id) return { ...response, data: rows };
+      return response;
+    }, { savedViews: store, children: <><Controls /><ClearLiveSelection /></>, showDetail: true });
+    await waitFor(() => expect(views.status).toBe('ready'));
+    await act(async () => { expect(await views.select(id)).toMatchObject({ ok: true }); });
+  };
+  const tablePanel = (slot: string) => within(screen.getByRole('region', { name: `panel ${slot}` }));
+  const expectHeldRows = async () => {
+    for (const [index, slot] of ['table', 'saved-panel-2'].entries()) {
+      const panel = tablePanel(slot);
+      expect(await panel.findByRole('row', { name: new RegExp(equipment[index]!) })).toBeTruthy();
+      expect(panel.queryByRole('row', { name: new RegExp(equipment[1 - index]!) })).toBeNull();
+    }
+  };
+  await mount('held');
+  fireEvent.click(screen.getByRole('button', { name: 'Clear live selection' }));
+  await expectHeldRows();
+  for (const id of equipment) expect(reads).toContainEqual(expect.objectContaining({
+    endpoint: hwTime.levelRows.id, params: expect.objectContaining({ motionEquipment: [id] }),
+  }));
+  fireEvent.click(tablePanel('saved-panel-2').getByRole('button', { name: '다음' }));
+  await waitFor(() => expect(reads).toContainEqual(expect.objectContaining({
+    endpoint: hwTime.tableRows.id, params: expect.objectContaining({ page: 1, motionEquipment: [equipment[1]] }),
+  })));
+  fireEvent.keyDown(tablePanel('table').getByRole('button', { name: /^내보내기/ }), { key: 'Enter' });
+  fireEvent.click(await screen.findByRole('menuitem', { name: /^필터 결과 전체 .*CSV로 내보내기$/ }));
+  await waitFor(() => expect(reads).toContainEqual(expect.objectContaining({
+    endpoint: hwTime.exportRows.id, params: expect.objectContaining({ motionEquipment: [equipment[0]] }),
+  })));
+  const saved = await act(() => views.saveAs({ name: 'Held tables', kind: 'menu-view' }));
+  if (!saved.ok) throw new Error('Failed to save held tables');
+  cleanup();
+  await mount(saved.value.view.id);
+  expect(new URLSearchParams(window.location.search).has(MOTION_EQUIPMENT_KEY)).toBe(false);
+  await expectHeldRows();
+});
+
+it('blocks the table population and export until a rejected held filter is removed', async () => {
+  const source: PanelInstance = { id: 'current', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+    outputs: [{ key: MOTION_EQUIPMENT_KEY, shape: 'set', dimension: 'stale-equipment' }] };
+  const table: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+    inputs: [{ key: MOTION_EQUIPMENT_KEY, mode: 'hold', use: 'filter', from: `current.${MOTION_EQUIPMENT_KEY}`,
+      value: { shape: 'set', values: ['MEM-PHOTO-0103'] } }],
+  };
+  const store = createFakeSavedViewStore([testSavedView({
+    id: 'rejected', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM', context,
+    page: page.filter(([key]) => key !== 'pins'), chartOptions: {}, layout: null, panels: { version: 1, instances: [source, table] },
+  })]);
+  const reads: MenuQuery[] = [];
+  await renderOverview('', request => {
+    if (request.endpoint === hwTime.levelRows.id || request.endpoint === hwTime.tableRows.id || request.endpoint === hwTime.exportRows.id) reads.push(request);
+    return answer(request);
+  }, { savedViews: store, children: <Controls />, realWorkspace: true, showDetail: true });
+
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { expect(await views.select('rejected')).toMatchObject({ ok: true }); });
+  fireEvent.click(await screen.findByRole('tab', { name: '원본 표 · 붙잡음' }));
+  expect((await screen.findByText('붙잡은 설비 선택을 적용할 수 없습니다.')).closest('[role="alert"]')).toBeTruthy();
+  expect(reads).toEqual([]);
+  expect(screen.queryByRole('table', { name: 'HW Time 동작시간 표' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^내보내기/ })).toBeNull();
+
+  const settings = await openTableSettings({ name: '원본 표 · 붙잡음' });
+  fireEvent.click(within(settings).getByRole('radio', { name: '무시' }));
+  await waitFor(() => expect(reads.some(request => request.endpoint === hwTime.tableRows.id)).toBe(true));
+  expect(screen.queryByText('붙잡은 설비 선택을 적용할 수 없습니다.')).toBeNull();
+});
+
+it.each([
+  { problem: 'the saved source is no longer the live chart', key: MOTION_EQUIPMENT_KEY, sourceIds: ['current', 'replacement'] },
+  { problem: 'the saved receiving key has been retired', key: 'oldMotionEquipment', sourceIds: ['current'] },
+])('blocks table reads until Ignore when $problem', async ({ key, sourceIds }) => {
+  const output = { key: MOTION_EQUIPMENT_KEY, shape: 'set', dimension: EQUIPMENT_SELECTION_DIMENSION } as const;
+  const sources: PanelInstance[] = sourceIds.map(id => ({
+    id, source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [output],
+  }));
+  const table: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+    inputs: [{ key, mode: 'follow', use: 'filter', from: `current.${MOTION_EQUIPMENT_KEY}` }],
+  };
+  const store = createFakeSavedViewStore([testSavedView({
+    id: 'disconnected', kind: 'menu-view', menuId: 'hw-time', menuSchemaVersion: 1, savedScopeId: 'MEM', context,
+    page: [...page, [MOTION_EQUIPMENT_KEY, 'MEM-PHOTO-0103']], chartOptions: {}, layout: null,
+    panels: { version: 1, instances: [...sources, table] },
+  })]);
+  const reads: MenuQuery[] = [];
+  await renderOverview('', request => {
+    if (request.endpoint === hwTime.levelRows.id || request.endpoint === hwTime.tableRows.id || request.endpoint === hwTime.exportRows.id) reads.push(request);
+    return answer(request);
+  }, { savedViews: store, children: <Controls />, realWorkspace: true, showDetail: true });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  await act(async () => { expect(await views.select('disconnected')).toMatchObject({ ok: true }); });
+  fireEvent.click(await screen.findByRole('tab', { name: '원본 표' }));
+  expect.soft(reads).toEqual([]);
+  expect(await screen.findByText('연결한 차트의 선택을 읽을 수 없습니다.')).toBeTruthy();
+  expect(screen.queryByRole('table', { name: 'HW Time 동작시간 표' })).toBeNull();
+  expect(screen.queryByRole('button', { name: /^내보내기/ })).toBeNull();
+
+  const settings = within(await openTableSettings());
+  const connection = settings.getByRole('radio', { name: '거르기', checked: true }).closest('[role="group"]')! as HTMLElement;
+  fireEvent.click(within(connection).getByRole('radio', { name: '무시' }));
+  await waitFor(() => expect(reads.some(request => request.endpoint === hwTime.tableRows.id)).toBe(true));
+  expect(screen.queryByText('연결한 차트의 선택을 읽을 수 없습니다.')).toBeNull();
 });
