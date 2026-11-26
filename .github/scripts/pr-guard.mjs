@@ -16,6 +16,9 @@
 //   menu    editing a menus/<system>/<group> or platform/<feature> "version" line or CHANGELOG.md fails unless that PR also deletes one
 //           changes/<issue>.md of the same menu (the release fold). An added, removed or unedited moved menu and an ap.sdk-only
 //           package.json change pass. The FAIL line names the menu and points at menus/AGENTS.md.
+//   docs    the PR body has a `고친 문서: <documents>` or `고친 문서: 없음 — <reason>` line (#2284). It applies only to PRs created after
+//           DOCS_LINE_FROM_PR merged, so PRs open before the rule existed keep passing. The row always shows whether the rule is on; if
+//           DOCS_LINE_FROM_PR is closed unmerged the rule could never start, so every PR fails until the constant names the PR that merged.
 // Fail-closed: an API error fails the job (rerun it); a guard that skips on error would be the lead's exception by another name.
 // Node builtins only (sparse checkout, no install). Needs GITHUB_TOKEN with pull-requests: read and actions: read.
 //
@@ -35,6 +38,10 @@ const ROUND_LINE = /^[ \t]*Round cap:[ \t]*(\S.*)$/m;
 const LATE_FIX = /리뷰\s*(\d+)\s*회차|\breview round (\d+)\b/i;
 const DECIDER = /^(?:lead|owner)\s*—/;
 const SIZE_LINE = /^[ \t]*Size:[ \t]*(\S.*)$/m;
+// The PR that introduced the docs line; its merge time is when the rule starts.
+export const DOCS_LINE_FROM_PR = 3135;
+const DOCS_LINE = /^[ \t]*고친 문서:[ \t]*(\S.*)$/m;
+const DOCS_NONE = /^없음\s*—\s*\S/;
 const RELEASE_FILE = /^v(\d+)\.(\d+)\.(\d+)\.md$/;
 const BUDGET_FILE = '.github/ci-budget.json';
 const BUDGET_LABEL = 'ci-budget-ok';
@@ -173,13 +180,34 @@ function labelsNote(size) {
   return size.answer ? `, Size: ${size.answer}` : `, waived by \`${SIZE_LABEL}\``;
 }
 
-export function summarize({ size, rounds, scope, budget, labelEvents, releaseFile, menuChangelog }) {
+/** `since` is DOCS_LINE_FROM_PR's merge time, or null while it is unmerged; `startClosed` is true when that PR is closed. */
+export function docsVerdict({ body, createdAt, since, startClosed = false }) {
+  if (!since) return startClosed ? { ok: false, applies: false, state: 'dead' } : { ok: true, applies: false, state: 'pending' };
+  if (createdAt < since) return { ok: true, applies: false, state: 'before' };
+  // The template's placeholder is an HTML comment; a line left at the placeholder is no answer.
+  const answer = (body ?? '').replace(/<!--[\s\S]*?-->/g, '').match(DOCS_LINE)?.[1]?.trim() ?? null;
+  const ok = answer !== null && (!answer.startsWith('없음') || DOCS_NONE.test(answer));
+  return { ok, applies: true, answer };
+}
+
+export function summarize({ size, rounds, scope, budget, labelEvents, releaseFile, menuChangelog, docs }) {
   const mark = (ok) => (ok ? 'ok' : 'FAIL');
   const rows = [
     `| size | ${mark(size.ok)} | ${size.lines} lines, ${size.files} files (cap ${MAX_LINES}/${MAX_FILES}; ${size.excluded} generated/snapshot/lockfile/release-mechanical excluded)${size.waived ? (labelsNote(size)) : ''} |`,
     `| rounds | ${mark(rounds.ok)} | ${rounds.pushes} pushes (cap ${MAX_PUSHES} without an answer)${rounds.answer ? `, Round cap: ${rounds.answer}` : rounds.over ? ', no `Round cap:` line in the PR body' : ''}${rounds.lateFixes?.length ? `; fix after review round 2${DECIDER.test(rounds.answer ?? '') ? '' : ' needs \`Round cap: lead — …\`'}: ${rounds.lateFixes.map((t) => `«${t.replaceAll('|', '\\|')}»`).join(', ')}` : ''} |`,
     `| scope | ${mark(scope.ok)} | closes ${scope.closes.length ? scope.closes.map((n) => `#${n}`).join(' ') : 'nothing'}; ${scope.noSection ? `no \`## 범위\` in ${releaseFile ?? 'any release file'} on the base branch` : `missing from ${releaseFile}: ${scope.missing.map((n) => `#${n}`).join(' ') || 'none'}`}${scope.grew.length ? `; head adds ${scope.grew.map((n) => `#${n}`).join(' ')} to \`## 범위\`` : ''}${scope.waived ? `; waived by \`${SCOPE_LABEL}\`` : ''} |`,
   ];
+  if (docs) {
+    const off = {
+      pending: `off until #${DOCS_LINE_FROM_PR} merges`,
+      dead: `#${DOCS_LINE_FROM_PR} closed unmerged, so the rule can never start: set DOCS_LINE_FROM_PR to the PR that merged it`,
+      before: `off: this PR was opened before #${DOCS_LINE_FROM_PR} merged`,
+    }[docs.state];
+    const detail = off ?? (docs.answer === null
+      ? 'no `고친 문서:` line at the line start of the PR body'
+      : `고친 문서: ${docs.answer.replaceAll('|', '\\|')}${docs.ok ? '' : ' (없음 needs `— <reason>`)'}`);
+    rows.push(`| docs | ${mark(docs.ok)} | ${detail} |`);
+  }
   if (budget) rows.push(`| CI budget | ${mark(budget.ok)} | ${budget.detail} |`);
   if (menuChangelog) {
     const detail = menuChangelog.ok
@@ -307,6 +335,23 @@ function selfTest() {
   assert.equal(menuOk([row('platform/home/CHANGELOG.md', 'modified', '@@\n-a\n+b\n'), { filename: 'platform/home/changes/2.md', status: 'removed', additions: 0, deletions: 2 }]), true);
   assert.equal(sizeVerdict([{ filename: 'platform/home/changes/2.md', status: 'removed', additions: 0, deletions: 2 }], []).files, 0);
   assert.match(summarize({ size: sizeVerdict([], []), rounds: roundsVerdict(1, ''), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md', menuChangelog: menuChangelogVerdict([row('menus/mars/hw-time/CHANGELOG.md', 'modified', '@@\n-a\n+b\n')]) }), /\| menu changelog \| FAIL \| menus\/mars\/hw-time .*menus\/AGENTS\.md/);
+  const guardBase = { size: sizeVerdict([], []), rounds: roundsVerdict(1, ''), scope: scopeVerdict({ closes: [], baseScope: new Set(), headScope: new Set(), labels: [] }), labelEvents: [], releaseFile: 'v0.44.0.md' };
+  const docsAt = (body, createdAt = '2026-12-02T00:00:00Z', since = '2026-12-01T00:00:00Z') => docsVerdict({ body, createdAt, since });
+  assert.equal(docsAt('no line', '2026-12-02T00:00:00Z', null).ok, true, 'rule off until DOCS_LINE_FROM_PR merges');
+  assert.equal(docsAt('no line', '2026-11-30T00:00:00Z').ok, true, 'a PR opened before the rule passes');
+  assert.equal(docsAt('no line').ok, false);
+  assert.equal(docsAt('고친 문서: docs/contract/layout.md').ok, true);
+  assert.equal(docsAt('x\n  고친 문서: 없음 — 테스트만 바꿈\n').ok, true);
+  assert.equal(docsAt('고친 문서: 없음').ok, false, '없음 needs a reason');
+  assert.equal(docsAt('고친 문서: <!-- 고친 소유 문서들 -->\n').ok, false, 'the template placeholder is no answer');
+  assert.equal(docsAt('- 고친 문서: docs/a.md').ok, false, 'the line starts the line, not a bullet');
+  assert.match(summarize({ ...guardBase, docs: docsAt('고친 문서: 없음') }), /\| docs \| FAIL \| 고친 문서: 없음 \(없음 needs/);
+  assert.match(summarize({ ...guardBase, docs: docsAt('', '2026-11-30T00:00:00Z') }), /\| docs \| ok \| off: this PR was opened before #3135 merged \|/);
+  assert.match(summarize({ ...guardBase, docs: docsAt('', undefined, null) }), /\| docs \| ok \| off until #3135 merges \|/, 'the off state is visible');
+  const dead = docsVerdict({ body: '고친 문서: docs/a.md', createdAt: '2026-12-02T00:00:00Z', since: null, startClosed: true });
+  assert.equal(dead.ok, false, 'a start PR closed unmerged fails every PR');
+  assert.match(summarize({ ...guardBase, docs: dead }), /\| docs \| FAIL \| #3135 closed unmerged/);
+  assert.match(summarize({ ...guardBase, docs: docsAt('- 고친 문서: docs/a.md') }), /no `고친 문서:` line at the line start/);
   console.log('pr-guard self-test passed');
 }
 
@@ -354,16 +399,18 @@ async function main() {
     .map((e) => ({ label: e.label.name, actor: e.actor?.login ?? '?', at: e.created_at }));
 
   const commits = await paged(`/repos/${repo}/pulls/${n}/commits`);
+  const docsFrom = await api(`/repos/${repo}/pulls/${DOCS_LINE_FROM_PR}`);
+  const docs = docsVerdict({ body: pr.body, createdAt: pr.created_at, since: docsFrom.merged_at, startClosed: docsFrom.state === 'closed' });
   const size = sizeVerdict(files, labels, pr.body);
   const rounds = roundsVerdict(runs.length, pr.body, commits.map((c) => c.commit.message.split('\n')[0]));
   const scope = scopeVerdict({ closes: closingIssues(pr.title, pr.body), baseScope: scopeIssues(baseText), headScope: scopeIssues(headText), labels });
   const menuChangelog = menuChangelogVerdict(files);
-  const text = summarize({ size, rounds, scope, budget, labelEvents, releaseFile, menuChangelog });
+  const text = summarize({ size, rounds, scope, budget, labelEvents, releaseFile, menuChangelog, docs });
   console.log(text);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, text);
-  if (!(size.ok && rounds.ok && scope.ok && (budget?.ok ?? true) && menuChangelog.ok)) {
+  if (!(size.ok && rounds.ok && scope.ok && (budget?.ok ?? true) && menuChangelog.ok && docs.ok)) {
     const menuFail = menuChangelog.ok ? '' : ` ${menuChangelog.menus.join(', ')} (menus/AGENTS.md).`;
-    console.error(`pr-guard: FAIL (size=${size.ok} rounds=${rounds.ok} scope=${scope.ok} budget=${budget?.ok ?? 'unchanged'} menu=${menuChangelog.ok}).${menuFail} Rules: .agents/conductor/PROFILE.md §Size and path, Mechanical caps.`);
+    console.error(`pr-guard: FAIL (size=${size.ok} rounds=${rounds.ok} scope=${scope.ok} budget=${budget?.ok ?? 'unchanged'} menu=${menuChangelog.ok} docs=${docs.ok}).${menuFail} Rules: .agents/conductor/PROFILE.md §Size and path, Mechanical caps.`);
     process.exit(1);
   }
 }

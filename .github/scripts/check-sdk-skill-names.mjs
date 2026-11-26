@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Keeps the hand-written skill .agents/skills/ap-sdk-consumer true to the SDK (#1207, ADR-0131): every `@ap/<entry>#Name` it names
 // is a menu-importable public export in the release snapshots or the current public entry, and every relative link and anchor resolves.
-// check-doc-links.mjs excludes .agents/skills/, so this script covers that folder. Node builtins only; runs on every PR before install,
-// because a PR that only edits .agents/ skips the static steps.
+// check-doc-links.mjs also covers this skill's links and anchors (#2284); this script adds the `@ap/<entry>#Name` export check.
+// Node builtins only; runs on every PR before install.
 //
 // Usage: node .github/scripts/check-sdk-skill-names.mjs [--self-test]
 // Exit status: 0 = clean, 1 = at least one problem, 2 = the skill, a snapshot or a current entry cannot be read.
