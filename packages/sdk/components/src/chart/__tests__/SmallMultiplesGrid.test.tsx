@@ -5,6 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { groupId, spaceId } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChips } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { DockChartToolbarWidth } from '../../dock/DockChartHead';
 import { SmallMultiplesGrid, type SmallMultiplesGridProps } from '../SmallMultiplesGrid';
 import type { SmallMultiplesSeries } from '../smallMultiplesPlot';
 import { QueryPanelContentContext } from '../../workspace/panelContext';
@@ -206,4 +207,90 @@ it('shares the measured period and range, draws the stepped band, and uses the w
   expect(within(screen.getByRole('grid')).queryByText('1–10 ms')).toBeNull();
   rerender(view({ series: [first, second], density: 'compact' }));
   expect(button).toHaveClass('h-18');
+});
+
+const withToolbar = (props: Partial<SmallMultiplesGridProps>) =>
+  <DockChartToolbarWidth.Provider value={800}>{view(props)}</DockChartToolbarWidth.Provider>;
+const tileOrder = () => within(screen.getByRole('grid')).getAllByRole('button').map(button => button.getAttribute('aria-label'));
+const sortOptions = [{
+  id: 'odd-first', label: { ko: '홀수 우선', en: 'Odd first' },
+  compare: (a: SmallMultiplesSeries, b: SmallMultiplesSeries) => (b.points[0].y! % 2) - (a.points[0].y! % 2),
+}];
+
+it.each(['radio', 'menuitemradio'] as const)('shows original order first and preserves input order on ties using %s', async role => {
+  const user = userEvent.setup();
+  const data = [series[2], series[3], series[0], series[1]];
+  const options = role === 'radio' ? sortOptions : [...sortOptions, {
+    id: 'reverse', label: { ko: '역순', en: 'Reverse' },
+    compare: (a: SmallMultiplesSeries, b: SmallMultiplesSeries) => b.label.localeCompare(a.label),
+  }];
+  render(withToolbar({ series: data, sortOptions: options }));
+  expect(tileOrder()).toEqual(data.map(item => item.label));
+  const open = async (current: string) => {
+    if (role === 'menuitemradio') await user.click(screen.getByRole('button', { name: `정렬: ${current}` }));
+  };
+  await open('원래 순서');
+  expect(screen.getAllByRole(role)[0]).toHaveAccessibleName('원래 순서');
+  expect(screen.getByRole(role, { name: '원래 순서', checked: true })).toBeInTheDocument();
+  await user.click(screen.getByRole(role, { name: '홀수 우선' }));
+  expect(tileOrder()).toEqual(['Asset 3', 'Asset 1', 'Asset 2', 'Asset 0']);
+  await open('홀수 우선');
+  await user.click(screen.getByRole(role, { name: '원래 순서' }));
+  expect(tileOrder()).toEqual(data.map(item => item.label));
+});
+
+it.each([2, 4])('keeps focus and URL selection on the same series after a controlled sort with %i columns', async columns => {
+  window.history.replaceState(null, '', '/?v=1&asset=asset-0');
+  const reverse = [{ id: 'reverse', label: { ko: '역순', en: 'Reverse' },
+    compare: (a: SmallMultiplesSeries, b: SmallMultiplesSeries) => b.label.localeCompare(a.label) }];
+  const props = { series: series.slice(0, 4), columns, sortOptions: reverse, onSortChange: vi.fn() };
+  const { rerender } = render(withToolbar({ ...props, sortId: 'original' }));
+  const focused = await screen.findByRole('button', { name: 'Asset 0', pressed: true });
+  fireEvent.click(screen.getByRole('radio', { name: '역순' }));
+  expect(props.onSortChange).toHaveBeenCalledWith('reverse');
+  expect(tileOrder()[0]).toBe('Asset 0');
+  focused.focus();
+  rerender(withToolbar({ ...props, sortId: 'reverse' }));
+  expect(tileOrder().at(-1)).toBe('Asset 0');
+  expect(tile(0)).toHaveFocus();
+  expect(tile(0)).toHaveAttribute('tabindex', '0');
+  expect(tile(0)).toHaveAttribute('aria-pressed', 'true');
+  expect(selection()).toEqual(['asset-0']);
+});
+
+it('uses finite per-tile values and bounds for independent scales and labels only that mode', async () => {
+  const user = userEvent.setup();
+  const data = [
+    { ...series[0], points: [{ x: from, y: 1002 }, { x: to, y: 1006 }], bounds: new Map([[from, { lower: 1000.4, upper: 1007.6 }]]) },
+    { ...series[1], points: [{ x: from, y: 2004 }, { x: from, y: Infinity }, { x: to, y: 2012 }],
+      bounds: new Map([[from, { lower: 2000.4, upper: 2015.6 }]]) },
+  ];
+  render(withToolbar({ series: data, showAxisControl: true }));
+  const line = (index: number) => tile(index).querySelector('[data-small-multiple-line]')?.getAttribute('d')?.match(/^M[^h]+/)?.[0];
+  const firstRange = '1,000–1,008 ms';
+  const secondRange = '2,000–2,016 ms';
+  expect(screen.getByRole('radio', { name: '축 공유', checked: true })).toBeInTheDocument();
+  expect(line(0)).not.toBe(line(1));
+  expect(within(tile(0)).queryByText(firstRange)).toBeNull();
+  expect(within(tile(1)).queryByText(secondRange)).toBeNull();
+  await user.click(screen.getByRole('radio', { name: '칸마다 축' }));
+  expect(line(0)).toBe('M5 70');
+  expect(line(1)).toBe(line(0));
+  expect(within(tile(0)).getByText(firstRange)).toBeInTheDocument();
+  expect(within(tile(1)).getByText(secondRange)).toBeInTheDocument();
+  expect(tile(0)).toHaveAccessibleDescription(firstRange);
+  expect(screen.getByRole('button', { name: '칸마다 축 정보' })).toHaveAccessibleDescription(/칸마다 다른 눈금/);
+});
+
+it('shows the density choice only when requested and keeps the choice out of the URL', async () => {
+  const props = { series: series.slice(0, 1) };
+  const { rerender } = render(withToolbar(props));
+  expect(screen.queryByRole('radiogroup', { name: '표시 크기' })).toBeNull();
+  expect(screen.queryByRole('radiogroup', { name: '세로축' })).toBeNull();
+  const before = window.location.href;
+  rerender(withToolbar({ ...props, showDensityControl: true }));
+  expect(screen.getByRole('radio', { name: '보통', checked: true })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('radio', { name: '작게' }));
+  expect(tile(0)).toHaveClass('h-18');
+  expect(window.location.href).toBe(before);
 });

@@ -1,11 +1,12 @@
 import { useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { TriangleAlert } from 'lucide-react';
-import { formatDateTime, formatNumber, formatWallClock } from '@ap/contracts';
+import { formatDateTime, formatNumber, formatWallClock, type Text } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { useOptionalAnalysisSelectionOutput } from '@ap/kernel/host';
 import { cn, InfoTip, RowSelectionBar } from '@ap/ui';
 import { gridKeyTarget } from '../grid/gridKeyTarget';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { PanelOptions, type PanelOptionsProps } from '../workspace/PanelOptions';
 import { QueryPanelContentContext } from '../workspace/panelContext';
 import { ChartBoundsLegend } from './ChartBoundsLegend';
 import { chartDiagnostic } from './analysisChartData';
@@ -13,12 +14,32 @@ import type { ChartBoundLabels } from './chartBounds';
 import { statusGlyph, statusText } from './chartStatus';
 import { projectSmallMultiples, SmallMultiplePlot, smallMultipleStatusPaint, type SmallMultiplesSeries } from './smallMultiplesPlot';
 
+export type SmallMultiplesSortOption = {
+  /** Unique within the grid. `original` is reserved for input order. */
+  id: string;
+  label: Text;
+  /** Compare the original series inputs. Equal series keep their input order. */
+  compare: (a: SmallMultiplesSeries, b: SmallMultiplesSeries) => number;
+};
+
+type Density = 'regular' | 'compact';
+type DisplayOption = PanelOptionsProps['options'][number];
+
 export type SmallMultiplesGridProps = {
   title: string;
   unit: string;
   series: readonly SmallMultiplesSeries[];
   columns?: number;
-  density?: 'regular' | 'compact';
+  sortOptions?: readonly SmallMultiplesSortOption[];
+  /** Controlled sort. An undeclared ID falls back to input order. */
+  sortId?: string;
+  defaultSortId?: string;
+  onSortChange?: (id: string) => void;
+  /** Offer a local shared/independent Y-axis choice. Defaults to hidden. */
+  showAxisControl?: boolean;
+  density?: Density;
+  showDensityControl?: boolean;
+  onDensityChange?: (density: Density) => void;
   boundLabels?: ChartBoundLabels;
   /** Connects a declared set output. The registered panel owns its dimension. */
   analysisSelectionOutput?: { panelId: string; key: string; instanceId?: string } | null;
@@ -29,6 +50,23 @@ export type SmallMultiplesGridProps = {
 };
 
 const DEFAULT_COLUMNS = 6;
+const ORIGINAL_ORDER = 'original';
+const SORT_ID = 'sort';
+const INDEPENDENT = 'independent';
+const AXIS_OPTION = {
+  id: 'axis', kind: 'choice', label: COMPONENTS_MESSAGES.smallMultiplesAxis, default: 'shared',
+  choices: [
+    { value: 'shared', label: COMPONENTS_MESSAGES.smallMultiplesShared },
+    { value: INDEPENDENT, label: COMPONENTS_MESSAGES.smallMultiplesIndependent },
+  ],
+} as const satisfies DisplayOption;
+const DENSITY_OPTION = {
+  id: 'density', kind: 'choice', label: COMPONENTS_MESSAGES.smallMultiplesDensity, default: 'regular',
+  choices: [
+    { value: 'regular', label: COMPONENTS_MESSAGES.smallMultiplesRegular },
+    { value: 'compact', label: COMPONENTS_MESSAGES.smallMultiplesCompact },
+  ],
+} as const satisfies DisplayOption;
 const tileHeight = { compact: 'h-18', regular: 'h-30' } as const;
 const iconTone = { danger: 'text-text-danger-label', warning: 'text-text-warning-label', neutral: 'text-text-secondary' } as const;
 
@@ -41,11 +79,34 @@ function focusTile(scroll: HTMLDivElement, button: HTMLButtonElement) {
   else if (tileRect.bottom > portBottom) scroll.scrollTop += tileRect.bottom - portBottom;
 }
 
-export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLUMNS, density = 'regular', boundLabels,
+export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLUMNS, density, showDensityControl, onDensityChange, boundLabels,
+  sortOptions, sortId, defaultSortId = ORIGINAL_ORDER, onSortChange, showAxisControl,
   analysisSelectionOutput, selectionDisabled, actions }: SmallMultiplesGridProps) {
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const { tiles, x, y, legend } = useMemo(() => projectSmallMultiples(series, boundLabels, lang), [series, boundLabels, lang]);
+  const [localSortId, setLocalSortId] = useState(defaultSortId);
+  const [independent, setIndependent] = useState(false);
+  const [localDensity, setLocalDensity] = useState<Density>(DENSITY_OPTION.default);
+  const activeDensity = density ?? localDensity;
+  const sorts = useMemo(() => {
+    const byId = new Map<string, SmallMultiplesSortOption>();
+    for (const option of sortOptions ?? []) {
+      if (!option.id || option.id === ORIGINAL_ORDER || byId.has(option.id)) {
+        chartDiagnostic(`invalid or duplicate SmallMultiplesGrid sort option ID: ${option.id}`);
+        continue;
+      }
+      byId.set(option.id, option);
+    }
+    return byId;
+  }, [sortOptions]);
+  const sort = sorts.get(sortId ?? localSortId);
+  const { tiles: inputTiles, x, y, legend } = useMemo(() => projectSmallMultiples(series, boundLabels, lang), [series, boundLabels, lang]);
+  const tiles = useMemo(() => {
+    if (!sort) return inputTiles;
+    return inputTiles.map((tile, index) => ({ tile, source: series[index] }))
+      .sort((a, b) => sort.compare(a.source, b.source))
+      .map(({ tile }) => tile);
+  }, [inputTiles, series, sort]);
   const priorResult = useContext(QueryPanelContentContext) === 'prior';
   const canSelect = !!analysisSelectionOutput && !selectionDisabled && !priorResult;
   const available = useMemo(() => canSelect ? [...new Set(series.flatMap(s => s.selectionValue ? [s.selectionValue] : []))].sort() : undefined, [series, canSelect]);
@@ -78,6 +139,35 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
   const to = from ? formatDateTime(new Date(x.max)) : '';
   const precision = from.endsWith(':00') && to.endsWith(':00') ? 'minute' : 'second';
   const formatY = (value: number) => formatNumber(value, lang);
+  const formatRange = ({ min, max }: typeof y) => `${formatY(min)}–${formatY(max)} ${unit}`.trim();
+  const options: DisplayOption[] = [];
+  if (sorts.size > 0) options.push({
+    id: SORT_ID, kind: 'choice', label: COMPONENTS_MESSAGES.smallMultiplesSort, default: ORIGINAL_ORDER,
+    choices: [
+      { value: ORIGINAL_ORDER, label: COMPONENTS_MESSAGES.smallMultiplesOriginal },
+      ...Array.from(sorts.values(), option => ({ value: option.id, label: option.label })),
+    ],
+  });
+  if (showAxisControl) options.push(AXIS_OPTION);
+  if (showDensityControl) options.push(DENSITY_OPTION);
+
+  function changeOption(id: string, value: string | boolean) {
+    if (typeof value !== 'string') return;
+    switch (id) {
+      case SORT_ID:
+        if (sortId === undefined) setLocalSortId(value);
+        onSortChange?.(value);
+        break;
+      case AXIS_OPTION.id:
+        setIndependent(value === INDEPENDENT);
+        break;
+      case DENSITY_OPTION.id:
+        if (value !== 'compact' && value !== 'regular') return;
+        if (density === undefined) setLocalDensity(value);
+        onDensityChange?.(value);
+        break;
+    }
+  }
 
   function move(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const scroll = scrollRef.current;
@@ -99,16 +189,21 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
 
   return <section aria-label={title} className="flex h-full min-h-0 min-w-0 flex-col break-keep">
     <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border-subtle px-3 py-1">
-      {from && <InfoTip label={m('smallMultiplesScale')}>
+      {from && <InfoTip label={m(independent ? 'smallMultiplesIndependentScale' : 'smallMultiplesScale')}>
         <div className="space-y-1 tabular">
           <p>{formatWallClock(from, precision)} – {formatWallClock(to, precision)}</p>
-          {Number.isFinite(y.min) && <p>{`${formatY(y.min)}–${formatY(y.max)} ${unit}`.trim()}</p>}
+          {independent && <p>{m('smallMultiplesIndependentHelp')}</p>}
+          {!independent && Number.isFinite(y.min) && <p>{formatRange(y)}</p>}
         </div>
       </InfoTip>}
       <h3 className="text-sm">{title}</h3>
       {tiles.length > 0 && <span className="text-caption tabular text-text-secondary">{m('smallMultiplesCount', { count: formatY(tiles.length) })}</span>}
       <ChartBoundsLegend bounds={legend} singleLine />
-      {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+      {(options.length > 0 || actions) && <div className={cn('ml-auto flex items-center gap-2', options.length > 0 && 'flex-wrap')}>
+        {options.length > 0 && <PanelOptions options={options} values={{ [SORT_ID]: sort?.id ?? ORIGINAL_ORDER,
+          [AXIS_OPTION.id]: independent ? INDEPENDENT : AXIS_OPTION.default, [DENSITY_OPTION.id]: activeDensity }} onChange={changeOption} />}
+        {actions}
+      </div>}
     </div>
     {tiles.length === 0 ? <p className="p-3 text-sm text-text-secondary">{m('panelTrustEmpty')}</p> :
       <div ref={scrollRef} className="scrollbar-panel min-h-0 overflow-y-auto overscroll-contain">
@@ -120,11 +215,16 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
               const pressed = value !== undefined && picked.has(value);
               const status = tile.worst;
               const paint = status && smallMultipleStatusPaint(status);
+              const tileY = independent ? tile.independentY : undefined;
+              const range = tileY && formatRange(tileY);
+              const empty = tile.hasValues ? undefined : m('panelTrustEmpty');
+              const caption = [empty, range].filter(Boolean).join(' · ');
+              const description = [statusText(status), caption].filter(Boolean).join(' · ');
               const index = row * count + column;
               return <div key={tile.id} role="gridcell" className="min-w-0">
                 <button type="button" data-tile-index={index} tabIndex={tile.id === tabbableId ? 0 : -1} aria-label={tile.label}
                   aria-pressed={analysisSelectionOutput && value !== undefined ? pressed : undefined} aria-disabled={!enabled || undefined}
-                  aria-description={statusText(status) || (tile.hasValues ? undefined : m('panelTrustEmpty'))}
+                  aria-description={description || undefined}
                   onFocus={event => { focusedButton.current = event.currentTarget; setFocusedId(tile.id); }}
                   onBlur={event => {
                     const button = event.currentTarget;
@@ -141,7 +241,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
                   style={paint ? { '--small-multiple-status': paint } as CSSProperties : undefined}
                   className={cn('relative flex w-full min-w-0 flex-col gap-1 overflow-hidden rounded-md border px-2 py-1.5 text-left',
                     'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
-                    tileHeight[density], enabled && 'cursor-pointer hover:bg-surface-row-hover',
+                    tileHeight[activeDensity], enabled && 'cursor-pointer hover:bg-surface-row-hover',
                     pressed && 'bg-surface-row-selected hover:bg-surface-row-selected',
                     paint && 'border-(--small-multiple-status)',
                     !paint && (pressed ? 'border-border-selected' : 'border-transparent'))}>
@@ -152,9 +252,9 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
                       {status.tone === 'neutral' ? statusGlyph(status) : <TriangleAlert className="size-3.5" />}
                     </span>}
                   </span>
-                  {(tile.hasValues || tile.bounds?.parts.length) ? <SmallMultiplePlot tile={tile} x={x} y={y} /> : null}
+                  {(tile.hasValues || tile.bounds?.parts.length) ? <SmallMultiplePlot tile={tile} x={x} y={tileY ?? y} /> : null}
                   <span className="mt-auto h-lh shrink-0 truncate t-caption text-text-secondary">
-                    {tile.hasValues ? null : m('panelTrustEmpty')}
+                    {caption}
                   </span>
                 </button>
               </div>;

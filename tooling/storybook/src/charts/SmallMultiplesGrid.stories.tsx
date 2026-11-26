@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { formatDateTime } from '@ap/contracts';
-import { SmallMultiplesGrid, type SmallMultiplesSeries } from '@ap/components';
+import { SmallMultiplesGrid, type SmallMultiplesSeries, type SmallMultiplesSortOption } from '@ap/components';
 import { platformDecorator } from '../platform';
 
 const output = { panelId: 'trends', key: 'asset' };
@@ -38,3 +38,12 @@ type Story = StoryObj<typeof meta>;
 
 export const SharedAxis: Story = {};
 export const Compact: Story = { args: { density: 'compact' } };
+
+const breachCounts = new Map(series.map(item => [item.id, item.points.filter(point => point.status).length]));
+const sortOptions: SmallMultiplesSortOption[] = [{
+  id: 'breaches',
+  label: { ko: '이탈 많은 순', en: 'Most breaches first' },
+  compare: (a, b) => (breachCounts.get(b.id) ?? 0) - (breachCounts.get(a.id) ?? 0),
+}];
+
+export const DisplayOptions: Story = { args: { sortOptions, showAxisControl: true, showDensityControl: true } };

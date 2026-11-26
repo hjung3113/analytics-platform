@@ -27,6 +27,7 @@ export function projectSmallMultiples(series: readonly SmallMultiplesSeries[], b
   const x = emptyExtent(), y = emptyExtent();
   const parts = new Set<BoundProjection['parts'][number]>();
   const tiles = series.map(s => {
+    const tileY = emptyExtent();
     let worst: ChartStatus | undefined;
     let hasValues = false;
     const points = s.points.flatMap(point => {
@@ -36,7 +37,7 @@ export function projectSmallMultiples(series: readonly SmallMultiplesSeries[], b
       const value = Number.isFinite(point.y) ? point.y : null;
       if (value !== null) {
         hasValues = true;
-        include(y, value);
+        include(tileY, value);
         if (point.status && (!worst || severity[point.status.tone] > severity[worst.tone])) worst = point.status;
       }
       return [{ at: point.x, time, value, status: point.status }];
@@ -44,9 +45,15 @@ export function projectSmallMultiples(series: readonly SmallMultiplesSeries[], b
     if (points.length < s.points.length) chartDiagnostic('invalid small multiple wall-clock point ignored');
     const bounds = projectChartBounds({ bounds: s.bounds, boundLabels, lang, horizontal: false, xType: 'time', categories: [], previousIds: new Set(),
       displayed: [{ id: s.id, name: s.label, color: 'chart-blue', points: points.map(p => [p.at, p.value]) }] });
-    if (bounds?.extent) { include(y, bounds.extent.min); include(y, bounds.extent.max); }
+    if (bounds?.extent) { include(tileY, bounds.extent.min); include(tileY, bounds.extent.max); }
+    let independentY: Extent | undefined;
+    if (Number.isFinite(tileY.min)) {
+      include(y, tileY.min);
+      include(y, tileY.max);
+      independentY = { min: Math.floor(tileY.min) || 0, max: Math.ceil(tileY.max) || 0 };
+    }
     bounds?.parts.forEach(part => parts.add(part));
-    return { ...s, points, bounds, worst, hasValues };
+    return { ...s, points, bounds, worst, hasValues, independentY };
   });
   return { tiles, x, y, legend: { parts: [...parts], labels: boundLabelsOf(boundLabels, lang) } };
 }

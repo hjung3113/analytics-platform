@@ -260,9 +260,14 @@ boxPlot은 원자료 대신 호출자가 계산한 통계를 받으며 min/max�
 
 ### 작은 다중 차트 `SmallMultiplesGrid` (#2740)
 
-같은 단위의 시계열을 한 칸에 한 시리즈씩 나란히 비교한다. `title`, `unit`, `series: { id, label, points, bounds?, selectionValue? }[]`를 받는다. ID는 고유하며 칸은 입력 순서대로 놓는다. 지점의 `x`는 wall-clock(§6.3), `y`는 수치 또는 값 없음(`null`)이다. 유효한 시각 순으로 그리며 값 없음·비유한 수치에서 선을 끊는다. 시리즈별 `ChartBounds`는 위의 x별 계단 경계 규칙을 따르며 `boundLabels`로 범례 라벨을 바꿀 수 있다. 지점의 `status?: ChartStatus`는 공통 기호로 그린다. 칸 테두리와 아이콘은 지점 중 가장 높은 심각도(danger → warning → neutral)를 쓰고 보조 설명은 같은 판정 문구를 읽는다.
+같은 단위의 시계열을 한 칸에 한 시리즈씩 나란히 비교한다. `title`, `unit`, `series: { id, label, points, bounds?, selectionValue? }[]`를 받는다. 시리즈 ID는 고유해야 한다. 지점의 `x`는 wall-clock(§6.3), `y`는 수치 또는 값 없음(`null`)이다. 유효한 시각 순으로 그리며 값 없음·비유한 수치에서 선을 끊는다. 시리즈별 `ChartBounds`는 위의 x별 계단 경계 규칙을 따르며 `boundLabels`로 범례 라벨을 바꿀 수 있다. 지점의 `status?: ChartStatus`는 공통 기호로 그린다. 칸 테두리와 아이콘은 지점 중 가장 높은 심각도(danger → warning → neutral)를 쓰고 보조 설명은 같은 판정 문구를 읽는다.
 
-`columns`는 1부터 `Number.MAX_SAFE_INTEGER`까지의 정수다. 생략하면 6열이며, 유효하지 않으면 개발 진단 후 6열을 사용한다. `density`는 기본 `regular`(120px)와 `compact`(72px)를 제공한다. 공유 x축과 y축을 쓰며, y축은 모든 시리즈의 값과 표시 경계를 포함한다. 정보 팁에서 기간과 공통 y 범위를 한 번 표시한다. 높이가 정해진 패널에서 머리 아래 영역만 스크롤한다. 100개를 넘어도 입력 시리즈를 모두 그리며 칸 수 상한이 없다. 메뉴는 같은 데이터 표에 접근하는 동작을 `actions`에 놓거나 화면에서 직접 제공한다([§26](platform-ui-contract.md#26-accessibility-baseline)).
+`columns`는 1부터 `Number.MAX_SAFE_INTEGER`까지의 정수다. 생략하면 6열이며, 유효하지 않으면 개발 진단 후 6열을 사용한다. 높이가 정해진 패널에서 머리 아래 영역만 스크롤한다. 100개를 넘어도 입력 시리즈를 모두 그리며 칸 수 상한이 없다. 메뉴는 같은 데이터 표에 접근하는 동작을 `actions`에 놓거나 화면에서 직접 제공한다([§26](platform-ui-contract.md#26-accessibility-baseline)).
+
+- **정렬.** 칸은 기본 «원래 순서»(`original`)로 놓는다. 메뉴가 `sortOptions: readonly { id, label: Text, compare(a, b) }[]`를 선언하면 도구 줄에 원래 순서를 첫 선택지로 표시하고, 메뉴 선택지를 선언 순서대로 붙인다. `compare`에는 입력 시리즈를 넘기며 동점은 입력 순서를 따른다. 옵션 ID는 고유하고 비어 있지 않아야 한다. 예약 ID `original`과 중복 선언은 개발 진단 후 건너뛴다. `sortId`로 제어하거나 `defaultSortId`로 초기값을 지정하고 `onSortChange`로 사용자 변경을 받는다. 알 수 없는 ID는 원래 순서를 사용한다. 순서가 바뀌어도 포커스와 분석 선택은 같은 시리즈를 따른다.
+- **축.** 시간축은 항상 공유한다. 기본 «축 공유»에서는 모든 시리즈의 유한한 값과 표시 경계로 공통 y축을 정하고, 정보 팁에 기간과 공통 범위를 표시한다. `showAxisControl`을 켜면 «칸마다 축»을 선택할 수 있다. 각 칸의 유한한 값과 표시 경계에서 구한 최솟값은 내리고 최댓값은 올려 정수 단위 축을 정한다. 해당 범위는 단위와 함께 각 플롯 아래 한 줄에 표시한다. 정보 팁은 칸마다 눈금이 다름을 알린다.
+- **표시 크기.** 기본은 `regular`(120px), 작은 칸은 `compact`(72px)다. `showDensityControl`을 켜면 도구 줄에 «보통 / 작게»를 표시한다. `density`가 있으면 이 값을 따르고, `onDensityChange`로 사용자 변경을 받는다.
+- 도구 줄은 [레이아웃 §12.8](layout.md)의 패널 옵션 선택 컨트롤을 쓴다. 격자는 이 보기 설정을 URL이나 저장된 뷰에 기록하지 않는다.
 
 `analysisSelectionOutput: { panelId, key, instanceId? }`는 아래 [분석 선택 전달](#분석-선택-전달-decided-adr-0175-2732)의 `set` 출력을 연결한다. 차원은 패널의 출력 선언, 값은 시리즈의 `selectionValue`다. 클릭과 Enter·Space는 해당 값 하나를 기록하고 URL에서 복원한 선택을 칸에 표시한다. `QueryPanel`의 오류 후 이전 결과와 `selectionDisabled` 상태에서는 선택 발행을 막고 후보 보고를 거둔다. 갱신 중 이전 결과를 표시하는 소비자는 `QueryPanel`의 렌더 콜백에서 받은 `stale`을 `selectionDisabled`에 전달한다. Tab으로 칸 묶음에 한 번 들어가고, 화살표로 칸 이동, Home/End로 처음·마지막 칸, PageUp/PageDown으로 화면 높이에 맞춰 이동한다. 포커스 이동은 선택을 기록하지 않는다.
 
