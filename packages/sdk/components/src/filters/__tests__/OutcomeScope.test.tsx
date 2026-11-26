@@ -610,7 +610,7 @@ describe('say a shared cause once (#1994)', () => {
     for (const name of ['Job 처리량 추세', '점유 구성']) {
       const state = screen.getByRole('group', { name });
       expect(state).toHaveTextContent(name);
-      expect(state).toHaveTextContent('불러오지 못함');
+      expect(state).toHaveTextContent('위 안내 참고(권한 없음)');
       expect(within(state).queryByRole('status')).toBeNull();
     }
     expect(screen.queryByRole('button', { name: '다시 시도' })).toBeNull();
@@ -723,7 +723,7 @@ describe('multi-group banner linkage (#1994 C1)', () => {
     expect(gammaBanner).toHaveTextContent('Delta');
     expect(gammaBanner).not.toHaveTextContent('Alpha');
     for (const name of ['Alpha', 'Beta', 'Gamma', 'Delta']) {
-      expect(screen.getByRole('group', { name })).toHaveTextContent('불러오지 못함(권한 없음)');
+      expect(screen.getByRole('group', { name })).toHaveTextContent('위 안내 참고(권한 없음)');
     }
   });
 
@@ -797,7 +797,7 @@ describe('reply-specific recovery (#2535)', () => {
     </OutcomeScope></I18nProvider>);
     const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
     expect(screen.getByRole('group', { name: 'Widget A' })).toHaveAttribute('aria-describedby', banner.id);
-    expect(screen.getByRole('group', { name: 'Widget B' })).toHaveTextContent('불러오지 못함');
+    expect(screen.getByRole('group', { name: 'Widget B' })).toHaveTextContent('위 안내 참고(조회 과대)');
     expect(screen.getByRole('group', { name: 'Widget C' })).not.toHaveAttribute('aria-describedby');
   });
 
