@@ -136,6 +136,16 @@ it('shows the same-data table in place of the one-day split grid (#3165)', async
   expect(within(table).getAllByRole('row')).toHaveLength(2);
 });
 
+it('keeps the HTM limit columns as «미측정» when no day of Motion time has limits (#3165)', async () => {
+  const unjudged = { ...run(equipment[0]!, 0, 8, 'normal'), judgement: { value: 8, lower: null, upper: null, status: 'normal' as const } };
+  const panel = await mountSplit([{ ...unjudged, motions: { Pump: unjudged.judgement } }]);
+  fireEvent.click(panel.getByRole('button', { name: '표로 보기' }));
+  const table = panel.getByRole('table');
+  expect(within(table).getAllByRole('columnheader').map(cell => cell.textContent)).toEqual(['설비', '날짜', '평균 (초)', 'HTM 하한 (초)', 'HTM 상한 (초)', '상태']);
+  const row = within(table).getAllByRole('row')[1]!;
+  expect(within(row).getAllByRole('cell').map(cell => cell.textContent).slice(2, 5)).toEqual(['8.00', '미측정', '미측정']);
+});
+
 it('names the Module roll-up in the split grid and its table when the value is Module time (#3096)', async () => {
   Object.assign(Element.prototype, { hasPointerCapture: () => false, releasePointerCapture: () => {} });
   const pump: HtmJudgement = { value: 3, lower: 2, upper: 4, status: 'normal' };

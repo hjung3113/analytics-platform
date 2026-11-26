@@ -107,20 +107,24 @@ export function shapeRunTrend(daily: readonly HwTimeRunObservation[], settings: 
       // A Module roll-up sums Motions and has no HTM limits of its own, so the grid shows no limit columns for it.
       caption: settings.value === 'module' ? text(HW_TIME_OVERVIEW_MESSAGES.moduleStatusNote) : undefined,
       includeRow: row => row.x !== end,
-      columns: defaults => [...defaults.flatMap((column): SmallMultiplesTableColumn[] => {
-        switch (column.id) {
-          case 'series': return [{ ...column, label: text(HW_TIME_OVERVIEW_MESSAGES.equipment) }];
-          case 'x': return [{ ...column, label: text(HW_TIME_NEW_PANEL_MESSAGES.date) }];
-          case 'value': return [{ ...column, label: `${text(HW_TIME_OVERVIEW_MESSAGES.average)} (${HW_TIME_UNIT[lang]})`, cell: row => seconds(row.y) }];
-          case 'lower': return [{ ...column, cell: row => seconds(row.lower) }];
-          case 'upper': return [{ ...column, cell: row => seconds(row.upper) }];
-          case 'status': return [];
-          default: return [column];
-        }
-      }), { id: 'judgement', label: text(HW_TIME_OVERVIEW_MESSAGES.status), cell: row => {
-        const judgement = judgements.get(`${row.seriesId}\u0000${row.x}`);
-        return judgement ? htmStatusText(judgement, lang) : missingText(lang);
-      } }],
+      columns: defaults => {
+        const unit = HW_TIME_UNIT[lang];
+        const limit = (id: 'lower' | 'upper'): SmallMultiplesTableColumn =>
+          ({ id, label: `${text(HW_TIME_OVERVIEW_MESSAGES[id])} (${unit})`, numeric: true, cell: row => seconds(row[id]) });
+        return [...defaults.flatMap((column): SmallMultiplesTableColumn[] => {
+          switch (column.id) {
+            case 'series': return [{ ...column, label: text(HW_TIME_OVERVIEW_MESSAGES.equipment) }];
+            case 'x': return [{ ...column, label: text(HW_TIME_NEW_PANEL_MESSAGES.date) }];
+            case 'value': return [{ ...column, label: `${text(HW_TIME_OVERVIEW_MESSAGES.average)} (${unit})`, cell: row => seconds(row.y) }];
+            // Motion time always lists its HTM limits, «미측정» on a day without them, even when no day has any (the grid would drop them).
+            case 'lower': case 'upper': case 'status': return [];
+            default: return [column];
+          }
+        }), ...settings.value === 'module' ? [] : [limit('lower'), limit('upper')], { id: 'judgement', label: text(HW_TIME_OVERVIEW_MESSAGES.status), cell: row => {
+          const judgement = judgements.get(`${row.seriesId}\u0000${row.x}`);
+          return judgement ? htmStatusText(judgement, lang) : missingText(lang);
+        } }];
+      },
     };
     return { series: tiles, sortOptions, table };
   }
