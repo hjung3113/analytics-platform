@@ -537,7 +537,10 @@ describe('upgrade.sh ordering (stub docker)', () => {
     );
     assert.match(r.err, /backend not ready/);
     assert.ok(r.err.includes(`Read: ${dcCmd(r.envFile, 'logs backend')}`), r.err);
-    assert.match(r.err, /UPGRADE STOPPED \(exit 1\)\. The stack was started \(up -d\) on the new images/);
+    assert.match(
+      r.err,
+      /UPGRADE STOPPED \(exit 1\)\. The stack was started \(up -d\) on the new images/,
+    );
     assert.ok(
       r.err.includes(`before starting a restore: ${dcCmd(r.envFile, 'stop backend edge')}`),
       r.err,
