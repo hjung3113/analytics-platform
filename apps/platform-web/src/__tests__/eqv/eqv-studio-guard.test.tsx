@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { Suspense, type ComponentType } from 'react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ActionResponse, ApiResponse, MenuAction, MenuQuery } from '@ap/contracts';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -55,6 +55,15 @@ async function dirtyEdit() {
   expect(within(screen.getByRole('heading', { level: 1 })).getByText('저장 안 됨')).toBeTruthy();
 }
 afterEach(() => { cleanup(); writes.length = 0; });
+// #3037: the screen is `lazy()`. The first test used to pay the cold import of the Studio chunk inside its 8 s wait for the list, which a
+// loaded machine overran. Load the screen once until its list is ready (a setup wait, not a behaviour wait), so each test's waits measure
+// only the behaviour under test.
+beforeAll(async () => {
+  mount();
+  await screen.findByRole('button', { name: 'layout-b' }, { timeout: 60000 });
+  cleanup();
+  writes.length = 0;
+}, 60000);
 
 const importB = { ...doc('layout-b'), name: 'Imported B' };
 const pickFile = () => fireEvent.change(screen.getByTestId('layout-import-input'), { target: { files: [new File([JSON.stringify(importB)], 'b.layout.json', { type: 'application/json' })] } });
