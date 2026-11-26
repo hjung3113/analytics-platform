@@ -18,6 +18,7 @@ import { InWorkspacePanelProvider } from './panelContext';
 import { PanelBadge } from './PanelBadge';
 import { AnalysisPanelAddContext, type AnalysisPanelAddition, type AnalysisPanelDestinations, type PanelAddItem } from './PanelAdd';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { PANEL_RECIPE_ITEM } from '../panel-recipe/panelRecipe';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
 import { WorkspaceSelectionDrag } from './WorkspaceSelectionDrag';
@@ -49,6 +50,8 @@ export type PanelWorkspaceSelectionDrop = {
 export type PanelWorkspacePanel = {
   /** Static identifier (`^[a-z][a-z0-9._-]{0,63}$`): it is stored in the local preference. */
   id: string;
+  /** Declaration used for the recipe when its id differs from this workspace slot id. */
+  declarationId?: string;
   /** Declared analysis selection source hosted here when its id differs from this layout id. */
   analysisSelectionSourceId?: string;
   /** Opt in to holding analysis selections in this panel (#2917). */
@@ -111,6 +114,8 @@ export type PanelWorkspacePreset = { id: string; label: Text; layout: PanelWorks
 export type PanelWorkspaceProps = {
   /** Menu-declared actions for the active panel, after all platform items and a separator. Absent/empty leaves the menu unchanged; primary panels are not filtered. */
   panelMenuItems?: (panelId: string) => readonly { id: string; label: Text; onSelect: () => void }[];
+  /** Return the recipe opener for this declaration and slot, or omit it if no recipe is available. */
+  panelRecipe?: (declarationId: string, slotId: string) => (() => void) | undefined;
   panels: readonly PanelWorkspacePanel[];
   presets: readonly PanelWorkspacePreset[];
   initialPreset: string;
@@ -234,7 +239,7 @@ export function PanelWorkspace(props: PanelWorkspaceProps) {
   return <WorkspaceBody key={storageKey ?? `memory:${props.persistKey}`} {...props} storageKey={storageKey} storage={storage} canHoldSelection={canHoldSelection} />;
 }
 
-function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, edges = DEFAULT_EDGES, storageKey, storage, canHoldSelection }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined; canHoldSelection: boolean }) {
+function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, stackPreset, label, compactBelow = DEFAULT_COMPACT_BELOW, initialMode, revealRequest, toolbarActions, analysisPanelAddition, panelMenuItems, panelRecipe, edges = DEFAULT_EDGES, storageKey, storage, canHoldSelection }: PanelWorkspaceProps & { storageKey: string | null; storage: PanelWorkspaceStorage | undefined; canHoldSelection: boolean }) {
   const densePage = useCompactPageDensity();
   const { tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -698,10 +703,12 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       const next = hidePanel(state, id, primaryId);
       closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
     };
+    const openRecipe = panelRecipe?.(panel?.declarationId ?? id, id);
     return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
       onOpenSettings={panel?.onOpenSettings}
       selectionDrop={canHoldSelection ? panel?.analysisSelectionDrop : undefined}
       menuItems={panelMenuItems?.(id).map(item => ({ ...item, label: tx(item.label) }))}
+      recipeItem={openRecipe && { label: tx(PANEL_RECIPE_ITEM), onSelect: openRecipe }}
       edgeActions={id === primaryId || edgesNarrow ? undefined : {
         left: panel?.collapse !== false && edges.includes('left') ? () => { collapse('left', { fromMenu: true }); } : undefined,
         top: panel?.collapse !== false && edges.includes('top') ? () => { collapse('top', { fromMenu: true }); } : undefined,

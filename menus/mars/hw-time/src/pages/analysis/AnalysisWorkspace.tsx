@@ -3,7 +3,7 @@ import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-re
 import { isAnswered, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
 import { ANALYSIS_SELECTION_MAX_VALUES, AnalysisSelectionInstances, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useAnalysisSelectionReader, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type AnalysisSelectionChip, type MenuQueryState, type Text } from '@ap/kernel';
 import {
-  AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
+  AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
   getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
 } from '@ap/components';
 import { HW_TIME_EQUIPMENT_ID_PATTERN, HW_TIME_MAX_ROWS, HW_TIME_MODULE_TYPES, HW_TIME_UNIT, MOTION_EQUIPMENT_KEY, hwTime, hwTimeOverview, validPanelDate, verdictCodec, type HtmStatus, type HwTimeMatrix, type HwTimeMatrixParams, type HwTimePanelParams, type HwTimeTableParams, type HwTimeTableRow } from '../../endpoints';
@@ -673,14 +673,22 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     if (equipmentDaysAvailable(input, page)) return <EquipmentDaysPanel input={input} verdict={verdict} date={date} />;
     return <p role="status" className="text-sm text-text-secondary">{filter.empty ? common('filterNoneSelected') : N.equipmentDaysUnavailable[lang]}</p>;
   };
+  const withRecipe = (slot: string, panel: string, front: ReactNode, primary = false) =>
+    <RecipePanel id={panel} open={explained === slot} context={panelContext} primary={primary} onClose={() => setExplained(null)}>{front}</RecipePanel>;
+  const restoredPrimary = added.find(panel => panel.slot === 'current')?.instance;
+  const currentDeclaration = step === 4 && restoredPrimary ? declaredPanelId(restoredPrimary) : undefined;
   const panels: PanelWorkspacePanel[] = [
     { id: 'tree', icon: ListTree, title: S.tree, minWidth: 200, preferredHeight: 640, render: () => <Hierarchy filter={filter} currentId={currentId} onDrill={onDrill} /> },
     ...(step > 1 ? [{ id: 'previous', icon: History, title: barsTitle({ ...props, depth: (step - 1) as Step, previous: true }), minWidth: 200, preferredHeight: 640, render: () => <Bars {...props} onOpenTrend={onOpenTrend} depth={(step - 1) as Step} previous /> }] : []),
     { id: 'current', title: dayPanel?.title ?? barsTitle({ ...props, depth: step }), primary: true, minWidth: 320, preferredHeight: 640,
+      declarationId: currentDeclaration,
       analysisSelectionSourceId: currentHostsSelection ? sourcePanelId : undefined,
-      render: () => dayPanel
-        ? renderEquipmentDays()
-        : <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} instanceId={currentHostsSelection ? sourceId : undefined} /> },
+      render: () => {
+        const front = dayPanel
+          ? renderEquipmentDays()
+          : <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} instanceId={currentHostsSelection ? sourceId : undefined} />;
+        return currentDeclaration ? withRecipe('current', currentDeclaration, front, true) : front;
+      } },
     ...extraPanels.map(({ id, instance, item }): PanelWorkspacePanel => {
       const keep = keptSources.has(id) ? { reason: HW_TIME_WORKSPACE_MESSAGES.heldSource } : undefined;
       const onRemove = instance && (() => {
@@ -700,9 +708,13 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         const panel = declaredPanelId(instance) ?? instance.id;
         const reason = tables.overflow.has(id) ? workspace('samePanelMax', { max: SAME_PANEL_MAX })
           : item?.disabledReason?.[lang] ?? workspace(instance.source.kind === 'declared' ? 'missingPanel' : 'unsupportedPanel', { id: panel });
-        return { id, title: item?.title ?? { ko: panel, en: panel }, float: false, collapse: false,
+        const recipeId = tables.overflow.has(id) ? undefined : item?.id;
+        return { id, declarationId: recipeId, title: item?.title ?? { ko: panel, en: panel }, float: false, collapse: false,
           onRemove, keep,
-          render: () => <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={reason} /> };
+          render: () => {
+            const message = <StateMessage compact tone="warning" icon={<TriangleAlert className="size-4" aria-hidden />} title={reason} />;
+            return recipeId ? withRecipe(id, recipeId, message) : message;
+          } };
       }
       const panel = item!.id as CatalogId;
       // One table mode per slot: held tables read their own values (R C4), the rest follow the URL.
@@ -759,7 +771,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       const placement = tables.pair.includes(id) ? { placement: { row: 'table-pair' } }
         : step === 4 && panel === 'trend' ? { placement: 'below' as const } : {};
       const badge = heldTable ? heldBadge(heldTable) : badges[tableIndex];
-      return { id, icon: ChartNoAxesCombined, title, ...placement, preferredHeight: 360, minWidth: 200,
+      return { id, declarationId: panel, icon: ChartNoAxesCombined, title, ...placement, preferredHeight: 360, minWidth: 200,
         onRemove,
         badge,
         keep,
@@ -771,7 +783,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           // Unpinning still takes effect when there is no room to keep the instance (R C2, C11).
           if (result.ok || unpinning) pins.toggle(panel);
         } } : undefined,
-        render: () => <RecipePanel id={panel} open={explained === id} context={panelContext} onClose={() => setExplained(null)}>{renderPanel(panel)}</RecipePanel> };
+        render: () => withRecipe(id, panel, renderPanel(panel)) };
     }),
   ];
   const settingsPanel = panels.find(panel => panel.id === settings?.id);
@@ -904,9 +916,9 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       onChange={editSettings} />}
     <PanelWorkspace panels={workspacePanels} presets={[stepPreset(step, extraIds)]} initialPreset="step" compactBelow={0} initialMode="fit"
       panelMenuItems={id => [
-        ...(Object.hasOwn(panelDeclarations, id) ? [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setExplained(id) }] : []),
         ...(heldSlots.some(slot => slot.id === id) ? [{ id: 'follow', label: HW_TIME_WORKSPACE_MESSAGES.followInstead, onSelect: () => savedPanels.follow(id) }] : []),
       ]}
+      panelRecipe={(panel, slot) => declarationOf(panel) ? () => setExplained(slot) : undefined}
       revealRequest={reveal}
       toolbarActions={<PanelAddMenu items={toolbarCatalog} shown={[...panels.map(panel => panel.id === 'current' && dayPanel ? dayPanel.id : panel.id), ...(tables.open.length ? ['table'] : [])]} onAdd={(id, pin) => { addPanel(id, pin); }} />}
       analysisPanelAddition={{ items: additionItems, hold: true, returnsOpened: true, onAdd: draft => {

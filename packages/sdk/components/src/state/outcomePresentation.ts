@@ -1,11 +1,22 @@
 import { Ban, Clock, Inbox, Maximize2, ServerCrash, SlidersHorizontal } from 'lucide-react';
-import { isRecord, type ApiResponse } from '@ap/contracts';
+import { isRecord, type ApiResponse, type Outcome } from '@ap/contracts';
 import { errorGuidance, formatText, parseFixedEquipmentLimit, type useI18n } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { emptyCauses, emptyOutcomeText } from './emptyCause';
 
 export function outcomeIsBlocked(response: ApiResponse<unknown>) {
   return response.outcome === 'error' && errorGuidance(response.message).blocked;
+}
+
+export function classifyOutcome(outcome: Outcome) {
+  switch (outcome) {
+    case 'forbidden':
+    case 'too_large': return 'refusal';
+    case 'error':
+    case 'timeout': return 'failure';
+    case 'ok':
+    case 'empty': return outcome;
+  }
 }
 
 /** Equipment evidence has its own grant check. Technical detail can retain only its known reason. */
@@ -19,8 +30,9 @@ export function outcomeDiagnostic({ recovery, message }: ApiResponse<unknown>): 
 }
 
 export function outcomeTone(response: ApiResponse<unknown>): 'neutral' | 'danger' | 'warning' {
-  if ((response.outcome === 'error' && !outcomeIsBlocked(response)) || response.outcome === 'timeout') return 'danger';
-  if (response.outcome === 'forbidden' || response.outcome === 'too_large') return 'warning';
+  const kind = classifyOutcome(response.outcome);
+  if (kind === 'failure' && !outcomeIsBlocked(response)) return 'danger';
+  if (kind === 'refusal') return 'warning';
   return 'neutral';
 }
 

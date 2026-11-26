@@ -4,6 +4,7 @@ import { I18nProvider, type QueryState } from '@ap/kernel';
 import type { ApiResponse } from '@ap/contracts';
 import { QueryView, StateMessage } from './StateView';
 import { InWorkspacePanelProvider } from './workspace/panelContext';
+import { OutcomeBanners, OutcomeScope } from './filters/OutcomeScope';
 import { QueryBarStatusContext } from './filters/QueryBarStatus';
 import { PageDensityProvider } from './pageDensity';
 import { AnalysisSectionContext } from './archetypes/AnalysisSectionContext';
@@ -39,6 +40,43 @@ function textWithoutDetail(node: HTMLElement) {
 const errorResponse = (): ApiResponse<unknown> =>
   ({ outcome: 'error', message: 'boom', data: null, assessments: [], trust: null, correlationId: 'c1' });
 const query = (): QueryState<unknown> => ({ response: errorResponse(), refetch: vi.fn(), missing: [], completedAt: null, status: 'done' });
+
+describe('grouped outcome notices (#3068)', () => {
+  const widget = (name: string, outcome: ApiResponse<unknown>['outcome']) => (
+    <QueryView query={{ ...query(), response: { ...errorResponse(), outcome } }} widgetName={name}>{() => null}</QueryView>
+  );
+
+  it.each([
+    ['too_large', '조회 과대'],
+    ['forbidden', '권한 없음'],
+  ] as const)('points to a single %s banner by status', (outcome, label) => {
+    render(<I18nProvider><OutcomeScope><OutcomeBanners compact />
+      {widget('지표', outcome)}{widget('추세', outcome)}
+    </OutcomeScope></I18nProvider>);
+    const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
+    const state = screen.getByRole('group', { name: '지표' });
+    expect(state).toHaveAttribute('aria-describedby', banner.id);
+    expect(within(state).getByText(`위 안내 참고(${label})`)).toBeVisible();
+    expect(state).not.toHaveTextContent('불러오지 못함');
+  });
+
+  it.each([
+    ['error', '서버 오류', 'too_large', '조회 과대'],
+    ['timeout', '시간 초과', 'forbidden', '권한 없음'],
+  ] as const)('keeps %s failure wording when a refusal group shares the page', (failure, failureLabel, refusal, refusalLabel) => {
+    const page = (showRefusal: boolean) => <I18nProvider><OutcomeScope><OutcomeBanners compact />
+      {widget('지표', failure)}{widget('추세', failure)}
+      {showRefusal && <>{widget('집계', refusal)}{widget('표', refusal)}</>}
+    </OutcomeScope></I18nProvider>;
+    const { rerender } = render(page(false));
+    expect(within(screen.getByRole('group', { name: '지표' })).getByText('불러오지 못함')).toBeVisible();
+
+    rerender(page(true));
+    expect(screen.getAllByRole('group', { name: '위젯 상태 요약' })).toHaveLength(2);
+    expect(within(screen.getByRole('group', { name: '지표' })).getByText(`불러오지 못함(${failureLabel})`)).toBeVisible();
+    expect(within(screen.getByRole('group', { name: '집계' })).getByText(`위 안내 참고(${refusalLabel})`)).toBeVisible();
+  });
+});
 
 /** Outside an OutcomeScope the widget never groups (UXA-3): the compact state must still name its widget. */
 function View({ hide = false }: { hide?: boolean }) {

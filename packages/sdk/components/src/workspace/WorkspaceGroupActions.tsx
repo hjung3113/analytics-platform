@@ -16,10 +16,11 @@ const ICON = 'size-7';
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
  * group's active panel. Collapse and float are absent for primary panels. Floating headers offer pin, close and keyboard geometry.
  */
-export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onRemove, hideBlocked, pin, edgeActions, menuItems, onOpenSettings, selectionDrop }: {
+export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onRemove, hideBlocked, pin, edgeActions, menuItems, recipeItem, onOpenSettings, selectionDrop }: {
   onOpenSettings?: (trigger: HTMLButtonElement) => void;
   selectionDrop?: PanelWorkspaceSelectionDrop;
   menuItems?: readonly { id: string; label: string; onSelect: () => void }[];
+  recipeItem?: { label: string; onSelect: () => void };
   title: string;
   /** A panel's title, naming each move target by its active panel. */
   titleOf: (panelId: string) => string;
@@ -101,12 +102,13 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
           </>}
         </>}
     </>}
-    {(onOpenSettings || selectionDrop || !!menuItems?.length) && separator}
+    {(onOpenSettings || selectionDrop || !!menuItems?.length || recipeItem) && separator}
     {onOpenSettings && <LayoutItem onSelect={() => {
       closeFocus.current = opener => { if (opener) onOpenSettings(opener); };
     }}>{m('panelSettings')}</LayoutItem>}
     {selectionDrop && <SelectionHoldItems drop={selectionDrop} />}
     {menuItems?.map(item => <LayoutItem key={item.id} onSelect={item.onSelect}>{item.label}</LayoutItem>)}
+    {recipeItem && <LayoutItem onSelect={recipeItem.onSelect}>{recipeItem.label}</LayoutItem>}
   </>;
   const takeCloseFocus = () => {
     const next = closeFocus.current;

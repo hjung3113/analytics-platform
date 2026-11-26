@@ -16,10 +16,13 @@ import trendChartSource from '../RunTrendChart.tsx?raw';
 vi.mock('@ap/components', async original => {
   const actual = await original<typeof import('@ap/components')>();
   return { ...actual, PanelWorkspace: (p: import('@ap/components').PanelWorkspaceProps) => <div>
-    {p.panels.map(panel => <section key={panel.id} aria-label={`panel ${panel.id}`}>
-      {p.panelMenuItems?.(panel.id).map(item => <button key={item.id} onClick={item.onSelect}>{item.label.ko}</button>)}
-      {panel.render()}
-    </section>)}
+    {p.panels.map(panel => {
+      const open = p.panelRecipe?.(panel.declarationId ?? panel.id, panel.id);
+      return <section key={panel.id} aria-label={`panel ${panel.id}`}>
+        {open && <button onClick={open}>{actual.PANEL_RECIPE_ITEM.ko}</button>}
+        {panel.render()}
+      </section>;
+    })}
   </div> };
 });
 await vi.hoisted(async () => { (await import('@ap/components/testing/engines')).mockEchartsCanvas(); });
