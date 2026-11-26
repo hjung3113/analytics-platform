@@ -4,7 +4,7 @@ Holds only business-system menu Consumer packages: `menus/<system>/<group>/` (tw
 
 ## Rules
 
-- When menu behaviour or a screen changes, bump the internal minor or patch version and add one line to the same PR's CHANGELOG. Do not publish or tag. The expected SDK tag range lives in `package.json` `ap.sdk`.
+- When a package under `menus/<group>/<menu>` changes behaviour or a screen, add `changes/<issue>.md` and do not edit `version` or `CHANGELOG.md` in that PR. The first line is `bump: patch` or `bump: minor`; each following line is a `- ` bullet in the CHANGELOG voice, with no `(#n)` prefix (the filename is the issue). Two open PRs would otherwise choose the same next version and conflict after the first merges. The release-docs PR folds every fragment once (`pnpm menu:changelog --release --date <day>`). Do not publish or tag. The expected SDK tag range stays in `package.json` `ap.sdk`. A `platform/<feature>` package still bumps `version` and adds its CHANGELOG line in the same PR: the fold tool does not scan that root.
 - `src/index.ts` exports only `manifests: MenuEntry[]`. Do not re-export pages or aggregates (`METRICS`, `resolveMetric`, …): the app must be able to import `manifests` alone without breaking route lazy-loading.
   - Config the app must inject into a menu goes through a separate subpath, not the index (for example `@ap/menu-<g>/mock`).
 - The Round detail «원본/시퀀스» tab does not render when the slot is unset (ADR-0128).

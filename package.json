@@ -15,6 +15,7 @@
     "sdk:schemas": "node tooling/sdk/sdk-schemas.mjs",
     "sdk:consumer-check": "node tooling/sdk/sdk-consumer-check.mjs",
     "sdk:changelog": "node tooling/sdk/sdk-changelog.mjs",
+    "menu:changelog": "node tooling/changes/menus.mjs",
     "sdk:api": "node tooling/sdk/sdk-api-snapshot.mjs",
     "check:lazy-chunks": "node tooling/scripts/check-lazy-chunks.mjs",
     "gen:menu": "node tooling/gen-menu/src/cli.ts",

@@ -28,6 +28,7 @@ Package-boundary and contract lint (ESLint flat config). Boundary rule source: [
 ## sdk/ tools
 
 - PRs write per-issue notes under `packages/sdk/changes/` so parallel SDK work does not edit shared release files.
+- Menu PRs write `menus/<group>/<menu>/changes/<issue>.md` instead of editing `version` or `CHANGELOG.md`, for the same reason; `pnpm menu:changelog` folds them ([`menus/AGENTS.md`](../menus/AGENTS.md)).
   - Use HTTP for the SDK consumer check: a `file:` install hides #806.
   - See the [CI workflow](../.github/workflows/ci.yml) for the `SDK release tarballs and outside consumer` and `Start kit browser check` conditions.
   - Change the start-kit README «둘째 메뉴» steps and `addSecondMenu` together.
