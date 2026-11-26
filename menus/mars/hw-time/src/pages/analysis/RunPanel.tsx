@@ -11,6 +11,7 @@ import { applyRunPanelFilters, changeRunPanelFilters, runPanelFilterFields, vali
 import { runValue, shapeRunScatter, type RunScatterSettings } from './runScatterData';
 import { DEFAULT_RUN_TREND_SETTINGS, shapeRunTrend } from './runTrendData';
 import { RunTrendChart } from './RunTrendChart';
+import { RunTrendTable } from './RunTrendTable';
 
 // The scatter starts in one colour (24 equipment colours and a 24-entry legend were the noise); the trend keeps one line per equipment.
 const DEFAULT_SETTINGS = { scatter: { axis: 'equipment-module', color: 'single', value: 'motion' }, trend: DEFAULT_RUN_TREND_SETTINGS } satisfies Record<'scatter' | 'trend', RunScatterSettings>;
@@ -46,9 +47,12 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, d
 }) {
   const m = useMessages(HW_TIME_OVERVIEW_MESSAGES);
   const n = useMessages(N);
-  const subtitle = kind === 'trend' ? n('dailyRuns', { module: moduleId, motion: motionId }) : m('runs', { module: moduleId, motion: motionId });
   const { lang } = useI18n();
   const [settings, setSettings] = useState<RunScatterSettings>(DEFAULT_SETTINGS[kind]);
+  // Module time sums the checked Motions under the server's Module judgement, so the trend title must not name one Motion (#3096).
+  const moduleTrend = kind === 'trend' && settings.value === 'module';
+  const subtitle = kind !== 'trend' ? m('runs', { module: moduleId, motion: motionId })
+    : moduleTrend ? n('dailyModuleRuns', { module: moduleId }) : n('dailyRuns', { module: moduleId, motion: motionId });
   const [filters, setFilters] = useState<ColumnFilter[]>([]);
   const [nextAnalysisTarget, setNextAnalysisTarget] = useState<HTMLDivElement | null>(null);
   const [trendView, setTrendView] = useState<TrendView>('split');
@@ -153,7 +157,9 @@ export function RunPanel({ kind, data, moduleId, motionId, motions, judgement, d
           {analysisSelectionOutput && !selectionDisabled && <TrendRangeCandidates output={analysisSelectionOutput} categories={projected.trend.categories} />}
           <SmallMultiplesGrid series={multiples.series} sortOptions={multiples.sortOptions} title={subtitle} unit={HW_TIME_UNIT[lang]}
           boundLabels={projected.trend.boundLabels} showAxisControl showDensityControl analysisSelectionOutput={equipmentSelectionOutput}
-          selectionDisabled={selectionDisabled} actions={<>{viewToggle}{settingsPopover}</>} /></div>}
+          selectionDisabled={selectionDisabled} actions={<>{viewToggle}{settingsPopover}
+            {multiples.tableRows.length > 0 && <RunTrendTable title={subtitle} note={moduleTrend ? m('moduleStatusNote') : undefined} rows={multiples.tableRows} />}
+          </>} /></div>}
         {joinTrendHeader && <div className="flex min-h-min flex-1 flex-col"><RunTrendChart chartId="hw-overview-runs-trend" trend={projected.trend} description={contextNote} activeCategory={activeDay || null} toolbarStart={panelHeader}
           analysisSelectionOutput={analysisSelectionOutput} nextAnalysisTarget={nextAnalysisTarget} /></div>}
         {/* Prototype A (#2740): the split view is the grid alone; the daily verdict counts belong to the overlay. */}
