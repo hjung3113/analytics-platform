@@ -4,16 +4,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX } from '@ap/contracts';
 import type { MenuView, PanelInstance } from '@ap/contracts';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
-import { answer, renderOverview, requests, settle } from './test-support';
+import { answer, openPanelPicker, renderOverview, requests, settle } from './test-support';
 
 const chart = (id = 'hw-current') => JSON.parse(screen.getByTestId(id).textContent!);
 const config = () => JSON.parse(screen.getByTestId('workspace').getAttribute('data-config')!);
 const tree = () => screen.getByRole('tree', { name: '계층' });
 const node = (name: string) => within(tree()).getAllByText(name, { exact: true })[0]!;
-const addButton = () => within(screen.getByTestId('workspace-actions')).getByRole('button', { name: /패널 추가/ });
-async function add(title: string) {
-  fireEvent.keyDown(addButton(), { key: 'Enter' });
-  fireEvent.click(await screen.findByRole('menuitem', { name: title }));
+const addButton = () => within(screen.getByTestId('workspace-actions')).getByRole('button', { name: '패널 추가' });
+async function add(title: string, { pin = true } = {}) {
+  const picker = within(await openPanelPicker(addButton()));
+  if (!pin) fireEvent.click(picker.getByRole('checkbox', { name: '추가하면 고정' }));
+  fireEvent.click(picker.getByRole('button', { name: title }));
   await settle();
 }
 beforeEach(() => {
@@ -46,10 +47,7 @@ describe('HW Time saved view panels', () => {
   it('saves two added panels and restores their order after reopening and reloading', async () => {
     const store = createFakeSavedViewStore([]);
     await mount(store);
-    fireEvent.keyDown(addButton(), { key: 'Enter' });
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '추가하면 고정' }));
-    fireEvent.click(await screen.findByRole('menuitem', { name: '상한 초과 파레토' }));
-    await settle();
+    await add('상한 초과 파레토', { pin: false });
     await add('판정 비율 도넛');
     const result = await act(() => views.saveAs({ name: 'Panels', kind: 'menu-view' }));
     expect(result).toMatchObject({ ok: true, value: { view: { panels: { version: 1, instances: [pareto, donut] } } } });
@@ -70,12 +68,11 @@ describe('HW Time saved view panels', () => {
     await mount(createFakeSavedViewStore([saved({ panels: { version: 1, instances } })]));
     await open('saved');
     await waitFor(() => expect(config().ids).toContain('donut'));
-    fireEvent.keyDown(addButton(), { key: 'Enter' });
-    const blocked = await screen.findByRole('menuitem', { name: /상한 초과 파레토/ });
+    const picker = within(await openPanelPicker(addButton()));
+    const blocked = picker.getByRole('button', { name: '상한 초과 파레토', description: /패널 ⋯에서 삭제하세요\./ });
     expect(blocked.getAttribute('aria-disabled')).toBe('true');
-    expect(blocked.textContent).toContain('패널 ⋯에서 삭제하세요.');
-    fireEvent.keyDown(blocked, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull());
+    fireEvent.keyDown(picker.getByRole('searchbox', { name: '패널 검색' }), { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '패널 추가' })).toBeNull());
 
     fireEvent.click(screen.getByRole('button', { name: 'remove donut' }));
     await settle();
@@ -431,8 +428,8 @@ describe('HW Time approved stepped workspace', () => {
   });
   it('disables the distribution add item without a run target', async () => {
     await renderOverview('&moduleType=PM&drillMotion=Pump');
-    fireEvent.keyDown(addButton(), { key: 'Enter' });
-    expect((await screen.findByRole('menuitem', { name: /분포 · 히스토그램/ })).getAttribute('aria-disabled')).toBe('true');
+    const picker = within(await openPanelPicker(addButton()));
+    expect(picker.getByRole('button', { name: '분포 · 히스토그램' }).getAttribute('aria-disabled')).toBe('true');
     expect(requests.some(request => request.endpoint === 'hwTime.distribution')).toBe(false);
   });
   it('restores a pinned distribution and hides unchecked Motion without another request', async () => {
@@ -583,9 +580,7 @@ describe('HW Time approved stepped workspace', () => {
   });
   it('drops an unpinned addition after changing steps', async () => {
     await renderOverview('&moduleType=PM');
-    fireEvent.keyDown(addButton(), { key: 'Enter' });
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /추가하면 고정/ }));
-    fireEvent.click(screen.getByRole('menuitem', { name: '원본 표' })); await settle();
+    await add('원본 표', { pin: false });
     expect(config().ids).toContain('table');
     fireEvent.click(node('Pump')); await settle(); expect(config().ids).not.toContain('table');
   });

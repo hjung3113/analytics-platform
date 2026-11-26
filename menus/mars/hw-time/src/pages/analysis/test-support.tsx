@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ComponentProps, type ReactNode } from 'react';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { AnalysisSelectionChipZone } from '@ap/components';
@@ -14,6 +14,11 @@ import { manifests } from '../../index';
 const RealWorkspace = createContext(false);
 const RealChart = createContext<string | undefined>(undefined);
 export const chartRenders = vi.fn<(chartId: string) => void>();
+
+export async function openPanelPicker(trigger = screen.getByRole('button', { name: '패널 추가' })) {
+  fireEvent.click(trigger);
+  return screen.findByRole('dialog', { name: '패널 추가' });
+}
 
 // Canvas is unavailable in jsdom. Keep queries, filter, URL, table and status UI real; expose the public chart callbacks and declarations.
 vi.mock('@ap/components', async importOriginal => {
