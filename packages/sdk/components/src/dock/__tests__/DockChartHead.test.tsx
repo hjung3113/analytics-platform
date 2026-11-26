@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { useEffect, useState } from 'react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { AnalysisChart } from '../../chart/AnalysisChart';
 import { AnalysisChartFrame } from '../../chart/AnalysisChartFrame';
 import { LaneTimeline } from '../../chart/LaneTimeline';
@@ -253,4 +253,58 @@ it('ellipsizes a plain tab title and keeps docked start controls focus-visible i
   for (const clip of [strip.querySelector('[data-chart-toolbar-start]'), strip.querySelector('[data-dock-chart-table-slot] > div:last-child')]) {
     expect(clip).toHaveClass('[&_button:focus-visible]:ring-inset', 'forced-colors:[&_button:focus-visible]:-outline-offset-2');
   }
+});
+
+describe('when the first chart replaces the pane action trigger (#3095)', () => {
+  let setLoaded!: (loaded: boolean) => void;
+  function Body() {
+    const [loaded, setShown] = useState(false);
+    useEffect(() => { setLoaded = setShown; }, []);
+    return <>
+      <button>Pane tool outside the chart</button>
+      {loaded ? <AnalysisChartFrame chartId="first" title="Trend" unit="s" series={[]} xType="category" /> : <p>Loading</p>}
+    </>;
+  }
+  async function mountLoading() {
+    mountDock({
+      layout: group(['a']), mergeChartHead: true, inner: () => <Body />,
+      props: {
+        renderGroupActions: () => <WorkspaceGroupActions title="패널 a" titleOf={id => id}
+          closeFocus={{ current: null }} menu={{ maximized: false, split: null, moves: [] }}
+          onMaximize={vi.fn()} onSplit={vi.fn()} onMove={vi.fn()} />,
+      },
+    });
+    const tab = await screen.findByRole('tab', { name: '패널 a' });
+    return within(tab.closest<HTMLElement>('.dv-tabs-and-actions-container')!);
+  }
+
+  it('moves focus from the pane trigger to the merged More', async () => {
+    const head = await mountLoading();
+    act(() => { head.getByRole('button', { name: '패널 a 동작' }).focus(); });
+    act(() => { setLoaded(true); });
+    await waitFor(() => expect(head.getByRole('button', { name: '더보기' })).toHaveFocus());
+    expect(head.queryByRole('button', { name: '패널 a 동작' })).toBeNull();
+  });
+
+  it('moves focus from the open pane menu to the merged More', async () => {
+    const user = userEvent.setup();
+    const head = await mountLoading();
+    act(() => { head.getByRole('button', { name: '패널 a 동작' }).focus(); });
+    await user.keyboard('{Enter}');
+    const item = await screen.findByRole('menuitem', { name: '패널 a 최대화' });
+    await waitFor(() => expect(document.activeElement?.closest('[role="menu"]')).toContainElement(item));
+    act(() => { setLoaded(true); });
+    await waitFor(() => expect(head.getByRole('button', { name: '더보기' })).toHaveFocus());
+  });
+
+  it('leaves focus where the user moved it before the swap', async () => {
+    const head = await mountLoading();
+    const paneTool = await screen.findByRole('button', { name: 'Pane tool outside the chart' });
+    act(() => { head.getByRole('button', { name: '패널 a 동작' }).focus(); });
+    act(() => { paneTool.focus(); });
+    act(() => { setLoaded(true); });
+    await screen.findByRole('region', { name: 'Trend' });
+    await waitFor(() => expect(head.getByRole('button', { name: '더보기' })).toBeInTheDocument());
+    expect(paneTool).toHaveFocus();
+  });
 });

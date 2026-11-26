@@ -43,6 +43,7 @@ export function WorkspaceGroupActions({ panelId, title, titleOf, menu, closeFocu
   pin?: { pinned: boolean; onToggle: () => void };
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
+  const menuContent = useRef<HTMLDivElement>(null);
   const m = useMessages(COMPONENTS_MESSAGES);
   const maximized = menu.maximized;
   const toggle = maximized ? m('workspaceRestore') : m('workspaceMaximize', { title });
@@ -114,6 +115,13 @@ export function WorkspaceGroupActions({ panelId, title, titleOf, menu, closeFocu
     closeFocus.current = null;
     return next;
   };
+  // The pane trigger unmounts when a single chart merges its ⋯ into the head; focus held there passes to the merged ⋯ (#3095).
+  const focusHandoff = useRef(false);
+  const claimFocus = () => {
+    const held = focusHandoff.current;
+    focusHandoff.current = false;
+    return held;
+  };
   return <div data-workspace-group-actions className="flex shrink-0 items-center gap-1 pr-1">
     <div ref={signal} className="contents" />
     {pin && !maximized && <Button type="button" variant={pin.pinned ? 'secondary' : 'ghost'} size="icon-sm" className={ICON} data-workspace-pin aria-label={pinLabel} title={pin.pinned ? m('panelPinned', { title }) : pinLabel} aria-pressed={pin.pinned} onClick={pin.onToggle}>
@@ -124,14 +132,15 @@ export function WorkspaceGroupActions({ panelId, title, titleOf, menu, closeFocu
       <Button type="button" variant="ghost" size="icon-sm" className={ICON} aria-label={m('workspaceCollapse')} title={m('workspaceCollapse')} onClick={edgeActions.overlay.close}><X className="size-3.5" aria-hidden /></Button>
     </>}
     {maximizeTarget ? createPortal(maximizeButton, maximizeTarget) : maximizeButton}
-    {layoutActionsSlot && <MergedLayoutActions register={layoutActionsSlot} takeCloseFocus={takeCloseFocus}>
+    {layoutActionsSlot && <MergedLayoutActions register={layoutActionsSlot} takeCloseFocus={takeCloseFocus} claimFocus={claimFocus}>
       <div role="group" aria-label={m('workspaceLayout')} className="w-full border-t border-border-subtle pt-2">{items}</div>
     </MergedLayoutActions>}
     {!layoutActionsSlot && <DropdownMenu>
+      <FocusOnUnmount trigger={trigger} menu={menuContent} held={focusHandoff} />
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="ghost" size="icon-sm" className={ICON} ref={trigger} data-dock-group-menu aria-label={actions} title={actions}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onCloseAutoFocus={event => {
+      <DropdownMenuContent ref={menuContent} align="end" onCloseAutoFocus={event => {
         const next = takeCloseFocus();
         if (next === null) return;
         event.preventDefault();
@@ -155,13 +164,23 @@ function WorkspaceQueryMenuItems({ panelId, closeFocus }: { panelId: string | un
   </>;
 }
 
-function MergedLayoutActions({ register, takeCloseFocus, children }: {
+function MergedLayoutActions({ register, takeCloseFocus, claimFocus, children }: {
   register: (actions: DockChartLayoutActions | undefined) => void;
   takeCloseFocus: DockChartLayoutActions['takeCloseFocus'];
+  claimFocus: NonNullable<DockChartLayoutActions['claimFocus']>;
   children: ReactNode;
 }) {
   useLayoutEffect(() => () => { register(undefined); }, [register]);
-  useLayoutEffect(() => { register({ content: children, takeCloseFocus }); }, [register, children, takeCloseFocus]);
+  useLayoutEffect(() => { register({ content: children, takeCloseFocus, claimFocus }); }, [register, children, takeCloseFocus, claimFocus]);
+  return null;
+}
+
+/** Records whether the trigger or its open menu still held focus as they unmount; layout cleanups run before the nodes leave the document. */
+function FocusOnUnmount({ trigger, menu, held }: { trigger: RefObject<HTMLElement | null>; menu: RefObject<HTMLElement | null>; held: RefObject<boolean> }) {
+  useLayoutEffect(() => () => {
+    const active = document.activeElement;
+    held.current = !!active && (!!trigger.current?.contains(active) || !!menu.current?.contains(active));
+  }, [trigger, menu, held]);
   return null;
 }
 

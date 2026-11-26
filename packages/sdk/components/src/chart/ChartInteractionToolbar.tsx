@@ -1,4 +1,4 @@
-import { useContext, useRef, useState } from 'react';
+import { useContext, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode, Ref } from 'react';
 import { Download, MoreHorizontal, Table2 } from 'lucide-react';
 import { useI18n, useMessages } from '@ap/kernel';
@@ -38,6 +38,14 @@ export function ChartInteractionToolbar(p: Props) {
   const moreTrigger = useRef<HTMLButtonElement>(null);
   const docked = p.dockMaximize !== undefined;
   const inQueryPanel = useInQueryPanel();
+  const layoutActions = p.dockLayoutActions;
+  // The pane trigger this ⋯ replaced held focus: take it over unless the user already moved it elsewhere (#3095).
+  useLayoutEffect(() => {
+    if (!layoutActions?.claimFocus?.()) return;
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    moreTrigger.current?.focus();
+  }, [layoutActions]);
   const exportMenu = p.exportCsv && <ChartExportMenu compact={p.compact} exportCsv={p.exportCsv} tools={p.exportTools} disabled={p.exportDisabled} />;
   return <header data-dock-chart-options={docked && p.start != null ? '' : undefined} data-tools-reveal={p.toolsReveal} className={cn(
     'flex shrink-0 items-center gap-1 break-keep',
