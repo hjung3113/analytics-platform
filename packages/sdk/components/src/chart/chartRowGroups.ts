@@ -1,4 +1,5 @@
 import type { CustomSeriesOption } from 'echarts/charts';
+import { chartMarkFontSize } from './chartMarks';
 type RenderItem = Exclude<CustomSeriesOption['renderItem'], undefined | string>;
 type RenderParams = Parameters<RenderItem>[0];
 type RenderApi = Parameters<RenderItem>[1];
@@ -13,7 +14,6 @@ export type ChartRowGroups = {
 };
 const LABEL_GAP = 12;
 const ROW_ROOM = 8;
-const LABEL_FONT = 11;
 const GLYPH_WIDTH = 7;
 const WIDE_GLYPH_WIDTH = 12;
 const textWidth = (text: string) => [...text].reduce((width, ch) => width + (ch.codePointAt(0)! > 255 ? WIDE_GLYPH_WIDTH : GLYPH_WIDTH), 0);
@@ -40,6 +40,7 @@ export function rowGroupLayout(groups: ChartRowGroups, categories: readonly stri
 
 /** One custom item per run. Coordinates come from the live category axis, so resize and Zoom keep labels and separators aligned. */
 export function rowGroupSeries(layout: ReturnType<typeof rowGroupLayout>, color: string, separator: string, takenSeriesIds: Set<string>) {
+  const fontSize = chartMarkFontSize();
   return {
     id: helperSeriesId('__rowGroups', takenSeriesIds), type: 'custom', silent: true, animation: false, clip: false, tooltip: { show: false },
     encode: { y: [0, 1], x: -1 }, data: layout.runs.map(run => [run.start, run.end]),
@@ -53,7 +54,7 @@ export function rowGroupSeries(layout: ReturnType<typeof rowGroupLayout>, color:
       if (bottom <= top) return;
       const x = grid.x - layout.gutter + LABEL_GAP;
       return { type: 'group' as const, children: [
-        { type: 'text' as const, style: { x, y: (top + bottom) / 2, text: run.group, fill: color, fontSize: LABEL_FONT, verticalAlign: 'middle' as const } },
+        { type: 'text' as const, style: { x, y: (top + bottom) / 2, text: run.group, fill: color, fontSize, verticalAlign: 'middle' as const } },
         ...(run.start > 0 && start >= grid.y ? [{ type: 'line' as const, shape: { x1: x, x2: grid.x + grid.width, y1: start, y2: start }, style: { stroke: separator, lineWidth: 1 } }] : []),
       ] };
     },

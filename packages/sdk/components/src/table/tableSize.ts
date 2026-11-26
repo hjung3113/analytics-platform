@@ -14,14 +14,11 @@ export const TABLE_SIZE_KEY = 'platform:table-size';
 
 /** Row height of 보통 in every context today (the `min-h-8` of header and body cells, also the virtualizer's estimate). A context with another baseline changes this one number; the steps below stay relative to it. */
 export const BASE_ROW_HEIGHT = 32;
-/** The font of 보통 body text (`text-sm`) and the default column width unit. */
-const BASE_FONT = 'var(--text-sm)';
-
-type Step = { /** px added to the baseline row height. */ rowDelta: number; font: string; head: string; /** Default column widths are multiplied by this (크게: the font ratio 15/13); user-resized widths are not. */ widthScale: number };
+type Step = { /** px added to the baseline row height. */ rowDelta: number; /** Scale for default column widths. User-resized widths are preserved. */ widthScale: number };
 export const TABLE_SIZE_STEPS: Record<TableSize, Step> = {
-  small: { rowDelta: -4, font: 'var(--text-xs)', head: '11px', widthScale: 1 },
-  normal: { rowDelta: 0, font: BASE_FONT, head: '12px', widthScale: 1 },
-  large: { rowDelta: 8, font: `calc(${BASE_FONT} + 2px)`, head: '14px', widthScale: 15 / 13 },
+  small: { rowDelta: -4, widthScale: 1 },
+  normal: { rowDelta: 0, widthScale: 1 },
+  large: { rowDelta: 8, widthScale: 15 / 13 },
 };
 
 export function parseTableSize(raw: unknown): TableSize | null {

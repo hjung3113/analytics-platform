@@ -291,7 +291,7 @@ export function PaneHeader(props: PaneHeaderProps) {
         {systemLabel && <span data-pane-system className="shrink-0 rounded-xs border border-border-subtle px-1.5 text-caption text-text-secondary">{systemLabel}</span>}
       </div>
       {dock ? null
-        : <span className={cn('flex-1 truncate text-sm font-medium text-text-primary', overflow && chips.length > 0 ? 'min-w-16' : 'min-w-24')}>{menuName}</span>}
+        : <span className={cn('t-card-title flex-1 truncate', overflow && chips.length > 0 ? 'min-w-16' : 'min-w-24')}>{menuName}</span>}
       {(shown.length > 0 || hidden > 0) && <div data-pane-chips className="flex shrink-0 items-center gap-1">
         {shown.map(chip => <span key={chip.key} data-pane-chip={chip.key} className={PANE_CHIP}>{chipText(chip)}</span>)}
         {hidden > 0 && <button type="button" data-pane-chip="more" aria-haspopup="dialog" aria-expanded={popover} aria-label={text.contextMoreName(number, hidden)} onClick={open} className={cn(PANE_CHIP, 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-ring')}>{text.contextMore(hidden)}</button>}

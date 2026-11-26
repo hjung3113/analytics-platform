@@ -1,5 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
 
 function properties(path: string): Set<string> {
@@ -132,4 +133,56 @@ it('keeps the violet theme to the accent-primary family and readable (#2723)', (
   expect(ratio(themed('accent-primary'), themed('surface-card'))).toBeGreaterThanOrEqual(3);
   expect(ratio(themed('text-secondary'), themed('surface-row-selected'))).toBeGreaterThanOrEqual(4.5);
   expect(ratio(themed('text-muted'), themed('surface-row-selected'))).toBeGreaterThanOrEqual(4.5);
+});
+
+
+it.each([
+  ['page-title', 'page-title', '18px', '700', 'primary'],
+  ['section-title', 'section-title', '15px', '600', 'primary'],
+  ['card-title', 'body', '13px', '600', 'primary'],
+  ['body', 'body', '13px', '400', 'primary'],
+  ['table-header', 'caption', '12px', '600', 'secondary'],
+  ['caption', 'caption', '12px', '400', 'secondary'],
+  ['stat', 'stat', '28px', '700', 'primary'],
+  ['stat-2', 'stat', '28px', '700', 'primary'],
+  ['chart-tool', 'caption', '12px', '500', 'secondary'],
+  ['mono', 'mono', '12.5px', '500', 'primary'],
+])('defines the shared %s typography role (#2726)', (role, token, size, weight, color) => {
+  const css = readFileSync(join(process.cwd(), 'src/styles/index.css'), 'utf8');
+  const rule = css.match(new RegExp(String.raw`\.t-${role}(?![\w-])[^{}]*\{([^}]+)\}`))?.[1];
+  expect(palette.get(`--text-${token}`)).toBe(size);
+  expect(rule).toBeDefined();
+  expect(rule).toContain(`font-size: var(--text-${token})`);
+  expect(rule).toContain(`font-weight: ${weight}`);
+  expect(rule).toContain(`color: rgb(var(--text-${color}))`);
+  if (role.startsWith('stat')) expect(rule).toContain('font-variant-numeric: tabular-nums');
+});
+
+function forbiddenTypographyLines(source: string): number[] {
+  const shorthand = /(?<![\w-])font\s*:\s*[^;{}]*\b(?:10(?:\.0+)?px|0?\.625rem)\b/g;
+  const forbidden = /\btext-\[(?:length:)?(?:10(?:\.0+)?px|0?\.625rem)\b|(?<![\w-])(?:font-size|fontSize|--[\w-]*font-size|--text-[\w-]+)\s*[:=]\s*['"]?(?:10(?:\.0+)?(?:px)?|0?\.625rem)\b(?![.%])|\b[A-Z_]*(?:FONT[A-Z_]*|LABEL_SIZE)\s*=\s*10\b(?!\.)/g;
+  const lines = [...source.matchAll(forbidden), ...source.matchAll(shorthand)]
+    .map(match => source.slice(0, match.index).split('\n').length);
+  return [...new Set(lines)].sort((a, b) => a - b);
+}
+
+it('reports the line of a multiline 10px font declaration', () => {
+  expect(forbiddenTypographyLines('.label {\n  font-size:\n    10px;\n}')).toEqual([2]);
+});
+
+it('allows 10px non-typography dimensions', () => {
+  expect(forbiddenTypographyLines('.label {\n  padding:\n    10px;\n}')).toEqual([]);
+});
+
+it('keeps 10px typography out of SDK source (#2726)', () => {
+  const sdk = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+  const sourceDirs = readdirSync(sdk).map(pkg => join(pkg, 'src')).filter(dir => existsSync(join(sdk, dir)));
+  expect(sourceDirs).toEqual(expect.arrayContaining(
+    ['components', 'contract-schemas', 'contracts', 'kernel', 'shell', 'ui'].map(pkg => join(pkg, 'src')),
+  ));
+  const matches = sourceDirs.flatMap(dir => readdirSync(join(sdk, dir), { recursive: true, encoding: 'utf8' })
+    .map(file => join(dir, file).split(sep).join('/')))
+    .filter(file => /\.(css|tsx?)$/.test(file) && !/\/(?:__tests__|__fixtures__)\/|\.test\./.test(file))
+    .flatMap(file => forbiddenTypographyLines(readFileSync(join(sdk, file), 'utf8')).map(line => `${file}:${line}`));
+  expect(matches).toEqual([]);
 });

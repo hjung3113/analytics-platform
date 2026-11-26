@@ -42,8 +42,7 @@ export function shortNumber(v: number, lang: Lang): string {
   return formatNumber(v, lang, { maximumFractionDigits: Math.abs(v) >= 100 ? 0 : 1 });
 }
 
-export const LABEL_FONT = 10;
-/** Average glyph advance of a total (bold, 11px) plus its padding; sizes the grid room for the widest total. */
+/** Average glyph advance of a bold total plus its padding; sizes the grid room for the widest total. */
 const GLYPH_PX = 6;
 const LABEL_PAD = 4;
 export function labelWidth(text: string): number { return text.length * GLYPH_PX + LABEL_PAD; }

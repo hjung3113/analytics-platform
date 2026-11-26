@@ -1,9 +1,9 @@
 import type { CustomSeriesOption } from 'echarts/charts';
 import type { ChartOptionInput } from './buildChartOption';
+import { chartMarkFontSize } from './chartMarks';
 
 type EmptyCategoryInput = Pick<ChartOptionInput, 'horizontal' | 'xType' | 'categories' | 'displayed' | 'emptyCategoryLabel'>;
 const LABEL_GAP = 4;
-const LABEL_SIZE = 11;
 
 /** No visible series is the Frame's all-series-off state. Zero is a displayed value. */
 export function emptyCategoryLabels({ horizontal, xType, categories, displayed, emptyCategoryLabel }: EmptyCategoryInput) {
@@ -22,6 +22,7 @@ export function emptyCategoryLabels({ horizontal, xType, categories, displayed, 
 }
 
 export function emptyCategorySeries(categories: readonly string[], labels: ReadonlyMap<string, string>, color: string): CustomSeriesOption {
+  const fontSize = chartMarkFontSize();
   return {
     // No explicit id: ECharts assigns one that cannot clash with a consumer series id.
     type: 'custom', silent: true, animation: false, clip: true,
@@ -34,7 +35,7 @@ export function emptyCategorySeries(categories: readonly string[], labels: Reado
       const index = Number(api.value(0));
       return { type: 'text', style: {
         x: grid.x + LABEL_GAP, y: api.coord([0, index])[1], text: labels.get(categories[index]),
-        fill: color, fontSize: LABEL_SIZE, verticalAlign: 'middle',
+        fill: color, fontSize, verticalAlign: 'middle',
         width: Math.max(0, grid.width - LABEL_GAP), overflow: 'truncate',
       } };
     },

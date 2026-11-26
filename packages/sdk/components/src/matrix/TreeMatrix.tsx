@@ -146,7 +146,7 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
   const compactCount = visible.filter(isFlexibleCompact).length;
   const fixedWidth = visible.reduce((sum, column) => isFlexibleCompact(column) ? sum : sum + widths.get(column.id)!, emphasisWidth);
   const vars = {
-    '--ap-table-row-h': `${rowHeight}px`, '--ap-table-font': step.font, '--ap-table-head-font': step.head,
+    '--ap-table-row-h': `${rowHeight}px`,
     '--matrix-left-width': `${leftWidth}px`, '--matrix-right-width': `${rightWidth}px`,
     '--matrix-compact-min-width': COMPACT_MIN_WIDTH,
     '--matrix-fit-min-width': `calc(${fixedWidth}px + ${compactCount} * var(--matrix-compact-min-width))`,
@@ -253,7 +253,7 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
       surface === 'sunken' ? 'before:to-surface-sunken' : 'before:to-surface-card',
     )} />;
   };
-  return <section aria-label={label} style={vars} className={cn('flex min-h-0 min-w-0 flex-col text-(length:--ap-table-font) break-keep', fill && 'h-full flex-1 overflow-hidden')}>
+  return <section aria-label={label} style={vars} className={cn('flex min-h-0 min-w-0 flex-col t-body break-keep', fill && 'h-full flex-1 overflow-hidden')}>
     <div ref={viewport} data-matrix-viewport role="treegrid" aria-label={label} aria-rowcount={totalVisible + 1} aria-colcount={visible.length + (emphasis.length > 0 ? 1 : 0)} aria-busy={busy}
       className={cn('scrollbar-panel min-h-0 min-w-0 scroll-pt-(--ap-table-row-h) scroll-pl-(--matrix-left-width) scroll-pr-(--matrix-right-width) overflow-auto overscroll-contain', fill ? 'flex-1' : 'max-h-96')}
       onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
@@ -273,12 +273,12 @@ export function TreeMatrix<N extends MatrixNode>({ nodes, columns, identityColum
             const fullText = column.headerNote ? `${column.label} ${column.headerNote}` : column.label;
             return <MatrixCellBox key={column.id} role="columnheader" aria-colindex={index + 1}
               style={{ '--matrix-width': `${widths.get(column.id)}px`, '--matrix-left': `${left.get(column.id) ?? 0}px`, '--matrix-right': `${right.get(column.id) ?? 0}px` } as CSSProperties}
-              className={cn(CELL, 't-table-header bg-surface-sunken text-(length:--ap-table-head-font) text-text-secondary', columnLayoutClass(column))}
+              className={cn(CELL, 't-table-header bg-surface-sunken text-text-secondary', columnLayoutClass(column))}
               compact={isFlexibleCompact(column)} fullText={fullText}>
               {isFlexibleCompact(column) ? <div>{content}</div> : content}
             </MatrixCellBox>;
           })}
-          {emphasis.length > 0 && <div role="columnheader" aria-colindex={visible.length + 1} style={{ '--matrix-width': `${WIDTH.compact * step.widthScale}px` } as CSSProperties} className={cn(CELL, 'sticky right-0 z-10 t-table-header bg-surface-sunken text-(length:--ap-table-head-font) text-text-secondary')}>{emphasisColumnLabel ?? m('emphasis')}</div>}
+          {emphasis.length > 0 && <div role="columnheader" aria-colindex={visible.length + 1} style={{ '--matrix-width': `${WIDTH.compact * step.widthScale}px` } as CSSProperties} className={cn(CELL, 'sticky right-0 z-10 t-table-header bg-surface-sunken text-text-secondary')}>{emphasisColumnLabel ?? m('emphasis')}</div>}
           {edgeFade('right', 'sunken')}
         </div>
         <div aria-hidden data-matrix-spacer="before" className="h-(--matrix-spacer)" style={{ '--matrix-spacer': `${offset * rowHeight}px` } as CSSProperties} />

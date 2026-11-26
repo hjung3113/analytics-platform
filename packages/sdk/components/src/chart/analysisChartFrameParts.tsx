@@ -52,7 +52,7 @@ export function ChartHeading({ titleId, title, description, gestureHint, descrip
       {info && <InfoTip label={m('chartDescription')} descriptionId={descriptionId} onFocus={() => setInfoFocused(compact)} onBlur={() => setInfoFocused(false)}>{info}</InfoTip>}
     </div>
     {hideTitle && metricVersion && <span className="sr-only">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span>}
-    {((!compact && description) || (!hideTitle && metricVersion)) && <p className="text-xs text-text-muted">{!compact && description}{!hideTitle && metricVersion && <>{!compact ? ' · ' : null}<span className="tabular">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}</p>}
+    {((!compact && description) || (!hideTitle && metricVersion)) && <p className="t-caption">{!compact && description}{!hideTitle && metricVersion && <>{!compact ? ' · ' : null}<span className="tabular">{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}</p>}
   </div>;
 }
 
@@ -61,8 +61,8 @@ export function ChartTrustFooter({ trust: input, metricVersion, singleLine }: { 
   const trust = chartTrustText(input, lang);
   // singleLine: each item stays whole and a narrow pane wraps between items, never a sideways scroll.
   const item = singleLine ? 'whitespace-nowrap' : undefined;
-  return (trust || metricVersion) && <footer className={cn('shrink-0 border-t border-border-subtle px-4 py-2 text-tiny text-text-muted tabular')}>
-    {trust && <><span className={item}>{t('source')}: <span className="t-mono text-tiny">{trust.source}</span></span> · <span className={item}>{t('updated')}: {trust.updated}</span> · <span className={item}>{t('coverage')}: {trust.coverage}</span></>}
+  return (trust || metricVersion) && <footer className={cn('shrink-0 border-t border-border-subtle px-4 py-2 t-caption tabular')}>
+    {trust && <><span className={item}>{t('source')}: <span className="t-mono">{trust.source}</span></span> · <span className={item}>{t('updated')}: {trust.updated}</span> · <span className={item}>{t('coverage')}: {trust.coverage}</span></>}
     {metricVersion && <>{trust && ' · '}<span className={item}>{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}
   </footer>;
 }
@@ -76,7 +76,7 @@ export function ChartLegendLayout({ enabled, keys: named = true, placement = 'bo
   const m = useMessages(COMPONENTS_MESSAGES);
   if (!enabled) return <>{children}</>;
   const side = placement === 'side';
-  const list = <div tabIndex={named ? 0 : undefined} role={named ? 'group' : undefined} aria-label={named ? m('chartLegend') : undefined} className={cn('text-xs text-text-secondary', side ? 'flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2 py-1 [scrollbar-gutter:stable] [&>*]:shrink-0' : 'flex max-h-20 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 overflow-y-auto whitespace-nowrap px-2 py-1')}>
+  const list = <div tabIndex={named ? 0 : undefined} role={named ? 'group' : undefined} aria-label={named ? m('chartLegend') : undefined} className={cn('t-caption', side ? 'flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2 py-1 [scrollbar-gutter:stable] [&>*]:shrink-0' : 'flex max-h-20 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 overflow-y-auto whitespace-nowrap px-2 py-1')}>
     {legend}
     {caption && <span className="min-w-0 max-w-56 truncate text-text-muted" title={typeof caption === 'string' ? caption : undefined}>{caption}</span>}
   </div>;

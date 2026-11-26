@@ -6,7 +6,7 @@ import { Button, Skeleton, cn } from '@ap/ui';
 import { readColorToken, type ThemeColorToken } from '@ap/ui/theme';
 import { StateMessage } from '../StateView';
 import { ChunkLoadBoundary, lazyChunk, useLazyChunk } from '../lazyChunk';
-import { CHART_HEIGHTS, CHART_MARKS } from './chartMarks';
+import { CHART_HEIGHTS, chartMarkFontSize } from './chartMarks';
 
 /** Palette contract consumed by charts (DESIGN.md platform chart/category extensions). Read from CSS variables so tokens stay single-sourced. */
 export function token(name: ThemeColorToken): string {
@@ -18,7 +18,7 @@ const chartThemeTokens = {
   axisLine: 'border-control',
   separator: 'border-strong',
   splitLine: 'chart-grid',
-  axisLabel: 'text-muted',
+  axisLabel: 'text-secondary',
   tooltipBackground: 'surface-popover',
   tooltipBorder: 'border-subtle',
   tooltipText: 'text-primary',
@@ -57,10 +57,10 @@ export const chartReferenceLineTheme = {
     silent: true,
     symbol: 'none',
     lineStyle: { color, type: 'dashed' },
-    label: { formatter: '{b}', fontSize: 10, color, position: 'insideEndTop' },
+    label: { formatter: '{b}', fontSize: chartMarkFontSize(), color, position: 'insideEndTop' },
   } as const),
   // A band label sits inside its band's start corner, clear of the line label at the plot's end.
-  bandLabel: (color: string, axis: 'x' | 'y') => ({ show: true, color, fontSize: 10, position: axis === 'y' ? 'insideTopLeft' as const : 'insideTop' as const }),
+  bandLabel: (color: string, axis: 'x' | 'y') => ({ show: true, color, fontSize: chartMarkFontSize(), position: axis === 'y' ? 'insideTopLeft' as const : 'insideTop' as const }),
   scatterXLabel: { position: 'end' as const, rotate: 0, offset: [0, 8], verticalAlign: 'top' as const },
   // Point labels toward the plot's middle to keep the outermost labels inside.
   histogramXLabel: (position: 'insideEndTop', color: string, label: string, leftHalf: boolean) => ({
@@ -94,7 +94,7 @@ export const baseTextStyle = {
     return (typeof window !== 'undefined' && getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim())
       || "'Inter Variable', 'Pretendard Variable', system-ui, sans-serif";
   },
-  fontSize: CHART_MARKS.fontSize,
+  get fontSize(): number { return chartMarkFontSize(); },
   // eslint-disable-next-line shadcn/no-raw-colors -- CSS variable name for token(), not a class
   get color(): string { return token('text-muted'); },
 };

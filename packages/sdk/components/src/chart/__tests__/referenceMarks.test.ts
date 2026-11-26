@@ -135,8 +135,8 @@ it('places a band label inside its start corner, away from the line label at the
   const theme = { referenceBand: { color: '#64748b', opacity: 0.12 } } as Parameters<typeof referenceBandData>[0];
   const [y] = referenceBandData(theme, [{ type: 'band', axis: 'y', from: 80, to: 90, label: 'Range' }]) as [{ label: unknown }, unknown][];
   const [x] = referenceBandData(theme, [{ type: 'band', axis: 'x', from: 1, to: 2, label: 'Range' }]) as [{ label: unknown }, unknown][];
-  expect(y[0].label).toMatchObject({ position: 'insideTopLeft', fontSize: 10 });
-  expect(x[0].label).toMatchObject({ position: 'insideTop', fontSize: 10 });
+  expect(y[0].label).toMatchObject({ position: 'insideTopLeft', fontSize: 12 });
+  expect(x[0].label).toMatchObject({ position: 'insideTop', fontSize: 12 });
 });
 
 it('draws the population P95 through the same Frame option as its legacy markLine', () => {

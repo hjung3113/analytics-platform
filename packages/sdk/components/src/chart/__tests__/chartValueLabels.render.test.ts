@@ -17,6 +17,12 @@ echarts.use([LineChart, BarChart, ScatterChart, DataZoomComponent, GridComponent
 // created (F1), a label wider than the segment ECharts resolved (F4) or one under a Min/Max chip (F6). Hidden labels are not in the SVG at all.
 const bar = (id: string, color: ChartSeries['color'], categories: string[], values: (number | null)[]): ChartSeries => ({ id, name: id.toUpperCase(), color, kind: 'bar', points: categories.map((x, n) => [x, values[n]]) });
 type Drawn = { segment: string[]; total: string[]; chip: string[] };
+function markTexts(svg: string) {
+  // The theme-less SVG renderer draws axis names and ticks at the same size, in its default axis fill.
+  return [...svg.matchAll(/<text\b([^>]*)>([^<]+)<\/text>/g)]
+    .filter(([, attributes]) => attributes.includes('font-size:12px') && !attributes.includes('fill="#54555a"'));
+}
+
 function draw(displayed: ChartSeries[], categories: string[], size: { width: number; height: number }, more: Partial<ChartOptionInput> = {}, sum = true): Drawn {
   const totals = resolveRowTotals({ displayed, categories, mayClientSum: sum, allShown: true });
   const input: ChartOptionInput = {
@@ -28,9 +34,10 @@ function draw(displayed: ChartSeries[], categories: string[], size: { width: num
   const svg = chart.renderToSVGString();
   chart.dispose();
   const out: Drawn = { segment: [], total: [], chip: [] };
-  for (const [, style, text] of svg.matchAll(/<text[^>]*style="([^"]*)"[^>]*>([^<]*)<\/text>/g)) {
-    if (style.includes('font-size:11px')) out.total.push(text);
-    else if (style.includes('font-size:10px')) (style.includes('bold') ? out.chip : out.segment).push(text);
+  for (const [, attributes, text] of markTexts(svg)) {
+    if (text === '최소' || text === '최대') out.chip.push(text);
+    else if (attributes.includes('bold') || attributes.includes('italic')) out.total.push(text);
+    else out.segment.push(text);
   }
   return out;
 }
@@ -130,7 +137,7 @@ describe('minMax on draws no segment labels, totals stay (D7)', () => {
   });
   it('draws no segment number in lanes either, and the chips stay', () => {
     const drawn = draw(displayed, R, wide, { valueLabels: 'segment', extremes, startAlign: true });
-    expect(drawn.segment.filter(t => /\d/.test(t))).toEqual([]); // the lane names (A, B) are 10px text too
+    expect(drawn.segment.filter(t => /\d/.test(t))).toEqual([]); // the lane names (A, B) share the mark label role
     expect(drawn.chip).toContain('최대');
   });
 });
@@ -163,7 +170,7 @@ describe('a label that yields leaves nothing behind (G3)', () => {
   const heat = (values: (number | null)[]) => [bar('a', 'chart-heat-div-0', R, values), bar('b', 'chart-series-1', R, [null, null, null])];
   // A background or hit target is a path in the surface colour with an area; the collapsed label of a yielded number leaves at most an empty path (`M0 0Z`: no area, nothing to see or hover).
   const boxes = (svg: string) => [...svg.matchAll(/<path d="([^"]*)"[^>]*fill="#fedcba"/g)].filter(([, d]) => d !== 'M0 0Z').length;
-  const texts = (svg: string) => [...svg.matchAll(/<text[^>]*font-size:10px[^>]*>([^<]+)<\/text>/g)].length;
+  const texts = (svg: string) => markTexts(svg).length;
   it('draws a surface box for every number that fits (control)', () => {
     const svg = svgOf(heat([800, 400, 600]), wide);
     expect([boxes(svg), texts(svg)]).toEqual([3, 3]);

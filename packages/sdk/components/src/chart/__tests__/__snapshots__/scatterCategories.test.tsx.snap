@@ -88,7 +88,7 @@ exports[`preserves the complete legacy projection without opt-in fields 1`] = `
           ],
           "label": {
             "color": "rgb(55,65,81)",
-            "fontSize": 10,
+            "fontSize": 12,
             "formatter": "{b}",
             "position": "insideEndTop",
           },
@@ -116,7 +116,7 @@ exports[`preserves the complete legacy projection without opt-in fields 1`] = `
     },
     "xAxis": {
       "axisLabel": {
-        "color": "rgb(91,102,120)",
+        "color": "rgb(55,65,81)",
         "showMaxLabel": false,
         "showMinLabel": false,
       },
@@ -138,7 +138,7 @@ exports[`preserves the complete legacy projection without opt-in fields 1`] = `
     },
     "yAxis": {
       "axisLabel": {
-        "color": "rgb(91,102,120)",
+        "color": "rgb(55,65,81)",
         "showMaxLabel": false,
         "showMinLabel": false,
       },

@@ -6,7 +6,7 @@
   --dv-group-view-background-color: var(--color-surface-card);
   --dv-tabs-and-actions-container-background-color: var(--color-surface-card);
   --dv-tabs-and-actions-container-height: 40px;
-  --dv-tabs-and-actions-container-font-size: 12px;
+  --dv-tabs-and-actions-container-font-size: var(--text-body);
   --dv-activegroup-visiblepanel-tab-background-color: transparent;
   --dv-activegroup-hiddenpanel-tab-background-color: transparent;
   --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
