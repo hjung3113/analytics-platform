@@ -1226,6 +1226,23 @@ describe('/admin/permissions/requests', () => {
     );
   });
 
+  // #2574 variant b: the capture can sit far above the footer button, so the button names what is missing.
+  test('self-approval names the short audit fields under the disabled submit until both reach 8 characters', async () => {
+    installFetch({ actorId: REQUESTS[0].requester_actor_id });
+    renderRoute();
+    await screen.findByTestId('permission-decision-section');
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
+    const submit = screen.getByTestId('permission-decision-submit');
+    const incomplete = '정책 근거와 동료 검토자 부재 사유를 각각 8자 이상 입력하면 승인할 수 있습니다.';
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveAccessibleDescription(expect.stringContaining(incomplete));
+
+    fireEvent.change(screen.getByLabelText(/정책 근거/), { target: { value: '운영 정책 §4.3 범위' } });
+    fireEvent.change(screen.getByLabelText(/동료 검토자 부재 사유/), { target: { value: '다른 검토자가 모두 부재중' } });
+    await waitFor(() => expect(submit).toBeEnabled());
+    expect(submit).not.toHaveAccessibleDescription(expect.stringContaining(incomplete));
+  });
+
   test("AC-4 shows audit capture only for this Admin's approve action, not another request or another action", async () => {
     installFetch({ actorId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1' });
     renderRoute();

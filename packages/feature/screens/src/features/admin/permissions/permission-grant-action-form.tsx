@@ -35,7 +35,13 @@ export function PermissionGrantActionForm({
     kind === 'denies' &&
     actorId === me.data?.actor.id &&
     workspaceSettings.data?.permission_self_approval === 'forbidden';
-  const canSubmit = reason.trim().length > 0 && !mutation.isPending && !selfDenyLiftBlocked;
+  // Why the action is disabled, named once under the button (#2574 variant b); the policy block first, as it outlasts any typing.
+  const blockedReason = selfDenyLiftBlocked
+    ? ADMIN_PERMISSIONS_COPY.selfDenyLiftForbidden
+    : reason.trim().length === 0
+      ? ADMIN_PERMISSIONS_COPY.reasonRequired
+      : undefined;
+  const canSubmit = blockedReason === undefined && !mutation.isPending;
 
   function submit() {
     if (!canSubmit) return;
@@ -54,6 +60,7 @@ export function PermissionGrantActionForm({
     <Button
       type="button"
       disabled={!canSubmit}
+      disabledReason={blockedReason}
       loading={mutation.isPending}
       onClick={kind === 'denies' ? submit : undefined}
       data-testid="permission-grants-submit"
@@ -75,9 +82,6 @@ export function PermissionGrantActionForm({
           onChange={(event) => setReason(event.target.value)}
         />
       </label>
-      {selfDenyLiftBlocked ? (
-        <p className="text-xs text-accent-danger">{ADMIN_PERMISSIONS_COPY.selfDenyLiftForbidden}</p>
-      ) : null}
       {kind === 'grants' ? (
         <DecisionImpactConfirmDialog
           kind="irreversible"

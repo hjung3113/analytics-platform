@@ -234,6 +234,15 @@ function EditForm({
     },
     onErrorMessage: setError,
   });
+  // A blank name is caught on the field, focused, before the server's dialog-level rejection (#2574 variant a+c).
+  const edit = useValidatedSubmit<{ name: string }>({
+    validate: (values) => (values.name.trim() ? {} : { name: ADMIN_REGISTRY_COPY.nameRequired }),
+    onValid: ({ name: nextName }) => {
+      const body: UpdateAnalyticsAreaBody = {};
+      if (nextName !== target.name) body.name = nextName;
+      updateMutation.mutate(body);
+    },
+  });
 
   return (
     <>
@@ -246,25 +255,25 @@ function EditForm({
       <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
         data-testid={`edit-analytics-area-form-${target.slug}`}
         className="space-y-3"
+        noValidate
         onSubmit={(e) => {
-          e.preventDefault();
           setError(null);
-          const body: UpdateAnalyticsAreaBody = {};
-          if (name !== target.name) body.name = name;
-          updateMutation.mutate(body);
+          edit.handleSubmit({ name })(e);
         }}
       >
-        <div className="space-y-1">
-          <FieldLabel htmlFor={`aa-edit-name-${target.slug}`} tone="secondary">
-            이름
-          </FieldLabel>
-          <Input
-            id={`aa-edit-name-${target.slug}`}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            data-testid={`aa-name-input-${target.slug}`}
-          />
-        </div>
+        <FormField id={`aa-edit-name-${target.slug}`} label="이름" required requiredMark="text" error={edit.errors.name}>
+          {(control) => (
+            <Input
+              {...control}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                edit.clearError('name');
+              }}
+              data-testid={`aa-name-input-${target.slug}`}
+            />
+          )}
+        </FormField>
         {error && (
           <p data-testid={`aa-row-error-${target.slug}`} className="text-sm text-accent-danger">
             {error}

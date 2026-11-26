@@ -433,8 +433,6 @@ function EditForm({
     return () => onDirtyChange(false);
   }, [dirty, onDirtyChange]);
 
-  const [keyError, setKeyError] = useState<string | null>(null);
-
   const updateMutation = useMutation({
     mutationFn: async () => {
       const body: UpdateManagedSystemBody = {};
@@ -460,9 +458,15 @@ function EditForm({
     onError: (err) => {
       setDefaultErrors(defaultFieldErrors(err));
       const reservedKey = externalKeyFieldError(err);
-      setKeyError(reservedKey);
+      // A reserved key goes on its field, focused (#3173); anything else stays the dialog message.
+      edit.setServerErrors(reservedKey ? { externalKey: reservedKey } : {});
       setError(reservedKey ? null : envelopeMessage(err));
     },
+  });
+  // A blank name is caught on the field, focused, before the server's dialog-level rejection (#2574 variant a+c).
+  const edit = useValidatedSubmit<{ name: string; externalKey: string }>({
+    validate: (values) => (values.name.trim() ? {} : { name: ADMIN_REGISTRY_COPY.nameRequired }),
+    onValid: () => updateMutation.mutate(),
   });
 
   const archiveMutation = useMutation({
@@ -488,26 +492,27 @@ function EditForm({
       <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd}
         data-testid={`edit-managed-system-form-${target.slug}`}
         className="space-y-3"
+        noValidate
         onSubmit={(e) => {
-          e.preventDefault();
           setError(null);
-          setKeyError(null);
           setDefaultErrors({});
-          updateMutation.mutate();
+          edit.handleSubmit({ name, externalKey })(e);
         }}
       >
-        <div className="space-y-1">
-          <FieldLabel htmlFor={`ms-edit-name-${target.slug}`} tone="secondary">
-            이름
-          </FieldLabel>
-          <Input
-            id={`ms-edit-name-${target.slug}`}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            readOnly={isArchived}
-            data-testid={`name-input-${target.slug}`}
-          />
-        </div>
+        <FormField id={`ms-edit-name-${target.slug}`} label="이름" required requiredMark="text" error={edit.errors.name}>
+          {(control) => (
+            <Input
+              {...control}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                edit.clearError('name');
+              }}
+              readOnly={isArchived}
+              data-testid={`name-input-${target.slug}`}
+            />
+          )}
+        </FormField>
         <OwnerSelect
           value={owner}
           onChange={setOwner}
@@ -525,32 +530,20 @@ function EditForm({
           testId={`edit-default-reviewer-${target.slug}`}
           reviewer
         />
-        <div className="space-y-1">
-          <FieldLabel htmlFor={`ms-edit-key-${target.slug}`} tone="secondary">
-            외부 키
-          </FieldLabel>
-          <Input
-            id={`ms-edit-key-${target.slug}`}
-            value={externalKey}
-            onChange={(e) => {
-              setExternalKey(e.target.value);
-              setKeyError(null);
-            }}
-            readOnly={isArchived}
-            aria-invalid={Boolean(keyError)}
-            aria-describedby={keyError ? `ms-edit-key-${target.slug}-error` : undefined}
-            data-testid={`external-key-input-${target.slug}`}
-          />
-          {keyError && (
-            <p
-              id={`ms-edit-key-${target.slug}-error`}
-              className="text-sm text-accent-danger"
-              data-testid={`external-key-error-${target.slug}`}
-            >
-              {keyError}
-            </p>
+        <FormField id={`ms-edit-key-${target.slug}`} label="외부 키" error={edit.errors.externalKey}>
+          {(control) => (
+            <Input
+              {...control}
+              value={externalKey}
+              onChange={(e) => {
+                setExternalKey(e.target.value);
+                edit.clearError('externalKey');
+              }}
+              readOnly={isArchived}
+              data-testid={`external-key-input-${target.slug}`}
+            />
           )}
-        </div>
+        </FormField>
         {error && (
           <p data-testid={`row-error-${target.slug}`} className="text-sm text-accent-danger">
             {error}

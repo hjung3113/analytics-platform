@@ -336,6 +336,14 @@ export function PermissionRequestDecisionForm({
     mutation.isPending ||
     mutation.isSuccess ||
     mutation.error?.code === 'conflict.stale_write';
+  // The self-approval blocks are explained in the capture section, which can sit far above a footer-portaled button, so the
+  // button names them too (#2574 variant b). The other blocks already describe the button (approvalDescriptionId) or the
+  // button label says what to pick.
+  const submitBlockedReason = selfApprovalForbidden
+    ? captureCopy.forbidden
+    : !selfApprovalReady
+      ? captureCopy.incomplete
+      : undefined;
 
   React.useEffect(() => {
     intent.current = null;
@@ -436,6 +444,7 @@ export function PermissionRequestDecisionForm({
         onClick={submit}
         loading={mutation.isPending}
         disabled={submitDisabled}
+        disabledReason={submitBlockedReason}
         aria-describedby={approvalDescriptionId}
         data-testid="permission-decision-submit"
       >
@@ -755,9 +764,7 @@ export function PermissionRequestDecisionForm({
             </span>
           </div>
           {selfApprovalForbidden ? (
-            <p className="text-xs text-accent-danger">
-              운영 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.
-            </p>
+            <p className="text-xs text-accent-danger">{captureCopy.forbidden}</p>
           ) : null}
           <p className="text-xs text-text-muted">
             이 감사 기록은 관리자 감사 내역과 규정 준수 내보내기에 모두 포함됩니다.

@@ -205,8 +205,12 @@ describe('부여 목록 — Site·공정 grants', () => {
 
     await waitFor(() => expect(screen.getAllByText('카탈로그에 없음')).toHaveLength(2));
     expect(screen.getAllByText('Site SITE-Z · 공정 RZ9')).toHaveLength(2);
-    await user.type(await screen.findByLabelText('사유 · 필수'), '카탈로그에서 빠진 공정 정리');
+    // #2574 variant b: the empty reason is named under the disabled button.
+    const reasonInput = await screen.findByLabelText('사유 · 필수');
+    expect(screen.getByTestId('permission-grants-submit')).toHaveAccessibleDescription('사유를 입력해 주세요.');
+    await user.type(reasonInput, '카탈로그에서 빠진 공정 정리');
     const revoke = screen.getByTestId('permission-grants-submit');
+    expect(revoke).not.toHaveAccessibleDescription('사유를 입력해 주세요.');
     expect(revoke).toHaveTextContent('권한 취소');
     await user.click(revoke);
     const confirmation = await screen.findByRole('alertdialog', { name: '권한 취소 확인' });
