@@ -3,7 +3,12 @@ import { createContext, useCallback, useContext, useLayoutEffect, useState, useS
 type Target = 'toolbar' | 'description' | 'maximize';
 type Targets = Partial<Record<Target, HTMLElement>>;
 export type DockChartCloseFocus = (trigger: HTMLButtonElement | null) => void;
-export type DockChartLayoutActions = { content: ReactNode; takeCloseFocus: () => DockChartCloseFocus | null };
+export type DockChartLayoutActions = {
+  content: ReactNode;
+  takeCloseFocus: () => DockChartCloseFocus | null;
+  /** True once if the pane's own ⋯ trigger or its menu held focus when this merged ⋯ replaced it; the merged ⋯ then takes focus (#3095). */
+  claimFocus?: () => boolean;
+};
 type Pane = { charts: ReadonlyMap<string, boolean>; targets: Targets; layoutActions?: DockChartLayoutActions | undefined; stripWidth?: number | undefined };
 const EMPTY_PANE: Pane = { charts: new Map(), targets: {} };
 
