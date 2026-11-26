@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createChartPanel, menuPermission, type ChartPanelDraft, type MenuChartFields, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
@@ -398,6 +398,26 @@ describe('mapping field drag', () => {
     if (reason === 'Escape') fireEvent.click(chip, { detail: 1 });
     expect(screen.getByRole('button', { name: '매핑' })).toBeTruthy();
     expect(within(target).getByRole('button', { name: '장비 지우기' })).toBeTruthy();
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('moves the preview onto the well that scrolls under a stationary pointer', async () => {
+    const { baseElement, changed, user } = setup();
+    await user.click(screen.getByRole('button', { name: '가동 시간 지우기' }));
+    const chip = screen.getByRole('button', { name: '가동률' });
+    const measure = well(baseElement, 'measure');
+    const breakdown = well(baseElement, 'breakdown');
+    drag(chip, measure);
+    expect(measure).toHaveClass('bg-accent-primary-soft/35');
+    await act(() => new Promise<void>(resolve => { window.requestAnimationFrame(() => resolve()); }));
+    hit = breakdown;
+    fireEvent.scroll(baseElement);
+    await act(() => new Promise<void>(resolve => { window.requestAnimationFrame(() => resolve()); }));
+    expect(measure).not.toHaveClass('bg-accent-primary-soft/35');
+    pointer(chip, 'pointerup', 12);
+    const status = screen.getByRole('status');
+    expect(status).toHaveTextContent('기준 칸에는 기준만 놓을 수 있습니다');
+    expect(status).not.toHaveTextContent('다시 끌어 놓으세요');
     expect(changed).not.toHaveBeenCalled();
   });
 

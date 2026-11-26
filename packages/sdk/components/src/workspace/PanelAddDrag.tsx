@@ -1,4 +1,4 @@
-import { createContext, useLayoutEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
+import { createContext, useLayoutEffect, useRef, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useMessages } from '@ap/kernel';
 import { groupOf } from '../dock/commands';
@@ -6,7 +6,7 @@ import { dockTheme } from '../dock/dockPresentation';
 import type { DockNode } from '../dock/schema';
 import { dockStripElement } from '../dock/tabElements';
 import { COMPONENTS_MESSAGES } from '../messages';
-import { usePointerDrag } from './usePointerDrag';
+import { dockPointerHit, type DropStatus, usePointerDrag } from './usePointerDrag';
 
 const DOCK = '[data-dock-layout]';
 const GROUP = '.dv-groupview';
@@ -32,17 +32,15 @@ function zonesOf(dock: HTMLElement, layout: DockNode, blocked: string | undefine
 }
 
 function panelAt(dock: HTMLElement, x: number, y: number) {
-  let hit = dock.ownerDocument.elementFromPoint?.(x, y);
-  if (!hit || !dock.contains(hit)) return;
-  // An inner workspace occupies its containing panel's body.
-  for (let owner = hit.closest(DOCK); owner && owner !== dock; owner = owner.parentElement?.closest(DOCK) ?? null) hit = owner;
+  const hit = dockPointerHit(dock, x, y);
+  if (!hit) return;
   const body = hit.closest<HTMLElement>('[data-dock-panel][data-dock-visible="true"]');
   if (body?.closest(DOCK) === dock) return body.dataset.dockPanel;
   const header = dockStripElement(hit);
   return header?.closest(DOCK) === dock ? header.querySelector<HTMLElement>(ACTIONS)?.dataset.dockActive : undefined;
 }
 
-function pickAt(dock: HTMLElement, zones: Zone[], { clientX: x, clientY: y }: PointerEvent): Pick | undefined {
+function pickAt(dock: HTMLElement, zones: Zone[], { clientX: x, clientY: y }: { clientX: number; clientY: number }): Pick | undefined {
   const panelId = panelAt(dock, x, y);
   const zone = zones.find(zone => zone.panelId === panelId && x >= zone.rect.left && x < zone.rect.right && y >= zone.rect.top && y < zone.rect.bottom);
   return zone && { zone, position: y < zone.rect.top + zone.rect.height / 2 ? 'top' : 'bottom' };
@@ -56,59 +54,79 @@ function samePick(a: Pick | undefined, b: Pick | undefined) {
     && a.zone.reason === b.zone.reason && rect.left === next.left && rect.top === next.top && rect.width === next.width && rect.height === next.height;
 }
 
+function sameZones(a: Zone[], b: Zone[]) {
+  return a.length === b.length && a.every((zone, index) => {
+    const other = b[index]!;
+    return zone.group === other.group && zone.panelId === other.panelId && zone.reason === other.reason
+      && zone.rect.left === other.rect.left && zone.rect.top === other.rect.top && zone.rect.width === other.rect.width && zone.rect.height === other.rect.height;
+  });
+}
+
+function samePreview(current: Preview | null, next: Preview | null) {
+  if (current === next) return true;
+  if (!current || !next) return false;
+  return current.origin.left === next.origin.left && current.origin.top === next.origin.top
+    && samePick(current.pick, next.pick) && sameZones(current.zones, next.zones);
+}
+
+function statusText(status: DropStatus<string> | null, changed: string) {
+  if (!status) return '';
+  if (status.kind === 'retry') return changed;
+  return status.reason;
+}
+
 export function usePanelAddDrag(slotRef: RefObject<HTMLDivElement | null>, options: {
   layout: DockNode; scope: object; blocked?: string; place: (id: string, placement: PanelAddPlacement) => void;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
-  const [preview, setPreview] = useState<Preview | null>(null);
-  const [status, setStatus] = useState('');
-  const gesture = usePointerDrag();
-  const { cancel } = gesture;
-  const live = useRef({ ...options, preview });
+  const gesture = usePointerDrag<Preview, string>();
+  const { cancel, clearStatus } = gesture;
+  const live = useRef(options);
   useLayoutEffect(() => {
-    if (live.current.scope !== options.scope) { cancel(); setStatus(''); }
-    live.current = { ...options, preview };
-  }, [options, preview, cancel]);
+    if (live.current.scope !== options.scope) { cancel(); clearStatus(); }
+    live.current = options;
+  }, [options, cancel, clearStatus]);
 
   const start: Start = (event, id, add) => {
     const source = event.currentTarget;
-    const content = source.closest('[data-panel-add-content]');
+    const content = source.closest<HTMLElement>('[data-panel-add-content]');
     const dock = slotRef.current?.querySelector<HTMLElement>(DOCK);
     if (!dock || !content) return;
     const { scope } = live.current;
     const floating = m('panelAddDropFloating');
-    let layout: DockNode;
-    let frozen: Preview;
-    const started = gesture.start(event, {
+    let layout = live.current.layout;
+    gesture.start(event, {
+      source,
       isSourceAvailable: () => dock.isConnected && content.isConnected && content.contains(source)
         && content.getAttribute('data-state') === 'open' && source.dataset.panelAddSource === id,
       sourceAttributes: ['data-panel-add-source', 'data-state'],
+      geometryRoot: dock,
       onStart: () => {
         content.setAttribute('data-panel-add-dragging', '');
         layout = live.current.layout;
-        frozen = { dock, origin: dock.getBoundingClientRect(), zones: zonesOf(dock, layout, live.current.blocked, floating) };
       },
-      onMove: move => {
-        const pick = pickAt(dock, frozen.zones, move);
-        setPreview(previous => previous?.zones === frozen.zones && samePick(previous.pick, pick) ? previous : { ...frozen, pick });
-      },
-      onDrop: up => {
+      previewAt: point => {
         const current = live.current;
-        if (scope !== current.scope) return;
-        const pick = current.preview?.pick;
-        if (layout !== current.layout || !samePick(pick, pickAt(dock, zonesOf(dock, current.layout, current.blocked, floating), up))) {
-          setStatus(m('workspaceDropTargetChanged')); return;
-        }
-        if (!pick) return;
-        if (pick.zone.reason) { setStatus(pick.zone.reason); return; }
+        const zones = zonesOf(dock, current.layout, current.blocked, floating);
+        return { dock, origin: dock.getBoundingClientRect(), zones, pick: pickAt(dock, zones, point) };
+      },
+      samePreview,
+      onDrop: rendered => {
+        const current = live.current;
+        if (scope !== current.scope) return 'skip';
+        if (layout !== current.layout) return 'changed';
+        const pick = rendered.pick;
+        if (!pick) return 'skip';
+        if (pick.zone.reason) return pick.zone.reason;
         const panelId = add(id);
         if (panelId !== undefined && !groupOf(layout, panelId)) current.place(panelId, { panelId: pick.zone.panelId, position: pick.position });
       },
-      onEnd: () => { content.removeAttribute('data-panel-add-dragging'); setPreview(null); },
+      onEnd: () => { content.removeAttribute('data-panel-add-dragging'); },
     });
-    if (started) setStatus('');
   };
 
+  const preview = gesture.preview;
+  const announced = statusText(gesture.status, m('workspaceDropTargetChanged'));
   const overlays = preview && createPortal(<div className={`${dockTheme(true).className} pointer-events-none absolute inset-0 overflow-hidden`} data-panel-add-overlay aria-hidden>
     {preview.zones.filter(zone => zone.reason || zone === preview.pick?.zone).map(zone => {
       const { rect, reason } = zone;
@@ -123,5 +141,5 @@ export function usePanelAddDrag(slotRef: RefObject<HTMLDivElement | null>, optio
       </div>;
     })}
   </div>, preview.dock);
-  return { start, overlays, status };
+  return { start, overlays, status: announced };
 }

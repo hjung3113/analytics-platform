@@ -184,7 +184,7 @@ it('suppresses the cancelled click across a different pointerdown', async () => 
   expect(onAdd).not.toHaveBeenCalled();
 });
 
-it.each([{ surface: 'overlapping control', stack: false }])(
+it.each([{ surface: 'overlapping control', stack: false }, { surface: 'clipped stack row', stack: true }])(
   'refuses a drop onto a $surface at the same coordinates', async ({ stack }) => {
     const { row, hit, onAdd } = await mount({ enabled: true, stack });
     const dock = screen.getByRole('region', { name: '작업 영역' });
@@ -203,7 +203,7 @@ it.each([{ surface: 'overlapping control', stack: false }])(
 );
 
 it.each([{ position: 'top', direction: '위로', y: 150, chartPicker: false, stack: false },
-  { position: 'bottom', direction: '아래로', y: 350, chartPicker: true, stack: false }])('previews $position and saves the same placement and pin choice as keyboard add and move', async ({ position, direction, y, chartPicker, stack }) => {
+  { position: 'bottom', direction: '아래로', y: 350, chartPicker: true, stack: true }])('previews $position and saves the same placement and pin choice as keyboard add and move', async ({ position, direction, y, chartPicker, stack }) => {
   const drag = await mount({ enabled: true, chartPicker, stack });
   start(drag.row);
   if (position === 'bottom') pointer('pointermove', window, 420, y);
@@ -273,14 +273,37 @@ it('dims an unavailable group and announces its reason on release', async () => 
   expect(screen.getByText(reason)).toHaveAttribute('role', 'status');
 });
 
-it('does not start a drag in stack mode and keeps the click add', async () => {
-  const { row, onAdd, user } = await mount({ enabled: true, stack: true });
+/** Drain a real frame so the next request is the one under test (jsdom timing differs per machine). */
+async function flushDragFrame() {
+  await act(() => new Promise<void>(resolve => { window.requestAnimationFrame(() => resolve()); }));
+}
+
+it('follows a stack-mode scroll before drop and places the half now under the pointer', async () => {
+  const drag = await mount({ enabled: true, stack: true });
+  start(drag.row);
+  expect(preview()).toHaveAttribute('data-panel-add-preview', 'top');
+  await flushDragFrame();
+  drag.bounds.mockReturnValue(new DOMRect(300, -20, 300, 300));
+  fireEvent.scroll(screen.getByRole('region', { name: '작업 영역' }));
+  await flushDragFrame();
+  expect(preview()).toHaveAttribute('data-panel-add-preview', 'bottom');
+  pointer('pointerup', window, 420, 150);
+  expect(drag.onAdd.mock.calls).toEqual([['dist', false]]);
+  await screen.findByRole('tab', { name: '분포' });
+  expect(drag.saved().layout).toMatchObject({ dir: 'row', children: [{ panels: ['trend'] }, {
+    dir: 'column', children: [
+      { type: 'group', panels: ['detail'], active: 'detail' },
+      { type: 'group', panels: ['dist'], active: 'dist' },
+    ],
+  }] });
+});
+
+it('keeps a keyboard activation after the drag release is suppressed', async () => {
+  const { row, onAdd } = await mount({ enabled: true });
   start(row);
-  expect(preview()).toBeNull();
-  expect(document.querySelector('[data-panel-add-dragging]')).toBeNull();
-  pointer('pointerup', window);
-  expect(onAdd).not.toHaveBeenCalled();
-  await user.click(row);
+  fireEvent.keyDown(window, { key: 'Escape' });
+  pointer('pointerup', row);
+  fireEvent.click(row, { detail: 0 });
   expect(onAdd.mock.calls).toEqual([['dist', false]]);
 });
 
