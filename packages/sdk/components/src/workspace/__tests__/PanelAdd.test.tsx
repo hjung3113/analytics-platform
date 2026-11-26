@@ -350,7 +350,7 @@ describe('PanelAddMenu categorized picker (#2744)', () => {
     expect(onAdd).toHaveBeenCalledExactlyOnceWith('scatter', false);
   });
 
-  it('sizes category columns to content and keeps long rows single-line with truncation, title, and full accessible name (#3091)', async () => {
+  it('wraps category columns at a common-name width and keeps long rows single-line with truncation, title, and full accessible name (#3091)', async () => {
     const longName = '설비 × Module별 동작시간 상세 비교 히트맵';
     const longDisabledName = 'HTM 기준 변경 이력 전체 비교 목록';
     await open([
@@ -358,7 +358,9 @@ describe('PanelAddMenu categorized picker (#2744)', () => {
       { id: 'long-disabled', category: trend, kind: 'history', title: text(longDisabledName, 'HTM bound history'), disabledReason: text('선택 필요', 'Select first') },
     ]);
     const grid = screen.getByRole('group', { name: '이 메뉴의 패널' });
-    expect(grid.className).toMatch(/auto-cols-\[minmax\([^,]+,max-content\)\]/);
+    // Columns wrap to the next line at a width that fits common names, so the kind word at the end of a name stays visible.
+    expect(grid).toHaveClass('grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]');
+    expect(grid).not.toHaveClass('grid-flow-col', 'overflow-x-auto');
 
     const longButton = row(longName);
     expect(longButton).toHaveAccessibleName(longName);
