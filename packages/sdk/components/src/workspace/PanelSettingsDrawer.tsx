@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Link2, SlidersHorizontal } from 'lucide-react';
+import { Link2, Palette, SlidersHorizontal } from 'lucide-react';
 import {
   createChartPanel, invalidMenuViewPanels, readChartPanel, readChartPanelDraft, sameChartConfig,
   type AnalysisSelection, type ChartConfig, type ChartPanelDraft, type ChartPanelProblem, type ChartPermissionCheck, type MenuChartFields,
@@ -11,6 +11,7 @@ import { DetailDrawer } from '../drawer/DetailDrawer';
 import { Inspector } from '../inspector/Inspector';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { PanelMappingSection } from './PanelMappingSection';
+import { PanelShapeSection } from './PanelShapeSection';
 
 type DeclaredInput = NonNullable<PanelDeclaration['queryInputs']['page']>[number];
 type Source = { panel: PanelInstance; output: PanelInstanceOutput };
@@ -42,7 +43,7 @@ const receivingModes = ['filter', 'highlight', 'ignore'] as const;
 const followModes = ['follow', 'hold'] as const;
 const receivingLabels = { filter: 'panelFilter', highlight: 'panelHighlight', ignore: 'panelIgnore' } as const;
 const reference = ({ panel, output }: Source) => `${panel.id}.${output.key}`;
-type EditSection = 'mapping' | 'connections';
+type EditSection = 'mapping' | 'shape' | 'connections';
 type RejectedEdit = {
   key: string;
   config: ChartConfig | undefined;
@@ -153,13 +154,21 @@ export function PanelSettingsDrawer({ title, panel, value, mapping, projectCandi
     if (index >= 0) inputs.splice(index, 1, ...(next ? [next] : []));
     save({ ...panel, inputs }, 'connections', pendingDraft);
   };
-  const mappingSection = mapping && config && draft ? {
-    id: 'mapping', title: COMPONENTS_MESSAGES.panelMapping, icon: SlidersHorizontal,
-    render: () => <PanelMappingSection key={editKey} {...mapping} config={config} draft={draft} problem={mappingProblem}
-      candidateError={rejection?.section === 'mapping' && !rejection.problem ? rejection.reason : undefined}
-      onChange={next => save(panel, 'mapping', next)} />,
-  } : undefined;
-  const content = <Inspector key={mappingSection ? panel.id : undefined} form="stack" label={COMPONENTS_MESSAGES.panelSettings} sections={[...(mappingSection ? [mappingSection] : []), {
+  const chartSections = mapping && config && draft ? [
+    {
+      id: 'mapping', title: COMPONENTS_MESSAGES.panelMapping, icon: SlidersHorizontal,
+      render: () => <PanelMappingSection key={editKey} {...mapping} config={config} draft={draft} problem={mappingProblem}
+        candidateError={rejection?.section === 'mapping' && !rejection.problem ? rejection.reason : undefined}
+        onChange={next => save(panel, 'mapping', next)} />,
+    },
+    {
+      id: 'shape', title: COMPONENTS_MESSAGES.panelShape, icon: Palette,
+      render: () => <PanelShapeSection key={editKey} {...mapping} draft={draft}
+        notice={rejection?.section === 'shape' && !rejection.problem ? rejection.reason : undefined}
+        onChange={next => save(panel, 'shape', next)} />,
+    },
+  ] : [];
+  const content = <Inspector key={chartSections.length > 0 ? panel.id : undefined} form="stack" label={COMPONENTS_MESSAGES.panelSettings} sections={[...chartSections, {
     id: 'connections', title: COMPONENTS_MESSAGES.panelConnections, icon: Link2,
     render: () => <div className="grid gap-3 break-keep">
       {[...inputKeys].map(key => {
