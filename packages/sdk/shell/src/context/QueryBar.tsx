@@ -1,3 +1,4 @@
+import { ConditionPresetSelector } from './ConditionPresetSelector';
 import { TargetPicker, TARGET_KEYS, type TargetPickerRequest } from './TargetPicker';
 import { useCustomGroupOptions } from './customGroupOptions';
 import { createPortal } from 'react-dom';
@@ -6,9 +7,9 @@ import { ChevronDown, ChevronUp, MoreHorizontal, Pin, PinOff } from 'lucide-reac
 import { CUSTOM_GROUP_AXIS, formatPeriod, periodDates, periodFromDates, type GlobalContext, type IdSet } from '@ap/contracts';
 import { useConditionPreset, queryMissingSentence, useI18n, useMessages, useQueryDraft } from '@ap/kernel';
 import { useHostPlatform } from '@ap/kernel/host';
-import { useRegisterContextEditorFocus, useCollapsePreference, AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, SegmentedRadio, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
+import { useRegisterContextEditorFocus, useCollapsePreference, AccessRequestEntry, WorkspaceQueryBarRow, formatQuerySummary, presetOutsideAxes, scopeRequestTarget, useScopeAccessRequest, querySummaryItems, summaryPreset, useCompactPageDensity, useQueryBarExtension, useReportQueryBarStatus } from '@ap/components';
 import { AnalysisSelectionChipZone } from '@ap/components';
-import { Alert, AlertDescription, Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
+import { Alert, AlertDescription, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@ap/ui';
 import { PeriodFields, type PeriodDates } from './PeriodFields';
 import { useSessionKey } from '../frame/sessionKey';
 import { SHELL_MESSAGES } from '../messages';
@@ -16,9 +17,8 @@ import { ShareControl } from './ShareControl';
 import { QueryHistoryControl } from './QueryHistoryControl';
 import { SavedViewControl } from '../saved-view/SavedViewControl';
 import { QueryBarTools, type QueryBarTool } from './queryBarTools';
-import { CONTEXT_CHIP, CONTEXT_CHIP_FILLED, CONTEXT_CHIP_TONE } from './contextChip';
+import { CONDITION_CHIP } from './contextChip';
 
-const CONDITION_CHIP = { query: cn(CONTEXT_CHIP, CONTEXT_CHIP_TONE), page: cn(CONTEXT_CHIP, CONTEXT_CHIP_FILLED) };
 
 export type QueryBarProps = {
   label?: { visible: string; region: string };
@@ -73,7 +73,7 @@ function QueryBarSession({ label, historySlot, viewSlot, workspace, pinText }: Q
   const platform = useHostPlatform();
   const { route, global, scope, screenMode, equipmentAxes, session } = platform;
   const query = useQueryDraft();
-  const { draft, dirty, missing, canApply, applying, setDraftGlobal, setDraftPage, apply, revert, reset } = query;
+  const { draft, dirty, missing, canApply, applying, setDraftGlobal, apply, revert, reset } = query;
   const extension = useQueryBarExtension();
   const compact = useCompactPageDensity();
   const inset = compact ? 'px-4' : 'px-3';
@@ -127,7 +127,6 @@ function QueryBarSession({ label, historySlot, viewSlot, workspace, pinText }: Q
     setChoice(!applied);
   }
   const [editError, setEditError] = useState<string | null>(null);
-  const [presetNotice, setPresetNotice] = useState({ id: '', text: '' });
   const conditionPreset = useConditionPreset();
   const accessRequest = useScopeAccessRequest();
   // Place (d) (ADR-0154 decision 6): a request entry under the room field while the validated Scope is only partially granted.
@@ -306,14 +305,6 @@ function QueryBarSession({ label, historySlot, viewSlot, workspace, pinText }: Q
   const outside = draftPreset ? presetOutsideAxes(g, draftPreset) : [];
   const presetName = activePreset ? activePreset.label[lang] : '';
   const carried = querySummaryItems(g, summaryOptions).filter(item => item.key !== 'membershipBasis' && (['lot', 'ppid', 'recipe', 'metric'].includes(item.contextKey) || cap[item.contextKey] !== 'apply' || (item.key.startsWith('condition:') && outside.includes(item.key.slice('condition:'.length)))));
-  const switchPreset = (next: string) => {
-    if (!switcher) return;
-    setDraftPage({ [switcher.key]: next });
-    const nextPreset = switcher.presets.find(item => item.id === next);
-    const left = nextPreset ? Object.keys(g.condition ?? {}).filter(axis => g.condition?.[axis]?.length && !nextPreset.axes.includes(axis)).length : 0;
-    const name = nextPreset?.label[lang] ?? next;
-    setPresetNotice({ id: next, text: left ? m('queryPresetNoticeWithUnused', { name, count: left }) : m('queryPresetNotice', { name }) });
-  };
   const content = <div ref={editor} id={workspace ? undefined : `${id}-editor`} className={`grid min-w-0 gap-3 ${workspace ? 'pb-2' : `${inset} pb-2`}`} onKeyDown={event => {
     // Child Radix popovers handle their first Escape before it reaches this inline surface.
     if (!workspace && event.key === 'Escape' && !event.defaultPrevented && event.currentTarget.contains(event.target as Node)) { event.preventDefault(); toggle(false); }
@@ -328,11 +319,7 @@ function QueryBarSession({ label, historySlot, viewSlot, workspace, pinText }: Q
         <TargetPicker compact openRequest={targetRequest} onRequestHandled={clearTargetRequest} disabled={pendingDefault} global={g} cap={cap} onChange={write} presetAxes={activePreset?.axes} invalid={TARGET_KEYS.some(invalid) || groups.blocked.length > 0} reasonId={reasonId} groups={groups} />
         {cap.roomNames === 'apply' && roomRequest(g.roomNames, t('roomNames'))}
       </div>}
-      {switcher && <div className="flex min-w-0 flex-wrap items-center gap-1 text-xs text-text-secondary">
-        <span id={`${id}-preset`}>{m('queryConditionSet')}</span>
-        <SegmentedRadio disabled={pendingDefault} label={m('queryConditionSet')} labelledBy={`${id}-preset`} value={switcher.activeId} onChange={switchPreset} options={switcher.presets.map(item => ({ value: item.id, label: item.label[lang] }))} />
-        <p role="status" className="sr-only">{presetNotice.id === switcher.activeId ? presetNotice.text : ''}</p>
-      </div>}
+      {switcher && <ConditionPresetSelector preset={switcher} global={g} disabled={pendingDefault} />}
     </div>
     {carried.length > 0 && <div role="group" aria-label={m('queryCarriedConditions')} className="flex flex-wrap gap-2 text-xs">
       {carried.map(item => <span key={item.key} className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-md border border-border-subtle p-2 [overflow-wrap:anywhere]">

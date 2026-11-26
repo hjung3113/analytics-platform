@@ -10,22 +10,23 @@ import { contextBar, evidence, expectScopeValid, mainHeading, query, setScenario
  */
 async function expectContextBounds(page: Page) {
   const bar = contextBar(page);
-  await expect(bar.getByRole('button', { name: /^기간:/ })).toBeVisible();
+  await expect(bar.getByRole('button', { name: '조회 조건 펼치기' })).toBeVisible();
   const row = await bar.boundingBox();
   expect(row).not.toBeNull();
-  // Actual buttons/radios must occupy the 48px baseline, independent of the container's fixed height.
+  expect(row!.height).toBe(40);
+  // Every folded control stays within the 40px line.
   for (const control of await bar.getByRole('button').or(bar.getByRole('radio')).all()) {
     const box = await control.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.y).toBeGreaterThanOrEqual(row!.y);
-    expect(box!.y + box!.height).toBeLessThanOrEqual(row!.y + 48);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(row!.y + row!.height);
     expect(box!.x).toBeGreaterThanOrEqual(row!.x);
     expect(box!.x + box!.width).toBeLessThanOrEqual(row!.x + row!.width);
   }
 }
 async function overflowCount(page: Page) {
-  const trigger = contextBar(page).getByRole('button', { name: /^조건 \d+개 더/ });
-  return await trigger.count() ? Number((await trigger.innerText()).match(/^조건 (\d+)개 더/)![1]) : 0;
+  const trigger = contextBar(page).getByRole('button', { name: /^조건 \d+개 더 보기$/ });
+  return await trigger.count() ? Number((await trigger.innerText()).slice(1)) : 0;
 }
 function visibleContextLabel(page: Page) {
   // The bar draws no visible "전역 Context" label (06 §7, #914); "전역 Context" is only the region's accessible name.
@@ -182,6 +183,7 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     await expect(dialog.getByLabel('시작일', { exact: true })).toHaveAttribute('type', 'date');
     await expect(dialog.getByLabel('종료일 (포함)', { exact: true })).toHaveAttribute('type', 'date');
     await dialog.getByRole('button', { name: '취소', exact: true }).click();
+    await page.keyboard.press('Escape');
   }
 
   test('상세 슬롯을 같은 1440px 뷰포트에서 열어도 기간 편집기와 한 줄을 유지한다', async ({ page }, testInfo) => {
@@ -212,7 +214,7 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     await expectScopeValid(page, 'MEM · 메모리');
     await expectCalendarEditor(page);
     await expect(visibleContextLabel(page)).toHaveCount(0);
-    await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
+    await expect(contextBar(page).getByRole('button', { name: /^조건 \d+개 더 보기$/ })).toHaveCount(0);
     await expectContextBounds(page);
     await evidence(page, testInfo, 'context-wide-1920');
   });
@@ -221,7 +223,7 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
     await page.setViewportSize({ width: 1440, height: 800 });
     await page.goto(PRODUCTIVITY);
     await expectScopeValid(page, 'MEM · 메모리');
-    await expect(contextBar(page).getByRole('button', { name: /개 더/ })).toHaveCount(0);
+    await expect(contextBar(page).getByRole('button', { name: /^조건 \d+개 더 보기$/ })).toHaveCount(0);
     await expectCalendarEditor(page);
     await expectContextBounds(page);
     await evidence(page, testInfo, 'context-1440-calendar');
@@ -230,27 +232,30 @@ test.describe('Context 바 우선순위 넘침 (06 §7, ADR-0015)', () => {
   // With the detail slot open the compact row fits without overflow (see the first test), so overflow editing is checked at 1024px.
   test('상세 슬롯이 열린 1024px에서도 한 줄이며 넘침에서 편집한다', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1024, height: 800 });
-    await page.goto('/mars/equipment-master?v=1&scopeId=MEM&focus=MEM-PHOTO-0103');
+    await page.goto(`/mars/equipment-master?v=1&scopeId=MEM&focus=MEM-PHOTO-0103&${PERIOD}&ppid=long-condition-value-for-overflow&lotIds=another-carried-condition`);
     await expect(page.getByRole('complementary', { name: '상세 패널' }).getByRole('dialog')).toBeVisible();
     await expectScopeValid(page, 'MEM · 메모리');
     const bar = contextBar(page);
     await expect(bar).toBeVisible();
     await expectContextBounds(page);
-    await expect(bar.getByRole('button', { name: /^기간:/ })).toBeVisible();
     await evidence(page, testInfo, 'context-single-row-1024');
-    const more = bar.getByRole('button', { name: /^조건 \d+개 더/ });
-    if (await more.count()) await more.click();
-    await page.getByRole('button', { name: /^대상 전체$/ }).click();
+    const more = bar.getByRole('button', { name: /^조건 \d+개 더 보기$/ });
+    await more.click();
+    await page.getByRole('dialog', { name: '나머지 조건', exact: true }).getByRole('button', { name: /long-condition-value-for-overflow|another-carried-condition/ }).last().click();
+    const editor = page.getByRole('dialog', { name: '전역 Context', exact: true });
+    await expect(editor).toBeVisible();
+    await editor.getByRole('button', { name: /^대상 전체$/ }).click();
     const dialog = page.getByRole('dialog', { name: '대상', exact: true });
     const firstEquipment = dialog.getByRole('checkbox', { name: / 선택$/ }).first();
     await expect(firstEquipment).toBeVisible();
     await firstEquipment.check();
     await dialog.getByRole('button', { name: '고정 1대 적용', exact: true }).click();
     await expect.poll(() => query(page).get('selectedEquipmentIds')).toBeTruthy();
-    const clearTarget = page.getByRole('button', { name: '대상 지우기', exact: true });
-    if (!await clearTarget.isVisible()) await more.click();
+    await expect(editor).toBeVisible();
+    const clearTarget = editor.getByRole('button', { name: '대상 지우기', exact: true });
     await clearTarget.click();
     await expect.poll(() => query(page).has('selectedEquipmentIds')).toBe(false);
+    await page.keyboard.press('Escape');
     await expectContextBounds(page);
     await evidence(page, testInfo, 'context-overflow-editor-1024');
   });
@@ -943,8 +948,8 @@ test.describe('화면 오류 격리 (06 §4 전역 Error Boundary)', () => {
     await expect(failure).toBeVisible();
     await expect(trace).toBeVisible();
     await expect(mainHeading(page)).toHaveText('생산성 개요');
-    await expect(contextBar(page).getByRole('button', { name: /^기간:/ })).toBeVisible();
-    await expect(contextBar(page).getByRole('button', { name: /^대상 조건 .*공정: PHOTO$/ })).toBeVisible();
+    await expect(contextBar(page).getByRole('button', { name: /^기간 / })).toBeVisible();
+    await expect(contextBar(page).getByRole('button', { name: '공정 PHOTO' })).toBeVisible();
     await expect(page.getByRole('navigation').first()).toBeVisible();
     await expect(page.getByRole('button', { name: /^Scope:/ })).toBeVisible();
     await evidence(page, testInfo, 'route-error');

@@ -40,6 +40,20 @@ export async function headerMore(page: Page) {
   await expect(menu).toBeVisible();
   return menu;
 }
+export async function liveContextEditor(page: Page, bar = contextBar(page)) {
+  const editor = page.getByRole('dialog', { name: '전역 Context', exact: true });
+  if (!await editor.isVisible()) {
+    await bar.getByRole('button', { name: '조회 조건 펼치기', exact: true }).click();
+  }
+  await expect(editor).toBeVisible();
+  return editor;
+}
+
+export async function liveContextActions(page: Page) {
+  await contextBar(page).getByRole('button', { name: '조회 조건 동작', exact: true }).click();
+  return page.getByRole('dialog', { name: '조회 조건 동작', exact: true });
+}
+
 export async function periodPreset(page: Page, name: string, bar = contextBar(page)) {
   await expect(bar).toBeVisible();
   if (await bar.getAttribute('data-query-bar') !== null) {
@@ -52,7 +66,9 @@ export async function periodPreset(page: Page, name: string, bar = contextBar(pa
       await editor.getByRole('button', apply).or(bar.getByRole('button', apply)).click();
     } };
   }
-  const trigger = bar.getByRole('button', { name: /^기간:/ });
+  const liveLine = await bar.getAttribute('data-live-context-line') !== null;
+  const editor = liveLine ? await liveContextEditor(page, bar) : bar;
+  const trigger = editor.getByRole('button', { name: /^기간:/ });
   await expect(trigger).toBeVisible();
   await trigger.click();
   const dialog = page.getByRole('dialog', { name: '기간', exact: true });
@@ -60,5 +76,9 @@ export async function periodPreset(page: Page, name: string, bar = contextBar(pa
   await expect(locator).toBeVisible();
   return { locator, apply: async () => {
     await dialog.getByRole('button', { name: '적용', exact: true }).click();
+    if (liveLine) {
+      await expect(dialog).toHaveCount(0);
+      await page.keyboard.press('Escape');
+    }
   } };
 }
