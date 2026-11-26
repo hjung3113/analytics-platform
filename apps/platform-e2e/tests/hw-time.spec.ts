@@ -28,6 +28,61 @@ async function selectPoint(page: Page, row: string) {
   return tools;
 }
 
+test.describe('HW Time narrow workspace query line', () => {
+  test('keeps query controls separate and clear-all keyboard reachable with panel settings open', async ({ page }, testInfo) => {
+    await signInAs(page, 'engineer');
+    await page.goto(`${SCREEN}&roomNames=PHOTO&from=2026-09-24T09:00:00&to=2026-09-26T09:00:00&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=table&motionEquipment=MEM-PHOTO-0103&motionEquipment=MEM-PHOTO-0105`);
+    const row = page.locator('[data-workspace-query-row]').filter({ has: page.locator('[data-context-chip-lane]') });
+    const selection = row.getByRole('group', { name: '분석 선택', exact: true });
+    const clearAll = { name: '모두 지우기', exact: true };
+    const pageActions = ['배치', '패널 추가', '조회 조건 동작'];
+    const expectPageActions = async () => {
+      for (const name of pageActions) await expect(row.getByRole('button', { name, exact: true })).toBeVisible();
+      await expect(row.getByRole('button', { name: '배치', exact: true })).toHaveText('연결 패널');
+    };
+    await expect(selection.getByRole('button', clearAll)).toBeVisible();
+    await expectPageActions();
+    await evidence(page, testInfo, 'query-line-wide');
+
+    await workspace(page).getByRole('tab', { name: '원본 표', exact: true }).click();
+    await workspace(page).getByRole('button', { name: '원본 표 동작', exact: true }).click();
+    await page.getByRole('menuitem', { name: '패널 설정', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: '원본 표', exact: true })).toBeVisible();
+    await expect(row.getByRole('button', { name: /^\+\d+$/ })).toBeVisible();
+    await expectPageActions();
+
+    await expect.poll(() => row.evaluate(line => {
+      const bounds = line.getBoundingClientRect();
+      const controls = Array.from(line.querySelectorAll<HTMLElement>('button, a[href]'))
+        .filter(control => !control.closest('[inert]') && control.getClientRects().length > 0)
+        .map(control => ({ name: control.getAttribute('aria-label') ?? control.textContent, rect: control.getBoundingClientRect() }));
+      const collisions = controls.flatMap(({ name, rect }, index) => controls.slice(index + 1)
+        .filter(other => rect.right > other.rect.left && rect.left < other.rect.right
+          && rect.bottom > other.rect.top && rect.top < other.rect.bottom)
+        .map(other => [name, other.name]));
+      return {
+        scrollOverflow: Math.max(0, line.scrollWidth - line.clientWidth),
+        clipped: controls.filter(({ rect }) => rect.left < bounds.left || rect.right > bounds.right).map(({ name }) => name),
+        collisions,
+      };
+    })).toEqual({ scrollOverflow: 0, clipped: [], collisions: [] });
+    await evidence(page, testInfo, 'query-line-with-panel-settings');
+
+    await expect(selection.getByRole('button', clearAll)).toHaveCount(0);
+    const more = selection.getByRole('button', { name: /^\+\d+ ›$/ });
+    const chipActions = selection.getByRole('button', { name: '설비 MEM-PHOTO-0103 외 1 동작', exact: true });
+    // The chip fits the width left after the conditions fold to +n, so it must not fold too.
+    await expect(chipActions).toBeVisible();
+    await expect(more).toHaveCount(0);
+    await more.or(chipActions).press('Enter');
+    const list = page.getByRole('dialog', { name: '분석 선택', exact: true });
+    const clear = list.getByRole('button', clearAll).or(page.getByRole('menuitem', clearAll));
+    await expect(clear).toBeVisible();
+    await clear.press('Enter');
+    await expect.poll(() => query(page).getAll('motionEquipment')).toEqual([]);
+  });
+});
+
 test.describe('HW Time analysis selection', () => {
   test('edits motionEquipment through the analysis selection chip', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
