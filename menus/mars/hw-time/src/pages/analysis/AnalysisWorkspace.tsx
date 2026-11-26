@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-react';
-import { isAnswered, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
+import { isAnswered, readChartPanel, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
 import { ANALYSIS_SELECTION_MAX_VALUES, AnalysisSelectionInstances, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useAnalysisSelectionReader, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type AnalysisSelectionChip, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
@@ -21,11 +21,13 @@ import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
 import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
-import { buildSavedPanels, defaultPanels, defaultTableInput, exceedsPanelLimit, fillsTablePin, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isEquipmentOutput, isHeldSource, keepHeld, names, newPanelInstance, newFollowingTable, instanceSlot, planAdd, planTableHold, preserveFollowingTable, SAME_PANEL_MAX, withFollowingTable, withFollowingTableAt, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
+import { buildSavedPanels, defaultPanels, defaultTableInput, exceedsPanelLimit, fillsTablePin, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isEquipmentOutput, isHeldSource, keepHeld, names, newPanelInstance, newFollowingTable, instanceSlot, noPanels, planAdd, planTableHold, preserveFollowingTable, SAME_PANEL_MAX, withFollowingTable, withFollowingTableAt, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
 import { CATALOG_IDS, chartRows, panelCatalog, projectBarData, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
 import { RecipePanel } from './RecipeFace';
+import { ChartPanel } from './ChartPanel';
+import { HW_TIME_CHART_FIELDS } from '../../chartFields';
 
 /** Lowest plot height before its panel body scrolls (px). */
 const CHART_FILL_MIN = 200;
@@ -277,8 +279,11 @@ function useWorkspacePanels(owner: string, query: string, step: Step, {
   };
   const overflows = (plan: ReturnType<typeof planAdd>) => plan.overflows
     || (plan.config !== null && exceedsPanelLimit(project(plan.config, { acrossSteps: plan.config.connectionsEdited })));
+  // A rejected mapping draft in the settings drawer (#2762 ③); the drawer clears it when accepted, discarded or closed.
+  const [saveBlocked, setSaveBlocked] = useState<Text>();
   useSavedViewPanels({
     lifetime,
+    saveBlocked,
     value: config.kind === 'custom' ? project(config) : null,
     onOpen: (outcome, viewId) => {
       let next: PanelConfiguration;
@@ -315,6 +320,15 @@ function useWorkspacePanels(owner: string, query: string, step: Step, {
     });
     return { ok: true, slot: plan.slot };
   };
+  /** A chart made from settings (#2761) joins the added panels in its own slot; refused like any add past the v1 limit. */
+  const addChart = (instance: PanelInstance): { ok: boolean; slot: string } => {
+    const slot = instanceSlot(instance);
+    const custom = config.kind === 'custom' ? config : { ...noPanels, viewId: config.viewId, followingTable: config.followingTable, pinSlots: config.pinSlots };
+    const next: CustomPanels = { ...custom, added: [...custom.added, { slot, instance }] };
+    if (exceedsPanelLimit(project(next, { acrossSteps: next.connectionsEdited }))) return { ok: false, slot };
+    setState(current => ({ ...current, config: { ...next, viewId: current.config.viewId } }));
+    return { ok: true, slot };
+  };
   const forgetPin = (id: string) => setState(current => {
     if (!current.config.pinSlots?.has(id)) return current;
     const pinSlots = new Map(current.config.pinSlots);
@@ -346,7 +360,7 @@ function useWorkspacePanels(owner: string, query: string, step: Step, {
     const kept = followingTable && instanceSlot(followingTable) !== slot ? followingTable : undefined;
     return { ...current, config: { ...plan.config, viewId, followingTable: kept, pinSlots }, clearTablePin: current.clearTablePin || options.clearPin };
   });
-  return { config, add, remove, follow, forgetPin, editConnections, project, holdTable,
+  return { config, add, addChart, setSaveBlocked, remove, follow, forgetPin, editConnections, project, holdTable,
     planHold: (slot: string, chip: AnalysisSelectionChip, from?: string) => planHold(config, slot, chip, from),
     additionOverflows: (id: string) => overflows(planAdd(config, id, step)) };
 }
@@ -603,7 +617,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   useEffect(() => {
     if (trend && step !== 4) setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
   }, [trend, step]);
-  const { page, pageParam, pageParams, setPage, toast } = usePlatform();
+  const { page, pageParam, pageParams, setPage, toast, can } = usePlatform();
   const { scopeId } = useQueryContext();
   const { added, extras, automatic, extraPanels, dayPanel, followingTable } = publisher.work;
   // «붙잡기» (#2862): each held table reads its own values (R C4); a chart a held value came from stays while it holds (R C7).
@@ -720,6 +734,11 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
           pins.unpin(item.id);
         }
       });
+      if (instance?.source.kind === 'chart') {
+        const read = readChartPanel(HW_TIME_CHART_FIELDS, instance, can);
+        return { id, icon: ChartNoAxesCombined, title: read.status === 'ok' ? read.title : { ko: instance.id, en: instance.id }, preferredHeight: 360, minWidth: 200,
+          onRemove, keep, render: () => <ChartPanel instance={instance} matrix={typeId ? queries[typeId] : undefined} drill={{ moduleType: typeId, drillModule: moduleId, drillMotion: motionId }} /> };
+      }
       if (instance && (!item || item.disabledReason || tables.overflow.has(id))) {
         const panel = declaredPanelId(instance) ?? instance.id;
         const reason = tables.overflow.has(id) ? workspace('samePanelMax', { max: SAME_PANEL_MAX })
@@ -878,6 +897,12 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     setReveal(current => ({ panelId: result.slot, seq: (current?.seq ?? 0) + 1, ...options }));
     return result.slot;
   };
+  /** Charts made from settings are not catalog panels, so the pin choice does not apply to them. */
+  const addChart = (chart: PanelInstance) => {
+    const result = savedPanels.addChart(chart);
+    if (!result.ok) toast(limitReason[lang], 'warning');
+    else setReveal(current => ({ panelId: result.slot, seq: (current?.seq ?? 0) + 1 }));
+  };
   const toolbarCatalog = catalog.map(item => item.disabledReason || !savedPanels.additionOverflows(item.id)
     ? item : { ...item, disabledReason: limitReason });
   // «새 패널» for the raw table is judged on its real slots (#2862 ②, R C3).
@@ -914,6 +939,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       value={{ version: 1, instances: [...drawerInstances.values()] }} trigger={settings.trigger} onClose={() => setSettings(null)}
       projectCandidate={updated => savedPanels.project(settingsConfig(settingsPanel.id, updated), { acrossSteps: true })}
       validateCandidate={candidate => exceedsPanelLimit(candidate) ? limitReason : undefined}
+      mapping={instance.source.kind === 'chart' ? { fields: HW_TIME_CHART_FIELDS, granted: can } : undefined} onValidationChange={savedPanels.setSaveBlocked}
       declaredInputs={[...declaration?.queryInputs.page ?? [], ...declaration?.displayInputs.page ?? []]}
       sourceReference={key => {
         if (declaration?.id !== panelDeclarations.table.id || key !== MOTION_EQUIPMENT_KEY || !selectionSource) return;
@@ -943,7 +969,9 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       ]}
       panelRecipe={(panel, slot) => declarationOf(panel) ? () => setExplained(slot) : undefined}
       revealRequest={reveal}
-      toolbarActions={<PanelAddMenu items={toolbarCatalog} shown={[...panels.map(panel => panel.id === 'current' && dayPanel ? dayPanel.id : panel.id), ...(tables.open.length ? ['table'] : [])]} onAdd={(id, pin) => { addPanel(id, pin); }} />}
+      toolbarActions={<PanelAddMenu items={toolbarCatalog} shown={[...panels.map(panel => panel.id === 'current' && dayPanel ? dayPanel.id : panel.id), ...(tables.open.length ? ['table'] : [])]}
+        chartFields={HW_TIME_CHART_FIELDS} existingIds={[...savedInstances.map(panel => panel.id), followingTable.id]}
+        onAdd={(id, pin, chart) => { if (chart) addChart(chart); else addPanel(id, pin); }} />}
       analysisPanelAddition={{ items: additionItems, hold: true, returnsOpened: true, onAdd: draft => {
         // Follow reads the URL selection so later picks also apply; hold keeps the draft's inputs (#2862).
         const panelId = draft.source.split('/')[1]!;

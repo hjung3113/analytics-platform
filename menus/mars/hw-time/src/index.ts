@@ -3,6 +3,7 @@ import { lazy } from 'react';
 import { LayoutDashboard } from 'lucide-react';
 import { contextCapabilities, groupId, menuPermission, NO_FEATURES, type SavedViewSupport } from '@ap/contracts';
 import type { MenuEntry } from '@ap/kernel';
+import { HW_TIME_CHART_FIELDS } from './chartFields';
 import { panelDeclarations, TREND_RANGE_OUTPUT } from './panels';
 import { HW_TIME_CONTEXT, MOTION_EQUIPMENT_KEY } from './endpoints';
 import { HW_TIME_DRILL, MOTION_BASIS_KEY } from './shared/historySummary';
@@ -39,6 +40,7 @@ export const manifests: MenuEntry[] = [
     contextResetKeys: ['date', 'moduleType', 'drillMotion', MOTION_BASIS_KEY, 'drillModule', 'row', 'page', 'focus', 'trend', MOTION_EQUIPMENT_KEY, TREND_RANGE_OUTPUT.key],
     drill: HW_TIME_DRILL,
     panels: Object.values(panelDeclarations),
+    chartFields: HW_TIME_CHART_FIELDS,
     component: lazy(() => import('./HwTimePage')),
   },
 ];
