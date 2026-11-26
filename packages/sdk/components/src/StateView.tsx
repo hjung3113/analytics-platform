@@ -94,12 +94,13 @@ export function OutcomeContent<T>({ response, onRetry, emptyAction, compact, gro
   response: ApiResponse<T>; onRetry: () => void; emptyAction?: ReactNode; compact?: boolean; children: (data: T) => ReactNode; grouped?: boolean; bannerId?: string; widgetName?: string; hideWidgetName?: boolean;
   busy?: boolean; current?: boolean;
 }) {
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const { t } = i18n;
   const icon = 'size-4';
   const recovery = useOutcomeRecovery(response, onRetry, { busy, current: !outcomeIsBlocked(response) && current !== false, emptyAction });
   if (response.outcome === 'ok') return <>{children(response.data as T)}</>;
   const detail = outcomeDiagnostic(response);
-  const state = outcomePresentation(response, t);
+  const state = outcomePresentation(response, i18n);
   if (!state) return <OutcomeStateMessage compact={compact} widgetName={widgetName} hideWidgetName={hideWidgetName}
     icon={<HelpCircle className={icon} aria-hidden />} title={t('stateUnknown')} body={t('stateUnknownBody')} detail={detail}
     correlationId={detail ? response.correlationId : undefined} />;

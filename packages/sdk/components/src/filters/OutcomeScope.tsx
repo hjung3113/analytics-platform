@@ -123,7 +123,8 @@ export function useOutcomeBannerCount() {
 
 /** `compact` (page bodies): a one-line strip with the same group, tone, retry and live rules; the sentence truncates and `자세히` shows it in full. */
 function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRetry: () => void; compact?: boolean }) {
-  const { t } = useI18n();
+  const i18n = useI18n();
+  const { t } = i18n;
   const m = useMessages(COMPONENTS_MESSAGES);
   const banner = useRef<HTMLElement>(null);
   const unmounting = useRef(false);
@@ -148,7 +149,7 @@ function OutcomeBanner({ group, onRetry, compact = false }: { group: Group; onRe
   }, [detailsId]);
   const response = group.widgets[0].response!;
   const { outcome } = response;
-  const notice = outcomePresentation(response, t);
+  const notice = outcomePresentation(response, i18n);
   const tone = outcomeTone(response);
   const danger = tone === 'danger';
   const warning = tone === 'warning';

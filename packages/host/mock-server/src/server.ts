@@ -137,6 +137,8 @@ export type ServeOptions<T> = {
    * page), so a selection narrowed by ids passes. A non-array under a declared cap is a declaration misuse.
    */
   maxRows?: number;
+  /** @internal Engine-only; menu handlers declare maxFixedEquipment on their endpoint. */
+  maxFixedEquipment?: number;
   latency?: number;
   signal?: AbortSignal;
   metricVersion?: string;
@@ -256,6 +258,10 @@ function finish<T>(args: {
   };
 }
 
+function fixedEquipmentLimitMessage(count: number, limit: number): string {
+  return `fixed_equipment_limit: ${count}/${limit}`;
+}
+
 export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
   // Pin the request's identity at send time, like a session cookie on the request: a role switch while it is
   // in flight must not re-evaluate it with the new user's grants.
@@ -281,6 +287,14 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
       : requiresScope && site ? { kind: 'site' as const, site } : undefined;
     return { ...base, outcome: 'forbidden', message: resolved.forbidden ?? '권한이 회수되었습니다(시나리오)', ...(deniedScope ? { recovery: { deniedScope } } : {}) };
   }
+  const { maxFixedEquipment } = o;
+  const selectedCount = o.global.selection?.length ?? 0;
+  if (maxFixedEquipment !== undefined && selectedCount > maxFixedEquipment) {
+    return {
+      ...base, outcome: 'too_large',
+      message: fixedEquipmentLimitMessage(selectedCount, maxFixedEquipment),
+    };
+  }
   const hours = periodHours(o.global);
   if ((mart && s === 'too_large') || (o.maxHours && hours !== null && hours > o.maxHours && (o.global.selection === null || o.global.selection.length > 40))) {
     // A forced scenario has no real overrun, so it must not quote the period against the limit (#740 UX-1).
@@ -298,9 +312,6 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
     const verdict = evaluateTimeDomainMerge(equipmentIds, from, to, TIME_DOMAIN_ASSERTIONS);
     if (!verdict.ok) {
       if (equipmentIds.length >= 2) {
-        const recoverableHours = 24;
-        const shorterFrom = shift(to, -recoverableHours);
-        const canShorten = shorterFrom > from && evaluateTimeDomainMerge(equipmentIds, shorterFrom, to, TIME_DOMAIN_ASSERTIONS).ok;
         const affected = verdict.code === 'time_domain_unverified'
           ? equipmentIds.filter(id => {
             const result = evaluateTimeDomainMerge([id], from, to, TIME_DOMAIN_ASSERTIONS);
@@ -311,6 +322,13 @@ export async function serve<T>(o: ServeOptions<T>): Promise<ApiResponse<T>> {
         const remaining = equipmentIds.filter(id => !affectedSet.has(id));
         const canExclude = affected.length > 0 && remaining.length > 0
           && evaluateTimeDomainMerge(remaining, from, to, TIME_DOMAIN_ASSERTIONS).ok;
+        if (canExclude && maxFixedEquipment !== undefined && remaining.length > maxFixedEquipment) {
+          // Fall back to the conditions editor with the count, without proposing a fixed selection the endpoint refuses.
+          return { ...base, outcome: 'error', message: `${verdict.code} · ${fixedEquipmentLimitMessage(remaining.length, maxFixedEquipment)}` };
+        }
+        const recoverableHours = 24;
+        const shorterFrom = shift(to, -recoverableHours);
+        const canShorten = shorterFrom > from && evaluateTimeDomainMerge(equipmentIds, shorterFrom, to, TIME_DOMAIN_ASSERTIONS).ok;
         const recovery = readQueryRecovery({
           ...(canExclude ? { affectedEquipmentIds: affected, authorizedEquipmentIds: equipmentIds } : {}),
           ...(canShorten ? { maxHours: recoverableHours } : {}),

@@ -67,7 +67,7 @@
 **위 순서는 문자열 행(`MENU_UPSTREAM_BASE_URL`로 가는 envelope 전달)에서 바뀌지 않는다.** `endpointOwners`의 값이 경로 문자열이면 1~7단계는 코어가 끝내고 8단계 핸들러가 상류에 그대로 전달하며, 9단계(`limits.maxRows`)는 이 행에 선언하면 기동 거부다. 상류 envelope를 검증한 뒤 선택 필드 `recovery`를 아래 기준에 따라 응답에 전달한다. 아래는 선언 묶음이 `targets`와 라우팅 객체를 쓰는 엔드포인트에서 8~10단계가 달라지는 부분이다([ADR-0153](../adr/0153-upstream-target-routing-and-declared-connectors.md) 결정 3~6·10). 라우팅된 엔드포인트에도 위 1~7단계를 그대로 적용한다. 라우팅은 8단계 핸들러 안에서만 일어난다.
 
 - **설비 복구 목록 전달** — `affectedEquipmentIds`와 `authorizedEquipmentIds`는 코어가 상류 응답과 독립적인 서버 조회로 확인한 ID로 좁힌다. 요청 Site와 부여받은 room, 요청의 room 필터와 Selection, 라우팅된 대상의 room 범위를 모두 적용한다. 확인된 영향 설비가 하나 이상이고 모두 허용 목록에 속하며, 제외 후 허용 설비가 하나 이상 남을 때 두 목록을 함께 보낸다. 현재 코어 구성에는 이 서버 조회가 없어 두 목록을 생략한다.
-- **집계 거부 진단** — 설비 목록을 포함한 응답이나 인식된 집계 거부에서는 `message`에 `time_domain_unverified` 또는 `time_domain_mismatch` 코드만 남긴다. 인식된 코드가 없으면 `message`를 생략한다. `assessments`의 자유 문구인 `detail`도 제거한다. 이 경로에서 두 설비 목록을 전달할 수 없으면 `retryable`을 제거하고 검증된 `maxHours`는 전달한다. 복구 필드의 의미는 [컴포넌트 계약 §19](../contract/components.md)를 따른다.
+- **집계 거부 진단** — 설비 목록을 포함한 응답이나 인식된 집계 거부에서는 `message`에 `time_domain_unverified` 또는 `time_domain_mismatch` 코드만 남긴다. 단, 시간 도메인 판정에서 병합을 거부하고 영향 설비를 빼도 배포 한도를 넘으면 `error`의 시간 도메인 코드 뒤에 ` · fixed_equipment_limit: <선택>/<한도>`를 붙인다(이때 `<선택>`은 제외 후 남은 설비 수). 고정 선택 자체가 배포 한도를 넘으면 `too_large`의 `message`에 `fixed_equipment_limit: <선택>/<한도>`를 보낸다. 두 수를 양의 안전한 정수로 읽을 수 없거나 선택 수가 한도 이하면 화면은 기본 조회 과대 안내(`too_large`) 또는 앞 코드의 기본 오류 안내(`error`)를 표시한다. 인식된 코드가 없으면 `message`를 생략한다. `assessments`의 자유 문구인 `detail`도 제거한다. 이 경로에서 두 설비 목록을 전달할 수 없으면 `retryable`을 제거하고 검증된 `maxHours`는 전달한다. 복구 필드의 의미는 [컴포넌트 계약 §19](../contract/components.md)를 따른다.
 
 **라우팅된 대상의 8~10단계 (코어가 판정자)** — 순서도 계약이다:
 

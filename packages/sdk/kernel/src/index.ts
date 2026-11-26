@@ -3,7 +3,7 @@ export { drillEntryPage, useDrill, type DrillInvalid, type DrillLevelState, type
 export { ANALYSIS_SELECTION_MAX_VALUES, AnalysisSelectionInstances, analysisSelectionParam, parseAnalysisSelection, useAnalysisSelectionChips, useAnalysisSelectionInputs, useAnalysisSelectionReader, useAnalysisSelectionOutput, HeldAnalysisSelections, type HeldAnalysisSelection, type AnalysisSelectionChip, type AnalysisSelectionOutputOptions, type AppliedAnalysisSelection, type ChipSelectionEditor, type ReplaceChipSelection } from './context/analysisSelection';
 export type { AnalysisSelectionAvailability, AnalysisSelectionCompare } from './context/analysisSelectionAvailability';
 export type { AddressTransition } from './platform/contexts';
-export { contractErrorSentence, errorGuidance, formatText, I18nProvider, invalidValueSentence, objectParticle, queryMissingSentence, topicParticle, useI18n, useMessages, type ErrorGuidance, type Key, type Lang, type Text, type TextParams } from './i18n';
+export { contractErrorSentence, errorGuidance, formatText, I18nProvider, invalidValueSentence, objectParticle, parseFixedEquipmentLimit, queryMissingSentence, topicParticle, useI18n, useMessages, type ErrorGuidance, type Key, type Lang, type Text, type TextParams } from './i18n';
 export { formatFeedTime, formatListTime, formatSummaryTime, type TimeNotationOptions } from './notation/time';
 export { classifyMetricInit, type MetricInit } from './registry/metric-init';
 export type { CarryProof } from './platform/return-origin';

@@ -20,6 +20,8 @@ export const COMPONENTS_MESSAGES = {
   outcomePanelSummary: { ko: '패널 {count}개에 같은 안내가 있습니다', en: '{count} panels have the same notice' },
   outcomeRetryAll: { ko: '모두 다시 시도', en: 'Retry all' },
   outcomeOpenConditions: { ko: '조건 열기', en: 'Open conditions' },
+  outcomeFixedEquipmentLimit: { ko: '고정 설비는 최대 {limit}대입니다. 현재 {count}대를 선택했습니다. 설비를 {limit}대 이하로 줄여 다시 조회하세요.', en: 'You selected {count} pieces of equipment. The limit is {limit}. Select {limit} or fewer and query again.' },
+  outcomeExcludeFixedEquipmentLimit: { ko: '영향 설비를 빼면 {count}대가 남아 고정 한도 {limit}대를 넘습니다. 조건에서 설비를 줄이세요.', en: 'Excluding the affected equipment would leave {count}, above the fixed selection limit of {limit}. Narrow the equipment in the conditions.' },
   outcomeExcludeEquipment: { ko: '이 {count}대 빼고 다시 조회', en: 'Exclude {count} from query' },
   outcomeAffectedEquipment: { ko: '영향 설비 {ids}', en: 'Affected equipment {ids}' },
   outcomeShortenDay: { ko: '기간 1일로 줄이기', en: 'Shorten to 1 day' },
