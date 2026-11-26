@@ -16,6 +16,7 @@ import { DockSeparators, type DockRect } from './DockSeparators';
 import type { DockLayoutProps, DockPanel, DockRows, DockFloating } from './dockTypes';
 import { fromEngineLayout, keepStoredSizes, sameDockTree, toEngineLayout, type EngineLayout } from './engineModel';
 import { DockChartHeadProvider, DockChartLayoutActionsSlot, DockChartMaximizeTarget, DockChartPaneEngaged, DockChartPaneId, useDockChartSlot } from './DockChartHead';
+import { menuAfterRebuild } from './focusTab';
 import { PanelBoundary } from './PanelBoundary';
 import { WorkspacePanelVisibleContext } from '../workspace/panelContext';
 import { PageBoundContext, PageFlowContext } from '../pageFlow';
@@ -462,7 +463,10 @@ export default function DockEngine({
   const applyLayout = useCallback((target: DockviewApi, appliedKey: string, appliedMeta: string) => {
     const { canonicalDisplay: wanted, panels: wantedPanels, minPanelSize: minimum, rowsBox: total } = live.current;
     const focusedBefore = containerRef.current?.contains(document.activeElement) ? document.activeElement : null;
-    const focusedTabId = focusedBefore instanceof HTMLElement ? focusedBefore.closest<HTMLElement>('[role="tab"]')?.dataset.tabPanelId : undefined;
+    // A group's ⋯ (or merged chart «더보기») is rebuilt with its header: focus goes to that group's tab, then on to the new menu (#3140).
+    const focusedMenuPanel = focusedBefore instanceof HTMLElement && focusedBefore.matches('[data-dock-group-menu]')
+      ? focusedBefore.closest<HTMLElement>('[data-dock-group-actions]')?.dataset.dockActive : undefined;
+    const focusedTabId = focusedBefore instanceof HTMLElement ? focusedBefore.closest<HTMLElement>('[role="tab"]')?.dataset.tabPanelId ?? focusedMenuPanel : undefined;
     if (released.current) endDrag();
     // `fromJSON` replaces the tab nodes; a drag whose source is gone never delivers its `dragend` to the window, so the strip would stay (#2508).
     setTabDrag(false);
@@ -487,6 +491,8 @@ export default function DockEngine({
       const tabs = Array.from(containerRef.current?.querySelectorAll<HTMLElement>('[role="tab"][data-tab-panel-id]') ?? []);
       const tab = tabs.find(item => focusedTabId !== undefined && item.dataset.tabPanelId === focusedTabId) ?? tabs.find(item => item.getAttribute('aria-selected') === 'true');
       if (tab) programmaticFocus(() => { tab.focus({ preventScroll: true }); });
+      const layout = containerRef.current;
+      if (tab && layout && focusedMenuPanel !== undefined && tab.dataset.tabPanelId === focusedMenuPanel) menuAfterRebuild(layout, focusedMenuPanel, tab);
     }
     setReconciles(value => value + 1);
     scheduleMeasure();
