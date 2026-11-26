@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { formatDateTime, formatNumber, formatWallClock } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
@@ -6,7 +6,9 @@ import { useOptionalAnalysisSelectionOutput } from '@ap/kernel/host';
 import { cn, InfoTip, RowSelectionBar } from '@ap/ui';
 import { gridKeyTarget } from '../grid/gridKeyTarget';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { QueryPanelContentContext } from '../workspace/panelContext';
 import { ChartBoundsLegend } from './ChartBoundsLegend';
+import { chartDiagnostic } from './analysisChartData';
 import type { ChartBoundLabels } from './chartBounds';
 import { statusGlyph, statusText } from './chartStatus';
 import { projectSmallMultiples, SmallMultiplePlot, smallMultipleStatusPaint, type SmallMultiplesSeries } from './smallMultiplesPlot';
@@ -30,28 +32,59 @@ const DEFAULT_COLUMNS = 6;
 const tileHeight = { compact: 'h-18', regular: 'h-30' } as const;
 const iconTone = { danger: 'text-text-danger-label', warning: 'text-text-warning-label', neutral: 'text-text-secondary' } as const;
 
+function focusTile(scroll: HTMLDivElement, button: HTMLButtonElement) {
+  button.focus({ preventScroll: true });
+  const tileRect = button.getBoundingClientRect();
+  const portTop = scroll.getBoundingClientRect().top;
+  const portBottom = portTop + scroll.clientHeight;
+  if (tileRect.top < portTop) scroll.scrollTop += tileRect.top - portTop;
+  else if (tileRect.bottom > portBottom) scroll.scrollTop += tileRect.bottom - portBottom;
+}
+
 export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLUMNS, density = 'regular', boundLabels,
   analysisSelectionOutput, selectionDisabled, actions }: SmallMultiplesGridProps) {
   const { lang } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
   const { tiles, x, y, legend } = useMemo(() => projectSmallMultiples(series, boundLabels, lang), [series, boundLabels, lang]);
-  const available = useMemo(() => selectionDisabled ? undefined : [...new Set(series.flatMap(s => s.selectionValue ? [s.selectionValue] : []))].sort(), [series, selectionDisabled]);
+  const priorResult = useContext(QueryPanelContentContext) === 'prior';
+  const canSelect = !!analysisSelectionOutput && !selectionDisabled && !priorResult;
+  const available = useMemo(() => canSelect ? [...new Set(series.flatMap(s => s.selectionValue ? [s.selectionValue] : []))].sort() : undefined, [series, canSelect]);
   const { selection, select } = useOptionalAnalysisSelectionOutput(analysisSelectionOutput ?? undefined,
     { available, instanceId: analysisSelectionOutput?.instanceId, subscribeHighlight: false });
   const picked = new Set(selection?.shape === 'set' ? selection.values : []);
   const [focusedId, setFocusedId] = useState<string>();
+  const focusedButton = useRef<HTMLButtonElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const tabbableId = tiles.find(tile => tile.id === focusedId)?.id ?? tiles[0]?.id;
-  const count = Number.isSafeInteger(columns) && columns > 0 ? columns : DEFAULT_COLUMNS;
+  const focusedTile = tiles.find(tile => tile.id === focusedId);
+  if (focusedId !== undefined && !focusedTile) setFocusedId(undefined);
+  const tabbableId = (focusedTile ?? tiles[0])?.id;
+  useLayoutEffect(() => {
+    const previous = focusedButton.current;
+    if (!previous || previous.isConnected) return;
+    focusedButton.current = null;
+    const scroll = scrollRef.current;
+    if (!scroll || scroll.ownerDocument.activeElement !== scroll.ownerDocument.body) return;
+    const tabStop = scroll.querySelector<HTMLButtonElement>('[data-tile-index][tabindex="0"]');
+    if (tabStop) focusTile(scroll, tabStop);
+  });
+  const count = useMemo(() => {
+    if (Number.isSafeInteger(columns) && columns > 0) return columns;
+    chartDiagnostic(`SmallMultiplesGrid.columns must be a positive safe integer; using ${DEFAULT_COLUMNS}`);
+    return DEFAULT_COLUMNS;
+  }, [columns]);
   const rowCount = Math.ceil(tiles.length / count);
   const rowStyle = { '--small-multiples-columns': `repeat(${count}, minmax(0, 1fr))` } as CSSProperties;
-  const timeLabel = (time: number) => formatWallClock(formatDateTime(new Date(time)));
+  const from = Number.isFinite(x.min) ? formatDateTime(new Date(x.min)) : '';
+  const to = from ? formatDateTime(new Date(x.max)) : '';
+  const precision = from.endsWith(':00') && to.endsWith(':00') ? 'minute' : 'second';
   const formatY = (value: number) => formatNumber(value, lang);
 
   function move(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const scroll = scrollRef.current;
     if (!scroll) return;
-    const pageRows = Math.floor(scroll.clientHeight / Math.max(1, event.currentTarget.offsetHeight));
+    const rows = scroll.firstElementChild?.children;
+    const pitch = rows && rows.length > 1 ? rows[1].getBoundingClientRect().top - rows[0].getBoundingClientRect().top : 0;
+    const pageRows = pitch > 0 ? Math.floor(scroll.clientHeight / pitch) : 1;
     const edge = event.key === 'Home' || event.key === 'End';
     const target = gridKeyTarget({ key: event.key, ctrlKey: edge || event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, metaKey: event.metaKey },
       { row: Math.floor(index / count), column: index % count }, { rows: rowCount, columns: count }, pageRows);
@@ -61,20 +94,14 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
     if (target === 'stay') return;
     const next = Math.min(tiles.length - 1, target.row * count + target.column);
     const button = scroll.querySelector<HTMLButtonElement>(`[data-tile-index="${next}"]`);
-    if (!button) return;
-    button.focus({ preventScroll: true });
-    const tileRect = button.getBoundingClientRect();
-    const portTop = scroll.getBoundingClientRect().top;
-    const portBottom = portTop + scroll.clientHeight;
-    if (tileRect.top < portTop) scroll.scrollTop += tileRect.top - portTop;
-    else if (tileRect.bottom > portBottom) scroll.scrollTop += tileRect.bottom - portBottom;
+    if (button) focusTile(scroll, button);
   }
 
   return <section aria-label={title} className="flex h-full min-h-0 min-w-0 flex-col break-keep">
     <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-border-subtle px-3 py-1">
-      {Number.isFinite(x.min) && <InfoTip label={m('smallMultiplesScale')}>
+      {from && <InfoTip label={m('smallMultiplesScale')}>
         <div className="space-y-1 tabular">
-          <p>{timeLabel(x.min)} – {timeLabel(x.max)}</p>
+          <p>{formatWallClock(from, precision)} – {formatWallClock(to, precision)}</p>
           {Number.isFinite(y.min) && <p>{`${formatY(y.min)}–${formatY(y.max)} ${unit}`.trim()}</p>}
         </div>
       </InfoTip>}
@@ -89,7 +116,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
           {Array.from({ length: rowCount }, (_, row) => <div key={row} role="row" className="grid grid-cols-(--small-multiples-columns) gap-2">
             {tiles.slice(row * count, (row + 1) * count).map((tile, column) => {
               const value = tile.selectionValue;
-              const enabled = !!(value && analysisSelectionOutput && !selectionDisabled);
+              const enabled = canSelect && !!value;
               const pressed = value !== undefined && picked.has(value);
               const status = tile.worst;
               const paint = status && smallMultipleStatusPaint(status);
@@ -98,7 +125,16 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
                 <button type="button" data-tile-index={index} tabIndex={tile.id === tabbableId ? 0 : -1} aria-label={tile.label}
                   aria-pressed={analysisSelectionOutput && value !== undefined ? pressed : undefined} aria-disabled={!enabled || undefined}
                   aria-description={statusText(status) || (tile.hasValues ? undefined : m('panelTrustEmpty'))}
-                  onFocus={() => setFocusedId(tile.id)} onKeyDown={event => move(event, index)}
+                  onFocus={event => { focusedButton.current = event.currentTarget; setFocusedId(tile.id); }}
+                  onBlur={event => {
+                    const button = event.currentTarget;
+                    if (event.relatedTarget) focusedButton.current = null;
+                    // A removed button can blur during the commit, before focus recovery runs.
+                    else queueMicrotask(() => {
+                      if (button.isConnected && focusedButton.current === button) focusedButton.current = null;
+                    });
+                  }}
+                  onKeyDown={event => move(event, index)}
                   onClick={enabled ? () => select({ shape: 'set', values: [value] }) : undefined}
                   style={paint ? { '--small-multiple-status': paint } as CSSProperties : undefined}
                   className={cn('relative flex w-full min-w-0 flex-col gap-1 overflow-hidden rounded-md border px-2 py-1.5 text-left',
@@ -115,7 +151,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
                     </span>}
                   </span>
                   {(tile.hasValues || tile.bounds?.parts.length) ? <SmallMultiplePlot tile={tile} x={x} y={y} /> : null}
-                  {!tile.hasValues && <span className="text-caption text-text-secondary">{m('panelTrustEmpty')}</span>}
+                  {!tile.hasValues && <span className="absolute inset-x-2 bottom-1.5 text-caption text-text-secondary">{m('panelTrustEmpty')}</span>}
                 </button>
               </div>;
             })}
