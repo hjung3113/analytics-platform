@@ -199,8 +199,8 @@ export function MultiCombobox({
             <button key={option.value} ref={node => { if (activeIndex === index) node?.scrollIntoView?.({ block: 'nearest' }); }} id={`${listId}-option-${index}`} type="button" role="option" aria-selected={selected}
               aria-disabled={option.disabled} tabIndex={-1} onMouseDown={event => event.preventDefault()}
               onClick={() => toggle(option)} onMouseEnter={() => { if (!option.disabled) setActiveValue(option.value); }}
-              className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-text-primary outline-hidden hover:bg-surface-card',
-                activeIndex === index && 'bg-surface-card ring-2 ring-inset ring-focus-ring',
+              className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-text-primary outline-hidden hover:bg-surface-row-hover',
+                activeIndex === index && 'bg-surface-row-hover ring-2 ring-inset ring-focus-ring',
                 selected && 'font-medium',
                 option.disabled && 'cursor-not-allowed opacity-50')}>
               <Check className={cn('size-4 shrink-0', selected ? 'opacity-100' : 'opacity-0')} aria-hidden="true" />
