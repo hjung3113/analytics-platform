@@ -223,6 +223,8 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
   const trust = !loading && !query.cancelled && response?.outcome === 'ok'
     ? chartTrustText(panel.footerTrust ? panel.footerTrust(response.data as T, response) : response.trust, lang) : undefined;
   const source = trust?.source ?? result?.trust?.source ?? response?.trust?.source ?? '—';
+  // The drawn result's Trust (current, refreshing or previous): a chart drawing that same result folds its source line into this footer.
+  const shownTrust = result ? chartTrustText(panel.footerTrust ? panel.footerTrust(result.data as T, result) : result.trust, lang) ?? null : null;
   const dataTrust = <DataTrustIndicator summary query={query} />;
   const footer = <footer className={cn('flex h-8 items-center border-t border-border-subtle px-4 text-tiny text-text-muted', workspace && 'shrink-0 justify-between gap-2')}>
     <span className="truncate">{t('source')} <span className="t-mono">{source}</span>
@@ -299,7 +301,7 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
     </QueryPanelContentContext.Provider>
   </>;
   const panelClass = 'min-w-0 break-keep focus-visible:outline-2 focus-visible:outline-focus-ring';
-  if (workspace) return <DeclaredQueryPanelContext.Provider value={{ panelId: workspace, ownsFooter: true, trust: trust ?? null, previousResult: Boolean(priorContent) }}>
+  if (workspace) return <DeclaredQueryPanelContext.Provider value={{ trust: shownTrust, lang }}>
     <section ref={bindPanel} tabIndex={-1} aria-label={panel.title} aria-describedby={notice.bannerId}
     className={cn(panelClass, 'flex h-full min-h-0 flex-col focus-visible:-outline-offset-2')}
     onFocus={event => { lastFocused.current = event.target; }}

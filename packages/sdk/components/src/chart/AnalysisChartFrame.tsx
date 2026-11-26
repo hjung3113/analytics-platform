@@ -990,7 +990,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       palette: resolveChartPalette(plotSeries),
     });
   }, [boundsProp, boundLabels, rowGroups, statuses, p.emphasisFocus, p.highlightedValues, plotSeries, reservedSeriesIds, percent, negativeShares, emptyLabels, previousIds, xType, horizontal, categories, categoryOther, zoom, brushMode, selection, drawnAnnotations, noteSpans, noteLevels, timeExtent, optionWidth, tickRoom, referenceMarks, categoryValueMarks, emptyCategoryLabel, unit, lang, stacked, explicitStack, areaFill, valueFormat, rowPitch, p.rowLabelWidth, activeCategory, startAlign, extremes, valueLabels, totals, totalText, rightAxisOption, yFit, axisBreak, selectedPointKeys, zoomOnly, instanceReady, themeRevision]);
-  const option = useHeldDrawing(builtOption, declaredPanel !== null);
+  const option = useHeldDrawing(builtOption, declaredPanel !== null, lang);
   useEffect(() => {
     const instance = chart.current;
     if (!yFit || !instance || instance.isDisposed?.()) { setAxisBreak(undefined); return; }
@@ -1497,7 +1497,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
     {p.legendCaption != null && <div className="t-caption">{p.legendCaption}</div>}
   </div> : <ChartHeading titleId={titleId} title={p.title} description={p.description} gestureHint={gestureHint} descriptionId={gestureDescriptionId} metricVersion={p.metricVersion}
     compact={compact || compactChrome} hideTitle={(compactChrome || queryPanel !== null) && !p.headingInToolbar} />;
-  const lockDockRange = docked && declaredPanel?.previousResult === true;
+  const lockDockRange = docked && declaredPanel !== null && priorResult;
   const rangeLockReason = lockDockRange ? m('chartPreviousRangeLocked') : undefined;
   const rangeLockNote = rangeLockReason ? <span id={rangeLockReasonId} className="sr-only">{rangeLockReason}</span> : null;
   const toolbar = <ChartInteractionToolbar compact={compactTools} reserveCorner={!docked && analysisSection !== null}
@@ -1515,7 +1515,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
       </>}
     </> : rowPitch === undefined && <>
       <Button type="button" ref={zoomInButton} variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartZoom')} title={rangeLockReason ?? m('chartZoomTitle')} aria-describedby={rangeLockReason ? rangeLockReasonId : undefined} disabled={lockDockRange} onClick={rangeActions.zoomIn}><ZoomIn className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartZoom')}</span>}</Button>
-      {(isZoomed || lockDockRange) && <>
+      {isZoomed && <>
         <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartZoomOut')} title={rangeLockReason ?? m('chartZoomOut')} aria-describedby={rangeLockReason ? rangeLockReasonId : undefined} disabled={lockDockRange} onClick={() => { if (zoomsBackToFull) zoomInButton.current?.focus(); rangeActions.zoomOut(); }}><ZoomOut className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartZoomOut')}</span>}</Button>
         <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartPanLeft')} title={rangeLockReason ?? m('chartPanLeft')} aria-describedby={rangeLockReason ? rangeLockReasonId : undefined} disabled={lockDockRange || zoom[0] <= 0} onClick={() => rangeActions.pan(-1)}><ArrowLeft className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartPanLeft')}</span>}</Button>
         <Button type="button" variant={chartToolVariant(compactTools)} size={toolbarButtonSize} aria-label={m('chartPanRight')} title={rangeLockReason ?? m('chartPanRight')} aria-describedby={rangeLockReason ? rangeLockReasonId : undefined} disabled={lockDockRange || zoom[1] >= 100} onClick={() => rangeActions.pan(1)}><ArrowRight className="size-3.5" aria-hidden />{!compactTools && <span className="t-chart-tool">{m('chartPanRight')}</span>}</Button>

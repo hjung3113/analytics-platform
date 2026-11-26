@@ -16,13 +16,10 @@ export const QueryPanelContentContext = createContext<'current' | 'prior' | null
 
 /** The workspace panel that declared `QueryView.panel`. Only charts inside that panel read it. Not a package export. */
 export type DeclaredQueryPanel = {
-  panelId: string;
-  /** The panel footer owns the source line. */
-  ownsFooter: boolean;
-  /** Trust text the panel footer is showing, or null while that line is not the full triple. */
+  /** Trust of the result the panel is showing (current, refreshing or previous), or null before any result. */
   trust: TrustFooterText | null;
-  /** Dimmed previous result. A same-condition refresh is not one. */
-  previousResult: boolean;
+  /** The panel's language: formatter closures carry it where drawing equality cannot see it, so a change redraws. */
+  lang: string;
 };
 export const DeclaredQueryPanelContext = createContext<DeclaredQueryPanel | null>(null);
 export const useInQueryPanel = () => useContext(QueryPanelContentContext) !== null;

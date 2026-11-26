@@ -320,7 +320,7 @@ describe('re-render keeps the inside dataZoom and brush (#705, #808)', () => {
 
 describe('declared panel skips an equal drawing (#3094)', () => {
   const drawn = { series: [{ id: 'a', type: 'line' as const, data: [[1, 2]] }] };
-  const declared = (child: ReactNode) => <DeclaredQueryPanelContext.Provider value={{ panelId: 'trend', ownsFooter: true, trust: null, previousResult: false }}>{child}</DeclaredQueryPanelContext.Provider>;
+  const declared = (child: ReactNode, lang = 'ko') => <DeclaredQueryPanelContext.Provider value={{ trust: null, lang }}>{child}</DeclaredQueryPanelContext.Provider>;
   it('skips setOption for equal inputs and still calls the latest click handler', () => {
     stubReducedMotion(false);
     const first = vi.fn();
@@ -339,6 +339,13 @@ describe('declared panel skips an equal drawing (#3094)', () => {
     const { rerender } = render(declared(<EChartImpl option={drawn} ariaLabel="plot" />));
     const calls = state.setOption.mock.calls.length;
     rerender(declared(<EChartImpl option={{ series: [{ id: 'a', type: 'line', data: [[1, 9]] }] }} ariaLabel="plot" />));
+    expect(state.setOption.mock.calls.length).toBeGreaterThan(calls);
+  });
+  it('still setOption for equal inputs after a language change (formatters carry the language)', () => {
+    stubReducedMotion(false);
+    const { rerender } = render(declared(<EChartImpl option={drawn} ariaLabel="plot" />));
+    const calls = state.setOption.mock.calls.length;
+    rerender(declared(<EChartImpl option={{ series: [{ id: 'a', type: 'line', data: [[1, 2]] }] }} ariaLabel="plot" />, 'en'));
     expect(state.setOption.mock.calls.length).toBeGreaterThan(calls);
   });
   it('still setOption for equal inputs outside a declared panel', () => {

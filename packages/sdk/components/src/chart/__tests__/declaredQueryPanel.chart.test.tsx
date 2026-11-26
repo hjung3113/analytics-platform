@@ -42,8 +42,8 @@ function Workspace({ value, visible, onPointClick, footerTrust }: { value: Query
   </Dock></InWorkspacePanelProvider></DockChartHeadProvider></I18nProvider>;
 }
 const rangeNames = ['확대', '축소', '왼쪽으로 이동', '오른쪽으로 이동', '초기화'] as const;
-function expectRangeLocked(root: HTMLElement) {
-  for (const name of rangeNames) {
+function expectRangeLocked(root: HTMLElement, names: readonly string[] = rangeNames) {
+  for (const name of names) {
     const button = within(root).getByRole('button', { name });
     expect(button).toBeDisabled();
     expect(document.getElementById(button.getAttribute('aria-describedby') ?? '')).toHaveTextContent(/이전 결과/);
@@ -70,6 +70,8 @@ it('declares one source line, keeps zoom across an equal refresh, and locks the 
   const drawn = plot.sets;
   rerender(<Workspace value={query('refreshing', ok())} />);
   expect(plot.sets).toBe(drawn);
+  expect(screen.getAllByText(SOURCE)).toHaveLength(1);
+  expect(screen.queryByText(/원천:/)).toBeNull();
   expect(within(toolbar).getByRole('button', { name: '확대' })).toBeEnabled();
   fireEvent.click(within(toolbar).getByRole('button', { name: '확대' }));
   expect(within(toolbar).getByRole('button', { name: '축소' })).toBeEnabled();
@@ -78,16 +80,26 @@ it('declares one source line, keeps zoom across an equal refresh, and locks the 
   expect(plot.sets).toBe(zoomed + 1);
   rerender(<Workspace value={query('refreshing', ok(), { showingPrevious: true })} visible={['value']} />);
   expectRangeLocked(toolbar);
+  expect(screen.getAllByText(SOURCE)).toHaveLength(1);
+  expect(screen.queryByText(/원천:/)).toBeNull();
   rerender(<Workspace value={done} />);
   expect(within(toolbar).getByRole('button', { name: '확대' })).toBeEnabled();
   expect(within(toolbar).getByRole('button', { name: '축소' })).toBeEnabled();
 });
 
-it('disables dock zoom, pan and reset on a previous result before any zoom', async () => {
+it('disables zoom and reset on a previous result before any zoom, without adding zoom-out or pan', async () => {
   render(<Workspace value={query('refreshing', ok(), { showingPrevious: true })} />);
   const toolbar = await screen.findByTestId('dock-toolbar');
   await within(toolbar).findByRole('button', { name: '확대' });
-  expectRangeLocked(toolbar);
+  expectRangeLocked(toolbar, ['확대', '초기화']);
+  for (const name of ['축소', '왼쪽으로 이동', '오른쪽으로 이동']) expect(within(toolbar).queryByRole('button', { name })).toBeNull();
+});
+
+it('keeps one source line on the previous result after an error', async () => {
+  render(<Workspace value={query('done', failed(), { previousResult: { response: ok(), completedAt: 1 } })} />);
+  await screen.findByRole('img', { name: 'plot' });
+  expect(screen.getAllByText(SOURCE)).toHaveLength(1);
+  expect(screen.queryByText(/원천:/)).toBeNull();
 });
 
 it('applies a new point callback during an equal refresh without redrawing', async () => {

@@ -64,8 +64,8 @@ export function ChartTrustFooter({ trust: input, metricVersion, singleLine }: { 
   const { t, lang } = useI18n();
   const declared = useContext(DeclaredQueryPanelContext);
   const trust = chartTrustText(input, lang);
-  const panelTrust = declared?.ownsFooter ? declared.trust : null;
-  // Drop only the duplicate source line. A different Trust, or a panel not showing the full triple, keeps the chart's own line.
+  const panelTrust = declared?.trust ?? null;
+  // Drop only the duplicate source line. A different Trust, or a panel with no result yet, keeps the chart's own line.
   const sourceTrust = trust != null && panelTrust != null && sameTrustFooter(trust, panelTrust) ? undefined : trust;
   // singleLine: each item stays whole and a narrow pane wraps between items, never a sideways scroll.
   const item = singleLine ? 'whitespace-nowrap' : undefined;

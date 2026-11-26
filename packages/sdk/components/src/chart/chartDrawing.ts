@@ -25,11 +25,14 @@ export function sameDrawing(a: unknown, b: unknown): boolean {
   return true;
 }
 
-/** Inside a declared panel, keep the last equal option so ECharts is not handed a new object. */
-export function useHeldDrawing(next: EChartsCoreOption, hold: boolean): EChartsCoreOption {
-  const [held, setHeld] = useState(next);
+/**
+ * Inside a declared panel, keep the last equal option so ECharts is not handed a new object.
+ * `key` holds what only lives inside formatter closures (the language): a new key drops the held option.
+ */
+export function useHeldDrawing(next: EChartsCoreOption, hold: boolean, key: string): EChartsCoreOption {
+  const [held, setHeld] = useState({ option: next, key });
   if (!hold) return next;
-  if (sameDrawing(held, next)) return held;
-  setHeld(next);
+  if (held.key === key && sameDrawing(held.option, next)) return held.option;
+  setHeld({ option: next, key });
   return next;
 }

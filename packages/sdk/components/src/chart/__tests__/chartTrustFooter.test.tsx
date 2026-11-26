@@ -68,11 +68,11 @@ describe.each(FRAMES)('%s trust footer', (_name, frame) => {
   });
   it('omits its source line when the declared panel shows the same Trust', () => {
     const shown = chartTrustText(trust, 'ko')!;
-    mountIn(<DeclaredQueryPanelContext.Provider value={{ panelId: 'trend', ownsFooter: true, trust: shown, previousResult: false }}>{frame(trust)}</DeclaredQueryPanelContext.Provider>);
+    mountIn(<DeclaredQueryPanelContext.Provider value={{ trust: shown, lang: 'ko' }}>{frame(trust)}</DeclaredQueryPanelContext.Provider>);
     expect(footer()).toBeNull();
   });
   it('keeps its source line when the declared panel shows a different Trust', () => {
-    mountIn(<DeclaredQueryPanelContext.Provider value={{ panelId: 'trend', ownsFooter: true, trust: { source: 'other', updated: 'x', coverage: 'y' }, previousResult: false }}>{frame(trust)}</DeclaredQueryPanelContext.Provider>);
+    mountIn(<DeclaredQueryPanelContext.Provider value={{ trust: { source: 'other', updated: 'x', coverage: 'y' }, lang: 'ko' }}>{frame(trust)}</DeclaredQueryPanelContext.Provider>);
     expect(footer()).toHaveTextContent('원천: mart.productivity_hourly');
   });
 });
@@ -80,14 +80,14 @@ describe.each(FRAMES)('%s trust footer', (_name, frame) => {
 describe('ChartTrustFooter declared panel (#3094)', () => {
   const shown = chartTrustText(trust, 'ko')!;
   it('keeps the metric version when the matching source line is omitted', () => {
-    mountIn(<DeclaredQueryPanelContext.Provider value={{ panelId: 'trend', ownsFooter: true, trust: shown, previousResult: false }}>
+    mountIn(<DeclaredQueryPanelContext.Provider value={{ trust: shown, lang: 'ko' }}>
       <ChartTrustFooter trust={trust} metricVersion="v3" />
     </DeclaredQueryPanelContext.Provider>);
     expect(footer()).toHaveTextContent('v3');
     expect(footer()).not.toHaveTextContent('원천:');
   });
-  it('keeps the chart source when the panel does not own the footer', () => {
-    mountIn(<DeclaredQueryPanelContext.Provider value={{ panelId: 'trend', ownsFooter: false, trust: shown, previousResult: false }}>
+  it('keeps the chart source while the panel has no result yet', () => {
+    mountIn(<DeclaredQueryPanelContext.Provider value={{ trust: null, lang: 'ko' }}>
       <ChartTrustFooter trust={trust} />
     </DeclaredQueryPanelContext.Provider>);
     expect(footer()).toHaveTextContent('원천: mart.productivity_hourly');
