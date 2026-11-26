@@ -1,10 +1,23 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { startTransition } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX } from '@ap/contracts';
 import type { MenuView, PanelInstance } from '@ap/contracts';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { answer, renderOverview, requests, session, settle } from './test-support';
+
+const deferPanelReplay = vi.hoisted(() => ({ enabled: false }));
+vi.mock('@ap/kernel', async importOriginal => {
+  const kernel = await importOriginal<typeof import('@ap/kernel')>();
+  return { ...kernel, useSavedViewPanels: (options: Parameters<typeof kernel.useSavedViewPanels>[0]) => kernel.useSavedViewPanels({
+    ...options,
+    onOpen: (...args) => {
+      if (deferPanelReplay.enabled) startTransition(() => options.onOpen(...args));
+      else options.onOpen(...args);
+    },
+  }) };
+});
 
 const chart = (id = 'hw-current') => JSON.parse(screen.getByTestId(id).textContent!);
 const config = () => JSON.parse(screen.getByTestId('workspace').getAttribute('data-config')!);
@@ -22,7 +35,7 @@ beforeEach(() => {
   workspaceStorage = memoryStorage();
   vi.stubGlobal('localStorage', workspaceStorage); vi.stubGlobal('sessionStorage', memoryStorage());
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
+afterEach(() => { cleanup(); deferPanelReplay.enabled = false; vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 describe('HW Time saved view panels', () => {
   const makeInstance = (panel: string): PanelInstance => ({ id: panel, source: { kind: 'declared', panel }, inputs: [], outputs: [] });
@@ -343,6 +356,51 @@ describe('HW Time saved view panels', () => {
     await open('first');
     expect(await screen.findByRole('button', { name: /숨긴 패널 1/ })).toBeTruthy();
     expect(screen.queryByRole('tab', { name: '판정 비율 도넛' })).toBeNull();
+  });
+
+  it('keeps B’s persisted hidden alias when the deferred open switches from A to B (#3080 C7)', async () => {
+    const store = createFakeSavedViewStore([
+      saved({ id: 'A', panels: { version: 1, instances: [{ ...pareto, id: 'a-pareto' }] } }),
+      saved({ id: 'B', panels: { version: 1, instances: [{ ...donut, id: 'b-donut' }] } }),
+    ]);
+    await renderOverview('', answer, { savedViews: store, children: <Probe />, realWorkspace: true });
+    await waitFor(() => expect(views.status).toBe('ready'));
+    await open('B');
+    const donutTab = await screen.findByRole('tab', { name: '판정 비율 도넛' });
+    fireEvent.keyDown(donutTab, { key: 'F10', shiftKey: true });
+    fireEvent.click(await screen.findByRole('menuitem', { name: '숨기기' }));
+
+    const storageKey = `platform:workspace:v1:${session.user.id}:hw-time:hw-time-s1-v1:scopes`;
+    const scopeB = JSON.stringify(['MEM', 'B']);
+    const savedLayout = (value: string | null) => {
+      const layouts = JSON.parse(value ?? '[]') as [string, { hidden: string[] }][];
+      return layouts.find(([scope]) => scope === scopeB)?.[1];
+    };
+    await waitFor(() => expect(savedLayout(workspaceStorage.getItem(storageKey))?.hidden).toEqual(['saved-instance-b-donut']));
+    const before = savedLayout(workspaceStorage.getItem(storageKey));
+    await open('A');
+    expect(await screen.findByRole('tab', { name: '상한 초과 파레토' })).toBeTruthy();
+    const writes = vi.spyOn(workspaceStorage, 'setItem');
+
+    let release!: () => void;
+    store.getHold.set('B', new Promise<void>(resolve => { release = resolve; }));
+    const opening = views.select('B');
+    expect(views.selected?.view.id).toBe('A');
+    // React can batch default and sync lanes. Put the replay in a transition
+    // to exercise the case where the selection's store notification wins.
+    deferPanelReplay.enabled = true;
+    release();
+    expect(await opening).toMatchObject({ ok: true });
+    await waitFor(() => {
+      expect(views.selected?.view.id).toBe('B');
+      expect(screen.queryByRole('tab', { name: '상한 초과 파레토' })).toBeNull();
+    });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 350)); });
+    expect.soft(screen.queryByRole('tab', { name: '판정 비율 도넛' })).toBeNull();
+    expect.soft(screen.queryByRole('button', { name: /숨긴 패널 1/ })).toBeTruthy();
+    expect.soft(savedLayout(workspaceStorage.getItem(storageKey))).toEqual(before);
+    // Each scoped write puts its target first in the stored list.
+    expect(writes.mock.calls.some(([key, value]) => key === storageKey && JSON.parse(value)[0]?.[0] === scopeB)).toBe(false);
   });
 
   it.each(['Save As', 'clear selection'] as const)('isolates alias layout edits after %s without reopening', async action => {

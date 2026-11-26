@@ -36,6 +36,7 @@ let views: SavedViews;
 let setPanels: (value: MenuViewPanels | null) => void;
 let setMounted: (value: boolean) => void;
 const opened = vi.fn();
+const selectionChanged = vi.fn();
 
 function PanelSlot() {
   const [value, update] = useState<MenuViewPanels | null>(null);
@@ -46,6 +47,7 @@ function PanelSlot() {
       opened(outcome, viewId);
       if (outcome !== 'unreadable') update(outcome);
     },
+    onSelectionChange: selectionChanged,
   });
   return <output aria-label="Panel view identity">{selectedViewId ?? 'none'}</output>;
 }
@@ -70,7 +72,7 @@ async function mount({ saved = row(), registrations = 1, store = createFakeSaved
   return store;
 }
 
-beforeEach(() => { window.sessionStorage.clear(); opened.mockClear(); });
+beforeEach(() => { window.sessionStorage.clear(); opened.mockClear(); selectionChanged.mockClear(); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 it('captures registered panels when saving a new menu view', async () => {
@@ -88,16 +90,19 @@ it('publishes accepted menu view identities without replaying panels when copyin
   await act(async () => { await views.select('saved'); });
   expect(id()).toBe('saved');
   expect(opened).toHaveBeenCalledExactlyOnceWith(panels, 'saved');
+  expect(selectionChanged).toHaveBeenCalledExactlyOnceWith(null);
   opened.mockClear();
 
   const copy = await act(() => views.saveAs({ name: 'copy', kind: 'menu-view' }));
   if (!copy.ok) throw new Error('Failed to save view');
   expect(id()).toBe(copy.value.view.id);
+  expect(selectionChanged).toHaveBeenLastCalledWith(copy.value.view.id);
   act(() => setMounted(false));
   act(() => setMounted(true));
   expect(id()).toBe(copy.value.view.id);
   act(() => views.clearSelection());
   expect(id()).toBe('none');
+  expect(selectionChanged).toHaveBeenLastCalledWith(null);
   expect(opened).not.toHaveBeenCalled();
 });
 
@@ -123,10 +128,12 @@ it('restores the selected view panels after a reload and overwrite keeps them', 
   await act(async () => { await views.select('saved'); });
   cleanup();
   opened.mockClear();
+  selectionChanged.mockClear();
   await mount({ store });
   await waitFor(() => expect(views.selected?.view.id).toBe('saved'));
   expect(opened).toHaveBeenCalledExactlyOnceWith(panels, 'saved');
   expect(screen.getByLabelText('Panel view identity').textContent).toBe('saved');
+  expect(selectionChanged).toHaveBeenCalledExactlyOnceWith(null);
   expect(views.state.modified).toBe(false);
   await act(async () => { await views.saveToSelected(); });
   expect(await store.get('saved')).toMatchObject({ view: { panels } });
@@ -139,7 +146,9 @@ it('does not restore panels of a kept selection the menu schema no longer opens'
   opened.mockClear();
   await mount({ store, declared: { ...support, menuSchemaVersion: 2 } });
   await act(async () => {});
+  expect(views.selected?.view.id).toBe('saved');
   expect(opened).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('Panel view identity').textContent).toBe('none');
 });
 
 it('delivers a reloaded personal default view once while its default lookup is still pending', async () => {
@@ -147,6 +156,8 @@ it('delivers a reloaded personal default view once while its default lookup is s
   const store = createFakeSavedViewStore([row()], { 'u1:home': 'saved' });
   await mount({ store, menus });
   await waitFor(() => expect(opened).toHaveBeenCalledOnce());
+  expect(opened).toHaveBeenCalledExactlyOnceWith(panels, 'saved');
+  expect(selectionChanged).toHaveBeenCalledExactlyOnceWith(null);
   expect(screen.getByLabelText('Panel view identity').textContent).toBe('saved');
   cleanup();
   opened.mockClear();

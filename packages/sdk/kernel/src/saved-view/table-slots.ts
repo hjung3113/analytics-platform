@@ -2,6 +2,7 @@
 declare const process: { env: { NODE_ENV?: string } };
 type Slot = { value: unknown; apply: (value: never, viewId: string) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
 export type ViewSlots = ReturnType<typeof createScreenSlots>;
+export const NO_MENU_VIEW_SELECTION = { id: null, replayed: false };
 function sameValue(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   if (!left || !right || typeof left !== 'object' || typeof right !== 'object' || Array.isArray(left) !== Array.isArray(right)) return false;
@@ -14,7 +15,7 @@ function createScreenSlots() {
   const fields = new Map<string, Map<string, Slot[]>>();
   const listeners = new Set<() => void>();
   let revision = 0;
-  let menuViewId: string | null = null;
+  let menuViewSelection: { id: string | null; replayed: boolean } = NO_MENU_VIEW_SELECTION;
   let applied: { token: object; viewId: string; fields: Record<string, Record<string, unknown> | undefined>; consumed: Set<string> } | null = null;
   const emit = () => { revision += 1; listeners.forEach(listener => listener()); };
   const applyKey = (field: string, key: string) => {
@@ -32,10 +33,10 @@ function createScreenSlots() {
   return {
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     snapshot: () => revision,
-    selectedMenuViewId: () => menuViewId,
-    selectMenuView(id: string | null) {
-      if (menuViewId === id) return;
-      menuViewId = id;
+    menuViewSelection: () => menuViewSelection,
+    selectMenuView(id: string | null, replayed = false) {
+      if (menuViewSelection.id === id && menuViewSelection.replayed === replayed) return;
+      menuViewSelection = { id, replayed };
       listeners.forEach(listener => listener());
     },
     changed: emit,

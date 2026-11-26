@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { House } from 'lucide-react';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
-import { I18nProvider, PlatformProvider, createRegistry, useSavedViewSupport, useUnsavedGuard } from '../../index';
+import { I18nProvider, PlatformProvider, createRegistry, useSavedViewPanels, useSavedViewSupport, useUnsavedGuard } from '../../index';
 import { useHostPlatform, useLeaveRequest, useSavedViews, type SavedViews, type LeaveRequest } from '../../host';
 import { createFakeSavedViewStore, noContext, testAdapter, testSavedView, testSession, testSpace } from '../../testing';
 
@@ -18,10 +18,13 @@ let views: SavedViews;
 let host: ReturnType<typeof useHostPlatform>;
 let request: LeaveRequest | null;
 let dirty: (value: boolean) => void;
+const opened = vi.fn();
+const selectionChanged = vi.fn();
 function Probe() {
   const [on, setOn] = useState(false); dirty = setOn;
   useSavedViewSupport(support); useUnsavedGuard(on, { leaves: 'address' });
   views = useSavedViews(); host = useHostPlatform(); request = useLeaveRequest();
+  useSavedViewPanels({ value: null, onOpen: (outcome, id) => opened(outcome, id, host.page), onSelectionChange: selectionChanged });
   return null;
 }
 async function mount() {
@@ -38,15 +41,21 @@ async function mount() {
 afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); support = baseSupport; registry = makeRegistry(); rows = () => [row('a'), row('b'), row('c')]; });
 it.each(['confirm', 'cancel'] as const)('KER-18 holds selection silently and handles %s', async action => {
   await mount();
+  opened.mockClear();
+  selectionChanged.mockClear();
   let outcome: unknown;
   await act(async () => { outcome = await views.select('b'); });
   expect(outcome).toEqual({ ok: false, reason: 'held' });
   expect(views.selected?.view.id).toBe('a');
   expect(window.location.search).toBe('?v=1&filter=a');
+  expect(opened).not.toHaveBeenCalled();
   expect(request).not.toBeNull();
   act(() => request![action]());
   await waitFor(() => expect(views.selected?.view.id).toBe(action === 'confirm' ? 'b' : 'a'));
   expect(window.location.search).toBe(action === 'confirm' ? '?v=1&filter=b' : '?v=1&filter=a');
+  if (action === 'confirm') expect(opened).toHaveBeenCalledExactlyOnceWith(null, 'b', [['filter', 'b']]);
+  else expect(opened).not.toHaveBeenCalled();
+  expect(selectionChanged).not.toHaveBeenCalled();
 });
 it.each(['revision', 'account', 'menu', 'newer'] as const)('KER-18 invalidates held selection after %s', async change => {
   const f = await mount();

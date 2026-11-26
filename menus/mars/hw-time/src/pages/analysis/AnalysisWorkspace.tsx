@@ -237,10 +237,11 @@ function nextConfig(state: { owner: string; query: string; config: PanelConfigur
 
 function useWorkspacePanels(owner: string, query: string, step: Step, publisherFor: (config: PanelConfiguration, at?: Step) => ReturnType<typeof selectionPublisher>) {
   const population = JSON.stringify([step, query]);
-  const [state, setState] = useState(() => ({ owner, query, population, config: defaultPanels, opening: false }));
+  const [state, setState] = useState(() => ({ owner, query, population, config: defaultPanels, opening: false, selectedViewId: null as string | null }));
+  const selectedViewId = state.owner === owner ? state.selectedViewId : null;
   const samePopulation = state.population === population;
   const config = nextConfig(state, owner, query, samePopulation);
-  if (state.owner !== owner || !samePopulation || state.opening) setState({ owner, query, population, config, opening: false });
+  if (state.owner !== owner || !samePopulation || state.opening) setState({ owner, query, population, config, opening: false, selectedViewId });
   const project = (candidate: CustomPanels, { acrossSteps = false } = {}) => {
     const { source, reserved } = publisherFor(candidate);
     const current = buildSavedPanels(candidate, acrossSteps ? undefined : step, reserved ?? source);
@@ -252,9 +253,10 @@ function useWorkspacePanels(owner: string, query: string, step: Step, publisherF
   };
   const overflows = (plan: ReturnType<typeof planAdd>) => plan.overflows
     || (plan.config !== null && exceedsPanelLimit(project(plan.config, { acrossSteps: plan.config.connectionsEdited })));
-  const selectedViewId = useSavedViewPanels({
+  useSavedViewPanels({
     value: config.kind === 'custom' ? project(config) : null,
-    onOpen: outcome => {
+    onSelectionChange: viewId => setState(current => current.selectedViewId === viewId ? current : { ...current, selectedViewId: viewId }),
+    onOpen: (outcome, viewId) => {
       let next: PanelConfiguration;
       switch (outcome) {
         case null: next = defaultPanels; break;
@@ -269,7 +271,7 @@ function useWorkspacePanels(owner: string, query: string, step: Step, publisherF
           next = { kind: 'custom', added, sources };
         }
       }
-      setState(current => ({ ...current, config: next, opening: true }));
+      setState(current => ({ ...current, config: next, opening: true, selectedViewId: viewId ?? current.selectedViewId }));
     },
   });
   /** Every add path: refused as a whole when the saved panels would pass the v1 limit (R C2); `slot` is what it opened or reveals. */

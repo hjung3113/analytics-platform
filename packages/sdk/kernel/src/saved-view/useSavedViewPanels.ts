@@ -3,6 +3,7 @@ import { followHeldSets, type MenuViewPanels } from '@ap/contracts';
 import { AppContext, LentPanelPlatformContext } from '../platform/contexts';
 import { useHostPlatformOptional } from '../platform/hooks';
 import type { HostPlatform } from '../platform/types';
+import { NO_MENU_VIEW_SELECTION } from './table-slots';
 import { resolveSavedViewSupport } from './useSavedViewSupport';
 
 export const PANELS_SLOT = 'panels';
@@ -27,12 +28,14 @@ export function useMainScreenPanelSlots(host: HostPlatform | null) {
  * On open, null selects the menu's declared panels. 'unreadable' reports that the saved panels could not be opened.
  * The opened view id lets the screen scope local workspace preferences to that view. A local Scope
  * change can release held sets before a saved view is applied, in which case there is no view id.
- * The return value is the accepted menu-view selection, independent of onOpen. It is null when no
- * menu view is selected, including when a condition set is selected.
+ * For a view-scoped workspace, use onOpen to update the panel set and its view id together,
+ * and onSelectionChange for the initial identity and identity-only changes such as Save As and clear.
+ * The return value reports the accepted menu-view selection for the panel slot.
  */
 export function useSavedViewPanels(options: {
   value: MenuViewPanels | null;
   onOpen(outcome: SavedViewPanelsOutcome, viewId?: string): void;
+  onSelectionChange?(viewId: string | null): void;
 }): string | null {
   const app = useContext(AppContext);
   const host = useHostPlatformOptional();
@@ -41,9 +44,12 @@ export function useSavedViewPanels(options: {
   const mainScreenSlots = useMainScreenPanelSlots(host);
   const slots = menu?.features.savedView === true ? mainScreenSlots : undefined;
   const supports = app?.internal.savedViewSupports;
-  const selectedViewId = useSyncExternalStore(slots?.subscribe ?? noSelectionSubscription, slots?.selectedMenuViewId ?? noSelectedView);
+  const selection = useSyncExternalStore(slots?.subscribe ?? noSelectionSubscription, slots?.menuViewSelection ?? noSelectedView);
   const committed = useRef(options);
   useLayoutEffect(() => { committed.current = options; });
+  useLayoutEffect(() => {
+    if (!selection.replayed) committed.current.onSelectionChange?.(selection.id);
+  }, [selection]);
   // Held sets belong to the Scope they were held in (#2862): on a Scope switch the screen's panels follow at once, before any view list or
   // selection answers, so nothing saved in the new Scope carries the previous Scope's members (R2862C-2 C1).
   const heldScope = useRef(scopeId);
@@ -75,11 +81,11 @@ export function useSavedViewPanels(options: {
     const unsubscribe = supports.subscribe(sync);
     return () => { unsubscribe(); release?.(); };
   }, [menu, slots, supports]);
-  return selectedViewId;
+  return selection.id;
 }
 
 const noSelectionSubscription = () => () => {};
-const noSelectedView = () => null;
+const noSelectedView = () => NO_MENU_VIEW_SELECTION;
 
 /**
  * Whether the main screen's panels hold a selection now (#2862). Held values live only in the screen and its saved view (ADR-0176), never in

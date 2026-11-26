@@ -1414,13 +1414,22 @@ let screenPanels: MenuViewPanels | null = null;
 let setScreen: (value: MenuViewPanels | null) => void = () => {};
 let holdsNow: (() => boolean) | undefined;
 let paneHolds: (() => boolean) | undefined;
+const openedPanels = vi.fn();
+const panelSelectionChanged = vi.fn();
 function PanelScreen() {
   useSavedViewSupport(support); views = useSavedViews(); host = useHostPlatform();
   const [value, update] = useState<MenuViewPanels | null>(null);
   screenPanels = value;
   setScreen = update;
   holdsNow = useHoldsPanels();
-  useSavedViewPanels({ value, onOpen: (outcome: SavedViewPanelsOutcome) => { if (outcome !== 'unreadable') update(outcome); } });
+  useSavedViewPanels({
+    value,
+    onOpen: (outcome: SavedViewPanelsOutcome, viewId) => {
+      openedPanels(outcome, viewId);
+      if (outcome !== 'unreadable') update(outcome);
+    },
+    onSelectionChange: panelSelectionChanged,
+  });
   return null;
 }
 function PaneHolds() { paneHolds = useHoldsPanels(); return null; }
@@ -1435,9 +1444,13 @@ it('a Scope switch with a view selected hands the new Scope the view panels with
   await waitFor(() => expect(views.status).toBe('ready'));
   await act(async () => { await views.select('h1'); });
   expect(screenPanels).toEqual(heldPanels);
+  openedPanels.mockClear();
+  panelSelectionChanged.mockClear();
   act(() => host.setGlobal({ scopeId: 'FDRY' }));
   await waitFor(() => expect(views.scopeExcluded).toEqual({ savedScopeId: 'MEM', keys: ['room'], panelKeys: ['room'] }));
   await waitFor(() => expect(screenPanels).toEqual(followingPanels));
+  expect(openedPanels).toHaveBeenLastCalledWith(followingPanels, 'h1');
+  expect(panelSelectionChanged.mock.calls.flat()).not.toContain('h1');
   expect(views.state.modified).toBe(false);
   await act(async () => { await views.saveToSelected(); });
   expect(store.rows.get('h1')).toMatchObject({ savedScopeId: 'FDRY', panels: followingPanels });
