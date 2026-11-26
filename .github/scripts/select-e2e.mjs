@@ -27,7 +27,7 @@
 //   node .github/scripts/select-e2e.mjs      reads EVENT, BASE, HEAD (pull_request), SERVER (classifier output), FULL_INPUT; writes $GITHUB_OUTPUT once
 //   node .github/scripts/select-e2e.mjs --self-test
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -199,6 +199,16 @@ function selfTest() {
     event: 'push', files: ['packages/sdk/ui/src/a.tsx'], exists,
   }), ALLV);
   const repo = resolve(fileURLToPath(import.meta.url), '../../..');
+  const hwTimeCoverage = readFileSync(join(repo, SPEC_DIR, 'hw-time.spec.ts'), 'utf8');
+  for (const title of [
+    'HW Time 단계 패널: 맞춤으로 시작하고 첫 줄 패널 안이 넘치지 않는다',
+    '1440×900 HW Time 원시 표의 행 영역이 패널 아래 끝에서 120px 안까지 닿는다',
+  ]) {
+    check(`menu: HW Time PR includes ${title}`,
+      sdkPr(['menus/mars/hw-time/src/a.ts']).e2e.split(' ').includes('hw-time.spec.ts')
+        && hwTimeCoverage.includes(`test('${title}'`), true);
+  }
+
   for (const name of new Set([...CONTRACT_SMOKE, ...Object.values(MENU_SPECS).flat()])) {
     check(`selector inventory: ${name} exists and is safe`, SAFE_NAME.test(name) && existsSync(join(repo, SPEC_DIR, name)), true);
   }

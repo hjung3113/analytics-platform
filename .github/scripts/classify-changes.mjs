@@ -10,14 +10,14 @@
 //   full  'true' for a manual run with full=true (weekly cold run), and whenever this script cannot decide: the consumers then run cold
 //         (turbo --force, no cache restore).
 // Fail-safe: any exception or git failure prints code=true site=true full=true sdk=true server=true and exits 0 (stderr says why). If the job itself fails the
-// outputs are empty and every consumer treats a value other than exactly 'false' as "run it".
+// workflow ignores its outputs and uses the full-run defaults.
 //
 //   node .github/scripts/classify-changes.mjs                 reads EVENT, BASE, HEAD (pull_request), BEFORE, SHA (push), FULL_INPUT (dispatch); writes $GITHUB_OUTPUT once
 //   node .github/scripts/classify-changes.mjs --self-test
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, matchesGlob, resolve } from 'node:path';
+import { dirname, join, matchesGlob, posix, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { releasePackages } from '../../tooling/sdk/sdk-exports.mjs';
 
@@ -53,6 +53,23 @@ const SERVER_PACKAGES = ['apps/platform-api', 'ops/platform-api'];
 const SERVER_SETUP = /^(?:\.github\/|patches\/|tooling\/(?:sdk|tsconfig)\/|(?:\.nvmrc|\.npmrc|\.pnpmfile\.[cm]?js|pnpm-(?:lock|workspace)\.yaml|turbo\.json|\.dockerignore)$)|(?:^|\/)(?:package\.json$|migrations\/)/;
 const REPO_PATH = /^[\w./@+-]+$/;
 
+const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'];
+const WORKSPACE_RANGE = /^(?:[*^~]|[\^~]?\d+\.\d+\.\d+(?:[-+][\w.+-]+)?)$/;
+const WORKSPACE_ALIAS = /^((?:@[\w.-]+\/)?[\w.-]+)@(.+)$/;
+
+export function dependencyEntries(pkg) {
+  return DEPENDENCY_FIELDS.flatMap((field) => Object.entries(pkg[field] ?? {}));
+}
+
+// Local paths are relative to the declaring package. An alias names its provider before the range.
+export function workspaceTargetDirectory(directory, name, version, byName) {
+  const specifier = version.slice('workspace:'.length);
+  if (/^\.\.?(?:\/[\w.+@-]+)+$/.test(specifier)) return posix.join(directory, specifier);
+  if (WORKSPACE_RANGE.test(specifier)) return byName.get(name);
+  const alias = WORKSPACE_ALIAS.exec(specifier);
+  return alias && WORKSPACE_RANGE.test(alias[2]) ? byName.get(alias[1]) : undefined;
+}
+
 export function serverChanged({ event, files }, cwd) {
   if (event !== 'pull_request' || !files?.length) return 'true';
   if (files.some((file) => !REPO_PATH.test(file) || SERVER_SETUP.test(file))) return 'true';
@@ -78,10 +95,13 @@ export function serverChanged({ event, files }, cwd) {
     const pkg = byDir.get(dir);
     if (!pkg) throw new Error(`missing workspace dependency: ${dir}`);
     serverDirs.add(dir);
-    for (const field of ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies']) {
-      for (const [name, version] of Object.entries(pkg[field] ?? {})) {
-        if (version.startsWith('workspace:')) visit(byName.get(name) ?? name);
-        else if (/^(?:file|link):/.test(version)) throw new Error(`unresolved local dependency: ${name}`);
+    for (const [name, version] of dependencyEntries(pkg)) {
+      if (version.startsWith('workspace:')) {
+        const target = workspaceTargetDirectory(dir, name, version, byName);
+        if (!byDir.has(target)) throw new Error(`unresolved workspace dependency: ${name} (${version}) in ${dir}`);
+        visit(target);
+      } else if (/^(?:file|link):/.test(version)) {
+        throw new Error(`unresolved local dependency: ${name}`);
       }
     }
   };
@@ -310,6 +330,27 @@ function selfTest() {
     check('git push: before..sha', run(env({ EVENT: 'push', BEFORE: base, SHA: code }), dir).result, out(T, T, F));
     check('git push: before all zeros → cold', run(env({ EVENT: 'push', BEFORE: '0'.repeat(40), SHA: code }), dir).result, out(T, T, T));
     check('git push: before unknown (force-push) → cold', run(env({ EVENT: 'push', BEFORE: 'abc123'.repeat(6), SHA: code }), dir).result, out(T, T, T));
+    const manifests = {
+      'apps/platform-api': { name: '@ap/platform-api', optionalDependencies: { '@ap/alias': 'workspace:@ap/provider@*' } },
+      'ops/platform-api': { name: '@ap/platform-api-ops' },
+      'packages/alias': { name: '@ap/alias' },
+      'packages/provider': { name: '@ap/provider' },
+    };
+    for (const [directory, manifest] of Object.entries(manifests)) {
+      execFileSync('mkdir', ['-p', join(dir, directory)]);
+      writeFileSync(join(dir, directory, 'package.json'), JSON.stringify(manifest));
+    }
+    writeFileSync(join(dir, 'pnpm-workspace.yaml'), 'packages:\n  - apps/*\n  - ops/*\n  - packages/*\n');
+    writeFileSync(join(dir, 'apps/platform-api/turbo.json'), JSON.stringify({ tasks: { test: { inputs: ['$TURBO_DEFAULT$'] } } }));
+    g('add', '-A');
+    const impact = (file) => serverChanged({ event: 'pull_request', files: [file] }, dir);
+    check('workspace alias reaches provider even when alias name exists', impact('packages/provider/src/a.ts'), T);
+    check('workspace alias does not reach unrelated namesake', impact('packages/alias/src/a.ts'), F);
+    const api = manifests['apps/platform-api'];
+    api.optionalDependencies['@ap/alias'] = 'workspace:../../packages/provider';
+    writeFileSync(join(dir, 'apps/platform-api/package.json'), JSON.stringify(api));
+    check('relative workspace specifier reaches provider', impact('packages/provider/src/a.ts'), T);
+
     check('git dispatch: needs no git', run(env({ EVENT: 'workflow_dispatch', FULL_INPUT: 'true' }), join(dir, 'does-not-exist')).result, out(T, T, T));
     check('git pr: not a repository → everything cold', run(env({ EVENT: 'pull_request', BASE: base, HEAD: code }), tmpdir()).result, out(T, T, T));
   } finally {

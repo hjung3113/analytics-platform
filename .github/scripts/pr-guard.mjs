@@ -33,12 +33,14 @@ const BUDGET_LABEL = 'ci-budget-ok';
 const INITIAL_BUDGET = { maxParallelPrJobs: 9, maxJobMinutes: 10 };
 
 export function budgetVerdict(base, head, labels) {
-  const keys = Object.keys(INITIAL_BUDGET);
-  const valid = (budget) => budget && keys.every((key) => Number.isSafeInteger(budget[key]) && budget[key] > 0)
-    && typeof budget.reason === 'string' && /^[^\r\n]+$/.test(budget.reason.trim());
+  const valid = (budget) => budget && Object.keys(INITIAL_BUDGET).every((key) => Object.hasOwn(budget, key))
+    && typeof budget.reason === 'string' && /^[^\r\n]+$/.test(budget.reason.trim())
+    && Object.entries(budget).every(([key, value]) => key === 'reason' || (Number.isSafeInteger(value) && value > 0));
   if (!valid(head) || (base !== null && !valid(base))) return { ok: false, detail: 'missing or invalid CI budget' };
   const previous = base ?? INITIAL_BUDGET;
-  const raised = keys.filter((key) => head[key] > previous[key]).map((key) => `${key} ${previous[key]} → ${head[key]}`);
+  const raised = Object.keys(head).filter((key) => key !== 'reason')
+    .filter((key) => !Object.hasOwn(previous, key) || head[key] > previous[key])
+    .map((key) => Object.hasOwn(previous, key) ? `${key} ${previous[key]} → ${head[key]}` : `${key} added at ${head[key]}`);
   if (raised.length === 0) return { ok: true, detail: 'no budget increase' };
   const approved = labels.includes(BUDGET_LABEL);
   return { ok: approved, detail: `${raised.join(', ')} · ${approved ? 'approved by' : 'requires'} \`${BUDGET_LABEL}\`` };
@@ -145,6 +147,13 @@ function selfTest() {
   assert.equal(budgetVerdict(currentBudget, { ...currentBudget, maxParallelPrJobs: 10 }, []).ok, false);
   assert.equal(budgetVerdict(currentBudget, { ...currentBudget, maxJobMinutes: 11 }, ['ci-budget-ok']).ok, true);
   assert.equal(budgetVerdict(currentBudget, null, ['ci-budget-ok']).ok, false);
+  const extended = { ...currentBudget, maxRunnerMinutes: 90 };
+  assert.equal(budgetVerdict(currentBudget, extended, []).ok, false);
+  assert.equal(budgetVerdict(currentBudget, extended, ['ci-budget-ok']).ok, true);
+  assert.equal(budgetVerdict(null, extended, []).ok, false);
+  assert.equal(budgetVerdict(extended, { ...extended, maxRunnerMinutes: 80 }, []).ok, true);
+  assert.equal(budgetVerdict({ ...extended, maxRunnerMinutes: '90' }, extended, ['ci-budget-ok']).ok, false);
+  assert.equal(budgetVerdict(currentBudget, { ...extended, maxRunnerMinutes: 0 }, ['ci-budget-ok']).ok, false);
   const f = (filename, additions, deletions, previous_filename) => ({ filename, additions, deletions, previous_filename });
   // size
   assert.deepEqual(sizeVerdict([f('a.ts', 10, 5), f('pnpm-lock.yaml', 900, 0), f('x/__snapshots__/a.snap', 50, 0), f('tooling/sdk/api/ui.md', 70, 0), f('packages/sdk/CHANGELOG.md', 20, 0), f('packages/sdk/contract-schemas/schemas/chartConfig.json', 130, 0)], []), { lines: 15, files: 1, excluded: 5, over: false, answer: null, waived: false, ok: true });

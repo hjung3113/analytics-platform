@@ -86,3 +86,21 @@ test('workspace dependencies must enter task closures or have their source folde
   // The manifest alone is not coverage.
   assert.ok(workspaceDependencyErrors('test', hashing(['package.json']), packages, tracked).length > 0);
 });
+
+
+test('Turbo verifies the real workspace alias target in every dependency kind', () => {
+  const app = { name: '@ap/app', directory: 'apps/app', dependencies: { '@ap/alias': 'workspace:@ap/provider@*' },
+    devDependencies: { '@ap/relative': 'workspace:../../packages/relative' } };
+  const packages = [app, { name: '@ap/alias', directory: 'packages/alias' },
+    { name: '@ap/provider', directory: 'packages/provider' }, { name: '@ap/relative-provider', directory: 'packages/relative' }];
+  const plan = { tasks: [{ taskId: '@ap/app#test', package: '@ap/app', dependencies: ['@ap/alias#test'] },
+    { taskId: '@ap/alias#test', package: '@ap/alias' }] };
+  const errors = workspaceDependencyErrors('test', plan, packages, () => []).join('\n');
+  assert.match(errors, /workspace dependency @ap\/provider is absent/);
+  assert.match(errors, /workspace dependency @ap\/relative-provider is absent/);
+  for (const name of ['@ap/provider', '@ap/relative-provider']) {
+    plan.tasks[0].dependencies.push(`${name}#test`);
+    plan.tasks.push({ taskId: `${name}#test`, package: name });
+  }
+  assert.deepEqual(workspaceDependencyErrors('test', plan, packages, () => []), []);
+});
