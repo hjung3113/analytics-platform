@@ -138,6 +138,15 @@ export function withFollowingTable(config: PanelConfiguration, pinned: boolean):
 
 const followingEntry = (instance: PanelInstance): AddedPanel => ({ slot: instanceSlot(instance), instance, implicitFollow: true });
 
+/** A hold on the pin-only following table targets its mounted slot: the table becomes an added instance there and stops being the implicit one (#3080). */
+export function withFollowingTableAt(config: PanelConfiguration, slot: string): PanelConfiguration {
+  const { followingTable } = config;
+  if (!followingTable || instanceSlot(followingTable) !== slot) return config;
+  const custom = config.kind === 'custom' ? config : { ...noPanels, viewId: config.viewId, followingTable, pinSlots: config.pinSlots };
+  if (custom.added.some(panel => panel.slot === slot)) return config;
+  return { ...custom, added: [...custom.added, followingEntry(followingTable)], followingTable: undefined };
+}
+
 /** If the pin alone would reopen at a different slot, save the mounted table as a v1 instance. */
 export function preserveFollowingTable(config: CustomPanels): CustomPanels {
   const { followingTable } = config;

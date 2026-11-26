@@ -21,7 +21,7 @@ import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
 import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
-import { buildSavedPanels, defaultPanels, defaultTableInput, exceedsPanelLimit, fillsTablePin, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isEquipmentOutput, isHeldSource, keepHeld, names, newPanelInstance, newFollowingTable, instanceSlot, planAdd, planTableHold, preserveFollowingTable, SAME_PANEL_MAX, withFollowingTable, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
+import { buildSavedPanels, defaultPanels, defaultTableInput, exceedsPanelLimit, fillsTablePin, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isEquipmentOutput, isHeldSource, keepHeld, names, newPanelInstance, newFollowingTable, instanceSlot, planAdd, planTableHold, preserveFollowingTable, SAME_PANEL_MAX, withFollowingTable, withFollowingTableAt, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
 import { CATALOG_IDS, chartRows, panelCatalog, projectBarData, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
@@ -336,14 +336,15 @@ function useWorkspacePanels(owner: string, query: string, step: Step, {
   });
   const editConnections = (config: CustomPanels) => setState(current => ({ ...current, config: { ...config, connectionsEdited: true, viewId: current.config.viewId } }));
   const planHold = (candidate: PanelConfiguration, slot: string, chip: AnalysisSelectionChip, from?: string) =>
-    planTableHold(candidate, slot, chip, next => projectCandidates(next, { acrossSteps: next.connectionsEdited }), from);
+    planTableHold(withFollowingTableAt(candidate, slot), slot, chip, next => projectCandidates(next, { acrossSteps: next.connectionsEdited }), from);
   const holdTable = (slot: string, chip: AnalysisSelectionChip, options: { from?: string; clearPin: boolean }) => setState(current => {
     if (current.owner !== owner || current.population !== population) return current;
     const plan = planHold(current.config, slot, chip, options.from);
     if (plan.kind === 'refused') return current;
-    // A hold is a local edit: the configuration keeps its view, following table and pin slots (#3080).
+    // A hold is a local edit: the configuration keeps its view and pin slots, and its following table unless the hold took it over (#3080).
     const { viewId, followingTable, pinSlots } = current.config;
-    return { ...current, config: { ...plan.config, viewId, followingTable, pinSlots }, clearTablePin: current.clearTablePin || options.clearPin };
+    const kept = followingTable && instanceSlot(followingTable) !== slot ? followingTable : undefined;
+    return { ...current, config: { ...plan.config, viewId, followingTable: kept, pinSlots }, clearTablePin: current.clearTablePin || options.clearPin };
   });
   return { config, add, remove, follow, forgetPin, editConnections, project, holdTable,
     planHold: (slot: string, chip: AnalysisSelectionChip, from?: string) => planHold(config, slot, chip, from),

@@ -8,6 +8,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MOTION_EQUIPMENT_KEY } from '../../../endpoints';
 import { TREND_RANGE_OUTPUT } from '../../../panels';
 import { answer, renderOverview, requests } from '../test-support';
+import { instanceSlot } from '../heldPanels';
 
 const equipment = 'MEM-PHOTO-0105';
 const following = 'MEM-PHOTO-0103';
@@ -110,14 +111,14 @@ it('holds the pointed-at second following table in place, restores it from a sav
   const second: PanelInstance = { ...table('table-2'), inputs };
   await mount([first, second, chart]);
   await dragTo('원본 표 2');
-  expect(target('saved-panel-1')?.getAttribute('data-selection-drop-state')).toBe('hovered');
+  expect(target(instanceSlot(second))?.getAttribute('data-selection-drop-state')).toBe('hovered');
   pointer(window, 'pointerup', 150);
   expect(await screen.findByRole('tab', { name: '원본 표 · 붙잡음' })).toBeTruthy();
   expect(screen.getByRole('tab', { name: '원본 표' })).toBeTruthy();
   const held = await save('Held by drop');
   const expected = { ...second, inputs: [{ key: MOTION_EQUIPMENT_KEY, from: 'held-source.motionEquipment', mode: 'hold', value: { shape: 'set', values: [equipment] } }] };
   expect(held.panels?.instances).toEqual([first, expected, chart, expect.objectContaining({ id: 'held-source' })]);
-  const source = document.querySelector('[data-tab-panel-id="saved-panel-2"]') as HTMLElement;
+  const source = document.querySelector(`[data-tab-panel-id="${instanceSlot(chart)}"]`) as HTMLElement;
   fireEvent.keyDown(source, { key: 'F10', shiftKey: true });
   expectDisabled(await screen.findByRole('menuitem', { name: '숨기기' }), '이 차트에서 붙잡은 패널이 있습니다');
   fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
