@@ -296,9 +296,9 @@ export function Combobox({
                 tabIndex={-1}
                 className={cn(
                   'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm text-text-primary outline-hidden',
-                  'hover:bg-surface-card focus:bg-surface-card',
+                  'hover:bg-surface-row-hover focus:bg-surface-row-hover',
                   option.value === value && 'font-medium',
-                  activeIndex === idx && 'bg-surface-card',
+                  activeIndex === idx && 'bg-surface-row-hover ring-2 ring-inset ring-focus-ring',
                   option.disabled && 'cursor-not-allowed opacity-50',
                 )}
                 onMouseEnter={() => {

@@ -165,7 +165,7 @@ export const SelectItem = React.forwardRef<
     ref={ref}
     className={cn(
       'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm text-text-primary outline-hidden',
-      'focus:bg-surface-card focus:text-text-primary',
+      'focus:bg-surface-row-hover focus:text-text-primary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
       'data-disabled:pointer-events-none data-disabled:opacity-50',
       className,
     )}

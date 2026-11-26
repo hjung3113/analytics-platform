@@ -22,7 +22,7 @@ export const DropdownMenuSubTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       'flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm text-text-primary outline-hidden',
-      'focus:bg-surface-card data-[state=open]:bg-surface-card',
+      'focus:bg-surface-row-hover data-[state=open]:bg-surface-row-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
       inset && 'pl-8',
       className,
     )}
@@ -84,7 +84,7 @@ export const DropdownMenuItem = React.forwardRef<
     ref={ref}
     className={cn(
       'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm text-text-primary outline-hidden transition-colors',
-      'focus:bg-surface-card focus:text-text-primary',
+      'focus:bg-surface-row-hover focus:text-text-primary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
       'data-disabled:pointer-events-none data-disabled:opacity-50',
       inset && 'pl-8',
       className,
@@ -102,7 +102,7 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
     ref={ref}
     className={cn(
       'relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm text-text-primary outline-hidden transition-colors',
-      'focus:bg-surface-card focus:text-text-primary',
+      'focus:bg-surface-row-hover focus:text-text-primary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
       'data-disabled:pointer-events-none data-disabled:opacity-50',
       className,
     )}
@@ -127,7 +127,7 @@ export const DropdownMenuRadioItem = React.forwardRef<
     ref={ref}
     className={cn(
       'relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm text-text-primary outline-hidden transition-colors',
-      'focus:bg-surface-card focus:text-text-primary',
+      'focus:bg-surface-row-hover focus:text-text-primary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring',
       'data-disabled:pointer-events-none data-disabled:opacity-50',
       className,
     )}

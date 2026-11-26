@@ -1,4 +1,4 @@
-import type { KeyboardEvent, Ref } from 'react';
+import { useCallback, useRef, type KeyboardEvent, type Ref } from 'react';
 import { Search, X } from 'lucide-react';
 import { Button } from '../components/Button.js';
 import { Input } from '../components/shadcn/input.js';
@@ -61,6 +61,13 @@ export function SearchInput({
   clearLabel = messages?.clear ?? DEFAULT_MESSAGES.clear,
 }: SearchInputProps) {
   const ime = useImeEnterGuard();
+  // The clear button unmounts once the value is empty, so it hands focus to the box (#3142); the caller's ref still gets the element.
+  const input = useRef<HTMLInputElement | null>(null);
+  const setInput = useCallback((element: HTMLInputElement | null) => {
+    input.current = element;
+    if (typeof inputRef === 'function') inputRef(element);
+    else if (inputRef) inputRef.current = element;
+  }, [inputRef]);
   if (onValueChange === undefined) {
     return (
       <TooltipProvider>
@@ -106,7 +113,7 @@ export function SearchInput({
         aria-hidden="true"
       />
       <Input
-        ref={inputRef}
+        ref={setInput}
         inputSize={size}
         type="search"
         value={value}
@@ -135,7 +142,7 @@ export function SearchInput({
         }}
         {...(onCommit !== undefined ? { onBlur: () => onCommit() } : {})}
       />
-      {size === 'toolbar' && value && <Button type="button" variant="navigation" size="icon-xs" className="absolute right-0.5" aria-label={clearLabel} onClick={() => onValueChange('')}><X className="size-4" aria-hidden /></Button>}
+      {size === 'toolbar' && value && <Button type="button" variant="navigation" size="icon-xs" className="absolute right-0.5" aria-label={clearLabel} onClick={() => { onValueChange(''); input.current?.focus(); }}><X className="size-4" aria-hidden /></Button>}
     </div>
   );
 }
