@@ -11,14 +11,15 @@ import { envelopeMessage } from '../lib/envelopeMessage.js';
 
 export function useRegisterAnalyticsAreaMutation(opts: {
   onSaved: () => Promise<void>;
-  onErrorMessage: (message: string) => void;
+  /** The dialog-level message, and the raw error so the caller can place field rejections on their fields (#3173). */
+  onErrorMessage: (message: string, error: unknown) => void;
 }) {
   return useMutation({
     mutationFn: async (body: RegisterAnalyticsAreaBody) => registerAnalyticsArea(body),
     onSuccess: async () => {
       await opts.onSaved();
     },
-    onError: (err) => opts.onErrorMessage(envelopeMessage(err)),
+    onError: (err) => opts.onErrorMessage(envelopeMessage(err), err),
   });
 }
 

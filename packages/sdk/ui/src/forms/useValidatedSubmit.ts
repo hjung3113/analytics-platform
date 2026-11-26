@@ -15,6 +15,11 @@ export interface UseValidatedSubmitResult<TValues> {
   clearErrors: () => void;
   /** Clear only the error for a field whose value changed. */
   clearError: (field: Extract<keyof TValues, string>) => void;
+  /**
+   * Opt-in (#3173): show the field errors the server returned for the last valid submit. They join `errors`, the first invalid
+   * control takes focus as after a local check, and `clearError`, `clearErrors` or the next submit clear them. Pass `{}` to clear.
+   */
+  setServerErrors: (errors: ValidationErrors<TValues>) => void;
 }
 
 /** Validate only after submit, then focus the first invalid control after its `aria-invalid` props render. */
@@ -82,5 +87,11 @@ export function useValidatedSubmit<TValues>({
     [onValid, validate],
   );
 
-  return { errors, handleSubmit, clearErrors, clearError };
+  const setServerErrors = React.useCallback((next: ValidationErrors<TValues>) => {
+    const hasErrors = Object.values(next).some((message) => message !== undefined && message !== null && message !== '');
+    shouldFocusInvalidRef.current = hasErrors;
+    setErrors(next);
+  }, []);
+
+  return { errors, handleSubmit, clearErrors, clearError, setServerErrors };
 }

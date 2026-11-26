@@ -79,3 +79,54 @@ it('calls onValid with values and the form event when validation succeeds', () =
   expect(onValid.mock.calls[0]?.[0]).toEqual({ first: 'A', second: 'B' });
   expect(onValid.mock.calls[0]?.[1].type).toBe('submit');
 });
+
+// #3173: server field errors through the same hook — shown on the field, first one focused, cleared like a local error.
+function ServerForm({ reject }: { reject: (values: Values) => Promise<Partial<Record<keyof Values, string>>> }) {
+  const [values, setValues] = React.useState<Values>({ first: 'a', second: 'b' });
+  const save = React.useRef<(values: Values) => Promise<void>>(async () => {});
+  const { errors, handleSubmit, clearError, setServerErrors } = useValidatedSubmit<Values>({
+    validate: () => ({}),
+    onValid: (next): Promise<void> => save.current(next),
+  });
+  save.current = async (next) => { setServerErrors(await reject(next)); };
+  return (
+    <form data-testid="server-form" onSubmit={handleSubmit(values)}>
+      {(['first', 'second'] as const).map((field) => (
+        <FormField key={field} label={field} error={errors[field]}>
+          {(control) => (
+            <Input {...control} value={values[field]} onChange={(event) => {
+              setValues((current) => ({ ...current, [field]: event.target.value }));
+              clearError(field);
+            }} />
+          )}
+        </FormField>
+      ))}
+      <button type="submit">Save</button>
+    </form>
+  );
+}
+
+it('shows server field errors on their fields, focuses the first, and clears one on edit', async () => {
+  const reject = vi.fn(async () => ({ second: 'Taken on the server' }));
+  render(<ServerForm reject={reject} />);
+  const second = screen.getByLabelText('second');
+  fireEvent.submit(screen.getByTestId('server-form'));
+  expect(await screen.findByText('Taken on the server')).toBeVisible();
+  expect(second).toHaveAttribute('aria-invalid', 'true');
+  expect(second).toHaveFocus();
+  fireEvent.change(second, { target: { value: 'c' } });
+  expect(screen.queryByText('Taken on the server')).toBeNull();
+  expect(second).not.toHaveAttribute('aria-invalid');
+});
+
+it('drops server field errors when the next submit runs', async () => {
+  const reject = vi.fn()
+    .mockResolvedValueOnce({ first: 'Rejected' })
+    .mockResolvedValueOnce({});
+  render(<ServerForm reject={reject} />);
+  fireEvent.submit(screen.getByTestId('server-form'));
+  expect(await screen.findByText('Rejected')).toBeVisible();
+  fireEvent.submit(screen.getByTestId('server-form'));
+  await vi.waitFor(() => expect(reject).toHaveBeenCalledTimes(2));
+  await vi.waitFor(() => expect(screen.queryByText('Rejected')).toBeNull());
+});

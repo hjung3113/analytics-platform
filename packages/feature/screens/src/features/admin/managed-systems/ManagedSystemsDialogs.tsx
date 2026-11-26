@@ -21,10 +21,11 @@ import {
   useValidatedSubmit,
 } from '@ap/ui';
 import { useMutation } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { MANAGED_SYSTEM_COPY } from '../../../lib/copy/managed-systems';
+import { hasFieldCode, slugFormatError } from '../lib/fieldErrors';
 import type { ManagedSystemDto } from '../../../lib/api/registry-reads';
 import type {
   RegisterManagedSystemBody,
@@ -94,21 +95,8 @@ function defaultFieldErrors(error: unknown): DefaultErrors {
 }
 
 /** #1289 node i: the server refuses a registry-owned external key (`platform`, `space:*`) with this field code. */
-/** True when the server rejected `field` with `code` (a 422 `detail.fields` entry). */
-function hasFieldCode(error: unknown, field: string, code: string): boolean {
-  if (!(error instanceof ApiError) || !Array.isArray(error.detail?.fields)) return false;
-  return (error.detail.fields as { path?: unknown; code?: unknown }[]).some(
-    (entry) => Array.isArray(entry.path) && entry.path[0] === field && entry.code === code,
-  );
-}
-
 function externalKeyFieldError(error: unknown): string | null {
   return hasFieldCode(error, 'external_key', 'reserved_external_key') ? MANAGED_SYSTEM_COPY.externalKeyReserved : null;
-}
-
-/** A rejected slug format belongs on the slug field, not in the dialog-level message (#2574). */
-function slugFieldError(error: unknown): string | null {
-  return hasFieldCode(error, 'slug', 'invalid_slug_format') ? MANAGED_SYSTEM_COPY.slugFormat : null;
 }
 
 function OwnerSelect({
@@ -225,10 +213,6 @@ function RegisterDialog({
   const [reviewer, setReviewer] = useState<OwnerSelection>({ kind: 'none' });
   const [error, setError] = useState<string | null>(null);
   const [defaultErrors, setDefaultErrors] = useState<DefaultErrors>({});
-  const [serverSlugError, setServerSlugError] = useState<string | null>(null);
-  const [keyError, setKeyError] = useState<string | null>(null);
-  const slugRef = useRef<HTMLInputElement>(null);
-  const keyRef = useRef<HTMLInputElement>(null);
 
   const mutation = useMutation({
     mutationFn: async (body: RegisterManagedSystemBody) => registerManagedSystem(body),
@@ -243,16 +227,14 @@ function RegisterDialog({
     },
     onError: (err) => {
       setDefaultErrors(defaultFieldErrors(err));
-      const badSlug = slugFieldError(err);
+      const badSlug = slugFormatError(err);
       const reservedKey = externalKeyFieldError(err);
-      setServerSlugError(badSlug);
-      setKeyError(reservedKey);
-      if (badSlug) slugRef.current?.focus();
-      else if (reservedKey) keyRef.current?.focus();
+      // Field rejections go on their fields with the first one focused (#3173); anything else stays the dialog message.
+      register.setServerErrors({ ...(badSlug ? { slug: badSlug } : {}), ...(reservedKey ? { externalKey: reservedKey } : {}) });
       setError(badSlug || reservedKey ? null : envelopeMessage(err));
     },
   });
-  const register = useValidatedSubmit<{ slug: string; name: string }>({
+  const register = useValidatedSubmit<{ slug: string; name: string; externalKey: string }>({
     validate: (values) => ({
       ...(values.slug.trim() ? {} : { slug: '슬러그를 입력해 주세요.' }),
       ...(values.name.trim() ? {} : { name: '이름을 입력해 주세요.' }),
@@ -267,7 +249,6 @@ function RegisterDialog({
       mutation.mutate(body);
     },
   });
-  const slugError = register.errors.slug ?? serverSlugError ?? undefined;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -286,21 +267,17 @@ function RegisterDialog({
           noValidate
           onSubmit={(e) => {
             setError(null);
-            setKeyError(null);
-            setServerSlugError(null);
             setDefaultErrors({});
-            register.handleSubmit({ slug, name })(e);
+            register.handleSubmit({ slug, name, externalKey })(e);
           }}
         >
-          <FormField id="ms-create-slug" label="슬러그" required requiredMark="text" error={slugError}>
+          <FormField id="ms-create-slug" label="슬러그" required requiredMark="text" error={register.errors.slug}>
             {(control) => (
               <Input
                 {...control}
-                ref={slugRef}
                 value={slug}
                 onChange={(e) => {
                   setSlug(e.target.value);
-                  setServerSlugError(null);
                   register.clearError('slug');
                 }}
                 data-testid="create-slug"
@@ -320,15 +297,14 @@ function RegisterDialog({
               />
             )}
           </FormField>
-          <FormField id="ms-create-external-key" label="외부 키 (선택)" error={keyError ?? undefined}>
+          <FormField id="ms-create-external-key" label="외부 키 (선택)" error={register.errors.externalKey}>
             {(control) => (
               <Input
                 {...control}
-                ref={keyRef}
                 value={externalKey}
                 onChange={(e) => {
                   setExternalKey(e.target.value);
-                  setKeyError(null);
+                  register.clearError('externalKey');
                 }}
                 data-testid="create-external-key"
               />

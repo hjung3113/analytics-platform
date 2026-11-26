@@ -1,6 +1,6 @@
 import { formatText, usePlatform, useUnsavedGuard } from '@ap/kernel';
 import { NOTICE_VOC_MESSAGES } from '../messages';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import type { ActionResponse, Notice, ScopeOption } from '@ap/contracts';
 import { StateMessage } from '@ap/components';
@@ -69,9 +69,6 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
   const [form, setForm] = useState<NoticeForm>(initial);
   // The exit waiting for «버리기»: a close, or a reload after a conflict or a deleted notice.
   const [asking, setAsking] = useState<WriteDone | null>(null);
-  // Errors the server returned for the last save; local checks run through useValidatedSubmit, which focuses the first invalid field.
-  const [serverErrors, setServerErrors] = useState<FormErrors>({});
-  const formRef = useRef<HTMLFormElement>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [busy, setBusy] = useState(false);
   const attempt = useRef<Attempt | null>(null);
@@ -89,10 +86,7 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
   const cancel = () => { if (!busy) leave({ kind: 'cancel' }); };
   const set = (patch: Partial<NoticeForm>) => {
     setForm(prev => ({ ...prev, ...patch })); setFailure(null);
-    const edited = Object.keys(patch) as FormField[];
-    for (const field of edited) local.clearError(field);
-    // A server rejection belongs to the value it judged: editing that field clears it, as a local error clears.
-    setServerErrors(prev => edited.some(field => field in prev) ? Object.fromEntries(Object.entries(prev).filter(([field]) => !edited.includes(field as FormField))) : prev);
+    for (const field of Object.keys(patch) as FormField[]) local.clearError(field);
   };
   const sites = [...scopes, ...(notice?.scopeId && !scopes.some(s => s.id === notice.scopeId) ? [{ id: notice.scopeId, label: notice.scopeId, grantedRooms: 0, totalRooms: 0 }] : [])];
 
@@ -100,14 +94,8 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
     validate: values => Object.fromEntries(Object.entries(validateForm(values)).map(([field, code]) => [field, text[code]])),
     onValid: () => save(),
   });
-  // A server rejection marks its fields after the save returns: focus the first one, as a local check does.
-  useLayoutEffect(() => {
-    if (Object.keys(serverErrors).length > 0) formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
-  }, [serverErrors]);
-  const errorOf = (field: FormField) => local.errors[field] ?? (serverErrors[field] && text[serverErrors[field]]);
 
   async function save() {
-    setServerErrors({});
     const draft = toDraft(form);
     const input = notice ? { ...draft, id: notice.id, expectedVersion: notice.version } : draft;
     // Same operation and input → same key (identical retry); any change or a new operation → new key.
@@ -128,7 +116,8 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
     if (next.kind === 'invalid') {
       const mapped: FormErrors = {};
       for (const e of res.fieldErrors) { const field = fieldOfPath(e.path); if (field) mapped[field] = 'invalid'; }
-      setServerErrors(mapped);
+      // Shown on the fields the server named, the first one focused; editing a field clears its error (#3173).
+      local.setServerErrors(Object.fromEntries(Object.entries(mapped).map(([field, code]) => [field, text[code]])));
     }
     setFailure(next);
   }
@@ -139,20 +128,20 @@ export function NoticeFormDialog({ notice, ko, scopes, onDone }: { notice: Notic
         <DialogTitle>{notice ? (formatText(NOTICE_VOC_MESSAGES.noticeDialogsEditNotice, (ko ? 'ko' : 'en'))) : (formatText(NOTICE_VOC_MESSAGES.noticeDialogsWriteNotice, (ko ? 'ko' : 'en')))}</DialogTitle>
         <DialogDescription>{formatText(NOTICE_VOC_MESSAGES.noticeDialogsAfterTheEndTimeTheNoticeLeaves, (ko ? 'ko' : 'en'))}</DialogDescription>
       </DialogHeader>
-      <form ref={formRef} className="grid gap-3" noValidate onSubmit={local.handleSubmit(form)}>
-        <Field id="notice-title-ko" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsTitleKorean, (ko ? 'ko' : 'en'))} required requiredMark="text" requiredText={requiredText} error={errorOf('titleKo')}>
+      <form className="grid gap-3" noValidate onSubmit={local.handleSubmit(form)}>
+        <Field id="notice-title-ko" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsTitleKorean, (ko ? 'ko' : 'en'))} required requiredMark="text" requiredText={requiredText} error={local.errors.titleKo}>
           {control => <Input {...control} value={form.titleKo} maxLength={TITLE_MAX} onChange={e => set({ titleKo: e.target.value })} />}
         </Field>
-        <Field id="notice-title-en" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsTitleEnglish, (ko ? 'ko' : 'en'))} error={errorOf('titleEn')}>
+        <Field id="notice-title-en" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsTitleEnglish, (ko ? 'ko' : 'en'))} error={local.errors.titleEn}>
           {control => <Input {...control} value={form.titleEn} maxLength={TITLE_MAX} onChange={e => set({ titleEn: e.target.value })} />}
         </Field>
-        <Field id="notice-content-ko" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsContentKorean, (ko ? 'ko' : 'en'))} required requiredMark="text" requiredText={requiredText} error={errorOf('contentKo')}>
+        <Field id="notice-content-ko" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsContentKorean, (ko ? 'ko' : 'en'))} required requiredMark="text" requiredText={requiredText} error={local.errors.contentKo}>
           {control => <Textarea {...control} value={form.contentKo} maxLength={CONTENT_MAX} rows={4} onChange={e => set({ contentKo: e.target.value })} />}
         </Field>
-        <Field id="notice-content-en" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsContentEnglish, (ko ? 'ko' : 'en'))} error={errorOf('contentEn')}>
+        <Field id="notice-content-en" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsContentEnglish, (ko ? 'ko' : 'en'))} error={local.errors.contentEn}>
           {control => <Textarea {...control} value={form.contentEn} maxLength={CONTENT_MAX} rows={4} onChange={e => set({ contentEn: e.target.value })} />}
         </Field>
-        <Field id="notice-until" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsEndsAtSeoulTime, (ko ? 'ko' : 'en'))} required requiredMark="text" requiredText={requiredText} error={errorOf('until')}>
+        <Field id="notice-until" label={formatText(NOTICE_VOC_MESSAGES.noticeDialogsEndsAtSeoulTime, (ko ? 'ko' : 'en'))} required requiredMark="text" requiredText={requiredText} error={local.errors.until}>
           {control => <Input {...control} type="datetime-local" step={1} value={form.until} onChange={e => set({ until: e.target.value })} />}
         </Field>
         {sites.length > 0
