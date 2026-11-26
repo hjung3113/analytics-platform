@@ -192,6 +192,8 @@ export const HW_TIME_NEW_PANEL_MESSAGES = {
   all: { ko: '전체', en: 'All' },
   donut: { ko: '판정 비율 도넛', en: 'Verdict share' },
   pareto: { ko: '상한 초과 파레토', en: 'Upper-limit exceedance Pareto' },
+  dayBasis: { ko: '일별', en: 'By day' },
+  equipmentDaysUnavailable: { ko: '현재 선택 범위로는 설비 × 날짜 히트맵을 조회할 수 없습니다.', en: 'The equipment × day heatmap is unavailable for the current selection.' },
   equipmentDays: { ko: '설비 × 날짜 히트맵', en: 'Equipment × day heatmap' },
   boundHistory: { ko: 'HTM 기준 변경 이력', en: 'HTM bound history' },
   verdict: { ko: '판정', en: 'Verdict' },

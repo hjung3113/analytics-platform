@@ -229,6 +229,27 @@ describe('HW Time saved view panels', () => {
     expect(new URLSearchParams(window.location.search).getAll('pins')).not.toContain('table');
   });
 
+  it('opens the day basis from the URL and restores the same panel from a saved view', async () => {
+    const store = createFakeSavedViewStore([]);
+    const basisLocation = '&moduleType=PM&drillMotion=Pump&motionBasis=day';
+    await renderOverview(basisLocation, answer, { savedViews: store, children: <Probe />, waitForData: false });
+    await waitFor(() => expect(views.status).toBe('ready'));
+    const verifyDayPanel = async () => {
+      expect(await within(screen.getByRole('region', { name: 'panel current' })).findByTestId('hw-equipment-days')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Motion: Pump · 일별' })).toBeTruthy();
+      expect(requests.find(request => request.endpoint === 'hwTime.equipmentDays')?.params).toEqual({ moduleType: 'PM', drillMotion: 'Pump' });
+    };
+    await verifyDayPanel();
+    const result = await act(() => views.saveAs({ name: 'Day', kind: 'menu-view' }));
+    if (!result.ok) throw new Error('Failed to save view');
+    expect((result.value.view as MenuView).page).toContainEqual(['motionBasis', 'day']);
+    cleanup();
+    await mount(store);
+    await open(result.value.view.id);
+    expect(new URLSearchParams(window.location.search).get('motionBasis')).toBe('day');
+    await verifyDayPanel();
+  });
+
   it('renders a reason in the missing slot and renders the other panels', async () => {
     await mount(createFakeSavedViewStore([saved()]));
     await open('saved');
@@ -402,6 +423,26 @@ describe('HW Time approved stepped workspace', () => {
     fireEvent.click(checks[0]!); await settle();
     for (const check of within(tree()).getAllByRole('checkbox', { name: 'PM2' })) expect(check.getAttribute('aria-checked')).toBe('false');
     expect(new URLSearchParams(window.location.search).has('module')).toBe(false);
+  });
+  it('recovers an unavailable Motion day basis even when its descendant Module is still checked', async () => {
+    await renderOverview('&moduleType=PM&drillMotion=Pump&motionBasis=day', answer, { waitForData: false });
+    expect(await screen.findByTestId('hw-equipment-days')).toBeTruthy();
+    fireEvent.click(node('PM1')); await settle();
+    expect(new URLSearchParams(window.location.search).get('drillModule')).toBe('PM1');
+    const motion = screen.getByRole('button', { name: 'Motion: Pump · 일별' });
+    fireEvent.click(within(tree()).getByRole('checkbox', { name: 'PM2' })); await settle();
+    const beforeClick = new URLSearchParams(window.location.search);
+    const checked = new URLSearchParams(window.history.state.apHidden.pairs).getAll('module');
+    // Exercise the stale-chip path if the invalid parent survived the filter change.
+    if (motion.isConnected) fireEvent.click(motion);
+    expect(beforeClick.get('drillMotion')).toBeNull();
+    expect(beforeClick.get('moduleType')).toBe('PM');
+    expect(checked).toContain('PM1');
+    expect(checked).not.toContain('PM2');
+    expect(beforeClick.has('motionBasis')).toBe(false);
+    expect(beforeClick.has('drillModule')).toBe(false);
+    expect(motion.isConnected).toBe(false);
+    expect(screen.getByText('나누기 기준을 사용할 수 없어 이전 단계로 이동했습니다.')).toBeTruthy();
   });
   it('Motion branch checks use the existing repeated filter and leave the Module checks selected', async () => {
     await renderOverview('&moduleType=PM');

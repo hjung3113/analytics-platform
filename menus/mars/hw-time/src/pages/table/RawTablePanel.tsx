@@ -22,6 +22,7 @@ import { worstJudgement } from '../../shared/JudgementSummary';
 import { htmStatusText, htmStatusView } from '../../shared/htm';
 import { isThemeColorToken, readColorToken } from '@ap/ui/theme';
 import { HW_TIME_MODULE_TYPES, MOTION_EQUIPMENT_KEY, hwTime, isHwTimeTrendId, type HwTimeBlock, type HwTimeLevelData, type HwTimeRow, type HwTimeSeries, type HwTimeTableRow } from '../../endpoints';
+import { MOTION_BASIS_KEY } from '../../shared/historySummary';
 import { shownDrill } from '../../shared/shownDrill';
 import { useHwTimeLevel, useHwTimeTrend } from '../../shared/data';
 import { formatSeconds, missingText, rowIdLabel } from '../../shared/format';
@@ -174,7 +175,8 @@ export default function RawTablePanel({ linked = false, analysis, local = false 
     const selectedMotion = pageParam('drillMotion');
     const motion = selectedMotion && (type.motions as readonly string[]).includes(selectedMotion) ? selectedMotion : null;
     // A Module needs a Motion now: first open its type when no compatible Motion has been chosen.
-    setPage({ moduleType: type.id, drillMotion: motion, drillModule: motion ? value : null, row: null, trend: null, focus: null });
+    setPage({ moduleType: type.id, drillMotion: motion, drillModule: motion ? value : null, row: null, trend: null, focus: null,
+      [MOTION_BASIS_KEY]: motion && type.id === pageParam('moduleType') ? pageParam(MOTION_BASIS_KEY) : null });
   }, [pageParam, setPage]);
   const columns = useRawTableColumns(level, motion, checkedSeries, enter);
 

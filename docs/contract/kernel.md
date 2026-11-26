@@ -453,7 +453,9 @@ Kernel은 앱 메뉴 루트를 알지 못하고, 선언하지 않으면 거부�
 
 **드릴의 대안 나누기 기준 (Decided, [ADR-0178](../adr/0178-drill-alternative-basis.md)).** 기본 기준은 `basisKey`가 없는 주소다. 대안을 고르면 단계 값과 그 기준 id를 한 번에 push한다. 기준만 달라져도 다른 드릴 상태이며 뒤 단계의 값·기준과 `drill.resetKeys`를 같은 쓰기에서 지운다. `useDrill().enter(key, value)`는 형제 값 교체 시 기준을 보존하고, `{ basis: undefined }`를 넘기면 기본 기준을 적용한다. `goTo`는 내려놓는 단계의 값과 기준을 함께 지우고, 전역 Context 변경도 등록한 두 키를 지운다. 단계 값 없이 기준 키만 있으면 앞 단계가 비어 있는 URL과 같은 형식 오류다.
 
-선언 순서대로 첫 오류를 판정한다. 단계 형식이 맞아도 명시한 기준이 선언에 없거나 `drill.isBasisAvailable(levelKey, basisId, context, can)`이 거부하면 해당 단계와 그 뒤의 값·기준 및 `drill.resetKeys`를 지워 history를 replace한다. 거부된 단계의 조회는 닫고 `useDrill().rejectedBasis`는 단계 키만 전한다. 복구한 주소가 비어도 개인 기본 뷰는 최초 주소로 적용 여부를 판단한다. `basisKey`를 선언한 메뉴는 최근 조회 조건을 복원·적용·기록할 때도 드릴을 검증한다. 기준 키가 없는 메뉴는 단계 사이가 비어 있어도 최근 조건 복원, 적용 주소 쓰기와 기록을 허용한다. 단계 사이가 빈 주소의 분석 조회는 화면에서 차단한다. 서버는 모든 요청에서 별도로 권한과 Scope를 확인한다.
+`drillEntryPage(platform, key, value, { basis })`는 탐색 없이 `enter`가 기록할 페이지 값 쌍을 계산한다. 차트·다음 분석 행·선택 칩은 후보별로 단계 값과 기준을 반영하고 뒤 단계와 초기화 키를 정리한 이 값으로 `isBasisAvailable`을 평가한다.
+
+선언 순서대로 첫 오류를 판정한다. 단계 형식이 맞아도 명시한 기준이 선언에 없거나 `drill.isBasisAvailable(levelKey, basisId, context, can, page)`이 거부하면 해당 단계와 그 뒤의 값·기준 및 `drill.resetKeys`를 지워 history를 replace한다. 거부된 단계의 조회는 닫고 `useDrill().rejectedBasis`는 단계 키만 전한다. 복구한 주소가 비어도 개인 기본 뷰는 최초 주소로 적용 여부를 판단한다. `basisKey`를 선언한 메뉴는 최근 조회 조건을 복원·적용·기록할 때도 드릴을 검증한다. 기준 키가 없는 메뉴는 단계 사이가 비어 있어도 최근 조건 복원, 적용 주소 쓰기와 기록을 허용한다. 단계 사이가 빈 주소의 분석 조회는 화면에서 차단한다. 서버는 모든 요청에서 별도로 권한과 Scope를 확인한다.
 
 단계에 의존하는 조회는 단계 값과 기준을 입력에 함께 넣어 기준만 바뀐 조회도 구분한다. 분석 선택의 드릴 주소에도 둘을 함께 넣는다.
 

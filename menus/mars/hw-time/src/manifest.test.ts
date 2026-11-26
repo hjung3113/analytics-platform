@@ -51,7 +51,7 @@ describe('manifest', () => {
       expect(entry.pageKeys).toEqual(expect.arrayContaining(['trend', 'pins', 'barsSort', 'barsGroup', 'barsMinMax']));
       expect(entry.pageKeys).not.toEqual(expect.arrayContaining(['minmax']));
     }
-    expect(menu.contextResetKeys).toEqual(['date', 'moduleType', 'drillMotion', 'drillModule', 'row', 'page', 'focus', 'trend', 'motionEquipment', 'trendRange']);
+    expect(menu.contextResetKeys).toEqual(['date', 'moduleType', 'drillMotion', 'motionBasis', 'drillModule', 'row', 'page', 'focus', 'trend', 'motionEquipment', 'trendRange']);
     expect(menu.drill?.levels.map(level => level.key)).toEqual(['moduleType', 'drillMotion', 'drillModule']);
     expect(menu.drill?.resetKeys).toEqual(['focus', 'trend', 'trendRange']);
     expect(menu.repeatedPageKeys).toContain('pins');

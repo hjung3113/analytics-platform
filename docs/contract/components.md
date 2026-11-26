@@ -168,7 +168,7 @@ SDK `@ap/ui`는 도메인을 모르는 Tiptap JSON 편집·읽기를 제공한�
 - `PlatformPageBodyBoundary`는 호스트가 마운트된 `PlatformPage`의 본문을 감싸는 Context다. 본문을 받아 렌더할 노드를 돌려준다. 셸은 여기서 오류를 받아 머리와 조회 조건을 유지한다([Kernel §4](kernel.md#4-platform-kernel-responsibilities)). 제공하지 않으면 페이지가 본문을 직접 렌더한다.
 - StatCard / Panel (icon chip 팔레트와 deprecated 값의 이전 규칙: [DESIGN — KPI tiles](../../DESIGN.md#kpi-tiles-and-supporting-copy))
   `StatCard`는 `secondary`를 `value`와 `unit` 사이에 표시하므로 `secondary`에 같은 단위를 넣으면 화면에 두 번 나온다.
-- DrillPath / DrillLayout (드릴다운 경로 바와 단계 본문, §12.7)
+- DrillPath / DrillLayout (드릴다운 경로 바, 대안 기준 표시, 복구 안내와 단계 본문, [§12.7](layout.md#127-드릴다운-레이아웃-decided-adr-0025))
 - Inspector (분석 화면 보조 섹션을 한 번 선언해 `stack`·`rail` 두 형태로 보인다, [ADR-0080](../adr/0080-inspector-forms.md))
 - HeaderOverflowItem (`@ap/components`, 페이지 머리 `⋯` 메뉴의 항목 한 줄. `allowed: false`면 숨기지 않고 비활성 + `reason`을 보인다. 셸 슬롯 `analysisActions`의 `Actions`가 이것으로 항목을 그린다, [layout.md](layout.md) 슬롯, §22, #1424)
 - ReturnLink (다른 메뉴에서 출발 화면으로 돌아가는 버튼, §22)

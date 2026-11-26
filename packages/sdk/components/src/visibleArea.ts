@@ -95,7 +95,12 @@ export function revealInScrollContainer(element: HTMLElement, workspaceRoot: HTM
 }
 
 /** Reveals a focused element vertically and within horizontal scrollers, starting with the nearest containers. Reads layout. */
-export function revealFocused(element: HTMLElement, options?: { bottomInset?: (container: HTMLElement) => number }): void {
+export function revealFocused(element: HTMLElement, options?: {
+  bottomInset?: (container: HTMLElement) => number;
+  /** Measure a target inside the element, such as a chart mark with no DOM node. */
+  getRect?: () => Pick<DOMRect, 'top' | 'bottom' | 'left' | 'right'>;
+}): void {
+  const getRect = options?.getRect ?? (() => element.getBoundingClientRect());
   const page = element.closest<HTMLElement>('[data-platform-page]');
   const pageContainer = page ? scrollContainerOf(page) : null;
   const chrome = stickyChromeOf(page).some(row => row.contains(element)) ? 0 : stickyChromeHeight(page);
@@ -106,7 +111,7 @@ export function revealFocused(element: HTMLElement, options?: { bottomInset?: (c
     const bottom = scrollportTop + (container?.clientHeight ?? window.innerHeight)
       - (scroller instanceof HTMLElement ? options?.bottomInset?.(scroller) ?? 0 : 0);
     // Read again at each ancestor because the inner scroll may have moved the field.
-    const rect = element.getBoundingClientRect();
+    const rect = getRect();
     if (top < bottom) {
       const above = rect.top - top;
       const below = rect.bottom - bottom;
@@ -115,17 +120,17 @@ export function revealFocused(element: HTMLElement, options?: { bottomInset?: (c
     }
     if (!container) break;
   }
-  revealHorizontally(element);
+  revealHorizontally(element, getRect);
 }
 
-function revealHorizontally(element: HTMLElement): void {
+function revealHorizontally(element: HTMLElement, getRect: () => Pick<DOMRect, 'left' | 'right'>): void {
   // Only a strip that opts in (`data-reveal-x`, the compact chart toolbar) scrolls sideways: a page or panel scroller whose
   // `overflow-x` merely computes to auto next to `overflow-y: auto` (#platform-main) must never move horizontally.
   const container = element.closest<HTMLElement>('[data-reveal-x]');
   if (!container || container.scrollWidth <= container.clientWidth) return;
   const left = container.getBoundingClientRect().left + container.clientLeft;
   const right = left + container.clientWidth;
-  const rect = element.getBoundingClientRect();
+  const rect = getRect();
   const before = rect.left - left;
   const after = rect.right - right;
   if (before < 0 && after < 0) container.scrollLeft += Math.max(before, after);

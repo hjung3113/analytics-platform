@@ -720,6 +720,8 @@ export const COMPONENTS_MESSAGES = {
   drillChangeStep: { ko: '{label} 바꾸기', en: 'Change {label}' },
   drillPathNav: { ko: '드릴 경로', en: 'Drill path' },
   drillMiddleSteps: { ko: '가운데 단계', en: 'Middle steps' },
+  drillBasis: { ko: '나누기 기준', en: 'Drill basis' },
+  drillBasisRejected: { ko: '나누기 기준을 사용할 수 없어 이전 단계로 이동했습니다.', en: 'This drill basis is unavailable. Returned to the previous step.' },
   drillNothingSubstituted: { ko: '다른 값으로 바꾸지 않습니다.', en: 'Nothing was substituted.' },
   drillClearInvalidStep: { ko: '잘못된 단계 지우기', en: 'Clear the invalid step' },
   drillNoValueInContext: { ko: '이 조건에서 없는 값: {value}', en: 'No value in this context: {value}' },
