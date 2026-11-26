@@ -113,6 +113,28 @@ describe('Chart chrome levels (#2372)', () => {
     mount('frame', true, undefined, { legendPlacement: 'side' });
     expect(screen.getByTestId('chart-side-legend')).toHaveClass('h-0', 'min-h-full');
   });
+  it('a fitted donut takes its side keys out of the row height without zeroing them (#2933, #2889)', () => {
+    const slices = Array.from({ length: 5 }, (_, i) => ({ id: `s${i}`, label: `Slice ${i}`, value: i + 1 }));
+    // An unbounded container: the keys get the row's height (0px basis on a stretched column), never their own.
+    render(<I18nProvider><div><AnalysisChart chartId="chart" title="Chart" unit="s" size="fill" chrome="standard" legendPlacement="side" spec={{ kind: 'donut', slices }} /></div></I18nProvider>);
+    const column = screen.getByTestId('chart-side-legend');
+    expect(screen.getByRole('group', { name: '범례' })).toHaveClass('flex-1', 'basis-0', 'min-h-0', 'overflow-y-auto');
+    // A 0 height of its own collapses the keys where the row height is not set (#2889 review): the column keeps auto height.
+    expect(column).not.toHaveClass('h-0');
+    expect(column).not.toHaveClass('min-h-full');
+    expect(screen.getByRole('region', { name: 'Chart' })).toHaveClass('min-h-64');
+    cleanup();
+    // Other side lists keep their 0% basis: a fill row zeroes the column instead, a fixed-size row keeps the keys' own height.
+    for (const extra of [{}, { size: 'regular', height: 240 }]) {
+      for (const kind of ['frame', 'heatmap']) {
+        mount(kind, true, undefined, { legendPlacement: 'side', ...extra });
+        expect(screen.getByRole('group', { name: '범례' })).not.toHaveClass('basis-0');
+        cleanup();
+      }
+    }
+    mount('donut', true, undefined, { legendPlacement: 'side', size: 'regular', height: 240 });
+    expect(screen.getByRole('group', { name: '범례' })).not.toHaveClass('basis-0');
+  });
   it('never squeezes side legend rows; the list scrolls instead (#2889)', () => {
     mount('heatmap', true, undefined, { legendPlacement: 'side' });
     expect(screen.getByRole('group', { name: '범례' })).toHaveClass('[&>*]:shrink-0', 'overflow-y-auto');

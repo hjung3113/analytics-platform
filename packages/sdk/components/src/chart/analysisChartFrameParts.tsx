@@ -80,14 +80,17 @@ export function ChartLegendLabel({ name, children = name }: { name: string; chil
 }
 
 /** Internal standard-chrome layout. Full/minimal retain their original plot tree. */
-export function ChartLegendLayout({ enabled, keys: named = true, placement = 'bottom', legend, caption, fill, floor, children }: { enabled: boolean; /** false = no series keys (`legend={false}`): what is left (a hint, the caption) is plain text, not a focusable 범례 group. */ keys?: boolean; fill?: boolean; /** Frame only (#2869): the row is at least as tall as its contents, so a plot with its own floor is never clipped; the plot is size-contained and the side keys have no height of their own, so neither feeds that height. */ floor?: boolean; placement?: ChartChromeOptions['legendPlacement']; legend: ReactNode; caption?: ReactNode; children: ReactNode }) {
+export function ChartLegendLayout({ enabled, keys: named = true, placement = 'bottom', legend, caption, fill, floor, fitted, children }: { enabled: boolean; /** false = no series keys (`legend={false}`): what is left (a hint, the caption) is plain text, not a focusable 범례 group. */ keys?: boolean; fill?: boolean; /** Frame only (#2869): the row is at least as tall as its contents, so a plot with its own floor is never clipped; the plot is size-contained and the side keys have no height of their own, so neither feeds that height. */ floor?: boolean; /** Fitted donut (#2933): the side keys take the row's height without adding to it, also where the row's height is not set. */ fitted?: boolean; placement?: ChartChromeOptions['legendPlacement']; legend: ReactNode; caption?: ReactNode; children: ReactNode }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   if (!enabled) return <>{children}</>;
   const side = placement === 'side';
-  const list = <div tabIndex={named ? 0 : undefined} role={named ? 'group' : undefined} aria-label={named ? m('chartLegend') : undefined} className={cn('t-caption', side ? 'flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2 py-1 [scrollbar-gutter:stable] [&>*]:shrink-0' : 'flex max-h-20 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 overflow-y-auto whitespace-nowrap px-2 py-1')}>
+  const list = <div tabIndex={named ? 0 : undefined} role={named ? 'group' : undefined} aria-label={named ? m('chartLegend') : undefined} className={cn('t-caption', side ? 'flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden px-2 py-1 [scrollbar-gutter:stable] [&>*]:shrink-0' : 'flex max-h-20 min-w-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 overflow-y-auto whitespace-nowrap px-2 py-1', side && fitted && 'basis-0')}>
     {legend}
     {caption && <span className="min-w-0 max-w-56 truncate text-text-muted" title={typeof caption === 'string' ? caption : undefined}>{caption}</span>}
   </div>;
+  // A fitted donut's row (#2933) may have no set height (the card grows with the page), where `flex-1`'s 0% basis falls back to the
+  // list's content height and the keys made the row taller; a 0px basis contributes nothing, and the stretched column still gives the
+  // list the row's full height (plot floor 112px inside the 256px card), so it never collapses to 0 the way `h-0 min-h-full` did there.
   // Side keys (#2889): as wide as the longest name, between 128px and the smaller of 224px and 40% of the chart row (a narrow panel keeps 128px for the plot's sake); a longer name ends in an ellipsis with its full `title`. The
   // column in a fill row has no height of its own (h-0, then min-h-full of the row, which is definite there), so the list scrolls inside the
   // row instead of making it taller (#2869 floor); a column flexbox would still count the list's content height, hence the explicit 0. A
