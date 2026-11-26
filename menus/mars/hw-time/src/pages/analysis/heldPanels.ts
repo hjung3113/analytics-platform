@@ -2,7 +2,7 @@ import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type AnalysisSelect
 import type { HeldAnalysisSelection } from '@ap/kernel';
 import { MOTION_EQUIPMENT_KEY } from '../../endpoints';
 import { panelDeclarations } from './panelDeclaration';
-import type { Step } from './stepped';
+import { CATALOG_IDS, type Step } from './stepped';
 
 /**
  * `heldFrom` keeps the drawn source visible while the table holds (#2862 R C7).
@@ -39,6 +39,19 @@ export function newPanelInstance(slot: string, panel: string, instances: readonl
   let id = slot;
   for (let n = 1; occupied.has(id); n += 1) id = `${slot}~${n}`;
   return { id, source: { kind: 'declared', panel }, inputs: [], outputs: [] };
+}
+
+export function declaredPanelId(instance: PanelInstance): string | undefined {
+  return instance.source.kind === 'declared' ? instance.source.panel : undefined;
+}
+
+export function instancePanelSlot(instance: PanelInstance): string {
+  const panel = declaredPanelId(instance);
+  if (instance.id === 'current' && panel === panelDeclarations.moduleMotions.id) return 'current';
+  if (instance.id === panel && CATALOG_IDS.some(id => id === panel)) return panel;
+  // Escape UTF-16 code units to preserve opaque IDs without case folding or collisions.
+  const encoded = instance.id.replace(/[^a-z0-9_-]/g, unit => `.${unit.charCodeAt(0).toString(16).padStart(4, '0')}`);
+  return `saved-instance-${encoded}`;
 }
 
 /** HW Time's table declares equipment as a filter by default. Keep explicit highlight and the saved publisher. */
@@ -91,11 +104,14 @@ export function heldSourceFor(config: CustomPanels, { reservedOnly = false } = {
 /** Instances of one declared panel this menu may open side by side: the following one and the held one, to compare before and after (#2862 ②). */
 export const SAME_PANEL_MAX = 2;
 const ofPanel = (config: CustomPanels, id: string) => config.added.filter(({ instance }) => instance.source.kind === 'declared' && instance.source.panel === id);
-function freeId(config: CustomPanels, base: string): string {
+
+/** A new raw table uses its eventual restore slot before it is saved or materialized by settings. */
+export function newTablePanel(config: CustomPanels, base = 'table'): AddedPanel {
   const taken = new Set([...config.added.flatMap(panel => [panel.slot, panel.instance.id]), ...config.sources.map(source => source.id)]);
   let id = base;
   for (let n = 2; taken.has(id); n += 1) id = `${base}-${n}`;
-  return id;
+  const instance: PanelInstance = { id, source: { kind: 'declared', panel: 'table' }, inputs: [], outputs: [] };
+  return { slot: instancePanelSlot(instance), instance };
 }
 
 /**
@@ -123,14 +139,13 @@ export function withAdded(config: PanelConfiguration, id: string, step: Step, in
     const target = same.find(panel => holds(panel.instance)) ?? (room ? undefined : same.at(-1));
     if (target) return put({ slot: target.slot, instance: { ...target.instance, inputs }, heldFrom: intent.from }, target, source.sources);
     // A free id even for the first instance: a restored panel of another declaration may already use the declared one (R C9).
-    const slot = freeId(custom, same.length ? `${id}-held` : id);
-    return put({ slot, instance: { ...create(slot), inputs }, heldFrom: intent.from }, undefined, source.sources);
+    const table = newTablePanel(custom, same.length ? `${id}-held` : id);
+    return put({ ...table, instance: { ...table.instance, inputs }, heldFrom: intent.from }, undefined, source.sources);
   }
   const following = same.find(panel => !holds(panel.instance));
   if (following) return { config: null, slot: following.slot };
   if (!same.length || (intent && room)) {
-    const slot = id === 'table' ? freeId(custom, id) : id;
-    return put({ slot, instance: create(slot), ...(id === 'table' && { implicitFollow: true }) });
+    return put(id === 'table' ? { ...newTablePanel(custom), implicitFollow: true } : { slot: id, instance: create(id) });
   }
   if (!intent) return { config: null, slot: same[0]!.slot };
   // With both table slots held, the later one follows its existing connection.
@@ -171,7 +186,7 @@ export function keepHeld(config: PanelConfiguration): PanelConfiguration {
   if (!kept.length) return defaultPanels;
   const keptInstances = kept.map(panel => panel.instance);
   const named = config.added.filter(panel => !holds(panel.instance) && names(keptInstances, panel.instance.id)).map(panel => panel.instance);
-  return { kind: 'custom', added: kept.map(({ slot, instance }) => ({ slot, instance })), sources: [...config.sources, ...named] };
+  return { ...config, added: kept.map(({ slot, instance }) => ({ slot, instance })), sources: [...config.sources, ...named] };
 }
 
 /**

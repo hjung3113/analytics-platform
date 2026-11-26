@@ -7,6 +7,6 @@ import { PanelRecipeFrame } from '@ap/components';
 const RecipeBackFor = lazy(() => import('./PanelRecipe'));
 
 /** Panel frame that turns over to its recipe; the front stays while the back loads. */
-export function RecipePanel({ id, open, context, primary, onClose, children }: { id: string; open: boolean; context: Readonly<Record<string, unknown>>; primary: boolean; onClose: () => void; children: ReactNode }) {
-  return <PanelRecipeFrame open={open} onClose={onClose} back={close => <RecipeBackFor id={id} context={context} primary={primary} onClose={close} fallback={children} />}>{children}</PanelRecipeFrame>;
+export function RecipePanel({ id, open, context, primary, pin, onClose, children }: { id: string; open: boolean; context: Readonly<Record<string, unknown>>; primary: boolean; pin: boolean; onClose: () => void; children: ReactNode }) {
+  return <PanelRecipeFrame open={open} onClose={onClose} back={close => <RecipeBackFor id={id} context={context} primary={primary} pin={pin} onClose={close} fallback={children} />}>{children}</PanelRecipeFrame>;
 }

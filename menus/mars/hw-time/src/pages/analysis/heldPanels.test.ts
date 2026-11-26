@@ -112,18 +112,18 @@ describe('withAdded: the same panel twice (#2862 ②)', () => {
   const slots = (config: PanelConfiguration | null) => config?.kind === 'custom' ? config.added.map(panel => [panel.slot, panel.instance.inputs.map(input => input.mode).join()]) : [];
   it('holds a second instance beside a following one, and changes the held one after that', () => {
     const first = withAdded(custom([following]), 'table', 4, holding);
-    expect(first.slot).toBe('table-held');
-    expect(slots(first.config)).toEqual([['table', ''], ['table-held', 'hold']]);
+    expect(first.slot).toBe('saved-instance-table-held');
+    expect(slots(first.config)).toEqual([['table', ''], ['saved-instance-table-held', 'hold']]);
     const again = withAdded(first.config!, 'table', 4, holding);
-    expect(again.slot).toBe('table-held');
-    expect(slots(again.config)).toEqual([['table', ''], ['table-held', 'hold']]);
+    expect(again.slot).toBe('saved-instance-table-held');
+    expect(slots(again.config)).toEqual([['table', ''], ['saved-instance-table-held', 'hold']]);
   });
   it('follows in a second instance beside a held one, and only reveals an open following one', () => {
     const added = withAdded(custom([heldTable('table')], [source('held-source')]), 'table', 4, { mode: 'follow' });
-    expect(added.slot).toBe('table-2');
-    expect(slots(added.config)).toEqual([['table', 'hold'], ['table-2', '']]);
-    expect(withAdded(added.config!, 'table', 4, { mode: 'follow' })).toEqual({ config: null, slot: 'table-2' });
-    expect(withAdded(added.config!, 'table', 4)).toEqual({ config: null, slot: 'table-2' });
+    expect(added.slot).toBe('saved-instance-table-2');
+    expect(slots(added.config)).toEqual([['table', 'hold'], ['saved-instance-table-2', '']]);
+    expect(withAdded(added.config!, 'table', 4, { mode: 'follow' })).toEqual({ config: null, slot: 'saved-instance-table-2' });
+    expect(withAdded(added.config!, 'table', 4)).toEqual({ config: null, slot: 'saved-instance-table-2' });
   });
   it('changes the later instance when two are already open, so the first keeps the address row and page (R C5)', () => {
     const twoHeld = custom([heldTable('table'), heldTable('table-held')], [source('held-source')]);
@@ -142,12 +142,12 @@ describe('withAdded: the same panel twice (#2862 ②)', () => {
   });
   it('makes the pinned table a following instance beside a held one before a hold (R2 C11)', () => {
     const plan = planAdd(custom([heldTable('table')], [source('held-source')]), 'table', 4, holding, true);
-    expect(slots(plan.config)).toEqual([['table', 'hold'], ['table-2', '']]);
+    expect(slots(plan.config)).toEqual([['table', 'hold'], ['saved-instance-table-2', '']]);
   });
   it('gives a first instance a free id when a restored panel of another declaration uses the declared one (R C9)', () => {
     const other = { slot: 'saved-panel-0', instance: { ...declared('donut'), id: 'table' } };
     const next = withAdded({ kind: 'custom', added: [other], sources: [] }, 'table', 4, holding);
-    expect(next.slot).toBe('table-2');
+    expect(next.slot).toBe('saved-instance-table-2');
     expect(buildSavedPanels(next.config!, 4)?.instances.map(instance => instance.id)).toEqual(['table', 'table-2', 'held-source']);
   });
 });

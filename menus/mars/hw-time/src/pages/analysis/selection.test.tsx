@@ -24,7 +24,13 @@ const tableReads = () => requests.filter(request => ['hwTime.levelRows', 'hwTime
 const matrixReads = () => requests.filter(request => request.endpoint === 'hwTime.matrix');
 const tableOnlyLink = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=table&motionEquipment=MEM-PHOTO-0105&motion=~none';
 
-beforeEach(() => { requests.length = 0; vi.stubGlobal('localStorage', memoryStorage()); vi.stubGlobal('sessionStorage', memoryStorage()); });
+let workspaceStorage: Storage;
+beforeEach(() => {
+  requests.length = 0;
+  workspaceStorage = memoryStorage();
+  vi.stubGlobal('localStorage', workspaceStorage);
+  vi.stubGlobal('sessionStorage', memoryStorage());
+});
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); window.history.replaceState(null, '', '/'); });
 
 it('emphasizes the selected equipment only while pointing to the selection chip', async () => {
@@ -391,7 +397,7 @@ it('stores the same held table input through panel settings and New Panel, and r
 
   await newPanel('원본 표 · 붙잡기');
   const added = await save('Held from New Panel');
-  fireEvent.click(tableTab());
+  pressTab(tableTab());
   fireEvent.click(await panelMenu('원본 표 · 붙잡음', '따라가기로 바꾸기'));
   const drawer = await settings();
   expect(drawer.getByRole('radio', { name: '따라가기', checked: true })).toBeTruthy();
@@ -466,6 +472,7 @@ it('keeps a restored held table and the drawn chart it names across a drill up, 
 // Activates a background tab as the keyboard does (the dock reads the focused tab on Enter).
 const pressTab = (tab: HTMLElement) => { tab.focus(); fireEvent.keyDown(tab, { key: 'Enter' }); };
 const tabOf = (slot: string) => document.querySelector<HTMLElement>(`[role="tab"][data-tab-panel-id="${slot}"]`);
+const rawTableTabs = () => screen.getAllByRole('tab', { name: /^원본 표/ }).map(tab => tab.dataset.tabPanelId!);
 const readsWith = (value: string) => tableReads().filter(read => (read.params as { motionEquipment?: string[] }).motionEquipment?.join() === value);
 
 it('picking «원본 표» while only a held table is open adds a following one beside it (#2862 ② R C5)', async () => {
@@ -477,8 +484,8 @@ it('picking «원본 표» while only a held table is open adds a following one 
   fireEvent.click(await panelMenu('원본 표 · 붙잡음', '숨기기'));
   await settle();
   await newPanel('원본 표');
-  await waitFor(() => expect(tabOf('table-2')).not.toBeNull());
-  expect(tabOf('table-2')!.getAttribute('aria-description') ?? '').not.toContain('붙잡음');
+  await waitFor(() => expect(tabOf('saved-instance-table-2')).not.toBeNull());
+  expect(tabOf('saved-instance-table-2')!.getAttribute('aria-description') ?? '').not.toContain('붙잡음');
   await waitFor(() => expect(readsWith('MEM-PHOTO-0103').length).toBeGreaterThan(0));
 });
 
@@ -492,9 +499,9 @@ it('offers «원본 표 · 붙잡기» beside a placed following table in the re
   expect(screen.queryByRole('menuitem', { name: '원본 표' })).toBeNull();
   fireEvent.click(screen.getByRole('menuitem', { name: '원본 표 · 붙잡기' }));
   await settle();
-  await waitFor(() => expect(tabOf('table-held')?.textContent).toMatch(/^원본 표 · 붙잡음/));
+  await waitFor(() => expect(tabOf('saved-instance-table-held')?.textContent).toMatch(/^원본 표 · 붙잡음/));
   expect(tabOf('table')!.textContent).toMatch(/^원본 표\d*$/);
-  expect(tabOf('table-held')!.getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
+  expect(tabOf('saved-instance-table-held')!.getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
 });
 
 const bodyShown = (slot: string) => {
@@ -523,8 +530,11 @@ it.each(['following first', 'held first'] as const)('shows both raw table bodies
     await act(async () => { await views.select('saved'); });
     await newPanel('원본 표');
   }
-  await waitFor(() => expect(document.querySelectorAll('[role="tab"][data-tab-panel-id^="table"]')).toHaveLength(2));
-  const slots = [...document.querySelectorAll('[role="tab"][data-tab-panel-id^="table"]')].map(tab => tab.getAttribute('data-tab-panel-id')!);
+  const slots = await waitFor(() => {
+    const slots = rawTableTabs();
+    expect(slots).toHaveLength(2);
+    return slots;
+  });
   await waitFor(() => expect(slots.map(bodyShown)).toEqual([true, true]));
   fireEvent.click(screen.getByRole('button', { name: '기본 배치' }));
   await settle();
@@ -538,47 +548,90 @@ it('shows the second raw table when the chart was maximized, and brings a hidden
   fireEvent.click(screen.getByRole('button', { name: 'PM1 · Pump · 설비별 최대화' }));
   await settle();
   await newPanel('원본 표 · 붙잡기');
-  await waitFor(() => expect(['table', 'table-held'].map(bodyShown)).toEqual([true, true]));
+  await waitFor(() => expect(['table', 'saved-instance-table-held'].map(bodyShown)).toEqual([true, true]));
   // Both hidden: «새 패널» offers the table again and the held one that takes the values comes back, not only the first.
   fireEvent.click(await panelMenu('원본 표 · 붙잡음', '숨기기'));
   await settle();
   fireEvent.click(await panelMenu('원본 표', '숨기기'));
   await settle();
-  expect([tabOf('table'), tabOf('table-held')]).toEqual([null, null]);
+  expect([tabOf('table'), tabOf('saved-instance-table-held')]).toEqual([null, null]);
   await newPanel('원본 표 · 붙잡기');
-  await waitFor(() => expect(bodyShown('table-held')).toBe(true));
+  await waitFor(() => expect(bodyShown('saved-instance-table-held')).toBe(true));
 });
 
 it('keeps the pinned following table beside a held one across a drill up (#2862 ② R2 C11)', async () => {
   await renderOverview(`${heldLink}&pins=table`, answer, { realWorkspace: true, realChart: 'hw-current', showSelectionChips: true });
   await followsTo('MEM-PHOTO-0105');
   await newPanel('원본 표 · 붙잡기');
-  await waitFor(() => expect(tabOf('table-held')).not.toBeNull());
+  await waitFor(() => expect(tabOf('saved-instance-table-held')).not.toBeNull());
   fireEvent.click(screen.getByRole('button', { name: 'Pump 단계로 이동' }));
   await settle();
   expect(url().get('drillModule')).toBeNull();
-  await waitFor(() => expect([...document.querySelectorAll('[role="tab"][data-tab-panel-id^="table"]')].map(tab => tab.getAttribute('data-tab-panel-id')).sort()).toEqual(['table', 'table-held']));
+  await waitFor(() => expect(rawTableTabs().sort()).toEqual(['saved-instance-table-held', 'table']));
 });
 
-it('brings a hidden first table back when a hold makes the pair (#2862 ② R3 C1)', async () => {
+it('reveals both tables after a persisted hide when a hold makes the pair (#3080 C5)', async () => {
   await renderOverview(`${heldLink}&pins=table`, answer, { realWorkspace: true, realChart: 'hw-current', showSelectionChips: true });
   await followsTo('MEM-PHOTO-0105');
   pressTab(tableTab());
   fireEvent.click(await panelMenu('원본 표', '숨기기'));
-  await settle();
+  await waitFor(() => {
+    const entries = Array.from({ length: workspaceStorage.length }, (_, index) => workspaceStorage.getItem(workspaceStorage.key(index)!));
+    expect(entries.some(value => value?.includes('"hidden":["table"]'))).toBe(true);
+  });
   expect(tabOf('table')).toBeNull();
   await newPanel('원본 표 · 붙잡기');
-  await waitFor(() => expect(['table', 'table-held'].map(bodyShown)).toEqual([true, true]));
+  await waitFor(() => expect(['table', 'saved-instance-table-held'].map(bodyShown)).toEqual([true, true]));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('tab', { name: '원본 표 · 붙잡음' })));
 });
+
+it.each(['reopen original', 'save again directly'] as const)(
+  'keeps the following table hidden only in the saved copy when users %s (#3080 C6)', async action => {
+    const store = createFakeSavedViewStore([]);
+    let views!: SavedViews;
+    function Probe() { views = useSavedViews(); return null; }
+    await renderOverview(heldLink, answer, {
+      realWorkspace: true, realChart: 'hw-current', showSelectionChips: true, savedViews: store, children: <Probe />,
+    });
+    await waitFor(() => expect(views.status).toBe('ready'));
+    const save = async (name: string) => {
+      const result = await act(() => views.saveAs({ kind: 'menu-view', name }));
+      if (!result.ok) throw new Error(`Failed to save ${name}`);
+      return result.value.view.id;
+    };
+    const open = async (id: string) => {
+      await act(async () => { expect(await views.select(id)).toMatchObject({ ok: true }); });
+    };
+    await newPanel('원본 표 · 붙잡기');
+    pressTab(tabOf('current')!);
+    await newPanel('원본 표');
+    const original = await save('C');
+    const savedSlot = screen.getByRole('tab', { name: '원본 표' }).dataset.tabPanelId;
+    if (action === 'reopen original') await open(original);
+    const copy = await save('D');
+
+    const following = await screen.findByRole('tab', { name: '원본 표' });
+    fireEvent.keyDown(following, { key: 'F10', shiftKey: true });
+    fireEvent.click(await screen.findByRole('menuitem', { name: '숨기기' }));
+    await waitFor(() => expect(screen.queryByRole('tab', { name: '원본 표' })).toBeNull());
+    await open(original);
+    const originalSlot = (await screen.findByRole('tab', { name: '원본 표' })).dataset.tabPanelId;
+    await open(copy);
+    expect(await screen.findByRole('button', { name: /숨긴 패널 1/ })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: '원본 표' })).toBeNull();
+    expect(screen.getByRole('tab', { name: '원본 표 · 붙잡음' })).toBeTruthy();
+    expect(originalSlot).toBe(savedSlot);
+  },
+);
 
 it('draws the pinned following table beside a held one that took the declared slot, after a drill up, and keeps it when unpinned (#2862 ② R3 C11)', async () => {
   await renderOverview(heldLink, answer, { realWorkspace: true, realChart: 'hw-current', showSelectionChips: true });
-  const tableSlots = () => [...document.querySelectorAll('[role="tab"][data-tab-panel-id^="table"]')].map(tab => tab.getAttribute('data-tab-panel-id')).sort();
+  const tableSlots = () => rawTableTabs().sort();
   await newPanel('원본 표 · 붙잡기');
   pressTab(tabOf('current')!);
   await settle();
   await newPanel('원본 표');
-  await waitFor(() => expect(tableSlots()).toEqual(['table', 'table-2']));
+  await waitFor(() => expect(tableSlots()).toEqual(['saved-instance-table-2', 'table']));
   const pin = () => screen.getByRole('button', { name: '원본 표 · 붙잡음 고정' });
   fireEvent.click(pin());
   await settle();
@@ -586,11 +639,11 @@ it('draws the pinned following table beside a held one that took the declared sl
   fireEvent.click(screen.getByRole('button', { name: 'Pump 단계로 이동' }));
   await settle();
   expect(url().get('drillModule')).toBeNull();
-  await waitFor(() => expect(tableSlots()).toEqual(['table', 'table-2']));
+  await waitFor(() => expect(tableSlots()).toEqual(['saved-instance-table-2', 'table']));
   fireEvent.click(pin());
   await settle();
   expect(pin().getAttribute('aria-pressed')).toBe('false');
-  await waitFor(() => expect(tableSlots()).toEqual(['table', 'table-2']));
+  await waitFor(() => expect(tableSlots()).toEqual(['saved-instance-table-2', 'table']));
 });
 
 it('holds a second raw table beside the following one, and a later hold changes that one instead of adding a third (#2862 ②)', async () => {
@@ -599,13 +652,13 @@ it('holds a second raw table beside the following one, and a later hold changes 
   const holdTable = async () => { fireEvent.click(screen.getByRole('button', { name: 'hold table' })); await settle(); };
   await followsTo('MEM-PHOTO-0105');
   await holdTable();
-  expect(config().ids.filter((id: string) => id.startsWith('table'))).toEqual(['table', 'table-held']);
+  expect(config().ids.filter((id: string) => id === 'table' || id.startsWith('saved-instance-table-'))).toEqual(['table', 'saved-instance-table-held']);
   // Both share a row of their own, out of the step preset group (R C1).
-  expect([config().placement.table, config().placement['table-held']]).toEqual([{ row: 'table-pair' }, { row: 'table-pair' }]);
+  expect([config().placement.table, config().placement['saved-instance-table-held']]).toEqual([{ row: 'table-pair' }, { row: 'table-pair' }]);
   expect(JSON.stringify(config().preset.layout)).not.toMatch(/"table/);
-  expect(screen.getByRole('tab', { name: 'table-held' }).getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
+  expect(screen.getByRole('tab', { name: 'saved-instance-table-held' }).getAttribute('aria-description')).toContain('붙잡음 · 설비 1대');
   expect(screen.getByRole('tab', { name: 'table' }).getAttribute('aria-description') ?? '').not.toContain('붙잡음');
-  expect([config().titles.table, config().titles['table-held']]).toEqual(['원본 표', '원본 표 · 붙잡음']);
+  expect([config().titles.table, config().titles['saved-instance-table-held']]).toEqual(['원본 표', '원본 표 · 붙잡음']);
   // The selection moves on: the following table reads it, the held one keeps the moment it was held.
   const held = readsWith('MEM-PHOTO-0105').length;
   await pickEquipment('MEM-PHOTO-0105', 'MEM-PHOTO-0103');
@@ -613,7 +666,7 @@ it('holds a second raw table beside the following one, and a later hold changes 
   expect(readsWith('MEM-PHOTO-0105')).toHaveLength(held);
   // Holding again changes the held table: still two instances.
   await holdTable();
-  expect(config().ids.filter((id: string) => id.startsWith('table'))).toEqual(['table', 'table-held']);
+  expect(config().ids.filter((id: string) => id === 'table' || id.startsWith('saved-instance-table-'))).toEqual(['table', 'saved-instance-table-held']);
 });
 
 it.each([

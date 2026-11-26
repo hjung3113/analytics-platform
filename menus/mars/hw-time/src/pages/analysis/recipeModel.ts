@@ -57,12 +57,12 @@ const SHAPE_LABELS: Readonly<Record<string, Text>> = {
 };
 
 /** HW Time's words and code counts on the SDK recipe of a registered panel (#2471). */
-export function panelRecipe(panel: RegisteredPanel | undefined, context: Readonly<Record<string, unknown>>, options: { primary: boolean }): PanelRecipe | null {
+export function panelRecipe(panel: RegisteredPanel | undefined, context: Readonly<Record<string, unknown>>, options: { primary: boolean; pin: boolean }): PanelRecipe | null {
   if (!panel || panel.menuId !== manifests[0]!.id) return null;
   const own = panel as RegisteredPanel & Pick<HwTimePanelDeclaration, 'kind' | 'csvExport'>;
   return sdkPanelRecipe({
     panel, menu: manifests[0]!, context,
-    host: { add: true, pin: !options.primary, hide: !options.primary, layout: true, maximize: true, range: ['line', 'bar-horizontal', 'heatmap', 'scatter'].includes(own.kind ?? ''), csv: own.csvExport === true },
+    host: { add: true, pin: options.pin, hide: !options.primary, layout: true, maximize: true, range: ['line', 'bar-horizontal', 'heatmap', 'scatter'].includes(own.kind ?? ''), csv: own.csvExport === true },
     labels: { keys: PAGE_LABELS, grains: GRAIN_LABELS, actions: ACTION_LABELS },
     ...(SHAPE_LABELS[own.kind ?? ''] ? { shape: SHAPE_LABELS[own.kind ?? '']! } : {}),
     code: { declaration: declarationLines(panel.id), files: (SOURCE_OF[panel.id] ?? []).map(key => ({ name: sources[key][0], lines: codeLines(sources[key][1]) })) },

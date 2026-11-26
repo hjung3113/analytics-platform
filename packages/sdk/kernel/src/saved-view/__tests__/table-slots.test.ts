@@ -34,7 +34,7 @@ it('restore and a default apply of the same view reach each slot once in either 
     const reentry = () => screen.restore('v', { panels: { panels: 'saved' } });
     const viaDefault = () => screen.restore('v', { tables: { raw: {} }, panels: { panels: 'saved' } });
     if (order === 'restore-first') { reentry(); viaDefault(); } else { viaDefault(); reentry(); }
-    expect(panels).toHaveBeenCalledExactlyOnceWith('saved');
+    expect(panels).toHaveBeenCalledExactlyOnceWith('saved', 'v');
     expect(tables).toHaveBeenCalledOnce();
     screen.apply('v', { tables: { raw: {} }, panels: { panels: 'saved' } });
     expect(panels).toHaveBeenCalledTimes(2);

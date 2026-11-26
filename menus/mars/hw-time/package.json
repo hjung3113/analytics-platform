@@ -1,7 +1,7 @@
 {
   "name": "@ap/menu-hw-time",
   "private": true,
-  "version": "0.11.31",
+  "version": "0.11.34",
   "ap": {
     "sdk": ">=0.49.0 <0.50.0"
   },

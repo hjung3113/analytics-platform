@@ -28,7 +28,7 @@ vi.mock('@ap/components', async original => {
 await vi.hoisted(async () => { (await import('@ap/components/testing/engines')).mockEchartsCanvas(); });
 afterEach(cleanup);
 const recipeRegistry = createRegistry({ permissions: [menuPermission('analytics:view')], spaces: [{ ...testSpace(), homeMenuId: 'hw-time' }], groups: [{ id: groupId('hwTime'), label: { ko: 'HW', en: 'HW' }, icon: LayoutDashboard, space: testSpace().id }], menus: manifests });
-const recipeOf = (id: string, primary = false) => panelRecipe(recipeRegistry.panels('hw-time').find(panel => panel.id === id), {}, { primary });
+const recipeOf = (id: string, primary = false) => panelRecipe(recipeRegistry.panels('hw-time').find(panel => panel.id === id), {}, { primary, pin: !primary });
 
 describe('panel recipe', () => {
   it('counts the shared RunTrendChart source in the trend recipe', () => {

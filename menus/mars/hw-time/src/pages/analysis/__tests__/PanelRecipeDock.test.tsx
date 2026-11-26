@@ -20,7 +20,7 @@ function Workspace() {
   return <PanelWorkspace label={{ ko: '설명 작업 영역', en: 'Recipe workspace' }} persistKey="recipe-keyboard" initialMode="stack" compactBelow={0} initialPreset="two"
     presets={[{ id: 'two', label: { ko: '둘', en: 'Two' }, layout: { type: 'branch', dir: 'row', sizes: [1, 1], children: [{ type: 'group', panels: ['trend'] }, { type: 'group', panels: ['next'] }] } }]}
     panels={[
-      { id: 'trend', primary: true, title: { ko: '추세', en: 'Trend' }, render: () => back ? <PanelRecipeBack recipe={panelRecipe(trend, {}, { primary: true })!} onClose={() => setBack(false)} /> : <p>앞면</p> },
+      { id: 'trend', primary: true, title: { ko: '추세', en: 'Trend' }, render: () => back ? <PanelRecipeBack recipe={panelRecipe(trend, {}, { primary: true, pin: false })!} onClose={() => setBack(false)} /> : <p>앞면</p> },
       { id: 'next', title: { ko: '다음 패널', en: 'Next panel' }, render: () => <button>다음 내용</button> },
     ]}
     panelMenuItems={id => id === 'trend' ? [{ id: 'recipe', label: PANEL_RECIPE_ITEM, onSelect: () => setBack(true) }] : []} />;
