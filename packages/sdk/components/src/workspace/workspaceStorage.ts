@@ -24,22 +24,6 @@ function readScopedLayouts(key: string): ScopedLayout[] | null {
   }, null);
 }
 
-function legacyScopedLayouts(key: string): ScopedLayout[] {
-  const prefix = scopedWorkspaceStorageKey(key, '');
-  try {
-    const previous: ScopedLayout[] = [];
-    for (let index = 0; index < localStorage.length; index++) {
-      const entry = localStorage.key(index);
-      if (!entry?.startsWith(prefix)) continue;
-      const state = readLocalStorage(entry, stored => stored === null ? null : JSON.parse(stored) as unknown, null);
-      previous.push([entry.slice(prefix.length), state]);
-    }
-    // Legacy layouts have no last-write order.
-    return previous.reverse();
-  } catch {
-    return [];
-  }
-}
 
 /** The Web Storage subset a standalone workspace writes through (`localStorage` and `sessionStorage` fit as they are). */
 export type PanelWorkspaceStorage = { getItem(key: string): string | null; setItem(key: string, value: string): void };
@@ -52,8 +36,7 @@ export function readWorkspaceState(key: string, spec: WorkspaceSpec, storage?: P
   const decode = (stored: string | null) => stored === null ? null : normalizeWorkspaceState(JSON.parse(stored) as unknown, spec, { fromStorage: true });
   if (scope !== undefined) {
     const layouts = readScopedLayouts(key);
-    if (layouts === null) return readLocalStorage(scopedWorkspaceStorageKey(key, scope), decode, null);
-    const entry = layouts.find(([id]) => id === scope);
+    const entry = layouts?.find(([id]) => id === scope);
     return entry ? normalizeWorkspaceState(entry[1], spec, { fromStorage: true }) : null;
   }
   if (!storage) return readLocalStorage(key, decode, null);
@@ -68,13 +51,10 @@ export function writeWorkspaceState(key: string, state: WorkspaceState, storage?
   // An empty list records that this workspace uses shared rows and has no manual sizes.
   const preference = sharedRows && state.sharedRowSizes === undefined ? { ...state, sharedRowSizes: [] } : state;
   if (scope !== undefined) {
-    const existing = readScopedLayouts(key);
-    const legacy = existing ? [] : legacyScopedLayouts(key);
-    const recent = (existing ?? legacy).filter(([id, saved]) => id !== scope && saved !== null);
+    // Scoped layouts are new in #3001 (never on main before it), so there is no older per-scope key to migrate.
+    const recent = (readScopedLayouts(key) ?? []).filter(([id, saved]) => id !== scope && saved !== null);
     const layouts: ScopedLayout[] = [[scope, preference], ...recent];
-    if (writeLocalStorage(scopedLayoutsKey(key), JSON.stringify(layouts.slice(0, SCOPED_LAYOUT_LIMIT)))) {
-      for (const [id] of legacy) writeLocalStorage(scopedWorkspaceStorageKey(key, id), null);
-    }
+    writeLocalStorage(scopedLayoutsKey(key), JSON.stringify(layouts.slice(0, SCOPED_LAYOUT_LIMIT)));
     return;
   }
   const stored = JSON.stringify(preference);

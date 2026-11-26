@@ -835,16 +835,15 @@ describe('PanelWorkspace: height mode (#686)', () => {
 
   it('drops absent panel heights on a scoped write and retains declared hidden panels', async () => {
     const panels = PANELS.map(panel => ({ ...panel, preferredHeight: 400 }));
-    storage.setItem(`${KEY()}:scope:saved`, stackStored([300, 400, 400], {
+    storage.setItem(`${KEY()}:scopes`, JSON.stringify([['saved', JSON.parse(stackStored([300, 400, 400], {
       preferredSeen: { 'departed-alias': 500 },
-    }));
+    }))]]));
     mountWorkspace({ ...ROWS_PROPS, panels, persistenceScope: 'saved' });
     await ready();
     await chooseFromMenu('상세 동작', '숨기기');
     await sleep(400);
     const layouts: [string, unknown][] = JSON.parse(storage.getItem(`${KEY()}:scopes`)!);
     const stored = layouts.find(([id]) => id === 'saved')?.[1];
-    expect(storage.getItem(`${KEY()}:scope:saved`)).toBeNull();
     expect(stored).toMatchObject({ preferredSeen: { trend: 400, selector: 400, detail: 400, kpi: 400 } });
     expect(stored).not.toHaveProperty(['preferredSeen', 'departed-alias']);
   });
