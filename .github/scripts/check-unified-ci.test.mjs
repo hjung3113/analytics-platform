@@ -269,6 +269,17 @@ test('PR job graph stays within the CI runner slot budget', () => {
   assert.equal(prSlots(workflowJobs('jobs:\n  setup:\n    runs-on: ubuntu-latest\n  a:\n    needs: setup\n  b:\n    needs: setup\n'), {}), 2);
 });
 
+test('push and dispatch publish full parallelism for both matrices', () => {
+  const script = fileURLToPath(new URL('./select-e2e.mjs', import.meta.url));
+  for (const event of ['push', 'workflow_dispatch']) {
+    const output = execFileSync(process.execPath, [script], {
+      env: { EVENT: event, SERVER: 'true', FULL_INPUT: 'false' }, encoding: 'utf8',
+    });
+    assert.match(output, /^e2e_parallel=8$/m, event);
+    assert.match(output, /^integration_parallel=3$/m, event);
+  }
+});
+
 test('quoted strategy keys still count all ten slots in the busiest staged wave', () => {
   const yaml = `jobs:
   setup:
