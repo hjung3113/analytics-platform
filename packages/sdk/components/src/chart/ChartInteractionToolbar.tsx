@@ -48,7 +48,7 @@ export function ChartInteractionToolbar(p: Props) {
     p.toolsReveal === 'hover' && !p.secondaryOpen && 'opacity-0 group-hover/chart:opacity-100 group-focus-within/chart:opacity-100',
   )}>
     {p.heading}
-    {p.start != null && <div data-chart-toolbar-start data-reveal-x={docked ? '' : undefined} className={cn('flex items-center gap-1', p.compact ? 'min-w-0 flex-1' : 'flex-auto', docked && 'overflow-x-auto [&>*]:shrink-0 [&_button:focus-visible]:ring-inset [&_button:focus-visible]:ring-offset-0')}>{p.start}</div>}
+    {p.start != null && <div data-chart-toolbar-start data-reveal-x={docked ? '' : undefined} className={cn('flex items-center gap-1', p.compact ? 'min-w-0 flex-1' : 'flex-auto', docked && cn('overflow-x-auto [&>*]:shrink-0', CLIPPED_FOCUS))}>{p.start}</div>}
     <div role="toolbar" aria-label={m('chartActions')} data-reveal-x={p.compact && !docked ? '' : undefined} className={cn(
       'ml-auto flex min-w-0 items-center gap-1 whitespace-nowrap',
       p.compact && !docked && 'overflow-x-auto',
@@ -97,6 +97,9 @@ function ChartMoreScope({ detached, children }: { detached: boolean; children: R
   return detached ? <TransientOverlayScope active={visible} detached>{children}</TransientOverlayScope> : children;
 }
 
+/** Buttons inside a clipping box draw focus inside themselves: the ring inset, and the forced-colors fallback outline (shadows are dropped there) pulled in. */
+const CLIPPED_FOCUS = '[&_button:focus-visible]:ring-inset [&_button:focus-visible]:ring-offset-0 forced-colors:[&_button:focus-visible]:-outline-offset-2';
+
 function DockedChartTableToggle(table: NonNullable<Props['table']>) {
   const stripWidth = useContext(DockChartToolbarWidth);
   const slot = useElementSize();
@@ -111,7 +114,7 @@ function DockedChartTableToggle(table: NonNullable<Props['table']>) {
         <ChartTableToggle shown={table.shown} toggle={table.toggle} disabled />
       </div>
     </div>
-    <div className="absolute inset-y-0 end-0 flex items-center [&>button:focus-visible]:ring-inset [&>button:focus-visible]:ring-offset-0">
+    <div className={cn('absolute inset-y-0 end-0 flex items-center', CLIPPED_FOCUS)}>
       <ChartTableToggle {...table} compact={compact} />
     </div>
   </div>;

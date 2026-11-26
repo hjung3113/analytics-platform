@@ -244,8 +244,13 @@ it('ellipsizes a plain tab title and keeps docked start controls focus-visible i
   mount();
   const tab = await screen.findByRole('tab', { name: '패널 a' });
   // A bare text node in the flex tab label clips without an ellipsis; its own truncating span draws one.
-  expect(within(tab).getByText('패널 a')).toHaveClass('min-w-0', 'truncate');
+  const title = within(tab).getByText('패널 a');
+  expect(title.parentElement).toHaveAttribute('data-dock-tab', 'a');
+  expect(title).toHaveClass('min-w-0', 'truncate');
   const strip = tab.closest<HTMLElement>('.dv-tabs-and-actions-container')!;
   // The start slot scrolls horizontally, which also clips vertically, so its buttons draw the ring inside.
-  expect(strip.querySelector('[data-chart-toolbar-start]')).toHaveClass('[&_button:focus-visible]:ring-inset');
+  // Forced colors drop the ring's shadow; the fallback outline must sit inside the button too.
+  for (const clip of [strip.querySelector('[data-chart-toolbar-start]'), strip.querySelector('[data-dock-chart-table-slot] > div:last-child')]) {
+    expect(clip).toHaveClass('[&_button:focus-visible]:ring-inset', 'forced-colors:[&_button:focus-visible]:-outline-offset-2');
+  }
 });
