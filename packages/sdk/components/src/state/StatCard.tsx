@@ -15,7 +15,7 @@ export type StatCardComparison = {
   previous: number | null;
   kind: 'value' | 'absolute' | 'percent';
   good?: 'up' | 'down';
-  /** Inclusive distance from zero in the metric's unit. Defaults to zero. */
+  /** Inclusive distance from zero in the metric's unit. Missing, negative and non-finite bands use zero. */
   noChangeBand?: number;
   formatValue: (value: number) => string;
   /** Formats the unsigned absolute change in the metric's unit. The pill supplies the direction. */
@@ -42,50 +42,54 @@ const comparisonTone = {
   improved: 'bg-accent-success-soft text-text-success-label',
   worsened: 'bg-accent-danger-soft text-text-danger-label',
 };
-const compactValueRow = 'col-span-full flex min-w-0 items-baseline gap-x-1.5 whitespace-nowrap';
+const compactValueRow = 'col-span-full row-start-2 flex min-w-0 items-baseline gap-x-1.5 whitespace-nowrap';
 
 function ComparisonRows({ comparison, children }: { comparison: StatCardComparison; children: ReactNode }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { lang } = useI18n();
   const { current, previous, kind, good, noChangeBand = 0, formatValue, formatChange } = comparison;
   const prior = previous !== null && Number.isFinite(previous) ? formatValue(previous) : '—';
-  const change = current === null || previous === null ? null : current - previous;
+  const hasObservations = current !== null && previous !== null;
+  const change = hasObservations ? current - previous : NaN;
   let flat = false;
   let tone: keyof typeof comparisonTone = 'neutral';
-  let inline = '—';
-  let arrow = '';
-  if (change !== null && Number.isFinite(change)) {
-    const direction = change > 0 ? 'up' : 'down';
+  let amount = '—';
+  let direction: 'up' | 'down' | undefined;
+  if (hasObservations && Number.isFinite(change)) {
     const magnitude = Math.abs(change);
-    flat = change === 0 || magnitude <= noChangeBand;
-    if (!flat && good) tone = good === direction ? 'improved' : 'worsened';
-    // Inside the no-change band the pill says only «변화 없음»: a direction arrow would contradict it (#2743).
-    if (!flat && kind !== 'value') arrow = direction === 'up' ? '▲ ' : '▼ ';
-    if (flat) {
-      inline = '';
-    } else if (kind === 'value') {
-      // The pill states the comparison value itself, labelled, so it never reads as a change of that size.
-      inline = m('statComparisonPriorValue', { value: prior });
-    } else {
-      const percent = kind === 'percent' && previous ? magnitude / Math.abs(previous) * 100 : null;
-      if (percent !== null && Number.isFinite(percent)) {
-        const sign = change > 0 ? '+' : '−';
-        inline = `${change === 0 ? '' : sign}${formatNumber(percent, lang, { decimals: 1 })}%`;
+    const band = Number.isFinite(noChangeBand) && noChangeBand > 0 ? noChangeBand : 0;
+    const tolerance = Number.EPSILON * Math.max(Math.abs(current), Math.abs(previous), band);
+    flat = magnitude === 0 || (band > 0 && magnitude - band <= tolerance);
+    if (!flat) {
+      direction = change > 0 ? 'up' : 'down';
+      if (good) tone = good === direction ? 'improved' : 'worsened';
+      if (kind === 'value') {
+        amount = prior;
       } else {
-        inline = formatChange(magnitude);
+        const percent = kind === 'percent' && previous !== 0 ? magnitude / Math.abs(previous) * 100 : null;
+        const sign = direction === 'up' ? '+' : '−';
+        amount = percent !== null && Number.isFinite(percent)
+          ? `${sign}${formatNumber(percent, lang, { decimals: 1 })}%`
+          : formatChange(magnitude);
       }
     }
   }
   return <>
     <span className={compactValueRow}>
       {children}
-      <span className={cn('t-delta min-w-0 truncate rounded-pill px-1.5', comparisonTone[tone])}>
-        {arrow}{inline}
-        {flat && m('statComparisonNoChange')}
+      <span className={cn('t-delta rounded-pill px-1.5', comparisonTone[tone],
+        flat ? 'shrink-0' : 'inline-grid min-w-min grid-cols-[auto_minmax(0,1fr)] items-baseline')}>
+        {flat ? m('statComparisonNoChange') : <>
+          {direction && (kind === 'value'
+            ? <span className="col-start-1 row-start-1 whitespace-pre">{m('statComparisonPriorLabel')}{' '}</span>
+            : <span aria-hidden="true" className="col-start-1 row-start-1 whitespace-pre">{direction === 'up' ? '▲ ' : '▼ '}</span>)}
+          <span className="col-start-2 row-start-1 min-w-0 truncate">{amount}</span>
+          {direction && <span className="sr-only"> {m(direction === 'up' ? 'statComparisonUp' : 'statComparisonDown')}</span>}
+        </>}
         {tone !== 'neutral' && <span className="sr-only"> {m(tone === 'improved' ? 'statComparisonImproved' : 'statComparisonWorsened')}</span>}
       </span>
     </span>
-    {(kind !== 'value' || flat || change === null) && <span className="col-start-1 row-start-3 truncate text-xs text-text-secondary">{m('statComparisonPrior', { value: prior })}</span>}
+    {(kind !== 'value' || flat || !hasObservations) && <span className="col-start-1 row-start-3 truncate text-xs text-text-secondary">{m('statComparisonPrior', { value: prior })}</span>}
   </>;
 }
 
@@ -93,7 +97,7 @@ const trendWidth = 80;
 const trendHeight = 28;
 const trendInset = 4;
 
-function StatCardTrend({ series, withComparison }: { series: readonly (number | null)[]; withComparison: boolean }) {
+function StatCardTrend({ series }: { series: readonly (number | null)[] }) {
   let min = Infinity;
   let max = -Infinity;
   for (const value of series) {
@@ -103,6 +107,10 @@ function StatCardTrend({ series, withComparison }: { series: readonly (number | 
   }
   if (min === Infinity) return null;
 
+  // Halve the finite extrema and samples when subtraction would overflow.
+  const scale = Number.isFinite(max - min) ? 1 : 0.5;
+  const scaledMax = max * scale;
+  const range = scaledMax - min * scale;
   const width = trendWidth - 2 * trendInset;
   const height = trendHeight - 2 * trendInset;
   const segments: { x: number; y: number }[][] = [];
@@ -117,12 +125,12 @@ function StatCardTrend({ series, withComparison }: { series: readonly (number | 
       segments.push(segment);
     }
     const x = series.length === 1 ? trendWidth / 2 : trendInset + index * width / (series.length - 1);
-    const y = min === max ? trendHeight / 2 : trendInset + height * ((max - value) / (max - min));
+    const y = range === 0 ? trendHeight / 2 : trendInset + height * ((scaledMax - value * scale) / range);
     segment.push({ x, y });
   }
   const last = segments.at(-1)?.at(-1);
   return <svg aria-hidden="true" viewBox={`0 0 ${trendWidth} ${trendHeight}`}
-    className={cn('pointer-events-none col-start-2 row-span-2 h-7 w-20 self-center justify-self-end', withComparison ? 'row-start-3' : 'row-start-2')}>
+    className="pointer-events-none col-start-2 row-span-2 row-start-3 h-7 w-20 self-center justify-self-end">
     {segments.map(points => {
       const first = points[0];
       if (points.length === 1) {
@@ -148,34 +156,33 @@ export function StatCard({ icon: Icon, label, value, unit, delta, comparison, tr
   const compactStat = comparison !== undefined || trend !== undefined || !Icon;
   const Tag = onClick ? 'button' : 'div';
   const numbers = <>
-    <span className="t-stat">{value}</span>
-    {secondary && <span className="t-stat-2 text-text-secondary">{secondary}</span>}
+    <span className={compactStat ? 't-stat min-w-0 truncate' : 't-stat'}>{value}</span>
+    {secondary && <span className={compactStat ? 't-stat-2 min-w-0 truncate text-text-secondary' : 't-stat-2 text-text-secondary'}>{secondary}</span>}
     {unit && <span className={compactStat ? 'text-xs font-medium text-text-secondary' : 'text-sm font-medium text-text-muted'}>{unit}</span>}
   </>;
   const deltaLabel = delta && <span className={cn('t-delta inline-flex items-center', delta.good ? 'text-text-success-label' : 'text-text-danger-label')}>
     {delta.direction === 'up' ? <ArrowUpRight className={cn('size-3.5', delta.good ? 'text-text-success' : 'text-text-danger')} aria-hidden /> : <ArrowDownRight className={cn('size-3.5', delta.good ? 'text-text-success' : 'text-text-danger')} aria-hidden />}{delta.value}
   </span>;
   const plainCaption = typeof caption === 'string' || typeof caption === 'number' ? String(caption) : undefined;
-  const inactiveBorder = paneBorderOnly ? 'border-transparent' : 'border-border-subtle';
   return <Tag type={onClick ? 'button' : undefined} onClick={onClick} aria-pressed={onClick ? !!active : undefined}
     className={compactStat ? cn(
-      'stat-card-compact-border flex w-full min-w-0 items-start gap-2 rounded-lg bg-surface-card p-2 text-left break-keep tabular-nums',
+      'flex w-full min-w-0 items-start gap-2 rounded-lg bg-surface-card p-2 text-left break-keep tabular-nums',
       footnote ? 'h-30' : 'h-26',
-      active ? 'border-accent-primary' : inactiveBorder,
+      active ? 'stat-card-selected' : !paneBorderOnly && 'inset-ring inset-ring-border-subtle',
       onClick && 'transition-colors',
-      onClick && !active && (paneBorderOnly ? 'hover:bg-surface-row-hover' : 'hover:border-border-strong'),
+      onClick && !active && (paneBorderOnly ? 'hover:bg-surface-row-hover' : 'hover:inset-ring-border-strong'),
     ) : cn('flex min-h-[100px] w-full items-start rounded-lg bg-surface-card text-left', !paneBorderOnly && 'border elevation-panel', compact ? 'gap-2 p-3' : 'gap-3 p-4',
       !embedded && (active ? 'border-accent-primary ring-1 ring-accent-primary' : 'border-border-subtle'),
       onClick && (paneBorderOnly ? 'transition-colors hover:bg-surface-row-hover' : 'transition-colors hover:border-border-strong'),
       embedded && active && 'bg-surface-row-selected hover:bg-surface-row-selected')}>
     {Icon && <span className={cn('grid size-10 shrink-0 place-items-center rounded-md', chipClass)}><Icon className="size-6" strokeWidth={1.75} aria-hidden /></span>}
     {compactStat ? <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] content-start gap-x-2">
-      <span className="col-span-full truncate text-xs font-medium text-text-secondary">{label}</span>
+      <span className="col-span-full row-start-1 truncate text-xs font-medium text-text-secondary">{label}</span>
       {comparison
         ? <ComparisonRows comparison={comparison}>{numbers}</ComparisonRows>
         : <span className={compactValueRow}>{numbers}{deltaLabel}</span>}
-      {caption != null && <span title={captionTitle ?? plainCaption} className={cn('t-caption col-start-1 min-w-0 truncate text-text-muted', comparison ? 'row-start-4' : 'row-start-3')}>{caption}</span>}
-      {trend && <StatCardTrend series={trend} withComparison={comparison !== undefined} />}
+      {caption != null && <span title={captionTitle ?? plainCaption} className={cn('t-caption col-start-1 min-w-0 truncate text-text-muted [&_*]:inline! [&_*]:whitespace-nowrap! [&_br]:hidden!', comparison ? 'row-start-4' : 'row-start-3')}>{caption}</span>}
+      {trend && <StatCardTrend series={trend} />}
       {footnote && <span className="t-caption col-span-full truncate text-text-muted" title={typeof footnote === 'string' ? footnote : undefined}>{footnote}</span>}
     </span> :
     <span className="min-w-0 flex-1">

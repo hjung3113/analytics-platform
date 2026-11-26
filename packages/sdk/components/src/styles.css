@@ -1,9 +1,8 @@
 /* Tailwind scans this package's components (they live outside the consuming app's root). Import after @ap/ui/styles.css. */
 @source "./";
 
-@utility stat-card-compact-border {
-  border-width: calc(var(--spacing-4) * 0.375);
-  border-style: solid;
+@utility stat-card-selected {
+  box-shadow: inset 0 0 0 1.5px var(--color-accent-primary);
 }
 
 /* Two shared rows per chart pair: all heading/legend content precedes the plot. */

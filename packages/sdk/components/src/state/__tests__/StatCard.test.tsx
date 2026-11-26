@@ -1,6 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
-import { I18nProvider } from '@ap/kernel';
+import { I18nProvider, useI18n } from '@ap/kernel';
 import { Timer } from 'lucide-react';
+import { useLayoutEffect } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { PageDensityProvider } from '../../pageDensity';
 import { EmbeddedPane, InWorkspacePanelProvider } from '../../workspace/panelContext';
@@ -73,10 +74,13 @@ it.each([
   ['down', 'text-text-danger-label', '나빠짐'],
 ] as const)('compares an increase with good direction %s', (good, tone, status) => {
   render(<I18nProvider><StatCard label="사이클타임" value="12" comparison={{ ...comparison, good }} /></I18nProvider>);
-  const pill = screen.getByText('▲ 4초');
-  expect(pill).toHaveClass('t-delta', tone);
+  const amount = screen.getByText('4초');
+  const pill = amount.closest('.t-delta');
+  expect(pill).toHaveClass('t-delta', tone, 'min-w-min', 'grid-cols-[auto_minmax(0,1fr)]');
+  expect(amount).toHaveClass('truncate');
+  expect(screen.getByText('▲')).toHaveClass('col-start-1');
   if (status) expect(screen.getByText(status)).toHaveClass('sr-only');
-  else expect(pill.className).not.toMatch(/(?:success|danger)/);
+  else expect(pill?.className).not.toMatch(/(?:success|danger)/);
   expect(screen.getByText('전기 대비 · 이전 8초')).toBeVisible();
 });
 
@@ -85,13 +89,30 @@ it('includes the boundary in the neutral no-change band', () => {
   // Inside the band the pill says only «변화 없음»: no arrow or change that would contradict it (#2743).
   const pill = screen.getByText('변화 없음', { selector: '.t-delta' });
   expect(pill).toHaveClass('text-text-secondary', 'bg-surface-sunken');
+  expect(pill).toHaveClass('shrink-0');
+  expect(pill).not.toHaveClass('truncate');
   expect(pill).toHaveTextContent(/^변화 없음$/);
   expect(screen.queryByText(/[▲▼]/)).toBeNull();
 });
 
+it.each([
+  [0.8, 0.7, 0.1, true],
+  [0.800000000000001, 0.7, 0.1, false],
+  [0.8, 0.7, Infinity, false],
+  [0.8, 0.7, NaN, false],
+  [0.8, 0.7, -1, false],
+  [0.7, 0.7, -1, true],
+  [0.8, 0.7, 0, false],
+] as const)('compares %s and %s in band %s (flat: %s)', (current, previous, noChangeBand, flat) => {
+  const { container } = render(<I18nProvider><StatCard label="사이클타임" value={current} comparison={{ ...comparison, current, previous, noChangeBand }} /></I18nProvider>);
+  expect(screen.queryByText('변화 없음')).toBe(flat ? container.querySelector('.t-delta') : null);
+});
+
 it('shows the difference, not the prior value, for an absolute decrease (#2743)', () => {
-  render(<I18nProvider><StatCard label="처리량" value="108" comparison={{ ...comparison, current: 108, previous: 120, formatValue: v => `${v}건`, formatChange: v => `${v}건` }} /></I18nProvider>);
-  expect(screen.getByText('▼ 12건', { selector: '.t-delta' })).toHaveClass('text-text-secondary');
+  const { container } = render(<I18nProvider><StatCard label="처리량" value="108" comparison={{ ...comparison, current: 108, previous: 120, formatValue: v => `${v}건`, formatChange: v => `${v}건` }} /></I18nProvider>);
+  expect(container.querySelector('.t-delta')).toHaveClass('text-text-secondary');
+  expect(screen.getByText('▼')).toBeVisible();
+  expect(screen.getByText('12건')).toBeVisible();
   expect(screen.getByText('전기 대비 · 이전 120건')).toBeVisible();
 });
 
@@ -101,15 +122,38 @@ it.each([
   ['percent', 12, 8, '▲ +50.0%', '8초'],
   ['percent', -6, -4, '▼ −50.0%', '-4초'],
   ['percent', 12, 0, '▲ 12초', '0초'],
+  ['percent', 12, Number.MIN_VALUE, '▲ 12초', '5e-324초'],
+  ['percent', Infinity, 8, '—', '8초'],
   ['percent', 12, null, '—', '—'],
   ['value', null, 8, '—', '8초'],
 ] as const)('shows %s for current %s and prior %s', (kind, current, previous, inline, prior) => {
-  render(<I18nProvider><StatCard label="사이클타임" value={current ?? '—'} comparison={{ ...comparison, kind, current, previous }} /></I18nProvider>);
-  expect(screen.getByText(inline, { selector: '.t-delta' })).toBeVisible();
+  const { container } = render(<I18nProvider><StatCard label="사이클타임" value={current ?? '—'} comparison={{ ...comparison, kind, current, previous }} /></I18nProvider>);
+  const pill = container.querySelector('.t-delta');
+  expect(pill).toBeVisible();
+  const visibleText = Array.from(pill!.childNodes)
+    .filter(node => !(node instanceof HTMLElement && node.classList.contains('sr-only')))
+    .map(node => node.textContent).join('');
+  expect(visibleText).toBe(inline);
   // A labelled prior value in the pill is not repeated on the comparison line, and carries no arrow.
   if (prior === null) expect(screen.queryByText(/전기 대비/)).toBeNull();
   else expect(screen.getByText(`전기 대비 · 이전 ${prior}`)).toBeVisible();
-  if (inline === '—') expect(screen.getByText(inline, { selector: '.t-delta' })).toHaveClass('text-text-secondary');
+  if (inline === '—') expect(pill).toHaveClass('text-text-secondary');
+});
+
+function SetLanguage({ lang }: { lang: 'ko' | 'en' }) {
+  const { setLang } = useI18n();
+  useLayoutEffect(() => setLang(lang), [lang, setLang]);
+  return null;
+}
+
+it.each([
+  ['ko', 'absolute', 12, '증가'],
+  ['ko', 'absolute', 4, '감소'],
+  ['en', 'value', 12, 'up'],
+  ['en', 'value', 4, 'down'],
+] as const)('announces the %s %s comparison direction for %s without a declared good direction', (lang, kind, current, direction) => {
+  render(<I18nProvider><SetLanguage lang={lang} /><StatCard label="사이클타임" value={current} comparison={{ ...comparison, current, kind }} /></I18nProvider>);
+  expect(screen.getByText(direction)).toHaveClass('sr-only');
 });
 
 it('keeps the existing delta and icon tile', () => {
@@ -124,7 +168,7 @@ it('keeps the basis on one line and retains native selection without an icon til
   const { container } = render(<I18nProvider><StatCard label="사이클타임" value="12" comparison={comparison} caption={caption} onClick={onClick} active /></I18nProvider>);
   const button = screen.getByRole('button', { pressed: true });
   expect(button).toHaveAttribute('type', 'button');
-  expect(button).toHaveClass('border-accent-primary', 'stat-card-compact-border', 'h-26');
+  expect(button).toHaveClass('stat-card-selected', 'h-26');
   expect(button).not.toHaveClass('ring-1');
   button.click();
   expect(onClick).toHaveBeenCalledOnce();
@@ -134,8 +178,10 @@ it('keeps the basis on one line and retains native selection without an icon til
 });
 
 it('uses a supplied tooltip for a formatted compact caption', () => {
-  render(<StatCard label="사이클타임" value="12" caption={<b>v3</b>} captionTitle="지표 버전 3" />);
-  expect(screen.getByTitle('지표 버전 3')).toHaveTextContent('v3');
+  render(<StatCard label="사이클타임" value="12" caption={<><span className="block">기준</span><br /><b>v3</b></>} captionTitle="지표 버전 3" />);
+  const caption = screen.getByTitle('지표 버전 3');
+  expect(caption).toHaveTextContent('v3');
+  expect(caption).toHaveClass('truncate', '[&_*]:inline!', '[&_br]:hidden!');
 });
 
 it('draws a decorative trend with gaps and marks the last observed point', () => {
@@ -148,7 +194,19 @@ it('draws a decorative trend with gaps and marks the last observed point', () =>
   expect(trend.querySelector('circle')).toHaveAttribute('cx', '61.6');
 });
 
-it('omits a trend with only missing points', () => {
-  const { container } = render(<StatCard label="사이클타임" value="12" trend={[null, null]} />);
+it('keeps the value in row 2 when a trend-only card gains observations', () => {
+  const { container, rerender } = render(<StatCard label="사이클타임" value="12" caption="기준" trend={[null, null]} />);
   expect(container.querySelector('svg')).toBeNull();
+  const valueRow = screen.getByText('12').parentElement;
+  expect(valueRow).toHaveClass('col-span-full', 'row-start-2');
+  rerender(<StatCard label="사이클타임" value="12" caption="기준" trend={[1, 2]} />);
+  expect(screen.getByText('12').parentElement).toBe(valueRow);
+  expect(valueRow).toHaveClass('row-start-2');
+  expect(screen.getByText('기준')).toHaveClass('row-start-3');
+  expect(container.querySelector('svg')).toHaveClass('col-start-2', 'row-start-3', 'row-span-2');
+});
+
+it('keeps trend coordinates finite when the range overflows', () => {
+  const { container } = render(<StatCard label="사이클타임" value="12" trend={[-Number.MAX_VALUE, 0, Number.MAX_VALUE]} />);
+  expect(container.querySelector('path')).toHaveAttribute('d', 'M4,24 L40,14 L76,4');
 });
