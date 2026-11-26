@@ -23,9 +23,9 @@ const rowClass = 'grid grid-cols-3 items-center gap-2 text-xs';
 const chipDragClass = 'cursor-grab touch-none select-none active:cursor-grabbing';
 type DropPreview = { reason: string | undefined; hovered: boolean };
 
-function MappingWell({ slot, label, fieldId, field, problem, drop, onClear }: {
+function MappingWell({ slot, label, fieldId, field, problem, drop, refusalReasons, onClear }: {
   slot: MappingSlot; label: string; fieldId: string | undefined; field: string | undefined;
-  problem: string | undefined; drop: DropPreview | undefined; onClear: () => void;
+  problem: string | undefined; drop: DropPreview | undefined; refusalReasons: ReadonlySet<string>; onClear: () => void;
 }) {
   const id = useId();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -56,9 +56,13 @@ function MappingWell({ slot, label, fieldId, field, problem, drop, onClear }: {
           </span>}
       </div>
       {problem && <p id={`${id}-problem`} role="alert" className="mt-1 text-xs text-text-danger-label">{problem}</p>}
-      {/* Reserve space for the refusal so showing it doesn't move the next well. */}
-      <div className="min-h-9 pt-1 leading-4 text-text-secondary">
-        {drop?.reason && <p id={`${id}-drop`}>{drop.reason}</p>}
+      {/* The tallest localized reason sizes this cell before any drag starts. */}
+      <div className="grid min-h-9 grid-cols-1 pt-1 leading-4 text-text-secondary wrap-anywhere">
+        {[...refusalReasons].map(reason => {
+          const visible = reason === drop?.reason;
+          return <p key={reason} id={visible ? `${id}-drop` : undefined} aria-hidden={visible ? undefined : true}
+            className={cn('col-start-1 row-start-1', !visible && 'invisible')}>{reason}</p>;
+        })}
       </div>
     </div>
   </div>;
@@ -115,6 +119,23 @@ export function PanelMappingSection({ fields, granted, config, draft, problem, c
     const reason = mappingSlotProblem(fields, draft, slot, drag.preview.chip, granted);
     return { reason: reason && tx(reason), hovered: drag.preview.slot === slot };
   };
+  const refusalReasons = (slot: MappingSlot) => {
+    const sameKind = slot === 'measure' ? fields.measures : fields.breakdowns;
+    const otherKind = slot === 'measure' ? 'breakdown' : 'measure';
+    const otherFields = otherKind === 'measure' ? fields.measures : fields.breakdowns;
+    const reasons = new Set<string>();
+    const addReason = (chip: MappingChip) => {
+      const reason = mappingSlotProblem(fields, draft, slot, chip, granted);
+      if (reason) reasons.add(tx(reason));
+    };
+    for (const fieldId of new Set([...sameKind.map(field => field.id), draft[slot]])) {
+      if (fieldId !== undefined) addReason({ kind: slot, id: fieldId });
+    }
+    // The wrong-kind reason is the same for every chip of that kind.
+    const otherFieldId = otherFields[0]?.id ?? draft[otherKind];
+    if (otherFieldId !== undefined) addReason({ kind: otherKind, id: otherFieldId });
+    return reasons;
+  };
   const kinds = CHART_PANEL_KINDS.map(kind => {
     const result = chartPanelProblem(fields, { kind }, granted);
     return { kind, reason: result?.code === 'incomplete' ? undefined : result?.reason };
@@ -142,10 +163,12 @@ export function PanelMappingSection({ fields, granted, config, draft, problem, c
     </div>
     <div className="grid gap-2.5">
       <MappingWell slot="measure" label={m('panelMappingY')} fieldId={draft.measure} field={measure ? tx(measure.label) : draft.measure}
-        problem={slotProblem('measure')} drop={dropPreview('measure')} onClear={() => onChange({ ...draft, measure: undefined })} />
+        problem={slotProblem('measure')} drop={dropPreview('measure')} refusalReasons={refusalReasons('measure')}
+        onClear={() => onChange({ ...draft, measure: undefined })} />
       <MappingWell slot="breakdown" label={m(draft.kind === 'line' ? 'panelMappingColor' : 'panelMappingCategory')}
-        fieldId={draft.breakdown} field={breakdown ? tx(breakdown.label) : draft.breakdown}
-        problem={slotProblem('breakdown')} drop={dropPreview('breakdown')} onClear={() => onChange({ ...draft, breakdown: undefined })} />
+        fieldId={draft.breakdown} field={breakdown ? tx(breakdown.label) : draft.breakdown} problem={slotProblem('breakdown')}
+        drop={dropPreview('breakdown')} refusalReasons={refusalReasons('breakdown')}
+        onClear={() => onChange({ ...draft, breakdown: undefined })} />
       <div role="group" aria-labelledby={`${id}-axis`} aria-describedby={`${id}-axis-reason`} className={rowClass}>
         <span id={`${id}-axis`} className="text-text-secondary">{m('panelMappingX')}</span>
         <span className="col-span-2">{draft.kind === 'line' ? timeLabel : m('panelMappingXBreakdown')}</span>

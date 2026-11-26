@@ -16,6 +16,7 @@ export function useMappingDrag(config: ChartConfig, assign: Assign) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [status, setStatus] = useState<DropStatus | null>(null);
   const active = useRef<{ cancel: () => void; dispose: () => void } | null>(null);
+  const gestureDisposals = useRef(new Set<() => void>());
   const shown = useRef({ config, assign, preview });
   useLayoutEffect(() => {
     if (!sameChartConfig(shown.current.config, config)) {
@@ -24,7 +25,10 @@ export function useMappingDrag(config: ChartConfig, assign: Assign) {
     }
     shown.current = { config, assign, preview };
   }, [config, assign, preview]);
-  useLayoutEffect(() => () => active.current?.dispose(), []);
+  useLayoutEffect(() => {
+    const disposals = gestureDisposals.current;
+    return () => { for (const dispose of disposals) dispose(); };
+  }, []);
 
   function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.button !== 0 || event.isPrimary === false || active.current || !(event.target instanceof Element)) return;
@@ -52,7 +56,8 @@ export function useMappingDrag(config: ChartConfig, assign: Assign) {
       if (listener.signal.aborted) return;
       listener.abort();
       mutations.disconnect();
-      active.current = null;
+      gestureDisposals.current.delete(dispose);
+      if (active.current?.dispose === dispose) active.current = null;
       if (source.hasPointerCapture?.(pointerId)) source.releasePointerCapture(pointerId);
     };
     const cancel = () => {
@@ -60,12 +65,14 @@ export function useMappingDrag(config: ChartConfig, assign: Assign) {
       if (phase === 'dragging') {
         // The matching release can still dispatch a click after cancellation.
         phase = 'cancelled';
+        active.current = null;
         mutations.disconnect();
         setPreview(null);
       }
     };
     const mutations = new MutationObserver(() => { if (!hasSource()) cancel(); });
     mutations.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-mapping-chip', 'data-mapping-chip-kind'] });
+    gestureDisposals.current.add(dispose);
     active.current = { cancel, dispose };
 
     win.addEventListener('pointerdown', down => {
@@ -96,7 +103,7 @@ export function useMappingDrag(config: ChartConfig, assign: Assign) {
       const wasDragging = phase === 'dragging';
       phase = 'released';
       const { preview, assign } = shown.current;
-      setPreview(null);
+      if (wasDragging) setPreview(null);
       mutations.disconnect();
       up.preventDefault();
       win.addEventListener('click', click => {
@@ -121,7 +128,7 @@ export function useMappingDrag(config: ChartConfig, assign: Assign) {
     }, options);
     win.addEventListener('pointercancel', cancelled => {
       if (cancelled.pointerId !== pointerId) return;
-      setPreview(null);
+      if (phase === 'dragging') setPreview(null);
       dispose();
     }, options);
     win.addEventListener('lostpointercapture', lost => {

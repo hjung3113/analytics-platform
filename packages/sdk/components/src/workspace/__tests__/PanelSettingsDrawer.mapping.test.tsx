@@ -428,6 +428,36 @@ describe('mapping field drag', () => {
     expect(changed).toHaveBeenCalledTimes(2);
   });
 
+  it('lets a different primary pointer drag while a cancelled release is pending', () => {
+    const { baseElement, changed } = setup();
+    const motion = screen.getByRole('button', { name: 'Motion' });
+    const utilization = screen.getByRole('button', { name: '가동률' });
+    const measure = well(baseElement, 'measure');
+    const breakdown = well(baseElement, 'breakdown');
+    const secondPointer = (type: string, clientX: number) => {
+      fireEvent(utilization, Object.assign(new MouseEvent(type, { bubbles: true, cancelable: true, clientX }), {
+        pointerId: 2, isPrimary: true, pointerType: 'mouse',
+      }));
+    };
+
+    drag(motion, breakdown);
+    pointer(motion, 'lostpointercapture');
+    secondPointer('pointerdown', 0);
+    hit = measure;
+    secondPointer('pointermove', 12);
+    expect(measure).toHaveClass('border-accent-primary');
+
+    pointer(motion, 'pointerup', 12);
+    fireEvent(motion, Object.assign(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }), { pointerId: 1 }));
+    expect(changed).not.toHaveBeenCalled();
+    expect(measure).toHaveClass('border-accent-primary');
+
+    secondPointer('pointerup', 12);
+    expect(changed).toHaveBeenCalledOnce();
+    expect(within(measure).getByRole('button', { name: '가동률 지우기' })).toBeTruthy();
+    expect(within(breakdown).getByRole('button', { name: '장비 지우기' })).toBeTruthy();
+  });
+
   it.each([
     ['소스 교체', '가동률', 0], ['동일 소스 다시 읽기', '가동 시간', 1],
   ] as const)('checks the saved configuration during a drag after %s', (action, field, changes) => {
@@ -483,5 +513,31 @@ describe('mapping field drag', () => {
     expect(within(target).getByText('장비')).toBeVisible();
     expect(target.nextElementSibling).toHaveTextContent(reason);
     expect(target).toHaveClass('bg-surface-canvas');
+  });
+
+  it('keeps every well in place while a long refusal wraps', () => {
+    const { baseElement } = setup(chart({ kind: 'line', measure: 'hours', breakdown: 'equipment', stack: 'stack' }));
+    const targets = [...baseElement.querySelectorAll<HTMLElement>('[data-mapping-slot]')];
+    for (const target of targets) target.parentElement!.style.width = '8ch';
+    // jsdom has no layout. Compare each well's sizing classes and the space occupied by its feedback text.
+    const layout = () => targets.map(target => ({
+      row: target.parentElement?.parentElement?.className,
+      column: target.parentElement?.className,
+      well: [...target.classList].filter(name => /^(flex$|items-|min-h-|border$|px-|py-)/.test(name)),
+      feedback: target.nextElementSibling?.className,
+      lines: Array.from(target.nextElementSibling?.children ?? [], line => ({
+        classes: [...line.classList].filter(name => name !== 'invisible'),
+        text: line.textContent,
+      })),
+    }));
+    const before = layout();
+    const measure = well(baseElement, 'measure');
+    const chip = screen.getByRole('button', { name: '가동률' });
+    drag(chip, measure);
+    expect(measure).toHaveAccessibleDescription('더할 수 없는 지표라 쌓을 수 없습니다');
+    expect(layout()).toEqual(before);
+    pointer(chip, 'pointerup', 12);
+    expect(measure).not.toHaveAccessibleDescription('더할 수 없는 지표라 쌓을 수 없습니다');
+    expect(layout()).toEqual(before);
   });
 });
