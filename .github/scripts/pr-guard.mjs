@@ -17,7 +17,8 @@
 //           changes/<issue>.md of the same menu (the release fold). An added, removed or unedited moved menu and an ap.sdk-only
 //           package.json change pass. The FAIL line names the menu and points at menus/AGENTS.md.
 //   docs    the PR body has a `고친 문서: <documents>` or `고친 문서: 없음 — <reason>` line (#2284). It applies only to PRs created after
-//           DOCS_LINE_FROM_PR merged, so PRs open before the rule existed keep passing.
+//           DOCS_LINE_FROM_PR merged, so PRs open before the rule existed keep passing. The row always shows whether the rule is on; if
+//           DOCS_LINE_FROM_PR is closed unmerged the rule could never start, so every PR fails until the constant names the PR that merged.
 // Fail-closed: an API error fails the job (rerun it); a guard that skips on error would be the lead's exception by another name.
 // Node builtins only (sparse checkout, no install). Needs GITHUB_TOKEN with pull-requests: read and actions: read.
 //
@@ -179,9 +180,10 @@ function labelsNote(size) {
   return size.answer ? `, Size: ${size.answer}` : `, waived by \`${SIZE_LABEL}\``;
 }
 
-/** `since` is DOCS_LINE_FROM_PR's merge time, or null while it is unmerged. */
-export function docsVerdict({ body, createdAt, since }) {
-  if (!since || createdAt < since) return { ok: true, applies: false };
+/** `since` is DOCS_LINE_FROM_PR's merge time, or null while it is unmerged; `startClosed` is true when that PR is closed. */
+export function docsVerdict({ body, createdAt, since, startClosed = false }) {
+  if (!since) return startClosed ? { ok: false, applies: false, state: 'dead' } : { ok: true, applies: false, state: 'pending' };
+  if (createdAt < since) return { ok: true, applies: false, state: 'before' };
   // The template's placeholder is an HTML comment; a line left at the placeholder is no answer.
   const answer = (body ?? '').replace(/<!--[\s\S]*?-->/g, '').match(DOCS_LINE)?.[1]?.trim() ?? null;
   const ok = answer !== null && (!answer.startsWith('없음') || DOCS_NONE.test(answer));
@@ -195,8 +197,16 @@ export function summarize({ size, rounds, scope, budget, labelEvents, releaseFil
     `| rounds | ${mark(rounds.ok)} | ${rounds.pushes} pushes (cap ${MAX_PUSHES} without an answer)${rounds.answer ? `, Round cap: ${rounds.answer}` : rounds.over ? ', no `Round cap:` line in the PR body' : ''}${rounds.lateFixes?.length ? `; fix after review round 2${DECIDER.test(rounds.answer ?? '') ? '' : ' needs \`Round cap: lead — …\`'}: ${rounds.lateFixes.map((t) => `«${t.replaceAll('|', '\\|')}»`).join(', ')}` : ''} |`,
     `| scope | ${mark(scope.ok)} | closes ${scope.closes.length ? scope.closes.map((n) => `#${n}`).join(' ') : 'nothing'}; ${scope.noSection ? `no \`## 범위\` in ${releaseFile ?? 'any release file'} on the base branch` : `missing from ${releaseFile}: ${scope.missing.map((n) => `#${n}`).join(' ') || 'none'}`}${scope.grew.length ? `; head adds ${scope.grew.map((n) => `#${n}`).join(' ')} to \`## 범위\`` : ''}${scope.waived ? `; waived by \`${SCOPE_LABEL}\`` : ''} |`,
   ];
-  if (docs?.applies) {
-    rows.push(`| docs | ${mark(docs.ok)} | ${docs.answer === null ? 'no `고친 문서:` line in the PR body' : `고친 문서: ${docs.answer.replaceAll('|', '\\|')}${docs.ok ? '' : ' (없음 needs `— <reason>`)'}`} |`);
+  if (docs) {
+    const off = {
+      pending: `off until #${DOCS_LINE_FROM_PR} merges`,
+      dead: `#${DOCS_LINE_FROM_PR} closed unmerged, so the rule can never start: set DOCS_LINE_FROM_PR to the PR that merged it`,
+      before: `off: this PR was opened before #${DOCS_LINE_FROM_PR} merged`,
+    }[docs.state];
+    const detail = off ?? (docs.answer === null
+      ? 'no `고친 문서:` line at the line start of the PR body'
+      : `고친 문서: ${docs.answer.replaceAll('|', '\\|')}${docs.ok ? '' : ' (없음 needs `— <reason>`)'}`);
+    rows.push(`| docs | ${mark(docs.ok)} | ${detail} |`);
   }
   if (budget) rows.push(`| CI budget | ${mark(budget.ok)} | ${budget.detail} |`);
   if (menuChangelog) {
@@ -336,7 +346,12 @@ function selfTest() {
   assert.equal(docsAt('고친 문서: <!-- 고친 소유 문서들 -->\n').ok, false, 'the template placeholder is no answer');
   assert.equal(docsAt('- 고친 문서: docs/a.md').ok, false, 'the line starts the line, not a bullet');
   assert.match(summarize({ ...guardBase, docs: docsAt('고친 문서: 없음') }), /\| docs \| FAIL \| 고친 문서: 없음 \(없음 needs/);
-  assert.doesNotMatch(summarize({ ...guardBase, docs: docsAt('', '2026-11-30T00:00:00Z') }), /\| docs \|/);
+  assert.match(summarize({ ...guardBase, docs: docsAt('', '2026-11-30T00:00:00Z') }), /\| docs \| ok \| off: this PR was opened before #3135 merged \|/);
+  assert.match(summarize({ ...guardBase, docs: docsAt('', undefined, null) }), /\| docs \| ok \| off until #3135 merges \|/, 'the off state is visible');
+  const dead = docsVerdict({ body: '고친 문서: docs/a.md', createdAt: '2026-12-02T00:00:00Z', since: null, startClosed: true });
+  assert.equal(dead.ok, false, 'a start PR closed unmerged fails every PR');
+  assert.match(summarize({ ...guardBase, docs: dead }), /\| docs \| FAIL \| #3135 closed unmerged/);
+  assert.match(summarize({ ...guardBase, docs: docsAt('- 고친 문서: docs/a.md') }), /no `고친 문서:` line at the line start/);
   console.log('pr-guard self-test passed');
 }
 
@@ -385,7 +400,7 @@ async function main() {
 
   const commits = await paged(`/repos/${repo}/pulls/${n}/commits`);
   const docsFrom = await api(`/repos/${repo}/pulls/${DOCS_LINE_FROM_PR}`);
-  const docs = docsVerdict({ body: pr.body, createdAt: pr.created_at, since: docsFrom.merged_at });
+  const docs = docsVerdict({ body: pr.body, createdAt: pr.created_at, since: docsFrom.merged_at, startClosed: docsFrom.state === 'closed' });
   const size = sizeVerdict(files, labels, pr.body);
   const rounds = roundsVerdict(runs.length, pr.body, commits.map((c) => c.commit.message.split('\n')[0]));
   const scope = scopeVerdict({ closes: closingIssues(pr.title, pr.body), baseScope: scopeIssues(baseText), headScope: scopeIssues(headText), labels });
