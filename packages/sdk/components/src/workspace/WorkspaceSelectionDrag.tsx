@@ -44,6 +44,11 @@ function sameZones(current: Zone[] | undefined, next: Zone[] | undefined) {
   });
 }
 
+/** Why a panel does not take this chip: its own reason, or «not accepted» when it declares no drop. Overlay and release share it. */
+function dropRefusal(drop: PanelWorkspacePanel['analysisSelectionDrop'], chip: AnalysisSelectionChip): Text | undefined {
+  return drop ? drop.reason?.(chip) : COMPONENTS_MESSAGES.workspaceSelectionNotAccepted;
+}
+
 export function WorkspaceSelectionDrag({ root, panels }: {
   root: RefObject<HTMLDivElement | null>; panels: readonly PanelWorkspacePanel[];
 }) {
@@ -76,7 +81,7 @@ export function WorkspaceSelectionDrag({ root, panels }: {
         const id = rendered.target;
         if (!id) return 'skip';
         const drop = currentDrops.current.get(id);
-        const refusal = drop ? drop.reason?.(chip) : COMPONENTS_MESSAGES.workspaceSelectionNotAccepted;
+        const refusal = dropRefusal(drop, chip);
         if (drop && !refusal) { drop.onDrop(chip); return; }
         return refusal;
       },
@@ -91,7 +96,7 @@ export function WorkspaceSelectionDrag({ root, panels }: {
   const overlay = preview && <div aria-hidden className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
     {preview.zones.map(({ id, left, top, width, height }) => {
       const drop = drops.get(id);
-      const reason = drop ? drop.reason?.(preview.chip) : COMPONENTS_MESSAGES.workspaceSelectionNotAccepted;
+      const reason = dropRefusal(drop, preview.chip);
       const hovered = !reason && id === preview.target;
       const availableState = hovered ? 'hovered' : 'available';
       return <div key={id} data-selection-drop-panel={id} data-selection-drop-state={reason ? 'rejected' : availableState} style={{
