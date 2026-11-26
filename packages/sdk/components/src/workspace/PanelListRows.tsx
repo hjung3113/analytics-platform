@@ -1,25 +1,36 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 import { Button, DropdownMenuItem } from '@ap/ui';
 
 const TYPEAHEAD_MS = 500;
+export const PANEL_ROW_SELECTOR = 'button[data-panel-row]';
 
-type Row = { label: string; reason?: string; note?: string; onSelect?: () => void };
+type Row = { id: string; label: string; reason?: string; status?: string; note?: string; description?: string; kindLabel?: string; icon?: ReactNode; onSelect?: () => void };
 
-function PanelListRow({ label, reason, note, onSelect, presentation = 'menu', tabIndex, onFocus }: Row & {
-  presentation?: 'menu' | 'named-menu' | 'popover'; tabIndex?: number; onFocus?: () => void;
+function PanelListRow({ id: rowId, label, reason, status, note, onSelect, presentation = 'menu', tabIndex, onFocus, onHover, icon, description: detail, kindLabel }: Row & {
+  presentation?: 'menu' | 'named-menu' | 'popover'; tabIndex?: number; onFocus?: () => void; onHover?: (id: string | undefined) => void;
 }) {
   const id = useId();
   const description = [reason, note].filter(Boolean).join(' · ');
+  // A short status replaces the full reason on screen; the full reason stays in the row's accessible description.
+  const visible = status ?? description;
+  const extra = [status === undefined || status === description ? '' : description, kindLabel, detail].filter(Boolean).join(' · ');
   const named = presentation !== 'menu';
   const attrs = { 'aria-label': named ? label : undefined, 'aria-disabled': reason !== undefined || undefined,
-    'aria-describedby': named && description ? id : undefined };
+    'aria-describedby': named && (visible || extra) ? id : undefined, 'data-panel-row': rowId };
   const content = <span className="flex min-w-0 flex-col break-keep">
     <span className={reason !== undefined && presentation !== 'named-menu' ? 'text-text-muted' : undefined}>{label}</span>
-    {description && <span id={id} className="text-xs text-text-muted">{description}</span>}
+    {(visible || extra) && <span id={id} className="text-xs text-text-muted">{visible}
+      {extra && <span className="sr-only">{visible ? ' · ' : ' '}{extra}</span>}
+    </span>}
   </span>;
   if (presentation === 'popover') return <Button type="button" variant="ghost" size="toolbar" tabIndex={tabIndex} onFocus={onFocus} {...attrs}
     className="h-auto min-h-7 w-full justify-start text-start whitespace-normal"
-    onClick={() => { if (reason === undefined) onSelect?.(); }}>{content}</Button>;
+    onPointerEnter={onHover && (event => { onHover(event.currentTarget.dataset.panelRow); })}
+    onPointerMove={onHover && (event => { onHover(event.currentTarget.dataset.panelRow); })}
+    onPointerLeave={onHover && (() => { onHover(undefined); })}
+    onClick={() => { if (reason === undefined) onSelect?.(); }}>
+    {icon ? <span className="flex min-w-0 items-start gap-1.5"><span className="mt-0.5 shrink-0">{icon}</span>{content}</span> : content}
+  </Button>;
   return <DropdownMenuItem {...attrs} onSelect={event => {
     if (reason !== undefined) event.preventDefault();
     else onSelect?.();
@@ -27,26 +38,29 @@ function PanelListRow({ label, reason, note, onSelect, presentation = 'menu', ta
 }
 
 export function PanelListRows({ rows, presentation = 'menu' }: {
-  rows: readonly (Row & { id: string })[]; presentation?: 'menu' | 'named-menu';
+  rows: readonly Row[]; presentation?: 'menu' | 'named-menu';
 }) {
-  return <>{rows.map(({ id, ...row }) => <PanelListRow key={id} {...row} presentation={presentation} />)}</>;
+  return <>{rows.map(row => <PanelListRow key={row.id} {...row} presentation={presentation} />)}</>;
 }
 
 /** A list of actions with one Tab stop inside a larger popover. The roving group holds no selection. */
-export function PanelList({ rows, label }: { rows: readonly (Row & { id: string })[]; label: string }) {
+export function PanelList({ rows, label, headingId, tabStop = true, onHover }: {
+  rows: readonly Row[]; label?: string; headingId?: string; tabStop?: boolean; onHover?: (id: string | undefined) => void;
+}) {
   const labelId = useId();
   const [focused, setFocused] = useState<string>();
   const entry = rows.some(row => row.id === focused) ? focused : rows[0]?.id;
   // Typeahead as in a menu: characters typed within a short pause form a prefix, searched from the row after the focused one.
   const typed = useRef({ text: '', at: 0 });
   return <>
-    <div id={labelId} className="mb-2 font-semibold">{label}</div>
-    {rows.length > 0 && <div role="toolbar" aria-orientation="vertical" aria-labelledby={labelId}
+    {!headingId && <div id={labelId} className="mb-2 font-semibold">{label}</div>}
+    {rows.length > 0 && <div role="toolbar" aria-orientation="vertical" className="flex flex-col gap-1" aria-labelledby={headingId ?? labelId}
       onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) typed.current = { text: '', at: 0 }; }} onKeyDown={event => {
-      const buttons = Array.from(event.currentTarget.querySelectorAll('button'));
+      if (event.altKey || event.ctrlKey || event.metaKey || event.nativeEvent.isComposing) return;
+      const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>(PANEL_ROW_SELECTOR));
       const index = buttons.findIndex(button => button === event.target);
       if (index < 0) return;
-      if (event.key.length === 1 && event.key !== ' ' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      if (event.key.length === 1 && event.key !== ' ') {
         const now = event.timeStamp;
         const text = (now - typed.current.at < TYPEAHEAD_MS ? typed.current.text : '') + event.key.toLocaleLowerCase();
         typed.current = { text, at: now };
@@ -65,7 +79,8 @@ export function PanelList({ rows, label }: { rows: readonly (Row & { id: string 
       if (event.key === 'End') next = buttons.length - 1;
       buttons[next]?.focus();
     }}>
-      {rows.map(({ id, ...row }) => <PanelListRow key={id} {...row} presentation="popover" tabIndex={id === entry ? 0 : -1} onFocus={() => { setFocused(id); }} />)}
+      {rows.map(row => <PanelListRow key={row.id} {...row} presentation="popover" onHover={onHover}
+        tabIndex={tabStop && row.id === entry ? 0 : -1} onFocus={() => { setFocused(row.id); }} />)}
     </div>}
   </>;
 }

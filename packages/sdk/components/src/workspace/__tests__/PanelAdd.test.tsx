@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
@@ -156,6 +156,183 @@ describe('PanelAddMenu (#2398)', () => {
     open({ items: [] });
     expect(screen.queryByRole('button', { name: '패널 추가' })).toBeNull();
   });
+
+  it('keeps a long uncategorized list flat even when the rows declare kinds', async () => {
+    const user = userEvent.setup();
+    open({ items: Array.from({ length: 9 }, (_, index) => ({ ...ITEMS[0]!, id: `panel-${index}`, kind: 'line' })) });
+    await user.click(screen.getByRole('button', { name: '패널 추가' }));
+    expect(screen.getAllByRole('menuitem')).toHaveLength(9);
+    expect(screen.getByRole('menuitemcheckbox', { name: '추가하면 고정' })).toBeInTheDocument();
+    expect(screen.queryByRole('searchbox')).toBeNull();
+  });
+});
+
+describe('PanelAddMenu categorized picker (#2744)', () => {
+  const text = (ko: string, en: string) => ({ ko, en });
+  const compare = { id: 'compare', title: text('비교', 'Compare') };
+  const trend = { id: 'trend', title: text('추세', 'Trend') };
+  const items: PanelAddItem[] = [
+    { id: 'bars', category: compare, kind: 'bar', title: text('장비 비교', 'Equipment comparison'), description: text('장비별 평균', 'Average by equipment') },
+    { id: 'scatter', category: compare, kind: 'scatter', title: text('산점도', 'Scatter') },
+    { id: 'line', category: trend, kind: 'line', title: text('장비 추세', 'Equipment trend'), description: text('일별 평균', 'Daily average') },
+  ];
+  async function open(panels = items) {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    render(<I18nProvider><PanelAddMenu items={panels} shown={['line']} onAdd={onAdd} /></I18nProvider>);
+    const trigger = screen.getByRole('button', { name: '패널 추가' });
+    await user.click(trigger);
+    return { user, onAdd, trigger, search: screen.getByRole('searchbox', { name: '패널 검색' }) };
+  }
+  const row = (name: string) => screen.getByRole('button', { name });
+
+  it('groups localized rows under category headings with counts', async () => {
+    await open();
+    expect(within(screen.getByRole('region', { name: /비교/ })).getAllByRole('button')).toEqual([row('장비 비교'), row('산점도')]);
+    expect(screen.getAllByRole('heading', { level: 3 }).map(heading => heading.textContent)).toEqual(['비교2', '추세1']);
+  });
+
+  it('groups a panel without kind or category under Other and still previews its text', async () => {
+    const { user } = await open([
+      ...items,
+      { id: 'records', title: text('원본 기록', 'Records'), description: text('전체 행', 'All rows') },
+      { id: 'summary', category: { id: 'other', title: text('요약', 'Summary') }, title: text('합계', 'Total') },
+    ]);
+    expect(within(screen.getByRole('region', { name: '기타 1' })).getAllByRole('button')).toEqual([row('원본 기록')]);
+    expect(within(screen.getByRole('region', { name: '요약 1' })).getAllByRole('button')).toEqual([row('합계')]);
+    await user.keyboard('{ArrowDown}{ArrowRight}{ArrowRight}');
+    expect(row('원본 기록')).toHaveFocus();
+    expect(screen.getByRole('complementary')).toHaveTextContent('원본 기록전체 행');
+  });
+
+  it('previews the title and description on hover and keyboard focus', async () => {
+    const { user } = await open();
+    const preview = screen.getByRole('complementary');
+    await user.hover(row('장비 비교'));
+    expect(preview).toHaveTextContent('장비 비교장비별 평균');
+    await user.keyboard('{ArrowDown}{ArrowRight}');
+    expect(preview).toHaveTextContent('장비 추세이미 있음일별 평균');
+  });
+
+  it('shows a one-line status in the row, the full reason in the preview, and the first addable row when nothing is pointed at', async () => {
+    const { user } = await open([
+      { ...items[0]!, disabledReason: text('Module 타입을 고르면 볼 수 있음', 'Pick a module type to see it') },
+      ...items.slice(1),
+    ]);
+    const preview = screen.getByRole('complementary');
+    expect(preview).toHaveTextContent(/^산점도$/);
+    expect(row('장비 비교')).toHaveTextContent(/^장비 비교사용할 수 없음/);
+    expect(row('장비 비교')).toHaveAccessibleDescription('사용할 수 없음 · Module 타입을 고르면 볼 수 있음 · 막대 차트 · 장비별 평균');
+    expect(row('장비 추세')).toHaveTextContent(/^장비 추세이미 있음/);
+    await user.keyboard('{ArrowDown}');
+    expect(row('장비 비교')).toHaveFocus();
+    expect(preview).toHaveTextContent('장비 비교Module 타입을 고르면 볼 수 있음장비별 평균');
+  });
+
+  it('filters both columns and hides empty columns and their previews', async () => {
+    const { user, search } = await open();
+    await user.type(search, '장비');
+    expect(screen.getAllByRole('heading', { name: /1/, level: 3 })).toHaveLength(2);
+    const preview = screen.getByRole('complementary');
+    await user.hover(row('장비 비교'));
+    expect(preview).toHaveTextContent('장비 비교장비별 평균');
+    await user.keyboard(' 추세');
+    expect(screen.queryByRole('heading', { name: /비교/ })).toBeNull();
+    expect(preview).not.toHaveTextContent(/장비 비교|장비별 평균/);
+    await user.keyboard('{Backspace}{Backspace}{Backspace}');
+    expect(row('장비 비교')).toBeInTheDocument();
+    expect(preview).toHaveTextContent('장비 비교장비별 평균');
+    await user.keyboard('x');
+    expect(screen.getByRole('status')).toHaveTextContent('일치하는 패널이 없습니다.');
+  });
+
+  it('tracks row boundaries and lets pointer movement take the preview back from keyboard focus', async () => {
+    const { user } = await open();
+    const preview = screen.getByRole('complementary');
+    const bars = row('장비 비교');
+    const heading = screen.getByRole('heading', { name: '비교 2' });
+    const scatter = row('산점도');
+    fireEvent.pointerOver(scatter);
+    expect(preview).toHaveTextContent('산점도');
+    fireEvent.pointerOut(scatter, { relatedTarget: heading });
+    expect(preview).not.toHaveTextContent('산점도');
+    await user.keyboard('{ArrowDown}{ArrowDown}');
+    expect(preview).toHaveTextContent('산점도');
+    fireEvent.pointerMove(bars);
+    expect(preview).toHaveTextContent('장비 비교');
+    fireEvent.pointerOut(bars, { relatedTarget: heading });
+    expect(preview).toHaveTextContent('산점도');
+  });
+
+  it('navigates between columns, retains the disabled reason, and returns to search or the opener', async () => {
+    const { user, onAdd, search, trigger } = await open();
+    expect(search).toHaveFocus();
+    await user.keyboard('{ArrowDown}{ArrowDown}');
+    expect(row('산점도')).toHaveFocus();
+    await user.keyboard('{ArrowRight}{Enter} ');
+    expect(row('장비 추세')).toHaveFocus();
+    expect(row('장비 추세')).toHaveAccessibleDescription('이미 있음 · 선 차트 · 일별 평균');
+    expect(onAdd).not.toHaveBeenCalled();
+    await user.keyboard('{ArrowLeft}{ArrowDown}장');
+    expect(row('장비 비교')).toHaveFocus();
+    await user.keyboard('{ArrowDown}{ArrowUp}');
+    expect(row('장비 비교')).toHaveFocus();
+    await user.keyboard('/');
+    expect(search).toHaveFocus();
+    await user.type(search, '장비');
+    await user.keyboard('{Escape}');
+    await vi.waitFor(() => { expect(trigger).toHaveFocus(); });
+  });
+
+  it('keeps the open dialog and moves focus to the replacement search after a Scope change', async () => {
+    const user = userEvent.setup();
+    let platform: ReturnType<typeof usePlatform>;
+    const onAdd = vi.fn();
+    const scopes = ['MEM', 'FDRY'].map(id => ({ id, label: id, grantedRooms: 1, totalRooms: 1 }));
+    const scopeSession = testSession(['platform:view'], { scopes });
+    function Picker() {
+      platform = usePlatform();
+      return <PanelAddMenu items={items} onAdd={onAdd} />;
+    }
+    window.history.replaceState(null, '', '/bars?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => scopeSession })}><Picker /></PlatformProvider></I18nProvider>);
+    const trigger = row('패널 추가');
+    await user.click(trigger);
+    const dialog = screen.getByRole('dialog');
+    const search = screen.getByRole('searchbox');
+    await user.keyboard('장비{ArrowDown}');
+    expect(row('장비 비교')).toHaveFocus();
+
+    act(() => platform.setGlobal({ scopeId: 'FDRY' }));
+    // Radix schedules unmount autofocus on the next timer tick.
+    await act(() => new Promise(resolve => { setTimeout(resolve, 0); }));
+    expect(platform!.scope.scopeId).toBe('FDRY');
+    const replacement = screen.getByRole('searchbox');
+    expect(replacement).toHaveFocus();
+    expect(replacement).not.toBe(search);
+    expect(replacement).toHaveValue('');
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await vi.waitFor(() => { expect(trigger).toHaveFocus(); });
+  });
+
+  it('moves horizontally to the nearest visible row when the row heights differ', async () => {
+    const { user } = await open();
+    vi.spyOn(row('장비 비교'), 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 100, 40));
+    vi.spyOn(row('산점도'), 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 40, 100, 28));
+    vi.spyOn(row('장비 추세'), 'getBoundingClientRect').mockReturnValue(new DOMRect(100, 0, 100, 100));
+    await user.keyboard('{ArrowDown}{ArrowRight}{ArrowLeft}');
+    expect(row('산점도')).toHaveFocus();
+  });
+
+  it('adds a declared panel with the selected pin option', async () => {
+    const { user, onAdd, search } = await open();
+    await user.click(screen.getByRole('checkbox', { name: '추가하면 고정' }));
+    await user.type(search, '산점도');
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(onAdd).toHaveBeenCalledExactlyOnceWith('scatter', false);
+  });
 });
 
 describe('PanelAddMenu chart picker (#2761)', () => {
@@ -200,6 +377,68 @@ describe('PanelAddMenu chart picker (#2761)', () => {
   }
   const radio = (name: string) => screen.getByRole('radio', { name });
   const add = () => screen.getByRole('button', { name: '더하기' });
+
+  it('creates a chart below the categorized list and pin check', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    const title = { ko: '비교', en: 'Compare' };
+    render(<I18nProvider><PanelAddMenu items={[{ id: 'bars', title, category: { id: 'compare', title } }]} chartFields={fields} onAdd={onAdd} /></I18nProvider>);
+    await user.click(screen.getByRole('button', { name: '패널 추가' }));
+    expect(screen.getByRole('searchbox')).toBeInTheDocument();
+    await user.click(radio('선'));
+    await user.click(radio('평균'));
+    await user.click(radio('설비'));
+    await user.click(add());
+    expect(onAdd).toHaveBeenCalledExactlyOnceWith('chart-1', true, expect.objectContaining({ id: 'chart-1' }));
+  });
+
+  it('moves focus to the replacement search when a Scope change replaces the focused chart chip', async () => {
+    const user = userEvent.setup();
+    let platform: ReturnType<typeof usePlatform>;
+    const title = { ko: '비교', en: 'Compare' };
+    const scopes = ['MEM', 'FDRY'].map(id => ({ id, label: id, grantedRooms: 1, totalRooms: 1 }));
+    const scopeSession = testSession(['platform:view'], { scopes });
+    function Picker() {
+      platform = usePlatform();
+      return <PanelAddMenu items={[{ id: 'bars', title, category: { id: 'compare', title } }]} chartFields={fields} onAdd={vi.fn()} />;
+    }
+    window.history.replaceState(null, '', '/bars?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => scopeSession })}><Picker /></PlatformProvider></I18nProvider>);
+    const trigger = screen.getByRole('button', { name: '패널 추가' });
+    await user.click(trigger);
+    const dialog = screen.getByRole('dialog');
+    await user.click(radio('선'));
+    expect(radio('선')).toHaveFocus();
+
+    act(() => platform.setGlobal({ scopeId: 'FDRY' }));
+    await act(() => new Promise(resolve => { setTimeout(resolve, 0); }));
+    expect(platform!.scope.scopeId).toBe('FDRY');
+    expect(screen.getByRole('dialog')).toBe(dialog);
+    expect(screen.getByRole('searchbox')).toHaveFocus();
+    expect(radio('선')).toHaveAttribute('aria-checked', 'false');
+    await user.keyboard('{Escape}');
+    await vi.waitFor(() => { expect(trigger).toHaveFocus(); });
+  });
+
+  it('keeps focus on the pin check when a Scope change replaces the sections around it', async () => {
+    const user = userEvent.setup();
+    let platform: ReturnType<typeof usePlatform>;
+    const title = { ko: '비교', en: 'Compare' };
+    const scopes = ['MEM', 'FDRY'].map(id => ({ id, label: id, grantedRooms: 1, totalRooms: 1 }));
+    const scopeSession = testSession(['platform:view'], { scopes });
+    function Picker() {
+      platform = usePlatform();
+      return <PanelAddMenu items={[{ id: 'bars', title, category: { id: 'compare', title } }]} chartFields={fields} onAdd={vi.fn()} />;
+    }
+    window.history.replaceState(null, '', '/bars?v=1&scopeId=MEM');
+    render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => scopeSession })}><Picker /></PlatformProvider></I18nProvider>);
+    await user.click(screen.getByRole('button', { name: '패널 추가' }));
+    const pin = screen.getByRole('checkbox', { name: '추가하면 고정' });
+    pin.focus();
+    act(() => platform.setGlobal({ scopeId: 'FDRY' }));
+    await act(() => new Promise(resolve => { setTimeout(resolve, 0); }));
+    expect(pin).toHaveFocus();
+  });
 
   it('keeps the declared-panel menu when chartFields are absent', async () => {
     await open({ chartFields: null });
