@@ -1,13 +1,22 @@
+import type { HostSeam } from '../../lib/host/host-seam';
+
 /**
  * The request-period filter (`requestedFrom` / `requestedTo`) is a real instant, not an equipment wall clock (kernel.md §6.3),
  * so it is edited in the viewer's zone and stored with its offset (#2587).
  *
- * URL value: `YYYY-MM-DDTHH:mm±HH:MM`, the viewer's local minute with the viewer's offset, so a link means the same instant for
- * every viewer and stays readable to its author. A pre-#2587 offset-less `YYYY-MM-DDTHH:mm` was a KST wall clock and keeps
- * meaning `+09:00`; arrival never rewrites it, only a new edit writes the new form.
+ * URL value: `YYYY-MM-DDTHH:mm±HH:MM`, the viewer's local minute with that minute's offset, so a link means the same instant
+ * for every viewer. A pre-#2587 offset-less `YYYY-MM-DDTHH:mm` was a KST wall clock and keeps meaning `+09:00`; arrival never
+ * rewrites it, only a new edit writes the new form.
+ *
+ * This file only reads and writes URL values. Zone math (and its DST gap/fold refusal) belongs to the host's `time.input`,
+ * built from the SDK zoned-instant helpers; without it the inputs use the list fallback's fixed `+09:00`.
  */
-const LEGACY_OFFSET = '+09:00';
-const LEGACY_OFFSET_MINUTES = 9 * 60;
+export type TimeInput = NonNullable<NonNullable<HostSeam['time']>['input']>;
+export type PeriodRefusal = Extract<ReturnType<TimeInput['fromLocal']>, { ok: false }>['reason'];
+export type PeriodEdit = { ok: true; value: string } | { ok: false; reason: PeriodRefusal };
+
+const FALLBACK_OFFSET = '+09:00';
+const FALLBACK_OFFSET_MINUTES = 9 * 60;
 const LOCAL_MINUTE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 const WITH_OFFSET = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})([+-])(\d{2}):(\d{2})$/;
 const MINUTE_MS = 60_000;
@@ -25,25 +34,24 @@ function offsetText(minutes: number): string {
   return `${sign}${String(Math.floor(abs / HOUR_MINUTES)).padStart(2, '0')}:${String(abs % HOUR_MINUTES).padStart(2, '0')}`;
 }
 
-/** `local` shifted by `offsetMinutes` must name the same calendar minute, so `02-30` or `24:30` never pass as another day. */
-function instantOf(local: string, offsetMinutes: number): number | null {
-  const wallMs = Date.parse(`${local}:00Z`);
-  if (!Number.isFinite(wallMs) || new Date(wallMs).toISOString().slice(0, MINUTE_LENGTH) !== local) return null;
-  return wallMs - offsetMinutes * MINUTE_MS;
+/** The local minute read as UTC, or null when it is not a real calendar minute (`02-30`, `24:30` never pass as another day). */
+function wallMs(local: string): number | null {
+  const ms = Date.parse(`${local}:00Z`);
+  return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, MINUTE_LENGTH) === local ? ms : null;
 }
 
 function parse(value: string): Period | null {
-  if (LOCAL_MINUTE.test(value)) {
-    const ms = instantOf(value, LEGACY_OFFSET_MINUTES);
-    return ms === null ? null : { local: value, offset: LEGACY_OFFSET, ms };
-  }
-  const match = WITH_OFFSET.exec(value);
-  if (!match) return null;
-  const [, local = '', sign, hours, minutes] = match;
+  const legacy = LOCAL_MINUTE.test(value);
+  const match = legacy ? null : WITH_OFFSET.exec(value);
+  const local = legacy ? value : match?.[1];
+  if (!local) return null;
+  const wall = wallMs(local);
+  if (wall === null) return null;
+  if (!match) return { local, offset: FALLBACK_OFFSET, ms: wall - FALLBACK_OFFSET_MINUTES * MINUTE_MS };
+  const [, , sign, hours = '', minutes = ''] = match;
   const offsetMinutes = (sign === '-' ? -1 : 1) * (Number(hours) * HOUR_MINUTES + Number(minutes));
   if (Number(minutes) >= HOUR_MINUTES || Math.abs(offsetMinutes) > MAX_OFFSET_MINUTES) return null;
-  const ms = instantOf(local, offsetMinutes);
-  return ms === null ? null : { local, offset: `${sign}${hours}:${minutes}`, ms };
+  return { local, offset: `${sign}${hours}:${minutes}`, ms: wall - offsetMinutes * MINUTE_MS };
 }
 
 /** The page-key rule: both URL forms, nothing else (no silent repair). */
@@ -57,28 +65,22 @@ export function requestPeriodInstant(value: string): string | null {
   return period ? `${period.local}:00${period.offset}` : null;
 }
 
-function localMinuteIn(ms: number, timeZone: string): string {
-  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(ms).map(p => [p.type, p.value]));
-  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
-}
-
-function zoneOffsetMinutes(ms: number, timeZone: string): number {
-  return Math.round((Date.parse(`${localMinuteIn(ms, timeZone)}:00Z`) - Math.floor(ms / MINUTE_MS) * MINUTE_MS) / MINUTE_MS);
-}
-
-/** The `datetime-local` value for a URL value: that instant in the viewer's zone; empty when absent or invalid. */
-export function requestPeriodInputValue(value: string, timeZone: string): string {
+/** The `datetime-local` value for a URL value, in the host input zone (fallback `+09:00`); empty when absent or invalid. */
+export function requestPeriodInputValue(value: string, input: TimeInput | undefined): string {
   const period = value ? parse(value) : null;
-  return period ? localMinuteIn(period.ms, timeZone) : '';
+  if (!period) return '';
+  if (!input) return new Date(period.ms + FALLBACK_OFFSET_MINUTES * MINUTE_MS).toISOString().slice(0, MINUTE_LENGTH);
+  // A zoned instant the host cannot show (an unknown zone) leaves the input empty; the filter count still shows it is set.
+  return input.toLocal(new Date(period.ms).toISOString()) ?? '';
 }
 
-/** The URL value for a `datetime-local` value typed in the viewer's zone; empty when the input is empty or incomplete. */
-export function requestPeriodFromInput(local: string, timeZone: string): string {
-  const wallMs = LOCAL_MINUTE.test(local) ? instantOf(local, 0) : null;
-  if (wallMs === null) return '';
-  // The zone offset depends on the instant itself; a second pass settles it across a DST change. A wall time inside a
-  // DST gap does not exist and resolves to the next valid local minute, which is what the value then states.
-  const first = wallMs - zoneOffsetMinutes(wallMs, timeZone) * MINUTE_MS;
-  const ms = wallMs - zoneOffsetMinutes(first, timeZone) * MINUTE_MS;
-  return `${localMinuteIn(ms, timeZone)}${offsetText(zoneOffsetMinutes(ms, timeZone))}`;
+/** The URL value for a typed local minute; empty clears the filter, a refused minute is reported and never written. */
+export function requestPeriodFromInput(local: string, input: TimeInput | undefined): PeriodEdit {
+  if (local === '') return { ok: true, value: '' };
+  const wall = LOCAL_MINUTE.test(local) ? wallMs(local) : null;
+  if (wall === null) return { ok: false, reason: LOCAL_MINUTE.test(local) ? 'calendar' : 'format' };
+  if (!input) return { ok: true, value: `${local}${FALLBACK_OFFSET}` };
+  const result = input.fromLocal(local);
+  if (!result.ok) return result;
+  return { ok: true, value: `${local}${offsetText(Math.round((wall - Date.parse(result.instant)) / MINUTE_MS))}` };
 }

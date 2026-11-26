@@ -12,8 +12,8 @@ type At = string | null | undefined;
 export function useFeatureTime() {
   const { time } = useHostSeam();
   return useMemo(() => ({
-    /** The viewer's zone for instant inputs, the same zone the host notation renders in (#2587). */
-    timeZone: time?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+    /** The host's instant-input adapter (same zone as `list`); absent without a host notation. */
+    input: time?.input,
     list: (at: At, options?: { timeZone?: string }): string => {
       if (!at) return MISSING;
       if (time) return time.list(at, options);

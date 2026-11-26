@@ -7,6 +7,7 @@ import { roundSourceView } from '../round-source-slot';
 import { actions, endpoints, isUuid, isDiagnosticSelection, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE, ISSUE_CONTRIBUTE, ISSUE_LINK } from '../endpoints';
 import { isModelHierarchyNodeId } from '../hierarchy';
 import { lifecycleMessages } from '../messages';
+import { timeInputIn } from './timeInput';
 import { Button } from '@ap/ui';
 
 // Lookup mirrors only; these are owned and implemented by log-knowledge, never contributed a second time.
@@ -109,7 +110,8 @@ export default function LifecyclePage({ params = {} }: PageProps) {
   const { page, pageParam, setPage, navigate, linkTo, can, user, revision } = platform;
   const { lang } = useI18n();
   // Instants in the viewer's zone through the Kernel notation; `list` also takes the run window's zone for the server time (#2587).
-  const time = useMemo(() => ({ list: (at: string, options?: { timeZone?: string }) => formatListTime(at, options), summary: (at: string) => formatSummaryTime(at, lang), feed: (at: string) => formatFeedTime(at, lang) }), [lang]);
+  // The request-period inputs use the same zone as `list`: the Kernel default, the runtime zone.
+  const time = useMemo(() => ({ list: (at: string, options?: { timeZone?: string }) => formatListTime(at, options), summary: (at: string) => formatSummaryTime(at, lang), feed: (at: string) => formatFeedTime(at, lang), input: timeInputIn(Intl.DateTimeFormat().resolvedOptions().timeZone) }), [lang]);
   const navigateScreen = useCallback((to: string) => {
     const url = new URL(to, 'https://host.invalid');
     const match = /^\/log\/models\/([^/]+)(?:\/rounds\/([^/]+))?$/.exec(url.pathname);

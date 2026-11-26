@@ -8,7 +8,7 @@ import { Choice, Disclosure, GateBadge, Pager, ReadView, Section, StateBadge, wr
 import { LifecycleForm } from './forms';
 import { RuleSetCell } from './RuleSetCell';
 import { pageCopy } from './messages';
-import { requestPeriodFromInput, requestPeriodInputValue, requestPeriodInstant } from './requestPeriod';
+import { requestPeriodFromInput, requestPeriodInputValue, requestPeriodInstant, type PeriodRefusal, type TimeInput } from './requestPeriod';
 
 export function QueueWindow({ api, compact = false }: Pick<ScreenProps, 'api'> & { compact?: boolean }) {
   const q = api.useRead<QueueStatus>('queueStatus', {});
@@ -67,6 +67,19 @@ export function RequestDrawer(props: ScreenProps & { requestId: string; onClose(
   if (cancel && q.data) return <LifecycleForm {...props} name="requestCancel" title="요청 취소" initial={{ id: requestId, reason: '' }} version={q.data.version} onClose={() => setCancel(false)} />;
   return <>{ui.drawer({ id: requestId, title: '검증 요청 상세', requestClose: onClose, body: <ReadView query={q}>{r => { const completed = [...r.attempts].reverse().find(a => a.outcome === 'succeeded'); return <div className="grid min-w-0 grid-cols-1 gap-5 break-keep"><div className="flex flex-wrap items-center gap-2"><StateBadge value={r.state} />{round.data ? <GateBadge decision={round.data.gateDecisions.at(-1)?.decision} /> : <span className="text-xs text-text-muted">Gate {round.status === 'loading' ? '확인 중' : '확인 불가'}</span>}</div><p className="text-sm">{r.modelCode} · SW {r.softwareLabel ?? '미지정'} · Round {r.roundSeq}</p><p className="text-xs">우선순위 {r.priority}{r.immediate ? ' · 즉시' : ''} · lease 만료 <FeatureTimestamp at={r.leaseExpiresAt} notation="summary" /></p><ResultSummary attempt={r.attempts.at(-1)} /><Attempts attempts={r.attempts} ui={ui} compact RuleSetLink={props.RuleSetLink} /><Button variant="secondary" size="toolbar" onClick={() => navigate('round', r.projectId, r.roundId, { request: r.id, ...(completed ? { attempt: completed.id } : {}) })}>Round 결과 열기</Button>{canRound && ['queued', 'claimed'].includes(r.state) ? <Button variant="secondary" size="toolbar" onClick={() => setCancel(true)}>요청 취소</Button> : <p className="text-xs text-text-muted">{r.cancelReason ? `취소 사유: ${r.cancelReason}` : '종료된 요청은 다시 실행되지 않습니다. 재실행하려면 새 요청을 등록해 주세요.'}</p>}</div>; }}</ReadView> })}</>;
 }
+/** A request-period input: a refused minute (DST gap or fold, bad date) stays in the field with its reason and is not written. */
+function PeriodInput({ id, label, value, input, onChange }: { id: string; label: string; value: string; input: TimeInput | undefined; onChange(value: string): void }) {
+  const [refused, setRefused] = useState<{ text: string; reason: PeriodRefusal } | null>(null);
+  const [shown, setShown] = useState(value);
+  // A new URL value (an edit, a reset, navigation) replaces a refused draft.
+  if (shown !== value) { setShown(value); setRefused(null); }
+  const errorId = `${id}-error`;
+  return <div className="grid gap-2"><Label htmlFor={id}>{label}</Label><Input id={id} type="datetime-local" inputSize="toolbar" value={refused?.text ?? requestPeriodInputValue(value, input)} aria-invalid={refused ? true : undefined} aria-describedby={refused ? errorId : undefined} onChange={e => {
+    const text = e.target.value;
+    const edit = requestPeriodFromInput(text, input);
+    if (edit.ok) { setRefused(null); onChange(edit.value); } else setRefused({ text, reason: edit.reason });
+  }} />{refused ? <p id={errorId} role="alert" className="text-xs text-text-danger-label">{pageCopy.periodRefused[refused.reason]}</p> : null}</div>;
+}
 export function RequestsScreen(props: ScreenProps & { fixedRound?: { id: string; seq: number }; register?: boolean }) {
   const { api, ui, canRound, selection, setSelection } = props;
   const [state, setState] = usePageValue(props, 'state', 'all');
@@ -85,8 +98,8 @@ export function RequestsScreen(props: ScreenProps & { fixedRound?: { id: string;
   }
   const [from, setFrom] = usePageValue(props, 'requestedFrom', '');
   const [to, setTo] = usePageValue(props, 'requestedTo', '');
-  // Real instants edited in the viewer's zone; an invalid value goes to the server as is so it is refused, not dropped (#2587).
-  const { timeZone } = useFeatureTime();
+  // Real instants edited in the host input zone; an invalid value goes to the server as is so it is refused, not dropped (#2587).
+  const { input } = useFeatureTime();
   const [registering, setRegistering] = useState(props.register ?? false);
   const trigger = useRef<HTMLElement>(null);
   const q = api.useRead<Page<RequestRow>>('requests', { page, pageSize: 25, ...(state === 'all' ? {} : { states: [state] }), ...(priority === 'all' ? {} : { priority: Number(priority) }), ...(modelId ? { modelId } : {}), ...(from ? { from: requestPeriodInstant(from) ?? from } : {}), ...(to ? { to: requestPeriodInstant(to) ?? to } : {}) });
@@ -96,7 +109,7 @@ export function RequestsScreen(props: ScreenProps & { fixedRound?: { id: string;
     if (props.setState) props.setState({ state: undefined, priority: undefined, modelId: undefined, requestedFrom: undefined, requestedTo: undefined, page: undefined });
     else { setState('all'); setPriority('all'); setModelId(''); setFrom(''); setTo(''); setPage(0); }
   }
-  const pageControls = <Disclosure label={pageCopy.filters([priority !== 'all', !!modelId, !!from, !!to].filter(Boolean).length)}><div className="grid min-w-0 grid-cols-1 gap-3"><Choice label="우선순위" value={priority} onChange={setPriority} options={[[ 'all', '전체' ], ['0', '0 · 낮음'], ['1', '1 · 보통'], ['2', '2 · 높음']]} /><div className="grid gap-2"><Label htmlFor="requests-model">모델 ID</Label><Input id="requests-model" inputSize="toolbar" value={modelDraft.text} onChange={e => setModelDraft({ applied: modelId, text: e.target.value })} aria-invalid={modelError || undefined} aria-describedby={modelError ? 'requests-model-error' : undefined} onBlur={commitModel} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onKeyDown={e => { if (ime.isComposingEnter(e)) return; if (e.key === 'Enter') commitModel(); }} />{modelError && <p id="requests-model-error" role="alert" className="text-xs text-text-danger-label">모델 ID는 UUID 형식이어야 합니다.</p>}</div><div className="grid gap-2"><Label htmlFor="requests-from">요청 시작</Label><Input id="requests-from" type="datetime-local" inputSize="toolbar" value={requestPeriodInputValue(from, timeZone)} onChange={e => setFrom(requestPeriodFromInput(e.target.value, timeZone))} /></div><div className="grid gap-2"><Label htmlFor="requests-to">요청 종료, 미포함</Label><Input id="requests-to" type="datetime-local" inputSize="toolbar" value={requestPeriodInputValue(to, timeZone)} onChange={e => setTo(requestPeriodFromInput(e.target.value, timeZone))} /></div></div></Disclosure>;
+  const pageControls = <Disclosure label={pageCopy.filters([priority !== 'all', !!modelId, !!from, !!to].filter(Boolean).length)}><div className="grid min-w-0 grid-cols-1 gap-3"><Choice label="우선순위" value={priority} onChange={setPriority} options={[[ 'all', '전체' ], ['0', '0 · 낮음'], ['1', '1 · 보통'], ['2', '2 · 높음']]} /><div className="grid gap-2"><Label htmlFor="requests-model">모델 ID</Label><Input id="requests-model" inputSize="toolbar" value={modelDraft.text} onChange={e => setModelDraft({ applied: modelId, text: e.target.value })} aria-invalid={modelError || undefined} aria-describedby={modelError ? 'requests-model-error' : undefined} onBlur={commitModel} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onKeyDown={e => { if (ime.isComposingEnter(e)) return; if (e.key === 'Enter') commitModel(); }} />{modelError && <p id="requests-model-error" role="alert" className="text-xs text-text-danger-label">모델 ID는 UUID 형식이어야 합니다.</p>}</div><PeriodInput id="requests-from" label="요청 시작" value={from} input={input} onChange={setFrom} /><PeriodInput id="requests-to" label="요청 종료, 미포함" value={to} input={input} onChange={setTo} /></div></Disclosure>;
   return ui.page({ title: pageCopy.requests, actionReturnFocusRef: trigger, primaryAction: canRound ? { label: pageCopy.register, onSelect: () => setRegistering(true) } : undefined, trust: { reasons: [], completedAt: q.completedAt }, children: <div className="grid min-w-0 grid-cols-1 gap-2 break-keep" data-testid="log-validation-requests">
     <div className="flex min-w-0 flex-wrap items-center justify-between gap-2"><div className="flex flex-wrap gap-2" role="group" aria-label="요청 상태">{['all', 'queued', 'claimed', 'succeeded', 'failed', 'expired', 'cancelled'].map(s => <Button key={s} variant={state === s ? 'secondary' : 'ghost'} size="toolbar" aria-pressed={state === s} onClick={() => setState(s)}>{STATE_LABEL[s] ?? '전체'}</Button>)}</div><QueueWindow api={api} compact /></div>
     <ReadView query={q}>{data => data.rows.length === 0 ? <div className="grid min-w-0 grid-cols-1 gap-2"><p role="status" className="text-sm text-text-secondary">{filtered ? '조건에 맞는 검증 요청이 없습니다. 필터를 변경하거나 해제해 주세요.' : '검증 요청이 없습니다. Round를 열고 요청을 등록해 주세요.'}</p>{filtered ? <Button variant="secondary" size="toolbar" onClick={clearFilters}>필터 해제</Button> : null}</div> : null}</ReadView>

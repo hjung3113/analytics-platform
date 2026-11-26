@@ -78,8 +78,16 @@ export type HostSeam = HostPermissionLinks & {
   lang?: 'ko' | 'en';
   /** Kernel instant notation (kernel.md §6.3). `list` takes a zone for a value shown beside a wall-clock setting in that zone (#2587). */
   time?: {
-    /** The IANA zone list/summary/feed render in and the zone a screen's instant inputs use; absent = the runtime's zone. */
-    timeZone?: string;
+    /**
+     * Instant inputs (`datetime-local`, `YYYY-MM-DDTHH:mm`) in the zone `list` renders in; the host builds it from the SDK
+     * zoned-instant helpers, which refuse a DST gap or fold instead of moving or guessing (components §15, #2587).
+     * Absent = the screen falls back to the list fallback's fixed +09:00.
+     */
+    input?: {
+      /** The local minute of a zoned instant, or null when it cannot be shown. */
+      toLocal(instant: string): string | null;
+      fromLocal(local: string): { ok: true; instant: string } | { ok: false; reason: 'format' | 'calendar' | 'gap' | 'fold' | 'zone' };
+    };
     list(at: string, options?: { timeZone?: string }): string;
     summary(at: string): string;
     feed(at: string): { text: string; title?: string };
