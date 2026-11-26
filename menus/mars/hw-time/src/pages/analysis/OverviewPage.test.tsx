@@ -20,7 +20,10 @@ describe('HW Time optional panels and projections', () => {
     expect(controls.closest('details')!.open).toBe(true);
     expect(within(scatter).getByRole('combobox', { name: '가로축' })).toBeTruthy();
     expect(within(scatter).getByText('표본 2 / 전체 576 · 기준 밖 점 전부 포함')).toBeTruthy();
-    expect(within(await screen.findByTestId('hw-overview-trend')).queryByRole('combobox', { name: '가로축' })).toBeNull();
+    const trend = within(await screen.findByTestId('hw-overview-trend'));
+    expect(trend.queryByRole('combobox', { name: '가로축' })).toBeNull();
+    expect(trend.getByRole('grid')).toBeTruthy();
+    fireEvent.click(trend.getByRole('radio', { name: '겹쳐 보기' }));
     expect(chart('hw-overview-runs-scatter').density).toBe('quiet');
     expect(screen.queryByTestId('hw-overview-runs-trend')).toBeNull();
     expect(within(screen.getByTestId('hw-overview-trend')).getByText('일 평균 추세는 2일 이상 기간에서 보임')).toBeTruthy();
@@ -75,8 +78,8 @@ describe('HW Time optional panels and projections', () => {
     fireEvent.click(within(dialog).getByRole('checkbox', { name: 'MEM-PHOTO-0103' }));
     fireEvent.click(within(dialog).getByRole('button', { name: '적용' }));
     await waitFor(() => expect(within(scatter).getByText('표시할 회차 1개 · 일별 평균 1개')).toBeTruthy());
-    fireEvent.click(within(trend).getByText('패널 표시 설정'));
-    expect(within(trend).getByText('표시할 회차 2개 · 일별 평균 2개')).toBeTruthy();
+    fireEvent.click(within(trend).getByRole('button', { name: '패널 표시 설정' }));
+    expect(within(screen.getByRole('dialog', { name: '패널 표시 설정' })).getByText('표시할 회차 2개 · 일별 평균 2개')).toBeTruthy();
     expect(requests).toHaveLength(before); expect(window.location.search).toBe(url);
   });
 });

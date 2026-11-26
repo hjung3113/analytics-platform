@@ -7,6 +7,9 @@ const SCREEN = '/mars/hw-time?v=1&scopeId=MEM';
 const TWO_DAYS = '&from=2026-09-24T00:00:00&to=2026-09-26T00:00:00';
 const workspace = (page: Page) => page.getByRole('region', { name: 'HW Time 분석 영역', exact: true });
 const panel = (page: Page, id: string) => workspace(page).locator(`[data-dock-panel="${id}"]`);
+// #2740 ②: «HTM 추세» opens in «나눠 보기» (one shared-axis tile per equipment); the overlaid chart is «겹쳐 보기».
+const trendGrid = (page: Page) => panel(page, 'trend').getByRole('grid');
+const showOverlay = (page: Page) => panel(page, 'trend').getByRole('radio', { name: '겹쳐 보기', exact: true }).click();
 const chartMore = (page: Page, id: string) => {
   const head = workspace(page).locator(`[data-dock-group-actions][data-dock-active="${id}"]`);
   return head.or(panel(page, id)).getByRole('button', { name: '더보기', exact: true });
@@ -250,6 +253,7 @@ test.describe('분석 선택 메뉴 간 링크 (#2735)', () => {
   test('carries the trend range to CLAS, returns with it, and clears the received range', async ({ page }, testInfo) => {
     await signInAs(page, 'engineer');
     await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Pump&drillModule=PM1&pins=moduleMotions`);
+    await showOverlay(page);
     const trend = panel(page, 'trend').getByRole('region', { name: '추세', exact: true });
     await expect(trend.getByRole('img', { name: /^추세:/ })).toBeVisible();
     await trend.getByRole('button', { name: '구간 선택', exact: true }).press('Enter');
@@ -381,7 +385,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
       await expect(panel(page, 'current').getByRole('group', { name: '범례', exact: true })).toHaveCount(0);
       await drill(page, 'PM/Pump/PM2');
       await expect.poll(() => query(page).get('drillModule')).toBe('PM2');
-      await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+      await expect(trendGrid(page)).toBeVisible();
       await expect(panel(page, 'scatter')).toHaveCount(0);
       await expect(panel(page, 'current')).toContainText('PM2');
       await expect(panel(page, 'current')).toContainText('Pump');
@@ -389,7 +393,7 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
       await evidence(page, testInfo, `hw-stepped-${viewport.width}`);
       await page.reload();
       await expect(node(page, 'PM/Pump/PM2')).toHaveAttribute('aria-current', 'true');
-      await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+      await expect(trendGrid(page)).toBeVisible();
       await expect.poll(() => page.locator('main').evaluate(main => main.scrollWidth - main.clientWidth)).toBeLessThanOrEqual(1);
     });
   }
@@ -433,6 +437,8 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
 
   test('add list gives disabled reasons, and tree checks persist without new reads', async ({ page }) => {
     await page.goto(`${SCREEN}${TWO_DAYS}&moduleType=PM&drillMotion=Chuck&drillModule=PM1`);
+    await expect(trendGrid(page)).toBeVisible();
+    await showOverlay(page);
     await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
     await expect(panel(page, 'trend').getByRole('img', { name: /^일별 HTM 판정 건수:/ })).toBeVisible();
     await expect(panel(page, 'trend')).not.toContainText('HTM 하한: · HTM 상한:');
@@ -476,10 +482,10 @@ test.describe('HW Time stepped workspace — drill, options, add and pin', () =>
     });
     await page.goto('/board?sheet=hw-legacy');
     await expect(panel(page, 'tree')).toBeVisible();
-    await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+    await expect(trendGrid(page)).toBeVisible();
     expect(new URL(page.url()).pathname).toBe('/board');
     await page.reload();
-    await expect(panel(page, 'trend').getByRole('img', { name: /^추세:/ })).toBeVisible();
+    await expect(trendGrid(page)).toBeVisible();
     const saved = await page.evaluate(() => localStorage.getItem('platform:board:v2:engineer') ?? '');
     expect(saved).toContain('"menuId":"hw-time"');
     expect(saved).not.toContain('hw-time-steps');
