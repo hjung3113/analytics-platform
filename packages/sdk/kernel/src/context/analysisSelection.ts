@@ -94,15 +94,19 @@ function chartInstanceOutput(graph: ReturnType<typeof analysisSelectionDependenc
   if (graph.chartChannels?.get(key)?.writers[0].panelId === instanceId) return key;
 }
 
-/** Host chart metadata for a registered instance output. */
-export function useChartInstanceSelectionOutput(key: string | undefined, instanceId: string | undefined): { shape: AnalysisSelectionShape; dimension: string } | undefined {
+/** Host chart metadata for a registered instance output; null when the chart instance's output was rejected. */
+export function useChartInstanceSelectionOutput(key: string | undefined, instanceId: string | undefined): { key: string; shape: AnalysisSelectionShape; dimension: string } | null | undefined {
   const configured = use(AnalysisSelectionInstancesContext);
   const platform = usePlatformOptional();
   const screen = useWriteScreen(platform?.route ?? null);
   if (use(LentPanelPlatformContext) !== null || !configured || configured.store !== screen?.analysisSelectionAvailability
     || key === undefined || instanceId === undefined) return;
   const outputKey = chartInstanceOutput(configured.graph, key, instanceId);
-  return outputKey === undefined ? undefined : configured.graph.chartChannels?.get(outputKey)?.writers[0].selection;
+  if (outputKey !== undefined) {
+    const selection = configured.graph.chartChannels?.get(outputKey)?.writers[0].selection;
+    return selection && { key: outputKey, shape: selection.shape, dimension: selection.dimension };
+  }
+  return configured.chartIds.has(instanceId) ? null : undefined;
 }
 
 function useSelectionDependencies(channels: ReturnType<typeof menuAnalysisSelections>, screen: ReturnType<typeof useWriteScreen>, menu: MenuEntry | undefined) {
@@ -142,11 +146,12 @@ function useSelectionHighlight(screen: ReturnType<typeof useWriteScreen>, addres
   }, noHighlight);
 }
 
-/** Whether this panel is the first declared writer for the current chip interaction. */
+/** Whether this panel is the first writer for the current chip interaction. */
 export function useAnalysisSelectionSourceHighlighted(panelId: string) {
   const platform = usePlatformOptional();
   const screen = useWriteScreen(platform?.route ?? null);
-  const channels = useChannels(platform?.route?.menu, platform?.registry);
+  const declared = useChannels(platform?.route?.menu, platform?.registry);
+  const { channels } = useSelectionDependencies(declared, screen, platform?.route?.menu);
   const address = screen ? drillAddress(screen.route?.menu, screen.pageParam) : '';
   return useSelectionHighlight(screen, address, key => {
     const channel = channels.get(key);

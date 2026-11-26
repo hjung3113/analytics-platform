@@ -186,7 +186,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const chartChannels = useSyncExternalStore(analysisSelectionAvailability.subscribe, readChartChannels, noChartChannels);
   const chartKeys = useMemo(() => routeMenu && chartChannels ? {
     all: [...routeMenu.pageKeys, ...chartChannels.keys()],
-    repeated: [...routeMenu.repeatedPageKeys ?? [], ...[...chartChannels].filter(([, channel]) => channel.shape === 'set').map(([key]) => key)],
+    // Runtime instance keys are user-made: parse all of them as repeated so a duplicate range key is rejected by parseAnalysisSelection rather than triggering a ContractError unmount loop.
+    repeated: [...routeMenu.repeatedPageKeys ?? [], ...chartChannels.keys()],
     contextResetKeys: [...routeMenu.contextResetKeys ?? [], ...chartChannels.keys()],
   } : undefined, [routeMenu, chartChannels]);
   const { parsed, contractError } = useMemo(() => chartKeys && declared.parsed?.extras.some(([key]) => chartChannels?.has(key))
@@ -266,15 +267,15 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   const previousCharts = useRef({ chartChannels, analysisSelectionAvailability, appliedUrl });
   useLayoutEffect(() => {
     const previous = previousCharts.current;
-    previousCharts.current = { chartChannels, analysisSelectionAvailability, appliedUrl };
+    const sameAddress = previous.analysisSelectionAvailability === analysisSelectionAvailability && previous.appliedUrl === appliedUrl;
+    previousCharts.current = { chartChannels: sameAddress ? chartChannels : readChartChannels(), analysisSelectionAvailability, appliedUrl };
     // A new address owns its own values. Clean up a registration removed from the address that is still open.
-    if (!previous.chartChannels || previous.analysisSelectionAvailability !== analysisSelectionAvailability
-      || previous.appliedUrl !== appliedUrl || source.countsUsage === false) return;
+    if (!sameAddress || !previous.chartChannels || source.countsUsage === false) return;
     const current = readSameScreen();
     if (!current || stripDetailExpansion(fullAddress(current)) !== appliedUrl || !parsed) return;
     const kept = extras.filter(([key]) => !previous.chartChannels?.has(key) || chartChannels?.has(key));
     if (kept.length !== extras.length) write(pathname + buildQuery(global, rawPage, kept), { replace: true });
-  }, [chartChannels, analysisSelectionAvailability, appliedUrl, source.countsUsage, readSameScreen, parsed, extras, pathname, global, rawPage, write]);
+  }, [chartChannels, analysisSelectionAvailability, appliedUrl, source.countsUsage, readSameScreen, readChartChannels, parsed, extras, pathname, global, rawPage, write]);
 
   const setGlobal = useCallback((patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => {
     const current = readWriteBase();

@@ -1,13 +1,16 @@
-import { act, cleanup, render, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { CHART_PANEL_OUTPUT_KEY, createChartPanel, groupId, spaceId, type MenuMeta, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
+import { CHART_PANEL_OUTPUT_KEY, createChartPanel, EQUIPMENT_SELECTION_DIMENSION, groupId, parseDateTime, spaceId, type MenuMeta, type MenuViewPanels, type PanelInstance } from '@ap/contracts';
 import { AnalysisSelectionInstances, createRegistry, I18nProvider, PlatformProvider, useAnalysisSelectionChips, useAnalysisSelectionInputs, useSavedViewPanels, useSavedViewSupport } from '@ap/kernel';
 import { useSavedViews } from '@ap/kernel/host';
-import { createFakeSavedViewStore, noContext, testAdapter, testSpace } from '@ap/kernel/testing';
+import { createFakeSavedViewStore, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
+import { AnalysisSelectionChipZone } from '../../filters/AnalysisSelectionChipZone';
 import { usePageKeyRules } from '../../table/tableUrlWarning';
 import { AnalysisChartFrame } from '../AnalysisChartFrame';
+import { NextAnalysisBridge } from '../NextAnalysisBridge';
 import type { EChartProps } from '../EChart';
 
 const plots = new Map<string, EChartProps>();
@@ -154,4 +157,64 @@ it('withdraws the removed channel and its value while keeping the other selectio
   expect(chips.map(chip => chip.key)).toEqual([secondKey]);
   expect([...search().entries()]).toEqual(expect.arrayContaining([[secondKey, 'b'], ['extra', 'keep']]));
   expect(search().has(firstKey)).toBe(false);
+});
+
+it('keeps local range selection working when a chart instance output is rejected', async () => {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  const from = '2026-09-01T00:00:00';
+  const mid = '2026-09-01T01:00:00';
+  const to = '2026-09-01T02:00:00';
+  const bad = bar('bad/id', 'equipment');
+  const timeSeries = [{ id: 'a', name: 'A', color: 'chart-blue' as const, kind: 'bar' as const, points: [[from, 1], [mid, 2], [to, 3]] as [string, number][] }];
+  const allowedSession = testSession(['platform:view', 'analytics:view']);
+  const allowedAdapter = testAdapter({ session: () => allowedSession });
+  window.history.replaceState(null, '', `/?v=1&scopeId=MEM&from=${from}&to=${to}`);
+  render(<I18nProvider><PlatformProvider adapter={allowedAdapter} registry={registry()} savedViews={store()}>
+    <AnalysisSelectionInstances instances={[bad]}>
+      <AnalysisChartFrame chartId={bad.id} title={bad.id} series={timeSeries} unit="s" nextAnalysis
+        analysisSelectionOutput={{ panelId: bad.id, instanceId: bad.id, key: CHART_PANEL_OUTPUT_KEY }} />
+    </AnalysisSelectionInstances>
+  </PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(plots.size).toBe(1));
+  act(() => plots.get(`${bad.id}: A`)!.onEvents!.brushEnd!({
+    areas: [{ coordRange: [parseDateTime(mid, 'from').getTime(), parseDateTime(to, 'to').getTime()] }],
+  }, { dispatchAction: () => {} } as never));
+  expect(within(screen.getByRole('region', { name: '선택 요약' })).getByText(/선택 구간:/)).toBeTruthy();
+  const nextGroup = screen.getByRole('group', { name: '다음 분석' });
+  fireEvent.click(within(nextGroup).getByRole('button', { name: '조건으로' }));
+  fireEvent.click(within(screen.getByRole('group', { name: '구간 적용 확인' })).getByRole('button', { name: '적용' }));
+  expect(search().get('from')).toBe(mid);
+  expect(search().has(`${bad.id}.selection`)).toBe(false);
+  expect(warn).toHaveBeenCalledWith(expect.stringContaining(`${bad.id}.selection`));
+});
+
+it('publishes accepted chart instance next-analysis actions under the namespaced key for the chip menu', async () => {
+  const allowedSession = testSession(['platform:view', 'analytics:view']);
+  const allowedAdapter = testAdapter({ session: () => allowedSession });
+  const equipFields = {
+    measures: fields.measures,
+    breakdowns: [{ id: EQUIPMENT_SELECTION_DIMENSION, label, dimension: EQUIPMENT_SELECTION_DIMENSION }],
+  };
+  const equipResult = createChartPanel(equipFields, { kind: 'bar', measure: 'count', breakdown: EQUIPMENT_SELECTION_DIMENSION }, 'chart-1', () => true);
+  if (equipResult.status !== 'ok') throw new Error(equipResult.problem.code);
+  const equipBar = equipResult.instance;
+  window.history.replaceState(null, '', '/?v=1&scopeId=MEM');
+  render(<I18nProvider><PlatformProvider adapter={allowedAdapter} registry={registry({ chartFields: equipFields })} savedViews={store()}>
+    <NextAnalysisBridge>
+      <AnalysisSelectionChipZone />
+      <AnalysisSelectionInstances instances={[equipBar]}>
+        <AnalysisChartFrame chartId={equipBar.id} title={equipBar.id} series={series} unit="" xType="category" orientation="horizontal" nextAnalysis
+          analysisSelectionOutput={{ panelId: equipBar.id, instanceId: equipBar.id, key: CHART_PANEL_OUTPUT_KEY }} />
+      </AnalysisSelectionInstances>
+    </NextAnalysisBridge>
+  </PlatformProvider></I18nProvider>);
+  await waitFor(() => expect(plots.size).toBe(1));
+  pick(equipBar.id, 'a');
+  const user = userEvent.setup();
+  const actionTrigger = document.querySelector(`[data-analysis-chip-action="${firstKey}"]`) as HTMLElement;
+  expect(actionTrigger).toBeTruthy();
+  await user.click(actionTrigger);
+  const applyItem = await screen.findByRole('menuitem', { name: '조건으로' });
+  await user.click(applyItem);
+  expect(search().getAll('selectedEquipmentIds')).toEqual(['a']);
 });
