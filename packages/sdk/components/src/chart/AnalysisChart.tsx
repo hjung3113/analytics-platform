@@ -572,7 +572,7 @@ export function AnalysisChart(p: AnalysisChartProps) {
     </AnalysisChartPart>
     <ChartCollapseBody enabled={spec.kind === 'topNBar'} bodyRef={collapsibleBody} id={bodyId} expanded={expanded}>
     <AnalysisChartPart enabled={section !== null} body bounded={chrome === 'standard' && size === 'fill'}>
-      <ChartLegendLayout enabled={chrome === 'standard'} fill={size === 'fill' && !fittedDonut} placement={p.legendPlacement} legend={standardLegend} caption={p.legendCaption}>
+      <ChartLegendLayout enabled={chrome === 'standard'} fill={size === 'fill' && !fittedDonut} fitted={fittedDonut} placement={p.legendPlacement} legend={standardLegend} caption={p.legendCaption}>
       {!expanded ? null : empty ? <p className="px-4 py-3 text-text-secondary">{p.emptyText ?? m('chartNoData')}</p> : <div ref={fill.ref} role={canDrill ? 'group' : rowFloor ? 'region' : undefined}
         aria-label={canDrill ? m('chartPointsGroup') : undefined} aria-labelledby={rowFloor && !canDrill ? titleId : undefined}
         tabIndex={rowFloor || canDrill ? 0 : undefined} onKeyDown={canDrill ? event => {
