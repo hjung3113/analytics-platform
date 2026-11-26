@@ -37,14 +37,26 @@ describe('DockLayout panel content failure', () => {
 
   it('retries only that panel', async () => {
     mountDock({ layout: row([50, 50], group(['a']), group(['b'])), ids: ['a', 'b'], inner });
-    await panelAlert();
+    const found = await panelAlert();
+    // #3129 diagnosis: under load the alert can be in the DOM while its subtree is still inaccessible. Name the ancestor that hides it.
+    if (!within(found).queryByRole('button')) {
+      const chain: string[] = [];
+      for (let node: HTMLElement | null = found; node; node = node.parentElement) {
+        const style = node.ownerDocument.defaultView?.getComputedStyle(node);
+        const marks = [node.getAttribute('aria-hidden') === 'true' && 'aria-hidden', node.hasAttribute('inert') && 'inert', node.hidden && 'hidden',
+          style?.display === 'none' && `display:none(${node.getAttribute('style') ?? ''})`, style?.visibility === 'hidden' && 'visibility:hidden'].filter(Boolean);
+        if (marks.length) chain.push(`${node.tagName.toLowerCase()}${node.className ? `.${String(node.className).split(' ').slice(0, 3).join('.')}` : ''}[${Object.values(node.dataset).length ? Object.keys(node.dataset).join(',') : ''}] ${marks.join(' ')}`);
+      }
+      console.warn(`DIAG3129 connected=${found.isConnected} hiddenBy=${chain.join(' < ') || 'none'}`);
+    }
     broken = false;
-    // Query the alert again in the same task as the click (#3129): the engine's queued layout notifications can replace the panel's
-    // content between the wait resolving and this line, so an alert held across the await may already be detached and its click lost.
-    const alert = document.querySelector<HTMLElement>('[data-dock-panel="a"] [role="alert"]');
-    expect(alert?.isConnected).toBe(true);
-    fireEvent.click(within(alert!).getByRole('button'));
-    // The retried content renders in the click's act; the wait only absorbs scheduling under load, as the first render's wait does.
+    // Click the retry only once a user could reach it (#3129): wait for the accessible button, then click it in the same task as the query.
+    const retry = await waitFor(() => {
+      const alert = document.querySelector<HTMLElement>('[data-dock-panel="a"] [role="alert"]');
+      if (!alert) throw new Error('no panel alert');
+      return within(alert).getByRole('button', { name: '다시 시도' });
+    }, { timeout: 30000 });
+    fireEvent.click(retry);
     await waitFor(() => expect(screen.getByTestId('content-a')).toBeInTheDocument(), { timeout: 30000 });
     expect(document.querySelector('[data-dock-panel="a"] [role="alert"]')).toBeNull();
     expect(screen.getByTestId('content-b')).toBeInTheDocument();
