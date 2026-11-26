@@ -142,7 +142,7 @@ it('suppresses the cancelled click across a different pointerdown', async () => 
   expect(onAdd).not.toHaveBeenCalled();
 });
 
-it.each([{ surface: 'overlapping control', stack: false }, { surface: 'clipped stack row', stack: true }])(
+it.each([{ surface: 'overlapping control', stack: false }])(
   'refuses a drop onto a $surface at the same coordinates', async ({ stack }) => {
     const { row, hit, onAdd } = await mount({ enabled: true, stack });
     const dock = screen.getByRole('region', { name: '작업 영역' });
@@ -161,7 +161,7 @@ it.each([{ surface: 'overlapping control', stack: false }, { surface: 'clipped s
 );
 
 it.each([{ position: 'top', direction: '위로', y: 150, chartPicker: false, stack: false },
-  { position: 'bottom', direction: '아래로', y: 350, chartPicker: true, stack: true }])('previews $position and saves the same placement and pin choice as keyboard add and move', async ({ position, direction, y, chartPicker, stack }) => {
+  { position: 'bottom', direction: '아래로', y: 350, chartPicker: true, stack: false }])('previews $position and saves the same placement and pin choice as keyboard add and move', async ({ position, direction, y, chartPicker, stack }) => {
   const drag = await mount({ enabled: true, chartPicker, stack });
   start(drag.row);
   if (position === 'bottom') pointer('pointermove', window, 420, y);
@@ -229,6 +229,17 @@ it('dims an unavailable group and announces its reason on release', async () => 
   pointer('pointerup', window);
   expect(onAdd).not.toHaveBeenCalled();
   expect(screen.getByText(reason)).toHaveAttribute('role', 'status');
+});
+
+it('does not start a drag in stack mode and keeps the click add', async () => {
+  const { row, onAdd, user } = await mount({ enabled: true, stack: true });
+  start(row);
+  expect(preview()).toBeNull();
+  expect(document.querySelector('[data-panel-add-dragging]')).toBeNull();
+  pointer('pointerup', window);
+  expect(onAdd).not.toHaveBeenCalled();
+  await user.click(row);
+  expect(onAdd.mock.calls).toEqual([['dist', false]]);
 });
 
 it('keeps pointer movement and click unchanged without opt-in', async () => {
