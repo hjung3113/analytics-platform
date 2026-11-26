@@ -31,9 +31,8 @@ const SINGLE_FILL: AutoFill = { kind: 'single' };
 export type WorkspaceState = { v: 1; preset: string; layout: DockNode; hidden: string[]; mode?: 'stack'; rows?: number[]; preferredSeen?: Record<string, number>; collapsed?: Record<string, PanelEdge>; floating?: DockFloatingPanel[]; sharedRowSizes?: SharedRowSize[]; [AUTO_FILL]?: AutoFill; [LEGACY_FIT_SHARES]?: LegacyFitShare[] };
 export type WorkspacePreset = { id: string; layout: PanelWorkspaceLayout };
 
-/** The workspace key segment is static. Panel slots also admit encoded instance IDs. */
+/** Static identifiers only: nothing from data can reach a storage key. */
 export const WORKSPACE_ID = /^[a-z][a-z0-9._-]{0,63}$/;
-export const WORKSPACE_PANEL_ID = /^[a-z][a-z0-9._-]{0,1023}$/;
 
 /** Ratios -> shares of 100; anything unusable is left for `normalizeDockTree` (equal shares). */
 function toShares(layout: unknown): unknown {
@@ -83,7 +82,7 @@ function withPreferredSeen(state: WorkspaceState, spec: WorkspaceSpec, previous?
   const seen = new Map<string, number>();
   if (isRecord(previous)) {
     for (const [id, px] of Object.entries(previous)) {
-      if (WORKSPACE_PANEL_ID.test(id) && validPreferred(px)) seen.set(id, px);
+      if (WORKSPACE_ID.test(id) && validPreferred(px)) seen.set(id, px);
     }
   }
   for (const id of spec.panelIds) {
@@ -131,14 +130,8 @@ export type RowEnv = { minimum: RowMinimum; maximum: number; baseline: number; o
 export const hasAutomaticRows = (state: WorkspaceState): boolean => state[AUTO_FILL] !== undefined;
 
 /** Auto-fill provenance is local to this mount, and its measured heights are omitted from the saved state. */
-export function workspacePreference(state: WorkspaceState, currentPanels?: readonly string[]): WorkspaceState {
-  const preference = hasAutomaticRows(state) ? withRows(state, 'stack') : state;
-  if (!currentPanels || !preference.preferredSeen) return preference;
-  const { preferredSeen, ...rest } = preference;
-  const known = new Set(currentPanels);
-  const retained = Object.entries(preferredSeen).filter(([id]) => known.has(id));
-  if (retained.length === Object.keys(preferredSeen).length) return preference;
-  return retained.length ? { ...rest, preferredSeen: Object.fromEntries(retained) } : rest;
+export function workspacePreference(state: WorkspaceState): WorkspaceState {
+  return hasAutomaticRows(state) ? withRows(state, 'stack') : state;
 }
 
 /**

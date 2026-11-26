@@ -232,15 +232,6 @@ function canonicalPanelSlot(instance: PanelInstance): string | undefined {
   if (instance.id === panel && CATALOG_IDS.some(id => id === panel)) return panel;
 }
 
-function restoredPanelSlot(instance: PanelInstance): string {
-  const canonical = canonicalPanelSlot(instance);
-  if (canonical !== undefined) return canonical;
-  // This prefix is reserved for restored instances. Escape each other UTF-16 code unit so the opaque id is
-  // recoverable without case folding, truncation or a hash collision and fits the workspace's slot syntax.
-  const encoded = instance.id.replace(/[^a-z0-9_-]/g, unit => `.${unit.charCodeAt(0).toString(16).padStart(4, '0')}`);
-  return `saved-instance-${encoded}`;
-}
-
 /**
  * The configuration for this render. Another user or Scope clears local additions. Opening a view can change the step and query Context in the
  * same navigation, so an open carries across that change. Connection edits stay within their owner.
@@ -271,7 +262,7 @@ function useWorkspacePanels(owner: string, query: string, step: Step, publisherF
   };
   const overflows = (plan: ReturnType<typeof planAdd>) => plan.overflows
     || (plan.config !== null && exceedsPanelLimit(project(plan.config, { acrossSteps: plan.config.connectionsEdited })));
-  const selectedViewId = useSavedViewPanels({
+  useSavedViewPanels({
     value: config.kind === 'custom' ? project(config) : null,
     onOpen: outcome => {
       let next: PanelConfiguration;
@@ -281,10 +272,10 @@ function useWorkspacePanels(owner: string, query: string, step: Step, publisherF
         default: {
           const added: AddedPanel[] = [];
           const sources: PanelInstance[] = [];
-          for (const instance of outcome.instances) {
+          outcome.instances.forEach((instance, index) => {
             if (isHeldSource(instance)) sources.push(instance);
-            else added.push({ slot: restoredPanelSlot(instance), instance });
-          }
+            else added.push({ slot: canonicalPanelSlot(instance) ?? `saved-panel-${index}`, instance });
+          });
           next = { kind: 'custom', added, sources };
         }
       }
@@ -312,7 +303,7 @@ function useWorkspacePanels(owner: string, query: string, step: Step, publisherF
     return { ...current, config: { ...current.config, added, sources: current.config.sources.map(disconnect) } };
   });
   const editConnections = (config: CustomPanels) => setState(current => ({ ...current, config: { ...config, connectionsEdited: true } }));
-  return { config, selectedViewId, add, remove, follow, editConnections, project, additionOverflows: (id: string) => overflows(planAdd(config, id, step)) };
+  return { config, add, remove, follow, editConnections, project, additionOverflows: (id: string) => overflows(planAdd(config, id, step)) };
 }
 
 export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
@@ -352,9 +343,6 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     setPage({ pins: rest.length > 0 ? rest : null }, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `stalePinsKey` is the value identity of `rawPins`/`stalePins`
   }, [stalePinsKey, setPage]);
-  const config = savedPanels.config;
-  const hasAliases = config.kind === 'custom' && config.added.some(({ instance }) => canonicalPanelSlot(instance) === undefined);
-  const persistenceScope = hasAliases ? JSON.stringify([context.scopeId, savedPanels.selectedViewId]) : undefined;
   const selectionInputs = useAnalysisSelectionInputs(panelDeclarations.table.id);
   const selectionRejected = selectionInputs.rejected.includes(MOTION_EQUIPMENT_KEY);
   const keys = useHwTimeDrillRules([...state.rules, ...pinRules,
@@ -378,7 +366,7 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const required = step <= 2 ? HW_TIME_MODULE_TYPES.map(type => type.id) : [typeId!];
   return <AnalysisSelectionInstances instances={publisher.instances} publishers={publisher.owners}>
     <DrillLayout fill>
-      <MatrixSources required={required}>{queries => <WorkspacePanels key={JSON.stringify([population, persistenceScope])} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins, savedPanels, catalog, publisher, persistenceScope }} values={state.values} onChange={state.setValue}
+      <MatrixSources required={required}>{queries => <WorkspacePanels key={population} {...{ step, queries, filter, typeId, motionId, moduleId, options, trend, pins, savedPanels, catalog, publisher }} values={state.values} onChange={state.setValue}
         onDrill={id => {
           const [type, motion, module] = id.split('/');
           const sameMotion = !!motion && type === typeId && motion === motionId;
@@ -561,7 +549,6 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   step: Step; trend: string | null; pins: ReturnType<typeof usePinnedPanels>; onDrill: (id: string) => void;
   catalog: ReturnType<typeof panelCatalog>; publisher: ReturnType<typeof selectionPublisher>;
   savedPanels: ReturnType<typeof useWorkspacePanels>;
-  persistenceScope?: string;
 }) {
   const { step, queries, filter, typeId, motionId, moduleId, trend, pins, onDrill, savedPanels, catalog, publisher } = props;
   const common = useMessages(HW_TIME_MESSAGES);
@@ -891,6 +878,6 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         const panelId = draft.source.split('/')[1]!;
         return addPanel(panelId, pins.isPinned(panelId), { restoreHidden: true }, draft.mode === 'hold' ? { mode: 'hold', held: draft.inputs, from: selectionHost } : { mode: 'follow' });
       } }}
-      persistKey={`hw-time-s${step}-v1`} persistenceScope={props.persistenceScope} label={HW_TIME_WORKSPACE_MESSAGES.workspace} />
+      persistKey={`hw-time-s${step}-v1`} label={HW_TIME_WORKSPACE_MESSAGES.workspace} />
   </div>;
 }

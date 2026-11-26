@@ -191,7 +191,7 @@ function useSavedViewController(
   const userId = host.user.id;
   const slots = useMemo(() => app?.internal.savedViewSlots.screen(JSON.stringify([menuId, host.global.scopeId])), [app?.internal.savedViewSlots, menuId, host.global.scopeId]);
   const slotRevision = useSyncExternalStore(slots?.subscribe ?? NOOP_SUBSCRIBE, slots?.snapshot ?? ZERO_SNAPSHOT);
-  const panelSlots = useMainScreenPanelSlots(mode === 'inactive' ? null : host);
+  const panelSlots = useMainScreenPanelSlots(host);
   const panelRevision = useSyncExternalStore(panelSlots?.subscribe ?? NOOP_SUBSCRIBE, panelSlots?.snapshot ?? ZERO_SNAPSHOT);
   const support = useSyncExternalStore(registry?.subscribe ?? NOOP_SUBSCRIBE, () => (mode === 'inactive' ? undefined : resolveSavedViewSupport(menu, registry)));
   const enabled = mode !== 'inactive' && store !== undefined && menu?.features.savedView === true && support !== undefined;
@@ -207,7 +207,6 @@ function useSavedViewController(
   useEffect(() => () => {
     slots?.select(null);
     panelSlots?.select(null);
-    panelSlots?.selectMenuView(null);
   }, [slots, panelSlots, gen]);
   // The entry of a screen is not a security read: a revalidation (new `gen`) keeps a selection that is still allowed, only a real arrival re-judges it against the address.
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the inputs are triggers only
@@ -217,11 +216,9 @@ function useSavedViewController(
   const [selection, setSelection] = useState(() => ({ key, id: key === null ? null : readSelected(key) }));
   if (selection.key !== key) setSelection({ key, id: key === null ? null : readSelected(key) });
   const selectedId = selection.key === key ? selection.id : null;
-  const setSelected = useCallback((view: SavedViewEntry['view'] | null) => {
-    const id = view?.id ?? null;
+  const setSelected = useCallback((id: string | null) => {
     slots?.select(id);
     panelSlots?.select(id);
-    panelSlots?.selectMenuView(view?.kind === 'menu-view' ? view.id : null);
     if (key !== null) writeSelected(key, id);
     setSelection({ key, id });
   }, [key, slots, panelSlots]);
@@ -378,7 +375,7 @@ function useSavedViewController(
     if (arrival.gen !== gen || arrival.mine !== intent.current || !alive.current) return;
     if (host.pathname + buildQuery(host.global, host.page, host.extras) !== arrival.href) return;
     setFresh({ gen, entry: arrival.entry });
-    setSelected(arrival.entry.view);
+    setSelected(arrival.entry.view.id);
   }, [arrivingSelection, gen, host.pathname, host.global, host.page, host.extras, setSelected]);
 
   const currentRevision = app?.internal.currentRevision;
@@ -465,7 +462,7 @@ function useSavedViewController(
       }
     }
     setFresh({ gen: at, entry: found });
-    setSelected(found.view);
+    setSelected(id);
     if (sameAddress) unchanged();
     return { ok: true, unsupported: result.unsupported, excludedByScope: result.excludedByScope };
   }, [enabled, support, blocked, gen, entryGen, store, anchor, clearSelection, setSelected, guard, mode, currentRevision, revision, slots, panelSlots, acceptDecision, settleDecision]);
@@ -515,10 +512,7 @@ function useSavedViewController(
     if (!arriving) {
       if (selectedId !== null && selected === null) clearSelection();
       // A Scope switch with the view still selected: the new Scope's screen gets the view's panels as they apply there, never the previous Scope's held sets (#2862 R2862C C1).
-      else if (selected !== null) {
-        if (scopeChanged) restorePanels(selected.view);
-        panelSlots?.selectMenuView(selected.view.kind === 'menu-view' ? selected.view.id : null);
-      }
+      else if (scopeChanged && selected !== null) restorePanels(selected.view);
       return;
     }
     const mismatch = selected !== null && differs(selected.view, support);
@@ -526,7 +520,6 @@ function useSavedViewController(
     else if (selected !== null) {
       // A reload keeps the selection through the address; the screen's panels come only from the view, so hand them over once.
       restorePanels(selected.view);
-      panelSlots?.selectMenuView(selected.view.kind === 'menu-view' ? selected.view.id : null);
       return;
     }
     if (mode === 'legacy' && !explicitEntry && loaded.defaultId !== null) void apply(loaded.defaultId, 'default');
@@ -564,7 +557,7 @@ function useSavedViewController(
     let result: Result<SavedViewEntry>;
     try { result = await store.save(checked.value as SavedViewDraft); } catch { return OFF; }
     if (result.ok && !stale(at)) {
-      if (intent.current === mine && live.current.host.appliedUrl === startUrl) { setFresh({ gen: at, entry: result.value }); setSelected(result.value.view); }
+      if (intent.current === mine && live.current.host.appliedUrl === startUrl) { setFresh({ gen: at, entry: result.value }); setSelected(result.value.view.id); }
       refresh();
     }
     return result;

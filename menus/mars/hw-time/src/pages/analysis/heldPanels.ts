@@ -171,7 +171,7 @@ export function keepHeld(config: PanelConfiguration): PanelConfiguration {
   if (!kept.length) return defaultPanels;
   const keptInstances = kept.map(panel => panel.instance);
   const named = config.added.filter(panel => !holds(panel.instance) && names(keptInstances, panel.instance.id)).map(panel => panel.instance);
-  return { ...config, added: kept.map(({ slot, instance }) => ({ slot, instance })), sources: [...config.sources, ...named] };
+  return { kind: 'custom', added: kept.map(({ slot, instance }) => ({ slot, instance })), sources: [...config.sources, ...named] };
 }
 
 /**

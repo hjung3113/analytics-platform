@@ -140,7 +140,7 @@ beforeEach(() => {
   menuQuery.mockClear();
   setItem.mockClear();
   const memory = memoryStorage();
-  storage = { ...memory, get length() { return memory.length; }, getItem: (key: string) => memory.getItem(key), setItem: (key: string, value: string) => { setItem(key, value); memory.setItem(key, value); } } as Storage;
+  storage = { ...memory, getItem: (key: string) => memory.getItem(key), setItem: (key: string, value: string) => { setItem(key, value); memory.setItem(key, value); } } as Storage;
   vi.stubGlobal('localStorage', storage);
   vi.stubGlobal('sessionStorage', memoryStorage());
   window.history.replaceState(null, '', PERIOD);
@@ -558,53 +558,6 @@ describe('PanelWorkspace: local preference', () => {
     expect(written()).toEqual([]);
   });
 
-  it('restores adjusted widths for the same slot in each preference scope', async () => {
-    const view = mountWorkspace({ persistenceScope: 'first', initialPreset: 'focus' });
-    await ready();
-    const width = () => screen.getByRole('separator').getAttribute('aria-valuenow');
-    const initial = width();
-    fireEvent.keyDown(screen.getByRole('separator'), { key: 'ArrowRight' });
-    await waitFor(() => expect(width()).not.toBe(initial));
-    const adjusted = width();
-
-    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="second" initialPreset="focus" />));
-    await ready();
-    expect(width()).toBe(initial);
-    view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope="first" initialPreset="focus" />));
-    await ready();
-    expect(width()).toBe(adjusted);
-  });
-
-  it('retains only the eight most recently written scopes for this workspace', async () => {
-    const view = mountWorkspace({ persistenceScope: 'scope-0' });
-    const at = async (scope: string, persistKey = 'main') => {
-      view.rerender(shell(<PanelWorkspace {...BASE} persistenceScope={scope} persistKey={persistKey} />));
-      await ready();
-    };
-    await ready();
-    await choose('집중');
-    await at('other', 'other');
-    await choose('집중');
-    for (let index = 1; index < 8; index++) {
-      await at(`scope-${index}`);
-      await choose('집중');
-    }
-    await at('scope-0');
-    await choose('쌓기');
-    await at('scope-8');
-    await choose('집중');
-    await sleep(400);
-
-    await at('scope-1');
-    expect(screen.getByRole('radio', { name: '균형' })).toBeChecked();
-    await at('scope-0');
-    expect(screen.getByRole('radio', { name: '쌓기' })).toBeChecked();
-    await at('scope-2');
-    expect(screen.getByRole('radio', { name: '집중' })).toBeChecked();
-    await at('other', 'other');
-    expect(screen.getByRole('radio', { name: '집중' })).toBeChecked();
-  });
-
   it('per drill step (#2397): each step declares its own panels, presets and persistKey; a step-only panel never shows elsewhere and each step restores its own layout', async () => {
     // Step 1 has no detail panel (it cannot answer there); step 2 adds it and arranges differently.
     const STEP1: Partial<PanelWorkspaceProps> = { persistKey: 'step1', panels: PANELS.filter(panel => panel.id !== 'detail'), presets: [{ id: 'balanced', label: { ko: '균형', en: 'Balanced' }, layout: { type: 'branch', dir: 'row', sizes: [1, 2], children: [group(['selector']), group(['trend', 'kpi'])] } }] };
@@ -831,21 +784,6 @@ describe('PanelWorkspace: height mode (#686)', () => {
     mountWorkspace({ ...ROWS_PROPS, panels });
     await ready();
     expect(rowHeights()).toEqual([300, 400, 392]);
-  });
-
-  it('drops absent panel heights on a scoped write and retains declared hidden panels', async () => {
-    const panels = PANELS.map(panel => ({ ...panel, preferredHeight: 400 }));
-    storage.setItem(`${KEY()}:scopes`, JSON.stringify([['saved', JSON.parse(stackStored([300, 400, 400], {
-      preferredSeen: { 'departed-alias': 500 },
-    }))]]));
-    mountWorkspace({ ...ROWS_PROPS, panels, persistenceScope: 'saved' });
-    await ready();
-    await chooseFromMenu('상세 동작', '숨기기');
-    await sleep(400);
-    const layouts: [string, unknown][] = JSON.parse(storage.getItem(`${KEY()}:scopes`)!);
-    const stored = layouts.find(([id]) => id === 'saved')?.[1];
-    expect(stored).toMatchObject({ preferredSeen: { trend: 400, selector: 400, detail: 400, kpi: 400 } });
-    expect(stored).not.toHaveProperty(['preferredSeen', 'departed-alias']);
   });
 
   it('opens a row a returning standalone panel recreates at its declared height (#2820)', async () => {
