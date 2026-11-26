@@ -12,9 +12,9 @@ import { formatMetricVersion, formatNumber, periodHours } from '@ap/contracts';
  * Synthetic values come from the declared endpoints (../endpoints), computed by the
  * mock server half. Definitions are Candidates per wireframe 11 §6.
  */
-import { AlertTriangle, ArrowRight, ArrowUpRight, BarChart3, ChevronRight, Hourglass, Percent, RotateCw, Timer } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ArrowUpRight, ChevronRight, RotateCw } from 'lucide-react';
 import { type PageProps, PlatformLink, useDrill, useI18n, usePlatform, useMenuQuery } from '@ap/kernel';
-import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, type Delta, DrillLayout, PageKeyWarning, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
+import { AnalysisChartFrame, type ChartSeries, DataTrustIndicator, DrillLayout, PageKeyWarning, PlatformPage, QueryView, SegmentedRadio, StatCard, StateMessage, usePageKeyRules } from '@ap/components';
 import { Button, InfoTip, StatusBadge, Table, TableCaption, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@ap/ui';
 import type { ThemeColorToken } from '@ap/ui/theme';
 import {
@@ -25,6 +25,10 @@ import { pctHint, ProductivityDrillBody } from './productivity-drill';
 
 const GRANS: readonly Granularity[] = ['hour', 'day', 'week'];
 const KPI_KEYS = ['occupancy', 'dwell', 'cycleTime', 'throughput'] as const;
+/** The field of a trend bucket that draws each KPI card's mini trend; every bucket carries all four (#2743). */
+const KPI_TREND_FIELD = { occupancy: 'occupancyPct', dwell: 'dwellPerJobH', cycleTime: 'p50', throughput: 'jobs' } as const;
+/** Occupancy moves within ±2pp between ordinary periods (the reference period moved 1.54pp), so the card calls that no change (#2743 variant A). */
+const OCCUPANCY_NO_CHANGE_PP = 2;
 const AXES = ['room', 'stgroup'] as const;
 const SORT_KEYS = ['key', 'occ', 'obs', 'pct', 'jobs'] as const;
 /** Page-input changes on the same period and Scope keep the old result as refreshing (#1365, ADR-0114). */
@@ -82,6 +86,8 @@ export default function ProductivityOverview(_: PageProps) {
   const kpiQ = useMenuQuery(kpisEndpoint, {}, { enabled: summary });
   // keepPrevious ON (#1365, ADR-0114): a KPI card or grain change reads the same period/Scope again, so the old chart stays (refreshing) until the new series arrives.
   const trendQ = useMenuQuery(trendEndpoint, { kpi: selectedKpi, granularity: gran }, { enabled: summary, ...KEEP_PREVIOUS });
+  // The KPI cards' mini trends reuse the trend response the chart already loads: no extra read (#2743).
+  const cardTrend = trendQ.response?.outcome === 'ok' ? trendQ.response.data?.current ?? null : null;
   // keepPrevious ON: the group-axis tab only regroups the same period; the tab itself already shows the new axis while the old rows refresh.
   const breakdownQ = useMenuQuery(breakdownEndpoint, { axis }, { enabled: canQuery && (drill.depth === 0 || axis === 'room'), ...KEEP_PREVIOUS });
   const attentionQ = useMenuQuery(attentionEndpoint, {}, { enabled: summary });
@@ -99,13 +105,6 @@ export default function ProductivityOverview(_: PageProps) {
   const n2 = (v: number) => formatNumber(v, lang, { decimals: 2 });
   const ni = (v: number) => formatNumber(Math.round(v), lang);
 
-  function deltaOf(cur: number | null, prev: number | null | undefined, goodWhenUp: boolean, format: (v: number) => string): Delta | undefined {
-    if (cur === null || prev === null || prev === undefined || prev === 0) return undefined;
-    const diff = cur - prev;
-    const pct = `${diff > 0 ? '+' : ''}${((diff / prev) * 100).toFixed(1)}%`;
-    return { value: `${diff > 0 ? '+' : ''}${format(diff)} (${pct})`, direction: diff >= 0 ? 'up' : 'down', good: goodWhenUp ? diff >= 0 : diff <= 0 };
-  }
-
   /** Explicit-empty-selection escape hatch: outcome `empty` is valid, but the user can restore the unconstrained query in one action. */
   const selection = global.selection?.length === 0
     ? { label: m('productivityOverviewZeroEquipment'), clear: () => setGlobal({ selection: null }) }
@@ -118,48 +117,48 @@ export default function ProductivityOverview(_: PageProps) {
 
   function kpiCard(kpi: KpiKey, data: { current: KpiSet; previous: KpiSet | null }) {
     const c = data.current; const p = data.previous;
-    const active = selectedKpi === kpi;
-    const ver = (v: string) => `${m('productivityOverviewVersion')} ${formatMetricVersion(v)}`;
+    // Variant A (#2743): the delta pill and the 80×28 mini trend; the basis line stays one line, so the version is the short «v3» form.
+    const shared = {
+      onClick: () => selectKpi(kpi), active: selectedKpi === kpi,
+      trend: cardTrend?.map(bucket => bucket.known ? bucket[KPI_TREND_FIELD[kpi]] : null) ?? [],
+    };
     if (kpi === 'occupancy') {
       const o = c.occupancy; const po = p?.occupancy ?? null;
-      return <StatCard key={kpi} icon={Percent} chip="blue" label={m('productivityOverviewPhysicalOccupancy')}
-        onClick={() => selectKpi(kpi)} active={active}
-        value={o ? n1(o.pct) : '—'} unit="%"
-        delta={o && po ? deltaOf(o.pct, po.pct, true, v => `${v.toFixed(1)}pp`) : undefined}
-        caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${ver(METRIC_VERSIONS.occupancy)}` : (m('productivityOverviewDenominator0NotConfirmedNot0'))}
-        footnote={o && <span className="mt-1 block h-1.5 w-full overflow-hidden rounded-pill bg-surface-sunken" role="img"
-          aria-label={m('productivityOverviewOccupiedHOfHObservable', { value: String(n1(o.num)), value2: String(n1(o.den)), value3: String(n1(o.pct)) })}>
-          {/* eslint-disable-next-line shadcn/no-inline-styles -- bar width is the occupancy percentage computed at runtime */}
-          <span className="block h-full rounded-pill bg-chart-blue" style={{ width: `${Math.min(100, Math.max(0, o.pct))}%` }} />
-        </span>} />;
+      return <StatCard key={kpi} {...shared} label={m('productivityOverviewPhysicalOccupancy')} value={o ? n1(o.pct) : '—'} unit="%"
+        comparison={{ kind: 'absolute', current: o?.pct ?? null, previous: po?.pct ?? null, good: 'up', noChangeBand: OCCUPANCY_NO_CHANGE_PP,
+          formatValue: v => `${n1(v)}%`, formatChange: v => `${n1(v)}pp` }}
+        caption={o ? `${n1(o.num)}h / ${n1(o.den)}h · ${formatMetricVersion(METRIC_VERSIONS.occupancy)}` : m('productivityOverviewDenominator0NotConfirmedNot0')} />;
     }
     if (kpi === 'dwell') {
       const d = c.dwell; const pd = p?.dwell ?? null;
-      return <StatCard key={kpi} icon={Hourglass} chip="teal" label={m('productivityOverviewNonProcessDwell')}
-        onClick={() => selectKpi(kpi)} active={active}
-        value={d ? n2(d.perJobH) : '—'} unit={m('productivityOverviewHJob')}
-        delta={d && pd ? deltaOf(d.perJobH, pd.perJobH, false, v => `${v.toFixed(3)}h`) : undefined}
-        caption={d ? `${n1(d.hours)}h ÷ ${ni(d.jobs)} Job · ${ver(METRIC_VERSIONS.dwell)}` : (m('productivityOverviewNoCompletedJobNotConfirmed'))} />;
+      const n3 = (v: number) => formatNumber(v, lang, { decimals: 3 });
+      const unit = m('productivityOverviewHJob2');
+      return <StatCard key={kpi} {...shared} label={m('productivityOverviewNonProcessDwell')} value={d ? n3(d.perJobH) : '—'} unit={unit}
+        comparison={{ kind: 'absolute', current: d?.perJobH ?? null, previous: pd?.perJobH ?? null, good: 'down',
+          formatValue: v => `${n3(v)} ${unit}`, formatChange: v => `${n3(v)}h` }}
+        caption={d ? `${n1(d.hours)}h ÷ ${ni(d.jobs)} Job · ${formatMetricVersion(METRIC_VERSIONS.dwell)}` : m('productivityOverviewNoCompletedJobNotConfirmed')} />;
     }
     if (kpi === 'cycleTime') {
       const cy = c.cycle; const pc = p?.cycle ?? null;
-      // The delta compares P50 only while the card shows P50 / P95, so the finished text says so (#398).
-      const delta = deltaOf(cy.p50, pc?.p50 ?? null, false, v => `${v.toFixed(1)}${m('productivityOverviewMin')}`);
-      return <StatCard key={kpi} icon={Timer} chip="teal" label={m('productivityOverviewCycleTimeP50P95')}
-        onClick={() => selectKpi(kpi)} active={active}
+      const min = m('productivityOverviewMin');
+      const version = METRIC_VERSIONS.cycleTime as keyof typeof CYCLE_VERSION_TEXT;
+      const caption = `${m('productivityOverviewPooledJobsN', { value: String(ni(cy.jobs)) })} · ${formatMetricVersion(version)}`;
+      return <StatCard key={kpi} {...shared} label={m('productivityOverviewCycleTimeP50P95')} unit={min}
         value={<span className="flex items-baseline gap-2">
           <span>{cy.p50 !== null ? n1(cy.p50) : '—'}</span>
           <span className="t-stat-2 text-text-secondary">{cy.p95 !== null ? n1(cy.p95) : '—'}</span>
-        </span>} unit={m('productivityOverviewMinP50P95')}
-        delta={delta ? { ...delta, value: `P50 ${delta.value}` } : undefined}
-        caption={`${m('productivityOverviewPooledJobsN', { value: String(ni(cy.jobs)) })} · ${ver(METRIC_VERSIONS.cycleTime)} (${CYCLE_VERSION_TEXT[METRIC_VERSIONS.cycleTime as keyof typeof CYCLE_VERSION_TEXT][lang]})`} />;
+        </span>}
+        // The comparison is P50 only while the card shows P50 / P95, so its text says so (#398).
+        comparison={{ kind: 'absolute', current: cy.p50, previous: pc?.p50 ?? null, good: 'down',
+          formatValue: v => `P50 ${n1(v)}${min}`, formatChange: v => `P50 ${n1(v)}${min}` }}
+        // The version's meaning no longer fits the one-line basis; it stays in the tooltip (#2743).
+        caption={caption} captionTitle={`${caption} (${CYCLE_VERSION_TEXT[version][lang]})`} />;
     }
     const t = c.throughput; const pt = p?.throughput ?? null;
-    return <StatCard key={kpi} icon={BarChart3} chip="blue" label={m('productivityOverviewJobThroughput')}
-      onClick={() => selectKpi(kpi)} active={active}
-      value={ni(t.jobs)} unit={m('productivityOverviewJobsCompleted')}
-      delta={deltaOf(t.jobs, pt?.jobs ?? null, true, v => ni(v))}
-      caption={`${m('productivityOverviewCompleted')} ${ni(t.jobs)} / ${m('productivityOverviewStarted')} ${ni(t.started)} · ${ver(METRIC_VERSIONS.throughput)}`} />;
+    // Throughput declares no good direction (variant A as confirmed): more completed jobs is not good or bad without the load behind it.
+    return <StatCard key={kpi} {...shared} label={m('productivityOverviewJobThroughput')} value={ni(t.jobs)} unit="Job"
+      comparison={{ kind: 'absolute', current: t.jobs, previous: pt?.jobs ?? null, formatValue: v => `${ni(v)} Job`, formatChange: v => `${ni(v)} Job` }}
+      caption={`${m('productivityOverviewCompleted')} ${ni(t.jobs)} / ${m('productivityOverviewStarted')} ${ni(t.started)} · ${formatMetricVersion(METRIC_VERSIONS.throughput)}`} />;
   }
 
   // --- Main trend: AnalysisChartFrame for the selected KPI; Compare overlays the previous equal period (bucket-index aligned). ---

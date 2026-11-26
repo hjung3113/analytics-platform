@@ -134,11 +134,12 @@ describe('ProductivityOverview cycle-time delta label (#398)', () => {
   }
 
   it.each([
-    { lang: 'ko', current: 40, previous: 40.6, expected: 'P50 -0.6분 (-1.5%)' },
-    { lang: 'ko', current: 41.2, previous: 40.6, expected: 'P50 +0.6분 (+1.5%)' },
-    { lang: 'en', current: 40, previous: 40.6, expected: 'P50 -0.6min (-1.5%)' },
-    { lang: 'en', current: 41.2, previous: 40.6, expected: 'P50 +0.6min (+1.5%)' },
-  ])('labels the cycle-time delta as P50 ($lang, $expected)', async ({ lang, current, previous, expected }) => {
+    // Variant A (#2743): an arrow and the absolute change in the pill; the prior value is the line below.
+    { lang: 'ko', current: 40, previous: 40.6, expected: 'P50 0.6분', arrow: '▼' },
+    { lang: 'ko', current: 41.2, previous: 40.6, expected: 'P50 0.6분', arrow: '▲' },
+    { lang: 'en', current: 40, previous: 40.6, expected: 'P50 0.6min', arrow: '▼' },
+    { lang: 'en', current: 41.2, previous: 40.6, expected: 'P50 0.6min', arrow: '▲' },
+  ])('labels the cycle-time delta as P50 ($lang, $arrow $expected)', async ({ lang, current, previous, expected, arrow }) => {
     // Node's file-less localStorage shadows jsdom's; give this test its own in-memory store.
     const storage = memoryStorage();
     vi.stubGlobal('localStorage', storage);
@@ -146,7 +147,8 @@ describe('ProductivityOverview cycle-time delta label (#398)', () => {
       storage.setItem('platform:lang', lang);
       renderWithKpis(kpis(current, previous));
       await screen.findByRole('radiogroup', { name: lang === 'ko' ? '집계 단위' : 'Granularity' });
-      expect(await screen.findByText(expected)).toBeTruthy();
+      const amount = await screen.findByText(expected);
+      expect(amount.parentElement?.textContent).toContain(`${arrow} ${expected}`);
     } finally {
       vi.unstubAllGlobals();
     }
