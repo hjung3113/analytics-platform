@@ -1,5 +1,4 @@
 // TriageQueue — scrollable left column containing triage rows.
-// Renders OutOfScopeSummaryBanner above rows when outOfScopeSummary is provided.
 // #922: renders the queue-level pending state here (not at the route level) so
 // the tablist above stays mounted and focused while a tab refetch runs.
 // Renders TriageEmpty when queue is empty — queue-empty copy only when the
@@ -12,7 +11,6 @@ import type { VocListItem } from '@ap/feature-shared';
 import { Button, EmptyState, useListMotion } from '@ap/ui';
 import type * as React from 'react';
 import { useRef, useState } from 'react';
-import { OutOfScopeSummaryBanner } from './OutOfScopeSummaryBanner';
 import { TriageEmpty } from './TriageEmpty';
 import { TriageRow } from './TriageRow';
 
@@ -32,10 +30,6 @@ export interface TriageQueueProps {
   onRetryQueue?: () => void;
   /** #922: whole-queue total; a tab can be empty while the queue is not. */
   queueTotal?: number;
-  outOfScopeSummary?: {
-    count: number;
-    severity_distribution: Record<string, number>;
-  };
 }
 
 export function TriageQueue({
@@ -50,7 +44,6 @@ export function TriageQueue({
   queueError,
   onRetryQueue,
   queueTotal,
-  outOfScopeSummary,
 }: TriageQueueProps): React.ReactElement {
   // #922 FIX1: an unknown total is not evidence of a truly empty queue — only
   // a known zero earns the whole-queue success copy; an unknown (or positive)
@@ -87,14 +80,6 @@ export function TriageQueue({
         ref={listMotion}
         className="flex flex-col h-full overflow-y-auto"
       >
-        {outOfScopeSummary !== undefined && (
-          <OutOfScopeSummaryBanner
-            count={outOfScopeSummary.count}
-            severityDistribution={outOfScopeSummary.severity_distribution}
-            className="px-4 py-3 border-b border-border-subtle"
-          />
-        )}
-
         {queuePending === true ? (
           // #922 FIX1: <output> carries the implicit "status" role, so the
           // pending cue reaches assistive tech when the tab changes but rows
