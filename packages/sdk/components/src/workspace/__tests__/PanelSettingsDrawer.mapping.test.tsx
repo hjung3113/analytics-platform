@@ -563,3 +563,19 @@ describe('mapping field drag', () => {
     expect(layout()).toEqual(before);
   });
 });
+
+// #3124 R1 C2: a «연결» edit accepted while a rejected mapping draft is pending saves that draft too; the section is still `connections`.
+it('reports connections for a connection edit that also applies a pending mapping draft', async () => {
+  const rateNeedsNoFilter = (candidate: MenuViewPanels) => {
+    const panel = candidate.instances[0];
+    const rate = panel?.source.kind === 'chart' && panel.source.config.measures.some(measure => measure.field === 'rate');
+    return rate && panel.inputs.length > 0 ? { ko: '가동률은 거르기 없이', en: 'Rate without a filter' } : undefined;
+  };
+  const { changed, user } = setup(chart(), { mapping, validateCandidate: rateNeedsNoFilter });
+  await user.click(screen.getByRole('button', { name: '가동률' }));
+  expect(changed).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('radio', { name: '무시' }));
+  expect(changed.mock.lastCall?.[0].instances[0]?.source).toMatchObject({ config: { measures: [{ field: 'rate' }] } });
+  expect(changed.mock.lastCall?.[0].instances[0]?.inputs).toEqual([]);
+  expect(changed.mock.lastCall?.[1]).toEqual({ section: 'connections' });
+});

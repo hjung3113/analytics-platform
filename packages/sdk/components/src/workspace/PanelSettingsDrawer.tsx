@@ -39,7 +39,8 @@ export type PanelSettingsDrawerProps = {
   trigger?: HTMLButtonElement;
   /**
    * The accepted configuration, and the drawer section the edit came from (#3124): `mapping` and `shape` change only the chart's
-   * source; `connections` changes what the panel receives. Consumers that keep different rules per kind of edit read `section`
+   * source; `connections` changes what the panel receives, and also applies a mapping or shape draft still pending (rejected) at that
+   * moment, so it does not mean the source is unchanged. Consumers that keep different rules per kind of edit read `section`
    * instead of comparing the configurations.
    */
   onChange: (value: MenuViewPanels, change: { section: PanelSettingsSection }) => void;
