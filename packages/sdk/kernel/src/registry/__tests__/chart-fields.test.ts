@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import { chartFieldMeta, chartPanelProblem, createChartPanel, menuPermission, nextChartPanelId, readChartPanel, readMenuViewPanels, type ChartPanelDraft, type ChartPermissionCheck, type MenuChartFields, type PanelInstance } from '@ap/contracts';
 import * as contracts from '@ap/contracts';
+import type { ChartConfig } from '@ap/contracts';
 
 const chartFieldsFixture: MenuChartFields = {
   time: { field: 'at', label: { ko: '시각', en: 'Time' } },
@@ -153,5 +154,84 @@ describe('chart panels from declared measures and breakdowns (#2761)', () => {
       cycle: { label: 'Mean cycle', unit: 's', reaggregation: 'none', metricVersion: 'v2' },
       yield: { label: 'Yield', unit: '%', reaggregation: 'ratioOfSums' },
     });
+  });
+});
+
+describe('chart panel shape keys (#2762 ④)', () => {
+  const config = (instance: Pick<PanelInstance, 'source'>) => (instance.source.kind === 'chart' ? instance.source.config : (null as never));
+  const read = (instance: Pick<PanelInstance, 'source' | 'outputs'>) => {
+    const result = readChartPanel(fields, instance, all);
+    return result.status === 'ok' ? 'ok' : result.problem.code;
+  };
+
+  it('writes only keys away from their default, so an untouched chart stays exactly the step-1 config', () => {
+    const plainLine = made({ kind: 'line', measure: 'runTime', breakdown: 'equipment' });
+    const plainBar = made({ kind: 'bar', measure: 'runTime', breakdown: 'equipment' });
+    expect(made({ kind: 'line', measure: 'runTime', breakdown: 'equipment', stack: 'none' })).toStrictEqual(plainLine);
+    expect(made({ kind: 'bar', measure: 'runTime', breakdown: 'equipment', orientation: 'vertical', color: 'chart-series-1' })).toStrictEqual(plainBar);
+  });
+
+  it('round-trips the line keys and reopens the saved panel', () => {
+    const draft: ChartPanelDraft = { kind: 'line', measure: 'runTime', breakdown: 'equipment', stack: 'stack', areaFill: true, decimals: 1 };
+    const line = made(draft);
+    expect(config(line)).toStrictEqual({
+      version: 1, kind: 'line', x: { field: 'at', type: 'time' }, measures: [{ field: 'runTime' }], split: { field: 'equipment' },
+      stack: 'stack', areaFill: true, valueFormat: { kind: 'number', decimals: 1 },
+    });
+    expect(contracts.readChartPanelDraft(config(line))).toStrictEqual(draft);
+    expect(read(line)).toBe('ok');
+  });
+
+  it('round-trips the bar keys without touching its selection output', () => {
+    const draft: ChartPanelDraft = { kind: 'bar', measure: 'runTime', breakdown: 'equipment', orientation: 'horizontal', color: 'chart-series-3', decimals: 0 };
+    const bar = made(draft);
+    expect(config(bar)).toStrictEqual({
+      version: 1, kind: 'bar', x: { field: 'equipment', type: 'category' }, measures: [{ field: 'runTime', color: 'chart-series-3' }],
+      orientation: 'horizontal', valueFormat: { kind: 'number', decimals: 0 },
+    });
+    expect(bar.outputs).toStrictEqual(made({ kind: 'bar', measure: 'runTime', breakdown: 'equipment' }).outputs);
+    expect(contracts.readChartPanelDraft(config(bar))).toStrictEqual(draft);
+    expect(read(bar)).toBe('ok');
+  });
+
+  it('keeps area fill three-way: absent lets the chart fill a lone series, false fills none', () => {
+    const off = made({ kind: 'line', measure: 'runTime', breakdown: 'equipment', areaFill: false });
+    expect(config(off)).toMatchObject({ areaFill: false });
+    expect(contracts.readChartPanelDraft(config(off))).toMatchObject({ areaFill: false });
+    expect(read(off)).toBe('ok');
+    expect(contracts.readChartPanelDraft(config(made({ kind: 'line', measure: 'runTime', breakdown: 'equipment' })))).not.toHaveProperty('areaFill');
+  });
+
+  it('offers exactly the decimals a saved chart config accepts, by type', () => {
+    expect(contracts.CHART_PANEL_DECIMALS).toStrictEqual(Array.from({ length: contracts.CHART_CONFIG_DECIMALS_MAX + 1 }, (_, i) => i));
+    expectTypeOf<ChartPanelDraft['decimals']>().toEqualTypeOf<0 | 1 | 2 | 3 | 4 | 5 | 6 | undefined>();
+    expect(contracts.readChartPanelDraft({ version: 1, kind: 'bar', x: { field: 'equipment', type: 'category' }, measures: [{ field: 'runTime' }], valueFormat: { kind: 'number', decimals: 9 } }))
+      .not.toHaveProperty('decimals');
+  });
+
+  it('writes only the keys of the draft kind; a draft read back holds only its own kind', () => {
+    const shape = { stack: 'none', areaFill: true, orientation: 'horizontal', color: 'chart-series-2', decimals: 2 } as const;
+    const bar = config(made({ kind: 'bar', measure: 'runTime', breakdown: 'equipment', ...shape }));
+    expect(bar).not.toHaveProperty('areaFill');
+    expect(bar).toMatchObject({ orientation: 'horizontal', measures: [{ color: 'chart-series-2' }] });
+    const line = config(made({ kind: 'line', measure: 'runTime', breakdown: 'equipment', ...shape }));
+    expect(line).not.toHaveProperty('orientation');
+    expect(line.measures).toStrictEqual([{ field: 'runTime' }]);
+    expect(line).toMatchObject({ areaFill: true, valueFormat: { kind: 'number', decimals: 2 } });
+  });
+
+  it('opens a saved panel that spells defaults out, and refuses shapes a draft cannot hold', () => {
+    const line = made({ kind: 'line', measure: 'runTime', breakdown: 'equipment' });
+    const bar = made({ kind: 'bar', measure: 'runTime', breakdown: 'equipment' });
+    const withConfig = (instance: PanelInstance, patch: Partial<ChartConfig>) => ({ ...instance, source: { kind: 'chart' as const, config: { ...config(instance), ...patch } } });
+    expect(read(withConfig(line, { stack: 'none' }))).toBe('ok');
+    expect(read(withConfig(bar, { orientation: 'vertical', measures: [{ field: 'runTime', color: 'chart-series-1' }] }))).toBe('ok');
+    for (const instance of [
+      withConfig(line, { valueFormat: { kind: 'percent' } }),
+      withConfig(line, { valueFormat: { kind: 'percent', decimals: 1 } }),
+      withConfig(bar, { valueFormat: { kind: 'number' } }),
+      withConfig(line, { measures: [{ field: 'runTime', color: 'chart-series-2' }] }),
+      withConfig(bar, { stack: 'percent' }),
+    ]) expect(read(instance)).toBe('changed');
   });
 });

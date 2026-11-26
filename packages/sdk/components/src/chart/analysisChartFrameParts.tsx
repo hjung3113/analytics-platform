@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useContext, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { Button, cn, InfoTip } from '@ap/ui';
 import { formatMetricVersion } from '@ap/contracts';
@@ -6,7 +6,8 @@ import { useI18n, useMessages } from '@ap/kernel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { ChartChrome, ChartChromeOptions } from './chartChrome';
 import type { AnalysisChartFrameProps } from './AnalysisChartFrame';
-import { chartTrustText, type ChartTrust } from '../state/trustFormat';
+import { chartTrustText, sameTrustFooter, type ChartTrust } from '../state/trustFormat';
+import { DeclaredQueryPanelContext } from '../workspace/panelContext';
 
 /** Internal frame fragments: preserve the time-series frame's element tree. */
 export function AnalysisChartPart({ enabled, body, bounded, children }: { enabled: boolean; body?: boolean; bounded?: boolean; children: ReactNode }) {
@@ -26,8 +27,11 @@ export function ChartCardHeader({ title, subtitle, actions, reserveCorner }: { t
   </header>;
 }
 
-export function ChartZoomButton({ label, icon: Icon, onClick }: { label: string; icon: LucideIcon; onClick: () => void }) {
-  return <Button size="icon-xs" variant="ghost" aria-label={label} title={label} onClick={onClick}><Icon className="size-3.5" aria-hidden /></Button>;
+export function ChartZoomButton({ label, icon: Icon, onClick, disabled = false, reason, reasonId }: {
+  label: string; icon: LucideIcon; onClick: () => void; disabled?: boolean; reason?: string; reasonId?: string;
+}) {
+  const described = disabled && reason ? reasonId : undefined;
+  return <Button size="icon-xs" variant="ghost" aria-label={label} title={described ? reason : label} aria-describedby={described} disabled={disabled} onClick={onClick}><Icon className="size-3.5" aria-hidden /></Button>;
 }
 
 export function chartDescriptionContent(description: ReactNode, gestureHint: string | undefined) {
@@ -58,12 +62,16 @@ export function ChartHeading({ titleId, title, description, gestureHint, descrip
 
 export function ChartTrustFooter({ trust: input, metricVersion, singleLine }: { trust?: ChartTrust; metricVersion?: string; singleLine?: boolean }) {
   const { t, lang } = useI18n();
+  const declared = useContext(DeclaredQueryPanelContext);
   const trust = chartTrustText(input, lang);
+  const panelTrust = declared?.trust ?? null;
+  // Drop only the duplicate source line. A different Trust, or a panel with no result yet, keeps the chart's own line.
+  const sourceTrust = trust != null && panelTrust != null && sameTrustFooter(trust, panelTrust) ? undefined : trust;
   // singleLine: each item stays whole and a narrow pane wraps between items, never a sideways scroll.
   const item = singleLine ? 'whitespace-nowrap' : undefined;
-  return (trust || metricVersion) && <footer className={cn('shrink-0 border-t border-border-subtle px-4 py-2 t-caption tabular')}>
-    {trust && <><span className={item}>{t('source')}: <span className="t-mono">{trust.source}</span></span> · <span className={item}>{t('updated')}: {trust.updated}</span> · <span className={item}>{t('coverage')}: {trust.coverage}</span></>}
-    {metricVersion && <>{trust && ' · '}<span className={item}>{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}
+  return (sourceTrust || metricVersion) && <footer className={cn('shrink-0 border-t border-border-subtle px-4 py-2 t-caption tabular')}>
+    {sourceTrust && <><span className={item}>{t('source')}: <span className="t-mono">{sourceTrust.source}</span></span> · <span className={item}>{t('updated')}: {sourceTrust.updated}</span> · <span className={item}>{t('coverage')}: {sourceTrust.coverage}</span></>}
+    {metricVersion && <>{sourceTrust && ' · '}<span className={item}>{t('metricVersion')} {formatMetricVersion(metricVersion)}</span></>}
   </footer>;
 }
 

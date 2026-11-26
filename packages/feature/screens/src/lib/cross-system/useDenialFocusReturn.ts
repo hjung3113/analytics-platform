@@ -15,11 +15,11 @@ export function useDenialFocusReturn(denied: boolean, cardRef: RefObject<HTMLDiv
     const record = (event: FocusEvent) => {
       lastFocused.current = event.target instanceof Element ? event.target : null;
     };
-    // Focus that leaves a still-connected element was moved by the user, not by a removal.
+    // Focus that leaves a still-connected element was moved by the user, not by a removal; a restore that focuses it again keeps it (#3072).
     const release = (event: FocusEvent) => {
       const target = event.target;
       queueMicrotask(() => {
-        if (target instanceof Element && target.isConnected && lastFocused.current === target) {
+        if (target instanceof Element && target.isConnected && lastFocused.current === target && !target.contains(target.ownerDocument.activeElement)) {
           lastFocused.current = null;
         }
       });

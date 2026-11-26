@@ -3,7 +3,8 @@ import { CUSTOM_GROUP_LABELS } from '@ap/kernel';
 
 /** Component SDK UI copy (docs/06 §23): domain values and identifiers stay untranslated. */
 export const COMPONENTS_MESSAGES = {
-  statComparisonPrior: { ko: '전기 대비 · 이전 {value}', en: 'vs. prior period · Prior {value}' },
+  // The value leads: the line truncates at its end, and the comparison base must stay visible (#2743 ②).
+  statComparisonPrior: { ko: '이전 {value} · 전기 대비', en: 'Prior {value} · vs. prior period' },
   statComparisonNoChange: { ko: '변화 없음', en: 'No change' },
   statComparisonPriorLabel: { ko: '이전', en: 'Prior' },
   statComparisonUp: { ko: '증가', en: 'up' },
@@ -278,6 +279,10 @@ export const COMPONENTS_MESSAGES = {
   },
   chartZoom: { ko: '확대', en: 'Zoom' },
   chartZoomTitle: { ko: '확대 (Shift+휠도 가능)', en: 'Zoom in (Shift+wheel)' },
+  chartPreviousRangeLocked: {
+    ko: '이전 결과를 보여주는 동안 확대·축소·이동·초기화를 쓸 수 없습니다',
+    en: 'Zoom, pan and reset are unavailable while the previous result is showing',
+  },
   chartZoomOut: { ko: '축소', en: 'Zoom out' },
   chartPanLeft: { ko: '왼쪽으로 이동', en: 'Pan left' },
   chartPanRight: { ko: '오른쪽으로 이동', en: 'Pan right' },

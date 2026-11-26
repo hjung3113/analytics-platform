@@ -77,6 +77,7 @@ function ComparisonRows({ comparison, children }: { comparison: StatCardComparis
       }
     }
   }
+  const priorLine = m('statComparisonPrior', { value: prior });
   return <>
     <span className={compactValueRow}>
       {children}
@@ -92,7 +93,7 @@ function ComparisonRows({ comparison, children }: { comparison: StatCardComparis
         {tone !== 'neutral' && <span className="sr-only"> {m(tone === 'improved' ? 'statComparisonImproved' : 'statComparisonWorsened')}</span>}
       </span>
     </span>
-    {(kind !== 'value' || !direction) && <span className="col-start-1 row-start-3 truncate text-xs text-text-secondary">{m('statComparisonPrior', { value: prior })}</span>}
+    {(kind !== 'value' || !direction) && <span title={priorLine} className="col-start-1 row-start-3 truncate text-xs text-text-secondary">{priorLine}</span>}
   </>;
 }
 

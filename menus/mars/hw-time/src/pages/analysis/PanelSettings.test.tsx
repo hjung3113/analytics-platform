@@ -125,21 +125,26 @@ it('refuses a step-4 drawer edit that would put a carried trend over the limit (
   expect(settings.getByRole('radio', { name: '무시', checked: true })).toBeTruthy();
 });
 
-it('keeps both table connections after following the second via «새 패널» and reopening (#2999 C2)', async () => {
-  const equipmentId = 'MEM-PHOTO-0105';
-  const publisher: PanelInstance = { id: 'current', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
-    outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
-  const connection = { key: MOTION_EQUIPMENT_KEY, from: `${publisher.id}.${MOTION_EQUIPMENT_KEY}` };
-  const first: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
-    inputs: [{ ...connection, mode: 'hold', use: 'highlight', value: { shape: 'set', values: [equipmentId] } }] };
-  const second: PanelInstance = { ...first, id: 'table-2', inputs: [] };
+// The view the first half saves, written as constants so the reopen half starts from it (#2999 C2).
+const c2Equipment = 'MEM-PHOTO-0105';
+const c2Publisher: PanelInstance = { id: 'current', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+  outputs: [{ key: MOTION_EQUIPMENT_KEY, dimension: EQUIPMENT_SELECTION_DIMENSION, shape: 'set' }] };
+const c2Connection = { key: MOTION_EQUIPMENT_KEY, from: `${c2Publisher.id}.${MOTION_EQUIPMENT_KEY}` };
+const c2First: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+  inputs: [{ ...c2Connection, mode: 'hold', use: 'highlight', value: { shape: 'set', values: [c2Equipment] } }] };
+const c2Second: PanelInstance = { ...c2First, id: 'table-2', inputs: [] };
+const c2Saved = { page: [['drillModule', 'PM1'], ['drillMotion', 'Pump'], ['moduleType', 'PM'], ['pins', 'table']] as typeof page,
+  instances: [c2Publisher, c2First, { ...c2Second, inputs: [{ ...c2Connection, mode: 'follow' as const }] }] };
+
+// Split (main-fix, #3128): each saved-view open remounts the dock; one test opening many views passed the 15 s CI limit.
+it('keeps both table connections after following the second via «새 패널» (#2999 C2)', async () => {
   function SelectEquipment() {
     const { setPage } = usePlatform();
-    return <button onClick={() => setPage({ [MOTION_EQUIPMENT_KEY]: [equipmentId] })}>Select equipment</button>;
+    return <button onClick={() => setPage({ [MOTION_EQUIPMENT_KEY]: [c2Equipment] })}>Select equipment</button>;
   }
-  const open = await mountPanelView([publisher, first, second], { realChart: 'hw-current', children: <SelectEquipment /> });
+  await mountPanelView([c2Publisher, c2First, c2Second], { realChart: 'hw-current', children: <SelectEquipment /> });
   fireEvent.click(screen.getByRole('button', { name: 'Select equipment' }));
-  await waitFor(() => expect(new URLSearchParams(window.location.search).getAll(MOTION_EQUIPMENT_KEY)).toEqual([equipmentId]));
+  await waitFor(() => expect(new URLSearchParams(window.location.search).getAll(MOTION_EQUIPMENT_KEY)).toEqual([c2Equipment]));
   const settings = within(await openTableSettings());
   fireEvent.click(settings.getByRole('radio', { name: '거르기' }));
   fireEvent.click(settings.getByRole('radio', { name: '붙잡기' }));
@@ -157,11 +162,12 @@ it('keeps both table connections after following the second via «새 패널» a
 
   const saved = await act(() => views.saveAs({ name: 'Both connections', kind: 'menu-view' }));
   if (!saved.ok || saved.value.view.kind !== 'menu-view') throw new Error('Failed to save both table connections');
-  expect(saved.value.view.panels?.instances).toEqual([
-    publisher, first, { ...second, inputs: [{ ...connection, mode: 'follow' }] },
-  ]);
-  cleanup();
-  await open(saved.value.view.id);
+  expect(saved.value.view.panels?.instances).toEqual(c2Saved.instances);
+  expect(saved.value.view.page).toEqual(c2Saved.page);
+});
+
+it('keeps both table connections after reopening the view saved with them (#2999 C2)', async () => {
+  await mountPanelView(c2Saved.instances, { savedPage: c2Saved.page, realChart: 'hw-current' });
   const held = within(await openTableSettings({ name: '원본 표 · 붙잡음' }));
   expect(held.getByRole('radio', { name: '강조만', checked: true })).toBeTruthy();
   expect(held.getByRole('radio', { name: '붙잡기', checked: true })).toBeTruthy();

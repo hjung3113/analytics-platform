@@ -1,6 +1,6 @@
 import { formatWallClock, type GlobalContext, type Pair } from '@ap/contracts';
 import { useCallback, useMemo } from 'react';
-import { AlertTriangle, Clock, Cpu, Gauge } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { formatNumber } from '@ap/contracts';
 import { formatSummaryTime, useAnalysisSelectionInputs, useI18n, useMenuQuery, usePlatform, useQueryContext } from '@ap/kernel';
 import { AnalysisChart, AnalysisLayout, DataTrustIndicator, LaneTimeline, PlatformPage, QueryView, RecoverButton, ReturnLink, StateMessage, StatCard, type TimelineLane } from '@ap/components';
@@ -82,9 +82,9 @@ function OperationTimeBody({ data, updatedAt, resultPeriod, previousEquipment }:
   const flowTitle = `${data.equipmentId ?? ''} ${tx({ ko: '모듈별 동작 흐름', en: 'operation flow by module' })}`.trim();
   return <AnalysisLayout
     kpi={{ id: 'summary', title: tx({ ko: '동작시간 요약', en: 'Operation time summary' }), node: <div className="grid grid-cols-1 gap-3 @min-[720px]/analysis:grid-cols-3">
-      <StatCard icon={Cpu} chip="blue" label={tx({ ko: '집계 설비', en: 'Equipment ranked' })} value={number(data.ranking.length)} caption={tx({ ko: '동작시간 상위 30대까지', en: 'Up to the top 30' })} />
-      <StatCard icon={Clock} chip="teal" label={tx({ ko: '총 동작시간', en: 'Total operation time' })} value={number(total)} unit={minutes} caption={tx({ ko: '집계 설비 합계', en: 'Sum over ranked equipment' })} />
-      <StatCard icon={Gauge} chip="blue" label={tx({ ko: '설비당 평균', en: 'Average per equipment' })} value={number(data.ranking.length ? Math.round(total / data.ranking.length) : 0)} unit={minutes} caption={<span className="break-keep">{leaderCaption}</span>} />
+      <StatCard label={tx({ ko: '집계 설비', en: 'Equipment ranked' })} value={number(data.ranking.length)} caption={tx({ ko: '동작시간 상위 30대까지', en: 'Up to the top 30' })} />
+      <StatCard label={tx({ ko: '총 동작시간', en: 'Total operation time' })} value={number(total)} unit={minutes} caption={tx({ ko: '집계 설비 합계', en: 'Sum over ranked equipment' })} />
+      <StatCard label={tx({ ko: '설비당 평균', en: 'Average per equipment' })} value={number(data.ranking.length ? Math.round(total / data.ranking.length) : 0)} unit={minutes} caption={leaderCaption} />
     </div> }}
     charts={[
       { id: 'ranking', title: tx({ ko: '설비별 동작시간', en: 'Operation time by equipment' }), node: <AnalysisChart chartId="clas-operation-ranking"

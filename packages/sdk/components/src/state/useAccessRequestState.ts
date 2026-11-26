@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type Mou
 import type { AccessRequestState, Lang } from '@ap/kernel';
 import { textFor } from '@ap/kernel/host';
 import { pageFallbackTarget } from './pageFocus';
+import { releaseFocusLater } from './releaseFocusLater';
 
 const READ_LIMIT_MS = 8000;
 const RETRY_START_LIMIT_MS = 3000;
@@ -113,9 +114,7 @@ export function useAccessRequestState(state: AccessRequestState, { lang, kind, c
       onBlur: (event: FocusEvent<HTMLElement>) => {
         const node = event.target;
         if (event.relatedTarget !== null) focusedControl.current = null;
-        else queueMicrotask(() => {
-          if (node.isConnected && focusedControl.current === node && document.activeElement !== node) focusedControl.current = null;
-        });
+        else releaseFocusLater(node, () => { if (focusedControl.current === node) focusedControl.current = null; });
       },
     },
   };

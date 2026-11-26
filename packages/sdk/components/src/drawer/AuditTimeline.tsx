@@ -4,6 +4,7 @@ import { formatFeedTime, useI18n, useMessages, type AuditMore } from '@ap/kernel
 import { Button, StatusBadge } from '@ap/ui';
 import { compareAuditEvents, type AuditEvent, type Text } from '@ap/contracts';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { releaseFocusLater } from '../state/releaseFocusLater';
 
 const ICONS = { create: FilePlus2, update: FilePen, retire: FileX2, sync: RefreshCw, delete: Trash2 };
 const ACTION_KEY = {
@@ -99,8 +100,8 @@ export function AuditTimeline({ events, more, fields, actorName }: AuditTimeline
           onFocus={() => { buttonFocused.current = true; }}
           onBlur={event => {
             const node = event.currentTarget;
-            // A blur caused by removing the button leaves it disconnected; only a real departure clears the flag.
-            if (event.relatedTarget === null) queueMicrotask(() => { if (node.isConnected) buttonFocused.current = false; });
+            // A blur caused by removing the button leaves it disconnected, and a restore can focus it again; only a real departure clears the flag.
+            if (event.relatedTarget === null) releaseFocusLater(node, () => { buttonFocused.current = false; });
             else buttonFocused.current = false;
           }}
           onClick={() => { if (!loading) more.load(); }}>

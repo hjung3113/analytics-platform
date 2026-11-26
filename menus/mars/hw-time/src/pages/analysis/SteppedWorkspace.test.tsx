@@ -6,6 +6,7 @@ import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, PANEL_INSTANCE_TOKE
 import { usePlatform, useUnsavedGuard } from '@ap/kernel';
 import type { MenuView, PanelInstance } from '@ap/contracts';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useLeaveRequest, useSavedViews, type SavedViews } from '@ap/kernel/testing';
+import { HELD_SOURCE_ID, heldOutput, instanceSlot } from './heldPanels';
 import { answer, openPanelPicker, renderOverview, requests, settle } from './test-support';
 
 const chart = (id = 'hw-current') => JSON.parse(screen.getByTestId(id).textContent!);
@@ -106,9 +107,21 @@ describe('HW Time saved view panels', () => {
     expect(document.activeElement?.getAttribute('data-tab-panel-id')).toBe('current');
   });
 
+  // What views C and D save (#3080 C6); the first half checks it and the second half starts from it.
+  const c6Search = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105';
+  const c6Page: [string, string][] = [['drillModule', 'PM1'], ['drillMotion', 'Pump'], ['moduleType', 'PM']];
+  const c6Publisher: PanelInstance = { id: 'current', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [], outputs: [heldOutput] };
+  const c6HeldSource: PanelInstance = { ...c6Publisher, id: HELD_SOURCE_ID };
+  const c6HeldTable: PanelInstance = { id: 'table', source: { kind: 'declared', panel: 'table' }, outputs: [],
+    inputs: [{ key: heldOutput.key, from: `${HELD_SOURCE_ID}.${heldOutput.key}`, mode: 'hold', value: { shape: 'set', values: ['MEM-PHOTO-0105'] } }] };
+  const c6FollowingTable: PanelInstance = { id: 'table-2', source: { kind: 'declared', panel: 'table' }, outputs: [],
+    inputs: [{ key: heldOutput.key, from: `${c6Publisher.id}.${heldOutput.key}`, mode: 'follow' }] };
+  const c6Instances = [c6HeldTable, c6FollowingTable, c6Publisher, c6HeldSource];
+
+  // Split (main-fix, #3128): each saved-view open remounts the dock; one test opening many views passed the 15 s CI limit.
   it.each(['reopen C', 'save directly'])('keeps the second raw table slot when users %s (#3080 C6)', async flow => {
-    const search = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105';
-    await real(createFakeSavedViewStore([]), <Probe />, search);
+    const store = createFakeSavedViewStore([]);
+    await real(store, <Probe />, c6Search);
     async function newTable(name: string) {
       fireEvent.click(await screen.findByRole('button', { name: '새 패널' }));
       fireEvent.click(within(await screen.findByRole('dialog', { name: '새 패널' })).getByRole('button', { name }));
@@ -121,15 +134,29 @@ describe('HW Time saved view panels', () => {
     await newTable('원본 표');
     const tableId = () => screen.getByRole('tab', { name: '원본 표' }).dataset.tabPanelId;
     const slot = tableId();
+    expect(slot).toBe(instanceSlot(c6FollowingTable));
     const c = await copy('C');
     if (flow === 'reopen C') await open(c);
     expect.soft(tableId()).toBe(slot);
     const d = await copy('D');
+    for (const id of [c, d]) {
+      const row = store.rows.get(id);
+      if (row?.kind !== 'menu-view') throw new Error(`Expected saved menu view ${id}`);
+      expect(row.page).toEqual(c6Page);
+      expect(row.panels).toEqual({ version: 1, instances: c6Instances });
+    }
+  });
+
+  it('keeps the second raw table hidden only in D when users reopen C and then D (#3080 C6)', async () => {
+    const view = (id: string) => saved({ id, page: c6Page, panels: { version: 1, instances: c6Instances } });
+    await real(createFakeSavedViewStore([view('C'), view('D')]), <Probe />, c6Search);
+    await open('D');
+    expect(screen.getByRole('tab', { name: '원본 표' }).dataset.tabPanelId).toBe(instanceSlot(c6FollowingTable));
     await command('원본 표', '숨기기');
     flushLayout();
-    await open(c);
+    await open('C');
     expect.soft(visible('원본 표')).toBe(true);
-    await open(d);
+    await open('D');
     expect(visible('원본 표')).toBe(false);
     expect(visible('원본 표 · 붙잡음')).toBe(true);
   });
