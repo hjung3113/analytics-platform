@@ -209,9 +209,10 @@ describe('HW Time saved view panels', () => {
     await real(store, <PeriodControls />);
     await open('A');
     await command(donutTitle, '숨기기');
-    fireEvent.keyDown(screen.getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
-    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '추가하면 고정', checked: true }));
-    fireEvent.click(await screen.findByRole('menuitem', { name: '원본 표' }));
+    const tables = within(await openPanelPicker(screen.getByRole('button', { name: /패널 추가/ })));
+    // Unpinned on purpose: the period reset must remove this table.
+    fireEvent.click(tables.getByRole('checkbox', { name: '추가하면 고정', checked: true }));
+    fireEvent.click(tables.getByRole('button', { name: '원본 표' }));
     await settle();
     expect(visible('원본 표')).toBe(true);
     flushLayout();
@@ -246,9 +247,9 @@ describe('HW Time saved view panels', () => {
   it('pins the added Pareto slot when a donut owns its wire ID (#3080 F2)', async () => {
     await real(createFakeSavedViewStore([saved({ id: 'A', panels: { version: 1, instances: [{ ...donut, id: 'pareto' }] } })]));
     await open('A');
-    fireEvent.keyDown(screen.getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
-    await screen.findByRole('menuitemcheckbox', { name: '추가하면 고정', checked: true });
-    fireEvent.click(await screen.findByRole('menuitem', { name: paretoTitle }));
+    const picker = within(await openPanelPicker(screen.getByRole('button', { name: /패널 추가/ })));
+    expect(picker.getByRole('checkbox', { name: '추가하면 고정', checked: true })).toBeTruthy();
+    fireEvent.click(picker.getByRole('button', { name: paretoTitle }));
     await settle();
     const slots = () => screen.getAllByRole('tab', { name: paretoTitle }).map(tab => tab.dataset.tabPanelId);
     expect(slots()).toEqual(['saved-instance-pareto_007e1']);
