@@ -31,7 +31,7 @@ export const Selectable: Story = { args: { onClick: () => undefined, active: tru
 const comparisonExamples = [
   { label: '가동률', current: 82, previous: 80, unit: '%', changeUnit: '%p', kind: 'absolute', good: 'up' },
   { label: '사이클타임', current: 42, previous: 40, unit: '초', changeUnit: '초', kind: 'percent', good: 'down' },
-  { label: '처리량', current: 108, previous: 120, unit: '건', changeUnit: '건', kind: 'value' },
+  { label: '처리량', current: 108, previous: 120, unit: '건', changeUnit: '건', kind: 'absolute' },
   { label: '비공정 체류', current: 19, previous: 18, unit: '초', changeUnit: '초', kind: 'absolute', good: 'down', noChangeBand: 1 },
 ] satisfies (Pick<StatCardComparison, 'current' | 'previous' | 'kind' | 'good' | 'noChangeBand'> & {
   label: string; current: number; previous: number; unit: string; changeUnit: string;

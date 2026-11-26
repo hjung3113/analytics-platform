@@ -59,9 +59,13 @@ function ComparisonRows({ comparison, children }: { comparison: StatCardComparis
     const magnitude = Math.abs(change);
     flat = change === 0 || magnitude <= noChangeBand;
     if (!flat && good) tone = good === direction ? 'improved' : 'worsened';
-    if (change !== 0) arrow = direction === 'up' ? '▲ ' : '▼ ';
-    if (kind === 'value') {
-      inline = prior;
+    // Inside the no-change band the pill says only «변화 없음»: a direction arrow would contradict it (#2743).
+    if (!flat && kind !== 'value') arrow = direction === 'up' ? '▲ ' : '▼ ';
+    if (flat) {
+      inline = '';
+    } else if (kind === 'value') {
+      // The pill states the comparison value itself, labelled, so it never reads as a change of that size.
+      inline = m('statComparisonPriorValue', { value: prior });
     } else {
       const percent = kind === 'percent' && previous ? magnitude / Math.abs(previous) * 100 : null;
       if (percent !== null && Number.isFinite(percent)) {
@@ -77,11 +81,11 @@ function ComparisonRows({ comparison, children }: { comparison: StatCardComparis
       {children}
       <span className={cn('t-delta min-w-0 truncate rounded-pill px-1.5', comparisonTone[tone])}>
         {arrow}{inline}
-        {flat && <> · <span>{m('statComparisonNoChange')}</span></>}
+        {flat && m('statComparisonNoChange')}
         {tone !== 'neutral' && <span className="sr-only"> {m(tone === 'improved' ? 'statComparisonImproved' : 'statComparisonWorsened')}</span>}
       </span>
     </span>
-    <span className="col-start-1 row-start-3 truncate text-xs text-text-secondary">{m('statComparisonPrior', { value: prior })}</span>
+    {(kind !== 'value' || flat || change === null) && <span className="col-start-1 row-start-3 truncate text-xs text-text-secondary">{m('statComparisonPrior', { value: prior })}</span>}
   </>;
 }
 

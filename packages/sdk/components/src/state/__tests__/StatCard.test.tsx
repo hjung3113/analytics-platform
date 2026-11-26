@@ -82,12 +82,21 @@ it.each([
 
 it('includes the boundary in the neutral no-change band', () => {
   render(<I18nProvider><StatCard label="사이클타임" value="12" comparison={{ ...comparison, good: 'up', noChangeBand: 4 }} /></I18nProvider>);
-  expect(screen.getByText('변화 없음')).toBeVisible();
-  expect(screen.getByText('▲ 4초 ·')).toHaveClass('text-text-secondary', 'bg-surface-sunken');
+  // Inside the band the pill says only «변화 없음»: no arrow or change that would contradict it (#2743).
+  const pill = screen.getByText('변화 없음', { selector: '.t-delta' });
+  expect(pill).toHaveClass('text-text-secondary', 'bg-surface-sunken');
+  expect(pill).toHaveTextContent(/^변화 없음$/);
+  expect(screen.queryByText(/[▲▼]/)).toBeNull();
+});
+
+it('shows the difference, not the prior value, for an absolute decrease (#2743)', () => {
+  render(<I18nProvider><StatCard label="처리량" value="108" comparison={{ ...comparison, current: 108, previous: 120, formatValue: v => `${v}건`, formatChange: v => `${v}건` }} /></I18nProvider>);
+  expect(screen.getByText('▼ 12건', { selector: '.t-delta' })).toHaveClass('text-text-secondary');
+  expect(screen.getByText('전기 대비 · 이전 120건')).toBeVisible();
 });
 
 it.each([
-  ['value', 12, 8, '▲ 8초', '8초'],
+  ['value', 12, 8, '이전 8초', null],
   ['absolute', 12, 8, '▲ 4초', '8초'],
   ['percent', 12, 8, '▲ +50.0%', '8초'],
   ['percent', -6, -4, '▼ −50.0%', '-4초'],
@@ -97,7 +106,9 @@ it.each([
 ] as const)('shows %s for current %s and prior %s', (kind, current, previous, inline, prior) => {
   render(<I18nProvider><StatCard label="사이클타임" value={current ?? '—'} comparison={{ ...comparison, kind, current, previous }} /></I18nProvider>);
   expect(screen.getByText(inline, { selector: '.t-delta' })).toBeVisible();
-  expect(screen.getByText(`전기 대비 · 이전 ${prior}`)).toBeVisible();
+  // A labelled prior value in the pill is not repeated on the comparison line, and carries no arrow.
+  if (prior === null) expect(screen.queryByText(/전기 대비/)).toBeNull();
+  else expect(screen.getByText(`전기 대비 · 이전 ${prior}`)).toBeVisible();
   if (inline === '—') expect(screen.getByText(inline, { selector: '.t-delta' })).toHaveClass('text-text-secondary');
 });
 
