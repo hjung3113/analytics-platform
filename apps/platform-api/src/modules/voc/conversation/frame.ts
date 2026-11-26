@@ -8,7 +8,7 @@ import type { IdempotencyService } from '../../core/idempotency/idempotency-serv
 import { runIdempotentCommand } from '../../core/idempotency/idempotent-command.js';
 import { lockManagedSystem } from '../../managed-systems/index.js';
 import type { CheckService } from '../../permissions/check-service.js';
-import { type DenyReason, isRequestableDenial } from '../../permissions/index.js';
+import { type DenyReason, isRequestableDenial } from '../../permissions/check-service.js';
 import type { ConversationActor } from '../conversation-service.js';
 import { selectVocForUpdate } from '../repo.js';
 

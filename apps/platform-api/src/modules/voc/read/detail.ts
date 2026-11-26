@@ -3,7 +3,7 @@ import type { VocDetailEnvelope, VocSummaryEnvelope } from '@ap/feature-shared';
 import type { Db } from '../../../db/client.js';
 import type { Tx } from '../../../db/tx.js';
 import { HttpError } from '../../../lib/errors.js';
-import { isRequestableDenial } from '../../permissions/index.js';
+import { isRequestableDenial } from '../../permissions/check-service.js';
 import { readClientErrorIdentity } from '../../platform-port/read-projections.js';
 import {
   actorEffectiveScope,
