@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { House } from 'lucide-react';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -70,7 +70,13 @@ it.each(['regular', 'compact'] as const)('gives an all-null tile the same %s plo
     plots[1].querySelector('[data-small-multiple-band]')?.getAttribute('d'),
   );
   expect(plots[0].parentElement?.className).toBe(plots[1].parentElement?.className);
-  expect(within(tile(0)).getByText('결과 없음')).toHaveClass('absolute');
+  const caption = within(tile(0)).getByText('결과 없음');
+  const spacer = plots[1].nextElementSibling;
+  expect(plots[0].nextElementSibling).toBe(caption);
+  expect(caption).not.toHaveClass('absolute');
+  expect(caption).toHaveClass('h-lh', 'shrink-0');
+  expect(spacer?.className).toBe(caption.className);
+  expect(spacer).toBeEmptyDOMElement();
 });
 
 it('recovers grid-owned focus by tile ID and clears the tab stop of a removed tile', async () => {
@@ -91,6 +97,19 @@ it('recovers grid-owned focus by tile ID and clears the tab stop of a removed ti
   rerender(ui(4));
   expect(outside).toHaveFocus();
   expect(tile(0)).toHaveAttribute('tabindex', '0');
+});
+
+it('recovers focus after the same tile is blurred and refocused before the blur clears ownership', async () => {
+  const data = series.slice(0, 4);
+  const { rerender } = render(view({ series: data, columns: 3 }));
+  const button = await screen.findByRole('button', { name: 'Asset 3' });
+  await act(async () => {
+    button.focus();
+    button.blur();
+    button.focus();
+  });
+  rerender(view({ series: data, columns: 4 }));
+  expect(tile(3)).toHaveFocus();
 });
 
 it.each([0, 1.5, Number.MAX_SAFE_INTEGER + 1])('diagnoses invalid columns (%s) and uses six', async columns => {

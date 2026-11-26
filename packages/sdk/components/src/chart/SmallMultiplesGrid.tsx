@@ -131,7 +131,9 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
                     if (event.relatedTarget) focusedButton.current = null;
                     // A removed button can blur during the commit, before focus recovery runs.
                     else queueMicrotask(() => {
-                      if (button.isConnected && focusedButton.current === button) focusedButton.current = null;
+                      if (button.isConnected && focusedButton.current === button && button.ownerDocument.activeElement !== button) {
+                        focusedButton.current = null;
+                      }
                     });
                   }}
                   onKeyDown={event => move(event, index)}
@@ -151,7 +153,9 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
                     </span>}
                   </span>
                   {(tile.hasValues || tile.bounds?.parts.length) ? <SmallMultiplePlot tile={tile} x={x} y={y} /> : null}
-                  {!tile.hasValues && <span className="absolute inset-x-2 bottom-1.5 text-caption text-text-secondary">{m('panelTrustEmpty')}</span>}
+                  <span className="mt-auto h-lh shrink-0 truncate t-caption text-text-secondary">
+                    {tile.hasValues ? null : m('panelTrustEmpty')}
+                  </span>
                 </button>
               </div>;
             })}
