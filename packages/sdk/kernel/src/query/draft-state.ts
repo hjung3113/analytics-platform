@@ -34,6 +34,7 @@ export type DraftInputs = {
   history?: QueryHistoryStore; revision: number; currentRevision: () => number; allowed: boolean;
   store?: DraftStore; menu: MenuEntry | null; identity: string; session: Session; url: string;
   global: GlobalContext; page: Pair[]; extras: Pair[]; defaultRangeTo: string | null; scope: ScopeState;
+  extraContextReset?: Pick<MenuEntry, 'contextResetKeys'>;
   adapter: PlatformAdapter; axes: readonly EquipmentAxisDescriptor[]; can: HostPlatform['can']; invalid: boolean; badDrillFormat: boolean;
   commit: (next: string, how: 'push') => boolean;
   setGlobal: QueryDraft['setDraftGlobal']; setPage: QueryDraft['setDraftPage'];
@@ -226,7 +227,8 @@ function draftApi(input: DraftInputs, store: DraftStore, state: Snapshot, active
       // Providers echo visible pairs before hidden pairs; acknowledge that order without changing repeated values.
       const hiddenKeys = input.menu?.hiddenPageKeys ?? [];
       const page = [...next.page.filter(([key]) => !hiddenKeys.includes(key)), ...next.page.filter(([key]) => hiddenKeys.includes(key))];
-      const target = input.url.split('?')[0] + buildQuery(next.global, page, input.extras);
+      const extras = dropResetKeys(input.extraContextReset, input.extras, input.global, next.global);
+      const target = input.url.split('?')[0] + buildQuery(next.global, page, extras);
       const query = canonicalHistoryQuery(next, input.menu?.pageKeys ?? [], input.menu?.repeatedPageKeys);
       const record: RecordEvent | undefined = input.history && input.menu ? { port: input.history, key: { userId: input.session.user.id, menuId: input.menu.id, scopeId: next.global.scopeId }, entry: { id: queryHistoryId(query), query, schemaVersion: 1, lastAppliedAt: Date.now(), count: 1 } } : undefined;
       const pending = { target, dispatching: true, editRevision: previous.editRevision + 1, record };

@@ -1,9 +1,9 @@
 import { heldSelectionProblem, parseQuery, type AnalysisSelection, type AnalysisSelectionShape, type AnalysisSelectionUse, type PanelInstance, type PanelInstanceInput, type Text } from '@ap/contracts';
 import { createContext, createElement, use, useCallback, useEffect, useInsertionEffect, useLayoutEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
-import { LentPanelOutputsContext, PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
+import { LentPanelOutputsContext, LentPanelPlatformContext, PaneScreenContext, ScreenContext, type AddressTransition } from '../platform/contexts';
 import { usePlatform, usePlatformOptional } from '../platform/hooks';
 import type { MenuPlatform } from '../platform/types';
-import { analysisSelectionDependencies, indexInstanceOutputs, menuAnalysisSelections, selectionUses, type LentSelectionWriter } from '../registry/analysis-selections';
+import { analysisSelectionDependencies, indexChartSelectionChannels, indexInstanceOutputs, menuAnalysisSelections, selectionUses, type LentSelectionWriter } from '../registry/analysis-selections';
 import type { MenuEntry } from '../registry/registry';
 import { sameItems, useStable } from '../stable';
 import { analysisSelectionParam, parseAnalysisSelection } from './analysisSelectionCodec';
@@ -28,9 +28,11 @@ function sameSelection(a: AnalysisSelection | null, b: AnalysisSelection | null)
 
 const noRoute = { panels: [] };
 const noLent: readonly LentSelectionWriter[] = [];
+declare const process: { env: { NODE_ENV?: string } };
 const AnalysisSelectionInstancesContext = createContext<{
   store: NonNullable<ReturnType<typeof useWriteScreen>>['analysisSelectionAvailability'] | undefined;
   graph: ReturnType<typeof analysisSelectionDependencies>;
+  chartIds: ReadonlySet<string>;
 } | undefined>(undefined);
 
 /** Supplies the workspace's configured instances to its panels and publishes their graph to the screen header. */
@@ -43,15 +45,27 @@ export function AnalysisSelectionInstances({ instances, publishers, children }: 
   const { route, registry } = usePlatform();
   const menu = route?.menu;
   const channels = useChannels(menu, registry);
-  const store = useWriteScreen(route)?.analysisSelectionAvailability;
+  const screen = useWriteScreen(route);
+  const store = use(LentPanelPlatformContext) === null && screen?.route?.menu === menu ? screen?.analysisSelectionAvailability : undefined;
+  const outputs = useMemo(() => instances && indexInstanceOutputs(instances), [instances]);
+  const indexed = useMemo(() => store && menu && outputs ? indexChartSelectionChannels(menu, channels, outputs) : undefined, [store, menu, channels, outputs]);
+  const chartChannels = useStable(indexed?.channels, (a, b) => a === b || !!a && !!b && a.size === b.size && [...a].every(([key, channel]) => {
+    const other = b.get(key);
+    return channel.dimension === other?.dimension && channel.shape === other.shape && channel.writers[0].panelId === other.writers[0].panelId;
+  }));
   const value = useMemo(() => {
-    if (!instances || !store) return;
-    const workspace = { instances, publishers, outputs: indexInstanceOutputs(instances) };
-    return { store, graph: analysisSelectionDependencies(channels, workspace) };
-  }, [store, instances, publishers, channels]);
+    if (!instances || !outputs || !store) return;
+    const all = chartChannels?.size ? new Map([...channels, ...chartChannels]) : channels;
+    const workspace = { instances, publishers, outputs, chartChannels };
+    const chartIds = new Set(instances.filter(instance => instance.source.kind === 'chart').map(instance => instance.id));
+    return { store, graph: analysisSelectionDependencies(all, workspace), chartIds };
+  }, [store, instances, publishers, channels, outputs, chartChannels]);
   useLayoutEffect(() => {
     if (store && value) return store.publishGraph(value.graph);
   }, [store, value]);
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') for (const reason of indexed?.rejected ?? []) console.warn(reason);
+  }, [indexed]);
   return createElement(AnalysisSelectionInstancesContext.Provider, { value }, children);
 }
 
@@ -73,6 +87,23 @@ export function useAnalysisSelectionChannelName(
 const useWriteScreen = (route: MenuPlatform['route']) => route ? use(PaneScreenContext) ?? use(ScreenContext) : null;
 
 const readNoGraph = () => undefined;
+
+function chartInstanceOutput(graph: ReturnType<typeof analysisSelectionDependencies>, key: string, instanceId: string) {
+  const namespaced = `${instanceId}.${key}`;
+  if (graph.chartChannels?.has(namespaced)) return namespaced;
+  if (graph.chartChannels?.get(key)?.writers[0].panelId === instanceId) return key;
+}
+
+/** Host chart metadata for a registered instance output. */
+export function useChartInstanceSelectionOutput(key: string | undefined, instanceId: string | undefined): { shape: AnalysisSelectionShape; dimension: string } | undefined {
+  const configured = use(AnalysisSelectionInstancesContext);
+  const platform = usePlatformOptional();
+  const screen = useWriteScreen(platform?.route ?? null);
+  if (use(LentPanelPlatformContext) !== null || !configured || configured.store !== screen?.analysisSelectionAvailability
+    || key === undefined || instanceId === undefined) return;
+  const outputKey = chartInstanceOutput(configured.graph, key, instanceId);
+  return outputKey === undefined ? undefined : configured.graph.chartChannels?.get(outputKey)?.writers[0].selection;
+}
 
 function useSelectionDependencies(channels: ReturnType<typeof menuAnalysisSelections>, screen: ReturnType<typeof useWriteScreen>, menu: MenuEntry | undefined) {
   const configured = use(AnalysisSelectionInstancesContext);
@@ -158,12 +189,16 @@ function useSelectionOutput(sourcePlatform: MenuPlatform | null, sourceOutput: {
   const alive = lent && mapped !== undefined ? lent.alive : undefined;
   const output = lent && mapped !== undefined ? { panelId: lent.writerId, key: mapped } : sourceOutput;
   const { route, pageParam, pageParams, setPage, registry } = (output && platform) || {};
-  const { panelId, key } = output ?? {};
   const screen = useWriteScreen(route ?? null);
-  const channels = useChannels(route?.menu, registry);
-  const dependencies = useSelectionDependencies(channels, screen, route?.menu);
-  const channel = key === undefined ? undefined : channels.get(key);
+  const declared = useChannels(route?.menu, registry);
+  const dependencies = useSelectionDependencies(declared, screen, route?.menu);
+  const configured = use(AnalysisSelectionInstancesContext);
   const store = screen?.analysisSelectionAvailability;
+  const instanceId = options?.instanceId;
+  const chart = !lent && configured?.store === store && instanceId !== undefined && configured?.chartIds.has(instanceId);
+  const key = chart && output ? chartInstanceOutput(dependencies, output.key, instanceId) : output?.key;
+  const panelId = chart ? instanceId : output?.panelId;
+  const channel = key === undefined ? undefined : (chart ? dependencies.chartChannels : declared)?.get(key);
   const address = pageParam ? drillAddress(route?.menu, pageParam) : '';
   const report = useStable(options?.available, sameAvailability);
   const isSource = channel?.writers[0]?.panelId === panelId && key !== undefined && dependencies.ownsChannel(key, options?.instanceId);
@@ -181,9 +216,10 @@ function useSelectionOutput(sourcePlatform: MenuPlatform | null, sourceOutput: {
   const selection = channel && rendered ? parseAnalysisSelection(channel.shape, rendered) : null;
   const highlightScreen = isSource && options?.subscribeHighlight !== false ? screen : null;
   const highlighted = useSelectionHighlight(highlightScreen, address, hoveredKey => hoveredKey === key && selection !== null);
-  if (output && route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
+  if (!chart && output && route && !channel?.writers.some(writer => writer.panelId === panelId)) throw new RangeError(`Panel "${panelId}" does not declare analysis selection output "${key}"`);
   return { selection, availabilityCurrent, highlighted, select(next) {
     if (key === undefined || !rendered || !setPage || alive?.() === false) return false;
+    if (chart && store?.graph()?.chartChannels?.get(key) !== channel) return false;
     const current = screen?.pageParamsNow(key);
     if (!current || !channel || (next && next.shape !== channel.shape)) return false;
     const proposal = writeProposal(channel.shape, next);
@@ -266,7 +302,7 @@ export function useAnalysisSelectionReader(panelId: string): (inputs?: readonly 
   const graph = useSelectionDependencies(channels, screen, menu);
   const availability = useReportedAvailability(screen, drillAddress(menu, pageParam), graph);
   if (menu && !menu.panels?.some(panel => panel.id === panelId)) throw new RangeError(`Unknown panel "${panelId}" in menu "${menu.id}"`);
-  return inputs => readInputs(panelId, channels, pageParams, availability, heldSelections, graph, inputs);
+  return inputs => readInputs(panelId, graph.channels, pageParams, availability, heldSelections, graph, inputs);
 }
 
 function readInputs(panelId: string, channels: ReturnType<typeof menuAnalysisSelections>, pageParams: MenuPlatform['pageParams'],
@@ -421,8 +457,9 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   const menu = route?.menu;
   const paneId = screen?.paneId;
   const scopeId = global.scopeId;
-  const channels = useChannels(menu, platform.registry);
-  const dependencies = useSelectionDependencies(channels, screen, route?.menu);
+  const declared = useChannels(menu, platform.registry);
+  const dependencies = useSelectionDependencies(declared, screen, route?.menu);
+  const { channels } = dependencies;
   const availability = useReportedAvailability(screen, address, dependencies);
   const origin = menu?.analysisSelectionInbound?.length ? readSelectionOrigin(platform) : null;
   const active: Omit<AnalysisSelectionChip, 'after'>[] = [];
@@ -465,7 +502,7 @@ export function useAnalysisSelectionChips(onClearCommit?: (key: string | null, a
   const { chips } = useStable({ owner, configured: dependencies.configured, chips: result }, (a, b) =>
     a.owner === b.owner && a.configured === b.configured
     && a.chips.length === b.chips.length && a.chips.every((chip, i) =>
-      chip.key === b.chips[i].key && (!dependencies.configured || chip.after === b.chips[i].after) && chip.available === b.chips[i].available && chip.applied === b.chips[i].applied && chip.arrival?.href === b.chips[i].arrival?.href
+      chip.key === b.chips[i].key && chip.dimension === b.chips[i].dimension && (!dependencies.configured || chip.after === b.chips[i].after) && chip.available === b.chips[i].available && chip.applied === b.chips[i].applied && chip.arrival?.href === b.chips[i].arrival?.href
       && chip.arrival?.origin?.menuLabel === b.chips[i].arrival?.origin?.menuLabel
       && sameSelection(chip.selection, b.chips[i].selection)),
   );

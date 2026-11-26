@@ -12,7 +12,7 @@ import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, us
 import { createPortal } from 'react-dom';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { ANALYSIS_SELECTION_MAX_VALUES, useDrill, useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
-import { useOptionalAnalysisSelectionOutput } from '@ap/kernel/host';
+import { useChartInstanceSelectionOutput, useOptionalAnalysisSelectionOutput } from '@ap/kernel/host';
 import { EQUIPMENT_SELECTION_DIMENSION, overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, normalizeSet, ContractError, type AnalysisSelectionShape, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, InfoTip, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import { useThemeRevision, type ThemeColorToken } from '@ap/ui/theme';
@@ -336,14 +336,16 @@ function PlatformFrame<P, T>({ platform, ...p }: AnalysisChartFrameProps<P, T> &
   const features = route?.menu.features;
   const analyticsAllowed = platform.can('analytics:view');
   const output = p.analysisSelectionOutput;
+  const instanceOutput = useChartInstanceSelectionOutput(output?.key, output?.instanceId);
   const declaration = route?.menu.panels?.find(panel => panel.id === output?.panelId)
     ?.outputs.find(item => item.key === output?.key)?.selection;
+  const selectionOutput = instanceOutput ?? declaration;
   const drill = useDrill();
   const memory = useDrillBasisChoice(platform, drill.trail);
   const { tx, lang } = useI18n();
   const next = drill.levels[drill.depth];
   const pointTarget = p.nextAnalysisPointDrill;
-  const outputLevel = declaration?.shape === 'set' ? declaration.drillLevel : undefined;
+  const outputLevel = !instanceOutput && declaration?.shape === 'set' ? declaration.drillLevel : undefined;
   const canChooseBasis = !p.zoomOnly && route && platform.canOpen(route.menu.id) && !drill.invalid && next &&
     (pointTarget?.level ?? outputLevel) === next.key;
   const basisDrill: ChartBasisDrill | undefined = canChooseBasis && route.menu.drill?.levels[drill.depth]?.bases?.length ? {
@@ -362,7 +364,7 @@ function PlatformFrame<P, T>({ platform, ...p }: AnalysisChartFrameProps<P, T> &
     features: { compare: !!features?.compare, annotate: !!features?.annotate, export: !!features?.export },
     applyPeriod: analyticsAllowed ? range => setGlobal({ from: range.from, to: range.to }) : null,
     ...(analyticsAllowed && { applyEquipment: (values: readonly string[]) => setGlobal({ selection: [...values] }) }),
-    ...(declaration && { outputShape: declaration.shape, outputDimension: declaration.dimension }),
+    ...(selectionOutput && { outputShape: selectionOutput.shape, outputDimension: selectionOutput.dimension }),
   };
   return <FrameBody {...p} host={host} editor={editor} />;
 }

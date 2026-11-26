@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createAnalysisSelectionAvailability } from '../context/analysisSelectionAvailability';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { createAnalysisSelectionAvailability, subscribeToEmptyAvailability } from '../context/analysisSelectionAvailability';
 import { analysisSelectionParam, parseAnalysisSelection } from '../context/analysisSelectionCodec';
 import { NAVIGATION_URL_MAX_LENGTH } from '../context/shareLink';
 import { menuAnalysisSelections, type LentSelectionWriter } from '../registry/analysis-selections';
@@ -23,6 +23,7 @@ import type { DroppedSelection, HostPlatform, LinkOptions, LinkResolution, Objec
 import { makeStayId, takeNavigation, takePaneNavigation, type PaneUsageTrail, type AppValue, type CommitOptions, type PageWriteOptions, type ScreenAddress, type ScreenSource, type ScreenState } from './contexts';
 
 const noSelectionChannels = { panels: [] };
+const noChartChannels = () => undefined;
 let lastScopeValidationId = 0;
 
 // Hidden pairs are parsed with the public query, then split again by the main screen's commit (ADR-0105).
@@ -152,11 +153,13 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const matched = matchRoute(pathname);
     return matched && roundTrips(registry, matched) ? matched : null;
   }, [matchRoute, pathname, outsideDeployment, platformScreen, registry]);
-  const parseScreenQuery = useCallback((search: string): { parsed: ParsedQuery | null; contractError: ContractError | null } => {
+  const routeMenu = route?.menu ?? null;
+  const revision = app.pub.revision;
+  const parseScreenQuery = useCallback((search: string, chartKeys?: { all: string[]; repeated: string[] }): { parsed: ParsedQuery | null; contractError: ContractError | null } => {
     // The board owns its own query (`?sheet=`), not the Context codec: the main Context there is empty.
     if (platformScreen !== null) return { parsed: null, contractError: null };
     try {
-      const parsed = parseQuery(search, route?.menu.pageKeys ?? [], { repeated: route?.menu.repeatedPageKeys });
+      const parsed = parseQuery(search, chartKeys?.all ?? routeMenu?.pageKeys ?? [], { repeated: chartKeys?.repeated ?? routeMenu?.repeatedPageKeys });
       for (const axisId of Object.keys(parsed.global.condition ?? {})) {
         if (axisId === CUSTOM_GROUP_AXIS) {
           if (parsed.global.membershipBasis === 'asOf') throw new ContractError('membership_basis_unsupported', 'Custom groups only support current membership');
@@ -171,10 +174,24 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       if (e instanceof ContractError) return { parsed: null, contractError: e };
       throw e;
     }
-  }, [route, platformScreen, equipmentAxes]);
-  const { parsed, contractError } = useMemo(() => parseScreenQuery(search), [parseScreenQuery, search]);
+  }, [routeMenu, platformScreen, equipmentAxes]);
+  const declared = useMemo(() => parseScreenQuery(search), [parseScreenQuery, search]);
+  const scopeId = declared.parsed?.global.scopeId ?? null;
+  const localAvailability = useMemo(createAnalysisSelectionAvailability, [routeMenu, pathname, paneId, session, revision, scopeId]);
+  const analysisSelectionAvailability = source.availability ?? localAvailability;
+  const readChartChannels = useCallback(() => {
+    const channels = analysisSelectionAvailability.graph()?.chartChannels;
+    return channels?.size ? channels : undefined;
+  }, [analysisSelectionAvailability]);
+  const chartChannels = useSyncExternalStore(analysisSelectionAvailability.subscribe, readChartChannels, noChartChannels);
+  const chartKeys = useMemo(() => routeMenu && chartChannels ? {
+    all: [...routeMenu.pageKeys, ...chartChannels.keys()],
+    repeated: [...routeMenu.repeatedPageKeys ?? [], ...[...chartChannels].filter(([, channel]) => channel.shape === 'set').map(([key]) => key)],
+    contextResetKeys: [...routeMenu.contextResetKeys ?? [], ...chartChannels.keys()],
+  } : undefined, [routeMenu, chartChannels]);
+  const { parsed, contractError } = useMemo(() => chartKeys && declared.parsed?.extras.some(([key]) => chartChannels?.has(key))
+    ? parseScreenQuery(search, chartKeys) : declared, [declared, search, chartKeys, chartChannels, parseScreenQuery]);
   const global = parsed?.global ?? emptyGlobal;
-  const routeMenu = route?.menu ?? null;
   const routeContractError = useMemo(
     () => contractError ?? incompleteMetricPair(routeMenu, global.metricId, global.metricVersion),
     [contractError, routeMenu, global.metricId, global.metricVersion],
@@ -193,7 +210,6 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const removed = new Set([...drill.levels.slice(rejectedLevel).flatMap(drillLevelKeys), ...drill.resetKeys ?? []]);
     return rawPage.filter(([key]) => !removed.has(key));
   }, [drill, rejectedLevel, rawPage]);
-  const revision = app.pub.revision;
   const [basisNotice, setBasisNotice] = useState<{ revision: number; url: string; paneId: string | null; notice: NonNullable<ScreenState['rejectedBasis']> } | null>(null);
   const settledNotice = basisNotice?.url === url && basisNotice.revision === revision && basisNotice.paneId === paneId ? basisNotice.notice : null;
   if (basisNotice && !settledNotice && rejectedLevelKey === undefined) setBasisNotice(null);
@@ -205,9 +221,11 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     // Wait for recovery before another same-screen writer can propagate the rejected path.
     if (currentUrl === appliedUrl && rejectedLevel >= 0) return null;
     const q = currentUrl.indexOf('?');
-    const state = currentUrl === appliedUrl ? parsed : parseScreenQuery(q === -1 ? '' : currentUrl.slice(q)).parsed;
+    const currentSearch = q === -1 ? '' : currentUrl.slice(q);
+    const keys = chartKeys && new URLSearchParams(currentSearch).get('scopeId') === scopeId ? chartKeys : undefined;
+    const state = currentUrl === appliedUrl ? parsed : parseScreenQuery(currentSearch, keys).parsed;
     return state ?? { global: emptyGlobal, page: [], extras: [] };
-  }, [readSameScreen, appliedUrl, parsed, parseScreenQuery, rejectedLevel]);
+  }, [readSameScreen, appliedUrl, parsed, parseScreenQuery, rejectedLevel, chartKeys, scopeId]);
   const pageParamsNow = useCallback((key: string) => {
     const current = readWriteBase();
     return current && current.page.filter(([k]) => k === key).map(([, v]) => v);
@@ -245,6 +263,19 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     commitState(next, options?.replace ? 'replace' : 'push', { focus: options?.focus, bypassGuard: options?.bypassGuard, run: options?.run, analysisSelection: options?.analysisSelection, preserveSelectionUndo: options?.preserveSelectionUndo });
   }, [commitState]);
 
+  const previousCharts = useRef({ chartChannels, analysisSelectionAvailability, appliedUrl });
+  useLayoutEffect(() => {
+    const previous = previousCharts.current;
+    previousCharts.current = { chartChannels, analysisSelectionAvailability, appliedUrl };
+    // A new address owns its own values. Clean up a registration removed from the address that is still open.
+    if (!previous.chartChannels || previous.analysisSelectionAvailability !== analysisSelectionAvailability
+      || previous.appliedUrl !== appliedUrl || source.countsUsage === false) return;
+    const current = readSameScreen();
+    if (!current || stripDetailExpansion(fullAddress(current)) !== appliedUrl || !parsed) return;
+    const kept = extras.filter(([key]) => !previous.chartChannels?.has(key) || chartChannels?.has(key));
+    if (kept.length !== extras.length) write(pathname + buildQuery(global, rawPage, kept), { replace: true });
+  }, [chartChannels, analysisSelectionAvailability, appliedUrl, source.countsUsage, readSameScreen, parsed, extras, pathname, global, rawPage, write]);
+
   const setGlobal = useCallback((patch: Partial<GlobalContext>, options?: { replace?: boolean; silent?: boolean }) => {
     const current = readWriteBase();
     if (!current) return;
@@ -259,8 +290,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
       if (had && !options?.silent) toast(kept ? `${t('scopeChangedSiteReset')}${t('scopeChangedSiteKept')}` : t('scopeChangedSiteReset'), 'warning');
     }
     // A Scope change is never held by the unsaved-edit guard, even for a guard that leaves on address change (ADR-0115 decision 4).
-    write(pathname + buildQuery(next, dropResetKeys(route?.menu, page, global, next), extras), 'scopeId' in patch && patch.scopeId !== global.scopeId ? { ...options, bypassGuard: true } : options);
-  }, [readWriteBase, pathname, write, toast, t, route]);
+    write(pathname + buildQuery(next, dropResetKeys(chartKeys ?? routeMenu, page, global, next), extras), 'scopeId' in patch && patch.scopeId !== global.scopeId ? { ...options, bypassGuard: true } : options);
+  }, [readWriteBase, pathname, write, toast, t, routeMenu, chartKeys]);
 
   const selectionChannels = useMemo(() => menuAnalysisSelections(route?.menu ?? noSelectionChannels), [route?.menu]);
   // A patch that changes a drill level value also drops the menu's `drill.resetKeys` in the same write (one history entry, 06 §6.4).
@@ -270,7 +301,9 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const { global, page, extras } = current;
     if (Object.hasOwn(requested, DETAIL_EXPAND_KEY)) throw new RangeError('expand is a reserved platform key');
     for (const [key, value] of Object.entries(requested)) {
-      if (typeof value === 'object' && value !== null && value.filter(v => v !== '').length > 1 && !route?.menu.repeatedPageKeys?.includes(key)) throw new RangeError(`setPage: "${key}" is not a repeated page key`);
+      if (chartChannels?.has(key) && (scopeId !== global.scopeId || !isCurrentGeneration() || readChartChannels()?.get(key) !== chartChannels.get(key))) return;
+      if (typeof value === 'object' && value !== null && value.filter(v => v !== '').length > 1
+        && !route?.menu.repeatedPageKeys?.includes(key) && chartChannels?.get(key)?.shape !== 'set') throw new RangeError(`setPage: "${key}" is not a repeated page key`);
     }
     // Drill resets look at one value per step; a repeated key is never a drill level, so its first written (non-empty) value stands for it there.
     const single: Record<string, string | null> = Object.assign(Object.create(null) as Record<string, string | null>, Object.fromEntries(Object.entries(requested).map(([k, v]) => [k, typeof v === 'string' || v === null ? v : (v.find(item => item !== '') ?? null)])));
@@ -280,12 +313,13 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     const keys = Object.keys(patch);
     const kept = page.filter(([k]) => !keys.includes(k));
     const added = Object.entries(patch).flatMap(([k, v]): Pair[] => (v === null ? [] : (typeof v === 'string' ? [v] : v).map((item): Pair => [k, item]))).filter(([, item]) => item !== '');
-    const analysisSelection = mode === 'main' && keys.length > 0 && keys.every(key => selectionChannels.has(key))
+    const isSelection = (key: string) => selectionChannels.has(key) || chartChannels?.has(key);
+    const analysisSelection = mode === 'main' && keys.length > 0 && keys.every(isSelection)
       && keys.some(key => !sameItems(page.filter(([k]) => k === key).map(([, v]) => v), added.filter(([k]) => k === key).map(([, v]) => v)));
-    const preserveSelectionUndo = options?.preserveSelectionUndo && keys.every(key => !selectionChannels.has(key))
+    const preserveSelectionUndo = options?.preserveSelectionUndo && keys.every(key => !isSelection(key))
       && !drillLevelChanged(route?.menu, page, single);
     write(pathname + buildQuery(global, [...kept, ...added], extras), { ...options, analysisSelection, preserveSelectionUndo });
-  }, [readWriteBase, pathname, write, route, mode, selectionChannels]);
+  }, [readWriteBase, pathname, write, route, mode, selectionChannels, chartChannels, scopeId, isCurrentGeneration, readChartChannels]);
 
   // Reset clears analysis Context but keeps the requested Scope (a separate header control).
   const resetContext = useCallback(() => {
@@ -293,8 +327,8 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     if (!current) return;
     const { global, page, extras } = current;
     const next: GlobalContext = { ...emptyGlobal, scopeId: global.scopeId };
-    write(pathname + buildQuery(next, dropResetKeys(route?.menu, page, global, next), extras));
-  }, [pathname, write, readWriteBase, route]);
+    write(pathname + buildQuery(next, dropResetKeys(chartKeys ?? routeMenu, page, global, next), extras));
+  }, [pathname, write, readWriteBase, routeMenu, chartKeys]);
 
   // Context Link helper (§22/§6.4): every registered global is preserved regardless of target support;
   // page-owned state and unregistered extras are never copied implicitly — the one exception is a carry set's
@@ -485,8 +519,12 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
   // A decision belongs to one applied address and one store/session/Scope generation.
   const savedViewEntry = useMemo(() => ({ arrival, revision, scopeView, savedViewStore }), [arrival, revision, scopeView, savedViewStore]);
   const [settledSavedView, setSettledSavedView] = useState<typeof savedViewEntry | null>(null);
-  const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: route?.menu ?? null, identity: `${route?.menu.id ?? ''}\0${pathname}`, session, url: hidden && hidden.length > 0 && parsed ? pathname + buildQuery(global, page, extras) : appliedUrl,
-    global, page, extras, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, can, invalid: routeContractError !== null || rejectedLevel >= 0, badDrillFormat,
+  // Chart selections are applied immediately. Keep them out of the editable Apply draft and its history.
+  const applyMode = routeMenu?.query?.mode === 'apply';
+  const draftPage = useMemo(() => applyMode && chartChannels ? page.filter(([key]) => !chartChannels.has(key)) : page, [applyMode, page, chartChannels]);
+  const draftExtras = applyMode ? declared.parsed?.extras ?? extras : extras;
+  const { queryDraft, queryHistory } = useScreenDraft({ store: source.draftStore, menu: routeMenu, identity: `${routeMenu?.id ?? ''}\0${pathname}`, session, url: hidden && hidden.length > 0 && parsed ? pathname + buildQuery(global, draftPage, draftExtras) : appliedUrl,
+    global, page: draftPage, extras: draftExtras, extraContextReset: chartKeys, defaultRangeTo, scope: scopeView, adapter, axes: equipmentAxes, can, invalid: routeContractError !== null || rejectedLevel >= 0, badDrillFormat,
     commit: commitState, setGlobal, setPage, history: app.pub.queryHistoryStore, revision: app.pub.revision, currentRevision: app.internal.currentRevision, allowed: route !== null && app.pub.canOpen(route.menu.id) });
   const materializeDefault = useCallback((href: string) => commitState(href, 'replace', { materialize: true }), [commitState]);
   const materializer = useRef(materializeDefault);
@@ -675,9 +713,6 @@ export function useScreenState(app: AppValue, source: ScreenSource): { screen: S
     // The Kernel refuses a drill URL with a gap once (06 §6.4 «조회하지 않는다»), so no menu repeats the gate.
     drillGap: badDrillFormat,
     ready: rejectedLevel < 0 && (routeMenu?.query?.mode !== 'apply' || scopeReady), ...(autoApplyingDefault ? { autoApplyingDefault } : {}) }, sameQueryPolicy);
-  const scopeId = global.scopeId;
-  const localAvailability = useMemo(createAnalysisSelectionAvailability, [routeMenu, pathname, paneId, session, revision, scopeId]);
-  const analysisSelectionAvailability = source.availability ?? localAvailability;
   const screen = useMemo((): ScreenState => ({ queryDraft, queryHistory, queryPolicy, rejectedBasis, explicitSavedViewEntry,
     detailExpanded, setDetailExpanded, url: visibleUrl, appliedUrl, pathname, route, platformScreen, pageNavigation, contractError: routeContractError, metricInit, global, page, extras, pageParam, pageParams, pageParamsNow, navigate, setGlobal, setPage, resetContext, linkTo, resolveLink, objectLinks, resolveSelectionLink, objectSelectionLinks, reportError, reportShellError, returnTarget, returnOrigin,
     currentSpace, scope: scopeView, scopeGeneration, scopeValidationId, retryScope, screenMode: mode, paneId, paneLabel, analysisSelectionAvailability, returnCarry: origin?.carried,

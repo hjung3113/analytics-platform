@@ -139,7 +139,9 @@ live에서 전환한 메뉴는 `query.applyPeriodOnLegacyEntry: true`를 `autoAp
 
 `registry.panels(menuId)`는 선언 순서대로 `menuId`, 중복을 제거한 `permissions`(메뉴의 모든 권한 AND 엔드포인트 권한), `disabledReason(context)`를 더한 등록을 돌려준다. `registry.panelsReading(key)`는 조회·표시 입력을, `registry.panelsWriting(key)`는 출력을 역방향으로 찾는다. 가용성 재정의가 없으면 누락된 필수 page 입력의 드릴 레벨·`query.required.page` 라벨을 이유로 쓰며 라벨이 없으면 키 이름을 쓴다. Scope와 전역 Context 준비 판정은 기존 Kernel 게이트가 소유한다.
 
-분석 선택 입력은 같은 메뉴의 다른 패널이 선언한 분석 선택 출력이나 메뉴의 `analysisSelectionInbound` 선언을 참조한다. 같은 분석 선택 키의 출력은 차원, 형태, `drillLevel`, `objectKind`가 같아야 한다. 두 선택 필드는 각각 모든 출력에서 생략할 수 있다. 라벨을 선언한 출력끼리는 라벨도 같아야 한다. Registry가 불일치를 등록에서 거부한다. 선언만 쓰는 입력의 `source`는 선언 순서상 첫 출력 패널이며 공유 링크와 뒤로가기에서도 같다. 복원한 따라가기 입력은 `from`이 가리키는 인스턴스의 출력 키를 읽는다. 출력이 없는 수신 전용 키에는 출발 패널이 없다. `set`만 `repeatedPageKeys`에 넣고 두 형태 모두 `contextResetKeys`에 넣는다. 드릴 단계, `pageConditions`, `conditionPreset`, `navViews` 프리셋, `subjectPageKeys`, `opensObject`의 `pageKey`, `returnTo`, `hiddenPageKeys`, 소속 carry set과 키를 공유할 수 없다.
+분석 선택 채널은 메뉴 패널의 출력 선언, 메뉴의 `analysisSelectionInbound` 선언, 현재 화면에 등록된 차트 인스턴스의 출력에서 생긴다. 같은 분석 선택 키의 출력은 차원, 형태, `drillLevel`, `objectKind`가 같아야 한다. 두 선택 필드는 각각 모든 출력에서 생략할 수 있다. 라벨을 선언한 출력끼리는 라벨도 같아야 한다. Registry가 불일치를 등록에서 거부한다. 선언만 쓰는 입력의 `source`는 선언 순서상 첫 출력 패널이며 공유 링크와 뒤로가기에서도 같다. 복원한 따라가기 입력은 `from`이 가리키는 인스턴스의 출력 키를 읽는다. 출력이 없는 수신 전용 키에는 출발 패널이 없다. `set`만 `repeatedPageKeys`에 넣고 두 형태 모두 `contextResetKeys`에 넣는다. 드릴 단계, `pageConditions`, `conditionPreset`, `navViews` 프리셋, `subjectPageKeys`, `opensObject`의 `pageKey`, `returnTo`, `hiddenPageKeys`, 소속 carry set과 키를 공유할 수 없다.
+
+`AnalysisSelectionInstances`로 등록한 차트 인스턴스는 저장된 출력의 차원·형태로 `<인스턴스 id>.<출력 key>`를 발행한다(#3087). 인스턴스 id와 출력 key는 Kernel의 id 규칙을 따르며, 기존 page key나 예약 키와 겹치면 기존 키가 우선한다. 거부한 출력은 개발 모드에서 경고한다. URL은 기존 선택 코덱으로 읽고 쓰며, `set`은 값을 반복한다. 같은 화면에서 인스턴스를 제거하면 채널과 현재 주소의 값도 제거한다. 저장된 뷰 v1은 열 때 인스턴스를 다시 등록해 채널을 복원한다.
 
 `MenuMeta.analysisSelectionInbound`는 `resolveSelectionLink`와 `objectSelectionLinks`가 채울 수 있는 `{ key, dimension, shape, label? }[]`다(§22). 메뉴가 선언한 page key를 차원마다 하나씩 사용하고, 같은 키의 출력과 차원·형태·라벨이 일치해야 한다. 모듈 메뉴는 선언할 수 없다.
 
