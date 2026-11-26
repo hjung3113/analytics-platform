@@ -4,12 +4,12 @@ import { PlatformLink, useAnalysisSelectionChips, useI18n, useMessages, usePlatf
 import { useAnalysisSelectionHoverTarget, useHostPlatformOptional } from '@ap/kernel/host';
 import { Button, Checkbox, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Popover, PopoverAnchor, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, cn } from '@ap/ui';
 import { useReturnNavigation } from '../archetypes/DrillLayout';
-import { usePublishedNextAnalysis } from '../chart/NextAnalysisBridge';
+import { usePublishedNextAnalysis, usePublishedSelectionDrag } from '../chart/NextAnalysisBridge';
 import { NextAnalysisMenuItem, SelectionPanelPicker, useNextAnalysisItems, type NextAnalysisAction } from '../chart/NextAnalysisItems';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { capturePageFocusReturn } from '../state/pageFocus';
 import { useElementSize, useObservedElementSize } from '../state/useElementSize';
-import { analysisSelectionLabel } from './analysisSelectionLabel';
+import { analysisSelectionChipLabel } from './analysisSelectionChipLabel';
 
 export type AnalysisSelectionChipZoneFit = { container: HTMLElement | null; summary: HTMLElement | null };
 type ClearChip = (key: string) => void;
@@ -103,6 +103,7 @@ type ChipActionsProps = {
 type ChipActionMode = 'closed' | 'dropdown' | 'picker';
 type ChipActionContentProps = Pick<ChipActionsProps, 'chip' | 'clear' | 'clearAll' | 'returnFocus'> & {
   mode: ChipActionMode;
+  pickerId: string;
   onSelect: (claimsFocus: boolean) => void;
   openPicker: () => void;
   closePicker: () => void;
@@ -118,7 +119,7 @@ function PublishedChipActions({ panelId, ...props }: ChipActionContentProps & { 
   return <ChipActionContent {...props} actions={[...items, ...(publication?.actions ?? [])]} />;
 }
 
-function ChipActionContent({ chip, clear, clearAll, returnFocus, mode, actions = [], onSelect, openPicker, closePicker, onMenuCloseFocus, onPickerCloseFocus }:
+function ChipActionContent({ chip, clear, clearAll, returnFocus, mode, pickerId, actions = [], onSelect, openPicker, closePicker, onMenuCloseFocus, onPickerCloseFocus }:
   ChipActionContentProps & { actions?: readonly NextAnalysisAction[] }) {
   const { t } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
@@ -136,7 +137,7 @@ function ChipActionContent({ chip, clear, clearAll, returnFocus, mode, actions =
       <DropdownMenuItem onSelect={() => clear(chip.key)}>{t('clear')}</DropdownMenuItem>
       {clearAll && <DropdownMenuItem onSelect={clearAll}>{m('analysisSelectionClearAll')}</DropdownMenuItem>}
     </DropdownMenuContent>
-    {picker && <SelectionPanelPicker action={picker} close={closePicker} onCloseAutoFocus={onPickerCloseFocus} />}
+    {picker && <SelectionPanelPicker action={picker} close={closePicker} onCloseAutoFocus={onPickerCloseFocus} id={pickerId} />}
   </>;
 }
 
@@ -147,11 +148,12 @@ function ChipActions({ chip, text, clear, clearAll, returnFocus, focusSource }: 
   const openingPath = useRef<string | undefined>(undefined);
   const restorePickerFocus = useRef<ReturnType<typeof capturePageFocusReturn> | undefined>(undefined);
   const trigger = useRef<HTMLButtonElement>(null);
+  const pickerId = useId();
   const [mode, setMode] = useState<ChipActionMode>('closed');
   const closePicker = useCallback(() => setMode('closed'), []);
   const path = () => platform?.location.read()?.split('?')[0];
   const content: ChipActionContentProps = {
-    chip, clear, clearAll, returnFocus, mode, closePicker,
+    chip, clear, clearAll, returnFocus, mode, pickerId, closePicker,
     onSelect: claimsFocus => { actionClaimsFocus.current = claimsFocus; },
     openPicker: () => {
       actionClaimsFocus.current = true;
@@ -170,6 +172,10 @@ function ChipActions({ chip, text, clear, clearAll, returnFocus, focusSource }: 
     },
   };
   const panelId = chip.source?.panelId;
+  // The picker opens from an anchor, not a Radix trigger, so name the portal it owns here. A width change then finds the
+  // focused search through `aria-controls` like the dropdown's and hands focus to this key's button before either
+  // popover's close callback runs. Only in picker mode: an `undefined` would override the dropdown trigger's own link.
+  const pickerOwnership = mode === 'picker' ? { 'aria-controls': pickerId, 'aria-expanded': true } : undefined;
   return <Popover open={mode === 'picker'} onOpenChange={closePicker}>
     <DropdownMenu modal={false} open={mode === 'dropdown'} onOpenChange={open => {
       if (open) {
@@ -183,7 +189,7 @@ function ChipActions({ chip, text, clear, clearAll, returnFocus, focusSource }: 
     }}>
       <PopoverAnchor asChild>
         <DropdownMenuTrigger asChild>
-          <button ref={trigger} data-analysis-chip-action={chip.key} type="button" className={chipButtonClass} aria-label={m('analysisSelectionActions', { chip: text })}><Ellipsis className="size-3.5" aria-hidden /></button>
+          <button ref={trigger} data-analysis-chip-action={chip.key} type="button" className={chipButtonClass} aria-label={m('analysisSelectionActions', { chip: text })} {...pickerOwnership}><Ellipsis className="size-3.5" aria-hidden /></button>
         </DropdownMenuTrigger>
       </PopoverAnchor>
       {mode !== 'closed' && (platform && panelId ? <PublishedChipActions {...content} panelId={panelId} /> : <ChipActionContent {...content} />)}
@@ -202,10 +208,7 @@ function ArrivalLink({ href, chipKey, linkRef, menu }: { href: string; chipKey: 
 function useChipLabel(chip: AnalysisSelectionChip, { wrap, labelId }: { wrap?: boolean; labelId?: string } = {}) {
   const { lang, tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const dimension = chip.label?.[lang] ?? chip.dimension;
-  const title = chip.source?.title[lang];
-  const source = title && !/\{[^{}]+\}/.test(title) ? title : undefined;
-  const text = analysisSelectionLabel(chip.selection, dimension, lang);
+  const { dimension, source, text } = analysisSelectionChipLabel(chip, lang);
   const origin = chip.arrival?.origin;
   const menu = origin && tx(origin.menuLabel);
   const arrivalPrefix = menu === undefined ? m('analysisSelectionArrivalPrefix') : m('analysisSelectionArrivalNamedPrefix', { menu });
@@ -241,6 +244,7 @@ function Chip({ chip, clear, clearAll, editor, wrap, clearButtonRef, arrivalLink
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const beginHover = useAnalysisSelectionHoverTarget(chip.key);
+  const startDrag = usePublishedSelectionDrag(chip.source?.panelId);
   const labelId = useId();
   const { dimension, text, menu, notApplied, muted, statusId, description } = useChipLabel(chip, { wrap, labelId });
   const editTrigger = useRef<HTMLButtonElement>(null);
@@ -288,7 +292,8 @@ function Chip({ chip, clear, clearAll, editor, wrap, clearButtonRef, arrivalLink
     }}>
       <PopoverTrigger asChild>
         <button ref={editTriggerRef} type="button" data-analysis-chip-edit={chip.key} aria-labelledby={labelId} aria-describedby={muted ? statusId : undefined}
-          className={cn(chipLabelClass, 'min-h-6.5 rounded-full text-start hover:bg-surface-row-hover', focusClass)}>
+          onPointerDown={startDrag && (event => startDrag(event.nativeEvent, chip, event.currentTarget))}
+          className={cn(chipLabelClass, 'min-h-6.5 rounded-full text-start hover:bg-surface-row-hover', focusClass, startDrag && 'touch-none cursor-grab select-none')}>
           {description}
         </button>
       </PopoverTrigger>

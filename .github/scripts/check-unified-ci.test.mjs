@@ -266,6 +266,16 @@ test('PR job graph stays within the CI runner slot budget', () => {
     { code: '', server: '', e2e: '' }, // The entire changes job failed and only YAML fallbacks are available.
   ];
   for (const outputs of scenarios) assertPrBudget(jobs, budget.maxParallelPrJobs, outputs);
+  // A PR that needs both suites gives each two shards at once (one integration shard at a time ran 39 min, #3100) and fills the budget,
+  // and so do the YAML fallbacks when the changes job fails: lower fallbacks would quietly slow that PR down.
+  const both = { code: 'true', server: 'true', e2e: 'contract-shell.spec.ts', e2e_shards: '[1,2,3]', ...prMatrixLimits({ server: 'true', e2e: 'contract-shell.spec.ts' }) };
+  assert.equal(Number(both.e2e_parallel), 2);
+  assert.equal(Number(both.integration_parallel), 2);
+  assert.equal(prSlots(jobs, both), budget.maxParallelPrJobs);
+  assert.equal(prSlots(jobs, {}, 'failure'), budget.maxParallelPrJobs);
+  // One suite alone runs all three of its shards at once.
+  assert.deepEqual(prMatrixLimits({ server: 'false', e2e: 'contract-shell.spec.ts' }), { e2e_parallel: 3, integration_parallel: 3 });
+  assert.deepEqual(prMatrixLimits({ server: 'true', e2e: 'none' }), { e2e_parallel: 3, integration_parallel: 3 });
   assert.equal(prSlots(workflowJobs('jobs:\n  setup:\n    runs-on: ubuntu-latest\n  a:\n    needs: setup\n  b:\n    needs: setup\n'), {}), 2);
 });
 
@@ -273,11 +283,35 @@ test('push and dispatch publish full parallelism for both matrices', () => {
   const script = fileURLToPath(new URL('./select-e2e.mjs', import.meta.url));
   for (const event of ['push', 'workflow_dispatch']) {
     const output = execFileSync(process.execPath, [script], {
-      env: { EVENT: event, SERVER: 'true', FULL_INPUT: 'false' }, encoding: 'utf8',
+      env: { EVENT: event, FULL_INPUT: 'false' }, encoding: 'utf8',
     });
     assert.match(output, /^e2e_parallel=8$/m, event);
     assert.match(output, /^integration_parallel=3$/m, event);
   }
+});
+
+// Push and dispatch run every shard together: main CI time is merge speed for batched merges, so the PR budget must not throttle them.
+function nonPrShortfalls(jobs) {
+  return [...jobs].filter(([, job]) => typeof job.limit === 'string').flatMap(([id, job]) => {
+    const match = /^\$\{\{ github\.event_name != 'pull_request' && (\d+) \|\| /.exec(job.limit);
+    assert.ok(match, `${id}: max-parallel must give push and dispatch a fixed limit: ${job.limit}`);
+    return Number(match[1]) < job.size ? [`${id}: ${match[1]} < ${job.size}`] : [];
+  });
+}
+
+test('push and dispatch run every matrix shard at once and are never cancelled', () => {
+  const jobs = workflowJobs(workflow);
+  assert.ok([...jobs.values()].filter((job) => typeof job.limit === 'string').length >= 2, 'both suite matrices declare a limit');
+  assert.deepEqual(nonPrShortfalls(jobs), []);
+  const throttled = workflow.replace("github.event_name != 'pull_request' && 8 ||", "github.event_name != 'pull_request' && 2 ||");
+  assert.notEqual(throttled, workflow);
+  assert.notDeepEqual(nonPrShortfalls(workflowJobs(throttled)), []);
+  const throttledIntegration = workflow.replace("github.event_name != 'pull_request' && 3 ||", "github.event_name != 'pull_request' && 1 ||");
+  assert.notEqual(throttledIntegration, workflow);
+  assert.notDeepEqual(nonPrShortfalls(workflowJobs(throttledIntegration)), []);
+  // Only a superseded PR run is cancelled; a manual run has its own group.
+  assert.match(workflow, /^  cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}$/m);
+  assert.match(workflow, /^  group: .*github\.event_name == 'workflow_dispatch' && 'dispatch-'/m);
 });
 
 test('quoted strategy keys still count all ten slots in the busiest staged wave', () => {

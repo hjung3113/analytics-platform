@@ -7,6 +7,7 @@ import { AnalysisSelectionInstances, analysisSelectionParam, HeldAnalysisSelecti
 import { I18nProvider } from '../../i18n';
 import { LentPanelPlatformContext } from '../../platform/contexts';
 import { useAnalysisSelectionHoverTarget } from '../analysisSelection';
+import { useAnalysisSelectionSourceHighlighted } from '../../host';
 import { useLeaveRequest, useUnsavedGuard } from '../../platform/hooks';
 import { lentPanelPlatform } from '../../platform/lent-panel-platform';
 import { PaneQueryDraftProvider, PaneScreenProvider, PlatformProvider, useHostPlatform, type PaneScreen } from '../../platform/platform';
@@ -1075,4 +1076,106 @@ it.each([
 ] as const)('keeps declaration-only chip ordering for %s', (query, expected) => {
   const result = mount(useAnalysisSelectionChips, query, wiredWrapper());
   expect(result.current.chips.map(({ key, after }) => [key, after])).toEqual(expected);
+});
+
+describe('runtime chart instance channels (#3087 fix round 1)', () => {
+  const chartConfig = (field: string) => ({ version: 1 as const, kind: 'bar' as const, x: { field, type: 'category' as const }, measures: [{ field: 'count' }] });
+  const chartOne: PanelInstance = {
+    id: 'chart-1',
+    source: { kind: 'chart', config: chartConfig('equipment') },
+    inputs: [],
+    outputs: [{ key: 'selection', dimension: 'equipment', shape: 'set' }],
+  };
+  const chartTwo: PanelInstance = {
+    id: 'chart-2',
+    source: { kind: 'chart', config: chartConfig('recipe') },
+    inputs: [],
+    outputs: [{ key: 'selection', dimension: 'recipe', shape: 'set' }],
+  };
+  const chartRange: PanelInstance = {
+    id: 'chart-range',
+    source: { kind: 'chart', config: chartConfig('time') },
+    inputs: [],
+    outputs: [{ key: 'selection', dimension: 'time', shape: 'range' }],
+  };
+
+  it('keeps a new address chart key when an instance is removed in the same commit and across back/forward', async () => {
+    let nav: ReturnType<typeof usePlatform>['navigate'];
+    function Workspace() {
+      const platform = usePlatform();
+      nav = platform.navigate;
+      const hasFirst = !platform.url.includes('drop=1');
+      return <AnalysisSelectionInstances instances={hasFirst ? [chartOne, chartTwo] : [chartTwo]}>{null}</AnalysisSelectionInstances>;
+    }
+    window.history.replaceState(null, '', '/mars/analysis?v=1&chart-1.selection=A&chart-2.selection=B');
+    render(<Wrapper><Workspace /></Wrapper>);
+
+    act(() => { expect(nav('/mars/analysis?v=1&drop=1&chart-1.selection=C&chart-2.selection=B')).toBe(true); });
+    expect(search().getAll('chart-1.selection')).toEqual(['C']);
+    expect(search().getAll('chart-2.selection')).toEqual(['B']);
+
+    window.history.back();
+    await waitFor(() => expect(window.location.search).toBe('?v=1&chart-1.selection=A&chart-2.selection=B'));
+    window.history.forward();
+    await waitFor(() => expect(window.location.search).toBe('?v=1&drop=1&chart-1.selection=C&chart-2.selection=B'));
+    expect(search().getAll('chart-1.selection')).toEqual(['C']);
+  });
+
+  it('treats a duplicate single-valued (range) runtime chart key as a rejected value rather than a contract error', () => {
+    const readerInput: PanelInstanceInput = { key: rangeKey, from: 'chart-range.selection', mode: 'follow' };
+    let sawContractError = false;
+    let snapshot: {
+      contractError: ReturnType<typeof useHostPlatform>['contractError'];
+      setPage: ReturnType<typeof useHostPlatform>['setPage'];
+      chips: ReturnType<typeof useAnalysisSelectionChips>['chips'];
+      output: ReturnType<typeof useAnalysisSelectionOutput>;
+      input: ReturnType<typeof useAnalysisSelectionInputs>;
+    };
+    function Outlet({ children }: { children: ReactNode }) {
+      const { contractError } = useHostPlatform();
+      if (contractError) sawContractError = true;
+      return contractError ? <p role="alert">{contractError.code}</p> : <>{children}</>;
+    }
+    function Probe() {
+      const { contractError, setPage } = useHostPlatform();
+      const chips = useAnalysisSelectionChips().chips;
+      const output = useAnalysisSelectionOutput('chart-range', 'selection', { instanceId: 'chart-range' });
+      const input = useAnalysisSelectionInputs('receiver', [readerInput]);
+      snapshot = { contractError, setPage, chips, output, input };
+      return null;
+    }
+    window.history.replaceState(null, '', '/mars/analysis?v=1&chart-range.selection=14:00/16:00&chart-range.selection=17:00/18:00');
+    render(<Wrapper><Outlet><AnalysisSelectionInstances instances={[chartRange]}><Probe /></AnalysisSelectionInstances></Outlet></Wrapper>);
+
+    expect(sawContractError).toBe(false);
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(snapshot!.contractError).toBeNull();
+    expect(snapshot!.chips).toEqual([]);
+    expect(snapshot!.output.selection).toBeNull();
+    expect(snapshot!.input).toMatchObject({ applied: [], rejected: [rangeKey] });
+    expect(() => snapshot!.setPage({ 'chart-range.selection': ['14:00/16:00', '17:00/18:00'] })).toThrow(RangeError);
+
+    act(() => expect(snapshot!.output.select({ shape: 'range', from: '10:00', to: '12:00' })).toBe(true));
+    expect(search().getAll('chart-range.selection')).toEqual(['10:00/12:00']);
+    expect(snapshot!.output.selection).toEqual({ shape: 'range', from: '10:00', to: '12:00' });
+  });
+
+  it('highlights the source panel of a runtime chart instance while its chip is hovered', () => {
+    let highlighted = false;
+    let beginHover: ReturnType<typeof useAnalysisSelectionHoverTarget>;
+    function Probe() {
+      highlighted = useAnalysisSelectionSourceHighlighted('chart-1');
+      beginHover = useAnalysisSelectionHoverTarget('chart-1.selection');
+      return null;
+    }
+    window.history.replaceState(null, '', '/mars/analysis?v=1&chart-1.selection=A');
+    render(<Wrapper><AnalysisSelectionInstances instances={[chartOne]}><Probe /></AnalysisSelectionInstances></Wrapper>);
+
+    expect(highlighted).toBe(false);
+    let release: (() => void) | undefined;
+    act(() => { release = beginHover(); });
+    expect(highlighted).toBe(true);
+    act(() => { release?.(); });
+    expect(highlighted).toBe(false);
+  });
 });

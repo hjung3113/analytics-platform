@@ -8,8 +8,8 @@ export type PanelListRowDrag = { id: string; onPointerDown: PointerEventHandler<
 type Row = { id: string; label: string; reason?: string; status?: string; note?: string; description?: string; kindLabel?: string; icon?: ReactNode;
   onSelect?: () => void; drag?: PanelListRowDrag };
 
-function PanelListRow({ id: rowId, label, reason, status, note, onSelect, drag, presentation = 'menu', tabIndex, onFocus, onHover, icon, description: detail, kindLabel }: Row & {
-  presentation?: 'menu' | 'named-menu' | 'popover'; tabIndex?: number; onFocus?: () => void; onHover?: (id: string | undefined) => void;
+function PanelListRow({ id: rowId, label, reason, status, note, onSelect, drag, presentation = 'menu', singleLine = false, tabIndex, onFocus, onHover, icon, description: detail, kindLabel }: Row & {
+  presentation?: 'menu' | 'named-menu' | 'popover'; singleLine?: boolean; tabIndex?: number; onFocus?: () => void; onHover?: (id: string | undefined) => void;
 }) {
   const id = useId();
   const description = [reason, note].filter(Boolean).join(' · ');
@@ -21,19 +21,25 @@ function PanelListRow({ id: rowId, label, reason, status, note, onSelect, drag, 
     'aria-describedby': named && (visible || extra) ? id : undefined, 'data-panel-row': rowId,
     'data-panel-add-source': drag?.id, onPointerDown: drag?.onPointerDown };
   const dragClass = drag ? 'cursor-grab touch-none select-none' : undefined;
-  const content = <span className="flex min-w-0 flex-col break-keep">
-    <span className={reason !== undefined && presentation !== 'named-menu' ? 'text-text-muted' : undefined}>{label}</span>
-    {(visible || extra) && <span id={id} className="text-xs text-text-muted">{visible}
+  const singleLineRow = singleLine && !visible;
+  const popoverClass = singleLine
+    ? cn('min-w-0 w-full justify-start text-start', visible && 'h-auto min-h-7')
+    : 'h-auto min-h-7 w-full justify-start text-start whitespace-normal';
+  const content = <span className={cn('flex min-w-0 flex-col', singleLine ? 'flex-1' : 'break-keep')}>
+    <span className={cn(singleLine && 'truncate', reason !== undefined && presentation !== 'named-menu' && 'text-text-muted')}>{label}</span>
+    {(visible || extra) && <span id={id} className={cn('text-xs text-text-muted', singleLine && visible && 'truncate')}>{visible}
       {extra && <span className="sr-only">{visible ? ' · ' : ' '}{extra}</span>}
     </span>}
   </span>;
   if (presentation === 'popover') return <Button type="button" variant="ghost" size="toolbar" tabIndex={tabIndex} onFocus={onFocus} {...attrs}
-    className={cn('h-auto min-h-7 w-full justify-start text-start whitespace-normal', dragClass)}
+    title={singleLine ? label : undefined} className={cn(popoverClass, dragClass)}
     onPointerEnter={onHover && (event => { onHover(event.currentTarget.dataset.panelRow); })}
     onPointerMove={onHover && (event => { onHover(event.currentTarget.dataset.panelRow); })}
     onPointerLeave={onHover && (() => { onHover(undefined); })}
     onClick={() => { if (reason === undefined) onSelect?.(); }}>
-    {icon ? <span className="flex min-w-0 items-start gap-1.5"><span className="mt-0.5 shrink-0">{icon}</span>{content}</span> : content}
+    {icon ? <span className={cn('flex min-w-0 gap-1.5', singleLine && 'flex-1', singleLineRow ? 'items-center' : 'items-start')}>
+      <span className={cn('shrink-0', !singleLineRow && 'mt-0.5')}>{icon}</span>{content}
+    </span> : content}
   </Button>;
   return <DropdownMenuItem {...attrs} className={dragClass} onSelect={event => {
     if (reason !== undefined) event.preventDefault();
@@ -48,8 +54,8 @@ export function PanelListRows({ rows, presentation = 'menu' }: {
 }
 
 /** A list of actions with one Tab stop inside a larger popover. The roving group holds no selection. */
-export function PanelList({ rows, label, headingId, tabStop = true, onHover }: {
-  rows: readonly Row[]; label?: string; headingId?: string; tabStop?: boolean; onHover?: (id: string | undefined) => void;
+export function PanelList({ rows, label, headingId, tabStop = true, singleLine = false, onHover }: {
+  rows: readonly Row[]; label?: string; headingId?: string; tabStop?: boolean; singleLine?: boolean; onHover?: (id: string | undefined) => void;
 }) {
   const labelId = useId();
   const [focused, setFocused] = useState<string>();
@@ -83,7 +89,7 @@ export function PanelList({ rows, label, headingId, tabStop = true, onHover }: {
       if (event.key === 'End') next = buttons.length - 1;
       buttons[next]?.focus();
     }}>
-      {rows.map(row => <PanelListRow key={row.id} {...row} presentation="popover" onHover={onHover}
+      {rows.map(row => <PanelListRow key={row.id} {...row} presentation="popover" singleLine={singleLine} onHover={onHover}
         tabIndex={tabStop && row.id === entry ? 0 : -1} onFocus={() => { setFocused(row.id); }} />)}
     </div>}
   </>;

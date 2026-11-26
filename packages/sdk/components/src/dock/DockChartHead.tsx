@@ -1,9 +1,14 @@
-import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 type Target = 'toolbar' | 'description' | 'maximize';
 type Targets = Partial<Record<Target, HTMLElement>>;
 export type DockChartCloseFocus = (trigger: HTMLButtonElement | null) => void;
-export type DockChartLayoutActions = { content: ReactNode; takeCloseFocus: () => DockChartCloseFocus | null };
+export type DockChartLayoutActions = {
+  content: ReactNode;
+  takeCloseFocus: () => DockChartCloseFocus | null;
+  /** True once if the pane's own ⋯ trigger or its menu held focus when this merged ⋯ replaced it; the merged ⋯ then takes focus (#3095). */
+  claimFocus?: () => boolean;
+};
 type Pane = { charts: ReadonlyMap<string, boolean>; targets: Targets; layoutActions?: DockChartLayoutActions | undefined; stripWidth?: number | undefined };
 const EMPTY_PANE: Pane = { charts: new Map(), targets: {} };
 
@@ -14,13 +19,7 @@ function singleFrameId(pane: Pane | undefined) {
   }
 }
 
-const DockChartContext = createContext<{
-  panes: ReadonlyMap<string, Pane>;
-  registerChart: (panel: string, chart: string, acceptsHead: boolean | null) => void;
-  setTarget: (panel: string, slot: Target, node: HTMLElement | null) => void;
-  setStripWidth: (panel: string, width: number | undefined) => void;
-  setLayoutActions: (panel: string, actions: DockChartLayoutActions | undefined) => void;
-} | null>(null);
+const DockChartContext = createContext<ReturnType<typeof createDockChartStore> | null>(null);
 export const DockChartPaneEngaged = createContext(false);
 export const DockChartToolbarWidth = createContext<number | null | undefined>(undefined);
 export const DockChartPaneId = createContext<string | null>(null);
@@ -28,42 +27,46 @@ export const DockChartMaximizeTarget = createContext<HTMLElement | undefined>(un
 export const DockChartLayoutActionsSlot = createContext<((actions: DockChartLayoutActions | undefined) => void) | undefined>(undefined);
 export const DockChartCloseMore = createContext<(() => void) | undefined>(undefined);
 
-export function DockChartHeadProvider({ children }: { children: ReactNode }) {
-  const [panes, setPanes] = useState<ReadonlyMap<string, Pane>>(() => new Map());
-  const update = useCallback((panel: string, change: (pane: Pane) => Pane) => {
-    setPanes(previous => {
-      const pane = previous.get(panel) ?? EMPTY_PANE;
-      const next = change(pane);
-      if (next === pane) return previous;
-      const result = new Map(previous);
-      if (!next.charts.size && !next.layoutActions && next.stripWidth === undefined && !Object.values(next.targets).some(Boolean)) result.delete(panel);
-      else result.set(panel, next);
-      return result;
-    });
-  }, []);
-  const registerChart = useCallback((panel: string, chart: string, acceptsHead: boolean | null) => {
-    update(panel, pane => {
+function createDockChartStore() {
+  const panes = new Map<string, Pane>();
+  const listeners = new Set<() => void>();
+  const update = (panel: string, change: (pane: Pane) => Pane) => {
+    const pane = panes.get(panel) ?? EMPTY_PANE;
+    const next = change(pane);
+    if (next === pane) return;
+    if (!next.charts.size && !next.layoutActions && next.stripWidth === undefined && !Object.values(next.targets).some(Boolean)) panes.delete(panel);
+    else panes.set(panel, next);
+    listeners.forEach(listener => listener());
+  };
+  return {
+    read: (panel: string) => panes.get(panel),
+    subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+    registerChart: (panel: string, chart: string, acceptsHead: boolean | null) => update(panel, pane => {
       if ((pane.charts.get(chart) ?? null) === acceptsHead) return pane;
       const charts = new Map(pane.charts);
       if (acceptsHead === null) charts.delete(chart);
       else charts.set(chart, acceptsHead);
       return { ...pane, charts };
-    });
-  }, [update]);
-  const setTarget = useCallback((panel: string, slot: Target, node: HTMLElement | null) => {
-    update(panel, pane => {
+    }),
+    setTarget: (panel: string, slot: Target, node: HTMLElement | null) => update(panel, pane => {
       if (pane.targets[slot] === (node ?? undefined)) return pane;
       return { ...pane, targets: { ...pane.targets, [slot]: node ?? undefined } };
-    });
-  }, [update]);
-  const setLayoutActions = useCallback((panel: string, actions: DockChartLayoutActions | undefined) => {
-    update(panel, pane => pane.layoutActions === actions ? pane : { ...pane, layoutActions: actions });
-  }, [update]);
-  const setStripWidth = useCallback((panel: string, width: number | undefined) => {
-    update(panel, pane => pane.stripWidth === width ? pane : { ...pane, stripWidth: width });
-  }, [update]);
-  const value = useMemo(() => ({ panes, registerChart, setTarget, setLayoutActions, setStripWidth }), [panes, registerChart, setTarget, setLayoutActions, setStripWidth]);
-  return <DockChartContext.Provider value={value}>{children}</DockChartContext.Provider>;
+    }),
+    setLayoutActions: (panel: string, actions: DockChartLayoutActions | undefined) => update(panel, pane =>
+      pane.layoutActions === actions ? pane : { ...pane, layoutActions: actions }),
+    setStripWidth: (panel: string, width: number | undefined) => update(panel, pane =>
+      pane.stripWidth === width ? pane : { ...pane, stripWidth: width }),
+  };
+}
+
+const noSubscribe = () => () => {};
+function useDockPane(dock: ReturnType<typeof createDockChartStore> | null, panel: string | null | undefined) {
+  return useSyncExternalStore(dock?.subscribe ?? noSubscribe, () => panel ? dock?.read(panel) : undefined, () => undefined);
+}
+
+export function DockChartHeadProvider({ children }: { children: ReactNode }) {
+  const [store] = useState(createDockChartStore);
+  return <DockChartContext.Provider value={store}>{children}</DockChartContext.Provider>;
 }
 
 /** Each mounted chart counts once even when two frames use the same consumer chartId. */
@@ -80,7 +83,7 @@ export function useDockChartHead(chart: string, { mounted = true, acceptsHead = 
   const setMaximize = useCallback((node: HTMLDivElement | null) => {
     if (panel) setTarget?.(panel, 'maximize', node);
   }, [panel, setTarget]);
-  const pane = panel ? dock?.panes.get(panel) : undefined;
+  const pane = useDockPane(dock, panel);
   const single = singleFrameId(pane) === chart;
   return { targets: single ? pane?.targets : undefined, stripWidth: single ? pane?.stripWidth : undefined, layoutActions: single ? pane?.layoutActions : undefined, setMaximize };
 }
@@ -96,7 +99,7 @@ export function useDockChartSlot(panel: string | undefined, slot: 'toolbar' | 'd
   const registerLayoutActions = useCallback((actions: DockChartLayoutActions | undefined) => {
     if (panel) setLayoutActions?.(panel, actions);
   }, [panel, setLayoutActions]);
-  const pane = panel ? dock?.panes.get(panel) : undefined;
+  const pane = useDockPane(dock, panel);
   const publishStripWidth = useCallback((width: number | undefined) => {
     if (panel) setStripWidth?.(panel, width);
   }, [panel, setStripWidth]);

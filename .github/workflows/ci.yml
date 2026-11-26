@@ -398,7 +398,7 @@ jobs:
     # The aggregate below reads `needs.feature-integration.result`, which fails when any shard fails.
     strategy:
       fail-fast: false
-      max-parallel: ${{ github.event_name != 'pull_request' && 3 || fromJSON(needs.changes.result == 'success' && needs.changes.outputs.integration_parallel || '1') }}
+      max-parallel: ${{ github.event_name != 'pull_request' && 3 || fromJSON(needs.changes.result == 'success' && needs.changes.outputs.integration_parallel || '2') }}
       matrix:
         shard: [1, 2, 3]
     services:

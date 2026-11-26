@@ -1,11 +1,15 @@
 import { useContext, useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, MoreHorizontal, Pin, X } from 'lucide-react';
-import { useMessages } from '@ap/kernel';
+import type { Text } from '@ap/contracts';
+import { useAnalysisSelectionChips, useI18n, useMessages } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
 import { DockChartCloseMore, DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartCloseFocus, type DockChartLayoutActions } from '../dock/DockChartHead';
 import type { DockLayoutMenu } from '../dock/layoutMenu';
+import { analysisSelectionChipLabel } from '../filters/analysisSelectionChipLabel';
 import { COMPONENTS_MESSAGES } from '../messages';
+import type { PanelWorkspaceSelectionDrop } from './PanelWorkspace';
+import { useWorkspaceQueryHead, useWorkspaceQuerySlot } from './WorkspaceQueryHeads';
 
 const ICON = 'size-7';
 
@@ -13,8 +17,10 @@ const ICON = 'size-7';
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
  * group's active panel. Collapse and float are absent for primary panels. Floating headers offer pin, close and keyboard geometry.
  */
-export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onRemove, hideBlocked, pin, edgeActions, menuItems, recipeItem, onOpenSettings }: {
+export function WorkspaceGroupActions({ panelId, title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onRemove, hideBlocked, pin, edgeActions, menuItems, recipeItem, onOpenSettings, selectionDrop }: {
+  panelId?: string;
   onOpenSettings?: (trigger: HTMLButtonElement) => void;
+  selectionDrop?: PanelWorkspaceSelectionDrop;
   menuItems?: readonly { id: string; label: string; onSelect: () => void }[];
   recipeItem?: { label: string; onSelect: () => void };
   title: string;
@@ -41,6 +47,7 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   pin?: { pinned: boolean; onToggle: () => void };
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
+  const menuContent = useRef<HTMLDivElement>(null);
   const m = useMessages(COMPONENTS_MESSAGES);
   const maximized = menu.maximized;
   const toggle = maximized ? m('workspaceRestore') : m('workspaceMaximize', { title });
@@ -54,7 +61,9 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   </Button>;
   const layoutActionsSlot = useContext(DockChartLayoutActionsSlot);
   const separator = layoutActionsSlot ? <div aria-hidden className="my-1 border-t border-border-subtle" /> : <DropdownMenuSeparator />;
+  const signal = useWorkspaceQuerySlot(panelId, 'signal');
   const items = <>
+    <WorkspaceQueryMenuItems panelId={panelId} closeFocus={closeFocus} />
     {edgeActions && <>
       {edgeActions.left && <LayoutItem onSelect={edgeActions.left}>{m('workspaceCollapseLeft')}</LayoutItem>}
       {edgeActions.top && <LayoutItem onSelect={edgeActions.top}>{m('workspaceCollapseTop')}</LayoutItem>}
@@ -98,10 +107,11 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
           </>}
         </>}
     </>}
-    {(onOpenSettings || !!menuItems?.length || recipeItem) && separator}
+    {(onOpenSettings || selectionDrop || !!menuItems?.length || recipeItem) && separator}
     {onOpenSettings && <LayoutItem onSelect={() => {
       closeFocus.current = opener => { if (opener) onOpenSettings(opener); };
     }}>{m('panelSettings')}</LayoutItem>}
+    {selectionDrop && <SelectionHoldItems drop={selectionDrop} />}
     {menuItems?.map(item => <LayoutItem key={item.id} onSelect={item.onSelect}>{item.label}</LayoutItem>)}
     {recipeItem && <LayoutItem onSelect={recipeItem.onSelect}>{recipeItem.label}</LayoutItem>}
   </>;
@@ -110,7 +120,15 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
     closeFocus.current = null;
     return next;
   };
+  // The pane trigger unmounts when a single chart merges its ⋯ into the head; focus held there passes to the merged ⋯ (#3095).
+  const focusHandoff = useRef(false);
+  const claimFocus = () => {
+    const held = focusHandoff.current;
+    focusHandoff.current = false;
+    return held;
+  };
   return <div data-workspace-group-actions className="flex shrink-0 items-center gap-1 pr-1">
+    <div ref={signal} className="contents" />
     {pin && !maximized && <Button type="button" variant={pin.pinned ? 'secondary' : 'ghost'} size="icon-sm" className={ICON} data-workspace-pin aria-label={pinLabel} title={pin.pinned ? m('panelPinned', { title }) : pinLabel} aria-pressed={pin.pinned} onClick={pin.onToggle}>
       <Pin className={pin.pinned ? 'size-3.5 fill-current' : 'size-3.5'} aria-hidden />
     </Button>}
@@ -119,14 +137,15 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
       <Button type="button" variant="ghost" size="icon-sm" className={ICON} aria-label={m('workspaceCollapse')} title={m('workspaceCollapse')} onClick={edgeActions.overlay.close}><X className="size-3.5" aria-hidden /></Button>
     </>}
     {maximizeTarget ? createPortal(maximizeButton, maximizeTarget) : maximizeButton}
-    {layoutActionsSlot && <MergedLayoutActions register={layoutActionsSlot} takeCloseFocus={takeCloseFocus}>
+    {layoutActionsSlot && <MergedLayoutActions register={layoutActionsSlot} takeCloseFocus={takeCloseFocus} claimFocus={claimFocus}>
       <div role="group" aria-label={m('workspaceLayout')} className="w-full border-t border-border-subtle pt-2">{items}</div>
     </MergedLayoutActions>}
     {!layoutActionsSlot && <DropdownMenu>
+      <FocusOnUnmount trigger={trigger} menu={menuContent} held={focusHandoff} />
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="ghost" size="icon-sm" className={ICON} ref={trigger} data-dock-group-menu aria-label={actions} title={actions}><MoreHorizontal className="size-3.5" aria-hidden /></Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onCloseAutoFocus={event => {
+      <DropdownMenuContent ref={menuContent} align="end" onCloseAutoFocus={event => {
         const next = takeCloseFocus();
         if (next === null) return;
         event.preventDefault();
@@ -138,13 +157,71 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   </div>;
 }
 
-function MergedLayoutActions({ register, takeCloseFocus, children }: {
+function SelectionHoldItems({ drop }: { drop: PanelWorkspaceSelectionDrop }) {
+  const { chips } = useAnalysisSelectionChips();
+  const { lang, tx } = useI18n();
+  const m = useMessages(COMPONENTS_MESSAGES);
+  if (!chips.length) {
+    return <SelectionHoldItem label={m('workspaceHoldSelection')} reason={COMPONENTS_MESSAGES.workspaceNoSelectionToHold} />;
+  }
+  const summaries = chips.map(chip => analysisSelectionChipLabel(chip, lang));
+  const names = chips.map((chip, index) => {
+    const { text, source } = summaries[index]!;
+    if (!summaries.some((other, i) => i !== index && other.text === text)) return text;
+    const arrival = chip.arrival?.origin?.menuLabel;
+    const origin = arrival && tx(arrival);
+    return m('workspaceSelectionWithSource', { chip: text, source: source ?? chip.source?.panelId ?? origin ?? chip.key });
+  });
+  return chips.map((chip, index) => {
+    const name = names[index]!;
+    const distinct = names.some((other, i) => i !== index && other === name)
+      ? m('workspaceSelectionWithSource', { chip: name, source: chip.key })
+      : name;
+    return <SelectionHoldItem key={chip.key} label={m('workspaceHoldNamedSelection', { chip: distinct })}
+      reason={drop.reason?.(chip)} onSelect={() => drop.onDrop(chip)} />;
+  });
+}
+
+function SelectionHoldItem({ label, reason, onSelect }: { label: string; reason?: Text; onSelect?: () => void }) {
+  const { tx } = useI18n();
+  const reasonId = useId();
+  return <LayoutItem aria-label={label} aria-disabled={reason ? true : undefined} aria-describedby={reason ? reasonId : undefined} onSelect={onSelect}>
+    <span className="flex min-w-0 flex-col break-keep wrap-anywhere">
+      <span>{label}</span>
+      {reason && <span id={reasonId} className="text-xs text-text-muted">{tx(reason)}</span>}
+    </span>
+  </LayoutItem>;
+}
+
+// Only this menu child subscribes, so query recovery cannot republish the chart's layout actions.
+function WorkspaceQueryMenuItems({ panelId, closeFocus }: { panelId: string | undefined; closeFocus: RefObject<DockChartCloseFocus | null> }) {
+  const overflow = useWorkspaceQueryHead(panelId, 'overflow');
+  const extras = useWorkspaceQuerySlot(panelId, 'extras');
+  return <>
+    {overflow?.((label, run) => <LayoutItem key={label} onSelect={() => {
+      closeFocus.current = opener => { opener?.focus(); run(); };
+    }}>{label}</LayoutItem>)}
+    <div ref={extras} className="contents" />
+  </>;
+}
+
+function MergedLayoutActions({ register, takeCloseFocus, claimFocus, children }: {
   register: (actions: DockChartLayoutActions | undefined) => void;
   takeCloseFocus: DockChartLayoutActions['takeCloseFocus'];
+  claimFocus: NonNullable<DockChartLayoutActions['claimFocus']>;
   children: ReactNode;
 }) {
   useLayoutEffect(() => () => { register(undefined); }, [register]);
-  useLayoutEffect(() => { register({ content: children, takeCloseFocus }); }, [register, children, takeCloseFocus]);
+  useLayoutEffect(() => { register({ content: children, takeCloseFocus, claimFocus }); }, [register, children, takeCloseFocus, claimFocus]);
+  return null;
+}
+
+/** Records whether the trigger or its open menu still held focus as they unmount; layout cleanups run before the nodes leave the document. */
+function FocusOnUnmount({ trigger, menu, held }: { trigger: RefObject<HTMLElement | null>; menu: RefObject<HTMLElement | null>; held: RefObject<boolean> }) {
+  useLayoutEffect(() => () => {
+    const active = document.activeElement;
+    held.current = !!active && (!!trigger.current?.contains(active) || !!menu.current?.contains(active));
+  }, [trigger, menu, held]);
   return null;
 }
 

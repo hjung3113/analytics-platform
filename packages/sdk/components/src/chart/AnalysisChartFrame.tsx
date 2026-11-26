@@ -12,7 +12,7 @@ import { useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, us
 import { createPortal } from 'react-dom';
 import type { ECharts, EChartsCoreOption } from 'echarts/core';
 import { ANALYSIS_SELECTION_MAX_VALUES, useDrill, useI18n, useMessages, usePlatformOptional, type MenuPlatform } from '@ap/kernel';
-import { useOptionalAnalysisSelectionOutput } from '@ap/kernel/host';
+import { useChartInstanceSelectionOutput, useOptionalAnalysisSelectionOutput } from '@ap/kernel/host';
 import { EQUIPMENT_SELECTION_DIMENSION, overlapsHalfOpen, wallClockEpochMs, canClientSum, formatDateTime, parseDateTime, formatNumber, formatWallClock, isAnswered, normalizeSet, ContractError, type AnalysisSelectionShape, type Reaggregation } from '@ap/contracts';
 import { Button, cn, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, InfoTip, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, prefersReducedMotion } from '@ap/ui';
 import { useThemeRevision, type ThemeColorToken } from '@ap/ui/theme';
@@ -313,6 +313,7 @@ type FrameHost = {
   applyEquipment?: (values: readonly string[]) => void;
   outputShape?: AnalysisSelectionShape;
   outputDimension?: string;
+  outputRejected?: boolean;
   notify: (text: string, tone?: 'warning') => void;
   url: string;
   /** The standalone result line (no `notify`): shown beside 내보내기. */
@@ -336,14 +337,19 @@ function PlatformFrame<P, T>({ platform, ...p }: AnalysisChartFrameProps<P, T> &
   const features = route?.menu.features;
   const analyticsAllowed = platform.can('analytics:view');
   const output = p.analysisSelectionOutput;
-  const declaration = route?.menu.panels?.find(panel => panel.id === output?.panelId)
-    ?.outputs.find(item => item.key === output?.key)?.selection;
+  const instanceOutput = useChartInstanceSelectionOutput(output?.key, output?.instanceId);
+  const declaration = instanceOutput === undefined ? route?.menu.panels?.find(panel => panel.id === output?.panelId)
+    ?.outputs.find(item => item.key === output?.key)?.selection : undefined;
+  const selectionOutput = instanceOutput ?? declaration;
+  const resolvedOutput = instanceOutput && output
+    ? { ...output, panelId: output.instanceId ?? output.panelId, key: instanceOutput.key }
+    : instanceOutput === null ? undefined : output;
   const drill = useDrill();
   const memory = useDrillBasisChoice(platform, drill.trail);
   const { tx, lang } = useI18n();
   const next = drill.levels[drill.depth];
   const pointTarget = p.nextAnalysisPointDrill;
-  const outputLevel = declaration?.shape === 'set' ? declaration.drillLevel : undefined;
+  const outputLevel = !instanceOutput && declaration?.shape === 'set' ? declaration.drillLevel : undefined;
   const canChooseBasis = !p.zoomOnly && route && platform.canOpen(route.menu.id) && !drill.invalid && next &&
     (pointTarget?.level ?? outputLevel) === next.key;
   const basisDrill: ChartBasisDrill | undefined = canChooseBasis && route.menu.drill?.levels[drill.depth]?.bases?.length ? {
@@ -362,9 +368,10 @@ function PlatformFrame<P, T>({ platform, ...p }: AnalysisChartFrameProps<P, T> &
     features: { compare: !!features?.compare, annotate: !!features?.annotate, export: !!features?.export },
     applyPeriod: analyticsAllowed ? range => setGlobal({ from: range.from, to: range.to }) : null,
     ...(analyticsAllowed && { applyEquipment: (values: readonly string[]) => setGlobal({ selection: [...values] }) }),
-    ...(declaration && { outputShape: declaration.shape, outputDimension: declaration.dimension }),
+    ...(selectionOutput && { outputShape: selectionOutput.shape, outputDimension: selectionOutput.dimension }),
+    ...(instanceOutput === null && { outputRejected: true }),
   };
-  return <FrameBody {...p} host={host} editor={editor} />;
+  return <FrameBody {...p} analysisSelectionOutput={resolvedOutput} host={host} editor={editor} />;
 }
 
 /** A period end the range code can order and measure: naive wall-clock only (ADR-0064); anything else is dropped with a dev warning. */
@@ -544,7 +551,8 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const { analysisSelectionOutput: output, nextAnalysis, nextAnalysisTarget } = p;
   const [outputChart, setOutputChart] = useState(output ? p.chartId : null);
   if (output && outputChart !== p.chartId) setOutputChart(p.chartId);
-  const outputSuspended = nextAnalysis && !output && (output === null || outputChart === p.chartId);
+  if (host.outputRejected && outputChart === p.chartId) setOutputChart(null);
+  const outputSuspended = nextAnalysis && !output && !host.outputRejected && (output === null || outputChart === p.chartId);
   const { zoom, rangeDraft } = range;
   const clipNotice = outputSuspended ? null : range.clipNotice;
   const preview = outputSuspended ? null : range.preview;
@@ -669,7 +677,7 @@ function FrameBody<P, T>({ host, editor, ...p }: AnalysisChartFrameProps<P, T> &
   const categoryTableLabel = (x: string) => x === categoryOther?.key ? categoryOther.groupLabel : rowLabel(rowGroups, x);
   const timeBounds = useMemo(() => (xType === 'time' ? timeBoundaries(p.series, global.from, global.to) : []), [xType, p.series, global.from, global.to]);
   const setOutput = host.outputShape === 'set';
-  const rangeOutput = !!output && !setOutput;
+  const rangeOutput = host.outputShape === 'range';
   const available = useMemo(() => {
     if (!rangeOutput) return undefined;
     if (xType === 'category' && realCategories.length) return {

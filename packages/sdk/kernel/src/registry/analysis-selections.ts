@@ -1,4 +1,6 @@
-import type { AnalysisSelectionUse, MenuMeta, PanelBinding, PanelDeclaration, PanelInstance, PanelInstanceInput, PanelInstanceOutput, Text } from '@ap/contracts';
+import { GLOBAL_KEYS, RETURN_TO_KEY, type AnalysisSelectionUse, type MenuMeta, type PanelBinding, type PanelDeclaration, type PanelInstance, type PanelInstanceInput, type PanelInstanceOutput, type Text } from '@ap/contracts';
+import { DETAIL_EXPAND_KEY } from '../links/detail-expansion';
+import { isIdShape, isObjectKindShape } from './shapes';
 
 type SelectionOutput = PanelDeclaration['outputs'][number]['selection'];
 type Channel = NonNullable<SelectionOutput> & {
@@ -77,10 +79,32 @@ export function indexInstanceOutputs(instances: readonly PanelInstance[]) {
     [`${instance.id}.${output.key}`, { instance, output }] as const)));
 }
 
+export function indexChartSelectionChannels(menu: Pick<MenuMeta, 'pageKeys'>, declared: Channels, outputs: ReturnType<typeof indexInstanceOutputs>) {
+  const channels = new Map<string, Channel>();
+  const rejected: string[] = [];
+  for (const [key, { instance, output }] of outputs) {
+    if (instance.source.kind !== 'chart') continue;
+    const { dimension, shape } = output;
+    if (!isIdShape(instance.id) || !isIdShape(output.key) || !isObjectKindShape(dimension) || (shape !== 'set' && shape !== 'range')) {
+      rejected.push(`Invalid chart selection key or output "${key}"`);
+      continue;
+    }
+    if (declared.has(key) || menu.pageKeys.includes(key) || GLOBAL_KEYS.has(key) || key === RETURN_TO_KEY || key === DETAIL_EXPAND_KEY) {
+      rejected.push(`Chart selection key "${key}" conflicts with a declared or reserved page key`);
+      continue;
+    }
+    const selection = { dimension, shape };
+    const title = { ko: instance.id, en: instance.id };
+    channels.set(key, { ...selection, readers: [], writers: [{ panelId: instance.id, title, selection }] });
+  }
+  return { channels, rejected };
+}
+
 type AnalysisSelectionWorkspace = {
   instances: readonly PanelInstance[];
   outputs: ReturnType<typeof indexInstanceOutputs>;
   publishers?: ReadonlyMap<string, string | null>;
+  chartChannels?: Channels;
 };
 
 export function selectionUses(channel: Channel, panelId: string, input?: PanelInstanceInput): readonly AnalysisSelectionUse[] {
@@ -96,6 +120,10 @@ function instanceSelectionSource(channels: Channels, target: Channel, from: stri
     const source = workspace.outputs.get(from);
     if (!source || !compatible(source.output)) return;
     const { instance, output } = source;
+    if (instance.source.kind === 'chart') {
+      const writer = workspace.chartChannels?.get(from)?.writers[0];
+      return writer && { key: from, node: instance.id, writer };
+    }
     const declaration = instance.source.kind === 'declared' ? instance.source.panel : undefined;
     const writer = channels.get(output.key)?.writers.find(candidate => candidate.panelId === declaration && compatible(candidate.selection));
     return { key: output.key, node: instance.id, writer };
@@ -133,6 +161,7 @@ export function analysisSelectionDependencies(channels: Channels, workspace?: An
         || instance.source.kind !== 'declared' || instance.source.panel !== writer.panelId) continue;
       if (publishers?.has(key) ? publishers.get(key) === instance.id : !roots.has(key)) roots.set(key, instance.id);
     }
+    for (const [key, channel] of workspace.chartChannels ?? []) roots.set(key, channel.writers[0].panelId);
     for (const instance of instances) {
       if (instance.source.kind !== 'declared') continue;
       for (const input of instance.inputs) {
@@ -154,6 +183,8 @@ export function analysisSelectionDependencies(channels: Channels, workspace?: An
     return (upstream.get(owner) ?? []).filter(parent => roots.get(parent.key) === parent.node);
   };
   return {
+    channels,
+    chartChannels: workspace?.chartChannels,
     configured: workspace !== undefined,
     parents,
     publisher,

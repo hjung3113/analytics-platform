@@ -95,18 +95,18 @@ function CategorizedPanels({ rows }: { rows: readonly PanelPickerRow[] }) {
         list.current?.querySelector<HTMLButtonElement>(PANEL_ROW_SELECTOR)?.focus();
       }} />
     {columns.length === 0 ? <p role="status" className="text-text-muted">{m('panelAddNoMatch')}</p> : <div className="flex gap-3">
-      <div ref={list} role="group" aria-labelledby={id} className="grid min-w-0 flex-1 auto-cols-[minmax(7rem,1fr)] grid-flow-col gap-2 overflow-x-auto p-1">
+      <div ref={list} role="group" aria-labelledby={id} className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-x-4 gap-y-3 p-1">
         {columns.map(([key, { title, rows: columnRows }], index) => <section key={key} aria-labelledby={`${id}-${index}`}
-          className="min-w-0 border-s border-border-subtle ps-2 first:border-0 first:ps-0" onKeyDownCapture={navigate}
+          className="min-w-0" onKeyDownCapture={navigate}
           onFocus={event => {
             if (!(event.target instanceof HTMLButtonElement) || !event.target.matches(PANEL_ROW_SELECTOR)) return;
             setActive(key); setFocused(event.target.dataset.panelRow); setHovered(undefined);
           }}
           onBlur={() => setFocused(undefined)}>
           <h3 id={`${id}-${index}`} className="mb-1 flex items-baseline justify-between gap-1 px-2 text-xs font-semibold">
-            {title}<span className="tabular-nums text-text-muted">{columnRows.length}</span>
+            <span className="min-w-0 truncate">{title}</span><span className="tabular-nums text-text-muted">{columnRows.length}</span>
           </h3>
-          <PanelList headingId={`${id}-${index}`} tabStop={key === entry} onHover={setHovered}
+          <PanelList headingId={`${id}-${index}`} tabStop={key === entry} singleLine onHover={setHovered}
             rows={columnRows.map(row => ({ ...row, icon: <PanelKindIcon kind={row.kind} />,
               kindLabel: row.kind === undefined ? undefined : m(`panelAddKind_${row.kind}`) }))} />
         </section>)}
@@ -121,11 +121,13 @@ function CategorizedPanels({ rows }: { rows: readonly PanelPickerRow[] }) {
   </div>;
 }
 
-export function PanelPickerContent({ rows, categorized, label, inputLabel, pinning, close, onCloseAutoFocus, contentProps, children }: {
+export function PanelPickerContent({ rows, categorized, label, inputLabel, pinning, close, onCloseAutoFocus, contentProps, id, children }: {
   rows: readonly PanelPickerRow[]; categorized: boolean; label: string; inputLabel?: string;
   pinning?: { checked: boolean; onChange: (pin: boolean) => void };
   close: () => void; onCloseAutoFocus?: (event: Event) => void; children?: ReactNode;
   contentProps?: Pick<ComponentProps<typeof PopoverContent>, 'onClickCapture' | 'onKeyDownCapture'> & { 'data-panel-add-content': string };
+  /** For an opener that is only the popover's anchor: Radix's own content id stays when this is omitted. */
+  id?: string;
 }) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const platform = usePlatformOptional();
@@ -142,7 +144,7 @@ export function PanelPickerContent({ rows, categorized, label, inputLabel, pinni
     node.querySelector<HTMLElement>(categorized ? 'input[type="search"]' : PANEL_ROW_SELECTOR)?.focus();
   }, [generation, categorized]);
   const actions = rows.map(row => ({ ...row, onSelect: () => { row.onSelect(); close(); } }));
-  return <PopoverContent align="end" aria-label={label} onCloseAutoFocus={onCloseAutoFocus} {...contentProps}
+  return <PopoverContent align="end" aria-label={label} onCloseAutoFocus={onCloseAutoFocus} {...contentProps} {...(id === undefined ? undefined : { id })}
     className={cn('max-h-[var(--radix-popover-content-available-height)] max-w-[var(--radix-popover-content-available-width)] overflow-y-auto', categorized ? 'w-[60rem]' : 'w-xl')}>
     <div ref={content} className="text-sm">
       {inputLabel !== undefined && <p className="mb-3 w-fit max-w-full rounded-full bg-accent-primary-soft px-2 py-1 text-xs font-medium text-accent-primary wrap-anywhere">

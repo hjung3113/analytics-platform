@@ -1,4 +1,4 @@
-import { useContext, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { formatDateTime, formatNumber, formatWallClock, type Text } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
@@ -79,6 +79,24 @@ function focusTile(scroll: HTMLDivElement, button: HTMLButtonElement) {
   else if (tileRect.bottom > portBottom) scroll.scrollTop += tileRect.bottom - portBottom;
 }
 
+/**
+ * The full range of a per-tile axis. Radix closes an open tooltip when an ancestor of its trigger scrolls; a tile that keeps keyboard focus while
+ * arrow keys scroll the grid keeps its tooltip (#3078). Pointer hover, Escape and blur close it as before.
+ */
+function RangeTooltip({ range, gridScroll, children }: { range: string; gridScroll: RefObject<Event | null>; children: ReactNode }) {
+  const trigger = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  return <Tooltip open={open} onOpenChange={next => {
+    // The grid's own capture listener runs first, so a close requested while that scroll event is still dispatching came from the grid.
+    if (!next && gridScroll.current?.eventPhase === Event.CAPTURING_PHASE && trigger.current?.matches(':focus-visible')) return;
+    setOpen(next);
+  }}>
+    {/* The button already describes the range and any status, even before the tooltip opens. */}
+    <TooltipTrigger asChild ref={trigger} aria-describedby={undefined}>{children}</TooltipTrigger>
+    <TooltipContent portal size="sm" className="max-w-xs wrap-anywhere">{range}</TooltipContent>
+  </Tooltip>;
+}
+
 export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLUMNS, density, showDensityControl, onDensityChange, boundLabels,
   sortOptions, sortId, defaultSortId = ORIGINAL_ORDER, onSortChange, showAxisControl,
   analysisSelectionOutput, selectionDisabled, actions }: SmallMultiplesGridProps) {
@@ -117,6 +135,21 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
   const [focusedId, setFocusedId] = useState<string>();
   const focusedButton = useRef<HTMLButtonElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const gridScroll = useRef<Event>(null);
+  // The listener lives exactly as long as the scroll element: registered before any tooltip opens (so it runs before Radix's window capture
+  // listener) and removed, with the element and the last event, when the tiles go or the grid unmounts.
+  const attachScroll = useCallback((scroll: HTMLDivElement | null) => {
+    scrollRef.current = scroll;
+    const view = scroll?.ownerDocument.defaultView;
+    if (!scroll || !view) return;
+    const capture = (event: Event) => { if (event.target === scroll) gridScroll.current = event; };
+    view.addEventListener('scroll', capture, { capture: true, passive: true });
+    return () => {
+      view.removeEventListener('scroll', capture, { capture: true });
+      gridScroll.current = null;
+      if (scrollRef.current === scroll) scrollRef.current = null;
+    };
+  }, []);
   const focusedTile = tiles.find(tile => tile.id === focusedId);
   if (focusedId !== undefined && !focusedTile) setFocusedId(undefined);
   const tabbableId = (focusedTile ?? tiles[0])?.id;
@@ -207,7 +240,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
       </div>}
     </div>
     {tiles.length === 0 ? <p className="p-3 text-sm text-text-secondary">{m('panelTrustEmpty')}</p> :
-      <TooltipProvider delayDuration={200}><div ref={scrollRef} className="scrollbar-panel min-h-0 overflow-y-auto overscroll-contain">
+      <TooltipProvider delayDuration={200}><div ref={attachScroll} className="scrollbar-panel min-h-0 overflow-y-auto overscroll-contain">
         <div role="grid" aria-label={title} className="space-y-2 p-3" style={rowStyle}>
           {Array.from({ length: rowCount }, (_, row) => <div key={row} role="row" className="grid grid-cols-(--small-multiples-columns) gap-2">
             {tiles.slice(row * count, (row + 1) * count).map((tile, column) => {
@@ -260,11 +293,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
                   </span>}
                 </button>;
               return <div key={tile.id} role="gridcell" className="min-w-0">
-                {range ? <Tooltip>
-                  {/* The button already describes the range and any status, even before the tooltip opens. */}
-                  <TooltipTrigger asChild aria-describedby={undefined}>{button}</TooltipTrigger>
-                  <TooltipContent portal size="sm" className="max-w-xs wrap-anywhere">{range}</TooltipContent>
-                </Tooltip> : button}
+                {range ? <RangeTooltip range={range} gridScroll={gridScroll}>{button}</RangeTooltip> : button}
               </div>;
             })}
           </div>)}

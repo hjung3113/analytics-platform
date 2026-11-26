@@ -69,7 +69,7 @@ export type { QueryPanelOptions } from './state/QueryPanel';
 export { ManagementLayout, type ManagementLayoutProps } from './archetypes/ManagementLayout';
 
 export { badgeCountText } from './workspace/PanelBadge';
-export { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePersistence, type PanelWorkspacePreset, type PanelWorkspaceProps, type PanelWorkspaceStorage } from './workspace/PanelWorkspace';
+export { PanelWorkspace, type PanelWorkspaceLayout, type PanelWorkspacePanel, type PanelWorkspacePersistence, type PanelWorkspacePreset, type PanelWorkspaceProps, type PanelWorkspaceSelectionDrop, type PanelWorkspaceStorage } from './workspace/PanelWorkspace';
 export { PANEL_RECIPE_ITEM, panelRecipe, type PanelRecipe, type PanelRecipeCode, type PanelRecipeFeature, type PanelRecipeFeatureState, type PanelRecipeHost, type PanelRecipeInput, type PanelRecipeKey } from './panel-recipe/panelRecipe';
 export { PanelRecipeBack, PanelRecipeFrame } from './panel-recipe/PanelRecipeBack';
 export { changedPanelOptions, PANEL_OPTIONS_COLLAPSE_BELOW, PanelOptionChips, PanelOptions, usePanelOptions, type PanelOption, type PanelOptionChipsProps, type PanelOptionChoice, type PanelOptionsProps, type PanelOptionValues } from './workspace/PanelOptions';
