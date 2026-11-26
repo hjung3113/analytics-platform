@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createMockAdapter, getRole, setRole, type RoleId } from '@ap/mock-server';
 import { cycleMock, percentile, population, slowExecutions } from './cycle';
-import { CYCLE_MAX_HOURS, cycleDistEndpoint, cycleTrendEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, executionKey, type CycleKpi, type SlowRow } from '../endpoints';
+import { CYCLE_MAX_HOURS, cycleDistEndpoint, cycleTrendEndpoint, cycleExportEndpoint, cycleKpiEndpoint, cycleSlowPageEndpoint, executionKey, type CycleDistData, type CycleKpi, type SlowRow } from '../endpoints';
 import { EQUIPMENT } from '@ap/mock-server';
 import { emptyGlobal, groupId, menuPermission, type Capability, type ContextKey, type MenuMeta, type PageResult } from '@ap/contracts';
 
@@ -91,6 +91,18 @@ describe('cycle-time endpoints', () => {
     }
     const v4 = await adapter.menuQuery({ endpoint: cycleKpiEndpoint.id, context: { ...context, metricId: 'cycle_time', metricVersion: '4' }, params: {} });
     expect(v4.trust?.metricVersion).toBe('4');
+  });
+
+  it('intersects the distribution cell selection with the Scope-validated population', async () => {
+    const exported = await adapter.menuQuery({ endpoint: cycleExportEndpoint.id, context, params: { ...allFilter, ids: null } });
+    const rows = exported.data as SlowRow[];
+    const equipmentId = rows[0].equipmentId;
+    const outsideScope = EQUIPMENT.find(row => row.site !== context.scopeId)!.equipmentId;
+    const distribution = (tableEquipment: string[]) => adapter.menuQuery({ endpoint: cycleDistEndpoint.id, context, params: { tableEquipment } });
+    const selected = await distribution([equipmentId, outsideScope]);
+    expect(selected.outcome).toBe('ok');
+    expect((selected.data as CycleDistData).count).toBe(rows.filter(row => row.equipmentId === equipmentId).length);
+    expect((await distribution([outsideScope])).outcome).toBe('empty');
   });
 
   it('applies the tail threshold and bin range on the server', () => {

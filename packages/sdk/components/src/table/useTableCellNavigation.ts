@@ -6,6 +6,7 @@ type Options = {
   viewport: RefObject<HTMLDivElement | null>;
   rows: string[];
   columns: string[];
+  onFocusChange?: (cell: TableCell | null) => void;
   onSelect?: (cell: TableCell) => void;
   onActivate?: (cell: TableCell) => void;
   scrollRow: (id: string) => void;
@@ -14,7 +15,7 @@ type Options = {
   pinnedWidths: () => { left: number; right: number };
 };
 
-export function useTableCellNavigation({ viewport, rows, columns, onSelect, onActivate, scrollRow, pageRows, pinnedWidths }: Options) {
+export function useTableCellNavigation({ viewport, rows, columns, onFocusChange, onSelect, onActivate, scrollRow, pageRows, pinnedWidths }: Options) {
   const pending = useRef<TableCell | null>(null);
   const focusedCell = useRef<{ coordinate: TableCell; element: HTMLElement } | null>(null);
   const rowIndices = new Map(rows.map((id, index) => [id, index]));
@@ -61,6 +62,7 @@ export function useTableCellNavigation({ viewport, rows, columns, onSelect, onAc
     if (port.contains(element) && rowIndices.has(coordinate.row) && columnIndices.has(coordinate.column)) return;
 
     focusedCell.current = null;
+    onFocusChange?.(null);
     const { activeElement, body } = port.ownerDocument;
     if (activeElement && activeElement !== body) return;
     pending.current = null;
@@ -78,14 +80,17 @@ export function useTableCellNavigation({ viewport, rows, columns, onSelect, onAc
   }
 
   function trackFocus(event: FocusEvent<HTMLDivElement>) {
-    const element = event.target instanceof HTMLElement && event.target.closest<HTMLElement>('[data-table-focus-column]');
+    const element = event.target instanceof HTMLElement && event.currentTarget.contains(event.target)
+      && event.target.closest<HTMLElement>('[data-table-focus-column]');
     const coordinate = element && position(element);
     focusedCell.current = element && coordinate ? { coordinate, element } : null;
+    onFocusChange?.(coordinate || null);
   }
 
   function releaseFocus(event: FocusEvent<HTMLDivElement>) {
     if (event.relatedTarget) {
       focusedCell.current = null;
+      onFocusChange?.(null);
       if (!event.currentTarget.contains(event.relatedTarget)) pending.current = null;
       return;
     }
@@ -93,7 +98,10 @@ export function useTableCellNavigation({ viewport, rows, columns, onSelect, onAc
     // A surviving node releases ownership after the commit has had a chance to recover.
     const previous = focusedCell.current;
     queueMicrotask(() => {
-      if (previous?.element.isConnected && focusedCell.current === previous) focusedCell.current = null;
+      if (previous?.element.isConnected && focusedCell.current === previous) {
+        focusedCell.current = null;
+        onFocusChange?.(null);
+      }
     });
   }
 

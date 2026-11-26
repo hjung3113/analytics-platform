@@ -7,8 +7,9 @@ describe('cycle-time panel declarations (#2433)', () => {
     const panels = manifests.find(menu => menu.id === 'cycle-time')!.panels!;
     expect(panels.map(panel => panel.id)).toEqual(['summary', 'trend', 'distribution', 'slow']);
     expect(panels.map(panel => panel.endpoints)).toEqual([[cycleKpiEndpoint], [cycleTrendEndpoint], [cycleDistEndpoint], [cycleSlowPageEndpoint, cycleExportEndpoint, cycleKpiEndpoint]]);
-    expect(panels.map(panel => panel.queryInputs.page?.map(input => input.key) ?? [])).toEqual([['conditionSet'], ['conditionSet', 'granularity'], ['conditionSet'], ['conditionSet', 'granularity', 'percentile', 'sort', 'bucket', 'bin', 'page']]);
-    expect(panels.map(panel => panel.outputs.map(output => output.key))).toEqual([[], ['bucket', 'page'], ['bin', 'page'], ['sort', 'page', 'bucket', 'bin', 'percentile']]);
+    expect(panels.map(panel => panel.queryInputs.page?.map(input => input.key) ?? [])).toEqual([['conditionSet'], ['conditionSet', 'granularity'], ['conditionSet', 'tableEquipment'], ['conditionSet', 'granularity', 'percentile', 'sort', 'bucket', 'bin', 'page']]);
+    expect(panels.map(panel => panel.outputs.map(output => output.key))).toEqual([[], ['bucket', 'page'], ['bin', 'page'], ['sort', 'page', 'bucket', 'bin', 'percentile', 'tableEquipment']]);
+    expect(panels[2].queryInputs.page).toContainEqual({ key: 'tableEquipment', selection: 'filter' });
     for (const panel of panels) expect(panel.queryInputs.context).toEqual(['scopeId', ...Object.keys(cycleKpiEndpoint.context)]);
   });
 });

@@ -46,6 +46,25 @@ function renderPage(path: string) {
   render(<I18nProvider><PlatformProvider equipmentAxes={TEST_AXES} adapter={adapter} registry={registry}><CycleTimeDrilldown params={{}} /></PlatformProvider></I18nProvider>);
 }
 
+it('restores a table selection from the address and filters only the distribution query', async () => {
+  const menuQuery = vi.spyOn(adapter, 'menuQuery');
+  try {
+    renderPage('/analytics/cycle-time?v=1&scopeId=MEM&roomNames=PHOTO&from=2026-09-26T00:00:00&to=2026-09-26T09:00:00&tableEquipment=E-1&tableEquipment=E-2');
+    await waitFor(() => {
+      const requests = menuQuery.mock.calls.map(([request]) => request);
+      expect(requests).toEqual(expect.arrayContaining([
+        expect.objectContaining({ endpoint: 'analytics.cycle.slow' }),
+        expect.objectContaining({ endpoint: 'analytics.cycle.dist', params: { tableEquipment: ['E-1', 'E-2'] } }),
+      ]));
+      const otherRequests = requests.filter(request => request.endpoint !== 'analytics.cycle.dist');
+      for (const request of otherRequests) expect(request.params).not.toHaveProperty('tableEquipment');
+    });
+  } finally {
+    cleanup();
+    menuQuery.mockRestore();
+  }
+});
+
 it('renders the population P95 as a reference line on the trend y-axis', async () => {
   const menuQuery = vi.spyOn(adapter, 'menuQuery').mockImplementation(async request => request.endpoint.endsWith('.trend')
     ? { ...empty, outcome: 'ok', assessments: [
