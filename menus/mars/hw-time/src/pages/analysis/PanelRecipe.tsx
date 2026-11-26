@@ -5,8 +5,8 @@ import { manifests } from '../../index';
 import { panelRecipe } from './recipeModel';
 
 /** Lazy back for `RecipePanel`: the SDK recipe of the registered panel, or the front when the Registry has none. */
-export default function RecipeBackFor({ id, context, primary, onClose, fallback }: { id: string; context: Readonly<Record<string, unknown>>; primary: boolean; onClose: () => void; fallback: ReactNode }) {
+export default function RecipeBackFor({ id, context, primary, canPin, onClose, fallback }: { id: string; context: Readonly<Record<string, unknown>>; primary: boolean; canPin: boolean; onClose: () => void; fallback: ReactNode }) {
   const { registry } = usePlatform();
-  const recipe = panelRecipe(registry.panels(manifests[0]!.id).find(panel => panel.id === id), context, { primary });
+  const recipe = panelRecipe(registry.panels(manifests[0]!.id).find(panel => panel.id === id), context, { primary, canPin });
   return recipe ? <PanelRecipeBack recipe={recipe} onClose={onClose} /> : <>{fallback}</>;
 }

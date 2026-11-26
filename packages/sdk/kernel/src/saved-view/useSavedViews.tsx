@@ -376,7 +376,11 @@ function useSavedViewController(
   const alive = useRef(true);
   useLayoutEffect(() => { alive.current = true; return () => { alive.current = false; initialWork.current = null; clearDeadlineTimer(); }; }, [clearDeadlineTimer]);
   const stale = (at: object) => !alive.current || live.current.gen !== at;
-  const clearSelection = useCallback(() => { intent.current += 1; setSelected(null); }, [setSelected]);
+  const clearSelection = useCallback(() => {
+    intent.current += 1;
+    panelSlots?.changeViewId(PANELS_SLOT, PANELS_SLOT, null);
+    setSelected(null);
+  }, [panelSlots, setSelected]);
   const differs = (view: SavedViewEntry['view'], support: SavedViewSupport) => viewState({ applied: comparableApplied(view, captureApplied(applied, support)), saved: savedStateOf(view, support, anchor, host.global.scopeId), draftDirty: [] }).modified;
 
   // The guard's replay runs before the address commits. Select only once that exact applied state has arrived.
@@ -443,6 +447,7 @@ function useSavedViewController(
       if (source === 'default') slots?.restore(id, tables); else slots?.apply(id, tables);
       if (!panelSlots) return;
       const panels = view.kind === 'menu-view' ? { [PANELS_SLOT]: savedPanelsSlot(view, current.global.scopeId) } : {};
+      if (view.kind === 'condition-set') panelSlots.changeViewId(PANELS_SLOT, PANELS_SLOT, null);
       if (source === 'default') panelSlots.restore(id, panels); else panelSlots.apply(id, panels);
     };
     if (sameAddress) applySlots();
@@ -556,13 +561,14 @@ function useSavedViewController(
     const tables = { ...(selected?.view.kind === 'menu-view' ? selected.view.tables : undefined), ...slots?.capture<TableViewState>('tables') };
     // The Scope the content is saved in (#2175); with no current Scope nothing is recorded and the view reads as an old one.
     const scopeStamp = applied.global.scopeId !== null ? { savedScopeId: applied.global.scopeId } : {};
-    const panels = panelSlots?.capture<MenuViewPanels | null>(PANELS_SLOT)[PANELS_SLOT];
+    const panelCapture = panelSlots?.captureSlot<MenuViewPanels | null>(PANELS_SLOT, PANELS_SLOT);
+    const panels = panelCapture?.value;
     const draft = input.kind === 'condition-set'
       ? { schemaVersion: 1, kind: 'condition-set', name: input.name, context: captured.context, ...scopeStamp }
       : { schemaVersion: 1, kind: 'menu-view', name: input.name, menuId: support.menuId, menuSchemaVersion: support.menuSchemaVersion, context: captured.context, ...scopeStamp, page: captured.page, chartOptions: input.chartOptions ?? {}, layout: input.layout ?? null, panels: panels === undefined ? input.panels ?? null : panels, tables };
     const checked = validateSavedView(draft);
     if (!checked.ok) return checked;
-    // Latest action wins: a save that finishes after another pick or save, or on another address, does not take the selection back.
+    // A save can take the selection only while its action, address and panel lifetime are current.
     const at = gen;
     if (stale(at)) return OFF;
     const mine = ++intent.current;
@@ -570,7 +576,12 @@ function useSavedViewController(
     let result: Result<SavedViewEntry>;
     try { result = await store.save(checked.value as SavedViewDraft); } catch { return OFF; }
     if (result.ok && !stale(at)) {
-      if (intent.current === mine && live.current.host.appliedUrl === startUrl) { setFresh({ gen: at, entry: result.value }); setSelected(result.value.view.id); }
+      if (intent.current === mine && live.current.host.appliedUrl === startUrl && (panelCapture?.isCurrent() ?? true)) {
+        const { view } = result.value;
+        panelSlots?.changeViewId(PANELS_SLOT, PANELS_SLOT, view.kind === 'menu-view' ? view.id : null);
+        setFresh({ gen: at, entry: result.value });
+        setSelected(view.id);
+      }
       refresh();
     }
     return result;
@@ -582,15 +593,23 @@ function useSavedViewController(
     if (readSaveBlocks().length > 0) return SAVE_BLOCKED;
     ++intent.current;
     const mine = intent.current;
+    const startUrl = live.current.host.appliedUrl;
     const patch = overwritePatch(selected.view, captureApplied(applied, support), support, anchor, applied.global.scopeId, slots?.capture<TableViewState>('tables'));
-    const panels = panelSlots?.capture<MenuViewPanels | null>(PANELS_SLOT)[PANELS_SLOT];
+    const panelCapture = panelSlots?.captureSlot<MenuViewPanels | null>(PANELS_SLOT, PANELS_SLOT);
+    const panels = panelCapture?.value;
     // With no screen panels to capture the stored panels stay, except held sets saved in another Scope: they are saved as following here (#2862 R2862C C2).
     const inScope = selected.view.kind === 'menu-view' && !selected.view.panelsUnreadable ? panelsInScope(selected.view, applied.global.scopeId) : null;
     const panelsPatch = selected.view.kind !== 'menu-view' ? {} : panels !== undefined ? { panels } : inScope?.keys.length ? { panels: inScope.panels } : {};
     let result: Result<SavedViewEntry>;
     try { result = await store.update(selected.view.id, { ...patch, ...panelsPatch }, { expectedVersion: selected.view.version }); } catch { return OFF; }
     if (result.ok && !stale(at)) {
-      if (intent.current === mine && live.current.selectedId === result.value.view.id) setFresh({ gen: at, entry: result.value });
+      if (intent.current === mine && live.current.selectedId === result.value.view.id) {
+        const { view } = result.value;
+        if (live.current.host.appliedUrl === startUrl && (panelCapture?.isCurrent() ?? true)) {
+          panelSlots?.changeViewId(PANELS_SLOT, PANELS_SLOT, view.kind === 'menu-view' ? view.id : null);
+        }
+        setFresh({ gen: at, entry: result.value });
+      }
       refresh();
     }
     // A write refused for its version rereads the list (06 §21.2): the selection and the applied conditions stay, and the next save goes at the version the store now holds.

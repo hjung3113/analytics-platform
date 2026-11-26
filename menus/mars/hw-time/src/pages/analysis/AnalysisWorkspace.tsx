@@ -21,7 +21,7 @@ import { MotionTablePanel, RunQueryPanel } from './AdditionalPanels';
 import { DistributionPanel } from './DistributionPanel';
 import { BoundHistoryPanel, EquipmentDaysPanel, ParetoPanel, VerdictDonut } from './NewPanels';
 import { heatmapValues, VERDICT_CATEGORIES, verdictEmphasis } from './newPanelData';
-import { buildSavedPanels, defaultPanels, defaultTableInput, exceedsPanelLimit, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isEquipmentOutput, isHeldSource, keepHeld, names, newPanelInstance, planAdd, planTableHold, SAME_PANEL_MAX, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
+import { buildSavedPanels, defaultPanels, defaultTableInput, exceedsPanelLimit, fillsTablePin, followPanel, heldOf, heldOutput, heldSourceFor, heldTableInput, holds, isEquipmentOutput, isHeldSource, keepHeld, names, newPanelInstance, newFollowingTable, instanceSlot, planAdd, planTableHold, preserveFollowingTable, SAME_PANEL_MAX, withFollowingTable, withFollowingTableAt, type AddedPanel, type AddIntent, type CustomPanels, type PanelConfiguration } from './heldPanels';
 import { CATALOG_IDS, chartRows, panelCatalog, projectBarData, rowLabel, stepOf, stepPreset, validTrend, workspaceOptions, type CatalogId, type Step } from './stepped';
 import { panelDeclarations, panelRunTarget, projectDisplayInputs, projectQueryInputs, workspacePanelContext } from './panelDeclaration';
 
@@ -226,38 +226,34 @@ function declaredPanelId(instance: PanelInstance): string | undefined {
   return instance.source.kind === 'declared' ? instance.source.panel : undefined;
 }
 
-function canonicalPanelSlot(instance: PanelInstance): string | undefined {
-  const panel = declaredPanelId(instance);
-  if (instance.id === 'current' && panel === panelDeclarations.moduleMotions.id) return 'current';
-  if (instance.id === panel && CATALOG_IDS.some(id => id === panel)) return panel;
-}
-
-function restoredPanelSlot(instance: PanelInstance, index: number): string {
-  // The saved ID is opaque. Only an exact ID and declaration match can restore a canonical slot.
-  return canonicalPanelSlot(instance) ?? `saved-panel-${index}`;
-}
-
 /**
  * The configuration for this render. Another user or Scope clears local additions. Opening a view can change the step and query Context in the
  * same navigation, so an open carries across that change. Connection edits stay within their owner.
  * Ordinary additions reset on a query change, and a drill in the same query keeps held tables.
  */
-function nextConfig(state: { owner: string; query: string; config: PanelConfiguration; opening: boolean }, owner: string, query: string, samePopulation: boolean): PanelConfiguration {
+function resetConfig(state: { owner: string; query: string; config: PanelConfiguration; opening: boolean }, owner: string, query: string, samePopulation: boolean): PanelConfiguration | undefined {
   if (state.owner !== owner) return defaultPanels;
-  if (samePopulation || state.opening) return state.config;
-  if (state.config.kind === 'custom' && state.config.connectionsEdited) return state.config;
+  if (samePopulation || state.opening) return;
+  if (state.config.kind === 'custom' && state.config.connectionsEdited) return;
   if (state.query === query) return keepHeld(state.config);
   return defaultPanels;
 }
 
 function useWorkspacePanels(owner: string, query: string, step: Step, {
-  publisherFor, unpin,
-}: { publisherFor: (config: PanelConfiguration, at?: Step) => ReturnType<typeof selectionPublisher>; unpin: (id: string) => void }) {
+  pinned, publisherFor, unpin,
+}: { pinned: readonly string[]; publisherFor: (config: PanelConfiguration, at?: Step) => ReturnType<typeof selectionPublisher>; unpin: (id: string) => void }) {
   const population = JSON.stringify([step, query]);
-  const [state, setState] = useState(() => ({ owner, query, population, config: defaultPanels, opening: false, clearTablePin: false }));
+  const [state, setState] = useState(() => ({ owner, query, population, config: defaultPanels, opening: false, clearTablePin: false, lifetime: {} }));
   const samePopulation = state.population === population;
-  const config = nextConfig(state, owner, query, samePopulation);
-  if (state.owner !== owner || !samePopulation || state.opening) setState({ owner, query, population, config, opening: false, clearTablePin: false });
+  const reset = resetConfig(state, owner, query, samePopulation);
+  const next = reset ?? state.config;
+  const config = withFollowingTable(next, pinned.includes('table'));
+  const lifetime = reset ? {} : state.lifetime;
+  if (state.owner !== owner || !samePopulation || state.opening || config !== next) {
+    // A following-table allocation alone keeps a pending address-pin clear.
+    const clearTablePin = state.owner === owner && samePopulation && !state.opening && state.clearTablePin;
+    setState({ owner, query, population, config, opening: false, clearTablePin, lifetime });
+  }
   useLayoutEffect(() => {
     if (!state.clearTablePin) return;
     // Clear the address pin only after the hold plan commits successfully.
@@ -265,6 +261,7 @@ function useWorkspacePanels(owner: string, query: string, step: Step, {
     setState(current => ({ ...current, clearTablePin: false }));
   }, [state.clearTablePin, unpin]);
   const projectCandidates = (candidate: CustomPanels, { acrossSteps = false } = {}): [MenuViewPanels, ...MenuViewPanels[]] => {
+    candidate = preserveFollowingTable(candidate);
     const atStep = (at: Step) => {
       const { source, reserved } = publisherFor(candidate, at);
       return buildSavedPanels(candidate, acrossSteps ? undefined : at, reserved ?? source);
@@ -281,8 +278,9 @@ function useWorkspacePanels(owner: string, query: string, step: Step, {
   const overflows = (plan: ReturnType<typeof planAdd>) => plan.overflows
     || (plan.config !== null && exceedsPanelLimit(project(plan.config, { acrossSteps: plan.config.connectionsEdited })));
   useSavedViewPanels({
+    lifetime,
     value: config.kind === 'custom' ? project(config) : null,
-    onOpen: outcome => {
+    onOpen: (outcome, viewId) => {
       let next: PanelConfiguration;
       switch (outcome) {
         case null: next = defaultPanels; break;
@@ -292,21 +290,37 @@ function useWorkspacePanels(owner: string, query: string, step: Step, {
           const sources: PanelInstance[] = [];
           for (const instance of outcome.instances) {
             if (isHeldSource(instance)) sources.push(instance);
-            else added.push({ slot: restoredPanelSlot(instance, added.length), instance });
+            else added.push({ slot: instanceSlot(instance), instance });
           }
           next = { kind: 'custom', added, sources };
         }
       }
-      setState(current => ({ ...current, config: next, opening: true }));
+      setState(current => ({ ...current, config: { ...next, viewId }, opening: true, lifetime: {} }));
     },
+    onViewIdChange: viewId => setState(current => current.config.viewId === (viewId ?? undefined) ? current
+      : { ...current, config: { ...current.config, viewId: viewId ?? undefined } }),
   });
   /** Every add path: refused as a whole when the saved panels would pass the v1 limit (R C2); `slot` is what it opened or reveals. */
-  const add = (id: string, intent?: AddIntent, materialize = false): { ok: boolean; slot: string } => {
-    const plan = planAdd(config, id, step, intent, materialize);
+  const add = (id: string, intent?: AddIntent, options?: { materialize?: boolean; pin?: boolean; targetSlot?: string }): { ok: boolean; slot: string } => {
+    const plan = planAdd(config, id, step, intent, options?.materialize, options?.targetSlot);
     if (overflows(plan)) return { ok: false, slot: plan.slot };
-    if (plan.config) { const next = plan.config; setState(current => ({ ...current, config: next })); }
+    const pinAlias = options?.pin && id !== 'table' && plan.slot !== id;
+    if (plan.config || pinAlias) setState(current => {
+      const { viewId, followingTable, pinSlots } = current.config;
+      return { ...current, config: {
+        ...(plan.config ?? current.config),
+        viewId, followingTable,
+        pinSlots: pinAlias ? new Map(pinSlots).set(id, plan.slot) : pinSlots,
+      } };
+    });
     return { ok: true, slot: plan.slot };
   };
+  const forgetPin = (id: string) => setState(current => {
+    if (!current.config.pinSlots?.has(id)) return current;
+    const pinSlots = new Map(current.config.pinSlots);
+    pinSlots.delete(id);
+    return { ...current, config: { ...current.config, pinSlots } };
+  });
   /** «따라가기로 바꾸기»: the panel drops its held values and reads the URL again. */
   const follow = (slot: string) => setState(current => current.config.kind !== 'custom' ? current : { ...current, config: { ...current.config,
     added: current.config.added.map(panel => panel.slot === slot ? followPanel(panel) : panel) } });
@@ -320,15 +334,19 @@ function useWorkspacePanels(owner: string, query: string, step: Step, {
       .map(panel => ({ ...panel, instance: disconnect(panel.instance) }));
     return { ...current, config: { ...current.config, added, sources: current.config.sources.map(disconnect) } };
   });
-  const editConnections = (config: CustomPanels) => setState(current => ({ ...current, config: { ...config, connectionsEdited: true } }));
+  const editConnections = (config: CustomPanels) => setState(current => ({ ...current, config: { ...config, connectionsEdited: true, viewId: current.config.viewId } }));
   const planHold = (candidate: PanelConfiguration, slot: string, chip: AnalysisSelectionChip, from?: string) =>
-    planTableHold(candidate, slot, chip, next => projectCandidates(next, { acrossSteps: next.connectionsEdited }), from);
+    planTableHold(withFollowingTableAt(candidate, slot), slot, chip, next => projectCandidates(next, { acrossSteps: next.connectionsEdited }), from);
   const holdTable = (slot: string, chip: AnalysisSelectionChip, options: { from?: string; clearPin: boolean }) => setState(current => {
     if (current.owner !== owner || current.population !== population) return current;
     const plan = planHold(current.config, slot, chip, options.from);
-    return plan.kind === 'refused' ? current : { ...current, config: plan.config, clearTablePin: current.clearTablePin || options.clearPin };
+    if (plan.kind === 'refused') return current;
+    // A hold is a local edit: the configuration keeps its view and pin slots, and its following table unless the hold took it over (#3080).
+    const { viewId, followingTable, pinSlots } = current.config;
+    const kept = followingTable && instanceSlot(followingTable) !== slot ? followingTable : undefined;
+    return { ...current, config: { ...plan.config, viewId, followingTable: kept, pinSlots }, clearTablePin: current.clearTablePin || options.clearPin };
   });
-  return { config, add, remove, follow, editConnections, project, holdTable,
+  return { config, add, remove, follow, forgetPin, editConnections, project, holdTable,
     planHold: (slot: string, chip: AnalysisSelectionChip, from?: string) => planHold(config, slot, chip, from),
     additionOverflows: (id: string) => overflows(planAdd(config, id, step)) };
 }
@@ -352,7 +370,7 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
     const available = at === step ? catalog : panelCatalog({ step: at, typeId, moduleId, trend });
     return selectionPublisher(config, available, at, trend, pinned, at === step ? dayPanel : null);
   }, [catalog, step, typeId, moduleId, trend, pinned, dayPanel]);
-  const savedPanels = useWorkspacePanels(owner, JSON.stringify(context), step, { publisherFor, unpin: pins.unpin });
+  const savedPanels = useWorkspacePanels(owner, JSON.stringify(context), step, { pinned, publisherFor, unpin: pins.unpin });
   const publisher = useMemo(() => publisherFor(savedPanels.config), [publisherFor, savedPanels.config]);
   // A saved view can pin a panel the catalog no longer has. Its reason slot shows the panel, so the opened address drops that pin
   // (one replace) instead of warning; until then the rule accepts it. A plain address with an unknown pin still warns.
@@ -479,11 +497,6 @@ function settingsInstance(slot: string, declaration: PanelDeclaration | undefine
   return outputs?.length ? { ...instance, outputs: [...instance.outputs, ...outputs] } : instance;
 }
 
-/** The raw-table pin is satisfied by a following table or a full pair. */
-function fillsTablePin(tables: readonly { instance?: PanelInstance }[]): boolean {
-  return tables.length >= SAME_PANEL_MAX || tables.some(({ instance }) => !instance || !holds(instance));
-}
-
 /**
  * The raw table slots in order (#2862 ②): the first two open, a saved view may hold more (R C13); two share a row of their own. Titles,
  * layout, «새 패널» and the address ownership all read this one state (R C14).
@@ -511,6 +524,8 @@ function rawTables(slots: readonly { id: string; instance?: PanelInstance; item?
 
 type DayPanel = typeof panelDeclarations.equipmentDays | null;
 
+const catalogPinSlot = (config: PanelConfiguration, id: string) => config.pinSlots?.get(id) ?? id;
+
 function workspaceExtraPanels(config: PanelConfiguration, catalog: ReturnType<typeof panelCatalog>, step: Step, trend: string | null,
   pinned: readonly string[], dayPanel: DayPanel) {
   const available = catalog.filter(item => !item.disabledReason);
@@ -519,7 +534,8 @@ function workspaceExtraPanels(config: PanelConfiguration, catalog: ReturnType<ty
     id: slot, instance, heldFrom, item: catalog.find(item => item.id === declaredPanelId(instance)),
   }));
   const autoIds = new Set([...pinned, ...(trend || step === 4 ? ['trend'] : [])]);
-  // Automatic panels occupy rendered slots. A saved wire ID collision is handled when settings create an instance for that slot.
+  // A pinned raw table uses its future instance slot even before an edit materializes it.
+  const followingTable = config.followingTable ?? newFollowingTable(config);
   const taken = new Set(extras.map(extra => extra.id));
   const automatic = [...autoIds].flatMap(id => {
     const item = available.find(item => item.id === id);
@@ -527,14 +543,12 @@ function workspaceExtraPanels(config: PanelConfiguration, catalog: ReturnType<ty
     // (#2862 ②). A held table alone (kept across a drill) leaves it drawn. Other panels keep their own slot rule (R C11).
     const tableInstances = extras.filter(extra => extra.item?.id === 'table');
     const tableTaken = id === 'table' && fillsTablePin(tableInstances);
-    // A held table may sit in the declared slot: the pinned following table then takes the next free one (R2 C11).
-    let slot = id;
-    for (let n = 2; id === 'table' && taken.has(slot); n += 1) slot = `${id}-${n}`;
+    const slot = id === 'table' ? instanceSlot(followingTable) : catalogPinSlot(config, id);
     return item && !tableTaken && !taken.has(slot) ? [{ id: slot, item, instance: undefined, heldFrom: undefined }] : [];
   });
   // When the heatmap is the primary panel, keep its saved pin or slot for the default basis.
   const extraPanels = [...extras, ...automatic].filter(({ item }) => !dayPanel || item?.id !== dayPanel.id);
-  return { added, extras, automatic, extraPanels, dayPanel };
+  return { added, extras, automatic, extraPanels, dayPanel, followingTable };
 }
 
 const sourcePanelId = panelDeclarations.moduleMotions.id;
@@ -590,7 +604,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     if (trend && step !== 4) setReveal(current => ({ panelId: 'trend', seq: (current?.seq ?? 0) + 1 }));
   }, [trend, step]);
   const { page, pageParam, pageParams, setPage, toast } = usePlatform();
-  const { added, extras, automatic, extraPanels, dayPanel } = publisher.work;
+  const { scopeId } = useQueryContext();
+  const { added, extras, automatic, extraPanels, dayPanel, followingTable } = publisher.work;
   // «붙잡기» (#2862): each held table reads its own values (R C4); a chart a held value came from stays while it holds (R C7).
   const savedInstances = useMemo(() => savedPanels.config.kind === 'custom'
     ? [...savedPanels.config.added.map(panel => panel.instance), ...savedPanels.config.sources] : [], [savedPanels.config]);
@@ -673,8 +688,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     if (equipmentDaysAvailable(input, page)) return <EquipmentDaysPanel input={input} verdict={verdict} date={date} />;
     return <p role="status" className="text-sm text-text-secondary">{filter.empty ? common('filterNoneSelected') : N.equipmentDaysUnavailable[lang]}</p>;
   };
-  const withRecipe = (slot: string, panel: string, front: ReactNode, primary = false) =>
-    <RecipePanel id={panel} open={explained === slot} context={panelContext} primary={primary} onClose={() => setExplained(null)}>{front}</RecipePanel>;
+  const withRecipe = (slot: string, panel: string, front: ReactNode, { primary = false, canPin = false } = {}) =>
+    <RecipePanel id={panel} open={explained === slot} context={panelContext} primary={primary} canPin={canPin} onClose={() => setExplained(null)}>{front}</RecipePanel>;
   const restoredPrimary = added.find(panel => panel.slot === 'current')?.instance;
   const currentDeclaration = step === 4 && restoredPrimary ? declaredPanelId(restoredPrimary) : undefined;
   const panels: PanelWorkspacePanel[] = [
@@ -687,7 +702,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         const front = dayPanel
           ? renderEquipmentDays()
           : <SelectionSourceBars {...props} onOpenTrend={onOpenTrend} depth={step} instanceId={currentHostsSelection ? sourceId : undefined} />;
-        return currentDeclaration ? withRecipe('current', currentDeclaration, front, true) : front;
+        return currentDeclaration ? withRecipe('current', currentDeclaration, front, { primary: true }) : front;
       } },
     ...extraPanels.map(({ id, instance, item }): PanelWorkspacePanel => {
       const keep = keptSources.has(id) ? { reason: HW_TIME_WORKSPACE_MESSAGES.heldSource } : undefined;
@@ -700,8 +715,9 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         } else if (id === 'trend' && trend) {
           const remainingPins = pins.pinned.filter(pin => pin !== id);
           setPage({ trend: null, [TREND_RANGE_OUTPUT.key]: null, pins: remainingPins.length > 0 ? remainingPins : null });
-        } else {
-          pins.unpin(id);
+        } else if (item && catalogPinSlot(savedPanels.config, item.id) === id) {
+          savedPanels.forgetPin(item.id);
+          pins.unpin(item.id);
         }
       });
       if (instance && (!item || item.disabledReason || tables.overflow.has(id))) {
@@ -772,19 +788,24 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       const placement = tables.pair.includes(id) ? { placement: { row: 'table-pair' } }
         : step === 4 && panel === 'trend' ? { placement: 'below' as const } : {};
       const badge = heldTable ? heldBadge(heldTable) : badges[tableIndex];
+      const canPin = panel === 'table' ? tables.pinSlot === id : catalogPinSlot(savedPanels.config, panel) === id;
       return { id, declarationId: panel, icon: ChartNoAxesCombined, title, ...placement, preferredHeight: 360, minWidth: 200,
         onRemove,
         badge,
         keep,
-        pin: (panel === 'table' ? tables.pinSlot === id : id === panel) ? { pinned: pins.isPinned(panel), onToggle: () => {
+        pin: canPin ? { pinned: pins.isPinned(panel), onToggle: () => {
           const unpinning = pins.isPinned(panel);
           // A panel shown only by its pin is the following one: it stays as a following instance, beside a held table too (R2 C11).
-          const result = savedPanels.add(panel, automatic.some(extra => extra.item.id === panel) ? { mode: 'follow' } : undefined);
+          const automaticPin = automatic.find(extra => extra.item.id === panel);
+          const result = savedPanels.add(panel, automaticPin ? { mode: 'follow' } : undefined, {
+            pin: !unpinning,
+            targetSlot: panel === 'table' ? undefined : automaticPin?.id ?? id,
+          });
           if (!result.ok) toast(limitReason[lang], 'warning');
           // Unpinning still takes effect when there is no room to keep the instance (R C2, C11).
           if (result.ok || unpinning) pins.toggle(panel);
         } } : undefined,
-        render: () => withRecipe(id, panel, renderPanel(panel)) };
+        render: () => withRecipe(id, panel, renderPanel(panel), { canPin }) };
     }),
   ];
   const settingsPanel = panels.find(panel => panel.id === settings?.id);
@@ -794,7 +815,8 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     ?? extraPanels.find(panel => panel.id === settingsPanel?.id)?.item?.id ?? (currentHostsSelection && settingsPanel?.id === 'current' ? sourcePanelId : '');
   const declaration = declarationOf(declarationId);
   const instanceAt = (slot: string, declaration: PanelDeclaration | undefined) =>
-    settingsInstance(slot, declaration, added.find(panel => panel.slot === slot)?.instance, savedInstances);
+    settingsInstance(slot, declaration, added.find(panel => panel.slot === slot)?.instance
+      ?? (declaration?.id === 'table' && slot === instanceSlot(followingTable) ? followingTable : undefined), savedInstances);
   const selectionSource = reserved ?? chartSource;
   const isReservedPublisher = (panel: PanelInstance) => draftSources.includes(panel) && isHeldSource(panel);
   const selected = settingsPanel && instanceAt(settingsPanel.id, declaration);
@@ -830,7 +852,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
       entry = { slot, heldFrom, instance: { ...updated, inputs: updated.inputs.map(input => input === after ? held : input) } };
     }
     entries.set(updated.id, entry);
-    return { kind: 'custom', added: [...entries.values()], sources: draftSources };
+    return { ...savedPanels.config, kind: 'custom', added: [...entries.values()], sources: draftSources };
   };
   const editSettings = (next: MenuViewPanels) => {
     const updated = next.instances.find(panel => panel.id === instance?.id);
@@ -844,7 +866,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
   const addPanel = (id: string, pin: boolean, options?: { restoreHidden: boolean }, intent?: AddIntent): string | undefined => {
     // A pinned panel shows without an instance; a hold or explicit follow makes it one first, so a second instance can sit beside it (#2862 ②).
     const pinnedOnly = intent !== undefined && automatic.some(panel => panel.item.id === id);
-    const result = savedPanels.add(id, intent, pinnedOnly);
+    const result = savedPanels.add(id, intent, { materialize: pinnedOnly, pin });
     if (!result.ok) {
       toast(limitReason[lang], 'warning');
       return undefined;
@@ -927,6 +949,7 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
         const panelId = draft.source.split('/')[1]!;
         return addPanel(panelId, pins.isPinned(panelId), { restoreHidden: true }, draft.mode === 'hold' ? { mode: 'hold', held: draft.inputs, from: selectionHost } : { mode: 'follow' });
       } }}
+      persistenceScope={JSON.stringify([scopeId, savedPanels.config.viewId])}
       persistKey={`hw-time-s${step}-v1`} label={HW_TIME_WORKSPACE_MESSAGES.workspace} />
   </div>;
 }

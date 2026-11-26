@@ -151,4 +151,5 @@ export async function settleQueries(): Promise<void> {
 }
 
 export { createFakeSavedViewStore, testSavedView, testViewCapabilities, type FakeSavedViewStore } from './saved-view/fake-store';
+export { useLeaveRequest } from './platform/hooks';
 export { useSavedViews, type SavedViews } from './saved-view/useSavedViews';

@@ -27,12 +27,17 @@ export function useMainScreenPanelSlots(host: HostPlatform | null) {
 /**
  * Register the current panel configuration once per main screen.
  * On open, null selects the menu's declared panels. 'unreadable' reports that the saved panels could not be opened.
+ * The second argument is the restored view ID. Immediate Scope-change release of held sets supplies no ID.
  */
 export function useSavedViewPanels(options: {
   value: MenuViewPanels | null;
-  onOpen(outcome: SavedViewPanelsOutcome): void;
+  /** Keep the same token for edits and replace it when the mounted configuration is reset or restored. */
+  lifetime?: object;
+  onOpen(outcome: SavedViewPanelsOutcome, viewId?: string): void;
   /** While set, saving the current conditions as a new view or over the selected view is blocked. */
   saveBlocked?: string | Text | undefined;
+  /** A committed save binds the mounted panels to the saved menu view. Clearing or selecting a condition set releases the binding. */
+  onViewIdChange?(viewId: string | null): void;
 }): void {
   const app = useContext(AppContext);
   const host = useHostPlatformOptional();
@@ -66,8 +71,10 @@ export function useSavedViewPanels(options: {
       const supported = resolveSavedViewSupport(menu, supports) !== undefined;
       if (supported && !release) release = slots.register<SavedViewPanelsOutcome>(PANELS_SLOT, PANELS_SLOT, {
         get value() { return committed.current.value; },
+        get lifetime() { return committed.current.lifetime; },
         get blocked() { return committed.current.saveBlocked; },
-        apply: outcome => committed.current.onOpen(outcome),
+        apply: (outcome, viewId) => committed.current.onOpen(outcome, viewId),
+        onViewIdChange: viewId => committed.current.onViewIdChange?.(viewId),
         single: true,
       });
       else if (!supported && release) { release(); release = undefined; }

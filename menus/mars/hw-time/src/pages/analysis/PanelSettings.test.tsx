@@ -348,12 +348,12 @@ it.each(['edit connections', 'add a panel'] as const)('keeps colliding wire IDs 
     expect(screen.getAllByTestId('hw-current')).toHaveLength(1);
     expect(savedPanels).toMatchObject({ instances: expect.arrayContaining([
       expect.objectContaining({ id: 'current~1', source: { kind: 'declared', panel: 'moduleMotions' } }),
-      expect.objectContaining({ id: 'table~1', source: { kind: 'declared', panel: 'table' },
+      expect.objectContaining({ id: 'table-2', source: { kind: 'declared', panel: 'table' },
         inputs: [{ key: MOTION_EQUIPMENT_KEY, from: `current~1.${MOTION_EQUIPMENT_KEY}`, mode: 'follow', use: 'highlight' }] }),
     ]) });
     expect(await screen.findByTestId('hw-module-motions')).toBeTruthy();
     const tabs = screen.getAllByRole('tab', { name: /^원본 표/ });
-    const copySlot = `saved-panel-${savedPanels.instances.findIndex(panel => panel.id === 'table~1')}`;
+    const copySlot = 'saved-instance-table-2';
     expect(tabs.map(tab => tab.getAttribute('data-tab-panel-id'))).toEqual([copySlot]);
     expect(tabs).toHaveLength(1);
     const tab = screen.getByRole('tab', { name: '원본 표' });
@@ -362,7 +362,7 @@ it.each(['edit connections', 'add a panel'] as const)('keeps colliding wire IDs 
     expect(savedPanels).toMatchObject({ instances: expect.arrayContaining([
       expect.objectContaining({ id: 'pareto~1', source: { kind: 'declared', panel: 'pareto' } }),
     ]) });
-    const copySlot = `saved-panel-${savedPanels.instances.findIndex(panel => panel.id === 'pareto~1')}`;
+    const copySlot = 'saved-instance-pareto_007e1';
     const tabs = screen.getAllByRole('tab', { name: '상한 초과 파레토' });
     expect(tabs.map(tab => tab.getAttribute('data-tab-panel-id'))).toEqual(expect.arrayContaining([copySlot, 'pareto']));
     expect(tabs).toHaveLength(2);
@@ -456,6 +456,23 @@ it.each(['follow', 'hold'] as const)('highlights the %s selection without filter
     expect(screen.queryByText('분석 선택에 포함')).toBeNull();
     expect(tablePanel().getByRole('row', { name: new RegExp(other) })).toBeTruthy();
   });
+});
+
+it('keeps settings open when the pinned following table becomes an instance beside a held table (#3080 C5)', async () => {
+  const store = createFakeSavedViewStore([]);
+  await renderOverview('&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105', answer, {
+    savedViews: store, children: <Controls />, realWorkspace: true, realChart: 'hw-current', showDetail: true,
+  });
+  await waitFor(() => expect(views.status).toBe('ready'));
+  fireEvent.click(screen.getByRole('button', { name: '새 패널' }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: '새 패널' })).getByRole('button', { name: '원본 표 · 붙잡기' }));
+  const held = await screen.findByRole('tab', { name: '원본 표 · 붙잡음' });
+  fireEvent.click(held);
+  fireEvent.click(await screen.findByRole('button', { name: '원본 표 · 붙잡음 고정' }));
+  const settings = await openTableSettings();
+  fireEvent.click(within(settings).getByRole('radio', { name: '강조만' }));
+  expect(screen.getByRole('dialog', { name: '원본 표' })).toBe(settings);
+  expect(within(settings).getByRole('radio', { name: '강조만', checked: true })).toBeTruthy();
 });
 
 it('saves the active default publisher and can hold a selection from the chart added after the table', async () => {
@@ -606,7 +623,7 @@ it('keeps two held table filters separate through level reads, paging, export, a
   };
   const tablePanel = (slot: string) => within(screen.getByRole('region', { name: `panel ${slot}` }));
   const expectHeldRows = async () => {
-    for (const [index, slot] of ['table', 'saved-panel-2'].entries()) {
+    for (const [index, slot] of ['table', 'saved-instance-table-copy'].entries()) {
       const panel = tablePanel(slot);
       expect(await panel.findByRole('row', { name: new RegExp(equipment[index]!) })).toBeTruthy();
       expect(panel.queryByRole('row', { name: new RegExp(equipment[1 - index]!) })).toBeNull();
@@ -618,7 +635,7 @@ it('keeps two held table filters separate through level reads, paging, export, a
   for (const id of equipment) expect(reads).toContainEqual(expect.objectContaining({
     endpoint: hwTime.levelRows.id, params: expect.objectContaining({ motionEquipment: [id] }),
   }));
-  fireEvent.click(tablePanel('saved-panel-2').getByRole('button', { name: '다음' }));
+  fireEvent.click(tablePanel('saved-instance-table-copy').getByRole('button', { name: '다음' }));
   await waitFor(() => expect(reads).toContainEqual(expect.objectContaining({
     endpoint: hwTime.tableRows.id, params: expect.objectContaining({ page: 1, motionEquipment: [equipment[1]] }),
   })));
