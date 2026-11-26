@@ -357,8 +357,11 @@ it('does not keep the selection undo step across a drill write whose first array
   expect(search().getAll(setOutput.key)).toEqual(['a']);
   act(() => page!({ drillModule: ['', 'PM1'] }, { replace: true, preserveSelectionUndo: true }));
   expect(search().get('drillModule')).toBe('PM1');
-  fireEvent.keyDown(document.body, { key: 'z', metaKey: true });
-  await new Promise(resolve => setTimeout(resolve, 50));
+  // The Kernel takes an undo by calling preventDefault in the keydown and then going back in history; `true` means it declined.
+  const back = vi.spyOn(window.history, 'go');
+  expect(fireEvent.keyDown(document.body, { key: 'z', metaKey: true })).toBe(true);
+  expect(back).not.toHaveBeenCalled();
+  back.mockRestore();
   expect(search().get('drillModule')).toBe('PM1');
   expect(search().getAll(setOutput.key)).toEqual(['a']);
 });
