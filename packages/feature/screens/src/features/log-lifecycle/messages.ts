@@ -20,4 +20,11 @@ export const pageCopy = {
   queueDetail: (zone: string, server: string, limit: number) => `시간대 ${zone} · 서버 시각 ${server} · 사용자당 즉시 대기 요청 동시 ${limit}건까지`,
   weekend: (allDay: boolean) => `주말 ${allDay ? '종일' : '동일 시간대'}`,
   filters: (count: number) => `추가 필터 (${count}) ▾`,
+  periodRefused: {
+    gap: '일광 절약 시간 전환으로 이 시각은 없습니다. 다른 시각을 입력해 주세요.',
+    fold: '일광 절약 시간 전환으로 이 시각이 두 번 있습니다. 다른 시각을 입력해 주세요.',
+    calendar: '없는 날짜입니다. 날짜를 확인해 주세요.',
+    format: '날짜와 시각 형식을 확인해 주세요.',
+    zone: '시간대를 확인하지 못했습니다.',
+  },
 } as const;
