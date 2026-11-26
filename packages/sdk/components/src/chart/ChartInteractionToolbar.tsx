@@ -1,10 +1,11 @@
-import { useRef, useState } from 'react';
+import { useContext, useRef, useState } from 'react';
 import type { ReactNode, Ref } from 'react';
 import { Download, MoreHorizontal, Table2 } from 'lucide-react';
 import { useI18n, useMessages } from '@ap/kernel';
-import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@ap/ui';
+import { Button, cn, Popover, PopoverContent, PopoverTrigger, TransientOverlayScope } from '@ap/ui';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { DockChartCloseMore, type DockChartLayoutActions } from '../dock/DockChartHead';
+import { useInQueryPanel, WorkspacePanelVisibleContext } from '../workspace/panelContext';
 import { chartToolVariant } from './chartChrome';
 
 type Props = {
@@ -35,6 +36,7 @@ export function ChartInteractionToolbar(p: Props) {
   const handedOffFocus = useRef(false);
   const moreTrigger = useRef<HTMLButtonElement>(null);
   const docked = p.dockMaximize !== undefined;
+  const inQueryPanel = useInQueryPanel();
   const exportMenu = p.exportCsv && <ChartExportMenu compact={p.compact} exportCsv={p.exportCsv} tools={p.exportTools} disabled={p.exportDisabled} />;
   return <header data-dock-chart-options={docked && p.start != null ? '' : undefined} data-tools-reveal={p.toolsReveal} className={cn(
     'flex shrink-0 items-center gap-1 break-keep',
@@ -60,7 +62,7 @@ export function ChartInteractionToolbar(p: Props) {
         {p.table && <ChartTableToggle compact={p.compact && !docked} shown={p.table.shown} toggle={p.table.toggle} buttonRef={p.table.buttonRef} />}
         {!docked && exportMenu}
         {p.dockMaximize}
-        {p.secondary && <Popover open={p.secondaryOpen} onOpenChange={open => {
+        {p.secondary && <ChartMoreScope detached={inQueryPanel && p.dockLayoutActions !== undefined}><Popover open={p.secondaryOpen} onOpenChange={open => {
           if (open) handedOffFocus.current = false;
           p.onSecondaryOpenChange?.(open);
         }}>
@@ -79,10 +81,16 @@ export function ChartInteractionToolbar(p: Props) {
               }}>{p.dockLayoutActions.content}</DockChartCloseMore.Provider>}
             </div>
           </PopoverContent>
-        </Popover>}
+        </Popover></ChartMoreScope>}
       </div>}
     </div>
   </header>;
+}
+
+// The merged menu also serves the dock, even when a previous query result closes its own overlays.
+function ChartMoreScope({ detached, children }: { detached: boolean; children: ReactNode }) {
+  const visible = useContext(WorkspacePanelVisibleContext);
+  return detached ? <TransientOverlayScope active={visible} detached>{children}</TransientOverlayScope> : children;
 }
 
 /** `표로 보기`: the chart tool row's table toggle, shared by the Frame, category and canvas charts (#2792). */

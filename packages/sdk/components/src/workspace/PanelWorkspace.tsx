@@ -21,6 +21,7 @@ import { COMPONENTS_MESSAGES } from '../messages';
 import { PANEL_RECIPE_ITEM } from '../panel-recipe/panelRecipe';
 import { MODE_PREFIX, PRESET_PREFIX, RESET_ID, SHOW_PREFIX, WorkspaceToolbar } from './WorkspaceToolbar';
 import { WorkspaceGroupActions } from './WorkspaceGroupActions';
+import { WorkspaceQueryHeads } from './WorkspaceQueryHeads';
 import { WorkspaceEdges } from './WorkspaceEdges';
 import { readWorkspaceState, sameWorkspaceState, workspaceStorageKey, writeWorkspaceState, WORKSPACE_WRITE_DELAY_MS, type PanelWorkspaceStorage } from './workspaceStorage';
 import { applyPreset, changeMode, collapsePanel, floatPanel, hasAutomaticRows, hidePanel, initialWorkspaceState, measureWorkspaceRows, normalizeWorkspaceState, presetTree, rememberSharedRows, resetLayout, settleRows, showPanel, tabAfterHide, updateWorkspacePanels, withAdjustedRowHeights, withRows, workspacePreference, WORKSPACE_ID, type PanelWorkspaceLayout, type RowEnv, type WorkspaceSpec, type WorkspaceState } from './workspaceState';
@@ -693,7 +694,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       closeFocus.current = () => { focusTab(tabAfterHide(state, next, id, primaryId)); };
     };
     const openRecipe = panelRecipe?.(panel?.declarationId ?? id, id);
-    return <WorkspaceGroupActions key={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
+    return <WorkspaceGroupActions key={id} panelId={id} title={titleOf(id)} titleOf={titleOf} menu={menu} closeFocus={closeFocus} pin={pin}
       onOpenSettings={panel?.onOpenSettings}
       menuItems={panelMenuItems?.(id).map(item => ({ ...item, label: tx(item.label) }))}
       recipeItem={openRecipe && { label: tx(PANEL_RECIPE_ITEM), onSelect: openRecipe }}
@@ -769,7 +770,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
       <div className={cn('flex min-w-0', !rows && 'min-h-0 flex-1')}>
       <WorkspaceEdges edge="left" items={edgeItems('left')} label={m('workspaceLeftEdge')} peekId={activePeek?.panelId ?? null} onPeek={openPeek} />
       <div ref={fitSlot} data-workspace-dock className="min-h-0 min-w-0 flex-1">
-        <DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
+        <WorkspaceQueryHeads><DockLayoutBase panels={dockPanels} layout={state.layout} label={tx(label)} rows={rows} reveal={dockReveal} renderTab={renderTab} tabA11y={tabA11y}
           floating={edgesNarrow ? undefined : { panels: floatingPanels, peekId: activePeek?.panelId, peekHeightFloor, onDismissPeek: dismissPeek, onChange: (next, tree) => { update(current => {
             const returned = (current.floating ?? []).filter(item => !next.some(panel => panel.panelId === item.panelId)).map(item => item.panelId);
             return { ...current, floating: next, hidden: [...new Set([...current.hidden.filter(id => !returned.includes(id)), ...next.map(panel => panel.panelId)])], layout: tree };
@@ -783,7 +784,7 @@ function WorkspaceBody({ panels, presets: given, initialPreset, compactPreset, s
           maximizedPanelId={maximizedId} onMaximizedChange={requestMaximized}
           renderGroupActions={groupActions} mergeChartHead
           separatorLabel={info => info.after.length === 0 ? m('workspaceSeparatorRowBottom', { before: titleOf(info.before[0]!) }) : m(info.dir === 'row' ? 'workspaceSeparatorColumns' : 'workspaceSeparatorRows', { before: titleOf(info.before[0]!), after: titleOf(info.after[0]!) })}
-          narrow={compactSpec ? false : narrow} />
+          narrow={compactSpec ? false : narrow} /></WorkspaceQueryHeads>
       </div>
       </div>
     </div>

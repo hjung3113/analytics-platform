@@ -19,7 +19,7 @@ export function OutcomeRetryButton({ onRetry, busy = false, label, size = 'sm' }
   </Button>;
 }
 
-export function useOutcomeRecovery(response: ApiResponse<unknown>, onRetry: () => void, options: { busy?: boolean; current?: boolean; emptyAction?: ReactNode; groupReplies?: readonly ApiResponse<unknown>[]; retryLabel?: string; singleAction?: boolean; retrySize?: 'toolbar' } = {}) {
+export function useOutcomeRecovery(response: ApiResponse<unknown>, onRetry: () => void, options: { busy?: boolean; current?: boolean; emptyAction?: ReactNode; groupReplies?: readonly ApiResponse<unknown>[]; retryLabel?: string; singleAction?: boolean; retrySize?: 'toolbar'; renderAction?: (label: string, run: () => void) => ReactNode } = {}) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { t } = useI18n();
   const host = useHostPlatformOptional();
@@ -38,14 +38,17 @@ export function useOutcomeRecovery(response: ApiResponse<unknown>, onRetry: () =
   } : undefined;
   const resolved = current ? resolveOutcomeRecovery(response, context) : { kind: 'conditions' as const };
   const recovery = options.busy && resolved.kind !== 'retry' ? { kind: 'conditions' as const } : resolved;
-  const conditions = focusConditions ? <Button type="button" size="sm" variant="secondary" onClick={() => focusConditions()}>{m('outcomeOpenConditions')}</Button> : null;
+  const render = options.renderAction;
+  const conditions = focusConditions ? (render?.(m('outcomeOpenConditions'), () => focusConditions()) ?? <Button type="button" size="sm" variant="secondary" onClick={() => focusConditions()}>{m('outcomeOpenConditions')}</Button>) : null;
   let primary: ReactNode = null;
   let secondary: ReactNode = null;
   let evidence: string | undefined;
   const periodLabel = (hours: number) => m(hours === 24 ? 'outcomeShortenDay' : 'outcomeShortenHours', { hours });
   switch (recovery.kind) {
     case 'exclude': {
-      primary = <RecoverButton primary label={m('outcomeExcludeEquipment', { count: recovery.affected.length })} onRecover={() => host?.setGlobal({ selection: recovery.selection })} />;
+      const label = m('outcomeExcludeEquipment', { count: recovery.affected.length });
+      const exclude = () => host?.setGlobal({ selection: recovery.selection });
+      primary = render?.(label, exclude) ?? <RecoverButton primary label={label} onRecover={exclude} />;
       evidence = m('outcomeAffectedEquipment', { ids: recovery.affected.join(', ') });
       const shorter = recovery.shorter;
       if (shorter) {
@@ -54,11 +57,13 @@ export function useOutcomeRecovery(response: ApiResponse<unknown>, onRetry: () =
       break;
     }
     case 'shorten':
-      primary = <RecoverButton primary label={periodLabel(recovery.hours)} onRecover={() => host?.setGlobal({ from: recovery.from, to: recovery.to })} />;
+      const label = periodLabel(recovery.hours);
+      const shorten = () => host?.setGlobal({ from: recovery.from, to: recovery.to });
+      primary = render?.(label, shorten) ?? <RecoverButton primary label={label} onRecover={shorten} />;
       evidence = m('outcomePeriodLimit', { hours: recovery.maxHours });
       break;
     case 'retry':
-      secondary = <OutcomeRetryButton onRetry={onRetry} busy={options.busy} label={options.retryLabel} size={options.retrySize} />;
+      secondary = render?.(options.retryLabel ?? t('retry'), onRetry) ?? <OutcomeRetryButton onRetry={onRetry} busy={options.busy} label={options.retryLabel} size={options.retrySize} />;
       break;
     case 'request': {
       const { target } = recovery;

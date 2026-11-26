@@ -6,6 +6,7 @@ import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMe
 import { DockChartCloseMore, DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartCloseFocus, type DockChartLayoutActions } from '../dock/DockChartHead';
 import type { DockLayoutMenu } from '../dock/layoutMenu';
 import { COMPONENTS_MESSAGES } from '../messages';
+import { useWorkspaceQueryHead, useWorkspaceQuerySlot } from './WorkspaceQueryHeads';
 
 const ICON = 'size-7';
 
@@ -13,7 +14,8 @@ const ICON = 'size-7';
  * Header-right content of a panel group (chrome C of the board's strip, ADR-0067 decision 16): the maximize toggle and one `⋯` menu for the
  * group's active panel. Collapse and float are absent for primary panels. Floating headers offer pin, close and keyboard geometry.
  */
-export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onRemove, hideBlocked, pin, edgeActions, menuItems, recipeItem, onOpenSettings }: {
+export function WorkspaceGroupActions({ panelId, title, titleOf, menu, closeFocus, onMaximize, onSplit, onMove, onMoveBelow, onHide, onRemove, hideBlocked, pin, edgeActions, menuItems, recipeItem, onOpenSettings }: {
+  panelId?: string;
   onOpenSettings?: (trigger: HTMLButtonElement) => void;
   menuItems?: readonly { id: string; label: string; onSelect: () => void }[];
   recipeItem?: { label: string; onSelect: () => void };
@@ -54,7 +56,9 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
   </Button>;
   const layoutActionsSlot = useContext(DockChartLayoutActionsSlot);
   const separator = layoutActionsSlot ? <div aria-hidden className="my-1 border-t border-border-subtle" /> : <DropdownMenuSeparator />;
+  const signal = useWorkspaceQuerySlot(panelId, 'signal');
   const items = <>
+    <WorkspaceQueryMenuItems panelId={panelId} closeFocus={closeFocus} />
     {edgeActions && <>
       {edgeActions.left && <LayoutItem onSelect={edgeActions.left}>{m('workspaceCollapseLeft')}</LayoutItem>}
       {edgeActions.top && <LayoutItem onSelect={edgeActions.top}>{m('workspaceCollapseTop')}</LayoutItem>}
@@ -111,6 +115,7 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
     return next;
   };
   return <div data-workspace-group-actions className="flex shrink-0 items-center gap-1 pr-1">
+    <div ref={signal} className="contents" />
     {pin && !maximized && <Button type="button" variant={pin.pinned ? 'secondary' : 'ghost'} size="icon-sm" className={ICON} data-workspace-pin aria-label={pinLabel} title={pin.pinned ? m('panelPinned', { title }) : pinLabel} aria-pressed={pin.pinned} onClick={pin.onToggle}>
       <Pin className={pin.pinned ? 'size-3.5 fill-current' : 'size-3.5'} aria-hidden />
     </Button>}
@@ -136,6 +141,18 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
       </DropdownMenuContent>
     </DropdownMenu>}
   </div>;
+}
+
+// Only this menu child subscribes, so query recovery cannot republish the chart's layout actions.
+function WorkspaceQueryMenuItems({ panelId, closeFocus }: { panelId: string | undefined; closeFocus: RefObject<DockChartCloseFocus | null> }) {
+  const overflow = useWorkspaceQueryHead(panelId, 'overflow');
+  const extras = useWorkspaceQuerySlot(panelId, 'extras');
+  return <>
+    {overflow?.((label, run) => <LayoutItem key={label} onSelect={() => {
+      closeFocus.current = opener => { opener?.focus(); run(); };
+    }}>{label}</LayoutItem>)}
+    <div ref={extras} className="contents" />
+  </>;
 }
 
 function MergedLayoutActions({ register, takeCloseFocus, children }: {
