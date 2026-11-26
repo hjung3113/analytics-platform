@@ -84,6 +84,15 @@ export function useAnalysisSelectionChannelName(
   return channel?.label ?? channel?.dimension;
 }
 
+/**
+ * The declared display name of each analysis selection key of the current menu (lent writers included), for host copy that
+ * names a key, such as saved-view notices (#3139). A key whose channel declares no label gives undefined: callers show the key.
+ */
+export function useAnalysisSelectionLabels(platform: Pick<MenuPlatform, 'route' | 'registry'>): (key: string) => Text | undefined {
+  const channels = useChannels(platform.route?.menu, platform.registry);
+  return useCallback((key: string) => channels.get(key)?.label, [channels]);
+}
+
 const useWriteScreen = (route: MenuPlatform['route']) => route ? use(PaneScreenContext) ?? use(ScreenContext) : null;
 
 const readNoGraph = () => undefined;

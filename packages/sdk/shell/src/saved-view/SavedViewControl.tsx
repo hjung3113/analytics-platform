@@ -1,7 +1,7 @@
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { PEOPLE_LOOKUP_MAX, type ApprovalRequestInfo, type GroupMember, type SavedViewSupport, type Result, type SavedView, type SavedViewListItem, type SavedViewStore, type ViewVisibility } from '@ap/contracts';
 import { CONTEXT_LABELS, diagnoseSavedView, useEquipmentAxes, useI18n, useMessages, type SavedViewDiagnosis } from '@ap/kernel';
-import { captureApplied, useHostPlatform, useSavedViews, type SavedViews, type SelectOutcome } from '@ap/kernel/host';
+import { captureApplied, useAnalysisSelectionLabels, useHostPlatform, useSavedViews, type SavedViews, type SelectOutcome } from '@ap/kernel/host';
 import { DirtyConfirmation } from '@ap/ui';
 import { failureText, SaveViewDialog, ShareTargetPicker, ViewManagement, ViewSelector, type SaveViewDialogProps, type ShareGroupsState, type ShareTargetDraft, type ViewFilter, type ViewSelectorState } from '@ap/components';
 import { SHELL_MESSAGES } from '../messages';
@@ -52,6 +52,7 @@ function shareApplied(view: SavedView, official: boolean, wanted: ViewVisibility
 
 function Ready({ views, store, support }: { views: SavedViews; store: Pick<SavedViewStore, 'get' | 'listGroups' | 'listApprovalRequests' | 'searchPeople'>; support: SavedViewSupport }) {
   const host = useHostPlatform();
+  const selectionLabel = useAnalysisSelectionLabels(host);
   const tools = useContext(QueryBarTools);
   const external = tools?.folded ? tools : null;
   const axes = useEquipmentAxes();
@@ -198,8 +199,10 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const confirmDraft = () => new Promise<boolean>(resolve => { setDraftAsk(() => resolve); });
   const [scopeAsk, setScopeAsk] = useState<((ok: boolean) => void) | null>(null);
   const confirmScope = () => new Promise<boolean>(resolve => { setScopeAsk(() => resolve); });
-  // Context keys read as condition names; panel input keys (#2862) and any other key stay as declared.
-  const keyText = (keys: readonly string[], panelKeys: readonly string[] = []) => keys.map(key => !panelKeys.includes(key) && Object.hasOwn(CONTEXT_LABELS, key) ? tx(CONTEXT_LABELS[key as keyof typeof CONTEXT_LABELS]) : key).join(', ');
+  // Context keys read as condition names; panel input keys (#2862) read as the menu's declared selection label, the key only
+  // when none is declared (#3139, ADR-0034); any other key stays as declared.
+  const panelText = (key: string) => { const label = selectionLabel(key); return label ? tx(label) : key; };
+  const keyText = (keys: readonly string[], panelKeys: readonly string[] = []) => keys.map(key => panelKeys.includes(key) ? panelText(key) : Object.hasOwn(CONTEXT_LABELS, key) ? tx(CONTEXT_LABELS[key as keyof typeof CONTEXT_LABELS]) : key).join(', ');
   const saveCurrent = async (): Promise<boolean> => {
     if (saveBlock) return false;
     if (unapplied && !(await confirmDraft())) return false;
@@ -313,10 +316,10 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const crossContext = cross ? cross.keys.filter(key => !crossPanels.includes(key)) : [];
   const crossScope = cross ? scopeName(cross.savedScopeId) : null;
   const crossScopeMessage = !cross ? '' : crossContext.length === 0
-    ? (crossScope === null ? m('savedViewCrossScopePanelsOnlyOther', { keys: crossPanels.join(', ') }) : m('savedViewCrossScopePanelsOnly', { scope: crossScope, keys: crossPanels.join(', ') }))
+    ? (crossScope === null ? m('savedViewCrossScopePanelsOnlyOther', { keys: crossPanels.map(panelText).join(', ') }) : m('savedViewCrossScopePanelsOnly', { scope: crossScope, keys: crossPanels.map(panelText).join(', ') }))
     : [
       crossScope === null ? m('savedViewCrossScopeMessageOther', { keys: keyText(crossContext) }) : m('savedViewCrossScopeMessage', { scope: crossScope, keys: keyText(crossContext) }),
-      crossPanels.length ? m('savedViewCrossScopePanels', { keys: crossPanels.join(', ') }) : '',
+      crossPanels.length ? m('savedViewCrossScopePanels', { keys: crossPanels.map(panelText).join(', ') }) : '',
     ].filter(Boolean).join(' ');
   const picker = external ? { open: external.active === 'view', onOpenChange: (open: boolean) => { if (!open) external.close(); }, anchorRef: external.anchorRef, note: noteText } : undefined;
 
