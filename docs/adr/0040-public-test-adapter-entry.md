@@ -10,6 +10,7 @@
 - `@ap/kernel`은 `package.json` `exports["./testing"]`(`src/testing.ts`)로 테스트 전용 공개 진입점을 낸다. `noContext`·`testSpace`·`testSession`·`testAdapter`가 거기에 있고 한 벌만 둔다. `src/index.ts`에서는 내보내지 않는다.
 - 이 진입점은 테스트 파일에서만 import한다. 경계 lint는 `**/*.test.{ts,tsx}`·`**/test-support.ts`·`**/test-setup.ts`에만 깊은 경로 `@ap/kernel/testing`을 허용하고, 프로덕션 소스에서는 정적·동적 import 모두 오류다. 허용은 `components`·`shell`·`menu`·`app` 프리셋의 테스트 파일에만 더했고, 공유 `tooling`·`contracts`·`mock-server`·`server-conformance` 프리셋은 넓히지 않았다.
 - 테스트는 `testAdapter({ …의도한 메서드만… })`로 어댑터를 만든다. 기본값은 거절(`forbidden`) 또는 빈 응답이다. 다른 응답이 필요한 메서드(예: 메뉴 질의가 `empty`)는 override로 적는다.
+- `useLeaveRequest`(#3001)는 이동 확인 테스트에서 셸과 같은 대기 요청을 읽고 확인·취소하는 데 쓴다. 메뉴 테스트는 `@ap/kernel/testing`에서 가져온다.
 - 어댑터 계약 그 자체를 판정하는 이중 구현은 대상이 아니다. `@ap/server-conformance`의 `referenceAdapter`는 포트에 메서드가 늘면 타입 검사가 깨져야 하므로 손으로 쓴 완전한 구현으로 남고, `@ap/server-conformance`는 계속 `@ap/contracts`만 import한다. 같은 이유로 `this`를 검증하는 클래스 어댑터(kernel `adapter.test.tsx`)와 실제 `createAssembly` 어댑터를 펼치는 테스트(`workspace-assembly.test.tsx`)도 그대로다.
 
 ## Considered Options

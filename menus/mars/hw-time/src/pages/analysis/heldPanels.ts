@@ -9,7 +9,7 @@ import { CATALOG_IDS, type Step } from './stepped';
  * `implicitFollow` follows the current publisher while an added table is a draft; saved inputs are explicit.
  */
 export type AddedPanel = { slot: string; instance: PanelInstance; heldFrom?: string; implicitFollow?: true };
-export type PanelConfiguration = { viewId?: string } & (
+export type PanelConfiguration = { viewId?: string; followingTable?: PanelInstance; pinSlots?: ReadonlyMap<string, string> } & (
   | { kind: 'default' | 'unreadable' }
   /** `sources`: the output-only instances held inputs name, kept as restored and never drawn (#2862). */
   | { kind: 'custom'; added: readonly AddedPanel[]; sources: readonly PanelInstance[]; connectionsEdited?: true });
@@ -119,10 +119,30 @@ function freeId(config: CustomPanels, base: string): string {
   return id;
 }
 
-/** The instance a pinned following raw table will use once added or edited. */
+/** Allocate the instance for a new following raw table. */
 export function newFollowingTable(config: PanelConfiguration): PanelInstance {
   const custom = config.kind === 'custom' ? config : noPanels;
   return { id: freeId(custom, 'table'), source: { kind: 'declared', panel: panelDeclarations.table.id }, inputs: [], outputs: [] };
+}
+
+/** The raw-table pin is satisfied by a following table or a full pair. */
+export function fillsTablePin(tables: readonly { instance?: PanelInstance }[]): boolean {
+  return tables.length >= SAME_PANEL_MAX || tables.some(({ instance }) => !instance || !holds(instance));
+}
+
+export function withFollowingTable(config: PanelConfiguration, pinned: boolean): PanelConfiguration {
+  const needsTable = pinned && (config.kind !== 'custom' || !fillsTablePin(ofPanel(config, 'table')));
+  const followingTable = needsTable ? config.followingTable ?? newFollowingTable(config) : undefined;
+  return followingTable === config.followingTable ? config : { ...config, followingTable };
+}
+
+const followingEntry = (instance: PanelInstance): AddedPanel => ({ slot: instanceSlot(instance), instance, implicitFollow: true });
+
+/** If the pin alone would reopen at a different slot, save the mounted table as a v1 instance. */
+export function preserveFollowingTable(config: CustomPanels): CustomPanels {
+  const { followingTable } = config;
+  if (!followingTable || fillsTablePin(ofPanel(config, 'table')) || followingTable.id === newFollowingTable(config).id) return config;
+  return { ...config, added: [...config.added, followingEntry(followingTable)] };
 }
 
 /**
@@ -132,12 +152,12 @@ export function newFollowingTable(config: PanelConfiguration): PanelInstance {
  * - follow: an open following instance is revealed; with only a held one open, a second instance follows beside it (②).
  * With no room for a second instance, the panel's own slot changes mode (R C5).
  */
-export function withAdded(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent): { config: CustomPanels | null; slot: string } {
+export function withAdded(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent, targetSlot?: string): { config: CustomPanels | null; slot: string } {
   if (step === 4 && id === 'trend') return { config: null, slot: id };
   const custom = config.kind === 'custom' ? config : noPanels;
   const all = ofPanel(custom, id);
   // Only the first two open; a saved third waits for removal and is never the one changed (R2 C13).
-  const same = all.slice(0, SAME_PANEL_MAX);
+  const same = targetSlot === undefined ? all.slice(0, SAME_PANEL_MAX) : all.filter(panel => panel.slot === targetSlot);
   const put = (panel: AddedPanel, replaced?: AddedPanel, sources = custom.sources) => ({ slot: panel.slot, config: { ...custom, sources,
     added: replaced ? custom.added.map(item => item === replaced ? panel : item) : [...custom.added, panel] } });
   const create = (slot: string) => newPanelInstance(slot, id, [...custom.added.map(panel => panel.instance), ...custom.sources]);
@@ -156,8 +176,9 @@ export function withAdded(config: PanelConfiguration, id: string, step: Step, in
   const following = same.find(panel => !holds(panel.instance));
   if (following) return { config: null, slot: following.slot };
   if (!same.length || (intent && room)) {
-    const instance = id === 'table' ? newFollowingTable(custom) : create(id);
-    return put({ slot: instanceSlot(instance), instance, ...(id === 'table' && { implicitFollow: true }) });
+    if (id === 'table') return put(followingEntry(config.followingTable ?? newFollowingTable(custom)));
+    const instance = create(id);
+    return put({ slot: targetSlot ?? instanceSlot(instance), instance });
   }
   if (!intent) return { config: null, slot: same[0]!.slot };
   // With both table slots held, the later one follows its existing connection.
@@ -204,10 +225,10 @@ export function panelAdditionOverflows(config: PanelConfiguration, step: Step, i
  * One add as the screen will apply it: `materialize` first gives a panel shown only by a pin its own instance (so a second can sit beside it).
  * Count what would be saved, including required sources. A configuration carried across drills must fit at every step (#2999 C1).
  */
-export function planAdd(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent, materialize = false): { config: CustomPanels | null; slot: string; overflows: boolean } {
+export function planAdd(config: PanelConfiguration, id: string, step: Step, intent?: AddIntent, materialize = false, targetSlot?: string): { config: CustomPanels | null; slot: string; overflows: boolean } {
   // The panel a pin shows is the following one, also beside a held table (R2 C11).
   const base = materialize ? withAdded(config, id, step, { mode: 'follow' }).config : null;
-  const added = withAdded(base ?? config, id, step, intent);
+  const added = withAdded(base ?? config, id, step, intent, targetSlot);
   const next = added.config ?? base;
   const overflows = next !== null && exceedsPanelLimit(configurationToValidate(next, step));
   return { config: next, slot: added.slot, overflows };

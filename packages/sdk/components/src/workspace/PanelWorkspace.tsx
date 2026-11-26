@@ -50,7 +50,9 @@ export type PanelWorkspaceSelectionDrop = {
 };
 
 export type PanelWorkspacePanel = {
-  /** Stable slot identifier (`^[a-z][a-z0-9._-]{0,1023}$`): it is stored in the local preference. */
+  /**
+   * Stable slot identifier (`^[a-z][a-z0-9._-]{0,1023}$`). The 1,024-character cap bounds the local layout record and fits every v1 instance ID losslessly (200 UTF-16 code units escape to at most 1,015 characters), and the static alphabet keeps data values out of storage keys.
+   */
   id: string;
   /** Declaration used for the recipe when its id differs from this workspace slot id. */
   declarationId?: string;

@@ -4,7 +4,7 @@ import type { Text } from '../i18n';
 declare const process: { env: { NODE_ENV?: string } };
 type SaveBlock = string | Text;
 const NO_SAVE_BLOCKS: readonly SaveBlock[] = [];
-type Slot = { value: unknown; blocked?: SaveBlock | undefined; apply: (value: never, viewId: string) => void; onViewIdChange?: (viewId: string | null) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
+type Slot = { value: unknown; lifetime?: object; blocked?: SaveBlock | undefined; apply: (value: never, viewId: string) => void; onViewIdChange?: (viewId: string | null) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
 export type ViewSlots = ReturnType<typeof createScreenSlots>;
 export const saveBlockKey = (reason: SaveBlock): string =>
   JSON.stringify(typeof reason === 'string' ? [reason, reason] : [reason.ko, reason.en]);
@@ -49,7 +49,7 @@ function createScreenSlots() {
     snapshot: () => revision,
     changed: emit,
     retry(field: string, key: string) { applyKey(field, key); emit(); },
-    register<T>(field: string, key: string, slot: { value: T; blocked?: SaveBlock | undefined; apply: (value: T, viewId: string) => void; onViewIdChange?: Slot['onViewIdChange']; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
+    register<T>(field: string, key: string, slot: { value: T; lifetime?: object; blocked?: SaveBlock | undefined; apply: (value: T, viewId: string) => void; onViewIdChange?: Slot['onViewIdChange']; accepts?: (value: T) => boolean; project?: (value: T) => T; single?: boolean }) {
       let keys = fields.get(field);
       if (!keys) { keys = new Map(); fields.set(field, keys); }
       const entry = slot as Slot;
@@ -76,6 +76,12 @@ function createScreenSlots() {
         const entry = entries.at(-1);
         return entry ? [[key, entry.value as T]] : [];
       }));
+    },
+    captureSlot<T>(field: string, key: string) {
+      const current = () => fields.get(field)?.get(key)?.at(-1);
+      const entry = current();
+      const lifetime = entry?.lifetime;
+      return { value: entry?.value as T | undefined, isCurrent: () => current() === entry && entry?.lifetime === lifetime };
     },
     differs(field: string, saved: Record<string, unknown> | undefined): boolean {
       if (!saved) return false;

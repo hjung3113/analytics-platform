@@ -39,7 +39,12 @@ describe('HW Time saved view panels', () => {
     layout: null, panels: { version: storedPanels.version, instances: [...storedPanels.instances] }, ...over,
   });
   let views: SavedViews;
-  function Probe() { views = useSavedViews(); return null; }
+  let appliedPins: readonly string[];
+  function Probe() {
+    views = useSavedViews();
+    appliedPins = usePlatform().pageParams('pins');
+    return null;
+  }
   async function mount(store: ReturnType<typeof createFakeSavedViewStore>, search = '') {
     await renderOverview(search, answer, { savedViews: store, children: <Probe /> });
     await waitFor(() => expect(views.status).toBe('ready'));
@@ -69,8 +74,8 @@ describe('HW Time saved view panels', () => {
     return result.value.view.id;
   }
   function flushLayout() { fireEvent(window, new Event('pagehide')); }
-  function savedLayout(viewId: string) {
-    const entries: [string, string][] = JSON.parse(layoutStorage.getItem('platform:workspace:v1:u1:hw-time:hw-time-s1-v1:scopes') ?? '[]');
+  function savedLayout(viewId: string, step = 1) {
+    const entries: [string, string][] = JSON.parse(layoutStorage.getItem(`platform:workspace:v1:u1:hw-time:hw-time-s${step}-v1:scopes`) ?? '[]');
     return entries.find(([scope]) => scope === JSON.stringify(['MEM', viewId]))?.[1];
   }
 
@@ -162,6 +167,7 @@ describe('HW Time saved view panels', () => {
     useUnsavedGuard(dirty, { leaves: 'address' });
     return <><Probe />
       <button onClick={() => setGlobal({ from: '2026-09-20T09:00:00' })}>Apply another period</button>
+      <button onClick={() => setGlobal({ from: '2026-09-19T09:00:00' })}>Apply original period</button>
       <button onClick={() => setDirty(true)}>Hold navigation</button>
       {request && <button onClick={() => { setDirty(false); request.confirm(); }}>Confirm navigation</button>}
     </>;
@@ -196,6 +202,103 @@ describe('HW Time saved view panels', () => {
     expect(visible(donutTitle)).toBe(false);
     expect(visible(paretoTitle)).toBe(true);
     expect(screen.getByRole('button', { name: '숨긴 패널 1' })).toHaveProperty('disabled', false);
+  });
+
+  it.each(['overwrite', 'save as'] as const)('keeps the reset layout unbound after a deferred %s and period round trip (#3080 F1)', async mode => {
+    const store = createFakeSavedViewStore([aliasView('A', donut, { page: [['pins', 'pareto']] })]);
+    await real(store, <PeriodControls />);
+    await open('A');
+    await command(donutTitle, '숨기기');
+    fireEvent.keyDown(screen.getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: '추가하면 고정', checked: true }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: '원본 표' }));
+    await settle();
+    expect(visible('원본 표')).toBe(true);
+    flushLayout();
+    const before = savedLayout('A');
+    expect(before).toContain('saved-instance-extra');
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const update = store.update.bind(store);
+    const save = store.save.bind(store);
+    store.update = async (...args) => { await gate; return update(...args); };
+    store.save = async (...args) => { await gate; return save(...args); };
+    let pending!: ReturnType<SavedViews['saveAs']>;
+    act(() => { pending = mode === 'overwrite' ? views.saveToSelected() : views.saveAs({ name: 'B', kind: 'menu-view' }); });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply another period' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '숨긴 패널 0' })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Apply original period' }));
+    await settle();
+    expect(visible('원본 표')).toBe(false);
+    const result = await act(async () => { release(); return pending; });
+    if (!result.ok) throw new Error('Failed to save view');
+    await command(paretoTitle, '숨기기');
+    flushLayout();
+    expect.soft(savedLayout('A')).toBe(before);
+    if (mode === 'save as') {
+      expect.soft(views.selected?.view.id).toBe('A');
+      expect.soft(savedLayout(result.value.view.id)).toBeUndefined();
+    }
+    await open('A');
+    expect(visible(donutTitle)).toBe(false);
+  });
+
+  it('pins the added Pareto slot when a donut owns its wire ID (#3080 F2)', async () => {
+    await real(createFakeSavedViewStore([saved({ id: 'A', panels: { version: 1, instances: [{ ...donut, id: 'pareto' }] } })]));
+    await open('A');
+    fireEvent.keyDown(screen.getByRole('button', { name: /패널 추가/ }), { key: 'Enter' });
+    await screen.findByRole('menuitemcheckbox', { name: '추가하면 고정', checked: true });
+    fireEvent.click(await screen.findByRole('menuitem', { name: paretoTitle }));
+    await settle();
+    const slots = () => screen.getAllByRole('tab', { name: paretoTitle }).map(tab => tab.dataset.tabPanelId);
+    expect(slots()).toEqual(['saved-instance-pareto_007e1']);
+    expect(appliedPins).toContain('pareto');
+    const tab = screen.getByRole('tab', { name: paretoTitle });
+    tab.focus();
+    fireEvent.keyDown(tab, { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('button', { name: `${paretoTitle} 고정`, pressed: true }));
+    await settle();
+    expect(slots()).toEqual(['saved-instance-pareto_007e1']);
+    expect(appliedPins).not.toContain('pareto');
+    expect(screen.getByRole('button', { name: `${paretoTitle} 고정`, pressed: false })).toBeTruthy();
+  });
+
+  it('keeps the canonical donut open on unpin beside a saved alias (#3080 F2)', async () => {
+    await real(createFakeSavedViewStore([aliasView('A', donut, { page: [['pins', 'donut']] })]));
+    await open('A');
+    const tabs = () => screen.getAllByRole('tab', { name: donutTitle });
+    const slots = () => tabs().map(tab => tab.dataset.tabPanelId);
+    expect(slots()).toEqual(['saved-instance-extra', 'donut']);
+    expect(appliedPins).toContain('donut');
+    const canonical = tabs().find(tab => tab.dataset.tabPanelId === 'donut')!;
+    canonical.focus();
+    fireEvent.keyDown(canonical, { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('button', { name: `${donutTitle} 고정`, pressed: true }));
+    await settle();
+    expect(slots()).toEqual(expect.arrayContaining(['saved-instance-extra', 'donut']));
+    expect(slots()).toHaveLength(2);
+    expect(appliedPins).not.toContain('donut');
+  });
+
+  it('keeps a hidden following table in its allocated slot after deleting the wire ID collision (#3080 F3)', async () => {
+    await real(createFakeSavedViewStore([saved({ id: 'A', page: stepFourPage, panels: { version: 1, instances: [{ ...donut, id: 'table' }] } })]));
+    await open('A');
+    const tableSlot = () => screen.getByRole('tab', { name: '원본 표' }).dataset.tabPanelId;
+    expect(tableSlot()).toBe('saved-instance-table-2');
+    await command('원본 표', '숨기기');
+    flushLayout();
+    expect(savedLayout('A', 4)).toContain('saved-instance-table-2');
+    await command(donutTitle, '삭제');
+    expect.soft(visible('원본 표')).toBe(false);
+    const result = await act(() => views.saveToSelected());
+    expect(result).toMatchObject({ ok: true, value: { view: { panels: { instances: expect.arrayContaining([
+      expect.objectContaining({ id: 'table-2', source: { kind: 'declared', panel: 'table' } }),
+    ]) } } } });
+    await open('A');
+    expect(visible('원본 표')).toBe(false);
+    fireEvent.keyDown(screen.getByRole('button', { name: /숨긴 패널 [12]/ }), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: /원본 표/ }));
+    await waitFor(() => expect(tableSlot()).toBe('saved-instance-table-2'));
   });
 
   it('binds a reset configuration to the overwritten view without replay (#3080)', async () => {

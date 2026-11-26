@@ -31,6 +31,8 @@ export function useMainScreenPanelSlots(host: HostPlatform | null) {
  */
 export function useSavedViewPanels(options: {
   value: MenuViewPanels | null;
+  /** Keep the same token for edits and replace it when the mounted configuration is reset or restored. */
+  lifetime?: object;
   onOpen(outcome: SavedViewPanelsOutcome, viewId?: string): void;
   /** While set, saving the current conditions as a new view or over the selected view is blocked. */
   saveBlocked?: string | Text | undefined;
@@ -69,6 +71,7 @@ export function useSavedViewPanels(options: {
       const supported = resolveSavedViewSupport(menu, supports) !== undefined;
       if (supported && !release) release = slots.register<SavedViewPanelsOutcome>(PANELS_SLOT, PANELS_SLOT, {
         get value() { return committed.current.value; },
+        get lifetime() { return committed.current.lifetime; },
         get blocked() { return committed.current.saveBlocked; },
         apply: (outcome, viewId) => committed.current.onOpen(outcome, viewId),
         onViewIdChange: viewId => committed.current.onViewIdChange?.(viewId),
