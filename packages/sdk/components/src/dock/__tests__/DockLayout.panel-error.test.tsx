@@ -37,20 +37,11 @@ describe('DockLayout panel content failure', () => {
 
   it('retries only that panel', async () => {
     mountDock({ layout: row([50, 50], group(['a']), group(['b'])), ids: ['a', 'b'], inner });
-    const found = await panelAlert();
-    // #3129 diagnosis: under load the alert can be in the DOM while its subtree is still inaccessible. Name the ancestor that hides it.
-    if (!within(found).queryByRole('button')) {
-      const chain: string[] = [];
-      for (let node: HTMLElement | null = found; node; node = node.parentElement) {
-        const style = node.ownerDocument.defaultView?.getComputedStyle(node);
-        const marks = [node.getAttribute('aria-hidden') === 'true' && 'aria-hidden', node.hasAttribute('inert') && 'inert', node.hidden && 'hidden',
-          style?.display === 'none' && `display:none(${node.getAttribute('style') ?? ''})`, style?.visibility === 'hidden' && 'visibility:hidden'].filter(Boolean);
-        if (marks.length) chain.push(`${node.tagName.toLowerCase()}${node.className ? `.${String(node.className).split(' ').slice(0, 3).join('.')}` : ''}[${Object.values(node.dataset).length ? Object.keys(node.dataset).join(',') : ''}] ${marks.join(' ')}`);
-      }
-      console.warn(`DIAG3129 connected=${found.isConnected} hiddenBy=${chain.join(' < ') || 'none'}`);
-    }
+    await panelAlert();
     broken = false;
-    // Click the retry only once a user could reach it (#3129): wait for the accessible button, then click it in the same task as the query.
+    // Click the retry only once a user could reach it (#3129): under load the alert can be in the DOM while its subtree is still outside the
+    // accessibility tree (a Mac run found the button present but `getByRole` saw no roles), so wait for the accessible button and click it in
+    // the same task as the query.
     const retry = await waitFor(() => {
       const alert = document.querySelector<HTMLElement>('[data-dock-panel="a"] [role="alert"]');
       if (!alert) throw new Error('no panel alert');
