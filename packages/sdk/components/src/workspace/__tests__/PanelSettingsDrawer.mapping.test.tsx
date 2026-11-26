@@ -57,6 +57,30 @@ function well(container: HTMLElement, slot: string) {
   return element;
 }
 
+function setupSaveOwner(initial = chart(), props: Partial<PanelSettingsDrawerProps> = {}, reader?: PanelInstance) {
+  const changed = vi.fn<(value: MenuViewPanels) => void>();
+  const save = vi.fn<(value: MenuViewPanels) => void>();
+  function Stage() {
+    const [value, setValue] = useState<MenuViewPanels>({ version: 1, instances: [initial, publisher, ...(reader ? [reader] : [])] });
+    const [validation, setValidation] = useState<{ reason?: PanelSettingsDrawerProps['title'] }>({});
+    const [open, setOpen] = useState(true);
+    return <I18nProvider><DetailPanelSlotProvider><Host />
+      <button type="button" disabled={validation.reason !== undefined} onClick={() => save(value)}>저장</button>
+      <button type="button" onClick={() => setValue(current => ({ ...current, instances: current.instances.map(panel => {
+        if (panel.id !== initial.id || panel.source.kind !== 'chart') return panel;
+        const { x, ...config } = panel.source.config;
+        return { ...panel, source: { kind: 'chart', config: { x: { type: x.type, field: x.field }, ...config } } };
+      }) }))}>동일 소스 다시 읽기</button>
+      <button type="button" onClick={() => setValue(current => ({ ...current, instances: [chart({ kind: 'line', measure: 'rate', breakdown: 'equipment' }), ...current.instances.slice(1)] }))}>소스 교체</button>
+      {reader && <button type="button" onClick={() => setValue(current => ({ ...current, instances: current.instances.map(panel => panel.id === reader.id ? { ...panel, inputs: [] } : panel) }))}>받는 연결 해제</button>}
+      {open && <PanelSettingsDrawer title={{ ko: '차트', en: 'Chart' }} panel={value.instances[0]!} value={value} mapping={mapping}
+        selectionOf={() => null} onClose={() => setOpen(false)} onChange={next => { changed(next); setValue(next); }}
+        onValidationChange={reason => setValidation({ reason })} {...props} />}
+    </DetailPanelSlotProvider></I18nProvider>;
+  }
+  return { changed, save, user: userEvent.setup(), ...render(<Stage />) };
+}
+
 afterEach(cleanup);
 
 it.each([['chart', chart(), {}], ['declared', declared, { mapping }]] as const)('keeps %s in the connections-only drawer unless mapping is enabled for a chart', (_kind, initial, props) => {
@@ -154,4 +178,99 @@ it('marks the wells and chips, while the X axis only exposes its explanation', (
   const axis = screen.getByRole('group', { name: 'X축', description: 'X축은 종류가 정함' });
   expect(within(axis).getByText('날짜')).toBeTruthy();
   expect(axis.hasAttribute('data-mapping-slot')).toBe(false);
+});
+
+it('blocks the caller’s Save while the kind draft is invalid and clears the block on correction or close', async () => {
+  const { save, user } = setupSaveOwner(chart({ kind: 'line', measure: 'hours', breakdown: 'equipment', stack: 'stack' }));
+  const saveButton = screen.getByRole<HTMLButtonElement>('button', { name: '저장' });
+  await user.click(screen.getByRole('radio', { name: '막대' }));
+  expect(saveButton.disabled).toBe(true);
+  await user.click(saveButton);
+  expect(save).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('radio', { name: '선' }));
+  expect(saveButton.disabled).toBe(false);
+  await user.click(saveButton);
+  expect(save).toHaveBeenCalledOnce();
+  await user.click(screen.getByRole('radio', { name: '막대' }));
+  expect(saveButton.disabled).toBe(true);
+  await user.keyboard('{Escape}');
+  expect(saveButton.disabled).toBe(false);
+});
+
+it('shows why a connection edit is blocked after clearing a required slot', async () => {
+  const { changed, user } = setup();
+  await user.click(screen.getByRole('button', { name: '가동 시간 지우기' }));
+  await user.click(screen.getByRole('button', { name: '매핑' }));
+  await user.click(screen.getByRole('radio', { name: '무시' }));
+  expect(screen.getByRole('radio', { name: '거르기' }).getAttribute('aria-checked')).toBe('true');
+  const reason = screen.getByRole('alert');
+  expect(reason.textContent).toBe('지표와 기준을 고르세요');
+  expect(reason.classList.contains('sr-only')).toBe(false);
+  expect(changed).not.toHaveBeenCalled();
+});
+
+it.each(['Motion', '선'])('requires disconnecting a held reader before changing the output through %s', async choice => {
+  const reader: PanelInstance = {
+    ...declared, id: 'reader', inputs: [{ key: 'selection', from: 'chart-1.selection', mode: 'hold', value: { shape: 'set', values: ['EQ-01'] } }],
+  };
+  const initial = chart({ kind: 'bar', measure: 'hours', breakdown: 'equipment' });
+  const { changed, user } = setupSaveOwner(initial, {}, reader);
+  const control = () => screen.getByRole(choice === '선' ? 'radio' : 'button', { name: choice });
+  await user.click(screen.getByRole('button', { name: '가동률' }));
+  expect(changed.mock.lastCall?.[0].instances).toContain(reader);
+  expect(changed.mock.lastCall?.[0].instances[0]?.outputs).toEqual(initial.outputs);
+  await user.click(screen.getByRole('button', { name: '가동 시간' }));
+  changed.mockClear();
+  await user.click(control());
+  expect(changed).not.toHaveBeenCalled();
+  expect(screen.getByRole('alert').textContent).toBe('이 선택을 받는 패널의 연결을 먼저 해제하세요.');
+  await user.click(screen.getByRole('button', { name: '받는 연결 해제' }));
+  // Choose back and retry the edit using the now-disconnected graph.
+  await user.click(screen.getByRole(choice === '선' ? 'radio' : 'button', { name: choice === '선' ? '막대' : '장비' }));
+  await user.click(control());
+  expect(changed.mock.lastCall?.[0].instances[0]?.outputs).toEqual(choice === '선' ? [] : [{ key: 'selection', dimension: 'motion', shape: 'set' }]);
+});
+
+it('keeps an incomplete draft when the stored config is cloned and its keys reordered', async () => {
+  const { baseElement, user } = setupSaveOwner();
+  await user.click(screen.getByRole('button', { name: '가동 시간 지우기' }));
+  await user.click(screen.getByRole('button', { name: '동일 소스 다시 읽기' }));
+  expect(within(well(baseElement, 'measure')).getByText('여기에 놓기')).toBeTruthy();
+});
+
+it('clears a draft and its connection rejection when the stored source changes', async () => {
+  const reason = { ko: '편집한 구성을 저장할 수 없습니다', en: 'Cannot save the edited configuration' };
+  const { baseElement, user } = setupSaveOwner(chart(), { validateCandidate: () => reason });
+  await user.click(screen.getByRole('radio', { name: '막대' }));
+  await user.click(screen.getByRole('radio', { name: '무시' }));
+  expect(screen.getByRole('alert').textContent).toBe(reason.ko);
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: '저장' }).disabled).toBe(true);
+  await user.click(screen.getByRole('button', { name: '소스 교체' }));
+  expect(within(well(baseElement, 'measure')).getByRole('button', { name: '가동률 지우기' })).toBeTruthy();
+  expect(screen.queryByRole('alert')).toBeNull();
+  expect(screen.getByRole<HTMLButtonElement>('button', { name: '저장' }).disabled).toBe(false);
+});
+
+it.each([
+  ['종류', '선', '막대'], ['받는 방식', '거르기', '강조만'], ['값 반영', '따라가기', '붙잡기'],
+])('draws one outer border and keeps keyboard selection for %s', async (label, first, second) => {
+  const { user } = setupSaveOwner(chart(), { selectionOf: () => ({ shape: 'set', values: ['EQ-01'] }) });
+  const group = within(screen.getByRole('radiogroup', { name: label }));
+  expect(screen.getByRole('radiogroup', { name: label }).classList.contains('border')).toBe(true);
+  const start = group.getByRole('radio', { name: first });
+  expect(start.classList.contains('border')).toBe(false);
+  const target = group.getByRole('radio', { name: second });
+  start.focus();
+  await user.keyboard('{ArrowRight}');
+  expect(document.activeElement).toBe(target);
+  expect(target.getAttribute('aria-checked')).toBe('true');
+});
+
+it.each([
+  ['declared breakdown label', mapping, undefined, '장비'],
+  ['explicit label', mapping, () => ({ ko: '설비 선택', en: 'Asset selection' }), '설비 선택'],
+  ['raw dimension', { ...mapping, fields: { ...fields, breakdowns: [] } }, undefined, 'equipment'],
+] as const)('shows the %s for a published selection', (_case, mapping, outputLabel, label) => {
+  setupSaveOwner(chart({ kind: 'bar', measure: 'hours', breakdown: 'equipment' }), { mapping, outputLabel });
+  expect(screen.getByText(`내보내는 선택 · ${label}`)).toBeTruthy();
 });

@@ -1,8 +1,8 @@
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Link2, SlidersHorizontal } from 'lucide-react';
 import {
-  chartPanelProblem, createChartPanel, invalidMenuViewPanels, readChartPanel,
-  type AnalysisSelection, type ChartPanelDraft, type ChartPermissionCheck, type MenuChartFields,
+  createChartPanel, invalidMenuViewPanels, readChartPanel, readChartPanelDraft, sameChartConfig,
+  type AnalysisSelection, type ChartConfig, type ChartPanelDraft, type ChartPanelProblem, type ChartPermissionCheck, type MenuChartFields,
   type MenuViewPanels, type PanelDeclaration, type PanelInstance, type PanelInstanceInput, type PanelInstanceOutput, type Text,
 } from '@ap/contracts';
 import { useI18n, useMessages, usePlatformOptional } from '@ap/kernel';
@@ -25,6 +25,8 @@ export type PanelSettingsDrawerProps = {
   projectCandidate?: (panel: PanelInstance) => MenuViewPanels;
   /** Optionally rejects a projected configuration with a localized reason before SDK validation. */
   validateCandidate?: (candidate: MenuViewPanels) => Text | undefined;
+  /** Reports a rejected mapping draft to the Save owner. Clears the reason once accepted or discarded. */
+  onValidationChange?: (reason: Text | undefined) => void;
   declaredInputs?: readonly DeclaredInput[];
   /** Eligible publisher for a new input, as `<instance id>.<output key>`. Saved inputs keep their own reference. */
   sourceReference?: (inputKey: string) => string | undefined;
@@ -40,8 +42,25 @@ const receivingModes = ['filter', 'highlight', 'ignore'] as const;
 const followModes = ['follow', 'hold'] as const;
 const receivingLabels = { filter: 'panelFilter', highlight: 'panelHighlight', ignore: 'panelIgnore' } as const;
 const reference = ({ panel, output }: Source) => `${panel.id}.${output.key}`;
-type MappingEdit = { key: string; source: PanelInstance['source']; draft: ChartPanelDraft };
 type EditSection = 'mapping' | 'connections';
+type RejectedEdit = {
+  key: string;
+  config: ChartConfig | undefined;
+  draft?: ChartPanelDraft;
+  section: EditSection;
+  reason: Text;
+  problem?: ChartPanelProblem;
+};
+
+function changesConnectedOutput(panel: PanelInstance, candidate: MenuViewPanels): boolean {
+  const outputs = candidate.instances.find(instance => instance.id === panel.id)?.outputs;
+  return panel.outputs.some(output => {
+    const replacement = outputs?.find(item => item.key === output.key);
+    if (replacement?.dimension === output.dimension && replacement.shape === output.shape) return false;
+    const from = reference({ panel, output });
+    return candidate.instances.some(instance => instance.inputs.some(input => input.from === from));
+  });
+}
 
 function Segments<T extends string>({ label, options, value, disabled, text, onChange }: {
   label: string; options: readonly T[]; value: T; disabled?: (option: T) => boolean;
@@ -50,7 +69,7 @@ function Segments<T extends string>({ label, options, value, disabled, text, onC
   const id = useId();
   return <div className="grid justify-items-start gap-1">
     <FieldLabel id={id}>{label}</FieldLabel>
-    <ToggleGroup type="single" variant="outline" size="sm" appearance="filter" orientation="horizontal"
+    <ToggleGroup type="single" size="sm" appearance="filter" orientation="horizontal"
       aria-labelledby={id} role="radiogroup" value={value} onValueChange={raw => {
         const choice = options.find(option => option === raw);
         if (choice !== undefined) onChange(choice);
@@ -61,74 +80,73 @@ function Segments<T extends string>({ label, options, value, disabled, text, onC
 }
 
 /** Edits one instance in a v1 panel configuration. The caller supplies the live selection and owns the saved-view slot. */
-export function PanelSettingsDrawer({ title, panel, value, mapping, projectCandidate, validateCandidate, declaredInputs = [], sourceReference, sourceTitle, outputLabel, selectionOf, trigger, onChange, onClose }: PanelSettingsDrawerProps) {
+export function PanelSettingsDrawer({ title, panel, value, mapping, projectCandidate, validateCandidate, onValidationChange, declaredInputs = [], sourceReference, sourceTitle, outputLabel, selectionOf, trigger, onChange, onClose }: PanelSettingsDrawerProps) {
   const m = useMessages(COMPONENTS_MESSAGES);
   const { tx } = useI18n();
   const platform = usePlatformOptional();
-  const [error, setError] = useState<{ section: EditSection; reason: Text } | null>(null);
-  // Keep edits that could not be saved attached to the source they started from.
-  const [edit, setEdit] = useState<MappingEdit | null>(null);
-  const editKey = mapping && JSON.stringify([panel.id, platform?.route?.menu.id, platform?.session.user.id, platform?.revision, platform?.scope.scopeId]);
-  const editingCurrentSource = edit !== null && edit.key === editKey && edit.source === panel.source;
-  if (edit && !editingCurrentSource) {
-    setEdit(null);
-    if (error?.section === 'mapping') setError(null);
-  }
-  const pendingDraft = editingCurrentSource ? edit?.draft : undefined;
   const config = mapping && panel.source.kind === 'chart' ? panel.source.config : undefined;
+  const editKey = JSON.stringify([panel.id, platform?.route?.menu.id, platform?.session.user.id, platform?.revision, platform?.scope.scopeId]);
+  const [edit, setEdit] = useState<RejectedEdit | null>(null);
+  // A caller can re-read the same saved chart while the drawer is open.
+  const rejection = edit?.key === editKey && sameChartConfig(edit.config, config) ? edit : null;
+  if (edit && !rejection) setEdit(null);
+  const pendingDraft = rejection?.draft;
+  const blockingReason = onValidationChange && pendingDraft ? rejection.reason : undefined;
+  // Reporting a reason can rerender the Save owner with a new callback.
+  const validationListener = useRef(onValidationChange);
+  useEffect(() => {
+    validationListener.current = onValidationChange;
+  }, [onValidationChange]);
+  useEffect(() => {
+    if (!blockingReason) return;
+    validationListener.current?.(blockingReason);
+    return () => validationListener.current?.(undefined);
+  }, [blockingReason]);
   const saved = config && mapping ? readChartPanel(mapping.fields, panel, mapping.granted) : undefined;
   const savedProblem = saved?.status === 'problem' ? saved.problem : null;
-  const storedBreakdown = config?.kind === 'line' ? config.split?.field : config?.x.field;
-  const draft: ChartPanelDraft | undefined = pendingDraft ?? (config && {
-    kind: config.kind,
-    // Keep the stored mapping visible for repair if the declaration or access changed.
-    measure: saved?.status === 'ok' ? saved.measure.id : config.measures[0]?.field,
-    breakdown: saved?.status === 'ok' ? saved.breakdown.id : storedBreakdown,
-    stack: config.stack === 'stack' ? 'stack' : undefined,
-  });
-  const mappingProblem = pendingDraft && mapping
-    ? chartPanelProblem(mapping.fields, pendingDraft, mapping.granted)
-    : savedProblem;
+  const draft = pendingDraft ?? (config && readChartPanelDraft(config));
+  const mappingProblem = pendingDraft ? rejection.problem ?? null : savedProblem;
   const returnFocusRef = useMemo(() => ({ current: trigger ?? null }), [trigger]);
   const inputKeys = new Set([...declaredInputs.filter(input => input.selection).map(input => input.key), ...panel.inputs.map(input => input.key)]);
   const sources = value.instances.filter(instance => instance.id !== panel.id).flatMap(instance => instance.outputs.map(output => ({ panel: instance, output })));
   const labelOf = (source: Source) => {
-    const label = outputLabel?.(source);
+    const label = outputLabel?.(source) ?? mapping?.fields.breakdowns.find(field => field.dimension === source.output.dimension)?.label;
     return label ? tx(label) : source.output.dimension;
   };
   const save = (updated: PanelInstance, section: EditSection, nextDraft?: ChartPanelDraft) => {
-    const mappingEdit = nextDraft && editKey ? { key: editKey, source: panel.source, draft: nextDraft } : null;
-    if (mappingEdit && mapping) {
-      const built = createChartPanel(mapping.fields, mappingEdit.draft, panel.id, mapping.granted);
+    const reject = (reason: Text, problem?: ChartPanelProblem) => setEdit({ key: editKey, config, draft: nextDraft, section, reason, problem });
+    if (nextDraft && mapping) {
+      const built = createChartPanel(mapping.fields, nextDraft, panel.id, mapping.granted);
       if (built.status === 'problem') {
-        setEdit(mappingEdit);
-        setError(null);
+        reject(built.problem.reason, built.problem);
         return;
       }
       updated = { ...built.instance, inputs: updated.inputs };
+    } else if (savedProblem) {
+      reject(savedProblem.reason);
+      return;
     }
     const candidate = projectCandidate?.(updated)
       ?? { ...value, instances: value.instances.map(instance => {
         if (instance.id !== panel.id) return instance;
-        return mappingEdit ? updated : { ...instance, inputs: updated.inputs };
+        return nextDraft ? updated : { ...instance, inputs: updated.inputs };
       }) };
     let reason = validateCandidate?.(candidate);
+    if (!reason && nextDraft && changesConnectedOutput(panel, candidate)) reason = COMPONENTS_MESSAGES.panelMappingDisconnectReaders;
     if (!reason) {
       const problem = invalidMenuViewPanels(candidate);
       if (problem) {
         if (problem === 'panels connections must not contain a filter cycle') reason = COMPONENTS_MESSAGES.panelFilterCycle;
-        else reason = COMPONENTS_MESSAGES[mappingEdit ? 'panelMappingInvalid' : 'panelConnectionInvalid'];
+        else reason = COMPONENTS_MESSAGES[nextDraft ? 'panelMappingInvalid' : 'panelConnectionInvalid'];
       }
     }
-    setError(reason ? { section, reason } : null);
-    if (mappingEdit) setEdit(reason ? mappingEdit : null);
-    if (!reason) onChange(candidate);
+    if (reason) reject(reason);
+    else {
+      setEdit(null);
+      onChange(candidate);
+    }
   };
   const update = (key: string, next?: PanelInstanceInput) => {
-    if (savedProblem && !pendingDraft) {
-      setError({ section: 'connections', reason: savedProblem.reason });
-      return;
-    }
     const inputs = [...panel.inputs];
     const index = inputs.findIndex(input => input.key === key);
     if (index < 0 && next) inputs.push(next);
@@ -138,7 +156,7 @@ export function PanelSettingsDrawer({ title, panel, value, mapping, projectCandi
   const mappingSection = mapping && draft ? {
     id: 'mapping', title: COMPONENTS_MESSAGES.panelMapping, icon: SlidersHorizontal,
     render: () => <PanelMappingSection {...mapping} draft={draft} problem={mappingProblem}
-      candidateError={error?.section === 'mapping' ? error.reason : undefined}
+      candidateError={rejection?.section === 'mapping' && !rejection.problem ? rejection.reason : undefined}
       onChange={next => save(panel, 'mapping', next)} />,
   } : undefined;
   const content = <Inspector key={mappingSection ? panel.id : undefined} form="stack" label={COMPONENTS_MESSAGES.panelSettings} sections={[...(mappingSection ? [mappingSection] : []), {
@@ -177,7 +195,7 @@ export function PanelSettingsDrawer({ title, panel, value, mapping, projectCandi
       })}
       <p className="text-xs text-text-secondary">{m('panelPublishes')} · {panel.outputs.length
         ? panel.outputs.map(output => labelOf({ panel, output })).join(', ') : m('panelNoOutputs')}</p>
-      {error?.section === 'connections' && <p role="alert" className="text-xs text-text-danger-label">{tx(error.reason)}</p>}
+      {rejection?.section === 'connections' && <p role="alert" className="text-xs text-text-danger-label">{tx(rejection.reason)}</p>}
     </div>,
   }]} />;
   return <DetailDrawer title={tx(title)} focusOnOpen closeOnSuperseded copyPage={null} returnFocusRef={returnFocusRef} onClose={onClose}

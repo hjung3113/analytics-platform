@@ -104,7 +104,7 @@ export function PanelMappingSection({ fields, granted, draft, problem, candidate
   return <div className="grid gap-3 break-keep">
     <div className="grid justify-items-start gap-1">
       <FieldLabel id={`${id}-kind`}>{m('panelMappingKind')}</FieldLabel>
-      <ToggleGroup type="single" variant="outline" size="sm" appearance="filter" orientation="horizontal" role="radiogroup"
+      <ToggleGroup type="single" size="sm" appearance="filter" orientation="horizontal" role="radiogroup"
         aria-labelledby={`${id}-kind`} value={draft.kind} onValueChange={value => {
           const option = kinds.find(({ kind }) => kind === value);
           if (option && !option.reason) onChange({ ...draft, kind: option.kind });

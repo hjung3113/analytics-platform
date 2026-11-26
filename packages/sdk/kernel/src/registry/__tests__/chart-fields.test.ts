@@ -64,6 +64,16 @@ describe('chart mapping slots (#2762)', () => {
 });
 
 describe('chart panels from declared measures and breakdowns (#2761)', () => {
+  it('reads stored line and bar slots for repair even when their declarations are gone', () => {
+    expect(contracts.readChartPanelDraft({
+      version: 1, kind: 'line', x: { field: 'oldTime', type: 'time' }, measures: [{ field: 'oldMeasure' }],
+      split: { field: 'oldBreakdown' }, stack: 'stack',
+    })).toStrictEqual({ kind: 'line', measure: 'oldMeasure', breakdown: 'oldBreakdown', stack: 'stack' });
+    expect(contracts.readChartPanelDraft({
+      version: 1, kind: 'bar', x: { field: 'oldBreakdown', type: 'category' }, measures: [{ field: 'oldMeasure' }], stack: 'percent',
+    })).toStrictEqual({ kind: 'bar', measure: 'oldMeasure', breakdown: 'oldBreakdown' });
+  });
+
   it('judges each choice with the reason the picker and the settings drawer show', () => {
     const problem = (draft: ChartPanelDraft, granted = all) => chartPanelProblem(fields, draft, granted)?.code ?? null;
     expect(problem({ kind: 'bar', measure: 'runTime', breakdown: 'module' })).toBeNull();

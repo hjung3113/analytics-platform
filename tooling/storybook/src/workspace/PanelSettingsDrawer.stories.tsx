@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { PanelSettingsDrawer, type PanelSettingsMapping } from '@ap/components';
-import { createChartPanel, type MenuViewPanels } from '@ap/contracts';
+import { createChartPanel, readChartPanelDraft, type MenuViewPanels } from '@ap/contracts';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
 
 const mapping: PanelSettingsMapping = {
@@ -37,6 +37,11 @@ function MappingDrawer() {
     {!open && <button type="button" className="self-start p-3" onClick={() => setOpen(true)}>패널 설정</button>}
     <aside ref={slot.ref} className="flex w-detail-panel shrink-0 flex-col border-l border-border-subtle bg-surface-detail" />
     {open && <PanelSettingsDrawer mapping={mapping} panel={value.instances[0]!} title={title} value={value}
+      outputLabel={({ panel }) => {
+        if (panel.source.kind !== 'chart') return undefined;
+        const { breakdown } = readChartPanelDraft(panel.source.config);
+        return mapping.fields.breakdowns.find(field => field.id === breakdown)?.label;
+      }}
       selectionOf={() => null} onChange={setValue} onClose={() => setOpen(false)} />}
   </div>;
 }
