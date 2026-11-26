@@ -7,7 +7,7 @@ const NO_SAVE_BLOCKS: readonly SaveBlock[] = [];
 type Slot = { value: unknown; blocked?: SaveBlock | undefined; apply: (value: never) => void; accepts?: (value: never) => boolean; project?: (value: never) => unknown };
 export type ViewSlots = ReturnType<typeof createScreenSlots>;
 export const saveBlockKey = (reason: SaveBlock): string =>
-  JSON.stringify(typeof reason === 'object' ? [reason.ko, reason.en] : reason);
+  JSON.stringify(typeof reason === 'string' ? [reason, reason] : [reason.ko, reason.en]);
 
 export function collectSaveBlocks(...screens: (ViewSlots | undefined)[]): readonly SaveBlock[] {
   const reasons = new Map<string, SaveBlock>();

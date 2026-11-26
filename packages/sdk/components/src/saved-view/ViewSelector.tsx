@@ -78,7 +78,6 @@ export function ViewSelector(props: ViewSelectorProps) {
   const saveBlockId = useId();
   const pendingBlockId = useId();
   const saveBlock = props.saveBlock;
-  const blockedLabelClass = saveBlock ? 'text-text-secondary' : undefined;
   const open = props.picker?.open ?? internalOpen;
   const setOpen = props.picker?.onOpenChange ?? setInternalOpen;
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -179,11 +178,11 @@ export function ViewSelector(props: ViewSelectorProps) {
           {current && canEdit && <DropdownMenuItem
             disabled={!saveBlock && state === 'clean'} aria-disabled={saveBlock ? true : state === 'clean' || undefined} aria-describedby={saveBlock ? saveBlockId : undefined}
             onSelect={event => { if (saveBlock) event.preventDefault(); else void props.onSave?.(); }}
-          ><span className={blockedLabelClass}>{m('svSaveCurrent')}</span></DropdownMenuItem>}
+          >{saveBlock ? <span className="text-text-secondary">{m('svSaveCurrent')}</span> : m('svSaveCurrent')}</DropdownMenuItem>}
           {showNew && <DropdownMenuItem
             aria-disabled={saveBlock ? true : undefined} aria-describedby={saveBlock ? saveBlockId : undefined}
             onSelect={event => { if (saveBlock) event.preventDefault(); else void props.onSaveAs?.(); }}
-          ><span className={blockedLabelClass}>{newLabel}</span></DropdownMenuItem>}
+          >{saveBlock ? <span className="text-text-secondary">{newLabel}</span> : newLabel}</DropdownMenuItem>}
           {current && state === 'modified' && <DropdownMenuItem disabled={selectionDisabled} onSelect={() => props.onRevert?.()}>{m('svRevert')}</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -307,7 +306,7 @@ export function ViewSelector(props: ViewSelectorProps) {
             <Button type="button" variant="secondary" disabled={selectionDisabled} onClick={() => { void settlePending(false); }}>{m('svDiscardDrop')}</Button>
             {pendingSave && <Button
               type="button" disabled={!saveBlock && selectionDisabled} aria-disabled={saveBlock ? true : undefined} aria-describedby={saveBlock ? pendingBlockId : undefined}
-              className="aria-disabled:opacity-50" onClick={() => { void settlePending(true); }}
+              className={saveBlock ? 'aria-disabled:opacity-50' : undefined} onClick={() => { void settlePending(true); }}
             >{m(pendingSave === 'current' ? 'svDiscardSave' : pendingSave === 'copy' ? 'svDiscardSaveCopy' : 'svDiscardSaveNew')}</Button>}
           </DialogFooter>
         </DialogContent>

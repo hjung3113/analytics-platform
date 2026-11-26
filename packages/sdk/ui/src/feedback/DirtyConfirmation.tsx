@@ -70,7 +70,7 @@ export function DirtyConfirmation({
             variant="destructive"
             aria-disabled={confirmBlock ? true : undefined}
             aria-describedby={confirmBlock ? blockId : undefined}
-            className="aria-disabled:opacity-50"
+            className={confirmBlock ? 'aria-disabled:opacity-50' : undefined}
             onClick={event => {
               if (confirmBlock) { event.preventDefault(); return; }
               markButtonHandled(); onConfirm();

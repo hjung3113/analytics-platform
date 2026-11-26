@@ -84,6 +84,34 @@ describe('ViewSelector', () => {
     expect(screen.getByRole('menuitem', { name: '저장본으로 되돌리기' })).toBeVisible();
   });
 
+  it('keeps the unblocked save menu labels as text and the clean-state action disabled', async () => {
+    render(<Harness />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '저장' }));
+    const current = screen.getByRole('menuitem', { name: '현재 뷰에 저장' });
+    const copy = screen.getByRole('menuitem', { name: '새 뷰로 저장' });
+    for (const action of [current, copy]) {
+      expect(action.children).toHaveLength(0);
+      expect(action).not.toHaveAttribute('aria-describedby');
+    }
+    expect(current).toHaveAttribute('aria-disabled', 'true');
+    expect(current).toHaveAttribute('data-disabled');
+    expect(copy).not.toHaveAttribute('aria-disabled');
+    expect(copy).not.toHaveAttribute('data-disabled');
+  });
+
+  it('keeps the unblocked save-and-switch button enabled without block attributes', async () => {
+    const user = userEvent.setup();
+    render(<Harness state="modified" onSave={vi.fn()} />);
+    await open(user);
+    await user.click(screen.getByRole('button', row('Beta shared')));
+    const save = screen.getByRole('button', { name: '저장하고 이동' });
+    expect(save).toBeEnabled();
+    expect(save).not.toHaveAttribute('aria-disabled');
+    expect(save).not.toHaveAttribute('aria-describedby');
+    expect(save).not.toHaveClass('aria-disabled:opacity-50');
+  });
+
   it('keeps revert unavailable until selection is enabled again', async () => {
     const user = userEvent.setup();
     const onRevert = vi.fn();

@@ -14,7 +14,7 @@ import { collectSaveBlocks } from './table-slots';
 /** `held` awaits the leave decision; `cancelled` was superseded. Both are silent and preserve the current selection. */
 export type SelectOutcome = { ok: true; unsupported: readonly Unsupported[]; /** Context keys, and held-set panel input keys (#2862), a view saved in another Scope did not apply here (#2175); each key once. */ excludedByScope: readonly string[] } | { ok: false; reason: RestoreFailure | 'unavailable' | 'denied' | 'held' | 'cancelled' };
 export type SaveInput = { name: string; kind: 'condition-set' | 'menu-view'; chartOptions?: Record<string, JsonValue>; layout?: JsonValue; panels?: MenuViewPanels | null };
-type SaveResult = Result<SavedViewEntry> | { ok: false; reason: 'blocked' };
+type SaveResult = Result<SavedViewEntry> | typeof SAVE_BLOCKED;
 export type SavedViews = {
   /** `disabled`: no store injected, the menu does not declare `features.savedView`, or no support is available. */
   status: 'disabled' | 'loading' | 'ready' | 'unavailable';
@@ -41,6 +41,8 @@ export type SavedViews = {
   crossScopeSave: { savedScopeId: string; keys: readonly string[]; panelKeys?: readonly string[] } | null;
   /** Reasons from the current screen's slots that prevent saving the applied conditions. */
   saveBlocked: readonly (string | Text)[];
+  /** Reads the current slot reasons synchronously before a save or its sharing continuation. */
+  readSaveBlocks: () => SavedViews['saveBlocked'];
   select: (id: string) => Promise<SelectOutcome>;
   clearSelection: () => void;
   /** 새 뷰로 저장: stores the APPLIED conditions (never the draft) as a new view and selects it. */
@@ -89,7 +91,7 @@ function savedPanelsSlot(view: MenuView, scopeId: string | null): Record<string,
 const NO_UNSUPPORTED: readonly Unsupported[] = [];
 const NO_KEYS: readonly string[] = [];
 const OFF: Result<never> = { ok: false, reason: 'unavailable' };
-const SAVE_BLOCKED = { ok: false, reason: 'blocked' } as const;
+const SAVE_BLOCKED = { ok: false, reason: 'invalid', code: 'blocked' } as const;
 const NO_SAVE_BLOCKS: SavedViews['saveBlocked'] = [];
 const OFF_STATE: ViewState = { modified: false, unsaved: false, unapplied: false };
 const selectionKey = (userId: string, menuId: string, paneId: string | null) => paneId === null
@@ -206,7 +208,10 @@ function useSavedViewController(
   const identity = `${userId}\0${menuId}`;
   // One generation per store, session, permission revision, Scope state, menu and menu declaration: everything read or started in an older one is hidden or dropped (kernel guidance, 06 §21.2).
   const { session, revision, paneId } = host;
-  const saveBlocked = enabled && paneId === null ? collectSaveBlocks(panelSlots, slots) : NO_SAVE_BLOCKS;
+  const readSaveBlocks = useCallback(() =>
+    enabled && paneId === null ? collectSaveBlocks(panelSlots, slots) : NO_SAVE_BLOCKS,
+  [enabled, paneId, panelSlots, slots]);
+  const saveBlocked = readSaveBlocks();
   const scopeKey = `${host.scope.scopeId}\0${host.scope.status}`;
   const entryPath = mode === 'owner' && route ? pathFor(route.menu, route.params) : null;
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the inputs are triggers only: a new generation object whenever any of them changes
@@ -546,9 +551,7 @@ function useSavedViewController(
   const select = useCallback((id: string) => apply(id, 'selected'), [apply]);
   const saveAs = useCallback(async (input: SaveInput): Promise<SaveResult> => {
     if (!enabled || !support) return OFF;
-    const at = gen;
-    if (stale(at)) return OFF;
-    if (paneId === null && collectSaveBlocks(panelSlots, slots).length > 0) return SAVE_BLOCKED;
+    if (readSaveBlocks().length > 0) return SAVE_BLOCKED;
     const captured = captureApplied(applied, support);
     const tables = { ...(selected?.view.kind === 'menu-view' ? selected.view.tables : undefined), ...slots?.capture<TableViewState>('tables') };
     // The Scope the content is saved in (#2175); with no current Scope nothing is recorded and the view reads as an old one.
@@ -560,6 +563,8 @@ function useSavedViewController(
     const checked = validateSavedView(draft);
     if (!checked.ok) return checked;
     // Latest action wins: a save that finishes after another pick or save, or on another address, does not take the selection back.
+    const at = gen;
+    if (stale(at)) return OFF;
     const mine = ++intent.current;
     const startUrl = live.current.host.appliedUrl;
     let result: Result<SavedViewEntry>;
@@ -569,12 +574,12 @@ function useSavedViewController(
       refresh();
     }
     return result;
-  }, [enabled, support, applied, store, gen, setSelected, refresh, slots, panelSlots, selected, paneId]);
+  }, [enabled, support, applied, store, gen, setSelected, refresh, slots, panelSlots, selected, readSaveBlocks]);
   const saveToSelected = useCallback(async (): Promise<SaveResult> => {
     if (!enabled || !support || !selected) return OFF;
     const at = gen;
     if (stale(at)) return OFF;
-    if (paneId === null && collectSaveBlocks(panelSlots, slots).length > 0) return SAVE_BLOCKED;
+    if (readSaveBlocks().length > 0) return SAVE_BLOCKED;
     ++intent.current;
     const mine = intent.current;
     const patch = overwritePatch(selected.view, captureApplied(applied, support), support, anchor, applied.global.scopeId, slots?.capture<TableViewState>('tables'));
@@ -591,7 +596,7 @@ function useSavedViewController(
     // A write refused for its version rereads the list (06 §21.2): the selection and the applied conditions stay, and the next save goes at the version the store now holds.
     if (!result.ok && result.reason === 'conflict' && !stale(at)) refresh();
     return result;
-  }, [enabled, support, selected, applied, anchor, store, gen, refresh, slots, panelSlots, paneId]);
+  }, [enabled, support, selected, applied, anchor, store, gen, refresh, slots, panelSlots, readSaveBlocks]);
   const revertToSaved = useCallback(async (): Promise<SelectOutcome> => selected ? apply(selected.view.id, 'selected') : { ok: false, reason: 'unavailable' }, [selected, apply]);
   const remove = useCallback(async (id: string): Promise<Result<null>> => {
     const at = gen;
@@ -634,9 +639,9 @@ function useSavedViewController(
   const updateGroup = useCallback<SavedViewStore['updateGroup']>((id, patch) => write(s => s.updateGroup(id, patch)), [write]);
 
   return useMemo((): SavedViews => ({
-    status, support: support ?? null, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave, saveBlocked,
+    status, support: support ?? null, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave, saveBlocked, readSaveBlocks,
     select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, decide, revoke, createGroup, updateGroup, refresh,
-  }), [status, support, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave, saveBlocked, select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, decide, revoke, createGroup, updateGroup, refresh]);
+  }), [status, support, menuViews, conditionSets, defaultId, selected, state, unsupported, scopeExcluded, crossScopeSave, saveBlocked, readSaveBlocks, select, clearSelection, saveAs, saveToSelected, revertToSaved, remove, setDefault, update, setVisibility, requestOfficial, decide, revoke, createGroup, updateGroup, refresh]);
 }
 const NOOP_SUBSCRIBE = () => () => {};
 const ZERO_SNAPSHOT = () => 0;

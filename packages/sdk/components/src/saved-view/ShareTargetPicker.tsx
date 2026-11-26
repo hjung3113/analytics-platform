@@ -184,7 +184,7 @@ function PickerBody({ lang = 'ko', onOpenChange, value, groups, currentUserId, s
 
     <DialogFooter>
       <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{word('cancel', lang)}</Button>
-      <Button type="button" disabled={!saveBlock && (incomplete || busy)} aria-disabled={saveBlock ? true : undefined} aria-describedby={saveBlock ? saveBlockId : undefined} className="aria-disabled:opacity-50" onClick={() => { void confirm(); }}>{word('saveTargets', lang)}</Button>
+      <Button type="button" disabled={!saveBlock && (incomplete || busy)} aria-disabled={saveBlock ? true : undefined} aria-describedby={saveBlock ? saveBlockId : undefined} className={saveBlock ? 'aria-disabled:opacity-50' : undefined} onClick={() => { void confirm(); }}>{word('saveTargets', lang)}</Button>
     </DialogFooter>
 
     <GroupEditor

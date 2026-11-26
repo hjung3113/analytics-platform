@@ -83,19 +83,19 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
   const saveAsDone = useRef<{ resolve: (ok: boolean) => void; ok: boolean } | null>(null);
   const searchPeople = useCallback((q: string, signal: AbortSignal): Promise<readonly GroupMember[]> => store.searchPeople(q, signal), [store]);
 
-  const reasons = views.saveBlocked.map(reason => typeof reason === 'string' ? reason : tx(reason));
+  const reasons = views.saveBlocked.map(reason => {
+    const text = typeof reason === 'string' ? reason : tx(reason);
+    return text.trim() ? text : m('savedViewBlocked');
+  });
   const [firstReason] = reasons;
   const saveBlock = firstReason === undefined ? undefined : {
     summary: reasons.length === 1 ? firstReason : m('savedViewBlockedMore', { reason: firstReason, count: reasons.length - 1 }),
     reasons: reasons.join('\n'),
   };
-  const savingBlocked = saveBlock !== undefined;
-  const liveSaveBlocked = useRef(savingBlocked);
-  useLayoutEffect(() => { liveSaveBlocked.current = savingBlocked; }, [savingBlocked]);
-  const fail = (reason: Extract<Result<never>, { ok: false }>['reason'] | 'blocked') =>
-    reason === 'blocked' ? saveBlock?.reasons ?? m('savedViewBlocked') : failureText({ ok: false, reason }, tx);
-  const report = (result: Result<unknown> | { ok: false; reason: 'blocked' }, done: string): boolean => {
-    if (result.ok) toast(done, 'info'); else toast(fail(result.reason), 'warning');
+  const blockedMessage = saveBlock?.reasons ?? m('savedViewBlocked');
+  const fail = (reason: Extract<Result<never>, { ok: false }>['reason']) => failureText({ ok: false, reason }, tx);
+  const report = (result: Result<unknown> & { code?: 'blocked' }, done: string): boolean => {
+    if (result.ok) toast(done, 'info'); else toast(result.code === 'blocked' ? blockedMessage : fail(result.reason), 'warning');
     return result.ok;
   };
   const pickFailed = (outcome: SelectOutcome) => {
@@ -220,12 +220,12 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
     done?.resolve(done.ok && !pending.current);
   };
   const submit: SaveViewDialogProps['onSubmit'] = async input => {
-    if (saveBlock) return { ok: false, reason: 'blocked', detail: saveBlock.reasons };
+    if (saveBlock) return { ok: false, reason: 'invalid', detail: blockedMessage };
     let result: Awaited<ReturnType<SavedViews['saveAs']>>;
     if (input.mode === 'update') { if (views.crossScopeSave && !(await confirmScope())) return { ok: false, reason: 'unavailable' }; result = await views.saveToSelected(); }
     else if (input.visibility === 'share') { pending.current = { unit: input.unit, name: input.name }; setHandoff(true); return { ok: true, value: null }; }
     else result = await views.saveAs({ name: input.name, kind: input.unit });
-    if (!result.ok && result.reason === 'blocked') return { ...result, detail: fail(result.reason) };
+    if (!result.ok && 'code' in result) return { ...result, detail: blockedMessage };
     if (result.ok) { toast(input.mode === 'update' ? m('savedViewUpdated') : m('savedViewSavedAs', { name: input.name }), 'info'); if (saveAsDone.current) saveAsDone.current.ok = true; }
     return result;
   };
@@ -247,13 +247,13 @@ function Ready({ views, store, support }: { views: SavedViews; store: Pick<Saved
       if (!created.current) {
         const saved = await views.saveAs({ name: made.name, kind: made.unit });
         if (!alive.current) return false;
-        if (!saved.ok) return refused(saved.reason, false);
+        if (!saved.ok) return 'code' in saved ? false : refused(saved.reason, false);
         created.current = { id: saved.value.view.id, version: saved.value.view.version };
       }
-      if (liveSaveBlocked.current && draft.mode !== 'private') return false;
       const { id, version } = created.current;
       const at = { expectedVersion: version };
       const visibility: ViewVisibility = draft.mode === 'people' ? { kind: 'people', userIds: draft.people.map(p => p.userId) } : { kind: 'groups', groupIds: [...draft.groupIds] };
+      if (draft.mode !== 'private' && views.readSaveBlocks().length > 0) return false;
       const shared = draft.mode === 'private' ? null : draft.mode === 'official' ? await views.requestOfficial(id, at) : await views.setVisibility(id, visibility, at);
       if (!alive.current) return false;
       if (shared !== null && !shared.ok) {
