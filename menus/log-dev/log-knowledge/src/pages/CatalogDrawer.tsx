@@ -13,6 +13,7 @@ import {
 import { ACTIVE_ONLY, TAB_LABEL, failureText, impactText, mapFieldErrors, type Banner, type CatalogKind, type CatalogRow } from './catalogModel';
 import { useOptionPicker, type Option } from './useCatalogOptions';
 import { useCloseGuard, type GuardedLeave } from './items/ItemFormParts';
+import { SERVER_FIELDS_SUMMARY } from './formCopy';
 
 type Write = ActionSpec<Record<string, unknown>, CatalogSummary>;
 const asWrite = (spec: unknown) => spec as Write;
@@ -67,7 +68,7 @@ function Field({ id, label, error, hint, required, children }: { id: string; lab
     <FieldLabel htmlFor={id} required={required}>{label}</FieldLabel>
     {children}
     {hint && !error && <p id={`${id}-hint`} className="text-xs text-text-muted">{hint}</p>}
-    {error && <p id={`${id}-error`} role="alert" className="text-xs text-text-danger-label">{error}</p>}
+    {error && <p id={`${id}-error`} className="text-xs text-text-danger-label">{error}</p>}
   </div>;
 }
 
@@ -157,7 +158,8 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
     const mapped = res.outcome === 'invalid' ? mapFieldErrors(res.fieldErrors, actions.fields) : {};
     setErrors(mapped);
     const formError = mapped['form'];
-    if (res.outcome === 'invalid' && Object.keys(mapped).length > 0 && !formError) { setBanner(null); return; }
+    // A rejection mapped only onto fields is announced once, by the banner line; the field errors are their controls' descriptions.
+    if (res.outcome === 'invalid' && Object.keys(mapped).length > 0 && !formError) { setBanner({ kind: 'failed', text: SERVER_FIELDS_SUMMARY }); return; }
     setBanner({ kind: 'failed', text: formError ?? failureText(res.outcome), ...(res.retry ? { retry: () => { const retry = res.retry; if (retry) void retry().then(next => settle(next, onOk)).catch(() => undefined); } } : {}) });
   }
   const input = (): Record<string, unknown> => {
@@ -194,7 +196,7 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
     {banner?.kind === 'conflict' && <Callout tone="amber" title="다른 사람이 먼저 고쳤습니다" action={<Button type="button" size="sm" variant="secondary" onClick={() => { setBanner(null); setErrors({}); onReload(); }}>새로 불러오기</Button>}>
       저장하지 않은 입력은 새로 불러오면 사라집니다.
     </Callout>}
-    {banner?.kind === 'failed' && <Callout tone="red" title="저장하지 못했습니다" action={banner.retry ? <Button type="button" size="sm" variant="secondary" onClick={banner.retry}>다시 시도</Button> : undefined}>{banner.text}</Callout>}
+    {banner?.kind === 'failed' && <Callout tone="red" title="저장하지 못했습니다" action={banner.retry ? <Button type="button" size="sm" variant="secondary" onClick={banner.retry}>다시 시도</Button> : undefined}><span role="alert">{banner.text}</span></Callout>}
     {(kind === 'model' || kind === 'software') && <Field id={`${uid}-${parentField}`} label={parentLabel} required error={err(parentField)}
       hint={isNew ? undefined : `등록 후에는 ${parentLabel}${kind === 'model' ? '를' : '을'} 바꿀 수 없습니다`}>
       {isNew

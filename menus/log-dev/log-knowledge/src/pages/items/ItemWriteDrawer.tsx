@@ -11,6 +11,7 @@ import { ItemRelations } from './ItemRelations';
 import { relationInputs, relationRowsOf, validateRelations } from './itemRelationModel';
 import { picksOf, subjectsPayload, toSubjectInputs, subjectErrorText, type SubjectPick } from './subjectModel';
 import { itemNoLabel, ownerText } from './itemModel';
+import { SERVER_FIELDS_SUMMARY } from '../formCopy';
 import {
   createInput, deriveForm, deriveInput, deriveNotice, emptyForm, itemErrorText, mapItemErrors, ownerLine, reviseForm, reviseInput, validateForm,
   type FormErrors, type WriteForm, type WriteMode,
@@ -51,8 +52,6 @@ function changedRowKeys<Row extends object>(prefix: string, listKey: string, bef
     return field === undefined ? JSON.stringify(was) !== JSON.stringify(now) : was?.[field as keyof Row] !== now?.[field as keyof Row];
   });
 }
-/** The one live announcement of a server rejection mapped onto fields; the field errors themselves carry no live role (#2574). */
-const SERVER_FIELDS_SUMMARY = '표시된 칸을 확인해 주세요.';
 
 function initialDraftOf(target: ItemWriteTarget): ItemWriteDraft {
   return {

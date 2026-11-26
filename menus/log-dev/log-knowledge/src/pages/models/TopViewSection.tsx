@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { formatListTime, PlatformLink, useMenuAction, useMenuQuery, usePlatform } from '@ap/kernel';
 import { QueryView } from '@ap/components';
 import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, FieldLabel, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@ap/ui';
@@ -9,6 +9,7 @@ import {
 import { modelTopView } from '../../model-topview-slot';
 import { EmptyNote } from './ProfileParts';
 import { START_DEFAULT, linkFieldErrors, shortRevision, startLabel } from './topViewModel';
+import { SERVER_FIELDS_SUMMARY } from '../formCopy';
 
 const STUDIO_MENU_ID = 'eqv-studio';
 const revisionKey = (r: { layoutId: string; revision: string }) => `${r.layoutId}|${r.revision}`;
@@ -41,6 +42,10 @@ function LinkDialog({ modelId, software, links, onClose, onDone }: { modelId: st
   const [pick, setPick] = useState('');
   const [start, setStart] = useState(START_DEFAULT);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const uid = useId();
+  const revisionTrigger = useRef<HTMLButtonElement>(null);
+  // Field errors are their pickers' descriptions, not live alerts (#2574): `errorId` ties each one to its trigger.
+  const errorId = (field: string) => (errors[field] ? `${uid}-${field}-error` : undefined);
   const rows = options.response?.outcome === 'ok' ? (options.response.data?.rows ?? []) : [];
   // Three states of the Revision list, told apart: still loading, failed (retry), or loaded (possibly empty).
   const optionsState = options.response === null ? 'loading' : options.response.outcome === 'ok' ? 'ready' : 'failed';
@@ -49,11 +54,18 @@ function LinkDialog({ modelId, software, links, onClose, onDone }: { modelId: st
   const submit = () => {
     // An untouched picker must not submit: look the pick up by identity, never index with an empty string.
     const row = pick === '' ? undefined : rows.find(r => revisionKey(r) === pick);
-    if (!row) { setErrors({ revision: 'Revision을 골라 주세요' }); return; }
+    // A blocked submit moves focus to the picker, which reads its error as its description.
+    if (!row) { setErrors({ revision: 'Revision을 골라 주세요' }); revisionTrigger.current?.focus(); return; }
     void link.run({ modelId, fromSoftwareId, layoutId: row.layoutId, revision: row.revision }, { expectedVersion: existing ? existing.version : '0' }).then(res => {
       if (res.outcome === 'ok') { toast('Top View를 연결했습니다', 'info'); onDone(); onClose(); return; }
       if (res.outcome === 'conflict') { onDone(); setErrors({ form: '다른 사람이 먼저 고쳤습니다. 새로 불러온 뒤 다시 시도해 주세요.' }); return; }
-      if (res.outcome === 'invalid') { setErrors(linkFieldErrors(res.fieldErrors)); return; }
+      if (res.outcome === 'invalid') {
+        // A rejection mapped onto a picker is announced once, by the form line.
+        const mapped = linkFieldErrors(res.fieldErrors);
+        if (Object.keys(mapped).some(key => key !== 'form')) mapped['form'] ??= SERVER_FIELDS_SUMMARY;
+        setErrors(mapped);
+        return;
+      }
       setErrors({ form: '저장하지 못했습니다.' });
     }).catch(() => undefined);
   };
@@ -62,17 +74,17 @@ function LinkDialog({ modelId, software, links, onClose, onDone }: { modelId: st
       <DialogHeader><DialogTitle>Top View 연결</DialogTitle><DialogDescription className="break-keep">게시된 Layout Revision을 고르고, 적용을 시작할 SW 버전을 정합니다. 비우면 모델 기본으로 연결합니다.</DialogDescription></DialogHeader>
       <div className="grid gap-4 break-keep">
         <div className="grid gap-1.5"><FieldLabel htmlFor="topview-revision">Revision</FieldLabel>
-          <Select value={pick} onValueChange={value => { setPick(value); setErrors(({ revision: _drop, ...rest }) => rest); }}><SelectTrigger id="topview-revision" appearance="field" aria-invalid={errors['revision'] !== undefined}><SelectValue placeholder="게시된 Revision을 골라 주세요" /></SelectTrigger>
+          <Select value={pick} onValueChange={value => { setPick(value); setErrors(({ revision: _drop, ...rest }) => rest); }}><SelectTrigger ref={revisionTrigger} id="topview-revision" appearance="field" aria-invalid={errors['revision'] !== undefined} aria-describedby={errorId('revision')}><SelectValue placeholder="게시된 Revision을 골라 주세요" /></SelectTrigger>
             <SelectContent>{rows.map(r => <SelectItem key={revisionKey(r)} value={revisionKey(r)}><span className="t-mono">{r.layoutId}</span>{' · '}<span className="t-mono">{shortRevision(r.revision)}</span>{` · ${formatListTime(r.publishedAt)}`}</SelectItem>)}</SelectContent></Select>
           {optionsState === 'loading' && <p role="status" className="text-xs text-text-muted">Revision 목록을 불러오는 중…</p>}
           {optionsState === 'ready' && rows.length === 0 && <p className="text-xs text-text-muted">게시된 Revision이 없습니다</p>}
           {optionsState === 'failed' && <p role="alert" className="flex items-center gap-2 text-xs text-text-danger-label">Revision 목록을 불러오지 못했습니다<Button type="button" size="toolbar" variant="secondary" onClick={() => options.refetch()}>다시 시도</Button></p>}
-          {errors['revision'] && <p role="alert" className="text-xs text-text-danger-label">{errors['revision']}</p>}
+          {errors['revision'] && <p id={errorId('revision')} className="text-xs text-text-danger-label">{errors['revision']}</p>}
         </div>
         <div className="grid gap-1.5"><FieldLabel htmlFor="topview-start">적용 시작 SW</FieldLabel>
-          <Select value={start} onValueChange={setStart}><SelectTrigger id="topview-start" appearance="field" aria-invalid={errors['fromSoftwareId'] !== undefined}><SelectValue /></SelectTrigger>
+          <Select value={start} onValueChange={setStart}><SelectTrigger id="topview-start" appearance="field" aria-invalid={errors['fromSoftwareId'] !== undefined} aria-describedby={errorId('fromSoftwareId')}><SelectValue /></SelectTrigger>
             <SelectContent><SelectItem value={START_DEFAULT}>모델 기본</SelectItem>{software.map(s => <SelectItem key={s.softwareId} value={s.softwareId}>{s.version}</SelectItem>)}</SelectContent></Select>
-          {errors['fromSoftwareId'] && <p role="alert" className="text-xs text-text-danger-label">{errors['fromSoftwareId']}</p>}
+          {errors['fromSoftwareId'] && <p id={errorId('fromSoftwareId')} className="text-xs text-text-danger-label">{errors['fromSoftwareId']}</p>}
         </div>
         {existing && <p className="break-keep rounded-md border border-border-subtle bg-surface-sunken p-3 text-xs text-text-secondary">{startLabel(existing.fromSoftwareVersion)}에 연결된 Layout <span className="font-mono break-all">{existing.layoutId}</span>을(를) 이 Revision으로 바꿉니다.</p>}
         {errors['form'] && <p role="alert" className="break-keep text-xs text-text-danger-label">{errors['form']}</p>}

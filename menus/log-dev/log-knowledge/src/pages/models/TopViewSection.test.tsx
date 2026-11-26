@@ -60,6 +60,13 @@ function mount(opts: { perms?: string[]; studio?: boolean; canEdit?: boolean; mo
 const appliedText = (text: string | RegExp) => (_: string, node: Element | null) =>
   node?.tagName === 'P' && (typeof text === 'string' ? node.textContent === text : text.test(node.textContent ?? ''));
 const slow = { timeout: 8000 };
+/** The `-error` element among a control's `aria-describedby` ids. */
+const describedError = (control: HTMLElement): HTMLElement => {
+  const id = (control.getAttribute('aria-describedby') ?? '').split(' ').find(part => part.endsWith('-error'));
+  const element = id ? document.getElementById(id) : null;
+  if (!element) throw new Error(`no error described by ${control.id}`);
+  return element;
+};
 vi.setConfig({ testTimeout: 20000 });
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
@@ -186,7 +193,28 @@ describe('manager controls', () => {
     mount();
     const dialog = await openDialog();
     fireEvent.click(within(dialog).getByRole('button', { name: '연결' }));
-    expect((await within(dialog).findByRole('alert', {}, slow)).textContent).toContain('Revision을 찾을 수 없거나');
+    const trigger = within(dialog).getByRole('combobox', { name: 'Revision' });
+    await waitFor(() => expect(trigger.getAttribute('aria-invalid')).toBe('true'), slow);
+    const error = describedError(trigger);
+    expect(error.textContent).toContain('Revision을 찾을 수 없거나');
+    expect(error.getAttribute('role')).toBeNull();
+    // The field-only rejection is announced once, by the form line.
+    const alerts = within(dialog).getAllByRole('alert');
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]?.textContent).toBe('표시된 칸을 확인해 주세요.');
+  });
+
+  it('ties a server 적용 시작 SW error to its picker and announces the form line once', async () => {
+    actionResult = { outcome: 'invalid', data: null, version: null, fieldErrors: [{ path: ['fromSoftwareId'], code: 'software_not_of_model' }], replayed: false };
+    mount();
+    const dialog = await openDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: '연결' }));
+    const trigger = within(dialog).getByRole('combobox', { name: '적용 시작 SW' });
+    await waitFor(() => expect(trigger.getAttribute('aria-invalid')).toBe('true'), slow);
+    const error = describedError(trigger);
+    expect(error.textContent).toBe('선택한 모델의 SW 버전 필요');
+    expect(error.getAttribute('role')).toBeNull();
+    expect(within(dialog).getAllByRole('alert').map(a => a.textContent)).toEqual(['표시된 칸을 확인해 주세요.']);
   });
 
   it('unlinks after the confirm dialog, with the row version', async () => {
@@ -264,7 +292,14 @@ describe('Revision choice and options states', () => {
     const dialog = await openLink();
     await within(dialog).findByText(/게시된 Revision을 골라/, {}, slow);
     fireEvent.click(within(dialog).getByRole('button', { name: '연결' }));
-    expect((await within(dialog).findByRole('alert')).textContent).toBe('Revision을 골라 주세요');
+    const trigger = within(dialog).getByRole('combobox', { name: 'Revision' });
+    await waitFor(() => expect(trigger.getAttribute('aria-invalid')).toBe('true'));
+    const error = describedError(trigger);
+    expect(error.textContent).toBe('Revision을 골라 주세요');
+    expect(error.getAttribute('role')).toBeNull();
+    // A blocked submit moves focus to the field, whose description reads the error; nothing else is announced.
+    expect(document.activeElement).toBe(trigger);
+    expect(within(dialog).queryAllByRole('alert')).toHaveLength(0);
     expect(writes).toHaveLength(0);
     expect(screen.getByRole('dialog')).toBeTruthy();
   });

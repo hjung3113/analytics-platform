@@ -186,6 +186,11 @@ describe('catalog drawer writes', () => {
     const message = await screen.findByText('같은 코드가 이미 있습니다');
     expect(message.getAttribute('id')).toBe(code.getAttribute('aria-describedby'));
     expect(code.getAttribute('aria-invalid')).toBe('true');
+    // The field error is the input's description, not a live alert; the form announces the rejection once.
+    expect(message.getAttribute('role')).toBeNull();
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0]?.textContent).toBe('표시된 칸을 확인해 주세요.');
     expect((code as HTMLInputElement).value).toBe('alpha');
     expect(writes.at(-1)?.action).toBe('logKnowledge.vendorCreate');
   });
