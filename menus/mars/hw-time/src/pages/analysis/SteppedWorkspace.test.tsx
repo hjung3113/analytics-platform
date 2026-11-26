@@ -110,8 +110,8 @@ describe('HW Time saved view panels', () => {
     const search = '&moduleType=PM&drillMotion=Pump&drillModule=PM1&motionEquipment=MEM-PHOTO-0105';
     await real(createFakeSavedViewStore([]), <Probe />, search);
     async function newTable(name: string) {
-      fireEvent.keyDown(await screen.findByRole('button', { name: '새 패널' }), { key: 'Enter' });
-      fireEvent.click(await screen.findByRole('menuitem', { name }));
+      fireEvent.click(await screen.findByRole('button', { name: '새 패널' }));
+      fireEvent.click(within(await screen.findByRole('dialog', { name: '새 패널' })).getByRole('button', { name }));
       await settle();
     }
     await newTable('원본 표 · 붙잡기');

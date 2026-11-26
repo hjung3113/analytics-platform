@@ -464,8 +464,8 @@ it('keeps settings open when the pinned following table becomes an instance besi
     savedViews: store, children: <Controls />, realWorkspace: true, realChart: 'hw-current', showDetail: true,
   });
   await waitFor(() => expect(views.status).toBe('ready'));
-  fireEvent.keyDown(screen.getByRole('button', { name: '새 패널' }), { key: 'Enter' });
-  fireEvent.click(await screen.findByRole('menuitem', { name: '원본 표 · 붙잡기' }));
+  fireEvent.click(screen.getByRole('button', { name: '새 패널' }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: '새 패널' })).getByRole('button', { name: '원본 표 · 붙잡기' }));
   const held = await screen.findByRole('tab', { name: '원본 표 · 붙잡음' });
   fireEvent.click(held);
   fireEvent.click(await screen.findByRole('button', { name: '원본 표 · 붙잡음 고정' }));
