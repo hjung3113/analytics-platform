@@ -22,7 +22,7 @@ export type MenuInputs = {
   binding: string;
 };
 
-export const SDK_RANGE = '>=0.49.0 <0.50.0';
+export const SDK_RANGE = '>=0.50.0 <0.51.0';
 
 /**
  * The scaffold's one permission: the manifest declares it and the sample endpoint's ACL requires

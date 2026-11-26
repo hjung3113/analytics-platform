@@ -2,7 +2,7 @@
   "name": "@ap/menu-master-data",
   "private": true,
   "version": "0.1.0",
-  "ap": { "sdk": ">=0.49.0 <0.50.0" },
+  "ap": { "sdk": ">=0.50.0 <0.51.0" },
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
