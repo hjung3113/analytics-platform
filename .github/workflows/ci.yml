@@ -140,6 +140,11 @@ jobs:
       - run: |
           node .github/scripts/check-sdk-skill-names.mjs --self-test
           node .github/scripts/check-sdk-skill-names.mjs
+      # #3183 (ADR-0090): a test the PR adds goes in a `__tests__/` folder. PR only: on a main push it would only turn main red after the merge; node builtins only, before install.
+      - if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          node .github/scripts/check-test-location.mjs --self-test
+          node .github/scripts/check-test-location.mjs --base "$FEATURE_LINT_BASE"
       # Fragments are Markdown, so validate even on docs-only PRs; no install or build needed.
       - run: node tooling/sdk/sdk-changelog.mjs --check
       - run: node tooling/changes/menus.mjs --check
