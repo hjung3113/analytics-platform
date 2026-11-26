@@ -240,6 +240,22 @@ it.each(['Escape', 'window blur', 'lost pointer capture', 'pointercancel'])('can
   expect(onDrop).not.toHaveBeenCalled();
 });
 
+it.each([['Escape', 'window blur'], ['window blur', 'lost pointer capture'], ['lost pointer capture', 'window blur']])('keeps the release click suppressed after %s then %s', async (...interrupts) => {
+  const { chip, chart } = await mount();
+  pointer(chip, 'pointerdown', 5);
+  pointer(window, 'pointermove', 250);
+  chart.focus();
+  for (const interrupt of interrupts) {
+    if (interrupt === 'Escape') fireEvent.keyDown(chart, { key: 'Escape' });
+    else if (interrupt === 'window blur') fireEvent(window, new FocusEvent('blur'));
+    else pointer(chip, 'lostpointercapture', 250);
+  }
+  pointer(window, 'pointerup', 250);
+  fireEvent.click(chip, { detail: 1 });
+  expect(screen.queryByRole('dialog', { name: 'equipment E1' })).toBeNull();
+  expect(onDrop).not.toHaveBeenCalled();
+});
+
 it.each(['window blur', 'lost pointer capture'])('starts the next drag after %s when the release never arrived', async reason => {
   const { chip, container } = await mount();
   pointer(chip, 'pointerdown', 5);

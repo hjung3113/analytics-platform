@@ -45,6 +45,11 @@ function panelAt(dock: HTMLElement, { clientX, clientY }: PointerPosition) {
   return body?.dataset.dockPanel ?? actions?.dataset.dockActive;
 }
 
+/** Why a panel does not take this chip: its own reason, or «not accepted» when it declares no drop. Overlay and release share it. */
+function dropRefusal(drop: PanelWorkspacePanel['analysisSelectionDrop'], chip: AnalysisSelectionChip): Text | undefined {
+  return drop ? drop.reason?.(chip) : COMPONENTS_MESSAGES.workspaceSelectionNotAccepted;
+}
+
 function suppressReleaseClick(win: Window, pointerId: number) {
   const listener = new AbortController();
   win.addEventListener('click', event => {
@@ -205,14 +210,15 @@ export function WorkspaceSelectionDrag({ root, panels }: {
         return;
       }
       const drop = currentDrops.current.get(id);
-      const refusal = drop ? drop.reason?.(chip) : COMPONENTS_MESSAGES.workspaceSelectionNotAccepted;
+      const refusal = dropRefusal(drop, chip);
       if (drop && !refusal) { drop.onDrop(chip); return; }
       restoreFocus();
       // The overlay that showed the reason is gone after the release: announce it (the menu path shows it as the item description).
       if (refusal) setNotice({ kind: 'refused', reason: refusal });
     }, options);
     // A cancel while the pointer may still be down keeps consuming its release click, so the chip editor does not open.
-    const interrupt = () => finish(phase === 'dragging' && connected() ? 'hold' : 'cancel');
+    // A second interrupt of a held gesture (Escape then blur, blur then lost capture) leaves it held.
+    const interrupt = () => { if (phase !== 'cancelled') finish(phase === 'dragging' && connected() ? 'hold' : 'cancel'); };
     win.addEventListener('pointercancel', cancelled => { if (cancelled.pointerId === pointerId) finish('cancel'); }, options);
     win.addEventListener('lostpointercapture', lost => {
       // Touch can transfer implicit capture from a child of the trigger when the drag starts.
@@ -231,7 +237,7 @@ export function WorkspaceSelectionDrag({ root, panels }: {
   const overlay = preview && <div aria-hidden className="pointer-events-none absolute inset-0 z-10 overflow-hidden">
     {preview.zones.map(({ id, left, top, width, height }) => {
       const drop = drops.get(id);
-      const reason = drop ? drop.reason?.(preview.chip) : COMPONENTS_MESSAGES.workspaceSelectionNotAccepted;
+      const reason = dropRefusal(drop, preview.chip);
       const hovered = !reason && id === preview.target;
       const availableState = hovered ? 'hovered' : 'available';
       return <div key={id} data-selection-drop-panel={id} data-selection-drop-state={reason ? 'rejected' : availableState} style={{
