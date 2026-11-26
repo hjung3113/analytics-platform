@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { render, screen } from '@testing-library/react';
 import { expect, it } from 'vitest';
-import { Button } from './Button.js';
+import { Button } from '../Button.js';
 
 it('shows a disabled reason and describes it without replacing existing descriptions', () => {
   render(

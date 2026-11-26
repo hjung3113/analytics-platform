@@ -9,10 +9,10 @@ function properties(path: string): Set<string> {
 }
 
 it('keeps platform extension tokens disjoint from the shared token files', () => {
-  const extension = properties('./platform-tokens.css');
+  const extension = properties('../platform-tokens.css');
   const upstream = new Set([
-    ...properties('./tokens.css'),
-    ...properties('./semantic.css'),
+    ...properties('../tokens.css'),
+    ...properties('../semantic.css'),
   ]);
   expect(extension.size).toBeGreaterThan(0);
   expect(upstream.size).toBeGreaterThan(0);
@@ -25,9 +25,9 @@ function values(path: string): Map<string, string> {
 }
 
 const palette = new Map([
-  ...values('./tokens.css'),
-  ...values('./semantic.css'),
-  ...values('./platform-tokens.css'),
+  ...values('../tokens.css'),
+  ...values('../semantic.css'),
+  ...values('../platform-tokens.css'),
 ]);
 
 it('keeps the v3 surfaces and muted text independent of the unchanged palette aliases (#2722)', () => {
@@ -120,7 +120,7 @@ it('leaves reduced motion to the shared compat rule (06 §26, #289)', () => {
 });
 
 it('keeps the violet theme to the accent-primary family and readable (#2723)', () => {
-  const violet = values('./themes.css');
+  const violet = values('../themes.css');
   expect([...violet.keys()].sort()).toEqual(['--accent-primary-hover', '--accent-primary-soft', '--border-selected', '--color-neon-lime', '--surface-row-selected']);
   const themed = (name: string): number[] => {
     const value = violet.get(`--${name}`) ?? palette.get(`--${name}`)!;
@@ -175,7 +175,7 @@ it('allows 10px non-typography dimensions', () => {
 });
 
 it('keeps 10px typography out of SDK source (#2726)', () => {
-  const sdk = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+  const sdk = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..');
   const sourceDirs = readdirSync(sdk).map(pkg => join(pkg, 'src')).filter(dir => existsSync(join(sdk, dir)));
   expect(sourceDirs).toEqual(expect.arrayContaining(
     ['components', 'contract-schemas', 'contracts', 'kernel', 'shell', 'ui'].map(pkg => join(pkg, 'src')),

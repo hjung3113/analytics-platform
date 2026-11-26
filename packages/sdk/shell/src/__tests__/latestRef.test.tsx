@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { useEffect, useLayoutEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { useLatestRef } from './latestRef';
+import { useLatestRef } from '../latestRef';
 
 // BoardDock and ContextBarLayout read their effect callbacks through this ref (#2955: no useEffectEvent below React 19.2).
 function Probe({ trigger, onRun, onLayout }: { trigger: number; onRun: (trigger: number) => void; onLayout: (trigger: number) => void }) {

@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
-import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
-import { useDetailPanelContent } from './layout/useDetailPanelContent';
+import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from '../DetailPanelSlot';
+import { useDetailPanelContent } from '../layout/useDetailPanelContent';
 
 function Host() {
   const slot = useDetailPanelSlotHost();

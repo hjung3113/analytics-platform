@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from './Table';
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '../Table';
 
 describe('static Table', () => {
   it('keeps sticky header borders on cells and removes only the final body cell borders', () => {

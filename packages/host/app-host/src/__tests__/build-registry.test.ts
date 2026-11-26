@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { menuPermission } from '@ap/contracts';
 import { RegistryError } from '@ap/kernel';
-import { buildRegistry } from './build-registry';
-import { testDeclarations, testMenu } from './test-support';
+import { buildRegistry } from '../build-registry';
+import { testDeclarations, testMenu } from '../test-support';
 
 describe('buildRegistry', () => {
   it('returns the Kernel registry for valid declarations', () => {

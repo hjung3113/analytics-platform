@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useIsTruncated } from './useIsTruncated';
+import { useIsTruncated } from '../useIsTruncated';
 
 // #2219: jsdom has no layout, so the box sizes are stubbed on the element the hook measures.
 function Probe({ text }: { text: string; scrollWidth?: number; clientWidth?: number }) {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Dialog, DialogContent, DialogTitle, DialogTrigger, Popover, PopoverContent, PopoverTrigger, TransientOverlayScope } from '../index';
+import { Dialog, DialogContent, DialogTitle, DialogTrigger, Popover, PopoverContent, PopoverTrigger, TransientOverlayScope } from '../../index';
 
 afterEach(cleanup);
 describe('retained owner transient portals', () => {

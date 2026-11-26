@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, expect, it } from 'vitest';
-import { Button } from './Button';
+import { Button } from '../Button';
 
 afterEach(cleanup);
 
@@ -36,7 +36,7 @@ it('limits secondary transparency to canvas bands rather than whole-page shells'
 it('treats only marked bands as canvas bands', () => {
   const { getByRole } = render(<Button variant="secondary">Bold</Button>);
   expect(getByRole('button')).toHaveClass('on-canvas-band:bg-transparent');
-  const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../styles/compat.css'), 'utf8');
+  const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../styles/compat.css'), 'utf8');
   const band = css.match(/@custom-variant on-canvas-band \(&:where\((.+) \*\)\);/)![1];
   const nearestBand = (html: string) => {
     const host = document.createElement('div');

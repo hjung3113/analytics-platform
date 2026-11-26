@@ -2,9 +2,9 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useContext, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { afterEach, expect, it, vi } from 'vitest';
-import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
-import { DetailPanelFullscreenContext, DetailPanelFullscreenToggle } from './panel/DetailPanelFullscreenContext';
-import { useDetailPanelContent } from './layout/useDetailPanelContent';
+import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from '../DetailPanelSlot';
+import { DetailPanelFullscreenContext, DetailPanelFullscreenToggle } from '../panel/DetailPanelFullscreenContext';
+import { useDetailPanelContent } from '../layout/useDetailPanelContent';
 
 function Host() { const slot = useDetailPanelSlotHost(); return <aside aria-label="slot" ref={slot.ref} data-expanded={slot.expanded} />; }
 function Panel() { const mode = useContext(DetailPanelFullscreenContext); return <><DetailPanelFullscreenToggle expandLabel="Expand" collapseLabel="Collapse" /><input aria-label="draft" /><span>{String(mode?.expanded)}</span></>; }

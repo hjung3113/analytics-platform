@@ -7,7 +7,7 @@ import { groupId, spaceId, type SavedViewSupport } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, diagnoseSavedView, useSavedViewPanels, useSavedViewSupport, useUnsavedGuard } from '@ap/kernel';
 import { PaneQueryDraftProvider, PaneScreenProvider, useHostPlatform, useLeaveRequest } from '@ap/kernel/host';
 import { ToastProbe, createFakeSavedViewStore as createFakeViewStore, memoryStorage, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities as ALL, useTestSavedViewTableSlots, type FakeSavedViewStore as FakeViewStore } from '@ap/kernel/testing';
-import { GlobalContextBar } from '../context/GlobalContextBar';
+import { GlobalContextBar } from '../../context/GlobalContextBar';
 
 // Passes through to the real diagnosis; one test swaps in a stale view whose migration throws when applied.
 vi.mock('@ap/kernel', async importOriginal => {

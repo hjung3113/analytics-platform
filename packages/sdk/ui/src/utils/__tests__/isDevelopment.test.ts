@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isDevelopment } from './isDevelopment';
+import { isDevelopment } from '../isDevelopment';
 
 describe('isDevelopment (#2951)', () => {
   afterEach(() => { vi.unstubAllEnvs(); });

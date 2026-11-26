@@ -19,7 +19,7 @@ UI Primitive layer (06 §13) and the design-system CSS. It knows no platform con
 
 - Consumers without platform extensions (feature screens) import `@ap/ui/styles/{tokens,semantic,theme,compat}.css` individually (plus `themes.css` in `layer(base)` to use accent themes), plus `@ap/ui/styles/sources.css` for class scanning.
 - `src/theme/` — `theme-tokens.json` and `tokens.generated.ts` are generated from the CSS source. Never edit them; change the color token, then run `pnpm --filter @ap/ui gen:theme`. Classify each new color token in `scripts/theme-tokens.config.mjs` as published or excluded, with the reason.
-- Public exports are explicit in `src/index.ts` and pinned by `src/public-exports.test.ts`.
+- Public exports are explicit in `src/index.ts` and pinned by `src/__tests__/public-exports.test.ts`.
 - `copyText.ts` is the one success rule for plain-text copy (06 §15); every copy action goes through it.
 - Kernel cannot import `@ap/ui`, so it keeps its own internal storage helper copy.
 - The IME Enter guard is `useImeEnterGuard`: a form takes its `onKeyDown`, a text field that acts on Enter itself returns early on `isComposingEnter(event)`; both put `onCompositionStart`/`onCompositionEnd` on the field or form.
