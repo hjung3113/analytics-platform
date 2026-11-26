@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { AnalysisSelectionChipZone } from '@ap/components';
-import { PANEL_INSTANCES_MAX, type PanelInstance } from '@ap/contracts';
+import { PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type PanelInstance } from '@ap/contracts';
 import { usePlatform } from '@ap/kernel';
 import { createFakeSavedViewStore, memoryStorage, testSavedView, useSavedViews, type SavedViews } from '@ap/kernel/testing';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -16,6 +16,7 @@ const page: [string, string][] = [['moduleType', 'PM'], ['drillMotion', 'Pump'],
 const range = '09-19/09-20';
 const table = (id = 'table'): PanelInstance => ({ id, source: { kind: 'declared', panel: 'table' }, inputs: [], outputs: [] });
 const action = '분석 선택 붙잡기';
+const holdEquipment = `${action} · 설비 ${equipment}`;
 const target = (id: string) => document.querySelector(`[data-selection-drop-panel="${id}"]`);
 let views: SavedViews;
 const hit = vi.fn();
@@ -90,7 +91,7 @@ async function dragTo(name: string, chipKey = MOTION_EQUIPMENT_KEY) {
   pointer(window, 'pointermove', 150);
 }
 
-async function item(tabName: string, name = action) {
+async function item(tabName: string, name = holdEquipment) {
   fireEvent.keyDown(await screen.findByRole('tab', { name: tabName }), { key: 'F10', shiftKey: true });
   return screen.findByRole('menuitem', { name });
 }
@@ -140,12 +141,21 @@ it('gives the keyboard menu and the drop identical saved panels, including a tab
   expect(await screen.findByRole('tab', { name: '원본 표 · 붙잡음' })).toBeTruthy();
   expect(screen.queryByRole('tab', { name: '원본 표' })).toBeNull();
   const fromMenu = await save('Held from menu');
+  expect(fromMenu.page).not.toContainEqual(['pins', 'table']);
   await open('saved');
   fireEvent.click(screen.getByRole('button', { name: 'Select equipment' }));
   await dragTo('원본 표');
   pointer(window, 'pointerup', 150);
   expect(await screen.findByRole('tab', { name: '원본 표 · 붙잡음' })).toBeTruthy();
-  expect((await save('Held by drop')).panels).toEqual(fromMenu.panels);
+  const fromDrop = await save('Held by drop');
+  expect(fromDrop.panels).toEqual(fromMenu.panels);
+  expect(fromDrop.page).not.toContainEqual(['pins', 'table']);
+  await open('saved');
+  await screen.findByRole('tab', { name: '원본 표' });
+  await open(fromDrop.id);
+  expect(await screen.findAllByRole('tab', { name: '원본 표 · 붙잡음' })).toHaveLength(1);
+  expect(screen.queryByRole('tab', { name: '원본 표' })).toBeNull();
+  expect(screen.queryByRole('tab', { name: '원본 표 2' })).toBeNull();
 });
 
 it('shows the panel rejection and refuses a chip of a different dimension', async () => {
@@ -155,7 +165,7 @@ it('shows the panel rejection and refuses a chip of a different dimension', asyn
   expect(target('table')?.textContent).toBe('설비 선택만 붙잡을 수 있습니다.');
   expect(target('previous')?.textContent).toBe('분석 선택을 받을 수 없는 패널');
   pointer(window, 'pointerup', 150);
-  const blocked = await item('원본 표');
+  const blocked = await item('원본 표', `${action} · 날짜 09-19 – 09-20`);
   expectDisabled(blocked, '설비 선택만 붙잡을 수 있습니다.');
   expect((await save('Unchanged')).panels?.instances).toEqual([table()]);
 });
@@ -173,4 +183,27 @@ it('refuses drag and menu when adding the held source would exceed 24 saved inst
   expectDisabled(blocked, reason);
   fireEvent.click(blocked);
   expect((await save('At the limit')).panels?.instances).toEqual(largest);
+});
+
+it('refuses a hold when the table already has 16 non-equipment inputs', async () => {
+  const publisher: PanelInstance = {
+    id: 'motion-chart', source: { kind: 'declared', panel: 'moduleMotions' }, inputs: [],
+    outputs: [{ key: 'other', dimension: 'other', shape: 'set' }],
+  };
+  const fullTable: PanelInstance = { ...table(), inputs: Array.from({ length: PANEL_INSTANCE_INPUTS_MAX }, (_, index) => ({
+    key: `other${index}`, from: 'motion-chart.other', mode: 'follow',
+  })) };
+  const original = [fullTable, publisher];
+  await mount(original, [...page, ['pins', 'table']]);
+  await dragTo('원본 표');
+  const reason = '패널 입력은 최대 16개까지 저장할 수 있습니다.';
+  expect(target('table')?.getAttribute('data-selection-drop-state')).toBe('rejected');
+  expect(target('table')?.textContent).toBe(reason);
+  pointer(window, 'pointerup', 150);
+  const blocked = await item('원본 표');
+  expectDisabled(blocked, reason);
+  fireEvent.click(blocked);
+  const saved = await save('Unchanged at the input limit');
+  expect(saved.panels?.instances).toEqual(original);
+  expect(saved.page).toContainEqual(['pins', 'table']);
 });

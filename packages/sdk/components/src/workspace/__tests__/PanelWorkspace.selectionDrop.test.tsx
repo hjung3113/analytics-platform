@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { groupId, NO_FEATURES, spaceId } from '@ap/contracts';
-import { createRegistry, I18nProvider, PlatformProvider } from '@ap/kernel';
+import { createRegistry, I18nProvider, PlatformProvider, type AnalysisSelectionChip } from '@ap/kernel';
 import { PaneScreenProvider } from '@ap/kernel/host';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { House } from 'lucide-react';
@@ -20,10 +20,12 @@ const registry = createRegistry({
   menus: [{
     id: 'home', group: groupId('analysis'), primary: true, path: '/', icon: House,
     label: label('Home'), description: label(''), permission: 'platform:view', requiresScope: false,
-    context: noContext, pageType: 'analysis', query: { mode: 'live' }, features: NO_FEATURES, pageKeys: ['equipment'],
-    repeatedPageKeys: ['equipment'], contextResetKeys: ['equipment'],
+    context: noContext, pageType: 'analysis', query: { mode: 'live' }, features: NO_FEATURES, pageKeys: ['equipment', 'comparison'],
+    repeatedPageKeys: ['equipment', 'comparison'], contextResetKeys: ['equipment', 'comparison'],
     panels: [{ id: 'chart', title: label('Chart'), grain: 'run', queryInputs: {}, displayInputs: {}, endpoints: [],
-      outputs: [{ key: 'equipment', action: 'select', selection: { dimension: 'equipment', shape: 'set' } }] }],
+      outputs: [{ key: 'equipment', action: 'select', selection: { dimension: 'equipment', shape: 'set' } }] },
+    { id: 'compare', title: label('Comparison chart'), grain: 'run', queryInputs: {}, displayInputs: {}, endpoints: [],
+      outputs: [{ key: 'comparison', action: 'select', selection: { dimension: 'equipment', shape: 'set' } }] }],
   }],
 });
 const session = testSession(['platform:view']);
@@ -56,31 +58,38 @@ function Pane({ id, children }: { id: string; children: ReactNode }) {
     onChange={() => {}} onLeave={() => {}}>{children}</PaneScreenProvider>;
 }
 
-async function mount({ enabled = true, reason, splitBar = false }: { enabled?: boolean; reason?: typeof rejected; splitBar?: boolean } = {}) {
+async function mount({ enabled = true, reason, splitBar = false, chartDrop }: {
+  enabled?: boolean; reason?: typeof rejected | ((chip: AnalysisSelectionChip) => typeof rejected | undefined);
+  splitBar?: boolean; chartDrop?: (chip: AnalysisSelectionChip) => void;
+} = {}) {
   const panels: PanelWorkspacePanel[] = [
-    { id: 'chart', title: label('Chart'), primary: true, render: () => <button>Chart body</button> },
+    { id: 'chart', title: label('Chart'), primary: true, render: () => <button>Chart body</button>,
+      ...(chartDrop && { analysisSelectionDrop: { onDrop: chartDrop } }) },
     { id: 'table', title: label('Table'), render: () => <div>Table body</div>,
-      ...(enabled && { analysisSelectionDrop: { reason: () => reason, onDrop } }) },
+      ...(enabled && { analysisSelectionDrop: { reason: typeof reason === 'function' ? reason : () => reason, onDrop } }) },
   ];
   const workspace = <PlatformPage><PanelWorkspace panels={panels} persistKey="selection" label={label('Workspace')} initialMode="fit" compactBelow={0}
       initialPreset="split" presets={[{ id: 'split', label: label('Split'), layout: { type: 'branch', dir: 'row', sizes: [1, 1], children: [
         { type: 'group', panels: ['chart'] }, { type: 'group', panels: ['table'] },
       ] } }]} /></PlatformPage>;
-  const bar = <section aria-label="Selection bar"><AnalysisSelectionChipZone /></section>;
-  const { container } = render(<I18nProvider><PlatformProvider registry={registry} adapter={adapter} slots={splitBar ? undefined : { contextBar: bar }}>
-    {splitBar ? <QueryBarExtensionsProvider>
-      <Pane id="body">{workspace}</Pane>
-      <Pane id="body">{bar}</Pane>
-      <Pane id="other"><section aria-label="Other pane"><AnalysisSelectionChipZone /></section></Pane>
-    </QueryBarExtensionsProvider> : workspace}
-  </PlatformProvider></I18nProvider>);
+  const view = (showChip: boolean) => {
+    const bar = <section aria-label="Selection bar">{showChip && <AnalysisSelectionChipZone />}</section>;
+    return <I18nProvider><PlatformProvider registry={registry} adapter={adapter} slots={splitBar ? undefined : { contextBar: bar }}>
+      {splitBar ? <QueryBarExtensionsProvider>
+        <Pane id="body">{workspace}</Pane>
+        <Pane id="body">{bar}</Pane>
+        <Pane id="other"><section aria-label="Other pane"><AnalysisSelectionChipZone /></section></Pane>
+      </QueryBarExtensionsProvider> : workspace}
+    </PlatformProvider></I18nProvider>;
+  };
+  const { container, rerender } = render(view(true));
   const table = await screen.findByText('Table body');
   const chart = await screen.findByRole('button', { name: 'Chart body' });
-  const chip = within(screen.getByRole('region', { name: 'Selection bar' })).getByRole('button', { name: 'equipment E1' });
+  const chip = screen.getByRole('region', { name: 'Selection bar' }).querySelector<HTMLButtonElement>('[data-analysis-chip-edit="equipment"]')!;
   const groups = [...container.querySelectorAll<HTMLElement>('.dv-groupview')];
   groups.forEach((group, index) => vi.spyOn(group, 'getBoundingClientRect').mockReturnValue(new DOMRect(index * 200, 100, 200, 200)));
   hit.mockImplementation((x: number) => x < 200 ? chart : table);
-  return { chip, chart, container };
+  return { chip, chart, container, groups, showChip: (show: boolean) => rerender(view(show)) };
 }
 
 function pointer(target: Window | Element, type: string, x: number) {
@@ -106,6 +115,56 @@ it('shows whole-panel targets after movement, hovers the table body and drops th
   expect(target(container)).toBeNull();
 });
 
+it.each(['scroll', 'resize', 'layout change'])('updates the preview and drop under a stationary pointer after %s', async change => {
+  const chartDrop = vi.fn();
+  const { chip, chart, container, groups } = await mount({ chartDrop });
+  pointer(chip, 'pointerdown', 5);
+  pointer(window, 'pointermove', 250);
+  expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
+
+  const chartGroup = groups[0]!;
+  vi.mocked(chartGroup.getBoundingClientRect).mockReturnValue(new DOMRect(100, 110, 200, 200));
+  hit.mockReturnValue(chart);
+  if (change === 'scroll') fireEvent.scroll(container);
+  else if (change === 'resize') observer.touch(element => element === chartGroup, 200);
+  else act(() => { chartGroup.style.left = '100px'; });
+
+  const chartTarget = container.querySelector<HTMLElement>('[data-selection-drop-panel="chart"]');
+  await waitFor(() => expect(chartTarget).toHaveAttribute('data-selection-drop-state', 'hovered'));
+  expect(chartTarget?.style.getPropertyValue('--selection-drop-left')).toBe('100px');
+  expect(target(container)).toHaveAttribute('data-selection-drop-state', 'available');
+  pointer(window, 'pointerup', 250);
+  expect(chartDrop).toHaveBeenCalledOnce();
+  expect(onDrop).not.toHaveBeenCalled();
+});
+
+it.each(['lostpointercapture', 'chip unmount'])('cleans up on %s and allows the next drag', async end => {
+  const { chip, container, showChip } = await mount({ splitBar: true });
+  const setPointerCapture = vi.fn();
+  Object.defineProperty(chip, 'setPointerCapture', { value: setPointerCapture });
+
+  pointer(chip, 'pointerdown', 5);
+  pointer(window, 'pointermove', 8);
+  expect(setPointerCapture).not.toHaveBeenCalled();
+  pointer(window, 'pointermove', 250);
+  expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
+
+  if (end === 'lostpointercapture') {
+    pointer(chip.firstElementChild!, end, 250);
+    expect(target(container)).toHaveAttribute('data-selection-drop-state', 'hovered');
+    pointer(chip, end, 250);
+  } else showChip(false);
+  await waitFor(() => expect(target(container)).toBeNull());
+  expect(setPointerCapture).toHaveBeenCalledExactlyOnceWith(1);
+  expect(onDrop).not.toHaveBeenCalled();
+  if (end === 'chip unmount') showChip(true);
+  const next = within(screen.getByRole('region', { name: 'Selection bar' })).getByRole('button', { name: 'equipment E1' });
+  pointer(next, 'pointerdown', 5);
+  pointer(window, 'pointermove', 250);
+  pointer(window, 'pointerup', 250);
+  expect(onDrop).toHaveBeenCalledOnce();
+});
+
 it.each(['Escape', 'window blur', 'pointercancel'])('cancels on %s and restores focus to the chip', async reason => {
   const { chip, chart, container } = await mount();
   pointer(chip, 'pointerdown', 5);
@@ -118,6 +177,10 @@ it.each(['Escape', 'window blur', 'pointercancel'])('cancels on %s and restores 
   expect(target(container)).toBeNull();
   expect(chip).toHaveFocus();
   pointer(window, 'pointerup', 250);
+  if (reason === 'Escape') {
+    fireEvent.click(chip, { detail: 1 });
+    expect(screen.queryByRole('dialog', { name: 'equipment E1' })).toBeNull();
+  }
   expect(onDrop).not.toHaveBeenCalled();
 });
 
@@ -141,7 +204,7 @@ it('shows the same rejection during drag and in the menu, and neither applies it
   pointer(window, 'pointerup', 250);
   expect(chip).toHaveFocus();
   fireEvent.keyDown(screen.getByRole('button', { name: 'Table 동작' }), { key: 'Enter' });
-  const action = await screen.findByRole('menuitem', { name: hold, description: rejected.ko });
+  const action = await screen.findByRole('menuitem', { name: `${hold} · equipment E1`, description: rejected.ko });
   expect(action).toHaveAttribute('aria-disabled', 'true');
   fireEvent.click(action);
   expect(onDrop).not.toHaveBeenCalled();
@@ -154,11 +217,36 @@ it('uses the same selection with the keyboard menu action', async () => {
   pointer(window, 'pointermove', 250);
   pointer(window, 'pointerup', 250);
   fireEvent.keyDown(screen.getByRole('button', { name: 'Table 동작' }), { key: 'Enter' });
-  const action = await screen.findByRole('menuitem', { name: hold });
+  const action = await screen.findByRole('menuitem', { name: `${hold} · equipment E1` });
   action.focus();
   await user.keyboard('{Enter}');
   expect(onDrop).toHaveBeenCalledTimes(2);
   expect(onDrop.mock.calls[1]).toEqual(onDrop.mock.calls[0]);
+});
+
+it('lists an accepted and rejected chip separately and adds their sources to matching summaries', async () => {
+  window.history.replaceState(null, '', '/?v=1&equipment=E1&comparison=E1');
+  await mount({ reason: chip => chip.key === 'comparison' ? rejected : undefined });
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Table 동작' }), { key: 'Enter' });
+  const accepted = await screen.findByRole('menuitem', { name: `${hold} · equipment E1 (Chart)` });
+  const blocked = screen.getByRole('menuitem', { name: `${hold} · equipment E1 (Comparison chart)`, description: rejected.ko });
+  expect(blocked).toHaveAttribute('aria-disabled', 'true');
+  fireEvent.click(blocked);
+  expect(onDrop).not.toHaveBeenCalled();
+  fireEvent.click(accepted);
+  expect(onDrop).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ key: 'equipment' }));
+});
+
+it('describes each rejected chip with its own reason', async () => {
+  const otherReason = label('This selection has too many values');
+  window.history.replaceState(null, '', '/?v=1&equipment=E1&equipment=E2&comparison=E3');
+  await mount({ reason: chip => chip.key === 'equipment' ? otherReason : rejected });
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Table 동작' }), { key: 'Enter' });
+  const blocked = await screen.findByRole('menuitem', { name: `${hold} · equipment E1 외 1`, description: otherReason.ko });
+  const other = screen.getByRole('menuitem', { name: `${hold} · equipment E3`, description: rejected.ko });
+  expect(blocked).toHaveAttribute('aria-disabled', 'true');
+  expect(other).toHaveAttribute('aria-disabled', 'true');
+  expect(blocked.getAttribute('aria-describedby')).not.toBe(other.getAttribute('aria-describedby'));
 });
 
 it('leaves chip editing and the panel menu unchanged without an opted-in panel', async () => {
@@ -173,7 +261,7 @@ it('leaves chip editing and the panel menu unchanged without an opted-in panel',
   fireEvent.keyDown(chip, { key: 'Escape' });
   fireEvent.keyDown(screen.getByRole('button', { name: 'Table 동작' }), { key: 'Enter' });
   expect(await screen.findByRole('menu')).toBeVisible();
-  expect(screen.queryByRole('menuitem', { name: hold })).toBeNull();
+  expect(screen.queryByRole('menuitem', { name: new RegExp(hold) })).toBeNull();
   expect(onDrop).not.toHaveBeenCalled();
 });
 

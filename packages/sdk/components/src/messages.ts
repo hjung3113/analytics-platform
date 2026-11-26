@@ -768,6 +768,7 @@ export const COMPONENTS_MESSAGES = {
   workspaceActions: { ko: '{title} 동작', en: '{title} actions' },
   workspaceHoldSelection: { ko: '분석 선택 붙잡기', en: 'Hold analysis selection' },
   workspaceHoldNamedSelection: { ko: '분석 선택 붙잡기 · {chip}', en: 'Hold analysis selection · {chip}' },
+  workspaceSelectionWithSource: { ko: '{chip} ({source})', en: '{chip} ({source})' },
   workspaceNoSelectionToHold: { ko: '분석 선택이 없습니다.', en: 'There is no analysis selection.' },
   workspaceSelectionNotAccepted: { ko: '분석 선택을 받을 수 없는 패널', en: 'This panel cannot receive analysis selections' },
   workspaceSplitRight: { ko: '오른쪽으로 나누기', en: 'Split to the right' },

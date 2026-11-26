@@ -1,5 +1,5 @@
-import { EQUIPMENT_SELECTION_DIMENSION, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
-import type { HeldAnalysisSelection } from '@ap/kernel';
+import { EQUIPMENT_SELECTION_DIMENSION, heldSelectionProblem, invalidMenuViewPanels, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelInstance, type PanelInstanceInput } from '@ap/contracts';
+import type { AnalysisSelectionChip, HeldAnalysisSelection } from '@ap/kernel';
 import { MOTION_EQUIPMENT_KEY } from '../../endpoints';
 import { panelDeclarations } from './panelDeclaration';
 import type { Step } from './stepped';
@@ -132,19 +132,29 @@ export function exceedsPanelLimit(panels: MenuViewPanels): boolean {
   return panels.instances.length > PANEL_INSTANCES_MAX;
 }
 
-const configurationOverflows = (config: CustomPanels, step: Step) => exceedsPanelLimit(buildSavedPanels(config, config.connectionsEdited ? undefined : step));
+const configurationToValidate = (config: CustomPanels, step: Step) => buildSavedPanels(config, config.connectionsEdited ? undefined : step);
 
 /** Hold the targeted table in its current slot, materializing it if only a pin drew it. */
-export function planTableHold(config: PanelConfiguration, step: Step, slot: string, value: AnalysisSelection, heldFrom?: string) {
+export function planTableHold(config: PanelConfiguration, step: Step, slot: string, chip: AnalysisSelectionChip, heldFrom?: string) {
+  const { key, dimension, selection } = chip;
+  if (key !== heldOutput.key || dimension !== heldOutput.dimension || selection.shape !== heldOutput.shape || heldSelectionProblem(selection)) {
+    return { kind: 'refused', reason: 'heldEquipmentOnly' } as const;
+  }
   const custom = config.kind === 'custom' ? config : noPanels;
   const target = custom.added.find(panel => panel.slot === slot);
   const instance = target?.instance ?? newPanelInstance(slot, panelDeclarations.table.id, [...custom.added.map(panel => panel.instance), ...custom.sources]);
   const source = heldSourceFor(custom);
-  const inputs = [...instance.inputs.filter(input => input.key !== heldOutput.key), equipmentHold(source.id, value)];
+  const inputs = [...instance.inputs.filter(input => input.key !== heldOutput.key), equipmentHold(source.id, selection)];
   const held: AddedPanel = { slot, heldFrom, instance: { ...instance, inputs } };
   const added = target ? custom.added.map(panel => panel === target ? held : panel) : [...custom.added, held];
   const next: CustomPanels = { ...custom, added, sources: source.sources };
-  return { config: next, overflows: configurationOverflows(next, step) };
+  const candidate = configurationToValidate(next, step);
+  if (exceedsPanelLimit(candidate)) return { kind: 'refused', reason: 'panelsFull' } as const;
+  if (invalidMenuViewPanels(candidate)) {
+    const reason = inputs.length > PANEL_INSTANCE_INPUTS_MAX ? 'heldInputsFull' : 'heldConfigurationInvalid';
+    return { kind: 'refused', reason } as const;
+  }
+  return { kind: 'held', config: next } as const;
 }
 
 export function panelAdditionOverflows(config: PanelConfiguration, step: Step, id: string, intent?: AddIntent): boolean {
@@ -160,7 +170,7 @@ export function planAdd(config: PanelConfiguration, id: string, step: Step, inte
   const base = materialize ? withAdded(config, id, step, { mode: 'follow' }).config : null;
   const added = withAdded(base ?? config, id, step, intent);
   const next = added.config ?? base;
-  const overflows = next !== null && configurationOverflows(next, step);
+  const overflows = next !== null && exceedsPanelLimit(configurationToValidate(next, step));
   return { config: next, slot: added.slot, overflows };
 }
 

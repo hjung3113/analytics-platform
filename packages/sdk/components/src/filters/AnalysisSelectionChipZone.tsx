@@ -8,6 +8,7 @@ import { usePublishedNextAnalysis, usePublishedSelectionDrag } from '../chart/Ne
 import { NextAnalysisMenuItem, useNextAnalysisItems, type DirectNextAnalysisAction } from '../chart/NextAnalysisItems';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { useElementSize, useObservedElementSize } from '../state/useElementSize';
+import { analysisSelectionChipLabel } from './analysisSelectionChipLabel';
 
 export type AnalysisSelectionChipZoneFit = { container: HTMLElement | null; summary: HTMLElement | null };
 type ClearChip = (key: string) => void;
@@ -172,17 +173,7 @@ function Chip({ chip, clear, editor, wrap, measuring, clearButtonRef, arrivalLin
     releases.current.get(interaction)?.();
     releases.current.delete(interaction);
   };
-  const dimension = chip.label?.[lang] ?? chip.dimension;
-  const title = chip.source?.title[lang];
-  const source = title && !/\{[^{}]+\}/.test(title) ? title : undefined;
-  const selection = chip.selection;
-  let value = '';
-  if (selection.shape === 'range') value = `${selection.from} – ${selection.to}`;
-  else {
-    const [first, ...others] = selection.values;
-    value = others.length > 0 ? m('analysisSelectionMoreValues', { first, count: others.length }) : first ?? '';
-  }
-  const text = `${dimension} ${value}`;
+  const { dimension, source, text } = analysisSelectionChipLabel(chip, lang);
   const origin = chip.arrival?.origin;
   const menu = origin && tx(origin.menuLabel);
   const arrivalPrefix = menu === undefined ? m('analysisSelectionArrivalPrefix') : m('analysisSelectionArrivalNamedPrefix', { menu });

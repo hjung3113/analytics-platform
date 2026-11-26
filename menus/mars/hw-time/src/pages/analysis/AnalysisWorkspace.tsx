@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChartNoAxesCombined, History, ListTree, TriangleAlert } from 'lucide-react';
-import { heldSelectionProblem, isAnswered, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelDeclaration, type PanelInstance } from '@ap/contracts';
-import { ANALYSIS_SELECTION_MAX_VALUES, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type MenuQueryState, type Text } from '@ap/kernel';
+import { isAnswered, PANEL_INSTANCE_INPUTS_MAX, PANEL_INSTANCES_MAX, type AnalysisSelection, type MenuViewPanels, type PanelDeclaration, type PanelInstance } from '@ap/contracts';
+import { ANALYSIS_SELECTION_MAX_VALUES, formatText, HeldAnalysisSelections, parseAnalysisSelection, useAnalysisSelectionInputs, useAnalysisSelectionOutput, useI18n, useMenuQuery, useMessages, usePlatform, useQueryContext, useSavedViewPanels, type AnalysisSelectionChip, type MenuQueryState, type Text } from '@ap/kernel';
 import {
   AnalysisChart, AnalysisChartFrame, DrillLayout, LegendTree, LoadingBlock, PageKeyWarning, PANEL_RECIPE_ITEM, PanelAddMenu, PanelOptions, PanelSettingsDrawer, PanelWorkspace, QueryView, StateMessage,
   getAnalysisSelectionFilterBadge, resolveAnalysisSelectionFilter, usePanelOptions, usePinnedPanels, type ChartPoint, type ChartPointAction, type LegendTreeNode, type NextAnalysisRows, type PanelOption, type PanelOptionValues, type PanelWorkspacePanel,
@@ -250,12 +250,18 @@ function nextConfig(state: { owner: string; query: string; config: PanelConfigur
   return defaultPanels;
 }
 
-function useWorkspacePanels(owner: string, query: string, step: Step) {
+function useWorkspacePanels(owner: string, query: string, step: Step, unpin: (id: string) => void) {
   const population = JSON.stringify([step, query]);
-  const [state, setState] = useState(() => ({ owner, query, population, config: defaultPanels, opening: false }));
+  const [state, setState] = useState(() => ({ owner, query, population, config: defaultPanels, opening: false, clearTablePin: false }));
   const samePopulation = state.population === population;
   const config = nextConfig(state, owner, query, samePopulation);
-  if (state.owner !== owner || !samePopulation || state.opening) setState({ owner, query, population, config, opening: false });
+  if (state.owner !== owner || !samePopulation || state.opening) setState({ owner, query, population, config, opening: false, clearTablePin: false });
+  useLayoutEffect(() => {
+    if (!state.clearTablePin) return;
+    // Clear the address pin only after the hold plan commits successfully.
+    unpin('table');
+    setState(current => ({ ...current, clearTablePin: false }));
+  }, [state.clearTablePin, unpin]);
   useSavedViewPanels({
     value: buildSavedPanels(config, step),
     onOpen: outcome => {
@@ -297,13 +303,13 @@ function useWorkspacePanels(owner: string, query: string, step: Step) {
     return { ...current, config: { ...current.config, added, sources: current.config.sources.map(disconnect) } };
   });
   const editConnections = (config: CustomPanels) => setState(current => ({ ...current, config: { ...config, connectionsEdited: true } }));
-  const holdTable = (slot: string, selection: AnalysisSelection, from?: string) => setState(current => {
+  const holdTable = (slot: string, chip: AnalysisSelectionChip, options: { from?: string; clearPin: boolean }) => setState(current => {
     if (current.owner !== owner || current.population !== population) return current;
-    const plan = planTableHold(current.config, step, slot, selection, from);
-    return plan.overflows ? current : { ...current, config: plan.config };
+    const plan = planTableHold(current.config, step, slot, chip, options.from);
+    return plan.kind === 'refused' ? current : { ...current, config: plan.config, clearTablePin: current.clearTablePin || options.clearPin };
   });
   return { config, add, remove, follow, editConnections, holdTable,
-    holdOverflows: (slot: string, selection: AnalysisSelection) => planTableHold(config, step, slot, selection).overflows,
+    planHold: (slot: string, chip: AnalysisSelectionChip, from?: string) => planTableHold(config, step, slot, chip, from),
     additionOverflows: (id: string) => panelAdditionOverflows(config, step, id) };
 }
 
@@ -315,10 +321,10 @@ export function AnalysisWorkspace({ filter }: { filter: HwTimeFilter }) {
   const step = stepOf(typeId, motionId, moduleId);
   const owner = JSON.stringify([session.user.id, revision, context.scopeId]);
   const population = JSON.stringify([step, owner, context]);
-  const savedPanels = useWorkspacePanels(owner, JSON.stringify(context), step);
+  const pins = usePinnedPanels('pins', CATALOG_IDS);
+  const savedPanels = useWorkspacePanels(owner, JSON.stringify(context), step, pins.unpin);
   const options = useMemo(() => workspaceOptions(step), [step]);
   const state = usePanelOptions(options);
-  const pins = usePinnedPanels('pins', CATALOG_IDS);
   // A saved view can pin a panel the catalog no longer has. Its reason slot shows the panel, so the opened address drops that pin
   // (one replace) instead of warning; until then the rule accepts it. A plain address with an unknown pin still warns.
   const missingPins = savedPanels.config.kind === 'custom' ? savedPanels.config.added.flatMap(({ instance }) => {
@@ -728,16 +734,17 @@ function WorkspacePanels(props: Omit<BarsProps, 'depth' | 'previous' | 'allMotio
     const isOpenTable = tables.open.some(({ id }) => id === panel.id);
     return { ...panel,
       analysisSelectionDrop: isOpenTable ? {
-        reason: ({ key, dimension, selection }) => {
-          if (key !== heldOutput.key || dimension !== heldOutput.dimension || selection.shape !== heldOutput.shape || heldSelectionProblem(selection)) {
-            return HW_TIME_WORKSPACE_MESSAGES.heldEquipmentOnly;
-          }
-          return savedPanels.holdOverflows(panel.id, selection) ? limitReason : undefined;
+        reason: chip => {
+          const plan = savedPanels.planHold(panel.id, chip, selectionHost);
+          if (plan.kind === 'held') return;
+          if (plan.reason === 'panelsFull') return limitReason;
+          const message = HW_TIME_WORKSPACE_MESSAGES[plan.reason];
+          const params = { max: PANEL_INSTANCE_INPUTS_MAX };
+          return { ko: formatText(message, 'ko', params), en: formatText(message, 'en', params) };
         },
-        onDrop: ({ selection }) => {
-          savedPanels.holdTable(panel.id, selection, selectionHost);
-          // The raw-table pin asks for a following table. Clear it here so holding the only table does not open a replacement.
-          if (tables.open.length === 1 && pins.isPinned('table')) pins.unpin('table');
+        onDrop: chip => {
+          // Clear the pin when holding the only table so it does not open a replacement following table.
+          savedPanels.holdTable(panel.id, chip, { from: selectionHost, clearPin: tables.open.length === 1 && pins.isPinned('table') });
         },
       } : undefined,
       onOpenSettings: trigger => {

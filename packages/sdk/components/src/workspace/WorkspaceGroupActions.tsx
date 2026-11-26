@@ -1,10 +1,12 @@
 import { useContext, useId, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, MoreHorizontal, Pin, X } from 'lucide-react';
+import type { Text } from '@ap/contracts';
 import { useAnalysisSelectionChips, useI18n, useMessages } from '@ap/kernel';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@ap/ui';
 import { DockChartCloseMore, DockChartLayoutActionsSlot, DockChartMaximizeTarget, type DockChartCloseFocus, type DockChartLayoutActions } from '../dock/DockChartHead';
 import type { DockLayoutMenu } from '../dock/layoutMenu';
+import { analysisSelectionChipLabel } from '../filters/analysisSelectionChipLabel';
 import { COMPONENTS_MESSAGES } from '../messages';
 import type { PanelWorkspaceSelectionDrop } from './PanelWorkspace';
 
@@ -141,30 +143,38 @@ export function WorkspaceGroupActions({ title, titleOf, menu, closeFocus, onMaxi
 
 function SelectionHoldItems({ drop }: { drop: PanelWorkspaceSelectionDrop }) {
   const { chips } = useAnalysisSelectionChips();
-  const { tx } = useI18n();
+  const { lang, tx } = useI18n();
   const m = useMessages(COMPONENTS_MESSAGES);
-  const reasonId = useId();
-  const label = m('workspaceHoldSelection');
-  const candidates = chips.map(chip => ({ chip, reason: drop.reason?.(chip) }));
-  const accepted = candidates.filter(candidate => !candidate.reason);
-  if (!accepted.length) {
-    const reason = candidates.at(-1)?.reason ?? COMPONENTS_MESSAGES.workspaceNoSelectionToHold;
-    return <LayoutItem aria-label={label} aria-disabled aria-describedby={reasonId}>
-      <span className="flex min-w-0 flex-col break-keep"><span>{label}</span><span id={reasonId} className="text-xs text-text-muted">{tx(reason)}</span></span>
-    </LayoutItem>;
+  if (!chips.length) {
+    return <SelectionHoldItem label={m('workspaceHoldSelection')} reason={COMPONENTS_MESSAGES.workspaceNoSelectionToHold} />;
   }
-  if (accepted.length === 1) return <LayoutItem onSelect={() => drop.onDrop(accepted[0]!.chip)}>{label}</LayoutItem>;
-  return accepted.map(({ chip }) => {
-    const { selection } = chip;
-    const first = selection.shape === 'set' ? selection.values[0] ?? '' : '';
-    let value = first;
-    if (selection.shape === 'range') value = `${selection.from} – ${selection.to}`;
-    else if (selection.values.length > 1) value = m('analysisSelectionMoreValues', { first, count: selection.values.length - 1 });
-    const dimension = chip.label ? tx(chip.label) : chip.dimension;
-    return <LayoutItem key={chip.key} onSelect={() => drop.onDrop(chip)}>
-      <span className="break-keep wrap-anywhere">{m('workspaceHoldNamedSelection', { chip: `${dimension} ${value}` })}</span>
-    </LayoutItem>;
+  const summaries = chips.map(chip => analysisSelectionChipLabel(chip, lang));
+  const names = chips.map((chip, index) => {
+    const { text, source } = summaries[index]!;
+    if (!summaries.some((other, i) => i !== index && other.text === text)) return text;
+    const arrival = chip.arrival?.origin?.menuLabel;
+    const origin = arrival && tx(arrival);
+    return m('workspaceSelectionWithSource', { chip: text, source: source ?? chip.source?.panelId ?? origin ?? chip.key });
   });
+  return chips.map((chip, index) => {
+    const name = names[index]!;
+    const distinct = names.some((other, i) => i !== index && other === name)
+      ? m('workspaceSelectionWithSource', { chip: name, source: chip.key })
+      : name;
+    return <SelectionHoldItem key={chip.key} label={m('workspaceHoldNamedSelection', { chip: distinct })}
+      reason={drop.reason?.(chip)} onSelect={() => drop.onDrop(chip)} />;
+  });
+}
+
+function SelectionHoldItem({ label, reason, onSelect }: { label: string; reason?: Text; onSelect?: () => void }) {
+  const { tx } = useI18n();
+  const reasonId = useId();
+  return <LayoutItem aria-label={label} aria-disabled={reason ? true : undefined} aria-describedby={reason ? reasonId : undefined} onSelect={onSelect}>
+    <span className="flex min-w-0 flex-col break-keep wrap-anywhere">
+      <span>{label}</span>
+      {reason && <span id={reasonId} className="text-xs text-text-muted">{tx(reason)}</span>}
+    </span>
+  </LayoutItem>;
 }
 
 function MergedLayoutActions({ register, takeCloseFocus, children }: {
