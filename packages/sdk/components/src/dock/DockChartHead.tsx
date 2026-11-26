@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useId, useLayoutEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 type Target = 'toolbar' | 'description' | 'maximize';
 type Targets = Partial<Record<Target, HTMLElement>>;
@@ -86,6 +86,22 @@ export function useDockChartHead(chart: string, { mounted = true, acceptsHead = 
   const pane = useDockPane(dock, panel);
   const single = singleFrameId(pane) === chart;
   return { targets: single ? pane?.targets : undefined, stripWidth: single ? pane?.stripWidth : undefined, layoutActions: single ? pane?.layoutActions : undefined, setMaximize };
+}
+
+/**
+ * A chart that will draw but has not yet (a chart query panel before its first result): it counts toward the pane's charts and never takes the
+ * head, so a pane whose first chart answers before the others does not join that chart to its head and split it again when the rest draw.
+ * Registers only; it does not subscribe to the pane.
+ */
+export function useDockPendingChart(pending: boolean) {
+  const panel = useContext(DockChartPaneId);
+  const register = useContext(DockChartContext)?.registerChart;
+  const chart = useId();
+  useLayoutEffect(() => {
+    if (!panel || !register || !pending) return;
+    register(panel, chart, false);
+    return () => { register(panel, chart, null); };
+  }, [panel, chart, pending, register]);
 }
 
 export function useDockChartSlot(panel: string | undefined, slot: 'toolbar' | 'description') {

@@ -6,7 +6,7 @@ import { useI18n, useMessages, type QueryState } from '@ap/kernel';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger, SkeletonBlocks, SkeletonRows, TransientOverlayScope } from '@ap/ui';
 import { Panel } from '../archetypes/Panel';
 import { useSharedOutcomeNotice } from '../filters/OutcomeScope';
-import { DockChartPaneId } from '../dock/DockChartHead';
+import { DockChartPaneId, useDockPendingChart } from '../dock/DockChartHead';
 import { useContextEditorOpener } from '../filters/QueryBarStatus';
 import { COMPONENTS_MESSAGES } from '../messages';
 import { PanelBadge } from '../workspace/PanelBadge';
@@ -216,6 +216,8 @@ export function QueryPanel<T>({ query, panel, children, fallback, emptyAction, r
   const refreshingPrevious = stale && !prior;
   const priorContent = prior || (workspace && stale);
   const result = response?.outcome === 'ok' ? response : prior?.response;
+  // Until its result draws, a chart panel still counts as one of its pane's charts (a pane head joins only a lone chart).
+  useDockPendingChart((panel.kind === 'chart' || panel.kind === 'chart-table') && !result);
   const dimmed = stale || (workspace !== null && loading);
   const empty = response?.outcome === 'empty';
   const causes = empty ? emptyCauses(response) : [];
