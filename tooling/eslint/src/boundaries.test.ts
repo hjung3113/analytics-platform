@@ -180,6 +180,12 @@ const rows: Row[] = [
   { file: 'packages/sdk/shell/src/x.ts', code: `import * as React from 'react'; export const { 'useEffectEvent': later } = React;`, rule: 'no-restricted-syntax', token: 'React 19.2' },
   { file: 'packages/sdk/kernel/src/x.ts', code: `import * as React from 'react'; export const later = React['useEffectEvent'];`, rule: 'no-restricted-syntax', token: 'React 19.2' },
   { file: 'menus/bravo/metrics/src/x.tsx', code: `import { useEffectEvent } from 'react';`, rule: '' },
+  // #3028: SDK source never calls isDevelopment() (Vite 8 keeps the guarded code); its tests and the menus may.
+  { file: 'packages/sdk/components/src/x.tsx', code: `import { isDevelopment } from '@ap/ui'; if (isDevelopment()) console.warn('x');`, rule: 'no-restricted-syntax', token: 'inline' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `import { isDevelopment } from '@ap/ui'; export const dev = isDevelopment();`, rule: 'no-restricted-syntax', token: '#3028' },
+  { file: 'packages/sdk/ui/src/utils/x.ts', code: `import { isDevelopment } from './isDevelopment'; export const dev = isDevelopment();`, rule: 'no-restricted-syntax', token: '#3028' },
+  { file: 'packages/sdk/ui/src/utils/x.test.ts', code: `import { isDevelopment } from './isDevelopment'; export const dev = isDevelopment();`, rule: '' },
+  { file: 'menus/bravo/metrics/src/x.tsx', code: `import { isDevelopment } from '@ap/ui'; export const dev = isDevelopment();`, rule: '' },
   // #2215: a text field's Enter handler goes through useImeEnterGuard().isComposingEnter (ui, components, shell, menu, app).
   { file: 'packages/sdk/ui/src/x.tsx', code: 'export const A = () => <input onKeyDown={e => { if (e.key === \'Enter\') go(); }} />;', rule: 'ap/ime-enter-guard', token: 'confirms a Korean composition' },
   { file: 'packages/sdk/ui/src/x.tsx', code: 'export function A() { function down(e) { switch (e.key) { case \'Enter\': go(); } } return <input onKeyDown={down} />; }', rule: 'ap/ime-enter-guard', token: 'confirms a Korean composition' },
