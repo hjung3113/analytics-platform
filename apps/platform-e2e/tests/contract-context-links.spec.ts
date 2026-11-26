@@ -292,10 +292,10 @@ test.describe('목적지 단건 조회 (06 §6.2, §22)', () => {
     await page.goto('/mars/equipment-detail/MEM-DIFF-0176?v=1&scopeId=MEM');
     await expectScopeValid(page, 'MEM · 메모리');
     await expect(mainHeading(page)).toHaveText('MEM-DIFF-0176'); // the URL id, not a fetched field
-    await expect(header.getByText('불러오지 못함')).toBeVisible();
+    await expect(header.getByText('위 안내 참고(권한 없음)', { exact: true })).toBeVisible();
     await header.getByRole('button', { name: '기술 정보' }).click(); // the server's sentence is folded (#1940)
     await expect(header.getByText('No grant for equipment')).toBeVisible();
-    await expect(panel.getByText('불러오지 못함')).toBeVisible();
+    await expect(panel.getByText('위 안내 참고(권한 없음)', { exact: true })).toBeVisible();
     await panel.getByRole('button', { name: '기술 정보' }).click(); // the server's sentence is folded (#1940)
     await expect(panel.getByText('No grant for equipment')).toBeVisible();
     await expect(page.getByRole('main').locator('[aria-busy="true"]')).toHaveCount(0);
