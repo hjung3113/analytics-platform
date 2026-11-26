@@ -303,6 +303,41 @@ it.each(['hover', 'keyboard'] as const)('reveals the full independent range on %
   expect(selection()).toEqual([]);
 });
 
+it('keeps the focused range tooltip open when keyboard navigation scrolls the grid', async () => {
+  const user = userEvent.setup();
+  render(withToolbar({ series: series.slice(0, 2), columns: 1, showAxisControl: true }));
+  await user.click(screen.getByRole('radio', { name: '칸마다 축' }));
+  await user.tab();
+  expect(tile(0)).toHaveFocus();
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('0–1 ms');
+
+  const scroll = screen.getByRole('grid').parentElement!;
+  Object.defineProperty(scroll, 'clientHeight', { value: 120 });
+  vi.spyOn(tile(1), 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 128, 0, 120));
+  await user.keyboard('{End}');
+  expect(scroll.scrollTop).toBe(128);
+  const tooltip = await screen.findByRole('tooltip');
+  expect(tooltip).toHaveTextContent('1–2 ms');
+
+  // jsdom does not dispatch a scroll event when scrollTop changes.
+  fireEvent.scroll(scroll);
+  expect(tile(1)).toHaveFocus();
+  expect(screen.getByRole('tooltip')).toBe(tooltip);
+
+  await user.keyboard('{Escape}');
+  expect(tile(1)).toHaveFocus();
+  expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  await user.keyboard('{Home}');
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('0–1 ms');
+  await user.tab({ shift: true });
+  expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+  await user.hover(tile(1));
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('1–2 ms');
+  fireEvent.scroll(scroll);
+  expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+});
+
 it('reserves at least 24 px for the plot in compact density', async () => {
   render(view({ series: series.slice(0, 1), density: 'compact' }));
   const button = await screen.findByRole('button', { name: 'Asset 0' });

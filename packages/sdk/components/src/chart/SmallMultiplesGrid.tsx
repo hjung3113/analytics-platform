@@ -1,4 +1,4 @@
-import { useContext, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useContext, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { formatDateTime, formatNumber, formatWallClock, type Text } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
@@ -79,6 +79,22 @@ function focusTile(scroll: HTMLDivElement, button: HTMLButtonElement) {
   else if (tileRect.bottom > portBottom) scroll.scrollTop += tileRect.bottom - portBottom;
 }
 
+function RangeTooltip({ range, gridScrollEvent, children }: {
+  range: string; gridScrollEvent: RefObject<Event | null>; children: ReactNode;
+}) {
+  const trigger = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  return <Tooltip open={open} onOpenChange={next => {
+    // Radix requests dismissal during scroll capture. Keep the same tooltip mounted for keyboard focus.
+    if (!next && gridScrollEvent.current?.eventPhase === Event.CAPTURING_PHASE && trigger.current?.matches(':focus-visible')) return;
+    setOpen(next);
+  }}>
+    {/* The button already describes the range and any status, even before the tooltip opens. */}
+    <TooltipTrigger asChild ref={trigger} aria-describedby={undefined}>{children}</TooltipTrigger>
+    <TooltipContent portal size="sm" className="max-w-xs wrap-anywhere">{range}</TooltipContent>
+  </Tooltip>;
+}
+
 export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLUMNS, density, showDensityControl, onDensityChange, boundLabels,
   sortOptions, sortId, defaultSortId = ORIGINAL_ORDER, onSortChange, showAxisControl,
   analysisSelectionOutput, selectionDisabled, actions }: SmallMultiplesGridProps) {
@@ -117,6 +133,19 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
   const [focusedId, setFocusedId] = useState<string>();
   const focusedButton = useRef<HTMLButtonElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const gridScrollEvent = useRef<Event>(null);
+  const hasTiles = tiles.length > 0;
+  useLayoutEffect(() => {
+    const scroll = scrollRef.current;
+    const view = scroll?.ownerDocument.defaultView;
+    if (!view) return;
+    // Register before the open tooltip installs its window capture listener.
+    const captureGridScroll = (event: Event) => {
+      if (event.target === scroll) gridScrollEvent.current = event;
+    };
+    view.addEventListener('scroll', captureGridScroll, { capture: true, passive: true });
+    return () => view.removeEventListener('scroll', captureGridScroll, { capture: true });
+  }, [hasTiles]);
   const focusedTile = tiles.find(tile => tile.id === focusedId);
   if (focusedId !== undefined && !focusedTile) setFocusedId(undefined);
   const tabbableId = (focusedTile ?? tiles[0])?.id;
@@ -198,7 +227,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
         </div>
       </InfoTip>}
       <h3 className="text-sm">{title}</h3>
-      {tiles.length > 0 && <span className="text-caption tabular text-text-secondary">{m('smallMultiplesCount', { count: formatY(tiles.length) })}</span>}
+      {hasTiles && <span className="text-caption tabular text-text-secondary">{m('smallMultiplesCount', { count: formatY(tiles.length) })}</span>}
       <ChartBoundsLegend bounds={legend} singleLine />
       {(options.length > 0 || actions) && <div className={cn('ml-auto flex items-center gap-2', options.length > 0 && 'flex-wrap')}>
         {options.length > 0 && <LocalPanelOptions options={options} values={{ [SORT_ID]: sort?.id ?? ORIGINAL_ORDER,
@@ -206,7 +235,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
         {actions}
       </div>}
     </div>
-    {tiles.length === 0 ? <p className="p-3 text-sm text-text-secondary">{m('panelTrustEmpty')}</p> :
+    {!hasTiles ? <p className="p-3 text-sm text-text-secondary">{m('panelTrustEmpty')}</p> :
       <TooltipProvider delayDuration={200}><div ref={scrollRef} className="scrollbar-panel min-h-0 overflow-y-auto overscroll-contain">
         <div role="grid" aria-label={title} className="space-y-2 p-3" style={rowStyle}>
           {Array.from({ length: rowCount }, (_, row) => <div key={row} role="row" className="grid grid-cols-(--small-multiples-columns) gap-2">
@@ -259,11 +288,7 @@ export function SmallMultiplesGrid({ title, unit, series, columns = DEFAULT_COLU
                   </span>
                 </button>;
               return <div key={tile.id} role="gridcell" className="min-w-0">
-                {range ? <Tooltip>
-                  {/* The button already describes the range and any status, even before the tooltip opens. */}
-                  <TooltipTrigger asChild aria-describedby={undefined}>{button}</TooltipTrigger>
-                  <TooltipContent portal size="sm" className="max-w-xs wrap-anywhere">{range}</TooltipContent>
-                </Tooltip> : button}
+                {range ? <RangeTooltip range={range} gridScrollEvent={gridScrollEvent}>{button}</RangeTooltip> : button}
               </div>;
             })}
           </div>)}
