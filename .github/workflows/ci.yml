@@ -95,6 +95,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          SERVER: ${{ steps.classify.outputs.server }}
           FULL_INPUT: ${{ inputs.full }}
         run: node .github/scripts/select-e2e.mjs
 
@@ -397,7 +398,7 @@ jobs:
     # The aggregate below reads `needs.feature-integration.result`, which fails when any shard fails.
     strategy:
       fail-fast: false
-      max-parallel: ${{ github.event_name != 'pull_request' && 3 || fromJSON(needs.changes.result == 'success' && needs.changes.outputs.integration_parallel || '3') }}
+      max-parallel: ${{ github.event_name != 'pull_request' && 3 || fromJSON(needs.changes.result == 'success' && needs.changes.outputs.integration_parallel || '2') }}
       matrix:
         shard: [1, 2, 3]
     services:
@@ -684,7 +685,7 @@ jobs:
     strategy:
       # Every shard runs to the end so the merged report lists every failing contract, not only the first shard's.
       fail-fast: false
-      max-parallel: ${{ github.event_name != 'pull_request' && 8 || fromJSON(needs.changes.result == 'success' && needs.changes.outputs.e2e_parallel || '3') }}
+      max-parallel: ${{ github.event_name != 'pull_request' && 8 || fromJSON(needs.changes.result == 'success' && needs.changes.outputs.e2e_parallel || '2') }}
       matrix:
         shard: ${{ fromJSON(needs.changes.result == 'success' && needs.changes.outputs.e2e_shards || '[1,2,3,4,5,6,7,8]') }}
     steps:
