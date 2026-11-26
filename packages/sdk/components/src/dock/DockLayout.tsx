@@ -160,7 +160,7 @@ export function DockLayout(props: DockLayoutProps) {
 }
 
 /** Internal workspace capabilities: rows, reveal, floating and a narrow projection measured once outside the edge strips. */
-export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; reveal?: { panelId: string; seq: number } | null; floating?: import('./dockTypes').DockFloating; narrow?: boolean; mergeChartHead?: boolean }) {
+export function DockLayoutBase(props: DockLayoutProps & { rows?: DockRows; reveal?: { panelId: string; seq: number } | null; floating?: import('./dockTypes').DockFloating; narrow?: boolean }) {
   const { rows, reveal, panels, layout, onLayoutChange, onActivate, maximizedPanelId = null, onMaximizedChange, onPanelDelete, renderTab, renderGroupActions, renderGroupTabsEnd, separatorLabel, stackBelow, label, currentPanelId, tabA11y, canDropAt } = props;
   const { t } = useI18n();
   const instanceId = useId();

@@ -154,19 +154,38 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); listeners.clear(); window.history.replaceState(null, '', '/'); });
 
 describe('dock renderer: tabs, selection and the Context bar', () => {
-  it('keeps a direct Frame inline with one board More in the pane header', async () => {
+  it('joins a single Frame into the pane head: one More, one maximize, the chart tools in the strip (#3052)', async () => {
     const chart = { menuId: 'chart', params: {}, query: w1 };
     seed(boardOf([sheet('a', { layout: '1x2', panes: [chart, beta(w2)] })]));
     mount();
     await ready();
     const tab = screen.getByRole('tab', { name: '칸 1 · chart' });
     const header = tab.closest<HTMLElement>('.dv-tabs-and-actions-container')!;
+    await waitFor(() => { expect(within(header).getByRole('toolbar', { name: '차트 동작' })).toBeInTheDocument(); });
     expect(header.querySelectorAll('[data-dock-group-menu]')).toHaveLength(1);
-    expect(within(header).getByRole('button', { name: '칸 1 동작' })).toBeInTheDocument();
-    expect(within(header).getByRole('button', { name: '칸 1 최대화' })).toBeInTheDocument();
-    expect(within(header).queryByRole('toolbar', { name: '차트 동작' })).toBeNull();
-    const frame = within(await screen.findByRole('region', { name: 'Board chart' }));
-    expect(frame.getByRole('toolbar')).toContainElement(frame.getByRole('button', { name: '확대' }));
+    expect(within(header).queryByRole('button', { name: '칸 1 동작' })).toBeNull();
+    expect(within(header).getAllByRole('button', { name: '칸 1 최대화' })).toHaveLength(1);
+    expect(within(header).getByRole('toolbar', { name: '차트 동작' })).toContainElement(within(header).getByRole('button', { name: '칸 1 최대화' }));
+    // A pane without a Frame keeps its own head.
+    const other = screen.getByRole('tab', { name: /^칸 2/ }).closest<HTMLElement>('.dv-tabs-and-actions-container')!;
+    expect(within(other).getByRole('button', { name: '칸 2 동작' })).toBeInTheDocument();
+    expect(within(other).queryByRole('toolbar', { name: '차트 동작' })).toBeNull();
+  });
+
+  it('offers the pane and layout actions in the merged More, and a move returns focus to the tab (#3052)', async () => {
+    const chart = { menuId: 'chart', params: {}, query: w1 };
+    seed(boardOf([sheet('a', { layout: '1x2', panes: [chart, beta(w2)] })]));
+    mount();
+    await ready();
+    const header = screen.getByRole('tab', { name: '칸 1 · chart' }).closest<HTMLElement>('.dv-tabs-and-actions-container')!;
+    const more = await waitFor(() => within(header).getByRole('button', { name: '더보기' }));
+    fireEvent.click(more);
+    const panel = await screen.findByRole('dialog', { name: '더보기' });
+    for (const name of ['이 조건을 시트의 모든 칸에 적용', '비우기', '칸 1 최대화', '칸 2 묶음으로 옮기기']) expect(within(panel).getByRole('button', { name })).toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole('button', { name: '칸 2 묶음으로 옮기기' }));
+    await settle();
+    expect(groupsOf(tree())).toHaveLength(1);
+    await waitFor(() => { expect(screen.getByRole('tab', { name: '칸 1 · chart' })).toHaveFocus(); });
   });
 
   it('keeps the non-opt-in Scope and Context controls available through engine loading and retry', async () => {

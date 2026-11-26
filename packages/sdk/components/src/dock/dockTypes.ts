@@ -73,6 +73,11 @@ export type DockLayoutProps = {
    */
   renderGroupTabsEnd?: (group: { panels: string[]; active: string }) => ReactNode;
   /**
+   * Opt-in (default off): a group with one tab whose panel holds a single Chart Frame draws one 36px head line (#3050, #3052). The Frame's tools join
+   * the strip, the host's header-right slot stays beside them, and the host joins the Frame's maximize and `⋯` through `useDockChartMerge`.
+   */
+  mergeChartHead?: boolean;
+  /**
    * The panel the host treats as current (the board's selected pane). The narrow display shows it, so what the user sees and what the host
    * works on stay the same panel; without it the narrow display follows the first group's active tab and the user's own tab choice.
    */
