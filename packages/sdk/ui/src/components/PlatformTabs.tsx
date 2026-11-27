@@ -71,13 +71,20 @@ function triggerLabel(el: HTMLElement): string {
 function sameState(a: OverflowState, b: OverflowState): boolean {
   return a.selected === b.selected
     && a.hidden.length === b.hidden.length && a.hidden.every((v, i) => v === b.hidden[i])
-    && a.items.length === b.items.length && a.items.every((x, i) => x.value === b.items[i]!.value && x.label === b.items[i]!.label && x.disabled === b.items[i]!.disabled);
+    && a.items.length === b.items.length && a.items.every((x, i) => {
+      const y = b.items[i];
+      return y !== undefined && x.value === y.value && x.label === y.label && x.disabled === y.disabled;
+    });
 }
 
 function prefixThatFits(widths: number[], available: number, reserve: number, limit: number): number {
   let used = 0;
   let count = 0;
-  while (count < Math.min(limit, widths.length) && used + widths[count]! + reserve <= available) { used += widths[count]!; count += 1; }
+  for (const width of widths.slice(0, limit)) {
+    if (used + width + reserve > available) break;
+    used += width;
+    count += 1;
+  }
   return count;
 }
 
@@ -231,7 +238,7 @@ const MenuTabsList = React.forwardRef<
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuRadioGroup value={selectedHidden ? state.selected! : ''} onValueChange={choose}>
+            <DropdownMenuRadioGroup value={selectedHidden ? selectedItem.value : ''} onValueChange={choose}>
               {hiddenItems.map(item => <DropdownMenuRadioItem key={item.value} value={item.value} disabled={item.disabled}>{item.label}</DropdownMenuRadioItem>)}
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
