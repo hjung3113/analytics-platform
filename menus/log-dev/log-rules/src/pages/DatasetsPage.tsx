@@ -1,9 +1,9 @@
 import { ExternalLink } from 'lucide-react';
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { AuditTimeline, DataTrustIndicator, DetailDrawer, PlatformDataTable, PlatformPage, RowAction } from '@ap/components';
-import { PlatformLink, formatFeedTime, formatListTime, formatSummaryTime, useI18n, useMenuAction, useMenuQuery, usePlatform, type PageProps } from '@ap/kernel';
+import { PlatformLink, useMenuAction, useMenuQuery, usePlatform, useTimeNotation, type PageProps } from '@ap/kernel';
 import type { AuditEvent } from '@ap/contracts';
-import { DatasetHost, DatasetScreen, DatasetsScreen, type Action, type BaselineEvent, type DatasetApi, type Params, type Presentation, type ReadState, type TableParts } from '@ap/feature-screens/operator-screens/log-datasets';
+import { DatasetScreen, MenuQueryHost, DatasetsScreen, type Action, type BaselineEvent, type DatasetApi, type Params, type Presentation, type ReadState, type TableParts } from '@ap/feature-screens/operator-screens/log-datasets';
 import { DATASET_APPROVE, DATASET_MANAGE, DATASET_RUN, datasetActions, datasetEndpoints, isUuid } from '../endpoints';
 import { isAnswered } from '@ap/contracts';
 
@@ -51,9 +51,8 @@ function DatasetCellLink(parts: Parameters<Presentation['cellLink']>[0]) {
 let rememberedRuns: { identity: string; current: { suiteId: string; page: number; suitePage: number } } | undefined;
 export default function DatasetsPage({ params = {} }: PageProps) {
   const { user, revision, can, navigate, linkTo } = usePlatform();
-  const { lang } = useI18n();
   // Dataset, Revision, Baseline approval and run times are server instants: the Kernel notation in the viewer's zone (#2587).
-  const time = useMemo(() => ({ list: (at: string, options?: { timeZone?: string }) => formatListTime(at, options), summary: (at: string) => formatSummaryTime(at, lang), feed: (at: string) => formatFeedTime(at, lang) }), [lang]);
+  const time = useTimeNotation();
   const navigateDataset = useCallback((datasetId?: string, suiteRunId?: string) => {
     if (!datasetId) navigate(linkTo('log-datasets'));
     else if (isUuid(datasetId) && (!suiteRunId || isUuid(suiteRunId))) navigate(linkTo(suiteRunId ? 'log-dataset-run' : 'log-dataset', { params: { datasetId, ...(suiteRunId ? { suiteRunId } : {}) }, returnTo: true }));
@@ -62,5 +61,5 @@ export default function DatasetsPage({ params = {} }: PageProps) {
   const identity = JSON.stringify([user.id, revision, params.datasetId]);
   const runNavigation = { current: rememberedRuns?.identity === identity ? rememberedRuns.current : { suiteId: '', page: 0, suitePage: 0 }, change(next: { suiteId: string; page: number; suitePage: number }) { runNavigation.current = next; rememberedRuns = { identity, current: next }; } };
   const props = { api, ui, runNavigation, actorId: user.id, canManage: can(DATASET_MANAGE), canApprove: can(DATASET_APPROVE), canRun: can(DATASET_RUN), navigate: navigateDataset };
-  return <DatasetHost time={time}><div key={`${user.id}:${revision}:${params.datasetId ?? 'list'}`} className="flex min-h-0 min-w-0 flex-1 flex-col break-keep">{invalid ? <PlatformPage><p role="alert" className="text-sm">주소의 ID가 올바르지 않습니다.</p></PlatformPage> : params.datasetId ? <DatasetScreen {...props} datasetId={params.datasetId} {...(params.suiteRunId ? { suiteRunId: params.suiteRunId } : {})} /> : <DatasetsScreen {...props} />}</div></DatasetHost>;
+  return <MenuQueryHost time={time}><div key={`${user.id}:${revision}:${params.datasetId ?? 'list'}`} className="flex min-h-0 min-w-0 flex-1 flex-col break-keep">{invalid ? <PlatformPage><p role="alert" className="text-sm">주소의 ID가 올바르지 않습니다.</p></PlatformPage> : params.datasetId ? <DatasetScreen {...props} datasetId={params.datasetId} {...(params.suiteRunId ? { suiteRunId: params.suiteRunId } : {})} /> : <DatasetsScreen {...props} />}</div></MenuQueryHost>;
 }

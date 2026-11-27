@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { HostSeam } from '../../../lib/host/host-seam';
 import type { LifecycleApi, ReadState, ScreenProps } from '../contracts';
-import { LifecycleHost } from '../host';
+import { MenuQueryHost } from '../../../lib/host/MenuQueryHost';
 import { pageCopy } from '../messages';
 import { RequestsScreen } from '../RequestsScreen';
 import { isRequestPeriodValue, requestPeriodInstant } from '../requestPeriod';
@@ -38,7 +38,7 @@ function setup(initial: Record<string, string> = {}, input: TimeInput | null = b
       api, ui: fakeUi(), canProject: true, canRound: true, actorId: 'actor', setSelection: vi.fn(), state,
       setState: patch => { writes.push(patch); setState(previous => { const next = { ...previous }; for (const [key, value] of Object.entries(patch)) { if (value === undefined) delete next[key]; else next[key] = value; } return next; }); },
     };
-    return <LifecycleHost navigate={vi.fn()} time={time(input ?? undefined)}><RequestsScreen {...props} /></LifecycleHost>;
+    return <MenuQueryHost navigate={vi.fn()} time={time(input ?? undefined)}><RequestsScreen {...props} /></MenuQueryHost>;
   }
   render(<Host />);
   // The period inputs live in the filter disclosure.

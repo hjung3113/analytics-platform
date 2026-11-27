@@ -359,6 +359,7 @@ carry set과 `contextResetKeys`는 이 키들을 그대로 가리킬 수 있다.
 - `formatListTime`은 비교할 수 있는 표·목록 시각 `YYYY-MM-DD HH:mm`을 반환한다.
 - `formatSummaryTime`은 상세·요약에 쓸 `M월 D일 HH:mm`(영어 `Mon D HH:mm`)을 반환한다. 사용자의 시간대에서 현재와 해가 다르면 연도를 붙인다.
 - `formatFeedTime`은 알림과 활동 흐름에 쓸 `text`와 전체 로컬 시각 `title`을 반환한다. 상대 시각이나 `어제 HH:mm`, `M월 D일`을 표시하고 같은 요소에 `title`을 붙인다.
+- `useTimeNotation()`은 세 함수를 현재 `useI18n()` 언어에 묶은 `{ list, summary, feed }`를 반환한다. 언어가 바뀔 때까지 같은 객체다. 화면에 표기를 넘기는 호스트(seam `time`)는 세 함수를 직접 묶지 않고 이것을 쓴다(#3195).
 
 실행 시간대 같은 벽시계 설정은 시점이 아니므로 자기 시간대로 보이고 그 시간대 이름을 함께 쓴다. 그 설정과 비교하라고 옆에 두는 시점은 `formatListTime(at, { timeZone })`으로 그 설정의 시간대에 표시한다(#2587).
 

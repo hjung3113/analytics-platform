@@ -1,14 +1,5 @@
-import { useMemo, type ReactNode } from 'react';
-import { HostSeamProvider, useHostNavigate, type HostNavigate, type HostSeam } from '../../lib/host/host-seam';
+import { useHostNavigate } from '../../lib/host/host-seam';
 
-/**
- * Native menu-query host needs navigation and the Kernel instant notation (`time`, #2587); it shares the existing feature
- * host seam without a REST session.
- */
-export function LifecycleHost({ navigate, time, children }: { navigate: HostNavigate; time?: HostSeam['time']; children: ReactNode }) {
-  const host = useMemo<HostSeam>(() => ({ canLink: () => false, Link: ({ children }) => <span>{children}</span>, notifyError: () => undefined, notifySuccess: () => undefined, useNavigate: () => navigate, ...(time ? { time } : {}) }), [navigate, time]);
-  return <HostSeamProvider value={host}>{children}</HostSeamProvider>;
-}
 export function useLifecycleNavigate() {
   const navigate = useHostNavigate();
   return (menu: 'project' | 'round' | 'models' | 'requests' | 'model-profile', id?: string, extra?: string, page?: { request?: string; attempt?: string }) => {

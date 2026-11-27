@@ -228,7 +228,7 @@ log-dev > 기준 (logRules)
 - 기대 표의 예외 사유·범위와 모든 근거 위치는 키보드로 전체 내용을 열 수 있다. 결과 검토 조작 이름에는 Rule ID를 포함한다.
 - 목록 로딩은 표 프레임·열 머리·스켈레톤·페이지 영역과 `aria-busy`를 유지하며 이전 조회 행을 숨긴다.
 - 모든 `not_comparable`/`unavailable`은 PASS 색을 쓰지 않는다.
-- **시각 표기(#2587).** 데이터셋 갱신, Revision 생성, Baseline 승인, 회귀 실행 요청 시각은 서버가 정한 실제 시점이다. 그래서 [kernel §6.3](../../../contract/kernel.md#63-시간-계약-decided-다중-사업장-같은-날짜교대일영업일은-open-domain-decision)의 Kernel 표기로 **사용자 시간대**에 보인다. 목록 표의 갱신 칸·내보내기, 회귀 실행 목록과 비교 실행 선택지는 `list`, 개요의 갱신과 Baseline 승인 줄은 `summary`, Revision 이력은 `feed`(상대 시각, 전체 시각은 `title`)다. 없는 시점은 `—`다. 화면은 호스트 seam `time`을 쓴다. seam을 제공하는 `DatasetHost`는 feature-screens에 있고, `menus/log-dev/log-rules`의 `DatasetsPage`가 `@ap/kernel` 표기를 `time`으로 넘긴다.
+- **시각 표기(#2587).** 데이터셋 갱신, Revision 생성, Baseline 승인, 회귀 실행 요청 시각은 서버가 정한 실제 시점이다. 그래서 [kernel §6.3](../../../contract/kernel.md#63-시간-계약-decided-다중-사업장-같은-날짜교대일영업일은-open-domain-decision)의 Kernel 표기로 **사용자 시간대**에 보인다. 목록 표의 갱신 칸·내보내기, 회귀 실행 목록과 비교 실행 선택지는 `list`, 개요의 갱신과 Baseline 승인 줄은 `summary`, Revision 이력은 `feed`(상대 시각, 전체 시각은 `title`)다. 없는 시점은 `—`다. 화면은 호스트 seam `time`을 쓴다. seam을 제공하는 `MenuQueryHost`는 feature-screens에 있고, `menus/log-dev/log-rules`의 `DatasetsPage`가 `@ap/kernel` `useTimeNotation()`을 `time`으로 넘긴다.
 
 ### 7.4 Wireframe·URL
 

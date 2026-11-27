@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LifecycleApi, ReadState, ScreenProps } from '../contracts';
-import { LifecycleHost } from '../host';
+import { MenuQueryHost } from '../../../lib/host/MenuQueryHost';
 import { LifecycleForm } from '../forms';
 import { ModelsScreen } from '../ModelsScreen';
 import { fakeUi } from './presentation';
@@ -23,14 +23,14 @@ function safariEnter(field: Element) {
 
 describe('form-level IME Enter guard', () => {
   it('LifecycleForm cancels the composition Enter and keeps a plain Enter', () => {
-    render(<LifecycleHost navigate={vi.fn()}><LifecycleForm {...props()} name="roundOpen" title="Round 열기" initial={{ projectId: 'p', sourceOwner: '' }} onClose={vi.fn()} /></LifecycleHost>);
+    render(<MenuQueryHost navigate={vi.fn()}><LifecycleForm {...props()} name="roundOpen" title="Round 열기" initial={{ projectId: 'p', sourceOwner: '' }} onClose={vi.fn()} /></MenuQueryHost>);
     const field = screen.getByRole('textbox', { name: '원본 소유자' });
     fireEvent.change(field, { target: { value: '설비팀' } });
     expect(safariEnter(field)).toBe(true);
     expect(fireEvent.keyDown(field, { key: 'Enter' })).toBe(true);
   });
   it('the model search form cancels the composition Enter and keeps a plain Enter', () => {
-    render(<LifecycleHost navigate={vi.fn()}><ModelsScreen {...props({ models: { rows: [], total: 0 } })} /></LifecycleHost>);
+    render(<MenuQueryHost navigate={vi.fn()}><ModelsScreen {...props({ models: { rows: [], total: 0 } })} /></MenuQueryHost>);
     const field = screen.getByRole('searchbox', { name: '모델 코드·이름 검색' });
     fireEvent.change(field, { target: { value: '식각' } });
     expect(safariEnter(field)).toBe(true);

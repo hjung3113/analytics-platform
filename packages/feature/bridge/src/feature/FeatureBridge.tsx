@@ -1,6 +1,6 @@
 import { useMemo, type ComponentType, type ReactNode } from 'react';
 import { ServerOff } from 'lucide-react';
-import { UNDO_WINDOW_MS, formatFeedTime, formatListTime, formatSummaryTime, useI18n, usePlatform, useUnsavedGuard } from '@ap/kernel';
+import { UNDO_WINDOW_MS, useI18n, usePlatform, useTimeNotation, useUnsavedGuard } from '@ap/kernel';
 import { StateMessage, useAccessRequestState } from '@ap/components';
 import { FeatureScreenRoot, type HostLinkProps, type HostNavigate, type HostNotice, type HostSearch, type HostSeam } from '@ap/feature-screens/global-screens/core';
 import type { TargetOf } from './links';
@@ -92,6 +92,7 @@ const useFollowHostHref: NonNullable<HostSeam['useFollowHostHref']> = () => {
 /** `useNavigate`/`useSearch`/`useTitle`/`useHere` must be module-level hooks (stable identities): the seam is memoized on them, so an unrelated render never rebuilds it (with `targetOf`, a navigation does: see `hrefLinkTo`). */
 export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink, targetOf, useNavigate = useNoNavigate, useSearch = useNoSearch, useTitle = useNoTitle, useHere = useNoHere }: { children: ReactNode; canLink?: HostSeam['canLink']; targetOf?: TargetOf; Link?: ComponentType<HostLinkProps>; useNavigate?: () => HostNavigate; useSearch?: () => HostSearch; useTitle?: (title: string | null) => void; useHere?: () => string }) {
   const { lang } = useI18n();
+  const time = useTimeNotation();
   const ko = lang === 'ko';
   const { toast, dismissToast, registry, linkTo, absoluteUrl } = usePlatform();
   const session = useFeatureSession();
@@ -111,11 +112,7 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
     } : {}),
     Link,
     lang,
-    time: {
-      list: (at, options) => formatListTime(at, options),
-      summary: at => formatSummaryTime(at, lang),
-      feed: at => formatFeedTime(at, lang),
-    },
+    time,
     usePermissionLinks,
     useAccessRequestState,
     useFollowHostHref,
@@ -139,7 +136,7 @@ export function FeatureBridge({ children, canLink = noLink, Link = UnlinkedLink,
     // The head element `FeatureScreenPage` offers for a screen's one primary action (null outside it); a module-level hook, so the seam stays stable.
     usePrimaryActionTarget,
     useUnsavedGuard,
-  }), [canLink, targetOf, hrefLinkTo, hrefAbsoluteUrl, registry, Link, lang, toast, dismissToast, useNavigate, useSearch, useTitle, useHere]);
+  }), [canLink, targetOf, hrefLinkTo, hrefAbsoluteUrl, registry, Link, lang, time, toast, dismissToast, useNavigate, useSearch, useTitle, useHere]);
 
   if (session.status === 'no-api') {
     return <StateMessage icon={<ServerOff className="size-4" aria-hidden />}

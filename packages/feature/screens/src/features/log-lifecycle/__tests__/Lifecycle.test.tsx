@@ -7,12 +7,12 @@ import { ModelsScreen } from '../ModelsScreen';
 import { ProjectScreen } from '../ProjectScreen';
 import { RoundScreen } from '../RoundScreen';
 import { RequestsScreen } from '../RequestsScreen';
-import { LifecycleHost } from '../host';
+import { MenuQueryHost } from '../../../lib/host/MenuQueryHost';
 import type { ReactNode } from 'react';
 import { GatePanel } from '../GatePanel';
 import { fakeUi } from './presentation';
 
-const render = (node: ReactNode) => renderBase(<LifecycleHost navigate={vi.fn()}>{node}</LifecycleHost>);
+const render = (node: ReactNode) => renderBase(<MenuQueryHost navigate={vi.fn()}>{node}</MenuQueryHost>);
 const ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const run = vi.fn().mockResolvedValue({ outcome: 'ok', data: {}, fieldErrors: [], version: '2' });
 const ui = fakeUi({ timeline: () => <p>변경 이력이 없습니다.</p>, trust: reasons => <p>{reasons.join(' · ')}</p>, sourceView: undefined });
@@ -334,10 +334,10 @@ describe('mutation and recovery boundaries', () => {
   it('keeps one page owner while the project read behind a Round resolves', () => {
     const pages = { ...ui, page: (p: Parameters<Presentation['page']>[0]) => <main><button type="button" data-owner="title">{String(p.title)}</button>{p.children}</main> };
     const read = (status: 'loading' | 'done') => ({ ...props({ projectDetail: status === 'done' ? project : null, roundDetail: gate() }), ui: pages, api: { useRead: <T,>(name: string): ReadState<T> => ({ status: name === 'projectDetail' ? status : 'done', data: (name === 'projectDetail' ? (status === 'done' ? project : null) : name === 'roundDetail' ? gate() : null) as T | null, retry: vi.fn() }) as ReadState<T>, useAction: () => ({ pending: false, run }) } });
-    const view = renderBase(<LifecycleHost navigate={vi.fn()}><ProjectScreen {...read('loading')} projectId={ID} roundId={ID} /></LifecycleHost>);
+    const view = renderBase(<MenuQueryHost navigate={vi.fn()}><ProjectScreen {...read('loading')} projectId={ID} roundId={ID} /></MenuQueryHost>);
     const heading = view.container.querySelector('[data-owner="title"]') as HTMLElement;
     heading.focus();
-    view.rerender(<LifecycleHost navigate={vi.fn()}><ProjectScreen {...read('done')} projectId={ID} roundId={ID} /></LifecycleHost>);
+    view.rerender(<MenuQueryHost navigate={vi.fn()}><ProjectScreen {...read('done')} projectId={ID} roundId={ID} /></MenuQueryHost>);
     expect(view.container.querySelector('[data-owner="title"]')).toBe(heading);
     expect(document.activeElement).toBe(heading);
   });
