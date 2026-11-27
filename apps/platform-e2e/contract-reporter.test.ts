@@ -13,12 +13,14 @@ test('report area retains outer contract and nested describe titles (#2010)', ()
     reporter.onBegin();
     const example = {
       id: 'nested', title: 'check', parent: { title: 'consumer' },
+      location: { file: '/repo/apps/platform-e2e/tests/contract.spec.ts', line: 1, column: 1 },
       titlePath: () => ['', 'chromium', 'contract.spec.ts', '06 §19', 'consumer', 'check'],
       outcome: () => 'expected',
     } as unknown as TestCase;
     reporter.onTestEnd(example, { attachments: [], retry: 0, status: 'passed' } as unknown as TestResult);
     reporter.onEnd({ status: 'passed' } as FullResult);
     const report = JSON.parse(readFileSync(join(outputDir, 'results.json'), 'utf8'));
+    assert.equal(report.rows[0].file, 'contract.spec.ts');
     assert.equal(report.rows[0].area, '06 §19 › consumer');
     assert.match(readFileSync(join(outputDir, 'README.md'), 'utf8'), /06 §19 › consumer/);
   } finally {
