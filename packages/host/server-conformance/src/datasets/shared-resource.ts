@@ -80,13 +80,3 @@ export function* sharedResourceRows(seedText: string, params: SharedResourcePara
     yield { events: [{ eventId, resourceKey: id('Q', draft.resource + 1, 2), startAt: iso(draft.start), endAt: iso(draft.end) }], links };
   }
 }
-
-export function generateSharedResource(seedText: string, params: SharedResourceParams): { events: EventRow[]; links: LinkRow[] } {
-  const events: EventRow[] = [];
-  const links: LinkRow[] = [];
-  for (const part of sharedResourceRows(seedText, params)) {
-    events.push(...part.events);
-    links.push(...part.links);
-  }
-  return { events, links };
-}

@@ -124,13 +124,3 @@ export function* intervalStepsRows(seedText: string, params: IntervalStepsParams
     yield { runs, steps };
   }
 }
-
-export function generateIntervalSteps(seedText: string, params: IntervalStepsParams): { runs: RunRow[]; steps: StepRow[] } {
-  const runs: RunRow[] = [];
-  const steps: StepRow[] = [];
-  for (const part of intervalStepsRows(seedText, params)) {
-    runs.push(...part.runs);
-    steps.push(...part.steps);
-  }
-  return { runs, steps };
-}
