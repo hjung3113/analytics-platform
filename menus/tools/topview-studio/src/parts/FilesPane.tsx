@@ -1,9 +1,8 @@
 import { useRef } from 'react';
-import type { QueryState } from '@ap/kernel';
+import { formatListTime, type QueryState } from '@ap/kernel';
 import { QueryView } from '@ap/components';
 import { Button, EmptyState, PanelSectionTitle, StatusBadge, cn } from '@ap/ui';
 import type { LayoutRow, RevisionRow, TemplateRow } from '../endpoints';
-import { formatPublished } from '../model/text';
 import { shortHash } from '../model/status';
 import { rowsOf } from '../model/query';
 
@@ -62,7 +61,7 @@ export function FilesPane({ layouts, layoutId, mode, revisionKey, templateKey, r
           : revisions.length === 0 && <EmptyState size="sm" density="compact" title="게시된 Revision이 없습니다" />}
         {(revisions ?? []).map(r => <div key={r.id} className={rowButton(mode === 'revision' && revisionKey === r.revision)}>
           <Button size="toolbar" variant="navigation" className="h-auto w-full justify-between" aria-current={mode === 'revision' && revisionKey === r.revision ? 'true' : undefined} onClick={() => onRevision(r.revision)}>
-            <span className="flex min-w-0 flex-col items-start py-1"><span className={cn('font-mono text-xs', mode === 'revision' && revisionKey === r.revision && 'font-semibold')}>{shortHash(r.revision)}</span><span className="text-xs text-text-secondary">{formatPublished(r.publishedAt)}</span></span>
+            <span className="flex min-w-0 flex-col items-start py-1"><span className={cn('font-mono text-xs', mode === 'revision' && revisionKey === r.revision && 'font-semibold')}>{shortHash(r.revision)}</span><span className="text-xs text-text-secondary">{formatListTime(r.publishedAt)}</span></span>
             <StatusBadge tone="success">게시됨</StatusBadge>
           </Button></div>)}
         <p className="px-2 text-xs text-text-muted">게시한 Revision은 바꿀 수 없습니다.</p>

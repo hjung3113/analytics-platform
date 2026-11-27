@@ -1,14 +1,6 @@
 /** Small text helpers of the Layouts screen. */
 import type { FieldError } from '@ap/contracts';
 
-const SEOUL = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-
-/** `YYYY-MM-DD HH:mm` in Seoul time for a server instant. */
-export function formatPublished(iso: string): string {
-  const parts = Object.fromEntries(SEOUL.formatToParts(new Date(iso)).map((part) => [part.type, part.value]));
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
-}
-
 const CODE_TEXT: Record<string, string> = {
   duplicate: '이미 사용 중인 EV Template id입니다.',
   bundled_template_id: '기본 제공 EV Template id는 사용할 수 없습니다.',
