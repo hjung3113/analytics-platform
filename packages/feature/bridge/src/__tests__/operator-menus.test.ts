@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MenuEntry } from '@ap/kernel';
-import { listScopeCapability, usesListScope } from './operator-menus';
+import { listScopeCapability, usesListScope } from '../operator-menus';
 
 const menu = (group: string, pageKeys: readonly string[] = ['managedSystem']) => ({ group, pageKeys }) as unknown as MenuEntry;
 

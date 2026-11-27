@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
  * What the bridge may reach inside feature (platform ADR-0071): the entry's whole import graph (static, type,
  * re-export and dynamic specifiers) has no router, no login/session shell, no second network path. Source scan, no bundler.
  */
-const screen = fileURLToPath(new URL('../../../..', import.meta.url));
+const screen = fileURLToPath(new URL('../../../../..', import.meta.url));
 const FRONTEND_SRC = join(screen, 'packages/feature/screens/src');
 const INBOX_PANEL_ENTRY = join(FRONTEND_SRC, 'global-screens/inbox-panel.ts');
 const ENTRIES = [join(FRONTEND_SRC, 'global-screens/index.ts'), join(FRONTEND_SRC, 'global-screens/core.ts'), INBOX_PANEL_ENTRY, join(FRONTEND_SRC, 'operator-screens/scope-picker/index.ts')];
@@ -74,14 +74,14 @@ it('keeps the SDK request hook outside feature screens, including their test dep
 
 describe('Feature bridge entry graph (ADR-0071)', () => {
   it.each(EAGER_MODULES)('keeps the eagerly loaded %s off the screen barrel (main chunk)', file => {
-    const text = readFileSync(fileURLToPath(new URL(file, import.meta.url)), 'utf8');
+    const text = readFileSync(fileURLToPath(new URL(`../${file}`, import.meta.url)), 'utf8');
     // An entry that imports feature at all imports only the `core` subset; `voc-compose-slot.tsx` imports none (it lazy-loads its page).
     if (FEATURE_SCREENS_IMPORT.test(text)) expect(text).toMatch(/from\s*['"]@ap\/feature-screens\/global-screens\/core['"]/);
     expect(FULL_ENTRY_IMPORT.test(text)).toBe(false);
   });
 
   it('uses public entries rather than feature aliases or relative package escapes', () => {
-    const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
+    const root = resolve(fileURLToPath(new URL('../../', import.meta.url)));
     const src = join(root, 'src');
     const violations: string[] = [];
     for (const name of readdirSync(src, { recursive: true }) as string[]) {
@@ -109,7 +109,7 @@ describe('Feature bridge entry graph (ADR-0071)', () => {
   });
 
   it('keeps the notifications slot off the InboxPanel entry (its page loads it lazily)', () => {
-    const slot = readFileSync(fileURLToPath(new URL('notifications-slot.tsx', import.meta.url)), 'utf8');
+    const slot = readFileSync(fileURLToPath(new URL('../notifications-slot.tsx', import.meta.url)), 'utf8');
     expect(slot).not.toMatch(/inbox-panel|InboxPanel/);
     expect(slot).toMatch(/lazy\(\(\) => import\('\.\/pages\/RecentInbox'\)\)/);
   });

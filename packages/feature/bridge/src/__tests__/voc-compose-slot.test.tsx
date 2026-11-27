@@ -6,11 +6,11 @@ import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { groupId, spaceId } from '@ap/contracts';
 import { UserRound } from 'lucide-react';
 import { VOC_CREATE_TARGETS_QUERY_KEY } from '@ap/feature-screens/global-screens/core';
-import { setFeatureApi } from './feature-api';
-import { featureQueryClient } from './feature/session';
-import { LAZY_MOUNT_WAIT } from './testing';
-import type { DefaultStatus } from './default-status';
-import { vocComposeSlot } from './voc-compose-slot';
+import { setFeatureApi } from '../feature-api';
+import { featureQueryClient } from '../feature/session';
+import { LAZY_MOUNT_WAIT } from '../testing';
+import type { DefaultStatus } from '../default-status';
+import { vocComposeSlot } from '../voc-compose-slot';
 
 // ProseMirror refuses text in jsdom, so the editor is a textarea (the feature screens' own compose tests do the same).
 vi.mock('@ap/ui', async importOriginal => ({

@@ -5,10 +5,10 @@ import { PlatformPage, QueryView } from '@ap/components';
 import { defineEndpoint, groupId, spaceId } from '@ap/contracts';
 import { createRegistry, I18nProvider, PlatformProvider, useMenuQuery } from '@ap/kernel';
 import { memoryStorage, noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
-import { accessRequestSlot } from './access-request-slot';
-import { setFeatureApi } from './feature-api';
-import { featureQueryClient } from './feature/session';
-import { LAZY_MOUNT_WAIT } from './testing';
+import { accessRequestSlot } from '../access-request-slot';
+import { setFeatureApi } from '../feature-api';
+import { featureQueryClient } from '../feature/session';
+import { LAZY_MOUNT_WAIT } from '../testing';
 
 const SITE = 'SITE-B';
 const ROOM = 'RB4';

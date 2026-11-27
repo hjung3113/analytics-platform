@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
  * A consumer stylesheet reaches feature-screens classes through the package's style entry (`@import "<package>/styles.css"`),
  * never through an `@source` into its folders: a moved folder then fails loudly in one file instead of dropping classes silently (#1640).
  */
-const root = fileURLToPath(new URL('../../../..', import.meta.url));
+const root = fileURLToPath(new URL('../../../../..', import.meta.url));
 const SCAN_ROOTS = ['platform', 'menus', 'packages', 'apps/platform-web'];
 const SKIP = new Set(['node_modules', 'dist', '.turbo']);
 

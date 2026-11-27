@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { operatorHostLinks } from './operator-links';
+import { operatorHostLinks } from '../operator-links';
 import {
   milestonesRoute,
   myTasksRoute,
@@ -9,7 +9,7 @@ import {
   taskListRoute,
   taskOperatorTargets,
   taskRequestsRoute,
-} from './task-routes';
+} from '../task-routes';
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const AREA = '55555555-5555-4555-8555-555555555555';

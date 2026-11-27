@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { operatorHostLinks } from './operator-links';
+import { operatorHostLinks } from '../operator-links';
 
 describe('operatorHostLinks: requester page', () => {
   it('links /permission-requests (the duplicate-request notice reaches it from an operator screen) and only that exact path', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { adminOperatorTargets, analyticsAreasRoute, managedSystemsRoute, permissionGrantsRoute, permissionRequestsRoute, permissionGroupsRoute, settingsRoute } from './admin-routes';
-import { operatorHostLinks } from './operator-links';
+import { adminOperatorTargets, analyticsAreasRoute, managedSystemsRoute, permissionGrantsRoute, permissionRequestsRoute, permissionGroupsRoute, settingsRoute } from '../admin-routes';
+import { operatorHostLinks } from '../operator-links';
 
 const SYSTEM = '33333333-3333-4333-8333-333333333333';
 const ROW = '99999999-9999-4999-8999-999999999999';

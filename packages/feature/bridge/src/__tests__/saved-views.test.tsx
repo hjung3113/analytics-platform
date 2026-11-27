@@ -5,9 +5,9 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { NO_FEATURES, contextCapabilities, carrySetId, groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession, useToastsForTest } from '@ap/kernel/testing';
-import { featureApi, setFeatureApi } from './feature-api';
-import { featureQueryClient } from './feature/session';
-import { savedViewsSlot } from './saved-views';
+import { featureApi, setFeatureApi } from '../feature-api';
+import { featureQueryClient } from '../feature/session';
+import { savedViewsSlot } from '../saved-views';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -90,7 +90,7 @@ async function type(value: string) {
 }
 
 // The first mount lazily imports the whole SavedViews page graph: about 2 s cold on a quiet machine, over 5 s on a loaded CI runner. Pay it in a hook with its own budget so the first test never races the default 5 s timeout (the rest of the file failed with it).
-beforeAll(async () => { await import('./pages/SavedViews'); }, 60_000);
+beforeAll(async () => { await import('../pages/SavedViews'); }, 60_000);
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', memoryStorage());

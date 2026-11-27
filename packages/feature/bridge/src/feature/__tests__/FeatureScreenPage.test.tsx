@@ -6,9 +6,9 @@ import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSession, testSpace } from '@ap/kernel/testing';
 import { carrySetId, groupId, spaceId } from '@ap/contracts';
 import { HostPrimaryAction, useHostSearch } from '@ap/feature-screens/global-screens/core';
-import { setFeatureApi } from '../feature-api';
-import { FeatureScreenPage } from './FeatureScreenPage';
-import { operatorRoute, routeHere, routeSearch } from './operator-route';
+import { setFeatureApi } from '../../feature-api';
+import { FeatureScreenPage } from '../FeatureScreenPage';
+import { operatorRoute, routeHere, routeSearch } from '../operator-route';
 
 const route = operatorRoute({ screenPath: '/vocs', screenFixed: { view: 'inbox' }, menuId: 'inbox', keys: { selected: 'focus', managedSystem: 'managedSystem' } });
 const useSearch = routeSearch(route);

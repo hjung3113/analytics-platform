@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { operatorRoute } from './operator-route';
+import { operatorRoute } from '../operator-route';
 
 const inbox = operatorRoute({
   screenPath: '/vocs',

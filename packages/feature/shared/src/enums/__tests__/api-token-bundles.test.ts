@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { API_TOKEN_SCOPE_BUNDLES, visibleApiTokenScopeBundles } from './api-token-bundles.js';
-import { CAPABILITIES, CAPABILITY_META, isCapability, isTokenOnlyScope } from './capabilities.js';
+import { API_TOKEN_SCOPE_BUNDLES, visibleApiTokenScopeBundles } from '../api-token-bundles.js';
+import { CAPABILITIES, CAPABILITY_META, isCapability, isTokenOnlyScope } from '../capabilities.js';
 
 describe('API token scope bundles', () => {
   it('includes knowledge draft creation in the write preset', () => {

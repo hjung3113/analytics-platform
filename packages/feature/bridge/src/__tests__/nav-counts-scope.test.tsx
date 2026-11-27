@@ -2,19 +2,19 @@ import { cleanup, render, waitFor } from '@testing-library/react';
 import { QueryClient } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spaceId } from '@ap/contracts';
-import { navCountsSlot } from './nav-counts';
+import { navCountsSlot } from '../nav-counts';
 
 const state = vi.hoisted(() => ({ raw: null as string | null, status: 'ready' }));
 const fetchCounts = vi.hoisted(() => vi.fn<(options: { managedSystemId?: string; signal?: AbortSignal }) => Promise<{ counts: Record<string, number> }>>().mockResolvedValue({ counts: { 'voc.inbox': 7 } }));
 vi.mock('@ap/kernel', () => ({ usePlatform: () => ({ pageParam: () => state.raw }) }));
 vi.mock('@ap/feature-screens/global-screens/core', async importOriginal => ({ ...(await importOriginal<typeof import('@ap/feature-screens/global-screens/core')>()), fetchNavCounts: fetchCounts }));
-vi.mock('./operator-menus', () => ({ SCOPE_KEY: 'managedSystem', usesNavCounts: () => true }));
-vi.mock('./feature/session', () => ({
+vi.mock('../operator-menus', () => ({ SCOPE_KEY: 'managedSystem', usesNavCounts: () => true }));
+vi.mock('../feature/session', () => ({
   featureQueryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }),
   useFeatureSession: () => ({ status: state.status }),
 }));
 
-import { featureQueryClient } from './feature/session';
+import { featureQueryClient } from '../feature/session';
 
 const Counts = navCountsSlot.For(spaceId('flow'), null)!;
 const UUID = '33333333-3333-4333-8333-333333333333';
