@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SERVER_FIELDS_SUMMARY, withFieldsSummary } from './fieldRejection';
+import { SERVER_FIELDS_SUMMARY, withFieldsSummary } from '../fieldRejection';
 
 describe('withFieldsSummary', () => {
   it('adds the summary when a field key was mapped', () => {
