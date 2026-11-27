@@ -3,6 +3,7 @@ import { operatorRoute, routeHere, routeSearch, type OperatorRoute } from './ope
 import type { CarryTarget, PlatformTarget, TargetOf } from './links';
 import { surveyTarget } from './survey-links';
 import { UUID_PATTERN } from './uuid';
+import { ownValue } from './own-value';
 
 /**
  * Surveys route table (#764 s, #595 4f): the feature screens' `/surveys…` → the platform Surveys-management menu and back. `selected` is the platform `focus`
@@ -30,7 +31,7 @@ export const useSurveysSearch = routeSearch(surveysRoute);
 export const useSurveysHere = routeHere(surveysRoute);
 
 const CHILD_PATH = /^\/surveys\/([^/]+)(\/results|\/follow-up)?$/;
-const CHILD_MENU: Record<string, string> = { '': 'survey-builder', '/results': 'survey-results', '/follow-up': 'survey-follow-up' };
+const CHILD_MENU: Readonly<Record<string, string>> = { '': 'survey-builder', '/results': 'survey-results', '/follow-up': 'survey-follow-up' };
 /** The list scope the three child screens carry back (screen key → platform page key). */
 const CHILD_KEYS: Readonly<Record<string, string>> = {
   managedSystem: 'managedSystem',
@@ -60,12 +61,15 @@ export const surveyChildTarget: TargetOf = (to): PlatformTarget | null => {
     if (key === 'builder') {
       if (child !== '' || value !== 'true') return null;
       builder = true;
-    } else if (Object.hasOwn(CHILD_KEYS, key)) {
-      if (value !== '') page[CHILD_KEYS[key]!] = key === 'managedSystem' && value === 'all' ? null : value;
-    } else return null;
+    } else {
+      const pageKey = ownValue(CHILD_KEYS, key);
+      if (pageKey === undefined) return null;
+      if (value !== '') page[pageKey] = key === 'managedSystem' && value === 'all' ? null : value;
+    }
   }
-  if (child === '' && !builder) return null;
-  return { menuId: CHILD_MENU[child]!, params: { surveyId }, page };
+  const menuId = ownValue(CHILD_MENU, child);
+  if (menuId === undefined || (child === '' && !builder)) return null;
+  return { menuId, params: { surveyId }, page };
 };
 
 /** The Surveys targets in the order `operatorHostLinks` must try them (it spreads this): the reporter `/surveys/participate` and `/respond` first, then the child screens, then the list. */
@@ -131,14 +135,20 @@ function surveyChildRoute({ menuId, suffix, builder, focus }: ChildSpec): Operat
     toFoHash: () => '',
     preset(screenSearch) {
       const page: Record<string, string> = {};
-      for (const [screenKey, value] of Object.entries(screenSearch)) if (Object.hasOwn(CHILD_KEYS, screenKey)) page[CHILD_KEYS[screenKey]!] = value;
+      for (const [screenKey, value] of Object.entries(screenSearch)) {
+        const pageKey = ownValue(CHILD_KEYS, screenKey);
+        if (pageKey !== undefined) page[pageKey] = value;
+      }
       return page;
     },
     rejectedKey(pageParam, accepts) {
       for (const pageKey of pageKeys) {
         const value = pageParam(pageKey);
         if (value === null) continue;
-        if (!(pageKey === 'focus' ? UUID_PATTERN.test(value) : accepts(PAGE_TO_FO[pageKey]!, value))) return { key: pageKey, value };
+        // A page key with no screen key cannot be checked, so it is rejected rather than passed.
+        const screenKey = ownValue(PAGE_TO_FO, pageKey);
+        const accepted = pageKey === 'focus' ? UUID_PATTERN.test(value) : screenKey !== undefined && accepts(screenKey, value);
+        if (!accepted) return { key: pageKey, value };
       }
       return null;
     },

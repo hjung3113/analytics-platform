@@ -6,7 +6,7 @@ const RESPOND = /^\/surveys\/([^/]+)\/respond$/i;
 
 /** The platform destination of a feature survey path (query ignored), or null. */
 export function surveyTarget(to: string): { menuId: string; params?: Record<string, string> } | null {
-  const path = to.split(/[?#]/)[0]!;
+  const path = to.replace(/[?#][\s\S]*$/, '');
   if (path === '/surveys/participate') return { menuId: 'surveys' };
   const surveyId = RESPOND.exec(path)?.[1];
   return surveyId === undefined || !isUuid(surveyId) ? null : { menuId: 'survey-respond', params: { surveyId } };

@@ -1,0 +1,116 @@
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider } from '@ap/kernel';
+import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
+import { FeatureDetailDrawer } from '../FeatureDetailDrawer';
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+function SlotHost() {
+  const slot = useDetailPanelSlotHost();
+  return <aside ref={slot.ref} aria-label="상세 패널" />;
+}
+
+const parts = { title: '제목', subtitle: '부제', headerActions: <button type="button">링크 복사</button>, body: <p>본문</p> };
+
+const roots: Root[] = [];
+afterEach(() => {
+  for (const root of roots.splice(0)) act(() => root.unmount());
+  document.body.innerHTML = '';
+});
+
+/** `@testing-library/react` is not a dependency of this package: mount with react-dom directly. */
+function mount(onClose: () => void, requestClose?: () => void) {
+  const root = createRoot(document.body.appendChild(document.createElement('div')));
+  roots.push(root);
+  act(() => root.render(
+    <I18nProvider><DetailPanelSlotProvider>
+      <FeatureDetailDrawer parts={parts} onClose={onClose} {...(requestClose !== undefined ? { requestClose } : {})} />
+      <SlotHost />
+    </DetailPanelSlotProvider></I18nProvider>,
+  ));
+  const aside = document.querySelector('aside[aria-label="상세 패널"]')!;
+  return { aside, close: () => act(() => (aside.querySelector('button[aria-label="상세 닫기"]') as HTMLButtonElement).click()) };
+}
+
+describe('FeatureDetailDrawer', () => {
+  it('shows the parts in the slot, the body inside .fo-detail-body with no tab row for its one 상세 tab', () => {
+    const { aside } = mount(vi.fn());
+    const dialog = aside.querySelector('[role="dialog"]')!;
+    expect(dialog.textContent).toContain('제목');
+    expect(dialog.textContent).toContain('부제');
+    expect(dialog.textContent).toContain('링크 복사');
+    // One tab draws no tab row (06 §13, #886 UX-8).
+    expect(dialog.querySelector('[role="tablist"]')).toBeNull();
+    const body = [...dialog.querySelectorAll('p')].find(p => p.textContent === '본문');
+    expect(body?.closest('.fo-detail-body')).toBeTruthy();
+  });
+
+  it('passes the requested title line count from the feature detail parts to the drawer', () => {
+    const root = createRoot(document.body.appendChild(document.createElement('div')));
+    roots.push(root);
+    act(() => root.render(<I18nProvider><DetailPanelSlotProvider>
+      <FeatureDetailDrawer parts={{ ...parts, titleLines: 2 }} onClose={vi.fn()} />
+      <SlotHost />
+    </DetailPanelSlotProvider></I18nProvider>));
+    expect(document.querySelector('[role="dialog"] h2')?.classList.contains('line-clamp-2')).toBe(true);
+  });
+
+  it('places an optional footer outside the scroll region', () => {
+    const root = createRoot(document.body.appendChild(document.createElement('div')));
+    roots.push(root);
+    act(() => root.render(<I18nProvider><DetailPanelSlotProvider>
+      <FeatureDetailDrawer parts={{ ...parts, footer: <button type="button">Footer action</button> }} onClose={vi.fn()} />
+      <SlotHost />
+    </DetailPanelSlotProvider></I18nProvider>));
+    const button = [...document.querySelectorAll('button')].find(node => node.textContent === 'Footer action');
+    expect(button).toBeTruthy();
+    expect(button?.closest('[role="region"]')).toBeNull();
+  });
+
+  it('closes through onClose when the detail has no requestClose', () => {
+    const onClose = vi.fn();
+    mount(onClose).close();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('closes through requestClose, not onClose, when the detail asks first', () => {
+    const onClose = vi.fn();
+    const requestClose = vi.fn();
+    mount(onClose, requestClose).close();
+    expect(requestClose).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // #927 UX-3: jsdom computes no CSS, so pin the structure the styles.css selector relies on.
+  it('draws the one-tab content area as a region holding .fo-detail-body as a direct child, and styles.css targets that region', () => {
+    const { aside } = mount(vi.fn());
+    const region = aside.querySelector('[role="dialog"] [role="region"]')!;
+    // #1459: the SDK reading column (display: contents while docked) may sit between the region and the body.
+    expect(region.querySelector(':scope > .fo-detail-body, :scope > [data-detail-reading-column] > .fo-detail-body')).toBeTruthy();
+    const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    const rule = css.split('}').find(block => block.includes(':has(> .fo-detail-body)'))!;
+    expect(rule).toContain(':has(> [data-detail-reading-column] > .fo-detail-body)');
+    expect(rule).toContain('[role="region"]');
+    expect(rule).toContain('[role="tabpanel"]');
+  });
+
+  // #2403: the bridge CSS clips the drawer region (`overflow: hidden`), so the body must scroll itself, and the region must be the
+  // positioning ancestor of Radix's visually hidden form inputs (absolute) or they stretch the document.
+  it('scrolls a long body inside .fo-detail-body (the region clips overflow)', () => {
+    const { aside } = mount(vi.fn());
+    const body = aside.querySelector('.fo-detail-body')!;
+    expect(body.className).toMatch(/\boverflow-y-auto\b/);
+    expect(body.className).toMatch(/\bmin-h-0\b/);
+  });
+
+  it('makes the clipped drawer region a positioning ancestor (position: relative)', () => {
+    const css = readFileSync(resolve(__dirname, '../../styles.css'), 'utf8');
+    const rule = css.match(/:is\(\[role="tabpanel"\], \[role="region"\]\):not\(\[hidden\]\):has\(> \.fo-detail-body\)[^{]*\{([^}]*)\}/);
+    expect(rule?.[1]).toMatch(/overflow:\s*hidden/);
+    expect(rule?.[1]).toMatch(/position:\s*relative/);
+  });
+});

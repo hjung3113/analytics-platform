@@ -16,6 +16,7 @@ import noLangCopyTernary from './no-lang-copy-ternary.js';
 import noColorVarShorthand from './no-color-var-shorthand.js';
 import noBrowserRandomUuid from './no-browser-random-uuid.js';
 import imeEnterGuard from './ime-enter-guard.js';
+import noDirectLocaleFormat from './no-direct-locale-format.js';
 import requireApiPath from './require-api-path.js';
 import { featureServer, featureShared, featureUi, featureScreenPaths } from './feature.js';
 
@@ -336,6 +337,7 @@ function layerConfig({ restriction, extraRules = {} }) {
           'no-lang-copy-ternary': noLangCopyTernary,
           'no-color-var-shorthand': noColorVarShorthand,
           'ime-enter-guard': imeEnterGuard,
+          'no-direct-locale-format': noDirectLocaleFormat,
         },
       },
     },
@@ -436,8 +438,8 @@ const BUILD_OUTPUT = { ignores: ['dist/**'] };
 // menu and app, on EV's ui packages and menus (#2216), and on the feature screens (#2217).
 const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
 
-// #2180: asserting existence hides the missing-value case. Enable as sites are fixed: contracts and kernel first,
-// then components, adapters, menus and shell. Tests may assert fixture invariants.
+// #2180: asserting existence hides the missing-value case. Enabled preset by preset as their sites are fixed (#2181: the
+// per-preset counts are in issue #2181); on in contracts, ui, kernel, app-host, http-adapter, the app and the feature bridge so far. Tests may assert fixture invariants.
 const NON_NULL = {
   files: ['**/*.{ts,tsx}'],
   ignores: TEST_ENTRY_FILES,
@@ -445,11 +447,24 @@ const NON_NULL = {
   rules: { '@typescript-eslint/no-non-null-assertion': 'error' },
 };
 
+// #2181: instants and numbers print through the Kernel notation or the contracts formatters, never a direct `toLocale*String`,
+// `Intl.DateTimeFormat` or `'ko-KR'` (rule source: no-direct-locale-format.js). On in every SDK, menu, platform and feature preset;
+// tests are exempt. `sources` is the file allow-list of the preset's package, path → why the file may call Intl directly.
+const directLocaleFormat = (sources = {}) => ({
+  files: ['**/*.{ts,tsx}'],
+  ignores: [...TEST_ENTRY_FILES, '**/__tests__/**', ...Object.keys(sources)],
+  rules: { 'ap/no-direct-locale-format': 'error' },
+});
+
 /** @type {import('eslint').Linter.Config[]} */
 export const contracts = [
   BUILD_OUTPUT,
   layerConfig({ restriction: { allow: [], denyReact: true, mockAllowed: false } }),
   NON_NULL,
+  directLocaleFormat({
+    'src/values/instant.ts': 'formatInstant itself: the low-level instant formatter every notation goes through.',
+    'src/values/number.ts': 'formatNumber itself: maps lang to its locale tag and formats with Intl.',
+  }),
 ];
 
 // contract-schemas (ADR-0096): production code imports no other platform package and no React; "zod only" is held by the manifest and review, not lint.
@@ -464,6 +479,7 @@ export const contractSchemas = [
   BUILD_OUTPUT,
   layerConfig({ restriction: CONTRACT_SCHEMAS_RESTRICTION }),
   testEntryOverride(CONTRACT_SCHEMAS_TEST_RESTRICTION, ['contracts/vocab.json', 'contracts/build', SAVED_VIEW_PANEL_TEST_ENTRY], ['**/*.test.ts']),
+  directLocaleFormat(),
 ];
 
 // #2955: SDK packages promise peer `react ^19.0.0`; `useEffectEvent` exists only from React 19.2, so a 19.0/19.1 consumer gets undefined.
@@ -505,6 +521,7 @@ export const ui = [
   layerConfig({ restriction: { allow: [], denyReact: false, mockAllowed: false, allowRadix: true } }),
   designSystem({ componentSource: true }),
   IME_ENTER_GUARD,
+  directLocaleFormat(),  NON_NULL,
 ];
 
 // #2174: ko/en copy lives in a message table, not a language ternary (rule source: no-lang-copy-ternary.js). Tests may
@@ -520,6 +537,7 @@ export const kernel = [
   layerConfig({ restriction: { allow: ['contracts'], denyReact: false, mockAllowed: false } }),
   LANG_COPY,
   NON_NULL,
+  directLocaleFormat({ 'src/notation/time.ts': 'the Kernel time notation itself (English month names in UTC).' }),
 ];
 
 const COMPONENTS_RESTRICTION = { allow: ['contracts', 'kernel', 'ui'], denyReact: false, denyQueryEngine: true, mockAllowed: false, allowSubpaths: [...UI_THEME_SUBPATHS, HOST_ENTRY_SUBPATH], allowDockEngine: true };
@@ -538,6 +556,7 @@ export const components = [
   // Shared components are assembled from ui primitives (06 §13) and may not restyle them; their own markup is not a
   // design-system component here (relative imports never match componentImports), so it styles freely with tokens.
   designSystem(),
+  directLocaleFormat({ 'src/table/zonedInstant.ts': 'reads the wall-clock fields of an instant in a zone for the strict instant filter input; prints nothing.' }),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -552,6 +571,7 @@ export const shell = [
   testEntryOverride(SHELL_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
   designSystem(),  LANG_COPY,
   IME_ENTER_GUARD,
+  directLocaleFormat(),
 ];
 
 // Host assembly package (#1702, host-entry-contract §3): sits above the shell and is domain-free, so it sees exactly the SDK layers
@@ -565,6 +585,7 @@ export const appHost = [
   layerConfig({ restriction: APP_HOST_RESTRICTION }),
   testEntryOverride(APP_HOST_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
   designSystem(),
+  NON_NULL,
 ];
 
 const CONTRACTS_ONLY_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllowed: false };
@@ -573,7 +594,7 @@ const CONTRACTS_ONLY_RESTRICTION = { allow: ['contracts'], denyReact: true, mock
 export const httpAdapter = [
   layerConfig({ restriction: CONTRACTS_ONLY_RESTRICTION }),
   // Test files compare the response guards with the wire schemas and share stored-panel fixtures.
-  testEntryOverride({ ...CONTRACTS_ONLY_RESTRICTION, allow: ['contracts', 'contract-schemas'] }, ['contract-schemas/source', SAVED_VIEW_PANEL_TEST_ENTRY], ['**/*.test.ts']),
+  testEntryOverride({ ...CONTRACTS_ONLY_RESTRICTION, allow: ['contracts', 'contract-schemas'] }, ['contract-schemas/source', SAVED_VIEW_PANEL_TEST_ENTRY], ['**/*.test.ts']),  NON_NULL,
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -666,6 +687,7 @@ const menuPreset = (restriction) => [
   LANG_COPY,
   designSystem(),
   IME_ENTER_GUARD,
+  directLocaleFormat(),
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
@@ -710,6 +732,8 @@ export const featureBridgePreset = [
     },
   },
   designSystem(),
+  directLocaleFormat(),
+  NON_NULL,
 ];
 
 // App: all package entries allowed, deep subpaths, mock-server and ./dev banned (#153). src/main.tsx keeps only
@@ -745,6 +769,7 @@ export const app = [
   LANG_COPY,
   designSystem(),
   IME_ENTER_GUARD,
+  NON_NULL,
 ];
 
 // Storybook (#2828, tooling/storybook): a dev-only consumer that sees the SDK like a menu (public entries only). Its story
@@ -764,8 +789,8 @@ const eqvBanOnlyFor = (allowEqvPackages = []) => ({
   files: ['**/*.{ts,tsx,js,mjs}'],
   // One `ap` plugin per preset array: flat config rejects a second definition of the same plugin name. The screens-only
   // `no-browser-random-uuid`, `require-api-path` and `ime-enter-guard` are registered here (dormant in every other feature preset)
-  // so `featureScreensPreset` can enable them without redefining `ap`.
-  plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource, 'no-browser-random-uuid': noBrowserRandomUuid, 'require-api-path': requireApiPath, 'ime-enter-guard': imeEnterGuard } } },
+  // so `featureScreensPreset` can enable them without redefining `ap`; `no-direct-locale-format` likewise for the screens and shared presets.
+  plugins: { ap: { rules: { 'restricted-import-source': restrictedImportSource, 'no-browser-random-uuid': noBrowserRandomUuid, 'require-api-path': requireApiPath, 'ime-enter-guard': imeEnterGuard, 'no-direct-locale-format': noDirectLocaleFormat } } },
   rules: {
     'no-restricted-imports': ['error', { patterns: [{ regex: eqvRegex([], allowEqvPackages), message: EQV_MESSAGE }] }],
     'ap/restricted-import-source': ['error', { eqvOnly: true, eqvMessage: EQV_MESSAGE, allowEqvPackages }],
@@ -786,7 +811,7 @@ export const featureServerPreset = [...featureServer(), eqvBanOnlyFor(['@eqv/cor
 export const featureServerUntypedPreset = [...featureServer({ typed: false }), eqvBanOnlyFor(['@eqv/core'])];
 
 /** @type {import('eslint').Linter.Config[]} */
-export const featureSharedPreset = [...featureShared(), eqvBanOnly];
+export const featureSharedPreset = [...featureShared(), eqvBanOnly, directLocaleFormat()];
 
 // feature-screens (#1102 b): the former Oxlint pass over the screens (ops/platform-api/.oxlintrc.json, removed) restyled-component
 // checks included, so `no-restyle` and `require-static-classes` stay on (only packages that define the primitives turn them
@@ -814,7 +839,9 @@ export const featureScreensPreset = [...featureUi({
   rules: {
     'ap/no-browser-random-uuid': ['error'],
   },
-}, IME_ENTER_GUARD, {
+}, IME_ENTER_GUARD, directLocaleFormat({
+  'src/lib/format/datetime.ts': "the screens' own Asia/Seoul formatter for hosts without the Kernel notation (standalone fallback).",
+}), {
   // #2211: src/ui is where the feature primitives are defined (the former feature-ui package): they style themselves, so restyle and
   // static-class checks are off there as for the ui package; arbitrary layout values stay allowed.
   files: ['src/ui/**/*.{ts,tsx}'],

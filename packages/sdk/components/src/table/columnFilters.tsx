@@ -23,6 +23,7 @@ const WALL_CLOCK_DAY = /^\d{4}-\d{2}-\d{2}$/;
 function instantText(value: string, lang: Lang, entry?: InstantEntry): string {
   try {
     if (entry?.precision !== 'second') return formatInstant(value, lang, entry?.timeZone);
+    // eslint-disable-next-line ap/no-direct-locale-format -- a second-precision bound shows the seconds it was entered with; formatInstant has no seconds form and precise input keeps its own contract (§6.3).
     return new Date(instantEpochMs(value)).toLocaleString(lang === 'ko' ? 'ko-KR' : 'en-US', { dateStyle: 'short', timeStyle: 'medium', timeZone: entry.timeZone });
   } catch { return value; }
 }

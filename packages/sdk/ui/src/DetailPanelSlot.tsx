@@ -93,10 +93,10 @@ export function DetailPanelSlotProvider({ children, expanded: controlledExpanded
     // Synchronous, after list mutation and before React can remove the outgoing portal content.
     // No deferred delivery: neither source nor winner can disappear between takeover and notification.
     const loser = outgoing === undefined ? undefined : portals.current.get(outgoing);
-    if (!loser) return;
+    if (outgoing === undefined || !loser) return;
     const sameScope = scope !== undefined && loser.scope() === scope;
     if (sameScope) {
-      handedOff.current = [...handedOff.current, outgoing!];
+      handedOff.current = [...handedOff.current, outgoing];
       loser.notify(key, true);
       return;
     }

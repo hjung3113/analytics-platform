@@ -160,7 +160,8 @@ const rows: Row[] = [
   { file: 'packages/sdk/shell/src/frame/AppRail.tsx', code: `const ko = lang === 'ko'; const a = !ko ? 'Help' : '도움말';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
   { file: 'packages/sdk/kernel/src/i18n.tsx', code: `const a = lang === 'ko' ? { info: '알림' } : { info: 'Notice' };`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
   { file: 'packages/sdk/kernel/src/i18n.tsx', code: `const a = stored === 'en' ? 'en' : 'ko';`, rule: '' },
-  { file: 'packages/sdk/shell/src/frame/AppRail.tsx', code: `const a = lang === 'ko' ? 'ko-KR' : 'en-US';`, rule: '' },
+  // A locale-tag switch is not copy; since #2181 the 'ko-KR' tag itself is the only report.
+  { file: 'packages/sdk/shell/src/frame/AppRail.tsx', code: `const a = lang === 'ko' ? 'ko-KR' : 'en-US';`, rule: 'ap/no-direct-locale-format', token: "'ko-KR'" },
   { file: 'packages/sdk/shell/src/frame/AppRail.tsx', code: `let ko = lang === 'ko'; const a = ko ? '도움말' : 'Help';`, rule: '' },
   { file: 'packages/sdk/shell/src/frame/AppRail.test.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: '' },
   { file: 'packages/sdk/components/src/table/x.tsx', code: `const a = lang === 'ko' ? '도움말' : 'Help';`, rule: 'ap/no-lang-copy-ternary', token: 'messages.ts' },
@@ -977,10 +978,39 @@ rows.push(
   { file: MENU_TEST, code: `vi.mock(path);`, rule: '' },
 );
 
-// #2180: production kernel code must narrow; tests may assert fixture invariants.
+// #2180, #2181: production code of the packages whose preset has NON_NULL must narrow; tests may assert fixture invariants.
+for (const pkg of ['packages/sdk/kernel', 'packages/host/app-host', 'packages/host/http-adapter', 'apps/platform-web', 'packages/feature/bridge', 'packages/sdk/ui']) {
+  rows.push(
+    { file: `${pkg}/src/x.ts`, code: `const value: string | undefined = 'ok'; value!;`, rule: '@typescript-eslint/no-non-null-assertion' },
+    { file: `${pkg}/src/x.test.ts`, code: `const value: string | undefined = 'ok'; value!;`, rule: '' },
+  );
+}
+
+// #2181: instants and numbers print through the Kernel notation or the contracts formatters; the formatter sources are a file allow-list.
+const LOCALE = 'ap/no-direct-locale-format';
 rows.push(
-  { file: 'packages/sdk/kernel/src/x.ts', code: `const value: string | undefined = 'ok'; value!;`, rule: '@typescript-eslint/no-non-null-assertion' },
-  { file: 'packages/sdk/kernel/src/x.test.ts', code: `const value: string | undefined = 'ok'; value!;`, rule: '' },
+  { file: 'packages/sdk/kernel/src/x.ts', code: `export const a = new Date(0).toLocaleString();`, rule: LOCALE, token: 'formatListTime' },
+  { file: 'packages/sdk/contracts/src/x.ts', code: `export const a = (d: Date) => d.toLocaleDateString() + d['toLocaleTimeString']();`, rule: LOCALE, token: 'formatInstant' },
+  { file: 'packages/sdk/components/src/x.ts', code: `export const a = (n: number) => n?.toLocaleString('en-US');`, rule: LOCALE, token: 'formatNumber' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `export const a = new Intl.DateTimeFormat('en-US');`, rule: LOCALE, token: 'Intl.DateTimeFormat' },
+  { file: 'packages/sdk/shell/src/x.ts', code: `export const a = Intl.DateTimeFormat().resolvedOptions().timeZone;`, rule: LOCALE, token: 'zone lookup' },
+  { file: 'packages/sdk/contract-schemas/src/x.ts', code: `export const a = globalThis.Intl.DateTimeFormat('en-US');`, rule: LOCALE },
+  { file: 'menus/bravo/metrics/src/x.ts', code: `export const a = 'ko-KR';`, rule: LOCALE, token: "'ko-KR'" },
+  { file: 'platform/home/src/pages/x.tsx', code: 'export const a = `ko-KR`;', rule: LOCALE, token: "'ko-KR'" },
+  { file: 'platform/voc/src/x.ts', code: `export const a = new Date(0).toLocaleTimeString();`, rule: LOCALE },
+  { file: 'menus/tools/topview/src/x.ts', code: `export const a = new Intl.DateTimeFormat('en-CA');`, rule: LOCALE },
+  { file: 'packages/feature/bridge/src/x.ts', code: `export const a = new Date(0).toLocaleString();`, rule: LOCALE },
+  // Types, other Intl formatters and tests pass; a reasoned disable is the exception for a date-only or wall-clock value.
+  { file: 'packages/sdk/components/src/x.ts', code: `export type A = Intl.DateTimeFormatOptions | Intl.DateTimeFormatPart; export const b = new Intl.NumberFormat('en-US');`, rule: '' },
+  { file: 'packages/sdk/kernel/src/x.test.ts', code: `export const a = new Date(0).toLocaleString('ko-KR');`, rule: '' },
+  { file: 'packages/sdk/components/src/__tests__/support.ts', code: `export const a = new Intl.DateTimeFormat('ko-KR');`, rule: '' },
+  { file: 'packages/sdk/ui/src/x.ts', code: `// eslint-disable-next-line ${LOCALE} -- date-only calendar label\nexport const a = new Intl.DateTimeFormat('en-US');`, rule: '' },
+  // The allow-list: the formatter sources themselves.
+  { file: 'packages/sdk/kernel/src/notation/time.ts', code: `export const a = new Intl.DateTimeFormat('en-US');`, rule: '' },
+  { file: 'packages/sdk/contracts/src/values/instant.ts', code: `export const a = new Intl.DateTimeFormat('ko-KR');`, rule: '' },
+  { file: 'packages/sdk/contracts/src/values/number.ts', code: `export const a = (n: number) => n.toLocaleString('ko-KR');`, rule: '' },
+  { file: 'packages/sdk/components/src/table/zonedInstant.ts', code: `export const a = new Intl.DateTimeFormat('en-US');`, rule: '' },
+  { file: 'packages/sdk/components/src/table/other.ts', code: `export const a = new Intl.DateTimeFormat('en-US');`, rule: LOCALE },
 );
 
 describe('boundary + contract fixtures', () => {

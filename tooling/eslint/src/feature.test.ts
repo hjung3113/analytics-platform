@@ -293,6 +293,15 @@ describe('feature screens preset: the UI rules plus the restyled-component check
     expect(await lint(SCREENS, 'src/ui/probe.ts', 'export const k = () => crypto.randomUUID();\n')).toContain('ap/no-browser-random-uuid');
   }, 60_000);
 
+  it('formats instants and numbers through the formatters, except the screens\' own formatter source and tests (#2181)', async () => {
+    const direct = "export const a = new Intl.DateTimeFormat('ko-KR');\n";
+    expect(await lint(SCREENS, 'src/probe.ts', direct)).toContain('ap/no-direct-locale-format');
+    expect(await lint(SCREENS, 'src/probe.ts', 'export const a = (n: number) => n.toLocaleString();\n')).toContain('ap/no-direct-locale-format');
+    expect(await lint(SHARED, 'src/probe.ts', direct)).toContain('ap/no-direct-locale-format');
+    expect(await lint(SCREENS, 'src/lib/format/datetime.ts', direct)).not.toContain('ap/no-direct-locale-format');
+    expect(await lint(SCREENS, 'src/__tests__/probe.test.ts', direct)).not.toContain('ap/no-direct-locale-format');
+  }, 60_000);
+
   it('requires the IME Enter guard on a text field\'s Enter handler in screen sources, not in tests (#2217)', async () => {
     const field = "import { Input } from '@ap/ui';\nexport const A = ({ go }: { go: () => void }) => <Input onKeyDown={e => { if (e.key === 'Enter') go(); }} />;\n";
     expect(await lint(SCREENS, 'src/probe.tsx', field)).toContain('ap/ime-enter-guard');

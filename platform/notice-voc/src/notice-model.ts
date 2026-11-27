@@ -9,6 +9,7 @@ const WALL_CLOCK = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
 /** The current Asia/Seoul wall clock as `YYYY-MM-DDTHH:mm:ss` (second precision), the frame `until` is stored in. */
 export function seoulWallClock(at: Date = new Date()): string {
   const parts = Object.fromEntries(
+    // eslint-disable-next-line ap/no-direct-locale-format -- builds the Asia/Seoul wall-clock wire value `until` is stored in; nothing is shown.
     new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Seoul', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
       .formatToParts(at).map(part => [part.type, part.value]),
   );

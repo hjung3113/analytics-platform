@@ -1,0 +1,450 @@
+import { act, lazy } from 'react';
+import { Inbox } from 'lucide-react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { NO_FEATURES, contextCapabilities, carrySetId, groupId, spaceId } from '@ap/contracts';
+import { I18nProvider, PlatformProvider, createRegistry, usePlatform, type MenuEntry } from '@ap/kernel';
+import { memoryStorage, testAdapter, testSession, useToastsForTest } from '@ap/kernel/testing';
+import { featureApi, setFeatureApi } from '../feature-api';
+import { featureQueryClient } from '../feature/session';
+import { savedViewsSlot } from '../saved-views';
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const SPACE = spaceId('flow');
+const GROUP = groupId('voc');
+const menu = (id: string, path: string, pageKeys: string[], primary = false) => ({
+  id, primary, group: GROUP, label: { ko: id, en: id }, description: { ko: id, en: id }, path, icon: Inbox, permission: 'features:access' as const,
+  requiresScope: false, pageType: 'management' as const, context: contextCapabilities(), features: NO_FEATURES, pageKeys, carrySet: carrySetId('features'), component: lazy(async () => ({ default: () => null })),
+});
+const registry = createRegistry({
+  carrySets: [{ id: carrySetId('features'), pageKeys: ['managedSystem', 'returnTo'] }],
+  spaces: [{ id: SPACE, label: { ko: 'Feature', en: 'Feature' }, description: { ko: '목적', en: 'Purpose' }, permission: 'features:access', homeMenuId: 'dashboard' }],
+  groups: [{ id: GROUP, label: { ko: 'VOC', en: 'VOC' }, icon: Inbox, space: SPACE }],
+  menus: [
+    menu('dashboard', '/flow/dashboard', ['managedSystem', 'returnTo'], true),
+    menu('inbox', '/flow/inbox', ['focus', 'q', 'tab', 'sort', 'severity', 'reporterStatus', 'owner', 'area', 'managedSystem', 'returnTo']),
+    menu('triage', '/flow/triage', ['focus', 'tab', 'managedSystem', 'area', 'returnTo']),
+  ],
+});
+
+const section = savedViewsSlot.For(SPACE, registry.menuById('inbox'))!;
+const Body = section.Body;
+
+type Row = { id: string; surface: 'voc'; name: string; filter: Record<string, unknown>; created_at: string; updated_at: string };
+/** The server issues UUID ids for saved views (`z.string().uuid()`); the fixtures use the same shape. */
+const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const C = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const row = (id: string, name: string, filter: Record<string, unknown>): Row => ({ id, surface: 'voc', name, filter, created_at: '', updated_at: '' });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+let root: Root | null = null;
+let host: HTMLElement | null = null;
+let rows: Row[] = [];
+let posted: unknown[] = [];
+let calls: string[] = [];
+let failPost: { status: number; code: string } | null = null;
+let failDelete = false;
+let deleteGate: Promise<void> | null = null;
+const deleteGates = new Map<string, Promise<void>>();
+let getGate: Promise<void> | null = null;
+let unauthorized = false;
+let go: (path: string) => void = () => undefined;
+
+function Nav() {
+  const { navigate } = usePlatform();
+  go = path => navigate(path);
+  return null;
+}
+
+function Toasts() {
+  const toasts = useToastsForTest();
+  return <ul data-testid="toasts">{toasts.map(toast => <li key={toast.id} data-tone={toast.tone}>{toast.text}</li>)}</ul>;
+}
+
+async function mount(url: string) {
+  window.history.replaceState(null, '', url);
+  const session = testSession(['platform:view', 'features:access'], { user: { id: 'admin', name: 'admin', title: { ko: 'admin', en: 'admin' } } });
+  host = document.createElement('div');
+  document.body.append(host);
+  root = createRoot(host);
+  await act(async () => {
+    root!.render(<I18nProvider><PlatformProvider adapter={testAdapter({ session: () => session })} registry={registry}><Body /><Toasts /><Nav /></PlatformProvider></I18nProvider>);
+  });
+  // The first mount in a run loads the lazy list chunk (a cold import of the feature modules).
+  for (let i = 0; featureApi() !== null && getGate === null && host.textContent!.includes('불러오는 중…') && i < 60; i++) await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); });
+}
+const settle = () => act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+const applyButton = (name: string) => host!.querySelector<HTMLButtonElement>(`button[title="${name}"]`)!;
+const input = () => host!.querySelector<HTMLInputElement>('input[aria-label="저장된 보기 이름"]');
+const toasts = () => [...host!.querySelectorAll('[data-testid="toasts"] li')].map(li => [li.getAttribute('data-tone'), li.textContent]);
+async function type(value: string) {
+  await act(async () => {
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+    setter.call(input(), value);
+    input()!.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => { host!.querySelector('form')!.requestSubmit(); });
+  await settle();
+}
+
+// The first mount lazily imports the whole SavedViews page graph: about 2 s cold on a quiet machine, over 5 s on a loaded CI runner. Pay it in a hook with its own budget so the first test never races the default 5 s timeout (the rest of the file failed with it).
+beforeAll(async () => { await import('../pages/SavedViews'); }, 60_000);
+
+beforeEach(() => {
+  vi.stubGlobal('localStorage', memoryStorage());
+  featureQueryClient.clear();
+  deleteGates.clear();
+  rows = []; posted = []; calls = []; failPost = null; failDelete = false; deleteGate = null; getGate = null; unauthorized = false;
+  setFeatureApi({ basePath: '/api/features', onSessionLost: vi.fn() });
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const method = init?.method ?? 'GET';
+    calls.push(`${method} ${url}`);
+    if (method === 'GET') {
+      if (unauthorized) return json({ code: 'auth.unauthenticated', message: 'x' }, 401);
+      await getGate;
+      return json({ items: rows });
+    }
+    if (method === 'POST') {
+      if (failPost !== null) return json({ code: failPost.code, message: 'x' }, failPost.status);
+      const body = JSON.parse(String(init!.body)) as Row;
+      posted.push(body);
+      rows = [...rows, row(`${String(rows.length + 1).padStart(8, '0')}-dddd-4ddd-8ddd-dddddddddddd`, body.name, body.filter)];
+      return json(rows[rows.length - 1], 201);
+    }
+    await deleteGates.get(url.split('/').at(-1) ?? '');
+    await deleteGate;
+    if (failDelete) return json({ code: 'internal.error', message: 'x' }, 500);
+    rows = rows.filter(r => url.endsWith(`/${r.id}`) === false);
+    return new Response(null, { status: 204 });
+  }));
+});
+afterEach(() => {
+  act(() => { root?.unmount(); });
+  host?.remove();
+  root = null; host = null;
+  setFeatureApi(null);
+  vi.unstubAllGlobals();
+  window.history.replaceState(null, '', '/');
+});
+
+describe('savedViewsSlot', () => {
+  it('is the feature section with one module-level Body', () => {
+    const inbox = registry.menuById('inbox');
+    expect(savedViewsSlot.For(spaceId('bravo'), inbox)!.Body).toBe(Body);
+    expect(section.label).toEqual({ ko: '저장된 보기', en: 'Saved views' });
+    expect(savedViewsSlot.For(SPACE, inbox)!.Body).toBe(Body);
+  });
+
+  it.each<[string, MenuEntry | null]>([
+    ['no current menu', null],
+    ['a platform administration menu', ({ ...registry.menuById('inbox'), id: 'admin-roles', group: groupId('admin'), pageKeys: [] }) as MenuEntry],
+    ['an access menu', ({ ...registry.menuById('inbox'), id: 'permission-grants', group: groupId('access') }) as MenuEntry],
+    ['a menu without the managedSystem key', ({ ...registry.menuById('inbox'), pageKeys: ['q'] }) as MenuEntry],
+    ['a Task menu (saved views are the VOC views)', ({ ...registry.menuById('inbox'), id: 'tasks', group: groupId('tasks') }) as MenuEntry],
+  ])('draws no section, and mounts no session or query, for %s', (_, menu) => {
+    expect(savedViewsSlot.For(SPACE, menu)).toBeNull();
+  });
+
+  it('shows one muted 실서버 필요 line and requests nothing without a feature API', async () => {
+    setFeatureApi(null);
+    await mount('/flow/dashboard');
+    expect(host!.textContent).toContain('실서버 필요');
+    expect(calls).toEqual([]);
+  });
+
+  it('on the dashboard shows the guidance line, never an empty body', async () => {
+    await mount('/flow/dashboard');
+    await settle();
+    expect(host!.textContent).toContain('VOC 처리함이나 분류에서 현재 필터를 저장할 수 있습니다.');
+    expect(input()).toBeNull();
+  });
+
+  it('on the dashboard lists the saved views', async () => {
+    rows = [row(A, '높음 보기', { view: 'inbox', 'filter.severity': 'high' })];
+    await mount('/flow/dashboard');
+    await settle();
+    expect(applyButton('높음 보기')).toBeTruthy();
+    expect(host!.textContent).not.toContain('VOC 처리함이나 분류');
+  });
+});
+
+describe('save', () => {
+  it('posts the mapped inbox filter', async () => {
+    await mount('/flow/inbox?q=abc&severity=high&managedSystem=ms1&area=x&focus=9');
+    await settle();
+    await type('내 보기');
+    expect(posted).toEqual([{ surface: 'voc', name: '내 보기', filter: { view: 'inbox', q: 'abc', 'filter.severity': 'high', managed_system_id: 'ms1' } }]);
+    expect(applyButton('내 보기')).toBeTruthy();
+  });
+
+  it('stores no returnTo when saved from a screen that carries one (#760)', async () => {
+    await mount('/flow/inbox?q=abc&managedSystem=ms1&returnTo=%2Forigin%3Fv%3D1');
+    await settle();
+    await type('돌아가기 없는 보기');
+    expect(JSON.stringify(posted)).not.toContain('returnTo');
+    expect(JSON.stringify(posted)).not.toContain('origin');
+  });
+
+  it('posts the Triage view with its fixed view key', async () => {
+    await mount('/flow/triage?tab=high&managedSystem=ms1');
+    await settle();
+    await type('트리아지');
+    expect(posted).toEqual([{ surface: 'voc', name: '트리아지', filter: { view: 'triage', tab: 'high', managed_system_id: 'ms1' } }]);
+  });
+
+  it('reports a taken name through the kernel toast with screen copy and keeps the typed name', async () => {
+    failPost = { status: 409, code: 'conflict.saved_view_name_taken' };
+    await mount('/flow/inbox');
+    await settle();
+    await type('중복');
+    expect(toasts()).toEqual([['danger', '이미 사용 중인 저장된 보기 이름입니다.']]);
+    expect(input()!.value).toBe('중복');
+  });
+});
+
+describe('apply', () => {
+  const path = () => `${window.location.pathname}${window.location.search}`;
+  const click = async (name: string) => { await act(async () => { applyButton(name).click(); }); await settle(); };
+
+  it('lands on 수신함 with exactly the stored keys and clears a carried managedSystem', async () => {
+    rows = [row(A, '높음', { view: 'inbox', 'filter.severity': 'high' })];
+    await mount('/flow/inbox?q=old&managedSystem=ms1&sort=-created&returnTo=%2Forigin%3Fv%3D1');
+    await settle();
+    await click('높음');
+    expect(window.location.pathname).toBe('/flow/inbox');
+    const search = new URLSearchParams(window.location.search);
+    expect(search.get('severity')).toBe('high');
+    expect([...search.keys()].filter(key => key !== 'severity' && key !== 'v')).toEqual([]);
+    expect(search.has('returnTo')).toBe(false);
+  });
+
+  it('keeps the stored managedSystem and lands on Triage for a triage view from another menu', async () => {
+    rows = [row(A, '트리아지', { view: 'triage', tab: 'high', managed_system_id: 'ms2' })];
+    await mount('/flow/dashboard');
+    await settle();
+    await click('트리아지');
+    expect(new URL(path(), 'http://x').pathname).toBe('/flow/triage');
+    const search = new URLSearchParams(window.location.search);
+    expect(search.get('tab')).toBe('high');
+    expect(search.get('managedSystem')).toBe('ms2');
+  });
+
+  it.each([
+    ['inbox', '/flow/inbox?managedSystem=ms1', '/flow/inbox'],
+    ['triage', '/flow/triage?managedSystem=ms1', '/flow/triage'],
+  ])('applies a stored managed_system_id all as a cleared scope for a %s view', async (view, start, pathname) => {
+    rows = [row(A, '전체', { view, managed_system_id: 'all' })];
+    await mount(start);
+    await settle();
+    await click('전체');
+    expect(window.location.pathname).toBe(pathname);
+    expect(new URLSearchParams(window.location.search).has('managedSystem')).toBe(false);
+    expect(window.location.search).not.toContain('all');
+  });
+
+  it('leaves a stored view no table maps inert', async () => {
+    rows = [row(A, '이상함', { view: 'mystery' })];
+    await mount('/flow/dashboard');
+    await settle();
+    await click('이상함');
+    expect(path()).toBe('/flow/dashboard');
+  });
+});
+
+describe('session states', () => {
+  it('shows a loading line, not 실서버 필요, while the list loads', async () => {
+    let release!: () => void;
+    getGate = new Promise<void>(resolve => { release = resolve; });
+    await mount('/flow/dashboard');
+    await settle();
+    expect(host!.textContent).toContain('불러오는 중…');
+    expect(host!.textContent).not.toContain('실서버 필요');
+    expect(host!.textContent).not.toContain('VOC 처리함이나 분류');
+    await act(async () => { release(); });
+    await settle();
+    expect(host!.textContent).not.toContain('불러오는 중…');
+  });
+
+  it('shows the session-lost wording once the session is retired', async () => {
+    unauthorized = true;
+    await mount('/flow/dashboard');
+    await settle();
+    expect(host!.textContent).toContain('세션이 만료되었습니다');
+    expect(host!.textContent).not.toContain('실서버 필요');
+  });
+});
+
+describe('delete and focus recovery', () => {
+  const del = async (name: string) => {
+    await act(async () => { host!.querySelector<HTMLButtonElement>(`button[aria-label="저장된 보기 ${name} 삭제"]`)!.click(); });
+    await settle();
+  };
+  const three = () => [row(A, 'A', { view: 'inbox' }), row(B, 'B', { view: 'inbox' }), row(C, 'C', { view: 'inbox' })];
+
+  it('focuses the next surviving row', async () => {
+    rows = three();
+    await mount('/flow/dashboard');
+    await settle();
+    await del('B');
+    expect(document.activeElement).toBe(applyButton('C'));
+  });
+
+  it('focuses the previous row when the last one is deleted', async () => {
+    rows = three();
+    await mount('/flow/dashboard');
+    await settle();
+    await del('C');
+    expect(document.activeElement).toBe(applyButton('B'));
+  });
+
+  it('focuses the save input when the last row is deleted on 수신함', async () => {
+    rows = [row(A, 'A', { view: 'inbox' })];
+    await mount('/flow/inbox');
+    await settle();
+    await del('A');
+    expect(document.activeElement).toBe(input());
+  });
+
+  it('keeps focus and reports a rejected delete through the toast', async () => {
+    rows = three();
+    failDelete = true;
+    await mount('/flow/dashboard');
+    await settle();
+    const button = host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!;
+    button.focus();
+    await del('B');
+    expect(document.activeElement).toBe(button);
+    expect(applyButton('B')).toBeTruthy();
+    expect(toasts()).toEqual([['danger', '일시적 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.']]);
+  });
+
+  it('moves no focus when a delayed delete resolves after navigating away', async () => {
+    rows = three();
+    let release!: () => void;
+    deleteGate = new Promise<void>(resolve => { release = resolve; });
+    await mount('/flow/inbox');
+    await settle();
+    await act(async () => { host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!.click(); });
+    await act(async () => { go('/flow/triage'); });
+    await settle();
+    input()!.focus();
+    await act(async () => { release(); });
+    await settle();
+    expect(applyButton('B')).toBeNull();
+    expect(document.activeElement).toBe(input());
+  });
+
+  it('drops an armed recovery when the route changes before the list refetch lands', async () => {
+    rows = three();
+    await mount('/flow/inbox');
+    await settle();
+    let release!: () => void;
+    getGate = new Promise<void>(resolve => { release = resolve; });
+    await act(async () => { host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!.click(); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)); });
+    await act(async () => { go('/flow/triage'); });
+    input()!.focus();
+    await act(async () => { release(); });
+    await settle();
+    expect(applyButton('B')).toBeNull();
+    expect(document.activeElement).toBe(input());
+  });
+
+  it('still recovers when the delayed delete resolves on the same route', async () => {
+    rows = three();
+    let release!: () => void;
+    deleteGate = new Promise<void>(resolve => { release = resolve; });
+    await mount('/flow/dashboard');
+    await settle();
+    await act(async () => { host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 B 삭제"]')!.click(); });
+    await act(async () => { release(); });
+    await settle();
+    expect(document.activeElement).toBe(applyButton('C'));
+  });
+});
+
+// #597 migration of the retained #972 focus regressions from the old sidebar.
+describe('saved-view focus and drafts across navigation (#597)', () => {
+  function outside() {
+    const field = document.createElement('input');
+    field.setAttribute('aria-label', 'main-content-input');
+    host!.append(field);
+    field.value = 'draft stays';
+    field.focus();
+    return field;
+  }
+  it('a same-route delayed delete leaves outside focus and draft alone', async () => {
+    rows = [row(A, 'A', {view: 'inbox'}), row(B, 'B', {view: 'inbox'})];
+    let release!: () => void;
+    deleteGate = new Promise<void>(resolve => {release = resolve;});
+    await mount('/flow/inbox'); await settle();
+    await act(async () => {host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 A 삭제"]')!.click();});
+    const field = outside();
+    await act(async () => {release();}); await settle();
+    expect(applyButton('A')).toBeNull();
+    expect(document.activeElement).toBe(field);
+    expect(field.value).toBe('draft stays');
+  });
+  it('a rejected delete never moves focus the user placed outside', async () => {
+    rows = [row(A, 'A', {view: 'inbox'})]; failDelete = true;
+    let release!: () => void;
+    deleteGate = new Promise<void>(resolve => {release = resolve;});
+    await mount('/flow/inbox'); await settle();
+    await act(async () => {host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 A 삭제"]')!.click();});
+    const field = outside();
+    await act(async () => {release();}); await settle();
+    expect(applyButton('A')).toBeTruthy();
+    expect(document.activeElement).toBe(field);
+    expect(field.value).toBe('draft stays');
+  });
+  it('leaving and returning before a delete resolves never revives old focus recovery', async () => {
+    rows = [row(A, 'A', {view: 'inbox'}), row(B, 'B', {view: 'inbox'})];
+    let release!: () => void;
+    deleteGate = new Promise<void>(resolve => {release = resolve;});
+    await mount('/flow/inbox'); await settle();
+    await act(async () => {host!.querySelector<HTMLButtonElement>('button[aria-label="저장된 보기 A 삭제"]')!.click();});
+    await act(async () => {go('/flow/triage');}); await settle();
+    await act(async () => {go('/flow/inbox');}); await settle();
+    const field = outside();
+    await act(async () => {release();}); await settle();
+    expect(document.activeElement).toBe(field);
+    expect(field.value).toBe('draft stays');
+  });
+  it('keeps a long name discoverable through its full title and clipped label', async () => {
+    const name = '가'.repeat(200);
+    rows = [row(A, name, {view: 'inbox'})];
+    await mount('/flow/inbox'); await settle();
+    expect(applyButton(name).title).toBe(name);
+    expect(applyButton(name).querySelector('span')!.classList.contains('truncate')).toBe(true);
+  });
+});
+
+// Both completion orders retain the #972 concurrent-delete assertion from AppSidebar.
+it.each([[C, B], [B, C]])('concurrent deletes settling %s then %s focus the surviving neighbour', async (first, second) => {
+  rows = [row(A, 'A', { view: 'inbox' }), row(B, 'B', { view: 'inbox' }), row(C, 'C', { view: 'inbox' })];
+  const releases = new Map<string, () => void>();
+  for (const id of [B, C]) deleteGates.set(id, new Promise<void>(resolve => { releases.set(id, resolve); }));
+  await mount('/flow/inbox'); await settle();
+  await act(async () => {
+    for (const name of ['C', 'B']) {
+      const button = host!.querySelector<HTMLButtonElement>(`button[aria-label="저장된 보기 ${name} 삭제"]`)!;
+      button.focus(); button.click();
+    }
+  });
+  expect(calls.filter(call => call.startsWith('DELETE ')).map(call => call.split('/').at(-1))).toEqual([C, B]);
+  // Both deletions fulfil before the two list snapshots land, matching the original regression.
+  let releaseRead!: () => void;
+  getGate = new Promise<void>(resolve => { releaseRead = resolve; });
+  const originalRows = [...rows];
+  await act(async () => { releases.get(first)?.(); releases.get(second)?.(); });
+  await act(async () => { featureQueryClient.setQueryData(['saved-views', 'voc'], { items: originalRows.filter(view => view.id !== first) }); });
+  await settle();
+  expect(document.activeElement).toBe(applyButton('A'));
+  await act(async () => { releaseRead(); }); await settle();
+  expect(document.activeElement).toBe(applyButton('A'));
+  expect(applyButton('B')).toBeNull();
+  expect(applyButton('C')).toBeNull();
+});

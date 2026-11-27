@@ -146,7 +146,9 @@ jobs:
           node .github/scripts/check-test-location.mjs --self-test
           node .github/scripts/check-test-location.mjs --base "$FEATURE_LINT_BASE"
       # Fragments are Markdown, so validate even on docs-only PRs; no install or build needed.
-      - run: node tooling/sdk/sdk-changelog.mjs --check
+      - run: |
+          node tooling/sdk/sdk-changelog.mjs --self-test
+          node tooling/sdk/sdk-changelog.mjs --check
       - run: node tooling/changes/menus.mjs --check
       - run: node --test tooling/changes/menus.test.mjs
       - run: pnpm install --frozen-lockfile
@@ -166,7 +168,8 @@ jobs:
           # #2029: a cached test that reads another package's files must hash them, or a stale cache passes.
           node .github/scripts/check-turbo-cross-reads.mjs
           node .github/scripts/check-turbo-cross-reads.mjs --self-test
-          node --test .github/scripts/check-unified-ci.test.mjs .github/scripts/check-ci-scope.test.mjs
+          node --test .github/scripts/check-unified-ci.test.mjs .github/scripts/check-ci-scope.test.mjs .github/scripts/check-ci-lists.test.mjs
+          node --test apps/platform-e2e/contract-reporter.test.ts
           # #1884: the scripts that decide which gates run are tested here too (node builtins and bash only, seconds).
           node .github/scripts/classify-changes.mjs --self-test
           node .github/scripts/pr-guard.mjs --self-test
@@ -610,6 +613,35 @@ jobs:
       - name: SDK upgrade gate self-test
         if: ${{ steps.scope.outputs.run == 'true' }}
         run: node tooling/sdk/sdk-upgrade-gate.mjs --self-test
+
+  # #2181: knip (unused files, exports, dependencies) and madge (SDK import cycles) counts, as a report in the run summary and an artifact.
+  # Never a gate and never on a PR (PR CI stays at about 10 minutes, #1931): main push and manual runs only, beside the other jobs (no `needs`), so
+  # it adds no wait to the run (an install plus about 20 s of tools, measured locally; E2E runs longer). `continue-on-error`: a tool or network failure (pnpm dlx) marks this job
+  # failed but never the run or main. Whether a count becomes a check is open in #2181.
+  static-report:
+    name: Static report (knip, SDK cycles)
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      # knip loads the workspace's own configs and plugins, so the install comes first.
+      - run: pnpm install --frozen-lockfile
+      - run: |
+          node tooling/scripts/static-report.mjs --self-test
+          node tooling/scripts/static-report.mjs --out "$RUNNER_TEMP/static-report"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: static-report
+          path: ${{ runner.temp }}/static-report
+          retention-days: 30
 
   # PR guard (#2643): the three caps, each passed only by a recorded answer — PR size (400 lines / 40 files; generated files, snapshots and lockfiles
   # excluded; a `Size:` line in the PR body or `owner-ok:size`), fix rounds (the fourth push of the branch needs a `Round cap:` line in the PR body) and release scope (`Closes #n` must be in the

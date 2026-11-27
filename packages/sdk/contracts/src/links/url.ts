@@ -53,7 +53,7 @@ const SINGLES = ['v', 'scopeId', 'from', 'to', 'equipmentGroup', 'membershipBasi
 export const GLOBAL_KEYS = new Set<string>([...SINGLES, ...SETS.flatMap(s => ('alias' in s ? [s.key, s.alias] : [s.key]))]);
 
 // Python str.isspace() code points (parity with the old kernel-app-shell prototype codec in git history).
-const SPACE_CODES = [[0x09, 0x0d], [0x1c, 0x20], [0x85, 0x85], [0xa0, 0xa0], [0x1680, 0x1680], [0x2000, 0x200a], [0x2028, 0x2029], [0x202f, 0x202f], [0x205f, 0x205f], [0x3000, 0x3000]];
+const SPACE_CODES: readonly (readonly [number, number])[] = [[0x09, 0x0d], [0x1c, 0x20], [0x85, 0x85], [0xa0, 0xa0], [0x1680, 0x1680], [0x2000, 0x200a], [0x2028, 0x2029], [0x202f, 0x202f], [0x205f, 0x205f], [0x3000, 0x3000]];
 const isSpace = (c: number) => SPACE_CODES.some(([lo, hi]) => c >= lo && c <= hi);
 /** `field` is the diagnostic name; `urlKey` (only parseQuery passes it) is the URL key to blame, with the value as written. */
 function identifier(value: string, field: string, urlKey?: string): string {
@@ -63,7 +63,7 @@ function identifier(value: string, field: string, urlKey?: string): string {
 }
 function codepointCompare(a: string, b: string): number {
   const aa = Array.from(a, c => codepoint(c)); const bb = Array.from(b, c => codepoint(c));
-  for (let i = 0; i < Math.min(aa.length, bb.length); i++) if (aa[i] !== bb[i]) return aa[i] - bb[i];
+  for (const [i, x] of aa.entries()) { const y = bb[i]; if (y === undefined) break; if (x !== y) return x - y; }
   return aa.length - bb.length;
 }
 export function normalizeSet(values: string[], field = 'set', urlKey?: string): string[] {
@@ -75,7 +75,8 @@ const DATETIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/;
 export function wallClockEpochMs(value: string): number | null {
   const m = DATETIME.exec(value);
   if (!m) return null;
-  const [y, mo, d, h, mi, s] = m.slice(1).map(Number);
+  // DATETIME has six mandatory groups, so a match always yields six numbers.
+  const [y, mo, d, h, mi, s] = m.slice(1, 7).map(Number) as [number, number, number, number, number, number];
   const date = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
   if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d || h > 23 || mi > 59 || s > 59) return null;
   return date.getTime();
@@ -136,10 +137,11 @@ export function parseQuery(search: string, pageKeys: readonly string[] = [], opt
   const values = (key: string) => all.filter(([k]) => k === key).map(([, v]) => v);
   const versions = values('v');
   if (versions.length > 1) fail('duplicate_singleton', 'v appears more than once');
-  if (versions.length && !/^[1-9]\d*$/.test(versions[0])) fail('invalid_version', 'v must be a positive integer', 'v', versions[0]);
-  if (versions.length && versions[0] !== '1') fail('unsupported_version', `v=${versions[0]} is not supported; the bookmark is not rewritten`, 'v', versions[0]);
+  const [version] = versions;
+  if (version !== undefined && !/^[1-9]\d*$/.test(version)) fail('invalid_version', 'v must be a positive integer', 'v', version);
+  if (version !== undefined && version !== '1') fail('unsupported_version', `v=${version} is not supported; the bookmark is not rewritten`, 'v', version);
   for (const key of SINGLES) if (values(key).length > 1) fail('duplicate_singleton', `${key} appears more than once`);
-  const single = (key: string) => (values(key).length ? values(key)[0] : null);
+  const single = (key: string) => values(key)[0] ?? null;
 
   const global: GlobalContext = { ...emptyGlobal };
   const scope = single('scopeId');
@@ -224,7 +226,7 @@ export function sameGlobal(a: GlobalContext, b: GlobalContext): boolean {
 }
 
 export function conditionLabel(c: Condition): string {
-  return Object.keys(c).sort(codepointCompare).map(axis => normalizeSet([...c[axis]], axis).join(', ')).join(' · ');
+  return Object.entries(c).sort(([a], [b]) => codepointCompare(a, b)).map(([axis, values]) => normalizeSet([...values], axis).join(', ')).join(' · ');
 }
 
 /** metricVersion is carried as the bare version token (e.g. '3'); UIs render it as 'v3'. */
@@ -253,7 +255,7 @@ export function isAppRelativePath(value: string): boolean {
   if (!decoded.startsWith('/') || decoded.startsWith('//')) return false;
   if (decoded.includes('#') || decoded.includes('\\') || decoded.includes('//')) return false;
   if (/[\u0000-\u001F\u007F]/.test(decoded)) return false;
-  const path = decoded.split('?')[0];
+  const [path = ''] = decoded.split('?');
   if (path.includes(':')) return false;
   return true;
 }

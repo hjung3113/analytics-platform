@@ -1,6 +1,6 @@
 import { useEffect, useId, useReducer, useRef, useState } from 'react';
 import { Info } from 'lucide-react';
-import type { ActionResult } from '@ap/contracts';
+import { formatNumber, type ActionResult } from '@ap/contracts';
 import { useMenuAction, useMenuQuery, useMessages, usePlatform } from '@ap/kernel';
 import { DetailDrawer, StateMessage } from '@ap/components';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger, Input, Label, Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue, Skeleton, Textarea } from '@ap/ui';
@@ -248,8 +248,8 @@ function sampleFieldMessage(code: string, field: string) {
   const messages: Record<string, Record<string, string>> = {
     title: { required: '조사 이름을 입력하세요.', too_long: `조사 이름은 ${SAMPLE_TEXT_MAX_LENGTH}자 이내로 입력하세요.` },
     sourceOwner: { required: 'Source 소유자를 입력하세요.', malformed: '형식을 확인해 주세요.', too_long: `${SAMPLE_OWNER_MAX_LENGTH}자 이하로 입력하세요.` },
-    files: { required: '파일을 하나 이상 입력하세요.', too_many: `파일 참조는 ${SAMPLE_SET_MAX_FILES.toLocaleString('ko-KR')}개까지 입력할 수 있습니다.`, malformed: '파일 목록 형식을 확인해 주세요.', order_invalid: '파일 순서를 확인하세요.' },
-    fileRef: { required: '파일 참조를 입력하세요.', malformed: '제어 문자를 포함할 수 없습니다.', too_long: `${SAMPLE_FILE_REF_MAX_LENGTH.toLocaleString('ko-KR')}자 이하로 입력하세요.`, duplicate: '중복된 파일 참조입니다.' },
+    files: { required: '파일을 하나 이상 입력하세요.', too_many: `파일 참조는 ${formatNumber(SAMPLE_SET_MAX_FILES, 'ko')}개까지 입력할 수 있습니다.`, malformed: '파일 목록 형식을 확인해 주세요.', order_invalid: '파일 순서를 확인하세요.' },
+    fileRef: { required: '파일 참조를 입력하세요.', malformed: '제어 문자를 포함할 수 없습니다.', too_long: `${formatNumber(SAMPLE_FILE_REF_MAX_LENGTH, 'ko')}자 이하로 입력하세요.`, duplicate: '중복된 파일 참조입니다.' },
     sha256: { malformed: '소문자 16진수 64자리로 입력하세요.' },
   };
   return messages[field]?.[code] ?? '입력 형식을 확인해 주세요.';
