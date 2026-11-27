@@ -1,0 +1,118 @@
+// Type equivalence between the Zod sources and the hand-written @ap/contracts types (ADR-0096). `tsc --noEmit` (the package's
+// `typecheck`) proves it; `vitest run` only loads the file, because `expectTypeOf` is a no-op at runtime.
+import type { CreateNoticeInput, DeleteNoticeInput, GroupMember, JsonValue, Notice, NoticeListPage, PreferencesImport, PreferencesPatch, PreferencesSnapshot, SaveNoticeInput, UpdateNoticeInput, UploadedFile, ApiResponse, Capability, Assessment, AssessmentKind, AnyEndpointSpec, ColumnFilter, ColumnFilterSpec, MenuQuery, MenuQueryContext, Outcome, Trust } from '@ap/contracts';
+import { describe, expectTypeOf, it } from 'vitest';
+import { z } from 'zod/v4';
+import {
+  apiResponseSchema,
+  assessmentKindSchema,
+  assessmentSchema,
+  columnFilterSchema,
+  columnFilterSpecSchema,
+  endpointDeclarationSchema,
+  menuQueryContextSchema,
+  menuQuerySchema,
+  outcomeSchema,
+  trustSchema,
+  createNoticeInputSchema,
+  deleteNoticeInputSchema,
+  groupMemberSchema,
+  jsonValueSchema,
+  noticeListPageSchema,
+  noticeSchema,
+  peopleLookupResponseSchema,
+  preferencesImportSchema,
+  preferencesPatchSchema,
+  preferencesSnapshotSchema,
+  saveNoticeInputSchema,
+  updateNoticeInputSchema,
+  uploadedFileSchema,
+} from '../index.ts';
+import { contextCapabilitySchema } from '../menu-query.ts';
+import { APPLIED_CAPABILITIES } from '../vocab.ts';
+import type { ChartConfig, MenuView, MenuViewDraft, MenuViewPanels, SavedViewPatch, TableViewState } from '@ap/contracts';
+import { chartConfigSchema, menuViewPanelsSchema, savedViewDraftSchema, savedViewPatchSchema, savedViewSchema, tableViewStateSchema } from '../saved-view-commands.ts';
+
+it('table state schema equals its contracts type', () => {
+  expectTypeOf<z.infer<typeof tableViewStateSchema>>().toEqualTypeOf<TableViewState>();
+});
+
+/** Readonly arrays and properties are a source-type nicety; the wire shape is mutable. Mapping also flattens intersections. A fixed-length tuple keeps its length (part of the wire shape); only unbounded arrays collapse to `Wire<U>[]`. */
+type Wire<T> = T extends readonly (infer U)[] ? (number extends T['length'] ? Wire<U>[] : { -readonly [K in keyof T]: Wire<T[K]> }) : T extends object ? { -readonly [K in keyof T]: Wire<T[K]> } : T;
+
+// The contracts type with its three non-wire parts replaced: the branded `Permission` is a plain string on the wire, `paramKeys`
+// is the key list of the runtime allow-list, and the phantom `_types` is dropped.
+type EndpointDeclaration = Omit<AnyEndpointSpec, '_types' | 'paramKeys' | 'permission'> & { paramKeys: string[]; permission: string };
+
+describe('schemas and @ap/contracts types are the same type', () => {
+  it('menu-view panel configuration in drafts, patches and stored views', () => {
+    expectTypeOf<Wire<z.infer<typeof chartConfigSchema>>>().toEqualTypeOf<Wire<ChartConfig>>();
+    expectTypeOf<Wire<z.infer<typeof menuViewPanelsSchema>>>().toEqualTypeOf<Wire<MenuViewPanels | null>>();
+    expectTypeOf<Wire<Extract<z.infer<typeof savedViewDraftSchema>, { kind: 'menu-view' }>['panels']>>().toEqualTypeOf<Wire<MenuViewDraft['panels']>>();
+    expectTypeOf<Wire<z.infer<typeof savedViewPatchSchema>['panels']>>().toEqualTypeOf<Wire<SavedViewPatch['panels']>>();
+    expectTypeOf<Wire<Extract<z.infer<typeof savedViewSchema>, { kind: 'menu-view' }>['panels']>>().toEqualTypeOf<Wire<MenuView['panels']>>();
+    expectTypeOf<Pick<Extract<z.infer<typeof savedViewSchema>, { kind: 'menu-view' }>, 'panelsUnreadable'>>()
+      .toEqualTypeOf<Pick<MenuView, 'panelsUnreadable'>>();
+    expectTypeOf<Extract<'panelsUnreadable', keyof MenuViewDraft | keyof SavedViewPatch>>().toEqualTypeOf<never>();
+    expectTypeOf<Extract<'panelsUnreadable', keyof Extract<z.infer<typeof savedViewDraftSchema>, { kind: 'menu-view' }> | keyof z.infer<typeof savedViewPatchSchema>>>().toEqualTypeOf<never>();
+  });
+
+  it('outcome and assessment kind', () => {
+    expectTypeOf<z.infer<typeof outcomeSchema>>().toEqualTypeOf<Outcome>();
+    expectTypeOf<z.infer<typeof assessmentKindSchema>>().toEqualTypeOf<AssessmentKind>();
+  });
+
+  it('assessment and trust', () => {
+    expectTypeOf<Wire<z.infer<typeof assessmentSchema>>>().toEqualTypeOf<Wire<Assessment>>();
+    expectTypeOf<Wire<z.infer<typeof trustSchema>>>().toEqualTypeOf<Wire<Trust>>();
+  });
+
+  it('ApiResponse<unknown>', () => {
+    const schema = apiResponseSchema(z.unknown());
+    expectTypeOf<Wire<z.infer<typeof schema>>>().toEqualTypeOf<Wire<ApiResponse<unknown>>>();
+  });
+
+  it('menu query and its context', () => {
+    expectTypeOf<Wire<z.infer<typeof menuQueryContextSchema>>>().toEqualTypeOf<Wire<MenuQueryContext>>();
+    expectTypeOf<Wire<z.infer<typeof menuQuerySchema>>>().toEqualTypeOf<Wire<MenuQuery>>();
+  });
+
+  it('declarable capabilities are Capability without unsupported', () => {
+    expectTypeOf<z.infer<typeof contextCapabilitySchema>>().toEqualTypeOf<Exclude<Capability, 'unsupported'>>();
+    expectTypeOf<(typeof APPLIED_CAPABILITIES)[number]>().toEqualTypeOf<Exclude<Capability, 'unsupported'>>();
+  });
+
+  it('endpoint declaration (data part of EndpointSpec)', () => {
+    expectTypeOf<Wire<z.infer<typeof endpointDeclarationSchema>>>().toEqualTypeOf<Wire<EndpointDeclaration>>();
+  });
+
+  it('preferences, people and notices ports (ADR-0098)', () => {
+    expectTypeOf<z.infer<typeof jsonValueSchema>>().toEqualTypeOf<JsonValue>();
+    expectTypeOf<Wire<z.infer<typeof preferencesSnapshotSchema>>>().toEqualTypeOf<Wire<PreferencesSnapshot>>();
+    expectTypeOf<Wire<z.infer<typeof preferencesPatchSchema>>>().toEqualTypeOf<Wire<PreferencesPatch>>();
+    expectTypeOf<Wire<z.infer<typeof preferencesImportSchema>>>().toEqualTypeOf<Wire<PreferencesImport>>();
+    expectTypeOf<Wire<z.infer<typeof groupMemberSchema>>>().toEqualTypeOf<Wire<GroupMember>>();
+    expectTypeOf<Wire<z.infer<typeof peopleLookupResponseSchema>>['items']>().toEqualTypeOf<Wire<GroupMember>[]>();
+    expectTypeOf<Wire<z.infer<typeof noticeSchema>>>().toEqualTypeOf<Wire<Notice>>();
+    expectTypeOf<Wire<z.infer<typeof noticeListPageSchema>>>().toEqualTypeOf<Wire<NoticeListPage>>();
+    expectTypeOf<Wire<z.infer<typeof createNoticeInputSchema>>>().toEqualTypeOf<Wire<CreateNoticeInput>>();
+    expectTypeOf<Wire<z.infer<typeof updateNoticeInputSchema>>>().toEqualTypeOf<Wire<UpdateNoticeInput>>();
+    expectTypeOf<Wire<z.infer<typeof saveNoticeInputSchema>>>().toEqualTypeOf<Wire<SaveNoticeInput>>();
+    expectTypeOf<Wire<z.infer<typeof deleteNoticeInputSchema>>>().toEqualTypeOf<Wire<DeleteNoticeInput>>();
+    expectTypeOf<Wire<z.infer<typeof uploadedFileSchema>>>().toEqualTypeOf<Wire<UploadedFile>>();
+  });
+
+  it('column filter and its field spec (ADR-0105)', () => {
+    expectTypeOf<Wire<z.infer<typeof columnFilterSchema>>>().toEqualTypeOf<Wire<ColumnFilter>>();
+    expectTypeOf<Wire<z.infer<typeof columnFilterSpecSchema>>>().toEqualTypeOf<Wire<ColumnFilterSpec>>();
+  });
+
+  it('Wire keeps tuple length: a 3-tuple, a 1-tuple or an unbounded array is not the number pair', () => {
+    expectTypeOf<Wire<readonly [number, number]>>().toEqualTypeOf<[number, number]>();
+    expectTypeOf<Wire<[number, number, number]>>().not.toEqualTypeOf<Wire<[number, number]>>();
+    expectTypeOf<Wire<[number]>>().not.toEqualTypeOf<Wire<[number, number]>>();
+    expectTypeOf<Wire<number[]>>().not.toEqualTypeOf<Wire<[number, number]>>();
+    type Pair = Extract<z.infer<typeof columnFilterSchema>, { op: 'between'; value: [number, number] }>;
+    expectTypeOf<Pair['value']>().toEqualTypeOf<[number, number]>();
+  });
+});
