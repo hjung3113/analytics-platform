@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { act, cleanup, fireEvent, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import { I18nProvider, PlatformProvider } from '@ap/kernel';
@@ -147,6 +147,17 @@ describe('catalog management URL state', () => {
 });
 
 describe('catalog table rows', () => {
+  // #2587: «수정일» is the date of a server instant in the viewer's zone, not its UTC date — 16:30Z is already the next day in Seoul.
+  it('shows 수정일 as the viewer-zone date of the update instant', async () => {
+    const zone = process.env.TZ, updatedAt = retiredRow.updatedAt;
+    process.env.TZ = 'Asia/Seoul';
+    retiredRow.updatedAt = '2026-11-27T16:30:00.000Z';
+    onTestFinished(() => { process.env.TZ = zone; retiredRow.updatedAt = updatedAt; });
+    mount('');
+    const row = await screen.findByRole('row', { name: /B-30/ }, slow);
+    expect(row.textContent).toContain('2026-11-28');
+    expect(row.textContent).not.toContain('2026-11-27');
+  });
   it('mutes inactive rows and keeps their 상태 badge', async () => {
     mount('');
     const retired = await screen.findByRole('row', { name: /B-30/ }, slow);

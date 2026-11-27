@@ -1,7 +1,7 @@
 import { useMemo, useState, type RefObject } from 'react';
 import { PanelRight } from 'lucide-react';
 import type { ApiResponse, ColumnFilterSpec, GroupedPageResult, TableQuery } from '@ap/contracts';
-import { useMenuFetch, usePlatform } from '@ap/kernel';
+import { formatListTime, useMenuFetch, usePlatform } from '@ap/kernel';
 import { PlatformDataTable, RowAction, TableUrlWarning, useTableUrlState, type PlatformColumn, type TableFilterField } from '@ap/components';
 import { Button, SearchInput, StatusBadge } from '@ap/ui';
 import {
@@ -10,6 +10,12 @@ import {
 } from '../endpoints';
 import { TAB_LABEL, childLink, chosenIds, isRowMuted, softwareSummary, tabPatch, type CatalogKind, type CatalogRow } from './catalogModel';
 import type { Option } from './useCatalogOptions';
+
+/**
+ * «수정일» is a date-only column of a server instant: the date part of the Kernel list notation (`YYYY-MM-DD HH:mm`, viewer zone,
+ * kernel.md §6.3), not the instant's UTC date, which is the previous day for a Seoul viewer after 15:00Z (#2587).
+ */
+const updatedDate = (at: string): string => formatListTime(at).slice(0, 10);
 
 const ENDPOINTS = { vendor: vendorsEndpoint, process: processesEndpoint, model: modelsEndpoint, software: softwareVersionsEndpoint } as const;
 const SORT_IDS = { vendor: VENDOR_SORT_IDS, process: PROCESS_SORT_IDS, model: MODEL_SORT_IDS, software: SOFTWARE_SORT_IDS } as const;
@@ -74,7 +80,7 @@ export function CatalogTable({ kind, q, focus, rowsRef, options, labels, remembe
       cell: r => <StatusBadge tone={r.active ? 'success' : 'neutral'}>{r.active ? '활성' : '비활성'}</StatusBadge>,
     };
     const name: PlatformColumn<CatalogRow> = { id: 'name', header: '이름', size: 180, cell: r => r.name || '—' };
-    const updated: PlatformColumn<CatalogRow> = { id: 'updatedAt', header: '수정일', size: 132, cell: r => <span className="tabular">{r.updatedAt.slice(0, 10)}</span> };
+    const updated: PlatformColumn<CatalogRow> = { id: 'updatedAt', header: '수정일', size: 132, cell: r => <span className="tabular">{updatedDate(r.updatedAt)}</span> };
     if (kind === 'vendor' || kind === 'process') {
       return [code, status, name, {
         id: 'modelCount', header: '모델 수', size: 96, align: 'right', exportValue: r => (r as VendorRow | ProcessRow).modelCount,
