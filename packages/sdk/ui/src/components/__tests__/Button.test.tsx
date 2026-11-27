@@ -37,7 +37,7 @@ it('treats only marked bands as canvas bands', () => {
   const { getByRole } = render(<Button variant="secondary">Bold</Button>);
   expect(getByRole('button')).toHaveClass('on-canvas-band:bg-transparent');
   const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../../styles/compat.css'), 'utf8');
-  const band = css.match(/@custom-variant on-canvas-band \(&:where\((.+) \*\)\);/)![1];
+  const band = css.match(/@custom-variant on-canvas-band \(&:where\((.+) \*\)\);/)?.[1] ?? 'missing-on-canvas-band';
   const nearestBand = (html: string) => {
     const host = document.createElement('div');
     host.innerHTML = html;

@@ -104,7 +104,8 @@ function splitUrl(url: string): { origin: string; path: string; search: string }
   if (url.includes('#') || url.includes('\\')) return fail('inbound_path', `fragment/backslash is not part of the deep-link contract: ${JSON.stringify(url)}`);
   const m = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\/([^/?#]*)(\/[^?#]*)(?:\?([^#]*))?$/.exec(url);
   if (!m) return fail('inbound_path', `use an absolute link scheme://host/path[?query], got ${JSON.stringify(url)}`);
-  return { origin: `${m[1].toLowerCase()}://${m[2].toLowerCase()}`, path: m[3], search: m[4] ?? '' };
+  const [, scheme = '', host = '', path = '', search = ''] = m;
+  return { origin: `${scheme.toLowerCase()}://${host.toLowerCase()}`, path, search };
 }
 
 const RETURN_TO: readonly string[] = [RETURN_TO_KEY];
@@ -153,12 +154,12 @@ export function buildPlatformInboundLink(input: {
   if (wantsReturnTo && !dest.acceptsReturnTo) return fail('unsupported_page_key', returnToRefusal(input.destinations === undefined, dest.menuId));
   if (wantsReturnTo && !isAppRelativePath(returnTo)) return fail('external_return', `returnTo must be an app-relative platform path, got ${JSON.stringify(input.returnTo)}`);
   const hopFields = input.hop as Record<string, string>;
-  if (dest.idField !== undefined) equipmentDetailId(hopFields[dest.idField] ?? '', dest.idField);
+  const hopId = dest.idField === undefined ? undefined : equipmentDetailId(hopFields[dest.idField] ?? '', dest.idField);
   validateContext(input.context); // before serialization: serializeGlobal would silently drop a one-sided period or orphan metricVersion.
   const page: Pair[] = wantsReturnTo ? [[RETURN_TO_KEY, returnTo]] : [];
   const query = buildQuery(input.context, page);
   parseQuery(query, wantsReturnTo ? RETURN_TO : []); // validate the serialized form before hand-out: scopeId/ppid/condition identifiers, set markers.
-  const path = dest.idField !== undefined ? `${dest.path}/${encodeURIComponent(hopFields[dest.idField])}` : dest.path;
+  const path = hopId !== undefined ? `${dest.path}/${encodeURIComponent(hopId)}` : dest.path;
   return base + path + query;
 }
 

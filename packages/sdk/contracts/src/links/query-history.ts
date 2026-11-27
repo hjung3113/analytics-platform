@@ -12,7 +12,7 @@ export type QueryHistoryStore = {
 /** Unicode code-point order, independent of browser locale. */
 export function compareHistoryText(a: string, b: string): number {
   const aa = Array.from(a, c => codepoint(c)); const bb = Array.from(b, c => codepoint(c));
-  for (let i = 0; i < Math.min(aa.length, bb.length); i++) if (aa[i] !== bb[i]) return aa[i] - bb[i];
+  for (const [i, x] of aa.entries()) { const y = bb[i]; if (y === undefined) break; if (x !== y) return x - y; }
   return aa.length - bb.length;
 }
 export function compareQueryHistory(a: QueryHistoryEntry, b: QueryHistoryEntry): number {

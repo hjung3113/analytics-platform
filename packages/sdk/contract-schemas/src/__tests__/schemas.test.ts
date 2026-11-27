@@ -94,7 +94,7 @@ describe('MenuQuery context', () => {
 
   it.each(SET_KEYS)('%s: JSON Schema carries uniqueItems and non-blank item pattern', (key) => {
     const props = toJsonSchema(menuQueryContextSchema).properties as Record<string, { anyOf: Record<string, unknown>[] }>;
-    const array = props[key].anyOf.find((branch) => branch.type === 'array');
+    const array = props[key]?.anyOf.find((branch) => branch.type === 'array');
     expect(array).toMatchObject({ uniqueItems: true, items: { type: 'string', pattern: expect.any(String) } });
     const pattern = new RegExp((array!.items as { pattern: string }).pattern);
     expect(pattern.test('a')).toBe(true);
@@ -116,7 +116,7 @@ describe('MenuQuery context', () => {
 
   it('condition: JSON Schema carries the same constraints', () => {
     const props = toJsonSchema(menuQueryContextSchema).properties as Record<string, { anyOf: Record<string, unknown>[] }>;
-    const map = props.condition.anyOf.find((branch) => branch.type === 'object');
+    const map = props.condition?.anyOf.find((branch) => branch.type === 'object');
     expect(map).toMatchObject({
       minProperties: 1,
       propertyNames: { type: 'string', pattern: expect.any(String) },
@@ -144,13 +144,13 @@ describe('endpoint declaration', () => {
 
   it('emits maxRows as a positive integer', () => {
     const limits = (toJsonSchema(endpointDeclarationSchema).properties as Record<string, { properties: Record<string, unknown> }>).limits;
-    expect(limits.properties.maxRows).toMatchObject({ type: 'integer', exclusiveMinimum: 0 });
+    expect(limits?.properties.maxRows).toMatchObject({ type: 'integer', exclusiveMinimum: 0 });
   });
 
   it('capability vocabulary is exactly apply and reference, in runtime and artifact', () => {
     expect(contextCapabilitySchema.options).toEqual(['apply', 'reference']);
     const context = (toJsonSchema(endpointDeclarationSchema).properties as Record<string, { properties: Record<string, unknown> }>).context;
-    expect(Object.values(context.properties)).toEqual(CONTEXT_KEYS.map(() => ({ type: 'string', enum: ['apply', 'reference'] })));
+    expect(Object.values(context?.properties ?? {})).toEqual(CONTEXT_KEYS.map(() => ({ type: 'string', enum: ['apply', 'reference'] })));
   });
 
   it('rejects an unknown assessment kind; the artifact forbids unknown keys', () => {
