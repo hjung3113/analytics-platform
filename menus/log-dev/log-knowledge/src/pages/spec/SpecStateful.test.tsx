@@ -6,7 +6,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { testAdapter, testSession } from '@ap/kernel/testing';
 import { stubCompactTableGeometry } from '@ap/components/testing';
 import { type ActionResponse, type ApiResponse, type FieldError } from '@ap/contracts';
-import { type ModelSpecData, type SpecChangeRow } from '../../endpoints';
+import { type ModelSpecData, type SoftwareRow, type SpecChangeRow } from '../../endpoints';
 import { ChangeDrawer } from './ChangeDrawer';
 import SpecScreen from './SpecScreen';
 import { knowledgeRegistry, mountWith } from '../test-support';
@@ -210,6 +210,36 @@ describe('nested server errors reach their controls (fix C5 / A2)', () => {
     expect(text(target)).toMatch(/module/);
     expect(within(dialog).getAllByRole('alert').map(el => el.textContent).join(' ')).toMatch(/겹칩니다/);
   });
+});
+
+// #2574 variant d and b: the change editor's own checks focus the first invalid editor, and «추가» names why it is off.
+it('focuses the first invalid change editor on submit and writes nothing', async () => {
+  let writes = 0;
+  const sw = { id: 'sw-1', versionLabel: '1.0.0' } as SoftwareRow;
+  mount('', { child: <ChangeDrawer modelId={modelId} software={[sw]} mode="add" selectedSoftware={null} onClose={() => {}} />, action: () => { writes++; return ok(null); } });
+  const target = await screen.findByLabelText('대상 (JSON)');
+  fireEvent.change(target, { target: { value: '{' } });
+  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  await waitFor(() => expect(target.getAttribute('aria-invalid')).toBe('true'));
+  await waitFor(() => expect(document.activeElement).toBe(target));
+  expect(writes).toBe(0);
+  fireEvent.change(target, { target: { value: '{"module":"Arm","event":"Move"}' } });
+  expect(target.getAttribute('aria-invalid')).toBeNull();
+});
+it('focuses the editor the server rejected', async () => {
+  const sw = { id: 'sw-1', versionLabel: '1.0.0' } as SoftwareRow;
+  mount('', { child: <ChangeDrawer modelId={modelId} software={[sw]} mode="add" selectedSoftware={null} onClose={() => {}} />, action: () => server([{ path: ['evidenceRef'], code: 'malformed' }]) });
+  fireEvent.change(await screen.findByLabelText('메모'), { target: { value: 'timing note' } });
+  fireEvent.click(screen.getByRole('button', { name: '추가' }));
+  const evidence = screen.getByLabelText('근거 참조');
+  await waitFor(() => expect(evidence.getAttribute('aria-invalid')).toBe('true'));
+  await waitFor(() => expect(document.activeElement).toBe(evidence));
+});
+it('names why «추가» is off when there is no software to start from', async () => {
+  mount('', { child: <ChangeDrawer modelId={modelId} software={[]} mode="add" selectedSoftware={null} onClose={() => {}} /> });
+  const add = await screen.findByRole('button', { name: '추가' });
+  expect((add as HTMLButtonElement).disabled).toBe(true);
+  expect(document.getElementById(add.getAttribute('aria-describedby') ?? '')?.textContent).toBe('적용 시작 SW가 없습니다. 먼저 카탈로그에 SW 버전을 등록해 주세요.');
 });
 
 

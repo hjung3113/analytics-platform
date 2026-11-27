@@ -39,7 +39,8 @@ export function useValidatedSubmit<TValues>({
   React.useLayoutEffect(() => {
     if (!shouldFocusInvalidRef.current) return;
     const focusInvalid = () => {
-      const invalid = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]');
+      // A disabled control cannot take focus; the first one the person can still fix does (#2574).
+      const invalid = formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]:not(:disabled)');
       if (!invalid) return false;
       shouldFocusInvalidRef.current = false;
       invalid.focus();

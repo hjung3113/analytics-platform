@@ -217,6 +217,49 @@ describe('catalog drawer writes', () => {
     expect(writes.at(-1)?.action).toBe('logKnowledge.vendorCreate');
   });
 
+  // #2574 variant a+d: required inputs used to go to the server blank, and a rejected field never took focus.
+  it('checks required inputs on submit, focuses the first empty one and sends nothing', async () => {
+    mount(`&tab=vendor${activeOnly()}&focus=${vendorRow.id}`);
+    const code = await screen.findByLabelText(/^코드/, {}, slow);
+    const name = screen.getByLabelText(/^이름/);
+    fireEvent.change(code, { target: { value: '' } });
+    fireEvent.change(name, { target: { value: '  ' } });
+    const before = writes.length;
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(code.getAttribute('aria-invalid')).toBe('true'));
+    expect(name.getAttribute('aria-invalid')).toBe('true');
+    expect(document.getElementById(code.getAttribute('aria-describedby') ?? '')?.textContent).toBe('필수 항목입니다');
+    await waitFor(() => expect(document.activeElement).toBe(code));
+    expect(writes).toHaveLength(before);
+    fireEvent.change(code, { target: { value: 'ZETA' } });
+    expect(code.getAttribute('aria-invalid')).not.toBe('true');
+  });
+
+  it('lets a new vendor leave 코드 blank (the server derives it) but not 이름', async () => {
+    mount(`&tab=vendor${activeOnly()}&focus=new`);
+    const code = await screen.findByLabelText(/^코드/, {}, slow);
+    const name = screen.getByLabelText(/^이름/);
+    const before = writes.length;
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(document.activeElement).toBe(name));
+    expect(code.getAttribute('aria-invalid')).not.toBe('true');
+    expect(writes).toHaveLength(before);
+    fireEvent.change(name, { target: { value: 'Zeta Corp' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(writes.at(-1)?.action).toBe('logKnowledge.vendorCreate'));
+  });
+
+  it('moves focus to the field the server rejected', async () => {
+    mount(`&tab=vendor${activeOnly()}&focus=new`);
+    const code = await screen.findByLabelText(/^코드/, {}, slow);
+    fireEvent.change(code, { target: { value: 'alpha' } });
+    fireEvent.change(screen.getByLabelText(/^이름/), { target: { value: 'Again' } });
+    answer = () => ({ outcome: 'invalid', fieldErrors: [{ path: ['code'], code: 'duplicate' }] });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await screen.findByText('같은 코드가 이미 있습니다');
+    await waitFor(() => expect(document.activeElement).toBe(code));
+  });
+
   it('asks before deactivating, naming the active children it leaves unchanged', async () => {
     mount(`&tab=model${activeOnly()}&focus=${modelRow.id}`);
     fireEvent.click(await screen.findByRole('button', { name: '비활성화' }, slow));

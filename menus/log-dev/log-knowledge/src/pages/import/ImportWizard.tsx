@@ -293,6 +293,12 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
   const headingText = `${step}. ${STEP_LABEL[step]}`;
 
   let body: ReactNode;
+  // Why «검사» is off, named under it (#2574 variant b): the earlier job's choice comes first, as its notice says.
+  const checkBlockers: readonly [boolean, string][] = [
+    [resume !== null, '이전 작업을 이어서 하거나 새로 시작하면 검사할 수 있습니다.'],
+    [text.trim() === '', '목록을 붙여넣거나 CSV 파일을 열면 검사할 수 있습니다.'],
+  ];
+  const checkBlocked = checkBlockers.find(([blocking]) => blocking)?.[1];
   if (step === 1) {
     const dataRows = Math.max(0, text.split(/\r\n|\n|\r/).filter(l => l.trim() !== '').length - 1);
     body = <div className="grid gap-4">
@@ -402,7 +408,7 @@ function ImportWizardFor({ userId, onExit }: { userId: string; onExit: (changed:
     </div>
     <div className="flex items-center gap-2">
       {working && <span role="status" className="t-caption text-text-muted">{working}</span>}
-      {step === 1 && <Button type="button" disabled={busy || text.trim() === '' || resume !== null} onClick={() => { void submit(); }}>검사</Button>}
+      {step === 1 && <Button type="button" disabled={busy || checkBlocked !== undefined} {...(checkBlocked !== undefined && !busy ? { disabledReason: checkBlocked } : {})} onClick={() => { void submit(); }}>검사</Button>}
       {step === 2 && <><Button type="button" variant="secondary" disabled={busy} onClick={() => { void recheck(); }}>다시 검사</Button>
         <Button type="button" disabled={busy} onClick={() => setStep(nextStep(2, counts.conflict))}>다음 단계</Button></>}
       {step === 3 && <Button type="button" data-next-step disabled={busy || unresolved.length > 0} onClick={() => setStep(nextStep(3, conflicts.length))}>다음 단계</Button>}
