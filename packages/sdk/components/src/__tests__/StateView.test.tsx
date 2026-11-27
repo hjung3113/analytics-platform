@@ -1,0 +1,375 @@
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, type QueryState } from '@ap/kernel';
+import type { ApiResponse } from '@ap/contracts';
+import { QueryView, StateMessage } from '../StateView';
+import { InWorkspacePanelProvider } from '../workspace/panelContext';
+import { OutcomeBanners, OutcomeScope } from '../filters/OutcomeScope';
+import { QueryBarStatusContext } from '../filters/QueryBarStatus';
+import { PageDensityProvider } from '../pageDensity';
+import { AnalysisSectionContext } from '../archetypes/AnalysisSectionContext';
+
+afterEach(cleanup);
+
+it.each([false, true])('keeps Korean error-card advice together (compact=%s)', compact => {
+  render(<I18nProvider><StateMessage tone="danger" compact={compact} icon={null} title="Error" body="Correlation ID를 전달하세요" /></I18nProvider>);
+  expect(screen.getByText('Correlation ID를 전달하세요')).toHaveClass('break-keep');
+});
+
+it.each([false, true])('danger card limits colour to icon/title and borders the soft surface (compact=%s)', compact => {
+  render(<I18nProvider><StateMessage tone="danger" compact={compact} icon={<span>icon</span>} title="Error title" body="Recovery advice" correlationId="trace-1945" detail="Server detail" /></I18nProvider>);
+  const alert = screen.getByRole('alert');
+  expect(alert).toHaveClass('bg-accent-danger-soft', 'border', 'border-text-danger-label', 'text-text-secondary');
+  expect(alert).not.toHaveClass('text-text-danger-label');
+  expect(screen.getByText('Error title')).toHaveClass('text-text-danger-label');
+  expect(screen.getByText('icon').parentElement).toHaveClass('text-text-danger');
+  expect(screen.getByText('Recovery advice')).toHaveClass('text-text-secondary');
+  fireEvent.click(within(alert).getByRole('button', { name: '기술 정보' }));
+  for (const node of [screen.getByText(/trace-1945/), screen.getByRole('note')]) {
+    expect(node.closest('.text-text-secondary')).toBeTruthy();
+    expect(node.closest('.text-text-danger-label')).toBeNull();
+  }
+});
+
+function textWithoutDetail(node: HTMLElement) {
+  const clone = node.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll('[role="note"]').forEach(note => note.remove());
+  return clone.textContent ?? '';
+}
+
+const errorResponse = (): ApiResponse<unknown> =>
+  ({ outcome: 'error', message: 'boom', data: null, assessments: [], trust: null, correlationId: 'c1' });
+const query = (): QueryState<unknown> => ({ response: errorResponse(), refetch: vi.fn(), missing: [], completedAt: null, status: 'done' });
+
+describe('grouped outcome notices (#3068)', () => {
+  const widget = (name: string, outcome: ApiResponse<unknown>['outcome']) => (
+    <QueryView query={{ ...query(), response: { ...errorResponse(), outcome } }} widgetName={name}>{() => null}</QueryView>
+  );
+
+  it.each([
+    ['too_large', '조회 과대'],
+    ['forbidden', '권한 없음'],
+  ] as const)('points to a single %s banner by status', (outcome, label) => {
+    render(<I18nProvider><OutcomeScope><OutcomeBanners compact />
+      {widget('지표', outcome)}{widget('추세', outcome)}
+    </OutcomeScope></I18nProvider>);
+    const banner = screen.getByRole('group', { name: '위젯 상태 요약' });
+    const state = screen.getByRole('group', { name: '지표' });
+    expect(state).toHaveAttribute('aria-describedby', banner.id);
+    expect(within(state).getByText(`위 안내 참고(${label})`)).toBeVisible();
+    expect(state).not.toHaveTextContent('불러오지 못함');
+  });
+
+  it.each([
+    ['error', '서버 오류', 'too_large', '조회 과대'],
+    ['timeout', '시간 초과', 'forbidden', '권한 없음'],
+  ] as const)('keeps %s failure wording when a refusal group shares the page', (failure, failureLabel, refusal, refusalLabel) => {
+    const page = (showRefusal: boolean) => <I18nProvider><OutcomeScope><OutcomeBanners compact />
+      {widget('지표', failure)}{widget('추세', failure)}
+      {showRefusal && <>{widget('집계', refusal)}{widget('표', refusal)}</>}
+    </OutcomeScope></I18nProvider>;
+    const { rerender } = render(page(false));
+    expect(within(screen.getByRole('group', { name: '지표' })).getByText('불러오지 못함')).toBeVisible();
+
+    rerender(page(true));
+    expect(screen.getAllByRole('group', { name: '위젯 상태 요약' })).toHaveLength(2);
+    expect(within(screen.getByRole('group', { name: '지표' })).getByText(`불러오지 못함(${failureLabel})`)).toBeVisible();
+    expect(within(screen.getByRole('group', { name: '집계' })).getByText(`위 안내 참고(${refusalLabel})`)).toBeVisible();
+  });
+});
+
+/** Outside an OutcomeScope the widget never groups (UXA-3): the compact state must still name its widget. */
+function View({ hide = false }: { hide?: boolean }) {
+  return <I18nProvider><QueryView query={query()} widgetName="지표 쌍 검증" compact hideWidgetName={hide}>{() => null}</QueryView></I18nProvider>;
+}
+
+describe('non-grouped compact state names its widget (UXA-3)', () => {
+  it('draws the widget name line above a compact error StateMessage', () => {
+    render(<View />);
+    expect(screen.getByRole('group', { name: '지표 쌍 검증' })).toBeInTheDocument();
+    expect(screen.getByText('지표 쌍 검증')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('데이터를 불러오지 못했습니다');
+    const alert = screen.getByRole('alert');
+    fireEvent.click(within(alert).getByRole('button', { name: '기술 정보' }));
+    expect(within(alert).getByRole('note', { name: '서버 세부' })).toHaveTextContent('boom');
+    expect(textWithoutDetail(alert)).not.toContain('boom');
+  });
+
+  it.each([
+    ['error', 'time_domain_unverified: MEM-PHOTO-0103, MEM-PHOTO-0105', 'alert', ['함께 집계할 수 없습니다', '설비를 좁히거나 기간을 줄이세요'], false],
+    ['forbidden', 'no grant', 'status', ['관리자에게 요청하세요'], false],
+    ['too_large', 'row cap', 'status', ['조회 조건을 좁혀 다시 시도하세요'], false],
+    ['timeout', 'Upstream mart query failed', 'alert', ['조회가 제한 시간 안에 끝나지 않았습니다', '기간을 줄이거나 집계 단위를 키워 다시 시도하세요'], true],
+  ] as const)('standalone %s keeps support information in the named detail', (outcome, message, role, phrases, retry) => {
+    const response: ApiResponse<unknown> = { outcome, message, data: null, assessments: [], trust: null, correlationId: 'c-stand', recovery: retry ? { retryable: true } : undefined };
+    const q: QueryState<unknown> = { response, refetch: vi.fn(), missing: [], completedAt: null, status: 'done' };
+    render(<I18nProvider><QueryView query={q}>{() => null}</QueryView></I18nProvider>);
+    const region = screen.getByRole(role);
+    for (const phrase of phrases) expect(textWithoutDetail(region)).toContain(phrase);
+    expect(textWithoutDetail(region)).not.toContain(message);
+    fireEvent.click(within(region).getByRole('button', { name: '기술 정보' }));
+    const detail = within(region).getByRole('note', { name: '서버 세부' });
+    if (outcome === 'error') {
+      expect(detail).toHaveTextContent('time_domain_unverified');
+      expect(detail).not.toHaveTextContent('MEM-PHOTO');
+    } else expect(detail).toHaveTextContent(message);
+    expect(region).toHaveTextContent('c-stand');
+    if (retry) expect(within(region).getByRole('button', { name: '다시 시도' })).toBeTruthy();
+  });
+
+  it('hideWidgetName keeps the name out', () => {
+    render(<View hide />);
+    expect(screen.queryByText('지표 쌍 검증')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+});
+
+it('renders idle with localized missing reasons and without loading or outcome content', () => {
+  const query: QueryState<unknown> = { status: 'idle', response: null, refetch: vi.fn(), missing: [{ key: 'time', label: { ko: '기간', en: 'Period' } }], completedAt: null };
+  render(<I18nProvider><QueryView query={query}>{() => <span>result</span>}</QueryView></I18nProvider>);
+  expect(screen.getByRole('status')).toHaveTextContent('아직 조회하지 않았습니다');
+  expect(screen.getByRole('listitem')).toHaveTextContent('기간을 선택하세요');
+  expect(screen.queryByText('불러오는 중')).not.toBeInTheDocument();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+it('renders the roomNames missing item as 공정 with the object particle', () => {
+  const query: QueryState<unknown> = { status: 'idle', response: null, refetch: vi.fn(), missing: [{ key: 'roomNames', label: { ko: '공정', en: 'Process' } }], completedAt: null };
+  render(<I18nProvider><QueryView query={query}>{() => <span>result</span>}</QueryView></I18nProvider>);
+  expect(screen.getByRole('listitem')).toHaveTextContent('공정을 선택하세요');
+});
+
+describe('QueryView inside a workspace panel', () => {
+  const ok = (): QueryState<string> => ({ response: { outcome: 'ok', data: 'x', assessments: [], trust: null, correlationId: 'c' }, refetch: vi.fn(), missing: [], completedAt: null, status: 'done' });
+
+  it('takes the panel height so a fill chart inside has a bounded parent; elsewhere it is unchanged', () => {
+    const { container, unmount } = render(<I18nProvider><InWorkspacePanelProvider value><QueryView query={ok()}>{data => <p>{data}</p>}</QueryView></InWorkspacePanelProvider></I18nProvider>);
+    expect(container.querySelector('p')!.parentElement).toBe(container.firstElementChild);
+    expect(container.querySelector('p')!.closest('[aria-busy]')).toHaveClass('h-full', 'min-h-0');
+    unmount();
+    const plain = render(<I18nProvider><QueryView query={ok()}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
+    expect(plain.container.querySelector('p')!.closest('[aria-busy]')).not.toHaveClass('h-full');
+  });
+});
+
+describe('QueryView non-opt-in DOM compatibility (#1365 FIX6V)', () => {
+  const response: ApiResponse<string> = { outcome: 'ok', data: 'result', assessments: [], trust: null, correlationId: 'current' };
+
+  it('keeps the pre-branch DOM with the consumer layout directly inside the query boundary', () => {
+    const { container } = render(<I18nProvider><QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'done' }}>
+      {data => <div className="space-y-3"><section>First</section><section>{data}</section></div>}
+    </QueryView></I18nProvider>);
+    expect(container.innerHTML).toBe('<div aria-busy="false" class="relative"><div class="space-y-3"><section>First</section><section>result</section></div></div>');
+    expect(container.querySelector('[data-query-result-content]')).toBeNull();
+  });
+
+  it.each([undefined, false, true])('keeps sibling space-y margins on layout boxes (showingPrevious=%s)', showingPrevious => {
+    // jsdom has no layout engine. Use the sibling-margin rule itself and check that its
+    // targets generate boxes, rather than claiming to measure a rendered pixel gap.
+    const style = document.createElement('style');
+    style.textContent = '.contents { display: contents; } .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }';
+    document.head.append(style);
+    try {
+      const { container } = render(<I18nProvider><div className="space-y-3">
+        <section>Before</section>
+        <QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'done', showingPrevious }}>
+          {data => <div className="space-y-3"><section>First</section><section>{data}</section></div>}
+        </QueryView>
+        <section>After</section>
+      </div></I18nProvider>);
+      const stack = container.firstElementChild!;
+      const boundary = stack.children[1] as HTMLElement;
+      const layout = screen.getByText('First').parentElement!;
+      if (showingPrevious === undefined) expect(layout.parentElement).toBe(boundary);
+      else expect(layout.parentElement).toBe(boundary.querySelector('[data-query-result-content]'));
+      expect(getComputedStyle(boundary).marginTop).toBe('12px');
+      expect(getComputedStyle(stack.lastElementChild!).marginTop).toBe('12px');
+      expect(getComputedStyle(screen.getByText('result')).marginTop).toBe('12px');
+      expect(getComputedStyle(layout.parentElement!).display).not.toBe('contents');
+    } finally {
+      style.remove();
+    }
+  });
+});
+
+describe('QueryView idle beside the query bar (#1170)', () => {
+  const idle = (keys: string[]): QueryState<unknown> => ({ status: 'idle', response: null, refetch: vi.fn(), missing: keys.map(key => ({ key, label: { ko: key === 'time' ? '기간' : '공정', en: key } })), completedAt: null });
+  const withBar = (reasonKeys: string[], keys: string[]) => (
+    <I18nProvider><QueryBarStatusContext.Provider value={{ status: { folded: false, editing: false, reasonKeys }, report: () => {} }}><QueryView query={idle(keys)}>{() => <span>result</span>}</QueryView></QueryBarStatusContext.Provider></I18nProvider>);
+  it('omits the list and points to the bar when the bar covers every missing item', () => {
+    render(withBar(['time', 'roomNames', 'scope'], ['time', 'roomNames']));
+    expect(screen.getByRole('status')).toHaveTextContent('아직 조회하지 않았습니다');
+    expect(screen.getByRole('status')).toHaveTextContent('위 조회 조건의 안내를 확인하세요.');
+    expect(screen.queryByRole('listitem')).toBeNull();
+  });
+  it('keeps the list when the bar covers only some of the missing items', () => {
+    render(withBar(['roomNames'], ['time', 'roomNames']));
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+    expect(screen.queryByText('위 조회 조건의 안내를 확인하세요.')).toBeNull();
+  });
+  it('keeps the list when no bar reports', () => {
+    render(<I18nProvider><QueryView query={idle(['time'])}>{() => <span>result</span>}</QueryView></I18nProvider>);
+    expect(screen.getByRole('listitem')).toHaveTextContent('기간을 선택하세요');
+  });
+});
+
+describe('QueryView same-context refresh label (#1166 UX-2)', () => {
+  const okResponse = (): ApiResponse<unknown> => ({ outcome: 'ok', data: {}, assessments: [], trust: null, correlationId: 'c' });
+  const refreshing = (): QueryState<unknown> => ({ response: okResponse(), refetch: vi.fn(), missing: [], completedAt: null, status: 'refreshing' });
+  const label = () => screen.getByText('같은 조건으로 갱신 중').closest('[role="status"]')!;
+  it.each(['comfortable', 'compact'] as const)('%s pages lay the label as a band over the view bottom, never above it (#2381)', density => {
+    render(<I18nProvider><PageDensityProvider value={density}><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></PageDensityProvider></I18nProvider>);
+    expect(label()).toHaveClass('absolute', 'inset-x-0', 'bottom-0', 'h-6', 'pointer-events-none');
+    expect(label().className).not.toMatch(/-top-|top-2/);
+  });
+  it('keeps the previous content visible with a named status and aria-busy (kept result of a params change, #1365)', () => {
+    const { container } = render(<I18nProvider><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.getByText('body')).toBeVisible();
+    expect(screen.getByRole('status')).toHaveTextContent('같은 조건으로 갱신 중');
+    expect(container.firstElementChild).toHaveAttribute('aria-busy', 'true');
+  });
+  it('says the result is of the previous selection when a kept result of other params shows (#1365)', () => {
+    render(<I18nProvider><QueryView query={{ ...refreshing(), showingPrevious: true }}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' })).toBeVisible();
+    expect(screen.queryByText('같은 조건으로 갱신 중')).toBeNull();
+  });
+  it('names the plain refresh status by its label', () => {
+    render(<I18nProvider><QueryView query={refreshing()}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toBeVisible();
+  });
+  it('is not busy and draws no status once the status is done', () => {
+    const { container } = render(<I18nProvider><QueryView query={{ ...refreshing(), status: 'done' }}>{() => <p>body</p>}</QueryView></I18nProvider>);
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(container.firstElementChild).toHaveAttribute('aria-busy', 'false');
+  });
+});
+
+describe('previous-selection refresh presentation (#1365 FIXV)', () => {
+  const response: ApiResponse<string> = { outcome: 'ok', data: '42', assessments: [], trust: null, correlationId: 'previous' };
+  const view = (showingPrevious: boolean, status: 'refreshing' | 'done' = 'refreshing') => <I18nProvider>
+    <QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status, showingPrevious }}>
+      {data => <table><thead><tr><th>Value</th><th><button>Open</button></th></tr></thead><tbody><tr><td>{data}</td></tr></tbody></table>}
+    </QueryView>
+  </I18nProvider>;
+
+  it.each(['standalone', 'compact', 'panel', 'kpi', 'chart', 'breakdown'] as const)('shows readable previous-selection text in a compact content row in %s', kind => {
+    const content = view(true);
+    const { container } = render(kind === 'compact' ? <PageDensityProvider value="compact">{content}</PageDensityProvider>
+      : kind === 'panel' ? <InWorkspacePanelProvider value>{content}</InWorkspacePanelProvider>
+      : kind === 'standalone' ? content : <AnalysisSectionContext.Provider value={{ title: 'Results', kind, collapse: vi.fn() }}>{content}</AnalysisSectionContext.Provider>);
+    const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
+    expect(status).toHaveTextContent('이전 선택의 결과 · 갱신 중');
+    expect(status).not.toHaveClass('sr-only');
+    expect(status.querySelector('.sr-only')).toBeNull();
+    expect(status).toHaveClass('text-xs', 'text-text-secondary', 'bg-surface-sunken');
+    expect(status).toHaveClass('absolute', 'inset-x-0', 'bottom-0', 'h-6', 'pointer-events-none');
+    expect(status.parentElement).toBe(container.querySelector('[aria-busy="true"]'));
+    expect(status.parentElement).not.toHaveClass('pt-8');
+    expect(status.parentElement?.querySelector('.h-8')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open' }).closest('[role="status"]')).toBeNull();
+  });
+
+  it('dims only the stale body with a non-interactive tint, leaving text opacity intact', () => {
+    const { container } = render(view(true));
+    const tint = container.querySelector('[data-query-stale-tint]');
+    expect(tint).toHaveClass('pointer-events-none', 'absolute', 'inset-0', 'bg-surface-sunken/20', 'mix-blend-multiply');
+    expect(tint).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByText('42')).toBeVisible();
+    expect(container.querySelector('[aria-busy]')).not.toHaveClass('opacity-90');
+  });
+
+  it('keeps the same unpadded wrapper and mounted body across live, previous and settled states', () => {
+    const result = render(view(false, 'done'));
+    const wrapper = result.container.firstElementChild;
+    const body = screen.getByRole('table');
+    const classes = wrapper?.className;
+    expect(wrapper).not.toHaveClass('pt-8');
+    expect(screen.queryByRole('status')).toBeNull();
+    result.rerender(view(true));
+    expect(result.container.firstElementChild?.className).toBe(classes);
+    expect(screen.getByRole('table')).toBe(body);
+    result.rerender(view(false, 'done'));
+    expect(result.container.firstElementChild?.className).toBe(classes);
+    expect(screen.getByRole('table')).toBe(body);
+    expect(result.container.querySelector('[data-query-stale-tint]')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it.each([undefined, false, true])('reserves no row or padding at rest (showingPrevious=%s)', showingPrevious => {
+    const { container } = render(<I18nProvider><QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'done', showingPrevious }}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
+    expect(container.firstElementChild).not.toHaveClass('pt-8');
+    expect(container.querySelector('.h-8')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(container.querySelector('[data-query-stale-tint]')).toBeNull();
+    expect(container.firstElementChild).toHaveAttribute('aria-busy', 'false');
+  });
+
+  it.each([undefined, false])('reserves no row or padding for a same-params refresh (showingPrevious=%s)', showingPrevious => {
+    const { container } = render(<I18nProvider><QueryView query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'refreshing', showingPrevious }}>{data => <p>{data}</p>}</QueryView></I18nProvider>);
+    expect(container.firstElementChild).not.toHaveClass('pt-8');
+    expect(container.querySelector('.h-8')).toBeNull();
+    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toHaveClass('absolute', 'bottom-0', 'h-6');
+  });
+
+  it.each([true, false])('can suppress a duplicate notice without suppressing busy or stale semantics (previous=%s)', showingPrevious => {
+    const renderView = (refreshNotice: 'visible' | 'hidden') => <I18nProvider><QueryView refreshNotice={refreshNotice} query={{ response, refetch: vi.fn(), missing: [], completedAt: null, status: 'refreshing', showingPrevious }}>{data => <p>{data}</p>}</QueryView></I18nProvider>;
+    const result = render(renderView('hidden'));
+    const body = screen.getByText('42');
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(result.container.firstElementChild).toHaveAttribute('aria-busy', 'true');
+    expect(!!result.container.querySelector('[data-query-stale-tint]')).toBe(showingPrevious);
+    result.rerender(renderView('visible'));
+    expect(screen.getByRole('status', { name: showingPrevious ? '이전 선택의 결과 · 갱신 중' : '같은 조건으로 갱신 중' })).toBeVisible();
+    expect(screen.getByText('42')).toBe(body);
+  });
+
+  it('lays the band inside a clipping ancestor without remounting the result', () => {
+    const result = render(<div data-testid="clip">{view(false, 'done')}</div>);
+    const clip = screen.getByTestId('clip');
+    clip.style.overflow = 'hidden';
+    const body = screen.getByRole('table');
+    result.rerender(<div data-testid="clip">{view(true)}</div>);
+    const status = screen.getByRole('status', { name: '이전 선택의 결과 · 갱신 중' });
+    expect(status.parentElement).toBe(clip.firstElementChild);
+    expect(status).not.toHaveAttribute('popover');
+    expect(status).toHaveClass('absolute', 'bottom-0', 'h-6');
+    expect(status.style.position).not.toBe('fixed');
+    expect(status.style.top).toBe('');
+    expect(screen.getByRole('table')).toBe(body);
+    expect(body.closest('[aria-busy]')).toHaveAttribute('aria-busy', 'true');
+    clip.dispatchEvent(new Event('scroll'));
+    window.dispatchEvent(new Event('resize'));
+    expect(status.style.bottom).toBe('');
+    result.rerender(<div data-testid="clip">{view(false, 'done')}</div>);
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('table')).toBe(body);
+  });
+
+  it('keeps the light label without a stale tint for same-params refetches', () => {
+    const { container } = render(view(false));
+    expect(screen.getByRole('status', { name: '같은 조건으로 갱신 중' })).toHaveClass('absolute', 'bottom-0');
+    expect(screen.queryByText('이전 선택의 결과 · 갱신 중')).toBeNull();
+    expect(container.querySelector('[data-query-stale-tint]')).toBeNull();
+  });
+
+  it.each([true, false])('disables spinner motion for reduced motion (previous=%s)', showingPrevious => {
+    render(view(showingPrevious));
+    expect(screen.getByRole('status').querySelector('svg')).toHaveClass('animate-spin', 'motion-reduce:animate-none');
+  });
+});
+
+describe('error card trace number and folded technical info (#1940)', () => {
+  it('names the number 추적 번호 and shows the server original only after 기술 정보 is opened', () => {
+    render(<I18nProvider><QueryView query={query()}>{() => null}</QueryView></I18nProvider>);
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('추적 번호: c1');
+    expect(alert).not.toHaveTextContent('Correlation ID');
+    const toggle = within(alert).getByRole('button', { name: '기술 정보' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(within(alert).queryByRole('note', { name: '서버 세부' })).toBeNull();
+    expect(alert).not.toHaveTextContent('boom');
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(within(alert).getByRole('note', { name: '서버 세부' })).toHaveTextContent('boom');
+  });
+});
