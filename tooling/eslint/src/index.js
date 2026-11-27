@@ -439,7 +439,7 @@ const BUILD_OUTPUT = { ignores: ['dist/**'] };
 const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
 
 // #2180: asserting existence hides the missing-value case. Enabled preset by preset as their sites are fixed (#2181: the
-// per-preset counts are in issue #2181); on in contracts, kernel and app-host so far. Tests may assert fixture invariants.
+// per-preset counts are in issue #2181); on in contracts, kernel, app-host and http-adapter so far. Tests may assert fixture invariants.
 const NON_NULL = {
   files: ['**/*.{ts,tsx}'],
   ignores: TEST_ENTRY_FILES,
@@ -594,7 +594,7 @@ const CONTRACTS_ONLY_RESTRICTION = { allow: ['contracts'], denyReact: true, mock
 export const httpAdapter = [
   layerConfig({ restriction: CONTRACTS_ONLY_RESTRICTION }),
   // Test files compare the response guards with the wire schemas and share stored-panel fixtures.
-  testEntryOverride({ ...CONTRACTS_ONLY_RESTRICTION, allow: ['contracts', 'contract-schemas'] }, ['contract-schemas/source', SAVED_VIEW_PANEL_TEST_ENTRY], ['**/*.test.ts']),
+  testEntryOverride({ ...CONTRACTS_ONLY_RESTRICTION, allow: ['contracts', 'contract-schemas'] }, ['contract-schemas/source', SAVED_VIEW_PANEL_TEST_ENTRY], ['**/*.test.ts']),  NON_NULL,
 ];
 
 /** @type {import('eslint').Linter.Config[]} */
