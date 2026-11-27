@@ -761,9 +761,10 @@ it.each([false, true])(
 
 const UNTIL = '2026-07-21T15:28:00.123456Z';
 it.each([
-  ['muted', null, ['이번 항목 숨김', '이번 항목 숨김']],
+  // [label, how many times it appears]: the row and the detail show the same text for a mute.
+  ['muted', null, [['이번 항목 숨김', 2]]],
   // A snooze-until is a deadline: an absolute instant, `list` on the comparable row and `summary` on the detail line (#2587).
-  ['snoozed', UNTIL, [`내 화면에서 숨김 · list:${UNTIL}까지`, `내 화면에서 숨김 · summary:${UNTIL}까지`]],
+  ['snoozed', UNTIL, [[`내 화면에서 숨김 · list:${UNTIL}까지`, 1], [`내 화면에서 숨김 · summary:${UNTIL}까지`, 1]]],
 ] as const)(
   'shows %s personal state on the hidden row and named detail',
   async (state, until, labels) => {
@@ -784,8 +785,7 @@ it.each([
     await mount(`/integration?presentation=hidden&selected=${ID}`);
     await screen.findByRole('button', { name: '내 화면에 다시 표시' });
     expect(screen.getByRole('heading', { name: '다운로드 오류' })).toBeVisible();
-    for (const label of new Set(labels))
-      expect(screen.getAllByText(label, { exact: false })).toHaveLength(labels.filter((text) => text === label).length);
+    for (const [label, count] of labels) expect(screen.getAllByText(label, { exact: false })).toHaveLength(count);
     expect(document.body.textContent).not.toMatch(/UTC/);
   },
 );

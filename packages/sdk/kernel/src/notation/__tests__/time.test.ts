@@ -11,6 +11,10 @@ describe('instant notation', () => {
     expect(formatListTime(at, { timeZone: 'America/Los_Angeles' })).toBe('2026-11-17 21:05');
   });
 
+  // Postgres timestamptz instants carry microseconds (e.g. recovery snooze-until, #2587): the minute notation drops them.
+  it('reads a microsecond server instant and prints minutes only', () => {
+    expect(formatListTime('2026-07-21T15:28:00.123456Z', { timeZone })).toBe('2026-07-22 00:28');
+  });
   it('compares years in the display zone', () => {
     const yearEnd = '2026-12-31T14:55:00Z';
     const newYear = Date.parse('2026-12-31T15:05:00Z');
