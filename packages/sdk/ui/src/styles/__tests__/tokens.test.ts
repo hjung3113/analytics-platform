@@ -5,7 +5,7 @@ import { expect, it } from 'vitest';
 
 function properties(path: string): Set<string> {
   const css = readFileSync(new URL(path, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  return new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].map(match => match[1]));
+  return new Set([...css.matchAll(/(--[\w-]+)\s*:/g)].flatMap(([, name]) => (name ? [name] : [])));
 }
 
 it('keeps platform extension tokens disjoint from the shared token files', () => {
@@ -21,7 +21,7 @@ it('keeps platform extension tokens disjoint from the shared token files', () =>
 
 function values(path: string): Map<string, string> {
   const css = readFileSync(new URL(path, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  return new Map([...css.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map(match => [match[1], match[2].trim()]));
+  return new Map([...css.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].flatMap(([, name, value]) => (name && value ? [[name, value.trim()] as const] : [])));
 }
 
 const palette = new Map([
@@ -51,19 +51,19 @@ function rgb(name: string): number[] {
   const value = palette.get(`--${name}`);
   if (!value) throw new Error(`Missing token: ${name}`);
   const alias = /^var\(--([\w-]+)\)$/.exec(value);
-  return alias ? rgb(alias[1]) : value.split(/\s+/).map(Number);
+  return alias?.[1] ? rgb(alias[1]) : value.split(/\s+/).map(Number);
 }
 
 function luminance(color: number[]): number {
-  const linear = color.map(channel => {
+  const [red = 0, green = 0, blue = 0] = color.map(channel => {
     const s = channel / 255;
     return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
   });
-  return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+  return red * 0.2126 + green * 0.7152 + blue * 0.0722;
 }
 
 function contrast(foreground: string, background: string): number {
-  const [lo, hi] = [luminance(rgb(foreground)), luminance(rgb(background))].sort((a, b) => a - b);
+  const [lo = 0, hi = 0] = [luminance(rgb(foreground)), luminance(rgb(background))].sort((a, b) => a - b);
   return (hi + 0.05) / (lo + 0.05);
 }
 
@@ -125,9 +125,9 @@ it('keeps the violet theme to the accent-primary family and readable (#2723)', (
   const themed = (name: string): number[] => {
     const value = violet.get(`--${name}`) ?? palette.get(`--${name}`)!;
     const alias = /^var\(--([\w-]+)\)$/.exec(value);
-    return alias ? themed(alias[1]) : value.split(/\s+/).map(Number);
+    return alias?.[1] ? themed(alias[1]) : value.split(/\s+/).map(Number);
   };
-  const ratio = (a: number[], b: number[]) => { const [lo, hi] = [luminance(a), luminance(b)].sort((x, y) => x - y); return (hi + 0.05) / (lo + 0.05); };
+  const ratio = (a: number[], b: number[]) => { const [lo = 0, hi = 0] = [luminance(a), luminance(b)].sort((x, y) => x - y); return (hi + 0.05) / (lo + 0.05); };
   expect(ratio(themed('text-on-accent'), themed('accent-primary'))).toBeGreaterThanOrEqual(4.5);
   expect(ratio(themed('text-on-accent'), themed('accent-primary-hover'))).toBeGreaterThanOrEqual(4.5);
   expect(ratio(themed('accent-primary'), themed('surface-card'))).toBeGreaterThanOrEqual(3);
