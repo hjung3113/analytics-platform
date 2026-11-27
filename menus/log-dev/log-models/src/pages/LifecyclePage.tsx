@@ -111,6 +111,7 @@ export default function LifecyclePage({ params = {} }: PageProps) {
   // Instants in the viewer's zone through the Kernel notation; `list` also takes the run window's zone for the server time (#2587).
   // The request-period inputs use the same zone as `list`: the Kernel default, the runtime zone.
   const notation = useTimeNotation();
+  // eslint-disable-next-line ap/no-direct-locale-format -- reads the viewer's time zone name for the input helper; formats nothing.
   const time = useMemo(() => ({ ...notation, input: timeInputIn(Intl.DateTimeFormat().resolvedOptions().timeZone) }), [notation]);
   const navigateScreen = useCallback((to: string) => {
     const url = new URL(to, 'https://host.invalid');

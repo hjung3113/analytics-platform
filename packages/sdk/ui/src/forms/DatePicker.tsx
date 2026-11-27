@@ -30,6 +30,7 @@ export interface DatePickerProps
 }
 
 export function DatePicker({
+  // eslint-disable-next-line ap/no-direct-locale-format -- public prop default of the date-only calendar; ui cannot read the Kernel language, callers pass locale.
   locale = 'ko-KR',
   messages: suppliedMessages,
   value,
@@ -50,7 +51,9 @@ export function DatePicker({
   ...inputProps
 }: DatePickerProps) {
   const messages = { ...DATE_MESSAGES, ...suppliedMessages };
+  // eslint-disable-next-line ap/no-direct-locale-format -- date-only calendar month heading in UTC, not an instant.
   const monthFormatter = new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', timeZone: 'UTC' });
+  // eslint-disable-next-line ap/no-direct-locale-format -- date-only weekday names in UTC, not an instant.
   const weekdayFormatter = new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' });
   const weekdays = Array.from({ length: 7 }, (_, index) => weekdayFormatter.format(makeUtcDate(2023, 1, index + 1)));
   const [draft, setDraft] = React.useState(value ?? '');
@@ -435,6 +438,7 @@ function formatDate(date: Date): string {
 }
 
 function formatDateLabel(date: Date, locale: string): string {
+  // eslint-disable-next-line ap/no-direct-locale-format -- date-only day label in UTC, not an instant.
   return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }).format(date);
 }
 

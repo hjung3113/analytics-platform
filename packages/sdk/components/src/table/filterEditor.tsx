@@ -25,6 +25,7 @@ const NO_VALUE: ReadonlySet<string> = new Set(['isEmpty', 'isNotEmpty']);
 const DEFAULT_OP: Record<ColumnFilterSpec['kind'], ColumnFilterOp> = { text: 'contains', number: 'eq', date: 'between', instant: 'between', enum: 'in' };
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
+// eslint-disable-next-line ap/no-direct-locale-format -- reads the viewer's time zone name; formats nothing.
 const browserZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
 /** Without `entry` the browser's zone and minutes apply exactly as before; any `entry` switches to the strict zoned conversion. */
 const strictZone = (entry: InstantEntry | undefined): string | null => (entry ? (entry.timeZone ?? browserZone()) : null);

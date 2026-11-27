@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { formatNumber } from '@ap/contracts';
 import { useI18n, useMessages } from '@ap/kernel';
 import { Button, Checkbox, Dialog, DialogContent, DialogDescription, DialogTitle, Input, Label, SkeletonRows, StatusBadge, cn } from '@ap/ui';
 import { SegmentedRadio } from '../RadioGroup';
@@ -71,7 +72,7 @@ export function FacetedSetDialog(props: FacetedSetDialogProps) {
 function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, allowFixed = true, applyMode = 'manual', initialFacet, resultColumns, valueLabel = identityLabel,
   itemKindLabel, formatCount = plainCount, status = 'ready', onRetry, note, errorDetail, save, saveSlot, settingsSlot }: FacetedSetDialogProps & { index: Index }) {
   const m = useMessages(COMPONENTS_MESSAGES);
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const direct = applyMode === 'direct';
   const id = useId();
   const [draft, setDraft] = useState<FacetedSetValue>(() => ({
@@ -234,7 +235,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
       <Label htmlFor={`${id}-search`}>{m('fsSearch')}</Label>
       <Input className="shrink-0" id={`${id}-search`} value={search} onChange={event => { setSearch(event.target.value); setSearchLimit(SEARCH_PAGE_SIZE); }} />
       {query && ready && <div role="group" aria-label={m('fsSuggestions')} className="max-h-40 shrink-0 overflow-auto rounded-md border border-border-subtle p-2">
-        <p className="text-xs text-text-secondary">{m('fsSuggestionCount', { count: suggestions.length.toLocaleString() })}</p>
+        <p className="text-xs text-text-secondary">{m('fsSuggestionCount', { count: formatNumber(suggestions.length, lang) })}</p>
         {suggestions.slice(0, searchLimit).map(suggestion => <Button key={suggestion.key} variant="ghost" className="w-full justify-start" onClick={() => {
           if (suggestion.facet !== undefined) addPick(suggestion.facet, suggestion.value);
           else {
@@ -243,7 +244,7 @@ function FacetedSetBody({ index, title, facets, value, onApply, onOpenChange, al
             setSearch('');
           }
         }}>{suggestion.label}</Button>)}
-        {suggestions.length > searchLimit && <Button variant="secondary" onClick={() => setSearchLimit(previous => previous + SEARCH_PAGE_SIZE)}>{m('fsMoreSuggestions', { count: (suggestions.length - searchLimit).toLocaleString() })}</Button>}
+        {suggestions.length > searchLimit && <Button variant="secondary" onClick={() => setSearchLimit(previous => previous + SEARCH_PAGE_SIZE)}>{m('fsMoreSuggestions', { count: formatNumber(suggestions.length - searchLimit, lang) })}</Button>}
       </div>}
       <ul className="flex max-h-36 shrink-0 list-none flex-wrap items-start gap-2 overflow-auto" aria-label={m('fsFacets')}>
         {facetButtons}

@@ -1,7 +1,7 @@
 /** A′ Configuration consumer: the server owns comparison, filtering and hierarchy. */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Columns3, Download } from 'lucide-react';
-import { encodeFilterParams, type ColumnFilter, type GlobalContext, type Pair, type MatrixCell, type MatrixColumn, type MatrixEmphasisRule } from '@ap/contracts';
+import { encodeFilterParams, formatNumber, type ColumnFilter, type GlobalContext, type Pair, type MatrixCell, type MatrixColumn, type MatrixEmphasisRule } from '@ap/contracts';
 import { formatSummaryTime, useI18n, useMenuFetch, useMenuQuery, useMessages, usePlatform, useQueryDraft, type QueryDraft, type QueryState } from '@ap/kernel';
 import { DataTrustIndicator, DetailDrawer, FilterLine, MatrixEmphasisBar, MatrixLevelOrder, MatrixToneLegend, PageFilterBar, PageKeyWarning, PlatformPage, QueryView, TreeMatrix, WorkbookRefusal, sameValueRule, usePageKeyRules, useWorkbookExport, useTableFilterDeclaration, type PageFilterField } from '@ap/components';
 import { Button, Checkbox, EmptyState, FieldList, FieldRow, Input, MultiCombobox, Popover, PopoverContent, PopoverTrigger, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadgeFrame, ToggleGroup, ToggleGroupItem, cn } from '@ap/ui';
@@ -51,13 +51,14 @@ function complianceLabel(row: ConfigRow, eq: string, params: CompareParams): key
   return row.spec ? 'equal' : 'specUnknown';
 }
 function Summary({ data, status, select, m }: { data: TreePage | null | undefined; status: CompareStatus; select: (status: CompareStatus) => void; m: Message }) {
+  const { lang } = useI18n();
   const equal = data ? data.counts.all - data.counts.review : 0;
   return <div className="flex shrink-0 flex-wrap items-center gap-2 py-1" data-configuration-summary>
     {/* Focus-only arrows: a status change re-keys the comparison toolbar and unmounts the focused radio (#2552). */}
     <ToggleGroup type="single" appearance="filter" size="sm" aria-label={m('status')} value={status} arrowSelects={false} onValueChange={value => { if (value) select(value as CompareStatus); }}>
-      {STATUS.map(key => <ToggleGroupItem key={key} value={key} appearance="selected-filter">{m(statusLabel(key))}{data ? ` ${data.counts[key].toLocaleString()}` : ''}</ToggleGroupItem>)}
+      {STATUS.map(key => <ToggleGroupItem key={key} value={key} appearance="selected-filter">{m(statusLabel(key))}{data ? ` ${formatNumber(data.counts[key], lang)}` : ''}</ToggleGroupItem>)}
     </ToggleGroup>
-    {status !== 'all' && equal > 0 && <span className="text-xs text-text-muted">{m('hiddenEqual', { count: equal.toLocaleString() })}</span>}
+    {status !== 'all' && equal > 0 && <span className="text-xs text-text-muted">{m('hiddenEqual', { count: formatNumber(equal, lang) })}</span>}
   </div>;
 }
 
@@ -309,7 +310,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend, follow
 
     </div>
     {swapped && <QueryView query={equipmentView} fill emptyAction={<Button variant="secondary" onClick={() => filters([])}>{m('clear')}</Button>}>{data => data.over
-      ? <p role="status" className="break-keep px-4 py-12 text-center text-sm">{m('axisLimit', { count: data.count.toLocaleString(lang), limit: COLUMN_LIMIT })}</p>
+      ? <p role="status" className="break-keep px-4 py-12 text-center text-sm">{m('axisLimit', { count: formatNumber(data.count, lang), limit: COLUMN_LIMIT })}</p>
       : <EquipmentAxisTable data={data} params={params} selection={selection} selectedItem={pivotItem} m={m} openTrend={openTrend}
           onSelect={selectEquipmentCell} trendReason={reason} openDetail={() => setDrawer(pivotItem)} />}
     </QueryView>}
@@ -327,7 +328,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend, follow
           />
         <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-t border-border-subtle px-2 py-1 text-xs tabular" data-configuration-bottom>
           <span>{m('navigate')}</span><Button variant="secondary" size="icon-xs" aria-label={m('previous')} disabled={staleSearch || nav.kind === 'loading' || nav.ordinal === 1 || !result.counts.diff} onClick={() => navigate('previous')}><ChevronLeft className="size-3" /></Button><Button variant="secondary" size="icon-xs" aria-label={m('next')} disabled={staleSearch || nav.kind === 'loading' || nav.ordinal === result.counts.diff || !result.counts.diff} onClick={() => navigate('next')}><ChevronRight className="size-3" /></Button>
-          <span>{nav.ordinal ?? '—'}/{result.counts.diff.toLocaleString()}</span><span className="min-w-0 flex-1 truncate" title={selected?.item?.key ?? selectedPath ?? undefined}>{m('selection')} {selected?.item?.key ?? selectedPath ?? m('noSelection')}</span>
+          <span>{nav.ordinal ?? '—'}/{formatNumber(result.counts.diff, lang)}</span><span className="min-w-0 flex-1 truncate" title={selected?.item?.key ?? selectedPath ?? undefined}>{m('selection')} {selected?.item?.key ?? selectedPath ?? m('noSelection')}</span>
           {reason && <span role="status" className="break-keep text-text-secondary">{reason}</span>}
           <MatrixToneLegend labels={{ info: m('valueDifference'), danger: m('violation'), missing: m('missingLegend') }} />
           <Button variant="ghost" size="toolbar" disabled={staleSearch || !selected?.item || valueOf(selected, { id: eq, label: eq }) === null} onClick={() => { if (!selected) return; const rule = sameValueRule(selected, { id: eq, label: eq }, valueOf); if (rule) setEmphasis(current => [...current.filter(value => value.row !== rule.row), rule]); }}>{m('sameValue')}</Button>
@@ -335,7 +336,7 @@ function Comparison({ params, swapped, hideSame, itemTools, m, openTrend, follow
         </div>
       </>;
     }}</QueryView>}
-    {nav.kind === 'error' && <span role="status">{m('navigationError')}</span>}{exportError && <span role="status">{m('exportFailed')} {m('exportLimit', { count: EXPORT_LIMIT.toLocaleString() })}</span>}
+    {nav.kind === 'error' && <span role="status">{m('navigationError')}</span>}{exportError && <span role="status">{m('exportFailed')} {m('exportLimit', { count: formatNumber(EXPORT_LIMIT, lang) })}</span>}
     {shown && <ItemDrawer row={shown} detail={detail} eq={eq} params={params} m={m} close={() => setDrawer(null)} openTrend={() => { setDrawer(null); openTrend(shown.id, shown.linkedMotion); }} />}
   </div>;
 }
