@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { improvementItemTarget } from './improvement-links';
+import { improvementItemTarget } from '../improvement-links';
 
 const ITEM = '99999999-9999-4999-8999-999999999999';
 

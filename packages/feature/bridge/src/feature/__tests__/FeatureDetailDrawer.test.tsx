@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@ap/kernel';
 import { DetailPanelSlotProvider, useDetailPanelSlotHost } from '@ap/ui';
-import { FeatureDetailDrawer } from './FeatureDetailDrawer';
+import { FeatureDetailDrawer } from '../FeatureDetailDrawer';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -108,7 +108,7 @@ describe('FeatureDetailDrawer', () => {
   });
 
   it('makes the clipped drawer region a positioning ancestor (position: relative)', () => {
-    const css = readFileSync(resolve(__dirname, '../styles.css'), 'utf8');
+    const css = readFileSync(resolve(__dirname, '../../styles.css'), 'utf8');
     const rule = css.match(/:is\(\[role="tabpanel"\], \[role="region"\]\):not\(\[hidden\]\):has\(> \.fo-detail-body\)[^{]*\{([^}]*)\}/);
     expect(rule?.[1]).toMatch(/overflow:\s*hidden/);
     expect(rule?.[1]).toMatch(/position:\s*relative/);

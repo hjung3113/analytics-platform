@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FeatureReadError, fetchAllManagedSystems, fetchSpaceLinks, parseSpaceLinks } from './space-links';
+import { FeatureReadError, fetchAllManagedSystems, fetchSpaceLinks, parseSpaceLinks } from '../space-links';
 
 const A = '4f1b2c3d-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
 const PLATFORM = '2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a';

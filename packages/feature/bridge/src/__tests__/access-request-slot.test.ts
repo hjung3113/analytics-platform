@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { requestRead } from './access-request-slot';
+import { requestRead } from '../access-request-slot';
 
 describe('requestRead (#1933): why a place state is unknown', () => {
   const base = { enabled: true, hasData: false, isError: false, fetchStatus: 'idle' as const };

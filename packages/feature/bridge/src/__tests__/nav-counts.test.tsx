@@ -7,9 +7,9 @@ import { NO_FEATURES, contextCapabilities, carrySetId, groupId, spaceId } from '
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { memoryStorage, testAdapter, testSession } from '@ap/kernel/testing';
 import { fetchNavCounts, NAV_COUNTS_QUERY_KEY, invalidateNavCounts } from '@ap/feature-screens/global-screens/core';
-import { setFeatureApi } from './feature-api';
-import { featureQueryClient } from './feature/session';
-import { navCountsSlot } from './nav-counts';
+import { setFeatureApi } from '../feature-api';
+import { featureQueryClient } from '../feature/session';
+import { navCountsSlot } from '../nav-counts';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

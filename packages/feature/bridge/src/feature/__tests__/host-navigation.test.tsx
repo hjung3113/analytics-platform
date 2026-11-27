@@ -8,10 +8,10 @@ import { noContext, testAdapter, testSession, testSpace, useToastsForTest } from
 import { carrySetId, groupId, spaceId } from '@ap/contracts';
 import { useHostSeam } from '@ap/feature-screens/global-screens/core';
 import type { HostSeam } from '@ap/feature-screens/global-screens/core';
-import { setFeatureApi } from '../feature-api';
-import { FeatureBridge } from './FeatureBridge';
-import { hostLinks } from './links';
-import { operatorRoute, routeHere, routeSearch } from './operator-route';
+import { setFeatureApi } from '../../feature-api';
+import { FeatureBridge } from '../FeatureBridge';
+import { hostLinks } from '../links';
+import { operatorRoute, routeHere, routeSearch } from '../operator-route';
 
 const space = testSpace({ homeMenuId: 'inbox' });
 const menu = (id: string, path: string, pageKeys: string[], primary = false) => ({

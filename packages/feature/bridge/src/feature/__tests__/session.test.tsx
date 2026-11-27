@@ -1,12 +1,12 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdapter } from '@ap/contracts';
-import { setFeatureApi } from '../feature-api';
+import { setFeatureApi } from '../../feature-api';
 
 const platform = { adapter: {} as PlatformAdapter, revision: 1, user: { id: 'u1' } as { id: string } | null };
 vi.mock('@ap/kernel', () => ({ usePlatform: () => platform }));
 
-const { featureQueryClient, unauthorizedReporter, useFeatureSession, resetFeatureSessionForTests } = await import('./session');
+const { featureQueryClient, unauthorizedReporter, useFeatureSession, resetFeatureSessionForTests } = await import('../session');
 const { registerSessionDraft, takeSessionDraft } = await import('@ap/feature-screens/global-screens/core');
 
 const identity = () => [platform.adapter, platform.revision, platform.user?.id ?? null] as const;

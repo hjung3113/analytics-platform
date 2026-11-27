@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import type { PermissionRequestTarget } from '@ap/contracts';
-import { isPendingFor, type PendingRequestRow } from './access-request-match';
+import { isPendingFor, type PendingRequestRow } from '../access-request-match';
 
 const SITE: PermissionRequestTarget = { kind: 'site', site: 'site-alpha' };
 const ROOM: PermissionRequestTarget = { kind: 'site_room', site: 'site-alpha', room: 'room-one' };

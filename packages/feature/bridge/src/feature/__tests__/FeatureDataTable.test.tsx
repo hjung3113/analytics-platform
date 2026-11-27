@@ -5,7 +5,7 @@ import { House } from 'lucide-react';
 import { groupId, spaceId } from '@ap/contracts';
 import { I18nProvider, PlatformProvider, createRegistry } from '@ap/kernel';
 import { noContext, testAdapter, testSpace } from '@ap/kernel/testing';
-import { FeatureDataTable } from './FeatureDataTable';
+import { FeatureDataTable } from '../FeatureDataTable';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 const registry = createRegistry({ spaces: [testSpace({ homeMenuId: 'table' })], groups: [{ id: groupId('overview'), label: { ko: '개요', en: 'Overview' }, icon: House, space: spaceId('mars') }], menus: [{ id: 'table', primary: true, icon: House, group: groupId('overview'), label: { ko: '표', en: 'Table' }, description: { ko: '', en: '' }, pageType: 'management', path: '/table', permission: 'platform:view', requiresScope: false, context: noContext, features: { export: false, savedView: false, annotate: false, compare: false }, pageKeys: [] }] });
