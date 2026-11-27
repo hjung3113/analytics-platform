@@ -25,3 +25,10 @@ Server-boundary conformance suite. It checks the whole `PlatformAdapter` the sam
 ## Verification
 
 `pnpm --filter @ap/server-conformance test`, then the app integration test `pnpm --filter @ap/platform-web test`.
+
+## Synthetic datasets (`./datasets`, #3204)
+
+- Virtual analysis inputs for the minimal analysis contract tests (#1704) and the engine measurements (#2918): every engine gets the same logical rows. Pure, runtime-free, deterministic: dataset, `SYNTHETIC_DATASET_VERSION`, seed and parameters fix the rows and the checksum.
+- Raise `SYNTHETIC_DATASET_VERSION` whenever the same inputs would give different rows, then regenerate the golden files (`src/__fixtures__/datasets/`) with `UPDATE_GOLDEN=1` (command in `src/__tests__/datasets/datasets.test.ts`).
+- Only invented data: synthetic keys (`R-000001`, `S-0001`, …), a virtual 2030, arbitrary parameter defaults, generic field names. Never a real identifier, row, schema, scale, distribution or setting name; real parameters and baselines are injected in-house only (#2974, [upstream feedback §3](../../../docs/integration/upstream-feedback-procedure.md#3-나가도-되는-것과-안-되는-것)).
+- Expected values come from the independent oracle in `src/__tests__/datasets/oracle.test-support.ts` (brute force, no generator code) and from hand-computed values on the fixed counterexamples; never from the generator itself.
