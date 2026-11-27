@@ -130,3 +130,23 @@ it('drops server field errors when the next submit runs', async () => {
   await vi.waitFor(() => expect(reject).toHaveBeenCalledTimes(2));
   await vi.waitFor(() => expect(screen.queryByText('Rejected')).toBeNull());
 });
+
+// #2574: a disabled invalid control cannot take focus, so the first one the person can fix does.
+it('skips a disabled invalid control when it moves focus', () => {
+  function LockedForm() {
+    const { errors, handleSubmit } = useValidatedSubmit<{ locked: string; open: string }>({
+      validate: () => ({ locked: 'Locked is wrong', open: 'Open is wrong' }),
+      onValid: () => {},
+    });
+    return (
+      <form data-testid="locked-form" onSubmit={handleSubmit({ locked: '', open: '' })}>
+        <FormField label="Locked" error={errors.locked}>{(control) => <Input {...control} disabled />}</FormField>
+        <FormField label="Open" error={errors.open}>{(control) => <Input {...control} />}</FormField>
+      </form>
+    );
+  }
+  render(<LockedForm />);
+  fireEvent.submit(screen.getByTestId('locked-form'));
+  expect(screen.getByLabelText('Locked')).toHaveAttribute('aria-invalid', 'true');
+  expect(screen.getByLabelText('Open')).toHaveFocus();
+});

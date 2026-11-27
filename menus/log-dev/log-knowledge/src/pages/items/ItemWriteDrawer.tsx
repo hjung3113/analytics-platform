@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useState } from 'react';
 import type { ActionResult } from '@ap/contracts';
 import { useI18n, useMenuAction, usePlatform, useSessionDraft, useUnsavedGuard } from '@ap/kernel';
 import { DetailDrawer } from '@ap/components';
-import { Button, Callout, Input, RadioGroup, RadioGroupItem, Textarea, useValidatedSubmit } from '@ap/ui';
+import { Button, Callout, Input, RadioGroup, RadioGroupItem, Textarea, useImeEnterGuard, useValidatedSubmit } from '@ap/ui';
 import { ITEM_LIMITS, ITEM_TYPE_CODES, ITEM_TYPE_LABEL, itemCreate, itemDerive, itemRevise, type ItemDetail, type ItemTypeCode, type ItemWriteResult } from '../../endpoints';
 import { EvidenceEditor, Field, OwnerPicker, useCloseGuard, useDirtyReport } from './ItemFormParts';
 import { useSpecWords } from '../spec/SpecControls';
@@ -84,6 +84,7 @@ type WriteDraftHandle = ReturnType<typeof useItemWriteDraft>;
 type Guard = ReturnType<typeof useCloseGuard>;
 function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWriteTarget; draftState: WriteDraftHandle; onReload: () => void; guard: Guard }) {
   const { setPage, navigate, linkTo, toast } = usePlatform();
+  const ime = useImeEnterGuard();
   const create = useMenuAction(itemCreate), revise = useMenuAction(itemRevise), derive = useMenuAction(itemDerive);
   const uid = useId(), w = useSpecWords();
   const mode: WriteMode = target.mode;
@@ -182,7 +183,7 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
   };
 
   const latest = target.mode === 'revise' ? target.detail.item.latestRevisionNo : 0;
-  return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { if (busy || banner?.kind === 'conflict') { event.preventDefault(); return; } setServerErrors({}); setBanner(null); submitLocal(event); }}>
+  return <form className="flex min-h-full flex-col gap-4" noValidate onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={event => { if (busy || banner?.kind === 'conflict') { event.preventDefault(); return; } setServerErrors({}); setBanner(null); submitLocal(event); }}>
     {restored && <Callout tone="blue" title={t('sessionDraftRestoredTitle')}>{t('sessionDraftRestored')}</Callout>}
     {banner?.kind === 'conflict' && <Callout tone="amber" title="다른 사람이 먼저 고쳤습니다"
       action={<Button type="button" size="sm" variant="secondary" onClick={() => { if (target.mode === 'revise') setReloadBaseDetail(target.detail); onReload(); }}>최신 불러오기</Button>}>

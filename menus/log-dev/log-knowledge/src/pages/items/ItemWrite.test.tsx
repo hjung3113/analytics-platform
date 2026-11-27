@@ -244,6 +244,13 @@ describe('새 기술 Item (create)', () => {
     expect(await screen.findByRole('heading', { name: '새 기술 Item' }, slow)).toBeTruthy();
   });
 
+  // A Korean title's composing Enter must not create the item (useImeEnterGuard on the form, #2574 review).
+  it('does not submit on the Enter that ends an IME composition', async () => {
+    mountList(`${published}&focus=new&owner=${MODEL_A}`);
+    await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
+    expect(fireEvent.keyDown(field(/^제목/), { key: 'Enter', keyCode: 229 })).toBe(false);
+  });
+
   it('creates a model-owned item and goes to its detail', async () => {
     mountList(`${published}&focus=new&owner=${MODEL_A}`);
     await screen.findByRole('heading', { name: '새 기술 Item' }, slow);

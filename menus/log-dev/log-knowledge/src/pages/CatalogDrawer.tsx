@@ -4,13 +4,13 @@ import { PlatformLink, useMenuAction, useMenuFetch, useMenuQuery, usePlatform, u
 import { DetailDrawer } from '@ap/components';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-  Button, Callout, Combobox, FieldLabel, Input, MultiCombobox, StatusBadge,
+  Button, Callout, Combobox, FieldLabel, Input, MultiCombobox, StatusBadge, useImeEnterGuard, useValidatedSubmit,
 } from '@ap/ui';
 import {
   modelCreate, modelSetActive, modelUpdate, modelsEndpoint, processCreate, processSetActive, processUpdate, processesEndpoint, softwareCreate, softwareSetActive, softwareUpdate,
   softwareVersionsEndpoint, vendorCreate, vendorSetActive, vendorUpdate, vendorsEndpoint, type CatalogPageParams, type CatalogSummary, type ModelRow, type SoftwareRow,
 } from '../endpoints';
-import { ACTIVE_ONLY, TAB_LABEL, failureText, impactText, mapFieldErrors, type Banner, type CatalogKind, type CatalogRow } from './catalogModel';
+import { ACTIVE_ONLY, TAB_LABEL, failureText, fieldErrorText, impactText, mapFieldErrors, type Banner, type CatalogKind, type CatalogRow } from './catalogModel';
 import { useOptionPicker, type Option } from './useCatalogOptions';
 import { useCloseGuard, type GuardedLeave } from './items/ItemFormParts';
 import { withFieldsSummary } from './fieldRejection';
@@ -124,7 +124,7 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
   const { setPage, toast } = usePlatform();
   const actions = ACTIONS[kind];
   const create = useMenuAction(actions.create), update = useMenuAction(actions.update), setActive = useMenuAction(actions.setActive);
-  const uid = useId();
+  const uid = useId(), ime = useImeEnterGuard();
   const isNew = row === null;
   const model = kind === 'model' ? (row as ModelRow | null) : null;
   const [values, setValues] = useState<Record<string, string>>(() => ({
@@ -132,14 +132,13 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
     vendorId: model?.vendorId ?? '', modelId: kind === 'software' ? ((row as SoftwareRow | null)?.modelId ?? '') : '',
   }));
   const [processIds, setProcessIds] = useState<string[]>(() => model?.processes.map(p => p.id) ?? []);
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<Banner | null>(null);
   // Counts failed answers: the banner's alert is keyed by it, so a repeated identical failure mounts a new alert and is announced
   // again, while 다시 시도 stays mounted and keeps focus.
   const [failures, setFailures] = useState(0);
   const [confirming, setConfirming] = useState(false);
   const busy = create.pending || update.pending || setActive.pending;
-  const set = (field: string, value: string) => setValues(v => ({ ...v, [field]: value }));
+  const set = (field: string, value: string) => { setValues(v => ({ ...v, [field]: value })); check.clearError(field); };
   // ADR-0115: typed input differs from what the form opened with. Esc, the close button and 취소 ask through the drawer's close guard;
   // any other address change (Back, a link, another row) asks through the platform guard. The guard is off once the person confirmed the
   // discard (`released`) or a new row was created, and the focus write happens after that commit so the shell never asks a second time.
@@ -156,12 +155,13 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
   function settle(res: ActionResult<CatalogSummary>, onOk: (data: CatalogSummary | null) => void) {
     // ok, conflict and unknown may have changed the rows: the table reads again.
     if (res.outcome === 'ok' || res.outcome === 'conflict' || res.outcome === 'unknown') onWritten();
-    if (res.outcome === 'ok') { setBanner(null); setErrors({}); onOk(res.data); return; }
+    if (res.outcome === 'ok') { setBanner(null); check.setServerErrors({}); onOk(res.data); return; }
     setFailures(n => n + 1);
     if (res.outcome === 'conflict') { setBanner({ kind: 'conflict' }); return; }
     // The banner line is the one announcement; a rejection mapped only onto fields reads the summary there.
     const { form: formError, ...fields } = res.outcome === 'invalid' ? withFieldsSummary(mapFieldErrors(res.fieldErrors, actions.fields)) : {};
-    setErrors(fields);
+    // Rejected fields show on their inputs and the first one takes focus (#2574 variant d).
+    check.setServerErrors(fields);
     setBanner({ kind: 'failed', text: formError ?? failureText(res.outcome), ...(res.retry ? { retry: () => { const retry = res.retry; if (retry) void retry().then(next => settle(next, onOk)).catch(() => undefined); } } : {}) });
   }
   const input = (): Record<string, unknown> => {
@@ -170,6 +170,21 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
     const processes = kind === 'model' ? { processIds } : {};
     return row ? { id: row.id, ...base, ...processes } : { ...parent, ...base, ...processes };
   };
+  // #2574: required inputs are checked on submit, before the server, with focus on the first empty one. A new vendor, process or
+  // model may leave 코드 blank (the server derives it from the name); 버전 표기 and an existing row's 코드 are always required.
+  const codeField = kind === 'software' ? 'versionLabel' : 'code';
+  const parentField = kind === 'model' ? 'vendorId' : 'modelId';
+  const codeRequired = !isNew || kind === 'software';
+  const required = [
+    ...(isNew && (kind === 'model' || kind === 'software') ? [parentField] : []),
+    ...(codeRequired ? [codeField] : []),
+    ...(kind === 'software' ? [] : ['name']),
+  ];
+  const check = useValidatedSubmit<Record<string, string>>({
+    validate: v => Object.fromEntries(required.filter(field => !(v[field] ?? '').trim()).map(field => [field, fieldErrorText('required', field)])),
+    onValid: () => save(),
+  });
+  const errors = check.errors;
   const save = () => {
     const run = row ? update.run(input(), { expectedVersion: row.version }) : create.run(input());
     void run.then(res => settle(res, data => {
@@ -183,19 +198,18 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
     void setActive.run({ id: row.id, active }, { expectedVersion: row.version }).then(res => settle(res, () => { toast(active ? '다시 활성화했습니다' : '비활성화했습니다', 'info'); onReload(); })).catch(() => undefined);
   };
 
-  const codeField = kind === 'software' ? 'versionLabel' : 'code';
   const err = (field: string) => errors[field];
-  const describedBy = (field: string) => (err(field) ? `${uid}-${field}-error` : undefined);
-  const parentField = kind === 'model' ? 'vendorId' : 'modelId';
+  // The error while there is one, else the field's hint (Field renders one or the other).
+  const describedBy = (field: string, hint = false) => (err(field) ? `${uid}-${field}-error` : hint ? `${uid}-${field}-hint` : undefined);
   const parentLabel = kind === 'model' ? '설비사' : '모델';
   const knownProcesses = new Map((model?.processes ?? []).map(p => [p.id, p.name] as const));
-  return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { event.preventDefault(); if (!busy) save(); }}>
+  return <form className="flex min-h-full flex-col gap-4" noValidate onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} onSubmit={event => { if (busy) { event.preventDefault(); return; } check.handleSubmit(values)(event); }}>
     {row && !row.active && <div role="status" className="grid gap-2 rounded-md border border-border-subtle bg-surface-sunken p-3">
       <p className="text-sm font-semibold">비활성 {TAB_LABEL[kind]}</p>
       <p className="text-xs text-text-secondary">비활성 항목이라 새 연결을 만들 수 없습니다. 코드와 기존 연결은 그대로 남습니다.</p>
       <div><Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => toggle(true)}>다시 활성화</Button></div>
     </div>}
-    {banner?.kind === 'conflict' && <Callout tone="amber" title="다른 사람이 먼저 고쳤습니다" action={<Button type="button" size="sm" variant="secondary" onClick={() => { setBanner(null); setErrors({}); onReload(); }}>새로 불러오기</Button>}>
+    {banner?.kind === 'conflict' && <Callout tone="amber" title="다른 사람이 먼저 고쳤습니다" action={<Button type="button" size="sm" variant="secondary" onClick={() => { setBanner(null); check.setServerErrors({}); onReload(); }}>새로 불러오기</Button>}>
       <span key={failures} role="alert">저장하지 않은 입력은 새로 불러오면 사라집니다.</span>
     </Callout>}
     {banner?.kind === 'failed' && <Callout tone="red" title="저장하지 못했습니다" action={banner.retry ? <Button type="button" size="sm" variant="secondary" onClick={banner.retry}>다시 시도</Button> : undefined}><span key={failures} role="alert">{banner.text}</span></Callout>}
@@ -206,15 +220,16 @@ function CatalogForm({ kind, row, options, onWritten, onReload, onClose, markDir
         : <p className="text-sm" id={`${uid}-${parentField}`}>{kind === 'model' ? model?.vendorName : options.models.find(o => o.value === values[parentField])?.label ?? values[parentField]}</p>}
     </Field>}
     <div className="grid grid-cols-2 gap-3">
-      <Field id={`${uid}-${codeField}`} label={kind === 'software' ? '버전 표기' : '코드'} required error={err(codeField)}>
-        <Input id={`${uid}-${codeField}`} value={values[codeField]} onChange={e => set(codeField, e.target.value)} aria-invalid={err(codeField) !== undefined} aria-describedby={describedBy(codeField)} />
+      <Field id={`${uid}-${codeField}`} label={kind === 'software' ? '버전 표기' : codeRequired ? '코드' : '코드 (선택)'} required={codeRequired} error={err(codeField)}
+        {...(codeRequired ? {} : { hint: '비우면 이름으로 정해집니다' })}>
+        <Input id={`${uid}-${codeField}`} value={values[codeField]} onChange={e => set(codeField, e.target.value)} aria-invalid={err(codeField) !== undefined} aria-describedby={describedBy(codeField, !codeRequired)} />
       </Field>
       <Field id={`${uid}-name`} label={kind === 'software' ? '이름 (선택)' : '이름'} required={kind !== 'software'} error={err('name')}>
         <Input id={`${uid}-name`} value={values['name']} onChange={e => set('name', e.target.value)} aria-invalid={err('name') !== undefined} aria-describedby={describedBy('name')} />
       </Field>
     </div>
     {kind === 'model' && <Field id={`${uid}-processIds`} label="공정" error={err('processIds')} hint="고르지 않으면 미분류입니다">
-      <ProcessPicker id={`${uid}-processIds`} values={processIds} onChange={setProcessIds} known={knownProcesses} invalid={err('processIds') !== undefined} describedBy={describedBy('processIds')} />
+      <ProcessPicker id={`${uid}-processIds`} values={processIds} onChange={next => { setProcessIds(next); check.clearError('processIds'); }} known={knownProcesses} invalid={err('processIds') !== undefined} describedBy={describedBy('processIds', true)} />
     </Field>}
     <div className="sticky bottom-0 z-10 -mx-5 mt-auto flex items-center justify-between gap-2 border-t border-border-subtle bg-surface-detail px-5 py-3">
       <div>{row?.active && <Button type="button" variant="secondary" disabled={busy} onClick={() => setConfirming(true)}>비활성화</Button>}</div>

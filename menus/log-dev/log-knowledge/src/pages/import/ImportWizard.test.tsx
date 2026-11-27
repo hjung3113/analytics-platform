@@ -180,6 +180,19 @@ describe('catalog import wizard', () => {
     expect(actions()).not.toContain('importApply');
   });
 
+  // #2574 variant b: «검사» used to be off with nothing saying why.
+  it('names why 검사 is off until something is pasted', async () => {
+    open();
+    fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
+    const check = await screen.findByRole('button', { name: '검사' }, slow);
+    expect((check as HTMLButtonElement).disabled).toBe(true);
+    expect(document.getElementById(check.getAttribute('aria-describedby') ?? '')?.textContent).toBe('목록을 붙여넣거나 CSV 파일을 열면 검사할 수 있습니다.');
+    fireEvent.change(screen.getByLabelText('붙여넣을 목록'), { target: { value: '설비사명\t모델명\nA\tB' } });
+    const ready = screen.getByRole('button', { name: '검사' });
+    expect((ready as HTMLButtonElement).disabled).toBe(false);
+    expect(ready.getAttribute('aria-describedby')).toBeNull();
+  });
+
   it('leaving a blank step 1 asks nothing and cancels nothing', async () => {
     open();
     fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
@@ -269,7 +282,10 @@ describe('catalog import wizard', () => {
       open();
       fireEvent.click(await screen.findByRole('button', { name: '가져오기' }, slow));
       expect(((await screen.findByLabelText('붙여넣을 목록')) as HTMLTextAreaElement).value).toBe('설비사명\t모델명\nA\tB');
-      expect((screen.getByRole('button', { name: '검사' }) as HTMLButtonElement).disabled).toBe(true);
+      const check = screen.getByRole('button', { name: '검사' });
+      expect((check as HTMLButtonElement).disabled).toBe(true);
+      // #2574: the earlier job's choice is named first, though text is present.
+      expect(document.getElementById(check.getAttribute('aria-describedby') ?? '')?.textContent).toBe('이전 작업을 이어서 하거나 새로 시작하면 검사할 수 있습니다.');
       fireEvent.click(screen.getByRole('button', { name: '이어서 하기' }));
       await screen.findByText('아직 아무것도 저장되지 않았습니다', {}, slow);
       expect(stepName()).toContain('검사 결과');
