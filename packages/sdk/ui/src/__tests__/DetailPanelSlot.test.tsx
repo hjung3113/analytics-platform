@@ -2,9 +2,9 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { createContext, StrictMode, useContext, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { afterEach, expect, it, vi } from 'vitest';
-import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
-import { useDetailPanelContent } from './layout/useDetailPanelContent';
-import { DetailPanelFullscreenContext } from './panel/DetailPanelFullscreenContext';
+import { DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from '../DetailPanelSlot';
+import { useDetailPanelContent } from '../layout/useDetailPanelContent';
+import { DetailPanelFullscreenContext } from '../panel/DetailPanelFullscreenContext';
 
 const PageContext = createContext('missing');
 function Consumer({ name }: { name: string }) {

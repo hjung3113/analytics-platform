@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { isProductionEnv } from './isProductionEnv';
+import { isProductionEnv } from '../isProductionEnv';
 
 describe('isProductionEnv', () => {
   it('is false when import.meta.env is absent and there is no process (plain-Node consumer)', () => {

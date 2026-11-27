@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { isMacPlatform, shortcutLabel } from './platform';
+import { isMacPlatform, shortcutLabel } from '../platform';
 
 // 06 §26: Windows first, notation per OS — one form for every Ctrl/⌘ shortcut label (#300 UX review).
 describe('shortcutLabel', () => {

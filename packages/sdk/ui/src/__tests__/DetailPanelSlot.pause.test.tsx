@@ -2,9 +2,9 @@ import * as React from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { createPortal } from 'react-dom';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { DetailPanelSlotActionsContext, DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from './DetailPanelSlot';
-import { useDetailPanelContent } from './layout/useDetailPanelContent';
-import { SurfacePauseScope } from './SurfacePauseScope';
+import { DetailPanelSlotActionsContext, DetailPanelSlotProvider, useDetailPanelSlot, useDetailPanelSlotHost } from '../DetailPanelSlot';
+import { useDetailPanelContent } from '../layout/useDetailPanelContent';
+import { SurfacePauseScope } from '../SurfacePauseScope';
 
 function Host() {
   const slot = useDetailPanelSlotHost();

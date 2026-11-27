@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { installStaleChunkNotice } from './stale-chunk-notice';
+import { installStaleChunkNotice } from '../stale-chunk-notice';
 
 const chunkError = () => new TypeError('Failed to fetch dynamically imported module: /assets/fixture-chunk.js');
 const NOTICE = '새 버전이 배포되었습니다';

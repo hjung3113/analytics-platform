@@ -6,7 +6,7 @@ import * as RadixAlert from '@radix-ui/react-dialog';
 import * as RadixPopover from '@radix-ui/react-popover';
 import * as RadixMenu from '@radix-ui/react-dropdown-menu';
 import * as RadixSelect from '@radix-ui/react-select';
-import { AlertDialog, Dialog, DropdownMenu, Popover, Select, Sheet } from '../index';
+import { AlertDialog, Dialog, DropdownMenu, Popover, Select, Sheet } from '../../index';
 
 afterEach(cleanup);
 type OpenProps = { open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void; children?: React.ReactNode };

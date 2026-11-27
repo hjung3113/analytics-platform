@@ -1,7 +1,7 @@
 // The shared plain-text copy rule (06 §15, #673). Every case installs exactly the environment it names; jsdom has no
 // `isSecureContext` or `navigator.clipboard`. The link-copy UX on top is pinned in @ap/components copyText.test.tsx.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { copyText } from './copyText';
+import { copyText } from '../copyText';
 
 afterEach(() => {
   Reflect.deleteProperty(window, 'isSecureContext');

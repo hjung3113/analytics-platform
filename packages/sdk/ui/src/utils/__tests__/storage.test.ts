@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { readLocalStorage, writeLocalStorage } from './storage';
+import { readLocalStorage, writeLocalStorage } from '../storage';
 
 // Node's own experimental `localStorage` shadows jsdom's here, so each test installs a plain in-memory one.
 let store: Map<string, string>;

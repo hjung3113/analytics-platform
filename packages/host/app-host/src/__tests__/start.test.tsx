@@ -4,10 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { menuPermission } from '@ap/contracts';
 import { usePlatform } from '@ap/kernel';
 import { memoryStorage } from '@ap/kernel/testing';
-import { removeStaleChunkNotice } from './stale-chunk-notice';
-import { startAppHost } from './start';
-import type { StartAppHostOptions } from './types';
-import { AXES, QUERY_HISTORY, testAssembly, testDeclarations, testMenu } from './test-support';
+import { removeStaleChunkNotice } from '../stale-chunk-notice';
+import { startAppHost } from '../start';
+import type { StartAppHostOptions } from '../types';
+import { AXES, QUERY_HISTORY, testAssembly, testDeclarations, testMenu } from '../test-support';
 
 let container: HTMLElement;
 beforeEach(() => {

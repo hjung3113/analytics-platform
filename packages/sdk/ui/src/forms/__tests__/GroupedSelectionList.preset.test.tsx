@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
-import { GroupedSelectionList } from './GroupedSelectionList';
+import { GroupedSelectionList } from '../GroupedSelectionList';
 
 it('reports the applied preset after changing selection, without reporting manual toggles', () => {
   const events: string[] = [];

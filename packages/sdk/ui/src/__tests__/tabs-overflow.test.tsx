@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import userEvent from '@testing-library/user-event';
 import * as React from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './index';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../index';
 
 const VALUES = ['a', 'b', 'c', 'd', 'e'];
 const LABELS: Record<string, string> = { a: '개요', b: '추이', c: '분포', d: '분해 막대', e: '상관' };

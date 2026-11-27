@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
-import { generateThemeTokens } from '../../scripts/gen-theme-tokens.mjs';
-import { THEME_COLOR_FALLBACK, THEME_COLOR_TOKENS, type ThemeColorToken } from './tokens.generated';
-import { isThemeColorToken, readColorToken } from './index';
+import { generateThemeTokens } from '../../../scripts/gen-theme-tokens.mjs';
+import { THEME_COLOR_FALLBACK, THEME_COLOR_TOKENS, type ThemeColorToken } from '../tokens.generated';
+import { isThemeColorToken, readColorToken } from '../index';
 
 const tokensCss = readFileSync(join(process.cwd(), 'src/styles/tokens.css'), 'utf8');
 const platformCss = readFileSync(join(process.cwd(), 'src/styles/platform-tokens.css'), 'utf8');

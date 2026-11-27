@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { StartupFailure, startOrFail } from './startup-failure';
+import { StartupFailure, startOrFail } from '../startup-failure';
 
 describe('StartupFailure (#154 FIX1 C2)', () => {
   afterEach(cleanup);
