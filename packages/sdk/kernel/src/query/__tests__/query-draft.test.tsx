@@ -11,6 +11,7 @@ import { useDrill } from '../../context/drill';
 import { useMenuQuery, useMenuFetch, usePlatformQuery, useEntityQuery } from '../query';
 import { createRegistry } from '../../registry/registry';
 import { noContext, settleQueries, testAdapter, testSession, testSpace } from '../../testing';
+import { at } from '../../test-support';
 
 const menu = { id: 'home', group: groupId('overview'), primary: true, path: '/', icon: House,
   label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const,
@@ -177,7 +178,7 @@ it('shares sibling readers of one logical pane, isolates others, and preserves e
   expect(seen.get('b')!.draft.page).toEqual([]);
   act(() => { seen.get('a')!.apply(); seen.get('editor')!.apply(); });
   expect(updates).toHaveBeenCalledTimes(1);
-  expect(updates.mock.calls[0][1]).toBe('push');
+  expect(at(updates.mock.calls, 0)[1]).toBe('push');
   expect(seen.get('a')!.applying).toBe(true);
   await act(async () => {});
   expect(seen.get('a')!.applying).toBe(false);
@@ -187,11 +188,11 @@ it('shares sibling readers of one logical pane, isolates others, and preserves e
   act(() => select('b'));
   act(() => select('a'));
   expect(seen.get('editor')!.draft.page).toEqual([['filter', 'after click']]);
-  act(() => echo(updates.mock.calls[0][0]));
+  act(() => echo(at(updates.mock.calls, 0)[0]));
   expect(seen.get('a')!.applying).toBe(false);
   expect(seen.get('a')!.draft.page).toEqual([['filter', 'after click']]);
   act(() => contexts.get('a')!.setPage({ filter: 'external' }));
-  act(() => echo(updates.mock.calls[1][0]));
+  act(() => echo(at(updates.mock.calls, 1)[0]));
   expect(seen.get('editor')!.draft.page).toEqual([['filter', 'external']]);
   act(() => select('b'));
   act(() => remove());
@@ -210,11 +211,11 @@ it('keeps reset-key edits after acknowledging a second ordinary Apply with an in
   render(<I18nProvider><PlatformProvider registry={registry} adapter={testAdapter({ session: () => session })}><Pane /></PlatformProvider></I18nProvider>);
   act(() => { draft.setDraftPage({ filter: 'first' }); draft.apply(); });
   expect(changed).toHaveBeenCalledTimes(1);
-  act(() => echo(changed.mock.calls[0][0]));
+  act(() => echo(at(changed.mock.calls, 0)[0]));
   act(() => { draft.setDraftGlobal({ from: '2026-09-24T09:00:00' }); draft.apply(); });
   expect(changed).toHaveBeenCalledTimes(2);
   act(() => draft.setDraftPage({ filter: 'after click' }));
-  act(() => echo(changed.mock.calls[1][0]));
+  act(() => echo(at(changed.mock.calls, 1)[0]));
   expect(draft.draft.global.from).toBe('2026-09-24T09:00:00');
   expect(platform.global.from).toBe('2026-09-24T09:00:00');
   act(() => draft.setDraftPage({ page: '7' }));
@@ -265,7 +266,7 @@ const settle = settleQueries;
 it('keeps completedAt while refreshing and stamps every accepted terminal envelope', async () => {
   const responses: ((response: ApiResponse<number>) => void)[] = [];
   mount('/' + period, registry, { menuQuery: () => new Promise(resolve => responses.push(resolve)) });
-  await act(async () => responses[0]({ outcome: 'ok', data: 1, assessments: [], trust: null, correlationId: 'first' }));
+  await act(async () => at(responses, 0)({ outcome: 'ok', data: 1, assessments: [], trust: null, correlationId: 'first' }));
   await settle(); // ADR-0086: observers are notified after a macrotask
   const completedAt = query.completedAt;
   act(() => query.refetch());
@@ -273,7 +274,7 @@ it('keeps completedAt while refreshing and stamps every accepted terminal envelo
   expect(query.status).toBe('refreshing');
   expect(query.response?.data).toBe(1);
   expect(query.completedAt).toBe(completedAt);
-  await act(async () => responses[1]({ outcome: 'timeout', data: null, assessments: [], trust: null, correlationId: 'timeout' }));
+  await act(async () => at(responses, 1)({ outcome: 'timeout', data: null, assessments: [], trust: null, correlationId: 'timeout' }));
   await settle();
   expect(query.status).toBe('done');
   expect(query.completedAt).toEqual(expect.any(Number));
@@ -430,7 +431,7 @@ it('confirms a delayed pane metric echo without applying its default period', as
   render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session, publishedMetrics: () => [{ metricId: 'known', publishedVersion: '3' }] })}><Pane /></PlatformProvider></I18nProvider>);
   expect(platform.metricInit.phase).toBe('confirm');
   expect(changes).toHaveBeenCalledTimes(1);
-  act(() => echo(changes.mock.calls[0][0]));
+  act(() => echo(at(changes.mock.calls, 0)[0]));
   expect(platform.metricInit.phase).toBe('skip');
   expect(platform.global).toMatchObject({ metricId: 'known', metricVersion: '3', from: null, to: null });
   expect(query.status).toBe('idle');

@@ -7,6 +7,8 @@ import { I18nProvider, PlatformProvider, createRegistry, useSavedViewPanels, use
 import { PaneScreenProvider, useHoldsPanels, useHostPlatform, useSavedViews, type SavedViews } from '../../host';
 import { ScreenSavedViews, type InitialSavedView } from '../useSavedViews';
 import { createFakeSavedViewStore as createFakeStore, noContext, testAdapter, testSavedView as viewOf, testSession, testSpace, testViewCapabilities, ToastProbe, type FakeSavedViewStore as FakeStore } from '../../testing';
+import { at } from '../../test-support';
+
 /** A promise the test resolves by hand, to finish a store call out of order. */
 function deferred(): { promise: Promise<void>; release: () => void } {
   let release = () => {};
@@ -35,7 +37,7 @@ function mount(store: FakeStore | undefined, url = '/') {
 
 function mountAutoApply(store: FakeStore, Content = Probe, search = '', adapterOverrides: Parameters<typeof testAdapter>[0] = {}) {
   const chosen = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu('home', '/', true, true), pageKeys: [...base.pageKeys, 'returnTo'], query: { mode: 'apply', autoApplyDefault: true } }] });
-  window.history.replaceState(null, '', chosen.menus[0].path + search);
+  window.history.replaceState(null, '', at(chosen.menus, 0).path + search);
   const replace = vi.spyOn(window.history, 'replaceState');
   render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session, ...adapterOverrides })} savedViews={store}><Content /></PlatformProvider></I18nProvider>);
   return replace;
@@ -377,7 +379,7 @@ it('emits no notice when the owner tears down while the deadline timer is due', 
       menus: [{ ...menu('home', '/', true, true), query: { mode: 'apply', autoApplyDefault: true } }],
     });
     // Use an explicit query so the outer MainScreenProvider does not arm its own initial timer.
-    window.history.replaceState(null, '', `${chosen.menus[0].path}?lineNames=L2`);
+    window.history.replaceState(null, '', `${at(chosen.menus, 0).path}?lineNames=L2`);
     const settle = vi.fn();
     const initial: InitialSavedView = { settle, materialize: () => true };
     let setMounted: (value: boolean) => void = () => {};
@@ -1340,13 +1342,13 @@ it.each(['drill', 'same-path-link'] as const)('switches a pending bare arrival t
   const held = deferred();
   const store = createFakeStore([L1], { 'u1:home': 'l1' });
   store.getHold.set('l1', held.promise);
-  window.history.replaceState(null, '', chosen.menus[0].path);
+  window.history.replaceState(null, '', at(chosen.menus, 0).path);
   const replace = vi.spyOn(window.history, 'replaceState');
   render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><NoSupportProbe /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(store.reads).toContain('get'));
   expect(host.global.from).toBeNull();
   if (action === 'drill') act(() => host.setPage({ filter: 'linked' }));
-  else act(() => { host.navigate(chosen.menus[0].path + '?lineNames=L2'); });
+  else act(() => { host.navigate(at(chosen.menus, 0).path + '?lineNames=L2'); });
   await waitFor(() => expect(host.global).toMatchObject({ from: '2026-09-25T00:00:00', to: '2026-09-26T00:00:00' }));
   await act(async () => held.release());
   if (action === 'drill') {
@@ -1374,11 +1376,11 @@ it('keeps completed-then-reset, invalid, and history-restored legacy entries exa
   const held = deferred();
   const store = createFakeStore([L1], { 'u1:home': 'l1' });
   store.getHold.set('l1', held.promise);
-  window.history.replaceState(null, '', chosen.menus[0].path);
+  window.history.replaceState(null, '', at(chosen.menus, 0).path);
   const ui = render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><NoSupportProbe /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(store.reads).toContain('get'));
   act(() => {
-    window.history.replaceState(null, '', chosen.menus[0].path + '?v=1&lineNames=L2');
+    window.history.replaceState(null, '', at(chosen.menus, 0).path + '?v=1&lineNames=L2');
     window.dispatchEvent(new PopStateEvent('popstate'));
   });
   await act(async () => held.release());
@@ -1387,14 +1389,14 @@ it('keeps completed-then-reset, invalid, and history-restored legacy entries exa
 
   ui.unmount();
   store.getHold.clear();
-  window.history.replaceState(null, '', chosen.menus[0].path + '?from=invalid&lineNames=L2');
+  window.history.replaceState(null, '', at(chosen.menus, 0).path + '?from=invalid&lineNames=L2');
   const uiInvalid = render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><NoSupportProbe /></PlatformProvider></I18nProvider>);
   await act(async () => {});
   expect(window.location.search).toBe('?from=invalid&lineNames=L2');
   expect(host.global.from).toBeNull();
 
   uiInvalid.unmount();
-  window.history.replaceState(null, '', chosen.menus[0].path);
+  window.history.replaceState(null, '', at(chosen.menus, 0).path);
   render(<I18nProvider><PlatformProvider registry={chosen} adapter={testAdapter({ session: () => session })} savedViews={store}><NoSupportProbe /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(host.global.lineNames).toEqual(['L1']));
   act(() => host.resetContext());

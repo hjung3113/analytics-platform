@@ -9,6 +9,8 @@ import { canonicalHistoryQuery, useQueryHistory } from '../query-history';
 import { createRegistry } from '../../registry/registry';
 import { noContext, testAdapter, testSession, testSpace } from '../../testing';
 import { I18nProvider } from '../../i18n';
+import { at } from '../../test-support';
+
 const menu = { id: 'home', group: groupId('overview'), primary: true, path: '/', icon: House, label: { ko: '조회', en: 'Query' }, description: { ko: '', en: '' }, permission: 'platform:view' as const, requiresScope: false, context: { ...noContext, time: 'apply' as const }, pageType: 'analysis' as const, features: { export: false, savedView: false, annotate: false, compare: false, board: true }, pageKeys: ['filter', 'page'], contextResetKeys: ['page'], query: { mode: 'apply' as const } };
 const registry = createRegistry({ spaces: [testSpace()], groups: [{ id: groupId('overview'), label: menu.label, icon: House, space: spaceId('mars') }], menus: [menu] });
 const global = { ...emptyGlobal, from: '2026-09-01T00:00:00', to: '2026-09-02T00:00:00' };
@@ -39,7 +41,7 @@ function basisRegistry(isBasisAvailable: () => boolean) {
 it('rejects a recent query whose basis is no longer available and never records it', async () => {
   const { store, send, view } = mount([entry(buildQuery(global, basisPage))], '/', basisRegistry(() => false));
   await waitFor(() => expect(['ready', 'unavailable']).toContain(history.entries[0]?.status));
-  const row = history.entries[0];
+  const row = at(history.entries, 0);
   let restored = false;
   await act(async () => {
     restored = await history.restore(row);
@@ -80,7 +82,7 @@ it('does not record a pane Apply whose basis is rejected when the address is ack
   act(() => { screen.queryDraft.setDraftPage({ page: 'PHOTO', basis: 'alt' }); screen.queryDraft.apply(); });
   expect(changed.mock.calls[0]?.[1]).toBe('push');
   available = false;
-  await act(async () => { echo(changed.mock.calls[0][0]); });
+  await act(async () => { echo(at(changed.mock.calls, 0)[0]); });
   expect(store.record).not.toHaveBeenCalled();
   expect(changed.mock.calls[1]?.[1]).toBe('replace');
 });
@@ -111,7 +113,7 @@ it.each(['recent restore', 'direct edit'])('pushes and records a no-bases drill 
     act(() => history.open());
     await waitFor(() => expect(['ready', 'unavailable']).toContain(history.entries[0]?.status));
     expect(history.entries[0]?.status).toBe('ready');
-    await act(async () => { expect(await history.restore(history.entries[0])).toBe(true); });
+    await act(async () => { expect(await history.restore(at(history.entries, 0))).toBe(true); });
   } else {
     act(() => screen.queryDraft.setDraftPage({ page: 'PHOTO' }));
   }
@@ -138,7 +140,7 @@ it.each([
   const { view } = mount([entry(query)]);
   await waitFor(() => expect(history.entries[0]?.status).toBe('unavailable'));
   const before = screen.queryDraft.draft;
-  expect(await history.restore(history.entries[0])).toBe(false);
+  expect(await history.restore(at(history.entries, 0))).toBe(false);
   expect(screen.queryDraft.draft).toEqual(before);
   expect(view.container.innerHTML).not.toContain('PRIVATE');
   expect(screen.global.from).toBeNull();
@@ -153,7 +155,7 @@ it('restores page reset keys atomically across a changed global and clears absen
   await waitFor(() => expect(history.status).toBe('ready'));
   act(() => history.open());
   await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
-  await act(async () => { expect(await history.restore(history.entries[0])).toBe(true); });
+  await act(async () => { expect(await history.restore(at(history.entries, 0))).toBe(true); });
   expect(screen.queryDraft.draft.page).toEqual([['page', '7']]);
   expect(screen.page).toEqual([['filter', 'discard']]);
   act(() => screen.queryDraft.apply());
@@ -214,7 +216,8 @@ it('refreshes the open history list after an acknowledged record', async () => {
   await waitFor(() => expect(history.status).toBe('ready'));
   act(() => { history.open(); screen.queryDraft.setDraftPage({ filter: 'new-record' }); screen.queryDraft.apply(); });
   await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
-  expect(history.entries[0].status === 'ready' && history.entries[0].candidate.page).toEqual([['filter', 'new-record']]);
+  const recorded = at(history.entries, 0);
+  expect(recorded.status === 'ready' && recorded.candidate.page).toEqual([['filter', 'new-record']]);
 });
 it.each(['forbidden', 'not_found', 'throw', 'ok'] as const)('authorizes a listed EquipmentID as %s before exposing values or restoring', async outcome => {
   const scoped = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, requiresScope: true }] });
@@ -229,14 +232,14 @@ it.each(['forbidden', 'not_found', 'throw', 'ok'] as const)('authorizes a listed
   await waitFor(() => expect(history.status).toBe('ready'));
   act(() => history.open());
   await waitFor(() => expect(resolve).toHaveBeenCalledTimes(1));
-  expect(history.entries[0].status).toBe('loading');
+  expect(history.entries[0]?.status).toBe('loading');
   expect(view.container.innerHTML).not.toContain('PRIVATE');
   await act(async () => {
     if (outcome === 'throw') pending.resolve(Promise.reject(new Error('PRIVATE')) as never);
     else pending.resolve({ items: outcome === 'ok' ? [{ id: 'PRIVATE-ID', status: 'ok', summary: { equipmentId: 'PRIVATE-ID', room: 'PHOTO', axes: {} } }] : [{ id: 'PRIVATE-ID', status: outcome }] });
   });
-  await waitFor(() => expect(history.entries[0].status).toBe(outcome === 'ok' ? 'ready' : 'unavailable'));
-  if (outcome !== 'ok') { expect(view.container.innerHTML).not.toContain('PRIVATE'); expect(await history.restore(history.entries[0])).toBe(false); }
+  await waitFor(() => expect(history.entries[0]?.status).toBe(outcome === 'ok' ? 'ready' : 'unavailable'));
+  if (outcome !== 'ok') { expect(view.container.innerHTML).not.toContain('PRIVATE'); expect(await history.restore(at(history.entries, 0))).toBe(false); }
 });
 it('masks an open history on same-user revision change and rejects a pending authorization and captured restore', async () => {
   const scoped = createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, requiresScope: true }] });
@@ -246,7 +249,7 @@ it('masks an open history on same-user revision change and rejects a pending aut
   window.history.replaceState(null, '', '/?scopeId=MEM');
   const view = render(<I18nProvider><PlatformProvider registry={scoped} adapter={testAdapter({ session: () => session, subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); }, validateScope: async () => ({ status: 'valid', grantedRooms: rooms }) })} queryHistory={store}><Probe /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
-  const oldHistory = history; const oldRow = history.entries[0];
+  const oldHistory = history; const oldRow = at(history.entries, 0);
   act(() => { rooms = []; listeners.forEach(listener => listener()); });
   expect(view.container.innerHTML).not.toContain('PRIVATE');
   await act(async () => { expect(await oldHistory.restore(oldRow)).toBe(false); await oldHistory.remove('one'); });
@@ -270,7 +273,7 @@ it.each(['acknowledge', 'supersede', 'throw'] as const)('records the captured cl
   act(() => screen.queryDraft.apply());
   act(() => screen.queryDraft.setDraftPage({ filter: 'after-click' }));
   expect(record).not.toHaveBeenCalled();
-  act(() => echo(scenario === 'acknowledge' ? changed.mock.calls[0][0] : { menuId: 'home', params: {}, query: buildQuery(global, [['filter', 'external']]) }));
+  act(() => echo(scenario === 'acknowledge' ? at(changed.mock.calls, 0)[0] : { menuId: 'home', params: {}, query: buildQuery(global, [['filter', 'external']]) }));
   await act(async () => {});
   if (scenario === 'acknowledge') {
     expect(record).toHaveBeenCalledTimes(1);
@@ -325,13 +328,13 @@ it.each(['scope', 'selection'] as const)('aborts pending history %s checks on re
   const view = render(<I18nProvider><PlatformProvider registry={scoped} adapter={adapter} queryHistory={store}><Probe /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(signals).toHaveLength(1));
   expect(history.entries[0]?.status).toBe('loading');
-  expect(signals[0].aborted).toBe(false);
+  expect(signals[0]?.aborted).toBe(false);
   act(() => listeners.forEach(listener => listener()));
-  expect(signals[0].aborted).toBe(true);
+  expect(signals[0]?.aborted).toBe(true);
   await waitFor(() => expect(signals).toHaveLength(2));
-  expect(signals[1].aborted).toBe(false);
+  expect(signals[1]?.aborted).toBe(false);
   view.unmount();
-  expect(signals[1].aborted).toBe(true);
+  expect(signals[1]?.aborted).toBe(true);
 });
 
 it.each([false, true])('rejects a pending restore after a same-route address rebase (return to original: %s)', async returnToOriginal => {
@@ -349,7 +352,7 @@ it.each([false, true])('rejects a pending restore after a same-route address reb
   await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
   delay = true;
   let restoring!: Promise<boolean>;
-  act(() => { restoring = history.restore(history.entries[0]); });
+  act(() => { restoring = history.restore(at(history.entries, 0)); });
   act(() => { window.history.pushState(null, '', '/' + buildQuery(applied, [['filter', 'external']])); window.dispatchEvent(new PopStateEvent('popstate')); });
   if (returnToOriginal) act(() => { window.history.replaceState(null, '', original); window.dispatchEvent(new PopStateEvent('popstate')); });
   const rebased = screen.queryDraft.draft;
@@ -375,12 +378,12 @@ it('preserves restored reset-key provenance after an older pane Apply acknowledg
   await waitFor(() => expect(history.entries[0]?.status).toBe('ready'));
   act(() => { screen.queryDraft.setDraftPage({ filter: 'clicked' }); screen.queryDraft.apply(); });
   expect(changed).toHaveBeenCalledTimes(1);
-  await act(async () => { expect(await history.restore(history.entries[0])).toBe(true); });
-  act(() => echo(changed.mock.calls[0][0]));
+  await act(async () => { expect(await history.restore(at(history.entries, 0))).toBe(true); });
+  act(() => echo(at(changed.mock.calls, 0)[0]));
   expect(screen.queryDraft.draft).toEqual({ global: restored, page: [['page', '7']] });
   act(() => screen.queryDraft.apply());
   expect(changed).toHaveBeenCalledTimes(2);
-  expect(changed.mock.calls[1][0].query).toBe(buildQuery(restored, [['page', '7']]));
+  expect(changed.mock.calls[1]?.[0].query).toBe(buildQuery(restored, [['page', '7']]));
 });
 
 const scopedRegistry = () => createRegistry({ spaces: registry.spaces, groups: registry.groups, menus: [{ ...menu, requiresScope: true }] });
@@ -409,7 +412,7 @@ it.each(['success', 'rejection', 'replacement', 'session change'])('settles a pa
   render(<I18nProvider><PlatformProvider registry={scopedRegistry()} adapter={adapter} queryHistory={store}><Pane /></PlatformProvider></I18nProvider>);
   await waitFor(() => expect(screen.scope.status).toBe('valid'));
   act(() => { screen.queryDraft.setDraftPage({ filter: 'new' }); screen.queryDraft.apply(); });
-  const [target, how] = changed.mock.calls[0];
+  const [target, how] = at(changed.mock.calls, 0);
   expect(how).toBe('push');
   hold = true;
   act(() => screen.retryScope());
@@ -472,7 +475,7 @@ it('a descendant layout effect calling restore() in the commit where the same Sc
   let restored: Promise<boolean> | null = null;
   function Opener() {
     const value = useQueryHistory(); const host = useHostPlatform();
-    useLayoutEffect(() => { if (openOnValid && host.scope.status === 'valid') { openOnValid = false; restored = value.restore(value.entries[0]); } });
+    useLayoutEffect(() => { if (openOnValid && host.scope.status === 'valid') { openOnValid = false; restored = value.restore(at(value.entries, 0)); } });
     return null;
   }
   window.history.replaceState(null, '', '/?scopeId=MEM');

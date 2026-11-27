@@ -9,6 +9,7 @@ import { PaneScreenProvider, PlatformProvider, useHostPlatform } from '../../pla
 import { useEndpointRefreshEpoch, useMenuQuery, type QueryState } from '../query';
 import { createRegistry } from '../../registry/registry';
 import { memoryStorage, noContext, settleQueries, testAdapter, testSession, testSpace } from '../../testing';
+import { at } from '../../test-support';
 
 type Input = { text: string; nested: { n: number } };
 const endpoint = (id: string) => defineEndpoint<{ page: number }, { id: string }>({
@@ -43,7 +44,11 @@ function setup(ui: (probe: Probes, show: boolean) => React.ReactNode) {
   const listeners = new Set<() => void>();
   const sessions = Object.fromEntries(['user-a', 'user-b'].map((id): [string, Session] => [id, testSession(['platform:view'], { user: { id, name: id, title: { ko: id, en: id } } })]));
   let user = 'user-a';
-  const session = (id: string) => sessions[id];
+  const session = (id: string): Session => {
+    const found = sessions[id];
+    if (found === undefined) throw new Error(`missing session ${id}`);
+    return found;
+  };
   const adapter = testAdapter({
     session: () => session(user), subscribe: l => { listeners.add(l); return () => { listeners.delete(l); }; },
     menuQuery: vi.fn(async (request: MenuQuery) => { queries.push(request); return { outcome: 'ok' as const, data: { call: queries.length } as never, assessments: [], trust: null, correlationId: 'q' }; }),
@@ -91,11 +96,11 @@ describe('useMenuAction: request', () => {
     let first!: Promise<ActionResult<{ id: string }>>;
     act(() => { first = t.probes.action.run(input()); });
     expect(t.sent).toHaveLength(1);
-    expect(t.sent[0].args).toEqual([]);
-    expect(t.sent[0].request).toEqual({ action: 'fx.save', context: {}, input: input(), idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/) });
-    await act(async () => { t.sent[0].resolve(response('ok')); await first; });
+    expect(at(t.sent, 0).args).toEqual([]);
+    expect(at(t.sent, 0).request).toEqual({ action: 'fx.save', context: {}, input: input(), idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+    await act(async () => { at(t.sent, 0).resolve(response('ok')); await first; });
     act(() => { void t.probes.action.run(input()); });
-    expect(t.sent[1].request.idempotencyKey).not.toBe(t.sent[0].request.idempotencyKey);
+    expect(at(t.sent, 1).request.idempotencyKey).not.toBe(at(t.sent, 0).request.idempotencyKey);
   });
 
   it('sends a UUIDv4 key outside a secure context, where crypto.randomUUID does not exist (#2017)', async () => {
@@ -104,7 +109,7 @@ describe('useMenuAction: request', () => {
     await flush();
     act(() => { void t.probes.action.run(input()); });
     expect(t.sent).toHaveLength(1);
-    expect(t.sent[0].request.idempotencyKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(at(t.sent, 0).request.idempotencyKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 
   it('carries expectedVersion only for a versioned action and throws RangeError before any call otherwise', async () => {
@@ -112,7 +117,7 @@ describe('useMenuAction: request', () => {
     await flush();
     expect(() => t.probes.action.run(input())).toThrow(RangeError);
     act(() => { void t.probes.action.run(input(), { expectedVersion: 'v7' }); });
-    expect(t.sent[0].request.expectedVersion).toBe('v7');
+    expect(at(t.sent, 0).request.expectedVersion).toBe('v7');
     expect(t.sent).toHaveLength(1);
     const u = setup(both());
     await flush();
@@ -135,7 +140,7 @@ describe('useMenuAction: request', () => {
     await flush();
     let promise!: Promise<ActionResult<{ id: string }>>;
     act(() => { promise = t.probes.action.run(input()); });
-    await act(async () => { t.sent[0].reject(new Error('down')); await settle(promise); });
+    await act(async () => { at(t.sent, 0).reject(new Error('down')); await settle(promise); });
     const result = await promise;
     expect(result).toMatchObject({ outcome: 'unknown', message: 'Error: down' });
     expect(result.retry).toBeTypeOf('function');
@@ -149,7 +154,7 @@ describe('useMenuAction: request', () => {
     expect(a).toBe(b);
     expect(t.sent).toHaveLength(1);
     expect(t.probes.action.pending).toBe(true);
-    await act(async () => { t.sent[0].resolve(response('ok')); await a; });
+    await act(async () => { at(t.sent, 0).resolve(response('ok')); await a; });
     expect(t.probes.action.pending).toBe(false);
   });
 });
@@ -160,7 +165,7 @@ describe('useMenuAction: retry', () => {
     await flush();
     let promise!: Promise<ActionResult<{ id: string }>>;
     act(() => { promise = t.probes.action.run(input()); });
-    await act(async () => { t.sent[0].resolve(response(outcome)); await promise; });
+    await act(async () => { at(t.sent, 0).resolve(response(outcome)); await promise; });
     expect((await promise).retry).toBeUndefined();
   });
 
@@ -171,15 +176,15 @@ describe('useMenuAction: retry', () => {
     let promise!: Promise<ActionResult<{ id: string }>>;
     act(() => { promise = t.probes.action.run(mine); });
     mine.nested.n = 99;
-    await act(async () => { t.sent[0].resolve(response(outcome)); await promise; });
+    await act(async () => { at(t.sent, 0).resolve(response(outcome)); await promise; });
     const result = await promise;
     let again!: Promise<ActionResult<{ id: string }>>;
     act(() => { again = result.retry!(); });
     expect(t.sent).toHaveLength(2);
-    expect(t.sent[1].request).toBe(t.sent[0].request);
-    expect(t.sent[1].request.input.nested.n).toBe(1);
+    expect(at(t.sent, 1).request).toBe(at(t.sent, 0).request);
+    expect(at(t.sent, 1).request.input.nested.n).toBe(1);
     // A retry of the retry resends the same request again, and overlapping retry/retry and retry/run are one send.
-    await act(async () => { t.sent[1].resolve(response('error')); await again; });
+    await act(async () => { at(t.sent, 1).resolve(response('error')); await again; });
     const second = await again;
     let r1!: Promise<unknown>; let r2!: Promise<unknown>;
     act(() => { r1 = second.retry!(); r2 = second.retry!(); });
@@ -187,7 +192,7 @@ describe('useMenuAction: retry', () => {
     expect(t.probes.action.pending).toBe(true);
     act(() => { expect(t.probes.action.run(input())).toBe(r1); });
     expect(t.sent).toHaveLength(3);
-    expect(t.sent[2].request).toBe(t.sent[0].request);
+    expect(at(t.sent, 2).request).toBe(at(t.sent, 0).request);
   });
 
   it('waits for another input before retrying its own identical request (#2066 KER-25)', async () => {
@@ -195,7 +200,7 @@ describe('useMenuAction: retry', () => {
     await flush();
     let first!: Promise<ActionResult<{ id: string }>>;
     act(() => { first = t.probes.action.run(input()); });
-    await act(async () => { t.sent[0].resolve(response('unknown')); await first; });
+    await act(async () => { at(t.sent, 0).resolve(response('unknown')); await first; });
     const { retry } = await first;
     let other!: Promise<ActionResult<{ id: string }>>;
     let again!: Promise<ActionResult<{ id: string }>>;
@@ -207,11 +212,11 @@ describe('useMenuAction: retry', () => {
     });
     expect(again).not.toBe(other);
     expect(t.sent).toHaveLength(2);
-    await act(async () => { t.sent[1].resolve(response('ok', { data: { id: 'b' } })); await other; });
+    await act(async () => { at(t.sent, 1).resolve(response('ok', { data: { id: 'b' } })); await other; });
     expect(t.sent).toHaveLength(3);
-    expect(t.sent[2].request).toBe(t.sent[0].request);
+    expect(at(t.sent, 2).request).toBe(at(t.sent, 0).request);
     expect(t.probes.action.pending).toBe(true);
-    await act(async () => { t.sent[2].resolve(response('ok', { data: { id: 'a' } })); await again; await overlap; });
+    await act(async () => { at(t.sent, 2).resolve(response('ok', { data: { id: 'a' } })); await again; await overlap; });
     expect(await again).toMatchObject({ outcome: 'ok', data: { id: 'a' } });
     expect(await overlap).toBe(await again);
     expect(t.probes.action.pending).toBe(false);
@@ -222,7 +227,7 @@ describe('useMenuAction: retry', () => {
     await flush();
     let promise!: Promise<ActionResult<{ id: string }>>;
     act(() => { promise = t.probes.action.run(input()); });
-    await act(async () => { t.sent[0].resolve(response('error')); await promise; });
+    await act(async () => { at(t.sent, 0).resolve(response('error')); await promise; });
     const { retry } = await promise;
     t.unmount();
     expect(isAbort(await settle(retry!()))).toBe(true);
@@ -234,7 +239,7 @@ describe('useMenuAction: retry', () => {
     await flush();
     let promise!: Promise<ActionResult<{ id: string }>>;
     act(() => { promise = t.probes.action.run(input()); });
-    await act(async () => { t.sent[0].resolve(response('error')); await promise; });
+    await act(async () => { at(t.sent, 0).resolve(response('error')); await promise; });
     const { retry } = await promise;
     t.switchUser();
     expect(isAbort(await settle(retry!()))).toBe(true);
@@ -246,7 +251,7 @@ describe('useMenuAction: retry', () => {
     await flush();
     let promise!: Promise<ActionResult<{ id: string }>>;
     act(() => { promise = t.probes.action.run(input()); });
-    await act(async () => { t.sent[0].resolve(response('error')); await promise; });
+    await act(async () => { at(t.sent, 0).resolve(response('error')); await promise; });
     const { retry } = await promise;
     t.switchUser();
     let second!: Promise<ActionResult<{ id: string }>>;
@@ -254,7 +259,7 @@ describe('useMenuAction: retry', () => {
     expect(t.sent).toHaveLength(2);
     expect(isAbort(await settle(retry!()))).toBe(true);
     expect(t.sent).toHaveLength(2);
-    await act(async () => { t.sent[1].resolve(response('ok')); });
+    await act(async () => { at(t.sent, 1).resolve(response('ok')); });
     expect(await second).toMatchObject({ outcome: 'ok' });
   });
 });
@@ -273,14 +278,14 @@ describe('useMenuAction: lifetime and generation', () => {
     const t = setup(probes => <><Writer probes={probes} /><ThrowingSubscriber /></>);
     let result: object | undefined;
     act(() => { void settle(t.probes.action.run(input())).then(value => { result = value; }); });
-    await act(async () => { t.sent[0].resolve(response('ok')); });
+    await act(async () => { at(t.sent, 0).resolve(response('ok')); });
     expect(isAbort(result ?? {})).toBe(true);
     expect(t.probes.action.pending).toBe(false);
     stop();
     let next!: Promise<ActionResult<{ id: string }>>;
     act(() => { next = t.probes.action.run(input()); });
     expect(t.sent).toHaveLength(2);
-    await act(async () => { t.sent[1].resolve(response('ok')); await next; });
+    await act(async () => { at(t.sent, 1).resolve(response('ok')); await next; });
     expect(await next).toMatchObject({ outcome: 'ok' });
   });
 
@@ -293,7 +298,7 @@ describe('useMenuAction: lifetime and generation', () => {
     t.unmount();
     expect(isAbort(await outcome)).toBe(true);
     const before = t.queries.length;
-    await act(async () => { t.sent[0].resolve(response('ok')); });
+    await act(async () => { at(t.sent, 0).resolve(response('ok')); });
     await flush();
     expect(t.adapter.menuAction).toHaveBeenCalledTimes(1);
     expect(t.queries).toHaveLength(before + 1);
@@ -310,7 +315,7 @@ describe('useMenuAction: lifetime and generation', () => {
     await flush();
     expect(t.probes.action.pending).toBe(false);
     const before = t.queries.length;
-    await act(async () => { t.sent[0].resolve(response('ok')); });
+    await act(async () => { at(t.sent, 0).resolve(response('ok')); });
     await flush();
     expect(t.adapter.menuAction).toHaveBeenCalledTimes(1);
     expect(t.queries).toHaveLength(before + 1);
@@ -329,7 +334,7 @@ describe('refresh epochs', () => {
     const calls = t.queries.length;
     let promise!: Promise<ActionResult<{ id: string }>>;
     act(() => { promise = t.probes.action.run(input()); });
-    await act(async () => { t.sent[0].resolve(response(outcome)); await promise; });
+    await act(async () => { at(t.sent, 0).resolve(response(outcome)); await promise; });
     if (!refetches) { expect(t.queries).toHaveLength(calls); return; }
     await flush();
     expect(t.queries).toHaveLength(calls + 1);
@@ -345,7 +350,7 @@ describe('refresh epochs', () => {
     t.adapter.menuQuery = vi.fn(() => new Promise(resolve => { hold = () => resolve({ outcome: 'ok', data: null as never, assessments: [], trust: null, correlationId: 'r' }); })) as never;
     let promise!: Promise<ActionResult<{ id: string }>>;
     act(() => { promise = t.probes.action.run(input()); });
-    await act(async () => { t.sent[0].resolve(response('ok')); await promise; });
+    await act(async () => { at(t.sent, 0).resolve(response('ok')); await promise; });
     await flush();
     expect(t.probes.lists.get('fx.list')).toMatchObject({ status: 'refreshing', response: prior });
     expect(t.probes.lists.get('fx.other')).toMatchObject({ status: 'done', response: priorOther });
@@ -373,7 +378,12 @@ describe('refresh epochs', () => {
       </PlatformProvider></I18nProvider></StrictMode>,
     );
     await flush();
-    const priors = { main: seen.main.response, side: seen.side.response, unrelated: seen.unrelated.response };
+    const readSeen = (key: 'main' | 'side' | 'unrelated') => {
+      const state = seen[key];
+      if (state === undefined) throw new Error(`missing item ${key}`);
+      return state;
+    };
+    const priors = { main: readSeen('main').response, side: readSeen('side').response, unrelated: readSeen('unrelated').response };
     const before = queries;
     let promise!: Promise<unknown>;
     act(() => { promise = run(); });
@@ -382,9 +392,9 @@ describe('refresh epochs', () => {
     expect(sent).toHaveLength(1);
     // ADR-0086: the main screen and the pane read one shared key, so the write's refetch is one request for both.
     expect(queries).toBe(before + 1);
-    expect(seen.main.response).not.toBe(priors.main);
-    expect(seen.side.response).not.toBe(priors.side);
-    expect(seen.unrelated.response).toBe(priors.unrelated);
+    expect(readSeen('main').response).not.toBe(priors.main);
+    expect(readSeen('side').response).not.toBe(priors.side);
+    expect(readSeen('unrelated').response).toBe(priors.unrelated);
   });
 });
 
@@ -403,13 +413,13 @@ describe('useEndpointRefreshEpoch', () => {
     expect(out.value).toBe(0);
     let run!: Promise<unknown>;
     act(() => { run = t.probes.action.run(input()); });
-    await act(async () => { t.sent[0].resolve(response('ok')); await run; });
+    await act(async () => { at(t.sent, 0).resolve(response('ok')); await run; });
     expect(out.value).toBe(1);
     const unlisted = { value: -1 };
     const u = setup(onlyEpochs([otherEndpoint.id], unlisted));
     await flush();
     act(() => { void u.probes.action.run(input()); });
-    await act(async () => { u.sent[0].resolve(response('ok')); await flush(); });
+    await act(async () => { at(u.sent, 0).resolve(response('ok')); await flush(); });
     expect(unlisted.value).toBe(0);
   });
 });
