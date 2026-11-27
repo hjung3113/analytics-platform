@@ -51,12 +51,17 @@ describe('synthetic datasets (#3204)', () => {
     expect(joinedQuantity(runs, steps) - parentQuantity(runs)).toBe(q1! - q3!);
     // Summing every revision row counts R-000004 twice.
     expect(runs.reduce((a, r) => a + r.quantity, 0)).not.toBe(parentQuantity(runs));
+    // Per run (resolved steps only): durations [20, 40], [0], [30]; [Σ amount, Σ minutes] [8, 60], [0, 0], [2, 30].
+    const perRun = currentRuns(runs).map((run) => resolved.filter((s) => s.runId === run.runId)).filter((list) => list.length > 0);
+    const durations = perRun.map((list) => list.map((s) => summedMinutes([s])));
+    const pairs = perRun.map((list): [number, number] => [list.reduce((a, s) => a + (s.amount ?? 0), 0), summedMinutes(list)]);
+    expect([durations, pairs]).toEqual([[[20, 40], [0], [30]], [[8, 60], [0, 0], [2, 30]]]);
     // Quantile recomputed from the distribution (P50 = 20) vs the mean of per-run P50s (20, 0, 30 → 16.67).
-    expect(quantile([20, 40, 0, 30], 0.5)).toBe(20);
-    expect((quantile([20, 40], 0.5) + quantile([0], 0.5) + quantile([30], 0.5)) / 3).toBeCloseTo(16.667, 3);
-    // Amount per minute: ratio of sums 10/90 vs the mean of per-run ratios (8/60, 2/30; 0/0 dropped) = 0.1.
-    expect(ratioOfSums([[8, 60], [0, 0], [2, 30]])).toBeCloseTo(0.1111, 4);
-    expect(meanOfRatios([[8, 60], [0, 0], [2, 30]])).toBeCloseTo(0.1, 4);
+    expect(quantile(durations.flat(), 0.5)).toBe(20);
+    expect(durations.reduce((a, d) => a + quantile(d, 0.5), 0) / durations.length).toBeCloseTo(16.667, 3);
+    // Amount per minute: ratio of sums 10/90 vs the mean of per-run ratios (0/0 dropped) = 0.1.
+    expect(ratioOfSums(pairs)).toBeCloseTo(0.1111, 4);
+    expect(meanOfRatios(pairs)).toBeCloseTo(0.1, 4);
   });
 
   it('shared-resource counterexamples match hand-computed values', () => {
@@ -89,10 +94,36 @@ describe('synthetic datasets (#3204)', () => {
       expect(participantCount(b.events, b.links)).toBeLessThanOrEqual(resolvedLinks(b.events, b.links).length);
       expect(attributedMinutes(b.events, b.links)).toBeGreaterThanOrEqual(summedMinutes(b.events.filter((e) => b.links.some((l) => l.eventId === e.eventId))));
     }
+    // Dense random events on one resource in one day overlap: the union is shorter than the sum and fits the day plus the longest event.
+    const dense = generateSyntheticDataset('shared-resource', 'dense', { events: 60, resources: 1, spanDays: 1 }).tables.events.slice(5);
+    expect(unionMinutes(dense)).toBeLessThan(summedMinutes(dense));
+    expect(unionMinutes(dense)).toBeLessThanOrEqual(24 * 60 + 180);
+    expect(dense.every((e) => Date.parse(e.startAt) % 60_000 === 0)).toBe(true);
+  });
+
+  it('a row depends only on its own index: more rows or another rate leave earlier rows as they were', () => {
+    const small = generateSyntheticDataset('interval-steps', 'p', { runs: 10 }).tables;
+    const large = generateSyntheticDataset('interval-steps', 'p', { runs: 30 }).tables;
+    expect(large.runs.slice(0, small.runs.length)).toEqual(small.runs);
+    const base = generateSyntheticDataset('shared-resource', 'p').tables.events;
+    expect(generateSyntheticDataset('shared-resource', 'p', { unresolvedLinkRate: 0.9 }).tables.events).toEqual(base);
+    // Unresolved references point past every id the dataset uses, at any size.
+    const big = generateSyntheticDataset('shared-resource', 'p', { events: 2000, spanDays: 30 }).tables;
+    expect(resolvedLinks(big.events, big.links).length).toBe(big.links.filter((l) => Number(l.eventId.slice(2)) <= 2000).length);
+  });
+
+  it('refuses a parameter outside its domain before making rows; a high skew still terminates', () => {
+    for (const bad of [{ runs: -1 }, { subjects: 0 }, { spanDays: 0 }, { skew: -1 }, { reprocessRate: 1.5 }, { stepsPerRun: { min: 3, max: 1 } }, { runs: 2.5 }]) {
+      expect(() => generateSyntheticDataset('interval-steps', 'x', bad)).toThrow(RangeError);
+    }
+    expect(() => generateSyntheticDataset('shared-resource', 'x', { participantsPerEvent: { min: -1, max: 2 } })).toThrow(RangeError);
+    expect(generateSyntheticDataset('interval-steps', 'x', { runs: 0 }).tables).toEqual({ runs: [], steps: [] });
+    const skewed = generateSyntheticDataset('shared-resource', 'x', { skew: 50, objects: 3, participantsPerEvent: { min: 3, max: 3 } }).tables.links;
+    expect(skewed.length).toBeGreaterThan(0);
   });
 
   it('holds no real identifier, name or time: synthetic keys, a virtual year and the documented fields only', () => {
-    const KEY = /^(?:R-\d{6}|S-\d{4}|T-\d{6}|E-\d{6}|Q-\d{2}|O-\d{4})$/;
+    const KEY = /^(?:R-\d{6,}|S-\d{4,}|T-\d{6,}|E-\d{6,}|Q-\d{2,}|O-\d{4,})$/;
     const FIELDS = new Set(['runId', 'revision', 'subjectKey', 'startAt', 'endAt', 'loadedAt', 'quantity', 'elapsed', 'elapsedUnit', 'stepId', 'amount', 'eventId', 'resourceKey', 'objectKey']);
     for (const name of ['interval-steps', 'shared-resource'] as const) {
       for (const rows of Object.values(generateSyntheticDataset(name, 'scan', { spanDays: 30 }).tables) as Array<Array<Record<string, unknown>>>) {

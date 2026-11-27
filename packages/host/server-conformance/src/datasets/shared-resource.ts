@@ -1,4 +1,4 @@
-import { createRandom, id } from './random';
+import { createRandom, id, type Random } from './random';
 
 /**
  * `shared-resource`: virtual physical events on shared resources, and the objects taking part in each, N:M through
@@ -27,15 +27,16 @@ export const SHARED_RESOURCE_DEFAULTS: SharedResourceParams = {
 
 const BASE = Date.UTC(2030, 0, 1);
 const MINUTE = 60_000;
-const DAY = 24 * 60 * MINUTE;
+const MINUTES_PER_DAY = 24 * 60;
+const DAY = MINUTES_PER_DAY * MINUTE;
 const iso = (ms: number): string => new Date(ms).toISOString();
 
 type Draft = { resource: number; start: number; end: number; objects: number[]; orphanLink?: number };
 
 /**
- * The fixed counterexamples, before any random event, all on resource 1: two objects in one event, an overlapping
- * event that shares one of them, a nested event inside the first, an event crossing midnight, a zero-length event,
- * and a link to a missing event.
+ * The fixed counterexamples, events 1–5 before any random event, all on resource 1: two objects in one event, an
+ * overlapping event that shares one of them, a nested event inside the first, an event crossing midnight, a
+ * zero-length event, and a link to a missing event. They use objects 1–6 whatever `objects` says.
  */
 function counterexamples(): Draft[] {
   const day = BASE + DAY;
@@ -48,25 +49,44 @@ function counterexamples(): Draft[] {
   ];
 }
 
-export function generateSharedResource(seedText: string, params: SharedResourceParams): { events: EventRow[]; links: LinkRow[] } {
-  const random = createRandom(seedText);
-  const drafts = counterexamples();
-  for (let i = drafts.length; i < params.events; i++) {
-    const start = BASE + random.int(0, params.spanDays * DAY - 1);
-    const count = Math.min(params.objects, random.int(params.participantsPerEvent.min, params.participantsPerEvent.max));
-    const objects = new Set<number>();
-    while (objects.size < count) objects.add(random.pick(params.objects, params.skew));
-    const orphan = random.chance(params.unresolvedLinkRate) ? random.pick(params.objects, params.skew) : undefined;
-    drafts.push({ resource: random.pick(params.resources, params.skew), start, end: start + random.int(0, 180) * MINUTE, objects: [...objects].sort((a, b) => a - b), orphanLink: orphan });
+/** One random event from its own stream, every draw in a fixed order; a taken object moves on to the next free one. */
+function randomDraft(random: Random, params: SharedResourceParams): Draft {
+  const start = BASE + random.int(0, params.spanDays * MINUTES_PER_DAY - 1) * MINUTE;
+  const end = start + random.int(0, 180) * MINUTE;
+  const count = Math.min(params.objects, random.int(params.participantsPerEvent.min, params.participantsPerEvent.max));
+  const objects = new Set<number>();
+  for (let i = 0; i < count; i++) {
+    let object = random.pick(params.objects, params.skew);
+    while (objects.has(object)) object = (object + 1) % params.objects;
+    objects.add(object);
   }
+  const orphanObject = random.pick(params.objects, params.skew);
+  const orphan = random.chance(params.unresolvedLinkRate);
+  return { resource: random.pick(params.resources, params.skew), start, end, objects: [...objects].sort((a, b) => a - b), orphanLink: orphan ? orphanObject : undefined };
+}
+
+/**
+ * Event by event: event `index` comes from its own stream (`seedText#index`), so it never depends on the events
+ * before it. Unresolved references point past every event id the dataset uses.
+ */
+export function* sharedResourceRows(seedText: string, params: SharedResourceParams): Generator<{ events: EventRow[]; links: LinkRow[] }> {
+  const fixed = counterexamples();
+  const orphanBase = Math.max(900_000, params.events);
+  for (let index = 0; index < params.events; index++) {
+    const draft = fixed[index] ?? randomDraft(createRandom(`${seedText}#${index}`), params);
+    const eventId = id('E', index + 1, 6);
+    const links = draft.objects.map((object) => ({ eventId, objectKey: id('O', object + 1, 4) }));
+    if (draft.orphanLink !== undefined) links.push({ eventId: id('E', orphanBase + index + 1, 6), objectKey: id('O', draft.orphanLink + 1, 4) });
+    yield { events: [{ eventId, resourceKey: id('Q', draft.resource + 1, 2), startAt: iso(draft.start), endAt: iso(draft.end) }], links };
+  }
+}
+
+export function generateSharedResource(seedText: string, params: SharedResourceParams): { events: EventRow[]; links: LinkRow[] } {
   const events: EventRow[] = [];
   const links: LinkRow[] = [];
-  drafts.slice(0, params.events).forEach((draft, index) => {
-    const eventId = id('E', index + 1, 6);
-    events.push({ eventId, resourceKey: id('Q', draft.resource + 1, 2), startAt: iso(draft.start), endAt: iso(draft.end) });
-    for (const object of draft.objects) links.push({ eventId, objectKey: id('O', object + 1, 4) });
-    // An unresolved reference points into a range no event id uses.
-    if (draft.orphanLink !== undefined) links.push({ eventId: id('E', 900_000 + index + 1, 6), objectKey: id('O', draft.orphanLink + 1, 4) });
-  });
+  for (const part of sharedResourceRows(seedText, params)) {
+    events.push(...part.events);
+    links.push(...part.links);
+  }
   return { events, links };
 }

@@ -1,4 +1,4 @@
-import { createRandom, id } from './random';
+import { createRandom, id, type Random } from './random';
 
 /**
  * `interval-steps`: virtual parent intervals (runs) with child steps, 1:N (#3204). Generic counterexamples only; no
@@ -54,62 +54,83 @@ export const INTERVAL_STEPS_DEFAULTS: IntervalStepsParams = {
 
 const BASE = Date.UTC(2030, 0, 1);
 const MINUTE = 60_000;
-const DAY = 24 * 60 * MINUTE;
+const MINUTES_PER_DAY = 24 * 60;
+const DAY = MINUTES_PER_DAY * MINUTE;
 const iso = (ms: number): string => new Date(ms).toISOString();
 
 /** A step draft: start, end, amount and whether its run reference is left unresolved. */
-type StepDraft = [start: number, end: number, amount: number | null, orphan?: boolean];
-type Draft = { start: number; end: number | null; subject: number; steps: StepDraft[]; reprocess: boolean; late: boolean };
+type StepDraft = [start: number, end: number, amount: number | null, orphan: boolean];
+type Draft = { start: number; end: number | null; subject: number; steps: StepDraft[]; reprocess: boolean; late: boolean; ms: boolean; quantity: number };
 
 /**
- * The fixed counterexamples, before any random run: a run crossing midnight with steps on both sides, a zero-length
- * run and step, a run without an end (its step names a missing run), a run reprocessed into revision 2 and loaded
- * late, and two runs of one subject (repeat).
+ * The fixed counterexamples, runs 1–4 before any random run: a run crossing midnight with steps on both sides, a
+ * zero-length run and step, a run without an end (its step names a missing run), a run reprocessed into revision 2
+ * and loaded late, two runs of one subject (repeat), and both elapsed units. They use subjects 1–3 whatever
+ * `subjects` says.
  */
 function counterexamples(): Draft[] {
   const night = BASE + DAY - 30 * MINUTE;
+  const plain = { reprocess: false, late: false };
   return [
-    { start: night, end: night + 60 * MINUTE, subject: 0, steps: [[night, night + 20 * MINUTE, 3], [night + 20 * MINUTE, night + 60 * MINUTE, 5]], reprocess: false, late: false },
-    { start: BASE + 2 * DAY, end: BASE + 2 * DAY, subject: 1, steps: [[BASE + 2 * DAY, BASE + 2 * DAY, 0]], reprocess: false, late: false },
-    { start: BASE + 3 * DAY, end: null, subject: 0, steps: [[BASE + 3 * DAY, BASE + 3 * DAY + 10 * MINUTE, null, true]], reprocess: false, late: false },
-    { start: BASE + 4 * DAY, end: BASE + 4 * DAY + 90 * MINUTE, subject: 2, steps: [[BASE + 4 * DAY, BASE + 4 * DAY + 30 * MINUTE, 2]], reprocess: true, late: true },
+    { ...plain, start: night, end: night + 60 * MINUTE, subject: 0, ms: true, quantity: 3, steps: [[night, night + 20 * MINUTE, 3, false], [night + 20 * MINUTE, night + 60 * MINUTE, 5, false]] },
+    { ...plain, start: BASE + 2 * DAY, end: BASE + 2 * DAY, subject: 1, ms: false, quantity: 7, steps: [[BASE + 2 * DAY, BASE + 2 * DAY, 0, false]] },
+    { ...plain, start: BASE + 3 * DAY, end: null, subject: 0, ms: false, quantity: 2, steps: [[BASE + 3 * DAY, BASE + 3 * DAY + 10 * MINUTE, null, true]] },
+    { start: BASE + 4 * DAY, end: BASE + 4 * DAY + 90 * MINUTE, subject: 2, ms: false, quantity: 4, reprocess: true, late: true, steps: [[BASE + 4 * DAY, BASE + 4 * DAY + 30 * MINUTE, 2, false]] },
   ];
 }
 
-export function generateIntervalSteps(seedText: string, params: IntervalStepsParams): { runs: RunRow[]; steps: StepRow[] } {
-  const random = createRandom(seedText);
-  const drafts = counterexamples();
-  for (let i = drafts.length; i < params.runs; i++) {
-    const start = BASE + random.int(0, params.spanDays * DAY - 1);
-    const length = random.int(1, 240) * MINUTE;
-    const end = random.chance(params.missingEndRate) ? null : start + length;
-    const count = random.int(params.stepsPerRun.min, params.stepsPerRun.max);
-    const steps: StepDraft[] = [];
-    for (let s = 0, at = start; s < count; s++) {
-      const stepLength = random.int(0, Math.max(1, Math.floor(length / MINUTE / Math.max(1, count)))) * MINUTE;
-      steps.push([at, at + stepLength, random.chance(params.missingAmountRate) ? null : random.int(0, 20), random.chance(params.unresolvedStepRate)]);
-      at += stepLength;
-    }
-    drafts.push({ start, end, subject: random.pick(params.subjects, params.skew), steps, reprocess: random.chance(params.reprocessRate), late: random.chance(params.lateLoadRate) });
+/** One random run from its own stream: every draw happens in a fixed order, so a rate only toggles its own anomaly. */
+function randomDraft(random: Random, params: IntervalStepsParams): Draft {
+  const start = BASE + random.int(0, params.spanDays * MINUTES_PER_DAY - 1) * MINUTE;
+  const length = random.int(1, 240) * MINUTE;
+  const missingEnd = random.chance(params.missingEndRate);
+  const count = random.int(params.stepsPerRun.min, params.stepsPerRun.max);
+  const steps: StepDraft[] = [];
+  for (let s = 0, at = start; s < count; s++) {
+    const stepLength = random.int(0, Math.max(1, Math.floor(length / MINUTE / count))) * MINUTE;
+    const amount = random.int(0, 20);
+    const missing = random.chance(params.missingAmountRate);
+    steps.push([at, at + stepLength, missing ? null : amount, random.chance(params.unresolvedStepRate)]);
+    at += stepLength;
   }
+  return {
+    start, end: missingEnd ? null : start + length, steps, subject: random.pick(params.subjects, params.skew), reprocess: random.chance(params.reprocessRate),
+    late: random.chance(params.lateLoadRate), ms: random.chance(params.millisecondUnitRate), quantity: random.int(1, 9),
+  };
+}
+
+/**
+ * Run by run: run `index` comes from its own stream (`seedText#index`), so it never depends on the runs before it and
+ * a caller can stop or batch at any run. Unresolved references point past every run id the dataset uses.
+ */
+export function* intervalStepsRows(seedText: string, params: IntervalStepsParams): Generator<{ runs: RunRow[]; steps: StepRow[] }> {
+  const fixed = counterexamples();
+  const orphanBase = Math.max(900_000, params.runs);
+  let stepNumber = 0;
+  for (let index = 0; index < params.runs; index++) {
+    const draft = fixed[index] ?? randomDraft(createRandom(`${seedText}#${index}`), params);
+    const runId = id('R', index + 1, 6);
+    const elapsed = draft.end === null ? null : (draft.end - draft.start) / (draft.ms ? 1 : 1000);
+    const loaded = (draft.end ?? draft.start) + (draft.late ? 3 * DAY : 5 * MINUTE);
+    const row = (revision: number, quantity: number, loadedAt: number): RunRow => ({
+      runId, revision, subjectKey: id('S', draft.subject + 1, 4), startAt: iso(draft.start), endAt: draft.end === null ? null : iso(draft.end),
+      loadedAt: iso(loadedAt), quantity, elapsed, elapsedUnit: draft.ms ? 'ms' : 's',
+    });
+    const runs = [row(1, draft.quantity, loaded), ...(draft.reprocess ? [row(2, draft.quantity + 1, loaded + DAY)] : [])];
+    const steps = draft.steps.map(([start, end, amount, orphan]): StepRow => {
+      stepNumber++;
+      return { stepId: id('T', stepNumber, 6), runId: orphan ? id('R', orphanBase + stepNumber, 6) : runId, startAt: iso(start), endAt: iso(end), amount };
+    });
+    yield { runs, steps };
+  }
+}
+
+export function generateIntervalSteps(seedText: string, params: IntervalStepsParams): { runs: RunRow[]; steps: StepRow[] } {
   const runs: RunRow[] = [];
   const steps: StepRow[] = [];
-  drafts.slice(0, params.runs).forEach((draft, index) => {
-    const runId = id('R', index + 1, 6);
-    const subjectKey = id('S', draft.subject + 1, 4);
-    const ms = random.chance(params.millisecondUnitRate);
-    const elapsed = draft.end === null ? null : (draft.end - draft.start) / (ms ? 1 : 1000);
-    const loaded = (draft.end ?? draft.start) + (draft.late ? 3 * DAY : 5 * MINUTE);
-    const quantity = random.int(1, 9);
-    const row = (revision: number, quantity: number, loadedAt: number): RunRow => ({
-      runId, revision, subjectKey, startAt: iso(draft.start), endAt: draft.end === null ? null : iso(draft.end), loadedAt: iso(loadedAt), quantity, elapsed, elapsedUnit: ms ? 'ms' : 's',
-    });
-    runs.push(row(1, quantity, loaded));
-    if (draft.reprocess) runs.push(row(2, quantity + 1, loaded + DAY));
-    for (const [start, end, amount, orphan] of draft.steps) {
-      // An unresolved reference points into a range no run id uses.
-      steps.push({ stepId: id('T', steps.length + 1, 6), runId: orphan ? id('R', 900_000 + steps.length + 1, 6) : runId, startAt: iso(start), endAt: iso(end), amount });
-    }
-  });
+  for (const part of intervalStepsRows(seedText, params)) {
+    runs.push(...part.runs);
+    steps.push(...part.steps);
+  }
   return { runs, steps };
 }
