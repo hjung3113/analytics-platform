@@ -1,5 +1,5 @@
-import { GLOSSARY } from '../../../lib/copy/glossary';
-import { TasksRouteView } from '../../../test/screen-host/routes/_authed/tasks';
+import { GLOSSARY } from '../../../../lib/copy/glossary';
+import { TasksRouteView } from '../../../../test/screen-host/routes/_authed/tasks';
 import { type TaskDto, listTasksQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -9,14 +9,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const apiClientMock = vi.hoisted(() => vi.fn());
 const navigateMock = vi.hoisted(() => vi.fn());
 
-vi.mock('../../../lib/api/client', () => ({ apiClient: apiClientMock }));
+vi.mock('../../../../lib/api/client', () => ({ apiClient: apiClientMock }));
 
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({ items: [] })),
 }));
 
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
 
@@ -51,7 +51,7 @@ vi.mock('@ap/ui', async (importOriginal) => {
   };
 });
 
-vi.mock('../../../test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
+vi.mock('../../../../test/host-adapters/features/tasks/components/TaskDetailPanel', () => ({
   TaskDetailPanel: () => null,
 }));
 

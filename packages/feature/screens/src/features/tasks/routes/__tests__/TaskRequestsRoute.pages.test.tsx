@@ -1,6 +1,6 @@
-import { ApiError } from '../../../lib/api/types';
-import { useMe } from '../../../lib/auth/useMe';
-import { TaskRequestsRoute } from '../../../test/screen-host/features/tasks/routes/TaskRequestsRoute';
+import { ApiError } from '../../../../lib/api/types';
+import { useMe } from '../../../../lib/auth/useMe';
+import { TaskRequestsRoute } from '../../../../test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { type TaskRequestDto, listTaskRequestsQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -39,8 +39,8 @@ vi.mock('@ap/ui', async (importOriginal) => ({
     </main>
   ),
 }));
-vi.mock('../../../ui/index', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../ui/index')>()),
+vi.mock('../../../../ui/index', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../ui/index')>()),
   useDetailPanelSlot: (node: import('react').ReactNode) => {
     useLayoutEffect(() => {
       slot.set(node);
@@ -48,21 +48,21 @@ vi.mock('../../../ui/index', async (importOriginal) => ({
     }, [node]);
   },
 }));
-vi.mock('../../../lib/auth/useMe', () => ({
+vi.mock('../../../../lib/auth/useMe', () => ({
   useMe: () => ({
     data: { actor: { id: '60000000-0000-0000-0000-000000000006', role_level: 'admin' } },
   }),
 }));
-vi.mock('../../../lib/api/me', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => useMe(),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [] }),
 }));
-vi.mock('./task-requests/TaskRequestPanelParts', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./task-requests/TaskRequestPanelParts')>();
+vi.mock('../task-requests/TaskRequestPanelParts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../task-requests/TaskRequestPanelParts')>();
   const TaskRequestPanelBody = ({
     item,
     onDecisionComplete,

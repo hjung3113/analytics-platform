@@ -1,10 +1,10 @@
-import { getTaskRequest } from '../../../lib/api';
-import * as barrel from '../../../lib/api';
-import { ApiError } from '../../../lib/api/types';
-import { useMe } from '../../../lib/auth/useMe';
-import { TASK_REQUEST_STATUS_LABELS as STATUS_LABELS } from '../../../lib/copy/enum-labels';
-import { TaskRequestsRoute } from '../../../test/screen-host/features/tasks/routes/TaskRequestsRoute';
-import { taskRequestPage } from '../../../test/task-request-pages';
+import { getTaskRequest } from '../../../../lib/api';
+import * as barrel from '../../../../lib/api';
+import { ApiError } from '../../../../lib/api/types';
+import { useMe } from '../../../../lib/auth/useMe';
+import { TASK_REQUEST_STATUS_LABELS as STATUS_LABELS } from '../../../../lib/copy/enum-labels';
+import { TaskRequestsRoute } from '../../../../test/screen-host/features/tasks/routes/TaskRequestsRoute';
+import { taskRequestPage } from '../../../../test/task-request-pages';
 import type { ListTaskRequestsQuery } from '@ap/feature-shared';
 import type { TaskRequestDto } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type DecisionDialogState,
   TaskRequestDecisionDialog,
-} from './task-requests/TaskRequestDecisionDialog';
+} from '../task-requests/TaskRequestDecisionDialog';
 
 const api = vi.hoisted(() => ({
   approveTaskRequest: vi.fn(),
@@ -99,8 +99,8 @@ vi.mock('@ap/ui', async () => {
     ),
   };
 });
-vi.mock('../../../ui/index', async () => {
-  const actual = await vi.importActual<typeof import('../../../ui/index')>('../../../ui/index');
+vi.mock('../../../../ui/index', async () => {
+  const actual = await vi.importActual<typeof import('../../../../ui/index')>('../../../../ui/index');
   return {
     ...actual,
     useDetailPanelSlot: (node: import('react').ReactNode) => {
@@ -111,24 +111,24 @@ vi.mock('../../../ui/index', async () => {
     },
   };
 });
-vi.mock('../../findings/public', () => ({
+vi.mock('../../../findings/public', () => ({
   useFindingDetail: () => ({ data: null }),
 }));
-vi.mock('../../findings/hooks/useFindingDetail', () => ({
+vi.mock('../../../findings/hooks/useFindingDetail', () => ({
   useFindingDetail: () => ({ data: null }),
 }));
-vi.mock('../../../lib/api/entity-links', () => ({
+vi.mock('../../../../lib/api/entity-links', () => ({
   fetchTaskRequestEntityLinks: vi.fn(async () => ({ items: [] })),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchAnalyticsAreas: vi.fn(async () => ({ items: [] })),
   fetchManagedSystems: vi.fn(async () => ({
     items: [{ id: taskRequest.primary_managed_system_id, name: 'Billing Ops' }],
   })),
 }));
-vi.mock('../../../lib/api', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api')>()),
+vi.mock('../../../../lib/api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api')>()),
   approveTaskRequest: api.approveTaskRequest,
   convertTaskRequest: vi.fn(),
   fetchMe: api.fetchMe,
@@ -145,8 +145,8 @@ vi.mock('../../../lib/api', async (importOriginal) => ({
   resolveActors: api.resolveActors,
 }));
 // The hooks import the module paths; forward at call time so the barrel fakes above still apply.
-vi.mock('../../../lib/api/task-requests', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/task-requests')>()),
+vi.mock('../../../../lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/task-requests')>()),
   fetchTaskRequests: (...args: Parameters<typeof barrel.fetchTaskRequests>) =>
     barrel.fetchTaskRequests(...args),
   getTaskRequest: (...args: Parameters<typeof barrel.getTaskRequest>) =>
@@ -159,26 +159,26 @@ vi.mock('../../../lib/api/task-requests', async (importOriginal) => ({
     ...args: Parameters<typeof barrel.requestMoreEvidenceForTaskRequest>
   ) => barrel.requestMoreEvidenceForTaskRequest(...args),
 }));
-vi.mock('../../../lib/api/tasks', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/tasks')>()),
+vi.mock('../../../../lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/tasks')>()),
   convertTaskRequest: (...args: Parameters<typeof barrel.convertTaskRequest>) =>
     barrel.convertTaskRequest(...args),
   linkExistingTask: (...args: Parameters<typeof barrel.linkExistingTask>) =>
     barrel.linkExistingTask(...args),
   listTasks: (...args: Parameters<typeof barrel.listTasks>) => barrel.listTasks(...args),
 }));
-vi.mock('../../../lib/api/actors', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/actors')>()),
+vi.mock('../../../../lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/actors')>()),
   resolveActors: (...args: Parameters<typeof barrel.resolveActors>) =>
     barrel.resolveActors(...args),
 }));
-vi.mock('../../../lib/api/permission-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/permission-reads')>()),
+vi.mock('../../../../lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/permission-reads')>()),
   fetchPermissionCheckViaClient: (...args: Parameters<typeof barrel.fetchPermissionCheck>) =>
     barrel.fetchPermissionCheck(...args),
 }));
-vi.mock('../../../lib/api/me', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => useMe(),
 }));
 
