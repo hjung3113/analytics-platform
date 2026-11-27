@@ -29,7 +29,7 @@ import { useRef, useState } from 'react';
 
 import { GLOSSARY } from '../../../lib/copy/glossary';
 import { MANAGED_SYSTEM_COPY } from '../../../lib/copy/managed-systems';
-import { formatDateTime } from '../../../lib/format/datetime';
+import { useFeatureTime } from '../../../components/FeatureTimestamp';
 import { HostLink, useHostSeam } from '../../../lib/host/host-seam';
 import { HostPrimaryAction } from '../../../lib/host/HostPrimaryAction';
 import type { ResolveActorsResponse } from '../../../lib/api/actors';
@@ -94,6 +94,7 @@ function ManagedSystemsBody({
   actions: React.ReactNode;
 }) {
   const { canLink } = useHostSeam();
+  const time = useFeatureTime();
   const [editTarget, setEditTarget] = useState<ManagedSystemDto | null>(null);
   // Row control that opened the settings dialog; focus returns here when it closes.
   const editTrigger = useRef<HTMLElement | null>(null);
@@ -224,7 +225,7 @@ function ManagedSystemsBody({
                   <span>
                     {warning.origin === 'configuration'
                       ? MANAGED_SYSTEM_COPY.currentConfiguration
-                      : `${MANAGED_SYSTEM_COPY.creationFailure(warning.count)} · ${MANAGED_SYSTEM_COPY.lastFailure} ${warning.last_failed_at ? formatDateTime(warning.last_failed_at) : '—'}`}
+                      : `${MANAGED_SYSTEM_COPY.creationFailure(warning.count)} · ${MANAGED_SYSTEM_COPY.lastFailure} ${time.summary(warning.last_failed_at)}`}
                   </span>{' '}
                   <Button
                     variant="subtle"

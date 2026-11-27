@@ -12,7 +12,7 @@
 
 import { useMentionLabelResolver } from '../../../lib/cross-system/useMentionLabelResolver';
 import { ATTACHMENT_FALLBACK_LABEL } from '../../../lib/copy/attachments';
-import { formatShortDateTime } from '../../../lib/format/datetime';
+import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
 import { isTipTapDocBlank } from '@ap/feature-shared';
 import type { FindingStatus, TaskStatus } from '@ap/feature-shared';
 import { OutlineBadge } from '../../../ui/index';
@@ -61,8 +61,11 @@ export function ProgressNoteEntry({
     >
       {/* Top row: actor chip + kind badge */}
       <div className="flex items-center justify-between gap-2">
-        <UserChip user={actor} size="sm" sub={formatShortDateTime(entry.created_at)} />
-        <OutlineBadge>{kindBadgeLabel}</OutlineBadge>
+        <UserChip user={actor} size="sm" />
+        <div className="flex items-center gap-2">
+          <FeatureTimestamp at={entry.created_at} notation="feed" className="text-xs text-text-muted" />
+          <OutlineBadge>{kindBadgeLabel}</OutlineBadge>
+        </div>
       </div>
 
       {/* status_change transition pair — badges come from the owning surface */}

@@ -9,7 +9,8 @@ import {
   createRouter,
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, onTestFinished, test, vi } from 'vitest';
+import { registerTaggedTimeHost } from '../../fixtures/tagged-time';
 
 import { ManagedSystemsAdminPage } from '../screens';
 
@@ -423,6 +424,8 @@ describe('시스템 default owner', () => {
   });
 
   test('diagnostics distinguish current configuration and skipped rules without claiming unassignment', async () => {
+    // #2587: the last failure is a real instant — the host Kernel summary notation in the viewer's zone.
+    onTestFinished(await registerTaggedTimeHost());
     const common = {
       managed_system_id: TEAM_OWNER_SYSTEM_ID,
       workflow: 'task_request' as const,
@@ -463,7 +466,7 @@ describe('시스템 default owner', () => {
     );
     expect(row).not.toHaveTextContent('Task 요청');
     const failures = screen.getAllByText(
-      '생성 시 기본 배정 실패 2건 · 마지막 2026. 10. 13. 오전 9:00',
+      '생성 시 기본 배정 실패 2건 · 마지막 summary:2026-10-13T00:00:00.000Z',
     );
     expect(failures).toHaveLength(2);
     const lines = [row.textContent, ...failures.map((item) => item.closest('li')?.textContent)];
