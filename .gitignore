@@ -71,3 +71,6 @@ docs/.llmwiki/
 !**/.env.example
 /*.log
 storybook-static/
+
+# Local review scratch (briefs, reports, PR body drafts); never committed
+.review/
