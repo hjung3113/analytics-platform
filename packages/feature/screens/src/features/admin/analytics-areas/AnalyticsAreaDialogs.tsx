@@ -9,14 +9,18 @@ import {
   DialogHeader,
   DialogTitle,
   FieldLabel,
+  FormField,
   Input,
   useImeEnterGuard,
+  useValidatedSubmit,
 } from '@ap/ui';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 
 import type { AnalyticsAreaDto } from '../../../lib/api/registry-reads';
 import type { UpdateAnalyticsAreaBody } from '../../../lib/api/registry-writes';
 import { ArchiveConfirmButton } from '../lib/ArchiveConfirmButton';
+import { ADMIN_REGISTRY_COPY } from '../../../lib/copy/admin-registry';
+import { slugFormatError } from '../lib/fieldErrors';
 import {
   useArchiveAnalyticsAreaMutation,
   useRegisterAnalyticsAreaMutation,
@@ -64,19 +68,28 @@ function RegisterForm({
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<
-    Partial<Record<'managedSystem' | 'slug' | 'name', string>>
-  >({});
-  const managedSystemRef = useRef<HTMLFieldSetElement>(null);
-  const slugRef = useRef<HTMLInputElement>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
 
   const mutation = useRegisterAnalyticsAreaMutation({
     onSaved: async () => {
       setError(null);
       await onSaved();
     },
-    onErrorMessage: setError,
+    onErrorMessage: (message, err) => {
+      // A rejected slug format goes on the slug field, focused; anything else stays the dialog message (#3173, #2574 variant c).
+      const badSlug = slugFormatError(err);
+      create.setServerErrors(badSlug ? { slug: badSlug } : {});
+      setError(badSlug ? null : message);
+    },
+  });
+  const create = useValidatedSubmit<{ managedSystem: string | null; slug: string; name: string }>({
+    validate: (values) => ({
+      ...(values.managedSystem ? {} : { managedSystem: '시스템을 선택해 주세요.' }),
+      ...(values.slug.trim() ? {} : { slug: ADMIN_REGISTRY_COPY.slugRequired }),
+      ...(values.name.trim() ? {} : { name: ADMIN_REGISTRY_COPY.nameRequired }),
+    }),
+    onValid: ({ managedSystem, slug: nextSlug, name: nextName }) => {
+      if (managedSystem) mutation.mutate({ managed_system_id: managedSystem, slug: nextSlug, name: nextName });
+    },
   });
 
   return (
@@ -92,94 +105,69 @@ function RegisterForm({
         className="space-y-3"
         noValidate
         onSubmit={(e) => {
-          e.preventDefault();
           setError(null);
-          const nextErrors: Partial<Record<'managedSystem' | 'slug' | 'name', string>> = {};
-          if (!msId) nextErrors.managedSystem = '시스템을 선택해 주세요.';
-          if (!slug.trim()) nextErrors.slug = '슬러그를 입력해 주세요.';
-          if (!name.trim()) nextErrors.name = '이름을 입력해 주세요.';
-          if (Object.keys(nextErrors).length > 0) {
-            setFieldErrors(nextErrors);
-            if (nextErrors.managedSystem) {
-              managedSystemRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
-            } else if (nextErrors.slug) slugRef.current?.focus();
-            else nameRef.current?.focus();
-            return;
-          }
-          setFieldErrors({});
-          // Unreachable: the block above returns whenever msId is unset. Kept
-          // so the narrowing is local instead of relying on nextErrors.
-          if (!msId) return;
-          mutation.mutate({ managed_system_id: msId, slug, name });
+          create.handleSubmit({ managedSystem: msId, slug, name })(e);
         }}
       >
-        {/* fieldset, not a div with role="group" — biome's useSemanticElements
-            rejects the ARIA-only form and the native element carries the same
-            grouping for assistive tech. */}
+        {/* A fieldset (biome's useSemanticElements rejects a div with role="group"). The first-invalid focus lands on it (tabIndex
+            -1) and it hands focus to the chosen system option (else the first), so the user can choose at once; the options stay the tab stops. */}
         <fieldset
-          className="space-y-1"
-          ref={managedSystemRef}
+          className="grid gap-1.5"
+          tabIndex={-1}
+          onFocus={(event) => {
+            if (event.target !== event.currentTarget) return;
+            const options = event.currentTarget;
+            (options.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]') ?? options.querySelector<HTMLElement>('[role="radio"]'))?.focus();
+          }}
           aria-labelledby="aa-create-managed-system-label"
-          aria-describedby={
-            fieldErrors.managedSystem ? 'aa-create-managed-system-error' : undefined
-          }
+          aria-describedby={create.errors.managedSystem ? 'aa-create-managed-system-error' : undefined}
+          {...(create.errors.managedSystem ? { 'aria-invalid': true } : {})}
           aria-required="true"
         >
-          <FieldLabel id="aa-create-managed-system-label" tone="secondary">
-            시스템 <span className="text-accent-danger">· 필수</span>
+          <FieldLabel id="aa-create-managed-system-label" required requiredMark="text">
+            시스템
           </FieldLabel>
           <ManagedSystemPicker
             options={msOptions}
             value={msId}
-            onChange={setMsId}
+            onChange={(next) => {
+              setMsId(next);
+              create.clearError('managedSystem');
+            }}
             testId="create-ms-picker"
           />
-          {fieldErrors.managedSystem && (
-            <p id="aa-create-managed-system-error" className="text-sm text-accent-danger">
-              {fieldErrors.managedSystem}
+          {create.errors.managedSystem && (
+            <p id="aa-create-managed-system-error" className="text-xs text-text-danger-label break-keep">
+              {create.errors.managedSystem}
             </p>
           )}
         </fieldset>
-        <div className="space-y-1">
-          <FieldLabel htmlFor="aa-create-slug" tone="secondary">
-            슬러그 <span className="text-accent-danger">· 필수</span>
-          </FieldLabel>
-          <Input
-            id="aa-create-slug"
-            ref={slugRef}
-            value={slug}
-            onChange={(e) => setSlug(e.target.value)}
-            aria-describedby={fieldErrors.slug ? 'aa-create-slug-error' : undefined}
-            aria-invalid={Boolean(fieldErrors.slug)}
-            aria-required="true"
-            data-testid="create-aa-slug"
-          />
-          {fieldErrors.slug && (
-            <p id="aa-create-slug-error" className="text-sm text-accent-danger">
-              {fieldErrors.slug}
-            </p>
+        <FormField id="aa-create-slug" label="슬러그" required requiredMark="text" error={create.errors.slug}>
+          {(control) => (
+            <Input
+              {...control}
+              value={slug}
+              onChange={(e) => {
+                setSlug(e.target.value);
+                create.clearError('slug');
+              }}
+              data-testid="create-aa-slug"
+            />
           )}
-        </div>
-        <div className="space-y-1">
-          <FieldLabel htmlFor="aa-create-name" tone="secondary">
-            이름 <span className="text-accent-danger">· 필수</span>
-          </FieldLabel>
-          <Input
-            id="aa-create-name"
-            ref={nameRef}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            aria-describedby={fieldErrors.name ? 'aa-create-name-error' : undefined}
-            aria-invalid={Boolean(fieldErrors.name)}
-            aria-required="true"
-            data-testid="create-aa-name"
-          />
-          {fieldErrors.name && (
-            <p id="aa-create-name-error" className="text-sm text-accent-danger">
-              {fieldErrors.name}
-            </p>
+        </FormField>
+        <FormField id="aa-create-name" label="이름" required requiredMark="text" error={create.errors.name}>
+          {(control) => (
+            <Input
+              {...control}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                create.clearError('name');
+              }}
+              data-testid="create-aa-name"
+            />
           )}
-        </div>
+        </FormField>
         {error && (
           <p data-testid="create-aa-error" className="text-sm text-accent-danger">
             {error}

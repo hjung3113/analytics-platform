@@ -23,7 +23,7 @@ function response(body: unknown) {
   });
 }
 
-function installFetch() {
+function installFetch(postResponse: () => Response = () => response({})) {
   const postedRequests: PostedRequest[] = [];
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = new URL(String(input), 'http://localhost');
@@ -32,7 +32,7 @@ function installFetch() {
         pathname: url.pathname,
         body: init.body ? JSON.parse(String(init.body)) : {},
       });
-      return response({});
+      return postResponse();
     }
     if (url.pathname === '/me/permissions/check') {
       return response({ state: 'approved', decision: { allow: true } });
@@ -116,5 +116,25 @@ describe('Admin required registration fields', () => {
     // are radios inside a radiogroup — not buttons.
     expect(screen.getByRole('radio', { name: 'Power BI' })).toHaveFocus();
     expect(postedRequests).toEqual([]);
+  });
+
+  test('a rejected Analytics Area slug format shows on the slug field and focuses it, not as the dialog message (#3173)', async () => {
+    installFetch(() => new Response(JSON.stringify({
+      code: 'validation.failed', message: 'slug must match lower-kebab pattern',
+      detail: { fields: [{ path: ['slug'], code: 'invalid_slug_format' }] },
+    }), { status: 422, headers: { 'content-type': 'application/json' } }));
+    renderRoute('/admin/analytics-areas', AnalyticsAreasAdminPage);
+    fireEvent.click(await screen.findByTestId('aa-new-area-button'));
+    fireEvent.click(screen.getByRole('radio', { name: 'Power BI' }));
+    fireEvent.change(screen.getByTestId('create-aa-slug'), { target: { value: '1-area' } });
+    fireEvent.change(screen.getByTestId('create-aa-name'), { target: { value: 'Area' } });
+    fireEvent.submit(screen.getByTestId('create-analytics-area-form'));
+    const slug = screen.getByTestId('create-aa-slug');
+    await waitFor(() => expect(slug).toHaveAttribute('aria-invalid', 'true'));
+    expect(document.getElementById(slug.getAttribute('aria-describedby') ?? '')).toHaveTextContent('슬러그는 영문 소문자로 시작하고');
+    await waitFor(() => expect(slug).toHaveFocus());
+    expect(screen.queryByTestId('create-aa-error')).not.toBeInTheDocument();
+    fireEvent.change(slug, { target: { value: 'area' } });
+    expect(slug).not.toHaveAttribute('aria-invalid');
   });
 });
