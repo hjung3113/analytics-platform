@@ -1,8 +1,6 @@
 import { useMemo } from 'react';
 import { useI18n } from '../i18n';
-import { formatFeedTime, formatListTime, formatSummaryTime, type TimeNotationOptions } from './time';
-
-type Instant = Parameters<typeof formatListTime>[0];
+import { formatFeedTime, formatListTime, formatSummaryTime, type Instant, type TimeNotationOptions } from './time';
 
 /** The Kernel instant notation (kernel.md §6.3) bound to the current language, for a host or seam that hands it to screens. */
 export type TimeNotation = {

@@ -256,7 +256,7 @@ TransientOverlayScope | function | function TransientOverlayScope({ active, deta
 UndoToast | function | function UndoToast({ message, actionLabel, onAction, onDismiss, duration, className, }: @ap/ui#UndoToastProps): React.JSX.Element
 UndoToastProps | interface | interface UndoToastProps { actionLabel?: string; className?: string; duration?: number; message: string; onAction: () => void; onDismiss?: () => void; }
 UseValidatedSubmitOptions | interface | interface UseValidatedSubmitOptions<TValues> { onValid: (values: TValues, event: React.FormEvent<HTMLFormElement>) => Promise<void> | void; validate: (values: TValues) => @ap/ui#ValidationErrors<TValues>; }
-UseValidatedSubmitResult | interface | interface UseValidatedSubmitResult<TValues> { clearError: (field: Extract<keyof TValues, string>) => void; clearErrors: () => void; errors: @ap/ui#ValidationErrors<TValues>; handleSubmit: (values: TValues) => React.FormEventHandler<HTMLFormElement>; }
+UseValidatedSubmitResult | interface | interface UseValidatedSubmitResult<TValues> { clearError: (field: Extract<keyof TValues, string>) => void; clearErrors: () => void; errors: @ap/ui#ValidationErrors<TValues>; handleSubmit: (values: TValues) => React.FormEventHandler<HTMLFormElement>; setServerErrors: (errors: @ap/ui#ValidationErrors<TValues>) => void; }
 UserAvatar | function | function UserAvatar({ user, size, className }: @ap/ui#UserAvatarProps): React.ReactElement
 UserAvatarProps | interface | interface UserAvatarProps { className?: string; size?: 'lg' | 'md' | 'sm'; user: @ap/ui#AvatarUser; }
 UserChip | function | function UserChip({ user, size, sub, className }: @ap/ui#UserChipProps): React.ReactElement

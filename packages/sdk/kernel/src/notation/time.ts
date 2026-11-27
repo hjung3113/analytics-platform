@@ -1,7 +1,7 @@
 import { formatInstant, instantEpochMs } from '@ap/contracts';
 import type { Lang } from '../i18n';
 
-type Instant = string | number | null | undefined;
+export type Instant = string | number | null | undefined;
 
 export type TimeNotationOptions = {
   /** Defaults to the viewer's local time zone. */

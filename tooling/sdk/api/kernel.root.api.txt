@@ -126,6 +126,7 @@ SelectionLinkResolution | type | type SelectionLinkResolution = (Extract<@ap/ker
 SpaceNavSectionSlot | type | type SpaceNavSectionSlot = { For: (spaceId: @ap/contracts#SpaceId, menu: @ap/kernel#MenuEntry | null) => null | { Body: ComponentType; label: @ap/contracts#Text; }; }
 Text | type | type Text = { en: string; ko: string; }
 TextParams | type | type TextParams = Record<string, number | string>
+TimeNotation | type | type TimeNotation = { feed(at: Instant, options?: @ap/kernel#TimeNotationOptions): { text: string; title?: string; }; list(at: Instant, options?: Pick<@ap/kernel#TimeNotationOptions, 'timeZone'>): string; summary(at: Instant, options?: @ap/kernel#TimeNotationOptions): string; }
 TimeNotationOptions | type | type TimeNotationOptions = { now?: number; timeZone?: string; }
 Toast | type | type Toast = { action?: @ap/kernel#ToastAction; detail?: string; id: number; text: string; tone: 'danger' | 'info' | 'warning'; }
 ToastAction | type | type ToastAction = { label: string; onAction: () => void; }
@@ -156,14 +157,20 @@ drillEntryPage | function | function drillEntryPage({ route, page }: Pick<@ap/ke
 encodePageConditions | function | function encodePageConditions(menu: @ap/kernel#PageConditionMenu, values: @ap/kernel#PageConditionValues): @ap/contracts#Pair[]
 errorGuidance | function | function errorGuidance(message: string | undefined): @ap/kernel#ErrorGuidance
 expandCustomGroups | function | function expandCustomGroups({ condition, selection, groups, facts }: @ap/kernel#ExpandCustomGroupsInput): @ap/kernel#ExpandCustomGroupsResult
+followInput | function | function followInput(sourceId: string, key: string, use?: @ap/contracts#PanelInstanceInput['use']): @ap/contracts#PanelInstanceInput
+followInstead | function | function followInstead(instance: @ap/contracts#PanelInstance): @ap/contracts#PanelInstance
 formatFeedTime | function | function formatFeedTime(at: Instant, lang: @ap/kernel#Lang, { timeZone, now }?: @ap/kernel#TimeNotationOptions): { text: string; title?: string; }
 formatListTime | function | function formatListTime(at: Instant, { timeZone }?: Pick<@ap/kernel#TimeNotationOptions, 'timeZone'>): string
 formatSummaryTime | function | function formatSummaryTime(at: Instant, lang: @ap/kernel#Lang, { timeZone, now }?: @ap/kernel#TimeNotationOptions): string
 formatText | function | function formatText(text: @ap/contracts#Text, lang: @ap/kernel#Lang, params?: @ap/kernel#TextParams): string
+freePanelId | function | function freePanelId(base: string, taken: Iterable<string>): string
+holdInput | function | function holdInput(sourceId: string, key: string, value: @ap/contracts#AnalysisSelection, use?: @ap/contracts#PanelInstanceInput['use']): @ap/contracts#PanelInstanceInput
+holdsSelection | const | const holdsSelection: (instance: @ap/contracts#PanelInstance) => boolean
 invalidValueSentence | function | function invalidValueSentence(lang: @ap/kernel#Lang, kind: 'drillGap' | 'filter' | 'plain' | 'value', field: @ap/contracts#Text, raw: string): string
 isBoardPath | const | const isBoardPath: (pathname: string) => boolean
 labelledCondition | function | function labelledCondition(condition: @ap/contracts#Condition, axes: readonly @ap/contracts#EquipmentAxisDescriptor[], lang: 'en' | 'ko'): string
 mountModule | function | function mountModule(manifest: @ap/contracts#ModuleManifest, screens: Readonly<Record<string, ComponentType<@ap/contracts#ModuleScreenProps>>>, { prefix, groupSpace, config, icons, features }: @ap/kernel#MountOptions): { groups: @ap/kernel#ModuleGroupDef[]; menus: @ap/kernel#ModuleMenuEntry[]; }
+namesInstance | const | const namesInstance: (instances: readonly @ap/contracts#PanelInstance[], id: string) => boolean
 objectParticle | function | function objectParticle(name: string): '를' | '을'
 panelQueryIdentity | function | function panelQueryIdentity<C extends Record<string, unknown>>(declaration: { readonly queryInputs: @ap/contracts#PanelInputs; }, context: C): string
 parseAnalysisSelection | function | function parseAnalysisSelection(shape: @ap/contracts#AnalysisSelectionShape, values: readonly string[]): @ap/contracts#AnalysisSelection | null
@@ -172,6 +179,7 @@ pathFor | function | function pathFor(menu: @ap/kernel#MenuEntry, params?: Recor
 projectDisplayInputs | function | function projectDisplayInputs<I extends @ap/contracts#PanelInputs, C extends Record<string, unknown>>(declaration: { readonly displayInputs: I; }, context: C): Pick<C, Extract<"condition", keyof C> | Extract<"from", keyof C> | Extract<"lineNames", keyof C> | Extract<"lotIds", keyof C> | Extract<"membershipBasis", keyof C> | Extract<"metricId", keyof C> | Extract<"metricVersion", keyof C> | Extract<"ppid", keyof C> | Extract<"prcGroups", keyof C> | Extract<"recipeIds", keyof C> | Extract<"roomNames", keyof C> | Extract<"scopeId", keyof C> | Extract<"selection", keyof C> | Extract<"to", keyof C> | Extract<NonNullable<I["page"]>[number]["key"], keyof C>>
 projectQueryInputs | function | function projectQueryInputs<I extends @ap/contracts#PanelInputs, C extends Record<string, unknown>>(declaration: { readonly queryInputs: I; }, context: C): Pick<C, Extract<"condition", keyof C> | Extract<"from", keyof C> | Extract<"lineNames", keyof C> | Extract<"lotIds", keyof C> | Extract<"membershipBasis", keyof C> | Extract<"metricId", keyof C> | Extract<"metricVersion", keyof C> | Extract<"ppid", keyof C> | Extract<"prcGroups", keyof C> | Extract<"recipeIds", keyof C> | Extract<"roomNames", keyof C> | Extract<"scopeId", keyof C> | Extract<"selection", keyof C> | Extract<"to", keyof C> | Extract<NonNullable<I["page"]>[number]["key"], keyof C>>
 queryMissingSentence | function | function queryMissingSentence(lang: @ap/kernel#Lang, label: @ap/contracts#Text): string
+resolveHeldInputs | function | function resolveHeldInputs(instance: @ap/contracts#PanelInstance, instances: readonly @ap/contracts#PanelInstance[]): { held: Record<string, @ap/kernel#HeldAnalysisSelection>; unresolved: string[]; }
 routeParamNames | function | function routeParamNames(path: string): string[]
 summarizePageConditions | function | function summarizePageConditions(input: @ap/kernel#PageConditionSummaryInput, pairs: readonly @ap/contracts#Pair[]): { issues: @ap/kernel#PageConditionSummaryIssue[]; summary: @ap/kernel#PageConditionSummaryItem[]; }
 topicParticle | function | function topicParticle(name: string): '는' | '은'
@@ -206,6 +214,7 @@ useResolvedSelection | function | function useResolvedSelection(ids: readonly st
 useSavedViewPanels | function | function useSavedViewPanels(options: { lifetime?: object; onOpen(outcome: @ap/kernel#SavedViewPanelsOutcome, viewId?: string): void; onViewIdChange?(viewId: null | string): void; saveBlocked?: @ap/contracts#Text | string | undefined; value: @ap/contracts#MenuViewPanels | null; }): void
 useSavedViewSupport | function | function useSavedViewSupport(support: @ap/contracts#SavedViewSupport): void
 useSessionDraft | function | function useSessionDraft<T>(key: string, initial: T, options?: { isEqual?: (value: T, initial: T) => boolean; ready?: boolean; }): [ T, Dispatch<SetStateAction<T>>, { discard: () => void; restored: boolean; } ]
+useTimeNotation | function | function useTimeNotation(): @ap/kernel#TimeNotation
 useUnsavedGuard | function | function useUnsavedGuard(dirty: boolean, options?: @ap/kernel#UnsavedGuardOptions): void
 withPagePreset | function | function withPagePreset(search: string, page: Readonly<Record<string, string>> | undefined): string
 # reachable types
