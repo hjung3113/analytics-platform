@@ -612,6 +612,35 @@ jobs:
         if: ${{ steps.scope.outputs.run == 'true' }}
         run: node tooling/sdk/sdk-upgrade-gate.mjs --self-test
 
+  # #2181: knip (unused files, exports, dependencies) and madge (SDK import cycles) counts, as a report in the run summary and an artifact.
+  # Never a gate and never on a PR (PR CI stays at about 10 minutes, #1931): main push and manual runs only, after the required workspace job so it
+  # takes no runner from it; `continue-on-error` keeps a tool failure from turning main red. Whether a count becomes a check is open in #2181.
+  static-report:
+    name: Static report (knip, SDK cycles)
+    needs: [platform-workspace]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      # knip loads the workspace's own configs and plugins, so the install comes first.
+      - run: pnpm install --frozen-lockfile
+      - run: |
+          node tooling/scripts/static-report.mjs --self-test
+          node tooling/scripts/static-report.mjs --out "$RUNNER_TEMP/static-report"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: static-report
+          path: ${{ runner.temp }}/static-report
+          retention-days: 30
+
   # PR guard (#2643): the three caps, each passed only by a recorded answer — PR size (400 lines / 40 files; generated files, snapshots and lockfiles
   # excluded; a `Size:` line in the PR body or `owner-ok:size`), fix rounds (the fourth push of the branch needs a `Round cap:` line in the PR body) and release scope (`Closes #n` must be in the
   # release spec's `## 범위` on the base branch, or the PR carries the owner's `owner-ok:scope`). Rules: .agents/conductor/PROFILE.md §Size and path.
