@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import EqvStudio from './EqvStudio';
 import { FIXTURE, createServer, mountAt, type Roles, type Server } from './test-support';
@@ -360,11 +360,15 @@ describe('publish', () => {
     expect(server.state.revisions).toEqual([]);
   });
 
+  // #2587: the publish time is a real instant — the Kernel list notation in the viewer's zone (here Berlin), not fixed Seoul time.
   it('lists published Revisions with a short hash and the publish time in the history', async () => {
+    const zone = process.env.TZ;
+    process.env.TZ = 'Europe/Berlin';
+    onTestFinished(() => { process.env.TZ = zone; });
     server.state.revisions.push({ id: 'rev-0', layoutId: FIXTURE.id, revision: `sha256:${'c'.repeat(64)}`, document: structuredClone(FIXTURE), publishedAt: '2026-11-10T01:02:00.000Z' });
     await mount('both');
     expect(await screen.findByText('cccccccccccc', {}, slow)).toBeTruthy();
-    expect(screen.getByText('2026-11-10 10:02')).toBeTruthy();
+    expect(screen.getByText('2026-11-10 02:02')).toBeTruthy();
   });
 });
 
