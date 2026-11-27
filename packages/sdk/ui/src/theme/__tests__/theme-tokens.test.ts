@@ -38,7 +38,7 @@ const chartStatusAliases = [
 
 function cssProperties(): Map<string, string> {
   const declarations = `${tokensCss}\n${platformCss}`.replace(/\/\*[\s\S]*?\*\//g, '');
-  return new Map([...declarations.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)].map(match => [match[1], match[2].trim()]));
+  return new Map([...declarations.matchAll(/--([\w-]+)\s*:\s*([^;]+);/g)].flatMap(([, name, value]) => (name && value ? [[name, value.trim()] as const] : [])));
 }
 
 function resolveCssColor(name: string): [number, number, number] {
@@ -46,15 +46,16 @@ function resolveCssColor(name: string): [number, number, number] {
   let value = properties.get(name);
   const seen = new Set<string>();
   while (value) {
-    const alias = /^var\(--([\w-]+)\)$/.exec(value);
-    if (!alias) break;
-    if (seen.has(alias[1])) throw new Error(`CSS alias cycle: ${name}`);
-    seen.add(alias[1]);
-    value = properties.get(alias[1]);
+    const target = /^var\(--([\w-]+)\)$/.exec(value)?.[1];
+    if (!target) break;
+    if (seen.has(target)) throw new Error(`CSS alias cycle: ${name}`);
+    seen.add(target);
+    value = properties.get(target);
   }
   const triple = /^(\d+)\s+(\d+)\s+(\d+)$/.exec(value ?? '');
-  if (!triple) throw new Error(`Not an RGB triple: ${name}`);
-  return [Number(triple[1]), Number(triple[2]), Number(triple[3])];
+  const [, red, green, blue] = triple ?? [];
+  if (!red || !green || !blue) throw new Error(`Not an RGB triple: ${name}`);
+  return [Number(red), Number(green), Number(blue)];
 }
 
 function hex([red, green, blue]: [number, number, number]): string {
@@ -70,7 +71,7 @@ function relativeLuminance([red, green, blue]: [number, number, number]): number
 }
 
 function contrastRatio(a: [number, number, number], b: [number, number, number]): number {
-  const [lighter, darker] = [relativeLuminance(a), relativeLuminance(b)].sort((left, right) => right - left);
+  const [lighter = 0, darker = 0] = [relativeLuminance(a), relativeLuminance(b)].sort((left, right) => right - left);
   return (lighter + 0.05) / (darker + 0.05);
 }
 
@@ -154,9 +155,9 @@ it('resolves every manifest hex from CSS and pins representative values', () => 
   for (const [name, entry] of Object.entries(manifest.color)) {
     expect(entry.$value.hex, name).toBe(hex(resolveCssColor(name)));
   }
-  expect(manifest.color['text-primary'].$value.hex).toBe('#101828');
-  expect(manifest.color['chart-blue-stroke'].$value.hex).toBe('#2e6bd9');
-  expect(manifest.color['accent-primary'].$value.hex).toBe('#1428a0');
+  expect(manifest.color['text-primary']?.$value.hex).toBe('#101828');
+  expect(manifest.color['chart-blue-stroke']?.$value.hex).toBe('#2e6bd9');
+  expect(manifest.color['accent-primary']?.$value.hex).toBe('#1428a0');
 });
 
 it('publishes and resolves every adopted chart colour token', () => {

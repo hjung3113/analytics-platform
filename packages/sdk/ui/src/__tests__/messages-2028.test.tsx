@@ -25,7 +25,7 @@ it('accepts caller copy across public list and field primitives (#2028 SHE-21)',
 it('accepts translated rich action labels and inserted details summary (#2028 SHE-21)', async () => {
   const { actionsForSurface } = await import('../rich-content/editor-actions');
   const actions = actionsForSurface('voc-description', { label: label => `EN ${label}`, detailsSummary: 'More details' });
-  expect(actions[0].label).toMatch(/^EN /);
+  expect(actions[0]?.label).toMatch(/^EN /);
   const insertContent = vi.fn(() => ({ run: vi.fn() }));
   const editor = { chain: () => ({ focus: () => ({ insertContent }) }) };
   actions.find(action => action.capability === 'details')!.run(editor as never);

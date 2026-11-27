@@ -23,7 +23,7 @@ const ISO_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+
 const isLeap = (year: number): boolean => year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
 
 const daysInMonth = (year: number, month: number): number =>
-  [31, isLeap(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+  [31, isLeap(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] ?? 0;
 
 /** Captured components must be a real calendar date in range. `\d{2}` captures give ≥0 for free;
  *  day is checked against its month (leap-aware), time and offset fields against their maxima. */
