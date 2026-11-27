@@ -442,8 +442,7 @@ function orderChips(chips: readonly AnalysisSelectionChip[]): AnalysisSelectionC
       key = waiting.get(key)?.after ?? null;
     }
     const cycle = new Set(key === null ? seen : seen.slice(seen.indexOf(key)));
-    const root = remaining.find(chip => cycle.has(chip.key)) ?? remaining[0];
-    if (root === undefined) throw new Error('Cycle break requires a remaining chip');
+    const root = remaining.find(chip => cycle.has(chip.key)) ?? first;
     waiting.set(root.key, { ...root, after: null });
   }
   return ordered;
