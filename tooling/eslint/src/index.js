@@ -439,7 +439,7 @@ const BUILD_OUTPUT = { ignores: ['dist/**'] };
 const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
 
 // #2180: asserting existence hides the missing-value case. Enabled preset by preset as their sites are fixed (#2181: the
-// per-preset counts are in issue #2181); on in contracts, kernel, app-host, http-adapter and the app so far. Tests may assert fixture invariants.
+// per-preset counts are in issue #2181); on in contracts, kernel, app-host, http-adapter, the app and the feature bridge so far. Tests may assert fixture invariants.
 const NON_NULL = {
   files: ['**/*.{ts,tsx}'],
   ignores: TEST_ENTRY_FILES,
@@ -733,6 +733,7 @@ export const featureBridgePreset = [
   },
   designSystem(),
   directLocaleFormat(),
+  NON_NULL,
 ];
 
 // App: all package entries allowed, deep subpaths, mock-server and ./dev banned (#153). src/main.tsx keeps only

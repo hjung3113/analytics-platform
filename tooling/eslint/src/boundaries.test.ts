@@ -979,7 +979,7 @@ rows.push(
 );
 
 // #2180, #2181: production code of the packages whose preset has NON_NULL must narrow; tests may assert fixture invariants.
-for (const pkg of ['packages/sdk/kernel', 'packages/host/app-host', 'packages/host/http-adapter', 'apps/platform-web']) {
+for (const pkg of ['packages/sdk/kernel', 'packages/host/app-host', 'packages/host/http-adapter', 'apps/platform-web', 'packages/feature/bridge']) {
   rows.push(
     { file: `${pkg}/src/x.ts`, code: `const value: string | undefined = 'ok'; value!;`, rule: '@typescript-eslint/no-non-null-assertion' },
     { file: `${pkg}/src/x.test.ts`, code: `const value: string | undefined = 'ok'; value!;`, rule: '' },
