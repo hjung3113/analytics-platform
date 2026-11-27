@@ -146,7 +146,9 @@ jobs:
           node .github/scripts/check-test-location.mjs --self-test
           node .github/scripts/check-test-location.mjs --base "$FEATURE_LINT_BASE"
       # Fragments are Markdown, so validate even on docs-only PRs; no install or build needed.
-      - run: node tooling/sdk/sdk-changelog.mjs --check
+      - run: |
+          node tooling/sdk/sdk-changelog.mjs --self-test
+          node tooling/sdk/sdk-changelog.mjs --check
       - run: node tooling/changes/menus.mjs --check
       - run: node --test tooling/changes/menus.test.mjs
       - run: pnpm install --frozen-lockfile
@@ -166,7 +168,8 @@ jobs:
           # #2029: a cached test that reads another package's files must hash them, or a stale cache passes.
           node .github/scripts/check-turbo-cross-reads.mjs
           node .github/scripts/check-turbo-cross-reads.mjs --self-test
-          node --test .github/scripts/check-unified-ci.test.mjs .github/scripts/check-ci-scope.test.mjs
+          node --test .github/scripts/check-unified-ci.test.mjs .github/scripts/check-ci-scope.test.mjs .github/scripts/check-ci-lists.test.mjs
+          node --test apps/platform-e2e/contract-reporter.test.ts
           # #1884: the scripts that decide which gates run are tested here too (node builtins and bash only, seconds).
           node .github/scripts/classify-changes.mjs --self-test
           node .github/scripts/pr-guard.mjs --self-test
