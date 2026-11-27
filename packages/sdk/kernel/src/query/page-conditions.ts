@@ -32,6 +32,7 @@ function readRange(raw: string): PageConditionRange | null {
   const parts = raw.split('..');
   if (parts.length !== 2 || parts.every(value => value === '')) return null;
   const [left, right] = parts;
+  if (left === undefined || right === undefined) return null;
   if ([left, right].some(value => value !== '' && (!NUMBER.test(value) || !Number.isFinite(Number(value))))) return null;
   const min = left === '' ? null : Number(left);
   const max = right === '' ? null : Number(right);
@@ -67,18 +68,24 @@ export function decodePageConditions(menu: PageConditionMenu, pairs: readonly Pa
         continue;
       }
       count += raw.length;
+      const [rawValue] = raw;
+      if (rawValue === undefined) throw new Error('Page condition value is missing');
       if (category.kind.type === 'range') {
-        const range = readRange(raw[0]);
+        const range = readRange(rawValue);
         if (range === null) issue(key, 'invalid-range'); else local.set(key, range);
       } else if (category.kind.type === 'date') {
-        if (wallClockEpochMs(raw[0]) === null) issue(key, 'invalid-date'); else local.set(key, raw);
+        if (wallClockEpochMs(rawValue) === null) issue(key, 'invalid-date'); else local.set(key, raw);
       } else {
         const decoded = raw.map(decodedValue);
         if (decoded.some(value => value === null || !validText(value))) issue(key, 'invalid-value');
         else local.set(key, decoded as string[]);
       }
     }
-    if (count > PAGE_CONDITION_LIMITS.valuesPerCategory) issue(keys[0], 'too-many-values');
+    if (count > PAGE_CONDITION_LIMITS.valuesPerCategory) {
+      const [firstKey] = keys;
+      if (firstKey === undefined) throw new Error('Page condition category requires a key');
+      issue(firstKey, 'too-many-values');
+    }
     if (category.kind.type === 'date') {
       const { from, to } = category.kind;
       const start = local.get(from); const end = local.get(to);

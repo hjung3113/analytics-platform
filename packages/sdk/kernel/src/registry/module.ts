@@ -64,20 +64,30 @@ export function mountModule(
 
   const groups = manifest.groups.map((g): ModuleGroupDef => {
     if (!Object.hasOwn(groupSpace, g.id)) fail(`${at} group "${g.id}" has no groupSpace entry`);
-    return { id: g.id, module: id, label: g.label, icon: icons.groups[g.id] ?? fail(`${at} group "${g.id}" has no icon`), space: groupSpace[g.id] };
+    const space = groupSpace[g.id];
+    if (space === undefined) return fail(`${at} group "${g.id}" has no groupSpace entry`);
+    return { id: g.id, module: id, label: g.label, icon: icons.groups[g.id] ?? fail(`${at} group "${g.id}" has no icon`), space };
   });
   const moduleFeatures = [...new Set([...manifest.requires, ...(manifest.optional ?? [])])].filter(feature => features.includes(feature));
-  const moduleConfig = Object.fromEntries((manifest.config ?? []).map(key => [key, config[key]]));
-  const menus = manifest.screens.map((s): ModuleMenuEntry => ({
-    ...s,
-    id: `${id}:${s.id}`,
-    parent: s.parent === undefined ? undefined : `${id}:${s.parent}`,
-    path: s.path === '' ? prefix : `${prefix}/${s.path}`,
-    module: id,
-    icon: icons.screens[s.id] ?? fail(`${at} screen "${s.id}" has no icon`),
-    moduleScreen: screens[s.id],
-    moduleFeatures,
-    moduleConfig,
+  const moduleConfig = Object.fromEntries((manifest.config ?? []).map(key => {
+    const value = config[key];
+    if (value === undefined) return fail(`${at} needs config key "${key}"`);
+    return [key, value] as const;
   }));
+  const menus = manifest.screens.map((s): ModuleMenuEntry => {
+    const moduleScreen = screens[s.id];
+    if (moduleScreen === undefined) return fail(`${at} screen "${s.id}" has no component`);
+    return {
+      ...s,
+      id: `${id}:${s.id}`,
+      parent: s.parent === undefined ? undefined : `${id}:${s.parent}`,
+      path: s.path === '' ? prefix : `${prefix}/${s.path}`,
+      module: id,
+      icon: icons.screens[s.id] ?? fail(`${at} screen "${s.id}" has no icon`),
+      moduleScreen,
+      moduleFeatures,
+      moduleConfig,
+    };
+  });
   return { menus, groups };
 }

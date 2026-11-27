@@ -161,7 +161,11 @@ export function analysisSelectionDependencies(channels: Channels, workspace?: An
         || instance.source.kind !== 'declared' || instance.source.panel !== writer.panelId) continue;
       if (publishers?.has(key) ? publishers.get(key) === instance.id : !roots.has(key)) roots.set(key, instance.id);
     }
-    for (const [key, channel] of workspace.chartChannels ?? []) roots.set(key, channel.writers[0].panelId);
+    for (const [key, channel] of workspace.chartChannels ?? []) {
+      const writer = channel.writers[0];
+      if (writer === undefined) throw new Error('Chart selection channel requires a writer');
+      roots.set(key, writer.panelId);
+    }
     for (const instance of instances) {
       if (instance.source.kind !== 'declared') continue;
       for (const input of instance.inputs) {

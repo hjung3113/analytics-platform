@@ -26,7 +26,10 @@ export function createPageNavigation(initialUrl: string, isBlocked: () => boolea
     const currentKeepers = keepers;
     return currentKeepers !== null && ![...listeners.values()].some(owner => currentKeepers.has(owner));
   };
-  const pathOf = (href: string) => href.split('?')[0];
+  const pathOf = (href: string): string => {
+    const [path = ''] = href.split('?');
+    return path;
+  };
   const rememberFocus = (next: string, focus?: PageFocus) => {
     const nextFocus = focusKeyOf(next);
     if (focus === 'page' || focus === 'return') claimsDetail = nextFocus === null;

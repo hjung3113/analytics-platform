@@ -7,7 +7,7 @@ export function stripDetailExpansion(url: string): string {
   if (q === -1) return url;
   const hash = url.indexOf('#', q);
   const kept = url.slice(q + 1, hash === -1 ? undefined : hash).split('&').filter(part => {
-    const raw = part.split('=')[0];
+    const [raw = ''] = part.split('=');
     try { return decodeURIComponent(raw.replace(/\+/g, ' ')) !== DETAIL_EXPAND_KEY; } catch { return true; }
   });
   return url.slice(0, q) + (kept.length ? `?${kept.join('&')}` : '') + (hash === -1 ? '' : url.slice(hash));

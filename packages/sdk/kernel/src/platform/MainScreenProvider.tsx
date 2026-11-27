@@ -32,7 +32,10 @@ export const MainScreenProvider = memo(function MainScreenProvider({ app, childr
   const { matchRoute } = registry;
   const userId = user.id;
   // Hidden page keys (ADR-0105): `url` is the visible address; the hidden pairs ride in the history entry's state and are mirrored here.
-  const menuFor = useCallback((href: string) => matchRoute(href.split('?')[0])?.menu, [matchRoute]);
+  const menuFor = useCallback((href: string) => {
+    const [path = ''] = href.split('?');
+    return matchRoute(path)?.menu;
+  }, [matchRoute]);
   const hiddenKeysFor = useCallback((href: string): readonly string[] => menuFor(href)?.hiddenPageKeys ?? [], [menuFor]);
   // An address that still carries hidden keys (share link, load, Back to an old entry) is split; otherwise the entry's own state decides.
   const arrive = useCallback((raw: string, fromState: Pair[]): { url: string; hidden: Pair[]; rewrite: boolean } => {

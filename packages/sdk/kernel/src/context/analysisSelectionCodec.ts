@@ -12,7 +12,9 @@ export function parseAnalysisSelection(shape: AnalysisSelectionShape, values: re
     return distinct.length && distinct.length <= ANALYSIS_SELECTION_MAX_VALUES ? { shape, values: distinct } : null;
   }
   if (values.length !== 1) return null;
-  const [from, to, extra] = values[0].split('/');
+  const [value] = values;
+  if (value === undefined) throw new Error('Analysis selection range requires one value');
+  const [from, to, extra] = value.split('/');
   return from && to && extra === undefined ? { shape, from, to } : null;
 }
 
