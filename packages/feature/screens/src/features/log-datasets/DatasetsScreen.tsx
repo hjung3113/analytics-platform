@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { SearchInput, StatusBadge } from '@ap/ui';
 import type { Dataset, Page, ScreenProps } from './contracts';
-import { Choice, Pager, ReadView, TAG_LABEL, time, pageSummary } from './presentation';
+import { FeatureTimestamp, useFeatureTime } from '../../components/FeatureTimestamp';
+import { Choice, Pager, ReadView, TAG_LABEL, pageSummary } from './presentation';
 
 export function DatasetsScreen(props: ScreenProps) {
+  const format = useFeatureTime();
   const [q, setQ] = useState('');
   const [page, setPage] = useState(0);
   const [status, setStatus] = useState('active');
@@ -17,7 +19,7 @@ export function DatasetsScreen(props: ScreenProps) {
     { id: 'models', header: '모델 범위', size: 180, sortable: false, cell: r => <span className="truncate">{r.modelIds.join(' · ') || '모델 무관'}</span>, exportValue: r => r.modelIds.join(', ') || '모델 무관' },
     { id: 'revision', header: '최신 Revision', size: 110, sortable: false, cell: r => r.latestRevisionSeq === null ? '없음' : `r${r.latestRevisionSeq}`, exportValue: r => r.latestRevisionSeq },
     { id: 'owner', header: '소유자', size: 100, sortable: false, cell: r => r.owner.displayName || '이름 확인 불가', exportValue: r => r.owner.displayName },
-    { id: 'updatedAt', header: '갱신', size: 170, sortable: false, cell: r => time(r.updatedAt), exportValue: r => time(r.updatedAt) },
+    { id: 'updatedAt', header: '갱신', size: 170, sortable: false, cell: r => <FeatureTimestamp at={r.updatedAt} notation="list" />, exportValue: r => format.list(r.updatedAt) },
   ] });
   return props.ui.page({ children: <div className="flex min-h-0 flex-1 flex-col gap-3 break-keep"><p className="text-xs text-text-muted">Baseline 상태와 최근 회귀 실행 요약은 상세에서 확인합니다.</p>{ready && ready.rows.length === 0 ? <section role="status" className="rounded-lg border border-border-subtle bg-surface-card elevation-panel p-4"><h3 className="text-sm font-semibold">{q || status !== 'active' ? '조건에 맞는 테스트 데이터셋이 없습니다.' : '등록된 테스트 데이터셋이 없습니다.'}</h3><p className="mt-2 text-sm text-text-secondary">{q || status !== 'active' ? '검색어나 상태 필터를 변경해 주세요.' : '이 Workspace에는 아직 테스트 데이터셋이 등록되지 않았습니다. 샘플 목록과 기대 결과를 준비한 뒤 등록하세요.'}</p></section> : null}{query.status === 'error' || (query.status === 'done' && !query.data) ? <ReadView query={query}>{() => null}</ReadView> : null}{table(ready ?? EMPTY_PAGE, query.status === 'loading', !ready && query.status !== 'loading')}</div> });
 }

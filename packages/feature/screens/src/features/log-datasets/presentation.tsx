@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { formatDateTime } from '../../lib/format/datetime';
 import { Button, Callout, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge } from '@ap/ui';
 import { DATASET_READ_COPY } from '../../lib/copy/log-datasets';
 import type { ReadState, Stale, WriteResult } from './contracts';
@@ -48,6 +47,5 @@ export function WriteError({ result, onRetry }: { result: WriteResult | null; on
   return <div role="alert" className="space-y-2 text-sm text-text-danger-label"><p>{limit ? '동시 실행 한도 3건에 도달했습니다. 진행 중인 요청이 끝난 뒤 다시 요청하세요.' : result.outcome === 'conflict' ? '다른 변경이 먼저 저장되었습니다. 최신 내용을 확인한 뒤 다시 기록해 주세요.' : result.outcome === 'forbidden' ? '이 동작의 권한이 없습니다. 관리자에게 요청해 주세요.' : result.outcome === 'unknown' ? '처리 결과를 확인하지 못했습니다. 같은 요청으로 결과를 확인해 주세요.' : '요청에 실패했습니다. 입력값과 대상의 현재 상태를 확인해 주세요.'}</p>{result.fieldErrors.filter(f => f.code !== 'suite.run_limit').map(f => <p key={f.path.join('.')}>{f.path.join('.')}: {f.code}</p>)}{result.retry ? <Button variant="secondary" size="toolbar" onClick={onRetry}>같은 요청 다시 확인</Button> : null}</div>;
 }
 export function writeFailure(cause: unknown): WriteResult | null { return typeof cause === 'object' && cause !== null && 'name' in cause && cause.name === 'AbortError' ? null : { outcome: 'error', data: null, version: null, fieldErrors: [] }; }
-export const time = (value: string | null | undefined) => value ? formatDateTime(value, '2-digit') : '없음';
 
 export const pageSummary = (total: number, page: number) => `${total}건 · ${page + 1}/${Math.max(1, Math.ceil(total / 25))} 페이지`;
