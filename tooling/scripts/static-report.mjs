@@ -10,7 +10,7 @@
 //   node tooling/scripts/static-report.mjs --self-test
 // Exit status: 0 = report written (whatever the counts), 1 = a tool could not run or its output was not JSON, 2 = usage.
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -127,7 +127,7 @@ function selfTest() {
   return 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
   const args = process.argv.slice(2);
   process.exit(args.length === 1 && args[0] === '--self-test' ? selfTest() : main(args));
 }
