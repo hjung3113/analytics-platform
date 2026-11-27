@@ -7,7 +7,7 @@ import { BaselinePanel } from '../BaselinePanel';
 import type { Baseline, DatasetApi, DatasetDetail, Presentation, Revision, Run, ScreenProps, SuiteDetail, TableParts } from '../contracts';
 import { DatasetScreen } from '../DatasetScreen';
 import { DatasetsScreen } from '../DatasetsScreen';
-import { DatasetHost } from '../host';
+import { MenuQueryHost } from '../../../lib/host/MenuQueryHost';
 import { RunsPanel } from '../RunsPanel';
 
 beforeAll(() => {
@@ -25,7 +25,7 @@ const time: NonNullable<HostSeam['time']> = {
 const AT = '2026-11-08T11:40:00Z';
 /** The legacy `YY. M. D.` text of `formatDateTime(value, '2-digit')`. */
 const TWO_DIGIT_YEAR = /(^|[^\d])\d{2}\. \d{1,2}\. \d{1,2}\./;
-const wrap = (node: ReactNode) => render(<DatasetHost time={time}>{node}</DatasetHost>);
+const wrap = (node: ReactNode) => render(<MenuQueryHost time={time}>{node}</MenuQueryHost>);
 
 const tables: TableParts<{ id: string }>[] = [];
 const ui: Presentation = {

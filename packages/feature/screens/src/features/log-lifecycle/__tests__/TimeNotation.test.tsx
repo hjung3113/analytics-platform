@@ -5,7 +5,7 @@ import type { HostSeam } from '../../../lib/host/host-seam';
 import type { Attempt, GateDecision, LifecycleApi, Model, Project, QueueStatus, ReadState, RequestDetail, RequestRow, RoundDetail, ScreenProps } from '../contracts';
 import { GatePanel } from '../GatePanel';
 import { RoundScreen } from '../RoundScreen';
-import { LifecycleHost } from '../host';
+import { MenuQueryHost } from '../../../lib/host/MenuQueryHost';
 import { pageCopy } from '../messages';
 import { ModelsScreen } from '../ModelsScreen';
 import { QueueWindow, RequestDrawer, RequestsScreen } from '../RequestsScreen';
@@ -20,7 +20,7 @@ const time: NonNullable<HostSeam['time']> = {
 const ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const AT = '2026-11-08T11:40:00Z';
 const SERVER_AT = '2026-11-15T00:00:00Z';
-const wrap = (node: ReactNode) => render(<LifecycleHost navigate={vi.fn()} time={time}>{node}</LifecycleHost>);
+const wrap = (node: ReactNode) => render(<MenuQueryHost navigate={vi.fn()} time={time}>{node}</MenuQueryHost>);
 function props(data: Record<string, unknown>, state?: Record<string, string>): ScreenProps {
   const api: LifecycleApi = { useRead: <T,>(name: string): ReadState<T> => ({ status: 'done', data: (data[name] ?? null) as T | null, retry: vi.fn() }), useAction: () => ({ pending: false, run: vi.fn() }) };
   return { api, ui: fakeUi(), canProject: true, canRound: true, actorId: ID, setSelection: vi.fn(), ...(state ? { state, setState: vi.fn() } : {}) };

@@ -4,7 +4,7 @@ import type { LifecycleApi, Presentation, Project, ReadState, ScreenProps } from
 import { ProjectScreen } from '../ProjectScreen';
 import { ModelsScreen } from '../ModelsScreen';
 import { RequestsScreen, QueueWindow } from '../RequestsScreen';
-import { LifecycleHost } from '../host';
+import { MenuQueryHost } from '../../../lib/host/MenuQueryHost';
 
 const project: Project = { id: 'project', modelId: 'model', model: { code: 'SYNTHETIC', name: 'Fixture', vendorName: 'Fixture' }, softwareId: null, stage: 'alpha', kind: 'new', owner: { id: 'actor', displayName: 'Fixture' }, targetDate: null, nextStages: ['beta', 'cancelled'], reopenTo: null, openRound: null, gateTarget: 'beta', gate: { latest: null }, version: '1' };
 const page = vi.fn<Presentation['page']>(parts => <section data-testid="page"><h1>{parts.title}</h1>{parts.primaryAction && <button type="button">{parts.primaryAction.label}</button>}{parts.children}</section>);
@@ -27,12 +27,12 @@ describe('lifecycle page head', () => {
     [true, true, 'cancelled', [], null, undefined],
     [false, false, 'alpha', ['beta'], null, undefined],
   ] as const)('primary project=%s round=%s stage=%s next=%j open=%j', (canProject, canRound, stage, nextStages, openRound, label) => {
-    render(<LifecycleHost navigate={vi.fn()}><ProjectScreen {...props({ ...project, stage, nextStages: [...nextStages], openRound })} projectId="project" canProject={canProject} canRound={canRound} /></LifecycleHost>);
+    render(<MenuQueryHost navigate={vi.fn()}><ProjectScreen {...props({ ...project, stage, nextStages: [...nextStages], openRound })} projectId="project" canProject={canProject} canRound={canRound} /></MenuQueryHost>);
     expect(page.mock.calls.at(-1)?.[0].primaryAction?.label).toBe(label);
     expect(screen.getAllByTestId('page')).toHaveLength(1);
   });
   it('declares disabled overflow reasons without hiding permission-limited actions', () => {
-    render(<LifecycleHost navigate={vi.fn()}><ProjectScreen {...props()} projectId="project" canProject={false} canRound={false} /></LifecycleHost>);
+    render(<MenuQueryHost navigate={vi.fn()}><ProjectScreen {...props()} projectId="project" canProject={false} canRound={false} /></MenuQueryHost>);
     const actions = page.mock.calls.at(-1)?.[0].secondaryActions;
     expect(actions?.find(a => a.label === '개발 건 수정')).toMatchObject({ allowed: false, reason: '개발 건 관리 권한이 없습니다.' });
     expect(actions?.find(a => a.label === 'Round 열기')).toMatchObject({ allowed: false, reason: 'Round 관리 권한이 없습니다.' });
@@ -40,14 +40,14 @@ describe('lifecycle page head', () => {
     expect(document.querySelector('[aria-current="step"]')?.textContent).toContain('알파');
   });
   it('keeps cancellation and reopening in secondary actions', () => {
-    const view = render(<LifecycleHost navigate={vi.fn()}><ProjectScreen {...props()} projectId="project" /></LifecycleHost>);
+    const view = render(<MenuQueryHost navigate={vi.fn()}><ProjectScreen {...props()} projectId="project" /></MenuQueryHost>);
     expect(page.mock.calls.at(-1)?.[0].secondaryActions?.some(a => a.label === '개발 건 취소')).toBe(true);
-    view.rerender(<LifecycleHost navigate={vi.fn()}><ProjectScreen {...props({ ...project, stage: 'cancelled', nextStages: [], reopenTo: 'alpha' })} projectId="project" /></LifecycleHost>);
+    view.rerender(<MenuQueryHost navigate={vi.fn()}><ProjectScreen {...props({ ...project, stage: 'cancelled', nextStages: [], reopenTo: 'alpha' })} projectId="project" /></MenuQueryHost>);
     expect(page.mock.calls.at(-1)?.[0].primaryAction).toBeUndefined();
     expect(page.mock.calls.at(-1)?.[0].secondaryActions?.some(a => a.label === '개발 건 재개')).toBe(true);
   });
   it.each([ModelsScreen, RequestsScreen])('declares exactly one page for a list', Component => {
-    render(<LifecycleHost navigate={vi.fn()}><Component {...props()} /></LifecycleHost>);
+    render(<MenuQueryHost navigate={vi.fn()}><Component {...props()} /></MenuQueryHost>);
     expect(screen.getAllByTestId('page')).toHaveLength(1);
   });
   it('keeps the outside-window warning visible in compact mode', () => {

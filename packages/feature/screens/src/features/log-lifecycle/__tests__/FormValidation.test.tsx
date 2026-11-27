@@ -2,7 +2,7 @@ import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { LifecycleApi, Params, ReadState, RoundDetail, ScreenProps } from '../contracts';
-import { LifecycleHost } from '../host';
+import { MenuQueryHost } from '../../../lib/host/MenuQueryHost';
 import { LifecycleForm } from '../forms';
 import { GatePanel } from '../GatePanel';
 import { fakeUi } from './presentation';
@@ -17,7 +17,7 @@ function props(): ScreenProps {
   return { api, ui, canProject: true, canRound: true, actorId: ID, setSelection: vi.fn() };
 }
 function renderForm(name: string, title: string, initial: Params, version?: string) {
-  return render(<LifecycleHost navigate={vi.fn()}><LifecycleForm {...props()} name={name} title={title} initial={initial} {...(version ? { version } : {})} onClose={vi.fn()} /></LifecycleHost>);
+  return render(<MenuQueryHost navigate={vi.fn()}><LifecycleForm {...props()} name={name} title={title} initial={initial} {...(version ? { version } : {})} onClose={vi.fn()} /></MenuQueryHost>);
 }
 const gate = (allowed = true): RoundDetail => ({ id: ID, projectId: ID, seq: 3, stage: 'alpha', status: 'open', version: '1', createdAt: '', specPin: null, sampleManifestDigest: '', note: null, sampleSet: { sourceOwner: 'team', files: [] }, gateDecisions: [], gateAvailability: { targetStage: 'beta', projectVersion: '7', reasons: [], decisions: { approved: { allowed, reasons: [] }, rejected: { allowed, reasons: [] }, exception: { allowed, reasons: [] } }, basis: {} } });
 /** The control is invalid, described by the visible error and marked required. */
@@ -78,7 +78,7 @@ describe('LifecycleForm submit validation', () => {
 describe('Gate decision submit', () => {
   it('shows exception field errors on submit instead of disabling it, and focuses the first one', async () => {
     const user = userEvent.setup();
-    render(<LifecycleHost navigate={vi.fn()}><GatePanel {...props()} round={gate()} /></LifecycleHost>);
+    render(<MenuQueryHost navigate={vi.fn()}><GatePanel {...props()} round={gate()} /></MenuQueryHost>);
     await user.click(screen.getByRole('radio', { name: '예외' }));
     await user.type(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' }), '일정상 예외');
     await user.clear(screen.getByRole('textbox', { name: '위험 수용자 Actor ID' }));
@@ -94,7 +94,7 @@ describe('Gate decision submit', () => {
   });
   it('focuses the reason first when the reason and the exception scope are both missing', async () => {
     const user = userEvent.setup();
-    render(<LifecycleHost navigate={vi.fn()}><GatePanel {...props()} round={gate()} /></LifecycleHost>);
+    render(<MenuQueryHost navigate={vi.fn()}><GatePanel {...props()} round={gate()} /></MenuQueryHost>);
     await user.click(screen.getByRole('radio', { name: '예외' }));
     await user.click(screen.getByRole('button', { name: 'Gate 결정 기록' }));
     expect(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' })).toHaveFocus();
@@ -105,14 +105,14 @@ describe('Gate decision submit', () => {
     [true, '결정을 선택해 주세요.'],
     [false, '서버가 허용한 결정이 없습니다.'],
   ])('names why the submit is disabled before a decision is chosen (decisions allowed=%s)', (allowed, reason) => {
-    render(<LifecycleHost navigate={vi.fn()}><GatePanel {...props()} round={gate(allowed)} /></LifecycleHost>);
+    render(<MenuQueryHost navigate={vi.fn()}><GatePanel {...props()} round={gate(allowed)} /></MenuQueryHost>);
     const submit = screen.getByRole('button', { name: 'Gate 결정 기록' });
     expect(submit).toBeDisabled();
     expect(submit).toHaveAccessibleDescription(reason);
   });
   it('sends the same exception payload as before when valid', async () => {
     const user = userEvent.setup();
-    render(<LifecycleHost navigate={vi.fn()}><GatePanel {...props()} round={gate()} /></LifecycleHost>);
+    render(<MenuQueryHost navigate={vi.fn()}><GatePanel {...props()} round={gate()} /></MenuQueryHost>);
     await user.click(screen.getByRole('radio', { name: '예외' }));
     await user.type(screen.getByRole('textbox', { name: '결정 사유 (한 줄)' }), '일정상 예외');
     await user.type(screen.getByRole('textbox', { name: '예외 범위' }), '이 Round에 한함');

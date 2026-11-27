@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, type SyntheticEvent } from 'react';
 import { EmbeddedPane, AuditTimeline, DataTrustIndicator, PageKeyWarning, usePageKeyRules, DetailDrawer, PlatformDataTable, PlatformPage, HeaderOverflowItem } from '@ap/components';
-import { PlatformLink, formatFeedTime, formatListTime, formatSummaryTime, useEndpointRefreshEpoch, useI18n, useMenuAction, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, type PageProps } from '@ap/kernel';
+import { PlatformLink, useEndpointRefreshEpoch, useMenuAction, useMenuFetch, useMenuQuery, usePlatform, usePlatformQuery, useTimeNotation, type PageProps } from '@ap/kernel';
 import { defineEndpoint, type AuditEvent, type EndpointSpec, isAnswered } from '@ap/contracts';
-import { GATE_LABEL, STAGE_LABEL, LifecycleHost, isRequestPeriodValue, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
+import { GATE_LABEL, STAGE_LABEL, isRequestPeriodValue, MenuQueryHost, ModelsScreen, ProjectScreen, RequestsScreen, type Action, type LifecycleApi, type Params, type Presentation, type ProjectEvent, type ReadState, type ScreenProps, type TableParts } from '@ap/feature-screens/operator-screens/log-lifecycle';
 import { roundSourceView } from '../round-source-slot';
 import { actions, endpoints, isUuid, isDiagnosticSelection, PROJECT_MANAGE, ROUND_MANAGE, GATE_DECIDE, ISSUE_CONTRIBUTE, ISSUE_LINK } from '../endpoints';
 import { isModelHierarchyNodeId } from '../hierarchy';
@@ -108,10 +108,10 @@ const ui: Presentation = {
 export default function LifecyclePage({ params = {} }: PageProps) {
   const platform = usePlatform();
   const { page, pageParam, setPage, navigate, linkTo, can, user, revision } = platform;
-  const { lang } = useI18n();
   // Instants in the viewer's zone through the Kernel notation; `list` also takes the run window's zone for the server time (#2587).
   // The request-period inputs use the same zone as `list`: the Kernel default, the runtime zone.
-  const time = useMemo(() => ({ list: (at: string, options?: { timeZone?: string }) => formatListTime(at, options), summary: (at: string) => formatSummaryTime(at, lang), feed: (at: string) => formatFeedTime(at, lang), input: timeInputIn(Intl.DateTimeFormat().resolvedOptions().timeZone) }), [lang]);
+  const notation = useTimeNotation();
+  const time = useMemo(() => ({ ...notation, input: timeInputIn(Intl.DateTimeFormat().resolvedOptions().timeZone) }), [notation]);
   const navigateScreen = useCallback((to: string) => {
     const url = new URL(to, 'https://host.invalid');
     const match = /^\/log\/models\/([^/]+)(?:\/rounds\/([^/]+))?$/.exec(url.pathname);
@@ -154,7 +154,7 @@ export default function LifecyclePage({ params = {} }: PageProps) {
     ...['requestedFrom','requestedTo'].map(key => ({ key, label: { ko: key, en: key }, valid: isRequestPeriodValue })),
   ]);
   const invalid = (projectId && !isUuid(projectId)) || (roundId && !isUuid(roundId)) || (selection && !isUuid(selection));
-  return <LifecycleHost navigate={navigateScreen} time={time}><ReplacedScreen.Provider value={replaced}><div key={`${user.id}:${revision}`} className="contents">
+  return <MenuQueryHost navigate={navigateScreen} time={time}><ReplacedScreen.Provider value={replaced}><div key={`${user.id}:${revision}`} className="contents">
     {keys.invalid ? ui.page({ title: platform.route?.menu.label.ko ?? lifecycleMessages.pageFallback.ko, children: <PageKeyWarning sentences={keys.sentences} onRecover={keys.recover} /> }) : invalid ? ui.page({ title: lifecycleMessages.pageFallback.ko, children: <p role="alert" className="text-sm">{lifecycleMessages.invalidId.ko}</p> }) : projectId ? <ProjectScreen key={projectId} {...props} projectId={projectId} {...(roundId ? { roundId } : {})} /> : platform.route?.menu.id === 'log-validation-requests' ? <RequestsScreen {...props} /> : <ModelsScreen {...props} />}
-  </div></ReplacedScreen.Provider></LifecycleHost>;
+  </div></ReplacedScreen.Provider></MenuQueryHost>;
 }
