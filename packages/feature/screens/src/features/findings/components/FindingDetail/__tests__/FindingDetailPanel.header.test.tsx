@@ -1,0 +1,36 @@
+import { render } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const findingDetailState = vi.hoisted(() => ({ state: 'loading' as 'loading' | 'blocked' }));
+
+vi.mock('../../../hooks/useFindingDetail', () => ({
+  useFindingDetail: () => ({
+    data: undefined,
+    isLoading: findingDetailState.state === 'loading',
+    isError: findingDetailState.state === 'blocked',
+    isSuccess: false,
+    isFetching: false,
+    error: findingDetailState.state === 'blocked' ? { code: 'permission.denied' } : null,
+  }),
+}));
+
+import { FindingDetailPanel } from '../../../../../test/host-adapters/features/findings/components/FindingDetail/FindingDetailPanel';
+
+describe('FindingDetailPanel header rhythm', () => {
+  beforeEach(() => {
+    findingDetailState.state = 'loading';
+  });
+
+  it.each(['loading', 'blocked'] as const)(
+    'mounts the shared Finding header without an id in the %s state',
+    (state) => {
+      findingDetailState.state = state;
+      const { container } = render(
+        <FindingDetailPanel findingId="10000000-0000-0000-0000-000000000001" />,
+      );
+
+      expect(container.querySelector('[data-kind="finding"]')).toBeInTheDocument();
+      expect(container.querySelector('[data-kind="finding"] .font-mono')).toBeNull();
+    },
+  );
+});
