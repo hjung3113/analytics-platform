@@ -50,8 +50,8 @@ function useSoftwareOptions(modelId: string | null) {
     const controller = new AbortController();
     void fetchRef.current({ modelId }, controller.signal).then(res => {
       if (controller.signal.aborted) return;
-      const ok = (isAnswered(res.outcome)) && res.data;
-      setState({ modelId, options: ok ? res.data!.rows.map(s => ({ value: s.id, label: softwareLabel(s) })) : [], failed: !ok });
+      const rows = isAnswered(res.outcome) ? res.data?.rows : undefined;
+      setState({ modelId, options: rows ? rows.map(s => ({ value: s.id, label: softwareLabel(s) })) : [], failed: !rows });
     }).catch(() => { if (!controller.signal.aborted) setState({ modelId, options: [], failed: true }); });
     return () => controller.abort();
   }, [modelId, nonce]);

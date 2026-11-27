@@ -24,14 +24,14 @@ export const RULE_SORT_IDS = ['ruleSetKey', 'ruleKey', 'title', 'support', 'revi
 const textSpec: ColumnFilterSpec = { kind: 'enum', options: [], ops: ['in', 'notIn'] };
 const presenceSpec: ColumnFilterSpec = { kind: 'enum', options: [], ops: ['isEmpty', 'isNotEmpty'], multiple: false };
 export const ruleSetFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = { ruleSetKey: textSpec, sourceSystem: textSpec };
-export const ruleWireFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = {
+export const ruleWireFilterSpecs = {
   support: { kind: 'enum', options: SUPPORTS.map(value => ({ value, label: SUPPORT_LABEL[value] })), ops: ['in', 'notIn'] },
   ruleSetKey: textSpec, scope: presenceSpec, requirementIds: presenceSpec,
-};
+} satisfies Readonly<Record<string, ColumnFilterSpec>>;
 /** UI-only target text condition is translated to the existing server targetQ parameter. */
-export const ruleFilterSpecs: Readonly<Record<string, ColumnFilterSpec>> = {
+export const ruleFilterSpecs = {
   ...ruleWireFilterSpecs, targetCount: { kind: 'text', ops: ['contains'] },
-};
+} satisfies Readonly<Record<string, ColumnFilterSpec>>;
 export type CatalogParams = { q?: string | null; page?: number; pageSize?: number; sorting?: PageSort[]; filters?: ColumnFilter[] };
 export type RuleParams = CatalogParams & { targetQ?: string | null };
 export type SupportCounts = Record<Support, number> & { total: number };

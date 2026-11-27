@@ -35,7 +35,13 @@ const issueInputs: Record<string, string[]> = {
   validationIssueRegister: ['projectId', 'firstRoundId', 'title', 'body', 'expected', 'actual', 'repro'], validationIssueComment: ['issueId', 'body', 'correctsCommentId'], validationIssueCorrect: ['issueId', 'field', 'body', 'correctsEventId'],
   validationIssueLinkOccurrence: ['issueId', 'roundId', 'attemptId', 'ruleResultId'], validationIssueLinkEvidence: ['occurrenceId', 'refs'], roundDiscussionComment: ['roundId', 'body', 'correctsCommentId'],
 };
-const issueReads = ['validationIssues', 'validationIssueDetail', 'validationIssueThread', 'validationIssueHistory', 'roundDiscussion'].map(name => endpoints[name]!);
+/** The read endpoint `name`; a name outside `reads` is a programming error, so it fails at module load instead of later. */
+export function endpointNamed(name: string): EndpointSpec<Params, unknown> {
+  const spec = endpoints[name];
+  if (spec === undefined) throw new Error(`log-models has no read endpoint ${name}`);
+  return spec;
+}
+const issueReads = ['validationIssues', 'validationIssueDetail', 'validationIssueThread', 'validationIssueHistory', 'roundDiscussion'].map(endpointNamed);
 for (const [name, input] of Object.entries(issueInputs)) actions[name] = defineAction<Params, Record<string, unknown>>({ id: `logLifecycle.${name}`, menuId: 'log-models', permission: name.startsWith('validationIssueLink') ? ISSUE_LINK : ISSUE_CONTRIBUTE, requiresScope: false, inputKeys: keys(input), concurrency: 'none', invalidates: issueReads });
 export const endpointSpecs = Object.values(endpoints);
 
