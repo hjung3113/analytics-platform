@@ -130,6 +130,35 @@ map.get('not-storage');
       [15, 'readBrowserPreference', "browserPreferenceKey('columns', user)", false],
       [15, 'browserPreferenceKey', 'columns', true],
       [16, 'getItem', 'platform:groups:v1:${tuple()}', true],
+      [17, 'getItem', 'key', false],
+    ],
+  );
+});
+
+test('findStorageKeys lists a same-file wrapper by its callers and keeps the inner call of a wrapper with none', () => {
+  const hits = findStorageKeys(
+    sf(`
+const TABLE_SIZE_KEY = 'platform:table-size';
+const sizeKey = (userId?: string) => (userId ? \`\${TABLE_SIZE_KEY}:\${userId}\` : TABLE_SIZE_KEY);
+const readLocal = (key: string) => readLocalStorage(key, decode, 'normal');
+function readJson(store: Storage, key: string) { return store.getItem(key); }
+function load(userId: string) {
+  const localKey = sizeKey(userId);
+  readLocal(localKey);
+  readJson(localStorage, \`platform:favorites:\${userId}\`);
+}
+export function readExported(name: string) { return sessionStorage.getItem(name); }
+function shadow(name: string) { for (const [k] of rows) use(k); return localStorage.getItem(name); }
+const name = 'not-this';
+`),
+  );
+  assert.deepEqual(
+    hits.map((h) => [h.line, h.method, h.key, h.resolved]),
+    [
+      [8, 'readLocal', 'platform:table-size:${userId} | platform:table-size', true],
+      [9, 'readJson', 'platform:favorites:${userId}', true],
+      [11, 'getItem', 'name', false],
+      [12, 'getItem', 'name', false],
     ],
   );
 });
