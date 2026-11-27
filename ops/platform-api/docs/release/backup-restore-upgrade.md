@@ -80,6 +80,10 @@ Check a copy with `bash scripts/backup/verify-backup.sh <dir>` (works anywhere w
 
     BACKUP_ROOT=/srv/platform-backups bash scripts/backup/restore.sh /srv/platform-backups/<timestamp> --project platform-restore
 
+To restore the oldest backup the retention keeps (`BACKUP_KEEP`), first copy it outside `BACKUP_ROOT` or raise `BACKUP_KEEP`:
+the restore holds the target project's lock, the daily `backup.sh` holds the production project's lock, so a retention prune
+during the restore may delete the source directory (the restore then fails).
+
 The target gets fresh volumes `platform-restore_postgres` and `platform-restore_minio`. A different compose project name
 alone does not isolate data (the compose file pins volume names through `RELEASE_POSTGRES_VOLUME` / `RELEASE_MINIO_VOLUME`),
 so the script sets both for every target call and refuses before any start or write if either name equals a source or
@@ -186,11 +190,18 @@ The nested backup still records the containers' images, so preloaded `:local` ta
 2. Tags the running images `:pre-<UTC timestamp>` (the rollback set): backend, migrate and the web image of the **running
    `edge` container** (not the mutable `:local` tag).
 3. Stops `backend`, runs `backup.sh --keep-stopped` and `verify-backup.sh`, all under the maintenance lock. If either fails the script stops: nothing is
-   migrated and the backend stays stopped.
+   migrated and the backend stays stopped. The same holds after an INT/TERM during this step. To serve again without upgrading,
+   restart only the existing container: `docker compose -p <project> --env-file <env> -f <compose> start backend` (the script
+   prints it with its own values). With `upgrade.sh local` the `:local` tags already hold the new images, so `up -d` would
+   first run the new migrate image on a database without a verified backup: use `start backend` only, or first move `:local`
+   back to the `:pre-<UTC timestamp>` images the script printed in step 2 (it prints the `docker tag` commands).
 4. Moves the new backend, migrate and web images onto the `:local` tags together and runs the `migrate` job. On a non-zero exit
    the backend **stays stopped** and the script prints the journal inspection command, the `restore.sh` command for the
    matching backup and the image rollback tags (backend, migrate and web).
-5. `up -d`, then waits for `/health/ready` 200.
+5. `up -d`, then waits for `/health/ready` 200. If readiness fails within 120 s, the script prints the rollback block and
+   stops, but the stack stays **up**: backend and edge run on the new images over the migrated database
+   (`restart: unless-stopped`) and may still become ready and take writes. Before starting a restore, stop them:
+   `docker compose -p <project> --env-file <env> -f <compose> stop backend edge` (printed with the script's values).
 
 **Restored installation (pin file present).** When `docker-compose.restore-<project>.yml` exists next to the compose file,
 steps 4 and 5 never use the old pins: the script writes a temporary pin file with the immutable ids of the target backend,

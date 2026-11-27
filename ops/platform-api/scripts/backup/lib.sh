@@ -154,6 +154,12 @@ bk_dc() { # compose with the production file; BK_COMPOSE_OVERRIDE (temporary) an
   [ -z "${BK_COMPOSE_PINS:-}" ] || files+=(-f "$BK_COMPOSE_PINS")
   docker compose --env-file "$ENV_FILE" "${files[@]}" -p "$PROJECT" "$@"
 }
+bk_dc_hint() { # bk_dc_hint [pin file]: the compose command an operator runs for this installation, with this run's values
+  local cmd
+  cmd="docker compose -p $(printf '%q' "$PROJECT") --env-file $(printf '%q' "$ENV_FILE") -f $(printf '%q' "$COMPOSE_FILE")"
+  [ -z "${1:-}" ] || cmd="$cmd -f $(printf '%q' "$1")"
+  printf '%s\n' "$cmd"
+}
 # Image pin file (restore.sh writes it, upgrade.sh keeps it current): immutable ids for every service that runs one of the three images.
 bk_write_pins() { # bk_write_pins <file> <backend-id> <migrate-id> <web-id> <origin comment>
   local file="$1" svc
