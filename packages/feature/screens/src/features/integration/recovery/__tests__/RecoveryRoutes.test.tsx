@@ -5,6 +5,7 @@ import {
   recoveryVisualHistory,
   recoveryVisualList,
 } from '../../../../test/fixtures/recovery';
+import { registerTaggedTimeHost } from '../../../../test/fixtures/tagged-time';
 import { CoverageRoute } from '../../../../test/screen-host/features/integration/routes/CoverageRoute';
 import { IntegrationDashboardRoute } from '../../../../test/screen-host/features/integration/routes/IntegrationDashboardRoute';
 import { HomeRoute, validateHomeSearch } from '../../../../test/screen-host/routes/_authed/home';
@@ -25,7 +26,7 @@ import {
 } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, expect, it, onTestFinished, vi } from 'vitest';
 
 const ID = '11111111-1111-4111-8111-111111111111';
 const time = '2026-07-20T08:00:00.000Z';
@@ -245,24 +246,25 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
+// The freshness line is the `summary` notation (#2587). The test Home adapter pins the standalone host, which has no Kernel notation,
+// so /home shows the feature fallback for `summary` (KST); the integration routes read the tagged default host.
 it.each([
-  ['/home', 'home-refresh'],
-  ['/integration', 'integration-dashboard-refresh'],
-  ['/integration/coverage', 'coverage-refresh'],
-])('retains last successful server time after failed refresh on %s', async (url, refresh) => {
+  ['/home', 'home-refresh', '서버 계산 시각 · 7월 20일 오후 5:00'],
+  ['/integration', 'integration-dashboard-refresh', `서버 계산 시각 · summary:${time}`],
+  ['/integration/coverage', 'coverage-refresh', `서버 계산 시각 · summary:${time}`],
+])('retains last successful server time after failed refresh on %s', async (url, refresh, computed) => {
+  onTestFinished(await registerTaggedTimeHost());
   const api = install();
   await mount(url);
   await waitFor(() =>
-    expect(screen.getAllByTestId('recovery-freshness')[0]).toHaveTextContent(
-      '2026-07-20 08:00:00 UTC',
-    ),
+    expect(screen.getAllByTestId('recovery-freshness')[0]).toHaveTextContent(computed),
   );
   api.fail();
   fireEvent.click(screen.getByTestId(refresh));
   await screen.findByText('새로고침 실패 · 마지막 성공한 결과입니다.');
-  expect(screen.getAllByTestId('recovery-freshness')[0]).toHaveTextContent(
-    '2026-07-20 08:00:00 UTC',
-  );
+  const [line] = screen.getAllByTestId('recovery-freshness');
+  expect(line).toHaveTextContent(computed);
+  expect(line?.textContent).not.toMatch(/UTC/);
 });
 it('unregisters Home detail slot on Inbox and restores selected detail on Dashboard and Back', async () => {
   install();

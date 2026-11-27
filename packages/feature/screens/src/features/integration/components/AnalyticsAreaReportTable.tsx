@@ -1,7 +1,7 @@
 import { AREA_REPORT_COPY as COPY } from '../../../lib/copy/area-report';
 import { HostLink, useHostSeam } from '../../../lib/host/host-seam';
 import type { AreaReportLink, DashboardAreaReport } from '@ap/feature-shared';
-import { formatRecoveryTime } from '../recovery/RecoveryFreshness';
+import { FeatureTimestamp } from '../../../components/FeatureTimestamp';
 
 type Row = DashboardAreaReport['items'][number];
 type Count = NonNullable<Row['voc']>['total'];
@@ -196,7 +196,7 @@ export function AnalyticsAreaReportTable({ report }: { report: DashboardAreaRepo
         <p className="text-sm text-text-muted">{COPY.scope}</p>
         <p className="mt-2 text-xs text-text-muted">
           {COPY.computed} ·{' '}
-          <time dateTime={report.computed_at}>{formatRecoveryTime(report.computed_at)}</time>
+          <FeatureTimestamp at={report.computed_at} notation="summary" />
         </p>
       </div>
       {unclassified && <p className="text-sm text-text-muted">{COPY.unclassified}</p>}
