@@ -2,12 +2,12 @@ import { useLifecycleNavigate } from './host';
 import { FeatureTimestamp, useFeatureTime } from '../../components/FeatureTimestamp';
 import { usePageValue } from './usePageValue';
 import { useRef, useState } from 'react';
-import { Button, Checkbox, InfoTip, Input, Label, StatusBadge, useImeEnterGuard } from '@ap/ui';
+import { Button, Checkbox, FormField, InfoTip, Input, Label, StatusBadge, useImeEnterGuard, useValidatedSubmit, type ValidationErrors } from '@ap/ui';
 import { STATE_LABEL, type Attempt, type Model, type Page, type QueueStatus, type RoundDetail, type RequestDetail, type RequestRow, type Round, type ScreenProps, type WriteResult } from './contracts';
-import { Choice, Disclosure, GateBadge, Pager, ReadView, Section, StateBadge, writeFailure, WriteError } from './presentation';
+import { Choice, ChoiceField, Disclosure, GateBadge, Pager, ReadView, Section, StateBadge, writeFailure, WriteError } from './presentation';
 import { LifecycleForm } from './forms';
 import { RuleSetCell } from './RuleSetCell';
-import { pageCopy } from './messages';
+import { formCopy, pageCopy } from './messages';
 import { requestPeriodFromInput, requestPeriodInputValue, requestPeriodInstant, type PeriodRefusal, type TimeInput } from './requestPeriod';
 
 export function QueueWindow({ api, compact = false }: Pick<ScreenProps, 'api'> & { compact?: boolean }) {
@@ -29,6 +29,13 @@ export function Attempts({ attempts, selected, onSelect, ui, compact = false, Ru
 }
 export function ResultSummary({ attempt }: { attempt?: Attempt | undefined }) { return <p className="text-xs text-text-secondary">{attempt ? `${STATE_LABEL[attempt.verdict ?? 'none'] ?? '판정 없음'}${attempt.requiredUnchecked > 0 ? ` · 필수 규칙 ${attempt.requiredUnchecked}건 미검증` : ''}${attempt.manifestMatches ? '' : ' · 샘플 매니페스트 불일치'}` : '아직 결과가 없습니다. 작업자가 실행 결과를 저장하면 표시됩니다.'}</p>; }
 
+type RegisterFields = { projectId: string; roundId: string };
+/** Submit-time errors of request registration (#2574); a fixed Round needs no choice. */
+function validateRegister({ projectId, roundId }: RegisterFields, fixed: boolean): ValidationErrors<RegisterFields> {
+  if (fixed) return {};
+  if (!projectId) return { projectId: formCopy.projectRequired };
+  return roundId === 'none' ? { roundId: formCopy.roundRequired } : {};
+}
 export function RequestRegister(props: ScreenProps & { fixedRound?: { id: string; seq: number }; onClose(): void }) {
   const ime = useImeEnterGuard();
   const { api, ui, fixedRound, onClose } = props;
@@ -44,18 +51,21 @@ export function RequestRegister(props: ScreenProps & { fixedRound?: { id: string
   const [result, setResult] = useState<WriteResult | null>(null);
   const locked = create.pending || result?.outcome === 'unknown' || result?.outcome === 'error';
   async function submit() { try { const next = await create.run({ roundId, priority: Number(priority), immediate }); setResult(next); if (next.outcome === 'ok') onClose(); } catch (cause) { const failure = writeFailure(cause); if (failure) setResult(failure); } }
-  return ui.drawer({ title: '요청 등록', subtitle: 'Round의 샘플·명세 검증을 요청합니다', requestClose: () => { if (!create.pending) onClose(); }, body: <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-5 break-keep" onSubmit={e => { e.preventDefault(); void submit(); }}>
-    {fixedRound ? <div className="grid gap-2"><Label htmlFor="fixed-round">Round (필수)</Label><Input inputSize="toolbar" id="fixed-round" disabled value={fixedRound.id} /><p className="text-xs">Round {fixedRound.seq} · 이 Round로 고정</p></div> : <>
-      <div className="grid gap-2"><Label htmlFor="request-model">모델 검색</Label><Input id="request-model" inputSize="toolbar" value={modelQ} disabled={locked} onChange={e => { setModelQ(e.target.value); setModelPage(0); setProjectId(''); setRoundId('none'); }} /></div>
-      <ReadView query={models}>{data => <><Choice label="개발 건 선택" value={projectId || 'none'} disabled={locked} onChange={id => { setProjectId(id === 'none' ? '' : id); setRoundId('none'); }} options={[[ 'none', '모델의 열린 개발 건 선택' ], ...data.rows.flatMap(m => m.project ? [[m.project.projectId, `${m.code} · ${m.name}`] as const] : [])]} /><Pager page={modelPage} total={data.total} onChange={page => { setModelPage(page); setProjectId(''); setRoundId('none'); }} />{data.rows.every(m => !m.project) ? <p className="text-xs">선택할 개발 건이 없습니다. 모델에서 개발 건을 먼저 만들어 주세요.</p> : null}</>}</ReadView>
-      {projectId ? <ReadView query={rounds}>{data => <Choice label="Round (필수)" value={roundId} onChange={setRoundId} disabled={locked} options={[[ 'none', '열린 Round 선택' ], ...data.rows.filter(r => r.status === 'open').map(r => [r.id, `Round ${r.seq}`] as const)]} />}</ReadView> : null}
+  const { errors, handleSubmit, clearError } = useValidatedSubmit<RegisterFields>({ validate: values => validateRegister(values, !!fixedRound), onValid: () => { void submit(); } });
+  const chooseProject = (id: string) => { setProjectId(id); setRoundId('none'); clearError('projectId'); clearError('roundId'); };
+  return ui.drawer({ title: '요청 등록', subtitle: 'Round의 샘플·명세 검증을 요청합니다', requestClose: () => { if (!create.pending) onClose(); }, body: <form onKeyDown={ime.onKeyDown} onCompositionStart={ime.onCompositionStart} onCompositionEnd={ime.onCompositionEnd} className="grid gap-5 break-keep" onSubmit={handleSubmit({ projectId, roundId })}>
+    {fixedRound ? <FormField id="fixed-round" label="Round" required requiredMark="text" hint={`Round ${fixedRound.seq} · 이 Round로 고정`}>{control => <Input {...control} inputSize="toolbar" disabled value={fixedRound.id} />}</FormField> : <>
+      {/* The model search is live: Enter has nothing to apply, so it never submits the request (IME Enter included). */}
+      <div className="grid gap-2"><Label htmlFor="request-model">모델 검색</Label><Input id="request-model" inputSize="toolbar" value={modelQ} disabled={locked} onKeyDown={e => { if (ime.isComposingEnter(e) || e.key === 'Enter') e.preventDefault(); }} onChange={e => { setModelQ(e.target.value); setModelPage(0); chooseProject(''); }} /></div>
+      <ReadView query={models}>{data => <><ChoiceField id="request-project" label="개발 건 선택" value={projectId || 'none'} disabled={locked} error={errors.projectId} onChange={id => chooseProject(id === 'none' ? '' : id)} options={[[ 'none', '모델의 열린 개발 건 선택' ], ...data.rows.flatMap(m => m.project ? [[m.project.projectId, `${m.code} · ${m.name}`] as const] : [])]} /><Pager page={modelPage} total={data.total} onChange={page => { setModelPage(page); chooseProject(''); }} />{data.rows.every(m => !m.project) ? <p className="text-xs">선택할 개발 건이 없습니다. 모델에서 개발 건을 먼저 만들어 주세요.</p> : null}</>}</ReadView>
+      {projectId ? <ReadView query={rounds}>{data => <ChoiceField id="request-round" label="Round" value={roundId} onChange={id => { setRoundId(id); clearError('roundId'); }} disabled={locked} error={errors.roundId} options={[[ 'none', '열린 Round 선택' ], ...data.rows.filter(r => r.status === 'open').map(r => [r.id, `Round ${r.seq}`] as const)]} />}</ReadView> : null}
     </>}
     <p className="text-xs text-text-secondary">Round의 샘플과 명세는 읽기 전용입니다. 샘플을 바꾸려면 새 Round를 열어 주세요.</p>
     <Choice label="우선순위" value={priority} onChange={setPriority} disabled={locked} options={[[ '0', '0 · 낮음' ], ['1', '1 · 보통'], ['2', '2 · 높음']]} />
     <label htmlFor="request-immediate" className="flex items-center gap-2 text-sm"><Checkbox id="request-immediate" checked={immediate} disabled={locked} onCheckedChange={v => setImmediate(v === true)} />즉시 실행</label><p className="text-xs text-text-secondary">시간대 밖에서도 가져갈 수 있습니다. 시작을 보장하지 않으며 우선순위와 별개입니다. 작업자 토큰이 필요합니다.</p>
     <Section title="현재 실행 시간대"><QueueWindow api={api} /></Section>
     <WriteError result={result} onRetry={() => { void result?.retry?.().then(next => { setResult(next); if (next.outcome === 'ok') onClose(); }).catch(cause => { const failure = writeFailure(cause); if (failure) setResult(failure); }); }} />
-    <Button type="submit" variant="primary" size="toolbar" disabled={locked || roundId === 'none'}>{create.pending ? '등록 중…' : '요청 등록'}</Button>
+    <Button type="submit" variant="primary" size="toolbar" disabled={locked}>{create.pending ? '등록 중…' : '요청 등록'}</Button>
   </form> });
 }
 export function RequestDrawer(props: ScreenProps & { requestId: string; onClose(): void }) {

@@ -32,7 +32,7 @@ export function RelationEditor({ rows, onChange, options, errors, specReady, dis
     onChange(rows.filter((_, at) => at !== index));
     setExpanded(current => current === null || current === index ? null : current > index ? current - 1 : current);
   };
-  return <section ref={root} aria-label={w('Event 관계 기록', 'Event relation records')} className="grid gap-3 break-keep">
+  return <section ref={root} aria-label={w('Event 관계 기록', 'Event relation records')} aria-describedby={errors['relations'] ? `${uid}-relations-error` : undefined} className="grid gap-3 break-keep">
     <h3 className="text-sm font-medium">{w('Event 관계 기록', 'Event relation records')}</h3>
     <p className="text-xs text-text-muted">{w('기록하지 않아도 저장됩니다.', 'You can save without recording relations.')}</p>
     {rows.map((row, index) => {
@@ -57,11 +57,11 @@ export function RelationEditor({ rows, onChange, options, errors, specReady, dis
           </p>
         </div><Button type="button" data-relation-edit size="icon-sm" variant="ghost" disabled={disabled} aria-label={`${name} ${w('수정', 'Edit')}`} aria-expanded={false} onClick={() => { focusRequest.current = { index }; setExpanded(index); }}><Pencil className="size-3.5" aria-hidden /></Button></div>}
         {unknown.length > 0 && <p className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-secondary"><StatusBadge tone="warning">{w('명세에 없는 Event', 'Event not in specification')}</StatusBadge>{unknown.map(key => <span key={key} className="t-mono break-all">{key}</span>)}</p>}
-        {error && <p id={`${uid}-${index}-error`} role="alert" className="mt-2 text-xs text-text-danger-label">{error}</p>}
+        {error && <p id={`${uid}-${index}-error`} className="mt-2 text-xs text-text-danger-label">{error}</p>}
       </fieldset>;
     })}
     <div className="flex items-center gap-2"><Button ref={addButton} type="button" variant="secondary" size="sm" disabled={disabled || rows.length >= ITEM_RELATION_LIMITS.relations} onClick={() => { focusRequest.current = { index: rows.length }; onChange([...rows, emptyRelation()]); setExpanded(rows.length); }}><Plus className="size-3.5" aria-hidden />{w('관계 추가', 'Add relation')}</Button><span className="text-xs text-text-muted">{rows.length}/{ITEM_RELATION_LIMITS.relations}</span></div>
-    {errors['relations'] && <p role="alert" className="text-xs text-text-danger-label">{errors['relations']}</p>}
+    {errors['relations'] && <p id={`${uid}-relations-error`} className="text-xs text-text-danger-label">{errors['relations']}</p>}
   </section>;
 }
 

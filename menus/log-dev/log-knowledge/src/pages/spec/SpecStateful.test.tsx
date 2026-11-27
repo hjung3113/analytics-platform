@@ -183,8 +183,9 @@ describe('nested server errors reach their controls (fix C5 / A2)', () => {
     const input = await screen.findByLabelText(lang === 'en' ? 'Specification TSV' : '명세 TSV');
     fireEvent.click(screen.getByRole('button', { name: lang === 'en' ? 'Save' : '저장' }));
     await waitFor(() => expect(input.getAttribute('aria-invalid')).toBe('true'));
-    const alert = (input.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)).find(el => el?.getAttribute('role') === 'alert');
-    expect(alert?.textContent).toMatch(detail);
+    const error = (input.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)).find(el => el?.id.endsWith('-error'));
+    expect(error?.textContent).toMatch(detail);
+    expect(error?.getAttribute('role')).toBeNull();
   });
   it('keeps the server total next to the detail-line cut (RF5 C5)', async () => {
     memoryLang('ko');
@@ -194,9 +195,9 @@ describe('nested server errors reach their controls (fix C5 / A2)', () => {
     const input = await screen.findByLabelText('명세 TSV');
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(input.getAttribute('aria-invalid')).toBe('true'));
-    const alert = (input.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)).find(el => el?.getAttribute('role') === 'alert');
-    expect(alert?.textContent).toMatch(/외 5건/);
-    expect(alert?.textContent).toMatch(/120/);
+    const error = (input.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)).find(el => el?.id.endsWith('-error'));
+    expect(error?.textContent).toMatch(/외 5건/);
+    expect(error?.textContent).toMatch(/120/);
   });
   it('maps replacement and target errors onto the change editor controls', async () => {
     mount(`&tab=changes&drawer=retire&change=${change.id}`, { action: () => server([{ path: ['replacement', 'change', 'after', 'name'], code: 'target_mismatch' }, { path: ['replacement', 'target', 'module'], code: 'required' }, { path: ['range'], code: 'overlap' }]) });

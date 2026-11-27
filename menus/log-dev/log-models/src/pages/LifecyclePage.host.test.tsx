@@ -228,7 +228,7 @@ describe('lifecycle interactions with the real Kernel host', () => {
       expect(search).toBeDefined();
       expect(search?.params.filters ?? []).toEqual([]);
     });
-    click(element('[role="combobox"][aria-label="개발 건 선택"]'));
+    click(element('[role="combobox"]#request-project'));
     await waitFor(() => expect(text('MODEL-B · 다른 모델')).toBe(true));
     expect(query().get('modelId')).toBe(ID);
   });

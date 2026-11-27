@@ -241,8 +241,12 @@ describe('log lifecycle screens', () => {
   });
   it('fixes the Round when request registration starts there', async () => {
     render(<RequestsScreen {...props({ requests: { rows: [], total: 0 } })} fixedRound={{ id: ID, seq: 3 }} register />);
-    expect(within(screen.getByRole('dialog')).getByLabelText('Round (필수)')).toHaveValue(ID);
-    expect(within(screen.getByRole('dialog')).getByLabelText('Round (필수)')).toBeDisabled();
+    const fixed = within(screen.getByRole('dialog')).getByRole('textbox', { name: 'Round' });
+    expect(fixed).toHaveValue(ID);
+    expect(fixed).toBeDisabled();
+    // #2574 follow-up C1: the same «· 필수» mark as the other lifecycle forms, not «(필수)» in the label text.
+    expect(document.querySelector(`label[for="${fixed.id}"]`)?.textContent).toBe('Round· 필수');
+    expect(fixed).toHaveAccessibleDescription('Round 3 · 이 Round로 고정');
   });
 });
 

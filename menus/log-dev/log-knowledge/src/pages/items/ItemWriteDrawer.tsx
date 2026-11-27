@@ -12,7 +12,7 @@ import { relationInputs, relationRowsOf, validateRelations } from './itemRelatio
 import { picksOf, subjectsPayload, toSubjectInputs, subjectErrorText, type SubjectPick } from './subjectModel';
 import { itemNoLabel, ownerText } from './itemModel';
 import {
-  createInput, deriveForm, deriveInput, deriveNotice, emptyForm, mapItemErrors, ownerLine, reviseForm, reviseInput, validateForm,
+  createInput, deriveForm, deriveInput, deriveNotice, emptyForm, itemErrorText, mapItemErrors, ownerLine, reviseForm, reviseInput, validateForm,
   type FormErrors, type WriteForm, type WriteMode,
 } from './itemWriteModel';
 
@@ -34,6 +34,25 @@ export type ItemWriteDraft = {
 };
 
 const EMPTY_DRAFT: ItemWriteDraft = { form: emptyForm(''), picks: [], relations: [], baseVersion: '' };
+/** The draft as `useValidatedSubmit` sees it: its errors are keyed by control, not by draft property. */
+type SubmittedDraft = ItemWriteDraft & Record<string, unknown>;
+
+/**
+ * Local error keys of a row list to drop for an edit. Row errors are keyed by index (`<prefix>.<i>` or `<prefix>.<i>.<field>`), so
+ * adding or removing a row (which shifts the keys) drops every error of the list; otherwise only the edited row or field loses its error.
+ */
+function changedRowKeys<Row extends object>(prefix: string, listKey: string, before: readonly Row[], after: readonly Row[], keys: readonly string[]): string[] {
+  const own = keys.filter(key => key === listKey || key.startsWith(`${prefix}.`));
+  if (before.length !== after.length) return own;
+  return own.filter(key => {
+    if (key === listKey) return false;
+    const [, index, field] = key.split('.');
+    const was = before[Number(index)], now = after[Number(index)];
+    return field === undefined ? JSON.stringify(was) !== JSON.stringify(now) : was?.[field as keyof Row] !== now?.[field as keyof Row];
+  });
+}
+/** The one live announcement of a server rejection mapped onto fields; the field errors themselves carry no live role (#2574). */
+const SERVER_FIELDS_SUMMARY = '표시된 칸을 확인해 주세요.';
 
 function initialDraftOf(target: ItemWriteTarget): ItemWriteDraft {
   return {
@@ -76,8 +95,12 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
     const nextForm = update(held.form);
     return nextForm.modelId !== held.form.modelId ? { ...held, form: nextForm, picks: [] } : { ...held, form: nextForm };
   });
-  const setPicks = (next: SubjectPick[]) => setDraft(held => ({ ...held, picks: next }));
-  const setRelations = (next: typeof initialDraft.relations) => setDraft(held => ({ ...held, relations: next }));
+  // Relation and subject edits drop their own local errors like `set` does (#2574 C6).
+  const setPicks = (next: SubjectPick[]) => { local.clearError('subjects'); setDraft(held => ({ ...held, picks: next })); };
+  const setRelations = (next: typeof initialDraft.relations) => {
+    for (const key of changedRowKeys('relations', 'relations', relations, next, Object.keys(local.errors))) local.clearError(key);
+    setDraft(held => ({ ...held, relations: next }));
+  };
   const [initialRelations] = useState(() => JSON.stringify(initialDraft.relations));
   const { t } = useI18n();
   const { setDiscard } = guard;
@@ -96,7 +119,18 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
   }, [reloadBaseDetail, target, baseVersion, setDraft]);
   useDirtyReport(draft, guard.markDirty, initialDraft);
   const busy = create.pending || revise.pending || derive.pending;
-  const set = (patch: Partial<WriteForm>) => { setForm(f => ({ ...f, ...patch })); };
+  const set = (patch: Partial<WriteForm>) => {
+    // #2574 C6: an edited field drops its own local error; evidence errors are keyed by row, so a row edit clears that row's
+    // changed fields and adding or removing a row (which shifts the keys) clears every evidence error.
+    for (const key of Object.keys(patch)) {
+      if (key === 'modelId' || key === 'softwareId' || key === 'ownerKind') local.clearError('owner');
+      else if (key !== 'evidence') local.clearError(key);
+    }
+    // «관찰 사실과 기대·기준 중 하나» sits on 관찰 사실 but is answered by either field.
+    if ('expected' in patch && local.errors['observation'] === itemErrorText('required_one')) local.clearError('observation');
+    if (patch.evidence) for (const key of changedRowKeys('evidence', 'evidenceList', form.evidence, patch.evidence, Object.keys(local.errors))) local.clearError(key);
+    setForm(f => ({ ...f, ...patch }));
+  };
   const err = (key: string) => errors[key];
   const describedBy = (key: string) => (err(key) ? `${uid}-${key}-error` : undefined);
 
@@ -114,21 +148,22 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
       const key = e.path[1] !== undefined ? `relations.${e.path[1]}` : 'relations';
       mapped[key] = w('Event 관계 기록의 종류와 Event 키를 확인하세요.', 'Check the relation kind and Event keys.');
     }
+    // Like the spec drawers' problem line: one form-level alert when the server marks fields (`subjects` announces itself).
+    if (Object.keys(mapped).some(key => key !== 'form' && key !== 'subjects')) mapped['form'] ??= SERVER_FIELDS_SUMMARY;
     setServerErrors(mapped);
     if (res.outcome === 'invalid' && Object.keys(mapped).length > 0) { setBanner(null); return; }
     setBanner({ kind: 'failed', text: failureText(res.outcome), ...(res.retry ? { retry: () => { const retry = res.retry; if (retry) void retry().then(next => settle(next as ActionResult<T>, onOk)).catch(() => undefined); } } : {}) });
   }
-  const subjectPayloadOf = () => (target.mode === 'revise' ? subjectsPayload(ownerModelId, target.detail.subjects, picks) : null);
-  const localErrors = (): FormErrors => {
-    const found = { ...validateForm(form, mode), ...(mode !== 'derive' ? validateRelations(relations) : {}) };
-    const subjectPayload = subjectPayloadOf();
-    if (subjectPayload?.send && subjectPayload.blocked.length) found['subjects'] = w('대상 목록을 바꾸려면 사라진 대상을 먼저 빼 주세요.', 'Remove missing targets before changing the subject list.');
-    return found;
-  };
-  // #2574: the SDK validator focuses the first invalid control. Its errors are keyed by control (title, evidence rows…),
-  // not by draft property, so the check reads the current draft; server errors stay apart and clear on each submit.
-  const local = useValidatedSubmit<Record<string, unknown>>({
-    validate: () => { const found = localErrors(); if (Object.keys(found).length > 0) setBanner(null); return found; },
+  const subjectPayloadOf = (held: SubjectPick[] = picks) => (target.mode === 'revise' ? subjectsPayload(ownerModelId, target.detail.subjects, held) : null);
+  // #2574: the SDK validator checks the submitted draft and focuses the first invalid control. Its errors are keyed by control
+  // (title, evidence rows…), not by draft property; server errors stay apart and clear on each submit.
+  const local = useValidatedSubmit<SubmittedDraft>({
+    validate: held => {
+      const found: FormErrors = { ...validateForm(held.form, mode), ...(mode !== 'derive' ? validateRelations(held.relations) : {}) };
+      const subjectPayload = subjectPayloadOf(held.picks);
+      if (subjectPayload?.send && subjectPayload.blocked.length) found['subjects'] = w('대상 목록을 바꾸려면 사라진 대상을 먼저 빼 주세요.', 'Remove missing targets before changing the subject list.');
+      return found;
+    },
     onValid: () => send(),
   });
   const errors: FormErrors = { ...serverErrors };
@@ -149,7 +184,7 @@ function WriteFormBody({ target, draftState, onReload, guard }: { target: ItemWr
   };
 
   const latest = target.mode === 'revise' ? target.detail.item.latestRevisionNo : 0;
-  return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { if (busy || banner?.kind === 'conflict') { event.preventDefault(); return; } setServerErrors({}); submitLocal(event); }}>
+  return <form className="flex min-h-full flex-col gap-4" noValidate onSubmit={event => { if (busy || banner?.kind === 'conflict') { event.preventDefault(); return; } setServerErrors({}); setBanner(null); submitLocal(event); }}>
     {restored && <Callout tone="blue" title={t('sessionDraftRestoredTitle')}>{t('sessionDraftRestored')}</Callout>}
     {banner?.kind === 'conflict' && <Callout tone="amber" title="다른 사람이 먼저 고쳤습니다"
       action={<Button type="button" size="sm" variant="secondary" onClick={() => { if (target.mode === 'revise') setReloadBaseDetail(target.detail); onReload(); }}>최신 불러오기</Button>}>

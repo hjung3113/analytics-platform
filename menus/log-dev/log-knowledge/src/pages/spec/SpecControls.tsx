@@ -79,7 +79,7 @@ export function SpecField({ id, label, value, onChange, multiline = false, disab
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined;
   const props = { id, value, disabled, onChange: (e: { target: { value: string } }) => onChange(e.target.value), 'aria-describedby': describedBy, ...(error ? { 'aria-invalid': true } : {}), ...(required ? { 'aria-required': true } : {}) };
   return <div className="grid gap-1.5"><FieldLabel htmlFor={id} required={required} requiredMark="text">{label}</FieldLabel>{multiline ? <Textarea {...props} /> : <Input {...props} />}
-    {error && <p id={errorId} role="alert" className="whitespace-pre-line text-xs text-text-danger-label">{error}</p>}
+    {error && <p id={errorId} className="whitespace-pre-line text-xs text-text-danger-label">{error}</p>}
     {hint && <p id={hintId} className="text-xs text-text-muted">{hint}</p>}
   </div>;
 }

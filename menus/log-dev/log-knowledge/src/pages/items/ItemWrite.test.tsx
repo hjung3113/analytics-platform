@@ -300,6 +300,85 @@ describe('새 기술 Item (create)', () => {
     expect(owner.getAttribute('aria-invalid')).toBe('true');
     expect(writes).toHaveLength(0);
   });
+  // #2574 follow-up C2: several field errors at once are not each a live alert; focus plus aria-describedby announce them.
+  it('ties each local field error to its control without a live alert role', async () => {
+    mountList(`${published}&focus=new`);
+    await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
+    fireEvent.click(within(drawer()).getByRole('button', { name: '근거 추가' }));
+    submit('등록');
+    const owner = within(drawer()).getByRole('combobox', { name: /소유 대상/ });
+    await waitFor(() => expect(document.activeElement).toBe(owner));
+    const controls = [owner, field(/^제목/), field(/^관찰 사실/), within(drawer()).getByLabelText(/^출처 소유/), within(drawer()).getByLabelText(/^참조/)];
+    for (const control of controls) {
+      expect(control.getAttribute('aria-invalid')).toBe('true');
+      const described = (control.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)).filter(el => el !== null);
+      expect(described.some(el => el.textContent !== '' && el.className.includes('text-text-danger-label'))).toBe(true);
+    }
+    expect(within(drawer()).queryAllByRole('alert')).toEqual([]);
+    expect(writes).toHaveLength(0);
+  });
+  it('ties server row and list errors to their evidence group without a live alert role', async () => {
+    mountList(`${published}&focus=new&owner=${MODEL_A}`);
+    await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
+    type(/^제목/, '근거 사례');
+    type(/^관찰 사실/, '사실');
+    fireEvent.click(within(drawer()).getByRole('button', { name: '근거 추가' }));
+    fireEvent.change(within(drawer()).getByLabelText(/^출처 소유/), { target: { value: 'MARS' } });
+    fireEvent.change(within(drawer()).getByLabelText(/^참조/), { target: { value: 'a.log' } });
+    nextError = { outcome: 'invalid', fieldErrors: [{ path: ['evidence', '0', 'unknownField'], code: 'malformed' }, { path: ['evidence'], code: 'too_long' }] };
+    submit('등록');
+    const list = await within(drawer()).findByText('입력 길이가 너무 깁니다.', {}, slow);
+    const group = within(drawer()).getByRole('group', { name: '근거 포인터' });
+    expect(group.getAttribute('aria-describedby')).toContain(list.id);
+    const row = within(drawer()).getByRole('group', { name: /^근거 1/ });
+    const rowError = (row.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)).find(el => el !== null);
+    expect(rowError?.textContent).toBeTruthy();
+    // The only live alert left is the subject list's own read failure in this fixture, not a field error.
+    const alerts = within(drawer()).queryAllByRole('alert').map(el => el.textContent ?? '');
+    expect(alerts.filter(text => text.includes(list.textContent!) || text.includes(rowError!.textContent!))).toEqual([]);
+  });
+  // #2574 follow-up C6: editing a field clears only that field's local error (useValidatedSubmit clearError).
+  it('clears a local field error when that field changes and keeps the others', async () => {
+    mountList(`${published}&focus=new&owner=${MODEL_A}`);
+    await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
+    fireEvent.click(within(drawer()).getByRole('button', { name: '근거 추가' }));
+    submit('등록');
+    await waitFor(() => expect(field(/^제목/).getAttribute('aria-invalid')).toBe('true'));
+    expect(within(drawer()).getAllByText('필수 항목입니다.')).toHaveLength(3);
+    type(/^제목/, '제목');
+    expect(field(/^제목/).getAttribute('aria-invalid')).not.toBe('true');
+    expect(field(/^관찰 사실/).getAttribute('aria-invalid')).toBe('true');
+    fireEvent.change(within(drawer()).getByLabelText(/^출처 소유/), { target: { value: 'MARS' } });
+    expect(within(drawer()).getByLabelText(/^출처 소유/).getAttribute('aria-invalid')).not.toBe('true');
+    expect(within(drawer()).getByLabelText(/^참조/).getAttribute('aria-invalid')).toBe('true');
+    expect(writes).toHaveLength(0);
+  });
+  it('clears the «관찰 사실 or 기대·기준» error when 기대·기준 is filled', async () => {
+    mountList(`${published}&focus=new&owner=${MODEL_A}`);
+    await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
+    type(/^제목/, '제목');
+    submit('등록');
+    await waitFor(() => expect(field(/^관찰 사실/).getAttribute('aria-invalid')).toBe('true'));
+    type(/^기대·기준/, '기준');
+    expect(field(/^관찰 사실/).getAttribute('aria-invalid')).not.toBe('true');
+    expect(within(drawer()).queryByText('관찰 사실과 기대·기준 중 하나는 써야 합니다')).toBeNull();
+    expect(writes).toHaveLength(0);
+  });
+  // #2574 fix round 1 (R-2574F C3): relation edits clear their local errors, and removing a row moves no error onto another row.
+  it('clears local relation errors when a relation row is removed instead of shifting them onto the next row', async () => {
+    mountList(`${published}&focus=new&owner=${MODEL_A}`);
+    await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
+    type(/^제목/, '관계 사례');
+    type(/^관찰 사실/, '사실');
+    fireEvent.click(within(drawer()).getByRole('button', { name: '관계 추가' }));
+    fireEvent.click(within(drawer()).getByRole('button', { name: '관계 추가' }));
+    submit('등록');
+    const message = 'Event A와 Event B를 MODULE/EVENT 키로 입력하세요.';
+    await waitFor(() => expect(within(drawer()).getAllByText(message)).toHaveLength(2));
+    fireEvent.click(within(drawer()).getByRole('button', { name: '관계 1 빼기' }));
+    expect(within(drawer()).queryAllByText(message)).toHaveLength(0);
+    expect(writes).toHaveLength(0);
+  });
   it('puts a nested server error on its own evidence row and an unmapped path in a visible form error', async () => {
     mountList(`${published}&focus=new&owner=${MODEL_A}`);
     await screen.findByRole('heading', { name: '새 기술 Item' }, slow);
@@ -316,6 +395,8 @@ describe('새 기술 Item (create)', () => {
     expect(message.id).toContain('ev-1-sourceRef-error');
     expect(within(drawer()).getAllByLabelText(/^참조/)[1]!.getAttribute('aria-invalid')).toBe('true');
     expect(within(drawer()).getAllByLabelText(/^참조/)[0]!.getAttribute('aria-invalid')).not.toBe('true');
+    // #2574 fix round 1 (R-2574F C1): field errors carry no live role, so one form-level alert announces the server rejection.
+    expect(within(drawer()).getAllByRole('alert').map(el => el.textContent).filter(text => text?.includes('표시된 칸을 확인해 주세요.'))).toHaveLength(1);
     nextError = { outcome: 'invalid', fieldErrors: [{ path: ['owner'], code: 'required_one' }, { path: ['mystery'], code: 'required' }] };
     submit('등록');
     expect(await within(drawer()).findByText('mystery: 필수 항목입니다.', {}, slow)).toBeTruthy();

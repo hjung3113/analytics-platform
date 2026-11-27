@@ -178,7 +178,10 @@ describe('production model spec screen', () => {
     for (const [control, message] of [[label, '원본 문서를 입력해 주세요.'], [version, '문서 버전을 입력해 주세요.']] as const) {
       expect(control.getAttribute('aria-invalid')).toBe('true');
       expect(control.getAttribute('aria-describedby')).toContain(screen.getByText(message).id);
+      // #2574 follow-up C2: two field errors at once are not two live alerts; focus and aria-describedby announce them.
+      expect(screen.getByText(message).getAttribute('role')).toBeNull();
     }
+    expect(screen.queryAllByRole('alert').map(el => el.textContent)).not.toContain('원본 문서를 입력해 주세요.');
     expect(writes).toHaveLength(0);
     fireEvent.change(label, { target: { value: 'Spec' } });
     expect(label.getAttribute('aria-invalid')).not.toBe('true');
@@ -469,8 +472,9 @@ describe('production model spec screen', () => {
     const input = await screen.findByLabelText('명세 TSV');
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(input.getAttribute('aria-invalid')).toBe('true'));
-    const alert = (input.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)).find(el => el?.getAttribute('role') === 'alert');
-    expect(alert?.textContent).toContain('형식');
+    const error = (input.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)).find(el => el?.id.endsWith('-error'));
+    expect(error?.textContent).toContain('형식');
+    expect(error?.getAttribute('role')).toBeNull();
   });
   it('attaches JSON errors to the change field that failed', async () => {
     mount(`&tab=changes&drawer=add&change=${change.id}`);
@@ -478,7 +482,8 @@ describe('production model spec screen', () => {
     fireEvent.change(target, { target: { value: 'not json' } });
     fireEvent.click(within(screen.getByRole('dialog', { name: '변경점 추가' })).getByRole('button', { name: '추가' }));
     await waitFor(() => expect(target.getAttribute('aria-invalid')).toBe('true'));
-    const alert = (target.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)).find(el => el?.getAttribute('role') === 'alert');
-    expect(alert?.textContent).toBeTruthy();
+    const error = (target.getAttribute('aria-describedby') ?? '').split(' ').map(id => document.getElementById(id)).find(el => el?.id.endsWith('-error'));
+    expect(error?.textContent).toBeTruthy();
+    expect(error?.getAttribute('role')).toBeNull();
   });
 });
