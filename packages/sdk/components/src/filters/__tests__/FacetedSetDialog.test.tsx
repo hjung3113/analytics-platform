@@ -428,3 +428,21 @@ it('shows the first narrowed value plus the remaining count and the count of an 
   fireEvent.click(group);
   expect(screen.getByRole('button', { name: 'Custom groups 0개' })).toBeVisible();
 });
+
+// #2181: the suggestion counts follow the screen language through formatNumber, never the browser locale.
+it('prints the suggestion counts in the screen language, not the browser locale', () => {
+  const locales: unknown[] = [];
+  const descriptor = Object.getOwnPropertyDescriptor(Intl.NumberFormat.prototype, 'format')!;
+  Object.defineProperty(Intl.NumberFormat.prototype, 'format', { ...descriptor, get(this: Intl.NumberFormat) { locales.push(this.resolvedOptions().locale); return descriptor.get!.call(this); } });
+  const toLocaleString = Number.prototype.toLocaleString;
+  vi.spyOn(Number.prototype, 'toLocaleString').mockImplementation(function (this: number, ...args: Parameters<number['toLocaleString']>) { locales.push(args[0]); return toLocaleString.apply(this, args); });
+  try {
+    render(<I18nProvider><FacetedSetDialog open onOpenChange={vi.fn()} title="Choose" facets={facets} items={items} value={{ rule: {}, fixed: null }} onApply={vi.fn()} /></I18nProvider>);
+    fireEvent.change(screen.getByRole('textbox', { name: '값 또는 항목 ID 검색' }), { target: { value: 'red' } });
+    expect(screen.getByText(/^제안 1 · /)).toBeVisible();
+    expect(locales.length).toBeGreaterThan(0);
+    expect(new Set(locales)).toEqual(new Set(['ko-KR']));
+  } finally {
+    Object.defineProperty(Intl.NumberFormat.prototype, 'format', descriptor);
+  }
+});

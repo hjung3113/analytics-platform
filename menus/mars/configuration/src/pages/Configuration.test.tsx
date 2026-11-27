@@ -83,6 +83,22 @@ describe('Configuration page', () => {
     draw(); expect(host.textContent).toContain('일치 포함 전체'); expect(host.textContent).toContain('일치 90건 숨김');
     state.page.status = 'all'; draw(); expect(host.textContent).not.toContain('일치 90건 숨김');
   });
+  it('prints the status and navigation counts in the screen language, not the browser locale (#2181)', () => {
+    const locales: unknown[] = [];
+    const descriptor = Object.getOwnPropertyDescriptor(Intl.NumberFormat.prototype, 'format')!;
+    Object.defineProperty(Intl.NumberFormat.prototype, 'format', { ...descriptor, get(this: Intl.NumberFormat) { locales.push(this.resolvedOptions().locale); return descriptor.get!.call(this); } });
+    const toLocaleString = Number.prototype.toLocaleString;
+    const spy = vi.spyOn(Number.prototype, 'toLocaleString').mockImplementation(function (this: number, ...args: Parameters<number['toLocaleString']>) { locales.push(args[0]); return toLocaleString.apply(this, args); });
+    try {
+      state.page.status = 'review'; draw();
+      expect(host.textContent).toContain('일치 90건 숨김');
+      expect(locales.length).toBeGreaterThan(0);
+      expect(new Set(locales)).toEqual(new Set(['ko-KR']));
+    } finally {
+      Object.defineProperty(Intl.NumberFormat.prototype, 'format', descriptor);
+      spy.mockRestore();
+    }
+  });
   it('browses statuses with arrow keys without re-keying the comparison (#2552)', async () => {
     draw();
     const group = host.querySelector('[aria-label="status"]')!;
