@@ -614,7 +614,7 @@ jobs:
 
   # #2181: knip (unused files, exports, dependencies) and madge (SDK import cycles) counts, as a report in the run summary and an artifact.
   # Never a gate and never on a PR (PR CI stays at about 10 minutes, #1931): main push and manual runs only, beside the other jobs (no `needs`), so
-  # the run ends no later than before (about 4 min, shorter than E2E). `continue-on-error`: a tool or network failure (pnpm dlx) marks this job
+  # it adds no wait to the run (an install plus about 20 s of tools, measured locally; E2E runs longer). `continue-on-error`: a tool or network failure (pnpm dlx) marks this job
   # failed but never the run or main. Whether a count becomes a check is open in #2181.
   static-report:
     name: Static report (knip, SDK cycles)
