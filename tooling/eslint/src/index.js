@@ -438,8 +438,8 @@ const BUILD_OUTPUT = { ignores: ['dist/**'] };
 // menu and app, on EV's ui packages and menus (#2216), and on the feature screens (#2217).
 const IME_ENTER_GUARD = { files: ['**/*.{ts,tsx}'], ignores: TEST_ENTRY_FILES, rules: { 'ap/ime-enter-guard': 'error' } };
 
-// #2180: asserting existence hides the missing-value case. Enable as sites are fixed: contracts and kernel first,
-// then components, adapters, menus and shell. Tests may assert fixture invariants.
+// #2180: asserting existence hides the missing-value case. Enabled preset by preset as their sites are fixed (#2181: the
+// per-preset counts are in issue #2181); on in contracts, kernel and app-host so far. Tests may assert fixture invariants.
 const NON_NULL = {
   files: ['**/*.{ts,tsx}'],
   ignores: TEST_ENTRY_FILES,
@@ -585,6 +585,7 @@ export const appHost = [
   layerConfig({ restriction: APP_HOST_RESTRICTION }),
   testEntryOverride(APP_HOST_RESTRICTION, ABOVE_COMPONENTS_TEST_ENTRIES),
   designSystem(),
+  NON_NULL,
 ];
 
 const CONTRACTS_ONLY_RESTRICTION = { allow: ['contracts'], denyReact: true, mockAllowed: false };
