@@ -36,11 +36,11 @@ export function PermissionGrantActionForm({
     actorId === me.data?.actor.id &&
     workspaceSettings.data?.permission_self_approval === 'forbidden';
   // Why the action is disabled, named once under the button (#2574 variant b); the policy block first, as it outlasts any typing.
-  const blockedReason = selfDenyLiftBlocked
-    ? ADMIN_PERMISSIONS_COPY.selfDenyLiftForbidden
-    : reason.trim().length === 0
-      ? ADMIN_PERMISSIONS_COPY.reasonRequired
-      : undefined;
+  const blockers: readonly [boolean, string][] = [
+    [selfDenyLiftBlocked, ADMIN_PERMISSIONS_COPY.selfDenyLiftForbidden],
+    [reason.trim().length === 0, ADMIN_PERMISSIONS_COPY.reasonRequired],
+  ];
+  const blockedReason = blockers.find(([blocking]) => blocking)?.[1];
   const canSubmit = blockedReason === undefined && !mutation.isPending;
 
   function submit() {

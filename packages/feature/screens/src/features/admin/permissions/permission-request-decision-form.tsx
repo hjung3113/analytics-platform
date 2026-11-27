@@ -206,16 +206,11 @@ export function PermissionRequestDecisionForm({
   const pickScope = (value: string) =>
     setScopeChoice(value === REQUESTED_SCOPE ? { kind: 'requested' } : { kind: 'picked', value });
   const previewId = React.useId();
-  const systemNameStatusId = React.useId();
-  const scopeUnavailableId = React.useId();
   const showApprovalPreview = action === 'approve' && !scopeUnavailable
     && approvedItems.length > 0 && (batch !== undefined || hasManagedScope);
-  let approvalDescriptionId: string | undefined;
-  if (action === 'approve') {
-    if (scopeUnavailable) approvalDescriptionId = scopeUnavailableId;
-    else if (unresolvedGrant) approvalDescriptionId = systemNameStatusId;
-    else if (showApprovalPreview) approvalDescriptionId = previewId;
-  }
+  // The scope and system-name blocks describe the button through its disabled reason below; the preview only when neither applies.
+  const approvalDescriptionId =
+    action === 'approve' && !scopeUnavailable && !unresolvedGrant && showApprovalPreview ? previewId : undefined;
   // The batch endpoint only takes a Managed System override and preserves each Site or room target.
   const siteRequest =
     !batch && request.requested_scope_kind === 'site' && request.requested_scope_site
@@ -336,14 +331,15 @@ export function PermissionRequestDecisionForm({
     mutation.isPending ||
     mutation.isSuccess ||
     mutation.error?.code === 'conflict.stale_write';
-  // The self-approval blocks are explained in the capture section, which can sit far above a footer-portaled button, so the
-  // button names them too (#2574 variant b). The other blocks already describe the button (approvalDescriptionId) or the
-  // button label says what to pick.
-  const submitBlockedReason = selfApprovalForbidden
-    ? captureCopy.forbidden
-    : !selfApprovalReady
-      ? captureCopy.incomplete
-      : undefined;
+  // The submit sits in a footer far below the statuses that block it, so the button names the first block (#2574 variant b).
+  // Not listed: the review-again alert sits just above, and the label itself says to pick a decision.
+  const blockers: readonly [boolean, string][] = [
+    [action === 'approve' && scopeUnavailable, copy.reselectScope],
+    [action === 'approve' && unresolvedGrant, missingName],
+    [selfApprovalForbidden, captureCopy.forbidden],
+    [!selfApprovalReady, captureCopy.incomplete],
+  ];
+  const submitBlockedReason = blockers.find(([blocking]) => blocking)?.[1];
 
   React.useEffect(() => {
     intent.current = null;
@@ -516,9 +512,7 @@ export function PermissionRequestDecisionForm({
         setApproveIds(previous => checked ? [...previous, item.id] : previous.filter(id => id !== item.id));
       }} /><label htmlFor={`batch-approve-${item.id}`}><ReviewCapabilityName id={item.requested_capability} />{item.effective_access.decision.allow ? ` · ${PERMISSION_GROUP_COPY.held}` : ''}</label></div>)}<p className="text-xs text-text-secondary">{PERMISSION_GROUP_COPY.unchecked}</p></fieldset> : null}
       {selfApprovalBlockedByPolicy ? (
-        <p className="text-xs text-accent-danger">
-          운영 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.
-        </p>
+        <p className="text-xs text-accent-danger">{captureCopy.forbidden}</p>
       ) : null}
       <label
         className="flex flex-col gap-2 text-sm text-text-secondary"
@@ -603,11 +597,11 @@ export function PermissionRequestDecisionForm({
         )
       )}
       {action === 'approve' && scopeUnavailable && (
-        <p id={scopeUnavailableId} role="status" className="text-sm text-text-muted">{copy.reselectScope}</p>
+        <p role="status" className="text-sm text-text-muted">{copy.reselectScope}</p>
       )}
       {action === 'approve' && (unresolvedGrant || (unresolvedCandidate && systemNamesRead && !systemNamesRead.isFetching)) && (
         <div className="flex flex-wrap items-center gap-2">
-          <span id={systemNameStatusId} role="status" className="text-sm text-text-muted">{missingName}</span>
+          <span role="status" className="text-sm text-text-muted">{missingName}</span>
           {systemNamesRead && !systemNamesRead.isFetching && (
             <Button type="button" variant="ghost" size="sm" onClick={systemNamesRead.retry}>{copy.retry}</Button>
           )}

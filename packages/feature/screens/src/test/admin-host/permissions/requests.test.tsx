@@ -948,7 +948,8 @@ describe('/admin/permissions/requests', () => {
     await act(async () => { await Promise.resolve(); });
     expect(decisionPosts()).toHaveLength(0);
     const reselect = '선택한 승인 범위를 더 이상 사용할 수 없습니다. 승인 범위를 다시 선택하세요.';
-    expect(screen.getByText(reselect)).toHaveAttribute('role', 'status');
+    // The status by the scope choice, and again under the footer button it blocks (#2574).
+    expect(screen.getAllByText(reselect).map((node) => node.getAttribute('role'))).toEqual(['status', null]);
     expect(submit).toHaveAccessibleDescription(reselect);
     expect(screen.queryByText('승인 후 열리는 것')).not.toBeInTheDocument();
 

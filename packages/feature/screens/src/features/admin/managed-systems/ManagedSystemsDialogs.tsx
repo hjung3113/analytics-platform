@@ -76,6 +76,9 @@ function parseOwnerSelection(value: string): OwnerSelection {
 
 type DefaultErrors = Partial<Record<'owner' | 'reviewer', string>>;
 
+/** The register and edit forms' values; owner and reviewer carry only server rejections (#2574). */
+type RegistryFormValues = { name: string; externalKey: string; owner: OwnerSelection; reviewer: OwnerSelection };
+
 function defaultFieldErrors(error: unknown): DefaultErrors {
   if (!(error instanceof ApiError) || !Array.isArray(error.detail?.fields)) return {};
   const result: DefaultErrors = {};
@@ -213,7 +216,6 @@ function RegisterDialog({
   const [owner, setOwner] = useState<OwnerSelection>({ kind: 'none' });
   const [reviewer, setReviewer] = useState<OwnerSelection>({ kind: 'none' });
   const [error, setError] = useState<string | null>(null);
-  const [defaultErrors, setDefaultErrors] = useState<DefaultErrors>({});
 
   const mutation = useMutation({
     mutationFn: async (body: RegisterManagedSystemBody) => registerManagedSystem(body),
@@ -227,15 +229,14 @@ function RegisterDialog({
       await onSaved();
     },
     onError: (err) => {
-      setDefaultErrors(defaultFieldErrors(err));
       const badSlug = slugFormatError(err);
       const reservedKey = externalKeyFieldError(err);
-      // Field rejections go on their fields with the first one focused (#3173); anything else stays the dialog message.
-      register.setServerErrors({ ...(badSlug ? { slug: badSlug } : {}), ...(reservedKey ? { externalKey: reservedKey } : {}) });
+      // Field rejections go on their fields with the first one focused (#3173, #2574); anything else stays the dialog message.
+      register.setServerErrors({ ...defaultFieldErrors(err), ...(badSlug ? { slug: badSlug } : {}), ...(reservedKey ? { externalKey: reservedKey } : {}) });
       setError(badSlug || reservedKey ? null : envelopeMessage(err));
     },
   });
-  const register = useValidatedSubmit<{ slug: string; name: string; externalKey: string }>({
+  const register = useValidatedSubmit<RegistryFormValues & { slug: string }>({
     validate: (values) => ({
       ...(values.slug.trim() ? {} : { slug: ADMIN_REGISTRY_COPY.slugRequired }),
       ...(values.name.trim() ? {} : { name: ADMIN_REGISTRY_COPY.nameRequired }),
@@ -268,8 +269,7 @@ function RegisterDialog({
           noValidate
           onSubmit={(e) => {
             setError(null);
-            setDefaultErrors({});
-            register.handleSubmit({ slug, name, externalKey })(e);
+            register.handleSubmit({ slug, name, externalKey, owner, reviewer })(e);
           }}
         >
           <FormField id="ms-create-slug" label="슬러그" required requiredMark="text" error={register.errors.slug}>
@@ -313,14 +313,20 @@ function RegisterDialog({
           </FormField>
           <OwnerSelect
             value={owner}
-            onChange={setOwner}
+            onChange={(next) => {
+              setOwner(next);
+              register.clearError('owner');
+            }}
             testId="create-default-owner"
-            {...(defaultErrors.owner ? { error: defaultErrors.owner } : {})}
+            {...(register.errors.owner ? { error: register.errors.owner } : {})}
           />
           <OwnerSelect
             value={reviewer}
-            onChange={setReviewer}
-            {...(defaultErrors.reviewer ? { error: defaultErrors.reviewer } : {})}
+            onChange={(next) => {
+              setReviewer(next);
+              register.clearError('reviewer');
+            }}
+            {...(register.errors.reviewer ? { error: register.errors.reviewer } : {})}
             testId="create-default-reviewer"
             reviewer
           />
@@ -420,7 +426,6 @@ function EditForm({
     ownerSelection(target, 'reviewer'),
   );
   const [error, setError] = useState<string | null>(null);
-  const [defaultErrors, setDefaultErrors] = useState<DefaultErrors>({});
 
   const dirty =
     !isArchived &&
@@ -456,15 +461,14 @@ function EditForm({
       await onSaved();
     },
     onError: (err) => {
-      setDefaultErrors(defaultFieldErrors(err));
       const reservedKey = externalKeyFieldError(err);
-      // A reserved key goes on its field, focused (#3173); anything else stays the dialog message.
-      edit.setServerErrors(reservedKey ? { externalKey: reservedKey } : {});
+      // Owner/reviewer and reserved-key rejections go on their fields, the first focused (#3173, #2574); anything else stays the dialog message.
+      edit.setServerErrors({ ...defaultFieldErrors(err), ...(reservedKey ? { externalKey: reservedKey } : {}) });
       setError(reservedKey ? null : envelopeMessage(err));
     },
   });
   // A blank name is caught on the field, focused, before the server's dialog-level rejection (#2574 variant a+c).
-  const edit = useValidatedSubmit<{ name: string; externalKey: string }>({
+  const edit = useValidatedSubmit<RegistryFormValues>({
     validate: (values) => (values.name.trim() ? {} : { name: ADMIN_REGISTRY_COPY.nameRequired }),
     onValid: () => updateMutation.mutate(),
   });
@@ -476,7 +480,7 @@ function EditForm({
       await onSaved();
     },
     onError: (err) => {
-      setDefaultErrors(defaultFieldErrors(err));
+      edit.setServerErrors(defaultFieldErrors(err));
       setError(envelopeMessage(err));
     },
   });
@@ -495,11 +499,10 @@ function EditForm({
         noValidate
         onSubmit={(e) => {
           setError(null);
-          setDefaultErrors({});
-          edit.handleSubmit({ name, externalKey })(e);
+          edit.handleSubmit({ name, externalKey, owner, reviewer })(e);
         }}
       >
-        <FormField id={`ms-edit-name-${target.slug}`} label="이름" required requiredMark="text" error={edit.errors.name}>
+        <FormField id={`ms-edit-name-${target.slug}`} label="이름" required={!isArchived} requiredMark="text" error={edit.errors.name}>
           {(control) => (
             <Input
               {...control}
@@ -515,18 +518,24 @@ function EditForm({
         </FormField>
         <OwnerSelect
           value={owner}
-          onChange={setOwner}
+          onChange={(next) => {
+            setOwner(next);
+            edit.clearError('owner');
+          }}
           knownTeamId={target.default_owner_team_id ?? undefined}
           managedSystemId={target.id}
-          {...(defaultErrors.owner ? { error: defaultErrors.owner } : {})}
+          {...(edit.errors.owner ? { error: edit.errors.owner } : {})}
           testId={`edit-default-owner-${target.slug}`}
         />
         <OwnerSelect
           value={reviewer}
-          onChange={setReviewer}
+          onChange={(next) => {
+            setReviewer(next);
+            edit.clearError('reviewer');
+          }}
           knownTeamId={target.default_reviewer_team_id ?? undefined}
           managedSystemId={target.id}
-          {...(defaultErrors.reviewer ? { error: defaultErrors.reviewer } : {})}
+          {...(edit.errors.reviewer ? { error: edit.errors.reviewer } : {})}
           testId={`edit-default-reviewer-${target.slug}`}
           reviewer
         />
