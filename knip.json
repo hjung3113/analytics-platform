@@ -1,0 +1,5 @@
+{
+  "$schema": "https://unpkg.com/knip@6.45.1/schema.json",
+  "ignore": ["docs/**", "site/**", ".agents/**", "tooling/sdk/fixtures/**", "tooling/eslint/src/fixtures/**"],
+  "ignoreBinaries": ["psql"]
+}

@@ -33,3 +33,8 @@ Package-boundary and contract lint (ESLint flat config). Boundary rule source: [
 ## changes/ (`pnpm menu:changelog`)
 
 - `fragments.mjs` owns the per-issue fragment file rules for the SDK and menu packages (name `<issue>.md`, non-empty, deleted after the release fold); `sdk/sdk-changelog.mjs` and `menus.mjs` own their row formats. Change a file rule here once, not per caller.
+
+## scripts/static-report.mjs (CI job `static-report`)
+
+- knip counts (unused files, exports, types, dependencies; root `knip.json`) and madge SDK import-cycle counts, with and without type-only imports. A report, not a gate: main push and manual runs only, `continue-on-error`; never move it onto PRs (#2181).
+- The tool versions are pinned in the script and run through `pnpm dlx`, not `package.json`. Knip evaluates workspace configs: a config that throws without an env var gets a stub in `KNIP_ENV`, never a real value.
