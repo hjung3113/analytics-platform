@@ -1,13 +1,13 @@
-import { fetchTaskRequests, getTaskRequest, resolveActors } from '../../../lib/api';
-import * as barrel from '../../../lib/api';
-import { fetchManagedSystems } from '../../../lib/api/managed-systems';
-import { ApiError } from '../../../lib/api/types';
-import { useMe } from '../../../lib/auth/useMe';
+import { fetchTaskRequests, getTaskRequest, resolveActors } from '../../../../lib/api';
+import * as barrel from '../../../../lib/api';
+import { fetchManagedSystems } from '../../../../lib/api/managed-systems';
+import { ApiError } from '../../../../lib/api/types';
+import { useMe } from '../../../../lib/auth/useMe';
 import {
   parseAppSearch,
   stringifyAppSearch,
-} from '../../../test/host-adapters/lib/router/search-serialization';
-import { TasksRouteView, validateTasksSearch } from '../../../test/screen-host/routes/_authed/tasks';
+} from '../../../../test/host-adapters/lib/router/search-serialization';
+import { TasksRouteView, validateTasksSearch } from '../../../../test/screen-host/routes/_authed/tasks';
 import { type TaskRequestDto, listTaskRequestsQuerySchema } from '@ap/feature-shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -53,8 +53,8 @@ vi.mock('@ap/ui', async (original) => ({
     </main>
   ),
 }));
-vi.mock('../../../ui/index', async (original) => ({
-  ...(await original<typeof import('../../../ui/index')>()),
+vi.mock('../../../../ui/index', async (original) => ({
+  ...(await original<typeof import('../../../../ui/index')>()),
   useDetailPanelSlot: (node: import('react').ReactNode) => {
     useLayoutEffect(() => {
       slot.set(node);
@@ -62,37 +62,37 @@ vi.mock('../../../ui/index', async (original) => ({
     }, [node]);
   },
 }));
-vi.mock('../../../lib/api', async (original) => ({
-  ...(await original<typeof import('../../../lib/api')>()),
+vi.mock('../../../../lib/api', async (original) => ({
+  ...(await original<typeof import('../../../../lib/api')>()),
   fetchTaskRequests: vi.fn(),
   getTaskRequest: vi.fn(),
   resolveActors: vi.fn(),
 }));
 // The hooks import the module paths; forward at call time so the barrel fakes above still apply.
-vi.mock('../../../lib/api/task-requests', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/task-requests')>()),
+vi.mock('../../../../lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/task-requests')>()),
   fetchTaskRequests: (...args: Parameters<typeof barrel.fetchTaskRequests>) =>
     barrel.fetchTaskRequests(...args),
   getTaskRequest: (...args: Parameters<typeof barrel.getTaskRequest>) =>
     barrel.getTaskRequest(...args),
 }));
-vi.mock('../../../lib/api/actors', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/actors')>()),
+vi.mock('../../../../lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/actors')>()),
   resolveActors: (...args: Parameters<typeof barrel.resolveActors>) =>
     barrel.resolveActors(...args),
 }));
-vi.mock('../../../lib/api/me', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => useMe(),
 }));
-vi.mock('../../../lib/auth/useMe', () => ({
+vi.mock('../../../../lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: 'actor', role_level: 'admin' } } }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: vi.fn(async () => ({ items: [] })),
 }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({
     actors: [
       {
@@ -105,8 +105,8 @@ vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
     ],
   }),
 }));
-vi.mock('./task-requests/TaskRequestPanelParts', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./task-requests/TaskRequestPanelParts')>();
+vi.mock('../task-requests/TaskRequestPanelParts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../task-requests/TaskRequestPanelParts')>();
   const TaskRequestPanelBody = ({
     item,
     onClose,

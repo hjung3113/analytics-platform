@@ -4,7 +4,7 @@ import {
   canLinkExistingTaskRequest,
   canRejectTaskRequest,
   canRequestEvidenceForTaskRequest,
-} from '../../../test/screen-host/features/tasks/routes/TaskRequestsRoute';
+} from '../../../../test/screen-host/features/tasks/routes/TaskRequestsRoute';
 import { describe, expect, it } from 'vitest';
 
 describe('TaskRequestsRoute decision gating', () => {

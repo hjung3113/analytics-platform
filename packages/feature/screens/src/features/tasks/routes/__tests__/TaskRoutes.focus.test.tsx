@@ -1,17 +1,17 @@
-type ApiModule = typeof import('../../../lib/api');
-import * as api from '../../../lib/api';
-import * as areasApi from '../../../lib/api/analytics-areas';
-import * as milestonesApi from '../../../lib/api/milestones';
-import * as taskRequestsApi from '../../../lib/api/task-requests';
-import { ApiError } from '../../../lib/api/types';
-import { useMe } from '../../../lib/auth/useMe';
-import { AppFrame } from '../../../test/detail-slot-host';
+type ApiModule = typeof import('../../../../lib/api');
+import * as api from '../../../../lib/api';
+import * as areasApi from '../../../../lib/api/analytics-areas';
+import * as milestonesApi from '../../../../lib/api/milestones';
+import * as taskRequestsApi from '../../../../lib/api/task-requests';
+import { ApiError } from '../../../../lib/api/types';
+import { useMe } from '../../../../lib/auth/useMe';
+import { AppFrame } from '../../../../test/detail-slot-host';
 import {
   parseAppSearch,
   stringifyAppSearch,
-} from '../../../test/host-adapters/lib/router/search-serialization';
-import { TasksRouteView, validateTasksSearch } from '../../../test/screen-host/routes/_authed/tasks';
-import { taskRequestPage } from '../../../test/task-request-pages';
+} from '../../../../test/host-adapters/lib/router/search-serialization';
+import { TasksRouteView, validateTasksSearch } from '../../../../test/screen-host/routes/_authed/tasks';
+import { taskRequestPage } from '../../../../test/task-request-pages';
 import {
   type TaskDetailDto,
   type TaskRequestDto,
@@ -99,10 +99,10 @@ const task2: TaskDetailDto = {
 const tasks = [task, task2];
 // The barrel slots for the three decision writes (and the conversion) take the task-requests module's own implementations, not the
 // forwarders below, so an unspied call never loops barrel -> module forwarder -> barrel.
-vi.mock('../../../lib/api', async (original) => {
+vi.mock('../../../../lib/api', async (original) => {
   const taskRequests =
-    await vi.importActual<typeof import('../../../lib/api/task-requests')>('../../../lib/api/task-requests');
-  const tasksModule = await vi.importActual<typeof import('../../../lib/api/tasks')>('../../../lib/api/tasks');
+    await vi.importActual<typeof import('../../../../lib/api/task-requests')>('../../../../lib/api/task-requests');
+  const tasksModule = await vi.importActual<typeof import('../../../../lib/api/tasks')>('../../../../lib/api/tasks');
   return {
     ...(await original<ApiModule>()),
     convertTaskRequest: tasksModule.convertTaskRequest,
@@ -156,8 +156,8 @@ vi.mock('../../../lib/api', async (original) => {
   };
 });
 // Screens import the module paths; forward at call time so the barrel mock and spies above still apply.
-vi.mock('../../../lib/api/task-requests', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/task-requests')>()),
+vi.mock('../../../../lib/api/task-requests', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/task-requests')>()),
   fetchTaskRequests: (...args: Parameters<typeof api.fetchTaskRequests>) =>
     api.fetchTaskRequests(...args),
   getTaskRequest: (...args: Parameters<typeof api.getTaskRequest>) => api.getTaskRequest(...args),
@@ -169,50 +169,50 @@ vi.mock('../../../lib/api/task-requests', async (importOriginal) => ({
     ...args: Parameters<typeof api.requestMoreEvidenceForTaskRequest>
   ) => api.requestMoreEvidenceForTaskRequest(...args),
 }));
-vi.mock('../../../lib/api/tasks', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/tasks')>()),
+vi.mock('../../../../lib/api/tasks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/tasks')>()),
   convertTaskRequest: (...args: Parameters<typeof api.convertTaskRequest>) =>
     api.convertTaskRequest(...args),
   listTasks: (...args: Parameters<typeof api.listTasks>) => api.listTasks(...args),
   getTask: (...args: Parameters<typeof api.getTask>) => api.getTask(...args),
 }));
-vi.mock('../../../lib/api/actors', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/actors')>()),
+vi.mock('../../../../lib/api/actors', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/actors')>()),
   resolveActors: (...args: Parameters<typeof api.resolveActors>) => api.resolveActors(...args),
 }));
-vi.mock('../../../lib/api/permissions', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/permissions')>()),
+vi.mock('../../../../lib/api/permissions', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/permissions')>()),
   fetchPermissionCheck: (...args: Parameters<typeof api.fetchPermissionCheck>) =>
     api.fetchPermissionCheck(...args),
 }));
-vi.mock('../../../lib/api/permission-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/permission-reads')>()),
+vi.mock('../../../../lib/api/permission-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/permission-reads')>()),
   fetchPermissionCheckViaClient: (...args: Parameters<typeof api.fetchPermissionCheck>) =>
     api.fetchPermissionCheck(...args),
 }));
-vi.mock('../../../lib/auth/useMe', () => ({
+vi.mock('../../../../lib/auth/useMe', () => ({
   useMe: () => ({ data: { actor: { id: requester, role_level: 'admin' } } }),
 }));
-vi.mock('../../../lib/api/me', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/me')>()),
+vi.mock('../../../../lib/api/me', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/me')>()),
   useMeBridge: () => useMe(),
 }));
-vi.mock('../../../lib/cross-system/useWorkspaceActors', () => ({
+vi.mock('../../../../lib/cross-system/useWorkspaceActors', () => ({
   useWorkspaceActors: () => ({ actors: [] }),
 }));
-vi.mock('../../../lib/api/registry-reads', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../../../lib/api/registry-reads')>()),
+vi.mock('../../../../lib/api/registry-reads', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../../lib/api/registry-reads')>()),
   fetchManagedSystems: async () => ({ items: [{ id: scope, name: 'Billing Ops' }] }),
 }));
-vi.mock('../../findings/public', () => ({ useFindingDetail: () => ({ data: null }) }));
-vi.mock('../../findings/hooks/useFindingDetail', () => ({
+vi.mock('../../../findings/public', () => ({ useFindingDetail: () => ({ data: null }) }));
+vi.mock('../../../findings/hooks/useFindingDetail', () => ({
   useFindingDetail: () => ({ data: null }),
 }));
-vi.mock('../../../lib/api/entity-links', () => ({
+vi.mock('../../../../lib/api/entity-links', () => ({
   fetchTaskRequestEntityLinks: async () => ({ items: [] }),
 }));
-vi.mock('../../../lib/api/tasks-comments', async (original) => ({
-  ...(await original<typeof import('../../../lib/api/tasks-comments')>()),
+vi.mock('../../../../lib/api/tasks-comments', async (original) => ({
+  ...(await original<typeof import('../../../../lib/api/tasks-comments')>()),
   listTaskComments: async () => ({ items: [], page: { has_more: false } }),
 }));
 // The real ListShell registers the real panel in the same slot contract as AppFrame.
