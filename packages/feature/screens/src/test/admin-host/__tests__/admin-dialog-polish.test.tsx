@@ -170,6 +170,28 @@ describe('admin settings dialogs', () => {
     },
   );
 
+  // #2574 variant a+c: a blank name used to reach the server and come back as a dialog-level message.
+  test.each([
+    { label: 'Managed System', path: '/admin/managed-systems', page: ManagedSystemsAdminPage, open: msOpen, form: 'edit-managed-system-form-active', input: 'name-input-active' },
+    { label: 'Analytics Area', path: '/admin/analytics-areas', page: AnalyticsAreasAdminPage, open: aaOpen, form: 'edit-analytics-area-form-active-area', input: 'aa-name-input-active-area' },
+  ])('$label edit catches a blank name on the field, focused, without a write', async (s) => {
+    installFetch();
+    const fetchSpy = vi.mocked(globalThis.fetch);
+    renderPage(s.path, s.page);
+    await s.open();
+    const input = screen.getByTestId(s.input);
+    fireEvent.change(input, { target: { value: '  ' } });
+    fireEvent.submit(screen.getByTestId(s.form));
+
+    await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'true'));
+    expect(input).toHaveAccessibleDescription('이름을 입력해 주세요.');
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(fetchSpy.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false);
+
+    fireEvent.change(input, { target: { value: 'Renamed' } });
+    expect(input).not.toHaveAttribute('aria-invalid');
+  });
+
   test('Managed System settings ask before discarding unsaved edits; clean ones close at once', async () => {
     installFetch();
     renderPage('/admin/managed-systems', ManagedSystemsAdminPage);

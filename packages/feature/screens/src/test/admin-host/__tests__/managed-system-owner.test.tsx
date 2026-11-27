@@ -406,6 +406,8 @@ describe('시스템 default owner', () => {
       await waitFor(() => expect(picker).toHaveAttribute('aria-invalid', 'true'));
       expect(picker).toHaveAccessibleDescription('배정에 필요한 권한이 없습니다.');
       expect(picker).toHaveTextContent(ACTOR_NAME);
+      // The rejected picker takes focus (#2574 variant d).
+      await waitFor(() => expect(picker).toHaveFocus());
     },
   );
 

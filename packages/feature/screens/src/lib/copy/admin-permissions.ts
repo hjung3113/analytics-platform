@@ -57,6 +57,9 @@ export const ADMIN_PERMISSIONS_COPY = {
     policyCitation: '정책 근거',
     peerReviewerAbsence: '동료 검토자 부재 사유',
     required: '— (필수)',
+    forbidden: '운영 정책에서 직접 승인을 금지합니다. 다른 관리자가 이 요청을 승인해야 합니다.',
+    /** Why «직접 승인 확정» is disabled while the two audit fields are short (#2574). */
+    incomplete: '정책 근거와 동료 검토자 부재 사유를 각각 8자 이상 입력하면 승인할 수 있습니다.',
   },
   riskReview: {
     findingRoleRequired: '승인해도 요청자는 Finding 목록·상세를 열 수 없습니다. Developer 이상 역할이 필요합니다.',

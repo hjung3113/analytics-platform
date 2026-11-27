@@ -957,9 +957,9 @@ describe('/admin/permissions/grants screen', () => {
     });
 
     expect(submit).toBeDisabled();
-    expect(
-      within(detail).getByText('관리자는 본인에게 걸린 차단도 직접 해제할 수 없습니다.'),
-    ).toBeInTheDocument();
+    // Named once, under the button it blocks (#2574).
+    expect(submit).toHaveAccessibleDescription('관리자는 본인에게 걸린 차단도 직접 해제할 수 없습니다.');
+    expect(within(detail).getAllByText('관리자는 본인에게 걸린 차단도 직접 해제할 수 없습니다.')).toHaveLength(1);
   });
 
   test('offers the server candidate list and requires explicit governance confirmation', async () => {

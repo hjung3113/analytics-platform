@@ -948,7 +948,8 @@ describe('/admin/permissions/requests', () => {
     await act(async () => { await Promise.resolve(); });
     expect(decisionPosts()).toHaveLength(0);
     const reselect = '선택한 승인 범위를 더 이상 사용할 수 없습니다. 승인 범위를 다시 선택하세요.';
-    expect(screen.getByText(reselect)).toHaveAttribute('role', 'status');
+    // The status by the scope choice, and again under the footer button it blocks (#2574).
+    expect(screen.getAllByText(reselect).map((node) => node.getAttribute('role'))).toEqual(['status', null]);
     expect(submit).toHaveAccessibleDescription(reselect);
     expect(screen.queryByText('승인 후 열리는 것')).not.toBeInTheDocument();
 
@@ -1224,6 +1225,23 @@ describe('/admin/permissions/requests', () => {
     expect(capture.textContent).not.toMatch(
       /SELF_APPROVAL|label:|actor:|subject:|policy_citation|no_peer_reviewer|aaaaaaaa/,
     );
+  });
+
+  // #2574 variant b: the capture can sit far above the footer button, so the button names what is missing.
+  test('self-approval names the short audit fields under the disabled submit until both reach 8 characters', async () => {
+    installFetch({ actorId: REQUESTS[0].requester_actor_id });
+    renderRoute();
+    await screen.findByTestId('permission-decision-section');
+    fireEvent.click(screen.getByRole('radio', { name: '승인' }));
+    const submit = screen.getByTestId('permission-decision-submit');
+    const incomplete = '정책 근거와 동료 검토자 부재 사유를 각각 8자 이상 입력하면 승인할 수 있습니다.';
+    expect(submit).toBeDisabled();
+    expect(submit).toHaveAccessibleDescription(expect.stringContaining(incomplete));
+
+    fireEvent.change(screen.getByLabelText(/정책 근거/), { target: { value: '운영 정책 §4.3 범위' } });
+    fireEvent.change(screen.getByLabelText(/동료 검토자 부재 사유/), { target: { value: '다른 검토자가 모두 부재중' } });
+    await waitFor(() => expect(submit).toBeEnabled());
+    expect(submit).not.toHaveAccessibleDescription(expect.stringContaining(incomplete));
   });
 
   test("AC-4 shows audit capture only for this Admin's approve action, not another request or another action", async () => {

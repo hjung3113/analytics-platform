@@ -106,11 +106,11 @@ describe('reserved external key field error (#1289 node i)', () => {
     fireEvent.change(screen.getByTestId('external-key-input-mars'), { target: { value: '' } });
     fireEvent.submit(screen.getByTestId('edit-managed-system-form-mars'));
 
-    const message = await screen.findByTestId('external-key-error-mars');
-    expect(message).toHaveTextContent(RESERVED_MESSAGE);
     const input = screen.getByTestId('external-key-input-mars');
-    expect(input).toHaveAttribute('aria-invalid', 'true');
-    expect(input.getAttribute('aria-describedby')).toBe(message.id);
+    await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'true'));
+    const message = document.getElementById(input.getAttribute('aria-describedby') ?? '');
+    expect(message).toHaveTextContent(RESERVED_MESSAGE);
+    await waitFor(() => expect(input).toHaveFocus());
     expect(screen.queryByTestId('row-error-mars')).not.toBeInTheDocument();
   });
 });
